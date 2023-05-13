@@ -1,0 +1,15 @@
+{
+  "name": "@pkg/tailwind",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "main": "config.ts",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tailwindcss": "3.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.4"
+  }
+}

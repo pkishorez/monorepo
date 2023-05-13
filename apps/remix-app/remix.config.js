@@ -9,10 +9,13 @@ module.exports = {
   // appDirectory: "app",
   // assetsBuildDirectory: "public/build",
   // publicPath: "/build/",
+  tailwind: true,
   future: {
     v2_errorBoundary: true,
     v2_meta: true,
     v2_normalizeFormMethod: true,
     v2_routeConvention: true,
   },
+  serverDependenciesToBundle: [/.*/],
+  watchPaths: ["node_modules/@pkg/**/*"],
 };
