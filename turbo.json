@@ -1,0 +1,10 @@
+{
+  "globalDotEnv": [".env"],
+  "pipeline": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {}
+  }
+}
