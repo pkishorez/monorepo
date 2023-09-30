@@ -1,17 +1,28 @@
 import { useMachine } from "@xstate/react";
 import { Clock } from "./components";
 import { timeTimerMachine } from "./time-timer";
+import { getDurationAngle } from "./time-timer/svg-utils";
 
 function TimeTimer() {
   const [state, send] = useMachine(timeTimerMachine, { devTools: true });
 
+  const remainingTime = +Number(
+    (state.context.durationInMinutes * 60 - state.context.elapsedInSeconds) /
+      60,
+  ).toFixed(2);
   return (
     <div className="wrapper">
-      <Clock width={400} height={400} />
+      <Clock
+        width={400}
+        height={400}
+        rotation={getDurationAngle(remainingTime)}
+        applyTransition={!state.matches("running")}
+      />
 
       <div>
         <div>Elapsed: {state.context.elapsedInSeconds}</div>
         <div>Duration: {state.context.durationInMinutes}</div>
+        <div>Remaining: {remainingTime}</div>
       </div>
 
       <div>

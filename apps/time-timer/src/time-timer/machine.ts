@@ -33,7 +33,6 @@ export const timeTimerMachine = createMachine(
 
     states: {
       stopped: {
-        entry: "resetElapsed",
         description: "Initial or the stopped state of the time timer.",
         on: {
           PLAY: "running",
@@ -74,9 +73,6 @@ export const timeTimerMachine = createMachine(
   },
   {
     actions: {
-      resetElapsed: assign({
-        elapsedInSeconds: 0,
-      }),
       updateElapsed: assign({
         elapsedInSeconds: (_1, event) => event.elapsedInSeconds,
       }),

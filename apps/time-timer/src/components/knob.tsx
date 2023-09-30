@@ -7,21 +7,22 @@ export const Knob = ({
   x,
   y,
   rotation = 0,
+  applyTransition = true,
 }: {
   x: number;
   y: number;
+  applyTransition: boolean;
   rotation?: number;
 }) => {
-  rotation =
-    (rotation * -1 -
-      // Accounting for already rotated 90 deg.
-      90) %
-    360;
   return (
     <g
-      transform={`translate(${x - knobDims.width / 2}, ${
-        y - knobDims.height / 2
-      }) rotate(${rotation}, ${knobDims.width / 2}, ${knobDims.height / 2})`}
+      style={{
+        transform: `translate(${x - knobDims.width / 2}px, ${
+          y - knobDims.height / 2
+        }px) rotate(${(rotation - 90 * 3) * -1}deg)`,
+        transformOrigin: `${knobDims.width / 2}px ${knobDims.height / 2}px`,
+        transition: applyTransition ? "transform linear 0.3s" : "none",
+      }}
     >
       <g clipPath="url(#clip0_10_148)">
         <g filter="url(#filter0_d_10_148)">

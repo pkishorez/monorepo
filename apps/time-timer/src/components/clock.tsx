@@ -1,7 +1,17 @@
 import { ClockBase } from "./base";
 import { Knob } from "./knob";
 
-export const Clock = ({ width, height }: { width: number; height: number }) => {
+export const Clock = ({
+  width,
+  height,
+  rotation = 0,
+  applyTransition = false,
+}: {
+  width: number;
+  height: number;
+  rotation?: number;
+  applyTransition?: boolean;
+}) => {
   const viewBoxDims = {
     width: 2900,
     height: 2900,
@@ -15,7 +25,12 @@ export const Clock = ({ width, height }: { width: number; height: number }) => {
       xmlns="http://www.w3.org/2000/svg"
     >
       <ClockBase />
-      <Knob x={viewBoxDims.width / 2} y={viewBoxDims.height / 2} />
+      <Knob
+        x={viewBoxDims.width / 2}
+        y={viewBoxDims.height / 2}
+        rotation={rotation}
+        applyTransition={applyTransition}
+      />
     </svg>
   );
 };
