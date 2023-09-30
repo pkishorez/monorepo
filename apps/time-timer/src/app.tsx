@@ -6,10 +6,12 @@ import { getDurationAngle } from "./time-timer/svg-utils";
 function TimeTimer() {
   const [state, send] = useMachine(timeTimerMachine, { devTools: true });
 
-  const remainingTime = +Number(
-    (state.context.durationInMinutes * 60 - state.context.elapsedInSeconds) /
-      60,
-  ).toFixed(2);
+  const remainingTime = Math.abs(
+    +Number(
+      (state.context.durationInMinutes * 60 - state.context.elapsedInSeconds) /
+        60,
+    ).toFixed(2),
+  );
   return (
     <div className="wrapper">
       <Clock
@@ -18,11 +20,25 @@ function TimeTimer() {
         rotation={getDurationAngle(remainingTime)}
         applyTransition={!state.matches("running")}
       />
+      <div>
+        <input
+          type="range"
+          min={0}
+          max={60}
+          value={state.context.durationInMinutes}
+          onChange={(e) => {
+            send({
+              type: "UPDATE_DURATION",
+              durationInMinutes: Number(e.target.value),
+            });
+          }}
+        />
+      </div>
 
       <div>
-        <div>Elapsed: {state.context.elapsedInSeconds}</div>
-        <div>Duration: {state.context.durationInMinutes}</div>
-        <div>Remaining: {remainingTime}</div>
+        <div>Elapsed: {state.context.elapsedInSeconds} S</div>
+        <div>Duration: {state.context.durationInMinutes} M</div>
+        <div>Remaining: {remainingTime} M</div>
       </div>
 
       <div>
@@ -38,20 +54,6 @@ function TimeTimer() {
         {state.can("STOP") && (
           <button onClick={() => send("STOP")}>Stop</button>
         )}
-      </div>
-      <div>
-        <input
-          type="range"
-          min={0}
-          max={60}
-          value={state.context.durationInMinutes}
-          onChange={(e) => {
-            send({
-              type: "UPDATE_DURATION",
-              durationInMinutes: Number(e.target.value),
-            });
-          }}
-        />
       </div>
     </div>
   );
