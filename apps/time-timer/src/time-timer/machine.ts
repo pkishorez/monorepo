@@ -1,32 +1,112 @@
-import { createMachine } from "xstate";
+import { assign, createMachine } from "xstate";
 
-export const timeTimerMachine = createMachine({
-  /** @xstate-layout N4IgpgJg5mDOIC5QBcCWBbMBaNmBOW6AhgMYAWqAdmAMQBKAogMoMAqA2gAwC6ioADgHtYqNIMp8QAD0RYAjAA4AdAGYVAFgBsAJgCsnOQE5tmwwHY5AGhABPWXLOalZzroW7t2s2YXfdZgF8A61xsUIJiciowJSpRVCIAGxoABQAZAEEATS5eJBAhETEJfJkEbXVOJVdFD051OW0FbRVrOwR5TjNnB3UzQ0aFQ0NdXXUgkIwwqYjSCmpYynikmlzJQvjxSTLK3SV1BU0VOTczXU0jTV022S19wwVG9T0tOU0FCZBQnBnCOeilHgAK6UJaUKCpDIAVRYa3yG2K20QFSqpgcnBMZhUD0UNw6x26XgUx2JlS65l0n2+4T+UQW-CIQNgkFSmRyPHWwk2JVAZQqe1JxmeZgqmnUKm0eKw2jk6mqIzJ9RGchOQWCIEogggcEk1N+kXmYE5RVQW1Ksk0TjUWj0BmMpgsUsqcs0Bk8PmVLUtVKmP3wtMNi2WiWN3KRCDknBU+08B3qQ3UbhUZilkeUrldsaGsp8ch9mD9YFmdJiwNBVCgocR5oQKkOShlSqF2Nq11sshlcvF2LrOl0ssUH3Vev9BoBDKZkCrpp50kQjW0DYOKiOemOBmxUq8csjkZFCgx27zaqAA */
-  initial: "initial",
-  tsTypes: {} as import("./machine.typegen").Typegen0,
-  schema: {
-    context: {} as { until: string },
-  },
+type Event =
+  | {
+      type: "PAUSE" | "RESUME" | "STOP";
+    }
+  | { type: "PLAY"; durationInMinutes: number }
+  | { type: "TICK"; elapsedInSeconds: number }
+  | {
+      type: "UPDATE_DURATION";
+      durationInMinutes: number;
+    };
 
-  states: {
-    initial: {
-      on: {
-        PLAY: "running",
+type Context = {
+  durationInMinutes: number;
+  elapsedInSeconds: number;
+};
+
+export const timeTimerMachine = createMachine(
+  {
+    /** @xstate-layout N4IgpgJg5mDOIC5QBcCWBbMBaNmBOW6AhgMYAWqAdmAMQDKAKgPIAKA2gAwC6ioADgHtYqNAMq8QAD0RYALACYAdPIAcAdjWqAjLK0BmNVoCcKgGwAaEAE8ZAVlWLNHY8aOmOb2QF8vl3Nn8CYnIqMEVYZAE+PkgaFgAZAEEATU4eJBBBYVFxDOkELC1TPUVTHVtbIvlZWzUjWUsbAvkjW0V9WuLa2VM1FQqfPwwA4aDSCmpFPABXSkoqKDjEgFU6AFE0iSyRVDEJfMLTFUdauo0ddQqVRplZI0c+ltV5YtaONUGQfxxRwnHQqazeaURYMACSAGEANKbDLbHL7GR6DhKIx6dSmWwcUw46o9G7NPRaRTqeQcBTkrFk8mfb6BP4hSYzOYLGiw-hCHZ7PKIOqKO5lFpaNS2foVLQErBPEkqNymEzuAxo2nDH74BkTMJ8IjTWCxABKazoywAshtuFtOQieQh+ooKhwVEVam4tCp1JK7g8VE8fa8sWpvJ9KAIIHAJHTfsFNZbsrtcqADnosYo0RisTjTHiLNYZGVTIpyUTHRwDIH5PIVZg1WAxoywhEojEILGuQmpDJ5JpFHp0fZ7MnhRLcwUerIHkdZHoWndZSoqyN1dGAczgVBW9bE53HaVyr0jDo1CjRZKivdnC0+lPHZi1KYFzW65rFNrdZAN-HEQU9AXnA65SWsilgSFbtMmaI-lO4H2D4PhAA */
+    initial: "stopped",
+    tsTypes: {} as import("./machine.typegen").Typegen0,
+    context: { durationInMinutes: 30, elapsedInSeconds: 0 } as Context,
+
+    schema: {
+      events: {} as Event,
+      context: {
+        durationInMinutes: 30,
+        elapsedInSeconds: 0,
+      } satisfies Context as Context,
+    },
+
+    states: {
+      stopped: {
+        entry: "resetElapsed",
+        description: "Initial or the stopped state of the time timer.",
+        on: {
+          PLAY: "running",
+          UPDATE_DURATION: {
+            actions: "updateDuration",
+          },
+        },
+      },
+      running: {
+        always: {
+          target: "stopped",
+          cond: "isTimeUp",
+        },
+        invoke: {
+          src: "runTimer",
+        },
+        on: {
+          PAUSE: "paused",
+          TICK: {
+            actions: "updateElapsed",
+          },
+        },
+      },
+      paused: {
+        on: {
+          RESUME: "running",
+        },
       },
     },
-    running: {
-      on: {
-        PAUSE: "paused",
+    on: {
+      STOP: {
+        description: "The timer cannot be stopped if already in stopped state.",
+        target: ".stopped",
+        cond: "isNotStopped",
       },
     },
-    paused: {
-      on: {
-        PLAY: "running",
+    id: "time-timer-machine",
+  },
+  {
+    actions: {
+      resetElapsed: assign({
+        elapsedInSeconds: 0,
+      }),
+      updateElapsed: assign({
+        elapsedInSeconds: (_1, event) => event.elapsedInSeconds,
+      }),
+      updateDuration: assign({
+        durationInMinutes: (_1, event) => event.durationInMinutes,
+      }),
+    },
+    guards: {
+      isNotStopped: (_1, _2, meta) => {
+        return !meta.state.matches("stopped");
+      },
+      isTimeUp: (context) =>
+        context.elapsedInSeconds >= context.durationInMinutes * 60,
+    },
+    services: {
+      runTimer: (context) => (sendBack) => {
+        const durationInSeconds = context.durationInMinutes * 60;
+
+        const until =
+          Date.now() +
+          (durationInSeconds * 60 - context.elapsedInSeconds) * 1000;
+
+        const interval = setInterval(() => {
+          const elapsed =
+            durationInSeconds * 60 - Math.round((until - Date.now()) / 1000);
+          sendBack({ type: "TICK", elapsedInSeconds: elapsed });
+        }, 1000);
+
+        return () => clearInterval(interval);
       },
     },
   },
-  on: {
-    RESET: ".initial",
-  },
-  id: "time-timer-machine",
-});
+);
