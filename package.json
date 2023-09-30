@@ -14,5 +14,8 @@
   ],
   "dependencies": {
     "dotenv-cli": "^7.3.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.0.3"
   }
 }

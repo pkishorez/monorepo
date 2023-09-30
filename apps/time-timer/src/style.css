@@ -1,0 +1,13 @@
+body {
+  margin: 0;
+  background: #e3e8f1;
+}
+
+.wrapper {
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: auto;
+}
