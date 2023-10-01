@@ -1,4 +1,5 @@
 import { ClockBase } from "./base";
+import { Disc } from "./disc";
 import { Knob } from "./knob";
 
 export const Clock = ({
@@ -25,6 +26,12 @@ export const Clock = ({
       xmlns="http://www.w3.org/2000/svg"
     >
       <ClockBase />
+      <Disc
+        x={viewBoxDims.width / 2}
+        y={viewBoxDims.height / 2}
+        rotation={rotation}
+        applyTransition={applyTransition}
+      />
       <Knob
         x={viewBoxDims.width / 2}
         y={viewBoxDims.height / 2}

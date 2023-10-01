@@ -15,8 +15,8 @@ function TimeTimer() {
   return (
     <div className="wrapper">
       <Clock
-        width={400}
-        height={400}
+        width={350}
+        height={350}
         rotation={getDurationAngle(remainingTime)}
         applyTransition={!state.matches("running")}
       />

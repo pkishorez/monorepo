@@ -1,3 +1,5 @@
+import { motion, useTransform } from "framer-motion";
+import { useAnimate } from "./use-animate";
 const knobDims = {
   width: 900,
   height: 900,
@@ -14,16 +16,29 @@ export const Knob = ({
   applyTransition: boolean;
   rotation?: number;
 }) => {
+  const motionValue = useAnimate(rotation, applyTransition);
+
+  const rotate = useTransform(() => {
+    return `${(motionValue.get() - 90 * 3) * -1}deg`;
+  });
+
   return (
-    <g
+    <motion.g
+      id="hack-kob"
       style={{
-        transform: `translate(${x - knobDims.width / 2}px, ${
-          y - knobDims.height / 2
-        }px) rotate(${(rotation - 90 * 3) * -1}deg)`,
-        transformOrigin: `${knobDims.width / 2}px ${knobDims.height / 2}px`,
-        transition: applyTransition ? "transform linear 0.3s" : "none",
+        rotate,
+        x: x - knobDims.width / 2,
+        y: y - knobDims.height / 2,
       }}
     >
+      {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+      {/* @ts-ignore */}
+      <style jsx>{`
+        /* Hack. Framer motion for some reason is applying transform origin which is incorrect. */
+        #hack-kob {
+          transform-origin: ${knobDims.width / 2}px ${knobDims.height / 2}px !important;
+        }
+      `}</style>
       <g clipPath="url(#clip0_10_148)">
         <g filter="url(#filter0_d_10_148)">
           <g filter="url(#filter1_f_10_148)">
@@ -284,6 +299,6 @@ export const Knob = ({
           <rect width="900" height="900" fill="white" />
         </clipPath>
       </defs>
-    </g>
+    </motion.g>
   );
 };

@@ -13,6 +13,7 @@
   "dependencies": {
     "@xstate/inspect": "^0.8.0",
     "@xstate/react": "^3.2.2",
+    "framer-motion": "^10.16.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tiny-invariant": "^1.3.1",
