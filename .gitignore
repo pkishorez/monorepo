@@ -1,5 +1,4 @@
 .env
 node_modules
 apps/time-timer/src/time-timer/machine.typegen.ts
-experiments
 .DS_Store
