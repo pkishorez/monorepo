@@ -13,31 +13,28 @@ export const Clock = ({
   rotation?: number;
   applyTransition?: boolean;
 }) => {
-  const viewBoxDims = {
-    width: 2900,
-    height: 2900,
-  };
   return (
-    <svg
-      width={width}
-      height={height}
-      viewBox="0 0 2900 2900"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <div
+      style={{
+        position: "relative",
+        margin: "auto",
+        width,
+        height,
+      }}
     >
-      <ClockBase />
+      <ClockBase clockHeight={height} clockWidth={width} />
       <Disc
-        x={viewBoxDims.width / 2}
-        y={viewBoxDims.height / 2}
+        clockWidth={width}
+        clockHeight={height}
         rotation={rotation}
         applyTransition={applyTransition}
       />
       <Knob
-        x={viewBoxDims.width / 2}
-        y={viewBoxDims.height / 2}
-        rotation={rotation}
+        clockWidth={width}
+        clockHeight={height}
         applyTransition={applyTransition}
+        rotation={rotation}
       />
-    </svg>
+    </div>
   );
 };
