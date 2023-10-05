@@ -1,29 +1,46 @@
 import { motion, useTransform } from "framer-motion";
-import { useAnimate } from "./use-animate";
+import { useAnimate } from "../time-timer/use-animate";
 export const Disc = ({
-  x,
-  y,
+  clockWidth,
+  clockHeight,
   rotation = 0,
   applyTransition,
 }: {
-  x: number;
-  y: number;
+  clockWidth: number;
+  clockHeight: number;
   rotation?: number;
   applyTransition: boolean;
 }) => {
+  const x = clockWidth / 2;
+  const y = clockHeight / 2;
+
+  const discWidth = (410 / 750) * clockWidth;
+
   const rotationMotionValue = useAnimate(rotation, applyTransition);
   const path = useTransform(() => {
-    return generatePiePath(rotationMotionValue.get(), 1637 / 2);
+    return generatePiePath(rotationMotionValue.get(), discWidth / 2);
   });
 
   return (
-    <g
+    <svg
       style={{
-        transform: `translate(${x}px, ${y}px) `,
+        position: "absolute",
+        inset: 0,
       }}
+      width={clockWidth}
+      height={clockHeight}
+      viewBox={`0 0 ${clockWidth} ${clockHeight}`}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
     >
-      <motion.path d={path} fill="rgba(248, 56, 76, 0.9)" />
-    </g>
+      <g
+        style={{
+          transform: `translate(${x}px, ${y}px) `,
+        }}
+      >
+        <motion.path d={path} fill="rgba(248, 56, 76, 0.9)" />
+      </g>
+    </svg>
   );
 };
 

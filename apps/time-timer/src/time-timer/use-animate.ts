@@ -1,4 +1,4 @@
-import { useMotionValue, animate } from "framer-motion";
+import { animate, useMotionValue } from "framer-motion";
 import { useEffect } from "react";
 
 export const useAnimate = (value: number, applyTransition: boolean) => {

@@ -1,7 +1,9 @@
 import { useMachine } from "@xstate/react";
+import { useEffect } from "react";
 import { Clock } from "./components";
 import { timeTimerMachine } from "./time-timer";
 import { getDurationAngle } from "./time-timer/svg-utils";
+import { useReload } from "./time-timer/use-reload";
 
 function TimeTimer() {
   const [state, send] = useMachine(timeTimerMachine, { devTools: true });
@@ -12,11 +14,26 @@ function TimeTimer() {
         60,
     ).toFixed(2),
   );
+
+  const dimsW = window.innerWidth - 40;
+  const dimsH = window.innerHeight - 40;
+
+  const clockDims = Math.min(dimsW, dimsH, 500);
+  const reload = useReload();
+
+  useEffect(() => {
+    window.addEventListener("resize", reload);
+
+    return () => {
+      window.removeEventListener("resize", reload);
+    };
+  }, [reload]);
+
   return (
     <div className="wrapper">
       <Clock
-        width={350}
-        height={350}
+        width={clockDims}
+        height={clockDims}
         rotation={getDurationAngle(remainingTime)}
         applyTransition={!state.matches("running")}
       />
