@@ -1,6 +1,6 @@
 import { motion, useTransform } from "framer-motion";
+import { useAnimate } from "../../time-timer/use-animate";
 import knobImg from "../assets/knob.png";
-import { useAnimate } from "../time-timer/use-animate";
 
 export const Knob = ({
   clockWidth,

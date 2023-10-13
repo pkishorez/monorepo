@@ -22,7 +22,7 @@ export const Clock = ({
         height,
       }}
     >
-      <ClockBase clockHeight={height} clockWidth={width} />
+      <ClockBase clockHeight={height} clockWidth={width} mode="dark" />
       <Disc
         clockWidth={width}
         clockHeight={height}

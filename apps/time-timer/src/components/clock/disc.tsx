@@ -1,5 +1,5 @@
 import { motion, useTransform } from "framer-motion";
-import { useAnimate } from "../time-timer/use-animate";
+import { useAnimate } from "../../time-timer/use-animate";
 export const Disc = ({
   clockWidth,
   clockHeight,
