@@ -1,3 +1,5 @@
+import { HTMLMotionProps, motion } from "framer-motion";
+
 type TextProps = React.DetailedHTMLProps<
   React.HTMLAttributes<HTMLSpanElement>,
   HTMLSpanElement
@@ -31,22 +33,15 @@ export const ControlsWrapper = (props: ContainerProps) => {
   );
 };
 
-interface ImageProps
-  extends React.DetailedHTMLProps<
-    React.ImgHTMLAttributes<HTMLImageElement>,
-    HTMLImageElement
-  > {
-  src: string;
-}
-export const Image = ({ src = "", ...props }: ImageProps) => {
+export const Image = ({ src = "", ...props }: HTMLMotionProps<"img">) => {
   return (
-    <img
+    <motion.img
       {...props}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
       src={src}
-      className={
-        "transition-transform duration-200 ease-in-out " +
-        "hover:scale-110 cursor-pointer"
-      }
+      className="cursor-pointer"
+      draggable="false"
       style={{
         margin: -12,
         width: 70,

@@ -5,6 +5,7 @@
   "description": "",
   "type": "module",
   "exports": {
+    ".": "./dist/index.js",
     "./*.js": "./dist/ui/*.js",
     "./tailwind": "./dist/tailwind.js",
     "./styles": "./src/globals.css"

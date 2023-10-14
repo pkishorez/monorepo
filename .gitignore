@@ -2,3 +2,4 @@
 node_modules
 apps/time-timer/src/time-timer/machine.typegen.ts
 .DS_Store
+.turbo

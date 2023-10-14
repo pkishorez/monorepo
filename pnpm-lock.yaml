@@ -18,6 +18,9 @@ importers:
 
   apps/time-timer:
     dependencies:
+      '@monorepo/design-system':
+        specifier: workspace:^
+        version: link:../../packages/design-system
       '@xstate/inspect':
         specifier: ^0.8.0
         version: 0.8.0(ws@8.14.2)(xstate@4.38.2)

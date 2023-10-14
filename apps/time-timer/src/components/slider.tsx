@@ -1,5 +1,10 @@
-import { motion, transform, useMotionValue } from "framer-motion";
-import { useEffect, useRef } from "react";
+import {
+  motion,
+  transform,
+  useDragControls,
+  useMotionValue,
+} from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import sliderImage from "./assets/slider-button.png";
 
 interface Props {
@@ -21,12 +26,14 @@ export const Slider = ({ initialValue, onUpdate }: Props) => {
       return "m 5 0 l 0 5 m 0 -5";
     });
 
-  const constraintRef = useRef<HTMLDivElement>(null);
+  const [constraintRef, setContraintRef] = useState<HTMLDivElement | null>(
+    null,
+  );
   const x = useMotionValue(0);
+  const controls = useDragControls();
 
   const [left, right, loaded] = (() => {
-    const { width } = constraintRef.current?.getBoundingClientRect?.() ?? {};
-    console.log({ current: constraintRef.current });
+    const { width } = constraintRef?.getBoundingClientRect?.() ?? {};
     if (!width) return [0, 0, false];
     return [0, width, true];
   })();
@@ -44,27 +51,36 @@ export const Slider = ({ initialValue, onUpdate }: Props) => {
   }, [initialValue, left, right, x]);
 
   return (
-    <div className="flex flex-col gap-y-2">
+    <div className="flex flex-col gap-y-2 mt-6">
       <div
         className={"rounded-2xl bg-[#111] h-[10px] " + "relative"}
         style={{
           boxShadow: "0px 4px 2px 0px rgba(0, 0, 0, 0.60) inset",
         }}
+        onPointerDown={(e) => {
+          console.log("EVENT", e);
+          controls.start(e);
+        }}
       >
         <div
-          className="absolute left-[7px] right-[6px] top-1/2"
-          ref={constraintRef}
+          className="absolute left-[7px] right-[6px] top-0"
+          ref={(r) => {
+            console.log("REF: ", r);
+            /* @ts-ignore */
+            setContraintRef(r);
+          }}
         >
           {loaded && (
             <motion.div
               drag="x"
+              dragControls={controls}
               style={{ x }}
               transition={{
                 type: "spring",
                 damping: 20,
                 stiffness: 300,
               }}
-              className="absolute"
+              className="absolute top-1/2"
               dragConstraints={{ left, right }}
             >
               <img

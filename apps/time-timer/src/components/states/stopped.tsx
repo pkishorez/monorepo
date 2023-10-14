@@ -1,6 +1,8 @@
+import { cn } from "@monorepo/design-system";
+import { motion } from "framer-motion";
 import playButton from "../assets/play-button.png";
 import { Slider } from "../slider";
-import { ControlsWrapper, Image, Text } from "./misc";
+import { ControlsWrapper, Text } from "./misc";
 
 interface Props {
   onStart: () => void;
@@ -15,15 +17,7 @@ export const StoppedState = ({
 }: Props) => {
   return (
     <ControlsWrapper>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          justifyContent: "center",
-          alignItems: "stretch",
-        }}
-      >
+      <div className="flex flex-col gap-y-4 justify-center items-stretch">
         <div
           style={{
             display: "flex",
@@ -31,6 +25,7 @@ export const StoppedState = ({
             fontSize: 32,
             columnGap: 40,
           }}
+          className="flex justify-between text-[32px]"
         >
           <Text>Set Timer</Text>
           <Text>{String(durationInMinutes).padStart(2, "0")}:00</Text>
@@ -38,19 +33,27 @@ export const StoppedState = ({
 
         <Slider initialValue={durationInMinutes} onUpdate={onUpdateTime} />
 
-        <button
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            paddingRight: 32,
-            marginLeft: -8,
-          }}
+        <motion.button
+          whileHover={{ scale: durationInMinutes === 0 ? 1 : 1.1 }}
+          whileTap={{ scale: durationInMinutes === 0 ? 1 : 0.9 }}
+          animate={{ opacity: durationInMinutes === 0 ? 0.5 : 1 }}
+          className={cn(
+            "inline-flex self-start items-center gap-2 pr-8 -ml-2",
+            {
+              "cursor-not-allowed": durationInMinutes === 0,
+            },
+          )}
           onClick={onStart}
         >
-          <Image src={playButton} />
+          <img
+            style={{
+              margin: -12,
+              width: 70,
+            }}
+            src={playButton}
+          />
           <Text>START</Text>
-        </button>
+        </motion.button>
       </div>
     </ControlsWrapper>
   );
