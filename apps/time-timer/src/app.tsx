@@ -1,5 +1,6 @@
 import { useMachine } from "@xstate/react";
-import { useEffect } from "react";
+import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { Clock } from "./components/clock";
 import { PausedState } from "./components/states/paused-state";
 import { RunningState } from "./components/states/running";
@@ -89,19 +90,41 @@ function TimeTimer() {
 }
 
 const Glow = () => {
+  const [, setX] = useState(0);
+  const [, setY] = useState(0);
+  const size = 200;
+
+  useEffect(() => {
+    const listener = (ev: MouseEvent) => {
+      setX(ev.clientX - size / 2);
+      setY(ev.clientY - size / 2);
+    };
+    window.addEventListener("mousemove", listener);
+
+    return () => {
+      window.removeEventListener("mousemove", listener);
+    };
+  }, []);
   return (
-    <div
-      style={{
-        position: "absolute",
-        bottom: 100,
-        right: 400,
-        pointerEvents: "none",
-        width: 200,
-        height: 200,
-        background: "rgba(255, 103, 103, 0.7)",
-        filter: "blur(222px)",
-      }}
-    />
+    <div className="fixed inset-0 overflow-hidden">
+      <motion.div
+        className="absolute pointer-events-none"
+        style={{
+          bottom: 200,
+          right: 400,
+          width: size,
+          height: size,
+          background: "rgba(255, 103, 103, 0.7)",
+          filter: "blur(222px)",
+        }}
+        animate={
+          {
+            // x,
+            // y,
+          }
+        }
+      />
+    </div>
   );
 };
 
