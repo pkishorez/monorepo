@@ -1,6 +1,5 @@
 import { useMachine } from "@xstate/react";
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Clock } from "./components/clock";
 import { PausedState } from "./components/states/paused-state";
 import { RunningState } from "./components/states/running";
@@ -36,7 +35,7 @@ function TimeTimer() {
   return (
     <div className="w-full min-h-screen flex items-center">
       <div className="mx-auto max-w-2xl">
-        <Glow />
+        {/* <Glow /> */}
         <div className="relative flex flex-col items-stretch justify-center gap-10 md:flex-row">
           <Clock
             width={clockDims}
@@ -88,44 +87,5 @@ function TimeTimer() {
     </div>
   );
 }
-
-const Glow = () => {
-  const [, setX] = useState(0);
-  const [, setY] = useState(0);
-  const size = 200;
-
-  useEffect(() => {
-    const listener = (ev: MouseEvent) => {
-      setX(ev.clientX - size / 2);
-      setY(ev.clientY - size / 2);
-    };
-    window.addEventListener("mousemove", listener);
-
-    return () => {
-      window.removeEventListener("mousemove", listener);
-    };
-  }, []);
-  return (
-    <div className="fixed inset-0 overflow-hidden">
-      <motion.div
-        className="absolute pointer-events-none"
-        style={{
-          bottom: 200,
-          right: 400,
-          width: size,
-          height: size,
-          background: "rgba(255, 103, 103, 0.7)",
-          filter: "blur(222px)",
-        }}
-        animate={
-          {
-            // x,
-            // y,
-          }
-        }
-      />
-    </div>
-  );
-};
 
 export default TimeTimer;
