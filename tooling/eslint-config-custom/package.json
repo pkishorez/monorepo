@@ -1,0 +1,19 @@
+{
+  "name": "eslint-config-custom",
+  "version": "1.0.0",
+  "description": "",
+  "main": "vite.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "eslint": "^8.45.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.3",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
