@@ -7,18 +7,20 @@ import type { monorepoSchema, workspaceSchema } from "../domain";
 import { packageJsonSchema, packageJsonToWorkspace } from "../domain";
 
 export const getMonorepo = (
-  path: string,
+  dirPath: string,
 ): z.infer<typeof monorepoSchema> | undefined => {
-  const monorepoDir = detectMonorepoDir(path);
+  const monorepoDir = detectMonorepoDir(dirPath);
 
   if (monorepoDir) {
     const monorepo = getMonorepoAtDir(monorepoDir);
     invariant(monorepo !== undefined, "monorepo should be defined");
 
-    return getMonorepoAtDir(monorepoDir);
+    console.log(monorepoDir);
+
+    return monorepo;
   }
 
-  const workspaceDir = detectWorkspaceDir(path);
+  const workspaceDir = detectWorkspaceDir(dirPath);
 
   if (workspaceDir) {
     const workspace = getWorkspaceAtDir(workspaceDir);
@@ -32,15 +34,16 @@ export const getMonorepo = (
   return undefined;
 };
 
-const detectMonorepoDir = (dir: string): string | undefined => {
+const detectMonorepoDir = (dirPath: string): string | undefined => {
+  dirPath = path.resolve(dirPath);
   while (true) {
-    const monorepo = getMonorepoAtDir(dir);
-    if (monorepo) return dir;
+    const monorepo = getMonorepoAtDir(dirPath);
+    if (monorepo) return dirPath;
 
-    const parentDir = path.dirname(dir);
-    if (parentDir === dir) return undefined;
+    const parentDir = path.dirname(dirPath);
+    if (parentDir === dirPath) return undefined;
 
-    dir = parentDir;
+    dirPath = parentDir;
   }
 };
 
@@ -54,7 +57,7 @@ function getMonorepoAtDir(
   return {
     workspaces: workspaces.map((workspace) => {
       const { location, packageJSON } = workspace;
-      const packageJson = packageJsonSchema.parse(location, packageJSON);
+      const packageJson = packageJsonSchema.parse(packageJSON);
 
       return packageJsonToWorkspace(packageJson, location);
     }),

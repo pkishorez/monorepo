@@ -11,7 +11,16 @@ module.exports = {
     "import/no-internal-modules": [
       "warn",
       {
-        allow: ["react-dom/*", "vitest/*"],
+        allow: [
+          "react-dom/*",
+          "vitest/*",
+          "~/*",
+
+          // Onion Architecture
+          "~/logic/tools",
+          "~/logic/domain",
+          "~/logic/implementation",
+        ],
       },
     ],
   },

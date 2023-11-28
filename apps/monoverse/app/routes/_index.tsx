@@ -1,4 +1,6 @@
-import type { MetaFunction } from "@remix-run/node";
+import { json, type LoaderFunction, type MetaFunction } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
+import { getMonorepo } from "~/logic/implementation";
 
 export const meta: MetaFunction = () => {
   return [
@@ -7,35 +9,21 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+export const loader: LoaderFunction = () => {
+  const cwd = process.cwd();
+
+  return json({
+    monorepo: getMonorepo(cwd),
+  });
+};
+
 export default function Index() {
+  const data = useLoaderData();
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
-      <h1>Welcome to Remix</h1>
-      <ul>
-        <li>
-          <a
-            target="_blank"
-            href="https://remix.run/tutorials/blog"
-            rel="noreferrer"
-          >
-            15m Quickstart Blog Tutorial
-          </a>
-        </li>
-        <li>
-          <a
-            target="_blank"
-            href="https://remix.run/tutorials/jokes"
-            rel="noreferrer"
-          >
-            Deep Dive Jokes App Tutorial
-          </a>
-        </li>
-        <li>
-          <a target="_blank" href="https://remix.run/docs" rel="noreferrer">
-            Remix Docs
-          </a>
-        </li>
-      </ul>
+    <div className="m-5">
+      <p className="p-4 whitespace-pre font-mono bg-gray-200">
+        {JSON.stringify(data, null, "  ")}
+      </p>
     </div>
   );
 }

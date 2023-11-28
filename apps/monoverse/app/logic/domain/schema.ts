@@ -32,14 +32,14 @@ export const monorepoSchema = z.object({
   packageManager: z.enum(["npm", "yarn", "pnpm"]).optional(),
 });
 
-const packageJsonDependencyListSchema = z.record(z.string()).optional();
-
 export const packageJsonSchema = z.object({
   name: z.string(),
-  version: z.string().optional(),
   description: z.string().optional(),
-  dependencies: packageJsonDependencyListSchema,
-  devDependencies: packageJsonDependencyListSchema,
-  peerDependencies: packageJsonDependencyListSchema,
-  optionalDependencies: packageJsonDependencyListSchema,
+  version: z.string().optional(),
+
+  // Dependencies
+  dependencies: z.record(z.string()).optional(),
+  devDependencies: z.record(z.string()).optional(),
+  peerDependencies: z.record(z.string()).optional(),
+  optionalDependencies: z.record(z.string()).optional(),
 });
