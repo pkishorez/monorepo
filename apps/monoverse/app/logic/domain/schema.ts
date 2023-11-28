@@ -23,7 +23,6 @@ export const dependencySchema = z.object({
 export const workspaceSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
-  location: z.string(),
   dependencies: z.array(dependencySchema),
 });
 

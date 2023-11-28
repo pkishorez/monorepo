@@ -5,7 +5,6 @@ import { workspaceSchema } from "./schema";
 
 export const packageJsonToWorkspace = (
   packageJson: z.infer<typeof packageJsonSchema>,
-  location: string,
 ): z.infer<typeof workspaceSchema> => {
   const {
     dependencies,
@@ -34,7 +33,6 @@ export const packageJsonToWorkspace = (
     removeUndefined({
       name: packageJson.name,
       description: packageJson.description,
-      location,
       dependencies: [
         ...getDependencies(dependencies, "dependency"),
         ...getDependencies(devDependencies, "devDependency"),

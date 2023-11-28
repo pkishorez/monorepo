@@ -1,0 +1,3 @@
+packages:
+  - "dir1/*"
+  - "dir2/*"

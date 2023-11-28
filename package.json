@@ -9,10 +9,6 @@
   "keywords": [],
   "author": "NA",
   "license": "ISC",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "dependencies": {
     "dotenv-cli": "^7.3.0"
   },

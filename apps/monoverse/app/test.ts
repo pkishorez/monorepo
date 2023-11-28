@@ -1,3 +1,4 @@
-import { getMonorepo } from "~/logic/implementation";
+import path from "path";
 
-console.log(JSON.stringify(getMonorepo("./"), null, "  "));
+const cwd = path.resolve("./");
+console.log("cwd: ", cwd);

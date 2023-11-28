@@ -15,9 +15,10 @@ export const getMonorepo = (
     const monorepo = getMonorepoAtDir(monorepoDir);
     invariant(monorepo !== undefined, "monorepo should be defined");
 
-    console.log(monorepoDir);
-
-    return monorepo;
+    return {
+      ...monorepo,
+      packageManager: detectPackageManager(monorepoDir),
+    };
   }
 
   const workspaceDir = detectWorkspaceDir(dirPath);
@@ -56,10 +57,10 @@ function getMonorepoAtDir(
 
   return {
     workspaces: workspaces.map((workspace) => {
-      const { location, packageJSON } = workspace;
+      const { packageJSON } = workspace;
       const packageJson = packageJsonSchema.parse(packageJSON);
 
-      return packageJsonToWorkspace(packageJson, location);
+      return packageJsonToWorkspace(packageJson);
     }),
   };
 }
@@ -76,6 +77,21 @@ function detectWorkspaceDir(dir: string): string | undefined {
   }
 }
 
+function detectPackageManager(
+  dir: string,
+): z.infer<typeof monorepoSchema>["packageManager"] {
+  const isPackageLockJsonPresent = fs.existsSync(
+    path.resolve(dir, "package-lock.json"),
+  );
+  const isYarnLockPresent = fs.existsSync(path.resolve(dir, "yarn.lock"));
+  const isPnpmLockPresent = fs.existsSync(path.resolve(dir, "pnpm-lock.yaml"));
+
+  if (isPackageLockJsonPresent) return "npm";
+  if (isYarnLockPresent) return "yarn";
+  if (isPnpmLockPresent) return "pnpm";
+  return undefined;
+}
+
 function getWorkspaceAtDir(
   dir: string,
 ): z.infer<typeof workspaceSchema> | undefined {
@@ -85,7 +101,7 @@ function getWorkspaceAtDir(
     const packageJson = JSON.parse(
       fs.readFileSync(workspacePackageJson, "utf-8"),
     );
-    return packageJsonToWorkspace(packageJson, dir);
+    return packageJsonToWorkspace(packageJson);
   } catch {
     return undefined;
   }
