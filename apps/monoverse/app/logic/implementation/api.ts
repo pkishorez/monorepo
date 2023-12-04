@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { packageSchema } from "../domain";
 
-const responseSchema = z.object({
+const pkgInfoResponseSchema = z.object({
   name: z.string(),
   versions: z.record(z.any()),
 
@@ -18,7 +18,7 @@ export const fetchPackageInfo = async (packageName: string) => {
   const response = await fetch(`https://registry.npmjs.org/${packageName}`);
   const json = await response.json();
 
-  const pkg = responseSchema.parse(json);
+  const pkg = pkgInfoResponseSchema.parse(json);
 
   return packageSchema.parse({
     name: pkg.name,

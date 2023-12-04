@@ -9,6 +9,8 @@ export const packageSchema = z.object({
   licence: z.string().optional(),
 });
 
+export const packageMapSchema = z.record(packageSchema.or(z.undefined()));
+
 export const dependencySchema = z.object({
   name: z.string(),
   versionRange: z.string(),
