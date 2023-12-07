@@ -23,6 +23,15 @@ export const getDependenciesFromWorkspace = (
   return worksspace.dependencies;
 };
 
+export const getWorkspace = (
+  monorepo: z.infer<typeof monorepoSchema>,
+  workspaceName: string,
+) => {
+  return monorepo.workspaces.find(
+    (workspace) => workspace.name === workspaceName,
+  );
+};
+
 const dependencyUpgradeInfoSchema = z
   .object({
     maxVersion: z.string(),
