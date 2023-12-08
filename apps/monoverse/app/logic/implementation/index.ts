@@ -1,2 +1,3 @@
 export { bundlePhobia, packageInfo } from "./api";
-export { getMonorepo } from "./monorepo";
+export { getMonorepo } from "./filesystem";
+
