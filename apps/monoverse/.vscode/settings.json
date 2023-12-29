@@ -2,7 +2,7 @@
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.fixAll": "always",
-    "source.organizeImports": true
+    "source.organizeImports": "explicit"
   },
   "eslint.lintTask.enable": true
 }
