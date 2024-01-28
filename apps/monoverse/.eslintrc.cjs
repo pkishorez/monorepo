@@ -1,18 +1,37 @@
 /** @type {import('eslint').Linter.Config} */
 module.exports = {
+  root: true,
+  env: {
+    es2021: true,
+    node: true,
+  },
   extends: [
-    "@remix-run/eslint-config",
-    "@remix-run/eslint-config/node",
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
     "plugin:import/recommended",
+    "plugin:import/typescript",
   ],
-  plugins: ["import"],
-  ignorePatterns: ["build/**", "public/build/**"],
+  plugins: ["@typescript-eslint"],
+  parser: "@typescript-eslint/parser",
+  parserOptions: {
+    project: true,
+    tsconfigRootDir: __dirname,
+  },
+
+  settings: {
+    "import/resolver": {
+      typescript: true,
+      node: true,
+    },
+  },
+  ignorePatterns: ["build/**", "public/build/**", ".eslintrc.cjs"],
   rules: {
     "import/no-internal-modules": [
-      "warn",
+      "error",
       {
         allow: [
           "~/*",
+          "vitest/*",
 
           // Onion Architecture
           "~/logic/tools",

@@ -8,7 +8,7 @@ const f = fixtures(__dirname);
 
 describe("monorepo", () => {
   test("find monorepo from root path", () => {
-    let filePath = f.copy("basic");
+    const filePath = f.copy("basic");
     const packages = [
       "dir1-pkg1",
       "dir1-pkg2",

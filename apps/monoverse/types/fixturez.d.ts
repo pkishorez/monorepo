@@ -11,6 +11,6 @@ declare module "fixturez" {
     find: (a: string) => string;
     temp: () => string;
     copy: (a: string) => string;
-    cleanup: () => any;
+    cleanup: () => void;
   };
 }

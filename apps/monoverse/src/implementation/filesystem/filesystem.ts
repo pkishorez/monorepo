@@ -46,6 +46,8 @@ const workspaceSchemaWithLocation = workspaceSchema.extend({
 
 const detectMonorepoDir = (dirPath: string): string | undefined => {
   dirPath = path.resolve(dirPath);
+
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const monorepo = getMonorepoWorkspacesAtDir(dirPath);
     if (monorepo) return dirPath;
@@ -76,6 +78,7 @@ function getMonorepoWorkspacesAtDir(
 }
 
 function detectWorkspaceDir(dir: string): string | undefined {
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const workspace = getWorkspaceAtDir(dir);
     if (workspace) return dir;
