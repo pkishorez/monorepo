@@ -12,8 +12,6 @@ module.exports = {
       "warn",
       {
         allow: [
-          "react-dom/*",
-          "vitest/*",
           "~/*",
 
           // Onion Architecture

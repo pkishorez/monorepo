@@ -7,7 +7,7 @@ import {
   packageJsonSchema,
   packageJsonToWorkspace,
   workspaceSchema,
-} from "~/logic/domain";
+} from "~/domain";
 
 export const getMonorepoInfo = (
   dirPath: string,

@@ -1,6 +1,6 @@
 import type { z } from "zod";
-import type { monorepoSchema } from "~/logic/domain";
-import { getMonorepoInfo } from "./fs";
+import type { monorepoSchema } from "~/domain";
+import { getMonorepoInfo } from "./filesystem";
 
 export const getMonorepo = (
   dirPath: string,

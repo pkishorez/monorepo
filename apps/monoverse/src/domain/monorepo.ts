@@ -18,9 +18,9 @@ export const getPackagesFromWorkspace = (
 };
 
 export const getDependenciesFromWorkspace = (
-  worksspace: z.infer<typeof workspaceSchema>,
+  workspace: z.infer<typeof workspaceSchema>,
 ) => {
-  return worksspace.dependencies;
+  return workspace.dependencies;
 };
 
 export const getWorkspace = (
