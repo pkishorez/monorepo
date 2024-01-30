@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { z } from "zod";
-import type { packageJsonSchema, workspaceSchema } from "../schema";
+import type { packageJsonSchema, workspaceSchema } from "../core";
 import { packageJsonToWorkspace } from "../transform";
 
 describe("topic: transform", () => {

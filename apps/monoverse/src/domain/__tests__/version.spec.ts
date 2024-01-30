@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import {
-  bumpVersionRange,
   getMaxVersion,
   getMaxVersionFromRange,
   getMinVersionFromRange,
@@ -18,11 +17,5 @@ describe("topic: version", () => {
   });
   test("version max", () => {
     expect(getMaxVersion(versions)).toBe("3.0.0");
-  });
-
-  test("bump version range", () => {
-    expect(bumpVersionRange("^2.3.4", "2.3.9")).toBe("^2.3.9");
-    expect(bumpVersionRange("~2.3.4", "2.3.9")).toBe("~2.3.9");
-    expect(bumpVersionRange("<2.3.4", "2.3.9")).toBe("<2.3.4");
   });
 });

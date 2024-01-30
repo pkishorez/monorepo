@@ -1,20 +1,18 @@
+/* eslint-disable import/no-internal-modules */
 import { getPackages as getWorkspaces } from "@monorepo-utils/package-utils";
 import fs from "fs";
 import path from "path";
 import invariant from "tiny-invariant";
 import { z } from "zod";
-import {
-  packageJsonSchema,
-  packageJsonToWorkspace,
-  workspaceSchema,
-} from "~/domain";
+import { workspaceSchema } from "~/domain";
+import { packageJsonSchema } from "~/domain/schema/core";
+import { packageJsonToWorkspace } from "~/domain/schema/transform";
 
 export const getMonorepoInfo = (
   dirPath: string,
 ):
   | {
       workspaces: z.infer<typeof workspaceSchemaWithLocation>[];
-      packageManager?: "npm" | "yarn" | "pnpm";
     }
   | undefined => {
   const monorepoDir = detectMonorepoDir(dirPath);
@@ -26,7 +24,6 @@ export const getMonorepoInfo = (
 
     return {
       workspaces,
-      packageManager: detectPackageManager(monorepoDir),
     };
   } else if (workspaceDir) {
     const workspace = getWorkspaceAtDir(workspaceDir);
@@ -34,7 +31,6 @@ export const getMonorepoInfo = (
 
     return {
       workspaces: [workspace],
-      packageManager: detectPackageManager(workspaceDir),
     };
   }
   return undefined;
@@ -106,17 +102,4 @@ function getWorkspaceAtDir(
   } catch {
     return undefined;
   }
-}
-
-function detectPackageManager(dir: string) {
-  const isPackageLockJsonPresent = fs.existsSync(
-    path.resolve(dir, "package-lock.json"),
-  );
-  const isYarnLockPresent = fs.existsSync(path.resolve(dir, "yarn.lock"));
-  const isPnpmLockPresent = fs.existsSync(path.resolve(dir, "pnpm-lock.yaml"));
-
-  if (isPackageLockJsonPresent) return "npm";
-  if (isYarnLockPresent) return "yarn";
-  if (isPnpmLockPresent) return "pnpm";
-  return undefined;
 }

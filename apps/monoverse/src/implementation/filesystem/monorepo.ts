@@ -9,10 +9,9 @@ export const getMonorepo = (
 
   if (!monorepoInfo) return undefined;
 
-  const { workspaces, packageManager } = monorepoInfo;
+  const { workspaces } = monorepoInfo;
 
   return {
     workspaces,
-    packageManager,
   };
 };

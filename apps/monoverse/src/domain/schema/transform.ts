@@ -1,7 +1,7 @@
 import type { z } from "zod";
-import { removeUndefined } from "../tools";
-import type { dependencySchema, packageJsonSchema } from "./schema/";
-import { workspaceSchema } from "./schema/";
+import { removeUndefined } from "../../tools";
+import { dependencySchema, workspaceSchema } from "./core";
+import { packageJsonSchema } from "./package-json";
 
 export const packageJsonToWorkspace = (
   packageJson: z.infer<typeof packageJsonSchema>,

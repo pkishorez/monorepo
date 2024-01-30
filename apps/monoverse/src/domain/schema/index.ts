@@ -1,8 +1,1 @@
-export {
-  dependencySchema,
-  monorepoSchema,
-  packageJsonSchema,
-  packageMapSchema,
-  packageSchema,
-  workspaceSchema,
-} from "./schema";
+export { monorepoSchema, packageSchema, workspaceSchema } from "./core";
