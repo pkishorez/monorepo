@@ -1,0 +1,9 @@
+{
+  "name": "kishore-monorepo",
+  "packageManager": "pnpm@10.14.0",
+  "description": "My monorepo",
+  "author": "Kishore",
+  "license": "ISC",
+  "keywords": [],
+  "scripts": {}
+}
