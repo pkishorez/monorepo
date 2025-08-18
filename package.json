@@ -5,5 +5,7 @@
   "author": "Kishore",
   "license": "ISC",
   "keywords": [],
-  "scripts": {}
+  "scripts": {
+    "updates": "npx -y npm-check-updates -iws"
+  }
 }

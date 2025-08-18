@@ -1,0 +1,25 @@
+{
+  "name": "@monorepo/eschema",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
+  "scripts": {
+    "build": "tsc --project build.tsconfig.json",
+    "lint": "tsc --noEmit",
+    "dev": "tsc --watch --project build.tsconfig.json",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "1.0.0",
+    "effect": "3.17.7"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.2",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
+  }
+}
