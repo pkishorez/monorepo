@@ -117,8 +117,8 @@ interface CompoundExprResult {
 }
 
 // Helper to generate unique attribute names
-function generateAttributeNames(attr: string): Record<string, string> {
-  return { [`#attr${uid++}`]: attr };
+function generateAttributeNames(attrName: string, attr: string): Record<string, string> {
+  return { [attrName]: attr };
 }
 
 // Comparison expression builder for numeric and string comparisons
@@ -153,7 +153,7 @@ function buildComparisonExpr<T>(
   const attrName = `#attr${id}`;
   return {
     expr: `${attrName} ${operator} ${valueName}`,
-    exprAttributeName: generateAttributeNames(attr),
+    exprAttributeName: generateAttributeNames(attrName, attr),
     exprAttributeValue: { [valueName]: condition.value },
   };
 }
@@ -176,7 +176,7 @@ function buildStringExpr<T extends string>(
 
   return {
     expr: `${functionName}(${attrName}, ${valueName})`,
-    exprAttributeName: generateAttributeNames(attr),
+    exprAttributeName: generateAttributeNames(attrName, attr),
     exprAttributeValue: { [valueName]: condition.value },
   };
 }
@@ -193,7 +193,7 @@ function buildRangeExpr<T>(
 
   return {
     expr: `${attrName} BETWEEN ${valueName} AND ${valueName2}`,
-    exprAttributeName: generateAttributeNames(attr),
+    exprAttributeName: generateAttributeNames(attrName, attr),
     exprAttributeValue: {
       [valueName]: condition.value[0],
       [valueName2]: condition.value[1],
@@ -213,7 +213,7 @@ function buildExistenceExpr(
     expr: condition.value
       ? `attribute_exists(${attrName})`
       : `attribute_not_exists(${attrName})`,
-    exprAttributeName: generateAttributeNames(attr),
+    exprAttributeName: generateAttributeNames(attrName, attr),
     exprAttributeValue: {},
   };
 }
@@ -229,7 +229,7 @@ function buildAttrTypeExpr(
 
   return {
     expr: `attribute_type(${attrName}, ${valueName})`,
-    exprAttributeName: generateAttributeNames(attr),
+    exprAttributeName: generateAttributeNames(attrName, attr),
     exprAttributeValue: { [valueName]: condition.value },
   };
 }
@@ -245,7 +245,7 @@ function buildSizeExpr(condition: SizeExpr, attr: string): AttrExprResult {
 
   return {
     expr: nestedResult.expr,
-    exprAttributeName: generateAttributeNames(attr),
+    exprAttributeName: generateAttributeNames(outerAttrName, attr),
     exprAttributeValue: nestedResult.exprAttributeValue,
   };
 }

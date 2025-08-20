@@ -1,4 +1,5 @@
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import type { KeyConditionExpr } from "./expr.js";
 import type {
   EnhancedQueryResult,
   EnhancedScanResult,
@@ -8,9 +9,10 @@ import type {
   KeyConditionExprSK,
   QueryOptions,
   ScanOptions,
-} from './types.js';
-import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { Effect } from 'effect';
+} from "./types.js";
+import { QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { Effect } from "effect";
+import { keyCondition } from "./expr.js";
 
 export class DynamoQueryExecutor {
   constructor(
@@ -89,75 +91,68 @@ export class DynamoQueryExecutor {
     index: TIndex,
     options?: QueryOptions,
   ) {
+    // Convert from old format to new unified format
+    const unifiedKey = this.convertKeyConditionFormat(key, index);
+
+    // Generate key condition expression using our unified function
+    const keyExprResult = keyCondition(index, unifiedKey);
+
+    // Merge with any existing expression attributes/values from options
     const expressionAttributeNames: Record<string, string> = {
       ...(options?.expressionAttributeNames || {}),
+      ...keyExprResult.exprAttributes,
     };
     const expressionAttributeValues: Record<string, unknown> = {
       ...(options?.expressionAttributeValues || {}),
+      ...keyExprResult.exprValues,
     };
-    const conditions: string[] = [];
-
-    // Build partition key condition
-    expressionAttributeNames[`#pk`] = index.pk;
-    expressionAttributeValues[`:pk_value`] = key.pk;
-    conditions.push(`#pk = :pk_value`);
-
-    // Build sort key condition if present
-    if ('sk' in key && key.sk !== undefined && 'sk' in index) {
-      if (typeof key.sk === 'string') {
-        expressionAttributeNames[`#sk`] = index.sk;
-        expressionAttributeValues[`:sk_value`] = key.sk;
-        conditions.push(`#sk = :sk_value`);
-      } else {
-        this.buildSortKeyCondition(
-          index.sk,
-          key.sk as any,
-          expressionAttributeNames,
-          expressionAttributeValues,
-          conditions,
-        );
-      }
-    }
 
     return {
-      KeyConditionExpression: conditions.join(' AND '),
+      KeyConditionExpression: keyExprResult.condition,
       ExpressionAttributeNames: expressionAttributeNames,
       ExpressionAttributeValues: expressionAttributeValues,
     };
   }
 
-  private buildSortKeyCondition(
-    keyName: string,
-    condition: KeyConditionExprSK,
-    expressionAttributeNames: Record<string, string>,
-    expressionAttributeValues: Record<string, unknown>,
-    conditions: string[],
-  ) {
-    expressionAttributeNames[`#sk`] = keyName;
+  private convertKeyConditionFormat<TIndex extends IndexDefinition>(
+    key: KeyConditionExprParameters<TIndex>,
+    index: TIndex,
+  ): import("./expr.js").KeyConditionExprParameters<TIndex> {
+    const result: any = { pk: key.pk };
 
-    if ('between' in condition) {
-      const [start, end] = condition.between;
-      expressionAttributeValues[`:sk_start`] = start;
-      expressionAttributeValues[`:sk_end`] = end;
-      conditions.push(`#sk BETWEEN :sk_start AND :sk_end`);
-    } else if ('beginsWith' in condition) {
-      expressionAttributeValues[`:sk_begins_with`] = condition.beginsWith;
-      conditions.push(`begins_with(#sk, :sk_begins_with)`);
-    } else if ('<' in condition) {
-      expressionAttributeValues[`:sk_lt`] = condition['<'];
-      conditions.push(`#sk < :sk_lt`);
-    } else if ('<=' in condition) {
-      expressionAttributeValues[`:sk_lte`] = condition['<='];
-      conditions.push(`#sk <= :sk_lte`);
-    } else if ('>' in condition) {
-      expressionAttributeValues[`:sk_gt`] = condition['>'];
-      conditions.push(`#sk > :sk_gt`);
-    } else if ('>=' in condition) {
-      expressionAttributeValues[`:sk_gte`] = condition['>='];
-      conditions.push(`#sk >= :sk_gte`);
-    } else if ('=' in condition) {
-      expressionAttributeValues[`:sk_eq`] = condition['='];
-      conditions.push(`#sk = :sk_eq`);
+    // Handle sort key if present
+    if ("sk" in key && key.sk !== undefined && "sk" in index) {
+      if (typeof key.sk === "string") {
+        result.sk = key.sk;
+      } else {
+        // Convert from old object format to new standardized format
+        const oldSk = key.sk as KeyConditionExprSK;
+        result.sk = this.convertSortKeyCondition(oldSk);
+      }
+    }
+
+    return result;
+  }
+
+  private convertSortKeyCondition(
+    condition: KeyConditionExprSK,
+  ): KeyConditionExpr<string> {
+    if ("beginsWith" in condition) {
+      return { type: "beginsWith", value: condition.beginsWith };
+    } else if ("<" in condition) {
+      return { type: "lt", value: condition["<"] };
+    } else if ("<=" in condition) {
+      return { type: "lte", value: condition["<="] };
+    } else if (">" in condition) {
+      return { type: "gt", value: condition[">"] };
+    } else if (">=" in condition) {
+      return { type: "gte", value: condition[">="] };
+    } else if ("=" in condition) {
+      return { type: "eq", value: condition["="] };
+    } else if ("between" in condition) {
+      return { type: "between", value: condition.between };
+    } else {
+      throw new Error("Unknown sort key condition format");
     }
   }
 }
