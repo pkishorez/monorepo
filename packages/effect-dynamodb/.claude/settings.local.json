@@ -7,5 +7,6 @@
       "Bash(pnpm run lint:*)"
     ],
     "deny": []
-  }
+  },
+  "outputStyle": "Explanatory"
 }
