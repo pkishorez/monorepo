@@ -13,7 +13,7 @@
     "lint:tsc": "tsc --noEmit",
     "lint:eslint": "eslint .",
     "test": "vitest --reporter=verbose",
-    "test:run": "vitest run --reporter=verbose",
+    "test:run": "vitest run",
     "test:watch": "vitest --watch --reporter=verbose"
   },
   "peerDependencies": {
@@ -24,6 +24,7 @@
     "aws4fetch": "^1.0.20"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "3.868.0",
     "@effect/platform": "0.90.5",
     "@effect/platform-node": "0.96.0",
     "@tsconfig/node22": "22.0.2",
