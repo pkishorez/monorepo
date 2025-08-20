@@ -23,7 +23,7 @@ pnpm lint        # Runs both TypeScript and ESLint checks
 pnpm lint:tsc    # TypeScript type checking only
 pnpm lint:eslint # ESLint code quality checks only
 
-# Run tests
+# Run tests (requires local DynamoDB)
 pnpm test          # Watch mode with verbose output
 pnpm test:run      # Single run with verbose output
 pnpm test:watch    # Watch mode
