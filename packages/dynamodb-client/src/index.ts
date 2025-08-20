@@ -1,6 +1,4 @@
 import type { AWSClientConfig } from "./client.js";
-// Re-export types and client functionality
-// Create a convenience function for creating a DynamoDB client
 import type { DynamoDB } from "./services/dynamodb/types.js";
 import { createDynamoDBProxy } from "./client.js";
 
@@ -46,4 +44,3 @@ export * from "./services/dynamodb/types.js";
 export function createDynamoDB(config?: AWSClientConfig): DynamoDB {
   return createDynamoDBProxy<DynamoDB>(config);
 }
-

@@ -8,6 +8,8 @@ A specialized TypeScript DynamoDB client package built with Effect.TS, providing
 
 ## Commands
 
+> **Important**: Always run `pnpm lint` to ensure both TypeScript type safety and ESLint code quality checks.
+
 ### Development
 ```bash
 # Watch mode for TypeScript compilation
@@ -16,8 +18,10 @@ pnpm dev
 # Build the package
 pnpm build
 
-# Type checking
-pnpm lint
+# Linting and type checking
+pnpm lint        # Runs both TypeScript and ESLint checks
+pnpm lint:tsc    # TypeScript type checking only
+pnpm lint:eslint # ESLint code quality checks only
 
 # Run tests
 pnpm test          # Watch mode with verbose output
@@ -29,16 +33,13 @@ pnpm test:coverage # Coverage report
 ### Code Generation
 ```bash
 # Generate DynamoDB types from Smithy specs (fetches from GitHub)
-bun src/generate.ts [output-path]
+bun scripts/generate.ts [output-path]
 
-# Default: Fetch from GitHub, output to src/services/dynamodb/types.ts
-bun src/generate.ts
+# Default: generates src/services/dynamodb/types.ts and src/services/dynamodb/types.spec.json
+bun scripts/generate.ts
 
-# Custom output path
-bun src/generate.ts src/types/dynamodb.ts
-
-# Use local specs if available (fallback to GitHub if not found)
-bun src/generate.ts --local
+# Custom output path: generates both .ts and .spec.json files
+bun scripts/generate.ts src/types/dynamodb.ts  # Creates dynamodb.ts and dynamodb.spec.json
 ```
 
 ## Architecture
@@ -49,11 +50,19 @@ dynamodb-client/
 ├── src/
 │   ├── client.ts         # DynamoDB-specific AWS client implementation
 │   ├── error.ts          # Common AWS error types
-│   ├── generate.ts       # Smithy-to-TypeScript code generator
 │   ├── index.ts          # Package entry point with exports
 │   └── services/
 │       └── dynamodb/
 │           └── types.ts  # Generated DynamoDB types
+├── scripts/              # Build-time scripts and tooling
+│   ├── generate.ts       # CLI entry point for code generation
+│   └── generate/         # Code generation modules
+│       ├── code-generator.ts    # TypeScript code generation functions
+│       ├── generator.ts         # Main generation orchestration
+│       ├── index.ts             # Generation API exports
+│       ├── manifest-loader.ts   # AWS Smithy spec loading
+│       ├── schemas.ts           # Smithy manifest type definitions
+│       └── type-mapper.ts       # Type mapping utilities
 ├── dist/                 # Compiled output
 ├── tests/                # Test files (when added)
 │   └── setup.ts          # Test setup configuration
@@ -115,8 +124,8 @@ The client uses a streamlined architecture optimized for DynamoDB:
 ## Key Considerations
 
 ### Code Generation
-- By default, the generator fetches specs directly from the AWS GitHub repository
-- Use `--local` flag to load from local `aws-models/models/dynamodb/service/[version]/*.json` if available
+- The generator fetches specs directly from the AWS GitHub repository
+- Generates both TypeScript types (.ts) and saves the raw spec file (.spec.json) alongside
 - Generated types import from `../../error.ts` and `../../client.ts` (ensure these exist)
 - Stream support requires @effect/platform/HttpClientError for ResponseError type
 - Buffer support is included for input shapes that accept streaming data
@@ -131,8 +140,10 @@ The client uses a streamlined architecture optimized for DynamoDB:
 ### Development Workflow
 1. Run the generator to fetch and process DynamoDB Smithy specs
 2. Build the package to compile TypeScript to JavaScript
-3. Use the `createDynamoDB` function to instantiate a typed client
-4. Leverage Effect's error handling for AWS service errors
+3. Run linting checks to ensure code quality:
+   - `pnpm lint` for both TypeScript and ESLint checks
+4. Use the `createDynamoDB` function to instantiate a typed client
+5. Leverage Effect's error handling for AWS service errors
 
 ### Usage Example
 ```typescript
