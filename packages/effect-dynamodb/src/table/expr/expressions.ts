@@ -7,10 +7,10 @@ import type {
   SizeExpr,
   StringExpr,
 } from './types.js';
-import { generateAttributeNames, generateUniqueId } from './utils.js';
+import { generateUniqueId } from './utils.js';
 
-// Comparison expression builder for numeric and string comparisons
-export function buildComparisonExpr<T>(
+// Comparison expression for numeric and string comparisons
+export function comparisonExpr<T>(
   condition: ComparisonExpr<T>,
   attr: string,
   direct: boolean = false,
@@ -31,13 +31,13 @@ export function buildComparisonExpr<T>(
   const attrName = `#attr${id}`;
   return {
     expr: `${attrName} ${condition.type} ${valueName}`,
-    exprAttributes: generateAttributeNames(attrName, attr),
+    exprAttributes: { [attrName]: attr },
     exprValues: { [valueName]: condition.value },
   };
 }
 
-// String operation expression builder
-export function buildStringExpr<T extends string>(
+// String operation expression
+export function stringExpr<T extends string>(
   condition: StringExpr<T>,
   attr: string,
 ): AttrExprResult {
@@ -54,13 +54,13 @@ export function buildStringExpr<T extends string>(
 
   return {
     expr: `${functionName}(${attrName}, ${valueName})`,
-    exprAttributes: generateAttributeNames(attrName, attr),
+    exprAttributes: { [attrName]: attr },
     exprValues: { [valueName]: condition.value },
   };
 }
 
-// Range expression builder for BETWEEN operations
-export function buildRangeExpr<T>(
+// Range expression for BETWEEN operations
+export function rangeExpr<T>(
   condition: RangeExpr<T>,
   attr: string,
 ): AttrExprResult {
@@ -71,7 +71,7 @@ export function buildRangeExpr<T>(
 
   return {
     expr: `${attrName} BETWEEN ${valueName} AND ${valueName2}`,
-    exprAttributes: generateAttributeNames(attrName, attr),
+    exprAttributes: { [attrName]: attr },
     exprValues: {
       [valueName]: condition.value[0],
       [valueName2]: condition.value[1],
@@ -79,8 +79,8 @@ export function buildRangeExpr<T>(
   };
 }
 
-// Existence expression builder
-export function buildExistenceExpr(
+// Existence expression
+export function existenceExpr(
   condition: ExistenceExpr,
   attr: string,
 ): AttrExprResult {
@@ -91,13 +91,13 @@ export function buildExistenceExpr(
     expr: condition.value
       ? `attribute_exists(${attrName})`
       : `attribute_not_exists(${attrName})`,
-    exprAttributes: generateAttributeNames(attrName, attr),
+    exprAttributes: { [attrName]: attr },
     exprValues: {},
   };
 }
 
-// Attribute type expression builder
-export function buildAttrTypeExpr(
+// Attribute type expression
+export function attrTypeExpr(
   condition: AttrTypeExpr,
   attr: string,
 ): AttrExprResult {
@@ -107,13 +107,13 @@ export function buildAttrTypeExpr(
 
   return {
     expr: `attribute_type(${attrName}, ${valueName})`,
-    exprAttributes: generateAttributeNames(attrName, attr),
+    exprAttributes: { [attrName]: attr },
     exprValues: { [valueName]: condition.value },
   };
 }
 
-// Size expression builder (recursive for nested conditions)
-export function buildSizeExpr(
+// Size expression (recursive for nested conditions)
+export function sizeExpr(
   condition: SizeExpr,
   attr: string,
 ): AttrExprResult {
@@ -122,11 +122,11 @@ export function buildSizeExpr(
   const sizeExpr = `size(${outerAttrName})`;
 
   // Build the nested condition with direct injection of size expression
-  const nestedResult = buildComparisonExpr(condition.value, sizeExpr, true);
+  const nestedResult = comparisonExpr(condition.value, sizeExpr, true);
 
   return {
     expr: nestedResult.expr,
-    exprAttributes: generateAttributeNames(outerAttrName, attr),
+    exprAttributes: { [outerAttrName]: attr },
     exprValues: nestedResult.exprValues,
   };
 }

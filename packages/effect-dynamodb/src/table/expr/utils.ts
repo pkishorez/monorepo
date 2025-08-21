@@ -2,14 +2,6 @@ import type { AttrExprResult } from './types.js';
 
 let uid = 0;
 
-// Helper to generate unique attribute names
-export function generateAttributeNames(
-  attrName: string,
-  attr: string,
-): Record<string, string> {
-  return { [attrName]: attr };
-}
-
 // Helper to generate unique IDs for attributes and values
 export function generateUniqueId(): number {
   return uid++;

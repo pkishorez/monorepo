@@ -5,7 +5,7 @@ import type {
   ReturnItemCollectionMetrics,
   ReturnValue,
   Select,
-} from "@aws-sdk/client-dynamodb";
+} from '@aws-sdk/client-dynamodb';
 
 export interface SimpleIndexDefinition {
   pk: string;
@@ -67,8 +67,8 @@ export type Simplify<T> = { [K in keyof T]: T[K] } & {};
 // Custom keys: { op: "add"; data: string } => { add: string }
 export type DiscriminatedUnionToObject<
   Union,
-  Key extends string = "type",
-  ValueKey extends string = "value",
+  Key extends string = 'type',
+  ValueKey extends string = 'value',
 > = Union extends Record<Key, infer K> & Record<ValueKey, infer V>
   ? K extends string
     ? { [P in K]: V }
@@ -150,13 +150,13 @@ export interface UpdateOptions {
 }
 
 export interface PutItemOptions {
-  returnValue?: "NONE" | "ALL_OLD";
+  returnValue?: 'NONE' | 'ALL_OLD';
   returnConsumedCapacity?: ReturnConsumedCapacity;
   returnItemCollectionMetrics?: ReturnItemCollectionMetrics;
 }
 
 export interface DeleteItemOptions {
-  returnValue?: "NONE" | "ALL_OLD";
+  returnValue?: 'NONE' | 'ALL_OLD';
   returnConsumedCapacity?: ReturnConsumedCapacity;
   returnItemCollectionMetrics?: ReturnItemCollectionMetrics;
 }
@@ -267,7 +267,7 @@ export interface TransactWriteItem<
     conditionExpression?: string;
     expressionAttributeNames?: Record<string, string>;
     expressionAttributeValues?: Record<string, unknown>;
-    returnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE";
+    returnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE';
   };
   update?: {
     key: KeyFromIndex<TPrimary>;
@@ -275,14 +275,14 @@ export interface TransactWriteItem<
     conditionExpression?: string;
     expressionAttributeNames?: Record<string, string>;
     expressionAttributeValues?: Record<string, unknown>;
-    returnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE";
+    returnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE';
   };
   delete?: {
     key: KeyFromIndex<TPrimary>;
     conditionExpression?: string;
     expressionAttributeNames?: Record<string, string>;
     expressionAttributeValues?: Record<string, unknown>;
-    returnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE";
+    returnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE';
   };
   conditionCheck?: {
     key: KeyFromIndex<TPrimary>;
@@ -311,14 +311,14 @@ export interface TransactGetResult<T> {
 // EXPERSSIONS.
 export type KeyConditionExprSK =
   | { beginsWith: string }
-  | { "<": string }
-  | { "<=": string }
-  | { ">": string }
-  | { ">=": string }
-  | { "=": string }
+  | { '<': string }
+  | { '<=': string }
+  | { '>': string }
+  | { '>=': string }
+  | { '=': string }
   | { between: [string, string] };
 
 export type KeyConditionExprParameters<Index extends IndexDefinition> =
   Index extends CompoundIndexDefinition
     ? { pk: string; sk?: string | KeyConditionExprSK }
-    : { pk: string; note?: "simple pk" };
+    : { pk: string; note?: 'simple pk' };

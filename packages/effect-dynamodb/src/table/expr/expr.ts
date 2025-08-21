@@ -8,13 +8,13 @@ import type {
   KeyConditionExprParameters,
 } from './types.js';
 import {
-  buildAttrTypeExpr,
-  buildComparisonExpr,
-  buildExistenceExpr,
-  buildRangeExpr,
-  buildSizeExpr,
-  buildStringExpr,
-} from './builders.js';
+  attrTypeExpr,
+  comparisonExpr,
+  existenceExpr,
+  rangeExpr,
+  sizeExpr,
+  stringExpr,
+} from './expressions.js';
 import { mergeExprResults } from './utils.js';
 
 export function attrExpr<T>(
@@ -28,26 +28,26 @@ export function attrExpr<T>(
     case '>':
     case '>=':
     case '=':
-      return buildComparisonExpr(condition, attr);
+      return comparisonExpr(condition, attr);
 
     // String operations
     case 'beginsWith':
     case 'contains':
-      return buildStringExpr(condition, attr);
+      return stringExpr(condition, attr);
 
     // Range operations
     case 'between':
-      return buildRangeExpr(condition, attr);
+      return rangeExpr(condition, attr);
 
     // Existence operations
     case 'exists':
-      return buildExistenceExpr(condition, attr);
+      return existenceExpr(condition, attr);
     case 'attrType':
-      return buildAttrTypeExpr(condition, attr);
+      return attrTypeExpr(condition, attr);
 
     // Computed operations
     case 'size':
-      return buildSizeExpr(condition, attr);
+      return sizeExpr(condition, attr);
   }
 }
 

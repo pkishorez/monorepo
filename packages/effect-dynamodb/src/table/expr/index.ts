@@ -1,12 +1,12 @@
-// Builder functions (if needed for advanced usage)
+// Expression functions (if needed for advanced usage)
 export {
-  buildAttrTypeExpr,
-  buildComparisonExpr,
-  buildExistenceExpr,
-  buildRangeExpr,
-  buildSizeExpr,
-  buildStringExpr,
-} from './builders.js';
+  attrTypeExpr,
+  comparisonExpr,
+  existenceExpr,
+  rangeExpr,
+  sizeExpr,
+  stringExpr,
+} from './expressions.js';
 
 // Public API exports
 export { attrExpr, expr, keyCondition } from './expr.js';
@@ -30,7 +30,6 @@ export type {
 
 // Utility functions (if needed for advanced usage)
 export {
-  generateAttributeNames,
   generateUniqueId,
   mergeExprResults,
 } from './utils.js';
