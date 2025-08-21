@@ -1,8 +1,5 @@
 import type { IndexDefinition } from '../../types.js';
-import type {
-  AttrExprResult,
-  CompoundExprResult,
-} from '../expr-utils/index.js';
+import type { ExprResult } from '../expr-utils/index.js';
 import type {
   AttributeConditionExpr,
   ConditionExpr,
@@ -22,7 +19,7 @@ import {
 export function attrExpr<T>(
   condition: ConditionExpr<T>,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   switch (condition.type) {
     // Comparison operations
     case '<':
@@ -50,42 +47,46 @@ export function attrExpr<T>(
     // Computed operations
     case 'size':
       return sizeExpr(condition, attr);
+
+    default:
+      condition satisfies never;
+      throw new Error('Unknown parameter returned', condition);
   }
 }
 
 // Main expression builder for compound conditions
 export function expr<Type>(
   parameters: ConditionExprParameters<Type>,
-): CompoundExprResult {
+): ExprResult {
   // Base case: single attribute condition
   if ('attr' in parameters) {
     const result = attrExpr(parameters.condition, parameters.attr);
     return {
       ...result,
-      condition: result.expr,
+      expr: result.expr,
     };
   }
 
   // Recursive case: logical operations
   const subResults = parameters.value.map((param) => expr(param));
-  const expressions = subResults.map((result) => result.condition);
+  const expressions = subResults.map((result) => result.expr);
   const mergedAttrs = mergeExprResults(
     subResults.map((result) => ({
       ...result,
-      expr: result.condition,
+      expr: result.expr,
     })),
   );
 
   switch (parameters.type) {
     case 'and':
       return {
-        condition: `(${expressions.join(' AND ')})`,
+        expr: `(${expressions.join(' AND ')})`,
         exprAttributes: mergedAttrs.exprAttributes,
         exprValues: mergedAttrs.exprValues,
       };
     case 'or':
       return {
-        condition: `(${expressions.join(' OR ')})`,
+        expr: `(${expressions.join(' OR ')})`,
         exprAttributes: mergedAttrs.exprAttributes,
         exprValues: mergedAttrs.exprValues,
       };
@@ -95,7 +96,7 @@ export function expr<Type>(
 export function keyCondition<Index extends IndexDefinition>(
   index: Index,
   value: KeyConditionExprParameters<Index>,
-): CompoundExprResult {
+): ExprResult {
   // Build partition key condition (always required)
   const pkCondition: AttributeConditionExpr<string> = {
     attr: index.pk,

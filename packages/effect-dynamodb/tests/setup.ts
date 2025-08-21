@@ -227,9 +227,15 @@ export function ensureSetupCompleted(): void {
 
 export async function cleanTable(): Promise<void> {
   try {
-    let hasMoreItems = true;
-    while (hasMoreItems) {
-      const scanResult = await Effect.runPromise(table.scan({ Limit: 100 }));
+    let lastEvaluatedKey: any;
+
+    do {
+      const scanOptions = lastEvaluatedKey
+        ? { Limit: 100, ExclusiveStartKey: lastEvaluatedKey }
+        : { Limit: 100 };
+
+      const scanResult = await Effect.runPromise(table.scan(scanOptions));
+
       if (scanResult.Items && scanResult.Items.length > 0) {
         for (const item of scanResult.Items) {
           try {
@@ -243,11 +249,10 @@ export async function cleanTable(): Promise<void> {
             // Ignore individual delete errors
           }
         }
-        hasMoreItems = scanResult.Items.length === 100;
-      } else {
-        hasMoreItems = false;
       }
-    }
+
+      lastEvaluatedKey = scanResult.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
   } catch (error) {
     // Ignore cleanup errors
   }

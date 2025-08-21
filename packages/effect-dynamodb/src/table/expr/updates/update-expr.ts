@@ -1,4 +1,4 @@
-import type { AttrExprResult } from '../expr-utils/index.js';
+import type { ExprResult } from '../expr-utils/index.js';
 import type {
   AddExpr,
   DeleteExpr,
@@ -82,7 +82,7 @@ function buildSetValue<T>(value: SetValueExpr<T>): {
 export function setExpr<T>(
   operation: SetExpr<T>,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
 
@@ -102,7 +102,7 @@ export function setExpr<T>(
 export function addExpr<T>(
   operation: AddExpr<T>,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
   const valueName = `:value${id}`;
@@ -115,7 +115,7 @@ export function addExpr<T>(
 }
 
 // REMOVE expression handler
-export function removeExpr(attr: string): AttrExprResult {
+export function removeExpr(attr: string): ExprResult {
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
 
@@ -130,7 +130,7 @@ export function removeExpr(attr: string): AttrExprResult {
 export function deleteExpr<T>(
   operation: DeleteExpr<T>,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
   const valueName = `:value${id}`;
@@ -146,7 +146,7 @@ export function deleteExpr<T>(
 export function attrUpdateExpr<T>(
   operation: UpdateExpr<T>,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   switch (operation.type) {
     case 'SET':
       return setExpr(operation, attr);
@@ -162,7 +162,7 @@ export function attrUpdateExpr<T>(
 // Main update expression builder
 export function updateExpr(parameters: UpdateExprParameters): UpdateExprResult {
   const expressionParts: string[] = [];
-  const allResults: AttrExprResult[] = [];
+  const allResults: ExprResult[] = [];
 
   // Process SET operations
   if (parameters.SET) {

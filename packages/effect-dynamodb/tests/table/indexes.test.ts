@@ -62,36 +62,44 @@ beforeEach(async () => {
 describe('index Operations', () => {
   describe('global Secondary Index (GSI)', () => {
     it('should query GSI with partition key only', async () => {
+      const testId = 'Kishore';
       const products = [
-        createProduct('001', 'electronics', 'apple'),
-        createProduct('002', 'electronics', 'samsung'),
-        createProduct('003', 'clothing', 'nike'),
+        createProduct(`${testId}-001`, `electronics-${testId}`, 'apple'),
+        createProduct(`${testId}-002`, `electronics-${testId}`, 'samsung'),
+        createProduct(`${testId}-003`, `clothing-${testId}`, 'nike'),
       ];
       await batchPutItems(products);
 
       const result = await Effect.runPromise(
-        table.gsi('GSI1').query({ pk: 'category#electronics' }),
+        table.gsi('GSI1').query({ pk: `category#electronics-${testId}` }),
       );
 
       expect(result.Items).toHaveLength(2);
       expect(
-        result.Items.every((item) => item.category === 'electronics'),
+        result.Items.every((item) => item.category === `electronics-${testId}`),
       ).toBe(true);
     });
 
     it('should query GSI with sort key conditions', async () => {
+      const testId = Date.now().toString();
       const products = [
-        createProduct('004', 'electronics', 'apple', { price: 999 }),
-        createProduct('005', 'electronics', 'apple', { price: 1299 }),
-        createProduct('006', 'electronics', 'samsung', { price: 899 }),
+        createProduct(`${testId}-004`, `electronics-${testId}`, 'apple', {
+          price: 999,
+        }),
+        createProduct(`${testId}-005`, `electronics-${testId}`, 'apple', {
+          price: 1299,
+        }),
+        createProduct(`${testId}-006`, `electronics-${testId}`, 'samsung', {
+          price: 899,
+        }),
       ];
       await batchPutItems(products);
 
       // BeginsWith condition
       const beginsResult = await Effect.runPromise(
         table.gsi('GSI1').query({
-          pk: 'category#electronics',
-          sk: { beginsWith: 'brand#apple' },
+          pk: `category#electronics-${testId}`,
+          sk: { type: 'beginsWith', value: 'brand#apple' },
         }),
       );
       expect(beginsResult.Items).toHaveLength(2);
@@ -110,7 +118,10 @@ describe('index Operations', () => {
       const betweenResult = await Effect.runPromise(
         table.gsi('GSI1').query({
           pk: 'user#user1',
-          sk: { between: ['date#2024-01-01#001', 'date#2024-01-05#002'] },
+          sk: {
+            type: 'between',
+            value: ['date#2024-01-01#001', 'date#2024-01-05#002'],
+          },
         }),
       );
       expect(betweenResult.Items).toHaveLength(2);
@@ -140,19 +151,17 @@ describe('index Operations', () => {
         table.gsi('GSI1').query(
           {
             pk: 'category#sports',
-            sk: { beginsWith: 'brand#nike' },
+            sk: { type: 'beginsWith', value: 'brand#nike' },
           },
           {
-            FilterExpression: '#price >= :minPrice AND #inStock = :inStock',
-            ProjectionExpression: 'gsi1pk, gsi1sk, price, rating',
-            ExpressionAttributeNames: {
-              '#price': 'price',
-              '#inStock': 'inStock',
+            filter: {
+              type: 'and',
+              value: [
+                { attr: 'price', condition: { type: '>=', value: 100 } },
+                { attr: 'inStock', condition: { type: '=', value: true } },
+              ],
             },
-            ExpressionAttributeValues: {
-              ':minPrice': 100,
-              ':inStock': true,
-            } as any,
+            projection: ['gsi1pk', 'gsi1sk', 'price', 'rating'],
             ScanIndexForward: false,
           },
         ),
@@ -185,17 +194,17 @@ describe('index Operations', () => {
 
       const result = await Effect.runPromise(
         table.gsi('GSI1').scan({
-          FilterExpression:
-            'begins_with(#gsi1pk, :prefix) AND #organic = :organic',
-          ProjectionExpression: 'pkey, category, calories',
-          ExpressionAttributeNames: {
-            '#gsi1pk': 'gsi1pk',
-            '#organic': 'organic',
+          filter: {
+            type: 'and',
+            value: [
+              {
+                attr: 'gsi1pk',
+                condition: { type: 'beginsWith', value: 'category#' },
+              },
+              { attr: 'organic', condition: { type: '=', value: true } },
+            ],
           },
-          ExpressionAttributeValues: {
-            ':prefix': 'category#',
-            ':organic': true,
-          } as any,
+          projection: ['pkey', 'category', 'calories'],
         }),
       );
 
@@ -228,7 +237,7 @@ describe('index Operations', () => {
         const page2 = await Effect.runPromise(
           table.gsi('GSI1').scan({
             Limit: 3,
-            ExclusiveStartKey: page1.LastEvaluatedKey as any,
+            exclusiveStartKey: page1.LastEvaluatedKey,
           }),
         );
         expect(page2.Items.length).toBeGreaterThan(0);
@@ -271,13 +280,11 @@ describe('index Operations', () => {
         table.lsi('LSI1').query(
           { pk: products[0].pkey },
           {
-            FilterExpression: '#featured = :featured',
-            ProjectionExpression: 'pkey, lsi1skey, #status',
-            ExpressionAttributeNames: {
-              '#featured': 'featured',
-              '#status': 'status',
+            filter: {
+              attr: 'featured',
+              condition: { type: '=', value: true },
             },
-            ExpressionAttributeValues: { ':featured': true } as any,
+            projection: ['pkey', 'lsi1skey', 'status'],
             ConsistentRead: true,
           },
         ),
@@ -302,11 +309,12 @@ describe('index Operations', () => {
 
       const result = await Effect.runPromise(
         table.lsi('LSI1').scan({
-          FilterExpression: '#featured = :featured',
-          ExpressionAttributeNames: { '#featured': 'featured' },
-          ExpressionAttributeValues: { ':featured': true } as any,
+          filter: {
+            attr: 'featured',
+            condition: { type: '=', value: true },
+          },
           ReturnConsumedCapacity: 'TOTAL',
-          ProjectionExpression: 'pkey, lsi1skey',
+          projection: ['pkey', 'lsi1skey'],
         }),
       );
 
@@ -340,8 +348,10 @@ describe('index Operations', () => {
         table.gsi('GSI1').query(
           { pk: 'category#electronics' },
           {
-            FilterExpression: 'price > :minPrice',
-            ExpressionAttributeValues: { ':minPrice': 800 } as any,
+            filter: {
+              attr: 'price',
+              condition: { type: '>', value: 800 },
+            },
           },
         ),
       );
@@ -351,8 +361,10 @@ describe('index Operations', () => {
         table.lsi('LSI1').query(
           { pk: products[0].pkey },
           {
-            FilterExpression: 'featured = :featured',
-            ExpressionAttributeValues: { ':featured': true } as any,
+            filter: {
+              attr: 'featured',
+              condition: { type: '=', value: true },
+            },
           },
         ),
       );
@@ -380,7 +392,7 @@ describe('index Operations', () => {
         const result = await Effect.runPromise(
           table.gsi('GSI1').query({
             pk: 'user#testuser',
-            sk: { [op]: testValue } as any,
+            sk: { type: op, value: testValue },
           }),
         );
         expect(result.Items).toBeDefined();
@@ -390,7 +402,10 @@ describe('index Operations', () => {
       const betweenResult = await Effect.runPromise(
         table.gsi('GSI1').query({
           pk: 'user#testuser',
-          sk: { between: ['date#2024-01-03#002', 'date#2024-01-07#006'] },
+          sk: {
+            type: 'between',
+            value: ['date#2024-01-03#002', 'date#2024-01-07#006'],
+          },
         }),
       );
       expect(betweenResult.Items.length).toBeGreaterThan(0);
@@ -415,22 +430,23 @@ describe('index Operations', () => {
     it('should handle empty scan results', async () => {
       const gsiScanResult = await Effect.runPromise(
         table.gsi('GSI1').scan({
-          FilterExpression: '#price > :maxPrice',
-          ExpressionAttributeNames: { '#price': 'price' },
-          ExpressionAttributeValues: { ':maxPrice': 10000 } as any,
+          filter: {
+            attr: 'price',
+            condition: { type: '>', value: 10000 },
+          },
         }),
       );
       expect(Array.isArray(gsiScanResult.Items)).toBe(true);
 
       const lsiScanResult = await Effect.runPromise(
         table.lsi('LSI1').scan({
-          FilterExpression: '#score > :maxScore',
-          ExpressionAttributeNames: { '#score': 'score' },
-          ExpressionAttributeValues: { ':maxScore': 10000 } as any,
+          filter: {
+            attr: 'score',
+            condition: { type: '>', value: 10000 },
+          },
         }),
       );
       expect(Array.isArray(lsiScanResult.Items)).toBe(true);
     });
   });
 });
-

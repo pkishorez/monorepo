@@ -1,4 +1,4 @@
-import type { AttrExprResult } from './types.js';
+import type { ExprResult } from './types.js';
 
 let uid = 0;
 
@@ -8,7 +8,7 @@ export function generateUniqueId(): number {
 }
 
 // Helper to merge expression results
-export function mergeExprResults(results: AttrExprResult[]): {
+export function mergeExprResults(results: ExprResult[]): {
   exprAttributes: Record<string, string>;
   exprValues: Record<string, unknown>;
 } {
@@ -20,3 +20,4 @@ export function mergeExprResults(results: AttrExprResult[]): {
     { exprAttributes: {}, exprValues: {} },
   );
 }
+

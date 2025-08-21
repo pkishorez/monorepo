@@ -29,7 +29,7 @@ describe('expression System', () => {
 
         const result = expr(condition);
 
-        expect(result.condition).toMatch(
+        expect(result.expr).toMatch(
           new RegExp(
             `^#attr\\d+ ${symbol.replace(/[<>=]/g, '\\$&')} :value\\d+$`,
           ),
@@ -53,7 +53,7 @@ describe('expression System', () => {
 
         const result = expr(condition);
 
-        expect(result.condition).toMatch(
+        expect(result.expr).toMatch(
           new RegExp(`^${func}\\(#attr\\d+, :value\\d+\\)$`),
         );
         expect(Object.values(result.exprAttributes)).toContain('text_field');
@@ -69,7 +69,7 @@ describe('expression System', () => {
 
       const result = expr(condition);
 
-      expect(result.condition).toMatch(
+      expect(result.expr).toMatch(
         /^#attr\d+ BETWEEN :value\d+ AND :value\d+_end$/,
       );
       expect(Object.values(result.exprAttributes)).toContain('range_field');
@@ -91,8 +91,8 @@ describe('expression System', () => {
       const existsResult = expr(existsCondition);
       const notExistsResult = expr(notExistsCondition);
 
-      expect(existsResult.condition).toMatch(/^attribute_exists\(#attr\d+\)$/);
-      expect(notExistsResult.condition).toMatch(
+      expect(existsResult.expr).toMatch(/^attribute_exists\(#attr\d+\)$/);
+      expect(notExistsResult.expr).toMatch(
         /^attribute_not_exists\(#attr\d+\)$/,
       );
       expect(Object.values(existsResult.exprAttributes)).toContain(
@@ -111,9 +111,7 @@ describe('expression System', () => {
 
       const result = expr(condition);
 
-      expect(result.condition).toMatch(
-        /^attribute_type\(#attr\d+, :value\d+\)$/,
-      );
+      expect(result.expr).toMatch(/^attribute_type\(#attr\d+, :value\d+\)$/);
       expect(Object.values(result.exprAttributes)).toContain('typed_field');
       expect(Object.values(result.exprValues)).toContain('S');
     });
@@ -129,8 +127,8 @@ describe('expression System', () => {
 
       const result = expr(condition);
 
-      expect(result.condition).toContain('size(#attr');
-      expect(result.condition).toContain('>');
+      expect(result.expr).toContain('size(#attr');
+      expect(result.expr).toContain('>');
       expect(Object.values(result.exprAttributes)).toContain('list_field');
       expect(Object.values(result.exprValues)).toContain(5);
     });
@@ -154,9 +152,9 @@ describe('expression System', () => {
 
       const result = expr(condition);
 
-      expect(result.condition).toMatch(/^\(.+ AND .+\)$/);
-      expect(result.condition).toContain('=');
-      expect(result.condition).toContain('>');
+      expect(result.expr).toMatch(/^\(.+ AND .+\)$/);
+      expect(result.expr).toContain('=');
+      expect(result.expr).toContain('>');
       expect(Object.values(result.exprAttributes)).toContain('field1');
       expect(Object.values(result.exprAttributes)).toContain('field2');
       expect(Object.values(result.exprValues)).toContain('value1');
@@ -180,7 +178,7 @@ describe('expression System', () => {
 
       const result = expr(condition);
 
-      expect(result.condition).toMatch(/^\(.+ OR .+\)$/);
+      expect(result.expr).toMatch(/^\(.+ OR .+\)$/);
       expect(Object.values(result.exprAttributes)).toContain('status');
       expect(Object.values(result.exprAttributes)).toContain('priority');
       expect(Object.values(result.exprValues)).toContain('active');
@@ -213,7 +211,7 @@ describe('expression System', () => {
 
       const result = expr(condition);
 
-      expect(result.condition).toMatch(/^\(.+ AND \(.+ OR .+\)\)$/);
+      expect(result.expr).toMatch(/^\(.+ AND \(.+ OR .+\)\)$/);
       expect(Object.values(result.exprAttributes)).toContain('base_condition');
       expect(Object.values(result.exprAttributes)).toContain('option1');
       expect(Object.values(result.exprAttributes)).toContain('option2');
@@ -231,7 +229,7 @@ describe('expression System', () => {
 
       const result = keyCondition(simpleIndex, params);
 
-      expect(result.condition).toMatch(/^#attr\d+ = :value\d+$/);
+      expect(result.expr).toMatch(/^#attr\d+ = :value\d+$/);
       expect(Object.values(result.exprAttributes)).toContain('id');
       expect(Object.values(result.exprValues)).toContain('user123');
     });
@@ -244,7 +242,7 @@ describe('expression System', () => {
 
       const result = keyCondition(compoundIndex, params);
 
-      expect(result.condition).toMatch(/^\(.+ AND .+\)$/);
+      expect(result.expr).toMatch(/^\(.+ AND .+\)$/);
       expect(Object.values(result.exprAttributes)).toContain('pk');
       expect(Object.values(result.exprAttributes)).toContain('sk');
       expect(Object.values(result.exprValues)).toContain('user123');
@@ -259,7 +257,7 @@ describe('expression System', () => {
 
       const result = keyCondition(compoundIndex, params);
 
-      expect(result.condition).toMatch(/^\(.+ AND begins_with\(.+\)\)$/);
+      expect(result.expr).toMatch(/^\(.+ AND begins_with\(.+\)\)$/);
       expect(Object.values(result.exprAttributes)).toContain('pk');
       expect(Object.values(result.exprAttributes)).toContain('sk');
       expect(Object.values(result.exprValues)).toContain('user123');
@@ -277,7 +275,7 @@ describe('expression System', () => {
 
         const result = keyCondition(compoundIndex, params);
 
-        expect(result.condition).toMatch(/^\(.+ AND .+\)$/);
+        expect(result.expr).toMatch(/^\(.+ AND .+\)$/);
         expect(Object.values(result.exprValues)).toContain('test');
         expect(Object.values(result.exprValues)).toContain('value');
       });
@@ -291,7 +289,7 @@ describe('expression System', () => {
 
       const result = keyCondition(compoundIndex, params);
 
-      expect(result.condition).toMatch(/^\(.+ AND .+ BETWEEN .+ AND .+\)$/);
+      expect(result.expr).toMatch(/^\(.+ AND .+ BETWEEN .+ AND .+\)$/);
       expect(Object.values(result.exprValues)).toContain('user123');
       expect(Object.values(result.exprValues)).toContain('2023-01-01');
       expect(Object.values(result.exprValues)).toContain('2023-12-31');

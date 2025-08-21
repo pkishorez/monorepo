@@ -1,4 +1,4 @@
-import type { AttrExprResult } from '../expr-utils/index.js';
+import type { ExprResult } from '../expr-utils/index.js';
 import type {
   AttrTypeExpr,
   ComparisonExpr,
@@ -14,7 +14,7 @@ export function comparisonExpr<T>(
   condition: ComparisonExpr<T>,
   attr: string,
   direct: boolean = false,
-): AttrExprResult {
+): ExprResult {
   const id = generateUniqueId();
   const valueName = `:value${id}`;
 
@@ -40,7 +40,7 @@ export function comparisonExpr<T>(
 export function stringExpr<T extends string>(
   condition: StringExpr<T>,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
   const valueName = `:value${id}`;
@@ -63,7 +63,7 @@ export function stringExpr<T extends string>(
 export function rangeExpr<T>(
   condition: RangeExpr<T>,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
   const valueName = `:value${id}`;
@@ -83,7 +83,7 @@ export function rangeExpr<T>(
 export function existenceExpr(
   condition: ExistenceExpr,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
 
@@ -100,7 +100,7 @@ export function existenceExpr(
 export function attrTypeExpr(
   condition: AttrTypeExpr,
   attr: string,
-): AttrExprResult {
+): ExprResult {
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
   const valueName = `:value${id}`;
@@ -113,7 +113,7 @@ export function attrTypeExpr(
 }
 
 // Size expression (recursive for nested conditions)
-export function sizeExpr(condition: SizeExpr, attr: string): AttrExprResult {
+export function sizeExpr(condition: SizeExpr, attr: string): ExprResult {
   const outerAttrId = generateUniqueId();
   const outerAttrName = `#attr${outerAttrId}`;
   const sizeExpr = `size(${outerAttrName})`;

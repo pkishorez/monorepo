@@ -14,6 +14,9 @@ export type {
   KeyConditionExprParameters,
 } from './conditions/index.js';
 
+// Essential function for projection
+export { projectionExpr } from './projection.js';
+
 // Essential functions for update expressions
 export { updateExpr } from './updates/index.js';
 

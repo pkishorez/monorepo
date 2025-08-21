@@ -4,22 +4,25 @@ import type {
   DynamoDB,
   GetItemInput,
   PutItemInput,
-  QueryInput,
-  ScanInput,
   UpdateItemInput,
 } from 'dynamodb-client';
+import type {
+  ConditionExprParameters,
+  KeyConditionExprParameters,
+} from './expr/index.js';
+import type { QueryOptions, ScanOptions } from './query-executor.js';
 import type {
   DynamoConfig,
   IndexDefinition,
   ItemForPut,
   ItemWithKeys,
-  KeyConditionExprParameters,
   KeyFromIndex,
   SecondaryIndexDefinition,
   Simplify,
 } from './types.js';
 import { createDynamoDB } from 'dynamodb-client';
 import { Effect } from 'effect';
+import { expr, projectionExpr } from './expr/index.js';
 import { DynamoQueryExecutor } from './query-executor.js';
 import { marshall, unmarshall } from './utils.js';
 
@@ -72,87 +75,165 @@ export class DynamoTable<
   // Primary table operations
   getItem(
     key: KeyFromIndex<TPrimary>,
-    options?: Omit<GetItemInput, 'Key' | 'TableName'>,
+    {
+      projection,
+      ...options
+    }: Omit<GetItemInput, 'Key' | 'TableName' | 'ProjectionExpression'> & {
+      projection?: string[];
+    } = {},
   ) {
-    return this.#client
-      .getItem({
-        TableName: this.#name,
-        Key: marshall(key),
-        ...options,
-      })
-      .pipe(
-        Effect.map((response) => ({
-          ...response,
-          Item: response.Item
-            ? (unmarshall(response.Item) as ItemWithKeys<TPrimary>)
-            : null,
-        })),
-      );
+    const getOptions: GetItemInput = {
+      TableName: this.#name,
+      Key: marshall(key),
+      ...options,
+    };
+
+    if (projection) {
+      const { expr: condition, exprAttributes } = projectionExpr(projection);
+      getOptions.ProjectionExpression = condition;
+      getOptions.ExpressionAttributeNames = exprAttributes;
+    }
+
+    return this.#client.getItem(getOptions).pipe(
+      Effect.map((response) => ({
+        ...response,
+        Item: response.Item
+          ? (unmarshall(response.Item) as ItemWithKeys<TPrimary>)
+          : null,
+      })),
+    );
   }
 
   putItem(
     item: ItemForPut<TPrimary, TGSIs, TLSIs>,
-    options?: Omit<PutItemInput, 'TableName' | 'Item'>,
+    options?: Omit<
+      PutItemInput,
+      'TableName' | 'Item' | 'ConditionExpression'
+    > & {
+      condition?: ConditionExprParameters<unknown>;
+    },
   ) {
-    return this.#client
-      .putItem({
-        TableName: this.#name,
-        Item: marshall(item),
-        ...options,
-      })
-      .pipe(
-        Effect.map((response) => ({
-          ...response,
-          Attributes: response.Attributes
-            ? unmarshall(response.Attributes)
-            : undefined,
-        })),
-      );
+    const putItemOptions: PutItemInput = {
+      TableName: this.#name,
+      Item: marshall(item),
+      ...options,
+    };
+
+    if (options?.condition) {
+      const {
+        expr: condition,
+        exprAttributes,
+        exprValues,
+      } = expr(options.condition);
+      putItemOptions.ConditionExpression = condition;
+      putItemOptions.ExpressionAttributeNames = exprAttributes;
+      // Only set ExpressionAttributeValues if there are values to set
+      if (Object.keys(exprValues).length > 0) {
+        putItemOptions.ExpressionAttributeValues = marshall(exprValues);
+      }
+    }
+
+    return this.#client.putItem(putItemOptions).pipe(
+      Effect.map((response) => ({
+        ...response,
+        Attributes: response.Attributes
+          ? unmarshall(response.Attributes)
+          : undefined,
+      })),
+    );
   }
 
   updateItem(
     key: KeyFromIndex<TPrimary>,
-    options?: Omit<UpdateItemInput, 'TableName' | 'Key'>,
+    options?: Omit<
+      UpdateItemInput,
+      'TableName' | 'Key' | 'ConditionExpression'
+    > & {
+      condition?: ConditionExprParameters<unknown>;
+    },
   ) {
-    return this.#client
-      .updateItem({
-        TableName: this.#name,
-        Key: marshall(key),
-        ...options,
-      })
-      .pipe(
-        Effect.map((response) => ({
-          ...response,
-          Attributes: response.Attributes
-            ? unmarshall(response.Attributes)
-            : undefined,
-        })),
-      );
+    const updateItemOptions: UpdateItemInput = {
+      TableName: this.#name,
+      Key: marshall(key),
+      ...options,
+    };
+
+    if (options?.condition) {
+      const {
+        expr: condition,
+        exprAttributes,
+        exprValues,
+      } = expr(options.condition);
+      updateItemOptions.ConditionExpression = condition;
+
+      // Merge expression attribute names and values with existing ones
+      updateItemOptions.ExpressionAttributeNames = {
+        ...updateItemOptions.ExpressionAttributeNames,
+        ...exprAttributes,
+      };
+
+      // Only merge condition values if there are values to merge
+      if (Object.keys(exprValues).length > 0) {
+        const marshalledConditionValues = marshall(exprValues);
+        updateItemOptions.ExpressionAttributeValues = {
+          ...updateItemOptions.ExpressionAttributeValues,
+          ...marshalledConditionValues,
+        };
+      }
+    }
+
+    return this.#client.updateItem(updateItemOptions).pipe(
+      Effect.map((response) => ({
+        ...response,
+        Attributes: response.Attributes
+          ? unmarshall(response.Attributes)
+          : undefined,
+      })),
+    );
   }
 
   deleteItem(
     key: KeyFromIndex<TPrimary>,
-    options?: Omit<DeleteItemInput, 'TableName' | 'Key'>,
+    options?: Omit<
+      DeleteItemInput,
+      'TableName' | 'Key' | 'ConditionExpression'
+    > & {
+      condition?: ConditionExprParameters<unknown>;
+    },
   ) {
-    return this.#client
-      .deleteItem({
-        TableName: this.#name,
-        Key: marshall(key),
-        ...options,
-      })
-      .pipe(
-        Effect.map((response) => ({
-          ...response,
-          Attributes: response.Attributes
-            ? unmarshall(response.Attributes)
-            : undefined,
-        })),
-      );
+    const deleteItemOptions: DeleteItemInput = {
+      TableName: this.#name,
+      Key: marshall(key),
+      ...options,
+    };
+
+    if (options?.condition) {
+      const {
+        expr: condition,
+        exprAttributes,
+        exprValues,
+      } = expr(options.condition);
+      deleteItemOptions.ConditionExpression = condition;
+      deleteItemOptions.ExpressionAttributeNames = exprAttributes;
+      // Only set ExpressionAttributeValues if there are values to set
+      if (Object.keys(exprValues).length > 0) {
+        deleteItemOptions.ExpressionAttributeValues = marshall(exprValues);
+      }
+    }
+
+    return this.#client.deleteItem(deleteItemOptions).pipe(
+      Effect.map((response) => ({
+        ...response,
+        Attributes: response.Attributes
+          ? unmarshall(response.Attributes)
+          : undefined,
+      })),
+    );
   }
 
   query(
     key: KeyConditionExprParameters<TPrimary>,
-    options?: Omit<QueryInput, 'TableName' | 'Key'>,
+    options?: QueryOptions<TPrimary>,
   ) {
     return this.#queryExecutor.executeQuery(key, this.primary, options).pipe(
       Effect.map((response) => ({
@@ -167,7 +248,7 @@ export class DynamoTable<
     );
   }
 
-  scan(options?: Omit<ScanInput, 'TableName'>) {
+  scan(options?: ScanOptions<TPrimary>) {
     return this.#queryExecutor.executeScan(options).pipe(
       Effect.map((response) => ({
         ...response,
@@ -186,12 +267,12 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<TGSIs[TName]>,
-        options?: Omit<QueryInput, 'TableName' | 'Key'>,
+        options?: QueryOptions<TGSIs[TName]>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.gsis[indexName], {
             ...options,
-            IndexName: indexName as string,
+            indexName: indexName as string,
           })
           .pipe(
             Effect.map((response) => ({
@@ -200,20 +281,17 @@ export class DynamoTable<
                 unmarshall(item),
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(
-                    response.LastEvaluatedKey,
-                  ) as KeyFromIndex<TPrimary>)
+                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<
+                    TGSIs[TName]
+                  >)
                 : undefined,
             })),
           );
       },
 
-      scan: (options?: Omit<ScanInput, 'TableName'>) => {
+      scan: (options?: ScanOptions<TGSIs[TName]>) => {
         return this.#queryExecutor
-          .executeScan({
-            ...options,
-            IndexName: indexName as string,
-          })
+          .executeScan({ ...options, indexName: indexName as string })
           .pipe(
             Effect.map((response) => ({
               ...response,
@@ -221,9 +299,9 @@ export class DynamoTable<
                 unmarshall(item),
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(
-                    response.LastEvaluatedKey,
-                  ) as KeyFromIndex<TPrimary>)
+                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<
+                    TGSIs[TName]
+                  >)
                 : undefined,
             })),
           );
@@ -238,12 +316,12 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<IndexDef>,
-        options?: Omit<QueryInput, 'TableName' | 'Key'>,
+        options?: QueryOptions<IndexDef>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.lsis[indexName], {
             ...options,
-            IndexName: indexName as string,
+            indexName: indexName as string,
           })
           .pipe(
             Effect.map((response) => ({
@@ -252,20 +330,17 @@ export class DynamoTable<
                 unmarshall(item),
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(
-                    response.LastEvaluatedKey,
-                  ) as KeyFromIndex<TPrimary>)
+                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<
+                    TLSIs[TName]
+                  >)
                 : undefined,
             })),
           );
       },
 
-      scan: (options?: Omit<ScanInput, 'TableName'>) => {
+      scan: (options?: ScanOptions<TLSIs[TName]>) => {
         return this.#queryExecutor
-          .executeScan({
-            ...options,
-            IndexName: indexName as string,
-          })
+          .executeScan({ ...options, indexName: indexName as string })
           .pipe(
             Effect.map((response) => ({
               ...response,
@@ -273,9 +348,9 @@ export class DynamoTable<
                 unmarshall(item),
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(
-                    response.LastEvaluatedKey,
-                  ) as KeyFromIndex<TPrimary>)
+                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<
+                    TLSIs[TName]
+                  >)
                 : undefined,
             })),
           );

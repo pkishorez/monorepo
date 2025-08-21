@@ -1,12 +1,41 @@
 import type { DynamoDB, QueryInput, ScanInput } from 'dynamodb-client';
-import type { KeyConditionExpr } from './expr/index.js';
 import type {
-  IndexDefinition,
+  ConditionExprParameters,
   KeyConditionExprParameters,
-  KeyConditionExprSK,
-} from './types.js';
-import { keyCondition } from './expr/index.js';
+} from './expr/index.js';
+import type { IndexDefinition, KeyFromIndex } from './types.js';
+import { expr, keyCondition, projectionExpr } from './expr/index.js';
 import { marshall } from './utils.js';
+
+export type QueryOptions<Index extends IndexDefinition> = Omit<
+  QueryInput,
+  | 'TableName'
+  | 'Key'
+  | 'IndexName'
+  | 'ExpressionAttributeNames'
+  | 'ExpressionAttributeValues'
+  | 'ExclusiveStartKey'
+  | 'ProjectionExpression'
+> & {
+  projection?: string[];
+  filter?: ConditionExprParameters<any>;
+  exclusiveStartKey?: KeyFromIndex<Index> | undefined;
+};
+
+export type ScanOptions<Index extends IndexDefinition> = Omit<
+  ScanInput,
+  | 'TableName'
+  | 'Key'
+  | 'IndexName'
+  | 'ExpressionAttributeNames'
+  | 'ExpressionAttributeValues'
+  | 'ExclusiveStartKey'
+  | 'ProjectionExpression'
+> & {
+  projection?: string[];
+  filter?: ConditionExprParameters<any>;
+  exclusiveStartKey?: KeyFromIndex<Index>;
+};
 
 export class DynamoQueryExecutor {
   constructor(
@@ -17,133 +46,94 @@ export class DynamoQueryExecutor {
   executeQuery<TIndex extends IndexDefinition>(
     key: KeyConditionExprParameters<TIndex>,
     index: TIndex,
-    options?: Partial<QueryInput> & { IndexName?: string },
+    {
+      projection,
+      exclusiveStartKey,
+      filter,
+      indexName,
+      ...options
+    }: QueryOptions<TIndex> & { indexName?: string } = {},
   ) {
-    const keyExpressions = this.buildKeyExpressions(key, index, options);
-
-    // Build the query input with proper marshalling
-    const queryInput: any = {
-      TableName: this.tableName,
-      KeyConditionExpression: keyExpressions.KeyConditionExpression,
-      ...options,
-      // Merge expression attribute names (key expressions override options if conflicts)
-      ExpressionAttributeNames: keyExpressions.ExpressionAttributeNames,
-    };
-
-    // Handle ExclusiveStartKey marshalling
-    if (options?.ExclusiveStartKey) {
-      queryInput.ExclusiveStartKey = marshall(options.ExclusiveStartKey);
-    }
-
-    // Handle ExpressionAttributeValues marshalling
-    if (keyExpressions.ExpressionAttributeValues) {
-      queryInput.ExpressionAttributeValues = marshall(
-        keyExpressions.ExpressionAttributeValues,
-      );
-    } else if (options?.ExpressionAttributeValues) {
-      queryInput.ExpressionAttributeValues = marshall(
-        options.ExpressionAttributeValues,
-      );
-    }
-
-    return this.client.query(queryInput);
-  }
-
-  executeScan(options?: Partial<ScanInput> & { IndexName?: string }) {
-    // Build the scan input with proper marshalling
-    const scanInput: any = {
+    const keyExpressions = keyCondition(index, key);
+    const queryOptions: QueryInput = {
       TableName: this.tableName,
       ...options,
+      KeyConditionExpression: keyExpressions.expr,
+      ExpressionAttributeNames: keyExpressions.exprAttributes,
+      ExpressionAttributeValues: marshall(keyExpressions.exprValues),
     };
+
+    if (indexName) {
+      queryOptions.IndexName = indexName;
+    }
+    if (projection) {
+      const { expr: condition, exprAttributes } = projectionExpr(projection);
+      queryOptions.ProjectionExpression = condition;
+      queryOptions.ExpressionAttributeNames = {
+        ...queryOptions.ExpressionAttributeNames,
+        ...exprAttributes,
+      };
+    }
+    if (filter) {
+      const { expr: condition, exprAttributes, exprValues } = expr(filter);
+      queryOptions.ExpressionAttributeNames = {
+        ...queryOptions.ExpressionAttributeNames,
+        ...exprAttributes,
+      };
+      queryOptions.ExpressionAttributeValues = {
+        ...queryOptions.ExpressionAttributeValues,
+        ...marshall(exprValues),
+      };
+      queryOptions.FilterExpression = condition;
+    }
 
     // Handle ExclusiveStartKey marshalling
-    if (options?.ExclusiveStartKey) {
-      scanInput.ExclusiveStartKey = marshall(options.ExclusiveStartKey);
+    if (exclusiveStartKey) {
+      queryOptions.ExclusiveStartKey = marshall(exclusiveStartKey);
     }
 
-    // Handle ExpressionAttributeValues marshalling
-    if (options?.ExpressionAttributeValues) {
-      scanInput.ExpressionAttributeValues = marshall(
-        options.ExpressionAttributeValues,
-      );
-    }
-
-    return this.client.scan(scanInput);
+    return this.client.query(queryOptions);
   }
 
-  private buildKeyExpressions<TIndex extends IndexDefinition>(
-    key: KeyConditionExprParameters<TIndex>,
-    index: TIndex,
-    options?: Partial<QueryInput>,
-  ) {
-    // Convert from old format to new unified format
-    const unifiedKey = this.convertKeyConditionFormat(key, index);
-
-    // Generate key condition expression using our unified function
-    const keyExprResult = keyCondition(index, unifiedKey);
-
-    // Merge with any existing expression attributes/values from options
-    const expressionAttributeNames: Record<string, string> = {
-      ...(options?.ExpressionAttributeNames || {}),
-      ...keyExprResult.exprAttributes,
-    };
-    const expressionAttributeValues: Record<string, unknown> = {
-      ...(options?.ExpressionAttributeValues || {}),
-      ...keyExprResult.exprValues,
+  executeScan<TIndex extends IndexDefinition>({
+    projection,
+    exclusiveStartKey,
+    filter,
+    indexName,
+    ...options
+  }: ScanOptions<TIndex> & { indexName?: string } = {}) {
+    const scanOptions: ScanInput = {
+      TableName: this.tableName,
+      ...options,
     };
 
-    const result: any = {
-      KeyConditionExpression: keyExprResult.condition,
-      ExpressionAttributeNames: expressionAttributeNames,
-    };
-
-    // Only include ExpressionAttributeValues if there are actual values
-    if (Object.keys(expressionAttributeValues).length > 0) {
-      result.ExpressionAttributeValues = expressionAttributeValues;
+    if (projection) {
+      const { expr: condition, exprAttributes } = projectionExpr(projection);
+      scanOptions.ProjectionExpression = condition;
+      scanOptions.ExpressionAttributeNames = {
+        ...scanOptions.ExpressionAttributeNames,
+        ...exprAttributes,
+      };
+    }
+    if (indexName) {
+      scanOptions.IndexName = indexName;
+    }
+    if (filter) {
+      const { expr: condition, exprAttributes, exprValues } = expr(filter);
+      scanOptions.ExpressionAttributeNames = {
+        ...scanOptions.ExpressionAttributeNames,
+        ...exprAttributes,
+      };
+      scanOptions.ExpressionAttributeValues = {
+        ...scanOptions.ExpressionAttributeValues,
+        ...marshall(exprValues),
+      };
+      scanOptions.FilterExpression = condition;
+    }
+    if (exclusiveStartKey) {
+      scanOptions.ExclusiveStartKey = marshall(exclusiveStartKey);
     }
 
-    return result;
-  }
-
-  private convertKeyConditionFormat<TIndex extends IndexDefinition>(
-    key: KeyConditionExprParameters<TIndex>,
-    index: TIndex,
-  ): import('./expr/index.js').KeyConditionExprParameters<TIndex> {
-    const result: any = { pk: key.pk };
-
-    // Handle sort key if present
-    if ('sk' in key && key.sk !== undefined && 'sk' in index) {
-      if (typeof key.sk === 'string') {
-        result.sk = key.sk;
-      } else {
-        // Convert from old object format to new standardized format
-        const oldSk = key.sk as KeyConditionExprSK;
-        result.sk = this.convertSortKeyCondition(oldSk);
-      }
-    }
-
-    return result;
-  }
-
-  private convertSortKeyCondition(
-    condition: KeyConditionExprSK,
-  ): KeyConditionExpr<string> {
-    if ('beginsWith' in condition) {
-      return { type: 'beginsWith', value: condition.beginsWith };
-    } else if ('<' in condition) {
-      return { type: '<', value: condition['<'] };
-    } else if ('<=' in condition) {
-      return { type: '<=', value: condition['<='] };
-    } else if ('>' in condition) {
-      return { type: '>', value: condition['>'] };
-    } else if ('>=' in condition) {
-      return { type: '>=', value: condition['>='] };
-    } else if ('=' in condition) {
-      return { type: '=', value: condition['='] };
-    } else if ('between' in condition) {
-      return { type: 'between', value: condition.between };
-    } else {
-      throw new Error('Unknown sort key condition format');
-    }
+    return this.client.scan(scanOptions);
   }
 }

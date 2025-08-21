@@ -9,7 +9,7 @@
     "dev": "tsc --watch --project build.tsconfig.json",
     "build": "tsc --project build.tsconfig.json",
     "lint": "tsc --noEmit",
-    "test": "vitest --reporter=verbose",
+    "test": "vitest",
     "test:run": "vitest run --reporter=verbose",
     "test:watch": "vitest --watch --reporter=verbose",
     "test:coverage": "vitest run --coverage --reporter=verbose"

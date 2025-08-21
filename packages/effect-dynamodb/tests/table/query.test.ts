@@ -64,32 +64,35 @@ describe('query Operations', () => {
 
       // Operator equality
       const opResult = await Effect.runPromise(
-        table.query({ pk, sk: { '=': 'item#002' } }),
+        table.query({ pk, sk: { type: '=', value: 'item#002' } }),
       );
       expect(opResult.Items).toHaveLength(1);
 
       // BeginsWith
       const beginsResult = await Effect.runPromise(
-        table.query({ pk, sk: { beginsWith: 'item#' } }),
+        table.query({ pk, sk: { type: 'beginsWith', value: 'item#' } }),
       );
       expect(beginsResult.Items).toHaveLength(3);
 
       // Less than
       const ltResult = await Effect.runPromise(
-        table.query({ pk, sk: { '<': 'item#002' } }),
+        table.query({ pk, sk: { type: '<', value: 'item#002' } }),
       );
       expect(ltResult.Items).toHaveLength(1);
       expect(ltResult.Items[0].skey).toBe('item#001');
 
       // Greater than or equal
       const gteResult = await Effect.runPromise(
-        table.query({ pk, sk: { '>=': 'item#002' } }),
+        table.query({ pk, sk: { type: '>=', value: 'item#002' } }),
       );
       expect(gteResult.Items.length).toBeGreaterThanOrEqual(2);
 
       // Between
       const betweenResult = await Effect.runPromise(
-        table.query({ pk, sk: { between: ['item#001', 'item#002'] } }),
+        table.query({
+          pk,
+          sk: { type: 'between', value: ['item#001', 'item#002'] },
+        }),
       );
       expect(betweenResult.Items).toHaveLength(2);
     });
@@ -109,15 +112,13 @@ describe('query Operations', () => {
         table.query(
           { pk },
           {
-            FilterExpression: '#score > :minScore AND #status = :status',
-            ExpressionAttributeNames: {
-              '#score': 'score',
-              '#status': 'status',
+            filter: {
+              type: 'and',
+              value: [
+                { attr: 'score', condition: { type: '>', value: 100 } },
+                { attr: 'status', condition: { type: '=', value: 'active' } },
+              ],
             },
-            ExpressionAttributeValues: {
-              ':minScore': 100,
-              ':status': 'active',
-            } as any,
           },
         ),
       );
@@ -139,8 +140,7 @@ describe('query Operations', () => {
         table.query(
           { pk },
           {
-            ProjectionExpression: 'pkey, skey, #name, email',
-            ExpressionAttributeNames: { '#name': 'name' },
+            projection: ['pkey', 'skey', 'name', 'email'],
           },
         ),
       );
@@ -170,7 +170,7 @@ describe('query Operations', () => {
       const page2 = await Effect.runPromise(
         table.query(
           { pk },
-          { Limit: 2, ExclusiveStartKey: page1.LastEvaluatedKey as any },
+          { Limit: 2, exclusiveStartKey: page1.LastEvaluatedKey },
         ),
       );
       expect(page2.Items).toHaveLength(2);
@@ -218,9 +218,10 @@ describe('query Operations', () => {
       // Scan with filter
       const filtered = await Effect.runPromise(
         table.scan({
-          FilterExpression: '#score > :minScore',
-          ExpressionAttributeNames: { '#score': 'score' },
-          ExpressionAttributeValues: { ':minScore': 100 } as any,
+          filter: {
+            attr: 'score',
+            condition: { type: '>', value: 100 },
+          },
         }),
       );
       expect(filtered.Items.length).toBeGreaterThanOrEqual(2);
@@ -231,10 +232,11 @@ describe('query Operations', () => {
       // Scan with projection
       const projected = await Effect.runPromise(
         table.scan({
-          ProjectionExpression: 'pkey, #level',
-          ExpressionAttributeNames: { '#level': 'level' },
-          FilterExpression: '#level > :minLevel',
-          ExpressionAttributeValues: { ':minLevel': 3 } as any,
+          filter: {
+            attr: 'level',
+            condition: { type: '>', value: 3 },
+          },
+          projection: ['pkey', 'level'],
         }),
       );
       expect(projected.Items.length).toBeGreaterThanOrEqual(2);
@@ -257,7 +259,7 @@ describe('query Operations', () => {
         const page2 = await Effect.runPromise(
           table.scan({
             Limit: 3,
-            ExclusiveStartKey: page1.LastEvaluatedKey as any,
+            exclusiveStartKey: page1.LastEvaluatedKey,
           }),
         );
         expect(page2.Items.length).toBeGreaterThan(0);
@@ -276,16 +278,20 @@ describe('query Operations', () => {
       // Query with no matching sort key
       await batchPutItems([createItem('user#007', 'profile')]);
       const noMatchResult = await Effect.runPromise(
-        table.query({ pk: 'user#007', sk: { beginsWith: 'nonmatching' } }),
+        table.query({
+          pk: 'user#007',
+          sk: { type: 'beginsWith', value: 'nonmatching' },
+        }),
       );
       expect(noMatchResult.Items).toHaveLength(0);
 
       // Scan with no matching filter
       const scanResult = await Effect.runPromise(
         table.scan({
-          FilterExpression: '#score > :maxScore',
-          ExpressionAttributeNames: { '#score': 'score' },
-          ExpressionAttributeValues: { ':maxScore': 10000 } as any,
+          filter: {
+            attr: 'score',
+            condition: { type: '>', value: 10000 },
+          },
         }),
       );
       expect(Array.isArray(scanResult.Items)).toBe(true);
@@ -297,10 +303,12 @@ describe('query Operations', () => {
 
       // Valid range with no items
       const result = await Effect.runPromise(
-        table.query({ pk, sk: { between: ['item#001', 'item#003'] } }),
+        table.query({
+          pk,
+          sk: { type: 'between', value: ['item#001', 'item#003'] },
+        }),
       );
       expect(result.Items).toHaveLength(0);
     });
   });
 });
-
