@@ -1,5 +1,5 @@
+import type { AttrExprResult } from '../expr-utils/index.js';
 import type {
-  AttrExprResult,
   AttrTypeExpr,
   ComparisonExpr,
   ExistenceExpr,
@@ -7,7 +7,7 @@ import type {
   SizeExpr,
   StringExpr,
 } from './types.js';
-import { generateUniqueId } from './utils.js';
+import { generateUniqueId } from '../expr-utils/index.js';
 
 // Comparison expression for numeric and string comparisons
 export function comparisonExpr<T>(
@@ -113,10 +113,7 @@ export function attrTypeExpr(
 }
 
 // Size expression (recursive for nested conditions)
-export function sizeExpr(
-  condition: SizeExpr,
-  attr: string,
-): AttrExprResult {
+export function sizeExpr(condition: SizeExpr, attr: string): AttrExprResult {
   const outerAttrId = generateUniqueId();
   const outerAttrName = `#attr${outerAttrId}`;
   const sizeExpr = `size(${outerAttrName})`;

@@ -1,12 +1,15 @@
-import type { IndexDefinition } from '../types.js';
+import type { IndexDefinition } from '../../types.js';
 import type {
   AttrExprResult,
-  AttributeConditionExpr,
   CompoundExprResult,
+} from '../expr-utils/index.js';
+import type {
+  AttributeConditionExpr,
   ConditionExpr,
   ConditionExprParameters,
   KeyConditionExprParameters,
 } from './types.js';
+import { mergeExprResults } from '../expr-utils/index.js';
 import {
   attrTypeExpr,
   comparisonExpr,
@@ -15,7 +18,6 @@ import {
   sizeExpr,
   stringExpr,
 } from './expressions.js';
-import { mergeExprResults } from './utils.js';
 
 export function attrExpr<T>(
   condition: ConditionExpr<T>,

@@ -4,7 +4,8 @@
       "Bash(bun run:*)",
       "Bash(npm run lint)",
       "Bash(pnpm run test:*)",
-      "Bash(pnpm run lint:*)"
+      "Bash(pnpm run lint:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   },

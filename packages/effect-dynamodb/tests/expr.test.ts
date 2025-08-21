@@ -1,5 +1,5 @@
 import type {
-  AttributeCondition,
+  AttributeConditionExpr as AttributeCondition,
   ConditionExprParameters,
   KeyConditionExprParameters,
 } from '../src/table/expr/index.js';

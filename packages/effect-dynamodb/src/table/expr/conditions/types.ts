@@ -1,4 +1,4 @@
-import type { CompoundIndexDefinition, IndexDefinition } from '../types.js';
+import type { CompoundIndexDefinition, IndexDefinition } from '../../types.js';
 
 // Granular expression types
 export type ComparisonExpr<T> =
@@ -62,17 +62,3 @@ export type ConditionExprParameters<Type> =
   | AttributeConditionExpr<Type>
   | { type: 'and'; value: ConditionExprParameters<Type>[] }
   | { type: 'or'; value: ConditionExprParameters<Type>[] };
-
-// Result types
-export interface AttrExprResult {
-  expr: string;
-  exprAttributes: Record<string, string>;
-  exprValues: Record<string, unknown>;
-}
-
-export interface CompoundExprResult {
-  condition: string;
-  exprAttributes: Record<string, string>;
-  exprValues: Record<string, unknown>;
-}
-

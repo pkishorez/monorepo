@@ -1,35 +1,20 @@
-// Expression functions (if needed for advanced usage)
-export {
-  attrTypeExpr,
-  comparisonExpr,
-  existenceExpr,
-  rangeExpr,
-  sizeExpr,
-  stringExpr,
-} from './expressions.js';
+// Essential functions for condition expressions
+export { expr, keyCondition } from './conditions/index.js';
 
-// Public API exports
-export { attrExpr, expr, keyCondition } from './expr.js';
+// Testing/advanced usage function
+export { attrExpr } from './conditions/index.js';
 
-// Type exports
+// Types needed by external code (query-executor and tests only)
+export type { KeyConditionExpr } from './conditions/index.js';
+
+// Types needed by tests only (consider these internal)
 export type {
-  AttrExprResult,
-  AttributeConditionExpr as AttributeCondition,
-  AttrTypeExpr,
-  ComparisonExpr,
-  CompoundExprResult,
-  ConditionExpr,
+  AttributeConditionExpr,
   ConditionExprParameters,
-  ExistenceExpr,
-  KeyConditionExpr,
   KeyConditionExprParameters,
-  RangeExpr,
-  SizeExpr,
-  StringExpr,
-} from './types.js';
+} from './conditions/index.js';
 
-// Utility functions (if needed for advanced usage)
-export {
-  generateUniqueId,
-  mergeExprResults,
-} from './utils.js';
+// Essential functions for update expressions
+export { updateExpr } from './updates/index.js';
+
+export type { UpdateExprParameters } from './updates/index.js';
