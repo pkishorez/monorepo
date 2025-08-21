@@ -33,10 +33,10 @@ export interface SizeExpr {
 }
 
 // Key condition specific string operations (only beginsWith is supported in key conditions)
-export interface KeyStringExpr<T extends string = string> {
-  type: "beginsWith";
-  value: T;
-}
+export type KeyStringExpr<T extends string = string> = Extract<
+  StringExpr<T>,
+  { type: "beginsWith" }
+>;
 
 // Composite types
 export type KeyConditionExpr<T> =
@@ -117,7 +117,10 @@ interface CompoundExprResult {
 }
 
 // Helper to generate unique attribute names
-function generateAttributeNames(attrName: string, attr: string): Record<string, string> {
+function generateAttributeNames(
+  attrName: string,
+  attr: string,
+): Record<string, string> {
   return { [attrName]: attr };
 }
 

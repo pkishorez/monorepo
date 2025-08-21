@@ -53,9 +53,15 @@ importers:
       '@aws-sdk/lib-dynamodb':
         specifier: 3.868.0
         version: 3.868.0(@aws-sdk/client-dynamodb@3.868.0)
+      '@aws-sdk/util-dynamodb':
+        specifier: ^3.872.0
+        version: 3.872.0(@aws-sdk/client-dynamodb@3.868.0)
       '@monorepo/eschema':
         specifier: workspace:*
         version: link:../eschema
+      dynamodb-client:
+        specifier: workspace:*
+        version: link:../dynamodb-client
       effect:
         specifier: 3.17.7
         version: 3.17.7
@@ -238,6 +244,12 @@ packages:
     engines: {node: '>=18.0.0'}
     peerDependencies:
       '@aws-sdk/client-dynamodb': ^3.868.0
+
+  '@aws-sdk/util-dynamodb@3.872.0':
+    resolution: {integrity: sha512-KDO/goFrUqmyogVIeXZp/PINktKyzKRjfyI1zb6cECLOlxmjC8ZApZaBLD5U5WKhYMqsnRqC7WZOtt/3b++pLg==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      '@aws-sdk/client-dynamodb': ^3.872.0
 
   '@aws-sdk/util-endpoints@3.862.0':
     resolution: {integrity: sha512-eCZuScdE9MWWkHGM2BJxm726MCmWk/dlHjOKvkM0sN1zxBellBMw5JohNss1Z8/TUmnW2gb9XHTOiHuGjOdksA==}
@@ -2205,6 +2217,11 @@ snapshots:
       tslib: 2.8.1
 
   '@aws-sdk/util-dynamodb@3.868.0(@aws-sdk/client-dynamodb@3.868.0)':
+    dependencies:
+      '@aws-sdk/client-dynamodb': 3.868.0
+      tslib: 2.8.1
+
+  '@aws-sdk/util-dynamodb@3.872.0(@aws-sdk/client-dynamodb@3.868.0)':
     dependencies:
       '@aws-sdk/client-dynamodb': 3.868.0
       tslib: 2.8.1
