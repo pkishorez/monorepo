@@ -5,7 +5,7 @@ import type {
   ReturnItemCollectionMetrics,
   ReturnValue,
   Select,
-} from '@aws-sdk/client-dynamodb';
+} from "@aws-sdk/client-dynamodb";
 
 export interface SimpleIndexDefinition {
   pk: string;
@@ -61,6 +61,19 @@ export type PartialKeyFromIndex<T extends IndexDefinition> = T extends {
     : never;
 
 export type Simplify<T> = { [K in keyof T]: T[K] } & {};
+
+// Helper type to convert discriminated unions to object unions
+// Example: { type: "lt"; value: T } | { type: "gt"; value: T } => { lt: T } | { gt: T }
+// Custom keys: { op: "add"; data: string } => { add: string }
+export type DiscriminatedUnionToObject<
+  Union,
+  Key extends string = "type",
+  ValueKey extends string = "value",
+> = Union extends Record<Key, infer K> & Record<ValueKey, infer V>
+  ? K extends string
+    ? { [P in K]: V }
+    : never
+  : never;
 
 export type ItemWithKeys<TPrimary extends IndexDefinition> =
   KeyFromIndex<TPrimary> & Record<string, unknown>;
@@ -137,13 +150,13 @@ export interface UpdateOptions {
 }
 
 export interface PutItemOptions {
-  returnValue?: 'NONE' | 'ALL_OLD';
+  returnValue?: "NONE" | "ALL_OLD";
   returnConsumedCapacity?: ReturnConsumedCapacity;
   returnItemCollectionMetrics?: ReturnItemCollectionMetrics;
 }
 
 export interface DeleteItemOptions {
-  returnValue?: 'NONE' | 'ALL_OLD';
+  returnValue?: "NONE" | "ALL_OLD";
   returnConsumedCapacity?: ReturnConsumedCapacity;
   returnItemCollectionMetrics?: ReturnItemCollectionMetrics;
 }
@@ -201,26 +214,34 @@ export interface BatchWriteOptions {
   returnItemCollectionMetrics?: ReturnItemCollectionMetrics;
 }
 
-export interface BatchWriteRequest<TPrimary extends IndexDefinition, TGSIs extends Record<string, IndexDefinition>, TLSIs extends Record<string, IndexDefinition>> {
+export interface BatchWriteRequest<
+  TPrimary extends IndexDefinition,
+  TGSIs extends Record<string, IndexDefinition>,
+  TLSIs extends Record<string, IndexDefinition>,
+> {
   putRequests?: ItemForPut<TPrimary, TGSIs, TLSIs>[];
   deleteRequests?: KeyFromIndex<TPrimary>[];
 }
 
 export interface BatchGetResult<T> {
   Items: T[];
-  UnprocessedKeys?: {
-    Keys: KeyFromIndex<any>[];
-    ProjectionExpression?: string | undefined;
-    ExpressionAttributeNames?: Record<string, string> | undefined;
-  } | undefined;
+  UnprocessedKeys?:
+    | {
+        Keys: KeyFromIndex<any>[];
+        ProjectionExpression?: string | undefined;
+        ExpressionAttributeNames?: Record<string, string> | undefined;
+      }
+    | undefined;
   ConsumedCapacity?: ConsumedCapacity[] | undefined;
 }
 
 export interface BatchWriteResult {
-  UnprocessedItems?: {
-    PutRequest?: Record<string, unknown>[] | undefined;
-    DeleteRequest?: { Key: Record<string, unknown> }[] | undefined;
-  } | undefined;
+  UnprocessedItems?:
+    | {
+        PutRequest?: Record<string, unknown>[] | undefined;
+        DeleteRequest?: { Key: Record<string, unknown> }[] | undefined;
+      }
+    | undefined;
   ItemCollectionMetrics?: Record<string, ItemCollectionMetrics[]> | undefined;
   ConsumedCapacity?: ConsumedCapacity[] | undefined;
 }
@@ -236,13 +257,17 @@ export interface TransactGetOptions {
   returnConsumedCapacity?: ReturnConsumedCapacity;
 }
 
-export interface TransactWriteItem<TPrimary extends IndexDefinition, TGSIs extends Record<string, IndexDefinition>, TLSIs extends Record<string, IndexDefinition>> {
+export interface TransactWriteItem<
+  TPrimary extends IndexDefinition,
+  TGSIs extends Record<string, IndexDefinition>,
+  TLSIs extends Record<string, IndexDefinition>,
+> {
   put?: {
     item: ItemForPut<TPrimary, TGSIs, TLSIs>;
     conditionExpression?: string;
     expressionAttributeNames?: Record<string, string>;
     expressionAttributeValues?: Record<string, unknown>;
-    returnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE';
+    returnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE";
   };
   update?: {
     key: KeyFromIndex<TPrimary>;
@@ -250,14 +275,14 @@ export interface TransactWriteItem<TPrimary extends IndexDefinition, TGSIs exten
     conditionExpression?: string;
     expressionAttributeNames?: Record<string, string>;
     expressionAttributeValues?: Record<string, unknown>;
-    returnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE';
+    returnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE";
   };
   delete?: {
     key: KeyFromIndex<TPrimary>;
     conditionExpression?: string;
     expressionAttributeNames?: Record<string, string>;
     expressionAttributeValues?: Record<string, unknown>;
-    returnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE';
+    returnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE";
   };
   conditionCheck?: {
     key: KeyFromIndex<TPrimary>;
@@ -286,14 +311,14 @@ export interface TransactGetResult<T> {
 // EXPERSSIONS.
 export type KeyConditionExprSK =
   | { beginsWith: string }
-  | { '<': string }
-  | { '<=': string }
-  | { '>': string }
-  | { '>=': string }
-  | { '=': string }
+  | { "<": string }
+  | { "<=": string }
+  | { ">": string }
+  | { ">=": string }
+  | { "=": string }
   | { between: [string, string] };
 
 export type KeyConditionExprParameters<Index extends IndexDefinition> =
   Index extends CompoundIndexDefinition
     ? { pk: string; sk?: string | KeyConditionExprSK }
-    : { pk: string; note?: 'simple pk' };
+    : { pk: string; note?: "simple pk" };

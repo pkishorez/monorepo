@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { generateDynamoDBCode } from "./generator.js";

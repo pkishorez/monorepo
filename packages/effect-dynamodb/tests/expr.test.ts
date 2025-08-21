@@ -2,9 +2,9 @@ import type {
   AttributeCondition,
   ConditionExprParameters,
   KeyConditionExprParameters,
-} from "../src/table/expr.js";
+} from "../src/table/expr/index.js";
 import { describe, expect } from "vitest";
-import { attrExpr, expr, keyCondition } from "../src/table/expr.js";
+import { attrExpr, expr, keyCondition } from "../src/table/expr/index.js";
 
 // Mock index definitions for testing
 const simpleIndex = { pk: "id" } as const;
@@ -14,11 +14,11 @@ describe("expression System", () => {
   describe("individual Expression Types", () => {
     it("comparison expressions", () => {
       const operators = [
-        { type: "lt" as const, symbol: "<" },
-        { type: "lte" as const, symbol: "<=" },
-        { type: "gt" as const, symbol: ">" },
-        { type: "gte" as const, symbol: ">=" },
-        { type: "eq" as const, symbol: "=" },
+        { type: "<" as const, symbol: "<" },
+        { type: "<=" as const, symbol: "<=" },
+        { type: ">" as const, symbol: ">" },
+        { type: ">=" as const, symbol: ">=" },
+        { type: "=" as const, symbol: "=" },
       ];
 
       operators.forEach(({ type, symbol }) => {
@@ -123,7 +123,7 @@ describe("expression System", () => {
         attr: "list_field",
         condition: {
           type: "size",
-          value: { type: "gt", value: 5 },
+          value: { type: ">", value: 5 },
         },
       };
 
@@ -143,11 +143,11 @@ describe("expression System", () => {
         value: [
           {
             attr: "field1",
-            condition: { type: "eq", value: "value1" },
+            condition: { type: "=", value: "value1" },
           },
           {
             attr: "field2",
-            condition: { type: "gt", value: 10 },
+            condition: { type: ">", value: 10 },
           },
         ],
       };
@@ -169,11 +169,11 @@ describe("expression System", () => {
         value: [
           {
             attr: "status",
-            condition: { type: "eq", value: "active" },
+            condition: { type: "=", value: "active" },
           },
           {
             attr: "priority",
-            condition: { type: "eq", value: "high" },
+            condition: { type: "=", value: "high" },
           },
         ],
       };
@@ -193,18 +193,18 @@ describe("expression System", () => {
         value: [
           {
             attr: "base_condition",
-            condition: { type: "eq", value: true },
+            condition: { type: "=", value: true },
           },
           {
             type: "or",
             value: [
               {
                 attr: "option1",
-                condition: { type: "eq", value: "A" },
+                condition: { type: "=", value: "A" },
               },
               {
                 attr: "option2",
-                condition: { type: "eq", value: "B" },
+                condition: { type: "=", value: "B" },
               },
             ],
           },
@@ -267,7 +267,7 @@ describe("expression System", () => {
     });
 
     it("all sort key operators", () => {
-      const operators = ["lt", "lte", "gt", "gte", "eq"] as const;
+      const operators = ["<", "<=", ">", ">=", "="] as const;
 
       operators.forEach((op) => {
         const params: KeyConditionExprParameters<typeof compoundIndex> = {
@@ -302,7 +302,7 @@ describe("expression System", () => {
     it("special characters in attribute names", () => {
       const condition: AttributeCondition<string> = {
         attr: "user.email@domain-test_field",
-        condition: { type: "eq", value: "test" },
+        condition: { type: "=", value: "test" },
       };
 
       const result = expr(condition);
@@ -327,7 +327,7 @@ describe("expression System", () => {
       testValues.forEach((value) => {
         const condition: AttributeCondition<any> = {
           attr: "test_field",
-          condition: { type: "eq", value },
+          condition: { type: "=", value },
         };
 
         const result = expr(condition);
@@ -340,7 +340,7 @@ describe("expression System", () => {
       // Create multiple expressions to ensure unique naming
       const conditions = Array.from({ length: 5 }, (_, i) => ({
         attr: `field${i}`,
-        condition: { type: "eq" as const, value: `value${i}` },
+        condition: { type: "=" as const, value: `value${i}` },
       }));
 
       const results = conditions.map((condition) => expr(condition));
@@ -359,7 +359,7 @@ describe("expression System", () => {
 
   describe("direct attrExpr Function", () => {
     it("attrExpr creates proper attribute mappings", () => {
-      const result = attrExpr({ type: "eq", value: "test" }, "my_attribute");
+      const result = attrExpr({ type: "=", value: "test" }, "my_attribute");
 
       expect(result.expr).toMatch(/^#attr\d+ = :value\d+$/);
       expect(Object.values(result.exprAttributeName)).toContain("my_attribute");

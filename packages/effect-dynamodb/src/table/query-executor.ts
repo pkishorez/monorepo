@@ -1,5 +1,5 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import type { KeyConditionExpr } from "./expr.js";
+import type { KeyConditionExpr } from "./expr/index.js";
 import type {
   EnhancedQueryResult,
   EnhancedScanResult,
@@ -12,7 +12,7 @@ import type {
 } from "./types.js";
 import { QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { Effect } from "effect";
-import { keyCondition } from "./expr.js";
+import { keyCondition } from "./expr/index.js";
 
 export class DynamoQueryExecutor {
   constructor(
@@ -117,7 +117,7 @@ export class DynamoQueryExecutor {
   private convertKeyConditionFormat<TIndex extends IndexDefinition>(
     key: KeyConditionExprParameters<TIndex>,
     index: TIndex,
-  ): import("./expr.js").KeyConditionExprParameters<TIndex> {
+  ): import("./expr/index.js").KeyConditionExprParameters<TIndex> {
     const result: any = { pk: key.pk };
 
     // Handle sort key if present
@@ -140,15 +140,15 @@ export class DynamoQueryExecutor {
     if ("beginsWith" in condition) {
       return { type: "beginsWith", value: condition.beginsWith };
     } else if ("<" in condition) {
-      return { type: "lt", value: condition["<"] };
+      return { type: "<", value: condition["<"] };
     } else if ("<=" in condition) {
-      return { type: "lte", value: condition["<="] };
+      return { type: "<=", value: condition["<="] };
     } else if (">" in condition) {
-      return { type: "gt", value: condition[">"] };
+      return { type: ">", value: condition[">"] };
     } else if (">=" in condition) {
-      return { type: "gte", value: condition[">="] };
+      return { type: ">=", value: condition[">="] };
     } else if ("=" in condition) {
-      return { type: "eq", value: condition["="] };
+      return { type: "=", value: condition["="] };
     } else if ("between" in condition) {
       return { type: "between", value: condition.between };
     } else {
