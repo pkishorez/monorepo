@@ -70,7 +70,10 @@ export class DynamoTable<
   }
 
   // Primary table operations
-  getItem(key: KeyFromIndex<TPrimary>, options?: Partial<GetItemInput>) {
+  getItem(
+    key: KeyFromIndex<TPrimary>,
+    options?: Omit<GetItemInput, 'Key' | 'TableName'>,
+  ) {
     return this.#client
       .getItem({
         TableName: this.#name,
@@ -89,7 +92,7 @@ export class DynamoTable<
 
   putItem(
     item: ItemForPut<TPrimary, TGSIs, TLSIs>,
-    options?: Partial<PutItemInput>,
+    options?: Omit<PutItemInput, 'TableName' | 'Item'>,
   ) {
     return this.#client
       .putItem({
@@ -107,7 +110,10 @@ export class DynamoTable<
       );
   }
 
-  updateItem(key: KeyFromIndex<TPrimary>, options?: Partial<UpdateItemInput>) {
+  updateItem(
+    key: KeyFromIndex<TPrimary>,
+    options?: Omit<UpdateItemInput, 'TableName' | 'Key'>,
+  ) {
     return this.#client
       .updateItem({
         TableName: this.#name,
@@ -124,7 +130,10 @@ export class DynamoTable<
       );
   }
 
-  deleteItem(key: KeyFromIndex<TPrimary>, options?: Partial<DeleteItemInput>) {
+  deleteItem(
+    key: KeyFromIndex<TPrimary>,
+    options?: Omit<DeleteItemInput, 'TableName' | 'Key'>,
+  ) {
     return this.#client
       .deleteItem({
         TableName: this.#name,
@@ -143,7 +152,7 @@ export class DynamoTable<
 
   query(
     key: KeyConditionExprParameters<TPrimary>,
-    options?: Partial<QueryInput>,
+    options?: Omit<QueryInput, 'TableName' | 'Key'>,
   ) {
     return this.#queryExecutor.executeQuery(key, this.primary, options).pipe(
       Effect.map((response) => ({
@@ -158,7 +167,7 @@ export class DynamoTable<
     );
   }
 
-  scan(options?: Partial<ScanInput>) {
+  scan(options?: Omit<ScanInput, 'TableName'>) {
     return this.#queryExecutor.executeScan(options).pipe(
       Effect.map((response) => ({
         ...response,
@@ -177,7 +186,7 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<TGSIs[TName]>,
-        options?: Partial<QueryInput>,
+        options?: Omit<QueryInput, 'TableName' | 'Key'>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.gsis[indexName], {
@@ -199,7 +208,7 @@ export class DynamoTable<
           );
       },
 
-      scan: (options?: Partial<ScanInput>) => {
+      scan: (options?: Omit<ScanInput, 'TableName'>) => {
         return this.#queryExecutor
           .executeScan({
             ...options,
@@ -229,7 +238,7 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<IndexDef>,
-        options?: Partial<QueryInput>,
+        options?: Omit<QueryInput, 'TableName' | 'Key'>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.lsis[indexName], {
@@ -251,7 +260,7 @@ export class DynamoTable<
           );
       },
 
-      scan: (options?: Partial<ScanInput>) => {
+      scan: (options?: Omit<ScanInput, 'TableName'>) => {
         return this.#queryExecutor
           .executeScan({
             ...options,

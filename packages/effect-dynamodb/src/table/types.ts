@@ -53,10 +53,11 @@ export type ItemForPut<
   TPrimary extends IndexDefinition,
   TGSIs extends Record<string, IndexDefinition>,
   TLSIs extends Record<string, IndexDefinition>,
+  Item = Record<string, unknown>,
 > = KeyFromIndex<TPrimary> &
   Partial<AllGLSIKeys<TGSIs>> &
   Partial<AllGLSIKeys<TLSIs>> &
-  Record<string, unknown>;
+  Item;
 
 // EXPERSSIONS.
 export type KeyConditionExprSK =
