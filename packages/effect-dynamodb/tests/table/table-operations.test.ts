@@ -45,12 +45,22 @@ describe('table Operations', () => {
       const user = createUser('002');
       await Effect.runPromise(table.putItem(user));
 
-      const updates = { status: STATUS.INACTIVE, updatedAt: '2024-01-01' };
       const result = await Effect.runPromise(
-        table.updateItem(createKey(user.pkey), updates),
+        table.updateItem(createKey(user.pkey), {
+          UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
+          ExpressionAttributeNames: {
+            '#status': 'status',
+            '#updatedAt': 'updatedAt',
+          },
+          ExpressionAttributeValues: {
+            ':status': { S: STATUS.INACTIVE },
+            ':updatedAt': { S: '2024-01-01' },
+          },
+          ReturnValues: 'ALL_NEW',
+        }),
       );
 
-      expect(result.Attributes).toMatchObject(updates);
+      expect(result.Attributes).toMatchObject({ status: STATUS.INACTIVE, updatedAt: '2024-01-01' });
     });
 
     it('should update item with expression', async () => {
@@ -58,15 +68,12 @@ describe('table Operations', () => {
       await Effect.runPromise(table.putItem(user));
 
       const result = await Effect.runPromise(
-        table.updateItem(
-          createKey(user.pkey),
-          {},
-          {
-            updateExpression: 'SET #count = #count + :inc',
-            expressionAttributeNames: { '#count': 'count' },
-            expressionAttributeValues: { ':inc': 3 },
-          },
-        ),
+        table.updateItem(createKey(user.pkey), {
+          UpdateExpression: 'SET #count = #count + :inc',
+          ExpressionAttributeNames: { '#count': 'count' },
+          ExpressionAttributeValues: { ':inc': { N: '3' } },
+          ReturnValues: 'ALL_NEW',
+        }),
       );
 
       expect(result.Attributes!.count).toBe(8);
@@ -91,7 +98,7 @@ describe('table Operations', () => {
 
         const result = await Effect.runPromise(
           table.getItem(createKey(user.pkey, user.skey), {
-            returnConsumedCapacity: 'TOTAL',
+            ReturnConsumedCapacity: 'TOTAL',
           }),
         );
 
@@ -106,7 +113,7 @@ describe('table Operations', () => {
         // Update the item and get old value back
         const newUser = { ...user, status: STATUS.INACTIVE };
         const result = await Effect.runPromise(
-          table.putItem(newUser, { returnValue: 'ALL_OLD' }),
+          table.putItem(newUser, { ReturnValues: 'ALL_OLD' }),
         );
 
         expect(result.Attributes).toEqual(user);
@@ -117,14 +124,18 @@ describe('table Operations', () => {
         await Effect.runPromise(table.putItem(user));
 
         const result = await Effect.runPromise(
-          table.updateItem(
-            createKey(user.pkey),
-            { status: STATUS.INACTIVE },
-            {
-              returnConsumedCapacity: 'TOTAL',
-              returnItemCollectionMetrics: 'SIZE',
+          table.updateItem(createKey(user.pkey), {
+            UpdateExpression: 'SET #status = :status',
+            ExpressionAttributeNames: {
+              '#status': 'status',
             },
-          ),
+            ExpressionAttributeValues: {
+              ':status': { S: STATUS.INACTIVE },
+            },
+            ReturnValues: 'ALL_NEW',
+            ReturnConsumedCapacity: 'TOTAL',
+            ReturnItemCollectionMetrics: 'SIZE',
+          }),
         );
 
         expect(result.ConsumedCapacity).toBeDefined();
@@ -320,12 +331,12 @@ describe('table Operations', () => {
           table.query(
             { pk: user.pkey },
             {
-              filterExpression: '#status = :status AND #score > :minScore',
-              expressionAttributeNames: {
+              FilterExpression: '#status = :status AND #score > :minScore',
+              ExpressionAttributeNames: {
                 '#status': 'status',
                 '#score': 'score',
               },
-              expressionAttributeValues: {
+              ExpressionAttributeValues: {
                 ':status': STATUS.ACTIVE,
                 ':minScore': 50,
               },
@@ -363,8 +374,8 @@ describe('table Operations', () => {
           table.query(
             { pk: user.pkey, sk: 'profile' },
             {
-              projectionExpression: '#pk, #sk, #name, #email',
-              expressionAttributeNames: {
+              ProjectionExpression: '#pk, #sk, #name, #email',
+              ExpressionAttributeNames: {
                 '#pk': 'pkey',
                 '#sk': 'skey',
                 '#name': 'name',
@@ -397,7 +408,7 @@ describe('table Operations', () => {
         ]);
 
         const result = await Effect.runPromise(
-          table.query({ pk: user.pkey }, { consistentRead: true }),
+          table.query({ pk: user.pkey }, { ConsistentRead: true }),
         );
 
         expectItemCount(result.Items, 2);
@@ -436,15 +447,15 @@ describe('table Operations', () => {
           table.query(
             { pk: user.pkey },
             {
-              filterExpression: '#status = :status AND #total > :minTotal',
-              projectionExpression: '#sk, #customer, #total',
-              expressionAttributeNames: {
+              FilterExpression: '#status = :status AND #total > :minTotal',
+              ProjectionExpression: '#sk, #customer, #total',
+              ExpressionAttributeNames: {
                 '#status': 'status',
                 '#total': 'total',
                 '#sk': 'skey',
                 '#customer': 'customer',
               },
-              expressionAttributeValues: {
+              ExpressionAttributeValues: {
                 ':status': 'completed',
                 ':minTotal': 150,
               },
@@ -474,7 +485,7 @@ describe('table Operations', () => {
         await batchPutItems(table, items);
 
         const page1 = await Effect.runPromise(
-          table.query({ pk: user.pkey }, { limit: 2 }),
+          table.query({ pk: user.pkey }, { Limit: 2 }),
         );
         expectItemCount(page1.Items, 2);
 
@@ -483,8 +494,8 @@ describe('table Operations', () => {
             table.query(
               { pk: user.pkey },
               {
-                limit: 2,
-                exclusiveStartKey: page1.LastEvaluatedKey,
+                Limit: 2,
+                ExclusiveStartKey: page1.LastEvaluatedKey,
               },
             ),
           );
@@ -493,7 +504,7 @@ describe('table Operations', () => {
         }
       });
 
-      it('should query in reverse order with scanIndexForward', async () => {
+      it('should query in reverse order with ScanIndexForward', async () => {
         const user = createUser('015');
         await batchPutItems(table, [
           { ...user, skey: 'a' },
@@ -502,11 +513,11 @@ describe('table Operations', () => {
         ]);
 
         const forward = await Effect.runPromise(
-          table.query({ pk: user.pkey }, { scanIndexForward: true }),
+          table.query({ pk: user.pkey }, { ScanIndexForward: true }),
         );
 
         const reverse = await Effect.runPromise(
-          table.query({ pk: user.pkey }, { scanIndexForward: false }),
+          table.query({ pk: user.pkey }, { ScanIndexForward: false }),
         );
 
         expect(forward.Items[0].skey).toBe('a');
@@ -520,7 +531,7 @@ describe('table Operations', () => {
       const users = [createUser('016'), createUser('017'), createUser('018')];
       await batchPutItems(table, users);
 
-      const result = await Effect.runPromise(table.scan({ limit: 10 }));
+      const result = await Effect.runPromise(table.scan({ Limit: 10 }));
 
       expect(result.Items.length).toBeGreaterThanOrEqual(3);
     });
@@ -535,9 +546,9 @@ describe('table Operations', () => {
 
       const result = await Effect.runPromise(
         table.scan({
-          filterExpression: '#status = :status AND #score > :minScore',
-          expressionAttributeNames: { '#status': 'status', '#score': 'score' },
-          expressionAttributeValues: {
+          FilterExpression: '#status = :status AND #score > :minScore',
+          ExpressionAttributeNames: { '#status': 'status', '#score': 'score' },
+          ExpressionAttributeValues: {
             ':status': STATUS.ACTIVE,
             ':minScore': 75,
           },
@@ -561,14 +572,14 @@ describe('table Operations', () => {
 
       const result = await Effect.runPromise(
         table.scan({
-          projectionExpression: '#pk, #level, #points',
-          expressionAttributeNames: {
+          ProjectionExpression: '#pk, #level, #points',
+          ExpressionAttributeNames: {
             '#pk': 'pkey',
             '#level': 'level',
             '#points': 'points',
           },
-          filterExpression: '#level > :minLevel',
-          expressionAttributeValues: {
+          FilterExpression: '#level > :minLevel',
+          ExpressionAttributeValues: {
             ':minLevel': 4,
           },
         }),
@@ -588,8 +599,8 @@ describe('table Operations', () => {
 
       const result = await Effect.runPromise(
         table.scan({
-          consistentRead: true,
-          limit: 10,
+          ConsistentRead: true,
+          Limit: 10,
         }),
       );
 
@@ -603,14 +614,14 @@ describe('table Operations', () => {
       }
       await batchPutItems(table, users);
 
-      const page1 = await Effect.runPromise(table.scan({ limit: 2 }));
+      const page1 = await Effect.runPromise(table.scan({ Limit: 2 }));
       expect(page1.Items.length).toBeGreaterThan(0);
 
       if (page1.LastEvaluatedKey) {
         const page2 = await Effect.runPromise(
           table.scan({
-            limit: 2,
-            exclusiveStartKey: page1.LastEvaluatedKey,
+            Limit: 2,
+            ExclusiveStartKey: page1.LastEvaluatedKey,
           }),
         );
         expect(page2.Items.length).toBeGreaterThan(0);
@@ -618,4 +629,3 @@ describe('table Operations', () => {
     });
   });
 });
-

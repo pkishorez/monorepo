@@ -1,15 +1,13 @@
 /* eslint-disable no-console */
 /* eslint-disable unused-imports/no-unused-vars */
-import type { CreateTableCommandInput } from '@aws-sdk/client-dynamodb';
+import type { CreateTableInput } from 'dynamodb-client';
 import process from 'node:process';
+import { config } from 'dotenv';
 import {
-  CreateTableCommand,
-  DescribeTableCommand,
-  DynamoDBClient,
+  createDynamoDB,
   ResourceInUseException,
   ResourceNotFoundException,
-} from '@aws-sdk/client-dynamodb';
-import { config } from 'dotenv';
+} from 'dynamodb-client';
 import { Effect } from 'effect';
 import { beforeAll } from 'vitest';
 import { DynamoTable } from '../src/table/index.js';
@@ -17,7 +15,7 @@ import { DynamoTable } from '../src/table/index.js';
 config();
 
 // Table schema configuration
-const TABLE_SCHEMA: Omit<CreateTableCommandInput, 'TableName'> = {
+const TABLE_SCHEMA: Omit<CreateTableInput, 'TableName'> = {
   KeySchema: [
     { AttributeName: 'pkey', KeyType: 'HASH' },
     { AttributeName: 'skey', KeyType: 'RANGE' },
@@ -80,8 +78,8 @@ function validateEnvironment(): TestEnvironment {
   return { tableName, dynamoUrl };
 }
 
-function createDynamoClient(endpoint: string): DynamoDBClient {
-  return new DynamoDBClient({
+function createDynamoClient(endpoint: string) {
+  return createDynamoDB({
     region: 'us-east-1',
     credentials: {
       accessKeyId: 'test',
@@ -92,11 +90,11 @@ function createDynamoClient(endpoint: string): DynamoDBClient {
 }
 
 async function tableExists(
-  client: DynamoDBClient,
+  client: ReturnType<typeof createDynamoDB>,
   tableName: string,
 ): Promise<boolean> {
   try {
-    await client.send(new DescribeTableCommand({ TableName: tableName }));
+    await Effect.runPromise(client.describeTable({ TableName: tableName }));
     return true;
   } catch (error) {
     if (error instanceof ResourceNotFoundException) {
@@ -107,7 +105,7 @@ async function tableExists(
 }
 
 async function createTableIfNotExists(
-  client: DynamoDBClient,
+  client: ReturnType<typeof createDynamoDB>,
   tableName: string,
 ): Promise<void> {
   try {
@@ -118,8 +116,8 @@ async function createTableIfNotExists(
     }
 
     console.log(`🔧 Creating table '${tableName}'...`);
-    await client.send(
-      new CreateTableCommand({
+    await Effect.runPromise(
+      client.createTable({
         TableName: tableName,
         ...TABLE_SCHEMA,
       }),
@@ -139,14 +137,14 @@ async function createTableIfNotExists(
 }
 
 async function waitForTableActive(
-  client: DynamoDBClient,
+  client: ReturnType<typeof createDynamoDB>,
   tableName: string,
   maxAttempts: number = 30,
 ): Promise<void> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const result = await client.send(
-        new DescribeTableCommand({ TableName: tableName }),
+      const result = await Effect.runPromise(
+        client.describeTable({ TableName: tableName }),
       );
 
       if (result.Table?.TableStatus === 'ACTIVE') {
@@ -175,7 +173,7 @@ async function waitForTableActive(
 
 export async function setupTestDatabase(): Promise<{
   tableName: string;
-  client: DynamoDBClient;
+  client: ReturnType<typeof createDynamoDB>;
 }> {
   const env = validateEnvironment();
   const client = createDynamoClient(env.dynamoUrl);
@@ -231,7 +229,7 @@ export async function cleanTable(): Promise<void> {
   try {
     let hasMoreItems = true;
     while (hasMoreItems) {
-      const scanResult = await Effect.runPromise(table.scan({ limit: 100 }));
+      const scanResult = await Effect.runPromise(table.scan({ Limit: 100 }));
       if (scanResult.Items && scanResult.Items.length > 0) {
         for (const item of scanResult.Items) {
           try {

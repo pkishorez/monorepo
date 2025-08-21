@@ -63,7 +63,7 @@ describe('batch Operations', () => {
 
       const keys = users.map(user => createKey(user.pkey, user.skey));
       const result = await Effect.runPromise(
-        table.batchGetItem(keys, { consistentRead: true })
+        table.batchGetItem(keys, { ConsistentRead: true })
       );
 
       expectItemCount(result.Items, 2);
@@ -82,8 +82,8 @@ describe('batch Operations', () => {
       const keys = users.map(user => createKey(user.pkey, user.skey));
       const result = await Effect.runPromise(
         table.batchGetItem(keys, {
-          projectionExpression: 'pkey, skey, #status',
-          expressionAttributeNames: { '#status': 'status' },
+          ProjectionExpression: 'pkey, skey, #status',
+          ExpressionAttributeNames: { '#status': 'status' },
         })
       );
 
@@ -100,7 +100,7 @@ describe('batch Operations', () => {
 
       const result = await Effect.runPromise(
         table.batchGetItem([createKey(user.pkey, user.skey)], {
-          returnConsumedCapacity: 'TOTAL',
+          ReturnConsumedCapacity: 'TOTAL',
         })
       );
 
@@ -202,7 +202,7 @@ describe('batch Operations', () => {
       const result = await Effect.runPromise(
         table.batchWriteItem(
           { putRequests: users },
-          { returnConsumedCapacity: 'TOTAL' }
+          { ReturnConsumedCapacity: 'TOTAL' }
         )
       );
 

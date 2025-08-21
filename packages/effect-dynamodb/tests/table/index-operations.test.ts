@@ -132,12 +132,12 @@ describe('index Operations', () => {
               sk: { beginsWith: `${PREFIXES.BRAND}apple` },
             },
             {
-              filterExpression: '#price > :minPrice AND #stock > :minStock',
-              expressionAttributeNames: {
+              FilterExpression: '#price > :minPrice AND #stock > :minStock',
+              ExpressionAttributeNames: {
                 '#price': 'price',
                 '#stock': 'stock',
               },
-              expressionAttributeValues: {
+              ExpressionAttributeValues: {
                 ':minPrice': 700,
                 ':minStock': 0,
               },
@@ -173,8 +173,8 @@ describe('index Operations', () => {
           table.gsi('GSI1').query(
             { pk: `${PREFIXES.USER}user1` },
             {
-              projectionExpression: 'gsi1pk, skey, #total, #items',
-              expressionAttributeNames: {
+              ProjectionExpression: 'gsi1pk, skey, #total, #items',
+              ExpressionAttributeNames: {
                 '#items': 'items',
                 '#total': 'total',
               },
@@ -225,18 +225,18 @@ describe('index Operations', () => {
               sk: { beginsWith: `${PREFIXES.BRAND}nike` },
             },
             {
-              scanIndexForward: false,
-              filterExpression: '#price >= :minPrice AND #inStock = :inStock',
-              projectionExpression: 'gsi1pk, gsi1sk, price, rating',
-              expressionAttributeNames: {
+              ScanIndexForward: false,
+              FilterExpression: '#price >= :minPrice AND #inStock = :inStock',
+              ProjectionExpression: 'gsi1pk, gsi1sk, price, rating',
+              ExpressionAttributeNames: {
                 '#price': 'price',
                 '#inStock': 'inStock',
               },
-              expressionAttributeValues: {
+              ExpressionAttributeValues: {
                 ':minPrice': 100,
                 ':inStock': true,
               },
-              limit: 10,
+              Limit: 10,
             },
           ),
         );
@@ -270,14 +270,14 @@ describe('index Operations', () => {
 
         const result = await Effect.runPromise(
           table.gsi('GSI1').scan({
-            filterExpression:
+            FilterExpression:
               'begins_with(#gsi1pk, :prefix) AND #organic = :organic',
-            projectionExpression: 'pkey, category, calories',
-            expressionAttributeNames: {
+            ProjectionExpression: 'pkey, category, calories',
+            ExpressionAttributeNames: {
               '#gsi1pk': 'gsi1pk',
               '#organic': 'organic',
             },
-            expressionAttributeValues: {
+            ExpressionAttributeValues: {
               ':prefix': PREFIXES.CATEGORY,
               ':organic': true,
             },
@@ -301,8 +301,8 @@ describe('index Operations', () => {
 
         const result = await Effect.runPromise(
           table.gsi('GSI1').scan({
-            returnConsumedCapacity: 'TOTAL',
-            limit: 10,
+            ReturnConsumedCapacity: 'TOTAL',
+            Limit: 10,
           }),
         );
 
@@ -363,11 +363,11 @@ describe('index Operations', () => {
           table.lsi('LSI1').query(
             { pk: products[0].pkey },
             {
-              filterExpression: '#featured = :featured',
-              expressionAttributeNames: {
+              FilterExpression: '#featured = :featured',
+              ExpressionAttributeNames: {
                 '#featured': 'featured',
               },
-              expressionAttributeValues: {
+              ExpressionAttributeValues: {
                 ':featured': true,
               },
             },
@@ -394,8 +394,8 @@ describe('index Operations', () => {
           table.lsi('LSI1').query(
             { pk: products[0].pkey },
             {
-              projectionExpression: 'pkey, lsi1skey, isbn, #year',
-              expressionAttributeNames: {
+              ProjectionExpression: 'pkey, lsi1skey, isbn, #year',
+              ExpressionAttributeNames: {
                 '#year': 'year',
               },
             },
@@ -423,7 +423,7 @@ describe('index Operations', () => {
         const result = await Effect.runPromise(
           table
             .lsi('LSI1')
-            .query({ pk: products[0].pkey }, { consistentRead: true }),
+            .query({ pk: products[0].pkey }, { ConsistentRead: true }),
         );
 
         expect(result.Items.length).toBeGreaterThanOrEqual(1);
@@ -437,8 +437,8 @@ describe('index Operations', () => {
 
         const result = await Effect.runPromise(
           table.lsi('LSI1').scan({
-            projectionExpression: 'pkey, lsi1skey',
-            limit: 10,
+            ProjectionExpression: 'pkey, lsi1skey',
+            Limit: 10,
           }),
         );
 
@@ -457,11 +457,11 @@ describe('index Operations', () => {
 
         const result = await Effect.runPromise(
           table.lsi('LSI1').scan({
-            filterExpression: '#featured = :featured',
-            expressionAttributeNames: { '#featured': 'featured' },
-            expressionAttributeValues: { ':featured': true },
-            returnConsumedCapacity: 'TOTAL',
-            limit: 10,
+            FilterExpression: '#featured = :featured',
+            ExpressionAttributeNames: { '#featured': 'featured' },
+            ExpressionAttributeValues: { ':featured': true },
+            ReturnConsumedCapacity: 'TOTAL',
+            Limit: 10,
           }),
         );
 
@@ -500,8 +500,8 @@ describe('index Operations', () => {
           .query(
             { pk: `${PREFIXES.CATEGORY}electronics` },
             {
-              filterExpression: 'price > :minPrice',
-              expressionAttributeValues: { ':minPrice': 800 },
+              FilterExpression: 'price > :minPrice',
+              ExpressionAttributeValues: { ':minPrice': 800 },
             },
           ),
       );
@@ -513,8 +513,8 @@ describe('index Operations', () => {
           .query(
             { pk: products[0].pkey },
             {
-              filterExpression: 'featured = :featured',
-              expressionAttributeValues: { ':featured': true },
+              FilterExpression: 'featured = :featured',
+              ExpressionAttributeValues: { ':featured': true },
             },
           ),
       );
@@ -529,15 +529,15 @@ describe('index Operations', () => {
 
       // Test GSI pagination
       const gsiPage1 = await Effect.runPromise(
-        table.gsi('GSI1').scan({ limit: 3 }),
+        table.gsi('GSI1').scan({ Limit: 3 }),
       );
 
       expect(gsiPage1.Items.length).toBeGreaterThan(0);
       if (gsiPage1.LastEvaluatedKey) {
         const gsiPage2 = await Effect.runPromise(
           table.gsi('GSI1').scan({
-            limit: 3,
-            exclusiveStartKey: gsiPage1.LastEvaluatedKey,
+            Limit: 3,
+            ExclusiveStartKey: gsiPage1.LastEvaluatedKey,
           }),
         );
         expect(gsiPage2.Items.length).toBeGreaterThan(0);

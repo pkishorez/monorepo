@@ -391,7 +391,7 @@ describe('transaction Operations', () => {
         const result = await Effect.runPromise(
           table.transactWriteItems(
             [{ put: { item: user } }],
-            { returnConsumedCapacity: 'TOTAL' }
+            { ReturnConsumedCapacity: 'TOTAL' }
           )
         );
 
@@ -478,7 +478,7 @@ describe('transaction Operations', () => {
       const result = await Effect.runPromise(
         table.transactGetItems(
           [{ key: createKey(user.pkey, user.skey) }],
-          { returnConsumedCapacity: 'TOTAL' }
+          { ReturnConsumedCapacity: 'TOTAL' }
         )
       );
 

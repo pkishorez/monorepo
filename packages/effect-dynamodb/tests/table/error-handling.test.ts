@@ -52,17 +52,24 @@ describe('error Handling', () => {
 
   describe('update and Delete Operations', () => {
     it('should handle update on non-existent item', async () => {
-      const updates = { status: 'updated' };
-
       const result = await Effect.runPromise(
         table.updateItem(
           createKey(`${PREFIXES.USER}999`, SORT_KEY_TYPES.PROFILE),
-          updates,
+          {
+            UpdateExpression: 'SET #status = :status',
+            ExpressionAttributeNames: {
+              '#status': 'status',
+            },
+            ExpressionAttributeValues: {
+              ':status': { S: 'updated' },
+            },
+            ReturnValues: 'ALL_NEW',
+          },
         ),
       );
 
       // DynamoDB creates the item if it doesn't exist during update
-      expect(result.Attributes).toMatchObject(updates);
+      expect(result.Attributes).toMatchObject({ status: 'updated' });
     });
 
     it('should handle delete on non-existent item gracefully', async () => {
@@ -117,9 +124,9 @@ describe('error Handling', () => {
 
       const result = await Effect.runPromise(
         table.scan({
-          filterExpression: '#score > :minScore',
-          expressionAttributeNames: { '#score': 'score' },
-          expressionAttributeValues: { ':minScore': 200 },
+          FilterExpression: '#score > :minScore',
+          ExpressionAttributeNames: { '#score': 'score' },
+          ExpressionAttributeValues: { ':minScore': 200 },
         }),
       );
 
@@ -135,15 +142,11 @@ describe('error Handling', () => {
 
       // Update with expression
       await Effect.runPromise(
-        table.updateItem(
-          createKey(user.pkey),
-          {},
-          {
-            updateExpression: 'SET #count = #count + :inc',
-            expressionAttributeNames: { '#count': 'count' },
-            expressionAttributeValues: { ':inc': 5 },
-          },
-        ),
+        table.updateItem(createKey(user.pkey), {
+          UpdateExpression: 'SET #count = #count + :inc',
+          ExpressionAttributeNames: { '#count': 'count' },
+          ExpressionAttributeValues: { ':inc': { N: '5' } },
+        }),
       );
 
       // Get and verify
@@ -153,14 +156,25 @@ describe('error Handling', () => {
       expect(result.Item?.count).toBe(6);
 
       // Update with attributes
-      const updates = { count: 10, status: 'modified' };
-      await Effect.runPromise(table.updateItem(createKey(user.pkey), updates));
+      await Effect.runPromise(
+        table.updateItem(createKey(user.pkey), {
+          UpdateExpression: 'SET #count = :count, #status = :status',
+          ExpressionAttributeNames: {
+            '#count': 'count',
+            '#status': 'status',
+          },
+          ExpressionAttributeValues: {
+            ':count': { N: '10' },
+            ':status': { S: 'modified' },
+          },
+        }),
+      );
 
       // Final verification
       const finalResult = await Effect.runPromise(
         table.getItem(createKey(user.pkey)),
       );
-      expect(finalResult.Item).toMatchObject(updates);
+      expect(finalResult.Item).toMatchObject({ count: 10, status: 'modified' });
     });
   });
 });

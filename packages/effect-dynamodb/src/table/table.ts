@@ -1,56 +1,40 @@
 /* eslint-disable ts/no-empty-object-type */
 import type {
+  BatchGetItemInput,
+  BatchWriteItemInput,
   ConsumedCapacity,
+  DeleteItemInput,
+  DynamoDB,
+  GetItemInput,
   ItemCollectionMetrics,
-} from '@aws-sdk/client-dynamodb';
+  PutItemInput,
+  QueryInput,
+  ScanInput,
+  TransactGetItemsInput,
+  TransactWriteItemsInput,
+  UpdateItemInput,
+} from 'dynamodb-client';
 import type {
-  BatchGetOptions,
   BatchGetResult,
-  BatchWriteOptions,
   BatchWriteRequest,
   BatchWriteResult,
-  DeleteItemOptions,
   DynamoConfig,
-  EnhancedDeleteResult,
-  EnhancedGetItemResult,
-  EnhancedPutResult,
-  EnhancedQueryResult,
-  EnhancedScanResult,
-  EnhancedUpdateResult,
-  GetItemOptions,
   IndexDefinition,
   ItemForPut,
-  ItemForUpdate,
   ItemWithKeys,
   KeyConditionExprParameters,
   KeyFromIndex,
-  PutItemOptions,
-  QueryOptions,
-  ScanOptions,
   SecondaryIndexDefinition,
   Simplify,
   TransactGetItem,
-  TransactGetOptions,
   TransactGetResult,
   TransactWriteItem,
-  TransactWriteOptions,
   TransactWriteResult,
-  UpdateOptions,
 } from './types.js';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  BatchGetCommand,
-  BatchWriteCommand,
-  DeleteCommand,
-  DynamoDBDocumentClient,
-  GetCommand,
-  PutCommand,
-  TransactGetCommand,
-  TransactWriteCommand,
-  UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { createDynamoDB } from 'dynamodb-client';
 import { Effect } from 'effect';
 import { DynamoQueryExecutor } from './query-executor.js';
+import { marshall, unmarshall } from './utils.js';
 
 export class DynamoTable<
   TPrimary extends IndexDefinition,
@@ -58,7 +42,7 @@ export class DynamoTable<
   TLSIs extends Record<string, SecondaryIndexDefinition> = {},
 > {
   readonly #name: string;
-  readonly #client: DynamoDBDocumentClient;
+  readonly #client: DynamoDB;
   readonly #queryExecutor: DynamoQueryExecutor;
 
   readonly primary: TPrimary;
@@ -77,7 +61,7 @@ export class DynamoTable<
     this.gsis = config.gsis;
     this.lsis = config.lsis;
 
-    const client = new DynamoDBClient({
+    this.#client = createDynamoDB({
       region: config.dynamoConfig.region || 'us-east-1',
       credentials: {
         accessKeyId: config.dynamoConfig.accessKey,
@@ -87,7 +71,6 @@ export class DynamoTable<
         endpoint: config.dynamoConfig.endpoint,
       }),
     });
-    this.#client = DynamoDBDocumentClient.from(client);
     this.#queryExecutor = new DynamoQueryExecutor(this.#client, this.#name);
   }
 
@@ -100,127 +83,112 @@ export class DynamoTable<
   }
 
   // Primary table operations
-  getItem(
-    key: KeyFromIndex<TPrimary>,
-    options?: GetItemOptions,
-  ): Effect.Effect<EnhancedGetItemResult<ItemWithKeys<TPrimary>>> {
-    return Effect.promise(() =>
-      this.#client.send(
-        new GetCommand({
-          TableName: this.#name,
-          Key: key,
-          ConsistentRead: options?.consistentRead,
-          ProjectionExpression: options?.projectionExpression,
-          ExpressionAttributeNames: options?.expressionAttributeNames,
-          ReturnConsumedCapacity: options?.returnConsumedCapacity,
-        }),
-      ),
-    ).pipe(
-      Effect.map((response) => ({
-        Item: (response.Item as ItemWithKeys<TPrimary>) || null,
-        ConsumedCapacity: response.ConsumedCapacity,
-      })),
-    );
+  getItem(key: KeyFromIndex<TPrimary>, options?: Partial<GetItemInput>) {
+    return this.#client
+      .getItem({
+        TableName: this.#name,
+        Key: marshall(key),
+        ...options,
+      })
+      .pipe(
+        Effect.map((response) => ({
+          ...response,
+          Item: response.Item
+            ? (unmarshall(response.Item) as ItemWithKeys<TPrimary>)
+            : null,
+        })),
+      );
   }
 
   putItem(
     item: ItemForPut<TPrimary, TGSIs, TLSIs>,
-    options?: PutItemOptions,
-  ): Effect.Effect<EnhancedPutResult> {
-    return Effect.promise(() =>
-      this.#client.send(
-        new PutCommand({
-          TableName: this.#name,
-          Item: item,
-          ReturnValues: options?.returnValue,
-          ReturnConsumedCapacity: options?.returnConsumedCapacity,
-          ReturnItemCollectionMetrics: options?.returnItemCollectionMetrics,
-        }),
-      ),
-    ).pipe(
-      Effect.map((response) => ({
-        Attributes: response.Attributes,
-        ConsumedCapacity: response.ConsumedCapacity,
-        ItemCollectionMetrics: response.ItemCollectionMetrics,
-      })),
-    );
+    options?: Partial<PutItemInput>,
+  ) {
+    return this.#client
+      .putItem({
+        TableName: this.#name,
+        Item: marshall(item),
+        ...options,
+      })
+      .pipe(
+        Effect.map((response) => ({
+          ...response,
+          Attributes: response.Attributes
+            ? unmarshall(response.Attributes)
+            : undefined,
+        })),
+      );
   }
 
-  updateItem(
-    key: KeyFromIndex<TPrimary>,
-    updates: ItemForUpdate<TPrimary, TGSIs, TLSIs>,
-    options?: UpdateOptions,
-  ): Effect.Effect<EnhancedUpdateResult<ItemWithKeys<TPrimary>>> {
-    const updateExpression =
-      options?.updateExpression || this.#buildUpdateExpression(updates);
-    const expressionAttributeNames =
-      options?.expressionAttributeNames || this.#buildAttributeNames(updates);
-    const expressionAttributeValues =
-      options?.expressionAttributeValues || this.#buildAttributeValues(updates);
-    const ReturnValues = options?.returnValue || 'ALL_NEW';
-
-    return Effect.promise(() =>
-      this.#client.send(
-        new UpdateCommand({
-          TableName: this.#name,
-          Key: key,
-          UpdateExpression: updateExpression,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
-          ReturnValues,
-          ReturnConsumedCapacity: options?.returnConsumedCapacity,
-          ReturnItemCollectionMetrics: options?.returnItemCollectionMetrics,
-        }),
-      ),
-    ).pipe(
-      Effect.map((response) => ({
-        Attributes: response.Attributes as ItemWithKeys<TPrimary>,
-        ConsumedCapacity: response.ConsumedCapacity,
-        ItemCollectionMetrics: response.ItemCollectionMetrics,
-      })),
-    );
+  updateItem(key: KeyFromIndex<TPrimary>, options?: Partial<UpdateItemInput>) {
+    return this.#client
+      .updateItem({
+        TableName: this.#name,
+        Key: marshall(key),
+        ...options,
+      })
+      .pipe(
+        Effect.map((response) => ({
+          ...response,
+          Attributes: response.Attributes
+            ? unmarshall(response.Attributes)
+            : undefined,
+        })),
+      );
   }
 
-  deleteItem(
-    key: KeyFromIndex<TPrimary>,
-    options?: DeleteItemOptions,
-  ): Effect.Effect<EnhancedDeleteResult> {
-    return Effect.promise(() =>
-      this.#client.send(
-        new DeleteCommand({
-          TableName: this.#name,
-          Key: key,
-          ReturnValues: options?.returnValue,
-          ReturnConsumedCapacity: options?.returnConsumedCapacity,
-          ReturnItemCollectionMetrics: options?.returnItemCollectionMetrics,
-        }),
-      ),
-    ).pipe(
-      Effect.map((response) => ({
-        Attributes: response.Attributes,
-        ConsumedCapacity: response.ConsumedCapacity,
-        ItemCollectionMetrics: response.ItemCollectionMetrics,
-      })),
-    );
+  deleteItem(key: KeyFromIndex<TPrimary>, options?: Partial<DeleteItemInput>) {
+    return this.#client
+      .deleteItem({
+        TableName: this.#name,
+        Key: marshall(key),
+        ...options,
+      })
+      .pipe(
+        Effect.map((response) => ({
+          ...response,
+          Attributes: response.Attributes
+            ? unmarshall(response.Attributes)
+            : undefined,
+        })),
+      );
   }
 
   query(
     key: KeyConditionExprParameters<TPrimary>,
-    options?: QueryOptions,
-  ): Effect.Effect<EnhancedQueryResult<ItemWithKeys<TPrimary>>> {
-    return this.#queryExecutor.executeQuery(key, this.primary, options);
+    options?: Partial<QueryInput>,
+  ) {
+    return this.#queryExecutor.executeQuery(key, this.primary, options).pipe(
+      Effect.map((response) => ({
+        ...response,
+        Items: (response.Items || []).map((item) =>
+          unmarshall(item),
+        ) as ItemWithKeys<TPrimary>[],
+        LastEvaluatedKey: response.LastEvaluatedKey
+          ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<TPrimary>)
+          : undefined,
+      })),
+    );
   }
 
-  scan(
-    options?: ScanOptions,
-  ): Effect.Effect<EnhancedScanResult<ItemWithKeys<TPrimary>>> {
-    return this.#queryExecutor.executeScan(options);
+  scan(options?: Partial<ScanInput>) {
+    return this.#queryExecutor.executeScan(options).pipe(
+      Effect.map((response) => ({
+        ...response,
+        Items: (response.Items || []).map((item) =>
+          unmarshall(item),
+        ) as ItemWithKeys<TPrimary>[],
+        LastEvaluatedKey: response.LastEvaluatedKey
+          ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<TPrimary>)
+          : undefined,
+      })),
+    );
   }
 
   // Batch operations
   batchGetItem(
     keys: KeyFromIndex<TPrimary>[],
-    options?: BatchGetOptions,
+    options?: Partial<BatchGetItemInput>,
   ): Effect.Effect<BatchGetResult<ItemWithKeys<TPrimary>>, Error> {
     // DynamoDB batchGetItem has a limit of 100 keys
     if (keys.length > 100) {
@@ -229,66 +197,65 @@ export class DynamoTable<
       );
     }
 
+    // Separate table-level options from request-level options
+    const {
+      ReturnConsumedCapacity,
+      ...tableOptions
+    } = options || {};
+
     const requestItems = {
       [this.#name]: {
-        Keys: keys,
-        ...(options?.consistentRead && {
-          ConsistentRead: options.consistentRead,
-        }),
-        ...(options?.projectionExpression && {
-          ProjectionExpression: options.projectionExpression,
-        }),
-        ...(options?.expressionAttributeNames && {
-          ExpressionAttributeNames: options.expressionAttributeNames,
-        }),
+        Keys: keys.map((key) => marshall(key)),
+        ...tableOptions,
       },
     };
 
-    return Effect.promise(() =>
-      this.#client.send(
-        new BatchGetCommand({
-          RequestItems: requestItems,
-          ReturnConsumedCapacity: options?.returnConsumedCapacity,
-        }),
-      ),
-    ).pipe(
-      Effect.map((response) => {
-        const tableResponse = response.Responses?.[this.#name] || [];
-        const unprocessedKeys = response.UnprocessedKeys?.[this.#name];
+    return this.#client
+      .batchGetItem({
+        RequestItems: requestItems,
+        ...(ReturnConsumedCapacity && { ReturnConsumedCapacity }),
+      })
+      .pipe(
+        Effect.map((response) => {
+          const tableResponse = response.Responses?.[this.#name] || [];
+          const unprocessedKeys = response.UnprocessedKeys?.[this.#name];
 
-        return {
-          Items: tableResponse as ItemWithKeys<TPrimary>[],
-          UnprocessedKeys: unprocessedKeys
-            ? ({
-                Keys: (unprocessedKeys.Keys || []) as KeyFromIndex<TPrimary>[],
-                ProjectionExpression: unprocessedKeys.ProjectionExpression as
-                  | string
-                  | undefined,
-                ExpressionAttributeNames:
-                  unprocessedKeys.ExpressionAttributeNames as
-                    | Record<string, string>
+          return {
+            Items: tableResponse.map((item) =>
+              unmarshall(item),
+            ) as ItemWithKeys<TPrimary>[],
+            UnprocessedKeys: unprocessedKeys
+              ? ({
+                  Keys: (unprocessedKeys.Keys ||
+                    []) as KeyFromIndex<TPrimary>[],
+                  ProjectionExpression: unprocessedKeys.ProjectionExpression as
+                    | string
                     | undefined,
-              } as
-                | {
-                    Keys: KeyFromIndex<any>[];
-                    ProjectionExpression?: string | undefined;
-                    ExpressionAttributeNames?:
+                  ExpressionAttributeNames:
+                    unprocessedKeys.ExpressionAttributeNames as
                       | Record<string, string>
-                      | undefined;
-                  }
-                | undefined)
-            : undefined,
-          ConsumedCapacity: response.ConsumedCapacity as
-            | ConsumedCapacity[]
-            | undefined,
-        };
-      }),
-    );
+                      | undefined,
+                } as
+                  | {
+                      Keys: KeyFromIndex<any>[];
+                      ProjectionExpression?: string | undefined;
+                      ExpressionAttributeNames?:
+                        | Record<string, string>
+                        | undefined;
+                    }
+                  | undefined)
+              : undefined,
+            ConsumedCapacity: response.ConsumedCapacity as
+              | ConsumedCapacity[]
+              | undefined,
+          };
+        }),
+      );
   }
 
   batchWriteItem(
     requests: BatchWriteRequest<TPrimary, TGSIs, TLSIs>,
-    options?: BatchWriteOptions,
+    options?: Partial<BatchWriteItemInput>,
   ): Effect.Effect<BatchWriteResult, Error> {
     const totalRequests =
       (requests.putRequests?.length || 0) +
@@ -314,7 +281,7 @@ export class DynamoTable<
     if (requests.putRequests) {
       writeRequests.push(
         ...requests.putRequests.map((item) => ({
-          PutRequest: { Item: item },
+          PutRequest: { Item: marshall(item) },
         })),
       );
     }
@@ -323,7 +290,7 @@ export class DynamoTable<
     if (requests.deleteRequests) {
       writeRequests.push(
         ...requests.deleteRequests.map((key) => ({
-          DeleteRequest: { Key: key },
+          DeleteRequest: { Key: marshall(key) },
         })),
       );
     }
@@ -332,60 +299,59 @@ export class DynamoTable<
       [this.#name]: writeRequests,
     };
 
-    return Effect.promise(() =>
-      this.#client.send(
-        new BatchWriteCommand({
-          RequestItems: requestItems,
-          ReturnConsumedCapacity: options?.returnConsumedCapacity,
-          ReturnItemCollectionMetrics: options?.returnItemCollectionMetrics,
-        }),
-      ),
-    ).pipe(
-      Effect.map((response) => {
-        const unprocessedItems = response.UnprocessedItems?.[this.#name];
+    return this.#client
+      .batchWriteItem({
+        RequestItems: requestItems,
+        ...options,
+      })
+      .pipe(
+        Effect.map((response) => {
+          const unprocessedItems = response.UnprocessedItems?.[this.#name];
 
-        return {
-          UnprocessedItems: unprocessedItems
-            ? ({
-                PutRequest: unprocessedItems
-                  .filter((item: any) => item.PutRequest)
-                  .map((item: any) => item.PutRequest.Item) as
-                  | Record<string, unknown>[]
-                  | undefined,
-                DeleteRequest: unprocessedItems
-                  .filter((item: any) => item.DeleteRequest)
-                  .map((item: any) => item.DeleteRequest) as
-                  | { Key: Record<string, unknown> }[]
-                  | undefined,
-              } as
-                | {
-                    PutRequest?: Record<string, unknown>[] | undefined;
-                    DeleteRequest?:
-                      | { Key: Record<string, unknown> }[]
-                      | undefined;
-                  }
-                | undefined)
-            : undefined,
-          ItemCollectionMetrics: response.ItemCollectionMetrics as
-            | Record<string, ItemCollectionMetrics[]>
-            | undefined,
-          ConsumedCapacity: response.ConsumedCapacity as
-            | ConsumedCapacity[]
-            | undefined,
-        };
-      }),
-    );
+          return {
+            UnprocessedItems: unprocessedItems
+              ? ({
+                  PutRequest: unprocessedItems
+                    .filter((item: any) => item.PutRequest)
+                    .map((item: any) => item.PutRequest.Item) as
+                    | Record<string, unknown>[]
+                    | undefined,
+                  DeleteRequest: unprocessedItems
+                    .filter((item: any) => item.DeleteRequest)
+                    .map((item: any) => item.DeleteRequest) as
+                    | { Key: Record<string, unknown> }[]
+                    | undefined,
+                } as
+                  | {
+                      PutRequest?: Record<string, unknown>[] | undefined;
+                      DeleteRequest?:
+                        | { Key: Record<string, unknown> }[]
+                        | undefined;
+                    }
+                  | undefined)
+              : undefined,
+            ItemCollectionMetrics: response.ItemCollectionMetrics as
+              | Record<string, ItemCollectionMetrics[]>
+              | undefined,
+            ConsumedCapacity: response.ConsumedCapacity as
+              | ConsumedCapacity[]
+              | undefined,
+          };
+        }),
+      );
   }
 
   // Transaction operations
   transactWriteItems(
     transactItems: TransactWriteItem<TPrimary, TGSIs, TLSIs>[],
-    options?: TransactWriteOptions,
+    options?: Partial<TransactWriteItemsInput>,
   ): Effect.Effect<TransactWriteResult, Error> {
     // DynamoDB transactWriteItems has a limit of 25 operations per request
     if (transactItems.length > 25) {
       return Effect.fail(
-        new Error('transactWriteItems supports maximum 25 operations per request'),
+        new Error(
+          'transactWriteItems supports maximum 25 operations per request',
+        ),
       );
     }
 
@@ -401,7 +367,7 @@ export class DynamoTable<
       if (item.put) {
         writeItem.Put = {
           TableName: this.#name,
-          Item: item.put.item,
+          Item: marshall(item.put.item),
           ...(item.put.conditionExpression && {
             ConditionExpression: item.put.conditionExpression,
           }),
@@ -409,10 +375,13 @@ export class DynamoTable<
             ExpressionAttributeNames: item.put.expressionAttributeNames,
           }),
           ...(item.put.expressionAttributeValues && {
-            ExpressionAttributeValues: item.put.expressionAttributeValues,
+            ExpressionAttributeValues: marshall(
+              item.put.expressionAttributeValues,
+            ),
           }),
           ...(item.put.returnValuesOnConditionCheckFailure && {
-            ReturnValuesOnConditionCheckFailure: item.put.returnValuesOnConditionCheckFailure,
+            ReturnValuesOnConditionCheckFailure:
+              item.put.returnValuesOnConditionCheckFailure,
           }),
         };
       }
@@ -420,7 +389,7 @@ export class DynamoTable<
       if (item.update) {
         writeItem.Update = {
           TableName: this.#name,
-          Key: item.update.key,
+          Key: marshall(item.update.key),
           UpdateExpression: item.update.updateExpression,
           ...(item.update.conditionExpression && {
             ConditionExpression: item.update.conditionExpression,
@@ -429,10 +398,13 @@ export class DynamoTable<
             ExpressionAttributeNames: item.update.expressionAttributeNames,
           }),
           ...(item.update.expressionAttributeValues && {
-            ExpressionAttributeValues: item.update.expressionAttributeValues,
+            ExpressionAttributeValues: marshall(
+              item.update.expressionAttributeValues,
+            ),
           }),
           ...(item.update.returnValuesOnConditionCheckFailure && {
-            ReturnValuesOnConditionCheckFailure: item.update.returnValuesOnConditionCheckFailure,
+            ReturnValuesOnConditionCheckFailure:
+              item.update.returnValuesOnConditionCheckFailure,
           }),
         };
       }
@@ -440,7 +412,7 @@ export class DynamoTable<
       if (item.delete) {
         writeItem.Delete = {
           TableName: this.#name,
-          Key: item.delete.key,
+          Key: marshall(item.delete.key),
           ...(item.delete.conditionExpression && {
             ConditionExpression: item.delete.conditionExpression,
           }),
@@ -448,10 +420,13 @@ export class DynamoTable<
             ExpressionAttributeNames: item.delete.expressionAttributeNames,
           }),
           ...(item.delete.expressionAttributeValues && {
-            ExpressionAttributeValues: item.delete.expressionAttributeValues,
+            ExpressionAttributeValues: marshall(
+              item.delete.expressionAttributeValues,
+            ),
           }),
           ...(item.delete.returnValuesOnConditionCheckFailure && {
-            ReturnValuesOnConditionCheckFailure: item.delete.returnValuesOnConditionCheckFailure,
+            ReturnValuesOnConditionCheckFailure:
+              item.delete.returnValuesOnConditionCheckFailure,
           }),
         };
       }
@@ -459,13 +434,16 @@ export class DynamoTable<
       if (item.conditionCheck) {
         writeItem.ConditionCheck = {
           TableName: this.#name,
-          Key: item.conditionCheck.key,
+          Key: marshall(item.conditionCheck.key),
           ConditionExpression: item.conditionCheck.conditionExpression,
           ...(item.conditionCheck.expressionAttributeNames && {
-            ExpressionAttributeNames: item.conditionCheck.expressionAttributeNames,
+            ExpressionAttributeNames:
+              item.conditionCheck.expressionAttributeNames,
           }),
           ...(item.conditionCheck.expressionAttributeValues && {
-            ExpressionAttributeValues: item.conditionCheck.expressionAttributeValues,
+            ExpressionAttributeValues: marshall(
+              item.conditionCheck.expressionAttributeValues,
+            ),
           }),
         };
       }
@@ -473,37 +451,33 @@ export class DynamoTable<
       return writeItem;
     });
 
-    return Effect.promise(() =>
-      this.#client.send(
-        new TransactWriteCommand({
-          TransactItems: transactWriteItems,
-          ReturnConsumedCapacity: options?.returnConsumedCapacity,
-          ReturnItemCollectionMetrics: options?.returnItemCollectionMetrics,
-          ...(options?.clientRequestToken && {
-            ClientRequestToken: options.clientRequestToken,
-          }),
-        }),
-      ),
-    ).pipe(
-      Effect.map((response) => ({
-        ItemCollectionMetrics: response.ItemCollectionMetrics as
-          | Record<string, ItemCollectionMetrics[]>
-          | undefined,
-        ConsumedCapacity: response.ConsumedCapacity as
-          | ConsumedCapacity[]
-          | undefined,
-      })),
-    );
+    return this.#client
+      .transactWriteItems({
+        TransactItems: transactWriteItems,
+        ...options,
+      })
+      .pipe(
+        Effect.map((response) => ({
+          ItemCollectionMetrics: response.ItemCollectionMetrics as
+            | Record<string, ItemCollectionMetrics[]>
+            | undefined,
+          ConsumedCapacity: response.ConsumedCapacity as
+            | ConsumedCapacity[]
+            | undefined,
+        })),
+      );
   }
 
   transactGetItems(
     transactItems: TransactGetItem<TPrimary>[],
-    options?: TransactGetOptions,
+    options?: Partial<TransactGetItemsInput>,
   ): Effect.Effect<TransactGetResult<ItemWithKeys<TPrimary>>, Error> {
     // DynamoDB transactGetItems has a limit of 25 operations per request
     if (transactItems.length > 25) {
       return Effect.fail(
-        new Error('transactGetItems supports maximum 25 operations per request'),
+        new Error(
+          'transactGetItems supports maximum 25 operations per request',
+        ),
       );
     }
 
@@ -516,7 +490,7 @@ export class DynamoTable<
     const transactGetItems = transactItems.map((item) => ({
       Get: {
         TableName: this.#name,
-        Key: item.key,
+        Key: marshall(item.key),
         ...(item.projectionExpression && {
           ProjectionExpression: item.projectionExpression,
         }),
@@ -526,23 +500,23 @@ export class DynamoTable<
       },
     }));
 
-    return Effect.promise(() =>
-      this.#client.send(
-        new TransactGetCommand({
-          TransactItems: transactGetItems,
-          ReturnConsumedCapacity: options?.returnConsumedCapacity,
-        }),
-      ),
-    ).pipe(
-      Effect.map((response) => ({
-        Items: (response.Responses || []).map(
-          (item) => (item.Item as ItemWithKeys<TPrimary>) || null,
-        ),
-        ConsumedCapacity: response.ConsumedCapacity as
-          | ConsumedCapacity[]
-          | undefined,
-      })),
-    );
+    return this.#client
+      .transactGetItems({
+        TransactItems: transactGetItems,
+        ...options,
+      })
+      .pipe(
+        Effect.map((response) => ({
+          Items: (response.Responses || []).map((item) =>
+            item.Item
+              ? (unmarshall(item.Item) as ItemWithKeys<TPrimary>)
+              : null,
+          ),
+          ConsumedCapacity: response.ConsumedCapacity as
+            | ConsumedCapacity[]
+            | undefined,
+        })),
+      );
   }
 
   // GSI operations
@@ -550,21 +524,43 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<TGSIs[TName]>,
-        options?: QueryOptions,
-      ): Effect.Effect<EnhancedQueryResult<ItemWithKeys<TPrimary>>> => {
-        return this.#queryExecutor.executeQuery(key, this.gsis[indexName], {
-          ...options,
-          indexName: indexName as string,
-        });
+        options?: Partial<QueryInput>,
+      ) => {
+        return this.#queryExecutor
+          .executeQuery(key, this.gsis[indexName], {
+            ...options,
+            IndexName: indexName as string,
+          })
+          .pipe(
+            Effect.map((response) => ({
+              ...response,
+              Items: (response.Items || []).map((item) =>
+                unmarshall(item),
+              ) as ItemWithKeys<TPrimary>[],
+              LastEvaluatedKey: response.LastEvaluatedKey
+                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<TPrimary>)
+                : undefined,
+            })),
+          );
       },
 
-      scan: (
-        options?: ScanOptions,
-      ): Effect.Effect<EnhancedScanResult<ItemWithKeys<TPrimary>>> => {
-        return this.#queryExecutor.executeScan({
-          ...options,
-          indexName: indexName as string,
-        });
+      scan: (options?: Partial<ScanInput>) => {
+        return this.#queryExecutor
+          .executeScan({
+            ...options,
+            IndexName: indexName as string,
+          })
+          .pipe(
+            Effect.map((response) => ({
+              ...response,
+              Items: (response.Items || []).map((item) =>
+                unmarshall(item),
+              ) as ItemWithKeys<TPrimary>[],
+              LastEvaluatedKey: response.LastEvaluatedKey
+                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<TPrimary>)
+                : undefined,
+            })),
+          );
       },
     };
   }
@@ -576,49 +572,45 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<IndexDef>,
-        options?: QueryOptions,
-      ): Effect.Effect<EnhancedQueryResult<ItemWithKeys<TPrimary>>> => {
-        return this.#queryExecutor.executeQuery(key, this.lsis[indexName], {
-          ...options,
-          indexName: indexName as string,
-        });
+        options?: Partial<QueryInput>,
+      ) => {
+        return this.#queryExecutor
+          .executeQuery(key, this.lsis[indexName], {
+            ...options,
+            IndexName: indexName as string,
+          })
+          .pipe(
+            Effect.map((response) => ({
+              ...response,
+              Items: (response.Items || []).map((item) =>
+                unmarshall(item),
+              ) as ItemWithKeys<TPrimary>[],
+              LastEvaluatedKey: response.LastEvaluatedKey
+                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<TPrimary>)
+                : undefined,
+            })),
+          );
       },
 
-      scan: (
-        options?: ScanOptions,
-      ): Effect.Effect<EnhancedScanResult<ItemWithKeys<TPrimary>>> => {
-        return this.#queryExecutor.executeScan({
-          ...options,
-          indexName: indexName as string,
-        });
+      scan: (options?: Partial<ScanInput>) => {
+        return this.#queryExecutor
+          .executeScan({
+            ...options,
+            IndexName: indexName as string,
+          })
+          .pipe(
+            Effect.map((response) => ({
+              ...response,
+              Items: (response.Items || []).map((item) =>
+                unmarshall(item),
+              ) as ItemWithKeys<TPrimary>[],
+              LastEvaluatedKey: response.LastEvaluatedKey
+                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<TPrimary>)
+                : undefined,
+            })),
+          );
       },
     };
-  }
-
-  // Helper methods for building DynamoDB expressions
-  #buildUpdateExpression(updates: Record<string, unknown>): string {
-    const setParts = Object.keys(updates).map((key) => `#${key} = :${key}`);
-    return `SET ${setParts.join(', ')}`;
-  }
-
-  #buildAttributeNames(
-    updates: Record<string, unknown>,
-  ): Record<string, string> {
-    const attributeNames: Record<string, string> = {};
-    Object.keys(updates).forEach((key) => {
-      attributeNames[`#${key}`] = key;
-    });
-    return attributeNames;
-  }
-
-  #buildAttributeValues(
-    updates: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const attributeValues: Record<string, unknown> = {};
-    Object.entries(updates).forEach(([key, value]) => {
-      attributeValues[`:${key}`] = value;
-    });
-    return attributeValues;
   }
 }
 
