@@ -6,7 +6,8 @@
       "Bash(pnpm run test:*)",
       "Bash(pnpm run lint:*)",
       "Bash(mv:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   },

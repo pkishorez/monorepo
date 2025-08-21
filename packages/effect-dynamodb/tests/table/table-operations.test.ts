@@ -339,7 +339,7 @@ describe('table Operations', () => {
               ExpressionAttributeValues: {
                 ':status': STATUS.ACTIVE,
                 ':minScore': 50,
-              },
+              } as any,
             },
           ),
         );
@@ -458,7 +458,7 @@ describe('table Operations', () => {
               ExpressionAttributeValues: {
                 ':status': 'completed',
                 ':minTotal': 150,
-              },
+              } as any,
             },
           ),
         );
@@ -495,7 +495,7 @@ describe('table Operations', () => {
               { pk: user.pkey },
               {
                 Limit: 2,
-                ExclusiveStartKey: page1.LastEvaluatedKey,
+                ExclusiveStartKey: page1.LastEvaluatedKey as any,
               },
             ),
           );
@@ -551,7 +551,7 @@ describe('table Operations', () => {
           ExpressionAttributeValues: {
             ':status': STATUS.ACTIVE,
             ':minScore': 75,
-          },
+          } as any,
         }),
       );
 
@@ -581,7 +581,7 @@ describe('table Operations', () => {
           FilterExpression: '#level > :minLevel',
           ExpressionAttributeValues: {
             ':minLevel': 4,
-          },
+          } as any,
         }),
       );
 
@@ -621,7 +621,7 @@ describe('table Operations', () => {
         const page2 = await Effect.runPromise(
           table.scan({
             Limit: 2,
-            ExclusiveStartKey: page1.LastEvaluatedKey,
+            ExclusiveStartKey: page1.LastEvaluatedKey as any,
           }),
         );
         expect(page2.Items.length).toBeGreaterThan(0);

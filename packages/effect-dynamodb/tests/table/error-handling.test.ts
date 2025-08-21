@@ -126,7 +126,7 @@ describe('error Handling', () => {
         table.scan({
           FilterExpression: '#score > :minScore',
           ExpressionAttributeNames: { '#score': 'score' },
-          ExpressionAttributeValues: { ':minScore': 200 },
+          ExpressionAttributeValues: { ':minScore': 200 } as any,
         }),
       );
 

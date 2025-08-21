@@ -140,7 +140,7 @@ describe('index Operations', () => {
               ExpressionAttributeValues: {
                 ':minPrice': 700,
                 ':minStock': 0,
-              },
+              } as any,
             },
           ),
         );
@@ -235,7 +235,7 @@ describe('index Operations', () => {
               ExpressionAttributeValues: {
                 ':minPrice': 100,
                 ':inStock': true,
-              },
+              } as any,
               Limit: 10,
             },
           ),
@@ -280,7 +280,7 @@ describe('index Operations', () => {
             ExpressionAttributeValues: {
               ':prefix': PREFIXES.CATEGORY,
               ':organic': true,
-            },
+            } as any,
           }),
         );
 
@@ -369,7 +369,7 @@ describe('index Operations', () => {
               },
               ExpressionAttributeValues: {
                 ':featured': true,
-              },
+              } as any,
             },
           ),
         );
@@ -459,7 +459,7 @@ describe('index Operations', () => {
           table.lsi('LSI1').scan({
             FilterExpression: '#featured = :featured',
             ExpressionAttributeNames: { '#featured': 'featured' },
-            ExpressionAttributeValues: { ':featured': true },
+            ExpressionAttributeValues: { ':featured': true } as any,
             ReturnConsumedCapacity: 'TOTAL',
             Limit: 10,
           }),
@@ -501,7 +501,7 @@ describe('index Operations', () => {
             { pk: `${PREFIXES.CATEGORY}electronics` },
             {
               FilterExpression: 'price > :minPrice',
-              ExpressionAttributeValues: { ':minPrice': 800 },
+              ExpressionAttributeValues: { ':minPrice': 800 } as any,
             },
           ),
       );
@@ -514,7 +514,7 @@ describe('index Operations', () => {
             { pk: products[0].pkey },
             {
               FilterExpression: 'featured = :featured',
-              ExpressionAttributeValues: { ':featured': true },
+              ExpressionAttributeValues: { ':featured': true } as any,
             },
           ),
       );
@@ -537,7 +537,7 @@ describe('index Operations', () => {
         const gsiPage2 = await Effect.runPromise(
           table.gsi('GSI1').scan({
             Limit: 3,
-            ExclusiveStartKey: gsiPage1.LastEvaluatedKey,
+            ExclusiveStartKey: gsiPage1.LastEvaluatedKey as any,
           }),
         );
         expect(gsiPage2.Items.length).toBeGreaterThan(0);
