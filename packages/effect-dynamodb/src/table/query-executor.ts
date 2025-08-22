@@ -4,7 +4,7 @@ import type { IndexDefinition, KeyFromIndex } from './types.js';
 import { expr, keyCondition, projectionExpr } from './expr/index.js';
 import { marshall } from './utils.js';
 
-export type QueryOptions<Index extends IndexDefinition> = Omit<
+export type QueryOptions<Index extends IndexDefinition, Type> = Omit<
   QueryInput,
   | 'TableName'
   | 'Key'
@@ -14,12 +14,12 @@ export type QueryOptions<Index extends IndexDefinition> = Omit<
   | 'ExclusiveStartKey'
   | 'ProjectionExpression'
 > & {
-  filter?: ExprInput<any>;
+  filter?: ExprInput<Type>;
   projection?: string[];
   exclusiveStartKey?: KeyFromIndex<Index> | undefined;
 };
 
-export type ScanOptions<Index extends IndexDefinition> = Omit<
+export type ScanOptions<Index extends IndexDefinition, Type> = Omit<
   ScanInput,
   | 'TableName'
   | 'Key'
@@ -29,12 +29,12 @@ export type ScanOptions<Index extends IndexDefinition> = Omit<
   | 'ExclusiveStartKey'
   | 'ProjectionExpression'
 > & {
-  filter?: ExprInput<any>;
+  filter?: ExprInput<Type>;
   projection?: string[];
   exclusiveStartKey?: KeyFromIndex<Index>;
 };
 
-export class DynamoQueryExecutor {
+export class DynamoQueryExecutor<Type> {
   constructor(
     private client: DynamoDB,
     private tableName: string,
@@ -49,7 +49,7 @@ export class DynamoQueryExecutor {
       filter,
       indexName,
       ...options
-    }: QueryOptions<TIndex> & { indexName?: string } = {},
+    }: QueryOptions<TIndex, Type> & { indexName?: string } = {},
   ) {
     const keyExpressions = keyCondition(index, key);
     const queryOptions: QueryInput = {
@@ -98,7 +98,7 @@ export class DynamoQueryExecutor {
     filter,
     indexName,
     ...options
-  }: ScanOptions<TIndex> & { indexName?: string } = {}) {
+  }: ScanOptions<TIndex, Type> & { indexName?: string } = {}) {
     const scanOptions: ScanInput = {
       TableName: this.tableName,
       ...options,

@@ -27,10 +27,11 @@ export class DynamoTable<
   TPrimary extends IndexDefinition,
   TGSIs extends Record<string, SecondaryIndexDefinition> = {},
   TLSIs extends Record<string, SecondaryIndexDefinition> = {},
+  Type = {},
 > {
   readonly #name: string;
   readonly #client: DynamoDB;
-  readonly #queryExecutor: DynamoQueryExecutor;
+  readonly #queryExecutor: DynamoQueryExecutor<unknown>;
 
   readonly primary: TPrimary;
   readonly gsis: TGSIs;
@@ -42,6 +43,7 @@ export class DynamoTable<
     gsis: TGSIs;
     lsis: TLSIs;
     dynamoConfig: DynamoConfig;
+    value: Type;
   }) {
     this.#name = config.name;
     this.primary = config.primary;
@@ -107,7 +109,7 @@ export class DynamoTable<
       PutItemInput,
       'TableName' | 'Item' | 'ConditionExpression'
     > & {
-      condition?: ExprInput<any>;
+      condition?: ExprInput<Type>;
     },
   ) {
     const putItemOptions: PutItemInput = {
@@ -146,7 +148,7 @@ export class DynamoTable<
       UpdateItemInput,
       'TableName' | 'Key' | 'ConditionExpression'
     > & {
-      condition?: ExprInput<any>;
+      condition?: ExprInput<Type>;
     },
   ) {
     const updateItemOptions: UpdateItemInput = {
@@ -195,7 +197,7 @@ export class DynamoTable<
       DeleteItemInput,
       'TableName' | 'Key' | 'ConditionExpression'
     > & {
-      condition?: ExprInput<any>;
+      condition?: ExprInput<Type>;
     },
   ) {
     const deleteItemOptions: DeleteItemInput = {
@@ -230,7 +232,7 @@ export class DynamoTable<
 
   query(
     key: KeyConditionExprParameters<TPrimary>,
-    options?: QueryOptions<TPrimary>,
+    options?: QueryOptions<TPrimary, Type>,
   ) {
     return this.#queryExecutor.executeQuery(key, this.primary, options).pipe(
       Effect.map((response) => ({
@@ -245,7 +247,7 @@ export class DynamoTable<
     );
   }
 
-  scan(options?: ScanOptions<TPrimary>) {
+  scan(options?: ScanOptions<TPrimary, Type>) {
     return this.#queryExecutor.executeScan(options).pipe(
       Effect.map((response) => ({
         ...response,
@@ -264,7 +266,7 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<TGSIs[TName]>,
-        options?: QueryOptions<TGSIs[TName]>,
+        options?: QueryOptions<TGSIs[TName], Type>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.gsis[indexName], {
@@ -286,7 +288,7 @@ export class DynamoTable<
           );
       },
 
-      scan: (options?: ScanOptions<TGSIs[TName]>) => {
+      scan: (options?: ScanOptions<TGSIs[TName], Type>) => {
         return this.#queryExecutor
           .executeScan({ ...options, indexName: indexName as string })
           .pipe(
@@ -313,7 +315,7 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<IndexDef>,
-        options?: QueryOptions<IndexDef>,
+        options?: QueryOptions<IndexDef, Type>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.lsis[indexName], {
@@ -335,7 +337,7 @@ export class DynamoTable<
           );
       },
 
-      scan: (options?: ScanOptions<TLSIs[TName]>) => {
+      scan: (options?: ScanOptions<TLSIs[TName], Type>) => {
         return this.#queryExecutor
           .executeScan({ ...options, indexName: indexName as string })
           .pipe(
@@ -485,13 +487,14 @@ class ConfiguredTableBuilder<
     );
   }
 
-  build(): DynamoTable<TPrimary, TGSIs, TLSIs> {
+  build<Type>(): DynamoTable<TPrimary, TGSIs, TLSIs> {
     return new DynamoTable({
       name: this.#name,
       primary: this.#primary,
       gsis: this.#gsis,
       lsis: this.#lsis,
       dynamoConfig: this.#dynamoConfig,
+      value: {} as Type,
     });
   }
 }
