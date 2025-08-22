@@ -4,7 +4,7 @@ import type { IndexDefinition, RealKeyFromIndex } from './types.js';
 import { buildExpression } from './expr/index.js';
 import { marshall } from './utils.js';
 
-export type QueryOptions<Index extends IndexDefinition, Type> = Omit<
+export type QueryOptions<Index extends IndexDefinition> = Omit<
   QueryInput,
   | 'TableName'
   | 'Key'
@@ -14,12 +14,12 @@ export type QueryOptions<Index extends IndexDefinition, Type> = Omit<
   | 'ExclusiveStartKey'
   | 'ProjectionExpression'
 > & {
-  filter?: ExprInput<Type>;
+  filter?: ExprInput;
   projection?: string[];
   exclusiveStartKey?: RealKeyFromIndex<Index> | undefined;
 };
 
-export type ScanOptions<Index extends IndexDefinition, Type> = Omit<
+export type ScanOptions<Index extends IndexDefinition> = Omit<
   ScanInput,
   | 'TableName'
   | 'IndexName'
@@ -28,12 +28,12 @@ export type ScanOptions<Index extends IndexDefinition, Type> = Omit<
   | 'ExclusiveStartKey'
   | 'ProjectionExpression'
 > & {
-  filter?: ExprInput<Type>;
+  filter?: ExprInput;
   projection?: string[];
   exclusiveStartKey?: RealKeyFromIndex<Index>;
 };
 
-export class DynamoQueryExecutor<Type> {
+export class DynamoQueryExecutor {
   constructor(
     private client: DynamoDB,
     private tableName: string,
@@ -48,7 +48,7 @@ export class DynamoQueryExecutor<Type> {
       filter,
       indexName,
       ...options
-    }: QueryOptions<TIndex, Type> & { indexName?: string } = {},
+    }: QueryOptions<TIndex> & { indexName?: string } = {},
   ) {
     // Build all expressions at once
     const result = buildExpression({
@@ -81,7 +81,7 @@ export class DynamoQueryExecutor<Type> {
     filter,
     indexName,
     ...options
-  }: ScanOptions<TIndex, Type> & { indexName?: string } = {}) {
+  }: ScanOptions<TIndex> & { indexName?: string } = {}) {
     // Build all expressions at once
     const result = buildExpression({
       projection,

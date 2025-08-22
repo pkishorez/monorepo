@@ -2,13 +2,18 @@
 
 import type { AttrValueType, StringAttr } from '../expr-utils/types.js';
 
+// eslint-disable-next-line ts/consistent-type-definitions
+type Assignment<T> = { op: 'assign'; value: T };
 // SET value expression with support for DynamoDB functions
-export type SetValueExpr<T = unknown, Attr = string> =
-  | { op: 'assign'; value: T }
+type SetOpExpr<T = unknown, Attr = string> =
   | { op: 'list_append'; attr: Attr; list: T[] } // list_append(attr, value)
   | { op: 'if_not_exists'; attr: Attr; default: T } // if_not_exists(attr, default)
   | { op: 'plus'; attr: Attr; value: T } // attr + value
   | { op: 'minus'; attr: Attr; value: T }; // attr - value
+
+export type SetValueExpr<T, Attr extends StringAttr<T> = StringAttr<T>> =
+  | SetOpExpr<AttrValueType<T, Attr>, Attr>
+  | Assignment<AttrValueType<T, Attr>>;
 
 // Base interface for update operations
 interface BaseUpdateExprParameters<
@@ -16,7 +21,7 @@ interface BaseUpdateExprParameters<
   Attr extends StringAttr<T> = StringAttr<T>,
 > {
   SET?: {
-    [K in Attr]: SetValueExpr<AttrValueType<T, Attr>, Attr>;
+    [K in Attr]: SetValueExpr<T, Attr>;
   };
   REMOVE?: Array<Attr>;
   ADD?: {

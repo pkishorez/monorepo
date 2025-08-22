@@ -123,7 +123,7 @@ function combineExpressions(
   };
 }
 
-export function and(...conditions: ExprInput<any>[]): ExprResult {
+export function and<T>(...conditions: ExprInput<T>[]): ExprResult {
   const normalized = conditions.map((c) => normalizeToExprResult(c));
   return combineExpressions(normalized, ' AND ');
 }

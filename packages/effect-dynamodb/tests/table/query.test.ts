@@ -71,7 +71,7 @@ describe('query Operations', () => {
 
       // BeginsWith
       const beginsResult = await Effect.runPromise(
-        table.query({ pk, sk: { 'beginsWith': 'item#' } }),
+        table.query({ pk, sk: { beginsWith: 'item#' } }),
       );
       expect(beginsResult.Items).toHaveLength(3);
 
@@ -92,7 +92,7 @@ describe('query Operations', () => {
       const betweenResult = await Effect.runPromise(
         table.query({
           pk,
-          sk: { 'between': ['item#001', 'item#002'] },
+          sk: { between: ['item#001', 'item#002'] },
         }),
       );
       expect(betweenResult.Items).toHaveLength(2);
@@ -113,10 +113,7 @@ describe('query Operations', () => {
         table.query(
           { pk },
           {
-            filter: and(
-              { score: { '>': 100 } },
-              { status: { '=': 'active' } }
-            ),
+            filter: and({ score: { '>': 100 } }, { status: { '=': 'active' } }),
           },
         ),
       );
@@ -276,7 +273,7 @@ describe('query Operations', () => {
       const noMatchResult = await Effect.runPromise(
         table.query({
           pk: 'user#007',
-          sk: { 'beginsWith': 'nonmatching' },
+          sk: { beginsWith: 'nonmatching' },
         }),
       );
       expect(noMatchResult.Items).toHaveLength(0);
@@ -300,7 +297,7 @@ describe('query Operations', () => {
       const result = await Effect.runPromise(
         table.query({
           pk,
-          sk: { 'between': ['item#001', 'item#003'] },
+          sk: { between: ['item#001', 'item#003'] },
         }),
       );
       expect(result.Items).toHaveLength(0);

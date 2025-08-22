@@ -31,11 +31,10 @@ export class DynamoTable<
   TPrimary extends IndexDefinition,
   TGSIs extends Record<string, SecondaryIndexDefinition> = {},
   TLSIs extends Record<string, SecondaryIndexDefinition> = {},
-  Type = {},
 > {
   readonly #name: string;
   readonly #client: DynamoDB;
-  readonly #queryExecutor: DynamoQueryExecutor<unknown>;
+  readonly #queryExecutor: DynamoQueryExecutor;
 
   readonly primary: TPrimary;
   readonly gsis: TGSIs;
@@ -47,7 +46,6 @@ export class DynamoTable<
     gsis: TGSIs;
     lsis: TLSIs;
     dynamoConfig: DynamoConfig;
-    value: Type;
   }) {
     this.#name = config.name;
     this.primary = config.primary;
@@ -104,12 +102,12 @@ export class DynamoTable<
   }
 
   putItem(
-    item: ItemForPut<TPrimary, TGSIs, TLSIs, Type>,
+    item: ItemForPut<TPrimary, TGSIs, TLSIs>,
     options: Omit<
       PutItemInput,
       'TableName' | 'Item' | 'ConditionExpression' | 'Key'
     > & {
-      condition?: ExprInput<Type>;
+      condition?: ExprInput;
     } = {},
   ) {
     const result = buildExpression({ condition: options.condition });
@@ -141,10 +139,8 @@ export class DynamoTable<
       | 'ExpressionAttributeNames'
       | 'ExpressionAttributeValues'
     > & {
-      condition?: ExprInput<Type>;
-      update: UpdateExprParameters<
-        Type extends Record<string, unknown> ? Type : Record<string, unknown>
-      >;
+      condition?: ExprInput;
+      update: UpdateExprParameters<Record<string, unknown>>;
     },
   ) {
     // Build expressions using the helper
@@ -175,7 +171,7 @@ export class DynamoTable<
       DeleteItemInput,
       'TableName' | 'Key' | 'ConditionExpression'
     > & {
-      condition?: ExprInput<Type>;
+      condition?: ExprInput;
     } = {},
   ) {
     const result = buildExpression({ condition: options.condition });
@@ -198,7 +194,7 @@ export class DynamoTable<
 
   query(
     key: KeyConditionExprParameters<TPrimary>,
-    options?: QueryOptions<TPrimary, Type>,
+    options?: QueryOptions<TPrimary>,
   ) {
     return this.#queryExecutor.executeQuery(key, this.primary, options).pipe(
       Effect.map((response) => ({
@@ -215,7 +211,7 @@ export class DynamoTable<
     );
   }
 
-  scan(options?: ScanOptions<TPrimary, Type>) {
+  scan(options?: ScanOptions<TPrimary>) {
     return this.#queryExecutor.executeScan(options).pipe(
       Effect.map((response) => ({
         ...response,
@@ -236,7 +232,7 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<TGSIs[TName]>,
-        options?: QueryOptions<TGSIs[TName], Type>,
+        options?: QueryOptions<TGSIs[TName]>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.gsis[indexName], {
@@ -258,7 +254,7 @@ export class DynamoTable<
           );
       },
 
-      scan: (options?: ScanOptions<TGSIs[TName], Type>) => {
+      scan: (options?: ScanOptions<TGSIs[TName]>) => {
         return this.#queryExecutor
           .executeScan({ ...options, indexName: indexName as string })
           .pipe(
@@ -285,7 +281,7 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<IndexDef>,
-        options?: QueryOptions<IndexDef, Type>,
+        options?: QueryOptions<IndexDef>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.lsis[indexName], {
@@ -307,7 +303,7 @@ export class DynamoTable<
           );
       },
 
-      scan: (options?: ScanOptions<TLSIs[TName], Type>) => {
+      scan: (options?: ScanOptions<TLSIs[TName]>) => {
         return this.#queryExecutor
           .executeScan({ ...options, indexName: indexName as string })
           .pipe(
@@ -457,14 +453,13 @@ class ConfiguredTableBuilder<
     );
   }
 
-  build<Type>(): DynamoTable<TPrimary, TGSIs, TLSIs, Type> {
+  build(): DynamoTable<TPrimary, TGSIs, TLSIs> {
     return new DynamoTable({
       name: this.#name,
       primary: this.#primary,
       gsis: this.#gsis,
       lsis: this.#lsis,
       dynamoConfig: this.#dynamoConfig,
-      value: {} as Type,
     });
   }
 }

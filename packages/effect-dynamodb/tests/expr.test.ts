@@ -1,7 +1,5 @@
 import type {
-  AttributeConditionExpr as AttributeCondition,
   ComparisonExpr,
-  ConditionExprParameters,
   KeyConditionExpr,
   KeyConditionExprParameters,
   StringExpr,

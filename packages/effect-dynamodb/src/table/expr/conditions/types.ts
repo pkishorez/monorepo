@@ -62,7 +62,7 @@ export type SimpleConditionExpr<T> = {
 };
 
 // Union type that accepts multiple input formats
-export type ExprInput<T> =
+export type ExprInput<T = unknown> =
   | ExprResult // Already processed expression
   | SimpleConditionExpr<T>; // Simple object: { attr: condition }
 
