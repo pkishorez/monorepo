@@ -6,7 +6,8 @@ import type {
   ConditionExprParameters,
   KeyConditionExprParameters,
 } from './types.js';
-import { mergeExprResults } from '../expr-utils/index.js';
+import { extractVariant, mergeExprResults } from '../expr-utils/index.js';
+import { mapVariant } from '../expr-utils/utils.js';
 import {
   attrTypeExpr,
   comparisonExpr,
@@ -20,37 +21,40 @@ export function attrExpr<T>(
   condition: ConditionExpr<T>,
   attr: string,
 ): ExprResult {
-  switch (condition.type) {
+  // Extract the type from the object key
+  const variant = mapVariant(condition);
+
+  switch (variant.type) {
     // Comparison operations
     case '<':
     case '<=':
     case '>':
     case '>=':
     case '=':
-      return comparisonExpr(condition, attr);
+      return comparisonExpr(variant.value, attr);
 
     // String operations
     case 'beginsWith':
     case 'contains':
-      return stringExpr(condition, attr);
+      return stringExpr(variant.value, attr);
 
     // Range operations
     case 'between':
-      return rangeExpr(condition, attr);
+      return rangeExpr(variant.value, attr);
 
     // Existence operations
     case 'exists':
-      return existenceExpr(condition, attr);
+      return existenceExpr(variant.value, attr);
     case 'attrType':
-      return attrTypeExpr(condition, attr);
+      return attrTypeExpr(variant.value, attr);
 
     // Computed operations
     case 'size':
-      return sizeExpr(condition, attr);
+      return sizeExpr(variant.value, attr);
 
     default:
-      condition satisfies never;
-      throw new Error('Unknown parameter returned', condition);
+      variant satisfies never;
+      throw new Error(`Unknown parameter returned: ${variant}`);
   }
 }
 
@@ -68,7 +72,11 @@ export function expr<Type>(
   }
 
   // Recursive case: logical operations
-  const subResults = parameters.value.map((param) => expr(param));
+  const { type, value } = extractVariant(parameters) as {
+    type: 'and' | 'or';
+    value: ConditionExprParameters<Type>[];
+  };
+  const subResults = value.map((param) => expr(param));
   const expressions = subResults.map((result) => result.expr);
   const mergedAttrs = mergeExprResults(
     subResults.map((result) => ({
@@ -77,7 +85,7 @@ export function expr<Type>(
     })),
   );
 
-  switch (parameters.type) {
+  switch (type) {
     case 'and':
       return {
         expr: `(${expressions.join(' AND ')})`,
@@ -90,6 +98,8 @@ export function expr<Type>(
         exprAttributes: mergedAttrs.exprAttributes,
         exprValues: mergedAttrs.exprValues,
       };
+    default:
+      throw new Error(`Unknown logical operator: ${type}`);
   }
 }
 
@@ -100,7 +110,7 @@ export function keyCondition<Index extends IndexDefinition>(
   // Build partition key condition (always required)
   const pkCondition: AttributeConditionExpr<string> = {
     attr: index.pk,
-    condition: { type: '=', value: value.pk },
+    condition: { '=': value.pk },
   };
 
   // Handle case with no sort key
@@ -114,14 +124,11 @@ export function keyCondition<Index extends IndexDefinition>(
   const skCondition: AttributeConditionExpr<string> = {
     attr: index.sk,
     condition:
-      typeof sk === 'string'
-        ? { type: '=', value: sk }
-        : (sk as ConditionExpr<string>),
+      typeof sk === 'string' ? { '=': sk } : (sk as ConditionExpr<string>),
   };
 
   // Combine PK and SK conditions with AND
   return expr({
-    type: 'and',
-    value: [pkCondition, skCondition],
+    and: [pkCondition, skCondition],
   });
 }

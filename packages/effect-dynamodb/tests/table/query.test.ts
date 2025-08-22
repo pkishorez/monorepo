@@ -64,26 +64,26 @@ describe('query Operations', () => {
 
       // Operator equality
       const opResult = await Effect.runPromise(
-        table.query({ pk, sk: { type: '=', value: 'item#002' } }),
+        table.query({ pk, sk: { '=': 'item#002' } }),
       );
       expect(opResult.Items).toHaveLength(1);
 
       // BeginsWith
       const beginsResult = await Effect.runPromise(
-        table.query({ pk, sk: { type: 'beginsWith', value: 'item#' } }),
+        table.query({ pk, sk: { 'beginsWith': 'item#' } }),
       );
       expect(beginsResult.Items).toHaveLength(3);
 
       // Less than
       const ltResult = await Effect.runPromise(
-        table.query({ pk, sk: { type: '<', value: 'item#002' } }),
+        table.query({ pk, sk: { '<': 'item#002' } }),
       );
       expect(ltResult.Items).toHaveLength(1);
       expect(ltResult.Items[0].skey).toBe('item#001');
 
       // Greater than or equal
       const gteResult = await Effect.runPromise(
-        table.query({ pk, sk: { type: '>=', value: 'item#002' } }),
+        table.query({ pk, sk: { '>=': 'item#002' } }),
       );
       expect(gteResult.Items.length).toBeGreaterThanOrEqual(2);
 
@@ -91,7 +91,7 @@ describe('query Operations', () => {
       const betweenResult = await Effect.runPromise(
         table.query({
           pk,
-          sk: { type: 'between', value: ['item#001', 'item#002'] },
+          sk: { 'between': ['item#001', 'item#002'] },
         }),
       );
       expect(betweenResult.Items).toHaveLength(2);
@@ -113,10 +113,9 @@ describe('query Operations', () => {
           { pk },
           {
             filter: {
-              type: 'and',
-              value: [
-                { attr: 'score', condition: { type: '>', value: 100 } },
-                { attr: 'status', condition: { type: '=', value: 'active' } },
+              'and': [
+                { attr: 'score', condition: { '>': 100 } },
+                { attr: 'status', condition: { '=': 'active' } },
               ],
             },
           },
@@ -220,7 +219,7 @@ describe('query Operations', () => {
         table.scan({
           filter: {
             attr: 'score',
-            condition: { type: '>', value: 100 },
+            condition: { '>': 100 },
           },
         }),
       );
@@ -234,7 +233,7 @@ describe('query Operations', () => {
         table.scan({
           filter: {
             attr: 'level',
-            condition: { type: '>', value: 3 },
+            condition: { '>': 3 },
           },
           projection: ['pkey', 'level'],
         }),
@@ -280,7 +279,7 @@ describe('query Operations', () => {
       const noMatchResult = await Effect.runPromise(
         table.query({
           pk: 'user#007',
-          sk: { type: 'beginsWith', value: 'nonmatching' },
+          sk: { 'beginsWith': 'nonmatching' },
         }),
       );
       expect(noMatchResult.Items).toHaveLength(0);
@@ -290,7 +289,7 @@ describe('query Operations', () => {
         table.scan({
           filter: {
             attr: 'score',
-            condition: { type: '>', value: 10000 },
+            condition: { '>': 10000 },
           },
         }),
       );
@@ -305,7 +304,7 @@ describe('query Operations', () => {
       const result = await Effect.runPromise(
         table.query({
           pk,
-          sk: { type: 'between', value: ['item#001', 'item#003'] },
+          sk: { 'between': ['item#001', 'item#003'] },
         }),
       );
       expect(result.Items).toHaveLength(0);

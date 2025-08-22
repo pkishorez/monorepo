@@ -7,7 +7,7 @@ import type {
   SizeExpr,
   StringExpr,
 } from './types.js';
-import { generateUniqueId } from '../expr-utils/index.js';
+import { extractVariant, generateUniqueId } from '../expr-utils/index.js';
 
 // Comparison expression for numeric and string comparisons
 export function comparisonExpr<T>(
@@ -15,32 +15,34 @@ export function comparisonExpr<T>(
   attr: string,
   direct: boolean = false,
 ): ExprResult {
+  const { type, value } = extractVariant(condition);
   const id = generateUniqueId();
   const valueName = `:value${id}`;
 
   if (direct) {
     // Use attr directly as the expression (e.g., "size(#attr1)")
     return {
-      expr: `${attr} ${condition.type} ${valueName}`,
+      expr: `${attr} ${type} ${valueName}`,
       exprAttributes: {},
-      exprValues: { [valueName]: condition.value },
+      exprValues: { [valueName]: value },
     };
   }
 
   // Normal case: generate attribute name mapping
   const attrName = `#attr${id}`;
   return {
-    expr: `${attrName} ${condition.type} ${valueName}`,
+    expr: `${attrName} ${type} ${valueName}`,
     exprAttributes: { [attrName]: attr },
-    exprValues: { [valueName]: condition.value },
+    exprValues: { [valueName]: value },
   };
 }
 
 // String operation expression
-export function stringExpr<T extends string>(
+export function stringExpr<T>(
   condition: StringExpr<T>,
   attr: string,
 ): ExprResult {
+  const { type, value } = extractVariant(condition);
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
   const valueName = `:value${id}`;
@@ -50,12 +52,12 @@ export function stringExpr<T extends string>(
     contains: 'contains',
   } as const;
 
-  const functionName = functionMap[condition.type];
+  const functionName = functionMap[type];
 
   return {
     expr: `${functionName}(${attrName}, ${valueName})`,
     exprAttributes: { [attrName]: attr },
-    exprValues: { [valueName]: condition.value },
+    exprValues: { [valueName]: value },
   };
 }
 
@@ -64,6 +66,7 @@ export function rangeExpr<T>(
   condition: RangeExpr<T>,
   attr: string,
 ): ExprResult {
+  const { value } = extractVariant(condition);
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
   const valueName = `:value${id}`;
@@ -73,8 +76,8 @@ export function rangeExpr<T>(
     expr: `${attrName} BETWEEN ${valueName} AND ${valueName2}`,
     exprAttributes: { [attrName]: attr },
     exprValues: {
-      [valueName]: condition.value[0],
-      [valueName2]: condition.value[1],
+      [valueName]: value[0],
+      [valueName2]: value[1],
     },
   };
 }
@@ -84,11 +87,12 @@ export function existenceExpr(
   condition: ExistenceExpr,
   attr: string,
 ): ExprResult {
+  const { value } = extractVariant(condition);
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
 
   return {
-    expr: condition.value
+    expr: value
       ? `attribute_exists(${attrName})`
       : `attribute_not_exists(${attrName})`,
     exprAttributes: { [attrName]: attr },
@@ -101,6 +105,7 @@ export function attrTypeExpr(
   condition: AttrTypeExpr,
   attr: string,
 ): ExprResult {
+  const { value } = extractVariant(condition);
   const id = generateUniqueId();
   const attrName = `#attr${id}`;
   const valueName = `:value${id}`;
@@ -108,18 +113,19 @@ export function attrTypeExpr(
   return {
     expr: `attribute_type(${attrName}, ${valueName})`,
     exprAttributes: { [attrName]: attr },
-    exprValues: { [valueName]: condition.value },
+    exprValues: { [valueName]: value },
   };
 }
 
 // Size expression (recursive for nested conditions)
 export function sizeExpr(condition: SizeExpr, attr: string): ExprResult {
+  const { value } = extractVariant(condition);
   const outerAttrId = generateUniqueId();
   const outerAttrName = `#attr${outerAttrId}`;
-  const sizeExpr = `size(${outerAttrName})`;
+  const sizeExprStr = `size(${outerAttrName})`;
 
   // Build the nested condition with direct injection of size expression
-  const nestedResult = comparisonExpr(condition.value, sizeExpr, true);
+  const nestedResult = comparisonExpr(value, sizeExprStr, true);
 
   return {
     expr: nestedResult.expr,
@@ -127,4 +133,3 @@ export function sizeExpr(condition: SizeExpr, attr: string): ExprResult {
     exprValues: nestedResult.exprValues,
   };
 }
-

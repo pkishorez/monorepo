@@ -4,40 +4,34 @@ import type { AttrValueType, StringAttr } from '../expr-utils/types.js';
 
 // Granular expression types
 export type ComparisonExpr<T> =
-  | { type: '<'; value: T }
-  | { type: '<='; value: T }
-  | { type: '>'; value: T }
-  | { type: '>='; value: T }
-  | { type: '='; value: T };
+  | { '<': T }
+  | { '<=': T }
+  | { '>': T }
+  | { '>=': T }
+  | { '=': T };
 
-export type StringExpr<T extends string = string> =
-  | { type: 'beginsWith'; value: T }
-  | { type: 'contains'; value: T };
+export type StringExpr<T = any> = { beginsWith: T } | { contains: T };
 
 export interface RangeExpr<T> {
-  type: 'between';
-  value: [T, T];
+  between: [T, T];
 }
 
 export interface ExistenceExpr {
-  type: 'exists';
-  value: boolean;
+  exists: boolean;
 }
 
 export interface AttrTypeExpr {
-  type: 'attrType';
-  value: keyof AttributeValue;
+  attrType: keyof AttributeValue;
 }
 
 export interface SizeExpr {
-  type: 'size';
-  value: ComparisonExpr<number>;
+  size: ComparisonExpr<number>;
 }
 
 // Composite types
 export type KeyConditionExpr<T> =
   | ComparisonExpr<T>
-  | Extract<StringExpr<T extends string ? T : never>, { type: 'beginsWith' }>
+  | Extract<StringExpr<T>, { beginsWith: any }>
   | RangeExpr<T>;
 
 export type KeyConditionExprParameters<Index extends IndexDefinition> =
@@ -47,7 +41,7 @@ export type KeyConditionExprParameters<Index extends IndexDefinition> =
 
 export type ConditionExpr<T> =
   | ComparisonExpr<T>
-  | StringExpr<T extends string ? T : never>
+  | StringExpr<T>
   | RangeExpr<T>
   | ExistenceExpr
   | AttrTypeExpr
@@ -65,6 +59,5 @@ export interface AttributeConditionExpr<
 // Compound expression parameters including logical operations
 export type ConditionExprParameters<Type> =
   | AttributeConditionExpr<Type>
-  | { type: 'and'; value: ConditionExprParameters<Type>[] }
-  | { type: 'or'; value: ConditionExprParameters<Type>[] };
-
+  | { and: ConditionExprParameters<Type>[] }
+  | { or: ConditionExprParameters<Type>[] };

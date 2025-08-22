@@ -10,8 +10,11 @@ export type { KeyConditionExpr } from './conditions/index.js';
 // Types needed by tests only (consider these internal)
 export type {
   AttributeConditionExpr,
+  ComparisonExpr,
+  ConditionExpr,
   ConditionExprParameters,
   KeyConditionExprParameters,
+  StringExpr,
 } from './conditions/index.js';
 
 // Essential function for projection

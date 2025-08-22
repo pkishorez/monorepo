@@ -31,7 +31,7 @@ describe('condition and Filter Expressions', () => {
         table.putItem(item, {
           condition: {
             attr: 'pkey',
-            condition: { type: 'exists', value: false },
+            condition: { 'exists': false },
           },
         }),
       );
@@ -41,7 +41,7 @@ describe('condition and Filter Expressions', () => {
         table.putItem(item, {
           condition: {
             attr: 'pkey',
-            condition: { type: 'exists', value: false },
+            condition: { 'exists': false },
           },
         }),
       );
@@ -69,7 +69,7 @@ describe('condition and Filter Expressions', () => {
           ReturnValues: 'ALL_NEW',
           condition: {
             attr: 'version',
-            condition: { type: '=', value: 1 },
+            condition: { '=': 1 },
           },
         }),
       );
@@ -85,7 +85,7 @@ describe('condition and Filter Expressions', () => {
           ExpressionAttributeValues: { ':status': { S: 'failed' } },
           condition: {
             attr: 'version',
-            condition: { type: '=', value: 1 }, // Wrong version
+            condition: { '=': 1 }, // Wrong version
           },
         }),
       );
@@ -102,7 +102,7 @@ describe('condition and Filter Expressions', () => {
         table.deleteItem(createKey(item.pkey), {
           condition: {
             attr: 'deletable',
-            condition: { type: '=', value: true },
+            condition: { '=': true },
           },
         }),
       );
@@ -122,7 +122,7 @@ describe('condition and Filter Expressions', () => {
         table.deleteItem(createKey(nonDeletableItem.pkey), {
           condition: {
             attr: 'deletable',
-            condition: { type: '=', value: true }, // Wrong value
+            condition: { '=': true }, // Wrong value
           },
         }),
       );
@@ -164,10 +164,9 @@ describe('condition and Filter Expressions', () => {
           { pk },
           {
             filter: {
-              type: 'and',
-              value: [
-                { attr: 'score', condition: { type: '>', value: 100 } },
-                { attr: 'status', condition: { type: '=', value: 'active' } },
+              'and': [
+                { attr: 'score', condition: { '>': 100 } },
+                { attr: 'status', condition: { '=': 'active' } },
               ],
             },
           },
@@ -192,10 +191,9 @@ describe('condition and Filter Expressions', () => {
       const result = await Effect.runPromise(
         table.scan({
           filter: {
-            type: 'or',
-            value: [
-              { attr: 'score', condition: { type: '>', value: 180 } },
-              { attr: 'level', condition: { type: '>=', value: 5 } },
+            'or': [
+              { attr: 'score', condition: { '>': 180 } },
+              { attr: 'level', condition: { '>=': 5 } },
             ],
           },
         }),
@@ -227,20 +225,17 @@ describe('condition and Filter Expressions', () => {
       const result = await Effect.runPromise(
         table.scan({
           filter: {
-            type: 'or',
-            value: [
+            'or': [
               {
-                type: 'and',
-                value: [
-                  { attr: 'category', condition: { type: '=', value: 'A' } },
-                  { attr: 'priority', condition: { type: '=', value: 1 } },
+                'and': [
+                  { attr: 'category', condition: { '=': 'A' } },
+                  { attr: 'priority', condition: { '=': 1 } },
                 ],
               },
               {
-                type: 'and',
-                value: [
-                  { attr: 'category', condition: { type: '=', value: 'B' } },
-                  { attr: 'active', condition: { type: '=', value: true } },
+                'and': [
+                  { attr: 'category', condition: { '=': 'B' } },
+                  { attr: 'active', condition: { '=': true } },
                 ],
               },
             ],
@@ -266,7 +261,7 @@ describe('condition and Filter Expressions', () => {
         table.scan({
           filter: {
             attr: 'description',
-            condition: { type: 'contains', value: 'test' },
+            condition: { 'contains': 'test' },
           },
         }),
       );

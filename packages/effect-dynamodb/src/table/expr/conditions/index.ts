@@ -7,8 +7,11 @@ export { attrExpr } from './expr.js';
 // Types that external code actually needs
 export type {
   AttributeConditionExpr,
+  ComparisonExpr,
+  ConditionExpr,
   ConditionExprParameters,
   KeyConditionExpr,
   KeyConditionExprParameters,
+  StringExpr,
 } from './types.js';
 

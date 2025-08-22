@@ -99,7 +99,7 @@ describe('index Operations', () => {
       const beginsResult = await Effect.runPromise(
         table.gsi('GSI1').query({
           pk: `category#electronics-${testId}`,
-          sk: { type: 'beginsWith', value: 'brand#apple' },
+          sk: { 'beginsWith': 'brand#apple' },
         }),
       );
       expect(beginsResult.Items).toHaveLength(2);
@@ -119,8 +119,7 @@ describe('index Operations', () => {
         table.gsi('GSI1').query({
           pk: 'user#user1',
           sk: {
-            type: 'between',
-            value: ['date#2024-01-01#001', 'date#2024-01-05#002'],
+            'between': ['date#2024-01-01#001', 'date#2024-01-05#002'],
           },
         }),
       );
@@ -151,14 +150,13 @@ describe('index Operations', () => {
         table.gsi('GSI1').query(
           {
             pk: 'category#sports',
-            sk: { type: 'beginsWith', value: 'brand#nike' },
+            sk: { 'beginsWith': 'brand#nike' },
           },
           {
             filter: {
-              type: 'and',
-              value: [
-                { attr: 'price', condition: { type: '>=', value: 100 } },
-                { attr: 'inStock', condition: { type: '=', value: true } },
+              'and': [
+                { attr: 'price', condition: { '>=': 100 } },
+                { attr: 'inStock', condition: { '=': true } },
               ],
             },
             projection: ['gsi1pk', 'gsi1sk', 'price', 'rating'],
@@ -195,13 +193,12 @@ describe('index Operations', () => {
       const result = await Effect.runPromise(
         table.gsi('GSI1').scan({
           filter: {
-            type: 'and',
-            value: [
+            'and': [
               {
                 attr: 'gsi1pk',
-                condition: { type: 'beginsWith', value: 'category#' },
+                condition: { 'beginsWith': 'category#' },
               },
-              { attr: 'organic', condition: { type: '=', value: true } },
+              { attr: 'organic', condition: { '=': true } },
             ],
           },
           projection: ['pkey', 'category', 'calories'],
@@ -282,7 +279,7 @@ describe('index Operations', () => {
           {
             filter: {
               attr: 'featured',
-              condition: { type: '=', value: true },
+              condition: { '=': true },
             },
             projection: ['pkey', 'lsi1skey', 'status'],
             ConsistentRead: true,
@@ -311,7 +308,7 @@ describe('index Operations', () => {
         table.lsi('LSI1').scan({
           filter: {
             attr: 'featured',
-            condition: { type: '=', value: true },
+            condition: { '=': true },
           },
           ReturnConsumedCapacity: 'TOTAL',
           projection: ['pkey', 'lsi1skey'],
@@ -350,7 +347,7 @@ describe('index Operations', () => {
           {
             filter: {
               attr: 'price',
-              condition: { type: '>', value: 800 },
+              condition: { '>': 800 },
             },
           },
         ),
@@ -363,7 +360,7 @@ describe('index Operations', () => {
           {
             filter: {
               attr: 'featured',
-              condition: { type: '=', value: true },
+              condition: { '=': true },
             },
           },
         ),
@@ -389,10 +386,16 @@ describe('index Operations', () => {
       const operators = ['<', '<=', '>', '>=', '='] as const;
 
       for (const op of operators) {
+        const sk = op === '<' ? { '<': testValue } :
+                  op === '<=' ? { '<=': testValue } :
+                  op === '>' ? { '>': testValue } :
+                  op === '>=' ? { '>=': testValue } :
+                  { '=': testValue };
+        
         const result = await Effect.runPromise(
           table.gsi('GSI1').query({
             pk: 'user#testuser',
-            sk: { type: op, value: testValue },
+            sk,
           }),
         );
         expect(result.Items).toBeDefined();
@@ -403,8 +406,7 @@ describe('index Operations', () => {
         table.gsi('GSI1').query({
           pk: 'user#testuser',
           sk: {
-            type: 'between',
-            value: ['date#2024-01-03#002', 'date#2024-01-07#006'],
+            'between': ['date#2024-01-03#002', 'date#2024-01-07#006'],
           },
         }),
       );
@@ -432,7 +434,7 @@ describe('index Operations', () => {
         table.gsi('GSI1').scan({
           filter: {
             attr: 'price',
-            condition: { type: '>', value: 10000 },
+            condition: { '>': 10000 },
           },
         }),
       );
@@ -442,7 +444,7 @@ describe('index Operations', () => {
         table.lsi('LSI1').scan({
           filter: {
             attr: 'score',
-            condition: { type: '>', value: 10000 },
+            condition: { '>': 10000 },
           },
         }),
       );
