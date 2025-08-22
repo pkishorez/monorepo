@@ -58,7 +58,7 @@ export type ConditionArrExpr<Type> = AttributeConditionExpr<Type>[];
 // New types for functional composition architecture
 // Simple object notation for convenience: { name: { '=': 'John' }, age: { '>': 18 } }
 export type SimpleConditionExpr<T> = {
-  [K in keyof T]?: ConditionExpr<T[K]>;
+  [K in StringAttr<T>]?: ConditionExpr<AttrValueType<T, K>>;
 };
 
 // Union type that accepts multiple input formats

@@ -10,8 +10,8 @@ export type SetValueExpr<T = unknown, Attr = string> =
   | { op: 'plus'; attr: Attr; value: T } // attr + value
   | { op: 'minus'; attr: Attr; value: T }; // attr - value
 
-// Update expression parameters - uses DynamoDB's natural grouping
-export interface UpdateExprParameters<
+// Base interface for update operations
+interface BaseUpdateExprParameters<
   T extends Record<string, unknown> = Record<string, unknown>,
   Attr extends StringAttr<T> = StringAttr<T>,
 > {
@@ -20,10 +20,21 @@ export interface UpdateExprParameters<
     value: SetValueExpr<AttrValueType<T, Attr>, Attr>;
   }>;
   REMOVE?: Array<{ attr: Attr }>;
-
   ADD?: Array<{ attr: Attr; value: AttrValueType<T, Attr> }>;
   DELETE?: Array<{ attr: Attr; value: AttrValueType<T, Attr> }>;
 }
+
+// Update expression parameters - requires at least one operation
+export type UpdateExprParameters<
+  T extends Record<string, unknown> = Record<string, unknown>,
+  Attr extends StringAttr<T> = StringAttr<T>,
+> = BaseUpdateExprParameters<T, Attr> &
+  (
+    | { SET: NonNullable<BaseUpdateExprParameters<T, Attr>['SET']> }
+    | { ADD: NonNullable<BaseUpdateExprParameters<T, Attr>['ADD']> }
+    | { REMOVE: NonNullable<BaseUpdateExprParameters<T, Attr>['REMOVE']> }
+    | { DELETE: NonNullable<BaseUpdateExprParameters<T, Attr>['DELETE']> }
+  );
 
 // Result type for update expressions
 export interface UpdateExprResult {

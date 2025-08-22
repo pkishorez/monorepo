@@ -56,14 +56,11 @@ describe('condition and Filter Expressions', () => {
       // Update with correct version condition should succeed
       const result = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
-          UpdateExpression: 'SET #status = :status, #version = :newVersion',
-          ExpressionAttributeNames: {
-            '#status': 'status',
-            '#version': 'version',
-          },
-          ExpressionAttributeValues: {
-            ':status': { S: 'updated' },
-            ':newVersion': { N: '2' },
+          update: {
+            SET: [
+              { attr: 'status', value: { op: 'direct', value: 'updated' } },
+              { attr: 'version', value: { op: 'direct', value: 2 } },
+            ],
           },
           ReturnValues: 'ALL_NEW',
           condition: {
@@ -78,9 +75,11 @@ describe('condition and Filter Expressions', () => {
       // Update with wrong version condition should fail
       const updatePromise = Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
-          UpdateExpression: 'SET #status = :status',
-          ExpressionAttributeNames: { '#status': 'status' },
-          ExpressionAttributeValues: { ':status': { S: 'failed' } },
+          update: {
+            SET: [
+              { attr: 'status', value: { op: 'direct', value: 'failed' } },
+            ],
+          },
           condition: {
             version: { '=': 1 }, // Wrong version
           },

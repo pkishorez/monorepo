@@ -24,7 +24,12 @@ export interface DynamoConfig {
   endpoint?: string;
 }
 
-export type KeyFromIndex<T extends IndexDefinition> = T extends {
+export type KeyTypeFromIndex<T extends IndexDefinition> =
+  T extends CompoundIndexDefinition
+    ? CompoundIndexDefinition
+    : SimpleIndexDefinition;
+
+export type RealKeyFromIndex<T extends IndexDefinition> = T extends {
   sk: infer SK;
   pk: infer PK;
 }
@@ -36,7 +41,7 @@ export type KeyFromIndex<T extends IndexDefinition> = T extends {
     : never;
 
 export type ItemWithKeys<TPrimary extends IndexDefinition> =
-  KeyFromIndex<TPrimary> & Record<string, unknown>;
+  RealKeyFromIndex<TPrimary> & Record<string, unknown>;
 
 // Extract all keys from GSIs and LSIs to make them optional
 export type AllGLSIKeys<TGLSIs extends Record<string, IndexDefinition>> =
@@ -45,7 +50,7 @@ export type AllGLSIKeys<TGLSIs extends Record<string, IndexDefinition>> =
       {}
     : {
         [K in keyof TGLSIs]: TGLSIs[K] extends IndexDefinition
-          ? KeyFromIndex<TGLSIs[K]>
+          ? RealKeyFromIndex<TGLSIs[K]>
           : never;
       }[keyof TGLSIs];
 
@@ -54,7 +59,7 @@ export type ItemForPut<
   TGSIs extends Record<string, IndexDefinition>,
   TLSIs extends Record<string, IndexDefinition>,
   Item = Record<string, unknown>,
-> = KeyFromIndex<TPrimary> &
+> = RealKeyFromIndex<TPrimary> &
   Partial<AllGLSIKeys<TGSIs>> &
   Partial<AllGLSIKeys<TLSIs>> &
   Item;

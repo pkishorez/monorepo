@@ -288,6 +288,7 @@ describe('update Expression System', () => {
 
   describe('edge Cases', () => {
     it('empty parameters should handle gracefully', () => {
+      // @ts-expect-error "Empty params are not allowed."
       const parameters: UpdateExprParameters = {};
 
       const result = updateExpr(parameters);

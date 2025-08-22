@@ -2,13 +2,12 @@ import type { IndexDefinition } from '../../types.js';
 import type { ExprResult } from '../expr-utils/index.js';
 import type { AttrValueType, StringAttr } from '../expr-utils/types.js';
 import type {
-  AttributeConditionExpr,
   ConditionExpr,
   ExprInput,
   KeyConditionExprParameters,
   SimpleConditionExpr,
 } from './types.js';
-import { extractVariant, mergeExprResults } from '../expr-utils/index.js';
+import { mergeExprResults } from '../expr-utils/index.js';
 import { mapVariant } from '../expr-utils/utils.js';
 import {
   attrTypeExpr,

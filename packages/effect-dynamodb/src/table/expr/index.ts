@@ -19,10 +19,14 @@ export type {
   StringExpr,
 } from './conditions/index.js';
 
+// Expression builder for combining multiple expression types
+export { buildExpression } from './expression-builder.js';
+
+export type { ExpressionInput } from './expression-builder.js';
+
 // Essential function for projection
 export { projectionExpr } from './projection.js';
 
 // Essential functions for update expressions
 export { updateExpr } from './updates/index.js';
-
 export type { UpdateExprParameters } from './updates/index.js';

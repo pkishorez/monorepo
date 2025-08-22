@@ -1,7 +1,7 @@
 import type { DynamoDB, QueryInput, ScanInput } from 'dynamodb-client';
 import type { ExprInput, KeyConditionExprParameters } from './expr/index.js';
-import type { IndexDefinition, KeyFromIndex } from './types.js';
-import { expr, keyCondition, projectionExpr } from './expr/index.js';
+import type { IndexDefinition, RealKeyFromIndex } from './types.js';
+import { buildExpression } from './expr/index.js';
 import { marshall } from './utils.js';
 
 export type QueryOptions<Index extends IndexDefinition, Type> = Omit<
@@ -16,13 +16,12 @@ export type QueryOptions<Index extends IndexDefinition, Type> = Omit<
 > & {
   filter?: ExprInput<Type>;
   projection?: string[];
-  exclusiveStartKey?: KeyFromIndex<Index> | undefined;
+  exclusiveStartKey?: RealKeyFromIndex<Index> | undefined;
 };
 
 export type ScanOptions<Index extends IndexDefinition, Type> = Omit<
   ScanInput,
   | 'TableName'
-  | 'Key'
   | 'IndexName'
   | 'ExpressionAttributeNames'
   | 'ExpressionAttributeValues'
@@ -31,7 +30,7 @@ export type ScanOptions<Index extends IndexDefinition, Type> = Omit<
 > & {
   filter?: ExprInput<Type>;
   projection?: string[];
-  exclusiveStartKey?: KeyFromIndex<Index>;
+  exclusiveStartKey?: RealKeyFromIndex<Index>;
 };
 
 export class DynamoQueryExecutor<Type> {
@@ -51,37 +50,21 @@ export class DynamoQueryExecutor<Type> {
       ...options
     }: QueryOptions<TIndex, Type> & { indexName?: string } = {},
   ) {
-    const keyExpressions = keyCondition(index, key);
+    // Build all expressions at once
+    const result = buildExpression({
+      keyCondition: { index, params: key },
+      projection,
+      filter,
+    });
+
     const queryOptions: QueryInput = {
       TableName: this.tableName,
       ...options,
-      KeyConditionExpression: keyExpressions.expr,
-      ExpressionAttributeNames: keyExpressions.exprAttributes,
-      ExpressionAttributeValues: marshall(keyExpressions.exprValues),
+      ...result,
     };
 
     if (indexName) {
       queryOptions.IndexName = indexName;
-    }
-    if (projection) {
-      const { expr: condition, exprAttributes } = projectionExpr(projection);
-      queryOptions.ProjectionExpression = condition;
-      queryOptions.ExpressionAttributeNames = {
-        ...queryOptions.ExpressionAttributeNames,
-        ...exprAttributes,
-      };
-    }
-    if (filter) {
-      const { expr: condition, exprAttributes, exprValues } = expr(filter);
-      queryOptions.ExpressionAttributeNames = {
-        ...queryOptions.ExpressionAttributeNames,
-        ...exprAttributes,
-      };
-      queryOptions.ExpressionAttributeValues = {
-        ...queryOptions.ExpressionAttributeValues,
-        ...marshall(exprValues),
-      };
-      queryOptions.FilterExpression = condition;
     }
 
     // Handle ExclusiveStartKey marshalling
@@ -99,33 +82,20 @@ export class DynamoQueryExecutor<Type> {
     indexName,
     ...options
   }: ScanOptions<TIndex, Type> & { indexName?: string } = {}) {
+    // Build all expressions at once
+    const result = buildExpression({
+      projection,
+      filter,
+    });
+
     const scanOptions: ScanInput = {
       TableName: this.tableName,
       ...options,
+      ...result,
     };
 
-    if (projection) {
-      const { expr: condition, exprAttributes } = projectionExpr(projection);
-      scanOptions.ProjectionExpression = condition;
-      scanOptions.ExpressionAttributeNames = {
-        ...scanOptions.ExpressionAttributeNames,
-        ...exprAttributes,
-      };
-    }
     if (indexName) {
       scanOptions.IndexName = indexName;
-    }
-    if (filter) {
-      const { expr: condition, exprAttributes, exprValues } = expr(filter);
-      scanOptions.ExpressionAttributeNames = {
-        ...scanOptions.ExpressionAttributeNames,
-        ...exprAttributes,
-      };
-      scanOptions.ExpressionAttributeValues = {
-        ...scanOptions.ExpressionAttributeValues,
-        ...marshall(exprValues),
-      };
-      scanOptions.FilterExpression = condition;
     }
     if (exclusiveStartKey) {
       scanOptions.ExclusiveStartKey = marshall(exclusiveStartKey);

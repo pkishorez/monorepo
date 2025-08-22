@@ -45,9 +45,11 @@ describe('cRUD Operations', () => {
 
       const result = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
-          UpdateExpression: 'SET #status = :status',
-          ExpressionAttributeNames: { '#status': 'status' },
-          ExpressionAttributeValues: { ':status': { S: 'inactive' } },
+          update: {
+            SET: [
+              { attr: 'status', value: { op: 'direct', value: 'inactive' } },
+            ],
+          },
           ReturnValues: 'ALL_NEW',
         }),
       );
@@ -58,9 +60,11 @@ describe('cRUD Operations', () => {
     it('should update non-existent item (upsert)', async () => {
       const result = await Effect.runPromise(
         table.updateItem(createKey('user#999'), {
-          UpdateExpression: 'SET #status = :status',
-          ExpressionAttributeNames: { '#status': 'status' },
-          ExpressionAttributeValues: { ':status': { S: 'created' } },
+          update: {
+            SET: [
+              { attr: 'status', value: { op: 'direct', value: 'created' } },
+            ],
+          },
           ReturnValues: 'ALL_NEW',
         }),
       );
@@ -101,9 +105,11 @@ describe('cRUD Operations', () => {
       // Test updateItem with monitoring
       const updateResult = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
-          UpdateExpression: 'SET #status = :status',
-          ExpressionAttributeNames: { '#status': 'status' },
-          ExpressionAttributeValues: { ':status': { S: 'updated' } },
+          update: {
+            SET: [
+              { attr: 'status', value: { op: 'direct', value: 'updated' } },
+            ],
+          },
           ReturnValues: 'ALL_NEW',
           ReturnConsumedCapacity: 'TOTAL',
         }),
@@ -118,12 +124,11 @@ describe('cRUD Operations', () => {
 
       const result = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
-          UpdateExpression:
-            'SET #count = #count + :inc, #tags = list_append(#tags, :newTags)',
-          ExpressionAttributeNames: { '#count': 'count', '#tags': 'tags' },
-          ExpressionAttributeValues: {
-            ':inc': { N: '5' },
-            ':newTags': { L: [{ S: 'tag2' }] },
+          update: {
+            SET: [
+              { attr: 'count', value: { op: 'plus', attr: 'count', value: 5 } },
+              { attr: 'tags', value: { op: 'list_append', attr: 'tags', list: ['tag2'] } },
+            ],
           },
           ReturnValues: 'ALL_NEW',
         }),

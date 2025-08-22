@@ -6,20 +6,24 @@ import type {
   PutItemInput,
   UpdateItemInput,
 } from 'dynamodb-client';
-import type { ExprInput, KeyConditionExprParameters } from './expr/index.js';
+import type {
+  ExprInput,
+  KeyConditionExprParameters,
+  UpdateExprParameters,
+} from './expr/index.js';
 import type { QueryOptions, ScanOptions } from './query-executor.js';
 import type {
   DynamoConfig,
   IndexDefinition,
   ItemForPut,
   ItemWithKeys,
-  KeyFromIndex,
+  RealKeyFromIndex,
   SecondaryIndexDefinition,
   Simplify,
 } from './types.js';
 import { createDynamoDB } from 'dynamodb-client';
 import { Effect } from 'effect';
-import { expr, projectionExpr } from './expr/index.js';
+import { buildExpression } from './expr/index.js';
 import { DynamoQueryExecutor } from './query-executor.js';
 import { marshall, unmarshall } from './utils.js';
 
@@ -73,7 +77,7 @@ export class DynamoTable<
 
   // Primary table operations
   getItem(
-    key: KeyFromIndex<TPrimary>,
+    key: RealKeyFromIndex<TPrimary>,
     {
       projection,
       ...options
@@ -81,17 +85,13 @@ export class DynamoTable<
       projection?: string[];
     } = {},
   ) {
+    const result = buildExpression({ projection });
     const getOptions: GetItemInput = {
       TableName: this.#name,
       Key: marshall(key),
       ...options,
+      ...result,
     };
-
-    if (projection) {
-      const { expr: condition, exprAttributes } = projectionExpr(projection);
-      getOptions.ProjectionExpression = condition;
-      getOptions.ExpressionAttributeNames = exprAttributes;
-    }
 
     return this.#client.getItem(getOptions).pipe(
       Effect.map((response) => ({
@@ -105,32 +105,20 @@ export class DynamoTable<
 
   putItem(
     item: ItemForPut<TPrimary, TGSIs, TLSIs, Type>,
-    options?: Omit<
+    options: Omit<
       PutItemInput,
-      'TableName' | 'Item' | 'ConditionExpression'
+      'TableName' | 'Item' | 'ConditionExpression' | 'Key'
     > & {
       condition?: ExprInput<Type>;
-    },
+    } = {},
   ) {
+    const result = buildExpression({ condition: options.condition });
     const putItemOptions: PutItemInput = {
       TableName: this.#name,
       Item: marshall(item),
       ...options,
+      ...result,
     };
-
-    if (options?.condition) {
-      const {
-        expr: condition,
-        exprAttributes,
-        exprValues,
-      } = expr(options.condition);
-      putItemOptions.ConditionExpression = condition;
-      putItemOptions.ExpressionAttributeNames = exprAttributes;
-      // Only set ExpressionAttributeValues if there are values to set
-      if (Object.keys(exprValues).length > 0) {
-        putItemOptions.ExpressionAttributeValues = marshall(exprValues);
-      }
-    }
 
     return this.#client.putItem(putItemOptions).pipe(
       Effect.map((response) => ({
@@ -143,43 +131,33 @@ export class DynamoTable<
   }
 
   updateItem(
-    key: KeyFromIndex<TPrimary>,
-    options?: Omit<
+    key: RealKeyFromIndex<TPrimary>,
+    options: Omit<
       UpdateItemInput,
-      'TableName' | 'Key' | 'ConditionExpression'
+      | 'TableName'
+      | 'Key'
+      | 'ConditionExpression'
+      | 'UpdateExpression'
+      | 'ExpressionAttributeNames'
+      | 'ExpressionAttributeValues'
     > & {
       condition?: ExprInput<Type>;
+      update: UpdateExprParameters<
+        Type extends Record<string, unknown> ? Type : Record<string, unknown>
+      >;
     },
   ) {
+    // Build expressions using the helper
+    const result = buildExpression({
+      condition: options.condition,
+      update: options.update,
+    });
     const updateItemOptions: UpdateItemInput = {
       TableName: this.#name,
       Key: marshall(key),
       ...options,
+      ...result,
     };
-
-    if (options?.condition) {
-      const {
-        expr: condition,
-        exprAttributes,
-        exprValues,
-      } = expr(options.condition);
-      updateItemOptions.ConditionExpression = condition;
-
-      // Merge expression attribute names and values with existing ones
-      updateItemOptions.ExpressionAttributeNames = {
-        ...updateItemOptions.ExpressionAttributeNames,
-        ...exprAttributes,
-      };
-
-      // Only merge condition values if there are values to merge
-      if (Object.keys(exprValues).length > 0) {
-        const marshalledConditionValues = marshall(exprValues);
-        updateItemOptions.ExpressionAttributeValues = {
-          ...updateItemOptions.ExpressionAttributeValues,
-          ...marshalledConditionValues,
-        };
-      }
-    }
 
     return this.#client.updateItem(updateItemOptions).pipe(
       Effect.map((response) => ({
@@ -192,33 +170,21 @@ export class DynamoTable<
   }
 
   deleteItem(
-    key: KeyFromIndex<TPrimary>,
-    options?: Omit<
+    key: RealKeyFromIndex<TPrimary>,
+    options: Omit<
       DeleteItemInput,
       'TableName' | 'Key' | 'ConditionExpression'
     > & {
       condition?: ExprInput<Type>;
-    },
+    } = {},
   ) {
+    const result = buildExpression({ condition: options.condition });
     const deleteItemOptions: DeleteItemInput = {
       TableName: this.#name,
       Key: marshall(key),
       ...options,
+      ...result,
     };
-
-    if (options?.condition) {
-      const {
-        expr: condition,
-        exprAttributes,
-        exprValues,
-      } = expr(options.condition);
-      deleteItemOptions.ConditionExpression = condition;
-      deleteItemOptions.ExpressionAttributeNames = exprAttributes;
-      // Only set ExpressionAttributeValues if there are values to set
-      if (Object.keys(exprValues).length > 0) {
-        deleteItemOptions.ExpressionAttributeValues = marshall(exprValues);
-      }
-    }
 
     return this.#client.deleteItem(deleteItemOptions).pipe(
       Effect.map((response) => ({
@@ -241,7 +207,9 @@ export class DynamoTable<
           unmarshall(item),
         ) as ItemWithKeys<TPrimary>[],
         LastEvaluatedKey: response.LastEvaluatedKey
-          ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<TPrimary>)
+          ? (unmarshall(
+              response.LastEvaluatedKey,
+            ) as RealKeyFromIndex<TPrimary>)
           : undefined,
       })),
     );
@@ -255,7 +223,9 @@ export class DynamoTable<
           unmarshall(item),
         ) as ItemWithKeys<TPrimary>[],
         LastEvaluatedKey: response.LastEvaluatedKey
-          ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<TPrimary>)
+          ? (unmarshall(
+              response.LastEvaluatedKey,
+            ) as RealKeyFromIndex<TPrimary>)
           : undefined,
       })),
     );
@@ -280,7 +250,7 @@ export class DynamoTable<
                 unmarshall(item),
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<
+                ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
                     TGSIs[TName]
                   >)
                 : undefined,
@@ -298,7 +268,7 @@ export class DynamoTable<
                 unmarshall(item),
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<
+                ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
                     TGSIs[TName]
                   >)
                 : undefined,
@@ -329,7 +299,7 @@ export class DynamoTable<
                 unmarshall(item),
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<
+                ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
                     TLSIs[TName]
                   >)
                 : undefined,
@@ -347,7 +317,7 @@ export class DynamoTable<
                 unmarshall(item),
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(response.LastEvaluatedKey) as KeyFromIndex<
+                ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
                     TLSIs[TName]
                   >)
                 : undefined,
