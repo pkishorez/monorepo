@@ -7,16 +7,13 @@ describe('update Expression System', () => {
     it('sET operation with function - list_append', () => {
       const newItems = ['newItem1', 'newItem2'];
       const parameters: UpdateExprParameters = {
-        SET: [
-          {
-            attr: 'items',
-            value: {
-              op: 'list_append',
-              attr: 'existingItems',
-              list: newItems,
-            },
+        SET: {
+          items: {
+            op: 'list_append',
+            attr: 'existingItems',
+            list: newItems,
           },
-        ],
+        },
       };
 
       const result = updateExpr(parameters);
@@ -35,12 +32,9 @@ describe('update Expression System', () => {
 
     it('sET operation with function - if_not_exists', () => {
       const parameters: UpdateExprParameters<{ counter: number }> = {
-        SET: [
-          {
-            attr: 'counter',
-            value: { op: 'if_not_exists', attr: 'counter', default: 0 },
-          },
-        ],
+        SET: {
+          counter: { op: 'if_not_exists', attr: 'counter', default: 0 },
+        },
       };
 
       const result = updateExpr(parameters);
@@ -54,12 +48,9 @@ describe('update Expression System', () => {
 
     it('sET operation with function - plus', () => {
       const parameters: UpdateExprParameters = {
-        SET: [
-          {
-            attr: 'total',
-            value: { op: 'plus', attr: 'subtotal', value: 10 },
-          },
-        ],
+        SET: {
+          total: { op: 'plus', attr: 'subtotal', value: 10 },
+        },
       };
 
       const result = updateExpr(parameters);
@@ -74,12 +65,9 @@ describe('update Expression System', () => {
 
     it('sET operation with function - minus', () => {
       const parameters: UpdateExprParameters = {
-        SET: [
-          {
-            attr: 'remaining',
-            value: { op: 'minus', attr: 'total', value: 5 },
-          },
-        ],
+        SET: {
+          remaining: { op: 'minus', attr: 'total', value: 5 },
+        },
       };
 
       const result = updateExpr(parameters);
@@ -93,15 +81,12 @@ describe('update Expression System', () => {
     });
     it('sET operation', () => {
       const parameters: UpdateExprParameters = {
-        SET: [
-          {
-            attr: 'name',
-            value: {
-              op: 'direct',
-              value: 'John Doe',
-            },
+        SET: {
+          name: {
+            op: 'direct',
+            value: 'John Doe',
           },
-        ],
+        },
       };
 
       const result = updateExpr(parameters);
@@ -166,13 +151,10 @@ describe('update Expression System', () => {
   describe('multiple Update Operations', () => {
     it('multiple SET operations', () => {
       const parameters: UpdateExprParameters = {
-        SET: [
-          { attr: 'name', value: { op: 'direct', value: 'Jane Doe' } },
-          {
-            attr: 'email',
-            value: { op: 'direct', value: 'jane@example.com' },
-          },
-        ],
+        SET: {
+          name: { op: 'direct', value: 'Jane Doe' },
+          email: { op: 'direct', value: 'jane@example.com' },
+        },
       };
 
       const result = updateExpr(parameters);
@@ -188,7 +170,7 @@ describe('update Expression System', () => {
 
     it('mixed operations (SET, ADD, REMOVE)', () => {
       const parameters: UpdateExprParameters = {
-        SET: [{ attr: 'name', value: { op: 'direct', value: 'Updated Name' } }],
+        SET: { name: { op: 'direct', value: 'Updated Name' } },
         ADD: [{ attr: 'counter', value: 5 }],
         REMOVE: ['deprecated'],
       };
@@ -210,10 +192,10 @@ describe('update Expression System', () => {
 
     it('multiple operations of different types', () => {
       const parameters: UpdateExprParameters = {
-        SET: [
-          { attr: 'field1', value: { op: 'direct', value: 'value1' } },
-          { attr: 'field2', value: { op: 'direct', value: 'value2' } },
-        ],
+        SET: {
+          field1: { op: 'direct', value: 'value1' },
+          field2: { op: 'direct', value: 'value2' },
+        },
         ADD: [
           { attr: 'counter1', value: 1 },
           { attr: 'counter2', value: 2 },
@@ -235,7 +217,7 @@ describe('update Expression System', () => {
   describe('additional Operations', () => {
     it('all operation types together', () => {
       const parameters: UpdateExprParameters = {
-        SET: [{ attr: 'name', value: { op: 'direct', value: 'Updated Name' } }],
+        SET: { name: { op: 'direct', value: 'Updated Name' } },
         ADD: [{ attr: 'counter', value: 1 }],
         REMOVE: ['oldField'],
         DELETE: [{ attr: 'tags', value: new Set(['tag1']) }],
@@ -255,20 +237,14 @@ describe('update Expression System', () => {
 
     it('sET with functions', () => {
       const parameters: UpdateExprParameters = {
-        SET: [
-          {
-            attr: 'items',
-            value: {
-              op: 'list_append',
-              attr: 'existingList',
-              list: ['item1'],
-            },
+        SET: {
+          items: {
+            op: 'list_append',
+            attr: 'existingList',
+            list: ['item1'],
           },
-          {
-            attr: 'counter',
-            value: { op: 'if_not_exists', attr: 'counter', default: 0 },
-          },
-        ],
+          counter: { op: 'if_not_exists', attr: 'counter', default: 0 },
+        },
       };
 
       const result = updateExpr(parameters);
@@ -296,12 +272,9 @@ describe('update Expression System', () => {
 
     it('special characters in attribute names', () => {
       const parameters: UpdateExprParameters = {
-        SET: [
-          {
-            attr: 'user.email@domain',
-            value: { op: 'direct', value: 'test@example.com' },
-          },
-        ],
+        SET: {
+          'user.email@domain': { op: 'direct', value: 'test@example.com' },
+        },
       };
 
       const result = updateExpr(parameters);
@@ -326,15 +299,12 @@ describe('update Expression System', () => {
 
       testValues.forEach((value) => {
         const parameters: UpdateExprParameters = {
-          SET: [
-            {
-              attr: 'testField',
-              value: {
-                op: 'direct',
-                value,
-              },
+          SET: {
+            testField: {
+              op: 'direct',
+              value,
             },
-          ],
+          },
         };
 
         const result = updateExpr(parameters);

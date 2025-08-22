@@ -46,9 +46,9 @@ describe('cRUD Operations', () => {
       const result = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
           update: {
-            SET: [
-              { attr: 'status', value: { op: 'direct', value: 'inactive' } },
-            ],
+            SET: {
+              status: { op: 'direct', value: 'inactive' },
+            },
           },
           ReturnValues: 'ALL_NEW',
         }),
@@ -61,9 +61,7 @@ describe('cRUD Operations', () => {
       const result = await Effect.runPromise(
         table.updateItem(createKey('user#999'), {
           update: {
-            SET: [
-              { attr: 'status', value: { op: 'direct', value: 'created' } },
-            ],
+            SET: { status: { op: 'direct', value: 'created' } },
           },
           ReturnValues: 'ALL_NEW',
         }),
@@ -106,9 +104,9 @@ describe('cRUD Operations', () => {
       const updateResult = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
           update: {
-            SET: [
-              { attr: 'status', value: { op: 'direct', value: 'updated' } },
-            ],
+            SET: {
+              status: { op: 'direct', value: 'updated' },
+            },
           },
           ReturnValues: 'ALL_NEW',
           ReturnConsumedCapacity: 'TOTAL',
@@ -125,10 +123,10 @@ describe('cRUD Operations', () => {
       const result = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
           update: {
-            SET: [
-              { attr: 'count', value: { op: 'plus', attr: 'count', value: 5 } },
-              { attr: 'tags', value: { op: 'list_append', attr: 'tags', list: ['tag2'] } },
-            ],
+            SET: {
+              count: { op: 'plus', attr: 'count', value: 5 },
+              tags: { op: 'list_append', attr: 'tags', list: ['tag2'] },
+            },
           },
           ReturnValues: 'ALL_NEW',
         }),

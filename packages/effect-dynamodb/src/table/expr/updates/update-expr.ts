@@ -135,7 +135,7 @@ export function updateExpr<
 
   // Process SET operations
   if (parameters.SET) {
-    const setResults = parameters.SET.map(({ attr, value }) =>
+    const setResults = Object.entries(parameters.SET).map(([attr, value]) =>
       setExpr(attr, value),
     );
     allResults.push(...setResults);

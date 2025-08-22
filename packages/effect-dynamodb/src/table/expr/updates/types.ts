@@ -15,10 +15,9 @@ interface BaseUpdateExprParameters<
   T,
   Attr extends StringAttr<T> = StringAttr<T>,
 > {
-  SET?: Array<{
-    attr: Attr;
-    value: SetValueExpr<AttrValueType<T, Attr>, Attr>;
-  }>;
+  SET?: {
+    [K in Attr]: SetValueExpr<AttrValueType<T, Attr>, Attr>;
+  };
   REMOVE?: Array<Attr>;
   ADD?: Array<{ attr: Attr; value: AttrValueType<T, Attr> }>;
   DELETE?: Array<{ attr: Attr; value: AttrValueType<T, Attr> }>;
@@ -26,7 +25,7 @@ interface BaseUpdateExprParameters<
 
 // Update expression parameters - requires at least one operation
 export type UpdateExprParameters<
-  T,
+  T = unknown,
   Attr extends StringAttr<T> = StringAttr<T>,
 > = BaseUpdateExprParameters<T, Attr> &
   (

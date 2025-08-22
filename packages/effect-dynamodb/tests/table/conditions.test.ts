@@ -57,10 +57,10 @@ describe('condition and Filter Expressions', () => {
       const result = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
           update: {
-            SET: [
-              { attr: 'status', value: { op: 'direct', value: 'updated' } },
-              { attr: 'version', value: { op: 'direct', value: 2 } },
-            ],
+            SET: {
+              status: { op: 'direct', value: 'updated' },
+              version: { op: 'direct', value: 2 },
+            },
           },
           ReturnValues: 'ALL_NEW',
           condition: {
@@ -76,9 +76,9 @@ describe('condition and Filter Expressions', () => {
       const updatePromise = Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
           update: {
-            SET: [
-              { attr: 'status', value: { op: 'direct', value: 'failed' } },
-            ],
+            SET: {
+              status: { op: 'direct', value: 'failed' },
+            },
           },
           condition: {
             version: { '=': 1 }, // Wrong version

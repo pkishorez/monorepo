@@ -27,10 +27,10 @@ describe('updateItem with update property', () => {
           { pkey: 'USER#123', skey: 'PROFILE' },
           {
             update: {
-              SET: [
-                { attr: 'name', value: { op: 'direct', value: 'Jane Doe' } },
-                { attr: 'age', value: { op: 'direct', value: 25 } },
-              ],
+              SET: {
+                name: { op: 'direct', value: 'Jane Doe' },
+                age: { op: 'direct', value: 25 },
+              },
             },
             ReturnValues: 'ALL_NEW',
           },
@@ -130,9 +130,9 @@ describe('updateItem with update property', () => {
           { pkey: 'MULTI#001', skey: 'DATA' },
           {
             update: {
-              SET: [
-                { attr: 'name', value: { op: 'direct', value: 'Updated' } },
-              ],
+              SET: {
+                name: { op: 'direct', value: 'Updated' },
+              },
               ADD: [{ attr: 'score', value: 50 }],
               REMOVE: ['tempField'],
               DELETE: [{ attr: 'tags', value: new Set(['tag2']) }],
@@ -169,24 +169,18 @@ describe('updateItem with update property', () => {
           { pkey: 'FUNC#001', skey: 'DATA' },
           {
             update: {
-              SET: [
-                {
+              SET: {
+                defaultValue: {
+                  op: 'if_not_exists',
                   attr: 'defaultValue',
-                  value: {
-                    op: 'if_not_exists',
-                    attr: 'defaultValue',
-                    default: 'default',
-                  },
+                  default: 'default',
                 },
-                {
+                name: {
+                  op: 'if_not_exists',
                   attr: 'name',
-                  value: {
-                    op: 'if_not_exists',
-                    attr: 'name',
-                    default: 'fallback',
-                  },
+                  default: 'fallback',
                 },
-              ],
+              },
             },
             ReturnValues: 'ALL_NEW',
           },
@@ -216,16 +210,10 @@ describe('updateItem with update property', () => {
           { pkey: 'MATH#001', skey: 'DATA' },
           {
             update: {
-              SET: [
-                {
-                  attr: 'counter',
-                  value: { op: 'plus', attr: 'counter', value: 5 },
-                },
-                {
-                  attr: 'score',
-                  value: { op: 'minus', attr: 'score', value: 20 },
-                },
-              ],
+              SET: {
+                counter: { op: 'plus', attr: 'counter', value: 5 },
+                score: { op: 'minus', attr: 'score', value: 20 },
+              },
             },
             ReturnValues: 'ALL_NEW',
           },
@@ -255,24 +243,18 @@ describe('updateItem with update property', () => {
           { pkey: 'LIST#001', skey: 'DATA' },
           {
             update: {
-              SET: [
-                {
+              SET: {
+                items: {
+                  op: 'list_append',
                   attr: 'items',
-                  value: {
-                    op: 'list_append',
-                    attr: 'items',
-                    list: ['item3', 'item4'],
-                  },
+                  list: ['item3', 'item4'],
                 },
-                {
+                newList: {
+                  op: 'list_append',
                   attr: 'newList',
-                  value: {
-                    op: 'list_append',
-                    attr: 'newList',
-                    list: ['first', 'second'],
-                  },
+                  list: ['first', 'second'],
                 },
-              ],
+              },
             },
             ReturnValues: 'ALL_NEW',
           },
@@ -306,13 +288,10 @@ describe('updateItem with update property', () => {
           { pkey: 'COND#001', skey: 'DATA' },
           {
             update: {
-              SET: [
-                { attr: 'status', value: { op: 'direct', value: 'inactive' } },
-                {
-                  attr: 'version',
-                  value: { op: 'plus', attr: 'version', value: 1 },
-                },
-              ],
+              SET: {
+                status: { op: 'direct', value: 'inactive' },
+                version: { op: 'plus', attr: 'version', value: 1 },
+              },
             },
             condition: { version: { '=': 1 } },
             ReturnValues: 'ALL_NEW',
@@ -346,9 +325,9 @@ describe('updateItem with update property', () => {
             { pkey: 'COND#002', skey: 'DATA' },
             {
               update: {
-                SET: [
-                  { attr: 'name', value: { op: 'direct', value: 'Updated' } },
-                ],
+                SET: {
+                  name: { op: 'direct', value: 'Updated' },
+                },
               },
               condition: { version: { '=': 1 } }, // Wrong version
             },
@@ -368,7 +347,7 @@ describe('updateItem with update property', () => {
 
       // Valid updates must have at least one operation:
       const validUpdate: UpdateExprParameters = {
-        SET: [{ attr: 'name', value: { op: 'direct', value: 'test' } }],
+        SET: { name: { op: 'direct', value: 'test' } },
       };
 
       expect(validUpdate).toBeDefined();
