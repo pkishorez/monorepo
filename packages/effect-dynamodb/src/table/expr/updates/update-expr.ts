@@ -144,7 +144,7 @@ export function updateExpr<
 
   // Process ADD operations
   if (parameters.ADD) {
-    const addResults = parameters.ADD.map(({ attr, value }) =>
+    const addResults = Object.entries(parameters.ADD).map(([attr, value]) =>
       addExpr(attr, value),
     );
     allResults.push(...addResults);
@@ -162,8 +162,8 @@ export function updateExpr<
 
   // Process DELETE operations
   if (parameters.DELETE) {
-    const deleteResults = parameters.DELETE.map(({ attr, value }) =>
-      deleteExpr(value, attr),
+    const deleteResults = Object.entries(parameters.DELETE).map(
+      ([attr, value]) => deleteExpr(value, attr),
     );
     allResults.push(...deleteResults);
     expressionParts.push(

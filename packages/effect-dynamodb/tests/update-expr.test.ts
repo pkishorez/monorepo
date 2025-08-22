@@ -98,12 +98,9 @@ describe('update Expression System', () => {
 
     it('aDD operation', () => {
       const parameters: UpdateExprParameters = {
-        ADD: [
-          {
-            attr: 'counter',
-            value: 1,
-          },
-        ],
+        ADD: {
+          counter: 1,
+        },
       };
 
       const result = updateExpr(parameters);
@@ -128,12 +125,9 @@ describe('update Expression System', () => {
     it('dELETE operation', () => {
       const tagSet = new Set(['tag1', 'tag2']);
       const parameters: UpdateExprParameters = {
-        DELETE: [
-          {
-            attr: 'tags',
-            value: tagSet,
-          },
-        ],
+        DELETE: {
+          tags: tagSet,
+        },
       };
 
       const result = updateExpr(parameters);
@@ -171,7 +165,7 @@ describe('update Expression System', () => {
     it('mixed operations (SET, ADD, REMOVE)', () => {
       const parameters: UpdateExprParameters = {
         SET: { name: { op: 'direct', value: 'Updated Name' } },
-        ADD: [{ attr: 'counter', value: 5 }],
+        ADD: { counter: 5 },
         REMOVE: ['deprecated'],
       };
 
@@ -196,10 +190,10 @@ describe('update Expression System', () => {
           field1: { op: 'direct', value: 'value1' },
           field2: { op: 'direct', value: 'value2' },
         },
-        ADD: [
-          { attr: 'counter1', value: 1 },
-          { attr: 'counter2', value: 2 },
-        ],
+        ADD: {
+          counter1: 1,
+          counter2: 2,
+        },
       };
 
       const result = updateExpr(parameters);
@@ -218,9 +212,9 @@ describe('update Expression System', () => {
     it('all operation types together', () => {
       const parameters: UpdateExprParameters = {
         SET: { name: { op: 'direct', value: 'Updated Name' } },
-        ADD: [{ attr: 'counter', value: 1 }],
+        ADD: { counter: 1 },
         REMOVE: ['oldField'],
-        DELETE: [{ attr: 'tags', value: new Set(['tag1']) }],
+        DELETE: { tags: new Set(['tag1']) },
       };
 
       const result = updateExpr(parameters);

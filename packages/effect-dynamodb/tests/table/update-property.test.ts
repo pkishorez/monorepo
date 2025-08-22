@@ -61,10 +61,10 @@ describe('updateItem with update property', () => {
           { pkey: 'COUNTER#001', skey: 'DATA' },
           {
             update: {
-              ADD: [
-                { attr: 'score', value: 15 },
-                { attr: 'visits', value: 1 },
-              ],
+              ADD: {
+                score: 15,
+                visits: 1,
+              },
             },
             ReturnValues: 'ALL_NEW',
           },
@@ -133,9 +133,9 @@ describe('updateItem with update property', () => {
               SET: {
                 name: { op: 'direct', value: 'Updated' },
               },
-              ADD: [{ attr: 'score', value: 50 }],
+              ADD: { score: 50 },
               REMOVE: ['tempField'],
-              DELETE: [{ attr: 'tags', value: new Set(['tag2']) }],
+              DELETE: { tags: new Set(['tag2']) },
             },
             ReturnValues: 'ALL_NEW',
           },

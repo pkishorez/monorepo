@@ -19,8 +19,12 @@ interface BaseUpdateExprParameters<
     [K in Attr]: SetValueExpr<AttrValueType<T, Attr>, Attr>;
   };
   REMOVE?: Array<Attr>;
-  ADD?: Array<{ attr: Attr; value: AttrValueType<T, Attr> }>;
-  DELETE?: Array<{ attr: Attr; value: AttrValueType<T, Attr> }>;
+  ADD?: {
+    [K in Attr]: AttrValueType<T, Attr>;
+  };
+  DELETE?: {
+    [K in Attr]: AttrValueType<T, Attr>;
+  };
 }
 
 // Update expression parameters - requires at least one operation
