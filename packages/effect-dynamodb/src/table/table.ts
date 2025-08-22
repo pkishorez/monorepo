@@ -104,7 +104,7 @@ export class DynamoTable<
   }
 
   putItem(
-    item: ItemForPut<TPrimary, TGSIs, TLSIs>,
+    item: ItemForPut<TPrimary, TGSIs, TLSIs, Type>,
     options?: Omit<
       PutItemInput,
       'TableName' | 'Item' | 'ConditionExpression'
@@ -487,7 +487,7 @@ class ConfiguredTableBuilder<
     );
   }
 
-  build<Type>(): DynamoTable<TPrimary, TGSIs, TLSIs> {
+  build<Type>(): DynamoTable<TPrimary, TGSIs, TLSIs, Type> {
     return new DynamoTable({
       name: this.#name,
       primary: this.#primary,

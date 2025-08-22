@@ -11,7 +11,7 @@ export type ComparisonExpr<T> =
   | { '>=': T }
   | { '=': T };
 
-export type StringExpr<T = any> = { beginsWith: T } | { contains: T };
+export type StringExpr<T = unknown> = { beginsWith: T } | { contains: T };
 
 export interface RangeExpr<T> {
   between: [T, T];
@@ -62,9 +62,9 @@ export type SimpleConditionExpr<T> = {
 };
 
 // Union type that accepts multiple input formats
-export type ExprInput<T> = 
-  | ExprResult                           // Already processed expression
-  | SimpleConditionExpr<T>;               // Simple object: { attr: condition }
+export type ExprInput<T> =
+  | ExprResult // Already processed expression
+  | SimpleConditionExpr<T>; // Simple object: { attr: condition }
 
 // Backward compatibility alias (deprecated - use SimpleConditionExpr or ExprInput)
 export type ConditionExprParameters<T> = SimpleConditionExpr<T>;
