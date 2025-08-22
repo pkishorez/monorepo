@@ -5,3 +5,6 @@ export interface ExprResult {
   exprValues: Record<string, unknown>;
 }
 
+export type StringAttr<T> = Extract<keyof T, string> | (string & {});
+export type AttrValueType<T, Attr extends StringAttr<T> = StringAttr<T>> =
+  T extends Record<Attr, infer V> ? V : unknown;

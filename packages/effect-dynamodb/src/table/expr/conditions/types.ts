@@ -1,4 +1,6 @@
+import type { AttributeValue } from 'dynamodb-client';
 import type { CompoundIndexDefinition, IndexDefinition } from '../../types.js';
+import type { AttrValueType, StringAttr } from '../expr-utils/types.js';
 
 // Granular expression types
 export type ComparisonExpr<T> =
@@ -24,7 +26,7 @@ export interface ExistenceExpr {
 
 export interface AttrTypeExpr {
   type: 'attrType';
-  value: string;
+  value: keyof AttributeValue;
 }
 
 export interface SizeExpr {
@@ -52,9 +54,12 @@ export type ConditionExpr<T> =
   | SizeExpr;
 
 // Base condition with attribute mapping
-export interface AttributeConditionExpr<T> {
-  attr: string;
-  condition: ConditionExpr<T>;
+export interface AttributeConditionExpr<
+  T,
+  Attr extends StringAttr<T> = StringAttr<T>,
+> {
+  attr: Attr;
+  condition: ConditionExpr<AttrValueType<T, Attr>>;
 }
 
 // Compound expression parameters including logical operations
@@ -62,3 +67,4 @@ export type ConditionExprParameters<Type> =
   | AttributeConditionExpr<Type>
   | { type: 'and'; value: ConditionExprParameters<Type>[] }
   | { type: 'or'; value: ConditionExprParameters<Type>[] };
+

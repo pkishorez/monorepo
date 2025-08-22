@@ -46,7 +46,7 @@ describe('expression System', () => {
       ];
 
       stringOps.forEach(({ type, func }) => {
-        const condition: AttributeCondition<string> = {
+        const condition: AttributeCondition<{ text_field: string }> = {
           attr: 'text_field',
           condition: { type, value: 'test' },
         };

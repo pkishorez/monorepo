@@ -5,8 +5,9 @@ export function projectionExpr(attrs: string[]): ExprResult {
 
   const condition = attrs
     .map((v, i) => {
-      exprAttributes[`#pattr${i}`] = v;
-      return `#pattr${i}`;
+      const attrKey = `#proj_attr${i + 1}`;
+      exprAttributes[attrKey] = v;
+      return attrKey;
     })
     .join(', ');
 

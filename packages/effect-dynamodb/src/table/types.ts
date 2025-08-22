@@ -58,18 +58,3 @@ export type ItemForPut<
   Partial<AllGLSIKeys<TGSIs>> &
   Partial<AllGLSIKeys<TLSIs>> &
   Item;
-
-// EXPERSSIONS.
-export type KeyConditionExprSK =
-  | { beginsWith: string }
-  | { '<': string }
-  | { '<=': string }
-  | { '>': string }
-  | { '>=': string }
-  | { '=': string }
-  | { between: [string, string] };
-
-export type KeyConditionExprParameters<Index extends IndexDefinition> =
-  Index extends CompoundIndexDefinition
-    ? { pk: string; sk?: string | KeyConditionExprSK }
-    : { pk: string; note?: 'simple pk' };
