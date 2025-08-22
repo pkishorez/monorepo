@@ -79,7 +79,7 @@ function normalizeToExprResult(input: ExprInput<any>): ExprResult {
   }
 
   if (entries.length === 1) {
-    // Single condition - return directly
+    // Single condition - return assignly
     const [attr, condition] = entries[0];
     return attrExpr(attr, condition as ConditionExpr<any>);
   }

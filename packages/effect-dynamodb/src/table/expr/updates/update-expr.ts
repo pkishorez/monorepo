@@ -6,14 +6,14 @@ import type {
 } from './types.js';
 import { generateUniqueId, mergeExprResults } from '../expr-utils/index.js';
 
-// Helper to handle SET value expressions (functions or direct values)
+// Helper to handle SET value expressions (functions or assign values)
 function buildSetValue<T>(value: SetValueExpr<T>): ExprResult {
   // Function expression cases
   const id = generateUniqueId();
   const valueName = `:value${id}`;
 
   switch (value.op) {
-    case 'direct': {
+    case 'assign': {
       return {
         expr: valueName,
         exprAttributes: {},

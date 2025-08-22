@@ -52,7 +52,7 @@ type ExpressionOutput<T extends ExpressionInput<any>> = {
  * @example
  * ```typescript
  * const result = buildExpression({
- *   update: { SET: [{ attr: 'name', value: { op: 'direct', value: 'John' } }] },
+ *   update: { SET: [{ attr: 'name', value: { op: 'assign', value: 'John' } }] },
  *   condition: { age: { '>': 18 } },
  *   projection: ['id', 'name', 'email']
  * });

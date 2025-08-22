@@ -47,7 +47,7 @@ describe('cRUD Operations', () => {
         table.updateItem(createKey(item.pkey), {
           update: {
             SET: {
-              status: { op: 'direct', value: 'inactive' },
+              status: { op: 'assign', value: 'inactive' },
             },
           },
           ReturnValues: 'ALL_NEW',
@@ -61,7 +61,7 @@ describe('cRUD Operations', () => {
       const result = await Effect.runPromise(
         table.updateItem(createKey('user#999'), {
           update: {
-            SET: { status: { op: 'direct', value: 'created' } },
+            SET: { status: { op: 'assign', value: 'created' } },
           },
           ReturnValues: 'ALL_NEW',
         }),
@@ -105,7 +105,7 @@ describe('cRUD Operations', () => {
         table.updateItem(createKey(item.pkey), {
           update: {
             SET: {
-              status: { op: 'direct', value: 'updated' },
+              status: { op: 'assign', value: 'updated' },
             },
           },
           ReturnValues: 'ALL_NEW',

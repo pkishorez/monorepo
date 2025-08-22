@@ -83,7 +83,7 @@ describe('update Expression System', () => {
       const parameters: UpdateExprParameters = {
         SET: {
           name: {
-            op: 'direct',
+            op: 'assign',
             value: 'John Doe',
           },
         },
@@ -111,7 +111,7 @@ describe('update Expression System', () => {
     });
 
     it('rEMOVE operation', () => {
-      const parameters: UpdateExprParameters = {
+      const parameters: UpdateExprParameters<{ oldField: string }> = {
         REMOVE: ['oldField'],
       };
 
@@ -146,8 +146,8 @@ describe('update Expression System', () => {
     it('multiple SET operations', () => {
       const parameters: UpdateExprParameters = {
         SET: {
-          name: { op: 'direct', value: 'Jane Doe' },
-          email: { op: 'direct', value: 'jane@example.com' },
+          name: { op: 'assign', value: 'Jane Doe' },
+          email: { op: 'assign', value: 'jane@example.com' },
         },
       };
 
@@ -164,7 +164,7 @@ describe('update Expression System', () => {
 
     it('mixed operations (SET, ADD, REMOVE)', () => {
       const parameters: UpdateExprParameters = {
-        SET: { name: { op: 'direct', value: 'Updated Name' } },
+        SET: { name: { op: 'assign', value: 'Updated Name' } },
         ADD: { counter: 5 },
         REMOVE: ['deprecated'],
       };
@@ -187,8 +187,8 @@ describe('update Expression System', () => {
     it('multiple operations of different types', () => {
       const parameters: UpdateExprParameters = {
         SET: {
-          field1: { op: 'direct', value: 'value1' },
-          field2: { op: 'direct', value: 'value2' },
+          field1: { op: 'assign', value: 'value1' },
+          field2: { op: 'assign', value: 'value2' },
         },
         ADD: {
           counter1: 1,
@@ -211,7 +211,7 @@ describe('update Expression System', () => {
   describe('additional Operations', () => {
     it('all operation types together', () => {
       const parameters: UpdateExprParameters = {
-        SET: { name: { op: 'direct', value: 'Updated Name' } },
+        SET: { name: { op: 'assign', value: 'Updated Name' } },
         ADD: { counter: 1 },
         REMOVE: ['oldField'],
         DELETE: { tags: new Set(['tag1']) },
@@ -267,7 +267,7 @@ describe('update Expression System', () => {
     it('special characters in attribute names', () => {
       const parameters: UpdateExprParameters = {
         SET: {
-          'user.email@domain': { op: 'direct', value: 'test@example.com' },
+          'user.email@domain': { op: 'assign', value: 'test@example.com' },
         },
       };
 
@@ -295,7 +295,7 @@ describe('update Expression System', () => {
         const parameters: UpdateExprParameters = {
           SET: {
             testField: {
-              op: 'direct',
+              op: 'assign',
               value,
             },
           },

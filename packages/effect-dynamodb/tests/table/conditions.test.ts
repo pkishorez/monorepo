@@ -58,8 +58,8 @@ describe('condition and Filter Expressions', () => {
         table.updateItem(createKey(item.pkey), {
           update: {
             SET: {
-              status: { op: 'direct', value: 'updated' },
-              version: { op: 'direct', value: 2 },
+              status: { op: 'assign', value: 'updated' },
+              version: { op: 'assign', value: 2 },
             },
           },
           ReturnValues: 'ALL_NEW',
@@ -77,7 +77,7 @@ describe('condition and Filter Expressions', () => {
         table.updateItem(createKey(item.pkey), {
           update: {
             SET: {
-              status: { op: 'direct', value: 'failed' },
+              status: { op: 'assign', value: 'failed' },
             },
           },
           condition: {

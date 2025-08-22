@@ -311,7 +311,7 @@ describe('expression System', () => {
     });
   });
 
-  describe('direct attrExpr Function', () => {
+  describe('assign attrExpr Function', () => {
     it('attrExpr creates proper attribute mappings', () => {
       const result = attrExpr('my_attribute', { '=': 'test' });
 

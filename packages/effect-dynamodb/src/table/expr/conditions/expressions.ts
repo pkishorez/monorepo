@@ -13,14 +13,14 @@ import { extractVariant, generateUniqueId } from '../expr-utils/index.js';
 export function comparisonExpr<T>(
   condition: ComparisonExpr<T>,
   attr: string,
-  direct: boolean = false,
+  assign: boolean = false,
 ): ExprResult {
   const { type, value } = extractVariant(condition);
   const id = generateUniqueId();
   const valueName = `:value${id}`;
 
-  if (direct) {
-    // Use attr directly as the expression (e.g., "size(#attr1)")
+  if (assign) {
+    // Use attr assignly as the expression (e.g., "size(#attr1)")
     return {
       expr: `${attr} ${type} ${valueName}`,
       exprAttributes: {},
@@ -124,7 +124,7 @@ export function sizeExpr(condition: SizeExpr, attr: string): ExprResult {
   const outerAttrName = `#attr${outerAttrId}`;
   const sizeExprStr = `size(${outerAttrName})`;
 
-  // Build the nested condition with direct injection of size expression
+  // Build the nested condition with assign injection of size expression
   const nestedResult = comparisonExpr(value, sizeExprStr, true);
 
   return {

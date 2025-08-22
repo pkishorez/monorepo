@@ -4,7 +4,7 @@ import type { AttrValueType, StringAttr } from '../expr-utils/types.js';
 
 // SET value expression with support for DynamoDB functions
 export type SetValueExpr<T = unknown, Attr = string> =
-  | { op: 'direct'; value: T }
+  | { op: 'assign'; value: T }
   | { op: 'list_append'; attr: Attr; list: T[] } // list_append(attr, value)
   | { op: 'if_not_exists'; attr: Attr; default: T } // if_not_exists(attr, default)
   | { op: 'plus'; attr: Attr; value: T } // attr + value

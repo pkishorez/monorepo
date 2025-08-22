@@ -28,8 +28,8 @@ describe('updateItem with update property', () => {
           {
             update: {
               SET: {
-                name: { op: 'direct', value: 'Jane Doe' },
-                age: { op: 'direct', value: 25 },
+                name: { op: 'assign', value: 'Jane Doe' },
+                age: { op: 'assign', value: 25 },
               },
             },
             ReturnValues: 'ALL_NEW',
@@ -131,7 +131,7 @@ describe('updateItem with update property', () => {
           {
             update: {
               SET: {
-                name: { op: 'direct', value: 'Updated' },
+                name: { op: 'assign', value: 'Updated' },
               },
               ADD: { score: 50 },
               REMOVE: ['tempField'],
@@ -289,7 +289,7 @@ describe('updateItem with update property', () => {
           {
             update: {
               SET: {
-                status: { op: 'direct', value: 'inactive' },
+                status: { op: 'assign', value: 'inactive' },
                 version: { op: 'plus', attr: 'version', value: 1 },
               },
             },
@@ -326,7 +326,7 @@ describe('updateItem with update property', () => {
             {
               update: {
                 SET: {
-                  name: { op: 'direct', value: 'Updated' },
+                  name: { op: 'assign', value: 'Updated' },
                 },
               },
               condition: { version: { '=': 1 } }, // Wrong version
@@ -347,7 +347,7 @@ describe('updateItem with update property', () => {
 
       // Valid updates must have at least one operation:
       const validUpdate: UpdateExprParameters = {
-        SET: { name: { op: 'direct', value: 'test' } },
+        SET: { name: { op: 'assign', value: 'test' } },
       };
 
       expect(validUpdate).toBeDefined();
