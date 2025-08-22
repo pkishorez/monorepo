@@ -12,21 +12,21 @@ export type SetValueExpr<T = unknown, Attr = string> =
 
 // Base interface for update operations
 interface BaseUpdateExprParameters<
-  T extends Record<string, unknown> = Record<string, unknown>,
+  T,
   Attr extends StringAttr<T> = StringAttr<T>,
 > {
   SET?: Array<{
     attr: Attr;
     value: SetValueExpr<AttrValueType<T, Attr>, Attr>;
   }>;
-  REMOVE?: Array<{ attr: Attr }>;
+  REMOVE?: Array<Attr>;
   ADD?: Array<{ attr: Attr; value: AttrValueType<T, Attr> }>;
   DELETE?: Array<{ attr: Attr; value: AttrValueType<T, Attr> }>;
 }
 
 // Update expression parameters - requires at least one operation
 export type UpdateExprParameters<
-  T extends Record<string, unknown> = Record<string, unknown>,
+  T,
   Attr extends StringAttr<T> = StringAttr<T>,
 > = BaseUpdateExprParameters<T, Attr> &
   (

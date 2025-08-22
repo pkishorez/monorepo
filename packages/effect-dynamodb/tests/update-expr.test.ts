@@ -130,11 +130,7 @@ describe('update Expression System', () => {
 
     it('rEMOVE operation', () => {
       const parameters: UpdateExprParameters = {
-        REMOVE: [
-          {
-            attr: 'oldField',
-          },
-        ],
+        REMOVE: ['oldField'],
       };
 
       const result = updateExpr(parameters);
@@ -194,7 +190,7 @@ describe('update Expression System', () => {
       const parameters: UpdateExprParameters = {
         SET: [{ attr: 'name', value: { op: 'direct', value: 'Updated Name' } }],
         ADD: [{ attr: 'counter', value: 5 }],
-        REMOVE: [{ attr: 'deprecated' }],
+        REMOVE: ['deprecated'],
       };
 
       const result = updateExpr(parameters);
@@ -241,7 +237,7 @@ describe('update Expression System', () => {
       const parameters: UpdateExprParameters = {
         SET: [{ attr: 'name', value: { op: 'direct', value: 'Updated Name' } }],
         ADD: [{ attr: 'counter', value: 1 }],
-        REMOVE: [{ attr: 'oldField' }],
+        REMOVE: ['oldField'],
         DELETE: [{ attr: 'tags', value: new Set(['tag1']) }],
       };
 

@@ -96,7 +96,7 @@ describe('updateItem with update property', () => {
           { pkey: 'USER#456', skey: 'PROFILE' },
           {
             update: {
-              REMOVE: [{ attr: 'tempField' }, { attr: 'phone' }],
+              REMOVE: ['tempField', 'phone'],
             },
             ReturnValues: 'ALL_NEW',
           },
@@ -134,7 +134,7 @@ describe('updateItem with update property', () => {
                 { attr: 'name', value: { op: 'direct', value: 'Updated' } },
               ],
               ADD: [{ attr: 'score', value: 50 }],
-              REMOVE: [{ attr: 'tempField' }],
+              REMOVE: ['tempField'],
               DELETE: [{ attr: 'tags', value: new Set(['tag2']) }],
             },
             ReturnValues: 'ALL_NEW',

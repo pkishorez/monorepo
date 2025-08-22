@@ -153,7 +153,7 @@ export function updateExpr<
 
   // Process REMOVE operations
   if (parameters.REMOVE) {
-    const removeResults = parameters.REMOVE.map(({ attr }) => removeExpr(attr));
+    const removeResults = parameters.REMOVE.map((attr) => removeExpr(attr));
     allResults.push(...removeResults);
     expressionParts.push(
       `REMOVE ${removeResults.map((v) => v.expr).join(', ')}`,
