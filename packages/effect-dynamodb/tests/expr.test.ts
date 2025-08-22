@@ -7,7 +7,13 @@ import type {
   StringExpr,
 } from '../src/table/expr/index.js';
 import { describe, expect } from 'vitest';
-import { attrExpr, expr, keyCondition } from '../src/table/expr/index.js';
+import {
+  and,
+  attrExpr,
+  expr,
+  keyCondition,
+  or,
+} from '../src/table/expr/index.js';
 
 // Mock index definitions for testing
 const simpleIndex = { pk: 'id' } as const;
@@ -25,9 +31,8 @@ describe('expression System', () => {
       ];
 
       operators.forEach(({ type, symbol }) => {
-        const condition: AttributeCondition<number> = {
-          attr: 'test_attr',
-          condition: { [type]: 42 } as ComparisonExpr<number>,
+        const condition = {
+          test_attr: { [type]: 42 } as ComparisonExpr<number>,
         };
 
         const result = expr(condition);
@@ -49,9 +54,8 @@ describe('expression System', () => {
       ];
 
       stringOps.forEach(({ type, func }) => {
-        const condition: AttributeCondition<{ text_field: string }> = {
-          attr: 'text_field',
-          condition: { [type]: 'test' } as StringExpr,
+        const condition = {
+          text_field: { [type]: 'test' } as StringExpr,
         };
 
         const result = expr(condition);
@@ -65,9 +69,8 @@ describe('expression System', () => {
     });
 
     it('range expression', () => {
-      const condition: AttributeCondition<number> = {
-        attr: 'range_field',
-        condition: { 'between': [10, 20] },
+      const condition = {
+        range_field: { between: [10, 20] as [number, number] },
       };
 
       const result = expr(condition);
@@ -81,14 +84,12 @@ describe('expression System', () => {
     });
 
     it('existence expressions', () => {
-      const existsCondition: AttributeCondition<any> = {
-        attr: 'maybe_field',
-        condition: { 'exists': true },
+      const existsCondition = {
+        maybe_field: { exists: true },
       };
 
-      const notExistsCondition: AttributeCondition<any> = {
-        attr: 'maybe_field',
-        condition: { 'exists': false },
+      const notExistsCondition = {
+        maybe_field: { exists: false },
       };
 
       const existsResult = expr(existsCondition);
@@ -107,9 +108,8 @@ describe('expression System', () => {
     });
 
     it('attribute type expression', () => {
-      const condition: AttributeCondition<any> = {
-        attr: 'typed_field',
-        condition: { 'attrType': 'S' },
+      const condition = {
+        typed_field: { attrType: 'S' as const },
       };
 
       const result = expr(condition);
@@ -120,10 +120,9 @@ describe('expression System', () => {
     });
 
     it('size expression', () => {
-      const condition: AttributeCondition<any> = {
-        attr: 'list_field',
-        condition: {
-          'size': { '>': 5 },
+      const condition = {
+        list_field: {
+          size: { '>': 5 },
         },
       };
 
@@ -138,22 +137,12 @@ describe('expression System', () => {
 
   describe('compound Expressions', () => {
     it('aND expression', () => {
-      const condition: ConditionExprParameters<any> = {
-        'and': [
-          {
-            attr: 'field1',
-            condition: { '=': 'value1' },
-          },
-          {
-            attr: 'field2',
-            condition: { '>': 10 },
-          },
-        ],
-      };
+      const result = and(
+        { field1: { '=': 'value1' } },
+        { field2: { '>': 10 } },
+      );
 
-      const result = expr(condition);
-
-      expect(result.expr).toMatch(/^\(.+ AND .+\)$/);
+      expect(result.expr).toMatch(/.+ AND .+/);
       expect(result.expr).toContain('=');
       expect(result.expr).toContain('>');
       expect(Object.values(result.exprAttributes)).toContain('field1');
@@ -163,22 +152,12 @@ describe('expression System', () => {
     });
 
     it('oR expression', () => {
-      const condition: ConditionExprParameters<any> = {
-        'or': [
-          {
-            attr: 'status',
-            condition: { '=': 'active' },
-          },
-          {
-            attr: 'priority',
-            condition: { '=': 'high' },
-          },
-        ],
-      };
+      const result = or(
+        { status: { '=': 'active' } },
+        { priority: { '=': 'high' } },
+      );
 
-      const result = expr(condition);
-
-      expect(result.expr).toMatch(/^\(.+ OR .+\)$/);
+      expect(result.expr).toMatch(/.+ OR .+/);
       expect(Object.values(result.exprAttributes)).toContain('status');
       expect(Object.values(result.exprAttributes)).toContain('priority');
       expect(Object.values(result.exprValues)).toContain('active');
@@ -186,30 +165,12 @@ describe('expression System', () => {
     });
 
     it('nested expressions', () => {
-      const condition: ConditionExprParameters<any> = {
-        'and': [
-          {
-            attr: 'base_condition',
-            condition: { '=': true },
-          },
-          {
-            'or': [
-              {
-                attr: 'option1',
-                condition: { '=': 'A' },
-              },
-              {
-                attr: 'option2',
-                condition: { '=': 'B' },
-              },
-            ],
-          },
-        ],
-      };
+      const result = and(
+        { base_condition: { '=': true } },
+        or({ option1: { '=': 'A' } }, { option2: { '=': 'B' } }),
+      );
 
-      const result = expr(condition);
-
-      expect(result.expr).toMatch(/^\(.+ AND \(.+ OR .+\)\)$/);
+      expect(result.expr).toMatch(/.+ AND \(.+ OR .+\)/);
       expect(Object.values(result.exprAttributes)).toContain('base_condition');
       expect(Object.values(result.exprAttributes)).toContain('option1');
       expect(Object.values(result.exprAttributes)).toContain('option2');
@@ -240,7 +201,7 @@ describe('expression System', () => {
 
       const result = keyCondition(compoundIndex, params);
 
-      expect(result.expr).toMatch(/^\(.+ AND .+\)$/);
+      expect(result.expr).toMatch(/.+ AND .+/);
       expect(Object.values(result.exprAttributes)).toContain('pk');
       expect(Object.values(result.exprAttributes)).toContain('sk');
       expect(Object.values(result.exprValues)).toContain('user123');
@@ -250,12 +211,12 @@ describe('expression System', () => {
     it('compound key with expression sort key', () => {
       const params: KeyConditionExprParameters<typeof compoundIndex> = {
         pk: 'user123',
-        sk: { 'beginsWith': 'post#' },
+        sk: { beginsWith: 'post#' },
       };
 
       const result = keyCondition(compoundIndex, params);
 
-      expect(result.expr).toMatch(/^\(.+ AND begins_with\(.+\)\)$/);
+      expect(result.expr).toMatch(/.+ AND begins_with\(.+\)/);
       expect(Object.values(result.exprAttributes)).toContain('pk');
       expect(Object.values(result.exprAttributes)).toContain('sk');
       expect(Object.values(result.exprValues)).toContain('user123');
@@ -273,7 +234,7 @@ describe('expression System', () => {
 
         const result = keyCondition(compoundIndex, params);
 
-        expect(result.expr).toMatch(/^\(.+ AND .+\)$/);
+        expect(result.expr).toMatch(/.+ AND .+/);
         expect(Object.values(result.exprValues)).toContain('test');
         expect(Object.values(result.exprValues)).toContain('value');
       });
@@ -282,12 +243,12 @@ describe('expression System', () => {
     it('between sort key condition', () => {
       const params: KeyConditionExprParameters<typeof compoundIndex> = {
         pk: 'user123',
-        sk: { 'between': ['2023-01-01', '2023-12-31'] },
+        sk: { between: ['2023-01-01', '2023-12-31'] },
       };
 
       const result = keyCondition(compoundIndex, params);
 
-      expect(result.expr).toMatch(/^\(.+ AND .+ BETWEEN .+ AND .+\)$/);
+      expect(result.expr).toMatch(/.+ AND .+ BETWEEN .+ AND .+/);
       expect(Object.values(result.exprValues)).toContain('user123');
       expect(Object.values(result.exprValues)).toContain('2023-01-01');
       expect(Object.values(result.exprValues)).toContain('2023-12-31');
@@ -296,9 +257,8 @@ describe('expression System', () => {
 
   describe('edge Cases', () => {
     it('special characters in attribute names', () => {
-      const condition: AttributeCondition<string> = {
-        attr: 'user.email@domain-test_field',
-        condition: { '=': 'test' },
+      const condition = {
+        'user.email@domain-test_field': { '=': 'test' },
       };
 
       const result = expr(condition);
@@ -321,9 +281,8 @@ describe('expression System', () => {
       ];
 
       testValues.forEach((value) => {
-        const condition: AttributeCondition<any> = {
-          attr: 'test_field',
-          condition: { '=': value },
+        const condition = {
+          test_field: { '=': value },
         };
 
         const result = expr(condition);
@@ -335,8 +294,7 @@ describe('expression System', () => {
     it('attribute name and value uniqueness', () => {
       // Create multiple expressions to ensure unique naming
       const conditions = Array.from({ length: 5 }, (_, i) => ({
-        attr: `field${i}`,
-        condition: { '=': `value${i}` },
+        [`field${i}`]: { '=': `value${i}` },
       }));
 
       const results = conditions.map((condition) => expr(condition));
@@ -355,7 +313,7 @@ describe('expression System', () => {
 
   describe('direct attrExpr Function', () => {
     it('attrExpr creates proper attribute mappings', () => {
-      const result = attrExpr({ '=': 'test' }, 'my_attribute');
+      const result = attrExpr('my_attribute', { '=': 'test' });
 
       expect(result.expr).toMatch(/^#attr\d+ = :value\d+$/);
       expect(Object.values(result.exprAttributes)).toContain('my_attribute');

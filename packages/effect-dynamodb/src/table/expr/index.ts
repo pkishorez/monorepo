@@ -1,5 +1,5 @@
 // Essential functions for condition expressions
-export { expr, keyCondition } from './conditions/index.js';
+export { and, expr, keyCondition, not, or } from './conditions/index.js';
 
 // Testing/advanced usage function
 export { attrExpr } from './conditions/index.js';
@@ -13,7 +13,9 @@ export type {
   ComparisonExpr,
   ConditionExpr,
   ConditionExprParameters,
+  ExprInput,
   KeyConditionExprParameters,
+  SimpleConditionExpr,
   StringExpr,
 } from './conditions/index.js';
 

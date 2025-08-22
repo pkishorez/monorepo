@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { and } from '../../src/table/expr/index.js';
 import { cleanTable, table } from '../setup.js';
 
 // Minimal test utilities
@@ -112,12 +113,10 @@ describe('query Operations', () => {
         table.query(
           { pk },
           {
-            filter: {
-              'and': [
-                { attr: 'score', condition: { '>': 100 } },
-                { attr: 'status', condition: { '=': 'active' } },
-              ],
-            },
+            filter: and(
+              { score: { '>': 100 } },
+              { status: { '=': 'active' } }
+            ),
           },
         ),
       );
@@ -218,8 +217,7 @@ describe('query Operations', () => {
       const filtered = await Effect.runPromise(
         table.scan({
           filter: {
-            attr: 'score',
-            condition: { '>': 100 },
+            score: { '>': 100 },
           },
         }),
       );
@@ -232,8 +230,7 @@ describe('query Operations', () => {
       const projected = await Effect.runPromise(
         table.scan({
           filter: {
-            attr: 'level',
-            condition: { '>': 3 },
+            level: { '>': 3 },
           },
           projection: ['pkey', 'level'],
         }),
@@ -288,8 +285,7 @@ describe('query Operations', () => {
       const scanResult = await Effect.runPromise(
         table.scan({
           filter: {
-            attr: 'score',
-            condition: { '>': 10000 },
+            score: { '>': 10000 },
           },
         }),
       );

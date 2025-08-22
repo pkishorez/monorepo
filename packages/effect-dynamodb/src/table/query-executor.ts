@@ -1,8 +1,5 @@
 import type { DynamoDB, QueryInput, ScanInput } from 'dynamodb-client';
-import type {
-  ConditionExprParameters,
-  KeyConditionExprParameters,
-} from './expr/index.js';
+import type { ExprInput, KeyConditionExprParameters } from './expr/index.js';
 import type { IndexDefinition, KeyFromIndex } from './types.js';
 import { expr, keyCondition, projectionExpr } from './expr/index.js';
 import { marshall } from './utils.js';
@@ -17,8 +14,8 @@ export type QueryOptions<Index extends IndexDefinition> = Omit<
   | 'ExclusiveStartKey'
   | 'ProjectionExpression'
 > & {
+  filter?: ExprInput<any>;
   projection?: string[];
-  filter?: ConditionExprParameters<any>;
   exclusiveStartKey?: KeyFromIndex<Index> | undefined;
 };
 
@@ -32,8 +29,8 @@ export type ScanOptions<Index extends IndexDefinition> = Omit<
   | 'ExclusiveStartKey'
   | 'ProjectionExpression'
 > & {
+  filter?: ExprInput<any>;
   projection?: string[];
-  filter?: ConditionExprParameters<any>;
   exclusiveStartKey?: KeyFromIndex<Index>;
 };
 

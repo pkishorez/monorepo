@@ -6,10 +6,7 @@ import type {
   PutItemInput,
   UpdateItemInput,
 } from 'dynamodb-client';
-import type {
-  ConditionExprParameters,
-  KeyConditionExprParameters,
-} from './expr/index.js';
+import type { ExprInput, KeyConditionExprParameters } from './expr/index.js';
 import type { QueryOptions, ScanOptions } from './query-executor.js';
 import type {
   DynamoConfig,
@@ -110,7 +107,7 @@ export class DynamoTable<
       PutItemInput,
       'TableName' | 'Item' | 'ConditionExpression'
     > & {
-      condition?: ConditionExprParameters<unknown>;
+      condition?: ExprInput<any>;
     },
   ) {
     const putItemOptions: PutItemInput = {
@@ -149,7 +146,7 @@ export class DynamoTable<
       UpdateItemInput,
       'TableName' | 'Key' | 'ConditionExpression'
     > & {
-      condition?: ConditionExprParameters<unknown>;
+      condition?: ExprInput<any>;
     },
   ) {
     const updateItemOptions: UpdateItemInput = {
@@ -198,7 +195,7 @@ export class DynamoTable<
       DeleteItemInput,
       'TableName' | 'Key' | 'ConditionExpression'
     > & {
-      condition?: ConditionExprParameters<unknown>;
+      condition?: ExprInput<any>;
     },
   ) {
     const deleteItemOptions: DeleteItemInput = {

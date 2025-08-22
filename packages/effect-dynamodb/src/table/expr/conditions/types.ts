@@ -1,5 +1,6 @@
 import type { AttributeValue } from 'dynamodb-client';
 import type { CompoundIndexDefinition, IndexDefinition } from '../../types.js';
+import type { ExprResult } from '../expr-utils/index.js';
 import type { AttrValueType, StringAttr } from '../expr-utils/types.js';
 
 // Granular expression types
@@ -47,17 +48,23 @@ export type ConditionExpr<T> =
   | AttrTypeExpr
   | SizeExpr;
 
-// Base condition with attribute mapping
-export interface AttributeConditionExpr<
-  T,
+export type AttributeConditionExpr<
+  T = unknown,
   Attr extends StringAttr<T> = StringAttr<T>,
-> {
-  attr: Attr;
-  condition: ConditionExpr<AttrValueType<T, Attr>>;
-}
+> = Record<Attr, ConditionExpr<AttrValueType<T, Attr>>>;
 
-// Compound expression parameters including logical operations
-export type ConditionExprParameters<Type> =
-  | AttributeConditionExpr<Type>
-  | { and: ConditionExprParameters<Type>[] }
-  | { or: ConditionExprParameters<Type>[] };
+export type ConditionArrExpr<Type> = AttributeConditionExpr<Type>[];
+
+// New types for functional composition architecture
+// Simple object notation for convenience: { name: { '=': 'John' }, age: { '>': 18 } }
+export type SimpleConditionExpr<T> = {
+  [K in keyof T]?: ConditionExpr<T[K]>;
+};
+
+// Union type that accepts multiple input formats
+export type ExprInput<T> = 
+  | ExprResult                           // Already processed expression
+  | SimpleConditionExpr<T>;               // Simple object: { attr: condition }
+
+// Backward compatibility alias (deprecated - use SimpleConditionExpr or ExprInput)
+export type ConditionExprParameters<T> = SimpleConditionExpr<T>;

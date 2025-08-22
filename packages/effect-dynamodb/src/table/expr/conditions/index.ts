@@ -1,5 +1,5 @@
 // Core functions - these are the main API
-export { expr, keyCondition } from './expr.js';
+export { and, expr, keyCondition, not, or } from './expr.js';
 
 // Advanced/testing function
 export { attrExpr } from './expr.js';
@@ -10,8 +10,10 @@ export type {
   ComparisonExpr,
   ConditionExpr,
   ConditionExprParameters,
+  ExprInput,
   KeyConditionExpr,
   KeyConditionExprParameters,
+  SimpleConditionExpr,
   StringExpr,
 } from './types.js';
 

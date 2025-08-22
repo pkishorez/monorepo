@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { and, or } from '../../src/table/expr/index.js';
 import { cleanTable, table } from '../setup.js';
 
 // Minimal test utilities
@@ -30,8 +31,7 @@ describe('condition and Filter Expressions', () => {
       await Effect.runPromise(
         table.putItem(item, {
           condition: {
-            attr: 'pkey',
-            condition: { 'exists': false },
+            pkey: { 'exists': false },
           },
         }),
       );
@@ -40,8 +40,7 @@ describe('condition and Filter Expressions', () => {
       const putPromise = Effect.runPromise(
         table.putItem(item, {
           condition: {
-            attr: 'pkey',
-            condition: { 'exists': false },
+            pkey: { 'exists': false },
           },
         }),
       );
@@ -68,8 +67,7 @@ describe('condition and Filter Expressions', () => {
           },
           ReturnValues: 'ALL_NEW',
           condition: {
-            attr: 'version',
-            condition: { '=': 1 },
+            version: { '=': 1 },
           },
         }),
       );
@@ -84,8 +82,7 @@ describe('condition and Filter Expressions', () => {
           ExpressionAttributeNames: { '#status': 'status' },
           ExpressionAttributeValues: { ':status': { S: 'failed' } },
           condition: {
-            attr: 'version',
-            condition: { '=': 1 }, // Wrong version
+            version: { '=': 1 }, // Wrong version
           },
         }),
       );
@@ -101,8 +98,7 @@ describe('condition and Filter Expressions', () => {
       await Effect.runPromise(
         table.deleteItem(createKey(item.pkey), {
           condition: {
-            attr: 'deletable',
-            condition: { '=': true },
+            deletable: { '=': true },
           },
         }),
       );
@@ -121,8 +117,7 @@ describe('condition and Filter Expressions', () => {
       const deletePromise = Effect.runPromise(
         table.deleteItem(createKey(nonDeletableItem.pkey), {
           condition: {
-            attr: 'deletable',
-            condition: { '=': true }, // Wrong value
+            deletable: { '=': true }, // Wrong value
           },
         }),
       );
@@ -163,12 +158,10 @@ describe('condition and Filter Expressions', () => {
         table.query(
           { pk },
           {
-            filter: {
-              'and': [
-                { attr: 'score', condition: { '>': 100 } },
-                { attr: 'status', condition: { '=': 'active' } },
-              ],
-            },
+            filter: and(
+              { score: { '>': 100 } },
+              { status: { '=': 'active' } }
+            ),
           },
         ),
       );
@@ -190,12 +183,10 @@ describe('condition and Filter Expressions', () => {
 
       const result = await Effect.runPromise(
         table.scan({
-          filter: {
-            'or': [
-              { attr: 'score', condition: { '>': 180 } },
-              { attr: 'level', condition: { '>=': 5 } },
-            ],
-          },
+          filter: or(
+            { score: { '>': 180 } },
+            { level: { '>=': 5 } }
+          ),
         }),
       );
 
@@ -224,22 +215,16 @@ describe('condition and Filter Expressions', () => {
       // (category = 'A' AND priority = 1) OR (category = 'B' AND active = true)
       const result = await Effect.runPromise(
         table.scan({
-          filter: {
-            'or': [
-              {
-                'and': [
-                  { attr: 'category', condition: { '=': 'A' } },
-                  { attr: 'priority', condition: { '=': 1 } },
-                ],
-              },
-              {
-                'and': [
-                  { attr: 'category', condition: { '=': 'B' } },
-                  { attr: 'active', condition: { '=': true } },
-                ],
-              },
-            ],
-          },
+          filter: or(
+            and(
+              { category: { '=': 'A' } },
+              { priority: { '=': 1 } }
+            ),
+            and(
+              { category: { '=': 'B' } },
+              { active: { '=': true } }
+            )
+          ),
         }),
       );
 
@@ -260,8 +245,7 @@ describe('condition and Filter Expressions', () => {
       const result = await Effect.runPromise(
         table.scan({
           filter: {
-            attr: 'description',
-            condition: { 'contains': 'test' },
+            description: { 'contains': 'test' },
           },
         }),
       );

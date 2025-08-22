@@ -9,7 +9,9 @@
       "Bash(node:*)",
       "Bash(rm:*)",
       "Bash(pnpm run:*)",
-      "Bash(pnpm test:run:*)"
+      "Bash(pnpm test:run:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   },

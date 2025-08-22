@@ -154,10 +154,8 @@ describe('index Operations', () => {
           },
           {
             filter: {
-              'and': [
-                { attr: 'price', condition: { '>=': 100 } },
-                { attr: 'inStock', condition: { '=': true } },
-              ],
+              price: { '>=': 100 },
+              inStock: { '=': true },
             },
             projection: ['gsi1pk', 'gsi1sk', 'price', 'rating'],
             ScanIndexForward: false,
@@ -193,13 +191,8 @@ describe('index Operations', () => {
       const result = await Effect.runPromise(
         table.gsi('GSI1').scan({
           filter: {
-            'and': [
-              {
-                attr: 'gsi1pk',
-                condition: { 'beginsWith': 'category#' },
-              },
-              { attr: 'organic', condition: { '=': true } },
-            ],
+            gsi1pk: { 'beginsWith': 'category#' },
+            organic: { '=': true },
           },
           projection: ['pkey', 'category', 'calories'],
         }),
@@ -278,8 +271,7 @@ describe('index Operations', () => {
           { pk: products[0].pkey },
           {
             filter: {
-              attr: 'featured',
-              condition: { '=': true },
+              featured: { '=': true },
             },
             projection: ['pkey', 'lsi1skey', 'status'],
             ConsistentRead: true,
@@ -307,8 +299,7 @@ describe('index Operations', () => {
       const result = await Effect.runPromise(
         table.lsi('LSI1').scan({
           filter: {
-            attr: 'featured',
-            condition: { '=': true },
+            featured: { '=': true },
           },
           ReturnConsumedCapacity: 'TOTAL',
           projection: ['pkey', 'lsi1skey'],
@@ -346,8 +337,7 @@ describe('index Operations', () => {
           { pk: 'category#electronics' },
           {
             filter: {
-              attr: 'price',
-              condition: { '>': 800 },
+              price: { '>': 800 },
             },
           },
         ),
@@ -359,8 +349,7 @@ describe('index Operations', () => {
           { pk: products[0].pkey },
           {
             filter: {
-              attr: 'featured',
-              condition: { '=': true },
+              featured: { '=': true },
             },
           },
         ),
@@ -433,8 +422,7 @@ describe('index Operations', () => {
       const gsiScanResult = await Effect.runPromise(
         table.gsi('GSI1').scan({
           filter: {
-            attr: 'price',
-            condition: { '>': 10000 },
+            price: { '>': 10000 },
           },
         }),
       );
@@ -443,8 +431,7 @@ describe('index Operations', () => {
       const lsiScanResult = await Effect.runPromise(
         table.lsi('LSI1').scan({
           filter: {
-            attr: 'score',
-            condition: { '>': 10000 },
+            score: { '>': 10000 },
           },
         }),
       );
