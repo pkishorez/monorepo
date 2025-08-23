@@ -1,5 +1,4 @@
 /* eslint-disable no-console */
-/* eslint-disable unused-imports/no-unused-vars */
 import type { CreateTableInput } from 'dynamodb-client';
 import process from 'node:process';
 import { config } from 'dotenv';
@@ -63,11 +62,15 @@ const TABLE_SCHEMA: Omit<CreateTableInput, 'TableName'> = {
 interface TestEnvironment {
   tableName: string;
   dynamoUrl: string;
+  accessKey: string | undefined;
+  secretKey?: string | undefined;
 }
 
 function validateEnvironment(): TestEnvironment {
   const tableName = process.env.TEST_AWS_TABLE_NAME;
   const dynamoUrl = process.env.TEST_AWS_DYNAMODB_URL;
+  const accessKey = process.env.AWS_ACCESS_KEY;
+  const secretKey = process.env.AWS_SECRET_KEY;
 
   if (!tableName || !dynamoUrl) {
     throw new Error(
@@ -75,7 +78,7 @@ function validateEnvironment(): TestEnvironment {
     );
   }
 
-  return { tableName, dynamoUrl };
+  return { tableName, dynamoUrl, accessKey, secretKey };
 }
 
 function createDynamoClient(endpoint: string) {
@@ -203,9 +206,9 @@ beforeAll(async () => {
 export const table = (() => {
   const env = validateEnvironment();
   return DynamoTable.make(env.tableName, {
-    region: 'us-east-1',
-    accessKey: 'test',
-    secretKey: 'test',
+    region: 'eu-central-1',
+    accessKey: env.accessKey!,
+    secretKey: env.secretKey!,
     endpoint: env.dynamoUrl,
   })
     .primary('pkey', 'skey')
@@ -228,6 +231,7 @@ export function ensureSetupCompleted(): void {
 export async function cleanTable(): Promise<void> {
   try {
     let lastEvaluatedKey: any;
+    let totalDeleted = 0;
 
     do {
       const scanOptions = lastEvaluatedKey
@@ -245,16 +249,24 @@ export async function cleanTable(): Promise<void> {
                 skey: item.skey,
               }),
             );
+            totalDeleted++;
           } catch (error) {
-            // Ignore individual delete errors
+            console.error(
+              `Failed to delete item {pkey: ${item.pkey}, skey: ${item.skey}}:`,
+              error,
+            );
           }
         }
       }
 
       lastEvaluatedKey = scanResult.LastEvaluatedKey;
     } while (lastEvaluatedKey);
+
+    if (totalDeleted > 0) {
+      console.log(`🧹 Cleaned up ${totalDeleted} items from table`);
+    }
   } catch (error) {
-    // Ignore cleanup errors
+    console.error('Error during table cleanup:', error);
   }
 }
 

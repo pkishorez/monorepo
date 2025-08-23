@@ -17,6 +17,7 @@ import type {
   IndexDefinition,
   ItemForPut,
   ItemWithKeys,
+  KeyTypeFromIndex,
   RealKeyFromIndex,
   SecondaryIndexDefinition,
   Simplify,
@@ -85,6 +86,44 @@ export class DynamoTable<
       }),
     });
     this.#queryExecutor = new DynamoQueryExecutor(this.#client, this.#name);
+  }
+
+  getRealKey(key: KeyTypeFromIndex<TPrimary>): RealKeyFromIndex<TPrimary> {
+    const obj = {} as RealKeyFromIndex<TPrimary>;
+
+    if ('pk' in key && 'pk' in this.primary) {
+      obj[this.primary.pk] = key.pk;
+    }
+    if ('sk' in key && 'sk' in this.primary) {
+      obj[this.primary.sk] = key.sk;
+    }
+
+    return obj;
+  }
+
+  getSecondaryKey(index: keyof TSecondaryIndexes) {
+    return this.secondaryIndexes[index] as IndexDefinition | undefined;
+  }
+
+  getRealIndexKey<IndexName extends keyof TSecondaryIndexes>(
+    index: IndexName,
+    key: KeyTypeFromIndex<TSecondaryIndexes[IndexName]>,
+  ): RealKeyFromIndex<TSecondaryIndexes[IndexName]> {
+    const obj = {} as RealKeyFromIndex<TSecondaryIndexes[IndexName]>;
+    const config = this.secondaryIndexes[index];
+
+    if (!config) {
+      throw new Error('No key available.');
+    }
+
+    if ('pk' in key && 'pk' in config) {
+      obj[config.pk] = key.pk;
+    }
+    if ('sk' in key && 'sk' in config) {
+      obj[config.sk] = key.sk;
+    }
+
+    return obj;
   }
 
   static make(name: string, dynamoConfig: DynamoConfig) {

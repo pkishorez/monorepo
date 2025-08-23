@@ -10,28 +10,64 @@ const table = DynamoTable.make('table', {
   .primary('pkey', 'skey')
   .lsi('LSI1', 'lsi1skey')
   .gsi('GSI1', 'gsi1pk', 'gsi1sk')
-  .gsi('GSI2', 'gsi2pk', 'gsi2sk')
   .build();
 
 const eschema = ESchema.make(
   'v1',
   Schema.Struct({
-    name: Schema.String,
+    userName: Schema.String,
+    firstName: Schema.String,
+    lastName: Schema.String,
     age: Schema.Number,
     company: Schema.String,
     brand: Schema.String,
   }),
-).build();
+)
+  .evolve(
+    'v2',
+    ({ v1 }) => Schema.Struct({ ...v1.fields, fullName: Schema.String }),
+    (value, v) => {
+      return v({ ...value, fullName: `${value.firstName} ${value.lastName}` });
+    },
+  )
+  .build();
 
 export const entity = DynamoEntity
   // BR
   .make(table, eschema)
   .primary({
-    schema: eschema.schema.pick('name'), // BR
-    fn: ({ name }) => ({ pkey: name, skey: 'hey' }),
+    pk: {
+      schema: eschema.schema.pick('userName'), // BR
+      fn: ({ userName }) => `USERNAME#${userName}`,
+    },
+    sk: {
+      schema: eschema.schema.pick('userName'), // BR
+      fn: ({ userName }) => `USERNAME#${userName}`,
+    },
   })
   .index('LSI1', {
-    schema: eschema.schema.pick('name'),
-    fn: ({ name }) => ({ pkey: name, lsi1skey: name }),
+    pk: {
+      schema: eschema.schema.pick('userName'), // BR
+      fn: ({ userName }) => `USERNAME#${userName}`,
+    },
+    sk: {
+      schema: eschema.schema.pick('userName'), // BR
+      fn: ({ userName }) => `USERNAME#${userName}`,
+    },
   })
   .build();
+
+entity
+  .index('LSI1')
+  .query({ pk: { userName: '12' }, sk: { beginsWith: 'test' } });
+
+entity.getItem({ userName: 'kishore' });
+entity.putItem({
+  age: 10,
+  brand: 'Numa',
+  company: 'OYO',
+  firstName: 'Kishore',
+  lastName: 'Kishore',
+  fullName: 'Kishore Kishore',
+  userName: 'kishore',
+});
