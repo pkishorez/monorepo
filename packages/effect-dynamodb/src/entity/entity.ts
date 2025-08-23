@@ -62,8 +62,6 @@ export class DynamoEntity<
         return { ...result, Item: null };
       }
 
-      console.error('ITEM: ', Item);
-
       return {
         ...result,
         Item: yield* th.#eschema.parse(Item),
@@ -82,7 +80,7 @@ export class DynamoEntity<
       const key = th.#primary.fn(primaryKeyFields);
 
       // Merge the key attributes with the item
-      const itemWithKey = { ...key, ...th.make(value) };
+      const itemWithKey = { ...key, ...(yield* th.#eschema.makeEffect(value)) };
 
       const result = yield* th.#table.putItem(itemWithKey, options);
       const parsedAttributes = yield* th.parsePartial(result.Attributes);

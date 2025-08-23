@@ -54,6 +54,15 @@ export class ESchema<
     };
   };
 
+  makeEffect(data: Schema.Schema.Type<LatestSch>) {
+    return Schema.decodeUnknown(this.schema)(data).pipe(
+      Effect.map((v) => ({
+        ...(v as typeof data),
+        __v: this.#latest().version,
+      })),
+    );
+  }
+
   makePartial: (
     data: Partial<Schema.Schema.Type<LatestSch>>,
   ) => Partial<Schema.Schema.Type<LatestSch>> & { __v: string } = <

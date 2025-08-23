@@ -1,8 +1,15 @@
 import { ESchema } from '@monorepo/eschema';
-import { Effect, Schema } from 'effect';
+import { Effect, Either, Schema } from 'effect';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DynamoEntity } from '../src/entity/entity.js';
 import { cleanTable, table } from './setup.js';
+
+// Test utility to run Effect and return Either
+async function runEither<E, A>(
+  effect: Effect.Effect<A, E>,
+): Promise<Either.Either<A, E>> {
+  return await Effect.runPromise(Effect.either(effect));
+}
 
 // Test schema
 const UserSchema = ESchema.make(
@@ -194,11 +201,12 @@ describe('dynamoEntity CRUD Operations', () => {
         __v: 'v1',
       } as any;
 
-      const error = await Effect.runPromise(
-        UserEntity.putItem(invalidUser).pipe(Effect.flip),
-      );
+      const result = await runEither(UserEntity.putItem(invalidUser));
 
-      expect(error).toBeDefined();
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) {
+        expect(result.left).toBeDefined();
+      }
     });
 
     it('should handle composite keys correctly', async () => {
@@ -343,7 +351,7 @@ describe('dynamoEntity CRUD Operations', () => {
       expect(result.Attributes?.age).toBe(31);
 
       // Update should fail when condition is not met
-      const error = await Effect.runPromise(
+      const updateResult = await runEither(
         UserEntity.updateItem(
           { userId: user.userId },
           {
@@ -356,10 +364,13 @@ describe('dynamoEntity CRUD Operations', () => {
               status: { '=': 'deleted' },
             },
           },
-        ).pipe(Effect.flip),
+        ),
       );
 
-      expect(error).toBeDefined();
+      expect(Either.isLeft(updateResult)).toBe(true);
+      if (Either.isLeft(updateResult)) {
+        expect(updateResult.left).toBeDefined();
+      }
     });
 
     it('should return partial data correctly', async () => {
@@ -470,30 +481,27 @@ describe('dynamoEntity CRUD Operations', () => {
       expect(getResult.Item).toBeNull();
     });
 
-    it('should fail delete when condition is not met', async () => {
+    it('should fail delete when condition is not met (TODO: fix entity schema parsing on conditional failures)', async () => {
       const user = createUser();
       await Effect.runPromise(UserEntity.putItem(user));
-      console.error('TESTING: ', user);
 
       // Try to delete with wrong condition - should fail
-      let errorOccurred = false;
-      try {
-        await Effect.runPromise(
-          UserEntity.delete(
-            { userId: user.userId },
-            {
-              condition: {
-                status: { '=': 'inactive' }, // Wrong condition
-              },
+      const deleteResult = await runEither(
+        UserEntity.delete(
+          { userId: user.userId },
+          {
+            condition: {
+              status: { '=': 'inactive' }, // Wrong condition
             },
-          ),
-        );
-      } catch (error) {
-        errorOccurred = true;
-        expect(error).toBeDefined();
-      }
+          },
+        ),
+      );
 
-      expect(errorOccurred).toBe(true);
+      expect(Either.isLeft(deleteResult)).toBe(true);
+      if (Either.isLeft(deleteResult)) {
+        // We should have a typed error here
+        expect(deleteResult.left).toBeDefined();
+      }
 
       // Item should still exist
       const getResult = await Effect.runPromise(
@@ -512,11 +520,12 @@ describe('dynamoEntity CRUD Operations', () => {
         __v: 'v1',
       } as any;
 
-      const error = await Effect.runPromise(
-        UserEntity.putItem(incompleteUser).pipe(Effect.flip),
-      );
+      const result = await runEither(UserEntity.putItem(incompleteUser));
 
-      expect(error).toBeDefined();
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) {
+        expect(result.left).toBeDefined();
+      }
     });
 
     it('should handle schema parsing errors on get', async () => {
@@ -538,11 +547,14 @@ describe('dynamoEntity CRUD Operations', () => {
       );
 
       // Try to get with entity (should fail on parse)
-      const error = await Effect.runPromise(
-        UserEntity.getItem({ userId: user.userId }).pipe(Effect.flip),
+      const result = await runEither(
+        UserEntity.getItem({ userId: user.userId }),
       );
 
-      expect(error).toBeDefined();
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) {
+        expect(result.left).toBeDefined();
+      }
     });
   });
 });
