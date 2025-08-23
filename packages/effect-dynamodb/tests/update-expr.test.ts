@@ -47,7 +47,10 @@ describe('update Expression System', () => {
     });
 
     it('sET operation with function - plus', () => {
-      const parameters: UpdateExprParameters = {
+      const parameters: UpdateExprParameters<{
+        total: number;
+        subtotal: number;
+      }> = {
         SET: {
           total: { op: 'plus', attr: 'subtotal', value: 10 },
         },

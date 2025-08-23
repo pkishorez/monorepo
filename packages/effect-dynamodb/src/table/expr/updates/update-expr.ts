@@ -135,9 +135,9 @@ export function updateExpr<
 
   // Process SET operations
   if (parameters.SET) {
-    const setResults = Object.entries(parameters.SET).map(([attr, value]) =>
-      setExpr(attr, value),
-    );
+    const setResults = Object.entries(parameters.SET)
+      .map(([attr, value]) => (value ? setExpr(attr, value) : null))
+      .filter(Boolean);
     allResults.push(...setResults);
     expressionParts.push(`SET ${setResults.map((r) => r.expr).join(', ')}`);
   }

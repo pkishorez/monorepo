@@ -21,14 +21,14 @@ interface BaseUpdateExprParameters<
   Attr extends StringAttr<T> = StringAttr<T>,
 > {
   SET?: {
-    [K in Attr]: SetValueExpr<T, Attr>;
+    [K in Attr]?: SetValueExpr<T, Attr>;
   };
   REMOVE?: Array<Attr>;
   ADD?: {
-    [K in Attr]: AttrValueType<T, Attr>;
+    [K in Attr]?: AttrValueType<T, Attr>;
   };
   DELETE?: {
-    [K in Attr]: AttrValueType<T, Attr>;
+    [K in Attr]?: AttrValueType<T, Attr>;
   };
 }
 
