@@ -142,21 +142,22 @@ export class DynamoTable<
     options: PutOptions = {},
   ) {
     const result = buildExpression({ condition: options.condition });
-    const putItemOptions: PutItemInput = {
-      TableName: this.#name,
-      Item: marshall(item),
-      ...options,
-      ...result,
-    };
 
-    return this.#client.putItem(putItemOptions).pipe(
-      Effect.map((response) => ({
-        ...response,
-        Attributes: response.Attributes
-          ? unmarshall(response.Attributes)
-          : undefined,
-      })),
-    );
+    return this.#client
+      .putItem({
+        TableName: this.#name,
+        Item: marshall(item),
+        ...options,
+        ...result,
+      })
+      .pipe(
+        Effect.map((response) => ({
+          ...response,
+          Attributes: response.Attributes
+            ? unmarshall(response.Attributes)
+            : undefined,
+        })),
+      );
   }
 
   updateItem(key: RealKeyFromIndex<TPrimary>, options: UpdateOptions) {
