@@ -1,4 +1,5 @@
 import type { Schema } from 'effect';
+import type { ESchema } from './eschema.js';
 
 /**
  * Resolves a type that can be either a function or a value.
@@ -161,3 +162,6 @@ export type EvolutionsToObject<T extends readonly Evolution<any, any>[]> = {
     ? V
     : never]: K extends Evolution<any, infer S> ? S : never;
 };
+
+export type ESchemaType<ESch extends ESchema<any, any>> =
+  ESch extends ESchema<infer Latest, any> ? Latest : never;

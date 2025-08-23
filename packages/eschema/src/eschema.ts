@@ -9,7 +9,7 @@ import { ESchemaParseError } from './errors.js';
 import { evolutionsToObject, extractVersion, resolveValue } from './util.js';
 
 export class ESchema<
-  Sch extends Schema.Schema<any>,
+  LatestSch extends Schema.Schema<any>,
   Evolutions extends Evolution<any, any>[],
 > {
   #evolutions: Evolutions;
@@ -35,14 +35,14 @@ export class ESchema<
   #latest() {
     return this.#evolutions[this.#evolutions.length - 1];
   }
-  get schema(): Sch {
+  get schema(): LatestSch {
     return this.#evolutions[this.#evolutions.length - 1].evolution;
   }
 
   make: (
-    data: Schema.Schema.Type<Sch>,
-  ) => Schema.Schema.Type<Sch> & { __v: string } = <
-    D extends Schema.Schema.Type<Sch>,
+    data: Schema.Schema.Type<LatestSch>,
+  ) => Schema.Schema.Type<LatestSch> & { __v: string } = <
+    D extends Schema.Schema.Type<LatestSch>,
   >(
     data: D,
   ): D & { __v: string } => {
@@ -55,9 +55,9 @@ export class ESchema<
   };
 
   makePartial: (
-    data: Partial<Schema.Schema.Type<Sch>>,
-  ) => Partial<Schema.Schema.Type<Sch>> & { __v: string } = <
-    D extends Partial<Schema.Schema.Type<Sch>>,
+    data: Partial<Schema.Schema.Type<LatestSch>>,
+  ) => Partial<Schema.Schema.Type<LatestSch>> & { __v: string } = <
+    D extends Partial<Schema.Schema.Type<LatestSch>>,
   >(
     data: D,
   ): D & { __v: string } => {
@@ -71,7 +71,7 @@ export class ESchema<
 
   parse: (
     data: unknown,
-  ) => Effect.Effect<Schema.Schema.Type<Sch>, ESchemaParseError> = (
+  ) => Effect.Effect<Schema.Schema.Type<LatestSch>, ESchemaParseError> = (
     data: unknown,
   ) => {
     const evolutions = this.#evolutions;
@@ -124,7 +124,7 @@ export class ESchema<
         }
       }
 
-      return currentValue as Schema.Schema.Type<Sch>;
+      return currentValue as Schema.Schema.Type<LatestSch>;
     });
   };
 }

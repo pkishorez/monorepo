@@ -66,7 +66,28 @@ export class DynamoTable<
   }
 
   static make(name: string, dynamoConfig: DynamoConfig) {
-    return new InitialTableBuilder(name, dynamoConfig);
+    return {
+      primary<TPk extends string, TSk extends string | undefined = undefined>(
+        pk: TPk,
+        sk?: TSk,
+      ): ConfiguredTableBuilder<
+        TSk extends string ? { pk: TPk; sk: TSk } : { pk: TPk },
+        {},
+        {}
+      > {
+        const primaryIndex = (sk ? { pk, sk } : { pk }) as TSk extends string
+          ? { pk: TPk; sk: TSk }
+          : { pk: TPk };
+
+        return new ConfiguredTableBuilder(
+          name,
+          primaryIndex,
+          {},
+          {},
+          dynamoConfig,
+        );
+      },
+    };
   }
 
   get name(): string {
@@ -321,38 +342,6 @@ export class DynamoTable<
           );
       },
     };
-  }
-}
-
-// Initial builder - only shows primary() method
-class InitialTableBuilder {
-  readonly #name: string;
-  readonly #dynamoConfig: DynamoConfig;
-
-  constructor(name: string, dynamoConfig: DynamoConfig) {
-    this.#name = name;
-    this.#dynamoConfig = dynamoConfig;
-  }
-
-  primary<TPk extends string, TSk extends string | undefined = undefined>(
-    pk: TPk,
-    sk?: TSk,
-  ): ConfiguredTableBuilder<
-    TSk extends string ? { pk: TPk; sk: TSk } : { pk: TPk },
-    {},
-    {}
-  > {
-    const primaryIndex = (sk ? { pk, sk } : { pk }) as TSk extends string
-      ? { pk: TPk; sk: TSk }
-      : { pk: TPk };
-
-    return new ConfiguredTableBuilder(
-      this.#name,
-      primaryIndex,
-      {},
-      {},
-      this.#dynamoConfig,
-    );
   }
 }
 

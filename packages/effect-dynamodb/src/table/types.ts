@@ -1,3 +1,5 @@
+import type { DynamoTable } from './table.js';
+
 // Core index definitions
 export interface SimpleIndexDefinition {
   pk: string;
@@ -63,3 +65,12 @@ export type ItemForPut<
   Partial<AllGLSIKeys<TGSIs>> &
   Partial<AllGLSIKeys<TLSIs>> &
   Item;
+
+export interface DynamoTableType<Table extends DynamoTable<any, any, any>> {
+  primary: Table extends DynamoTable<infer Primary, any, any> ? Primary : never;
+  GSIs: Table extends DynamoTable<any, infer GSIs, any> ? GSIs : never;
+  LSIs: Table extends DynamoTable<any, any, infer LSIs> ? LSIs : never;
+  SIs: Table extends DynamoTable<any, infer GSIs, infer LSIs>
+    ? GSIs & LSIs
+    : never;
+}
