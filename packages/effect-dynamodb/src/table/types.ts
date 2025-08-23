@@ -64,7 +64,7 @@ export type ItemForPut<
 
 export interface DynamoTableType<Table extends DynamoTable<any, any>> {
   primary: Table extends DynamoTable<infer Primary, any> ? Primary : never;
-  SIs: Table extends DynamoTable<any, infer SecondaryIndexes>
+  secondaryIndexes: Table extends DynamoTable<any, infer SecondaryIndexes>
     ? SecondaryIndexes
     : never;
 }

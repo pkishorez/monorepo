@@ -30,7 +30,7 @@ export const entity = DynamoEntity
     schema: eschema.schema.pick('name'), // BR
     fn: ({ name }) => ({ pkey: name, skey: 'hey' }),
   })
-  .secondary('LSI1', {
+  .index('LSI1', {
     schema: eschema.schema.pick('name'),
     fn: ({ name }) => ({ pkey: name, lsi1skey: name }),
   })

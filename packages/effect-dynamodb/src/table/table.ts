@@ -27,6 +27,32 @@ import { buildExpression } from './expr/index.js';
 import { DynamoQueryExecutor } from './query-executor.js';
 import { marshall, unmarshall } from './utils.js';
 
+export type PutOptions = Omit<
+  PutItemInput,
+  'TableName' | 'Item' | 'ConditionExpression' | 'Key'
+> & {
+  condition?: ExprInput;
+};
+export type UpdateOptions<T = Record<string, unknown>> = Omit<
+  UpdateItemInput,
+  | 'TableName'
+  | 'Key'
+  | 'ConditionExpression'
+  | 'UpdateExpression'
+  | 'ExpressionAttributeNames'
+  | 'ExpressionAttributeValues'
+> & {
+  condition?: ExprInput;
+  update: UpdateExprParameters<T>;
+};
+
+export type DeleteOptions = Omit<
+  DeleteItemInput,
+  'TableName' | 'Key' | 'ConditionExpression'
+> & {
+  condition?: ExprInput;
+};
+
 export class DynamoTable<
   TPrimary extends IndexDefinition,
   TSecondaryIndexes extends Record<string, SecondaryIndexDefinition> = {},
@@ -113,12 +139,7 @@ export class DynamoTable<
 
   putItem(
     item: ItemForPut<TPrimary, TSecondaryIndexes>,
-    options: Omit<
-      PutItemInput,
-      'TableName' | 'Item' | 'ConditionExpression' | 'Key'
-    > & {
-      condition?: ExprInput;
-    } = {},
+    options: PutOptions = {},
   ) {
     const result = buildExpression({ condition: options.condition });
     const putItemOptions: PutItemInput = {
@@ -138,21 +159,7 @@ export class DynamoTable<
     );
   }
 
-  updateItem(
-    key: RealKeyFromIndex<TPrimary>,
-    options: Omit<
-      UpdateItemInput,
-      | 'TableName'
-      | 'Key'
-      | 'ConditionExpression'
-      | 'UpdateExpression'
-      | 'ExpressionAttributeNames'
-      | 'ExpressionAttributeValues'
-    > & {
-      condition?: ExprInput;
-      update: UpdateExprParameters<Record<string, unknown>>;
-    },
-  ) {
+  updateItem(key: RealKeyFromIndex<TPrimary>, options: UpdateOptions) {
     // Build expressions using the helper
     const result = buildExpression({
       condition: options.condition,
@@ -175,15 +182,7 @@ export class DynamoTable<
     );
   }
 
-  deleteItem(
-    key: RealKeyFromIndex<TPrimary>,
-    options: Omit<
-      DeleteItemInput,
-      'TableName' | 'Key' | 'ConditionExpression'
-    > & {
-      condition?: ExprInput;
-    } = {},
-  ) {
+  deleteItem(key: RealKeyFromIndex<TPrimary>, options: DeleteOptions = {}) {
     const result = buildExpression({ condition: options.condition });
     const deleteItemOptions: DeleteItemInput = {
       TableName: this.#name,
