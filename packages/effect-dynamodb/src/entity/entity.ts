@@ -17,7 +17,7 @@ export class DynamoEntity<
       DynamoTableType<Table>['SIs'][key]
     >;
   },
-  Table extends DynamoTable<any, any, any>,
+  Table extends DynamoTable<any, any>,
   ESch extends ESchema<any, any>,
 > {
   #table: Table;
@@ -47,7 +47,7 @@ export class DynamoEntity<
 
   // BUILDER PATTERN FOR DynamoEntity
   static make<
-    Table extends DynamoTable<any, any, any>,
+    Table extends DynamoTable<any, any>,
     Sch extends ESchema<any, any>,
   >(table: Table, eschema: Sch) {
     return {

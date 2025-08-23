@@ -58,19 +58,13 @@ export type AllGLSIKeys<TGLSIs extends Record<string, IndexDefinition>> =
 
 export type ItemForPut<
   TPrimary extends IndexDefinition,
-  TGSIs extends Record<string, IndexDefinition>,
-  TLSIs extends Record<string, IndexDefinition>,
+  TSecondaryIndexes extends Record<string, IndexDefinition>,
   Item = Record<string, unknown>,
-> = RealKeyFromIndex<TPrimary> &
-  Partial<AllGLSIKeys<TGSIs>> &
-  Partial<AllGLSIKeys<TLSIs>> &
-  Item;
+> = RealKeyFromIndex<TPrimary> & Partial<AllGLSIKeys<TSecondaryIndexes>> & Item;
 
-export interface DynamoTableType<Table extends DynamoTable<any, any, any>> {
-  primary: Table extends DynamoTable<infer Primary, any, any> ? Primary : never;
-  GSIs: Table extends DynamoTable<any, infer GSIs, any> ? GSIs : never;
-  LSIs: Table extends DynamoTable<any, any, infer LSIs> ? LSIs : never;
-  SIs: Table extends DynamoTable<any, infer GSIs, infer LSIs>
-    ? GSIs & LSIs
+export interface DynamoTableType<Table extends DynamoTable<any, any>> {
+  primary: Table extends DynamoTable<infer Primary, any> ? Primary : never;
+  SIs: Table extends DynamoTable<any, infer SecondaryIndexes>
+    ? SecondaryIndexes
     : never;
 }

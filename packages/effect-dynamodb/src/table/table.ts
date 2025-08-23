@@ -29,28 +29,24 @@ import { marshall, unmarshall } from './utils.js';
 
 export class DynamoTable<
   TPrimary extends IndexDefinition,
-  TGSIs extends Record<string, SecondaryIndexDefinition> = {},
-  TLSIs extends Record<string, SecondaryIndexDefinition> = {},
+  TSecondaryIndexes extends Record<string, SecondaryIndexDefinition> = {},
 > {
   readonly #name: string;
   readonly #client: DynamoDB;
   readonly #queryExecutor: DynamoQueryExecutor;
 
   readonly primary: TPrimary;
-  readonly gsis: TGSIs;
-  readonly lsis: TLSIs;
+  readonly secondaryIndexes: TSecondaryIndexes;
 
   constructor(config: {
     name: string;
     primary: TPrimary;
-    gsis: TGSIs;
-    lsis: TLSIs;
+    gsis: TSecondaryIndexes;
     dynamoConfig: DynamoConfig;
   }) {
     this.#name = config.name;
     this.primary = config.primary;
-    this.gsis = config.gsis;
-    this.lsis = config.lsis;
+    this.secondaryIndexes = config.gsis;
 
     this.#client = createDynamoDB({
       region: config.dynamoConfig.region || 'us-east-1',
@@ -72,20 +68,13 @@ export class DynamoTable<
         sk?: TSk,
       ): ConfiguredTableBuilder<
         TSk extends string ? { pk: TPk; sk: TSk } : { pk: TPk },
-        {},
         {}
       > {
         const primaryIndex = (sk ? { pk, sk } : { pk }) as TSk extends string
           ? { pk: TPk; sk: TSk }
           : { pk: TPk };
 
-        return new ConfiguredTableBuilder(
-          name,
-          primaryIndex,
-          {},
-          {},
-          dynamoConfig,
-        );
+        return new ConfiguredTableBuilder(name, primaryIndex, {}, dynamoConfig);
       },
     };
   }
@@ -123,7 +112,7 @@ export class DynamoTable<
   }
 
   putItem(
-    item: ItemForPut<TPrimary, TGSIs, TLSIs>,
+    item: ItemForPut<TPrimary, TSecondaryIndexes>,
     options: Omit<
       PutItemInput,
       'TableName' | 'Item' | 'ConditionExpression' | 'Key'
@@ -249,14 +238,14 @@ export class DynamoTable<
   }
 
   // GSI operations
-  gsi<TName extends keyof TGSIs>(indexName: TName) {
+  index<TName extends keyof TSecondaryIndexes>(indexName: TName) {
     return {
       query: (
-        key: KeyConditionExprParameters<TGSIs[TName]>,
-        options?: QueryOptions<TGSIs[TName]>,
+        key: KeyConditionExprParameters<TSecondaryIndexes[TName]>,
+        options?: QueryOptions<TSecondaryIndexes[TName]>,
       ) => {
         return this.#queryExecutor
-          .executeQuery(key, this.gsis[indexName], {
+          .executeQuery(key, this.secondaryIndexes[indexName], {
             ...options,
             indexName: indexName as string,
           })
@@ -268,14 +257,14 @@ export class DynamoTable<
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
                 ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
-                    TGSIs[TName]
+                    TSecondaryIndexes[TName]
                   >)
                 : undefined,
             })),
           );
       },
 
-      scan: (options?: ScanOptions<TGSIs[TName]>) => {
+      scan: (options?: ScanOptions<TSecondaryIndexes[TName]>) => {
         return this.#queryExecutor
           .executeScan({ ...options, indexName: indexName as string })
           .pipe(
@@ -286,56 +275,7 @@ export class DynamoTable<
               ) as ItemWithKeys<TPrimary>[],
               LastEvaluatedKey: response.LastEvaluatedKey
                 ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
-                    TGSIs[TName]
-                  >)
-                : undefined,
-            })),
-          );
-      },
-    };
-  }
-
-  // LSI operations
-  lsi<TName extends keyof TLSIs>(indexName: TName) {
-    type IndexDef = TLSIs[TName];
-
-    return {
-      query: (
-        key: KeyConditionExprParameters<IndexDef>,
-        options?: QueryOptions<IndexDef>,
-      ) => {
-        return this.#queryExecutor
-          .executeQuery(key, this.lsis[indexName], {
-            ...options,
-            indexName: indexName as string,
-          })
-          .pipe(
-            Effect.map((response) => ({
-              ...response,
-              Items: (response.Items || []).map((item) =>
-                unmarshall(item),
-              ) as ItemWithKeys<TPrimary>[],
-              LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
-                    TLSIs[TName]
-                  >)
-                : undefined,
-            })),
-          );
-      },
-
-      scan: (options?: ScanOptions<TLSIs[TName]>) => {
-        return this.#queryExecutor
-          .executeScan({ ...options, indexName: indexName as string })
-          .pipe(
-            Effect.map((response) => ({
-              ...response,
-              Items: (response.Items || []).map((item) =>
-                unmarshall(item),
-              ) as ItemWithKeys<TPrimary>[],
-              LastEvaluatedKey: response.LastEvaluatedKey
-                ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
-                    TLSIs[TName]
+                    TSecondaryIndexes[TName]
                   >)
                 : undefined,
             })),
@@ -348,26 +288,22 @@ export class DynamoTable<
 // Configured builder - shows gsi(), lsi(), and build() methods
 class ConfiguredTableBuilder<
   TPrimary extends IndexDefinition,
-  TGSIs extends Record<string, IndexDefinition> = {},
-  TLSIs extends Record<string, IndexDefinition> = {},
+  TSecondaryIndexes extends Record<string, IndexDefinition> = {},
 > {
   readonly #name: string;
   readonly #primary: TPrimary;
-  readonly #gsis: TGSIs;
-  readonly #lsis: TLSIs;
+  readonly #secondaryIndexes: TSecondaryIndexes;
   readonly #dynamoConfig: DynamoConfig;
 
   constructor(
     name: string,
     primary: TPrimary,
-    gsis: TGSIs,
-    lsis: TLSIs,
+    secondaryIndexes: TSecondaryIndexes,
     dynamoConfig: DynamoConfig,
   ) {
     this.#name = name;
     this.#primary = primary;
-    this.#gsis = gsis;
-    this.#lsis = lsis;
+    this.#secondaryIndexes = secondaryIndexes;
     this.#dynamoConfig = dynamoConfig;
   }
 
@@ -382,17 +318,16 @@ class ConfiguredTableBuilder<
   ): ConfiguredTableBuilder<
     TPrimary,
     Simplify<
-      TGSIs &
+      TSecondaryIndexes &
         Record<TName, TSk extends string ? { pk: TPk; sk: TSk } : { pk: TPk }>
-    >,
-    TLSIs
+    >
   > {
     const gsiIndex = (sk ? { pk, sk } : { pk }) as TSk extends string
       ? { pk: TPk; sk: TSk }
       : { pk: TPk };
 
-    const newGSIs = { ...this.#gsis, [name]: gsiIndex } as Simplify<
-      TGSIs &
+    const newGSIs = { ...this.#secondaryIndexes, [name]: gsiIndex } as Simplify<
+      TSecondaryIndexes &
         Record<TName, TSk extends string ? { pk: TPk; sk: TSk } : { pk: TPk }>
     >;
 
@@ -400,7 +335,6 @@ class ConfiguredTableBuilder<
       this.#name,
       this.#primary,
       newGSIs,
-      this.#lsis,
       this.#dynamoConfig,
     );
   }
@@ -410,14 +344,11 @@ class ConfiguredTableBuilder<
     sk: TSk,
   ): ConfiguredTableBuilder<
     TPrimary,
-    TGSIs,
-    Simplify<
-      TLSIs &
-        Record<
-          TName,
-          TPrimary extends { pk: infer PK } ? { pk: PK; sk: TSk } : never
-        >
-    >
+    TSecondaryIndexes &
+      Record<
+        TName,
+        TPrimary extends { pk: infer PK } ? { pk: PK; sk: TSk } : never
+      >
   > {
     const lsiIndex = { pk: this.#primary.pk, sk } as TPrimary extends {
       pk: infer PK;
@@ -425,29 +356,27 @@ class ConfiguredTableBuilder<
       ? { pk: PK; sk: TSk }
       : never;
 
-    const newLSIs = { ...this.#lsis, [name]: lsiIndex } as Simplify<
-      TLSIs &
-        Record<
-          TName,
-          TPrimary extends { pk: infer PK } ? { pk: PK; sk: TSk } : never
-        >
-    >;
-
+    const updatedSecondaryIndexes = {
+      ...this.#secondaryIndexes,
+      [name]: lsiIndex,
+    } as TSecondaryIndexes &
+      Record<
+        TName,
+        TPrimary extends { pk: infer PK } ? { pk: PK; sk: TSk } : never
+      >;
     return new ConfiguredTableBuilder(
       this.#name,
       this.#primary,
-      this.#gsis,
-      newLSIs,
+      updatedSecondaryIndexes,
       this.#dynamoConfig,
     );
   }
 
-  build(): DynamoTable<TPrimary, TGSIs, TLSIs> {
+  build(): DynamoTable<TPrimary, TSecondaryIndexes> {
     return new DynamoTable({
       name: this.#name,
       primary: this.#primary,
-      gsis: this.#gsis,
-      lsis: this.#lsis,
+      gsis: this.#secondaryIndexes,
       dynamoConfig: this.#dynamoConfig,
     });
   }

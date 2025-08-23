@@ -71,7 +71,7 @@ describe('index Operations', () => {
       await batchPutItems(products);
 
       const result = await Effect.runPromise(
-        table.gsi('GSI1').query({ pk: `category#electronics-${testId}` }),
+        table.index('GSI1').query({ pk: `category#electronics-${testId}` }),
       );
 
       expect(result.Items).toHaveLength(2);
@@ -97,9 +97,9 @@ describe('index Operations', () => {
 
       // BeginsWith condition
       const beginsResult = await Effect.runPromise(
-        table.gsi('GSI1').query({
+        table.index('GSI1').query({
           pk: `category#electronics-${testId}`,
-          sk: { 'beginsWith': 'brand#apple' },
+          sk: { beginsWith: 'brand#apple' },
         }),
       );
       expect(beginsResult.Items).toHaveLength(2);
@@ -116,10 +116,10 @@ describe('index Operations', () => {
       await batchPutItems(orders);
 
       const betweenResult = await Effect.runPromise(
-        table.gsi('GSI1').query({
+        table.index('GSI1').query({
           pk: 'user#user1',
           sk: {
-            'between': ['date#2024-01-01#001', 'date#2024-01-05#002'],
+            between: ['date#2024-01-01#001', 'date#2024-01-05#002'],
           },
         }),
       );
@@ -147,10 +147,10 @@ describe('index Operations', () => {
       await batchPutItems(products);
 
       const result = await Effect.runPromise(
-        table.gsi('GSI1').query(
+        table.index('GSI1').query(
           {
             pk: 'category#sports',
-            sk: { 'beginsWith': 'brand#nike' },
+            sk: { beginsWith: 'brand#nike' },
           },
           {
             filter: {
@@ -189,9 +189,9 @@ describe('index Operations', () => {
       await batchPutItems(products);
 
       const result = await Effect.runPromise(
-        table.gsi('GSI1').scan({
+        table.index('GSI1').scan({
           filter: {
-            gsi1pk: { 'beginsWith': 'category#' },
+            gsi1pk: { beginsWith: 'category#' },
             organic: { '=': true },
           },
           projection: ['pkey', 'category', 'calories'],
@@ -219,13 +219,13 @@ describe('index Operations', () => {
       await batchPutItems(products);
 
       const page1 = await Effect.runPromise(
-        table.gsi('GSI1').scan({ Limit: 3 }),
+        table.index('GSI1').scan({ Limit: 3 }),
       );
       expect(page1.Items.length).toBeGreaterThan(0);
 
       if (page1.LastEvaluatedKey) {
         const page2 = await Effect.runPromise(
-          table.gsi('GSI1').scan({
+          table.index('GSI1').scan({
             Limit: 3,
             exclusiveStartKey: page1.LastEvaluatedKey,
           }),
@@ -245,7 +245,7 @@ describe('index Operations', () => {
 
       // Query by partition key
       const result = await Effect.runPromise(
-        table.lsi('LSI1').query({ pk: products[0].pkey }),
+        table.index('LSI1').query({ pk: products[0].pkey }),
       );
       expect(result.Items.length).toBeGreaterThanOrEqual(1);
 
@@ -267,7 +267,7 @@ describe('index Operations', () => {
       await batchPutItems(products);
 
       const result = await Effect.runPromise(
-        table.lsi('LSI1').query(
+        table.index('LSI1').query(
           { pk: products[0].pkey },
           {
             filter: {
@@ -297,7 +297,7 @@ describe('index Operations', () => {
       await batchPutItems(products);
 
       const result = await Effect.runPromise(
-        table.lsi('LSI1').scan({
+        table.index('LSI1').scan({
           filter: {
             featured: { '=': true },
           },
@@ -333,7 +333,7 @@ describe('index Operations', () => {
 
       // Query GSI1 for electronics
       const gsiResult = await Effect.runPromise(
-        table.gsi('GSI1').query(
+        table.index('GSI1').query(
           { pk: 'category#electronics' },
           {
             filter: {
@@ -345,7 +345,7 @@ describe('index Operations', () => {
 
       // Query LSI1 for featured products (if items exist in same partition)
       const lsiResult = await Effect.runPromise(
-        table.lsi('LSI1').query(
+        table.index('LSI1').query(
           { pk: products[0].pkey },
           {
             filter: {
@@ -375,14 +375,19 @@ describe('index Operations', () => {
       const operators = ['<', '<=', '>', '>=', '='] as const;
 
       for (const op of operators) {
-        const sk = op === '<' ? { '<': testValue } :
-                  op === '<=' ? { '<=': testValue } :
-                  op === '>' ? { '>': testValue } :
-                  op === '>=' ? { '>=': testValue } :
-                  { '=': testValue };
-        
+        const sk =
+          op === '<'
+            ? { '<': testValue }
+            : op === '<='
+              ? { '<=': testValue }
+              : op === '>'
+                ? { '>': testValue }
+                : op === '>='
+                  ? { '>=': testValue }
+                  : { '=': testValue };
+
         const result = await Effect.runPromise(
-          table.gsi('GSI1').query({
+          table.index('GSI1').query({
             pk: 'user#testuser',
             sk,
           }),
@@ -392,10 +397,10 @@ describe('index Operations', () => {
 
       // Test between operator
       const betweenResult = await Effect.runPromise(
-        table.gsi('GSI1').query({
+        table.index('GSI1').query({
           pk: 'user#testuser',
           sk: {
-            'between': ['date#2024-01-03#002', 'date#2024-01-07#006'],
+            between: ['date#2024-01-03#002', 'date#2024-01-07#006'],
           },
         }),
       );
@@ -407,20 +412,20 @@ describe('index Operations', () => {
     it('should handle non-existent index queries', async () => {
       // GSI with non-existent partition
       const gsiResult = await Effect.runPromise(
-        table.gsi('GSI1').query({ pk: 'category#nonexistent' }),
+        table.index('GSI1').query({ pk: 'category#nonexistent' }),
       );
       expect(gsiResult.Items).toHaveLength(0);
 
       // LSI with non-existent partition
       const lsiResult = await Effect.runPromise(
-        table.lsi('LSI1').query({ pk: 'product#nonexistent' }),
+        table.index('LSI1').query({ pk: 'product#nonexistent' }),
       );
       expect(lsiResult.Items).toHaveLength(0);
     });
 
     it('should handle empty scan results', async () => {
       const gsiScanResult = await Effect.runPromise(
-        table.gsi('GSI1').scan({
+        table.index('GSI1').scan({
           filter: {
             price: { '>': 10000 },
           },
@@ -429,7 +434,7 @@ describe('index Operations', () => {
       expect(Array.isArray(gsiScanResult.Items)).toBe(true);
 
       const lsiScanResult = await Effect.runPromise(
-        table.lsi('LSI1').scan({
+        table.index('LSI1').scan({
           filter: {
             score: { '>': 10000 },
           },
