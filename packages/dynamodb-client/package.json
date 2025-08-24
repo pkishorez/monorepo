@@ -20,17 +20,17 @@
     "effect": ">3"
   },
   "dependencies": {
-    "@aws-sdk/credential-providers": "^3.864.0",
+    "@aws-sdk/credential-providers": "^3.873.0",
     "aws4fetch": "^1.0.20"
   },
   "devDependencies": {
-    "@aws-sdk/client-dynamodb": "3.868.0",
-    "@effect/platform": "0.90.5",
+    "@aws-sdk/client-dynamodb": "3.873.0",
+    "@effect/platform": "0.90.6",
     "@effect/platform-node": "0.96.0",
     "@tsconfig/node22": "22.0.2",
     "@types/node": "24.3.0",
-    "effect": "3.17.7",
-    "eslint": "^9.33.0",
+    "effect": "3.17.9",
+    "eslint": "^9.34.0",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
   }

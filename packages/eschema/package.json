@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@standard-schema/spec": "1.0.0",
-    "effect": "3.17.7"
+    "effect": "3.17.9"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.2",
