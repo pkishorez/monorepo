@@ -25,9 +25,9 @@ npm install effect-dynamodb @monorepo/eschema effect
 ### Basic Setup
 
 ```typescript
-import { DynamoTable, DynamoEntity } from 'effect-dynamodb';
 import { ESchema } from '@monorepo/eschema';
-import { Schema, Effect } from 'effect';
+import { Effect, Schema } from 'effect';
+import { DynamoEntity, DynamoTable } from 'effect-dynamodb';
 
 // Configure DynamoDB connection
 const dynamoConfig = {
@@ -72,10 +72,10 @@ Effect DynamoDB provides two levels of abstraction:
 
 ```typescript
 const table = DynamoTable.make('my-table', dynamoConfig)
-  .primary('pk', 'sk')                    // Composite primary key
-  .gsi('GSI1', 'gsi1pk', 'gsi1sk')      // Global secondary index
-  .gsi('GSI2', 'gsi2pk')                // GSI with partition key only
-  .lsi('LSI1', 'lsi1sk')                // Local secondary index
+  .primary('pk', 'sk') // Composite primary key
+  .gsi('GSI1', 'gsi1pk', 'gsi1sk') // Global secondary index
+  .gsi('GSI2', 'gsi2pk') // GSI with partition key only
+  .lsi('LSI1', 'lsi1sk') // Local secondary index
   .build();
 ```
 
@@ -89,12 +89,12 @@ const putResult = await Effect.runPromise(
     sk: 'PROFILE',
     name: 'John Doe',
     email: 'john@example.com',
-  })
+  }),
 );
 
 // Get item
 const getResult = await Effect.runPromise(
-  table.getItem({ pk: 'USER#123', sk: 'PROFILE' })
+  table.getItem({ pk: 'USER#123', sk: 'PROFILE' }),
 );
 
 // Update item
@@ -109,13 +109,13 @@ const updateResult = await Effect.runPromise(
         },
       },
       ReturnValues: 'ALL_NEW',
-    }
-  )
+    },
+  ),
 );
 
 // Delete item
 const deleteResult = await Effect.runPromise(
-  table.deleteItem({ pk: 'USER#123', sk: 'PROFILE' })
+  table.deleteItem({ pk: 'USER#123', sk: 'PROFILE' }),
 );
 ```
 
@@ -126,7 +126,7 @@ const deleteResult = await Effect.runPromise(
 const queryResult = await Effect.runPromise(
   table.query({
     pk: 'USER#123',
-  })
+  }),
 );
 
 // Query with sort key condition
@@ -134,7 +134,7 @@ const queryWithSk = await Effect.runPromise(
   table.query({
     pk: 'USER#123',
     sk: { beginsWith: 'ORDER#' },
-  })
+  }),
 );
 
 // Query with filters and projection
@@ -147,8 +147,8 @@ const filteredQuery = await Effect.runPromise(
       filter: { status: { '=': 'active' } },
       projection: ['pk', 'sk', 'name', 'email'],
       Limit: 10,
-    }
-  )
+    },
+  ),
 );
 ```
 
@@ -159,7 +159,7 @@ const filteredQuery = await Effect.runPromise(
 const gsiResult = await Effect.runPromise(
   table.index('GSI1').query({
     pk: 'EMAIL#john@example.com',
-  })
+  }),
 );
 
 // Query LSI
@@ -167,7 +167,7 @@ const lsiResult = await Effect.runPromise(
   table.index('LSI1').query({
     pk: 'USER#123',
     sk: { '>': '2024-01-01' },
-  })
+  }),
 );
 ```
 
@@ -177,14 +177,17 @@ const lsiResult = await Effect.runPromise(
 
 ```typescript
 // Define your schema
-const UserSchema = ESchema.make('v1', Schema.Struct({
-  userId: Schema.String,
-  email: Schema.String,
-  name: Schema.String,
-  age: Schema.optional(Schema.Number),
-  createdAt: Schema.String,
-  updatedAt: Schema.optional(Schema.String),
-})).build();
+const UserSchema = ESchema.make(
+  'v1',
+  Schema.Struct({
+    userId: Schema.String,
+    email: Schema.String,
+    name: Schema.String,
+    age: Schema.optional(Schema.Number),
+    createdAt: Schema.String,
+    updatedAt: Schema.optional(Schema.String),
+  }),
+).build();
 
 // Create entity with key mappings
 const UserEntity = DynamoEntity.make(table, UserSchema)
@@ -219,13 +222,11 @@ const user = {
   createdAt: new Date().toISOString(),
 };
 
-const createResult = await Effect.runPromise(
-  UserEntity.putItem(user)
-);
+const createResult = await Effect.runPromise(UserEntity.putItem(user));
 
 // Get user
 const getResult = await Effect.runPromise(
-  UserEntity.getItem({ userId: '123' })
+  UserEntity.getItem({ userId: '123' }),
 );
 
 // Update user
@@ -240,13 +241,13 @@ const updateResult = await Effect.runPromise(
         },
       },
       ReturnValues: 'ALL_NEW',
-    }
-  )
+    },
+  ),
 );
 
 // Delete user
 const deleteResult = await Effect.runPromise(
-  UserEntity.delete({ userId: '123' })
+  UserEntity.delete({ userId: '123' }),
 );
 ```
 
@@ -258,16 +259,16 @@ const deleteResult = await Effect.runPromise(
 // Query by partition key
 const users = await Effect.runPromise(
   UserEntity.query({
-    pk: { userId: '123' }
-  })
+    pk: { userId: '123' },
+  }),
 );
 
 // Query with sort key conditions
 const orders = await Effect.runPromise(
   OrderEntity.query({
     pk: { customerId: 'customer-123' },
-    sk: { beginsWith: 'ORDER#2024' }
-  })
+    sk: { beginsWith: 'ORDER#2024' },
+  }),
 );
 ```
 
@@ -278,16 +279,16 @@ const orders = await Effect.runPromise(
 const dateRangeOrders = await Effect.runPromise(
   OrderEntity.query({
     pk: { customerId: 'customer-123' },
-    sk: { between: ['2024-01-01', '2024-12-31'] }
-  })
+    sk: { between: ['2024-01-01', '2024-12-31'] },
+  }),
 );
 
 // Comparison operators
 const recentOrders = await Effect.runPromise(
   OrderEntity.query({
     pk: { customerId: 'customer-123' },
-    sk: { '>': '2024-06-01' }
-  })
+    sk: { '>': '2024-06-01' },
+  }),
 );
 ```
 
@@ -301,10 +302,10 @@ const activeUsers = await Effect.runPromise(
     {
       filter: {
         status: { '=': 'active' },
-        age: { '>': 18 }
-      }
-    }
-  )
+        age: { '>': 18 },
+      },
+    },
+  ),
 );
 
 // With projection
@@ -312,9 +313,9 @@ const userNames = await Effect.runPromise(
   UserEntity.query(
     { pk: { userId: '123' } },
     {
-      projection: ['userId', 'name', 'email']
-    }
-  )
+      projection: ['userId', 'name', 'email'],
+    },
+  ),
 );
 
 // With limit and pagination
@@ -323,9 +324,9 @@ const pagedUsers = await Effect.runPromise(
     { pk: { userId: '123' } },
     {
       Limit: 10,
-      ConsistentRead: true
-    }
-  )
+      ConsistentRead: true,
+    },
+  ),
 );
 ```
 
@@ -361,16 +362,16 @@ const ProductEntity = DynamoEntity.make(table, ProductSchema)
 // Query by category
 const categoryProducts = await Effect.runPromise(
   ProductEntity.index('CategoryIndex').query({
-    pk: { categoryId: 'electronics' }
-  })
+    pk: { categoryId: 'electronics' },
+  }),
 );
 
 // Query with price range
 const expensiveElectronics = await Effect.runPromise(
   ProductEntity.index('CategoryIndex').query({
     pk: { categoryId: 'electronics' },
-    sk: { '>': 'PRICE#0000001000' } // Price > $100
-  })
+    sk: { '>': 'PRICE#0000001000' }, // Price > $100
+  }),
 );
 ```
 
@@ -405,8 +406,8 @@ const OrderEntity = DynamoEntity.make(table, OrderSchema)
 const ordersByDate = await Effect.runPromise(
   OrderEntity.index('DateIndex').query({
     pk: { customerId: 'customer-123' },
-    sk: { between: ['DATE#2024-01-01', 'DATE#2024-12-31'] }
-  })
+    sk: { between: ['DATE#2024-01-01', 'DATE#2024-12-31'] },
+  }),
 );
 ```
 
@@ -416,35 +417,43 @@ const ordersByDate = await Effect.runPromise(
 
 ```typescript
 // Version 1 schema
-const UserSchemaV1 = ESchema.make('v1', Schema.Struct({
-  userId: Schema.String,
-  name: Schema.String,
-  email: Schema.String,
-})).build();
+const UserSchemaV1 = ESchema.make(
+  'v1',
+  Schema.Struct({
+    userId: Schema.String,
+    name: Schema.String,
+    email: Schema.String,
+  }),
+).build();
 
 // Version 2 schema with evolution
-const UserSchemaV2 = ESchema.make('v1', Schema.Struct({
-  userId: Schema.String,
-  name: Schema.String,
-  email: Schema.String,
-}))
-.evolve(
-  'v2',
-  ({ v1 }) => Schema.Struct({
-    ...v1.fields,
-    firstName: Schema.String,  // Split from name
-    lastName: Schema.String,   // Split from name
-    phoneNumber: Schema.optional(Schema.String), // New optional field
+const UserSchemaV2 = ESchema.make(
+  'v1',
+  Schema.Struct({
+    userId: Schema.String,
+    name: Schema.String,
+    email: Schema.String,
   }),
-  (value, v) => v({
-    userId: value.userId,
-    firstName: value.name.split(' ')[0] || value.name,
-    lastName: value.name.split(' ').slice(1).join(' ') || '',
-    email: value.email,
-    phoneNumber: undefined,
-  })
 )
-.build();
+  .evolve(
+    'v2',
+    ({ v1 }) =>
+      Schema.Struct({
+        ...v1.fields,
+        firstName: Schema.String, // Split from name
+        lastName: Schema.String, // Split from name
+        phoneNumber: Schema.optional(Schema.String), // New optional field
+      }),
+    (value, v) =>
+      v({
+        userId: value.userId,
+        firstName: value.name.split(' ')[0] || value.name,
+        lastName: value.name.split(' ').slice(1).join(' ') || '',
+        email: value.email,
+        phoneNumber: undefined,
+      }),
+  )
+  .build();
 ```
 
 ### Using Evolved Schemas
@@ -465,9 +474,7 @@ const UserEntity = DynamoEntity.make(table, UserSchemaV2)
   .build();
 
 // Old v1 data is automatically evolved when retrieved
-const user = await Effect.runPromise(
-  UserEntity.getItem({ userId: '123' })
-);
+const user = await Effect.runPromise(UserEntity.getItem({ userId: '123' }));
 // user.Item will have the v2 schema structure
 ```
 
@@ -485,13 +492,13 @@ const updateResult = await Effect.runPromise(
         SET: {
           // Simple assignment
           status: { op: 'assign', value: 'active' },
-          
+
           // Conditional assignment
           loginCount: { op: 'if_not_exists', attr: 'loginCount', default: 0 },
-          
+
           // Math operations
           score: { op: 'plus', attr: 'currentScore', value: 10 },
-          
+
           // List operations
           tags: { op: 'list_append', attr: 'existingTags', list: ['new-tag'] },
         },
@@ -501,10 +508,7 @@ const updateResult = await Effect.runPromise(
           // Add to sets
           viewedItems: new Set(['item-1', 'item-2']),
         },
-        REMOVE: [
-          'temporaryField',
-          'oldAttribute',
-        ],
+        REMOVE: ['temporaryField', 'oldAttribute'],
         DELETE: {
           // Remove from sets
           oldTags: new Set(['deprecated-tag']),
@@ -516,8 +520,8 @@ const updateResult = await Effect.runPromise(
         status: { '<>': 'deleted' },
       },
       ReturnValues: 'ALL_NEW',
-    }
-  )
+    },
+  ),
 );
 ```
 
@@ -532,26 +536,26 @@ const filteredUsers = await Effect.runPromise(
       filter: {
         // Comparison operators
         age: { '>=': 18, '<=': 65 },
-        
+
         // String operations
         name: { beginsWith: 'John' },
         email: { contains: '@company.com' },
-        
+
         // Attribute existence
         phoneNumber: { exists: true },
-        
+
         // Attribute type checking
         metadata: { attrType: 'M' },
-        
+
         // Size operations for lists/strings
         tags: { size: { '>': 0 } },
-        
+
         // Multiple conditions (implicit AND)
         status: { '=': 'active' },
         verified: { '=': true },
-      }
-    }
-  )
+      },
+    },
+  ),
 );
 ```
 
@@ -564,7 +568,7 @@ const batchPutResult = await Effect.runPromise(
     UserEntity.putItem(user1),
     UserEntity.putItem(user2),
     UserEntity.putItem(user3),
-  ])
+  ]),
 );
 ```
 
@@ -573,17 +577,17 @@ const batchPutResult = await Effect.runPromise(
 ### Effect Error Handling
 
 ```typescript
-import { Effect, Console } from 'effect';
+import { Console, Effect } from 'effect';
 
 const safeUserOperation = Effect.gen(function* () {
   try {
     const user = yield* UserEntity.getItem({ userId: '123' });
-    
+
     if (user.Item === null) {
       yield* Console.log('User not found');
       return null;
     }
-    
+
     return user.Item;
   } catch (error) {
     yield* Console.error('Failed to get user:', error);
@@ -601,14 +605,11 @@ const result = await Effect.runPromise(safeUserOperation);
 // Conditional put (only if item doesn't exist)
 const conditionalCreate = Effect.gen(function* () {
   try {
-    const result = yield* UserEntity.putItem(
-      newUser,
-      {
-        condition: {
-          userId: { exists: false }
-        }
-      }
-    );
+    const result = yield* UserEntity.putItem(newUser, {
+      condition: {
+        userId: { exists: false },
+      },
+    });
     return { success: true, result };
   } catch (error) {
     return { success: false, error: 'User already exists' };
@@ -642,8 +643,12 @@ const UserEntity = DynamoEntity.make(table, UserSchema)
 // Design indexes for your query patterns
 const ProductEntity = DynamoEntity.make(table, ProductSchema)
   .primary({
-    pk: { /* ... */ },
-    sk: { /* ... */ }
+    pk: {
+      /* ... */
+    },
+    sk: {
+      /* ... */
+    },
   })
   // Query by category and price
   .index('CategoryPriceIndex', {
@@ -674,34 +679,41 @@ const ProductEntity = DynamoEntity.make(table, ProductSchema)
 
 ```typescript
 // Use optional fields for backward compatibility
-const UserSchema = ESchema.make('v1', Schema.Struct({
-  // Required fields
-  userId: Schema.String,
-  email: Schema.String,
-  
-  // Optional fields for flexibility
-  name: Schema.optional(Schema.String),
-  age: Schema.optional(Schema.Number),
-  preferences: Schema.optional(Schema.Struct({
-    newsletter: Schema.Boolean,
-    theme: Schema.String,
-  })),
-})).build();
+const UserSchema = ESchema.make(
+  'v1',
+  Schema.Struct({
+    // Required fields
+    userId: Schema.String,
+    email: Schema.String,
+
+    // Optional fields for flexibility
+    name: Schema.optional(Schema.String),
+    age: Schema.optional(Schema.Number),
+    preferences: Schema.optional(
+      Schema.Struct({
+        newsletter: Schema.Boolean,
+        theme: Schema.String,
+      }),
+    ),
+  }),
+).build();
 ```
 
 ### 4. Error Handling
 
 ```typescript
 // Always handle potential errors
-const getUserSafely = (userId: string) => Effect.gen(function* () {
-  const result = yield* UserEntity.getItem({ userId }).pipe(
-    Effect.catchAll((error) => 
-      Effect.succeed({ Item: null, error: error.message })
-    )
-  );
-  
-  return result;
-});
+function getUserSafely(userId: string) {
+  return Effect.gen(function* () {
+    const result = yield* UserEntity.getItem({ userId }).pipe(
+      Effect.catchAll((error) =>
+        Effect.succeed({ Item: null, error: error.message }),
+      ),
+    );
+
+    return result;
+  });
+}
 ```
 
 ## Examples
@@ -797,3 +809,4 @@ const SessionEntity = DynamoEntity.make(table, SessionSchema)
 ```
 
 This documentation provides a comprehensive guide to using effect-dynamodb effectively. For more specific use cases or advanced patterns, refer to the test suite and example implementations in the repository.
+

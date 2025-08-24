@@ -17,7 +17,7 @@ import type { UnionKeys } from '../utils.js';
 import { Effect, Option, Schema } from 'effect';
 
 export interface Def<T> {
-  schema: Schema.Schema<T>;
+  schema?: Schema.Schema<T>;
   fn: (value: T) => string;
 }
 
@@ -75,11 +75,15 @@ export class DynamoEntity<
     const config = this.#primary;
     const key = {} as CompoundIndexDefinition;
 
-    if (!Schema.is(config.pk.schema, { onExcessProperty: 'ignore' })(value)) {
+    if (
+      config.pk.schema &&
+      !Schema.is(config.pk.schema, { onExcessProperty: 'ignore' })(value)
+    ) {
       return key;
     }
     if (
       'sk' in config &&
+      config.sk.schema &&
       Schema.is(config.sk.schema, { onExcessProperty: 'ignore' })(value)
     ) {
       key.sk = config.sk.fn(value);
@@ -100,12 +104,13 @@ export class DynamoEntity<
         continue;
       }
 
-      if (Schema.is(config.pk.schema)(value)) {
+      if (config.pk.schema && Schema.is(config.pk.schema)(value)) {
         keyValue[keyConfig.pk] = config.pk.fn(value);
       }
       if (
         'sk' in config &&
         'sk' in keyConfig &&
+        config.sk.schema &&
         Schema.is(config.sk.schema)(value)
       ) {
         keyValue[keyConfig.sk] = config.sk.fn(value);
@@ -123,7 +128,7 @@ export class DynamoEntity<
     if (
       !(index in this.#table.secondaryIndexes) ||
       !config ||
-      !Schema.is(config.pk.schema, {})(value)
+      (config.pk.schema && !Schema.is(config.pk.schema, {})(value))
     ) {
       throw new Error(`Invalid config for index ${index as string}.`);
     }

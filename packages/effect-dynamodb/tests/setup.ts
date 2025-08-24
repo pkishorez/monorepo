@@ -231,7 +231,6 @@ export function ensureSetupCompleted(): void {
 export async function cleanTable(): Promise<void> {
   try {
     let lastEvaluatedKey: any;
-    let totalDeleted = 0;
 
     do {
       const scanOptions = lastEvaluatedKey
@@ -249,7 +248,6 @@ export async function cleanTable(): Promise<void> {
                 skey: item.skey,
               }),
             );
-            totalDeleted++;
           } catch (error) {
             console.error(
               `Failed to delete item {pkey: ${item.pkey}, skey: ${item.skey}}:`,
@@ -261,10 +259,6 @@ export async function cleanTable(): Promise<void> {
 
       lastEvaluatedKey = scanResult.LastEvaluatedKey;
     } while (lastEvaluatedKey);
-
-    if (totalDeleted > 0) {
-      console.log(`🧹 Cleaned up ${totalDeleted} items from table`);
-    }
   } catch (error) {
     console.error('Error during table cleanup:', error);
   }
