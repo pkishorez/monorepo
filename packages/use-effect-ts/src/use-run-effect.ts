@@ -13,6 +13,9 @@ export function useRunEffect<Args extends any[], A, E>(
 
   return (...args: Args) => {
     if (!fiberSet) {
+      console.error(
+        'useRunEffect: No scope available, effect will not run. Consider using useComponentLifecycle to call initial run.',
+      );
       throw new Error(
         'useRunEffect: No scope available, effect will not run. Consider using useComponentLifecycle to call initial run.',
       );
