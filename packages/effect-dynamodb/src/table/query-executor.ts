@@ -1,10 +1,11 @@
 import type { DynamoDB, QueryInput, ScanInput } from 'dynamodb-client';
 import type { ExprInput, KeyConditionExprParameters } from './expr/index.js';
+import type { ProjectionKeys } from './expr/projection.js';
 import type { IndexDefinition, RealKeyFromIndex } from './types.js';
 import { buildExpression } from './expr/index.js';
 import { marshall } from './utils.js';
 
-export type QueryOptions<Index extends IndexDefinition> = Omit<
+export type QueryOptions<Index extends IndexDefinition, Item> = Omit<
   QueryInput,
   | 'TableName'
   | 'Key'
@@ -14,12 +15,15 @@ export type QueryOptions<Index extends IndexDefinition> = Omit<
   | 'ExclusiveStartKey'
   | 'ProjectionExpression'
 > & {
-  filter?: ExprInput;
-  projection?: string[];
+  filter?: ExprInput<Item>;
+  projection?: ProjectionKeys<Item>;
   exclusiveStartKey?: RealKeyFromIndex<Index> | undefined;
 };
 
-export type ScanOptions<Index extends IndexDefinition> = Omit<
+export type ScanOptions<
+  Index extends IndexDefinition,
+  TItem extends Record<string, unknown>,
+> = Omit<
   ScanInput,
   | 'TableName'
   | 'IndexName'
@@ -28,12 +32,12 @@ export type ScanOptions<Index extends IndexDefinition> = Omit<
   | 'ExclusiveStartKey'
   | 'ProjectionExpression'
 > & {
-  filter?: ExprInput;
-  projection?: string[];
+  filter?: ExprInput<TItem>;
+  projection?: ProjectionKeys<TItem>;
   exclusiveStartKey?: RealKeyFromIndex<Index>;
 };
 
-export class DynamoQueryExecutor {
+export class DynamoQueryExecutor<TItem extends Record<string, unknown>> {
   constructor(
     private client: DynamoDB,
     private tableName: string,
@@ -48,7 +52,7 @@ export class DynamoQueryExecutor {
       filter,
       indexName,
       ...options
-    }: QueryOptions<TIndex> & { indexName?: string } = {},
+    }: QueryOptions<TIndex, TItem> & { indexName?: string } = {},
   ) {
     // Build all expressions at once
     const result = buildExpression({
@@ -81,7 +85,7 @@ export class DynamoQueryExecutor {
     filter,
     indexName,
     ...options
-  }: ScanOptions<TIndex> & { indexName?: string } = {}) {
+  }: ScanOptions<TIndex, TItem> & { indexName?: string } = {}) {
     // Build all expressions at once
     const result = buildExpression({
       projection,

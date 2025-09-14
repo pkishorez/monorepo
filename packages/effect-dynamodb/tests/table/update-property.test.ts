@@ -19,7 +19,8 @@ describe('updateItem with update property', () => {
         status: 'active',
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       // Update using the new update property
       const updateResult = await Effect.runPromise(
@@ -54,7 +55,8 @@ describe('updateItem with update property', () => {
         visits: 5,
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const updateResult = await Effect.runPromise(
         table.updateItem(
@@ -89,7 +91,8 @@ describe('updateItem with update property', () => {
         tempField: 'to be removed',
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const updateResult = await Effect.runPromise(
         table.updateItem(
@@ -123,7 +126,8 @@ describe('updateItem with update property', () => {
         tempField: 'remove me',
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const updateResult = await Effect.runPromise(
         table.updateItem(
@@ -162,7 +166,8 @@ describe('updateItem with update property', () => {
         // No 'defaultValue' field initially
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const updateResult = await Effect.runPromise(
         table.updateItem(
@@ -203,7 +208,8 @@ describe('updateItem with update property', () => {
         score: 100,
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const updateResult = await Effect.runPromise(
         table.updateItem(
@@ -236,7 +242,8 @@ describe('updateItem with update property', () => {
         newList: [],
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const updateResult = await Effect.runPromise(
         table.updateItem(
@@ -280,7 +287,8 @@ describe('updateItem with update property', () => {
         version: 1,
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       // Update with condition
       const updateResult = await Effect.runPromise(
@@ -316,7 +324,8 @@ describe('updateItem with update property', () => {
         version: 2,
       };
 
-      await Effect.runPromise(table.putItem(initialItem));
+      const { pkey, skey, ...itemData } = initialItem;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       // Try to update with wrong condition
       await expect(

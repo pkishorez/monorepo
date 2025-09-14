@@ -24,7 +24,8 @@ describe('cRUD Operations', () => {
   describe('core Operations', () => {
     it('should put and get item', async () => {
       const item = createItem('001');
-      await Effect.runPromise(table.putItem(item));
+      const { pkey, skey, ...itemData } = item;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const result = await Effect.runPromise(
         table.getItem(createKey(item.pkey)),
@@ -41,7 +42,8 @@ describe('cRUD Operations', () => {
 
     it('should update item', async () => {
       const item = createItem('002');
-      await Effect.runPromise(table.putItem(item));
+      const { pkey, skey, ...itemData } = item;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const result = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {
@@ -72,7 +74,8 @@ describe('cRUD Operations', () => {
 
     it('should delete item', async () => {
       const item = createItem('003');
-      await Effect.runPromise(table.putItem(item));
+      const { pkey, skey, ...itemData } = item;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       await Effect.runPromise(table.deleteItem(createKey(item.pkey)));
       const result = await Effect.runPromise(
@@ -92,8 +95,9 @@ describe('cRUD Operations', () => {
       const item = createItem('004');
 
       // Test putItem with return values
+      const { pkey, skey, ...itemData } = item;
       const putResult = await Effect.runPromise(
-        table.putItem(item, {
+        table.putItem({ pkey, skey }, itemData, {
           ReturnConsumedCapacity: 'TOTAL',
           ReturnValues: 'ALL_OLD',
         }),
@@ -118,7 +122,8 @@ describe('cRUD Operations', () => {
 
     it('should handle complex update expressions', async () => {
       const item = createItem('005', { count: 10, tags: ['tag1'] });
-      await Effect.runPromise(table.putItem(item));
+      const { pkey, skey, ...itemData } = item;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       const result = await Effect.runPromise(
         table.updateItem(createKey(item.pkey), {

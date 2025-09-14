@@ -11,13 +11,13 @@ import type {
   KeyConditionExprParameters,
   UpdateExprParameters,
 } from './expr/index.js';
+import type { ProjectionKeys } from './expr/projection.js';
 import type { QueryOptions, ScanOptions } from './query-executor.js';
 import type {
   DynamoConfig,
   IndexDefinition,
   ItemForPut,
   ItemWithKeys,
-  KeyTypeFromIndex,
   RealKeyFromIndex,
   SecondaryIndexDefinition,
   Simplify,
@@ -34,7 +34,7 @@ export type PutOptions = Omit<
 > & {
   condition?: ExprInput;
 };
-export type UpdateOptions<T = Record<string, unknown>> = Omit<
+export type UpdateOptions<Item = Record<string, unknown>> = Omit<
   UpdateItemInput,
   | 'TableName'
   | 'Key'
@@ -44,7 +44,7 @@ export type UpdateOptions<T = Record<string, unknown>> = Omit<
   | 'ExpressionAttributeValues'
 > & {
   condition?: ExprInput;
-  update: UpdateExprParameters<T>;
+  update: UpdateExprParameters<Item>;
 };
 
 export type DeleteOptions = Omit<
@@ -57,10 +57,11 @@ export type DeleteOptions = Omit<
 export class DynamoTable<
   TPrimary extends IndexDefinition,
   TSecondaryIndexes extends Record<string, SecondaryIndexDefinition> = {},
+  TItem extends Record<string, unknown> = Record<string, unknown>,
 > {
   readonly #name: string;
   readonly #client: DynamoDB;
-  readonly #queryExecutor: DynamoQueryExecutor;
+  readonly #queryExecutor: DynamoQueryExecutor<TItem>;
 
   readonly primary: TPrimary;
   readonly secondaryIndexes: TSecondaryIndexes;
@@ -88,44 +89,6 @@ export class DynamoTable<
     this.#queryExecutor = new DynamoQueryExecutor(this.#client, this.#name);
   }
 
-  getRealKey(key: KeyTypeFromIndex<TPrimary>): RealKeyFromIndex<TPrimary> {
-    const obj = {} as RealKeyFromIndex<TPrimary>;
-
-    if ('pk' in key && 'pk' in this.primary) {
-      obj[this.primary.pk] = key.pk;
-    }
-    if ('sk' in key && 'sk' in this.primary) {
-      obj[this.primary.sk] = key.sk;
-    }
-
-    return obj;
-  }
-
-  getSecondaryKey(index: keyof TSecondaryIndexes) {
-    return this.secondaryIndexes[index] as IndexDefinition | undefined;
-  }
-
-  getRealIndexKey<IndexName extends keyof TSecondaryIndexes>(
-    index: IndexName,
-    key: KeyTypeFromIndex<TSecondaryIndexes[IndexName]>,
-  ): RealKeyFromIndex<TSecondaryIndexes[IndexName]> {
-    const obj = {} as RealKeyFromIndex<TSecondaryIndexes[IndexName]>;
-    const config = this.secondaryIndexes[index];
-
-    if (!config) {
-      throw new Error('No key available.');
-    }
-
-    if ('pk' in key && 'pk' in config) {
-      obj[config.pk] = key.pk;
-    }
-    if ('sk' in key && 'sk' in config) {
-      obj[config.sk] = key.sk;
-    }
-
-    return obj;
-  }
-
   static make(name: string, dynamoConfig: DynamoConfig) {
     return {
       primary<TPk extends string, TSk extends string | undefined = undefined>(
@@ -144,7 +107,7 @@ export class DynamoTable<
     };
   }
 
-  get name(): string {
+  get name() {
     return this.#name;
   }
 
@@ -155,7 +118,7 @@ export class DynamoTable<
       projection,
       ...options
     }: Omit<GetItemInput, 'Key' | 'TableName' | 'ProjectionExpression'> & {
-      projection?: string[];
+      projection?: ProjectionKeys<TItem>;
     } = {},
   ) {
     const result = buildExpression({ projection });
@@ -170,14 +133,15 @@ export class DynamoTable<
       Effect.map((response) => ({
         ...response,
         Item: response.Item
-          ? (unmarshall(response.Item) as ItemWithKeys<TPrimary>)
+          ? (unmarshall(response.Item) as ItemWithKeys<TPrimary, TItem>)
           : null,
       })),
     );
   }
 
   putItem(
-    item: ItemForPut<TPrimary, TSecondaryIndexes>,
+    index: RealKeyFromIndex<TPrimary>,
+    item: ItemForPut<TSecondaryIndexes, TItem>,
     options: PutOptions = {},
   ) {
     const result = buildExpression({ condition: options.condition });
@@ -185,7 +149,7 @@ export class DynamoTable<
     return this.#client
       .putItem({
         TableName: this.#name,
-        Item: marshall(item),
+        Item: marshall({ ...index, ...item }),
         ...options,
         ...result,
       })
@@ -199,7 +163,7 @@ export class DynamoTable<
       );
   }
 
-  updateItem(key: RealKeyFromIndex<TPrimary>, options: UpdateOptions) {
+  updateItem(key: RealKeyFromIndex<TPrimary>, options: UpdateOptions<TItem>) {
     // Build expressions using the helper
     const result = buildExpression({
       condition: options.condition,
@@ -243,14 +207,14 @@ export class DynamoTable<
 
   query(
     key: KeyConditionExprParameters<TPrimary>,
-    options?: QueryOptions<TPrimary>,
+    options?: QueryOptions<TPrimary, TItem>,
   ) {
     return this.#queryExecutor.executeQuery(key, this.primary, options).pipe(
       Effect.map((response) => ({
         ...response,
         Items: (response.Items || []).map((item) =>
           unmarshall(item),
-        ) as ItemWithKeys<TPrimary>[],
+        ) as ItemWithKeys<TPrimary, TItem>[],
         LastEvaluatedKey: response.LastEvaluatedKey
           ? (unmarshall(
               response.LastEvaluatedKey,
@@ -260,13 +224,13 @@ export class DynamoTable<
     );
   }
 
-  scan(options?: ScanOptions<TPrimary>) {
+  scan(options?: ScanOptions<TPrimary, TItem>) {
     return this.#queryExecutor.executeScan(options).pipe(
       Effect.map((response) => ({
         ...response,
         Items: (response.Items || []).map((item) =>
           unmarshall(item),
-        ) as ItemWithKeys<TPrimary>[],
+        ) as ItemWithKeys<TPrimary, TItem>[],
         LastEvaluatedKey: response.LastEvaluatedKey
           ? (unmarshall(
               response.LastEvaluatedKey,
@@ -281,7 +245,7 @@ export class DynamoTable<
     return {
       query: (
         key: KeyConditionExprParameters<TSecondaryIndexes[TName]>,
-        options?: QueryOptions<TSecondaryIndexes[TName]>,
+        options?: QueryOptions<TSecondaryIndexes[TName], TItem>,
       ) => {
         return this.#queryExecutor
           .executeQuery(key, this.secondaryIndexes[indexName], {
@@ -293,7 +257,7 @@ export class DynamoTable<
               ...response,
               Items: (response.Items || []).map((item) =>
                 unmarshall(item),
-              ) as ItemWithKeys<TPrimary>[],
+              ) as ItemWithKeys<TPrimary, TItem>[],
               LastEvaluatedKey: response.LastEvaluatedKey
                 ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
                     TSecondaryIndexes[TName]
@@ -303,7 +267,7 @@ export class DynamoTable<
           );
       },
 
-      scan: (options?: ScanOptions<TSecondaryIndexes[TName]>) => {
+      scan: (options?: ScanOptions<TSecondaryIndexes[TName], TItem>) => {
         return this.#queryExecutor
           .executeScan({ ...options, indexName: indexName as string })
           .pipe(
@@ -311,7 +275,7 @@ export class DynamoTable<
               ...response,
               Items: (response.Items || []).map((item) =>
                 unmarshall(item),
-              ) as ItemWithKeys<TPrimary>[],
+              ) as ItemWithKeys<TPrimary, TItem>[],
               LastEvaluatedKey: response.LastEvaluatedKey
                 ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
                     TSecondaryIndexes[TName]
@@ -411,7 +375,9 @@ class ConfiguredTableBuilder<
     );
   }
 
-  build(): DynamoTable<TPrimary, TSecondaryIndexes> {
+  build<
+    Item extends Record<string, unknown> = Record<string, unknown>,
+  >(): DynamoTable<TPrimary, TSecondaryIndexes, Item> {
     return new DynamoTable({
       name: this.#name,
       primary: this.#primary,

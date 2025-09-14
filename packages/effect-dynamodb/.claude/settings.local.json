@@ -12,7 +12,8 @@
       "Bash(pnpm test:run:*)",
       "Bash(grep:*)",
       "Bash(sed:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   },

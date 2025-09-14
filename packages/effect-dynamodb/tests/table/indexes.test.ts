@@ -51,7 +51,8 @@ function createOrder(
 
 async function batchPutItems(items: any[]) {
   for (const item of items) {
-    await Effect.runPromise(table.putItem(item));
+    const { pkey, skey, ...itemData } = item;
+    await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
   }
 }
 

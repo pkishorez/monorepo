@@ -26,10 +26,11 @@ describe('condition and Filter Expressions', () => {
   describe('conditionExpression for CRUD Operations', () => {
     it('should use condition for putItem', async () => {
       const item = createItem('001');
+      const { pkey, skey, ...itemData } = item;
 
       // First put should succeed with condition that pkey doesn't exist
       await Effect.runPromise(
-        table.putItem(item, {
+        table.putItem({ pkey, skey }, itemData, {
           condition: {
             pkey: { 'exists': false },
           },
@@ -38,7 +39,7 @@ describe('condition and Filter Expressions', () => {
 
       // Second put with same condition should fail since item now exists
       const putPromise = Effect.runPromise(
-        table.putItem(item, {
+        table.putItem({ pkey, skey }, itemData, {
           condition: {
             pkey: { 'exists': false },
           },
@@ -51,7 +52,8 @@ describe('condition and Filter Expressions', () => {
 
     it('should use condition for updateItem', async () => {
       const item = createItem('002', { version: 1 });
-      await Effect.runPromise(table.putItem(item));
+      const { pkey, skey, ...itemData } = item;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       // Update with correct version condition should succeed
       const result = await Effect.runPromise(
@@ -91,7 +93,8 @@ describe('condition and Filter Expressions', () => {
 
     it('should use condition for deleteItem', async () => {
       const item = createItem('003', { deletable: true });
-      await Effect.runPromise(table.putItem(item));
+      const { pkey, skey, ...itemData } = item;
+      await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
 
       // Delete with correct condition should succeed
       await Effect.runPromise(
@@ -110,7 +113,8 @@ describe('condition and Filter Expressions', () => {
 
       // Put item back for failed delete test
       const nonDeletableItem = createItem('004', { deletable: false });
-      await Effect.runPromise(table.putItem(nonDeletableItem));
+      const { pkey: pkey2, skey: skey2, ...itemData2 } = nonDeletableItem;
+      await Effect.runPromise(table.putItem({ pkey: pkey2, skey: skey2 }, itemData2));
 
       // Delete with wrong condition should fail
       const deletePromise = Effect.runPromise(
@@ -150,7 +154,8 @@ describe('condition and Filter Expressions', () => {
       ];
 
       for (const item of items) {
-        await Effect.runPromise(table.putItem(item));
+        const { pkey, skey, ...itemData } = item;
+        await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
       }
 
       const result = await Effect.runPromise(
@@ -177,7 +182,8 @@ describe('condition and Filter Expressions', () => {
       ];
 
       for (const item of items) {
-        await Effect.runPromise(table.putItem(item));
+        const { pkey, skey, ...itemData } = item;
+        await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
       }
 
       const result = await Effect.runPromise(
@@ -208,7 +214,8 @@ describe('condition and Filter Expressions', () => {
       ];
 
       for (const item of items) {
-        await Effect.runPromise(table.putItem(item));
+        const { pkey, skey, ...itemData } = item;
+        await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
       }
 
       // (category = 'A' AND priority = 1) OR (category = 'B' AND active = true)
@@ -238,7 +245,8 @@ describe('condition and Filter Expressions', () => {
       ];
 
       for (const item of items) {
-        await Effect.runPromise(table.putItem(item));
+        const { pkey, skey, ...itemData } = item;
+        await Effect.runPromise(table.putItem({ pkey, skey }, itemData));
       }
 
       const result = await Effect.runPromise(

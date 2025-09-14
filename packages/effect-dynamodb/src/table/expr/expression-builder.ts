@@ -6,6 +6,7 @@ import type {
   KeyConditionExprParameters,
   UpdateExprParameters,
 } from './index.js';
+import type { ProjectionKeys } from './projection.js';
 import { marshall } from '../utils.js';
 import { mergeExprResults } from './expr-utils/index.js';
 import { expr, keyCondition, projectionExpr, updateExpr } from './index.js';
@@ -22,7 +23,7 @@ export interface ExpressionInput<
     | undefined;
   condition?: ExprInput<T> | undefined;
   update?: UpdateExprParameters<T> | undefined;
-  projection?: string[] | undefined;
+  projection?: ProjectionKeys<T> | undefined;
   filter?: ExprInput<T> | undefined;
 }
 
@@ -72,7 +73,6 @@ export function buildExpression<
   T extends Record<string, unknown>,
   Index extends IndexDefinition = IndexDefinition,
 >(input: Input): Simplify<ExpressionOutput<Input>> {
-
   const results: ExprResult[] = [];
   const output = {} as ExpressionOutput<Input>;
 
