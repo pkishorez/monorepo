@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "tsc --watch --project build.tsconfig.json",
-    "build": "tsc --project build.tsconfig.json",
+    "build": "pnpm generate && echo 'generating types...\n' && tsc --project build.tsconfig.json && echo '✅ done'",
     "generate": "bun scripts/generate.ts",
     "lint": "pnpm lint:tsc && pnpm lint:eslint",
     "lint:tsc": "tsc --noEmit",

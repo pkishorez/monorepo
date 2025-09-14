@@ -5639,7 +5639,7 @@ export type ReplicaUpdateList = Array<ReplicaUpdate>;
 /**
  * Throughput exceeds the current throughput quota for your account. For detailed
  * information about why the request was throttled and the ARN of the impacted resource,
- * find the ThrottlingReason field in the returned exception. Contact Amazon Web ServicesSupport to request a quota
+ * find the ThrottlingReason field in the returned exception. Contact Amazon Web Services Support to request a quota
  * increase.
  */
 export declare class RequestLimitExceeded extends EffectData.TaggedError(
