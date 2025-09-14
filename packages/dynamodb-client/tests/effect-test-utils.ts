@@ -31,7 +31,7 @@ export function assertSuccessSync <A, E>(assertion: (result: A) => void) {
 /**
  * Assert that an Effect fails with a specific error type using Either.
  */
-export function assertFailure <A, E>(errorAssertion: (error: E) => Effect.Effect<void>): ((effect: Effect.Effect<A, E>) => Effect.Effect<void, never>) {
+export function assertFailure <A, E>(errorAssertion: (error: E) => Effect.Effect<void>): ((effect: Effect.Effect<A, E>) => Effect.Effect<void, Error>) {
   return (effect) =>
     Effect.gen(function* () {
       const either = yield* Effect.either(effect);
@@ -42,14 +42,14 @@ export function assertFailure <A, E>(errorAssertion: (error: E) => Effect.Effect
         );
       }
 
-      yield* errorAssertion(either.left);
+      yield* errorAssertion((either as Either.Left<E, A>).left);
     })
 }
 
 /**
  * Assert that an Effect fails and run synchronous error assertions.
  */
-export function assertFailureSync <A, E>(errorAssertion: (error: E) => void): ((effect: Effect.Effect<A, E>) => Effect.Effect<void, never>) {
+export function assertFailureSync <A, E>(errorAssertion: (error: E) => void): ((effect: Effect.Effect<A, E>) => Effect.Effect<void, Error>) {
   return assertFailure((error) => Effect.sync(() => errorAssertion(error)))
 }
 

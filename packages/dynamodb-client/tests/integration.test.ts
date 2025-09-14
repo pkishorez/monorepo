@@ -47,7 +47,7 @@ describe("dynamoDB Integration", () => {
         }),
         (error) => Effect.gen(function* () {
           // Should not reach here in normal operation
-          yield* Effect.fail(new Error(`Unexpected failure: ${JSON.stringify(error)}`));
+          yield* Effect.die(new Error(`Unexpected failure: ${JSON.stringify(error)}`));
         }),
       );
     });
