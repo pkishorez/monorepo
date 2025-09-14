@@ -375,9 +375,11 @@ class ConfiguredTableBuilder<
     );
   }
 
-  build<
-    Item extends Record<string, unknown> = Record<string, unknown>,
-  >(): DynamoTable<TPrimary, TSecondaryIndexes, Item> {
+  build<Item extends Record<string, any> = Record<string, any>>(): DynamoTable<
+    TPrimary,
+    TSecondaryIndexes,
+    Item
+  > {
     return new DynamoTable({
       name: this.#name,
       primary: this.#primary,
