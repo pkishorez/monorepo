@@ -1,19 +1,19 @@
 /* eslint-disable no-console */
-import { afterAll, beforeAll, describe, it } from "vitest";
-import { AWSSDKClient } from "./clients/aws-sdk-client.js";
-import { EffectClient } from "./clients/effect-client.js";
-import { tableSchema, TEST_TABLE_NAME, testItems } from "./shared/test-data.js";
+import { afterAll, beforeAll, describe, it } from 'vitest';
+import { AWSSDKClient } from './clients/aws-sdk-client.js';
+import { EffectClient } from './clients/effect-client.js';
+import { tableSchema, TEST_TABLE_NAME, testItems } from './shared/test-data.js';
 
-describe("simple AWS SDK vs Effect Client Comparison", () => {
+describe('simple AWS SDK vs Effect Client Comparison', () => {
   let awsClient: AWSSDKClient;
   let effectClient: EffectClient;
 
   const clientConfig = {
-    region: "us-east-1",
-    endpoint: "http://localhost:8000",
+    region: 'us-east-1',
+    endpoint: 'http://localhost:8000',
     credentials: {
-      accessKeyId: "local",
-      secretAccessKey: "local",
+      accessKeyId: 'local',
+      secretAccessKey: 'local',
     },
   };
 
@@ -99,83 +99,81 @@ describe("simple AWS SDK vs Effect Client Comparison", () => {
     console.log(`  AWS SDK:    ${awsAvg.toFixed(2)}ms (avg)`);
     console.log(`  Effect:     ${effectAvg.toFixed(2)}ms (avg)`);
     console.log(
-      `  Difference: ${difference > 0 ? "+" : ""}${difference.toFixed(1)}% (Effect vs AWS SDK)`,
+      `  Difference: ${difference > 0 ? '+' : ''}${difference.toFixed(1)}% (Effect vs AWS SDK)`,
     );
 
     const winner =
-      Math.abs(difference) < 5
-        ? "Tie"
-        : difference < 0
-          ? "Effect"
-          : "AWS SDK";
+      Math.abs(difference) < 5 ? 'Tie' : difference < 0 ? 'Effect' : 'AWS SDK';
     console.log(`  Winner:     ${winner}`);
   }
 
-  it("should compare basic operations", async () => {
-    console.log("\n🚀 Starting AWS SDK vs Effect Client Performance Comparison");
-    console.log("=".repeat(60));
+  it('should compare basic operations', async () => {
+    console.log(
+      '\n🚀 Starting AWS SDK vs Effect Client Performance Comparison',
+    );
+    console.log('='.repeat(60));
 
     // Test ListTables
     await measureOperation(
-      "ListTables",
+      'ListTables',
       () => awsClient.listTables(),
       () => effectClient.listTables(),
     );
 
     // Test GetItem
     await measureOperation(
-      "GetItem",
-      () => awsClient.getItem(TEST_TABLE_NAME, { pk: "USER#1", sk: "PROFILE" }),
+      'GetItem',
+      () => awsClient.getItem(TEST_TABLE_NAME, { pk: 'USER#1', sk: 'PROFILE' }),
       () =>
-        effectClient.getItem(TEST_TABLE_NAME, { pk: "USER#1", sk: "PROFILE" }),
+        effectClient.getItem(TEST_TABLE_NAME, { pk: 'USER#1', sk: 'PROFILE' }),
     );
 
     // Test PutItem
     await measureOperation(
-      "PutItem",
+      'PutItem',
       () =>
         awsClient.putItem(TEST_TABLE_NAME, {
           pk: `TEST_AWS_${Date.now()}`,
-          sk: "DATA",
-          name: "AWS Test User",
+          sk: 'DATA',
+          name: 'AWS Test User',
           age: 30,
-          email: "aws@test.com",
-          status: "active",
+          email: 'aws@test.com',
+          status: 'active',
         }),
       () =>
         effectClient.putItem(TEST_TABLE_NAME, {
           pk: `TEST_EFFECT_${Date.now()}`,
-          sk: "DATA",
-          name: "Effect Test User",
+          sk: 'DATA',
+          name: 'Effect Test User',
           age: 30,
-          email: "effect@test.com",
-          status: "active",
+          email: 'effect@test.com',
+          status: 'active',
         }),
     );
 
     // Test DescribeTable
     await measureOperation(
-      "DescribeTable",
+      'DescribeTable',
       () => awsClient.describeTable(TEST_TABLE_NAME),
       () => effectClient.describeTable(TEST_TABLE_NAME),
     );
 
     // Test Scan with limit
     await measureOperation(
-      "Scan",
-      () =>
-        awsClient.scan(TEST_TABLE_NAME, undefined, undefined, undefined, 5),
+      'Scan',
+      () => awsClient.scan(TEST_TABLE_NAME, undefined, undefined, undefined, 5),
       () =>
         effectClient.scan(TEST_TABLE_NAME, undefined, undefined, undefined, 5),
     );
 
-    console.log("\n=".repeat(60));
-    console.log("✅ Performance comparison completed!");
-    console.log("\nKey takeaways:");
-    console.log("• Both clients connect to the same local DynamoDB instance");
-    console.log("• Small differences may be due to implementation overhead");
-    console.log("• Effect client provides functional programming benefits");
-    console.log("• AWS SDK is more direct but Effect enables composition");
+    console.log('='.repeat(60));
+    console.log('✅ Performance comparison completed!');
+    console.log('\nKey takeaways:');
+    console.log('• Both clients connect to the same local DynamoDB instance');
+    console.log('• Small differences may be due to implementation overhead');
+    console.log('• Effect client provides functional programming benefits');
+    console.log('• AWS SDK is more direct but Effect enables composition');
     console.log("• Choose based on your team's architectural preferences");
   }, 60000);
 });
+
