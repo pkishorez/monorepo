@@ -89,11 +89,11 @@ export function createTestTable (dynamodb: DynamoDB) {
 export function waitForTableActive (dynamodb: DynamoDB) {
   return retryUntil(
     dynamodb.describeTable({ TableName: TEST_TABLE_NAME }),
-    (response) => response.Table?.TableStatus === "ACTIVE",
+    (response: any) => response.Table?.TableStatus === "ACTIVE",
     30,
     1000,
   ).pipe(
-    Effect.flatMap((response) => {
+    Effect.flatMap((response: any) => {
       if (response.Table?.TableStatus !== "ACTIVE") {
         return Effect.fail("Test table failed to become active");
       }

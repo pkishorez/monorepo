@@ -5,7 +5,8 @@
       "Bash(pnpm lint:*)",
       "mcp__serena__check_onboarding_performed",
       "mcp__serena__onboarding",
-      "mcp__serena__list_dir"
+      "mcp__serena__list_dir",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

@@ -54,23 +54,6 @@ export function assertFailureSync <A, E>(errorAssertion: (error: E) => void): ((
 }
 
 /**
- * Test that an Effect either succeeds or fails, handling both cases.
- */
-export function testEither <A, E>(effect: Effect.Effect<A, E>,
-  onSuccess: (result: A) => Effect.Effect<void>,
-  onFailure: (error: E) => Effect.Effect<void>): Effect.Effect<void> {
-  return Effect.gen(function* () {
-    const either = yield* Effect.either(effect);
-
-    if (Either.isRight(either)) {
-      yield* onSuccess(either.right);
-    } else {
-      yield* onFailure(either.left);
-    }
-  })
-}
-
-/**
  * Sleep for a specified number of milliseconds as an Effect.
  */
 export function sleep (ms: number) {

@@ -1,14 +1,12 @@
-import { Effect, Either } from "effect";
+import { Either } from "effect";
 import { describe, expect, it } from "vitest";
 import { createDynamoDB } from "../src/index.js";
 import {
   assertSuccessSync,
-  expectEffect,
   runEffectTest,
-  testEither
 } from "./effect-test-utils.js";
 
-describe("dynamoDB Integration", () => {
+describe("dynamoDB basic integration", () => {
   const dynamodb = createDynamoDB({
     region: "us-east-1",
     endpoint: "http://localhost:8000",
@@ -29,31 +27,19 @@ describe("dynamoDB Integration", () => {
 
     const either = await runEffectTest(program);
     expect(Either.isRight(either)).toBe(true);
-  }, 10000); // 10 second timeout for connection
+  }, 10000);
 
-  it("should handle service calls with proper typing", async () => {
-    const program = Effect.gen(function* () {
-      const either = yield* Effect.either(dynamodb.listTables({}));
-
-      yield* testEither(
-        Effect.succeed(either),
-        (result) => Effect.gen(function* () {
-          if (Either.isRight(result)) {
-            yield* expectEffect(() => expect(typeof result.right.TableNames).toBe("object"));
-            if (result.right.LastEvaluatedTableName) {
-              yield* expectEffect(() => expect(typeof result.right.LastEvaluatedTableName).toBe("string"));
-            }
-          }
-        }),
-        (error) => Effect.gen(function* () {
-          // Should not reach here in normal operation
-          yield* Effect.die(new Error(`Unexpected failure: ${JSON.stringify(error)}`));
-        }),
-      );
-    });
+  it("should handle error cases gracefully", async () => {
+    // Test with invalid table name to verify error handling
+    const program = dynamodb.describeTable({ TableName: "non-existent-table" });
 
     const either = await runEffectTest(program);
-    expect(Either.isRight(either)).toBe(true);
+    expect(Either.isLeft(either)).toBe(true);
+
+    if (Either.isLeft(either)) {
+      // Should be a ResourceNotFound error or similar
+      expect(either.left).toBeDefined();
+    }
   });
 });
 
