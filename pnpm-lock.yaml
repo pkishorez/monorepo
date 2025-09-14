@@ -75,6 +75,9 @@ importers:
       dotenv:
         specifier: 17.2.2
         version: 17.2.2
+      eslint:
+        specifier: 9.35.0
+        version: 9.35.0
       type-fest:
         specifier: ^5.0.0
         version: 5.0.0

@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "tsc --watch --project build.tsconfig.json",
     "build": "tsc --project build.tsconfig.json",
-    "lint": "tsc --noEmit",
+    "lint": "pnpm lint:tsc && pnpm lint:eslint",
+    "lint:tsc": "tsc --noEmit",
+    "lint:eslint": "eslint .",
     "test": "vitest",
     "test:run": "vitest run --reporter=verbose",
     "test:watch": "vitest --watch --reporter=verbose",
@@ -26,6 +28,7 @@
     "@types/node": "24.3.1",
     "@vitest/coverage-v8": "3.2.4",
     "dotenv": "17.2.2",
+    "eslint": "9.35.0",
     "type-fest": "^5.0.0",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
