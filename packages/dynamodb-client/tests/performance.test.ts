@@ -1,25 +1,25 @@
 /* eslint-disable no-console */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { AWSSDKClient } from "./clients/aws-sdk-client.js";
-import { EffectClient } from "./clients/effect-client.js";
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AWSSDKClient } from './clients/aws-sdk-client.js';
+import { EffectClient } from './clients/effect-client.js';
 import {
   generateTestItems,
   PERFORMANCE_ITERATIONS,
   tableSchema,
   TEST_TABLE_NAME,
   testItems,
-} from "./shared/test-data.js";
+} from './shared/test-data.js';
 
-describe("performance Comparison: AWS SDK vs Effect Client", () => {
+describe('performance Comparison: AWS SDK vs Effect Client', () => {
   let awsClient: AWSSDKClient;
   let effectClient: EffectClient;
 
   const clientConfig = {
-    region: "us-east-1",
-    endpoint: "http://localhost:8000",
+    region: 'us-east-1',
+    endpoint: 'http://localhost:8000',
     credentials: {
-      accessKeyId: "local",
-      secretAccessKey: "local",
+      accessKeyId: 'local',
+      secretAccessKey: 'local',
     },
   };
 
@@ -100,13 +100,13 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
     console.log(`  AWS SDK:      ${awsAvg.toFixed(2)}ms (avg)`);
     console.log(`  Effect:       ${effectAvg.toFixed(2)}ms (avg)`);
     console.log(
-      `  Difference:   ${difference > 0 ? "+" : ""}${difference.toFixed(1)}% (Effect vs AWS SDK)`,
+      `  Difference:   ${difference > 0 ? '+' : ''}${difference.toFixed(1)}% (Effect vs AWS SDK)`,
     );
     console.log(
-      `  AWS Times:    [${awsTimes.map((t) => t.toFixed(1)).join(", ")}]ms`,
+      `  AWS Times:    [${awsTimes.map((t) => t.toFixed(1)).join(', ')}]ms`,
     );
     console.log(
-      `  Effect Times: [${effectTimes.map((t) => t.toFixed(1)).join(", ")}]ms`,
+      `  Effect Times: [${effectTimes.map((t) => t.toFixed(1)).join(', ')}]ms`,
     );
 
     return {
@@ -116,28 +116,28 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
     };
   }
 
-  it("should compare PutItem performance", async () => {
-    const testKey = "PERF_PUT";
+  it('should compare PutItem performance', async () => {
+    const testKey = 'PERF_PUT';
 
     const results = await runPerformanceTest(
-      "PutItem",
+      'PutItem',
       () =>
         awsClient.putItem(TEST_TABLE_NAME, {
           pk: `${testKey}_AWS_${Date.now()}`,
-          sk: "DATA",
-          name: "AWS Test User",
+          sk: 'DATA',
+          name: 'AWS Test User',
           age: 30,
-          email: "aws@test.com",
-          status: "active",
+          email: 'aws@test.com',
+          status: 'active',
         }),
       () =>
         effectClient.putItem(TEST_TABLE_NAME, {
           pk: `${testKey}_EFFECT_${Date.now()}`,
-          sk: "DATA",
-          name: "Effect Test User",
+          sk: 'DATA',
+          name: 'Effect Test User',
           age: 30,
-          email: "effect@test.com",
-          status: "active",
+          email: 'effect@test.com',
+          status: 'active',
         }),
     );
 
@@ -145,12 +145,12 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
     expect(results.effect.avg).toBeGreaterThan(0);
   }, 30000);
 
-  it("should compare GetItem performance", async () => {
+  it('should compare GetItem performance', async () => {
     // Use existing test data
-    const testKey = { pk: "USER#1", sk: "PROFILE" };
+    const testKey = { pk: 'USER#1', sk: 'PROFILE' };
 
     const results = await runPerformanceTest(
-      "GetItem",
+      'GetItem',
       () => awsClient.getItem(TEST_TABLE_NAME, testKey),
       () => effectClient.getItem(TEST_TABLE_NAME, testKey),
     );
@@ -159,26 +159,26 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
     expect(results.effect.avg).toBeGreaterThan(0);
   }, 30000);
 
-  it("should compare Query performance", async () => {
+  it('should compare Query performance', async () => {
     const results = await runPerformanceTest(
-      "Query",
+      'Query',
       () =>
         awsClient.query(
           TEST_TABLE_NAME,
-          "gsi1pk = :gsi1pk",
-          { ":gsi1pk": "STATUS#active" },
+          'gsi1pk = :gsi1pk',
+          { ':gsi1pk': 'STATUS#active' },
           undefined,
-          "GSI1",
+          'GSI1',
           undefined,
           10,
         ),
       () =>
         effectClient.query(
           TEST_TABLE_NAME,
-          "gsi1pk = :gsi1pk",
-          { ":gsi1pk": "STATUS#active" },
+          'gsi1pk = :gsi1pk',
+          { ':gsi1pk': 'STATUS#active' },
           undefined,
-          "GSI1",
+          'GSI1',
           undefined,
           10,
         ),
@@ -188,9 +188,9 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
     expect(results.effect.avg).toBeGreaterThan(0);
   }, 30000);
 
-  it("should compare Scan performance", async () => {
+  it('should compare Scan performance', async () => {
     const results = await runPerformanceTest(
-      "Scan",
+      'Scan',
       () =>
         awsClient.scan(TEST_TABLE_NAME, undefined, undefined, undefined, 10),
       () =>
@@ -201,18 +201,18 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
     expect(results.effect.avg).toBeGreaterThan(0);
   }, 30000);
 
-  it("should compare UpdateItem performance", async () => {
-    const testKey = { pk: "USER#2", sk: "PROFILE" };
+  it('should compare UpdateItem performance', async () => {
+    const testKey = { pk: 'USER#2', sk: 'PROFILE' };
 
     const results = await runPerformanceTest(
-      "UpdateItem",
+      'UpdateItem',
       () =>
-        awsClient.updateItem(TEST_TABLE_NAME, testKey, "SET age = :age", {
-          ":age": Math.floor(Math.random() * 100) + 20,
+        awsClient.updateItem(TEST_TABLE_NAME, testKey, 'SET age = :age', {
+          ':age': Math.floor(Math.random() * 100) + 20,
         }),
       () =>
-        effectClient.updateItem(TEST_TABLE_NAME, testKey, "SET age = :age", {
-          ":age": Math.floor(Math.random() * 100) + 20,
+        effectClient.updateItem(TEST_TABLE_NAME, testKey, 'SET age = :age', {
+          ':age': Math.floor(Math.random() * 100) + 20,
         }),
     );
 
@@ -220,7 +220,7 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
     expect(results.effect.avg).toBeGreaterThan(0);
   }, 30000);
 
-  describe("bulk Operations Performance", () => {
+  describe('bulk Operations Performance', () => {
     // DynamoDB BatchWriteItem has a limit of 25 items per request
     const batchSizes = [10, 25] as const;
 
@@ -262,7 +262,7 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
           { length: Math.min(size, 25) },
           (_, i) => ({
             pk: `PERF_GET#${i}`,
-            sk: "DATA",
+            sk: 'DATA',
           }),
         );
 
@@ -270,11 +270,11 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
         for (let i = 0; i < keysToGet.length; i++) {
           await awsClient.putItem(TEST_TABLE_NAME, {
             pk: `PERF_GET#${i}`,
-            sk: "DATA",
+            sk: 'DATA',
             name: `BatchGet User ${i}`,
             age: 20 + i,
             email: `batchget${i}@test.com`,
-            status: "active",
+            status: 'active',
           });
         }
 
@@ -291,22 +291,21 @@ describe("performance Comparison: AWS SDK vs Effect Client", () => {
     }
   });
 
-  it("should generate performance summary", async () => {
-    console.log("\n📈 Performance Test Summary:");
-    console.log("=".repeat(50));
-    console.log("All performance tests completed successfully!");
+  it('should generate performance summary', async () => {
+    console.log('\n📈 Performance Test Summary:');
+    console.log('='.repeat(50));
+    console.log('All performance tests completed successfully!');
     console.log(
-      "Check the individual test outputs above for detailed timing comparisons.",
+      'Check the individual test outputs above for detailed timing comparisons.',
     );
-    console.log("\nKey observations:");
-    console.log("• Both clients connect to the same local DynamoDB instance");
-    console.log("• Performance differences may vary based on operation type");
+    console.log('\nKey observations:');
+    console.log('• Both clients connect to the same local DynamoDB instance');
+    console.log('• Performance differences may vary based on operation type');
     console.log(
-      "• Effect client adds functional programming overhead but provides better error handling",
+      '• Effect client adds functional programming overhead but provides better error handling',
     );
     console.log(
-      "• AWS SDK is more direct but Effect provides composable operations",
+      '• AWS SDK is more direct but Effect provides composable operations',
     );
   });
 });
-

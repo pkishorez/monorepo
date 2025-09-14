@@ -1,6 +1,12 @@
-import { Effect } from "effect";
+import { Effect, Either } from "effect";
 import { describe, expect, it } from "vitest";
 import { createDynamoDB } from "../src/index.js";
+import {
+  assertSuccessSync,
+  expectEffect,
+  runEffectTest,
+  testEither
+} from "./effect-test-utils.js";
 
 describe("dynamoDB Integration", () => {
   const dynamodb = createDynamoDB({
@@ -13,21 +19,41 @@ describe("dynamoDB Integration", () => {
   });
 
   it("should connect to local DynamoDB and list tables", async () => {
-    const result = await Effect.runPromise(dynamodb.listTables({ Limit: 10 }));
+    const program = dynamodb.listTables({ Limit: 10 }).pipe(
+      assertSuccessSync((result) => {
+        expect(result).toBeDefined();
+        expect(result.TableNames).toBeDefined();
+        expect(Array.isArray(result.TableNames)).toBe(true);
+      }),
+    );
 
-    expect(result).toBeDefined();
-    expect(result.TableNames).toBeDefined();
-    expect(Array.isArray(result.TableNames)).toBe(true);
+    const either = await runEffectTest(program);
+    expect(Either.isRight(either)).toBe(true);
   }, 10000); // 10 second timeout for connection
 
   it("should handle service calls with proper typing", async () => {
-    const result = await Effect.runPromise(dynamodb.listTables({}));
+    const program = Effect.gen(function* () {
+      const either = yield* Effect.either(dynamodb.listTables({}));
 
-    // Test that the TypeScript types are working correctly
-    expect(typeof result.TableNames).toBe("object");
-    if (result.LastEvaluatedTableName) {
-      expect(typeof result.LastEvaluatedTableName).toBe("string");
-    }
+      yield* testEither(
+        Effect.succeed(either),
+        (result) => Effect.gen(function* () {
+          if (Either.isRight(result)) {
+            yield* expectEffect(() => expect(typeof result.right.TableNames).toBe("object"));
+            if (result.right.LastEvaluatedTableName) {
+              yield* expectEffect(() => expect(typeof result.right.LastEvaluatedTableName).toBe("string"));
+            }
+          }
+        }),
+        (error) => Effect.gen(function* () {
+          // Should not reach here in normal operation
+          yield* Effect.fail(new Error(`Unexpected failure: ${JSON.stringify(error)}`));
+        }),
+      );
+    });
+
+    const either = await runEffectTest(program);
+    expect(Either.isRight(either)).toBe(true);
   });
 });
 

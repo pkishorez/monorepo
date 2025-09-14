@@ -79,14 +79,23 @@ describe("dynamoDB Client (Refactored with Shared Utilities)", () => {
       await client.updateItem(
         TEST_TABLE_NAME,
         key,
-        "SET age = :age, #status = :status",
-        { ":age": 31, ":status": "updated" },
+        "SET age = :age, #status = :status, gsi1pk = :gsi1pk",
+        { ":age": 31, ":status": "updated", ":gsi1pk": "STATUS#updated" },
         { "#status": "status" },
       );
 
       const updated = await client.getItem(TEST_TABLE_NAME, key);
       expect(updated?.age).toBe(31);
       expect(updated?.status).toBe("updated");
+
+      // Reset the item back to active for subsequent tests
+      await client.updateItem(
+        TEST_TABLE_NAME,
+        key,
+        "SET age = :age, #status = :status, gsi1pk = :gsi1pk",
+        { ":age": 30, ":status": "active", ":gsi1pk": "STATUS#active" },
+        { "#status": "status" },
+      );
     });
 
     it("should delete an item", async () => {
@@ -272,24 +281,40 @@ describe("dynamoDB Client (Refactored with Shared Utilities)", () => {
         await client.getItem("NonExistentTable", { pk: "test", sk: "test" });
         expect.fail("Should have thrown an error");
       } catch (error: any) {
-        expect(error._tag).toBe("ResourceNotFoundException");
+        // Effect.runPromise wraps errors in FiberFailure
+        // The actual error is in error.cause.failure
+        // Check if it's a FiberFailure (constructor name includes Fiber)
+        if (error.constructor.name.includes("Fiber") && error.cause && error.cause.failure) {
+          const actualError = error.cause.failure;
+          expect(actualError._tag).toBe("ResourceNotFoundException");
+        } else {
+          // For any other structure, check error toString
+          const errorMessage = error.toString();
+          expect(errorMessage).toContain("ResourceNotFoundException");
+        }
       }
     });
 
     it("should handle validation errors", async () => {
       try {
-        // Try to put item with missing required field
-        await client.putItem(TEST_TABLE_NAME, {
-          pk: "",
-          sk: "",
-          name: "",
-          age: 0,
-          email: "",
-          status: "",
-        });
+        // Try to query with invalid expression
+        await client.query(
+          TEST_TABLE_NAME,
+          "invalid_expression_syntax",
+          { ":pk": "USER#1" },
+        );
         expect.fail("Should have thrown an error");
       } catch (error: any) {
-        expect(error._tag).toBe("ValidationException");
+        // Effect.runPromise wraps errors in FiberFailure
+        // The actual error is in error.cause.failure
+        if (error.constructor.name.includes("Fiber") && error.cause && error.cause.failure) {
+          const actualError = error.cause.failure;
+          expect(actualError._tag).toBe("ValidationException");
+        } else {
+          // For any other structure, check error toString
+          const errorMessage = error.toString();
+          expect(errorMessage).toContain("ValidationException");
+        }
       }
     });
 
