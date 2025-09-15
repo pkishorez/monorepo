@@ -1,5 +1,7 @@
 /* eslint-disable ts/no-empty-object-type */
 import type {
+  BatchGetItemInput,
+  BatchWriteItemInput,
   DeleteItemInput,
   DynamoDB,
   GetItemInput,
@@ -137,6 +139,98 @@ export class DynamoTable<
           : null,
       })),
     );
+  }
+
+  batchGetItems(
+    keys: RealKeyFromIndex<TPrimary>[],
+    {
+      projection,
+      consistentRead = false,
+      ...options
+    }: Omit<BatchGetItemInput, 'RequestItems'> & {
+      projection?: ProjectionKeys<TItem>;
+      consistentRead?: boolean;
+    } = {},
+  ) {
+    const result = buildExpression({ projection });
+    return this.#client.batchGetItem({
+      RequestItems: {
+        [this.#name]: {
+          Keys: keys.map((key) => marshall(key)),
+          ConsistentRead: consistentRead,
+          ...result,
+        },
+      },
+      ...options,
+    });
+  }
+
+  batchWriteItems(
+    {
+      put: putRequests = [],
+      delete: deleteRequests = [],
+    }: {
+      put?: {
+        key: RealKeyFromIndex<TPrimary>;
+        item: ItemForPut<TSecondaryIndexes, TItem>;
+      }[];
+      delete?: RealKeyFromIndex<TPrimary>[];
+    },
+    options: Omit<BatchWriteItemInput, 'RequestItems'>,
+  ) {
+    return this.#client
+      .batchWriteItem({
+        ...options,
+        RequestItems: {
+          [this.#name]: [
+            ...putRequests.map(({ key, item }) => ({
+              PutRequest: {
+                Item: marshall({ ...key, ...item }),
+              },
+            })),
+            ...deleteRequests.map((key) => ({
+              DeleteRequest: {
+                Key: marshall(key),
+              },
+            })),
+          ],
+        },
+      })
+      .pipe(
+        Effect.map(({ UnprocessedItems, ...rest }) => {
+          const unprocessed: (
+            | {
+                type: 'put';
+                item: ItemForPut<TSecondaryIndexes, TItem> &
+                  RealKeyFromIndex<TPrimary>;
+              }
+            | {
+                type: 'delete';
+                key: RealKeyFromIndex<TPrimary>;
+              }
+          )[] = [];
+          Object.values(UnprocessedItems ?? {})
+            .flat()
+            .forEach(({ DeleteRequest, PutRequest }) => {
+              if (PutRequest) {
+                unprocessed.push({
+                  type: 'put',
+                  item: unmarshall(PutRequest.Item) as any,
+                });
+              }
+              if (DeleteRequest) {
+                unprocessed.push({
+                  type: 'delete',
+                  key: unmarshall(DeleteRequest.Key) as any,
+                });
+              }
+            });
+          return {
+            ...rest,
+            unprocessed,
+          };
+        }),
+      );
   }
 
   putItem(
