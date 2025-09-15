@@ -9,11 +9,11 @@ import type {
   UpdateItemInput,
 } from 'dynamodb-client';
 import type {
-  ExprInput,
+  ConditionExprParameters,
   KeyConditionExprParameters,
   UpdateExprParameters,
 } from './expr/index.js';
-import type { ProjectionKeys } from './expr/projection.js';
+import type { ProjectedItem, ProjectionKeys } from './expr/projection.js';
 import type { QueryOptions, ScanOptions } from './query-executor.js';
 import type {
   DynamoConfig,
@@ -30,13 +30,13 @@ import { buildExpression } from './expr/index.js';
 import { DynamoQueryExecutor } from './query-executor.js';
 import { marshall, unmarshall } from './utils.js';
 
-export type PutOptions = Omit<
+export type PutOptions<TItem> = Omit<
   PutItemInput,
   'TableName' | 'Item' | 'ConditionExpression' | 'Key'
 > & {
-  condition?: ExprInput;
+  condition?: ConditionExprParameters<TItem>;
 };
-export type UpdateOptions<Item = Record<string, unknown>> = Omit<
+export type UpdateOptions<TItem = Record<string, unknown>> = Omit<
   UpdateItemInput,
   | 'TableName'
   | 'Key'
@@ -45,15 +45,15 @@ export type UpdateOptions<Item = Record<string, unknown>> = Omit<
   | 'ExpressionAttributeNames'
   | 'ExpressionAttributeValues'
 > & {
-  condition?: ExprInput;
-  update: UpdateExprParameters<Item>;
+  condition?: ConditionExprParameters<TItem>;
+  update: UpdateExprParameters<TItem>;
 };
 
-export type DeleteOptions = Omit<
+export type DeleteOptions<TItem> = Omit<
   DeleteItemInput,
   'TableName' | 'Key' | 'ConditionExpression'
 > & {
-  condition?: ExprInput;
+  condition?: ConditionExprParameters<TItem>;
 };
 
 export class DynamoTable<
@@ -114,13 +114,13 @@ export class DynamoTable<
   }
 
   // Primary table operations
-  getItem(
+  getItem<Projection extends ProjectionKeys<TItem>>(
     key: RealKeyFromIndex<TPrimary>,
     {
       projection,
       ...options
     }: Omit<GetItemInput, 'Key' | 'TableName' | 'ProjectionExpression'> & {
-      projection?: ProjectionKeys<TItem>;
+      projection?: Projection;
     } = {},
   ) {
     const result = buildExpression({ projection });
@@ -135,34 +135,43 @@ export class DynamoTable<
       Effect.map((response) => ({
         ...response,
         Item: response.Item
-          ? (unmarshall(response.Item) as ItemWithKeys<TPrimary, TItem>)
+          ? (unmarshall(response.Item) as ProjectedItem<TItem, Projection>)
           : null,
       })),
     );
   }
 
-  batchGetItems(
+  batchGetItems<Projection extends ProjectionKeys<TItem>>(
     keys: RealKeyFromIndex<TPrimary>[],
     {
       projection,
       consistentRead = false,
       ...options
     }: Omit<BatchGetItemInput, 'RequestItems'> & {
-      projection?: ProjectionKeys<TItem>;
+      projection?: Projection;
       consistentRead?: boolean;
     } = {},
   ) {
     const result = buildExpression({ projection });
-    return this.#client.batchGetItem({
-      RequestItems: {
-        [this.#name]: {
-          Keys: keys.map((key) => marshall(key)),
-          ConsistentRead: consistentRead,
-          ...result,
+    return this.#client
+      .batchGetItem({
+        RequestItems: {
+          [this.#name]: {
+            Keys: keys.map((key) => marshall(key)),
+            ConsistentRead: consistentRead,
+            ...result,
+          },
         },
-      },
-      ...options,
-    });
+        ...options,
+      })
+      .pipe(
+        Effect.map(({ Responses = {}, ...others }) => ({
+          ...others,
+          items: Object.values(Responses)
+            .flat()
+            .map((v) => unmarshall(v) as ProjectedItem<TItem, Projection>),
+        })),
+      );
   }
 
   batchWriteItems(
@@ -236,9 +245,9 @@ export class DynamoTable<
   putItem(
     index: RealKeyFromIndex<TPrimary>,
     item: ItemForPut<TSecondaryIndexes, TItem>,
-    options: PutOptions = {},
+    options: PutOptions<TItem> = {},
   ) {
-    const result = buildExpression({ condition: options.condition });
+    const result = buildExpression({});
 
     return this.#client
       .putItem({
@@ -260,7 +269,6 @@ export class DynamoTable<
   updateItem(key: RealKeyFromIndex<TPrimary>, options: UpdateOptions<TItem>) {
     // Build expressions using the helper
     const result = buildExpression({
-      condition: options.condition,
       update: options.update,
     });
     const updateItemOptions: UpdateItemInput = {
@@ -280,8 +288,11 @@ export class DynamoTable<
     );
   }
 
-  deleteItem(key: RealKeyFromIndex<TPrimary>, options: DeleteOptions = {}) {
-    const result = buildExpression({ condition: options.condition });
+  deleteItem(
+    key: RealKeyFromIndex<TPrimary>,
+    options: DeleteOptions<TItem> = {},
+  ) {
+    const result = buildExpression({});
     const deleteItemOptions: DeleteItemInput = {
       TableName: this.#name,
       Key: marshall(key),

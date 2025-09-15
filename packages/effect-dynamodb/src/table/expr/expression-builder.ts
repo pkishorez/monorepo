@@ -1,30 +1,28 @@
 import type { IndexDefinition, Simplify } from '../types.js';
 import type { MarshalledOutput } from '../utils.js';
-import type { ExprResult } from './expr-utils/types.js';
-import type {
-  ExprInput,
-  KeyConditionExprParameters,
-  UpdateExprParameters,
-} from './index.js';
+import type { ConditionExprParameters } from './condition/types.js';
+import type { KeyConditionExprParameters } from './key-condition/index.js';
 import type { ProjectionKeys } from './projection.js';
+import type { ExprAttributeMap } from './types.js';
+import type { UpdateExprParameters } from './updates/index.js';
 import { marshall } from '../utils.js';
-import { mergeExprResults } from './expr-utils/index.js';
-import { expr, keyCondition, projectionExpr, updateExpr } from './index.js';
+import { conditionExpr } from './condition/condition.js';
+import { keyConditionExpr } from './key-condition/index.js';
+import { projectionExpr } from './projection.js';
+import { updateExpr } from './updates/index.js';
+import { mergeExprAttributeMap } from './utils.js';
 
-/**
- * Input parameters for building combined DynamoDB expressions
- */
 export interface ExpressionInput<
-  T extends Record<string, unknown> = Record<string, unknown>,
+  TItem extends Record<string, unknown> = Record<string, unknown>,
   Index extends IndexDefinition = IndexDefinition,
 > {
   keyCondition?:
     | { index: Index; params: KeyConditionExprParameters<Index> }
     | undefined;
-  condition?: ExprInput<T> | undefined;
-  update?: UpdateExprParameters<T> | undefined;
-  projection?: ProjectionKeys<T> | undefined;
-  filter?: ExprInput<T> | undefined;
+  condition?: ConditionExprParameters<TItem> | undefined;
+  update?: UpdateExprParameters<TItem> | undefined;
+  projection?: ProjectionKeys<TItem> | undefined;
+  filter?: ConditionExprParameters<TItem> | undefined;
 }
 
 interface ExpressionMapper {
@@ -44,88 +42,60 @@ type ExpressionOutput<T extends ExpressionInput<any>> = {
   ExpressionAttributeValues?: MarshalledOutput;
 };
 
-/**
- * Build DynamoDB expressions from various input types
- *
- * Takes any combination of expression inputs and returns their string representations
- * along with merged expression attributes and values.
- *
- * @example
- * ```typescript
- * const result = buildExpression({
- *   update: { SET: [{ attr: 'name', value: { op: 'assign', value: 'John' } }] },
- *   condition: { age: { '>': 18 } },
- *   projection: ['id', 'name', 'email']
- * });
- *
- * // result will have:
- * // {
- * //   update: "SET #attr1 = :val1",
- * //   condition: "#attr2 > :val2",
- * //   projection: "#proj_attr1, #proj_attr2, #proj_attr3",
- * //   exprAttributes: { ... all merged attributes ... },
- * //   exprValues: { ... all merged values ... }
- * // }
- * ```
- */
 export function buildExpression<
   Input extends ExpressionInput<T, Index>,
   T extends Record<string, unknown>,
   Index extends IndexDefinition = IndexDefinition,
 >(input: Input): Simplify<ExpressionOutput<Input>> {
-  const results: ExprResult[] = [];
+  const attrMaps: ExprAttributeMap[] = [];
   const output = {} as ExpressionOutput<Input>;
 
   // Process key condition expression
   if (input.keyCondition) {
-    const keyConditionResult = keyCondition(
+    const keyConditionResult = keyConditionExpr(
       input.keyCondition.index,
       input.keyCondition.params,
     );
     output.KeyConditionExpression = keyConditionResult.expr;
-    results.push(keyConditionResult);
+    attrMaps.push(keyConditionResult);
   }
 
   // Process condition expression
   if (input.condition) {
-    const conditionResult = expr(input.condition);
+    const conditionResult = conditionExpr(input.condition);
     output.ConditionExpression = conditionResult.expr;
-    results.push(conditionResult);
+    attrMaps.push(conditionResult);
   }
 
   // Process update expression
   if (input.update) {
     const updateResult = updateExpr(input.update);
-    output.UpdateExpression = updateResult.updateExpression;
-    results.push({
-      expr: updateResult.updateExpression,
-      exprAttributes: updateResult.exprAttributes,
-      exprValues: updateResult.exprValues,
-    });
+    output.UpdateExpression = updateResult.expr;
+    attrMaps.push(updateResult);
   }
 
   // Process projection expression
   if (input.projection) {
     const projectionResult = projectionExpr(input.projection);
     output.ProjectionExpression = projectionResult.expr;
-    results.push(projectionResult);
+    attrMaps.push(projectionResult);
   }
 
   // Process filter expression
   if (input.filter) {
-    const filterResult = expr(input.filter);
+    const filterResult = conditionExpr(input.filter);
     output.FilterExpression = filterResult.expr;
-    results.push(filterResult);
+    attrMaps.push(filterResult);
   }
 
   // Merge all expression attributes and values
-  const merged = mergeExprResults(results);
-  if (Object.keys(merged.exprAttributes).length > 0) {
-    output.ExpressionAttributeNames = merged.exprAttributes;
+  const merged = mergeExprAttributeMap(attrMaps);
+  if (Object.keys(merged.attrNameMap).length > 0) {
+    output.ExpressionAttributeNames = merged.attrNameMap;
   }
 
-  if (Object.keys(merged.exprValues).length > 0) {
-    output.ExpressionAttributeValues = marshall(merged.exprValues);
+  if (Object.keys(merged.attrValueMap).length > 0) {
+    output.ExpressionAttributeValues = marshall(merged.attrValueMap);
   }
 
   return output;

@@ -47,6 +47,12 @@ export type ItemWithKeys<
   Item extends Record<string, unknown>,
 > = RealKeyFromIndex<TPrimary> & Item;
 
+export type ItemWithAllKeys<
+  TPrimary extends IndexDefinition,
+  TGLSIs extends Record<string, IndexDefinition>,
+  Item extends Record<string, unknown>,
+> = RealKeyFromIndex<TPrimary> & Item & Partial<AllGLSIKeys<TGLSIs>>;
+
 // Extract all keys from GSIs and LSIs to make them optional
 export type AllGLSIKeys<TGLSIs extends Record<string, IndexDefinition>> =
   keyof TGLSIs extends never

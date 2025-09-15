@@ -1,17 +1,18 @@
-import type { ExprResult } from './expr-utils/types.js';
+import type { ExprResult } from './types.js';
+import { AttributeMapBuilder } from './utils.js';
 
 export type ProjectionKeys<Item> = (keyof Item & string)[];
+export type ProjectedItem<Item, Keys extends (keyof Item)[] | undefined> = Pick<
+  Item,
+  Exclude<Keys, undefined>[number]
+>;
 
 export function projectionExpr(attrs: string[]): ExprResult {
-  const exprAttributes: ExprResult['exprAttributes'] = {};
+  const attrMapBuilder = new AttributeMapBuilder('proj_');
 
   const condition = attrs
-    .map((v, i) => {
-      const attrKey = `#proj_attr${i + 1}`;
-      exprAttributes[attrKey] = v;
-      return attrKey;
-    })
+    .map((key) => attrMapBuilder.setAttrName(key))
     .join(', ');
 
-  return { expr: condition, exprAttributes, exprValues: {} };
+  return { expr: condition, ...attrMapBuilder.build() };
 }
