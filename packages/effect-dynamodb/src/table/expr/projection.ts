@@ -1,7 +1,14 @@
+/* eslint-disable ts/no-empty-object-type */
 import type { ExprResult } from './types.js';
 import { AttributeMapBuilder } from './utils.js';
 
-export type ProjectionKeys<Item> = (keyof Item & string)[];
+export type ProjectionKeys<Item, Index = {}> = ((
+  | {
+      [K in keyof Index]: Index[K];
+    }[keyof Index]
+  | keyof Item
+) &
+  string)[];
 export type ProjectedItem<Item, Keys extends (keyof Item)[] | undefined> = Pick<
   Item,
   Exclude<Keys, undefined>[number]

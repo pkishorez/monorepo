@@ -19,7 +19,7 @@ export type QueryOptions<Index extends IndexDefinition, Item> = Omit<
   | 'ProjectionExpression'
 > & {
   filter?: ConditionExprParameters<Item>;
-  projection?: ProjectionKeys<Item>;
+  projection?: ProjectionKeys<Item, Index>;
   exclusiveStartKey?: RealKeyFromIndex<Index> | undefined;
 };
 
@@ -36,7 +36,7 @@ export type ScanOptions<
   | 'ProjectionExpression'
 > & {
   filter?: ConditionExprParameters<TItem>;
-  projection?: ProjectionKeys<TItem>;
+  projection?: ProjectionKeys<TItem, Index>;
   exclusiveStartKey?: RealKeyFromIndex<Index>;
 };
 

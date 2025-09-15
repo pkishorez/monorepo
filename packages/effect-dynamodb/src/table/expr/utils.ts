@@ -27,7 +27,7 @@ export class AttributeMapBuilder {
   setAttr(key: string, value: unknown) {
     this.#i++;
     const attrKey = `#${this.#prefix}attr_${this.#i}`;
-    const attrValue = `#${this.#prefix}value_${this.#i}`;
+    const attrValue = `:${this.#prefix}value_${this.#i}`;
     this.#attrNameMap[attrKey] = key;
     this.#attrValueMap[attrValue] = value;
 
@@ -47,7 +47,7 @@ export class AttributeMapBuilder {
 
   setAttrValue(value: unknown) {
     this.#i++;
-    const attrValue = `#${this.#prefix}value_${this.#i}`;
+    const attrValue = `:${this.#prefix}value_${this.#i}`;
     this.#attrValueMap[attrValue] = value;
 
     return attrValue;

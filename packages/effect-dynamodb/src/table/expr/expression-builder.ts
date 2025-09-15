@@ -82,7 +82,7 @@ export function buildExpression<
   }
 
   // Process filter expression
-  if (input.filter) {
+  if (input.filter && Object.keys(input.filter).length > 0) {
     const filterResult = conditionExpr(input.filter);
     output.FilterExpression = filterResult.expr;
     attrMaps.push(filterResult);

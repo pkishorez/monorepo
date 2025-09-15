@@ -1,3 +1,3 @@
 export type UpdateExprParameters<TItem = unknown> = {
-  [K in keyof TItem]: TItem[K];
+  [K in keyof TItem]?: TItem[K];
 };

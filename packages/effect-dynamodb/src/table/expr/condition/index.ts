@@ -1,2 +1,2 @@
 export { conditionExpr } from './condition.js';
-export { ConditionExprParameters } from './types.js';
+export type { ConditionExprParameters } from './types.js';

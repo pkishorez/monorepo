@@ -42,7 +42,7 @@ export type RealKeyFromIndex<T extends IndexDefinition> = T extends {
     ? { [K in PK as K extends string ? K : never]: string }
     : never;
 
-export type ItemWithKeys<
+export type ItemWithPrimaryIndex<
   TPrimary extends IndexDefinition,
   Item extends Record<string, unknown>,
 > = RealKeyFromIndex<TPrimary> & Item;

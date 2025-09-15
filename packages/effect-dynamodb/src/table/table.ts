@@ -6,8 +6,10 @@ import type {
   DynamoDB,
   GetItemInput,
   PutItemInput,
+  ReturnValue,
   UpdateItemInput,
 } from 'dynamodb-client';
+import type { ExtractStrict } from 'type-fest';
 import type {
   ConditionExprParameters,
   KeyConditionExprParameters,
@@ -19,7 +21,7 @@ import type {
   DynamoConfig,
   IndexDefinition,
   ItemForPut,
-  ItemWithKeys,
+  ItemWithPrimaryIndex,
   RealKeyFromIndex,
   SecondaryIndexDefinition,
   Simplify,
@@ -32,9 +34,10 @@ import { marshall, unmarshall } from './utils.js';
 
 export type PutOptions<TItem> = Omit<
   PutItemInput,
-  'TableName' | 'Item' | 'ConditionExpression' | 'Key'
+  'TableName' | 'Item' | 'ConditionExpression' | 'Key' | 'ReturnValues'
 > & {
   condition?: ConditionExprParameters<TItem>;
+  returnValues?: ExtractStrict<ReturnValue, 'ALL_OLD' | 'NONE'>;
 };
 export type UpdateOptions<TItem = Record<string, unknown>> = Omit<
   UpdateItemInput,
@@ -59,7 +62,7 @@ export type DeleteOptions<TItem> = Omit<
 export class DynamoTable<
   TPrimary extends IndexDefinition,
   TSecondaryIndexes extends Record<string, SecondaryIndexDefinition> = {},
-  TItem extends Record<string, unknown> = Record<string, unknown>,
+  TItem extends Record<string, any> = Record<string, any>,
 > {
   readonly #name: string;
   readonly #client: DynamoDB;
@@ -114,7 +117,7 @@ export class DynamoTable<
   }
 
   // Primary table operations
-  getItem<Projection extends ProjectionKeys<TItem>>(
+  getItem<Projection extends ProjectionKeys<TItem, TPrimary>>(
     key: RealKeyFromIndex<TPrimary>,
     {
       projection,
@@ -135,7 +138,10 @@ export class DynamoTable<
       Effect.map((response) => ({
         ...response,
         Item: response.Item
-          ? (unmarshall(response.Item) as ProjectedItem<TItem, Projection>)
+          ? (unmarshall(response.Item) as ProjectedItem<
+              ItemWithPrimaryIndex<TPrimary, TItem>,
+              Projection
+            >)
           : null,
       })),
     );
@@ -247,13 +253,19 @@ export class DynamoTable<
     item: ItemForPut<TSecondaryIndexes, TItem>,
     options: PutOptions<TItem> = {},
   ) {
-    const result = buildExpression({});
+    const result = buildExpression({
+      condition: options.condition,
+    });
+
+    // Separate the custom options from the rest
+    const { condition, returnValues = 'ALL_OLD', ...dynamoOptions } = options;
 
     return this.#client
       .putItem({
         TableName: this.#name,
         Item: marshall({ ...index, ...item }),
-        ...options,
+        ReturnValues: returnValues,
+        ...dynamoOptions,
         ...result,
       })
       .pipe(
@@ -270,11 +282,16 @@ export class DynamoTable<
     // Build expressions using the helper
     const result = buildExpression({
       update: options.update,
+      condition: options.condition,
     });
+
+    // Separate the custom options from the rest
+    const { update, condition, ...dynamoOptions } = options;
+
     const updateItemOptions: UpdateItemInput = {
       TableName: this.#name,
       Key: marshall(key),
-      ...options,
+      ...dynamoOptions,
       ...result,
     };
 
@@ -292,11 +309,17 @@ export class DynamoTable<
     key: RealKeyFromIndex<TPrimary>,
     options: DeleteOptions<TItem> = {},
   ) {
-    const result = buildExpression({});
+    const result = buildExpression({
+      condition: options.condition,
+    });
+
+    // Separate the custom options from the rest
+    const { condition, ...dynamoOptions } = options;
+
     const deleteItemOptions: DeleteItemInput = {
       TableName: this.#name,
       Key: marshall(key),
-      ...options,
+      ...dynamoOptions,
       ...result,
     };
 
@@ -319,7 +342,7 @@ export class DynamoTable<
         ...response,
         Items: (response.Items || []).map((item) =>
           unmarshall(item),
-        ) as ItemWithKeys<TPrimary, TItem>[],
+        ) as ItemWithPrimaryIndex<TPrimary, TItem>[],
         LastEvaluatedKey: response.LastEvaluatedKey
           ? (unmarshall(
               response.LastEvaluatedKey,
@@ -335,7 +358,7 @@ export class DynamoTable<
         ...response,
         Items: (response.Items || []).map((item) =>
           unmarshall(item),
-        ) as ItemWithKeys<TPrimary, TItem>[],
+        ) as ItemWithPrimaryIndex<TPrimary, TItem>[],
         LastEvaluatedKey: response.LastEvaluatedKey
           ? (unmarshall(
               response.LastEvaluatedKey,
@@ -362,7 +385,7 @@ export class DynamoTable<
               ...response,
               Items: (response.Items || []).map((item) =>
                 unmarshall(item),
-              ) as ItemWithKeys<TPrimary, TItem>[],
+              ) as ItemWithPrimaryIndex<TPrimary, TItem>[],
               LastEvaluatedKey: response.LastEvaluatedKey
                 ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
                     TSecondaryIndexes[TName]
@@ -380,7 +403,7 @@ export class DynamoTable<
               ...response,
               Items: (response.Items || []).map((item) =>
                 unmarshall(item),
-              ) as ItemWithKeys<TPrimary, TItem>[],
+              ) as ItemWithPrimaryIndex<TPrimary, TItem>[],
               LastEvaluatedKey: response.LastEvaluatedKey
                 ? (unmarshall(response.LastEvaluatedKey) as RealKeyFromIndex<
                     TSecondaryIndexes[TName]
