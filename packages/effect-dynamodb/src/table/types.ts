@@ -32,19 +32,17 @@ export type KeyTypeFromIndex<T extends IndexDefinition> =
     : SimpleIndexDefinition;
 
 export type RealKeyFromIndex<T extends IndexDefinition> = T extends {
-  pk: infer PK;
-  sk: infer SK;
+  pk: infer PK extends string;
+  sk: infer SK extends string;
 }
-  ? { [K in PK as K extends string ? K : never]: string } & {
-      [K in SK as K extends string ? K : never]: string;
-    }
-  : T extends { pk: infer PK }
-    ? { [K in PK as K extends string ? K : never]: string }
+  ? Record<PK | SK, string>
+  : T extends { pk: infer PK extends string }
+    ? Record<PK, string>
     : never;
 
 export type ItemWithPrimaryIndex<
   TPrimary extends IndexDefinition,
-  Item extends Record<string, unknown>,
+  Item,
 > = RealKeyFromIndex<TPrimary> & Item;
 
 export type ItemWithAllKeys<
@@ -53,25 +51,27 @@ export type ItemWithAllKeys<
   Item extends Record<string, unknown>,
 > = RealKeyFromIndex<TPrimary> & Item & Partial<AllGLSIKeys<TGLSIs>>;
 
-// Extract all keys from GSIs and LSIs to make them optional
+type IfNever<T, Default> = [T] extends [never] ? Default : T;
+// Extract all keys from GSIs and LSIs.
 export type AllGLSIKeys<TGLSIs extends Record<string, IndexDefinition>> =
-  keyof TGLSIs extends never
-    ? // eslint-disable-next-line ts/no-empty-object-type
+  Simplify<
+    IfNever<
+      {
+        [K in keyof TGLSIs]: RealKeyFromIndex<TGLSIs[K]>;
+      }[keyof TGLSIs],
+      // eslint-disable-next-line ts/no-empty-object-type
       {}
-    : {
-        [K in keyof TGLSIs]: TGLSIs[K] extends IndexDefinition
-          ? RealKeyFromIndex<TGLSIs[K]>
-          : never;
-      }[keyof TGLSIs];
+    >
+  >;
 
 export type ItemForPut<
   TSecondaryIndexes extends Record<string, IndexDefinition>,
   Item = Record<string, unknown>,
 > = Partial<AllGLSIKeys<TSecondaryIndexes>> & Item;
 
-export interface DynamoTableType<Table extends DynamoTable<any, any>> {
-  primary: Table extends DynamoTable<infer Primary, any> ? Primary : never;
-  secondaryIndexes: Table extends DynamoTable<any, infer SecondaryIndexes>
+export interface DynamoTableType<Table extends DynamoTable<any, any, any>> {
+  primary: Table extends DynamoTable<infer Primary, any, any> ? Primary : never;
+  secondaryIndexes: Table extends DynamoTable<any, infer SecondaryIndexes, any>
     ? SecondaryIndexes
     : never;
 }

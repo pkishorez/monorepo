@@ -1,4 +1,3 @@
-/* eslint-disable ts/no-empty-object-type */
 import type {
   BatchGetItemInput,
   BatchWriteItemInput,
@@ -61,8 +60,8 @@ export type DeleteOptions<TItem> = Omit<
 
 export class DynamoTable<
   TPrimary extends IndexDefinition,
-  TSecondaryIndexes extends Record<string, SecondaryIndexDefinition> = {},
-  TItem extends Record<string, any> = Record<string, any>,
+  TSecondaryIndexes extends Record<string, SecondaryIndexDefinition>,
+  TItem = unknown,
 > {
   readonly #name: string;
   readonly #client: DynamoDB;
@@ -101,6 +100,7 @@ export class DynamoTable<
         sk?: TSk,
       ): ConfiguredTableBuilder<
         TSk extends string ? { pk: TPk; sk: TSk } : { pk: TPk },
+        // eslint-disable-next-line ts/no-empty-object-type
         {}
       > {
         const primaryIndex = (sk ? { pk, sk } : { pk }) as TSk extends string
@@ -419,7 +419,7 @@ export class DynamoTable<
 // Configured builder - shows gsi(), lsi(), and build() methods
 class ConfiguredTableBuilder<
   TPrimary extends IndexDefinition,
-  TSecondaryIndexes extends Record<string, IndexDefinition> = {},
+  TSecondaryIndexes extends Record<string, IndexDefinition>,
 > {
   readonly #name: string;
   readonly #primary: TPrimary;

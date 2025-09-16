@@ -23,10 +23,7 @@ export type QueryOptions<Index extends IndexDefinition, Item> = Omit<
   exclusiveStartKey?: RealKeyFromIndex<Index> | undefined;
 };
 
-export type ScanOptions<
-  Index extends IndexDefinition,
-  TItem extends Record<string, unknown>,
-> = Omit<
+export type ScanOptions<Index extends IndexDefinition, TItem> = Omit<
   ScanInput,
   | 'TableName'
   | 'IndexName'
@@ -40,7 +37,7 @@ export type ScanOptions<
   exclusiveStartKey?: RealKeyFromIndex<Index>;
 };
 
-export class DynamoQueryExecutor<TItem extends Record<string, unknown>> {
+export class DynamoQueryExecutor<TItem> {
   constructor(
     private client: DynamoDB,
     private tableName: string,
