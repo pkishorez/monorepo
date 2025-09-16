@@ -95,17 +95,15 @@ export class DynamoTable<
 
   static make(name: string, dynamoConfig: DynamoConfig) {
     return {
-      primary<TPk extends string, TSk extends string | undefined = undefined>(
+      primary<TPk extends string, TSk extends string>(
         pk: TPk,
-        sk?: TSk,
+        sk: TSk,
       ): ConfiguredTableBuilder<
-        TSk extends string ? { pk: TPk; sk: TSk } : { pk: TPk },
+        { pk: TPk; sk: TSk },
         // eslint-disable-next-line ts/no-empty-object-type
         {}
       > {
-        const primaryIndex = (sk ? { pk, sk } : { pk }) as TSk extends string
-          ? { pk: TPk; sk: TSk }
-          : { pk: TPk };
+        const primaryIndex = (sk ? { pk, sk } : { pk }) as { pk: TPk; sk: TSk };
 
         return new ConfiguredTableBuilder(name, primaryIndex, {}, dynamoConfig);
       },

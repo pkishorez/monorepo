@@ -1,16 +1,11 @@
 import type { DynamoTable } from './table.js';
 
-// Core index definitions
-export interface SimpleIndexDefinition {
-  pk: string;
-}
-
 export interface CompoundIndexDefinition {
   pk: string;
   sk: string;
 }
 
-export type IndexDefinition = SimpleIndexDefinition | CompoundIndexDefinition;
+export type IndexDefinition = CompoundIndexDefinition;
 
 export type SecondaryIndexDefinition = IndexDefinition;
 
@@ -26,19 +21,12 @@ export interface DynamoConfig {
   endpoint?: string;
 }
 
-export type KeyTypeFromIndex<T extends IndexDefinition> =
-  T extends CompoundIndexDefinition
-    ? CompoundIndexDefinition
-    : SimpleIndexDefinition;
-
 export type RealKeyFromIndex<T extends IndexDefinition> = T extends {
   pk: infer PK extends string;
   sk: infer SK extends string;
 }
   ? Record<PK | SK, string>
-  : T extends { pk: infer PK extends string }
-    ? Record<PK, string>
-    : never;
+  : never;
 
 export type ItemWithPrimaryIndex<
   TPrimary extends IndexDefinition,

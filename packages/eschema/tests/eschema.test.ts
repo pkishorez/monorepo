@@ -17,7 +17,7 @@ describe('eSchema', () => {
       const parser = ESchema.make('v1', userSchema).build();
       const result = Effect.runSync(parser.parse(testData));
 
-      expect(result).toEqual({
+      expect(result.value).toEqual({
         name: 'John',
         age: 30,
       });
@@ -53,7 +53,7 @@ describe('eSchema', () => {
       const v1Data = { name: 'John', __v: 'v1' as const };
       const result = Effect.runSync(parser.parse(v1Data));
 
-      expect(result).toEqual({
+      expect(result.value).toEqual({
         name: 'John',
         age: 25,
         email: 'john@example.com',
@@ -88,7 +88,7 @@ describe('eSchema', () => {
       const v2Data = { name: 'Jane', age: 25, __v: 'v2' as const };
       const result = Effect.runSync(parser.parse(v2Data));
 
-      expect(result).toEqual({
+      expect(result.value).toEqual({
         name: 'Jane',
         age: 25,
         active: true,

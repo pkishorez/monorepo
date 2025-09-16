@@ -78,12 +78,17 @@ export class ESchema<
     };
   };
 
-  parse: (
-    data: unknown,
-  ) => Effect.Effect<Schema.Schema.Type<LatestSch>, ESchemaParseError> = (
-    data: unknown,
-  ) => {
+  parse: (data: unknown) => Effect.Effect<
+    {
+      value: Schema.Schema.Type<LatestSch>;
+      oldVersion: string;
+      newVersion: string;
+    },
+    ESchemaParseError
+  > = (data: unknown) => {
     const evolutions = this.#evolutions;
+    // eslint-disable-next-line ts/no-this-alias
+    const th = this;
 
     return Effect.gen(function* () {
       // Step 1: Extract version from unknown data using schema
@@ -103,9 +108,7 @@ export class ESchema<
 
       // Step 3: Parse the data with the found evolution's schema
       const evolution = evolutions[evolutionIndex];
-      let currentValue: any;
-
-      currentValue = yield* Schema.decodeUnknown(
+      let currentValue = yield* Schema.decodeUnknown(
         evolution.evolution as Schema.Schema<any, any, never>,
       )(data).pipe(
         Effect.mapError(
@@ -133,7 +136,11 @@ export class ESchema<
         }
       }
 
-      return currentValue as Schema.Schema.Type<LatestSch>;
+      return {
+        oldVersion: evolution.version,
+        newVersion: th.#latest().version,
+        value: currentValue as Schema.Schema.Type<LatestSch>,
+      };
     });
   };
 }

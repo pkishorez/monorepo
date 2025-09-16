@@ -8,7 +8,7 @@ export const eschema = ESchema.make(
 )
   .evolve(
     'v2', // br
-    ({ v1 }) => Schema.Struct({ ...v1.fields, v2: Schema.String }),
+    Schema.Struct({ v1: Schema.String, v2: Schema.String }),
     (old, v) =>
       v({
         ...old,

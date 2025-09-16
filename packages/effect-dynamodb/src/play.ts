@@ -56,16 +56,18 @@ Effect.runPromise(
         },
       },
     );
-    const { Items } = yield* table.query(
-      { pk: 'user', sk: { beginsWith: 'user' } },
-      {
-        Select: 'ALL_ATTRIBUTES',
-        filter: {
-          'metadata.college.friends[0][0]': 'test friend',
+    const { Items } = yield* table
+      .query(
+        { pk: 'user', sk: { beginsWith: 'user' } },
+        {
+          // Select: 'ALL_ATTRIBUTES',
+          filter: {
+            'metadata.college.friends[0][0]': 'test friend',
+          },
+          projection: ['name'],
         },
-        // projection: ['pkey'],
-      },
-    );
+      )
+      .pipe(Effect.catchAll((e) => Effect.log(e._tag).pipe(Effect.die)));
 
     console.dir(
       {
@@ -79,5 +81,5 @@ Effect.runPromise(
       },
       { depth: 10 },
     );
-  }),
+  }).pipe(),
 );
