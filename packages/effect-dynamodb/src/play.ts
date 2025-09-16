@@ -15,7 +15,7 @@ const table = DynamoTable.make('playground', {
     metadata: {
       college: {
         name: string;
-        friends: string[];
+        friends: string[][];
       };
       company: {
         name: string;
@@ -27,13 +27,13 @@ const table = DynamoTable.make('playground', {
 Effect.runPromise(
   Effect.gen(function* () {
     yield* table.putItem(
-      { pkey: 'user', skey: 'user2' },
+      { pkey: 'user', skey: 'user' },
       {
         name: 'Kishore',
         metadata: {
           college: {
             name: 'IIIT',
-            friends: ['Friend 1', 'Friend 2'],
+            friends: [['Friend 1', 'Friend 2']],
           },
           company: [
             {
@@ -45,36 +45,37 @@ Effect.runPromise(
       },
       {
         returnValues: 'ALL_OLD',
-        condition: {
-          name: 'Kishore',
-        },
+        // condition: {},
       },
     );
     yield* table.updateItem(
       { pkey: 'user', skey: 'user' },
       {
         update: {
-          name: 'Just works!',
+          'metadata.college.friends[0][0]': 'test friend',
         },
       },
     );
     const { Items } = yield* table.query(
       { pk: 'user', sk: { beginsWith: 'user' } },
       {
-        // br
-        projection: ['pkey'],
+        Select: 'ALL_ATTRIBUTES',
+        filter: {
+          'metadata.college.friends[0][0]': 'test friend',
+        },
+        // projection: ['pkey'],
       },
     );
 
     console.dir(
       {
-        Items, //br
-        Item: (yield* table.getItem(
-          { pkey: 'user', skey: 'user' },
-          {
-            projection: ['name', 'pkey'],
-          },
-        )).Item,
+        Items,
+        // Item: (yield* table.getItem(
+        //   { pkey: 'user', skey: 'user' },
+        //   {
+        //     projection: ['name', 'pkey'],
+        //   },
+        // )).Item,
       },
       { depth: 10 },
     );

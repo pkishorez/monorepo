@@ -25,11 +25,8 @@ export class AttributeMapBuilder {
   }
 
   setAttr(key: string, value: unknown) {
-    this.#i++;
-    const attrKey = `#${this.#prefix}attr_${this.#i}`;
-    const attrValue = `:${this.#prefix}value_${this.#i}`;
-    this.#attrNameMap[attrKey] = key;
-    this.#attrValueMap[attrValue] = value;
+    const attrKey = this.setAttrName(key);
+    const attrValue = this.setAttrValue(value);
 
     return {
       attrKey,
@@ -38,6 +35,19 @@ export class AttributeMapBuilder {
   }
 
   setAttrName(key: string) {
+    const attrKeys = key.split('.').map((v) => {
+      const [value, brackets = ''] = v.split(/(\[.*)/, 2);
+      const result = this.#setAttrNameHelper(value);
+
+      console.warn('RESULT: ', { result, brackets, value });
+
+      return result + brackets;
+    });
+
+    return attrKeys.join('.');
+  }
+
+  #setAttrNameHelper(key: string) {
     this.#i++;
     const attrKey = `#${this.#prefix}attr_${this.#i}`;
     this.#attrNameMap[attrKey] = key;
