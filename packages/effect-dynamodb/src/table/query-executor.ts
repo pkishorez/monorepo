@@ -44,7 +44,7 @@ export class DynamoQueryExecutor<TItem> {
   ) {}
 
   executeQuery<TIndex extends IndexDefinition>(
-    key: KeyConditionExprParameters<TIndex>,
+    key: KeyConditionExprParameters,
     index: TIndex,
     {
       projection,

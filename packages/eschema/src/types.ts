@@ -163,5 +163,12 @@ export type EvolutionsToObject<T extends readonly Evolution<any, any>[]> = {
     : never]: K extends Evolution<any, infer S> ? S : never;
 };
 
-export type ESchemaType<ESch extends ESchema<any, any>> =
+export type ExtractESchemaSchema<ESch extends ESchema<any, any>> =
   ESch extends ESchema<infer Latest, any> ? Latest : never;
+
+export type ExtractESchemaType<ESch extends ESchema<any, any>> =
+  ESch extends ESchema<infer Latest, any>
+    ? Latest extends Schema.Schema<infer Type>
+      ? Type
+      : never
+    : never;

@@ -38,6 +38,16 @@ export class ESchema<
   get schema(): LatestSch {
     return this.#evolutions[this.#evolutions.length - 1].evolution;
   }
+  get schemaWithVersion(): Schema.Schema<
+    Schema.Schema.Type<LatestSch> & { __v: string }
+  > {
+    return Schema.extend(
+      this.#evolutions[this.#evolutions.length - 1].evolution,
+      Schema.Struct({
+        __v: Schema.Literal(this.#latest().version),
+      }),
+    ) as any;
+  }
 
   make: (
     data: Schema.Schema.Type<LatestSch>,

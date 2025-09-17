@@ -332,7 +332,7 @@ export class DynamoTable<
   }
 
   query(
-    key: KeyConditionExprParameters<TPrimary>,
+    key: KeyConditionExprParameters,
     options?: QueryOptions<TPrimary, TItem>,
   ) {
     return this.#queryExecutor.executeQuery(key, this.primary, options).pipe(
@@ -370,7 +370,7 @@ export class DynamoTable<
   index<TName extends keyof TSecondaryIndexes>(indexName: TName) {
     return {
       query: (
-        key: KeyConditionExprParameters<TSecondaryIndexes[TName]>,
+        key: KeyConditionExprParameters,
         options?: QueryOptions<TSecondaryIndexes[TName], TItem>,
       ) => {
         return this.#queryExecutor

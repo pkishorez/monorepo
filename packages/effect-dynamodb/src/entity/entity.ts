@@ -1,100 +1,136 @@
-import type { ESchema } from '@monorepo/eschema';
+import type { ESchema, ExtractESchemaType } from '@monorepo/eschema';
 import type { Schema } from 'effect';
-import type { Simplify } from 'type-fest';
-import type { DynamoTable } from '../table/table.js';
-import type { CompoundIndexDefinition } from '../table/types.js';
+import type { QueryOptions } from '../table/query-executor.js';
+import type { DynamoTable, PutOptions } from '../table/table.js';
+import type {
+  CompoundIndexDefinition,
+  IndexDefinition,
+} from '../table/types.js';
 import type {
   EntityIndexDefinition,
+  ExtractIndexDefType,
   FirstLevelPrimitives,
   IndexDef,
+  ObjFromKeysArr,
 } from './types.js';
+import { Effect } from 'effect';
+import { deriveIndex } from './util.js';
 
 export class DynamoEntity<
   TSchema extends ESchema<any, any>,
-  TTable extends DynamoTable<any, any, any>,
+  TTable extends DynamoTable<
+    IndexDefinition,
+    Record<string, IndexDefinition>,
+    ExtractESchemaType<TSchema>
+  >,
+  TPrimary extends EntityIndexDefinition<any, any, any, any>,
 > {
   eschema: TSchema;
   table: TTable;
+  primary: TPrimary;
 
-  constructor({ eschema, table }: { eschema: TSchema; table: TTable }) {
+  constructor({
+    eschema,
+    table,
+    primary,
+  }: {
+    eschema: TSchema;
+    table: TTable;
+    primary: TPrimary;
+  }) {
     this.eschema = eschema;
     this.table = table;
+    this.primary = primary;
   }
 
-  query() {}
+  put(
+    item: ExtractESchemaType<TSchema>,
+    options?: PutOptions<ExtractESchemaType<TSchema>>,
+  ) {
+    const pk = deriveIndex(this.primary.pk, item);
+    const sk = deriveIndex(this.primary.sk, item);
+
+    return this.eschema.makeEffect(item).pipe(
+      Effect.andThen(() =>
+        this.table.putItem(
+          {
+            [this.table.primary.pk]: pk,
+            [this.table.primary.sk]: sk,
+          },
+          item,
+          options,
+        ),
+      ),
+    );
+  }
+
+  query(
+    pk: ExtractIndexDefType<TPrimary['pk']>,
+    options?: QueryOptions<TTable['primary'], ExtractESchemaType<TSchema>>,
+  ) {
+    const pkValue = deriveIndex(this.primary.pk, pk);
+    const eschema = this.eschema;
+
+    return {
+      exec: () => {
+        return this.table.query({ pk: pkValue }, options).pipe(
+          Effect.andThen(({ Items, ...others }) =>
+            Effect.gen(function* () {
+              return {
+                Items: yield* Effect.all(
+                  Items.map((item) => eschema.parse(item)),
+                ),
+                ...others,
+              };
+            }),
+          ),
+        );
+      },
+    };
+  }
 
   static make<
     TESchema extends ESchema<any, any>,
     TTable extends DynamoTable<CompoundIndexDefinition, any, any>,
-  >(_eschema: TESchema, _table: TTable) {
+  >({ eschema, table }: { eschema: TESchema; table: TTable }) {
     type TItem = Schema.Schema.Type<TESchema['schema']>;
-    type Indexes =
-      TTable extends DynamoTable<
-        infer PrimaryIndex,
-        infer SecondaryIndexes,
-        any
-      >
-        ? [PrimaryIndex, SecondaryIndexes]
-        : never;
-    type SecondaryIndexes = Indexes[1];
 
     return {
-      pk<PkKeys extends (keyof FirstLevelPrimitives<TItem>)[]>(
-        pk: IndexDef<TItem, PkKeys>,
-      ) {
-        return {
-          sk<SkKeys extends (keyof FirstLevelPrimitives<TItem>)[]>(
-            sk: IndexDef<TItem, SkKeys>,
-          ) {
-            const primary: EntityIndexDefinition<TItem, PkKeys, SkKeys> = {
+      primary<
+        PkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
+        SkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
+      >({
+        pk,
+        sk,
+      }: {
+        pk: IndexDef<TItem, PkKeys>;
+        sk: IndexDef<TItem, SkKeys>;
+      }) {
+        const recurse = <
+          PrimaryPrefixDef extends Record<string, IndexDef<any, any>>,
+        >(
+          primaryPrefixDef: PrimaryPrefixDef,
+        ) => ({
+          prefix<
+            Name extends string,
+            PrefixKeys extends keyof ObjFromKeysArr<TItem, SkKeys[]>,
+          >(name: Name, def: IndexDef<TItem, PrefixKeys>) {
+            return recurse({
+              ...primaryPrefixDef,
+              [name]: def,
+            } as PrimaryPrefixDef & Record<Name, typeof def>);
+          },
+          build() {
+            const primary = {
               pk,
               sk,
-            };
+            } as EntityIndexDefinition<TItem, PkKeys, SkKeys, PrimaryPrefixDef>;
 
-            const buildIndex = <Value, Index extends keyof SecondaryIndexes>(
-              value: Value,
-              indexName: Index,
-            ) => {
-              return {
-                pk<PkKeys extends (keyof FirstLevelPrimitives<TItem>)[]>(
-                  pk: IndexDef<TItem, PkKeys>,
-                ) {
-                  return {
-                    sk<SkKeys extends (keyof FirstLevelPrimitives<TItem>)[]>(
-                      sk: IndexDef<TItem, SkKeys>,
-                    ) {
-                      const secondary = {
-                        ...value,
-                        [indexName]: { pk, sk },
-                      } as Value &
-                        Record<
-                          Index,
-                          EntityIndexDefinition<TItem, PkKeys, SkKeys>
-                        >;
-                      return {
-                        index(index: Index) {
-                          return buildIndex(secondary, index);
-                        },
-                        build() {
-                          return {
-                            primary,
-                            secondary: secondary as Simplify<typeof secondary>,
-                          };
-                        },
-                      };
-                    },
-                  };
-                },
-              };
-            };
-
-            return {
-              index<Index extends keyof SecondaryIndexes>(index: Index) {
-                return buildIndex({} as const, index);
-              },
-            };
+            return new DynamoEntity({ eschema, table, primary });
           },
-        };
+        });
+
+        return recurse({} as const);
       },
     } as const;
   }
