@@ -4,9 +4,9 @@ import type { KeyConditionExprParameters } from './types.js';
 import { AttributeMapBuilder } from '../utils.js';
 
 // Main update expression builder
-export function keyConditionExpr<TIndex extends IndexDefinition>(
+export function keyConditionExpr(
   index: IndexDefinition,
-  { pk, sk }: KeyConditionExprParameters<TIndex>,
+  { pk, sk }: KeyConditionExprParameters,
 ): ExprResult {
   const attrBuilder = new AttributeMapBuilder('keycond_');
 

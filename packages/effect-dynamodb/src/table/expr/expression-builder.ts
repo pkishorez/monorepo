@@ -17,7 +17,7 @@ export interface ExpressionInput<
   Index extends IndexDefinition = IndexDefinition,
 > {
   keyCondition?:
-    | { index: Index; params: KeyConditionExprParameters<Index> }
+    | { index: Index; params: KeyConditionExprParameters }
     | undefined;
   condition?: ConditionExprParameters<TItem> | undefined;
   update?: UpdateExprParameters<TItem> | undefined;

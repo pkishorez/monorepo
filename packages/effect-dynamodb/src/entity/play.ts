@@ -59,8 +59,10 @@ const gen = Effect.gen(function* () {
   // Query to verify the insertions
   console.log('\n--- Querying all inserted users ---');
   const result = yield* userEntity
-    .query({}, { ScanIndexForward: false })
-    .exec();
+    .query({})
+    .byStatus //br
+    .prefix({ status: 'ACTIVE' });
+
   console.dir(result, { depth: 10 });
 });
 
