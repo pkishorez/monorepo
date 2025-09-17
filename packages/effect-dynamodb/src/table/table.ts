@@ -8,7 +8,7 @@ import type {
   ReturnValue,
   UpdateItemInput,
 } from 'dynamodb-client';
-import type { ExtractStrict } from 'type-fest';
+import type { Except, ExtractStrict } from 'type-fest';
 import type {
   ConditionExprParameters,
   KeyConditionExprParameters,
@@ -31,14 +31,14 @@ import { buildExpression } from './expr/index.js';
 import { DynamoQueryExecutor } from './query-executor.js';
 import { marshall, unmarshall } from './utils.js';
 
-export type PutOptions<TItem> = Omit<
+export type PutOptions<TItem> = Except<
   PutItemInput,
-  'TableName' | 'Item' | 'ConditionExpression' | 'Key' | 'ReturnValues'
+  'TableName' | 'Item' | 'ConditionExpression' | 'ReturnValues'
 > & {
   condition?: ConditionExprParameters<TItem>;
   returnValues?: ExtractStrict<ReturnValue, 'ALL_OLD' | 'NONE'>;
 };
-export type UpdateOptions<TItem = Record<string, unknown>> = Omit<
+export type UpdateOptions<TItem = Record<string, unknown>> = Except<
   UpdateItemInput,
   | 'TableName'
   | 'Key'
@@ -46,12 +46,13 @@ export type UpdateOptions<TItem = Record<string, unknown>> = Omit<
   | 'UpdateExpression'
   | 'ExpressionAttributeNames'
   | 'ExpressionAttributeValues'
+  | 'AttributeUpdates'
 > & {
   condition?: ConditionExprParameters<TItem>;
   update: UpdateExprParameters<TItem>;
 };
 
-export type DeleteOptions<TItem> = Omit<
+export type DeleteOptions<TItem> = Except<
   DeleteItemInput,
   'TableName' | 'Key' | 'ConditionExpression'
 > & {
@@ -120,7 +121,7 @@ export class DynamoTable<
     {
       projection,
       ...options
-    }: Omit<GetItemInput, 'Key' | 'TableName' | 'ProjectionExpression'> & {
+    }: Except<GetItemInput, 'Key' | 'TableName' | 'ProjectionExpression'> & {
       projection?: Projection;
     } = {},
   ) {
@@ -151,7 +152,7 @@ export class DynamoTable<
       projection,
       consistentRead = false,
       ...options
-    }: Omit<BatchGetItemInput, 'RequestItems'> & {
+    }: Except<BatchGetItemInput, 'RequestItems'> & {
       projection?: Projection;
       consistentRead?: boolean;
     } = {},
@@ -189,7 +190,7 @@ export class DynamoTable<
       }[];
       delete?: RealKeyFromIndex<TPrimary>[];
     },
-    options: Omit<BatchWriteItemInput, 'RequestItems'>,
+    options: Except<BatchWriteItemInput, 'RequestItems'>,
   ) {
     return this.#client
       .batchWriteItem({

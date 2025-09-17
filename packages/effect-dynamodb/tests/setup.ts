@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 import type { CreateTableInput } from 'dynamodb-client';
+import type { Except } from 'type-fest';
 import process from 'node:process';
 import { config } from 'dotenv';
 import {
@@ -14,7 +15,7 @@ import { DynamoTable } from '../src/table/index.js';
 config();
 
 // Table schema configuration
-const TABLE_SCHEMA: Omit<CreateTableInput, 'TableName'> = {
+const TABLE_SCHEMA: Except<CreateTableInput, 'TableName'> = {
   KeySchema: [
     { AttributeName: 'pkey', KeyType: 'HASH' },
     { AttributeName: 'skey', KeyType: 'RANGE' },

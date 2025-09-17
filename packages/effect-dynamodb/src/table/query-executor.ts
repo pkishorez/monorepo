@@ -1,4 +1,5 @@
 import type { DynamoDB, QueryInput, ScanInput } from 'dynamodb-client';
+import type { Except } from 'type-fest';
 import type {
   ConditionExprParameters,
   KeyConditionExprParameters,
@@ -8,10 +9,9 @@ import type { IndexDefinition, RealKeyFromIndex } from './types.js';
 import { buildExpression } from './expr/index.js';
 import { marshall } from './utils.js';
 
-export type QueryOptions<Index extends IndexDefinition, Item> = Omit<
+export type QueryOptions<Index extends IndexDefinition, Item> = Except<
   QueryInput,
   | 'TableName'
-  | 'Key'
   | 'IndexName'
   | 'ExpressionAttributeNames'
   | 'ExpressionAttributeValues'
@@ -23,7 +23,7 @@ export type QueryOptions<Index extends IndexDefinition, Item> = Omit<
   exclusiveStartKey?: RealKeyFromIndex<Index> | undefined;
 };
 
-export type ScanOptions<Index extends IndexDefinition, TItem> = Omit<
+export type ScanOptions<Index extends IndexDefinition, TItem> = Except<
   ScanInput,
   | 'TableName'
   | 'IndexName'
