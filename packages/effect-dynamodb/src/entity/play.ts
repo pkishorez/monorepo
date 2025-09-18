@@ -21,11 +21,7 @@ const eschema = ESchema.make(
     name: Schema.String,
     age: Schema.Number.pipe(Schema.between(18, 25)),
     email: Schema.String,
-    createdAt: Schema.String,
     status: Schema.Literal('ACTIVE', 'INACTIVE', 'DELETED'),
-    metadata: Schema.Struct({
-      nested: Schema.String,
-    }),
   }),
 ).build();
 
@@ -65,25 +61,42 @@ export const userEntity = DynamoEntity.make({ eschema, table })
 
 const gen = Effect.gen(function* () {
   // Create 5 user items with all required fields
+  console.warn('PURGED: ', yield* userEntity.purge('i know what i am doing'));
+
   const userArbitrary = Arbitrary.make(eschema.schemaWithVersion);
-  const users = FastCheck.sample(userArbitrary, 10);
-  userEntity.index('GSI1').query({});
 
   // Put all users into DynamoDB
   console.warn('INSERTING USER>>>');
-  for (const user of users) {
-    console.dir(user, { depth: 10 });
-    yield* userEntity.put(user);
-  }
+  yield* userEntity.put(
+    eschema.make({
+      userId: 'kishorez',
+      email: 'kishore.iiitn@gmail.com',
+      status: 'ACTIVE',
+      age: 18,
+      name: 'KIshore',
+    }),
+  );
+  yield* userEntity.update(
+    {},
+    eschema.make({
+      userId: 'kishorez',
+      email: 'kishore.iiitn@gmail.com',
+      status: 'ACTIVE',
+      age: 18,
+      name: 'KIshore',
+    }),
+  );
 
   // Query to verify the insertions
-  console.log('\n--- Querying all inserted users ---');
-  const result = yield* userEntity
-    .index('GSI1')
-    .query({})
-    .byTest.prefix({ status: 'ACTIVE' });
+
+  // With typo: byTet instead of byTest - TypeScript will catch this!
+  // const result = yield* userEntity.index('GSI1').query({}).byTet.prefix({ status: 'ACTIVE' });
+  //                                                            ^^^^ Property 'byTet' does not exist
+
+  // Correct usage:
+  const result = yield* userEntity.query({}).exec();
 
   console.dir(result, { depth: 10 });
 });
 
-void Effect.runPromise(gen);
+Effect.runPromise(gen).catch(console.error);

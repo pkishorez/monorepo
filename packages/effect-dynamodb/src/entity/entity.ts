@@ -2,13 +2,14 @@ import type { ESchema, ExtractESchemaType } from '@monorepo/eschema';
 import type { Schema } from 'effect';
 import type { KeyConditionExprParameters } from '../table/expr/index.js';
 import type { QueryOptions } from '../table/query-executor.js';
-import type { DynamoTable, PutOptions } from '../table/table.js';
+import type { DynamoTable, PutOptions, UpdateOptions } from '../table/table.js';
 import type {
   CompoundIndexDefinition,
   IndexDefinition,
 } from '../table/types.js';
 import type {
   EntityIndexDefinition,
+  ExtractEntityIndexDefType,
   ExtractIndexDefType,
   FirstLevelPrimitives,
   IndexDef,
@@ -56,6 +57,65 @@ export class DynamoEntity<
     this.table = table;
     this.primary = primary;
     this.secondary = secondary;
+  }
+
+  #attemptIndexUpdate(item: Partial<ExtractESchemaType<TSchema>>) {}
+
+  #getRealKeyFromItem(key: ExtractEntityIndexDefType<TPrimary>) {
+    const pk = deriveIndex(this.primary.pk, key);
+    const sk = deriveIndex(this.primary.sk, key);
+
+    return {
+      [this.table.primary.pk]: pk,
+      [this.table.primary.sk]: sk,
+    };
+  }
+
+  update(
+    key: ExtractEntityIndexDefType<TPrimary>,
+    update: Partial<ExtractESchemaType<TSchema>>,
+    options?: UpdateOptions<ExtractESchemaType<TSchema>>,
+  ) {
+    return this.eschema.makePartialEffect(update).pipe(
+      Effect.andThen((v) =>
+        this.table.updateItem(this.#getRealKeyFromItem(key), {
+          ...options,
+          update: v,
+        }),
+      ),
+    );
+  }
+
+  purge(confirm: 'i know what i am doing') {
+    if (confirm !== 'i know what i am doing') {
+      return Effect.void;
+    }
+
+    const th = this;
+    return Effect.gen(function* () {
+      let lastEvaluated: Record<string, string> | undefined = undefined;
+      let count = 0;
+
+      while (true) {
+        const { Items, LastEvaluatedKey } = yield* th.table.scan({
+          exclusiveStartKey: lastEvaluated,
+        });
+        count += Items.length;
+        lastEvaluated = LastEvaluatedKey as any;
+
+        yield* Effect.all(
+          Items.map((item) =>
+            th.table.deleteItem(th.#getRealKeyFromItem(item)),
+          ),
+          { concurrency: 'unbounded' },
+        );
+
+        if (!lastEvaluated) {
+          break;
+        }
+      }
+      return count;
+    });
   }
 
   put(

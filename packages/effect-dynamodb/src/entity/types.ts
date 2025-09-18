@@ -1,4 +1,4 @@
-import type { Primitive } from 'type-fest';
+import type { Primitive, Simplify } from 'type-fest';
 
 export type FirstLevelPrimitives<T> = {
   [K in keyof T as T[K] extends Primitive ? K : never]: T[K];
@@ -34,3 +34,17 @@ export type ExtractIndexDefType<Def extends IndexDef<any, any>> =
   Def extends IndexDef<infer Item, infer Keys>
     ? ObjFromKeysArr<Item, Keys>
     : never;
+
+export type ExtractEntityIndexDefType<
+  Def extends EntityIndexDefinition<any, any, any>,
+> = ExtractIndexDefType<Def['pk']> & ExtractIndexDefType<Def['sk']>;
+
+type Test = Simplify<
+  ExtractIndexDefType<
+    EntityIndexDefinition<
+      { userId: string; status: 'ACTIVE' | 'INACTIVE' },
+      ['userId'],
+      ['status']
+    >['pk']
+  >
+>;

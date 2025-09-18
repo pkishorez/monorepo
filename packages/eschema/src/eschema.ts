@@ -56,12 +56,7 @@ export class ESchema<
   >(
     data: D,
   ): D & { __v: string } => {
-    const val = Schema.decodeUnknownSync(this.schema)(data);
-
-    return {
-      ...(val as any),
-      __v: this.#latest().version,
-    };
+    return Effect.runSync(this.makeEffect(data));
   };
 
   makeEffect(data: Schema.Schema.Type<LatestSch>) {
@@ -73,26 +68,31 @@ export class ESchema<
     );
   }
 
-  makePartial: (
-    data: Partial<Schema.Schema.Type<LatestSch>>,
-  ) => Partial<Schema.Schema.Type<LatestSch>> & { __v: string } = <
-    D extends Partial<Schema.Schema.Type<LatestSch>>,
-  >(
-    data: D,
-  ): D & { __v: string } => {
-    const val = Schema.decodeUnknownSync(Schema.partial(this.schema))(data);
+  makePartial = <D extends Partial<Schema.Schema.Type<LatestSch>>>(data: D) => {
+    return Effect.runSync(this.makePartialEffect(data));
+  };
 
-    return {
-      ...(val as any),
-      __v: this.#latest().version,
-    };
+  makePartialEffect = <D extends Partial<Schema.Schema.Type<LatestSch>>>(
+    data: D,
+  ) => {
+    return Schema.decodeUnknown(Schema.partial(this.schema))(data).pipe(
+      Effect.map(
+        (v) =>
+          ({
+            ...v,
+            __v: this.#latest().version,
+          }) as Partial<D> & { __v: string },
+      ),
+    );
   };
 
   parse: (data: unknown) => Effect.Effect<
     {
       value: Schema.Schema.Type<LatestSch>;
-      oldVersion: string;
-      newVersion: string;
+      meta: {
+        oldVersion: string;
+        newVersion: string;
+      };
     },
     ESchemaParseError
   > = (data: unknown) => {
@@ -147,9 +147,11 @@ export class ESchema<
       }
 
       return {
-        oldVersion: evolution.version,
-        newVersion: th.#latest().version,
         value: currentValue as Schema.Schema.Type<LatestSch>,
+        meta: {
+          oldVersion: evolution.version,
+          newVersion: th.#latest().version,
+        },
       };
     });
   };

@@ -34,7 +34,7 @@ export type ScanOptions<Index extends IndexDefinition, TItem> = Except<
 > & {
   filter?: ConditionExprParameters<TItem>;
   projection?: ProjectionKeys<TItem, Index>;
-  exclusiveStartKey?: RealKeyFromIndex<Index>;
+  exclusiveStartKey?: RealKeyFromIndex<Index> | undefined;
 };
 
 export class DynamoQueryExecutor<TItem> {
