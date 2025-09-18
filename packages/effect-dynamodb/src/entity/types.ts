@@ -14,11 +14,11 @@ export interface EntityIndexDefinition<
   PkKeys extends any[],
   SkKeys extends any[],
   // eslint-disable-next-line ts/no-empty-object-type
-  Prefixes extends Record<string, ObjIndexDef<any, any>> = {},
+  AccessPatterns extends Record<string, ObjIndexDef<any, any>> = {},
 > {
   pk: IndexDef<TItem, PkKeys>;
   sk: IndexDef<TItem, SkKeys>;
-  prefixes?: Prefixes;
+  accessPatterns?: AccessPatterns;
 }
 
 export interface ObjIndexDef<TItem, TKeys extends Readonly<any[]>> {
@@ -34,7 +34,3 @@ export type ExtractIndexDefType<Def extends IndexDef<any, any>> =
   Def extends IndexDef<infer Item, infer Keys>
     ? ObjFromKeysArr<Item, Keys>
     : never;
-
-export type ExtractEntityIndexDefType<
-  Def extends EntityIndexDefinition<any, any, any>,
-> = ExtractIndexDefType<Def['pk']> & ExtractIndexDefType<Def['sk']>;

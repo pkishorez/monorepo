@@ -31,23 +31,31 @@ export class DynamoEntity<
     any,
     Record<string, ObjIndexDef<any, any>>
   >,
+  TSecondary extends Record<
+    keyof TTable['secondaryIndexes'],
+    EntityIndexDefinition<any, any, any, Record<string, ObjIndexDef<any, any>>>
+  >,
 > {
   eschema: TSchema;
   table: TTable;
   primary: TPrimary;
+  secondary: TSecondary;
 
   constructor({
     eschema,
     table,
     primary,
+    secondary,
   }: {
     eschema: TSchema;
     table: TTable;
     primary: TPrimary;
+    secondary: TSecondary;
   }) {
     this.eschema = eschema;
     this.table = table;
     this.primary = primary;
+    this.secondary = secondary;
   }
 
   put(
@@ -70,16 +78,210 @@ export class DynamoEntity<
       ),
     );
   }
+  index<IndexName extends keyof TSecondary>(indexName: IndexName) {
+    return {
+      query: (
+        pk: ExtractIndexDefType<TSecondary[IndexName]['pk']>,
+        options: QueryOptions<
+          IndexName extends keyof TTable['secondaryIndexes']
+            ? TTable['secondaryIndexes'][IndexName]
+            : never,
+          ExtractESchemaType<TSchema>
+        > = {},
+      ) => {
+        const definition = this.secondary[indexName] as TSecondary[IndexName];
+        if (!definition) {
+          throw new Error('do not work');
+        }
+        return query(
+          {
+            table: this.table,
+            eschema: this.eschema,
+            definition,
+            pk,
+            index: indexName as string,
+          },
+          options,
+        );
+      },
+    };
+  }
 
   query(
     pk: ExtractIndexDefType<TPrimary['pk']>,
     options: QueryOptions<TTable['primary'], ExtractESchemaType<TSchema>> = {},
   ) {
-    const pkValue = deriveIndex(this.primary.pk, pk);
-    const eschema = this.eschema;
+    return query(
+      {
+        table: this.table,
+        eschema: this.eschema,
+        definition: this.primary,
+        pk,
+      },
+      options,
+    );
+  }
 
-    const exec = (sk?: KeyConditionExprParameters['sk']) => {
-      return this.table.query({ pk: pkValue, sk }, options).pipe(
+  static make<
+    TESchema extends ESchema<any, any>,
+    TTable extends DynamoTable<CompoundIndexDefinition, any, any>,
+  >({ eschema, table }: { eschema: TESchema; table: TTable }) {
+    type TItem = Schema.Schema.Type<TESchema['schema']>;
+
+    return {
+      primary<
+        PkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
+        SkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
+        AccessPatterns extends Record<string, ObjIndexDef<TItem, SkKeys>>,
+      >({
+        pk,
+        sk,
+        accessPatterns,
+      }: {
+        pk: IndexDef<TItem, PkKeys>;
+        sk: IndexDef<TItem, SkKeys>;
+        accessPatterns?: (
+          fn: <Keys extends SkKeys>(
+            v: ObjIndexDef<TItem, Keys>,
+          ) => ObjIndexDef<TItem, Keys>,
+        ) => AccessPatterns;
+      }) {
+        return new SecondaryIndexCreator(
+          eschema,
+          table,
+          {
+            pk,
+            sk,
+            accessPatterns:
+              accessPatterns?.((v) => v) ?? ({} as AccessPatterns),
+          },
+          {},
+        );
+      },
+    } as const;
+  }
+}
+
+class SecondaryIndexCreator<
+  TSchema extends ESchema<any, any>,
+  TTable extends DynamoTable<
+    IndexDefinition,
+    Record<string, IndexDefinition>,
+    ExtractESchemaType<TSchema>
+  >,
+  TPrimary extends EntityIndexDefinition<
+    any,
+    any,
+    any,
+    Record<string, ObjIndexDef<any, any>>
+  >,
+  TSecondary extends Record<
+    keyof TTable['secondaryIndexes'],
+    EntityIndexDefinition<any, any, any, Record<string, ObjIndexDef<any, any>>>
+  >,
+> {
+  #eschema: TSchema;
+  #table: TTable;
+  #primary: TPrimary;
+  #secondary: TSecondary;
+  constructor(
+    eschema: TSchema,
+    table: TTable,
+    primary: TPrimary,
+    secondary: TSecondary,
+  ) {
+    this.#eschema = eschema;
+    this.#table = table;
+    this.#primary = primary;
+    this.#secondary = secondary;
+  }
+
+  index<
+    Name extends keyof TTable['secondaryIndexes'],
+    PkKeys extends (keyof FirstLevelPrimitives<
+      Schema.Schema.Type<TSchema['schema']>
+    >)[],
+    SkKeys extends (keyof FirstLevelPrimitives<
+      Schema.Schema.Type<TSchema['schema']>
+    >)[],
+    AccessPatterns extends Record<
+      string,
+      ObjIndexDef<Schema.Schema.Type<TSchema['schema']>, SkKeys>
+    >,
+  >(
+    name: Name,
+    {
+      pk,
+      sk,
+      accessPatterns,
+    }: {
+      pk: IndexDef<Schema.Schema.Type<TSchema['schema']>, PkKeys>;
+      sk: IndexDef<Schema.Schema.Type<TSchema['schema']>, SkKeys>;
+      accessPatterns?: (
+        fn: <Keys extends SkKeys>(
+          v: ObjIndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
+        ) => ObjIndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
+      ) => AccessPatterns;
+    },
+  ) {
+    const indexDef = {
+      pk,
+      sk,
+      accessPatterns: accessPatterns?.((v) => v) ?? ({} as AccessPatterns),
+    } as EntityIndexDefinition<any, PkKeys, SkKeys, AccessPatterns>;
+    return new SecondaryIndexCreator(
+      this.#eschema,
+      this.#table,
+      this.#primary,
+      {
+        ...this.#secondary,
+        [name]: indexDef,
+      } as TSecondary & Record<Name, typeof indexDef>,
+    );
+  }
+
+  build() {
+    return new DynamoEntity({
+      eschema: this.#eschema,
+      table: this.#table,
+      primary: this.#primary,
+      secondary: this.#secondary,
+    });
+  }
+}
+
+function query<
+  TTable extends DynamoTable<any, any, any>,
+  TSchema extends ESchema<any, any>,
+  Definition extends EntityIndexDefinition<
+    any,
+    any,
+    any,
+    Record<string, ObjIndexDef<any, any>>
+  >,
+  Options extends QueryOptions<any, any>,
+>(
+  {
+    table,
+    eschema,
+    definition,
+    pk,
+    index,
+  }: {
+    table: TTable;
+    eschema: TSchema;
+    definition: Definition;
+    pk: ExtractIndexDefType<Definition['pk']>;
+    index?: string;
+  },
+  options?: Options,
+) {
+  const pkValue = deriveIndex(definition.pk, pk);
+
+  const exec = (sk?: KeyConditionExprParameters['sk']) => {
+    return (index ? table.index(index) : table)
+      .query({ pk: pkValue, sk }, options)
+      .pipe(
         Effect.andThen(({ Items, ...others }) =>
           Effect.gen(function* () {
             const results = (yield* Effect.all(
@@ -96,99 +298,56 @@ export class DynamoEntity<
           }),
         ),
       );
-    };
+  };
 
-    type PrefixesType =
-      TPrimary extends EntityIndexDefinition<any, any, any, infer Prefixes>
-        ? Prefixes
-        : never;
-    const prefixOperations = Object.fromEntries(
-      Object.entries(this.primary.prefixes ?? {}).map(([key, value]) => {
-        return [
-          key,
-          {
-            between: (val1: any, val2: any) => {
-              return exec({
-                between: [value.derive(val1), value.derive(val2)],
-              });
-            },
-            prefix: (val: any) => {
-              return exec({ beginsWith: value.derive(val) });
-            },
+  type AccessPatternTypes =
+    Definition extends EntityIndexDefinition<
+      any,
+      any,
+      any,
+      infer AccessPatterns
+    >
+      ? AccessPatterns
+      : never;
+  const accessPatternOperations = Object.fromEntries(
+    Object.entries(definition.accessPatterns ?? {}).map(([key, value]) => {
+      return [
+        key,
+        {
+          between: (val1: any, val2: any) => {
+            return exec({
+              between: [value.derive(val1), value.derive(val2)],
+            });
           },
-        ];
-      }),
-    ) as {
-      [K in keyof PrefixesType]: {
-        prefix: (
-          val: ObjFromKeysArr<
-            ExtractESchemaType<TSchema>,
-            PrefixesType[K]['deps']
-          >,
-        ) => ReturnType<typeof exec>;
-        between: (
-          val1: ObjFromKeysArr<
-            ExtractESchemaType<TSchema>,
-            PrefixesType[K]['deps']
-          >,
-          val2: ObjFromKeysArr<
-            ExtractESchemaType<TSchema>,
-            PrefixesType[K]['deps']
-          >,
-        ) => ReturnType<typeof exec>;
-      };
-    };
-
-    return {
-      ...prefixOperations,
-      exec,
-    };
-  }
-
-  static make<
-    TESchema extends ESchema<any, any>,
-    TTable extends DynamoTable<CompoundIndexDefinition, any, any>,
-  >({ eschema, table }: { eschema: TESchema; table: TTable }) {
-    type TItem = Schema.Schema.Type<TESchema['schema']>;
-
-    return {
-      primary<
-        PkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
-        SkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
-      >({
-        pk,
-        sk,
-      }: {
-        pk: IndexDef<TItem, PkKeys>;
-        sk: IndexDef<TItem, SkKeys>;
-      }) {
-        const recurse = <
-          PrimaryPrefixDef extends Record<string, ObjIndexDef<any, any>>,
-        >(
-          primaryPrefixDef: PrimaryPrefixDef,
-        ) => ({
-          prefix<
-            Name extends `by${string}`,
-            PrefixKeys extends keyof ObjFromKeysArr<TItem, SkKeys[]>,
-          >(name: Name, def: ObjIndexDef<TItem, PrefixKeys>) {
-            return recurse({
-              ...primaryPrefixDef,
-              [name]: def,
-            } as PrimaryPrefixDef & Record<Name, typeof def>);
+          prefix: (val: any) => {
+            return exec({ beginsWith: value.derive(val) });
           },
-          build() {
-            const primary = {
-              pk,
-              sk,
-              prefixes: primaryPrefixDef,
-            } as EntityIndexDefinition<TItem, PkKeys, SkKeys, PrimaryPrefixDef>;
+        },
+      ];
+    }),
+  ) as {
+    [K in keyof AccessPatternTypes]: {
+      prefix: (
+        val: ObjFromKeysArr<
+          ExtractESchemaType<TSchema>,
+          AccessPatternTypes[K]['deps']
+        >,
+      ) => ReturnType<typeof exec>;
+      between: (
+        va1: ObjFromKeysArr<
+          ExtractESchemaType<TSchema>,
+          AccessPatternTypes[K]['deps']
+        >,
+        va2: ObjFromKeysArr<
+          ExtractESchemaType<TSchema>,
+          AccessPatternTypes[K]['deps']
+        >,
+      ) => ReturnType<typeof exec>;
+    };
+  };
 
-            return new DynamoEntity({ eschema, table, primary });
-          },
-        });
-
-        return recurse({} as const);
-      },
-    } as const;
-  }
+  return {
+    ...accessPatternOperations,
+    exec,
+  };
 }

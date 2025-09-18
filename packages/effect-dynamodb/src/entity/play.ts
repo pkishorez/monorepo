@@ -37,10 +37,29 @@ export const userEntity = DynamoEntity.make({ eschema, table })
       deps: ['userId', 'status'],
       derive: ({ userId, status }) => `PROFILE#${status}#${userId}`,
     },
+    accessPatterns: (fn) => ({
+      byStatus: fn({
+        deps: ['status'],
+        derive: ({ status }) => `PROFILE#${status}`,
+      }),
+    }),
   })
-  .prefix('byStatus', {
-    deps: ['status'],
-    derive: ({ status }) => `PROFILE#${status}`,
+  .index('GSI1', {
+    pk: 'test',
+    sk: {
+      deps: ['userId', 'status'],
+      derive: ({ userId, status }) => `USER#${userId}#${status}`,
+    },
+    accessPatterns: (fn) => ({
+      byTest: fn({
+        deps: ['status'],
+        derive: ({ status }) => status,
+      }),
+    }),
+  })
+  .index('GSI2', {
+    pk: 'GSI2',
+    sk: { deps: ['status'], derive: ({ status }) => status },
   })
   .build();
 
@@ -48,6 +67,7 @@ const gen = Effect.gen(function* () {
   // Create 5 user items with all required fields
   const userArbitrary = Arbitrary.make(eschema.schemaWithVersion);
   const users = FastCheck.sample(userArbitrary, 10);
+  userEntity.index('GSI1').query({});
 
   // Put all users into DynamoDB
   console.warn('INSERTING USER>>>');
@@ -59,9 +79,9 @@ const gen = Effect.gen(function* () {
   // Query to verify the insertions
   console.log('\n--- Querying all inserted users ---');
   const result = yield* userEntity
+    .index('GSI1')
     .query({})
-    .byStatus //br
-    .prefix({ status: 'ACTIVE' });
+    .byTest.prefix({ status: 'ACTIVE' });
 
   console.dir(result, { depth: 10 });
 });
