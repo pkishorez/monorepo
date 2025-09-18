@@ -146,17 +146,11 @@ export class DynamoEntity<
           ) => ObjIndexDef<TItem, Keys>,
         ) => AccessPatterns;
       }) {
-        return new SecondaryIndexCreator(
-          eschema,
-          table,
-          {
-            pk,
-            sk,
-            accessPatterns:
-              accessPatterns?.((v) => v) ?? ({} as AccessPatterns),
-          },
-          {},
-        );
+        return new SecondaryIndexCreator(eschema, table, {
+          pk,
+          sk,
+          accessPatterns: accessPatterns?.((v) => v) ?? ({} as AccessPatterns),
+        });
       },
     } as const;
   }
@@ -188,12 +182,12 @@ class SecondaryIndexCreator<
     eschema: TSchema,
     table: TTable,
     primary: TPrimary,
-    secondary: TSecondary,
+    secondary?: TSecondary,
   ) {
     this.#eschema = eschema;
     this.#table = table;
     this.#primary = primary;
-    this.#secondary = secondary;
+    this.#secondary = secondary ?? ({} as TSecondary);
   }
 
   index<
