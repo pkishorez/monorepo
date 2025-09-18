@@ -17,6 +17,8 @@ import type {
 } from './types.js';
 import { Effect } from 'effect';
 import { deriveIndex } from './util.js';
+import { ignoreLeftover } from 'effect/Sink';
+import { Except } from 'type-fest';
 
 export class DynamoEntity<
   TSchema extends ESchema<any, any>,
@@ -77,16 +79,20 @@ export class DynamoEntity<
       // One should not update the primary key itself!
       keyof ExtractEntityIndexDefType<TPrimary>
     >,
-    options?: UpdateOptions<ExtractESchemaType<TSchema>>,
+    options?: Except<UpdateOptions<ExtractESchemaType<TSchema>>, 'update'> & {
+      ignoreVersionMismatch?: boolean;
+    },
   ) {
     return this.eschema.makePartialEffect(update).pipe(
       Effect.andThen((v) =>
         this.table.updateItem(this.#getRealKeyFromItem(key), {
           ...options,
           update: v,
-          condition: {
-            __v: this.eschema.latestVersion,
-          } as any,
+          condition: options?.ignoreVersionMismatch
+            ? undefined
+            : ({
+                __v: this.eschema.latestVersion,
+              } as any),
         }),
       ),
     );
