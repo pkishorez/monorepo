@@ -12,9 +12,8 @@ import type {
   ExtractEntityIndexDefType,
   ExtractIndexDefType,
   FirstLevelPrimitives,
-  IndexDef,
   ObjFromKeysArr,
-  ObjIndexDef,
+  IndexDef,
 } from './types.js';
 import { Effect } from 'effect';
 import { deriveIndex } from './util.js';
@@ -30,11 +29,11 @@ export class DynamoEntity<
     any,
     any,
     any,
-    Record<string, ObjIndexDef<any, any>>
+    Record<string, IndexDef<any, any>>
   >,
   TSecondary extends Record<
     keyof TTable['secondaryIndexes'],
-    EntityIndexDefinition<any, any, any, Record<string, ObjIndexDef<any, any>>>
+    EntityIndexDefinition<any, any, any, Record<string, IndexDef<any, any>>>
   >,
 > {
   eschema: TSchema;
@@ -59,21 +58,25 @@ export class DynamoEntity<
     this.secondary = secondary;
   }
 
-  #attemptIndexUpdate(item: Partial<ExtractESchemaType<TSchema>>) {}
-
   #getRealKeyFromItem(key: ExtractEntityIndexDefType<TPrimary>) {
     const pk = deriveIndex(this.primary.pk, key);
     const sk = deriveIndex(this.primary.sk, key);
 
-    return {
+    const result = {
       [this.table.primary.pk]: pk,
       [this.table.primary.sk]: sk,
     };
+
+    return result;
   }
 
   update(
     key: ExtractEntityIndexDefType<TPrimary>,
-    update: Partial<ExtractESchemaType<TSchema>>,
+    update: Omit<
+      Partial<ExtractESchemaType<TSchema>>,
+      // One should not update the primary key itself!
+      keyof ExtractEntityIndexDefType<TPrimary>
+    >,
     options?: UpdateOptions<ExtractESchemaType<TSchema>>,
   ) {
     return this.eschema.makePartialEffect(update).pipe(
@@ -81,6 +84,9 @@ export class DynamoEntity<
         this.table.updateItem(this.#getRealKeyFromItem(key), {
           ...options,
           update: v,
+          condition: {
+            __v: this.eschema.latestVersion,
+          } as any,
         }),
       ),
     );
@@ -122,21 +128,13 @@ export class DynamoEntity<
     item: ExtractESchemaType<TSchema>,
     options?: PutOptions<ExtractESchemaType<TSchema>>,
   ) {
-    const pk = deriveIndex(this.primary.pk, item);
-    const sk = deriveIndex(this.primary.sk, item);
-
-    return this.eschema.makeEffect(item).pipe(
-      Effect.andThen(() =>
-        this.table.putItem(
-          {
-            [this.table.primary.pk]: pk,
-            [this.table.primary.sk]: sk,
-          },
-          item,
-          options,
+    return this.eschema
+      .makeEffect(item)
+      .pipe(
+        Effect.andThen(() =>
+          this.table.putItem(this.#getRealKeyFromItem(item), item, options),
         ),
-      ),
-    );
+      );
   }
   index<IndexName extends keyof TSecondary>(indexName: IndexName) {
     return {
@@ -169,7 +167,10 @@ export class DynamoEntity<
 
   query(
     pk: ExtractIndexDefType<TPrimary['pk']>,
-    options: QueryOptions<TTable['primary'], ExtractESchemaType<TSchema>> = {},
+    options: EntityQueryOptions<
+      TTable['primary'],
+      ExtractESchemaType<TSchema>
+    > = {},
   ) {
     return query(
       {
@@ -192,7 +193,7 @@ export class DynamoEntity<
       primary<
         PkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
         SkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
-        AccessPatterns extends Record<string, ObjIndexDef<TItem, SkKeys>>,
+        AccessPatterns extends Record<string, IndexDef<TItem, SkKeys>>,
       >({
         pk,
         sk,
@@ -202,8 +203,8 @@ export class DynamoEntity<
         sk: IndexDef<TItem, SkKeys>;
         accessPatterns?: (
           fn: <Keys extends SkKeys>(
-            v: ObjIndexDef<TItem, Keys>,
-          ) => ObjIndexDef<TItem, Keys>,
+            v: IndexDef<TItem, Keys>,
+          ) => IndexDef<TItem, Keys>,
         ) => AccessPatterns;
       }) {
         return new SecondaryIndexCreator(eschema, table, {
@@ -227,11 +228,11 @@ class SecondaryIndexCreator<
     any,
     any,
     any,
-    Record<string, ObjIndexDef<any, any>>
+    Record<string, IndexDef<any, any>>
   >,
   TSecondary extends Record<
     keyof TTable['secondaryIndexes'],
-    EntityIndexDefinition<any, any, any, Record<string, ObjIndexDef<any, any>>>
+    EntityIndexDefinition<any, any, any, Record<string, IndexDef<any, any>>>
   >,
 > {
   #eschema: TSchema;
@@ -260,7 +261,7 @@ class SecondaryIndexCreator<
     >)[],
     AccessPatterns extends Record<
       string,
-      ObjIndexDef<Schema.Schema.Type<TSchema['schema']>, SkKeys>
+      IndexDef<Schema.Schema.Type<TSchema['schema']>, SkKeys>
     >,
   >(
     name: Name,
@@ -273,8 +274,8 @@ class SecondaryIndexCreator<
       sk: IndexDef<Schema.Schema.Type<TSchema['schema']>, SkKeys>;
       accessPatterns?: (
         fn: <Keys extends SkKeys>(
-          v: ObjIndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
-        ) => ObjIndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
+          v: IndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
+        ) => IndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
       ) => AccessPatterns;
     },
   ) {
@@ -304,6 +305,9 @@ class SecondaryIndexCreator<
   }
 }
 
+type EntityQueryOptions<A extends IndexDefinition, B> = QueryOptions<A, B> & {
+  onExcessProperty?: 'ignore' | 'error' | 'preserve';
+};
 function query<
   TTable extends DynamoTable<any, any, any>,
   TSchema extends ESchema<any, any>,
@@ -311,9 +315,9 @@ function query<
     any,
     any,
     any,
-    Record<string, ObjIndexDef<any, any>>
+    Record<string, IndexDef<any, any>>
   >,
-  Options extends QueryOptions<any, any>,
+  Options extends EntityQueryOptions<any, any>,
 >(
   {
     table,
@@ -341,7 +345,9 @@ function query<
             const results = (yield* Effect.all(
               Items.map((item) =>
                 eschema
-                  .parse(item)
+                  .parse(item, {
+                    onExcessProperty: options?.onExcessProperty ?? 'ignore',
+                  })
                   .pipe(Effect.andThen((value) => value.value)),
               ),
             )) as typeof Items;

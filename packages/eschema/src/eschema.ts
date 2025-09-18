@@ -35,6 +35,10 @@ export class ESchema<
   #latest() {
     return this.#evolutions[this.#evolutions.length - 1];
   }
+
+  get latestVersion() {
+    return this.#latest().version;
+  }
   get schema(): LatestSch {
     return this.#evolutions[this.#evolutions.length - 1].evolution;
   }
@@ -86,7 +90,12 @@ export class ESchema<
     );
   };
 
-  parse: (data: unknown) => Effect.Effect<
+  parse: (
+    data: unknown,
+    {
+      onExcessProperty,
+    }?: { onExcessProperty?: 'ignore' | 'preserve' | 'error' },
+  ) => Effect.Effect<
     {
       value: Schema.Schema.Type<LatestSch>;
       meta: {
@@ -95,7 +104,7 @@ export class ESchema<
       };
     },
     ESchemaParseError
-  > = (data: unknown) => {
+  > = (data, { onExcessProperty = 'ignore' } = {}) => {
     const evolutions = this.#evolutions;
     // eslint-disable-next-line ts/no-this-alias
     const th = this;
@@ -120,6 +129,7 @@ export class ESchema<
       const evolution = evolutions[evolutionIndex];
       let currentValue = yield* Schema.decodeUnknown(
         evolution.evolution as Schema.Schema<any, any, never>,
+        { onExcessProperty },
       )(data).pipe(
         Effect.mapError(
           (err) =>

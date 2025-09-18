@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 import { ESchema } from '@monorepo/eschema';
-import { Arbitrary, Effect, FastCheck, Schema } from 'effect';
+import { Array, Effect, Schema } from 'effect';
 import { DynamoTable } from '../table/index.js';
 import { DynamoEntity } from './entity.js';
+import { Simplify } from 'type-fest';
 
 const table = DynamoTable.make('playground', {
   endpoint: 'http://localhost:8090',
@@ -22,13 +23,21 @@ const eschema = ESchema.make(
     age: Schema.Number.pipe(Schema.between(18, 25)),
     email: Schema.String,
     status: Schema.Literal('ACTIVE', 'INACTIVE', 'DELETED'),
+    nested: Schema.Struct({
+      a: Schema.Struct({
+        b: Schema.String,
+      }),
+    }),
   }),
 ).build();
 
 // Create entity using the fluent builder API with full type safety
 export const userEntity = DynamoEntity.make({ eschema, table })
   .primary({
-    pk: 'USER',
+    pk: {
+      deps: [],
+      derive: () => 'USER',
+    },
     sk: {
       deps: ['userId', 'status'],
       derive: ({ userId, status }) => `PROFILE#${status}#${userId}`,
@@ -41,7 +50,10 @@ export const userEntity = DynamoEntity.make({ eschema, table })
     }),
   })
   .index('GSI1', {
-    pk: 'test',
+    pk: {
+      deps: [],
+      derive: () => 'USER',
+    },
     sk: {
       deps: ['userId', 'status'],
       derive: ({ userId, status }) => `USER#${userId}#${status}`,
@@ -53,50 +65,55 @@ export const userEntity = DynamoEntity.make({ eschema, table })
       }),
     }),
   })
-  .index('GSI2', {
-    pk: 'GSI2',
-    sk: { deps: ['status'], derive: ({ status }) => status },
-  })
   .build();
+type T = Simplify<typeof userEntity.primary>['pk'];
 
 const gen = Effect.gen(function* () {
   // Create 5 user items with all required fields
   console.warn('PURGED: ', yield* userEntity.purge('i know what i am doing'));
 
-  const userArbitrary = Arbitrary.make(eschema.schemaWithVersion);
-
   // Put all users into DynamoDB
   console.warn('INSERTING USER>>>');
-  yield* userEntity.put(
-    eschema.make({
-      userId: 'kishorez',
-      email: 'kishore.iiitn@gmail.com',
-      status: 'ACTIVE',
-      age: 18,
-      name: 'KIshore',
-    }),
+  yield* Effect.all(
+    Array.range(1, 1).map((v) =>
+      userEntity.put(
+        eschema.make({
+          userId: 'kishorez' + v,
+          email: 'kishore.iiitn@gmail.com',
+          status: 'ACTIVE',
+          age: 18,
+          name: 'KIshore',
+          nested: {
+            a: {
+              b: 'testing',
+            },
+          },
+        }),
+      ),
+    ),
   );
-  yield* userEntity.update(
-    {},
-    eschema.make({
-      userId: 'kishorez',
-      email: 'kishore.iiitn@gmail.com',
-      status: 'ACTIVE',
-      age: 18,
-      name: 'KIshore',
-    }),
-  );
-
-  // Query to verify the insertions
-
-  // With typo: byTet instead of byTest - TypeScript will catch this!
-  // const result = yield* userEntity.index('GSI1').query({}).byTet.prefix({ status: 'ACTIVE' });
-  //                                                            ^^^^ Property 'byTet' does not exist
-
-  // Correct usage:
-  const result = yield* userEntity.query({}).exec();
+  const result = yield* userEntity
+    .query({}, { onExcessProperty: 'preserve' })
+    .exec();
 
   console.dir(result, { depth: 10 });
+  yield* userEntity.update(
+    { userId: 'kishorez1', status: 'ACTIVE' },
+    {
+      age: 18,
+      name: 'KIshore',
+      nested: {
+        a: {
+          b: 'updatedddd',
+        },
+      },
+    },
+  );
+  const result2 = yield* userEntity
+    .query({}, { onExcessProperty: 'preserve' })
+    .exec();
+
+  console.dir(result2, { depth: 10 });
 });
 
 Effect.runPromise(gen).catch(console.error);

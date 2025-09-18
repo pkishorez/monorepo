@@ -12,10 +12,10 @@ describe('dynamoTable Configuration', () => {
       secretKey: env.secretKey!,
       endpoint: env.dynamoUrl,
     })
-      .primary('id')
+      .primary('id', 'sort')
       .build();
 
-    expect(table.primary).toEqual({ pk: 'id' });
+    expect(table.primary).toEqual({ pk: 'id', sk: 'sort' });
     expect(table.secondaryIndexes).toEqual({});
     expect(table.name).toBe(env.tableName);
   });
@@ -123,7 +123,7 @@ describe('dynamoTable Configuration', () => {
       secretKey: env.secretKey!,
       endpoint: env.dynamoUrl,
     })
-      .primary('id')
+      .primary('id', 'sort')
       .build<TestItem>();
 
     // Type test - this should compile without errors
