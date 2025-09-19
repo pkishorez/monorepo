@@ -13,9 +13,11 @@ import { evolutionsToObject, extractVersion, resolveValue } from './util.js';
 type SchemaFrom<TEvolutions extends Evolution<any, any>[]> =
   LastArrayElement<TEvolutions>['schema'];
 type SchemaTypeFrom<TEvolutions extends Evolution<any, any>[]> =
-  SchemaFrom<TEvolutions> extends Schema.Schema<infer T> ? T : never;
+  Schema.Schema.Type<SchemaFrom<TEvolutions>>;
 
-export class ESchema<TEvolutions extends Evolution<any, any>[]> {
+export class ESchema<
+  TEvolutions extends Evolution<string, Schema.Schema<any>>[],
+> {
   #evolutions: TEvolutions;
 
   constructor(evolutions: TEvolutions) {
@@ -33,7 +35,7 @@ export class ESchema<TEvolutions extends Evolution<any, any>[]> {
       migration: identity as () => Schema.Schema.Type<Sch>,
     } as Evolution<Version, Sch>;
 
-    return new Builder([enhancedEvolution]);
+    return new Builder([enhancedEvolution] as const);
   }
 
   get #latest() {
@@ -59,7 +61,7 @@ export class ESchema<TEvolutions extends Evolution<any, any>[]> {
     ) as any;
   }
 
-  extend = <Ext>(schema: Schema.Schema<Ext>) => {
+  extend = <Ext>(schema: Schema.Schema<Ext, any, any>) => {
     const evolutions = this.#evolutions.slice(0, -1);
     const last = this.#evolutions.at(-1)!;
 
@@ -83,7 +85,8 @@ export class ESchema<TEvolutions extends Evolution<any, any>[]> {
   };
 
   makeEffect(data: SchemaTypeFrom<TEvolutions>) {
-    return Schema.decodeUnknown(this.schema)(data).pipe(
+    const v = Schema.decodeUnknown(this.schema)(data);
+    return v.pipe(
       Effect.map(
         (v: any) =>
           ({
@@ -150,7 +153,7 @@ export class ESchema<TEvolutions extends Evolution<any, any>[]> {
       // Step 3: Parse the data with the found evolution's schema
       const evolution = evolutions[evolutionIndex];
       let currentValue = yield* Schema.decodeUnknown(
-        evolution.schema as Schema.Schema<any, any, never>,
+        evolution.schema,
         { onExcessProperty },
       )(data).pipe(
         Effect.mapError(

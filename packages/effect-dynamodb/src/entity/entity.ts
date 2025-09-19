@@ -1,5 +1,10 @@
-import type { ESchema, ExtractESchemaType } from '@monorepo/eschema';
+import type {
+  EmptyESchema,
+  ESchema,
+  ExtractESchemaType,
+} from '@monorepo/eschema';
 import type { Schema } from 'effect';
+import type { Except } from 'type-fest';
 import type { KeyConditionExprParameters } from '../table/expr/index.js';
 import type { QueryOptions } from '../table/query-executor.js';
 import type { DynamoTable, PutOptions, UpdateOptions } from '../table/table.js';
@@ -12,16 +17,14 @@ import type {
   ExtractEntityIndexDefType,
   ExtractIndexDefType,
   FirstLevelPrimitives,
-  ObjFromKeysArr,
   IndexDef,
+  ObjFromKeysArr,
 } from './types.js';
 import { Effect } from 'effect';
 import { deriveIndex } from './util.js';
-import { ignoreLeftover } from 'effect/Sink';
-import { Except } from 'type-fest';
 
 export class DynamoEntity<
-  TSchema extends ESchema<any, any>,
+  TSchema extends EmptyESchema,
   TTable extends DynamoTable<
     IndexDefinition,
     Record<string, IndexDefinition>,
@@ -35,7 +38,7 @@ export class DynamoEntity<
   >,
   TSecondary extends Record<
     keyof TTable['secondaryIndexes'],
-    EntityIndexDefinition<any, any, any, Record<string, IndexDef<any, any>>>
+    EntityIndexDefinition<any, any[], any[], Record<string, IndexDef<any, any>>>
   >,
 > {
   eschema: TSchema;
@@ -72,6 +75,28 @@ export class DynamoEntity<
     return result;
   }
 
+  #deriveSecondaryKeys(item: Partial<ExtractESchemaType<TSchema>>) {
+    const itemKeys = Object.keys(item);
+
+    return Object.entries(this.secondary).reduce(
+      (acc, [indexName, { pk, sk }]) => {
+        const pkDeps = pk.deps.every((dep) => itemKeys.includes(dep))
+          ? { [this.table.secondaryIndexes[indexName].pk]: pk.derive(item) }
+          : {};
+        const skDeps = sk.deps.every((dep) => itemKeys.includes(dep))
+          ? { [this.table.secondaryIndexes[indexName].sk]: sk.derive(item) }
+          : {};
+
+        return {
+          ...item,
+          ...pkDeps,
+          ...skDeps,
+        };
+      },
+      item,
+    ) as typeof item;
+  }
+
   update(
     key: ExtractEntityIndexDefType<TPrimary>,
     update: Omit<
@@ -87,7 +112,7 @@ export class DynamoEntity<
       Effect.andThen((v) =>
         this.table.updateItem(this.#getRealKeyFromItem(key), {
           ...options,
-          update: v,
+          update: this.#deriveSecondaryKeys(v as any),
           condition: options?.ignoreVersionMismatch
             ? undefined
             : ({
@@ -105,7 +130,7 @@ export class DynamoEntity<
 
     const th = this;
     return Effect.gen(function* () {
-      let lastEvaluated: Record<string, string> | undefined = undefined;
+      let lastEvaluated: Record<string, string> | undefined;
       let count = 0;
 
       while (true) {
@@ -138,7 +163,11 @@ export class DynamoEntity<
       .makeEffect(item)
       .pipe(
         Effect.andThen(() =>
-          this.table.putItem(this.#getRealKeyFromItem(item), item, options),
+          this.table.putItem(
+            this.#getRealKeyFromItem(item),
+            this.#deriveSecondaryKeys(item) as any,
+            options,
+          ),
         ),
       );
   }
@@ -190,7 +219,7 @@ export class DynamoEntity<
   }
 
   static make<
-    TESchema extends ESchema<any, any>,
+    TESchema extends ESchema<any>,
     TTable extends DynamoTable<CompoundIndexDefinition, any, any>,
   >({ eschema, table }: { eschema: TESchema; table: TTable }) {
     type TItem = Schema.Schema.Type<TESchema['schema']>;
@@ -224,7 +253,7 @@ export class DynamoEntity<
 }
 
 class SecondaryIndexCreator<
-  TSchema extends ESchema<any, any>,
+  TSchema extends ESchema<any>,
   TTable extends DynamoTable<
     IndexDefinition,
     Record<string, IndexDefinition>,
@@ -316,7 +345,7 @@ type EntityQueryOptions<A extends IndexDefinition, B> = QueryOptions<A, B> & {
 };
 function query<
   TTable extends DynamoTable<any, any, any>,
-  TSchema extends ESchema<any, any>,
+  TSchema extends ESchema<any>,
   Definition extends EntityIndexDefinition<
     any,
     any,
@@ -348,15 +377,19 @@ function query<
       .pipe(
         Effect.andThen(({ Items, ...others }) =>
           Effect.gen(function* () {
-            const results = (yield* Effect.all(
+            const results = yield* Effect.all(
               Items.map((item) =>
                 eschema
                   .parse(item, {
                     onExcessProperty: options?.onExcessProperty ?? 'ignore',
                   })
-                  .pipe(Effect.andThen((value) => value.value)),
+                  .pipe(
+                    Effect.map(
+                      (value) => value.value as ExtractESchemaType<TSchema>,
+                    ),
+                  ),
               ),
-            )) as typeof Items;
+            );
             return {
               Items: results,
               ...others,

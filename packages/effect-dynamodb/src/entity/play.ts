@@ -3,7 +3,6 @@ import { ESchema } from '@monorepo/eschema';
 import { Array, Effect, Schema } from 'effect';
 import { DynamoTable } from '../table/index.js';
 import { DynamoEntity } from './entity.js';
-import { Simplify } from 'type-fest';
 
 const table = DynamoTable.make('playground', {
   endpoint: 'http://localhost:8090',
@@ -29,7 +28,13 @@ const eschema = ESchema.make(
       }),
     }),
   }),
-).build();
+)
+  .evolve(
+    'v2',
+    ({ v1 }) => v1.omit('nested'),
+    ({ nested, ...rest }) => rest,
+  )
+  .build();
 
 // Create entity using the fluent builder API with full type safety
 export const userEntity = DynamoEntity.make({ eschema, table })
@@ -66,7 +71,6 @@ export const userEntity = DynamoEntity.make({ eschema, table })
     }),
   })
   .build();
-type T = Simplify<typeof userEntity.primary>['pk'];
 
 const gen = Effect.gen(function* () {
   // Create 5 user items with all required fields
@@ -75,42 +79,33 @@ const gen = Effect.gen(function* () {
   // Put all users into DynamoDB
   console.warn('INSERTING USER>>>');
   yield* Effect.all(
-    Array.range(1, 1).map((v) =>
+    Array.range(1, 3).map((v) =>
       userEntity.put(
         eschema.make({
-          userId: 'kishorez' + v,
+          userId: `kishorez${v}`,
           email: 'kishore.iiitn@gmail.com',
-          status: 'ACTIVE',
+          status: (['ACTIVE', 'INACTIVE'] as const)[v % 2],
           age: 18,
           name: 'KIshore',
-          nested: {
-            a: {
-              b: 'testing',
-            },
-          },
         }),
       ),
     ),
   );
-  const result = yield* userEntity
-    .query({}, { onExcessProperty: 'preserve' })
-    .exec();
 
-  console.dir(result, { depth: 10 });
+  // Update an item that was just inserted (kishorez2 has status 'INACTIVE')
   yield* userEntity.update(
-    { userId: 'kishorez1', status: 'ACTIVE' },
-    {
-      age: 18,
-      name: 'KIshore',
-      nested: {
-        a: {
-          b: 'updatedddd',
-        },
-      },
-    },
+    { userId: 'kishorez2', status: 'ACTIVE' },
+    { email: 'updated@example.com' },
+    { ignoreVersionMismatch: true },
   );
   const result2 = yield* userEntity
-    .query({}, { onExcessProperty: 'preserve' })
+    .query(
+      {},
+      {
+        onExcessProperty: 'ignore',
+        Limit: 10,
+      },
+    )
     .exec();
 
   console.dir(result2, { depth: 10 });

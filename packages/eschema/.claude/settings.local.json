@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(pnpm lint:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "mcp__context7__resolve-library-id",
+      "Read(//Users/kishorepolamarasetty/CAREER/MINE/editor-monorepo/monorepo/**)"
     ],
     "deny": []
   }

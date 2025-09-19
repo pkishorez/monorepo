@@ -2,8 +2,14 @@
   "name": "effect-dynamodb",
   "type": "module",
   "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./collection": {
+      "types": "./dist/collection/collection.d.ts",
+      "default": "./dist/collection/collection.js"
+    }
   },
   "scripts": {
     "dev": "tsc --watch --project build.tsconfig.json",

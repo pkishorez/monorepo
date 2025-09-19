@@ -16,6 +16,10 @@ import { LastArrayElement } from 'type-fest';
  */
 export type ResolveType<T> = T extends (...args: any[]) => infer R ? R : T;
 
+export type Metadata<V extends string> = {
+  __v: V;
+};
+
 /**
  * Represents a single schema evolution with a version identifier.
  *
@@ -139,9 +143,9 @@ export type ExtractESchemaSchema<ESch extends ESchema<any>> =
     ? LastArrayElement<Evolutions>['schema']
     : never;
 
+export type EmptyESchema = ESchema<Evolution<string, Schema.Schema<any>>[]>;
+
 export type ExtractESchemaType<ESch extends ESchema<any>> =
   ESch extends ESchema<infer Evolutions>
-    ? LastArrayElement<Evolutions>['schema'] extends Schema.Schema<infer Type>
-      ? Type
-      : never
+    ? Schema.Schema.Type<LastArrayElement<Evolutions>['schema']>
     : never;
