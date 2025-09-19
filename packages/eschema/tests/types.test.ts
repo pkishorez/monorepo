@@ -31,12 +31,12 @@ describe('type-level tests', () => {
       type TestEvolution = Evolution<'v1', Schema.Schema<string>>;
       const evolution: TestEvolution = {
         version: 'v1',
-        evolution: {} as Schema.Schema<string>,
+        schema: {} as Schema.Schema<string>,
         migration: identity,
       };
 
       expectTypeOf(evolution.version).toEqualTypeOf<'v1'>();
-      expectTypeOf(evolution.evolution).toEqualTypeOf<Schema.Schema<string>>();
+      expectTypeOf(evolution.schema).toEqualTypeOf<Schema.Schema<string>>();
     });
   });
 

@@ -8,21 +8,20 @@ export const eschema = ESchema.make(
 )
   .evolve(
     'v2', // br
-    Schema.Struct({ v1: Schema.String, v2: Schema.String }),
+    Schema.Struct({ v1: Schema.Literal('v2'), v2: Schema.String }),
     (old, v) =>
       v({
         ...old,
+        v1: 'v2',
         v2: 'test',
       }),
   )
   .evolve(
     'v3',
-    ({ v1 }) => Schema.Struct({ ...v1.fields, v3: Schema.String }),
+    ({ v2 }) => Schema.Struct({ ...v2.fields, v3: Schema.String }),
     (old) => ({
       ...old,
-      v3: 'hello',
+      v3: 'hell',
     }),
   )
   .build();
-
-export const latest = eschema.schema;

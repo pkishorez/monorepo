@@ -1,5 +1,6 @@
 import type { Schema } from 'effect';
 import type { ESchema } from './eschema.js';
+import { LastArrayElement } from 'type-fest';
 
 /**
  * Resolves a type that can be either a function or a value.
@@ -16,21 +17,6 @@ import type { ESchema } from './eschema.js';
 export type ResolveType<T> = T extends (...args: any[]) => infer R ? R : T;
 
 /**
- * Metadata attached to schemas in evolutions.
- * Contains version information and can be extended with additional fields in the future.
- *
- * @template V - The version string literal type
- * @example
- * ```typescript
- * type V1Metadata = Metadata<"v1">; // { __v: "v1" }
- * type V2Metadata = Metadata<"v2">; // { __v: "v2" }
- * ```
- */
-export interface Metadata<V extends string> {
-  __v: V;
-}
-
-/**
  * Represents a single schema evolution with a version identifier.
  *
  * @template V - The version string literal type
@@ -42,39 +28,12 @@ export interface Evolution<
   Old = never,
 > {
   version: V;
-  evolution: S;
+  schema: S;
   migration: (
     v: Old,
-    helper: (v: Schema.Schema.Type<S>) => Schema.Schema.Type<S>,
+    fn: (v: Schema.Schema.Type<S>) => Schema.Schema.Type<S>,
   ) => Schema.Schema.Type<S>;
 }
-
-/**
- * Extracts the last element from a readonly tuple type.
- *
- * @example
- * ```typescript
- * type Test = LastElement<[1, 2, 3]>; // 3
- * type Empty = LastElement<[]>; // never
- * ```
- */
-export type LastElement<T extends readonly any[]> = T extends readonly [
-  ...any[],
-  infer Last,
-]
-  ? Last
-  : never;
-
-/**
- * Extracts the schema type from an Evolution.
- *
- * @example
- * ```typescript
- * type MyEvolution = Evolution<"v1", Schema<string>>;
- * type ExtractedSchema = ExtractSchema<MyEvolution>; // Schema<string>
- * ```
- */
-export type ExtractSchema<E> = E extends Evolution<any, infer S> ? S : never;
 
 /**
  * Gets the latest schema type from an array of evolutions.
@@ -92,7 +51,19 @@ export type ExtractSchema<E> = E extends Evolution<any, infer S> ? S : never;
  */
 export type LatestSchemaType<
   Evolutions extends readonly Evolution<any, any>[],
-> = ExtractSchema<LastElement<Evolutions>>;
+> = LastArrayElement<Evolutions>['schema'];
+
+export type ExtendLatestEvolutionSchemaWithType<
+  Evolutions extends readonly Evolution<any, any>[],
+  U,
+> = Evolutions extends [...infer Rest, infer Latest extends Evolution<any, any>]
+  ? [...Rest, UpdateEvolutionSchema<Latest, U>]
+  : never;
+
+type UpdateEvolutionSchema<E extends Evolution<any, any>, T> =
+  E extends Evolution<infer A, infer S>
+    ? Evolution<A, Schema.Schema<Schema.Schema.Type<S> & T>>
+    : never;
 
 /**
  * Generic utility to extract a specific property as a union from an array of objects.
@@ -163,12 +134,14 @@ export type EvolutionsToObject<T extends readonly Evolution<any, any>[]> = {
     : never]: K extends Evolution<any, infer S> ? S : never;
 };
 
-export type ExtractESchemaSchema<ESch extends ESchema<any, any>> =
-  ESch extends ESchema<infer Latest, any> ? Latest : never;
+export type ExtractESchemaSchema<ESch extends ESchema<any>> =
+  ESch extends ESchema<infer Evolutions>
+    ? LastArrayElement<Evolutions>['schema']
+    : never;
 
-export type ExtractESchemaType<ESch extends ESchema<any, any>> =
-  ESch extends ESchema<infer Latest, any>
-    ? Latest extends Schema.Schema<infer Type>
+export type ExtractESchemaType<ESch extends ESchema<any>> =
+  ESch extends ESchema<infer Evolutions>
+    ? LastArrayElement<Evolutions>['schema'] extends Schema.Schema<infer Type>
       ? Type
       : never
     : never;

@@ -59,8 +59,8 @@ describe('util functions', () => {
       const mockSchema2 = { _tag: 'NumberSchema' } as any;
 
       const evolutions: Evolution<'v1' | 'v2', any>[] = [
-        { version: 'v1', evolution: mockSchema1, migration: () => 'test' },
-        { version: 'v2', evolution: mockSchema2, migration: () => 42 },
+        { version: 'v1', schema: mockSchema1, migration: () => 'test' },
+        { version: 'v2', schema: mockSchema2, migration: () => 42 },
       ];
 
       const result = evolutionsToObject(evolutions);
@@ -75,7 +75,7 @@ describe('util functions', () => {
       const mockSchema = { _tag: 'BooleanSchema' } as any;
 
       const evolutions: Evolution<'v1', any>[] = [
-        { version: 'v1', evolution: mockSchema, migration: () => true },
+        { version: 'v1', schema: mockSchema, migration: () => true },
       ];
 
       const result = evolutionsToObject(evolutions);
@@ -95,7 +95,7 @@ describe('util functions', () => {
 
       const originalEvolution: Evolution<'v1', typeof mockSchema> = {
         version: 'v1',
-        evolution: mockSchema,
+        schema: mockSchema,
         migration: (value) => value,
       };
 
@@ -106,7 +106,7 @@ describe('util functions', () => {
 
       // Test that the enhanced schema includes the __v field
       const testData = { name: 'John', age: 30, __v: 'v1' as const };
-      const decoded = Schema.decodeUnknownSync(enhancedEvolution.evolution)(
+      const decoded = Schema.decodeUnknownSync(enhancedEvolution.schema)(
         testData,
       );
       expect(decoded).toEqual({
@@ -123,7 +123,7 @@ describe('util functions', () => {
 
       const originalEvolution: Evolution<'v2', typeof userSchema> = {
         version: 'v2',
-        evolution: userSchema,
+        schema: userSchema,
         migration: (value) => value,
       };
 
@@ -131,7 +131,7 @@ describe('util functions', () => {
 
       // Should be able to decode data with both original fields and __v
       const testData = { email: 'test@example.com', __v: 'v2' as const };
-      const decoded = Schema.decodeUnknownSync(enhancedEvolution.evolution)(
+      const decoded = Schema.decodeUnknownSync(enhancedEvolution.schema)(
         testData,
       );
 
@@ -146,7 +146,7 @@ describe('util functions', () => {
 
       const originalEvolution: Evolution<'v3', typeof simpleSchema> = {
         version: 'v3',
-        evolution: simpleSchema,
+        schema: simpleSchema,
         migration: (value) => value,
       };
 
@@ -155,13 +155,13 @@ describe('util functions', () => {
       // Should succeed with correct version
       const validData = { value: 'test', __v: 'v3' as const };
       expect(() =>
-        Schema.decodeUnknownSync(enhancedEvolution.evolution)(validData),
+        Schema.decodeUnknownSync(enhancedEvolution.schema)(validData),
       ).not.toThrow();
 
       // Should fail with incorrect version
       const invalidData = { value: 'test', __v: 'v4' };
       expect(() =>
-        Schema.decodeUnknownSync(enhancedEvolution.evolution)(invalidData),
+        Schema.decodeUnknownSync(enhancedEvolution.schema)(invalidData),
       ).toThrow();
     });
 
@@ -170,14 +170,14 @@ describe('util functions', () => {
 
       const originalEvolution: Evolution<'v1', typeof emptySchema> = {
         version: 'v1',
-        evolution: emptySchema,
+        schema: emptySchema,
         migration: (value) => value,
       };
 
       const enhancedEvolution = evolution(originalEvolution);
 
       const testData = { __v: 'v1' as const };
-      const decoded = Schema.decodeUnknownSync(enhancedEvolution.evolution)(
+      const decoded = Schema.decodeUnknownSync(enhancedEvolution.schema)(
         testData,
       );
 
@@ -188,8 +188,8 @@ describe('util functions', () => {
   describe('extractVersion', () => {
     it('should extract valid version from data', () => {
       const evolutions: Evolution<'v1' | 'v2', any>[] = [
-        { version: 'v1', evolution: Schema.String, migration: (v) => v },
-        { version: 'v2', evolution: Schema.Number, migration: (v) => v },
+        { version: 'v1', schema: Schema.String, migration: (v) => v },
+        { version: 'v2', schema: Schema.Number, migration: (v) => v },
       ];
 
       const data = { name: 'John', __v: 'v1' };
@@ -200,7 +200,7 @@ describe('util functions', () => {
 
     it('should throw error when version field is missing', () => {
       const evolutions: Evolution<'v1', any>[] = [
-        { version: 'v1', evolution: Schema.String, migration: (v) => v },
+        { version: 'v1', schema: Schema.String, migration: (v) => v },
       ];
 
       const dataWithoutVersion = { name: 'John' };
@@ -213,7 +213,7 @@ describe('util functions', () => {
 
     it('should throw error when version is not a string', () => {
       const evolutions: Evolution<'v1', any>[] = [
-        { version: 'v1', evolution: Schema.String, migration: (v) => v },
+        { version: 'v1', schema: Schema.String, migration: (v) => v },
       ];
 
       const dataWithInvalidVersion = { name: 'John', __v: 123 };
@@ -226,7 +226,7 @@ describe('util functions', () => {
 
     it('should throw error when version is unknown', () => {
       const evolutions: Evolution<'v1', any>[] = [
-        { version: 'v1', evolution: Schema.String, migration: (v) => v },
+        { version: 'v1', schema: Schema.String, migration: (v) => v },
       ];
 
       const dataWithUnknownVersion = { name: 'John', __v: 'v99' };
@@ -239,7 +239,7 @@ describe('util functions', () => {
 
     it('should throw error when data is not an object', () => {
       const evolutions: Evolution<'v1', any>[] = [
-        { version: 'v1', evolution: Schema.String, migration: (v) => v },
+        { version: 'v1', schema: Schema.String, migration: (v) => v },
       ];
 
       const result1 = Effect.runSyncExit(
@@ -253,9 +253,9 @@ describe('util functions', () => {
 
     it('should work with multiple versions', () => {
       const evolutions: Evolution<'v1' | 'v2' | 'v3', any>[] = [
-        { version: 'v1', evolution: Schema.String, migration: (v) => v },
-        { version: 'v2', evolution: Schema.Number, migration: (v) => v },
-        { version: 'v3', evolution: Schema.Boolean, migration: (v) => v },
+        { version: 'v1', schema: Schema.String, migration: (v) => v },
+        { version: 'v2', schema: Schema.Number, migration: (v) => v },
+        { version: 'v3', schema: Schema.Boolean, migration: (v) => v },
       ];
 
       expect(

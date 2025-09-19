@@ -60,7 +60,7 @@ export function evolutionsToObject<T extends readonly Evolution<any, any>[]>(
   evolutions: T,
 ): EvolutionsToObject<T> {
   return evolutions.reduce((acc, evolution) => {
-    acc[evolution.version] = evolution.evolution;
+    acc[evolution.version] = evolution.schema;
     return acc;
   }, {} as any) as EvolutionsToObject<T>;
 }
@@ -101,7 +101,7 @@ export function evolution<
   Old
 > {
   const enhancedSchema = Schema.extend(
-    evo.evolution,
+    evo.schema,
     Schema.Struct({
       __v: Schema.Literal(evo.version),
     }),
@@ -109,7 +109,7 @@ export function evolution<
 
   return {
     version: evo.version,
-    evolution: enhancedSchema,
+    schema: enhancedSchema,
     migration: evo.migration,
   };
 }
