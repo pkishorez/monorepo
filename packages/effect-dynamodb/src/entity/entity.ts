@@ -80,21 +80,25 @@ export class DynamoEntity<
 
     return Object.entries(this.secondary).reduce(
       (acc, [indexName, { pk, sk }]) => {
-        const pkDeps = pk.deps.every((dep) => itemKeys.includes(dep))
-          ? { [this.table.secondaryIndexes[indexName].pk]: pk.derive(item) }
-          : {};
-        const skDeps = sk.deps.every((dep) => itemKeys.includes(dep))
-          ? { [this.table.secondaryIndexes[indexName].sk]: sk.derive(item) }
-          : {};
+        // Only derive pk if ALL its dependencies are present in the update
+        const pkDeps =
+          pk.deps.length === 0 || pk.deps.every((dep) => itemKeys.includes(dep))
+            ? { [this.table.secondaryIndexes[indexName].pk]: pk.derive(item) }
+            : {};
+        // Only derive sk if ALL its dependencies are present in the update
+        const skDeps =
+          sk.deps.length === 0 || sk.deps.every((dep) => itemKeys.includes(dep))
+            ? { [this.table.secondaryIndexes[indexName].sk]: sk.derive(item) }
+            : {};
 
         return {
-          ...item,
+          ...acc,
           ...pkDeps,
           ...skDeps,
         };
       },
-      item,
-    ) as typeof item;
+      {} as typeof item,
+    );
   }
 
   update(
@@ -112,7 +116,10 @@ export class DynamoEntity<
       Effect.andThen((v) =>
         this.table.updateItem(this.#getRealKeyFromItem(key), {
           ...options,
-          update: this.#deriveSecondaryKeys(v as any),
+          update: {
+            ...v,
+            ...this.#deriveSecondaryKeys({ ...v, ...key } as any),
+          },
           condition: options?.ignoreVersionMismatch
             ? undefined
             : ({
@@ -165,7 +172,7 @@ export class DynamoEntity<
         Effect.andThen(() =>
           this.table.putItem(
             this.#getRealKeyFromItem(item),
-            this.#deriveSecondaryKeys(item) as any,
+            { ...item, ...this.#deriveSecondaryKeys(item) },
             options,
           ),
         ),
