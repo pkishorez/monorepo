@@ -1,6 +1,6 @@
 import type { Schema } from 'effect';
+import type { LastArrayElement, Simplify } from 'type-fest';
 import type { ESchema } from './eschema.js';
-import { LastArrayElement } from 'type-fest';
 
 /**
  * Resolves a type that can be either a function or a value.
@@ -16,9 +16,9 @@ import { LastArrayElement } from 'type-fest';
  */
 export type ResolveType<T> = T extends (...args: any[]) => infer R ? R : T;
 
-export type Metadata<V extends string> = {
+export interface Metadata<V extends string> {
   __v: V;
-};
+}
 
 /**
  * Represents a single schema evolution with a version identifier.
@@ -57,16 +57,30 @@ export type LatestSchemaType<
   Evolutions extends readonly Evolution<any, any>[],
 > = LastArrayElement<Evolutions>['schema'];
 
-export type ExtendLatestEvolutionSchemaWithType<
-  Evolutions extends readonly Evolution<any, any>[],
-  U,
-> = Evolutions extends [...infer Rest, infer Latest extends Evolution<any, any>]
-  ? [...Rest, UpdateEvolutionSchema<Latest, U>]
-  : never;
+export type ExtendLatestEvolutionSchema<
+  TSchema extends EmptyESchema,
+  U extends Schema.Schema<any>,
+> =
+  TSchema extends ESchema<infer Evolutions>
+    ? Evolutions extends [
+        ...infer Rest,
+        infer Latest extends Evolution<any, any>,
+      ]
+      ? [...Rest, ExtendEvolutionSchema<Latest, U>]
+      : never
+    : never;
 
-type UpdateEvolutionSchema<E extends Evolution<any, any>, T> =
+type ExtendEvolutionSchema<
+  E extends Evolution<any, any>,
+  Extension extends Schema.Schema<any>,
+> =
   E extends Evolution<infer A, infer S>
-    ? Evolution<A, Schema.Schema<Schema.Schema.Type<S> & T>>
+    ? Evolution<
+        A,
+        Schema.Schema<
+          Simplify<Schema.Schema.Type<S> & Schema.Schema.Type<Extension>>
+        >
+      >
     : never;
 
 /**
@@ -138,14 +152,14 @@ export type EvolutionsToObject<T extends readonly Evolution<any, any>[]> = {
     : never]: K extends Evolution<any, infer S> ? S : never;
 };
 
-export type ExtractESchemaSchema<ESch extends ESchema<any>> =
+export type EmptyESchema = ESchema<Evolution<string, Schema.Schema<any>>[]>;
+
+export type ExtractESchemaSchema<ESch extends EmptyESchema> =
   ESch extends ESchema<infer Evolutions>
     ? LastArrayElement<Evolutions>['schema']
     : never;
 
-export type EmptyESchema = ESchema<Evolution<string, Schema.Schema<any>>[]>;
-
-export type ExtractESchemaType<ESch extends ESchema<any>> =
+export type ExtractESchemaType<ESch extends EmptyESchema> =
   ESch extends ESchema<infer Evolutions>
     ? Schema.Schema.Type<LastArrayElement<Evolutions>['schema']>
     : never;

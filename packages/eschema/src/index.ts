@@ -1,6 +1,6 @@
 export { ESchema } from './eschema.js';
 export type {
+  EmptyESchema,
   ExtractESchemaSchema,
   ExtractESchemaType,
-  EmptyESchema,
 } from './types.js';

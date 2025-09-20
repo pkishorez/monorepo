@@ -21,11 +21,11 @@
   },
   "dependencies": {
     "@standard-schema/spec": "1.0.0",
-    "effect": "3.17.13"
+    "effect": "3.17.14"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.2",
-    "type-fest": "^5.0.0",
+    "type-fest": "^5.0.1",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
   }

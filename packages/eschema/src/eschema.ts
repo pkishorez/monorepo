@@ -1,9 +1,9 @@
-import { LastArrayElement } from 'type-fest';
+import type { LastArrayElement } from 'type-fest';
 import type {
   EnsureUniqueVersion,
   Evolution,
   EvolutionsToObject,
-  ExtendLatestEvolutionSchemaWithType,
+  ExtendLatestEvolutionSchema,
   ResolveType,
 } from './types.js';
 import { Effect, identity, Schema } from 'effect';
@@ -28,10 +28,9 @@ export class ESchema<
     version: Version,
     schema: Sch,
   ) {
-    // Automatically attach metadata to the schema
     const enhancedEvolution = {
       version,
-      schema: schema,
+      schema,
       migration: identity as () => Schema.Schema.Type<Sch>,
     } as Evolution<Version, Sch>;
 
@@ -61,7 +60,7 @@ export class ESchema<
     ) as any;
   }
 
-  extend = <Ext>(schema: Schema.Schema<Ext, any, any>) => {
+  extend = <Ext>(schema: Schema.Schema<Ext>) => {
     const evolutions = this.#evolutions.slice(0, -1);
     const last = this.#evolutions.at(-1)!;
 
@@ -71,7 +70,7 @@ export class ESchema<
         any,
         any
       >,
-    ] as ExtendLatestEvolutionSchemaWithType<TEvolutions, Ext>);
+    ] as ExtendLatestEvolutionSchema<ESchema<TEvolutions>, Schema.Schema<Ext>>);
   };
 
   make: (
@@ -131,7 +130,7 @@ export class ESchema<
     ESchemaParseError
   > = (data, { onExcessProperty = 'ignore' } = {}) => {
     const evolutions = this.#evolutions;
-    // eslint-disable-next-line ts/no-this-alias
+     
     const th = this;
 
     return Effect.gen(function* () {
@@ -152,10 +151,9 @@ export class ESchema<
 
       // Step 3: Parse the data with the found evolution's schema
       const evolution = evolutions[evolutionIndex];
-      let currentValue = yield* Schema.decodeUnknown(
-        evolution.schema,
-        { onExcessProperty },
-      )(data).pipe(
+      let currentValue = yield* Schema.decodeUnknown(evolution.schema, {
+        onExcessProperty,
+      })(data).pipe(
         Effect.mapError(
           (err) =>
             new ESchemaParseError({
