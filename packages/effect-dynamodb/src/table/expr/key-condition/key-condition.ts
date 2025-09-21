@@ -37,6 +37,12 @@ export function keyConditionExpr(
     } else if ('>' in sk) {
       const { attrKey, attrValue } = attrBuilder.setAttr(index.sk, sk['>']);
       expr.push(`${attrKey} > ${attrValue}`);
+    } else if ('<=' in sk) {
+      const { attrKey, attrValue } = attrBuilder.setAttr(index.sk, sk['<=']);
+      expr.push(`${attrKey} <= ${attrValue}`);
+    } else if ('>=' in sk) {
+      const { attrKey, attrValue } = attrBuilder.setAttr(index.sk, sk['>=']);
+      expr.push(`${attrKey} >= ${attrValue}`);
     }
   }
 

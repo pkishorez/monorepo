@@ -4,7 +4,7 @@ import type {
   ExtractESchemaType,
 } from '@monorepo/eschema';
 import type { Schema } from 'effect';
-import type { Except } from 'type-fest';
+import type { Except, Simplify } from 'type-fest';
 import type { KeyConditionExprParameters } from '../table/expr/index.js';
 import type { QueryOptions } from '../table/query-executor.js';
 import type { DynamoTable, PutOptions, UpdateOptions } from '../table/table.js';
@@ -23,6 +23,7 @@ import type {
 } from './types.js';
 import { Effect } from 'effect';
 import { deriveIndex } from './util.js';
+import { SortKeyparameter } from '../table/expr/key-condition/types.js';
 
 export class DynamoEntity<
   TSchema extends EmptyESchema,
@@ -74,15 +75,23 @@ export class DynamoEntity<
     return Object.entries(this.secondary).reduce(
       (acc, [indexName, def]) => {
         const { pk, sk } = def;
-        // Only derive pk if ALL its dependencies are present in the update
         const pkDeps =
           pk.deps.length === 0 || pk.deps.every((dep) => itemKeys.includes(dep))
-            ? { [this.table.secondaryIndexes[indexName].pk]: pk.derive(item) }
+            ? {
+                [this.table.secondaryIndexes[indexName].pk]: deriveIndex(
+                  pk,
+                  item,
+                ),
+              }
             : {};
-        // Only derive sk if ALL its dependencies are present in the update
         const skDeps =
           sk.deps.length === 0 || sk.deps.every((dep) => itemKeys.includes(dep))
-            ? { [this.table.secondaryIndexes[indexName].sk]: sk.derive(item) }
+            ? {
+                [this.table.secondaryIndexes[indexName].sk]: deriveIndex(
+                  sk,
+                  item,
+                ),
+              }
             : {};
 
         return {
@@ -175,7 +184,24 @@ export class DynamoEntity<
   index<IndexName extends keyof TSecondary>(indexName: IndexName) {
     return {
       query: (
-        pk: ExtractIndexDefType<TSecondary[IndexName]['pk']>,
+        {
+          pk,
+          sk,
+        }: {
+          pk: ExtractIndexDefType<TSecondary[IndexName]['pk']>;
+          sk?: Simplify<
+            SortKeyparameter<
+              Simplify<
+                Partial<
+                  ObjFromKeysArr<
+                    ExtractESchemaType<TSchema>,
+                    TSecondary[IndexName]['sk']['deps']
+                  >
+                >
+              >
+            >
+          >;
+        },
         options: EntityQueryOptions<
           IndexName extends keyof TTable['secondaryIndexes']
             ? TTable['secondaryIndexes'][IndexName]
@@ -191,8 +217,8 @@ export class DynamoEntity<
           {
             table: this.table,
             eschema: this.eschema,
-            definition,
-            pk,
+            pk: deriveIndex(definition.pk, pk),
+            sk: sk && querySkParams(definition.sk, sk),
             index: indexName as string,
           },
           options,
@@ -202,7 +228,24 @@ export class DynamoEntity<
   }
 
   query(
-    pk: ExtractIndexDefType<TPrimary['pk']>,
+    {
+      pk,
+      sk,
+    }: {
+      pk: ExtractIndexDefType<TPrimary['pk']>;
+      sk?: Simplify<
+        SortKeyparameter<
+          Simplify<
+            Partial<
+              ObjFromKeysArr<
+                ExtractESchemaType<TSchema>,
+                TPrimary['sk']['deps']
+              >
+            >
+          >
+        >
+      >;
+    },
     options: EntityQueryOptions<
       TTable['primary'],
       ExtractESchemaType<TSchema>
@@ -212,8 +255,8 @@ export class DynamoEntity<
       {
         table: this.table,
         eschema: this.eschema,
-        definition: this.primary,
-        pk,
+        pk: deriveIndex(this.primary.pk, pk),
+        sk: sk ? querySkParams(this.primary.sk, sk) : undefined,
       },
       options,
     );
@@ -229,29 +272,21 @@ export class DynamoEntity<
       primary<
         PkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
         SkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
-        AccessPatterns extends Record<string, IndexDef<TItem, SkKeys>>,
       >({
         pk,
         sk,
-        accessPatterns,
       }: {
         pk: IndexDef<TItem, PkKeys>;
         sk: IndexDef<TItem, SkKeys>;
-        accessPatterns?: (
-          fn: <Keys extends SkKeys>(
-            v: IndexDef<TItem, Keys>,
-          ) => IndexDef<TItem, Keys>,
-        ) => AccessPatterns;
       }) {
         return new SecondaryIndexCreator<
           TESchema,
           TTable,
-          EntityIndexDefinition<TItem, PkKeys, SkKeys, AccessPatterns>,
+          EntityIndexDefinition<TItem, PkKeys, SkKeys>,
           {} // Start with empty secondary indexes
         >(eschema, table, {
           pk,
           sk,
-          accessPatterns: accessPatterns?.((v) => v) ?? ({} as AccessPatterns),
         });
       },
     } as const;
@@ -292,37 +327,25 @@ class SecondaryIndexCreator<
     SkKeys extends (keyof FirstLevelPrimitives<
       Schema.Schema.Type<TSchema['schema']>
     >)[],
-    AccessPatterns extends Record<
-      string,
-      IndexDef<Schema.Schema.Type<TSchema['schema']>, SkKeys>
-    >,
   >(
     name: Name,
     {
       pk,
       sk,
-      accessPatterns,
     }: {
       pk: IndexDef<Schema.Schema.Type<TSchema['schema']>, PkKeys>;
       sk: IndexDef<Schema.Schema.Type<TSchema['schema']>, SkKeys>;
-      accessPatterns?: (
-        fn: <Keys extends SkKeys>(
-          v: IndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
-        ) => IndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
-      ) => AccessPatterns;
     },
   ): SecondaryIndexCreator<
     TSchema,
     TTable,
     TPrimary,
-    TSecondary &
-      Record<Name, EntityIndexDefinition<any, PkKeys, SkKeys, AccessPatterns>>
+    TSecondary & Record<Name, EntityIndexDefinition<any, PkKeys, SkKeys>>
   > {
     const indexDef = {
       pk,
       sk,
-      accessPatterns: accessPatterns?.((v) => v) ?? ({} as AccessPatterns),
-    } as EntityIndexDefinition<any, PkKeys, SkKeys, AccessPatterns>;
+    } as EntityIndexDefinition<any, PkKeys, SkKeys>;
     return new SecondaryIndexCreator<
       TSchema,
       TTable,
@@ -349,108 +372,72 @@ type EntityQueryOptions<A extends IndexDefinition, B> = QueryOptions<A, B> & {
 };
 function query<
   TTable extends DynamoTable<any, any, any>,
-  TSchema extends ESchema<any>,
-  Definition extends EntityIndexDefinition<
-    any,
-    any,
-    any,
-    Record<string, IndexDef<any, any>>
-  >,
+  TSchema extends EmptyESchema,
   Options extends EntityQueryOptions<any, any>,
 >(
   {
     table,
     eschema,
-    definition,
     pk,
+    sk,
     index,
   }: {
     table: TTable;
     eschema: TSchema;
-    definition: Definition;
-    pk: ExtractIndexDefType<Definition['pk']>;
+    pk: string;
+    sk?: SortKeyparameter<string> | undefined;
     index?: string;
   },
   options?: Options,
 ) {
-  const pkValue = deriveIndex(definition.pk, pk);
-
-  const exec = (sk?: KeyConditionExprParameters['sk']) => {
-    return (index ? table.index(index) : table)
-      .query({ pk: pkValue, sk }, options)
-      .pipe(
-        Effect.andThen(({ Items, ...others }) =>
-          Effect.gen(function* () {
-            const results = yield* Effect.all(
-              Items.map((item) =>
-                eschema
-                  .parse(item, {
-                    onExcessProperty: options?.onExcessProperty ?? 'ignore',
-                  })
-                  .pipe(
-                    Effect.map(
-                      (value) => value.value as ExtractESchemaType<TSchema>,
-                    ),
-                  ),
+  return (index ? table.index(index) : table).query({ pk, sk }, options).pipe(
+    Effect.andThen(({ Items, ...others }) =>
+      Effect.gen(function* () {
+        const results = yield* Effect.all(
+          Items.map((item) =>
+            eschema
+              .parse(item, {
+                onExcessProperty: options?.onExcessProperty ?? 'ignore',
+              })
+              .pipe(
+                Effect.map(
+                  (value) => value.value as ExtractESchemaType<TSchema>,
+                ),
               ),
-            );
-            return {
-              Items: results,
-              ...others,
-            };
-          }),
-        ),
-      );
-  };
+          ),
+        );
+        return {
+          Items: results,
+          ...others,
+        };
+      }),
+    ),
+  );
+}
 
-  type AccessPatternTypes =
-    Definition extends EntityIndexDefinition<
-      any,
-      any,
-      any,
-      infer AccessPatterns
-    >
-      ? AccessPatterns
-      : never;
-  const accessPatternOperations = Object.fromEntries(
-    Object.entries(definition.accessPatterns ?? {}).map(([key, value]) => {
-      return [
-        key,
-        {
-          between: (val1: any, val2: any) => {
-            return exec({
-              between: [value.derive(val1), value.derive(val2)],
-            });
-          },
-          prefix: (val: any) => {
-            return exec({ beginsWith: value.derive(val) });
-          },
-        },
-      ];
-    }),
-  ) as {
-    [K in keyof AccessPatternTypes]: {
-      prefix: (
-        val: ObjFromKeysArr<
-          ExtractESchemaType<TSchema>,
-          AccessPatternTypes[K]['deps']
-        >,
-      ) => ReturnType<typeof exec>;
-      between: (
-        va1: ObjFromKeysArr<
-          ExtractESchemaType<TSchema>,
-          AccessPatternTypes[K]['deps']
-        >,
-        va2: ObjFromKeysArr<
-          ExtractESchemaType<TSchema>,
-          AccessPatternTypes[K]['deps']
-        >,
-      ) => ReturnType<typeof exec>;
-    };
-  };
+function querySkParams<Def extends IndexDef<any, any>>(
+  def: Def,
+  skValue: SortKeyparameter<ExtractIndexDefType<Def>>,
+): SortKeyparameter<string> {
+  if ('beginsWith' in skValue) {
+    return { beginsWith: deriveIndex(def, skValue.beginsWith) };
+  }
+  if ('between' in skValue) {
+    const [val1, val2] = skValue.between;
+    return { between: [deriveIndex(def, val1), deriveIndex(def, val2)] };
+  }
+  if ('<' in skValue) {
+    return { '<': deriveIndex(def, skValue['<']) };
+  }
+  if ('<=' in skValue) {
+    return { '<': deriveIndex(def, skValue['<=']) };
+  }
+  if ('>' in skValue) {
+    return { '<': deriveIndex(def, skValue['>']) };
+  }
+  if ('>=' in skValue) {
+    return { '<': deriveIndex(def, skValue['>=']) };
+  }
 
-  return {
-    ...accessPatternOperations,
-    exec,
-  };
+  throw new Error('Exhaustive check...');
 }

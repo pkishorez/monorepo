@@ -22,53 +22,30 @@ const eschema = ESchema.make(
     age: Schema.Number.pipe(Schema.between(18, 25)),
     email: Schema.String,
     status: Schema.Literal('ACTIVE', 'INACTIVE', 'DELETED'),
-    nested: Schema.Struct({
-      a: Schema.Struct({
-        b: Schema.String,
-      }),
-    }),
   }),
-)
-  .evolve(
-    'v2',
-    ({ v1 }) => v1.omit('nested'),
-    ({ nested, ...rest }) => rest,
-  )
-  .build();
+).build();
 
 // Create entity using the fluent builder API with full type safety
 export const userEntity = DynamoEntity.make({ eschema, table })
   .primary({
     pk: {
       deps: [],
-      derive: () => 'USER',
+      derive: () => ['USER'],
     },
     sk: {
       deps: ['userId', 'status'],
-      derive: ({ userId, status }) => `PROFILE#${status}#${userId}`,
+      derive: ({ userId, status }) => ['PROFILE', status, userId],
     },
-    accessPatterns: (fn) => ({
-      byStatus: fn({
-        deps: ['status'],
-        derive: ({ status }) => `PROFILE#${status}`,
-      }),
-    }),
   })
   .index('GSI1', {
     pk: {
       deps: [],
-      derive: () => 'USER',
+      derive: () => ['USER'],
     },
     sk: {
-      deps: ['status'],
-      derive: ({ status }) => `USER#${status}`,
+      deps: ['status', 'userId'],
+      derive: ({ status, userId }) => ['USER', status, userId],
     },
-    accessPatterns: (fn) => ({
-      byTest: fn({
-        deps: ['status'],
-        derive: ({ status }) => `USER#${status}`,
-      }),
-    }),
   })
   .build();
 
@@ -98,16 +75,17 @@ const gen = Effect.gen(function* () {
     { email: 'updated@example.com' },
     { ignoreVersionMismatch: true },
   );
-  const result2 = yield* userEntity
-    .index('GSI1')
-    .query(
-      {},
-      {
-        onExcessProperty: 'ignore',
-        Limit: 10,
-      },
-    )
-    .byTest.between({ status: 'ACTIVE' }, { status: 'INACTIVE' });
+  const result2 = yield* userEntity.index('GSI1').query(
+    {
+      pk: {}, // br
+      sk: { beginsWith: { status: 'INACTIVE' } },
+    },
+    {
+      // filter: { status: 'ACTIVE' },
+      onExcessProperty: 'preserve',
+      Limit: 10,
+    },
+  );
 
   console.dir(result2, { depth: 10 });
 });

@@ -1,4 +1,4 @@
-import type { Primitive } from 'type-fest';
+import type { Primitive, Simplify } from 'type-fest';
 
 export type FirstLevelPrimitives<T> = {
   [K in keyof T as T[K] extends Primitive ? K : never]: T[K];
@@ -11,24 +11,20 @@ export interface EntityIndexDefinition<
   TItem,
   PkKeys extends any[],
   SkKeys extends any[],
-  // eslint-disable-next-line ts/no-empty-object-type
-  AccessPatterns extends Record<string, IndexDef<any, any>> = {},
 > {
   pk: IndexDef<TItem, PkKeys>;
   sk: IndexDef<TItem, SkKeys>;
-  accessPatterns?: AccessPatterns;
 }
 
 export type EmptyEntityIndexDefinition = EntityIndexDefinition<
   any,
   any[],
-  any[],
-  Record<string, IndexDef<any, any>>
+  any[]
 >;
 
 export interface IndexDef<TItem, TKeys extends Readonly<any[]>> {
   deps: TKeys;
-  derive: (value: ObjFromKeysArr<TItem, TKeys>) => string;
+  derive: (value: ObjFromKeysArr<TItem, TKeys>) => string[];
 }
 
 export type ExtractIndexDefType<Def extends IndexDef<any, any>> =
