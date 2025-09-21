@@ -1,8 +1,4 @@
-import type {
-  EmptyESchema,
-  ESchema,
-  ExtractESchemaType,
-} from '@monorepo/eschema';
+import { EmptyESchema, ESchema, ExtractESchemaType } from '@monorepo/eschema';
 import type { Schema } from 'effect';
 import type { Except, Simplify } from 'type-fest';
 import type { QueryOptions } from '../table/query-executor.js';
@@ -174,7 +170,7 @@ export class DynamoEntity<
         Effect.andThen(() =>
           this.table.putItem(
             this.#getRealKeyFromItem(item),
-            { ...item, ...this.#deriveSecondaryKeys(item) },
+            this.eschema.make({ ...item, ...this.#deriveSecondaryKeys(item) }),
             options,
           ),
         ),

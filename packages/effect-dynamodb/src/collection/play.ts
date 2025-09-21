@@ -10,10 +10,4 @@ const eschema = ESchema.make(
   }),
 ).build();
 
-type TEST_EXTRACT_SCHEMA = ExtractESchemaSchema<typeof extended>;
-
-const extended = eschema.extend(Schema.Struct({ __m: Schema.String }));
-
-const t = DynamoCollection.make(eschema);
-const t2 = t.upsertSchema;
-const t23 = t.querySchema;
+const t = DynamoCollection.make(eschema).build();

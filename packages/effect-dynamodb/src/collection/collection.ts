@@ -1,40 +1,35 @@
 import type { EmptyESchema, ESchema } from '@monorepo/eschema';
-import type {
-  ExtendLatestEvolutionSchema,
-  ExtractESchemaType,
-} from '@monorepo/eschema/types.js';
-import type { Simplify } from 'type-fest';
 import { Schema } from 'effect';
 
-const extendSchema = Schema.Struct({
-  __m: Schema.String,
-});
-export class DynamoCollection<TSchema extends EmptyESchema> {
-  eschema: TSchema;
+export class DynamoCollection<
+  TSchema extends EmptyESchema,
+  TItemSchema extends Schema.Schema<any>,
+> {
+  readonly itemSchema: TItemSchema;
+  readonly eschema: TSchema;
 
-  private constructor(eschema: TSchema) {
+  private constructor(eschema: TSchema, itemSchema: TItemSchema) {
     this.eschema = eschema;
-  }
-
-  get upsertSchema() {
-    return this.eschema.schema as Schema.Schema<
-      Simplify<
-        Omit<ExtractESchemaType<TSchema>, keyof typeof extendSchema.Type>
-      >
-    >;
-  }
-
-  get querySchema() {
-    return this.eschema.schema as Schema.Schema<
-      Simplify<ExtractESchemaType<TSchema>>
-    >;
+    this.itemSchema = itemSchema;
   }
 
   static make<TMakeSchema extends EmptyESchema>(eschema: TMakeSchema) {
-    const extended = eschema.extend(extendSchema);
-
-    return new DynamoCollection(extended) as DynamoCollection<
-      ESchema<ExtendLatestEvolutionSchema<TMakeSchema, typeof extendSchema>>
-    >;
+    return {
+      itemSchema<T>(itemSchema: Schema.Schema<T>) {
+        return {
+          build() {
+            return new DynamoCollection(
+              eschema,
+              itemSchema,
+            ) as DynamoCollection<TMakeSchema, Schema.Schema<T>>;
+          },
+        };
+      },
+      build: () =>
+        new DynamoCollection(eschema, eschema.schema) as DynamoCollection<
+          TMakeSchema,
+          TMakeSchema['schema']
+        >,
+    };
   }
 }

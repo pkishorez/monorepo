@@ -96,7 +96,9 @@ export class ESchema<
     );
   }
 
-  makePartial = <D extends Partial<SchemaTypeFrom<TEvolutions>>>(data: D) => {
+  makePartial = <D extends Partial<SchemaTypeFrom<TEvolutions>>>(
+    data: D,
+  ): Partial<SchemaTypeFrom<TEvolutions>> => {
     return Effect.runSync(this.makePartialEffect(data) as any);
   };
 
@@ -130,7 +132,7 @@ export class ESchema<
     ESchemaParseError
   > = (data, { onExcessProperty = 'ignore' } = {}) => {
     const evolutions = this.#evolutions;
-     
+
     const th = this;
 
     return Effect.gen(function* () {
