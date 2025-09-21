@@ -5,7 +5,6 @@ import type {
 } from '@monorepo/eschema';
 import type { Schema } from 'effect';
 import type { Except, Simplify } from 'type-fest';
-import type { KeyConditionExprParameters } from '../table/expr/index.js';
 import type { QueryOptions } from '../table/query-executor.js';
 import type { DynamoTable, PutOptions, UpdateOptions } from '../table/table.js';
 import type {
@@ -21,9 +20,9 @@ import type {
   IndexDef,
   ObjFromKeysArr,
 } from './types.js';
+import type { SortKeyparameter } from '../table/expr/key-condition/types.js';
 import { Effect } from 'effect';
 import { deriveIndex } from './util.js';
-import { SortKeyparameter } from '../table/expr/key-condition/types.js';
 
 export class DynamoEntity<
   TSchema extends EmptyESchema,

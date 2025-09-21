@@ -25,31 +25,31 @@ describe('entity Secondary Index Derivation', () => {
         .primary({
           pk: {
             deps: [],
-            derive: () => 'USER',
+            derive: () => ['USER'],
           },
           sk: {
             deps: ['userId'],
-            derive: ({ userId }) => `USER#${userId}`,
+            derive: ({ userId }) => ['USER', userId],
           },
         })
         .index('GSI1', {
           pk: {
             deps: ['status'],
-            derive: ({ status }) => `STATUS#${status}`,
+            derive: ({ status }) => ['STATUS', status],
           },
           sk: {
             deps: ['userId', 'type'],
-            derive: ({ userId, type }) => `${type}#${userId}`,
+            derive: ({ userId, type }) => [type, userId],
           },
         })
         .index('GSI2', {
           pk: {
             deps: ['email'],
-            derive: ({ email }) => `EMAIL#${email}`,
+            derive: ({ email }) => ['EMAIL', email],
           },
           sk: {
             deps: ['userId'],
-            derive: ({ userId }) => userId,
+            derive: ({ userId }) => [userId],
           },
         })
         .build();
@@ -65,7 +65,7 @@ describe('entity Secondary Index Derivation', () => {
 
       // Query with onExcessProperty: 'preserve' to inspect all fields
       const result = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
 
       expect(result.Items).toHaveLength(1);
@@ -99,21 +99,21 @@ describe('entity Secondary Index Derivation', () => {
         .primary({
           pk: {
             deps: [],
-            derive: () => 'USER',
+            derive: () => ['USER'],
           },
           sk: {
             deps: ['userId'],
-            derive: ({ userId }) => `USER#${userId}`,
+            derive: ({ userId }) => ['USER', userId],
           },
         })
         .index('GSI1', {
           pk: {
             deps: ['department'],
-            derive: ({ department }) => `DEPT#${department}`,
+            derive: ({ department }) => ['DEPT', department],
           },
           sk: {
             deps: ['status', 'userId'],
-            derive: ({ status, userId }) => `${status}#${userId}`,
+            derive: ({ status, userId }) => [status, userId],
           },
         })
         .build();
@@ -139,7 +139,7 @@ describe('entity Secondary Index Derivation', () => {
 
       // Query to verify the updates
       const result = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
 
       const updatedItem = result.Items[0] as any;
@@ -167,31 +167,31 @@ describe('entity Secondary Index Derivation', () => {
         .primary({
           pk: {
             deps: [],
-            derive: () => 'USER',
+            derive: () => ['USER'],
           },
           sk: {
             deps: ['userId'],
-            derive: ({ userId }) => `USER#${userId}`,
+            derive: ({ userId }) => ['USER', userId],
           },
         })
         .index('GSI1', {
           pk: {
             deps: ['status', 'level'],
-            derive: ({ status, level }) => `${status}#L${level}`,
+            derive: ({ status, level }) => [status, `L${level}`],
           },
           sk: {
             deps: ['userId'],
-            derive: ({ userId }) => userId,
+            derive: ({ userId }) => [userId],
           },
         })
         .index('GSI2', {
           pk: {
             deps: ['email'],
-            derive: ({ email }) => `EMAIL#${email}`,
+            derive: ({ email }) => ['EMAIL', email],
           },
           sk: {
             deps: ['name'],
-            derive: ({ name }) => name.toUpperCase(),
+            derive: ({ name }) => [name.toUpperCase()],
           },
         })
         .build();
@@ -216,7 +216,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const afterPartialUpdate = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
 
       const partiallyUpdated = afterPartialUpdate.Items[0] as any;
@@ -239,7 +239,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const afterStatusUpdate = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
 
       const statusUpdated = afterStatusUpdate.Items[0] as any;
@@ -258,7 +258,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const afterFullUpdate = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
 
       const fullyUpdated = afterFullUpdate.Items[0] as any;
@@ -284,21 +284,21 @@ describe('entity Secondary Index Derivation', () => {
         .primary({
           pk: {
             deps: [],
-            derive: () => 'ORDER',
+            derive: () => ['ORDER'],
           },
           sk: {
             deps: ['orderId'],
-            derive: ({ orderId }) => `ORDER#${orderId}`,
+            derive: ({ orderId }) => ['ORDER', orderId],
           },
         })
         .index('GSI1', {
           pk: {
             deps: ['customerId'],
-            derive: ({ customerId }) => `CUSTOMER#${customerId}`,
+            derive: ({ customerId }) => ['CUSTOMER', customerId],
           },
           sk: {
             deps: ['orderDate', 'orderId'],
-            derive: ({ orderDate, orderId }) => `${orderDate}#${orderId}`,
+            derive: ({ orderDate, orderId }) => [orderDate, orderId],
           },
         })
         .index('GSI2', {
@@ -306,12 +306,12 @@ describe('entity Secondary Index Derivation', () => {
             deps: ['status', 'priority'],
             derive: ({ status, priority }) => {
               const priorityLabel = priority >= 3 ? 'HIGH' : 'NORMAL';
-              return `${status}#${priorityLabel}`;
+              return [status, priorityLabel];
             },
           },
           sk: {
             deps: ['orderDate', 'orderId'],
-            derive: ({ orderDate, orderId }) => `${orderDate}#${orderId}`,
+            derive: ({ orderDate, orderId }) => [orderDate, orderId],
           },
         })
         .build();
@@ -328,7 +328,7 @@ describe('entity Secondary Index Derivation', () => {
 
       // Initial verification
       const initialResult = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
       const initialItem = initialResult.Items[0] as any;
 
@@ -347,7 +347,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const updatedResult = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
       const updatedItem = updatedResult.Items[0] as any;
 
@@ -370,21 +370,21 @@ describe('entity Secondary Index Derivation', () => {
         .primary({
           pk: {
             deps: [],
-            derive: () => 'ITEM',
+            derive: () => ['ITEM'],
           },
           sk: {
             deps: ['userId'],
-            derive: ({ userId }) => userId,
+            derive: ({ userId }) => [userId],
           },
         })
         .index('GSI1', {
           pk: {
             deps: ['category'],  // Single dependency
-            derive: ({ category }) => `CAT#${category}`,
+            derive: ({ category }) => ['CAT', category],
           },
           sk: {
             deps: ['subcategory', 'region'],  // Multiple dependencies (not including primary key)
-            derive: ({ subcategory, region }) => `${subcategory}#${region}`,
+            derive: ({ subcategory, region }) => [subcategory, region],
           },
         })
         .build();
@@ -411,7 +411,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const afterCategoryUpdate = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
 
       const updated = afterCategoryUpdate.Items[0] as any;
@@ -431,7 +431,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const afterSubcategoryUpdate = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
 
       const stillPartial = afterSubcategoryUpdate.Items[0] as any;
@@ -451,7 +451,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const afterFullUpdate = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
 
       const fullyUpdated = afterFullUpdate.Items[0] as any;
@@ -473,21 +473,21 @@ describe('entity Secondary Index Derivation', () => {
         .primary({
           pk: {
             deps: [],
-            derive: () => 'STATIC_PK',
+            derive: () => ['STATIC_PK'],
           },
           sk: {
             deps: ['id'],
-            derive: ({ id }) => id,
+            derive: ({ id }) => [id],
           },
         })
         .index('GSI1', {
           pk: {
             deps: [],
-            derive: () => 'ALL_ITEMS',
+            derive: () => ['ALL_ITEMS'],
           },
           sk: {
             deps: [],
-            derive: () => new Date().toISOString(),
+            derive: () => [new Date().toISOString()],
           },
         })
         .build();
@@ -497,7 +497,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const result = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
       const item = result.Items[0] as any;
 
@@ -512,7 +512,7 @@ describe('entity Secondary Index Derivation', () => {
       );
 
       const updated = await Effect.runPromise(
-        entity.query({}, { onExcessProperty: 'preserve' }).exec(),
+        entity.query({ pk: {} }, { onExcessProperty: 'preserve' }),
       );
       const updatedItem = updated.Items[0] as any;
 
