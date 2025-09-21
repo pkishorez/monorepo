@@ -1,8 +1,7 @@
-import type { AwsErrorMeta } from "./error.js";
-import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
-import { AwsClient } from "aws4fetch";
-import * as Data from "effect/Data";
-import * as Effect from "effect/Effect";
+import type { AwsErrorMeta } from './error.js';
+import { AwsClient } from 'aws4fetch';
+import * as Data from 'effect/Data';
+import * as Effect from 'effect/Effect';
 import {
   AccessDeniedException,
   RequestTimeout,
@@ -10,13 +9,13 @@ import {
   ThrottlingException,
   UnauthorizedException,
   ValidationException,
-} from "./error.js";
+} from './error.js';
 
 // Helper function to extract simple error name from AWS namespaced error type
 function extractErrorName(awsErrorType: string): string {
   // AWS returns errors like "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException"
   // We need to extract "ResourceNotFoundException"
-  const parts = awsErrorType.split("#");
+  const parts = awsErrorType.split('#');
   return parts.length > 1 ? parts[1] : awsErrorType;
 }
 
@@ -53,7 +52,7 @@ export abstract class AWSServiceClient {
   protected readonly config: Required<AWSClientConfig>;
   constructor(config?: AWSClientConfig) {
     this.config = {
-      region: config?.region ?? "us-east-1",
+      region: config?.region ?? 'us-east-1',
       credentials: config?.credentials ?? (undefined as any), // Will be resolved later
       endpoint: config?.endpoint ?? (undefined as any), // Will be resolved per service
     };
@@ -63,14 +62,12 @@ export abstract class AWSServiceClient {
 // Promise-based AWS client creator
 async function createAwsClient(config: Required<AWSClientConfig>) {
   // Use provided credentials or fall back to AWS credential chain
-  const credentials = config.credentials
-    ? config.credentials
-    : await fromNodeProviderChain()();
+  const credentials = config.credentials;
 
   const clientConfig: any = {
     accessKeyId: credentials.accessKeyId,
     secretAccessKey: credentials.secretAccessKey,
-    service: "dynamodb",
+    service: 'dynamodb',
     region: config.region,
   };
 
@@ -84,7 +81,7 @@ async function createAwsClient(config: Required<AWSClientConfig>) {
 // DynamoDB-specific service proxy creator
 export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
   const resolvedConfig: Required<AWSClientConfig> = {
-    region: config.region ?? "us-east-1",
+    region: config.region ?? 'us-east-1',
     credentials: config.credentials ?? (undefined as any), // Will be resolved later
     endpoint: config.endpoint ?? (undefined as any), // Will be resolved per service
   };
@@ -95,7 +92,7 @@ export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
     {},
     {
       get(_, methodName: string | symbol) {
-        if (typeof methodName !== "string") {
+        if (typeof methodName !== 'string') {
           return undefined;
         }
 
@@ -112,9 +109,9 @@ export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
 
             // Build headers for AWS JSON 1.0 protocol
             const headers: Record<string, string> = {
-              "Content-Type": "application/x-amz-json-1.0",
-              "X-Amz-Target": `DynamoDB_20120810.${action}`,
-              "Content-Length": body.length.toString(),
+              'Content-Type': 'application/x-amz-json-1.0',
+              'X-Amz-Target': `DynamoDB_20120810.${action}`,
+              'Content-Length': body.length.toString(),
             };
 
             // Use custom endpoint or construct regional AWS endpoint
@@ -123,7 +120,7 @@ export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
               : `https://dynamodb.${resolvedConfig.region}.amazonaws.com/`;
 
             // Log the AWS request
-            yield* Effect.logDebug("DynamoDB Request", {
+            yield* Effect.logDebug('DynamoDB Request', {
               action,
               endpoint,
               headers,
@@ -133,17 +130,17 @@ export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
 
             const response = yield* Effect.promise(() =>
               client.fetch(endpoint, {
-                method: "POST",
+                method: 'POST',
                 headers,
                 body,
               }),
-            ).pipe(Effect.timeout("30 seconds"));
+            ).pipe(Effect.timeout('30 seconds'));
 
             const responseText = yield* Effect.promise(() => response.text());
             const statusCode = response.status;
 
             // Log the AWS response
-            yield* Effect.logDebug("DynamoDB Response", {
+            yield* Effect.logDebug('DynamoDB Response', {
               action,
               statusCode,
               headers: (() => {
@@ -170,20 +167,20 @@ export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
               }
 
               // Extract error info from AWS JSON format
-              let errorType = "UnknownError";
-              let errorMessage = "Unknown error";
+              let errorType = 'UnknownError';
+              let errorMessage = 'Unknown error';
 
-              if (errorData && typeof errorData === "object") {
+              if (errorData && typeof errorData === 'object') {
                 errorType =
-                  errorData.__type || errorData.code || "UnknownError";
+                  errorData.__type || errorData.code || 'UnknownError';
                 errorMessage =
-                  errorData.Message || errorData.message || "Unknown error";
+                  errorData.Message || errorData.message || 'Unknown error';
               }
 
               // Get request ID from headers
               const requestId =
-                response.headers.get("x-amzn-requestid") ||
-                response.headers.get("x-amz-request-id") ||
+                response.headers.get('x-amzn-requestid') ||
+                response.headers.get('x-amz-request-id') ||
                 undefined;
 
               const errorMeta: AwsErrorMeta = requestId
@@ -195,27 +192,27 @@ export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
 
               // Map to specific error types
               switch (simpleErrorName) {
-                case "ThrottlingException":
-                case "TooManyRequestsException":
-                case "ProvisionedThroughputExceededException":
-                case "RequestLimitExceeded":
+                case 'ThrottlingException':
+                case 'TooManyRequestsException':
+                case 'ProvisionedThroughputExceededException':
+                case 'RequestLimitExceeded':
                   yield* Effect.fail(new ThrottlingException(errorMeta));
                   break;
-                case "ServiceUnavailable":
-                case "InternalServerError":
+                case 'ServiceUnavailable':
+                case 'InternalServerError':
                   yield* Effect.fail(new ServiceUnavailable(errorMeta));
                   break;
-                case "RequestTimeout":
+                case 'RequestTimeout':
                   yield* Effect.fail(new RequestTimeout(errorMeta));
                   break;
-                case "AccessDeniedException":
+                case 'AccessDeniedException':
                   yield* Effect.fail(new AccessDeniedException(errorMeta));
                   break;
-                case "UnauthorizedException":
-                case "UnrecognizedClientException":
+                case 'UnauthorizedException':
+                case 'UnrecognizedClientException':
                   yield* Effect.fail(new UnauthorizedException(errorMeta));
                   break;
-                case "ValidationException":
+                case 'ValidationException':
                   yield* Effect.fail(new ValidationException(errorMeta));
                   break;
                 default:
@@ -233,4 +230,3 @@ export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
     },
   ) as T;
 }
-

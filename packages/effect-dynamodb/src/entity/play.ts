@@ -99,6 +99,7 @@ const gen = Effect.gen(function* () {
     { ignoreVersionMismatch: true },
   );
   const result2 = yield* userEntity
+    .index('GSI1')
     .query(
       {},
       {
@@ -106,7 +107,7 @@ const gen = Effect.gen(function* () {
         Limit: 10,
       },
     )
-    .exec();
+    .byTest({ '<': { status: 'ACTIVE' } });
 
   console.dir(result2, { depth: 10 });
 });

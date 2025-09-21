@@ -371,7 +371,7 @@ export class DynamoTable<
   index<TName extends keyof TSecondaryIndexes>(indexName: TName) {
     return {
       query: (
-        key: KeyConditionExprParameters,
+        key: KeyConditionExprParameters<any>,
         options?: QueryOptions<TSecondaryIndexes[TName], TItem>,
       ) => {
         return this.#queryExecutor

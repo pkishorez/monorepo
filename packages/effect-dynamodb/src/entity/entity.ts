@@ -5,7 +5,6 @@ import type {
 } from '@monorepo/eschema';
 import type { Schema } from 'effect';
 import type { Except } from 'type-fest';
-import type { KeyConditionExprParameters } from '../table/expr/index.js';
 import type { QueryOptions } from '../table/query-executor.js';
 import type { DynamoTable, PutOptions, UpdateOptions } from '../table/table.js';
 import type {
@@ -22,6 +21,7 @@ import type {
 } from './types.js';
 import { Effect } from 'effect';
 import { deriveIndex } from './util.js';
+import { SortKeyparameter } from '../table/expr/key-condition/types.js';
 
 export class DynamoEntity<
   TSchema extends EmptyESchema,
@@ -182,7 +182,7 @@ export class DynamoEntity<
     return {
       query: (
         pk: ExtractIndexDefType<TSecondary[IndexName]['pk']>,
-        options: QueryOptions<
+        options: EntityQueryOptions<
           IndexName extends keyof TTable['secondaryIndexes']
             ? TTable['secondaryIndexes'][IndexName]
             : never,
@@ -378,9 +378,9 @@ function query<
 ) {
   const pkValue = deriveIndex(definition.pk, pk);
 
-  const exec = (sk?: KeyConditionExprParameters['sk']) => {
+  const exec = <T>(sk?: SortKeyparameter<T>) => {
     return (index ? table.index(index) : table)
-      .query({ pk: pkValue, sk }, options)
+      .query({ pk: pkValue, sk: sk as any }, options)
       .pipe(
         Effect.andThen(({ Items, ...others }) =>
           Effect.gen(function* () {
@@ -417,39 +417,17 @@ function query<
       : never;
   const accessPatternOperations = Object.fromEntries(
     Object.entries(definition.accessPatterns ?? {}).map(([key, value]) => {
-      return [
-        key,
-        {
-          between: (val1: any, val2: any) => {
-            return exec({
-              between: [value.derive(val1), value.derive(val2)],
-            });
-          },
-          prefix: (val: any) => {
-            return exec({ beginsWith: value.derive(val) });
-          },
-        },
-      ];
+      return [key, (params) => exec(params)];
     }),
   ) as {
-    [K in keyof AccessPatternTypes]: {
-      prefix: (
-        val: ObjFromKeysArr<
+    [K in keyof AccessPatternTypes as K extends string ? K : never]: (
+      params: SortKeyparameter<
+        ObjFromKeysArr<
           ExtractESchemaType<TSchema>,
           AccessPatternTypes[K]['deps']
-        >,
-      ) => ReturnType<typeof exec>;
-      between: (
-        va1: ObjFromKeysArr<
-          ExtractESchemaType<TSchema>,
-          AccessPatternTypes[K]['deps']
-        >,
-        va2: ObjFromKeysArr<
-          ExtractESchemaType<TSchema>,
-          AccessPatternTypes[K]['deps']
-        >,
-      ) => ReturnType<typeof exec>;
-    };
+        >
+      >,
+    ) => ReturnType<typeof exec>;
   };
 
   return {

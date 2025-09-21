@@ -20,7 +20,6 @@
     "effect": ">3"
   },
   "dependencies": {
-    "@aws-sdk/credential-providers": "3.893.0",
     "aws4fetch": "1.0.20"
   },
   "devDependencies": {
