@@ -60,13 +60,13 @@ export const userEntity = DynamoEntity.make({ eschema, table })
       derive: () => 'USER',
     },
     sk: {
-      deps: ['userId', 'status'],
-      derive: ({ userId, status }) => `USER#${userId}#${status}`,
+      deps: ['status'],
+      derive: ({ status }) => `USER#${status}`,
     },
     accessPatterns: (fn) => ({
       byTest: fn({
         deps: ['status'],
-        derive: ({ status }) => status,
+        derive: ({ status }) => `USER#${status}`,
       }),
     }),
   })
@@ -107,7 +107,7 @@ const gen = Effect.gen(function* () {
         Limit: 10,
       },
     )
-    .byTest({ '<': { status: 'ACTIVE' } });
+    .byTest.between({ status: 'ACTIVE' }, { status: 'INACTIVE' });
 
   console.dir(result2, { depth: 10 });
 });

@@ -5,6 +5,7 @@ import type {
 } from '@monorepo/eschema';
 import type { Schema } from 'effect';
 import type { Except } from 'type-fest';
+import type { KeyConditionExprParameters } from '../table/expr/index.js';
 import type { QueryOptions } from '../table/query-executor.js';
 import type { DynamoTable, PutOptions, UpdateOptions } from '../table/table.js';
 import type {
@@ -12,6 +13,7 @@ import type {
   IndexDefinition,
 } from '../table/types.js';
 import type {
+  EmptyEntityIndexDefinition,
   EntityIndexDefinition,
   ExtractEntityIndexDefType,
   ExtractIndexDefType,
@@ -21,7 +23,6 @@ import type {
 } from './types.js';
 import { Effect } from 'effect';
 import { deriveIndex } from './util.js';
-import { SortKeyparameter } from '../table/expr/key-condition/types.js';
 
 export class DynamoEntity<
   TSchema extends EmptyESchema,
@@ -30,16 +31,8 @@ export class DynamoEntity<
     Record<string, IndexDefinition>,
     ExtractESchemaType<TSchema>
   >,
-  TPrimary extends EntityIndexDefinition<
-    any,
-    any,
-    any,
-    Record<string, IndexDef<any, any>>
-  >,
-  TSecondary extends Record<
-    keyof TTable['secondaryIndexes'],
-    EntityIndexDefinition<any, any[], any[], Record<string, IndexDef<any, any>>>
-  >,
+  TPrimary extends EmptyEntityIndexDefinition,
+  TSecondary extends Record<string, EmptyEntityIndexDefinition>,
 > {
   eschema: TSchema;
   table: TTable;
@@ -79,7 +72,8 @@ export class DynamoEntity<
     const itemKeys = Object.keys(item);
 
     return Object.entries(this.secondary).reduce(
-      (acc, [indexName, { pk, sk }]) => {
+      (acc, [indexName, def]) => {
+        const { pk, sk } = def;
         // Only derive pk if ALL its dependencies are present in the update
         const pkDeps =
           pk.deps.length === 0 || pk.deps.every((dep) => itemKeys.includes(dep))
@@ -98,7 +92,7 @@ export class DynamoEntity<
         };
       },
       {} as typeof item,
-    );
+    ) as typeof item;
   }
 
   update(
@@ -249,7 +243,12 @@ export class DynamoEntity<
           ) => IndexDef<TItem, Keys>,
         ) => AccessPatterns;
       }) {
-        return new SecondaryIndexCreator(eschema, table, {
+        return new SecondaryIndexCreator<
+          TESchema,
+          TTable,
+          EntityIndexDefinition<TItem, PkKeys, SkKeys, AccessPatterns>,
+          {} // Start with empty secondary indexes
+        >(eschema, table, {
           pk,
           sk,
           accessPatterns: accessPatterns?.((v) => v) ?? ({} as AccessPatterns),
@@ -266,16 +265,8 @@ class SecondaryIndexCreator<
     Record<string, IndexDefinition>,
     ExtractESchemaType<TSchema>
   >,
-  TPrimary extends EntityIndexDefinition<
-    any,
-    any,
-    any,
-    Record<string, IndexDef<any, any>>
-  >,
-  TSecondary extends Record<
-    keyof TTable['secondaryIndexes'],
-    EntityIndexDefinition<any, any, any, Record<string, IndexDef<any, any>>>
-  >,
+  TPrimary extends EmptyEntityIndexDefinition,
+  TSecondary extends Record<string, EmptyEntityIndexDefinition>,
 > {
   #eschema: TSchema;
   #table: TTable;
@@ -320,21 +311,27 @@ class SecondaryIndexCreator<
         ) => IndexDef<Schema.Schema.Type<TSchema['schema']>, Keys>,
       ) => AccessPatterns;
     },
-  ) {
+  ): SecondaryIndexCreator<
+    TSchema,
+    TTable,
+    TPrimary,
+    TSecondary &
+      Record<Name, EntityIndexDefinition<any, PkKeys, SkKeys, AccessPatterns>>
+  > {
     const indexDef = {
       pk,
       sk,
       accessPatterns: accessPatterns?.((v) => v) ?? ({} as AccessPatterns),
     } as EntityIndexDefinition<any, PkKeys, SkKeys, AccessPatterns>;
-    return new SecondaryIndexCreator(
-      this.#eschema,
-      this.#table,
-      this.#primary,
-      {
-        ...this.#secondary,
-        [name]: indexDef,
-      } as TSecondary & Record<Name, typeof indexDef>,
-    );
+    return new SecondaryIndexCreator<
+      TSchema,
+      TTable,
+      TPrimary,
+      TSecondary & Record<Name, typeof indexDef>
+    >(this.#eschema, this.#table, this.#primary, {
+      ...this.#secondary,
+      [name]: indexDef,
+    } as TSecondary & Record<Name, typeof indexDef>);
   }
 
   build() {
@@ -378,9 +375,9 @@ function query<
 ) {
   const pkValue = deriveIndex(definition.pk, pk);
 
-  const exec = <T>(sk?: SortKeyparameter<T>) => {
+  const exec = (sk?: KeyConditionExprParameters['sk']) => {
     return (index ? table.index(index) : table)
-      .query({ pk: pkValue, sk: sk as any }, options)
+      .query({ pk: pkValue, sk }, options)
       .pipe(
         Effect.andThen(({ Items, ...others }) =>
           Effect.gen(function* () {
@@ -417,17 +414,39 @@ function query<
       : never;
   const accessPatternOperations = Object.fromEntries(
     Object.entries(definition.accessPatterns ?? {}).map(([key, value]) => {
-      return [key, (params) => exec(params)];
+      return [
+        key,
+        {
+          between: (val1: any, val2: any) => {
+            return exec({
+              between: [value.derive(val1), value.derive(val2)],
+            });
+          },
+          prefix: (val: any) => {
+            return exec({ beginsWith: value.derive(val) });
+          },
+        },
+      ];
     }),
   ) as {
-    [K in keyof AccessPatternTypes as K extends string ? K : never]: (
-      params: SortKeyparameter<
-        ObjFromKeysArr<
+    [K in keyof AccessPatternTypes]: {
+      prefix: (
+        val: ObjFromKeysArr<
           ExtractESchemaType<TSchema>,
           AccessPatternTypes[K]['deps']
-        >
-      >,
-    ) => ReturnType<typeof exec>;
+        >,
+      ) => ReturnType<typeof exec>;
+      between: (
+        va1: ObjFromKeysArr<
+          ExtractESchemaType<TSchema>,
+          AccessPatternTypes[K]['deps']
+        >,
+        va2: ObjFromKeysArr<
+          ExtractESchemaType<TSchema>,
+          AccessPatternTypes[K]['deps']
+        >,
+      ) => ReturnType<typeof exec>;
+    };
   };
 
   return {

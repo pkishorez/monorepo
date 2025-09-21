@@ -19,6 +19,13 @@ export interface EntityIndexDefinition<
   accessPatterns?: AccessPatterns;
 }
 
+export type EmptyEntityIndexDefinition = EntityIndexDefinition<
+  any,
+  any[],
+  any[],
+  Record<string, IndexDef<any, any>>
+>;
+
 export interface IndexDef<TItem, TKeys extends Readonly<any[]>> {
   deps: TKeys;
   derive: (value: ObjFromKeysArr<TItem, TKeys>) => string;
