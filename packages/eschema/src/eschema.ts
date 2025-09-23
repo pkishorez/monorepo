@@ -16,7 +16,7 @@ type SchemaTypeFrom<TEvolutions extends Evolution<any, any>[]> =
   Schema.Schema.Type<SchemaFrom<TEvolutions>>;
 
 export class ESchema<
-  TEvolutions extends Evolution<string, Schema.Schema<any>>[],
+  TEvolutions extends Evolution<string, Schema.Schema<any, any, never>>[],
 > {
   #evolutions: TEvolutions;
 
@@ -24,10 +24,10 @@ export class ESchema<
     this.#evolutions = evolutions;
   }
 
-  static make<Version extends string, Sch extends Schema.Schema<any, any, any>>(
-    version: Version,
-    schema: Sch,
-  ) {
+  static make<
+    Version extends string,
+    Sch extends Schema.Schema<any, any, never>,
+  >(version: Version, schema: Sch) {
     const enhancedEvolution = {
       version,
       schema,
@@ -60,7 +60,7 @@ export class ESchema<
     ) as any;
   }
 
-  extend = <Ext>(schema: Schema.Schema<Ext>) => {
+  extend = <Ext, I = Ext>(schema: Schema.Schema<Ext, I, never>) => {
     const evolutions = this.#evolutions.slice(0, -1);
     const last = this.#evolutions.at(-1)!;
 
@@ -70,7 +70,10 @@ export class ESchema<
         any,
         any
       >,
-    ] as ExtendLatestEvolutionSchema<ESchema<TEvolutions>, Schema.Schema<Ext>>);
+    ] as ExtendLatestEvolutionSchema<
+      ESchema<TEvolutions>,
+      Schema.Schema<Ext, I, never>
+    >);
   };
 
   make: (
@@ -202,10 +205,10 @@ class Builder<TEvolutions extends Evolution<any, any>[]> {
   evolve<
     Version extends string,
     SchemaOrFn extends
-      | Schema.Schema<any, any, any>
+      | Schema.Schema<any, any, never>
       | ((
           obj: EvolutionsToObject<TEvolutions>,
-        ) => Schema.Schema<any, any, any>),
+        ) => Schema.Schema<any, any, never>),
   >(
     version: EnsureUniqueVersion<Version, TEvolutions>,
     schemaOrFn: SchemaOrFn,

@@ -59,7 +59,7 @@ export type LatestSchemaType<
 
 export type ExtendLatestEvolutionSchema<
   TSchema extends EmptyESchema,
-  U extends Schema.Schema<any>,
+  U extends Schema.Schema<any, any, never>,
 > =
   TSchema extends ESchema<infer Evolutions>
     ? Evolutions extends [
@@ -72,13 +72,14 @@ export type ExtendLatestEvolutionSchema<
 
 type ExtendEvolutionSchema<
   E extends Evolution<any, any>,
-  Extension extends Schema.Schema<any>,
+  Extension extends Schema.Schema<any, any, never>,
 > =
   E extends Evolution<infer A, infer S>
     ? Evolution<
         A,
         Schema.Schema<
-          Simplify<Schema.Schema.Type<S> & Schema.Schema.Type<Extension>>
+          Simplify<Schema.Schema.Type<S> & Schema.Schema.Type<Extension>>,
+          Simplify<Schema.Schema.Encoded<S> & Schema.Schema.Encoded<Extension>>
         >
       >
     : never;
@@ -152,7 +153,9 @@ export type EvolutionsToObject<T extends readonly Evolution<any, any>[]> = {
     : never]: K extends Evolution<any, infer S> ? S : never;
 };
 
-export type EmptyESchema = ESchema<Evolution<string, Schema.Schema<any>>[]>;
+export type EmptyESchema = ESchema<
+  Evolution<string, Schema.Schema<any, any, never>>[]
+>;
 
 export type ExtractESchemaSchema<ESch extends EmptyESchema> =
   ESch extends ESchema<infer Evolutions>
