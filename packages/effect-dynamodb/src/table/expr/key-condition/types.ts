@@ -1,6 +1,6 @@
 export interface KeyConditionExprParameters<T = string> {
   pk: string;
-  sk?: undefined | string | SortKeyparameter<T>;
+  sk?: undefined | string | SortKeyparameter<T> | null;
 }
 
 export type SortKeyparameter<Type = string> =

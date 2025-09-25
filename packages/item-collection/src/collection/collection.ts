@@ -26,10 +26,7 @@ export class ItemCollection<
   }
 
   get broadcastSchema() {
-    const insert = this.itemSchema;
-    const update = Schema.partial(
-      this.itemSchema.pipe(Schema.omit(this.key)),
-    ).pipe(
+    return Schema.partial(this.itemSchema.pipe(Schema.omit(this.key))).pipe(
       Schema.extend(this.itemSchema.pipe(Schema.pick(this.key))),
     ) as any as Schema.Schema<
       Simplify<
@@ -37,22 +34,6 @@ export class ItemCollection<
           Pick<Schema.Schema.Type<TItemSchema>, TKey>
       >
     >;
-
-    return {
-      insert,
-      update,
-
-      all: Schema.Union(
-        Schema.Struct({
-          type: Schema.Literal('update'),
-          value: update,
-        }),
-        Schema.Struct({
-          type: Schema.Literal('insert'),
-          value: insert,
-        }),
-      ),
-    };
   }
 
   static make<TMakeSchema extends EmptyESchema>(eschema: TMakeSchema) {

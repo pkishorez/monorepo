@@ -170,7 +170,7 @@ export class DynamoEntity<
         Effect.andThen(() =>
           this.table.putItem(
             this.#getRealKeyFromItem(item),
-            this.eschema.make({ ...item, ...this.#deriveSecondaryKeys(item) }),
+            { ...this.eschema.make(item), ...this.#deriveSecondaryKeys(item) },
             options,
           ),
         ),
@@ -195,7 +195,7 @@ export class DynamoEntity<
                 >
               >
             >
-          >;
+          > | null;
         },
         options: EntityQueryOptions<
           IndexName extends keyof TTable['secondaryIndexes']
@@ -213,7 +213,7 @@ export class DynamoEntity<
             table: this.table,
             eschema: this.eschema,
             pk: deriveIndex(definition.pk, pk),
-            sk: sk && querySkParams(definition.sk, sk),
+            sk: sk ? querySkParams(definition.sk, sk) : sk,
             index: indexName as string,
           },
           options,
@@ -380,7 +380,7 @@ function query<
     table: TTable;
     eschema: TSchema;
     pk: string;
-    sk?: SortKeyparameter<string> | undefined;
+    sk?: SortKeyparameter<string> | undefined | null;
     index?: string;
   },
   options?: Options,

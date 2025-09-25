@@ -70,7 +70,7 @@ const gen = Effect.gen(function* () {
   );
 
   // Update an item that was just inserted (kishorez2 has status 'INACTIVE')
-  yield* userEntity.update(
+  const v = yield* userEntity.update(
     { userId: 'kishorez2', status: 'ACTIVE' },
     { email: 'updated@example.com' },
     { ignoreVersionMismatch: true },
