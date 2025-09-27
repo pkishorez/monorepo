@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.2",
-    "@types/serviceworker": "0.0.153",
+    "@types/serviceworker": "0.0.154",
     "@vitest/coverage-v8": "3.2.4",
     "fake-indexeddb": "^6.2.2",
     "jsdom": "27.0.0",

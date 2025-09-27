@@ -1,6 +1,6 @@
 {
   "name": "kishore-monorepo",
-  "packageManager": "pnpm@10.17.0",
+  "packageManager": "pnpm@10.17.1",
   "description": "My monorepo",
   "author": "Kishore",
   "license": "ISC",

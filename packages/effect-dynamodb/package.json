@@ -19,7 +19,7 @@
     "test:coverage": "vitest run --coverage --reporter=verbose"
   },
   "dependencies": {
-    "@aws-sdk/util-dynamodb": "3.893.0",
+    "@aws-sdk/util-dynamodb": "3.896.0",
     "@monorepo/eschema": "workspace:*",
     "dynamodb-client": "workspace:*",
     "effect": "3.17.14"
