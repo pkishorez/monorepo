@@ -119,6 +119,19 @@ export class ESchema<
     );
   };
 
+  parseSync: (
+    data: unknown,
+    {
+      onExcessProperty,
+    }?: { onExcessProperty?: 'ignore' | 'preserve' | 'error' },
+  ) => {
+    value: SchemaTypeFrom<TEvolutions>;
+    meta: {
+      oldVersion: string;
+      newVersion: string;
+    };
+  } = (data, options) => Effect.runSync(this.parse(data, options));
+
   parse: (
     data: unknown,
     {

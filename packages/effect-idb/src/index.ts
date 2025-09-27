@@ -1,7 +1,3 @@
-export {
-  createDatabase,
-  deleteDatabase,
-  storeSchema,
-  type StoreType,
-} from './effect-idb.js';
-
+export { IDBStore } from './store.js';
+export { IDBEntity } from './entity.js';
+export { IDBEntityUnit } from './entity-unit.js';

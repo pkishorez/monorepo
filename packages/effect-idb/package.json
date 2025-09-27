@@ -17,6 +17,7 @@
   "dependencies": {
     "@standard-schema/spec": "1.0.0",
     "effect": "3.17.14",
+    "@monorepo/eschema": "workspace:*",
     "idb": "8.0.3"
   },
   "devDependencies": {

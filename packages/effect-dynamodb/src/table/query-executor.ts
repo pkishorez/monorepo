@@ -67,8 +67,6 @@ export class DynamoQueryExecutor<TItem> {
       ...result,
     };
 
-    console.warn(JSON.stringify(queryOptions, null, 2));
-
     if (indexName) {
       queryOptions.IndexName = indexName;
     }
