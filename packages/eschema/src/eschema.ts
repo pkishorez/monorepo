@@ -37,6 +37,8 @@ export class ESchema<
     return new Builder([enhancedEvolution] as const);
   }
 
+  Type = null as SchemaTypeFrom<TEvolutions>;
+
   get #latest() {
     return this.#evolutions[
       this.#evolutions.length - 1
@@ -121,9 +123,7 @@ export class ESchema<
 
   parseSync: (
     data: unknown,
-    {
-      onExcessProperty,
-    }?: { onExcessProperty?: 'ignore' | 'preserve' | 'error' },
+    options?: { onExcessProperty?: 'ignore' | 'preserve' | 'error' },
   ) => {
     value: SchemaTypeFrom<TEvolutions>;
     meta: {
@@ -134,9 +134,7 @@ export class ESchema<
 
   parse: (
     data: unknown,
-    {
-      onExcessProperty,
-    }?: { onExcessProperty?: 'ignore' | 'preserve' | 'error' },
+    options?: { onExcessProperty?: 'ignore' | 'preserve' | 'error' },
   ) => Effect.Effect<
     {
       value: SchemaTypeFrom<TEvolutions>;
@@ -149,9 +147,7 @@ export class ESchema<
   > = (data, { onExcessProperty = 'ignore' } = {}) => {
     const evolutions = this.#evolutions;
 
-    const th = this;
-
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       // Step 1: Extract version from unknown data using schema
       const version = yield* extractVersion(data, evolutions);
 
@@ -201,7 +197,7 @@ export class ESchema<
         value: currentValue as SchemaTypeFrom<TEvolutions>,
         meta: {
           oldVersion: evolution.version,
-          newVersion: th.#latest.version,
+          newVersion: this.#latest.version,
         },
       };
     });

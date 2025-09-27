@@ -156,13 +156,3 @@ export type EvolutionsToObject<T extends readonly Evolution<any, any>[]> = {
 export type EmptyESchema = ESchema<
   Evolution<string, Schema.Schema<any, any, never>>[]
 >;
-
-export type ExtractESchemaSchema<ESch extends EmptyESchema> =
-  ESch extends ESchema<infer Evolutions>
-    ? LastArrayElement<Evolutions>['schema']
-    : never;
-
-export type ExtractESchemaType<ESch extends EmptyESchema> =
-  ESch extends ESchema<infer Evolutions>
-    ? Schema.Schema.Type<LastArrayElement<Evolutions>['schema']>
-    : never;

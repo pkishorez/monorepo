@@ -133,13 +133,12 @@ export class DynamoEntity<
       return Effect.void;
     }
 
-    const th = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       let lastEvaluated: Record<string, string> | undefined;
       let count = 0;
 
       while (true) {
-        const { Items, LastEvaluatedKey } = yield* th.table.scan({
+        const { Items, LastEvaluatedKey } = yield* this.table.scan({
           exclusiveStartKey: lastEvaluated,
         });
         count += Items.length;
@@ -147,7 +146,7 @@ export class DynamoEntity<
 
         yield* Effect.all(
           Items.map((item) =>
-            th.table.deleteItem(th.#getRealKeyFromItem(item)),
+            this.table.deleteItem(this.#getRealKeyFromItem(item)),
           ),
           { concurrency: 'unbounded' },
         );

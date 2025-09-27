@@ -3,55 +3,56 @@ import { Schema } from 'effect';
 import { Simplify } from 'effect/Types';
 
 export class ItemCollection<
+  TName extends string,
   TSchema extends EmptyESchema,
-  TItemSchema extends Schema.Schema<any, any, never>,
-  TKey extends keyof Schema.Schema.Type<TItemSchema>,
+  TKey extends keyof TSchema['Type'],
 > {
-  readonly itemSchema: TItemSchema;
+  readonly name: TName;
   readonly key: TKey;
   readonly eschema: TSchema;
 
   private constructor({
+    name,
     eschema,
-    itemSchema,
     key,
   }: {
+    name: TName;
     eschema: TSchema;
-    itemSchema: TItemSchema;
     key: TKey;
   }) {
+    this.name = name;
     this.eschema = eschema;
-    this.itemSchema = itemSchema;
     this.key = key;
   }
 
+  Type = null as TSchema['Type'];
+
+  get schema() {
+    return this.eschema.schema as TSchema['schema'];
+  }
+
   get broadcastSchema() {
-    return Schema.partial(this.itemSchema.pipe(Schema.omit(this.key))).pipe(
-      Schema.extend(this.itemSchema.pipe(Schema.pick(this.key))),
+    return Schema.partial(this.eschema.schema.pipe(Schema.omit(this.key))).pipe(
+      Schema.extend(this.eschema.schema.pipe(Schema.pick(this.key))),
     ) as any as Schema.Schema<
       Simplify<
-        Partial<Omit<Schema.Schema.Type<TItemSchema>, TKey>> &
-          Pick<Schema.Schema.Type<TItemSchema>, TKey>
+        Partial<Omit<TSchema['Type'], TKey>> & Pick<TSchema['Type'], TKey>
       >
     >;
   }
 
-  static make<TMakeSchema extends EmptyESchema>(eschema: TMakeSchema) {
+  static make<TName extends string>(name: TName) {
     return {
-      itemSchema<T, I = T>(itemSchema: Schema.Schema<T, I, never>) {
+      eschema<TMakeSchema extends EmptyESchema>(eschema: TMakeSchema) {
         return {
-          key<Key extends keyof T>(key: Key) {
+          key<Key extends keyof TMakeSchema['Type']>(key: Key) {
             return {
               build() {
                 return new ItemCollection({
+                  name,
                   eschema,
-                  itemSchema,
                   key,
-                }) as ItemCollection<
-                  TMakeSchema,
-                  Schema.Schema<T, I, never>,
-                  Key
-                >;
+                }) as ItemCollection<TName, TMakeSchema, Key>;
               },
             };
           },
