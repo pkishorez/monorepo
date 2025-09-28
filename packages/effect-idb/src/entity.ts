@@ -1,10 +1,10 @@
-import { ESchema, ExtractESchemaType } from '@monorepo/eschema';
+import { ESchema } from '@monorepo/eschema';
 import { IDBStore } from './store.js';
 
 export class IDBEntity<
   TName extends string,
   TSchema extends ESchema<any>,
-  TKey extends keyof ExtractESchemaType<TSchema>,
+  TKey extends keyof TSchema['Type'],
   TStore extends IDBStore,
 > {
   #store: TStore;
@@ -27,7 +27,7 @@ export class IDBEntity<
     return value.map((v) => this.#eschema.parseSync(v.value).value);
   }
 
-  put(item: ExtractESchemaType<TSchema>) {
+  put(item: TSchema['Type']) {
     const value = this.#eschema.make(item);
 
     return this.#store.put({
@@ -40,7 +40,7 @@ export class IDBEntity<
   static make<TName extends string>(name: TName) {
     return {
       eschema: <TESchema extends ESchema<any>>(eschema: TESchema) => ({
-        id: <TKey extends keyof ExtractESchemaType<TESchema>>(key: TKey) => ({
+        id: <TKey extends keyof TESchema['Type']>(key: TKey) => ({
           build: <TStore extends IDBStore>(store: TStore) => {
             return new IDBEntity(name, eschema, key, store);
           },

@@ -51,6 +51,10 @@ export class IDBStore {
     );
   }
 
+  static get isAvailable() {
+    return typeof window !== 'undefined' && 'indexedDB' in window;
+  }
+
   static async make(database: string) {
     const db = await openDB(database, 1, {
       upgrade(database) {

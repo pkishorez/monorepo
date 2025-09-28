@@ -1,4 +1,4 @@
-import { ESchema, ExtractESchemaType } from '@monorepo/eschema';
+import { ESchema } from '@monorepo/eschema';
 import { IDBStore } from './store.js';
 
 export class IDBEntityUnit<
@@ -27,7 +27,7 @@ export class IDBEntityUnit<
     return this.#eschema.parseSync(value.value).value;
   }
 
-  put(item: ExtractESchemaType<TSchema>) {
+  put(item: TSchema['Type']) {
     const value = this.#eschema.make(item);
 
     return this.#store.put({
