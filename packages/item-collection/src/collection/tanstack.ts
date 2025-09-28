@@ -1,15 +1,20 @@
 import { IDBEntity, IDBStore } from '@monorepo/effect-idb';
 import type { EmptyESchema } from '@monorepo/eschema';
 import type { ItemCollection } from './collection.js';
-import { createCollection, type SyncConfig } from '@tanstack/db';
+import type {
+  createCollection as tanstackCreateCollection,
+  SyncConfig,
+} from '@tanstack/db';
 import { Effect, Schema } from 'effect';
 
 export const tanstackCollection = <
   Collection extends ItemCollection<string, EmptyESchema, any>,
 >({
+  createCollection,
   itemCollection,
   sync,
 }: {
+  createCollection: typeof tanstackCreateCollection;
   itemCollection: Collection;
   sync?: {
     query: Effect.Effect<Collection['Type'][], never, never>;
