@@ -52,17 +52,13 @@ export class IDBStore {
   }
 
   static async make(database: string) {
-    try {
-      const db = await openDB(database, 1, {
-        upgrade(database) {
-          database.createObjectStore(storeName, {
-            keyPath: ['entity', 'id'],
-          });
-        },
-      });
-      return new IDBStore(db);
-    } catch {
-      return null as any as IDBStore;
-    }
+    const db = await openDB(database, 1, {
+      upgrade(database) {
+        database.createObjectStore(storeName, {
+          keyPath: ['entity', 'id'],
+        });
+      },
+    });
+    return new IDBStore(db);
   }
 }
