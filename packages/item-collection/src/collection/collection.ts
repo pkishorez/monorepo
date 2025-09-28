@@ -1,3 +1,4 @@
+import { DistributiveOmit } from '@monorepo/effect-idb/types.js';
 import type { EmptyESchema } from '@monorepo/eschema';
 import { Schema } from 'effect';
 import { Simplify } from 'effect/Types';
@@ -36,7 +37,8 @@ export class ItemCollection<
       Schema.extend(this.eschema.schema.pipe(Schema.pick(this.key))),
     ) as any as Schema.Schema<
       Simplify<
-        Partial<Omit<TSchema['Type'], TKey>> & Pick<TSchema['Type'], TKey>
+        Partial<DistributiveOmit<TSchema['Type'], TKey>> &
+          Pick<TSchema['Type'], TKey>
       >
     >;
   }
