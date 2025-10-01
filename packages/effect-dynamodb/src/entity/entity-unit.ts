@@ -1,4 +1,4 @@
-import { EmptyESchema, ESchema, ExtractESchemaType } from '@monorepo/eschema';
+import { EmptyESchema, ESchema } from '@monorepo/eschema';
 import type { Schema } from 'effect';
 import type { Except } from 'type-fest';
 import type { DynamoTable, PutOptions, UpdateOptions } from '../table/table.js';
@@ -21,7 +21,7 @@ export class DynamoEntityUnit<
   TTable extends DynamoTable<
     IndexDefinition,
     Record<string, IndexDefinition>,
-    ExtractESchemaType<TSchema>
+    TSchema['Type']
   >,
   TPrimary extends EmptyEntityIndexDefinition,
 > {
@@ -58,11 +58,11 @@ export class DynamoEntityUnit<
   update(
     key: ExtractEntityIndexDefType<TPrimary>,
     update: Omit<
-      Partial<ExtractESchemaType<TSchema>>,
+      Partial<TSchema['Type']>,
       // One should not update the primary key itself!
       keyof ExtractEntityIndexDefType<TPrimary>
     >,
-    options?: Except<UpdateOptions<ExtractESchemaType<TSchema>>, 'update'> & {
+    options?: Except<UpdateOptions<TSchema['Type']>, 'update'> & {
       ignoreVersionMismatch?: boolean;
     },
   ) {
@@ -81,10 +81,7 @@ export class DynamoEntityUnit<
     );
   }
 
-  put(
-    item: ExtractESchemaType<TSchema>,
-    options?: PutOptions<ExtractESchemaType<TSchema>>,
-  ) {
+  put(item: TSchema['Type'], options?: PutOptions<TSchema['Type']>) {
     return this.eschema
       .makeEffect(item)
       .pipe(

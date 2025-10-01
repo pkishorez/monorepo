@@ -1,4 +1,4 @@
-import type { Primitive, Simplify } from 'type-fest';
+import type { Primitive } from 'type-fest';
 
 export type FirstLevelPrimitives<T> = {
   [K in keyof T as T[K] extends Primitive ? K : never]: T[K];

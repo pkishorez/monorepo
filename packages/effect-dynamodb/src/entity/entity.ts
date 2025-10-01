@@ -1,4 +1,4 @@
-import { EmptyESchema, ESchema, ExtractESchemaType } from '@monorepo/eschema';
+import { EmptyESchema, ESchema } from '@monorepo/eschema';
 import type { Schema } from 'effect';
 import type { Except, Simplify } from 'type-fest';
 import type { QueryOptions } from '../table/query-executor.js';
@@ -25,7 +25,7 @@ export class DynamoEntity<
   TTable extends DynamoTable<
     IndexDefinition,
     Record<string, IndexDefinition>,
-    ExtractESchemaType<TSchema>
+    TSchema['Type']
   >,
   TPrimary extends EmptyEntityIndexDefinition,
   TSecondary extends Record<string, EmptyEntityIndexDefinition>,
@@ -64,7 +64,7 @@ export class DynamoEntity<
     return result;
   }
 
-  #deriveSecondaryKeys(item: Partial<ExtractESchemaType<TSchema>>) {
+  #deriveSecondaryKeys(item: Partial<TSchema['Type']>) {
     const itemKeys = Object.keys(item);
 
     return Object.entries(this.secondary).reduce(
@@ -102,11 +102,11 @@ export class DynamoEntity<
   update(
     key: ExtractEntityIndexDefType<TPrimary>,
     update: Omit<
-      Partial<ExtractESchemaType<TSchema>>,
+      Partial<TSchema['Type']>,
       // One should not update the primary key itself!
       keyof ExtractEntityIndexDefType<TPrimary>
     >,
-    options?: Except<UpdateOptions<ExtractESchemaType<TSchema>>, 'update'> & {
+    options?: Except<UpdateOptions<TSchema['Type']>, 'update'> & {
       ignoreVersionMismatch?: boolean;
     },
   ) {
@@ -159,10 +159,7 @@ export class DynamoEntity<
     });
   }
 
-  put(
-    item: ExtractESchemaType<TSchema>,
-    options?: PutOptions<ExtractESchemaType<TSchema>>,
-  ) {
+  put(item: TSchema['Type'], options?: PutOptions<TSchema['Type']>) {
     return this.eschema
       .makeEffect(item)
       .pipe(
@@ -188,7 +185,7 @@ export class DynamoEntity<
               Simplify<
                 Partial<
                   ObjFromKeysArr<
-                    ExtractESchemaType<TSchema>,
+                    TSchema['Type'],
                     TSecondary[IndexName]['sk']['deps']
                   >
                 >
@@ -200,7 +197,7 @@ export class DynamoEntity<
           IndexName extends keyof TTable['secondaryIndexes']
             ? TTable['secondaryIndexes'][IndexName]
             : never,
-          ExtractESchemaType<TSchema>
+          TSchema['Type']
         > = {},
       ) => {
         const definition = this.secondary[indexName] as TSecondary[IndexName];
@@ -226,24 +223,16 @@ export class DynamoEntity<
       pk,
       sk,
     }: {
-      pk: ExtractIndexDefType<TPrimary['pk']>;
+      pk: Simplify<ExtractIndexDefType<TPrimary['pk']>>;
       sk?: Simplify<
         SortKeyparameter<
           Simplify<
-            Partial<
-              ObjFromKeysArr<
-                ExtractESchemaType<TSchema>,
-                TPrimary['sk']['deps']
-              >
-            >
+            Partial<ObjFromKeysArr<TSchema['Type'], TPrimary['sk']['deps']>>
           >
         >
       >;
     },
-    options: EntityQueryOptions<
-      TTable['primary'],
-      ExtractESchemaType<TSchema>
-    > = {},
+    options: EntityQueryOptions<TTable['primary'], TSchema['Type']> = {},
   ) {
     return query(
       {
@@ -292,7 +281,7 @@ class SecondaryIndexCreator<
   TTable extends DynamoTable<
     IndexDefinition,
     Record<string, IndexDefinition>,
-    ExtractESchemaType<TSchema>
+    TSchema['Type']
   >,
   TPrimary extends EmptyEntityIndexDefinition,
   TSecondary extends Record<string, EmptyEntityIndexDefinition>,
@@ -393,11 +382,7 @@ function query<
               .parse(item, {
                 onExcessProperty: options?.onExcessProperty ?? 'ignore',
               })
-              .pipe(
-                Effect.map(
-                  (value) => value.value as ExtractESchemaType<TSchema>,
-                ),
-              ),
+              .pipe(Effect.map((value) => value.value as TSchema['Type'])),
           ),
         );
         return {

@@ -6,6 +6,7 @@ import type {
   SyncConfig,
 } from '@tanstack/db';
 import { Effect, Schema } from 'effect';
+import { update } from 'effect/Differ';
 
 export const tanstackCollection = <
   Collection extends ItemCollection<string, EmptyESchema, any>,
@@ -13,27 +14,31 @@ export const tanstackCollection = <
   createCollection,
   itemCollection,
   sync,
+  syncIndexedDb = true,
 }: {
   createCollection: typeof tanstackCreateCollection;
   itemCollection: Collection;
   sync?: {
     query: Effect.Effect<Collection['Type'][], never, never>;
-    queryAfter?: (
+    queryNew?: (
       value: Collection['Type'],
     ) => Effect.Effect<Collection['Type'][], never, never>;
-    queryBefore?: (
+    queryOld?: (
       value: Collection['Type'],
     ) => Effect.Effect<Collection['Type'][], never, never>;
-    onInsert: (
+    onInsert?: (
       value: Collection['Type'],
     ) => Effect.Effect<void | Collection['Type']>;
-    onUpdate: (
+    onUpdate?: (
       value: Collection['broadcastSchema']['Type'],
     ) => Effect.Effect<void | Collection['broadcastSchema']['Type']>;
   };
+  syncIndexedDb?: boolean;
 }) => {
   type UpdateItemType = Collection['broadcastSchema']['Type'];
-  let syncParams: Parameters<SyncConfig['sync']>[0] | null = null;
+  let syncParams: { current: Parameters<SyncConfig['sync']>[0] | null } = {
+    current: null,
+  };
 
   const idbEntity = (async () => {
     if (!IDBStore.isAvailable) {
@@ -47,31 +52,51 @@ export const tanstackCollection = <
   })();
 
   const bulkUpsert = (items: UpdateItemType[]) => {
-    if (!syncParams) {
+    if (!syncParams.current) {
       return;
     }
 
-    const { begin, write, commit, collection } = syncParams;
+    const { begin, write, commit, collection } = syncParams.current;
     begin();
 
-    items.forEach(async (item) => {
-      const existing = collection.get(item[itemCollection.key]);
-      if (existing) {
-        write({
-          type: 'update',
-          value: item,
-        });
-        void (await idbEntity)?.put({ ...existing, ...item });
-      } else {
-        write({
-          type: 'insert',
-          value: Schema.decodeUnknownSync(itemCollection.schema)(item),
-        });
-        void (await idbEntity)?.put(item);
-      }
-    });
+    const itemsForIdb: any[] = [];
 
-    commit();
+    try {
+      items.forEach((item) => {
+        const existing = collection.get(item[itemCollection.key]);
+        if (collection.has(item[itemCollection.key])) {
+          const updateValue = Schema.decodeUnknownSync(itemCollection.schema)({
+            ...existing,
+            ...item,
+          });
+          console.log('UPDATING>>>::: ', item);
+          write({
+            type: 'update',
+            value: updateValue,
+          });
+          itemsForIdb.push(updateValue);
+        } else {
+          console.log('INSERTING::: ', item);
+          write({
+            type: 'insert',
+            value: Schema.decodeUnknownSync(itemCollection.schema)(item),
+          });
+          itemsForIdb.push(item);
+        }
+      });
+    } catch (err) {
+      console.error('ERROR: ', err);
+    } finally {
+      commit();
+
+      if (syncIndexedDb) {
+        (async () => {
+          const idb = await idbEntity;
+          if (!idb) return;
+          await Promise.all(itemsForIdb.map((item) => idb.put(item)));
+        })();
+      }
+    }
   };
 
   const collection = createCollection({
@@ -82,19 +107,13 @@ export const tanstackCollection = <
         Effect.runPromise(
           Effect.gen(function* () {
             const { markReady } = params;
-            console.log('TESTING: SYNC: ');
-            syncParams = params;
+            syncParams.current = params;
 
-            const data = yield* Effect.promise(async () =>
-              (await idbEntity)?.query(),
-            );
-            bulkUpsert(data ?? []);
             if (sync) {
               const data = yield* sync.query;
               bulkUpsert(data);
             }
             markReady();
-            console.log('MARKED READY!');
 
             return () => {
               console.log('OUT OF SYNC!!');
@@ -108,17 +127,21 @@ export const tanstackCollection = <
           const input = transaction.mutations.map((mutation) =>
             Schema.decodeUnknownSync(itemCollection.schema)(mutation.changes),
           );
-          if (sync) {
+          const onInsert = sync?.onInsert;
+          if (onInsert) {
+            console.log('CALLING INSERT API WITH: ', input);
             const result = yield* Effect.all(
               input.map((v) =>
-                sync
-                  .onInsert(v)
-                  .pipe(Effect.map((result) => ({ result, value: v }))),
+                onInsert(v).pipe(
+                  Effect.map((result) => ({ result, value: v })),
+                ),
               ),
               { concurrency: 'unbounded' },
             );
+            console.log('SUCCEEDED INSERT API WITH: ', input);
             bulkUpsert(result.map((v) => (v.result ? v.result : v.value)));
           } else {
+            console.log('DIRECT BULK UPSERT: ', input);
             bulkUpsert(input);
           }
         }),
@@ -130,15 +153,22 @@ export const tanstackCollection = <
             [itemCollection.key]: mutation.key,
             ...mutation.changes,
           }));
-          if (sync) {
+          input.forEach((input) =>
+            Schema.decodeUnknownSync(itemCollection.schema)({
+              ...collection.get((input as any)[itemCollection.key]),
+              ...input,
+            }),
+          );
+          const onUpdate = sync?.onUpdate;
+          if (onUpdate) {
             const values = yield* Effect.all(
               input.map((v) =>
-                sync
-                  .onUpdate(v)
-                  .pipe(Effect.map((result) => ({ result, value: v }))),
+                onUpdate(v).pipe(
+                  Effect.map((result) => ({ result, origValue: v })),
+                ),
               ),
             );
-            bulkUpsert(values.map((v) => (v.result ? v.result : v.value)));
+            bulkUpsert(values.map((v) => (v.result ? v.result : v.origValue)));
           } else {
             bulkUpsert(input);
           }
@@ -160,9 +190,13 @@ export const tanstackCollection = <
 
         return { ...existing, ...value };
       } else {
-        collection.insert(
-          Schema.decodeUnknownSync(itemCollection.schema)(value),
-        );
+        try {
+          collection.insert(
+            Schema.decodeUnknownSync(itemCollection.schema)(value),
+          );
+        } catch (err) {
+          console.error('ERROR IN INSERT UPSERT: ', err);
+        }
         return value;
       }
     },
