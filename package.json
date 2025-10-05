@@ -1,11 +1,16 @@
 {
   "name": "kishore-monorepo",
-  "packageManager": "pnpm@10.17.1",
   "description": "My monorepo",
   "author": "Kishore",
-  "license": "ISC",
+  "devDependencies": {
+    "del-cli": "7.0.0"
+  },
   "keywords": [],
+  "license": "ISC",
+  "packageManager": "pnpm@10.17.1",
   "scripts": {
+    "build": "pnpm --filter \"./packages/**\" build",
+    "clean": "del-cli '**/.turbo' '**/node_modules' '**/dist'",
     "updates": "npx -y npm-check-updates -iws"
   }
 }

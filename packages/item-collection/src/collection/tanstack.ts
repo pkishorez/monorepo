@@ -4,38 +4,37 @@ import type { ItemCollection } from './collection.js';
 import type {
   createCollection as tanstackCreateCollection,
   SyncConfig,
+  Collection,
 } from '@tanstack/db';
-import { Effect, Schema } from 'effect';
-import { update } from 'effect/Differ';
+import { Effect, Option, Schema } from 'effect';
 
 export const tanstackCollection = <
-  Collection extends ItemCollection<string, EmptyESchema, any>,
+  TCollection extends ItemCollection<string, EmptyESchema, any>,
 >({
   createCollection,
   itemCollection,
   sync,
-  syncIndexedDb = true,
 }: {
   createCollection: typeof tanstackCreateCollection;
-  itemCollection: Collection;
+  itemCollection: TCollection;
   sync?: {
-    query: Effect.Effect<Collection['Type'][], never, never>;
+    query: Effect.Effect<TCollection['Type'][], never, never>;
     queryNew?: (
-      value: Collection['Type'],
-    ) => Effect.Effect<Collection['Type'][], never, never>;
+      value: TCollection['Type'],
+    ) => Effect.Effect<TCollection['Type'][], never, never>;
     queryOld?: (
-      value: Collection['Type'],
-    ) => Effect.Effect<Collection['Type'][], never, never>;
+      value: TCollection['Type'],
+    ) => Effect.Effect<TCollection['Type'][], never, never>;
     onInsert?: (
-      value: Collection['Type'],
-    ) => Effect.Effect<void | Collection['Type']>;
+      value: TCollection['Type'],
+    ) => Effect.Effect<void | TCollection['Type']>;
     onUpdate?: (
-      value: Collection['broadcastSchema']['Type'],
-    ) => Effect.Effect<void | Collection['broadcastSchema']['Type']>;
+      value: TCollection['broadcastSchema']['Type'],
+    ) => Effect.Effect<void | TCollection['broadcastSchema']['Type']>;
   };
   syncIndexedDb?: boolean;
 }) => {
-  type UpdateItemType = Collection['broadcastSchema']['Type'];
+  type UpdateItemType = TCollection['broadcastSchema']['Type'];
   let syncParams: { current: Parameters<SyncConfig['sync']>[0] | null } = {
     current: null,
   };
@@ -51,161 +50,263 @@ export const tanstackCollection = <
       .build(tanstackIDB);
   })();
 
+  const bulkUpdate = (items: UpdateItemType[]) => {
+    if (!syncParams.current) {
+      return;
+    }
+    const { begin, write, commit, collection } = syncParams.current;
+
+    begin();
+
+    const itemsForIdb: any[] = [];
+
+    items.forEach((item) => {
+      const key = item[itemCollection.key];
+
+      const existing = collection._state.get(key);
+      const updateValue = Effect.runSync(
+        Schema.decodeUnknown(itemCollection.schema)({
+          ...existing,
+          ...item,
+        }).pipe(
+          Effect.tapError((err) =>
+            Effect.logError('ERROR WITH EXISTING!!!', {
+              name: itemCollection.name,
+              key,
+              existing,
+              item,
+              err,
+            }),
+          ),
+        ),
+      );
+      write({
+        type: 'update',
+        value: {
+          ...updateValue,
+        },
+      });
+      itemsForIdb.push(updateValue);
+    });
+
+    commit();
+
+    (async () =>
+      await Promise.all(
+        itemsForIdb.map(async (v) => (await idbEntity)?.put(v)),
+      ))();
+  };
+  const bulkInsert = (items: UpdateItemType[]) => {
+    if (!syncParams.current) {
+      return;
+    }
+    const { begin, write, commit } = syncParams.current;
+
+    begin();
+
+    const itemsForIdb: any[] = [];
+
+    items.forEach((item) => {
+      try {
+        write({
+          type: 'insert',
+          value: {
+            ...Schema.decodeUnknownSync(itemCollection.schema)(item),
+          },
+        });
+      } catch (err) {
+        console.error('INSERT ERROR: ', err, {
+          name: itemCollection.name,
+          item,
+        });
+        throw err;
+      }
+      itemsForIdb.push(item);
+    });
+
+    commit();
+
+    (async () =>
+      await Promise.all(
+        itemsForIdb.map(async (v) => (await idbEntity)?.put(v)),
+      ))();
+  };
+
   const bulkUpsert = (items: UpdateItemType[]) => {
     if (!syncParams.current) {
       return;
     }
 
-    const { begin, write, commit, collection } = syncParams.current;
-    begin();
+    const { collection } = syncParams.current;
 
-    const itemsForIdb: any[] = [];
+    const updates: any[] = [];
+    const inserts: any[] = [];
 
-    try {
-      items.forEach((item) => {
-        const existing = collection.get(item[itemCollection.key]);
-        if (collection.has(item[itemCollection.key])) {
-          const updateValue = Schema.decodeUnknownSync(itemCollection.schema)({
-            ...existing,
-            ...item,
-          });
-          console.log('UPDATING>>>::: ', item);
-          write({
-            type: 'update',
-            value: updateValue,
-          });
-          itemsForIdb.push(updateValue);
-        } else {
-          console.log('INSERTING::: ', item);
-          write({
-            type: 'insert',
-            value: Schema.decodeUnknownSync(itemCollection.schema)(item),
-          });
-          itemsForIdb.push(item);
-        }
-      });
-    } catch (err) {
-      console.error('ERROR: ', err);
-    } finally {
-      commit();
+    items.forEach((item) => {
+      const key = item[itemCollection.key];
 
-      if (syncIndexedDb) {
-        (async () => {
-          const idb = await idbEntity;
-          if (!idb) return;
-          await Promise.all(itemsForIdb.map((item) => idb.put(item)));
-        })();
+      const existing = collection._state.syncedData.get(key);
+      if (existing) {
+        updates.push(item);
+      } else {
+        inserts.push(item);
       }
+    });
+
+    if (updates.length > 0) {
+      bulkUpdate(updates);
+    }
+    if (inserts.length > 0) {
+      bulkInsert(inserts);
     }
   };
 
-  const collection = createCollection({
-    getKey: (v: Collection['Type']) => v[itemCollection.key],
+  const collection: Collection<
+    TCollection['Type'],
+    string,
+    {},
+    never,
+    TCollection['Type']
+  > = createCollection({
+    id: itemCollection.name,
+    getKey: (v: TCollection['Type']) => v[itemCollection.key],
     startSync: true,
     sync: {
+      rowUpdateMode: 'full',
       sync: (params) =>
         Effect.runPromise(
           Effect.gen(function* () {
-            const { markReady } = params;
             syncParams.current = params;
 
             if (sync) {
               const data = yield* sync.query;
               bulkUpsert(data);
             }
-            markReady();
 
             return () => {
               console.log('OUT OF SYNC!!');
             };
-          }),
+          }).pipe(Effect.ensuring(Effect.sync(params.markReady))),
         ),
     },
     onInsert: ({ transaction }) =>
       Effect.runPromise(
         Effect.gen(function* () {
-          const input = transaction.mutations.map((mutation) =>
-            Schema.decodeUnknownSync(itemCollection.schema)(mutation.changes),
+          const input = yield* Effect.all(
+            transaction.mutations.map((mutation) =>
+              Schema.decodeUnknown(itemCollection.schema)(
+                mutation.changes,
+              ).pipe(
+                Effect.tapError((e) =>
+                  Effect.logError({
+                    name: itemCollection.name,
+                    changes: mutation.changes,
+                    err: e,
+                  }),
+                ),
+              ),
+            ),
+            { concurrency: 'unbounded' },
           );
           const onInsert = sync?.onInsert;
+          transaction.metadata.data = input;
           if (onInsert) {
-            console.log('CALLING INSERT API WITH: ', input);
-            const result = yield* Effect.all(
-              input.map((v) =>
-                onInsert(v).pipe(
-                  Effect.map((result) => ({ result, value: v })),
+            const data = yield* Effect.all(
+              input.map((origValue) =>
+                onInsert(origValue).pipe(
+                  Effect.flatMap((apiResult) =>
+                    Schema.decodeUnknown(itemCollection.schema)({
+                      ...origValue,
+                      ...apiResult,
+                    }).pipe(
+                      Effect.tapError((e) =>
+                        Effect.logError({
+                          name: itemCollection.name,
+                          origValue,
+                          apiResult,
+                          err: e,
+                        }),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               { concurrency: 'unbounded' },
             );
-            console.log('SUCCEEDED INSERT API WITH: ', input);
-            bulkUpsert(result.map((v) => (v.result ? v.result : v.value)));
-          } else {
-            console.log('DIRECT BULK UPSERT: ', input);
-            bulkUpsert(input);
+
+            transaction.metadata.data = data;
           }
+          bulkUpdate(transaction.metadata.data as any);
         }),
       ),
     onUpdate: ({ transaction }) =>
       Effect.runPromise(
         Effect.gen(function* () {
           const input = transaction.mutations.map((mutation) => ({
-            [itemCollection.key]: mutation.key,
-            ...mutation.changes,
-          }));
-          input.forEach((input) =>
-            Schema.decodeUnknownSync(itemCollection.schema)({
-              ...collection.get((input as any)[itemCollection.key]),
-              ...input,
+            update: {
+              [itemCollection.key]: mutation.key,
+              ...mutation.changes,
+            },
+            optimistic: Schema.decodeUnknownSync(itemCollection.schema)({
+              ...collection.get(mutation.key),
+              ...mutation.changes,
             }),
-          );
+          }));
+
           const onUpdate = sync?.onUpdate;
+          transaction.metadata.data = input.map((v) => v.optimistic);
           if (onUpdate) {
-            const values = yield* Effect.all(
-              input.map((v) =>
-                onUpdate(v).pipe(
-                  Effect.map((result) => ({ result, origValue: v })),
+            const data = yield* Effect.all(
+              input.map(({ update, optimistic }) =>
+                onUpdate(update).pipe(
+                  Effect.flatMap((apiValue) =>
+                    Schema.decodeUnknown(itemCollection.schema)({
+                      ...optimistic,
+                      ...apiValue,
+                    }).pipe(
+                      Effect.tapError(() =>
+                        Effect.logError({
+                          update,
+                          optimistic,
+                          apiValue,
+                        }),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             );
-            bulkUpsert(values.map((v) => (v.result ? v.result : v.origValue)));
-          } else {
-            bulkUpsert(input);
+            transaction.metadata.data = data;
           }
+
+          bulkUpdate(transaction.metadata.data as any);
         }),
       ),
   });
 
+  const update = (value: UpdateItemType) =>
+    collection.update(value[itemCollection.key], (draft) =>
+      Object.assign(draft, value),
+    );
+  const insert = (data: TCollection['Type']) => collection.insert(data);
   return {
     collection,
-    update: collection.update.bind(collection),
-    insert: collection.insert.bind(collection),
-    upsert: (value: UpdateItemType) => {
-      const existing = collection.get(value[itemCollection.key]);
-
-      if (existing) {
-        collection.update(value[itemCollection.key], (draft) =>
-          Object.assign(draft, value),
-        );
-
-        return { ...existing, ...value };
-      } else {
-        try {
-          collection.insert(
-            Schema.decodeUnknownSync(itemCollection.schema)(value),
-          );
-        } catch (err) {
-          console.error('ERROR IN INSERT UPSERT: ', err);
-        }
-        return value;
+    update,
+    insert,
+    upsert: (value: TCollection['Type']) => {
+      if (collection.get(value[itemCollection.key])) {
+        return update(value);
       }
+      return insert(value);
     },
-    unsafeUpsert(v: UpdateItemType) {
-      if (!syncParams) {
-        return;
-      }
+    localInsert(v: TCollection['Type']) {
+      bulkInsert([v]);
+    },
+    localUpdate(v: UpdateItemType) {
+      bulkUpdate([v]);
+    },
+    localUpsert(v: UpdateItemType) {
       bulkUpsert([v]);
     },
-    unsafeBulkUpsert: bulkUpsert,
   };
 };

@@ -111,8 +111,8 @@ export class DynamoEntity<
     },
   ) {
     return this.eschema.makePartialEffect(update).pipe(
-      Effect.andThen((v) =>
-        this.table.updateItem(this.#getRealKeyFromItem(key), {
+      Effect.andThen((v) => {
+        const opts = {
           ...options,
           update: {
             ...v,
@@ -123,8 +123,16 @@ export class DynamoEntity<
             : ({
                 __v: this.eschema.latestVersion,
               } as any),
-        }),
-      ),
+        };
+        return this.table.updateItem(this.#getRealKeyFromItem(key), opts).pipe(
+          Effect.tapErrorCause((cause) =>
+            Effect.logError({
+              cause,
+              options: opts,
+            }),
+          ),
+        );
+      }),
     );
   }
 

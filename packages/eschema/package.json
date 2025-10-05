@@ -1,6 +1,15 @@
 {
   "name": "@monorepo/eschema",
-  "type": "module",
+  "dependencies": {
+    "@standard-schema/spec": "1.0.0",
+    "effect": "3.17.14"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.2",
+    "type-fest": "^5.0.1",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -13,20 +22,11 @@
   },
   "scripts": {
     "build": "tsc --project build.tsconfig.json",
-    "lint": "tsc --noEmit",
     "dev": "tsc --watch --project build.tsconfig.json",
+    "lint": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest --watch"
   },
-  "dependencies": {
-    "@standard-schema/spec": "1.0.0",
-    "effect": "3.17.14"
-  },
-  "devDependencies": {
-    "@tsconfig/node22": "22.0.2",
-    "type-fest": "^5.0.1",
-    "typescript": "5.9.2",
-    "vitest": "3.2.4"
-  }
+  "type": "module"
 }

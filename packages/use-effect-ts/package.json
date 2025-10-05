@@ -1,6 +1,12 @@
 {
   "name": "use-effect-ts",
-  "type": "module",
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.2",
+    "@types/react": "^19.1.14",
+    "effect": "3.17.14",
+    "react": "19.1.1",
+    "typescript": "5.9.2"
+  },
   "exports": {
     ".": "./dist/index.js",
     "./*": "./dist/*"
@@ -11,20 +17,14 @@
     "dist/",
     "src/"
   ],
-  "scripts": {
-    "build": "tsc",
-    "lint": "tsc --noEmit",
-    "dev": "tsc --watch"
-  },
   "peerDependencies": {
     "effect": ">=3.0.0",
     "react": ">=18.0.0"
   },
-  "devDependencies": {
-    "@tsconfig/node22": "22.0.2",
-    "@types/react": "^19.1.14",
-    "effect": "3.17.14",
-    "react": "19.1.1",
-    "typescript": "5.9.2"
-  }
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit"
+  },
+  "type": "module"
 }

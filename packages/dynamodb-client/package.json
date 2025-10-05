@@ -1,24 +1,5 @@
 {
   "name": "dynamodb-client",
-  "type": "module",
-  "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*"
-  },
-  "scripts": {
-    "dev": "tsc --watch --project build.tsconfig.json",
-    "build": "pnpm generate && echo 'generating types...\n' && tsc --project build.tsconfig.json && echo '✅ done'",
-    "generate": "bun scripts/generate.ts",
-    "lint": "pnpm lint:tsc && pnpm lint:eslint",
-    "lint:tsc": "tsc --noEmit",
-    "lint:eslint": "eslint .",
-    "test": "vitest --reporter=verbose",
-    "test:run": "vitest run",
-    "test:watch": "vitest --watch --reporter=verbose"
-  },
-  "peerDependencies": {
-    "effect": ">3"
-  },
   "dependencies": {
     "aws4fetch": "1.0.20"
   },
@@ -32,5 +13,24 @@
     "eslint": "9.36.0",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
-  }
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
+  "peerDependencies": {
+    "effect": ">3"
+  },
+  "scripts": {
+    "build": "pnpm generate && echo 'generating types...\n' && tsc --project build.tsconfig.json && echo '✅ done'",
+    "dev": "tsc --watch --project build.tsconfig.json",
+    "generate": "bun scripts/generate.ts",
+    "lint": "pnpm lint:tsc && pnpm lint:eslint",
+    "lint:eslint": "eslint .",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest --reporter=verbose",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch --reporter=verbose"
+  },
+  "type": "module"
 }

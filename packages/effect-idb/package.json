@@ -1,23 +1,9 @@
 {
   "name": "@monorepo/effect-idb",
-  "type": "module",
-  "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*"
-  },
-  "scripts": {
-    "build": "tsc",
-    "lint": "tsc --noEmit",
-    "dev": "tsc --watch",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:watch": "vitest --watch",
-    "test:coverage": "vitest run --coverage"
-  },
   "dependencies": {
+    "@monorepo/eschema": "workspace:*",
     "@standard-schema/spec": "1.0.0",
     "effect": "3.17.14",
-    "@monorepo/eschema": "workspace:*",
     "idb": "8.0.3"
   },
   "devDependencies": {
@@ -28,5 +14,19 @@
     "jsdom": "27.0.0",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
-  }
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch"
+  },
+  "type": "module"
 }
