@@ -8,8 +8,14 @@
     "typescript": "5.9.3"
   },
   "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*",
+      "import": "./dist/*"
+    }
   },
   "files": [
     "LICENCE",

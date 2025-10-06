@@ -1,21 +1,16 @@
 import { IDBEntity, IDBStore } from '@monorepo/effect-idb';
 import type { EmptyESchema } from '@monorepo/eschema';
 import type { ItemCollection } from './collection.js';
-import type {
-  createCollection as tanstackCreateCollection,
-  SyncConfig,
-  Collection,
-} from '@tanstack/db';
-import { Effect, Option, Schema } from 'effect';
+import { createCollection, SyncConfig, Collection } from '@tanstack/react-db';
+import { Effect, Schema } from 'effect';
 
 export const tanstackCollection = <
   TCollection extends ItemCollection<string, EmptyESchema, any>,
 >({
-  createCollection,
   itemCollection,
   sync,
+  syncIndexedDb,
 }: {
-  createCollection: typeof tanstackCreateCollection;
   itemCollection: TCollection;
   sync?: {
     query: Effect.Effect<TCollection['Type'][], never, never>;
@@ -91,10 +86,12 @@ export const tanstackCollection = <
 
     commit();
 
-    (async () =>
-      await Promise.all(
-        itemsForIdb.map(async (v) => (await idbEntity)?.put(v)),
-      ))();
+    if (syncIndexedDb) {
+      (async () =>
+        await Promise.all(
+          itemsForIdb.map(async (v) => (await idbEntity)?.put(v)),
+        ))();
+    }
   };
   const bulkInsert = (items: UpdateItemType[]) => {
     if (!syncParams.current) {
@@ -126,10 +123,12 @@ export const tanstackCollection = <
 
     commit();
 
-    (async () =>
-      await Promise.all(
-        itemsForIdb.map(async (v) => (await idbEntity)?.put(v)),
-      ))();
+    if (syncIndexedDb) {
+      (async () =>
+        await Promise.all(
+          itemsForIdb.map(async (v) => (await idbEntity)?.put(v)),
+        ))();
+    }
   };
 
   const bulkUpsert = (items: UpdateItemType[]) => {
@@ -291,6 +290,7 @@ export const tanstackCollection = <
   const insert = (data: TCollection['Type']) => collection.insert(data);
   return {
     collection,
+    get: (key: string) => collection.get(key),
     update,
     insert,
     upsert: (value: TCollection['Type']) => {
@@ -308,5 +308,8 @@ export const tanstackCollection = <
     localUpsert(v: UpdateItemType) {
       bulkUpsert([v]);
     },
+
+    Type: null as TCollection['Type'],
+    TypeUpdate: null as unknown as UpdateItemType,
   };
 };

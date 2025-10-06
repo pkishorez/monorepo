@@ -8,14 +8,12 @@ export function useComponentScope(
 
   useEffect(() => {
     const s = Effect.runSync(Scope.make());
-    // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
     setScope(s);
     setup?.(s);
 
     return () => {
       void Effect.runPromise(Scope.close(s, Exit.void));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return scope;
