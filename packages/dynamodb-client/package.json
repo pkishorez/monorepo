@@ -8,8 +8,8 @@
     "@effect/platform": "0.92.1",
     "@effect/platform-node": "0.98.3",
     "@tsconfig/node22": "22.0.2",
-    "@types/node": "24.6.2",
-    "effect": "3.18.2",
+    "@types/node": "24.7.0",
+    "effect": "3.18.4",
     "eslint": "9.37.0",
     "typescript": "5.9.3",
     "vitest": "3.2.4"
