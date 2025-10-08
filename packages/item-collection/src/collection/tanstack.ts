@@ -2,7 +2,7 @@ import { IDBEntity, IDBStore } from '@monorepo/effect-idb';
 import type { EmptyESchema } from '@monorepo/eschema';
 import type { ItemCollection } from './collection.js';
 import { createCollection, SyncConfig, Collection } from '@tanstack/react-db';
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 
 export const tanstackCollection = <
   TCollection extends ItemCollection<string, EmptyESchema, any>,
@@ -77,9 +77,7 @@ export const tanstackCollection = <
       );
       write({
         type: 'update',
-        value: {
-          ...updateValue,
-        },
+        value: updateValue,
       });
       itemsForIdb.push(updateValue);
     });
@@ -102,22 +100,23 @@ export const tanstackCollection = <
     begin();
 
     const itemsForIdb: any[] = [];
+    const validatedItems = items
+      .map((item) =>
+        Schema.decodeUnknownOption(itemCollection.schema)(item).pipe(
+          Option.orElse(() => {
+            console.error('insert parse error: ', itemCollection.name, item);
+            return Option.none();
+          }),
+          Option.getOrNull,
+        ),
+      )
+      .filter((v) => !!v);
 
-    items.forEach((item) => {
-      try {
-        write({
-          type: 'insert',
-          value: {
-            ...Schema.decodeUnknownSync(itemCollection.schema)(item),
-          },
-        });
-      } catch (err) {
-        console.error('INSERT ERROR: ', err, {
-          name: itemCollection.name,
-          item,
-        });
-        throw err;
-      }
+    validatedItems.forEach((item) => {
+      write({
+        type: 'insert',
+        value: item,
+      });
       itemsForIdb.push(item);
     });
 
