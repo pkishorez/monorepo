@@ -1,12 +1,10 @@
 {
   "name": "@monorepo/eschema",
   "dependencies": {
-    "@standard-schema/spec": "1.0.0",
     "effect": "3.18.4"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.2",
-    "type-fest": "^5.1.0",
     "typescript": "5.9.3",
     "vitest": "3.2.4"
   },

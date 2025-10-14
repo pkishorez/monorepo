@@ -7,7 +7,7 @@
   },
   "keywords": [],
   "license": "ISC",
-  "packageManager": "pnpm@10.18.1",
+  "packageManager": "pnpm@10.18.3",
   "scripts": {
     "build": "pnpm --filter \"./packages/**\" build",
     "clean": "del-cli '**/.turbo' '**/node_modules' '**/dist'",
