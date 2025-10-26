@@ -8,12 +8,12 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.2",
-    "@types/serviceworker": "0.0.158",
-    "@vitest/coverage-v8": "3.2.4",
-    "fake-indexeddb": "^6.2.3",
-    "jsdom": "27.0.0",
+    "@types/serviceworker": "0.0.160",
+    "@vitest/coverage-v8": "4.0.3",
+    "fake-indexeddb": "^6.2.4",
+    "jsdom": "27.0.1",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "4.0.3"
   },
   "exports": {
     ".": "./dist/index.js",

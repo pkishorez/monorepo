@@ -6,9 +6,9 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.2",
-    "@vitest/coverage-v8": "3.2.4",
+    "@vitest/coverage-v8": "4.0.3",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "4.0.3"
   },
   "exports": {
     ".": "./dist/index.js",
