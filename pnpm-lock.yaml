@@ -53,7 +53,7 @@ importers:
         version: 3.908.0(@aws-sdk/client-dynamodb@3.908.0)
       '@monorepo/eschema':
         specifier: workspace:*
-        version: link:../std
+        version: link:../eschema
       dynamodb-client:
         specifier: workspace:*
         version: link:../dynamodb-client
@@ -93,7 +93,7 @@ importers:
     dependencies:
       '@monorepo/eschema':
         specifier: workspace:*
-        version: link:../std
+        version: link:../eschema
       '@standard-schema/spec':
         specifier: 1.0.0
         version: 1.0.0
@@ -155,7 +155,7 @@ importers:
         version: link:../effect-idb
       '@monorepo/eschema':
         specifier: workspace:*
-        version: link:../std
+        version: link:../eschema
       effect:
         specifier: 3.18.4
         version: 3.18.4
@@ -192,7 +192,7 @@ importers:
     dependencies:
       '@monorepo/eschema':
         specifier: workspace:*
-        version: link:../std
+        version: link:../eschema
       effect:
         specifier: 3.18.4
         version: 3.18.4
@@ -203,22 +203,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: 3.2.4
         version: 3.2.4(vitest@3.2.4(@types/node@24.7.2)(jsdom@27.0.0(postcss@8.5.6)))
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: 3.2.4
-        version: 3.2.4(@types/node@24.7.2)(jsdom@27.0.0(postcss@8.5.6))
-
-  packages/std:
-    dependencies:
-      effect:
-        specifier: 3.18.4
-        version: 3.18.4
-    devDependencies:
-      '@tsconfig/node22':
-        specifier: 22.0.2
-        version: 22.0.2
       typescript:
         specifier: 5.9.3
         version: 5.9.3
