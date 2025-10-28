@@ -115,8 +115,10 @@ export class DynamoEntity<
         const opts = {
           ...options,
           update: {
-            ...v,
-            ...this.#deriveSecondaryKeys({ ...v, ...key } as any),
+            set: {
+              ...v,
+              ...this.#deriveSecondaryKeys({ ...v, ...key } as any),
+            },
           },
           condition: options?.ignoreVersionMismatch
             ? undefined
@@ -311,7 +313,7 @@ class SecondaryIndexCreator<
   }
 
   index<
-    Name extends keyof TTable['secondaryIndexes'],
+    IndexName extends keyof TTable['secondaryIndexes'],
     PkKeys extends (keyof FirstLevelPrimitives<
       Schema.Schema.Type<TSchema['schema']>
     >)[],
@@ -319,7 +321,7 @@ class SecondaryIndexCreator<
       Schema.Schema.Type<TSchema['schema']>
     >)[],
   >(
-    name: Name,
+    name: IndexName,
     {
       pk,
       sk,
@@ -331,7 +333,7 @@ class SecondaryIndexCreator<
     TSchema,
     TTable,
     TPrimary,
-    TSecondary & Record<Name, EntityIndexDefinition<any, PkKeys, SkKeys>>
+    TSecondary & Record<IndexName, EntityIndexDefinition<any, PkKeys, SkKeys>>
   > {
     const indexDef = {
       pk,
@@ -341,11 +343,11 @@ class SecondaryIndexCreator<
       TSchema,
       TTable,
       TPrimary,
-      TSecondary & Record<Name, typeof indexDef>
+      TSecondary & Record<IndexName, typeof indexDef>
     >(this.#eschema, this.#table, this.#primary, {
       ...this.#secondary,
       [name]: indexDef,
-    } as TSecondary & Record<Name, typeof indexDef>);
+    } as TSecondary & Record<IndexName, typeof indexDef>);
   }
 
   build() {
@@ -417,13 +419,13 @@ function querySkParams<Def extends IndexDef<any, any>>(
     return { '<': deriveIndex(def, skValue['<']) };
   }
   if ('<=' in skValue) {
-    return { '<': deriveIndex(def, skValue['<=']) };
+    return { '<=': deriveIndex(def, skValue['<=']) };
   }
   if ('>' in skValue) {
     return { '<': deriveIndex(def, skValue['>']) };
   }
   if ('>=' in skValue) {
-    return { '<': deriveIndex(def, skValue['>=']) };
+    return { '>=': deriveIndex(def, skValue['>=']) };
   }
 
   throw new Error('Exhaustive check...');

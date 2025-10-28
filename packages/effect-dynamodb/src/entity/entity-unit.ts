@@ -70,7 +70,7 @@ export class DynamoEntityUnit<
       Effect.andThen((v) =>
         this.table.updateItem(this.#getRealKeyFromItem(key), {
           ...options,
-          update: v,
+          update: { set: v },
           condition: options?.ignoreVersionMismatch
             ? undefined
             : ({

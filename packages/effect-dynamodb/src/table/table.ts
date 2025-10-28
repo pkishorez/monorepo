@@ -30,6 +30,7 @@ import { Effect } from 'effect';
 import { buildExpression } from './expr/index.js';
 import { DynamoQueryExecutor } from './query-executor.js';
 import { marshall, unmarshall } from './utils.js';
+import { ItemNotFoundError } from './errors.js';
 
 export type PutOptions<TItem> = Except<
   PutItemInput,
@@ -257,6 +258,7 @@ export class DynamoTable<
     });
 
     // Separate the custom options from the rest
+    // oxlint-disable-next-line no-unused-vars
     const { condition, returnValues = 'ALL_OLD', ...dynamoOptions } = options;
 
     return this.#client
@@ -277,6 +279,50 @@ export class DynamoTable<
       );
   }
 
+  getAndUpdateItem(
+    key: RealKeyFromIndex<TPrimary>,
+    options: UpdateOptions<TItem> & {
+      update: (value: TItem) => Partial<TItem>;
+    },
+  ) {
+    return Effect.gen(this, function* () {
+      const currentItem = yield* this.getItem(key);
+      if (!currentItem.Item) {
+        return yield* new ItemNotFoundError();
+      }
+      // Separate the custom options from the rest
+      // oxlint-disable-next-line no-unused-vars
+      const { update, condition, ...dynamoOptions } = options;
+
+      // Build expressions using the helper
+      const result = buildExpression({
+        update: {
+          set: {
+            ...options.update(
+              currentItem.Item as TItem /* We know this is not projected since we are not projecting it.*/,
+            ),
+          },
+        },
+        condition: options.condition,
+      });
+      const updateItemOptions: UpdateItemInput = {
+        TableName: this.#name,
+        Key: marshall(key),
+        ...dynamoOptions,
+        ...result,
+      };
+
+      return this.#client.updateItem(updateItemOptions).pipe(
+        Effect.map((response) => ({
+          ...response,
+          Attributes: response.Attributes
+            ? unmarshall(response.Attributes)
+            : undefined,
+        })),
+      );
+    });
+  }
+
   updateItem(key: RealKeyFromIndex<TPrimary>, options: UpdateOptions<TItem>) {
     // Build expressions using the helper
     const result = buildExpression({
@@ -285,6 +331,7 @@ export class DynamoTable<
     });
 
     // Separate the custom options from the rest
+    // oxlint-disable-next-line no-unused-vars
     const { update, condition, ...dynamoOptions } = options;
 
     const updateItemOptions: UpdateItemInput = {
@@ -313,6 +360,7 @@ export class DynamoTable<
     });
 
     // Separate the custom options from the rest
+    // oxlint-disable-next-line no-unused-vars
     const { condition, ...dynamoOptions } = options;
 
     const deleteItemOptions: DeleteItemInput = {

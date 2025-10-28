@@ -8,15 +8,14 @@ export function updateExpr<
 >(parameters: UpdateExprParameters<T>): ExprResult {
   const attrBuilder = new AttributeMapBuilder('update_');
 
-  const setExprs: string[] = [];
-  Object.entries(parameters).forEach(([key, value]) => {
+  const setExprs = Object.entries(parameters.set).map(([key, value]) => {
     const { attrKey, attrValue } = attrBuilder.setAttr(key, value);
-
-    setExprs.push(`${attrKey}=${attrValue}`);
+    return `${attrKey}=${attrValue}`;
   });
+  const setExpr = setExprs.join(', ');
 
   return {
-    expr: `SET ${setExprs.join(', ')}`,
+    expr: `SET ${setExpr}`,
     ...attrBuilder.build(),
   };
 }
