@@ -10,6 +10,7 @@ export function conditionExpr<
 
   const expr: string[] = [];
   Object.entries(parameters).forEach(([key, value]) => {
+    if (value === undefined) return;
     const { attrKey, attrValue } = attrBuilder.setAttr(key, value);
 
     expr.push(`${attrKey}=${attrValue}`);

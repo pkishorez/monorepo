@@ -219,6 +219,7 @@ export function createDynamoDBProxy<T>(config: AWSClientConfig = {}): T {
                   // All service-specific errors - create dynamically with correct _tag
                   yield* Effect.fail(
                     createServiceError(simpleErrorName, {
+                      ...errorData,
                       ...errorMeta,
                       message: errorMessage,
                     }),

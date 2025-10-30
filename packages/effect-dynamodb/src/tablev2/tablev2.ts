@@ -71,20 +71,22 @@ export class DynamoTableV2<
       string
     > &
       Record<string, unknown>,
-    options: TPutItemInput,
+    { debug, ...options }: TPutItemInput & { debug?: boolean },
   ) {
-    return this.#client
-      .putItem({
-        ...options,
-        TableName: this.#config.tableName,
-        Item: marshall(value),
-      })
-      .pipe(
-        Effect.map(({ Attributes, ...response }) => ({
-          ...response,
-          Attributes: Attributes ? unmarshall(Attributes) : null,
-        })),
-      );
+    const putOptions = {
+      ...options,
+      TableName: this.#config.tableName,
+      Item: marshall(value),
+    };
+    if (debug) {
+      console.log('PUT OPTIONS: ', putOptions);
+    }
+    return this.#client.putItem(putOptions).pipe(
+      Effect.map(({ Attributes, ...response }) => ({
+        ...response,
+        Attributes: Attributes ? unmarshall(Attributes) : null,
+      })),
+    );
   }
 
   updateItem(
@@ -113,9 +115,9 @@ export class DynamoTableV2<
 
   query(
     cond: KeyConditionExprParameters,
-    options: Except<TQueryInput, 'IndexName'>,
+    options: Except<TQueryInput, 'IndexName'> & { debug?: boolean },
   ) {
-    return this.#queryOperation(this.primary, cond, options);
+    return this.rawQueryOperation(this.primary, cond, options);
   }
   scan(options: Except<TScanInput, 'IndexName'>) {
     return this.#scanOperation(options);
@@ -127,7 +129,7 @@ export class DynamoTableV2<
         cond: KeyConditionExprParameters,
         options: Except<TQueryInput, 'IndexName'>,
       ) => {
-        return this.#queryOperation(this.secondaryIndexMap[indexName], cond, {
+        return this.rawQueryOperation(this.secondaryIndexMap[indexName], cond, {
           ...options,
           IndexName: indexName as string,
         });
@@ -188,10 +190,10 @@ export class DynamoTableV2<
     });
   }
 
-  #queryOperation(
+  rawQueryOperation(
     indexDef: IndexDefinition,
     cond: KeyConditionExprParameters,
-    options: TQueryInput,
+    { debug, ...options }: TQueryInput & { debug?: boolean },
   ) {
     const expr = buildExpression({
       keyCondition: {
@@ -200,18 +202,22 @@ export class DynamoTableV2<
       },
     });
 
-    return this.#client
-      .query({
-        ...options,
-        TableName: this.#config.tableName,
-        ...expr,
-      })
-      .pipe(
-        Effect.map(({ Items, ...rest }) => ({
-          ...rest,
-          Items: Items?.map(unmarshall) ?? [],
-        })),
-      );
+    const queryOptions = {
+      ...options,
+      TableName: this.#config.tableName,
+      ...expr,
+    };
+
+    if (debug) {
+      console.dir({ queryOptions }, { depth: 10 });
+    }
+
+    return this.#client.query(queryOptions).pipe(
+      Effect.map(({ Items, ...rest }) => ({
+        ...rest,
+        Items: Items?.map(unmarshall) ?? [],
+      })),
+    );
   }
 
   #scanOperation(options: TScanInput) {

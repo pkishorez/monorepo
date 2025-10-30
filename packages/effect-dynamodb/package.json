@@ -15,6 +15,7 @@
     "eslint": "9.38.0",
     "type-fest": "^5.1.0",
     "typescript": "5.9.3",
+    "@effect/language-service": "0.48.0",
     "vitest": "4.0.3"
   },
   "exports": {

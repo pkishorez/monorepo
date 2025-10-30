@@ -4,7 +4,7 @@ export interface KeyConditionExprParameters<T = string> {
 }
 
 export type SortKeyparameter<Type = string> =
-  | { beginsWith: Type }
+  | { beginsWith: string }
   | { between: [Type, Type] }
   | { '<': Type }
   | { '<=': Type }

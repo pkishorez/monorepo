@@ -32,7 +32,11 @@ const entity = DynamoEntity.make(table)
   )
   .primary({
     pk: { deps: [], derive: () => ['USER'] },
-    sk: { deps: ['id'], derive: ({ id }) => [id] },
+    sk: { deps: ['id'], derive: ({ id }) => ['SK :: ', id] },
+  })
+  .index('GSI1', 'byName', {
+    pk: { deps: [], derive: () => ['BYNAME'] },
+    sk: { deps: ['name'], derive: ({ name }) => ['SK', name] },
   })
   .build();
 
@@ -43,16 +47,31 @@ function log(value: unknown) {
 Effect.runPromise(
   Effect.gen(function* () {
     yield* table.purge('i know what i am doing');
-    log(
-      yield* entity.insert({
-        id: 'test1',
-        name: 'Test User 1',
-        age: 1,
-        comment: 'inserted',
-      }),
-    );
-    log(yield* entity.update({ id: 'test1' }, { comment: 'Updated time 1' }));
 
-    log(yield* entity.get({ id: 'test1' }));
+    for (let i = 0; i < 20; i++) {
+      yield* entity.insert({
+        id: `test-${`${i}`.padStart(4, '0')}`,
+        name: `Test User ${i}`,
+        age: i,
+        comment: 'inserted',
+      });
+    }
+    // log(
+    //   yield* entity.update({ id: 'test-001' }, { comment: 'Updated time 1' }),
+    // );
+
+    const v = yield* entity.get({ id: 'test-1' });
+
+    log(
+      yield* entity.index('byName').query(
+        {
+          pk: {},
+          sk: {
+            '>': { name: 'Test User 1' },
+          },
+        },
+        { debug: true, ScanIndexForward: true, Limit: 10 },
+      ),
+    );
   }),
 );

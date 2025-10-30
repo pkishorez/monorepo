@@ -62,7 +62,9 @@ export interface TQueryInput
     | 'QueryFilter'
     | 'AttributesToGet'
     | 'ConditionalOperator'
-  > {}
+  > {
+  debug?: boolean;
+}
 export interface TScanInput
   extends Except<
     ScanInput,
