@@ -10,7 +10,7 @@ import {
 } from 'dynamodb-client';
 import { Effect } from 'effect';
 import { beforeAll } from 'vitest';
-import { DynamoTable } from '../src/table/index.js';
+import { DynamoTableV2 } from '../src/table/table.js';
 
 config();
 
@@ -206,10 +206,13 @@ beforeAll(async () => {
 // Export the table instance
 export const table = (() => {
   const env = validateEnvironment();
-  return DynamoTable.make(env.tableName, {
+  return DynamoTableV2.make({
+    tableName: env.tableName,
     region: 'eu-central-1',
-    accessKey: env.accessKey!,
-    secretKey: env.secretKey!,
+    credentials: {
+      accessKeyId: env.accessKey!,
+      secretAccessKey: env.secretKey!,
+    },
     endpoint: env.dynamoUrl,
   })
     .primary('pkey', 'skey')
@@ -230,39 +233,7 @@ export function ensureSetupCompleted(): void {
 }
 
 export async function cleanTable(): Promise<void> {
-  try {
-    let lastEvaluatedKey: any;
-
-    do {
-      const scanOptions = lastEvaluatedKey
-        ? { Limit: 100, ExclusiveStartKey: lastEvaluatedKey }
-        : { Limit: 100 };
-
-      const scanResult = await Effect.runPromise(table.scan(scanOptions));
-
-      if (scanResult.Items && scanResult.Items.length > 0) {
-        for (const item of scanResult.Items) {
-          try {
-            await Effect.runPromise(
-              table.deleteItem({
-                pkey: item.pkey,
-                skey: item.skey,
-              }),
-            );
-          } catch (error) {
-            console.error(
-              `Failed to delete item {pkey: ${item.pkey}, skey: ${item.skey}}:`,
-              error,
-            );
-          }
-        }
-      }
-
-      lastEvaluatedKey = scanResult.LastEvaluatedKey;
-    } while (lastEvaluatedKey);
-  } catch (error) {
-    console.error('Error during table cleanup:', error);
-  }
+  await Effect.runPromise(table.purge('i know what i am doing'));
 }
 
 // Export utilities for testing
