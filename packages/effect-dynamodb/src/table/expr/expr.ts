@@ -1,5 +1,5 @@
 import { ConditionOperation } from './condition.js';
-import { UpdateOperation } from './update.js';
+import { CompiledUpdateOperation } from './update.js';
 import { KeyconditionOperation } from './key-condition.js';
 import { AttributeMapBuilder } from './utils.js';
 import { MarshalledOutput } from '../utils.js';
@@ -38,7 +38,7 @@ export const buildExpr = ({
   keyCondition,
   ...options
 }: {
-  update?: UpdateOperation | undefined;
+  update?: CompiledUpdateOperation | undefined;
   keyCondition?: KeyconditionOperation | undefined;
 } & (
   | {

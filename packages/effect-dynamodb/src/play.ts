@@ -60,7 +60,7 @@ Effect.runPromise(
     log(
       yield* entity.update(
         { id: 'test-1000' },
-        { comment: 'Updated time 1000', id: 'test-100' },
+        { comment: 'Updated time 1000' },
       ),
     );
 

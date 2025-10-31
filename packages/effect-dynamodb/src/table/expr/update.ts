@@ -7,9 +7,9 @@ import { AttributeMapBuilder } from './utils.js';
 // ============================================================================
 
 /**
- * The final result of an update expression that can be sent to DynamoDB
+ * The final compiled result of an update expression that can be sent to DynamoDB
  */
-export type UpdateOperation<T = any> = {
+export type CompiledUpdateOperation<T = any> = {
   type: 'update_operation';
   exprResult: ExprResult;
   value?: T;
@@ -78,12 +78,19 @@ type SetPrependOperation<
 };
 
 /**
- * Union of all possible operations
+ * Union of all possible operations (recursive - includes UpdateOperation)
  */
 type AnyOperation<T> =
   | SetOperation<T>
   | SetAppendOperation<T>
-  | SetPrependOperation<T>;
+  | SetPrependOperation<T>
+  | UpdateOperation<T>;
+
+/**
+ * Represents an array of update operations (uncompiled)
+ * Can be nested for composition
+ */
+export type UpdateOperation<T = any> = AnyOperation<T>[];
 
 // ============================================================================
 // Operation Builder Interface
@@ -212,14 +219,14 @@ function prepend<
 // ============================================================================
 
 /**
- * Creates a type-safe DynamoDB update expression
+ * Creates a type-safe DynamoDB update expression (uncompiled)
  *
  * @example
  * // Callback style with automatic typing
  * const update = updateExpr<User>(($) => [
  *   $.set('age', 25),                              // Set a value
  *   $.set('count', $.addOp('count', 5)),          // Arithmetic operation
- *   $.set('username', $.ifNotExists('username', 'guest')), // Set default if not exists
+ *   $.set('username', $.ifNotExistsOp('username', 'guest')), // Set default if not exists
  *   $.append('tags', ['new-tag']),                // Append to list
  *   $.prepend('items', ['first-item'])            // Prepend to list
  * ]);
@@ -227,8 +234,8 @@ function prepend<
 export function updateExpr<T>(
   builder: (ops: UpdateOps<T>) => AnyOperation<T>[],
 ): UpdateOperation<T> {
-  // Build the operations array by calling the builder with our ops interface
-  const ops = builder({
+  // Build and return the operations array - no compilation
+  return builder({
     set: (key, value) => set<any, any>(key, value),
     addOp: (key: ValidPathsWithCond<T, number>, value: number) =>
       addOp<T>(key, value),
@@ -236,10 +243,55 @@ export function updateExpr<T>(
     append: (key, value) => append<any, any>(key, value),
     prepend: (key, value) => prepend<any, any>(key, value),
   });
+}
+
+// ============================================================================
+// Update Expression Compiler
+// ============================================================================
+
+/**
+ * Flattens nested UpdateOperation arrays into a flat array of primitive operations
+ * @internal
+ */
+function flattenOperations<T>(
+  ops: AnyOperation<T>[],
+): (SetOperation<T> | SetAppendOperation<T> | SetPrependOperation<T>)[] {
+  const result: (
+    | SetOperation<T>
+    | SetAppendOperation<T>
+    | SetPrependOperation<T>
+  )[] = [];
+
+  for (const op of ops) {
+    if (Array.isArray(op)) {
+      // It's a nested UpdateOperation - recurse to flatten
+      result.push(...flattenOperations(op));
+    } else {
+      // It's a primitive operation - add directly
+      result.push(op);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compiles update operations into DynamoDB expression syntax
+ *
+ * @example
+ * const ops = updateExpr<User>(($) => [$.set('age', 25)]);
+ * const compiled = compileUpdateExpr(ops);
+ * // compiled.exprResult.expr => "SET #u_0 = :u_0"
+ */
+export function compileUpdateExpr<T>(
+  operations: UpdateOperation<T>,
+): CompiledUpdateOperation<T> {
+  // Flatten nested operations recursively
+  const flatOps = flattenOperations(operations);
 
   // Convert operations to DynamoDB expression syntax
   const attrBuilder = new AttributeMapBuilder('u_');
-  const setOps = ops
+  const setOps = flatOps
     .map((op) => {
       switch (op.type) {
         case 'update_set_value':

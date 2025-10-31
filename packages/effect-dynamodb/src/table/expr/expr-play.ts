@@ -1,4 +1,4 @@
-import { updateExpr } from './update.js';
+import { updateExpr, compileUpdateExpr } from './update.js';
 import { conditionExpr } from './condition.js';
 import { keyConditionExpr } from './key-condition.js';
 import { buildExpr } from './expr.js';
@@ -29,16 +29,17 @@ const gsiIndex: IndexDefinition = {
 
 // Example 1: Update with condition
 const expr1 = buildExpr({
-  update: updateExpr<User>(($) => [
-    $.set('age', 30),
-    $.set('name', 'John Doe'),
-  ]),
+  update: compileUpdateExpr(
+    updateExpr<User>(($) => [$.set('age', 30), $.set('name', 'John Doe')]),
+  ),
   condition: conditionExpr<User>(($) => $.cond('status', '=', 'active')),
 });
 
 // Example 2: Update only (no condition)
 const expr2 = buildExpr({
-  update: updateExpr<User>(($) => [$.set('age', $.addOp('age', 1))]),
+  update: compileUpdateExpr(
+    updateExpr<User>(($) => [$.set('age', $.addOp('age', 1))]),
+  ),
 });
 
 // Example 3: Condition only (for conditional delete/get)
@@ -50,11 +51,13 @@ const expr3 = buildExpr({
 
 // Example 4: Complex update with complex condition
 const expr4 = buildExpr({
-  update: updateExpr<User>(($) => [
-    $.set('age', 25),
-    $.set('status', 'active'),
-    $.set('email', $.ifNotExistsOp('email', 'default@example.com')),
-  ]),
+  update: compileUpdateExpr(
+    updateExpr<User>(($) => [
+      $.set('age', 25),
+      $.set('status', 'active'),
+      $.set('email', $.ifNotExistsOp('email', 'default@example.com')),
+    ]),
+  ),
   condition: conditionExpr<User>(($) =>
     $.and(
       $.cond('age', '<', 65),
@@ -106,7 +109,9 @@ const expr9 = buildExpr({
 
 // Example 10: All three expressions together (uncommon but possible)
 const expr10 = buildExpr({
-  update: updateExpr<User>(($) => [$.set('status', 'active')]),
+  update: compileUpdateExpr(
+    updateExpr<User>(($) => [$.set('status', 'active')]),
+  ),
   keyCondition: keyConditionExpr(primaryIndex, {
     pk: 'user#123',
     sk: 'profile#',

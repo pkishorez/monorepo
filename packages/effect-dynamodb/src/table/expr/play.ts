@@ -1,4 +1,8 @@
-import { updateExpr, UpdateOperation } from './update.js';
+import {
+  updateExpr,
+  compileUpdateExpr,
+  UpdateOperation,
+} from './update.js';
 import { buildExpr } from './expr.js';
 import { conditionExpr, ConditionOperation } from './condition.js';
 
@@ -142,16 +146,17 @@ interface User {
 
 // Example 1: Update with condition
 const expr1 = buildExpr({
-  update: updateExpr<User>(($) => [
-    $.set('age', 30),
-    $.set('name', 'John Doe'),
-  ]),
+  update: compileUpdateExpr(
+    updateExpr<User>(($) => [$.set('age', 30), $.set('name', 'John Doe')]),
+  ),
   condition: conditionExpr<User>(($) => $.cond('status', '=', 'active')),
 });
 
 // Example 2: Update only (no condition)
 const expr2 = buildExpr({
-  update: updateExpr<User>(($) => [$.set('age', $.addOp('age', 1))]),
+  update: compileUpdateExpr(
+    updateExpr<User>(($) => [$.set('age', $.addOp('age', 1))]),
+  ),
 });
 
 // Example 3: Condition only (for conditional delete/get)
@@ -163,11 +168,13 @@ const expr3 = buildExpr({
 
 // Example 4: Complex update with complex condition
 const expr4 = buildExpr({
-  update: updateExpr<User>(($) => [
-    $.set('age', 25),
-    $.set('status', 'active'),
-    $.set('email', $.ifNotExistsOp('email', 'default@example.com')),
-  ]),
+  update: compileUpdateExpr(
+    updateExpr<User>(($) => [
+      $.set('age', 25),
+      $.set('status', 'active'),
+      $.set('email', $.ifNotExistsOp('email', 'default@example.com')),
+    ]),
+  ),
   condition: conditionExpr<User>(($) =>
     $.and(
       $.cond('age', '<', 65),

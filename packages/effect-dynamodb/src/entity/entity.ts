@@ -16,11 +16,10 @@ import { TGetItemInput, TQueryInput } from '../table/types.js';
 import {
   fromDiscriminatedGeneric,
   toDiscriminatedGeneric,
-  unmarshall,
 } from '../table/utils.js';
 import { buildExpr } from '../table/expr/expr.js';
 import { conditionExpr, ConditionOperation } from '../table/expr/condition.js';
-import { updateExpr } from '../table/expr/update.js';
+import { updateExpr, compileUpdateExpr } from '../table/expr/update.js';
 
 export class DynamoEntity<
   TSecondaryDerivationMap extends Record<
@@ -107,7 +106,12 @@ export class DynamoEntity<
       );
   }
 
-  insert(value: TSchema['Type']) {
+  insert(
+    value: TSchema['Type'],
+    options?: {
+      condition?: ConditionOperation<TSchema['Type']>;
+    },
+  ) {
     return Effect.gen(this, function* () {
       value = yield* Schema.decodeUnknown(Schema.partial(this.#eschema.schema))(
         value,
@@ -143,10 +147,9 @@ export class DynamoEntity<
           },
         )
         .pipe(
-          Effect.catchTag('ConditionalCheckFailedException', (v) => {
-            console.log('VALUE: ', v);
-            return Effect.succeed(null);
-          }),
+          Effect.catchTag('ConditionalCheckFailedException', () =>
+            Effect.succeed(null),
+          ),
         );
     });
   }
@@ -195,7 +198,7 @@ export class DynamoEntity<
         .updateItem(
           { pk, sk },
           {
-            ...buildExpr({ update, condition }),
+            ...buildExpr({ update: compileUpdateExpr(update), condition }),
             ReturnConsumedCapacity: 'TOTAL',
             ReturnItemCollectionMetrics: 'SIZE',
             ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
@@ -206,16 +209,7 @@ export class DynamoEntity<
             if (!v.Item) {
               return Effect.dieMessage('No item results returned');
             }
-            const item = unmarshall(v.Item);
-            console.error(
-              `expected: ${JSON.stringify(condition)}, actual: ${JSON.stringify(item)}`,
-            );
-
             return Effect.fail(v);
-          }),
-          Effect.catchAll((e) => {
-            console.log('ERROR: ', e);
-            return Effect.fail(e);
           }),
         );
     });
@@ -234,7 +228,6 @@ export class DynamoEntity<
     },
   ) {
     const testSk = this.#calculateSk(this.#primaryDerivation, sk as any);
-    console.dir({ sk, testSk }, { depth: 10 });
 
     return this.#table
       .query(
@@ -279,7 +272,6 @@ export class DynamoEntity<
       ) => {
         const indexDerivation = this.#secondaryDerivations[alias];
         const testSk = this.#calculateSk(indexDerivation, sk as any);
-        console.dir({ sk, testSk }, { depth: 10 });
 
         return this.#table
           .index(indexDerivation.indexName)
