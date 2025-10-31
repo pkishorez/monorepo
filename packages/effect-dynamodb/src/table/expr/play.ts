@@ -1,4 +1,5 @@
 import { updateExpr, UpdateOperation } from './update.js';
+import { buildExpr } from './expr.js';
 import { conditionExpr, ConditionOperation } from './condition.js';
 
 function log(value: unknown) {
@@ -130,3 +131,59 @@ log(cond6);
 log(cond7);
 log(cond8);
 log(cond9);
+
+interface User {
+  id: string;
+  name: string;
+  age: number;
+  status: 'active' | 'inactive' | 'pending';
+  email?: string;
+}
+
+// Example 1: Update with condition
+const expr1 = buildExpr({
+  update: updateExpr<User>(($) => [
+    $.set('age', 30),
+    $.set('name', 'John Doe'),
+  ]),
+  condition: conditionExpr<User>(($) => $.cond('status', '=', 'active')),
+});
+
+// Example 2: Update only (no condition)
+const expr2 = buildExpr({
+  update: updateExpr<User>(($) => [$.set('age', $.addOp('age', 1))]),
+});
+
+// Example 3: Condition only (for conditional delete/get)
+const expr3 = buildExpr({
+  condition: conditionExpr<User>(($) =>
+    $.and($.cond('age', '>=', 18), $.cond('status', '=', 'active')),
+  ),
+});
+
+// Example 4: Complex update with complex condition
+const expr4 = buildExpr({
+  update: updateExpr<User>(($) => [
+    $.set('age', 25),
+    $.set('status', 'active'),
+    $.set('email', $.ifNotExistsOp('email', 'default@example.com')),
+  ]),
+  condition: conditionExpr<User>(($) =>
+    $.and(
+      $.cond('age', '<', 65),
+      $.or($.cond('status', '=', 'pending'), $.cond('status', '=', 'inactive')),
+    ),
+  ),
+});
+
+console.log('\n=== Example 1: Update with Condition ===\n');
+log(expr1);
+
+console.log('\n=== Example 2: Update Only ===\n');
+log(expr2);
+
+console.log('\n=== Example 3: Condition Only ===\n');
+log(expr3);
+
+console.log('\n=== Example 4: Complex Update with Complex Condition ===\n');
+log(expr4);

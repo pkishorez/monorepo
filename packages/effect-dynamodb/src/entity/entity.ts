@@ -18,6 +18,9 @@ import {
   toDiscriminatedGeneric,
   unmarshall,
 } from '../table/utils.js';
+import { buildExpr } from '../table/expr/expr.js';
+import { conditionExpr } from '../table/expr/condition.js';
+import { updateExpr } from '../table/expr/update.js';
 
 export class DynamoEntity<
   TSecondaryDerivationMap extends Record<
@@ -160,22 +163,24 @@ export class DynamoEntity<
       const pk = deriveIndexKeyValue(this.#primaryDerivation['pk'], keyValue);
       const sk = deriveIndexKeyValue(this.#primaryDerivation['sk'], keyValue);
 
-      const condition = {
-        __v: this.#eschema.latestVersion,
-        __i: meta?.__i,
-      };
-      const update = buildExpression({
-        condition,
-        update: {
-          set: value,
-        },
-      });
+      const condition = conditionExpr(($) =>
+        $.and(
+          ...[
+            $.cond('__v', '=', this.#eschema.latestVersion),
+            meta && $.cond('__i', '=', meta.__i),
+          ].filter((v) => !!v),
+        ),
+      );
+      const update = updateExpr<any>(($) => [
+        ...Object.entries(value).map(([key, v]) => $.set(key, v)),
+        $.set('__i', $.addOp('__i', 1)),
+      ]);
 
       return yield* this.#table
         .updateItem(
           { pk, sk },
           {
-            ...update,
+            ...buildExpr({ update, condition }),
             ReturnConsumedCapacity: 'TOTAL',
             ReturnItemCollectionMetrics: 'SIZE',
             ReturnValuesOnConditionCheckFailure: 'ALL_OLD',

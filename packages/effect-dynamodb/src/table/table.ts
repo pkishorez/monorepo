@@ -17,6 +17,7 @@ import { Except, Simplify } from 'type-fest';
 import { Effect } from 'effect';
 import { marshall, unmarshall } from './utils.js';
 import { KeyConditionExprParameters } from './expr/key-condition.js';
+import { buildExpr } from './expr/expr.js';
 
 export class DynamoTableV2<
   PrimaryIndexDefinition extends IndexDefinition,
@@ -203,7 +204,7 @@ export class DynamoTableV2<
     cond: KeyConditionExprParameters,
     { debug, ...options }: TQueryInput & { debug?: boolean },
   ) {
-    const expr = buildExpression({
+    const expr = buildExpr({
       keyCondition: {
         index: indexDef,
         params: cond,
