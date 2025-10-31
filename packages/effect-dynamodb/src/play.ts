@@ -1,11 +1,11 @@
 /* eslint-disable no-console */
 import { Effect, Schema } from 'effect';
-import { DynamoTableV2 } from './table/table.js';
+import { DynamoTable } from './table/table.js';
 import { DynamoEntity } from './entity/entity.js';
 import { ESchema } from '@monorepo/eschema';
 import { filterExpr } from './table/expr/condition.js';
 
-const table = DynamoTableV2.make({
+const table = DynamoTable.make({
   endpoint: 'http://localhost:8090',
   tableName: 'playground',
   credentials: {

@@ -1,5 +1,5 @@
 import { EmptyESchema } from '@monorepo/eschema';
-import { DynamoTableV2 } from '../table/table.js';
+import { DynamoTable } from '../table/table.js';
 import {
   IndexKeyDerivation,
   IndexDerivation,
@@ -31,11 +31,11 @@ export class DynamoEntity<
     string,
     EmptyIndexDerivation & { indexName: keyof TTable['secondaryIndexMap'] }
   >,
-  TTable extends DynamoTableV2<any, any>,
+  TTable extends DynamoTable<any, any>,
   TSchema extends EmptyESchema,
   TPrimaryDerivation extends EmptyIndexDerivation,
 > {
-  static make<TT extends DynamoTableV2<any, any>>(table: TT) {
+  static make<TT extends DynamoTable<any, any>>(table: TT) {
     return {
       eschema<TS extends EmptyESchema>(eschema: TS) {
         return {
@@ -382,7 +382,7 @@ export class DynamoEntity<
 }
 
 class EntityIndexDerivations<
-  TTable extends DynamoTableV2<any, any>,
+  TTable extends DynamoTable<any, any>,
   TSchema extends EmptyESchema,
   TPrimaryDerivation extends IndexDerivation<any, any>,
   TSecondaryDerivationMap extends Record<

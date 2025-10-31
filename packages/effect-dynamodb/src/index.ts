@@ -1,2 +1,2 @@
-export { DynamoTable } from './table/index.js';
-export { DynamoEntity, DynamoEntityUnit } from './entity/index.js';
+export { DynamoTable } from './table/table.js';
+export { DynamoEntity } from './entity/entity.js';

@@ -21,12 +21,9 @@ import {
   KeyConditionExprParameters,
 } from './expr/key-condition.js';
 import { buildExpr } from './expr/expr.js';
-import {
-  ConditionOperation,
-  compileConditionExpr,
-} from './expr/condition.js';
+import { ConditionOperation, compileConditionExpr } from './expr/condition.js';
 
-export class DynamoTableV2<
+export class DynamoTable<
   PrimaryIndexDefinition extends IndexDefinition,
   SecondaryIndexDefinitionMap extends Record<string, IndexDefinition>,
 > {
@@ -299,7 +296,7 @@ class SecondaryIndexCreator<
   }
 
   build() {
-    return new DynamoTableV2<PrimaryIndex, Simplify<IndexDefinitionMap>>(
+    return new DynamoTable<PrimaryIndex, Simplify<IndexDefinitionMap>>(
       this.#config,
       this.#primary,
       this.#indexDefMap,

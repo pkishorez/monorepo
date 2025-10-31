@@ -10,7 +10,7 @@ import {
 } from 'dynamodb-client';
 import { Effect } from 'effect';
 import { beforeAll } from 'vitest';
-import { DynamoTableV2 } from '../src/table/table.js';
+import { DynamoTable } from '../src/table/table.js';
 
 config();
 
@@ -206,7 +206,7 @@ beforeAll(async () => {
 // Export the table instance
 export const table = (() => {
   const env = validateEnvironment();
-  return DynamoTableV2.make({
+  return DynamoTable.make({
     tableName: env.tableName,
     region: 'eu-central-1',
     credentials: {
