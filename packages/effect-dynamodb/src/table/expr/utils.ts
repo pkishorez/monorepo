@@ -1,43 +1,25 @@
-import type { ExprAttributeMap } from './types.js';
+import { convertToAttr, MarshalledOutput } from '../utils.js';
+import { DynamoAttrResult } from './types.js';
 
-// Helper to merge expression results
-export function mergeExprAttributeMap(results: ExprAttributeMap[]): {
-  attrNameMap: Record<string, string>;
-  attrValueMap: Record<string, unknown>;
-} {
-  return results.reduce(
-    (acc, result) => ({
-      attrNameMap: { ...acc.attrNameMap, ...result.attrNameMap },
-      attrValueMap: { ...acc.attrValueMap, ...result.attrValueMap },
-    }),
-    { attrNameMap: {}, attrValueMap: {} },
-  );
-}
+const emptyAttrResult: DynamoAttrResult = {
+  ExpressionAttributeNames: {},
+  ExpressionAttributeValues: {},
+};
 
 export class AttributeMapBuilder {
-  #i = 1;
+  #i = 0;
   #attrNameMap: Record<string, string> = {};
-  #attrValueMap: Record<string, unknown> = {};
+  #attrValueMap: MarshalledOutput = {};
   #prefix = '';
 
-  constructor(prefix: `${string}_`) {
+  constructor(prefix: `${'u' | 'p' | 'c' | 'f' | 'k'}_`) {
     this.#prefix = prefix;
   }
 
-  setAttr(key: string, value: unknown) {
-    const attrKey = this.setAttrName(key);
-    const attrValue = this.setAttrValue(value);
-
-    return {
-      attrKey,
-      attrValue,
-    };
-  }
-
-  setAttrName(key: string) {
+  attr(key: string) {
     const attrKeys = key.split('.').map((v) => {
       const [value, brackets = ''] = v.split(/(\[.*)/, 2);
-      const result = this.#setAttrNameHelper(value);
+      const result = this.#attrHelper(value);
 
       return result + brackets;
     });
@@ -45,7 +27,15 @@ export class AttributeMapBuilder {
     return attrKeys.join('.');
   }
 
-  #setAttrNameHelper(key: string) {
+  value(value: unknown) {
+    this.#i++;
+    const attrValue = `:${this.#prefix}value_${this.#i}`;
+    this.#attrValueMap[attrValue] = convertToAttr(value);
+
+    return attrValue;
+  }
+
+  #attrHelper(key: string) {
     this.#i++;
     const attrKey = `#${this.#prefix}attr_${this.#i}`;
     this.#attrNameMap[attrKey] = key;
@@ -53,18 +43,25 @@ export class AttributeMapBuilder {
     return attrKey;
   }
 
-  setAttrValue(value: unknown) {
-    this.#i++;
-    const attrValue = `:${this.#prefix}value_${this.#i}`;
-    this.#attrValueMap[attrValue] = value;
-
-    return attrValue;
-  }
-
-  build(): ExprAttributeMap {
+  build(): DynamoAttrResult {
     return {
-      attrNameMap: this.#attrNameMap,
-      attrValueMap: this.#attrValueMap,
+      ExpressionAttributeNames: this.#attrNameMap,
+      ExpressionAttributeValues: this.#attrValueMap,
     };
   }
+
+  static mergeAttrResults = (attrResults: DynamoAttrResult[]) =>
+    attrResults.reduce(
+      (acc, v) => ({
+        ExpressionAttributeNames: {
+          ...acc.ExpressionAttributeNames,
+          ...v.ExpressionAttributeNames,
+        },
+        ExpressionAttributeValues: {
+          ...acc.ExpressionAttributeValues,
+          ...v.ExpressionAttributeValues,
+        },
+      }),
+      emptyAttrResult,
+    );
 }

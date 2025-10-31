@@ -1,10 +1,3 @@
-export type { ConditionExprParameters } from './condition/index.js';
-export { conditionExpr } from './condition/index.js';
-export type { ExpressionInput } from './expression-builder.js';
-export { buildExpression } from './expression-builder.js';
-export type { KeyConditionExprParameters } from './key-condition/index.js';
-export { keyConditionExpr } from './key-condition/index.js';
-export type { ProjectedItem, ProjectionKeys } from './projection.js';
-export { projectionExpr } from './projection.js';
-export type { UpdateExprParameters } from './updates/index.js';
-export { updateExpr } from './updates/index.js';
+export { updateExpr, UpdateOperation } from './update.js';
+export { conditionExpr, ConditionOperation } from './condition.js';
+export { keyConditionExpr } from './key-condition.js';

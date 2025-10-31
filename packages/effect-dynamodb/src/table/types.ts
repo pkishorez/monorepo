@@ -1,65 +1,77 @@
-import type { DynamoTable } from './table.js';
+import {
+  GetItemInput,
+  PutItemInput,
+  QueryInput,
+  ScanInput,
+  UpdateItemInput,
+} from 'dynamodb-client';
+import { Except } from 'type-fest';
 
-export interface CompoundIndexDefinition {
+export type IndexDefinition = {
   pk: string;
   sk: string;
+};
+
+// GetItemInput
+export interface TGetItemInput
+  extends Except<
+    GetItemInput,
+    | 'TableName'
+    | 'Key'
+
+    // Deprecated
+    | 'AttributesToGet'
+  > {}
+export interface TPutItemInput
+  extends Except<
+    PutItemInput,
+    | 'TableName'
+    | 'Item'
+
+    // Cleanup
+    | 'ReturnValues'
+
+    // Deprecated
+    | 'Expected'
+    | 'ConditionalOperator'
+  > {
+  // For put only ALL_OLD is valid
+  ReturnValues: 'ALL_OLD';
 }
+export interface TUpdateItemInput
+  extends Except<
+    UpdateItemInput,
+    | 'TableName'
+    | 'Key'
 
-export type IndexDefinition = CompoundIndexDefinition;
+    // Deprecated
+    | 'AttributeUpdates'
+    | 'ConditionalOperator'
+    | 'Expected'
+  > {}
+export interface TQueryInput
+  extends Except<
+    QueryInput,
+    | 'TableName'
 
-export type SecondaryIndexDefinition = IndexDefinition;
-
-// Utility type to simplify complex type intersections
-export type Simplify<T> = {
-  [K in keyof T]: T[K];
-} & {};
-
-export interface DynamoConfig {
-  region?: string;
-  accessKey: string;
-  secretKey: string;
-  endpoint?: string;
+    // Deprecated
+    | 'Select'
+    | 'KeyConditions'
+    | 'KeyConditionExpression'
+    | 'QueryFilter'
+    | 'AttributesToGet'
+    | 'ConditionalOperator'
+  > {
+  debug?: boolean;
 }
+export interface TScanInput
+  extends Except<
+    ScanInput,
+    | 'TableName'
 
-export type RealKeyFromIndex<T extends IndexDefinition> = T extends {
-  pk: infer PK extends string;
-  sk: infer SK extends string;
-}
-  ? Record<PK | SK, string>
-  : never;
-
-export type ItemWithPrimaryIndex<
-  TPrimary extends IndexDefinition,
-  Item,
-> = RealKeyFromIndex<TPrimary> & Item;
-
-export type ItemWithAllKeys<
-  TPrimary extends IndexDefinition,
-  TGLSIs extends Record<string, IndexDefinition>,
-  Item extends Record<string, unknown>,
-> = RealKeyFromIndex<TPrimary> & Item & Partial<AllGLSIKeys<TGLSIs>>;
-
-type IfNever<T, Default> = [T] extends [never] ? Default : T;
-// Extract all keys from GSIs and LSIs.
-export type AllGLSIKeys<TGLSIs extends Record<string, IndexDefinition>> =
-  Simplify<
-    IfNever<
-      {
-        [K in keyof TGLSIs]: RealKeyFromIndex<TGLSIs[K]>;
-      }[keyof TGLSIs],
-      // eslint-disable-next-line ts/no-empty-object-type
-      {}
-    >
-  >;
-
-export type ItemForPut<
-  TSecondaryIndexes extends Record<string, IndexDefinition>,
-  Item = Record<string, unknown>,
-> = Partial<AllGLSIKeys<TSecondaryIndexes>> & Item;
-
-export interface DynamoTableType<Table extends DynamoTable<any, any, any>> {
-  primary: Table extends DynamoTable<infer Primary, any, any> ? Primary : never;
-  secondaryIndexes: Table extends DynamoTable<any, infer SecondaryIndexes, any>
-    ? SecondaryIndexes
-    : never;
-}
+    // Deprecated
+    | 'Select'
+    | 'ScanFilter'
+    | 'AttributesToGet'
+    | 'ConditionalOperator'
+  > {}

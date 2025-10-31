@@ -21,7 +21,8 @@
       "mcp__serena__find_file",
       "mcp__serena__search_for_pattern",
       "mcp__serena__get_symbols_overview",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": []
   },

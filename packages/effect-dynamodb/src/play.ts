@@ -1,85 +1,77 @@
 /* eslint-disable no-console */
-import { Effect } from 'effect';
-import { DynamoTable } from './table/table.js';
+import { Effect, Schema } from 'effect';
+import { DynamoTableV2 } from './table/table.js';
+import { DynamoEntity } from './entity/entity.js';
+import { ESchema } from '@monorepo/eschema';
 
-const table = DynamoTable.make('playground', {
+const table = DynamoTableV2.make({
   endpoint: 'http://localhost:8090',
-  accessKey: 'access',
-  secretKey: 'access',
+  tableName: 'playground',
+  credentials: {
+    accessKeyId: 'access',
+    secretAccessKey: 'access',
+  },
 })
   .primary('pkey', 'skey')
+  .lsi('LSI1', 'lsi1sk')
   .gsi('GSI1', 'gsi1pk', 'gsi1sk')
-  .build<{
-    name: string;
-    age?: number;
-    metadata: {
-      college: {
-        name: string;
-        friends: string[][];
-      };
-      company: {
-        name: string;
-        duration: number;
-      }[];
-    };
-  }>();
+  .gsi('GSI2', 'gsi1pk', 'gsi1sk')
+  .build();
+
+const entity = DynamoEntity.make(table)
+  .eschema(
+    ESchema.make(
+      'v1',
+      Schema.Struct({
+        id: Schema.String,
+        name: Schema.String,
+        age: Schema.Number,
+        comment: Schema.String,
+      }),
+    ).build(),
+  )
+  .primary({
+    pk: { deps: [], derive: () => ['USER'] },
+    sk: { deps: ['id'], derive: ({ id }) => ['SK :: ', id] },
+  })
+  .index('GSI1', 'byName', {
+    pk: { deps: [], derive: () => ['BYNAME'] },
+    sk: { deps: ['name'], derive: ({ name }) => ['SK', name] },
+  })
+  .build();
+
+function log(value: unknown) {
+  console.dir(value, { depth: 10 });
+}
 
 Effect.runPromise(
   Effect.gen(function* () {
-    yield* table.putItem(
-      { pkey: 'user', skey: 'user' },
-      {
-        name: 'Kishore',
-        metadata: {
-          college: {
-            name: 'IIIT',
-            friends: [['Friend 1', 'Friend 2']],
-          },
-          company: [
-            {
-              name: 'Wipro',
-              duration: 2,
-            },
-          ],
-        },
-      },
-      {
-        returnValues: 'ALL_OLD',
-        // condition: {},
-      },
-    );
-    yield* table.updateItem(
-      { pkey: 'user', skey: 'user' },
-      {
-        update: {
-          'metadata.college.friends[0][0]': 'test friend',
-        },
-      },
-    );
-    const { Items } = yield* table
-      .query(
-        { pk: 'user', sk: { beginsWith: 'user' } },
-        {
-          // Select: 'ALL_ATTRIBUTES',
-          filter: {
-            'metadata.college.friends[0][0]': 'test friend',
-          },
-          projection: ['name'],
-        },
-      )
-      .pipe(Effect.catchAll((e) => Effect.log(e._tag).pipe(Effect.die)));
+    yield* table.purge('i know what i am doing');
 
-    console.dir(
-      {
-        Items,
-        // Item: (yield* table.getItem(
-        //   { pkey: 'user', skey: 'user' },
-        //   {
-        //     projection: ['name', 'pkey'],
-        //   },
-        // )).Item,
-      },
-      { depth: 10 },
+    for (let i = 0; i < 20; i++) {
+      yield* entity.insert({
+        id: `test-${`${i}`.padStart(4, '0')}`,
+        name: `Test User ${i}`,
+        age: i,
+        comment: 'inserted',
+      });
+    }
+    // log(
+    //   yield* entity.update({ id: 'test-001' }, { comment: 'Updated time 1' }),
+    // );
+
+    const v = yield* entity.get({ id: 'test-1' });
+
+    log(
+      yield* entity.index('byName').query(
+        {
+          pk: {},
+          sk: {
+            '>': { name: 'Test User 1' },
+          },
+        },
+        { debug: true, ScanIndexForward: true, Limit: 10 },
+      ),
     );
-  }).pipe(),
+  }),
 );

@@ -1,231 +1,204 @@
-import { EmptyESchema, ESchema } from '@monorepo/eschema';
-import type { Schema } from 'effect';
-import type { Except, Simplify } from 'type-fest';
-import type { QueryOptions } from '../table/query-executor.js';
-import type { DynamoTable, PutOptions, UpdateOptions } from '../table/table.js';
-import type {
-  CompoundIndexDefinition,
-  IndexDefinition,
-} from '../table/types.js';
-import type {
-  EmptyEntityIndexDefinition,
-  EntityIndexDefinition,
-  ExtractEntityIndexDefType,
-  ExtractIndexDefType,
-  FirstLevelPrimitives,
-  IndexDef,
-  ObjFromKeysArr,
+import { EmptyESchema } from '@monorepo/eschema';
+import { DynamoTableV2 } from '../table/table.js';
+import {
+  IndexKeyDerivation,
+  IndexDerivation,
+  IndexDerivationValue,
+  EmptyIndexDerivation,
+  IndexKeyDerivationValue,
 } from './types.js';
-import type { SortKeyparameter } from '../table/expr/key-condition/types.js';
-import { Effect } from 'effect';
-import { deriveIndex } from './util.js';
+import { Effect, Schema } from 'effect';
+import { deriveIndexKeyValue } from './utils.js';
+import { metaSchema } from './schema.js';
+import { Except, Simplify } from 'type-fest';
+import { SortKeyparameter } from '../table/expr/key-condition.js';
+import { TGetItemInput, TQueryInput } from '../table/types.js';
+import {
+  fromDiscriminatedGeneric,
+  toDiscriminatedGeneric,
+  unmarshall,
+} from '../table/utils.js';
 
 export class DynamoEntity<
-  TSchema extends EmptyESchema,
-  TTable extends DynamoTable<
-    IndexDefinition,
-    Record<string, IndexDefinition>,
-    TSchema['Type']
+  TSecondaryDerivationMap extends Record<
+    string,
+    EmptyIndexDerivation & { indexName: keyof TTable['secondaryIndexMap'] }
   >,
-  TPrimary extends EmptyEntityIndexDefinition,
-  TSecondary extends Record<string, EmptyEntityIndexDefinition>,
+  TTable extends DynamoTableV2<any, any>,
+  TSchema extends EmptyESchema,
+  TPrimaryDerivation extends EmptyIndexDerivation,
 > {
-  eschema: TSchema;
-  table: TTable;
-  primary: TPrimary;
-  secondary: TSecondary;
-
-  constructor({
-    eschema,
-    table,
-    primary,
-    secondary,
-  }: {
-    eschema: TSchema;
-    table: TTable;
-    primary: TPrimary;
-    secondary: TSecondary;
-  }) {
-    this.eschema = eschema;
-    this.table = table;
-    this.primary = primary;
-    this.secondary = secondary;
-  }
-
-  #getRealKeyFromItem(key: ExtractEntityIndexDefType<TPrimary>) {
-    const pk = deriveIndex(this.primary.pk, key);
-    const sk = deriveIndex(this.primary.sk, key);
-
-    const result = {
-      [this.table.primary.pk]: pk,
-      [this.table.primary.sk]: sk,
-    };
-
-    return result;
-  }
-
-  #deriveSecondaryKeys(item: Partial<TSchema['Type']>) {
-    const itemKeys = Object.keys(item);
-
-    return Object.entries(this.secondary).reduce(
-      (acc, [indexName, def]) => {
-        const { pk, sk } = def;
-        const pkDeps =
-          pk.deps.length === 0 || pk.deps.every((dep) => itemKeys.includes(dep))
-            ? {
-                [this.table.secondaryIndexes[indexName].pk]: deriveIndex(
-                  pk,
-                  item,
-                ),
-              }
-            : {};
-        const skDeps =
-          sk.deps.length === 0 || sk.deps.every((dep) => itemKeys.includes(dep))
-            ? {
-                [this.table.secondaryIndexes[indexName].sk]: deriveIndex(
-                  sk,
-                  item,
-                ),
-              }
-            : {};
-
+  static make<TT extends DynamoTableV2<any, any>>(table: TT) {
+    return {
+      eschema<TS extends EmptyESchema>(eschema: TS) {
         return {
-          ...acc,
-          ...pkDeps,
-          ...skDeps,
+          primary<
+            TPkKeys extends keyof TS['Type'],
+            TSkKeys extends keyof TS['Type'],
+          >(
+            primaryDerivation: IndexDerivation<
+              IndexKeyDerivation<TS['Type'], TPkKeys>,
+              IndexKeyDerivation<TS['Type'], TSkKeys>
+            >,
+          ) {
+            return new EntityIndexDerivations(
+              table,
+              eschema,
+              primaryDerivation,
+            );
+          },
         };
       },
-      {} as typeof item,
-    ) as typeof item;
+    };
   }
 
-  update(
-    key: ExtractEntityIndexDefType<TPrimary>,
-    update: Omit<
-      Partial<TSchema['Type']>,
-      // One should not update the primary key itself!
-      keyof ExtractEntityIndexDefType<TPrimary>
-    >,
-    options?: Except<UpdateOptions<TSchema['Type']>, 'update'> & {
-      ignoreVersionMismatch?: boolean;
-    },
+  #table: TTable;
+  #eschema: TSchema;
+  #primaryDerivation: TPrimaryDerivation;
+  #secondaryDerivations: TSecondaryDerivationMap;
+  constructor(
+    table: TTable,
+    eschema: TSchema,
+    primaryDerivation: TPrimaryDerivation,
+    secondaryDerivations: TSecondaryDerivationMap,
   ) {
-    return this.eschema.makePartialEffect(update).pipe(
-      Effect.andThen((v) => {
-        const opts = {
-          ...options,
-          update: {
-            set: {
-              ...v,
-              ...this.#deriveSecondaryKeys({ ...v, ...key } as any),
-            },
-          },
-          condition: options?.ignoreVersionMismatch
-            ? undefined
-            : ({
-                __v: this.eschema.latestVersion,
-              } as any),
-        };
-        return this.table.updateItem(this.#getRealKeyFromItem(key), opts).pipe(
-          Effect.tapErrorCause((cause) =>
-            Effect.logError({
-              cause,
-              options: opts,
-            }),
-          ),
-        );
-      }),
-    );
+    this.#table = table;
+    this.#eschema = eschema;
+    this.#primaryDerivation = primaryDerivation;
+    this.#secondaryDerivations = secondaryDerivations;
   }
 
-  purge(confirm: 'i know what i am doing') {
-    if (confirm !== 'i know what i am doing') {
-      return Effect.void;
-    }
+  get(
+    keyValue: IndexDerivationValue<TPrimaryDerivation>,
+    options?: TGetItemInput,
+  ) {
+    const pk = deriveIndexKeyValue(this.#primaryDerivation['pk'], keyValue);
+    const sk = deriveIndexKeyValue(this.#primaryDerivation['sk'], keyValue);
 
+    return this.#table
+      .getItem(
+        { pk, sk },
+        {
+          ReturnConsumedCapacity: 'TOTAL',
+          ...options,
+        },
+      )
+      .pipe(
+        Effect.flatMap(({ Item, ...rest }) => {
+          type ItemType = {
+            value: TSchema['Type'];
+            meta: typeof metaSchema.Type;
+          };
+          return Item
+            ? this.#eschema.parse(Item).pipe(
+                Effect.map((item) => ({
+                  item: {
+                    value: item.value,
+                    meta: Schema.decodeUnknownSync(metaSchema)(Item),
+                  } as ItemType | null,
+                  ...rest,
+                })),
+              )
+            : Effect.succeed({ item: null as ItemType | null, ...rest });
+        }),
+      );
+  }
+
+  insert(value: TSchema['Type']) {
     return Effect.gen(this, function* () {
-      let lastEvaluated: Record<string, string> | undefined;
-      let count = 0;
-
-      while (true) {
-        const { Items, LastEvaluatedKey } = yield* this.table.scan({
-          exclusiveStartKey: lastEvaluated,
-        });
-        count += Items.length;
-        lastEvaluated = LastEvaluatedKey as any;
-
-        yield* Effect.all(
-          Items.map((item) =>
-            this.table.deleteItem(this.#getRealKeyFromItem(item)),
-          ),
-          { concurrency: 'unbounded' },
+      value = yield* Schema.decodeUnknown(Schema.partial(this.#eschema.schema))(
+        value,
+      );
+      value = {
+        ...value,
+        ...metaSchema.make({
+          __v: this.#eschema.latestVersion,
+          __i: 0,
+          __d: false,
+        }),
+      };
+      const primaryIndex = this.#derivePrimaryIndex(value);
+      const indexMap = this.#deriveSecondaryIndexes(value);
+      return yield* this.#table
+        .putItem(
+          {
+            ...value,
+            [this.#table.primary.pk]: primaryIndex.pk,
+            [this.#table.primary.sk]: primaryIndex.sk,
+            ...indexMap,
+          },
+          {
+            ConditionExpression: `attribute_not_exists(#pk) AND attribute_not_exists(#sk)`,
+            ExpressionAttributeNames: {
+              '#pk': this.#table.primary.pk,
+              '#sk': this.#table.primary.sk,
+            },
+            ReturnItemCollectionMetrics: 'SIZE',
+            ReturnValues: 'ALL_OLD',
+            ReturnConsumedCapacity: 'TOTAL',
+            ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+          },
+        )
+        .pipe(
+          Effect.catchTag('ConditionalCheckFailedException', (v) => {
+            console.log('VALUE: ', v);
+            return Effect.succeed(null);
+          }),
         );
-
-        if (!lastEvaluated) {
-          break;
-        }
-      }
-      return count;
     });
   }
 
-  put(item: TSchema['Type'], options?: PutOptions<TSchema['Type']>) {
-    return this.eschema
-      .makeEffect(item)
-      .pipe(
-        Effect.andThen(() =>
-          this.table.putItem(
-            this.#getRealKeyFromItem(item),
-            { ...this.eschema.make(item), ...this.#deriveSecondaryKeys(item) },
-            options,
-          ),
-        ),
+  update(
+    keyValue: IndexDerivationValue<TPrimaryDerivation>,
+    value: Partial<TSchema['Type']>,
+    meta?: typeof metaSchema.Type,
+  ) {
+    return Effect.gen(this, function* () {
+      value = yield* Schema.decodeUnknown(Schema.partial(this.#eschema.schema))(
+        value,
       );
-  }
-  index<IndexName extends keyof TSecondary>(indexName: IndexName) {
-    return {
-      query: (
-        {
-          pk,
-          sk,
-        }: {
-          pk: ExtractIndexDefType<TSecondary[IndexName]['pk']>;
-          sk?: Simplify<
-            SortKeyparameter<
-              Simplify<
-                Partial<
-                  ObjFromKeysArr<
-                    TSchema['Type'],
-                    TSecondary[IndexName]['sk']['deps']
-                  >
-                >
-              >
-            >
-          > | null;
+      const pk = deriveIndexKeyValue(this.#primaryDerivation['pk'], keyValue);
+      const sk = deriveIndexKeyValue(this.#primaryDerivation['sk'], keyValue);
+
+      const condition = {
+        __v: this.#eschema.latestVersion,
+        __i: meta?.__i,
+      };
+      const update = buildExpression({
+        condition,
+        update: {
+          set: value,
         },
-        options: EntityQueryOptions<
-          IndexName extends keyof TTable['secondaryIndexes']
-            ? TTable['secondaryIndexes'][IndexName]
-            : never,
-          TSchema['Type']
-        > = {},
-      ) => {
-        const definition = this.secondary[indexName] as TSecondary[IndexName];
-        if (!definition) {
-          throw new Error('do not work');
-        }
-        return query(
+      });
+
+      return yield* this.#table
+        .updateItem(
+          { pk, sk },
           {
-            table: this.table,
-            eschema: this.eschema,
-            pk: deriveIndex(definition.pk, pk),
-            sk: sk ? querySkParams(definition.sk, sk) : sk,
-            index: indexName as string,
+            ...update,
+            ReturnConsumedCapacity: 'TOTAL',
+            ReturnItemCollectionMetrics: 'SIZE',
+            ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
           },
-          options,
+        )
+        .pipe(
+          Effect.catchTag('ConditionalCheckFailedException', (v) => {
+            if (!v.Item) {
+              return Effect.dieMessage('No item results returned');
+            }
+            const item = unmarshall(v.Item);
+            console.error(
+              `expected: ${JSON.stringify(condition)}, actual: ${JSON.stringify(item)}`,
+            );
+
+            return Effect.fail(v);
+          }),
+          Effect.catchAll((e) => {
+            console.log('ERROR: ', e);
+            return Effect.fail(e);
+          }),
         );
-      },
-    };
+    });
   }
 
   query(
@@ -233,200 +206,200 @@ export class DynamoEntity<
       pk,
       sk,
     }: {
-      pk: Simplify<ExtractIndexDefType<TPrimary['pk']>>;
-      sk?: Simplify<
-        SortKeyparameter<
-          Simplify<
-            Partial<ObjFromKeysArr<TSchema['Type'], TPrimary['sk']['deps']>>
-          >
-        >
-      >;
+      pk: Simplify<IndexKeyDerivationValue<TPrimaryDerivation['pk']>>;
+      sk: SortKeyparameter<IndexKeyDerivationValue<TPrimaryDerivation['sk']>>;
     },
-    options: EntityQueryOptions<TTable['primary'], TSchema['Type']> = {},
+    options: Except<TQueryInput, 'IndexName'>,
   ) {
-    return query(
-      {
-        table: this.table,
-        eschema: this.eschema,
-        pk: deriveIndex(this.primary.pk, pk),
-        sk: sk ? querySkParams(this.primary.sk, sk) : undefined,
-      },
-      options,
-    );
+    const testSk = this.#calculateSk(this.#primaryDerivation, sk as any);
+    console.dir({ sk, testSk }, { depth: 10 });
+
+    return this.#table
+      .query(
+        {
+          pk: deriveIndexKeyValue(this.#primaryDerivation['pk'], pk),
+          sk: testSk as any,
+        },
+        { ReturnConsumedCapacity: 'TOTAL', ...options },
+      )
+      .pipe(
+        Effect.map(({ Items, ...rest }) => {
+          return {
+            ...rest,
+            items: Items.map((item) => ({
+              value: this.#eschema.parseSync(item).value,
+              meta: Schema.decodeUnknownSync(metaSchema)(item),
+            })),
+          };
+        }),
+      );
   }
 
-  static make<
-    TESchema extends ESchema<any>,
-    TTable extends DynamoTable<CompoundIndexDefinition, any, any>,
-  >({ eschema, table }: { eschema: TESchema; table: TTable }) {
-    type TItem = Schema.Schema.Type<TESchema['schema']>;
-
+  index<Alias extends keyof TSecondaryDerivationMap>(alias: Alias) {
     return {
-      primary<
-        PkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
-        SkKeys extends (keyof FirstLevelPrimitives<TItem>)[],
-      >({
-        pk,
-        sk,
-      }: {
-        pk: IndexDef<TItem, PkKeys>;
-        sk: IndexDef<TItem, SkKeys>;
-      }) {
-        return new SecondaryIndexCreator<
-          TESchema,
-          TTable,
-          EntityIndexDefinition<TItem, PkKeys, SkKeys>,
-          {} // Start with empty secondary indexes
-        >(eschema, table, {
+      query: (
+        {
           pk,
           sk,
-        });
+        }: {
+          pk: Simplify<
+            IndexKeyDerivationValue<TSecondaryDerivationMap[Alias]['pk']>
+          >;
+          sk: SortKeyparameter<
+            IndexKeyDerivationValue<TSecondaryDerivationMap[Alias]['sk']>
+          >;
+        },
+        options: Except<TQueryInput, 'IndexName'>,
+      ) => {
+        const indexDerivation = this.#secondaryDerivations[alias];
+        const testSk = this.#calculateSk(indexDerivation, sk as any);
+        console.dir({ sk, testSk }, { depth: 10 });
+
+        return this.#table
+          .index(indexDerivation.indexName)
+          .query(
+            {
+              pk: deriveIndexKeyValue(indexDerivation.pk, pk),
+              sk: testSk as any,
+            },
+            { ReturnConsumedCapacity: 'TOTAL', ...options },
+          )
+          .pipe(
+            Effect.map(({ Items, ...rest }) => {
+              return {
+                ...rest,
+                items: Items.map((item) => ({
+                  value: this.#eschema.parseSync(item).value,
+                  meta: Schema.decodeUnknownSync(metaSchema)(item),
+                })),
+              };
+            }),
+          );
       },
-    } as const;
+    };
+  }
+
+  #calculateSk(derivation: EmptyIndexDerivation, sk: SortKeyparameter) {
+    const realSk = toDiscriminatedGeneric(sk);
+    switch (realSk.type) {
+      case '<':
+      case '<=':
+      case '>':
+      case '>=':
+        realSk.value = deriveIndexKeyValue(derivation['sk'], realSk.value);
+        break;
+      case 'between':
+        (realSk.value as any)[0] = deriveIndexKeyValue(
+          derivation['sk'],
+          (realSk.value as any)[0],
+        );
+        (realSk.value as any)[1] = deriveIndexKeyValue(
+          derivation['sk'],
+          (realSk.value as any)[1],
+        );
+        break;
+    }
+    return fromDiscriminatedGeneric(realSk) as SortKeyparameter;
+  }
+
+  #derivePrimaryIndex(value: any) {
+    return {
+      pk: deriveIndexKeyValue(this.#primaryDerivation['pk'], value),
+      sk: deriveIndexKeyValue(this.#primaryDerivation['sk'], value),
+    };
+  }
+
+  #deriveSecondaryIndexes(value: any) {
+    const indexMap: Record<string, string> = {};
+    Object.entries(this.#secondaryDerivations).forEach(([, derivation]) => {
+      const si = this.#table.secondaryIndexMap[derivation.indexName];
+      if (
+        derivation.pk.deps.every((key) => typeof value[key] !== 'undefined')
+      ) {
+        indexMap[si.pk] = derivation.pk.derive(value).join('#');
+      }
+      if (
+        derivation.sk.deps.every((key) => typeof value[key] !== 'undefined')
+      ) {
+        indexMap[si.sk] = derivation.sk.derive(value).join('#');
+      }
+    });
+
+    return indexMap;
   }
 }
 
-class SecondaryIndexCreator<
-  TSchema extends ESchema<any>,
-  TTable extends DynamoTable<
-    IndexDefinition,
-    Record<string, IndexDefinition>,
-    TSchema['Type']
-  >,
-  TPrimary extends EmptyEntityIndexDefinition,
-  TSecondary extends Record<string, EmptyEntityIndexDefinition>,
+class EntityIndexDerivations<
+  TTable extends DynamoTableV2<any, any>,
+  TSchema extends EmptyESchema,
+  TPrimaryDerivation extends IndexDerivation<any, any>,
+  TSecondaryDerivationMap extends Record<
+    string,
+    EmptyIndexDerivation & { indexName: keyof TTable['secondaryIndexMap'] }
+  > = {},
 > {
-  #eschema: TSchema;
   #table: TTable;
-  #primary: TPrimary;
-  #secondary: TSecondary;
+  #eschema: TSchema;
+  #secondaryDerivations: TSecondaryDerivationMap;
+  #primaryDerivation: TPrimaryDerivation;
+
   constructor(
-    eschema: TSchema,
     table: TTable,
-    primary: TPrimary,
-    secondary?: TSecondary,
+    eschema: TSchema,
+    primaryDerivation: TPrimaryDerivation,
+    definitions?: TSecondaryDerivationMap,
   ) {
-    this.#eschema = eschema;
     this.#table = table;
-    this.#primary = primary;
-    this.#secondary = secondary ?? ({} as TSecondary);
+    this.#eschema = eschema;
+    this.#primaryDerivation = primaryDerivation;
+    this.#secondaryDerivations = definitions ?? ({} as TSecondaryDerivationMap);
   }
 
   index<
-    IndexName extends keyof TTable['secondaryIndexes'],
-    PkKeys extends (keyof FirstLevelPrimitives<
-      Schema.Schema.Type<TSchema['schema']>
-    >)[],
-    SkKeys extends (keyof FirstLevelPrimitives<
-      Schema.Schema.Type<TSchema['schema']>
-    >)[],
+    Alias extends string,
+    IndexName extends keyof TTable['secondaryIndexMap'],
+    TPkKeys extends keyof TSchema['Type'],
+    TSkKeys extends keyof TSchema['Type'],
   >(
-    name: IndexName,
-    {
-      pk,
-      sk,
-    }: {
-      pk: IndexDef<Schema.Schema.Type<TSchema['schema']>, PkKeys>;
-      sk: IndexDef<Schema.Schema.Type<TSchema['schema']>, SkKeys>;
+    indexName: IndexName,
+    alias: Alias,
+    indexDerivation: {
+      pk: IndexKeyDerivation<TSchema['Type'], TPkKeys>;
+      sk: IndexKeyDerivation<TSchema['Type'], TSkKeys>;
     },
-  ): SecondaryIndexCreator<
-    TSchema,
-    TTable,
-    TPrimary,
-    TSecondary & Record<IndexName, EntityIndexDefinition<any, PkKeys, SkKeys>>
-  > {
-    const indexDef = {
-      pk,
-      sk,
-    } as EntityIndexDefinition<any, PkKeys, SkKeys>;
-    return new SecondaryIndexCreator<
-      TSchema,
+  ) {
+    return new EntityIndexDerivations(
+      this.#table,
+      this.#eschema,
+      this.#primaryDerivation,
+      {
+        ...this.#secondaryDerivations,
+        [alias as string]: {
+          ...indexDerivation,
+          indexName,
+        },
+      },
+    ) as EntityIndexDerivations<
       TTable,
-      TPrimary,
-      TSecondary & Record<IndexName, typeof indexDef>
-    >(this.#eschema, this.#table, this.#primary, {
-      ...this.#secondary,
-      [name]: indexDef,
-    } as TSecondary & Record<IndexName, typeof indexDef>);
+      TSchema,
+      TPrimaryDerivation,
+      TSecondaryDerivationMap &
+        Record<
+          Alias,
+          IndexDerivation<
+            IndexKeyDerivation<TSchema['Type'], TPkKeys>,
+            IndexKeyDerivation<TSchema['Type'], TSkKeys>
+          > & { indexName: keyof TTable['secondaryIndexMap'] }
+        >
+    >;
   }
 
   build() {
-    return new DynamoEntity({
-      eschema: this.#eschema,
-      table: this.#table,
-      primary: this.#primary,
-      secondary: this.#secondary,
-    });
+    return new DynamoEntity(
+      this.#table,
+      this.#eschema,
+      this.#primaryDerivation,
+      this.#secondaryDerivations,
+    );
   }
-}
-
-type EntityQueryOptions<A extends IndexDefinition, B> = QueryOptions<A, B> & {
-  onExcessProperty?: 'ignore' | 'error' | 'preserve';
-};
-function query<
-  TTable extends DynamoTable<any, any, any>,
-  TSchema extends EmptyESchema,
-  Options extends EntityQueryOptions<any, any>,
->(
-  {
-    table,
-    eschema,
-    pk,
-    sk,
-    index,
-  }: {
-    table: TTable;
-    eschema: TSchema;
-    pk: string;
-    sk?: SortKeyparameter<string> | undefined | null;
-    index?: string;
-  },
-  options?: Options,
-) {
-  return (index ? table.index(index) : table).query({ pk, sk }, options).pipe(
-    Effect.andThen(({ Items, ...others }) =>
-      Effect.gen(function* () {
-        const results = yield* Effect.all(
-          Items.map((item) =>
-            eschema
-              .parse(item, {
-                onExcessProperty: options?.onExcessProperty ?? 'ignore',
-              })
-              .pipe(Effect.map((value) => value.value as TSchema['Type'])),
-          ),
-        );
-        return {
-          Items: results,
-          ...others,
-        };
-      }),
-    ),
-  );
-}
-
-function querySkParams<Def extends IndexDef<any, any>>(
-  def: Def,
-  skValue: SortKeyparameter<ExtractIndexDefType<Def>>,
-): SortKeyparameter<string> {
-  if ('beginsWith' in skValue) {
-    return { beginsWith: deriveIndex(def, skValue.beginsWith) };
-  }
-  if ('between' in skValue) {
-    const [val1, val2] = skValue.between;
-    return { between: [deriveIndex(def, val1), deriveIndex(def, val2)] };
-  }
-  if ('<' in skValue) {
-    return { '<': deriveIndex(def, skValue['<']) };
-  }
-  if ('<=' in skValue) {
-    return { '<=': deriveIndex(def, skValue['<=']) };
-  }
-  if ('>' in skValue) {
-    return { '<': deriveIndex(def, skValue['>']) };
-  }
-  if ('>=' in skValue) {
-    return { '>=': deriveIndex(def, skValue['>=']) };
-  }
-
-  throw new Error('Exhaustive check...');
 }
