@@ -1,11 +1,14 @@
 import { ConditionOperation } from './condition.js';
 import { UpdateOperation } from './update.js';
-import { DynamoAttrResult } from './types.js';
+import { KeyconditionOperation } from './key-condition.js';
+import { AttributeMapBuilder } from './utils.js';
+import { MarshalledOutput } from '../utils.js';
 
 /**
- * Builds a complete DynamoDB expression object by combining update and condition operations
+ * Builds a complete DynamoDB expression object by combining update, condition, and key condition operations
  *
  * @example
+ * // Update with condition
  * const result = buildExpr({
  *   update: updateExpr<User>(($) => [$.set('age', 30)]),
  *   condition: conditionExpr<User>(($) => $.cond('status', '=', 'active'))
@@ -17,73 +20,70 @@ import { DynamoAttrResult } from './types.js';
  * //   ExpressionAttributeNames: { '#u_attr_1': 'age', '#c_attr_1': 'status' },
  * //   ExpressionAttributeValues: { ':u_value_2': { N: '30' }, ':c_value_2': { S: 'active' } }
  * // }
+ *
+ * @example
+ * // Query with key condition
+ * const result = buildExpr({
+ *   keyCondition: keyConditionExpr(index, { pk: 'user#123', sk: { beginsWith: 'order#' } })
+ * });
+ * // Returns:
+ * // {
+ * //   KeyConditionExpression: '#k_attr_1 = :k_value_2 AND begins_with(#k_attr_3, :k_value_4)',
+ * //   ExpressionAttributeNames: { '#k_attr_1': 'pk', '#k_attr_3': 'sk' },
+ * //   ExpressionAttributeValues: { ':k_value_2': { S: 'user#123' }, ':k_value_4': { S: 'order#' } }
+ * // }
  */
 export const buildExpr = ({
   update,
-  condition,
+  keyCondition,
+  ...options
 }: {
-  update?: UpdateOperation;
-  condition?: ConditionOperation;
-}): {
+  update?: UpdateOperation | undefined;
+  keyCondition?: KeyconditionOperation | undefined;
+} & (
+  | {
+      filter?: ConditionOperation | undefined;
+    }
+  | {
+      condition?: ConditionOperation | undefined;
+    }
+)): {
   UpdateExpression?: string;
   ConditionExpression?: string;
+  FilterExpression?: string;
+  KeyConditionExpression?: string;
   ExpressionAttributeNames?: Record<string, string>;
-  ExpressionAttributeValues?: DynamoAttrResult['ExpressionAttributeValues'];
+  ExpressionAttributeValues?: MarshalledOutput;
 } => {
   // Start with empty result
   const result: {
     UpdateExpression?: string;
     ConditionExpression?: string;
-    ExpressionAttributeNames?: Record<string, string>;
-    ExpressionAttributeValues?: DynamoAttrResult['ExpressionAttributeValues'];
+    FilterExpression?: string;
+    KeyConditionExpression?: string;
   } = {};
-
-  // Merge attribute names and values
-  const mergedNames: Record<string, string> = {};
-  const mergedValues: DynamoAttrResult['ExpressionAttributeValues'] = {};
-
-  // Process update expression
   if (update) {
     result.UpdateExpression = update.exprResult.expr;
-
-    // Merge update attribute names
-    Object.assign(
-      mergedNames,
-      update.exprResult.attrResult.ExpressionAttributeNames,
-    );
-
-    // Merge update attribute values
-    Object.assign(
-      mergedValues,
-      update.exprResult.attrResult.ExpressionAttributeValues,
-    );
+  }
+  if ('condition' in options && options.condition) {
+    result.ConditionExpression = options.condition.expr.expr;
+  }
+  if ('filter' in options && options.filter) {
+    result.FilterExpression = options.filter.expr.expr;
+  }
+  if (keyCondition) {
+    result.KeyConditionExpression = keyCondition.exprResult.expr;
   }
 
-  // Process condition expression
-  if (condition) {
-    result.ConditionExpression = condition.expr.expr;
-
-    // Merge condition attribute names
-    Object.assign(
-      mergedNames,
-      condition.expr.attrResult.ExpressionAttributeNames,
-    );
-
-    // Merge condition attribute values
-    Object.assign(
-      mergedValues,
-      condition.expr.attrResult.ExpressionAttributeValues,
-    );
-  }
-
-  // Only add attributes if they exist
-  if (Object.keys(mergedNames).length > 0) {
-    result.ExpressionAttributeNames = mergedNames;
-  }
-
-  if (Object.keys(mergedValues).length > 0) {
-    result.ExpressionAttributeValues = mergedValues;
-  }
-
-  return result;
+  return {
+    ...result,
+    ...AttributeMapBuilder.mergeAttrResults(
+      [
+        update?.exprResult.attrResult,
+        'condition' in options && options?.condition?.expr.attrResult,
+        'filter' in options && options?.filter?.expr.attrResult,
+        keyCondition?.exprResult.attrResult,
+      ].filter(Boolean),
+    ),
+  };
 };

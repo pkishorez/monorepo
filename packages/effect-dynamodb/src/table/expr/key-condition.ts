@@ -2,6 +2,10 @@ import type { IndexDefinition } from '../types.js';
 import type { ExprResult } from './types.js';
 import { AttributeMapBuilder } from './utils.js';
 
+export type KeyconditionOperation = {
+  type: 'key-condition-operation';
+  exprResult: ExprResult;
+};
 export interface KeyConditionExprParameters<T = string> {
   pk: string;
   sk?: undefined | string | SortKeyparameter<T> | null;
@@ -19,7 +23,7 @@ export type SortKeyparameter<Type = string> =
 export function keyConditionExpr(
   index: IndexDefinition,
   { pk, sk }: KeyConditionExprParameters,
-): ExprResult {
+): KeyconditionOperation {
   const attrBuilder = new AttributeMapBuilder('k_');
 
   const expr: string[] = [];
@@ -47,7 +51,10 @@ export function keyConditionExpr(
   }
 
   return {
-    expr: expr.join(' AND '),
-    attrResult: attrBuilder.build(),
+    type: 'key-condition-operation',
+    exprResult: {
+      expr: expr.join(' AND '),
+      attrResult: attrBuilder.build(),
+    },
   };
 }

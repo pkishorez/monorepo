@@ -12,7 +12,7 @@ export class AttributeMapBuilder {
   #attrValueMap: MarshalledOutput = {};
   #prefix = '';
 
-  constructor(prefix: `${'u' | 'p' | 'c' | 'f' | 'k'}_`) {
+  constructor(prefix: `${'u' | 'cf' | 'k'}_`) {
     this.#prefix = prefix;
   }
 

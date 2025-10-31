@@ -1,6 +1,6 @@
 import { Match } from 'effect';
-import { ExprResult } from './types.js';
-import type { Paths } from 'type-fest';
+import { ExprResult, ValidPaths } from './types.js';
+import type { Get, Paths } from 'type-fest';
 import { AttributeMapBuilder } from './utils.js';
 
 // ============================================================================
@@ -10,9 +10,10 @@ import { AttributeMapBuilder } from './utils.js';
 /**
  * The final result of a condition expression that can be sent to DynamoDB
  */
-export type ConditionOperation = {
+export type ConditionOperation<T = any> = {
   type: 'condition_operation';
   expr: ExprResult;
+  value?: T;
 };
 
 // ============================================================================
@@ -22,31 +23,37 @@ export type ConditionOperation = {
 /**
  * Basic comparison condition - compares an attribute to a value
  */
-export type CondOperation = {
+export type CondOperation<T = any> = {
   type: 'condition_condition';
   expr: string;
+  key: ValidPaths<T>;
 };
 
 /**
  * AND operation - combines multiple conditions with logical AND
  */
-export type AndOperation = {
+export type AndOperation<T = any> = {
   type: 'condition_and';
   expr: string;
+  value?: T;
 };
 
 /**
  * OR operation - combines multiple conditions with logical OR
  */
-export type OrOperation = {
+export type OrOperation<T = any> = {
   type: 'condition_or';
   expr: string;
+  value?: T;
 };
 
 /**
  * Union of all possible condition operations
  */
-type AnyCondition = CondOperation | AndOperation | OrOperation;
+type AnyCondition<T = any> =
+  | CondOperation<T>
+  | AndOperation<T>
+  | OrOperation<T>;
 
 // ============================================================================
 // Operation Builder Interface
@@ -67,17 +74,17 @@ type ValidConditionKeys<T> = T extends any
  */
 type ConditionOps<T> = {
   /** Create a comparison condition between an attribute and a value */
-  cond: (
-    key: ValidConditionKeys<T>,
+  cond: <Key extends ValidConditionKeys<T>>(
+    key: Key,
     op: '=' | '<>' | '<' | '<=' | '>' | '>=',
-    value: unknown,
+    value: Get<T, Key>,
   ) => CondOperation;
 
   /** Combine multiple conditions with AND (supports any condition type) */
-  and: (...ops: AnyCondition[]) => AndOperation;
+  and: (...ops: AnyCondition<T>[]) => AndOperation;
 
   /** Combine multiple conditions with OR (supports any condition type) */
-  or: (...ops: AnyCondition[]) => OrOperation;
+  or: (...ops: AnyCondition<T>[]) => OrOperation;
 };
 
 // ============================================================================
@@ -88,15 +95,16 @@ type ConditionOps<T> = {
  * Creates a comparison condition
  * @internal
  */
-function cond(
+function cond<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   attrBuilder: AttributeMapBuilder,
-  key: string,
+  key: Key,
   op: '=' | '<>' | '<' | '<=' | '>' | '>=',
-  value: unknown,
+  value: Get<T, Key>,
 ): CondOperation {
   return {
     type: 'condition_condition',
     expr: `${attrBuilder.attr(key)} ${op} ${attrBuilder.value(value)}`,
+    key: key,
   };
 }
 
@@ -175,14 +183,14 @@ function or(...ops: AnyCondition[]): OrOperation {
  * );
  */
 export function conditionExpr<T>(
-  builder: (ops: ConditionOps<T>) => AnyCondition,
-): ConditionOperation {
+  builder: (ops: ConditionOps<T>) => AnyCondition<T>,
+): ConditionOperation<T> {
   // Create attribute builder for this condition expression
-  const attrBuilder = new AttributeMapBuilder('c_');
+  const attrBuilder = new AttributeMapBuilder('cf_');
 
   // Build the operations by calling the builder with our ops interface
   const condition = builder({
-    cond: (key, op, value) => cond(attrBuilder, key as any, op, value),
+    cond: (key, op, value) => cond<any>(attrBuilder, key as any, op, value),
     and: (...ops: AnyCondition[]) => and(...ops),
     or: (...ops: AnyCondition[]) => or(...ops),
   });
@@ -195,4 +203,11 @@ export function conditionExpr<T>(
       attrResult: attrBuilder.build(),
     },
   };
+}
+
+// Simple alias to conditionExpr
+export function filterExpr<T>(
+  builder: (ops: ConditionOps<T>) => AnyCondition<T>,
+): ConditionOperation<T> {
+  return conditionExpr(builder);
 }

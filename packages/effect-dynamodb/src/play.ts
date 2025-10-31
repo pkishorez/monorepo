@@ -3,6 +3,7 @@ import { Effect, Schema } from 'effect';
 import { DynamoTableV2 } from './table/table.js';
 import { DynamoEntity } from './entity/entity.js';
 import { ESchema } from '@monorepo/eschema';
+import { filterExpr } from './table/expr/condition.js';
 
 const table = DynamoTableV2.make({
   endpoint: 'http://localhost:8090',
@@ -48,7 +49,7 @@ Effect.runPromise(
   Effect.gen(function* () {
     yield* table.purge('i know what i am doing');
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 1001; i++) {
       yield* entity.insert({
         id: `test-${`${i}`.padStart(4, '0')}`,
         name: `Test User ${i}`,
@@ -56,11 +57,12 @@ Effect.runPromise(
         comment: 'inserted',
       });
     }
-    // log(
-    //   yield* entity.update({ id: 'test-001' }, { comment: 'Updated time 1' }),
-    // );
-
-    const v = yield* entity.get({ id: 'test-1' });
+    log(
+      yield* entity.update(
+        { id: 'test-1000' },
+        { comment: 'Updated time 1000', id: 'test-100' },
+      ),
+    );
 
     log(
       yield* entity.index('byName').query(
@@ -70,7 +72,17 @@ Effect.runPromise(
             '>': { name: 'Test User 1' },
           },
         },
-        { debug: true, ScanIndexForward: true, Limit: 10 },
+        {
+          debug: true,
+          ScanIndexForward: true,
+          Limit: 10,
+          filter: filterExpr(({ or, cond }) =>
+            or(
+              cond('age', '=', 10), // br
+              cond('name', '=', 'Test User 1000'),
+            ),
+          ),
+        },
       ),
     );
   }),

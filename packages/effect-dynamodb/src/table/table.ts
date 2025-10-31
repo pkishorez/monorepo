@@ -16,8 +16,12 @@ import {
 import { Except, Simplify } from 'type-fest';
 import { Effect } from 'effect';
 import { marshall, unmarshall } from './utils.js';
-import { KeyConditionExprParameters } from './expr/key-condition.js';
+import {
+  keyConditionExpr,
+  KeyConditionExprParameters,
+} from './expr/key-condition.js';
 import { buildExpr } from './expr/expr.js';
+import { ConditionOperation } from './expr/condition.js';
 
 export class DynamoTableV2<
   PrimaryIndexDefinition extends IndexDefinition,
@@ -120,7 +124,10 @@ export class DynamoTableV2<
 
   query(
     cond: KeyConditionExprParameters,
-    options: Except<TQueryInput, 'IndexName'> & { debug?: boolean },
+    options: Except<TQueryInput, 'IndexName'> & {
+      debug?: boolean;
+      filter?: ConditionOperation;
+    },
   ) {
     return this.#rawQueryOperation(this.primary, cond, options);
   }
@@ -132,7 +139,9 @@ export class DynamoTableV2<
     return {
       query: (
         cond: KeyConditionExprParameters,
-        options: Except<TQueryInput, 'IndexName'>,
+        options: Except<TQueryInput, 'IndexName'> & {
+          filter?: ConditionOperation;
+        },
       ) => {
         return this.#rawQueryOperation(
           this.secondaryIndexMap[indexName],
@@ -202,13 +211,15 @@ export class DynamoTableV2<
   #rawQueryOperation(
     indexDef: IndexDefinition,
     cond: KeyConditionExprParameters,
-    { debug, ...options }: TQueryInput & { debug?: boolean },
+    {
+      debug,
+      filter,
+      ...options
+    }: TQueryInput & { debug?: boolean; filter?: ConditionOperation },
   ) {
     const expr = buildExpr({
-      keyCondition: {
-        index: indexDef,
-        params: cond,
-      },
+      keyCondition: keyConditionExpr(indexDef, cond),
+      filter,
     });
 
     const queryOptions = {

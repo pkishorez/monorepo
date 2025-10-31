@@ -19,7 +19,7 @@ import {
   unmarshall,
 } from '../table/utils.js';
 import { buildExpr } from '../table/expr/expr.js';
-import { conditionExpr } from '../table/expr/condition.js';
+import { conditionExpr, ConditionOperation } from '../table/expr/condition.js';
 import { updateExpr } from '../table/expr/update.js';
 
 export class DynamoEntity<
@@ -157,11 +157,24 @@ export class DynamoEntity<
     meta?: typeof metaSchema.Type,
   ) {
     return Effect.gen(this, function* () {
+      if (
+        Object.keys(value).some(
+          (key) =>
+            this.#primaryDerivation.pk.deps.includes(key) ||
+            this.#primaryDerivation.sk.deps.includes(key),
+        )
+      ) {
+        return yield* Effect.dieMessage(
+          'You cannot update key that is already part of primary key.',
+        );
+      }
       value = yield* Schema.decodeUnknown(Schema.partial(this.#eschema.schema))(
         value,
       );
       const pk = deriveIndexKeyValue(this.#primaryDerivation['pk'], keyValue);
       const sk = deriveIndexKeyValue(this.#primaryDerivation['sk'], keyValue);
+
+      const indexMap = this.#deriveSecondaryIndexes(value);
 
       const condition = conditionExpr(($) =>
         $.and(
@@ -172,7 +185,9 @@ export class DynamoEntity<
         ),
       );
       const update = updateExpr<any>(($) => [
-        ...Object.entries(value).map(([key, v]) => $.set(key, v)),
+        ...Object.entries({ ...value, ...indexMap }).map(([key, v]) =>
+          $.set(key, v),
+        ),
         $.set('__i', $.addOp('__i', 1)),
       ]);
 
@@ -214,7 +229,9 @@ export class DynamoEntity<
       pk: Simplify<IndexKeyDerivationValue<TPrimaryDerivation['pk']>>;
       sk: SortKeyparameter<IndexKeyDerivationValue<TPrimaryDerivation['sk']>>;
     },
-    options: Except<TQueryInput, 'IndexName'>,
+    options: Except<TQueryInput, 'IndexName'> & {
+      filter?: ConditionOperation<TSchema['Type']>;
+    },
   ) {
     const testSk = this.#calculateSk(this.#primaryDerivation, sk as any);
     console.dir({ sk, testSk }, { depth: 10 });
@@ -232,7 +249,9 @@ export class DynamoEntity<
           return {
             ...rest,
             items: Items.map((item) => ({
-              value: this.#eschema.parseSync(item).value,
+              value: this.#eschema.parseSync(item, {
+                onExcessProperty: 'preserve',
+              }).value,
               meta: Schema.decodeUnknownSync(metaSchema)(item),
             })),
           };
@@ -254,7 +273,9 @@ export class DynamoEntity<
             IndexKeyDerivationValue<TSecondaryDerivationMap[Alias]['sk']>
           >;
         },
-        options: Except<TQueryInput, 'IndexName'>,
+        options: Except<TQueryInput, 'IndexName'> & {
+          filter?: ConditionOperation<TSchema['Type']>;
+        },
       ) => {
         const indexDerivation = this.#secondaryDerivations[alias];
         const testSk = this.#calculateSk(indexDerivation, sk as any);
@@ -274,7 +295,9 @@ export class DynamoEntity<
               return {
                 ...rest,
                 items: Items.map((item) => ({
-                  value: this.#eschema.parseSync(item).value,
+                  value: this.#eschema.parseSync(item, {
+                    onExcessProperty: 'preserve',
+                  }).value,
                   meta: Schema.decodeUnknownSync(metaSchema)(item),
                 })),
               };

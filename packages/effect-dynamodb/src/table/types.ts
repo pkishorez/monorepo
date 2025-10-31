@@ -53,11 +53,14 @@ export interface TQueryInput
   extends Except<
     QueryInput,
     | 'TableName'
+    | 'KeyConditionExpression'
+    | 'FilterExpression'
+    | 'ExpressionAttributeNames'
+    | 'ExpressionAttributeValues'
 
     // Deprecated
     | 'Select'
     | 'KeyConditions'
-    | 'KeyConditionExpression'
     | 'QueryFilter'
     | 'AttributesToGet'
     | 'ConditionalOperator'
