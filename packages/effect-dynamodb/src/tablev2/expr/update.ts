@@ -22,11 +22,15 @@ export type UpdateOperation<T = any> = {
 /**
  * SET operation - assigns a value to an attribute
  * Can also be used for arithmetic operations when value is AddOp
+ * Or for default values when value is IfNotExistsOp
  */
 export type SetOperation<T, Key extends ValidPaths<T> = ValidPaths<T>> = {
   type: 'update_set_value';
   key: Key;
-  value: Get<T, Key> | (Get<T, Key> extends number ? AddOp<T> : never);
+  value:
+    | Get<T, Key>
+    | (Get<T, Key> extends number ? AddOp<T> : never)
+    | IfNotExistsOp<T, Key>;
 };
 
 /**
@@ -37,6 +41,16 @@ type AddOp<T> = {
   type: 'update_primitive_add_op';
   key: ValidPathsWithCond<T, number>;
   value: number;
+};
+
+/**
+ * IF_NOT_EXISTS operation helper - returns default value if attribute doesn't exist
+ * Used within SET operations to provide default values
+ */
+type IfNotExistsOp<T, Key extends ValidPaths<T> = ValidPaths<T>> = {
+  type: 'update_if_not_exists_op';
+  key: Key;
+  value: Get<T, Key>;
 };
 
 /**
@@ -83,11 +97,20 @@ type UpdateOps<T> = {
   /** Set an attribute to a value or arithmetic expression */
   set: <Key extends ValidPaths<T>>(
     key: Key,
-    value: Get<T, Key> | (Get<T, Key> extends number ? AddOp<T> : never),
+    value:
+      | Get<T, Key>
+      | (Get<T, Key> extends number ? AddOp<T> : never)
+      | IfNotExistsOp<T>,
   ) => SetOperation<T, Key>;
 
   /** Create an ADD operation for numeric fields (attribute + value) */
   addOp: (key: ValidPathsWithCond<T, number>, value: number) => AddOp<T>;
+
+  /** Create an IF_NOT_EXISTS operation to set default values */
+  ifNotExistsOp: <Key extends ValidPaths<T>>(
+    key: Key,
+    value: Get<T, Key>,
+  ) => IfNotExistsOp<T, Key>;
 
   /** Append elements to the end of a list */
   append: <Path extends ValidPathsWithCond<T, any[]>>(
@@ -137,6 +160,22 @@ export function addOp<T>(
 }
 
 /**
+ * Creates an IF_NOT_EXISTS operation helper to set default values
+ * @example
+ * $.set('username', $.ifNotExists('username', 'guest')) // username = if_not_exists(username, 'guest')
+ */
+export function ifNotExists<T, Key extends ValidPaths<T>>(
+  key: Key,
+  value: Get<T, Key>,
+): IfNotExistsOp<T, Key> {
+  return {
+    type: 'update_if_not_exists_op',
+    key,
+    value,
+  };
+}
+
+/**
  * Creates an APPEND operation to add elements to the end of a list
  * @example
  * $.append('tags', ['new-tag']) // tags = list_append(tags, ['new-tag'])
@@ -178,10 +217,11 @@ function prepend<
  * @example
  * // Callback style with automatic typing
  * const update = updateExpr<User>(($) => [
- *   $.set('age', 25),                       // Set a value
- *   $.set('count', $.addOp('count', 5)),   // Arithmetic operation
- *   $.append('tags', ['new-tag']),         // Append to list
- *   $.prepend('items', ['first-item'])     // Prepend to list
+ *   $.set('age', 25),                              // Set a value
+ *   $.set('count', $.addOp('count', 5)),          // Arithmetic operation
+ *   $.set('username', $.ifNotExists('username', 'guest')), // Set default if not exists
+ *   $.append('tags', ['new-tag']),                // Append to list
+ *   $.prepend('items', ['first-item'])            // Prepend to list
  * ]);
  */
 export function updateExpr<T>(
@@ -192,6 +232,7 @@ export function updateExpr<T>(
     set: (key, value) => set<any, any>(key, value),
     addOp: (key: ValidPathsWithCond<T, number>, value: number) =>
       addOp<T>(key, value),
+    ifNotExistsOp: (key, value) => ifNotExists<any, any>(key, value),
     append: (key, value) => append<any, any>(key, value),
     prepend: (key, value) => prepend<any, any>(key, value),
   });
@@ -202,9 +243,15 @@ export function updateExpr<T>(
     .map((op) => {
       switch (op.type) {
         case 'update_set_value':
-          // Check if value is an AddOp (arithmetic operation)
+          // Check if value is an operation (AddOp or IfNotExistsOp)
           if (op.value && typeof op.value === 'object' && 'type' in op.value) {
-            return `${attrBuilder.attr(op.key)} = ${attrBuilder.attr(op.value.key)} + ${attrBuilder.value(op.value.value)}`;
+            if (op.value.type === 'update_primitive_add_op') {
+              // Arithmetic operation: attribute = attribute + value
+              return `${attrBuilder.attr(op.key)} = ${attrBuilder.attr(op.value.key)} + ${attrBuilder.value(op.value.value)}`;
+            } else if (op.value.type === 'update_if_not_exists_op') {
+              // If not exists operation: attribute = if_not_exists(attribute, default_value)
+              return `${attrBuilder.attr(op.key)} = if_not_exists(${attrBuilder.attr(op.value.key)}, ${attrBuilder.value(op.value.value)})`;
+            }
           }
           // Simple value assignment
           return `${attrBuilder.attr(op.key)} = ${attrBuilder.value(op.value)}`;
