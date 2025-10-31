@@ -1,5 +1,6 @@
 import type { AttributeValue } from 'dynamodb-client';
 import {
+  convertToAttr as convertToAttr_,
   marshall as marshall_,
   unmarshall as unmarshall_,
 } from '@aws-sdk/util-dynamodb';
@@ -7,6 +8,10 @@ import {
 export type MarshalledOutput = Record<string, AttributeValue>;
 export function marshall(value: unknown): MarshalledOutput {
   return marshall_(value);
+}
+
+export function convertToAttr(value: unknown): AttributeValue {
+  return convertToAttr_(value) as any;
 }
 
 export function unmarshall(value: MarshalledOutput): Record<string, unknown> {

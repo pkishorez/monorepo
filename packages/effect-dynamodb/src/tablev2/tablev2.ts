@@ -91,7 +91,12 @@ export class DynamoTableV2<
 
   updateItem(
     key: IndexDefinition,
-    { debug, ...options }: TUpdateItemInput & { debug?: boolean },
+    {
+      debug,
+      ...options
+    }: TUpdateItemInput & {
+      debug?: boolean;
+    },
   ) {
     const updateOptions: UpdateItemInput = {
       ...options,

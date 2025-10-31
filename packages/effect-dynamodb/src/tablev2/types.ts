@@ -43,7 +43,6 @@ export interface TUpdateItemInput
     UpdateItemInput,
     | 'TableName'
     | 'Key'
-    | 'UpdateExpression'
 
     // Deprecated
     | 'AttributeUpdates'
