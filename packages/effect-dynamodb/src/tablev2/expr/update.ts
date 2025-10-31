@@ -7,35 +7,20 @@ export type UpdateOperation<T = any> = {
   exprResult: ExprResult;
   value?: T;
 };
-export type SetOperation<T> = {
+export type SetOperation<T, Key extends ValidPaths<T> = ValidPaths<T>> = {
   type: 'update_set_value';
-  key: ValidPaths<T>;
-  value: Get<T, ValidPaths<T>>;
+  key: Key;
+  value: Get<T, Key> | (Get<T, Key> extends number ? AddOp<T> : never);
 };
-export function set<T, Key extends ValidPaths<T> = ValidPaths<T>>(
+function set<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   key: Key,
-  value: Get<T, Key>,
-): SetOperation<T> {
+  value: Get<T, Key> | (Get<T, Key> extends number ? AddOp<T> : never),
+): SetOperation<T, Key> {
   return {
     type: 'update_set_value',
     key,
     value,
-  } as SetOperation<T>;
-}
-type SetAddOperation<T> = {
-  type: 'update_set_add';
-  key: ValidPathsWithCond<T, number>;
-  value: number | AddOp<T>;
-};
-export function setAdd<T>(
-  key: ValidPathsWithCond<T, number>,
-  value: number | AddOp<T>,
-): SetAddOperation<T> {
-  return {
-    type: 'update_set_add',
-    key,
-    value,
-  };
+  } as SetOperation<T, Key>;
 }
 type AddOp<T> = {
   type: 'update_primitive_add_op';
@@ -72,12 +57,8 @@ type SetPrependOperation<
 type UpdateOps<T> = {
   set: <Key extends ValidPaths<T>>(
     key: Key,
-    value: Get<T, Key>,
-  ) => SetOperation<T>;
-  setAdd: (
-    key: ValidPathsWithCond<T, number>,
-    value: number | AddOp<T>,
-  ) => SetAddOperation<T>;
+    value: Get<T, Key> | (Get<T, Key> extends number ? AddOp<T> : never),
+  ) => SetOperation<T, Key>;
   addOp: (key: ValidPathsWithCond<T, number>, value: number) => AddOp<T>;
 };
 
@@ -85,35 +66,20 @@ type UpdateOps<T> = {
 export function updateExpr<T = any>(
   builder: (
     ops: UpdateOps<T>,
-  ) => (
-    | SetOperation<T>
-    | SetAddOperation<T>
-    | SetAppendOperation<T>
-    | SetPrependOperation<T>
-  )[],
+  ) => (SetOperation<T> | SetAppendOperation<T> | SetPrependOperation<T>)[],
 ): UpdateOperation<T>;
 
 // Implementation
 export function updateExpr<T>(
   opsOrBuilder: (
     ops: UpdateOps<T>,
-  ) => (
-    | SetOperation<T>
-    | SetAddOperation<T>
-    | SetAppendOperation<T>
-    | SetPrependOperation<T>
-  )[],
+  ) => (SetOperation<T> | SetAppendOperation<T> | SetPrependOperation<T>)[],
 ): UpdateOperation<T> {
   // If it's a function, call it with the ops builder
   const ops =
     typeof opsOrBuilder === 'function'
       ? opsOrBuilder({
-          set: <Key extends ValidPaths<T>>(key: Key, value: Get<T, Key>) =>
-            set<T, Key>(key, value),
-          setAdd: (
-            key: ValidPathsWithCond<T, number>,
-            value: number | AddOp<T>,
-          ) => setAdd<T>(key, value),
+          set: (key, value) => set<any, any>(key, value),
           addOp: (key: ValidPathsWithCond<T, number>, value: number) =>
             addOp<T>(key, value),
         })
@@ -124,12 +90,10 @@ export function updateExpr<T>(
     .map((op) => {
       switch (op.type) {
         case 'update_set_value':
-          return `${attrBuilder.attr(op.key)} = ${attrBuilder.value(op.value)}`;
-        case 'update_set_add':
-          if (typeof op.value === 'number') {
-            return `${attrBuilder.attr(op.key)} = ${attrBuilder.attr(op.key)} + ${attrBuilder.value(op.value)}`;
+          if (op.value && typeof op.value === 'object' && 'type' in op.value) {
+            return `${attrBuilder.attr(op.key)} = ${attrBuilder.attr(op.value.key)} + ${attrBuilder.value(op.value.value)}`;
           }
-          return `${attrBuilder.attr(op.key)} = ${attrBuilder.attr(op.value.key)} + ${attrBuilder.value(op.value.value)}`;
+          return `${attrBuilder.attr(op.key)} = ${attrBuilder.value(op.value)}`;
         case 'update_set_append':
           const aKey = attrBuilder.attr(op.key);
           return `${aKey} = list_append(${aKey}, ${attrBuilder.value(op.value)})`;

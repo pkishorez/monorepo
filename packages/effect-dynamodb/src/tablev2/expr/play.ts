@@ -8,6 +8,7 @@ interface User {
   id: string;
   name: string;
   age: number;
+  arr: { name: string }[];
   a: {
     b: {
       c: string;
@@ -17,15 +18,11 @@ interface User {
 
 // Style 1: Callback approach - Types flow from the explicit type parameter
 const test1: UpdateOperation<User> = updateExpr(($) => [
-  $.set('age', 25), // ✓ 'age' is properly typed as keyof User
-  $.setAdd('age', $.addOp('age', 100)), // ✓ Value must be number (matches User['age'])
+  $.set('age', $.addOp('age', 12)), // ✓ 'age' is properly typed as keyof User
 ]);
 
 // Style 2: Builder approach - Create a typed builder first (kept for compatibility)
-const test2: UpdateOperation = updateExpr(($) => [
-  $.set('age', 'hello'),
-  $.setAdd('age', 5),
-]);
+const test2: UpdateOperation = updateExpr(($) => [$.set('age', 'hello')]);
 
 log(test1);
 log(test2);
