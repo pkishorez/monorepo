@@ -8,6 +8,7 @@ interface User {
   id: string;
   name: string;
   age: number;
+  tags: string[];
   arr: { name: string }[];
   a: {
     b: {
@@ -18,11 +19,17 @@ interface User {
 
 // Style 1: Callback approach - Types flow from the explicit type parameter
 const test1: UpdateOperation<User> = updateExpr(($) => [
-  $.set('age', $.addOp('age', 12)), // ✓ 'age' is properly typed as keyof User
+  $.set('age', 30), // ✓ Set a value
+  $.set('age', $.addOp('age', 12)), // ✓ Arithmetic: age = age + 12
+  $.append('tags', ['new-tag']), // ✓ Append to list
+  $.prepend('arr', [{ name: 'first' }]), // ✓ Prepend to list
 ]);
 
-// Style 2: Builder approach - Create a typed builder first (kept for compatibility)
-const test2: UpdateOperation = updateExpr(($) => [$.set('age', 'hello')]);
+// Style 2: Dynamic usage with 'any' - Relaxed type constraints
+const test2: UpdateOperation = updateExpr(($) => [
+  $.set('age', 'hello'), // ✓ Works with any type
+  $.append('dynamicList', ['item']), // ✓ Any field accepted
+]);
 
 log(test1);
 log(test2);
