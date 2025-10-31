@@ -1,8 +1,9 @@
-import { ConditionOperation } from './condition.js';
+import { CompiledConditionOperation } from './condition.js';
 import { CompiledUpdateOperation } from './update.js';
 import { KeyconditionOperation } from './key-condition.js';
 import { AttributeMapBuilder } from './utils.js';
 import { MarshalledOutput } from '../utils.js';
+import { DynamoAttrResult } from './types.js';
 
 /**
  * Builds a complete DynamoDB expression object by combining update, condition, and key condition operations
@@ -42,10 +43,10 @@ export const buildExpr = ({
   keyCondition?: KeyconditionOperation | undefined;
 } & (
   | {
-      filter?: ConditionOperation | undefined;
+      filter?: CompiledConditionOperation | undefined;
     }
   | {
-      condition?: ConditionOperation | undefined;
+      condition?: CompiledConditionOperation | undefined;
     }
 )): {
   UpdateExpression?: string;
@@ -61,7 +62,7 @@ export const buildExpr = ({
     ConditionExpression?: string;
     FilterExpression?: string;
     KeyConditionExpression?: string;
-  } = {};
+  } & Partial<DynamoAttrResult> = {};
   if (update) {
     result.UpdateExpression = update.exprResult.expr;
   }
@@ -75,15 +76,20 @@ export const buildExpr = ({
     result.KeyConditionExpression = keyCondition.exprResult.expr;
   }
 
-  return {
-    ...result,
-    ...AttributeMapBuilder.mergeAttrResults(
-      [
-        update?.exprResult.attrResult,
-        'condition' in options && options?.condition?.expr.attrResult,
-        'filter' in options && options?.filter?.expr.attrResult,
-        keyCondition?.exprResult.attrResult,
-      ].filter(Boolean),
-    ),
-  };
+  const attrs = AttributeMapBuilder.mergeAttrResults(
+    [
+      update?.exprResult.attrResult,
+      'condition' in options && options?.condition?.expr.attrResult,
+      'filter' in options && options?.filter?.expr.attrResult,
+      keyCondition?.exprResult.attrResult,
+    ].filter(Boolean),
+  );
+  if (Object.keys(attrs.ExpressionAttributeNames).length > 0) {
+    result.ExpressionAttributeNames = attrs.ExpressionAttributeNames;
+  }
+  if (Object.keys(attrs.ExpressionAttributeValues).length > 0) {
+    result.ExpressionAttributeValues = attrs.ExpressionAttributeValues;
+  }
+
+  return result;
 };

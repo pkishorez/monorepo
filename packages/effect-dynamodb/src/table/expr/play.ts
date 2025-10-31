@@ -4,7 +4,11 @@ import {
   UpdateOperation,
 } from './update.js';
 import { buildExpr } from './expr.js';
-import { conditionExpr, ConditionOperation } from './condition.js';
+import {
+  conditionExpr,
+  compileConditionExpr,
+  ConditionOperation,
+} from './condition.js';
 
 function log(value: unknown) {
   console.dir(value, { depth: 10 });
@@ -149,7 +153,9 @@ const expr1 = buildExpr({
   update: compileUpdateExpr(
     updateExpr<User>(($) => [$.set('age', 30), $.set('name', 'John Doe')]),
   ),
-  condition: conditionExpr<User>(($) => $.cond('status', '=', 'active')),
+  condition: compileConditionExpr(
+    conditionExpr<User>(($) => $.cond('status', '=', 'active')),
+  ),
 });
 
 // Example 2: Update only (no condition)
@@ -161,8 +167,10 @@ const expr2 = buildExpr({
 
 // Example 3: Condition only (for conditional delete/get)
 const expr3 = buildExpr({
-  condition: conditionExpr<User>(($) =>
-    $.and($.cond('age', '>=', 18), $.cond('status', '=', 'active')),
+  condition: compileConditionExpr(
+    conditionExpr<User>(($) =>
+      $.and($.cond('age', '>=', 18), $.cond('status', '=', 'active')),
+    ),
   ),
 });
 
@@ -175,10 +183,15 @@ const expr4 = buildExpr({
       $.set('email', $.ifNotExistsOp('email', 'default@example.com')),
     ]),
   ),
-  condition: conditionExpr<User>(($) =>
-    $.and(
-      $.cond('age', '<', 65),
-      $.or($.cond('status', '=', 'pending'), $.cond('status', '=', 'inactive')),
+  condition: compileConditionExpr(
+    conditionExpr<User>(($) =>
+      $.and(
+        $.cond('age', '<', 65),
+        $.or(
+          $.cond('status', '=', 'pending'),
+          $.cond('status', '=', 'inactive'),
+        ),
+      ),
     ),
   ),
 });

@@ -21,7 +21,10 @@ import {
   KeyConditionExprParameters,
 } from './expr/key-condition.js';
 import { buildExpr } from './expr/expr.js';
-import { ConditionOperation } from './expr/condition.js';
+import {
+  ConditionOperation,
+  compileConditionExpr,
+} from './expr/condition.js';
 
 export class DynamoTableV2<
   PrimaryIndexDefinition extends IndexDefinition,
@@ -219,7 +222,7 @@ export class DynamoTableV2<
   ) {
     const expr = buildExpr({
       keyCondition: keyConditionExpr(indexDef, cond),
-      filter,
+      filter: filter ? compileConditionExpr(filter) : undefined,
     });
 
     const queryOptions = {

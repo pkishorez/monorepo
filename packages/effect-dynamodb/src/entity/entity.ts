@@ -18,8 +18,13 @@ import {
   toDiscriminatedGeneric,
 } from '../table/utils.js';
 import { buildExpr } from '../table/expr/expr.js';
-import { conditionExpr, ConditionOperation } from '../table/expr/condition.js';
+import {
+  conditionExpr,
+  compileConditionExpr,
+  ConditionOperation,
+} from '../table/expr/condition.js';
 import { updateExpr, compileUpdateExpr } from '../table/expr/update.js';
+import { NoItemToUpdate } from './errors.js';
 
 export class DynamoEntity<
   TSecondaryDerivationMap extends Record<
@@ -109,6 +114,7 @@ export class DynamoEntity<
   insert(
     value: TSchema['Type'],
     options?: {
+      debug?: boolean;
       condition?: ConditionOperation<TSchema['Type']>;
     },
   ) {
@@ -126,6 +132,19 @@ export class DynamoEntity<
       };
       const primaryIndex = this.#derivePrimaryIndex(value);
       const indexMap = this.#deriveSecondaryIndexes(value);
+      const expr = buildExpr({
+        condition: compileConditionExpr(
+          conditionExpr(($) =>
+            $.and(
+              ...[
+                // options?.condition,
+                $.attributeNotExists(this.#table.primary.pk),
+                $.attributeNotExists(this.#table.primary.sk),
+              ].filter(Boolean),
+            ),
+          ),
+        ),
+      });
       return yield* this.#table
         .putItem(
           {
@@ -135,11 +154,8 @@ export class DynamoEntity<
             ...indexMap,
           },
           {
-            ConditionExpression: `attribute_not_exists(#pk) AND attribute_not_exists(#sk)`,
-            ExpressionAttributeNames: {
-              '#pk': this.#table.primary.pk,
-              '#sk': this.#table.primary.sk,
-            },
+            ...expr,
+            debug: options?.debug ?? false,
             ReturnItemCollectionMetrics: 'SIZE',
             ReturnValues: 'ALL_OLD',
             ReturnConsumedCapacity: 'TOTAL',
@@ -157,7 +173,11 @@ export class DynamoEntity<
   update(
     keyValue: IndexDerivationValue<TPrimaryDerivation>,
     value: Partial<TSchema['Type']>,
-    meta?: typeof metaSchema.Type,
+    options?: {
+      debug?: boolean;
+      meta?: typeof metaSchema.Type;
+      condition?: ConditionOperation<TSchema['Type']>;
+    },
   ) {
     return Effect.gen(this, function* () {
       if (
@@ -182,8 +202,9 @@ export class DynamoEntity<
       const condition = conditionExpr(($) =>
         $.and(
           ...[
+            options?.condition,
             $.cond('__v', '=', this.#eschema.latestVersion),
-            meta && $.cond('__i', '=', meta.__i),
+            options?.meta && $.cond('__i', '=', options.meta.__i),
           ].filter((v) => !!v),
         ),
       );
@@ -198,18 +219,24 @@ export class DynamoEntity<
         .updateItem(
           { pk, sk },
           {
-            ...buildExpr({ update: compileUpdateExpr(update), condition }),
+            ...buildExpr({
+              update: compileUpdateExpr(update),
+              condition: compileConditionExpr(condition),
+            }),
+            debug: options?.debug ?? false,
             ReturnConsumedCapacity: 'TOTAL',
             ReturnItemCollectionMetrics: 'SIZE',
             ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
           },
         )
         .pipe(
-          Effect.catchTag('ConditionalCheckFailedException', (v) => {
-            if (!v.Item) {
-              return Effect.dieMessage('No item results returned');
+          Effect.mapError((err) => {
+            if (err._tag === 'ConditionalCheckFailedException') {
+              if (!err.Item) {
+                return new NoItemToUpdate();
+              }
             }
-            return Effect.fail(v);
+            return err;
           }),
         );
     });
@@ -258,14 +285,19 @@ export class DynamoEntity<
         {
           pk,
           sk,
-        }: {
-          pk: Simplify<
+        }: Record<
+          'pk',
+          Simplify<
             IndexKeyDerivationValue<TSecondaryDerivationMap[Alias]['pk']>
-          >;
-          sk: SortKeyparameter<
-            IndexKeyDerivationValue<TSecondaryDerivationMap[Alias]['sk']>
-          >;
-        },
+          >
+        > &
+          Record<
+            'sk',
+            SortKeyparameter<
+              IndexKeyDerivationValue<TSecondaryDerivationMap[Alias]['sk']>
+            >
+          >,
+
         options: Except<TQueryInput, 'IndexName'> & {
           filter?: ConditionOperation<TSchema['Type']>;
         },

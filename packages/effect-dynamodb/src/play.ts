@@ -49,7 +49,7 @@ Effect.runPromise(
   Effect.gen(function* () {
     yield* table.purge('i know what i am doing');
 
-    for (let i = 0; i < 1001; i++) {
+    for (let i = 0; i < 2; i++) {
       yield* entity.insert({
         id: `test-${`${i}`.padStart(4, '0')}`,
         name: `Test User ${i}`,
@@ -57,11 +57,10 @@ Effect.runPromise(
         comment: 'inserted',
       });
     }
-    log(
-      yield* entity.update(
-        { id: 'test-1000' },
-        { comment: 'Updated time 1000' },
-      ),
+    yield* entity.update(
+      { id: 'test-0001' },
+      { comment: 'Updated time 1000' },
+      {},
     );
 
     log(
@@ -69,7 +68,7 @@ Effect.runPromise(
         {
           pk: {},
           sk: {
-            '>': { name: 'Test User 1' },
+            '<=': { name: 'Test User 1' },
           },
         },
         {
@@ -79,7 +78,7 @@ Effect.runPromise(
           filter: filterExpr(({ or, cond }) =>
             or(
               cond('age', '=', 10), // br
-              cond('name', '=', 'Test User 1000'),
+              cond('comment', '=', 'Updated time 1000'),
             ),
           ),
         },

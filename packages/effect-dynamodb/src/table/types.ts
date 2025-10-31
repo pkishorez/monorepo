@@ -36,7 +36,7 @@ export interface TPutItemInput
     | 'ConditionalOperator'
   > {
   // For put only ALL_OLD is valid
-  ReturnValues: 'ALL_OLD';
+  ReturnValues?: 'ALL_OLD';
 }
 export interface TUpdateItemInput
   extends Except<
