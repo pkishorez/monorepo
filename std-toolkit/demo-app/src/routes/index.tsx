@@ -1,9 +1,23 @@
+import { ClientOnly, createFileRoute } from '@tanstack/react-router';
 import { useLiveQuery } from '@tanstack/react-db';
-import { todoCollection } from './collection';
-import { ulid } from 'ulid';
+import { todoCollection } from '@/frontend/collection';
 import { useRef } from 'react';
+import { ulid } from 'ulid';
+import { runtime } from '@/frontend/runtime';
 
-export function App() {
+export const Route = createFileRoute('/')({
+  component: App,
+});
+
+function App() {
+  return (
+    <ClientOnly>
+      <AppClient />
+    </ClientOnly>
+  );
+}
+
+const AppClient = () => {
   const {
     data,
     isReady,
@@ -42,12 +56,14 @@ export function App() {
       </pre>
       <button
         onClick={() => {
-          todoCollection.insert({
-            todoId: ulid(),
-            updatedAt: new Date().toISOString(),
-            userId: 'test',
-            title: 'Test todo!!!',
-          });
+          runtime.runFork(
+            todoCollection.insert({
+              todoId: ulid(),
+              updatedAt: new Date().toISOString(),
+              userId: 'test',
+              title: 'Test todo!!!',
+            }),
+          );
         }}
       >
         Insert
@@ -59,4 +75,4 @@ export function App() {
       </pre>
     </>
   );
-}
+};

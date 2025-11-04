@@ -6,12 +6,12 @@
   },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "3.922.0",
-    "@effect/platform": "0.92.1",
-    "@effect/platform-node": "0.98.4",
+    "@effect/platform": "0.93.0",
+    "@effect/platform-node": "0.99.0",
     "@tsconfig/node22": "22.0.2",
-    "@types/node": "24.9.2",
-    "effect": "3.18.4",
-    "eslint": "9.39.0",
+    "@types/node": "24.10.0",
+    "effect": "3.19.0",
+    "eslint": "9.39.1",
     "typescript": "5.9.3",
     "vitest": "4.0.6"
   },

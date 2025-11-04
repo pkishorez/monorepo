@@ -4,7 +4,7 @@
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
     "@standard-schema/spec": "1.0.0",
-    "effect": "3.18.4",
+    "effect": "3.19.0",
     "idb": "8.0.3"
   },
   "devDependencies": {

@@ -3,13 +3,13 @@
   "version": "0.0.1",
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
-    "effect": "3.18.4",
+    "effect": "3.19.0",
     "ulid": "^3.0.1"
   },
   "devDependencies": {
-    "@tanstack/react-db": "0.1.38",
+    "@tanstack/react-db": "0.1.39",
     "@tsconfig/node22": "22.0.2",
-    "@effect/language-service": "0.53.2",
+    "@effect/language-service": "0.55.0",
     "typescript": "5.9.3",
     "vitest": "4.0.6"
   },

@@ -1,6 +1,6 @@
 import { createStdCollection } from '@std-toolkit/std-db-collection';
 import { TodoESchema } from '../backend/domain';
-import { Effect } from 'effect';
+import { Console, Effect } from 'effect';
 import { ApiService } from './api';
 import { runtime } from './runtime';
 
@@ -28,9 +28,11 @@ export const todoCollection = createStdCollection({
 
   getUpdates: Effect.fn(function* (todo) {
     const { client } = yield* ApiService;
+    console.log('calling', client);
     const results = yield* client
       .todoQuery({ updatedAt: todo?.updatedAt })
-      .pipe(Effect.orDie);
+      .pipe(Effect.onExit(Console.log), Effect.orDie);
+    console.log('RESULT???', results);
 
     return results;
   }, Effect.provide(runtime)),

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
-    "effect": "3.18.4"
+    "effect": "3.19.0"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.2",
