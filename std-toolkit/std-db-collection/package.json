@@ -1,0 +1,33 @@
+{
+  "name": "@std-toolkit/std-db-collection",
+  "version": "0.0.1",
+  "dependencies": {
+    "@std-toolkit/eschema": "workspace:*",
+    "effect": "3.18.4",
+    "ulid": "^3.0.1"
+  },
+  "devDependencies": {
+    "@tanstack/react-db": "0.1.38",
+    "@tsconfig/node22": "22.0.2",
+    "@effect/language-service": "0.53.2",
+    "typescript": "5.9.3",
+    "vitest": "4.0.6"
+  },
+  "peerDependencies": {
+    "@tanstack/react-db": ">0.1.36"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch"
+  },
+  "type": "module"
+}

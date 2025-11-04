@@ -1,5 +1,5 @@
-import { DistributiveOmit } from '@monorepo/effect-idb/types.js';
-import type { EmptyESchema } from '@monorepo/eschema';
+import { DistributiveOmit } from '@std-toolkit/idb/types.js';
+import type { EmptyESchema } from '@std-toolkit/eschema';
 import { Schema } from 'effect';
 import { Simplify } from 'effect/Types';
 

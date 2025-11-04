@@ -1,0 +1,33 @@
+{
+  "name": "@std-toolkit/eschema",
+  "version": "0.0.1",
+  "dependencies": {
+    "@standard-schema/spec": "1.0.0",
+    "effect": "3.18.4"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.2",
+    "type-fest": "^5.1.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*",
+      "import": "./dist/*"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project build.tsconfig.json",
+    "dev": "tsc --watch --project build.tsconfig.json",
+    "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch"
+  },
+  "type": "module"
+}

@@ -1,18 +1,19 @@
 {
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
-    "lib": ["ESNext", "DOM"],
-    "rootDir": ".",
+    "lib": ["ESNext", "Dom"],
+    "rootDir": "src",
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "types": ["vitest/globals"],
     "strict": true,
     "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
     "declaration": true,
     "declarationMap": true,
-    "noEmit": true,
-    "skipLibCheck": true
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "plugins": [{ "name": "@effect/language-service" }]
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["dist", "node_modules"]
 }

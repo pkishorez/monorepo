@@ -1,32 +1,32 @@
 {
-  "name": "item-collection",
+  "name": "@std-toolkit/dynamodb",
+  "version": "0.0.1",
   "dependencies": {
-    "@std-toolkit/idb": "workspace:*",
+    "@aws-sdk/util-dynamodb": "3.922.0",
     "@std-toolkit/eschema": "workspace:*",
+    "@std-toolkit/dynamodb-client": "workspace:*",
     "effect": "3.18.4"
   },
   "devDependencies": {
-    "@tanstack/react-db": "0.1.38",
-    "@total-typescript/ts-reset": "0.6.1",
+    "@total-typescript/ts-reset": "^0.6.1",
     "@tsconfig/node22": "22.0.2",
     "@types/node": "24.9.2",
     "@vitest/coverage-v8": "4.0.6",
+    "dotenv": "17.2.3",
     "eslint": "9.39.0",
-    "type-fest": "5.1.0",
+    "type-fest": "^5.1.0",
     "typescript": "5.9.3",
+    "@effect/language-service": "0.53.2",
     "vitest": "4.0.6"
-  },
-  "peerDependencies": {
-    "@tanstack/react-db": ">=0.1.26"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./utils": {
-      "types": "./dist/utils.d.ts",
-      "default": "./dist/utils.js"
+    "./*": {
+      "types": "./dist/*",
+      "default": "./dist/*.js"
     }
   },
   "scripts": {

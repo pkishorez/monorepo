@@ -1,5 +1,5 @@
-import { IDBEntity, IDBStore } from '@monorepo/effect-idb';
-import type { EmptyESchema } from '@monorepo/eschema';
+import { IDBEntity, IDBStore } from '@std-toolkit/idb';
+import type { EmptyESchema } from '@std-toolkit/eschema';
 import type { ItemCollection } from './collection.js';
 import { createCollection, SyncConfig, Collection } from '@tanstack/react-db';
 import { Effect, Option, Schema } from 'effect';
@@ -171,7 +171,7 @@ export const tanstackCollection = <
     startSync: true,
     sync: {
       rowUpdateMode: 'full',
-      sync: (params) =>
+      sync: (params) => {
         Effect.runPromise(
           Effect.gen(function* () {
             syncParams.current = params;
@@ -185,7 +185,8 @@ export const tanstackCollection = <
               console.log('OUT OF SYNC!!');
             };
           }).pipe(Effect.ensuring(Effect.sync(params.markReady))),
-        ),
+        )
+      },
     },
     onInsert: ({ transaction }) =>
       Effect.runPromise(

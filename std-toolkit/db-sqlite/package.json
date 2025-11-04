@@ -1,0 +1,28 @@
+{
+  "name": "@std-toolkit/sqlite",
+  "version": "0.0.1",
+  "dependencies": {
+    "@std-toolkit/eschema": "workspace:*",
+    "effect": "3.18.4"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.2",
+    "@vitest/coverage-v8": "4.0.6",
+    "typescript": "5.9.3",
+    "vitest": "4.0.6"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch"
+  },
+  "type": "module"
+}
