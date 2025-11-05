@@ -10,9 +10,12 @@ import { MemorySource } from './source/memory.js';
 import { SmartOptimistic } from './smart-optimistic.js';
 import { BulkOp } from './types.js';
 
-export const createStdCollection = <TSchema extends EmptyESchema>({
+export const createStdCollection = <
+  TSchema extends EmptyESchema,
+  TKey extends keyof TSchema['Type'],
+>({
   // eschema,
-  getKey,
+  keyConfig,
   onInsert,
   onUpdate,
   // compare,
@@ -21,10 +24,15 @@ export const createStdCollection = <TSchema extends EmptyESchema>({
 }: {
   source?: Source<TSchema['Type']>;
   eschema: TSchema;
-  getKey: (key: TSchema['Type']) => string;
+  keyConfig: {
+    deps: TKey[];
+    encode: (value: Pick<TSchema['Type'], TKey>) => string;
+    decode: (value: string) => Pick<TSchema['Type'], TKey>;
+  };
   onInsert?: (value: TSchema['Type']) => Effect.Effect<TSchema['Type']>;
   onUpdate?: (
-    value: Partial<TSchema['Type']>,
+    key: Pick<TSchema['Type'], TKey>,
+    value: Partial<Omit<TSchema['Type'], TKey>>,
   ) => Effect.Effect<Partial<TSchema['Type']>>;
   compare?: (a: TSchema['Type'], b: TSchema['Type']) => number;
   getUpdates?: (
@@ -68,7 +76,7 @@ export const createStdCollection = <TSchema extends EmptyESchema>({
     begin();
     try {
       values.forEach((v) => {
-        const key = getKey(v);
+        const key = keyConfig.encode(v);
         if (collection.has(key)) {
           write({ type: 'update', value: v });
         } else {
@@ -85,10 +93,11 @@ export const createStdCollection = <TSchema extends EmptyESchema>({
 
     begin();
 
+    console.trace('BULK UPSERT: ', values);
     values.forEach((obj) => {
       if (obj.type === 'upsert') {
         const { value } = obj;
-        const key = getKey(value);
+        const key = keyConfig.encode(value);
         if (collection.has(key)) {
           write({ type: 'update', value: value });
         } else {
@@ -114,10 +123,11 @@ export const createStdCollection = <TSchema extends EmptyESchema>({
         if (getUpdates) {
           const results = yield* getUpdates();
           const ops: BulkOp[] = [];
-          for (let i = 0; i < results.length; i++) {
-            const v = results[i];
-            source.set(getKey(v), v);
-            ops.push(...(yield* smartOptimistic.clearTmpItem(getKey(v))));
+          for (const v of results) {
+            source.set(keyConfig.encode(v), v);
+            ops.push(
+              ...(yield* smartOptimistic.clearTmpItem(keyConfig.encode(v))),
+            );
           }
           localBulkOperation(ops);
         }
@@ -126,7 +136,7 @@ export const createStdCollection = <TSchema extends EmptyESchema>({
   }
 
   const tanstackCollection = createCollection({
-    getKey,
+    getKey: keyConfig.encode,
     sync: {
       async sync(params) {
         console.debug('Sync starting up...');
@@ -144,10 +154,14 @@ export const createStdCollection = <TSchema extends EmptyESchema>({
         };
       },
     },
-  } as CollectionConfig<TSchema['schema']['Type'], string, never>);
+  } as CollectionConfig<
+    TSchema['schema']['Type'] & { isOptimistic: boolean },
+    string,
+    never
+  >);
 
   const smartOptimistic = new SmartOptimistic({
-    getKey,
+    keyConfig: keyConfig as any,
     source,
     tanstackCollection: {
       get: tanstackCollection.get.bind(tanstackCollection),
@@ -160,8 +174,10 @@ export const createStdCollection = <TSchema extends EmptyESchema>({
   return {
     collection: tanstackCollection,
     insert: (value: TSchema['Type']) => smartOptimistic.insert(value),
-    update: (value: Partial<TSchema['Type']>) =>
-      smartOptimistic.update(getKey(value), value),
+    update: (
+      key: Pick<TSchema['Type'], TKey>,
+      value: Partial<Omit<TSchema['Type'], TKey>>,
+    ) => smartOptimistic.update(key, value),
     localBulkOperation,
     localInsert: (value: TSchema['Type']) => localInsert([value]),
     localUpdate: (value: Partial<TSchema['Type']>) => localUpdate([value]),

@@ -184,8 +184,9 @@ export class DynamoEntity<
       if (
         Object.keys(value).some(
           (key) =>
-            this.#primaryDerivation.pk.deps.includes(key) ||
-            this.#primaryDerivation.sk.deps.includes(key),
+            (this.#primaryDerivation.pk.deps.includes(key) ||
+              this.#primaryDerivation.sk.deps.includes(key)) &&
+            value[key] !== keyValue[key],
         )
       ) {
         return yield* Effect.dieMessage(

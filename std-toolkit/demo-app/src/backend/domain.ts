@@ -17,7 +17,17 @@ export const TodoESchema = ESchema.make(
     updatedAt: Schema.String,
     title: Schema.String,
   }),
-).build();
+)
+  .evolve(
+    'v2',
+    ({ v1 }) =>
+      Schema.Struct({
+        ...v1.fields,
+        status: Schema.Literal('complete', 'active'),
+      }),
+    (value, v) => v({ ...value, status: 'active' }),
+  )
+  .build();
 
 export class TodosRpc extends RpcGroup.make(
   // Rpc.make('todoStream', {

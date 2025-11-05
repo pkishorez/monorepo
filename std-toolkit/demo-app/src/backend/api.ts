@@ -7,6 +7,7 @@ export const TodosRpcLive = TodosRpc.toLayer(
   Effect.succeed({
     todoInsert: ({ todo }) =>
       Effect.gen(function* () {
+        yield* Effect.sleep(4000);
         const todoId = ulid();
         yield* todoEntity
           .insert({ ...todo, userId: 'test', todoId }, { debug: true })
@@ -16,6 +17,7 @@ export const TodosRpcLive = TodosRpc.toLayer(
       }),
     todoUpdate: ({ todoId, todo }) =>
       Effect.gen(function* () {
+        yield* Effect.sleep(4000);
         yield* todoEntity
           .update({ todoId, userId: 'test' }, todo)
           .pipe(Effect.mapError((err) => new TodoError({ type: err._tag })));

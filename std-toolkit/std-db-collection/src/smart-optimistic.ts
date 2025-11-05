@@ -2,29 +2,52 @@ import { Effect } from 'effect';
 import { Source } from './source/source.js';
 import { ulid } from 'ulid';
 import { BulkOp } from './types.js';
+import {
+  createCollection,
+  createLiveQueryCollection,
+} from '@tanstack/react-db';
+import { createInMemoryCollection } from './inmemory-collection.js';
 
-export class SmartOptimistic<T> {
-  private syncSource: Source<T>;
-  private tmpSource: Map<string, Partial<T>> = new Map();
+export class SmartOptimistic<TValue, TKey extends keyof TValue> {
+  private syncSource: Source<TValue>;
+  private tmpSource: Map<string, Partial<TValue>> = new Map();
 
-  private getKey: (key: T) => string;
-  private onInsert?: ((value: T) => Effect.Effect<T>) | undefined;
+  private keyConfig: {
+    encode: (value: Pick<TValue, TKey>) => string;
+    decode: (key: string) => Pick<TValue, TKey>;
+  };
+  private onInsert?: ((value: TValue) => Effect.Effect<TValue>) | undefined;
   private onUpdate?:
-    | ((value: Partial<T>) => Effect.Effect<Partial<T>>)
+    | ((
+        key: Pick<TValue, TKey>,
+        value: Partial<Omit<TValue, TKey>>,
+      ) => Effect.Effect<Partial<TValue>>)
     | undefined;
 
   private tanstackCollection: {
     localBulkOperation: (value: BulkOp[]) => void;
-    get: (key: string) => T | undefined;
+    get: (key: string) => TValue | undefined;
   };
+  private optimisticCollection = createInMemoryCollection<{
+    tansactionId: string;
+    key: string;
+    status: 'pending' | 'in-progress' | 'done';
+    kind: 'transaction' | 'smart';
+    type: 'insert' | 'update';
+    value: Partial<TValue>;
+  }>({
+    getKey: (v) => v.key,
+  });
   private optimisticEntries: Map<
     string,
     {
-      executing: boolean;
+      updateInProgress: boolean;
+      insertionInProgress: boolean;
       updates: {
         id: string;
         type: 'update';
-        value: Partial<T>;
+        key: Pick<TValue, TKey>;
+        value: Partial<Omit<TValue, TKey>>;
         kind: 'transaction' | 'smart';
       }[];
     }
@@ -35,26 +58,66 @@ export class SmartOptimistic<T> {
     onUpdate,
     tanstackCollection,
     source,
-    getKey,
+    keyConfig,
   }: {
-    onInsert?: ((value: T) => Effect.Effect<T>) | undefined;
-    onUpdate?: ((value: Partial<T>) => Effect.Effect<Partial<T>>) | undefined;
+    onInsert?: ((value: TValue) => Effect.Effect<TValue>) | undefined;
+    onUpdate?:
+      | ((
+          key: Pick<TValue, TKey>,
+          value: Partial<Omit<TValue, TKey>>,
+        ) => Effect.Effect<Partial<TValue>>)
+      | undefined;
     tanstackCollection: {
       localBulkOperation: (value: BulkOp[]) => void;
-      get: (key: string) => T | undefined;
+      get: (key: string) => TValue | undefined;
     };
-    source: Source<T>;
-    getKey: (key: T) => string;
+    source: Source<TValue>;
+    keyConfig: {
+      encode: (value: Pick<TValue, TKey>) => string;
+      decode: (key: string) => Pick<TValue, TKey>;
+    };
   }) {
     this.onInsert = onInsert;
     this.onUpdate = onUpdate;
     this.tanstackCollection = tanstackCollection;
     this.syncSource = source;
-    this.getKey = getKey;
+    this.keyConfig = keyConfig;
   }
 
-  insert = Effect.fn(function* (this: SmartOptimistic<T>, value: T) {
-    const key = this.getKey(value);
+  #getOptimisticEntry(key: string) {
+    if (!this.optimisticEntries.has(key)) {
+      this.optimisticEntries.set(key, {
+        insertionInProgress: false,
+        updateInProgress: false,
+        updates: [],
+      });
+    }
+
+    return this.optimisticEntries.get(key)!;
+  }
+  #updateOptimisticEntry(
+    key: string,
+    fn: (draft: {
+      updateInProgress: boolean;
+      insertionInProgress: boolean;
+      updates: {
+        id: string;
+        type: 'update';
+        key: Pick<TValue, TKey>;
+        value: Partial<Omit<TValue, TKey>>;
+        kind: 'transaction' | 'smart';
+      }[];
+    }) => void,
+  ) {
+    const item = this.#getOptimisticEntry(key);
+    fn(item);
+  }
+
+  insert = Effect.fn(function* (
+    this: SmartOptimistic<TValue, TKey>,
+    value: TValue,
+  ) {
+    const key = this.keyConfig.encode(value);
     if (
       (yield* Effect.promise(() => this.syncSource.get(key))) ||
       this.tmpSource.get(key)
@@ -63,30 +126,39 @@ export class SmartOptimistic<T> {
     }
     this.tmpSource.set(key, value);
     this.tanstackCollection.localBulkOperation(yield* this.syncKey(key));
+    this.#updateOptimisticEntry(key, (v) => {
+      v.insertionInProgress = true;
+    });
     const ops: BulkOp[] = [];
 
     if (this.onInsert) {
       yield* this.onInsert(value).pipe(
         Effect.tap((result) =>
           Effect.gen(this, function* () {
-            const updatedKey = this.getKey(result);
+            const updatedKey = this.keyConfig.encode(result);
             if (key !== updatedKey) {
               ops.push({ type: 'deleteKey', key });
+
+              // Move all optimistic updates from old to new.
+              this.#updateOptimisticEntry(updatedKey, (v) => {
+                v.updates = this.#getOptimisticEntry(key).updates.map((v) => ({
+                  ...v,
+                  key: this.keyConfig.decode(updatedKey),
+                }));
+              });
+              this.optimisticEntries.delete(key);
+            } else {
+              this.#updateOptimisticEntry(key, (v) => {
+                v.insertionInProgress = false;
+              });
             }
 
-            this.optimisticEntries.set(updatedKey, {
-              executing: false,
-              ...this.optimisticEntries.get(key),
-              updates: this.optimisticEntries.get(key)?.updates ?? [],
+            this.tmpSource.set(updatedKey, {
+              ...this.tmpSource.get(updatedKey),
+              ...value,
             });
-            this.tmpSource.set(updatedKey, result);
             ops.push(...(yield* this.syncKey(updatedKey)));
             yield* this.queueUpdate(updatedKey);
-            console.log(this.optimisticEntries, {
-              tmp: this.tmpSource,
-              optimistic: this.optimisticEntries,
-              source: this.syncSource,
-            });
           }),
         ),
         Effect.onError((err) =>
@@ -99,7 +171,9 @@ export class SmartOptimistic<T> {
         ),
         Effect.ensuring(
           Effect.sync(() => {
-            this.optimisticEntries.delete(key);
+            this.#updateOptimisticEntry(key, (v) => {
+              v.insertionInProgress = false;
+            });
           }),
         ),
       );
@@ -110,24 +184,23 @@ export class SmartOptimistic<T> {
   });
 
   update = Effect.fn(function* (
-    this: SmartOptimistic<T>,
-    key: string,
-    value: Partial<T>,
+    this: SmartOptimistic<TValue, TKey>,
+    keyObj: Pick<TValue, TKey>,
+    value: Partial<Omit<TValue, TKey>>,
   ) {
+    const key = this.keyConfig.encode(keyObj);
     if (!this.tanstackCollection.get(key)) {
       return yield* Effect.dieMessage(`Item do not exist to update ${key}`);
     }
 
-    this.optimisticEntries.set(key, {
-      executing: false,
-      ...this.optimisticEntries.get(key),
-      updates: [
-        ...(this.optimisticEntries.get(key)?.updates ?? []),
-        { id: ulid(), type: 'update', value, kind: 'smart' },
-      ],
+    this.#updateOptimisticEntry(key, (v) => {
+      v.updates = [
+        ...v.updates,
+        { id: ulid(), type: 'update', key: keyObj, value, kind: 'smart' },
+      ];
     });
     this.tanstackCollection.localBulkOperation(yield* this.syncKey(key));
-    this.queueUpdate(key);
+    yield* this.queueUpdate(key);
   });
 
   clearTmpItem = (key: string) =>
@@ -136,34 +209,32 @@ export class SmartOptimistic<T> {
       return yield* this.syncKey(key);
     });
 
-  private queueUpdate = (key: string) => {
+  private queueUpdate = (key: string): Effect.Effect<void> => {
     return Effect.gen(this, function* () {
-      const optimisticEntries = this.optimisticEntries.get(key);
-      if (!optimisticEntries || optimisticEntries.executing || !this.onUpdate) {
-        // Ignore.
+      const optimisticEntry = this.#getOptimisticEntry(key);
+      if (
+        optimisticEntry.insertionInProgress ||
+        optimisticEntry.updateInProgress ||
+        !this.onUpdate
+      ) {
         return;
       }
       const [firstSmartUpdate, ...smartUpdates] =
-        optimisticEntries.updates.filter((v) => v.kind === 'smart');
+        optimisticEntry.updates.filter((v) => v.kind === 'smart');
       if (!firstSmartUpdate) {
         return;
       }
 
-      optimisticEntries.executing = true;
+      optimisticEntry.updateInProgress = true;
       const value = smartUpdates.reduce(
         (acc, v) => ({ ...acc, ...v.value }),
         firstSmartUpdate.value,
       );
-      yield* this.onUpdate(value).pipe(
+      yield* this.onUpdate(this.keyConfig.decode(key), value).pipe(
         Effect.tap((result) =>
           Effect.gen(this, function* () {
             // Remove all smart updates.
-            const optimisticEntriesLatest = this.optimisticEntries.get(key);
-            if (!optimisticEntriesLatest) {
-              throw new Error(
-                'This is wrong. There should be currentOptimisticEntries',
-              );
-            }
+            const optimisticEntriesLatest = this.#getOptimisticEntry(key);
             optimisticEntriesLatest.updates =
               optimisticEntriesLatest.updates.filter(
                 (update) =>
@@ -172,39 +243,61 @@ export class SmartOptimistic<T> {
                     .includes(update.id),
               );
 
-            this.tmpSource.set(key, result);
+            this.tmpSource.set(key, { ...this.tmpSource.get(key), ...result });
             this.tanstackCollection.localBulkOperation(
               yield* this.syncKey(key),
             );
           }),
         ),
         Effect.onError(() => {
-          // What should be done in this case???
+          // clear off the optimisticEntries.
+          const optimisticEntriesLatest = this.#getOptimisticEntry(key);
+          optimisticEntriesLatest.updates =
+            optimisticEntriesLatest.updates.filter(
+              (update) =>
+                ![firstSmartUpdate, ...smartUpdates]
+                  .map((v) => v.id)
+                  .includes(update.id),
+            );
           return Effect.void;
         }),
         Effect.ensuring(
-          Effect.sync(() => {
-            optimisticEntries.executing = false;
-            this.queueUpdate(key);
+          Effect.gen(this, function* () {
+            optimisticEntry.updateInProgress = false;
+            yield* Effect.suspend(() => this.queueUpdate(key));
           }),
         ),
       );
     });
   };
 
-  syncKey = (key: string) =>
-    Effect.gen(this, function* () {
-      const value = yield* Effect.promise(() => this.syncSource.get(key));
-      const tmpValue = this.tmpSource.get(key);
-      if (!value && !tmpValue) {
-        console.error('No value with key present to sync', key);
-        return [];
-      }
-      const initialValue = { ...value, ...tmpValue } as T;
-      const optimisticUpdate = [
-        ...(this.optimisticEntries.get(key)?.updates ?? []),
-      ]?.reduce((acc, v) => ({ ...acc, ...v.value }), initialValue);
+  syncKey = Effect.fn(function* (
+    this: SmartOptimistic<TValue, TKey>,
+    key: string,
+  ) {
+    const value = yield* Effect.promise(() => this.syncSource.get(key));
+    const tmpValue = this.tmpSource.get(key);
+    if (!value && !tmpValue) {
+      console.error('No value with key present to sync', key);
+      return [];
+    }
+    const initialValue = { ...value, ...tmpValue } as TValue;
+    const optimisticEntries = this.#getOptimisticEntry(key);
+    const optimisticUpdate = optimisticEntries.updates.reduce(
+      (acc, v) => ({ ...acc, ...v.value }),
+      initialValue,
+    );
 
-      return [{ type: 'upsert', value: optimisticUpdate }] as BulkOp[];
-    });
+    return [
+      {
+        type: 'upsert',
+        value: {
+          ...optimisticUpdate,
+          isOptimistic:
+            optimisticEntries.insertionInProgress ||
+            optimisticEntries.updates.length > 0,
+        },
+      },
+    ] as BulkOp[];
+  });
 }
