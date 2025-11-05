@@ -1,16 +1,25 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
+import { OptimisticVisualisation } from './optimistic-visualisation';
 import { todoCollection } from '@/frontend/collection';
+import { eq, useLiveQuery } from '@tanstack/react-db';
+import { runtime } from '@/frontend/runtime';
 
 interface TodoItemProps {
-  todo: typeof todoCollection.TypeWithOptimistic;
-  onToggle: () => void;
-  onUpdate: (text: string) => void;
+  todoId: string;
 }
 
-export function TodoItem({ todo, onToggle, onUpdate }: TodoItemProps) {
+export function TodoItem({ todoId }: TodoItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(todo.title);
+  const { data: todo } = useLiveQuery((q) =>
+    q
+      .from({ todo: todoCollection.collection })
+      .where(({ todo }) => eq(todo.todoId, todoId))
+      .findOne(),
+  );
+  const [editText, setEditText] = useState(todo?.title ?? '');
+
+  if (!todo) return null;
   const isComplete = todo.status === 'complete';
 
   const handleSave = () => {
@@ -19,7 +28,12 @@ export function TodoItem({ todo, onToggle, onUpdate }: TodoItemProps) {
       setIsEditing(false);
       return;
     }
-    onUpdate(editText.trim());
+    runtime.runFork(
+      todoCollection.update(
+        { todoId: todo.todoId },
+        { title: editText.trim() },
+      ),
+    );
     setIsEditing(false);
   };
 
@@ -30,18 +44,30 @@ export function TodoItem({ todo, onToggle, onUpdate }: TodoItemProps) {
 
   const handleItemClick = () => {
     if (!isEditing) {
-      onToggle();
+      runtime.runFork(
+        todoCollection.update(
+          { todoId: todo.todoId },
+          { status: todo.status === 'active' ? 'complete' : 'active' },
+        ),
+      );
     }
   };
-  const {
-    _optimisticState: { insertionInProgress, updateInProgress, updates },
-  } = todo;
 
   return (
     <motion.div
       layoutId={todo.todoId}
       className="group flex items-center gap-3 px-4 py-3.5 bg-white border border-gray-200 rounded-lg transition-colors hover:shadow-sm hover:border-gray-300 cursor-pointer"
       onClick={handleItemClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('ITEM: ', {
+          todo,
+          currentState: structuredClone(
+            todoCollection.getOptimisticState(todo.todoId),
+          ),
+        });
+      }}
       style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
     >
       <motion.div
@@ -98,11 +124,7 @@ export function TodoItem({ todo, onToggle, onUpdate }: TodoItemProps) {
           </span>
         )}
       </div>
-      <pre>
-        {insertionInProgress && 'inserting...'}
-        {updateInProgress.length.toString().padStart(4)} ::
-        {updates.length.toString().padStart(4)}
-      </pre>
+      <OptimisticVisualisation _optimisticState={todo._optimisticState} />
 
       <div
         onClick={(e) => e.stopPropagation()}

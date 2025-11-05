@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "deploy": "alchemy deploy",
+    "deploy:prod": "alchemy deploy --stage prod --env-file .env.prod",
     "destroy": "alchemy destroy",
     "dev": "alchemy dev",
+    "dev:prod": "alchemy dev --stage prod",
     "serve": "vite preview",
     "test": "vitest run"
   },

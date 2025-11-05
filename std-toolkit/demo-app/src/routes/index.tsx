@@ -1,8 +1,6 @@
 import { ClientOnly, createFileRoute } from '@tanstack/react-router';
 import { useLiveQuery } from '@tanstack/react-db';
 import { todoCollection } from '@/frontend/collection';
-import { ulid } from 'ulid';
-import { runtime } from '@/frontend/runtime';
 import { TodoInput } from '@/components/todo-input';
 import { TodoList } from '@/components/todo-list';
 import { useState } from 'react';
@@ -27,48 +25,11 @@ const AppClient = () => {
   const { data, isLoading } = useLiveQuery((q) =>
     q
       .from({ todo: todoCollection.collection })
-      .orderBy((v) => v.todo.updatedAt, 'desc'),
+      .orderBy((v) => v.todo.updatedAt, 'desc')
+      .select(({ todo }) => ({ id: todo.todoId })),
   );
 
-  const handleAdd = (text: string) => {
-    runtime.runFork(
-      todoCollection.insert({
-        todoId: ulid(),
-        updatedAt: new Date().toISOString(),
-        userId: 'test',
-        title: text,
-        status: 'active',
-      }),
-    );
-  };
-
-  const handleToggle = (todo: any) => {
-    runtime.runFork(
-      todoCollection.update(
-        { todoId: todo.todoId },
-        { status: todo.status === 'active' ? 'complete' : 'active' },
-      ),
-    );
-  };
-
-  const handleUpdate = (todo: any, text: string) => {
-    runtime.runFork(
-      todoCollection.update({ todoId: todo.todoId }, { title: text }),
-    );
-  };
-
-  const activeTodos = data.filter((item) => item.status === 'active');
-  const completedTodos = data.filter((item) => item.status === 'complete');
-
-  const filteredTodos =
-    filter === 'active'
-      ? activeTodos
-      : filter === 'complete'
-        ? completedTodos
-        : data;
-
-  const activeCount = activeTodos.length;
-  const completedCount = completedTodos.length;
+  const filteredTodos = data;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -85,7 +46,7 @@ const AppClient = () => {
           <p className="text-gray-500 text-sm">Stay organized and productive</p>
         </div>
 
-        <TodoInput onAdd={handleAdd} />
+        <TodoInput />
 
         <div className="flex gap-2 mb-6">
           <button
@@ -97,27 +58,6 @@ const AppClient = () => {
             }`}
           >
             All <span className="ml-1 opacity-70">({data.length})</span>
-          </button>
-          <button
-            onClick={() => setFilter('active')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filter === 'active'
-                ? 'bg-blue-500 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-            }`}
-          >
-            Active <span className="ml-1 opacity-70">({activeCount})</span>
-          </button>
-          <button
-            onClick={() => setFilter('complete')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filter === 'complete'
-                ? 'bg-green-500 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-            }`}
-          >
-            Completed{' '}
-            <span className="ml-1 opacity-70">({completedCount})</span>
           </button>
         </div>
 
@@ -135,17 +75,8 @@ const AppClient = () => {
             </p>
           </div>
         ) : (
-          <TodoList
-            todos={filteredTodos}
-            onToggle={handleToggle}
-            onUpdate={handleUpdate}
-          />
+          <TodoList todos={filteredTodos} />
         )}
-        <div>
-          {data.map((v) => (
-            <pre key={v.todoId}>{JSON.stringify(v)}</pre>
-          ))}
-        </div>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import {
   AttributeValue,
   AWSClientConfig,
   createDynamoDB,
+  CreateTableInput,
   DynamoDB,
   UpdateItemInput,
 } from 'dynamodb-client';
@@ -206,6 +207,47 @@ export class DynamoTable<
       }
       return count;
     });
+  }
+
+  getTableSchema(): Except<CreateTableInput, 'TableName'> {
+    const allSecondaryKeys = Object.entries(this.secondaryIndexMap).map(
+      ([IndexName, { pk, sk }]) => ({ IndexName, pk, sk }),
+    );
+    return {
+      KeySchema: [
+        { AttributeName: this.primary.pk, KeyType: 'HASH' },
+        { AttributeName: this.primary.sk, KeyType: 'RANGE' },
+      ],
+      AttributeDefinitions: [
+        { AttributeName: this.primary.pk, AttributeType: 'S' },
+        { AttributeName: this.primary.sk, AttributeType: 'S' },
+        ...allSecondaryKeys.flatMap((v) => [
+          { AttributeName: v.pk, AttributeType: 'S' as const },
+          { AttributeName: v.sk, AttributeType: 'S' as const },
+        ]),
+      ],
+      GlobalSecondaryIndexes: allSecondaryKeys
+        .filter((v) => v.pk !== this.primary.pk)
+        .map(({ IndexName, pk, sk }) => ({
+          IndexName: IndexName,
+          KeySchema: [
+            { AttributeName: pk, KeyType: 'HASH' },
+            { AttributeName: sk, KeyType: 'RANGE' },
+          ],
+          Projection: { ProjectionType: 'ALL' },
+        })),
+      LocalSecondaryIndexes: allSecondaryKeys
+        .filter((v) => v.pk === this.primary.pk)
+        .map(({ IndexName, pk, sk }) => ({
+          IndexName: IndexName,
+          KeySchema: [
+            { AttributeName: pk, KeyType: 'HASH' },
+            { AttributeName: sk, KeyType: 'RANGE' },
+          ],
+          Projection: { ProjectionType: 'ALL' },
+        })),
+      BillingMode: 'PAY_PER_REQUEST',
+    };
   }
 
   #rawQueryOperation(

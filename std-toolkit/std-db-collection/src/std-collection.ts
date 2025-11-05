@@ -192,6 +192,8 @@ export const createStdCollection = <
     localInsert: (value: TSchema['Type']) => localInsert([value]),
     localUpdate: (value: Partial<TSchema['Type']>) => localUpdate([value]),
     localUpsert: (value: TSchema['Type']) => localUpsert([value]),
+    getOptimisticState:
+      smartOptimistic.getOptimisticState.bind(smartOptimistic),
     sync,
   };
 };

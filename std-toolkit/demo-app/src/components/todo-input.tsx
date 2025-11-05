@@ -1,16 +1,28 @@
+import { todoCollection } from '@/frontend/collection';
+import { runtime } from '@/frontend/runtime';
 import { useRef, useState } from 'react';
+import { ulid } from 'ulid';
 
-interface TodoInputProps {
-  onAdd: (text: string) => void;
-}
-
-export function TodoInput({ onAdd }: TodoInputProps) {
+export function TodoInput() {
   const [text, setText] = useState('');
   const v = useRef(0).current++;
 
+  const onAdd = (text: string) => {
+    runtime.runFork(
+      todoCollection.insert({
+        todoId: ulid(),
+        updatedAt: new Date().toISOString(),
+        userId: 'test',
+        title: text,
+        status: 'active',
+      }),
+    );
+  };
   const handleSubmit = () => {
     if (!text.trim()) return;
-    onAdd(text.trim());
+
+    onAdd(text);
+
     setText('');
   };
 

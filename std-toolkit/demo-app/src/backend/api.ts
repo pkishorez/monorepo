@@ -7,17 +7,15 @@ export const TodosRpcLive = TodosRpc.toLayer(
   Effect.succeed({
     todoInsert: ({ todo }) =>
       Effect.gen(function* () {
-        yield* Effect.sleep(4000);
         const todoId = ulid();
         yield* todoEntity
-          .insert({ ...todo, userId: 'test', todoId }, { debug: true })
+          .insert({ ...todo, userId: 'test', todoId })
           .pipe(Effect.mapError((err) => new TodoError({ type: err._tag })));
 
         return { ...todo, todoId };
       }),
     todoUpdate: ({ todoId, todo }) =>
       Effect.gen(function* () {
-        yield* Effect.sleep(4000);
         yield* todoEntity
           .update({ todoId, userId: 'test' }, todo)
           .pipe(Effect.mapError((err) => new TodoError({ type: err._tag })));
@@ -45,15 +43,12 @@ export const TodosRpcLive = TodosRpc.toLayer(
       Effect.gen(function* () {
         const todos = yield* todoEntity
           .index('byUpdated')
-          .query(
-            {
-              pk: { userId: 'test' },
-              sk: {
-                '>': updatedAt ? { updatedAt } : null,
-              },
+          .query({
+            pk: { userId: 'test' },
+            sk: {
+              '>': updatedAt ? { updatedAt } : null,
             },
-            { debug: true },
-          )
+          })
           .pipe(
             Effect.tapError(Console.error),
             Effect.map((v) => v.items.map((item) => item.value)),

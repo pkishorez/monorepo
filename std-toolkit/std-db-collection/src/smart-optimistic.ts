@@ -113,7 +113,9 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
       v.insertionInProgress = true;
     });
     this.tmpSource.set(key, value);
-    this.tanstackCollection.localBulkOperation(yield* this.#syncKey(key));
+    this.tanstackCollection.localBulkOperation(
+      yield* this.#getSyncKeyOperation(key),
+    );
     const ops: BulkOp[] = [];
 
     if (this.onInsert) {
@@ -142,14 +144,15 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
               ...this.tmpSource.get(updatedKey),
               ...value,
             });
-            ops.push(...(yield* this.#syncKey(updatedKey)));
+            ops.push(...(yield* this.#getSyncKeyOperation(updatedKey)));
             yield* this.queueUpdate(updatedKey);
           }),
         ),
         Effect.onError(() =>
-          Effect.sync(() => {
+          Effect.gen(this, function* () {
             this.tmpSource.delete(key);
             ops.push({ type: 'deleteKey', key });
+            ops.push(...(yield* this.#getSyncKeyOperation(key)));
           }),
         ),
         Effect.ensuring(
@@ -161,7 +164,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
         ),
       );
     } else {
-      ops.push(...(yield* this.#syncKey(key)));
+      ops.push(...(yield* this.#getSyncKeyOperation(key)));
     }
     this.tanstackCollection.localBulkOperation(ops);
   });
@@ -182,14 +185,16 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
         { id: ulid(), type: 'update', key: keyObj, value, kind: 'smart' },
       ];
     });
-    this.tanstackCollection.localBulkOperation(yield* this.#syncKey(key));
+    this.tanstackCollection.localBulkOperation(
+      yield* this.#getSyncKeyOperation(key),
+    );
     yield* this.queueUpdate(key);
   });
 
   clearTmpItem = (key: string) =>
     Effect.gen(this, function* () {
       this.tmpSource.delete(key);
-      return yield* this.#syncKey(key);
+      return yield* this.#getSyncKeyOperation(key);
     });
 
   private queueUpdate = (key: string): Effect.Effect<void> => {
@@ -213,11 +218,14 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
       optimisticEntry.updates = optimisticEntry.updates.filter(
         (v) => v.kind !== 'smart',
       );
-      this.tanstackCollection.localBulkOperation(yield* this.#syncKey(key));
 
       const value = rest.reduce(
         (acc, v) => ({ ...acc, ...v.value }),
         first.value,
+      );
+      this.tmpSource.set(key, { ...this.tmpSource.get(key), ...value } as any);
+      this.tanstackCollection.localBulkOperation(
+        yield* this.#getSyncKeyOperation(key),
       );
       yield* this.onUpdate(this.keyConfig.decode(key), value).pipe(
         Effect.tap((result) =>
@@ -235,7 +243,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
               draft.updateInProgress = [];
             });
             this.tanstackCollection.localBulkOperation(
-              yield* this.#syncKey(key),
+              yield* this.#getSyncKeyOperation(key),
             );
             yield* Effect.suspend(() => this.queueUpdate(key));
           }),
@@ -248,7 +256,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
     return this.#getOptimisticEntry(key);
   }
 
-  #syncKey = Effect.fn(function* (
+  #getSyncKeyOperation = Effect.fn(function* (
     this: SmartOptimistic<TValue, TKey>,
     key: string,
   ) {
