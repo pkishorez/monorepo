@@ -1,14 +1,10 @@
 import { AnimatePresence } from 'motion/react';
 import { TodoItem } from './todo-item';
+import { todoCollection } from '@/frontend/collection';
 
-interface Todo {
-  todoId: string;
-  title: string;
-  status: 'active' | 'complete';
-}
-
+type Todo = typeof todoCollection.Type;
 interface TodoListProps {
-  todos: Todo[];
+  todos: (typeof todoCollection.TypeWithOptimistic)[];
   onToggle: (todo: Todo) => void;
   onUpdate: (todo: Todo, text: string) => void;
 }

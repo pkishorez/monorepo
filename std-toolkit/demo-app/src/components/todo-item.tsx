@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
+import { todoCollection } from '@/frontend/collection';
 
 interface TodoItemProps {
-  todo: {
-    todoId: string;
-    title: string;
-    status: 'active' | 'complete';
-  };
+  todo: typeof todoCollection.TypeWithOptimistic;
   onToggle: () => void;
   onUpdate: (text: string) => void;
 }
@@ -36,6 +33,9 @@ export function TodoItem({ todo, onToggle, onUpdate }: TodoItemProps) {
       onToggle();
     }
   };
+  const {
+    _optimisticState: { insertionInProgress, updateInProgress, updates },
+  } = todo;
 
   return (
     <motion.div
@@ -98,6 +98,11 @@ export function TodoItem({ todo, onToggle, onUpdate }: TodoItemProps) {
           </span>
         )}
       </div>
+      <pre>
+        {insertionInProgress && 'inserting...'}
+        {updateInProgress.length.toString().padStart(4)} ::
+        {updates.length.toString().padStart(4)}
+      </pre>
 
       <div
         onClick={(e) => e.stopPropagation()}
@@ -109,23 +114,11 @@ export function TodoItem({ todo, onToggle, onUpdate }: TodoItemProps) {
             e.stopPropagation();
             setIsEditing(true);
           }}
-          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+          className="px-1.5 py-1 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
           title="Edit (or double-click)"
           disabled={isEditing}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-          </svg>
+          edit
         </button>
       </div>
     </motion.div>
