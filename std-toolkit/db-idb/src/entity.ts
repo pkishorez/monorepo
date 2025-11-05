@@ -36,7 +36,13 @@ export class IDBEntity<
       IDBKeyRange.bound([this.#name], [this.#name, '\uffffff']),
     );
 
-    return value.map((v) => this.#eschema.parseSync(v.value).value);
+    return value.map(
+      (v) => this.#eschema.parseSync(v.value).value,
+    ) as TSchema['Type'][];
+  }
+
+  get(id: string) {
+    return this.#store.getItem({ entity: this.#name, id });
   }
 
   put(item: TSchema['Type']) {

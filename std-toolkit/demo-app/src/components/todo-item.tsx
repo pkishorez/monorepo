@@ -31,7 +31,10 @@ export function TodoItem({ todoId }: TodoItemProps) {
     runtime.runFork(
       todoCollection.update(
         { todoId: todo.todoId },
-        { title: editText.trim() },
+        {
+          title: editText.trim(),
+          updatedAt: new Date().toISOString(),
+        },
       ),
     );
     setIsEditing(false);
@@ -47,7 +50,10 @@ export function TodoItem({ todoId }: TodoItemProps) {
       runtime.runFork(
         todoCollection.update(
           { todoId: todo.todoId },
-          { status: todo.status === 'active' ? 'complete' : 'active' },
+          {
+            status: todo.status === 'active' ? 'complete' : 'active',
+            updatedAt: new Date().toISOString(),
+          },
         ),
       );
     }
@@ -124,7 +130,9 @@ export function TodoItem({ todoId }: TodoItemProps) {
           </span>
         )}
       </div>
-      <OptimisticVisualisation _optimisticState={todo._optimisticState} />
+      {todo._optimisticState && (
+        <OptimisticVisualisation _optimisticState={todo._optimisticState} />
+      )}
 
       <div
         onClick={(e) => e.stopPropagation()}

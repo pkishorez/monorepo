@@ -8,19 +8,27 @@ export const TodosRpcLive = TodosRpc.toLayer(
     todoInsert: ({ todo }) =>
       Effect.gen(function* () {
         const todoId = ulid();
-        yield* todoEntity
-          .insert({ ...todo, userId: 'test', todoId })
+        const { item } = yield* todoEntity
+          .insert({
+            ...todo,
+            userId: 'test',
+            todoId,
+            updatedAt: new Date().toISOString(),
+          })
           .pipe(Effect.mapError((err) => new TodoError({ type: err._tag })));
 
-        return { ...todo, todoId };
+        return item;
       }),
     todoUpdate: ({ todoId, todo }) =>
       Effect.gen(function* () {
-        yield* todoEntity
-          .update({ todoId, userId: 'test' }, todo)
+        const { item } = yield* todoEntity
+          .update(
+            { todoId, userId: 'test' },
+            { ...todo, updatedAt: new Date().toISOString() },
+          )
           .pipe(Effect.mapError((err) => new TodoError({ type: err._tag })));
 
-        return todo;
+        return item;
       }),
     // todoStream: ({ gt }) =>
     //   Effect.gen(function* () {

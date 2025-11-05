@@ -1,9 +1,22 @@
 import { createStdCollection } from '@std-toolkit/std-db-collection';
+import { IDbSource } from '@std-toolkit/std-db-collection';
+import { IDBStore } from '@std-toolkit/idb';
 import { TodoESchema } from '../backend/domain';
 import { Console, Effect } from 'effect';
 import { ApiService } from './api';
 import { runtime } from './runtime';
 
+const store = await Effect.runPromise(
+  Effect.runSync(
+    Effect.cached(
+      Effect.promise(async () => {
+        return typeof indexedDB !== 'undefined'
+          ? await IDBStore.make('source')
+          : undefined;
+      }),
+    ),
+  ),
+);
 export const todoCollection = createStdCollection({
   eschema: TodoESchema,
   keyConfig: {
@@ -11,6 +24,10 @@ export const todoCollection = createStdCollection({
     encode: ({ todoId }) => todoId,
     decode: (todoId) => ({ todoId }),
   },
+  source: store
+    ? new IDbSource<(typeof TodoESchema)['Type']>('todos', store)
+    : undefined,
+  compare: (a, b) => (a.updatedAt < b.updatedAt ? -1 : 1),
   onInsert: Effect.fn(function* (todo) {
     const { client } = yield* ApiService;
     const result = yield* client.todoInsert({ todo }).pipe(Effect.orDie);

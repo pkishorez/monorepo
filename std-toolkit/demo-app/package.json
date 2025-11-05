@@ -14,7 +14,9 @@
   "dependencies": {
     "@effect/platform": "0.93.0",
     "@effect/rpc": "0.72.0",
+    "use-effect-ts": "workspace:*",
     "@std-toolkit/dynamodb": "workspace:*",
+    "@std-toolkit/idb": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/std-db-collection": "workspace:*",
     "@tailwindcss/vite": "4.1.16",

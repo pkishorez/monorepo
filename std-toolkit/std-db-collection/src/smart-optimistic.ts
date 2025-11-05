@@ -3,6 +3,24 @@ import { Source } from './source/source.js';
 import { ulid } from 'ulid';
 import { BulkOp } from './types.js';
 
+export interface OptimisticEntry<TValue, TKey extends keyof TValue> {
+  updatesInProgress: {
+    id: string;
+    type: 'update';
+    key: Pick<TValue, TKey>;
+    value: Partial<Omit<TValue, TKey>>;
+    kind: 'transaction' | 'smart';
+  }[];
+  insertionInProgress: boolean;
+  errorCount: number;
+  updates: {
+    id: string;
+    type: 'update';
+    key: Pick<TValue, TKey>;
+    value: Partial<Omit<TValue, TKey>>;
+    kind: 'transaction' | 'smart';
+  }[];
+}
 export class SmartOptimistic<TValue, TKey extends keyof TValue> {
   private syncSource: Source<TValue>;
   private tmpSource: Map<string, Partial<TValue>> = new Map();
@@ -23,20 +41,8 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
     localBulkOperation: (value: BulkOp[]) => void;
     get: (key: string) => TValue | undefined;
   };
-  private optimisticEntries: Map<
-    string,
-    {
-      updateInProgress: string[];
-      insertionInProgress: boolean;
-      updates: {
-        id: string;
-        type: 'update';
-        key: Pick<TValue, TKey>;
-        value: Partial<Omit<TValue, TKey>>;
-        kind: 'transaction' | 'smart';
-      }[];
-    }
-  > = new Map();
+  private optimisticEntries: Map<string, OptimisticEntry<TValue, TKey>> =
+    new Map();
 
   constructor({
     onInsert,
@@ -72,8 +78,9 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
   #getOptimisticEntry(key: string) {
     if (!this.optimisticEntries.has(key)) {
       this.optimisticEntries.set(key, {
+        errorCount: 0,
         insertionInProgress: false,
-        updateInProgress: [],
+        updatesInProgress: [],
         updates: [],
       });
     }
@@ -82,17 +89,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
   }
   #updateOptimisticEntry(
     key: string,
-    fn: (draft: {
-      updateInProgress: string[];
-      insertionInProgress: boolean;
-      updates: {
-        id: string;
-        type: 'update';
-        key: Pick<TValue, TKey>;
-        value: Partial<Omit<TValue, TKey>>;
-        kind: 'transaction' | 'smart';
-      }[];
-    }) => void,
+    fn: (draft: OptimisticEntry<TValue, TKey>) => void,
   ) {
     const item = this.#getOptimisticEntry(key);
     fn(item);
@@ -123,6 +120,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
         Effect.tap((result) =>
           Effect.gen(this, function* () {
             const updatedKey = this.keyConfig.encode(result);
+            console.log('KEY: ', { key, updatedKey, result });
             if (key !== updatedKey) {
               ops.push({ type: 'deleteKey', key });
 
@@ -142,17 +140,17 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
 
             this.tmpSource.set(updatedKey, {
               ...this.tmpSource.get(updatedKey),
-              ...value,
+              ...result,
             });
             ops.push(...(yield* this.#getSyncKeyOperation(updatedKey)));
+            this.tanstackCollection.localBulkOperation(ops);
             yield* this.queueUpdate(updatedKey);
           }),
         ),
         Effect.onError(() =>
-          Effect.gen(this, function* () {
+          Effect.sync(() => {
             this.tmpSource.delete(key);
             ops.push({ type: 'deleteKey', key });
-            ops.push(...(yield* this.#getSyncKeyOperation(key)));
           }),
         ),
         Effect.ensuring(
@@ -165,8 +163,8 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
       );
     } else {
       ops.push(...(yield* this.#getSyncKeyOperation(key)));
+      this.tanstackCollection.localBulkOperation(ops);
     }
-    this.tanstackCollection.localBulkOperation(ops);
   });
 
   update = Effect.fn(function* (
@@ -202,28 +200,26 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
       const optimisticEntry = this.#getOptimisticEntry(key);
       if (
         optimisticEntry.insertionInProgress ||
-        optimisticEntry.updateInProgress.length > 0 ||
+        optimisticEntry.updatesInProgress.length > 0 ||
         !this.onUpdate
       ) {
         return;
       }
-      const currentUpdateBatch = optimisticEntry.updates.filter(
+      optimisticEntry.updatesInProgress = optimisticEntry.updates.filter(
         (v) => v.kind === 'smart',
       );
-      const [first, ...rest] = currentUpdateBatch;
-      if (!first) {
-        return;
-      }
-      optimisticEntry.updateInProgress = currentUpdateBatch.map((v) => v.id);
       optimisticEntry.updates = optimisticEntry.updates.filter(
         (v) => v.kind !== 'smart',
       );
 
+      const [first, ...rest] = optimisticEntry.updatesInProgress;
+      if (!first) {
+        return;
+      }
       const value = rest.reduce(
         (acc, v) => ({ ...acc, ...v.value }),
         first.value,
       );
-      this.tmpSource.set(key, { ...this.tmpSource.get(key), ...value } as any);
       this.tanstackCollection.localBulkOperation(
         yield* this.#getSyncKeyOperation(key),
       );
@@ -233,14 +229,21 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
             this.tmpSource.set(key, { ...this.tmpSource.get(key), ...result });
           }),
         ),
+        Effect.onError(() =>
+          Effect.sync(() => {
+            this.#updateOptimisticEntry(key, (draft) => {
+              draft.errorCount = draft.errorCount + 1;
+            });
+          }),
+        ),
         Effect.onExit(() =>
           Effect.gen(this, function* () {
             this.#updateOptimisticEntry(key, (draft) => {
               draft.updates = draft.updates.filter(
                 (update) =>
-                  !currentUpdateBatch.map((v) => v.id).includes(update.id),
+                  !draft.updatesInProgress.map((v) => v.id).includes(update.id),
               );
-              draft.updateInProgress = [];
+              draft.updatesInProgress = [];
             });
             this.tanstackCollection.localBulkOperation(
               yield* this.#getSyncKeyOperation(key),
@@ -268,10 +271,10 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
     }
     const initialValue = { ...value, ...tmpValue } as TValue;
     const optimisticEntries = this.#getOptimisticEntry(key);
-    const optimisticUpdate = optimisticEntries.updates.reduce(
-      (acc, v) => ({ ...acc, ...v.value }),
-      initialValue,
-    );
+    const optimisticUpdate = [
+      ...optimisticEntries.updatesInProgress,
+      ...optimisticEntries.updates,
+    ].reduce((acc, v) => ({ ...acc, ...v.value }), initialValue);
 
     return [
       {

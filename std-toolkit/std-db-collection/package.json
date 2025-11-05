@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
+    "@std-toolkit/idb": "workspace:*",
     "effect": "3.19.0",
     "ulid": "^3.0.1"
   },

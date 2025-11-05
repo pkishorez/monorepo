@@ -163,6 +163,10 @@ export class DynamoEntity<
           },
         )
         .pipe(
+          Effect.map((output) => ({
+            ...output,
+            item: this.#eschema.parseSync(value).value as TSchema['Type'],
+          })),
           Effect.catchTag(
             'ConditionalCheckFailedException',
             () => new ItemAlreadyExist(),
@@ -232,6 +236,7 @@ export class DynamoEntity<
           },
         )
         .pipe(
+          Effect.map((output) => ({ ...output, item: value })),
           Effect.mapError((err) => {
             if (err._tag === 'ConditionalCheckFailedException') {
               if (!err.Item) {

@@ -1,9 +1,13 @@
 import { ClientOnly, createFileRoute } from '@tanstack/react-router';
+import { useRunEffectLatest } from 'use-effect-ts';
 import { useLiveQuery } from '@tanstack/react-db';
 import { todoCollection } from '@/frontend/collection';
 import { TodoInput } from '@/components/todo-input';
 import { TodoList } from '@/components/todo-list';
 import { useState } from 'react';
+import { Effect, Ref } from 'effect';
+import { runtime } from '@/frontend/runtime';
+import { ApiService } from '@/frontend/api';
 
 export const Route = createFileRoute('/')({
   component: App,
@@ -25,8 +29,8 @@ const AppClient = () => {
   const { data, isLoading } = useLiveQuery((q) =>
     q
       .from({ todo: todoCollection.collection })
-      .orderBy((v) => v.todo.updatedAt, 'desc')
-      .select(({ todo }) => ({ id: todo.todoId })),
+      .orderBy(({ todo }) => todo.updatedAt, 'desc')
+      .select(({ todo }) => ({ id: todo.todoId, updatedAt: todo.updatedAt })),
   );
 
   const filteredTodos = data;
@@ -59,6 +63,7 @@ const AppClient = () => {
           >
             All <span className="ml-1 opacity-70">({data.length})</span>
           </button>
+          <Delay />
         </div>
 
         {isLoading ? (
@@ -81,3 +86,30 @@ const AppClient = () => {
     </div>
   );
 };
+
+function Delay() {
+  const [value, setValue] = useState(0);
+
+  const onUpdate = useRunEffectLatest(
+    Effect.fn(function* (newValue: number) {
+      const { delayRef } = yield* ApiService;
+      yield* Ref.update(delayRef, () => newValue);
+      setValue(newValue);
+    }, Effect.provide(runtime)),
+  );
+
+  return (
+    <div className="flex gap-2 items-center">
+      <span className="text-sm font-bold">Delay: </span>
+      <input
+        type="range"
+        min={0}
+        max={5000}
+        step={200}
+        onChange={(e) => onUpdate(Number(e.target.value))}
+        value={value}
+      />
+      <span className="text-sm font-bold">{value} ms</span>
+    </div>
+  );
+}

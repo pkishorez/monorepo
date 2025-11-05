@@ -7,7 +7,7 @@ import {
 import { Effect } from 'effect';
 import { Source } from './source/source.js';
 import { MemorySource } from './source/memory.js';
-import { SmartOptimistic } from './smart-optimistic.js';
+import { OptimisticEntry, SmartOptimistic } from './smart-optimistic.js';
 import { BulkOp } from './types.js';
 
 export const createStdCollection = <
@@ -18,7 +18,7 @@ export const createStdCollection = <
   keyConfig,
   onInsert,
   onUpdate,
-  // compare,
+  compare,
   getUpdates,
   source = new MemorySource(),
 }: {
@@ -34,18 +34,19 @@ export const createStdCollection = <
     key: Pick<TSchema['Type'], TKey>,
     value: Partial<Omit<TSchema['Type'], TKey>>,
   ) => Effect.Effect<Partial<TSchema['Type']>>;
-  compare?: (a: TSchema['Type'], b: TSchema['Type']) => number;
+  compare: (a: TSchema['Type'], b: TSchema['Type']) => number;
   getUpdates?: (
-    after?: TSchema['Type'],
+    after?: TSchema['Type'] | null,
   ) => Effect.Effect<readonly TSchema['Type'][]>;
 }) => {
-  let syncParams: {
+  let syncVars: {
     current: Parameters<SyncConfig<TSchema['Type'], string>['sync']>[0] | null;
-  } = { current: null };
+    latest: TSchema['Type'] | null;
+  } = { current: null, latest: null };
 
   const localInsert = (values: TSchema['Type'][]) => {
-    if (!syncParams.current) return;
-    const { begin, write, commit } = syncParams.current;
+    if (!syncVars.current || values.length === 0) return;
+    const { begin, write, commit } = syncVars.current;
 
     begin();
     try {
@@ -57,8 +58,8 @@ export const createStdCollection = <
     }
   };
   const localUpdate = (values: Partial<TSchema['Type']>[]) => {
-    if (!syncParams.current) return;
-    const { begin, write, commit } = syncParams.current;
+    if (!syncVars.current) return;
+    const { begin, write, commit } = syncVars.current;
 
     try {
       begin();
@@ -70,8 +71,8 @@ export const createStdCollection = <
     }
   };
   const localUpsert = (values: readonly TSchema['Type'][]) => {
-    if (!syncParams.current) return;
-    const { collection, begin, write, commit } = syncParams.current;
+    if (!syncVars.current) return;
+    const { collection, begin, write, commit } = syncVars.current;
 
     begin();
     try {
@@ -88,8 +89,8 @@ export const createStdCollection = <
     }
   };
   const localBulkOperation = (values: BulkOp[]) => {
-    if (!syncParams.current || values.length === 0) return;
-    const { collection, begin, write, commit } = syncParams.current;
+    if (!syncVars.current || values.length === 0) return;
+    const { collection, begin, write, commit } = syncVars.current;
 
     begin();
 
@@ -119,50 +120,45 @@ export const createStdCollection = <
   function sync() {
     return Effect.runPromise(
       Effect.gen(function* () {
+        const ops: BulkOp[] = [];
         if (getUpdates) {
-          const results = yield* getUpdates();
-          const ops: BulkOp[] = [];
+          const results = (yield* getUpdates(syncVars.latest)).toSorted(
+            compare,
+          );
+          if (results[results.length - 1]) {
+            syncVars.latest = results[results.length - 1];
+          }
           for (const v of results) {
-            source.set(keyConfig.encode(v), v);
+            yield* Effect.promise(() => source.set(keyConfig.encode(v), v));
             ops.push(
               ...(yield* smartOptimistic.clearTmpItem(keyConfig.encode(v))),
             );
           }
-          localBulkOperation(ops);
         }
+        localBulkOperation(ops);
       }),
     );
   }
 
-  type CollectionType = TSchema['schema']['Type'] & {
-    _optimisticState: {
-      updateInProgress: string[];
-      insertionInProgress: boolean;
-      updates: {
-        id: string;
-        type: 'update';
-        key: Pick<TSchema['Type'], TKey>;
-        value: Partial<Omit<TSchema['Type'], TKey>>;
-        kind: 'transaction' | 'smart';
-      }[];
-    };
+  type CollectionType = TSchema['Type'] & {
+    _optimisticState?: OptimisticEntry<TSchema['Type'], TKey>;
   };
   const tanstackCollection = createCollection({
     getKey: keyConfig.encode,
     sync: {
       async sync(params) {
-        console.debug('Sync starting up...');
-        syncParams.current = params;
-        try {
-          await sync();
-        } finally {
-          params.markReady();
-        }
-        console.log('Sync completed...');
+        syncVars.current = params;
+        // Sync from source first.
+        const allRecords = (await source.getAll()).sort(compare);
+        console.log('ALL RECORDS???', allRecords);
+        localInsert(allRecords);
+        params.markReady();
+        syncVars.latest = allRecords[allRecords.length - 1] ?? null;
+
+        await sync();
 
         return () => {
           // cleanup goes here again...
-          console.debug('Sync cleaning up...');
         };
       },
     },

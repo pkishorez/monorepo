@@ -3,7 +3,10 @@ import { motion } from 'motion/react';
 import { useMemo } from 'react';
 
 interface OptimisticVisualisationProps {
-  _optimisticState: (typeof todoCollection.TypeWithOptimistic)['_optimisticState'];
+  _optimisticState: Exclude<
+    (typeof todoCollection.TypeWithOptimistic)['_optimisticState'],
+    undefined
+  >;
 }
 
 type BoxType = 'insertion' | 'updating' | 'queued';
@@ -16,7 +19,8 @@ interface Box {
 export function OptimisticVisualisation({
   _optimisticState,
 }: OptimisticVisualisationProps) {
-  const { insertionInProgress, updateInProgress, updates } = _optimisticState;
+  const { errorCount, insertionInProgress, updatesInProgress, updates } =
+    _optimisticState;
 
   const boxes = useMemo(() => {
     const result: Box[] = [];
@@ -25,16 +29,16 @@ export function OptimisticVisualisation({
       result.push({ id: 'insertion', type: 'insertion' });
     }
 
-    updateInProgress.forEach((_) => {
-      result.push({ id: _, type: 'updating' });
+    updatesInProgress.forEach((v) => {
+      result.push({ id: v.id, type: 'updating' });
     });
 
-    updates.forEach((_) => {
-      result.push({ id: _.id, type: 'queued' });
+    updates.forEach((v) => {
+      result.push({ id: v.id, type: 'queued' });
     });
 
     return result.reverse();
-  }, [insertionInProgress, updateInProgress, updates]);
+  }, [_optimisticState]);
 
   const getBoxStyles = (type: BoxType) => {
     switch (type) {
@@ -70,6 +74,9 @@ export function OptimisticVisualisation({
           title={getBoxTitle(box.type)}
         />
       ))}
+      {errorCount > 0 && (
+        <div className="text-red-700 font-bold text-sm">{errorCount}</div>
+      )}
     </div>
   );
 }
