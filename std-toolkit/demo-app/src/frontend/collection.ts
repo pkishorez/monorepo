@@ -45,7 +45,7 @@ export const todoCollection = createStdCollection({
     const { client } = yield* ApiService;
     const results = yield* client
       .todoQuery({ updatedAt: todo?.updatedAt })
-      .pipe(Effect.onExit(Console.log), Effect.orDie);
+      .pipe(Effect.onError(Console.error), Effect.orDie);
 
     return results;
   }, Effect.provide(runtime)),

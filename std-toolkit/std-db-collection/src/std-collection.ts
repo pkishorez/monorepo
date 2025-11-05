@@ -4,11 +4,12 @@ import {
   createCollection,
   SyncConfig,
 } from '@tanstack/react-db';
-import { Effect } from 'effect';
+import { Duration, Effect } from 'effect';
 import { Source } from './source/source.js';
 import { MemorySource } from './source/memory.js';
 import { OptimisticEntry, SmartOptimistic } from './smart-optimistic.js';
 import { BulkOp } from './types.js';
+import { periodicSync } from './utils.js';
 
 export const createStdCollection = <
   TSchema extends EmptyESchema,
@@ -42,6 +43,7 @@ export const createStdCollection = <
   let syncVars: {
     current: Parameters<SyncConfig<TSchema['Type'], string>['sync']>[0] | null;
     latest: TSchema['Type'] | null;
+    retrigger?: () => void;
   } = { current: null, latest: null };
 
   const localInsert = (values: TSchema['Type'][]) => {
@@ -150,12 +152,21 @@ export const createStdCollection = <
         syncVars.current = params;
         // Sync from source first.
         const allRecords = (await source.getAll()).sort(compare);
-        console.log('ALL RECORDS???', allRecords);
         localInsert(allRecords);
         params.markReady();
         syncVars.latest = allRecords[allRecords.length - 1] ?? null;
 
-        await sync();
+        // FIX: Dirty periodic sync logic for now.
+        const result = await Effect.runPromise(
+          periodicSync(
+            Effect.promise(async () => {
+              await sync();
+            }),
+            Duration.seconds(2),
+            Duration.seconds(5),
+          ),
+        );
+        syncVars.retrigger = () => Effect.runPromise(result.retrigger);
 
         return () => {
           // cleanup goes here again...
@@ -171,6 +182,7 @@ export const createStdCollection = <
       get: tanstackCollection.get.bind(tanstackCollection),
       localBulkOperation,
     },
+    onChanges: () => syncVars.retrigger?.(),
     onInsert,
     onUpdate,
   });

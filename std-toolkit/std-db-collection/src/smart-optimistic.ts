@@ -43,6 +43,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
   };
   private optimisticEntries: Map<string, OptimisticEntry<TValue, TKey>> =
     new Map();
+  private onChanges?: () => void;
 
   constructor({
     onInsert,
@@ -50,7 +51,9 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
     tanstackCollection,
     source,
     keyConfig,
+    onChanges,
   }: {
+    onChanges?: () => void;
     onInsert?: ((value: TValue) => Effect.Effect<TValue>) | undefined;
     onUpdate?:
       | ((
@@ -73,6 +76,9 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
     this.tanstackCollection = tanstackCollection;
     this.syncSource = source;
     this.keyConfig = keyConfig;
+    if (onChanges) {
+      this.onChanges = onChanges;
+    }
   }
 
   #getOptimisticEntry(key: string) {
@@ -119,6 +125,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
       yield* this.onInsert(value).pipe(
         Effect.tap((result) =>
           Effect.gen(this, function* () {
+            this.onChanges?.();
             const updatedKey = this.keyConfig.encode(result);
             console.log('KEY: ', { key, updatedKey, result });
             if (key !== updatedKey) {
@@ -227,6 +234,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
         Effect.tap((result) =>
           Effect.sync(() => {
             this.tmpSource.set(key, { ...this.tmpSource.get(key), ...result });
+            this.onChanges?.();
           }),
         ),
         Effect.onError(() =>
