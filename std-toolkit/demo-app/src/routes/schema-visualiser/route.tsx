@@ -34,29 +34,33 @@ function RouteComponent() {
   };
 
   // Update edge styles based on hover
-  const styledEdges = edges.map((edge) => ({
-    ...edge,
-    style: {
-      ...edge.style,
-      stroke:
-        hoveredConnection ===
-        `${edge.source}:${edge.sourceHandle}-${edge.target}:${edge.targetHandle}`
-          ? '#2563eb'
-          : '#b1b1b7',
-      strokeWidth:
-        hoveredConnection ===
-        `${edge.source}:${edge.sourceHandle}-${edge.target}:${edge.targetHandle}`
-          ? 3
-          : 2,
-    },
-    animated:
+  const styledEdges = edges.map((edge) => {
+    const isHovered =
       hoveredConnection ===
-      `${edge.source}:${edge.sourceHandle}-${edge.target}:${edge.targetHandle}`,
-  }));
+      `${edge.source}:${edge.sourceHandle}-${edge.target}:${edge.targetHandle}`;
+
+    return {
+      ...edge,
+      type: 'smoothstep',
+      style: {
+        ...edge.style,
+        stroke: isHovered ? '#3b82f6' : '#f59e0b',
+        strokeWidth: isHovered ? 3 : 2,
+        opacity: isHovered ? 1 : 0.6,
+      },
+      animated: isHovered,
+      markerEnd: {
+        type: 'arrowclosed' as const,
+        color: isHovered ? '#3b82f6' : '#f59e0b',
+        width: 20,
+        height: 20,
+      },
+    };
+  });
 
   return (
     <HoverContext.Provider value={{ hoveredConnection, setHoveredConnection }}>
-      <div className="h-screen w-full">
+      <div className="h-screen w-full bg-gradient-to-br from-slate-50 to-gray-100">
         <ReactFlow
           nodesDraggable={false}
           panOnDrag={false}
@@ -66,9 +70,13 @@ function RouteComponent() {
           onEdgeMouseEnter={handleEdgeMouseEnter}
           onEdgeMouseLeave={handleEdgeMouseLeave}
           fitView
-          fitViewOptions={{ maxZoom: 1 }}
+          fitViewOptions={{ maxZoom: 1, padding: 0.2 }}
         >
-          <Background />
+          <Background
+            color="#cbd5e1"
+            gap={16}
+            size={1}
+          />
         </ReactFlow>
       </div>
     </HoverContext.Provider>

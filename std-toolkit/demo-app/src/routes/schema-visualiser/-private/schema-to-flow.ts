@@ -4,6 +4,20 @@ import { inspectSchema } from './inspect';
 
 type SchemaInspection = ReturnType<typeof inspectSchema>;
 
+export interface FieldSchema {
+  title: string;
+  type: string;
+  isOptional: boolean;
+  isBranded: boolean;
+  brands?: ReadonlyArray<string | symbol>;
+  description?: string;
+}
+
+export interface SchemaNodeData {
+  label: string;
+  schema: FieldSchema[];
+}
+
 /**
  * Converts a schema inspection to a ReactFlow node
  */
@@ -12,7 +26,7 @@ export function inspectionToNode(
   label: string,
   inspection: SchemaInspection,
   position: { x: number; y: number },
-): Node {
+): Node<SchemaNodeData> {
   return {
     id,
     type: 'databaseSchema',
@@ -22,6 +36,10 @@ export function inspectionToNode(
       schema: inspection.properties.map((prop) => ({
         title: String(prop.name),
         type: getTypeDisplay(prop),
+        isOptional: prop.isOptional,
+        isBranded: !!(prop.brands && prop.brands.length > 0),
+        brands: prop.brands,
+        description: prop.description,
       })),
     },
   };
