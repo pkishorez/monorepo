@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ApiRouteImport } from './routes/api'
+import { Route as SchemaVisualiserRouteRouteImport } from './routes/schema-visualiser/route'
 import { Route as IndexRouteImport } from './routes/index'
 
 const ApiRoute = ApiRouteImport.update({
   id: '/api',
   path: '/api',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SchemaVisualiserRouteRoute = SchemaVisualiserRouteRouteImport.update({
+  id: '/schema-visualiser',
+  path: '/schema-visualiser',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +31,31 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/schema-visualiser': typeof SchemaVisualiserRouteRoute
   '/api': typeof ApiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/schema-visualiser': typeof SchemaVisualiserRouteRoute
   '/api': typeof ApiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/schema-visualiser': typeof SchemaVisualiserRouteRoute
   '/api': typeof ApiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api'
+  fullPaths: '/' | '/schema-visualiser' | '/api'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api'
-  id: '__root__' | '/' | '/api'
+  to: '/' | '/schema-visualiser' | '/api'
+  id: '__root__' | '/' | '/schema-visualiser' | '/api'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SchemaVisualiserRouteRoute: typeof SchemaVisualiserRouteRoute
   ApiRoute: typeof ApiRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/api'
       fullPath: '/api'
       preLoaderRoute: typeof ApiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schema-visualiser': {
+      id: '/schema-visualiser'
+      path: '/schema-visualiser'
+      fullPath: '/schema-visualiser'
+      preLoaderRoute: typeof SchemaVisualiserRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SchemaVisualiserRouteRoute: SchemaVisualiserRouteRoute,
   ApiRoute: ApiRoute,
 }
 export const routeTree = rootRouteImport

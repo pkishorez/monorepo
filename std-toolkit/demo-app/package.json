@@ -26,6 +26,7 @@
     "@tanstack/react-router-ssr-query": "1.134.13",
     "@tanstack/react-start": "1.134.13",
     "@tanstack/router-plugin": "1.134.13",
+    "@xyflow/react": "^12.9.2",
     "clsx": "2.1.1",
     "effect": "3.19.1",
     "motion": "12.23.24",
