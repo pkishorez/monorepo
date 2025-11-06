@@ -127,7 +127,6 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
           Effect.gen(this, function* () {
             this.onChanges?.();
             const updatedKey = this.keyConfig.encode(result);
-            console.log('KEY: ', { key, updatedKey, result });
             if (key !== updatedKey) {
               ops.push({ type: 'deleteKey', key });
 

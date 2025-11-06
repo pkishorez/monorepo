@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Effect, Ref } from 'effect';
 import { runtime } from '@/frontend/runtime';
 import { ApiService } from '@/frontend/api';
+import { cn } from '@/frontend/utils';
 
 export const Route = createFileRoute('/')({
   component: App,
@@ -55,13 +56,16 @@ const AppClient = () => {
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filter === 'all'
-                ? 'bg-gray-900 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-            }`}
+            className={cn(
+              `px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                filter === 'all'
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+              }`,
+              'flex gap-1 items-center',
+            )}
           >
-            All <span className="ml-1 opacity-70">({data.length})</span>
+            All <span className="ml-1 opacity-70">{data.length}</span>
           </button>
           <Delay />
         </div>
