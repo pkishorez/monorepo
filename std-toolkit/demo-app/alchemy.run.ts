@@ -4,7 +4,7 @@ import { TanStackStart } from 'alchemy/cloudflare';
 const app = await alchemy('demo-app');
 
 export const website = await TanStackStart('website', {
-  domains: ['std-demo.kishore.app'],
+  domains: ['std-todos.kishore.app'],
   bindings: {
     DYNAMO_TABLE_NAME: alchemy.secret(process.env.DYNAMO_TABLE_NAME),
     DYNAMO_REGION: alchemy.secret(process.env.DYNAMO_REGION ?? ''),
@@ -15,7 +15,7 @@ export const website = await TanStackStart('website', {
 });
 
 console.log({
-  url: website.domains,
+  url: website.domains?.[0]?.name,
   workerUrl: website.url,
 });
 

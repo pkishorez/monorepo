@@ -53,7 +53,7 @@ const AppClient = () => {
 
         <TodoInput />
 
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 justify-between mb-6">
           <button
             onClick={() => setFilter('all')}
             className={cn(
@@ -103,17 +103,18 @@ function Delay() {
   );
 
   return (
-    <div className="flex gap-2 items-center">
-      <span className="text-sm font-bold">Delay: </span>
+    <div className="flex flex-col flex-start items-stretch gap-2">
+      <span className="text-sm font-bold">
+        API Delay simulation: {value} ms
+      </span>
       <input
         type="range"
         min={0}
-        max={5000}
+        max={10000}
         step={200}
         onChange={(e) => onUpdate(Number(e.target.value))}
         value={value}
       />
-      <span className="text-sm font-bold">{value} ms</span>
     </div>
   );
 }
