@@ -1,0 +1,24 @@
+{
+  "name": "@std-toolkit/core",
+  "version": "0.0.1",
+  "dependencies": {
+    "@std-toolkit/eschema": "workspace:*",
+    "effect": "3.19.3",
+    "type-fest": "5.2.0",
+    "valibot": "^1.1.0"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.3",
+    "typescript": "5.9.3"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit"
+  },
+  "type": "module"
+}

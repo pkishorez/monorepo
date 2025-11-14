@@ -3,18 +3,18 @@
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/idb": "workspace:*",
-    "effect": "3.19.1"
+    "effect": "3.19.3"
   },
   "devDependencies": {
-    "@tanstack/react-db": "0.1.43",
+    "@tanstack/react-db": "0.1.44",
     "@total-typescript/ts-reset": "0.6.1",
-    "@tsconfig/node22": "22.0.2",
-    "@types/node": "24.10.0",
-    "@vitest/coverage-v8": "4.0.7",
+    "@tsconfig/node22": "22.0.3",
+    "@types/node": "24.10.1",
+    "@vitest/coverage-v8": "4.0.8",
     "eslint": "9.39.1",
     "type-fest": "5.2.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.7"
+    "vitest": "4.0.8"
   },
   "exports": {
     ".": {

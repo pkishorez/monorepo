@@ -1,7 +1,7 @@
-import type { Schema } from 'effect';
-import type { LastArrayElement, Simplify } from 'type-fest';
-import type { ESchema } from './eschema.js';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { Simplify } from 'type-fest';
 
+export type ResolveWrapper<Args extends any[], T> = T | ((...args: Args) => T);
 /**
  * Resolves a type that can be either a function or a value.
  * If it's a function, returns the return type. Otherwise returns the type itself.
@@ -14,145 +14,69 @@ import type { ESchema } from './eschema.js';
  * type C = ResolveType<(x: any) => boolean>; // boolean
  * ```
  */
-export type ResolveType<T> = T extends (...args: any[]) => infer R ? R : T;
+export type ResolveType<T extends ResolveWrapper<any[], any>> =
+  T extends ResolveWrapper<any[], infer T> ? T : never;
 
-export interface Metadata<V extends string> {
-  __v: V;
-}
-
-/**
- * Represents a single schema evolution with a version identifier.
- *
- * @template V - The version string literal type
- * @template S - The Effect Schema type
- */
-export interface Evolution<
-  V extends string,
-  S extends Schema.Schema<any, any, any>,
-  Old = never,
-> {
-  version: V;
-  schema: S;
-  migration: (
-    v: Old,
-    fn: (v: Schema.Schema.Type<S>) => Schema.Schema.Type<S>,
-  ) => Schema.Schema.Type<S>;
-}
-
-/**
- * Gets the latest schema type from an array of evolutions.
- * This is the main type utility that combines LastElement and ExtractSchema
- * to provide type-safe access to the most recent schema version.
- *
- * @example
- * ```typescript
- * type Evolutions = [
- *   Evolution<"v1", Schema<string>>,
- *   Evolution<"v2", Schema<number>>
- * ];
- * type Latest = LatestSchemaType<Evolutions>; // Schema<number>
- * ```
- */
-export type LatestSchemaType<
-  Evolutions extends readonly Evolution<any, any>[],
-> = LastArrayElement<Evolutions>['schema'];
-
-export type ExtendLatestEvolutionSchema<
-  TSchema extends EmptyESchema,
-  U extends Schema.Schema<any, any, never>,
-> =
-  TSchema extends ESchema<infer Evolutions>
-    ? Evolutions extends [
-        ...infer Rest,
-        infer Latest extends Evolution<any, any>,
-      ]
-      ? [...Rest, ExtendEvolutionSchema<Latest, U>]
-      : never
-    : never;
-
-type ExtendEvolutionSchema<
-  E extends Evolution<any, any>,
-  Extension extends Schema.Schema<any, any, never>,
-> =
-  E extends Evolution<infer A, infer S>
-    ? Evolution<
-        A,
-        Schema.Schema<
-          Simplify<Schema.Schema.Type<S> & Schema.Schema.Type<Extension>>,
-          Simplify<Schema.Schema.Encoded<S> & Schema.Schema.Encoded<Extension>>
-        >
-      >
-    : never;
-
-/**
- * Generic utility to extract a specific property as a union from an array of objects.
- * Given an array of objects G<A, ...>[], extracts the union A | A | ...
- *
- * @template T - Array of objects
- * @template K - Key to extract from each object
- * @example
- * ```typescript
- * type Objects = [{ version: "v1", data: string }, { version: "v2", data: number }];
- * type Versions = ExtractUnion<Objects, "version">; // "v1" | "v2"
- * ```
- */
-export type ExtractUnion<
-  T extends readonly any[],
-  K extends keyof T[number],
-> = T[number][K];
-
-/**
- * Extracts all version strings as a union type from an array of evolutions.
- *
- * @example
- * ```typescript
- * type Evolutions = [
- *   Evolution<"v1", Schema<string>>,
- *   Evolution<"v2", Schema<number>>
- * ];
- * type Versions = ExtractVersions<Evolutions>; // "v1" | "v2"
- * ```
- */
-export type ExtractVersions<T extends readonly Evolution<any, any>[]> =
-  ExtractUnion<T, 'version'>;
-
-/**
- * Helper type to ensure a version string is not already used in existing evolutions.
- * Creates a compilation error if the version already exists.
- *
- * @example
- * ```typescript
- * type Evolutions = [Evolution<"v1", Schema<string>>];
- * type Valid = EnsureUniqueVersion<"v2", Evolutions>; // "v2"
- * type Invalid = EnsureUniqueVersion<"v1", Evolutions>; // never (compilation error)
- * ```
- */
-export type EnsureUniqueVersion<
-  V extends string,
-  Evolutions extends readonly Evolution<any, any>[],
-> =
-  V extends ExtractVersions<Evolutions>
-    ? `${V} is already part of previous versions`
-    : V;
-
-/**
- * Transforms an array of evolutions into a version-to-schema mapping object.
- *
- * @example
- * ```typescript
- * type Evolutions = [
- *   Evolution<"v1", Schema<string>>,
- *   Evolution<"v2", Schema<number>>
- * ];
- * type Mapped = EvolutionsToObject<Evolutions>; // { v1: Schema<string>, v2: Schema<number> }
- * ```
- */
-export type EvolutionsToObject<T extends readonly Evolution<any, any>[]> = {
-  [K in T[number] as K extends Evolution<infer V, any>
-    ? V
-    : never]: K extends Evolution<any, infer S> ? S : never;
+export type ExcludeKeys<T, K extends string, Msg extends string = ''> = T & {
+  [P in K]?: `key '${P}' is not allowed. ${Msg}`;
 };
 
-export type EmptyESchema = ESchema<
-  Evolution<string, Schema.Schema<any, any, never>>[]
->;
+export type Schema = Record<string, StandardSchemaV1>;
+export type TypeFromSchema<S extends Schema> = Simplify<{
+  [K in keyof S]: StandardSchemaV1.InferOutput<S[K]>;
+}>;
+
+export type TypeFromEvolution<
+  E extends EmptyEvolution,
+  IncludeVersion extends boolean = true,
+> =
+  E extends Evolution<infer V, infer S>
+    ? TypeFromSchema<S> & (IncludeVersion extends true ? Record<'_v', V> : {})
+    : never;
+export type Evolution<Version extends string, S extends Schema, Old = any> = {
+  migrate: null | ((oldValue: Old) => TypeFromSchema<S>);
+  version: Version;
+  schema: S;
+};
+export type EmptyEvolution = Evolution<string, Schema>;
+
+export type EvolutionFromVersion<
+  EvolutionArr extends EmptyEvolution[],
+  Version extends string,
+> = EvolutionArr extends [
+  infer F extends EmptyEvolution,
+  ...infer Rest extends EmptyEvolution[],
+]
+  ? F['version'] extends Version
+    ? F
+    : EvolutionFromVersion<Rest, Version>
+  : never;
+export type LatestEvolution<EvolutionArr extends EmptyEvolution[]> =
+  EvolutionArr extends [infer Last]
+    ? Last
+    : EvolutionArr extends [any, ...infer R extends EmptyEvolution[]]
+      ? LatestEvolution<R>
+      : never;
+export type ModifyLastEvolutionSchema<
+  EvolutionArr extends EmptyEvolution[],
+  S extends Schema,
+> = EvolutionArr extends [infer Last extends EmptyEvolution]
+  ? [Evolution<Last['version'], S, any>]
+  : EvolutionArr extends [
+        infer First extends EmptyEvolution,
+        ...infer Rest extends EmptyEvolution[],
+      ]
+    ? [First, ...ModifyLastEvolutionSchema<Rest, S>]
+    : never;
+
+export type EvolutionSchemaMap<
+  EvolutionArr extends EmptyEvolution[],
+  Result = {},
+> = EvolutionArr extends [infer Elem extends EmptyEvolution]
+  ? Result & Record<Elem['version'], Elem['schema']>
+  : EvolutionArr extends [
+        infer Elem extends EmptyEvolution,
+        ...infer R extends EmptyEvolution[],
+      ]
+    ? EvolutionSchemaMap<R, Result & Record<Elem['version'], Elem['schema']>>
+    : never;

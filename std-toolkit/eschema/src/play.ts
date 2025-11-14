@@ -1,19 +1,29 @@
 import { Schema } from 'effect';
 import { ESchema } from './eschema.js';
+import * as v from 'valibot';
+import z from 'zod';
 
-export const eschema = ESchema.make('v1', Schema.Struct({ v1: Schema.String }))
+const eschema = ESchema.make({
+  a: Schema.standardSchemaV1(Schema.String),
+  b: z.string(),
+})
   .evolve(
     'v2',
-    Schema.Struct({ v1: Schema.String, v2: Schema.String }),
-    (old, v) => v({ ...old, v1: old.v1, v2: 'test' }),
-  )
-  .evolve(
-    'v3',
-    ({ v2 }) => Schema.Struct({ ...v2.fields, v3: Schema.String }),
-    (old) => ({ ...old, v3: 'hell' }),
+    ({ v1 }) => ({
+      ...v1,
+      test: v.picklist(['test', 'hello']),
+      v: Schema.standardSchemaV1(Schema.String),
+    }),
+    (old) => ({ ...old, test: 'test' as const, v: 'test' }),
   )
   .build();
 
-const { value } = eschema.parseSync({ __v: 'v1', v1: 'Hello World!' });
+const r = eschema.Type;
 
-console.log(value);
+const result = eschema.parse(
+  { _v: 'v1', a: 'hello', b: 'hey' },
+  { includeVersion: true },
+);
+console.log(result);
+console.log(eschema.make(result.value));
+console.log(eschema.makePartial({}));

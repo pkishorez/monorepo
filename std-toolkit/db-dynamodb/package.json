@@ -2,22 +2,24 @@
   "name": "@std-toolkit/dynamodb",
   "version": "0.0.1",
   "dependencies": {
-    "@aws-sdk/util-dynamodb": "3.925.0",
-    "@std-toolkit/eschema": "workspace:*",
+    "@aws-sdk/util-dynamodb": "3.931.0",
     "@std-toolkit/dynamodb-client": "workspace:*",
-    "effect": "3.19.1"
+    "@std-toolkit/core": "workspace:*",
+    "@std-toolkit/eschema": "workspace:*",
+    "effect": "3.19.3",
+    "valibot": "^1.1.0"
   },
   "devDependencies": {
+    "@effect/language-service": "0.55.5",
     "@total-typescript/ts-reset": "^0.6.1",
-    "@tsconfig/node22": "22.0.2",
-    "@types/node": "24.10.0",
-    "@vitest/coverage-v8": "4.0.7",
+    "@tsconfig/node22": "22.0.3",
+    "@types/node": "24.10.1",
+    "@vitest/coverage-v8": "4.0.8",
     "dotenv": "17.2.3",
     "eslint": "9.39.1",
     "type-fest": "^5.2.0",
     "typescript": "5.9.3",
-    "@effect/language-service": "0.55.2",
-    "vitest": "4.0.7"
+    "vitest": "4.0.8"
   },
   "exports": {
     ".": {

@@ -1,15 +1,12 @@
 import { ESchema } from '@std-toolkit/eschema';
+import { valibot as v } from '@std-toolkit/core/schema.js';
 import { Source } from './source.js';
 import { IDBStore, IDBEntity } from '@std-toolkit/idb';
-import { Schema } from 'effect';
 
-const eschema = ESchema.make(
-  'v1',
-  Schema.Struct({
-    key: Schema.String,
-    value: Schema.Any,
-  }),
-).build();
+const eschema = ESchema.make({
+  key: v.string(),
+  value: v.any(),
+}).build();
 
 export class IDbSource<T> extends Source<T> {
   entity: IDBEntity<string, typeof eschema, 'key', IDBStore>;

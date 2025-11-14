@@ -4,17 +4,17 @@
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
     "@standard-schema/spec": "1.0.0",
-    "effect": "3.19.1",
+    "effect": "3.19.3",
     "idb": "8.0.3"
   },
   "devDependencies": {
-    "@tsconfig/node22": "22.0.2",
-    "@types/serviceworker": "0.0.165",
-    "@vitest/coverage-v8": "4.0.7",
-    "fake-indexeddb": "^6.2.4",
-    "jsdom": "27.1.0",
+    "@tsconfig/node22": "22.0.3",
+    "@types/serviceworker": "0.0.167",
+    "@vitest/coverage-v8": "4.0.8",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "27.2.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.7"
+    "vitest": "4.0.8"
   },
   "exports": {
     ".": "./dist/index.js",

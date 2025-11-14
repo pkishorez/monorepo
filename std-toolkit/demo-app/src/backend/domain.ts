@@ -1,38 +1,38 @@
 import { Rpc, RpcGroup } from '@effect/rpc';
 import { Schema } from 'effect';
 import { ESchema } from '@std-toolkit/eschema';
+import { toEffectSchema } from '@std-toolkit/eschema/effect.js';
+import * as v from 'valibot';
 
 export class TodoError extends Schema.TaggedError<TodoError>('TodoError')(
   'TodoError',
   {
-    type: Schema.optional(Schema.String),
+    type: Schema.optional(Schema.standardSchemaV1(Schema.String)),
+    info: Schema.optional(Schema.Any),
   },
 ) {}
 
-export const TodoESchema = ESchema.make(
-  'v1',
-  Schema.Struct({
-    userId: Schema.String,
-    todoId: Schema.String,
-    updatedAt: Schema.String,
-    title: Schema.String,
-  }),
-)
+export const TodoESchema = ESchema.make({
+  userId: v.string(),
+  todoId: v.string(),
+  updatedAt: v.string(),
+  title: v.string(),
+})
   .evolve(
     'v2',
-    ({ v1 }) =>
-      Schema.Struct({
-        ...v1.fields,
-        status: Schema.Literal('complete', 'active'),
-      }),
-    (value, v) => v({ ...value, status: 'active' }),
+    ({ v1 }) => ({
+      ...v1,
+      status: v.picklist(['complete', 'active']),
+    }),
+    (value) => ({ ...value, status: 'active' as const }),
   )
+  .name('todos')
   .build();
 
 export class TodosRpc extends RpcGroup.make(
   // Rpc.make('todoStream', {
   //   payload: {
-  //     gt: Schema.optional(Schema.String),
+  //     gt: Schema.optional(Schema.standardSchemaV1(Schema.String)),
   //   },
   //   success: Schema.Array(TodoESchema.schema),
   //   error: TodoError,
@@ -42,22 +42,22 @@ export class TodosRpc extends RpcGroup.make(
     payload: {
       updatedAt: Schema.optional(Schema.String),
     },
-    success: Schema.Array(TodoESchema.schema),
+    success: Schema.Array(toEffectSchema(TodoESchema.schema)),
     error: TodoError,
   }),
   Rpc.make('todoInsert', {
     payload: {
-      todo: TodoESchema.schema,
+      todo: toEffectSchema(TodoESchema.schema),
     },
-    success: TodoESchema.schema,
+    success: toEffectSchema(TodoESchema.schema),
     error: TodoError,
   }),
   Rpc.make('todoUpdate', {
     payload: {
       todoId: Schema.String,
-      todo: Schema.partial(TodoESchema.schema),
+      todo: Schema.partial(toEffectSchema(TodoESchema.schema)),
     },
-    success: Schema.partial(TodoESchema.schema),
+    success: Schema.partial(toEffectSchema(TodoESchema.schema)),
     error: TodoError,
   }),
 ) {}

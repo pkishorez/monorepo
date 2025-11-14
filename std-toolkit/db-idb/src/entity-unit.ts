@@ -34,7 +34,7 @@ export class IDBEntityUnit<
 
     console.log('VALUE: ', value);
 
-    return this.#eschema.parseSync(value.value).value;
+    return this.#eschema.parse(value.value).value;
   }
 
   put(item: TSchema['Type']) {

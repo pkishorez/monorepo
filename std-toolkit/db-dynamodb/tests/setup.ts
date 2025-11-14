@@ -195,6 +195,7 @@ let setupError: Error | null = null;
 beforeAll(async () => {
   try {
     await setupTestDatabase();
+    await cleanTable();
     setupCompleted = true;
   } catch (error) {
     setupError = error as Error;

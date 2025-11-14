@@ -1,210 +1,154 @@
-import type { LastArrayElement } from 'type-fest';
-import type {
-  EnsureUniqueVersion,
-  Evolution,
-  EvolutionsToObject,
-  ExtendLatestEvolutionSchema,
+import {
+  EmptyEvolution,
+  EvolutionSchemaMap,
+  ExcludeKeys,
+  LatestEvolution,
   ResolveType,
+  ResolveWrapper,
+  Schema,
+  TypeFromEvolution,
+  TypeFromSchema,
 } from './types.js';
-import { Effect, identity, Schema } from 'effect';
-import { ESchemaParseError } from './errors.js';
-import { evolutionsToObject, extractVersion, resolveValue } from './util.js';
+import * as v from 'valibot';
+import { resolveValue, parse, parsePartial, extendSchema } from './utils.js';
 
-type SchemaFrom<TEvolutions extends Evolution<any, any>[]> =
-  LastArrayElement<TEvolutions>['schema'];
-type SchemaTypeFrom<TEvolutions extends Evolution<any, any>[]> =
-  Schema.Schema.Type<SchemaFrom<TEvolutions>>;
+const versionSchema = v.object({ _v: v.string() });
+export type EmptyESchema = ESchema<EmptyEvolution[]>;
+export type EmptyESchemaWithName = ESchemaWithName<string, EmptyEvolution[]>;
+export class ESchema<TEvolutions extends EmptyEvolution[]> {
+  static make<S extends Schema>(schema: S) {
+    return new Builder([{ version: 'v1', schema, migrate: null }]) as Builder<
+      [{ version: 'v1'; schema: S; migrate: null }]
+    >;
+  }
 
-export class ESchema<
-  TEvolutions extends Evolution<string, Schema.Schema<any, any, never>>[],
-> {
   #evolutions: TEvolutions;
-
   constructor(evolutions: TEvolutions) {
     this.#evolutions = evolutions;
   }
 
-  static make<
-    Version extends string,
-    Sch extends Schema.Schema<any, any, never>,
-  >(version: Version, schema: Sch) {
-    const enhancedEvolution = {
-      version,
-      schema,
-      migration: identity as () => Schema.Schema.Type<Sch>,
-    } as Evolution<Version, Sch>;
-
-    return new Builder([enhancedEvolution] as const);
+  get latest(): LatestEvolution<TEvolutions> extends never
+    ? EmptyEvolution
+    : LatestEvolution<TEvolutions> {
+    return this.#evolutions[this.#evolutions.length - 1] as any;
+  }
+  get schema(): LatestEvolution<TEvolutions>['schema'] {
+    return this.#evolutions[this.#evolutions.length - 1].schema;
   }
 
-  Type = null as SchemaTypeFrom<TEvolutions>;
-
-  get #latest() {
-    return this.#evolutions[
-      this.#evolutions.length - 1
-    ] as LastArrayElement<TEvolutions>;
+  get Type(): TypeFromEvolution<
+    LatestEvolution<TEvolutions>,
+    false
+  > extends never
+    ? any
+    : TypeFromEvolution<LatestEvolution<TEvolutions>, false> {
+    return null as any;
   }
 
-  get latestVersion(): LastArrayElement<TEvolutions>['version'] {
-    return this.#latest.version;
-  }
-  get schema(): LastArrayElement<TEvolutions>['schema'] {
-    return this.#latest.schema;
-  }
-  get schemaWithVersion(): Schema.Schema<
-    SchemaTypeFrom<TEvolutions> & { __v: string }
-  > {
-    return Schema.extend(
-      this.#evolutions[this.#evolutions.length - 1].schema,
-      Schema.Struct({
-        __v: Schema.Literal(this.#latest.version),
-      }),
-    ) as any;
-  }
-
-  extend = <Ext, I = Ext>(schema: Schema.Schema<Ext, I, never>) => {
-    const evolutions = this.#evolutions.slice(0, -1);
-    const last = this.#evolutions.at(-1)!;
-
-    return new ESchema([
-      ...evolutions,
-      { ...last, schema: Schema.extend(last.schema, schema) } as Evolution<
-        any,
-        any
-      >,
-    ] as ExtendLatestEvolutionSchema<
-      ESchema<TEvolutions>,
-      Schema.Schema<Ext, I, never>
-    >);
-  };
-
-  make: (
-    data: SchemaTypeFrom<TEvolutions>,
-  ) => SchemaTypeFrom<TEvolutions> & { __v: string } = <
-    D extends SchemaTypeFrom<TEvolutions>,
+  parse<
+    TOptions extends { includeVersion?: boolean },
+    V extends EmptyEvolution = this['latest'],
   >(
-    data: D,
-  ): D & { __v: string } => {
-    return Effect.runSync(this.makeEffect(data) as any);
-  };
+    value: unknown,
+    options?: TOptions,
+  ): {
+    value: TypeFromEvolution<
+      V,
+      TOptions['includeVersion'] extends boolean
+        ? TOptions['includeVersion']
+        : false
+    >;
+    meta: {
+      original: TEvolutions[number]['version'];
+      latest: LatestEvolution<TEvolutions>['version'];
+    };
+  } {
+    // Get version of value provided.
+    const { _v } = v.parse(versionSchema, value);
 
-  makeEffect(data: SchemaTypeFrom<TEvolutions>) {
-    const v = Schema.decodeUnknown(this.schema)(data);
-    return v.pipe(
-      Effect.map(
-        (v: any) =>
-          ({
-            ...v,
-            __v: this.#latest.version,
-          }) as SchemaTypeFrom<TEvolutions> & { __v: string },
-      ),
-    );
+    // Find the evolution.
+    const evolutionIndex = this.#evolutions.findIndex((v) => v.version === _v);
+    const originalEvolution = this.#evolutions[evolutionIndex];
+    if (evolutionIndex === -1 || !originalEvolution) {
+      throw new Error('Evolution not found.');
+    }
+
+    const original: any = parse(originalEvolution.schema, value);
+    let result = structuredClone(original);
+    for (
+      let i = evolutionIndex + 1, evolution = this.#evolutions[i];
+      i < this.#evolutions.length;
+      i++, evolution = this.#evolutions[i]
+    ) {
+      result = evolution.migrate?.(result) ?? result;
+    }
+
+    return {
+      value: {
+        ...result,
+        ...((options?.includeVersion
+          ? { _v: this.latest.version }
+          : {}) as any),
+      },
+      meta: {
+        original: _v,
+        latest: this.latest.version,
+      },
+      // original,
+    };
   }
 
-  makePartial = <D extends Partial<SchemaTypeFrom<TEvolutions>>>(
-    data: D,
-  ): Partial<SchemaTypeFrom<TEvolutions>> => {
-    return Effect.runSync(this.makePartialEffect(data) as any);
-  };
+  extend<S extends Schema>(schema: S) {
+    return new ESchema(extendSchema<TEvolutions, S>(this.#evolutions, schema));
+  }
 
-  makePartialEffect = <D extends Partial<SchemaTypeFrom<TEvolutions>>>(
-    data: D,
-  ) => {
-    return Schema.decodeUnknown(Schema.partial(this.schema))(data).pipe(
-      Effect.map(
-        (v) =>
-          ({
-            ...v,
-            __v: this.#latest.version,
-          }) as Partial<D> & { __v: string },
-      ),
-    );
-  };
-
-  parseSync: (
-    data: unknown,
-    options?: { onExcessProperty?: 'ignore' | 'preserve' | 'error' },
-  ) => {
-    value: SchemaTypeFrom<TEvolutions>;
-    meta: {
-      oldVersion: string;
-      newVersion: string;
-    };
-  } = (data, options) => Effect.runSync(this.parse(data, options));
-
-  parse: (
-    data: unknown,
-    options?: { onExcessProperty?: 'ignore' | 'preserve' | 'error' },
-  ) => Effect.Effect<
-    {
-      value: SchemaTypeFrom<TEvolutions>;
-      meta: {
-        oldVersion: string;
-        newVersion: string;
-      };
-    },
-    ESchemaParseError
-  > = (data, { onExcessProperty = 'ignore' } = {}) => {
-    const evolutions = this.#evolutions;
-
-    return Effect.gen(this, function* () {
-      // Step 1: Extract version from unknown data using schema
-      const version = yield* extractVersion(data, evolutions);
-
-      // Step 2: Find the evolution for this version
-      const evolutionIndex = evolutions.findIndex(
-        (evo) => evo.version === version,
-      );
-      if (evolutionIndex === -1) {
-        return yield* Effect.fail(
-          new ESchemaParseError({
-            msg: `No evolution found for version "${version}". Available versions: ${evolutions.map((e) => e.version).join(', ')}`,
-          }),
-        );
-      }
-
-      // Step 3: Parse the data with the found evolution's schema
-      const evolution = evolutions[evolutionIndex];
-      let currentValue = yield* Schema.decodeUnknown(evolution.schema, {
-        onExcessProperty,
-      })(data).pipe(
-        Effect.mapError(
-          (err) =>
-            new ESchemaParseError({
-              msg: `Failed to parse data with version "${version}": ${err}`,
-            }),
-        ),
-      );
-
-      // Step 4: Apply migrations from found version to latest
-      for (let i = evolutionIndex + 1; i < evolutions.length; i++) {
-        const nextEvolution = evolutions[i];
-        try {
-          currentValue = (nextEvolution.migration as any)(
-            currentValue,
-            (v: any) => v,
-          );
-        } catch (error) {
-          return yield* Effect.fail(
-            new ESchemaParseError({
-              msg: `Migration failed from "${evolutions[i - 1].version}" to "${nextEvolution.version}": ${error instanceof Error ? error.message : String(error)}`,
-            }),
-          );
-        }
-      }
-
-      return {
-        value: currentValue as SchemaTypeFrom<TEvolutions>,
-        meta: {
-          oldVersion: evolution.version,
-          newVersion: this.#latest.version,
-        },
-      };
-    });
-  };
+  make(value: this['Type']) {
+    return this.parse(
+      {
+        ...value,
+        _v: this.latest.version,
+      },
+      { includeVersion: true },
+    ).value;
+  }
+  makePartial(
+    value: Partial<this['Type']>,
+  ): Partial<TypeFromEvolution<LatestEvolution<TEvolutions>>> {
+    return {
+      ...parsePartial(this.latest.schema, value),
+      _v: this.latest.version,
+    } as any;
+  }
 }
 
-class Builder<TEvolutions extends Evolution<any, any>[]> {
+export class ESchemaWithName<
+  TName extends string,
+  TEvolutions extends EmptyEvolution[],
+> extends ESchema<TEvolutions> {
+  name: string;
+  evolutions: TEvolutions;
+  constructor(name: TName, evolutions: TEvolutions) {
+    super(evolutions);
+    this.name = name;
+    this.evolutions = evolutions;
+  }
+
+  extend<S extends Schema, Evolutions extends EmptyEvolution[] = TEvolutions>(
+    schema: S,
+  ) {
+    const newEvolutions = extendSchema<Evolutions, S>(
+      this.evolutions as any,
+      schema,
+    );
+    return new ESchemaWithName(this.name, newEvolutions);
+  }
+
+  get eschema() {
+    return new ESchema(this.evolutions);
+  }
+}
+
+class Builder<TEvolutions extends EmptyEvolution[]> {
   #evolutions: TEvolutions;
 
   constructor(evolutions: TEvolutions) {
@@ -212,43 +156,54 @@ class Builder<TEvolutions extends Evolution<any, any>[]> {
   }
 
   evolve<
-    Version extends string,
-    SchemaOrFn extends
-      | Schema.Schema<any, any, never>
-      | ((
-          obj: EvolutionsToObject<TEvolutions>,
-        ) => Schema.Schema<any, any, never>),
+    V extends string,
+    S extends Schema,
+    Input extends ResolveWrapper<
+      [EvolutionSchemaMap<TEvolutions>],
+      ExcludeKeys<S, '_v', 'It is used internally.'>
+    >,
   >(
-    version: EnsureUniqueVersion<Version, TEvolutions>,
-    schemaOrFn: SchemaOrFn,
-    migration: (
-      value: Schema.Schema.Type<LastArrayElement<TEvolutions>['schema']>,
-      v: (
-        val: Schema.Schema.Type<ResolveType<SchemaOrFn>>,
-      ) => Schema.Schema.Type<ResolveType<SchemaOrFn>>,
-    ) => Schema.Schema.Type<ResolveType<SchemaOrFn>>,
-  ): Builder<[...TEvolutions, Evolution<Version, ResolveType<SchemaOrFn>>]> {
-    const evolutionsObj = evolutionsToObject(this.#evolutions);
-    const resolvedSchema =
-      typeof schemaOrFn === 'function' && !Schema.isSchema(schemaOrFn)
-        ? resolveValue(schemaOrFn, evolutionsObj)
-        : resolveValue(schemaOrFn);
-
-    const newEvolution = {
-      version,
-      schema: resolvedSchema,
-      migration,
-    } as Evolution<Version, ResolveType<SchemaOrFn>>;
-
-    const newEvolutions = [...this.#evolutions, newEvolution] as unknown as [
-      ...TEvolutions,
-      Evolution<Version, ResolveType<SchemaOrFn>>,
-    ];
-
-    return new Builder(newEvolutions);
+    version: V extends TEvolutions[number]['version']
+      ? `${V} is already used.`
+      : V,
+    schema: Input,
+    migrate: (
+      value: TypeFromSchema<LatestEvolution<TEvolutions>['schema']>,
+    ) => TypeFromSchema<ResolveType<Input>>,
+  ) {
+    const schemaMap = this.#evolutions.reduce(
+      (agg, v) => ({ ...agg, [v.version]: v.schema }),
+      {},
+    );
+    const resultSchema = resolveValue(schema, [schemaMap]);
+    return new Builder<
+      [
+        ...TEvolutions,
+        {
+          migrate: (
+            value: TypeFromSchema<LatestEvolution<TEvolutions>['schema']>,
+          ) => TypeFromSchema<ResolveType<Input>>;
+          version: V;
+          schema: ResolveType<Input>;
+        },
+      ]
+    >([
+      ...this.#evolutions,
+      {
+        version: version as any,
+        schema: resultSchema,
+        migrate,
+      },
+    ]);
   }
 
-  build(): ESchema<TEvolutions> {
+  name<Name extends string>(name: Name) {
+    return {
+      build: () => new ESchemaWithName(name, this.#evolutions),
+    };
+  }
+
+  build() {
     return new ESchema(this.#evolutions);
   }
 }

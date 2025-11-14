@@ -2,17 +2,18 @@
   "name": "@std-toolkit/std-db-collection",
   "version": "0.0.1",
   "dependencies": {
+    "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/idb": "workspace:*",
-    "effect": "3.19.1",
+    "effect": "3.19.3",
     "ulid": "^3.0.1"
   },
   "devDependencies": {
-    "@tanstack/react-db": "0.1.43",
-    "@tsconfig/node22": "22.0.2",
-    "@effect/language-service": "0.55.2",
+    "@tanstack/react-db": "0.1.44",
+    "@tsconfig/node22": "22.0.3",
+    "@effect/language-service": "0.55.5",
     "typescript": "5.9.3",
-    "vitest": "4.0.7"
+    "vitest": "4.0.8"
   },
   "peerDependencies": {
     "@tanstack/react-db": ">0.1.36"

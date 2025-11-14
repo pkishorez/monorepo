@@ -1,6 +1,6 @@
 import { todoCollection } from '@/frontend/collection';
 import { cn } from '@/frontend/utils';
-import { AnimatePresence, HTMLMotionProps, motion } from 'motion/react';
+import { HTMLMotionProps, motion } from 'motion/react';
 
 interface OptimisticVisualisationProps {
   _optimisticState: Exclude<

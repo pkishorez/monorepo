@@ -2,7 +2,7 @@ import { createStdCollection } from '@std-toolkit/std-db-collection';
 import { IDbSource } from '@std-toolkit/std-db-collection';
 import { IDBStore } from '@std-toolkit/idb';
 import { TodoESchema } from '../backend/domain';
-import { Console, Effect } from 'effect';
+import { Effect } from 'effect';
 import { ApiService } from './api';
 import { runtime } from './runtime';
 
@@ -18,7 +18,7 @@ const store = await Effect.runPromise(
   ),
 );
 export const todoCollection = createStdCollection({
-  eschema: TodoESchema,
+  eschema: TodoESchema.eschema,
   keyConfig: {
     deps: ['todoId'],
     encode: ({ todoId }) => todoId,
@@ -43,9 +43,10 @@ export const todoCollection = createStdCollection({
 
   getUpdates: Effect.fn(function* (todo) {
     const { client } = yield* ApiService;
+    console.log('UPDATE: ', client);
     const results = yield* client
       .todoQuery({ updatedAt: todo?.updatedAt })
-      .pipe(Effect.onError(Console.error), Effect.orDie);
+      .pipe(Effect.orDieWith(console.error));
 
     return results;
   }, Effect.provide(runtime)),

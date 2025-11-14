@@ -1,7 +1,8 @@
 import { Schema } from 'effect';
 
 export const metaSchema = Schema.Struct({
-  __v: Schema.String,
-  __i: Schema.Number,
-  __d: Schema.Boolean,
+  _e: Schema.String,
+  _v: Schema.String,
+  _i: Schema.Number,
+  _d: Schema.Boolean,
 });

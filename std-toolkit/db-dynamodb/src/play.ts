@@ -1,9 +1,10 @@
 /* eslint-disable no-console */
-import { Effect, Schema } from 'effect';
+import * as v from 'valibot';
+import { Effect } from 'effect';
 import { DynamoTable } from './table/table.js';
 import { DynamoEntity } from './entity/entity.js';
-import { ESchema } from '@monorepo/eschema';
 import { filterExpr } from './table/expr/condition.js';
+import { ESchema } from '@std-toolkit/eschema';
 
 const table = DynamoTable.make({
   endpoint: 'http://localhost:8090',
@@ -21,15 +22,14 @@ const table = DynamoTable.make({
 
 const entity = DynamoEntity.make(table)
   .eschema(
-    ESchema.make(
-      'v1',
-      Schema.Struct({
-        id: Schema.String,
-        name: Schema.String,
-        age: Schema.Number,
-        comment: Schema.String,
-      }),
-    ).build(),
+    ESchema.make({
+      id: v.string(),
+      name: v.string(),
+      age: v.number(),
+      comment: v.string(),
+    })
+      .name('post')
+      .build(),
   )
   .primary({
     pk: { deps: [], derive: () => ['USER'] },

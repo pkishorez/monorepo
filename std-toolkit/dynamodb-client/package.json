@@ -5,15 +5,15 @@
     "aws4fetch": "1.0.20"
   },
   "devDependencies": {
-    "@aws-sdk/client-dynamodb": "3.925.0",
-    "@effect/platform": "0.93.0",
+    "@aws-sdk/client-dynamodb": "3.931.0",
+    "@effect/platform": "0.93.2",
     "@effect/platform-node": "0.100.0",
-    "@tsconfig/node22": "22.0.2",
-    "@types/node": "24.10.0",
-    "effect": "3.19.1",
+    "@tsconfig/node22": "22.0.3",
+    "@types/node": "24.10.1",
+    "effect": "3.19.3",
     "eslint": "9.39.1",
     "typescript": "5.9.3",
-    "vitest": "4.0.7"
+    "vitest": "4.0.8"
   },
   "exports": {
     ".": "./dist/index.js",

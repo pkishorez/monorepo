@@ -1,4 +1,3 @@
-import { EmptyESchema } from '@monorepo/eschema';
 import { DynamoTable } from '../table/table.js';
 import {
   IndexKeyDerivation,
@@ -7,9 +6,9 @@ import {
   EmptyIndexDerivation,
   IndexKeyDerivationValue,
 } from './types.js';
-import { Effect, Schema } from 'effect';
+import { Effect } from 'effect';
 import { deriveIndexKeyValue } from './utils.js';
-import { metaSchema } from './schema.js';
+import { metaSchema } from '@std-toolkit/core/schema.js';
 import { Except, Simplify } from 'type-fest';
 import { SortKeyparameter } from '../table/expr/key-condition.js';
 import { TGetItemInput, TQueryInput } from '../table/types.js';
@@ -25,6 +24,8 @@ import {
 } from '../table/expr/condition.js';
 import { updateExpr, compileUpdateExpr } from '../table/expr/update.js';
 import { ItemAlreadyExist, NoItemToUpdate } from './errors.js';
+import { EmptyEvolution } from '@std-toolkit/eschema/types.js';
+import { EmptyESchemaWithName } from '@std-toolkit/eschema/eschema.js';
 
 export class DynamoEntity<
   TSecondaryDerivationMap extends Record<
@@ -32,12 +33,12 @@ export class DynamoEntity<
     EmptyIndexDerivation & { indexName: keyof TTable['secondaryIndexMap'] }
   >,
   TTable extends DynamoTable<any, any>,
-  TSchema extends EmptyESchema,
+  TSchema extends EmptyESchemaWithName,
   TPrimaryDerivation extends EmptyIndexDerivation,
 > {
   static make<TT extends DynamoTable<any, any>>(table: TT) {
     return {
-      eschema<TS extends EmptyESchema>(eschema: TS) {
+      eschema<TS extends EmptyESchemaWithName>(eschema: TS) {
         return {
           primary<
             TPkKeys extends keyof TS['Type'],
@@ -97,11 +98,11 @@ export class DynamoEntity<
             meta: typeof metaSchema.Type;
           };
           return Item
-            ? this.#eschema.parse(Item).pipe(
+            ? Effect.succeed(this.#eschema.parse(Item).value).pipe(
                 Effect.map((item) => ({
                   item: {
-                    value: item.value,
-                    meta: Schema.decodeUnknownSync(metaSchema)(Item),
+                    value: item,
+                    meta: metaSchema.parse(Item),
                   } as ItemType | null,
                   ...rest,
                 })),
@@ -115,19 +116,21 @@ export class DynamoEntity<
     value: TSchema['Type'],
     options?: {
       debug?: boolean;
+      ignoreIfAlreadyPresent?: boolean;
       condition?: ConditionOperation<TSchema['Type']>;
     },
   ) {
+    value = this.#eschema.make(value);
     return Effect.gen(this, function* () {
-      value = yield* Schema.decodeUnknown(Schema.partial(this.#eschema.schema))(
-        value,
-      );
+      value = this.#eschema.parse(value).value;
       value = {
-        ...value,
+        ...(value as any),
         ...metaSchema.make({
-          __v: this.#eschema.latestVersion,
-          __i: 0,
-          __d: false,
+          _u: new Date().toISOString(),
+          _e: this.#eschema.name,
+          _v: (this.#eschema.latest as EmptyEvolution).version,
+          _i: 0,
+          _d: false,
         }),
       };
       const primaryIndex = this.#derivePrimaryIndex(value);
@@ -137,7 +140,7 @@ export class DynamoEntity<
           conditionExpr(($) =>
             $.and(
               ...[
-                // options?.condition,
+                options?.condition,
                 $.attributeNotExists(this.#table.primary.pk),
                 $.attributeNotExists(this.#table.primary.sk),
               ].filter(Boolean),
@@ -148,7 +151,7 @@ export class DynamoEntity<
       return yield* this.#table
         .putItem(
           {
-            ...value,
+            ...(value as any),
             [this.#table.primary.pk]: primaryIndex.pk,
             [this.#table.primary.sk]: primaryIndex.sk,
             ...indexMap,
@@ -165,11 +168,12 @@ export class DynamoEntity<
         .pipe(
           Effect.map((output) => ({
             ...output,
-            item: this.#eschema.parseSync(value).value as TSchema['Type'],
+            item: this.#eschema.parse(value).value as TSchema['Type'],
           })),
-          Effect.catchTag(
-            'ConditionalCheckFailedException',
-            () => new ItemAlreadyExist(),
+          Effect.catchTag('ConditionalCheckFailedException', (e) =>
+            options?.ignoreIfAlreadyPresent
+              ? Effect.die(e)
+              : new ItemAlreadyExist(),
           ),
         );
     });
@@ -190,16 +194,14 @@ export class DynamoEntity<
           (key) =>
             (this.#primaryDerivation.pk.deps.includes(key) ||
               this.#primaryDerivation.sk.deps.includes(key)) &&
-            value[key] !== keyValue[key],
+            (value as any)[key] !== keyValue[key],
         )
       ) {
         return yield* Effect.dieMessage(
           'You cannot update key that is already part of primary key.',
         );
       }
-      value = yield* Schema.decodeUnknown(Schema.partial(this.#eschema.schema))(
-        value,
-      );
+      value = (this.#eschema.makePartial as any)(value);
       const pk = deriveIndexKeyValue(this.#primaryDerivation['pk'], keyValue);
       const sk = deriveIndexKeyValue(this.#primaryDerivation['sk'], keyValue);
 
@@ -207,18 +209,19 @@ export class DynamoEntity<
 
       const condition = conditionExpr(($) =>
         $.and(
-          ...[
+          ...([
             options?.condition,
-            $.cond('__v', '=', this.#eschema.latestVersion),
-            options?.meta && $.cond('__i', '=', options.meta.__i),
-          ].filter((v) => !!v),
+            $.cond('_v', '=', (this.#eschema.latest as EmptyEvolution).version),
+            options?.meta && $.cond('_i', '=', options.meta._i),
+          ].filter((v) => !!v) as any),
         ),
       );
       const update = updateExpr<any>(($) => [
         ...Object.entries({ ...value, ...indexMap }).map(([key, v]) =>
           $.set(key, v),
         ),
-        $.set('__i', $.addOp('__i', 1)),
+        $.set('_i', $.addOp('_i', 1)),
+        $.set('_u', new Date().toISOString()),
       ]);
 
       return yield* this.#table
@@ -276,10 +279,8 @@ export class DynamoEntity<
           return {
             ...rest,
             items: Items.map((item) => ({
-              value: this.#eschema.parseSync(item, {
-                onExcessProperty: 'preserve',
-              }).value,
-              meta: Schema.decodeUnknownSync(metaSchema)(item),
+              value: this.#eschema.parse(item).value as TSchema['Type'],
+              meta: metaSchema.parse(item),
             })),
           };
         }),
@@ -326,10 +327,8 @@ export class DynamoEntity<
               return {
                 ...rest,
                 items: Items.map((item) => ({
-                  value: this.#eschema.parseSync(item, {
-                    onExcessProperty: 'preserve',
-                  }).value as TSchema['Type'],
-                  meta: Schema.decodeUnknownSync(metaSchema)(item),
+                  value: this.#eschema.parse(item).value as TSchema['Type'],
+                  meta: metaSchema.parse(item),
                 })),
               };
             }),
@@ -391,7 +390,7 @@ export class DynamoEntity<
 
 class EntityIndexDerivations<
   TTable extends DynamoTable<any, any>,
-  TSchema extends EmptyESchema,
+  TSchema extends EmptyESchemaWithName,
   TPrimaryDerivation extends IndexDerivation<any, any>,
   TSecondaryDerivationMap extends Record<
     string,
@@ -418,8 +417,8 @@ class EntityIndexDerivations<
   index<
     Alias extends string,
     IndexName extends keyof TTable['secondaryIndexMap'],
-    TPkKeys extends keyof TSchema['Type'],
-    TSkKeys extends keyof TSchema['Type'],
+    TPkKeys extends keyof TSchema['Type'] | '_u',
+    TSkKeys extends keyof TSchema['Type'] | '_u',
   >(
     indexName: IndexName,
     alias: Alias,

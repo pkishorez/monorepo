@@ -1,4 +1,3 @@
-import { EmptyESchema } from '@std-toolkit/eschema';
 import {
   CollectionConfig,
   createCollection,
@@ -10,6 +9,7 @@ import { MemorySource } from './source/memory.js';
 import { OptimisticEntry, SmartOptimistic } from './smart-optimistic.js';
 import { BulkOp } from './types.js';
 import { periodicSync } from './utils.js';
+import { EmptyESchema } from '@std-toolkit/eschema';
 
 export const createStdCollection = <
   TSchema extends EmptyESchema,
@@ -66,7 +66,7 @@ export const createStdCollection = <
     try {
       begin();
       values.forEach((v) => {
-        write({ type: 'update', value: v });
+        write({ type: 'update', value: v as any });
       });
     } finally {
       commit();
@@ -124,11 +124,13 @@ export const createStdCollection = <
       Effect.gen(function* () {
         const ops: BulkOp[] = [];
         if (getUpdates) {
+          console.log('BEFORE::');
           const results = (yield* getUpdates(syncVars.latest)).toSorted(
             compare,
           );
+          console.log('VALUES: ', results);
           if (results[results.length - 1]) {
-            syncVars.latest = results[results.length - 1];
+            syncVars.latest = results[results.length - 1] ?? null;
           }
           for (const v of results) {
             yield* Effect.promise(() => source.set(keyConfig.encode(v), v));
@@ -163,7 +165,7 @@ export const createStdCollection = <
               await sync();
             }),
             Duration.seconds(2),
-            Duration.seconds(5),
+            Duration.seconds(10000),
           ),
         );
         syncVars.retrigger = () => Effect.runPromise(result.retrigger);
@@ -189,7 +191,7 @@ export const createStdCollection = <
 
   return {
     Type: null as TSchema['Type'],
-    TypeWithOptimistic: null as CollectionType,
+    TypeWithOptimistic: null as any as CollectionType,
     collection: tanstackCollection,
     insert: (value: TSchema['Type']) => smartOptimistic.insert(value),
     update: (

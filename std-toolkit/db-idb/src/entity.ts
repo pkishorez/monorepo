@@ -37,7 +37,7 @@ export class IDBEntity<
     );
 
     return value.map(
-      (v) => this.#eschema.parseSync(v.value).value,
+      (v) => this.#eschema.parse(v.value).value,
     ) as TSchema['Type'][];
   }
 
@@ -50,7 +50,7 @@ export class IDBEntity<
 
     return this.#store.put({
       entity: this.#name,
-      id: value[this.#key],
+      id: value[this.#key] as string,
       value,
     });
   }
