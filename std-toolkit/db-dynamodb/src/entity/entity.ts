@@ -6,14 +6,19 @@ import {
   EmptyIndexDerivation,
   IndexKeyDerivationValue,
 } from './types.js';
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 import { deriveIndexKeyValue } from './utils.js';
-import { metaSchema } from '@std-toolkit/core/schema.js';
+import {
+  BroadcastSchemaType,
+  DerivableMeta,
+  metaSchema,
+} from '@std-toolkit/core/schema.js';
 import { Except, Simplify } from 'type-fest';
 import { SortKeyparameter } from '../table/expr/key-condition.js';
 import { TGetItemInput, TQueryInput } from '../table/types.js';
 import {
   fromDiscriminatedGeneric,
+  marshall,
   toDiscriminatedGeneric,
 } from '../table/utils.js';
 import { buildExpr } from '../table/expr/expr.js';
@@ -25,7 +30,12 @@ import {
 import { updateExpr, compileUpdateExpr } from '../table/expr/update.js';
 import { ItemAlreadyExist, NoItemToUpdate } from './errors.js';
 import { EmptyEvolution } from '@std-toolkit/eschema/types.js';
-import { EmptyESchemaWithName } from '@std-toolkit/eschema/eschema.js';
+import { EmptyStdESchema } from '@std-toolkit/eschema/eschema-std.js';
+import {
+  BroadcastService,
+  BroadcastTo,
+  ConnectionService,
+} from '@std-toolkit/core/broadcast.js';
 
 export class DynamoEntity<
   TSecondaryDerivationMap extends Record<
@@ -33,12 +43,12 @@ export class DynamoEntity<
     EmptyIndexDerivation & { indexName: keyof TTable['secondaryIndexMap'] }
   >,
   TTable extends DynamoTable<any, any>,
-  TSchema extends EmptyESchemaWithName,
+  TSchema extends EmptyStdESchema,
   TPrimaryDerivation extends EmptyIndexDerivation,
 > {
   static make<TT extends DynamoTable<any, any>>(table: TT) {
     return {
-      eschema<TS extends EmptyESchemaWithName>(eschema: TS) {
+      eschema<TS extends EmptyStdESchema>(eschema: TS) {
         return {
           primary<
             TPkKeys extends keyof TS['Type'],
@@ -101,9 +111,10 @@ export class DynamoEntity<
             ? Effect.succeed(this.#eschema.parse(Item).value).pipe(
                 Effect.map((item) => ({
                   item: {
+                    _tag: 'std-toolkit/broadcast',
                     value: item,
                     meta: metaSchema.parse(Item),
-                  } as ItemType | null,
+                  } as BroadcastSchemaType<TSchema['Type']> | null,
                   ...rest,
                 })),
               )
@@ -115,61 +126,40 @@ export class DynamoEntity<
   insert(
     value: TSchema['Type'],
     options?: {
+      broadcast?: BroadcastTo['to'];
       debug?: boolean;
       ignoreIfAlreadyPresent?: boolean;
       condition?: ConditionOperation<TSchema['Type']>;
     },
   ) {
-    value = this.#eschema.make(value);
     return Effect.gen(this, function* () {
-      value = this.#eschema.parse(value).value;
-      value = {
-        ...(value as any),
-        ...metaSchema.make({
-          _u: new Date().toISOString(),
-          _e: this.#eschema.name,
-          _v: (this.#eschema.latest as EmptyEvolution).version,
-          _i: 0,
-          _d: false,
-        }),
-      };
-      const primaryIndex = this.#derivePrimaryIndex(value);
-      const indexMap = this.#deriveSecondaryIndexes(value);
-      const expr = buildExpr({
-        condition: compileConditionExpr(
-          conditionExpr(($) =>
-            $.and(
-              ...[
-                options?.condition,
-                $.attributeNotExists(this.#table.primary.pk),
-                $.attributeNotExists(this.#table.primary.sk),
-              ].filter(Boolean),
-            ),
-          ),
-        ),
-      });
+      const { item, expr } = this.#insertOptions(value, options);
       return yield* this.#table
-        .putItem(
-          {
-            ...(value as any),
-            [this.#table.primary.pk]: primaryIndex.pk,
-            [this.#table.primary.sk]: primaryIndex.sk,
-            ...indexMap,
-          },
-          {
-            ...expr,
-            debug: options?.debug ?? false,
-            ReturnItemCollectionMetrics: 'SIZE',
-            ReturnValues: 'ALL_OLD',
-            ReturnConsumedCapacity: 'TOTAL',
-            ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
-          },
-        )
+        .putItem(item, {
+          ...expr,
+          debug: options?.debug ?? false,
+          ReturnItemCollectionMetrics: 'SIZE',
+          ReturnValues: 'ALL_OLD',
+          ReturnConsumedCapacity: 'TOTAL',
+          ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+        })
         .pipe(
           Effect.map((output) => ({
             ...output,
-            item: this.#eschema.parse(value).value as TSchema['Type'],
+            item: {
+              _tag: 'std-toolkit/broadcast',
+              value: this.#eschema.parse(this.#eschema.make(value)).value,
+              meta: metaSchema.make({
+                _u: new Date().toISOString(),
+                _e: this.#eschema.name,
+                _v: this.#eschema.latest.version,
+                _i: 0,
+                _d: false,
+              }),
+            } as BroadcastSchemaType<TSchema['Type']>,
           })),
+          Effect.onError(Effect.logError),
+          Effect.tap((v) => this.#broadcast(v.item, options?.broadcast)),
           Effect.catchTag('ConditionalCheckFailedException', (e) =>
             options?.ignoreIfAlreadyPresent
               ? Effect.die(e)
@@ -179,12 +169,125 @@ export class DynamoEntity<
     });
   }
 
+  #insertOptions(
+    value: TSchema['Type'],
+    options?: {
+      debug?: boolean;
+      ignoreIfAlreadyPresent?: boolean;
+      condition?: ConditionOperation<TSchema['Type']>;
+    },
+  ) {
+    value = this.#eschema.make(value);
+    value = this.#eschema.parse(value).value;
+    value = {
+      ...(value as any),
+      ...metaSchema.make({
+        _u: new Date().toISOString(),
+        _e: this.#eschema.name,
+        _v: (this.#eschema.latest as EmptyEvolution).version,
+        _i: 0,
+        _d: false,
+      }),
+    };
+    const primaryIndex = this.#derivePrimaryIndex(value);
+    const indexMap = this.#deriveSecondaryIndexes(value);
+    const expr = buildExpr({
+      condition: compileConditionExpr(
+        conditionExpr(($) =>
+          $.and(
+            ...[
+              options?.condition,
+              $.attributeNotExists(this.#table.primary.pk),
+              $.attributeNotExists(this.#table.primary.sk),
+            ].filter(Boolean),
+          ),
+        ),
+      ),
+    });
+    return {
+      item: {
+        ...(value as any),
+        [this.#table.primary.pk]: primaryIndex.pk,
+        [this.#table.primary.sk]: primaryIndex.sk,
+        ...indexMap,
+      },
+      expr,
+    };
+  }
+
+  opInsert(
+    value: TSchema['Type'],
+    options?: {
+      debug?: boolean;
+      ignoreIfAlreadyPresent?: boolean;
+      condition?: ConditionOperation<TSchema['Type']>;
+    },
+  ) {
+    const { item, expr } = this.#insertOptions(value, options);
+    return this.#table.opPutItem(item, {
+      ...expr,
+      Item: marshall(value),
+      debug: options?.debug ?? false,
+      ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+    });
+  }
+
   update(
     keyValue: IndexDerivationValue<TPrimaryDerivation>,
     value: Partial<TSchema['Type']>,
     options?: {
+      broadcast?: BroadcastTo['to'];
       debug?: boolean;
-      meta?: typeof metaSchema.Type;
+      meta?: Partial<typeof metaSchema.Type>;
+      condition?: ConditionOperation<TSchema['Type']>;
+    },
+  ) {
+    return Effect.gen(this, function* () {
+      const { pk, sk, expr } = yield* this.#updateOptions(
+        keyValue,
+        value,
+        options,
+      );
+      return yield* this.#table
+        .updateItem(
+          { pk, sk },
+          {
+            ...expr,
+            debug: options?.debug ?? false,
+            ReturnValues: 'ALL_NEW',
+            ReturnConsumedCapacity: 'TOTAL',
+            ReturnItemCollectionMetrics: 'SIZE',
+            ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+          },
+        )
+        .pipe(
+          Effect.map((output) => ({
+            ...output,
+            item: {
+              _tag: 'std-toolkit/broadcast',
+              value,
+              meta: metaSchema.parse(output.Attributes),
+            } as BroadcastSchemaType<TSchema['Type']>,
+          })),
+          Effect.tap((v) => this.#broadcast(v.item, options?.broadcast)),
+          Effect.mapError((err) => {
+            if (err._tag === 'ConditionalCheckFailedException') {
+              if (!err.Item) {
+                return new NoItemToUpdate();
+              }
+            }
+            return err;
+          }),
+        );
+    });
+  }
+
+  #updateOptions(
+    keyValue: IndexDerivationValue<TPrimaryDerivation>,
+    value: Partial<TSchema['Type']>,
+    options?: {
+      debug?: boolean;
+      meta?: Partial<typeof metaSchema.Type>;
       condition?: ConditionOperation<TSchema['Type']>;
     },
   ) {
@@ -212,7 +315,7 @@ export class DynamoEntity<
           ...([
             options?.condition,
             $.cond('_v', '=', (this.#eschema.latest as EmptyEvolution).version),
-            options?.meta && $.cond('_i', '=', options.meta._i),
+            options?.meta?._i && $.cond('_i', '=', options.meta._i),
           ].filter((v) => !!v) as any),
         ),
       );
@@ -224,31 +327,41 @@ export class DynamoEntity<
         $.set('_u', new Date().toISOString()),
       ]);
 
-      return yield* this.#table
-        .updateItem(
-          { pk, sk },
-          {
-            ...buildExpr({
-              update: compileUpdateExpr(update),
-              condition: compileConditionExpr(condition),
-            }),
-            debug: options?.debug ?? false,
-            ReturnConsumedCapacity: 'TOTAL',
-            ReturnItemCollectionMetrics: 'SIZE',
-            ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
-          },
-        )
-        .pipe(
-          Effect.map((output) => ({ ...output, item: value })),
-          Effect.mapError((err) => {
-            if (err._tag === 'ConditionalCheckFailedException') {
-              if (!err.Item) {
-                return new NoItemToUpdate();
-              }
-            }
-            return err;
-          }),
-        );
+      return {
+        pk,
+        sk,
+        expr: buildExpr({
+          update: compileUpdateExpr(update),
+          condition: compileConditionExpr(condition),
+        }),
+      };
+    });
+  }
+
+  opUpdate(
+    keyValue: IndexDerivationValue<TPrimaryDerivation>,
+    value: Partial<TSchema['Type']>,
+    options?: {
+      debug?: boolean;
+      meta?: Partial<typeof metaSchema.Type>;
+      condition?: ConditionOperation<TSchema['Type']>;
+    },
+  ) {
+    return Effect.gen(this, function* () {
+      const { pk, sk, expr } = yield* this.#updateOptions(
+        keyValue,
+        value,
+        options,
+      );
+      return this.#table.opUpdateItem(
+        { pk, sk },
+        {
+          ...expr,
+          UpdateExpression: expr.UpdateExpression!,
+          debug: options?.debug ?? false,
+          ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+        },
+      );
     });
   }
 
@@ -279,9 +392,10 @@ export class DynamoEntity<
           return {
             ...rest,
             items: Items.map((item) => ({
+              _tag: 'std-toolkit/broadcast',
               value: this.#eschema.parse(item).value as TSchema['Type'],
               meta: metaSchema.parse(item),
-            })),
+            })) as BroadcastSchemaType<TSchema['Type']>[],
           };
         }),
       );
@@ -327,14 +441,40 @@ export class DynamoEntity<
               return {
                 ...rest,
                 items: Items.map((item) => ({
+                  _tag: 'std-toolkit/broadcast',
                   value: this.#eschema.parse(item).value as TSchema['Type'],
                   meta: metaSchema.parse(item),
-                })),
+                })) as BroadcastSchemaType<TSchema['Type']>[],
               };
             }),
           );
       },
     };
+  }
+
+  #broadcast(
+    value: Omit<BroadcastSchemaType<TSchema['Type']>, '_tag'>,
+    to: BroadcastTo['to'] = 'all',
+  ) {
+    return Effect.gen(this, function* () {
+      const broadcastService = (yield* Effect.serviceOption(
+        BroadcastService,
+      )).pipe(Option.getOrUndefined);
+      const connectionIds = (yield* Effect.serviceOption(
+        ConnectionService,
+      )).pipe(
+        Option.map((v) => [v.connectionId]),
+        Option.getOrElse<string[]>(() => []),
+      );
+      broadcastService?.broadcast({
+        value: {
+          _tag: 'std-toolkit/broadcast',
+          ...value,
+        },
+        to,
+        connectionIds,
+      });
+    });
   }
 
   #calculateSk(derivation: EmptyIndexDerivation, sk: SortKeyparameter) {
@@ -390,7 +530,7 @@ export class DynamoEntity<
 
 class EntityIndexDerivations<
   TTable extends DynamoTable<any, any>,
-  TSchema extends EmptyESchemaWithName,
+  TSchema extends EmptyStdESchema,
   TPrimaryDerivation extends IndexDerivation<any, any>,
   TSecondaryDerivationMap extends Record<
     string,
@@ -417,14 +557,14 @@ class EntityIndexDerivations<
   index<
     Alias extends string,
     IndexName extends keyof TTable['secondaryIndexMap'],
-    TPkKeys extends keyof TSchema['Type'] | '_u',
-    TSkKeys extends keyof TSchema['Type'] | '_u',
+    TPkKeys extends keyof (TSchema['Type'] & DerivableMeta),
+    TSkKeys extends keyof (TSchema['Type'] & DerivableMeta),
   >(
     indexName: IndexName,
     alias: Alias,
     indexDerivation: {
-      pk: IndexKeyDerivation<TSchema['Type'], TPkKeys>;
-      sk: IndexKeyDerivation<TSchema['Type'], TSkKeys>;
+      pk: IndexKeyDerivation<TSchema['Type'] & DerivableMeta, TPkKeys>;
+      sk: IndexKeyDerivation<TSchema['Type'] & DerivableMeta, TSkKeys>;
     },
   ) {
     return new EntityIndexDerivations(
@@ -446,8 +586,8 @@ class EntityIndexDerivations<
         Record<
           Alias,
           IndexDerivation<
-            IndexKeyDerivation<TSchema['Type'], TPkKeys>,
-            IndexKeyDerivation<TSchema['Type'], TSkKeys>
+            IndexKeyDerivation<TSchema['Type'] & DerivableMeta, TPkKeys>,
+            IndexKeyDerivation<TSchema['Type'] & DerivableMeta, TSkKeys>
           > & { indexName: keyof TTable['secondaryIndexMap'] }
         >
     >;

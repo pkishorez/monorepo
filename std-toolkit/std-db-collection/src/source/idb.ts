@@ -1,9 +1,9 @@
-import { ESchema } from '@std-toolkit/eschema';
-import { valibot as v } from '@std-toolkit/core/schema.js';
+import { makeESchema } from '@std-toolkit/eschema';
+import * as v from 'valibot';
 import { Source } from './source.js';
 import { IDBStore, IDBEntity } from '@std-toolkit/idb';
 
-const eschema = ESchema.make({
+const eschema = makeESchema({
   key: v.string(),
   value: v.any(),
 }).build();

@@ -5,22 +5,30 @@
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/idb": "workspace:*",
-    "effect": "3.19.3",
-    "ulid": "^3.0.1"
+    "effect": "3.19.8",
+    "ulid": "^3.0.1",
+    "valibot": "^1.2.0"
   },
   "devDependencies": {
-    "@tanstack/react-db": "0.1.44",
-    "@tsconfig/node22": "22.0.3",
-    "@effect/language-service": "0.55.5",
+    "@effect/language-service": "0.57.1",
+    "@standard-schema/spec": "1.0.0",
+    "@tanstack/react-db": "0.1.52",
+    "@tsconfig/node22": "22.0.5",
     "typescript": "5.9.3",
-    "vitest": "4.0.8"
+    "vitest": "4.0.14"
   },
   "peerDependencies": {
     "@tanstack/react-db": ">0.1.36"
   },
   "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./source": {
+      "types": "./dist/source/index.d.ts",
+      "import": "./dist/source/index.js"
+    }
   },
   "scripts": {
     "build": "tsc",

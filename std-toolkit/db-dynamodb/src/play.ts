@@ -3,8 +3,9 @@ import * as v from 'valibot';
 import { Effect } from 'effect';
 import { DynamoTable } from './table/table.js';
 import { DynamoEntity } from './entity/entity.js';
-import { filterExpr } from './table/expr/condition.js';
-import { ESchema } from '@std-toolkit/eschema';
+// import { filterExpr } from './table/expr/condition.js';
+import { makeESchema } from '@std-toolkit/eschema';
+import { StdESchema } from '@std-toolkit/eschema/eschema-std.js';
 
 const table = DynamoTable.make({
   endpoint: 'http://localhost:8090',
@@ -22,13 +23,16 @@ const table = DynamoTable.make({
 
 const entity = DynamoEntity.make(table)
   .eschema(
-    ESchema.make({
-      id: v.string(),
-      name: v.string(),
-      age: v.number(),
-      comment: v.string(),
-    })
-      .name('post')
+    StdESchema.make(
+      'post',
+      makeESchema({
+        id: v.string(),
+        name: v.string(),
+        age: v.number(),
+        comment: v.string(),
+      }).build(),
+    )
+      .key({ deps: ['id'], encode: ({ id }) => id })
       .build(),
   )
   .primary({
@@ -37,7 +41,7 @@ const entity = DynamoEntity.make(table)
   })
   .index('GSI1', 'byName', {
     pk: { deps: [], derive: () => ['BYNAME'] },
-    sk: { deps: ['name'], derive: ({ name }) => ['SK', name] },
+    sk: { deps: ['_u'], derive: ({ _u }) => ['SK', _u] },
   })
   .build();
 
@@ -49,38 +53,53 @@ Effect.runPromise(
   Effect.gen(function* () {
     yield* table.purge('i know what i am doing');
 
-    for (let i = 0; i < 2; i++) {
-      yield* entity.insert({
-        id: `test-${`${i}`.padStart(4, '0')}`,
-        name: `Test User ${i}`,
-        age: i,
-        comment: 'inserted',
-      });
-    }
-    yield* entity.update(
-      { id: 'test-0001' },
-      { comment: 'Updated time 1000' },
-      {},
+    yield* table.transactWriteItems(
+      [0, 1].map((i) =>
+        entity.opInsert(
+          {
+            id: `test-${`${i}`.padStart(4, '0')}`,
+            name: `Test User ${i}`,
+            age: i,
+            comment: 'inserted',
+          },
+          // { debug: true },
+        ),
+      ),
     );
+
+    yield* table
+      .transactWriteItems([
+        yield* entity.opUpdate(
+          { id: 'test-0001' },
+          { comment: 'Updated time 1000' },
+          { meta: { _i: 1 } },
+        ),
+      ])
+      .pipe(
+        Effect.catchTag('TransactionCanceledException', (err) => {
+          console.error('ERR: ', err.CancellationReasons);
+          return Effect.succeed(null);
+        }),
+      );
 
     log(
       yield* entity.index('byName').query(
         {
           pk: {},
           sk: {
-            '<=': { name: 'Test User 1' },
+            '<=': { _u: new Date().toISOString() },
           },
         },
         {
           debug: true,
           ScanIndexForward: true,
           Limit: 10,
-          filter: filterExpr(({ or, cond }) =>
-            or(
-              cond('age', '=', 10), // br
-              cond('comment', '=', 'Updated time 1000'),
-            ),
-          ),
+          // filter: filterExpr(({ or, cond }) =>
+          //   or(
+          //     cond('age', '=', 10), // br
+          //     cond('comment', '=', 'Updated time 1000'),
+          //   ),
+          // ),
         },
       ),
     );

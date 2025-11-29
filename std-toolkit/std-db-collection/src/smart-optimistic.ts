@@ -27,7 +27,6 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
 
   private keyConfig: {
     encode: (value: Pick<TValue, TKey>) => string;
-    decode: (key: string) => Pick<TValue, TKey>;
   };
   private onInsert?: ((value: TValue) => Effect.Effect<TValue>) | undefined;
   private onUpdate?:
@@ -68,7 +67,6 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
     source: Source<TValue>;
     keyConfig: {
       encode: (value: Pick<TValue, TKey>) => string;
-      decode: (key: string) => Pick<TValue, TKey>;
     };
   }) {
     this.onInsert = onInsert;
@@ -134,7 +132,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
               this.#updateOptimisticEntry(updatedKey, (v) => {
                 v.updates = this.#getOptimisticEntry(key).updates.map((v) => ({
                   ...v,
-                  key: this.keyConfig.decode(updatedKey),
+                  key: result,
                 }));
               });
               this.optimisticEntries.delete(key);
@@ -150,7 +148,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
             });
             ops.push(...(yield* this.#getSyncKeyOperation(updatedKey)));
             this.tanstackCollection.localBulkOperation(ops);
-            yield* this.queueUpdate(updatedKey);
+            yield* this.queueUpdate(result);
           }),
         ),
         Effect.onError(() =>
@@ -167,9 +165,6 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
           }),
         ),
       );
-    } else {
-      ops.push(...(yield* this.#getSyncKeyOperation(key)));
-      this.tanstackCollection.localBulkOperation(ops);
     }
   });
 
@@ -192,16 +187,18 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
     this.tanstackCollection.localBulkOperation(
       yield* this.#getSyncKeyOperation(key),
     );
-    yield* this.queueUpdate(key);
+    yield* this.queueUpdate(keyObj);
   });
 
-  clearTmpItem = (key: string) =>
+  clearTmpItem = (keyObj: Pick<TValue, TKey>) =>
     Effect.gen(this, function* () {
+      const key = this.keyConfig.encode(keyObj);
       this.tmpSource.delete(key);
       return yield* this.#getSyncKeyOperation(key);
     });
 
-  private queueUpdate = (key: string): Effect.Effect<void> => {
+  private queueUpdate = (key_: Pick<TValue, TKey>): Effect.Effect<void> => {
+    const key = this.keyConfig.encode(key_);
     return Effect.gen(this, function* () {
       const optimisticEntry = this.#getOptimisticEntry(key);
       if (
@@ -229,7 +226,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
       this.tanstackCollection.localBulkOperation(
         yield* this.#getSyncKeyOperation(key),
       );
-      yield* this.onUpdate(this.keyConfig.decode(key), value).pipe(
+      yield* this.onUpdate(key_, value).pipe(
         Effect.tap((result) =>
           Effect.sync(() => {
             this.tmpSource.set(key, { ...this.tmpSource.get(key), ...result });
@@ -255,7 +252,7 @@ export class SmartOptimistic<TValue, TKey extends keyof TValue> {
             this.tanstackCollection.localBulkOperation(
               yield* this.#getSyncKeyOperation(key),
             );
-            yield* Effect.suspend(() => this.queueUpdate(key));
+            yield* Effect.suspend(() => this.queueUpdate(key_));
           }),
         ),
       );

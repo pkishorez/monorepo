@@ -11,32 +11,26 @@ import {
 } from './types.js';
 import * as v from 'valibot';
 import { resolveValue, parse, parsePartial, extendSchema } from './utils.js';
+import { StandardSchemaV1 } from '@standard-schema/spec';
 
 const versionSchema = v.object({ _v: v.string() });
 export type EmptyESchema = ESchema<EmptyEvolution[]>;
-export type EmptyESchemaWithName = ESchemaWithName<string, EmptyEvolution[]>;
 export class ESchema<TEvolutions extends EmptyEvolution[]> {
-  static make<S extends Schema>(schema: S) {
-    return new Builder([{ version: 'v1', schema, migrate: null }]) as Builder<
-      [{ version: 'v1'; schema: S; migrate: null }]
-    >;
+  protected 'evolutions': TEvolutions;
+  'constructor'(evolutions: TEvolutions) {
+    this.evolutions = evolutions;
   }
 
-  #evolutions: TEvolutions;
-  constructor(evolutions: TEvolutions) {
-    this.#evolutions = evolutions;
-  }
-
-  get latest(): LatestEvolution<TEvolutions> extends never
+  get 'latest'(): LatestEvolution<TEvolutions> extends never
     ? EmptyEvolution
     : LatestEvolution<TEvolutions> {
-    return this.#evolutions[this.#evolutions.length - 1] as any;
+    return this.evolutions[this.evolutions.length - 1] as any;
   }
-  get schema(): LatestEvolution<TEvolutions>['schema'] {
-    return this.#evolutions[this.#evolutions.length - 1].schema;
+  get 'schema'(): LatestEvolution<TEvolutions>['schema'] {
+    return this.evolutions[this.evolutions.length - 1].schema;
   }
 
-  get Type(): TypeFromEvolution<
+  get 'Type'(): TypeFromEvolution<
     LatestEvolution<TEvolutions>,
     false
   > extends never
@@ -45,7 +39,7 @@ export class ESchema<TEvolutions extends EmptyEvolution[]> {
     return null as any;
   }
 
-  parse<
+  'parse'<
     TOptions extends { includeVersion?: boolean },
     V extends EmptyEvolution = this['latest'],
   >(
@@ -67,8 +61,8 @@ export class ESchema<TEvolutions extends EmptyEvolution[]> {
     const { _v } = v.parse(versionSchema, value);
 
     // Find the evolution.
-    const evolutionIndex = this.#evolutions.findIndex((v) => v.version === _v);
-    const originalEvolution = this.#evolutions[evolutionIndex];
+    const evolutionIndex = this.evolutions.findIndex((v) => v.version === _v);
+    const originalEvolution = this.evolutions[evolutionIndex];
     if (evolutionIndex === -1 || !originalEvolution) {
       throw new Error('Evolution not found.');
     }
@@ -76,9 +70,9 @@ export class ESchema<TEvolutions extends EmptyEvolution[]> {
     const original: any = parse(originalEvolution.schema, value);
     let result = structuredClone(original);
     for (
-      let i = evolutionIndex + 1, evolution = this.#evolutions[i];
-      i < this.#evolutions.length;
-      i++, evolution = this.#evolutions[i]
+      let i = evolutionIndex + 1, evolution = this.evolutions[i];
+      i < this.evolutions.length;
+      i++, evolution = this.evolutions[i]
     ) {
       result = evolution.migrate?.(result) ?? result;
     }
@@ -98,11 +92,11 @@ export class ESchema<TEvolutions extends EmptyEvolution[]> {
     };
   }
 
-  extend<S extends Schema>(schema: S) {
-    return new ESchema(extendSchema<TEvolutions, S>(this.#evolutions, schema));
+  'extend'<S extends Schema>(schema: S) {
+    return new ESchema(extendSchema<TEvolutions, S>(this.evolutions, schema));
   }
 
-  make(value: this['Type']) {
+  'make'(value: this['Type']) {
     return this.parse(
       {
         ...value,
@@ -111,7 +105,7 @@ export class ESchema<TEvolutions extends EmptyEvolution[]> {
       { includeVersion: true },
     ).value;
   }
-  makePartial(
+  'makePartial'(
     value: Partial<this['Type']>,
   ): Partial<TypeFromEvolution<LatestEvolution<TEvolutions>>> {
     return {
@@ -119,48 +113,23 @@ export class ESchema<TEvolutions extends EmptyEvolution[]> {
       _v: this.latest.version,
     } as any;
   }
-}
 
-export class ESchemaWithName<
-  TName extends string,
-  TEvolutions extends EmptyEvolution[],
-> extends ESchema<TEvolutions> {
-  name: string;
-  evolutions: TEvolutions;
-  constructor(name: TName, evolutions: TEvolutions) {
-    super(evolutions);
-    this.name = name;
-    this.evolutions = evolutions;
-  }
-
-  extend<S extends Schema, Evolutions extends EmptyEvolution[] = TEvolutions>(
-    schema: S,
-  ) {
-    const newEvolutions = extendSchema<Evolutions, S>(
-      this.evolutions as any,
-      schema,
-    );
-    return new ESchemaWithName(this.name, newEvolutions);
-  }
-
-  get eschema() {
-    return new ESchema(this.evolutions);
-  }
+  readonly '~standard': StandardSchemaV1.Props<this['Type']> = {
+    version: 1,
+    validate: this.parse.bind(this),
+    vendor: 'eschema',
+  };
 }
 
 class Builder<TEvolutions extends EmptyEvolution[]> {
-  #evolutions: TEvolutions;
-
-  constructor(evolutions: TEvolutions) {
-    this.#evolutions = evolutions;
-  }
+  constructor(protected evolutions: TEvolutions) {}
 
   evolve<
     V extends string,
     S extends Schema,
     Input extends ResolveWrapper<
       [EvolutionSchemaMap<TEvolutions>],
-      ExcludeKeys<S, '_v', 'It is used internally.'>
+      ExcludeKeys<S, `_${string}`, 'keys with _ prefix are not allowed.'>
     >,
   >(
     version: V extends TEvolutions[number]['version']
@@ -171,12 +140,19 @@ class Builder<TEvolutions extends EmptyEvolution[]> {
       value: TypeFromSchema<LatestEvolution<TEvolutions>['schema']>,
     ) => TypeFromSchema<ResolveType<Input>>,
   ) {
-    const schemaMap = this.#evolutions.reduce(
+    const schemaMap = this.evolutions.reduce(
       (agg, v) => ({ ...agg, [v.version]: v.schema }),
       {},
     );
     const resultSchema = resolveValue(schema, [schemaMap]);
-    return new Builder<
+    return new Builder([
+      ...this.evolutions,
+      {
+        version: version as any,
+        schema: resultSchema,
+        migrate,
+      },
+    ]) as Builder<
       [
         ...TEvolutions,
         {
@@ -187,23 +163,20 @@ class Builder<TEvolutions extends EmptyEvolution[]> {
           schema: ResolveType<Input>;
         },
       ]
-    >([
-      ...this.#evolutions,
-      {
-        version: version as any,
-        schema: resultSchema,
-        migrate,
-      },
-    ]);
-  }
-
-  name<Name extends string>(name: Name) {
-    return {
-      build: () => new ESchemaWithName(name, this.#evolutions),
-    };
+    >;
   }
 
   build() {
-    return new ESchema(this.#evolutions);
+    return new ESchema(this.evolutions);
   }
+}
+
+export function makeESchema<S extends Schema>(schema: S) {
+  return new Builder<[{ version: 'v1'; schema: S; migrate: null }]>([
+    {
+      version: 'v1',
+      schema,
+      migrate: null,
+    },
+  ]);
 }

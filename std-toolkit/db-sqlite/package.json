@@ -4,15 +4,15 @@
   "dependencies": {
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
-    "effect": "3.19.3",
+    "effect": "3.19.8",
     "type-fest": "5.2.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251113.0",
-    "@tsconfig/node22": "22.0.3",
-    "@vitest/coverage-v8": "4.0.8",
+    "@cloudflare/workers-types": "^4.20251128.0",
+    "@tsconfig/node22": "22.0.5",
+    "@vitest/coverage-v8": "4.0.14",
     "typescript": "5.9.3",
-    "vitest": "4.0.8"
+    "vitest": "4.0.14"
   },
   "exports": {
     ".": "./dist/index.js",

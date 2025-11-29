@@ -12,8 +12,6 @@ export class SqliteDB extends Effect.Service<SqliteDB>()('SqliteDB', {
       .index('GSI1', { pk: 'gsi1pk', sk: 'gsi1sk' })
       .build();
 
-    table.setupTable();
-
     const todoEntity = SqliteEntity.make(table)
       .eschema(TodoESchema)
       .primary({
@@ -32,12 +30,12 @@ export class SqliteDB extends Effect.Service<SqliteDB>()('SqliteDB', {
           derive: ({ userId }) => [userId, 'TODOS'],
         },
         sk: {
-          deps: ['updatedAt'],
-          derive: ({ updatedAt }) => [updatedAt],
+          deps: ['_u'],
+          derive: ({ _u }) => [_u],
         },
       })
       .build();
 
-    return { todoEntity };
+    return { todoEntity, table };
   }),
 }) {}

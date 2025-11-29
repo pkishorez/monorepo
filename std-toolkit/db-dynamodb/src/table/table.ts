@@ -5,13 +5,18 @@ import {
   CreateTableInput,
   DynamoDB,
   UpdateItemInput,
+  Update,
+  Put,
+  TransactWriteItemsInput,
 } from 'dynamodb-client';
 import {
   IndexDefinition,
   TGetItemInput,
+  TPut,
   TPutItemInput,
   TQueryInput,
   TScanInput,
+  TUpdate,
   TUpdateItemInput,
 } from './types.js';
 import { Except, Simplify } from 'type-fest';
@@ -24,6 +29,15 @@ import {
 import { buildExpr } from './expr/expr.js';
 import { ConditionOperation, compileConditionExpr } from './expr/condition.js';
 
+type Ops =
+  | {
+      kind: 'update';
+      options: Update;
+    }
+  | {
+      kind: 'put';
+      options: Put;
+    };
 export class DynamoTable<
   PrimaryIndexDefinition extends IndexDefinition,
   SecondaryIndexDefinitionMap extends Record<string, IndexDefinition>,
@@ -78,7 +92,7 @@ export class DynamoTable<
       Record<string, unknown>,
     { debug, ...options }: TPutItemInput & { debug?: boolean },
   ) {
-    const putOptions = {
+    const putOptions: Put = {
       ...options,
       TableName: this.#config.tableName,
       Item: marshall(value),
@@ -92,6 +106,67 @@ export class DynamoTable<
         Attributes: Attributes ? unmarshall(Attributes) : null,
       })),
     );
+  }
+
+  opPutItem(
+    value: Record<
+      PrimaryIndexDefinition['pk'] | PrimaryIndexDefinition['sk'],
+      string
+    > &
+      Record<string, unknown>,
+    { debug, ...options }: TPut & { debug?: boolean },
+  ) {
+    const putOptions: Put = {
+      ...options,
+      TableName: this.#config.tableName,
+      Item: marshall(value),
+    };
+    if (debug) {
+      console.log('PUT OPTIONS: ', putOptions);
+    }
+
+    return { kind: 'put', options: putOptions } as Extract<
+      Ops,
+      { kind: 'put' }
+    >;
+  }
+
+  transactWriteItems(
+    values: Ops[],
+    options?: Omit<TransactWriteItemsInput, 'TrasactItems'>,
+  ) {
+    return this.#client
+      .transactWriteItems({
+        ...options,
+        TransactItems: values.map((value) => {
+          if (value.kind === 'put') {
+            return {
+              Put: value.options,
+            };
+          } else {
+            return {
+              Update: value.options,
+            };
+          }
+        }),
+      })
+      .pipe(
+        Effect.catchTag('TransactionCanceledException', (err) => {
+          const { _tag, message, cause, Message, stack, name } = err;
+          return Effect.fail({
+            _tag,
+            message,
+            cause,
+            Message,
+            stack,
+            name,
+            CancellationReasons: err.CancellationReasons?.map((reason) => ({
+              ...reason,
+              Item: reason.Item && unmarshall(reason.Item),
+            })),
+          });
+        }),
+      );
   }
 
   updateItem(
@@ -114,13 +189,39 @@ export class DynamoTable<
     if (debug) {
       console.dir(updateOptions, { depth: 10 });
     }
-
     return this.#client.updateItem(updateOptions).pipe(
       Effect.map(({ Attributes, ...response }) => ({
         ...response,
         Attributes: Attributes ? unmarshall(Attributes) : null,
       })),
     );
+  }
+
+  opUpdateItem(
+    key: IndexDefinition,
+    {
+      debug,
+      ...options
+    }: TUpdate & {
+      debug?: boolean;
+    },
+  ) {
+    const updateOptions: Update = {
+      ...options,
+      TableName: this.#config.tableName,
+      Key: marshall({
+        [this.primary.pk]: key.pk,
+        [this.primary.sk]: key.sk,
+      }),
+    };
+    if (debug) {
+      console.dir(updateOptions, { depth: 10 });
+    }
+
+    return { kind: 'update', options: updateOptions } as Extract<
+      Ops,
+      { kind: 'update' }
+    >;
   }
 
   query(

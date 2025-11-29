@@ -1,8 +1,10 @@
 import {
   GetItemInput,
+  Put,
   PutItemInput,
   QueryInput,
   ScanInput,
+  Update,
   UpdateItemInput,
 } from 'dynamodb-client';
 import { Except } from 'type-fest';
@@ -22,6 +24,8 @@ export interface TGetItemInput
     // Deprecated
     | 'AttributesToGet'
   > {}
+
+export interface TPut extends Except<Put, 'TableName'> {}
 export interface TPutItemInput
   extends Except<
     PutItemInput,
@@ -38,6 +42,15 @@ export interface TPutItemInput
   // For put only ALL_OLD is valid
   ReturnValues?: 'ALL_OLD';
 }
+
+export interface TUpdate
+  extends Except<
+    Update,
+    | 'TableName'
+    | 'Key'
+    | 'ExpressionAttributeNames'
+    | 'ExpressionAttributeValues'
+  > {}
 export interface TUpdateItemInput
   extends Except<
     UpdateItemInput,

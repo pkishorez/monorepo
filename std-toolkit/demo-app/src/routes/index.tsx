@@ -17,8 +17,22 @@ export const Route = createFileRoute('/')({
 function App() {
   return (
     <ClientOnly>
-      <AppClient />
+      <Toggler />
     </ClientOnly>
+  );
+}
+
+function Toggler() {
+  const [toggled, setToggled] = useState(false);
+
+  if (toggled) {
+  }
+
+  return (
+    <div>
+      <button onClick={() => setToggled(!toggled)}>Load App</button>
+      {toggled && <AppClient />}
+    </div>
   );
 }
 
@@ -30,14 +44,14 @@ const AppClient = () => {
   const { data, isLoading } = useLiveQuery((q) =>
     q
       .from({ todo: todoCollection.collection })
-      .orderBy(({ todo }) => todo.updatedAt, 'desc')
-      .select(({ todo }) => ({ id: todo.todoId, updatedAt: todo.updatedAt })),
+      .orderBy(({ todo }) => todo._u, 'desc')
+      .select(({ todo }) => ({ id: todo.todoId })),
   );
 
   const filteredTodos = data;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100">
       <div className="max-w-2xl mx-auto px-6 py-12">
         <div className="mb-8">
           <h1

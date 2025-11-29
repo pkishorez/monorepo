@@ -24,11 +24,11 @@ export class ApiService extends Effect.Service<ApiService>()('ApiService', {
       }),
     ).pipe(Layer.provide(FetchHttpClient.layer));
     const client = yield* RpcClient.make(TodosRpc).pipe(
-      Effect.provide(
+      Effect.provide([
         RpcClient.layerProtocolHttp({ url: '/api' }).pipe(
           Layer.provide([delayedHttpClientLayer, RpcSerialization.layerNdjson]),
         ),
-      ),
+      ]),
       Scope.extend(scope),
     );
 

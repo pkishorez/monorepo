@@ -1,4 +1,6 @@
 import { Duration, Effect, Fiber, Ref } from 'effect';
+import { StdCollectionType } from './std-collection.js';
+import { broadcastSchema } from '@std-toolkit/core/schema.js';
 
 export const periodicSync = (
   effect: Effect.Effect<void>,
@@ -44,3 +46,13 @@ export const periodicSync = (
       retrigger,
     };
   });
+
+export const BroadcastProcessor = (...collections: StdCollectionType[]) => {
+  return {
+    process(value: typeof broadcastSchema.Type) {
+      collections
+        .find((v) => v.name === value.meta._e)
+        ?.localUpsert(value.value);
+    },
+  };
+};

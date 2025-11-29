@@ -3,50 +3,84 @@ import {
   createCollection,
   SyncConfig,
 } from '@tanstack/react-db';
-import { Duration, Effect } from 'effect';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { Effect, Fiber, Ref } from 'effect';
 import { Source } from './source/source.js';
 import { MemorySource } from './source/memory.js';
 import { OptimisticEntry, SmartOptimistic } from './smart-optimistic.js';
 import { BulkOp } from './types.js';
-import { periodicSync } from './utils.js';
-import { EmptyESchema } from '@std-toolkit/eschema';
+import { EmptyStdESchema } from '@std-toolkit/eschema/eschema-std.js';
+import {
+  broadcastSchema,
+  BroadcastSchemaType,
+  metaSchema,
+} from '@std-toolkit/core/schema.js';
 
-export const createStdCollection = <
-  TSchema extends EmptyESchema,
-  TKey extends keyof TSchema['Type'],
+export interface StdCollectionType
+  extends ReturnType<typeof createStdCollectionRaw<any, any>> {}
+
+export const createStdCollectionRaw = <
+  TSchema extends StandardSchemaV1<any>,
+  TKey extends keyof StandardSchemaV1.InferOutput<TSchema>,
+  TSyncType = StandardSchemaV1.InferOutput<TSchema>,
 >({
-  // eschema,
+  name,
   keyConfig,
   onInsert,
   onUpdate,
   compare,
-  getUpdates,
+  syncConfig,
   source = new MemorySource(),
 }: {
-  source?: Source<TSchema['Type']>;
-  eschema: TSchema;
+  name: string;
+  source?: Source<StandardSchemaV1.InferOutput<TSchema>>;
+  schema: TSchema;
   keyConfig: {
     deps: TKey[];
-    encode: (value: Pick<TSchema['Type'], TKey>) => string;
-    decode: (value: string) => Pick<TSchema['Type'], TKey>;
+    encode: (
+      value: Pick<StandardSchemaV1.InferOutput<TSchema>, TKey>,
+    ) => string;
   };
-  onInsert?: (value: TSchema['Type']) => Effect.Effect<TSchema['Type']>;
+  compare: (
+    a: StandardSchemaV1.InferOutput<TSchema>,
+    b: StandardSchemaV1.InferOutput<TSchema>,
+  ) => number;
+  onInsert?: (
+    value: StandardSchemaV1.InferOutput<TSchema>,
+  ) => Effect.Effect<StandardSchemaV1.InferOutput<TSchema>>;
   onUpdate?: (
-    key: Pick<TSchema['Type'], TKey>,
-    value: Partial<Omit<TSchema['Type'], TKey>>,
-  ) => Effect.Effect<Partial<TSchema['Type']>>;
-  compare: (a: TSchema['Type'], b: TSchema['Type']) => number;
-  getUpdates?: (
-    after?: TSchema['Type'] | null,
-  ) => Effect.Effect<readonly TSchema['Type'][]>;
+    key: Pick<StandardSchemaV1.InferOutput<TSchema>, TKey>,
+    value: Partial<Omit<StandardSchemaV1.InferOutput<TSchema>, TKey>>,
+  ) => Effect.Effect<Partial<StandardSchemaV1.InferOutput<TSchema>>>;
+  syncConfig:
+    | {
+        type: 'api';
+        fn: (
+          after?: TSyncType | null,
+        ) => Effect.Effect<StandardSchemaV1.InferOutput<TSchema>[]>;
+      }
+    | {
+        type: 'realtime';
+        subscribe: (
+          after: Ref.Ref<TSyncType | null>,
+        ) => Effect.Effect<(() => void) | void>;
+      };
 }) => {
+  type Type = StandardSchemaV1.InferOutput<TSchema>;
   let syncVars: {
-    current: Parameters<SyncConfig<TSchema['Type'], string>['sync']>[0] | null;
-    latest: TSchema['Type'] | null;
+    current:
+      | Parameters<
+          SyncConfig<StandardSchemaV1.InferOutput<TSchema>, string>['sync']
+        >[0]
+      | null;
+    latest: Ref.Ref<StandardSchemaV1.InferOutput<TSchema> | null>;
     retrigger?: () => void;
-  } = { current: null, latest: null };
+  } = { current: null, latest: Ref.unsafeMake(null) };
 
-  const localInsert = (values: TSchema['Type'][]) => {
+  const localInsert = (
+    values: StandardSchemaV1.InferOutput<TSchema>[],
+    persist = false,
+  ) => {
     if (!syncVars.current || values.length === 0) return;
     const { begin, write, commit } = syncVars.current;
 
@@ -54,12 +88,15 @@ export const createStdCollection = <
     try {
       values.forEach((v) => {
         write({ type: 'insert', value: v });
+        if (persist) {
+          source.set(keyConfig.encode(v), v);
+        }
       });
     } finally {
       commit();
     }
   };
-  const localUpdate = (values: Partial<TSchema['Type']>[]) => {
+  const localUpdate = (values: Partial<Type>[], persist = false) => {
     if (!syncVars.current) return;
     const { begin, write, commit } = syncVars.current;
 
@@ -67,12 +104,15 @@ export const createStdCollection = <
       begin();
       values.forEach((v) => {
         write({ type: 'update', value: v as any });
+        if (persist) {
+          source.set(keyConfig.encode(v as any), v);
+        }
       });
     } finally {
       commit();
     }
   };
-  const localUpsert = (values: readonly TSchema['Type'][]) => {
+  const localUpsert = (values: readonly Type[], persist = false) => {
     if (!syncVars.current) return;
     const { collection, begin, write, commit } = syncVars.current;
 
@@ -84,6 +124,9 @@ export const createStdCollection = <
           write({ type: 'update', value: v });
         } else {
           write({ type: 'insert', value: v });
+        }
+        if (persist) {
+          source.set(key, v);
         }
       });
     } finally {
@@ -119,66 +162,80 @@ export const createStdCollection = <
     commit();
   };
 
-  function sync() {
-    return Effect.runPromise(
-      Effect.gen(function* () {
-        const ops: BulkOp[] = [];
-        if (getUpdates) {
-          console.log('BEFORE::');
-          const results = (yield* getUpdates(syncVars.latest)).toSorted(
-            compare,
-          );
-          console.log('VALUES: ', results);
-          if (results[results.length - 1]) {
-            syncVars.latest = results[results.length - 1] ?? null;
-          }
-          for (const v of results) {
-            yield* Effect.promise(() => source.set(keyConfig.encode(v), v));
-            ops.push(
-              ...(yield* smartOptimistic.clearTmpItem(keyConfig.encode(v))),
-            );
-          }
-        }
-        localBulkOperation(ops);
-      }),
-    );
-  }
+  const apiSync = Effect.fn(function* () {
+    if (syncConfig.type !== 'api') {
+      return yield* Effect.dieMessage('This is an api syncConfig');
+    }
 
-  type CollectionType = TSchema['Type'] & {
-    _optimisticState?: OptimisticEntry<TSchema['Type'], TKey>;
+    while (true) {
+      const ops: BulkOp[] = [];
+      const results = (yield* syncConfig.fn(
+        Effect.runSync(Ref.get(syncVars.latest)),
+      )).toSorted(compare);
+      if (results.length === 0) {
+        return;
+      }
+      for (const v of results) {
+        yield* Effect.promise(() => source.set(keyConfig.encode(v), v));
+        ops.push(...(yield* smartOptimistic.clearTmpItem(v)));
+      }
+      localBulkOperation(ops);
+      if (JSON.stringify(results.at(-1)) === JSON.stringify(syncVars.latest)) {
+        console.error('BREAKING OUT OF SYNC LOOP TO AVOID INFINITE LOOP', {
+          syncVars,
+          results,
+        });
+        break;
+      }
+      yield* Ref.set(syncVars.latest, results.at(-1));
+    }
+    return () => {};
+  });
+
+  type CollectionType = TSyncType & {
+    _optimisticState?: OptimisticEntry<Type, TKey>;
   };
   const tanstackCollection = createCollection({
     getKey: keyConfig.encode,
+    gcTime: 3000,
     sync: {
-      async sync(params) {
-        syncVars.current = params;
-        // Sync from source first.
-        const allRecords = (await source.getAll()).sort(compare);
-        localInsert(allRecords);
-        params.markReady();
-        syncVars.latest = allRecords[allRecords.length - 1] ?? null;
+      sync(params) {
+        const fiber = Effect.runFork(
+          Effect.gen(function* () {
+            syncVars.current = params;
+            // Sync from source first.
+            const allRecords = (yield* Effect.promise(() =>
+              source.getAll(),
+            )).sort(compare);
+            localInsert(allRecords);
+            params.markReady();
+            Effect.runSync(
+              Ref.set(
+                syncVars.latest,
+                allRecords[allRecords.length - 1] ?? null,
+              ),
+            );
 
-        // FIX: Dirty periodic sync logic for now.
-        const result = await Effect.runPromise(
-          periodicSync(
-            Effect.promise(async () => {
-              await sync();
-            }),
-            Duration.seconds(2),
-            Duration.seconds(10000),
-          ),
+            if (syncConfig.type === 'realtime') {
+              yield* syncConfig.subscribe(syncVars.latest);
+            }
+          }),
         );
-        syncVars.retrigger = () => Effect.runPromise(result.retrigger);
 
         return () => {
-          // cleanup goes here again...
+          console.log('unsubscribing....');
+          Effect.runFork(Fiber.interrupt(fiber));
         };
       },
     },
   } as CollectionConfig<CollectionType, string, never>);
 
+  // tanstackCollection.on('subscribers:change', (v) =>
+  //   console.log('SUBSCRIPTIONS CHANGE: ', v),
+  // );
+
   const smartOptimistic = new SmartOptimistic({
-    keyConfig: keyConfig as any,
+    keyConfig,
     source,
     tanstackCollection: {
       get: tanstackCollection.get.bind(tanstackCollection),
@@ -190,20 +247,70 @@ export const createStdCollection = <
   });
 
   return {
-    Type: null as TSchema['Type'],
+    name,
+    Type: null as Type,
     TypeWithOptimistic: null as any as CollectionType,
     collection: tanstackCollection,
-    insert: (value: TSchema['Type']) => smartOptimistic.insert(value),
-    update: (
-      key: Pick<TSchema['Type'], TKey>,
-      value: Partial<Omit<TSchema['Type'], TKey>>,
-    ) => smartOptimistic.update(key, value),
+    syncVars,
+    insert: (value: Type) => smartOptimistic.insert(value),
+    update: (key: Pick<Type, TKey>, value: Partial<Omit<Type, TKey>>) =>
+      smartOptimistic.update(key, value),
     localBulkOperation,
-    localInsert: (value: TSchema['Type']) => localInsert([value]),
-    localUpdate: (value: Partial<TSchema['Type']>) => localUpdate([value]),
-    localUpsert: (value: TSchema['Type']) => localUpsert([value]),
+    localInsert: (value: Type, persist = false) =>
+      localInsert([value], persist),
+    localUpdate: (value: Partial<Type>, persist = false) =>
+      localUpdate([value], persist),
+    localUpsert: (value: Type, persist = false) =>
+      localUpsert([value], persist),
     getOptimisticState:
       smartOptimistic.getOptimisticState.bind(smartOptimistic),
-    sync,
+    apiSync,
+  };
+};
+
+export const createStdCollection = <TSchema extends EmptyStdESchema>({
+  schema,
+  onInsert,
+  onUpdate,
+  sync,
+  source = new MemorySource(),
+}: {
+  source?: Source<StandardSchemaV1.InferOutput<TSchema>>;
+  schema: TSchema;
+  onInsert: (
+    value: TSchema['Type'],
+  ) => Effect.Effect<BroadcastSchemaType<TSchema['Type']>>;
+  onUpdate: (
+    key: Pick<TSchema['Type'], TSchema['KeyType']>,
+    value: Partial<TSchema['Type']>,
+  ) => Effect.Effect<BroadcastSchemaType<Partial<TSchema['Type']>>>;
+  sync: (
+    after: Ref.Ref<(TSchema['Type'] & typeof metaSchema.Type) | null>,
+  ) => Effect.Effect<void | (() => void)>;
+}) => {
+  const collection = createStdCollectionRaw<
+    TSchema,
+    TSchema['KeyType'],
+    TSchema['Type'] & typeof metaSchema.Type
+  >({
+    schema,
+    name: schema.name,
+    keyConfig: schema.keyDef,
+    syncConfig: {
+      type: 'realtime',
+      subscribe: sync,
+    },
+    onInsert: (value) =>
+      onInsert(value).pipe(Effect.map((v) => ({ ...v.value, ...v.meta }))),
+    onUpdate: (key, value) =>
+      onUpdate(key, value).pipe(Effect.map((v) => ({ ...v.value, ...v.meta }))),
+    source,
+    compare: (a, b) => (a._u < b._u ? -1 : 1),
+  });
+  return {
+    broadcast({ meta, value }: typeof broadcastSchema.Type, persist = false) {
+      collection.localUpsert({ ...value, ...meta }, persist);
+    },
+    ...collection,
   };
 };

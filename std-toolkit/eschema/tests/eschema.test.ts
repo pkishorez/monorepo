@@ -1,21 +1,22 @@
 import { Effect, Exit, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { ESchema } from '../src/eschema.js';
+import { ESchema } from '../src/index.js';
+import * as v from 'valibot';
 
 describe('eSchema', () => {
   describe('parse', () => {
     it('should parse data with current version (no migration needed)', () => {
-      const userSchema = Schema.Struct({
-        name: Schema.String,
-        age: Schema.Number,
-      });
+      const userSchema = {
+        name: v.string(),
+        age: v.number(),
+      };
 
       // Test data with v1 version
       const testData = { name: 'John', age: 30, __v: 'v1' as const };
 
       // ESchema automatically adds metadata to schemas
-      const parser = ESchema.make('v1', userSchema).build();
-      const result = Effect.runSync(parser.parse(testData));
+      const parser = ESchema.make(userSchema).build();
+      const result = parser.parse(testData);
 
       expect(result.value).toEqual({
         name: 'John',

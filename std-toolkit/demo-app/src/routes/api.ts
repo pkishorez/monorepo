@@ -2,7 +2,7 @@ import { RpcSerialization, RpcServer } from '@effect/rpc';
 import { Layer } from 'effect';
 import { HttpServer } from '@effect/platform';
 import { createFileRoute } from '@tanstack/react-router';
-import { TodosRpcLive } from '@/backend/api';
+import { TodosRpcLive } from '@/backend/dynamo/api';
 import { TodosRpc } from '@/backend/domain';
 import { env } from 'cloudflare:workers';
 

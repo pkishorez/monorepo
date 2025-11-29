@@ -1,9 +1,10 @@
 import { Schema } from 'effect';
-import { ESchema } from './eschema.js';
 import * as v from 'valibot';
 import z from 'zod';
+import { makeESchema } from './eschema.js';
+import { makeESchemaWithName } from './eschema-name.js';
 
-const eschema = ESchema.make({
+const eschema = makeESchema({
   a: Schema.standardSchemaV1(Schema.String),
   b: z.string(),
 })
@@ -18,7 +19,11 @@ const eschema = ESchema.make({
   )
   .build();
 
-const r = eschema.Type;
+const yyy = eschema.extend({ yyy: z.literal('test') });
+type YType = typeof yyy.Type;
+
+const eschemaName = makeESchemaWithName('MySchema', eschema);
+const zzz = eschemaName.extend({ zzz: v.literal('test') });
 
 const result = eschema.parse(
   { _v: 'v1', a: 'hello', b: 'hey' },
