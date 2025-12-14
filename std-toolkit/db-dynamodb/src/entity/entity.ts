@@ -31,11 +31,8 @@ import { updateExpr, compileUpdateExpr } from '../table/expr/update.js';
 import { ItemAlreadyExist, NoItemToUpdate } from './errors.js';
 import { EmptyEvolution } from '@std-toolkit/eschema/types.js';
 import { EmptyStdESchema } from '@std-toolkit/eschema/eschema-std.js';
-import {
-  BroadcastService,
-  BroadcastTo,
-  ConnectionService,
-} from '@std-toolkit/core/broadcast.js';
+import { BroadcastService, BroadcastTo } from '@std-toolkit/core/broadcast.js';
+import { ConnectionService } from '@std-toolkit/core/connection.js';
 
 export class DynamoEntity<
   TSecondaryDerivationMap extends Record<
