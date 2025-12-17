@@ -23,7 +23,11 @@ export function useComponentLifecycle<A, E>(
           yield* Scope.close(scope, exit);
         }),
       );
-      void Effect.runPromise(Fiber.interrupt(fiber));
+      void Effect.runPromise(
+        Fiber.interrupt(fiber).pipe(
+          Effect.onInterrupt(() => Effect.logDebug('Fiber interrupted')),
+        ),
+      );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectRef, ...deps]);
