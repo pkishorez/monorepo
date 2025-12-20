@@ -2,19 +2,19 @@
   "name": "@std-toolkit/idb",
   "version": "0.0.1",
   "dependencies": {
-    "@std-toolkit/eschema": "workspace:*",
-    "@standard-schema/spec": "1.0.0",
-    "effect": "3.19.9",
+    "@standard-schema/spec": "1.1.0",
+    "@std-toolkit/eschema": "5.0.9",
+    "effect": "3.19.13",
     "idb": "8.0.3"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.5",
-    "@types/serviceworker": "0.0.168",
-    "@vitest/coverage-v8": "4.0.15",
+    "@types/serviceworker": "0.0.170",
+    "@vitest/coverage-v8": "4.0.16",
     "fake-indexeddb": "^6.2.5",
-    "jsdom": "27.2.0",
+    "jsdom": "27.3.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.15"
+    "vitest": "4.0.16"
   },
   "exports": {
     ".": "./dist/index.js",

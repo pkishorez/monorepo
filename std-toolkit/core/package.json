@@ -2,11 +2,11 @@
   "name": "@std-toolkit/core",
   "version": "0.0.1",
   "dependencies": {
-    "@std-toolkit/eschema": "workspace:*",
-    "effect": "3.19.9",
+    "@std-toolkit/eschema": "5.0.9",
+    "effect": "3.19.13",
     "json-stringify-deterministic": "1.0.12",
-    "type-fest": "5.3.0",
-    "valibot": "^1.2.0"
+    "type-fest": "5.3.1",
+    "valibot": "1.2.0"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.5",

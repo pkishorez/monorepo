@@ -2,23 +2,20 @@
   "name": "@std-toolkit/std-db-collection",
   "version": "0.0.1",
   "dependencies": {
-    "@std-toolkit/core": "workspace:*",
-    "@std-toolkit/eschema": "workspace:*",
-    "@std-toolkit/idb": "workspace:*",
-    "effect": "3.19.9",
-    "ulid": "^3.0.2",
-    "valibot": "^1.2.0"
+    "@std-toolkit/core": "5.0.9",
+    "@std-toolkit/eschema": "5.0.9",
+    "@std-toolkit/idb": "5.0.9",
+    "effect": "3.19.13",
+    "ulid": "3.0.2",
+    "valibot": "1.2.0"
   },
   "devDependencies": {
-    "@effect/language-service": "0.60.0",
-    "@standard-schema/spec": "1.0.0",
-    "@tanstack/react-db": "0.1.55",
+    "@effect/language-service": "0.62.4",
+    "@standard-schema/spec": "1.1.0",
+    "@tanstack/react-db": "0.1.59",
     "@tsconfig/node22": "22.0.5",
     "typescript": "5.9.3",
-    "vitest": "4.0.15"
-  },
-  "peerDependencies": {
-    "@tanstack/react-db": ">0.1.36"
+    "vitest": "4.0.16"
   },
   "exports": {
     ".": {
@@ -29,6 +26,9 @@
       "types": "./dist/source/index.d.ts",
       "import": "./dist/source/index.js"
     }
+  },
+  "peerDependencies": {
+    "@tanstack/react-db": ">0.1.36"
   },
   "scripts": {
     "build": "tsc",
