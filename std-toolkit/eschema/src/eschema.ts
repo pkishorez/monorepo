@@ -116,7 +116,9 @@ export class ESchema<TEvolutions extends EmptyEvolution[]> {
 
   readonly '~standard': StandardSchemaV1.Props<this['Type']> = {
     version: 1,
-    validate: this.parse.bind(this),
+    validate: (value) => {
+      return this.parse(value);
+    },
     vendor: 'eschema',
   };
 }

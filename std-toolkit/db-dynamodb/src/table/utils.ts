@@ -1,4 +1,4 @@
-import type { AttributeValue } from 'dynamodb-client';
+import type { AttributeValue } from '@std-toolkit/dynamodb-client';
 import {
   convertToAttr as convertToAttr_,
   marshall as marshall_,

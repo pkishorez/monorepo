@@ -1,4 +1,4 @@
-import { ESchema } from '@monorepo/eschema';
+import { ESchema } from '@std-toolkit/eschema';
 import { IDBStore } from './store.js';
 
 export class IDBEntity<

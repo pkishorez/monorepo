@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import type { CreateTableInput } from 'dynamodb-client';
+import type { CreateTableInput } from '@std-toolkit/dynamodb-client';
 import type { Except } from 'type-fest';
 import process from 'node:process';
 import { config } from 'dotenv';
@@ -7,7 +7,7 @@ import {
   createDynamoDB,
   ResourceInUseException,
   ResourceNotFoundException,
-} from 'dynamodb-client';
+} from '@std-toolkit/dynamodb-client';
 import { Effect } from 'effect';
 import { beforeAll } from 'vitest';
 import { DynamoTable } from '../src/table/table.js';

@@ -3,7 +3,7 @@ import * as v from 'valibot';
 import { Effect } from 'effect';
 import { DynamoTable } from './table/table.js';
 import { DynamoEntity } from './entity/entity.js';
-// import { filterExpr } from './table/expr/condition.js';
+import { filterExpr } from './table/expr/condition.js';
 import { makeESchema } from '@std-toolkit/eschema';
 import { StdESchema } from '@std-toolkit/eschema/eschema-std.js';
 
@@ -94,12 +94,12 @@ Effect.runPromise(
           debug: true,
           ScanIndexForward: true,
           Limit: 10,
-          // filter: filterExpr(({ or, cond }) =>
-          //   or(
-          //     cond('age', '=', 10), // br
-          //     cond('comment', '=', 'Updated time 1000'),
-          //   ),
-          // ),
+          filter: filterExpr(({ or, cond }) =>
+            or(
+              cond('age', '=', 10), // br
+              cond('comment', '=', 'Updated time 1000'),
+            ),
+          ),
         },
       ),
     );

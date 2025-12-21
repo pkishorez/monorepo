@@ -6,7 +6,7 @@
     "type-fest": "5.3.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251218.0",
+    "@cloudflare/workers-types": "^4.20251221.0",
     "@effect/platform": "0.94.0",
     "@effect/rpc": "0.73.0",
     "@tsconfig/node22": "22.0.5",

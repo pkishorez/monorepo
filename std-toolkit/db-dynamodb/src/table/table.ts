@@ -8,7 +8,7 @@ import {
   Update,
   Put,
   TransactWriteItemsInput,
-} from 'dynamodb-client';
+} from '@std-toolkit/dynamodb-client';
 import {
   IndexDefinition,
   TGetItemInput,

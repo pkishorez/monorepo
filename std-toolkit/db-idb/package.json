@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "@standard-schema/spec": "1.1.0",
-    "@std-toolkit/eschema": "5.0.9",
+    "@std-toolkit/eschema": "workspace:*",
     "effect": "3.19.13",
     "idb": "8.0.3"
   },

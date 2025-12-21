@@ -3,9 +3,9 @@
   "version": "0.0.1",
   "dependencies": {
     "@aws-sdk/util-dynamodb": "3.956.0",
-    "@std-toolkit/core": "5.0.9",
+    "@std-toolkit/core": "workspace:*",
     "@std-toolkit/dynamodb-client": "workspace:*",
-    "@std-toolkit/eschema": "5.0.9",
+    "@std-toolkit/eschema": "workspace:*",
     "effect": "3.19.13",
     "valibot": "1.2.0"
   },

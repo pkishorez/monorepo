@@ -2,9 +2,9 @@
   "name": "@std-toolkit/std-db-collection",
   "version": "0.0.1",
   "dependencies": {
-    "@std-toolkit/core": "5.0.9",
-    "@std-toolkit/eschema": "5.0.9",
-    "@std-toolkit/idb": "5.0.9",
+    "@std-toolkit/core": "workspace:*",
+    "@std-toolkit/eschema": "workspace:*",
+    "@std-toolkit/idb": "workspace:*",
     "effect": "3.19.13",
     "ulid": "3.0.2",
     "valibot": "1.2.0"

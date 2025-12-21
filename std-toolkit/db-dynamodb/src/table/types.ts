@@ -6,7 +6,7 @@ import {
   ScanInput,
   Update,
   UpdateItemInput,
-} from 'dynamodb-client';
+} from '@std-toolkit/dynamodb-client';
 import { Except } from 'type-fest';
 
 export type IndexDefinition = {
@@ -15,79 +15,70 @@ export type IndexDefinition = {
 };
 
 // GetItemInput
-export interface TGetItemInput
-  extends Except<
-    GetItemInput,
-    | 'TableName'
-    | 'Key'
+export interface TGetItemInput extends Except<
+  GetItemInput,
+  | 'TableName'
+  | 'Key'
 
-    // Deprecated
-    | 'AttributesToGet'
-  > {}
+  // Deprecated
+  | 'AttributesToGet'
+> {}
 
 export interface TPut extends Except<Put, 'TableName'> {}
-export interface TPutItemInput
-  extends Except<
-    PutItemInput,
-    | 'TableName'
-    | 'Item'
+export interface TPutItemInput extends Except<
+  PutItemInput,
+  | 'TableName'
+  | 'Item'
 
-    // Cleanup
-    | 'ReturnValues'
+  // Cleanup
+  | 'ReturnValues'
 
-    // Deprecated
-    | 'Expected'
-    | 'ConditionalOperator'
-  > {
+  // Deprecated
+  | 'Expected'
+  | 'ConditionalOperator'
+> {
   // For put only ALL_OLD is valid
   ReturnValues?: 'ALL_OLD';
 }
 
-export interface TUpdate
-  extends Except<
-    Update,
-    | 'TableName'
-    | 'Key'
-    | 'ExpressionAttributeNames'
-    | 'ExpressionAttributeValues'
-  > {}
-export interface TUpdateItemInput
-  extends Except<
-    UpdateItemInput,
-    | 'TableName'
-    | 'Key'
+export interface TUpdate extends Except<
+  Update,
+  'TableName' | 'Key' | 'ExpressionAttributeNames' | 'ExpressionAttributeValues'
+> {}
+export interface TUpdateItemInput extends Except<
+  UpdateItemInput,
+  | 'TableName'
+  | 'Key'
 
-    // Deprecated
-    | 'AttributeUpdates'
-    | 'ConditionalOperator'
-    | 'Expected'
-  > {}
-export interface TQueryInput
-  extends Except<
-    QueryInput,
-    | 'TableName'
-    | 'KeyConditionExpression'
-    | 'FilterExpression'
-    | 'ExpressionAttributeNames'
-    | 'ExpressionAttributeValues'
+  // Deprecated
+  | 'AttributeUpdates'
+  | 'ConditionalOperator'
+  | 'Expected'
+> {}
+export interface TQueryInput extends Except<
+  QueryInput,
+  | 'TableName'
+  | 'KeyConditionExpression'
+  | 'FilterExpression'
+  | 'ExpressionAttributeNames'
+  | 'ExpressionAttributeValues'
 
-    // Deprecated
-    | 'Select'
-    | 'KeyConditions'
-    | 'QueryFilter'
-    | 'AttributesToGet'
-    | 'ConditionalOperator'
-  > {
+  // Deprecated
+  | 'Select'
+  | 'KeyConditions'
+  | 'QueryFilter'
+  | 'AttributesToGet'
+  | 'ConditionalOperator'
+> {
   debug?: boolean;
 }
-export interface TScanInput
-  extends Except<
-    ScanInput,
-    | 'TableName'
+export interface TScanInput extends Except<
+  ScanInput,
+  | 'TableName'
 
-    // Deprecated
-    | 'Select'
-    | 'ScanFilter'
-    | 'AttributesToGet'
-    | 'ConditionalOperator'
-  > {}
+  // Deprecated
+  | 'Select'
+  | 'ScanFilter'
+  | 'AttributesToGet'
+  | 'ConditionalOperator'
+> {}
