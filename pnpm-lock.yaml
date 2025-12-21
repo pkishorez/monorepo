@@ -40,11 +40,13 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/config: {}
+
   packages/use-effect-ts:
     devDependencies:
-      '@tsconfig/node22':
-        specifier: 22.0.5
-        version: 22.0.5
+      '@monorepo/config':
+        specifier: workspace:*
+        version: link:../config
       '@types/react':
         specifier: ^19.2.7
         version: 19.2.7

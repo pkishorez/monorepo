@@ -1,7 +1,7 @@
 {
   "name": "use-effect-ts",
   "devDependencies": {
-    "@tsconfig/node22": "22.0.5",
+    "@monorepo/config": "workspace:*",
     "@types/react": "^19.2.7",
     "effect": "3.19.13",
     "react": "19.2.3",
@@ -9,12 +9,9 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/index.js",
+      "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./*": {
-      "types": "./dist/*",
-      "import": "./dist/*"
     }
   },
   "files": [
