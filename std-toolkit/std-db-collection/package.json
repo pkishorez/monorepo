@@ -10,9 +10,9 @@
     "valibot": "1.2.0"
   },
   "devDependencies": {
-    "@effect/language-service": "0.62.4",
+    "@effect/language-service": "0.62.5",
     "@standard-schema/spec": "1.1.0",
-    "@tanstack/react-db": "0.1.59",
+    "@tanstack/react-db": "0.1.60",
     "@tsconfig/node22": "22.0.5",
     "typescript": "5.9.3",
     "vitest": "4.0.16"

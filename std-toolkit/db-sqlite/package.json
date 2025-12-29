@@ -8,7 +8,7 @@
     "type-fest": "5.3.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251221.0",
+    "@cloudflare/workers-types": "^4.20251225.0",
     "@tsconfig/node22": "22.0.5",
     "@vitest/coverage-v8": "4.0.16",
     "typescript": "5.9.3",
