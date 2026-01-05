@@ -4,11 +4,11 @@
   "dependencies": {
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
-    "effect": "3.19.13",
+    "effect": "3.19.14",
     "type-fest": "5.3.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251225.0",
+    "@cloudflare/workers-types": "^4.20260103.0",
     "@tsconfig/node22": "22.0.5",
     "@vitest/coverage-v8": "4.0.16",
     "typescript": "5.9.3",

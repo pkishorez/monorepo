@@ -6,11 +6,11 @@
     "type-fest": "5.3.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251225.0",
-    "@effect/platform": "0.94.0",
+    "@cloudflare/workers-types": "^4.20260103.0",
+    "@effect/platform": "0.94.1",
     "@effect/rpc": "0.73.0",
     "@tsconfig/node22": "22.0.5",
-    "effect": "3.19.13",
+    "effect": "3.19.14",
     "typescript": "5.9.3"
   },
   "exports": {

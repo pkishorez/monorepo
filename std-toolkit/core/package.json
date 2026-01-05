@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
-    "effect": "3.19.13",
+    "effect": "3.19.14",
     "json-stringify-deterministic": "1.0.12",
     "type-fest": "5.3.1",
     "valibot": "1.2.0"
