@@ -12,7 +12,7 @@
   "devDependencies": {
     "@effect/language-service": "0.64.1",
     "@standard-schema/spec": "1.1.0",
-    "@tanstack/react-db": "0.1.60",
+    "@tanstack/react-db": "0.1.61",
     "@tsconfig/node22": "22.0.5",
     "typescript": "5.9.3",
     "vitest": "4.0.16"

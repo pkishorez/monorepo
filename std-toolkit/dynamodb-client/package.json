@@ -5,7 +5,7 @@
     "aws4fetch": "1.0.20"
   },
   "devDependencies": {
-    "@aws-sdk/client-dynamodb": "3.962.0",
+    "@aws-sdk/client-dynamodb": "3.965.0",
     "@effect/platform": "0.94.1",
     "@effect/platform-node": "0.104.0",
     "@tsconfig/node22": "22.0.5",

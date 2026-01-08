@@ -2,7 +2,7 @@
   "name": "@std-toolkit/dynamodb",
   "version": "0.0.1",
   "dependencies": {
-    "@aws-sdk/util-dynamodb": "3.962.0",
+    "@aws-sdk/util-dynamodb": "3.965.0",
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/dynamodb-client": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
