@@ -20,8 +20,8 @@
     "src/"
   ],
   "peerDependencies": {
-    "effect": ">=3.0.0",
-    "react": ">=19.0.0"
+    "effect": ">=3.19.14",
+    "react": ">=19.2.3"
   },
   "scripts": {
     "build": "tsc",

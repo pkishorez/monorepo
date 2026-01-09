@@ -22,7 +22,7 @@ importers:
         version: 5.3.1
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^4.20260108.0
+        specifier: 4.20260108.0
         version: 4.20260108.0
       '@effect/platform':
         specifier: 0.94.1
@@ -45,7 +45,7 @@ importers:
   packages/use-effect-ts:
     dependencies:
       react:
-        specifier: '>=19.0.0'
+        specifier: '>=19.2.3'
         version: 19.2.3
     devDependencies:
       '@monorepo/config':
@@ -111,7 +111,7 @@ importers:
         specifier: 0.64.1
         version: 0.64.1
       '@total-typescript/ts-reset':
-        specifier: ^0.6.1
+        specifier: 0.6.1
         version: 0.6.1
       '@tsconfig/node22':
         specifier: 22.0.5
@@ -129,7 +129,7 @@ importers:
         specifier: 9.39.2
         version: 9.39.2(jiti@2.6.1)
       type-fest:
-        specifier: ^5.3.1
+        specifier: 5.3.1
         version: 5.3.1
       typescript:
         specifier: 5.9.3
@@ -163,7 +163,7 @@ importers:
         specifier: 4.0.16
         version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
       fake-indexeddb:
-        specifier: ^6.2.5
+        specifier: 6.2.5
         version: 6.2.5
       jsdom:
         specifier: 27.4.0
@@ -191,7 +191,7 @@ importers:
         version: 5.3.1
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^4.20260108.0
+        specifier: 4.20260108.0
         version: 4.20260108.0
       '@tsconfig/node22':
         specifier: 22.0.5
@@ -410,13 +410,13 @@ importers:
         specifier: 22.0.5
         version: 22.0.5
       '@valibot/to-json-schema':
-        specifier: ^1.5.0
+        specifier: 1.5.0
         version: 1.5.0(valibot@1.2.0(typescript@5.9.3))
       effect:
         specifier: 3.19.14
         version: 3.19.14
       type-fest:
-        specifier: ^5.3.1
+        specifier: 5.3.1
         version: 5.3.1
       typescript:
         specifier: 5.9.3
@@ -425,7 +425,7 @@ importers:
         specifier: 4.0.16
         version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
       zod:
-        specifier: ^4.3.5
+        specifier: 4.3.5
         version: 4.3.5
 
   std-toolkit/std-db-collection:

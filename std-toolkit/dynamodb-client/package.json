@@ -20,7 +20,7 @@
     "./*": "./dist/*"
   },
   "peerDependencies": {
-    "effect": ">3"
+    "effect": ">=3.19.14"
   },
   "scripts": {
     "build": "pnpm generate && echo 'generating types...\n' && tsc --project build.tsconfig.json && echo '✅ done'",
