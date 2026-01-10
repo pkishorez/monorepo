@@ -1,0 +1,4 @@
+{
+  "name": "no-lockfile-monorepo",
+  "workspaces": ["packages/*"]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "react-dom": "^18.0.0"
+  },
+  "optionalDependencies": {
+    "fsevents": "^2.0.0"
+  }
+}

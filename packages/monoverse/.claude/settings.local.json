@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree -L 3:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm build:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "mcp__context7__query-docs"
+    ]
+  }
+}
