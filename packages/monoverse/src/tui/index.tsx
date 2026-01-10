@@ -95,7 +95,9 @@ function App() {
   useComponentLifecycle(
     Effect.gen(function* () {
       const monoverse = yield* Monoverse;
-      const result = yield* monoverse.analyze(process.cwd()).pipe(Effect.either);
+      const result = yield* monoverse
+        .analyze(process.cwd())
+        .pipe(Effect.either);
 
       if (result._tag === 'Left') {
         setError(result.left.message);
