@@ -8,5 +8,6 @@ export {
   isRootPath,
   joinPath,
   readFile,
+  toRelativePath,
   writeFile,
 } from './utils.js';

@@ -6,6 +6,7 @@ import type { Workspace } from '../../core/pipeline/analyze/index.js';
 import type {
   ViolationUnpinnedVersion,
   ViolationVersionMismatch,
+  ViolationDuplicateWorkspace,
 } from '../../core/pipeline/validate/index.js';
 import { normalizeSemver } from '../../core/primitives/semver/index.js';
 
@@ -53,74 +54,115 @@ const groupMismatchesByPackage = (
 export const fix = Command.make('fix', { interactive: interactiveOption }, ({ interactive }) =>
   Effect.gen(function* () {
     const monoverse = yield* Monoverse;
-    const analysis = yield* monoverse.analyze(cwd);
-    const violations = yield* monoverse.validate(analysis);
+
+    let analysis = yield* monoverse.analyze(cwd);
+    let violations = yield* monoverse.validate(analysis);
 
     if (violations.length === 0) {
       yield* Console.log(`${c.green}No issues found${c.reset}`);
       return;
     }
 
+    const duplicateViolations = violations.filter(
+      (v): v is ViolationDuplicateWorkspace => v._tag === 'ViolationDuplicateWorkspace',
+    );
+
+    if (duplicateViolations.length > 0) {
+      yield* Console.error(
+        `${c.yellow}Cannot fix: duplicate workspace names detected${c.reset}\n`,
+      );
+      for (const v of duplicateViolations) {
+        yield* Console.error(`${c.white}${v.workspace}${c.reset}`);
+        for (const path of v.paths) {
+          yield* Console.error(`${c.dim}  ${path}${c.reset}`);
+        }
+      }
+      yield* Console.error(
+        `\n${c.dim}Rename the workspaces to have unique names.${c.reset}`,
+      );
+      return;
+    }
+
+    let formattedCount = 0;
+    let pinnedCount = 0;
+    let mismatchFixedCount = 0;
+
     const formatViolations = violations.filter(
       (v) => v._tag === 'ViolationFormatPackageJson',
     );
-    const mismatchViolations = violations.filter(
-      (v): v is ViolationVersionMismatch => v._tag === 'ViolationVersionMismatch',
-    );
-    const unpinnedViolations = violations.filter(
-      (v): v is ViolationUnpinnedVersion => v._tag === 'ViolationUnpinnedVersion',
-    );
 
-    const workspacesByName = new Map<string, Workspace>(
-      analysis.workspaces.map((w) => [w.name, w]),
-    );
-
-    const workspacesToFormat = new Set(formatViolations.map((v) => v.workspace));
-    let formattedCount = 0;
-
-    for (const workspaceName of workspacesToFormat) {
-      const workspace = workspacesByName.get(workspaceName);
-      if (!workspace) continue;
-
-      const result = yield* monoverse.formatWorkspace(workspace).pipe(
-        Effect.map(() => true),
-        Effect.catchAll(() => Effect.succeed(false)),
+    if (formatViolations.length > 0) {
+      const workspacesByName = new Map<string, Workspace>(
+        analysis.workspaces.map((w) => [w.name, w]),
       );
+      const workspacesToFormat = new Set(formatViolations.map((v) => v.workspace));
 
-      if (result) formattedCount++;
-    }
+      for (const workspaceName of workspacesToFormat) {
+        const workspace = workspacesByName.get(workspaceName);
+        if (!workspace) continue;
 
-    let pinnedCount = 0;
-
-    for (const violation of unpinnedViolations) {
-      const workspace = workspacesByName.get(violation.workspace);
-      if (!workspace) continue;
-
-      const pinnedVersion = yield* normalizeSemver(violation.versionRange).pipe(
-        Effect.catchAll(() => Effect.succeed(null)),
-      );
-      if (!pinnedVersion) continue;
-
-      const result = yield* monoverse
-        .addPackage({
-          workspace,
-          packageName: violation.package,
-          versionRange: pinnedVersion,
-          dependencyType: violation.dependencyType,
-        })
-        .pipe(
+        const result = yield* monoverse.formatWorkspace(workspace).pipe(
           Effect.map(() => true),
           Effect.catchAll(() => Effect.succeed(false)),
         );
 
-      if (result) pinnedCount++;
+        if (result) formattedCount++;
+      }
+
+      analysis = yield* monoverse.analyze(cwd);
+      violations = yield* monoverse.validate(analysis);
     }
 
+    const unpinnedViolations = violations.filter(
+      (v): v is ViolationUnpinnedVersion => v._tag === 'ViolationUnpinnedVersion',
+    );
+
+    if (unpinnedViolations.length > 0) {
+      const workspacesByName = new Map<string, Workspace>(
+        analysis.workspaces.map((w) => [w.name, w]),
+      );
+
+      for (const violation of unpinnedViolations) {
+        const workspace = workspacesByName.get(violation.workspace);
+        if (!workspace) continue;
+
+        const pinnedVersion = yield* normalizeSemver(violation.versionRange).pipe(
+          Effect.catchAll(() => Effect.succeed(null)),
+        );
+        if (!pinnedVersion) continue;
+
+        const result = yield* monoverse
+          .addPackage({
+            workspace,
+            packageName: violation.package,
+            versionRange: pinnedVersion,
+            dependencyType: violation.dependencyType,
+          })
+          .pipe(
+            Effect.map(() => true),
+            Effect.catchAll(() => Effect.succeed(false)),
+          );
+
+        if (result) pinnedCount++;
+      }
+
+      yield* monoverse.formatAllWorkspaces(analysis);
+
+      analysis = yield* monoverse.analyze(cwd);
+      violations = yield* monoverse.validate(analysis);
+    }
+
+    const mismatchViolations = violations.filter(
+      (v): v is ViolationVersionMismatch => v._tag === 'ViolationVersionMismatch',
+    );
     const mismatchesByPackage = groupMismatchesByPackage(mismatchViolations);
-    let mismatchFixedCount = 0;
 
     if (interactive && mismatchesByPackage.size > 0) {
       yield* Console.log(`\n${c.white}Resolving version mismatches${c.reset}\n`);
+
+      const workspacesByName = new Map<string, Workspace>(
+        analysis.workspaces.map((w) => [w.name, w]),
+      );
 
       for (const [pkg, info] of mismatchesByPackage) {
         const choices = info.versions.map((version) => {
@@ -137,9 +179,7 @@ export const fix = Command.make('fix', { interactive: interactiveOption }, ({ in
           choices,
         });
 
-        for (const [version, workspaceViolations] of info.workspacesByVersion) {
-          if (version === selectedVersion) continue;
-
+        for (const [, workspaceViolations] of info.workspacesByVersion) {
           for (const violation of workspaceViolations) {
             const workspace = workspacesByName.get(violation.workspace);
             if (!workspace) continue;
@@ -160,6 +200,8 @@ export const fix = Command.make('fix', { interactive: interactiveOption }, ({ in
           }
         }
       }
+
+      yield* monoverse.formatAllWorkspaces(analysis);
     }
 
     yield* Console.log(`\n${c.white}Summary${c.reset}`);

@@ -70,6 +70,9 @@ export const dirname = (path: string): string => nodePath.dirname(path);
 export const isRootPath = (dirPath: string): boolean =>
   nodePath.dirname(dirPath) === dirPath;
 
+export const toRelativePath = (absolutePath: string, root: string): string =>
+  nodePath.relative(root, absolutePath) || '.';
+
 export interface GlobOptions {
   cwd: string;
   ignore?: string[];

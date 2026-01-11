@@ -2,6 +2,7 @@ import { Command } from '@effect/cli';
 import { Console, Effect } from 'effect';
 import { Monoverse } from '../../core/index.js';
 import { cwd } from '../helpers.js';
+import { toRelativePath } from '../../core/primitives/fs/index.js';
 
 const c = {
   reset: '\x1b[0m',
@@ -18,11 +19,7 @@ export const debug = Command.make('debug', {}, () =>
     yield* Console.log(`${c.white}Workspaces${c.reset} (${analysis.workspaces.length})\n`);
 
     for (const workspace of analysis.workspaces) {
-      const relativePath =
-        workspace.path === analysis.root
-          ? '.'
-          : workspace.path.replace(analysis.root + '/', '');
-
+      const relativePath = toRelativePath(workspace.path, analysis.root);
       yield* Console.log(
         `  ${c.white}${workspace.name}${c.reset} ${c.dim}${relativePath}${c.reset}`,
       );
@@ -31,7 +28,8 @@ export const debug = Command.make('debug', {}, () =>
     if (analysis.errors.length > 0) {
       yield* Console.log(`\n${c.white}Errors${c.reset} (${analysis.errors.length})\n`);
       for (const error of analysis.errors) {
-        yield* Console.log(`  ${error.path}: ${error.message}`);
+        const relativePath = toRelativePath(error.path, analysis.root);
+        yield* Console.log(`  ${relativePath}: ${error.message}`);
       }
     }
   }),

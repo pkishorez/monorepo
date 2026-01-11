@@ -14,6 +14,7 @@ import {
   detectVersionMismatches,
   detectUnpinnedVersions,
   detectFormatPackageJson,
+  detectDuplicateWorkspaces,
 } from './pipeline/validate/index.js';
 
 interface AddPackageOptions {
@@ -34,10 +35,11 @@ export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
 
     validate: (analysis: ProjectAnalysis) =>
       Effect.gen(function* () {
+        const duplicates = yield* detectDuplicateWorkspaces(analysis);
         const mismatches = yield* detectVersionMismatches(analysis);
         const unpinned = yield* detectUnpinnedVersions(analysis);
         const formatting = yield* detectFormatPackageJson(analysis);
-        return [...mismatches, ...unpinned, ...formatting];
+        return [...duplicates, ...mismatches, ...unpinned, ...formatting];
       }),
 
     addPackage: (options: AddPackageOptions) =>

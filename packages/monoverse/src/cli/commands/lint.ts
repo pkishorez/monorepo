@@ -46,6 +46,9 @@ const formatViolations = (
     if (v._tag === 'ViolationUnpinnedVersion' && v.versionRange) {
       return `${tag} (${v.versionRange})`;
     }
+    if (v._tag === 'ViolationDuplicateWorkspace' && v.paths) {
+      return `${tag} (${v.paths.join(', ')})`;
+    }
     return tag;
   };
 
