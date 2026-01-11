@@ -28,8 +28,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: 'https://registry.npmjs.org'
           cache: pnpm
+
+      - run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -43,8 +44,9 @@ jobs:
         with:
           version: pnpm version
           publish: pnpm release
-          title: 'chore: release packages'
-          commit: 'chore: release packages'
+          title: "chore: release packages"
+          commit: "chore: release packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org
           NPM_CONFIG_PROVENANCE: true

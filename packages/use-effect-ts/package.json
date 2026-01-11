@@ -2,6 +2,7 @@
   "name": "use-effect-ts",
   "version": "0.0.8",
   "private": false,
+  "repository": "pkishorez/monorepo",
   "devDependencies": {
     "@monorepo/config": "workspace:*",
     "@types/react": "19.2.7",
