@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "@std-toolkit/eschema",
   "version": "0.0.1",
   "dependencies": {

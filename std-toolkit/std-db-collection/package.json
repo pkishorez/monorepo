@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "@std-toolkit/std-db-collection",
   "version": "0.0.1",
   "dependencies": {

@@ -1,7 +1,7 @@
 {
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
-    "types": ["vitest/globals"],
+    "types": ["node", "vitest/globals"],
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "ESNext",

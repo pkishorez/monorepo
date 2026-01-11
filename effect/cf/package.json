@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "@kishorez/effect-cf",
   "version": "0.0.1",
   "dependencies": {

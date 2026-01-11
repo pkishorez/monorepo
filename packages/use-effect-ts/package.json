@@ -1,7 +1,7 @@
 {
   "name": "use-effect-ts",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.0.7",
+  "private": false,
   "devDependencies": {
     "@monorepo/config": "workspace:*",
     "@types/react": "19.2.7",
