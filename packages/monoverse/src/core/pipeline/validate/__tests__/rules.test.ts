@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@effect/vitest';
 import { Effect } from 'effect';
-import type { MonorepoAnalysis } from '../../analyze/types.js';
+import type { ProjectAnalysis } from '../../analyze/types.js';
 import {
   groupDependenciesByPackage,
   detectUnpinnedVersions,
@@ -9,11 +9,10 @@ import {
 } from '../index.js';
 
 function createAnalysis(
-  workspaces: MonorepoAnalysis['workspaces'],
-): MonorepoAnalysis {
+  workspaces: ProjectAnalysis['workspaces'],
+): ProjectAnalysis {
   return {
     root: '/test',
-    packageManager: 'pnpm',
     workspaces,
     errors: [],
   };

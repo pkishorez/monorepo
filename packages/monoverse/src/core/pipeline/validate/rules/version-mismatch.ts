@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { DependencyType, MonorepoAnalysis } from '../../analyze/types.js';
+import type { DependencyType, ProjectAnalysis } from '../../analyze/types.js';
 import type { BaseViolation } from './base.js';
 import { groupDependenciesByPackage } from '../group-by-package.js';
 
@@ -11,7 +11,7 @@ export interface ViolationVersionMismatch extends BaseViolation {
 }
 
 export function detectVersionMismatches(
-  analysis: MonorepoAnalysis,
+  analysis: ProjectAnalysis,
 ): Effect.Effect<ViolationVersionMismatch[]> {
   return Effect.sync(() => {
     const violations: ViolationVersionMismatch[] = [];

@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import {
-  analyzeMonorepo,
-  type MonorepoAnalysis,
+  analyzeProject,
+  type ProjectAnalysis,
   type Workspace,
   type DependencyType,
 } from './pipeline/analyze/index.js';
@@ -30,9 +30,9 @@ interface RemovePackageOptions {
 
 export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
   succeed: {
-    analyze: (startPath: string) => analyzeMonorepo(startPath),
+    analyze: (startPath: string) => analyzeProject(startPath),
 
-    validate: (analysis: MonorepoAnalysis) =>
+    validate: (analysis: ProjectAnalysis) =>
       Effect.gen(function* () {
         const mismatches = yield* detectVersionMismatches(analysis);
         const unpinned = yield* detectUnpinnedVersions(analysis);
@@ -56,7 +56,7 @@ export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
 
     formatWorkspace: (workspace: Workspace) => formatPackageJson(workspace),
 
-    formatAllWorkspaces: (analysis: MonorepoAnalysis) =>
+    formatAllWorkspaces: (analysis: ProjectAnalysis) =>
       Effect.forEach(analysis.workspaces, formatPackageJson, {
         discard: true,
       }),

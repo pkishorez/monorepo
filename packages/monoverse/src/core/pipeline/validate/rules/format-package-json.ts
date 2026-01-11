@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import sortPackageJson from 'sort-package-json';
-import type { MonorepoAnalysis } from '../../analyze/types.js';
+import type { ProjectAnalysis } from '../../analyze/types.js';
 import { getPackageJsonStr } from '../../analyze/index.js';
 import type { BaseViolation } from './base.js';
 
@@ -9,7 +9,7 @@ export interface ViolationFormatPackageJson extends BaseViolation {
 }
 
 export function detectFormatPackageJson(
-  analysis: MonorepoAnalysis,
+  analysis: ProjectAnalysis,
 ): Effect.Effect<ViolationFormatPackageJson[]> {
   return Effect.gen(function* () {
     const violations: ViolationFormatPackageJson[] = [];

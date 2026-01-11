@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useComponentLifecycle } from 'use-effect-ts';
 import { Monoverse } from '../core/index.js';
 import type {
-  MonorepoAnalysis,
+  ProjectAnalysis,
   Workspace,
 } from '../core/pipeline/analyze/index.js';
 
@@ -81,7 +81,7 @@ function FullScreenBox({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const [data, setData] = useState<MonorepoAnalysis | null>(null);
+  const [data, setData] = useState<ProjectAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -151,13 +151,6 @@ function App() {
         <text>
           <span fg="#fff" bg="#000">
             monoverse
-          </span>
-          <span fg="#555" bg="#000">
-            {' '}
-            |{' '}
-          </span>
-          <span fg="#888" bg="#000">
-            {data.packageManager}
           </span>
         </text>
         <text>

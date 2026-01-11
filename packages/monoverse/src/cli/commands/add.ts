@@ -1,7 +1,7 @@
 import { Args, Command, Options, Prompt } from "@effect/cli";
 import { Console, Effect, Option } from "effect";
 import { Monoverse } from "../../core/index.js";
-import type { MonorepoAnalysis } from "../../core/pipeline/analyze/types.js";
+import type { ProjectAnalysis } from "../../core/pipeline/analyze/types.js";
 import { groupDependenciesByPackage } from "../../core/pipeline/validate/group-by-package.js";
 import { fetchNpmPackage } from "../../core/primitives/npm/npm-pkg.js";
 import {
@@ -25,7 +25,7 @@ const versionOption = Options.text("version").pipe(
 );
 
 const findPackageVersionsInWorkspaces = (
-  analysis: MonorepoAnalysis,
+  analysis: ProjectAnalysis,
   packageName: string,
 ): string[] => {
   const groups = groupDependenciesByPackage(analysis, ["npm"]);
@@ -40,7 +40,7 @@ const findPackageVersionsInWorkspaces = (
 };
 
 const resolvePackageVersion = (
-  analysis: MonorepoAnalysis,
+  analysis: ProjectAnalysis,
   packageName: string,
 ) =>
   Effect.gen(function* () {

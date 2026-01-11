@@ -1,8 +1,8 @@
-import type { MonorepoAnalysis, DependencySource } from '../analyze/types.js';
+import type { ProjectAnalysis, DependencySource } from '../analyze/types.js';
 import type { PackageGroup, DependencyInstance } from './types.js';
 
 export function groupDependenciesByPackage(
-  analysis: MonorepoAnalysis,
+  analysis: ProjectAnalysis,
   filterBySources: DependencySource[] = ['npm'],
 ): PackageGroup[] {
   const sourceSet = new Set(filterBySources);

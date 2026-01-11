@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { DependencyType, MonorepoAnalysis } from '../../analyze/types.js';
+import type { DependencyType, ProjectAnalysis } from '../../analyze/types.js';
 import type { BaseViolation } from './base.js';
 import { groupDependenciesByPackage } from '../group-by-package.js';
 import { isPinnedVersion } from '../../../primitives/semver/index.js';
@@ -11,7 +11,7 @@ export interface ViolationUnpinnedVersion extends BaseViolation {
 }
 
 export function detectUnpinnedVersions(
-  analysis: MonorepoAnalysis,
+  analysis: ProjectAnalysis,
 ): Effect.Effect<ViolationUnpinnedVersion[]> {
   return Effect.sync(() => {
     const violations: ViolationUnpinnedVersion[] = [];

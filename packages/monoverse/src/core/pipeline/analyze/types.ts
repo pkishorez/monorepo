@@ -38,6 +38,16 @@ export interface MonorepoAnalysis {
   errors: AnalysisError[];
 }
 
+export interface MonoverseConfig {
+  projects: string[];
+}
+
+export interface ProjectAnalysis {
+  root: string;
+  workspaces: Workspace[];
+  errors: AnalysisError[];
+}
+
 export class NotAMonorepoError extends Data.TaggedError('NotAMonorepoError')<{
   startPath: string;
   message: string;
