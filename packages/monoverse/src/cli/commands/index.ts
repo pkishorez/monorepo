@@ -4,3 +4,4 @@ export { remove, rm, deleteCmd } from './remove.js';
 export { format } from './format.js';
 export { lint } from './lint.js';
 export { fix } from './fix.js';
+export { debug } from './debug.js';

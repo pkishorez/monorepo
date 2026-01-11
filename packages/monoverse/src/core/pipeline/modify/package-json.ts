@@ -44,7 +44,8 @@ export const writePackageJson = (
 ): Effect.Effect<void, PackageJsonWriteError> =>
   Effect.gen(function* () {
     const filePath = joinPath(workspace.path, 'package.json');
-    const formatted = sortPackageJson(content);
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    const formatted = JSON.stringify(sortPackageJson(parsed), null, 2) + '\n';
 
     const current = yield* readFile(filePath).pipe(
       Effect.mapError(

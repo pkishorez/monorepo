@@ -196,11 +196,12 @@ describe('formatPackageJson', () => {
 
   it.effect('does not write if already sorted', () =>
     Effect.gen(function* () {
-      const original = JSON.stringify(
-        { name: 'test', version: '1.0.0', dependencies: {} },
-        null,
-        2,
-      );
+      const original =
+        JSON.stringify(
+          { name: 'test', version: '1.0.0', dependencies: {} },
+          null,
+          2,
+        ) + '\n';
       yield* Effect.promise(() =>
         fs.writeFile(path.join(tempDir, 'package.json'), original),
       );

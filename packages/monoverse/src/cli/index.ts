@@ -14,6 +14,7 @@ import {
   format,
   lint,
   fix,
+  debug,
 } from "./commands/index.js";
 
 const getVersion = (): string => {
@@ -32,7 +33,7 @@ const monoverse = Command.make("monoverse", {}, () =>
 );
 
 const command = monoverse.pipe(
-  Command.withSubcommands([tui, add, remove, rm, deleteCmd, format, lint, fix]),
+  Command.withSubcommands([tui, add, remove, rm, deleteCmd, format, lint, fix, debug]),
 );
 
 const cli = Command.run(command, {
