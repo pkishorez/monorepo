@@ -1,27 +1,8 @@
 {
-  "private": true,
   "name": "@std-toolkit/dynamodb",
   "version": "0.0.1",
-  "dependencies": {
-    "@aws-sdk/util-dynamodb": "3.965.0",
-    "@std-toolkit/core": "workspace:*",
-    "@std-toolkit/dynamodb-client": "workspace:*",
-    "@std-toolkit/eschema": "workspace:*",
-    "effect": "3.19.14",
-    "valibot": "1.2.0"
-  },
-  "devDependencies": {
-    "@effect/language-service": "0.64.1",
-    "@total-typescript/ts-reset": "0.6.1",
-    "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.0.3",
-    "@vitest/coverage-v8": "4.0.16",
-    "dotenv": "17.2.3",
-    "eslint": "9.39.2",
-    "type-fest": "5.3.1",
-    "typescript": "5.9.3",
-    "vitest": "4.0.16"
-  },
+  "private": true,
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -43,5 +24,24 @@
     "test:run": "vitest run --reporter=verbose",
     "test:watch": "vitest --watch --reporter=verbose"
   },
-  "type": "module"
+  "dependencies": {
+    "@aws-sdk/util-dynamodb": "3.965.0",
+    "@std-toolkit/core": "workspace:*",
+    "@std-toolkit/dynamodb-client": "workspace:*",
+    "@std-toolkit/eschema": "workspace:*",
+    "effect": "3.19.14",
+    "valibot": "1.2.0"
+  },
+  "devDependencies": {
+    "@effect/language-service": "0.64.1",
+    "@total-typescript/ts-reset": "0.6.1",
+    "@tsconfig/node22": "22.0.5",
+    "@types/node": "25.0.3",
+    "@vitest/coverage-v8": "4.0.16",
+    "dotenv": "17.2.3",
+    "eslint": "9.39.2",
+    "type-fest": "5.3.1",
+    "typescript": "5.9.3",
+    "vitest": "4.0.16"
+  }
 }

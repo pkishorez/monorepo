@@ -1,16 +1,16 @@
 {
   "name": "@monorepo/config",
-  "description": "",
   "version": "1.0.0",
   "private": true,
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
   "author": "",
   "exports": {
     "./*": "./*"
   },
-  "keywords": [],
-  "license": "ISC",
-  "packageManager": "pnpm@10.27.0",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
-  }
+  },
+  "packageManager": "pnpm@10.27.0"
 }

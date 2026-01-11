@@ -1,7 +1,17 @@
 {
-  "private": true,
   "name": "@std-toolkit/core",
   "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit"
+  },
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
     "effect": "3.19.14",
@@ -12,15 +22,5 @@
   "devDependencies": {
     "@tsconfig/node22": "22.0.5",
     "typescript": "5.9.3"
-  },
-  "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*"
-  },
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "lint": "tsc --noEmit"
-  },
-  "type": "module"
+  }
 }

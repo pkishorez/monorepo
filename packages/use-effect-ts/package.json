@@ -3,12 +3,7 @@
   "version": "0.0.8",
   "private": false,
   "repository": "pkishorez/monorepo",
-  "devDependencies": {
-    "@monorepo/config": "workspace:*",
-    "@types/react": "19.2.7",
-    "effect": "3.19.14",
-    "typescript": "5.9.3"
-  },
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.js",
@@ -22,14 +17,19 @@
     "dist/",
     "src/"
   ],
-  "peerDependencies": {
-    "effect": ">=3.19.14",
-    "react": ">=19.2.3"
-  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "tsc --noEmit"
   },
-  "type": "module"
+  "devDependencies": {
+    "@monorepo/config": "workspace:*",
+    "@types/react": "19.2.7",
+    "effect": "3.19.14",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "effect": ">=3.19.14",
+    "react": ">=19.2.3"
+  }
 }

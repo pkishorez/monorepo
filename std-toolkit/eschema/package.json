@@ -1,20 +1,8 @@
 {
-  "private": true,
   "name": "@std-toolkit/eschema",
   "version": "0.0.1",
-  "dependencies": {
-    "valibot": "1.2.0"
-  },
-  "devDependencies": {
-    "@standard-schema/spec": "1.1.0",
-    "@tsconfig/node22": "22.0.5",
-    "@valibot/to-json-schema": "1.5.0",
-    "effect": "3.19.14",
-    "type-fest": "5.3.1",
-    "typescript": "5.9.3",
-    "vitest": "4.0.16",
-    "zod": "4.3.5"
-  },
+  "private": true,
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -33,5 +21,17 @@
     "test:run": "vitest run",
     "test:watch": "vitest --watch"
   },
-  "type": "module"
+  "dependencies": {
+    "valibot": "1.2.0"
+  },
+  "devDependencies": {
+    "@standard-schema/spec": "1.1.0",
+    "@tsconfig/node22": "22.0.5",
+    "@valibot/to-json-schema": "1.5.0",
+    "effect": "3.19.14",
+    "type-fest": "5.3.1",
+    "typescript": "5.9.3",
+    "vitest": "4.0.16",
+    "zod": "4.3.5"
+  }
 }

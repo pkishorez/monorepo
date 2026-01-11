@@ -1,0 +1,208 @@
+import { Command, Options, Prompt } from '@effect/cli';
+import { Console, Effect } from 'effect';
+import { Monoverse } from '../../core/index.js';
+import { cwd } from '../helpers.js';
+import type { Workspace } from '../../core/pipeline/analyze/index.js';
+import type {
+  ViolationUnpinnedVersion,
+  ViolationVersionMismatch,
+} from '../../core/pipeline/validate/index.js';
+import { normalizeSemver } from '../../core/primitives/semver/index.js';
+
+const c = {
+  reset: '\x1b[0m',
+  green: '\x1b[38;2;136;238;136m',
+  yellow: '\x1b[38;2;238;238;136m',
+  dim: '\x1b[38;2;102;102;102m',
+  white: '\x1b[38;2;255;255;255m',
+};
+
+const interactiveOption = Options.boolean('interactive').pipe(
+  Options.withAlias('i'),
+  Options.withDefault(false),
+);
+
+interface MismatchInfo {
+  versions: string[];
+  workspacesByVersion: Map<string, ViolationVersionMismatch[]>;
+}
+
+const groupMismatchesByPackage = (
+  violations: ViolationVersionMismatch[],
+): Map<string, MismatchInfo> => {
+  const result = new Map<string, MismatchInfo>();
+
+  for (const v of violations) {
+    if (!result.has(v.package)) {
+      result.set(v.package, {
+        versions: v.allVersions,
+        workspacesByVersion: new Map(),
+      });
+    }
+
+    const info = result.get(v.package)!;
+    if (!info.workspacesByVersion.has(v.versionRange)) {
+      info.workspacesByVersion.set(v.versionRange, []);
+    }
+    info.workspacesByVersion.get(v.versionRange)!.push(v);
+  }
+
+  return result;
+};
+
+export const fix = Command.make('fix', { interactive: interactiveOption }, ({ interactive }) =>
+  Effect.gen(function* () {
+    const monoverse = yield* Monoverse;
+    const analysis = yield* monoverse.analyze(cwd);
+    const violations = yield* monoverse.validate(analysis);
+
+    if (violations.length === 0) {
+      yield* Console.log(`${c.green}No issues found${c.reset}`);
+      return;
+    }
+
+    const formatViolations = violations.filter(
+      (v) => v._tag === 'ViolationFormatPackageJson',
+    );
+    const mismatchViolations = violations.filter(
+      (v): v is ViolationVersionMismatch => v._tag === 'ViolationVersionMismatch',
+    );
+    const unpinnedViolations = violations.filter(
+      (v): v is ViolationUnpinnedVersion => v._tag === 'ViolationUnpinnedVersion',
+    );
+
+    const workspacesByName = new Map<string, Workspace>(
+      analysis.workspaces.map((w) => [w.name, w]),
+    );
+
+    const workspacesToFormat = new Set(formatViolations.map((v) => v.workspace));
+    let formattedCount = 0;
+
+    for (const workspaceName of workspacesToFormat) {
+      const workspace = workspacesByName.get(workspaceName);
+      if (!workspace) continue;
+
+      const result = yield* monoverse.formatWorkspace(workspace).pipe(
+        Effect.map(() => true),
+        Effect.catchAll(() => Effect.succeed(false)),
+      );
+
+      if (result) formattedCount++;
+    }
+
+    let pinnedCount = 0;
+
+    for (const violation of unpinnedViolations) {
+      const workspace = workspacesByName.get(violation.workspace);
+      if (!workspace) continue;
+
+      const pinnedVersion = yield* normalizeSemver(violation.versionRange).pipe(
+        Effect.catchAll(() => Effect.succeed(null)),
+      );
+      if (!pinnedVersion) continue;
+
+      const result = yield* monoverse
+        .addPackage({
+          workspace,
+          packageName: violation.package,
+          versionRange: pinnedVersion,
+          dependencyType: violation.dependencyType,
+        })
+        .pipe(
+          Effect.map(() => true),
+          Effect.catchAll(() => Effect.succeed(false)),
+        );
+
+      if (result) pinnedCount++;
+    }
+
+    const mismatchesByPackage = groupMismatchesByPackage(mismatchViolations);
+    let mismatchFixedCount = 0;
+
+    if (interactive && mismatchesByPackage.size > 0) {
+      yield* Console.log(`\n${c.white}Resolving version mismatches${c.reset}\n`);
+
+      for (const [pkg, info] of mismatchesByPackage) {
+        const choices = info.versions.map((version) => {
+          const workspaces = info.workspacesByVersion.get(version) ?? [];
+          const workspaceNames = workspaces.map((w) => w.workspace).join(', ');
+          return {
+            title: `${version} ${c.dim}(${workspaceNames})${c.reset}`,
+            value: version,
+          };
+        });
+
+        const selectedVersion = yield* Prompt.select({
+          message: `Select version for "${pkg}":`,
+          choices,
+        });
+
+        for (const [version, workspaceViolations] of info.workspacesByVersion) {
+          if (version === selectedVersion) continue;
+
+          for (const violation of workspaceViolations) {
+            const workspace = workspacesByName.get(violation.workspace);
+            if (!workspace) continue;
+
+            const result = yield* monoverse
+              .addPackage({
+                workspace,
+                packageName: pkg,
+                versionRange: selectedVersion,
+                dependencyType: violation.dependencyType,
+              })
+              .pipe(
+                Effect.map(() => true),
+                Effect.catchAll(() => Effect.succeed(false)),
+              );
+
+            if (result) mismatchFixedCount++;
+          }
+        }
+      }
+    }
+
+    yield* Console.log(`\n${c.white}Summary${c.reset}`);
+    yield* Console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+
+    if (formattedCount > 0) {
+      yield* Console.log(
+        `${c.green}Fixed${c.reset}    ${formattedCount} formatting issue${formattedCount === 1 ? '' : 's'}`,
+      );
+    }
+
+    if (pinnedCount > 0) {
+      yield* Console.log(
+        `${c.green}Fixed${c.reset}    ${pinnedCount} unpinned version${pinnedCount === 1 ? '' : 's'}`,
+      );
+    }
+
+    if (mismatchFixedCount > 0) {
+      yield* Console.log(
+        `${c.green}Fixed${c.reset}    ${mismatchFixedCount} version mismatch${mismatchFixedCount === 1 ? '' : 'es'}`,
+      );
+    }
+
+    const skippedMismatches = interactive ? 0 : mismatchesByPackage.size;
+
+    if (skippedMismatches > 0) {
+      yield* Console.log(
+        `${c.yellow}Skipped${c.reset}  ${skippedMismatches} version mismatch${skippedMismatches === 1 ? '' : 'es'} ${c.dim}(use -i to resolve)${c.reset}`,
+      );
+
+      for (const [pkg, info] of mismatchesByPackage) {
+        yield* Console.log(
+          `${c.dim}         ${pkg}: ${info.versions.join(', ')}${c.reset}`,
+        );
+      }
+    }
+
+    const totalFixed = formattedCount + pinnedCount + mismatchFixedCount;
+    const totalSkipped = skippedMismatches;
+
+    yield* Console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+    yield* Console.log(
+      `${c.white}Total${c.reset}    ${totalFixed} fixed, ${totalSkipped} skipped`,
+    );
+  }),
+);

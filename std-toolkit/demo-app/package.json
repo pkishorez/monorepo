@@ -1,5 +1,16 @@
 {
   "name": "demo-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "deploy:prod": "alchemy deploy --stage prod --env-file .env.prod",
+    "destroy": "alchemy destroy",
+    "dev": "alchemy dev",
+    "dev:prod": "alchemy dev --stage prod",
+    "serve": "vite preview",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@effect/opentelemetry": "0.60.0",
     "@effect/platform": "0.94.1",
@@ -54,16 +65,5 @@
     "vitest": "4.0.16",
     "web-vitals": "5.1.0",
     "wrangler": "4.58.0"
-  },
-  "private": true,
-  "scripts": {
-    "build": "vite build",
-    "deploy:prod": "alchemy deploy --stage prod --env-file .env.prod",
-    "destroy": "alchemy destroy",
-    "dev": "alchemy dev",
-    "dev:prod": "alchemy dev --stage prod",
-    "serve": "vite preview",
-    "test": "vitest run"
-  },
-  "type": "module"
+  }
 }
