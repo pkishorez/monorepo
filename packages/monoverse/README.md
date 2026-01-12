@@ -1,31 +1,107 @@
 # Monoverse
 
-A powerful monorepo management tool to streamline your development workflow.
+A zero-config, opinionated monorepo management tool.
 
-## Installation
+## Getting Started
+
+Monoverse works out of the box with any monorepo. No configuration needed.
 
 ```bash
+# Install
 npm install -g monoverse
-# or
-pnpm add -g monoverse
+
+# Run from anywhere in your monorepo
+monoverse ls
 ```
 
-## Quick Start
+Monoverse auto-detects your package manager (pnpm, yarn, npm, bun) and discovers all workspaces automatically.
+
+## Commands
+
+### ls
+
+List all workspaces in a tree structure.
 
 ```bash
-# List all workspaces in a tree view
 monoverse ls
-
-# Check for issues
-monoverse lint
-
-# Auto-fix issues
-monoverse fix
 ```
 
-## Configuration
+```
+Workspaces (12)
 
-Create a `monoverse.json` file in your project root to manage multiple monorepos or custom project structures:
+my-monorepo
+├── apps
+│   ├── web (web)
+│   └── mobile (mobile)
+└── packages
+    ├── ui (@acme/ui)
+    └── utils (@acme/utils) (cwd)
+```
+
+### add
+
+Add a dependency to the current workspace.
+
+```bash
+monoverse add lodash
+monoverse add -t dev vitest
+monoverse add -v 5.0.0 lodash
+```
+
+| Option | Description |
+|--------|-------------|
+| `-t, --type` | `dependency` (default), `dev`, `peer`, `optional` |
+| `-v, --version` | Specific version to install |
+
+Syncs to existing versions in other workspaces when available.
+
+### remove
+
+Remove a dependency from the current workspace.
+
+```bash
+monoverse remove lodash
+monoverse rm lodash
+```
+
+### lint
+
+Check for issues across all workspaces.
+
+```bash
+monoverse lint
+```
+
+Detects:
+- Version mismatches across workspaces
+- Unpinned versions (`^1.0.0`, `~1.0.0`)
+- Unformatted package.json files
+- Duplicate workspace names
+
+### fix
+
+Auto-fix detected issues.
+
+```bash
+monoverse fix
+monoverse fix -i
+```
+
+| Option | Description |
+|--------|-------------|
+| `-i, --interactive` | Resolve version mismatches interactively |
+
+### format
+
+Format all package.json files.
+
+```bash
+monoverse format
+```
+
+## Advanced Configuration
+
+For managing multiple monorepos together, create a `monoverse.json`:
 
 ```json
 {
@@ -33,134 +109,7 @@ Create a `monoverse.json` file in your project root to manage multiple monorepos
 }
 ```
 
-The `projects` array accepts:
-
-- **Direct paths**: `"."`, `"../other-repo"`
-- **Glob patterns**: `"./packages/*"`, `"./apps/**"`
-
-Monoverse will discover all workspaces from the specified paths and manage them together.
-
-## Commands
-
-### `monoverse ls`
-
-Display all workspaces in a tree structure. Shows the folder hierarchy with package names and highlights your current working directory.
-
-```
-Workspaces (23)
-
-MINE
-├── private-monorepo (private-monorepo)
-│   ├── apps
-│   │   ├── docs (docs)
-│   │   └── kishore-app (kishore-app)
-│   └── packages
-│       └── shadcn (@monorepo/shadcn)
-└── monorepo (public-monorepo)
-    └── packages
-        └── monoverse (monoverse) (cwd)
-```
-
-### `monoverse add <package>`
-
-Add a dependency to the current workspace.
-
-```bash
-# Add as regular dependency
-monoverse add lodash
-
-# Add as dev dependency
-monoverse add -t dev vitest
-
-# Add with specific version
-monoverse add -v 5.0.0 lodash
-```
-
-**Options:**
-
-- `-t, --type` - Dependency type: `dependency` (default), `dev`, `peer`, `optional`
-- `-v, --version` - Specific version to install
-
-**Smart version resolution:**
-
-- If the package exists in other workspaces, monoverse syncs to that version
-- If multiple versions exist, you'll be prompted to choose
-- Otherwise, fetches the latest version from npm
-
-### `monoverse remove <package>`
-
-Remove a dependency from the current workspace.
-
-```bash
-monoverse remove lodash
-
-# Aliases
-monoverse rm lodash
-monoverse delete lodash
-```
-
-### `monoverse lint`
-
-Check all workspaces for issues. Returns exit code 1 if issues are found.
-
-```bash
-monoverse lint
-```
-
-**Detects:**
-
-- **Version mismatches** - Same package with different versions across workspaces
-- **Unpinned versions** - Dependencies using ranges like `^1.0.0` or `~1.0.0`
-- **Formatting issues** - package.json files not properly formatted
-- **Duplicate workspaces** - Multiple workspaces with the same name
-
-### `monoverse fix`
-
-Automatically fix detected issues.
-
-```bash
-# Auto-fix formatting and unpinned versions
-monoverse fix
-
-# Interactive mode - also resolve version mismatches
-monoverse fix -i
-```
-
-**Options:**
-
-- `-i, --interactive` - Interactively resolve version mismatches by selecting which version to use
-
-**Fixes automatically:**
-
-- Formatting issues (sorts package.json)
-- Unpinned versions (converts `^1.2.3` to `1.2.3`)
-
-**Requires interactive mode:**
-
-- Version mismatches (you choose which version to keep)
-
-### `monoverse format`
-
-Format all package.json files in the monorepo.
-
-```bash
-monoverse format
-```
-
-Sorts keys in a consistent order and ensures proper formatting.
-
-### `monoverse tui`
-
-Launch the terminal user interface (coming soon).
-
-## Supported Package Managers
-
-Monoverse auto-detects your package manager:
-
-- **pnpm** - `pnpm-workspace.yaml`
-- **yarn** - `package.json` workspaces field
-- **npm** - `package.json` workspaces field
-- **bun** - `package.json` workspaces field
+Accepts direct paths and glob patterns.
 
 ## License
 

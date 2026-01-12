@@ -1,7 +1,7 @@
 {
   "name": "monoverse",
   "version": "0.0.15",
-  "description": "A powerful monorepo management tool to streamline your development workflow.",
+  "description": "A zero-config, opinionated monorepo management tool.",
   "keywords": [],
   "repository": "pkishorez/monorepo",
   "license": "MIT",
