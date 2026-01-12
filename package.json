@@ -2,8 +2,8 @@
   "name": "public-monorepo",
   "description": "My monorepo",
   "keywords": [],
-  "license": "ISC",
   "author": "Kishore",
+  "license": "ISC",
   "scripts": {
     "build": "pnpm --filter \"./packages/**\" build",
     "changeset": "changeset",
