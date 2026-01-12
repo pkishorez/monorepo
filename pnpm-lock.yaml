@@ -9,10 +9,10 @@ importers:
   .:
     devDependencies:
       '@changesets/changelog-github':
-        specifier: ^0.5.2
+        specifier: 0.5.2
         version: 0.5.2
       '@changesets/cli':
-        specifier: ^2.29.8
+        specifier: 2.29.8
         version: 2.29.8(@types/node@25.0.3)
       del-cli:
         specifier: 7.0.0

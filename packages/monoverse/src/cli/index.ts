@@ -33,7 +33,17 @@ const monoverse = Command.make("monoverse", {}, () =>
 );
 
 const command = monoverse.pipe(
-  Command.withSubcommands([tui, add, remove, rm, deleteCmd, format, lint, fix, debug]),
+  Command.withSubcommands([
+    tui,
+    add,
+    remove,
+    rm,
+    deleteCmd,
+    format,
+    lint,
+    fix,
+    debug,
+  ]),
 );
 
 const cli = Command.run(command, {

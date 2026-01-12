@@ -1,17 +1,17 @@
-import { Command } from '@effect/cli';
-import { Console, Effect } from 'effect';
-import { Monoverse } from '../../core/index.js';
-import { cwd } from '../helpers.js';
-import { Violation } from '../../core/pipeline/validate/index.js';
-import { Workspace } from '../../core/pipeline/analyze/index.js';
+import { Command } from "@effect/cli";
+import { Console, Effect } from "effect";
+import { Monoverse } from "../../core/index.js";
+import { cwd } from "../helpers.js";
+import { Violation } from "../../core/pipeline/validate/index.js";
+import { Workspace } from "../../core/pipeline/analyze/index.js";
 
 const c = {
-  reset: '\x1b[0m',
-  red: '\x1b[38;2;238;136;136m',
-  green: '\x1b[38;2;136;238;136m',
-  gray: '\x1b[38;2;136;136;136m',
-  dim: '\x1b[38;2;102;102;102m',
-  white: '\x1b[38;2;255;255;255m',
+  reset: "\x1b[0m",
+  red: "\x1b[38;2;238;136;136m",
+  green: "\x1b[38;2;136;238;136m",
+  gray: "\x1b[38;2;136;136;136m",
+  dim: "\x1b[38;2;102;102;102m",
+  white: "\x1b[38;2;255;255;255m",
 };
 
 const formatViolations = (
@@ -22,7 +22,7 @@ const formatViolations = (
   const pathByName = new Map(
     workspaces.map((w) => [
       w.name,
-      w.path === root ? '.' : w.path.replace(root + '/', ''),
+      w.path === root ? "." : w.path.replace(root + "/", ""),
     ]),
   );
 
@@ -39,33 +39,33 @@ const formatViolations = (
   }
 
   const formatDetail = (v: Violation): string => {
-    const tag = v._tag.replace('Violation', '');
-    if (v._tag === 'ViolationVersionMismatch' && v.allVersions) {
-      return `${tag} (${v.allVersions.join(', ')})`;
+    const tag = v._tag.replace("Violation", "");
+    if (v._tag === "ViolationVersionMismatch" && v.allVersions) {
+      return `${tag} (${v.allVersions.join(", ")})`;
     }
-    if (v._tag === 'ViolationUnpinnedVersion' && v.versionRange) {
+    if (v._tag === "ViolationUnpinnedVersion" && v.versionRange) {
       return `${tag} (${v.versionRange})`;
     }
-    if (v._tag === 'ViolationDuplicateWorkspace' && v.paths) {
-      return `${tag} (${v.paths.join(', ')})`;
+    if (v._tag === "ViolationDuplicateWorkspace" && v.paths) {
+      return `${tag} (${v.paths.join(", ")})`;
     }
     return tag;
   };
 
   const lines: string[] = [];
   for (const [workspace, packages] of grouped) {
-    const path = pathByName.get(workspace) ?? '';
+    const path = pathByName.get(workspace) ?? "";
     lines.push(`${c.white}${workspace}${c.dim} (${path})${c.reset}`);
     for (const [pkg, vList] of packages) {
-      const details = vList.map(formatDetail).join(', ');
+      const details = vList.map(formatDetail).join(", ");
       lines.push(`${c.gray}  ${pkg.padEnd(28)}${c.red}${details}${c.reset}`);
     }
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 };
 
-export const lint = Command.make('lint', {}, () =>
+export const lint = Command.make("lint", {}, () =>
   Effect.gen(function* () {
     const monoverse = yield* Monoverse;
     const analysis = yield* monoverse.analyze(cwd);
