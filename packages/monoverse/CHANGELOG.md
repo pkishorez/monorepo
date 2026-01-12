@@ -1,5 +1,11 @@
 # monoverse
 
+## 0.0.19
+
+### Patch Changes
+
+- Bun is required for opentui to work. Making bun a prerequisite. Will revisit later again.
+
 ## 0.0.18
 
 ### Patch Changes
