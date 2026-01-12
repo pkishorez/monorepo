@@ -1,12 +1,14 @@
 import { Effect } from "effect";
 import { Monoverse } from "../core/index.js";
 
-export const cwd = process.cwd();
-
 export const findCurrentWorkspace = Effect.gen(function* () {
+  const cwd = process.cwd();
   const monoverse = yield* Monoverse;
   const analysis = yield* monoverse.analyze(cwd);
-  const workspace = analysis.workspaces.find((ws) => cwd.startsWith(ws.path));
+  const workspace = analysis.workspaces
+    .sort((a, z) => z.path.length - a.path.length)
+    .find((ws) => cwd.startsWith(ws.path));
+
   if (!workspace) {
     return yield* Effect.fail(
       new Error(

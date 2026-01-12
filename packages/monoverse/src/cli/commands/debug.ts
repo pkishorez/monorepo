@@ -1,14 +1,13 @@
 import { Command } from "@effect/cli";
 import { Console, Effect } from "effect";
 import { Monoverse } from "../../core/index.js";
-import { cwd } from "../helpers.js";
 import { toRelativePath } from "../../core/primitives/fs/index.js";
 import { theme as c } from "../theme.js";
 
 export const debug = Command.make("debug", {}, () =>
   Effect.gen(function* () {
     const monoverse = yield* Monoverse;
-    const analysis = yield* monoverse.analyze(cwd);
+    const analysis = yield* monoverse.analyze(process.cwd());
 
     yield* Console.log(`Root ${c.accent}${analysis.root}${c.reset}\n`);
     yield* Console.log(`Workspaces (${analysis.workspaces.length})\n`);

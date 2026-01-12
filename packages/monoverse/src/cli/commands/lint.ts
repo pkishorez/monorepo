@@ -1,7 +1,6 @@
 import { Command } from "@effect/cli";
 import { Console, Effect } from "effect";
 import { Monoverse } from "../../core/index.js";
-import { cwd } from "../helpers.js";
 import { Violation } from "../../core/pipeline/validate/index.js";
 import { Workspace } from "../../core/pipeline/analyze/index.js";
 import { theme as c } from "../theme.js";
@@ -60,7 +59,7 @@ const formatViolations = (
 export const lint = Command.make("lint", {}, () =>
   Effect.gen(function* () {
     const monoverse = yield* Monoverse;
-    const analysis = yield* monoverse.analyze(cwd);
+    const analysis = yield* monoverse.analyze(process.cwd());
     const violations = yield* monoverse.validate(analysis);
 
     if (violations.length === 0) {

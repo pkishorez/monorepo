@@ -1,7 +1,6 @@
 import { Command, Options, Prompt } from "@effect/cli";
 import { Console, Effect } from "effect";
 import { Monoverse } from "../../core/index.js";
-import { cwd } from "../helpers.js";
 import type { Workspace } from "../../core/pipeline/analyze/index.js";
 import type {
   ViolationUnpinnedVersion,
@@ -51,7 +50,7 @@ export const fix = Command.make(
     Effect.gen(function* () {
       const monoverse = yield* Monoverse;
 
-      let analysis = yield* monoverse.analyze(cwd);
+      let analysis = yield* monoverse.analyze(process.cwd());
       let violations = yield* monoverse.validate(analysis);
 
       if (violations.length === 0) {
@@ -108,7 +107,7 @@ export const fix = Command.make(
           if (result) formattedCount++;
         }
 
-        analysis = yield* monoverse.analyze(cwd);
+        analysis = yield* monoverse.analyze(process.cwd());
         violations = yield* monoverse.validate(analysis);
       }
 
@@ -148,7 +147,7 @@ export const fix = Command.make(
 
         yield* monoverse.formatAllWorkspaces(analysis);
 
-        analysis = yield* monoverse.analyze(cwd);
+        analysis = yield* monoverse.analyze(process.cwd());
         violations = yield* monoverse.validate(analysis);
       }
 
