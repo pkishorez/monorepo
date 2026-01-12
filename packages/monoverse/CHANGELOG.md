@@ -1,5 +1,11 @@
 # monoverse
 
+## 0.0.17
+
+### Patch Changes
+
+- Improve lint output format.
+
 ## 0.0.16
 
 ### Patch Changes
