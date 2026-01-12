@@ -1,5 +1,11 @@
 # monoverse
 
+## 0.0.16
+
+### Patch Changes
+
+- First reasonably usable release of monoverse.
+
 ## 0.0.15
 
 ### Patch Changes

@@ -6,6 +6,7 @@
   "author": "Kishore",
   "scripts": {
     "build": "pnpm --filter \"./packages/**\" build",
+    "prepare-release": "changeset && changeset version",
     "changeset": "changeset",
     "clean": "del-cli '**/.turbo' '**/node_modules' '**/dist'",
     "release": "pnpm build && changeset publish",
