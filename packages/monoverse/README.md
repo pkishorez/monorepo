@@ -18,6 +18,22 @@ Monoverse auto-detects your package manager (pnpm, yarn, npm, bun) and discovers
 
 ## Commands
 
+| Command | Description |
+|---------|-------------|
+| **Explore** | |
+| `ls` | List all workspaces in a tree structure |
+| **Dependency Management** | |
+| `add <pkg>` | Add a dependency to the current workspace |
+| `rm <pkg>` | Remove a dependency from the current workspace |
+| **Lint & Fix** | |
+| `lint` | Check for issues across all workspaces |
+| `fix` | Auto-fix detected issues |
+| `format` | Format all package.json files |
+| **TUI** | |
+| `tui` | Terminal UI (coming soon) |
+
+---
+
 ### ls
 
 List all workspaces in a tree structure.
@@ -38,6 +54,8 @@ my-monorepo
     └── utils (@acme/utils) (cwd)
 ```
 
+---
+
 ### add
 
 Add a dependency to the current workspace.
@@ -55,14 +73,17 @@ monoverse add -v 5.0.0 lodash
 
 Syncs to existing versions in other workspaces when available.
 
-### remove
+---
+
+### rm
 
 Remove a dependency from the current workspace.
 
 ```bash
-monoverse remove lodash
 monoverse rm lodash
 ```
+
+---
 
 ### lint
 
@@ -78,6 +99,8 @@ Detects:
 - Unformatted package.json files
 - Duplicate workspace names
 
+---
+
 ### fix
 
 Auto-fix detected issues.
@@ -90,6 +113,8 @@ monoverse fix -i
 | Option | Description |
 |--------|-------------|
 | `-i, --interactive` | Resolve version mismatches interactively |
+
+---
 
 ### format
 

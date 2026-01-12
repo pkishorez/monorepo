@@ -4,6 +4,7 @@ import { theme as c } from "../../theme.js";
 export type TreeItem = {
   path: string;
   name?: string;
+  annotations?: string[];
 };
 
 export type TreeOptions = {
@@ -16,6 +17,7 @@ interface TreeNode {
   fullPath: string;
   isWorkspace: boolean;
   workspaceName: string | undefined;
+  annotations: string[];
   children: Map<string, TreeNode>;
 }
 
@@ -59,6 +61,7 @@ function buildTree(items: TreeItem[], commonAncestor: string): TreeNode {
     fullPath: commonAncestor,
     isWorkspace: false,
     workspaceName: undefined,
+    annotations: [],
     children: new Map(),
   };
 
@@ -83,6 +86,7 @@ function buildTree(items: TreeItem[], commonAncestor: string): TreeNode {
           fullPath: currentPath,
           isWorkspace: false,
           workspaceName: undefined,
+          annotations: [],
           children: new Map(),
         };
         current.children.set(segment, node);
@@ -91,6 +95,7 @@ function buildTree(items: TreeItem[], commonAncestor: string): TreeNode {
       if (isLast) {
         node.isWorkspace = true;
         node.workspaceName = item.name;
+        node.annotations = item.annotations ?? [];
       }
       current = node;
     }
@@ -138,13 +143,25 @@ function renderTree(
     return a.isWorkspace ? 1 : -1;
   });
 
+  const hasChildren = sortedChildren.length > 0;
+  const newPrefix = isRoot ? "" : prefix + (isLast ? BOX.empty : BOX.vertical);
+
+  if (node.annotations.length > 0) {
+    for (let i = 0; i < node.annotations.length; i++) {
+      const annotation = node.annotations[i];
+      if (annotation === undefined) continue;
+
+      const isLastAnnotation = i === node.annotations.length - 1 && !hasChildren;
+      const annotationBranch = isLastAnnotation ? BOX.lastBranch : BOX.branch;
+      lines.push(`${newPrefix}${annotationBranch}${annotation}`);
+    }
+  }
+
   for (let i = 0; i < sortedChildren.length; i++) {
     const child = sortedChildren[i];
     if (child === undefined) continue;
 
     const childIsLast = i === sortedChildren.length - 1;
-    const newPrefix = isRoot ? "" : prefix + (isLast ? BOX.empty : BOX.vertical);
-
     lines.push(renderTree(child, cwd, newPrefix, childIsLast, false));
   }
 
