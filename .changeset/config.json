@@ -4,7 +4,7 @@
     "@changesets/changelog-github",
     { "repo": "pkishorez/monorepo" }
   ],
-  "commit": false,
+  "commit": true,
   "fixed": [],
   "linked": [],
   "access": "public",
