@@ -1,5 +1,11 @@
 # monoverse
 
+## 0.0.18
+
+### Patch Changes
+
+- fix: tui subcommand.
+
 ## 0.0.17
 
 ### Patch Changes
