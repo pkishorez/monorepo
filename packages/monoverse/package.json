@@ -23,6 +23,7 @@
     "dev:tui": "nodemon --watch dist --exec 'bun dist/tui.js' --signal SIGTERM --delay 100ms",
     "lint": "tsc --noEmit",
     "run:cli": "bun src/cli/index.ts",
+    "run:tui": "bun run src/tui/index.tsx",
     "test": "vitest run",
     "test:watch": "vitest"
   },

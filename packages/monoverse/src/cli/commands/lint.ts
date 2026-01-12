@@ -3,7 +3,7 @@ import { Console, Effect } from "effect";
 import { Monoverse } from "../../core/index.js";
 import { Violation } from "../../core/pipeline/validate/index.js";
 import { Workspace } from "../../core/pipeline/analyze/index.js";
-import { theme as c } from "../theme.js";
+import { theme as c } from "../../theme.js";
 
 const formatViolations = (
   violations: Violation[],

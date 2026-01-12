@@ -8,7 +8,7 @@ import type {
   ViolationDuplicateWorkspace,
 } from "../../core/pipeline/validate/index.js";
 import { normalizeSemver } from "../../core/primitives/semver/index.js";
-import { theme as c } from "../theme.js";
+import { theme as c } from "../../theme.js";
 
 const interactiveOption = Options.boolean("interactive").pipe(
   Options.withAlias("i"),

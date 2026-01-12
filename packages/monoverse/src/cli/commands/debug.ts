@@ -2,7 +2,7 @@ import { Command } from "@effect/cli";
 import { Console, Effect } from "effect";
 import { Monoverse } from "../../core/index.js";
 import { toRelativePath } from "../../core/primitives/fs/index.js";
-import { theme as c } from "../theme.js";
+import { theme as c } from "../../theme.js";
 
 export const debug = Command.make("debug", {}, () =>
   Effect.gen(function* () {

@@ -25,6 +25,12 @@
 - `PascalCase` for types, suffix errors with `Error`
 - Minimal exports; use `index.ts` as public API
 
+## Colors
+
+- All colors must come from `src/theme.ts`
+- Use `colors` export for hex values (TUI), `theme` export for ANSI codes (CLI)
+- Never hardcode color values; add new semantic colors to theme first
+
 ## Comments
 
 - Avoid comments; code should be self-explanatory
