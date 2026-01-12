@@ -1,21 +1,21 @@
-import { Effect } from 'effect';
+import { Effect } from "effect";
 import {
   analyzeProject,
   type ProjectAnalysis,
   type Workspace,
   type DependencyType,
-} from './pipeline/analyze/index.js';
+} from "./pipeline/analyze/index.js";
 import {
   upsertDependency,
   removeDependency,
   formatPackageJson,
-} from './pipeline/modify/index.js';
+} from "./pipeline/modify/index.js";
 import {
   detectVersionMismatches,
   detectUnpinnedVersions,
   detectFormatPackageJson,
   detectDuplicateWorkspaces,
-} from './pipeline/validate/index.js';
+} from "./pipeline/validate/index.js";
 
 interface AddPackageOptions {
   packageName: string;
@@ -29,7 +29,7 @@ interface RemovePackageOptions {
   workspace: Workspace;
 }
 
-export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
+export class Monoverse extends Effect.Service<Monoverse>()("Monoverse", {
   succeed: {
     analyze: (startPath: string) => analyzeProject(startPath),
 
@@ -42,7 +42,7 @@ export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
         return [...duplicates, ...mismatches, ...unpinned, ...formatting];
       }),
 
-    addPackage: (options: AddPackageOptions) =>
+    upsertDependency: (options: AddPackageOptions) =>
       upsertDependency({
         workspace: options.workspace,
         dependencyName: options.packageName,
@@ -50,7 +50,7 @@ export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
         dependencyType: options.dependencyType,
       }),
 
-    removePackage: (options: RemovePackageOptions) =>
+    removeDependency: (options: RemovePackageOptions) =>
       removeDependency({
         workspace: options.workspace,
         dependencyName: options.packageName,

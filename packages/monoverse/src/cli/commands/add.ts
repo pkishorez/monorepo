@@ -83,7 +83,7 @@ const handler = ({
       ? version.value
       : yield* resolvePackageVersion(analysis, pkg);
 
-    yield* monoverse.addPackage({
+    yield* monoverse.upsertDependency({
       packageName: pkg,
       versionRange: resolvedVersion,
       dependencyType,

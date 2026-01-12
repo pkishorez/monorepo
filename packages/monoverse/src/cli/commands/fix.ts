@@ -132,7 +132,7 @@ export const fix = Command.make(
           if (!pinnedVersion) continue;
 
           const result = yield* monoverse
-            .addPackage({
+            .upsertDependency({
               workspace,
               packageName: violation.package,
               versionRange: pinnedVersion,
@@ -188,7 +188,7 @@ export const fix = Command.make(
               if (!workspace) continue;
 
               const result = yield* monoverse
-                .addPackage({
+                .upsertDependency({
                   workspace,
                   packageName: pkg,
                   versionRange: selectedVersion,

@@ -10,7 +10,7 @@ const handler = ({ package: pkg }: { package: string }) =>
     const monoverse = yield* Monoverse;
     const { workspace } = yield* findCurrentWorkspace;
 
-    yield* monoverse.removePackage({
+    yield* monoverse.removeDependency({
       packageName: pkg,
       workspace,
     });
