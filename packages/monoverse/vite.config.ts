@@ -5,6 +5,8 @@ import viteTsConfigPaths from 'vite-tsconfig-paths';
 const nodeExternals = [
   ...builtinModules,
   ...builtinModules.map((m) => `node:${m}`),
+  '@opentui/core',
+  '@opentui/react',
 ];
 
 export default defineConfig({
