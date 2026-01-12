@@ -3,21 +3,20 @@ import { Console, Effect } from "effect";
 import { Monoverse } from "../../core/index.js";
 import { toRelativePath } from "../../core/primitives/fs/index.js";
 import { theme as c } from "../../theme.js";
+import { formatToTree } from "../format/tree.js";
 
-export const debug = Command.make("debug", {}, () =>
+export const ls = Command.make("ls", {}, () =>
   Effect.gen(function* () {
     const monoverse = yield* Monoverse;
     const analysis = yield* monoverse.analyze(process.cwd());
 
-    yield* Console.log(`Root ${c.accent}${analysis.root}${c.reset}\n`);
     yield* Console.log(`Workspaces (${analysis.workspaces.length})\n`);
 
-    for (const workspace of analysis.workspaces) {
-      const relativePath = toRelativePath(workspace.path, analysis.root);
-      yield* Console.log(
-        `  ${c.primary}${workspace.name}${c.reset} ${c.accent}${relativePath}${c.reset}`,
-      );
-    }
+    const tree = formatToTree(
+      analysis.workspaces.map((w) => ({ path: w.path, name: w.name })),
+      { root: analysis.root, cwd: process.cwd() },
+    );
+    yield* Console.log(tree);
 
     if (analysis.errors.length > 0) {
       yield* Console.log(`\nErrors (${analysis.errors.length})\n`);

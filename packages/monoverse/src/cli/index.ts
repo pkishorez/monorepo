@@ -14,7 +14,7 @@ import {
   format,
   lint,
   fix,
-  debug,
+  ls,
 } from "./commands/index.js";
 
 const getVersion = (): string => {
@@ -42,7 +42,7 @@ const command = monoverse.pipe(
     format,
     lint,
     fix,
-    debug,
+    ls,
   ]),
 );
 
