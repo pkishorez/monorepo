@@ -9,14 +9,7 @@ import type {
   ViolationDuplicateWorkspace,
 } from "../../core/pipeline/validate/index.js";
 import { normalizeSemver } from "../../core/primitives/semver/index.js";
-
-const c = {
-  reset: "\x1b[0m",
-  green: "\x1b[38;2;136;238;136m",
-  yellow: "\x1b[38;2;238;238;136m",
-  dim: "\x1b[38;2;102;102;102m",
-  white: "\x1b[38;2;255;255;255m",
-};
+import { theme as c } from "../theme.js";
 
 const interactiveOption = Options.boolean("interactive").pipe(
   Options.withAlias("i"),
@@ -62,7 +55,7 @@ export const fix = Command.make(
       let violations = yield* monoverse.validate(analysis);
 
       if (violations.length === 0) {
-        yield* Console.log(`${c.green}No issues found${c.reset}`);
+        yield* Console.log(`${c.success}No issues found${c.reset}`);
         return;
       }
 
@@ -73,16 +66,16 @@ export const fix = Command.make(
 
       if (duplicateViolations.length > 0) {
         yield* Console.error(
-          `${c.yellow}Cannot fix: duplicate workspace names detected${c.reset}\n`,
+          `${c.warning}Cannot fix: duplicate workspace names detected${c.reset}\n`,
         );
         for (const v of duplicateViolations) {
-          yield* Console.error(`${c.white}${v.workspace}${c.reset}`);
+          yield* Console.error(`${c.primary}${v.workspace}${c.reset}`);
           for (const path of v.paths) {
-            yield* Console.error(`${c.dim}  ${path}${c.reset}`);
+            yield* Console.error(`  ${c.accent}${path}${c.reset}`);
           }
         }
         yield* Console.error(
-          `\n${c.dim}Rename the workspaces to have unique names.${c.reset}`,
+          `\n${c.muted}Rename the workspaces to have unique names.${c.reset}`,
         );
         return;
       }
@@ -166,9 +159,7 @@ export const fix = Command.make(
       const mismatchesByPackage = groupMismatchesByPackage(mismatchViolations);
 
       if (interactive && mismatchesByPackage.size > 0) {
-        yield* Console.log(
-          `\n${c.white}Resolving version mismatches${c.reset}\n`,
-        );
+        yield* Console.log(`\nResolving version mismatches\n`);
 
         const workspacesByName = new Map<string, Workspace>(
           analysis.workspaces.map((w) => [w.name, w]),
@@ -181,7 +172,7 @@ export const fix = Command.make(
               .map((w) => w.workspace)
               .join(", ");
             return {
-              title: `${version} ${c.dim}(${workspaceNames})${c.reset}`,
+              title: `${version} ${c.muted}(${workspaceNames})${c.reset}`,
               value: version,
             };
           });
@@ -216,24 +207,24 @@ export const fix = Command.make(
         yield* monoverse.formatAllWorkspaces(analysis);
       }
 
-      yield* Console.log(`\n${c.white}Summary${c.reset}`);
-      yield* Console.log(`${c.dim}${"─".repeat(40)}${c.reset}`);
+      yield* Console.log(`\nSummary`);
+      yield* Console.log(`${c.muted}${"─".repeat(40)}${c.reset}`);
 
       if (formattedCount > 0) {
         yield* Console.log(
-          `${c.green}Fixed${c.reset}    ${formattedCount} formatting issue${formattedCount === 1 ? "" : "s"}`,
+          `${c.success}Fixed${c.reset}    ${formattedCount} formatting issue${formattedCount === 1 ? "" : "s"}`,
         );
       }
 
       if (pinnedCount > 0) {
         yield* Console.log(
-          `${c.green}Fixed${c.reset}    ${pinnedCount} unpinned version${pinnedCount === 1 ? "" : "s"}`,
+          `${c.success}Fixed${c.reset}    ${pinnedCount} unpinned version${pinnedCount === 1 ? "" : "s"}`,
         );
       }
 
       if (mismatchFixedCount > 0) {
         yield* Console.log(
-          `${c.green}Fixed${c.reset}    ${mismatchFixedCount} version mismatch${mismatchFixedCount === 1 ? "" : "es"}`,
+          `${c.success}Fixed${c.reset}    ${mismatchFixedCount} version mismatch${mismatchFixedCount === 1 ? "" : "es"}`,
         );
       }
 
@@ -241,12 +232,12 @@ export const fix = Command.make(
 
       if (skippedMismatches > 0) {
         yield* Console.log(
-          `${c.yellow}Skipped${c.reset}  ${skippedMismatches} version mismatch${skippedMismatches === 1 ? "" : "es"} ${c.dim}(use -i to resolve)${c.reset}`,
+          `${c.warning}Skipped${c.reset}  ${skippedMismatches} version mismatch${skippedMismatches === 1 ? "" : "es"} ${c.muted}(use -i to resolve)${c.reset}`,
         );
 
         for (const [pkg, info] of mismatchesByPackage) {
           yield* Console.log(
-            `${c.dim}         ${pkg}: ${info.versions.join(", ")}${c.reset}`,
+            `${c.muted}         ${pkg}: ${info.versions.join(", ")}${c.reset}`,
           );
         }
       }
@@ -254,9 +245,9 @@ export const fix = Command.make(
       const totalFixed = formattedCount + pinnedCount + mismatchFixedCount;
       const totalSkipped = skippedMismatches;
 
-      yield* Console.log(`${c.dim}${"─".repeat(40)}${c.reset}`);
+      yield* Console.log(`${c.muted}${"─".repeat(40)}${c.reset}`);
       yield* Console.log(
-        `${c.white}Total${c.reset}    ${totalFixed} fixed, ${totalSkipped} skipped`,
+        `Total    ${totalFixed} fixed, ${totalSkipped} skipped`,
       );
     }),
 );

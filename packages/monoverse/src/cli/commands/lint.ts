@@ -4,15 +4,7 @@ import { Monoverse } from "../../core/index.js";
 import { cwd } from "../helpers.js";
 import { Violation } from "../../core/pipeline/validate/index.js";
 import { Workspace } from "../../core/pipeline/analyze/index.js";
-
-const c = {
-  reset: "\x1b[0m",
-  red: "\x1b[38;2;238;136;136m",
-  green: "\x1b[38;2;136;238;136m",
-  gray: "\x1b[38;2;136;136;136m",
-  dim: "\x1b[38;2;102;102;102m",
-  white: "\x1b[38;2;255;255;255m",
-};
+import { theme as c } from "../theme.js";
 
 const formatViolations = (
   violations: Violation[],
@@ -55,10 +47,10 @@ const formatViolations = (
   const lines: string[] = [];
   for (const [workspace, packages] of grouped) {
     const path = pathByName.get(workspace) ?? "";
-    lines.push(`${c.white}${workspace}${c.dim} (${path})${c.reset}`);
+    lines.push(`${c.primary}${workspace} ${c.accent}${path}${c.reset}`);
     for (const [pkg, vList] of packages) {
       const details = vList.map(formatDetail).join(", ");
-      lines.push(`${c.gray}  ${pkg.padEnd(28)}${c.red}${details}${c.reset}`);
+      lines.push(`${c.muted}  ${pkg.padEnd(28)}${c.error}${details}${c.reset}`);
     }
   }
 
@@ -72,12 +64,12 @@ export const lint = Command.make("lint", {}, () =>
     const violations = yield* monoverse.validate(analysis);
 
     if (violations.length === 0) {
-      yield* Console.log(`${c.green}No issues found${c.reset}`);
+      yield* Console.log(`${c.success}No issues found${c.reset}`);
       return;
     }
 
     yield* Console.error(
-      `${c.red}Found ${violations.length} issues${c.reset}\n`,
+      `${c.error}Found ${violations.length} issues${c.reset}\n`,
     );
     yield* Console.error(
       formatViolations(violations, analysis.workspaces, analysis.root),
