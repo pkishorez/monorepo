@@ -1,4 +1,4 @@
-import type { PackageUpdate } from "../core/monoverse.js";
+import type { PackageUpdate } from "../core/index.js";
 
 export type UpdateType = "major" | "minor" | "patch" | "none";
 

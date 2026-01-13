@@ -11,7 +11,7 @@ import {
   Monoverse,
   type LoadProgress,
   type PackageUpdate,
-} from "../core/monoverse.js";
+} from "../core/index.js";
 import { colors } from "../theme.js";
 import { PackageRow } from "./package-row.js";
 import {
