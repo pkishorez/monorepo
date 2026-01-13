@@ -10,6 +10,7 @@ const result = await Bun.build({
   external: [
     "@opentui/core",
     "@opentui/react",
+    "react",
   ],
   define: {
     MONOVERSE_VERSION: JSON.stringify(pkg.version),
