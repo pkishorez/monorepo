@@ -1,5 +1,11 @@
 # monoverse
 
+## 0.0.21
+
+### Patch Changes
+
+- fix: react should be marked as external.
+
 ## 0.0.20
 
 ### Patch Changes
