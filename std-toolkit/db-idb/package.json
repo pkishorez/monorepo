@@ -24,11 +24,11 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.5",
-    "@types/serviceworker": "0.0.173",
-    "@vitest/coverage-v8": "4.0.16",
+    "@types/serviceworker": "0.0.176",
+    "@vitest/coverage-v8": "4.0.17",
     "fake-indexeddb": "6.2.5",
     "jsdom": "27.4.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.16"
+    "vitest": "4.0.17"
   }
 }

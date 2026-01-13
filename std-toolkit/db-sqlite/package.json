@@ -20,13 +20,13 @@
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "effect": "3.19.14",
-    "type-fest": "5.3.1"
+    "type-fest": "5.4.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260108.0",
+    "@cloudflare/workers-types": "4.20260113.0",
     "@tsconfig/node22": "22.0.5",
-    "@vitest/coverage-v8": "4.0.16",
+    "@vitest/coverage-v8": "4.0.17",
     "typescript": "5.9.3",
-    "vitest": "4.0.16"
+    "vitest": "4.0.17"
   }
 }

@@ -3,31 +3,22 @@ import {
   analyzeProject,
   type ProjectAnalysis,
   type Workspace,
-  type DependencyType,
-} from "./pipeline/analyze/index.js";
+} from "../pipeline/analyze/index.js";
 import {
   upsertDependency,
   removeDependency,
   formatPackageJson,
-} from "./pipeline/modify/index.js";
+} from "../pipeline/modify/index.js";
 import {
   detectVersionMismatches,
   detectUnpinnedVersions,
   detectFormatPackageJson,
   detectDuplicateWorkspaces,
-} from "./pipeline/validate/index.js";
+} from "../pipeline/validate/index.js";
+import type { AddPackageOptions, RemovePackageOptions } from "./types.js";
+import { getUpdates, getUpdatesWithProgress } from "./updates.js";
 
-interface AddPackageOptions {
-  packageName: string;
-  versionRange: string;
-  dependencyType: DependencyType;
-  workspace: Workspace;
-}
-
-interface RemovePackageOptions {
-  packageName: string;
-  workspace: Workspace;
-}
+export type { SemverUpdates, PackageUpdate, LoadProgress } from "./types.js";
 
 export class Monoverse extends Effect.Service<Monoverse>()("Monoverse", {
   succeed: {
@@ -62,5 +53,9 @@ export class Monoverse extends Effect.Service<Monoverse>()("Monoverse", {
       Effect.forEach(analysis.workspaces, formatPackageJson, {
         discard: true,
       }),
+
+    getUpdates,
+
+    getUpdatesWithProgress,
   },
 }) {}

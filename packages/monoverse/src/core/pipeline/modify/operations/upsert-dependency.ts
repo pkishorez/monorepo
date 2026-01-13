@@ -42,7 +42,7 @@ export const upsertDependency = (
     const targetKey = DEPENDENCY_TYPE_TO_KEY[dependencyType];
 
     for (const key of ALL_DEPENDENCY_KEYS) {
-      if (key === targetKey) continue;
+      if (key === targetKey || key === 'peerDependencies') continue;
       const deps = content[key];
       if (deps && dependencyName in deps) {
         delete deps[dependencyName];
