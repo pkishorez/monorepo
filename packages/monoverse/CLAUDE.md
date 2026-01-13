@@ -13,6 +13,11 @@
 - Use `it()` for sync tests, `it.effect()` only for Effects
 - Use `Effect.flip` to test errors (not `Effect.either`)
 
+## File Naming
+
+- Use `kebab-case` for all file names (e.g., `package-list.tsx`, `mock-data.ts`)
+- `PascalCase` for React component exports (e.g., `export function PackageList`)
+
 ## Patterns
 
 - `Data.TaggedError` for errors, include `cause: unknown` when wrapping external failures

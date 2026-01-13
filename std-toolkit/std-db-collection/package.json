@@ -31,12 +31,12 @@
     "valibot": "1.2.0"
   },
   "devDependencies": {
-    "@effect/language-service": "0.64.1",
+    "@effect/language-service": "0.65.0",
     "@standard-schema/spec": "1.1.0",
-    "@tanstack/react-db": "0.1.61",
+    "@tanstack/react-db": "0.1.63",
     "@tsconfig/node22": "22.0.5",
     "typescript": "5.9.3",
-    "vitest": "4.0.16"
+    "vitest": "4.0.17"
   },
   "peerDependencies": {
     "@tanstack/react-db": ">=0.1.61"

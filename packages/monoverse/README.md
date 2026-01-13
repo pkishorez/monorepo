@@ -2,6 +2,15 @@
 
 A zero-config, opinionated monorepo management tool.
 
+## Prerequisites
+
+[Bun](https://bun.sh) is required to run monoverse.
+
+```bash
+# Install Bun (macOS, Linux, WSL)
+curl -fsSL https://bun.sh/install | bash
+```
+
 ## Getting Started
 
 Monoverse works out of the box with any monorepo. No configuration needed.

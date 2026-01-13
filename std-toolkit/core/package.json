@@ -16,7 +16,7 @@
     "@std-toolkit/eschema": "workspace:*",
     "effect": "3.19.14",
     "json-stringify-deterministic": "1.0.12",
-    "type-fest": "5.3.1",
+    "type-fest": "5.4.0",
     "valibot": "1.2.0"
   },
   "devDependencies": {

@@ -21,11 +21,6 @@ src/
 
 ## Decisions
 
-### Build Tools (Vite + Nodemon)
-
-- **Vite**: Properly handles peer dependencies. With the multi-repo approach (separating private and public packages), peer dependency resolution with direct bun or node is broken under pnpm. Vite resolves this.
-- **Nodemon**: `bun --watch` causes issues where the app doesn't properly restart since this is a TUI app. Nodemon provides reliable restarts.
-
 ### npm-pkg
 
 - Use abbreviated endpoint (`application/vnd.npm.install-v1+json`) for ~95% bandwidth reduction
