@@ -1,5 +1,11 @@
 # monoverse
 
+## 0.0.20
+
+### Patch Changes
+
+- Add ability to update packages
+
 ## 0.0.19
 
 ### Patch Changes
