@@ -5,7 +5,7 @@ import { Command, CliConfig } from "@effect/cli";
 import { NodeContext, NodeRuntime } from "@effect/platform-node";
 import { Console, Effect, Layer } from "effect";
 import { Monoverse } from "../core/index.js";
-import { tui, add, rm, format, lint, fix, ls } from "./commands/index.js";
+import { tui, updates, add, rm, format, lint, fix, ls } from "./commands/index.js";
 
 const getVersion = (): string => {
   try {
@@ -36,6 +36,7 @@ const command = monoverse.pipe(
 
     // TUI
     tui,
+    updates,
   ]),
 );
 
