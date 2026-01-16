@@ -14,10 +14,10 @@
   },
   "dependencies": {
     "json-stringify-deterministic": "1.0.12",
-    "type-fest": "5.4.0"
+    "type-fest": "5.4.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260113.0",
+    "@cloudflare/workers-types": "4.20260116.0",
     "@effect/platform": "0.94.1",
     "@effect/rpc": "0.73.0",
     "@tsconfig/node22": "22.0.5",
