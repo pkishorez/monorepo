@@ -29,3 +29,13 @@ export type NextVersion<V extends string> =
   V extends `v${infer Num extends number}`
     ? `v${[...BuildTuple<Num>, any]["length"] & number}`
     : never;
+
+// Standard Schema helper types
+import type { ESchema } from "./eschema";
+
+export type ESchemaInput<T> = T extends ESchema<any, any, any> ? unknown : never;
+
+export type ESchemaOutput<T> =
+  T extends ESchema<infer TName, infer TVersion, infer TLatest>
+    ? Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }>
+    : never;
