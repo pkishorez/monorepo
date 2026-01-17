@@ -5,19 +5,19 @@ export const metaSchema = Schema.Struct({
   _e: Schema.String,
 });
 export function parseMeta(value: unknown): { _v: string } {
-  return decodeSchema(metaSchema.fields, value);
+  return decodeStruct(metaSchema.fields, value);
 }
 
-export function decodeSchema<S extends Schema.Struct.Fields>(
-  schema: S,
+export function decodeStruct<S extends Schema.Struct.Fields>(
+  fields: S,
   value: unknown,
 ): Schema.Schema.Type<Schema.Struct<S>> {
-  return Schema.decodeUnknownSync(Schema.Struct(schema) as any)(value) as any;
+  return Schema.decodeUnknownSync(Schema.Struct(fields) as any)(value) as any;
 }
 
-export function encodeSchema<S extends Schema.Struct.Fields>(
-  schema: S,
+export function encodeStruct<S extends Schema.Struct.Fields>(
+  fields: S,
   value: Schema.Schema.Type<Schema.Struct<S>>,
 ): Schema.Schema.Encoded<Schema.Struct<S>> {
-  return Schema.encodeSync(Schema.Struct(schema) as any)(value) as any;
+  return Schema.encodeSync(Schema.Struct(fields) as any)(value) as any;
 }
