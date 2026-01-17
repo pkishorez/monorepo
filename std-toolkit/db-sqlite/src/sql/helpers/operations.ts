@@ -1,29 +1,46 @@
 import { sql, type Statement } from "./utils.js";
 
-type SkOperator = "<" | "<=" | ">" | ">=";
-type SkValue = string | { [K in SkOperator]?: string };
+export type SkOperator = "<" | "<=" | ">" | ">=";
+export type SkQuery = { [K in SkOperator]?: string };
+export type SkValue = string | SkQuery;
 
 export type Where = {
   clause: string;
   params: unknown[];
 };
 
-export const where = (def: { pk: string; sk: SkValue }): Where => {
+export const extractSkOp = (
+  sk: SkQuery,
+): { op: SkOperator; value: string } => {
+  if ("<" in sk) return { op: "<", value: sk["<"]! };
+  if ("<=" in sk) return { op: "<=", value: sk["<="]! };
+  if (">" in sk) return { op: ">", value: sk[">"]! };
+  return { op: ">=", value: sk[">="]! };
+};
+
+export const getSkOrderDirection = (sk: SkQuery): "ASC" | "DESC" => {
+  const { op } = extractSkOp(sk);
+  return op === "<" || op === "<=" ? "DESC" : "ASC";
+};
+
+export const where = (
+  def: { pk: string; sk: SkValue },
+  cols: { pk: string; sk: string } = { pk: "pk", sk: "sk" },
+): Where => {
   const { pk, sk } = def;
 
   if (typeof sk === "string") {
     return {
-      clause: sql`pk = ? AND sk = ?`,
+      clause: sql`${cols.pk} = ? AND ${cols.sk} = ?`,
       params: [pk, sk],
     };
   }
 
-  const op = Object.keys(sk)[0] as SkOperator;
-  const skValue = sk[op];
+  const { op, value } = extractSkOp(sk);
 
   return {
-    clause: sql`pk = ? AND sk ${op} ?`,
-    params: [pk, skValue],
+    clause: sql`${cols.pk} = ? AND ${cols.sk} ${op} ?`,
+    params: [pk, value],
   };
 };
 
@@ -62,7 +79,9 @@ export const select = (
   options?: { orderBy?: "ASC" | "DESC"; limit?: number; offset?: number },
 ): Statement => {
   const params = [...w.params];
-  const orderByClause = options?.orderBy ? ` ORDER BY sk ${options.orderBy}` : "";
+  const orderByClause = options?.orderBy
+    ? ` ORDER BY sk ${options.orderBy}`
+    : "";
   const limitClause = options?.limit !== undefined ? " LIMIT ?" : "";
   const offsetClause = options?.offset !== undefined ? " OFFSET ?" : "";
 

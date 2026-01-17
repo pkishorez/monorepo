@@ -40,9 +40,11 @@ export type ESchemaType<T extends AnyESchema> =
     ? StructFieldsDecoded<TLatest>
     : never;
 
-export type ESchemaInput<T> = T extends ESchema<any, any, any> ? unknown : never;
-
-export type ESchemaOutput<T> =
-  T extends ESchema<infer TName, infer TVersion, infer TLatest>
-    ? Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }>
-    : never;
+export interface ESchemaResult<
+  TName extends string,
+  TVersion extends string,
+  TData,
+> {
+  data: TData;
+  meta: { _v: TVersion; _e: TName };
+}

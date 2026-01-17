@@ -1,4 +1,7 @@
-export const sql = (strings: TemplateStringsArray, ...values: string[]): string => {
+export const sql = (
+  strings: TemplateStringsArray,
+  ...values: string[]
+): string => {
   let result = "";
   for (let i = 0; i < strings.length; i++) {
     result += strings[i];
