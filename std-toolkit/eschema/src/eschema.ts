@@ -2,18 +2,20 @@ import {
   ForbidUnderscorePrefix,
   NextVersion,
   Prettify,
-  StructType,
+  StructFieldsDecoded,
+  StructFieldsEncoded,
+  StructFieldsSchema,
 } from "./types";
 import { invariant } from "./utils";
-import { parseMeta, decodeSchema, encodeSchema } from "./schema";
+import { parseMeta, decodeStruct, encodeStruct } from "./schema";
 import { Schema } from "effect";
 
 export class ESchema<
   TName extends string,
   TVersion extends string,
-  TLatest extends StructType,
+  TLatest extends StructFieldsSchema,
 > {
-  static make<N extends string, I extends StructType>(
+  static make<N extends string, I extends StructFieldsSchema>(
     name: N,
     schema: I & ForbidUnderscorePrefix<I>,
   ) {
@@ -30,12 +32,12 @@ export class ESchema<
     private name: TName,
     private evolutions: {
       version: string;
-      schema: StructType;
+      schema: StructFieldsSchema;
       migration: ((prev: any) => any) | null;
     }[] = [],
   ) {}
 
-  makePartial(value: Partial<Schema.Schema.Type<TLatest>>) {
+  makePartial(value: Partial<StructFieldsDecoded<TLatest>>) {
     return value;
   }
 
@@ -43,20 +45,18 @@ export class ESchema<
     return this.evolutions.at(-1)?.schema as TLatest;
   }
 
-  decode(value: unknown): Prettify<Schema.Schema.Type<TLatest>> {
+  decode(value: unknown): Prettify<StructFieldsDecoded<TLatest>> {
     const { _v } = parseMeta(value);
     const index = this.evolutions.findIndex((v) => v.version === _v);
     const evolution = this.evolutions[index];
 
     invariant(index !== -1 && !!evolution, `Unknown schema version: ${_v}`);
 
-    let prev: any = decodeSchema(evolution.schema, value);
-    for (let i = index; i < this.evolutions.length; i++) {
+    let prev: any = decodeStruct(evolution.schema, value);
+    for (let i = index + 1; i < this.evolutions.length; i++) {
       const evolution = this.evolutions[i];
       invariant(!!evolution, "Migration not found");
-
-      const { migration } = evolution;
-      prev = migration?.(prev) ?? prev;
+      prev = evolution.migration!(prev);
     }
 
     const latestEvolution = this.evolutions.at(-1);
@@ -68,10 +68,8 @@ export class ESchema<
   }
 
   encode(
-    value: Schema.Schema.Type<Schema.Struct<TLatest>>,
-  ): Prettify<
-    Schema.Schema.Encoded<Schema.Struct<TLatest>> & { _v: TVersion; _e: TName }
-  > {
+    value: StructFieldsDecoded<TLatest>,
+  ): Prettify<StructFieldsEncoded<TLatest> & { _v: TVersion; _e: TName }> {
     const evolution = this.evolutions.at(-1);
     invariant(!!evolution, "No evolutions found");
 
@@ -79,7 +77,7 @@ export class ESchema<
     return {
       _v: evolution.version,
       _e: this.name,
-      ...encodeSchema(evolution.schema as any, rest),
+      ...encodeStruct(evolution.schema as any, rest),
     } as any;
   }
 }
@@ -87,23 +85,21 @@ export class ESchema<
 class Builder<
   TName extends string,
   TVersion extends string,
-  TLatest extends StructType,
+  TLatest extends StructFieldsSchema,
 > {
   constructor(
     private name: TName,
     private migrations: {
       version: string;
-      schema: StructType;
+      schema: StructFieldsSchema;
       migration: ((prev: any) => any) | null;
     }[],
   ) {}
 
-  evolve<V extends NextVersion<TVersion>, N extends StructType>(
+  evolve<V extends NextVersion<TVersion>, N extends StructFieldsSchema>(
     version: V,
     schema: N & ForbidUnderscorePrefix<N>,
-    migration: (
-      prev: Schema.Schema.Type<Schema.Struct<TLatest>>,
-    ) => Schema.Schema.Type<Schema.Struct<N>>,
+    migration: (prev: StructFieldsDecoded<TLatest>) => StructFieldsDecoded<N>,
   ) {
     return new Builder<TName, V, N>(this.name, [
       ...this.migrations,

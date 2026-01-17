@@ -1,6 +1,13 @@
 import { Schema } from "effect";
 
-export type StructType = Record<string, Schema.Struct.Field>;
+export type StructFieldsSchema = Record<string, Schema.Struct.Field>;
+
+export type StructFieldsDecoded<T extends StructFieldsSchema> =
+  Schema.Schema.Type<Schema.Struct<T>>;
+
+export type StructFieldsEncoded<T extends StructFieldsSchema> =
+  Schema.Schema.Encoded<Schema.Struct<T>>;
+
 export type ForbidUnderscorePrefix<T> = {
   [K in keyof T]: K extends `_${string}`
     ? "Key with prefix _ is Forbidden."
