@@ -1,23 +1,17 @@
 {
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
-    "types": ["node", "vitest/globals"],
     "lib": ["ESNext", "DOM"],
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-
-    "rootDir": "./src",
-    "outDir": "./dist",
-
+    "rootDir": ".",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "strict": true,
-    "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "declaration": true,
     "declarationMap": true,
-    "noEmit": false,
+    "outDir": "dist",
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": ["dist", "node_modules"]
 }
