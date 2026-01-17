@@ -1,4 +1,44 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
+import { Effect } from "effect";
+import { SqliteDB, SqliteDBError } from "./sql/db.js";
+import {
+  where,
+  getSkOrderDirection,
+  type SkQuery,
+} from "./sql/helpers/index.js";
+
+const isoNow = (): string => new Date().toISOString();
+
+const idxPkCol = (indexName: string): string => `_idx_${indexName}_pk`;
+const idxSkCol = (indexName: string): string => `_idx_${indexName}_sk`;
+
+interface RawRow extends Record<string, unknown> {
+  pk: string;
+  sk: string;
+  _data: string;
+  _v: string;
+  _i: number;
+  _u: string;
+  _c: string;
+  _d: number;
+}
+
+interface RowMeta {
+  _v: string;
+  _i: number;
+  _u: string;
+  _c: string;
+  _d: number;
+}
+
+export interface EntityResult<T> {
+  data: T;
+  meta: RowMeta;
+}
+
+export interface QueryResult<T> {
+  items: EntityResult<T>[];
+}
 
 interface KeyDef<T> {
   pk: (entity: T) => string;
@@ -9,7 +49,10 @@ export class SQLiteTable<
   TSchema extends AnyESchema,
   TIndexes extends Record<string, KeyDef<ESchemaType<TSchema>>> = {},
 > {
-  static make<S extends AnyESchema>(schema: S, primaryKey: KeyDef<ESchemaType<S>>) {
+  static make<S extends AnyESchema>(
+    schema: S,
+    primaryKey: KeyDef<ESchemaType<S>>,
+  ) {
     return new SQLiteTableBuilder<S, {}>(schema, primaryKey, {});
   }
 
@@ -19,13 +62,269 @@ export class SQLiteTable<
     readonly indexes: TIndexes,
   ) {}
 
-  // TODO: setup() - create table
-  // TODO: get(keyValue) - get by pk+sk
-  // TODO: insert(value) - insert row
-  // TODO: update(keyValue, updates) - update row
-  // TODO: delete(keyValue) - soft delete
-  // TODO: query(params) - query by pk + sk range
-  // TODO: index(name).query(params) - query GSI
+  get tableName(): string {
+    return this.schema.name;
+  }
+
+  setup(): Effect.Effect<void, SqliteDBError, SqliteDB> {
+    return Effect.gen(this, function* () {
+      const db = yield* SqliteDB;
+      const columns = [
+        "pk TEXT NOT NULL",
+        "sk TEXT NOT NULL",
+        "_data TEXT NOT NULL",
+        "_v TEXT NOT NULL",
+        "_i INTEGER NOT NULL DEFAULT 0",
+        "_u TEXT NOT NULL",
+        "_c TEXT NOT NULL",
+        "_d INTEGER NOT NULL DEFAULT 0",
+      ];
+
+      yield* db.createTable(this.tableName, columns, ["pk", "sk"]);
+
+      for (const indexName of Object.keys(this.indexes)) {
+        yield* db.addColumn(this.tableName, idxPkCol(indexName), "TEXT");
+        yield* db.addColumn(this.tableName, idxSkCol(indexName), "TEXT");
+        yield* db.createIndex(
+          this.tableName,
+          `idx_${this.tableName}_${indexName}`,
+          [idxPkCol(indexName), idxSkCol(indexName)],
+        );
+      }
+    });
+  }
+
+  insert(
+    value: ESchemaType<TSchema>,
+  ): Effect.Effect<
+    EntityResult<ESchemaType<TSchema>>,
+    SqliteDBError,
+    SqliteDB
+  > {
+    return Effect.gen(this, function* () {
+      const db = yield* SqliteDB;
+      const pk = this.primaryKey.pk(value);
+      const sk = this.primaryKey.sk(value);
+      const now = isoNow();
+
+      const { data: encodedData, meta: schemaMeta } = yield* this.schema
+        .encode(value)
+        .pipe(
+          Effect.mapError((cause) =>
+            SqliteDBError.insertFailed(this.tableName, cause),
+          ),
+        );
+
+      const indexColumns = this.#deriveIndexColumns(value);
+
+      yield* db.insert(this.tableName, {
+        pk,
+        sk,
+        _data: JSON.stringify(encodedData),
+        _v: schemaMeta._v,
+        _i: 0,
+        _u: now,
+        _c: now,
+        _d: 0,
+        ...indexColumns,
+      });
+
+      return {
+        data: value,
+        meta: {
+          _v: schemaMeta._v,
+          _i: 0,
+          _u: now,
+          _c: now,
+          _d: 0,
+        },
+      };
+    });
+  }
+
+  update(
+    keyValue: ESchemaType<TSchema>,
+    updates: Partial<ESchemaType<TSchema>>,
+  ): Effect.Effect<
+    EntityResult<ESchemaType<TSchema>>,
+    SqliteDBError,
+    SqliteDB
+  > {
+    return Effect.gen(this, function* () {
+      const db = yield* SqliteDB;
+      const existing = yield* this.#getRow(keyValue);
+
+      const merged = { ...existing.data, ...updates } as ESchemaType<TSchema>;
+      const pk = this.primaryKey.pk(keyValue);
+      const sk = this.primaryKey.sk(keyValue);
+      const w = where({ pk, sk });
+
+      const { data: encodedData, meta: schemaMeta } = yield* this.schema
+        .encode(merged)
+        .pipe(
+          Effect.mapError((cause) =>
+            SqliteDBError.updateFailed(this.tableName, cause),
+          ),
+        );
+
+      const indexColumns = this.#deriveIndexColumns(merged);
+
+      yield* db.update(
+        this.tableName,
+        {
+          _data: JSON.stringify(encodedData),
+          _v: schemaMeta._v,
+          ...indexColumns,
+        },
+        w,
+      );
+
+      return yield* this.#getRow(keyValue);
+    });
+  }
+
+  delete(
+    keyValue: ESchemaType<TSchema>,
+  ): Effect.Effect<
+    EntityResult<ESchemaType<TSchema>>,
+    SqliteDBError,
+    SqliteDB
+  > {
+    return Effect.gen(this, function* () {
+      const db = yield* SqliteDB;
+      const existing = yield* this.#getRow(keyValue);
+
+      const pk = this.primaryKey.pk(keyValue);
+      const sk = this.primaryKey.sk(keyValue);
+      const w = where({ pk, sk });
+
+      yield* db.update(this.tableName, { _d: 1 }, w);
+
+      return { ...existing, meta: { ...existing.meta, _d: 1 } };
+    });
+  }
+
+  query(params: {
+    pk: Partial<ESchemaType<TSchema>>;
+    sk: SkQuery;
+    limit?: number;
+  }): Effect.Effect<
+    QueryResult<ESchemaType<TSchema>>,
+    SqliteDBError,
+    SqliteDB
+  > {
+    return Effect.gen(this, function* () {
+      const db = yield* SqliteDB;
+      const pk = this.primaryKey.pk(params.pk as ESchemaType<TSchema>);
+      const w = where({ pk, sk: params.sk });
+      const orderBy = getSkOrderDirection(params.sk);
+
+      const rows = yield* db.query<RawRow>(this.tableName, w, {
+        orderBy,
+        limit: params.limit ?? 100,
+      });
+
+      const items: EntityResult<ESchemaType<TSchema>>[] = [];
+      for (const row of rows) {
+        items.push(yield* this.#parseRow(row));
+      }
+
+      return { items };
+    });
+  }
+
+  index<N extends keyof TIndexes & string>(indexName: N) {
+    const indexDef = this.indexes[indexName]!;
+    const pkCol = idxPkCol(indexName);
+    const skCol = idxSkCol(indexName);
+
+    return {
+      query: (params: {
+        pk: Partial<ESchemaType<TSchema>>;
+        sk: SkQuery;
+        limit?: number;
+      }): Effect.Effect<
+        QueryResult<ESchemaType<TSchema>>,
+        SqliteDBError,
+        SqliteDB
+      > => {
+        return Effect.gen(this, function* () {
+          const db = yield* SqliteDB;
+          const pk = indexDef.pk(params.pk as ESchemaType<TSchema>);
+          const orderBy = getSkOrderDirection(params.sk);
+          const w = where({ pk, sk: params.sk }, { pk: pkCol, sk: skCol });
+
+          const rows = yield* db.query<RawRow>(this.tableName, w, {
+            orderBy,
+            limit: params.limit ?? 100,
+          });
+
+          const items: EntityResult<ESchemaType<TSchema>>[] = [];
+          for (const row of rows) {
+            items.push(yield* this.#parseRow(row));
+          }
+
+          return { items };
+        });
+      },
+    };
+  }
+
+  #getRow(
+    keyValue: ESchemaType<TSchema>,
+  ): Effect.Effect<
+    EntityResult<ESchemaType<TSchema>>,
+    SqliteDBError,
+    SqliteDB
+  > {
+    return Effect.gen(this, function* () {
+      const db = yield* SqliteDB;
+      const pk = this.primaryKey.pk(keyValue);
+      const sk = this.primaryKey.sk(keyValue);
+      const w = where({ pk, sk });
+
+      const row = yield* db.get<RawRow>(this.tableName, w);
+      return yield* this.#parseRow(row);
+    });
+  }
+
+  #parseRow(
+    row: RawRow,
+  ): Effect.Effect<EntityResult<ESchemaType<TSchema>>, SqliteDBError> {
+    return Effect.gen(this, function* () {
+      const rawData = JSON.parse(row._data);
+
+      const { data } = yield* this.schema
+        .decode(rawData)
+        .pipe(
+          Effect.mapError((cause) =>
+            SqliteDBError.queryFailed(this.tableName, cause),
+          ),
+        );
+
+      return {
+        data: data as ESchemaType<TSchema>,
+        meta: {
+          _v: row._v,
+          _i: row._i,
+          _u: row._u,
+          _c: row._c,
+          _d: row._d,
+        },
+      };
+    });
+  }
+
+  #deriveIndexColumns(value: ESchemaType<TSchema>): Record<string, string> {
+    const columns: Record<string, string> = {};
+
+    for (const [indexName, indexDef] of Object.entries(this.indexes)) {
+      columns[idxPkCol(indexName)] = indexDef.pk(value);
+      columns[idxSkCol(indexName)] = indexDef.sk(value);
+    }
+
+    return columns;
+  }
 }
 
 class SQLiteTableBuilder<

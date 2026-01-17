@@ -1,6 +1,7 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { Effect } from "effect";
 import {
+  ESchemaResult,
   ForbidUnderscorePrefix,
   NextVersion,
   Prettify,
@@ -33,7 +34,7 @@ export class ESchema<
   }
 
   constructor(
-    private name: TName,
+    readonly name: TName,
     private evolutions: {
       version: string;
       schema: StructFieldsSchema;
@@ -52,7 +53,7 @@ export class ESchema<
   decode(
     value: unknown,
   ): Effect.Effect<
-    Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }>,
+    ESchemaResult<TName, TVersion, StructFieldsDecoded<TLatest>>,
     ESchemaError
   > {
     return Effect.gen(this, function* () {
@@ -64,21 +65,20 @@ export class ESchema<
         return yield* new ESchemaError({ message: `Unknown schema version: ${_v}` });
       }
 
-      let prev: any = yield* decodeStruct(evolution.schema, value);
+      let data: any = yield* decodeStruct(evolution.schema, value);
 
       for (let i = index + 1; i < this.evolutions.length; i++) {
         const evo = this.evolutions[i];
         if (!evo) {
           return yield* new ESchemaError({ message: "Migration not found" });
         }
-        prev = evo.migration!(prev);
+        data = evo.migration!(data);
       }
 
       const latestEvolution = this.evolutions.at(-1);
       return {
-        _v: latestEvolution!.version,
-        _e: this.name,
-        ...prev,
+        data: data as StructFieldsDecoded<TLatest>,
+        meta: { _v: latestEvolution!.version as TVersion, _e: this.name },
       };
     });
   }
@@ -86,7 +86,7 @@ export class ESchema<
   encode(
     value: StructFieldsDecoded<TLatest>,
   ): Effect.Effect<
-    Prettify<StructFieldsEncoded<TLatest> & { _v: TVersion; _e: TName }>,
+    ESchemaResult<TName, TVersion, StructFieldsEncoded<TLatest>>,
     ESchemaError
   > {
     return Effect.gen(this, function* () {
@@ -96,13 +96,12 @@ export class ESchema<
       }
 
       const { _v, _e, ...rest } = value as any;
-      const encoded = yield* encodeStruct(evolution.schema as any, rest);
+      const data = yield* encodeStruct(evolution.schema as any, rest);
 
       return {
-        _v: evolution.version,
-        _e: this.name,
-        ...encoded,
-      } as any;
+        data: data as StructFieldsEncoded<TLatest>,
+        meta: { _v: evolution.version as TVersion, _e: this.name },
+      };
     });
   }
 
@@ -116,7 +115,8 @@ export class ESchema<
       validate: (value) => {
         const result = Effect.runSyncExit(this.decode(value));
         if (result._tag === "Success") {
-          return { value: result.value };
+          const { data, meta } = result.value;
+          return { value: { ...data, ...meta } as any };
         }
         const cause = result.cause;
         if (cause._tag === "Fail") {

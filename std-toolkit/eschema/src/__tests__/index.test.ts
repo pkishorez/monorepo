@@ -17,7 +17,8 @@ describe("ESchema.make", () => {
       }).build();
 
       const encoded = yield* schema.encode({ name: "Alice" });
-      expect(encoded).toEqual({ _v: "v1", _e: "User", name: "Alice" });
+      expect(encoded.data).toEqual({ name: "Alice" });
+      expect(encoded.meta).toEqual({ _v: "v1", _e: "User" });
     }),
   );
 
@@ -36,13 +37,12 @@ describe("ESchema.make", () => {
         nullable: null,
       });
 
-      expect(decoded).toEqual({
-        _v: "v1",
-        _e: "Complex",
+      expect(decoded.data).toEqual({
         count: 42,
         optional: "default",
         nullable: null,
       });
+      expect(decoded.meta).toEqual({ _v: "v1", _e: "Complex" });
     }),
   );
 });
@@ -100,7 +100,8 @@ describe("ESchema.decode", () => {
       }).build();
 
       const decoded = yield* schema.decode({ _v: "v1", _e: "Test", name: "foo", count: "10" });
-      expect(decoded).toEqual({ _v: "v1", _e: "Test", name: "foo", count: 10 });
+      expect(decoded.data).toEqual({ name: "foo", count: 10 });
+      expect(decoded.meta).toEqual({ _v: "v1", _e: "Test" });
     }),
   );
 
@@ -116,7 +117,8 @@ describe("ESchema.decode", () => {
         .build();
 
       const decoded = yield* schema.decode({ _v: "v1", _e: "Test", a: "42" });
-      expect(decoded).toEqual({ _v: "v2", _e: "Test", a: 42, b: "added" });
+      expect(decoded.data).toEqual({ a: 42, b: "added" });
+      expect(decoded.meta).toEqual({ _v: "v2", _e: "Test" });
     }),
   );
 
@@ -132,7 +134,8 @@ describe("ESchema.decode", () => {
         .build();
 
       const decoded = yield* schema.decode({ _v: "v2", _e: "Test", a: "hello", b: "world" });
-      expect(decoded).toEqual({ _v: "v2", _e: "Test", a: "hello", b: "world" });
+      expect(decoded.data).toEqual({ a: "hello", b: "world" });
+      expect(decoded.meta).toEqual({ _v: "v2", _e: "Test" });
     }),
   );
 
@@ -170,7 +173,8 @@ describe("ESchema.encode", () => {
       }).build();
 
       const encoded = yield* schema.encode({ name: "Alice" });
-      expect(encoded).toEqual({ _v: "v1", _e: "User", name: "Alice" });
+      expect(encoded.data).toEqual({ name: "Alice" });
+      expect(encoded.meta).toEqual({ _v: "v1", _e: "User" });
     }),
   );
 
@@ -181,7 +185,8 @@ describe("ESchema.encode", () => {
       }).build();
 
       const encoded = yield* schema.encode({ count: 42 });
-      expect(encoded).toEqual({ _v: "v1", _e: "Test", count: "42" });
+      expect(encoded.data).toEqual({ count: "42" });
+      expect(encoded.meta).toEqual({ _v: "v1", _e: "Test" });
     }),
   );
 
@@ -194,7 +199,8 @@ describe("ESchema.encode", () => {
         .build();
 
       const encoded = yield* schema.encode({ a: "hello", b: 123 });
-      expect(encoded).toEqual({ _v: "v2", _e: "Test", a: "hello", b: 123 });
+      expect(encoded.data).toEqual({ a: "hello", b: 123 });
+      expect(encoded.meta).toEqual({ _v: "v2", _e: "Test" });
     }),
   );
 
@@ -205,7 +211,8 @@ describe("ESchema.encode", () => {
       }).build();
 
       const encoded = yield* schema.encode({ _v: "old", _e: "wrong", name: "test" } as any);
-      expect(encoded).toEqual({ _v: "v1", _e: "Test", name: "test" });
+      expect(encoded.data).toEqual({ name: "test" });
+      expect(encoded.meta).toEqual({ _v: "v1", _e: "Test" });
     }),
   );
 });
@@ -227,31 +234,16 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         .build();
 
       const fromV1 = yield* schema.decode({ _v: "v1", _e: "Test", a: "hello" });
-      expect(fromV1).toEqual({
-        _v: "v3",
-        _e: "Test",
-        a: "hello",
-        b: "from-v1",
-        c: 100,
-      });
+      expect(fromV1.data).toEqual({ a: "hello", b: "from-v1", c: 100 });
+      expect(fromV1.meta).toEqual({ _v: "v3", _e: "Test" });
 
       const fromV2 = yield* schema.decode({ _v: "v2", _e: "Test", a: "hello", b: "existing" });
-      expect(fromV2).toEqual({
-        _v: "v3",
-        _e: "Test",
-        a: "hello",
-        b: "existing",
-        c: 100,
-      });
+      expect(fromV2.data).toEqual({ a: "hello", b: "existing", c: 100 });
+      expect(fromV2.meta).toEqual({ _v: "v3", _e: "Test" });
 
       const fromV3 = yield* schema.decode({ _v: "v3", _e: "Test", a: "hello", b: "existing", c: 999 });
-      expect(fromV3).toEqual({
-        _v: "v3",
-        _e: "Test",
-        a: "hello",
-        b: "existing",
-        c: 999,
-      });
+      expect(fromV3.data).toEqual({ a: "hello", b: "existing", c: 999 });
+      expect(fromV3.meta).toEqual({ _v: "v3", _e: "Test" });
     }),
   );
 
@@ -267,7 +259,8 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         .build();
 
       const decoded = yield* schema.decode({ _v: "v1", _e: "Test", a: "keep", b: "drop" });
-      expect(decoded).toEqual({ _v: "v2", _e: "Test", a: "keep" });
+      expect(decoded.data).toEqual({ a: "keep" });
+      expect(decoded.meta).toEqual({ _v: "v2", _e: "Test" });
     }),
   );
 
@@ -288,7 +281,8 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         firstName: "John",
         lastName: "Doe",
       });
-      expect(decoded).toEqual({ _v: "v2", _e: "Test", fullName: "John Doe" });
+      expect(decoded.data).toEqual({ fullName: "John Doe" });
+      expect(decoded.meta).toEqual({ _v: "v2", _e: "Test" });
     }),
   );
 });
@@ -303,9 +297,11 @@ describe("roundtrip encode/decode", () => {
 
       const original = { name: "test", count: 42 };
       const encoded = yield* schema.encode(original);
-      const decoded = yield* schema.decode(encoded);
+      const raw = { ...encoded.data, ...encoded.meta };
+      const decoded = yield* schema.decode(raw);
 
-      expect(decoded).toEqual({ _v: "v1", _e: "Test", ...original });
+      expect(decoded.data).toEqual(original);
+      expect(decoded.meta).toEqual({ _v: "v1", _e: "Test" });
     }),
   );
 
@@ -317,9 +313,10 @@ describe("roundtrip encode/decode", () => {
 
       const raw = { _v: "v1", _e: "Test", count: "123" };
       const decoded = yield* schema.decode(raw);
-      const encoded = yield* schema.encode(decoded);
+      const encoded = yield* schema.encode(decoded.data);
 
-      expect(encoded).toEqual(raw);
+      expect(encoded.data).toEqual({ count: "123" });
+      expect(encoded.meta).toEqual({ _v: "v1", _e: "Test" });
     }),
   );
 });
