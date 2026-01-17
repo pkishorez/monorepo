@@ -1,0 +1,42 @@
+{
+  "name": "@std-toolkit/sqlite",
+  "version": "0.0.1",
+  "private": true,
+  "description": "SQLite utilities with Effect",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/sql/index.d.ts",
+      "default": "./dist/sql/index.js"
+    },
+    "./adapters/do": {
+      "types": "./dist/sql/adapters/do.d.ts",
+      "default": "./dist/sql/adapters/do.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch"
+  },
+  "dependencies": {
+    "@std-toolkit/eschema": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260116.0",
+    "@effect/vitest": "0.27.0",
+    "@tsconfig/node22": "22.0.5",
+    "@types/node": "25.0.9",
+    "effect": "3.19.14",
+    "typescript": "5.9.3",
+    "vite": "7.3.1",
+    "vite-tsconfig-paths": "6.0.4",
+    "vitest": "4.0.17"
+  },
+  "peerDependencies": {
+    "effect": ">=3.0.0"
+  }
+}
