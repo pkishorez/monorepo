@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import {
   ForbidUnderscorePrefix,
   NextVersion,
@@ -8,12 +9,14 @@ import {
 } from "./types";
 import { invariant } from "./utils";
 import { parseMeta, decodeStruct, encodeStruct } from "./schema";
-import { Schema } from "effect";
 
 export class ESchema<
   TName extends string,
   TVersion extends string,
   TLatest extends StructFieldsSchema,
+> implements StandardSchemaV1<
+  unknown,
+  Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }>
 > {
   static make<N extends string, I extends StructFieldsSchema>(
     name: N,
@@ -45,7 +48,9 @@ export class ESchema<
     return this.evolutions.at(-1)?.schema as TLatest;
   }
 
-  decode(value: unknown): Prettify<StructFieldsDecoded<TLatest>> {
+  decode(
+    value: unknown,
+  ): Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }> {
     const { _v } = parseMeta(value);
     const index = this.evolutions.findIndex((v) => v.version === _v);
     const evolution = this.evolutions[index];
@@ -79,6 +84,30 @@ export class ESchema<
       _e: this.name,
       ...encodeStruct(evolution.schema as any, rest),
     } as any;
+  }
+
+  get "~standard"(): StandardSchemaV1.Props<
+    unknown,
+    Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }>
+  > {
+    return {
+      version: 1,
+      vendor: "@std-toolkit/eschema",
+      validate: (value) => {
+        try {
+          const decoded = this.decode(value);
+          return { value: decoded };
+        } catch (error) {
+          return {
+            issues: [
+              {
+                message: error instanceof Error ? error.message : String(error),
+              },
+            ],
+          };
+        }
+      },
+    };
   }
 }
 

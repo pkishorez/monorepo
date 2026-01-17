@@ -1,6 +1,7 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Schema } from "effect";
 import { ESchema } from "../eschema";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 const StringToNumber = Schema.transform(Schema.String, Schema.Number, {
   decode: (val) => parseInt(val),
@@ -288,5 +289,120 @@ describe("roundtrip encode/decode", () => {
     const encoded = schema.encode(decoded);
 
     expect(encoded).toEqual(raw);
+  });
+});
+
+describe("Standard Schema v1 compatibility", () => {
+  it("has ~standard property with correct structure", () => {
+    const schema = ESchema.make("User", {
+      name: Schema.String,
+    }).build();
+
+    const standard = schema["~standard"];
+    expect(standard.version).toBe(1);
+    expect(standard.vendor).toBe("@std-toolkit/eschema");
+    expect(typeof standard.validate).toBe("function");
+  });
+
+  it("validate() returns success result for valid input", () => {
+    const schema = ESchema.make("User", {
+      name: Schema.String,
+      age: Schema.Number,
+    }).build();
+
+    const result = schema["~standard"].validate({
+      _v: "v1",
+      _e: "User",
+      name: "Alice",
+      age: 30,
+    });
+
+    expect(result).toEqual({
+      value: { _v: "v1", _e: "User", name: "Alice", age: 30 },
+    });
+  });
+
+  it("validate() returns failure result with issues for invalid input", () => {
+    const schema = ESchema.make("User", {
+      name: Schema.String,
+    }).build();
+
+    const result = schema["~standard"].validate({
+      _v: "v99",
+      _e: "User",
+      name: "Alice",
+    });
+
+    expect("issues" in result).toBe(true);
+    if ("issues" in result && result.issues) {
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.message).toContain("Unknown schema version");
+    }
+  });
+
+  it("validate() returns failure for missing version metadata", () => {
+    const schema = ESchema.make("User", {
+      name: Schema.String,
+    }).build();
+
+    const result = schema["~standard"].validate({
+      name: "Alice",
+    });
+
+    expect("issues" in result).toBe(true);
+  });
+
+  it("implements StandardSchemaV1 interface correctly", () => {
+    const schema = ESchema.make("User", {
+      name: Schema.String,
+    }).build();
+
+    // Type assertion to verify it implements the interface
+    const _standard: StandardSchemaV1 = schema;
+    expect(_standard["~standard"].version).toBe(1);
+  });
+
+  it("works with evolved schemas", () => {
+    const schema = ESchema.make("User", {
+      name: Schema.String,
+    })
+      .evolve("v2", { name: Schema.String, email: Schema.String }, (v) => ({
+        ...v,
+        email: "default@example.com",
+      }))
+      .build();
+
+    // Valid v1 input should be migrated
+    const v1Result = schema["~standard"].validate({
+      _v: "v1",
+      _e: "User",
+      name: "Alice",
+    });
+
+    expect(v1Result).toEqual({
+      value: {
+        _v: "v2",
+        _e: "User",
+        name: "Alice",
+        email: "default@example.com",
+      },
+    });
+
+    // Valid v2 input should work directly
+    const v2Result = schema["~standard"].validate({
+      _v: "v2",
+      _e: "User",
+      name: "Bob",
+      email: "bob@example.com",
+    });
+
+    expect(v2Result).toEqual({
+      value: {
+        _v: "v2",
+        _e: "User",
+        name: "Bob",
+        email: "bob@example.com",
+      },
+    });
   });
 });
