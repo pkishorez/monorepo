@@ -14,8 +14,8 @@
     }
   },
   "scripts": {
-    "build": "tsc --project build.tsconfig.json",
-    "dev": "tsc --watch --project build.tsconfig.json",
+    "build": "tsc",
+    "dev": "tsc --watch",
     "lint": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
