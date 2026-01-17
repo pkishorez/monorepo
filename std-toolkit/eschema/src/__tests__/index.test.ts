@@ -1,6 +1,7 @@
 import { describe, it, expect } from "@effect/vitest";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { ESchema } from "../eschema";
+import { ESchemaError } from "../utils";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 const StringToNumber = Schema.transform(Schema.String, Schema.Number, {
@@ -9,37 +10,41 @@ const StringToNumber = Schema.transform(Schema.String, Schema.Number, {
 });
 
 describe("ESchema.make", () => {
-  it("creates a v1 schema with name", () => {
-    const schema = ESchema.make("User", {
-      name: Schema.String,
-    }).build();
+  it.effect("creates a v1 schema with name", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("User", {
+        name: Schema.String,
+      }).build();
 
-    const encoded = schema.encode({ name: "Alice" });
-    expect(encoded).toEqual({ _v: "v1", _e: "User", name: "Alice" });
-  });
+      const encoded = yield* schema.encode({ name: "Alice" });
+      expect(encoded).toEqual({ _v: "v1", _e: "User", name: "Alice" });
+    }),
+  );
 
-  it("supports complex field types", () => {
-    const schema = ESchema.make("Complex", {
-      count: StringToNumber,
-      optional: Schema.optionalWith(Schema.String, { default: () => "default" }),
-      nullable: Schema.NullOr(Schema.String),
-    }).build();
+  it.effect("supports complex field types", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Complex", {
+        count: StringToNumber,
+        optional: Schema.optionalWith(Schema.String, { default: () => "default" }),
+        nullable: Schema.NullOr(Schema.String),
+      }).build();
 
-    const decoded = schema.decode({
-      _v: "v1",
-      _e: "Complex",
-      count: "42",
-      nullable: null,
-    });
+      const decoded = yield* schema.decode({
+        _v: "v1",
+        _e: "Complex",
+        count: "42",
+        nullable: null,
+      });
 
-    expect(decoded).toEqual({
-      _v: "v1",
-      _e: "Complex",
-      count: 42,
-      optional: "default",
-      nullable: null,
-    });
-  });
+      expect(decoded).toEqual({
+        _v: "v1",
+        _e: "Complex",
+        count: 42,
+        optional: "default",
+        nullable: null,
+      });
+    }),
+  );
 });
 
 describe("ESchema.schema getter", () => {
@@ -87,209 +92,236 @@ describe("ESchema.makePartial", () => {
 });
 
 describe("ESchema.decode", () => {
-  it("decodes v1 data without migration", () => {
-    const schema = ESchema.make("Test", {
-      name: Schema.String,
-      count: StringToNumber,
-    }).build();
+  it.effect("decodes v1 data without migration", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        name: Schema.String,
+        count: StringToNumber,
+      }).build();
 
-    const decoded = schema.decode({ _v: "v1", _e: "Test", name: "foo", count: "10" });
-    expect(decoded).toEqual({ _v: "v1", _e: "Test", name: "foo", count: 10 });
-  });
+      const decoded = yield* schema.decode({ _v: "v1", _e: "Test", name: "foo", count: "10" });
+      expect(decoded).toEqual({ _v: "v1", _e: "Test", name: "foo", count: 10 });
+    }),
+  );
 
-  it("decodes and migrates v1 to v2", () => {
-    const schema = ESchema.make("Test", {
-      a: StringToNumber,
-    })
-      .evolve("v2", { a: StringToNumber, b: Schema.String }, (v) => ({
-        ...v,
-        b: "added",
-      }))
-      .build();
+  it.effect("decodes and migrates v1 to v2", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        a: StringToNumber,
+      })
+        .evolve("v2", { a: StringToNumber, b: Schema.String }, (v) => ({
+          ...v,
+          b: "added",
+        }))
+        .build();
 
-    const decoded = schema.decode({ _v: "v1", _e: "Test", a: "42" });
-    expect(decoded).toEqual({ _v: "v2", _e: "Test", a: 42, b: "added" });
-  });
+      const decoded = yield* schema.decode({ _v: "v1", _e: "Test", a: "42" });
+      expect(decoded).toEqual({ _v: "v2", _e: "Test", a: 42, b: "added" });
+    }),
+  );
 
-  it("decodes latest version without running migrations", () => {
-    const schema = ESchema.make("Test", {
-      a: Schema.String,
-    })
-      .evolve("v2", { a: Schema.String, b: Schema.String }, (v) => ({
-        ...v,
-        b: "should not appear",
-      }))
-      .build();
+  it.effect("decodes latest version without running migrations", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        a: Schema.String,
+      })
+        .evolve("v2", { a: Schema.String, b: Schema.String }, (v) => ({
+          ...v,
+          b: "should not appear",
+        }))
+        .build();
 
-    const decoded = schema.decode({ _v: "v2", _e: "Test", a: "hello", b: "world" });
-    expect(decoded).toEqual({ _v: "v2", _e: "Test", a: "hello", b: "world" });
-  });
+      const decoded = yield* schema.decode({ _v: "v2", _e: "Test", a: "hello", b: "world" });
+      expect(decoded).toEqual({ _v: "v2", _e: "Test", a: "hello", b: "world" });
+    }),
+  );
 
-  it("throws on unknown version", () => {
-    const schema = ESchema.make("Test", {
-      a: Schema.String,
-    }).build();
+  it.effect("fails with ESchemaError on unknown version", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        a: Schema.String,
+      }).build();
 
-    expect(() => schema.decode({ _v: "v99", _e: "Test", a: "hello" })).toThrow(
-      "Unknown schema version: v99"
-    );
-  });
+      const error = yield* Effect.flip(schema.decode({ _v: "v99", _e: "Test", a: "hello" }));
+      expect(error).toBeInstanceOf(ESchemaError);
+      expect(error.message).toBe("Unknown schema version: v99");
+    }),
+  );
 
-  it("throws on missing version", () => {
-    const schema = ESchema.make("Test", {
-      a: Schema.String,
-    }).build();
+  it.effect("fails with ESchemaError on missing version", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        a: Schema.String,
+      }).build();
 
-    expect(() => schema.decode({ _e: "Test", a: "hello" })).toThrow();
-  });
+      const error = yield* Effect.flip(schema.decode({ _e: "Test", a: "hello" }));
+      expect(error).toBeInstanceOf(ESchemaError);
+      expect(error.message).toBe("Decode failed");
+      expect(error.cause).toBeDefined();
+    }),
+  );
 });
 
 describe("ESchema.encode", () => {
-  it("encodes value with version and entity metadata", () => {
-    const schema = ESchema.make("User", {
-      name: Schema.String,
-    }).build();
+  it.effect("encodes value with version and entity metadata", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("User", {
+        name: Schema.String,
+      }).build();
 
-    const encoded = schema.encode({ name: "Alice" });
-    expect(encoded).toEqual({ _v: "v1", _e: "User", name: "Alice" });
-  });
+      const encoded = yield* schema.encode({ name: "Alice" });
+      expect(encoded).toEqual({ _v: "v1", _e: "User", name: "Alice" });
+    }),
+  );
 
-  it("applies field transformations on encode", () => {
-    const schema = ESchema.make("Test", {
-      count: StringToNumber,
-    }).build();
+  it.effect("applies field transformations on encode", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        count: StringToNumber,
+      }).build();
 
-    const encoded = schema.encode({ count: 42 });
-    expect(encoded).toEqual({ _v: "v1", _e: "Test", count: "42" });
-  });
+      const encoded = yield* schema.encode({ count: 42 });
+      expect(encoded).toEqual({ _v: "v1", _e: "Test", count: "42" });
+    }),
+  );
 
-  it("encodes with latest version after evolution", () => {
-    const schema = ESchema.make("Test", {
-      a: Schema.String,
-    })
-      .evolve("v2", { a: Schema.String, b: Schema.Number }, (v) => ({ ...v, b: 0 }))
-      .build();
+  it.effect("encodes with latest version after evolution", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        a: Schema.String,
+      })
+        .evolve("v2", { a: Schema.String, b: Schema.Number }, (v) => ({ ...v, b: 0 }))
+        .build();
 
-    const encoded = schema.encode({ a: "hello", b: 123 });
-    expect(encoded).toEqual({ _v: "v2", _e: "Test", a: "hello", b: 123 });
-  });
+      const encoded = yield* schema.encode({ a: "hello", b: 123 });
+      expect(encoded).toEqual({ _v: "v2", _e: "Test", a: "hello", b: 123 });
+    }),
+  );
 
-  it("strips _v and _e from input before encoding", () => {
-    const schema = ESchema.make("Test", {
-      name: Schema.String,
-    }).build();
+  it.effect("strips _v and _e from input before encoding", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        name: Schema.String,
+      }).build();
 
-    // Even if input has _v/_e, encode should use current version
-    const encoded = schema.encode({ _v: "old", _e: "wrong", name: "test" } as any);
-    expect(encoded).toEqual({ _v: "v1", _e: "Test", name: "test" });
-  });
+      const encoded = yield* schema.encode({ _v: "old", _e: "wrong", name: "test" } as any);
+      expect(encoded).toEqual({ _v: "v1", _e: "Test", name: "test" });
+    }),
+  );
 });
 
 describe("ESchema.evolve (multiple evolutions)", () => {
-  it("chains v1 → v2 → v3 migrations", () => {
-    const schema = ESchema.make("Test", {
-      a: Schema.String,
-    })
-      .evolve("v2", { a: Schema.String, b: Schema.String }, (v) => ({
-        ...v,
+  it.effect("chains v1 → v2 → v3 migrations", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        a: Schema.String,
+      })
+        .evolve("v2", { a: Schema.String, b: Schema.String }, (v) => ({
+          ...v,
+          b: "from-v1",
+        }))
+        .evolve("v3", { a: Schema.String, b: Schema.String, c: Schema.Number }, (v) => ({
+          ...v,
+          c: 100,
+        }))
+        .build();
+
+      const fromV1 = yield* schema.decode({ _v: "v1", _e: "Test", a: "hello" });
+      expect(fromV1).toEqual({
+        _v: "v3",
+        _e: "Test",
+        a: "hello",
         b: "from-v1",
-      }))
-      .evolve("v3", { a: Schema.String, b: Schema.String, c: Schema.Number }, (v) => ({
-        ...v,
         c: 100,
-      }))
-      .build();
+      });
 
-    // Decode from v1 should run both migrations
-    const fromV1 = schema.decode({ _v: "v1", _e: "Test", a: "hello" });
-    expect(fromV1).toEqual({
-      _v: "v3",
-      _e: "Test",
-      a: "hello",
-      b: "from-v1",
-      c: 100,
-    });
+      const fromV2 = yield* schema.decode({ _v: "v2", _e: "Test", a: "hello", b: "existing" });
+      expect(fromV2).toEqual({
+        _v: "v3",
+        _e: "Test",
+        a: "hello",
+        b: "existing",
+        c: 100,
+      });
 
-    // Decode from v2 should only run v2→v3 migration
-    const fromV2 = schema.decode({ _v: "v2", _e: "Test", a: "hello", b: "existing" });
-    expect(fromV2).toEqual({
-      _v: "v3",
-      _e: "Test",
-      a: "hello",
-      b: "existing",
-      c: 100,
-    });
+      const fromV3 = yield* schema.decode({ _v: "v3", _e: "Test", a: "hello", b: "existing", c: 999 });
+      expect(fromV3).toEqual({
+        _v: "v3",
+        _e: "Test",
+        a: "hello",
+        b: "existing",
+        c: 999,
+      });
+    }),
+  );
 
-    // Decode from v3 should run no migrations
-    const fromV3 = schema.decode({ _v: "v3", _e: "Test", a: "hello", b: "existing", c: 999 });
-    expect(fromV3).toEqual({
-      _v: "v3",
-      _e: "Test",
-      a: "hello",
-      b: "existing",
-      c: 999,
-    });
-  });
+  it.effect("handles field removal in migrations", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        a: Schema.String,
+        b: Schema.String,
+      })
+        .evolve("v2", { a: Schema.String }, (v) => ({
+          a: v.a,
+        }))
+        .build();
 
-  it("handles field removal in migrations", () => {
-    const schema = ESchema.make("Test", {
-      a: Schema.String,
-      b: Schema.String,
-    })
-      .evolve("v2", { a: Schema.String }, (v) => ({
-        a: v.a, // drop b
-      }))
-      .build();
+      const decoded = yield* schema.decode({ _v: "v1", _e: "Test", a: "keep", b: "drop" });
+      expect(decoded).toEqual({ _v: "v2", _e: "Test", a: "keep" });
+    }),
+  );
 
-    const decoded = schema.decode({ _v: "v1", _e: "Test", a: "keep", b: "drop" });
-    expect(decoded).toEqual({ _v: "v2", _e: "Test", a: "keep" });
-  });
+  it.effect("handles field transformation in migrations", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        firstName: Schema.String,
+        lastName: Schema.String,
+      })
+        .evolve("v2", { fullName: Schema.String }, (v) => ({
+          fullName: `${v.firstName} ${v.lastName}`,
+        }))
+        .build();
 
-  it("handles field transformation in migrations", () => {
-    const schema = ESchema.make("Test", {
-      firstName: Schema.String,
-      lastName: Schema.String,
-    })
-      .evolve("v2", { fullName: Schema.String }, (v) => ({
-        fullName: `${v.firstName} ${v.lastName}`,
-      }))
-      .build();
-
-    const decoded = schema.decode({
-      _v: "v1",
-      _e: "Test",
-      firstName: "John",
-      lastName: "Doe",
-    });
-    expect(decoded).toEqual({ _v: "v2", _e: "Test", fullName: "John Doe" });
-  });
+      const decoded = yield* schema.decode({
+        _v: "v1",
+        _e: "Test",
+        firstName: "John",
+        lastName: "Doe",
+      });
+      expect(decoded).toEqual({ _v: "v2", _e: "Test", fullName: "John Doe" });
+    }),
+  );
 });
 
 describe("roundtrip encode/decode", () => {
-  it("preserves data through encode → decode cycle", () => {
-    const schema = ESchema.make("Test", {
-      name: Schema.String,
-      count: StringToNumber,
-    }).build();
+  it.effect("preserves data through encode → decode cycle", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        name: Schema.String,
+        count: StringToNumber,
+      }).build();
 
-    const original = { name: "test", count: 42 };
-    const encoded = schema.encode(original);
-    const decoded = schema.decode(encoded);
+      const original = { name: "test", count: 42 };
+      const encoded = yield* schema.encode(original);
+      const decoded = yield* schema.decode(encoded);
 
-    expect(decoded).toEqual({ _v: "v1", _e: "Test", ...original });
-  });
+      expect(decoded).toEqual({ _v: "v1", _e: "Test", ...original });
+    }),
+  );
 
-  it("preserves data through decode → encode cycle", () => {
-    const schema = ESchema.make("Test", {
-      count: StringToNumber,
-    }).build();
+  it.effect("preserves data through decode → encode cycle", () =>
+    Effect.gen(function* () {
+      const schema = ESchema.make("Test", {
+        count: StringToNumber,
+      }).build();
 
-    const raw = { _v: "v1", _e: "Test", count: "123" };
-    const decoded = schema.decode(raw);
-    const encoded = schema.encode(decoded);
+      const raw = { _v: "v1", _e: "Test", count: "123" };
+      const decoded = yield* schema.decode(raw);
+      const encoded = yield* schema.encode(decoded);
 
-    expect(encoded).toEqual(raw);
-  });
+      expect(encoded).toEqual(raw);
+    }),
+  );
 });
 
 describe("Standard Schema v1 compatibility", () => {
@@ -357,7 +389,6 @@ describe("Standard Schema v1 compatibility", () => {
       name: Schema.String,
     }).build();
 
-    // Type assertion to verify it implements the interface
     const _standard: StandardSchemaV1 = schema;
     expect(_standard["~standard"].version).toBe(1);
   });
@@ -372,7 +403,6 @@ describe("Standard Schema v1 compatibility", () => {
       }))
       .build();
 
-    // Valid v1 input should be migrated
     const v1Result = schema["~standard"].validate({
       _v: "v1",
       _e: "User",
@@ -388,7 +418,6 @@ describe("Standard Schema v1 compatibility", () => {
       },
     });
 
-    // Valid v2 input should work directly
     const v2Result = schema["~standard"].validate({
       _v: "v2",
       _e: "User",
