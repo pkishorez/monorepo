@@ -1,13 +1,11 @@
-import { StandardSchemaV1 } from "@standard-schema/spec";
+import { Schema } from "effect";
 
-export type InputSchema<T extends Record<string, unknown>> = StandardSchemaV1<
-  unknown,
-  T
->;
-export type AnyInputSchema = InputSchema<Record<string, any>>;
-
-export type InputSchemaType<S extends AnyInputSchema> =
-  S extends InputSchema<infer T> ? T : never;
+export type StructType = Record<string, Schema.Struct.Field>;
+export type ForbidUnderscorePrefix<T> = {
+  [K in keyof T]: K extends `_${string}`
+    ? "Key with prefix _ is Forbidden."
+    : T[K];
+};
 
 // Type helpers
 export type Prettify<T> = {

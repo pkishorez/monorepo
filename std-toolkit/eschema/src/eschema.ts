@@ -1,15 +1,23 @@
 import {
-  AnyInputSchema,
-  InputSchemaType,
+  ForbidUnderscorePrefix,
   NextVersion,
   Prettify,
+  StructType,
 } from "./types";
 import { invariant } from "./utils";
-import { parseMeta, parseSchema } from "./schema";
+import { parseMeta, decodeSchema, encodeSchema } from "./schema";
+import { Schema } from "effect";
 
-export class ESchema<TLatest extends AnyInputSchema> {
-  static make<I extends AnyInputSchema>(schema: I) {
-    return new Builder<"v1", I>([
+export class ESchema<
+  TName extends string,
+  TVersion extends string,
+  TLatest extends StructType,
+> {
+  static make<N extends string, I extends StructType>(
+    name: N,
+    schema: I & ForbidUnderscorePrefix<I>,
+  ) {
+    return new Builder<N, "v1", I>(name, [
       {
         version: "v1",
         schema,
@@ -19,24 +27,15 @@ export class ESchema<TLatest extends AnyInputSchema> {
   }
 
   constructor(
+    private name: TName,
     private evolutions: {
       version: string;
-      schema: AnyInputSchema;
+      schema: StructType;
       migration: ((prev: any) => any) | null;
     }[] = [],
   ) {}
 
-  make(value: InputSchemaType<TLatest>) {
-    const evolution = this.evolutions.at(-1);
-    invariant(!!evolution, "No evolutions found");
-
-    return {
-      _v: evolution.version,
-      ...value,
-    };
-  }
-
-  makePartial(value: Partial<InputSchemaType<TLatest>>) {
+  makePartial(value: Partial<Schema.Schema.Type<TLatest>>) {
     return value;
   }
 
@@ -44,17 +43,14 @@ export class ESchema<TLatest extends AnyInputSchema> {
     return this.evolutions.at(-1)?.schema as TLatest;
   }
 
-  parse(value: unknown): Prettify<InputSchemaType<TLatest>> {
+  decode(value: unknown): Prettify<Schema.Schema.Type<TLatest>> {
     const { _v } = parseMeta(value);
     const index = this.evolutions.findIndex((v) => v.version === _v);
     const evolution = this.evolutions[index];
 
     invariant(index !== -1 && !!evolution, `Unknown schema version: ${_v}`);
 
-    if (index === -1) {
-      throw new Error(`Unknown schema version: ${_v}`);
-    }
-    let prev: any = parseSchema(evolution.schema, value);
+    let prev: any = decodeSchema(evolution.schema, value);
     for (let i = index; i < this.evolutions.length; i++) {
       const evolution = this.evolutions[i];
       invariant(!!evolution, "Migration not found");
@@ -63,25 +59,53 @@ export class ESchema<TLatest extends AnyInputSchema> {
       prev = migration?.(prev) ?? prev;
     }
 
-    return prev as InputSchemaType<TLatest>;
+    const latestEvolution = this.evolutions.at(-1);
+    return {
+      _v: latestEvolution!.version,
+      _e: this.name,
+      ...prev,
+    };
+  }
+
+  encode(
+    value: Schema.Schema.Type<Schema.Struct<TLatest>>,
+  ): Prettify<
+    Schema.Schema.Encoded<Schema.Struct<TLatest>> & { _v: TVersion; _e: TName }
+  > {
+    const evolution = this.evolutions.at(-1);
+    invariant(!!evolution, "No evolutions found");
+
+    const { _v, _e, ...rest } = value as any;
+    return {
+      _v: evolution.version,
+      _e: this.name,
+      ...encodeSchema(evolution.schema as any, rest),
+    } as any;
   }
 }
 
-class Builder<TVersion extends string, TLatest extends AnyInputSchema> {
+class Builder<
+  TName extends string,
+  TVersion extends string,
+  TLatest extends StructType,
+> {
   constructor(
+    private name: TName,
     private migrations: {
       version: string;
-      schema: AnyInputSchema;
+      schema: StructType;
       migration: ((prev: any) => any) | null;
     }[],
   ) {}
 
-  evolve<V extends NextVersion<TVersion>, N extends AnyInputSchema>(
+  evolve<V extends NextVersion<TVersion>, N extends StructType>(
     version: V,
-    schema: N,
-    migration: (prev: InputSchemaType<TLatest>) => InputSchemaType<N>,
+    schema: N & ForbidUnderscorePrefix<N>,
+    migration: (
+      prev: Schema.Schema.Type<Schema.Struct<TLatest>>,
+    ) => Schema.Schema.Type<Schema.Struct<N>>,
   ) {
-    return new Builder<V, N>([
+    return new Builder<TName, V, N>(this.name, [
       ...this.migrations,
       {
         version,
@@ -92,6 +116,6 @@ class Builder<TVersion extends string, TLatest extends AnyInputSchema> {
   }
 
   build() {
-    return new ESchema<TLatest>(this.migrations);
+    return new ESchema<TName, TVersion, TLatest>(this.name, this.migrations);
   }
 }
