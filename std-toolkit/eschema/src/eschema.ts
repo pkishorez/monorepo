@@ -1,4 +1,5 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { Effect } from "effect";
 import {
   ForbidUnderscorePrefix,
   NextVersion,
@@ -7,7 +8,7 @@ import {
   StructFieldsEncoded,
   StructFieldsSchema,
 } from "./types";
-import { invariant } from "./utils";
+import { ESchemaError } from "./utils";
 import { parseMeta, decodeStruct, encodeStruct } from "./schema";
 
 export class ESchema<
@@ -50,40 +51,59 @@ export class ESchema<
 
   decode(
     value: unknown,
-  ): Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }> {
-    const { _v } = parseMeta(value);
-    const index = this.evolutions.findIndex((v) => v.version === _v);
-    const evolution = this.evolutions[index];
+  ): Effect.Effect<
+    Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }>,
+    ESchemaError
+  > {
+    return Effect.gen(this, function* () {
+      const { _v } = yield* parseMeta(value);
+      const index = this.evolutions.findIndex((v) => v.version === _v);
+      const evolution = this.evolutions[index];
 
-    invariant(index !== -1 && !!evolution, `Unknown schema version: ${_v}`);
+      if (index === -1 || !evolution) {
+        return yield* new ESchemaError({ message: `Unknown schema version: ${_v}` });
+      }
 
-    let prev: any = decodeStruct(evolution.schema, value);
-    for (let i = index + 1; i < this.evolutions.length; i++) {
-      const evolution = this.evolutions[i];
-      invariant(!!evolution, "Migration not found");
-      prev = evolution.migration!(prev);
-    }
+      let prev: any = yield* decodeStruct(evolution.schema, value);
 
-    const latestEvolution = this.evolutions.at(-1);
-    return {
-      _v: latestEvolution!.version,
-      _e: this.name,
-      ...prev,
-    };
+      for (let i = index + 1; i < this.evolutions.length; i++) {
+        const evo = this.evolutions[i];
+        if (!evo) {
+          return yield* new ESchemaError({ message: "Migration not found" });
+        }
+        prev = evo.migration!(prev);
+      }
+
+      const latestEvolution = this.evolutions.at(-1);
+      return {
+        _v: latestEvolution!.version,
+        _e: this.name,
+        ...prev,
+      };
+    });
   }
 
   encode(
     value: StructFieldsDecoded<TLatest>,
-  ): Prettify<StructFieldsEncoded<TLatest> & { _v: TVersion; _e: TName }> {
-    const evolution = this.evolutions.at(-1);
-    invariant(!!evolution, "No evolutions found");
+  ): Effect.Effect<
+    Prettify<StructFieldsEncoded<TLatest> & { _v: TVersion; _e: TName }>,
+    ESchemaError
+  > {
+    return Effect.gen(this, function* () {
+      const evolution = this.evolutions.at(-1);
+      if (!evolution) {
+        return yield* new ESchemaError({ message: "No evolutions found" });
+      }
 
-    const { _v, _e, ...rest } = value as any;
-    return {
-      _v: evolution.version,
-      _e: this.name,
-      ...encodeStruct(evolution.schema as any, rest),
-    } as any;
+      const { _v, _e, ...rest } = value as any;
+      const encoded = yield* encodeStruct(evolution.schema as any, rest);
+
+      return {
+        _v: evolution.version,
+        _e: this.name,
+        ...encoded,
+      } as any;
+    });
   }
 
   get "~standard"(): StandardSchemaV1.Props<
@@ -94,18 +114,19 @@ export class ESchema<
       version: 1,
       vendor: "@std-toolkit/eschema",
       validate: (value) => {
-        try {
-          const decoded = this.decode(value);
-          return { value: decoded };
-        } catch (error) {
+        const result = Effect.runSyncExit(this.decode(value));
+        if (result._tag === "Success") {
+          return { value: result.value };
+        }
+        const cause = result.cause;
+        if (cause._tag === "Fail") {
           return {
-            issues: [
-              {
-                message: error instanceof Error ? error.message : String(error),
-              },
-            ],
+            issues: [{ message: cause.error.message }],
           };
         }
+        return {
+          issues: [{ message: "Unknown error" }],
+        };
       },
     };
   }

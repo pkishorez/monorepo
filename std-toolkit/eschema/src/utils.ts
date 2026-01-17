@@ -1,8 +1,6 @@
-export function invariant(
-  condition: boolean,
-  message: string,
-): asserts condition {
-  if (!condition) {
-    throw new Error(message);
-  }
-}
+import { Data } from "effect";
+
+export class ESchemaError extends Data.TaggedError("ESchemaError")<{
+  message: string;
+  cause?: unknown;
+}> {}
