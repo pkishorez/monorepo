@@ -10,5 +10,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@std-toolkit/*", "demo-app", "@kishorez/effect-cf"]
+  "ignore": ["@std-toolkit/*", "@kishorez/effect-cf"]
 }
