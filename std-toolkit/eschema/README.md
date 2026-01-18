@@ -1,6 +1,10 @@
-# @std-toolkit/eschema
+# eschema
 
-Evolvable schemas with version migrations built on [Effect Schema](https://effect.website/docs/schema/introduction). Implements [Standard Schema v1](https://github.com/standard-schema/standard-schema) for interoperability.
+Evolving schemas with version migrations, built on [Effect Schema](https://effect.website/docs/schema/introduction). Implements [Standard Schema v1](https://github.com/standard-schema/standard-schema) for interoperability.
+
+## Prerequisites
+
+- [Effect](https://effect.website) - The TypeScript library for building robust applications
 
 ## Installation
 
@@ -8,9 +12,9 @@ Evolvable schemas with version migrations built on [Effect Schema](https://effec
 npm install @std-toolkit/eschema effect
 ```
 
-## Quick Start
+## Getting Started
 
-```ts
+```typescript
 import { Effect, Schema } from "effect";
 import { ESchema } from "@std-toolkit/eschema";
 
@@ -29,14 +33,14 @@ const encoded = Effect.runSync(
 const decoded = Effect.runSync(
   UserSchema.decode({ _v: "v1", _e: "User", name: "Alice", email: "alice@example.com" })
 );
-// { _v: "v1", _e: "User", name: "Alice", email: "alice@example.com" }
+// { name: "Alice", email: "alice@example.com" }
 ```
 
 ## Schema Evolution
 
 Add new fields or transform existing ones with automatic migrations:
 
-```ts
+```typescript
 const UserSchema = ESchema.make("User", {
   name: Schema.String,
 })
@@ -54,101 +58,74 @@ const UserSchema = ESchema.make("User", {
 const result = Effect.runSync(
   UserSchema.decode({ _v: "v1", _e: "User", name: "Bob" })
 );
-// { _v: "v3", _e: "User", name: "Bob", email: "unknown@example.com", verified: false }
+// { name: "Bob", email: "unknown@example.com", verified: false }
 ```
 
 ## API
 
-### `ESchema.make(name, fields)`
+| Method | Description |
+|--------|-------------|
+| `ESchema.make(name, fields)` | Create a new schema builder with initial v1 fields |
+| `.evolve(version, fields, migration)` | Add a new version with migration function |
+| `.build()` | Finalize and return the `ESchema` instance |
+| `schema.encode(value)` | Encode value with version metadata |
+| `schema.decode(value)` | Decode and migrate to latest version |
+| `schema.makePartial(value)` | Type helper for partial updates |
+| `schema.schema` | Access the current schema fields |
+
+---
+
+### ESchema.make(name, fields)
 
 Creates a new schema builder with initial v1 fields.
 
-```ts
+```typescript
 const schema = ESchema.make("Product", {
   title: Schema.String,
   price: Schema.Number,
 });
 ```
 
-### `.evolve(version, fields, migration)`
+---
+
+### .evolve(version, fields, migration)
 
 Adds a new version with a migration function from the previous version.
 
-```ts
+```typescript
 schema.evolve("v2", { title: Schema.String, price: Schema.Number, currency: Schema.String }, (prev) => ({
   ...prev,
   currency: "USD",
 }));
 ```
 
-### `.build()`
+---
 
-Finalizes the schema and returns the `ESchema` instance.
+### schema.encode(value)
 
-### `schema.decode(value)`
+Encodes a value with version and entity metadata. Returns `Effect<{ data, meta }, ESchemaError>`.
 
-Decodes unknown input, running migrations if needed. Returns `Effect<T, ESchemaError>`.
-
-```ts
-const decoded = yield* schema.decode(rawData);
+```typescript
+const { data, meta } = yield* schema.encode({ title: "Widget", price: 9.99, currency: "USD" });
+// data: { title: "Widget", price: 9.99, currency: "USD" }
+// meta: { _v: "v2", _e: "Product" }
 ```
 
-### `schema.encode(value)`
+---
 
-Encodes a value with version and entity metadata. Returns `Effect<T, ESchemaError>`.
+### schema.decode(value)
 
-```ts
-const encoded = yield* schema.encode({ title: "Widget", price: 9.99, currency: "USD" });
-// { _v: "v2", _e: "Product", title: "Widget", price: 9.99, currency: "USD" }
-```
+Decodes unknown input, running migrations if needed. Returns `Effect<{ data, meta }, ESchemaError>`.
 
-### `schema.makePartial(value)`
-
-Type helper for creating partial updates.
-
-```ts
-const partial = schema.makePartial({ title: "New Title" });
-```
-
-### `schema.schema`
-
-Access the current (latest) schema fields.
-
-## Error Handling
-
-All operations return `Effect` and fail with `ESchemaError`:
-
-```ts
-import { Effect } from "effect";
-import { ESchema, ESchemaError } from "@std-toolkit/eschema";
-
-const result = schema.decode(invalidData).pipe(
-  Effect.catchTag("ESchemaError", (error) => {
-    console.log(error.message); // Descriptive error message
-    console.log(error.cause);   // Underlying cause if any
-    return Effect.succeed(fallbackValue);
-  })
-);
-```
-
-## Standard Schema v1
-
-ESchema implements the Standard Schema v1 spec for use with form libraries and validators:
-
-```ts
-const schema = ESchema.make("User", { name: Schema.String }).build();
-
-// Works with any Standard Schema compatible library
-schema["~standard"].version;  // 1
-schema["~standard"].vendor;   // "@std-toolkit/eschema"
-schema["~standard"].validate(input);  // { value: T } | { issues: [...] }
+```typescript
+const { data } = yield* schema.decode(rawData);
 ```
 
 ## Field Transformations
 
 Use Effect Schema transformations for encoding/decoding:
 
-```ts
+```typescript
 const StringToNumber = Schema.transform(Schema.String, Schema.Number, {
   decode: (s) => parseInt(s),
   encode: (n) => String(n),
@@ -162,10 +139,51 @@ const schema = ESchema.make("Counter", {
 // Encode: 42 → "42"
 ```
 
+## Error Handling
+
+All operations return `Effect` and fail with `ESchemaError`:
+
+```typescript
+import { Effect } from "effect";
+import { ESchemaError } from "@std-toolkit/eschema";
+
+const result = schema.decode(invalidData).pipe(
+  Effect.catchTag("ESchemaError", (error) => {
+    console.log(error.message);
+    console.log(error.cause);
+    return Effect.succeed(fallbackValue);
+  })
+);
+```
+
+## Standard Schema v1
+
+ESchema implements the Standard Schema v1 spec for use with form libraries and validators:
+
+```typescript
+const schema = ESchema.make("User", { name: Schema.String }).build();
+
+// Works with any Standard Schema compatible library
+schema["~standard"].version;  // 1
+schema["~standard"].vendor;   // "@std-toolkit/eschema"
+schema["~standard"].validate(input);  // { value: T } | { issues: [...] }
+```
+
 ## Metadata
 
 All encoded values include:
-- `_v` - Version string (e.g., "v1", "v2")
-- `_e` - Entity name
 
-Field names starting with `_` are reserved and forbidden in schema definitions.
+| Field | Description |
+|-------|-------------|
+| `_v` | Version string (e.g., "v1", "v2") |
+| `_e` | Entity name |
+
+## Gotchas
+
+- **Reserved fields**: Field names starting with `_` are reserved and forbidden in schema definitions.
+- **Migration order**: Migrations run sequentially (v1 → v2 → v3), so each migration only needs to handle the previous version.
+- **Immutable schemas**: Once `.build()` is called, the schema cannot be modified. Define all versions before building.
+
+## License
+
+MIT
