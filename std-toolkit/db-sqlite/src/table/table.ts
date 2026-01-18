@@ -1,49 +1,22 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect } from "effect";
-import { SqliteDB, SqliteDBError } from "./sql/db.js";
+import { Effect, Schema } from "effect";
+import { SqliteDB, SqliteDBError } from "../sql/db.js";
 import {
   where,
   getSkOrderDirection,
   type SkQuery,
-} from "./sql/helpers/index.js";
-
-const isoNow = (): string => new Date().toISOString();
-
-const idxPkCol = (indexName: string): string => `_idx_${indexName}_pk`;
-const idxSkCol = (indexName: string): string => `_idx_${indexName}_sk`;
-
-interface RawRow extends Record<string, unknown> {
-  pk: string;
-  sk: string;
-  _data: string;
-  _v: string;
-  _i: number;
-  _u: string;
-  _c: string;
-  _d: number;
-}
-
-interface RowMeta {
-  _v: string;
-  _i: number;
-  _u: string;
-  _c: string;
-  _d: number;
-}
-
-export interface EntityResult<T> {
-  data: T;
-  meta: RowMeta;
-}
-
-export interface QueryResult<T> {
-  items: EntityResult<T>[];
-}
-
-interface KeyDef<T> {
-  pk: (entity: T) => string;
-  sk: (entity: T) => string;
-}
+} from "../sql/helpers/index.js";
+import {
+  isoNow,
+  idxPkCol,
+  idxSkCol,
+  RowMetaSchema,
+  type RawRow,
+  type RowMeta,
+  type EntityResult,
+  type QueryResult,
+  type KeyDef,
+} from "./utils.js";
 
 export class SQLiteTable<
   TSchema extends AnyESchema,
@@ -117,28 +90,25 @@ export class SQLiteTable<
 
       const indexColumns = this.#deriveIndexColumns(value);
 
-      yield* db.insert(this.tableName, {
-        pk,
-        sk,
-        _data: JSON.stringify(encodedData),
+      const meta: RowMeta = {
         _v: schemaMeta._v,
         _i: 0,
         _u: now,
         _c: now,
-        _d: 0,
+        _d: false,
+      };
+
+      const encodedMeta = Schema.encodeSync(RowMetaSchema)(meta);
+
+      yield* db.insert(this.tableName, {
+        pk,
+        sk,
+        _data: JSON.stringify(encodedData),
+        ...encodedMeta,
         ...indexColumns,
       });
 
-      return {
-        data: value,
-        meta: {
-          _v: schemaMeta._v,
-          _i: 0,
-          _u: now,
-          _c: now,
-          _d: 0,
-        },
-      };
+      return { data: value, meta };
     });
   }
 
@@ -200,7 +170,7 @@ export class SQLiteTable<
 
       yield* db.update(this.tableName, { _d: 1 }, w);
 
-      return { ...existing, meta: { ...existing.meta, _d: 1 } };
+      return { ...existing, meta: { ...existing.meta, _d: true } };
     });
   }
 
@@ -302,16 +272,15 @@ export class SQLiteTable<
           ),
         );
 
-      return {
-        data: data as ESchemaType<TSchema>,
-        meta: {
-          _v: row._v,
-          _i: row._i,
-          _u: row._u,
-          _c: row._c,
-          _d: row._d,
-        },
-      };
+      const meta = Schema.decodeSync(RowMetaSchema)({
+        _v: row._v,
+        _i: row._i,
+        _u: row._u,
+        _c: row._c,
+        _d: row._d,
+      });
+
+      return { data: data as ESchemaType<TSchema>, meta };
     });
   }
 
