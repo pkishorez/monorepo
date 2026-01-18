@@ -1,9 +1,12 @@
-import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
+import {
+  metaSchema,
+  type AnyESchema,
+  type ESchemaType,
+} from "@std-toolkit/eschema";
 import { Effect, Schema } from "effect";
 import { SqliteDB, SqliteDBError } from "../sql/db.js";
-import { where, whereExact } from "../sql/helpers/index.js";
+import * as Sql from "../sql/helpers/index.js";
 import {
-  isoNow,
   idxKeyCol,
   computeKey,
   extractKeyOp,
@@ -78,13 +81,13 @@ export class SQLiteTable<
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const columns = [
-        "key TEXT NOT NULL",
-        "_data TEXT NOT NULL",
-        "_v TEXT NOT NULL",
-        "_i INTEGER NOT NULL DEFAULT 0",
-        "_u TEXT NOT NULL",
-        "_c TEXT NOT NULL",
-        "_d INTEGER NOT NULL DEFAULT 0",
+        Sql.column({ name: "key", type: "TEXT" }),
+        Sql.column({ name: "_data", type: "TEXT" }),
+        Sql.column({ name: "_v", type: "TEXT" }),
+        Sql.column({ name: "_i", type: "INTEGER", default: 0 }),
+        Sql.column({ name: "_u", type: "TEXT", default: Sql.ISO_NOW }),
+        Sql.column({ name: "_c", type: "TEXT", default: Sql.ISO_NOW }),
+        Sql.column({ name: "_d", type: "INTEGER", default: 0 }),
       ];
 
       yield* db.createTable(this.tableName, columns, ["key"]);
@@ -106,7 +109,7 @@ export class SQLiteTable<
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const key = computeKey(this.primaryKeyFields, value);
-      const now = isoNow();
+      const now = new Date().toISOString();
 
       const { data: encodedData, meta: schemaMeta } = yield* this.schema
         .encode(value as Record<string, unknown>)
@@ -126,12 +129,14 @@ export class SQLiteTable<
 
       const indexColumns = this.#deriveIndexColumns(value, meta);
 
-      const encodedMeta = Schema.encodeSync(RowMetaSchema)(meta);
-
       yield* db.insert(this.tableName, {
         key,
         _data: JSON.stringify(encodedData),
-        ...encodedMeta,
+        _v: meta._v,
+        _i: meta._i,
+        _u: meta._u,
+        _c: meta._c,
+        _d: 0,
         ...indexColumns,
       });
 
@@ -149,7 +154,7 @@ export class SQLiteTable<
 
       const merged = { ...existing.data, ...updates } as TEntity;
       const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
-      const w = whereExact(key);
+      const w = Sql.whereExact(key);
 
       const { data: encodedData, meta: schemaMeta } = yield* this.schema
         .encode(merged as Record<string, unknown>)
@@ -159,27 +164,29 @@ export class SQLiteTable<
           ),
         );
 
-      const now = isoNow();
-      const updatedMeta = {
+      const meta: RowMeta = {
         _v: schemaMeta._v,
-        _u: now,
+        _i: existing.meta._i + 1,
+        _u: new Date().toISOString(),
         _c: existing.meta._c,
+        _d: existing.meta._d,
       };
 
-      const indexColumns = this.#deriveIndexColumns(merged, updatedMeta);
+      const indexColumns = this.#deriveIndexColumns(merged, meta);
 
       yield* db.update(
         this.tableName,
         {
           _data: JSON.stringify(encodedData),
-          _v: schemaMeta._v,
-          _u: now,
+          _v: meta._v,
+          _i: meta._i,
+          _u: meta._u,
           ...indexColumns,
         },
         w,
       );
 
-      return yield* this.#getRow(keyValue);
+      return { data: merged, meta };
     });
   }
 
@@ -191,12 +198,35 @@ export class SQLiteTable<
       const existing = yield* this.#getRow(keyValue);
 
       const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
-      const w = whereExact(key);
+      const w = Sql.whereExact(key);
 
       yield* db.update(this.tableName, { _d: 1 }, w);
 
       return { ...existing, meta: { ...existing.meta, _d: true } };
     });
+  }
+
+  dangerouslyRemoveAllRows(
+    confirm: "i know what i am doing",
+  ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
+    return Effect.gen(this, function* () {
+      if (confirm !== "i know what i am doing") {
+        return yield* Effect.fail(
+          SqliteDBError.deleteFailed(
+            this.tableName,
+            "Confirmation required: pass 'i know what i am doing'",
+          ),
+        );
+      }
+      const db = yield* SqliteDB;
+      return yield* db.deleteAll(this.tableName);
+    });
+  }
+
+  get(
+    keyValue: Pick<TEntity, TPrimaryKeyFields>,
+  ): Effect.Effect<EntityResult<TEntity>, SqliteDBError, SqliteDB> {
+    return this.#getRow(keyValue);
   }
 
   query<K extends "pk" | (keyof TIndexes & string)>(
@@ -227,25 +257,19 @@ export class SQLiteTable<
         col = idxKeyCol(key);
       }
 
-      const { operator, value } = extractKeyOp(
-        op as KeyOp<Record<string, unknown>>,
-      );
+      const { operator, value } = extractKeyOp(op);
       const computedKey = computeKey(fields, value as EntityWithMeta<TEntity>);
-      const orderBy = getKeyOpOrderDirection(
-        op as KeyOp<Record<string, unknown>>,
+
+      const rows = yield* db.query<RawRow>(
+        this.tableName,
+        Sql.where(computedKey, operator as "<" | "<=" | ">" | ">=", col),
+        {
+          orderBy: getKeyOpOrderDirection(op),
+          limit: options?.limit ?? 100,
+        },
       );
-      const w = where(computedKey, operator as "<" | "<=" | ">" | ">=", col);
 
-      const rows = yield* db.query<RawRow>(this.tableName, w, {
-        orderBy,
-        limit: options?.limit ?? 100,
-      });
-
-      const items: EntityResult<TEntity>[] = [];
-      for (const row of rows) {
-        items.push(yield* this.#parseRow(row));
-      }
-
+      const items = yield* Effect.all(rows.map((row) => this.#parseRow(row)));
       return { items };
     });
   }
@@ -256,7 +280,7 @@ export class SQLiteTable<
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
-      const w = whereExact(key);
+      const w = Sql.whereExact(key);
 
       const row = yield* db.get<RawRow>(this.tableName, w);
       return yield* this.#parseRow(row);
@@ -265,7 +289,13 @@ export class SQLiteTable<
 
   #parseRow(row: RawRow): Effect.Effect<EntityResult<TEntity>, SqliteDBError> {
     return Effect.gen(this, function* () {
-      const rawData = JSON.parse(row._data);
+      const rawData = {
+        ...JSON.parse(row._data),
+        ...metaSchema.make({
+          _v: row._v,
+          _e: this.schema.name,
+        }),
+      };
 
       const { data } = yield* this.schema
         .decode(rawData)

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pnpm lint:*)"
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm test:run:*)",
+      "Bash(git show:*)",
+      "Bash(pnpm tsx:*)"
     ]
   }
 }

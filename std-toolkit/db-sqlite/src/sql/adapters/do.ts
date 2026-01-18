@@ -24,6 +24,11 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
     addColumn: (table, column, type) =>
       Effect.try({
         try: () => {
+          const info = Sql.tableInfo(table);
+          const columns = storage
+            .exec<Sql.TableColumn>(info.query, ...info.params)
+            .toArray();
+          if (Sql.columnExists(columns, column)) return;
           const stmt = Sql.addColumn(table, column, type);
           storage.exec(stmt.query, ...stmt.params);
         },
@@ -60,6 +65,16 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
         catch: (cause) => SqliteDBError.updateFailed(table, cause),
       }),
 
+    deleteAll: (table) =>
+      Effect.try({
+        try: () => {
+          const stmt = Sql.deleteAll(table);
+          const result = storage.exec(stmt.query, ...stmt.params);
+          return { rowsDeleted: result.rowsWritten };
+        },
+        catch: (cause) => SqliteDBError.deleteFailed(table, cause),
+      }),
+
     get: <T extends Record<string, unknown>>(table: string, where: Where) =>
       Effect.gen(function* () {
         const stmt = Sql.select(table, where, { limit: 1 });
@@ -86,5 +101,32 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
           return storage.exec<T>(stmt.query, ...stmt.params).toArray();
         },
         catch: (cause) => SqliteDBError.queryFailed(table, cause),
+      }),
+
+    begin: () =>
+      Effect.try({
+        try: () => {
+          const stmt = Sql.begin();
+          storage.exec(stmt.query, ...stmt.params);
+        },
+        catch: (cause) => SqliteDBError.beginFailed(cause),
+      }),
+
+    commit: () =>
+      Effect.try({
+        try: () => {
+          const stmt = Sql.commit();
+          storage.exec(stmt.query, ...stmt.params);
+        },
+        catch: (cause) => SqliteDBError.commitFailed(cause),
+      }),
+
+    rollback: () =>
+      Effect.try({
+        try: () => {
+          const stmt = Sql.rollback();
+          storage.exec(stmt.query, ...stmt.params);
+        },
+        catch: (cause) => SqliteDBError.rollbackFailed(cause),
       }),
   });
