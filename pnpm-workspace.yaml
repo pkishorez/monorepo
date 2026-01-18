@@ -1,4 +1,7 @@
 packages:
-  - 'packages/*'
-  - 'std-toolkit/*'
-  - 'effect/*'
+  - packages/*
+  - std-toolkit/*
+  - effect/*
+
+onlyBuiltDependencies:
+  - better-sqlite3

@@ -1,22 +1,16 @@
+import type Database from "better-sqlite3";
 import { Effect, Layer } from "effect";
 import { SqliteDB, SqliteDBError } from "../db.js";
 import * as Sql from "../helpers";
 import type { Where } from "../helpers/index.js";
 
-interface DOSqlStorage {
-  exec<T extends Record<string, unknown>>(
-    query: string,
-    ...bindings: unknown[]
-  ): { toArray(): T[]; rowsWritten: number };
-}
-
-export const SqliteDBDO = (storage: DOSqlStorage) =>
+export const SqliteDBBetterSqlite3 = (db: Database.Database) =>
   Layer.succeed(SqliteDB, {
     createTable: (table, columns, primaryKey) =>
       Effect.try({
         try: () => {
           const stmt = Sql.createTable(table, columns, primaryKey);
-          storage.exec(stmt.query, ...stmt.params);
+          db.prepare(stmt.query).run(...stmt.params);
         },
         catch: (cause) => SqliteDBError.createTableFailed(table, cause),
       }),
@@ -25,12 +19,12 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const info = Sql.tableInfo(table);
-          const columns = storage
-            .exec<Sql.TableColumn>(info.query, ...info.params)
-            .toArray();
+          const columns = db
+            .prepare(info.query)
+            .all(...info.params) as Sql.TableColumn[];
           if (Sql.columnExists(columns, column)) return;
           const stmt = Sql.addColumn(table, column, type);
-          storage.exec(stmt.query, ...stmt.params);
+          db.prepare(stmt.query).run(...stmt.params);
         },
         catch: (cause) => SqliteDBError.addColumnFailed(table, column, cause),
       }),
@@ -39,7 +33,7 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const stmt = Sql.createIndex(table, indexName, columns);
-          storage.exec(stmt.query, ...stmt.params);
+          db.prepare(stmt.query).run(...stmt.params);
         },
         catch: (cause) =>
           SqliteDBError.createIndexFailed(table, indexName, cause),
@@ -49,8 +43,8 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const stmt = Sql.insert(table, values);
-          const result = storage.exec(stmt.query, ...stmt.params);
-          return { rowsWritten: result.rowsWritten };
+          const result = db.prepare(stmt.query).run(...stmt.params);
+          return { rowsWritten: result.changes };
         },
         catch: (cause) => SqliteDBError.insertFailed(table, cause),
       }),
@@ -59,8 +53,8 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const stmt = Sql.update(table, values, where);
-          const result = storage.exec(stmt.query, ...stmt.params);
-          return { rowsWritten: result.rowsWritten };
+          const result = db.prepare(stmt.query).run(...stmt.params);
+          return { rowsWritten: result.changes };
         },
         catch: (cause) => SqliteDBError.updateFailed(table, cause),
       }),
@@ -69,8 +63,8 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const stmt = Sql.deleteAll(table);
-          const result = storage.exec(stmt.query, ...stmt.params);
-          return { rowsDeleted: result.rowsWritten };
+          const result = db.prepare(stmt.query).run(...stmt.params);
+          return { rowsDeleted: result.changes };
         },
         catch: (cause) => SqliteDBError.deleteFailed(table, cause),
       }),
@@ -79,7 +73,7 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.gen(function* () {
         const stmt = Sql.select(table, where, { limit: 1 });
         const rows = yield* Effect.try({
-          try: () => storage.exec<T>(stmt.query, ...stmt.params).toArray(),
+          try: () => db.prepare(stmt.query).all(...stmt.params) as T[],
           catch: (cause) => SqliteDBError.getFailed(table, cause),
         });
         if (rows.length === 0) {
@@ -98,7 +92,7 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const stmt = Sql.select(table, where, options);
-          return storage.exec<T>(stmt.query, ...stmt.params).toArray();
+          return db.prepare(stmt.query).all(...stmt.params) as T[];
         },
         catch: (cause) => SqliteDBError.queryFailed(table, cause),
       }),
@@ -107,7 +101,7 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const stmt = Sql.begin();
-          storage.exec(stmt.query, ...stmt.params);
+          db.prepare(stmt.query).run();
         },
         catch: (cause) => SqliteDBError.beginFailed(cause),
       }),
@@ -116,7 +110,7 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const stmt = Sql.commit();
-          storage.exec(stmt.query, ...stmt.params);
+          db.prepare(stmt.query).run();
         },
         catch: (cause) => SqliteDBError.commitFailed(cause),
       }),
@@ -125,7 +119,7 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
       Effect.try({
         try: () => {
           const stmt = Sql.rollback();
-          storage.exec(stmt.query, ...stmt.params);
+          db.prepare(stmt.query).run();
         },
         catch: (cause) => SqliteDBError.rollbackFailed(cause),
       }),

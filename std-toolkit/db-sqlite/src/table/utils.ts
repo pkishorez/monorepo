@@ -1,7 +1,5 @@
 import { Schema } from "effect";
 
-export const isoNow = (): string => new Date().toISOString();
-
 export const idxKeyCol = (indexName: string): string => `_idx_${indexName}_key`;
 
 export const SqliteBool = Schema.transform(Schema.Number, Schema.Boolean, {

@@ -1,3 +1,4 @@
 .alchemy
 node_modules
 .turbo
+dist
