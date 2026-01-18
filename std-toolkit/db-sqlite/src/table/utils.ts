@@ -2,8 +2,7 @@ import { Schema } from "effect";
 
 export const isoNow = (): string => new Date().toISOString();
 
-export const idxPkCol = (indexName: string): string => `_idx_${indexName}_pk`;
-export const idxSkCol = (indexName: string): string => `_idx_${indexName}_sk`;
+export const idxKeyCol = (indexName: string): string => `_idx_${indexName}_key`;
 
 export const SqliteBool = Schema.transform(Schema.Number, Schema.Boolean, {
   decode: (n) => n !== 0,
@@ -22,8 +21,7 @@ export type RowMeta = typeof RowMetaSchema.Type;
 export type RowMetaEncoded = typeof RowMetaSchema.Encoded;
 
 export interface RawRow extends Record<string, unknown>, RowMetaEncoded {
-  pk: string;
-  sk: string;
+  key: string;
   _data: string;
 }
 
@@ -36,7 +34,27 @@ export interface QueryResult<T> {
   items: EntityResult<T>[];
 }
 
-export interface KeyDef<T> {
-  pk: (entity: T) => string;
-  sk: (entity: T) => string;
-}
+// Query operator with typed key value
+export type KeyOp<T> =
+  | { "<": T }
+  | { "<=": T }
+  | { ">": T }
+  | { ">=": T };
+
+// Compute key from fields
+export const computeKey = <T>(
+  fields: readonly (keyof T)[],
+  entity: T,
+): string => fields.map((f) => String(entity[f])).join("#");
+
+// Extract operator and key value from KeyOp
+export const extractKeyOp = <T>(op: KeyOp<T>): { operator: string; value: T } => {
+  const [operator, value] = Object.entries(op)[0]!;
+  return { operator, value: value as T };
+};
+
+// Get order direction from KeyOp
+export const getKeyOpOrderDirection = <T>(op: KeyOp<T>): "ASC" | "DESC" => {
+  const { operator } = extractKeyOp(op);
+  return operator === "<" || operator === "<=" ? "DESC" : "ASC";
+};

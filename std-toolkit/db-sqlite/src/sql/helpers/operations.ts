@@ -1,48 +1,25 @@
 import { sql, type Statement } from "./utils.js";
 
-export type SkOperator = "<" | "<=" | ">" | ">=";
-export type SkQuery = { [K in SkOperator]?: string };
-export type SkValue = string | SkQuery;
-
 export type Where = {
   clause: string;
   params: unknown[];
 };
 
-export const extractSkOp = (
-  sk: SkQuery,
-): { op: SkOperator; value: string } => {
-  if ("<" in sk) return { op: "<", value: sk["<"]! };
-  if ("<=" in sk) return { op: "<=", value: sk["<="]! };
-  if (">" in sk) return { op: ">", value: sk[">"]! };
-  return { op: ">=", value: sk[">="]! };
-};
-
-export const getSkOrderDirection = (sk: SkQuery): "ASC" | "DESC" => {
-  const { op } = extractSkOp(sk);
-  return op === "<" || op === "<=" ? "DESC" : "ASC";
-};
-
+// Range query where clause
 export const where = (
-  def: { pk: string; sk: SkValue },
-  cols: { pk: string; sk: string } = { pk: "pk", sk: "sk" },
-): Where => {
-  const { pk, sk } = def;
+  key: string,
+  operator: "<" | "<=" | ">" | ">=",
+  col = "key",
+): Where => ({
+  clause: sql`${col} ${operator} ?`,
+  params: [key],
+});
 
-  if (typeof sk === "string") {
-    return {
-      clause: sql`${cols.pk} = ? AND ${cols.sk} = ?`,
-      params: [pk, sk],
-    };
-  }
-
-  const { op, value } = extractSkOp(sk);
-
-  return {
-    clause: sql`${cols.pk} = ? AND ${cols.sk} ${op} ?`,
-    params: [pk, value],
-  };
-};
+// Exact match where clause
+export const whereExact = (key: string, col = "key"): Where => ({
+  clause: sql`${col} = ?`,
+  params: [key],
+});
 
 export const insert = (
   table: string,
@@ -80,7 +57,7 @@ export const select = (
 ): Statement => {
   const params = [...w.params];
   const orderByClause = options?.orderBy
-    ? ` ORDER BY sk ${options.orderBy}`
+    ? ` ORDER BY key ${options.orderBy}`
     : "";
   const limitClause = options?.limit !== undefined ? " LIMIT ?" : "";
   const offsetClause = options?.offset !== undefined ? " OFFSET ?" : "";
