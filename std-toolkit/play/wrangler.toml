@@ -1,0 +1,15 @@
+name = "play"
+main = "src/worker.ts"
+compatibility_date = "2025-01-20"
+
+[assets]
+directory = "dist/client"
+
+[durable_objects]
+bindings = [
+  { name = "MY_DURABLE_OBJECT", class_name = "MyDurableObject" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["MyDurableObject"]
