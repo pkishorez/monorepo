@@ -1,0 +1,54 @@
+{
+  "name": "play",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Cloudflare Workers playground",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*",
+      "import": "./dist/*"
+    }
+  },
+  "scripts": {
+    "build": "vite build && tsc",
+    "deploy": "pnpm build && wrangler deploy",
+    "dev": "concurrently -n web,worker -c blue,green \"pnpm dev:web\" \"pnpm dev:worker\"",
+    "dev:web": "vite",
+    "dev:worker": "wrangler dev",
+    "lint": "tsc --noEmit",
+    "preview": "pnpm build && wrangler dev",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch"
+  },
+  "dependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260116.0",
+    "@effect/vitest": "0.27.0",
+    "@tailwindcss/vite": "4.1.18",
+    "@tsconfig/node22": "22.0.5",
+    "@types/node": "25.0.9",
+    "@types/react": "19.2.8",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.2",
+    "concurrently": "9.2.1",
+    "effect": "3.19.14",
+    "tailwindcss": "4.1.18",
+    "typescript": "5.9.3",
+    "vite": "7.3.1",
+    "vite-tsconfig-paths": "6.0.4",
+    "vitest": "4.0.17",
+    "wrangler": "4.59.2"
+  },
+  "peerDependencies": {
+    "effect": ">=3.0.0"
+  }
+}
