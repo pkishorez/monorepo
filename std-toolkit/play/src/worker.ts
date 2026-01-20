@@ -27,7 +27,8 @@ export default {
       return new Response("Hello from Worker!");
     }
 
-    if (url.pathname === "/api/do") {
+    // WebSocket RPC via Durable Object
+    if (url.pathname === "/api/ws") {
       const id = env.MY_DURABLE_OBJECT.idFromName("default");
       const stub = env.MY_DURABLE_OBJECT.get(id);
       return stub.fetch(request);
