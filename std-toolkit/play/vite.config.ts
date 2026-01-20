@@ -16,7 +16,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": "http://localhost:8787",
+      "/api": {
+        target: "http://localhost:8787",
+        ws: true,
+      },
     },
   },
   // @ts-ignore

@@ -215,6 +215,9 @@ importers:
       '@effect/platform':
         specifier: 0.94.1
         version: 0.94.1(effect@3.19.14)
+      '@effect/platform-browser':
+        specifier: ^0.74.0
+        version: 0.74.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)
       '@effect/rpc':
         specifier: 0.73.0
         version: 0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)
@@ -617,6 +620,12 @@ packages:
         optional: true
       lmdb:
         optional: true
+
+  '@effect/platform-browser@0.74.0':
+    resolution: {integrity: sha512-PAgkg5L5cASQpScA0SZTSy543MVA4A9kmpVCjo2fCINLRpTeuCFAOQHgPmw8dKHnYS0yGs2TYn7AlrhhqQ5o3g==}
+    peerDependencies:
+      '@effect/platform': ^0.94.0
+      effect: ^3.19.13
 
   '@effect/platform-node-shared@0.57.0':
     resolution: {integrity: sha512-QXuvmLNlABCQLcTl+lN1YPhKosR6KqArPYjC2reU0fb5lroCo3YRb/aGpXIgLthHzQL8cLU5XMGA3Cu5hKY2Tw==}
@@ -3727,6 +3736,12 @@ snapshots:
       '@effect/platform': 0.94.1(effect@3.19.14)
       effect: 3.19.14
       uuid: 11.1.0
+
+  '@effect/platform-browser@0.74.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)':
+    dependencies:
+      '@effect/platform': 0.94.1(effect@3.19.14)
+      effect: 3.19.14
+      multipasta: 0.2.7
 
   '@effect/platform-node-shared@0.57.0(@effect/cluster@0.56.0(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/workflow@0.16.0(@effect/experimental@0.58.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)':
     dependencies:
