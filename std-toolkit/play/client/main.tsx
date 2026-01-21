@@ -2,100 +2,74 @@ import "./styles.css";
 import { Effect, ManagedRuntime, Stream } from "effect";
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
-import { Rpc } from "./services/rpc";
 import { RpcWs } from "./services/rpc-ws";
-
-// HTTP RPC runtime
-const httpRuntime = ManagedRuntime.make(Rpc.Default);
 
 // WebSocket RPC runtime
 const wsRuntime = ManagedRuntime.make(RpcWs.Default);
 
 function App() {
   const [response, setResponse] = useState("");
-  const [mode, setMode] = useState<"http" | "ws">("http");
 
   const handlePing = async () => {
-    if (mode === "http") {
-      const result = await httpRuntime.runPromise(
-        Effect.gen(function* () {
-          const rpc = yield* Rpc;
-          return yield* rpc.Ping();
-        }),
-      );
-      setResponse(`[HTTP] Ping: ${result}`);
-    } else {
-      const result = await wsRuntime.runPromise(
-        Effect.gen(function* () {
-          const rpc = yield* RpcWs;
-          return yield* rpc.Ping();
-        }),
-      );
-      setResponse(`[WS] Ping: ${result}`);
-    }
+    const result = await wsRuntime.runPromise(
+      RpcWs.use((rpc) => rpc.Ping()),
+    );
+    setResponse(`Ping: ${result}`);
   };
 
   const handleCounter = async () => {
-    setResponse(mode === "http" ? "[HTTP] Counter: " : "[WS] Counter: ");
-    if (mode === "http") {
-      await httpRuntime.runPromise(
-        Effect.gen(function* () {
-          const rpc = yield* Rpc;
-          yield* rpc
-            .Counter({ count: 30 })
-            .pipe(
-              Stream.runForEach((n) =>
-                Effect.sync(() => setResponse((prev) => `${prev} ${n}`)),
-              ),
-            );
-        }),
-      );
-    } else {
-      await wsRuntime.runPromise(
-        Effect.gen(function* () {
-          const rpc = yield* RpcWs;
-          yield* rpc
-            .Counter({ count: 30 })
-            .pipe(
-              Stream.runForEach((n) =>
-                Effect.sync(() => setResponse((prev) => `${prev} ${n}`)),
-              ),
-            );
-        }),
-      );
-    }
+    setResponse("Counter: ");
+    await wsRuntime.runPromise(
+      RpcWs.use((rpc) =>
+        rpc
+          .Counter({ count: 30 })
+          .pipe(
+            Stream.runForEach((n) =>
+              Effect.sync(() => setResponse((prev) => `${prev} ${n}`)),
+            ),
+          ),
+      ),
+    );
   };
 
   const handleGetUser = async (id: string) => {
-    const prefix = mode === "http" ? "[HTTP]" : "[WS]";
-    if (mode === "http") {
-      const result = await httpRuntime.runPromiseExit(
-        Effect.gen(function* () {
-          const rpc = yield* Rpc;
-          return yield* rpc.GetUser({ id });
-        }),
-      );
-      if (result._tag === "Success") {
-        setResponse(
-          `${prefix} User: ${result.value.name} (id: ${result.value.id})`,
-        );
-      } else {
-        setResponse(`${prefix} Error: ${JSON.stringify(result.cause)}`);
-      }
+    const result = await wsRuntime.runPromiseExit(
+      RpcWs.use((rpc) => rpc.GetUser({ id })),
+    );
+    if (result._tag === "Success") {
+      const user = result.value.value;
+      setResponse(`User: ${user.name} (id: ${user.id})`);
     } else {
-      const result = await wsRuntime.runPromiseExit(
-        Effect.gen(function* () {
-          const rpc = yield* RpcWs;
-          return yield* rpc.GetUser({ id });
+      setResponse(`Error: ${JSON.stringify(result.cause)}`);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    const result = await wsRuntime.runPromiseExit(
+      RpcWs.use((rpc) =>
+        rpc.CreateUser({
+          name: `User ${Date.now()}`,
+          email: `user${Date.now()}@example.com`,
         }),
-      );
-      if (result._tag === "Success") {
-        setResponse(
-          `${prefix} User: ${result.value.name} (id: ${result.value.id})`,
-        );
-      } else {
-        setResponse(`${prefix} Error: ${JSON.stringify(result.cause)}`);
-      }
+      ),
+    );
+    if (result._tag === "Success") {
+      const user = result.value.value;
+      setResponse(`Created: ${user.name} (id: ${user.id})`);
+    } else {
+      setResponse(`Error: ${JSON.stringify(result.cause)}`);
+    }
+  };
+
+  const handleListUsers = async () => {
+    const result = await wsRuntime.runPromiseExit(
+      RpcWs.use((rpc) => rpc.ListUsers({ limit: 10 })),
+    );
+    if (result._tag === "Success") {
+      const users = result.value.items.map((u) => u.value.name).join(", ");
+      setResponse(`Users: ${users || "(none)"}`);
+    } else {
+      setResponse(`Error: ${JSON.stringify(result.cause)}`);
     }
   };
 
@@ -104,32 +78,8 @@ function App() {
       <div className="text-center">
         <h1 className="text-5xl font-bold mb-2">Play</h1>
         <p className="text-neutral-400 mb-4">
-          Vite + React + Tailwind + Effect RPC
+          Vite + React + Tailwind + Effect RPC (WebSocket)
         </p>
-
-        {/* Mode toggle */}
-        <div className="flex gap-2 justify-center mb-6">
-          <button
-            onClick={() => setMode("http")}
-            className={`px-4 py-2 rounded-lg cursor-pointer ${
-              mode === "http"
-                ? "bg-green-600"
-                : "bg-neutral-700 hover:bg-neutral-600"
-            }`}
-          >
-            HTTP
-          </button>
-          <button
-            onClick={() => setMode("ws")}
-            className={`px-4 py-2 rounded-lg cursor-pointer ${
-              mode === "ws"
-                ? "bg-green-600"
-                : "bg-neutral-700 hover:bg-neutral-600"
-            }`}
-          >
-            WebSocket (DO)
-          </button>
-        </div>
 
         <div className="bg-neutral-800 p-4 rounded-lg mb-4 min-h-12">
           {response}
@@ -145,19 +95,25 @@ function App() {
             onClick={handleCounter}
             className="bg-indigo-500 hover:bg-indigo-600 px-6 py-3 rounded-lg cursor-pointer"
           >
-            Counter (5)
+            Counter (30)
           </button>
           <button
-            onClick={() => handleGetUser("1")}
-            className="bg-indigo-500 hover:bg-indigo-600 px-6 py-3 rounded-lg cursor-pointer"
+            onClick={handleCreateUser}
+            className="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-lg cursor-pointer"
           >
-            Get User 1
+            Create User
           </button>
           <button
-            onClick={() => handleGetUser("999")}
-            className="bg-indigo-500 hover:bg-indigo-600 px-6 py-3 rounded-lg cursor-pointer"
+            onClick={handleListUsers}
+            className="bg-blue-500 hover:bg-blue-600 px-6 py-3 rounded-lg cursor-pointer"
           >
-            Get User 999
+            List Users
+          </button>
+          <button
+            onClick={() => handleGetUser("user_1234")}
+            className="bg-purple-500 hover:bg-purple-600 px-6 py-3 rounded-lg cursor-pointer"
+          >
+            Get User (invalid)
           </button>
         </div>
       </div>

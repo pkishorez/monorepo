@@ -11,13 +11,13 @@ import {
   computeKey,
   extractKeyOp,
   getKeyOpOrderDirection,
-  RowMetaSchema,
+  sqlMetaSchema,
   type RawRow,
   type RowMeta,
-  type EntityResult,
   type QueryResult,
   type KeyOp,
 } from "./utils.js";
+import { EntityType } from "@std-toolkit/tanstack";
 
 // Meta fields available for indexing
 type IndexableMetaFields = "_v" | "_u" | "_c";
@@ -105,7 +105,7 @@ export class SQLiteTable<
 
   insert(
     value: TEntity,
-  ): Effect.Effect<EntityResult<TEntity>, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const key = computeKey(this.primaryKeyFields, value);
@@ -120,10 +120,9 @@ export class SQLiteTable<
         );
 
       const meta: RowMeta = {
+        _e: this.schema.name,
         _v: schemaMeta._v,
-        _i: 0,
         _u: now,
-        _c: now,
         _d: false,
       };
 
@@ -133,26 +132,24 @@ export class SQLiteTable<
         key,
         _data: JSON.stringify(encodedData),
         _v: meta._v,
-        _i: meta._i,
         _u: meta._u,
-        _c: meta._c,
         _d: 0,
         ...indexColumns,
       });
 
-      return { data: value, meta };
+      return { value, meta };
     });
   }
 
   update(
     keyValue: Pick<TEntity, TPrimaryKeyFields>,
     updates: Partial<TEntity>,
-  ): Effect.Effect<EntityResult<TEntity>, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const existing = yield* this.#getRow(keyValue);
 
-      const merged = { ...existing.data, ...updates } as TEntity;
+      const merged = { ...existing.value, ...updates } as TEntity;
       const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
       const w = Sql.whereExact(key);
 
@@ -165,10 +162,9 @@ export class SQLiteTable<
         );
 
       const meta: RowMeta = {
+        _e: this.schema.name,
         _v: schemaMeta._v,
-        _i: existing.meta._i + 1,
         _u: new Date().toISOString(),
-        _c: existing.meta._c,
         _d: existing.meta._d,
       };
 
@@ -179,20 +175,19 @@ export class SQLiteTable<
         {
           _data: JSON.stringify(encodedData),
           _v: meta._v,
-          _i: meta._i,
           _u: meta._u,
           ...indexColumns,
         },
         w,
       );
 
-      return { data: merged, meta };
+      return { value: merged, meta };
     });
   }
 
   delete(
     keyValue: Pick<TEntity, TPrimaryKeyFields>,
-  ): Effect.Effect<EntityResult<TEntity>, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const existing = yield* this.#getRow(keyValue);
@@ -225,7 +220,7 @@ export class SQLiteTable<
 
   get(
     keyValue: Pick<TEntity, TPrimaryKeyFields>,
-  ): Effect.Effect<EntityResult<TEntity>, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return this.#getRow(keyValue);
   }
 
@@ -276,7 +271,7 @@ export class SQLiteTable<
 
   #getRow(
     keyValue: Pick<TEntity, TPrimaryKeyFields>,
-  ): Effect.Effect<EntityResult<TEntity>, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
@@ -287,7 +282,7 @@ export class SQLiteTable<
     });
   }
 
-  #parseRow(row: RawRow): Effect.Effect<EntityResult<TEntity>, SqliteDBError> {
+  #parseRow(row: RawRow): Effect.Effect<EntityType<TEntity>, SqliteDBError> {
     return Effect.gen(this, function* () {
       const rawData = {
         ...JSON.parse(row._data),
@@ -305,21 +300,20 @@ export class SQLiteTable<
           ),
         );
 
-      const meta = Schema.decodeSync(RowMetaSchema)({
+      const meta = Schema.decodeSync(sqlMetaSchema)({
         _v: row._v,
-        _i: row._i,
         _u: row._u,
-        _c: row._c,
         _d: row._d,
+        _e: this.schema.name,
       });
 
-      return { data: data as TEntity, meta };
+      return { value: data as TEntity, meta };
     });
   }
 
   #deriveIndexColumns(
     value: TEntity,
-    meta: Pick<RowMeta, "_v" | "_u" | "_c">,
+    meta: Pick<RowMeta, "_v" | "_u">,
   ): Record<string, string> {
     const columns: Record<string, string> = {};
     const combined = { ...value, ...meta } as EntityWithMeta<TEntity>;

@@ -6,8 +6,8 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/sql/index.d.ts",
-      "default": "./dist/sql/index.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./adapters/do": {
       "types": "./dist/sql/adapters/do.d.ts",
@@ -28,7 +28,8 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@std-toolkit/eschema": "workspace:*"
+    "@std-toolkit/eschema": "workspace:*",
+    "@std-toolkit/tanstack": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260120.0",

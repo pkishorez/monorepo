@@ -79,7 +79,7 @@ const program = Effect.gen(function* () {
   // Verify users were inserted
   const txUser1 = yield* UsersTable.get({ id: "tx-user-1" });
   const txUser2 = yield* UsersTable.get({ id: "tx-user-2" });
-  console.log(`Verified: ${txUser1.data.name}, ${txUser2.data.name}`);
+  console.log(`Verified: ${txUser1.value.name}, ${txUser2.value.name}`);
 
   // Test 2: Failed transaction (should rollback)
   const rollbackResult = yield* SqliteDB.transaction(

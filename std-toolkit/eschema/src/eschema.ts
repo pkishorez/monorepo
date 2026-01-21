@@ -46,7 +46,7 @@ export class ESchema<
     return value;
   }
 
-  get schema() {
+  get schema(): TLatest {
     return this.evolutions.at(-1)?.schema as TLatest;
   }
 
@@ -62,7 +62,9 @@ export class ESchema<
       const evolution = this.evolutions[index];
 
       if (index === -1 || !evolution) {
-        return yield* new ESchemaError({ message: `Unknown schema version: ${_v}` });
+        return yield* new ESchemaError({
+          message: `Unknown schema version: ${_v}`,
+        });
       }
 
       let data: any = yield* decodeStruct(evolution.schema, value);
@@ -104,6 +106,8 @@ export class ESchema<
       };
     });
   }
+
+  Type = null as unknown as Prettify<StructFieldsDecoded<TLatest>>;
 
   get "~standard"(): StandardSchemaV1.Props<
     unknown,

@@ -2,7 +2,7 @@ import { Socket } from "@effect/platform";
 import { BrowserSocket } from "@effect/platform-browser";
 import { RpcClient, RpcSerialization } from "@effect/rpc";
 import { Effect, Layer } from "effect";
-import { AppRpcs } from "../../src/rpc";
+import { AppRpcs } from "../../domain";
 
 // WebSocket URL (relative to current host)
 const wsUrl =

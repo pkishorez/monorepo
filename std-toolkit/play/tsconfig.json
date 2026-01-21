@@ -18,6 +18,6 @@
     "noEmit": false,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "client/**/*"],
+  "include": ["src/**/*", "client/**/*", "domain/**/*"],
   "exclude": ["dist", "node_modules"]
 }
