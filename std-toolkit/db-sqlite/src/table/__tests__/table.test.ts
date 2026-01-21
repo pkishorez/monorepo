@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { ESchema } from "@std-toolkit/eschema";
 import { Effect, Layer, Schema } from "effect";
 import { SqliteDBBetterSqlite3 } from "../../sql/adapters/better-sqlite3.js";
+import { SqliteDB, SqliteDBError } from "../../sql/db.js";
 import { SQLiteTable } from "../table.js";
 
 const UserSchema = ESchema.make("User", {
@@ -329,5 +330,295 @@ describe("SQLiteTable (file-based)", () => {
 
       db2.close();
     }),
+  );
+});
+
+describe("SQLiteTable transactions", () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const TransactionUserSchema = ESchema.make("TxUser", {
+    id: Schema.String,
+    email: Schema.String,
+    balance: Schema.Number,
+  }).build();
+
+  const TxUsersTable = SQLiteTable.make(TransactionUserSchema)
+    .primary(["id"])
+    .build();
+
+  beforeAll(async () => {
+    db = new Database(":memory:");
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(TxUsersTable.setup().pipe(Effect.provide(layer)));
+  });
+
+  afterAll(() => {
+    db.close();
+  });
+
+  it.effect("commits multiple inserts on success", () =>
+    Effect.gen(function* () {
+      yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.insert({
+            id: "tx-success-1",
+            email: "tx1@example.com",
+            balance: 100,
+          });
+          yield* TxUsersTable.insert({
+            id: "tx-success-2",
+            email: "tx2@example.com",
+            balance: 200,
+          });
+        }),
+      );
+
+      const result = yield* TxUsersTable.query(
+        "pk",
+        { ">=": { id: "tx-success-" } },
+        { limit: 10 },
+      );
+
+      const txItems = result.items.filter((i) =>
+        i.data.id.startsWith("tx-success-"),
+      );
+      expect(txItems).toHaveLength(2);
+      expect(txItems[0]?.data.balance).toBe(100);
+      expect(txItems[1]?.data.balance).toBe(200);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("rolls back all changes on error", () =>
+    Effect.gen(function* () {
+      const result = yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.insert({
+            id: "tx-rollback-1",
+            email: "rollback1@example.com",
+            balance: 500,
+          });
+
+          yield* TxUsersTable.insert({
+            id: "tx-rollback-2",
+            email: "rollback2@example.com",
+            balance: 600,
+          });
+
+          return yield* Effect.fail(new Error("Simulated failure"));
+        }),
+      ).pipe(Effect.either);
+
+      expect(result._tag).toBe("Left");
+
+      const query = yield* TxUsersTable.query(
+        "pk",
+        { ">=": { id: "tx-rollback-" } },
+        { limit: 10 },
+      );
+
+      const rollbackItems = query.items.filter((i) =>
+        i.data.id.startsWith("tx-rollback-"),
+      );
+      expect(rollbackItems).toHaveLength(0);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("rolls back on SqliteDBError", () =>
+    Effect.gen(function* () {
+      const result = yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.insert({
+            id: "tx-dberror-1",
+            email: "dberror1@example.com",
+            balance: 100,
+          });
+
+          return yield* Effect.fail(
+            SqliteDBError.insertFailed("TxUser", new Error("DB error")),
+          );
+        }),
+      ).pipe(Effect.either);
+
+      expect(result._tag).toBe("Left");
+
+      const query = yield* TxUsersTable.query(
+        "pk",
+        { ">=": { id: "tx-dberror-" } },
+        { limit: 10 },
+      );
+
+      const items = query.items.filter((i) =>
+        i.data.id.startsWith("tx-dberror-"),
+      );
+      expect(items).toHaveLength(0);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("commits insert and update in same transaction", () =>
+    Effect.gen(function* () {
+      yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.insert({
+            id: "tx-update-1",
+            email: "update@example.com",
+            balance: 1000,
+          });
+
+          yield* TxUsersTable.update({ id: "tx-update-1" }, { balance: 1500 });
+        }),
+      );
+
+      const result = yield* TxUsersTable.get({ id: "tx-update-1" });
+      expect(result.data.balance).toBe(1500);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("rolls back partial updates on error", () =>
+    Effect.gen(function* () {
+      yield* TxUsersTable.insert({
+        id: "tx-partial-1",
+        email: "partial@example.com",
+        balance: 100,
+      });
+
+      const result = yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.update({ id: "tx-partial-1" }, { balance: 999 });
+
+          return yield* Effect.fail(new Error("Failure after update"));
+        }),
+      ).pipe(Effect.either);
+
+      expect(result._tag).toBe("Left");
+
+      const item = yield* TxUsersTable.get({ id: "tx-partial-1" });
+      expect(item.data.balance).toBe(100);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("commits delete in transaction", () =>
+    Effect.gen(function* () {
+      yield* TxUsersTable.insert({
+        id: "tx-delete-1",
+        email: "delete@example.com",
+        balance: 50,
+      });
+
+      yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.delete({ id: "tx-delete-1" });
+        }),
+      );
+
+      const item = yield* TxUsersTable.get({ id: "tx-delete-1" });
+      expect(item.meta._d).toBe(true);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("rolls back delete on error", () =>
+    Effect.gen(function* () {
+      yield* TxUsersTable.insert({
+        id: "tx-delete-rollback-1",
+        email: "deleterollback@example.com",
+        balance: 75,
+      });
+
+      const result = yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.delete({ id: "tx-delete-rollback-1" });
+          return yield* Effect.fail(new Error("Failure after delete"));
+        }),
+      ).pipe(Effect.either);
+
+      expect(result._tag).toBe("Left");
+
+      const item = yield* TxUsersTable.get({ id: "tx-delete-rollback-1" });
+      expect(item.meta._d).toBe(false);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("transaction returns value on success", () =>
+    Effect.gen(function* () {
+      const result = yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          const inserted = yield* TxUsersTable.insert({
+            id: "tx-return-1",
+            email: "return@example.com",
+            balance: 250,
+          });
+          return inserted;
+        }),
+      );
+
+      expect(result.data.id).toBe("tx-return-1");
+      expect(result.data.balance).toBe(250);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("multiple sequential transactions work correctly", () =>
+    Effect.gen(function* () {
+      yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.insert({
+            id: "tx-seq-1",
+            email: "seq1@example.com",
+            balance: 100,
+          });
+        }),
+      );
+
+      yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.insert({
+            id: "tx-seq-2",
+            email: "seq2@example.com",
+            balance: 200,
+          });
+        }),
+      );
+
+      yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.update({ id: "tx-seq-1" }, { balance: 150 });
+        }),
+      );
+
+      const item1 = yield* TxUsersTable.get({ id: "tx-seq-1" });
+      const item2 = yield* TxUsersTable.get({ id: "tx-seq-2" });
+
+      expect(item1.data.balance).toBe(150);
+      expect(item2.data.balance).toBe(200);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("failed transaction followed by successful transaction", () =>
+    Effect.gen(function* () {
+      const failedResult = yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.insert({
+            id: "tx-recover-1",
+            email: "recover@example.com",
+            balance: 500,
+          });
+          return yield* Effect.fail(new Error("First transaction fails"));
+        }),
+      ).pipe(Effect.either);
+
+      expect(failedResult._tag).toBe("Left");
+
+      yield* SqliteDB.transaction(
+        Effect.gen(function* () {
+          yield* TxUsersTable.insert({
+            id: "tx-recover-1",
+            email: "recover@example.com",
+            balance: 600,
+          });
+        }),
+      );
+
+      const item = yield* TxUsersTable.get({ id: "tx-recover-1" });
+      expect(item.data.balance).toBe(600);
+    }).pipe(Effect.provide(layer)),
   );
 });

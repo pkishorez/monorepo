@@ -1,5 +1,5 @@
 import "./styles.css";
-import { Effect, Layer, ManagedRuntime, Stream } from "effect";
+import { Effect, ManagedRuntime, Stream } from "effect";
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { Rpc } from "./services/rpc";
@@ -8,14 +8,8 @@ import { RpcWs } from "./services/rpc-ws";
 // HTTP RPC runtime
 const httpRuntime = ManagedRuntime.make(Rpc.Default);
 
-// WebSocket RPC runtime (lazy - only created when needed)
-let wsRuntime: ManagedRuntime.ManagedRuntime<RpcWs, never> | null = null;
-const getWsRuntime = () => {
-  if (!wsRuntime) {
-    wsRuntime = ManagedRuntime.make(RpcWs.Default);
-  }
-  return wsRuntime;
-};
+// WebSocket RPC runtime
+const wsRuntime = ManagedRuntime.make(RpcWs.Default);
 
 function App() {
   const [response, setResponse] = useState("");
@@ -31,7 +25,7 @@ function App() {
       );
       setResponse(`[HTTP] Ping: ${result}`);
     } else {
-      const result = await getWsRuntime().runPromise(
+      const result = await wsRuntime.runPromise(
         Effect.gen(function* () {
           const rpc = yield* RpcWs;
           return yield* rpc.Ping();
@@ -48,7 +42,7 @@ function App() {
         Effect.gen(function* () {
           const rpc = yield* Rpc;
           yield* rpc
-            .Counter({ count: 5 })
+            .Counter({ count: 30 })
             .pipe(
               Stream.runForEach((n) =>
                 Effect.sync(() => setResponse((prev) => `${prev} ${n}`)),
@@ -57,11 +51,11 @@ function App() {
         }),
       );
     } else {
-      await getWsRuntime().runPromise(
+      await wsRuntime.runPromise(
         Effect.gen(function* () {
           const rpc = yield* RpcWs;
           yield* rpc
-            .Counter({ count: 5 })
+            .Counter({ count: 30 })
             .pipe(
               Stream.runForEach((n) =>
                 Effect.sync(() => setResponse((prev) => `${prev} ${n}`)),
@@ -89,7 +83,7 @@ function App() {
         setResponse(`${prefix} Error: ${JSON.stringify(result.cause)}`);
       }
     } else {
-      const result = await getWsRuntime().runPromiseExit(
+      const result = await wsRuntime.runPromiseExit(
         Effect.gen(function* () {
           const rpc = yield* RpcWs;
           return yield* rpc.GetUser({ id });

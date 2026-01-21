@@ -24,11 +24,11 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@std-toolkit/eschema": "workspace:*",
-    "@tanstack/react-db": "0.1.64"
+    "@std-toolkit/eschema": "workspace:*"
   },
   "devDependencies": {
     "@effect/vitest": "0.27.0",
+    "@tanstack/react-db": "0.1.66",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.0.9",
     "effect": "3.19.14",
@@ -38,6 +38,7 @@
     "vitest": "4.0.17"
   },
   "peerDependencies": {
+    "@tanstack/react-db": ">=0.1.64",
     "effect": ">=3.0.0"
   }
 }

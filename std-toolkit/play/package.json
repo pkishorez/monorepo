@@ -28,19 +28,18 @@
   },
   "dependencies": {
     "@effect/platform": "0.94.1",
-    "@effect/platform-browser": "^0.74.0",
+    "@effect/platform-browser": "0.74.0",
     "@effect/rpc": "0.73.0",
-    "@effect/schema": "^0.75.5",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260116.0",
+    "@cloudflare/workers-types": "4.20260120.0",
     "@effect/vitest": "0.27.0",
     "@tailwindcss/vite": "4.1.18",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.0.9",
-    "@types/react": "19.2.8",
+    "@types/react": "19.2.9",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.2",
     "concurrently": "9.2.1",
@@ -50,7 +49,7 @@
     "vite": "7.3.1",
     "vite-tsconfig-paths": "6.0.4",
     "vitest": "4.0.17",
-    "wrangler": "4.59.2"
+    "wrangler": "4.59.3"
   },
   "peerDependencies": {
     "effect": ">=3.0.0"

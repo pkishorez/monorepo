@@ -16,13 +16,14 @@ const SocketLive = Socket.layerWebSocket(wsUrl).pipe(
   Layer.provide(BrowserSocket.layerWebSocketConstructor),
 );
 
-// RPC client over WebSocket
+// Protocol and serialization layers
+const ProtocolLive = RpcClient.layerProtocolSocket().pipe(
+  Layer.provide(SocketLive),
+  Layer.provide(RpcSerialization.layerNdjson),
+);
+
+// RPC client service - scoped keeps connection alive with runtime
 export class RpcWs extends Effect.Service<RpcWs>()("RpcWs", {
   scoped: RpcClient.make(AppRpcs),
-  dependencies: [
-    RpcClient.layerProtocolSocket().pipe(
-      Layer.provide(SocketLive),
-      Layer.provide(RpcSerialization.layerNdjson),
-    ),
-  ],
+  dependencies: [ProtocolLive],
 }) {}

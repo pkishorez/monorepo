@@ -31,7 +31,7 @@
     "@std-toolkit/eschema": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260116.0",
+    "@cloudflare/workers-types": "4.20260120.0",
     "@effect/vitest": "0.27.0",
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",
