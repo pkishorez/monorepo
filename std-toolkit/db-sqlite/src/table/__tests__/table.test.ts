@@ -58,14 +58,13 @@ describe("SQLiteTable", () => {
         name: "Alice",
       });
 
-      expect(result.data).toEqual({
+      expect(result.value).toEqual({
         id: "user-1",
         email: "alice@example.com",
         name: "Alice",
       });
       expect(result.meta._v).toBe("v1");
       expect(result.meta._d).toBe(false);
-      expect(result.meta._c).toBeDefined();
       expect(result.meta._u).toBeDefined();
     }).pipe(Effect.provide(layer)),
   );
@@ -83,9 +82,8 @@ describe("SQLiteTable", () => {
         { name: "Robert" },
       );
 
-      expect(updated.data.name).toBe("Robert");
-      expect(updated.data.email).toBe("bob@example.com");
-      expect(updated.meta._c).toBe(original.meta._c);
+      expect(updated.value.name).toBe("Robert");
+      expect(updated.value.email).toBe("bob@example.com");
       expect(updated.meta._u).toBeDefined();
     }).pipe(Effect.provide(layer)),
   );
@@ -123,7 +121,7 @@ describe("SQLiteTable", () => {
         { limit: 10 },
       );
 
-      const ids = result.items.map((i) => i.data.id);
+      const ids = result.items.map((i) => i.value.id);
       expect(ids).toContain("query-1");
       expect(ids).toContain("query-2");
     }).pipe(Effect.provide(layer)),
@@ -142,7 +140,7 @@ describe("SQLiteTable", () => {
       });
 
       expect(result.items.length).toBeGreaterThan(0);
-      expect(result.items[0]?.data.email).toBe("test@example.com");
+      expect(result.items[0]?.value.email).toBe("test@example.com");
     }).pipe(Effect.provide(layer)),
   );
 
@@ -161,7 +159,7 @@ describe("SQLiteTable", () => {
       );
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.data.id).toBe("get-test-1");
+      expect(result.items[0]?.value.id).toBe("get-test-1");
     }).pipe(Effect.provide(layer)),
   );
 
@@ -192,15 +190,15 @@ describe("SQLiteTable", () => {
         if (result.items.length === 0) break;
 
         for (const item of result.items) {
-          if (item.data.id.startsWith("page-")) {
-            allItems.push(item.data.id);
+          if (item.value.id.startsWith("page-")) {
+            allItems.push(item.value.id);
           }
         }
 
         const lastItem = result.items[result.items.length - 1];
         if (!lastItem || result.items.length < pageSize) break;
 
-        lastId = lastItem.data.id + "\0";
+        lastId = lastItem.value.id + "\0";
       }
 
       expect(allItems).toHaveLength(totalRecords);
@@ -226,7 +224,7 @@ describe("SQLiteTable", () => {
         { limit: 10 },
       );
       const beforeCount = beforeResult.items.filter((i) =>
-        i.data.id.startsWith("remove-"),
+        i.value.id.startsWith("remove-"),
       ).length;
       expect(beforeCount).toBe(5);
 
@@ -297,10 +295,10 @@ describe("SQLiteTable (file-based)", () => {
       ).pipe(Effect.provide(layer2));
 
       expect(result.items).toHaveLength(2);
-      expect(result.items[0]?.data.name).toBe("Alice");
-      expect(result.items[0]?.data.score).toBe(100);
-      expect(result.items[1]?.data.name).toBe("Bob");
-      expect(result.items[1]?.data.score).toBe(85);
+      expect(result.items[0]?.value.name).toBe("Alice");
+      expect(result.items[0]?.value.score).toBe(100);
+      expect(result.items[1]?.value.name).toBe("Bob");
+      expect(result.items[1]?.value.score).toBe(85);
 
       db2.close();
     }),
@@ -326,7 +324,7 @@ describe("SQLiteTable (file-based)", () => {
         { limit: 1 },
       ).pipe(Effect.provide(layer2));
 
-      expect(result.items[0]?.data.score).toBe(150);
+      expect(result.items[0]?.value.score).toBe(150);
 
       db2.close();
     }),
@@ -381,11 +379,11 @@ describe("SQLiteTable transactions", () => {
       );
 
       const txItems = result.items.filter((i) =>
-        i.data.id.startsWith("tx-success-"),
+        i.value.id.startsWith("tx-success-"),
       );
       expect(txItems).toHaveLength(2);
-      expect(txItems[0]?.data.balance).toBe(100);
-      expect(txItems[1]?.data.balance).toBe(200);
+      expect(txItems[0]?.value.balance).toBe(100);
+      expect(txItems[1]?.value.balance).toBe(200);
     }).pipe(Effect.provide(layer)),
   );
 
@@ -418,7 +416,7 @@ describe("SQLiteTable transactions", () => {
       );
 
       const rollbackItems = query.items.filter((i) =>
-        i.data.id.startsWith("tx-rollback-"),
+        i.value.id.startsWith("tx-rollback-"),
       );
       expect(rollbackItems).toHaveLength(0);
     }).pipe(Effect.provide(layer)),
@@ -449,7 +447,7 @@ describe("SQLiteTable transactions", () => {
       );
 
       const items = query.items.filter((i) =>
-        i.data.id.startsWith("tx-dberror-"),
+        i.value.id.startsWith("tx-dberror-"),
       );
       expect(items).toHaveLength(0);
     }).pipe(Effect.provide(layer)),
@@ -470,7 +468,7 @@ describe("SQLiteTable transactions", () => {
       );
 
       const result = yield* TxUsersTable.get({ id: "tx-update-1" });
-      expect(result.data.balance).toBe(1500);
+      expect(result.value.balance).toBe(1500);
     }).pipe(Effect.provide(layer)),
   );
 
@@ -493,7 +491,7 @@ describe("SQLiteTable transactions", () => {
       expect(result._tag).toBe("Left");
 
       const item = yield* TxUsersTable.get({ id: "tx-partial-1" });
-      expect(item.data.balance).toBe(100);
+      expect(item.value.balance).toBe(100);
     }).pipe(Effect.provide(layer)),
   );
 
@@ -551,8 +549,8 @@ describe("SQLiteTable transactions", () => {
         }),
       );
 
-      expect(result.data.id).toBe("tx-return-1");
-      expect(result.data.balance).toBe(250);
+      expect(result.value.id).toBe("tx-return-1");
+      expect(result.value.balance).toBe(250);
     }).pipe(Effect.provide(layer)),
   );
 
@@ -587,8 +585,8 @@ describe("SQLiteTable transactions", () => {
       const item1 = yield* TxUsersTable.get({ id: "tx-seq-1" });
       const item2 = yield* TxUsersTable.get({ id: "tx-seq-2" });
 
-      expect(item1.data.balance).toBe(150);
-      expect(item2.data.balance).toBe(200);
+      expect(item1.value.balance).toBe(150);
+      expect(item2.value.balance).toBe(200);
     }).pipe(Effect.provide(layer)),
   );
 
@@ -618,7 +616,7 @@ describe("SQLiteTable transactions", () => {
       );
 
       const item = yield* TxUsersTable.get({ id: "tx-recover-1" });
-      expect(item.data.balance).toBe(600);
+      expect(item.value.balance).toBe(600);
     }).pipe(Effect.provide(layer)),
   );
 });

@@ -1,12 +1,9 @@
 import { RpcSerialization, RpcServer } from "@effect/rpc";
 import { DurableObject } from "cloudflare:workers";
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
+import { SqliteDBDO } from "@std-toolkit/sqlite/adapters/do";
+import { AppRpcs, UsersTable } from "../domain";
 import { HandlersLive } from "./handlers";
-import { AppRpcs } from "./rpc";
-
-// Runtime for RPC handlers
-const AppLive = Layer.mergeAll(HandlersLive, RpcSerialization.layerNdjson);
-const runtime = ManagedRuntime.make(AppLive);
 
 interface WsAttachment {
   clientId: number;
@@ -15,11 +12,32 @@ interface WsAttachment {
 let clientIdCounter = 0;
 
 export class MyDurableObject extends DurableObject {
+  private runtime: ReturnType<typeof ManagedRuntime.make<any, any>> | null = null;
+  private initialized = false;
+
+  private async ensureInitialized() {
+    if (this.initialized) return this.runtime!;
+
+    const sqliteLayer = SqliteDBDO(this.ctx.storage.sql as any);
+    const HandlersWithDb = HandlersLive.pipe(Layer.provide(sqliteLayer));
+    const AppLive = Layer.mergeAll(HandlersWithDb, RpcSerialization.layerNdjson);
+
+    this.runtime = ManagedRuntime.make(AppLive);
+
+    // Setup tables
+    await Effect.runPromise(UsersTable.setup().pipe(Effect.provide(sqliteLayer)));
+
+    this.initialized = true;
+    return this.runtime!;
+  }
+
   async fetch(request: Request): Promise<Response> {
     const upgradeHeader = request.headers.get("Upgrade");
     if (upgradeHeader !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
     }
+
+    await this.ensureInitialized();
 
     const { 0: client, 1: server } = new WebSocketPair();
 
@@ -31,8 +49,8 @@ export class MyDurableObject extends DurableObject {
     this.ctx.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair(
         '{"_tag":"Ping"}\n',
-        '{"_tag":"Pong"}\n',
-      ),
+        '{"_tag":"Pong"}\n'
+      )
     );
 
     // Store clientId in attachment (survives hibernation)
@@ -46,6 +64,7 @@ export class MyDurableObject extends DurableObject {
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
     if (typeof message !== "string") return;
 
+    const runtime = await this.ensureInitialized();
     const attachment = ws.deserializeAttachment() as WsAttachment;
 
     // Handle RPC message using serialization layer
@@ -82,7 +101,7 @@ export class MyDurableObject extends DurableObject {
 
         // Wait for completion before closing scope
         yield* Deferred.await(latch);
-      }).pipe(Effect.scoped),
+      }).pipe(Effect.scoped)
     );
   }
 
@@ -90,7 +109,7 @@ export class MyDurableObject extends DurableObject {
     _ws: WebSocket,
     _code: number,
     _reason: string,
-    _wasClean: boolean,
+    _wasClean: boolean
   ) {
     // Nothing to clean up with hibernation
   }

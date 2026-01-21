@@ -33,7 +33,11 @@ export type NextVersion<V extends string> =
 // Standard Schema helper types
 import type { ESchema } from "./eschema";
 
-export type AnyESchema = ESchema<string, string, any>;
+export type AnyESchema<
+  N extends string = string,
+  V extends string = string,
+  S extends StructFieldsSchema = StructFieldsSchema,
+> = ESchema<N, V, S>;
 
 export type ESchemaType<T extends AnyESchema> =
   T extends ESchema<infer _N, infer _V, infer TLatest>

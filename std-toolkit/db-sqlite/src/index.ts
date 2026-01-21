@@ -1,2 +1,3 @@
-export { SQLiteTable, EntityResult } from "./table";
-export { SqliteDB } from "./sql/db";
+export { SQLiteTable } from "./table";
+export type { QueryResult, KeyOp, RowMeta } from "./table";
+export { SqliteDB, SqliteDBError, type SqliteDBErrorType } from "./sql/db";

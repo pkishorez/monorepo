@@ -5,4 +5,4 @@
 
 export * from "./worker"
 export * from "./do"
-export * from "./rpc"
+export * from "../domain"

@@ -1,32 +1,123 @@
 import type { Rpc } from "@effect/rpc";
 import { Effect, Layer, Schedule, Stream } from "effect";
-import { AppRpcs, NotFoundError, User } from "./rpc";
+import { SqliteDB, type SqliteDBError } from "@std-toolkit/sqlite";
+import {
+  AppRpcs,
+  NotFoundError,
+  UserNotFoundError,
+  UserValidationError,
+  UserDatabaseError,
+  UsersTable,
+} from "../domain";
 
-// Mock user database
-const users = new Map<string, User>([
-  ["1", new User({ id: "1", name: "Alice" })],
-  ["2", new User({ id: "2", name: "Bob" })],
-]);
+const mapDbError = (error: SqliteDBError, op: string) =>
+  new UserDatabaseError({ operation: op, cause: error.error._tag });
+
+const generateId = () =>
+  `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
 export const HandlersLive: Layer.Layer<
-  Rpc.Handler<"Ping"> | Rpc.Handler<"Counter"> | Rpc.Handler<"GetUser">
+  | Rpc.Handler<"Ping">
+  | Rpc.Handler<"Counter">
+  | Rpc.Handler<"GetUser">
+  | Rpc.Handler<"CreateUser">
+  | Rpc.Handler<"UpdateUser">
+  | Rpc.Handler<"DeleteUser">
+  | Rpc.Handler<"ListUsers">,
+  never,
+  SqliteDB
 > = AppRpcs.toLayer({
-  // 1. Simple request/response
   Ping: () => Effect.succeed("pong"),
 
-  // 2. Stream - emits numbers from 0 to count-1
   Counter: ({ count }) =>
     Stream.range(0, count - 1).pipe(
-      Stream.schedule(Schedule.spaced(100)), // Emit every 100ms
-      Stream.tap((n) => Effect.log(`Emitting ${n}`)),
+      Stream.schedule(Schedule.spaced(100)),
+      Stream.tap((n) => Effect.log(`Emitting ${n}`))
     ),
 
-  // 3. Proper payload, success, and error
-  GetUser: ({ id }) => {
-    const user = users.get(id);
-    if (user) {
-      return Effect.succeed(user);
-    }
-    return Effect.fail(new NotFoundError({ message: `User ${id} not found` }));
-  },
+  GetUser: ({ id }) =>
+    Effect.gen(function* () {
+      const result = yield* UsersTable.get({ id }).pipe(
+        Effect.mapError(
+          () => new NotFoundError({ message: `User ${id} not found` })
+        )
+      );
+      if (result.meta._d) {
+        return yield* Effect.fail(
+          new NotFoundError({ message: `User ${id} not found` })
+        );
+      }
+      return result;
+    }),
+
+  CreateUser: ({ name, email, status }) =>
+    Effect.gen(function* () {
+      return yield* UsersTable.insert({
+        id: generateId(),
+        name,
+        email,
+        status: status ?? "pending",
+      }).pipe(Effect.mapError((e) => mapDbError(e, "CreateUser")));
+    }),
+
+  UpdateUser: ({ id, name, email, status }) =>
+    Effect.gen(function* () {
+      const updates: Record<string, string> = {};
+      if (name !== undefined) updates.name = name;
+      if (email !== undefined) updates.email = email;
+      if (status !== undefined) updates.status = status;
+
+      if (Object.keys(updates).length === 0) {
+        return yield* Effect.fail(
+          new UserValidationError({ message: "No fields to update" })
+        );
+      }
+
+      return yield* UsersTable.update({ id }, updates).pipe(
+        Effect.mapError((e) =>
+          e.error._tag === "GetFailed"
+            ? new UserNotFoundError({ id })
+            : mapDbError(e, "UpdateUser")
+        )
+      );
+    }),
+
+  DeleteUser: ({ id }) =>
+    UsersTable.delete({ id }).pipe(
+      Effect.mapError((e) =>
+        e.error._tag === "GetFailed"
+          ? new UserNotFoundError({ id })
+          : mapDbError(e, "DeleteUser")
+      )
+    ),
+
+  ListUsers: ({ cursor, limit, status }) =>
+    Effect.gen(function* () {
+      const pageLimit = Math.min(limit ?? 20, 100);
+      const startCursor = cursor ?? "";
+
+      const result = status
+        ? yield* UsersTable.query(
+            "byStatus",
+            { ">=": { status, _u: startCursor } },
+            { limit: pageLimit + 1 }
+          ).pipe(Effect.mapError((e) => mapDbError(e, "ListUsers")))
+        : yield* UsersTable.query(
+            "pk",
+            { ">=": { id: startCursor } },
+            { limit: pageLimit + 1 }
+          ).pipe(Effect.mapError((e) => mapDbError(e, "ListUsers")));
+
+      const activeItems = result.items.filter((item) => !item.meta._d);
+      const hasMore = activeItems.length > pageLimit;
+      const items = hasMore ? activeItems.slice(0, pageLimit) : activeItems;
+      const nextCursor =
+        hasMore && items.length > 0
+          ? (status
+              ? items[items.length - 1]!.meta._u
+              : items[items.length - 1]!.value.id) + "\0"
+          : null;
+
+      return { items, cursor: nextCursor };
+    }),
 });
