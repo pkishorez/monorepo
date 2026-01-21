@@ -22,6 +22,8 @@ const { handler: rpcHandler } = HttpApp.toWebHandlerLayer(rpcApp, AppLive);
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const id = env.MY_DURABLE_OBJECT.idFromName("default");
+    const stub = env.MY_DURABLE_OBJECT.get(id);
 
     if (url.pathname === "/api/hello") {
       return new Response("Hello from Worker!");
@@ -29,8 +31,9 @@ export default {
 
     // WebSocket RPC via Durable Object
     if (url.pathname === "/api/ws") {
-      const id = env.MY_DURABLE_OBJECT.idFromName("default");
-      const stub = env.MY_DURABLE_OBJECT.get(id);
+      return stub.fetch(request);
+    }
+    if (url.pathname === "/api/ws/rpc") {
       return stub.fetch(request);
     }
 

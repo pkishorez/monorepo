@@ -6,8 +6,8 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
 
-    "rootDir": "./src",
     "outDir": "./dist",
 
     "strict": true,
@@ -18,6 +18,6 @@
     "noEmit": false,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "client/**/*"],
   "exclude": ["dist", "node_modules"]
 }

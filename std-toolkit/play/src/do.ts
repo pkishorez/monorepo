@@ -1,6 +1,6 @@
 import { RpcSerialization, RpcServer } from "@effect/rpc";
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import { HandlersLive } from "./handlers";
 import { AppRpcs } from "./rpc";
 
@@ -26,6 +26,15 @@ export class MyDurableObject extends DurableObject {
     // Accept with hibernation support
     this.ctx.acceptWebSocket(server);
 
+    // Auto-respond to protocol Ping without waking DO
+    // NDJSON format includes trailing newline
+    this.ctx.setWebSocketAutoResponse(
+      new WebSocketRequestResponsePair(
+        '{"_tag":"Ping"}\n',
+        '{"_tag":"Pong"}\n',
+      ),
+    );
+
     // Store clientId in attachment (survives hibernation)
     const attachment: WsAttachment = { clientId: clientIdCounter++ };
     server.serializeAttachment(attachment);
@@ -46,37 +55,47 @@ export class MyDurableObject extends DurableObject {
         const parser = serialization.unsafeMake();
         const decoded = parser.decode(message);
 
+        // Latch to wait for stream completion
+        const latch = yield* Deferred.make<void>();
+
         const rpcServer = yield* RpcServer.makeNoSerialization(AppRpcs, {
+          disableClientAcks: true, // No ACKs needed - simpler for hibernation
           onFromServer: (response) =>
-            Effect.sync(() => {
-              console.log("RESPONSE: ", response);
+            Effect.gen(function* () {
               const encoded = parser.encode(response);
               if (encoded !== undefined) {
                 ws.send(encoded);
+              }
+              // Complete latch when stream/request done
+              const r = response as { _tag: string };
+              if (r._tag === "Exit" || r._tag === "ClientEnd") {
+                yield* Deferred.succeed(latch, undefined);
               }
             }),
         });
 
         for (const msg of decoded) {
-          console.log("END: ", msg);
+          const m = msg as { _tag: string };
+          if (m._tag === "Ping" || m._tag === "Pong") continue;
           yield* rpcServer.write(attachment.clientId, msg as any);
         }
+
+        // Wait for completion before closing scope
+        yield* Deferred.await(latch);
       }).pipe(Effect.scoped),
     );
   }
 
   async webSocketClose(
-    ws: WebSocket,
-    code: number,
-    reason: string,
-    wasClean: boolean,
+    _ws: WebSocket,
+    _code: number,
+    _reason: string,
+    _wasClean: boolean,
   ) {
-    // Connection closed - nothing to clean up with hibernation
-    ws.close(code, reason);
+    // Nothing to clean up with hibernation
   }
 
   async webSocketError(ws: WebSocket, error: unknown) {
     console.error("WebSocket error:", error);
-    ws.close(1011, "WebSocket error");
   }
 }
