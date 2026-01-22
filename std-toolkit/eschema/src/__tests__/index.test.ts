@@ -17,8 +17,7 @@ describe("ESchema.make", () => {
       }).build();
 
       const encoded = yield* schema.encode({ name: "Alice" });
-      expect(encoded.data).toEqual({ name: "Alice" });
-      expect(encoded.meta).toEqual({ _v: "v1", _e: "User" });
+      expect(encoded).toEqual({ _v: "v1", name: "Alice" });
     }),
   );
 
@@ -26,23 +25,23 @@ describe("ESchema.make", () => {
     Effect.gen(function* () {
       const schema = ESchema.make("Complex", {
         count: StringToNumber,
-        optional: Schema.optionalWith(Schema.String, { default: () => "default" }),
+        optional: Schema.optionalWith(Schema.String, {
+          default: () => "default",
+        }),
         nullable: Schema.NullOr(Schema.String),
       }).build();
 
       const decoded = yield* schema.decode({
         _v: "v1",
-        _e: "Complex",
         count: "42",
         nullable: null,
       });
 
-      expect(decoded.data).toEqual({
+      expect(decoded).toEqual({
         count: 42,
         optional: "default",
         nullable: null,
       });
-      expect(decoded.meta).toEqual({ _v: "v1", _e: "Complex" });
     }),
   );
 });
@@ -78,7 +77,7 @@ describe("ESchema.makePartial", () => {
     }).build();
 
     const partial = schema.makePartial({ a: "hello" });
-    expect(partial).toEqual({ a: "hello" });
+    expect(partial).toEqual({ a: "hello", _v: "v1" });
   });
 
   it("allows empty partial", () => {
@@ -87,7 +86,7 @@ describe("ESchema.makePartial", () => {
     }).build();
 
     const partial = schema.makePartial({});
-    expect(partial).toEqual({});
+    expect(partial).toEqual({ _v: "v1" });
   });
 });
 
@@ -99,9 +98,12 @@ describe("ESchema.decode", () => {
         count: StringToNumber,
       }).build();
 
-      const decoded = yield* schema.decode({ _v: "v1", _e: "Test", name: "foo", count: "10" });
-      expect(decoded.data).toEqual({ name: "foo", count: 10 });
-      expect(decoded.meta).toEqual({ _v: "v1", _e: "Test" });
+      const decoded = yield* schema.decode({
+        _v: "v1",
+        name: "foo",
+        count: "10",
+      });
+      expect(decoded).toEqual({ name: "foo", count: 10 });
     }),
   );
 
@@ -116,9 +118,8 @@ describe("ESchema.decode", () => {
         }))
         .build();
 
-      const decoded = yield* schema.decode({ _v: "v1", _e: "Test", a: "42" });
-      expect(decoded.data).toEqual({ a: 42, b: "added" });
-      expect(decoded.meta).toEqual({ _v: "v2", _e: "Test" });
+      const decoded = yield* schema.decode({ _v: "v1", a: "42" });
+      expect(decoded).toEqual({ a: 42, b: "added" });
     }),
   );
 
@@ -133,9 +134,12 @@ describe("ESchema.decode", () => {
         }))
         .build();
 
-      const decoded = yield* schema.decode({ _v: "v2", _e: "Test", a: "hello", b: "world" });
-      expect(decoded.data).toEqual({ a: "hello", b: "world" });
-      expect(decoded.meta).toEqual({ _v: "v2", _e: "Test" });
+      const decoded = yield* schema.decode({
+        _v: "v2",
+        a: "hello",
+        b: "world",
+      });
+      expect(decoded).toEqual({ a: "hello", b: "world" });
     }),
   );
 
@@ -145,36 +149,35 @@ describe("ESchema.decode", () => {
         a: Schema.String,
       }).build();
 
-      const error = yield* Effect.flip(schema.decode({ _v: "v99", _e: "Test", a: "hello" }));
+      const error = yield* Effect.flip(
+        schema.decode({ _v: "v99", a: "hello" }),
+      );
       expect(error).toBeInstanceOf(ESchemaError);
       expect(error.message).toBe("Unknown schema version: v99");
     }),
   );
 
-  it.effect("fails with ESchemaError on missing version", () =>
+  it.effect("defaults to latest version when _v is missing", () =>
     Effect.gen(function* () {
       const schema = ESchema.make("Test", {
         a: Schema.String,
       }).build();
 
-      const error = yield* Effect.flip(schema.decode({ _e: "Test", a: "hello" }));
-      expect(error).toBeInstanceOf(ESchemaError);
-      expect(error.message).toBe("Decode failed");
-      expect(error.cause).toBeDefined();
+      const decoded = yield* schema.decode({ a: "hello" });
+      expect(decoded).toEqual({ a: "hello" });
     }),
   );
 });
 
 describe("ESchema.encode", () => {
-  it.effect("encodes value with version and entity metadata", () =>
+  it.effect("encodes value with version metadata", () =>
     Effect.gen(function* () {
       const schema = ESchema.make("User", {
         name: Schema.String,
       }).build();
 
       const encoded = yield* schema.encode({ name: "Alice" });
-      expect(encoded.data).toEqual({ name: "Alice" });
-      expect(encoded.meta).toEqual({ _v: "v1", _e: "User" });
+      expect(encoded).toEqual({ _v: "v1", name: "Alice" });
     }),
   );
 
@@ -185,8 +188,7 @@ describe("ESchema.encode", () => {
       }).build();
 
       const encoded = yield* schema.encode({ count: 42 });
-      expect(encoded.data).toEqual({ count: "42" });
-      expect(encoded.meta).toEqual({ _v: "v1", _e: "Test" });
+      expect(encoded).toEqual({ _v: "v1", count: "42" });
     }),
   );
 
@@ -195,24 +197,25 @@ describe("ESchema.encode", () => {
       const schema = ESchema.make("Test", {
         a: Schema.String,
       })
-        .evolve("v2", { a: Schema.String, b: Schema.Number }, (v) => ({ ...v, b: 0 }))
+        .evolve("v2", { a: Schema.String, b: Schema.Number }, (v) => ({
+          ...v,
+          b: 0,
+        }))
         .build();
 
       const encoded = yield* schema.encode({ a: "hello", b: 123 });
-      expect(encoded.data).toEqual({ a: "hello", b: 123 });
-      expect(encoded.meta).toEqual({ _v: "v2", _e: "Test" });
+      expect(encoded).toEqual({ _v: "v2", a: "hello", b: 123 });
     }),
   );
 
-  it.effect("strips _v and _e from input before encoding", () =>
+  it.effect("strips _v from input before encoding", () =>
     Effect.gen(function* () {
       const schema = ESchema.make("Test", {
         name: Schema.String,
       }).build();
 
-      const encoded = yield* schema.encode({ _v: "old", _e: "wrong", name: "test" } as any);
-      expect(encoded.data).toEqual({ name: "test" });
-      expect(encoded.meta).toEqual({ _v: "v1", _e: "Test" });
+      const encoded = yield* schema.encode({ _v: "old", name: "test" } as any);
+      expect(encoded).toEqual({ _v: "v1", name: "test" });
     }),
   );
 });
@@ -227,23 +230,33 @@ describe("ESchema.evolve (multiple evolutions)", () => {
           ...v,
           b: "from-v1",
         }))
-        .evolve("v3", { a: Schema.String, b: Schema.String, c: Schema.Number }, (v) => ({
-          ...v,
-          c: 100,
-        }))
+        .evolve(
+          "v3",
+          { a: Schema.String, b: Schema.String, c: Schema.Number },
+          (v) => ({
+            ...v,
+            c: 100,
+          }),
+        )
         .build();
 
-      const fromV1 = yield* schema.decode({ _v: "v1", _e: "Test", a: "hello" });
-      expect(fromV1.data).toEqual({ a: "hello", b: "from-v1", c: 100 });
-      expect(fromV1.meta).toEqual({ _v: "v3", _e: "Test" });
+      const fromV1 = yield* schema.decode({ _v: "v1", a: "hello" });
+      expect(fromV1).toEqual({ a: "hello", b: "from-v1", c: 100 });
 
-      const fromV2 = yield* schema.decode({ _v: "v2", _e: "Test", a: "hello", b: "existing" });
-      expect(fromV2.data).toEqual({ a: "hello", b: "existing", c: 100 });
-      expect(fromV2.meta).toEqual({ _v: "v3", _e: "Test" });
+      const fromV2 = yield* schema.decode({
+        _v: "v2",
+        a: "hello",
+        b: "existing",
+      });
+      expect(fromV2).toEqual({ a: "hello", b: "existing", c: 100 });
 
-      const fromV3 = yield* schema.decode({ _v: "v3", _e: "Test", a: "hello", b: "existing", c: 999 });
-      expect(fromV3.data).toEqual({ a: "hello", b: "existing", c: 999 });
-      expect(fromV3.meta).toEqual({ _v: "v3", _e: "Test" });
+      const fromV3 = yield* schema.decode({
+        _v: "v3",
+        a: "hello",
+        b: "existing",
+        c: 999,
+      });
+      expect(fromV3).toEqual({ a: "hello", b: "existing", c: 999 });
     }),
   );
 
@@ -258,9 +271,8 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         }))
         .build();
 
-      const decoded = yield* schema.decode({ _v: "v1", _e: "Test", a: "keep", b: "drop" });
-      expect(decoded.data).toEqual({ a: "keep" });
-      expect(decoded.meta).toEqual({ _v: "v2", _e: "Test" });
+      const decoded = yield* schema.decode({ _v: "v1", a: "keep", b: "drop" });
+      expect(decoded).toEqual({ a: "keep" });
     }),
   );
 
@@ -277,12 +289,10 @@ describe("ESchema.evolve (multiple evolutions)", () => {
 
       const decoded = yield* schema.decode({
         _v: "v1",
-        _e: "Test",
         firstName: "John",
         lastName: "Doe",
       });
-      expect(decoded.data).toEqual({ fullName: "John Doe" });
-      expect(decoded.meta).toEqual({ _v: "v2", _e: "Test" });
+      expect(decoded).toEqual({ fullName: "John Doe" });
     }),
   );
 });
@@ -297,11 +307,9 @@ describe("roundtrip encode/decode", () => {
 
       const original = { name: "test", count: 42 };
       const encoded = yield* schema.encode(original);
-      const raw = { ...encoded.data, ...encoded.meta };
-      const decoded = yield* schema.decode(raw);
+      const decoded = yield* schema.decode(encoded);
 
-      expect(decoded.data).toEqual(original);
-      expect(decoded.meta).toEqual({ _v: "v1", _e: "Test" });
+      expect(decoded).toEqual({ name: "test", count: 42 });
     }),
   );
 
@@ -311,12 +319,12 @@ describe("roundtrip encode/decode", () => {
         count: StringToNumber,
       }).build();
 
-      const raw = { _v: "v1", _e: "Test", count: "123" };
+      const raw = { _v: "v1", count: "123" };
       const decoded = yield* schema.decode(raw);
-      const encoded = yield* schema.encode(decoded.data);
+      const { ...data } = decoded;
+      const encoded = yield* schema.encode(data);
 
-      expect(encoded.data).toEqual({ count: "123" });
-      expect(encoded.meta).toEqual({ _v: "v1", _e: "Test" });
+      expect(encoded).toEqual({ _v: "v1", count: "123" });
     }),
   );
 });
@@ -341,13 +349,12 @@ describe("Standard Schema v1 compatibility", () => {
 
     const result = schema["~standard"].validate({
       _v: "v1",
-      _e: "User",
       name: "Alice",
       age: 30,
     });
 
     expect(result).toEqual({
-      value: { _v: "v1", _e: "User", name: "Alice", age: 30 },
+      value: { name: "Alice", age: 30 },
     });
   });
 
@@ -358,7 +365,6 @@ describe("Standard Schema v1 compatibility", () => {
 
     const result = schema["~standard"].validate({
       _v: "v99",
-      _e: "User",
       name: "Alice",
     });
 
@@ -369,7 +375,7 @@ describe("Standard Schema v1 compatibility", () => {
     }
   });
 
-  it("validate() returns failure for missing version metadata", () => {
+  it("validate() defaults to latest version when _v is missing", () => {
     const schema = ESchema.make("User", {
       name: Schema.String,
     }).build();
@@ -378,7 +384,9 @@ describe("Standard Schema v1 compatibility", () => {
       name: "Alice",
     });
 
-    expect("issues" in result).toBe(true);
+    expect(result).toEqual({
+      value: { name: "Alice" },
+    });
   });
 
   it("implements StandardSchemaV1 interface correctly", () => {
@@ -402,14 +410,11 @@ describe("Standard Schema v1 compatibility", () => {
 
     const v1Result = schema["~standard"].validate({
       _v: "v1",
-      _e: "User",
       name: "Alice",
     });
 
     expect(v1Result).toEqual({
       value: {
-        _v: "v2",
-        _e: "User",
         name: "Alice",
         email: "default@example.com",
       },
@@ -417,15 +422,12 @@ describe("Standard Schema v1 compatibility", () => {
 
     const v2Result = schema["~standard"].validate({
       _v: "v2",
-      _e: "User",
       name: "Bob",
       email: "bob@example.com",
     });
 
     expect(v2Result).toEqual({
       value: {
-        _v: "v2",
-        _e: "User",
         name: "Bob",
         email: "bob@example.com",
       },

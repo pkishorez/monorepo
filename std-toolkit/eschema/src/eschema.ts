@@ -1,7 +1,6 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import {
-  ESchemaResult,
   ForbidUnderscorePrefix,
   NextVersion,
   Prettify,
@@ -10,31 +9,33 @@ import {
   StructFieldsSchema,
 } from "./types";
 import { ESchemaError } from "./utils";
-import { parseMeta, decodeStruct, encodeStruct } from "./schema";
+import { struct, metaSchema } from "./schema";
 
 export class ESchema<
   TName extends string,
   TVersion extends string,
   TLatest extends StructFieldsSchema,
-> implements StandardSchemaV1<
-  unknown,
-  Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }>
-> {
+> implements StandardSchemaV1<unknown, Prettify<StructFieldsDecoded<TLatest>>> {
   static make<N extends string, I extends StructFieldsSchema>(
     name: N,
     schema: I & ForbidUnderscorePrefix<I>,
   ) {
-    return new Builder<N, "v1", I>(name, [
-      {
-        version: "v1",
-        schema,
-        migration: null,
-      },
-    ]);
+    return new Builder<N, "v1", I>(
+      name,
+      [
+        {
+          version: "v1",
+          schema,
+          migration: null,
+        },
+      ],
+      "v1",
+    );
   }
 
   constructor(
     readonly name: TName,
+    private latestVersion: TVersion,
     private evolutions: {
       version: string;
       schema: StructFieldsSchema;
@@ -43,21 +44,25 @@ export class ESchema<
   ) {}
 
   makePartial(value: Partial<StructFieldsDecoded<TLatest>>) {
-    return value;
+    return {
+      ...value,
+      _v: this.latestVersion,
+    };
   }
 
+  Type = null as unknown as Prettify<StructFieldsDecoded<TLatest>>;
   get schema(): TLatest {
     return this.evolutions.at(-1)?.schema as TLatest;
   }
 
   decode(
     value: unknown,
-  ): Effect.Effect<
-    ESchemaResult<TName, TVersion, StructFieldsDecoded<TLatest>>,
-    ESchemaError
-  > {
+  ): Effect.Effect<Prettify<StructFieldsDecoded<TLatest>>, ESchemaError> {
     return Effect.gen(this, function* () {
-      const { _v } = yield* parseMeta(value);
+      const _v = yield* Schema.decodeUnknown(metaSchema)(value).pipe(
+        Effect.map((v) => v._v),
+        Effect.orElseSucceed(() => this.latestVersion),
+      );
       const index = this.evolutions.findIndex((v) => v.version === _v);
       const evolution = this.evolutions[index];
 
@@ -67,7 +72,13 @@ export class ESchema<
         });
       }
 
-      let data: any = yield* decodeStruct(evolution.schema, value);
+      let data = yield* Schema.decodeUnknown(struct(evolution.schema))(
+        value,
+      ).pipe(
+        Effect.mapError(
+          (err) => new ESchemaError({ message: "Decode failed", cause: err }),
+        ),
+      );
 
       for (let i = index + 1; i < this.evolutions.length; i++) {
         const evo = this.evolutions[i];
@@ -77,19 +88,18 @@ export class ESchema<
         data = evo.migration!(data);
       }
 
-      const latestEvolution = this.evolutions.at(-1);
       return {
-        data: data as StructFieldsDecoded<TLatest>,
-        meta: { _v: latestEvolution!.version as TVersion, _e: this.name },
-      };
+        ...data,
+      } as StructFieldsDecoded<TLatest>;
     });
   }
 
   encode(
     value: StructFieldsDecoded<TLatest>,
   ): Effect.Effect<
-    ESchemaResult<TName, TVersion, StructFieldsEncoded<TLatest>>,
-    ESchemaError
+    Prettify<StructFieldsEncoded<TLatest> & { _v: TVersion }>,
+    ESchemaError,
+    never
   > {
     return Effect.gen(this, function* () {
       const evolution = this.evolutions.at(-1);
@@ -97,43 +107,44 @@ export class ESchema<
         return yield* new ESchemaError({ message: "No evolutions found" });
       }
 
-      const { _v, _e, ...rest } = value as any;
-      const data = yield* encodeStruct(evolution.schema as any, rest);
+      const data = yield* Schema.encode(struct(this.schema))(value).pipe(
+        Effect.mapError(
+          (error) =>
+            new ESchemaError({ message: "Encode failed", cause: error }),
+        ),
+      );
 
       return {
-        data: data as StructFieldsEncoded<TLatest>,
-        meta: { _v: evolution.version as TVersion, _e: this.name },
+        ...data,
+        _v: this.latestVersion,
       };
     });
   }
 
-  Type = null as unknown as Prettify<StructFieldsDecoded<TLatest>>;
-
-  get "~standard"(): StandardSchemaV1.Props<
-    unknown,
-    Prettify<StructFieldsDecoded<TLatest> & { _v: TVersion; _e: TName }>
-  > {
-    return {
-      version: 1,
-      vendor: "@std-toolkit/eschema",
-      validate: (value) => {
-        const result = Effect.runSyncExit(this.decode(value));
-        if (result._tag === "Success") {
-          const { data, meta } = result.value;
-          return { value: { ...data, ...meta } as any };
-        }
-        const cause = result.cause;
-        if (cause._tag === "Fail") {
-          return {
-            issues: [{ message: cause.error.message }],
-          };
-        }
+  "~standard" = {
+    version: 1 as const,
+    vendor: "@std-toolkit/eschema",
+    types: {
+      input: null as unknown as Prettify<StructFieldsDecoded<TLatest>>,
+      output: null as unknown as Prettify<StructFieldsDecoded<TLatest>>,
+    },
+    validate: (value: unknown) => {
+      const result = Effect.runSyncExit(this.decode(value));
+      if (result._tag === "Success") {
+        const value = result.value;
+        return { value };
+      }
+      const cause = result.cause;
+      if (cause._tag === "Fail") {
         return {
-          issues: [{ message: "Unknown error" }],
+          issues: [{ message: cause.error.message }],
         };
-      },
-    };
-  }
+      }
+      return {
+        issues: [{ message: "Unknown error" }],
+      };
+    },
+  };
 }
 
 class Builder<
@@ -148,6 +159,7 @@ class Builder<
       schema: StructFieldsSchema;
       migration: ((prev: any) => any) | null;
     }[],
+    readonly version: TVersion,
   ) {}
 
   evolve<V extends NextVersion<TVersion>, N extends StructFieldsSchema>(
@@ -155,17 +167,25 @@ class Builder<
     schema: N & ForbidUnderscorePrefix<N>,
     migration: (prev: StructFieldsDecoded<TLatest>) => StructFieldsDecoded<N>,
   ) {
-    return new Builder<TName, V, N>(this.name, [
-      ...this.migrations,
-      {
-        version,
-        schema,
-        migration,
-      },
-    ]);
+    return new Builder<TName, V, N>(
+      this.name,
+      [
+        ...this.migrations,
+        {
+          version,
+          schema,
+          migration,
+        },
+      ],
+      version,
+    );
   }
 
   build() {
-    return new ESchema<TName, TVersion, TLatest>(this.name, this.migrations);
+    return new ESchema<TName, TVersion, TLatest>(
+      this.name,
+      this.version,
+      this.migrations,
+    );
   }
 }
