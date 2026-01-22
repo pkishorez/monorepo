@@ -1,4 +1,8 @@
 export { ESchema } from "./eschema";
 export { ESchemaError } from "./utils";
 export { metaSchema } from "./schema";
-export type { AnyESchema, ESchemaResult, ESchemaType } from "./types";
+export type {
+  AnyESchema,
+  ESchemaType as ESchemaResult,
+  ESchemaType,
+} from "./types";

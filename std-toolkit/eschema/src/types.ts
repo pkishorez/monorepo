@@ -1,6 +1,12 @@
+// Standard Schema helper types
+import type { ESchema } from "./eschema";
 import { Schema } from "effect";
 
-export type StructFieldsSchema = Record<string, Schema.Struct.Field>;
+export type StructFieldsSchema = Record<
+  string,
+  | Schema.Schema<any, any, never>
+  | Schema.PropertySignature<any, any, any, any, any, any, never>
+>;
 
 export type StructFieldsDecoded<T extends StructFieldsSchema> =
   Schema.Schema.Type<Schema.Struct<T>>;
@@ -30,25 +36,17 @@ export type NextVersion<V extends string> =
     ? `v${[...BuildTuple<Num>, any]["length"] & number}`
     : never;
 
-// Standard Schema helper types
-import type { ESchema } from "./eschema";
-
 export type AnyESchema<
   N extends string = string,
   V extends string = string,
   S extends StructFieldsSchema = StructFieldsSchema,
 > = ESchema<N, V, S>;
 
-export type ESchemaType<T extends AnyESchema> =
-  T extends ESchema<infer _N, infer _V, infer TLatest>
-    ? StructFieldsDecoded<TLatest>
+export type ESchemaEncoded<T extends AnyESchema> =
+  T extends ESchema<infer _N, infer V, infer TLatest>
+    ? Prettify<Schema.Schema.Encoded<Schema.Struct<TLatest>> & { _v: V }>
     : never;
-
-export interface ESchemaResult<
-  TName extends string,
-  TVersion extends string,
-  TData,
-> {
-  data: TData;
-  meta: { _v: TVersion; _e: TName };
-}
+export type ESchemaType<T extends AnyESchema> =
+  T extends ESchema<infer _N, infer V, infer TLatest>
+    ? Prettify<StructFieldsDecoded<TLatest> & { _v: V }>
+    : never;
