@@ -2,10 +2,29 @@
 import type { ESchema } from "./eschema";
 import { Schema } from "effect";
 
-export type StructFieldsSchema = Record<
+export type StructFieldsSchema<Or = never> = Record<
   string,
   | Schema.Schema<any, any, never>
   | Schema.PropertySignature<any, any, any, any, any, any, never>
+  | Or
+>;
+
+// Delta schema allows null for field removal
+export type DeltaSchema = Record<
+  string,
+  | Schema.Schema<any, any, never>
+  | Schema.PropertySignature<any, any, any, any, any, any, never>
+  | null
+>;
+
+// Merge schemas: Base minus Delta keys, plus non-null Delta keys
+export type MergeSchemas<
+  Base extends StructFieldsSchema,
+  Delta extends DeltaSchema,
+> = Prettify<
+  Omit<Base, keyof Delta> & {
+    [K in keyof Delta as Delta[K] extends null ? never : K]: Delta[K];
+  }
 >;
 
 export type StructFieldsDecoded<T extends StructFieldsSchema> =

@@ -2,6 +2,7 @@ import { Effect, Layer } from "effect";
 import { SqliteDB, SqliteDBError } from "../db.js";
 import * as Sql from "../helpers";
 import type { Where } from "../helpers/index.js";
+import { SqlStorage } from "@cloudflare/workers-types";
 
 interface DOSqlStorage {
   exec<T extends Record<string, unknown>>(
@@ -10,8 +11,9 @@ interface DOSqlStorage {
   ): { toArray(): T[]; rowsWritten: number };
 }
 
-export const SqliteDBDO = (storage: DOSqlStorage) =>
-  Layer.succeed(SqliteDB, {
+export const SqliteDBDO = (storage_: SqlStorage) => {
+  const storage: DOSqlStorage = storage_ as unknown as DOSqlStorage;
+  return Layer.succeed(SqliteDB, {
     createTable: (table, columns, primaryKey) =>
       Effect.try({
         try: () => {
@@ -130,3 +132,4 @@ export const SqliteDBDO = (storage: DOSqlStorage) =>
         catch: (cause) => SqliteDBError.rollbackFailed(cause),
       }),
   });
+};

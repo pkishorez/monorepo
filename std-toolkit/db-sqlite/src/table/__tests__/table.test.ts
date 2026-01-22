@@ -59,6 +59,7 @@ describe("SQLiteTable", () => {
       });
 
       expect(result.value).toEqual({
+        _v: "v1",
         id: "user-1",
         email: "alice@example.com",
         name: "Alice",

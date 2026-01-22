@@ -1,7 +1,9 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { Effect, Schema } from "effect";
 import {
+  DeltaSchema,
   ForbidUnderscorePrefix,
+  MergeSchemas,
   NextVersion,
   Prettify,
   StructFieldsDecoded,
@@ -35,7 +37,7 @@ export class ESchema<
 
   constructor(
     readonly name: TName,
-    private latestVersion: TVersion,
+    readonly latestVersion: TVersion,
     private evolutions: {
       version: string;
       schema: StructFieldsSchema;
@@ -162,18 +164,32 @@ class Builder<
     readonly version: TVersion,
   ) {}
 
-  evolve<V extends NextVersion<TVersion>, N extends StructFieldsSchema>(
+  evolve<V extends NextVersion<TVersion>, D extends DeltaSchema>(
     version: V,
-    schema: N & ForbidUnderscorePrefix<N>,
-    migration: (prev: StructFieldsDecoded<TLatest>) => StructFieldsDecoded<N>,
+    delta: D & ForbidUnderscorePrefix<D>,
+    migration: (
+      prev: StructFieldsDecoded<TLatest>,
+    ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
   ) {
-    return new Builder<TName, V, N>(
+    // Build the merged schema at runtime
+    const prevSchema = this.migrations.at(-1)?.schema ?? {};
+    const mergedSchema: StructFieldsSchema = { ...prevSchema };
+
+    for (const [key, value] of Object.entries(delta)) {
+      if (value === null) {
+        delete mergedSchema[key];
+      } else {
+        mergedSchema[key] = value;
+      }
+    }
+
+    return new Builder<TName, V, MergeSchemas<TLatest, D>>(
       this.name,
       [
         ...this.migrations,
         {
           version,
-          schema,
+          schema: mergedSchema,
           migration,
         },
       ],
