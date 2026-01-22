@@ -104,14 +104,15 @@ export class SQLiteTable<
   }
 
   insert(
-    value: TEntity,
+    _value: Omit<TEntity, "_v">,
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
+      const value = { ..._value, _v: this.schema.latestVersion } as TEntity;
       const db = yield* SqliteDB;
       const key = computeKey(this.primaryKeyFields, value);
       const now = new Date().toISOString();
 
-      const { data: encodedData, meta: schemaMeta } = yield* this.schema
+      const encodedData = yield* this.schema
         .encode(value as Record<string, unknown>)
         .pipe(
           Effect.mapError((cause) =>
@@ -121,7 +122,7 @@ export class SQLiteTable<
 
       const meta: RowMeta = {
         _e: this.schema.name,
-        _v: schemaMeta._v,
+        _v: encodedData._v,
         _u: now,
         _d: false,
       };
@@ -143,7 +144,9 @@ export class SQLiteTable<
 
   update(
     keyValue: Pick<TEntity, TPrimaryKeyFields>,
-    updates: Partial<TEntity>,
+    updates: {
+      [key in keyof TEntity]?: TEntity[key] | undefined;
+    },
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
@@ -153,7 +156,7 @@ export class SQLiteTable<
       const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
       const w = Sql.whereExact(key);
 
-      const { data: encodedData, meta: schemaMeta } = yield* this.schema
+      const encodedData = yield* this.schema
         .encode(merged as Record<string, unknown>)
         .pipe(
           Effect.mapError((cause) =>
@@ -163,7 +166,7 @@ export class SQLiteTable<
 
       const meta: RowMeta = {
         _e: this.schema.name,
-        _v: schemaMeta._v,
+        _v: encodedData._v,
         _u: new Date().toISOString(),
         _d: existing.meta._d,
       };
@@ -288,11 +291,10 @@ export class SQLiteTable<
         ...JSON.parse(row._data),
         ...metaSchema.make({
           _v: row._v,
-          _e: this.schema.name,
         }),
       };
 
-      const { data } = yield* this.schema
+      const value = yield* this.schema
         .decode(rawData)
         .pipe(
           Effect.mapError((cause) =>
@@ -307,7 +309,7 @@ export class SQLiteTable<
         _e: this.schema.name,
       });
 
-      return { value: data as TEntity, meta };
+      return { value: value as TEntity, meta };
     });
   }
 

@@ -13,7 +13,7 @@ const UserEntitySchema = entitySchema(UserSchema);
 const UserError = Schema.Union(
   UserNotFoundError,
   UserValidationError,
-  UserDatabaseError
+  UserDatabaseError,
 );
 
 export class AppRpcs extends RpcGroup.make(
@@ -44,11 +44,7 @@ export class AppRpcs extends RpcGroup.make(
   Rpc.make("CreateUser", {
     success: UserEntitySchema,
     error: UserError,
-    payload: {
-      name: Schema.String,
-      email: Schema.String,
-      status: Schema.optional(Schema.Literal("active", "inactive", "pending")),
-    },
+    payload: UserSchema.schema,
   }),
 
   // 5. UpdateUser
@@ -57,9 +53,7 @@ export class AppRpcs extends RpcGroup.make(
     error: UserError,
     payload: {
       id: Schema.String,
-      name: Schema.optional(Schema.String),
-      email: Schema.optional(Schema.String),
-      status: Schema.optional(Schema.Literal("active", "inactive", "pending")),
+      updates: Schema.partial(Schema.Struct(UserSchema.schema).omit("id")),
     },
   }),
 
@@ -84,5 +78,5 @@ export class AppRpcs extends RpcGroup.make(
       limit: Schema.optional(Schema.Number),
       status: Schema.optional(Schema.Literal("active", "inactive", "pending")),
     },
-  })
+  }),
 ) {}

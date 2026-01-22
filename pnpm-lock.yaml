@@ -233,6 +233,9 @@ importers:
       '@std-toolkit/tanstack':
         specifier: workspace:*
         version: link:../tanstack
+      '@tanstack/react-db':
+        specifier: 0.1.66
+        version: 0.1.66(react@19.2.3)(typescript@5.9.3)
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -321,6 +324,9 @@ importers:
 
   std-toolkit/tanstack:
     dependencies:
+      '@standard-schema/spec':
+        specifier: 1.1.0
+        version: 1.1.0
       '@std-toolkit/eschema':
         specifier: workspace:*
         version: link:../eschema

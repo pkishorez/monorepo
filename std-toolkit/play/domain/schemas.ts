@@ -7,27 +7,36 @@ export const UserSchema = ESchema.make("User", {
   name: Schema.String,
   email: Schema.String,
   status: Schema.Literal("active", "inactive", "pending"),
-}).build();
+})
+  .evolve(
+    "v2",
+    {
+      evolution: Schema.Literal("v2 test!"),
+    },
+    (v) => ({ ...v, evolution: "v2 test!" as const }),
+  )
+  .evolve("v3", {}, (v) => v)
+  .build();
 
 export type User = typeof UserSchema.Type;
 
 // Error types
 export class NotFoundError extends Schema.TaggedError<NotFoundError>()(
   "NotFoundError",
-  { message: Schema.String }
+  { message: Schema.String },
 ) {}
 
 export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
   "UserNotFoundError",
-  { id: Schema.String }
+  { id: Schema.String },
 ) {}
 
 export class UserValidationError extends Schema.TaggedError<UserValidationError>()(
   "UserValidationError",
-  { message: Schema.String }
+  { message: Schema.String },
 ) {}
 
 export class UserDatabaseError extends Schema.TaggedError<UserDatabaseError>()(
   "UserDatabaseError",
-  { operation: Schema.String, cause: Schema.String }
+  { operation: Schema.String, cause: Schema.String },
 ) {}

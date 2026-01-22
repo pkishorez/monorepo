@@ -1,11 +1,9 @@
-import type { Rpc } from "@effect/rpc";
-import { Effect, Layer, Schedule, Stream } from "effect";
-import { SqliteDB, type SqliteDBError } from "@std-toolkit/sqlite";
+import { Effect, Schedule, Stream } from "effect";
+import { type SqliteDBError } from "@std-toolkit/sqlite";
 import {
   AppRpcs,
   NotFoundError,
   UserNotFoundError,
-  UserValidationError,
   UserDatabaseError,
   UsersTable,
 } from "../domain";
@@ -16,35 +14,25 @@ const mapDbError = (error: SqliteDBError, op: string) =>
 const generateId = () =>
   `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-export const HandlersLive: Layer.Layer<
-  | Rpc.Handler<"Ping">
-  | Rpc.Handler<"Counter">
-  | Rpc.Handler<"GetUser">
-  | Rpc.Handler<"CreateUser">
-  | Rpc.Handler<"UpdateUser">
-  | Rpc.Handler<"DeleteUser">
-  | Rpc.Handler<"ListUsers">,
-  never,
-  SqliteDB
-> = AppRpcs.toLayer({
+export const HandlersLive = AppRpcs.toLayer({
   Ping: () => Effect.succeed("pong"),
 
   Counter: ({ count }) =>
     Stream.range(0, count - 1).pipe(
       Stream.schedule(Schedule.spaced(100)),
-      Stream.tap((n) => Effect.log(`Emitting ${n}`))
+      Stream.tap((n) => Effect.log(`Emitting ${n}`)),
     ),
 
   GetUser: ({ id }) =>
     Effect.gen(function* () {
       const result = yield* UsersTable.get({ id }).pipe(
         Effect.mapError(
-          () => new NotFoundError({ message: `User ${id} not found` })
-        )
+          () => new NotFoundError({ message: `User ${id} not found` }),
+        ),
       );
       if (result.meta._d) {
         return yield* Effect.fail(
-          new NotFoundError({ message: `User ${id} not found` })
+          new NotFoundError({ message: `User ${id} not found` }),
         );
       }
       return result;
@@ -53,6 +41,7 @@ export const HandlersLive: Layer.Layer<
   CreateUser: ({ name, email, status }) =>
     Effect.gen(function* () {
       return yield* UsersTable.insert({
+        evolution: "v2 test!",
         id: generateId(),
         name,
         email,
@@ -60,25 +49,14 @@ export const HandlersLive: Layer.Layer<
       }).pipe(Effect.mapError((e) => mapDbError(e, "CreateUser")));
     }),
 
-  UpdateUser: ({ id, name, email, status }) =>
+  UpdateUser: ({ id, updates }) =>
     Effect.gen(function* () {
-      const updates: Record<string, string> = {};
-      if (name !== undefined) updates.name = name;
-      if (email !== undefined) updates.email = email;
-      if (status !== undefined) updates.status = status;
-
-      if (Object.keys(updates).length === 0) {
-        return yield* Effect.fail(
-          new UserValidationError({ message: "No fields to update" })
-        );
-      }
-
       return yield* UsersTable.update({ id }, updates).pipe(
         Effect.mapError((e) =>
           e.error._tag === "GetFailed"
             ? new UserNotFoundError({ id })
-            : mapDbError(e, "UpdateUser")
-        )
+            : mapDbError(e, "UpdateUser"),
+        ),
       );
     }),
 
@@ -87,8 +65,8 @@ export const HandlersLive: Layer.Layer<
       Effect.mapError((e) =>
         e.error._tag === "GetFailed"
           ? new UserNotFoundError({ id })
-          : mapDbError(e, "DeleteUser")
-      )
+          : mapDbError(e, "DeleteUser"),
+      ),
     ),
 
   ListUsers: ({ cursor, limit, status }) =>
@@ -100,12 +78,12 @@ export const HandlersLive: Layer.Layer<
         ? yield* UsersTable.query(
             "byStatus",
             { ">=": { status, _u: startCursor } },
-            { limit: pageLimit + 1 }
+            { limit: pageLimit + 1 },
           ).pipe(Effect.mapError((e) => mapDbError(e, "ListUsers")))
         : yield* UsersTable.query(
             "pk",
             { ">=": { id: startCursor } },
-            { limit: pageLimit + 1 }
+            { limit: pageLimit + 1 },
           ).pipe(Effect.mapError((e) => mapDbError(e, "ListUsers")));
 
       const activeItems = result.items.filter((item) => !item.meta._d);

@@ -266,7 +266,7 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         a: Schema.String,
         b: Schema.String,
       })
-        .evolve("v2", { a: Schema.String }, (v) => ({
+        .evolve("v2", { b: null }, (v) => ({
           a: v.a,
         }))
         .build();
@@ -282,9 +282,13 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         firstName: Schema.String,
         lastName: Schema.String,
       })
-        .evolve("v2", { fullName: Schema.String }, (v) => ({
-          fullName: `${v.firstName} ${v.lastName}`,
-        }))
+        .evolve(
+          "v2",
+          { firstName: null, lastName: null, fullName: Schema.String },
+          (v) => ({
+            fullName: `${v.firstName} ${v.lastName}`,
+          }),
+        )
         .build();
 
       const decoded = yield* schema.decode({

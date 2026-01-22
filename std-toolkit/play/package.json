@@ -30,6 +30,7 @@
     "@effect/platform": "0.94.1",
     "@effect/platform-browser": "0.74.0",
     "@effect/rpc": "0.73.0",
+    "@tanstack/react-db": "0.1.66",
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/sqlite": "workspace:*",
     "@std-toolkit/tanstack": "workspace:*",

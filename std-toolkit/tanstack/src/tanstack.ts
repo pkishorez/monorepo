@@ -1,49 +1,49 @@
-import {
-  BaseCollectionConfig,
-  CollectionConfig,
-  createCollection,
-  InferSchemaOutput,
-  StandardSchema,
-  SyncConfig,
-} from "@tanstack/react-db";
-import { SafePick } from "./types";
-import { Effect } from "effect";
+import { CollectionConfig, SyncConfig } from "@tanstack/react-db";
+import { StandardSchemaV1 } from "@standard-schema/spec";
+import { Effect, ManagedRuntime } from "effect";
 import { EntityType } from "./schema";
+import { AnyESchema } from "@std-toolkit/eschema";
+
 interface StdCollectionConfig<
   TItem extends object,
   TKey extends string | number = string | number,
-  TSchema extends StandardSchema<any> = never,
-> extends SafePick<
-  BaseCollectionConfig<InferSchemaOutput<TItem>, TKey, TSchema>,
-  "getKey"
+  TSchema extends StandardSchemaV1<unknown, TItem> = StandardSchemaV1<
+    unknown,
+    TItem
+  >,
 > {
   schema: TSchema;
-  sync: (item?: TItem) => Effect.Effect<EntityType<TItem>[]>;
-  onInsert: (item: TItem) => Effect.Effect<EntityType<TItem>>;
+  getKey: (item: TItem) => TKey;
+  runtime: ManagedRuntime.ManagedRuntime<any, never>;
+  sync: (item?: TItem) => Effect.Effect<readonly EntityType<TItem>[], any, any>;
+  onInsert: (item: TItem) => Effect.Effect<EntityType<TItem>, any, any>;
   onUpdate?: (
     item: Partial<TItem>,
-  ) => Effect.Effect<EntityType<Partial<TItem>>>;
-  onDelete?: Effect.Effect<void>;
+  ) => Effect.Effect<EntityType<Partial<TItem>>, any, any>;
+  onDelete?: Effect.Effect<void, any, any>;
 }
 
 type MyUtils = {};
 export const stdCollectionOptions = <
-  TItem extends object,
+  TSchema extends AnyESchema,
   TKey extends string | number = string | number,
-  TSchema extends StandardSchema<any> = never,
 >(
-  options: StdCollectionConfig<TItem, TKey, TSchema>,
-): CollectionConfig<InferSchemaOutput<TItem>, TKey, TSchema, MyUtils> => {
-  const { onInsert, onUpdate, sync, onDelete, ...tanstackOptions } = options;
+  options: StdCollectionConfig<TSchema["Type"], TKey, TSchema>,
+): CollectionConfig<TSchema["Type"], TKey, TSchema, MyUtils> & {
+  schema: TSchema;
+} => {
+  type TItem = TSchema["Type"];
+  const { onInsert, onUpdate, sync, onDelete, runtime, ...tanstackOptions } =
+    options;
   let ref: {
     current: Parameters<SyncConfig<any, any>["sync"]>[0] | null;
   } = {
     current: null,
   };
-  const tanstackSync: SyncConfig<InferSchemaOutput<TItem>, TKey> = {
+  const tanstackSync: SyncConfig<TItem, TKey> = {
     sync: (params) => {
       ref.current = params;
-      Effect.runPromise(sync()).then(localUpsert);
+      runtime.runPromise(sync()).then((items) => localUpsert([...items]));
       params.markReady();
     },
   };
@@ -79,14 +79,14 @@ export const stdCollectionOptions = <
     onInsert: async ({ transaction }) => {
       const { changes, key } = transaction.mutations[0];
 
-      const result = await Effect.runPromise(onInsert(changes as any));
+      const result = await runtime.runPromise(onInsert(changes as any));
       valueMap.set(key, result);
       localUpsert([result]);
     },
     onUpdate: async ({ transaction }) => {
       if (!onUpdate) return;
       const { changes, key } = transaction.mutations[0];
-      const update = await Effect.runPromise(onUpdate(changes as any));
+      const update = await runtime.runPromise(onUpdate(changes as any));
 
       const newValue = { ...valueMap.get(key), ...update } as any;
       valueMap.set(key, newValue);
@@ -94,5 +94,3 @@ export const stdCollectionOptions = <
     },
   };
 };
-
-export const collection = createCollection(stdCollectionOptions({} as any));
