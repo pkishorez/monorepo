@@ -140,6 +140,39 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  std-toolkit/core:
+    devDependencies:
+      '@effect/rpc':
+        specifier: 0.73.0
+        version: 0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)
+      '@effect/vitest':
+        specifier: 0.27.0
+        version: 0.27.0(effect@3.19.14)(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      '@std-toolkit/eschema':
+        specifier: workspace:*
+        version: link:../eschema
+      '@tsconfig/node22':
+        specifier: 22.0.5
+        version: 22.0.5
+      '@types/node':
+        specifier: 25.0.9
+        version: 25.0.9
+      effect:
+        specifier: 3.19.14
+        version: 3.19.14
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 7.3.1
+        version: 7.3.1(@types/node@25.0.9)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+      vite-tsconfig-paths:
+        specifier: 6.0.4
+        version: 6.0.4(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.9)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.17
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
   std-toolkit/db-sqlite:
     dependencies:
       '@std-toolkit/eschema':
@@ -292,41 +325,14 @@ importers:
         specifier: 4.59.3
         version: 4.59.3(@cloudflare/workers-types@4.20260120.0)
 
-  std-toolkit/rpc:
-    devDependencies:
-      '@effect/rpc':
-        specifier: 0.73.0
-        version: 0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)
-      '@effect/vitest':
-        specifier: 0.27.0
-        version: 0.27.0(effect@3.19.14)(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
-      '@tsconfig/node22':
-        specifier: 22.0.5
-        version: 22.0.5
-      '@types/node':
-        specifier: 25.0.9
-        version: 25.0.9
-      effect:
-        specifier: 3.19.14
-        version: 3.19.14
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      vite:
-        specifier: 7.3.1
-        version: 7.3.1(@types/node@25.0.9)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-      vite-tsconfig-paths:
-        specifier: 6.0.4
-        version: 6.0.4(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.9)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
-      vitest:
-        specifier: 4.0.17
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
   std-toolkit/tanstack:
     dependencies:
       '@standard-schema/spec':
         specifier: 1.1.0
         version: 1.1.0
+      '@std-toolkit/core':
+        specifier: workspace:*
+        version: link:../core
       '@std-toolkit/eschema':
         specifier: workspace:*
         version: link:../eschema

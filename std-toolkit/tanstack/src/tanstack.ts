@@ -1,7 +1,7 @@
 import { CollectionConfig, SyncConfig } from "@tanstack/react-db";
 import { StandardSchemaV1 } from "@standard-schema/spec";
 import { Effect, ManagedRuntime } from "effect";
-import { EntityType } from "./schema";
+import { EntityType } from "@std-toolkit/core";
 import { AnyESchema } from "@std-toolkit/eschema";
 
 interface StdCollectionConfig<
