@@ -1,5 +1,5 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { IDBError } from "./error.js";
 import type { IDBStore } from "./store.js";
 
@@ -28,21 +28,21 @@ export class IDBEntityUnit<TName extends string, TSchema extends AnyESchema> {
     return `UNIT_${this.#name}`;
   }
 
-  get(): Effect.Effect<ESchemaType<TSchema> | undefined, IDBError> {
+  get(): Effect.Effect<Option.Option<ESchemaType<TSchema>>, IDBError> {
     return Effect.gen(this, function* () {
       const item = yield* this.#store.getItem({
         entity: this.#name,
         id: this.unitId,
       });
 
-      if (!item) return undefined;
+      if (Option.isNone(item)) return Option.none();
 
-      const decoded = yield* this.#eschema.decode(item.value).pipe(
+      const decoded = yield* this.#eschema.decode(item.value.value).pipe(
         Effect.mapError((cause) => IDBError.getFailed("Failed to decode unit item", cause)),
       );
 
-      return decoded as ESchemaType<TSchema>;
-    });
+      return Option.some(decoded as ESchemaType<TSchema>);
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBEntityUnit.get"));
   }
 
   put(item: Omit<ESchemaType<TSchema>, "_v">): Effect.Effect<void, IDBError> {
@@ -56,6 +56,6 @@ export class IDBEntityUnit<TName extends string, TSchema extends AnyESchema> {
         id: this.unitId,
         value: encoded,
       });
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBEntityUnit.put"));
   }
 }

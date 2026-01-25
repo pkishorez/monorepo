@@ -1,6 +1,6 @@
 import type { IDBPDatabase } from "idb";
 import { openDB } from "idb";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { IDBError } from "./error.js";
 import type { TItem } from "./types.js";
 
@@ -34,7 +34,7 @@ export class IDBStore {
         return new IDBStore(db);
       },
       catch: (cause) => IDBError.openFailed("Failed to open IndexedDB database", cause),
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBStore.make"));
   }
 
   getAll<V>(
@@ -44,7 +44,7 @@ export class IDBStore {
     return Effect.tryPromise({
       try: () => this.#db.getAll(STORE_NAME, query, count),
       catch: (cause) => IDBError.queryFailed("Failed to get all items", cause),
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBStore.getAll"));
   }
 
   put<V>(item: TItem<V>): Effect.Effect<void, IDBError> {
@@ -53,7 +53,7 @@ export class IDBStore {
         await this.#db.put(STORE_NAME, item);
       },
       catch: (cause) => IDBError.putFailed("Failed to put item", cause),
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBStore.put"));
   }
 
   update<V>(
@@ -61,10 +61,10 @@ export class IDBStore {
   ): Effect.Effect<TItem<V>, IDBError> {
     return Effect.gen(this, function* () {
       const existing = yield* this.getItem<V>({ entity: item.entity, id: item.id });
-      const updated = { ...existing, ...item } as TItem<V>;
+      const updated = { ...Option.getOrThrow(existing), ...item } as TItem<V>;
       yield* this.put(updated);
       return updated;
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBStore.update"));
   }
 
   getItem<V>({
@@ -73,11 +73,14 @@ export class IDBStore {
   }: {
     entity: string;
     id: string;
-  }): Effect.Effect<TItem<V> | undefined, IDBError> {
+  }): Effect.Effect<Option.Option<TItem<V>>, IDBError> {
     return Effect.tryPromise({
       try: () => this.#db.get(STORE_NAME, [entity, id]),
       catch: (cause) => IDBError.getFailed("Failed to get item", cause),
-    });
+    }).pipe(
+      Effect.map(Option.fromNullable),
+      Effect.withSpan("@std-toolkit/db-idb: IDBStore.getItem"),
+    );
   }
 
   delete({ entity, id }: { entity: string; id: string }): Effect.Effect<void, IDBError> {
@@ -86,7 +89,7 @@ export class IDBStore {
         await this.#db.delete(STORE_NAME, [entity, id]);
       },
       catch: (cause) => IDBError.deleteFailed("Failed to delete item", cause),
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBStore.delete"));
   }
 
   purge(): Effect.Effect<void, IDBError> {
@@ -95,6 +98,6 @@ export class IDBStore {
         await this.#db.clear(STORE_NAME);
       },
       catch: (cause) => IDBError.deleteFailed("Failed to purge store", cause),
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBStore.purge"));
   }
 }
