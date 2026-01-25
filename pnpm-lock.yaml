@@ -142,6 +142,12 @@ importers:
 
   std-toolkit/core:
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 4.20260120.0
+        version: 4.20260120.0
+      '@effect/platform':
+        specifier: 0.94.1
+        version: 0.94.1(effect@3.19.14)
       '@effect/rpc':
         specifier: 0.73.0
         version: 0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)
@@ -175,12 +181,12 @@ importers:
 
   std-toolkit/db-sqlite:
     dependencies:
+      '@std-toolkit/core':
+        specifier: workspace:*
+        version: link:../core
       '@std-toolkit/eschema':
         specifier: workspace:*
         version: link:../eschema
-      '@std-toolkit/tanstack':
-        specifier: workspace:*
-        version: link:../tanstack
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 4.20260120.0
@@ -257,6 +263,9 @@ importers:
       '@effect/rpc':
         specifier: 0.73.0
         version: 0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)
+      '@std-toolkit/core':
+        specifier: workspace:*
+        version: link:../core
       '@std-toolkit/eschema':
         specifier: workspace:*
         version: link:../eschema
@@ -275,6 +284,9 @@ importers:
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
+      ulid:
+        specifier: 3.0.2
+        version: 3.0.2
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 4.20260120.0
@@ -3090,6 +3102,10 @@ packages:
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
+    hasBin: true
+
+  ulid@3.0.2:
+    resolution: {integrity: sha512-yu26mwteFYzBAot7KVMqFGCVpsF6g8wXfJzQUHvu1no3+rRRSFcSV2nKeYvNPLD2J4b08jYBDhHUjeH0ygIl9w==}
     hasBin: true
 
   undefsafe@2.0.5:
@@ -6049,6 +6065,8 @@ snapshots:
       tagged-tag: 1.0.0
 
   typescript@5.9.3: {}
+
+  ulid@3.0.2: {}
 
   undefsafe@2.0.5: {}
 

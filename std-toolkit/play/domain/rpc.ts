@@ -1,6 +1,6 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
 import { Schema } from "effect";
-import { entitySchema } from "@std-toolkit/tanstack";
+import { entitySchema } from "@std-toolkit/core";
 import {
   UserSchema,
   NotFoundError,
@@ -57,6 +57,11 @@ export class AppRpcs extends RpcGroup.make(
     },
   }),
 
+  Rpc.make("subscribeUsers", {
+    success: Schema.Array(Schema.Any),
+    error: UserError,
+  }),
+
   // 6. DeleteUser
   Rpc.make("DeleteUser", {
     success: UserEntitySchema,
@@ -70,13 +75,10 @@ export class AppRpcs extends RpcGroup.make(
   Rpc.make("ListUsers", {
     success: Schema.Struct({
       items: Schema.Array(UserEntitySchema),
-      cursor: Schema.NullOr(Schema.String),
     }),
     error: UserError,
     payload: {
-      cursor: Schema.optional(Schema.String),
       limit: Schema.optional(Schema.Number),
-      status: Schema.optional(Schema.Literal("active", "inactive", "pending")),
     },
   }),
 ) {}

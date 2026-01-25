@@ -30,12 +30,14 @@
     "@effect/platform": "0.94.1",
     "@effect/platform-browser": "0.74.0",
     "@effect/rpc": "0.73.0",
+    "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/sqlite": "workspace:*",
     "@std-toolkit/tanstack": "workspace:*",
     "@tanstack/react-db": "0.1.66",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "ulid": "3.0.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260120.0",

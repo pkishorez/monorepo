@@ -1,1 +1,6 @@
-export { EntityType, metaSchema, entitySchema } from "./schema";
+export {
+  EntityType,
+  broadcastSchema,
+  metaSchema,
+  entitySchema,
+} from "./schema";

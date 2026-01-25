@@ -28,8 +28,8 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@std-toolkit/eschema": "workspace:*",
-    "@std-toolkit/tanstack": "workspace:*"
+    "@std-toolkit/core": "workspace:*",
+    "@std-toolkit/eschema": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260120.0",

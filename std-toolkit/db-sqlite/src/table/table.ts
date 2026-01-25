@@ -3,9 +3,10 @@ import {
   type AnyESchema,
   type ESchemaType,
 } from "@std-toolkit/eschema";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { SqliteDB, SqliteDBError } from "../sql/db.js";
 import * as Sql from "../sql/helpers/index.js";
+import { ConnectionService } from "@std-toolkit/core/server";
 import {
   idxKeyCol,
   computeKey,
@@ -17,7 +18,7 @@ import {
   type QueryResult,
   type KeyOp,
 } from "./utils.js";
-import { EntityType } from "@std-toolkit/tanstack";
+import { EntityType } from "@std-toolkit/core";
 
 // Meta fields available for indexing
 type IndexableMetaFields = "_v" | "_u" | "_c";
@@ -48,6 +49,17 @@ type QueryKeyOp<
 type QueryOptions = {
   limit?: number;
 };
+
+type SubscribeComparator<
+  TEntity,
+  TPrimaryKeyFields extends keyof TEntity,
+  TIndexes extends Record<string, IndexDef<TEntity>>,
+  K extends "pk" | keyof TIndexes,
+> = K extends "pk"
+  ? Pick<TEntity, TPrimaryKeyFields>
+  : K extends keyof TIndexes
+    ? Pick<EntityWithMeta<TEntity>, TIndexes[K]["fields"][number]>
+    : never;
 
 export class SQLiteTable<
   TSchema extends AnyESchema,
@@ -104,10 +116,9 @@ export class SQLiteTable<
   }
 
   insert(
-    _value: Omit<TEntity, "_v">,
+    value: TEntity,
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
-      const value = { ..._value, _v: this.schema.latestVersion } as TEntity;
       const db = yield* SqliteDB;
       const key = computeKey(this.primaryKeyFields, value);
       const now = new Date().toISOString();
@@ -138,6 +149,7 @@ export class SQLiteTable<
         ...indexColumns,
       });
 
+      (yield* this.#service)?.broadcast({ value, meta });
       return { value, meta };
     });
   }
@@ -184,6 +196,7 @@ export class SQLiteTable<
         w,
       );
 
+      (yield* this.#service)?.broadcast({ value: merged, meta });
       return { value: merged, meta };
     });
   }
@@ -227,14 +240,8 @@ export class SQLiteTable<
     return this.#getRow(keyValue);
   }
 
-  query<K extends "pk" | (keyof TIndexes & string)>(
-    key: K,
-    op: QueryKeyOp<TEntity, TPrimaryKeyFields, TIndexes, K>,
-    options?: QueryOptions,
-  ): Effect.Effect<QueryResult<TEntity>, SqliteDBError, SqliteDB> {
+  #getKeyColumn<K extends "pk" | (keyof TIndexes & string)>(key: K) {
     return Effect.gen(this, function* () {
-      const db = yield* SqliteDB;
-
       let fields: readonly IndexableFields<TEntity>[];
       let col: string;
 
@@ -255,20 +262,76 @@ export class SQLiteTable<
         col = idxKeyCol(key);
       }
 
+      return { fields, col };
+    });
+  }
+
+  query<K extends "pk" | (keyof TIndexes & string)>(
+    key: K,
+    op: QueryKeyOp<TEntity, TPrimaryKeyFields, TIndexes, K>,
+    options?: QueryOptions,
+  ): Effect.Effect<QueryResult<TEntity>, SqliteDBError, SqliteDB> {
+    return Effect.gen(this, function* () {
+      const db = yield* SqliteDB;
+
+      const { fields, col } = yield* this.#getKeyColumn(key);
+
       const { operator, value } = extractKeyOp(op);
       const computedKey = computeKey(fields, value as EntityWithMeta<TEntity>);
 
       const rows = yield* db.query<RawRow>(
         this.tableName,
-        Sql.where(computedKey, operator as "<" | "<=" | ">" | ">=", col),
+        Sql.where(col, operator, computedKey),
         {
-          orderBy: getKeyOpOrderDirection(op),
+          orderBy: getKeyOpOrderDirection(operator),
           limit: options?.limit ?? 100,
         },
       );
 
       const items = yield* Effect.all(rows.map((row) => this.#parseRow(row)));
       return { items };
+    });
+  }
+
+  subscribe<K extends "pk" | (keyof TIndexes & string)>({
+    key,
+    value = null,
+    limit = 10,
+  }: {
+    key: K;
+    value?: SubscribeComparator<TEntity, TPrimaryKeyFields, TIndexes, K> | null;
+    limit?: number;
+  }) {
+    return Effect.gen(this, function* () {
+      const { fields, col } = yield* this.#getKeyColumn(key);
+      const db = yield* SqliteDB;
+      const service = yield* this.#service;
+
+      let latestValue = value;
+
+      while (true) {
+        let computedKey: string = latestValue
+          ? computeKey(fields as any, latestValue)
+          : "";
+
+        const rows = yield* db.query<RawRow>(
+          this.tableName,
+          Sql.where(col, ">", computedKey),
+          {
+            orderBy: getKeyOpOrderDirection(">"),
+            limit,
+          },
+        );
+
+        const items = yield* Effect.all(rows.map((row) => this.#parseRow(row)));
+        if (items.length === 0) {
+          service.subscribe(this.schema.name);
+          return { success: true };
+        }
+        service.emit(items);
+        const last = items[items.length - 1]!;
+        latestValue = { ...last.meta, ...last.value } as any;
+      }
     });
   }
 
@@ -284,6 +347,12 @@ export class SQLiteTable<
       return yield* this.#parseRow(row);
     });
   }
+
+  #service = Effect.serviceOption(ConnectionService).pipe(
+    Effect.andThen(
+      Option.getOrThrowWith(() => new Error("ConnectionService not available")),
+    ),
+  );
 
   #parseRow(row: RawRow): Effect.Effect<EntityType<TEntity>, SqliteDBError> {
     return Effect.gen(this, function* () {

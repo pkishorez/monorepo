@@ -7,12 +7,12 @@ import {
   UserDatabaseError,
   UsersTable,
 } from "../domain";
+import { ulid } from "ulid";
 
 const mapDbError = (error: SqliteDBError, op: string) =>
   new UserDatabaseError({ operation: op, cause: error.error._tag });
 
-const generateId = () =>
-  `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+const generateId = () => ulid();
 
 export const HandlersLive = AppRpcs.toLayer({
   Ping: () => Effect.succeed("pong"),
@@ -69,33 +69,29 @@ export const HandlersLive = AppRpcs.toLayer({
       ),
     ),
 
-  ListUsers: ({ cursor, limit, status }) =>
+  subscribeUsers: Effect.fn(function* () {
+    yield* UsersTable.subscribe({ key: "byUpdates" }).pipe(
+      Effect.mapError((e) => mapDbError(e, "ListUsers")),
+    );
+
+    return [];
+  }),
+
+  ListUsers: ({ limit }) =>
     Effect.gen(function* () {
       const pageLimit = Math.min(limit ?? 20, 100);
-      const startCursor = cursor ?? "";
+      const startCursor = "";
 
-      const result = status
-        ? yield* UsersTable.query(
-            "byStatus",
-            { ">=": { status, _u: startCursor } },
-            { limit: pageLimit + 1 },
-          ).pipe(Effect.mapError((e) => mapDbError(e, "ListUsers")))
-        : yield* UsersTable.query(
-            "pk",
-            { ">=": { id: startCursor } },
-            { limit: pageLimit + 1 },
-          ).pipe(Effect.mapError((e) => mapDbError(e, "ListUsers")));
+      const result = yield* UsersTable.query(
+        "byUpdates",
+        { ">": { _u: startCursor } },
+        { limit: pageLimit + 1 },
+      ).pipe(Effect.mapError((e) => mapDbError(e, "ListUsers")));
 
       const activeItems = result.items.filter((item) => !item.meta._d);
       const hasMore = activeItems.length > pageLimit;
       const items = hasMore ? activeItems.slice(0, pageLimit) : activeItems;
-      const nextCursor =
-        hasMore && items.length > 0
-          ? (status
-              ? items[items.length - 1]!.meta._u
-              : items[items.length - 1]!.value.id) + "\0"
-          : null;
 
-      return { items, cursor: nextCursor };
+      return { items };
     }),
 });

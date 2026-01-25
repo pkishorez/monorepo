@@ -11,6 +11,12 @@ export type EntityType<T> = {
   value: T;
   meta: typeof metaSchema.Type;
 };
+export const broadcastSchema = Schema.Struct({
+  _tag: Schema.Literal("@std-toolkit/broadcast"),
+  values: Schema.Array(
+    Schema.Struct({ meta: metaSchema, value: Schema.Unknown }),
+  ),
+});
 export const entitySchema = <S extends AnyESchema>(
   eschema: S,
 ): Schema.Schema<EntityType<S["Type"]>> =>

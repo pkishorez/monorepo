@@ -1,6 +1,6 @@
-import { CollectionConfig, SyncConfig } from "@tanstack/react-db";
+import { Collection, CollectionConfig, SyncConfig } from "@tanstack/react-db";
 import { StandardSchemaV1 } from "@standard-schema/spec";
-import { Effect, ManagedRuntime } from "effect";
+import { Effect } from "effect";
 import { EntityType } from "@std-toolkit/core";
 import { AnyESchema } from "@std-toolkit/eschema";
 
@@ -14,27 +14,37 @@ interface StdCollectionConfig<
 > {
   schema: TSchema;
   getKey: (item: TItem) => TKey;
-  runtime: ManagedRuntime.ManagedRuntime<any, never>;
-  sync: (item?: TItem) => Effect.Effect<readonly EntityType<TItem>[], any, any>;
-  onInsert: (item: TItem) => Effect.Effect<EntityType<TItem>, any, any>;
+  sync: (value: {
+    item?: TItem;
+    collection: Collection<any, any, MyUtils<any>, any, any>;
+  }) => Effect.Effect<readonly EntityType<TItem>[]>;
+  onInsert: (item: TItem) => Effect.Effect<EntityType<TItem>>;
   onUpdate?: (
+    current: TItem,
     item: Partial<TItem>,
-  ) => Effect.Effect<EntityType<Partial<TItem>>, any, any>;
-  onDelete?: Effect.Effect<void, any, any>;
+  ) => Effect.Effect<EntityType<Partial<TItem>>>;
+  onDelete?: (item: TItem) => Effect.Effect<void>;
 }
 
-type MyUtils = {};
+export type MyUtils<TItem> = {
+  upsert: (item: EntityType<TItem>) => void;
+  entityName: string;
+};
 export const stdCollectionOptions = <
   TSchema extends AnyESchema,
   TKey extends string | number = string | number,
 >(
   options: StdCollectionConfig<TSchema["Type"], TKey, TSchema>,
-): CollectionConfig<TSchema["Type"], TKey, TSchema, MyUtils> & {
+): CollectionConfig<
+  TSchema["Type"],
+  TKey,
+  TSchema,
+  MyUtils<TSchema["Type"]>
+> & {
   schema: TSchema;
 } => {
   type TItem = TSchema["Type"];
-  const { onInsert, onUpdate, sync, onDelete, runtime, ...tanstackOptions } =
-    options;
+  const { onInsert, onUpdate, sync, onDelete, ...tanstackOptions } = options;
   let ref: {
     current: Parameters<SyncConfig<any, any>["sync"]>[0] | null;
   } = {
@@ -43,7 +53,10 @@ export const stdCollectionOptions = <
   const tanstackSync: SyncConfig<TItem, TKey> = {
     sync: (params) => {
       ref.current = params;
-      runtime.runPromise(sync()).then((items) => localUpsert([...items]));
+      const { collection } = params;
+      Effect.runPromise(sync({ collection })).then((items) =>
+        localUpsert([...items]),
+      );
       params.markReady();
     },
   };
@@ -54,39 +67,48 @@ export const stdCollectionOptions = <
     begin();
     for (let value of values) {
       const key = collection.getKeyFromItem(value.value as any);
+      const itemValue = { ...value.value, _u: value.meta._u };
       if (collection.has(key)) {
         if (value.meta._d) {
           write({ type: "delete", key });
         } else {
-          write({ type: "update", value: value.value as any });
+          write({ type: "update", value: itemValue });
         }
         break;
       }
 
       if (!value.meta._d) {
-        write({ type: "insert", value: value.value as any });
+        write({ type: "insert", value: itemValue });
       }
     }
     commit();
   };
-  const utils: MyUtils = {};
+  const utils: MyUtils<TItem> = {
+    upsert(item) {
+      localUpsert([item]);
+    },
+    entityName: options.schema.name,
+  };
   const valueMap: Map<string, EntityType<TItem>> = new Map();
 
   return {
     ...tanstackOptions,
     sync: tanstackSync,
     utils,
+    compare: (x, y) => (x._u < y._u ? -1 : 1),
     onInsert: async ({ transaction }) => {
       const { changes, key } = transaction.mutations[0];
 
-      const result = await runtime.runPromise(onInsert(changes as any));
+      const result = await Effect.runPromise(onInsert(changes as any));
       valueMap.set(key, result);
       localUpsert([result]);
     },
-    onUpdate: async ({ transaction }) => {
+    onUpdate: async ({ transaction, collection }) => {
       if (!onUpdate) return;
       const { changes, key } = transaction.mutations[0];
-      const update = await runtime.runPromise(onUpdate(changes as any));
+      const update = await Effect.runPromise(
+        onUpdate(collection.get(key)!, changes),
+      );
 
       const newValue = { ...valueMap.get(key), ...update } as any;
       valueMap.set(key, newValue);

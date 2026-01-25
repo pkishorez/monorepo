@@ -7,9 +7,9 @@ export type Where = {
 
 // Range query where clause
 export const where = (
-  key: string,
+  col: string | "key",
   operator: "<" | "<=" | ">" | ">=",
-  col = "key",
+  key: string,
 ): Where => ({
   clause: sql`${col} ${operator} ?`,
   params: [key],
