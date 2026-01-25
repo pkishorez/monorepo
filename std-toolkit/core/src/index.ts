@@ -1,6 +1,6 @@
 export {
   EntityType,
-  broadcastSchema,
-  metaSchema,
-  entitySchema,
+  BroadcastSchema,
+  MetaSchema,
+  EntitySchema,
 } from "./schema";

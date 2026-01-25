@@ -1,26 +1,36 @@
-import { Collection } from "@tanstack/react-db";
-import { MyUtils } from "./tanstack";
-import { broadcastSchema } from "@std-toolkit/core";
+import { BroadcastSchema, EntityType } from "@std-toolkit/core";
+import { AnyESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
+type AnyCollectionUtils = {
+  upsert: (item: EntityType<any>) => void;
+  schema: () => AnyESchema;
+};
+
+type AnyCollection = { utils: AnyCollectionUtils };
+
 export const broadcastCollections = () => {
-  let collections: Collection<any, any, MyUtils, any, any>[] = [];
+  let collections: AnyCollection[] = [];
+
   return {
-    add(collection: Collection<any, any, MyUtils<any>, any, any>) {
-      collections.push(collection);
+    add: (collection: {
+      utils: { upsert: Function; schema: () => AnyESchema };
+    }) => {
+      collections.push(collection as AnyCollection);
     },
-    remove(collection: Collection<any, any, MyUtils<any>, any, any>) {
-      collections = collections.filter((v) => v !== collection);
+    remove: (collection: {
+      utils: { upsert: Function; schema: () => AnyESchema };
+    }) => {
+      collections = collections.filter((c) => c !== collection);
     },
     process: (message: unknown) => {
-      if (!Schema.is(broadcastSchema)(message)) return;
+      if (!Schema.is(BroadcastSchema)(message)) return;
 
-      const { values } = message;
-      for (let value of values) {
-        const collection = collections.find(
-          (v) => value.meta._e === v.utils.schema().name,
+      for (const value of message.values) {
+        const target = collections.find(
+          (c) => value.meta._e === c.utils.schema().name,
         );
-        collection?.utils.upsert(value as any);
+        target?.utils.upsert(value as EntityType<any>);
       }
     },
   };

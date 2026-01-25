@@ -1,9 +1,9 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
 import { Schema } from "effect";
-import { entitySchema } from "@std-toolkit/core";
+import { EntitySchema } from "@std-toolkit/core";
 import { UserSchema, NotFoundError, UserError } from "./schemas";
 
-const UserEntitySchema = entitySchema(UserSchema);
+const UserEntitySchema = EntitySchema(UserSchema);
 
 export class AppRpcs extends RpcGroup.make(
   Rpc.make("Ping", {

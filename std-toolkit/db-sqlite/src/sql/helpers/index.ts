@@ -1,2 +1,26 @@
-export * from "./operations.js";
-export * from "./schema.js";
+export { type Statement } from "./utils.js";
+export {
+  type Where,
+  where,
+  whereNone,
+  whereEquals,
+  whereAnd,
+  insert,
+  update,
+  select,
+  begin,
+  commit,
+  rollback,
+} from "./operations.js";
+export {
+  type TableColumn,
+  type ColumnDef,
+  ISO_NOW,
+  column,
+  columnExists,
+  createTable,
+  tableInfo,
+  addColumn,
+  createIndex,
+  deleteAll,
+} from "./schema.js";

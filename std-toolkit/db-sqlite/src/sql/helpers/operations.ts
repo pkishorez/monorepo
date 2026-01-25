@@ -1,87 +1,69 @@
 import { sql, type Statement } from "./utils.js";
 
-export type Where = {
-  clause: string;
-  params: unknown[];
+export type Where = { clause: string; params: unknown[] };
+
+type Operator = "<" | "<=" | ">" | ">=" | "=";
+
+export const whereNone: Where = { clause: "1=1", params: [] };
+
+export const where = (col: string, op: Operator, value: unknown): Where => ({
+  clause: sql`${col} ${op} ?`,
+  params: [value],
+});
+
+export const whereEquals = (value: string, col = "key"): Where => where(col, "=", value);
+
+export const whereAnd = (...clauses: Where[]): Where => {
+  const filtered = clauses.filter((c) => c.clause !== "1=1");
+  if (filtered.length === 0) return whereNone;
+  if (filtered.length === 1) return filtered[0]!;
+  return {
+    clause: filtered.map((c) => `(${c.clause})`).join(" AND "),
+    params: filtered.flatMap((c) => c.params),
+  };
 };
 
-// Range query where clause
-export const where = (
-  col: string | "key",
-  operator: "<" | "<=" | ">" | ">=",
-  key: string,
-): Where => ({
-  clause: sql`${col} ${operator} ?`,
-  params: [key],
-});
-
-// Exact match where clause
-export const whereExact = (key: string, col = "key"): Where => ({
-  clause: sql`${col} = ?`,
-  params: [key],
-});
-
-export const insert = (
-  table: string,
-  values: Record<string, unknown>,
-): Statement => {
+export const insert = (table: string, values: Record<string, unknown>): Statement => {
   const keys = Object.keys(values);
-  const vals = Object.values(values);
   const placeholders = keys.map(() => "?").join(", ");
-
   return {
     query: sql`INSERT INTO ${table} (${keys.join(", ")}) VALUES (${placeholders})`,
-    params: vals,
+    params: Object.values(values),
   };
 };
 
-export const update = (
-  table: string,
-  values: Record<string, unknown>,
-  w: Where,
-): Statement => {
+export const update = (table: string, values: Record<string, unknown>, w: Where): Statement => {
   const keys = Object.keys(values);
-  const vals = Object.values(values);
   const setClause = keys.map((k) => `${k} = ?`).join(", ");
-
   return {
     query: sql`UPDATE ${table} SET ${setClause} WHERE ${w.clause}`,
-    params: [...vals, ...w.params],
+    params: [...Object.values(values), ...w.params],
   };
 };
 
-export const select = (
-  table: string,
-  w: Where,
-  options?: { orderBy?: "ASC" | "DESC"; limit?: number; offset?: number },
-): Statement => {
+type SelectOptions = { orderBy?: "ASC" | "DESC"; limit?: number; offset?: number };
+
+export const select = (table: string, w: Where, opts?: SelectOptions): Statement => {
+  const parts: string[] = [];
   const params = [...w.params];
-  const orderByClause = options?.orderBy
-    ? ` ORDER BY key ${options.orderBy}`
-    : "";
-  const limitClause = options?.limit !== undefined ? " LIMIT ?" : "";
-  const offsetClause = options?.offset !== undefined ? " OFFSET ?" : "";
 
-  if (options?.limit !== undefined) params.push(options.limit);
-  if (options?.offset !== undefined) params.push(options.offset);
+  if (opts?.orderBy) parts.push(`ORDER BY key ${opts.orderBy}`);
+  if (opts?.limit !== undefined) {
+    parts.push("LIMIT ?");
+    params.push(opts.limit);
+  }
+  if (opts?.offset !== undefined) {
+    parts.push("OFFSET ?");
+    params.push(opts.offset);
+  }
 
+  const suffix = parts.length > 0 ? ` ${parts.join(" ")}` : "";
   return {
-    query: sql`SELECT * FROM ${table} WHERE ${w.clause}${orderByClause}${limitClause}${offsetClause}`,
+    query: sql`SELECT * FROM ${table} WHERE ${w.clause}${suffix}`,
     params,
   };
 };
 
-export const begin = (): Statement => ({
-  query: sql`BEGIN TRANSACTION`,
-  params: [],
-});
-
-export const commit = (): Statement => ({
-  query: sql`COMMIT`,
-  params: [],
-});
-
-export const rollback = (): Statement => ({
-  query: sql`ROLLBACK`,
-  params: [],
-});
+export const begin = (): Statement => ({ query: "BEGIN TRANSACTION", params: [] });
+export const commit = (): Statement => ({ query: "COMMIT", params: [] });
+export const rollback = (): Statement => ({ query: "ROLLBACK", params: [] });

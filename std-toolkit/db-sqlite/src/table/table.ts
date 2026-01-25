@@ -8,7 +8,7 @@ import { SqliteDB, SqliteDBError } from "../sql/db.js";
 import * as Sql from "../sql/helpers/index.js";
 import { ConnectionService } from "@std-toolkit/core/server";
 import {
-  idxKeyCol,
+  indexKeyColumn,
   computeKey,
   extractKeyOp,
   getKeyOpOrderDirection,
@@ -20,68 +20,56 @@ import {
 } from "./utils.js";
 import { EntityType } from "@std-toolkit/core";
 
-// Meta fields available for indexing
-type IndexableMetaFields = "_v" | "_u" | "_c";
+type MetaFields = "_v" | "_u" | "_c";
+type WithMeta<T> = T & Record<MetaFields, string>;
+type IndexableFields<T> = keyof T | MetaFields;
+type IndexDef<T> = { readonly fields: readonly IndexableFields<T>[] };
 
-// Entity combined with indexable meta fields
-type EntityWithMeta<TEntity> = TEntity & Record<IndexableMetaFields, string>;
+type IndexKeyFields<
+  TEntity,
+  TPrimaryKey extends keyof TEntity,
+  TIndexes extends Record<string, IndexDef<TEntity>>,
+  K extends "pk" | keyof TIndexes,
+> = K extends "pk"
+  ? Pick<TEntity, TPrimaryKey>
+  : K extends keyof TIndexes
+    ? Pick<WithMeta<TEntity>, TIndexes[K]["fields"][number]>
+    : never;
 
-// All fields available for indexing (entity fields + meta fields)
-type IndexableFields<TEntity> = keyof TEntity | IndexableMetaFields;
-
-type IndexDef<TEntity> = {
-  readonly fields: readonly IndexableFields<TEntity>[];
-};
-
-// Derive KeyOp type based on key name
 type QueryKeyOp<
-  TEntity,
-  TPrimaryKeyFields extends keyof TEntity,
-  TIndexes extends Record<string, IndexDef<TEntity>>,
-  K extends "pk" | keyof TIndexes,
-> = K extends "pk"
-  ? KeyOp<Pick<TEntity, TPrimaryKeyFields>>
-  : K extends keyof TIndexes
-    ? KeyOp<Pick<EntityWithMeta<TEntity>, TIndexes[K]["fields"][number]>>
-    : never;
+  E,
+  PK extends keyof E,
+  I extends Record<string, IndexDef<E>>,
+  K extends "pk" | keyof I,
+> = KeyOp<IndexKeyFields<E, PK, I, K>>;
 
-// Query options
-type QueryOptions = {
-  limit?: number;
-};
-
-type SubscribeComparator<
-  TEntity,
-  TPrimaryKeyFields extends keyof TEntity,
-  TIndexes extends Record<string, IndexDef<TEntity>>,
-  K extends "pk" | keyof TIndexes,
-> = K extends "pk"
-  ? Pick<TEntity, TPrimaryKeyFields>
-  : K extends keyof TIndexes
-    ? Pick<EntityWithMeta<TEntity>, TIndexes[K]["fields"][number]>
-    : never;
+const TABLE_COLUMNS = [
+  Sql.column({ name: "key", type: "TEXT" }),
+  Sql.column({ name: "_data", type: "TEXT" }),
+  Sql.column({ name: "_v", type: "TEXT" }),
+  Sql.column({ name: "_i", type: "INTEGER", default: 0 }),
+  Sql.column({ name: "_u", type: "TEXT", default: Sql.ISO_NOW }),
+  Sql.column({ name: "_c", type: "TEXT", default: Sql.ISO_NOW }),
+  Sql.column({ name: "_d", type: "INTEGER", default: 0 }),
+];
 
 export class SQLiteTable<
   TSchema extends AnyESchema,
   TEntity = ESchemaType<TSchema>,
-  TPrimaryKeyFields extends keyof TEntity = never,
+  TPrimaryKey extends keyof TEntity = never,
   TIndexes extends Record<string, IndexDef<TEntity>> = {},
 > {
   static make<S extends AnyESchema>(schema: S) {
     return {
       primary<K extends keyof ESchemaType<S>>(fields: readonly K[]) {
-        return new SQLiteTableBuilder<S, ESchemaType<S>, K, {}>(
-          schema,
-          fields,
-          {} as {},
-        );
+        return new SQLiteTableBuilder<S, ESchemaType<S>, K, {}>(schema, fields, {} as {});
       },
     };
   }
 
   private constructor(
     readonly schema: TSchema,
-    readonly primaryKeyFields: readonly TPrimaryKeyFields[],
+    readonly primaryKeyFields: readonly TPrimaryKey[],
     readonly indexes: TIndexes,
   ) {}
 
@@ -92,345 +80,251 @@ export class SQLiteTable<
   setup(): Effect.Effect<void, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
-      const columns = [
-        Sql.column({ name: "key", type: "TEXT" }),
-        Sql.column({ name: "_data", type: "TEXT" }),
-        Sql.column({ name: "_v", type: "TEXT" }),
-        Sql.column({ name: "_i", type: "INTEGER", default: 0 }),
-        Sql.column({ name: "_u", type: "TEXT", default: Sql.ISO_NOW }),
-        Sql.column({ name: "_c", type: "TEXT", default: Sql.ISO_NOW }),
-        Sql.column({ name: "_d", type: "INTEGER", default: 0 }),
-      ];
+      yield* db.createTable(this.tableName, TABLE_COLUMNS, ["key"]);
 
-      yield* db.createTable(this.tableName, columns, ["key"]);
-
-      for (const indexName of Object.keys(this.indexes)) {
-        yield* db.addColumn(this.tableName, idxKeyCol(indexName), "TEXT");
-        yield* db.createIndex(
-          this.tableName,
-          `idx_${this.tableName}_${indexName}`,
-          [idxKeyCol(indexName)],
-        );
+      for (const name of Object.keys(this.indexes)) {
+        const col = indexKeyColumn(name);
+        yield* db.addColumn(this.tableName, col, "TEXT");
+        yield* db.createIndex(this.tableName, `idx_${this.tableName}_${name}`, [col]);
       }
     });
   }
 
   insert(
-    _value: Omit<TEntity, "_v">,
+    input: Omit<TEntity, "_v">,
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
-      const value = { ..._value, _v: this.schema.latestVersion } as TEntity;
+      const value = { ...input, _v: this.schema.latestVersion } as TEntity;
       const db = yield* SqliteDB;
-      const key = computeKey(this.primaryKeyFields, value);
-      const now = new Date().toISOString();
 
-      const encodedData = yield* this.schema
-        .encode(value as Record<string, unknown>)
-        .pipe(
-          Effect.mapError((cause) =>
-            SqliteDBError.insertFailed(this.tableName, cause),
-          ),
-        );
-
-      const meta: RowMeta = {
-        _e: this.schema.name,
-        _v: encodedData._v,
-        _u: now,
-        _d: false,
-      };
-
-      const indexColumns = this.#deriveIndexColumns(value, meta);
+      const { encoded, meta } = yield* this.#encode(value, false);
 
       yield* db.insert(this.tableName, {
-        key,
-        _data: JSON.stringify(encodedData),
+        key: this.#computePrimaryKey(value),
+        _data: JSON.stringify(encoded),
         _v: meta._v,
         _u: meta._u,
         _d: 0,
-        ...indexColumns,
+        ...this.#indexColumns(value, meta),
       });
 
-      (yield* this.#service)?.broadcast({ value, meta });
+      yield* this.#broadcast({ value, meta });
       return { value, meta };
     });
   }
 
   update(
-    keyValue: Pick<TEntity, TPrimaryKeyFields>,
-    updates: {
-      [key in keyof TEntity]?: TEntity[key] | undefined;
-    },
+    keyValue: Pick<TEntity, TPrimaryKey>,
+    updates: Partial<TEntity>,
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const existing = yield* this.#getRow(keyValue);
+      const value = { ...existing.value, ...updates } as TEntity;
 
-      const merged = { ...existing.value, ...updates } as TEntity;
-      const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
-      const w = Sql.whereExact(key);
-
-      const encodedData = yield* this.schema
-        .encode(merged as Record<string, unknown>)
-        .pipe(
-          Effect.mapError((cause) =>
-            SqliteDBError.updateFailed(this.tableName, cause),
-          ),
-        );
-
-      const meta: RowMeta = {
-        _e: this.schema.name,
-        _v: encodedData._v,
-        _u: new Date().toISOString(),
-        _d: existing.meta._d,
-      };
-
-      const indexColumns = this.#deriveIndexColumns(merged, meta);
+      const { encoded, meta } = yield* this.#encode(value, existing.meta._d);
 
       yield* db.update(
         this.tableName,
         {
-          _data: JSON.stringify(encodedData),
+          _data: JSON.stringify(encoded),
           _v: meta._v,
           _u: meta._u,
-          ...indexColumns,
+          ...this.#indexColumns(value, meta),
         },
-        w,
+        Sql.whereEquals(this.#computePrimaryKey(keyValue as TEntity)),
       );
 
-      (yield* this.#service)?.broadcast({ value: merged, meta });
-      return { value: merged, meta };
+      yield* this.#broadcast({ value, meta });
+      return { value, meta };
     });
   }
 
   delete(
-    keyValue: Pick<TEntity, TPrimaryKeyFields>,
+    keyValue: Pick<TEntity, TPrimaryKey>,
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
       const existing = yield* this.#getRow(keyValue);
 
-      const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
-      const w = Sql.whereExact(key);
-
-      yield* db.update(this.tableName, { _d: 1 }, w);
+      yield* db.update(
+        this.tableName,
+        { _d: 1 },
+        Sql.whereEquals(this.#computePrimaryKey(keyValue as TEntity)),
+      );
 
       return { ...existing, meta: { ...existing.meta, _d: true } };
     });
   }
 
   dangerouslyRemoveAllRows(
-    confirm: "i know what i am doing",
+    _: "i know what i am doing",
   ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
-    return Effect.gen(this, function* () {
-      if (confirm !== "i know what i am doing") {
-        return yield* Effect.fail(
-          SqliteDBError.deleteFailed(
-            this.tableName,
-            "Confirmation required: pass 'i know what i am doing'",
-          ),
-        );
-      }
-      const db = yield* SqliteDB;
-      return yield* db.deleteAll(this.tableName);
-    });
+    return SqliteDB.pipe(Effect.flatMap((db) => db.deleteAll(this.tableName)));
   }
 
   get(
-    keyValue: Pick<TEntity, TPrimaryKeyFields>,
+    keyValue: Pick<TEntity, TPrimaryKey>,
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return this.#getRow(keyValue);
   }
 
-  #getKeyColumn<K extends "pk" | (keyof TIndexes & string)>(key: K) {
-    return Effect.gen(this, function* () {
-      let fields: readonly IndexableFields<TEntity>[];
-      let col: string;
-
-      if (key === "pk") {
-        fields = this.primaryKeyFields;
-        col = "key";
-      } else {
-        const indexDef = this.indexes[key];
-        if (!indexDef) {
-          return yield* Effect.fail(
-            SqliteDBError.queryFailed(
-              this.tableName,
-              new Error(`Unknown index: ${key}`),
-            ),
-          );
-        }
-        fields = indexDef.fields;
-        col = idxKeyCol(key);
-      }
-
-      return { fields, col };
-    });
-  }
-
   query<K extends "pk" | (keyof TIndexes & string)>(
     key: K,
-    op: QueryKeyOp<TEntity, TPrimaryKeyFields, TIndexes, K>,
-    options?: QueryOptions,
+    op: QueryKeyOp<TEntity, TPrimaryKey, TIndexes, K>,
+    options?: { limit?: number },
   ): Effect.Effect<QueryResult<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
-
-      const { fields, col } = yield* this.#getKeyColumn(key);
-
+      const { fields, col } = this.#resolveIndex(key);
       const { operator, value } = extractKeyOp(op);
-      const computedKey = computeKey(fields, value as EntityWithMeta<TEntity>);
 
       const rows = yield* db.query<RawRow>(
         this.tableName,
-        Sql.where(col, operator, computedKey),
-        {
-          orderBy: getKeyOpOrderDirection(operator),
-          limit: options?.limit ?? 100,
-        },
+        Sql.where(col, operator, computeKey(fields, value as WithMeta<TEntity>)),
+        { orderBy: getKeyOpOrderDirection(operator), limit: options?.limit ?? 100 },
       );
 
-      const items = yield* Effect.all(rows.map((row) => this.#parseRow(row)));
-      return { items };
+      return { items: yield* Effect.all(rows.map((r) => this.#parseRow(r))) };
     });
   }
 
-  subscribe<K extends "pk" | (keyof TIndexes & string)>({
-    key,
-    value = null,
-    limit = 10,
-  }: {
+  subscribe<K extends "pk" | (keyof TIndexes & string)>(opts: {
     key: K;
-    value?: SubscribeComparator<TEntity, TPrimaryKeyFields, TIndexes, K> | null;
+    value?: IndexKeyFields<TEntity, TPrimaryKey, TIndexes, K> | null;
     limit?: number;
   }) {
     return Effect.gen(this, function* () {
-      const { fields, col } = yield* this.#getKeyColumn(key);
+      const { fields, col } = this.#resolveIndex(opts.key);
       const db = yield* SqliteDB;
       const service = yield* Option.fromNullable(yield* this.#service);
+      const limit = opts.limit ?? 10;
 
-      let latestValue = value;
+      let cursor = opts.value ?? null;
 
       while (true) {
-        let computedKey: string = latestValue
-          ? computeKey(fields as any, latestValue)
-          : "";
+        const cursorKey = cursor ? computeKey(fields as (keyof typeof cursor)[], cursor) : "";
 
         const rows = yield* db.query<RawRow>(
           this.tableName,
-          Sql.where(col, ">", computedKey),
-          {
-            orderBy: getKeyOpOrderDirection(">"),
-            limit,
-          },
+          Sql.where(col, ">", cursorKey),
+          { orderBy: "ASC", limit },
         );
 
-        const items = yield* Effect.all(rows.map((row) => this.#parseRow(row)));
+        const items = yield* Effect.all(rows.map((r) => this.#parseRow(r)));
+
         if (items.length === 0) {
           service.subscribe(this.schema.name);
           return { success: true };
         }
+
         service.emit(items);
         const last = items[items.length - 1]!;
-        latestValue = { ...last.meta, ...last.value } as any;
+        cursor = { ...last.meta, ...last.value } as typeof cursor;
       }
     });
   }
 
+  // ─── Private Helpers ───────────────────────────────────────────────────────
+
+  #service = Effect.serviceOption(ConnectionService).pipe(Effect.andThen(Option.getOrNull));
+
+  #broadcast(entity: EntityType<TEntity>) {
+    return Effect.gen(this, function* () {
+      (yield* this.#service)?.broadcast(entity);
+    });
+  }
+
+  #computePrimaryKey(entity: TEntity): string {
+    return computeKey(this.primaryKeyFields, entity);
+  }
+
+  #resolveIndex<K extends "pk" | (keyof TIndexes & string)>(
+    key: K,
+  ): { fields: readonly IndexableFields<TEntity>[]; col: string } {
+    if (key === "pk") return { fields: this.primaryKeyFields, col: "key" };
+    return { fields: this.indexes[key]!.fields, col: indexKeyColumn(key) };
+  }
+
   #getRow(
-    keyValue: Pick<TEntity, TPrimaryKeyFields>,
+    keyValue: Pick<TEntity, TPrimaryKey>,
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const db = yield* SqliteDB;
-      const key = computeKey(this.primaryKeyFields, keyValue as TEntity);
-      const w = Sql.whereExact(key);
-
-      const row = yield* db.get<RawRow>(this.tableName, w);
+      const row = yield* db.get<RawRow>(
+        this.tableName,
+        Sql.whereEquals(this.#computePrimaryKey(keyValue as TEntity)),
+      );
       return yield* this.#parseRow(row);
     });
   }
 
-  #service = Effect.serviceOption(ConnectionService).pipe(
-    Effect.andThen(Option.getOrNull),
-  );
-
-  #parseRow(row: RawRow): Effect.Effect<EntityType<TEntity>, SqliteDBError> {
-    return Effect.gen(this, function* () {
-      const rawData = {
-        ...JSON.parse(row._data),
-        ...metaSchema.make({
-          _v: row._v,
-        }),
-      };
-
-      const value = yield* this.schema
-        .decode(rawData)
-        .pipe(
-          Effect.mapError((cause) =>
-            SqliteDBError.queryFailed(this.tableName, cause),
-          ),
-        );
-
-      const meta = Schema.decodeSync(sqlMetaSchema)({
-        _v: row._v,
-        _u: row._u,
-        _d: row._d,
-        _e: this.schema.name,
-      });
-
-      return { value: value as TEntity, meta };
-    });
+  #encode(
+    value: TEntity,
+    deleted: boolean,
+  ): Effect.Effect<{ encoded: Record<string, unknown>; meta: RowMeta }, SqliteDBError> {
+    return this.schema
+      .encode(value as Record<string, unknown>)
+      .pipe(Effect.mapError((e) => SqliteDBError.insertFailed(this.tableName, e)))
+      .pipe(
+        Effect.map((encoded) => ({
+          encoded,
+          meta: { _e: this.schema.name, _v: encoded._v, _u: new Date().toISOString(), _d: deleted },
+        })),
+      );
   }
 
-  #deriveIndexColumns(
-    value: TEntity,
-    meta: Pick<RowMeta, "_v" | "_u">,
-  ): Record<string, string> {
-    const columns: Record<string, string> = {};
-    const combined = { ...value, ...meta } as EntityWithMeta<TEntity>;
-
-    for (const [indexName, indexDef] of Object.entries(this.indexes)) {
-      columns[idxKeyCol(indexName)] = computeKey(
-        (indexDef as IndexDef<TEntity>).fields,
-        combined,
+  #parseRow(row: RawRow): Effect.Effect<EntityType<TEntity>, SqliteDBError> {
+    return this.schema
+      .decode({ ...JSON.parse(row._data), ...metaSchema.make({ _v: row._v }) })
+      .pipe(Effect.mapError((e) => SqliteDBError.queryFailed(this.tableName, e)))
+      .pipe(
+        Effect.map((value) => ({
+          value: value as TEntity,
+          meta: Schema.decodeSync(sqlMetaSchema)({
+            _v: row._v,
+            _u: row._u,
+            _d: row._d,
+            _e: this.schema.name,
+          }),
+        })),
       );
-    }
+  }
 
-    return columns;
+  #indexColumns(value: TEntity, meta: Pick<RowMeta, "_v" | "_u">): Record<string, string> {
+    const combined = { ...value, ...meta } as WithMeta<TEntity>;
+    return Object.fromEntries(
+      Object.entries(this.indexes).map(([name, def]) => [
+        indexKeyColumn(name),
+        computeKey((def as IndexDef<TEntity>).fields, combined),
+      ]),
+    );
   }
 }
 
 class SQLiteTableBuilder<
   TSchema extends AnyESchema,
   TEntity = ESchemaType<TSchema>,
-  TPrimaryKeyFields extends keyof TEntity = never,
+  TPrimaryKey extends keyof TEntity = never,
   TIndexes extends Record<string, IndexDef<TEntity>> = {},
 > {
   constructor(
-    private _schema: TSchema,
-    private _primaryKeyFields: readonly TPrimaryKeyFields[],
-    private _indexes: TIndexes,
+    private schema: TSchema,
+    private primaryKeyFields: readonly TPrimaryKey[],
+    private indexes: TIndexes,
   ) {}
 
   index<N extends string, K extends IndexableFields<TEntity>>(
     name: N,
     fields: readonly K[],
-  ): SQLiteTableBuilder<
-    TSchema,
-    TEntity,
-    TPrimaryKeyFields,
-    TIndexes & { [I in N]: { fields: readonly K[] } }
-  > {
-    return new SQLiteTableBuilder(this._schema, this._primaryKeyFields, {
-      ...this._indexes,
+  ): SQLiteTableBuilder<TSchema, TEntity, TPrimaryKey, TIndexes & { [I in N]: { fields: readonly K[] } }> {
+    return new SQLiteTableBuilder(this.schema, this.primaryKeyFields, {
+      ...this.indexes,
       [name]: { fields },
     } as TIndexes & { [I in N]: { fields: readonly K[] } });
   }
 
-  build(): SQLiteTable<TSchema, TEntity, TPrimaryKeyFields, TIndexes> {
-    return new (SQLiteTable as any)(
-      this._schema,
-      this._primaryKeyFields,
-      this._indexes,
-    );
+  build(): SQLiteTable<TSchema, TEntity, TPrimaryKey, TIndexes> {
+    return new (SQLiteTable as any)(this.schema, this.primaryKeyFields, this.indexes);
   }
 }

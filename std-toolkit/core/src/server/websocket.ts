@@ -16,7 +16,6 @@ export const handleMessage = <Rpcs extends Rpc.Any>(
     const decoded = parser.decode(message);
     const { clientId } = typedWebSocket.get(ws);
 
-    // Latch to wait for stream completion
     const latch = yield* Deferred.make<void>();
 
     const rpcServer = yield* RpcServer.makeNoSerialization(rpcs, {
@@ -27,7 +26,6 @@ export const handleMessage = <Rpcs extends Rpc.Any>(
           if (encoded !== undefined) {
             ws.send(encoded);
           }
-          // Complete latch when stream/request done
           const r = response as { _tag: string };
           if (r._tag === "Exit" || r._tag === "ClientEnd") {
             yield* Deferred.succeed(latch, undefined);
@@ -41,6 +39,5 @@ export const handleMessage = <Rpcs extends Rpc.Any>(
       yield* rpcServer.write(clientId, msg as any);
     }
 
-    // Wait for completion before closing scope
     yield* Deferred.await(latch);
   }).pipe(Effect.provide(ConnectionService.make(state, ws)), Effect.scoped);
