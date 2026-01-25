@@ -25,12 +25,12 @@
     "@effect/vitest": "0.27.0",
     "@standard-schema/spec": "1.1.0",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.0.9",
-    "effect": "3.19.14",
+    "@types/node": "25.0.10",
+    "effect": "3.19.15",
     "typescript": "5.9.3",
     "vite": "7.3.1",
-    "vite-tsconfig-paths": "6.0.4",
-    "vitest": "4.0.17"
+    "vite-tsconfig-paths": "6.0.5",
+    "vitest": "4.0.18"
   },
   "peerDependencies": {
     "effect": ">=3.0.0"

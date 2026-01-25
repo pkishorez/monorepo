@@ -6,9 +6,9 @@
   "author": "Kishore",
   "scripts": {
     "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
     "changeset": "changeset",
     "clean": "del-cli '**/.turbo' '**/node_modules' '**/dist'",
+    "lint": "pnpm -r lint",
     "prepare-release": "changeset && changeset version",
     "release": "pnpm build && changeset publish",
     "updates": "npx -y npm-check-updates -iws",

@@ -32,17 +32,17 @@
     "@std-toolkit/eschema": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260120.0",
+    "@cloudflare/workers-types": "4.20260124.0",
     "@effect/vitest": "0.27.0",
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",
-    "@types/node": "25.0.9",
+    "@types/node": "25.0.10",
     "better-sqlite3": "12.6.2",
-    "effect": "3.19.14",
+    "effect": "3.19.15",
     "typescript": "5.9.3",
     "vite": "7.3.1",
-    "vite-tsconfig-paths": "6.0.4",
-    "vitest": "4.0.17"
+    "vite-tsconfig-paths": "6.0.5",
+    "vitest": "4.0.18"
   },
   "peerDependencies": {
     "effect": ">=3.0.0"

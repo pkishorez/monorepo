@@ -27,35 +27,35 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@effect/platform": "0.94.1",
+    "@effect/platform": "0.94.2",
     "@effect/platform-browser": "0.74.0",
     "@effect/rpc": "0.73.0",
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/sqlite": "workspace:*",
     "@std-toolkit/tanstack": "workspace:*",
-    "@tanstack/react-db": "0.1.66",
+    "@tanstack/react-db": "0.1.67",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "ulid": "3.0.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260120.0",
+    "@cloudflare/workers-types": "4.20260124.0",
     "@effect/vitest": "0.27.0",
     "@tailwindcss/vite": "4.1.18",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.0.9",
+    "@types/node": "25.0.10",
     "@types/react": "19.2.9",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.2",
     "concurrently": "9.2.1",
-    "effect": "3.19.14",
+    "effect": "3.19.15",
     "tailwindcss": "4.1.18",
     "typescript": "5.9.3",
     "vite": "7.3.1",
-    "vite-tsconfig-paths": "6.0.4",
-    "vitest": "4.0.17",
-    "wrangler": "4.59.3"
+    "vite-tsconfig-paths": "6.0.5",
+    "vitest": "4.0.18",
+    "wrangler": "4.60.0"
   },
   "peerDependencies": {
     "effect": ">=3.0.0"
