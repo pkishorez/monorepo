@@ -1,6 +1,6 @@
 import "./setup";
 import { describe, it, expect, beforeEach } from "@effect/vitest";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { ESchema } from "@std-toolkit/eschema";
 import { IDBStore, IDBEntity, IDBEntityUnit } from "../index";
 
@@ -30,7 +30,7 @@ describe("IDBStore", () => {
       });
 
       const item = yield* store.getItem({ entity: "User", id: "user-1" });
-      expect(item).toEqual({
+      expect(Option.getOrThrow(item)).toEqual({
         entity: "User",
         id: "user-1",
         value: { name: "Alice" },
@@ -38,10 +38,10 @@ describe("IDBStore", () => {
     }),
   );
 
-  it.effect("returns undefined for non-existent item", () =>
+  it.effect("returns None for non-existent item", () =>
     Effect.gen(function* () {
       const item = yield* store.getItem({ entity: "User", id: "non-existent" });
-      expect(item).toBeUndefined();
+      expect(Option.isNone(item)).toBe(true);
     }),
   );
 
@@ -62,7 +62,7 @@ describe("IDBStore", () => {
       expect(updated.value).toEqual({ name: "Alice Updated", age: 26 });
 
       const fetched = yield* store.getItem({ entity: "User", id: "user-1" });
-      expect(fetched?.value).toEqual({ name: "Alice Updated", age: 26 });
+      expect(Option.getOrThrow(fetched).value).toEqual({ name: "Alice Updated", age: 26 });
     }),
   );
 
@@ -77,7 +77,7 @@ describe("IDBStore", () => {
       yield* store.delete({ entity: "User", id: "user-1" });
 
       const item = yield* store.getItem({ entity: "User", id: "user-1" });
-      expect(item).toBeUndefined();
+      expect(Option.isNone(item)).toBe(true);
     }),
   );
 
@@ -148,17 +148,17 @@ describe("IDBEntity", () => {
       yield* users.put({ id: "user-1", name: "Alice", email: "alice@test.com" });
 
       const user = yield* users.get("user-1");
-      expect(user?.name).toBe("Alice");
-      expect(user?.email).toBe("alice@test.com");
+      expect(Option.getOrThrow(user).name).toBe("Alice");
+      expect(Option.getOrThrow(user).email).toBe("alice@test.com");
     }),
   );
 
-  it.effect("returns undefined for non-existent entity", () =>
+  it.effect("returns None for non-existent entity", () =>
     Effect.gen(function* () {
       const users = IDBEntity.make("User").eschema(UserSchema).id("id").build(store);
 
       const user = yield* users.get("non-existent");
-      expect(user).toBeUndefined();
+      expect(Option.isNone(user)).toBe(true);
     }),
   );
 
@@ -170,7 +170,7 @@ describe("IDBEntity", () => {
       yield* users.delete("user-1");
 
       const user = yield* users.get("user-1");
-      expect(user).toBeUndefined();
+      expect(Option.isNone(user)).toBe(true);
     }),
   );
 
@@ -227,17 +227,17 @@ describe("IDBEntityUnit", () => {
       yield* settings.put({ theme: "dark", language: "en" });
 
       const result = yield* settings.get();
-      expect(result?.theme).toBe("dark");
-      expect(result?.language).toBe("en");
+      expect(Option.getOrThrow(result).theme).toBe("dark");
+      expect(Option.getOrThrow(result).language).toBe("en");
     }),
   );
 
-  it.effect("returns undefined when unit not set", () =>
+  it.effect("returns None when unit not set", () =>
     Effect.gen(function* () {
       const settings = IDBEntityUnit.make("Settings").eschema(SettingsSchema).build(store);
 
       const result = yield* settings.get();
-      expect(result).toBeUndefined();
+      expect(Option.isNone(result)).toBe(true);
     }),
   );
 
@@ -249,8 +249,8 @@ describe("IDBEntityUnit", () => {
       yield* settings.put({ theme: "light", language: "fr" });
 
       const result = yield* settings.get();
-      expect(result?.theme).toBe("light");
-      expect(result?.language).toBe("fr");
+      expect(Option.getOrThrow(result).theme).toBe("light");
+      expect(Option.getOrThrow(result).language).toBe("fr");
     }),
   );
 

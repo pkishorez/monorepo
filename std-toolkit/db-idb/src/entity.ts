@@ -1,5 +1,5 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { IDBError } from "./error.js";
 import type { IDBStore } from "./store.js";
 
@@ -47,20 +47,20 @@ export class IDBEntity<
       }
 
       return results;
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBEntity.query"));
   }
 
-  get(id: string): Effect.Effect<ESchemaType<TSchema> | undefined, IDBError> {
+  get(id: string): Effect.Effect<Option.Option<ESchemaType<TSchema>>, IDBError> {
     return Effect.gen(this, function* () {
       const item = yield* this.#store.getItem({ entity: this.#name, id });
-      if (!item) return undefined;
+      if (Option.isNone(item)) return Option.none();
 
-      const decoded = yield* this.#eschema.decode(item.value).pipe(
+      const decoded = yield* this.#eschema.decode(item.value.value).pipe(
         Effect.mapError((cause) => IDBError.getFailed("Failed to decode item", cause)),
       );
 
-      return decoded as ESchemaType<TSchema>;
-    });
+      return Option.some(decoded as ESchemaType<TSchema>);
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBEntity.get"));
   }
 
   put(item: Omit<ESchemaType<TSchema>, "_v">): Effect.Effect<void, IDBError> {
@@ -76,10 +76,12 @@ export class IDBEntity<
         id,
         value: encoded,
       });
-    });
+    }).pipe(Effect.withSpan("@std-toolkit/db-idb: IDBEntity.put"));
   }
 
   delete(id: string): Effect.Effect<void, IDBError> {
-    return this.#store.delete({ entity: this.#name, id });
+    return this.#store
+      .delete({ entity: this.#name, id })
+      .pipe(Effect.withSpan("@std-toolkit/db-idb: IDBEntity.delete"));
   }
 }

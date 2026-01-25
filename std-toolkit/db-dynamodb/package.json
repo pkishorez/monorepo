@@ -20,13 +20,17 @@
     "lint": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "generate": "bun scripts/generate.ts"
   },
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
-    "aws4fetch": "1.0.20"
+    "aws4fetch": "1.0.20",
+    "type-fest": "5.4.1"
   },
   "devDependencies": {
+    "@effect/platform": "0.94.2",
+    "@effect/platform-node": "0.104.1",
     "@effect/vitest": "0.27.0",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.0.10",
