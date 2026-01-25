@@ -179,6 +179,77 @@ importers:
         specifier: 4.0.18
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.0.10)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
+  std-toolkit/db-dynamodb:
+    dependencies:
+      '@std-toolkit/eschema':
+        specifier: workspace:*
+        version: link:../eschema
+      aws4fetch:
+        specifier: 1.0.20
+        version: 1.0.20
+    devDependencies:
+      '@effect/vitest':
+        specifier: 0.27.0
+        version: 0.27.0(effect@3.19.15)(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.0.10)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      '@tsconfig/node22':
+        specifier: 22.0.5
+        version: 22.0.5
+      '@types/node':
+        specifier: 25.0.10
+        version: 25.0.10
+      effect:
+        specifier: 3.19.15
+        version: 3.19.15
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 7.3.1
+        version: 7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+      vite-tsconfig-paths:
+        specifier: 6.0.5
+        version: 6.0.5(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.0.10)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
+  std-toolkit/db-idb:
+    dependencies:
+      '@std-toolkit/eschema':
+        specifier: workspace:*
+        version: link:../eschema
+      idb:
+        specifier: 8.0.3
+        version: 8.0.3
+    devDependencies:
+      '@effect/vitest':
+        specifier: 0.27.0
+        version: 0.27.0(effect@3.19.15)(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.0.10)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      '@tsconfig/node22':
+        specifier: 22.0.5
+        version: 22.0.5
+      '@types/node':
+        specifier: 25.0.10
+        version: 25.0.10
+      effect:
+        specifier: 3.19.15
+        version: 3.19.15
+      fake-indexeddb:
+        specifier: 6.0.0
+        version: 6.0.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 7.3.1
+        version: 7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+      vite-tsconfig-paths:
+        specifier: 6.0.5
+        version: 6.0.5(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.0.10)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
   std-toolkit/db-sqlite:
     dependencies:
       '@std-toolkit/core':
@@ -1888,6 +1959,9 @@ packages:
     resolution: {integrity: sha512-zJAaP9zxTcvTHRlejau3ZOY4V7SRpiByf3/dxx2uyKxxor19tpmpV2QRsTKikckwhaPmr2dVpxxMr7jOCYVp5g==}
     engines: {node: '>=6.0.0'}
 
+  aws4fetch@1.0.20:
+    resolution: {integrity: sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g==}
+
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
 
@@ -2183,6 +2257,10 @@ packages:
   extendable-error@0.1.7:
     resolution: {integrity: sha512-UOiS2in6/Q0FK0R0q6UY9vYpQ21mr/Qn1KOnte7vsACuNJf514WvCCUHSRCPcgjPT2bAhNIJdlE6bVap1GKmeg==}
 
+  fake-indexeddb@6.0.0:
+    resolution: {integrity: sha512-YEboHE5VfopUclOck7LncgIqskAqnv4q0EWbYCaxKKjAvO93c+TJIaBuGy8CBFdbg9nKdpN3AuPRwVBJ4k7NrQ==}
+    engines: {node: '>=18'}
+
   fast-check@3.23.2:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
     engines: {node: '>=8.0.0'}
@@ -2306,6 +2384,9 @@ packages:
   iconv-lite@0.7.1:
     resolution: {integrity: sha512-2Tth85cXwGFHfvRgZWszZSvdo+0Xsqmw8k8ZwxScfcBneNUraK+dxRxRm24nszx80Y0TVio8kKLt5sLE7ZCLlw==}
     engines: {node: '>=0.10.0'}
+
+  idb@8.0.3:
+    resolution: {integrity: sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==}
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
@@ -4813,6 +4894,8 @@ snapshots:
 
   await-to-js@3.0.0: {}
 
+  aws4fetch@1.0.20: {}
+
   balanced-match@1.0.2: {}
 
   base64-js@1.5.1: {}
@@ -5146,6 +5229,8 @@ snapshots:
 
   extendable-error@0.1.7: {}
 
+  fake-indexeddb@6.0.0: {}
+
   fast-check@3.23.2:
     dependencies:
       pure-rand: 6.1.0
@@ -5280,6 +5365,8 @@ snapshots:
   iconv-lite@0.7.1:
     dependencies:
       safer-buffer: 2.1.2
+
+  idb@8.0.3: {}
 
   ieee754@1.2.1: {}
 
