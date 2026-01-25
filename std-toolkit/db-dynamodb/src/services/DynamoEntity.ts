@@ -16,12 +16,8 @@ import {
   fromDiscriminatedGeneric,
 } from "../internal/index.js";
 import { buildExpr } from "../expr/expr.js";
-import {
-  conditionExpr,
-  compileConditionExpr,
-  type ConditionOperation,
-} from "../expr/condition.js";
-import { updateExpr, compileUpdateExpr } from "../expr/update.js";
+import { conditionExpr, type ConditionOperation } from "../expr/condition.js";
+import { updateExpr } from "../expr/update.js";
 import type { SortKeyparameter } from "../expr/key-condition.js";
 
 const metaSchema = Schema.Struct({
@@ -148,15 +144,13 @@ export class DynamoEntity<
       };
 
       const expr = buildExpr({
-        condition: compileConditionExpr(
-          conditionExpr(($) =>
-            $.and(
-              ...[
-                options?.condition,
-                $.attributeNotExists(self.#table.primary.pk as any),
-                $.attributeNotExists(self.#table.primary.sk as any),
-              ].filter(Boolean) as ConditionOperation[],
-            ),
+        condition: conditionExpr(($) =>
+          $.and(
+            ...[
+              options?.condition,
+              $.attributeNotExists(self.#table.primary.pk as any),
+              $.attributeNotExists(self.#table.primary.sk as any),
+            ].filter(Boolean) as ConditionOperation[],
           ),
         ),
       });
@@ -223,8 +217,8 @@ export class DynamoEntity<
       ]);
 
       const expr = buildExpr({
-        update: compileUpdateExpr(update),
-        condition: compileConditionExpr(condition),
+        update,
+        condition,
       });
 
       const updateOptions: Record<string, unknown> = {
@@ -298,15 +292,13 @@ export class DynamoEntity<
       };
 
       const expr = buildExpr({
-        condition: compileConditionExpr(
-          conditionExpr(($) =>
-            $.and(
-              ...[
-                options?.condition,
-                $.attributeNotExists(this.#table.primary.pk as any),
-                $.attributeNotExists(this.#table.primary.sk as any),
-              ].filter(Boolean) as ConditionOperation[],
-            ),
+        condition: conditionExpr(($) =>
+          $.and(
+            ...[
+              options?.condition,
+              $.attributeNotExists(this.#table.primary.pk as any),
+              $.attributeNotExists(this.#table.primary.sk as any),
+            ].filter(Boolean) as ConditionOperation[],
           ),
         ),
       });
@@ -353,8 +345,8 @@ export class DynamoEntity<
       ]);
 
       const expr = buildExpr({
-        update: compileUpdateExpr(update),
-        condition: compileConditionExpr(condition),
+        update,
+        condition,
       });
 
       if (!expr.UpdateExpression) {

@@ -22,7 +22,15 @@ export {
   type KeyconditionOperation,
 } from "./key-condition.js";
 
-export { buildExpr } from "./expr.js";
+export {
+  buildExpr,
+  type QueryExprResult,
+  type UpdateExprResult,
+  type ConditionExprResult,
+  type QueryExprInput,
+  type UpdateExprInput,
+  type ConditionExprInput,
+} from "./expr.js";
 
 export { AttributeMapBuilder } from "./utils.js";
 

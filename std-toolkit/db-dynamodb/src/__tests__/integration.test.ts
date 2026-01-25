@@ -5,9 +5,11 @@ import {
   DynamoTable,
   DynamoEntity,
   updateExpr,
-  compileUpdateExpr,
   buildExpr,
   addOp,
+  conditionExpr,
+  filterExpr,
+  ifNotExists,
 } from "../index.js";
 import { createDynamoDB } from "../services/DynamoClient.js";
 
@@ -293,7 +295,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             $.set("name", "Updated"),
             $.set("count", addOp("count", 5)),
           ]);
-          const expr = buildExpr({ update: compileUpdateExpr(update) });
+          const expr = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "TEST#update", sk: "ITEM#1" },
@@ -314,7 +316,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           const update = updateExpr<{ name: string }>(($) => [
             $.set("name", "New Item"),
           ]);
-          const expr = buildExpr({ update: compileUpdateExpr(update) });
+          const expr = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "TEST#upsert", sk: "ITEM#1" },
@@ -340,9 +342,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           const update = updateExpr<{ count: number }>(($) => [
             $.set("count", addOp("count", 1)),
           ]);
-          const expr = buildExpr({
-            update: compileUpdateExpr(update),
-          });
+          const expr = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "TEST#condupdate", sk: "ITEM#1" },
@@ -376,7 +376,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           const update = updateExpr<{ name: string }>(($) => [
             $.set("name", "Changed"),
           ]);
-          const expr = buildExpr({ update: compileUpdateExpr(update) });
+          const expr = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "TEST#allold", sk: "ITEM#1" },
@@ -422,23 +422,53 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
     });
 
     describe("query", () => {
+      // Shared query fixture
+      const SHARED_QUERY_PK = "QUERY_SHARED";
+
+      beforeAll(async () => {
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            yield* table.putItem({
+              pk: SHARED_QUERY_PK,
+              sk: "A",
+              data: "a",
+              score: 100,
+            });
+            yield* table.putItem({
+              pk: SHARED_QUERY_PK,
+              sk: "B",
+              data: "b",
+              score: 200,
+            });
+            yield* table.putItem({
+              pk: SHARED_QUERY_PK,
+              sk: "C",
+              data: "c",
+              score: 300,
+            });
+            yield* table.putItem({
+              pk: SHARED_QUERY_PK,
+              sk: "D",
+              data: "d",
+              score: 400,
+            });
+          }),
+        );
+      });
+
       it.effect("queries items by partition key", () =>
         Effect.gen(function* () {
-          // Insert multiple items
-          yield* table.putItem({ pk: "QUERY#1", sk: "ITEM#A", data: "a" });
-          yield* table.putItem({ pk: "QUERY#1", sk: "ITEM#B", data: "b" });
-          yield* table.putItem({ pk: "QUERY#1", sk: "ITEM#C", data: "c" });
-          yield* table.putItem({ pk: "QUERY#2", sk: "ITEM#D", data: "d" });
-
-          const result = yield* table.query({ pk: "QUERY#1" });
-
-          expect(result.Items.length).toBe(3);
+          const result = yield* table.query({ pk: SHARED_QUERY_PK });
+          expect(result.Items.length).toBe(4);
         }),
       );
 
       it.effect("queries with sort key equals", () =>
         Effect.gen(function* () {
-          const result = yield* table.query({ pk: "QUERY#1", sk: "ITEM#B" });
+          const result = yield* table.query({
+            pk: SHARED_QUERY_PK,
+            sk: "B",
+          });
 
           expect(result.Items.length).toBe(1);
           expect(result.Items[0]?.data).toBe("b");
@@ -474,71 +504,76 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
       it.effect("queries with between", () =>
         Effect.gen(function* () {
-          yield* table.putItem({
-            pk: "BETWEEN#1",
-            sk: "SCORE#100",
-            player: "a",
-          });
-          yield* table.putItem({
-            pk: "BETWEEN#1",
-            sk: "SCORE#200",
-            player: "b",
-          });
-          yield* table.putItem({
-            pk: "BETWEEN#1",
-            sk: "SCORE#300",
-            player: "c",
-          });
-          yield* table.putItem({
-            pk: "BETWEEN#1",
-            sk: "SCORE#400",
-            player: "d",
-          });
-
           const result = yield* table.query({
-            pk: "BETWEEN#1",
-            sk: { between: ["SCORE#150", "SCORE#350"] },
+            pk: SHARED_QUERY_PK,
+            sk: { between: ["B", "C"] },
           });
 
           expect(result.Items.length).toBe(2);
-          expect(result.Items.map((i) => i.player).sort()).toEqual(["b", "c"]);
+          expect(result.Items.map((i) => i.data).sort()).toEqual(["b", "c"]);
         }),
       );
 
-      it.effect("queries with less than", () =>
+      it.effect("queries with less than (<)", () =>
         Effect.gen(function* () {
-          yield* table.putItem({ pk: "LESSTHAN#1", sk: "A", data: "a" });
-          yield* table.putItem({ pk: "LESSTHAN#1", sk: "B", data: "b" });
-          yield* table.putItem({ pk: "LESSTHAN#1", sk: "C", data: "c" });
-
           const result = yield* table.query({
-            pk: "LESSTHAN#1",
+            pk: SHARED_QUERY_PK,
             sk: { "<": "C" },
           });
 
           expect(result.Items.length).toBe(2);
+          expect(result.Items.map((i) => i.data).sort()).toEqual(["a", "b"]);
         }),
       );
 
-      it.effect("queries with greater than", () =>
+      it.effect("queries with less than or equal (<=)", () =>
         Effect.gen(function* () {
           const result = yield* table.query({
-            pk: "LESSTHAN#1",
-            sk: { ">": "A" },
+            pk: SHARED_QUERY_PK,
+            sk: { "<=": "C" },
+          });
+
+          expect(result.Items.length).toBe(3);
+          expect(result.Items.map((i) => i.data).sort()).toEqual([
+            "a",
+            "b",
+            "c",
+          ]);
+        }),
+      );
+
+      it.effect("queries with greater than (>)", () =>
+        Effect.gen(function* () {
+          const result = yield* table.query({
+            pk: SHARED_QUERY_PK,
+            sk: { ">": "B" },
           });
 
           expect(result.Items.length).toBe(2);
+          expect(result.Items.map((i) => i.data).sort()).toEqual(["c", "d"]);
+        }),
+      );
+
+      it.effect("queries with greater than or equal (>=)", () =>
+        Effect.gen(function* () {
+          const result = yield* table.query({
+            pk: SHARED_QUERY_PK,
+            sk: { ">=": "B" },
+          });
+
+          expect(result.Items.length).toBe(3);
+          expect(result.Items.map((i) => i.data).sort()).toEqual([
+            "b",
+            "c",
+            "d",
+          ]);
         }),
       );
 
       it.effect("queries with Limit", () =>
         Effect.gen(function* () {
-          yield* table.putItem({ pk: "LIMIT#1", sk: "A", data: "a" });
-          yield* table.putItem({ pk: "LIMIT#1", sk: "B", data: "b" });
-          yield* table.putItem({ pk: "LIMIT#1", sk: "C", data: "c" });
-
           const result = yield* table.query(
-            { pk: "LIMIT#1" },
+            { pk: SHARED_QUERY_PK },
             { Limit: 2 },
           );
 
@@ -548,17 +583,13 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
       it.effect("queries with ScanIndexForward false (descending)", () =>
         Effect.gen(function* () {
-          yield* table.putItem({ pk: "SCANFWD#1", sk: "1", num: 1 });
-          yield* table.putItem({ pk: "SCANFWD#1", sk: "2", num: 2 });
-          yield* table.putItem({ pk: "SCANFWD#1", sk: "3", num: 3 });
-
           const result = yield* table.query(
-            { pk: "SCANFWD#1" },
+            { pk: SHARED_QUERY_PK },
             { ScanIndexForward: false },
           );
 
-          expect(result.Items[0]?.num).toBe(3);
-          expect(result.Items[2]?.num).toBe(1);
+          expect(result.Items[0]?.sk).toBe("D");
+          expect(result.Items[3]?.sk).toBe("A");
         }),
       );
     });
@@ -665,21 +696,21 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           const update1 = updateExpr<{ count: number }>(($) => [
             $.set("count", addOp("count", 5)),
           ]);
-          const expr1 = buildExpr({ update: compileUpdateExpr(update1) });
+          const expr1 = buildExpr({ update: update1 });
 
           const update2 = updateExpr<{ count: number }>(($) => [
             $.set("count", addOp("count", -5)),
           ]);
-          const expr2 = buildExpr({ update: compileUpdateExpr(update2) });
+          const expr2 = buildExpr({ update: update2 });
 
           const op1 = table.opUpdateItem(
             { pk: "TXN_UPDATE#1", sk: "ITEM#A" },
-            { UpdateExpression: expr1.UpdateExpression! },
+            expr1,
           );
 
           const op2 = table.opUpdateItem(
             { pk: "TXN_UPDATE#1", sk: "ITEM#B" },
-            { UpdateExpression: expr2.UpdateExpression! },
+            expr2,
           );
 
           yield* table.transact([op1, op2]);
@@ -992,5 +1023,531 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         }),
       );
     });
+
+    describe("query with sort key conditions", () => {
+      beforeAll(async () => {
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            yield* OrderEntity.insert({
+              userId: "entity-query-sk-user",
+              orderId: "order-001",
+              total: 100,
+              status: "pending",
+              items: [],
+            });
+            yield* OrderEntity.insert({
+              userId: "entity-query-sk-user",
+              orderId: "order-002",
+              total: 200,
+              status: "completed",
+              items: [],
+            });
+            yield* OrderEntity.insert({
+              userId: "entity-query-sk-user",
+              orderId: "order-003",
+              total: 300,
+              status: "cancelled",
+              items: [],
+            });
+          }),
+        );
+      });
+
+      it.effect("queries entities with sk beginsWith", () =>
+        Effect.gen(function* () {
+          // Entity query uses derivation values, not derived strings
+          // Type assertion needed as beginsWith type is string but runtime supports objects
+          const result = yield* OrderEntity.query({
+            pk: { userId: "entity-query-sk-user" },
+            sk: { beginsWith: { orderId: "order-00" } as any },
+          });
+
+          expect(result.items.length).toBe(3);
+        }),
+      );
+
+      it.effect("queries entities with sk comparison operator", () =>
+        Effect.gen(function* () {
+          // Entity query uses derivation values for comparison operators
+          const result = yield* OrderEntity.query({
+            pk: { userId: "entity-query-sk-user" },
+            sk: { ">": { orderId: "order-001" } },
+          });
+
+          expect(result.items.length).toBe(2);
+        }),
+      );
+    });
+  });
+
+  describe("Expression Module Integration", () => {
+    describe("conditionExpr", () => {
+      it.effect("filters with attributeExists", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "COND_EXPR#1",
+            sk: "ITEM#1",
+            optionalField: "exists",
+          });
+          yield* table.putItem({
+            pk: "COND_EXPR#1",
+            sk: "ITEM#2",
+            // optionalField not present
+          });
+
+          const condition = conditionExpr<{ optionalField?: string }>(($) =>
+            $.attributeExists("optionalField"),
+          );
+          const expr = buildExpr({ condition });
+
+          // Try to update item with condition - should succeed for ITEM#1
+          const update = updateExpr<{ status: string }>(($) => [
+            $.set("status", "updated"),
+          ]);
+          const updateExprResult = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "COND_EXPR#1", sk: "ITEM#1" },
+            {
+              ...updateExprResult,
+              ConditionExpression: expr.ConditionExpression,
+              ExpressionAttributeNames: {
+                ...updateExprResult.ExpressionAttributeNames,
+                ...expr.ExpressionAttributeNames,
+              },
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.status).toBe("updated");
+        }),
+      );
+
+      it.effect("filters with attributeNotExists", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "COND_EXPR#2",
+            sk: "ITEM#1",
+            // noField not present - condition should pass
+          });
+
+          const condition = conditionExpr<{ noField?: string }>(($) =>
+            $.attributeNotExists("noField"),
+          );
+          const expr = buildExpr({ condition });
+
+          const update = updateExpr<{ noField: string }>(($) => [
+            $.set("noField", "created"),
+          ]);
+          const updateExprResult = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "COND_EXPR#2", sk: "ITEM#1" },
+            {
+              ...updateExprResult,
+              ConditionExpression: expr.ConditionExpression,
+              ExpressionAttributeNames: {
+                ...updateExprResult.ExpressionAttributeNames,
+                ...expr.ExpressionAttributeNames,
+              },
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.noField).toBe("created");
+        }),
+      );
+
+      it.effect("filters with not equals (<>)", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "COND_EXPR#3",
+            sk: "ITEM#1",
+            status: "active",
+          });
+
+          const condition = conditionExpr<{ status: string }>(($) =>
+            $.cond("status", "<>", "inactive"),
+          );
+          const expr = buildExpr({ condition });
+
+          const update = updateExpr<{ count: number }>(($) => [
+            $.set("count", 1),
+          ]);
+          const updateExprResult = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "COND_EXPR#3", sk: "ITEM#1" },
+            {
+              ...updateExprResult,
+              ConditionExpression: expr.ConditionExpression,
+              ExpressionAttributeNames: {
+                ...updateExprResult.ExpressionAttributeNames,
+                ...expr.ExpressionAttributeNames,
+              },
+              ExpressionAttributeValues: {
+                ...updateExprResult.ExpressionAttributeValues,
+                ...expr.ExpressionAttributeValues,
+              },
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.count).toBe(1);
+        }),
+      );
+
+      it.effect("filters with nested AND conditions", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "COND_EXPR#4",
+            sk: "ITEM#1",
+            status: "active",
+            count: 10,
+          });
+
+          const condition = conditionExpr<{ status: string; count: number }>(
+            ($) =>
+              $.and($.cond("status", "=", "active"), $.cond("count", ">=", 5)),
+          );
+          const expr = buildExpr({ condition });
+
+          const update = updateExpr<{ verified: boolean }>(($) => [
+            $.set("verified", true),
+          ]);
+          const updateExprResult = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "COND_EXPR#4", sk: "ITEM#1" },
+            {
+              ...updateExprResult,
+              ConditionExpression: expr.ConditionExpression,
+              ExpressionAttributeNames: {
+                ...updateExprResult.ExpressionAttributeNames,
+                ...expr.ExpressionAttributeNames,
+              },
+              ExpressionAttributeValues: {
+                ...updateExprResult.ExpressionAttributeValues,
+                ...expr.ExpressionAttributeValues,
+              },
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.verified).toBe(true);
+        }),
+      );
+
+      it.effect("filters with nested OR conditions", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "COND_EXPR#5",
+            sk: "ITEM#1",
+            status: "pending",
+            priority: "low",
+          });
+
+          const condition = conditionExpr<{ status: string; priority: string }>(
+            ($) =>
+              $.or(
+                $.cond("status", "=", "active"),
+                $.cond("priority", "=", "low"),
+              ),
+          );
+          const expr = buildExpr({ condition });
+
+          const update = updateExpr<{ processed: boolean }>(($) => [
+            $.set("processed", true),
+          ]);
+          const updateExprResult = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "COND_EXPR#5", sk: "ITEM#1" },
+            {
+              ...updateExprResult,
+              ConditionExpression: expr.ConditionExpression,
+              ExpressionAttributeNames: {
+                ...updateExprResult.ExpressionAttributeNames,
+                ...expr.ExpressionAttributeNames,
+              },
+              ExpressionAttributeValues: {
+                ...updateExprResult.ExpressionAttributeValues,
+                ...expr.ExpressionAttributeValues,
+              },
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.processed).toBe(true);
+        }),
+      );
+
+      it.effect("filters with complex AND/OR combination", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "COND_EXPR#6",
+            sk: "ITEM#1",
+            type: "order",
+            status: "pending",
+            total: 500,
+          });
+
+          const condition = conditionExpr<{
+            type: string;
+            status: string;
+            total: number;
+          }>(($) =>
+            $.and(
+              $.cond("type", "=", "order"),
+              $.or(
+                $.cond("status", "=", "completed"),
+                $.cond("total", ">=", 100),
+              ),
+            ),
+          );
+          const expr = buildExpr({ condition });
+
+          const update = updateExpr<{ flagged: boolean }>(($) => [
+            $.set("flagged", true),
+          ]);
+          const updateExprResult = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "COND_EXPR#6", sk: "ITEM#1" },
+            {
+              ...updateExprResult,
+              ConditionExpression: expr.ConditionExpression,
+              ExpressionAttributeNames: {
+                ...updateExprResult.ExpressionAttributeNames,
+                ...expr.ExpressionAttributeNames,
+              },
+              ExpressionAttributeValues: {
+                ...updateExprResult.ExpressionAttributeValues,
+                ...expr.ExpressionAttributeValues,
+              },
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.flagged).toBe(true);
+        }),
+      );
+    });
+
+    describe("updateExpr", () => {
+      it.effect("sets with ifNotExists", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "UPDATE_EXPR#1",
+            sk: "ITEM#1",
+            // counter not present
+          });
+
+          const update = updateExpr<{ counter: number }>(($) => [
+            $.set("counter", $.ifNotExistsOp("counter", 0)),
+          ]);
+          const expr = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "UPDATE_EXPR#1", sk: "ITEM#1" },
+            {
+              ...expr,
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.counter).toBe(0);
+
+          // Update again - should keep the value
+          const result2 = yield* table.updateItem(
+            { pk: "UPDATE_EXPR#1", sk: "ITEM#1" },
+            {
+              ...expr,
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result2.Attributes?.counter).toBe(0);
+        }),
+      );
+
+      it.effect("appends to array", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "UPDATE_EXPR#2",
+            sk: "ITEM#1",
+            tags: ["initial"],
+          });
+
+          const update = updateExpr<{ tags: string[] }>(($) => [
+            $.append("tags", ["new-tag", "another-tag"]),
+          ]);
+          const expr = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "UPDATE_EXPR#2", sk: "ITEM#1" },
+            {
+              ...expr,
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.tags).toEqual([
+            "initial",
+            "new-tag",
+            "another-tag",
+          ]);
+        }),
+      );
+
+      it.effect("prepends to array", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "UPDATE_EXPR#3",
+            sk: "ITEM#1",
+            logs: ["existing-log"],
+          });
+
+          const update = updateExpr<{ logs: string[] }>(($) => [
+            $.prepend("logs", ["first-log"]),
+          ]);
+          const expr = buildExpr({ update });
+
+          const result = yield* table.updateItem(
+            { pk: "UPDATE_EXPR#3", sk: "ITEM#1" },
+            {
+              ...expr,
+              ReturnValues: "ALL_NEW",
+            },
+          );
+
+          expect(result.Attributes?.logs).toEqual([
+            "first-log",
+            "existing-log",
+          ]);
+        }),
+      );
+    });
+
+    describe("filterExpr with query", () => {
+      beforeAll(async () => {
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            yield* table.putItem({
+              pk: "FILTER_QUERY#1",
+              sk: "ITEM#1",
+              status: "active",
+              score: 100,
+            });
+            yield* table.putItem({
+              pk: "FILTER_QUERY#1",
+              sk: "ITEM#2",
+              status: "inactive",
+              score: 200,
+            });
+            yield* table.putItem({
+              pk: "FILTER_QUERY#1",
+              sk: "ITEM#3",
+              status: "active",
+              score: 300,
+            });
+          }),
+        );
+      });
+
+      it.effect("queries with filter expression", () =>
+        Effect.gen(function* () {
+          // table.query expects filter as a ConditionOperation, not compiled
+          const filter = filterExpr<{ status: string }>(($) =>
+            $.cond("status", "=", "active"),
+          );
+
+          const result = yield* table.query(
+            { pk: "FILTER_QUERY#1" },
+            { filter },
+          );
+
+          expect(result.Items.length).toBe(2);
+          expect(result.Items.every((i) => i.status === "active")).toBe(true);
+        }),
+      );
+
+      it.effect("queries with complex filter expression", () =>
+        Effect.gen(function* () {
+          // table.query expects filter as a ConditionOperation, not compiled
+          const filter = filterExpr<{ status: string; score: number }>(($) =>
+            $.and($.cond("status", "=", "active"), $.cond("score", ">", 150)),
+          );
+
+          const result = yield* table.query(
+            { pk: "FILTER_QUERY#1" },
+            { filter },
+          );
+
+          expect(result.Items.length).toBe(1);
+          expect(result.Items[0]?.score).toBe(300);
+        }),
+      );
+    });
+  });
+
+  describe("Edge Cases", () => {
+    it.effect("handles special characters in keys", () =>
+      Effect.gen(function* () {
+        yield* table.putItem({
+          pk: "SPECIAL@CHARS#1",
+          sk: "ITEM:WITH:COLONS#123",
+          data: "special-data",
+        });
+
+        const result = yield* table.getItem({
+          pk: "SPECIAL@CHARS#1",
+          sk: "ITEM:WITH:COLONS#123",
+        });
+
+        expect(result.Item).not.toBeNull();
+        expect(result.Item?.data).toBe("special-data");
+      }),
+    );
+
+    it.effect("returns empty array for query with no results", () =>
+      Effect.gen(function* () {
+        const result = yield* table.query({
+          pk: "NONEXISTENT_PK#999",
+        });
+
+        expect(result.Items).toEqual([]);
+        expect(result.Items.length).toBe(0);
+      }),
+    );
+
+    it.effect("updates nested object paths", () =>
+      Effect.gen(function* () {
+        yield* table.putItem({
+          pk: "NESTED#1",
+          sk: "ITEM#1",
+          config: {
+            theme: "light",
+            notifications: true,
+          },
+        });
+
+        const update = updateExpr<{ config: { theme: string } }>(($) => [
+          $.set("config.theme", "dark"),
+        ]);
+        const expr = buildExpr({ update });
+
+        const result = yield* table.updateItem(
+          { pk: "NESTED#1", sk: "ITEM#1" },
+          {
+            ...expr,
+            ReturnValues: "ALL_NEW",
+          },
+        );
+
+        expect((result.Attributes?.config as any)?.theme).toBe("dark");
+        expect((result.Attributes?.config as any)?.notifications).toBe(true);
+      }),
+    );
   });
 });

@@ -1,28 +1,80 @@
-import type { CompiledConditionOperation } from "./condition.js";
-import type { CompiledUpdateOperation } from "./update.js";
+import {
+  compileConditionExpr,
+  type ConditionOperation,
+} from "./condition.js";
+import { compileUpdateExpr, type UpdateOperation } from "./update.js";
 import type { KeyconditionOperation } from "./key-condition.js";
 import { AttributeMapBuilder } from "./utils.js";
 import type { MarshalledOutput } from "../types/index.js";
 import type { DynamoAttrResult } from "./types.js";
 
-export const buildExpr = ({
-  update,
-  keyCondition,
-  ...options
-}: {
-  update?: CompiledUpdateOperation | undefined;
-  keyCondition?: KeyconditionOperation | undefined;
-} & (
-  | { filter?: CompiledConditionOperation | undefined }
-  | { condition?: CompiledConditionOperation | undefined }
-)): {
-  UpdateExpression?: string;
-  ConditionExpression?: string;
-  FilterExpression?: string;
-  KeyConditionExpression?: string;
+// Result types with precise return shapes
+type MaybeAttrMaps = {
   ExpressionAttributeNames?: Record<string, string>;
   ExpressionAttributeValues?: MarshalledOutput;
-} => {
+};
+
+export type QueryExprResult = {
+  KeyConditionExpression: string;
+  FilterExpression?: string;
+} & MaybeAttrMaps;
+
+export type UpdateExprResult = {
+  UpdateExpression: string;
+  ConditionExpression?: string;
+} & MaybeAttrMaps;
+
+export type ConditionExprResult = {
+  ConditionExpression: string;
+} & MaybeAttrMaps;
+
+// Input types with never guards to ensure only valid combinations
+export type QueryExprInput = {
+  keyCondition: KeyconditionOperation;
+  filter?: ConditionOperation | undefined;
+  update?: never;
+  condition?: never;
+};
+
+export type UpdateExprInput = {
+  update: UpdateOperation;
+  condition?: ConditionOperation | undefined;
+  keyCondition?: never;
+  filter?: never;
+};
+
+export type ConditionExprInput = {
+  condition: ConditionOperation;
+  update?: never;
+  keyCondition?: never;
+  filter?: never;
+};
+
+// Function overloads for precise return types
+export function buildExpr(input: QueryExprInput): QueryExprResult;
+export function buildExpr(input: UpdateExprInput): UpdateExprResult;
+export function buildExpr(input: ConditionExprInput): ConditionExprResult;
+export function buildExpr(
+  input: QueryExprInput | UpdateExprInput | ConditionExprInput,
+): QueryExprResult | UpdateExprResult | ConditionExprResult {
+  const { update, keyCondition, ...options } = input as {
+    update?: UpdateOperation;
+    keyCondition?: KeyconditionOperation;
+    filter?: ConditionOperation;
+    condition?: ConditionOperation;
+  };
+
+  // Compile operations
+  const compiledUpdate = update ? compileUpdateExpr(update) : undefined;
+  const compiledCondition =
+    "condition" in options && options.condition
+      ? compileConditionExpr(options.condition)
+      : undefined;
+  const compiledFilter =
+    "filter" in options && options.filter
+      ? compileConditionExpr(options.filter)
+      : undefined;
+
   const result: {
     UpdateExpression?: string;
     ConditionExpression?: string;
@@ -30,14 +82,14 @@ export const buildExpr = ({
     KeyConditionExpression?: string;
   } & Partial<DynamoAttrResult> = {};
 
-  if (update) {
-    result.UpdateExpression = update.exprResult.expr;
+  if (compiledUpdate) {
+    result.UpdateExpression = compiledUpdate.exprResult.expr;
   }
-  if ("condition" in options && options.condition) {
-    result.ConditionExpression = options.condition.expr.expr;
+  if (compiledCondition) {
+    result.ConditionExpression = compiledCondition.expr.expr;
   }
-  if ("filter" in options && options.filter) {
-    result.FilterExpression = options.filter.expr.expr;
+  if (compiledFilter) {
+    result.FilterExpression = compiledFilter.expr.expr;
   }
   if (keyCondition) {
     result.KeyConditionExpression = keyCondition.exprResult.expr;
@@ -45,9 +97,9 @@ export const buildExpr = ({
 
   const attrs = AttributeMapBuilder.mergeAttrResults(
     [
-      update?.exprResult.attrResult,
-      "condition" in options && options?.condition?.expr.attrResult,
-      "filter" in options && options?.filter?.expr.attrResult,
+      compiledUpdate?.exprResult.attrResult,
+      compiledCondition?.expr.attrResult,
+      compiledFilter?.expr.attrResult,
       keyCondition?.exprResult.attrResult,
     ].filter(Boolean) as DynamoAttrResult[],
   );
@@ -59,5 +111,5 @@ export const buildExpr = ({
     result.ExpressionAttributeValues = attrs.ExpressionAttributeValues;
   }
 
-  return result;
-};
+  return result as QueryExprResult | UpdateExprResult | ConditionExprResult;
+}
