@@ -13,10 +13,7 @@ import {
   type KeyConditionExprParameters,
 } from "../expr/key-condition.js";
 import { buildExpr } from "../expr/expr.js";
-import {
-  compileConditionExpr,
-  type ConditionOperation,
-} from "../expr/condition.js";
+import { type ConditionOperation } from "../expr/condition.js";
 
 export interface QueryResult {
   Items: Record<string, unknown>[];
@@ -106,9 +103,9 @@ export interface DynamoTableInstance<
     key: IndexDefinition,
     options: {
       UpdateExpression: string;
-      ConditionExpression?: string;
-      ExpressionAttributeNames?: Record<string, string>;
-      ExpressionAttributeValues?: MarshalledOutput;
+      ConditionExpression?: string | undefined;
+      ExpressionAttributeNames?: Record<string, string> | undefined;
+      ExpressionAttributeValues?: MarshalledOutput | undefined;
     },
   ): TransactItem;
 
@@ -150,7 +147,7 @@ function createDynamoTableInstance<
   ): Effect.Effect<QueryResult, DynamodbError> => {
     const expr = buildExpr({
       keyCondition: keyConditionExpr(indexDef, cond),
-      filter: options?.filter ? compileConditionExpr(options.filter) : undefined,
+      filter: options?.filter,
     });
 
     const queryOptions: Record<string, unknown> = {

@@ -4,7 +4,8 @@
       "Bash(pnpm tsc:*)",
       "Bash(pnpm build)",
       "Bash(pnpm test:run:*)",
-      "Bash(pnpm lint:*)"
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm test:*)"
     ]
   }
 }
