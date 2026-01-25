@@ -10,6 +10,10 @@ import {
   pongConst,
   typedWebSocket,
 } from "@std-toolkit/core/server";
+import type {
+  WebSocket as WorkersWebSocket,
+  DurableObjectState as WorkersDOState,
+} from "@cloudflare/workers-types";
 
 let clientIdCounter = 0;
 
@@ -18,8 +22,6 @@ export class MyDurableObject extends DurableObject {
 
   constructor(ctx: DurableObjectState, env: typeof Env) {
     super(ctx, env);
-
-    console.log("MyDurableObject constructed");
   }
   private async getRuntime() {
     if (this._runtime) return this._runtime!;
@@ -32,7 +34,6 @@ export class MyDurableObject extends DurableObject {
 
     const runtime = ManagedRuntime.make(AppLive);
 
-    // Setup tables
     await runtime.runPromise(
       UsersTable.setup().pipe(Effect.provide(sqliteLayer)),
     );
@@ -49,13 +50,12 @@ export class MyDurableObject extends DurableObject {
 
     const { 0: client, 1: server } = new WebSocketPair();
 
-    // Hybernation
     this.ctx.acceptWebSocket(server);
     this.ctx.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair(pingConst, pongConst),
     );
 
-    typedWebSocket.set(server as any, {
+    typedWebSocket.set(server as unknown as WorkersWebSocket, {
       subscriptionEntities: new Set(),
       clientId: clientIdCounter++,
     });
@@ -64,12 +64,16 @@ export class MyDurableObject extends DurableObject {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
-    // We only support string messages for now.
     if (typeof message !== "string") return;
 
     const runtime = await this.getRuntime();
     await runtime.runPromise(
-      handleMessage(this.ctx as any, ws as any, AppRpcs, message),
+      handleMessage(
+        this.ctx as unknown as WorkersDOState,
+        ws as unknown as WorkersWebSocket,
+        AppRpcs,
+        message,
+      ),
     );
   }
 }

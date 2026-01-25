@@ -1,44 +1,44 @@
 import { createCollection } from "@tanstack/react-db";
 import { stdCollectionOptions } from "@std-toolkit/tanstack";
-import { Effect, ManagedRuntime } from "effect";
+import { Effect } from "effect";
 import { UserSchema } from "../../domain";
-import { RpcWs } from "../services/rpc-ws";
-
-export const wsRuntime = ManagedRuntime.make(RpcWs.Default);
+import { RealtimeClient, runtime } from "../services";
 
 const options = stdCollectionOptions({
   schema: UserSchema,
   getKey: (user) => user.id,
 
-  sync: ({ collection }) => {
-    return RpcWs.use(({ api, collections }) => {
+  sync: ({ collection }) =>
+    Effect.gen(function* () {
+      const { api, collections } = yield* RealtimeClient;
       collections.add(collection);
-      return api.subscribeUsers();
-    }).pipe(Effect.provide(wsRuntime), Effect.orDie);
-  },
+      return yield* api.subscribeUsers();
+    }).pipe(Effect.provide(runtime), Effect.orDie),
 
   onInsert: (user) =>
-    RpcWs.use(({ api }) =>
-      api.CreateUser({
+    Effect.gen(function* () {
+      const { api } = yield* RealtimeClient;
+      return yield* api.CreateUser({
         id: user.id,
         name: user.name,
         evolution: "v2 test!",
         email: user.email,
         status: user.status,
-      }),
-    ).pipe(Effect.provide(wsRuntime), Effect.orDie),
+      });
+    }).pipe(Effect.provide(runtime), Effect.orDie),
 
   onUpdate: (item, partial) =>
-    RpcWs.use(({ api }) =>
-      api.UpdateUser({
+    Effect.gen(function* () {
+      const { api } = yield* RealtimeClient;
+      return yield* api.UpdateUser({
         id: item.id,
         updates: {
           name: partial.name,
           email: partial.email,
           status: partial.status,
         },
-      }),
-    ).pipe(Effect.provide(wsRuntime), Effect.orDie),
+      });
+    }).pipe(Effect.provide(runtime), Effect.orDie),
 });
-// Create user collection with RPC backend
+
 export const usersCollection = createCollection(options);

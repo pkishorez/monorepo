@@ -14,12 +14,10 @@ export default {
       return new Response("Hello from Worker!");
     }
 
-    // WebSocket RPC via Durable Object
     if (url.pathname === "/api/ws" || url.pathname === "/api/ws/rpc") {
       return stub.fetch(request);
     }
 
-    // HTTP RPC is disabled - use WebSocket RPC via /api/ws
     if (url.pathname === "/api/rpc") {
       return new Response(
         JSON.stringify({ error: "HTTP RPC disabled. Use WebSocket RPC via /api/ws" }),
