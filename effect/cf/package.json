@@ -17,11 +17,11 @@
     "type-fest": "5.4.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260120.0",
-    "@effect/platform": "0.94.1",
+    "@cloudflare/workers-types": "4.20260124.0",
+    "@effect/platform": "0.94.2",
     "@effect/rpc": "0.73.0",
     "@tsconfig/node22": "22.0.5",
-    "effect": "3.19.14",
+    "effect": "3.19.15",
     "typescript": "5.9.3"
   },
   "peerDependencies": {
