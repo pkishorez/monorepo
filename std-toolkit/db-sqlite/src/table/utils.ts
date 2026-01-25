@@ -1,4 +1,4 @@
-import { EntityType, metaSchema } from "@std-toolkit/tanstack";
+import { EntityType, metaSchema } from "@std-toolkit/core";
 import { Schema } from "effect";
 
 export const idxKeyCol = (indexName: string): string => `_idx_${indexName}_key`;
@@ -28,6 +28,7 @@ export interface QueryResult<T> {
   items: EntityType<T>[];
 }
 
+type Operator = "<" | "<=" | ">" | ">=";
 // Query operator with typed key value
 export type KeyOp<T> = { "<": T } | { "<=": T } | { ">": T } | { ">=": T };
 
@@ -38,15 +39,11 @@ export const computeKey = <T>(
 ): string => fields.map((f) => String(entity[f])).join("#");
 
 // Extract operator and key value from KeyOp
-export const extractKeyOp = <T>(
-  op: KeyOp<T>,
-): { operator: string; value: T } => {
+export const extractKeyOp = <T>(op: KeyOp<T>) => {
   const [operator, value] = Object.entries(op)[0]!;
-  return { operator, value: value as T };
+  return { operator: operator as Operator, value: value as T };
 };
 
 // Get order direction from KeyOp
-export const getKeyOpOrderDirection = <T>(op: KeyOp<T>): "ASC" | "DESC" => {
-  const { operator } = extractKeyOp(op);
-  return operator === "<" || operator === "<=" ? "DESC" : "ASC";
-};
+export const getKeyOpOrderDirection = (operator: Operator): "ASC" | "DESC" =>
+  operator === "<" || operator === "<=" ? "DESC" : "ASC";

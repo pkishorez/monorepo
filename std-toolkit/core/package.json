@@ -9,9 +9,13 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./*": {
-      "types": "./dist/*",
-      "import": "./dist/*"
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
     }
   },
   "scripts": {
@@ -23,6 +27,8 @@
     "test:watch": "vitest --watch"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "4.20260120.0",
+    "@effect/platform": "0.94.1",
     "@effect/rpc": "0.73.0",
     "@effect/vitest": "0.27.0",
     "@std-toolkit/eschema": "workspace:*",
@@ -35,6 +41,7 @@
     "vitest": "4.0.17"
   },
   "peerDependencies": {
+    "@effect/platform": ">=0.94.1",
     "@effect/rpc": ">=0.73.0",
     "effect": ">=3.0.0"
   }
