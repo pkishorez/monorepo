@@ -2,43 +2,28 @@ import { sql, type Statement } from "./utils.js";
 
 export type TableColumn = { name: string };
 
-export const ISO_NOW = `(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
-
-type ColumnDefBase = {
-  name: string;
-  nullable?: boolean;
-};
+export const ISO_NOW = "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))";
 
 export type ColumnDef =
-  | (ColumnDefBase & { type: "TEXT"; default?: string })
-  | (ColumnDefBase & { type: "INTEGER"; default?: number | string })
-  | (ColumnDefBase & { type: "REAL"; default?: number })
-  | (ColumnDefBase & { type: "BLOB" });
+  | { name: string; type: "TEXT"; nullable?: boolean; default?: string }
+  | { name: string; type: "INTEGER"; nullable?: boolean; default?: number | string }
+  | { name: string; type: "REAL"; nullable?: boolean; default?: number }
+  | { name: string; type: "BLOB"; nullable?: boolean };
 
 export const column = (def: ColumnDef): string => {
   const parts = [def.name, def.type];
-
-  if (!def.nullable) {
-    parts.push("NOT NULL");
-  }
-
+  if (!def.nullable) parts.push("NOT NULL");
   if ("default" in def && def.default !== undefined) {
-    const defaultValue =
-      typeof def.default === "string" && !def.default.startsWith("(")
-        ? `'${def.default}'`
-        : def.default;
-    parts.push(`DEFAULT ${defaultValue}`);
+    const val = typeof def.default === "string" && !def.default.startsWith("(")
+      ? `'${def.default}'`
+      : def.default;
+    parts.push(`DEFAULT ${val}`);
   }
-
   return parts.join(" ");
 };
 
-export const createTable = (
-  table: string,
-  columns: string[],
-  primaryKey: string[],
-): Statement => ({
-  query: sql`CREATE TABLE IF NOT EXISTS ${table} (${columns.join(", ")}, PRIMARY KEY (${primaryKey.join(", ")}))`,
+export const createTable = (table: string, columns: string[], pk: string[]): Statement => ({
+  query: sql`CREATE TABLE IF NOT EXISTS ${table} (${columns.join(", ")}, PRIMARY KEY (${pk.join(", ")}))`,
   params: [],
 });
 
@@ -47,26 +32,16 @@ export const tableInfo = (table: string): Statement => ({
   params: [],
 });
 
-export const addColumn = (
-  table: string,
-  column: string,
-  type: string,
-): Statement => ({
-  query: sql`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`,
+export const addColumn = (table: string, col: string, type: string): Statement => ({
+  query: sql`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`,
   params: [],
 });
 
-export const columnExists = (
-  columns: TableColumn[],
-  column: string,
-): boolean => columns.some((c) => c.name === column);
+export const columnExists = (columns: TableColumn[], name: string): boolean =>
+  columns.some((c) => c.name === name);
 
-export const createIndex = (
-  table: string,
-  indexName: string,
-  columns: string[],
-): Statement => ({
-  query: sql`CREATE INDEX IF NOT EXISTS ${indexName} ON ${table} (${columns.join(", ")})`,
+export const createIndex = (table: string, name: string, columns: string[]): Statement => ({
+  query: sql`CREATE INDEX IF NOT EXISTS ${name} ON ${table} (${columns.join(", ")})`,
   params: [],
 });
 

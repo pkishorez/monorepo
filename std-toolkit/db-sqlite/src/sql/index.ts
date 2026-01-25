@@ -1,2 +1,4 @@
 export { SqliteDB, SqliteDBError, type SqliteDBErrorType } from "./db.js";
-export { where, type Where } from "./helpers/index.js";
+export { where, whereNone, whereEquals, whereAnd, type Where } from "./helpers/index.js";
+export { SqliteDBBetterSqlite3 } from "./adapters/better-sqlite3.js";
+export { SqliteDBDO } from "./adapters/do.js";

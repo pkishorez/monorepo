@@ -5,7 +5,8 @@
   "license": "ISC",
   "author": "Kishore",
   "scripts": {
-    "build": "pnpm --filter \"./packages/**\" build",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
     "changeset": "changeset",
     "clean": "del-cli '**/.turbo' '**/node_modules' '**/dist'",
     "prepare-release": "changeset && changeset version",

@@ -1,2 +1,2 @@
-export { stdCollectionOptions } from "./tanstack";
+export { stdCollectionOptions, type CollectionUtils } from "./tanstack";
 export { broadcastCollections } from "./broadcast";

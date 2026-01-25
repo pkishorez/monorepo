@@ -45,7 +45,10 @@ export const HandlersLive = AppRpcs.toLayer({
 
   UpdateUser: ({ id, updates }) =>
     Effect.gen(function* () {
-      return yield* Effect.mapError(UsersTable.update({ id }, updates), (e) =>
+      const filtered = Object.fromEntries(
+        Object.entries(updates).filter(([, v]) => v !== undefined),
+      );
+      return yield* Effect.mapError(UsersTable.update({ id }, filtered), (e) =>
         e.error._tag === "GetFailed"
           ? UserError.userNotFound(id)
           : mapDbError(e, "UpdateUser"),
@@ -62,9 +65,12 @@ export const HandlersLive = AppRpcs.toLayer({
     }),
 
   subscribeUsers: Effect.fn(function* () {
-    yield* Effect.mapError(
-      UsersTable.subscribe({ key: "byUpdates" }),
-      (e) => mapDbError(e, "ListUsers"),
+    yield* UsersTable.subscribe({ key: "byUpdates" }).pipe(
+      Effect.mapError((e) =>
+        "_tag" in e && e._tag === "SqliteDBError"
+          ? mapDbError(e as SqliteDBError, "ListUsers")
+          : UserError.database("subscribeUsers", "SubscriptionFailed"),
+      ),
     );
     return [];
   }),
