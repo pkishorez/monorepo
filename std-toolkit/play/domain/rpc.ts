@@ -1,28 +1,15 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
 import { Schema } from "effect";
 import { entitySchema } from "@std-toolkit/core";
-import {
-  UserSchema,
-  NotFoundError,
-  UserNotFoundError,
-  UserValidationError,
-  UserDatabaseError,
-} from "./schemas";
+import { UserSchema, NotFoundError, UserError } from "./schemas";
 
 const UserEntitySchema = entitySchema(UserSchema);
-const UserError = Schema.Union(
-  UserNotFoundError,
-  UserValidationError,
-  UserDatabaseError,
-);
 
 export class AppRpcs extends RpcGroup.make(
-  // 1. Simple request/response - no payload, just returns a string
   Rpc.make("Ping", {
     success: Schema.String,
   }),
 
-  // 2. Stream request/response - returns a stream of numbers
   Rpc.make("Counter", {
     success: Schema.Number,
     stream: true,
@@ -31,7 +18,6 @@ export class AppRpcs extends RpcGroup.make(
     },
   }),
 
-  // 3. GetUser - returns entity format
   Rpc.make("GetUser", {
     success: UserEntitySchema,
     error: NotFoundError,
@@ -40,14 +26,12 @@ export class AppRpcs extends RpcGroup.make(
     },
   }),
 
-  // 4. CreateUser
   Rpc.make("CreateUser", {
     success: UserEntitySchema,
     error: UserError,
     payload: UserSchema.schema,
   }),
 
-  // 5. UpdateUser
   Rpc.make("UpdateUser", {
     success: UserEntitySchema,
     error: UserError,
@@ -62,7 +46,6 @@ export class AppRpcs extends RpcGroup.make(
     error: UserError,
   }),
 
-  // 6. DeleteUser
   Rpc.make("DeleteUser", {
     success: UserEntitySchema,
     error: UserError,
@@ -71,7 +54,6 @@ export class AppRpcs extends RpcGroup.make(
     },
   }),
 
-  // 7. ListUsers
   Rpc.make("ListUsers", {
     success: Schema.Struct({
       items: Schema.Array(UserEntitySchema),

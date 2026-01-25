@@ -26,21 +26,16 @@ interface StdCollectionConfig<
   onDelete?: (item: TItem) => Effect.Effect<void>;
 }
 
-export type MyUtils<TItem> = {
-  upsert: (item: EntityType<TItem>) => void;
-  entityName: string;
+export type MyUtils<TSchema extends AnyESchema = AnyESchema> = {
+  upsert: (item: EntityType<TSchema["Type"]>) => void;
+  schema: () => TSchema;
 };
 export const stdCollectionOptions = <
   TSchema extends AnyESchema,
   TKey extends string | number = string | number,
 >(
   options: StdCollectionConfig<TSchema["Type"], TKey, TSchema>,
-): CollectionConfig<
-  TSchema["Type"],
-  TKey,
-  TSchema,
-  MyUtils<TSchema["Type"]>
-> & {
+): CollectionConfig<TSchema["Type"], TKey, TSchema, MyUtils<TSchema>> & {
   schema: TSchema;
 } => {
   type TItem = TSchema["Type"];
@@ -83,11 +78,11 @@ export const stdCollectionOptions = <
     }
     commit();
   };
-  const utils: MyUtils<TItem> = {
+  const utils: MyUtils<TSchema> = {
     upsert(item) {
       localUpsert([item]);
     },
-    entityName: options.schema.name,
+    schema: () => options.schema,
   };
   const valueMap: Map<string, EntityType<TItem>> = new Map();
 

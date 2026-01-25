@@ -4,7 +4,7 @@ import { broadcastSchema } from "@std-toolkit/core";
 import { Schema } from "effect";
 
 export const broadcastCollections = () => {
-  let collections: Collection<any, any, MyUtils<any>, any, any>[] = [];
+  let collections: Collection<any, any, MyUtils, any, any>[] = [];
   return {
     add(collection: Collection<any, any, MyUtils<any>, any, any>) {
       collections.push(collection);
@@ -18,9 +18,9 @@ export const broadcastCollections = () => {
       const { values } = message;
       for (let value of values) {
         const collection = collections.find(
-          (v) => value.meta._e === v.utils.entityName,
+          (v) => value.meta._e === v.utils.schema().name,
         );
-        collection?.utils.upsert(value);
+        collection?.utils.upsert(value as any);
       }
     },
   };

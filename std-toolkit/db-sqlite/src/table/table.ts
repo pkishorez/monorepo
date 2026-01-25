@@ -116,9 +116,10 @@ export class SQLiteTable<
   }
 
   insert(
-    value: TEntity,
+    _value: Omit<TEntity, "_v">,
   ): Effect.Effect<EntityType<TEntity>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
+      const value = { ..._value, _v: this.schema.latestVersion } as TEntity;
       const db = yield* SqliteDB;
       const key = computeKey(this.primaryKeyFields, value);
       const now = new Date().toISOString();
@@ -305,7 +306,7 @@ export class SQLiteTable<
     return Effect.gen(this, function* () {
       const { fields, col } = yield* this.#getKeyColumn(key);
       const db = yield* SqliteDB;
-      const service = yield* this.#service;
+      const service = yield* Option.fromNullable(yield* this.#service);
 
       let latestValue = value;
 
@@ -349,9 +350,7 @@ export class SQLiteTable<
   }
 
   #service = Effect.serviceOption(ConnectionService).pipe(
-    Effect.andThen(
-      Option.getOrThrowWith(() => new Error("ConnectionService not available")),
-    ),
+    Effect.andThen(Option.getOrNull),
   );
 
   #parseRow(row: RawRow): Effect.Effect<EntityType<TEntity>, SqliteDBError> {

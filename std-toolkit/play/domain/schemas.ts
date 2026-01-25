@@ -1,7 +1,6 @@
 import { ESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
-// ESchema-based User
 export const UserSchema = ESchema.make("User", {
   id: Schema.String,
   name: Schema.String,
@@ -20,23 +19,41 @@ export const UserSchema = ESchema.make("User", {
 
 export type User = typeof UserSchema.Type;
 
-// Error types
 export class NotFoundError extends Schema.TaggedError<NotFoundError>()(
   "NotFoundError",
   { message: Schema.String },
 ) {}
 
-export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
-  "UserNotFoundError",
-  { id: Schema.String },
-) {}
+const UserNotFound = Schema.Struct({
+  _tag: Schema.Literal("UserNotFound"),
+  id: Schema.String,
+});
 
-export class UserValidationError extends Schema.TaggedError<UserValidationError>()(
-  "UserValidationError",
-  { message: Schema.String },
-) {}
+const ValidationFailed = Schema.Struct({
+  _tag: Schema.Literal("ValidationFailed"),
+  message: Schema.String,
+});
 
-export class UserDatabaseError extends Schema.TaggedError<UserDatabaseError>()(
-  "UserDatabaseError",
-  { operation: Schema.String, cause: Schema.String },
-) {}
+const DatabaseError = Schema.Struct({
+  _tag: Schema.Literal("DatabaseError"),
+  operation: Schema.String,
+  cause: Schema.String,
+});
+
+const UserErrorType = Schema.Union(UserNotFound, ValidationFailed, DatabaseError);
+
+export class UserError extends Schema.TaggedError<UserError>()("UserError", {
+  error: UserErrorType,
+}) {
+  static userNotFound(id: string) {
+    return new UserError({ error: { _tag: "UserNotFound", id } });
+  }
+
+  static validation(message: string) {
+    return new UserError({ error: { _tag: "ValidationFailed", message } });
+  }
+
+  static database(operation: string, cause: string) {
+    return new UserError({ error: { _tag: "DatabaseError", operation, cause } });
+  }
+}
