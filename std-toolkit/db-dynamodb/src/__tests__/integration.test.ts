@@ -30,8 +30,8 @@ const localConfig = {
 // Create table instance directly (no Layer)
 const table = DynamoTable.make(localConfig)
   .primary("pk", "sk")
-  .gsi("byEmail", "byEmailPK", "byEmailSK")
-  .gsi("byStatus", "byStatusPK", "byStatusSK")
+  .gsi("GSI1", "GSI1PK", "GSI1SK")
+  .gsi("GSI2", "GSI2PK", "GSI2SK")
   .build();
 
 // Schema definitions for entity tests
@@ -47,34 +47,16 @@ const userSchema = ESchema.make("User", {
 const UserEntity = DynamoEntity.make(table)
   .eschema(userSchema)
   .primary({
-    pk: {
-      deps: ["id"],
-      derive: (v) => [`USER#${v.id}`],
-    },
-    sk: {
-      deps: [],
-      derive: () => ["PROFILE"],
-    },
+    pk: ["id"],
+    sk: [],
   })
-  .index("byEmail", {
-    pk: {
-      deps: ["email"],
-      derive: (v) => [`EMAIL#${v.email}`],
-    },
-    sk: {
-      deps: ["id"],
-      derive: (v) => [v.id],
-    },
+  .index("GSI1", "byEmail", {
+    pk: ["email"],
+    sk: ["id"],
   })
-  .index("byStatus", {
-    pk: {
-      deps: ["status"],
-      derive: (v) => [`STATUS#${v.status}`],
-    },
-    sk: {
-      deps: ["name"],
-      derive: (v) => [v.name],
-    },
+  .index("GSI2", "byStatus", {
+    pk: ["status"],
+    sk: ["name"],
   })
   .build();
 
@@ -96,14 +78,8 @@ const orderSchema = ESchema.make("Order", {
 const OrderEntity = DynamoEntity.make(table)
   .eschema(orderSchema)
   .primary({
-    pk: {
-      deps: ["userId"],
-      derive: (v) => [`USER#${v.userId}`],
-    },
-    sk: {
-      deps: ["orderId"],
-      derive: (v) => [`ORDER#${v.orderId}`],
-    },
+    pk: ["userId"],
+    sk: ["orderId"],
   })
   .build();
 
@@ -121,17 +97,17 @@ async function createTestTable() {
     AttributeDefinitions: [
       { AttributeName: "pk", AttributeType: "S" },
       { AttributeName: "sk", AttributeType: "S" },
-      { AttributeName: "byEmailPK", AttributeType: "S" },
-      { AttributeName: "byEmailSK", AttributeType: "S" },
-      { AttributeName: "byStatusPK", AttributeType: "S" },
-      { AttributeName: "byStatusSK", AttributeType: "S" },
+      { AttributeName: "GSI1PK", AttributeType: "S" },
+      { AttributeName: "GSI1SK", AttributeType: "S" },
+      { AttributeName: "GSI2PK", AttributeType: "S" },
+      { AttributeName: "GSI2SK", AttributeType: "S" },
     ],
     GlobalSecondaryIndexes: [
       {
-        IndexName: "byEmail",
+        IndexName: "GSI1",
         KeySchema: [
-          { AttributeName: "byEmailPK", KeyType: "HASH" },
-          { AttributeName: "byEmailSK", KeyType: "RANGE" },
+          { AttributeName: "GSI1PK", KeyType: "HASH" },
+          { AttributeName: "GSI1SK", KeyType: "RANGE" },
         ],
         Projection: { ProjectionType: "ALL" },
         ProvisionedThroughput: {
@@ -140,10 +116,10 @@ async function createTestTable() {
         },
       },
       {
-        IndexName: "byStatus",
+        IndexName: "GSI2",
         KeySchema: [
-          { AttributeName: "byStatusPK", KeyType: "HASH" },
-          { AttributeName: "byStatusSK", KeyType: "RANGE" },
+          { AttributeName: "GSI2PK", KeyType: "HASH" },
+          { AttributeName: "GSI2SK", KeyType: "RANGE" },
         ],
         Projection: { ProjectionType: "ALL" },
         ProvisionedThroughput: {
@@ -613,20 +589,20 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           yield* table.putItem({
             pk: "USER#100",
             sk: "PROFILE",
-            byEmailPK: "EMAIL#alice@example.com",
-            byEmailSK: "100",
+            GSI1PK: "EMAIL#alice@example.com",
+            GSI1SK: "100",
             name: "Alice",
           });
           yield* table.putItem({
             pk: "USER#101",
             sk: "PROFILE",
-            byEmailPK: "EMAIL#bob@example.com",
-            byEmailSK: "101",
+            GSI1PK: "EMAIL#bob@example.com",
+            GSI1SK: "101",
             name: "Bob",
           });
 
           const result = yield* table
-            .index("byEmail")
+            .index("GSI1")
             .query({ pk: "EMAIL#alice@example.com" });
 
           expect(result.Items.length).toBe(1);
@@ -636,10 +612,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
       it.effect("scans GSI", () =>
         Effect.gen(function* () {
-          const result = yield* table.index("byEmail").scan();
+          const result = yield* table.index("GSI1").scan();
 
           // Should have items with GSI pk from previous test
-          expect(result.Items.some((i) => i["byEmailPK"])).toBe(true);
+          expect(result.Items.some((i) => i["GSI1PK"])).toBe(true);
         }),
       );
     });

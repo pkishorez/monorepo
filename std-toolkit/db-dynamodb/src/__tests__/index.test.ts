@@ -137,14 +137,8 @@ describe("@std-toolkit/db-dynamodb", () => {
       const entity = DynamoEntity.make(table)
         .eschema(userSchema)
         .primary({
-          pk: {
-            deps: ["id"],
-            derive: (v) => [`user#${v.id}`],
-          },
-          sk: {
-            deps: [],
-            derive: () => ["user"],
-          },
+          pk: ["id"],
+          sk: [],
         })
         .build();
 
@@ -155,24 +149,12 @@ describe("@std-toolkit/db-dynamodb", () => {
       const entity = DynamoEntity.make(table)
         .eschema(userSchema)
         .primary({
-          pk: {
-            deps: ["id"],
-            derive: (v) => [`user#${v.id}`],
-          },
-          sk: {
-            deps: [],
-            derive: () => ["user"],
-          },
+          pk: ["id"],
+          sk: [],
         })
-        .index("GSI1", {
-          pk: {
-            deps: ["email"],
-            derive: (v) => [`email#${v.email}`],
-          },
-          sk: {
-            deps: ["id"],
-            derive: (v) => [v.id],
-          },
+        .index("GSI1", "byEmail", {
+          pk: ["email"],
+          sk: ["id"],
         })
         .build();
 

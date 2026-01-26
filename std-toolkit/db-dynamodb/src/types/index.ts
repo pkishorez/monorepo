@@ -1,7 +1,12 @@
 // Public types for configuration
 export type { AwsCredentials } from "./aws.js";
 
-export type { IndexDerivation, IndexKeyDerivation } from "./derivation.js";
+export type {
+  IndexDerivation,
+  IndexDerivationValue,
+  IndexPkValue,
+  IndexSkValue,
+} from "./derivation.js";
 
 export type { TransactItem, TransactItemBase } from "./transaction.js";
 
@@ -19,11 +24,6 @@ export type {
   MarshalledOutput,
 } from "./aws.js";
 
-export type {
-  IndexDefinition,
-  IndexDerivationValue,
-  IndexKeyDerivationValue,
-  EmptyIndexDerivation,
-} from "./derivation.js";
+export type { IndexDefinition } from "./derivation.js";
 
 export type { PutOptions, UpdateOptions } from "./transaction.js";

@@ -3,14 +3,15 @@ import { Effect, Schema } from "effect";
 import type { DynamoTableInstance } from "./DynamoTable.js";
 import { DynamodbError } from "../errors.js";
 import type {
-  EmptyIndexDerivation,
   IndexDefinition,
-  IndexDerivation,
-  IndexKeyDerivation,
-  IndexKeyDerivationValue,
+  IndexPkValue,
+  IndexSkValue,
   TransactItem,
 } from "../types/index.js";
-import type { EntityDescriptor, IndexPatternDescriptor } from "../types/descriptor.js";
+import type {
+  EntityDescriptor,
+  IndexPatternDescriptor,
+} from "../types/descriptor.js";
 import {
   deriveIndexKeyValue,
   toDiscriminatedGeneric,
@@ -45,33 +46,52 @@ export interface EntityType<T> {
   meta: MetaType;
 }
 
+/**
+ * Derivation info stored per index
+ */
+export interface StoredIndexDerivation {
+  gsiName: string; // The actual GSI name on the table (e.g., "GSI1")
+  entityIndexName: string; // The semantic name for this entity (e.g., "byEmail")
+  pkDeps: string[];
+  skDeps: string[];
+}
+
+/**
+ * Internal derivation info for primary index
+ */
+interface StoredPrimaryDerivation {
+  pkDeps: string[];
+  skDeps: string[];
+}
+
+/**
+ * Helper type to extract the key type from an array of keys.
+ * For empty arrays, returns never so Pick<T, never> = {}
+ */
+type ExtractKeys<T, Keys extends readonly (keyof T)[]> = Keys[number];
+
 export class DynamoEntity<
   TTable extends DynamoTableInstance,
-  TSecondaryDerivationMap extends Record<
-    string,
-    EmptyIndexDerivation & { gsiName: string }
-  >,
+  TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyESchema,
-  TPrimaryDerivation extends EmptyIndexDerivation,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
+  TPrimarySkKeys extends keyof ESchemaType<TSchema>,
 > {
   static make<TTable extends DynamoTableInstance>(table: TTable) {
     return {
       eschema<TS extends AnyESchema>(eschema: TS) {
         return {
           primary<
-            TPkKeys extends keyof ESchemaType<TS>,
-            TSkKeys extends keyof ESchemaType<TS>,
-          >(
-            primaryDerivation: IndexDerivation<
-              IndexKeyDerivation<ESchemaType<TS>, TPkKeys>,
-              IndexKeyDerivation<ESchemaType<TS>, TSkKeys>
-            >,
-          ) {
+            const TPkKeys extends readonly (keyof ESchemaType<TS>)[],
+            const TSkKeys extends readonly (keyof ESchemaType<TS>)[],
+          >(primaryDerivation: { pk: TPkKeys; sk: TSkKeys }) {
             return new EntityIndexDerivations<
               TTable,
               TS,
-              typeof primaryDerivation
-            >(table, eschema, primaryDerivation);
+              ExtractKeys<ESchemaType<TS>, TPkKeys>,
+              ExtractKeys<ESchemaType<TS>, TSkKeys>,
+              {}
+            >(table, eschema, primaryDerivation as any, {});
           },
         };
       },
@@ -80,13 +100,13 @@ export class DynamoEntity<
 
   #table: TTable;
   #eschema: TSchema;
-  #primaryDerivation: TPrimaryDerivation;
+  #primaryDerivation: StoredPrimaryDerivation;
   #secondaryDerivations: TSecondaryDerivationMap;
 
   constructor(
     table: TTable,
     eschema: TSchema,
-    primaryDerivation: TPrimaryDerivation,
+    primaryDerivation: StoredPrimaryDerivation,
     secondaryDerivations: TSecondaryDerivationMap,
   ) {
     this.#table = table;
@@ -105,42 +125,80 @@ export class DynamoEntity<
       version: this.#eschema.latestVersion,
       primaryIndex: {
         name: "primary",
-        pk: this.#extractPattern(this.#primaryDerivation.pk),
-        sk: this.#extractPattern(this.#primaryDerivation.sk),
+        pk: this.#extractPrimaryPkPattern(),
+        sk: this.#extractPrimarySkPattern(),
       },
       secondaryIndexes: Object.entries(this.#secondaryDerivations).map(
-        ([name, deriv]) => ({
-          name,
-          pk: this.#extractPattern(deriv.pk),
-          sk: this.#extractPattern(deriv.sk),
+        ([, deriv]) => ({
+          name: deriv.entityIndexName,
+          pk: this.#extractGsiPkPattern(deriv),
+          sk: this.#extractGsiSkPattern(deriv),
         }),
       ),
       schema: this.#eschema.getDescriptor(),
     };
   }
 
-  #extractPattern(
-    keyDerivation: IndexKeyDerivation<any, any>,
-  ): IndexPatternDescriptor {
-    const deps = keyDerivation.deps.map(String);
-    const placeholder = Object.fromEntries(
-      deps.map((dep) => [dep, `{${dep}}`]),
-    );
-    const parts = keyDerivation.derive(placeholder);
+  #extractPrimaryPkPattern(): IndexPatternDescriptor {
+    const deps = this.#primaryDerivation.pkDeps;
+    const entityName = this.#eschema.name;
+    if (deps.length === 0) {
+      return { deps: [], pattern: entityName };
+    }
     return {
       deps,
-      pattern: parts.join("#"),
+      pattern: `${entityName}#${deps.map((d) => `{${d}}`).join("#")}`,
     };
   }
 
+  #extractPrimarySkPattern(): IndexPatternDescriptor {
+    const deps = this.#primaryDerivation.skDeps;
+    const entityName = this.#eschema.name;
+    if (deps.length === 0) {
+      return { deps: [], pattern: entityName };
+    }
+    return { deps, pattern: deps.map((d) => `{${d}}`).join("#") };
+  }
+
+  #extractGsiPkPattern(deriv: StoredIndexDerivation): IndexPatternDescriptor {
+    const deps = deriv.pkDeps;
+    const indexName = deriv.entityIndexName;
+    if (deps.length === 0) {
+      return { deps: [], pattern: indexName };
+    }
+    return {
+      deps,
+      pattern: `${indexName}#${deps.map((d) => `{${d}}`).join("#")}`,
+    };
+  }
+
+  #extractGsiSkPattern(deriv: StoredIndexDerivation): IndexPatternDescriptor {
+    const deps = deriv.skDeps;
+    const entityName = this.#eschema.name;
+    if (deps.length === 0) {
+      return { deps: [], pattern: entityName };
+    }
+    return { deps, pattern: deps.map((d) => `{${d}}`).join("#") };
+  }
+
   get(
-    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> &
-      IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
     options?: { ConsistentRead?: boolean },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>> | null, DynamodbError> {
     return Effect.gen(this, function* () {
-      const pk = deriveIndexKeyValue(this.#primaryDerivation.pk, keyValue);
-      const sk = deriveIndexKeyValue(this.#primaryDerivation.sk, keyValue);
+      const pk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.pkDeps,
+        keyValue as Record<string, unknown>,
+        true,
+      );
+      const sk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.skDeps,
+        keyValue as Record<string, unknown>,
+        false,
+      );
 
       const { Item } = yield* this.#table.getItem({ pk, sk }, options);
 
@@ -223,10 +281,11 @@ export class DynamoEntity<
 
       if (putResult.alreadyExisted) {
         const existing = yield* self.get(
-          value as unknown as IndexKeyDerivationValue<
-            TPrimaryDerivation["pk"]
+          value as unknown as IndexPkValue<
+            ESchemaType<TSchema>,
+            TPrimaryPkKeys
           > &
-            IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
+            IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
         );
         if (!existing) {
           return yield* Effect.fail(
@@ -241,8 +300,8 @@ export class DynamoEntity<
   }
 
   update(
-    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> &
-      IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
     updates: Partial<ESchemaType<TSchema>>,
     options?: {
       meta?: Partial<MetaType>;
@@ -251,8 +310,18 @@ export class DynamoEntity<
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
     return Effect.gen(function* () {
-      const pk = deriveIndexKeyValue(self.#primaryDerivation.pk, keyValue);
-      const sk = deriveIndexKeyValue(self.#primaryDerivation.sk, keyValue);
+      const pk = deriveIndexKeyValue(
+        self.#eschema.name,
+        self.#primaryDerivation.pkDeps,
+        keyValue as Record<string, unknown>,
+        true,
+      );
+      const sk = deriveIndexKeyValue(
+        self.#eschema.name,
+        self.#primaryDerivation.skDeps,
+        keyValue as Record<string, unknown>,
+        false,
+      );
 
       const indexMap = self.#deriveSecondaryIndexes(updates);
 
@@ -367,8 +436,8 @@ export class DynamoEntity<
   }
 
   updateOp(
-    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> &
-      IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
     updates: Partial<ESchemaType<TSchema>>,
     options?: {
       meta?: Partial<MetaType>;
@@ -376,8 +445,18 @@ export class DynamoEntity<
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
-      const pk = deriveIndexKeyValue(this.#primaryDerivation.pk, keyValue);
-      const sk = deriveIndexKeyValue(this.#primaryDerivation.sk, keyValue);
+      const pk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.pkDeps,
+        keyValue as Record<string, unknown>,
+        true,
+      );
+      const sk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.skDeps,
+        keyValue as Record<string, unknown>,
+        false,
+      );
 
       const indexMap = this.#deriveSecondaryIndexes(updates);
 
@@ -418,8 +497,8 @@ export class DynamoEntity<
 
   query(
     params: {
-      pk: IndexKeyDerivationValue<TPrimaryDerivation["pk"]>;
-      sk?: SortKeyparameter<IndexKeyDerivationValue<TPrimaryDerivation["sk"]>>;
+      pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
+      sk?: SortKeyparameter<IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>>;
     },
     options?: {
       Limit?: number;
@@ -432,11 +511,13 @@ export class DynamoEntity<
   > {
     return Effect.gen(this, function* () {
       const derivedPk = deriveIndexKeyValue(
-        this.#primaryDerivation.pk,
-        params.pk,
+        this.#eschema.name,
+        this.#primaryDerivation.pkDeps,
+        params.pk as Record<string, unknown>,
+        true,
       );
       const derivedSk = params.sk
-        ? this.#calculateSk(this.#primaryDerivation, params.sk as any)
+        ? this.#calculatePrimarySk(params.sk as any)
         : undefined;
 
       const { Items } = yield* this.#table.query(
@@ -460,13 +541,26 @@ export class DynamoEntity<
     });
   }
 
-  index<GsiName extends keyof TSecondaryDerivationMap>(gsiName: GsiName) {
+  /**
+   * Access a secondary index by its entity-level name.
+   * Example: entity.index("byEmail").query(...)
+   */
+  index<EntityIndexName extends keyof TSecondaryDerivationMap>(
+    entityIndexName: EntityIndexName,
+  ) {
+    const self = this;
     return {
       query: (
         params: {
-          pk: IndexKeyDerivationValue<TSecondaryDerivationMap[GsiName]["pk"]>;
+          pk: Record<
+            TSecondaryDerivationMap[EntityIndexName]["pkDeps"][number],
+            unknown
+          >;
           sk?: SortKeyparameter<
-            IndexKeyDerivationValue<TSecondaryDerivationMap[GsiName]["sk"]>
+            Record<
+              TSecondaryDerivationMap[EntityIndexName]["skDeps"][number],
+              unknown
+            >
           >;
         },
         options?: {
@@ -478,25 +572,30 @@ export class DynamoEntity<
         { items: EntityType<ESchemaType<TSchema>>[] },
         DynamodbError
       > => {
-        return Effect.gen(this, function* () {
-          const indexDerivation = this.#secondaryDerivations[gsiName];
+        return Effect.gen(self, function* () {
+          const indexDerivation = self.#secondaryDerivations[entityIndexName];
 
           if (!indexDerivation) {
-            throw new Error(`Index ${String(gsiName)} not found`);
+            throw new Error(`Index ${String(entityIndexName)} not found`);
           }
 
-          const derivedPk = deriveIndexKeyValue(indexDerivation.pk, params.pk);
+          const derivedPk = deriveIndexKeyValue(
+            indexDerivation.entityIndexName,
+            indexDerivation.pkDeps,
+            params.pk as Record<string, unknown>,
+            true,
+          );
           const derivedSk = params.sk
-            ? this.#calculateSk(indexDerivation, params.sk as any)
+            ? self.#calculateGsiSk(indexDerivation, params.sk as any)
             : undefined;
 
-          const { Items } = yield* this.#table
+          const { Items } = yield* self.#table
             .index(indexDerivation.gsiName as any)
             .query({ pk: derivedPk, sk: derivedSk as any }, options);
 
           const items = yield* Effect.all(
             Items.map((item) =>
-              this.#eschema.decode(item).pipe(
+              self.#eschema.decode(item).pipe(
                 Effect.map((value) => ({
                   value: value as ESchemaType<TSchema>,
                   meta: Schema.decodeUnknownSync(metaSchema)(item),
@@ -512,11 +611,10 @@ export class DynamoEntity<
     };
   }
 
-  #calculateSk(
-    derivation: EmptyIndexDerivation,
-    sk: SortKeyparameter,
-  ): SortKeyparameter | string {
+  #calculatePrimarySk(sk: SortKeyparameter): SortKeyparameter | string {
     const realSk = toDiscriminatedGeneric(sk as Record<string, any>);
+    const entityName = this.#eschema.name;
+    const skDeps = this.#primaryDerivation.skDeps;
 
     switch (realSk.type) {
       case "<":
@@ -524,23 +622,89 @@ export class DynamoEntity<
       case ">":
       case ">=":
         if (realSk.value == null) break;
-        realSk.value = deriveIndexKeyValue(derivation.sk, realSk.value);
+        realSk.value = deriveIndexKeyValue(
+          entityName,
+          skDeps,
+          realSk.value as Record<string, unknown>,
+          false,
+        );
         break;
       case "between":
         if (realSk.value) {
           (realSk.value as any)[0] = deriveIndexKeyValue(
-            derivation.sk,
-            (realSk.value as any)[0],
+            entityName,
+            skDeps,
+            (realSk.value as any)[0] as Record<string, unknown>,
+            false,
           );
           (realSk.value as any)[1] = deriveIndexKeyValue(
-            derivation.sk,
-            (realSk.value as any)[1],
+            entityName,
+            skDeps,
+            (realSk.value as any)[1] as Record<string, unknown>,
+            false,
           );
         }
         break;
       case "beginsWith":
         if (realSk.value != null) {
-          realSk.value = deriveIndexKeyValue(derivation.sk, realSk.value);
+          realSk.value = deriveIndexKeyValue(
+            entityName,
+            skDeps,
+            realSk.value as Record<string, unknown>,
+            false,
+          );
+        }
+        break;
+    }
+
+    return fromDiscriminatedGeneric(realSk) as SortKeyparameter;
+  }
+
+  #calculateGsiSk(
+    deriv: StoredIndexDerivation,
+    sk: SortKeyparameter,
+  ): SortKeyparameter | string {
+    const realSk = toDiscriminatedGeneric(sk as Record<string, any>);
+    const entityName = this.#eschema.name;
+    const skDeps = deriv.skDeps;
+
+    switch (realSk.type) {
+      case "<":
+      case "<=":
+      case ">":
+      case ">=":
+        if (realSk.value == null) break;
+        realSk.value = deriveIndexKeyValue(
+          entityName,
+          skDeps,
+          realSk.value as Record<string, unknown>,
+          false,
+        );
+        break;
+      case "between":
+        if (realSk.value) {
+          (realSk.value as any)[0] = deriveIndexKeyValue(
+            entityName,
+            skDeps,
+            (realSk.value as any)[0] as Record<string, unknown>,
+            false,
+          );
+          (realSk.value as any)[1] = deriveIndexKeyValue(
+            entityName,
+            skDeps,
+            (realSk.value as any)[1] as Record<string, unknown>,
+            false,
+          );
+        }
+        break;
+      case "beginsWith":
+        if (realSk.value != null) {
+          realSk.value = deriveIndexKeyValue(
+            entityName,
+            skDeps,
+            realSk.value as Record<string, unknown>,
+            false,
+          );
         }
         break;
     }
@@ -550,8 +714,18 @@ export class DynamoEntity<
 
   #derivePrimaryIndex(value: any): IndexDefinition {
     return {
-      pk: deriveIndexKeyValue(this.#primaryDerivation.pk, value),
-      sk: deriveIndexKeyValue(this.#primaryDerivation.sk, value),
+      pk: deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.pkDeps,
+        value,
+        true,
+      ),
+      sk: deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.skDeps,
+        value,
+        false,
+      ),
     };
   }
 
@@ -559,20 +733,28 @@ export class DynamoEntity<
     const indexMap: Record<string, string> = {};
 
     for (const [, derivation] of Object.entries(this.#secondaryDerivations)) {
-      const deriv = derivation as EmptyIndexDerivation & { gsiName: string };
+      const deriv = derivation as StoredIndexDerivation;
 
-      if (
-        deriv.pk.deps.every((key: string) => typeof value[key] !== "undefined")
-      ) {
+      // Only derive PK if all deps are present
+      if (deriv.pkDeps.every((key: string) => typeof value[key] !== "undefined")) {
         const pkKey = `${deriv.gsiName}PK`;
-        indexMap[pkKey] = deriv.pk.derive(value).join("#");
+        indexMap[pkKey] = deriveIndexKeyValue(
+          deriv.entityIndexName,
+          deriv.pkDeps,
+          value,
+          true,
+        );
       }
 
-      if (
-        deriv.sk.deps.every((key: string) => typeof value[key] !== "undefined")
-      ) {
+      // Only derive SK if all deps are present
+      if (deriv.skDeps.every((key: string) => typeof value[key] !== "undefined")) {
         const skKey = `${deriv.gsiName}SK`;
-        indexMap[skKey] = deriv.sk.derive(value).join("#");
+        indexMap[skKey] = deriveIndexKeyValue(
+          this.#eschema.name,
+          deriv.skDeps,
+          value,
+          false,
+        );
       }
     }
 
@@ -583,71 +765,92 @@ export class DynamoEntity<
 class EntityIndexDerivations<
   TTable extends DynamoTableInstance,
   TSchema extends AnyESchema,
-  TPrimaryDerivation extends IndexDerivation<any, any>,
-  TSecondaryDerivationMap extends Record<
-    string,
-    EmptyIndexDerivation & { gsiName: string }
-  > = {},
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
+  TPrimarySkKeys extends keyof ESchemaType<TSchema>,
+  TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
 > {
   #table: TTable;
   #eschema: TSchema;
-  #primaryDerivation: TPrimaryDerivation;
+  #primaryDerivation: { pk: readonly (keyof ESchemaType<TSchema>)[]; sk: readonly (keyof ESchemaType<TSchema>)[] };
   #secondaryDerivations: TSecondaryDerivationMap;
 
   constructor(
     table: TTable,
     eschema: TSchema,
-    primaryDerivation: TPrimaryDerivation,
-    definitions?: TSecondaryDerivationMap,
+    primaryDerivation: { pk: readonly (keyof ESchemaType<TSchema>)[]; sk: readonly (keyof ESchemaType<TSchema>)[] },
+    definitions: TSecondaryDerivationMap,
   ) {
     this.#table = table;
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
-    this.#secondaryDerivations = definitions ?? ({} as TSecondaryDerivationMap);
+    this.#secondaryDerivations = definitions;
   }
 
+  /**
+   * Define a secondary index mapping.
+   * @param gsiName - The GSI name on the table (e.g., "GSI1")
+   * @param entityIndexName - The semantic name for this entity's use of the GSI (e.g., "byEmail")
+   * @param derivation - The pk and sk field arrays
+   */
   index<
     GsiName extends keyof TTable["secondaryIndexMap"] & string,
-    TPkKeys extends keyof ESchemaType<TSchema>,
-    TSkKeys extends keyof ESchemaType<TSchema>,
+    const TPkKeys extends readonly (keyof ESchemaType<TSchema>)[],
+    const TSkKeys extends readonly (keyof ESchemaType<TSchema>)[],
   >(
     gsiName: GsiName,
-    indexDerivation: {
-      pk: IndexKeyDerivation<ESchemaType<TSchema>, TPkKeys>;
-      sk: IndexKeyDerivation<ESchemaType<TSchema>, TSkKeys>;
+    entityIndexName: string,
+    derivation: {
+      pk: TPkKeys;
+      sk: TSkKeys;
     },
   ) {
+    const newDeriv: StoredIndexDerivation = {
+      gsiName,
+      entityIndexName,
+      pkDeps: derivation.pk.map(String),
+      skDeps: derivation.sk.map(String),
+    };
+
     return new EntityIndexDerivations(
       this.#table,
       this.#eschema,
       this.#primaryDerivation,
       {
         ...this.#secondaryDerivations,
-        [gsiName]: {
-          ...indexDerivation,
-          gsiName,
-        },
+        [entityIndexName]: newDeriv,
       },
     ) as EntityIndexDerivations<
       TTable,
       TSchema,
-      TPrimaryDerivation,
+      TPrimaryPkKeys,
+      TPrimarySkKeys,
       TSecondaryDerivationMap &
         Record<
-          GsiName,
-          IndexDerivation<
-            IndexKeyDerivation<ESchemaType<TSchema>, TPkKeys>,
-            IndexKeyDerivation<ESchemaType<TSchema>, TSkKeys>
-          > & { gsiName: GsiName }
+          typeof entityIndexName,
+          StoredIndexDerivation & {
+            pkDeps: TPkKeys;
+            skDeps: TSkKeys;
+          }
         >
     >;
   }
 
   build() {
-    return new DynamoEntity(
+    const storedPrimary: StoredPrimaryDerivation = {
+      pkDeps: this.#primaryDerivation.pk.map(String),
+      skDeps: this.#primaryDerivation.sk.map(String),
+    };
+
+    return new DynamoEntity<
+      TTable,
+      TSecondaryDerivationMap,
+      TSchema,
+      TPrimaryPkKeys,
+      TPrimarySkKeys
+    >(
       this.#table,
       this.#eschema,
-      this.#primaryDerivation,
+      storedPrimary,
       this.#secondaryDerivations,
     );
   }

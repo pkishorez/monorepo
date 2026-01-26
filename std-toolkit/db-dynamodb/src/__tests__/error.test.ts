@@ -27,14 +27,8 @@ const userSchema = ESchema.make("User", {
 const UserEntity = DynamoEntity.make(table)
   .eschema(userSchema)
   .primary({
-    pk: {
-      deps: ["id"],
-      derive: (v) => [`USER#${v.id}`],
-    },
-    sk: {
-      deps: [],
-      derive: () => ["PROFILE"],
-    },
+    pk: ["id"],
+    sk: [],
   })
   .build();
 
@@ -229,14 +223,8 @@ describe("DynamoDB Error Handling", () => {
     const BadUserEntity = DynamoEntity.make(badTable)
       .eschema(userSchema)
       .primary({
-        pk: {
-          deps: ["id"],
-          derive: (v) => [`USER#${v.id}`],
-        },
-        sk: {
-          deps: [],
-          derive: () => ["PROFILE"],
-        },
+        pk: ["id"],
+        sk: [],
       })
       .build();
 
