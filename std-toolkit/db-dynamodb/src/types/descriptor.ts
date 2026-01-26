@@ -1,3 +1,5 @@
+import type { ESchemaDescriptor } from "@std-toolkit/eschema";
+
 export interface IndexPatternDescriptor {
   deps: string[];
   pattern: string;
@@ -14,6 +16,7 @@ export interface EntityDescriptor {
   version: string;
   primaryIndex: IndexDescriptor;
   secondaryIndexes: IndexDescriptor[];
+  schema: ESchemaDescriptor;
 }
 
 export interface TableSchema {

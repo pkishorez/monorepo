@@ -115,6 +115,7 @@ export class DynamoEntity<
           sk: this.#extractPattern(deriv.sk),
         }),
       ),
+      schema: this.#eschema.getDescriptor(),
     };
   }
 
