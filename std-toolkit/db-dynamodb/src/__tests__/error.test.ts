@@ -251,7 +251,7 @@ describe("DynamoDB Error Handling", () => {
 
     it.effect("fails with QueryFailed when querying entity on non-existent table", () =>
       Effect.gen(function* () {
-        const error = yield* BadUserEntity.query({ pk: { id: "1" } }).pipe(
+        const error = yield* BadUserEntity.raw.query("pk", { pk: { id: "1" } }).pipe(
           Effect.flip,
         );
 

@@ -844,7 +844,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
     });
 
     describe("query", () => {
-      it.effect("queries entities by primary key", () =>
+      it.effect("queries entities by primary key using raw.query", () =>
         Effect.gen(function* () {
           yield* OrderEntity.insert({
             userId: "query-user-1",
@@ -861,7 +861,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             items: [],
           });
 
-          const result = yield* OrderEntity.query({
+          const result = yield* OrderEntity.raw.query("pk", {
             pk: { userId: "query-user-1" },
           });
 
@@ -869,9 +869,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         }),
       );
 
-      it.effect("queries with limit", () =>
+      it.effect("queries with limit using raw.query", () =>
         Effect.gen(function* () {
-          const result = yield* OrderEntity.query(
+          const result = yield* OrderEntity.raw.query(
+            "pk",
             { pk: { userId: "query-user-1" } },
             { Limit: 1 },
           );
@@ -879,10 +880,23 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           expect(result.items.length).toBe(1);
         }),
       );
+
+      it.effect("queries with simplified query API", () =>
+        Effect.gen(function* () {
+          // Query for orders >= order-001 (ascending, so should get both)
+          const result = yield* OrderEntity.query(
+            "pk",
+            { pk: { userId: "query-user-1" }, sk: { ">=": { orderId: "order-001" } } },
+            { limit: 10 },
+          );
+
+          expect(result.items.length).toBe(2);
+        }),
+      );
     });
 
     describe("index queries", () => {
-      it.effect("queries by GSI", () =>
+      it.effect("queries by GSI using raw.query", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
             id: "gsi-user-1",
@@ -892,7 +906,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             age: 28,
           });
 
-          const result = yield* UserEntity.index("byEmail").query({
+          const result = yield* UserEntity.raw.query("byEmail", {
             pk: { email: "gsi-test@example.com" },
           });
 
@@ -901,7 +915,20 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         }),
       );
 
-      it.effect("queries by status GSI", () =>
+      it.effect("queries by GSI using simplified query API", () =>
+        Effect.gen(function* () {
+          // Query for users with email >= gsi-test@example.com and id >= gsi
+          const result = yield* UserEntity.query("byEmail", {
+            pk: { email: "gsi-test@example.com" },
+            sk: { ">=": { id: "gsi" } },
+          });
+
+          expect(result.items.length).toBe(1);
+          expect(result.items[0]?.value.name).toBe("GSI Test User");
+        }),
+      );
+
+      it.effect("queries by status GSI using raw.query", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
             id: "status-user-1",
@@ -918,7 +945,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             age: 25,
           });
 
-          const result = yield* UserEntity.index("byStatus").query({
+          const result = yield* UserEntity.raw.query("byStatus", {
             pk: { status: "verified" },
           });
 
@@ -1019,11 +1046,11 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         );
       });
 
-      it.effect("queries entities with sk beginsWith", () =>
+      it.effect("queries entities with sk beginsWith using raw.query", () =>
         Effect.gen(function* () {
-          // Entity query uses derivation values, not derived strings
+          // Entity raw.query uses derivation values, not derived strings
           // Type assertion needed as beginsWith type is string but runtime supports objects
-          const result = yield* OrderEntity.query({
+          const result = yield* OrderEntity.raw.query("pk", {
             pk: { userId: "entity-query-sk-user" },
             sk: { beginsWith: { orderId: "order-00" } as any },
           });
@@ -1032,10 +1059,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         }),
       );
 
-      it.effect("queries entities with sk comparison operator", () =>
+      it.effect("queries entities with sk comparison using simplified API", () =>
         Effect.gen(function* () {
-          // Entity query uses derivation values for comparison operators
-          const result = yield* OrderEntity.query({
+          // Simplified query uses KeyOp with comparison operators
+          const result = yield* OrderEntity.query("pk", {
             pk: { userId: "entity-query-sk-user" },
             sk: { ">": { orderId: "order-001" } },
           });
