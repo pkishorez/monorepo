@@ -1,361 +1,262 @@
 import { Effect, Console } from "effect";
 import {
-  table,
   createPlaygroundTable,
   deletePlaygroundTable,
   PLAYGROUND_TABLE,
   LOCAL_ENDPOINT,
 } from "./table.js";
-import { UserEntity, PostEntity, CommentEntity } from "./entities.js";
-import { exprUpdate, exprFilter, buildExpr, opAdd } from "../index.js";
+import { PostEntity } from "./entities.js";
 
 // =============================================================================
-// Playground Operations
+// Query Playground - Demonstrating different query methods
 // =============================================================================
-const playOff = Effect.gen(function* () {
+const play = Effect.gen(function* () {
   yield* Console.log("\n========================================");
-  yield* Console.log("       DynamoDB Playground");
+  yield* Console.log("       Query Methods Demo");
   yield* Console.log("========================================\n");
 
   // ---------------------------------------------------------------------------
-  // 1. Insert Users
+  // Insert 10 Posts (5 by alice, 5 by bob)
   // ---------------------------------------------------------------------------
-  yield* Console.log("[1] Creating users...");
+  yield* Console.log("[1] Inserting 10 posts...\n");
 
-  const user1 = yield* UserEntity.insert({
-    id: "user-001",
-    username: "alice",
-    email: "alice@example.com",
-    createdAt: new Date().toISOString(),
-    bio: "Software engineer who loves Effect",
-    followerCount: 150,
-  });
-  yield* Console.log(
-    `    Created: ${user1.value.username} (${user1.value.id})`,
-  );
-
-  const user2 = yield* UserEntity.insert({
-    id: "user-002",
-    username: "bob",
-    email: "bob@example.com",
-    createdAt: new Date().toISOString(),
-    bio: "TypeScript enthusiast",
-    followerCount: 89,
-  });
-  yield* Console.log(
-    `    Created: ${user2.value.username} (${user2.value.id})`,
-  );
-
-  const user3 = yield* UserEntity.insert({
-    id: "user-003",
-    username: "charlie",
-    email: "charlie@example.com",
-    createdAt: new Date().toISOString(),
-    bio: "Backend developer",
-    followerCount: 230,
-  });
-  yield* Console.log(
-    `    Created: ${user3.value.username} (${user3.value.id})`,
-  );
-
-  // ---------------------------------------------------------------------------
-  // 2. Insert Posts
-  // ---------------------------------------------------------------------------
-  yield* Console.log("\n[2] Creating posts...");
-
-  const post1 = yield* PostEntity.insert({
-    id: "post-001",
-    authorId: "user-001",
-    title: "Getting Started with Effect",
-    content:
-      "Effect is a powerful library for building type-safe applications...",
-    createdAt: "2024-01-15T10:00:00Z",
-    tags: ["effect", "typescript", "tutorial"],
-    likeCount: 42,
-    viewCount: 1500,
-  });
-  yield* Console.log(`    Created: "${post1.value.title}"`);
-
-  const post2 = yield* PostEntity.insert({
-    id: "post-002",
-    authorId: "user-001",
-    title: "DynamoDB Best Practices",
-    content:
-      "When designing DynamoDB tables, single-table design is often recommended...",
-    createdAt: "2024-01-20T14:30:00Z",
-    tags: ["dynamodb", "aws", "database"],
-    likeCount: 28,
-    viewCount: 980,
-  });
-  yield* Console.log(`    Created: "${post2.value.title}"`);
-
-  const post3 = yield* PostEntity.insert({
-    id: "post-003",
-    authorId: "user-002",
-    title: "TypeScript Tips and Tricks",
-    content: "Here are some advanced TypeScript patterns you should know...",
-    createdAt: "2024-01-22T09:15:00Z",
-    tags: ["typescript", "tips"],
-    likeCount: 65,
-    viewCount: 2100,
-  });
-  yield* Console.log(`    Created: "${post3.value.title}"`);
-
-  // ---------------------------------------------------------------------------
-  // 3. Insert Comments
-  // ---------------------------------------------------------------------------
-  yield* Console.log("\n[3] Creating comments...");
-
-  yield* CommentEntity.insert({
-    id: "comment-001",
-    postId: "post-001",
-    authorId: "user-002",
-    content: "Great introduction! Effect has been a game changer for me.",
-    createdAt: "2024-01-15T11:30:00Z",
-    editedAt: null,
-  });
-  yield* Console.log("    Created: comment on post-001 by user-002");
-
-  yield* CommentEntity.insert({
-    id: "comment-002",
-    postId: "post-001",
-    authorId: "user-003",
-    content: "Thanks for sharing! Very helpful.",
-    createdAt: "2024-01-15T12:45:00Z",
-    editedAt: null,
-  });
-  yield* Console.log("    Created: comment on post-001 by user-003");
-
-  yield* CommentEntity.insert({
-    id: "comment-003",
-    postId: "post-003",
-    authorId: "user-001",
-    content: "Love these tips! The mapped types section is especially useful.",
-    createdAt: "2024-01-22T10:00:00Z",
-    editedAt: null,
-  });
-  yield* Console.log("    Created: comment on post-003 by user-001");
-
-  // ---------------------------------------------------------------------------
-  // 4. Query Operations
-  // ---------------------------------------------------------------------------
-  yield* Console.log("\n[4] Query operations...");
-
-  // Get a specific user
-  yield* Console.log("\n    [get] User by ID:");
-  const fetchedUser = yield* UserEntity.get({ id: "user-001" });
-  if (fetchedUser) {
-    yield* Console.log(
-      `    Found: ${fetchedUser.value.username} - ${fetchedUser.value.bio}`,
-    );
-    yield* Console.log(
-      `    Meta: _e=${fetchedUser.meta._e}, _v=${fetchedUser.meta._v}, _i=${fetchedUser.meta._i}`,
-    );
-  }
-
-  // Get all posts by an author
-  yield* Console.log("\n    [query] Posts by user-001:");
-  const authorPosts = yield* PostEntity.query({
-    pk: { authorId: "user-001" },
-  });
-  yield* Console.log(`    Found ${authorPosts.items.length} posts:`);
-  for (const post of authorPosts.items) {
-    yield* Console.log(
-      `    - "${post.value.title}" (${post.value.likeCount} likes)`,
-    );
-  }
-
-  // Get all comments on a post
-  yield* Console.log("\n    [query] Comments on post-001:");
-  const postComments = yield* CommentEntity.query({
-    pk: { postId: "post-001" },
-  });
-  yield* Console.log(`    Found ${postComments.items.length} comments`);
-
-  // Query using GSI
-  yield* Console.log("\n    [index query] Posts by author (GSI):");
-  const postsByGsi = yield* PostEntity.index("byAuthor").query({
-    pk: { authorId: "user-001" },
-  });
-  yield* Console.log(
-    `    Found ${postsByGsi.items.length} posts via byAuthor GSI`,
-  );
-
-  // ---------------------------------------------------------------------------
-  // 5. Update Operations
-  // ---------------------------------------------------------------------------
-  yield* Console.log("\n[5] Update operations...");
-
-  // Simple update
-  yield* Console.log("\n    [update] User bio:");
-  const updatedUser = yield* UserEntity.update(
-    { id: "user-001" },
+  const posts = [
     {
-      bio: "Software engineer who loves Effect and DynamoDB",
-      followerCount: 155,
+      authorId: "alice",
+      id: "post-01",
+      title: "Effect Basics",
+      createdAt: "2024-01-01T10:00:00Z",
+      tags: ["effect"],
+      likeCount: 10,
+      viewCount: 100,
     },
-  );
-  yield* Console.log(`    New bio: "${updatedUser.value.bio}"`);
-  yield* Console.log(`    Meta _i: ${updatedUser.meta._i}`);
-
-  // Update with optimistic locking
-  yield* Console.log("\n    [update] Post with optimistic locking:");
-  const fetchedPost = yield* PostEntity.get({
-    authorId: "user-001",
-    id: "post-001",
-  });
-  if (fetchedPost) {
-    const updatedPost = yield* PostEntity.update(
-      { authorId: "user-001", id: "post-001" },
-      { likeCount: 50, viewCount: 1600 },
-      { meta: { _i: fetchedPost.meta._i } },
-    );
-    yield* Console.log(
-      `    Likes: ${updatedPost.value.likeCount}, Views: ${updatedPost.value.viewCount}`,
-    );
-  }
-
-  // Edit comment
-  yield* Console.log("\n    [update] Edit comment:");
-  const updatedComment = yield* CommentEntity.update(
-    { postId: "post-001", id: "comment-001" },
     {
-      content: "Great introduction! Highly recommend!",
-      editedAt: new Date().toISOString(),
+      authorId: "alice",
+      id: "post-02",
+      title: "Effect Layers",
+      createdAt: "2024-01-02T10:00:00Z",
+      tags: ["effect"],
+      likeCount: 20,
+      viewCount: 200,
     },
-  );
-  yield* Console.log(`    Edited at: ${updatedComment.value.editedAt}`);
+    {
+      authorId: "alice",
+      id: "post-03",
+      title: "Effect Streams",
+      createdAt: "2024-01-03T10:00:00Z",
+      tags: ["effect"],
+      likeCount: 30,
+      viewCount: 300,
+    },
+    {
+      authorId: "alice",
+      id: "post-04",
+      title: "Effect Testing",
+      createdAt: "2024-01-04T10:00:00Z",
+      tags: ["effect"],
+      likeCount: 40,
+      viewCount: 400,
+    },
+    {
+      authorId: "alice",
+      id: "post-05",
+      title: "Effect in Prod",
+      createdAt: "2024-01-05T10:00:00Z",
+      tags: ["effect"],
+      likeCount: 50,
+      viewCount: 500,
+    },
+    {
+      authorId: "bob",
+      id: "post-06",
+      title: "TypeScript Tips",
+      createdAt: "2024-01-06T10:00:00Z",
+      tags: ["typescript"],
+      likeCount: 15,
+      viewCount: 150,
+    },
+    {
+      authorId: "bob",
+      id: "post-07",
+      title: "TypeScript Generics",
+      createdAt: "2024-01-07T10:00:00Z",
+      tags: ["typescript"],
+      likeCount: 25,
+      viewCount: 250,
+    },
+    {
+      authorId: "bob",
+      id: "post-08",
+      title: "TypeScript Patterns",
+      createdAt: "2024-01-08T10:00:00Z",
+      tags: ["typescript"],
+      likeCount: 35,
+      viewCount: 350,
+    },
+    {
+      authorId: "bob",
+      id: "post-09",
+      title: "TypeScript 5.0",
+      createdAt: "2024-01-09T10:00:00Z",
+      tags: ["typescript"],
+      likeCount: 45,
+      viewCount: 450,
+    },
+    {
+      authorId: "bob",
+      id: "post-10",
+      title: "TypeScript ESM",
+      createdAt: "2024-01-10T10:00:00Z",
+      tags: ["typescript"],
+      likeCount: 55,
+      viewCount: 550,
+    },
+  ];
 
-  // ---------------------------------------------------------------------------
-  // 6. Low-level Table Operations
-  // ---------------------------------------------------------------------------
-  yield* Console.log("\n[6] Low-level table operations...");
-
-  // putItem
-  yield* Console.log("\n    [putItem] Insert raw item:");
-  yield* table.putItem({
-    pk: "MISC#analytics",
-    sk: "DAILY#2024-01-26",
-    pageViews: 5000,
-    uniqueVisitors: 1200,
-  });
-  yield* Console.log("    Inserted analytics record");
-
-  // getItem
-  yield* Console.log("\n    [getItem] Get raw item:");
-  const rawItem = yield* table.getItem({
-    pk: "MISC#analytics",
-    sk: "DAILY#2024-01-26",
-  });
-  if (rawItem.Item) {
-    yield* Console.log(`    Page views: ${rawItem.Item.pageViews}`);
-  }
-
-  // updateItem with expression builder
-  yield* Console.log("\n    [updateItem] Atomic increment:");
-  const update = exprUpdate<{ pageViews: number }>(($) => [
-    $.set("pageViews", opAdd("pageViews", 100)),
-  ]);
-  const expr = buildExpr({ update });
-  const updateResult = yield* table.updateItem(
-    { pk: "MISC#analytics", sk: "DAILY#2024-01-26" },
-    { ...expr, ReturnValues: "ALL_NEW" },
-  );
-  yield* Console.log(
-    `    New page views: ${updateResult.Attributes?.pageViews}`,
-  );
-
-  // Query with filter
-  yield* Console.log("\n    [query + filter] Posts with > 30 likes:");
-  const filter = exprFilter<{ likeCount: number }>(($) =>
-    $.cond("likeCount", ">", 30),
-  );
-  const filteredPosts = yield* PostEntity.query(
-    { pk: { authorId: "user-001" } },
-    { filter },
-  );
-  yield* Console.log(`    Found ${filteredPosts.items.length} posts`);
-
-  // ---------------------------------------------------------------------------
-  // 7. Transactions
-  // ---------------------------------------------------------------------------
-  yield* Console.log("\n[7] Transaction operations...");
-
-  yield* Console.log("\n    [transact] Create user + post atomically:");
-  yield* table.transact([
-    yield* UserEntity.insertOp({
-      id: "user-004",
-      username: "diana",
-      email: "diana@example.com",
-      createdAt: new Date().toISOString(),
-      bio: "New user joining the platform",
-      followerCount: 0,
-    }),
-    yield* PostEntity.insertOp({
-      id: "post-004",
-      authorId: "user-004",
-      title: "Hello World!",
-      content: "Excited to be here!",
-      createdAt: new Date().toISOString(),
-      tags: ["introduction"],
-      likeCount: 0,
-      viewCount: 0,
-    }),
-  ]);
-  yield* Console.log("    Transaction completed");
-
-  // Verify
-  const newUser = yield* UserEntity.get({ id: "user-004" });
-  const newPost = yield* PostEntity.get({
-    authorId: "user-004",
-    id: "post-004",
-  });
-  if (newUser && newPost) {
+  for (const post of posts) {
+    yield* PostEntity.insert({ ...post, content: `Content for ${post.title}` });
     yield* Console.log(
-      `    Verified: ${newUser.value.username} created "${newPost.value.title}"`,
+      `    Inserted: ${post.authorId}/${post.id} - ${post.title}`,
     );
   }
 
   // ---------------------------------------------------------------------------
-  // 8. Error Handling
+  // Query Method 1: All items ascending
   // ---------------------------------------------------------------------------
-  yield* Console.log("\n[8] Error handling...");
+  yield* Console.log("\n[2] query({ pk, sk: { '>=': null } }) - All posts ascending\n");
 
-  // Duplicate insert
-  yield* Console.log("\n    [error] Duplicate insert:");
-  const dupResult = yield* UserEntity.insert({
-    id: "user-001",
-    username: "duplicate",
-    email: "dup@example.com",
-    createdAt: new Date().toISOString(),
-    bio: "",
-    followerCount: 0,
-  }).pipe(Effect.either);
-  yield* Console.log(`    Rejected: ${dupResult._tag === "Left"}`);
+  const q1 = yield* PostEntity.query("pk", { pk: { authorId: "alice" }, sk: { ">=": null } });
+  yield* Console.log(`    Found ${q1.items.length} posts:`);
+  for (const p of q1.items) {
+    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+  }
 
-  // Optimistic locking failure
-  yield* Console.log("\n    [error] Stale update:");
-  const staleResult = yield* UserEntity.update(
-    { id: "user-001" },
-    { bio: "This should fail" },
-    { meta: { _i: 0 } },
-  ).pipe(Effect.either);
-  yield* Console.log(`    Rejected: ${staleResult._tag === "Left"}`);
+  // ---------------------------------------------------------------------------
+  // Query Method 2: All items descending
+  // ---------------------------------------------------------------------------
+  yield* Console.log("\n[3] query({ pk, sk: { '<=': null } }) - All posts descending\n");
+
+  const q2 = yield* PostEntity.query("pk", { pk: { authorId: "alice" }, sk: { "<=": null } });
+  yield* Console.log(`    Found ${q2.items.length} posts:`);
+  for (const p of q2.items) {
+    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Query Method 3: First N items ascending
+  // ---------------------------------------------------------------------------
+  yield* Console.log("\n[4] query({ pk, sk: { '>=': null } }, { limit }) - First 2 posts\n");
+
+  const q3 = yield* PostEntity.query(
+    "pk",
+    { pk: { authorId: "alice" }, sk: { ">=": null } },
+    { limit: 2 },
+  );
+  yield* Console.log(`    Found ${q3.items.length} posts:`);
+  for (const p of q3.items) {
+    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Query Method 4: Last N items descending
+  // ---------------------------------------------------------------------------
+  yield* Console.log("\n[5] query({ pk, sk: { '<=': null } }, { limit }) - Last 2 posts\n");
+
+  const q4 = yield* PostEntity.query(
+    "pk",
+    { pk: { authorId: "alice" }, sk: { "<=": null } },
+    { limit: 2 },
+  );
+  yield* Console.log(`    Found ${q4.items.length} posts:`);
+  for (const p of q4.items) {
+    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Query Method 5: From specific sk onwards (ascending)
+  // ---------------------------------------------------------------------------
+  yield* Console.log(
+    "\n[6] query({ pk, sk: { '>=': { id } } }) - Posts from post-03\n",
+  );
+
+  const q5 = yield* PostEntity.query("pk", {
+    pk: { authorId: "alice" },
+    sk: { ">=": { id: "post-03" } },
+  });
+  yield* Console.log(`    Found ${q5.items.length} posts:`);
+  for (const p of q5.items) {
+    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Query Method 6: GSI query ascending
+  // ---------------------------------------------------------------------------
+  yield* Console.log(
+    "\n[7] query('byAuthor', { pk, sk: { '>=': null } }) - GSI all posts by bob\n",
+  );
+
+  const q6 = yield* PostEntity.query("byAuthor", {
+    pk: { authorId: "bob" },
+    sk: { ">=": null },
+  });
+  yield* Console.log(`    Found ${q6.items.length} posts:`);
+  for (const p of q6.items) {
+    yield* Console.log(
+      `    - ${p.value.id}: ${p.value.title} (${p.value.createdAt})`,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Query Method 7: GSI query with cursor
+  // ---------------------------------------------------------------------------
+  yield* Console.log(
+    "\n[8] query('byAuthor', { pk, sk: { '>=': { createdAt, id } } }) - GSI from date\n",
+  );
+
+  const q7 = yield* PostEntity.query("byAuthor", {
+    pk: { authorId: "bob" },
+    sk: { ">=": { createdAt: "2024-01-08T00:00:00Z", id: "" } },
+  });
+  yield* Console.log(`    Found ${q7.items.length} posts:`);
+  for (const p of q7.items) {
+    yield* Console.log(
+      `    - ${p.value.id}: ${p.value.title} (${p.value.createdAt})`,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Query Method 8: raw.query with between
+  // ---------------------------------------------------------------------------
+  yield* Console.log(
+    "\n[9] raw.query with between - Posts between post-02 and post-04\n",
+  );
+
+  const q8 = yield* PostEntity.raw.query("pk", {
+    pk: { authorId: "alice" },
+    sk: { between: [{ id: "post-02" }, { id: "post-04" }] },
+  });
+  yield* Console.log(`    Found ${q8.items.length} posts:`);
+  for (const p of q8.items) {
+    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+  }
 
   // ---------------------------------------------------------------------------
   // Summary
   // ---------------------------------------------------------------------------
   yield* Console.log("\n========================================");
-  yield* Console.log("       Summary");
+  yield* Console.log("       Query Methods Summary");
   yield* Console.log("========================================");
-  yield* Console.log("- 4 users (schema v3)");
-  yield* Console.log("- 4 posts (schema v3)");
-  yield* Console.log("- 3 comments (schema v2)");
-  yield* Console.log("- Queries: primary key, GSI, filters");
-  yield* Console.log("- Updates: simple, optimistic locking");
-  yield* Console.log("- Low-level: putItem, getItem, updateItem");
-  yield* Console.log("- Transactions: atomic multi-item");
-  yield* Console.log("- Error handling: duplicates, stale updates");
+  yield* Console.log("query() - Simple queries with explicit direction:");
+  yield* Console.log("  { sk: { '>=': null } }       - All items ascending");
+  yield* Console.log("  { sk: { '<=': null } }       - All items descending");
+  yield* Console.log("  { sk: { '>=': null } }, { limit } - First N");
+  yield* Console.log("  { sk: { '<=': null } }, { limit } - Last N");
+  yield* Console.log("  { sk: { '>=': value } }      - From value onwards (asc)");
+  yield* Console.log("  { sk: { '<=': value } }      - Up to value (desc)");
+  yield* Console.log("");
+  yield* Console.log("raw.query() - Complex conditions:");
+  yield* Console.log("  raw.query('pk', { pk, sk: { between: [a, b] } })");
+  yield* Console.log("  raw.query('pk', { pk, sk: { beginsWith: v } })");
   yield* Console.log("========================================\n");
 });
 
@@ -363,21 +264,16 @@ const playOff = Effect.gen(function* () {
 // Main Entry Point
 // =============================================================================
 async function main() {
-  console.log("Starting DynamoDB Playground...\n");
+  console.log("Starting Query Playground...\n");
   console.log(`Table: ${PLAYGROUND_TABLE}`);
   console.log(`Endpoint: ${LOCAL_ENDPOINT}\n`);
 
   try {
     await createPlaygroundTable();
-    await Effect.runPromise(playOff);
-
-    // console.log("\nCleaning up...");
-    // await deletePlaygroundTable();
-
+    await Effect.runPromise(play);
     console.log("\nPlayground completed successfully!");
   } catch (error) {
     console.error("\nPlayground failed:", error);
-    console.log("\nAttempting cleanup...");
     await deletePlaygroundTable();
     process.exit(1);
   }

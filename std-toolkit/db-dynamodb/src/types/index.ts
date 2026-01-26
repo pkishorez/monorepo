@@ -10,6 +10,16 @@ export type {
 
 export type { TransactItem, TransactItemBase } from "./transaction.js";
 
+export type {
+  Operator,
+  KeyOp,
+  SkParam,
+  SimpleQueryOptions,
+  SubscribeOptions,
+} from "./simplified.js";
+
+export { extractKeyOp, getKeyOpScanDirection } from "./simplified.js";
+
 
 // Internal types (re-exported for internal use only)
 export type {

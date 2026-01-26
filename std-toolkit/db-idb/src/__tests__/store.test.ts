@@ -2,7 +2,7 @@ import "./setup";
 import { describe, it, expect, beforeEach } from "@effect/vitest";
 import { Effect, Option, Schema } from "effect";
 import { ESchema } from "@std-toolkit/eschema";
-import { IDBStore, IDBEntity, IDBEntityUnit } from "../index";
+import { IDBStore, IDBEntity } from "../index";
 
 describe("IDBStore", () => {
   let store: IDBStore;
@@ -62,7 +62,10 @@ describe("IDBStore", () => {
       expect(updated.value).toEqual({ name: "Alice Updated", age: 26 });
 
       const fetched = yield* store.getItem({ entity: "User", id: "user-1" });
-      expect(Option.getOrThrow(fetched).value).toEqual({ name: "Alice Updated", age: 26 });
+      expect(Option.getOrThrow(fetched).value).toEqual({
+        name: "Alice Updated",
+        age: 26,
+      });
     }),
   );
 
@@ -83,9 +86,21 @@ describe("IDBStore", () => {
 
   it.effect("gets all items", () =>
     Effect.gen(function* () {
-      yield* store.put({ entity: "User", id: "user-1", value: { name: "Alice" } });
-      yield* store.put({ entity: "User", id: "user-2", value: { name: "Bob" } });
-      yield* store.put({ entity: "Post", id: "post-1", value: { title: "Hello" } });
+      yield* store.put({
+        entity: "User",
+        id: "user-1",
+        value: { name: "Alice" },
+      });
+      yield* store.put({
+        entity: "User",
+        id: "user-2",
+        value: { name: "Bob" },
+      });
+      yield* store.put({
+        entity: "Post",
+        id: "post-1",
+        value: { title: "Hello" },
+      });
 
       const all = yield* store.getAll();
       expect(all).toHaveLength(3);
@@ -94,8 +109,16 @@ describe("IDBStore", () => {
 
   it.effect("purges all items", () =>
     Effect.gen(function* () {
-      yield* store.put({ entity: "User", id: "user-1", value: { name: "Alice" } });
-      yield* store.put({ entity: "User", id: "user-2", value: { name: "Bob" } });
+      yield* store.put({
+        entity: "User",
+        id: "user-1",
+        value: { name: "Alice" },
+      });
+      yield* store.put({
+        entity: "User",
+        id: "user-2",
+        value: { name: "Bob" },
+      });
 
       yield* store.purge();
 
@@ -117,21 +140,33 @@ describe("IDBEntity", () => {
 
   beforeEach(async () => {
     dbCounter++;
-    store = await Effect.runPromise(IDBStore.make(`test-entity-db-${dbCounter}`));
+    store = await Effect.runPromise(
+      IDBStore.make(`test-entity-db-${dbCounter}`),
+    );
   });
 
   it.effect("creates an entity with builder pattern", () =>
     Effect.gen(function* () {
-      const users = IDBEntity.make("User").eschema(UserSchema).id("id").build(store);
+      const users = IDBEntity.make("User")
+        .eschema(UserSchema)
+        .id("id")
+        .build(store);
       expect(users).toBeInstanceOf(IDBEntity);
     }),
   );
 
   it.effect("puts and queries entities", () =>
     Effect.gen(function* () {
-      const users = IDBEntity.make("User").eschema(UserSchema).id("id").build(store);
+      const users = IDBEntity.make("User")
+        .eschema(UserSchema)
+        .id("id")
+        .build(store);
 
-      yield* users.put({ id: "user-1", name: "Alice", email: "alice@test.com" });
+      yield* users.put({
+        id: "user-1",
+        name: "Alice",
+        email: "alice@test.com",
+      });
       yield* users.put({ id: "user-2", name: "Bob", email: "bob@test.com" });
 
       const all = yield* users.query();
@@ -143,9 +178,16 @@ describe("IDBEntity", () => {
 
   it.effect("gets a single entity by id", () =>
     Effect.gen(function* () {
-      const users = IDBEntity.make("User").eschema(UserSchema).id("id").build(store);
+      const users = IDBEntity.make("User")
+        .eschema(UserSchema)
+        .id("id")
+        .build(store);
 
-      yield* users.put({ id: "user-1", name: "Alice", email: "alice@test.com" });
+      yield* users.put({
+        id: "user-1",
+        name: "Alice",
+        email: "alice@test.com",
+      });
 
       const user = yield* users.get("user-1");
       expect(Option.getOrThrow(user).name).toBe("Alice");
@@ -155,7 +197,10 @@ describe("IDBEntity", () => {
 
   it.effect("returns None for non-existent entity", () =>
     Effect.gen(function* () {
-      const users = IDBEntity.make("User").eschema(UserSchema).id("id").build(store);
+      const users = IDBEntity.make("User")
+        .eschema(UserSchema)
+        .id("id")
+        .build(store);
 
       const user = yield* users.get("non-existent");
       expect(Option.isNone(user)).toBe(true);
@@ -164,9 +209,16 @@ describe("IDBEntity", () => {
 
   it.effect("deletes an entity", () =>
     Effect.gen(function* () {
-      const users = IDBEntity.make("User").eschema(UserSchema).id("id").build(store);
+      const users = IDBEntity.make("User")
+        .eschema(UserSchema)
+        .id("id")
+        .build(store);
 
-      yield* users.put({ id: "user-1", name: "Alice", email: "alice@test.com" });
+      yield* users.put({
+        id: "user-1",
+        name: "Alice",
+        email: "alice@test.com",
+      });
       yield* users.delete("user-1");
 
       const user = yield* users.get("user-1");
@@ -176,16 +228,26 @@ describe("IDBEntity", () => {
 
   it.effect("queries only entities of the same type", () =>
     Effect.gen(function* () {
-      const users = IDBEntity.make("User").eschema(UserSchema).id("id").build(store);
+      const users = IDBEntity.make("User")
+        .eschema(UserSchema)
+        .id("id")
+        .build(store);
 
       const PostSchema = ESchema.make("Post", {
         id: Schema.String,
         title: Schema.String,
       }).build();
 
-      const posts = IDBEntity.make("Post").eschema(PostSchema).id("id").build(store);
+      const posts = IDBEntity.make("Post")
+        .eschema(PostSchema)
+        .id("id")
+        .build(store);
 
-      yield* users.put({ id: "user-1", name: "Alice", email: "alice@test.com" });
+      yield* users.put({
+        id: "user-1",
+        name: "Alice",
+        email: "alice@test.com",
+      });
       yield* posts.put({ id: "post-1", title: "Hello World" });
 
       const userList = yield* users.query();
@@ -195,69 +257,6 @@ describe("IDBEntity", () => {
       expect(postList).toHaveLength(1);
       expect(userList[0]?.name).toBe("Alice");
       expect(postList[0]?.title).toBe("Hello World");
-    }),
-  );
-});
-
-describe("IDBEntityUnit", () => {
-  let store: IDBStore;
-  let dbCounter = 200;
-
-  const SettingsSchema = ESchema.make("Settings", {
-    theme: Schema.String,
-    language: Schema.String,
-  }).build();
-
-  beforeEach(async () => {
-    dbCounter++;
-    store = await Effect.runPromise(IDBStore.make(`test-unit-db-${dbCounter}`));
-  });
-
-  it.effect("creates a unit entity with builder pattern", () =>
-    Effect.gen(function* () {
-      const settings = IDBEntityUnit.make("Settings").eschema(SettingsSchema).build(store);
-      expect(settings).toBeInstanceOf(IDBEntityUnit);
-    }),
-  );
-
-  it.effect("puts and gets a unit entity", () =>
-    Effect.gen(function* () {
-      const settings = IDBEntityUnit.make("Settings").eschema(SettingsSchema).build(store);
-
-      yield* settings.put({ theme: "dark", language: "en" });
-
-      const result = yield* settings.get();
-      expect(Option.getOrThrow(result).theme).toBe("dark");
-      expect(Option.getOrThrow(result).language).toBe("en");
-    }),
-  );
-
-  it.effect("returns None when unit not set", () =>
-    Effect.gen(function* () {
-      const settings = IDBEntityUnit.make("Settings").eschema(SettingsSchema).build(store);
-
-      const result = yield* settings.get();
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-
-  it.effect("overwrites unit entity on subsequent put", () =>
-    Effect.gen(function* () {
-      const settings = IDBEntityUnit.make("Settings").eschema(SettingsSchema).build(store);
-
-      yield* settings.put({ theme: "dark", language: "en" });
-      yield* settings.put({ theme: "light", language: "fr" });
-
-      const result = yield* settings.get();
-      expect(Option.getOrThrow(result).theme).toBe("light");
-      expect(Option.getOrThrow(result).language).toBe("fr");
-    }),
-  );
-
-  it.effect("has correct unit id format", () =>
-    Effect.gen(function* () {
-      const settings = IDBEntityUnit.make("Settings").eschema(SettingsSchema).build(store);
-      expect(settings.unitId).toBe("UNIT_Settings");
     }),
   );
 });

@@ -11,6 +11,7 @@
     "lint": "pnpm -r lint",
     "prepare-release": "changeset && changeset version",
     "release": "pnpm build && changeset publish",
+    "test:run": "pnpm -r test:run",
     "updates": "npx -y npm-check-updates -iws",
     "version": "changeset version"
   },
