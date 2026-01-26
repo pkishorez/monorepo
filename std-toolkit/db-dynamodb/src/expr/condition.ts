@@ -2,12 +2,22 @@ import type { ExprResult, ValidPaths } from "./types.js";
 import type { Get, Paths } from "type-fest";
 import { AttributeMapBuilder } from "./utils.js";
 
+/**
+ * A compiled condition operation ready for use in DynamoDB requests.
+ *
+ * @typeParam T - The entity type this condition operates on
+ */
 export type CompiledConditionOperation<T = any> = {
   type: "condition_operation";
   expr: ExprResult;
   value?: T;
 };
 
+/**
+ * A comparison condition operation (=, <>, <, <=, >, >=).
+ *
+ * @typeParam T - The entity type this condition operates on
+ */
 export type CondOperation<T = any> = {
   type: "condition_condition";
   key: ValidPaths<T>;
@@ -15,26 +25,49 @@ export type CondOperation<T = any> = {
   value: any;
 };
 
+/**
+ * Logical AND operation combining multiple conditions.
+ *
+ * @typeParam T - The entity type this condition operates on
+ */
 export type AndOperation<T = any> = {
   type: "condition_and";
   conditions: AnyCondition<T>[];
 };
 
+/**
+ * Logical OR operation combining multiple conditions.
+ *
+ * @typeParam T - The entity type this condition operates on
+ */
 export type OrOperation<T = any> = {
   type: "condition_or";
   conditions: AnyCondition<T>[];
 };
 
+/**
+ * Condition that checks if an attribute does not exist.
+ *
+ * @typeParam T - The entity type this condition operates on
+ */
 export type AttributeNotExistsOperation<T = any> = {
   type: "condition_attribute_not_exists";
   key: ValidPaths<T>;
 };
 
+/**
+ * Condition that checks if an attribute exists.
+ *
+ * @typeParam T - The entity type this condition operates on
+ */
 export type AttributeExistsOperation<T = any> = {
   type: "condition_attribute_exists";
   key: ValidPaths<T>;
 };
 
+/**
+ * Union of all possible condition operation types.
+ */
 type AnyCondition<T = any> =
   | CondOperation<T>
   | AndOperation<T>
@@ -42,28 +75,47 @@ type AnyCondition<T = any> =
   | AttributeNotExistsOperation<T>
   | AttributeExistsOperation<T>;
 
+/**
+ * Any condition operation that can be used in a DynamoDB expression.
+ *
+ * @typeParam T - The entity type this condition operates on
+ */
 export type ConditionOperation<T = any> = AnyCondition<T>;
 
+/**
+ * Valid keys for condition operations, handling any types.
+ */
 type ValidConditionKeys<T> = T extends any
   ? unknown extends T
     ? string
     : Paths<T, { bracketNotation: true }>
   : never;
 
+/**
+ * Operations available in the condition builder callback.
+ *
+ * @typeParam T - The entity type the conditions operate on
+ */
 type ConditionOps<T> = {
+  /** Creates a comparison condition */
   cond: <Key extends ValidConditionKeys<T>>(
     key: Key,
     op: "=" | "<>" | "<" | "<=" | ">" | ">=",
     value: Get<T, Key>,
   ) => CondOperation;
 
+  /** Combines conditions with logical AND */
   and: (...ops: AnyCondition<T>[]) => AndOperation;
+
+  /** Combines conditions with logical OR */
   or: (...ops: AnyCondition<T>[]) => OrOperation;
 
+  /** Checks that an attribute does not exist */
   attributeNotExists: <Key extends ValidConditionKeys<T>>(
     key: Key,
   ) => AttributeNotExistsOperation;
 
+  /** Checks that an attribute exists */
   attributeExists: <Key extends ValidConditionKeys<T>>(
     key: Key,
   ) => AttributeExistsOperation;
@@ -97,6 +149,23 @@ function attributeExists<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   return { type: "condition_attribute_exists", key };
 }
 
+/**
+ * Creates a condition expression using a type-safe builder pattern.
+ *
+ * @typeParam T - The entity type the condition operates on
+ * @param builder - Callback that receives condition operations and returns a condition
+ * @returns A condition operation ready for compilation
+ *
+ * @example
+ * ```ts
+ * const condition = exprCondition<User>(({ cond, and }) =>
+ *   and(
+ *     cond("status", "=", "active"),
+ *     cond("age", ">=", 18)
+ *   )
+ * );
+ * ```
+ */
 export function exprCondition<T>(
   builder: (ops: ConditionOps<T>) => AnyCondition<T>,
 ): ConditionOperation<T> {
@@ -109,12 +178,27 @@ export function exprCondition<T>(
   });
 }
 
+/**
+ * Creates a filter expression using the same builder pattern as exprCondition.
+ * Alias for exprCondition, used semantically for query filter expressions.
+ *
+ * @typeParam T - The entity type the filter operates on
+ * @param builder - Callback that receives condition operations and returns a condition
+ * @returns A condition operation ready for compilation
+ */
 export function exprFilter<T>(
   builder: (ops: ConditionOps<T>) => AnyCondition<T>,
 ): ConditionOperation<T> {
   return exprCondition(builder);
 }
 
+/**
+ * Compiles a condition operation into a DynamoDB-ready expression.
+ *
+ * @typeParam T - The entity type the condition operates on
+ * @param operation - The condition operation to compile
+ * @returns A compiled condition with expression string and attribute maps
+ */
 export function compileConditionExpr<T>(
   operation: ConditionOperation<T>,
 ): CompiledConditionOperation<T> {

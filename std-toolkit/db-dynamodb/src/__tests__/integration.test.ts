@@ -9,7 +9,6 @@ import {
   opAdd,
   exprCondition,
   exprFilter,
-  opIfNotExists,
 } from "../index.js";
 import { createDynamoDB } from "../services/DynamoClient.js";
 
@@ -155,9 +154,7 @@ async function createTestTable() {
 async function deleteTestTable() {
   try {
     const client = createDynamoDB(localConfig);
-    await Effect.runPromise(
-      client.deleteTable({ TableName: TEST_TABLE_NAME }),
-    );
+    await Effect.runPromise(client.deleteTable({ TableName: TEST_TABLE_NAME }));
   } catch {
     // Ignore cleanup errors
   }

@@ -47,3 +47,19 @@ export const CommentEntity = DynamoEntity.make(table)
     sk: ["createdAt", "id"],
   })
   .build();
+
+// =============================================================================
+// Example: Entity with _u in sort key for time-ordered results (ULID)
+// GSI1 (byAuthorTime): PK: byAuthorTime#{authorId}, SK: {_u}
+// =============================================================================
+export const PostByTimeEntity = DynamoEntity.make(table)
+  .eschema(postSchema)
+  .primary({
+    pk: ["authorId"],
+    sk: ["id"],
+  })
+  .index("GSI1", "byAuthorTime", {
+    pk: ["authorId"],
+    sk: ["_u"], // Orders sorted by creation time (ULID)
+  })
+  .build();

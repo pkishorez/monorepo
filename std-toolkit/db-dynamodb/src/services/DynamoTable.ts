@@ -17,14 +17,37 @@ import {
 import { buildExpr } from "../expr/build-expr.js";
 import { type ConditionOperation } from "../expr/condition.js";
 
+/**
+ * Result of a DynamoDB query or scan operation.
+ */
 export interface QueryResult {
+  /** Array of unmarshalled items returned by the query */
   Items: Record<string, unknown>[];
+  /** Pagination token for retrieving the next page of results */
   LastEvaluatedKey?: Record<string, unknown>;
 }
 
+/**
+ * Factory for creating DynamoDB table instances with type-safe index configuration.
+ */
 export const DynamoTable = {
+  /**
+   * Creates a new DynamoDB table builder with the given configuration.
+   *
+   * @param config - The table configuration including name, region, and credentials
+   * @returns A builder to configure the primary key
+   */
   make(config: DynamoTableConfig) {
     return {
+      /**
+       * Defines the primary key structure for the table.
+       *
+       * @typeParam Pk - The partition key attribute name
+       * @typeParam Sk - The sort key attribute name
+       * @param pk - Partition key attribute name
+       * @param sk - Sort key attribute name
+       * @returns A builder to add secondary indexes
+       */
       primary<Pk extends string, Sk extends string>(pk: Pk, sk: Sk) {
         return new DynamoTableBuilder(config, { pk, sk }, {});
       },
@@ -32,6 +55,9 @@ export const DynamoTable = {
   },
 };
 
+/**
+ * Creates the internal table instance with all DynamoDB operations.
+ */
 function createDynamoTableInstance<
   TPrimaryIndex extends IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition>,
@@ -105,10 +131,20 @@ function createDynamoTableInstance<
   };
 
   return {
+    /** The name of the DynamoDB table */
     tableName,
+    /** The primary index definition */
     primary,
+    /** Map of secondary index names to their definitions */
     secondaryIndexMap,
 
+    /**
+     * Retrieves a single item by its primary key.
+     *
+     * @param key - The primary key values (pk and sk)
+     * @param options - Optional read options
+     * @returns The item if found, or null
+     */
     getItem(
       key: IndexDefinition,
       options?: { ConsistentRead?: boolean },
@@ -130,6 +166,13 @@ function createDynamoTableInstance<
         );
     },
 
+    /**
+     * Creates or replaces an item in the table.
+     *
+     * @param value - The item to put
+     * @param options - Optional condition expression and return values
+     * @returns The old item attributes if ReturnValues is ALL_OLD
+     */
     putItem(
       value: Record<string, unknown>,
       options?: {
@@ -158,6 +201,13 @@ function createDynamoTableInstance<
         );
     },
 
+    /**
+     * Updates attributes of an existing item.
+     *
+     * @param key - The primary key of the item to update
+     * @param options - Update expression and optional condition
+     * @returns The updated item attributes
+     */
     updateItem(
       key: IndexDefinition,
       options: {
@@ -190,6 +240,11 @@ function createDynamoTableInstance<
         );
     },
 
+    /**
+     * Deletes an item from the table.
+     *
+     * @param key - The primary key of the item to delete
+     */
     deleteItem(key: IndexDefinition): Effect.Effect<void, DynamodbError> {
       return client
         .deleteItem({
@@ -205,6 +260,13 @@ function createDynamoTableInstance<
         );
     },
 
+    /**
+     * Queries items using the primary index.
+     *
+     * @param cond - Key condition parameters
+     * @param options - Query options including limit, sort order, and filter
+     * @returns The query result with items and optional pagination token
+     */
     query(
       cond: KeyConditionExprParameters,
       options?: {
@@ -216,18 +278,34 @@ function createDynamoTableInstance<
       return rawQuery(primary, cond, options);
     },
 
+    /**
+     * Scans all items in the table.
+     *
+     * @param options - Scan options including limit
+     * @returns The scan result with items and optional pagination token
+     */
     scan(options?: {
       Limit?: number;
     }): Effect.Effect<QueryResult, DynamodbError> {
       return rawScan(options);
     },
 
+    /**
+     * Accesses a secondary index for querying.
+     *
+     * @typeParam IndexName - The name of the secondary index
+     * @param indexName - The secondary index name
+     * @returns An object with query and scan methods for the index
+     */
     index<IndexName extends keyof TSecondaryIndexMap>(indexName: IndexName) {
       const indexDef = secondaryIndexMap[indexName as string];
       if (!indexDef) {
         throw new Error(`Index ${String(indexName)} not found`);
       }
       return {
+        /**
+         * Queries items using the secondary index.
+         */
         query(
           cond: KeyConditionExprParameters,
           options?: {
@@ -241,6 +319,9 @@ function createDynamoTableInstance<
             IndexName: indexName as string,
           });
         },
+        /**
+         * Scans all items in the secondary index.
+         */
         scan(options?: {
           Limit?: number;
         }): Effect.Effect<QueryResult, DynamodbError> {
@@ -252,6 +333,13 @@ function createDynamoTableInstance<
       };
     },
 
+    /**
+     * Creates a put operation for use in a transaction.
+     *
+     * @param value - The item to put
+     * @param options - Optional condition expression
+     * @returns A transaction item for put
+     */
     opPutItem(
       value: Record<string, unknown>,
       options?: {
@@ -270,6 +358,13 @@ function createDynamoTableInstance<
       };
     },
 
+    /**
+     * Creates an update operation for use in a transaction.
+     *
+     * @param key - The primary key of the item to update
+     * @param options - Update expression and optional condition
+     * @returns A transaction item for update
+     */
     opUpdateItem(
       key: IndexDefinition,
       options: {
@@ -292,6 +387,12 @@ function createDynamoTableInstance<
       };
     },
 
+    /**
+     * Executes a transaction with multiple put and update operations.
+     *
+     * @param items - Array of transaction items
+     * @returns Effect that completes when the transaction succeeds
+     */
     transact(
       items: (TransactItem | TransactItemBase)[],
     ): Effect.Effect<void, DynamodbError> {
@@ -309,6 +410,12 @@ function createDynamoTableInstance<
         );
     },
 
+    /**
+     * Gets the table schema configuration for creating the table.
+     * Includes key schema, attribute definitions, and secondary indexes.
+     *
+     * @returns The table schema without the TableName field
+     */
     getTableSchema(): Omit<CreateTableInput, "TableName"> {
       const allSecondaryKeys = Object.entries(secondaryIndexMap).map(
         ([IndexName, { pk, sk }]) => ({ IndexName, pk, sk }),
@@ -361,6 +468,9 @@ function createDynamoTableInstance<
   };
 }
 
+/**
+ * Type representing an instance of DynamoTable with configured indexes.
+ */
 export type DynamoTableInstance<
   TPrimaryIndex extends IndexDefinition = IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition> = Record<
@@ -371,6 +481,9 @@ export type DynamoTableInstance<
   typeof createDynamoTableInstance<TPrimaryIndex, TSecondaryIndexMap>
 >;
 
+/**
+ * Builder class for configuring DynamoDB table indexes.
+ */
 class DynamoTableBuilder<
   TPrimaryIndex extends IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition>,
@@ -389,6 +502,16 @@ class DynamoTableBuilder<
     this.#secondaryIndexMap = secondaryIndexMap;
   }
 
+  /**
+   * Adds a local secondary index to the table.
+   * Local secondary indexes share the partition key with the primary index.
+   *
+   * @typeParam IndexName - The name for the LSI
+   * @typeParam Sk - The sort key attribute name for the LSI
+   * @param name - The index name
+   * @param sk - The sort key attribute name
+   * @returns A builder with the LSI added
+   */
   lsi<IndexName extends string, Sk extends string>(name: IndexName, sk: Sk) {
     return new DynamoTableBuilder<
       TPrimaryIndex,
@@ -401,6 +524,18 @@ class DynamoTableBuilder<
       Record<IndexName, { pk: TPrimaryIndex["pk"]; sk: Sk }>);
   }
 
+  /**
+   * Adds a global secondary index to the table.
+   * Global secondary indexes can have different partition and sort keys.
+   *
+   * @typeParam IndexName - The name for the GSI
+   * @typeParam Pk - The partition key attribute name for the GSI
+   * @typeParam Sk - The sort key attribute name for the GSI
+   * @param name - The index name
+   * @param pk - The partition key attribute name
+   * @param sk - The sort key attribute name
+   * @returns A builder with the GSI added
+   */
   gsi<IndexName extends string, Pk extends string, Sk extends string>(
     name: IndexName,
     pk: Pk,
@@ -415,6 +550,11 @@ class DynamoTableBuilder<
     } as TSecondaryIndexMap & Record<IndexName, { pk: Pk; sk: Sk }>);
   }
 
+  /**
+   * Builds the final DynamoTable instance with all configured indexes.
+   *
+   * @returns The configured DynamoTableInstance
+   */
   build(): DynamoTableInstance<TPrimaryIndex, TSecondaryIndexMap> {
     const client = createDynamoDB(this.#config);
     return createDynamoTableInstance(
