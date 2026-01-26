@@ -20,105 +20,6 @@ export interface QueryResult {
   LastEvaluatedKey?: Record<string, unknown>;
 }
 
-export interface DynamoTableInstance<
-  TPrimaryIndex extends IndexDefinition = IndexDefinition,
-  TSecondaryIndexMap extends Record<string, IndexDefinition> = Record<
-    string,
-    IndexDefinition
-  >,
-> {
-  readonly tableName: string;
-  readonly primary: TPrimaryIndex;
-  readonly secondaryIndexMap: TSecondaryIndexMap;
-
-  getItem(
-    key: IndexDefinition,
-    options?: { ConsistentRead?: boolean },
-  ): Effect.Effect<{ Item: Record<string, unknown> | null }, DynamodbError>;
-
-  putItem(
-    value: Record<string, unknown>,
-    options?: {
-      ConditionExpression?: string;
-      ExpressionAttributeNames?: Record<string, string>;
-      ExpressionAttributeValues?: MarshalledOutput;
-      ReturnValues?: "ALL_OLD";
-    },
-  ): Effect.Effect<
-    { Attributes: Record<string, unknown> | null },
-    DynamodbError
-  >;
-
-  updateItem(
-    key: IndexDefinition,
-    options: {
-      UpdateExpression?: string;
-      ConditionExpression?: string;
-      ExpressionAttributeNames?: Record<string, string>;
-      ExpressionAttributeValues?: MarshalledOutput;
-      ReturnValues?: "ALL_NEW" | "ALL_OLD";
-    },
-  ): Effect.Effect<
-    { Attributes: Record<string, unknown> | null },
-    DynamodbError
-  >;
-
-  deleteItem(key: IndexDefinition): Effect.Effect<void, DynamodbError>;
-
-  query(
-    cond: KeyConditionExprParameters,
-    options?: {
-      IndexName?: string;
-      Limit?: number;
-      ScanIndexForward?: boolean;
-      filter?: ConditionOperation;
-    },
-  ): Effect.Effect<QueryResult, DynamodbError>;
-
-  scan(options?: {
-    IndexName?: string;
-    Limit?: number;
-  }): Effect.Effect<QueryResult, DynamodbError>;
-
-  index<IndexName extends keyof TSecondaryIndexMap>(
-    indexName: IndexName,
-  ): {
-    query(
-      cond: KeyConditionExprParameters,
-      options?: {
-        Limit?: number;
-        ScanIndexForward?: boolean;
-        filter?: ConditionOperation;
-      },
-    ): Effect.Effect<QueryResult, DynamodbError>;
-
-    scan(options?: {
-      Limit?: number;
-    }): Effect.Effect<QueryResult, DynamodbError>;
-  };
-
-  opPutItem(
-    value: Record<string, unknown>,
-    options?: {
-      ConditionExpression?: string;
-      ExpressionAttributeNames?: Record<string, string>;
-      ExpressionAttributeValues?: MarshalledOutput;
-    },
-  ): TransactItem;
-
-  opUpdateItem(
-    key: IndexDefinition,
-    options: {
-      UpdateExpression: string;
-      ConditionExpression?: string | undefined;
-      ExpressionAttributeNames?: Record<string, string> | undefined;
-      ExpressionAttributeValues?: MarshalledOutput | undefined;
-    },
-  ): TransactItem;
-
-  transact(items: TransactItem[]): Effect.Effect<void, DynamodbError>;
-}
-
 export const DynamoTable = {
   make(config: DynamoTableConfig) {
     return {
@@ -137,7 +38,7 @@ function createDynamoTableInstance<
   primary: TPrimaryIndex,
   secondaryIndexMap: TSecondaryIndexMap,
   client: DynamoDBClient,
-): DynamoTableInstance<TPrimaryIndex, TSecondaryIndexMap> {
+) {
   const tableName = config.tableName;
 
   const rawQuery = (
@@ -206,7 +107,10 @@ function createDynamoTableInstance<
     primary,
     secondaryIndexMap,
 
-    getItem(key, options) {
+    getItem(
+      key: IndexDefinition,
+      options?: { ConsistentRead?: boolean },
+    ): Effect.Effect<{ Item: Record<string, unknown> | null }, DynamodbError> {
       return client
         .getItem({
           TableName: tableName,
@@ -224,62 +128,67 @@ function createDynamoTableInstance<
         );
     },
 
-    putItem(value, options) {
-      const putOptions: Record<string, unknown> = {
-        TableName: tableName,
-        Item: marshall(value),
-      };
-      if (options?.ConditionExpression)
-        putOptions.ConditionExpression = options.ConditionExpression;
-      if (options?.ExpressionAttributeNames)
-        putOptions.ExpressionAttributeNames = options.ExpressionAttributeNames;
-      if (options?.ExpressionAttributeValues)
-        putOptions.ExpressionAttributeValues =
-          options.ExpressionAttributeValues;
-      if (options?.ReturnValues) putOptions.ReturnValues = options.ReturnValues;
-
-      return client.putItem(putOptions).pipe(
-        Effect.map((response: any) => ({
-          Attributes: response.Attributes
-            ? unmarshall(response.Attributes)
-            : null,
-        })),
-        Effect.mapError(DynamodbError.putItemFailed),
-      );
+    putItem(
+      value: Record<string, unknown>,
+      options?: {
+        ConditionExpression?: string;
+        ExpressionAttributeNames?: Record<string, string>;
+        ExpressionAttributeValues?: MarshalledOutput;
+        ReturnValues?: "ALL_OLD";
+      },
+    ): Effect.Effect<
+      { Attributes: Record<string, unknown> | null },
+      DynamodbError
+    > {
+      return client
+        .putItem({
+          TableName: tableName,
+          Item: marshall(value),
+          ...options,
+        })
+        .pipe(
+          Effect.map((response: any) => ({
+            Attributes: response.Attributes
+              ? unmarshall(response.Attributes)
+              : null,
+          })),
+          Effect.mapError(DynamodbError.putItemFailed),
+        );
     },
 
-    updateItem(key, options) {
-      const updateOptions: Record<string, unknown> = {
-        TableName: tableName,
-        Key: marshall({
-          [primary.pk]: key.pk,
-          [primary.sk]: key.sk,
-        }),
-      };
-      if (options.UpdateExpression)
-        updateOptions.UpdateExpression = options.UpdateExpression;
-      if (options.ConditionExpression)
-        updateOptions.ConditionExpression = options.ConditionExpression;
-      if (options.ExpressionAttributeNames)
-        updateOptions.ExpressionAttributeNames =
-          options.ExpressionAttributeNames;
-      if (options.ExpressionAttributeValues)
-        updateOptions.ExpressionAttributeValues =
-          options.ExpressionAttributeValues;
-      if (options.ReturnValues)
-        updateOptions.ReturnValues = options.ReturnValues;
-
-      return client.updateItem(updateOptions).pipe(
-        Effect.map((response: any) => ({
-          Attributes: response.Attributes
-            ? unmarshall(response.Attributes)
-            : null,
-        })),
-        Effect.mapError(DynamodbError.updateItemFailed),
-      );
+    updateItem(
+      key: IndexDefinition,
+      options: {
+        UpdateExpression?: string;
+        ConditionExpression?: string;
+        ExpressionAttributeNames?: Record<string, string>;
+        ExpressionAttributeValues?: MarshalledOutput;
+        ReturnValues?: "ALL_NEW" | "ALL_OLD";
+      },
+    ): Effect.Effect<
+      { Attributes: Record<string, unknown> | null },
+      DynamodbError
+    > {
+      return client
+        .updateItem({
+          TableName: tableName,
+          Key: marshall({
+            [primary.pk]: key.pk,
+            [primary.sk]: key.sk,
+          }),
+          ...options,
+        })
+        .pipe(
+          Effect.map((response: any) => ({
+            Attributes: response.Attributes
+              ? unmarshall(response.Attributes)
+              : null,
+          })),
+          Effect.mapError(DynamodbError.updateItemFailed),
+        );
     },
 
-    deleteItem(key) {
+    deleteItem(key: IndexDefinition): Effect.Effect<void, DynamodbError> {
       return client
         .deleteItem({
           TableName: tableName,
@@ -294,27 +203,45 @@ function createDynamoTableInstance<
         );
     },
 
-    query(cond, options) {
+    query(
+      cond: KeyConditionExprParameters,
+      options?: {
+        Limit?: number;
+        ScanIndexForward?: boolean;
+        filter?: ConditionOperation;
+      },
+    ): Effect.Effect<QueryResult, DynamodbError> {
       return rawQuery(primary, cond, options);
     },
 
-    scan(options) {
+    scan(options?: {
+      Limit?: number;
+    }): Effect.Effect<QueryResult, DynamodbError> {
       return rawScan(options);
     },
 
-    index(indexName) {
+    index<IndexName extends keyof TSecondaryIndexMap>(indexName: IndexName) {
       const indexDef = secondaryIndexMap[indexName as string];
       if (!indexDef) {
         throw new Error(`Index ${String(indexName)} not found`);
       }
       return {
-        query(cond, options) {
+        query(
+          cond: KeyConditionExprParameters,
+          options?: {
+            Limit?: number;
+            ScanIndexForward?: boolean;
+            filter?: ConditionOperation;
+          },
+        ): Effect.Effect<QueryResult, DynamodbError> {
           return rawQuery(indexDef, cond, {
             ...options,
             IndexName: indexName as string,
           });
         },
-        scan(options) {
+        scan(options?: {
+          Limit?: number;
+        }): Effect.Effect<QueryResult, DynamodbError> {
           return rawScan({
             ...options,
             IndexName: indexName as string,
@@ -323,42 +250,47 @@ function createDynamoTableInstance<
       };
     },
 
-    opPutItem(value, options) {
-      const putOpts: TransactItem["options"] & { kind?: never } = {
-        TableName: tableName,
-        Item: marshall(value),
+    opPutItem(
+      value: Record<string, unknown>,
+      options?: {
+        ConditionExpression?: string;
+        ExpressionAttributeNames?: Record<string, string>;
+        ExpressionAttributeValues?: MarshalledOutput;
+      },
+    ): TransactItem {
+      return {
+        kind: "put",
+        options: {
+          TableName: tableName,
+          Item: marshall(value),
+          ...options,
+        },
       };
-      if (options?.ConditionExpression)
-        putOpts.ConditionExpression = options.ConditionExpression;
-      if (options?.ExpressionAttributeNames)
-        putOpts.ExpressionAttributeNames = options.ExpressionAttributeNames;
-      if (options?.ExpressionAttributeValues)
-        putOpts.ExpressionAttributeValues = options.ExpressionAttributeValues;
-
-      return { kind: "put" as const, options: putOpts };
     },
 
-    opUpdateItem(key, options) {
-      const updateOpts: TransactItem["options"] & { kind?: never } = {
-        TableName: tableName,
-        Key: marshall({
-          [primary.pk]: key.pk,
-          [primary.sk]: key.sk,
-        }),
-        UpdateExpression: options.UpdateExpression,
+    opUpdateItem(
+      key: IndexDefinition,
+      options: {
+        UpdateExpression: string;
+        ConditionExpression?: string | undefined;
+        ExpressionAttributeNames?: Record<string, string> | undefined;
+        ExpressionAttributeValues?: MarshalledOutput | undefined;
+      },
+    ): TransactItem {
+      return {
+        kind: "update",
+        options: {
+          TableName: tableName,
+          Key: marshall({
+            [primary.pk]: key.pk,
+            [primary.sk]: key.sk,
+          }),
+          ...options,
+        },
       };
-      if (options.ConditionExpression)
-        updateOpts.ConditionExpression = options.ConditionExpression;
-      if (options.ExpressionAttributeNames)
-        updateOpts.ExpressionAttributeNames = options.ExpressionAttributeNames;
-      if (options.ExpressionAttributeValues)
-        updateOpts.ExpressionAttributeValues =
-          options.ExpressionAttributeValues;
-
-      return { kind: "update" as const, options: updateOpts };
     },
 
-    transact(items) {
+    transact(items: TransactItem[]): Effect.Effect<void, DynamodbError> {
       return client
         .transactWriteItems({
           TransactItems: items.map((item) =>
@@ -374,6 +306,16 @@ function createDynamoTableInstance<
     },
   };
 }
+
+export type DynamoTableInstance<
+  TPrimaryIndex extends IndexDefinition = IndexDefinition,
+  TSecondaryIndexMap extends Record<string, IndexDefinition> = Record<
+    string,
+    IndexDefinition
+  >,
+> = ReturnType<
+  typeof createDynamoTableInstance<TPrimaryIndex, TSecondaryIndexMap>
+>;
 
 class DynamoTableBuilder<
   TPrimaryIndex extends IndexDefinition,
