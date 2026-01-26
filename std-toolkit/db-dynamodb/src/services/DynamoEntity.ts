@@ -8,10 +8,7 @@ import type {
   IndexSkValue,
   TransactItem,
 } from "../types/index.js";
-import type {
-  EntityDescriptor,
-  IndexPatternDescriptor,
-} from "../types/descriptor.js";
+import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
 import {
   deriveIndexKeyValue,
   toDiscriminatedGeneric,
@@ -189,11 +186,11 @@ export class DynamoEntity<
   }
 
   /**
-   * Gets the complete descriptor for this entity including schema and index info.
+   * Gets the unified descriptor for this entity including schema and index info.
    *
-   * @returns The entity descriptor
+   * @returns The StdDescriptor for this entity
    */
-  getDescriptor(): EntityDescriptor {
+  getDescriptor(): StdDescriptor {
     return {
       name: this.#eschema.name,
       version: this.#eschema.latestVersion,

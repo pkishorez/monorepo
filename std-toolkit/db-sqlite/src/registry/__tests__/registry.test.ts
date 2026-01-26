@@ -205,7 +205,7 @@ describe("DatabaseRegistry getSchema", () => {
 
     const schema = db.getSchema();
 
-    expect(schema.tables).toEqual([]);
+    expect(schema.descriptors).toEqual([]);
   });
 
   it("returns all table descriptors", () => {
@@ -216,10 +216,10 @@ describe("DatabaseRegistry getSchema", () => {
 
     const schema = db.getSchema();
 
-    expect(schema.tables).toHaveLength(2);
+    expect(schema.descriptors).toHaveLength(2);
 
-    const userTable = schema.tables.find((t) => t.name === "User");
-    const orderTable = schema.tables.find((t) => t.name === "CustomerOrder");
+    const userTable = schema.descriptors.find((t) => t.name === "User");
+    const orderTable = schema.descriptors.find((t) => t.name === "CustomerOrder");
 
     expect(userTable).toBeDefined();
     expect(orderTable).toBeDefined();
@@ -229,7 +229,7 @@ describe("DatabaseRegistry getSchema", () => {
     const db = DatabaseRegistry.make().register(UsersTable).build();
 
     const schema = db.getSchema();
-    const userTable = schema.tables[0]!;
+    const userTable = schema.descriptors[0]!;
 
     expect(userTable.primaryIndex.name).toBe("primary");
     expect(userTable.primaryIndex.sk.deps).toEqual(["id"]);
@@ -241,7 +241,7 @@ describe("DatabaseRegistry getSchema", () => {
     const db = DatabaseRegistry.make().register(OrdersTable).build();
 
     const schema = db.getSchema();
-    const orderTable = schema.tables[0]!;
+    const orderTable = schema.descriptors[0]!;
 
     expect(orderTable.schema).toBeDefined();
     expect(orderTable.schema.type).toBe("object");
@@ -314,7 +314,7 @@ describe("DatabaseRegistry Integration", () => {
 
       // Verify schema
       const schema = db.getSchema();
-      expect(schema.tables).toHaveLength(2);
+      expect(schema.descriptors).toHaveLength(2);
     }).pipe(Effect.provide(layer)),
   );
 });
