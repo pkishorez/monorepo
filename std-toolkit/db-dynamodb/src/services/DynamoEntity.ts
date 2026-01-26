@@ -10,6 +10,7 @@ import type {
   IndexKeyDerivationValue,
   TransactItem,
 } from "../types/index.js";
+import type { EntityDescriptor, IndexPatternDescriptor } from "../types/descriptor.js";
 import {
   deriveIndexKeyValue,
   toDiscriminatedGeneric,
@@ -92,6 +93,43 @@ export class DynamoEntity<
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = secondaryDerivations;
+  }
+
+  get name(): TSchema["name"] {
+    return this.#eschema.name;
+  }
+
+  getDescriptor(): EntityDescriptor {
+    return {
+      name: this.#eschema.name,
+      version: this.#eschema.latestVersion,
+      primaryIndex: {
+        name: "primary",
+        pk: this.#extractPattern(this.#primaryDerivation.pk),
+        sk: this.#extractPattern(this.#primaryDerivation.sk),
+      },
+      secondaryIndexes: Object.entries(this.#secondaryDerivations).map(
+        ([name, deriv]) => ({
+          name,
+          pk: this.#extractPattern(deriv.pk),
+          sk: this.#extractPattern(deriv.sk),
+        }),
+      ),
+    };
+  }
+
+  #extractPattern(
+    keyDerivation: IndexKeyDerivation<any, any>,
+  ): IndexPatternDescriptor {
+    const deps = keyDerivation.deps.map(String);
+    const placeholder = Object.fromEntries(
+      deps.map((dep) => [dep, `{${dep}}`]),
+    );
+    const parts = keyDerivation.derive(placeholder);
+    return {
+      deps,
+      pattern: parts.join("#"),
+    };
   }
 
   get(
@@ -278,7 +316,7 @@ export class DynamoEntity<
     options?: {
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<TransactItem, DynamodbError> {
+  ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
       const fullValue = {
         ...value,
@@ -319,7 +357,11 @@ export class DynamoEntity<
         ),
       });
 
-      return this.#table.opPutItem(item, exprResult);
+      const tableOp = this.#table.opPutItem(item, exprResult);
+      return {
+        ...tableOp,
+        entityName: this.#eschema.name,
+      };
     });
   }
 
@@ -331,7 +373,7 @@ export class DynamoEntity<
       meta?: Partial<MetaType>;
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<TransactItem, DynamodbError> {
+  ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
       const pk = deriveIndexKeyValue(this.#primaryDerivation.pk, keyValue);
       const sk = deriveIndexKeyValue(this.#primaryDerivation.sk, keyValue);
@@ -365,7 +407,11 @@ export class DynamoEntity<
         condition,
       });
 
-      return this.#table.opUpdateItem({ pk, sk }, exprResult);
+      const tableOp = this.#table.opUpdateItem({ pk, sk }, exprResult);
+      return {
+        ...tableOp,
+        entityName: this.#eschema.name,
+      };
     });
   }
 

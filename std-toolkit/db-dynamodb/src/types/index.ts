@@ -3,7 +3,14 @@ export type { AwsCredentials } from "./aws.js";
 
 export type { IndexDerivation, IndexKeyDerivation } from "./derivation.js";
 
-export type { TransactItem } from "./transaction.js";
+export type { TransactItem, TransactItemBase } from "./transaction.js";
+
+export type {
+  EntityDescriptor,
+  IndexDescriptor,
+  IndexPatternDescriptor,
+  TableSchema,
+} from "./descriptor.js";
 
 // Internal types (re-exported for internal use only)
 export type {

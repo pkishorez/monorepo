@@ -5,3 +5,5 @@ export {
 } from "./DynamoTable.js";
 
 export { DynamoEntity, type EntityType } from "./DynamoEntity.js";
+
+export { TableRegistry } from "./TableRegistry.js";
