@@ -175,19 +175,12 @@ async function createTestTable() {
   await new Promise((resolve) => setTimeout(resolve, 500));
 }
 
-// Helper to clean up all items from the table
-async function cleanupTable() {
+// Helper to delete the test table
+async function deleteTestTable() {
   try {
+    const client = createDynamoDB(localConfig);
     await Effect.runPromise(
-      Effect.gen(function* () {
-        const { Items } = yield* table.scan();
-        for (const item of Items) {
-          yield* table.deleteItem({
-            pk: item.pk as string,
-            sk: item.sk as string,
-          });
-        }
-      }),
+      client.deleteTable({ TableName: TEST_TABLE_NAME }),
     );
   } catch {
     // Ignore cleanup errors
@@ -200,7 +193,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
   });
 
   afterAll(async () => {
-    await cleanupTable();
+    await deleteTestTable();
   });
 
   describe("DynamoTable - Low-level Operations", () => {
