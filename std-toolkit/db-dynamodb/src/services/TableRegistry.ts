@@ -5,9 +5,10 @@ import type { TransactItem, TableSchema } from "../types/index.js";
 import { DynamodbError } from "../errors.js";
 
 // Type to extract entity name from a DynamoEntity
-type EntityName<T> = T extends DynamoEntity<any, any, infer TSchema, any>
-  ? TSchema["name"]
-  : never;
+type EntityName<T> =
+  T extends DynamoEntity<any, any, infer TSchema, any>
+    ? TSchema["name"]
+    : never;
 
 // Type for the entities map
 type EntitiesMap<TTable extends DynamoTableInstance> = Record<
