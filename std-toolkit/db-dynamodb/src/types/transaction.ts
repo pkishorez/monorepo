@@ -7,18 +7,18 @@ export type TransactItem =
 export interface PutOptions {
   TableName: string;
   Item: MarshalledOutput;
-  ConditionExpression?: string;
-  ExpressionAttributeNames?: Record<string, string>;
-  ExpressionAttributeValues?: MarshalledOutput;
-  ReturnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE";
+  ConditionExpression?: string | undefined;
+  ExpressionAttributeNames?: Record<string, string> | undefined;
+  ExpressionAttributeValues?: MarshalledOutput | undefined;
+  ReturnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE" | undefined;
 }
 
 export interface UpdateOptions {
   TableName: string;
   Key: MarshalledOutput;
   UpdateExpression: string;
-  ConditionExpression?: string;
-  ExpressionAttributeNames?: Record<string, string>;
-  ExpressionAttributeValues?: MarshalledOutput;
-  ReturnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE";
+  ConditionExpression?: string | undefined;
+  ExpressionAttributeNames?: Record<string, string> | undefined;
+  ExpressionAttributeValues?: MarshalledOutput | undefined;
+  ReturnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE" | undefined;
 }

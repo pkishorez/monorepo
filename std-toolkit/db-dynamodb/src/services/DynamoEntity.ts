@@ -30,6 +30,15 @@ const metaSchema = Schema.Struct({
 
 type MetaType = typeof metaSchema.Type;
 
+const isConditionalCheckFailed = (e: DynamodbError): boolean => {
+  if (!("cause" in e.error)) return false;
+  const cause = e.error.cause as DynamodbError | undefined;
+  return (
+    cause?.error._tag === "UnknownAwsError" &&
+    cause.error.name === "ConditionalCheckFailedException"
+  );
+};
+
 export interface EntityType<T> {
   value: T;
   meta: MetaType;
@@ -159,32 +168,34 @@ export class DynamoEntity<
         ),
       });
 
-      const putOptions: Record<string, unknown> = {
-        ReturnValues: "ALL_OLD" as const,
-      };
-      if (exprResult.ConditionExpression)
-        putOptions.ConditionExpression = exprResult.ConditionExpression;
-      if (exprResult.ExpressionAttributeNames)
-        putOptions.ExpressionAttributeNames =
-          exprResult.ExpressionAttributeNames;
-      if (exprResult.ExpressionAttributeValues)
-        putOptions.ExpressionAttributeValues =
-          exprResult.ExpressionAttributeValues;
+      const putResult = yield* self.#table
+        .putItem(item, { ReturnValues: "ALL_OLD", ...exprResult })
+        .pipe(
+          Effect.map(() => ({ alreadyExisted: false })),
+          Effect.catchIf(
+            (e): e is DynamodbError =>
+              e.error._tag === "PutItemFailed" && isConditionalCheckFailed(e),
+            () =>
+              options?.ignoreIfAlreadyPresent
+                ? Effect.succeed({ alreadyExisted: true })
+                : Effect.fail(DynamodbError.itemAlreadyExists()),
+          ),
+        );
 
-      yield* self.#table.putItem(item, putOptions as any).pipe(
-        Effect.mapError((e): DynamodbError => {
-          if (
-            e.error._tag === "PutItemFailed" &&
-            (e.error.cause as any)?._tag === "ConditionalCheckFailedException"
-          ) {
-            if (options?.ignoreIfAlreadyPresent) {
-              throw e;
-            }
-            return DynamodbError.itemAlreadyExists();
-          }
-          return e;
-        }),
-      );
+      if (putResult.alreadyExisted) {
+        const existing = yield* self.get(
+          value as unknown as IndexKeyDerivationValue<
+            TPrimaryDerivation["pk"]
+          > &
+            IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
+        );
+        if (!existing) {
+          return yield* Effect.fail(
+            DynamodbError.getItemFailed("Item not found after insert conflict"),
+          );
+        }
+        return existing;
+      }
 
       return { value: fullValue, meta };
     });
@@ -233,32 +244,14 @@ export class DynamoEntity<
         condition,
       });
 
-      const updateOptions: Record<string, unknown> = {
-        ReturnValues: "ALL_NEW" as const,
-      };
-      if (exprResult.UpdateExpression)
-        updateOptions.UpdateExpression = exprResult.UpdateExpression;
-      if (exprResult.ConditionExpression)
-        updateOptions.ConditionExpression = exprResult.ConditionExpression;
-      if (exprResult.ExpressionAttributeNames)
-        updateOptions.ExpressionAttributeNames =
-          exprResult.ExpressionAttributeNames;
-      if (exprResult.ExpressionAttributeValues)
-        updateOptions.ExpressionAttributeValues =
-          exprResult.ExpressionAttributeValues;
-
       const result = yield* self.#table
-        .updateItem({ pk, sk }, updateOptions as any)
+        .updateItem({ pk, sk }, { ReturnValues: "ALL_NEW", ...exprResult })
         .pipe(
-          Effect.mapError((e): DynamodbError => {
-            if (
-              e.error._tag === "UpdateItemFailed" &&
-              (e.error.cause as any)?._tag === "ConditionalCheckFailedException"
-            ) {
-              return DynamodbError.noItemToUpdate();
-            }
-            return e;
-          }),
+          Effect.mapError((e): DynamodbError =>
+            e.error._tag === "UpdateItemFailed" && isConditionalCheckFailed(e)
+              ? DynamodbError.noItemToUpdate()
+              : e,
+          ),
         );
 
       if (!result.Attributes) {
@@ -326,16 +319,7 @@ export class DynamoEntity<
         ),
       });
 
-      const putOpts: Record<string, unknown> = {};
-      if (exprResult.ConditionExpression)
-        putOpts.ConditionExpression = exprResult.ConditionExpression;
-      if (exprResult.ExpressionAttributeNames)
-        putOpts.ExpressionAttributeNames = exprResult.ExpressionAttributeNames;
-      if (exprResult.ExpressionAttributeValues)
-        putOpts.ExpressionAttributeValues =
-          exprResult.ExpressionAttributeValues;
-
-      return this.#table.opPutItem(item, putOpts as any);
+      return this.#table.opPutItem(item, exprResult);
     });
   }
 
@@ -381,23 +365,7 @@ export class DynamoEntity<
         condition,
       });
 
-      if (!exprResult.UpdateExpression) {
-        throw new Error("UpdateExpression is required");
-      }
-
-      const updateOpts: Record<string, unknown> = {
-        UpdateExpression: exprResult.UpdateExpression,
-      };
-      if (exprResult.ConditionExpression)
-        updateOpts.ConditionExpression = exprResult.ConditionExpression;
-      if (exprResult.ExpressionAttributeNames)
-        updateOpts.ExpressionAttributeNames =
-          exprResult.ExpressionAttributeNames;
-      if (exprResult.ExpressionAttributeValues)
-        updateOpts.ExpressionAttributeValues =
-          exprResult.ExpressionAttributeValues;
-
-      return this.#table.opUpdateItem({ pk, sk }, updateOpts as any);
+      return this.#table.opUpdateItem({ pk, sk }, exprResult);
     });
   }
 
@@ -424,15 +392,9 @@ export class DynamoEntity<
         ? this.#calculateSk(this.#primaryDerivation, params.sk as any)
         : undefined;
 
-      const queryOpts: Record<string, unknown> = {};
-      if (options?.Limit !== undefined) queryOpts.Limit = options.Limit;
-      if (options?.ScanIndexForward !== undefined)
-        queryOpts.ScanIndexForward = options.ScanIndexForward;
-      if (options?.filter) queryOpts.filter = options.filter;
-
       const { Items } = yield* this.#table.query(
         { pk: derivedPk, sk: derivedSk as any },
-        queryOpts as any,
+        options,
       );
 
       const items = yield* Effect.all(
@@ -481,15 +443,9 @@ export class DynamoEntity<
             ? this.#calculateSk(indexDerivation, params.sk as any)
             : undefined;
 
-          const queryOpts: Record<string, unknown> = {};
-          if (options?.Limit !== undefined) queryOpts.Limit = options.Limit;
-          if (options?.ScanIndexForward !== undefined)
-            queryOpts.ScanIndexForward = options.ScanIndexForward;
-          if (options?.filter) queryOpts.filter = options.filter;
-
           const { Items } = yield* this.#table
             .index(indexDerivation.gsiName as any)
-            .query({ pk: derivedPk, sk: derivedSk as any }, queryOpts as any);
+            .query({ pk: derivedPk, sk: derivedSk as any }, options);
 
           const items = yield* Effect.all(
             Items.map((item) =>
