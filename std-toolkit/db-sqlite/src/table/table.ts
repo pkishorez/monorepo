@@ -19,10 +19,7 @@ import {
   type QueryResult,
   type KeyOp,
 } from "./utils.js";
-import type {
-  TableDescriptor,
-  IndexPatternDescriptor,
-} from "./types.js";
+import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
 import { EntityType } from "@std-toolkit/core";
 
 type MetaFields = "_v" | "_u" | "_c";
@@ -230,7 +227,12 @@ export class SQLiteTable<
     });
   }
 
-  getDescriptor(): TableDescriptor {
+  /**
+   * Gets the unified descriptor for this table including schema and index info.
+   *
+   * @returns The StdDescriptor for this table
+   */
+  getDescriptor(): StdDescriptor {
     const emptyPk: IndexPatternDescriptor = { deps: [], pattern: "" };
 
     return {

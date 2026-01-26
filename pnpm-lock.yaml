@@ -141,6 +141,10 @@ importers:
         version: 5.9.3
 
   std-toolkit/core:
+    dependencies:
+      '@std-toolkit/eschema':
+        specifier: workspace:*
+        version: link:../eschema
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 4.20260124.0
@@ -154,9 +158,6 @@ importers:
       '@effect/vitest':
         specifier: 0.27.0
         version: 0.27.0(effect@3.19.15)(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.0.10)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../eschema
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
@@ -181,6 +182,9 @@ importers:
 
   std-toolkit/db-dynamodb:
     dependencies:
+      '@std-toolkit/core':
+        specifier: workspace:*
+        version: link:../core
       '@std-toolkit/eschema':
         specifier: workspace:*
         version: link:../eschema

@@ -21,6 +21,7 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
+    "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "aws4fetch": "1.0.20",
     "type-fest": "5.4.1",

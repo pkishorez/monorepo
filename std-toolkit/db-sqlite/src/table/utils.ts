@@ -1,6 +1,5 @@
-import { EntityType, MetaSchema } from "@std-toolkit/core";
+import { EntityType, MetaSchema, type IndexPatternDescriptor } from "@std-toolkit/core";
 import { Schema } from "effect";
-import type { IndexPatternDescriptor } from "./types.js";
 
 export const indexKeyColumn = (name: string): string => `_idx_${name}_key`;
 

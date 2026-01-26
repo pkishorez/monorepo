@@ -1,7 +1,8 @@
 import { Effect } from "effect";
 import type { DynamoTableInstance } from "./DynamoTable.js";
 import type { DynamoEntity } from "./DynamoEntity.js";
-import type { TransactItem, TableSchema } from "../types/index.js";
+import type { TransactItem } from "../types/index.js";
+import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
 import { DynamodbError } from "../errors.js";
 
 /**
@@ -22,6 +23,7 @@ type EntitiesMap<TTable extends DynamoTableInstance> = Record<
 
 /**
  * Registry for managing multiple entities within a single DynamoDB table.
+ * Implements DescriptorProvider for unified schema access across database types.
  * Provides type-safe access to entities and cross-entity transactions.
  *
  * @typeParam TTable - The DynamoTable instance type
@@ -30,7 +32,7 @@ type EntitiesMap<TTable extends DynamoTableInstance> = Record<
 export class TableRegistry<
   TTable extends DynamoTableInstance,
   TEntities extends EntitiesMap<TTable>,
-> {
+> implements DescriptorProvider {
   /**
    * Creates a new table registry builder for the given table.
    *
@@ -64,24 +66,11 @@ export class TableRegistry<
   }
 
   /**
-   * Gets the full table schema for visualization purposes.
-   * Includes table structure and all registered entity descriptors.
-   *
-   * @returns The complete table schema
+   * Gets the schema including all registered entity descriptors.
    */
-  getSchema(): TableSchema {
-    const allSecondaryIndexes = Object.entries(this.#table.secondaryIndexMap);
-
+  getSchema(): RegistrySchema {
     return {
-      tableName: this.#table.tableName,
-      primaryKey: this.#table.primary,
-      globalSecondaryIndexes: allSecondaryIndexes
-        .filter(([_, idx]) => idx.pk !== this.#table.primary.pk)
-        .map(([name, idx]) => ({ name, pk: idx.pk, sk: idx.sk })),
-      localSecondaryIndexes: allSecondaryIndexes
-        .filter(([_, idx]) => idx.pk === this.#table.primary.pk)
-        .map(([name, idx]) => ({ name, sk: idx.sk })),
-      entities: Object.values(this.#entities).map((entity) =>
+      descriptors: Object.values(this.#entities).map((entity) =>
         entity.getDescriptor(),
       ),
     };
@@ -115,6 +104,9 @@ export class TableRegistry<
 
 /**
  * Builder class for constructing a TableRegistry with registered entities.
+ *
+ * @typeParam TTable - The DynamoTable instance type
+ * @typeParam TEntities - Map of entity names to entity instances
  */
 class TableRegistryBuilder<
   TTable extends DynamoTableInstance,

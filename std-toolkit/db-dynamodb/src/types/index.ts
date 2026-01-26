@@ -10,12 +10,6 @@ export type {
 
 export type { TransactItem, TransactItemBase } from "./transaction.js";
 
-export type {
-  EntityDescriptor,
-  IndexDescriptor,
-  IndexPatternDescriptor,
-  TableSchema,
-} from "./descriptor.js";
 
 // Internal types (re-exported for internal use only)
 export type {
