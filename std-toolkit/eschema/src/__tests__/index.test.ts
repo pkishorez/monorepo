@@ -1,6 +1,6 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { ESchema } from "../eschema";
+import { ESchema, brandedString } from "../index";
 import { ESchemaError } from "../utils";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
@@ -435,6 +435,98 @@ describe("Standard Schema v1 compatibility", () => {
         name: "Bob",
         email: "bob@example.com",
       },
+    });
+  });
+});
+
+describe("ESchema.getDescriptor", () => {
+  it("returns JSON Schema for encoded type", () => {
+    const schema = ESchema.make("User", {
+      name: Schema.String,
+      age: Schema.Number,
+    }).build();
+
+    const descriptor = schema.getDescriptor();
+
+    expect(descriptor.type).toBe("object");
+    expect(descriptor.properties).toHaveProperty("name");
+    expect(descriptor.properties).toHaveProperty("age");
+    expect(descriptor.properties).toHaveProperty("_v");
+  });
+
+  it("includes _v as literal with latest version", () => {
+    const schema = ESchema.make("Test", {
+      a: Schema.String,
+    }).build();
+
+    const descriptor = schema.getDescriptor();
+    const versionSchema = descriptor.properties._v as { enum?: string[] };
+
+    expect(versionSchema.enum).toEqual(["v1"]);
+  });
+
+  it("reflects evolved schema with correct version", () => {
+    const schema = ESchema.make("Test", {
+      a: Schema.String,
+    })
+      .evolve("v2", { a: Schema.String, b: Schema.Number }, (v) => ({
+        ...v,
+        b: 0,
+      }))
+      .build();
+
+    const descriptor = schema.getDescriptor();
+    const versionSchema = descriptor.properties._v as { enum?: string[] };
+
+    expect(descriptor.properties).toHaveProperty("a");
+    expect(descriptor.properties).toHaveProperty("b");
+    expect(versionSchema.enum).toEqual(["v2"]);
+  });
+
+  it("represents encoded types correctly for transforms", () => {
+    const schema = ESchema.make("Test", {
+      count: StringToNumber,
+    }).build();
+
+    const descriptor = schema.getDescriptor();
+    const countSchema = descriptor.properties.count as { type?: string };
+
+    // StringToNumber encodes numbers as strings
+    expect(countSchema.type).toBe("string");
+  });
+});
+
+describe("brandedString", () => {
+  it("creates a branded string with identifier annotation", () => {
+    const UserId = brandedString("UserId");
+    const schema = ESchema.make("User", {
+      id: UserId,
+    }).build();
+
+    const descriptor = schema.getDescriptor();
+
+    expect(descriptor.$defs).toHaveProperty("UserId");
+    expect(descriptor.properties.id).toEqual({ $ref: "#/$defs/UserId" });
+  });
+
+  it("creates $ref relationships across schemas", () => {
+    const UserId = brandedString("UserId");
+
+    const userSchema = ESchema.make("User", {
+      id: UserId,
+    }).build();
+
+    const postSchema = ESchema.make("Post", {
+      authorId: UserId,
+    }).build();
+
+    const userDescriptor = userSchema.getDescriptor();
+    const postDescriptor = postSchema.getDescriptor();
+
+    // Both reference the same $def
+    expect(userDescriptor.properties.id).toEqual({ $ref: "#/$defs/UserId" });
+    expect(postDescriptor.properties.authorId).toEqual({
+      $ref: "#/$defs/UserId",
     });
   });
 });

@@ -1,7 +1,8 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { Effect, Schema } from "effect";
+import { Effect, JSONSchema, Schema } from "effect";
 import {
   DeltaSchema,
+  ESchemaDescriptor,
   ForbidUnderscorePrefix,
   MergeSchemas,
   NextVersion,
@@ -121,6 +122,14 @@ export class ESchema<
         _v: this.latestVersion,
       };
     });
+  }
+
+  getDescriptor(): ESchemaDescriptor {
+    const encodedSchema = Schema.Struct({
+      ...this.schema,
+      _v: Schema.Literal(this.latestVersion),
+    });
+    return JSONSchema.make(encodedSchema) as ESchemaDescriptor;
   }
 
   "~standard" = {

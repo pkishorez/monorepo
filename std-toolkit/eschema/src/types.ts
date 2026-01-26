@@ -1,6 +1,11 @@
 // Standard Schema helper types
 import type { ESchema } from "./eschema";
-import { Schema } from "effect";
+import { JSONSchema, Schema } from "effect";
+
+export type ESchemaDescriptor = JSONSchema.JsonSchema7Object & {
+  $schema?: string;
+  $defs?: Record<string, JSONSchema.JsonSchema7>;
+};
 
 export type StructFieldsSchema<Or = never> = Record<
   string,
