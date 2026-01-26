@@ -15,6 +15,7 @@
     "dev": "tsc --watch",
     "generate": "bun scripts/generate.ts",
     "lint": "tsc --noEmit",
+    "play": "bun src/play/index.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest --watch"
