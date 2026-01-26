@@ -18,3 +18,7 @@ export interface TableDescriptor {
   secondaryIndexes: IndexDescriptor[];
   schema: ESchemaDescriptor;
 }
+
+export interface DatabaseSchema {
+  tables: TableDescriptor[];
+}
