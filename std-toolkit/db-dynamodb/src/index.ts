@@ -1,5 +1,10 @@
 // Services
-export { DynamoTable, DynamoEntity, type EntityType } from "./services/index.js";
+export {
+  DynamoTable,
+  DynamoEntity,
+  TableRegistry,
+  type EntityType,
+} from "./services/index.js";
 
 // Errors
 export { DynamodbError } from "./errors.js";

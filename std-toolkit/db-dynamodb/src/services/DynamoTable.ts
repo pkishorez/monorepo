@@ -6,6 +6,7 @@ import type {
   IndexDefinition,
   MarshalledOutput,
   TransactItem,
+  TransactItemBase,
 } from "../types/index.js";
 import type { CreateTableInput } from "../generated/types.js";
 import { marshall, unmarshall } from "../internal/marshall.js";
@@ -258,7 +259,7 @@ function createDynamoTableInstance<
         ExpressionAttributeNames?: Record<string, string>;
         ExpressionAttributeValues?: MarshalledOutput;
       },
-    ): TransactItem {
+    ): TransactItemBase {
       return {
         kind: "put",
         options: {
@@ -277,7 +278,7 @@ function createDynamoTableInstance<
         ExpressionAttributeNames?: Record<string, string> | undefined;
         ExpressionAttributeValues?: MarshalledOutput | undefined;
       },
-    ): TransactItem {
+    ): TransactItemBase {
       return {
         kind: "update",
         options: {
@@ -291,7 +292,9 @@ function createDynamoTableInstance<
       };
     },
 
-    transact(items: TransactItem[]): Effect.Effect<void, DynamodbError> {
+    transact(
+      items: (TransactItem | TransactItemBase)[],
+    ): Effect.Effect<void, DynamodbError> {
       return client
         .transactWriteItems({
           TransactItems: items.map((item) =>
