@@ -12,12 +12,17 @@ import {
   computeKey,
   extractKeyOp,
   getKeyOpOrderDirection,
+  fieldsToPattern,
   sqlMetaSchema,
   type RawRow,
   type RowMeta,
   type QueryResult,
   type KeyOp,
 } from "./utils.js";
+import type {
+  TableDescriptor,
+  IndexPatternDescriptor,
+} from "./types.js";
 import { EntityType } from "@std-toolkit/core";
 
 type MetaFields = "_v" | "_u" | "_c";
@@ -223,6 +228,26 @@ export class SQLiteTable<
         cursor = { ...last.meta, ...last.value } as typeof cursor;
       }
     });
+  }
+
+  getDescriptor(): TableDescriptor {
+    const emptyPk: IndexPatternDescriptor = { deps: [], pattern: "" };
+
+    return {
+      name: this.schema.name,
+      version: this.schema.latestVersion,
+      primaryIndex: {
+        name: "primary",
+        pk: emptyPk,
+        sk: fieldsToPattern(this.primaryKeyFields.map(String)),
+      },
+      secondaryIndexes: Object.entries(this.indexes).map(([name, index]) => ({
+        name,
+        pk: emptyPk,
+        sk: fieldsToPattern((index as IndexDef<TEntity>).fields.map(String)),
+      })),
+      schema: this.schema.getDescriptor(),
+    };
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
