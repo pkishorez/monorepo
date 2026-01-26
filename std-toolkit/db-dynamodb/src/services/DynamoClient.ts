@@ -3,11 +3,24 @@ import * as Effect from "effect/Effect";
 import { DynamodbError, type AwsErrorMeta } from "../errors.js";
 import type { AwsCredentials, DynamoTableConfig } from "../types/index.js";
 
+/**
+ * Extracts the error name from an AWS error type string.
+ * AWS errors are often formatted as "namespace#ErrorName".
+ *
+ * @param awsErrorType - The full AWS error type string
+ * @returns The extracted error name
+ */
 function extractErrorName(awsErrorType: string): string {
   const parts = awsErrorType.split("#");
   return parts.length > 1 ? parts[1]! : awsErrorType;
 }
 
+/**
+ * Creates an AWS4-authenticated client for making signed requests.
+ *
+ * @param config - Configuration with region and credentials
+ * @returns An AwsClient instance for making signed requests
+ */
 async function createAwsClient(config: {
   region: string;
   credentials: AwsCredentials;
@@ -26,19 +39,40 @@ async function createAwsClient(config: {
   return new AwsClient(clientConfig as any);
 }
 
+/**
+ * Interface for the DynamoDB client with Effect-based operations.
+ */
 export interface DynamoDBClient {
+  /** Retrieves a single item by its primary key */
   getItem(input: unknown): Effect.Effect<any, any>;
+  /** Creates or replaces an item */
   putItem(input: unknown): Effect.Effect<any, any>;
+  /** Updates attributes of an existing item */
   updateItem(input: unknown): Effect.Effect<any, any>;
+  /** Deletes a single item by its primary key */
   deleteItem(input: unknown): Effect.Effect<any, any>;
+  /** Queries items using a key condition expression */
   query(input: unknown): Effect.Effect<any, any>;
+  /** Scans all items in a table or index */
   scan(input: unknown): Effect.Effect<any, any>;
+  /** Executes a transactional write of multiple items */
   transactWriteItems(input: unknown): Effect.Effect<any, any>;
+  /** Creates a new DynamoDB table */
   createTable(input: unknown): Effect.Effect<any, any>;
+  /** Deletes a DynamoDB table */
   deleteTable(input: unknown): Effect.Effect<any, any>;
+  /** Retrieves metadata about a table */
   describeTable(input: unknown): Effect.Effect<any, any>;
 }
 
+/**
+ * Creates a DynamoDB client that uses AWS4 signing for authentication.
+ * Uses the aws4fetch library to make signed HTTP requests to the DynamoDB API.
+ *
+ * @param config - Configuration for the DynamoDB connection
+ * @returns A DynamoDBClient with Effect-wrapped operations
+ * @throws Error if credentials are not provided
+ */
 export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
   const region = config.region ?? "us-east-1";
   const endpoint =
@@ -97,9 +131,7 @@ export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
       let errorData: Record<string, unknown> = {};
       try {
         errorData = JSON.parse(responseText);
-      } catch {
-        // ignore parse errors
-      }
+      } catch {}
 
       let errorType = "UnknownError";
       let errorMessage = "Unknown error";

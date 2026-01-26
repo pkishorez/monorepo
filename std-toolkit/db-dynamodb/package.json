@@ -23,7 +23,8 @@
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*",
     "aws4fetch": "1.0.20",
-    "type-fest": "5.4.1"
+    "type-fest": "5.4.1",
+    "ulid": "3.0.2"
   },
   "devDependencies": {
     "@effect/platform": "0.94.2",

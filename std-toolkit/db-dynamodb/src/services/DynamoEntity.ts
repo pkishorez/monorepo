@@ -16,22 +16,45 @@ import {
   deriveIndexKeyValue,
   toDiscriminatedGeneric,
   fromDiscriminatedGeneric,
+  generateUlid,
 } from "../internal/index.js";
 import { buildExpr } from "../expr/build-expr.js";
 import { exprCondition, type ConditionOperation } from "../expr/condition.js";
 import { exprUpdate } from "../expr/update.js";
 import type { SortKeyparameter } from "../expr/key-condition.js";
 
+/**
+ * Schema for entity metadata stored with each item.
+ */
 const metaSchema = Schema.Struct({
+  /** Entity name */
   _e: Schema.String,
+  /** Schema version */
   _v: Schema.String,
+  /** ULID for this version of the item */
   _u: Schema.String,
+  /** Optimistic locking increment counter */
   _i: Schema.Number,
+  /** Soft delete flag */
   _d: Schema.Boolean,
 });
 
+/**
+ * Type for entity metadata.
+ */
 type MetaType = typeof metaSchema.Type;
 
+/**
+ * Meta fields that can be used in index derivations.
+ */
+type DerivableMetaFields = "_u";
+
+/**
+ * Checks if an error is a conditional check failure from DynamoDB.
+ *
+ * @param e - The DynamoDB error to check
+ * @returns True if the error is a conditional check failure
+ */
 const isConditionalCheckFailed = (e: DynamodbError): boolean => {
   if (!("cause" in e.error)) return false;
   const cause = e.error.cause as DynamodbError | undefined;
@@ -41,26 +64,39 @@ const isConditionalCheckFailed = (e: DynamodbError): boolean => {
   );
 };
 
+/**
+ * Represents an entity item with its value and metadata.
+ *
+ * @typeParam T - The entity value type
+ */
 export interface EntityType<T> {
+  /** The entity data */
   value: T;
+  /** Metadata about the entity item */
   meta: MetaType;
 }
 
 /**
- * Derivation info stored per index
+ * Stored derivation info for a secondary index.
  */
 export interface StoredIndexDerivation {
-  gsiName: string; // The actual GSI name on the table (e.g., "GSI1")
-  entityIndexName: string; // The semantic name for this entity (e.g., "byEmail")
+  /** The actual GSI name on the table (e.g., "GSI1") */
+  gsiName: string;
+  /** The semantic name for this entity's use of the index (e.g., "byEmail") */
+  entityIndexName: string;
+  /** Field names used to derive the partition key */
   pkDeps: string[];
+  /** Field names used to derive the sort key */
   skDeps: string[];
 }
 
 /**
- * Internal derivation info for primary index
+ * Internal derivation info for the primary index.
  */
 interface StoredPrimaryDerivation {
+  /** Field names used to derive the partition key */
   pkDeps: string[];
+  /** Field names used to derive the sort key */
   skDeps: string[];
 }
 
@@ -70,20 +106,50 @@ interface StoredPrimaryDerivation {
  */
 type ExtractKeys<T, Keys extends readonly (keyof T)[]> = Keys[number];
 
+/**
+ * A DynamoDB entity with type-safe CRUD operations and automatic index derivation.
+ * Entities are built on top of a DynamoTable and use an ESchema for validation.
+ *
+ * @typeParam TTable - The DynamoTable instance type
+ * @typeParam TSecondaryDerivationMap - Map of secondary index derivations
+ * @typeParam TSchema - The ESchema type for this entity
+ * @typeParam TPrimaryPkKeys - Keys used for primary partition key derivation
+ * @typeParam TPrimarySkKeys - Keys used for primary sort key derivation
+ */
 export class DynamoEntity<
   TTable extends DynamoTableInstance,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyESchema,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
-  TPrimarySkKeys extends keyof ESchemaType<TSchema>,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TPrimarySkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
 > {
+  /**
+   * Creates a new entity builder for the given table.
+   *
+   * @typeParam TTable - The DynamoTable instance type
+   * @param table - The DynamoTable instance
+   * @returns A builder to configure the entity schema
+   */
   static make<TTable extends DynamoTableInstance>(table: TTable) {
     return {
+      /**
+       * Configures the entity to use the given ESchema.
+       *
+       * @typeParam TS - The ESchema type
+       * @param eschema - The ESchema instance
+       * @returns A builder to configure the primary index derivation
+       */
       eschema<TS extends AnyESchema>(eschema: TS) {
         return {
+          /**
+           * Defines the primary index derivation fields.
+           *
+           * @param primaryDerivation - The pk and sk field arrays
+           * @returns A builder to add secondary index mappings
+           */
           primary<
-            const TPkKeys extends readonly (keyof ESchemaType<TS>)[],
-            const TSkKeys extends readonly (keyof ESchemaType<TS>)[],
+            const TPkKeys extends readonly (keyof ESchemaType<TS> | DerivableMetaFields)[],
+            const TSkKeys extends readonly (keyof ESchemaType<TS> | DerivableMetaFields)[],
           >(primaryDerivation: { pk: TPkKeys; sk: TSkKeys }) {
             return new EntityIndexDerivations<
               TTable,
@@ -115,10 +181,18 @@ export class DynamoEntity<
     this.#secondaryDerivations = secondaryDerivations;
   }
 
+  /**
+   * Gets the entity name from the schema.
+   */
   get name(): TSchema["name"] {
     return this.#eschema.name;
   }
 
+  /**
+   * Gets the complete descriptor for this entity including schema and index info.
+   *
+   * @returns The entity descriptor
+   */
   getDescriptor(): EntityDescriptor {
     return {
       name: this.#eschema.name,
@@ -181,6 +255,13 @@ export class DynamoEntity<
     return { deps, pattern: deps.map((d) => `{${d}}`).join("#") };
   }
 
+  /**
+   * Retrieves an entity by its primary key fields.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @param options - Optional read options
+   * @returns The entity if found, or null
+   */
   get(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
@@ -217,6 +298,13 @@ export class DynamoEntity<
     });
   }
 
+  /**
+   * Inserts a new entity. Fails if an item with the same key already exists.
+   *
+   * @param value - The entity value to insert (without _v field)
+   * @param options - Insert options including ignoreIfAlreadyPresent and condition
+   * @returns The inserted entity with metadata
+   */
   insert(
     value: Omit<ESchemaType<TSchema>, "_v">,
     options?: {
@@ -234,16 +322,19 @@ export class DynamoEntity<
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
+      const _u = generateUlid();
+
       const meta: MetaType = {
         _e: self.#eschema.name,
         _v: self.#eschema.latestVersion,
-        _u: new Date().toISOString(),
+        _u,
         _i: 0,
         _d: false,
       };
 
-      const primaryIndex = self.#derivePrimaryIndex(fullValue);
-      const indexMap = self.#deriveSecondaryIndexes(fullValue);
+      const valueWithMeta = { ...fullValue, _u };
+      const primaryIndex = self.#derivePrimaryIndex(valueWithMeta);
+      const indexMap = self.#deriveSecondaryIndexes(valueWithMeta);
 
       const item = {
         ...encoded,
@@ -299,10 +390,18 @@ export class DynamoEntity<
     });
   }
 
+  /**
+   * Updates an existing entity by its primary key.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @param updates - Partial entity with fields to update
+   * @param options - Update options including meta for optimistic locking and condition
+   * @returns The updated entity with new metadata
+   */
   update(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
-    updates: Partial<ESchemaType<TSchema>>,
+    updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
     options?: {
       meta?: Partial<MetaType>;
       condition?: ConditionOperation<ESchemaType<TSchema>>;
@@ -323,7 +422,9 @@ export class DynamoEntity<
         false,
       );
 
-      const indexMap = self.#deriveSecondaryIndexes(updates);
+      const _u = generateUlid();
+      const updatesWithMeta = { ...updates, _u };
+      const indexMap = self.#deriveSecondaryIndexes(updatesWithMeta);
 
       const conditionOps: ConditionOperation[] = [
         exprCondition(($) =>
@@ -344,7 +445,7 @@ export class DynamoEntity<
           $.set(key, v),
         ),
         $.set("_i", $.opAdd("_i", 1)),
-        $.set("_u", new Date().toISOString()),
+        $.set("_u", _u),
       ]);
 
       const exprResult = buildExpr({
@@ -381,6 +482,13 @@ export class DynamoEntity<
     });
   }
 
+  /**
+   * Creates an insert operation for use in a transaction.
+   *
+   * @param value - The entity value to insert
+   * @param options - Insert options including condition
+   * @returns A transaction item for insert
+   */
   insertOp(
     value: Omit<ESchemaType<TSchema>, "_v">,
     options?: {
@@ -396,16 +504,19 @@ export class DynamoEntity<
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
+      const _u = generateUlid();
+
       const meta: MetaType = {
         _e: this.#eschema.name,
         _v: this.#eschema.latestVersion,
-        _u: new Date().toISOString(),
+        _u,
         _i: 0,
         _d: false,
       };
 
-      const primaryIndex = this.#derivePrimaryIndex(fullValue);
-      const indexMap = this.#deriveSecondaryIndexes(fullValue);
+      const valueWithMeta = { ...fullValue, _u };
+      const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
+      const indexMap = this.#deriveSecondaryIndexes(valueWithMeta);
 
       const item = {
         ...encoded,
@@ -435,10 +546,18 @@ export class DynamoEntity<
     });
   }
 
+  /**
+   * Creates an update operation for use in a transaction.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @param updates - Partial entity with fields to update
+   * @param options - Update options including meta for optimistic locking and condition
+   * @returns A transaction item for update
+   */
   updateOp(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
-    updates: Partial<ESchemaType<TSchema>>,
+    updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
     options?: {
       meta?: Partial<MetaType>;
       condition?: ConditionOperation<ESchemaType<TSchema>>;
@@ -458,7 +577,9 @@ export class DynamoEntity<
         false,
       );
 
-      const indexMap = this.#deriveSecondaryIndexes(updates);
+      const _u = generateUlid();
+      const updatesWithMeta = { ...updates, _u };
+      const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
 
       const conditionOps: ConditionOperation[] = [
         exprCondition(($) =>
@@ -479,7 +600,7 @@ export class DynamoEntity<
           $.set(key, v),
         ),
         $.set("_i", $.opAdd("_i", 1)),
-        $.set("_u", new Date().toISOString()),
+        $.set("_u", _u),
       ]);
 
       const exprResult = buildExpr({
@@ -495,6 +616,13 @@ export class DynamoEntity<
     });
   }
 
+  /**
+   * Queries entities using the primary index.
+   *
+   * @param params - Query parameters with pk value and optional sk condition
+   * @param options - Query options including limit, sort order, and filter
+   * @returns Array of matching entities with metadata
+   */
   query(
     params: {
       pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
@@ -542,14 +670,25 @@ export class DynamoEntity<
   }
 
   /**
-   * Access a secondary index by its entity-level name.
-   * Example: entity.index("byEmail").query(...)
+   * Accesses a secondary index by its entity-level name.
+   *
+   * @typeParam EntityIndexName - The name of the secondary index
+   * @param entityIndexName - The semantic index name defined for this entity
+   * @returns An object with query methods for the index
+   *
+   * @example
+   * ```ts
+   * entity.index("byEmail").query({ pk: { email: "test@example.com" } });
+   * ```
    */
   index<EntityIndexName extends keyof TSecondaryDerivationMap>(
     entityIndexName: EntityIndexName,
   ) {
     const self = this;
     return {
+      /**
+       * Queries entities using the secondary index.
+       */
       query: (
         params: {
           pk: Record<
@@ -735,7 +874,6 @@ export class DynamoEntity<
     for (const [, derivation] of Object.entries(this.#secondaryDerivations)) {
       const deriv = derivation as StoredIndexDerivation;
 
-      // Only derive PK if all deps are present
       if (deriv.pkDeps.every((key: string) => typeof value[key] !== "undefined")) {
         const pkKey = `${deriv.gsiName}PK`;
         indexMap[pkKey] = deriveIndexKeyValue(
@@ -746,7 +884,6 @@ export class DynamoEntity<
         );
       }
 
-      // Only derive SK if all deps are present
       if (deriv.skDeps.every((key: string) => typeof value[key] !== "undefined")) {
         const skKey = `${deriv.gsiName}SK`;
         indexMap[skKey] = deriveIndexKeyValue(
@@ -762,11 +899,14 @@ export class DynamoEntity<
   }
 }
 
+/**
+ * Builder class for configuring entity index derivations.
+ */
 class EntityIndexDerivations<
   TTable extends DynamoTableInstance,
   TSchema extends AnyESchema,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
-  TPrimarySkKeys extends keyof ESchemaType<TSchema>,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TPrimarySkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
 > {
   #table: TTable;
@@ -787,15 +927,20 @@ class EntityIndexDerivations<
   }
 
   /**
-   * Define a secondary index mapping.
+   * Maps a table GSI to a semantic entity index with custom derivation.
+   *
+   * @typeParam GsiName - The GSI name on the table
+   * @typeParam TPkKeys - Fields used for partition key derivation
+   * @typeParam TSkKeys - Fields used for sort key derivation
    * @param gsiName - The GSI name on the table (e.g., "GSI1")
    * @param entityIndexName - The semantic name for this entity's use of the GSI (e.g., "byEmail")
    * @param derivation - The pk and sk field arrays
+   * @returns A builder with the index mapping added
    */
   index<
     GsiName extends keyof TTable["secondaryIndexMap"] & string,
-    const TPkKeys extends readonly (keyof ESchemaType<TSchema>)[],
-    const TSkKeys extends readonly (keyof ESchemaType<TSchema>)[],
+    const TPkKeys extends readonly (keyof ESchemaType<TSchema> | DerivableMetaFields)[],
+    const TSkKeys extends readonly (keyof ESchemaType<TSchema> | DerivableMetaFields)[],
   >(
     gsiName: GsiName,
     entityIndexName: string,
@@ -835,6 +980,11 @@ class EntityIndexDerivations<
     >;
   }
 
+  /**
+   * Builds the final DynamoEntity instance.
+   *
+   * @returns The configured DynamoEntity
+   */
   build() {
     const storedPrimary: StoredPrimaryDerivation = {
       pkDeps: this.#primaryDerivation.pk.map(String),

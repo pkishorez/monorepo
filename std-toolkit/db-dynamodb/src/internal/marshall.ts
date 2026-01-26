@@ -1,5 +1,11 @@
 import type { AttributeValue, MarshalledOutput } from "../types/index.js";
 
+/**
+ * Converts a JavaScript object to DynamoDB marshalled format.
+ *
+ * @param value - The JavaScript object to marshal
+ * @returns A record of attribute names to DynamoDB AttributeValue objects
+ */
 export function marshall(value: unknown): MarshalledOutput {
   if (value === null || value === undefined) {
     return {};
@@ -16,6 +22,12 @@ export function marshall(value: unknown): MarshalledOutput {
   return result;
 }
 
+/**
+ * Converts a JavaScript value to a DynamoDB AttributeValue.
+ *
+ * @param value - The JavaScript value to convert
+ * @returns The corresponding DynamoDB AttributeValue
+ */
 export function convertToAttr(value: unknown): AttributeValue {
   if (value === null || value === undefined) {
     return { NULL: true };
@@ -48,6 +60,12 @@ export function convertToAttr(value: unknown): AttributeValue {
   return { NULL: true };
 }
 
+/**
+ * Converts a DynamoDB marshalled record back to a JavaScript object.
+ *
+ * @param value - The marshalled DynamoDB record
+ * @returns A plain JavaScript object
+ */
 export function unmarshall(value: MarshalledOutput): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, attr] of Object.entries(value)) {
@@ -56,6 +74,12 @@ export function unmarshall(value: MarshalledOutput): Record<string, unknown> {
   return result;
 }
 
+/**
+ * Converts a DynamoDB AttributeValue back to a JavaScript value.
+ *
+ * @param attr - The DynamoDB AttributeValue to convert
+ * @returns The corresponding JavaScript value
+ */
 function convertFromAttr(attr: AttributeValue): unknown {
   if ("S" in attr) return attr.S;
   if ("N" in attr) return Number(attr.N);
@@ -76,15 +100,19 @@ function convertFromAttr(attr: AttributeValue): unknown {
 }
 
 /**
- * Derives an index key value from deps and a value object.
+ * Derives an index key value from field dependencies and a value object.
  *
- * Rules:
- * - PK (isPrimaryKey=true): always includes prefix
- *   - deps empty: returns prefix
- *   - deps present: returns prefix#val1#val2...
- * - SK (isPrimaryKey=false):
- *   - deps empty: returns prefix (fallback to entity/index name)
- *   - deps present: returns val1#val2... (no prefix)
+ * For partition keys (isPrimaryKey=true): always includes prefix.
+ * If deps is empty, returns just the prefix. Otherwise returns prefix#val1#val2...
+ *
+ * For sort keys (isPrimaryKey=false): if deps is empty, returns prefix as fallback.
+ * Otherwise returns val1#val2... without prefix.
+ *
+ * @param prefix - The key prefix (entity name or index name)
+ * @param deps - Array of field names to extract values from
+ * @param value - Object containing the field values
+ * @param isPrimaryKey - Whether this is for a partition key (true) or sort key (false)
+ * @returns The derived key string
  */
 export const deriveIndexKeyValue = (
   prefix: string,
