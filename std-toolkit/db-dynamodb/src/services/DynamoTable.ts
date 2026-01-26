@@ -12,7 +12,7 @@ import {
   keyConditionExpr,
   type KeyConditionExprParameters,
 } from "../expr/key-condition.js";
-import { buildExpr } from "../expr/expr.js";
+import { buildExpr } from "../expr/build-expr.js";
 import { type ConditionOperation } from "../expr/condition.js";
 
 export interface QueryResult {
@@ -22,7 +22,10 @@ export interface QueryResult {
 
 export interface DynamoTableInstance<
   TPrimaryIndex extends IndexDefinition = IndexDefinition,
-  TSecondaryIndexMap extends Record<string, IndexDefinition> = Record<string, IndexDefinition>,
+  TSecondaryIndexMap extends Record<string, IndexDefinition> = Record<
+    string,
+    IndexDefinition
+  >,
 > {
   readonly tableName: string;
   readonly primary: TPrimaryIndex;
@@ -41,7 +44,10 @@ export interface DynamoTableInstance<
       ExpressionAttributeValues?: MarshalledOutput;
       ReturnValues?: "ALL_OLD";
     },
-  ): Effect.Effect<{ Attributes: Record<string, unknown> | null }, DynamodbError>;
+  ): Effect.Effect<
+    { Attributes: Record<string, unknown> | null },
+    DynamodbError
+  >;
 
   updateItem(
     key: IndexDefinition,
@@ -52,11 +58,12 @@ export interface DynamoTableInstance<
       ExpressionAttributeValues?: MarshalledOutput;
       ReturnValues?: "ALL_NEW" | "ALL_OLD";
     },
-  ): Effect.Effect<{ Attributes: Record<string, unknown> | null }, DynamodbError>;
+  ): Effect.Effect<
+    { Attributes: Record<string, unknown> | null },
+    DynamodbError
+  >;
 
-  deleteItem(
-    key: IndexDefinition,
-  ): Effect.Effect<void, DynamodbError>;
+  deleteItem(key: IndexDefinition): Effect.Effect<void, DynamodbError>;
 
   query(
     cond: KeyConditionExprParameters,
@@ -68,14 +75,14 @@ export interface DynamoTableInstance<
     },
   ): Effect.Effect<QueryResult, DynamodbError>;
 
-  scan(
-    options?: {
-      IndexName?: string;
-      Limit?: number;
-    },
-  ): Effect.Effect<QueryResult, DynamodbError>;
+  scan(options?: {
+    IndexName?: string;
+    Limit?: number;
+  }): Effect.Effect<QueryResult, DynamodbError>;
 
-  index<IndexName extends keyof TSecondaryIndexMap>(indexName: IndexName): {
+  index<IndexName extends keyof TSecondaryIndexMap>(
+    indexName: IndexName,
+  ): {
     query(
       cond: KeyConditionExprParameters,
       options?: {
@@ -85,9 +92,9 @@ export interface DynamoTableInstance<
       },
     ): Effect.Effect<QueryResult, DynamodbError>;
 
-    scan(
-      options?: { Limit?: number },
-    ): Effect.Effect<QueryResult, DynamodbError>;
+    scan(options?: {
+      Limit?: number;
+    }): Effect.Effect<QueryResult, DynamodbError>;
   };
 
   opPutItem(
@@ -109,20 +116,18 @@ export interface DynamoTableInstance<
     },
   ): TransactItem;
 
-  transact(
-    items: TransactItem[],
-  ): Effect.Effect<void, DynamodbError>;
+  transact(items: TransactItem[]): Effect.Effect<void, DynamodbError>;
 }
 
-export namespace DynamoTable {
-  export function make(config: DynamoTableConfig) {
+export const DynamoTable = {
+  make(config: DynamoTableConfig) {
     return {
       primary<Pk extends string, Sk extends string>(pk: Pk, sk: Sk) {
         return new DynamoTableBuilder(config, { pk, sk }, {});
       },
     };
-  }
-}
+  },
+};
 
 function createDynamoTableInstance<
   TPrimaryIndex extends IndexDefinition,
@@ -145,19 +150,20 @@ function createDynamoTableInstance<
       filter?: ConditionOperation;
     },
   ): Effect.Effect<QueryResult, DynamodbError> => {
-    const expr = buildExpr({
+    const exprResult = buildExpr({
       keyCondition: keyConditionExpr(indexDef, cond),
       filter: options?.filter,
     });
 
     const queryOptions: Record<string, unknown> = {
       TableName: tableName,
-      ...expr,
+      ...exprResult,
     };
 
     if (options?.IndexName) queryOptions.IndexName = options.IndexName;
     if (options?.Limit !== undefined) queryOptions.Limit = options.Limit;
-    if (options?.ScanIndexForward !== undefined) queryOptions.ScanIndexForward = options.ScanIndexForward;
+    if (options?.ScanIndexForward !== undefined)
+      queryOptions.ScanIndexForward = options.ScanIndexForward;
 
     return client.query(queryOptions).pipe(
       Effect.map((response: any) => {
@@ -173,7 +179,10 @@ function createDynamoTableInstance<
     );
   };
 
-  const rawScan = (options?: { IndexName?: string; Limit?: number }): Effect.Effect<QueryResult, DynamodbError> => {
+  const rawScan = (options?: {
+    IndexName?: string;
+    Limit?: number;
+  }): Effect.Effect<QueryResult, DynamodbError> => {
     const scanOptions: Record<string, unknown> = { TableName: tableName };
     if (options?.IndexName) scanOptions.IndexName = options.IndexName;
     if (options?.Limit !== undefined) scanOptions.Limit = options.Limit;
@@ -220,14 +229,20 @@ function createDynamoTableInstance<
         TableName: tableName,
         Item: marshall(value),
       };
-      if (options?.ConditionExpression) putOptions.ConditionExpression = options.ConditionExpression;
-      if (options?.ExpressionAttributeNames) putOptions.ExpressionAttributeNames = options.ExpressionAttributeNames;
-      if (options?.ExpressionAttributeValues) putOptions.ExpressionAttributeValues = options.ExpressionAttributeValues;
+      if (options?.ConditionExpression)
+        putOptions.ConditionExpression = options.ConditionExpression;
+      if (options?.ExpressionAttributeNames)
+        putOptions.ExpressionAttributeNames = options.ExpressionAttributeNames;
+      if (options?.ExpressionAttributeValues)
+        putOptions.ExpressionAttributeValues =
+          options.ExpressionAttributeValues;
       if (options?.ReturnValues) putOptions.ReturnValues = options.ReturnValues;
 
       return client.putItem(putOptions).pipe(
         Effect.map((response: any) => ({
-          Attributes: response.Attributes ? unmarshall(response.Attributes) : null,
+          Attributes: response.Attributes
+            ? unmarshall(response.Attributes)
+            : null,
         })),
         Effect.mapError(DynamodbError.putItemFailed),
       );
@@ -241,15 +256,24 @@ function createDynamoTableInstance<
           [primary.sk]: key.sk,
         }),
       };
-      if (options.UpdateExpression) updateOptions.UpdateExpression = options.UpdateExpression;
-      if (options.ConditionExpression) updateOptions.ConditionExpression = options.ConditionExpression;
-      if (options.ExpressionAttributeNames) updateOptions.ExpressionAttributeNames = options.ExpressionAttributeNames;
-      if (options.ExpressionAttributeValues) updateOptions.ExpressionAttributeValues = options.ExpressionAttributeValues;
-      if (options.ReturnValues) updateOptions.ReturnValues = options.ReturnValues;
+      if (options.UpdateExpression)
+        updateOptions.UpdateExpression = options.UpdateExpression;
+      if (options.ConditionExpression)
+        updateOptions.ConditionExpression = options.ConditionExpression;
+      if (options.ExpressionAttributeNames)
+        updateOptions.ExpressionAttributeNames =
+          options.ExpressionAttributeNames;
+      if (options.ExpressionAttributeValues)
+        updateOptions.ExpressionAttributeValues =
+          options.ExpressionAttributeValues;
+      if (options.ReturnValues)
+        updateOptions.ReturnValues = options.ReturnValues;
 
       return client.updateItem(updateOptions).pipe(
         Effect.map((response: any) => ({
-          Attributes: response.Attributes ? unmarshall(response.Attributes) : null,
+          Attributes: response.Attributes
+            ? unmarshall(response.Attributes)
+            : null,
         })),
         Effect.mapError(DynamodbError.updateItemFailed),
       );
@@ -304,9 +328,12 @@ function createDynamoTableInstance<
         TableName: tableName,
         Item: marshall(value),
       };
-      if (options?.ConditionExpression) putOpts.ConditionExpression = options.ConditionExpression;
-      if (options?.ExpressionAttributeNames) putOpts.ExpressionAttributeNames = options.ExpressionAttributeNames;
-      if (options?.ExpressionAttributeValues) putOpts.ExpressionAttributeValues = options.ExpressionAttributeValues;
+      if (options?.ConditionExpression)
+        putOpts.ConditionExpression = options.ConditionExpression;
+      if (options?.ExpressionAttributeNames)
+        putOpts.ExpressionAttributeNames = options.ExpressionAttributeNames;
+      if (options?.ExpressionAttributeValues)
+        putOpts.ExpressionAttributeValues = options.ExpressionAttributeValues;
 
       return { kind: "put" as const, options: putOpts };
     },
@@ -320,9 +347,13 @@ function createDynamoTableInstance<
         }),
         UpdateExpression: options.UpdateExpression,
       };
-      if (options.ConditionExpression) updateOpts.ConditionExpression = options.ConditionExpression;
-      if (options.ExpressionAttributeNames) updateOpts.ExpressionAttributeNames = options.ExpressionAttributeNames;
-      if (options.ExpressionAttributeValues) updateOpts.ExpressionAttributeValues = options.ExpressionAttributeValues;
+      if (options.ConditionExpression)
+        updateOpts.ConditionExpression = options.ConditionExpression;
+      if (options.ExpressionAttributeNames)
+        updateOpts.ExpressionAttributeNames = options.ExpressionAttributeNames;
+      if (options.ExpressionAttributeValues)
+        updateOpts.ExpressionAttributeValues =
+          options.ExpressionAttributeValues;
 
       return { kind: "update" as const, options: updateOpts };
     },
@@ -365,11 +396,13 @@ class DynamoTableBuilder<
   lsi<IndexName extends string, Sk extends string>(name: IndexName, sk: Sk) {
     return new DynamoTableBuilder<
       TPrimaryIndex,
-      TSecondaryIndexMap & Record<IndexName, { pk: TPrimaryIndex["pk"]; sk: Sk }>
+      TSecondaryIndexMap &
+        Record<IndexName, { pk: TPrimaryIndex["pk"]; sk: Sk }>
     >(this.#config, this.#primary, {
       ...this.#secondaryIndexMap,
       [name]: { pk: this.#primary.pk, sk },
-    } as TSecondaryIndexMap & Record<IndexName, { pk: TPrimaryIndex["pk"]; sk: Sk }>);
+    } as TSecondaryIndexMap &
+      Record<IndexName, { pk: TPrimaryIndex["pk"]; sk: Sk }>);
   }
 
   gsi<IndexName extends string, Pk extends string, Sk extends string>(
@@ -395,9 +428,4 @@ class DynamoTableBuilder<
       client,
     );
   }
-}
-
-// Legacy export for backwards compatibility - remove in next major version
-export function makeDynamoTable(config: DynamoTableConfig) {
-  return DynamoTable.make(config);
 }

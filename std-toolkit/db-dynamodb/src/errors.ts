@@ -96,9 +96,3 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
     return new DynamodbError({ error: { _tag: "UnknownAwsError", name, message, meta } });
   }
 }
-
-/**
- * Type alias for backwards compatibility with generated types.
- * @deprecated Use DynamodbError directly.
- */
-export type CommonAwsError = DynamodbError;

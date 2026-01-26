@@ -1,7 +1,6 @@
 // Services
 export {
   DynamoTable,
-  makeDynamoTable,
   type DynamoTableInstance,
   type QueryResult,
   DynamoEntity,
@@ -9,45 +8,25 @@ export {
 } from "./services/index.js";
 
 // Errors
-export {
-  DynamodbError,
-  type DynamodbErrorType,
-  type AwsErrorMeta,
-} from "./errors.js";
+export { DynamodbError } from "./errors.js";
 
 // Expression builders
 export {
-  conditionExpr,
-  filterExpr,
-  compileConditionExpr,
-  updateExpr,
-  compileUpdateExpr,
-  addOp,
-  ifNotExists,
-  keyConditionExpr,
+  exprCondition,
+  exprFilter,
+  exprUpdate,
   buildExpr,
-  type ConditionOperation,
-  type UpdateOperation,
-  type KeyConditionExprParameters,
-  type SortKeyparameter,
+  opAdd,
+  opIfNotExists,
 } from "./expr/index.js";
 
-// Types
+// Types (only what's needed for configuration)
 export type {
   AwsCredentials,
-  DynamoTableConfig,
-  IndexDefinition,
   IndexDerivation,
   IndexKeyDerivation,
-  IndexDerivationValue,
-  IndexKeyDerivationValue,
   TransactItem,
-  AttributeValue,
-  MarshalledOutput,
 } from "./types/index.js";
 
-// Utilities (public)
-export { marshall, unmarshall, deriveIndexKeyValue } from "./internal/marshall.js";
-
-// Generated DynamoDB types from Smithy specs
-export type { DynamoDBClientService } from "./generated/types.js";
+// Marshall utilities
+export { marshall, unmarshall } from "./internal/marshall.js";

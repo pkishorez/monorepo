@@ -1,7 +1,4 @@
-import {
-  compileConditionExpr,
-  type ConditionOperation,
-} from "./condition.js";
+import { compileConditionExpr, type ConditionOperation } from "./condition.js";
 import { compileUpdateExpr, type UpdateOperation } from "./update.js";
 import type { KeyconditionOperation } from "./key-condition.js";
 import { AttributeMapBuilder } from "./utils.js";

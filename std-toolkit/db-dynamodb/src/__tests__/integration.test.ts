@@ -4,12 +4,12 @@ import { ESchema } from "@std-toolkit/eschema";
 import {
   DynamoTable,
   DynamoEntity,
-  updateExpr,
+  exprUpdate,
   buildExpr,
-  addOp,
-  conditionExpr,
-  filterExpr,
-  ifNotExists,
+  opAdd,
+  exprCondition,
+  exprFilter,
+  opIfNotExists,
 } from "../index.js";
 import { createDynamoDB } from "../services/DynamoClient.js";
 
@@ -291,16 +291,16 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           // Update item
-          const update = updateExpr<{ name: string; count: number }>(($) => [
+          const update = exprUpdate<{ name: string; count: number }>(($) => [
             $.set("name", "Updated"),
-            $.set("count", addOp("count", 5)),
+            $.set("count", opAdd("count", 5)),
           ]);
-          const expr = buildExpr({ update });
+          const exprResult = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "TEST#update", sk: "ITEM#1" },
             {
-              ...expr,
+              ...exprResult,
               ReturnValues: "ALL_NEW",
             },
           );
@@ -313,15 +313,15 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
       it.effect("creates item on update if not exists (upsert behavior)", () =>
         Effect.gen(function* () {
-          const update = updateExpr<{ name: string }>(($) => [
+          const update = exprUpdate<{ name: string }>(($) => [
             $.set("name", "New Item"),
           ]);
-          const expr = buildExpr({ update });
+          const exprResult = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "TEST#upsert", sk: "ITEM#1" },
             {
-              ...expr,
+              ...exprResult,
               ReturnValues: "ALL_NEW",
             },
           );
@@ -339,22 +339,22 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             count: 10,
           });
 
-          const update = updateExpr<{ count: number }>(($) => [
-            $.set("count", addOp("count", 1)),
+          const update = exprUpdate<{ count: number }>(($) => [
+            $.set("count", opAdd("count", 1)),
           ]);
-          const expr = buildExpr({ update });
+          const exprResult = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "TEST#condupdate", sk: "ITEM#1" },
             {
-              ...expr,
+              ...exprResult,
               ConditionExpression: "#cf_status = :cf_active",
               ExpressionAttributeNames: {
-                ...expr.ExpressionAttributeNames,
+                ...exprResult.ExpressionAttributeNames,
                 "#cf_status": "status",
               },
               ExpressionAttributeValues: {
-                ...expr.ExpressionAttributeValues,
+                ...exprResult.ExpressionAttributeValues,
                 ":cf_active": { S: "active" },
               },
               ReturnValues: "ALL_NEW",
@@ -373,15 +373,15 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             name: "Original",
           });
 
-          const update = updateExpr<{ name: string }>(($) => [
+          const update = exprUpdate<{ name: string }>(($) => [
             $.set("name", "Changed"),
           ]);
-          const expr = buildExpr({ update });
+          const exprResult = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "TEST#allold", sk: "ITEM#1" },
             {
-              ...expr,
+              ...exprResult,
               ReturnValues: "ALL_OLD",
             },
           );
@@ -693,13 +693,13 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             count: 20,
           });
 
-          const update1 = updateExpr<{ count: number }>(($) => [
-            $.set("count", addOp("count", 5)),
+          const update1 = exprUpdate<{ count: number }>(($) => [
+            $.set("count", opAdd("count", 5)),
           ]);
           const expr1 = buildExpr({ update: update1 });
 
-          const update2 = updateExpr<{ count: number }>(($) => [
-            $.set("count", addOp("count", -5)),
+          const update2 = exprUpdate<{ count: number }>(($) => [
+            $.set("count", opAdd("count", -5)),
           ]);
           const expr2 = buildExpr({ update: update2 });
 
@@ -1095,13 +1095,13 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             // optionalField not present
           });
 
-          const condition = conditionExpr<{ optionalField?: string }>(($) =>
+          const condition = exprCondition<{ optionalField?: string }>(($) =>
             $.attributeExists("optionalField"),
           );
-          const expr = buildExpr({ condition });
+          const exprResult = buildExpr({ condition });
 
           // Try to update item with condition - should succeed for ITEM#1
-          const update = updateExpr<{ status: string }>(($) => [
+          const update = exprUpdate<{ status: string }>(($) => [
             $.set("status", "updated"),
           ]);
           const updateExprResult = buildExpr({ update });
@@ -1110,10 +1110,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             { pk: "COND_EXPR#1", sk: "ITEM#1" },
             {
               ...updateExprResult,
-              ConditionExpression: expr.ConditionExpression,
+              ConditionExpression: exprResult.ConditionExpression,
               ExpressionAttributeNames: {
                 ...updateExprResult.ExpressionAttributeNames,
-                ...expr.ExpressionAttributeNames,
+                ...exprResult.ExpressionAttributeNames,
               },
               ReturnValues: "ALL_NEW",
             },
@@ -1131,12 +1131,12 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             // noField not present - condition should pass
           });
 
-          const condition = conditionExpr<{ noField?: string }>(($) =>
+          const condition = exprCondition<{ noField?: string }>(($) =>
             $.attributeNotExists("noField"),
           );
-          const expr = buildExpr({ condition });
+          const exprResult = buildExpr({ condition });
 
-          const update = updateExpr<{ noField: string }>(($) => [
+          const update = exprUpdate<{ noField: string }>(($) => [
             $.set("noField", "created"),
           ]);
           const updateExprResult = buildExpr({ update });
@@ -1145,10 +1145,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             { pk: "COND_EXPR#2", sk: "ITEM#1" },
             {
               ...updateExprResult,
-              ConditionExpression: expr.ConditionExpression,
+              ConditionExpression: exprResult.ConditionExpression,
               ExpressionAttributeNames: {
                 ...updateExprResult.ExpressionAttributeNames,
-                ...expr.ExpressionAttributeNames,
+                ...exprResult.ExpressionAttributeNames,
               },
               ReturnValues: "ALL_NEW",
             },
@@ -1166,12 +1166,12 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             status: "active",
           });
 
-          const condition = conditionExpr<{ status: string }>(($) =>
+          const condition = exprCondition<{ status: string }>(($) =>
             $.cond("status", "<>", "inactive"),
           );
-          const expr = buildExpr({ condition });
+          const exprResult = buildExpr({ condition });
 
-          const update = updateExpr<{ count: number }>(($) => [
+          const update = exprUpdate<{ count: number }>(($) => [
             $.set("count", 1),
           ]);
           const updateExprResult = buildExpr({ update });
@@ -1180,14 +1180,14 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             { pk: "COND_EXPR#3", sk: "ITEM#1" },
             {
               ...updateExprResult,
-              ConditionExpression: expr.ConditionExpression,
+              ConditionExpression: exprResult.ConditionExpression,
               ExpressionAttributeNames: {
                 ...updateExprResult.ExpressionAttributeNames,
-                ...expr.ExpressionAttributeNames,
+                ...exprResult.ExpressionAttributeNames,
               },
               ExpressionAttributeValues: {
                 ...updateExprResult.ExpressionAttributeValues,
-                ...expr.ExpressionAttributeValues,
+                ...exprResult.ExpressionAttributeValues,
               },
               ReturnValues: "ALL_NEW",
             },
@@ -1206,13 +1206,13 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             count: 10,
           });
 
-          const condition = conditionExpr<{ status: string; count: number }>(
+          const condition = exprCondition<{ status: string; count: number }>(
             ($) =>
               $.and($.cond("status", "=", "active"), $.cond("count", ">=", 5)),
           );
-          const expr = buildExpr({ condition });
+          const exprResult = buildExpr({ condition });
 
-          const update = updateExpr<{ verified: boolean }>(($) => [
+          const update = exprUpdate<{ verified: boolean }>(($) => [
             $.set("verified", true),
           ]);
           const updateExprResult = buildExpr({ update });
@@ -1221,14 +1221,14 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             { pk: "COND_EXPR#4", sk: "ITEM#1" },
             {
               ...updateExprResult,
-              ConditionExpression: expr.ConditionExpression,
+              ConditionExpression: exprResult.ConditionExpression,
               ExpressionAttributeNames: {
                 ...updateExprResult.ExpressionAttributeNames,
-                ...expr.ExpressionAttributeNames,
+                ...exprResult.ExpressionAttributeNames,
               },
               ExpressionAttributeValues: {
                 ...updateExprResult.ExpressionAttributeValues,
-                ...expr.ExpressionAttributeValues,
+                ...exprResult.ExpressionAttributeValues,
               },
               ReturnValues: "ALL_NEW",
             },
@@ -1247,16 +1247,16 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             priority: "low",
           });
 
-          const condition = conditionExpr<{ status: string; priority: string }>(
+          const condition = exprCondition<{ status: string; priority: string }>(
             ($) =>
               $.or(
                 $.cond("status", "=", "active"),
                 $.cond("priority", "=", "low"),
               ),
           );
-          const expr = buildExpr({ condition });
+          const exprResult = buildExpr({ condition });
 
-          const update = updateExpr<{ processed: boolean }>(($) => [
+          const update = exprUpdate<{ processed: boolean }>(($) => [
             $.set("processed", true),
           ]);
           const updateExprResult = buildExpr({ update });
@@ -1265,14 +1265,14 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             { pk: "COND_EXPR#5", sk: "ITEM#1" },
             {
               ...updateExprResult,
-              ConditionExpression: expr.ConditionExpression,
+              ConditionExpression: exprResult.ConditionExpression,
               ExpressionAttributeNames: {
                 ...updateExprResult.ExpressionAttributeNames,
-                ...expr.ExpressionAttributeNames,
+                ...exprResult.ExpressionAttributeNames,
               },
               ExpressionAttributeValues: {
                 ...updateExprResult.ExpressionAttributeValues,
-                ...expr.ExpressionAttributeValues,
+                ...exprResult.ExpressionAttributeValues,
               },
               ReturnValues: "ALL_NEW",
             },
@@ -1292,7 +1292,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             total: 500,
           });
 
-          const condition = conditionExpr<{
+          const condition = exprCondition<{
             type: string;
             status: string;
             total: number;
@@ -1305,9 +1305,9 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
               ),
             ),
           );
-          const expr = buildExpr({ condition });
+          const exprResult = buildExpr({ condition });
 
-          const update = updateExpr<{ flagged: boolean }>(($) => [
+          const update = exprUpdate<{ flagged: boolean }>(($) => [
             $.set("flagged", true),
           ]);
           const updateExprResult = buildExpr({ update });
@@ -1316,14 +1316,14 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             { pk: "COND_EXPR#6", sk: "ITEM#1" },
             {
               ...updateExprResult,
-              ConditionExpression: expr.ConditionExpression,
+              ConditionExpression: exprResult.ConditionExpression,
               ExpressionAttributeNames: {
                 ...updateExprResult.ExpressionAttributeNames,
-                ...expr.ExpressionAttributeNames,
+                ...exprResult.ExpressionAttributeNames,
               },
               ExpressionAttributeValues: {
                 ...updateExprResult.ExpressionAttributeValues,
-                ...expr.ExpressionAttributeValues,
+                ...exprResult.ExpressionAttributeValues,
               },
               ReturnValues: "ALL_NEW",
             },
@@ -1343,15 +1343,15 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             // counter not present
           });
 
-          const update = updateExpr<{ counter: number }>(($) => [
-            $.set("counter", $.ifNotExistsOp("counter", 0)),
+          const update = exprUpdate<{ counter: number }>(($) => [
+            $.set("counter", $.opIfNotExists("counter", 0)),
           ]);
-          const expr = buildExpr({ update });
+          const exprResult = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "UPDATE_EXPR#1", sk: "ITEM#1" },
             {
-              ...expr,
+              ...exprResult,
               ReturnValues: "ALL_NEW",
             },
           );
@@ -1362,7 +1362,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           const result2 = yield* table.updateItem(
             { pk: "UPDATE_EXPR#1", sk: "ITEM#1" },
             {
-              ...expr,
+              ...exprResult,
               ReturnValues: "ALL_NEW",
             },
           );
@@ -1379,15 +1379,15 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             tags: ["initial"],
           });
 
-          const update = updateExpr<{ tags: string[] }>(($) => [
+          const update = exprUpdate<{ tags: string[] }>(($) => [
             $.append("tags", ["new-tag", "another-tag"]),
           ]);
-          const expr = buildExpr({ update });
+          const exprResult = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "UPDATE_EXPR#2", sk: "ITEM#1" },
             {
-              ...expr,
+              ...exprResult,
               ReturnValues: "ALL_NEW",
             },
           );
@@ -1408,15 +1408,15 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             logs: ["existing-log"],
           });
 
-          const update = updateExpr<{ logs: string[] }>(($) => [
+          const update = exprUpdate<{ logs: string[] }>(($) => [
             $.prepend("logs", ["first-log"]),
           ]);
-          const expr = buildExpr({ update });
+          const exprResult = buildExpr({ update });
 
           const result = yield* table.updateItem(
             { pk: "UPDATE_EXPR#3", sk: "ITEM#1" },
             {
-              ...expr,
+              ...exprResult,
               ReturnValues: "ALL_NEW",
             },
           );
@@ -1458,7 +1458,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("queries with filter expression", () =>
         Effect.gen(function* () {
           // table.query expects filter as a ConditionOperation, not compiled
-          const filter = filterExpr<{ status: string }>(($) =>
+          const filter = exprFilter<{ status: string }>(($) =>
             $.cond("status", "=", "active"),
           );
 
@@ -1475,7 +1475,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("queries with complex filter expression", () =>
         Effect.gen(function* () {
           // table.query expects filter as a ConditionOperation, not compiled
-          const filter = filterExpr<{ status: string; score: number }>(($) =>
+          const filter = exprFilter<{ status: string; score: number }>(($) =>
             $.and($.cond("status", "=", "active"), $.cond("score", ">", 150)),
           );
 
@@ -1532,15 +1532,15 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           },
         });
 
-        const update = updateExpr<{ config: { theme: string } }>(($) => [
+        const update = exprUpdate<{ config: { theme: string } }>(($) => [
           $.set("config.theme", "dark"),
         ]);
-        const expr = buildExpr({ update });
+        const exprResult = buildExpr({ update });
 
         const result = yield* table.updateItem(
           { pk: "NESTED#1", sk: "ITEM#1" },
           {
-            ...expr,
+            ...exprResult,
             ReturnValues: "ALL_NEW",
           },
         );

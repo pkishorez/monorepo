@@ -97,7 +97,7 @@ function attributeExists<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   return { type: "condition_attribute_exists", key };
 }
 
-export function conditionExpr<T>(
+export function exprCondition<T>(
   builder: (ops: ConditionOps<T>) => AnyCondition<T>,
 ): ConditionOperation<T> {
   return builder({
@@ -109,10 +109,10 @@ export function conditionExpr<T>(
   });
 }
 
-export function filterExpr<T>(
+export function exprFilter<T>(
   builder: (ops: ConditionOps<T>) => AnyCondition<T>,
 ): ConditionOperation<T> {
-  return conditionExpr(builder);
+  return exprCondition(builder);
 }
 
 export function compileConditionExpr<T>(

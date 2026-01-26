@@ -15,9 +15,9 @@ import {
   toDiscriminatedGeneric,
   fromDiscriminatedGeneric,
 } from "../internal/index.js";
-import { buildExpr } from "../expr/expr.js";
-import { conditionExpr, type ConditionOperation } from "../expr/condition.js";
-import { updateExpr } from "../expr/update.js";
+import { buildExpr } from "../expr/build-expr.js";
+import { exprCondition, type ConditionOperation } from "../expr/condition.js";
+import { exprUpdate } from "../expr/update.js";
 import type { SortKeyparameter } from "../expr/key-condition.js";
 
 const metaSchema = Schema.Struct({
@@ -57,11 +57,11 @@ export class DynamoEntity<
               IndexKeyDerivation<ESchemaType<TS>, TSkKeys>
             >,
           ) {
-            return new EntityIndexDerivations<TTable, TS, typeof primaryDerivation>(
-              table,
-              eschema,
-              primaryDerivation,
-            );
+            return new EntityIndexDerivations<
+              TTable,
+              TS,
+              typeof primaryDerivation
+            >(table, eschema, primaryDerivation);
           },
         };
       },
@@ -86,7 +86,8 @@ export class DynamoEntity<
   }
 
   get(
-    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> & IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
+    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> &
+      IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
     options?: { ConsistentRead?: boolean },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>> | null, DynamodbError> {
     return Effect.gen(this, function* () {
@@ -97,9 +98,9 @@ export class DynamoEntity<
 
       if (!Item) return null;
 
-      const value = yield* this.#eschema.decode(Item).pipe(
-        Effect.mapError((e) => DynamodbError.getItemFailed(e)),
-      );
+      const value = yield* this.#eschema
+        .decode(Item)
+        .pipe(Effect.mapError((e) => DynamodbError.getItemFailed(e)));
 
       const meta = Schema.decodeUnknownSync(metaSchema)(Item);
 
@@ -119,10 +120,13 @@ export class DynamoEntity<
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
     return Effect.gen(function* () {
-      const fullValue = { ...value, _v: self.#eschema.latestVersion } as ESchemaType<TSchema>;
-      const encoded = yield* self.#eschema.encode(fullValue as any).pipe(
-        Effect.mapError((e) => DynamodbError.putItemFailed(e)),
-      );
+      const fullValue = {
+        ...value,
+        _v: self.#eschema.latestVersion,
+      } as ESchemaType<TSchema>;
+      const encoded = yield* self.#eschema
+        .encode(fullValue as any)
+        .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
       const meta: MetaType = {
         _e: self.#eschema.name,
@@ -143,14 +147,14 @@ export class DynamoEntity<
         ...indexMap,
       };
 
-      const expr = buildExpr({
-        condition: conditionExpr(($) =>
+      const exprResult = buildExpr({
+        condition: exprCondition(($) =>
           $.and(
-            ...[
+            ...([
               options?.condition,
               $.attributeNotExists(self.#table.primary.pk as any),
               $.attributeNotExists(self.#table.primary.sk as any),
-            ].filter(Boolean) as ConditionOperation[],
+            ].filter(Boolean) as ConditionOperation[]),
           ),
         ),
       });
@@ -158,33 +162,37 @@ export class DynamoEntity<
       const putOptions: Record<string, unknown> = {
         ReturnValues: "ALL_OLD" as const,
       };
-      if (expr.ConditionExpression) putOptions.ConditionExpression = expr.ConditionExpression;
-      if (expr.ExpressionAttributeNames) putOptions.ExpressionAttributeNames = expr.ExpressionAttributeNames;
-      if (expr.ExpressionAttributeValues) putOptions.ExpressionAttributeValues = expr.ExpressionAttributeValues;
+      if (exprResult.ConditionExpression)
+        putOptions.ConditionExpression = exprResult.ConditionExpression;
+      if (exprResult.ExpressionAttributeNames)
+        putOptions.ExpressionAttributeNames =
+          exprResult.ExpressionAttributeNames;
+      if (exprResult.ExpressionAttributeValues)
+        putOptions.ExpressionAttributeValues =
+          exprResult.ExpressionAttributeValues;
 
-      yield* self.#table
-        .putItem(item, putOptions as any)
-        .pipe(
-          Effect.mapError((e): DynamodbError => {
-            if (
-              e.error._tag === "PutItemFailed" &&
-              (e.error.cause as any)?._tag === "ConditionalCheckFailedException"
-            ) {
-              if (options?.ignoreIfAlreadyPresent) {
-                throw e;
-              }
-              return DynamodbError.itemAlreadyExists();
+      yield* self.#table.putItem(item, putOptions as any).pipe(
+        Effect.mapError((e): DynamodbError => {
+          if (
+            e.error._tag === "PutItemFailed" &&
+            (e.error.cause as any)?._tag === "ConditionalCheckFailedException"
+          ) {
+            if (options?.ignoreIfAlreadyPresent) {
+              throw e;
             }
-            return e;
-          }),
-        );
+            return DynamodbError.itemAlreadyExists();
+          }
+          return e;
+        }),
+      );
 
       return { value: fullValue, meta };
     });
   }
 
   update(
-    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> & IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
+    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> &
+      IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
     updates: Partial<ESchemaType<TSchema>>,
     options?: {
       meta?: Partial<MetaType>;
@@ -199,24 +207,28 @@ export class DynamoEntity<
       const indexMap = self.#deriveSecondaryIndexes(updates);
 
       const conditionOps: ConditionOperation[] = [
-        conditionExpr(($) => $.cond("_v" as any, "=", self.#eschema.latestVersion)),
+        exprCondition(($) =>
+          $.cond("_v" as any, "=", self.#eschema.latestVersion),
+        ),
       ];
       if (options?.condition) conditionOps.push(options.condition);
       if (options?.meta?._i !== undefined) {
-        conditionOps.push(conditionExpr(($) => $.cond("_i" as any, "=", options.meta!._i)));
+        conditionOps.push(
+          exprCondition(($) => $.cond("_i" as any, "=", options.meta!._i)),
+        );
       }
 
-      const condition = conditionExpr(($) => $.and(...conditionOps));
+      const condition = exprCondition(($) => $.and(...conditionOps));
 
-      const update = updateExpr<any>(($) => [
+      const update = exprUpdate<any>(($) => [
         ...Object.entries({ ...updates, ...indexMap }).map(([key, v]) =>
           $.set(key, v),
         ),
-        $.set("_i", $.addOp("_i", 1)),
+        $.set("_i", $.opAdd("_i", 1)),
         $.set("_u", new Date().toISOString()),
       ]);
 
-      const expr = buildExpr({
+      const exprResult = buildExpr({
         update,
         condition,
       });
@@ -224,10 +236,16 @@ export class DynamoEntity<
       const updateOptions: Record<string, unknown> = {
         ReturnValues: "ALL_NEW" as const,
       };
-      if (expr.UpdateExpression) updateOptions.UpdateExpression = expr.UpdateExpression;
-      if (expr.ConditionExpression) updateOptions.ConditionExpression = expr.ConditionExpression;
-      if (expr.ExpressionAttributeNames) updateOptions.ExpressionAttributeNames = expr.ExpressionAttributeNames;
-      if (expr.ExpressionAttributeValues) updateOptions.ExpressionAttributeValues = expr.ExpressionAttributeValues;
+      if (exprResult.UpdateExpression)
+        updateOptions.UpdateExpression = exprResult.UpdateExpression;
+      if (exprResult.ConditionExpression)
+        updateOptions.ConditionExpression = exprResult.ConditionExpression;
+      if (exprResult.ExpressionAttributeNames)
+        updateOptions.ExpressionAttributeNames =
+          exprResult.ExpressionAttributeNames;
+      if (exprResult.ExpressionAttributeValues)
+        updateOptions.ExpressionAttributeValues =
+          exprResult.ExpressionAttributeValues;
 
       const result = yield* self.#table
         .updateItem({ pk, sk }, updateOptions as any)
@@ -247,11 +265,13 @@ export class DynamoEntity<
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
       }
 
-      const decodedValue = yield* self.#eschema.decode(result.Attributes).pipe(
-        Effect.mapError((e) => DynamodbError.updateItemFailed(e)),
-      );
+      const decodedValue = yield* self.#eschema
+        .decode(result.Attributes)
+        .pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
 
-      const updatedMeta = Schema.decodeUnknownSync(metaSchema)(result.Attributes);
+      const updatedMeta = Schema.decodeUnknownSync(metaSchema)(
+        result.Attributes,
+      );
 
       return {
         value: decodedValue as ESchemaType<TSchema>,
@@ -267,10 +287,13 @@ export class DynamoEntity<
     },
   ): Effect.Effect<TransactItem, DynamodbError> {
     return Effect.gen(this, function* () {
-      const fullValue = { ...value, _v: this.#eschema.latestVersion } as ESchemaType<TSchema>;
-      const encoded = yield* this.#eschema.encode(fullValue as any).pipe(
-        Effect.mapError((e) => DynamodbError.putItemFailed(e)),
-      );
+      const fullValue = {
+        ...value,
+        _v: this.#eschema.latestVersion,
+      } as ESchemaType<TSchema>;
+      const encoded = yield* this.#eschema
+        .encode(fullValue as any)
+        .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
       const meta: MetaType = {
         _e: this.#eschema.name,
@@ -291,29 +314,34 @@ export class DynamoEntity<
         ...indexMap,
       };
 
-      const expr = buildExpr({
-        condition: conditionExpr(($) =>
+      const exprResult = buildExpr({
+        condition: exprCondition(($) =>
           $.and(
-            ...[
+            ...([
               options?.condition,
               $.attributeNotExists(this.#table.primary.pk as any),
               $.attributeNotExists(this.#table.primary.sk as any),
-            ].filter(Boolean) as ConditionOperation[],
+            ].filter(Boolean) as ConditionOperation[]),
           ),
         ),
       });
 
       const putOpts: Record<string, unknown> = {};
-      if (expr.ConditionExpression) putOpts.ConditionExpression = expr.ConditionExpression;
-      if (expr.ExpressionAttributeNames) putOpts.ExpressionAttributeNames = expr.ExpressionAttributeNames;
-      if (expr.ExpressionAttributeValues) putOpts.ExpressionAttributeValues = expr.ExpressionAttributeValues;
+      if (exprResult.ConditionExpression)
+        putOpts.ConditionExpression = exprResult.ConditionExpression;
+      if (exprResult.ExpressionAttributeNames)
+        putOpts.ExpressionAttributeNames = exprResult.ExpressionAttributeNames;
+      if (exprResult.ExpressionAttributeValues)
+        putOpts.ExpressionAttributeValues =
+          exprResult.ExpressionAttributeValues;
 
       return this.#table.opPutItem(item, putOpts as any);
     });
   }
 
   updateOp(
-    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> & IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
+    keyValue: IndexKeyDerivationValue<TPrimaryDerivation["pk"]> &
+      IndexKeyDerivationValue<TPrimaryDerivation["sk"]>,
     updates: Partial<ESchemaType<TSchema>>,
     options?: {
       meta?: Partial<MetaType>;
@@ -327,38 +355,47 @@ export class DynamoEntity<
       const indexMap = this.#deriveSecondaryIndexes(updates);
 
       const conditionOps: ConditionOperation[] = [
-        conditionExpr(($) => $.cond("_v" as any, "=", this.#eschema.latestVersion)),
+        exprCondition(($) =>
+          $.cond("_v" as any, "=", this.#eschema.latestVersion),
+        ),
       ];
       if (options?.condition) conditionOps.push(options.condition);
       if (options?.meta?._i !== undefined) {
-        conditionOps.push(conditionExpr(($) => $.cond("_i" as any, "=", options.meta!._i)));
+        conditionOps.push(
+          exprCondition(($) => $.cond("_i" as any, "=", options.meta!._i)),
+        );
       }
 
-      const condition = conditionExpr(($) => $.and(...conditionOps));
+      const condition = exprCondition(($) => $.and(...conditionOps));
 
-      const update = updateExpr<any>(($) => [
+      const update = exprUpdate<any>(($) => [
         ...Object.entries({ ...updates, ...indexMap }).map(([key, v]) =>
           $.set(key, v),
         ),
-        $.set("_i", $.addOp("_i", 1)),
+        $.set("_i", $.opAdd("_i", 1)),
         $.set("_u", new Date().toISOString()),
       ]);
 
-      const expr = buildExpr({
+      const exprResult = buildExpr({
         update,
         condition,
       });
 
-      if (!expr.UpdateExpression) {
+      if (!exprResult.UpdateExpression) {
         throw new Error("UpdateExpression is required");
       }
 
       const updateOpts: Record<string, unknown> = {
-        UpdateExpression: expr.UpdateExpression,
+        UpdateExpression: exprResult.UpdateExpression,
       };
-      if (expr.ConditionExpression) updateOpts.ConditionExpression = expr.ConditionExpression;
-      if (expr.ExpressionAttributeNames) updateOpts.ExpressionAttributeNames = expr.ExpressionAttributeNames;
-      if (expr.ExpressionAttributeValues) updateOpts.ExpressionAttributeValues = expr.ExpressionAttributeValues;
+      if (exprResult.ConditionExpression)
+        updateOpts.ConditionExpression = exprResult.ConditionExpression;
+      if (exprResult.ExpressionAttributeNames)
+        updateOpts.ExpressionAttributeNames =
+          exprResult.ExpressionAttributeNames;
+      if (exprResult.ExpressionAttributeValues)
+        updateOpts.ExpressionAttributeValues =
+          exprResult.ExpressionAttributeValues;
 
       return this.#table.opUpdateItem({ pk, sk }, updateOpts as any);
     });
@@ -374,14 +411,23 @@ export class DynamoEntity<
       ScanIndexForward?: boolean;
       filter?: ConditionOperation<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<{ items: EntityType<ESchemaType<TSchema>>[] }, DynamodbError> {
+  ): Effect.Effect<
+    { items: EntityType<ESchemaType<TSchema>>[] },
+    DynamodbError
+  > {
     return Effect.gen(this, function* () {
-      const derivedPk = deriveIndexKeyValue(this.#primaryDerivation.pk, params.pk);
-      const derivedSk = params.sk ? this.#calculateSk(this.#primaryDerivation, params.sk as any) : undefined;
+      const derivedPk = deriveIndexKeyValue(
+        this.#primaryDerivation.pk,
+        params.pk,
+      );
+      const derivedSk = params.sk
+        ? this.#calculateSk(this.#primaryDerivation, params.sk as any)
+        : undefined;
 
       const queryOpts: Record<string, unknown> = {};
       if (options?.Limit !== undefined) queryOpts.Limit = options.Limit;
-      if (options?.ScanIndexForward !== undefined) queryOpts.ScanIndexForward = options.ScanIndexForward;
+      if (options?.ScanIndexForward !== undefined)
+        queryOpts.ScanIndexForward = options.ScanIndexForward;
       if (options?.filter) queryOpts.filter = options.filter;
 
       const { Items } = yield* this.#table.query(
@@ -410,14 +456,19 @@ export class DynamoEntity<
       query: (
         params: {
           pk: IndexKeyDerivationValue<TSecondaryDerivationMap[GsiName]["pk"]>;
-          sk?: SortKeyparameter<IndexKeyDerivationValue<TSecondaryDerivationMap[GsiName]["sk"]>>;
+          sk?: SortKeyparameter<
+            IndexKeyDerivationValue<TSecondaryDerivationMap[GsiName]["sk"]>
+          >;
         },
         options?: {
           Limit?: number;
           ScanIndexForward?: boolean;
           filter?: ConditionOperation<ESchemaType<TSchema>>;
         },
-      ): Effect.Effect<{ items: EntityType<ESchemaType<TSchema>>[] }, DynamodbError> => {
+      ): Effect.Effect<
+        { items: EntityType<ESchemaType<TSchema>>[] },
+        DynamodbError
+      > => {
         return Effect.gen(this, function* () {
           const indexDerivation = this.#secondaryDerivations[gsiName];
 
@@ -426,17 +477,19 @@ export class DynamoEntity<
           }
 
           const derivedPk = deriveIndexKeyValue(indexDerivation.pk, params.pk);
-          const derivedSk = params.sk ? this.#calculateSk(indexDerivation, params.sk as any) : undefined;
+          const derivedSk = params.sk
+            ? this.#calculateSk(indexDerivation, params.sk as any)
+            : undefined;
 
           const queryOpts: Record<string, unknown> = {};
           if (options?.Limit !== undefined) queryOpts.Limit = options.Limit;
-          if (options?.ScanIndexForward !== undefined) queryOpts.ScanIndexForward = options.ScanIndexForward;
+          if (options?.ScanIndexForward !== undefined)
+            queryOpts.ScanIndexForward = options.ScanIndexForward;
           if (options?.filter) queryOpts.filter = options.filter;
 
-          const { Items } = yield* this.#table.index(indexDerivation.gsiName as any).query(
-            { pk: derivedPk, sk: derivedSk as any },
-            queryOpts as any,
-          );
+          const { Items } = yield* this.#table
+            .index(indexDerivation.gsiName as any)
+            .query({ pk: derivedPk, sk: derivedSk as any }, queryOpts as any);
 
           const items = yield* Effect.all(
             Items.map((item) =>
@@ -456,7 +509,10 @@ export class DynamoEntity<
     };
   }
 
-  #calculateSk(derivation: EmptyIndexDerivation, sk: SortKeyparameter): SortKeyparameter | string {
+  #calculateSk(
+    derivation: EmptyIndexDerivation,
+    sk: SortKeyparameter,
+  ): SortKeyparameter | string {
     const realSk = toDiscriminatedGeneric(sk as Record<string, any>);
 
     switch (realSk.type) {
@@ -469,8 +525,14 @@ export class DynamoEntity<
         break;
       case "between":
         if (realSk.value) {
-          (realSk.value as any)[0] = deriveIndexKeyValue(derivation.sk, (realSk.value as any)[0]);
-          (realSk.value as any)[1] = deriveIndexKeyValue(derivation.sk, (realSk.value as any)[1]);
+          (realSk.value as any)[0] = deriveIndexKeyValue(
+            derivation.sk,
+            (realSk.value as any)[0],
+          );
+          (realSk.value as any)[1] = deriveIndexKeyValue(
+            derivation.sk,
+            (realSk.value as any)[1],
+          );
         }
         break;
       case "beginsWith":
@@ -496,12 +558,16 @@ export class DynamoEntity<
     for (const [, derivation] of Object.entries(this.#secondaryDerivations)) {
       const deriv = derivation as EmptyIndexDerivation & { gsiName: string };
 
-      if (deriv.pk.deps.every((key: string) => typeof value[key] !== "undefined")) {
+      if (
+        deriv.pk.deps.every((key: string) => typeof value[key] !== "undefined")
+      ) {
         const pkKey = `${deriv.gsiName}PK`;
         indexMap[pkKey] = deriv.pk.derive(value).join("#");
       }
 
-      if (deriv.sk.deps.every((key: string) => typeof value[key] !== "undefined")) {
+      if (
+        deriv.sk.deps.every((key: string) => typeof value[key] !== "undefined")
+      ) {
         const skKey = `${deriv.gsiName}SK`;
         indexMap[skKey] = deriv.sk.derive(value).join("#");
       }

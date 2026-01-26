@@ -65,8 +65,6 @@ export function generateDynamoDBCode(manifest: Manifest) {
     code += generateImports(imports);
     code += generateServiceClass(operations, typeNameMapping);
     code += generateTypes(manifest, typeNameMapping, createTypeGenOptions);
-    code += generateOperationNamespaces(operations, typeNameMapping);
-
     return code;
   });
 }
@@ -193,7 +191,7 @@ function generateImports(imports: {
     code += `import type { Buffer } from "node:buffer";\n`;
   }
 
-  code += `import type { CommonAwsError } from "../errors.js";\n\n`;
+  code += `import type { DynamodbError } from "../errors.js";\n\n`;
 
   return code;
 }
@@ -251,7 +249,7 @@ function getErrorTypes(
       typeNameMapping.get(extractShapeName(error.target)) ||
       extractShapeName(error.target),
   );
-  errorTypes.push("CommonAwsError");
+  errorTypes.push("DynamodbError");
   return errorTypes;
 }
 
@@ -357,29 +355,3 @@ function generateTypes(
   return code;
 }
 
-function generateOperationNamespaces(
-  operations: Operation[],
-  typeNameMapping: Map<string, string>,
-): string {
-  let code = "";
-
-  for (const operation of operations) {
-    const inputType = getOperationType(operation.shape.input, typeNameMapping);
-    const outputType = getOperationType(
-      operation.shape.output,
-      typeNameMapping,
-    );
-    const errorTypes = getErrorTypes(operation.shape.errors, typeNameMapping);
-    const errorUnion = errorTypes.map((type) => `    | ${type}`).join("\n");
-
-    code += `export declare namespace ${operation.name} {\n`;
-    code += `  export type Input = ${inputType};\n`;
-    code += `  export type Output = ${outputType};\n`;
-    code += "  export type Error =\n";
-    code += errorUnion;
-    code += ";\n";
-    code += "}\n\n";
-  }
-
-  return code;
-}

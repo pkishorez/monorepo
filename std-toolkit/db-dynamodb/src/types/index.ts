@@ -1,5 +1,12 @@
+// Public types for configuration
+export type { AwsCredentials } from "./aws.js";
+
+export type { IndexDerivation, IndexKeyDerivation } from "./derivation.js";
+
+export type { TransactItem } from "./transaction.js";
+
+// Internal types (re-exported for internal use only)
 export type {
-  AwsCredentials,
   DynamoTableConfig,
   AttributeValue,
   MarshalledOutput,
@@ -7,11 +14,9 @@ export type {
 
 export type {
   IndexDefinition,
-  IndexDerivation,
-  IndexKeyDerivation,
   IndexDerivationValue,
   IndexKeyDerivationValue,
   EmptyIndexDerivation,
 } from "./derivation.js";
 
-export type { TransactItem, PutOptions, UpdateOptions } from "./transaction.js";
+export type { PutOptions, UpdateOptions } from "./transaction.js";
