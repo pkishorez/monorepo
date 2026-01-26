@@ -35,6 +35,7 @@ export interface DynamoDBClient {
   scan(input: unknown): Effect.Effect<any, any>;
   transactWriteItems(input: unknown): Effect.Effect<any, any>;
   createTable(input: unknown): Effect.Effect<any, any>;
+  deleteTable(input: unknown): Effect.Effect<any, any>;
   describeTable(input: unknown): Effect.Effect<any, any>;
 }
 
@@ -159,6 +160,7 @@ export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
     scan: (input) => makeRequest("scan", input),
     transactWriteItems: (input) => makeRequest("transactWriteItems", input),
     createTable: (input) => makeRequest("createTable", input),
+    deleteTable: (input) => makeRequest("deleteTable", input),
     describeTable: (input) => makeRequest("describeTable", input),
   };
 }
