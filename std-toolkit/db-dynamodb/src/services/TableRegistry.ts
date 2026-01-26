@@ -6,14 +6,14 @@ import { DynamodbError } from "../errors.js";
 
 // Type to extract entity name from a DynamoEntity
 type EntityName<T> =
-  T extends DynamoEntity<any, any, infer TSchema, any>
+  T extends DynamoEntity<any, any, infer TSchema, any, any>
     ? TSchema["name"]
     : never;
 
 // Type for the entities map
 type EntitiesMap<TTable extends DynamoTableInstance> = Record<
   string,
-  DynamoEntity<TTable, any, any, any>
+  DynamoEntity<TTable, any, any, any, any>
 >;
 
 export class TableRegistry<
@@ -102,7 +102,7 @@ class TableRegistryBuilder<
    * Register an entity with this table registry.
    * The entity name is automatically extracted from its schema.
    */
-  register<TEntity extends DynamoEntity<TTable, any, any, any>>(
+  register<TEntity extends DynamoEntity<TTable, any, any, any, any>>(
     entity: TEntity,
   ): TableRegistryBuilder<
     TTable,

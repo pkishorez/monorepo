@@ -1,8 +1,4 @@
-import type {
-  AttributeValue,
-  MarshalledOutput,
-  IndexKeyDerivation,
-} from "../types/index.js";
+import type { AttributeValue, MarshalledOutput } from "../types/index.js";
 
 export function marshall(value: unknown): MarshalledOutput {
   if (value === null || value === undefined) {
@@ -79,9 +75,32 @@ function convertFromAttr(attr: AttributeValue): unknown {
   return null;
 }
 
+/**
+ * Derives an index key value from deps and a value object.
+ *
+ * Rules:
+ * - PK (isPrimaryKey=true): always includes prefix
+ *   - deps empty: returns prefix
+ *   - deps present: returns prefix#val1#val2...
+ * - SK (isPrimaryKey=false):
+ *   - deps empty: returns prefix (fallback to entity/index name)
+ *   - deps present: returns val1#val2... (no prefix)
+ */
 export const deriveIndexKeyValue = (
-  indexDerivation: IndexKeyDerivation<any, any>,
-  value: any,
+  prefix: string,
+  deps: string[],
+  value: Record<string, unknown>,
+  isPrimaryKey: boolean,
 ): string => {
-  return indexDerivation.derive(value).join("#");
+  if (deps.length === 0) {
+    return prefix;
+  }
+
+  const values = deps.map((dep) => String(value[dep] ?? ""));
+
+  if (isPrimaryKey) {
+    return `${prefix}#${values.join("#")}`;
+  }
+
+  return values.join("#");
 };

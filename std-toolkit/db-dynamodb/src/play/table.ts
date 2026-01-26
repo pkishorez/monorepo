@@ -23,8 +23,8 @@ export const localConfig = {
 // =============================================================================
 export const table = DynamoTable.make(localConfig)
   .primary("pk", "sk")
-  .gsi("byAuthor", "byAuthorPK", "byAuthorSK")
-  .gsi("byPost", "byPostPK", "byPostSK")
+  .gsi("GSI1", "GSI1PK", "GSI1SK")
+  .gsi("GSI2", "GSI2PK", "GSI2SK")
   .build();
 
 // =============================================================================

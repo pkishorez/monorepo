@@ -1,34 +1,45 @@
-import type { Primitive } from "type-fest";
-
 export interface IndexDefinition {
   pk: string;
   sk: string;
 }
 
+/**
+ * Simplified index derivation - just arrays of field names
+ * The actual key derivation is handled internally based on:
+ * - Entity name for primary PK prefix
+ * - Index name for GSI PK prefix
+ * - deps joined with # for values
+ */
 export interface IndexDerivation<
-  TPk extends IndexKeyDerivation<any, any>,
-  TSk extends IndexKeyDerivation<any, any>,
+  TItem,
+  TPkKeys extends keyof TItem,
+  TSkKeys extends keyof TItem,
 > {
-  pk: TPk;
-  sk: TSk;
+  pk: TPkKeys[];
+  sk: TSkKeys[];
 }
 
-export interface IndexKeyDerivation<TItem, TKeys extends keyof TItem> {
-  deps: TKeys[];
-  derive: (value: Pick<TItem, TKeys>) => Primitive[];
-}
+/**
+ * Extract the value type needed for an index derivation
+ */
+export type IndexDerivationValue<
+  TItem,
+  TPkKeys extends keyof TItem,
+  TSkKeys extends keyof TItem,
+> = Pick<TItem, TPkKeys> & Pick<TItem, TSkKeys>;
 
-export type IndexDerivationValue<ID extends IndexDerivation<any, any>> =
-  ID extends IndexDerivation<infer TPk, infer TSk>
-    ? IndexKeyDerivationValue<TPk> & IndexKeyDerivationValue<TSk>
-    : never;
+/**
+ * Extract just the PK value type
+ */
+export type IndexPkValue<TItem, TPkKeys extends keyof TItem> = Pick<
+  TItem,
+  TPkKeys
+>;
 
-export type IndexKeyDerivationValue<ID extends IndexKeyDerivation<any, any>> =
-  ID extends IndexKeyDerivation<infer TItem, infer TKeys>
-    ? Pick<TItem, TKeys>
-    : never;
-
-export type EmptyIndexDerivation = IndexDerivation<
-  IndexKeyDerivation<any, any>,
-  IndexKeyDerivation<any, any>
+/**
+ * Extract just the SK value type
+ */
+export type IndexSkValue<TItem, TSkKeys extends keyof TItem> = Pick<
+  TItem,
+  TSkKeys
 >;
