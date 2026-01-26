@@ -4,11 +4,9 @@ import { ESchema } from "@std-toolkit/eschema";
 import {
   DynamoTable,
   DynamoEntity,
-  makeDynamoTable,
-  conditionExpr,
-  compileConditionExpr,
-  updateExpr,
-  compileUpdateExpr,
+  exprCondition,
+  exprUpdate,
+  buildExpr,
   marshall,
   unmarshall,
 } from "../index.js";
@@ -45,31 +43,36 @@ describe("@std-toolkit/db-dynamodb", () => {
     });
   });
 
-  describe("conditionExpr", () => {
+  describe("exprCondition", () => {
     it("creates simple condition", () => {
-      const cond = conditionExpr<{ age: number }>(($) => $.cond("age", ">", 18));
+      const cond = exprCondition<{ age: number }>(($) =>
+        $.cond("age", ">", 18),
+      );
       expect(cond.type).toBe("condition_condition");
     });
 
     it("creates AND condition", () => {
-      const cond = conditionExpr<{ age: number; status: string }>(($) =>
+      const cond = exprCondition<{ age: number; status: string }>(($) =>
         $.and($.cond("age", ">", 18), $.cond("status", "=", "active")),
       );
       expect(cond.type).toBe("condition_and");
     });
 
-    it("compiles condition expression", () => {
-      const cond = conditionExpr<{ age: number }>(($) => $.cond("age", ">", 18));
-      const compiled = compileConditionExpr(cond);
+    it("compiles condition expression via expr", () => {
+      const condition = exprCondition<{ age: number }>(($) =>
+        $.cond("age", ">", 18),
+      );
+      const compiled = buildExpr({ condition });
 
-      expect(compiled.type).toBe("condition_operation");
-      expect(compiled.expr.expr).toContain(">");
+      expect(compiled.ConditionExpression).toContain(">");
     });
   });
 
-  describe("updateExpr", () => {
+  describe("exprUpdate", () => {
     it("creates SET operation", () => {
-      const update = updateExpr<{ name: string }>(($) => [$.set("name", "test")]);
+      const update = exprUpdate<{ name: string }>(($) => [
+        $.set("name", "test"),
+      ]);
       expect(update.length).toBe(1);
       const firstOp = update[0];
       expect(firstOp).toBeDefined();
@@ -78,15 +81,14 @@ describe("@std-toolkit/db-dynamodb", () => {
       }
     });
 
-    it("compiles update expression", () => {
-      const update = updateExpr<{ name: string; count: number }>(($) => [
+    it("compiles update expression via expr", () => {
+      const update = exprUpdate<{ name: string; count: number }>(($) => [
         $.set("name", "test"),
-        $.set("count", $.addOp("count", 1)),
+        $.set("count", $.opAdd("count", 1)),
       ]);
-      const compiled = compileUpdateExpr(update);
+      const compiled = buildExpr({ update });
 
-      expect(compiled.type).toBe("update_operation");
-      expect(compiled.exprResult.expr).toContain("SET");
+      expect(compiled.UpdateExpression).toContain("SET");
     });
   });
 
@@ -108,22 +110,6 @@ describe("@std-toolkit/db-dynamodb", () => {
       expect(table.tableName).toBe("test-table");
       expect(table.primary).toEqual({ pk: "pk", sk: "sk" });
       expect(table.secondaryIndexMap).toHaveProperty("GSI1");
-    });
-
-    it("creates table instance with legacy makeDynamoTable", () => {
-      const table = makeDynamoTable({
-        tableName: "test-table",
-        region: "us-east-1",
-        credentials: {
-          accessKeyId: "test",
-          secretAccessKey: "test",
-        },
-      })
-        .primary("pk", "sk")
-        .build();
-
-      expect(table).toBeDefined();
-      expect(table.tableName).toBe("test-table");
     });
   });
 

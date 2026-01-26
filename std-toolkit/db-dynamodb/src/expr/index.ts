@@ -1,16 +1,19 @@
+// Public expression builders
+export { exprCondition, exprFilter } from "./condition.js";
+
+export { exprUpdate, opAdd, opIfNotExists } from "./update.js";
+
+export { buildExpr } from "./build-expr.js";
+
+// Internal exports (for internal use only)
 export {
-  conditionExpr,
-  filterExpr,
   compileConditionExpr,
   type ConditionOperation,
   type CompiledConditionOperation,
 } from "./condition.js";
 
 export {
-  updateExpr,
   compileUpdateExpr,
-  addOp,
-  ifNotExists,
   type UpdateOperation,
   type CompiledUpdateOperation,
 } from "./update.js";
@@ -22,16 +25,20 @@ export {
   type KeyconditionOperation,
 } from "./key-condition.js";
 
-export {
-  buildExpr,
-  type QueryExprResult,
-  type UpdateExprResult,
-  type ConditionExprResult,
-  type QueryExprInput,
-  type UpdateExprInput,
-  type ConditionExprInput,
-} from "./expr.js";
+export type {
+  QueryExprResult,
+  UpdateExprResult,
+  ConditionExprResult,
+  QueryExprInput,
+  UpdateExprInput,
+  ConditionExprInput,
+} from "./build-expr.js";
 
 export { AttributeMapBuilder } from "./utils.js";
 
-export type { DynamoAttrResult, ExprResult, ValidPaths, ValidPathsWithCond } from "./types.js";
+export type {
+  DynamoAttrResult,
+  ExprResult,
+  ValidPaths,
+  ValidPathsWithCond,
+} from "./types.js";

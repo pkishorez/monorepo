@@ -64,9 +64,9 @@ type UpdateOps<T> = {
       | IfNotExistsOp<T>,
   ) => SetOperation<T, Key>;
 
-  addOp: (key: ValidPathsWithCond<T, number>, value: number) => AddOp<T>;
+  opAdd: (key: ValidPathsWithCond<T, number>, value: number) => AddOp<T>;
 
-  ifNotExistsOp: <Key extends ValidPaths<T>>(
+  opIfNotExists: <Key extends ValidPaths<T>>(
     key: Key,
     value: Get<T, Key>,
   ) => IfNotExistsOp<T, Key>;
@@ -89,14 +89,14 @@ function set<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   return { type: "update_set_value", key, value } as SetOperation<T, Key>;
 }
 
-export function addOp<T>(
+export function opAdd<T>(
   key: ValidPathsWithCond<T, number>,
   value: number,
 ): AddOp<T> {
   return { type: "update_primitive_add_op", key, value };
 }
 
-export function ifNotExists<T, Key extends ValidPaths<T>>(
+export function opIfNotExists<T, Key extends ValidPaths<T>>(
   key: Key,
   value: Get<T, Key>,
 ): IfNotExistsOp<T, Key> {
@@ -117,14 +117,14 @@ function prepend<
   return { type: "update_set_prepend", key, value };
 }
 
-export function updateExpr<T>(
+export function exprUpdate<T>(
   builder: (ops: UpdateOps<T>) => AnyOperation<T>[],
 ): UpdateOperation<T> {
   return builder({
     set: (key, value) => set<any, any>(key, value),
-    addOp: (key: ValidPathsWithCond<T, number>, value: number) =>
-      addOp<T>(key, value),
-    ifNotExistsOp: (key, value) => ifNotExists<any, any>(key, value),
+    opAdd: (key: ValidPathsWithCond<T, number>, value: number) =>
+      opAdd<T>(key, value),
+    opIfNotExists: (key, value) => opIfNotExists<any, any>(key, value),
     append: (key, value) => append<any, any>(key, value),
     prepend: (key, value) => prepend<any, any>(key, value),
   });

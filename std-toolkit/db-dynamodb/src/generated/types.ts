@@ -1,350 +1,350 @@
 // This file is auto-generated from AWS Smithy specs. Do not edit manually.
 
 import type { Effect, Data as EffectData } from "effect";
-import type { CommonAwsError } from "../errors.js";
+import type { DynamodbError } from "../errors.js";
 
 export interface DynamoDBClientService {
   batchExecuteStatement(
     input: BatchExecuteStatementInput,
   ): Effect.Effect<
     BatchExecuteStatementOutput,
-    InternalServerError | RequestLimitExceeded | ThrottlingException | CommonAwsError
+    InternalServerError | RequestLimitExceeded | ThrottlingException | DynamodbError
   >;
   batchGetItem(
     input: BatchGetItemInput,
   ): Effect.Effect<
     BatchGetItemOutput,
-    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | DynamodbError
   >;
   batchWriteItem(
     input: BatchWriteItemInput,
   ): Effect.Effect<
     BatchWriteItemOutput,
-    InternalServerError | InvalidEndpointException | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | ReplicatedWriteConflictException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | ReplicatedWriteConflictException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | DynamodbError
   >;
   createBackup(
     input: CreateBackupInput,
   ): Effect.Effect<
     CreateBackupOutput,
-    BackupInUseException | ContinuousBackupsUnavailableException | InternalServerError | InvalidEndpointException | LimitExceededException | TableInUseException | TableNotFoundException | CommonAwsError
+    BackupInUseException | ContinuousBackupsUnavailableException | InternalServerError | InvalidEndpointException | LimitExceededException | TableInUseException | TableNotFoundException | DynamodbError
   >;
   createGlobalTable(
     input: CreateGlobalTableInput,
   ): Effect.Effect<
     CreateGlobalTableOutput,
-    GlobalTableAlreadyExistsException | InternalServerError | InvalidEndpointException | LimitExceededException | TableNotFoundException | CommonAwsError
+    GlobalTableAlreadyExistsException | InternalServerError | InvalidEndpointException | LimitExceededException | TableNotFoundException | DynamodbError
   >;
   createTable(
     input: CreateTableInput,
   ): Effect.Effect<
     CreateTableOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | DynamodbError
   >;
   deleteBackup(
     input: DeleteBackupInput,
   ): Effect.Effect<
     DeleteBackupOutput,
-    BackupInUseException | BackupNotFoundException | InternalServerError | InvalidEndpointException | LimitExceededException | CommonAwsError
+    BackupInUseException | BackupNotFoundException | InternalServerError | InvalidEndpointException | LimitExceededException | DynamodbError
   >;
   deleteItem(
     input: DeleteItemInput,
   ): Effect.Effect<
     DeleteItemOutput,
-    ConditionalCheckFailedException | InternalServerError | InvalidEndpointException | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | ReplicatedWriteConflictException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionConflictException | CommonAwsError
+    ConditionalCheckFailedException | InternalServerError | InvalidEndpointException | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | ReplicatedWriteConflictException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionConflictException | DynamodbError
   >;
   deleteResourcePolicy(
     input: DeleteResourcePolicyInput,
   ): Effect.Effect<
     DeleteResourcePolicyOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | PolicyNotFoundException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | PolicyNotFoundException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   deleteTable(
     input: DeleteTableInput,
   ): Effect.Effect<
     DeleteTableOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   describeBackup(
     input: DescribeBackupInput,
   ): Effect.Effect<
     DescribeBackupOutput,
-    BackupNotFoundException | InternalServerError | InvalidEndpointException | CommonAwsError
+    BackupNotFoundException | InternalServerError | InvalidEndpointException | DynamodbError
   >;
   describeContinuousBackups(
     input: DescribeContinuousBackupsInput,
   ): Effect.Effect<
     DescribeContinuousBackupsOutput,
-    InternalServerError | InvalidEndpointException | TableNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | TableNotFoundException | DynamodbError
   >;
   describeContributorInsights(
     input: DescribeContributorInsightsInput,
   ): Effect.Effect<
     DescribeContributorInsightsOutput,
-    InternalServerError | ResourceNotFoundException | CommonAwsError
+    InternalServerError | ResourceNotFoundException | DynamodbError
   >;
   describeEndpoints(
     input: DescribeEndpointsRequest,
   ): Effect.Effect<
     DescribeEndpointsResponse,
-    CommonAwsError
+    DynamodbError
   >;
   describeExport(
     input: DescribeExportInput,
   ): Effect.Effect<
     DescribeExportOutput,
-    ExportNotFoundException | InternalServerError | LimitExceededException | CommonAwsError
+    ExportNotFoundException | InternalServerError | LimitExceededException | DynamodbError
   >;
   describeGlobalTable(
     input: DescribeGlobalTableInput,
   ): Effect.Effect<
     DescribeGlobalTableOutput,
-    GlobalTableNotFoundException | InternalServerError | InvalidEndpointException | CommonAwsError
+    GlobalTableNotFoundException | InternalServerError | InvalidEndpointException | DynamodbError
   >;
   describeGlobalTableSettings(
     input: DescribeGlobalTableSettingsInput,
   ): Effect.Effect<
     DescribeGlobalTableSettingsOutput,
-    GlobalTableNotFoundException | InternalServerError | InvalidEndpointException | CommonAwsError
+    GlobalTableNotFoundException | InternalServerError | InvalidEndpointException | DynamodbError
   >;
   describeImport(
     input: DescribeImportInput,
   ): Effect.Effect<
     DescribeImportOutput,
-    ImportNotFoundException | CommonAwsError
+    ImportNotFoundException | DynamodbError
   >;
   describeKinesisStreamingDestination(
     input: DescribeKinesisStreamingDestinationInput,
   ): Effect.Effect<
     DescribeKinesisStreamingDestinationOutput,
-    InternalServerError | InvalidEndpointException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ResourceNotFoundException | DynamodbError
   >;
   describeLimits(
     input: DescribeLimitsInput,
   ): Effect.Effect<
     DescribeLimitsOutput,
-    InternalServerError | InvalidEndpointException | CommonAwsError
+    InternalServerError | InvalidEndpointException | DynamodbError
   >;
   describeTable(
     input: DescribeTableInput,
   ): Effect.Effect<
     DescribeTableOutput,
-    InternalServerError | InvalidEndpointException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ResourceNotFoundException | DynamodbError
   >;
   describeTableReplicaAutoScaling(
     input: DescribeTableReplicaAutoScalingInput,
   ): Effect.Effect<
     DescribeTableReplicaAutoScalingOutput,
-    InternalServerError | ResourceNotFoundException | CommonAwsError
+    InternalServerError | ResourceNotFoundException | DynamodbError
   >;
   describeTimeToLive(
     input: DescribeTimeToLiveInput,
   ): Effect.Effect<
     DescribeTimeToLiveOutput,
-    InternalServerError | InvalidEndpointException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ResourceNotFoundException | DynamodbError
   >;
   disableKinesisStreamingDestination(
     input: KinesisStreamingDestinationInput,
   ): Effect.Effect<
     KinesisStreamingDestinationOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   enableKinesisStreamingDestination(
     input: KinesisStreamingDestinationInput,
   ): Effect.Effect<
     KinesisStreamingDestinationOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   executeStatement(
     input: ExecuteStatementInput,
   ): Effect.Effect<
     ExecuteStatementOutput,
-    ConditionalCheckFailedException | DuplicateItemException | InternalServerError | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionConflictException | CommonAwsError
+    ConditionalCheckFailedException | DuplicateItemException | InternalServerError | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionConflictException | DynamodbError
   >;
   executeTransaction(
     input: ExecuteTransactionInput,
   ): Effect.Effect<
     ExecuteTransactionOutput,
-    IdempotentParameterMismatchException | InternalServerError | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionCanceledException | TransactionInProgressException | CommonAwsError
+    IdempotentParameterMismatchException | InternalServerError | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionCanceledException | TransactionInProgressException | DynamodbError
   >;
   exportTableToPointInTime(
     input: ExportTableToPointInTimeInput,
   ): Effect.Effect<
     ExportTableToPointInTimeOutput,
-    ExportConflictException | InternalServerError | InvalidExportTimeException | LimitExceededException | PointInTimeRecoveryUnavailableException | TableNotFoundException | CommonAwsError
+    ExportConflictException | InternalServerError | InvalidExportTimeException | LimitExceededException | PointInTimeRecoveryUnavailableException | TableNotFoundException | DynamodbError
   >;
   getItem(
     input: GetItemInput,
   ): Effect.Effect<
     GetItemOutput,
-    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | DynamodbError
   >;
   getResourcePolicy(
     input: GetResourcePolicyInput,
   ): Effect.Effect<
     GetResourcePolicyOutput,
-    InternalServerError | InvalidEndpointException | PolicyNotFoundException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | PolicyNotFoundException | ResourceNotFoundException | DynamodbError
   >;
   importTable(
     input: ImportTableInput,
   ): Effect.Effect<
     ImportTableOutput,
-    ImportConflictException | LimitExceededException | ResourceInUseException | CommonAwsError
+    ImportConflictException | LimitExceededException | ResourceInUseException | DynamodbError
   >;
   listBackups(
     input: ListBackupsInput,
   ): Effect.Effect<
     ListBackupsOutput,
-    InternalServerError | InvalidEndpointException | CommonAwsError
+    InternalServerError | InvalidEndpointException | DynamodbError
   >;
   listContributorInsights(
     input: ListContributorInsightsInput,
   ): Effect.Effect<
     ListContributorInsightsOutput,
-    InternalServerError | ResourceNotFoundException | CommonAwsError
+    InternalServerError | ResourceNotFoundException | DynamodbError
   >;
   listExports(
     input: ListExportsInput,
   ): Effect.Effect<
     ListExportsOutput,
-    InternalServerError | LimitExceededException | CommonAwsError
+    InternalServerError | LimitExceededException | DynamodbError
   >;
   listGlobalTables(
     input: ListGlobalTablesInput,
   ): Effect.Effect<
     ListGlobalTablesOutput,
-    InternalServerError | InvalidEndpointException | CommonAwsError
+    InternalServerError | InvalidEndpointException | DynamodbError
   >;
   listImports(
     input: ListImportsInput,
   ): Effect.Effect<
     ListImportsOutput,
-    LimitExceededException | CommonAwsError
+    LimitExceededException | DynamodbError
   >;
   listTables(
     input: ListTablesInput,
   ): Effect.Effect<
     ListTablesOutput,
-    InternalServerError | InvalidEndpointException | CommonAwsError
+    InternalServerError | InvalidEndpointException | DynamodbError
   >;
   listTagsOfResource(
     input: ListTagsOfResourceInput,
   ): Effect.Effect<
     ListTagsOfResourceOutput,
-    InternalServerError | InvalidEndpointException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ResourceNotFoundException | DynamodbError
   >;
   putItem(
     input: PutItemInput,
   ): Effect.Effect<
     PutItemOutput,
-    ConditionalCheckFailedException | InternalServerError | InvalidEndpointException | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | ReplicatedWriteConflictException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionConflictException | CommonAwsError
+    ConditionalCheckFailedException | InternalServerError | InvalidEndpointException | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | ReplicatedWriteConflictException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionConflictException | DynamodbError
   >;
   putResourcePolicy(
     input: PutResourcePolicyInput,
   ): Effect.Effect<
     PutResourcePolicyOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | PolicyNotFoundException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | PolicyNotFoundException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   query(
     input: QueryInput,
   ): Effect.Effect<
     QueryOutput,
-    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | DynamodbError
   >;
   restoreTableFromBackup(
     input: RestoreTableFromBackupInput,
   ): Effect.Effect<
     RestoreTableFromBackupOutput,
-    BackupInUseException | BackupNotFoundException | InternalServerError | InvalidEndpointException | LimitExceededException | TableAlreadyExistsException | TableInUseException | CommonAwsError
+    BackupInUseException | BackupNotFoundException | InternalServerError | InvalidEndpointException | LimitExceededException | TableAlreadyExistsException | TableInUseException | DynamodbError
   >;
   restoreTableToPointInTime(
     input: RestoreTableToPointInTimeInput,
   ): Effect.Effect<
     RestoreTableToPointInTimeOutput,
-    InternalServerError | InvalidEndpointException | InvalidRestoreTimeException | LimitExceededException | PointInTimeRecoveryUnavailableException | TableAlreadyExistsException | TableInUseException | TableNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | InvalidRestoreTimeException | LimitExceededException | PointInTimeRecoveryUnavailableException | TableAlreadyExistsException | TableInUseException | TableNotFoundException | DynamodbError
   >;
   scan(
     input: ScanInput,
   ): Effect.Effect<
     ScanOutput,
-    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | DynamodbError
   >;
   tagResource(
     input: TagResourceInput,
   ): Effect.Effect<
     {},
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   transactGetItems(
     input: TransactGetItemsInput,
   ): Effect.Effect<
     TransactGetItemsOutput,
-    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionCanceledException | CommonAwsError
+    InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionCanceledException | DynamodbError
   >;
   transactWriteItems(
     input: TransactWriteItemsInput,
   ): Effect.Effect<
     TransactWriteItemsOutput,
-    IdempotentParameterMismatchException | InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionCanceledException | TransactionInProgressException | CommonAwsError
+    IdempotentParameterMismatchException | InternalServerError | InvalidEndpointException | ProvisionedThroughputExceededException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionCanceledException | TransactionInProgressException | DynamodbError
   >;
   untagResource(
     input: UntagResourceInput,
   ): Effect.Effect<
     {},
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   updateContinuousBackups(
     input: UpdateContinuousBackupsInput,
   ): Effect.Effect<
     UpdateContinuousBackupsOutput,
-    ContinuousBackupsUnavailableException | InternalServerError | InvalidEndpointException | TableNotFoundException | CommonAwsError
+    ContinuousBackupsUnavailableException | InternalServerError | InvalidEndpointException | TableNotFoundException | DynamodbError
   >;
   updateContributorInsights(
     input: UpdateContributorInsightsInput,
   ): Effect.Effect<
     UpdateContributorInsightsOutput,
-    InternalServerError | ResourceNotFoundException | CommonAwsError
+    InternalServerError | ResourceNotFoundException | DynamodbError
   >;
   updateGlobalTable(
     input: UpdateGlobalTableInput,
   ): Effect.Effect<
     UpdateGlobalTableOutput,
-    GlobalTableNotFoundException | InternalServerError | InvalidEndpointException | ReplicaAlreadyExistsException | ReplicaNotFoundException | TableNotFoundException | CommonAwsError
+    GlobalTableNotFoundException | InternalServerError | InvalidEndpointException | ReplicaAlreadyExistsException | ReplicaNotFoundException | TableNotFoundException | DynamodbError
   >;
   updateGlobalTableSettings(
     input: UpdateGlobalTableSettingsInput,
   ): Effect.Effect<
     UpdateGlobalTableSettingsOutput,
-    GlobalTableNotFoundException | IndexNotFoundException | InternalServerError | InvalidEndpointException | LimitExceededException | ReplicaNotFoundException | ResourceInUseException | CommonAwsError
+    GlobalTableNotFoundException | IndexNotFoundException | InternalServerError | InvalidEndpointException | LimitExceededException | ReplicaNotFoundException | ResourceInUseException | DynamodbError
   >;
   updateItem(
     input: UpdateItemInput,
   ): Effect.Effect<
     UpdateItemOutput,
-    ConditionalCheckFailedException | InternalServerError | InvalidEndpointException | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | ReplicatedWriteConflictException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionConflictException | CommonAwsError
+    ConditionalCheckFailedException | InternalServerError | InvalidEndpointException | ItemCollectionSizeLimitExceededException | ProvisionedThroughputExceededException | ReplicatedWriteConflictException | RequestLimitExceeded | ResourceNotFoundException | ThrottlingException | TransactionConflictException | DynamodbError
   >;
   updateKinesisStreamingDestination(
     input: UpdateKinesisStreamingDestinationInput,
   ): Effect.Effect<
     UpdateKinesisStreamingDestinationOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   updateTable(
     input: UpdateTableInput,
   ): Effect.Effect<
     UpdateTableOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   updateTableReplicaAutoScaling(
     input: UpdateTableReplicaAutoScalingInput,
   ): Effect.Effect<
     UpdateTableReplicaAutoScalingOutput,
-    InternalServerError | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
   updateTimeToLive(
     input: UpdateTimeToLiveInput,
   ): Effect.Effect<
     UpdateTimeToLiveOutput,
-    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | CommonAwsError
+    InternalServerError | InvalidEndpointException | LimitExceededException | ResourceInUseException | ResourceNotFoundException | DynamodbError
   >;
 }
 
@@ -7801,7 +7801,7 @@ export declare namespace BatchExecuteStatement {
     | InternalServerError
     | RequestLimitExceeded
     | ThrottlingException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace BatchGetItem {
@@ -7814,7 +7814,7 @@ export declare namespace BatchGetItem {
     | RequestLimitExceeded
     | ResourceNotFoundException
     | ThrottlingException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace BatchWriteItem {
@@ -7829,7 +7829,7 @@ export declare namespace BatchWriteItem {
     | RequestLimitExceeded
     | ResourceNotFoundException
     | ThrottlingException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace CreateBackup {
@@ -7843,7 +7843,7 @@ export declare namespace CreateBackup {
     | LimitExceededException
     | TableInUseException
     | TableNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace CreateGlobalTable {
@@ -7855,7 +7855,7 @@ export declare namespace CreateGlobalTable {
     | InvalidEndpointException
     | LimitExceededException
     | TableNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace CreateTable {
@@ -7866,7 +7866,7 @@ export declare namespace CreateTable {
     | InvalidEndpointException
     | LimitExceededException
     | ResourceInUseException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DeleteBackup {
@@ -7878,7 +7878,7 @@ export declare namespace DeleteBackup {
     | InternalServerError
     | InvalidEndpointException
     | LimitExceededException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DeleteItem {
@@ -7895,7 +7895,7 @@ export declare namespace DeleteItem {
     | ResourceNotFoundException
     | ThrottlingException
     | TransactionConflictException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DeleteResourcePolicy {
@@ -7908,7 +7908,7 @@ export declare namespace DeleteResourcePolicy {
     | PolicyNotFoundException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DeleteTable {
@@ -7920,7 +7920,7 @@ export declare namespace DeleteTable {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeBackup {
@@ -7930,7 +7930,7 @@ export declare namespace DescribeBackup {
     | BackupNotFoundException
     | InternalServerError
     | InvalidEndpointException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeContinuousBackups {
@@ -7940,7 +7940,7 @@ export declare namespace DescribeContinuousBackups {
     | InternalServerError
     | InvalidEndpointException
     | TableNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeContributorInsights {
@@ -7949,14 +7949,14 @@ export declare namespace DescribeContributorInsights {
   export type Error =
     | InternalServerError
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeEndpoints {
   export type Input = DescribeEndpointsRequest;
   export type Output = DescribeEndpointsResponse;
   export type Error =
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeExport {
@@ -7966,7 +7966,7 @@ export declare namespace DescribeExport {
     | ExportNotFoundException
     | InternalServerError
     | LimitExceededException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeGlobalTable {
@@ -7976,7 +7976,7 @@ export declare namespace DescribeGlobalTable {
     | GlobalTableNotFoundException
     | InternalServerError
     | InvalidEndpointException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeGlobalTableSettings {
@@ -7986,7 +7986,7 @@ export declare namespace DescribeGlobalTableSettings {
     | GlobalTableNotFoundException
     | InternalServerError
     | InvalidEndpointException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeImport {
@@ -7994,7 +7994,7 @@ export declare namespace DescribeImport {
   export type Output = DescribeImportOutput;
   export type Error =
     | ImportNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeKinesisStreamingDestination {
@@ -8004,7 +8004,7 @@ export declare namespace DescribeKinesisStreamingDestination {
     | InternalServerError
     | InvalidEndpointException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeLimits {
@@ -8013,7 +8013,7 @@ export declare namespace DescribeLimits {
   export type Error =
     | InternalServerError
     | InvalidEndpointException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeTable {
@@ -8023,7 +8023,7 @@ export declare namespace DescribeTable {
     | InternalServerError
     | InvalidEndpointException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeTableReplicaAutoScaling {
@@ -8032,7 +8032,7 @@ export declare namespace DescribeTableReplicaAutoScaling {
   export type Error =
     | InternalServerError
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DescribeTimeToLive {
@@ -8042,7 +8042,7 @@ export declare namespace DescribeTimeToLive {
     | InternalServerError
     | InvalidEndpointException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace DisableKinesisStreamingDestination {
@@ -8054,7 +8054,7 @@ export declare namespace DisableKinesisStreamingDestination {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace EnableKinesisStreamingDestination {
@@ -8066,7 +8066,7 @@ export declare namespace EnableKinesisStreamingDestination {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ExecuteStatement {
@@ -8082,7 +8082,7 @@ export declare namespace ExecuteStatement {
     | ResourceNotFoundException
     | ThrottlingException
     | TransactionConflictException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ExecuteTransaction {
@@ -8097,7 +8097,7 @@ export declare namespace ExecuteTransaction {
     | ThrottlingException
     | TransactionCanceledException
     | TransactionInProgressException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ExportTableToPointInTime {
@@ -8110,7 +8110,7 @@ export declare namespace ExportTableToPointInTime {
     | LimitExceededException
     | PointInTimeRecoveryUnavailableException
     | TableNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace GetItem {
@@ -8123,7 +8123,7 @@ export declare namespace GetItem {
     | RequestLimitExceeded
     | ResourceNotFoundException
     | ThrottlingException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace GetResourcePolicy {
@@ -8134,7 +8134,7 @@ export declare namespace GetResourcePolicy {
     | InvalidEndpointException
     | PolicyNotFoundException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ImportTable {
@@ -8144,7 +8144,7 @@ export declare namespace ImportTable {
     | ImportConflictException
     | LimitExceededException
     | ResourceInUseException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ListBackups {
@@ -8153,7 +8153,7 @@ export declare namespace ListBackups {
   export type Error =
     | InternalServerError
     | InvalidEndpointException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ListContributorInsights {
@@ -8162,7 +8162,7 @@ export declare namespace ListContributorInsights {
   export type Error =
     | InternalServerError
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ListExports {
@@ -8171,7 +8171,7 @@ export declare namespace ListExports {
   export type Error =
     | InternalServerError
     | LimitExceededException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ListGlobalTables {
@@ -8180,7 +8180,7 @@ export declare namespace ListGlobalTables {
   export type Error =
     | InternalServerError
     | InvalidEndpointException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ListImports {
@@ -8188,7 +8188,7 @@ export declare namespace ListImports {
   export type Output = ListImportsOutput;
   export type Error =
     | LimitExceededException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ListTables {
@@ -8197,7 +8197,7 @@ export declare namespace ListTables {
   export type Error =
     | InternalServerError
     | InvalidEndpointException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace ListTagsOfResource {
@@ -8207,7 +8207,7 @@ export declare namespace ListTagsOfResource {
     | InternalServerError
     | InvalidEndpointException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace PutItem {
@@ -8224,7 +8224,7 @@ export declare namespace PutItem {
     | ResourceNotFoundException
     | ThrottlingException
     | TransactionConflictException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace PutResourcePolicy {
@@ -8237,7 +8237,7 @@ export declare namespace PutResourcePolicy {
     | PolicyNotFoundException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace Query {
@@ -8250,7 +8250,7 @@ export declare namespace Query {
     | RequestLimitExceeded
     | ResourceNotFoundException
     | ThrottlingException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace RestoreTableFromBackup {
@@ -8264,7 +8264,7 @@ export declare namespace RestoreTableFromBackup {
     | LimitExceededException
     | TableAlreadyExistsException
     | TableInUseException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace RestoreTableToPointInTime {
@@ -8279,7 +8279,7 @@ export declare namespace RestoreTableToPointInTime {
     | TableAlreadyExistsException
     | TableInUseException
     | TableNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace Scan {
@@ -8292,7 +8292,7 @@ export declare namespace Scan {
     | RequestLimitExceeded
     | ResourceNotFoundException
     | ThrottlingException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace TagResource {
@@ -8304,7 +8304,7 @@ export declare namespace TagResource {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace TransactGetItems {
@@ -8318,7 +8318,7 @@ export declare namespace TransactGetItems {
     | ResourceNotFoundException
     | ThrottlingException
     | TransactionCanceledException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace TransactWriteItems {
@@ -8334,7 +8334,7 @@ export declare namespace TransactWriteItems {
     | ThrottlingException
     | TransactionCanceledException
     | TransactionInProgressException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UntagResource {
@@ -8346,7 +8346,7 @@ export declare namespace UntagResource {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateContinuousBackups {
@@ -8357,7 +8357,7 @@ export declare namespace UpdateContinuousBackups {
     | InternalServerError
     | InvalidEndpointException
     | TableNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateContributorInsights {
@@ -8366,7 +8366,7 @@ export declare namespace UpdateContributorInsights {
   export type Error =
     | InternalServerError
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateGlobalTable {
@@ -8379,7 +8379,7 @@ export declare namespace UpdateGlobalTable {
     | ReplicaAlreadyExistsException
     | ReplicaNotFoundException
     | TableNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateGlobalTableSettings {
@@ -8393,7 +8393,7 @@ export declare namespace UpdateGlobalTableSettings {
     | LimitExceededException
     | ReplicaNotFoundException
     | ResourceInUseException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateItem {
@@ -8410,7 +8410,7 @@ export declare namespace UpdateItem {
     | ResourceNotFoundException
     | ThrottlingException
     | TransactionConflictException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateKinesisStreamingDestination {
@@ -8422,7 +8422,7 @@ export declare namespace UpdateKinesisStreamingDestination {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateTable {
@@ -8434,7 +8434,7 @@ export declare namespace UpdateTable {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateTableReplicaAutoScaling {
@@ -8445,7 +8445,7 @@ export declare namespace UpdateTableReplicaAutoScaling {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
 export declare namespace UpdateTimeToLive {
@@ -8457,6 +8457,6 @@ export declare namespace UpdateTimeToLive {
     | LimitExceededException
     | ResourceInUseException
     | ResourceNotFoundException
-    | CommonAwsError;
+    | DynamodbError;
 }
 
