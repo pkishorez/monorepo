@@ -1,5 +1,6 @@
 import { EntityType, MetaSchema } from "@std-toolkit/core";
 import { Schema } from "effect";
+import type { IndexPatternDescriptor } from "./types.js";
 
 export const indexKeyColumn = (name: string): string => `_idx_${name}_key`;
 
@@ -42,3 +43,10 @@ export const extractKeyOp = <T>(
 
 export const getKeyOpOrderDirection = (op: Operator): "ASC" | "DESC" =>
   op === "<" || op === "<=" ? "DESC" : "ASC";
+
+export const fieldsToPattern = (
+  fields: readonly string[],
+): IndexPatternDescriptor => ({
+  deps: [...fields],
+  pattern: fields.map((f) => `{${f}}`).join("#"),
+});

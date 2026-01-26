@@ -559,3 +559,82 @@ describe("SQLiteTable Transactions", () => {
     );
   });
 });
+
+// ─── Descriptor ─────────────────────────────────────────────────────────────
+
+describe("SQLiteTable.getDescriptor", () => {
+  it("should return descriptor with empty pk for SQLite", () => {
+    const descriptor = OrdersTable.getDescriptor();
+
+    expect(descriptor.primaryIndex.pk).toEqual({ deps: [], pattern: "" });
+    expect(descriptor.primaryIndex.sk).toEqual({
+      deps: ["customerId", "orderId"],
+      pattern: "{customerId}#{orderId}",
+    });
+  });
+
+  it("should return correct name and version", () => {
+    const descriptor = OrdersTable.getDescriptor();
+
+    expect(descriptor.name).toBe("CustomerOrder");
+    expect(descriptor.version).toBe("v1");
+  });
+
+  it("should return primary index with name", () => {
+    const descriptor = OrdersTable.getDescriptor();
+
+    expect(descriptor.primaryIndex.name).toBe("primary");
+  });
+
+  it("should return secondary indexes with correct structure", () => {
+    const descriptor = OrdersTable.getDescriptor();
+
+    expect(descriptor.secondaryIndexes).toHaveLength(1);
+    expect(descriptor.secondaryIndexes[0]).toEqual({
+      name: "byStatus",
+      pk: { deps: [], pattern: "" },
+      sk: { deps: ["status", "_u"], pattern: "{status}#{_u}" },
+    });
+  });
+
+  it("should include schema descriptor", () => {
+    const descriptor = OrdersTable.getDescriptor();
+
+    expect(descriptor.schema).toBeDefined();
+    expect(descriptor.schema.type).toBe("object");
+    expect(descriptor.schema.properties).toHaveProperty("customerId");
+    expect(descriptor.schema.properties).toHaveProperty("orderId");
+    expect(descriptor.schema.properties).toHaveProperty("status");
+    expect(descriptor.schema.properties).toHaveProperty("amount");
+  });
+
+  it("should handle table with no secondary indexes", () => {
+    const SimpleSchema = ESchema.make("Simple", {
+      id: Schema.String,
+    }).build();
+
+    const SimpleTable = SQLiteTable.make(SimpleSchema).primary(["id"]).build();
+
+    const descriptor = SimpleTable.getDescriptor();
+
+    expect(descriptor.primaryIndex.sk).toEqual({
+      deps: ["id"],
+      pattern: "{id}",
+    });
+    expect(descriptor.secondaryIndexes).toEqual([]);
+  });
+
+  it("should handle table with multiple secondary indexes", () => {
+    const descriptor = UsersTable.getDescriptor();
+
+    expect(descriptor.secondaryIndexes).toHaveLength(1);
+
+    const byEmail = descriptor.secondaryIndexes.find((i) => i.name === "byEmail");
+
+    expect(byEmail).toEqual({
+      name: "byEmail",
+      pk: { deps: [], pattern: "" },
+      sk: { deps: ["email"], pattern: "{email}" },
+    });
+  });
+});
