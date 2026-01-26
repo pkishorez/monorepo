@@ -1,6 +1,6 @@
 # @std-toolkit/db-dynamodb
 
-DynamoDB single-table abstraction with Effect integration and schema evolution.
+A type-safe DynamoDB abstraction built with Effect. Provides two layers: `DynamoTable` for direct table operations and `DynamoEntity` for schema-driven entity management with automatic key derivation.
 
 ## Installation
 
@@ -8,87 +8,28 @@ DynamoDB single-table abstraction with Effect integration and schema evolution.
 pnpm add @std-toolkit/db-dynamodb effect @std-toolkit/eschema
 ```
 
-## Intuition
-
-This library provides two layers of abstraction for working with DynamoDB:
-
-### Layer 1: DynamoTable (Low-level)
-
-`DynamoTable` is a thin wrapper around DynamoDB operations. It handles marshalling/unmarshalling and provides an Effect-based API, but you work directly with partition keys (pk) and sort keys (sk).
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                     DynamoDB Table                      │
-├──────────────┬──────────────┬───────────────────────────┤
-│     pk       │     sk       │        attributes         │
-├──────────────┼──────────────┼───────────────────────────┤
-│ USER#123     │ PROFILE      │ name, email, age, ...     │
-│ USER#123     │ ORDER#001    │ total, status, items, ... │
-│ USER#123     │ ORDER#002    │ total, status, items, ... │
-│ USER#456     │ PROFILE      │ name, email, age, ...     │
-└──────────────┴──────────────┴───────────────────────────┘
-```
-
-Use `DynamoTable` when you need fine-grained control or are doing operations that don't fit the entity model.
-
-### Layer 2: DynamoEntity (High-level)
-
-`DynamoEntity` abstracts away key management entirely. You define:
-1. A **schema** for your entity (what fields it has)
-2. **Derivations** that compute pk/sk from your entity's fields
-
-Then you work with plain objects - the library handles key generation, metadata tracking, and schema encoding/decoding.
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Your Code                            │
-├─────────────────────────────────────────────────────────┤
-│  userEntity.insert({ id: "123", name: "Alice", ... })   │
-│  userEntity.get({ id: "123" })                          │
-│  userEntity.query({ pk: { id: "123" } })                │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                   DynamoEntity                          │
-│  - Derives pk/sk from your data                         │
-│  - Encodes/decodes via schema                           │
-│  - Tracks metadata (_e, _v, _i, _u, _d)                 │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                    DynamoDB                             │
-│  pk: "USER#123", sk: "PROFILE", _e: "User", ...         │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Entity Metadata
-
-Every entity automatically includes metadata fields:
-- `_e` - Entity name (e.g., "User", "Order")
-- `_v` - Schema version for evolution
-- `_i` - Increment counter (increases on each update, useful for optimistic locking)
-- `_u` - Last updated timestamp (ISO string)
-- `_d` - Deleted flag (soft delete support)
-
-### GSI Column Naming Convention
-
-When using `DynamoEntity` with GSIs, the library writes to columns named `{GSI_NAME}PK` and `{GSI_NAME}SK`. For example, if your GSI is named `GSI1`, the columns will be `GSI1PK` and `GSI1SK`. Your DynamoDB table must have GSIs configured with these column names.
-
 ---
 
-## Examples
+## DynamoTable
 
-### Example 1: Basic Table Operations
+`DynamoTable` is a thin wrapper around DynamoDB operations. It handles marshalling/unmarshalling, provides type-safe index access, and exposes an Effect-based API.
 
-The simplest usage - direct table operations without entities.
+### Limitations
+
+- **Composite primary key required**: Every table must have both a partition key (pk) and sort key (sk). Single-key tables are not supported.
+- **String keys only**: All key attributes (pk, sk, GSI keys) must be strings. Number and binary key types are not supported.
+- **No batch operations**: BatchGetItem and BatchWriteItem are not implemented.
+- **No PartiQL**: Only native DynamoDB operations are supported.
+- **No automatic pagination**: Query and scan return a single page. Handle `LastEvaluatedKey` yourself for pagination.
+
+### Example 1: Minimal Setup
+
+The bare minimum to create a table and perform basic operations.
 
 ```typescript
 import { DynamoTable } from "@std-toolkit/db-dynamodb";
 import { Effect } from "effect";
 
-// 1. Create a table instance directly (no Layer needed)
 const table = DynamoTable.make({
   tableName: "my-table",
   region: "us-east-1",
@@ -100,178 +41,76 @@ const table = DynamoTable.make({
   .primary("pk", "sk")
   .build();
 
-// 2. Use the table - effects have no context requirements
 const program = Effect.gen(function* () {
   // Put an item
   yield* table.putItem({
     pk: "USER#123",
     sk: "PROFILE",
     name: "Alice",
-    email: "alice@example.com",
   });
 
   // Get the item
-  const { Item } = yield* table.getItem({
-    pk: "USER#123",
-    sk: "PROFILE",
-  });
-
-  console.log(Item); // { pk: "USER#123", sk: "PROFILE", name: "Alice", ... }
+  const { Item } = yield* table.getItem({ pk: "USER#123", sk: "PROFILE" });
+  console.log(Item); // { pk: "USER#123", sk: "PROFILE", name: "Alice" }
 
   // Delete the item
   yield* table.deleteItem({ pk: "USER#123", sk: "PROFILE" });
 });
 
-// 3. Run directly - no layer required
 Effect.runPromise(program);
 ```
 
-### Example 2: Queries with Sort Key Conditions
+### Example 2: Query with Sort Key Conditions
 
-Query items using various sort key conditions.
+Query items using various sort key operators.
 
 ```typescript
 const program = Effect.gen(function* () {
-  // Insert test data
-  yield* table.putItem({ pk: "USER#123", sk: "ORDER#2024-001", total: 100 });
-  yield* table.putItem({ pk: "USER#123", sk: "ORDER#2024-002", total: 200 });
-  yield* table.putItem({ pk: "USER#123", sk: "ORDER#2024-003", total: 150 });
-  yield* table.putItem({ pk: "USER#123", sk: "ORDER#2023-010", total: 50 });
+  // Query all items with a partition key
+  const all = yield* table.query({ pk: "USER#123" });
 
-  // Query all orders for a user
-  const allOrders = yield* table.query({ pk: "USER#123" });
+  // Exact sort key match
+  const exact = yield* table.query({ pk: "USER#123", sk: "ORDER#001" });
 
-  // Query with exact sort key match
-  const exactOrder = yield* table.query({
-    pk: "USER#123",
-    sk: "ORDER#2024-001",
-  });
-
-  // Query orders starting with "ORDER#2024"
-  const orders2024 = yield* table.query({
+  // Sort key begins with prefix
+  const byPrefix = yield* table.query({
     pk: "USER#123",
     sk: { beginsWith: "ORDER#2024" },
   });
 
-  // Query orders between two values
-  const orderRange = yield* table.query({
+  // Sort key between range
+  const range = yield* table.query({
     pk: "USER#123",
-    sk: { between: ["ORDER#2024-001", "ORDER#2024-002"] },
+    sk: { between: ["ORDER#001", "ORDER#010"] },
   });
 
-  // Query with comparison operators
-  const recentOrders = yield* table.query({
+  // Sort key comparisons: "<", "<=", ">", ">="
+  const recent = yield* table.query({
     pk: "USER#123",
-    sk: { ">=": "ORDER#2024-002" },
+    sk: { ">=": "ORDER#100" },
   });
 
-  // Query with limit and reverse order
-  const latestOrder = yield* table.query(
+  // Reverse order and limit
+  const latest = yield* table.query(
     { pk: "USER#123" },
-    { Limit: 1, ScanIndexForward: false },
+    { Limit: 5, ScanIndexForward: false },
   );
 });
 ```
 
-### Example 3: Update Expressions
+### Example 3: Global Secondary Indexes (GSI)
 
-Use expression builders for complex updates.
-
-```typescript
-import {
-  DynamoTable,
-  updateExpr,
-  compileUpdateExpr,
-  buildExpr,
-  addOp,
-} from "@std-toolkit/db-dynamodb";
-
-const program = Effect.gen(function* () {
-  // Create an item
-  yield* table.putItem({
-    pk: "COUNTER#1",
-    sk: "DATA",
-    count: 0,
-    name: "My Counter",
-    tags: ["initial"],
-  });
-
-  // Build an update expression
-  const update = updateExpr<{
-    count: number;
-    name: string;
-    lastUpdated: string;
-  }>(($) => [
-    $.set("count", addOp("count", 1)),        // Atomic increment
-    $.set("name", "Updated Counter"),          // Simple set
-    $.set("lastUpdated", new Date().toISOString()),
-  ]);
-
-  const expr = buildExpr({ update: compileUpdateExpr(update) });
-
-  // Execute the update
-  const result = yield* table.updateItem(
-    { pk: "COUNTER#1", sk: "DATA" },
-    { ...expr, ReturnValues: "ALL_NEW" },
-  );
-
-  console.log(result.Attributes?.count); // 1
-});
-```
-
-### Example 4: Conditional Operations
-
-Perform operations with conditions for optimistic concurrency.
+Define GSIs and query them with type-safe index names.
 
 ```typescript
-import { conditionExpr, compileConditionExpr, buildExpr } from "@std-toolkit/db-dynamodb";
-
-const program = Effect.gen(function* () {
-  // Insert only if item doesn't exist
-  yield* table.putItem(
-    { pk: "USER#new", sk: "PROFILE", name: "New User" },
-    { ConditionExpression: "attribute_not_exists(pk)" },
-  );
-
-  // Update only if a condition is met
-  const condition = conditionExpr<{ status: string; version: number }>(($) =>
-    $.and(
-      $.cond("status", "=", "active"),
-      $.cond("version", "=", 1),
-    ),
-  );
-
-  const update = updateExpr<{ status: string; version: number }>(($) => [
-    $.set("status", "inactive"),
-    $.set("version", addOp("version", 1)),
-  ]);
-
-  const expr = buildExpr({
-    condition: compileConditionExpr(condition),
-    update: compileUpdateExpr(update),
-  });
-
-  yield* table.updateItem(
-    { pk: "USER#new", sk: "PROFILE" },
-    { ...expr, ReturnValues: "ALL_NEW" },
-  );
-});
-```
-
-### Example 5: Global Secondary Indexes (GSI)
-
-Query data using alternative access patterns.
-
-```typescript
-// Table with GSIs
 const table = DynamoTable.make({
   tableName: "my-table",
   region: "us-east-1",
-  credentials: { /* ... */ },
+  credentials: { accessKeyId: "...", secretAccessKey: "..." },
 })
   .primary("pk", "sk")
-  .gsi("GSI1", "GSI1PK", "GSI1SK")  // GSI for email lookups
-  .gsi("GSI2", "GSI2PK", "GSI2SK")  // GSI for status lookups
+  .gsi("byEmail", "GSI1PK", "GSI1SK")
+  .gsi("byStatus", "GSI2PK", "GSI2SK")
   .build();
 
 const program = Effect.gen(function* () {
@@ -280,187 +119,254 @@ const program = Effect.gen(function* () {
     pk: "USER#123",
     sk: "PROFILE",
     GSI1PK: "EMAIL#alice@example.com",
-    GSI1SK: "123",
+    GSI1SK: "USER#123",
+    GSI2PK: "STATUS#active",
+    GSI2SK: "2024-01-15",
     name: "Alice",
     email: "alice@example.com",
   });
 
-  // Query by email using GSI (typed autocomplete for "GSI1" | "GSI2")
-  const result = yield* table
-    .index("GSI1")
-    .query({ pk: "EMAIL#alice@example.com" });
-
-  console.log(result.Items[0]?.name); // "Alice"
-});
-```
-
-### Example 6: Transactions
-
-Execute multiple operations atomically.
-
-```typescript
-const program = Effect.gen(function* () {
-  // Create operations (not executed yet)
-  const putOp = table.opPutItem({
-    pk: "USER#456",
-    sk: "PROFILE",
-    name: "Bob",
+  // Query by email - index name has autocomplete
+  const byEmail = yield* table.index("byEmail").query({
+    pk: "EMAIL#alice@example.com",
   });
 
-  const update = updateExpr<{ balance: number }>(($) => [
-    $.set("balance", addOp("balance", -100)),
-  ]);
-  const expr = buildExpr({ update: compileUpdateExpr(update) });
-
-  const updateOp = table.opUpdateItem(
-    { pk: "USER#123", sk: "WALLET" },
-    {
-      UpdateExpression: expr.UpdateExpression!,
-      ...(expr.ExpressionAttributeNames && {
-        ExpressionAttributeNames: expr.ExpressionAttributeNames,
-      }),
-      ...(expr.ExpressionAttributeValues && {
-        ExpressionAttributeValues: expr.ExpressionAttributeValues,
-      }),
-    },
+  // Query by status with sort key condition
+  const activeRecent = yield* table.index("byStatus").query(
+    { pk: "STATUS#active", sk: { ">=": "2024-01-01" } },
+    { Limit: 10, ScanIndexForward: false },
   );
-
-  // Execute atomically - all succeed or all fail
-  yield* table.transact([putOp, updateOp]);
 });
 ```
 
-### Example 7: DynamoEntity - Basic Usage
+### Example 4: Update with Expression Builders
 
-Define an entity with automatic key derivation.
+Use expression builders for type-safe updates.
 
 ```typescript
+import { DynamoTable, exprUpdate, opAdd, buildExpr } from "@std-toolkit/db-dynamodb";
+
+type Counter = { count: number; name: string; updatedAt: string };
+
+const program = Effect.gen(function* () {
+  yield* table.putItem({
+    pk: "COUNTER#1",
+    sk: "DATA",
+    count: 0,
+    name: "Page Views",
+  });
+
+  // Build update expression with atomic increment
+  const update = exprUpdate<Counter>(($) => [
+    $.set("count", opAdd("count", 5)),
+    $.set("name", "Total Views"),
+    $.set("updatedAt", new Date().toISOString()),
+  ]);
+
+  const expr = buildExpr({ update });
+
+  const result = yield* table.updateItem(
+    { pk: "COUNTER#1", sk: "DATA" },
+    { ...expr, ReturnValues: "ALL_NEW" },
+  );
+
+  console.log(result.Attributes?.count); // 5
+});
+```
+
+### Example 5: Conditional Writes
+
+Perform operations only when conditions are met.
+
+```typescript
+import { exprCondition, exprUpdate, buildExpr } from "@std-toolkit/db-dynamodb";
+
+type Item = { status: string; version: number };
+
+const program = Effect.gen(function* () {
+  // Insert only if item doesn't exist
+  const insertCond = exprCondition<{ pk: string }>(($) =>
+    $.attributeNotExists("pk"),
+  );
+  const insertExpr = buildExpr({ condition: insertCond });
+
+  yield* table.putItem(
+    { pk: "LOCK#1", sk: "DATA", status: "pending", version: 1 },
+    insertExpr,
+  );
+
+  // Update only if version matches (optimistic locking)
+  const updateCond = exprCondition<Item>(($) =>
+    $.and($.cond("status", "=", "pending"), $.cond("version", "=", 1)),
+  );
+
+  const update = exprUpdate<Item>(($) => [
+    $.set("status", "completed"),
+    $.set("version", opAdd("version", 1)),
+  ]);
+
+  const expr = buildExpr({ condition: updateCond, update });
+
+  yield* table.updateItem({ pk: "LOCK#1", sk: "DATA" }, expr);
+});
+```
+
+---
+
+## DynamoEntity
+
+`DynamoEntity` wraps `DynamoTable` with schema validation, automatic key derivation, and metadata tracking. You define a schema and how keys are derived from your data - the library handles the rest.
+
+Every entity includes metadata:
+- `_e` - Entity name (from schema)
+- `_v` - Schema version (for evolution)
+- `_i` - Increment counter (for optimistic locking)
+- `_u` - Last updated timestamp (ISO string)
+- `_d` - Deleted flag (soft delete)
+
+### Example 1: Minimal Entity Setup
+
+Define a schema and primary key derivation.
+
+```typescript
+import { DynamoTable, DynamoEntity } from "@std-toolkit/db-dynamodb";
 import { ESchema } from "@std-toolkit/eschema";
-import { DynamoEntity, DynamoTable } from "@std-toolkit/db-dynamodb";
 import { Schema, Effect } from "effect";
 
-// 1. Create table instance
 const table = DynamoTable.make({
   tableName: "my-table",
   region: "us-east-1",
-  credentials: { /* ... */ },
+  credentials: { accessKeyId: "...", secretAccessKey: "..." },
 })
   .primary("pk", "sk")
   .build();
 
-// 2. Define the schema
 const userSchema = ESchema.make("User", {
   id: Schema.String,
   name: Schema.String,
   email: Schema.String,
-  age: Schema.Number,
 }).build();
 
-// 3. Create the entity with key derivations (receives table instance directly)
-const UserEntity = DynamoEntity.make(table)
-  .eschema(userSchema)
-  .primary({
-    pk: {
-      deps: ["id"],                        // Fields used to derive pk
-      derive: (v) => [`USER#${v.id}`],     // How to compute pk
-    },
-    sk: {
-      deps: [],                            // No dependencies
-      derive: () => ["PROFILE"],           // Static sort key
-    },
-  })
-  .build();
-
-// 4. Use the entity - no key management needed!
-const program = Effect.gen(function* () {
-  // Insert - just provide your data
-  const user = yield* UserEntity.insert({
-    id: "user-123",
-    name: "Alice",
-    email: "alice@example.com",
-    age: 30,
-  });
-
-  console.log(user.value);  // { id: "user-123", name: "Alice", ... }
-  console.log(user.meta);   // { _e: "User", _v: "v1", _i: 0, _u: "...", _d: false }
-
-  // Get - just provide the key fields
-  const fetched = yield* UserEntity.get({ id: "user-123" });
-
-  // Update - provide key fields and updates
-  const updated = yield* UserEntity.update(
-    { id: "user-123" },
-    { name: "Alice Smith", age: 31 },
-  );
-
-  console.log(updated.meta._i); // 1 (incremented)
-});
-
-// Run directly - no layer required
-Effect.runPromise(program);
-```
-
-### Example 8: DynamoEntity with GSI
-
-Add secondary access patterns to your entity.
-
-```typescript
-// Table with GSIs configured using standard naming convention
-const table = DynamoTable.make({
-  tableName: "my-table",
-  region: "us-east-1",
-  credentials: { /* ... */ },
-})
-  .primary("pk", "sk")
-  .gsi("GSI1", "GSI1PK", "GSI1SK")  // DynamoEntity writes to GSI1PK, GSI1SK
-  .gsi("GSI2", "GSI2PK", "GSI2SK")  // DynamoEntity writes to GSI2PK, GSI2SK
-  .build();
-
-// Entity with GSI derivations (single param - GSI name is used as both index name and key)
 const UserEntity = DynamoEntity.make(table)
   .eschema(userSchema)
   .primary({
     pk: { deps: ["id"], derive: (v) => [`USER#${v.id}`] },
     sk: { deps: [], derive: () => ["PROFILE"] },
   })
-  // GSI name has autocomplete from table's defined indexes ("GSI1" | "GSI2")
-  .index("GSI1", {
+  .build();
+
+const program = Effect.gen(function* () {
+  // Insert - keys are derived automatically
+  const user = yield* UserEntity.insert({
+    id: "123",
+    name: "Alice",
+    email: "alice@example.com",
+  });
+
+  console.log(user.value); // { id: "123", name: "Alice", email: "alice@example.com" }
+  console.log(user.meta._i); // 0
+
+  // Get by key fields
+  const fetched = yield* UserEntity.get({ id: "123" });
+});
+
+Effect.runPromise(program);
+```
+
+### Example 2: Update and Optimistic Locking
+
+Update entities with automatic version tracking.
+
+```typescript
+const program = Effect.gen(function* () {
+  const user = yield* UserEntity.insert({
+    id: "456",
+    name: "Bob",
+    email: "bob@example.com",
+  });
+
+  // Simple update - _i auto-increments, _u auto-updates
+  const updated = yield* UserEntity.update({ id: "456" }, { name: "Robert" });
+  console.log(updated.meta._i); // 1
+
+  // Optimistic locking - pass expected _i value
+  const result = yield* UserEntity.update(
+    { id: "456" },
+    { email: "robert@example.com" },
+    { meta: { _i: updated.meta._i } },
+  );
+  console.log(result.meta._i); // 2
+
+  // If someone else updated, this fails
+  const stale = yield* UserEntity.update(
+    { id: "456" },
+    { name: "Bobby" },
+    { meta: { _i: 0 } }, // stale version
+  ).pipe(Effect.either);
+
+  if (stale._tag === "Left") {
+    console.log("Conflict - item was modified");
+  }
+});
+```
+
+### Example 3: Entity with GSI
+
+Define secondary access patterns with automatic key derivation.
+
+```typescript
+const table = DynamoTable.make({
+  tableName: "my-table",
+  region: "us-east-1",
+  credentials: { accessKeyId: "...", secretAccessKey: "..." },
+})
+  .primary("pk", "sk")
+  .gsi("byEmail", "byEmailPK", "byEmailSK")
+  .build();
+
+const userSchema = ESchema.make("User", {
+  id: Schema.String,
+  name: Schema.String,
+  email: Schema.String,
+  status: Schema.String,
+}).build();
+
+const UserEntity = DynamoEntity.make(table)
+  .eschema(userSchema)
+  .primary({
+    pk: { deps: ["id"], derive: (v) => [`USER#${v.id}`] },
+    sk: { deps: [], derive: () => ["PROFILE"] },
+  })
+  .index("byEmail", {
     pk: { deps: ["email"], derive: (v) => [`EMAIL#${v.email}`] },
     sk: { deps: ["id"], derive: (v) => [v.id] },
-  })
-  .index("GSI2", {
-    pk: { deps: ["status"], derive: (v) => [`STATUS#${v.status}`] },
-    sk: { deps: ["name"], derive: (v) => [v.name] },
   })
   .build();
 
 const program = Effect.gen(function* () {
-  // Insert - GSI keys are automatically derived and stored
   yield* UserEntity.insert({
-    id: "user-123",
-    name: "Alice",
-    email: "alice@example.com",
+    id: "789",
+    name: "Carol",
+    email: "carol@example.com",
     status: "active",
   });
 
-  // Query by email (typed autocomplete for "GSI1" | "GSI2")
-  const byEmail = yield* UserEntity.index("GSI1").query({
-    pk: { email: "alice@example.com" },
+  // Query by email using GSI
+  const result = yield* UserEntity.index("byEmail").query({
+    pk: { email: "carol@example.com" },
   });
 
-  // Query by status with sort key condition
-  const activeUsers = yield* UserEntity.index("GSI2").query({
-    pk: { status: "active" },
-    sk: { beginsWith: { name: "A" } } as any,  // Type assertion needed for beginsWith
-  });
+  console.log(result.items[0]?.value.name); // "Carol"
 });
 ```
 
-### Example 9: Entity Queries with Sort Key Conditions
+### Example 4: Query with Conditions and Filters
 
-Query entities with composite sort keys.
+Query entities with sort key conditions and filters.
 
 ```typescript
+import { exprFilter } from "@std-toolkit/db-dynamodb";
+
 const orderSchema = ESchema.make("Order", {
   userId: Schema.String,
   orderId: Schema.String,
@@ -476,81 +382,79 @@ const OrderEntity = DynamoEntity.make(table)
   })
   .build();
 
+type Order = { userId: string; orderId: string; total: number; status: string };
+
 const program = Effect.gen(function* () {
   // Insert orders
-  yield* OrderEntity.insert({ userId: "user-1", orderId: "2024-001", total: 100, status: "completed" });
-  yield* OrderEntity.insert({ userId: "user-1", orderId: "2024-002", total: 200, status: "pending" });
-  yield* OrderEntity.insert({ userId: "user-1", orderId: "2024-003", total: 150, status: "completed" });
+  yield* OrderEntity.insert({ userId: "u1", orderId: "2024-001", total: 100, status: "pending" });
+  yield* OrderEntity.insert({ userId: "u1", orderId: "2024-002", total: 250, status: "completed" });
+  yield* OrderEntity.insert({ userId: "u1", orderId: "2024-003", total: 75, status: "pending" });
 
-  // Query all orders for a user
-  const allOrders = yield* OrderEntity.query({
-    pk: { userId: "user-1" },
-  });
-
-  // Query with limit and ordering
-  const latestOrder = yield* OrderEntity.query(
-    { pk: { userId: "user-1" } },
-    { Limit: 1, ScanIndexForward: false },
-  );
+  // Query all orders for user
+  const all = yield* OrderEntity.query({ pk: { userId: "u1" } });
 
   // Query with sort key prefix
   const orders2024 = yield* OrderEntity.query({
-    pk: { userId: "user-1" },
-    sk: { beginsWith: { orderId: "2024" } } as any,
-  });
-});
-```
-
-### Example 10: Optimistic Locking with Entity Metadata
-
-Use the `_i` counter for optimistic concurrency control.
-
-```typescript
-const program = Effect.gen(function* () {
-  // Insert initial entity
-  const initial = yield* UserEntity.insert({
-    id: "user-lock",
-    name: "Original",
-    email: "lock@example.com",
-    age: 25,
+    pk: { userId: "u1" },
+    sk: { beginsWith: { orderId: "2024" } },
   });
 
-  // Simulate concurrent read
-  const read1 = yield* UserEntity.get({ id: "user-lock" });
-  const read2 = yield* UserEntity.get({ id: "user-lock" });
+  // Query with filter
+  const filter = exprFilter<Order>(($) => $.cond("status", "=", "pending"));
 
-  // First update succeeds
-  yield* UserEntity.update(
-    { id: "user-lock" },
-    { name: "Updated by Read 1" },
-    { meta: { _i: read1!.meta._i } },  // Pass expected _i
+  const pending = yield* OrderEntity.query(
+    { pk: { userId: "u1" } },
+    { filter },
   );
 
-  // Second update fails because _i changed
-  const result = yield* UserEntity.update(
-    { id: "user-lock" },
-    { name: "Updated by Read 2" },
-    { meta: { _i: read2!.meta._i } },  // Stale _i
-  ).pipe(Effect.either);
-
-  if (result._tag === "Left") {
-    console.log("Conflict detected! Item was modified.");
-  }
+  // Newest first, limit 1
+  const latest = yield* OrderEntity.query(
+    { pk: { userId: "u1" } },
+    { Limit: 1, ScanIndexForward: false },
+  );
 });
 ```
 
-### Example 11: Entity Transactions
+### Example 5: Conditional Insert
 
-Execute multiple entity operations atomically.
+Insert with conditions to prevent duplicates or enforce business rules.
+
+```typescript
+import { exprCondition } from "@std-toolkit/db-dynamodb";
+
+const program = Effect.gen(function* () {
+  // Insert with duplicate check (built-in)
+  const result = yield* UserEntity.insert(
+    { id: "dup-1", name: "Test", email: "test@example.com" },
+    { ignoreIfAlreadyPresent: true },
+  );
+
+  // Insert with custom condition
+  type User = { id: string; name: string; email: string };
+  const cond = exprCondition<User>(($) =>
+    $.or($.attributeNotExists("email"), $.cond("email", "<>", "reserved@example.com")),
+  );
+
+  yield* UserEntity.insert(
+    { id: "new-1", name: "New User", email: "new@example.com" },
+    { condition: cond },
+  );
+});
+```
+
+---
+
+## Transactions
+
+Execute multiple operations atomically. All succeed or all fail.
 
 ```typescript
 const program = Effect.gen(function* () {
-  // Create transaction operations
+  // Create transaction operations (not executed yet)
   const insertOp = yield* UserEntity.insertOp({
-    id: "txn-user-1",
+    id: "txn-1",
     name: "Transaction User",
     email: "txn@example.com",
-    age: 28,
   });
 
   const updateOp = yield* UserEntity.updateOp(
@@ -558,263 +462,127 @@ const program = Effect.gen(function* () {
     { status: "processed" },
   );
 
-  // Execute atomically via table's transact method
-  yield* table.transact([insertOp, updateOp]);
+  // For DynamoTable, use opPutItem/opUpdateItem
+  const tableOp = table.opPutItem({
+    pk: "AUDIT#txn-1",
+    sk: "LOG",
+    action: "user_created",
+    timestamp: new Date().toISOString(),
+  });
+
+  // Execute all atomically
+  yield* table.transact([insertOp, updateOp, tableOp]);
 });
 ```
 
-### Example 12: Schema Evolution
-
-Handle schema changes over time with automatic migration.
-
-```typescript
-import { ESchema } from "@std-toolkit/eschema";
-
-// Start with v1
-const userSchemaV1 = ESchema.make("User", {
-  id: Schema.String,
-  name: Schema.String,
-});
-
-// Evolve to v2 - add email field
-const userSchemaV2 = userSchemaV1.evolve(
-  "v2",
-  { email: Schema.optional(Schema.String) },
-  (prev) => ({ ...prev, email: undefined }),
-);
-
-// Evolve to v3 - add age with default
-const userSchema = userSchemaV2.evolve(
-  "v3",
-  { age: Schema.optional(Schema.Number) },
-  (prev) => ({ ...prev, age: undefined }),
-).build();
-
-// Entity uses the evolved schema
-const UserEntity = DynamoEntity.make(table)
-  .eschema(userSchema)
-  .primary({
-    pk: { deps: ["id"], derive: (v) => [`USER#${v.id}`] },
-    sk: { deps: [], derive: () => ["PROFILE"] },
-  })
-  .build();
-
-// When reading old items, they're automatically migrated through the chain:
-// v1 data -> v2 migration -> v3 migration -> current type
-```
-
-### Example 13: Local DynamoDB for Testing
-
-Connect to DynamoDB Local for development and testing.
-
-```typescript
-const table = DynamoTable.make({
-  tableName: "test-table",
-  region: "us-east-1",
-  credentials: {
-    accessKeyId: "local",      // Any value works locally
-    secretAccessKey: "local",
-  },
-  endpoint: "http://localhost:8000",  // DynamoDB Local endpoint
-})
-  .primary("pk", "sk")
-  .build();
-
-// Use the same code as production
-const program = Effect.gen(function* () {
-  yield* table.putItem({ pk: "TEST#1", sk: "DATA", value: "local test" });
-});
-
-Effect.runPromise(program);
-```
+**Transaction limits:**
+- Maximum 100 items per transaction
+- Maximum 4 MB total size
+- Only Put and Update operations (no Delete in transactions)
 
 ---
 
-## API Reference
+## Gotchas
 
-### DynamoTable
+### 1. Primary Key Must Have Both PK and SK
 
-Create a table instance for low-level operations.
-
-```typescript
-const table = DynamoTable.make(config)
-  .primary("pk", "sk")
-  .gsi("GSI1", "GSI1PK", "GSI1SK")
-  .build();  // Returns table instance directly
-```
-
-| Method | Description |
-|--------|-------------|
-| `getItem(key, options?)` | Get a single item by primary key |
-| `putItem(value, options?)` | Insert or replace an item |
-| `updateItem(key, options)` | Update an item's attributes |
-| `deleteItem(key)` | Delete an item |
-| `query(cond, options?)` | Query items by key condition |
-| `scan(options?)` | Scan all items in the table |
-| `index(name)` | Access a secondary index for query/scan (typed autocomplete) |
-| `opPutItem(value, options?)` | Create a put operation for transactions |
-| `opUpdateItem(key, options)` | Create an update operation for transactions |
-| `transact(items)` | Execute operations atomically |
-
-### DynamoEntity
-
-High-level entity abstraction with automatic key management.
+This library only supports composite primary keys. Single partition key tables are not supported.
 
 ```typescript
-const entity = DynamoEntity.make(table)  // Pass table instance directly
-  .eschema(schema)
-  .primary({ pk: {...}, sk: {...} })
-  .index("GSI1", { pk: {...}, sk: {...} })  // GSI name from table
-  .build();  // Returns entity instance directly
+// Supported
+.primary("pk", "sk")
+
+// NOT supported - will not work
+.primary("pk")
 ```
 
-| Method | Description |
-|--------|-------------|
-| `get(keyValue, options?)` | Get an entity by its key fields |
-| `insert(value, options?)` | Insert a new entity |
-| `update(keyValue, updates, options?)` | Update an entity |
-| `query(params, options?)` | Query entities by derived keys |
-| `index(gsiName)` | Access a secondary index (typed from table) |
-| `insertOp(value, options?)` | Create an insert operation for transactions |
-| `updateOp(keyValue, updates, options?)` | Create an update operation for transactions |
+### 2. Keys Are Always Strings
 
-### Expression Builders
-
-| Function | Description |
-|----------|-------------|
-| `conditionExpr<T>(builder)` | Build condition expressions |
-| `updateExpr<T>(builder)` | Build update expressions |
-| `addOp(key, value)` | Atomic add/increment operation |
-| `ifNotExists(key, value)` | Set if attribute doesn't exist |
-| `buildExpr(options)` | Combine multiple expressions |
-| `compileConditionExpr(op)` | Compile condition to DynamoDB format |
-| `compileUpdateExpr(ops)` | Compile update to DynamoDB format |
-
----
-
-## Limitations and Things to Watch Out For
-
-### 1. GSI Column Naming Convention
-
-**DynamoEntity writes GSI keys to columns named `{GSI_NAME}PK` and `{GSI_NAME}SK`**.
-
-Your DynamoDB table **must** be configured with matching column names:
+All key attributes (pk, sk, GSI keys) must be strings. Number and binary key types are not supported.
 
 ```typescript
-// Table definition
-.gsi("GSI1", "GSI1PK", "GSI1SK")
+// Correct
+yield* table.putItem({ pk: "USER#123", sk: "PROFILE", ... });
 
-// Entity will write to these columns:
-// - GSI1PK
-// - GSI1SK
+// Wrong - number keys won't work
+yield* table.putItem({ pk: 123, sk: 456, ... });
 ```
 
-If you use different column names, GSI queries will return no results.
+### 3. Dates Must Be Converted to Strings
 
-### 2. Sort Key beginsWith Type Mismatch
-
-There's a type definition quirk where `beginsWith` expects a `string` but the runtime expects the deps object. Use type assertion:
-
-```typescript
-// TypeScript complains but this is correct at runtime:
-const result = yield* entity.query({
-  pk: { userId: "123" },
-  sk: { beginsWith: { orderId: "2024" } } as any,
-});
-```
-
-### 3. No Native Date Support in Marshall
-
-The `marshall` function doesn't handle JavaScript `Date` objects. Convert to ISO strings first:
+The marshaller doesn't handle JavaScript `Date` objects. Convert to ISO strings.
 
 ```typescript
 // Wrong - will marshal as empty object
-yield* table.putItem({ timestamp: new Date() });
+yield* table.putItem({ createdAt: new Date() });
 
 // Correct
-yield* table.putItem({ timestamp: new Date().toISOString() });
+yield* table.putItem({ createdAt: new Date().toISOString() });
 ```
 
-### 4. Entity Insert Duplicate Detection
+### 4. GSI Column Naming Convention
 
-When inserting a duplicate entity, the error type may vary:
-- `ItemAlreadyExists` - When properly mapped
-- `PutItemFailed` - When the underlying condition check fails
-
-Always handle both cases or check the error structure:
+When using `DynamoEntity` with `.index()`, the library writes to columns named `{indexName}PK` and `{indexName}SK`. Your DynamoDB table must be configured with matching GSI column names.
 
 ```typescript
-const result = yield* entity.insert(data).pipe(Effect.either);
-if (result._tag === "Left") {
-  const tag = result.left.error._tag;
-  if (tag === "ItemAlreadyExists" || tag === "PutItemFailed") {
-    // Handle duplicate
-  }
-}
+// Table definition
+.gsi("byEmail", "byEmailPK", "byEmailSK")
+
+// Entity will write derived keys to byEmailPK and byEmailSK columns
+.index("byEmail", {
+  pk: { deps: ["email"], derive: (v) => [`EMAIL#${v.email}`] },
+  sk: { deps: ["id"], derive: (v) => [v.id] },
+})
 ```
 
-### 5. Entity Update on Non-Existent Item
+### 5. No Automatic Retries
 
-Updating a non-existent entity may return `UpdateItemFailed` instead of `NoItemToUpdate`:
-
-```typescript
-const result = yield* entity.update({ id: "missing" }, { name: "x" }).pipe(Effect.either);
-if (result._tag === "Left") {
-  const tag = result.left.error._tag;
-  if (tag === "NoItemToUpdate" || tag === "UpdateItemFailed") {
-    // Item doesn't exist
-  }
-}
-```
-
-### 6. Transaction Size Limits
-
-DynamoDB transactions are limited to **100 items** and **4 MB total size**. The library doesn't enforce this - you'll get a DynamoDB error.
-
-### 7. Eventual Consistency by Default
-
-DynamoDB reads are eventually consistent by default. Use `ConsistentRead: true` for strong consistency (costs 2x read capacity):
-
-```typescript
-yield* entity.get({ id: "123" }, { ConsistentRead: true });
-yield* table.getItem(key, { ConsistentRead: true });
-```
-
-### 8. No Automatic Retries
-
-The library doesn't implement automatic retries for throttling. Handle `ThrottlingException` errors yourself:
+The library doesn't retry on throttling. Handle `ThrottlingException` yourself.
 
 ```typescript
 import { Schedule, Effect } from "effect";
 
-const withRetry = entity.get({ id: "123" }).pipe(
+const withRetry = UserEntity.get({ id: "123" }).pipe(
   Effect.retry(
-    Schedule.exponential("100 millis").pipe(
-      Schedule.union(Schedule.recurs(3)),
-    ),
+    Schedule.exponential("100 millis").pipe(Schedule.compose(Schedule.recurs(3))),
   ),
 );
 ```
 
-### 9. Schema Version on Insert
+### 6. Eventual Consistency by Default
 
-When inserting entities, the `_v` field is automatically set. Don't include it in your insert data:
+Reads are eventually consistent. Use `ConsistentRead: true` for strong consistency (2x read cost).
 
 ```typescript
-// Correct - _v is set automatically
-yield* entity.insert({ id: "123", name: "Alice" });
-
-// The _v field in your schema type is for reading, not writing
+yield* UserEntity.get({ id: "123" }, { ConsistentRead: true });
+yield* table.getItem({ pk: "...", sk: "..." }, { ConsistentRead: true });
 ```
 
-### 10. Local DynamoDB Differences
+### 7. Entity _v Field Is Automatic
 
-DynamoDB Local may behave slightly differently from AWS:
-- Error messages may vary
-- Some advanced features may not be supported
-- Performance characteristics differ
+Don't include `_v` in insert data - it's set automatically from your schema version.
 
-Always test against real DynamoDB before production.
+```typescript
+// Correct
+yield* UserEntity.insert({ id: "123", name: "Alice", email: "a@b.com" });
+
+// Wrong - _v is managed by the library
+yield* UserEntity.insert({ id: "123", name: "Alice", email: "a@b.com", _v: "v1" });
+```
+
+### 8. Key Derivation Returns Array
+
+The `derive` function must return an array of primitives. Multiple values are joined with `#`.
+
+```typescript
+// Single part key
+pk: { deps: ["id"], derive: (v) => [`USER#${v.id}`] }
+// Result: "USER#123"
+
+// Multi-part key (joined with #)
+sk: { deps: ["type", "date"], derive: (v) => [v.type, v.date] }
+// Result: "ORDER#2024-01-15"
+```
 
 ---
 

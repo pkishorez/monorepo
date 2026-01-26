@@ -7,6 +7,7 @@ import type {
   MarshalledOutput,
   TransactItem,
 } from "../types/index.js";
+import type { CreateTableInput } from "../generated/types.js";
 import { marshall, unmarshall } from "../internal/marshall.js";
 import {
   keyConditionExpr,
@@ -303,6 +304,56 @@ function createDynamoTableInstance<
           Effect.map(() => undefined),
           Effect.mapError(DynamodbError.transactionFailed),
         );
+    },
+
+    getTableSchema(): Omit<CreateTableInput, "TableName"> {
+      const allSecondaryKeys = Object.entries(secondaryIndexMap).map(
+        ([IndexName, { pk, sk }]) => ({ IndexName, pk, sk }),
+      );
+
+      const globalSecondaryIndexes = allSecondaryKeys
+        .filter((v) => v.pk !== primary.pk)
+        .map(({ IndexName, pk, sk }) => ({
+          IndexName,
+          KeySchema: [
+            { AttributeName: pk, KeyType: "HASH" as const },
+            { AttributeName: sk, KeyType: "RANGE" as const },
+          ],
+          Projection: { ProjectionType: "ALL" as const },
+        }));
+
+      const localSecondaryIndexes = allSecondaryKeys
+        .filter((v) => v.pk === primary.pk)
+        .map(({ IndexName, sk }) => ({
+          IndexName,
+          KeySchema: [
+            { AttributeName: primary.pk, KeyType: "HASH" as const },
+            { AttributeName: sk, KeyType: "RANGE" as const },
+          ],
+          Projection: { ProjectionType: "ALL" as const },
+        }));
+
+      return {
+        KeySchema: [
+          { AttributeName: primary.pk, KeyType: "HASH" },
+          { AttributeName: primary.sk, KeyType: "RANGE" },
+        ],
+        AttributeDefinitions: [
+          { AttributeName: primary.pk, AttributeType: "S" },
+          { AttributeName: primary.sk, AttributeType: "S" },
+          ...allSecondaryKeys.flatMap((v) => [
+            { AttributeName: v.pk, AttributeType: "S" as const },
+            { AttributeName: v.sk, AttributeType: "S" as const },
+          ]),
+        ],
+        ...(globalSecondaryIndexes.length > 0 && {
+          GlobalSecondaryIndexes: globalSecondaryIndexes,
+        }),
+        ...(localSecondaryIndexes.length > 0 && {
+          LocalSecondaryIndexes: localSecondaryIndexes,
+        }),
+        BillingMode: "PAY_PER_REQUEST",
+      };
     },
   };
 }
