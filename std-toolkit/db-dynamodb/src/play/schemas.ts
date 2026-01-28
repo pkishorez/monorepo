@@ -4,8 +4,7 @@ import { ESchema } from "@std-toolkit/eschema";
 // =============================================================================
 // User Schema - v1 -> v2 (added bio) -> v3 (added followerCount)
 // =============================================================================
-export const userSchema = ESchema.make("User", {
-  id: Schema.String,
+export const userSchema = ESchema.make("User", "userId", {
   username: Schema.String,
   email: Schema.String,
   createdAt: Schema.String,
@@ -13,7 +12,6 @@ export const userSchema = ESchema.make("User", {
   .evolve(
     "v2",
     {
-      id: Schema.String,
       username: Schema.String,
       email: Schema.String,
       createdAt: Schema.String,
@@ -27,7 +25,6 @@ export const userSchema = ESchema.make("User", {
   .evolve(
     "v3",
     {
-      id: Schema.String,
       username: Schema.String,
       email: Schema.String,
       createdAt: Schema.String,
@@ -44,8 +41,7 @@ export const userSchema = ESchema.make("User", {
 // =============================================================================
 // Post Schema - v1 -> v2 (added tags) -> v3 (added likeCount, viewCount)
 // =============================================================================
-export const postSchema = ESchema.make("Post", {
-  id: Schema.String,
+export const postSchema = ESchema.make("Post", "postId", {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,
@@ -54,7 +50,6 @@ export const postSchema = ESchema.make("Post", {
   .evolve(
     "v2",
     {
-      id: Schema.String,
       authorId: Schema.String,
       title: Schema.String,
       content: Schema.String,
@@ -69,7 +64,6 @@ export const postSchema = ESchema.make("Post", {
   .evolve(
     "v3",
     {
-      id: Schema.String,
       authorId: Schema.String,
       title: Schema.String,
       content: Schema.String,
@@ -89,8 +83,7 @@ export const postSchema = ESchema.make("Post", {
 // =============================================================================
 // Comment Schema - v1 -> v2 (added editedAt)
 // =============================================================================
-export const commentSchema = ESchema.make("Comment", {
-  id: Schema.String,
+export const commentSchema = ESchema.make("Comment", "commentId", {
   postId: Schema.String,
   authorId: Schema.String,
   content: Schema.String,
@@ -99,7 +92,6 @@ export const commentSchema = ESchema.make("Comment", {
   .evolve(
     "v2",
     {
-      id: Schema.String,
       postId: Schema.String,
       authorId: Schema.String,
       content: Schema.String,

@@ -33,8 +33,9 @@ export function logSchema() {
 // =============================================================================
 export const exampleTransaction = Effect.gen(function* () {
   // Create transaction items from registered entities
+  // Note: userId and postId are optional - auto-generated if not provided
   const userOp = yield* UserEntity.insertOp({
-    id: "user-1",
+    userId: "user-1",
     username: "alice",
     email: "alice@example.com",
     createdAt: new Date().toISOString(),
@@ -43,7 +44,7 @@ export const exampleTransaction = Effect.gen(function* () {
   });
 
   const postOp = yield* PostEntity.insertOp({
-    id: "post-1",
+    postId: "post-1",
     authorId: "user-1",
     title: "Hello World",
     content: "This is my first post",

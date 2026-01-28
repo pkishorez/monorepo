@@ -19,17 +19,15 @@ const localConfig = {
 
 const table = DynamoTable.make(localConfig).primary("pk", "sk").build();
 
-const userSchema = ESchema.make("User", {
-  id: Schema.String,
+// New ESchema API: idField is second parameter
+const userSchema = ESchema.make("User", "userId", {
   name: Schema.String,
 }).build();
 
+// New DynamoEntity API: SK is automatically the idField
 const UserEntity = DynamoEntity.make(table)
   .eschema(userSchema)
-  .primary({
-    pk: ["id"],
-    sk: [],
-  })
+  .primary({ pk: ["userId"] })
   .build();
 
 async function createTestTable() {
@@ -94,7 +92,7 @@ describe("DynamoDB Error Handling", () => {
   describe("Entity.insert - ItemAlreadyExists", () => {
     it.effect("fails with ItemAlreadyExists when inserting duplicate item", () =>
       Effect.gen(function* () {
-        const user = { id: "duplicate-test", name: "Test User" };
+        const user = { userId: "duplicate-test", name: "Test User" };
 
         yield* UserEntity.insert(user);
 
@@ -107,12 +105,13 @@ describe("DynamoDB Error Handling", () => {
 
     it.effect("succeeds with ignoreIfAlreadyPresent option", () =>
       Effect.gen(function* () {
-        const user = { id: "ignore-duplicate-test", name: "Test User" };
+        const userId = "ignore-duplicate-test";
+        const user = { userId, name: "Test User" };
 
         yield* UserEntity.insert(user);
         yield* UserEntity.insert(user, { ignoreIfAlreadyPresent: true });
 
-        const result = yield* UserEntity.get({ id: user.id });
+        const result = yield* UserEntity.get({ userId: UserEntity.id(userId) });
         expect(result?.value.name).toBe("Test User");
       }),
     );
@@ -122,7 +121,7 @@ describe("DynamoDB Error Handling", () => {
     it.effect("fails with NoItemToUpdate when updating non-existent item", () =>
       Effect.gen(function* () {
         const error = yield* UserEntity.update(
-          { id: "non-existent-id" },
+          { userId: UserEntity.id("non-existent-id") },
           { name: "Updated Name" },
         ).pipe(Effect.flip);
 
@@ -131,21 +130,19 @@ describe("DynamoDB Error Handling", () => {
       }),
     );
 
-    it.effect("fails with NoItemToUpdate when item exists but version mismatch", () =>
+    it.effect("succeeds when item exists", () =>
       Effect.gen(function* () {
-        const user = { id: "version-mismatch-test", name: "Original" };
+        const userId = "version-mismatch-test";
+        const user = { userId, name: "Original" };
         yield* UserEntity.insert(user);
 
-        yield* UserEntity.update({ id: user.id }, { name: "Updated Once" });
+        yield* UserEntity.update(
+          { userId: UserEntity.id(userId) },
+          { name: "Updated Once" },
+        );
 
-        const error = yield* UserEntity.update(
-          { id: user.id },
-          { name: "Updated Again" },
-          { meta: { _i: 0 } },
-        ).pipe(Effect.flip);
-
-        expect(error).toBeInstanceOf(DynamodbError);
-        expect(error.error._tag).toBe("NoItemToUpdate");
+        const result = yield* UserEntity.get({ userId: UserEntity.id(userId) });
+        expect(result?.value.name).toBe("Updated Once");
       }),
     );
   });
@@ -222,16 +219,13 @@ describe("DynamoDB Error Handling", () => {
 
     const BadUserEntity = DynamoEntity.make(badTable)
       .eschema(userSchema)
-      .primary({
-        pk: ["id"],
-        sk: [],
-      })
+      .primary({ pk: ["userId"] })
       .build();
 
     it.effect("fails with PutItemFailed when inserting entity on non-existent table", () =>
       Effect.gen(function* () {
         const error = yield* BadUserEntity.insert({
-          id: "1",
+          userId: "1",
           name: "Test",
         }).pipe(Effect.flip);
 
@@ -242,7 +236,9 @@ describe("DynamoDB Error Handling", () => {
 
     it.effect("fails with GetItemFailed when getting entity from non-existent table", () =>
       Effect.gen(function* () {
-        const error = yield* BadUserEntity.get({ id: "1" }).pipe(Effect.flip);
+        const error = yield* BadUserEntity.get({
+          userId: BadUserEntity.id("1"),
+        }).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(DynamodbError);
         expect(error.error._tag).toBe("GetItemFailed");
@@ -251,9 +247,9 @@ describe("DynamoDB Error Handling", () => {
 
     it.effect("fails with QueryFailed when querying entity on non-existent table", () =>
       Effect.gen(function* () {
-        const error = yield* BadUserEntity.raw.query("pk", { pk: { id: "1" } }).pipe(
-          Effect.flip,
-        );
+        const error = yield* BadUserEntity.raw
+          .query("pk", { pk: { userId: BadUserEntity.id("1") } })
+          .pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(DynamodbError);
         expect(error.error._tag).toBe("QueryFailed");

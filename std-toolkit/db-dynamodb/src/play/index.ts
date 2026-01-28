@@ -23,7 +23,7 @@ const play = Effect.gen(function* () {
   const posts = [
     {
       authorId: "alice",
-      id: "post-01",
+      postId: "post-01",
       title: "Effect Basics",
       createdAt: "2024-01-01T10:00:00Z",
       tags: ["effect"],
@@ -32,7 +32,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "alice",
-      id: "post-02",
+      postId: "post-02",
       title: "Effect Layers",
       createdAt: "2024-01-02T10:00:00Z",
       tags: ["effect"],
@@ -41,7 +41,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "alice",
-      id: "post-03",
+      postId: "post-03",
       title: "Effect Streams",
       createdAt: "2024-01-03T10:00:00Z",
       tags: ["effect"],
@@ -50,7 +50,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "alice",
-      id: "post-04",
+      postId: "post-04",
       title: "Effect Testing",
       createdAt: "2024-01-04T10:00:00Z",
       tags: ["effect"],
@@ -59,7 +59,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "alice",
-      id: "post-05",
+      postId: "post-05",
       title: "Effect in Prod",
       createdAt: "2024-01-05T10:00:00Z",
       tags: ["effect"],
@@ -68,7 +68,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "bob",
-      id: "post-06",
+      postId: "post-06",
       title: "TypeScript Tips",
       createdAt: "2024-01-06T10:00:00Z",
       tags: ["typescript"],
@@ -77,7 +77,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "bob",
-      id: "post-07",
+      postId: "post-07",
       title: "TypeScript Generics",
       createdAt: "2024-01-07T10:00:00Z",
       tags: ["typescript"],
@@ -86,7 +86,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "bob",
-      id: "post-08",
+      postId: "post-08",
       title: "TypeScript Patterns",
       createdAt: "2024-01-08T10:00:00Z",
       tags: ["typescript"],
@@ -95,7 +95,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "bob",
-      id: "post-09",
+      postId: "post-09",
       title: "TypeScript 5.0",
       createdAt: "2024-01-09T10:00:00Z",
       tags: ["typescript"],
@@ -104,7 +104,7 @@ const play = Effect.gen(function* () {
     },
     {
       authorId: "bob",
-      id: "post-10",
+      postId: "post-10",
       title: "TypeScript ESM",
       createdAt: "2024-01-10T10:00:00Z",
       tags: ["typescript"],
@@ -116,7 +116,7 @@ const play = Effect.gen(function* () {
   for (const post of posts) {
     yield* PostEntity.insert({ ...post, content: `Content for ${post.title}` });
     yield* Console.log(
-      `    Inserted: ${post.authorId}/${post.id} - ${post.title}`,
+      `    Inserted: ${post.authorId}/${post.postId} - ${post.title}`,
     );
   }
 
@@ -128,7 +128,7 @@ const play = Effect.gen(function* () {
   const q1 = yield* PostEntity.query("pk", { pk: { authorId: "alice" }, sk: { ">=": null } });
   yield* Console.log(`    Found ${q1.items.length} posts:`);
   for (const p of q1.items) {
-    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+    yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
   }
 
   // ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ const play = Effect.gen(function* () {
   const q2 = yield* PostEntity.query("pk", { pk: { authorId: "alice" }, sk: { "<=": null } });
   yield* Console.log(`    Found ${q2.items.length} posts:`);
   for (const p of q2.items) {
-    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+    yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
   }
 
   // ---------------------------------------------------------------------------
@@ -154,7 +154,7 @@ const play = Effect.gen(function* () {
   );
   yield* Console.log(`    Found ${q3.items.length} posts:`);
   for (const p of q3.items) {
-    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+    yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
   }
 
   // ---------------------------------------------------------------------------
@@ -169,27 +169,27 @@ const play = Effect.gen(function* () {
   );
   yield* Console.log(`    Found ${q4.items.length} posts:`);
   for (const p of q4.items) {
-    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+    yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
   }
 
   // ---------------------------------------------------------------------------
   // Query Method 5: From specific sk onwards (ascending)
   // ---------------------------------------------------------------------------
   yield* Console.log(
-    "\n[6] query({ pk, sk: { '>=': { id } } }) - Posts from post-03\n",
+    "\n[6] query({ pk, sk: { '>=': { postId } } }) - Posts from post-03\n",
   );
 
   const q5 = yield* PostEntity.query("pk", {
     pk: { authorId: "alice" },
-    sk: { ">=": { id: "post-03" } },
+    sk: { ">=": { postId: PostEntity.id("post-03") } },
   });
   yield* Console.log(`    Found ${q5.items.length} posts:`);
   for (const p of q5.items) {
-    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+    yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
   }
 
   // ---------------------------------------------------------------------------
-  // Query Method 6: GSI query ascending
+  // Query Method 6: GSI query ascending (SK is automatically _uid)
   // ---------------------------------------------------------------------------
   yield* Console.log(
     "\n[7] query('byAuthor', { pk, sk: { '>=': null } }) - GSI all posts by bob\n",
@@ -202,25 +202,26 @@ const play = Effect.gen(function* () {
   yield* Console.log(`    Found ${q6.items.length} posts:`);
   for (const p of q6.items) {
     yield* Console.log(
-      `    - ${p.value.id}: ${p.value.title} (${p.value.createdAt})`,
+      `    - ${p.value.postId}: ${p.value.title} (${p.value.createdAt})`,
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Query Method 7: GSI query with cursor
+  // Query Method 7: GSI query (SK is _uid for secondary indexes)
   // ---------------------------------------------------------------------------
   yield* Console.log(
-    "\n[8] query('byAuthor', { pk, sk: { '>=': { createdAt, id } } }) - GSI from date\n",
+    "\n[8] query('byAuthor') - Secondary indexes use _uid as SK (time-ordered)\n",
   );
 
+  // Note: Secondary indexes now always use _uid as SK for time-ordered results
   const q7 = yield* PostEntity.query("byAuthor", {
     pk: { authorId: "bob" },
-    sk: { ">=": { createdAt: "2024-01-08T00:00:00Z", id: "" } },
+    sk: { "<=": null }, // All items descending by _uid (most recent first)
   });
-  yield* Console.log(`    Found ${q7.items.length} posts:`);
+  yield* Console.log(`    Found ${q7.items.length} posts (most recent first):`);
   for (const p of q7.items) {
     yield* Console.log(
-      `    - ${p.value.id}: ${p.value.title} (${p.value.createdAt})`,
+      `    - ${p.value.postId}: ${p.value.title} (${p.value.createdAt})`,
     );
   }
 
@@ -233,11 +234,16 @@ const play = Effect.gen(function* () {
 
   const q8 = yield* PostEntity.raw.query("pk", {
     pk: { authorId: "alice" },
-    sk: { between: [{ id: "post-02" }, { id: "post-04" }] },
+    sk: {
+      between: [
+        { postId: PostEntity.id("post-02") },
+        { postId: PostEntity.id("post-04") },
+      ],
+    },
   });
   yield* Console.log(`    Found ${q8.items.length} posts:`);
   for (const p of q8.items) {
-    yield* Console.log(`    - ${p.value.id}: ${p.value.title}`);
+    yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
   }
 
   // ---------------------------------------------------------------------------

@@ -127,35 +127,28 @@ describe("@std-toolkit/db-dynamodb", () => {
       .gsi("GSI1", "GSI1PK", "GSI1SK")
       .build();
 
-    const userSchema = ESchema.make("User", {
-      id: Schema.String,
+    // New ESchema API: idField is second parameter
+    const userSchema = ESchema.make("User", "userId", {
       name: Schema.String,
       email: Schema.String,
     }).build();
 
     it("creates entity builder", () => {
+      // New API: SK is automatically the idField
       const entity = DynamoEntity.make(table)
         .eschema(userSchema)
-        .primary({
-          pk: ["id"],
-          sk: [],
-        })
+        .primary({ pk: ["userId"] })
         .build();
 
       expect(entity).toBeDefined();
     });
 
     it("creates entity with secondary index", () => {
+      // New API: SK is automatically _uid for secondary indexes
       const entity = DynamoEntity.make(table)
         .eschema(userSchema)
-        .primary({
-          pk: ["id"],
-          sk: [],
-        })
-        .index("GSI1", "byEmail", {
-          pk: ["email"],
-          sk: ["id"],
-        })
+        .primary({ pk: ["userId"] })
+        .index("GSI1", "byEmail", { pk: ["email"] })
         .build();
 
       expect(entity).toBeDefined();
