@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { SqliteDB, SqliteDBError } from "../sql/db.js";
 import * as Sql from "../sql/helpers/index.js";
-import type { RawRow } from "../internal/index.js";
+import type { RawRow } from "../internal/utils.js";
 
 /**
  * Configuration for creating a SQLite table.
@@ -223,9 +223,13 @@ function createSQLiteTableInstance<
 
         // Build columns including secondary index columns
         const allColumns = [...TABLE_COLUMNS];
-        for (const [indexName, indexDef] of Object.entries(secondaryIndexMap)) {
-          allColumns.push(Sql.column({ name: indexDef.pk, type: "TEXT", nullable: true }));
-          allColumns.push(Sql.column({ name: indexDef.sk, type: "TEXT", nullable: true }));
+        for (const [, indexDef] of Object.entries(secondaryIndexMap)) {
+          allColumns.push(
+            Sql.column({ name: indexDef.pk, type: "TEXT", nullable: true }),
+          );
+          allColumns.push(
+            Sql.column({ name: indexDef.sk, type: "TEXT", nullable: true }),
+          );
         }
 
         // Create table with composite primary key
@@ -310,7 +314,9 @@ function createSQLiteTableInstance<
      *
      * @param key - The primary key of the item to delete
      */
-    deleteItem(key: IndexDefinition): Effect.Effect<void, SqliteDBError, SqliteDB> {
+    deleteItem(
+      key: IndexDefinition,
+    ): Effect.Effect<void, SqliteDBError, SqliteDB> {
       return Effect.gen(function* () {
         const db = yield* SqliteDB;
         const whereClause = Sql.wherePkSkExact(
@@ -389,7 +395,9 @@ export type SQLiteTableInstance<
     string,
     IndexDefinition
   >,
-> = ReturnType<typeof createSQLiteTableInstance<TPrimaryIndex, TSecondaryIndexMap>>;
+> = ReturnType<
+  typeof createSQLiteTableInstance<TPrimaryIndex, TSecondaryIndexMap>
+>;
 
 /**
  * Builder class for configuring SQLite table indexes.

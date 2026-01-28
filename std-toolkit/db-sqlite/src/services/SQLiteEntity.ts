@@ -6,8 +6,6 @@ import {
   deriveIndexKeyValue,
   extractKeyOp,
   getKeyOpScanDirection,
-  getKeyOpOrderDirection,
-  fieldsToPattern,
   sqlMetaSchema,
   type RawRow,
   type RowMeta,
@@ -16,30 +14,9 @@ import {
   type SubscribeOptions,
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
-} from "../internal/index.js";
+} from "../internal/utils.js";
 import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
 import { ConnectionService } from "@std-toolkit/core/server";
-
-/**
- * Schema for entity metadata stored with each item.
- */
-const metaSchema = Schema.Struct({
-  /** Entity name */
-  _e: Schema.String,
-  /** Schema version */
-  _v: Schema.String,
-  /** Update timestamp */
-  _u: Schema.String,
-  /** Optimistic locking increment counter */
-  _i: Schema.Number,
-  /** Soft delete flag */
-  _d: Schema.Boolean,
-});
-
-/**
- * Type for entity metadata.
- */
-type MetaType = typeof metaSchema.Type;
 
 /**
  * Meta fields that can be used in index derivations.
@@ -232,7 +209,11 @@ export class SQLiteEntity<
   get(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>> | null, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<
+    EntityType<ESchemaType<TSchema>> | null,
+    SqliteDBError,
+    SqliteDB
+  > {
     return Effect.gen(this, function* () {
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
@@ -307,7 +288,10 @@ export class SQLiteEntity<
         ...updates,
       } as ESchemaType<TSchema>;
 
-      const { encoded, meta } = yield* this.#encode(fullValue, existing.meta._d);
+      const { encoded, meta } = yield* this.#encode(
+        fullValue,
+        existing.meta._d,
+      );
 
       // Compute primary keys
       const pk = deriveIndexKeyValue(
@@ -485,7 +469,10 @@ export class SQLiteEntity<
           ? { pk: derivedPk, sk: skConditionSecondary }
           : { pk: derivedPk };
 
-        const secondaryQueryOptions: { Limit?: number; ScanIndexForward?: boolean } = {
+        const secondaryQueryOptions: {
+          Limit?: number;
+          ScanIndexForward?: boolean;
+        } = {
           ScanIndexForward: scanForward,
         };
         if (options?.limit !== undefined) {
@@ -568,7 +555,9 @@ export class SQLiteEntity<
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  #service = Effect.serviceOption(ConnectionService).pipe(Effect.andThen(Option.getOrNull));
+  #service = Effect.serviceOption(ConnectionService).pipe(
+    Effect.andThen(Option.getOrNull),
+  );
 
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
     return Effect.gen(this, function* () {
@@ -608,10 +597,17 @@ export class SQLiteEntity<
   #encode(
     value: ESchemaType<TSchema>,
     deleted: boolean,
-  ): Effect.Effect<{ encoded: Record<string, unknown>; meta: RowMeta }, SqliteDBError> {
+  ): Effect.Effect<
+    { encoded: Record<string, unknown>; meta: RowMeta },
+    SqliteDBError
+  > {
     return this.#eschema
       .encode(value as Record<string, unknown>)
-      .pipe(Effect.mapError((e) => SqliteDBError.insertFailed(this.#table.tableName, e)))
+      .pipe(
+        Effect.mapError((e) =>
+          SqliteDBError.insertFailed(this.#table.tableName, e),
+        ),
+      )
       .pipe(
         Effect.map((encoded) => ({
           encoded,
@@ -625,10 +621,16 @@ export class SQLiteEntity<
       );
   }
 
-  #parseRow(row: RawRow): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError> {
+  #parseRow(
+    row: RawRow,
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError> {
     return this.#eschema
       .decode({ ...JSON.parse(row._data), _v: row._v })
-      .pipe(Effect.mapError((e) => SqliteDBError.queryFailed(this.#table.tableName, e)))
+      .pipe(
+        Effect.mapError((e) =>
+          SqliteDBError.queryFailed(this.#table.tableName, e),
+        ),
+      )
       .pipe(
         Effect.map((value) => ({
           value: value as ESchemaType<TSchema>,
@@ -648,7 +650,10 @@ export class SQLiteEntity<
     return Effect.all(items.map((item) => this.#parseRow(item)));
   }
 
-  #derivePrimaryIndex(value: Record<string, unknown>): { pk: string; sk: string } {
+  #derivePrimaryIndex(value: Record<string, unknown>): {
+    pk: string;
+    sk: string;
+  } {
     return {
       pk: deriveIndexKeyValue(
         this.#eschema.name,
@@ -665,7 +670,9 @@ export class SQLiteEntity<
     };
   }
 
-  #deriveSecondaryIndexes(value: Record<string, unknown>): Record<string, string> {
+  #deriveSecondaryIndexes(
+    value: Record<string, unknown>,
+  ): Record<string, string> {
     const indexMap: Record<string, string> = {};
 
     for (const [, derivation] of Object.entries(this.#secondaryDerivations)) {
