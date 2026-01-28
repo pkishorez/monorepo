@@ -1,9 +1,9 @@
 import Database from "better-sqlite3";
-import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "@effect/vitest";
 import { ESchema } from "@std-toolkit/eschema";
 import { Effect, Layer, Schema } from "effect";
 import { SqliteDBBetterSqlite3 } from "../../sql/adapters/better-sqlite3.js";
-import { SqliteDB, SqliteDBError } from "../../sql/db.js";
+import { SqliteDB } from "../../sql/db.js";
 import { SQLiteTable } from "../SQLiteTable.js";
 import { SQLiteEntity } from "../SQLiteEntity.js";
 import { EntityRegistry } from "../../registry/entity-registry.js";
@@ -21,6 +21,13 @@ const PostSchema = ESchema.make("Post", {
   postId: Schema.String,
   title: Schema.String,
   content: Schema.String,
+}).build();
+
+const CommentSchema = ESchema.make("Comment", {
+  postId: Schema.String,
+  timestamp: Schema.String,
+  commentId: Schema.String,
+  text: Schema.String,
 }).build();
 
 // ─── Single Table Design ─────────────────────────────────────────────────────
@@ -222,6 +229,36 @@ describe("SQLite Single Table Design", () => {
         expect(error.error._tag).toBe("UpdateFailed");
       }).pipe(Effect.provide(layer)),
     );
+
+    it.effect("updates secondary index fields correctly", () =>
+      Effect.gen(function* () {
+        yield* userEntity.insert({
+          id: "user-idx-update",
+          email: "old@example.com",
+          name: "Index User",
+        });
+
+        yield* userEntity.update(
+          { id: "user-idx-update" },
+          { email: "new@example.com" },
+        );
+
+        // Should find by new email
+        const byNew = yield* userEntity.query("byEmail", {
+          pk: { email: "new@example.com" },
+          sk: { ">=": null },
+        });
+        expect(byNew.items).toHaveLength(1);
+        expect(byNew.items[0]!.value.id).toBe("user-idx-update");
+
+        // Should not find by old email
+        const byOld = yield* userEntity.query("byEmail", {
+          pk: { email: "old@example.com" },
+          sk: { ">=": null },
+        });
+        expect(byOld.items).toHaveLength(0);
+      }).pipe(Effect.provide(layer)),
+    );
   });
 
   describe("delete (soft delete)", () => {
@@ -235,6 +272,15 @@ describe("SQLite Single Table Design", () => {
 
         const deleted = yield* userEntity.delete({ id: "user-delete-1" });
         expect(deleted.meta._d).toBe(true);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("fails for non-existent entity", () =>
+      Effect.gen(function* () {
+        const error = yield* userEntity
+          .delete({ id: "non-existent-delete" })
+          .pipe(Effect.flip);
+        expect(error.error._tag).toBe("DeleteFailed");
       }).pipe(Effect.provide(layer)),
     );
   });
@@ -498,6 +544,626 @@ describe("SQLite Single Table Design", () => {
   });
 });
 
+// ─── Query Operators Exhaustive Tests ────────────────────────────────────────
+
+describe("Query Operators", () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const table = SQLiteTable.make({ tableName: "query_ops" })
+    .primary("pk", "sk")
+    .index("IDX1", "IDX1PK", "IDX1SK")
+    .build();
+
+  const ItemSchema = ESchema.make("Item", {
+    category: Schema.String,
+    sortKey: Schema.String,
+    value: Schema.Number,
+  }).build();
+
+  const itemEntity = SQLiteEntity.make(table)
+    .eschema(ItemSchema)
+    .primary({ pk: ["category"], sk: ["sortKey"] })
+    .index("IDX1", "byCategory", { pk: ["category"], sk: ["sortKey"] })
+    .build();
+
+  beforeAll(async () => {
+    db = new Database(":memory:");
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+    // Insert test data with sequential sort keys
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* itemEntity.insert({ category: "cat-1", sortKey: "a", value: 1 });
+        yield* itemEntity.insert({ category: "cat-1", sortKey: "b", value: 2 });
+        yield* itemEntity.insert({ category: "cat-1", sortKey: "c", value: 3 });
+        yield* itemEntity.insert({ category: "cat-1", sortKey: "d", value: 4 });
+        yield* itemEntity.insert({ category: "cat-1", sortKey: "e", value: 5 });
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  afterAll(() => db.close());
+
+  describe(">= operator", () => {
+    it.effect(">= null returns all items in ascending order", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { ">=": null },
+        });
+
+        expect(result.items).toHaveLength(5);
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["a", "b", "c", "d", "e"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect(">= specific value returns items from that point ascending", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { ">=": { sortKey: "c" } },
+        });
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["c", "d", "e"]);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("> operator", () => {
+    it.effect("> null returns all items in ascending order", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { ">": null },
+        });
+
+        expect(result.items).toHaveLength(5);
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["a", "b", "c", "d", "e"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("> specific value returns items after that point (exclusive)", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { ">": { sortKey: "c" } },
+        });
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["d", "e"]);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("<= operator", () => {
+    it.effect("<= null returns all items in descending order", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { "<=": null },
+        });
+
+        expect(result.items).toHaveLength(5);
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["e", "d", "c", "b", "a"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("<= specific value returns items up to that point descending", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { "<=": { sortKey: "c" } },
+        });
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["c", "b", "a"]);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("< operator", () => {
+    it.effect("< null returns all items in descending order", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { "<": null },
+        });
+
+        expect(result.items).toHaveLength(5);
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["e", "d", "c", "b", "a"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("< specific value returns items before that point (exclusive)", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { "<": { sortKey: "c" } },
+        });
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["b", "a"]);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("limit with operators", () => {
+    it.effect(">= null with limit returns first N ascending", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query(
+          "pk",
+          { pk: { category: "cat-1" }, sk: { ">=": null } },
+          { limit: 2 },
+        );
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["a", "b"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("<= null with limit returns last N descending", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query(
+          "pk",
+          { pk: { category: "cat-1" }, sk: { "<=": null } },
+          { limit: 2 },
+        );
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["e", "d"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("> specific value with limit", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query(
+          "pk",
+          { pk: { category: "cat-1" }, sk: { ">": { sortKey: "b" } } },
+          { limit: 2 },
+        );
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["c", "d"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("< specific value with limit", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query(
+          "pk",
+          { pk: { category: "cat-1" }, sk: { "<": { sortKey: "d" } } },
+          { limit: 2 },
+        );
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["c", "b"]);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("secondary index operators", () => {
+    it.effect("secondary index >= null ascending", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("byCategory", {
+          pk: { category: "cat-1" },
+          sk: { ">=": null },
+        });
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["a", "b", "c", "d", "e"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("secondary index <= null descending", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("byCategory", {
+          pk: { category: "cat-1" },
+          sk: { "<=": null },
+        });
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["e", "d", "c", "b", "a"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("secondary index with specific value", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("byCategory", {
+          pk: { category: "cat-1" },
+          sk: { ">=": { sortKey: "c" } },
+        });
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["c", "d", "e"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("secondary index with limit", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query(
+          "byCategory",
+          { pk: { category: "cat-1" }, sk: { "<=": null } },
+          { limit: 3 },
+        );
+
+        const keys = result.items.map((i) => i.value.sortKey);
+        expect(keys).toEqual(["e", "d", "c"]);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("empty results", () => {
+    it.effect("returns empty array for non-existent partition", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "non-existent" },
+          sk: { ">=": null },
+        });
+
+        expect(result.items).toHaveLength(0);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("> last item returns empty", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { ">": { sortKey: "e" } },
+        });
+
+        expect(result.items).toHaveLength(0);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("< first item returns empty", () =>
+      Effect.gen(function* () {
+        const result = yield* itemEntity.query("pk", {
+          pk: { category: "cat-1" },
+          sk: { "<": { sortKey: "a" } },
+        });
+
+        expect(result.items).toHaveLength(0);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+});
+
+// ─── Composite Sort Key Tests ────────────────────────────────────────────────
+
+describe("Composite Sort Keys", () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const table = SQLiteTable.make({ tableName: "composite_sk" })
+    .primary("pk", "sk")
+    .index("IDX1", "IDX1PK", "IDX1SK")
+    .build();
+
+  const commentEntity = SQLiteEntity.make(table)
+    .eschema(CommentSchema)
+    .primary({ pk: ["postId"], sk: ["timestamp", "commentId"] })
+    .index("IDX1", "byPost", { pk: ["postId"], sk: ["timestamp"] })
+    .build();
+
+  beforeAll(async () => {
+    db = new Database(":memory:");
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+    // Insert comments with composite sort keys
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* commentEntity.insert({
+          postId: "post-1",
+          timestamp: "2024-01-01T10:00:00Z",
+          commentId: "c1",
+          text: "First",
+        });
+        yield* commentEntity.insert({
+          postId: "post-1",
+          timestamp: "2024-01-01T11:00:00Z",
+          commentId: "c2",
+          text: "Second",
+        });
+        yield* commentEntity.insert({
+          postId: "post-1",
+          timestamp: "2024-01-01T11:00:00Z",
+          commentId: "c3",
+          text: "Third (same timestamp)",
+        });
+        yield* commentEntity.insert({
+          postId: "post-1",
+          timestamp: "2024-01-01T12:00:00Z",
+          commentId: "c4",
+          text: "Fourth",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  afterAll(() => db.close());
+
+  it.effect("queries with composite sk ascending", () =>
+    Effect.gen(function* () {
+      const result = yield* commentEntity.query("pk", {
+        pk: { postId: "post-1" },
+        sk: { ">=": null },
+      });
+
+      expect(result.items).toHaveLength(4);
+      const ids = result.items.map((i) => i.value.commentId);
+      // Should be sorted by timestamp#commentId
+      expect(ids[0]).toBe("c1");
+      expect(ids[3]).toBe("c4");
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("queries with composite sk descending", () =>
+    Effect.gen(function* () {
+      const result = yield* commentEntity.query("pk", {
+        pk: { postId: "post-1" },
+        sk: { "<=": null },
+      });
+
+      const ids = result.items.map((i) => i.value.commentId);
+      expect(ids[0]).toBe("c4");
+      expect(ids[3]).toBe("c1");
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("queries with partial composite sk", () =>
+    Effect.gen(function* () {
+      const result = yield* commentEntity.query("pk", {
+        pk: { postId: "post-1" },
+        sk: { ">=": { timestamp: "2024-01-01T11:00:00Z", commentId: "" } },
+      });
+
+      const ids = result.items.map((i) => i.value.commentId);
+      expect(ids).toContain("c2");
+      expect(ids).toContain("c3");
+      expect(ids).toContain("c4");
+      expect(ids).not.toContain("c1");
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("gets item by full composite key", () =>
+    Effect.gen(function* () {
+      const result = yield* commentEntity.get({
+        postId: "post-1",
+        timestamp: "2024-01-01T11:00:00Z",
+        commentId: "c2",
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.value.text).toBe("Second");
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("secondary index with single sk field", () =>
+    Effect.gen(function* () {
+      const result = yield* commentEntity.query("byPost", {
+        pk: { postId: "post-1" },
+        sk: { ">=": { timestamp: "2024-01-01T11:00:00Z" } },
+      });
+
+      expect(result.items.length).toBeGreaterThanOrEqual(3);
+    }).pipe(Effect.provide(layer)),
+  );
+});
+
+// ─── Subscribe Tests ─────────────────────────────────────────────────────────
+
+describe("Subscribe", () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const table = SQLiteTable.make({ tableName: "subscribe_test" })
+    .primary("pk", "sk")
+    .index("IDX1", "IDX1PK", "IDX1SK")
+    .build();
+
+  const EventSchema = ESchema.make("Event", {
+    streamId: Schema.String,
+    eventId: Schema.String,
+    data: Schema.String,
+  }).build();
+
+  const eventEntity = SQLiteEntity.make(table)
+    .eschema(EventSchema)
+    .primary({ pk: ["streamId"], sk: ["eventId"] })
+    .index("IDX1", "byStream", { pk: ["streamId"], sk: ["eventId"] })
+    .build();
+
+  beforeAll(async () => {
+    db = new Database(":memory:");
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* eventEntity.insert({ streamId: "stream-1", eventId: "001", data: "a" });
+        yield* eventEntity.insert({ streamId: "stream-1", eventId: "002", data: "b" });
+        yield* eventEntity.insert({ streamId: "stream-1", eventId: "003", data: "c" });
+        yield* eventEntity.insert({ streamId: "stream-1", eventId: "004", data: "d" });
+        yield* eventEntity.insert({ streamId: "stream-1", eventId: "005", data: "e" });
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  afterAll(() => db.close());
+
+  it.effect("subscribe returns items after cursor (primary)", () =>
+    Effect.gen(function* () {
+      const result = yield* eventEntity.subscribe({
+        key: "pk",
+        value: { streamId: "stream-1", eventId: "002" },
+      });
+
+      const ids = result.items.map((i) => i.value.eventId);
+      expect(ids).toEqual(["003", "004", "005"]);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("subscribe with limit", () =>
+    Effect.gen(function* () {
+      const result = yield* eventEntity.subscribe({
+        key: "pk",
+        value: { streamId: "stream-1", eventId: "002" },
+        limit: 2,
+      });
+
+      const ids = result.items.map((i) => i.value.eventId);
+      expect(ids).toEqual(["003", "004"]);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("subscribe with null value returns empty", () =>
+    Effect.gen(function* () {
+      const result = yield* eventEntity.subscribe({
+        key: "pk",
+        value: null,
+      });
+
+      expect(result.items).toHaveLength(0);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("subscribe on secondary index", () =>
+    Effect.gen(function* () {
+      const result = yield* eventEntity.subscribe({
+        key: "byStream",
+        value: { streamId: "stream-1", eventId: "003" },
+      });
+
+      const ids = result.items.map((i) => i.value.eventId);
+      expect(ids).toEqual(["004", "005"]);
+    }).pipe(Effect.provide(layer)),
+  );
+});
+
+// ─── Transaction Tests ───────────────────────────────────────────────────────
+
+describe("Transactions Advanced", () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const table = SQLiteTable.make({ tableName: "tx_test" })
+    .primary("pk", "sk")
+    .build();
+
+  const CounterSchema = ESchema.make("Counter", {
+    id: Schema.String,
+    count: Schema.Number,
+  }).build();
+
+  const counterEntity = SQLiteEntity.make(table)
+    .eschema(CounterSchema)
+    .primary({ pk: ["id"], sk: ["id"] })
+    .build();
+
+  const registry = EntityRegistry.make(table).register(counterEntity).build();
+
+  beforeEach(async () => {
+    db = new Database(":memory:");
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
+  });
+
+  afterAll(() => db.close());
+
+  it.effect("transaction commits multiple operations atomically", () =>
+    Effect.gen(function* () {
+      yield* registry.transaction(
+        Effect.gen(function* () {
+          yield* counterEntity.insert({ id: "c1", count: 0 });
+          yield* counterEntity.insert({ id: "c2", count: 0 });
+          yield* counterEntity.insert({ id: "c3", count: 0 });
+        }),
+      );
+
+      const c1 = yield* counterEntity.get({ id: "c1" });
+      const c2 = yield* counterEntity.get({ id: "c2" });
+      const c3 = yield* counterEntity.get({ id: "c3" });
+
+      expect(c1).not.toBeNull();
+      expect(c2).not.toBeNull();
+      expect(c3).not.toBeNull();
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("transaction rolls back all operations on failure", () =>
+    Effect.gen(function* () {
+      const result = yield* registry
+        .transaction(
+          Effect.gen(function* () {
+            yield* counterEntity.insert({ id: "r1", count: 1 });
+            yield* counterEntity.insert({ id: "r2", count: 2 });
+            yield* Effect.fail(new Error("Intentional failure"));
+            yield* counterEntity.insert({ id: "r3", count: 3 });
+          }),
+        )
+        .pipe(Effect.either);
+
+      expect(result._tag).toBe("Left");
+
+      // All should be rolled back
+      const r1 = yield* counterEntity.get({ id: "r1" });
+      const r2 = yield* counterEntity.get({ id: "r2" });
+      const r3 = yield* counterEntity.get({ id: "r3" });
+
+      expect(r1).toBeNull();
+      expect(r2).toBeNull();
+      expect(r3).toBeNull();
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("transaction with update operations", () =>
+    Effect.gen(function* () {
+      yield* counterEntity.insert({ id: "u1", count: 0 });
+
+      yield* registry.transaction(
+        Effect.gen(function* () {
+          const current = yield* counterEntity.get({ id: "u1" });
+          yield* counterEntity.update({ id: "u1" }, { count: current!.value.count + 1 });
+          yield* counterEntity.update({ id: "u1" }, { count: current!.value.count + 2 });
+        }),
+      );
+
+      const result = yield* counterEntity.get({ id: "u1" });
+      expect(result!.value.count).toBe(2);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("transaction with mixed insert/update/delete", () =>
+    Effect.gen(function* () {
+      yield* counterEntity.insert({ id: "m1", count: 10 });
+
+      yield* registry.transaction(
+        Effect.gen(function* () {
+          yield* counterEntity.insert({ id: "m2", count: 20 });
+          yield* counterEntity.update({ id: "m1" }, { count: 15 });
+          yield* counterEntity.delete({ id: "m1" });
+        }),
+      );
+
+      const m1 = yield* counterEntity.get({ id: "m1" });
+      const m2 = yield* counterEntity.get({ id: "m2" });
+
+      expect(m1).not.toBeNull();
+      expect(m1!.meta._d).toBe(true); // soft deleted
+      expect(m2).not.toBeNull();
+      expect(m2!.value.count).toBe(20);
+    }).pipe(Effect.provide(layer)),
+  );
+});
+
 // ─── Edge Cases ──────────────────────────────────────────────────────────────
 
 describe("SQLite Entity Edge Cases", () => {
@@ -551,6 +1217,52 @@ describe("SQLite Entity Edge Cases", () => {
     }).pipe(Effect.provide(layer)),
   );
 
+  it.effect("handles unicode in keys and values", () =>
+    Effect.gen(function* () {
+      yield* simpleEntity.insert({
+        id: "ключ-日本語-🎉",
+        value: 42,
+      });
+
+      const result = yield* simpleEntity.get({ id: "ключ-日本語-🎉" });
+      expect(result).not.toBeNull();
+      expect(result!.value.id).toBe("ключ-日本語-🎉");
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("handles very long keys", () =>
+    Effect.gen(function* () {
+      const longId = "x".repeat(1000);
+      yield* simpleEntity.insert({
+        id: longId,
+        value: 999,
+      });
+
+      const result = yield* simpleEntity.get({ id: longId });
+      expect(result).not.toBeNull();
+      expect(result!.value.id).toBe(longId);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("handles numeric edge values", () =>
+    Effect.gen(function* () {
+      yield* simpleEntity.insert({ id: "max-int", value: Number.MAX_SAFE_INTEGER });
+      yield* simpleEntity.insert({ id: "min-int", value: Number.MIN_SAFE_INTEGER });
+      yield* simpleEntity.insert({ id: "zero", value: 0 });
+      yield* simpleEntity.insert({ id: "negative", value: -123.456 });
+
+      const max = yield* simpleEntity.get({ id: "max-int" });
+      const min = yield* simpleEntity.get({ id: "min-int" });
+      const zero = yield* simpleEntity.get({ id: "zero" });
+      const neg = yield* simpleEntity.get({ id: "negative" });
+
+      expect(max!.value.value).toBe(Number.MAX_SAFE_INTEGER);
+      expect(min!.value.value).toBe(Number.MIN_SAFE_INTEGER);
+      expect(zero!.value.value).toBe(0);
+      expect(neg!.value.value).toBe(-123.456);
+    }).pipe(Effect.provide(layer)),
+  );
+
   it.effect("dangerouslyRemoveAllRows clears all data", () =>
     Effect.gen(function* () {
       yield* simpleEntity.insert({ id: "clear-1", value: 1 });
@@ -566,6 +1278,153 @@ describe("SQLite Entity Edge Cases", () => {
         sk: { ">=": null },
       });
       expect(result.items).toHaveLength(0);
+    }).pipe(Effect.provide(layer)),
+  );
+});
+
+// ─── Multiple Secondary Indexes ──────────────────────────────────────────────
+
+describe("Multiple Secondary Indexes", () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const table = SQLiteTable.make({ tableName: "multi_idx" })
+    .primary("pk", "sk")
+    .index("IDX1", "IDX1PK", "IDX1SK")
+    .index("IDX2", "IDX2PK", "IDX2SK")
+    .build();
+
+  const ProductSchema = ESchema.make("Product", {
+    id: Schema.String,
+    category: Schema.String,
+    brand: Schema.String,
+    price: Schema.Number,
+    name: Schema.String,
+  }).build();
+
+  const productEntity = SQLiteEntity.make(table)
+    .eschema(ProductSchema)
+    .primary({ pk: ["id"], sk: ["id"] })
+    .index("IDX1", "byCategory", { pk: ["category"], sk: ["id"] })
+    .index("IDX2", "byBrand", { pk: ["brand"], sk: ["id"] })
+    .build();
+
+  beforeAll(async () => {
+    db = new Database(":memory:");
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* productEntity.insert({
+          id: "p1",
+          category: "electronics",
+          brand: "apple",
+          price: 999,
+          name: "iPhone",
+        });
+        yield* productEntity.insert({
+          id: "p2",
+          category: "electronics",
+          brand: "samsung",
+          price: 899,
+          name: "Galaxy",
+        });
+        yield* productEntity.insert({
+          id: "p3",
+          category: "clothing",
+          brand: "nike",
+          price: 150,
+          name: "Shoes",
+        });
+        yield* productEntity.insert({
+          id: "p4",
+          category: "electronics",
+          brand: "apple",
+          price: 1299,
+          name: "MacBook",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  afterAll(() => db.close());
+
+  it.effect("queries by first secondary index (category)", () =>
+    Effect.gen(function* () {
+      const result = yield* productEntity.query("byCategory", {
+        pk: { category: "electronics" },
+        sk: { ">=": null },
+      });
+
+      expect(result.items).toHaveLength(3);
+      const names = result.items.map((i) => i.value.name);
+      expect(names).toContain("iPhone");
+      expect(names).toContain("Galaxy");
+      expect(names).toContain("MacBook");
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("queries by second secondary index (brand)", () =>
+    Effect.gen(function* () {
+      const result = yield* productEntity.query("byBrand", {
+        pk: { brand: "apple" },
+        sk: { ">=": null },
+      });
+
+      expect(result.items).toHaveLength(2);
+      const names = result.items.map((i) => i.value.name);
+      expect(names).toContain("iPhone");
+      expect(names).toContain("MacBook");
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("both indexes return correct results independently", () =>
+    Effect.gen(function* () {
+      const byCategory = yield* productEntity.query("byCategory", {
+        pk: { category: "clothing" },
+        sk: { ">=": null },
+      });
+
+      const byBrand = yield* productEntity.query("byBrand", {
+        pk: { brand: "nike" },
+        sk: { ">=": null },
+      });
+
+      // Same product, different access patterns
+      expect(byCategory.items).toHaveLength(1);
+      expect(byBrand.items).toHaveLength(1);
+      expect(byCategory.items[0]!.value.id).toBe(byBrand.items[0]!.value.id);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("update reflects in all indexes", () =>
+    Effect.gen(function* () {
+      yield* productEntity.update({ id: "p1" }, { category: "phones" });
+
+      // Should not find in old category
+      const oldCategory = yield* productEntity.query("byCategory", {
+        pk: { category: "electronics" },
+        sk: { ">=": null },
+      });
+      const oldIds = oldCategory.items.map((i) => i.value.id);
+      expect(oldIds).not.toContain("p1");
+
+      // Should find in new category
+      const newCategory = yield* productEntity.query("byCategory", {
+        pk: { category: "phones" },
+        sk: { ">=": null },
+      });
+      expect(newCategory.items).toHaveLength(1);
+      expect(newCategory.items[0]!.value.id).toBe("p1");
+
+      // Brand index should still work
+      const byBrand = yield* productEntity.query("byBrand", {
+        pk: { brand: "apple" },
+        sk: { ">=": null },
+      });
+      const brandIds = byBrand.items.map((i) => i.value.id);
+      expect(brandIds).toContain("p1");
     }).pipe(Effect.provide(layer)),
   );
 });
