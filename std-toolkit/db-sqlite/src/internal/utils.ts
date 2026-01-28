@@ -18,7 +18,7 @@ export interface RawRow extends Record<string, unknown> {
   _data: string;
   _e: string;
   _v: string;
-  _u: string;
+  _uid: string;
   _d: number;
 }
 

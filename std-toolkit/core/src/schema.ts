@@ -5,7 +5,7 @@ export const MetaSchema = Schema.Struct({
   _v: Schema.String,
   _e: Schema.String,
   _d: Schema.Boolean,
-  _u: Schema.String,
+  _uid: Schema.String,
 });
 
 export type EntityType<T> = {
