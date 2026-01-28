@@ -50,6 +50,11 @@ export class MyDurableObject extends DurableObject {
 
     const { 0: client, 1: server } = new WebSocketPair();
 
+    const clientId = clientIdCounter++;
+    if (clientId < 10) {
+      return new Response(null, { status: 404 });
+    }
+
     this.ctx.acceptWebSocket(server);
     this.ctx.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair(pingConst, pongConst),
@@ -57,7 +62,7 @@ export class MyDurableObject extends DurableObject {
 
     typedWebSocket.set(server as unknown as WorkersWebSocket, {
       subscriptionEntities: new Set(),
-      clientId: clientIdCounter++,
+      clientId,
     });
 
     return new Response(null, { status: 101, webSocket: client });

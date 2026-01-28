@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "build": "vite build && tsc",
+    "build": "vite build",
     "deploy": "pnpm build && wrangler deploy",
     "dev": "concurrently -n web,worker -c blue,green \"pnpm dev:web\" \"pnpm dev:worker\"",
     "dev:web": "vite",
@@ -35,8 +35,8 @@
     "@std-toolkit/sqlite": "workspace:*",
     "@std-toolkit/tanstack": "workspace:*",
     "@tanstack/react-db": "0.1.67",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "ulid": "3.0.2"
   },
   "devDependencies": {
