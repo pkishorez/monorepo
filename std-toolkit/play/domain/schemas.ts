@@ -1,8 +1,7 @@
 import { ESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
-export const UserSchema = ESchema.make("User", {
-  id: Schema.String,
+export const UserSchema = ESchema.make("User", "id", {
   name: Schema.String,
   email: Schema.String,
   status: Schema.Literal("active", "inactive", "pending"),

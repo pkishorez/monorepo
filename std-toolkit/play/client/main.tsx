@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { usersCollection } from "./collections/users";
 import { useLiveQuery } from "@tanstack/react-db";
-import type { User } from "../domain";
+import { UserSchema, type User } from "../domain";
 
 const firstNames = [
   "Alice",
@@ -75,7 +75,7 @@ function generateRandomUser(): User {
   const status = statuses[Math.floor(Math.random() * statuses.length)];
 
   return {
-    id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    id: UserSchema.makeId(`user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`),
     evolution: "v2 test!",
     name: `${firstName} ${lastName}`,
     email: `${firstName?.toLowerCase()}.${lastName?.toLowerCase()}@${domain}`,
@@ -96,7 +96,7 @@ function App() {
     if (!name || !email) return;
 
     usersCollection.insert({
-      id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      id: UserSchema.makeId(`user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`),
       evolution: "v2 test!",
       name,
       email,

@@ -29,7 +29,6 @@ describe("stdCollectionOptions", () => {
   const createConfig = () =>
     stdCollectionOptions({
       schema: TestSchema,
-      getKey: (item) => item.id,
       sync: () => ({ effect: Effect.succeed([]) }),
       onInsert: (item) => Effect.succeed(createEntity(item)),
     });
@@ -58,7 +57,7 @@ describe("stdCollectionOptions", () => {
     expect(schema.latestVersion).toBe("v1");
   });
 
-  it("getKey extracts key from item", () => {
+  it("getKey extracts key from item using schema idField", () => {
     const config = createConfig();
     const item: TestItem = { id: TestSchema.makeId("test-123"), name: "Test", updatedAt: "2024-01-01" };
 

@@ -6,7 +6,6 @@ import { RealtimeClient, runtime } from "../services";
 
 const options = stdCollectionOptions({
   schema: UserSchema,
-  getKey: (user) => user.id,
 
   sync: ({ collection, onReady }) => ({
     effect: Effect.gen(function* () {
@@ -20,7 +19,6 @@ const options = stdCollectionOptions({
     Effect.gen(function* () {
       const { api } = yield* RealtimeClient;
       return yield* api.CreateUser({
-        id: user.id,
         name: user.name,
         evolution: "v2 test!",
         email: user.email,

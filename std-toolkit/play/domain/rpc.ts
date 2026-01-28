@@ -1,9 +1,21 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
 import { Schema } from "effect";
-import { EntitySchema } from "@std-toolkit/core";
+import { MetaSchema } from "@std-toolkit/core";
 import { UserSchema, NotFoundError, UserError } from "./schemas";
 
-const UserEntitySchema = EntitySchema(UserSchema);
+// Define UserEntitySchema inline to avoid module initialization issues
+const UserEntitySchema = Schema.Struct({
+  value: UserSchema.schema,
+  meta: MetaSchema,
+});
+
+// CreateUser payload - id is generated on server, so exclude it
+// Use fields directly and omit the id field
+const { id: _id, ...createUserFields } = UserSchema.fields;
+const CreateUserPayload = Schema.Struct(createUserFields);
+
+// UpdateUser updates - partial of schema without id
+const UpdateUserUpdates = Schema.partial(CreateUserPayload);
 
 export class AppRpcs extends RpcGroup.make(
   Rpc.make("Ping", {
@@ -29,7 +41,7 @@ export class AppRpcs extends RpcGroup.make(
   Rpc.make("CreateUser", {
     success: UserEntitySchema,
     error: UserError,
-    payload: UserSchema.schema,
+    payload: CreateUserPayload,
   }),
 
   Rpc.make("UpdateUser", {
@@ -37,7 +49,7 @@ export class AppRpcs extends RpcGroup.make(
     error: UserError,
     payload: {
       id: Schema.String,
-      updates: Schema.partial(Schema.Struct(UserSchema.schema).omit("id")),
+      updates: UpdateUserUpdates,
     },
   }),
 

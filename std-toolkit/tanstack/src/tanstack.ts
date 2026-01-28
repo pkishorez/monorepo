@@ -5,11 +5,10 @@ import { AnyESchema } from "@std-toolkit/eschema";
 
 interface StdCollectionConfig<
   TItem extends object,
-  TKey extends string | number,
+  TKey extends string,
   TSchema extends AnyESchema,
 > {
   schema: TSchema;
-  getKey: (item: TItem) => TKey;
   sync: (value: {
     collection: Collection<
       TItem,
@@ -34,23 +33,16 @@ export type CollectionUtils<TSchema extends AnyESchema = AnyESchema> = {
   upsert: (item: EntityType<TSchema["Type"]>) => void;
   schema: () => TSchema;
 };
-export const stdCollectionOptions = <
-  TSchema extends AnyESchema,
-  TKey extends string | number = string | number,
->(
-  options: StdCollectionConfig<TSchema["Type"], TKey, TSchema>,
-): CollectionConfig<
-  TSchema["Type"],
-  TKey,
-  TSchema,
-  CollectionUtils<TSchema>
-> & {
+export const stdCollectionOptions = <TSchema extends AnyESchema>(
+  options: StdCollectionConfig<TSchema["Type"], string, TSchema>,
+): CollectionConfig<TSchema["Type"], string, TSchema, CollectionUtils<TSchema>> & {
   schema: TSchema;
 } => {
   type TItem = TSchema["Type"];
-  const { onInsert, onUpdate, sync, ...tanstackOptions } = options;
+  const { onInsert, onUpdate, sync, schema } = options;
+  const getKey = (item: TItem): string => item[schema.idField as keyof TItem] as string;
 
-  type SyncParams = Parameters<SyncConfig<TItem, TKey>["sync"]>[0];
+  type SyncParams = Parameters<SyncConfig<TItem, string>["sync"]>[0];
   const syncParamsRef: { current: SyncParams | null } = { current: null };
 
   const applyLocalChanges = (
@@ -80,7 +72,7 @@ export const stdCollectionOptions = <
     commit();
   };
 
-  const tanstackSync: SyncConfig<TItem, TKey> = {
+  const tanstackSync: SyncConfig<TItem, string> = {
     sync: (params) => {
       syncParamsRef.current = params;
       const { collection } = params;
@@ -102,7 +94,8 @@ export const stdCollectionOptions = <
   };
 
   return {
-    ...tanstackOptions,
+    schema,
+    getKey,
     sync: tanstackSync,
     utils,
     compare: (x, y) =>
@@ -121,7 +114,7 @@ export const stdCollectionOptions = <
       const current = collection.get(key)!;
       const update = await Effect.runPromise(onUpdate(current, changes));
       const merged = {
-        ...collection.get(key as TKey),
+        ...collection.get(key as string),
         ...update,
       } as EntityType<TItem>;
       applyLocalChanges([merged]);

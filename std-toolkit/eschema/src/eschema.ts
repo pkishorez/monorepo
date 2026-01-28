@@ -102,7 +102,15 @@ export class ESchema<
    * Returns the raw field definitions for the latest schema version.
    */
   get fields(): TLatest {
-    return this.evolutions.at(-1)?.schema as TLatest;
+    const lastEvolution = this.evolutions?.at(-1);
+    if (!lastEvolution?.schema) {
+      throw new Error(
+        `ESchema "${this.name}" is not properly initialized. ` +
+        `This usually happens when the schema is accessed before module initialization completes. ` +
+        `Consider using lazy initialization or avoiding top-level schema computations.`
+      );
+    }
+    return lastEvolution.schema as TLatest;
   }
 
   /**

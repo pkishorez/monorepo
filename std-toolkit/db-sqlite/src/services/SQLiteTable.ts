@@ -60,7 +60,7 @@ const TABLE_COLUMNS = [
   Sql.column({ name: "_data", type: "TEXT" }),
   Sql.column({ name: "_e", type: "TEXT" }),
   Sql.column({ name: "_v", type: "TEXT" }),
-  Sql.column({ name: "_uid", type: "TEXT", default: Sql.ISO_NOW }),
+  Sql.column({ name: "_uid", type: "TEXT" }),
   Sql.column({ name: "_d", type: "INTEGER", default: 0 }),
 ];
 

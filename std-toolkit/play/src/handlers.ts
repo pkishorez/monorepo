@@ -1,6 +1,6 @@
 import { Effect, Schedule, Stream } from "effect";
 import { type SqliteDBError } from "@std-toolkit/sqlite";
-import { AppRpcs, NotFoundError, UserError, UsersTable } from "../domain";
+import { AppRpcs, NotFoundError, UserError, UserEntity } from "../domain";
 import { ulid } from "ulid";
 
 const mapDbError = (error: SqliteDBError, op: string) =>
@@ -20,10 +20,10 @@ export const HandlersLive = AppRpcs.toLayer({
   GetUser: ({ id }) =>
     Effect.gen(function* () {
       const result = yield* Effect.mapError(
-        UsersTable.get({ id }),
+        UserEntity.get({ id: UserEntity.id(id) }),
         () => new NotFoundError({ message: `User ${id} not found` }),
       );
-      if (result.meta._d) {
+      if (result === null || result.meta._d) {
         return yield* new NotFoundError({ message: `User ${id} not found` });
       }
       return result;
@@ -32,9 +32,9 @@ export const HandlersLive = AppRpcs.toLayer({
   CreateUser: ({ name, email, status }) =>
     Effect.gen(function* () {
       return yield* Effect.mapError(
-        UsersTable.insert({
+        UserEntity.insert({
           evolution: "v2 test!",
-          id: generateId(),
+          id: UserEntity.id(generateId()),
           name,
           email,
           status: status ?? "pending",
@@ -48,8 +48,8 @@ export const HandlersLive = AppRpcs.toLayer({
       const filtered = Object.fromEntries(
         Object.entries(updates).filter(([, v]) => v !== undefined),
       );
-      return yield* Effect.mapError(UsersTable.update({ id }, filtered), (e) =>
-        e.error._tag === "GetFailed"
+      return yield* Effect.mapError(UserEntity.update({ id: UserEntity.id(id) }, filtered), (e) =>
+        e.error._tag === "UpdateFailed"
           ? UserError.userNotFound(id)
           : mapDbError(e, "UpdateUser"),
       );
@@ -57,15 +57,15 @@ export const HandlersLive = AppRpcs.toLayer({
 
   DeleteUser: ({ id }) =>
     Effect.gen(function* () {
-      return yield* Effect.mapError(UsersTable.delete({ id }), (e) =>
-        e.error._tag === "GetFailed"
+      return yield* Effect.mapError(UserEntity.delete({ id: UserEntity.id(id) }), (e) =>
+        e.error._tag === "DeleteFailed"
           ? UserError.userNotFound(id)
           : mapDbError(e, "DeleteUser"),
       );
     }),
 
   subscribeUsers: Effect.fn(function* () {
-    yield* UsersTable.subscribe({ key: "byUpdates" }).pipe(
+    yield* UserEntity.subscribe({ key: "byUpdates", value: null }).pipe(
       Effect.mapError((e) =>
         "_tag" in e && e._tag === "SqliteDBError"
           ? mapDbError(e as SqliteDBError, "ListUsers")
@@ -78,10 +78,9 @@ export const HandlersLive = AppRpcs.toLayer({
   ListUsers: ({ limit }) =>
     Effect.gen(function* () {
       const pageLimit = Math.min(limit ?? 20, 100);
-      const startCursor = "";
 
       const result = yield* Effect.mapError(
-        UsersTable.query("byUpdates", { ">": { _u: startCursor } }, { limit: pageLimit + 1 }),
+        UserEntity.query("byUpdates", { pk: {}, sk: { ">=": null } }, { limit: pageLimit + 1 }),
         (e) => mapDbError(e, "ListUsers"),
       );
 

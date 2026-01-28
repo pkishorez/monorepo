@@ -2,7 +2,7 @@ import { RpcSerialization } from "@effect/rpc";
 import { DurableObject, env as Env } from "cloudflare:workers";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { SqliteDBDO } from "@std-toolkit/sqlite/adapters/do";
-import { AppRpcs, UsersTable } from "../domain";
+import { AppRpcs, registry } from "../domain";
 import { HandlersLive } from "./handlers";
 import {
   handleMessage,
@@ -35,7 +35,7 @@ export class MyDurableObject extends DurableObject {
     const runtime = ManagedRuntime.make(AppLive);
 
     await runtime.runPromise(
-      UsersTable.setup().pipe(Effect.provide(sqliteLayer)),
+      registry.setup().pipe(Effect.provide(sqliteLayer)),
     );
 
     this._runtime = runtime;
