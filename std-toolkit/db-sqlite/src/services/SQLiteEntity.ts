@@ -21,7 +21,7 @@ import { ConnectionService } from "@std-toolkit/core/server";
 /**
  * Meta fields that can be used in index derivations.
  */
-type DerivableMetaFields = "_u" | "_c";
+type DerivableMetaFields = "_uid";
 
 /**
  * Represents an entity item with its value and metadata.
@@ -311,8 +311,8 @@ export class SQLiteEntity<
       const updateValues: Record<string, unknown> = {
         _data: JSON.stringify(encoded),
         _v: meta._v,
-        _u: meta._u,
-        ...this.#deriveSecondaryIndexes({ ...fullValue, _u: meta._u }),
+        _uid: meta._uid,
+        ...this.#deriveSecondaryIndexes({ ...fullValue, _uid: meta._uid }),
       };
 
       yield* this.#table.updateItem({ pk, sk }, updateValues);
@@ -574,7 +574,7 @@ export class SQLiteEntity<
     return Effect.gen(this, function* () {
       const { encoded, meta } = yield* this.#encode(fullValue, false);
 
-      const valueWithMeta = { ...fullValue, _u: meta._u };
+      const valueWithMeta = { ...fullValue, _uid: meta._uid };
       const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
       const secondaryIndexes = this.#deriveSecondaryIndexes(valueWithMeta);
 
@@ -584,8 +584,7 @@ export class SQLiteEntity<
         _data: JSON.stringify(encoded),
         _e: this.#eschema.name,
         _v: meta._v,
-        _u: meta._u,
-        _i: 0,
+        _uid: meta._uid,
         _d: 0,
         ...secondaryIndexes,
       };
@@ -614,7 +613,7 @@ export class SQLiteEntity<
           meta: {
             _e: this.#eschema.name,
             _v: encoded._v as string,
-            _u: new Date().toISOString(),
+            _uid: new Date().toISOString(),
             _d: deleted,
           },
         })),
@@ -636,7 +635,7 @@ export class SQLiteEntity<
           value: value as ESchemaType<TSchema>,
           meta: Schema.decodeSync(sqlMetaSchema)({
             _v: row._v,
-            _u: row._u,
+            _uid: row._uid,
             _d: row._d,
             _e: row._e ?? this.#eschema.name,
           }),
