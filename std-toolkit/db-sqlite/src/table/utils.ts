@@ -26,7 +26,11 @@ export interface QueryResult<T> {
 
 type Operator = "<" | "<=" | ">" | ">=";
 
-export type KeyOp<T> = { "<": T } | { "<=": T } | { ">": T } | { ">=": T };
+export type KeyOp<T> =
+  | { "<": T | null }
+  | { "<=": T | null }
+  | { ">": T | null }
+  | { ">=": T | null };
 
 export const computeKey = <T>(
   fields: readonly (keyof T)[],
@@ -35,9 +39,9 @@ export const computeKey = <T>(
 
 export const extractKeyOp = <T>(
   op: KeyOp<T>,
-): { operator: Operator; value: T } => {
+): { operator: Operator; value: T | null } => {
   const [operator, value] = Object.entries(op)[0]!;
-  return { operator: operator as Operator, value: value as T };
+  return { operator: operator as Operator, value: value as T | null };
 };
 
 export const getKeyOpOrderDirection = (op: Operator): "ASC" | "DESC" =>
