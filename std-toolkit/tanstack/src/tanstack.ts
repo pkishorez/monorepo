@@ -63,7 +63,7 @@ export const stdCollectionOptions = <
     begin();
     for (const value of values) {
       const key = collection.getKeyFromItem(value.value as TItem);
-      const itemValue = { ...value.value, _u: value.meta._u } as TItem;
+      const itemValue = { ...value.value, _uid: value.meta._uid } as TItem;
       if (collection.has(key)) {
         if (value.meta._d) {
           write({ type: "delete", key });
@@ -105,7 +105,11 @@ export const stdCollectionOptions = <
     ...tanstackOptions,
     sync: tanstackSync,
     utils,
-    compare: (x, y) => (x._u < y._u ? -1 : 1),
+    compare: (x, y) =>
+      (x as TItem & { _uid: string })._uid <
+      (y as TItem & { _uid: string })._uid
+        ? -1
+        : 1,
     onInsert: async ({ transaction }) => {
       const { changes } = transaction.mutations[0]!;
       const result = await Effect.runPromise(onInsert(changes as TItem));

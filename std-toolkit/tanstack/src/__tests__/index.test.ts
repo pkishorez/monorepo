@@ -4,8 +4,7 @@ import { ESchema } from "@std-toolkit/eschema";
 import { EntityType } from "@std-toolkit/core";
 import { stdCollectionOptions, broadcastCollections } from "../index";
 
-const TestSchema = ESchema.make("TestEntity", {
-  id: Schema.String,
+const TestSchema = ESchema.make("TestEntity", "id", {
   name: Schema.String,
   updatedAt: Schema.String,
 }).build();
@@ -21,7 +20,7 @@ const createEntity = (
     _v: "v1",
     _e: "TestEntity",
     _d: false,
-    _u: new Date().toISOString(),
+    _uid: new Date().toISOString(),
     ...meta,
   },
 });
@@ -31,7 +30,7 @@ describe("stdCollectionOptions", () => {
     stdCollectionOptions({
       schema: TestSchema,
       getKey: (item) => item.id,
-      sync: () => Effect.succeed([]),
+      sync: () => ({ effect: Effect.succeed([]) }),
       onInsert: (item) => Effect.succeed(createEntity(item)),
     });
 
@@ -61,17 +60,17 @@ describe("stdCollectionOptions", () => {
 
   it("getKey extracts key from item", () => {
     const config = createConfig();
-    const item: TestItem = { id: "test-123", name: "Test", updatedAt: "2024-01-01" };
+    const item: TestItem = { id: TestSchema.makeId("test-123"), name: "Test", updatedAt: "2024-01-01" };
 
     expect(config.getKey(item)).toBe("test-123");
   });
 
-  it("compare sorts by _u timestamp ascending", () => {
+  it("compare sorts by _uid timestamp ascending", () => {
     const compare = createConfig().compare!;
 
-    type ItemWithTimestamp = TestItem & { _u: string };
-    const older: ItemWithTimestamp = { id: "1", name: "A", updatedAt: "", _u: "2024-01-01T00:00:00Z" };
-    const newer: ItemWithTimestamp = { id: "2", name: "B", updatedAt: "", _u: "2024-01-02T00:00:00Z" };
+    type ItemWithTimestamp = TestItem & { _uid: string };
+    const older: ItemWithTimestamp = { id: TestSchema.makeId("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
+    const newer: ItemWithTimestamp = { id: TestSchema.makeId("2"), name: "B", updatedAt: "", _uid: "2024-01-02T00:00:00Z" };
 
     expect(compare(older, newer)).toBe(-1);
     expect(compare(newer, older)).toBe(1);
@@ -80,9 +79,9 @@ describe("stdCollectionOptions", () => {
   it("compare handles equal timestamps", () => {
     const compare = createConfig().compare!;
 
-    type ItemWithTimestamp = TestItem & { _u: string };
-    const a: ItemWithTimestamp = { id: "1", name: "A", updatedAt: "", _u: "2024-01-01T00:00:00Z" };
-    const b: ItemWithTimestamp = { id: "2", name: "B", updatedAt: "", _u: "2024-01-01T00:00:00Z" };
+    type ItemWithTimestamp = TestItem & { _uid: string };
+    const a: ItemWithTimestamp = { id: TestSchema.makeId("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
+    const b: ItemWithTimestamp = { id: TestSchema.makeId("2"), name: "B", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
 
     expect(compare(a, b)).toBe(1);
   });
@@ -120,7 +119,7 @@ describe("broadcastCollections", () => {
     const message = {
       _tag: "@std-toolkit/broadcast" as const,
       values: [
-        createEntity({ id: "1", name: "Test", updatedAt: "2024-01-01" }),
+        createEntity({ id: TestSchema.makeId("1"), name: "Test", updatedAt: "2024-01-01" }),
       ],
     };
 
