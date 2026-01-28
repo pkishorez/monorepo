@@ -1,9 +1,11 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { Effect, JSONSchema, Schema } from "effect";
+import { Brand, Effect, JSONSchema, Schema } from "effect";
 import {
+  BrandedIdSchema,
   DeltaSchema,
   ESchemaDescriptor,
   ForbidUnderscorePrefix,
+  ForbidIdField,
   MergeSchemas,
   NextVersion,
   Prettify,
@@ -12,23 +14,46 @@ import {
   StructFieldsSchema,
 } from "./types";
 import { ESchemaError } from "./utils";
-import { struct, metaSchema } from "./schema";
+import { struct, metaSchema, brandedString } from "./schema";
 
 export class ESchema<
   TName extends string,
+  TIdField extends string,
   TVersion extends string,
   TLatest extends StructFieldsSchema,
 > implements StandardSchemaV1<unknown, Prettify<StructFieldsDecoded<TLatest>>> {
-  static make<N extends string, I extends StructFieldsSchema>(
+  /**
+   * Creates a new ESchema with the given name, ID field, and schema.
+   * The ID field is automatically added to the schema as a String field.
+   * It cannot be included in the user-provided schema.
+   *
+   * @param name - The entity name
+   * @param idField - The name of the ID field (e.g., "id", "userId")
+   * @param schema - The schema fields (must NOT include the ID field)
+   */
+  static make<N extends string, Id extends string, I extends StructFieldsSchema>(
     name: N,
-    schema: I & ForbidUnderscorePrefix<I>,
+    idField: Id,
+    schema: I & ForbidUnderscorePrefix<I> & ForbidIdField<I, Id>,
   ) {
-    return new Builder<N, "v1", I>(
+    // Create the branded ID schema for this entity
+    // Cast to BrandedIdSchema so both Type and Encoded are branded for type safety
+    const idSchema = brandedString(`${name}Id`) as unknown as BrandedIdSchema<N>;
+
+    // Add the ID field to the schema at runtime
+    const schemaWithId = {
+      ...schema,
+      [idField]: idSchema,
+    } as I & Record<Id, BrandedIdSchema<N>>;
+
+    return new Builder<N, Id, "v1", I & Record<Id, BrandedIdSchema<N>>>(
       name,
+      idField,
+      idSchema,
       [
         {
           version: "v1",
-          schema,
+          schema: schemaWithId,
           migration: null,
         },
       ],
@@ -38,6 +63,7 @@ export class ESchema<
 
   constructor(
     readonly name: TName,
+    readonly idField: TIdField,
     readonly latestVersion: TVersion,
     private evolutions: {
       version: string;
@@ -45,6 +71,14 @@ export class ESchema<
       migration: ((prev: any) => any) | null;
     }[] = [],
   ) {}
+
+  /**
+   * Creates a branded ID for this entity from a plain string.
+   * Use this to create type-safe IDs for encode operations.
+   */
+  makeId(id: string): string & Brand.Brand<`${TName}Id`> {
+    return id as string & Brand.Brand<`${TName}Id`>;
+  }
 
   makePartial(value: Partial<StructFieldsDecoded<TLatest>>) {
     return {
@@ -160,11 +194,14 @@ export class ESchema<
 
 class Builder<
   TName extends string,
+  TIdField extends string,
   TVersion extends string,
   TLatest extends StructFieldsSchema,
 > {
   constructor(
     private name: TName,
+    private _idField: TIdField,
+    private _idSchema: BrandedIdSchema<TName>,
     private migrations: {
       version: string;
       schema: StructFieldsSchema;
@@ -173,9 +210,17 @@ class Builder<
     readonly version: TVersion,
   ) {}
 
+  /**
+   * Evolves the schema to a new version with field changes.
+   * The delta schema must NOT include the ID field - it is inherited automatically.
+   *
+   * @param version - The new version (e.g., "v2")
+   * @param delta - Fields to add/modify/remove (null removes a field)
+   * @param migration - Function to migrate data from previous version
+   */
   evolve<V extends NextVersion<TVersion>, D extends DeltaSchema>(
     version: V,
-    delta: D & ForbidUnderscorePrefix<D>,
+    delta: D & ForbidUnderscorePrefix<D> & ForbidIdField<D, TIdField>,
     migration: (
       prev: StructFieldsDecoded<TLatest>,
     ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
@@ -192,8 +237,13 @@ class Builder<
       }
     }
 
-    return new Builder<TName, V, MergeSchemas<TLatest, D>>(
+    // Ensure ID field is always present with branded type
+    mergedSchema[this._idField] = this._idSchema;
+
+    return new Builder<TName, TIdField, V, MergeSchemas<TLatest, D> & Record<TIdField, BrandedIdSchema<TName>>>(
       this.name,
+      this._idField,
+      this._idSchema,
       [
         ...this.migrations,
         {
@@ -207,8 +257,9 @@ class Builder<
   }
 
   build() {
-    return new ESchema<TName, TVersion, TLatest>(
+    return new ESchema<TName, TIdField, TVersion, TLatest>(
       this.name,
+      this._idField,
       this.version,
       this.migrations,
     );

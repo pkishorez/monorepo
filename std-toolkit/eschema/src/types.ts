@@ -1,6 +1,6 @@
 // Standard Schema helper types
 import type { ESchema } from "./eschema";
-import { JSONSchema, Schema } from "effect";
+import { Brand, JSONSchema, Schema } from "effect";
 
 export type ESchemaDescriptor = JSONSchema.JsonSchema7Object & {
   $schema?: string;
@@ -44,6 +44,16 @@ export type ForbidUnderscorePrefix<T> = {
     : T[K];
 };
 
+/**
+ * Type-level enforcement that the schema must not contain the ID field.
+ * The ID field is automatically added by ESchema and is reserved.
+ */
+export type ForbidIdField<T, IdField extends string> = {
+  [K in keyof T]: K extends IdField
+    ? `Field "${IdField}" is reserved as the ID field and cannot be in the schema.`
+    : T[K];
+};
+
 // Type helpers
 export type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -62,15 +72,40 @@ export type NextVersion<V extends string> =
 
 export type AnyESchema<
   N extends string = string,
+  Id extends string = string,
   V extends string = string,
   S extends StructFieldsSchema = StructFieldsSchema,
-> = ESchema<N, V, S>;
+> = ESchema<N, Id, V, S>;
 
 export type ESchemaEncoded<T extends AnyESchema> =
-  T extends ESchema<infer _N, infer V, infer TLatest>
+  T extends ESchema<infer _N, infer _Id, infer V, infer TLatest>
     ? Prettify<Schema.Schema.Encoded<Schema.Struct<TLatest>> & { _v: V }>
     : never;
 export type ESchemaType<T extends AnyESchema> =
-  T extends ESchema<infer _N, infer V, infer TLatest>
-    ? Prettify<StructFieldsDecoded<TLatest> & { _v: V }>
+  T extends ESchema<infer _N, infer _Id, infer _V, infer TLatest>
+    ? Prettify<StructFieldsDecoded<TLatest>>
     : never;
+
+/**
+ * Extracts the ID field name from an ESchema.
+ */
+export type ESchemaIdField<T extends AnyESchema> =
+  T extends ESchema<infer _N, infer Id, infer _V, infer _TLatest>
+    ? Id
+    : never;
+
+/**
+ * The branded ID type for an entity.
+ * E.g., for entity "User", this would be `string & Brand.Brand<"UserId">`
+ */
+export type BrandedId<N extends string> = string & Brand.Brand<`${N}Id`>;
+
+/**
+ * The schema type for a branded ID field.
+ * Both Type and Encoded are branded for consistent type safety.
+ */
+export type BrandedIdSchema<N extends string> = Schema.Schema<
+  string & Brand.Brand<`${N}Id`>,
+  string & Brand.Brand<`${N}Id`>,
+  never
+>;
