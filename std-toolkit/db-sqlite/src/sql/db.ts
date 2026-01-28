@@ -115,7 +115,7 @@ export class SqliteDB extends Context.Tag("SqliteDB")<
     query<T extends Record<string, unknown>>(
       table: string,
       where: Where,
-      options?: { orderBy?: "ASC" | "DESC"; limit?: number; offset?: number },
+      options?: { orderBy?: "ASC" | "DESC"; orderByColumn?: string; limit?: number; offset?: number },
     ): Effect.Effect<T[], SqliteDBError>;
 
     begin(): Effect.Effect<void, SqliteDBError>;

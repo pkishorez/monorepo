@@ -87,7 +87,7 @@ export const SqliteDBBetterSqlite3 = (db: Database.Database) =>
     query: <T extends Record<string, unknown>>(
       table: string,
       where: Where,
-      options?: { orderBy?: "ASC" | "DESC"; limit?: number; offset?: number },
+      options?: { orderBy?: "ASC" | "DESC"; orderByColumn?: string; limit?: number; offset?: number },
     ) =>
       Effect.try({
         try: () => {

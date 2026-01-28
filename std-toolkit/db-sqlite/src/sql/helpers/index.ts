@@ -5,6 +5,8 @@ export {
   whereNone,
   whereEquals,
   whereAnd,
+  wherePkSk,
+  wherePkSkExact,
   insert,
   update,
   select,
