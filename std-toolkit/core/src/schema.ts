@@ -22,6 +22,6 @@ export const BroadcastSchema = Schema.Struct({
 
 export const EntitySchema = <S extends AnyESchema>(eschema: S) =>
   Schema.Struct({
-    value: Schema.Struct(eschema.schema) as Schema.Schema<S["Type"], S["Type"]>,
+    value: eschema.schema as unknown as Schema.Schema<S["Type"], S["Type"]>,
     meta: MetaSchema,
   });
