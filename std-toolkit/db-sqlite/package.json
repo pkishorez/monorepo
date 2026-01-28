@@ -29,7 +29,8 @@
   },
   "dependencies": {
     "@std-toolkit/core": "workspace:*",
-    "@std-toolkit/eschema": "workspace:*"
+    "@std-toolkit/eschema": "workspace:*",
+    "ulid": "3.0.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260124.0",

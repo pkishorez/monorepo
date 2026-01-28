@@ -70,13 +70,13 @@ describe("ESchema.make", () => {
   });
 });
 
-describe("ESchema.schema getter", () => {
+describe("ESchema.fields getter", () => {
   it("returns the latest schema fields including id", () => {
     const schema = ESchema.make("Test", "id", {
       a: Schema.String,
     }).build();
 
-    expect(Object.keys(schema.schema)).toEqual(["a", "id"]);
+    expect(Object.keys(schema.fields)).toEqual(["a", "id"]);
   });
 
   it("returns evolved schema fields after evolution", () => {
@@ -89,7 +89,20 @@ describe("ESchema.schema getter", () => {
       }))
       .build();
 
-    expect(Object.keys(schema.schema).sort()).toEqual(["a", "b", "id"]);
+    expect(Object.keys(schema.fields).sort()).toEqual(["a", "b", "id"]);
+  });
+});
+
+describe("ESchema.schema getter", () => {
+  it("returns an Effect Schema.Struct with branded ID", () => {
+    const eschema = ESchema.make("Test", "id", {
+      a: Schema.String,
+    }).build();
+
+    // schema returns a Schema.Struct
+    const effectSchema = eschema.schema;
+    expect(effectSchema.fields).toBeDefined();
+    expect(Object.keys(effectSchema.fields)).toEqual(["a", "id"]);
   });
 });
 
@@ -634,7 +647,7 @@ describe("ForbidIdField enforcement", () => {
     }).build();
 
     expect(schema.idField).toBe("testId");
-    expect(Object.keys(schema.schema)).toContain("testId");
+    expect(Object.keys(schema.fields)).toContain("testId");
   });
 });
 
