@@ -12,7 +12,7 @@ const UserSchema = ESchema.make("User", "id", {
 const PostSchema = ESchema.make("Post", "postId", {
   title: Schema.String,
   content: Schema.String,
-  authorId: Schema.String, // Could use brandedString("UserId") for cross-entity type safety
+  authorId: Schema.String,
 })
   .evolve("v2", { tags: Schema.Array(Schema.String) }, (prev) => ({
     ...prev,
@@ -22,21 +22,36 @@ const PostSchema = ESchema.make("Post", "postId", {
 
 // Type aliases for convenience
 type UserId = BrandedId<"User">; // string & Brand<"UserId">
-type User = typeof UserSchema.Type;
-type Post = typeof PostSchema.Type;
 
 async function main() {
   console.log("=== ESchema Demo ===\n");
 
-  // 1. Creating branded IDs
-  console.log("1. Creating branded IDs:");
-  const userId: UserId = UserSchema.makeId("user-123");
-  console.log(`   userId: ${userId}`);
+  // 1. Schema properties
+  console.log("1. Schema properties:");
+  console.log(`   name: ${UserSchema.name}`);
   console.log(`   idField: ${UserSchema.idField}`);
+  console.log(`   latestVersion: ${UserSchema.latestVersion}`);
   console.log();
 
-  // 2. Encoding with branded ID
-  console.log("2. Encoding a user:");
+  // 2. Fields - raw field definitions (includes branded ID)
+  console.log("2. Fields (raw field definitions):");
+  console.log(`   Field names:`, Object.keys(UserSchema.fields));
+  console.log(`   ID field included: ${"id" in UserSchema.fields}`);
+  console.log();
+
+  // 3. Schema - Effect Schema.Struct (with branded ID)
+  console.log("3. Schema (Effect Schema.Struct):");
+  console.log(`   Fields:`, Object.keys(UserSchema.schema.fields));
+  console.log();
+
+  // 4. Creating branded IDs
+  console.log("4. Creating branded IDs:");
+  const userId: UserId = UserSchema.makeId("user-123");
+  console.log(`   userId: ${userId}`);
+  console.log();
+
+  // 5. Encoding - same type as decoding
+  console.log("5. Encoding:");
   const encoded = await Effect.runPromise(
     UserSchema.encode({
       id: UserSchema.makeId("user-456"),
@@ -45,12 +60,13 @@ async function main() {
       age: 30,
     }),
   );
+  type Test = (typeof UserSchema)["Type"];
   console.log(`   Encoded:`, encoded);
-  console.log(`   encoded.id is branded:`, encoded.id); // Type: string & Brand<"UserId">
+  console.log(`   Type: { id: UserId, name, email, age }`);
   console.log();
 
-  // 3. Decoding returns branded ID
-  console.log("3. Decoding raw data:");
+  // 6. Decoding - same type as encoding
+  console.log("6. Decoding:");
   const decoded = await Effect.runPromise(
     UserSchema.decode({
       id: "user-789",
@@ -60,19 +76,31 @@ async function main() {
     }),
   );
   console.log(`   Decoded:`, decoded);
-  console.log(`   decoded.id is branded:`, decoded.id); // Type: string & Brand<"UserId">
+  console.log(`   Type: { id: UserId, name, email, age }`);
   console.log();
 
-  // 4. Re-encoding decoded data (ID stays branded)
-  console.log("4. Re-encoding decoded data:");
-  const reEncoded = await Effect.runPromise(
-    UserSchema.encode(decoded), // decoded.id is already branded, no makeId needed
-  );
+  // 7. Re-encoding - seamless, same types
+  console.log("7. Re-encoding (seamless):");
+  const reEncoded = await Effect.runPromise(UserSchema.encode(decoded));
   console.log(`   Re-encoded:`, reEncoded);
+  console.log(`   encode(decode(x)) works directly - same types!`);
   console.log();
 
-  // 5. Schema evolution with migrations
-  console.log("5. Schema evolution (Post v1 -> v2):");
+  // 8. Using Effect Schema directly
+  console.log("8. Using Effect Schema directly:");
+  const directDecode = await Effect.runPromise(
+    Schema.decodeUnknown(UserSchema.schema)({
+      id: "user-direct",
+      name: "Direct",
+      email: "direct@example.com",
+      age: 40,
+    }),
+  );
+  console.log(`   Direct decode:`, directDecode);
+  console.log();
+
+  // 9. Schema evolution
+  console.log("9. Schema evolution (Post v1 -> v2):");
   const postV1Data = {
     _v: "v1" as const,
     postId: "post-001",
@@ -83,39 +111,24 @@ async function main() {
   const migratedPost = await Effect.runPromise(PostSchema.decode(postV1Data));
   console.log(`   V1 input:`, postV1Data);
   console.log(`   Migrated to V2:`, migratedPost);
-  console.log(`   Tags added:`, migratedPost.tags); // Empty array from migration
   console.log();
 
-  // 6. JSON Schema descriptor
-  console.log("6. JSON Schema descriptor:");
+  // 10. JSON Schema descriptor (includes _v for storage)
+  console.log("10. JSON Schema descriptor:");
   const descriptor = UserSchema.getDescriptor();
   console.log(`   Properties:`, Object.keys(descriptor.properties));
   console.log(`   $defs:`, Object.keys(descriptor.$defs || {}));
   console.log(`   ID reference:`, descriptor.properties.id);
   console.log();
 
-  // 7. makePartial for partial updates
-  console.log("7. makePartial for partial updates:");
-  const partial = UserSchema.makePartial({ name: "Updated Name" });
-  console.log(`   Partial:`, partial);
-  console.log();
-
-  // 8. Standard Schema validation
-  console.log("8. Standard Schema validation:");
-  const validResult = UserSchema["~standard"].validate({
-    id: "user-999",
-    name: "Charlie",
-    email: "charlie@example.com",
-    age: 35,
-  });
-  console.log(`   Valid input result:`, validResult);
-
-  const invalidResult = UserSchema["~standard"].validate({
-    _v: "v99", // Unknown version
-    id: "user-999",
-    name: "Charlie",
-  });
-  console.log(`   Invalid input result:`, invalidResult);
+  // 11. Type summary
+  console.log("11. Type summary:");
+  console.log(
+    `   UserSchema.Type = { id: UserId, name: string, email: string, age: number }`,
+  );
+  console.log(`   Same type for encode() input and output`);
+  console.log(`   Same type for decode() output`);
+  console.log(`   _v is handled internally for versioning`);
 }
 
 main().catch(console.error);

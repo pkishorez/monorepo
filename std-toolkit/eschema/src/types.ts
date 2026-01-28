@@ -74,13 +74,13 @@ export type AnyESchema<
   N extends string = string,
   Id extends string = string,
   V extends string = string,
-  S extends StructFieldsSchema = StructFieldsSchema,
+  S extends StructFieldsSchema = any,
 > = ESchema<N, Id, V, S>;
 
-export type ESchemaEncoded<T extends AnyESchema> =
-  T extends ESchema<infer _N, infer _Id, infer V, infer TLatest>
-    ? Prettify<Schema.Schema.Encoded<Schema.Struct<TLatest>> & { _v: V }>
-    : never;
+/**
+ * Extracts the type from an ESchema.
+ * Same type for both encode and decode operations.
+ */
 export type ESchemaType<T extends AnyESchema> =
   T extends ESchema<infer _N, infer _Id, infer _V, infer TLatest>
     ? Prettify<StructFieldsDecoded<TLatest>>

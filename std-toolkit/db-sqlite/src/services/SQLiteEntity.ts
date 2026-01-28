@@ -2,6 +2,7 @@ import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
 import { Effect, Option, Schema } from "effect";
 import type { SQLiteTableInstance, SortKeyCondition } from "./SQLiteTable.js";
 import { SqliteDB, SqliteDBError } from "../sql/db.js";
+import { ulid } from "ulid";
 import {
   deriveIndexKeyValue,
   extractKeyOp,
@@ -24,6 +25,15 @@ import { ConnectionService } from "@std-toolkit/core/server";
 type DerivableMetaFields = "_uid";
 
 /**
+ * Makes the ID field optional for insert operations and accepts plain strings.
+ * When not provided, a ULID will be auto-generated.
+ */
+type InsertInput<T, IdField extends string> = Omit<T, IdField | "_v"> & {
+  [K in IdField & keyof T]?: string;
+};
+
+
+/**
  * Represents an entity item with its value and metadata.
  *
  * @typeParam T - The entity value type
@@ -41,17 +51,9 @@ export interface EntityType<T> {
 type ExtractKeys<T, Keys extends readonly (keyof T)[]> = Keys[number];
 
 /**
- * Helper type to extract pk value fields.
+ * Helper type to extract key value fields.
  */
-type IndexPkValue<T, K extends keyof T | DerivableMetaFields> = Pick<
-  T,
-  K & keyof T
->;
-
-/**
- * Helper type to extract sk value fields.
- */
-type IndexSkValue<T, K extends keyof T | DerivableMetaFields> = Pick<
+type IndexKeyFields<T, K extends keyof T | DerivableMetaFields> = Pick<
   T,
   K & keyof T
 >;
@@ -70,10 +72,9 @@ type IndexKeyValue<
   TSchema extends AnyESchema,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  TPrimarySkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   K extends "pk" | (keyof TSecondaryDerivationMap & string),
 > = K extends "pk"
-  ? Pick<ESchemaType<TSchema>, TPrimaryPkKeys | TPrimarySkKeys>
+  ? Pick<ESchemaType<TSchema>, TPrimaryPkKeys | TSchema["idField"]>
   : K extends keyof TSecondaryDerivationMap
     ? Pick<
         ESchemaType<TSchema>,
@@ -87,11 +88,9 @@ type IndexKeyValue<
  * Entities are built on top of a SQLiteTable and use an ESchema for validation.
  */
 export class SQLiteEntity<
-  TTable extends SQLiteTableInstance,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  TPrimarySkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
 > {
   /**
    * Creates a new entity builder for the given table.
@@ -113,40 +112,39 @@ export class SQLiteEntity<
         return {
           /**
            * Defines the primary index derivation fields.
+           * SK is automatically set to the ESchema's idField.
            *
-           * @param primaryDerivation - The pk and sk field arrays
+           * @param primaryDerivation - Optional pk field array. If not provided, uses entity name only.
            * @returns A builder to add secondary index mappings
            */
           primary<
             const TPkKeys extends readonly (
               | keyof ESchemaType<TS>
               | DerivableMetaFields
-            )[],
-            const TSkKeys extends readonly (
-              | keyof ESchemaType<TS>
-              | DerivableMetaFields
-            )[],
-          >(primaryDerivation: { pk: TPkKeys; sk: TSkKeys }) {
+            )[] = [],
+          >(primaryDerivation?: { pk: TPkKeys }) {
+            const pkKeys = primaryDerivation?.pk ?? ([] as unknown as TPkKeys);
+            // SK is always the idField from the ESchema
+            const skKeys = [eschema.idField] as const;
             return new EntityIndexDerivations<
               TTable,
               TS,
               ExtractKeys<ESchemaType<TS>, TPkKeys>,
-              ExtractKeys<ESchemaType<TS>, TSkKeys>,
               {}
-            >(table, eschema, primaryDerivation as any, {});
+            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {});
           },
         };
       },
     };
   }
 
-  #table: TTable;
+  #table: SQLiteTableInstance;
   #eschema: TSchema;
   #primaryDerivation: StoredPrimaryDerivation;
   #secondaryDerivations: TSecondaryDerivationMap;
 
   constructor(
-    table: TTable,
+    table: SQLiteTableInstance,
     eschema: TSchema,
     primaryDerivation: StoredPrimaryDerivation,
     secondaryDerivations: TSecondaryDerivationMap,
@@ -162,6 +160,14 @@ export class SQLiteEntity<
    */
   get name(): TSchema["name"] {
     return this.#eschema.name;
+  }
+
+  /**
+   * Creates a branded ID for this entity from a plain string.
+   * Use this to create type-safe IDs for operations that require them.
+   */
+  id(value: string): ReturnType<TSchema["makeId"]> {
+    return this.#eschema.makeId(value) as ReturnType<TSchema["makeId"]>;
   }
 
   /**
@@ -207,8 +213,8 @@ export class SQLiteEntity<
    * @returns The entity if found, or null
    */
   get(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
   ): Effect.Effect<
     EntityType<ESchemaType<TSchema>> | null,
     SqliteDBError,
@@ -238,18 +244,24 @@ export class SQLiteEntity<
 
   /**
    * Inserts a new entity.
+   * The ID field is optional - if not provided, a ULID will be auto-generated.
    *
-   * @param value - The entity value to insert (without _v field)
+   * @param value - The entity value to insert (ID field is optional)
    * @returns The inserted entity with metadata
    */
   insert(
-    value: Omit<ESchemaType<TSchema>, "_v">,
+    value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
+      const idField = this.#eschema.idField;
+      const providedId = (value as Record<string, unknown>)[idField];
+      const generatedId = providedId ?? ulid();
+
       const fullValue = {
         ...value,
+        [idField]: this.#eschema.makeId(generatedId as string),
         _v: this.#eschema.latestVersion,
-      } as ESchemaType<TSchema>;
+      } as unknown as ESchemaType<TSchema>;
 
       const { item, meta } = yield* this.#prepareInsert(fullValue);
 
@@ -269,8 +281,8 @@ export class SQLiteEntity<
    * @returns The updated entity with new metadata
    */
   update(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
     updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
@@ -330,8 +342,8 @@ export class SQLiteEntity<
    * @returns The deleted entity
    */
   delete(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const existing = yield* this.get(keyValue);
@@ -372,8 +384,8 @@ export class SQLiteEntity<
     key: K,
     params: K extends "pk"
       ? {
-          pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-          sk: SkParam<IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>>;
+          pk: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>;
+          sk: SkParam<Pick<ESchemaType<TSchema>, TSchema["idField"]>>;
         }
       : K extends keyof TSecondaryDerivationMap
         ? {
@@ -495,13 +507,7 @@ export class SQLiteEntity<
   subscribe<K extends "pk" | (keyof TSecondaryDerivationMap & string)>(
     opts: SubscribeOptions<
       K,
-      IndexKeyValue<
-        TSchema,
-        TSecondaryDerivationMap,
-        TPrimaryPkKeys,
-        TPrimarySkKeys,
-        K
-      >
+      IndexKeyValue<TSchema, TSecondaryDerivationMap, TPrimaryPkKeys, K>
     >,
   ): Effect.Effect<
     { items: EntityType<ESchemaType<TSchema>>[] },
@@ -732,7 +738,6 @@ class EntityIndexDerivations<
   TTable extends SQLiteTableInstance,
   TSchema extends AnyESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  TPrimarySkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
 > {
   #table: TTable;
@@ -760,13 +765,13 @@ class EntityIndexDerivations<
 
   /**
    * Maps a table index to a semantic entity index with custom derivation.
+   * SK is automatically set to `_uid` for secondary indexes.
    *
    * @typeParam IndexName - The index name on the table
    * @typeParam TPkKeys - Fields used for partition key derivation
-   * @typeParam TSkKeys - Fields used for sort key derivation
    * @param indexName - The index name on the table (e.g., "IDX1")
    * @param entityIndexName - The semantic name for this entity's use of the index (e.g., "byEmail")
-   * @param derivation - The pk and sk field arrays
+   * @param derivation - The pk field array (sk is automatically _uid)
    * @returns A builder with the index mapping added
    */
   index<
@@ -775,23 +780,20 @@ class EntityIndexDerivations<
       | keyof ESchemaType<TSchema>
       | DerivableMetaFields
     )[],
-    const TSkKeys extends readonly (
-      | keyof ESchemaType<TSchema>
-      | DerivableMetaFields
-    )[],
   >(
     indexName: IndexNameStr,
     entityIndexName: string,
     derivation: {
       pk: TPkKeys;
-      sk: TSkKeys;
     },
   ) {
+    // SK is always _uid for secondary indexes
+    const skKeys = ["_uid"] as const;
     const newDeriv: StoredIndexDerivation = {
       indexName,
       entityIndexName,
       pkDeps: derivation.pk.map(String),
-      skDeps: derivation.sk.map(String),
+      skDeps: [...skKeys],
     };
 
     return new EntityIndexDerivations(
@@ -806,13 +808,12 @@ class EntityIndexDerivations<
       TTable,
       TSchema,
       TPrimaryPkKeys,
-      TPrimarySkKeys,
       TSecondaryDerivationMap &
         Record<
           typeof entityIndexName,
           StoredIndexDerivation & {
             pkDeps: TPkKeys;
-            skDeps: TSkKeys;
+            skDeps: typeof skKeys;
           }
         >
     >;
@@ -829,12 +830,11 @@ class EntityIndexDerivations<
       skDeps: this.#primaryDerivation.sk.map(String),
     };
 
-    return new SQLiteEntity<
-      TTable,
-      TSecondaryDerivationMap,
-      TSchema,
-      TPrimaryPkKeys,
-      TPrimarySkKeys
-    >(this.#table, this.#eschema, storedPrimary, this.#secondaryDerivations);
+    return new SQLiteEntity<TSecondaryDerivationMap, TSchema, TPrimaryPkKeys>(
+      this.#table,
+      this.#eschema,
+      storedPrimary,
+      this.#secondaryDerivations,
+    );
   }
 }

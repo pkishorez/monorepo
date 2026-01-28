@@ -10,7 +10,6 @@ import {
   NextVersion,
   Prettify,
   StructFieldsDecoded,
-  StructFieldsEncoded,
   StructFieldsSchema,
 } from "./types";
 import { ESchemaError } from "./utils";
@@ -31,14 +30,20 @@ export class ESchema<
    * @param idField - The name of the ID field (e.g., "id", "userId")
    * @param schema - The schema fields (must NOT include the ID field)
    */
-  static make<N extends string, Id extends string, I extends StructFieldsSchema>(
+  static make<
+    N extends string,
+    Id extends string,
+    I extends StructFieldsSchema,
+  >(
     name: N,
     idField: Id,
     schema: I & ForbidUnderscorePrefix<I> & ForbidIdField<I, Id>,
   ) {
     // Create the branded ID schema for this entity
     // Cast to BrandedIdSchema so both Type and Encoded are branded for type safety
-    const idSchema = brandedString(`${name}Id`) as unknown as BrandedIdSchema<N>;
+    const idSchema = brandedString(
+      `${name}Id`,
+    ) as unknown as BrandedIdSchema<N>;
 
     // Add the ID field to the schema at runtime
     const schemaWithId = {
@@ -87,9 +92,25 @@ export class ESchema<
     };
   }
 
+  /**
+   * The type for this schema (includes branded ID).
+   * Same type for both encode and decode operations.
+   */
   Type = null as unknown as Prettify<StructFieldsDecoded<TLatest>>;
-  get schema(): TLatest {
+
+  /**
+   * Returns the raw field definitions for the latest schema version.
+   */
+  get fields(): TLatest {
     return this.evolutions.at(-1)?.schema as TLatest;
+  }
+
+  /**
+   * Returns the Effect Schema for this entity.
+   * The type includes the branded ID.
+   */
+  get schema(): Schema.Struct<TLatest> {
+    return Schema.Struct(this.fields);
   }
 
   decode(
@@ -134,7 +155,7 @@ export class ESchema<
   encode(
     value: StructFieldsDecoded<TLatest>,
   ): Effect.Effect<
-    Prettify<StructFieldsEncoded<TLatest> & { _v: TVersion }>,
+    Prettify<StructFieldsDecoded<TLatest>>,
     ESchemaError,
     never
   > {
@@ -144,26 +165,27 @@ export class ESchema<
         return yield* new ESchemaError({ message: "No evolutions found" });
       }
 
-      const data = yield* Schema.encode(struct(this.schema))(value).pipe(
+      const data = yield* Schema.encode(struct(this.fields))(value).pipe(
         Effect.mapError(
           (error) =>
             new ESchemaError({ message: "Encode failed", cause: error }),
         ),
       );
 
+      // Add _v at runtime for versioning (not in type)
       return {
         ...data,
         _v: this.latestVersion,
-      };
+      } as unknown as StructFieldsDecoded<TLatest>;
     });
   }
 
   getDescriptor(): ESchemaDescriptor {
-    const encodedSchema = Schema.Struct({
-      ...this.schema,
+    const schemaWithVersion = Schema.Struct({
+      ...this.fields,
       _v: Schema.Literal(this.latestVersion),
     });
-    return JSONSchema.make(encodedSchema) as ESchemaDescriptor;
+    return JSONSchema.make(schemaWithVersion) as ESchemaDescriptor;
   }
 
   "~standard" = {
@@ -240,7 +262,12 @@ class Builder<
     // Ensure ID field is always present with branded type
     mergedSchema[this._idField] = this._idSchema;
 
-    return new Builder<TName, TIdField, V, MergeSchemas<TLatest, D> & Record<TIdField, BrandedIdSchema<TName>>>(
+    return new Builder<
+      TName,
+      TIdField,
+      V,
+      MergeSchemas<TLatest, D> & Record<TIdField, BrandedIdSchema<TName>>
+    >(
       this.name,
       this._idField,
       this._idSchema,
