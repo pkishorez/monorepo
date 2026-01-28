@@ -8,12 +8,13 @@ const options = stdCollectionOptions({
   schema: UserSchema,
   getKey: (user) => user.id,
 
-  sync: ({ collection }) =>
-    Effect.gen(function* () {
+  sync: ({ collection, onReady }) => ({
+    effect: Effect.gen(function* () {
       const { api, collections } = yield* RealtimeClient;
       collections.add(collection);
-      return yield* api.subscribeUsers();
+      return yield* api.subscribeUsers().pipe(Effect.tap(onReady));
     }).pipe(Effect.provide(runtime), Effect.orDie),
+  }),
 
   onInsert: (user) =>
     Effect.gen(function* () {

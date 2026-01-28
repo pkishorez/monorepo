@@ -38,6 +38,7 @@ export const makeProtocolSocket = ({
 
       yield* Effect.suspend(() => {
         parser = serialization.unsafeMake();
+        currentError = undefined;
         pinger.reset();
         return socket
           .runRaw(

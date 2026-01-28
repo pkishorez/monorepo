@@ -18,7 +18,11 @@ interface StdCollectionConfig<
       TSchema,
       object
     >;
-  }) => Effect.Effect<readonly EntityType<TItem>[]>;
+    onReady: () => void;
+  }) => {
+    effect: Effect.Effect<readonly EntityType<TItem>[]>;
+    onCleanup?: () => void;
+  };
   onInsert: (item: TItem) => Effect.Effect<EntityType<TItem>>;
   onUpdate?: (
     current: TItem,
@@ -49,7 +53,10 @@ export const stdCollectionOptions = <
   type SyncParams = Parameters<SyncConfig<TItem, TKey>["sync"]>[0];
   const syncParamsRef: { current: SyncParams | null } = { current: null };
 
-  const applyLocalChanges = (values: EntityType<TItem>[]) => {
+  const applyLocalChanges = (
+    values: readonly EntityType<TItem>[],
+    persist = false,
+  ) => {
     if (!syncParamsRef.current) return;
 
     const { begin, collection, commit, write } = syncParamsRef.current;
@@ -63,7 +70,7 @@ export const stdCollectionOptions = <
         } else {
           write({ type: "update", value: itemValue });
         }
-        break;
+        continue;
       }
 
       if (!value.meta._d) {
@@ -77,10 +84,15 @@ export const stdCollectionOptions = <
     sync: (params) => {
       syncParamsRef.current = params;
       const { collection } = params;
-      Effect.runPromise(sync({ collection })).then((items) =>
-        applyLocalChanges([...items]),
-      );
-      params.markReady();
+      const { effect, onCleanup } = sync({
+        collection,
+        onReady: () => {
+          params.markReady();
+        },
+      });
+      Effect.runPromise(effect).then(applyLocalChanges);
+
+      return onCleanup;
     },
   };
 
@@ -89,17 +101,14 @@ export const stdCollectionOptions = <
     schema: () => options.schema,
   };
 
-  const entityCache = new Map<TKey, EntityType<TItem>>();
-
   return {
     ...tanstackOptions,
     sync: tanstackSync,
     utils,
     compare: (x, y) => (x._u < y._u ? -1 : 1),
     onInsert: async ({ transaction }) => {
-      const { changes, key } = transaction.mutations[0]!;
+      const { changes } = transaction.mutations[0]!;
       const result = await Effect.runPromise(onInsert(changes as TItem));
-      entityCache.set(key as TKey, result);
       applyLocalChanges([result]);
     },
     onUpdate: async ({ transaction, collection }) => {
@@ -108,10 +117,9 @@ export const stdCollectionOptions = <
       const current = collection.get(key)!;
       const update = await Effect.runPromise(onUpdate(current, changes));
       const merged = {
-        ...entityCache.get(key as TKey),
+        ...collection.get(key as TKey),
         ...update,
       } as EntityType<TItem>;
-      entityCache.set(key as TKey, merged);
       applyLocalChanges([merged]);
     },
   };
