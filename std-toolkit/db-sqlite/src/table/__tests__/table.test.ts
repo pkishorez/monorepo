@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from "@effect/vitest";
+import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { ESchema } from "@std-toolkit/eschema";
 import { Effect, Layer, Schema } from "effect";
 import { SqliteDBBetterSqlite3 } from "../../sql/adapters/better-sqlite3.js";
@@ -51,14 +51,18 @@ describe("SQLiteTable CRUD", () => {
   describe("setup", () => {
     it("creates table", () => {
       const tables = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='User'")
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='User'",
+        )
         .all();
       expect(tables).toHaveLength(1);
     });
 
     it("creates indexes", () => {
       const indexes = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_User_%'")
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_User_%'",
+        )
         .all();
       expect(indexes).toHaveLength(1);
     });
@@ -90,7 +94,11 @@ describe("SQLiteTable CRUD", () => {
   describe("get", () => {
     it.effect("retrieves existing entity", () =>
       Effect.gen(function* () {
-        yield* UsersTable.insert({ id: "get-1", email: "get@test.com", name: "Get" });
+        yield* UsersTable.insert({
+          id: "get-1",
+          email: "get@test.com",
+          name: "Get",
+        });
         const result = yield* UsersTable.get({ id: "get-1" });
 
         expect(result.value.id).toBe("get-1");
@@ -100,7 +108,9 @@ describe("SQLiteTable CRUD", () => {
 
     it.effect("fails for non-existent entity", () =>
       Effect.gen(function* () {
-        const error = yield* UsersTable.get({ id: "non-existent" }).pipe(Effect.flip);
+        const error = yield* UsersTable.get({ id: "non-existent" }).pipe(
+          Effect.flip,
+        );
         expect(error.error._tag).toBe("GetFailed");
       }).pipe(Effect.provide(layer)),
     );
@@ -109,8 +119,15 @@ describe("SQLiteTable CRUD", () => {
   describe("update", () => {
     it.effect("modifies entity and preserves unchanged fields", () =>
       Effect.gen(function* () {
-        yield* UsersTable.insert({ id: "update-1", email: "update@test.com", name: "Before" });
-        const updated = yield* UsersTable.update({ id: "update-1" }, { name: "After" });
+        yield* UsersTable.insert({
+          id: "update-1",
+          email: "update@test.com",
+          name: "Before",
+        });
+        const updated = yield* UsersTable.update(
+          { id: "update-1" },
+          { name: "After" },
+        );
 
         expect(updated.value.name).toBe("After");
         expect(updated.value.email).toBe("update@test.com");
@@ -119,9 +136,16 @@ describe("SQLiteTable CRUD", () => {
 
     it.effect("updates meta timestamp", () =>
       Effect.gen(function* () {
-        yield* UsersTable.insert({ id: "update-2", email: "time@test.com", name: "Time" });
+        yield* UsersTable.insert({
+          id: "update-2",
+          email: "time@test.com",
+          name: "Time",
+        });
         const before = yield* UsersTable.get({ id: "update-2" });
-        const after = yield* UsersTable.update({ id: "update-2" }, { name: "Updated" });
+        const after = yield* UsersTable.update(
+          { id: "update-2" },
+          { name: "Updated" },
+        );
 
         expect(after.meta._u).toBeDefined();
         expect(before.meta._u).toBeDefined();
@@ -130,9 +154,10 @@ describe("SQLiteTable CRUD", () => {
 
     it.effect("fails for non-existent entity", () =>
       Effect.gen(function* () {
-        const error = yield* UsersTable.update({ id: "non-existent" }, { name: "X" }).pipe(
-          Effect.flip,
-        );
+        const error = yield* UsersTable.update(
+          { id: "non-existent" },
+          { name: "X" },
+        ).pipe(Effect.flip);
         expect(error.error._tag).toBe("GetFailed");
       }).pipe(Effect.provide(layer)),
     );
@@ -141,7 +166,11 @@ describe("SQLiteTable CRUD", () => {
   describe("delete", () => {
     it.effect("marks entity as deleted (soft delete)", () =>
       Effect.gen(function* () {
-        yield* UsersTable.insert({ id: "delete-1", email: "del@test.com", name: "Del" });
+        yield* UsersTable.insert({
+          id: "delete-1",
+          email: "del@test.com",
+          name: "Del",
+        });
         const deleted = yield* UsersTable.delete({ id: "delete-1" });
 
         expect(deleted.meta._d).toBe(true);
@@ -153,7 +182,9 @@ describe("SQLiteTable CRUD", () => {
 
     it.effect("fails for non-existent entity", () =>
       Effect.gen(function* () {
-        const error = yield* UsersTable.delete({ id: "non-existent" }).pipe(Effect.flip);
+        const error = yield* UsersTable.delete({ id: "non-existent" }).pipe(
+          Effect.flip,
+        );
         expect(error.error._tag).toBe("GetFailed");
       }).pipe(Effect.provide(layer)),
     );
@@ -162,13 +193,27 @@ describe("SQLiteTable CRUD", () => {
   describe("dangerouslyRemoveAllRows", () => {
     it.effect("deletes all records", () =>
       Effect.gen(function* () {
-        yield* UsersTable.insert({ id: "danger-1", email: "d1@test.com", name: "D1" });
-        yield* UsersTable.insert({ id: "danger-2", email: "d2@test.com", name: "D2" });
+        yield* UsersTable.insert({
+          id: "danger-1",
+          email: "d1@test.com",
+          name: "D1",
+        });
+        yield* UsersTable.insert({
+          id: "danger-2",
+          email: "d2@test.com",
+          name: "D2",
+        });
 
-        const { rowsDeleted } = yield* UsersTable.dangerouslyRemoveAllRows("i know what i am doing");
+        const { rowsDeleted } = yield* UsersTable.dangerouslyRemoveAllRows(
+          "i know what i am doing",
+        );
         expect(rowsDeleted).toBeGreaterThan(0);
 
-        const result = yield* UsersTable.query("pk", { ">=": { id: "" } }, { limit: 100 });
+        const result = yield* UsersTable.query(
+          "pk",
+          { ">=": { id: "" } },
+          { limit: 100 },
+        );
         expect(result.items).toHaveLength(0);
       }).pipe(Effect.provide(layer)),
     );
@@ -247,7 +292,9 @@ describe("SQLiteTable Query", () => {
   describe("by index", () => {
     it.effect("queries by secondary index", () =>
       Effect.gen(function* () {
-        const result = yield* UsersTable.query("byEmail", { ">=": { email: "c@test.com" } });
+        const result = yield* UsersTable.query("byEmail", {
+          ">=": { email: "c@test.com" },
+        });
         expect(result.items.length).toBeGreaterThan(0);
         expect(result.items[0]?.value.email).toBe("c@test.com");
       }).pipe(Effect.provide(layer)),
@@ -257,8 +304,70 @@ describe("SQLiteTable Query", () => {
   describe("limit", () => {
     it.effect("respects limit option", () =>
       Effect.gen(function* () {
-        const result = yield* UsersTable.query("pk", { ">=": { id: "q-" } }, { limit: 2 });
+        const result = yield* UsersTable.query(
+          "pk",
+          { ">=": { id: "q-" } },
+          { limit: 2 },
+        );
         expect(result.items).toHaveLength(2);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("null cursor", () => {
+    it.effect("{ '<': null } returns all items in descending order", () =>
+      Effect.gen(function* () {
+        const result = yield* UsersTable.query("pk", { "<": null });
+        const ids = result.items
+          .map((i) => i.value.id)
+          .filter((id) => id.startsWith("q-"));
+
+        expect(ids).toHaveLength(5);
+        // DESC order: e, d, c, b, a
+        expect(ids).toEqual(["q-e", "q-d", "q-c", "q-b", "q-a"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("{ '>': null } returns all items in ascending order", () =>
+      Effect.gen(function* () {
+        const result = yield* UsersTable.query("pk", { ">": null });
+        const ids = result.items
+          .map((i) => i.value.id)
+          .filter((id) => id.startsWith("q-"));
+
+        expect(ids).toHaveLength(5);
+        // ASC order: a, b, c, d, e
+        expect(ids).toEqual(["q-a", "q-b", "q-c", "q-d", "q-e"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("null cursor with limit respects the limit", () =>
+      Effect.gen(function* () {
+        const result = yield* UsersTable.query(
+          "pk",
+          { "<": null },
+          { limit: 2 },
+        );
+        const ids = result.items
+          .map((i) => i.value.id)
+          .filter((id) => id.startsWith("q-"));
+
+        expect(ids).toHaveLength(2);
+        // DESC order, first 2: e, d
+        expect(ids).toEqual(["q-e", "q-d"]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("null cursor works with secondary indexes", () =>
+      Effect.gen(function* () {
+        const result = yield* UsersTable.query("byEmail", { ">": null });
+        const emails = result.items
+          .map((i) => i.value.email)
+          .filter((e) => e.includes("@test.com"));
+
+        expect(emails.length).toBeGreaterThan(0);
+        // ASC order by email
+        expect(emails).toEqual([...emails].sort());
       }).pipe(Effect.provide(layer)),
     );
   });
@@ -270,7 +379,11 @@ describe("SQLiteTable Query", () => {
         let cursor = "q-";
 
         while (true) {
-          const result = yield* UsersTable.query("pk", { ">=": { id: cursor } }, { limit: 2 });
+          const result = yield* UsersTable.query(
+            "pk",
+            { ">=": { id: cursor } },
+            { limit: 2 },
+          );
           if (result.items.length === 0) break;
 
           for (const item of result.items) {
@@ -326,7 +439,10 @@ describe("SQLiteTable Composite Key", () => {
         status: "completed",
       });
 
-      const result = yield* OrdersTable.get({ customerId: "cust-2", orderId: "order-2" });
+      const result = yield* OrdersTable.get({
+        customerId: "cust-2",
+        orderId: "order-2",
+      });
       expect(result.value.amount).toBe(200);
     }).pipe(Effect.provide(layer)),
   );
@@ -345,7 +461,10 @@ describe("SQLiteTable Composite Key", () => {
         { status: "shipped" },
       );
 
-      const result = yield* OrdersTable.get({ customerId: "cust-3", orderId: "order-3" });
+      const result = yield* OrdersTable.get({
+        customerId: "cust-3",
+        orderId: "order-3",
+      });
       expect(result.value.status).toBe("shipped");
     }).pipe(Effect.provide(layer)),
   );
@@ -359,7 +478,9 @@ describe("SQLiteTable Composite Key", () => {
         status: "pending",
       });
 
-      const result = yield* OrdersTable.query("byStatus", { ">=": { status: "pending", _u: "" } });
+      const result = yield* OrdersTable.query("byStatus", {
+        ">=": { status: "pending", _u: "" },
+      });
       const pending = result.items.filter((i) => i.value.status === "pending");
       expect(pending.length).toBeGreaterThan(0);
     }).pipe(Effect.provide(layer)),
@@ -388,22 +509,30 @@ describe("SQLiteTable Persistence", () => {
       const layer1 = SqliteDBBetterSqlite3(db1);
 
       yield* FileTable.setup().pipe(Effect.provide(layer1));
-      yield* FileTable.insert({ id: "persist-1", data: "original" }).pipe(Effect.provide(layer1));
+      yield* FileTable.insert({ id: "persist-1", data: "original" }).pipe(
+        Effect.provide(layer1),
+      );
       db1.close();
 
       const db2 = new Database(dbPath);
       const layer2 = SqliteDBBetterSqlite3(db2);
 
-      const result = yield* FileTable.get({ id: "persist-1" }).pipe(Effect.provide(layer2));
+      const result = yield* FileTable.get({ id: "persist-1" }).pipe(
+        Effect.provide(layer2),
+      );
       expect(result.value.data).toBe("original");
 
-      yield* FileTable.update({ id: "persist-1" }, { data: "updated" }).pipe(Effect.provide(layer2));
+      yield* FileTable.update({ id: "persist-1" }, { data: "updated" }).pipe(
+        Effect.provide(layer2),
+      );
       db2.close();
 
       const db3 = new Database(dbPath);
       const layer3 = SqliteDBBetterSqlite3(db3);
 
-      const final = yield* FileTable.get({ id: "persist-1" }).pipe(Effect.provide(layer3));
+      const final = yield* FileTable.get({ id: "persist-1" }).pipe(
+        Effect.provide(layer3),
+      );
       expect(final.value.data).toBe("updated");
       db3.close();
     }),
@@ -452,7 +581,10 @@ describe("SQLiteTable Transactions", () => {
       Effect.gen(function* () {
         const result = yield* SqliteDB.transaction(
           Effect.gen(function* () {
-            const inserted = yield* TxTable.insert({ id: "tx-return", value: 42 });
+            const inserted = yield* TxTable.insert({
+              id: "tx-return",
+              value: 42,
+            });
             return inserted.value.value;
           }),
         );
@@ -475,7 +607,9 @@ describe("SQLiteTable Transactions", () => {
         expect(result._tag).toBe("Left");
 
         const q = yield* TxTable.query("pk", { ">=": { id: "tx-rollback-" } });
-        expect(q.items.filter((i) => i.value.id.startsWith("tx-rollback-"))).toHaveLength(0);
+        expect(
+          q.items.filter((i) => i.value.id.startsWith("tx-rollback-")),
+        ).toHaveLength(0);
       }).pipe(Effect.provide(layer)),
     );
 
@@ -516,14 +650,18 @@ describe("SQLiteTable Transactions", () => {
         const result = yield* SqliteDB.transaction(
           Effect.gen(function* () {
             yield* TxTable.insert({ id: "tx-dberror", value: 1 });
-            return yield* Effect.fail(SqliteDBError.insertFailed("TxEntity", "forced"));
+            return yield* Effect.fail(
+              SqliteDBError.insertFailed("TxEntity", "forced"),
+            );
           }),
         ).pipe(Effect.either);
 
         expect(result._tag).toBe("Left");
 
         const q = yield* TxTable.query("pk", { ">=": { id: "tx-dberror" } });
-        expect(q.items.filter((i) => i.value.id === "tx-dberror")).toHaveLength(0);
+        expect(q.items.filter((i) => i.value.id === "tx-dberror")).toHaveLength(
+          0,
+        );
       }).pipe(Effect.provide(layer)),
     );
   });
@@ -531,9 +669,15 @@ describe("SQLiteTable Transactions", () => {
   describe("sequential transactions", () => {
     it.effect("handles multiple sequential transactions", () =>
       Effect.gen(function* () {
-        yield* SqliteDB.transaction(TxTable.insert({ id: "tx-seq-1", value: 1 }));
-        yield* SqliteDB.transaction(TxTable.insert({ id: "tx-seq-2", value: 2 }));
-        yield* SqliteDB.transaction(TxTable.update({ id: "tx-seq-1" }, { value: 10 }));
+        yield* SqliteDB.transaction(
+          TxTable.insert({ id: "tx-seq-1", value: 1 }),
+        );
+        yield* SqliteDB.transaction(
+          TxTable.insert({ id: "tx-seq-2", value: 2 }),
+        );
+        yield* SqliteDB.transaction(
+          TxTable.update({ id: "tx-seq-1" }, { value: 10 }),
+        );
 
         const r1 = yield* TxTable.get({ id: "tx-seq-1" });
         const r2 = yield* TxTable.get({ id: "tx-seq-2" });
@@ -551,7 +695,9 @@ describe("SQLiteTable Transactions", () => {
           }),
         ).pipe(Effect.either);
 
-        yield* SqliteDB.transaction(TxTable.insert({ id: "tx-recover", value: 2 }));
+        yield* SqliteDB.transaction(
+          TxTable.insert({ id: "tx-recover", value: 2 }),
+        );
 
         const result = yield* TxTable.get({ id: "tx-recover" });
         expect(result.value.value).toBe(2);
@@ -629,7 +775,9 @@ describe("SQLiteTable.getDescriptor", () => {
 
     expect(descriptor.secondaryIndexes).toHaveLength(1);
 
-    const byEmail = descriptor.secondaryIndexes.find((i) => i.name === "byEmail");
+    const byEmail = descriptor.secondaryIndexes.find(
+      (i) => i.name === "byEmail",
+    );
 
     expect(byEmail).toEqual({
       name: "byEmail",

@@ -5,7 +5,8 @@
       "Bash(pnpm test:run:*)",
       "Bash(git show:*)",
       "Bash(pnpm tsx:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "Bash(pnpm tsc:*)"
     ]
   }
 }

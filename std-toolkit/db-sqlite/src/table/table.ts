@@ -181,11 +181,16 @@ export class SQLiteTable<
       const { fields, col } = this.#resolveIndex(key);
       const { operator, value } = extractKeyOp(op);
 
-      const rows = yield* db.query<RawRow>(
-        this.tableName,
-        Sql.where(col, operator, computeKey(fields, value as WithMeta<TEntity>)),
-        { orderBy: getKeyOpOrderDirection(operator), limit: options?.limit ?? 100 },
-      );
+      // When value is null, skip the WHERE clause (return all records)
+      const whereClause =
+        value === null
+          ? Sql.whereNone
+          : Sql.where(col, operator, computeKey(fields, value as WithMeta<TEntity>));
+
+      const rows = yield* db.query<RawRow>(this.tableName, whereClause, {
+        orderBy: getKeyOpOrderDirection(operator),
+        limit: options?.limit ?? 100,
+      });
 
       return { items: yield* Effect.all(rows.map((r) => this.#parseRow(r))) };
     });
