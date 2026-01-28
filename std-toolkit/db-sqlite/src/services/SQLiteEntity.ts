@@ -619,7 +619,7 @@ export class SQLiteEntity<
           meta: {
             _e: this.#eschema.name,
             _v: encoded._v as string,
-            _uid: new Date().toISOString(),
+            _uid: ulid(),
             _d: deleted,
           },
         })),
