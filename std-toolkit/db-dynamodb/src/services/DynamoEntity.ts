@@ -5,7 +5,6 @@ import { DynamodbError } from "../errors.js";
 import type {
   IndexDefinition,
   IndexPkValue,
-  IndexSkValue,
   TransactItem,
   SkParam,
   SimpleQueryOptions,
@@ -36,10 +35,8 @@ const metaSchema = Schema.Struct({
   _e: Schema.String,
   /** Schema version */
   _v: Schema.String,
-  /** ULID for this version of the item */
-  _u: Schema.String,
-  /** Optimistic locking increment counter */
-  _i: Schema.Number,
+  /** ULID that changes on every write */
+  _uid: Schema.String,
   /** Soft delete flag */
   _d: Schema.Boolean,
 });
@@ -52,7 +49,7 @@ type MetaType = typeof metaSchema.Type;
 /**
  * Meta fields that can be used in index derivations.
  */
-type DerivableMetaFields = "_u";
+type DerivableMetaFields = "_uid";
 
 /**
  * Checks if an error is a conditional check failure from DynamoDB.
@@ -80,6 +77,14 @@ export interface EntityType<T> {
   /** Metadata about the entity item */
   meta: MetaType;
 }
+
+/**
+ * Makes the ID field optional for insert operations and accepts plain strings.
+ * When not provided, a ULID will be auto-generated.
+ */
+type InsertInput<T, IdField extends string> = Omit<T, IdField | "_v"> & {
+  [K in IdField & keyof T]?: string;
+};
 
 /**
  * Stored derivation info for a secondary index.
@@ -120,17 +125,16 @@ type DerivationKeyFields<TDeriv extends StoredIndexDerivation> =
 
 /**
  * Helper type to get the key value type for a given index.
- * For "pk", returns the primary key fields.
- * For secondary indexes, returns the index's pk and sk deps.
+ * For "pk", returns the primary key fields (pk deps + idField for SK).
+ * For secondary indexes, returns the index's pk deps (SK is always _uid).
  */
 type IndexKeyValue<
   TSchema extends AnyESchema,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  TPrimarySkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   K extends "pk" | (keyof TSecondaryDerivationMap & string),
 > = K extends "pk"
-  ? Pick<ESchemaType<TSchema>, TPrimaryPkKeys | TPrimarySkKeys>
+  ? Pick<ESchemaType<TSchema>, TPrimaryPkKeys | TSchema["idField"]>
   : K extends keyof TSecondaryDerivationMap
     ? Pick<
         ESchemaType<TSchema>,
@@ -147,14 +151,12 @@ type IndexKeyValue<
  * @typeParam TSecondaryDerivationMap - Map of secondary index derivations
  * @typeParam TSchema - The ESchema type for this entity
  * @typeParam TPrimaryPkKeys - Keys used for primary partition key derivation
- * @typeParam TPrimarySkKeys - Keys used for primary sort key derivation
  */
 export class DynamoEntity<
   TTable extends DynamoTableInstance,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  TPrimarySkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
 > {
   /**
    * Creates a new entity builder for the given table.
@@ -176,27 +178,26 @@ export class DynamoEntity<
         return {
           /**
            * Defines the primary index derivation fields.
+           * SK is automatically set to the ESchema's idField.
            *
-           * @param primaryDerivation - The pk and sk field arrays
+           * @param primaryDerivation - Optional pk field array. If not provided, uses entity name only.
            * @returns A builder to add secondary index mappings
            */
           primary<
             const TPkKeys extends readonly (
               | keyof ESchemaType<TS>
               | DerivableMetaFields
-            )[],
-            const TSkKeys extends readonly (
-              | keyof ESchemaType<TS>
-              | DerivableMetaFields
-            )[],
-          >(primaryDerivation: { pk: TPkKeys; sk: TSkKeys }) {
+            )[] = [],
+          >(primaryDerivation?: { pk: TPkKeys }) {
+            const pkKeys = primaryDerivation?.pk ?? ([] as unknown as TPkKeys);
+            // SK is always the idField from the ESchema
+            const skKeys = [eschema.idField] as const;
             return new EntityIndexDerivations<
               TTable,
               TS,
               ExtractKeys<ESchemaType<TS>, TPkKeys>,
-              ExtractKeys<ESchemaType<TS>, TSkKeys>,
               {}
-            >(table, eschema, primaryDerivation as any, {});
+            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {});
           },
         };
       },
@@ -225,6 +226,14 @@ export class DynamoEntity<
    */
   get name(): TSchema["name"] {
     return this.#eschema.name;
+  }
+
+  /**
+   * Creates a branded ID for this entity from a plain string.
+   * Use this to create type-safe IDs for operations that require them.
+   */
+  id(value: string): ReturnType<TSchema["makeId"]> {
+    return this.#eschema.makeId(value) as ReturnType<TSchema["makeId"]>;
   }
 
   /**
@@ -274,7 +283,7 @@ export class DynamoEntity<
    */
   get(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
+      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
     options?: { ConsistentRead?: boolean },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>> | null, DynamodbError> {
     return Effect.gen(this, function* () {
@@ -310,13 +319,14 @@ export class DynamoEntity<
 
   /**
    * Inserts a new entity. Fails if an item with the same key already exists.
+   * The ID field is optional - if not provided, a ULID will be auto-generated.
    *
-   * @param value - The entity value to insert (without _v field)
+   * @param value - The entity value to insert (ID field is optional)
    * @param options - Insert options including ignoreIfAlreadyPresent and condition
    * @returns The inserted entity with metadata
    */
   insert(
-    value: Omit<ESchemaType<TSchema>, "_v">,
+    value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
     options?: {
       ignoreIfAlreadyPresent?: boolean;
       condition?: ConditionOperation<ESchemaType<TSchema>>;
@@ -324,8 +334,19 @@ export class DynamoEntity<
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
     return Effect.gen(function* () {
+      // Handle optional idField - auto-generate if not provided
+      const idField = self.#eschema.idField;
+      const providedId = (value as Record<string, unknown>)[idField];
+      const generatedId = providedId ?? generateUlid();
+
+      const fullValueWithId = {
+        ...value,
+        [idField]: self.#eschema.makeId(generatedId as string),
+        _v: self.#eschema.latestVersion,
+      } as unknown as ESchemaType<TSchema>;
+
       const { item, exprResult, meta, fullValue } = yield* self.#prepareInsert(
-        value,
+        fullValueWithId,
         options?.condition,
       );
 
@@ -349,7 +370,7 @@ export class DynamoEntity<
             ESchemaType<TSchema>,
             TPrimaryPkKeys
           > &
-            IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
+            Pick<ESchemaType<TSchema>, TSchema["idField"]>,
         );
         if (!existing) {
           return yield* Effect.fail(
@@ -368,15 +389,14 @@ export class DynamoEntity<
    *
    * @param keyValue - Object containing the primary key field values
    * @param updates - Partial entity with fields to update
-   * @param options - Update options including meta for optimistic locking and condition
+   * @param options - Update options including condition
    * @returns The updated entity with new metadata
    */
   update(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
+      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
     updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
     options?: {
-      meta?: Partial<MetaType>;
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
@@ -420,20 +440,32 @@ export class DynamoEntity<
 
   /**
    * Creates an insert operation for use in a transaction.
+   * The ID field is optional - if not provided, a ULID will be auto-generated.
    *
-   * @param value - The entity value to insert
+   * @param value - The entity value to insert (ID field is optional)
    * @param options - Insert options including condition
    * @returns A transaction item for insert
    */
   insertOp(
-    value: Omit<ESchemaType<TSchema>, "_v">,
+    value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
     options?: {
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
+      // Handle optional idField - auto-generate if not provided
+      const idField = this.#eschema.idField;
+      const providedId = (value as Record<string, unknown>)[idField];
+      const generatedId = providedId ?? generateUlid();
+
+      const fullValueWithId = {
+        ...value,
+        [idField]: this.#eschema.makeId(generatedId as string),
+        _v: this.#eschema.latestVersion,
+      } as unknown as ESchemaType<TSchema>;
+
       const { item, exprResult } = yield* this.#prepareInsert(
-        value,
+        fullValueWithId,
         options?.condition,
       );
 
@@ -450,15 +482,14 @@ export class DynamoEntity<
    *
    * @param keyValue - Object containing the primary key field values
    * @param updates - Partial entity with fields to update
-   * @param options - Update options including meta for optimistic locking and condition
+   * @param options - Update options including condition
    * @returns A transaction item for update
    */
   updateOp(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>,
+      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
     updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
     options?: {
-      meta?: Partial<MetaType>;
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
@@ -516,7 +547,7 @@ export class DynamoEntity<
     params: K extends "pk"
       ? {
           pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-          sk: SkParam<IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>>;
+          sk: SkParam<Pick<ESchemaType<TSchema>, TSchema["idField"]>>;
         }
       : K extends keyof TSecondaryDerivationMap
         ? {
@@ -644,13 +675,7 @@ export class DynamoEntity<
   subscribe<K extends "pk" | (keyof TSecondaryDerivationMap & string)>(
     opts: SubscribeOptions<
       K,
-      IndexKeyValue<
-        TSchema,
-        TSecondaryDerivationMap,
-        TPrimaryPkKeys,
-        TPrimarySkKeys,
-        K
-      >
+      IndexKeyValue<TSchema, TSecondaryDerivationMap, TPrimaryPkKeys, K>
     >,
   ): Effect.Effect<
     { items: EntityType<ESchemaType<TSchema>>[] },
@@ -731,7 +756,7 @@ export class DynamoEntity<
           ? {
               pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
               sk?: SortKeyparameter<
-                IndexSkValue<ESchemaType<TSchema>, TPrimarySkKeys>
+                Pick<ESchemaType<TSchema>, TSchema["idField"]>
               >;
             }
           : K extends keyof TSecondaryDerivationMap
@@ -946,7 +971,7 @@ export class DynamoEntity<
   }
 
   #prepareInsert(
-    value: Omit<ESchemaType<TSchema>, "_v">,
+    fullValue: ESchemaType<TSchema>,
     condition?: ConditionOperation<ESchemaType<TSchema>>,
   ): Effect.Effect<
     {
@@ -958,25 +983,20 @@ export class DynamoEntity<
     DynamodbError
   > {
     return Effect.gen(this, function* () {
-      const fullValue = {
-        ...value,
-        _v: this.#eschema.latestVersion,
-      } as ESchemaType<TSchema>;
       const encoded = yield* this.#eschema
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
-      const _u = generateUlid();
+      const _uid = generateUlid();
 
       const meta: MetaType = {
         _e: this.#eschema.name,
         _v: this.#eschema.latestVersion,
-        _u,
-        _i: 0,
+        _uid,
         _d: false,
       };
 
-      const valueWithMeta = { ...fullValue, _u };
+      const valueWithMeta = { ...fullValue, _uid };
       const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
       const indexMap = this.#deriveSecondaryIndexes(valueWithMeta);
 
@@ -1008,7 +1028,6 @@ export class DynamoEntity<
     keyValue: Record<string, unknown>,
     updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
     options?: {
-      meta?: Partial<MetaType>;
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
@@ -1025,8 +1044,8 @@ export class DynamoEntity<
       false,
     );
 
-    const _u = generateUlid();
-    const updatesWithMeta = { ...updates, _u };
+    const _uid = generateUlid();
+    const updatesWithMeta = { ...updates, _uid };
     const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
 
     const conditionOps: ConditionOperation[] = [
@@ -1035,11 +1054,6 @@ export class DynamoEntity<
       ),
     ];
     if (options?.condition) conditionOps.push(options.condition);
-    if (options?.meta?._i !== undefined) {
-      conditionOps.push(
-        exprCondition(($) => $.cond("_i" as any, "=", options.meta!._i)),
-      );
-    }
 
     const condition = exprCondition(($) => $.and(...conditionOps));
 
@@ -1047,8 +1061,7 @@ export class DynamoEntity<
       ...Object.entries({ ...updates, ...indexMap }).map(([key, v]) =>
         $.set(key, v),
       ),
-      $.set("_i", $.opAdd("_i", 1)),
-      $.set("_u", _u),
+      $.set("_uid", _uid),
     ]);
 
     const exprResult = buildExpr({
@@ -1067,7 +1080,6 @@ class EntityIndexDerivations<
   TTable extends DynamoTableInstance,
   TSchema extends AnyESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  TPrimarySkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
 > {
   #table: TTable;
@@ -1095,13 +1107,13 @@ class EntityIndexDerivations<
 
   /**
    * Maps a table GSI to a semantic entity index with custom derivation.
+   * SK is automatically set to `_uid` for secondary indexes.
    *
    * @typeParam GsiName - The GSI name on the table
    * @typeParam TPkKeys - Fields used for partition key derivation
-   * @typeParam TSkKeys - Fields used for sort key derivation
    * @param gsiName - The GSI name on the table (e.g., "GSI1")
    * @param entityIndexName - The semantic name for this entity's use of the GSI (e.g., "byEmail")
-   * @param derivation - The pk and sk field arrays
+   * @param derivation - The pk field array (sk is automatically _uid)
    * @returns A builder with the index mapping added
    */
   index<
@@ -1110,23 +1122,20 @@ class EntityIndexDerivations<
       | keyof ESchemaType<TSchema>
       | DerivableMetaFields
     )[],
-    const TSkKeys extends readonly (
-      | keyof ESchemaType<TSchema>
-      | DerivableMetaFields
-    )[],
   >(
     gsiName: GsiName,
     entityIndexName: string,
     derivation: {
       pk: TPkKeys;
-      sk: TSkKeys;
     },
   ) {
+    // SK is always _uid for secondary indexes
+    const skKeys = ["_uid"] as const;
     const newDeriv: StoredIndexDerivation = {
       gsiName,
       entityIndexName,
       pkDeps: derivation.pk.map(String),
-      skDeps: derivation.sk.map(String),
+      skDeps: [...skKeys],
     };
 
     return new EntityIndexDerivations(
@@ -1141,13 +1150,12 @@ class EntityIndexDerivations<
       TTable,
       TSchema,
       TPrimaryPkKeys,
-      TPrimarySkKeys,
       TSecondaryDerivationMap &
         Record<
           typeof entityIndexName,
           StoredIndexDerivation & {
             pkDeps: TPkKeys;
-            skDeps: TSkKeys;
+            skDeps: typeof skKeys;
           }
         >
     >;
@@ -1168,8 +1176,7 @@ class EntityIndexDerivations<
       TTable,
       TSecondaryDerivationMap,
       TSchema,
-      TPrimaryPkKeys,
-      TPrimarySkKeys
+      TPrimaryPkKeys
     >(this.#table, this.#eschema, storedPrimary, this.#secondaryDerivations);
   }
 }

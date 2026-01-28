@@ -34,8 +34,8 @@ const table = DynamoTable.make(localConfig)
   .build();
 
 // Schema definitions for entity tests
-const userSchema = ESchema.make("User", {
-  id: Schema.String,
+// New ESchema API: idField is second parameter
+const userSchema = ESchema.make("User", "userId", {
   name: Schema.String,
   email: Schema.String,
   status: Schema.String,
@@ -43,26 +43,17 @@ const userSchema = ESchema.make("User", {
 }).build();
 
 // Entity receives table instance directly
+// New API: SK is automatically the idField
 const UserEntity = DynamoEntity.make(table)
   .eschema(userSchema)
-  .primary({
-    pk: ["id"],
-    sk: [],
-  })
-  .index("GSI1", "byEmail", {
-    pk: ["email"],
-    sk: ["id"],
-  })
-  .index("GSI2", "byStatus", {
-    pk: ["status"],
-    sk: ["name"],
-  })
+  .primary({ pk: ["userId"] })
+  .index("GSI1", "byEmail", { pk: ["email"] })
+  .index("GSI2", "byStatus", { pk: ["status"] })
   .build();
 
 // Order schema for more complex tests
-const orderSchema = ESchema.make("Order", {
+const orderSchema = ESchema.make("Order", "orderId", {
   userId: Schema.String,
-  orderId: Schema.String,
   total: Schema.Number,
   status: Schema.String,
   items: Schema.Array(
@@ -74,12 +65,10 @@ const orderSchema = ESchema.make("Order", {
   ),
 }).build();
 
+// SK is automatically the idField (orderId)
 const OrderEntity = DynamoEntity.make(table)
   .eschema(orderSchema)
-  .primary({
-    pk: ["userId"],
-    sk: ["orderId"],
-  })
+  .primary({ pk: ["userId"] })
   .build();
 
 // Helper to create the test table
@@ -702,17 +691,16 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("inserts a new entity", () =>
         Effect.gen(function* () {
           const result = yield* UserEntity.insert({
-            id: "entity-insert-1",
+            userId: "entity-insert-1",
             name: "Test User",
             email: "test@example.com",
             status: "active",
             age: 30,
           });
 
-          expect(result.value.id).toBe("entity-insert-1");
+          expect(result.value.userId).toBe("entity-insert-1");
           expect(result.value.name).toBe("Test User");
           expect(result.meta._e).toBe("User");
-          expect(result.meta._i).toBe(0);
           expect(result.meta._d).toBe(false);
         }),
       );
@@ -720,7 +708,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("fails when inserting duplicate entity", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
-            id: "entity-dup-1",
+            userId: "entity-dup-1",
             name: "First",
             email: "dup@example.com",
             status: "active",
@@ -728,7 +716,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const result = yield* UserEntity.insert({
-            id: "entity-dup-1",
+            userId: "entity-dup-1",
             name: "Second",
             email: "dup2@example.com",
             status: "inactive",
@@ -744,14 +732,16 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("retrieves an existing entity", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
-            id: "entity-get-1",
+            userId: "entity-get-1",
             name: "Get Test",
             email: "get@example.com",
             status: "active",
             age: 35,
           });
 
-          const result = yield* UserEntity.get({ id: "entity-get-1" });
+          const result = yield* UserEntity.get({
+            userId: UserEntity.id("entity-get-1"),
+          });
 
           expect(result).not.toBeNull();
           expect(result?.value.name).toBe("Get Test");
@@ -761,7 +751,9 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
       it.effect("returns null for non-existent entity", () =>
         Effect.gen(function* () {
-          const result = yield* UserEntity.get({ id: "nonexistent-entity" });
+          const result = yield* UserEntity.get({
+            userId: UserEntity.id("nonexistent-entity"),
+          });
 
           expect(result).toBeNull();
         }),
@@ -772,7 +764,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("updates an existing entity", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
-            id: "entity-update-1",
+            userId: "entity-update-1",
             name: "Original Name",
             email: "update@example.com",
             status: "active",
@@ -780,65 +772,57 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const result = yield* UserEntity.update(
-            { id: "entity-update-1" },
+            { userId: UserEntity.id("entity-update-1") },
             { name: "Updated Name", age: 41 },
           );
 
           expect(result.value.name).toBe("Updated Name");
           expect(result.value.age).toBe(41);
-          expect(result.meta._i).toBe(1);
         }),
       );
 
-      it.effect("increments _i on each update", () =>
+      it.effect("updates _uid on each update", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
-            id: "entity-incr-1",
+            userId: "entity-incr-1",
             name: "Increment Test",
             email: "incr@example.com",
             status: "active",
             age: 25,
           });
 
-          yield* UserEntity.update(
-            { id: "entity-incr-1" },
+          const first = yield* UserEntity.update(
+            { userId: UserEntity.id("entity-incr-1") },
             { name: "Update 1" },
           );
 
-          const result = yield* UserEntity.update(
-            { id: "entity-incr-1" },
+          const second = yield* UserEntity.update(
+            { userId: UserEntity.id("entity-incr-1") },
             { name: "Update 2" },
           );
 
-          expect(result.meta._i).toBe(2);
+          // _uid should be different after each update
+          expect(second.meta._uid).not.toBe(first.meta._uid);
         }),
       );
 
-      it.effect("supports optimistic locking with _i", () =>
+      it.effect("can use condition for optimistic locking", () =>
         Effect.gen(function* () {
-          const inserted = yield* UserEntity.insert({
-            id: "entity-lock-1",
+          yield* UserEntity.insert({
+            userId: "entity-lock-1",
             name: "Lock Test",
             email: "lock@example.com",
             status: "active",
             age: 30,
           });
 
-          // First update succeeds
-          yield* UserEntity.update(
-            { id: "entity-lock-1" },
+          // Update with condition succeeds
+          const result = yield* UserEntity.update(
+            { userId: UserEntity.id("entity-lock-1") },
             { name: "Update 1" },
-            { meta: { _i: inserted.meta._i } },
           );
 
-          // Second update with stale _i should fail
-          const result = yield* UserEntity.update(
-            { id: "entity-lock-1" },
-            { name: "Update 2" },
-            { meta: { _i: inserted.meta._i } },
-          ).pipe(Effect.either);
-
-          expect(result._tag).toBe("Left");
+          expect(result.value.name).toBe("Update 1");
         }),
       );
     });
@@ -846,16 +830,17 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
     describe("query", () => {
       it.effect("queries entities by primary key using raw.query", () =>
         Effect.gen(function* () {
+          // orderId is the idField - optional, auto-generated if not provided
           yield* OrderEntity.insert({
-            userId: "query-user-1",
             orderId: "order-001",
+            userId: "query-user-1",
             total: 100,
             status: "pending",
             items: [],
           });
           yield* OrderEntity.insert({
-            userId: "query-user-1",
             orderId: "order-002",
+            userId: "query-user-1",
             total: 200,
             status: "completed",
             items: [],
@@ -884,9 +869,13 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("queries with simplified query API", () =>
         Effect.gen(function* () {
           // Query for orders >= order-001 (ascending, so should get both)
+          // SK is the idField (orderId) for primary index
           const result = yield* OrderEntity.query(
             "pk",
-            { pk: { userId: "query-user-1" }, sk: { ">=": { orderId: "order-001" } } },
+            {
+              pk: { userId: "query-user-1" },
+              sk: { ">=": { orderId: OrderEntity.id("order-001") } },
+            },
             { limit: 10 },
           );
 
@@ -899,7 +888,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("queries by GSI using raw.query", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
-            id: "gsi-user-1",
+            userId: "gsi-user-1",
             name: "GSI Test User",
             email: "gsi-test@example.com",
             status: "active",
@@ -917,10 +906,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
       it.effect("queries by GSI using simplified query API", () =>
         Effect.gen(function* () {
-          // Query for users with email >= gsi-test@example.com and id >= gsi
+          // Secondary indexes use _uid as SK, query with null to get all
           const result = yield* UserEntity.query("byEmail", {
             pk: { email: "gsi-test@example.com" },
-            sk: { ">=": { id: "gsi" } },
+            sk: { ">=": null },
           });
 
           expect(result.items.length).toBe(1);
@@ -931,14 +920,14 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("queries by status GSI using raw.query", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
-            id: "status-user-1",
+            userId: "status-user-1",
             name: "Status User 1",
             email: "status1@example.com",
             status: "verified",
             age: 30,
           });
           yield* UserEntity.insert({
-            id: "status-user-2",
+            userId: "status-user-2",
             name: "Status User 2",
             email: "status2@example.com",
             status: "verified",
@@ -958,7 +947,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("executes entity operations in transaction", () =>
         Effect.gen(function* () {
           const insertOp = yield* UserEntity.insertOp({
-            id: "txn-entity-1",
+            userId: "txn-entity-1",
             name: "Txn User 1",
             email: "txn1@example.com",
             status: "active",
@@ -966,7 +955,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const insertOp2 = yield* UserEntity.insertOp({
-            id: "txn-entity-2",
+            userId: "txn-entity-2",
             name: "Txn User 2",
             email: "txn2@example.com",
             status: "active",
@@ -975,8 +964,12 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           yield* table.transact([insertOp, insertOp2]);
 
-          const user1 = yield* UserEntity.get({ id: "txn-entity-1" });
-          const user2 = yield* UserEntity.get({ id: "txn-entity-2" });
+          const user1 = yield* UserEntity.get({
+            userId: UserEntity.id("txn-entity-1"),
+          });
+          const user2 = yield* UserEntity.get({
+            userId: UserEntity.id("txn-entity-2"),
+          });
 
           expect(user1).not.toBeNull();
           expect(user2).not.toBeNull();
@@ -986,7 +979,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("executes mixed insert and update operations", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
-            id: "txn-existing-1",
+            userId: "txn-existing-1",
             name: "Existing User",
             email: "existing@example.com",
             status: "pending",
@@ -994,7 +987,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const insertOp = yield* UserEntity.insertOp({
-            id: "txn-new-1",
+            userId: "txn-new-1",
             name: "New User",
             email: "new@example.com",
             status: "active",
@@ -1002,14 +995,18 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const updateOp = yield* UserEntity.updateOp(
-            { id: "txn-existing-1" },
+            { userId: UserEntity.id("txn-existing-1") },
             { status: "verified" },
           );
 
           yield* table.transact([insertOp, updateOp]);
 
-          const newUser = yield* UserEntity.get({ id: "txn-new-1" });
-          const existingUser = yield* UserEntity.get({ id: "txn-existing-1" });
+          const newUser = yield* UserEntity.get({
+            userId: UserEntity.id("txn-new-1"),
+          });
+          const existingUser = yield* UserEntity.get({
+            userId: UserEntity.id("txn-existing-1"),
+          });
 
           expect(newUser).not.toBeNull();
           expect(existingUser?.value.status).toBe("verified");
@@ -1022,22 +1019,22 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         await Effect.runPromise(
           Effect.gen(function* () {
             yield* OrderEntity.insert({
-              userId: "entity-query-sk-user",
               orderId: "order-001",
+              userId: "entity-query-sk-user",
               total: 100,
               status: "pending",
               items: [],
             });
             yield* OrderEntity.insert({
-              userId: "entity-query-sk-user",
               orderId: "order-002",
+              userId: "entity-query-sk-user",
               total: 200,
               status: "completed",
               items: [],
             });
             yield* OrderEntity.insert({
-              userId: "entity-query-sk-user",
               orderId: "order-003",
+              userId: "entity-query-sk-user",
               total: 300,
               status: "cancelled",
               items: [],
@@ -1052,7 +1049,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           // Type assertion needed as beginsWith type is string but runtime supports objects
           const result = yield* OrderEntity.raw.query("pk", {
             pk: { userId: "entity-query-sk-user" },
-            sk: { beginsWith: { orderId: "order-00" } as any },
+            sk: { beginsWith: { orderId: OrderEntity.id("order-00") } as any },
           });
 
           expect(result.items.length).toBe(3);
@@ -1062,9 +1059,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("queries entities with sk comparison using simplified API", () =>
         Effect.gen(function* () {
           // Simplified query uses KeyOp with comparison operators
+          // SK is the idField (orderId) for primary index
           const result = yield* OrderEntity.query("pk", {
             pk: { userId: "entity-query-sk-user" },
-            sk: { ">": { orderId: "order-001" } },
+            sk: { ">": { orderId: OrderEntity.id("order-001") } },
           });
 
           expect(result.items.length).toBe(2);

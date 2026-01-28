@@ -25,23 +25,19 @@ const table = DynamoTable.make(localConfig)
   .build();
 
 // Order schema for testing with composite key
-const orderSchema = ESchema.make("Order", {
+// idField is "orderId" - automatically added as a branded string
+const orderSchema = ESchema.make("Order", "orderId", {
   userId: Schema.String,
-  orderId: Schema.String,
   total: Schema.Number,
   status: Schema.String,
 }).build();
 
+// SK is automatically the idField (orderId) for primary index
+// SK is automatically _uid for secondary indexes
 const OrderEntity = DynamoEntity.make(table)
   .eschema(orderSchema)
-  .primary({
-    pk: ["userId"],
-    sk: ["orderId"],
-  })
-  .index("GSI1", "byStatus", {
-    pk: ["status"],
-    sk: ["orderId"],
-  })
+  .primary({ pk: ["userId"] })
+  .index("GSI1", "byStatus", { pk: ["status"] })
   .build();
 
 // Helper to create the test table
@@ -148,7 +144,7 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query("pk", {
           pk: { userId: "user-001" },
-          sk: { ">=": { orderId: "order-001" } },
+          sk: { ">=": { orderId: OrderEntity.id("order-001") } },
         });
 
         expect(result.items.length).toBe(3);
@@ -161,7 +157,7 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query("pk", {
           pk: { userId: "user-001" },
-          sk: { ">": { orderId: "order-001" } },
+          sk: { ">": { orderId: OrderEntity.id("order-001") } },
         });
 
         expect(result.items.length).toBe(2);
@@ -173,7 +169,7 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query("pk", {
           pk: { userId: "user-001" },
-          sk: { "<=": { orderId: "order-003" } },
+          sk: { "<=": { orderId: OrderEntity.id("order-003") } },
         });
 
         expect(result.items.length).toBe(3);
@@ -186,7 +182,7 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query("pk", {
           pk: { userId: "user-001" },
-          sk: { "<": { orderId: "order-003" } },
+          sk: { "<": { orderId: OrderEntity.id("order-003") } },
         });
 
         expect(result.items.length).toBe(2);
@@ -198,7 +194,10 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query(
           "pk",
-          { pk: { userId: "user-001" }, sk: { ">=": { orderId: "order-001" } } },
+          {
+            pk: { userId: "user-001" },
+            sk: { ">=": { orderId: OrderEntity.id("order-001") } },
+          },
           { limit: 2 },
         );
 
@@ -230,11 +229,13 @@ describe("Simplified API Tests", () => {
       }),
     );
 
-    it.effect("queries secondary index with >= operator", () =>
+    it.effect("queries secondary index (SK is _uid)", () =>
       Effect.gen(function* () {
+        // Secondary indexes use _uid as SK, not a custom field
+        // Query all items with >= null to get all
         const result = yield* OrderEntity.query("byStatus", {
           pk: { status: "pending" },
-          sk: { ">=": { orderId: "order" } },
+          sk: { ">=": null },
         });
 
         // Should find all pending orders (3 total - user-001 has 2, user-002 has 1)
@@ -310,7 +311,10 @@ describe("Simplified API Tests", () => {
         const result = yield* OrderEntity.raw.query("pk", {
           pk: { userId: "user-001" },
           sk: {
-            between: [{ orderId: "order-001" }, { orderId: "order-002" }],
+            between: [
+              { orderId: OrderEntity.id("order-001") },
+              { orderId: OrderEntity.id("order-002") },
+            ],
           },
         });
 

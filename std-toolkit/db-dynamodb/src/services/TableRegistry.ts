@@ -9,7 +9,7 @@ import { DynamodbError } from "../errors.js";
  * Extracts the entity name from a DynamoEntity type.
  */
 type EntityName<T> =
-  T extends DynamoEntity<any, any, infer TSchema, any, any>
+  T extends DynamoEntity<any, any, infer TSchema, any>
     ? TSchema["name"]
     : never;
 
@@ -18,7 +18,7 @@ type EntityName<T> =
  */
 type EntitiesMap<TTable extends DynamoTableInstance> = Record<
   string,
-  DynamoEntity<TTable, any, any, any, any>
+  DynamoEntity<TTable, any, any, any>
 >;
 
 /**
@@ -128,7 +128,7 @@ class TableRegistryBuilder<
    * @param entity - The entity instance to register
    * @returns A builder with the entity registered
    */
-  register<TEntity extends DynamoEntity<TTable, any, any, any, any>>(
+  register<TEntity extends DynamoEntity<TTable, any, any, any>>(
     entity: TEntity,
   ): TableRegistryBuilder<
     TTable,
