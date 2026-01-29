@@ -169,6 +169,13 @@ export class SQLiteEntity<
   }
 
   /**
+   * Gets the ID field name from the schema.
+   */
+  get idField(): TSchema["idField"] {
+    return this.#eschema.idField;
+  }
+
+  /**
    * Gets the unified descriptor for this entity including schema and index info.
    */
   getDescriptor(): StdDescriptor {
