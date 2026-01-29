@@ -1,6 +1,7 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import type { DynamoTableInstance } from "./DynamoTable.js";
+import { ConnectionService } from "@std-toolkit/core/server";
 import { DynamodbError } from "../errors.js";
 import type {
   IndexDefinition,
@@ -228,6 +229,16 @@ export class DynamoEntity<
   #secondaryDerivations: TSecondaryDerivationMap;
   #timelineDerivation: TTimelineDerivation;
 
+  #service = Effect.serviceOption(ConnectionService).pipe(
+    Effect.andThen(Option.getOrNull),
+  );
+
+  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+    return Effect.gen(this, function* () {
+      (yield* this.#service)?.broadcast(entity);
+    });
+  }
+
   constructor(
     table: TTable,
     eschema: TSchema,
@@ -407,10 +418,13 @@ export class DynamoEntity<
             DynamodbError.getItemFailed("Item not found after insert conflict"),
           );
         }
+        yield* self.#broadcast(existing);
         return existing;
       }
 
-      return { value: fullValue, meta };
+      const entity = { value: fullValue, meta };
+      yield* self.#broadcast(entity);
+      return entity;
     });
   }
 
@@ -461,10 +475,34 @@ export class DynamoEntity<
         result.Attributes,
       );
 
-      return {
+      const entity = {
         value: decodedValue as ESchemaType<TSchema>,
         meta: updatedMeta,
       };
+      yield* self.#broadcast(entity);
+      return entity;
+    });
+  }
+
+  /**
+   * Soft deletes an entity by setting the _d flag to true.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @returns The deleted entity with _d flag set to true
+   */
+  delete(
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
+    return Effect.gen(this, function* () {
+      const existing = yield* this.get(keyValue);
+      if (!existing) {
+        return yield* Effect.fail(DynamodbError.noItemToDelete());
+      }
+
+      const result = yield* this.update(keyValue, { _d: true } as any);
+
+      return result;
     });
   }
 

@@ -383,7 +383,11 @@ export class SQLiteEntity<
 
       yield* this.#table.deleteItem({ pk, sk });
 
-      return { ...existing, meta: { ...existing.meta, _d: true } };
+      const deletedEntity = { ...existing, meta: { ...existing.meta, _d: true } };
+
+      yield* this.#broadcast(deletedEntity);
+
+      return deletedEntity;
     });
   }
 

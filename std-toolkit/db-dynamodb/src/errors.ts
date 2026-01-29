@@ -24,6 +24,7 @@ export type DynamodbErrorType =
   | { _tag: "TransactionFailed"; cause: unknown }
   | { _tag: "ItemAlreadyExists" }
   | { _tag: "NoItemToUpdate" }
+  | { _tag: "NoItemToDelete" }
   | { _tag: "ThrottlingException"; meta: AwsErrorMeta }
   | { _tag: "ServiceUnavailable"; meta: AwsErrorMeta }
   | { _tag: "RequestTimeout"; meta: AwsErrorMeta }
@@ -114,6 +115,13 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    */
   static noItemToUpdate() {
     return new DynamodbError({ error: { _tag: "NoItemToUpdate" } });
+  }
+
+  /**
+   * Creates an error when attempting to delete an item that doesn't exist.
+   */
+  static noItemToDelete() {
+    return new DynamodbError({ error: { _tag: "NoItemToDelete" } });
   }
 
   /**
