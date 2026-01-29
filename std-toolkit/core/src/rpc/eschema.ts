@@ -1,4 +1,4 @@
-import { Rpc, RpcGroup } from "@effect/rpc";
+import { Rpc } from "@effect/rpc";
 import { Schema } from "effect";
 import { ESchema, type StructFieldsSchema } from "@std-toolkit/eschema";
 import { EntitySchema } from "../schema";
@@ -121,10 +121,10 @@ export const makeEntityRpcGroup = <
   eschema: ESchema<N, Id, V, F>,
   prefix?: P,
 ) => {
-  return RpcGroup.make(
+  return [
     makeGetRpc(eschema, prefix),
     makeInsertRpc(eschema, prefix),
     makeUpdateRpc(eschema, prefix),
     makeDeleteRpc(eschema, prefix),
-  );
+  ];
 };

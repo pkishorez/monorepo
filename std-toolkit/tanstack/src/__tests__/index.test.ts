@@ -30,7 +30,7 @@ describe("stdCollectionOptions", () => {
     stdCollectionOptions({
       schema: TestSchema,
       sync: () => ({ effect: Effect.succeed([]) }),
-      onInsert: (item) => Effect.succeed(createEntity(item)),
+      onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
     });
 
   it("returns config with required properties", () => {
