@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(pnpm lint:*)",
-      "Bash(timeout 20 pnpm dev:*)"
+      "Bash(timeout 20 pnpm dev:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm build)"
     ]
   }
 }

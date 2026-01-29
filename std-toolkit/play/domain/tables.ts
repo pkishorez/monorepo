@@ -11,7 +11,7 @@ export const UsersTable = SQLiteTable.make({ tableName: "std_data" })
 export const UserEntity = SQLiteEntity.make(UsersTable)
   .eschema(UserSchema)
   .primary() // pk: "User", sk: id (from idField)
-  .index("IDX1", "byUpdates", { pk: [] }) // sk: _uid (automatic)
+  .timeline("IDX1")
   .build();
 
 // Registry for setup
