@@ -24,7 +24,7 @@
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "aws4fetch": "1.0.20",
-    "type-fest": "5.4.1",
+    "type-fest": "5.4.2",
     "ulid": "3.0.2"
   },
   "devDependencies": {
@@ -32,7 +32,7 @@
     "@effect/platform-node": "0.104.1",
     "@effect/vitest": "0.27.0",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.0.10",
+    "@types/node": "25.1.0",
     "effect": "3.19.15",
     "typescript": "5.9.3",
     "vite": "7.3.1",
