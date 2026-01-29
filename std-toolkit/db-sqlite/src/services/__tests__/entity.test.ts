@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "@effect/v
 import { ESchema } from "@std-toolkit/eschema";
 import { Effect, Layer, Schema } from "effect";
 import { SqliteDBBetterSqlite3 } from "../../sql/adapters/better-sqlite3.js";
-import { SqliteDB } from "../../sql/db.js";
+import { SqliteDB, SqliteDBError } from "../../sql/db.js";
 import { SQLiteTable } from "../SQLiteTable.js";
 import { SQLiteEntity } from "../SQLiteEntity.js";
 import { EntityRegistry } from "../../registry/entity-registry.js";
@@ -312,7 +312,7 @@ describe("SQLite Single Table Design", () => {
 
     it.effect("queries all posts by author (partition query)", () =>
       Effect.gen(function* () {
-        const result = yield* postEntity.query("pk", {
+        const result = yield* postEntity.query("primary", {
           pk: { authorId: "query-author" },
           sk: { ">=": null },
         });
@@ -326,7 +326,7 @@ describe("SQLite Single Table Design", () => {
 
     it.effect("queries posts with sk condition", () =>
       Effect.gen(function* () {
-        const result = yield* postEntity.query("pk", {
+        const result = yield* postEntity.query("primary", {
           pk: { authorId: "query-author" },
           sk: { ">=": "post-b" },
         });
@@ -340,7 +340,7 @@ describe("SQLite Single Table Design", () => {
 
     it.effect("queries with descending order", () =>
       Effect.gen(function* () {
-        const result = yield* postEntity.query("pk", {
+        const result = yield* postEntity.query("primary", {
           pk: { authorId: "query-author" },
           sk: { "<=": null },
         });
@@ -355,7 +355,7 @@ describe("SQLite Single Table Design", () => {
     it.effect("respects limit option", () =>
       Effect.gen(function* () {
         const result = yield* postEntity.query(
-          "pk",
+          "primary",
           {
             pk: { authorId: "query-author" },
             sk: { ">=": null },
@@ -587,7 +587,7 @@ describe("Query Operators", () => {
   describe(">= operator", () => {
     it.effect(">= null returns all items in ascending order", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { ">=": null },
         });
@@ -600,7 +600,7 @@ describe("Query Operators", () => {
 
     it.effect(">= specific value returns items from that point ascending", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { ">=": "c" },
         });
@@ -614,7 +614,7 @@ describe("Query Operators", () => {
   describe("> operator", () => {
     it.effect("> null returns all items in ascending order", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { ">": null },
         });
@@ -627,7 +627,7 @@ describe("Query Operators", () => {
 
     it.effect("> specific value returns items after that point (exclusive)", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { ">": "c" },
         });
@@ -641,7 +641,7 @@ describe("Query Operators", () => {
   describe("<= operator", () => {
     it.effect("<= null returns all items in descending order", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { "<=": null },
         });
@@ -654,7 +654,7 @@ describe("Query Operators", () => {
 
     it.effect("<= specific value returns items up to that point descending", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { "<=": "c" },
         });
@@ -668,7 +668,7 @@ describe("Query Operators", () => {
   describe("< operator", () => {
     it.effect("< null returns all items in descending order", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { "<": null },
         });
@@ -681,7 +681,7 @@ describe("Query Operators", () => {
 
     it.effect("< specific value returns items before that point (exclusive)", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { "<": "c" },
         });
@@ -696,7 +696,7 @@ describe("Query Operators", () => {
     it.effect(">= null with limit returns first N ascending", () =>
       Effect.gen(function* () {
         const result = yield* itemEntity.query(
-          "pk",
+          "primary",
           { pk: { category: "cat-1" }, sk: { ">=": null } },
           { limit: 2 },
         );
@@ -709,7 +709,7 @@ describe("Query Operators", () => {
     it.effect("<= null with limit returns last N descending", () =>
       Effect.gen(function* () {
         const result = yield* itemEntity.query(
-          "pk",
+          "primary",
           { pk: { category: "cat-1" }, sk: { "<=": null } },
           { limit: 2 },
         );
@@ -722,7 +722,7 @@ describe("Query Operators", () => {
     it.effect("> specific value with limit", () =>
       Effect.gen(function* () {
         const result = yield* itemEntity.query(
-          "pk",
+          "primary",
           { pk: { category: "cat-1" }, sk: { ">": "b" } },
           { limit: 2 },
         );
@@ -735,7 +735,7 @@ describe("Query Operators", () => {
     it.effect("< specific value with limit", () =>
       Effect.gen(function* () {
         const result = yield* itemEntity.query(
-          "pk",
+          "primary",
           { pk: { category: "cat-1" }, sk: { "<": "d" } },
           { limit: 2 },
         );
@@ -787,7 +787,7 @@ describe("Query Operators", () => {
   describe("empty results", () => {
     it.effect("returns empty array for non-existent partition", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "non-existent" },
           sk: { ">=": null },
         });
@@ -798,7 +798,7 @@ describe("Query Operators", () => {
 
     it.effect("> last item returns empty", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { ">": "e" },
         });
@@ -809,7 +809,7 @@ describe("Query Operators", () => {
 
     it.effect("< first item returns empty", () =>
       Effect.gen(function* () {
-        const result = yield* itemEntity.query("pk", {
+        const result = yield* itemEntity.query("primary", {
           pk: { category: "cat-1" },
           sk: { "<": "a" },
         });
@@ -879,7 +879,7 @@ describe("Primary Index with IdField", () => {
 
   it.effect("queries with idField sk ascending", () =>
     Effect.gen(function* () {
-      const result = yield* commentEntity.query("pk", {
+      const result = yield* commentEntity.query("primary", {
         pk: { postId: "post-1" },
         sk: { ">=": null },
       });
@@ -894,7 +894,7 @@ describe("Primary Index with IdField", () => {
 
   it.effect("queries with idField sk descending", () =>
     Effect.gen(function* () {
-      const result = yield* commentEntity.query("pk", {
+      const result = yield* commentEntity.query("primary", {
         pk: { postId: "post-1" },
         sk: { "<=": null },
       });
@@ -907,7 +907,7 @@ describe("Primary Index with IdField", () => {
 
   it.effect("queries with specific idField value", () =>
     Effect.gen(function* () {
-      const result = yield* commentEntity.query("pk", {
+      const result = yield* commentEntity.query("primary", {
         pk: { postId: "post-1" },
         sk: { ">=": "c2" },
       });
@@ -988,7 +988,7 @@ describe("Subscribe", () => {
   it.effect("subscribe returns items after cursor (primary)", () =>
     Effect.gen(function* () {
       const result = yield* eventEntity.subscribe({
-        key: "pk",
+        key: "primary",
         value: { streamId: "stream-1", eventId: "002" },
       });
 
@@ -1000,7 +1000,7 @@ describe("Subscribe", () => {
   it.effect("subscribe with limit", () =>
     Effect.gen(function* () {
       const result = yield* eventEntity.subscribe({
-        key: "pk",
+        key: "primary",
         value: { streamId: "stream-1", eventId: "002" },
         limit: 2,
       });
@@ -1013,7 +1013,7 @@ describe("Subscribe", () => {
   it.effect("subscribe with null value returns empty", () =>
     Effect.gen(function* () {
       const result = yield* eventEntity.subscribe({
-        key: "pk",
+        key: "primary",
         value: null,
       });
 
@@ -1259,12 +1259,405 @@ describe("SQLite Entity Edge Cases", () => {
       expect(rowsDeleted).toBeGreaterThan(0);
 
       // With pk being just entity name, pk is optional
-      const result = yield* simpleEntity.query("pk", {
+      const result = yield* simpleEntity.query("primary", {
         sk: { ">=": null },
       });
       expect(result.items).toHaveLength(0);
     }).pipe(Effect.provide(layer)),
   );
+});
+
+// ─── Timeline Index Tests ─────────────────────────────────────────────────────
+
+describe("Timeline Index", () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const table = SQLiteTable.make({ tableName: "timeline_test" })
+    .primary("pk", "sk")
+    .index("IDX1", "IDX1PK", "IDX1SK")
+    .build();
+
+  const TaskSchema = ESchema.make("Task", "taskId", {
+    projectId: Schema.String,
+    title: Schema.String,
+    status: Schema.String,
+  }).build();
+
+  // Entity with timeline index - uses same PK as primary but SK is _uid
+  const taskEntity = SQLiteEntity.make(table)
+    .eschema(TaskSchema)
+    .primary({ pk: ["projectId"] }) // sk: taskId (from idField)
+    .timeline("IDX1") // Timeline index for time-ordered queries
+    .build();
+
+  beforeAll(async () => {
+    db = new Database(":memory:");
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+    // Insert tasks
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* taskEntity.insert({
+          taskId: "task-001",
+          projectId: "proj-timeline",
+          title: "First Task",
+          status: "pending",
+        });
+        yield* taskEntity.insert({
+          taskId: "task-002",
+          projectId: "proj-timeline",
+          title: "Second Task",
+          status: "in_progress",
+        });
+        yield* taskEntity.insert({
+          taskId: "task-003",
+          projectId: "proj-timeline",
+          title: "Third Task",
+          status: "completed",
+        });
+        yield* taskEntity.insert({
+          taskId: "task-004",
+          projectId: "proj-timeline",
+          title: "Fourth Task",
+          status: "pending",
+        });
+        yield* taskEntity.insert({
+          taskId: "task-005",
+          projectId: "proj-timeline",
+          title: "Fifth Task",
+          status: "in_progress",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  afterAll(() => db.close());
+
+  describe("timeline index queries", () => {
+    it.effect("queries all items in ascending order (by _uid)", () =>
+      Effect.gen(function* () {
+        const result = yield* taskEntity.query("timeline", {
+          pk: { projectId: "proj-timeline" },
+          sk: { ">=": null },
+        });
+
+        expect(result.items).toHaveLength(5);
+        // Verify items are in ascending _uid order
+        const uids = result.items.map((i) => i.meta._uid);
+        for (let i = 1; i < uids.length; i++) {
+          expect(uids[i]! > uids[i - 1]!).toBe(true);
+        }
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("queries all items in descending order (by _uid)", () =>
+      Effect.gen(function* () {
+        const result = yield* taskEntity.query("timeline", {
+          pk: { projectId: "proj-timeline" },
+          sk: { "<=": null },
+        });
+
+        expect(result.items).toHaveLength(5);
+        // Verify items are in descending _uid order
+        const uids = result.items.map((i) => i.meta._uid);
+        for (let i = 1; i < uids.length; i++) {
+          expect(uids[i]! < uids[i - 1]!).toBe(true);
+        }
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("queries with limit (first N by ascending _uid)", () =>
+      Effect.gen(function* () {
+        const result = yield* taskEntity.query(
+          "timeline",
+          {
+            pk: { projectId: "proj-timeline" },
+            sk: { ">=": null },
+          },
+          { limit: 3 },
+        );
+
+        expect(result.items).toHaveLength(3);
+        // Verify ascending order
+        const uids = result.items.map((i) => i.meta._uid);
+        for (let i = 1; i < uids.length; i++) {
+          expect(uids[i]! > uids[i - 1]!).toBe(true);
+        }
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("queries with limit (last N by descending _uid)", () =>
+      Effect.gen(function* () {
+        const result = yield* taskEntity.query(
+          "timeline",
+          {
+            pk: { projectId: "proj-timeline" },
+            sk: { "<=": null },
+          },
+          { limit: 3 },
+        );
+
+        expect(result.items).toHaveLength(3);
+        // Verify descending order
+        const uids = result.items.map((i) => i.meta._uid);
+        for (let i = 1; i < uids.length; i++) {
+          expect(uids[i]! < uids[i - 1]!).toBe(true);
+        }
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("queries from specific cursor (pagination)", () =>
+      Effect.gen(function* () {
+        // Get first page
+        const firstPage = yield* taskEntity.query(
+          "timeline",
+          {
+            pk: { projectId: "proj-timeline" },
+            sk: { ">=": null },
+          },
+          { limit: 2 },
+        );
+
+        expect(firstPage.items).toHaveLength(2);
+
+        // Use last item's _uid as cursor for next page
+        const lastItem = firstPage.items[firstPage.items.length - 1];
+        const cursor = lastItem!.meta._uid;
+
+        const secondPage = yield* taskEntity.query(
+          "timeline",
+          {
+            pk: { projectId: "proj-timeline" },
+            sk: { ">": cursor },
+          },
+          { limit: 2 },
+        );
+
+        expect(secondPage.items).toHaveLength(2);
+        // Verify all items on second page have _uid > cursor
+        for (const item of secondPage.items) {
+          expect(item.meta._uid > cursor).toBe(true);
+        }
+        // Verify ascending order within page
+        expect(secondPage.items[1]!.meta._uid > secondPage.items[0]!.meta._uid).toBe(true);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("queries from cursor descending (reverse pagination)", () =>
+      Effect.gen(function* () {
+        // Get last page first (descending)
+        const lastPage = yield* taskEntity.query(
+          "timeline",
+          {
+            pk: { projectId: "proj-timeline" },
+            sk: { "<=": null },
+          },
+          { limit: 2 },
+        );
+
+        expect(lastPage.items).toHaveLength(2);
+
+        // Use last item's _uid as cursor for previous page
+        const lastItem = lastPage.items[lastPage.items.length - 1];
+        const cursor = lastItem!.meta._uid;
+
+        const previousPage = yield* taskEntity.query(
+          "timeline",
+          {
+            pk: { projectId: "proj-timeline" },
+            sk: { "<": cursor },
+          },
+          { limit: 2 },
+        );
+
+        expect(previousPage.items).toHaveLength(2);
+        // Verify all items on previous page have _uid < cursor
+        for (const item of previousPage.items) {
+          expect(item.meta._uid < cursor).toBe(true);
+        }
+        // Verify descending order within page
+        expect(previousPage.items[1]!.meta._uid < previousPage.items[0]!.meta._uid).toBe(true);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("primary index still works with same entity", () =>
+      Effect.gen(function* () {
+        // Query by primary index (sorted by taskId)
+        const result = yield* taskEntity.query("primary", {
+          pk: { projectId: "proj-timeline" },
+          sk: { ">=": null },
+        });
+
+        expect(result.items).toHaveLength(5);
+        // Primary index sk is taskId, so sorted alphabetically
+        const taskIds = result.items.map((i) => i.value.taskId);
+        expect(taskIds[0]).toBe("task-001");
+        expect(taskIds[4]).toBe("task-005");
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("returns empty for non-existent partition", () =>
+      Effect.gen(function* () {
+        const result = yield* taskEntity.query("timeline", {
+          pk: { projectId: "non-existent-project" },
+          sk: { ">=": null },
+        });
+
+        expect(result.items).toHaveLength(0);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("timeline index descriptor", () => {
+    it("getDescriptor includes timeline index", () => {
+      const descriptor = taskEntity.getDescriptor();
+
+      expect(descriptor.secondaryIndexes).toHaveLength(1);
+      const timeline = descriptor.secondaryIndexes.find(
+        (i) => i.name === "timeline",
+      );
+      expect(timeline).toBeDefined();
+      expect(timeline!.pk.deps).toContain("projectId");
+      expect(timeline!.sk.deps).toContain("_uid");
+    });
+  });
+
+  describe("timeline index error handling", () => {
+    // Create entity without timeline index to test error path
+    const noTimelineTable = SQLiteTable.make({ tableName: "no_timeline_test" })
+      .primary("pk", "sk")
+      .build();
+
+    const NoTimelineSchema = ESchema.make("NoTimeline", "id", {
+      value: Schema.String,
+    }).build();
+
+    const noTimelineEntity = SQLiteEntity.make(noTimelineTable)
+      .eschema(NoTimelineSchema)
+      .primary()
+      .build();
+
+    let noTimelineDb: Database.Database;
+    let noTimelineLayer: Layer.Layer<SqliteDB>;
+
+    beforeAll(async () => {
+      noTimelineDb = new Database(":memory:");
+      noTimelineLayer = SqliteDBBetterSqlite3(noTimelineDb);
+      await Effect.runPromise(
+        noTimelineTable.setup().pipe(Effect.provide(noTimelineLayer)),
+      );
+    });
+
+    afterAll(() => noTimelineDb.close());
+
+    it.effect("fails when querying timeline on entity without it", () =>
+      Effect.gen(function* () {
+        const error = yield* (noTimelineEntity as any)
+          .query("timeline", {
+            pk: {},
+            sk: { ">=": null },
+          })
+          .pipe(Effect.flip) as Effect.Effect<SqliteDBError>;
+
+        expect(error.error._tag).toBe("QueryFailed");
+      }).pipe(Effect.provide(noTimelineLayer)),
+    );
+  });
+
+  describe("timeline index with updates", () => {
+    it.effect("updated items get new _uid", () =>
+      Effect.gen(function* () {
+        // Insert a new item
+        const inserted = yield* taskEntity.insert({
+          taskId: "task-update-test",
+          projectId: "proj-update-test",
+          title: "Original Title",
+          status: "pending",
+        });
+
+        const originalUid = inserted.meta._uid;
+
+        // Update the item
+        const updated = yield* taskEntity.update(
+          { projectId: "proj-update-test", taskId: "task-update-test" },
+          { title: "Updated Title", status: "completed" },
+        );
+
+        // _uid changes on update (as per the entity design)
+        expect(updated.meta._uid).not.toBe(originalUid);
+
+        // Query timeline should find the item with new position
+        const result = yield* taskEntity.query("timeline", {
+          pk: { projectId: "proj-update-test" },
+          sk: { ">=": null },
+        });
+
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0]!.value.title).toBe("Updated Title");
+        expect(result.items[0]!.meta._uid).toBe(updated.meta._uid);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  describe("timeline index subscribe", () => {
+    it.effect("subscribe on timeline uses _uid for cursor", () =>
+      Effect.gen(function* () {
+        // Get second item to use as cursor
+        const items = yield* taskEntity.query(
+          "timeline",
+          {
+            pk: { projectId: "proj-timeline" },
+            sk: { ">=": null },
+          },
+          { limit: 2 },
+        );
+
+        const cursorItem = items.items[1]!;
+
+        // Subscribe from that cursor
+        const result = yield* taskEntity.subscribe({
+          key: "timeline",
+          value: {
+            projectId: "proj-timeline",
+            _uid: cursorItem.meta._uid,
+          } as any,
+        });
+
+        // Should get items after the cursor
+        expect(result.items.length).toBeGreaterThan(0);
+        // First item should be after the cursor
+        expect(result.items[0]!.meta._uid > cursorItem.meta._uid).toBe(true);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("subscribe with limit", () =>
+      Effect.gen(function* () {
+        const items = yield* taskEntity.query(
+          "timeline",
+          {
+            pk: { projectId: "proj-timeline" },
+            sk: { ">=": null },
+          },
+          { limit: 1 },
+        );
+
+        const cursorItem = items.items[0]!;
+
+        const result = yield* taskEntity.subscribe({
+          key: "timeline",
+          value: {
+            projectId: "proj-timeline",
+            _uid: cursorItem.meta._uid,
+          } as any,
+          limit: 2,
+        });
+
+        expect(result.items).toHaveLength(2);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
 });
 
 // ─── Multiple Secondary Indexes ──────────────────────────────────────────────

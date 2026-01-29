@@ -4,6 +4,7 @@ import { ESchema } from "@std-toolkit/eschema";
 import {
   DynamoTable,
   DynamoEntity,
+  DynamodbError,
   exprUpdate,
   buildExpr,
   opAdd,
@@ -846,7 +847,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             items: [],
           });
 
-          const result = yield* OrderEntity.raw.query("pk", {
+          const result = yield* OrderEntity.raw.query("primary", {
             pk: { userId: "query-user-1" },
           });
 
@@ -857,7 +858,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("queries with limit using raw.query", () =>
         Effect.gen(function* () {
           const result = yield* OrderEntity.raw.query(
-            "pk",
+            "primary",
             { pk: { userId: "query-user-1" } },
             { Limit: 1 },
           );
@@ -871,7 +872,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           // Query for orders >= order-001 (ascending, so should get both)
           // SK is the idField (orderId) for primary index
           const result = yield* OrderEntity.query(
-            "pk",
+            "primary",
             {
               pk: { userId: "query-user-1" },
               sk: { ">=": "order-001" },
@@ -1047,7 +1048,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         Effect.gen(function* () {
           // Entity raw.query uses derivation values, not derived strings
           // Type assertion needed as beginsWith type is string but runtime supports objects
-          const result = yield* OrderEntity.raw.query("pk", {
+          const result = yield* OrderEntity.raw.query("primary", {
             pk: { userId: "entity-query-sk-user" },
             sk: { beginsWith: { orderId: "order-00" } as any },
           });
@@ -1060,7 +1061,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         Effect.gen(function* () {
           // Simplified query uses KeyOp with comparison operators
           // SK is the idField (orderId) for primary index
-          const result = yield* OrderEntity.query("pk", {
+          const result = yield* OrderEntity.query("primary", {
             pk: { userId: "entity-query-sk-user" },
             sk: { ">": "order-001" },
           });
@@ -1477,6 +1478,359 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           expect(result.Items.length).toBe(1);
           expect(result.Items[0]?.score).toBe(300);
+        }),
+      );
+    });
+  });
+
+  describe("Timeline Index", () => {
+    // Create an entity with timeline index for time-ordered queries
+    const taskSchema = ESchema.make("Task", "taskId", {
+      projectId: Schema.String,
+      title: Schema.String,
+      status: Schema.String,
+    }).build();
+
+    // Entity with timeline index - uses same PK as primary but SK is _uid
+    const TaskEntity = DynamoEntity.make(table)
+      .eschema(taskSchema)
+      .primary({ pk: ["projectId"] })
+      .timeline("GSI1") // Timeline index for time-ordered queries
+      .build();
+
+    describe("timeline index queries", () => {
+      beforeAll(async () => {
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            // Insert tasks with delays to ensure different _uid values
+            yield* TaskEntity.insert({
+              taskId: "task-001",
+              projectId: "proj-timeline",
+              title: "First Task",
+              status: "pending",
+            });
+            yield* TaskEntity.insert({
+              taskId: "task-002",
+              projectId: "proj-timeline",
+              title: "Second Task",
+              status: "in_progress",
+            });
+            yield* TaskEntity.insert({
+              taskId: "task-003",
+              projectId: "proj-timeline",
+              title: "Third Task",
+              status: "completed",
+            });
+            yield* TaskEntity.insert({
+              taskId: "task-004",
+              projectId: "proj-timeline",
+              title: "Fourth Task",
+              status: "pending",
+            });
+            yield* TaskEntity.insert({
+              taskId: "task-005",
+              projectId: "proj-timeline",
+              title: "Fifth Task",
+              status: "in_progress",
+            });
+          }),
+        );
+      });
+
+      it.effect("queries all items in ascending order (by _uid)", () =>
+        Effect.gen(function* () {
+          const result = yield* TaskEntity.query("timeline", {
+            pk: { projectId: "proj-timeline" },
+            sk: { ">=": null },
+          });
+
+          expect(result.items).toHaveLength(5);
+          // Verify items are in ascending _uid order
+          const uids = result.items.map((i) => i.meta._uid);
+          for (let i = 1; i < uids.length; i++) {
+            expect(uids[i]! > uids[i - 1]!).toBe(true);
+          }
+        }),
+      );
+
+      it.effect("queries all items in descending order (by _uid)", () =>
+        Effect.gen(function* () {
+          const result = yield* TaskEntity.query("timeline", {
+            pk: { projectId: "proj-timeline" },
+            sk: { "<=": null },
+          });
+
+          expect(result.items).toHaveLength(5);
+          // Verify items are in descending _uid order
+          const uids = result.items.map((i) => i.meta._uid);
+          for (let i = 1; i < uids.length; i++) {
+            expect(uids[i]! < uids[i - 1]!).toBe(true);
+          }
+        }),
+      );
+
+      it.effect("queries with limit (first N by ascending _uid)", () =>
+        Effect.gen(function* () {
+          const result = yield* TaskEntity.query(
+            "timeline",
+            {
+              pk: { projectId: "proj-timeline" },
+              sk: { ">=": null },
+            },
+            { limit: 3 },
+          );
+
+          expect(result.items).toHaveLength(3);
+          // Verify ascending order
+          const uids = result.items.map((i) => i.meta._uid);
+          for (let i = 1; i < uids.length; i++) {
+            expect(uids[i]! > uids[i - 1]!).toBe(true);
+          }
+        }),
+      );
+
+      it.effect("queries with limit (last N by descending _uid)", () =>
+        Effect.gen(function* () {
+          const result = yield* TaskEntity.query(
+            "timeline",
+            {
+              pk: { projectId: "proj-timeline" },
+              sk: { "<=": null },
+            },
+            { limit: 3 },
+          );
+
+          expect(result.items).toHaveLength(3);
+          // Verify descending order
+          const uids = result.items.map((i) => i.meta._uid);
+          for (let i = 1; i < uids.length; i++) {
+            expect(uids[i]! < uids[i - 1]!).toBe(true);
+          }
+        }),
+      );
+
+      it.effect("queries from specific cursor (pagination)", () =>
+        Effect.gen(function* () {
+          // Get first page
+          const firstPage = yield* TaskEntity.query(
+            "timeline",
+            {
+              pk: { projectId: "proj-timeline" },
+              sk: { ">=": null },
+            },
+            { limit: 2 },
+          );
+
+          expect(firstPage.items).toHaveLength(2);
+
+          // Use last item's _uid as cursor for next page
+          const lastItem = firstPage.items[firstPage.items.length - 1];
+          const cursor = lastItem!.meta._uid;
+
+          const secondPage = yield* TaskEntity.query(
+            "timeline",
+            {
+              pk: { projectId: "proj-timeline" },
+              sk: { ">": cursor },
+            },
+            { limit: 2 },
+          );
+
+          expect(secondPage.items).toHaveLength(2);
+          // Verify all items on second page have _uid > cursor
+          for (const item of secondPage.items) {
+            expect(item.meta._uid > cursor).toBe(true);
+          }
+          // Verify ascending order within page
+          expect(secondPage.items[1]!.meta._uid > secondPage.items[0]!.meta._uid).toBe(true);
+        }),
+      );
+
+      it.effect("queries from cursor descending (reverse pagination)", () =>
+        Effect.gen(function* () {
+          // Get last page first (descending)
+          const lastPage = yield* TaskEntity.query(
+            "timeline",
+            {
+              pk: { projectId: "proj-timeline" },
+              sk: { "<=": null },
+            },
+            { limit: 2 },
+          );
+
+          expect(lastPage.items).toHaveLength(2);
+
+          // Use last item's _uid as cursor for previous page
+          const lastItem = lastPage.items[lastPage.items.length - 1];
+          const cursor = lastItem!.meta._uid;
+
+          const previousPage = yield* TaskEntity.query(
+            "timeline",
+            {
+              pk: { projectId: "proj-timeline" },
+              sk: { "<": cursor },
+            },
+            { limit: 2 },
+          );
+
+          expect(previousPage.items).toHaveLength(2);
+          // Verify all items on previous page have _uid < cursor
+          for (const item of previousPage.items) {
+            expect(item.meta._uid < cursor).toBe(true);
+          }
+          // Verify descending order within page
+          expect(previousPage.items[1]!.meta._uid < previousPage.items[0]!.meta._uid).toBe(true);
+        }),
+      );
+
+      it.effect("primary index still works with same entity", () =>
+        Effect.gen(function* () {
+          // Query by primary index (sorted by taskId)
+          const result = yield* TaskEntity.query("primary", {
+            pk: { projectId: "proj-timeline" },
+            sk: { ">=": null },
+          });
+
+          expect(result.items).toHaveLength(5);
+          // Primary index sk is taskId, so sorted alphabetically
+          const taskIds = result.items.map((i) => i.value.taskId);
+          expect(taskIds[0]).toBe("task-001");
+          expect(taskIds[4]).toBe("task-005");
+        }),
+      );
+
+      it.effect("returns empty for non-existent partition", () =>
+        Effect.gen(function* () {
+          const result = yield* TaskEntity.query("timeline", {
+            pk: { projectId: "non-existent-project" },
+            sk: { ">=": null },
+          });
+
+          expect(result.items).toHaveLength(0);
+        }),
+      );
+    });
+
+    describe("timeline index with raw.query", () => {
+      it.effect("raw.query on timeline index works", () =>
+        Effect.gen(function* () {
+          const result = yield* TaskEntity.raw.query("timeline", {
+            pk: { projectId: "proj-timeline" },
+          });
+
+          expect(result.items).toHaveLength(5);
+        }),
+      );
+
+      it.effect("raw.query with sk condition works", () =>
+        Effect.gen(function* () {
+          // Get one item to use its _uid as a cursor
+          const first = yield* TaskEntity.query(
+            "timeline",
+            {
+              pk: { projectId: "proj-timeline" },
+              sk: { ">=": null },
+            },
+            { limit: 1 },
+          );
+
+          const firstUid = first.items[0]!.meta._uid;
+
+          const result = yield* TaskEntity.raw.query(
+            "timeline",
+            {
+              pk: { projectId: "proj-timeline" },
+              sk: { ">": { _uid: firstUid } },
+            },
+            { Limit: 2 },
+          );
+
+          expect(result.items).toHaveLength(2);
+        }),
+      );
+    });
+
+    describe("timeline index descriptor", () => {
+      it("getDescriptor includes timeline index", () => {
+        const descriptor = TaskEntity.getDescriptor();
+
+        expect(descriptor.secondaryIndexes).toHaveLength(1);
+        const timeline = descriptor.secondaryIndexes.find(
+          (i) => i.name === "timeline",
+        );
+        expect(timeline).toBeDefined();
+        expect(timeline!.pk.deps).toContain("projectId");
+        expect(timeline!.sk.deps).toContain("_uid");
+      });
+    });
+
+    describe("timeline index error handling", () => {
+      // Create entity without timeline index to test error path
+      const noTimelineSchema = ESchema.make("NoTimeline", "id", {
+        value: Schema.String,
+      }).build();
+
+      const NoTimelineEntity = DynamoEntity.make(table)
+        .eschema(noTimelineSchema)
+        .primary()
+        .build();
+
+      it.effect("fails when querying timeline on entity without it", () =>
+        Effect.gen(function* () {
+          const error = yield* (NoTimelineEntity as any)
+            .query("timeline", {
+              pk: {},
+              sk: { ">=": null },
+            })
+            .pipe(Effect.flip) as Effect.Effect<DynamodbError>;
+
+          expect(error.error._tag).toBe("QueryFailed");
+        }),
+      );
+
+      it.effect("fails when raw.query on timeline without it", () =>
+        Effect.gen(function* () {
+          const error = yield* (NoTimelineEntity as any).raw
+            .query("timeline", {
+              pk: {},
+            })
+            .pipe(Effect.flip) as Effect.Effect<DynamodbError>;
+
+          expect(error.error._tag).toBe("QueryFailed");
+        }),
+      );
+    });
+
+    describe("timeline index with updates", () => {
+      it.effect("updated items maintain their timeline position", () =>
+        Effect.gen(function* () {
+          // Insert a new item
+          const inserted = yield* TaskEntity.insert({
+            taskId: "task-update-test",
+            projectId: "proj-update-test",
+            title: "Original Title",
+            status: "pending",
+          });
+
+          const originalUid = inserted.meta._uid;
+
+          // Update the item
+          const updated = yield* TaskEntity.update(
+            { projectId: "proj-update-test", taskId: "task-update-test" },
+            { title: "Updated Title", status: "completed" },
+          );
+
+          // _uid changes on update (as per the entity design)
+          expect(updated.meta._uid).not.toBe(originalUid);
+
+          // Query timeline should find the item
+          const result = yield* TaskEntity.query("timeline", {
+            pk: { projectId: "proj-update-test" },
+            sk: { ">=": null },
+          });
+
+          expect(result.items).toHaveLength(1);
+          expect(result.items[0]!.value.title).toBe("Updated Title");
         }),
       );
     });

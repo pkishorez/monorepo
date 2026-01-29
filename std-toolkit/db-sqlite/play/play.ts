@@ -47,7 +47,8 @@ const userEntity = SQLiteEntity.make(table)
 const postEntity = SQLiteEntity.make(table)
   .eschema(PostSchema)
   .primary({ pk: ["authorId"] }) // sk: postId (idField)
-  .index("IDX1", "byAuthor", { pk: ["authorId"] }) // sk: _uid
+  .timeline("IDX1")
+  .index("IDX2", "byAuthor", { pk: ["title"] }) // sk: _uid
   .build();
 
 const registry = EntityRegistry.make(table)
@@ -73,7 +74,7 @@ const program = Effect.gen(function* () {
     status: "active",
   });
 
-  postEntity.query("", { pk: { authorId: "u1" }, sk: { ">=": null } });
+  postEntity.query("primary", { pk: { authorId: "u1" }, sk: { ">=": null } });
 
   const user2 = yield* userEntity.insert({
     userId: "u2",
@@ -118,8 +119,8 @@ const program = Effect.gen(function* () {
 
   // ─── Query ─────────────────────────────────────────
   console.log("\n--- Query ---");
-  const alicePosts = yield* postEntity.query("pk", {
-    pk: { authorId: "u1" },
+  const alicePosts = yield* postEntity.query("byAuthor", {
+    pk: { title: "u1" },
     sk: { ">=": null },
   });
   console.log(`Alice's posts (${alicePosts.items.length}):`);

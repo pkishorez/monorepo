@@ -33,6 +33,8 @@ export interface StdDescriptor {
   version: string;
   /** Primary index descriptor */
   primaryIndex: IndexDescriptor;
+  /** Timeline index descriptor (optional, for time-ordered queries on same partition) */
+  timelineIndex?: IndexDescriptor;
   /** Secondary index descriptors */
   secondaryIndexes: IndexDescriptor[];
   /** ESchema descriptor for the data schema */

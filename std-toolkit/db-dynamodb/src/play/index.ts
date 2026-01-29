@@ -125,7 +125,7 @@ const play = Effect.gen(function* () {
   // ---------------------------------------------------------------------------
   yield* Console.log("\n[2] query({ pk, sk: { '>=': null } }) - All posts ascending\n");
 
-  const q1 = yield* PostEntity.query("pk", { pk: { authorId: "alice" }, sk: { ">=": null } });
+  const q1 = yield* PostEntity.query("primary", { pk: { authorId: "alice" }, sk: { ">=": null } });
   yield* Console.log(`    Found ${q1.items.length} posts:`);
   for (const p of q1.items) {
     yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
@@ -136,7 +136,7 @@ const play = Effect.gen(function* () {
   // ---------------------------------------------------------------------------
   yield* Console.log("\n[3] query({ pk, sk: { '<=': null } }) - All posts descending\n");
 
-  const q2 = yield* PostEntity.query("pk", { pk: { authorId: "alice" }, sk: { "<=": null } });
+  const q2 = yield* PostEntity.query("primary", { pk: { authorId: "alice" }, sk: { "<=": null } });
   yield* Console.log(`    Found ${q2.items.length} posts:`);
   for (const p of q2.items) {
     yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
@@ -179,7 +179,7 @@ const play = Effect.gen(function* () {
     "\n[6] query({ pk, sk: { '>=': { postId } } }) - Posts from post-03\n",
   );
 
-  const q5 = yield* PostEntity.query("pk", {
+  const q5 = yield* PostEntity.query("primary", {
     pk: { authorId: "alice" },
     sk: { ">=": "post-03" },
   });
@@ -232,7 +232,7 @@ const play = Effect.gen(function* () {
     "\n[9] raw.query with between - Posts between post-02 and post-04\n",
   );
 
-  const q8 = yield* PostEntity.raw.query("pk", {
+  const q8 = yield* PostEntity.raw.query("primary", {
     pk: { authorId: "alice" },
     sk: {
       between: [
