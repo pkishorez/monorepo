@@ -142,7 +142,7 @@ describe("Simplified API Tests", () => {
   describe("query(key, params, options) - Simplified Query", () => {
     it.effect("queries primary index with >= operator (ascending)", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("pk", {
+        const result = yield* OrderEntity.query("primary", {
           pk: { userId: "user-001" },
           sk: { ">=": "order-001" },
         });
@@ -155,7 +155,7 @@ describe("Simplified API Tests", () => {
 
     it.effect("queries primary index with > operator (ascending)", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("pk", {
+        const result = yield* OrderEntity.query("primary", {
           pk: { userId: "user-001" },
           sk: { ">": "order-001" },
         });
@@ -167,7 +167,7 @@ describe("Simplified API Tests", () => {
 
     it.effect("queries primary index with <= operator (descending)", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("pk", {
+        const result = yield* OrderEntity.query("primary", {
           pk: { userId: "user-001" },
           sk: { "<=": "order-003" },
         });
@@ -180,7 +180,7 @@ describe("Simplified API Tests", () => {
 
     it.effect("queries primary index with < operator (descending)", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("pk", {
+        const result = yield* OrderEntity.query("primary", {
           pk: { userId: "user-001" },
           sk: { "<": "order-003" },
         });
@@ -193,7 +193,7 @@ describe("Simplified API Tests", () => {
     it.effect("queries with limit option", () =>
       Effect.gen(function* () {
         const result = yield* OrderEntity.query(
-          "pk",
+          "primary",
           {
             pk: { userId: "user-001" },
             sk: { ">=": "order-001" },
@@ -207,7 +207,7 @@ describe("Simplified API Tests", () => {
 
     it.effect("queries all items ascending with sk: { '>=': null }", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("pk", {
+        const result = yield* OrderEntity.query("primary", {
           pk: { userId: "user-001" },
           sk: { ">=": null },
         });
@@ -219,7 +219,7 @@ describe("Simplified API Tests", () => {
 
     it.effect("queries all items descending with sk: { '<=': null }", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("pk", {
+        const result = yield* OrderEntity.query("primary", {
           pk: { userId: "user-001" },
           sk: { "<=": null },
         });
@@ -248,7 +248,7 @@ describe("Simplified API Tests", () => {
     it.effect("returns items after cursor", () =>
       Effect.gen(function* () {
         // First get all items to find a cursor using raw.query
-        const all = yield* OrderEntity.raw.query("pk", {
+        const all = yield* OrderEntity.raw.query("primary", {
           pk: { userId: "user-001" },
         });
 
@@ -261,7 +261,7 @@ describe("Simplified API Tests", () => {
         };
 
         const result = yield* OrderEntity.subscribe({
-          key: "pk",
+          key: "primary",
           value: cursor,
           limit: 10,
         });
@@ -274,7 +274,7 @@ describe("Simplified API Tests", () => {
     it.effect("returns empty for null cursor", () =>
       Effect.gen(function* () {
         const result = yield* OrderEntity.subscribe({
-          key: "pk",
+          key: "primary",
           value: null,
           limit: 10,
         });
@@ -287,7 +287,7 @@ describe("Simplified API Tests", () => {
   describe("raw.query(key, params, options) - Complex Queries", () => {
     it.effect("queries with pk only", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.raw.query("pk", {
+        const result = yield* OrderEntity.raw.query("primary", {
           pk: { userId: "user-001" },
         });
 
@@ -297,7 +297,7 @@ describe("Simplified API Tests", () => {
 
     it.effect("queries with beginsWith", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.raw.query("pk", {
+        const result = yield* OrderEntity.raw.query("primary", {
           pk: { userId: "user-001" },
           sk: { beginsWith: { orderId: "order-00" } as any },
         });
@@ -308,7 +308,7 @@ describe("Simplified API Tests", () => {
 
     it.effect("queries with between", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.raw.query("pk", {
+        const result = yield* OrderEntity.raw.query("primary", {
           pk: { userId: "user-001" },
           sk: {
             between: [
@@ -335,13 +335,13 @@ describe("Simplified API Tests", () => {
     it.effect("queries with ScanIndexForward option", () =>
       Effect.gen(function* () {
         const ascending = yield* OrderEntity.raw.query(
-          "pk",
+          "primary",
           { pk: { userId: "user-001" } },
           { ScanIndexForward: true },
         );
 
         const descending = yield* OrderEntity.raw.query(
-          "pk",
+          "primary",
           { pk: { userId: "user-001" } },
           { ScanIndexForward: false },
         );

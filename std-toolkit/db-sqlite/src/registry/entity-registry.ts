@@ -5,7 +5,8 @@ import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
 import { SqliteDB, SqliteDBError } from "../sql/db.js";
 
 // Extract entity name from SQLiteEntity
-type EntityName<T> = T extends SQLiteEntity<any, infer S, any> ? S["name"] : never;
+type EntityName<T> =
+  T extends SQLiteEntity<any, infer S, any> ? S["name"] : never;
 
 // Entities map type
 type EntitiesMap = Record<string, SQLiteEntity<any, any, any>>;
@@ -21,8 +22,7 @@ type EntitiesMap = Record<string, SQLiteEntity<any, any, any>>;
 export class EntityRegistry<
   TTable extends SQLiteTableInstance,
   TEntities extends EntitiesMap,
-> implements DescriptorProvider
-{
+> implements DescriptorProvider {
   /**
    * Creates a new entity registry builder for the given table.
    *
@@ -123,9 +123,12 @@ class EntityRegistryBuilder<
    * @param entity - The entity instance to register
    * @returns A builder with the entity registered
    */
-  register<TEntity extends SQLiteEntity<any, any, any>>(
+  register<TEntity extends SQLiteEntity<any, any, any, any>>(
     entity: TEntity,
-  ): EntityRegistryBuilder<TTable, TEntities & Record<EntityName<TEntity>, TEntity>> {
+  ): EntityRegistryBuilder<
+    TTable,
+    TEntities & Record<EntityName<TEntity>, TEntity>
+  > {
     return new EntityRegistryBuilder(this.#table, {
       ...this.#entities,
       [entity.name]: entity,

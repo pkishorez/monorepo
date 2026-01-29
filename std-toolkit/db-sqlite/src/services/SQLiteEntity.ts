@@ -15,6 +15,7 @@ import {
   type SubscribeOptions,
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
+  type StoredTimelineDerivation,
 } from "../internal/utils.js";
 import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
 import { ConnectionService } from "@std-toolkit/core/server";
@@ -72,8 +73,8 @@ type IndexKeyValue<
   TSchema extends AnyESchema,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  K extends "pk" | (keyof TSecondaryDerivationMap & string),
-> = K extends "pk"
+  K extends "primary" | (keyof TSecondaryDerivationMap & string),
+> = K extends "primary"
   ? Pick<ESchemaType<TSchema>, TPrimaryPkKeys | TSchema["idField"]>
   : K extends keyof TSecondaryDerivationMap
     ? Pick<
@@ -91,6 +92,7 @@ export class SQLiteEntity<
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TTimelineDerivation extends StoredTimelineDerivation | null = null,
 > {
   /**
    * Creates a new entity builder for the given table.
@@ -130,8 +132,9 @@ export class SQLiteEntity<
               TTable,
               TS,
               ExtractKeys<ESchemaType<TS>, TPkKeys>,
-              {}
-            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {});
+              {},
+              null
+            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {}, null);
           },
         };
       },
@@ -142,17 +145,20 @@ export class SQLiteEntity<
   #eschema: TSchema;
   #primaryDerivation: StoredPrimaryDerivation;
   #secondaryDerivations: TSecondaryDerivationMap;
+  #timelineDerivation: TTimelineDerivation;
 
   constructor(
     table: SQLiteTableInstance,
     eschema: TSchema,
     primaryDerivation: StoredPrimaryDerivation,
     secondaryDerivations: TSecondaryDerivationMap,
+    timelineDerivation: TTimelineDerivation,
   ) {
     this.#table = table;
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = secondaryDerivations;
+    this.#timelineDerivation = timelineDerivation;
   }
 
   /**
@@ -183,6 +189,23 @@ export class SQLiteEntity<
           false,
         ),
       },
+      ...(this.#timelineDerivation
+        ? {
+            timelineIndex: {
+              name: "timeline",
+              pk: this.#extractIndexPattern(
+                this.#timelineDerivation.pkDeps,
+                entityName,
+                true,
+              ),
+              sk: this.#extractIndexPattern(
+                this.#timelineDerivation.skDeps as unknown as string[],
+                entityName,
+                false,
+              ),
+            },
+          }
+        : {}),
       secondaryIndexes: Object.entries(this.#secondaryDerivations).map(
         ([, deriv]) => ({
           name: deriv.entityIndexName,
@@ -367,30 +390,46 @@ export class SQLiteEntity<
   /**
    * Queries entities using the primary index or a secondary index.
    *
-   * @param key - "pk" for primary index, or the secondary index name
+   * @param key - "primary" for primary index, "timeline" for timeline index, or the secondary index name
    * @param params - Query parameters with pk and sk
    * @param options - Query options including limit
    * @returns Array of matching entities with metadata
    */
-  query<K extends "pk" | (keyof TSecondaryDerivationMap & string)>(
+  query<
+    K extends
+      | "primary"
+      | (TTimelineDerivation extends StoredTimelineDerivation
+          ? "timeline"
+          : never)
+      | keyof TSecondaryDerivationMap,
+  >(
     key: K,
-    params: K extends "pk"
+    params: K extends "primary"
       ? [TPrimaryPkKeys] extends [never]
         ? { pk?: {}; sk: SkParam }
         : {
             pk: Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>;
             sk: SkParam;
           }
-      : K extends keyof TSecondaryDerivationMap
-        ? {
-            pk: Pick<
-              ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]["pkDeps"][number] &
-                keyof ESchemaType<TSchema>
-            >;
-            sk: SkParam;
-          }
-        : never,
+      : K extends "timeline"
+        ? [TPrimaryPkKeys] extends [never]
+          ? { pk?: {}; sk: SkParam }
+          : {
+              pk: Prettify<
+                IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>
+              >;
+              sk: SkParam;
+            }
+        : K extends keyof TSecondaryDerivationMap
+          ? {
+              pk: Pick<
+                ESchemaType<TSchema>,
+                TSecondaryDerivationMap[K]["pkDeps"][number] &
+                  keyof ESchemaType<TSchema>
+              >;
+              sk: SkParam;
+            }
+          : never,
     options?: SimpleQueryOptions,
   ): Effect.Effect<
     { items: EntityType<ESchemaType<TSchema>>[] },
@@ -403,7 +442,7 @@ export class SQLiteEntity<
       const scanForward = getKeyOpScanDirection(operator);
       // skValue is null for "all items", or a string cursor value
 
-      if (key === "pk") {
+      if (key === "primary") {
         // Primary index query
         const derivedPk = deriveIndexKeyValue(
           this.#eschema.name,
@@ -433,12 +472,61 @@ export class SQLiteEntity<
 
         const items = yield* this.#decodeItems(Items);
         return { items };
+      } else if (key === "timeline") {
+        // Timeline index query
+        const timeline = this.#timelineDerivation;
+        if (!timeline) {
+          return yield* Effect.fail(
+            SqliteDBError.queryFailed(
+              this.#table.tableName,
+              "Timeline index not configured",
+            ),
+          );
+        }
+
+        const derivedPk = deriveIndexKeyValue(
+          this.#eschema.name,
+          timeline.pkDeps,
+          (params.pk ?? {}) as Record<string, unknown>,
+          true,
+        );
+
+        const timelineSkCondition: SortKeyCondition | undefined =
+          skValue !== null
+            ? ({ [operator]: skValue } as SortKeyCondition)
+            : undefined;
+
+        const timelineQueryParams = timelineSkCondition
+          ? { pk: derivedPk, sk: timelineSkCondition }
+          : { pk: derivedPk };
+
+        const timelineQueryOptions: {
+          Limit?: number;
+          ScanIndexForward?: boolean;
+        } = {
+          ScanIndexForward: scanForward,
+        };
+        if (options?.limit !== undefined) {
+          timelineQueryOptions.Limit = options.limit;
+        }
+
+        const { Items } = yield* this.#table
+          .index(timeline.indexName as any)
+          .query(timelineQueryParams, timelineQueryOptions);
+
+        const items = yield* this.#decodeItems(Items);
+        return { items };
       } else {
         // Secondary index query
         const indexDerivation = this.#secondaryDerivations[key];
 
         if (!indexDerivation) {
-          throw new Error(`Index ${String(key)} not found`);
+          return yield* Effect.fail(
+            SqliteDBError.queryFailed(
+              this.#table.tableName,
+              `Index ${String(key)} not found`,
+            ),
+          );
         }
 
         const derivedPk = deriveIndexKeyValue(
@@ -481,7 +569,14 @@ export class SQLiteEntity<
   /**
    * Subscribes to items from the primary index or a secondary index.
    */
-  subscribe<K extends "pk" | (keyof TSecondaryDerivationMap & string)>(
+  subscribe<
+    K extends
+      | "primary"
+      | (TTimelineDerivation extends StoredTimelineDerivation
+          ? "timeline"
+          : never)
+      | (keyof TSecondaryDerivationMap & string),
+  >(
     opts: SubscribeOptions<
       K,
       IndexKeyValue<TSchema, TSecondaryDerivationMap, TPrimaryPkKeys, K>
@@ -504,9 +599,14 @@ export class SQLiteEntity<
 
     // Get pk and sk deps for this key
     const { pkDeps, skDeps } =
-      key === "pk"
+      key === "primary"
         ? this.#primaryDerivation
-        : this.#secondaryDerivations[key as keyof TSecondaryDerivationMap]!;
+        : key === "timeline"
+          ? {
+              pkDeps: this.#timelineDerivation?.pkDeps ?? [],
+              skDeps: ["_uid"] as string[],
+            }
+          : this.#secondaryDerivations[key as keyof TSecondaryDerivationMap]!;
 
     // Split cursor value into pk and derive sk string
     const cursorValue = value as Record<string, unknown>;
@@ -693,6 +793,38 @@ export class SQLiteEntity<
       }
     }
 
+    // Derive timeline index if configured
+    const timeline = this.#timelineDerivation;
+    if (timeline) {
+      if (
+        timeline.pkDeps.every(
+          (key: string) => typeof value[key] !== "undefined",
+        )
+      ) {
+        const pkCol = this.#table.secondaryIndexMap[timeline.indexName]?.pk;
+        if (pkCol) {
+          indexMap[pkCol] = deriveIndexKeyValue(
+            this.#eschema.name,
+            timeline.pkDeps,
+            value,
+            true,
+          );
+        }
+      }
+
+      if (typeof value._uid !== "undefined") {
+        const skCol = this.#table.secondaryIndexMap[timeline.indexName]?.sk;
+        if (skCol) {
+          indexMap[skCol] = deriveIndexKeyValue(
+            this.#eschema.name,
+            timeline.skDeps as unknown as string[],
+            value,
+            false,
+          );
+        }
+      }
+    }
+
     return indexMap;
   }
 
@@ -720,6 +852,7 @@ class EntityIndexDerivations<
   TSchema extends AnyESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
+  TTimelineDerivation extends StoredTimelineDerivation | null = null,
 > {
   #table: TTable;
   #eschema: TSchema;
@@ -728,6 +861,7 @@ class EntityIndexDerivations<
     sk: readonly (keyof ESchemaType<TSchema>)[];
   };
   #secondaryDerivations: TSecondaryDerivationMap;
+  #timelineDerivation: TTimelineDerivation;
 
   constructor(
     table: TTable,
@@ -737,11 +871,14 @@ class EntityIndexDerivations<
       sk: readonly (keyof ESchemaType<TSchema>)[];
     },
     definitions: TSecondaryDerivationMap,
+    timelineDerivation?: TTimelineDerivation,
   ) {
     this.#table = table;
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = definitions;
+    this.#timelineDerivation = (timelineDerivation ??
+      null) as TTimelineDerivation;
   }
 
   /**
@@ -757,13 +894,14 @@ class EntityIndexDerivations<
    */
   index<
     IndexNameStr extends keyof TTable["secondaryIndexMap"] & string,
+    EntityIndexName extends string,
     const TPkKeys extends readonly (
       | keyof ESchemaType<TSchema>
       | DerivableMetaFields
     )[],
   >(
     indexName: IndexNameStr,
-    entityIndexName: string,
+    entityIndexName: EntityIndexName,
     derivation: {
       pk: TPkKeys;
     },
@@ -791,13 +929,47 @@ class EntityIndexDerivations<
       TPrimaryPkKeys,
       TSecondaryDerivationMap &
         Record<
-          typeof entityIndexName,
+          EntityIndexName,
           StoredIndexDerivation & {
             pkDeps: TPkKeys;
             skDeps: typeof skKeys;
           }
-        >
+        >,
+      TTimelineDerivation
     >;
+  }
+
+  /**
+   * Configures a timeline index using the same PK as primary but SK = _uid.
+   * This enables time-ordered queries on the same partition.
+   *
+   * @typeParam IndexName - The index name on the table
+   * @param indexName - The index name on the table (e.g., "IDX1")
+   * @returns A builder with the timeline index configured
+   */
+  timeline<IndexName extends keyof TTable["secondaryIndexMap"] & string>(
+    indexName: IndexName,
+  ) {
+    const timelineDerivation: StoredTimelineDerivation = {
+      indexName,
+      entityIndexName: "timeline",
+      pkDeps: this.#primaryDerivation.pk.map(String),
+      skDeps: ["_uid"] as const,
+    };
+
+    return new EntityIndexDerivations<
+      TTable,
+      TSchema,
+      TPrimaryPkKeys,
+      TSecondaryDerivationMap,
+      StoredTimelineDerivation
+    >(
+      this.#table,
+      this.#eschema,
+      this.#primaryDerivation,
+      this.#secondaryDerivations,
+      timelineDerivation,
+    );
   }
 
   /**
@@ -811,11 +983,17 @@ class EntityIndexDerivations<
       skDeps: this.#primaryDerivation.sk.map(String),
     };
 
-    return new SQLiteEntity<TSecondaryDerivationMap, TSchema, TPrimaryPkKeys>(
+    return new SQLiteEntity<
+      TSecondaryDerivationMap,
+      TSchema,
+      TPrimaryPkKeys,
+      TTimelineDerivation
+    >(
       this.#table,
       this.#eschema,
       storedPrimary,
       this.#secondaryDerivations,
+      this.#timelineDerivation,
     );
   }
 }

@@ -9,7 +9,9 @@
       "Bash(pnpm run:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm tsc:*)",
-      "Bash(pnpm tsx:*)"
+      "Bash(pnpm tsx:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm tsc:db-dynamodb:*)"
     ]
   }
 }
