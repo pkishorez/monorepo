@@ -328,7 +328,7 @@ describe("SQLite Single Table Design", () => {
       Effect.gen(function* () {
         const result = yield* postEntity.query("pk", {
           pk: { authorId: "query-author" },
-          sk: { ">=": { postId: "post-b" } },
+          sk: { ">=": "post-b" },
         });
 
         const postIds = result.items.map((i) => i.value.postId);
@@ -602,7 +602,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { ">=": { itemId: "c" } },
+          sk: { ">=": "c" },
         });
 
         const keys = result.items.map((i) => i.value.itemId);
@@ -629,7 +629,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { ">": { itemId: "c" } },
+          sk: { ">": "c" },
         });
 
         const keys = result.items.map((i) => i.value.itemId);
@@ -656,7 +656,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { "<=": { itemId: "c" } },
+          sk: { "<=": "c" },
         });
 
         const keys = result.items.map((i) => i.value.itemId);
@@ -683,7 +683,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { "<": { itemId: "c" } },
+          sk: { "<": "c" },
         });
 
         const keys = result.items.map((i) => i.value.itemId);
@@ -723,7 +723,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query(
           "pk",
-          { pk: { category: "cat-1" }, sk: { ">": { itemId: "b" } } },
+          { pk: { category: "cat-1" }, sk: { ">": "b" } },
           { limit: 2 },
         );
 
@@ -736,7 +736,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query(
           "pk",
-          { pk: { category: "cat-1" }, sk: { "<": { itemId: "d" } } },
+          { pk: { category: "cat-1" }, sk: { "<": "d" } },
           { limit: 2 },
         );
 
@@ -800,7 +800,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { ">": { itemId: "e" } },
+          sk: { ">": "e" },
         });
 
         expect(result.items).toHaveLength(0);
@@ -811,7 +811,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { "<": { itemId: "a" } },
+          sk: { "<": "a" },
         });
 
         expect(result.items).toHaveLength(0);
@@ -909,7 +909,7 @@ describe("Primary Index with IdField", () => {
     Effect.gen(function* () {
       const result = yield* commentEntity.query("pk", {
         pk: { postId: "post-1" },
-        sk: { ">=": { commentId: "c2" } },
+        sk: { ">=": "c2" },
       });
 
       const ids = result.items.map((i) => i.value.commentId);

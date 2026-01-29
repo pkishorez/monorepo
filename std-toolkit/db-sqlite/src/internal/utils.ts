@@ -24,11 +24,11 @@ export interface RawRow extends Record<string, unknown> {
 
 type Operator = "<" | "<=" | ">" | ">=";
 
-export type SkParam<T> =
-  | { "<": T | null }
-  | { "<=": T | null }
-  | { ">": T | null }
-  | { ">=": T | null };
+export type SkParam =
+  | { "<": string | null }
+  | { "<=": string | null }
+  | { ">": string | null }
+  | { ">=": string | null };
 
 export interface SimpleQueryOptions {
   limit?: number;
@@ -62,9 +62,9 @@ export const deriveIndexKeyValue = (
   return values.join("#");
 };
 
-export const extractKeyOp = <T>(
-  op: SkParam<T>,
-): { operator: Operator; value: T | null } => {
+export const extractKeyOp = (
+  op: SkParam,
+): { operator: Operator; value: string | null } => {
   if ("<" in op) return { operator: "<", value: op["<"] };
   if ("<=" in op) return { operator: "<=", value: op["<="] };
   if (">" in op) return { operator: ">", value: op[">"] };

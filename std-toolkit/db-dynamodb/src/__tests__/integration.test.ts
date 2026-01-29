@@ -874,7 +874,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             "pk",
             {
               pk: { userId: "query-user-1" },
-              sk: { ">=": { orderId: "order-001" } },
+              sk: { ">=": "order-001" },
             },
             { limit: 10 },
           );
@@ -1062,7 +1062,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           // SK is the idField (orderId) for primary index
           const result = yield* OrderEntity.query("pk", {
             pk: { userId: "entity-query-sk-user" },
-            sk: { ">": { orderId: "order-001" } },
+            sk: { ">": "order-001" },
           });
 
           expect(result.items.length).toBe(2);
