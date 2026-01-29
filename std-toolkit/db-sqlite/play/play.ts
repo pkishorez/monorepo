@@ -73,6 +73,8 @@ const program = Effect.gen(function* () {
     status: "active",
   });
 
+  postEntity.query("", { pk: { authorId: "u1" }, sk: { ">=": null } });
+
   const user2 = yield* userEntity.insert({
     userId: "u2",
     email: "bob@example.com",

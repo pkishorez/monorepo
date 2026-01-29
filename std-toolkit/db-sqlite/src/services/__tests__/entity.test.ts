@@ -1258,9 +1258,8 @@ describe("SQLite Entity Edge Cases", () => {
       );
       expect(rowsDeleted).toBeGreaterThan(0);
 
-      // With pk being just entity name, query doesn't need pk value
+      // With pk being just entity name, pk is optional
       const result = yield* simpleEntity.query("pk", {
-        pk: {},
         sk: { ">=": null },
       });
       expect(result.items).toHaveLength(0);
