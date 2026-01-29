@@ -120,7 +120,7 @@ export class IDBEntity<TName extends string, TSchema extends AnyESchema> {
   put(item: Omit<ESchemaType<TSchema>, "_v">): Effect.Effect<void, IDBError> {
     return Effect.gen(this, function* () {
       const encoded = yield* this.#eschema
-        .encode(item as ESchemaType<TSchema>["Type"])
+        .encode(item as unknown as ESchemaType<TSchema>)
         .pipe(
           Effect.mapError((cause) =>
             IDBError.putFailed("Failed to encode item", cause),
@@ -149,7 +149,7 @@ export class IDBEntity<TName extends string, TSchema extends AnyESchema> {
 
       for (const item of items) {
         const value = yield* this.#eschema
-          .encode(item as ESchemaType<TSchema>["Type"])
+          .encode(item as unknown as ESchemaType<TSchema>)
           .pipe(
             Effect.mapError((cause) =>
               IDBError.putFailed("Failed to encode item", cause),

@@ -7,14 +7,12 @@ import { IDBEntity } from "../index";
 describe("IDBEntity", () => {
   let dbCounter = 0;
 
-  const UserSchema = ESchema.make("User", {
-    id: Schema.String,
+  const UserSchema = ESchema.make("User", "id", {
     name: Schema.String,
     email: Schema.String,
   }).build();
 
-  const PostSchema = ESchema.make("Post", {
-    id: Schema.String,
+  const PostSchema = ESchema.make("Post", "id", {
     title: Schema.String,
   }).build();
 

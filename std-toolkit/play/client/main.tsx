@@ -75,7 +75,7 @@ function generateRandomUser(): User {
   const status = statuses[Math.floor(Math.random() * statuses.length)];
 
   return {
-    id: UserSchema.makeId(`user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`),
+    id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
     evolution: "v2 test!",
     name: `${firstName} ${lastName}`,
     email: `${firstName?.toLowerCase()}.${lastName?.toLowerCase()}@${domain}`,
@@ -96,7 +96,7 @@ function App() {
     if (!name || !email) return;
 
     usersCollection.insert({
-      id: UserSchema.makeId(`user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`),
+      id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       evolution: "v2 test!",
       name,
       email,

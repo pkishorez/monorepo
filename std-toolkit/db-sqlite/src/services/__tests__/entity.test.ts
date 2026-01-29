@@ -194,7 +194,7 @@ describe("SQLite Single Table Design", () => {
 
     it.effect("returns null for non-existent entity", () =>
       Effect.gen(function* () {
-        const result = yield* userEntity.get({ userId: userEntity.id("non-existent") });
+        const result = yield* userEntity.get({ userId: "non-existent" });
         expect(result).toBeNull();
       }).pipe(Effect.provide(layer)),
     );
@@ -222,7 +222,7 @@ describe("SQLite Single Table Design", () => {
     it.effect("fails for non-existent entity", () =>
       Effect.gen(function* () {
         const error = yield* userEntity
-          .update({ userId: userEntity.id("non-existent") }, { name: "X" })
+          .update({ userId: "non-existent" }, { name: "X" })
           .pipe(Effect.flip);
         expect(error.error._tag).toBe("UpdateFailed");
       }).pipe(Effect.provide(layer)),
@@ -276,7 +276,7 @@ describe("SQLite Single Table Design", () => {
     it.effect("fails for non-existent entity", () =>
       Effect.gen(function* () {
         const error = yield* userEntity
-          .delete({ userId: userEntity.id("non-existent-delete") })
+          .delete({ userId: "non-existent-delete" })
           .pipe(Effect.flip);
         expect(error.error._tag).toBe("DeleteFailed");
       }).pipe(Effect.provide(layer)),
@@ -328,7 +328,7 @@ describe("SQLite Single Table Design", () => {
       Effect.gen(function* () {
         const result = yield* postEntity.query("pk", {
           pk: { authorId: "query-author" },
-          sk: { ">=": { postId: postEntity.id("post-b") } },
+          sk: { ">=": { postId: "post-b" } },
         });
 
         const postIds = result.items.map((i) => i.value.postId);
@@ -446,10 +446,10 @@ describe("SQLite Single Table Design", () => {
           }),
         );
 
-        const user = yield* userEntity.get({ userId: userEntity.id("tx-user-1") });
+        const user = yield* userEntity.get({ userId: "tx-user-1" });
         const post = yield* postEntity.get({
           authorId: "tx-author",
-          postId: postEntity.id("tx-post-1"),
+          postId: "tx-post-1",
         });
 
         expect(user).not.toBeNull();
@@ -474,7 +474,7 @@ describe("SQLite Single Table Design", () => {
 
         expect(result._tag).toBe("Left");
 
-        const user = yield* userEntity.get({ userId: userEntity.id("tx-rollback-user") });
+        const user = yield* userEntity.get({ userId: "tx-rollback-user" });
         expect(user).toBeNull();
       }).pipe(Effect.provide(layer)),
     );
@@ -602,7 +602,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { ">=": { itemId: itemEntity.id("c") } },
+          sk: { ">=": { itemId: "c" } },
         });
 
         const keys = result.items.map((i) => i.value.itemId);
@@ -629,7 +629,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { ">": { itemId: itemEntity.id("c") } },
+          sk: { ">": { itemId: "c" } },
         });
 
         const keys = result.items.map((i) => i.value.itemId);
@@ -656,7 +656,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { "<=": { itemId: itemEntity.id("c") } },
+          sk: { "<=": { itemId: "c" } },
         });
 
         const keys = result.items.map((i) => i.value.itemId);
@@ -683,7 +683,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { "<": { itemId: itemEntity.id("c") } },
+          sk: { "<": { itemId: "c" } },
         });
 
         const keys = result.items.map((i) => i.value.itemId);
@@ -723,7 +723,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query(
           "pk",
-          { pk: { category: "cat-1" }, sk: { ">": { itemId: itemEntity.id("b") } } },
+          { pk: { category: "cat-1" }, sk: { ">": { itemId: "b" } } },
           { limit: 2 },
         );
 
@@ -736,7 +736,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query(
           "pk",
-          { pk: { category: "cat-1" }, sk: { "<": { itemId: itemEntity.id("d") } } },
+          { pk: { category: "cat-1" }, sk: { "<": { itemId: "d" } } },
           { limit: 2 },
         );
 
@@ -800,7 +800,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { ">": { itemId: itemEntity.id("e") } },
+          sk: { ">": { itemId: "e" } },
         });
 
         expect(result.items).toHaveLength(0);
@@ -811,7 +811,7 @@ describe("Query Operators", () => {
       Effect.gen(function* () {
         const result = yield* itemEntity.query("pk", {
           pk: { category: "cat-1" },
-          sk: { "<": { itemId: itemEntity.id("a") } },
+          sk: { "<": { itemId: "a" } },
         });
 
         expect(result.items).toHaveLength(0);
@@ -909,7 +909,7 @@ describe("Primary Index with IdField", () => {
     Effect.gen(function* () {
       const result = yield* commentEntity.query("pk", {
         pk: { postId: "post-1" },
-        sk: { ">=": { commentId: commentEntity.id("c2") } },
+        sk: { ">=": { commentId: "c2" } },
       });
 
       const ids = result.items.map((i) => i.value.commentId);
@@ -924,7 +924,7 @@ describe("Primary Index with IdField", () => {
     Effect.gen(function* () {
       const result = yield* commentEntity.get({
         postId: "post-1",
-        commentId: commentEntity.id("c2"),
+        commentId: "c2",
       });
 
       expect(result).not.toBeNull();
@@ -989,7 +989,7 @@ describe("Subscribe", () => {
     Effect.gen(function* () {
       const result = yield* eventEntity.subscribe({
         key: "pk",
-        value: { streamId: "stream-1", eventId: eventEntity.id("002") },
+        value: { streamId: "stream-1", eventId: "002" },
       });
 
       const ids = result.items.map((i) => i.value.eventId);
@@ -1001,7 +1001,7 @@ describe("Subscribe", () => {
     Effect.gen(function* () {
       const result = yield* eventEntity.subscribe({
         key: "pk",
-        value: { streamId: "stream-1", eventId: eventEntity.id("002") },
+        value: { streamId: "stream-1", eventId: "002" },
         limit: 2,
       });
 
@@ -1074,9 +1074,9 @@ describe("Transactions Advanced", () => {
         }),
       );
 
-      const c1 = yield* counterEntity.get({ counterId: counterEntity.id("c1") });
-      const c2 = yield* counterEntity.get({ counterId: counterEntity.id("c2") });
-      const c3 = yield* counterEntity.get({ counterId: counterEntity.id("c3") });
+      const c1 = yield* counterEntity.get({ counterId: "c1" });
+      const c2 = yield* counterEntity.get({ counterId: "c2" });
+      const c3 = yield* counterEntity.get({ counterId: "c3" });
 
       expect(c1).not.toBeNull();
       expect(c2).not.toBeNull();
@@ -1100,9 +1100,9 @@ describe("Transactions Advanced", () => {
       expect(result._tag).toBe("Left");
 
       // All should be rolled back
-      const r1 = yield* counterEntity.get({ counterId: counterEntity.id("r1") });
-      const r2 = yield* counterEntity.get({ counterId: counterEntity.id("r2") });
-      const r3 = yield* counterEntity.get({ counterId: counterEntity.id("r3") });
+      const r1 = yield* counterEntity.get({ counterId: "r1" });
+      const r2 = yield* counterEntity.get({ counterId: "r2" });
+      const r3 = yield* counterEntity.get({ counterId: "r3" });
 
       expect(r1).toBeNull();
       expect(r2).toBeNull();
@@ -1140,7 +1140,7 @@ describe("Transactions Advanced", () => {
       );
 
       const m1 = yield* counterEntity.get({ counterId: m1Inserted.value.counterId });
-      const m2 = yield* counterEntity.get({ counterId: counterEntity.id("m2") });
+      const m2 = yield* counterEntity.get({ counterId: "m2" });
 
       expect(m1).not.toBeNull();
       expect(m1!.meta._d).toBe(true); // soft deleted
@@ -1385,7 +1385,7 @@ describe("Multiple Secondary Indexes", () => {
 
   it.effect("update reflects in all indexes", () =>
     Effect.gen(function* () {
-      yield* productEntity.update({ productId: productEntity.id("p1") }, { category: "phones" });
+      yield* productEntity.update({ productId: "p1" }, { category: "phones" });
 
       // Should not find in old category
       const oldCategory = yield* productEntity.query("byCategory", {

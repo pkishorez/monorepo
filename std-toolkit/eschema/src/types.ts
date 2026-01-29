@@ -1,6 +1,6 @@
 // Standard Schema helper types
 import type { ESchema } from "./eschema";
-import { Brand, JSONSchema, Schema } from "effect";
+import { JSONSchema, Schema } from "effect";
 
 export type ESchemaDescriptor = JSONSchema.JsonSchema7Object & {
   $schema?: string;
@@ -95,17 +95,7 @@ export type ESchemaIdField<T extends AnyESchema> =
     : never;
 
 /**
- * The branded ID type for an entity.
- * E.g., for entity "User", this would be `string & Brand.Brand<"UserId">`
+ * Simple string ID schema type.
+ * Used for entity ID fields without branding.
  */
-export type BrandedId<N extends string> = string & Brand.Brand<`${N}Id`>;
-
-/**
- * The schema type for a branded ID field.
- * Both Type and Encoded are branded for consistent type safety.
- */
-export type BrandedIdSchema<N extends string> = Schema.Schema<
-  string & Brand.Brand<`${N}Id`>,
-  string & Brand.Brand<`${N}Id`>,
-  never
->;
+export type IdSchema = Schema.Schema<string, string, never>;

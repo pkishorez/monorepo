@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect";
-import { ESchema, BrandedId } from "./index";
+import { ESchema } from "./index";
 
 // Define a User schema with "id" as the ID field
 const UserSchema = ESchema.make("User", "id", {
@@ -20,8 +20,8 @@ const PostSchema = ESchema.make("Post", "postId", {
   }))
   .build();
 
-// Type aliases for convenience
-type UserId = BrandedId<"User">; // string & Brand<"UserId">
+// Type alias for the ID field type
+type UserId = string;
 
 async function main() {
   console.log("=== ESchema Demo ===\n");
@@ -33,20 +33,20 @@ async function main() {
   console.log(`   latestVersion: ${UserSchema.latestVersion}`);
   console.log();
 
-  // 2. Fields - raw field definitions (includes branded ID)
+  // 2. Fields - raw field definitions (includes ID)
   console.log("2. Fields (raw field definitions):");
   console.log(`   Field names:`, Object.keys(UserSchema.fields));
   console.log(`   ID field included: ${"id" in UserSchema.fields}`);
   console.log();
 
-  // 3. Schema - Effect Schema.Struct (with branded ID)
+  // 3. Schema - Effect Schema.Struct
   console.log("3. Schema (Effect Schema.Struct):");
   console.log(`   Fields:`, Object.keys(UserSchema.schema.fields));
   console.log();
 
-  // 4. Creating branded IDs
-  console.log("4. Creating branded IDs:");
-  const userId: UserId = UserSchema.makeId("user-123");
+  // 4. ID field
+  console.log("4. ID field:");
+  const userId: UserId = "user-123";
   console.log(`   userId: ${userId}`);
   console.log();
 
@@ -54,7 +54,7 @@ async function main() {
   console.log("5. Encoding:");
   const encoded = await Effect.runPromise(
     UserSchema.encode({
-      id: UserSchema.makeId("user-456"),
+      id: "user-456",
       name: "Alice",
       email: "alice@example.com",
       age: 30,
@@ -62,7 +62,7 @@ async function main() {
   );
   type Test = (typeof UserSchema)["Type"];
   console.log(`   Encoded:`, encoded);
-  console.log(`   Type: { id: UserId, name, email, age }`);
+  console.log(`   Type: { id: string, name, email, age }`);
   console.log();
 
   // 6. Decoding - same type as encoding
@@ -76,7 +76,7 @@ async function main() {
     }),
   );
   console.log(`   Decoded:`, decoded);
-  console.log(`   Type: { id: UserId, name, email, age }`);
+  console.log(`   Type: { id: string, name, email, age }`);
   console.log();
 
   // 7. Re-encoding - seamless, same types
@@ -124,7 +124,7 @@ async function main() {
   // 11. Type summary
   console.log("11. Type summary:");
   console.log(
-    `   UserSchema.Type = { id: UserId, name: string, email: string, age: number }`,
+    `   UserSchema.Type = { id: string, name: string, email: string, age: number }`,
   );
   console.log(`   Same type for encode() input and output`);
   console.log(`   Same type for decode() output`);

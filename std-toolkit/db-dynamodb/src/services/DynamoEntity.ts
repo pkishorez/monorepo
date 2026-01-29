@@ -229,14 +229,6 @@ export class DynamoEntity<
   }
 
   /**
-   * Creates a branded ID for this entity from a plain string.
-   * Use this to create type-safe IDs for operations that require them.
-   */
-  id(value: string): ReturnType<TSchema["makeId"]> {
-    return this.#eschema.makeId(value) as ReturnType<TSchema["makeId"]>;
-  }
-
-  /**
    * Gets the unified descriptor for this entity including schema and index info.
    *
    * @returns The StdDescriptor for this entity
@@ -341,7 +333,7 @@ export class DynamoEntity<
 
       const fullValueWithId = {
         ...value,
-        [idField]: self.#eschema.makeId(generatedId as string),
+        [idField]: generatedId as string,
         _v: self.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
@@ -460,7 +452,7 @@ export class DynamoEntity<
 
       const fullValueWithId = {
         ...value,
-        [idField]: this.#eschema.makeId(generatedId as string),
+        [idField]: generatedId as string,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 

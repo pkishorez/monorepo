@@ -111,7 +111,7 @@ describe("DynamoDB Error Handling", () => {
         yield* UserEntity.insert(user);
         yield* UserEntity.insert(user, { ignoreIfAlreadyPresent: true });
 
-        const result = yield* UserEntity.get({ userId: UserEntity.id(userId) });
+        const result = yield* UserEntity.get({ userId: userId });
         expect(result?.value.name).toBe("Test User");
       }),
     );
@@ -121,7 +121,7 @@ describe("DynamoDB Error Handling", () => {
     it.effect("fails with NoItemToUpdate when updating non-existent item", () =>
       Effect.gen(function* () {
         const error = yield* UserEntity.update(
-          { userId: UserEntity.id("non-existent-id") },
+          { userId: "non-existent-id" },
           { name: "Updated Name" },
         ).pipe(Effect.flip);
 
@@ -137,11 +137,11 @@ describe("DynamoDB Error Handling", () => {
         yield* UserEntity.insert(user);
 
         yield* UserEntity.update(
-          { userId: UserEntity.id(userId) },
+          { userId: userId },
           { name: "Updated Once" },
         );
 
-        const result = yield* UserEntity.get({ userId: UserEntity.id(userId) });
+        const result = yield* UserEntity.get({ userId: userId });
         expect(result?.value.name).toBe("Updated Once");
       }),
     );
@@ -237,7 +237,7 @@ describe("DynamoDB Error Handling", () => {
     it.effect("fails with GetItemFailed when getting entity from non-existent table", () =>
       Effect.gen(function* () {
         const error = yield* BadUserEntity.get({
-          userId: BadUserEntity.id("1"),
+          userId: "1",
         }).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(DynamodbError);
@@ -248,7 +248,7 @@ describe("DynamoDB Error Handling", () => {
     it.effect("fails with QueryFailed when querying entity on non-existent table", () =>
       Effect.gen(function* () {
         const error = yield* BadUserEntity.raw
-          .query("pk", { pk: { userId: BadUserEntity.id("1") } })
+          .query("pk", { pk: { userId: "1" } })
           .pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(DynamodbError);
