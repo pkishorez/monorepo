@@ -19,6 +19,7 @@ export const UserEntity = DynamoEntity.make(table)
 export const PostEntity = DynamoEntity.make(table)
   .eschema(postSchema)
   .primary({ pk: ["authorId"] })
+  .timeline("GSI2")
   .index("GSI1", "byAuthor", { pk: ["authorId"] })
   .build();
 

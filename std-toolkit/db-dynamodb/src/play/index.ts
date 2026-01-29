@@ -148,7 +148,7 @@ const play = Effect.gen(function* () {
   yield* Console.log("\n[4] query({ pk, sk: { '>=': null } }, { limit }) - First 2 posts\n");
 
   const q3 = yield* PostEntity.query(
-    "pk",
+    "primary",
     { pk: { authorId: "alice" }, sk: { ">=": null } },
     { limit: 2 },
   );
@@ -163,7 +163,7 @@ const play = Effect.gen(function* () {
   yield* Console.log("\n[5] query({ pk, sk: { '<=': null } }, { limit }) - Last 2 posts\n");
 
   const q4 = yield* PostEntity.query(
-    "pk",
+    "primary",
     { pk: { authorId: "alice" }, sk: { "<=": null } },
     { limit: 2 },
   );

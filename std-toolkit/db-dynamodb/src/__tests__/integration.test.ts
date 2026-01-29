@@ -1754,13 +1754,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it("getDescriptor includes timeline index", () => {
         const descriptor = TaskEntity.getDescriptor();
 
-        expect(descriptor.secondaryIndexes).toHaveLength(1);
-        const timeline = descriptor.secondaryIndexes.find(
-          (i) => i.name === "timeline",
-        );
-        expect(timeline).toBeDefined();
-        expect(timeline!.pk.deps).toContain("projectId");
-        expect(timeline!.sk.deps).toContain("_uid");
+        expect(descriptor.timelineIndex).toBeDefined();
+        expect(descriptor.timelineIndex!.name).toBe("timeline");
+        expect(descriptor.timelineIndex!.pk.deps).toContain("projectId");
+        expect(descriptor.timelineIndex!.sk.deps).toContain("_uid");
       });
     });
 

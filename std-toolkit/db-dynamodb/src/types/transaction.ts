@@ -1,4 +1,5 @@
 import type { MarshalledOutput } from "./aws.js";
+import type { EntityType } from "@std-toolkit/core";
 
 /**
  * Base type for table-level transaction operations without entity name.
@@ -9,12 +10,23 @@ export type TransactItemBase =
 
 /**
  * Full type for entity-level transaction operations with entity name for type-safe transactions.
+ * Includes optional broadcast data for emitting changes after successful transaction.
  *
  * @typeParam TEntityName - String literal type for the entity name
  */
 export type TransactItem<TEntityName extends string = string> =
-  | { kind: "put"; entityName: TEntityName; options: PutOptions }
-  | { kind: "update"; entityName: TEntityName; options: UpdateOptions };
+  | {
+      kind: "put";
+      entityName: TEntityName;
+      options: PutOptions;
+      broadcast?: EntityType<unknown>;
+    }
+  | {
+      kind: "update";
+      entityName: TEntityName;
+      options: UpdateOptions;
+      broadcast?: EntityType<unknown>;
+    };
 
 /**
  * Options for a DynamoDB Put operation in a transaction.
