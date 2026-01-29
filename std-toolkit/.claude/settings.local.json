@@ -11,7 +11,8 @@
       "Bash(pnpm tsc:*)",
       "Bash(pnpm tsx:*)",
       "Bash(npx tsc:*)",
-      "Bash(pnpm tsc:db-dynamodb:*)"
+      "Bash(pnpm tsc:db-dynamodb:*)",
+      "Bash(pnpm -r test:*)"
     ]
   }
 }

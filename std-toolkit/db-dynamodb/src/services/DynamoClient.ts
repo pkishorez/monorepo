@@ -3,13 +3,6 @@ import * as Effect from "effect/Effect";
 import { DynamodbError, type AwsErrorMeta } from "../errors.js";
 import type { AwsCredentials, DynamoTableConfig } from "../types/index.js";
 
-/**
- * Extracts the error name from an AWS error type string.
- * AWS errors are often formatted as "namespace#ErrorName".
- *
- * @param awsErrorType - The full AWS error type string
- * @returns The extracted error name
- */
 function extractErrorName(awsErrorType: string): string {
   const parts = awsErrorType.split("#");
   return parts.length > 1 ? parts[1]! : awsErrorType;
@@ -158,29 +151,27 @@ export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
 
       const simpleErrorName = extractErrorName(errorType);
 
-      switch (simpleErrorName) {
-        case "ThrottlingException":
-        case "TooManyRequestsException":
-        case "ProvisionedThroughputExceededException":
-        case "RequestLimitExceeded":
-          return yield* Effect.fail(DynamodbError.throttling(errorMeta));
-        case "ServiceUnavailable":
-        case "InternalServerError":
-          return yield* Effect.fail(DynamodbError.serviceUnavailable(errorMeta));
-        case "RequestTimeout":
-          return yield* Effect.fail(DynamodbError.requestTimeout(errorMeta));
-        case "AccessDeniedException":
-          return yield* Effect.fail(DynamodbError.accessDenied(errorMeta));
-        case "UnauthorizedException":
-        case "UnrecognizedClientException":
-          return yield* Effect.fail(DynamodbError.unauthorized(errorMeta));
-        case "ValidationException":
-          return yield* Effect.fail(DynamodbError.validationException(errorMeta));
-        default:
-          return yield* Effect.fail(
-            DynamodbError.unknownAwsError(simpleErrorName, errorMessage, errorMeta),
-          );
+      const errorMap: Record<string, (meta: AwsErrorMeta) => DynamodbError> = {
+        ThrottlingException: DynamodbError.throttling,
+        TooManyRequestsException: DynamodbError.throttling,
+        ProvisionedThroughputExceededException: DynamodbError.throttling,
+        RequestLimitExceeded: DynamodbError.throttling,
+        ServiceUnavailable: DynamodbError.serviceUnavailable,
+        InternalServerError: DynamodbError.serviceUnavailable,
+        RequestTimeout: DynamodbError.requestTimeout,
+        AccessDeniedException: DynamodbError.accessDenied,
+        UnauthorizedException: DynamodbError.unauthorized,
+        UnrecognizedClientException: DynamodbError.unauthorized,
+        ValidationException: DynamodbError.validationException,
+      };
+
+      const errorFactory = errorMap[simpleErrorName];
+      if (errorFactory) {
+        return yield* Effect.fail(errorFactory(errorMeta));
       }
+      return yield* Effect.fail(
+        DynamodbError.unknownAwsError(simpleErrorName, errorMessage, errorMeta),
+      );
     });
 
   return {
