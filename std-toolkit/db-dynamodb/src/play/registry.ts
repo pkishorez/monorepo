@@ -1,12 +1,12 @@
 import { Effect } from "effect";
-import { TableRegistry } from "../index.js";
+import { EntityRegistry } from "../index.js";
 import { table } from "./table.js";
 import { UserEntity, PostEntity, CommentEntity } from "./entities.js";
 
 // =============================================================================
-// Create Table Registry
+// Create Entity Registry
 // =============================================================================
-export const registry = TableRegistry.make(table)
+export const registry = EntityRegistry.make(table)
   .register(UserEntity)
   .register(PostEntity)
   .register(CommentEntity)

@@ -2,7 +2,7 @@
 export {
   DynamoTable,
   DynamoEntity,
-  TableRegistry,
+  EntityRegistry,
   type EntityType,
 } from "./services/index.js";
 

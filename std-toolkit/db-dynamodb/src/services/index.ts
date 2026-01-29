@@ -2,8 +2,8 @@ export {
   DynamoTable,
   type DynamoTableInstance,
   type QueryResult,
-} from "./DynamoTable.js";
+} from "./dynamo-table.js";
 
-export { DynamoEntity, type EntityType } from "./DynamoEntity.js";
+export { DynamoEntity, type EntityType } from "./dynamo-entity.js";
 
-export { TableRegistry } from "./TableRegistry.js";
+export { EntityRegistry } from "./entity-registry.js";

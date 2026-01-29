@@ -1,6 +1,6 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
 import { Effect, Option, Schema } from "effect";
-import type { DynamoTableInstance } from "./DynamoTable.js";
+import type { DynamoTableInstance } from "./dynamo-table.js";
 import { ConnectionService } from "@std-toolkit/core/server";
 import { DynamodbError } from "../errors.js";
 import type {
