@@ -15,28 +15,16 @@ const options = stdCollectionOptions({
     }).pipe(Effect.provide(runtime), Effect.orDie),
   }),
 
-  onInsert: (user) =>
+  onInsert: (payload) =>
     Effect.gen(function* () {
       const { api } = yield* RealtimeClient;
-      return yield* api.CreateUser({
-        name: user.name,
-        evolution: "v2 test!",
-        email: user.email,
-        status: user.status,
-      });
+      return yield* api.insertUser(payload);
     }).pipe(Effect.provide(runtime), Effect.orDie),
 
-  onUpdate: (item, partial) =>
+  onUpdate: (payload) =>
     Effect.gen(function* () {
       const { api } = yield* RealtimeClient;
-      return yield* api.UpdateUser({
-        id: item.id,
-        updates: {
-          name: partial.name,
-          email: partial.email,
-          status: partial.status,
-        },
-      });
+      return yield* api.updateUser(payload);
     }).pipe(Effect.provide(runtime), Effect.orDie),
 });
 

@@ -1,18 +1,17 @@
 import { Collection, CollectionConfig, SyncConfig } from "@tanstack/react-db";
 import { Effect } from "effect";
 import { EntityType } from "@std-toolkit/core";
-import { AnyESchema } from "@std-toolkit/eschema";
+import { AnyESchema, ESchemaIdField } from "@std-toolkit/eschema";
 
 interface StdCollectionConfig<
   TItem extends object,
-  TKey extends string,
   TSchema extends AnyESchema,
 > {
   schema: TSchema;
   sync: (value: {
     collection: Collection<
       TItem,
-      TKey,
+      string,
       CollectionUtils<TSchema>,
       TSchema,
       object
@@ -22,11 +21,16 @@ interface StdCollectionConfig<
     effect: Effect.Effect<readonly EntityType<TItem>[]>;
     onCleanup?: () => void;
   };
-  onInsert: (item: TItem) => Effect.Effect<EntityType<TItem>>;
+  onInsert: (
+    item: Omit<TItem, ESchemaIdField<TSchema>>,
+  ) => Effect.Effect<EntityType<TItem>>;
   onUpdate?: (
-    current: TItem,
-    item: Partial<TItem>,
-  ) => Effect.Effect<EntityType<Partial<TItem>>>;
+    payload: {
+      [K in ESchemaIdField<TSchema>]: string;
+    } & {
+      updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
+    },
+  ) => Effect.Effect<EntityType<TItem>>;
 }
 
 export type CollectionUtils<TSchema extends AnyESchema = AnyESchema> = {
@@ -34,13 +38,19 @@ export type CollectionUtils<TSchema extends AnyESchema = AnyESchema> = {
   schema: () => TSchema;
 };
 export const stdCollectionOptions = <TSchema extends AnyESchema>(
-  options: StdCollectionConfig<TSchema["Type"], string, TSchema>,
-): CollectionConfig<TSchema["Type"], string, TSchema, CollectionUtils<TSchema>> & {
+  options: StdCollectionConfig<TSchema["Type"], TSchema>,
+): CollectionConfig<
+  TSchema["Type"],
+  string,
+  TSchema,
+  CollectionUtils<TSchema>
+> & {
   schema: TSchema;
 } => {
   type TItem = TSchema["Type"];
   const { onInsert, onUpdate, sync, schema } = options;
-  const getKey = (item: TItem): string => item[schema.idField as keyof TItem] as string;
+  const getKey = (item: TItem): string =>
+    item[schema.idField as keyof TItem] as string;
 
   type SyncParams = Parameters<SyncConfig<TItem, string>["sync"]>[0];
   const syncParamsRef: { current: SyncParams | null } = { current: null };
@@ -108,16 +118,19 @@ export const stdCollectionOptions = <TSchema extends AnyESchema>(
       const result = await Effect.runPromise(onInsert(changes as TItem));
       applyLocalChanges([result]);
     },
-    onUpdate: async ({ transaction, collection }) => {
+    onUpdate: async ({ transaction }) => {
       if (!onUpdate) return;
       const { changes, key } = transaction.mutations[0]!;
-      const current = collection.get(key)!;
-      const update = await Effect.runPromise(onUpdate(current, changes));
-      const merged = {
-        ...collection.get(key as string),
-        ...update,
-      } as EntityType<TItem>;
-      applyLocalChanges([merged]);
+      const payload = {
+        [schema.idField]: key,
+        updates: changes,
+      } as {
+        [K in ESchemaIdField<TSchema>]: string;
+      } & {
+        updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
+      };
+      const result = await Effect.runPromise(onUpdate(payload));
+      applyLocalChanges([result]);
     },
   };
 };
