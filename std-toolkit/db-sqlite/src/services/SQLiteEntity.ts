@@ -375,10 +375,12 @@ export class SQLiteEntity<
   query<K extends "pk" | (keyof TSecondaryDerivationMap & string)>(
     key: K,
     params: K extends "pk"
-      ? {
-          pk: Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>;
-          sk: SkParam;
-        }
+      ? [TPrimaryPkKeys] extends [never]
+        ? { pk?: {}; sk: SkParam }
+        : {
+            pk: Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>;
+            sk: SkParam;
+          }
       : K extends keyof TSecondaryDerivationMap
         ? {
             pk: Pick<
@@ -406,7 +408,7 @@ export class SQLiteEntity<
         const derivedPk = deriveIndexKeyValue(
           this.#eschema.name,
           this.#primaryDerivation.pkDeps,
-          params.pk as Record<string, unknown>,
+          (params.pk ?? {}) as Record<string, unknown>,
           true,
         );
 

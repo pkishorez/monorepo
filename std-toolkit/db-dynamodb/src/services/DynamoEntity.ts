@@ -537,10 +537,12 @@ export class DynamoEntity<
   query<K extends "pk" | (keyof TSecondaryDerivationMap & string)>(
     key: K,
     params: K extends "pk"
-      ? {
-          pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-          sk: SkParam;
-        }
+      ? [TPrimaryPkKeys] extends [never]
+        ? { pk?: {}; sk: SkParam }
+        : {
+            pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
+            sk: SkParam;
+          }
       : K extends keyof TSecondaryDerivationMap
         ? {
             pk: Pick<
@@ -567,7 +569,7 @@ export class DynamoEntity<
         const derivedPk = deriveIndexKeyValue(
           this.#eschema.name,
           this.#primaryDerivation.pkDeps,
-          params.pk as Record<string, unknown>,
+          (params.pk ?? {}) as Record<string, unknown>,
           true,
         );
 
