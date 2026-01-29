@@ -509,10 +509,11 @@ export class DynamoEntity<
   /**
    * Creates an insert operation for use in a transaction.
    * The ID field is optional - if not provided, a ULID will be auto-generated.
+   * Includes broadcast data for emitting changes after successful transaction.
    *
    * @param value - The entity value to insert (ID field is optional)
    * @param options - Insert options including condition
-   * @returns A transaction item for insert
+   * @returns A transaction item for insert with broadcast data
    */
   insertOp(
     value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
@@ -532,7 +533,7 @@ export class DynamoEntity<
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const { item, exprResult } = yield* this.#prepareInsert(
+      const { item, exprResult, meta, fullValue } = yield* this.#prepareInsert(
         fullValueWithId,
         options?.condition,
       );
@@ -541,17 +542,19 @@ export class DynamoEntity<
       return {
         ...tableOp,
         entityName: this.#eschema.name,
+        broadcast: { value: fullValue, meta },
       };
     });
   }
 
   /**
    * Creates an update operation for use in a transaction.
+   * Pre-fetches the existing entity to include complete broadcast data.
    *
    * @param keyValue - Object containing the primary key field values
    * @param updates - Partial entity with fields to update
    * @param options - Update options including condition
-   * @returns A transaction item for update
+   * @returns A transaction item for update with broadcast data
    */
   updateOp(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
@@ -562,16 +565,29 @@ export class DynamoEntity<
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
-      const { pk, sk, exprResult } = this.#prepareUpdate(
+      // Pre-fetch existing entity to get complete data for broadcast
+      const existing = yield* this.get(keyValue);
+      if (!existing) {
+        return yield* Effect.fail(DynamodbError.noItemToUpdate());
+      }
+
+      const { pk, sk, exprResult, meta } = this.#prepareUpdate(
         keyValue as Record<string, unknown>,
         updates,
         options,
       );
 
+      // Merge existing value with updates for broadcast
+      const mergedValue = {
+        ...existing.value,
+        ...updates,
+      } as ESchemaType<TSchema>;
+
       const tableOp = this.#table.opUpdateItem({ pk, sk }, exprResult);
       return {
         ...tableOp,
         entityName: this.#eschema.name,
+        broadcast: { value: mergedValue, meta },
       };
     });
   }
@@ -1165,7 +1181,7 @@ export class DynamoEntity<
     options?: {
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
-  ): { pk: string; sk: string; exprResult: UpdateExprResult } {
+  ): { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType } {
     const pk = deriveIndexKeyValue(
       this.#eschema.name,
       this.#primaryDerivation.pkDeps,
@@ -1182,6 +1198,13 @@ export class DynamoEntity<
     const _uid = generateUlid();
     const updatesWithMeta = { ...updates, _uid };
     const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
+
+    const meta: MetaType = {
+      _e: this.#eschema.name,
+      _v: this.#eschema.latestVersion,
+      _uid,
+      _d: (updates as any)._d ?? false,
+    };
 
     const conditionOps: ConditionOperation[] = [
       exprCondition(($) =>
@@ -1204,7 +1227,7 @@ export class DynamoEntity<
       condition,
     });
 
-    return { pk, sk, exprResult };
+    return { pk, sk, exprResult, meta };
   }
 }
 
@@ -1258,13 +1281,14 @@ class EntityIndexDerivations<
    */
   index<
     GsiName extends keyof TTable["secondaryIndexMap"] & string,
+    const TEntityIndexName extends string,
     const TPkKeys extends readonly (
       | keyof ESchemaType<TSchema>
       | DerivableMetaFields
     )[],
   >(
     gsiName: GsiName,
-    entityIndexName: string,
+    entityIndexName: TEntityIndexName,
     derivation: {
       pk: TPkKeys;
     },
@@ -1292,7 +1316,7 @@ class EntityIndexDerivations<
       TPrimaryPkKeys,
       TSecondaryDerivationMap &
         Record<
-          typeof entityIndexName,
+          TEntityIndexName,
           StoredIndexDerivation & {
             pkDeps: TPkKeys;
             skDeps: typeof skKeys;

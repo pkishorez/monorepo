@@ -1,8 +1,9 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import type { DynamoTableInstance } from "./DynamoTable.js";
 import type { DynamoEntity } from "./DynamoEntity.js";
 import type { TransactItem } from "../types/index.js";
 import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
+import { ConnectionService } from "@std-toolkit/core/server";
 import { DynamodbError } from "../errors.js";
 
 /**
@@ -55,6 +56,7 @@ export class TableRegistry<
   /**
    * Executes a transaction with type-safe entity validation.
    * Only accepts TransactItems from entities registered in this registry.
+   * Broadcasts all entity changes after successful transaction.
    *
    * @param items - Array of transaction items from registered entities
    * @returns Effect that completes when the transaction succeeds
@@ -62,7 +64,23 @@ export class TableRegistry<
   transact(
     items: TransactItem<EntityName<TEntities[keyof TEntities]>>[],
   ): Effect.Effect<void, DynamodbError> {
-    return this.#table.transact(items);
+    return Effect.gen(this, function* () {
+      // Execute the transaction
+      yield* this.#table.transact(items);
+
+      // Broadcast all entities after successful transaction
+      const connectionService = yield* Effect.serviceOption(
+        ConnectionService,
+      ).pipe(Effect.andThen(Option.getOrNull));
+
+      if (connectionService) {
+        for (const item of items) {
+          if (item.broadcast) {
+            connectionService.broadcast(item.broadcast);
+          }
+        }
+      }
+    });
   }
 
   /**
