@@ -1,12 +1,6 @@
 import { Schema } from "effect";
 import type { StructFieldsSchema } from "./types";
 
-export function brandedString<B extends string>(brand: B) {
-  return Schema.String.pipe(Schema.brand(brand)).annotations({
-    identifier: brand,
-  });
-}
-
 export function struct<S extends StructFieldsSchema>(
   fields: S,
 ): Schema.Schema<

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { ESchema, brandedString } from "../index";
+import { ESchema } from "../index";
 import { ESchemaError } from "../utils";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
@@ -10,7 +10,7 @@ const StringToNumber = Schema.transform(Schema.String, Schema.Number, {
 });
 
 describe("ESchema.make", () => {
-  it.effect("creates a v1 schema with name and branded id field", () =>
+  it.effect("creates a v1 schema with name and id field", () =>
     Effect.gen(function* () {
       const schema = ESchema.make("User", "id", {
         name: Schema.String,
@@ -18,7 +18,7 @@ describe("ESchema.make", () => {
 
       expect(schema.idField).toBe("id");
       const encoded = yield* schema.encode({
-        id: schema.makeId("u1"),
+        id: "u1",
         name: "Alice",
       });
       expect(encoded).toEqual({ _v: "v1", id: "u1", name: "Alice" });
@@ -43,7 +43,7 @@ describe("ESchema.make", () => {
       });
 
       expect(decoded).toEqual({
-        id: schema.makeId("c1"),
+        id: "c1",
         count: 42,
         optional: "default",
         nullable: null,
@@ -57,16 +57,6 @@ describe("ESchema.make", () => {
     }).build();
 
     expect(schema.idField).toBe("userId");
-  });
-
-  it("makeId creates a branded ID", () => {
-    const schema = ESchema.make("User", "id", {
-      name: Schema.String,
-    }).build();
-
-    const id = schema.makeId("u1");
-    expect(id).toBe("u1");
-    // Type check: id should be string & Brand<"UserId">
   });
 });
 
@@ -94,7 +84,7 @@ describe("ESchema.fields getter", () => {
 });
 
 describe("ESchema.schema getter", () => {
-  it("returns an Effect Schema.Struct with branded ID", () => {
+  it("returns an Effect Schema.Struct with ID field", () => {
     const eschema = ESchema.make("Test", "id", {
       a: Schema.String,
     }).build();
@@ -142,7 +132,7 @@ describe("ESchema.decode", () => {
         count: "10",
       });
       expect(decoded).toEqual({
-        id: schema.makeId("t1"),
+        id: "t1",
         name: "foo",
         count: 10,
       });
@@ -161,7 +151,7 @@ describe("ESchema.decode", () => {
         .build();
 
       const decoded = yield* schema.decode({ _v: "v1", id: "t1", a: "42" });
-      expect(decoded).toEqual({ id: schema.makeId("t1"), a: 42, b: "added" });
+      expect(decoded).toEqual({ id: "t1", a: 42, b: "added" });
     }),
   );
 
@@ -183,7 +173,7 @@ describe("ESchema.decode", () => {
         b: "world",
       });
       expect(decoded).toEqual({
-        id: schema.makeId("t1"),
+        id: "t1",
         a: "hello",
         b: "world",
       });
@@ -211,7 +201,7 @@ describe("ESchema.decode", () => {
       }).build();
 
       const decoded = yield* schema.decode({ id: "t1", a: "hello" });
-      expect(decoded).toEqual({ id: schema.makeId("t1"), a: "hello" });
+      expect(decoded).toEqual({ id: "t1", a: "hello" });
     }),
   );
 });
@@ -224,7 +214,7 @@ describe("ESchema.encode", () => {
       }).build();
 
       const encoded = yield* schema.encode({
-        id: schema.makeId("u1"),
+        id: "u1",
         name: "Alice",
       });
       expect(encoded).toEqual({ _v: "v1", id: "u1", name: "Alice" });
@@ -238,7 +228,7 @@ describe("ESchema.encode", () => {
       }).build();
 
       const encoded = yield* schema.encode({
-        id: schema.makeId("t1"),
+        id: "t1",
         count: 42,
       });
       expect(encoded).toEqual({ _v: "v1", id: "t1", count: "42" });
@@ -257,7 +247,7 @@ describe("ESchema.encode", () => {
         .build();
 
       const encoded = yield* schema.encode({
-        id: schema.makeId("t1"),
+        id: "t1",
         a: "hello",
         b: 123,
       });
@@ -273,7 +263,7 @@ describe("ESchema.encode", () => {
 
       const encoded = yield* schema.encode({
         _v: "old",
-        id: schema.makeId("t1"),
+        id: "t1",
         name: "test",
       } as any);
       expect(encoded).toEqual({ _v: "v1", id: "t1", name: "test" });
@@ -299,7 +289,7 @@ describe("ESchema.evolve (multiple evolutions)", () => {
 
       const fromV1 = yield* schema.decode({ _v: "v1", id: "t1", a: "hello" });
       expect(fromV1).toEqual({
-        id: schema.makeId("t1"),
+        id: "t1",
         a: "hello",
         b: "from-v1",
         c: 100,
@@ -312,7 +302,7 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         b: "existing",
       });
       expect(fromV2).toEqual({
-        id: schema.makeId("t1"),
+        id: "t1",
         a: "hello",
         b: "existing",
         c: 100,
@@ -326,7 +316,7 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         c: 999,
       });
       expect(fromV3).toEqual({
-        id: schema.makeId("t1"),
+        id: "t1",
         a: "hello",
         b: "existing",
         c: 999,
@@ -352,7 +342,7 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         a: "keep",
         b: "drop",
       });
-      expect(decoded).toEqual({ id: schema.makeId("t1"), a: "keep" });
+      expect(decoded).toEqual({ id: "t1", a: "keep" });
     }),
   );
 
@@ -378,7 +368,7 @@ describe("ESchema.evolve (multiple evolutions)", () => {
         firstName: "John",
         lastName: "Doe",
       });
-      expect(decoded).toEqual({ id: schema.makeId("t1"), fullName: "John Doe" });
+      expect(decoded).toEqual({ id: "t1", fullName: "John Doe" });
     }),
   );
 });
@@ -391,12 +381,12 @@ describe("roundtrip encode/decode", () => {
         count: StringToNumber,
       }).build();
 
-      const original = { id: schema.makeId("t1"), name: "test", count: 42 };
+      const original = { id: "t1", name: "test", count: 42 };
       const encoded = yield* schema.encode(original);
       const decoded = yield* schema.decode(encoded);
 
       expect(decoded).toEqual({
-        id: schema.makeId("t1"),
+        id: "t1",
         name: "test",
         count: 42,
       });
@@ -444,7 +434,7 @@ describe("Standard Schema v1 compatibility", () => {
     });
 
     expect(result).toEqual({
-      value: { id: schema.makeId("u1"), name: "Alice", age: 30 },
+      value: { id: "u1", name: "Alice", age: 30 },
     });
   });
 
@@ -477,7 +467,7 @@ describe("Standard Schema v1 compatibility", () => {
     });
 
     expect(result).toEqual({
-      value: { id: schema.makeId("u1"), name: "Alice" },
+      value: { id: "u1", name: "Alice" },
     });
   });
 
@@ -508,7 +498,7 @@ describe("Standard Schema v1 compatibility", () => {
 
     expect(v1Result).toEqual({
       value: {
-        id: schema.makeId("u1"),
+        id: "u1",
         name: "Alice",
         email: "default@example.com",
       },
@@ -523,7 +513,7 @@ describe("Standard Schema v1 compatibility", () => {
 
     expect(v2Result).toEqual({
       value: {
-        id: schema.makeId("u2"),
+        id: "u2",
         name: "Bob",
         email: "bob@example.com",
       },
@@ -589,52 +579,14 @@ describe("ESchema.getDescriptor", () => {
     expect(countSchema.type).toBe("string");
   });
 
-  it("includes branded id in $defs", () => {
+  it("includes id in properties", () => {
     const schema = ESchema.make("User", "id", {
       name: Schema.String,
     }).build();
 
     const descriptor = schema.getDescriptor();
 
-    expect(descriptor.$defs).toHaveProperty("UserId");
-    expect(descriptor.properties.id).toEqual({ $ref: "#/$defs/UserId" });
-  });
-});
-
-describe("brandedString", () => {
-  it("creates a branded string with identifier annotation", () => {
-    const UserId = brandedString("UserId");
-    const schema = ESchema.make("User", "id", {
-      ownerId: UserId,
-    }).build();
-
-    const descriptor = schema.getDescriptor();
-
-    expect(descriptor.$defs).toHaveProperty("UserId");
-    expect(descriptor.properties.ownerId).toEqual({ $ref: "#/$defs/UserId" });
-  });
-
-  it("creates $ref relationships across schemas", () => {
-    const UserId = brandedString("UserId");
-
-    const userSchema = ESchema.make("User", "id", {
-      ownerId: UserId,
-    }).build();
-
-    const postSchema = ESchema.make("Post", "id", {
-      authorId: UserId,
-    }).build();
-
-    const userDescriptor = userSchema.getDescriptor();
-    const postDescriptor = postSchema.getDescriptor();
-
-    // Both reference the same $def
-    expect(userDescriptor.properties.ownerId).toEqual({
-      $ref: "#/$defs/UserId",
-    });
-    expect(postDescriptor.properties.authorId).toEqual({
-      $ref: "#/$defs/UserId",
-    });
+    expect(descriptor.properties).toHaveProperty("id");
   });
 });
 
@@ -651,8 +603,8 @@ describe("ForbidIdField enforcement", () => {
   });
 });
 
-describe("Branded ID type safety", () => {
-  it.effect("decoded id is properly branded", () =>
+describe("ID handling", () => {
+  it.effect("decoded id is a plain string", () =>
     Effect.gen(function* () {
       const userSchema = ESchema.make("User", "id", {
         name: Schema.String,
@@ -663,32 +615,24 @@ describe("Branded ID type safety", () => {
         name: "Alice",
       });
 
-      // The decoded.id should be branded as UserId
-      // This is a type-level check - at runtime it's just a string
       expect(decoded.id).toBe("u1");
-
-      // Can use makeId to create compatible IDs
-      const newId = userSchema.makeId("u2");
-      expect(newId).toBe("u2");
     }),
   );
 
-  it.effect("encoded id is also branded", () =>
+  it.effect("encoded id is a plain string", () =>
     Effect.gen(function* () {
       const userSchema = ESchema.make("User", "id", {
         name: Schema.String,
       }).build();
 
       const encoded = yield* userSchema.encode({
-        id: userSchema.makeId("u1"),
+        id: "u1",
         name: "Alice",
       });
 
-      // The encoded.id should also be branded as UserId
-      // This allows passing encoded output directly to other operations
       expect(encoded.id).toBe("u1");
 
-      // Can use the encoded id directly with encode (type-safe)
+      // Can use the encoded id directly with encode
       const reEncoded = yield* userSchema.encode({
         id: encoded.id,
         name: "Bob",

@@ -23,16 +23,9 @@ const PostSchema = ESchema.make("Post", "postId", {
 
 // ─── Type Helpers ────────────────────────────────────────────────────────────
 
-// The branded ID type - use this for type-safe ID references
-type UserId = (typeof UserSchema.Type)["userId"];
-//   ^? string & Brand.Brand<"UserId">
-
-type PostId = (typeof PostSchema.Type)["postId"];
-//   ^? string & Brand.Brand<"PostId">
-
-// Helper to create branded IDs (for type safety when passing between functions)
-const userId = (id: string): UserId => UserSchema.makeId(id);
-const postId = (id: string): PostId => PostSchema.makeId(id);
+// Type alias for the ID field type
+type UserId = string;
+type PostId = string;
 
 // ─── Table & Entities ────────────────────────────────────────────────────────
 
@@ -70,20 +63,18 @@ const program = Effect.gen(function* () {
 
   console.log("=== SQLiteEntity Playground ===\n");
 
-  // ─── Insert with Branded IDs ─────────────────────────────────────────────
-  console.log("--- Inserting Users (with branded IDs) ---");
+  // ─── Insert Users ─────────────────────────────────────────────
+  console.log("--- Inserting Users ---");
 
-  // Option 1: Pass plain strings (convenient, but loses compile-time type safety)
   const user1 = yield* userEntity.insert({
-    userId: "u1", // plain string - works but no type safety
+    userId: "u1",
     email: "alice@example.com",
     name: "Alice",
     status: "active",
   });
 
-  // Option 2: Use makeId for compile-time type safety
   const user2 = yield* userEntity.insert({
-    userId: userId("u2"), // branded - type-safe!
+    userId: "u2",
     email: "bob@example.com",
     name: "Bob",
     status: "active",
@@ -92,16 +83,14 @@ const program = Effect.gen(function* () {
   console.log(`Inserted: ${user1.value.name} (${user1.value.userId})`);
   console.log(`Inserted: ${user2.value.name} (${user2.value.userId})`);
 
-  // The return type has branded userId:
-  // user1.value.userId is typed as: string & Brand.Brand<"UserId">
-  const returnedUserId: UserId = user1.value.userId; // Type-safe assignment!
-  console.log(`Branded userId from return: ${returnedUserId}`);
+  const returnedUserId: UserId = user1.value.userId;
+  console.log(`userId from return: ${returnedUserId}`);
 
   // ─── Insert Posts ────────────────────────────────────────────────────────
   console.log("\n--- Inserting Posts ---");
   const post1 = yield* postEntity.insert({
-    postId: postId("p1"),
-    authorId: "u1", // Could also use a branded AuthorId if we wanted
+    postId: "p1",
+    authorId: "u1",
     title: "Hello World",
     content: "This is my first post!",
     published: true,
@@ -109,7 +98,7 @@ const program = Effect.gen(function* () {
   console.log(`Inserted: "${post1.value.title}" by ${post1.value.authorId}`);
 
   const post2 = yield* postEntity.insert({
-    postId: postId("p2"),
+    postId: "p2",
     authorId: "u1",
     title: "Second Post",
     content: "Another post from Alice",
@@ -117,35 +106,33 @@ const program = Effect.gen(function* () {
   });
   console.log(`Inserted: "${post2.value.title}"`);
 
-  // ─── Get returns branded types ───────────────────────────────────────────
-  console.log("\n--- Get by Primary Key (returns branded types) ---");
-  const fetchedUser = yield* userEntity.get({ userId: userId("u1") });
+  // ─── Get by Primary Key ───────────────────────────────────────────
+  console.log("\n--- Get by Primary Key ---");
+  const fetchedUser = yield* userEntity.get({ userId: "u1" });
   if (fetchedUser) {
-    // fetchedUser.value.userId is branded!
     const fetchedId: UserId = fetchedUser.value.userId;
     console.log(`Fetched user: ${fetchedUser.value.name} (id: ${fetchedId})`);
   }
 
-  // ─── Query returns branded types ─────────────────────────────────────────
-  console.log("\n--- Query (returns branded types) ---");
+  // ─── Query ─────────────────────────────────────────
+  console.log("\n--- Query ---");
   const alicePosts = yield* postEntity.query("pk", {
     pk: { authorId: "u1" },
     sk: { ">=": null },
   });
   console.log(`Alice's posts (${alicePosts.items.length}):`);
   for (const item of alicePosts.items) {
-    // item.value.postId is branded!
     const pid: PostId = item.value.postId;
     console.log(`  - "${item.value.title}" (postId: ${pid})`);
   }
 
-  // ─── Update returns branded types ────────────────────────────────────────
-  console.log("\n--- Update (returns branded types) ---");
+  // ─── Update ────────────────────────────────────────
+  console.log("\n--- Update ---");
   const updated = yield* userEntity.update(
     { userId: user2.value.userId },
     { name: "Bobby" },
   );
-  const updatedId: UserId = updated.value.userId; // Branded!
+  const updatedId: UserId = updated.value.userId;
   console.log(`Updated: ${updated.value.name} (id: ${updatedId})`);
 
   // ─── Secondary Index Query ───────────────────────────────────────────────
@@ -155,29 +142,11 @@ const program = Effect.gen(function* () {
     sk: { ">=": null },
   });
   if (byEmail.items[0]) {
-    const emailUserId: UserId = byEmail.items[0].value.userId; // Branded!
+    const emailUserId: UserId = byEmail.items[0].value.userId;
     console.log(
       `Found user by email: ${byEmail.items[0].value.name} (id: ${emailUserId})`,
     );
   }
-
-  // ─── Demonstrating type safety ───────────────────────────────────────────
-  console.log("\n--- Type Safety Demo ---");
-
-  // This function only accepts UserId, not PostId or plain string
-  function processUser(id: UserId): string {
-    return `Processing user: ${id}`;
-  }
-
-  // Works: using branded ID from return
-  console.log(processUser(user1.value.userId));
-
-  // Works: using makeId
-  console.log(processUser(userId("u1")));
-
-  // Would NOT compile (if we uncomment):
-  // processUser(post1.value.postId);  // Error: PostId is not UserId
-  // processUser("raw-string");         // Error: string is not UserId
 
   console.log("\n=== Done ===");
 });

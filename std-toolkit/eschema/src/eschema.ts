@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { Brand, Effect, JSONSchema, Schema } from "effect";
+import { Effect, JSONSchema, Schema } from "effect";
 import {
-  BrandedIdSchema,
+  IdSchema,
   DeltaSchema,
   ESchemaDescriptor,
   ForbidUnderscorePrefix,
@@ -13,7 +13,7 @@ import {
   StructFieldsSchema,
 } from "./types";
 import { ESchemaError } from "./utils";
-import { struct, metaSchema, brandedString } from "./schema";
+import { struct, metaSchema } from "./schema";
 
 export class ESchema<
   TName extends string,
@@ -39,19 +39,16 @@ export class ESchema<
     idField: Id,
     schema: I & ForbidUnderscorePrefix<I> & ForbidIdField<I, Id>,
   ) {
-    // Create the branded ID schema for this entity
-    // Cast to BrandedIdSchema so both Type and Encoded are branded for type safety
-    const idSchema = brandedString(
-      `${name}Id`,
-    ) as unknown as BrandedIdSchema<N>;
+    // Create a plain string ID schema for this entity
+    const idSchema = Schema.String as IdSchema;
 
     // Add the ID field to the schema at runtime
     const schemaWithId = {
       ...schema,
       [idField]: idSchema,
-    } as I & Record<Id, BrandedIdSchema<N>>;
+    } as I & Record<Id, IdSchema>;
 
-    return new Builder<N, Id, "v1", I & Record<Id, BrandedIdSchema<N>>>(
+    return new Builder<N, Id, "v1", I & Record<Id, IdSchema>>(
       name,
       idField,
       idSchema,
@@ -76,14 +73,6 @@ export class ESchema<
       migration: ((prev: any) => any) | null;
     }[] = [],
   ) {}
-
-  /**
-   * Creates a branded ID for this entity from a plain string.
-   * Use this to create type-safe IDs for encode operations.
-   */
-  makeId(id: string): string & Brand.Brand<`${TName}Id`> {
-    return id as string & Brand.Brand<`${TName}Id`>;
-  }
 
   makePartial(value: Partial<StructFieldsDecoded<TLatest>>) {
     return {
@@ -231,7 +220,7 @@ class Builder<
   constructor(
     private name: TName,
     private _idField: TIdField,
-    private _idSchema: BrandedIdSchema<TName>,
+    private _idSchema: IdSchema,
     private migrations: {
       version: string;
       schema: StructFieldsSchema;
@@ -274,7 +263,7 @@ class Builder<
       TName,
       TIdField,
       V,
-      MergeSchemas<TLatest, D> & Record<TIdField, BrandedIdSchema<TName>>
+      MergeSchemas<TLatest, D> & Record<TIdField, IdSchema>
     >(
       this.name,
       this._idField,

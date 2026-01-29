@@ -144,7 +144,7 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query("pk", {
           pk: { userId: "user-001" },
-          sk: { ">=": { orderId: OrderEntity.id("order-001") } },
+          sk: { ">=": { orderId: "order-001" } },
         });
 
         expect(result.items.length).toBe(3);
@@ -157,7 +157,7 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query("pk", {
           pk: { userId: "user-001" },
-          sk: { ">": { orderId: OrderEntity.id("order-001") } },
+          sk: { ">": { orderId: "order-001" } },
         });
 
         expect(result.items.length).toBe(2);
@@ -169,7 +169,7 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query("pk", {
           pk: { userId: "user-001" },
-          sk: { "<=": { orderId: OrderEntity.id("order-003") } },
+          sk: { "<=": { orderId: "order-003" } },
         });
 
         expect(result.items.length).toBe(3);
@@ -182,7 +182,7 @@ describe("Simplified API Tests", () => {
       Effect.gen(function* () {
         const result = yield* OrderEntity.query("pk", {
           pk: { userId: "user-001" },
-          sk: { "<": { orderId: OrderEntity.id("order-003") } },
+          sk: { "<": { orderId: "order-003" } },
         });
 
         expect(result.items.length).toBe(2);
@@ -196,7 +196,7 @@ describe("Simplified API Tests", () => {
           "pk",
           {
             pk: { userId: "user-001" },
-            sk: { ">=": { orderId: OrderEntity.id("order-001") } },
+            sk: { ">=": { orderId: "order-001" } },
           },
           { limit: 2 },
         );
@@ -312,8 +312,8 @@ describe("Simplified API Tests", () => {
           pk: { userId: "user-001" },
           sk: {
             between: [
-              { orderId: OrderEntity.id("order-001") },
-              { orderId: OrderEntity.id("order-002") },
+              { orderId: "order-001" },
+              { orderId: "order-002" },
             ],
           },
         });

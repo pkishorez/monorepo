@@ -740,7 +740,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const result = yield* UserEntity.get({
-            userId: UserEntity.id("entity-get-1"),
+            userId: "entity-get-1",
           });
 
           expect(result).not.toBeNull();
@@ -752,7 +752,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       it.effect("returns null for non-existent entity", () =>
         Effect.gen(function* () {
           const result = yield* UserEntity.get({
-            userId: UserEntity.id("nonexistent-entity"),
+            userId: "nonexistent-entity",
           });
 
           expect(result).toBeNull();
@@ -772,7 +772,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const result = yield* UserEntity.update(
-            { userId: UserEntity.id("entity-update-1") },
+            { userId: "entity-update-1" },
             { name: "Updated Name", age: 41 },
           );
 
@@ -792,12 +792,12 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const first = yield* UserEntity.update(
-            { userId: UserEntity.id("entity-incr-1") },
+            { userId: "entity-incr-1" },
             { name: "Update 1" },
           );
 
           const second = yield* UserEntity.update(
-            { userId: UserEntity.id("entity-incr-1") },
+            { userId: "entity-incr-1" },
             { name: "Update 2" },
           );
 
@@ -818,7 +818,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           // Update with condition succeeds
           const result = yield* UserEntity.update(
-            { userId: UserEntity.id("entity-lock-1") },
+            { userId: "entity-lock-1" },
             { name: "Update 1" },
           );
 
@@ -874,7 +874,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             "pk",
             {
               pk: { userId: "query-user-1" },
-              sk: { ">=": { orderId: OrderEntity.id("order-001") } },
+              sk: { ">=": { orderId: "order-001" } },
             },
             { limit: 10 },
           );
@@ -965,10 +965,10 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           yield* table.transact([insertOp, insertOp2]);
 
           const user1 = yield* UserEntity.get({
-            userId: UserEntity.id("txn-entity-1"),
+            userId: "txn-entity-1",
           });
           const user2 = yield* UserEntity.get({
-            userId: UserEntity.id("txn-entity-2"),
+            userId: "txn-entity-2",
           });
 
           expect(user1).not.toBeNull();
@@ -995,17 +995,17 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           const updateOp = yield* UserEntity.updateOp(
-            { userId: UserEntity.id("txn-existing-1") },
+            { userId: "txn-existing-1" },
             { status: "verified" },
           );
 
           yield* table.transact([insertOp, updateOp]);
 
           const newUser = yield* UserEntity.get({
-            userId: UserEntity.id("txn-new-1"),
+            userId: "txn-new-1",
           });
           const existingUser = yield* UserEntity.get({
-            userId: UserEntity.id("txn-existing-1"),
+            userId: "txn-existing-1",
           });
 
           expect(newUser).not.toBeNull();
@@ -1049,7 +1049,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           // Type assertion needed as beginsWith type is string but runtime supports objects
           const result = yield* OrderEntity.raw.query("pk", {
             pk: { userId: "entity-query-sk-user" },
-            sk: { beginsWith: { orderId: OrderEntity.id("order-00") } as any },
+            sk: { beginsWith: { orderId: "order-00" } as any },
           });
 
           expect(result.items.length).toBe(3);
@@ -1062,7 +1062,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           // SK is the idField (orderId) for primary index
           const result = yield* OrderEntity.query("pk", {
             pk: { userId: "entity-query-sk-user" },
-            sk: { ">": { orderId: OrderEntity.id("order-001") } },
+            sk: { ">": { orderId: "order-001" } },
           });
 
           expect(result.items.length).toBe(2);

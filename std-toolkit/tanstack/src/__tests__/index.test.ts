@@ -59,7 +59,7 @@ describe("stdCollectionOptions", () => {
 
   it("getKey extracts key from item using schema idField", () => {
     const config = createConfig();
-    const item: TestItem = { id: TestSchema.makeId("test-123"), name: "Test", updatedAt: "2024-01-01" };
+    const item: TestItem = { id: ("test-123"), name: "Test", updatedAt: "2024-01-01" };
 
     expect(config.getKey(item)).toBe("test-123");
   });
@@ -68,8 +68,8 @@ describe("stdCollectionOptions", () => {
     const compare = createConfig().compare!;
 
     type ItemWithTimestamp = TestItem & { _uid: string };
-    const older: ItemWithTimestamp = { id: TestSchema.makeId("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
-    const newer: ItemWithTimestamp = { id: TestSchema.makeId("2"), name: "B", updatedAt: "", _uid: "2024-01-02T00:00:00Z" };
+    const older: ItemWithTimestamp = { id: ("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
+    const newer: ItemWithTimestamp = { id: ("2"), name: "B", updatedAt: "", _uid: "2024-01-02T00:00:00Z" };
 
     expect(compare(older, newer)).toBe(-1);
     expect(compare(newer, older)).toBe(1);
@@ -79,8 +79,8 @@ describe("stdCollectionOptions", () => {
     const compare = createConfig().compare!;
 
     type ItemWithTimestamp = TestItem & { _uid: string };
-    const a: ItemWithTimestamp = { id: TestSchema.makeId("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
-    const b: ItemWithTimestamp = { id: TestSchema.makeId("2"), name: "B", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
+    const a: ItemWithTimestamp = { id: ("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
+    const b: ItemWithTimestamp = { id: ("2"), name: "B", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
 
     expect(compare(a, b)).toBe(1);
   });
@@ -118,7 +118,7 @@ describe("broadcastCollections", () => {
     const message = {
       _tag: "@std-toolkit/broadcast" as const,
       values: [
-        createEntity({ id: TestSchema.makeId("1"), name: "Test", updatedAt: "2024-01-01" }),
+        createEntity({ id: ("1"), name: "Test", updatedAt: "2024-01-01" }),
       ],
     };
 

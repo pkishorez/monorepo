@@ -18,6 +18,7 @@ import {
 } from "../internal/utils.js";
 import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
 import { ConnectionService } from "@std-toolkit/core/server";
+import { Prettify } from "@std-toolkit/eschema/types.js";
 
 /**
  * Meta fields that can be used in index derivations.
@@ -31,7 +32,6 @@ type DerivableMetaFields = "_uid";
 type InsertInput<T, IdField extends string> = Omit<T, IdField | "_v"> & {
   [K in IdField & keyof T]?: string;
 };
-
 
 /**
  * Represents an entity item with its value and metadata.
@@ -163,14 +163,6 @@ export class SQLiteEntity<
   }
 
   /**
-   * Creates a branded ID for this entity from a plain string.
-   * Use this to create type-safe IDs for operations that require them.
-   */
-  id(value: string): ReturnType<TSchema["makeId"]> {
-    return this.#eschema.makeId(value) as ReturnType<TSchema["makeId"]>;
-  }
-
-  /**
    * Gets the unified descriptor for this entity including schema and index info.
    */
   getDescriptor(): StdDescriptor {
@@ -259,7 +251,7 @@ export class SQLiteEntity<
 
       const fullValue = {
         ...value,
-        [idField]: this.#eschema.makeId(generatedId as string),
+        [idField]: generatedId as string,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
@@ -384,8 +376,8 @@ export class SQLiteEntity<
     key: K,
     params: K extends "pk"
       ? {
-          pk: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>;
-          sk: SkParam<Pick<ESchemaType<TSchema>, TSchema["idField"]>>;
+          pk: Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>;
+          sk: SkParam<Prettify<Pick<ESchemaType<TSchema>, TSchema["idField"]>>>;
         }
       : K extends keyof TSecondaryDerivationMap
         ? {

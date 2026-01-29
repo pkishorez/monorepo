@@ -181,7 +181,7 @@ const play = Effect.gen(function* () {
 
   const q5 = yield* PostEntity.query("pk", {
     pk: { authorId: "alice" },
-    sk: { ">=": { postId: PostEntity.id("post-03") } },
+    sk: { ">=": { postId: "post-03" } },
   });
   yield* Console.log(`    Found ${q5.items.length} posts:`);
   for (const p of q5.items) {
@@ -236,8 +236,8 @@ const play = Effect.gen(function* () {
     pk: { authorId: "alice" },
     sk: {
       between: [
-        { postId: PostEntity.id("post-02") },
-        { postId: PostEntity.id("post-04") },
+        { postId: "post-02" },
+        { postId: "post-04" },
       ],
     },
   });
