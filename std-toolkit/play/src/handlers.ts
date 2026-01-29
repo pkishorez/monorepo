@@ -20,7 +20,7 @@ export const HandlersLive = AppRpcs.toLayer({
   GetUser: ({ id }) =>
     Effect.gen(function* () {
       const result = yield* Effect.mapError(
-        UserEntity.get({ id: UserEntity.id(id) }),
+        UserEntity.get({ id }),
         () => new NotFoundError({ message: `User ${id} not found` }),
       );
       if (result === null || result.meta._d) {
@@ -34,7 +34,7 @@ export const HandlersLive = AppRpcs.toLayer({
       return yield* Effect.mapError(
         UserEntity.insert({
           evolution: "v2 test!",
-          id: UserEntity.id(generateId()),
+          id: generateId(),
           name,
           email,
           status: status ?? "pending",
@@ -48,7 +48,7 @@ export const HandlersLive = AppRpcs.toLayer({
       const filtered = Object.fromEntries(
         Object.entries(updates).filter(([, v]) => v !== undefined),
       );
-      return yield* Effect.mapError(UserEntity.update({ id: UserEntity.id(id) }, filtered), (e) =>
+      return yield* Effect.mapError(UserEntity.update({ id }, filtered), (e) =>
         e.error._tag === "UpdateFailed"
           ? UserError.userNotFound(id)
           : mapDbError(e, "UpdateUser"),
@@ -57,7 +57,7 @@ export const HandlersLive = AppRpcs.toLayer({
 
   DeleteUser: ({ id }) =>
     Effect.gen(function* () {
-      return yield* Effect.mapError(UserEntity.delete({ id: UserEntity.id(id) }), (e) =>
+      return yield* Effect.mapError(UserEntity.delete({ id }), (e) =>
         e.error._tag === "DeleteFailed"
           ? UserError.userNotFound(id)
           : mapDbError(e, "DeleteUser"),
@@ -65,7 +65,7 @@ export const HandlersLive = AppRpcs.toLayer({
     }),
 
   subscribeUsers: Effect.fn(function* () {
-    yield* UserEntity.subscribe({ key: "byUpdates", value: null }).pipe(
+    yield* UserEntity.subscribe({ key: "timeline", value: null }).pipe(
       Effect.mapError((e) =>
         "_tag" in e && e._tag === "SqliteDBError"
           ? mapDbError(e as SqliteDBError, "ListUsers")
@@ -80,7 +80,7 @@ export const HandlersLive = AppRpcs.toLayer({
       const pageLimit = Math.min(limit ?? 20, 100);
 
       const result = yield* Effect.mapError(
-        UserEntity.query("byUpdates", { pk: {}, sk: { ">=": null } }, { limit: pageLimit + 1 }),
+        UserEntity.query("timeline", { pk: {}, sk: { ">=": null } }, { limit: pageLimit + 1 }),
         (e) => mapDbError(e, "ListUsers"),
       );
 
