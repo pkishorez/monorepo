@@ -4,9 +4,9 @@ import { ESchema } from "@std-toolkit/eschema";
 import { Effect, Layer, Schema } from "effect";
 import { SqliteDBBetterSqlite3 } from "../../sql/adapters/better-sqlite3.js";
 import { SqliteDB, SqliteDBError } from "../../sql/db.js";
-import { SQLiteTable } from "../SQLiteTable.js";
-import { SQLiteEntity } from "../SQLiteEntity.js";
-import { EntityRegistry } from "../../registry/entity-registry.js";
+import { SQLiteTable } from "../sqlite-table.js";
+import { SQLiteEntity } from "../sqlite-entity.js";
+import { EntityRegistry } from "../entity-registry.js";
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -1514,13 +1514,11 @@ describe("Timeline Index", () => {
     it("getDescriptor includes timeline index", () => {
       const descriptor = taskEntity.getDescriptor();
 
-      expect(descriptor.secondaryIndexes).toHaveLength(1);
-      const timeline = descriptor.secondaryIndexes.find(
-        (i) => i.name === "timeline",
-      );
-      expect(timeline).toBeDefined();
-      expect(timeline!.pk.deps).toContain("projectId");
-      expect(timeline!.sk.deps).toContain("_uid");
+      expect(descriptor.secondaryIndexes).toHaveLength(0);
+      expect(descriptor.timelineIndex).toBeDefined();
+      expect(descriptor.timelineIndex!.name).toBe("timeline");
+      expect(descriptor.timelineIndex!.pk.deps).toContain("projectId");
+      expect(descriptor.timelineIndex!.sk.deps).toContain("_uid");
     });
   });
 

@@ -1,23 +1,4 @@
-# Monorepo
+# Guidelines
 
-Uses **Effect** everywhere. Managed with **pnpm** and **monoverse** (in-house npm package).
-
-## Structure
-
-### packages/
-
-- **monoverse** - Monorepo management tool
-- **use-effect-ts** - React hooks for Effect
-- **config** - Shared config
-
-### std-toolkit/
-
-- **eschema** - Evolving schema
-- **db-sqlite** - SQLite database utilities (WIP)
-
-## Do Not Access
-
-These folders are deprecated/duplicated and should be ignored:
-
-- `effect/`
-- `std-toolkit-old/`
+- Files: kebab-case only (no PascalCase or camelCase)
+- Comments: only when absolutely necessary; code should be self-explanatory. Exception: JSDoc comments for functions, classes, and complex data structures.

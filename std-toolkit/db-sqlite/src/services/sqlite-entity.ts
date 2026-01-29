@@ -1,7 +1,7 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect, Option, Schema } from "effect";
-import type { SQLiteTableInstance, SortKeyCondition } from "./SQLiteTable.js";
-import { SqliteDB, SqliteDBError } from "../sql/db.js";
+import { Effect, FiberRef, Option, Schema } from "effect";
+import type { SQLiteTableInstance, SortKeyCondition } from "./sqlite-table.js";
+import { SqliteDB, SqliteDBError, TransactionPendingBroadcasts } from "../sql/db.js";
 import { ulid } from "ulid";
 import {
   deriveIndexKeyValue,
@@ -645,7 +645,15 @@ export class SQLiteEntity<
 
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
     return Effect.gen(this, function* () {
-      (yield* this.#service)?.broadcast(entity);
+      const pending = yield* FiberRef.get(TransactionPendingBroadcasts);
+      if (Option.isSome(pending)) {
+        yield* FiberRef.set(
+          TransactionPendingBroadcasts,
+          Option.some([...pending.value, entity]),
+        );
+      } else {
+        (yield* this.#service)?.broadcast(entity);
+      }
     });
   }
 

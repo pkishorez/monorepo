@@ -1,8 +1,9 @@
-import { Effect } from "effect";
-import type { SQLiteEntity } from "../services/SQLiteEntity.js";
-import type { SQLiteTableInstance } from "../services/SQLiteTable.js";
+import { Effect, Exit, FiberRef, Option } from "effect";
+import type { SQLiteEntity } from "./sqlite-entity.js";
+import type { SQLiteTableInstance } from "./sqlite-table.js";
 import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
-import { SqliteDB, SqliteDBError } from "../sql/db.js";
+import { ConnectionService } from "@std-toolkit/core/server";
+import { SqliteDB, SqliteDBError, TransactionPendingBroadcasts } from "../sql/db.js";
 
 // Extract entity name from SQLiteEntity
 type EntityName<T> =
@@ -75,16 +76,46 @@ export class EntityRegistry<
     return this.#table.setup();
   }
 
-  /**
-   * Wraps an effect in a database transaction.
-   *
-   * @param effect - The effect to run in a transaction
-   * @returns The effect wrapped in a transaction
-   */
   transaction<A, E, R>(
     effect: Effect.Effect<A, E, R>,
   ): Effect.Effect<A, E | SqliteDBError, R | SqliteDB> {
-    return SqliteDB.transaction(effect);
+    return Effect.gen(function* () {
+      const currentState = yield* FiberRef.get(TransactionPendingBroadcasts);
+      if (Option.isSome(currentState)) {
+        return yield* Effect.fail(SqliteDBError.nestedTransactionNotSupported());
+      }
+
+      yield* FiberRef.set(TransactionPendingBroadcasts, Option.some([]));
+
+      const result = yield* Effect.acquireUseRelease(
+        Effect.gen(function* () {
+          const db = yield* SqliteDB;
+          yield* db.begin();
+          return db;
+        }),
+        () => effect,
+        (db, exit) =>
+          Exit.isSuccess(exit)
+            ? db.commit().pipe(Effect.orDie)
+            : db.rollback().pipe(Effect.orDie),
+      );
+
+      const pending = yield* FiberRef.get(TransactionPendingBroadcasts);
+      if (Option.isSome(pending)) {
+        const connectionService = yield* Effect.serviceOption(
+          ConnectionService,
+        ).pipe(Effect.andThen(Option.getOrNull));
+        if (connectionService) {
+          for (const entity of pending.value) {
+            connectionService.broadcast(entity);
+          }
+        }
+      }
+
+      yield* FiberRef.set(TransactionPendingBroadcasts, Option.none());
+
+      return result;
+    });
   }
 
   /**
