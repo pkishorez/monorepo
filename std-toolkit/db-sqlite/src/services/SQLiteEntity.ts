@@ -377,7 +377,7 @@ export class SQLiteEntity<
     params: K extends "pk"
       ? {
           pk: Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>;
-          sk: SkParam<Prettify<Pick<ESchemaType<TSchema>, TSchema["idField"]>>>;
+          sk: SkParam;
         }
       : K extends keyof TSecondaryDerivationMap
         ? {
@@ -386,13 +386,7 @@ export class SQLiteEntity<
               TSecondaryDerivationMap[K]["pkDeps"][number] &
                 keyof ESchemaType<TSchema>
             >;
-            sk: SkParam<
-              Pick<
-                ESchemaType<TSchema>,
-                TSecondaryDerivationMap[K]["skDeps"][number] &
-                  keyof ESchemaType<TSchema>
-              >
-            >;
+            sk: SkParam;
           }
         : never,
     options?: SimpleQueryOptions,
@@ -403,10 +397,9 @@ export class SQLiteEntity<
   > {
     return Effect.gen(this, function* () {
       // Extract operator and value from sk param
-      const { operator, value: skValue } = extractKeyOp(
-        params.sk as SkParam<Record<string, unknown>>,
-      );
+      const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
+      // skValue is null for "all items", or a string cursor value
 
       if (key === "pk") {
         // Primary index query
@@ -417,16 +410,11 @@ export class SQLiteEntity<
           true,
         );
 
-        let skCondition: SortKeyCondition | undefined;
-        if (skValue !== null) {
-          const derivedSk = deriveIndexKeyValue(
-            this.#eschema.name,
-            this.#primaryDerivation.skDeps,
-            skValue as Record<string, unknown>,
-            false,
-          );
-          skCondition = { [operator]: derivedSk } as SortKeyCondition;
-        }
+        // SK value is already a string (or null), use directly
+        const skCondition: SortKeyCondition | undefined =
+          skValue !== null
+            ? ({ [operator]: skValue } as SortKeyCondition)
+            : undefined;
 
         const queryParams = skCondition
           ? { pk: derivedPk, sk: skCondition }
@@ -458,16 +446,11 @@ export class SQLiteEntity<
           true,
         );
 
-        let skConditionSecondary: SortKeyCondition | undefined;
-        if (skValue !== null) {
-          const derivedSk = deriveIndexKeyValue(
-            this.#eschema.name,
-            indexDerivation.skDeps,
-            skValue as Record<string, unknown>,
-            false,
-          );
-          skConditionSecondary = { [operator]: derivedSk } as SortKeyCondition;
-        }
+        // SK value is already a string (or null), use directly
+        const skConditionSecondary: SortKeyCondition | undefined =
+          skValue !== null
+            ? ({ [operator]: skValue } as SortKeyCondition)
+            : undefined;
 
         const secondaryQueryParams = skConditionSecondary
           ? { pk: derivedPk, sk: skConditionSecondary }
@@ -523,21 +506,25 @@ export class SQLiteEntity<
         ? this.#primaryDerivation
         : this.#secondaryDerivations[key as keyof TSecondaryDerivationMap]!;
 
-    // Split cursor value into pk and sk parts
+    // Split cursor value into pk and derive sk string
     const cursorValue = value as Record<string, unknown>;
     const pkPart: Record<string, unknown> = {};
-    const skPart: Record<string, unknown> = {};
 
     for (const dep of pkDeps) {
       pkPart[dep] = cursorValue[dep];
     }
-    for (const dep of skDeps) {
-      skPart[dep] = cursorValue[dep];
-    }
+
+    // Derive the SK value as a string from the cursor
+    const skString = deriveIndexKeyValue(
+      this.#eschema.name,
+      skDeps,
+      cursorValue,
+      false,
+    );
 
     return this.query(
       key,
-      { pk: pkPart, sk: { ">": skPart } } as any,
+      { pk: pkPart, sk: { ">": skString } } as any,
       queryOptions,
     );
   }

@@ -25,30 +25,28 @@ export type KeyOp<T> =
  * Uses comparison operator with value or null.
  * - Operator determines scan direction (>=, > = ascending; <=, < = descending)
  * - null = all items in that direction
- * - value = from/to that cursor
- *
- * @typeParam T - The type of the sort key value
+ * - value = from/to that cursor (just the string value, not an object)
  *
  * @example
  * ```ts
  * // All items ascending
- * const sk1: SkParam<{ orderId: string }> = { ">=": null };
+ * const sk1: SkParam = { ">=": null };
  *
  * // All items descending
- * const sk2: SkParam<{ orderId: string }> = { "<=": null };
+ * const sk2: SkParam = { "<=": null };
  *
- * // From specific cursor ascending
- * const sk3: SkParam<{ orderId: string }> = { ">=": { orderId: "order-003" } };
+ * // From specific cursor ascending (just the value!)
+ * const sk3: SkParam = { ">=": "order-003" };
  *
  * // Up to specific cursor descending
- * const sk4: SkParam<{ orderId: string }> = { "<=": { orderId: "order-003" } };
+ * const sk4: SkParam = { "<=": "order-003" };
  * ```
  */
-export type SkParam<T> =
-  | { "<": T | null }
-  | { "<=": T | null }
-  | { ">": T | null }
-  | { ">=": T | null };
+export type SkParam =
+  | { "<": string | null }
+  | { "<=": string | null }
+  | { ">": string | null }
+  | { ">=": string | null };
 
 /**
  * Options for simple query operations.
@@ -79,7 +77,7 @@ export interface SubscribeOptions<K, V> {
  * @param op - The KeyOp/SkParam to extract from
  * @returns An object with the operator and value (value may be null for SkParam)
  */
-export function extractKeyOp<T>(op: KeyOp<T> | SkParam<T>): { operator: Operator; value: T | null } {
+export function extractKeyOp<T>(op: KeyOp<T> | SkParam): { operator: Operator; value: T | string | null } {
   if ("<" in op) return { operator: "<", value: op["<"] };
   if ("<=" in op) return { operator: "<=", value: op["<="] };
   if (">" in op) return { operator: ">", value: op[">"] };

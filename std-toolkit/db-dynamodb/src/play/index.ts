@@ -181,7 +181,7 @@ const play = Effect.gen(function* () {
 
   const q5 = yield* PostEntity.query("pk", {
     pk: { authorId: "alice" },
-    sk: { ">=": { postId: "post-03" } },
+    sk: { ">=": "post-03" },
   });
   yield* Console.log(`    Found ${q5.items.length} posts:`);
   for (const p of q5.items) {

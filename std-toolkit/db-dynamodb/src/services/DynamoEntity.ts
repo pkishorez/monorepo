@@ -539,7 +539,7 @@ export class DynamoEntity<
     params: K extends "pk"
       ? {
           pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-          sk: SkParam<Pick<ESchemaType<TSchema>, TSchema["idField"]>>;
+          sk: SkParam;
         }
       : K extends keyof TSecondaryDerivationMap
         ? {
@@ -548,13 +548,7 @@ export class DynamoEntity<
               TSecondaryDerivationMap[K]["pkDeps"][number] &
                 keyof ESchemaType<TSchema>
             >;
-            sk: SkParam<
-              Pick<
-                ESchemaType<TSchema>,
-                TSecondaryDerivationMap[K]["skDeps"][number] &
-                  keyof ESchemaType<TSchema>
-              >
-            >;
+            sk: SkParam;
           }
         : never,
     options?: SimpleQueryOptions,
@@ -564,11 +558,9 @@ export class DynamoEntity<
   > {
     return Effect.gen(this, function* () {
       // Extract operator and value from sk param
-      const { operator, value: skValue } = extractKeyOp(
-        params.sk as SkParam<Record<string, unknown>>,
-      );
+      const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
-      // skValue is null for "all items", or a cursor value
+      // skValue is null for "all items", or a string cursor value
 
       if (key === "pk") {
         // Primary index query
@@ -579,16 +571,11 @@ export class DynamoEntity<
           true,
         );
 
-        let skCondition: SortKeyparameter | undefined;
-        if (skValue !== null) {
-          const derivedSk = deriveIndexKeyValue(
-            this.#eschema.name,
-            this.#primaryDerivation.skDeps,
-            skValue as Record<string, unknown>,
-            false,
-          );
-          skCondition = { [operator]: derivedSk } as SortKeyparameter;
-        }
+        // SK value is already a string (or null), use directly
+        const skCondition: SortKeyparameter | undefined =
+          skValue !== null
+            ? ({ [operator]: skValue } as SortKeyparameter)
+            : undefined;
 
         const queryOptions: { Limit?: number; ScanIndexForward?: boolean } = {
           ScanIndexForward: scanForward,
@@ -619,16 +606,11 @@ export class DynamoEntity<
           true,
         );
 
-        let skCondition: SortKeyparameter | undefined;
-        if (skValue !== null) {
-          const derivedSk = deriveIndexKeyValue(
-            this.#eschema.name,
-            indexDerivation.skDeps,
-            skValue as Record<string, unknown>,
-            false,
-          );
-          skCondition = { [operator]: derivedSk } as SortKeyparameter;
-        }
+        // SK value is already a string (or null), use directly
+        const skCondition: SortKeyparameter | undefined =
+          skValue !== null
+            ? ({ [operator]: skValue } as SortKeyparameter)
+            : undefined;
 
         const gsiQueryOptions: { Limit?: number; ScanIndexForward?: boolean } =
           {
@@ -694,21 +676,25 @@ export class DynamoEntity<
         ? this.#primaryDerivation
         : this.#secondaryDerivations[key as keyof TSecondaryDerivationMap]!;
 
-    // Split cursor value into pk and sk parts
+    // Split cursor value into pk and derive sk string
     const cursorValue = value as Record<string, unknown>;
     const pkPart: Record<string, unknown> = {};
-    const skPart: Record<string, unknown> = {};
 
     for (const dep of pkDeps) {
       pkPart[dep] = cursorValue[dep];
     }
-    for (const dep of skDeps) {
-      skPart[dep] = cursorValue[dep];
-    }
+
+    // Derive the SK value as a string from the cursor
+    const skString = deriveIndexKeyValue(
+      this.#eschema.name,
+      skDeps,
+      cursorValue,
+      false,
+    );
 
     return this.query(
       key,
-      { pk: pkPart, sk: { ">": skPart } } as any,
+      { pk: pkPart, sk: { ">": skString } } as any,
       queryOptions,
     );
   }
