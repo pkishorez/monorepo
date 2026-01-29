@@ -437,10 +437,8 @@ export class SQLiteEntity<
     SqliteDB
   > {
     return Effect.gen(this, function* () {
-      // Extract operator and value from sk param
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
-      // skValue is null for "all items", or a string cursor value
 
       if (key === "primary") {
         // Primary index query
@@ -451,7 +449,6 @@ export class SQLiteEntity<
           true,
         );
 
-        // SK value is already a string (or null), use directly
         const skCondition: SortKeyCondition | undefined =
           skValue !== null
             ? ({ [operator]: skValue } as SortKeyCondition)
@@ -536,7 +533,6 @@ export class SQLiteEntity<
           true,
         );
 
-        // SK value is already a string (or null), use directly
         const skConditionSecondary: SortKeyCondition | undefined =
           skValue !== null
             ? ({ [operator]: skValue } as SortKeyCondition)
@@ -597,7 +593,6 @@ export class SQLiteEntity<
       queryOptions.limit = limit;
     }
 
-    // Get pk and sk deps for this key
     const { pkDeps, skDeps } =
       key === "primary"
         ? this.#primaryDerivation
@@ -608,7 +603,6 @@ export class SQLiteEntity<
             }
           : this.#secondaryDerivations[key as keyof TSecondaryDerivationMap]!;
 
-    // Split cursor value into pk and derive sk string
     const cursorValue = value as Record<string, unknown>;
     const pkPart: Record<string, unknown> = {};
 
@@ -616,7 +610,6 @@ export class SQLiteEntity<
       pkPart[dep] = cursorValue[dep];
     }
 
-    // Derive the SK value as a string from the cursor
     const skString = deriveIndexKeyValue(
       this.#eschema.name,
       skDeps,

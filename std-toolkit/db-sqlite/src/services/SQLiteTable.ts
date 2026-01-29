@@ -106,9 +106,6 @@ function createSQLiteTableInstance<
 ) {
   const tableName = config.tableName;
 
-  /**
-   * Builds WHERE clause from key condition parameters.
-   */
   const buildWhere = (
     pkCol: string,
     skCol: string,
@@ -167,9 +164,6 @@ function createSQLiteTableInstance<
     return Sql.where(pkCol, "=", cond.pk);
   };
 
-  /**
-   * Gets the sort direction based on the sk condition.
-   */
   const getSortDirection = (sk?: SortKeyCondition): "ASC" | "DESC" => {
     if (!sk) return "ASC";
     if ("<" in sk || "<=" in sk) return "DESC";

@@ -547,33 +547,6 @@ export class DynamoEntity<
    * @param params - Query parameters with pk and sk (required)
    * @param options - Query options including limit
    * @returns Array of matching entities with metadata
-   *
-   * @example
-   * ```ts
-   * // All items ascending
-   * entity.query("primary", { pk: { userId: "123" }, sk: { ">=": null } });
-   *
-   * // All items descending
-   * entity.query("primary", { pk: { userId: "123" }, sk: { "<=": null } });
-   *
-   * // First 5 items ascending
-   * entity.query("primary", { pk: { userId: "123" }, sk: { ">=": null } }, { limit: 5 });
-   *
-   * // Last 5 items descending
-   * entity.query("primary", { pk: { userId: "123" }, sk: { "<=": null } }, { limit: 5 });
-   *
-   * // From specific sk onwards (ascending)
-   * entity.query("primary", { pk: { userId: "123" }, sk: { ">=": { orderId: "order-100" } } });
-   *
-   * // Up to specific sk (descending)
-   * entity.query("primary", { pk: { userId: "123" }, sk: { "<=": { orderId: "order-100" } } });
-   *
-   * // Secondary index query
-   * entity.query("byEmail", { pk: { email: "test@example.com" }, sk: { ">=": null } });
-   *
-   * // Timeline index query (if configured)
-   * entity.query("timeline", { pk: { orgId: "123" }, sk: { "<=": null } });
-   * ```
    */
   query<
     K extends
@@ -614,10 +587,8 @@ export class DynamoEntity<
     DynamodbError
   > {
     return Effect.gen(this, function* () {
-      // Extract operator and value from sk param
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
-      // skValue is null for "all items", or a string cursor value
 
       if (key === "primary") {
         // Primary index query
@@ -628,7 +599,6 @@ export class DynamoEntity<
           true,
         );
 
-        // SK value is already a string (or null), use directly
         const skCondition: SortKeyparameter | undefined =
           skValue !== null
             ? ({ [operator]: skValue } as SortKeyparameter)
@@ -702,7 +672,6 @@ export class DynamoEntity<
           true,
         );
 
-        // SK value is already a string (or null), use directly
         const skCondition: SortKeyparameter | undefined =
           skValue !== null
             ? ({ [operator]: skValue } as SortKeyparameter)
@@ -732,18 +701,6 @@ export class DynamoEntity<
    *
    * @param opts - Subscribe options with key, cursor value, and limit
    * @returns Array of items after the cursor
-   *
-   * @example
-   * ```ts
-   * // Subscribe to primary index
-   * entity.subscribe({ key: "primary", value: { userId: "123", orderId: cursor }, limit: 10 });
-   *
-   * // Subscribe to secondary index
-   * entity.subscribe({ key: "byEmail", value: { email: "test@example.com", id: cursor } });
-   *
-   * // Subscribe to timeline index (if configured)
-   * entity.subscribe({ key: "timeline", value: { orgId: "123", _uid: cursor }, limit: 10 });
-   * ```
    */
   subscribe<
     K extends
@@ -761,8 +718,6 @@ export class DynamoEntity<
     { items: EntityType<ESchemaType<TSchema>>[] },
     DynamodbError
   > {
-    // Subscribe is implemented as a query with ">" operator from the cursor
-    // If no cursor is provided, we use an empty value to get all items
     const { key, value, limit } = opts;
 
     if (value == null) {
@@ -776,7 +731,6 @@ export class DynamoEntity<
       queryOptions.limit = limit;
     }
 
-    // Get pk and sk deps for this key (key is guaranteed valid by K type constraint)
     const { pkDeps, skDeps } =
       key === "primary"
         ? this.#primaryDerivation
@@ -787,7 +741,6 @@ export class DynamoEntity<
             }
           : this.#secondaryDerivations[key as keyof TSecondaryDerivationMap]!;
 
-    // Split cursor value into pk and derive sk string
     const cursorValue = value as Record<string, unknown>;
     const pkPart: Record<string, unknown> = {};
 
@@ -823,26 +776,6 @@ export class DynamoEntity<
        * @param params - Query parameters with pk value and optional sk condition
        * @param options - Query options including limit, sort order, and filter
        * @returns Array of matching entities with metadata
-       *
-       * @example
-       * ```ts
-       * // Primary index with between
-       * entity.raw.query("primary", {
-       *   pk: { userId: "123" },
-       *   sk: { between: [{ orderId: "ORDER#2024-01" }, { orderId: "ORDER#2024-12" }] }
-       * }, { limit: 10 });
-       *
-       * // Secondary index with beginsWith
-       * entity.raw.query("byEmail", {
-       *   pk: { email: "test@example.com" },
-       *   sk: { beginsWith: { id: "2024" } }
-       * });
-       *
-       * // Timeline index query
-       * entity.raw.query("timeline", {
-       *   pk: { orgId: "123" }
-       * }, { ScanIndexForward: false });
-       * ```
        */
       query: <
         K extends
