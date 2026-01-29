@@ -7,4 +7,5 @@ export type {
   ESchemaIdField,
   ESchemaType as ESchemaResult,
   ESchemaType,
+  StructFieldsSchema,
 } from "./types";

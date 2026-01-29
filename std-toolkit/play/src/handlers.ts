@@ -80,7 +80,11 @@ export const HandlersLive = AppRpcs.toLayer({
       const pageLimit = Math.min(limit ?? 20, 100);
 
       const result = yield* Effect.mapError(
-        UserEntity.query("timeline", { pk: {}, sk: { ">=": null } }, { limit: pageLimit + 1 }),
+        UserEntity.query(
+          "timeline",
+          { pk: {}, sk: { ">=": null } },
+          { limit: pageLimit + 1 },
+        ),
         (e) => mapDbError(e, "ListUsers"),
       );
 
