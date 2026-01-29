@@ -30,9 +30,9 @@
   },
   "devDependencies": {
     "@effect/vitest": "0.27.0",
-    "@tanstack/react-db": "0.1.67",
+    "@tanstack/react-db": "0.1.68",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.0.10",
+    "@types/node": "25.1.0",
     "effect": "3.19.15",
     "typescript": "5.9.3",
     "vite": "7.3.1",

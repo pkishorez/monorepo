@@ -34,18 +34,18 @@
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/sqlite": "workspace:*",
     "@std-toolkit/tanstack": "workspace:*",
-    "@tanstack/react-db": "0.1.67",
+    "@tanstack/react-db": "0.1.68",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "ulid": "3.0.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260124.0",
+    "@cloudflare/workers-types": "4.20260129.0",
     "@effect/vitest": "0.27.0",
     "@tailwindcss/vite": "4.1.18",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.0.10",
-    "@types/react": "19.2.9",
+    "@types/node": "25.1.0",
+    "@types/react": "19.2.10",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.2",
     "concurrently": "9.2.1",
@@ -55,7 +55,7 @@
     "vite": "7.3.1",
     "vite-tsconfig-paths": "6.0.5",
     "vitest": "4.0.18",
-    "wrangler": "4.60.0"
+    "wrangler": "4.61.1"
   },
   "peerDependencies": {
     "effect": ">=3.0.0"
