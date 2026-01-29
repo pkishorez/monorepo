@@ -6,5 +6,6 @@ export {
   type KeyConditionParameters,
   type SortKeyCondition,
   type SQLiteTableInstance,
-} from "./SQLiteTable.js";
-export { SQLiteEntity, type EntityType } from "./SQLiteEntity.js";
+} from "./sqlite-table.js";
+export { SQLiteEntity, type EntityType } from "./sqlite-entity.js";
+export { EntityRegistry } from "./entity-registry.js";

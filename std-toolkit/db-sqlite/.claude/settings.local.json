@@ -8,7 +8,8 @@
       "Bash(pnpm test:*)",
       "Bash(pnpm tsc:*)",
       "Bash(pnpm build:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git mv:*)"
     ]
   }
 }

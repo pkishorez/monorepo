@@ -1,5 +1,10 @@
-import { Context, Data, Effect, Exit } from "effect";
+import { Context, Data, Effect, FiberRef, Option } from "effect";
 import type { Where } from "./helpers/index.js";
+import type { EntityType } from "@std-toolkit/core";
+
+export const TransactionPendingBroadcasts = FiberRef.unsafeMake<
+  Option.Option<Array<EntityType<unknown>>>
+>(Option.none());
 
 export type SqliteDBErrorType =
   | { _tag: "CreateTableFailed"; table: string; cause: unknown }
@@ -17,7 +22,8 @@ export type SqliteDBErrorType =
   | { _tag: "QueryFailed"; table: string; cause: unknown }
   | { _tag: "BeginFailed"; cause: unknown }
   | { _tag: "CommitFailed"; cause: unknown }
-  | { _tag: "RollbackFailed"; cause: unknown };
+  | { _tag: "RollbackFailed"; cause: unknown }
+  | { _tag: "NestedTransactionNotSupported" };
 
 export class SqliteDBError extends Data.TaggedError("SqliteDBError")<{
   error: SqliteDBErrorType;
@@ -71,6 +77,10 @@ export class SqliteDBError extends Data.TaggedError("SqliteDBError")<{
   static rollbackFailed(cause: unknown) {
     return new SqliteDBError({ error: { _tag: "RollbackFailed", cause } });
   }
+
+  static nestedTransactionNotSupported() {
+    return new SqliteDBError({ error: { _tag: "NestedTransactionNotSupported" } });
+  }
 }
 
 export class SqliteDB extends Context.Tag("SqliteDB")<
@@ -122,21 +132,4 @@ export class SqliteDB extends Context.Tag("SqliteDB")<
     commit(): Effect.Effect<void, SqliteDBError>;
     rollback(): Effect.Effect<void, SqliteDBError>;
   }
->() {
-  static transaction<A, E, R>(
-    effect: Effect.Effect<A, E, R>,
-  ): Effect.Effect<A, E | SqliteDBError, R | SqliteDB> {
-    return Effect.acquireUseRelease(
-      Effect.gen(function* () {
-        const db = yield* SqliteDB;
-        yield* db.begin();
-        return db;
-      }),
-      () => effect,
-      (db, exit) =>
-        Exit.isSuccess(exit)
-          ? db.commit().pipe(Effect.orDie)
-          : db.rollback().pipe(Effect.orDie),
-    );
-  }
-}
+>() {}
