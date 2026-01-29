@@ -11,7 +11,7 @@ import {
   exprCondition,
   exprFilter,
 } from "../index.js";
-import { createDynamoDB } from "../services/DynamoClient.js";
+import { createDynamoDB } from "../services/dynamo-client.js";
 
 // Use timestamp-based name to avoid schema conflicts between test runs
 const TEST_TABLE_NAME = `db-dynamodb-test-${Date.now()}`;

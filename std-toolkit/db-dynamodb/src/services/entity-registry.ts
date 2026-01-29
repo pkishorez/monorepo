@@ -1,6 +1,6 @@
 import { Effect, Option } from "effect";
-import type { DynamoTableInstance } from "./DynamoTable.js";
-import type { DynamoEntity } from "./DynamoEntity.js";
+import type { DynamoTableInstance } from "./dynamo-table.js";
+import type { DynamoEntity } from "./dynamo-entity.js";
 import type { TransactItem } from "../types/index.js";
 import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
 import { ConnectionService } from "@std-toolkit/core/server";
@@ -10,7 +10,7 @@ import { DynamodbError } from "../errors.js";
  * Extracts the entity name from a DynamoEntity type.
  */
 type EntityName<T> =
-  T extends DynamoEntity<any, any, infer TSchema, any>
+  T extends DynamoEntity<any, any, infer TSchema, any, any>
     ? TSchema["name"]
     : never;
 
@@ -30,19 +30,19 @@ type EntitiesMap<TTable extends DynamoTableInstance> = Record<
  * @typeParam TTable - The DynamoTable instance type
  * @typeParam TEntities - Map of entity names to entity instances
  */
-export class TableRegistry<
+export class EntityRegistry<
   TTable extends DynamoTableInstance,
   TEntities extends EntitiesMap<TTable>,
 > implements DescriptorProvider {
   /**
-   * Creates a new table registry builder for the given table.
+   * Creates a new entity registry builder for the given table.
    *
    * @typeParam TTable - The DynamoTable instance type
    * @param table - The DynamoTable instance
    * @returns A builder to register entities
    */
   static make<TTable extends DynamoTableInstance>(table: TTable) {
-    return new TableRegistryBuilder<TTable, {}>(table, {});
+    return new EntityRegistryBuilder<TTable, {}>(table, {});
   }
 
   #table: TTable;
@@ -121,12 +121,12 @@ export class TableRegistry<
 }
 
 /**
- * Builder class for constructing a TableRegistry with registered entities.
+ * Builder class for constructing an EntityRegistry with registered entities.
  *
  * @typeParam TTable - The DynamoTable instance type
  * @typeParam TEntities - Map of entity names to entity instances
  */
-class TableRegistryBuilder<
+class EntityRegistryBuilder<
   TTable extends DynamoTableInstance,
   TEntities extends EntitiesMap<TTable>,
 > {
@@ -139,31 +139,31 @@ class TableRegistryBuilder<
   }
 
   /**
-   * Registers an entity with this table registry.
+   * Registers an entity with this entity registry.
    * The entity name is automatically extracted from its schema.
    *
    * @typeParam TEntity - The DynamoEntity type to register
    * @param entity - The entity instance to register
    * @returns A builder with the entity registered
    */
-  register<TEntity extends DynamoEntity<TTable, any, any, any>>(
+  register<TEntity extends DynamoEntity<TTable, any, any, any, any>>(
     entity: TEntity,
-  ): TableRegistryBuilder<
+  ): EntityRegistryBuilder<
     TTable,
     TEntities & Record<EntityName<TEntity>, TEntity>
   > {
-    return new TableRegistryBuilder(this.#table, {
+    return new EntityRegistryBuilder(this.#table, {
       ...this.#entities,
       [entity.name]: entity,
     } as TEntities & Record<EntityName<TEntity>, TEntity>);
   }
 
   /**
-   * Builds the final TableRegistry instance.
+   * Builds the final EntityRegistry instance.
    *
-   * @returns The configured TableRegistry
+   * @returns The configured EntityRegistry
    */
-  build(): TableRegistry<TTable, TEntities> {
-    return new TableRegistry(this.#table, this.#entities);
+  build(): EntityRegistry<TTable, TEntities> {
+    return new EntityRegistry(this.#table, this.#entities);
   }
 }

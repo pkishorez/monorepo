@@ -1,6 +1,6 @@
 import { Effect, Console } from "effect";
 import { DynamoTable } from "../index.js";
-import { createDynamoDB } from "../services/DynamoClient.js";
+import { createDynamoDB } from "../services/dynamo-client.js";
 
 // =============================================================================
 // Configuration

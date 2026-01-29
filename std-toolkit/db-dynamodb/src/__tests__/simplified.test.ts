@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 import { ESchema } from "@std-toolkit/eschema";
 import { DynamoTable, DynamoEntity } from "../index.js";
-import { createDynamoDB } from "../services/DynamoClient.js";
+import { createDynamoDB } from "../services/dynamo-client.js";
 
 // Use timestamp-based name to avoid schema conflicts between test runs
 const TEST_TABLE_NAME = `db-dynamodb-simplified-test-${Date.now()}`;

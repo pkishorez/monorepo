@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 import { ESchema } from "@std-toolkit/eschema";
 import { DynamoTable, DynamoEntity, DynamodbError } from "../index.js";
-import { createDynamoDB } from "../services/DynamoClient.js";
+import { createDynamoDB } from "../services/dynamo-client.js";
 
 const TEST_TABLE_NAME = `db-dynamodb-error-test-${Date.now()}`;
 const LOCAL_ENDPOINT = "http://localhost:8090";

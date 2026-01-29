@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { createDynamoDB, type DynamoDBClient } from "./DynamoClient.js";
+import { createDynamoDB, type DynamoDBClient } from "./dynamo-client.js";
 import { DynamodbError } from "../errors.js";
 import type {
   DynamoTableConfig,
