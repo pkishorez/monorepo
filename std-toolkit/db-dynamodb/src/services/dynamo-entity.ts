@@ -13,12 +13,7 @@ import type {
 } from "../types/index.js";
 import { extractKeyOp, getKeyOpScanDirection } from "../types/index.js";
 import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
-import {
-  deriveIndexKeyValue,
-  toDiscriminatedGeneric,
-  fromDiscriminatedGeneric,
-  generateUlid,
-} from "../internal/index.js";
+import { deriveIndexKeyValue, generateUlid } from "../internal/index.js";
 import {
   buildExpr,
   type ConditionExprResult,
@@ -363,19 +358,17 @@ export class DynamoEntity<
    * The ID field is optional - if not provided, a ULID will be auto-generated.
    *
    * @param value - The entity value to insert (ID field is optional)
-   * @param options - Insert options including ignoreIfAlreadyPresent and condition
+   * @param options - Insert options including condition
    * @returns The inserted entity with metadata
    */
   insert(
     value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
     options?: {
-      ignoreIfAlreadyPresent?: boolean;
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
     return Effect.gen(function* () {
-      // Handle optional idField - auto-generate if not provided
       const idField = self.#eschema.idField;
       const providedId = (value as Record<string, unknown>)[idField];
       const generatedId = providedId ?? generateUlid();
@@ -391,36 +384,15 @@ export class DynamoEntity<
         options?.condition,
       );
 
-      const putResult = yield* self.#table
+      yield* self.#table
         .putItem(item, { ReturnValues: "ALL_OLD", ...exprResult })
         .pipe(
-          Effect.map(() => ({ alreadyExisted: false })),
           Effect.catchIf(
             (e): e is DynamodbError =>
               e.error._tag === "PutItemFailed" && isConditionalCheckFailed(e),
-            () =>
-              options?.ignoreIfAlreadyPresent
-                ? Effect.succeed({ alreadyExisted: true })
-                : Effect.fail(DynamodbError.itemAlreadyExists()),
+            () => Effect.fail(DynamodbError.itemAlreadyExists()),
           ),
         );
-
-      if (putResult.alreadyExisted) {
-        const existing = yield* self.get(
-          value as unknown as IndexPkValue<
-            ESchemaType<TSchema>,
-            TPrimaryPkKeys
-          > &
-            Pick<ESchemaType<TSchema>, TSchema["idField"]>,
-        );
-        if (!existing) {
-          return yield* Effect.fail(
-            DynamodbError.getItemFailed("Item not found after insert conflict"),
-          );
-        }
-        yield* self.#broadcast(existing);
-        return existing;
-      }
 
       const entity = { value: fullValue, meta };
       yield* self.#broadcast(entity);
@@ -815,200 +787,6 @@ export class DynamoEntity<
       { pk: pkPart, sk: { ">": skString } } as any,
       queryOptions,
     );
-  }
-
-  /**
-   * Provides raw query access for complex queries with between, beginsWith, filters, etc.
-   */
-  get raw() {
-    const self = this;
-    return {
-      /**
-       * Raw query for complex conditions on primary or secondary indexes.
-       *
-       * @param key - "primary" for primary index, or the secondary index name
-       * @param params - Query parameters with pk value and optional sk condition
-       * @param options - Query options including limit, sort order, and filter
-       * @returns Array of matching entities with metadata
-       */
-      query: <
-        K extends
-          | "primary"
-          | (TTimelineDerivation extends StoredTimelineDerivation
-              ? "timeline"
-              : never)
-          | (keyof TSecondaryDerivationMap & string),
-      >(
-        key: K,
-        params: K extends "primary"
-          ? {
-              pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-              sk?: SortKeyparameter<
-                Pick<ESchemaType<TSchema>, TSchema["idField"]>
-              >;
-            }
-          : K extends "timeline"
-            ? {
-                pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-                sk?: SortKeyparameter<{ _uid: string }>;
-              }
-            : K extends keyof TSecondaryDerivationMap
-              ? {
-                  pk: Pick<
-                    ESchemaType<TSchema>,
-                    TSecondaryDerivationMap[K]["pkDeps"][number] &
-                      keyof ESchemaType<TSchema>
-                  >;
-                  sk?: SortKeyparameter<
-                    Pick<
-                      ESchemaType<TSchema>,
-                      TSecondaryDerivationMap[K]["skDeps"][number] &
-                        keyof ESchemaType<TSchema>
-                    >
-                  >;
-                }
-              : never,
-        options?: {
-          Limit?: number;
-          ScanIndexForward?: boolean;
-          filter?: ConditionOperation<ESchemaType<TSchema>>;
-        },
-      ): Effect.Effect<
-        { items: EntityType<ESchemaType<TSchema>>[] },
-        DynamodbError
-      > => {
-        return Effect.gen(self, function* () {
-          if (key === "primary") {
-            // Primary index query
-            const derivedPk = deriveIndexKeyValue(
-              self.#eschema.name,
-              self.#primaryDerivation.pkDeps,
-              params.pk as Record<string, unknown>,
-              true,
-            );
-            const derivedSk = params.sk
-              ? self.#calculateSk(
-                  self.#primaryDerivation.skDeps,
-                  params.sk as any,
-                )
-              : undefined;
-
-            const { Items } = yield* self.#table.query(
-              { pk: derivedPk, sk: derivedSk as any },
-              options,
-            );
-
-            const items = yield* self.#decodeItems(Items);
-            return { items };
-          } else if (key === "timeline") {
-            // Timeline index query
-            const timeline = self.#timelineDerivation;
-            if (!timeline) {
-              return yield* Effect.fail(
-                DynamodbError.queryFailed("Timeline index not configured"),
-              );
-            }
-
-            const derivedPk = deriveIndexKeyValue(
-              self.#eschema.name,
-              timeline.pkDeps,
-              params.pk as Record<string, unknown>,
-              true,
-            );
-            const derivedSk = params.sk
-              ? self.#calculateSk(
-                  timeline.skDeps as unknown as string[],
-                  params.sk as any,
-                )
-              : undefined;
-
-            const { Items } = yield* self.#table
-              .index(timeline.gsiName as any)
-              .query({ pk: derivedPk, sk: derivedSk as any }, options);
-
-            const items = yield* self.#decodeItems(Items);
-            return { items };
-          } else {
-            // Secondary index query
-            const indexDerivation = self.#secondaryDerivations[key];
-
-            if (!indexDerivation) {
-              return yield* Effect.fail(
-                DynamodbError.queryFailed(`Index ${String(key)} not found`),
-              );
-            }
-
-            const derivedPk = deriveIndexKeyValue(
-              indexDerivation.entityIndexName,
-              indexDerivation.pkDeps,
-              params.pk as Record<string, unknown>,
-              true,
-            );
-            const derivedSk = params.sk
-              ? self.#calculateSk(indexDerivation.skDeps, params.sk as any)
-              : undefined;
-
-            const { Items } = yield* self.#table
-              .index(indexDerivation.gsiName as any)
-              .query({ pk: derivedPk, sk: derivedSk as any }, options);
-
-            const items = yield* self.#decodeItems(Items);
-            return { items };
-          }
-        });
-      },
-    };
-  }
-
-  #calculateSk(
-    skDeps: string[],
-    sk: SortKeyparameter,
-  ): SortKeyparameter | string {
-    const realSk = toDiscriminatedGeneric(sk as Record<string, any>);
-    const entityName = this.#eschema.name;
-
-    switch (realSk.type) {
-      case "<":
-      case "<=":
-      case ">":
-      case ">=":
-        if (realSk.value == null) break;
-        realSk.value = deriveIndexKeyValue(
-          entityName,
-          skDeps,
-          realSk.value as Record<string, unknown>,
-          false,
-        );
-        break;
-      case "between":
-        if (realSk.value) {
-          (realSk.value as any)[0] = deriveIndexKeyValue(
-            entityName,
-            skDeps,
-            (realSk.value as any)[0] as Record<string, unknown>,
-            false,
-          );
-          (realSk.value as any)[1] = deriveIndexKeyValue(
-            entityName,
-            skDeps,
-            (realSk.value as any)[1] as Record<string, unknown>,
-            false,
-          );
-        }
-        break;
-      case "beginsWith":
-        if (realSk.value != null) {
-          realSk.value = deriveIndexKeyValue(
-            entityName,
-            skDeps,
-            realSk.value as Record<string, unknown>,
-            false,
-          );
-        }
-        break;
-    }
-
-    return fromDiscriminatedGeneric(realSk) as SortKeyparameter;
   }
 
   #derivePrimaryIndex(value: any): IndexDefinition {

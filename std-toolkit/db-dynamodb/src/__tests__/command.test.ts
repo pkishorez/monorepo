@@ -55,7 +55,7 @@ const registry = EntityRegistry.make(table)
   .register(postEntity)
   .build();
 
-const command = DynamoCommand.make(registry);
+const command = DynamoCommand.make(registry as any);
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
 
@@ -381,7 +381,7 @@ describe("DynamoCommand", () => {
         });
 
         expect(result.items).toHaveLength(1);
-        expect(result.items[0].value).toMatchObject({
+        expect(result.items[0]!.value).toMatchObject({
           userId: "idx-user",
           email: "indexed@example.com",
         });
@@ -439,14 +439,14 @@ describe("DynamoCommand", () => {
 
         const userDesc = result.descriptors.find((d: any) => d.name === "User");
         expect(userDesc).toBeDefined();
-        expect(userDesc.version).toBe("v1");
-        expect(userDesc.primaryIndex).toBeDefined();
-        expect(userDesc.primaryIndex.pk.pattern).toContain("User");
-        expect(userDesc.schema).toBeDefined();
+        expect(userDesc!.version).toBe("v1");
+        expect(userDesc!.primaryIndex).toBeDefined();
+        expect(userDesc!.primaryIndex.pk.pattern).toContain("User");
+        expect(userDesc!.schema).toBeDefined();
 
         const postDesc = result.descriptors.find((d: any) => d.name === "Post");
         expect(postDesc).toBeDefined();
-        expect(postDesc.primaryIndex.pk.deps).toContain("authorId");
+        expect(postDesc!.primaryIndex.pk.deps).toContain("authorId");
       }),
     );
 
@@ -457,9 +457,10 @@ describe("DynamoCommand", () => {
         });
 
         const userDesc = result.descriptors.find((d: any) => d.name === "User");
-        expect(userDesc.secondaryIndexes).toHaveLength(1);
-        expect(userDesc.secondaryIndexes[0].name).toBe("byEmail");
-        expect(userDesc.secondaryIndexes[0].pk.deps).toContain("email");
+        expect(userDesc).toBeDefined();
+        expect(userDesc!.secondaryIndexes).toHaveLength(1);
+        expect(userDesc!.secondaryIndexes[0]!.name).toBe("byEmail");
+        expect(userDesc!.secondaryIndexes[0]!.pk.deps).toContain("email");
       }),
     );
   });
@@ -495,7 +496,7 @@ describe("DynamoCommand", () => {
         });
 
         expect(result.operation).toBe("insert");
-        expect(result.entity).toBe("User");
+        expect("entity" in result && result.entity).toBe("User");
       }),
     );
   });

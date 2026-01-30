@@ -1,5 +1,9 @@
 {
   "permissions": {
-    "allow": ["Bash(pnpm tsc:*)", "Bash(pnpm lint:*)"]
+    "allow": [
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(npm run lint)"
+    ]
   }
 }

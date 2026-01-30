@@ -376,7 +376,7 @@ describe("Command Response Schemas", () => {
         const result = yield* Schema.decodeUnknown(DescriptorResponseSchema)(response);
         expect(result.operation).toBe("descriptor");
         expect(result.descriptors).toHaveLength(1);
-        expect(result.descriptors[0].name).toBe("User");
+        expect(result.descriptors[0]!.name).toBe("User");
       }),
     );
 

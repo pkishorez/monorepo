@@ -829,9 +829,8 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
     });
 
     describe("query", () => {
-      it.effect("queries entities by primary key using raw.query", () =>
+      it.effect("queries entities by primary key", () =>
         Effect.gen(function* () {
-          // orderId is the idField - optional, auto-generated if not provided
           yield* OrderEntity.insert({
             orderId: "order-001",
             userId: "query-user-1",
@@ -847,27 +846,28 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             items: [],
           });
 
-          const result = yield* OrderEntity.raw.query("primary", {
-            pk: { userId: "query-user-1" },
-          });
+          const result = yield* OrderEntity.query(
+            "primary",
+            { pk: { userId: "query-user-1" }, sk: { ">=": null } },
+          );
 
           expect(result.items.length).toBe(2);
         }),
       );
 
-      it.effect("queries with limit using raw.query", () =>
+      it.effect("queries with limit", () =>
         Effect.gen(function* () {
-          const result = yield* OrderEntity.raw.query(
+          const result = yield* OrderEntity.query(
             "primary",
-            { pk: { userId: "query-user-1" } },
-            { Limit: 1 },
+            { pk: { userId: "query-user-1" }, sk: { ">=": null } },
+            { limit: 1 },
           );
 
           expect(result.items.length).toBe(1);
         }),
       );
 
-      it.effect("queries with simplified query API", () =>
+      it.effect("queries with sk comparison", () =>
         Effect.gen(function* () {
           // Query for orders >= order-001 (ascending, so should get both)
           // SK is the idField (orderId) for primary index
@@ -886,7 +886,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
     });
 
     describe("index queries", () => {
-      it.effect("queries by GSI using raw.query", () =>
+      it.effect("queries by GSI", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
             userId: "gsi-user-1",
@@ -896,18 +896,6 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             age: 28,
           });
 
-          const result = yield* UserEntity.raw.query("byEmail", {
-            pk: { email: "gsi-test@example.com" },
-          });
-
-          expect(result.items.length).toBe(1);
-          expect(result.items[0]?.value.name).toBe("GSI Test User");
-        }),
-      );
-
-      it.effect("queries by GSI using simplified query API", () =>
-        Effect.gen(function* () {
-          // Secondary indexes use _uid as SK, query with null to get all
           const result = yield* UserEntity.query("byEmail", {
             pk: { email: "gsi-test@example.com" },
             sk: { ">=": null },
@@ -918,7 +906,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         }),
       );
 
-      it.effect("queries by status GSI using raw.query", () =>
+      it.effect("queries by status GSI", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
             userId: "status-user-1",
@@ -935,8 +923,9 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             age: 25,
           });
 
-          const result = yield* UserEntity.raw.query("byStatus", {
+          const result = yield* UserEntity.query("byStatus", {
             pk: { status: "verified" },
+            sk: { ">=": null },
           });
 
           expect(result.items.length).toBe(2);
@@ -1044,20 +1033,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         );
       });
 
-      it.effect("queries entities with sk beginsWith using raw.query", () =>
-        Effect.gen(function* () {
-          // Entity raw.query uses derivation values, not derived strings
-          // Type assertion needed as beginsWith type is string but runtime supports objects
-          const result = yield* OrderEntity.raw.query("primary", {
-            pk: { userId: "entity-query-sk-user" },
-            sk: { beginsWith: { orderId: "order-00" } as any },
-          });
-
-          expect(result.items.length).toBe(3);
-        }),
-      );
-
-      it.effect("queries entities with sk comparison using simplified API", () =>
+      it.effect("queries entities with sk comparison", () =>
         Effect.gen(function* () {
           // Simplified query uses KeyOp with comparison operators
           // SK is the idField (orderId) for primary index
@@ -1711,45 +1687,6 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       );
     });
 
-    describe("timeline index with raw.query", () => {
-      it.effect("raw.query on timeline index works", () =>
-        Effect.gen(function* () {
-          const result = yield* TaskEntity.raw.query("timeline", {
-            pk: { projectId: "proj-timeline" },
-          });
-
-          expect(result.items).toHaveLength(5);
-        }),
-      );
-
-      it.effect("raw.query with sk condition works", () =>
-        Effect.gen(function* () {
-          // Get one item to use its _uid as a cursor
-          const first = yield* TaskEntity.query(
-            "timeline",
-            {
-              pk: { projectId: "proj-timeline" },
-              sk: { ">=": null },
-            },
-            { limit: 1 },
-          );
-
-          const firstUid = first.items[0]!.meta._uid;
-
-          const result = yield* TaskEntity.raw.query(
-            "timeline",
-            {
-              pk: { projectId: "proj-timeline" },
-              sk: { ">": { _uid: firstUid } },
-            },
-            { Limit: 2 },
-          );
-
-          expect(result.items).toHaveLength(2);
-        }),
-      );
-    });
-
     describe("timeline index descriptor", () => {
       it("getDescriptor includes timeline index", () => {
         const descriptor = TaskEntity.getDescriptor();
@@ -1778,18 +1715,6 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             .query("timeline", {
               pk: {},
               sk: { ">=": null },
-            })
-            .pipe(Effect.flip) as Effect.Effect<DynamodbError>;
-
-          expect(error.error._tag).toBe("QueryFailed");
-        }),
-      );
-
-      it.effect("fails when raw.query on timeline without it", () =>
-        Effect.gen(function* () {
-          const error = yield* (NoTimelineEntity as any).raw
-            .query("timeline", {
-              pk: {},
             })
             .pipe(Effect.flip) as Effect.Effect<DynamodbError>;
 

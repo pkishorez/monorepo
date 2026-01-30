@@ -103,18 +103,6 @@ describe("DynamoDB Error Handling", () => {
       }),
     );
 
-    it.effect("succeeds with ignoreIfAlreadyPresent option", () =>
-      Effect.gen(function* () {
-        const userId = "ignore-duplicate-test";
-        const user = { userId, name: "Test User" };
-
-        yield* UserEntity.insert(user);
-        yield* UserEntity.insert(user, { ignoreIfAlreadyPresent: true });
-
-        const result = yield* UserEntity.get({ userId: userId });
-        expect(result?.value.name).toBe("Test User");
-      }),
-    );
   });
 
   describe("Entity.update - NoItemToUpdate", () => {
@@ -247,9 +235,10 @@ describe("DynamoDB Error Handling", () => {
 
     it.effect("fails with QueryFailed when querying entity on non-existent table", () =>
       Effect.gen(function* () {
-        const error = yield* BadUserEntity.raw
-          .query("primary", { pk: { userId: "1" } })
-          .pipe(Effect.flip);
+        const error = yield* BadUserEntity.query("primary", {
+          pk: { userId: "1" },
+          sk: { ">=": null },
+        }).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(DynamodbError);
         expect(error.error._tag).toBe("QueryFailed");
