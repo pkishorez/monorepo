@@ -18,3 +18,6 @@ export function struct<S extends StructFieldsSchema>(
 export const metaSchema = Schema.Struct({
   _v: Schema.String,
 });
+
+export const id = (identifier: string) =>
+  Schema.String.annotations({ identifier });

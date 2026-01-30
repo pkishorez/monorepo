@@ -15,29 +15,113 @@ interface DescriptorResponse {
   descriptors: StdDescriptor[];
 }
 
-function IndexCard({ index, label }: { index: IndexDescriptor; label: string }) {
+function hasVariable(pattern: string) {
+  return pattern.includes("{");
+}
+
+interface IndexEntry {
+  label: string;
+  index: IndexDescriptor;
+}
+
+const scrollbarStyles = `
+  [&::-webkit-scrollbar]:h-1.5
+  [&::-webkit-scrollbar-track]:bg-neutral-800
+  [&::-webkit-scrollbar-track]:rounded
+  [&::-webkit-scrollbar-thumb]:bg-neutral-600
+  [&::-webkit-scrollbar-thumb]:rounded
+  [&::-webkit-scrollbar-thumb:hover]:bg-neutral-500
+`;
+
+function extractKeys(pattern: string): string[] {
+  const matches = pattern.match(/\{([^}]+)\}/g);
+  if (!matches) return [];
+  return matches.map((m) => m.slice(1, -1));
+}
+
+interface KeyBadgeProps {
+  name: string;
+  variant: "pk" | "sk";
+  onHover: (key: string | null) => void;
+}
+
+function KeyBadge({ name, variant, onHover }: KeyBadgeProps) {
+  const colors =
+    variant === "pk"
+      ? "bg-emerald-500/15 text-emerald-400"
+      : "bg-amber-500/15 text-amber-400";
   return (
-    <div className="bg-neutral-800/50 rounded-lg p-3">
-      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">
-        {label}
+    <span
+      className={`px-1.5 py-0.5 rounded text-[10px] font-mono cursor-pointer ${colors}`}
+      onMouseEnter={() => onHover(name)}
+      onMouseLeave={() => onHover(null)}
+    >
+      {name}
+    </span>
+  );
+}
+
+interface IndexTableProps {
+  entries: IndexEntry[];
+  onKeyHover: (key: string | null) => void;
+}
+
+function IndexTable({ entries, onKeyHover }: IndexTableProps) {
+  const filtered = entries.filter(
+    ({ index }) => hasVariable(index.pk.pattern) || hasVariable(index.sk.pattern),
+  );
+
+  if (filtered.length === 0) return null;
+
+  return (
+    <div className="text-xs mb-4">
+      <div className="text-neutral-500 uppercase tracking-wide text-[10px] mb-1.5">
+        Indexes
       </div>
-      <div className="space-y-1 text-sm">
-        <div className="flex gap-2">
-          <span className="text-neutral-500">PK:</span>
-          <code className="text-emerald-400">{index.pk.pattern}</code>
-        </div>
-        <div className="flex gap-2">
-          <span className="text-neutral-500">SK:</span>
-          <code className="text-amber-400">{index.sk.pattern}</code>
+      <div className={`overflow-x-auto pb-1 ${scrollbarStyles}`}>
+        <div className="space-y-1">
+          {filtered.map(({ label, index }) => {
+            const pkKeys = extractKeys(index.pk.pattern);
+            const skKeys = extractKeys(index.sk.pattern);
+            return (
+              <div key={label} className="flex items-center gap-2 whitespace-nowrap">
+                <span className="text-neutral-500 text-[10px] w-16 shrink-0">{label}</span>
+                <div className="flex items-center gap-1">
+                  {pkKeys.map((key) => (
+                    <KeyBadge key={`pk-${key}`} name={key} variant="pk" onHover={onKeyHover} />
+                  ))}
+                  {pkKeys.length > 0 && skKeys.length > 0 && (
+                    <span className="text-neutral-600 text-[10px]">→</span>
+                  )}
+                  {skKeys.map((key) => (
+                    <KeyBadge key={`sk-${key}`} name={key} variant="sk" onHover={onKeyHover} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-function getTypeDisplay(prop: any): { type: string; color: string } {
+interface TypeDisplay {
+  type: string;
+  color: string;
+  title?: string;
+}
+
+function getTypeDisplay(prop: any): TypeDisplay {
   if (prop.enum) {
-    return { type: `enum(${prop.enum.join(" | ")})`, color: "text-purple-400" };
+    if (prop.enum.length === 1) {
+      return { type: `"${prop.enum[0]}"`, color: "text-purple-400" };
+    }
+    return {
+      type: `enum(${prop.enum.length})`,
+      color: "text-purple-400",
+      title: prop.enum.join(" | "),
+    };
   }
   if (prop.type === "string") {
     return { type: "string", color: "text-emerald-400" };
@@ -57,41 +141,51 @@ function getTypeDisplay(prop: any): { type: string; color: string } {
   return { type: prop.type || "unknown", color: "text-neutral-400" };
 }
 
-function SchemaTable({ schema }: { schema: ESchemaDescriptor }) {
+interface SchemaTableProps {
+  schema: ESchemaDescriptor;
+  highlightedField: string | null;
+}
+
+function SchemaTable({ schema, highlightedField }: SchemaTableProps) {
   const properties = schema.properties || {};
   const required = new Set(schema.required || []);
 
   return (
-    <div className="border border-neutral-700 rounded-lg overflow-hidden">
-      <table className="w-full text-sm">
+    <div className={`border border-neutral-700 rounded overflow-x-auto ${scrollbarStyles}`}>
+      <table className="w-full text-xs">
         <thead>
           <tr className="bg-neutral-800 border-b border-neutral-700">
-            <th className="text-left px-4 py-2 text-neutral-400 font-medium">
+            <th className="text-left px-3 py-1.5 text-neutral-400 font-medium whitespace-nowrap">
               Field
             </th>
-            <th className="text-left px-4 py-2 text-neutral-400 font-medium">
+            <th className="text-left px-3 py-1.5 text-neutral-400 font-medium whitespace-nowrap">
               Type
             </th>
           </tr>
         </thead>
         <tbody>
           {Object.entries(properties).map(([field, prop]) => {
-            const { type, color } = getTypeDisplay(prop);
+            const { type, color, title } = getTypeDisplay(prop);
             const isOptional = !required.has(field);
+            const isHighlighted = highlightedField === field;
             return (
               <tr
                 key={field}
-                className="border-b border-neutral-800 hover:bg-neutral-800/50"
+                className={`border-b border-neutral-800 last:border-b-0 transition-colors ${
+                  isHighlighted ? "bg-blue-500/20" : "hover:bg-neutral-800/50"
+                }`}
               >
-                <td className="px-4 py-2 font-mono">
-                  <span className="inline-block w-4 text-neutral-500">
+                <td className="px-3 py-1 font-mono whitespace-nowrap">
+                  <span className="inline-block w-3 text-neutral-500">
                     {isOptional ? "?" : ""}
                   </span>
                   <span className={isOptional ? "text-neutral-400" : "text-white"}>
                     {field}
                   </span>
                 </td>
-                <td className={`px-4 py-2 font-mono ${color}`}>{type}</td>
+                <td className={`px-3 py-1 font-mono whitespace-nowrap ${color}`} title={title}>
+                  {type}
+                </td>
               </tr>
             );
           })}
@@ -102,35 +196,30 @@ function SchemaTable({ schema }: { schema: ESchemaDescriptor }) {
 }
 
 function EntityCard({ descriptor }: { descriptor: StdDescriptor }) {
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
+  const indexEntries: IndexEntry[] = [
+    { label: "PRIMARY", index: descriptor.primaryIndex },
+    ...(descriptor.timelineIndex
+      ? [{ label: "TIMELINE", index: descriptor.timelineIndex }]
+      : []),
+    ...descriptor.secondaryIndexes.map((index) => ({
+      label: index.name.toUpperCase(),
+      index,
+    })),
+  ];
+
   return (
-    <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-6">
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-2xl font-bold text-white">{descriptor.name}</h2>
-        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-mono">
+    <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-64">
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-lg font-bold text-white">{descriptor.name}</h2>
+        <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-mono">
           {descriptor.version}
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <IndexCard index={descriptor.primaryIndex} label="Primary Index" />
-        {descriptor.timelineIndex && (
-          <IndexCard index={descriptor.timelineIndex} label="Timeline Index" />
-        )}
-        {descriptor.secondaryIndexes.map((index) => (
-          <IndexCard
-            key={index.name}
-            index={index}
-            label={`Secondary: ${index.name}`}
-          />
-        ))}
-      </div>
-
-      <div>
-        <h3 className="text-sm text-neutral-400 uppercase tracking-wide mb-3">
-          Schema Fields
-        </h3>
-        <SchemaTable schema={descriptor.schema} />
-      </div>
+      <IndexTable entries={indexEntries} onKeyHover={setHoveredKey} />
+      <SchemaTable schema={descriptor.schema} highlightedField={hoveredKey} />
     </div>
   );
 }
@@ -149,20 +238,20 @@ export function StudioRoute() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Studio</h1>
-        <p className="text-neutral-400">Entity schema explorer</p>
+    <div className="w-full">
+      <div className="mb-6 text-center">
+        <h1 className="text-3xl font-bold mb-1">Studio</h1>
+        <p className="text-neutral-400 text-sm">Entity schema explorer</p>
       </div>
 
       {state ? (
-        <div className="space-y-6">
+        <div className="flex flex-wrap justify-center gap-4">
           {state.descriptors.map((descriptor) => (
             <EntityCard key={descriptor.name} descriptor={descriptor} />
           ))}
         </div>
       ) : (
-        <div className="text-neutral-500">Loading...</div>
+        <div className="text-neutral-500 text-center">Loading...</div>
       )}
     </div>
   );
