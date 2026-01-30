@@ -1,0 +1,248 @@
+import "./setup";
+import { describe, it, expect } from "@effect/vitest";
+import { Effect, Option, Schema } from "effect";
+import { ESchema } from "@std-toolkit/eschema";
+import type { EntityType } from "@std-toolkit/core";
+import { IDBCache } from "../idb/idb-cache.js";
+
+let dbCounter = 0;
+const getDbName = () => `test-db-${++dbCounter}`;
+
+const UserSchema = ESchema.make("User", "id", {
+  name: Schema.String,
+  email: Schema.String,
+}).build();
+
+const PostSchema = ESchema.make("Post", "id", {
+  title: Schema.String,
+  content: Schema.String,
+}).build();
+
+function makeUserEntity(
+  id: string,
+  name: string,
+  email: string,
+): EntityType<typeof UserSchema.Type> {
+  return {
+    value: { id, name, email },
+    meta: {
+      _e: UserSchema.name,
+      _v: UserSchema.latestVersion,
+      _uid: `uid-${id}`,
+      _d: false,
+    },
+  };
+}
+
+function makePostEntity(
+  id: string,
+  title: string,
+  content: string,
+): EntityType<typeof PostSchema.Type> {
+  return {
+    value: { id, title, content },
+    meta: {
+      _e: PostSchema.name,
+      _v: PostSchema.latestVersion,
+      _uid: `uid-${id}`,
+      _d: false,
+    },
+  };
+}
+
+describe("IDBCache", () => {
+  it.effect("should open cache with prefix naming", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      expect(cache).toBeInstanceOf(IDBCache);
+    }),
+  );
+
+  it.effect("should put and get a single entity", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      const user = makeUserEntity("user-1", "John", "john@example.com");
+      yield* users.put(user);
+
+      const retrieved = yield* users.get("user-1");
+      expect(Option.isSome(retrieved)).toBe(true);
+      if (Option.isSome(retrieved)) {
+        expect(retrieved.value.value.id).toBe("user-1");
+        expect(retrieved.value.value.name).toBe("John");
+        expect(retrieved.value.meta._e).toBe("User");
+      }
+    }),
+  );
+
+  it.effect("should return none for non-existent entity", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      const retrieved = yield* users.get("non-existent");
+      expect(Option.isNone(retrieved)).toBe(true);
+    }),
+  );
+
+  it.effect("should get all entities of a type", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
+      yield* users.put(makeUserEntity("user-2", "Jane", "jane@example.com"));
+      yield* users.put(makeUserEntity("user-3", "Bob", "bob@example.com"));
+
+      const allUsers = yield* users.getAll();
+      expect(allUsers).toHaveLength(3);
+      expect(allUsers.map((u) => u.value.id).sort()).toEqual([
+        "user-1",
+        "user-2",
+        "user-3",
+      ]);
+    }),
+  );
+
+  it.effect("should delete a single entity", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
+      yield* users.put(makeUserEntity("user-2", "Jane", "jane@example.com"));
+
+      yield* users.delete("user-1");
+
+      const user1 = yield* users.get("user-1");
+      const user2 = yield* users.get("user-2");
+
+      expect(Option.isNone(user1)).toBe(true);
+      expect(Option.isSome(user2)).toBe(true);
+    }),
+  );
+
+  it.effect("should delete all entities of a type", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
+      yield* users.put(makeUserEntity("user-2", "Jane", "jane@example.com"));
+
+      yield* users.deleteAll();
+
+      const allUsers = yield* users.getAll();
+      expect(allUsers).toHaveLength(0);
+    }),
+  );
+
+  it.effect("should isolate entities by schema type", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+      const posts = cache.schema(PostSchema);
+
+      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
+      yield* posts.put(makePostEntity("post-1", "Hello", "World"));
+
+      const allUsers = yield* users.getAll();
+      const allPosts = yield* posts.getAll();
+
+      expect(allUsers).toHaveLength(1);
+      expect(allPosts).toHaveLength(1);
+      expect(allUsers[0]?.value.name).toBe("John");
+      expect(allPosts[0]?.value.title).toBe("Hello");
+    }),
+  );
+
+  it.effect("should update existing entity on put", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
+      yield* users.put(
+        makeUserEntity("user-1", "John Updated", "john.updated@example.com"),
+      );
+
+      const allUsers = yield* users.getAll();
+      expect(allUsers).toHaveLength(1);
+
+      const user = yield* users.get("user-1");
+      expect(Option.isSome(user)).toBe(true);
+      if (Option.isSome(user)) {
+        expect(user.value.value.name).toBe("John Updated");
+      }
+    }),
+  );
+
+  it.effect("should clear single cache", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+      const posts = cache.schema(PostSchema);
+
+      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
+      yield* posts.put(makePostEntity("post-1", "Hello", "World"));
+
+      yield* cache.clear();
+
+      const allUsers = yield* users.getAll();
+      const allPosts = yield* posts.getAll();
+
+      expect(allUsers).toHaveLength(0);
+      expect(allPosts).toHaveLength(0);
+    }),
+  );
+
+  it.effect("should clear all std-toolkit caches", () =>
+    Effect.gen(function* () {
+      const dbName1 = getDbName();
+      const dbName2 = getDbName();
+
+      const cache1 = yield* IDBCache.open(dbName1);
+      const cache2 = yield* IDBCache.open(dbName2);
+
+      yield* cache1
+        .schema(UserSchema)
+        .put(makeUserEntity("user-1", "John", "john@example.com"));
+      yield* cache2
+        .schema(UserSchema)
+        .put(makeUserEntity("user-2", "Jane", "jane@example.com"));
+
+      yield* IDBCache.clearAll();
+
+      const newCache1 = yield* IDBCache.open(dbName1);
+      const newCache2 = yield* IDBCache.open(dbName2);
+
+      const users1 = yield* newCache1.schema(UserSchema).getAll();
+      const users2 = yield* newCache2.schema(UserSchema).getAll();
+
+      expect(users1).toHaveLength(0);
+      expect(users2).toHaveLength(0);
+    }),
+  );
+
+  it.effect(
+    "should only delete entities for specific schema in deleteAll",
+    () =>
+      Effect.gen(function* () {
+        const cache = yield* IDBCache.open(getDbName());
+        const users = cache.schema(UserSchema);
+        const posts = cache.schema(PostSchema);
+
+        yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
+        yield* posts.put(makePostEntity("post-1", "Hello", "World"));
+
+        yield* users.deleteAll();
+
+        const allUsers = yield* users.getAll();
+        const allPosts = yield* posts.getAll();
+
+        expect(allUsers).toHaveLength(0);
+        expect(allPosts).toHaveLength(1);
+      }),
+  );
+});
