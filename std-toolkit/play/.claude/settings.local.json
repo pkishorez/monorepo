@@ -5,7 +5,9 @@
       "Bash(timeout 20 pnpm dev:*)",
       "Bash(pnpm tsc:*)",
       "Bash(pnpm build)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs"
     ]
   }
 }
