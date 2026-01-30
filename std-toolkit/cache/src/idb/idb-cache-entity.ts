@@ -2,6 +2,7 @@ import type { IDBPDatabase } from "idb";
 import type { AnyESchema } from "@std-toolkit/eschema";
 import type { EntityType } from "@std-toolkit/core";
 import { Effect, Option } from "effect";
+import type { CacheEntity } from "../cache-entity.js";
 import { CacheError } from "../error.js";
 
 const STORE_NAME = "items";
@@ -13,7 +14,9 @@ type StoredItem = {
   meta: EntityType<unknown>["meta"];
 };
 
-export class IDBCacheSchema<TSchema extends AnyESchema> {
+export class IDBCacheEntity<TSchema extends AnyESchema>
+  implements CacheEntity<TSchema["Type"]>
+{
   #db: IDBPDatabase;
   #eschema: TSchema;
 
