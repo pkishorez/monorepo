@@ -3,7 +3,7 @@ import { openDB } from "idb";
 import type { AnyESchema } from "@std-toolkit/eschema";
 import { Effect } from "effect";
 import { CacheError } from "../error.js";
-import { IDBCacheSchema } from "./idb-cache-schema.js";
+import { IDBCacheEntity } from "./idb-cache-entity.js";
 
 const STORE_NAME = "items";
 
@@ -28,7 +28,7 @@ async function getConnection(database: string): Promise<IDBPDatabase> {
 }
 
 export class IDBCache {
-  static readonly PREFIX = "std-toolkit-cache";
+  private static readonly PREFIX = "std-toolkit-cache";
 
   static open(name: string): Effect.Effect<IDBCache, CacheError> {
     const fullName = `${IDBCache.PREFIX}${name ? `-${name}` : ""}`;
@@ -64,18 +64,18 @@ export class IDBCache {
     });
   }
 
-  #name: string;
+  dbName: string;
   #db: IDBPDatabase;
 
   private constructor(name: string, db: IDBPDatabase) {
-    this.#name = name;
+    this.dbName = name;
     this.#db = db;
   }
 
   schema<TSchema extends AnyESchema>(
     eschema: TSchema,
-  ): IDBCacheSchema<TSchema> {
-    return new IDBCacheSchema(this.#db, eschema);
+  ): IDBCacheEntity<TSchema> {
+    return new IDBCacheEntity(this.#db, eschema);
   }
 
   clear(): Effect.Effect<void, CacheError> {
