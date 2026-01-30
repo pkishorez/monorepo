@@ -10,11 +10,11 @@ export function CreateUserForm() {
     if (!name || !email) return;
 
     usersCollection.insert({
-      id: generateUserId(),
-      evolution: "v2 test!",
+      userId: generateUserId(),
       name,
       email,
-      status: "pending",
+      status: "active",
+      createdAt: Date.now(),
     });
 
     setName("");

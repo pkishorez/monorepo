@@ -426,6 +426,9 @@ importers:
       ulid:
         specifier: 3.0.2
         version: 3.0.2
+      use-effect-ts:
+        specifier: workspace:*
+        version: link:../../packages/use-effect-ts
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 4.20260129.0

@@ -1,24 +1,47 @@
 import { Effect } from "effect";
-import { type SqliteDBError } from "@std-toolkit/sqlite";
 import { makeEntityRpcHandlers } from "@std-toolkit/sqlite/rpc";
-import { AppRpcs, UserError, UserEntity, UserSchema } from "../domain";
+import { SqliteCommand, type SqliteDBError } from "@std-toolkit/sqlite";
+import { StdToolkitError } from "@std-toolkit/core/rpc";
+import {
+  AppRpcs,
+  UserEntity,
+  UserSchema,
+  PostEntity,
+  PostSchema,
+  CommentEntity,
+  CommentSchema,
+  LikeEntity,
+  LikeSchema,
+  registry,
+} from "../domain";
 
-const mapDbError = (error: SqliteDBError, op: string) =>
-  UserError.database(op, error.error._tag);
-
-const userHandlers = makeEntityRpcHandlers(UserEntity, UserSchema);
+const mapError = (e: SqliteDBError) =>
+  new StdToolkitError({ message: e.error._tag, code: "DB_ERROR" });
 
 export const HandlersLive = AppRpcs.toLayer({
-  ...userHandlers,
+  ...makeEntityRpcHandlers(UserEntity, UserSchema),
+  ...makeEntityRpcHandlers(PostEntity, PostSchema),
+  ...makeEntityRpcHandlers(CommentEntity, CommentSchema),
+  ...makeEntityRpcHandlers(LikeEntity, LikeSchema),
+  ...SqliteCommand.make(registry).toRpcHandler(),
 
-  subscribeUsers: Effect.fn(function* ({ uid }) {
-    yield* UserEntity.subscribe({ key: "timeline", pk: {}, cursor: uid }).pipe(
-      Effect.mapError((e) =>
-        "_tag" in e && e._tag === "SqliteDBError"
-          ? mapDbError(e as SqliteDBError, "ListUsers")
-          : UserError.database("subscribeUsers", "SubscriptionFailed"),
-      ),
-    );
-    return [];
-  }),
+  subscribeUser: ({ uid }) =>
+    UserEntity.subscribe({ key: "timeline", pk: {}, cursor: uid }).pipe(
+      Effect.mapError(mapError),
+    ),
+
+  subscribePost: ({ uid }) =>
+    PostEntity.subscribe({ key: "timeline", pk: {}, cursor: uid }).pipe(
+      Effect.mapError(mapError),
+    ),
+
+  subscribeComment: ({ uid }) =>
+    CommentEntity.subscribe({ key: "timeline", pk: {}, cursor: uid }).pipe(
+      Effect.mapError(mapError),
+    ),
+
+  subscribeLike: ({ uid }) =>
+    LikeEntity.subscribe({ key: "timeline", pk: {}, cursor: uid }).pipe(
+      Effect.mapError(mapError),
+    ),
 });

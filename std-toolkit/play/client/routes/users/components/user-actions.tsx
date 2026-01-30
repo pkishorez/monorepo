@@ -14,7 +14,7 @@ export function UserActions({ users }: UserActionsProps) {
   };
 
   const handleDeleteAll = () => {
-    users.forEach((user) => usersCollection.delete(user.id));
+    users.forEach((user) => usersCollection.delete(user.userId));
   };
 
   return (

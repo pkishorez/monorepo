@@ -32,10 +32,10 @@ export function UserList({ users }: UserListProps) {
     <div className="space-y-2">
       {users.map((user) => (
         <UserItem
-          key={user.id}
+          key={user.userId}
           user={user}
-          isEditing={editingId === user.id}
-          onEdit={() => setEditingId(user.id)}
+          isEditing={editingId === user.userId}
+          onEdit={() => setEditingId(user.userId)}
           onSave={handleUpdate}
           onCancelEdit={() => setEditingId(null)}
         />

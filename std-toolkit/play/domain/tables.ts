@@ -1,20 +1,45 @@
 import { SQLiteTable, SQLiteEntity, EntityRegistry } from "@std-toolkit/sqlite";
-import { UserSchema } from "./schemas";
+import { UserSchema, PostSchema, CommentSchema, LikeSchema } from "./schemas";
 
-// Table definition (single-table design)
-export const UsersTable = SQLiteTable.make({ tableName: "std_data" })
+export const AppTable = SQLiteTable.make({ tableName: "app_data" })
   .primary("pk", "sk")
-  .index("IDX1", "IDX1PK", "IDX1SK")
+  .index("timeline", "tlpk", "tlsk")
+  .index("gsi1", "gsi1pk", "gsi1sk")
+  .index("gsi2", "gsi2pk", "gsi2sk")
   .build();
 
-// Entity definition (maps ESchema to table)
-export const UserEntity = SQLiteEntity.make(UsersTable)
+export const UserEntity = SQLiteEntity.make(AppTable)
   .eschema(UserSchema)
-  .primary() // pk: "User", sk: id (from idField)
-  .timeline("IDX1")
+  .primary()
+  .timeline("timeline")
   .build();
 
-// Registry for setup
-export const registry = EntityRegistry.make(UsersTable)
+export const PostEntity = SQLiteEntity.make(AppTable)
+  .eschema(PostSchema)
+  .primary()
+  .timeline("timeline")
+  .index("gsi1", "byUser", { pk: ["userId"] })
+  .build();
+
+export const CommentEntity = SQLiteEntity.make(AppTable)
+  .eschema(CommentSchema)
+  .primary()
+  .timeline("timeline")
+  .index("gsi1", "byPost", { pk: ["postId"] })
+  .index("gsi2", "byUser", { pk: ["userId"] })
+  .build();
+
+export const LikeEntity = SQLiteEntity.make(AppTable)
+  .eschema(LikeSchema)
+  .primary()
+  .timeline("timeline")
+  .index("gsi1", "byPost", { pk: ["postId"] })
+  .index("gsi2", "byUser", { pk: ["userId"] })
+  .build();
+
+export const registry = EntityRegistry.make(AppTable)
   .register(UserEntity)
+  .register(PostEntity)
+  .register(CommentEntity)
+  .register(LikeEntity)
   .build();

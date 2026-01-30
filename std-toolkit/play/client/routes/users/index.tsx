@@ -7,7 +7,7 @@ import { UserStats } from "./components/user-stats";
 
 export function UsersRoute() {
   const { data: users } = useLiveQuery((q) =>
-    q.from({ users: usersCollection }).orderBy((q) => q.users.id, "desc"),
+    q.from({ users: usersCollection }).orderBy((q) => q.users.userId, "desc"),
   );
 
   return (
