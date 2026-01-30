@@ -3,7 +3,9 @@
     "allow": [
       "Bash(pnpm tsc:*)",
       "Bash(pnpm test:*)",
-      "Bash(pnpm tsx:*)"
+      "Bash(pnpm tsx:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs"
     ]
   }
 }
