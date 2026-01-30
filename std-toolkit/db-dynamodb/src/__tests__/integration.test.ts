@@ -135,9 +135,6 @@ async function createTestTable() {
       }),
     ),
   );
-
-  // Wait for table to be active
-  await new Promise((resolve) => setTimeout(resolve, 500));
 }
 
 // Helper to delete the test table
