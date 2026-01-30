@@ -105,8 +105,6 @@ async function createTestTable() {
       }),
     ),
   );
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
 }
 
 async function deleteTestTable() {
