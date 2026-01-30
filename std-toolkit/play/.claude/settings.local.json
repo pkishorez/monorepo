@@ -4,7 +4,8 @@
       "Bash(pnpm lint:*)",
       "Bash(timeout 20 pnpm dev:*)",
       "Bash(pnpm tsc:*)",
-      "Bash(pnpm build)"
+      "Bash(pnpm build)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
