@@ -20,6 +20,10 @@
     "./rpc": {
       "types": "./dist/rpc/index.d.ts",
       "default": "./dist/rpc/index.js"
+    },
+    "./command": {
+      "types": "./dist/command/index.d.ts",
+      "default": "./dist/command/index.js"
     }
   },
   "scripts": {

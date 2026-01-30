@@ -2,6 +2,7 @@ export {
   SQLiteTable,
   SQLiteEntity,
   EntityRegistry,
+  SqliteCommand,
   type EntityType,
   type SQLiteTableConfig,
   type IndexDefinition,
