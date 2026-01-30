@@ -2,6 +2,7 @@ import type { ESchemaDescriptor, SchemaProperty } from "../types";
 import { useStudioStore } from "../store";
 import { getTypeDisplay, scrollbarStyles } from "../utils";
 import { EntityReference } from "./entity-reference";
+import { EntityIdentifier } from "./entity-identifier";
 
 interface SchemaTableProps {
   schema: ESchemaDescriptor;
@@ -24,6 +25,19 @@ export function SchemaTable({
 
   const isEntityActive = activeEntity === entityName;
 
+  const sortedEntries = Object.entries(properties).sort(([fieldA, propA], [fieldB, propB]) => {
+    const isIdA = fieldA === idField;
+    const isIdB = fieldB === idField;
+    const isRefA = !!propA.identifier;
+    const isRefB = !!propB.identifier;
+
+    if (isIdA && !isIdB) return -1;
+    if (!isIdA && isIdB) return 1;
+    if (isRefA && !isRefB) return -1;
+    if (!isRefA && isRefB) return 1;
+    return 0;
+  });
+
   return (
     <div className={`border border-neutral-700 rounded overflow-x-auto ${scrollbarStyles}`}>
       <table className="w-full text-xs">
@@ -38,7 +52,7 @@ export function SchemaTable({
           </tr>
         </thead>
         <tbody>
-          {Object.entries(properties).map(([field, prop]) => {
+          {sortedEntries.map(([field, prop]) => {
             const { type, color, title } = getTypeDisplay(prop);
             const isOptional = !required.has(field);
             const isHighlighted = highlightedField === field;
@@ -87,6 +101,11 @@ export function SchemaTable({
                     <EntityReference
                       entityName={type}
                       isHighlighted={isReferenceHighlighted}
+                    />
+                  ) : isIdField ? (
+                    <EntityIdentifier
+                      entityName={entityName}
+                      isHighlighted={isIdHighlighted}
                     />
                   ) : (
                     <span className={isPinkHighlighted ? "text-pink-400" : color} title={title}>
