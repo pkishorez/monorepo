@@ -1,4 +1,4 @@
-import { ESchema } from "@std-toolkit/eschema";
+import { ESchema, id } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
 export const UserSchema = ESchema.make("User", "userId", {
@@ -13,7 +13,7 @@ export const UserSchema = ESchema.make("User", "userId", {
 export type User = typeof UserSchema.Type;
 
 export const PostSchema = ESchema.make("Post", "postId", {
-  userId: Schema.String,
+  userId: id("User"),
   title: Schema.String,
   content: Schema.String,
   status: Schema.Literal("draft", "published", "archived"),
@@ -24,8 +24,8 @@ export const PostSchema = ESchema.make("Post", "postId", {
 export type Post = typeof PostSchema.Type;
 
 export const CommentSchema = ESchema.make("Comment", "commentId", {
-  postId: Schema.String,
-  userId: Schema.String,
+  postId: id("Post"),
+  userId: id("User"),
   content: Schema.String,
   createdAt: Schema.Number,
 }).build();
@@ -33,8 +33,8 @@ export const CommentSchema = ESchema.make("Comment", "commentId", {
 export type Comment = typeof CommentSchema.Type;
 
 export const LikeSchema = ESchema.make("Like", "likeId", {
-  postId: Schema.String,
-  userId: Schema.String,
+  postId: id("Post"),
+  userId: id("User"),
   createdAt: Schema.Number,
 }).build();
 
