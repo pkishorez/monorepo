@@ -6,8 +6,8 @@ interface UserStatsProps {
 
 export function UserStats({ users }: UserStatsProps) {
   const activeCount = users.filter((u) => u.status === "active").length;
-  const pendingCount = users.filter((u) => u.status === "pending").length;
   const inactiveCount = users.filter((u) => u.status === "inactive").length;
+  const suspendedCount = users.filter((u) => u.status === "suspended").length;
 
   return (
     <div className="grid grid-cols-4 gap-4 mb-6">
@@ -20,12 +20,12 @@ export function UserStats({ users }: UserStatsProps) {
         <div className="text-green-400/70 text-sm">Active</div>
       </div>
       <div className="bg-yellow-950/30 border border-yellow-900/50 rounded-xl p-4 text-center">
-        <div className="text-3xl font-bold text-yellow-400">{pendingCount}</div>
-        <div className="text-yellow-400/70 text-sm">Pending</div>
+        <div className="text-3xl font-bold text-yellow-400">{inactiveCount}</div>
+        <div className="text-yellow-400/70 text-sm">Inactive</div>
       </div>
       <div className="bg-red-950/30 border border-red-900/50 rounded-xl p-4 text-center">
-        <div className="text-3xl font-bold text-red-400">{inactiveCount}</div>
-        <div className="text-red-400/70 text-sm">Inactive</div>
+        <div className="text-3xl font-bold text-red-400">{suspendedCount}</div>
+        <div className="text-red-400/70 text-sm">Suspended</div>
       </div>
     </div>
   );

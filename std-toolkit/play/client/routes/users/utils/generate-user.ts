@@ -62,7 +62,7 @@ const domains = [
   "icloud.com",
 ];
 
-const statuses: User["status"][] = ["active", "pending", "inactive"];
+const statuses: User["status"][] = ["active", "inactive", "suspended"];
 
 export function generateRandomUser(): User {
   const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
@@ -71,11 +71,11 @@ export function generateRandomUser(): User {
   const status = statuses[Math.floor(Math.random() * statuses.length)];
 
   return {
-    id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-    evolution: "v2 test!",
+    userId: `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
     name: `${firstName} ${lastName}`,
     email: `${firstName?.toLowerCase()}.${lastName?.toLowerCase()}@${domain}`,
     status: status ?? "active",
+    createdAt: Date.now(),
   };
 }
 

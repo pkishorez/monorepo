@@ -24,7 +24,7 @@ export function EditUserForm({ user, onSave, onCancel }: EditUserFormProps) {
         className="bg-neutral-900 border border-neutral-600 px-3 py-2 rounded-lg flex-1 focus:outline-none focus:border-blue-500 transition-colors"
       />
       <button
-        onClick={() => onSave(user.id, { name, email })}
+        onClick={() => onSave(user.userId, { name, email })}
         className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors"
       >
         Save

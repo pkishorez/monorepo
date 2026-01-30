@@ -24,8 +24,8 @@ export function UserItem({
 
   const statusStyles = {
     active: "bg-green-500/20 text-green-400",
-    pending: "bg-yellow-500/20 text-yellow-400",
-    inactive: "bg-red-500/20 text-red-400",
+    inactive: "bg-yellow-500/20 text-yellow-400",
+    suspended: "bg-red-500/20 text-red-400",
   };
 
   return (

@@ -2,11 +2,13 @@ import "./styles.css";
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { UsersRoute } from "./routes/users";
+import { StudioRoute } from "./routes/studio";
 
-type Route = "home" | "users";
+type Route = "home" | "users" | "studio";
 
 const routes = [
   { id: "users" as const, label: "Users", description: "Manage users with TanStack DB" },
+  { id: "studio" as const, label: "Studio", description: "Studio workspace" },
 ] as const;
 
 function App() {
@@ -44,6 +46,7 @@ function App() {
             <span>Back to routes</span>
           </button>
           {currentRoute === "users" && <UsersRoute />}
+          {currentRoute === "studio" && <StudioRoute />}
         </div>
       )}
     </main>

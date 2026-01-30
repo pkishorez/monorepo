@@ -16,7 +16,7 @@ export const usersCollection = createCollection(
           const { api, collections } = yield* RealtimeClient;
           collections.add(collection);
           return yield* api
-            .subscribeUsers({ uid: latest?.meta._uid ?? null })
+            .subscribeUser({ uid: latest?.meta._uid ?? null })
             .pipe(Effect.tap(onReady));
         }).pipe(Effect.provide(runtime), Effect.orDie),
     }),
