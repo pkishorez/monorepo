@@ -740,7 +740,6 @@ export class DynamoEntity<
       }
 
       let currentCursor = cursor;
-      const allItems: EntityType<ESchemaType<TSchema>>[] = [];
 
       while (true) {
         const result = yield* this.query(
@@ -749,11 +748,6 @@ export class DynamoEntity<
           queryOptions,
         );
 
-        if (result.items.length === 0) {
-          break;
-        }
-
-        allItems.push(...result.items);
         (yield* this.#service)?.emit(result.items);
 
         const lastItem = result.items[result.items.length - 1];
@@ -763,8 +757,6 @@ export class DynamoEntity<
         }
         currentCursor = lastItem.meta._uid;
       }
-
-      return { success: true };
     });
   }
 

@@ -47,7 +47,7 @@ export class ConnectionService extends Context.Tag("ConnectionService")<
               websockets.forEach((ws) => {
                 const subscribedEntities =
                   typedWebSocket.get(ws).subscriptionEntities;
-                if (ws !== websocket && subscribedEntities.has(value.meta._e)) {
+                if (subscribedEntities.has(value.meta._e)) {
                   ws.send(encoded);
                 }
               });
