@@ -247,14 +247,13 @@ describe("Simplified API Tests", () => {
   describe("subscribe(opts) - Subscription Query", () => {
     it.effect("returns items after cursor", () =>
       Effect.gen(function* () {
-        // First get all items to find a cursor using raw.query
-        const all = yield* OrderEntity.raw.query("primary", {
+        const all = yield* OrderEntity.query("primary", {
           pk: { userId: "user-001" },
+          sk: { ">=": null },
         });
 
         expect(all.items.length).toBe(3);
 
-        // Subscribe from after the first item
         const cursor = {
           userId: "user-001",
           orderId: all.items[0]!.value.orderId,
@@ -266,7 +265,6 @@ describe("Simplified API Tests", () => {
           limit: 10,
         });
 
-        // Should return items after the cursor
         expect(result.items.length).toBe(2);
       }),
     );
@@ -280,74 +278,6 @@ describe("Simplified API Tests", () => {
         });
 
         expect(result.items).toEqual([]);
-      }),
-    );
-  });
-
-  describe("raw.query(key, params, options) - Complex Queries", () => {
-    it.effect("queries with pk only", () =>
-      Effect.gen(function* () {
-        const result = yield* OrderEntity.raw.query("primary", {
-          pk: { userId: "user-001" },
-        });
-
-        expect(result.items.length).toBe(3);
-      }),
-    );
-
-    it.effect("queries with beginsWith", () =>
-      Effect.gen(function* () {
-        const result = yield* OrderEntity.raw.query("primary", {
-          pk: { userId: "user-001" },
-          sk: { beginsWith: { orderId: "order-00" } as any },
-        });
-
-        expect(result.items.length).toBe(3);
-      }),
-    );
-
-    it.effect("queries with between", () =>
-      Effect.gen(function* () {
-        const result = yield* OrderEntity.raw.query("primary", {
-          pk: { userId: "user-001" },
-          sk: {
-            between: [
-              { orderId: "order-001" },
-              { orderId: "order-002" },
-            ],
-          },
-        });
-
-        expect(result.items.length).toBe(2);
-      }),
-    );
-
-    it.effect("queries secondary index with raw.query", () =>
-      Effect.gen(function* () {
-        const result = yield* OrderEntity.raw.query("byStatus", {
-          pk: { status: "pending" },
-        });
-
-        expect(result.items.length).toBe(3);
-      }),
-    );
-
-    it.effect("queries with ScanIndexForward option", () =>
-      Effect.gen(function* () {
-        const ascending = yield* OrderEntity.raw.query(
-          "primary",
-          { pk: { userId: "user-001" } },
-          { ScanIndexForward: true },
-        );
-
-        const descending = yield* OrderEntity.raw.query(
-          "primary",
-          { pk: { userId: "user-001" } },
-          { ScanIndexForward: false },
-        );
-
-        expect(ascending.items[0]?.value.orderId).toBe("order-001");
-        expect(descending.items[0]?.value.orderId).toBe("order-003");
       }),
     );
   });

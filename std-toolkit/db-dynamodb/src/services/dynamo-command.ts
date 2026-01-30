@@ -36,6 +36,8 @@ const createTiming = (startedAt: number) => {
 };
 
 type AnyEntity = DynamoEntity<any, any, any, any, any>;
+type AnyEntitiesMap = Record<string, AnyEntity>;
+type AnyRegistry = EntityRegistry<DynamoTableInstance, AnyEntitiesMap>;
 
 /**
  * DynamoDB command processor for unified CRUD operations.
@@ -43,9 +45,8 @@ type AnyEntity = DynamoEntity<any, any, any, any, any>;
  *
  * @typeParam TRegistry - The entity registry type
  */
-export class DynamoCommand<
-  TRegistry extends EntityRegistry<DynamoTableInstance, Record<string, AnyEntity>>,
-> implements CommandProcessor
+export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
+  implements CommandProcessor
 {
   static readonly RPC_PREFIX = "__std-toolkit__command" as const;
 
@@ -55,9 +56,7 @@ export class DynamoCommand<
    * @param registry - The entity registry
    * @returns A new DynamoCommand instance
    */
-  static make<TRegistry extends EntityRegistry<DynamoTableInstance, Record<string, AnyEntity>>>(
-    registry: TRegistry,
-  ): DynamoCommand<TRegistry> {
+  static make(registry: AnyRegistry): DynamoCommand {
     return new DynamoCommand(registry);
   }
 

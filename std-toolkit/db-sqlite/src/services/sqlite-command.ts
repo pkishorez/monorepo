@@ -45,7 +45,7 @@ type AnyEntity = SQLiteEntity<any, any, any, any>;
  * @typeParam TRegistry - The entity registry type
  */
 export class SqliteCommand<
-  TRegistry extends EntityRegistry<SQLiteTableInstance, Record<string, AnyEntity>>,
+  TRegistry extends EntityRegistry<any, any>,
 > implements CommandProcessor<SqliteDB>
 {
   static readonly RPC_PREFIX = "__std-toolkit__command" as const;
@@ -56,7 +56,7 @@ export class SqliteCommand<
    * @param registry - The entity registry
    * @returns A new SqliteCommand instance
    */
-  static make<TRegistry extends EntityRegistry<SQLiteTableInstance, Record<string, AnyEntity>>>(
+  static make<TRegistry extends EntityRegistry<any, any>>(
     registry: TRegistry,
   ): SqliteCommand<TRegistry> {
     return new SqliteCommand(registry);

@@ -226,27 +226,6 @@ const play = Effect.gen(function* () {
   }
 
   // ---------------------------------------------------------------------------
-  // Query Method 8: raw.query with between
-  // ---------------------------------------------------------------------------
-  yield* Console.log(
-    "\n[9] raw.query with between - Posts between post-02 and post-04\n",
-  );
-
-  const q8 = yield* PostEntity.raw.query("primary", {
-    pk: { authorId: "alice" },
-    sk: {
-      between: [
-        { postId: "post-02" },
-        { postId: "post-04" },
-      ],
-    },
-  });
-  yield* Console.log(`    Found ${q8.items.length} posts:`);
-  for (const p of q8.items) {
-    yield* Console.log(`    - ${p.value.postId}: ${p.value.title}`);
-  }
-
-  // ---------------------------------------------------------------------------
   // Summary
   // ---------------------------------------------------------------------------
   yield* Console.log("\n========================================");
@@ -259,10 +238,6 @@ const play = Effect.gen(function* () {
   yield* Console.log("  { sk: { '<=': null } }, { limit } - Last N");
   yield* Console.log("  { sk: { '>=': value } }      - From value onwards (asc)");
   yield* Console.log("  { sk: { '<=': value } }      - Up to value (desc)");
-  yield* Console.log("");
-  yield* Console.log("raw.query() - Complex conditions:");
-  yield* Console.log("  raw.query('pk', { pk, sk: { between: [a, b] } })");
-  yield* Console.log("  raw.query('pk', { pk, sk: { beginsWith: v } })");
   yield* Console.log("========================================\n");
 });
 
