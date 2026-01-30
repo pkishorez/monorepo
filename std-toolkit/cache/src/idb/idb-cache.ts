@@ -30,7 +30,7 @@ async function getConnection(database: string): Promise<IDBPDatabase> {
 export class IDBCache {
   private static readonly PREFIX = "std-toolkit-cache";
 
-  static open(name: string): Effect.Effect<IDBCache, CacheError> {
+  static open(name?: string): Effect.Effect<IDBCache, CacheError> {
     const fullName = `${IDBCache.PREFIX}${name ? `-${name}` : ""}`;
     return Effect.tryPromise({
       try: async () => {

@@ -12,6 +12,10 @@
     "./idb": {
       "types": "./dist/idb/index.d.ts",
       "default": "./dist/idb/index.js"
+    },
+    "./memory": {
+      "types": "./dist/memory/index.d.ts",
+      "default": "./dist/memory/index.js"
     }
   },
   "scripts": {

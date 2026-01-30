@@ -11,8 +11,8 @@ const userHandlers = makeEntityRpcHandlers(UserEntity, UserSchema);
 export const HandlersLive = AppRpcs.toLayer({
   ...userHandlers,
 
-  subscribeUsers: Effect.fn(function* () {
-    yield* UserEntity.subscribe({ key: "timeline", value: null }).pipe(
+  subscribeUsers: Effect.fn(function* ({ uid }) {
+    yield* UserEntity.subscribe({ key: "timeline", pk: {}, cursor: uid }).pipe(
       Effect.mapError((e) =>
         "_tag" in e && e._tag === "SqliteDBError"
           ? mapDbError(e as SqliteDBError, "ListUsers")

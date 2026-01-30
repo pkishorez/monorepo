@@ -1,6 +1,8 @@
 import { Collection, CollectionConfig, SyncConfig } from "@tanstack/react-db";
 import { Effect } from "effect";
 import { EntityType } from "@std-toolkit/core";
+import { CacheEntity } from "@std-toolkit/cache";
+import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
 import { AnyESchema, ESchemaIdField } from "@std-toolkit/eschema";
 
 interface StdCollectionConfig<
@@ -8,6 +10,7 @@ interface StdCollectionConfig<
   TSchema extends AnyESchema,
 > {
   schema: TSchema;
+  cache?: CacheEntity<TItem>;
   sync: (value: {
     collection: Collection<
       TItem,
@@ -18,7 +21,7 @@ interface StdCollectionConfig<
     >;
     onReady: () => void;
   }) => {
-    effect: Effect.Effect<readonly EntityType<TItem>[]>;
+    effect: (latest: EntityType<TItem> | null) => Effect.Effect<void>;
     onCleanup?: () => void;
   };
   onInsert: (
@@ -34,7 +37,7 @@ interface StdCollectionConfig<
 }
 
 export type CollectionUtils<TSchema extends AnyESchema = AnyESchema> = {
-  upsert: (item: EntityType<TSchema["Type"]>) => void;
+  upsert: (item: EntityType<TSchema["Type"]>, persist?: boolean) => void;
   schema: () => TSchema;
 };
 export const stdCollectionOptions = <TSchema extends AnyESchema>(
@@ -48,7 +51,13 @@ export const stdCollectionOptions = <TSchema extends AnyESchema>(
   schema: TSchema;
 } => {
   type TItem = TSchema["Type"];
-  const { onInsert, onUpdate, sync, schema } = options;
+  const {
+    onInsert,
+    cache = new MemoryCacheEntity(options.schema),
+    onUpdate,
+    sync,
+    schema,
+  } = options;
   const getKey = (item: TItem): string =>
     item[schema.idField as keyof TItem] as string;
 
@@ -66,6 +75,9 @@ export const stdCollectionOptions = <TSchema extends AnyESchema>(
     for (const value of values) {
       const key = collection.getKeyFromItem(value.value as TItem);
       const itemValue = { ...value.value, _uid: value.meta._uid } as TItem;
+      if (persist) {
+        Effect.runPromise(cache.put(value));
+      }
       if (collection.has(key)) {
         if (value.meta._d) {
           write({ type: "delete", key });
@@ -85,21 +97,34 @@ export const stdCollectionOptions = <TSchema extends AnyESchema>(
   const tanstackSync: SyncConfig<TItem, string> = {
     sync: (params) => {
       syncParamsRef.current = params;
-      const { collection } = params;
+      const { collection, markReady } = params;
       const { effect, onCleanup } = sync({
         collection,
         onReady: () => {
           params.markReady();
         },
       });
-      Effect.runPromise(effect).then(applyLocalChanges);
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const allItems = (yield* cache.getAll()).sort((a, z) =>
+            a.meta._uid.localeCompare(z.meta._uid),
+          );
+          const latest = allItems.at(-1);
+
+          applyLocalChanges(allItems);
+          if (allItems.length > 0) {
+            markReady();
+          }
+          yield* effect(latest ? latest : null);
+        }),
+      );
 
       return onCleanup;
     },
   };
 
   const utils: CollectionUtils<TSchema> = {
-    upsert: (item) => applyLocalChanges([item]),
+    upsert: (item, persist) => applyLocalChanges([item], persist),
     schema: () => options.schema,
   };
 
