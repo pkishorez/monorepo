@@ -7,3 +7,5 @@ export {
 export { DynamoEntity, type EntityType } from "./dynamo-entity.js";
 
 export { EntityRegistry } from "./entity-registry.js";
+
+export { DynamoCommand } from "./dynamo-command.js";
