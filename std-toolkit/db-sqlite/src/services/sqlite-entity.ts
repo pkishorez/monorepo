@@ -1,7 +1,11 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
 import { Effect, FiberRef, Option, Schema } from "effect";
 import type { SQLiteTableInstance, SortKeyCondition } from "./sqlite-table.js";
-import { SqliteDB, SqliteDBError, TransactionPendingBroadcasts } from "../sql/db.js";
+import {
+  SqliteDB,
+  SqliteDBError,
+  TransactionPendingBroadcasts,
+} from "../sql/db.js";
 import { ulid } from "ulid";
 import {
   deriveIndexKeyValue,
@@ -58,31 +62,6 @@ type IndexKeyFields<T, K extends keyof T | DerivableMetaFields> = Pick<
   T,
   K & keyof T
 >;
-
-/**
- * Helper type to extract all key fields from a derivation's pkDeps and skDeps.
- */
-type DerivationKeyFields<TDeriv extends StoredIndexDerivation> =
-  | TDeriv["pkDeps"][number]
-  | TDeriv["skDeps"][number];
-
-/**
- * Helper type to get the key value type for a given index.
- */
-type IndexKeyValue<
-  TSchema extends AnyESchema,
-  TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  K extends "primary" | (keyof TSecondaryDerivationMap & string),
-> = K extends "primary"
-  ? Pick<ESchemaType<TSchema>, TPrimaryPkKeys | TSchema["idField"]>
-  : K extends keyof TSecondaryDerivationMap
-    ? Pick<
-        ESchemaType<TSchema>,
-        DerivationKeyFields<TSecondaryDerivationMap[K]> &
-          keyof ESchemaType<TSchema>
-      >
-    : never;
 
 /**
  * A SQLite entity with type-safe CRUD operations and automatic index derivation.
@@ -390,7 +369,10 @@ export class SQLiteEntity<
 
       yield* this.#table.deleteItem({ pk, sk });
 
-      const deletedEntity = { ...existing, meta: { ...existing.meta, _d: true } };
+      const deletedEntity = {
+        ...existing,
+        meta: { ...existing.meta, _d: true },
+      };
 
       yield* this.#broadcast(deletedEntity);
 
@@ -575,6 +557,13 @@ export class SQLiteEntity<
 
   /**
    * Subscribes to items from the primary index or a secondary index.
+   * Continuously fetches records until no more are available.
+   *
+   * @param opts.key - "primary", "timeline", or secondary index name
+   * @param opts.pk - Partition key fields for the selected index
+   * @param opts.cursor - The `_uid` cursor (string to continue from, null to start fresh)
+   * @param opts.limit - Optional batch size per query iteration
+   * @returns All items after the cursor
    */
   subscribe<
     K extends
@@ -586,53 +575,58 @@ export class SQLiteEntity<
   >(
     opts: SubscribeOptions<
       K,
-      IndexKeyValue<TSchema, TSecondaryDerivationMap, TPrimaryPkKeys, K>
+      K extends "primary"
+        ? [TPrimaryPkKeys] extends [never]
+          ? {}
+          : Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>
+        : K extends "timeline"
+          ? [TPrimaryPkKeys] extends [never]
+            ? {}
+            : Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>
+          : K extends keyof TSecondaryDerivationMap
+            ? Pick<
+                ESchemaType<TSchema>,
+                TSecondaryDerivationMap[K]["pkDeps"][number] &
+                  keyof ESchemaType<TSchema>
+              >
+            : never
     >,
-  ): Effect.Effect<
-    { items: EntityType<ESchemaType<TSchema>>[] },
-    SqliteDBError,
-    SqliteDB
-  > {
-    const { key, value, limit } = opts;
+  ): Effect.Effect<{ success: true }, SqliteDBError, SqliteDB> {
+    return Effect.gen(this, function* () {
+      const { key, pk, cursor, limit } = opts;
 
-    if (value == null) {
-      return Effect.succeed({ items: [] });
-    }
+      const queryOptions: SimpleQueryOptions = {};
+      if (limit !== undefined) {
+        queryOptions.limit = limit;
+      }
 
-    const queryOptions: SimpleQueryOptions = {};
-    if (limit !== undefined) {
-      queryOptions.limit = limit;
-    }
+      let currentCursor = cursor;
+      const allItems: EntityType<ESchemaType<TSchema>>[] = [];
 
-    const { pkDeps, skDeps } =
-      key === "primary"
-        ? this.#primaryDerivation
-        : key === "timeline"
-          ? {
-              pkDeps: this.#timelineDerivation?.pkDeps ?? [],
-              skDeps: ["_uid"] as string[],
-            }
-          : this.#secondaryDerivations[key as keyof TSecondaryDerivationMap]!;
+      while (true) {
+        const result = yield* this.query(
+          key,
+          { pk, sk: { ">": currentCursor } } as any,
+          queryOptions,
+        );
 
-    const cursorValue = value as Record<string, unknown>;
-    const pkPart: Record<string, unknown> = {};
+        if (result.items.length === 0) {
+          break;
+        }
 
-    for (const dep of pkDeps) {
-      pkPart[dep] = cursorValue[dep];
-    }
+        allItems.push(...result.items);
+        (yield* this.#service)?.emit(result.items);
 
-    const skString = deriveIndexKeyValue(
-      this.#eschema.name,
-      skDeps,
-      cursorValue,
-      false,
-    );
-
-    return this.query(
-      key,
-      { pk: pkPart, sk: { ">": skString } } as any,
-      queryOptions,
-    );
+        const lastItem = result.items[result.items.length - 1];
+        if (!lastItem) {
+          //Start subscribing from now!
+          (yield* this.#service)?.subscribe(this.#eschema.name);
+          return { success: true };
+        }
+        currentCursor = lastItem.meta._uid;
+      }
+      return { success: true };
+    });
   }
 
   /**
