@@ -34,9 +34,10 @@ export interface SimpleQueryOptions {
   limit?: number;
 }
 
-export interface SubscribeOptions<K, V> {
+export interface SubscribeOptions<K, PK> {
   key: K;
-  value?: V | null;
+  pk: PK;
+  cursor: string | null;
   limit?: number;
 }
 

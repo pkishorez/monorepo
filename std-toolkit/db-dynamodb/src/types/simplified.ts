@@ -59,15 +59,17 @@ export interface SimpleQueryOptions {
 /**
  * Options for subscribe operations.
  *
- * @typeParam K - The key name type ("pk" or index name)
- * @typeParam V - The value type for the cursor
+ * @typeParam K - The key name type ("primary", "timeline", or index name)
+ * @typeParam PK - The partition key value type for the selected index
  */
-export interface SubscribeOptions<K, V> {
-  /** The index to subscribe to ("pk" for primary or index name) */
+export interface SubscribeOptions<K, PK> {
+  /** The index to subscribe to ("primary", "timeline", or index name) */
   key: K;
-  /** The cursor value to start from (items after this cursor will be returned) */
-  value?: V | null;
-  /** Maximum number of items to return per poll */
+  /** The partition key value for the selected index */
+  pk: PK;
+  /** The cursor (_uid) to start from. null = start from beginning, string = continue from that point */
+  cursor: string | null;
+  /** Maximum number of items to return per query batch */
   limit?: number;
 }
 

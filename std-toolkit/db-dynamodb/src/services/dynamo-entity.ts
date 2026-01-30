@@ -128,33 +128,6 @@ export interface StoredTimelineDerivation {
 type ExtractKeys<T, Keys extends readonly (keyof T)[]> = Keys[number];
 
 /**
- * Helper type to extract all key fields from a derivation's pkDeps and skDeps.
- */
-type DerivationKeyFields<TDeriv extends StoredIndexDerivation> =
-  | TDeriv["pkDeps"][number]
-  | TDeriv["skDeps"][number];
-
-/**
- * Helper type to get the key value type for a given index.
- * For "primary", returns the primary key fields (pk deps + idField for SK).
- * For secondary indexes, returns the index's pk deps (SK is always _uid).
- */
-type IndexKeyValue<
-  TSchema extends AnyESchema,
-  TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  K extends "primary" | (keyof TSecondaryDerivationMap & string),
-> = K extends "primary"
-  ? Pick<ESchemaType<TSchema>, TPrimaryPkKeys | TSchema["idField"]>
-  : K extends keyof TSecondaryDerivationMap
-    ? Pick<
-        ESchemaType<TSchema>,
-        DerivationKeyFields<TSecondaryDerivationMap[K]> &
-          keyof ESchemaType<TSchema>
-      >
-    : never;
-
-/**
  * A DynamoDB entity with type-safe CRUD operations and automatic index derivation.
  * Entities are built on top of a DynamoTable and use an ESchema for validation.
  *
@@ -723,10 +696,13 @@ export class DynamoEntity<
 
   /**
    * Subscribes to items from the primary index or a secondary index.
-   * Returns items after the given cursor value.
+   * Continuously fetches records until no more are available.
    *
-   * @param opts - Subscribe options with key, cursor value, and limit
-   * @returns Array of items after the cursor
+   * @param opts.key - "primary", "timeline", or secondary index name
+   * @param opts.pk - Partition key fields for the selected index
+   * @param opts.cursor - The `_uid` cursor (string to continue from, null to start fresh)
+   * @param opts.limit - Optional batch size per query iteration
+   * @returns All items after the cursor
    */
   subscribe<
     K extends
@@ -738,55 +714,58 @@ export class DynamoEntity<
   >(
     opts: SubscribeOptions<
       K,
-      IndexKeyValue<TSchema, TSecondaryDerivationMap, TPrimaryPkKeys, K>
+      K extends "primary"
+        ? [TPrimaryPkKeys] extends [never]
+          ? {}
+          : IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>
+        : K extends "timeline"
+          ? [TPrimaryPkKeys] extends [never]
+            ? {}
+            : IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>
+          : K extends keyof TSecondaryDerivationMap
+            ? Pick<
+                ESchemaType<TSchema>,
+                TSecondaryDerivationMap[K]["pkDeps"][number] &
+                  keyof ESchemaType<TSchema>
+              >
+            : never
     >,
-  ): Effect.Effect<
-    { items: EntityType<ESchemaType<TSchema>>[] },
-    DynamodbError
-  > {
-    const { key, value, limit } = opts;
+  ): Effect.Effect<{ success: true }, DynamodbError> {
+    return Effect.gen(this, function* () {
+      const { key, pk, cursor, limit } = opts;
 
-    if (value == null) {
-      // No cursor - this is a special case, return empty for now
-      // In a real implementation, you might want to query from the beginning
-      return Effect.succeed({ items: [] });
-    }
+      const queryOptions: SimpleQueryOptions = {};
+      if (limit !== undefined) {
+        queryOptions.limit = limit;
+      }
 
-    const queryOptions: SimpleQueryOptions = {};
-    if (limit !== undefined) {
-      queryOptions.limit = limit;
-    }
+      let currentCursor = cursor;
+      const allItems: EntityType<ESchemaType<TSchema>>[] = [];
 
-    const { pkDeps, skDeps } =
-      key === "primary"
-        ? this.#primaryDerivation
-        : key === "timeline"
-          ? {
-              pkDeps: this.#timelineDerivation?.pkDeps ?? [],
-              skDeps: ["_uid"] as string[],
-            }
-          : this.#secondaryDerivations[key as keyof TSecondaryDerivationMap]!;
+      while (true) {
+        const result = yield* this.query(
+          key,
+          { pk, sk: { ">": currentCursor } } as any,
+          queryOptions,
+        );
 
-    const cursorValue = value as Record<string, unknown>;
-    const pkPart: Record<string, unknown> = {};
+        if (result.items.length === 0) {
+          break;
+        }
 
-    for (const dep of pkDeps) {
-      pkPart[dep] = cursorValue[dep];
-    }
+        allItems.push(...result.items);
+        (yield* this.#service)?.emit(result.items);
 
-    // Derive the SK value as a string from the cursor
-    const skString = deriveIndexKeyValue(
-      this.#eschema.name,
-      skDeps,
-      cursorValue,
-      false,
-    );
+        const lastItem = result.items[result.items.length - 1];
+        if (!lastItem) {
+          (yield* this.#service)?.subscribe(this.#eschema.name);
+          return { success: true };
+        }
+        currentCursor = lastItem.meta._uid;
+      }
 
-    return this.query(
-      key,
-      { pk: pkPart, sk: { ">": skString } } as any,
-      queryOptions,
-    );
+      return { success: true };
+    });
   }
 
   #derivePrimaryIndex(value: any): IndexDefinition {

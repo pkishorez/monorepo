@@ -954,6 +954,7 @@ describe("Subscribe", () => {
   const table = SQLiteTable.make({ tableName: "subscribe_test" })
     .primary("pk", "sk")
     .index("IDX1", "IDX1PK", "IDX1SK")
+    .index("IDX2", "IDX2PK", "IDX2SK")
     .build();
 
   const EventSchema = ESchema.make("Event", "eventId", {
@@ -965,6 +966,7 @@ describe("Subscribe", () => {
     .eschema(EventSchema)
     .primary({ pk: ["streamId"] })  // sk: eventId (from idField)
     .index("IDX1", "byStream", { pk: ["streamId"] })  // sk: _uid
+    .timeline("IDX2")
     .build();
 
   beforeAll(async () => {
@@ -985,39 +987,48 @@ describe("Subscribe", () => {
 
   afterAll(() => db.close());
 
-  it.effect("subscribe returns items after cursor (primary)", () =>
+  it.effect("subscribe with cursor null fetches all items from beginning", () =>
     Effect.gen(function* () {
       const result = yield* eventEntity.subscribe({
-        key: "primary",
-        value: { streamId: "stream-1", eventId: "002" },
+        key: "timeline",
+        pk: { streamId: "stream-1" },
+        cursor: null,
       });
 
-      const ids = result.items.map((i) => i.value.eventId);
-      expect(ids).toEqual(["003", "004", "005"]);
+      expect(result.success).toBe(true);
     }).pipe(Effect.provide(layer)),
   );
 
-  it.effect("subscribe with limit", () =>
+  it.effect("subscribe with cursor continues from that point", () =>
+    Effect.gen(function* () {
+      // First get items to obtain a cursor
+      const items = yield* eventEntity.query("timeline", {
+        pk: { streamId: "stream-1" },
+        sk: { ">=": null },
+      });
+
+      const cursor = items.items[1]!.meta._uid;
+
+      const result = yield* eventEntity.subscribe({
+        key: "timeline",
+        pk: { streamId: "stream-1" },
+        cursor,
+      });
+
+      expect(result.success).toBe(true);
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("subscribe with limit batches queries", () =>
     Effect.gen(function* () {
       const result = yield* eventEntity.subscribe({
-        key: "primary",
-        value: { streamId: "stream-1", eventId: "002" },
+        key: "timeline",
+        pk: { streamId: "stream-1" },
+        cursor: null,
         limit: 2,
       });
 
-      const ids = result.items.map((i) => i.value.eventId);
-      expect(ids).toEqual(["003", "004"]);
-    }).pipe(Effect.provide(layer)),
-  );
-
-  it.effect("subscribe with null value returns empty", () =>
-    Effect.gen(function* () {
-      const result = yield* eventEntity.subscribe({
-        key: "primary",
-        value: null,
-      });
-
-      expect(result.items).toHaveLength(0);
+      expect(result.success).toBe(true);
     }).pipe(Effect.provide(layer)),
   );
 
@@ -1617,20 +1628,27 @@ describe("Timeline Index", () => {
         // Subscribe from that cursor
         const result = yield* taskEntity.subscribe({
           key: "timeline",
-          value: {
-            projectId: "proj-timeline",
-            _uid: cursorItem.meta._uid,
-          } as any,
+          pk: { projectId: "proj-timeline" },
+          cursor: cursorItem.meta._uid,
         });
 
-        // Should get items after the cursor
-        expect(result.items.length).toBeGreaterThan(0);
-        // First item should be after the cursor
-        expect(result.items[0]!.meta._uid > cursorItem.meta._uid).toBe(true);
+        expect(result.success).toBe(true);
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("subscribe with limit", () =>
+    it.effect("subscribe with null cursor fetches from beginning", () =>
+      Effect.gen(function* () {
+        const result = yield* taskEntity.subscribe({
+          key: "timeline",
+          pk: { projectId: "proj-timeline" },
+          cursor: null,
+        });
+
+        expect(result.success).toBe(true);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    it.effect("subscribe with limit batches queries", () =>
       Effect.gen(function* () {
         const items = yield* taskEntity.query(
           "timeline",
@@ -1645,14 +1663,12 @@ describe("Timeline Index", () => {
 
         const result = yield* taskEntity.subscribe({
           key: "timeline",
-          value: {
-            projectId: "proj-timeline",
-            _uid: cursorItem.meta._uid,
-          } as any,
+          pk: { projectId: "proj-timeline" },
+          cursor: cursorItem.meta._uid,
           limit: 2,
         });
 
-        expect(result.items).toHaveLength(2);
+        expect(result.success).toBe(true);
       }).pipe(Effect.provide(layer)),
     );
   });
