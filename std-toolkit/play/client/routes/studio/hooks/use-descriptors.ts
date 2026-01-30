@@ -15,8 +15,6 @@ export function useDescriptors() {
         operation: "descriptor",
       })) as DescriptorResponse;
 
-      console.log("Studio descriptors loaded:", result.descriptors);
-
       setDescriptors(result.descriptors);
     }).pipe(Effect.provide(runtime)),
   );

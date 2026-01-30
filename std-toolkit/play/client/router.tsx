@@ -9,8 +9,20 @@ import { UsersRoute } from "./routes/users";
 import { StudioRoute } from "./routes/studio";
 
 const routes = [
-  { id: "users", label: "Users", description: "Manage users with TanStack DB" },
-  { id: "studio", label: "Studio", description: "Studio workspace" },
+  {
+    id: "users",
+    label: "Users",
+    description: "TanStack DB + SQLite",
+    icon: "👤",
+    color: "text-emerald-400",
+  },
+  {
+    id: "studio",
+    label: "Studio",
+    description: "Entity schema explorer",
+    icon: "◈",
+    color: "text-blue-400",
+  },
 ] as const;
 
 const rootRoute = createRootRoute({
@@ -24,71 +36,77 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: function Index() {
-    return (
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Playground</h1>
-          <p className="text-neutral-400">std-toolkit demo application</p>
-        </div>
-
-        <div className="space-y-3">
-          {routes.map((route) => (
-            <Link
-              key={route.id}
-              to={`/${route.id}`}
-              className="block w-full bg-neutral-800/50 border border-neutral-700 p-5 rounded-xl text-left hover:border-neutral-500 hover:bg-neutral-800 transition-colors cursor-pointer"
-            >
-              <div className="font-medium text-lg">{route.label}</div>
-              <div className="text-neutral-400 text-sm">{route.description}</div>
-            </Link>
-          ))}
-        </div>
+  component: () => (
+    <div className="max-w-sm mx-auto pt-24">
+      <div className="mb-10 text-center">
+        <div className="text-3xl mb-3">⬡</div>
+        <h1 className="text-xl font-semibold tracking-tight">std-toolkit</h1>
+        <p className="text-neutral-600 text-xs mt-1">playground</p>
       </div>
-    );
-  },
+
+      <nav className="space-y-2">
+        {routes.map((route) => (
+          <Link
+            key={route.id}
+            to={`/${route.id}`}
+            className="group flex items-center gap-4 px-4 py-3 rounded-lg border border-transparent hover:border-neutral-800 hover:bg-neutral-900/50 transition-all"
+          >
+            <span className={`text-lg ${route.color} opacity-60 group-hover:opacity-100 transition-opacity`}>
+              {route.icon}
+            </span>
+            <div className="flex-1">
+              <div className="font-medium text-sm group-hover:text-white transition-colors">
+                {route.label}
+              </div>
+              <div className="text-neutral-600 text-xs">{route.description}</div>
+            </div>
+            <span className="text-neutral-700 group-hover:text-neutral-500 transition-colors">
+              →
+            </span>
+          </Link>
+        ))}
+      </nav>
+
+      <div className="mt-12 text-center">
+        <p className="text-neutral-700 text-xs">Effect + TanStack + Cloudflare</p>
+      </div>
+    </div>
+  ),
 });
 
-function RouteLayout({ children }: { children: React.ReactNode }) {
-  return (
+const layoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "layout",
+  component: () => (
     <div>
       <Link
         to="/"
-        className="mb-6 text-neutral-400 hover:text-white transition-colors cursor-pointer flex items-center gap-2"
+        className="inline-flex items-center gap-2 mb-8 text-neutral-600 hover:text-white text-xs transition-colors group"
       >
-        <span>&larr;</span>
-        <span>Back to routes</span>
+        <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
+        <span>Back</span>
       </Link>
-      {children}
+      <Outlet />
     </div>
-  );
-}
+  ),
+});
 
 const usersRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => layoutRoute,
   path: "/users",
-  component: function Users() {
-    return (
-      <RouteLayout>
-        <UsersRoute />
-      </RouteLayout>
-    );
-  },
+  component: UsersRoute,
 });
 
 const studioRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => layoutRoute,
   path: "/studio",
-  component: function Studio() {
-    return (
-      <RouteLayout>
-        <StudioRoute />
-      </RouteLayout>
-    );
-  },
+  component: StudioRoute,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, usersRoute, studioRoute]);
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  layoutRoute.addChildren([usersRoute, studioRoute]),
+]);
 
 export const router = createRouter({ routeTree });
 
