@@ -20,4 +20,6 @@ export const metaSchema = Schema.Struct({
 });
 
 export const id = (identifier: string) =>
-  Schema.String.annotations({ identifier });
+  Schema.String.annotations({
+    jsonSchema: { identifier },
+  });
