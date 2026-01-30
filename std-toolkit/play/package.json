@@ -36,6 +36,7 @@
     "@std-toolkit/sqlite": "workspace:*",
     "@std-toolkit/tanstack": "workspace:*",
     "@tanstack/react-db": "0.1.68",
+    "@tanstack/react-router": "1.157.16",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "ulid": "3.0.2",
