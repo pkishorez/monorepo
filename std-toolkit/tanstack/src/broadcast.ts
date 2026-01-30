@@ -3,7 +3,7 @@ import { AnyESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
 type AnyCollectionUtils = {
-  upsert: (item: EntityType<any>) => void;
+  upsert: (item: EntityType<any>, persist?: boolean) => void;
   schema: () => AnyESchema;
 };
 
@@ -30,7 +30,7 @@ export const broadcastCollections = () => {
         const target = collections.find(
           (c) => value.meta._e === c.utils.schema().name,
         );
-        target?.utils.upsert(value as EntityType<any>);
+        target?.utils.upsert(value as EntityType<any>, true);
       }
     },
   };

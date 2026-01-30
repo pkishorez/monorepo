@@ -8,6 +8,7 @@ export class AppRpcs extends RpcGroup.make(
 
   Rpc.make("subscribeUsers", {
     success: Schema.Array(Schema.Any),
+    payload: Schema.Struct({ uid: Schema.String.pipe(Schema.NullOr) }),
     error: UserError,
   }),
 ) {}
