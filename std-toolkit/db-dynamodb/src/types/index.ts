@@ -14,7 +14,9 @@ export type {
   Operator,
   KeyOp,
   SkParam,
+  StreamSkParam,
   SimpleQueryOptions,
+  QueryStreamOptions,
   SubscribeOptions,
 } from "./simplified.js";
 
