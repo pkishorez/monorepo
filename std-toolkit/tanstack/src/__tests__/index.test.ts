@@ -26,15 +26,22 @@ const createEntity = (
 });
 
 describe("stdCollectionOptions", () => {
-  const createConfig = () =>
+  const createSubscriptionConfig = () =>
     stdCollectionOptions({
       schema: TestSchema,
-      sync: () => ({ effect: () => Effect.void }),
+      sync: () => ({ mode: "subscription" as const, effect: () => Effect.void }),
       onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
     });
 
-  it("returns config with required properties", () => {
-    const config = createConfig();
+  const createQueryConfig = () =>
+    stdCollectionOptions({
+      schema: TestSchema,
+      sync: () => ({ mode: "query" as const, getMore: () => Effect.succeed([]) }),
+      onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
+    });
+
+  it("returns config with required properties for subscription mode", () => {
+    const config = createSubscriptionConfig();
 
     expect(config.schema).toBe(TestSchema);
     expect(typeof config.getKey).toBe("function");
@@ -48,8 +55,18 @@ describe("stdCollectionOptions", () => {
     expect(typeof config.onUpdate).toBe("function");
   });
 
+  it("returns config with sync utils for query mode", () => {
+    const config = createQueryConfig();
+
+    const utils = config.utils!;
+    expect(typeof utils.upsert).toBe("function");
+    expect(typeof utils.schema).toBe("function");
+    expect(typeof utils.syncLatest).toBe("function");
+    expect(typeof utils.loadOlder).toBe("function");
+  });
+
   it("utils.schema() returns the provided schema", () => {
-    const utils = createConfig().utils!;
+    const utils = createSubscriptionConfig().utils!;
     const schema = utils.schema();
 
     expect(schema).toBe(TestSchema);
@@ -58,14 +75,14 @@ describe("stdCollectionOptions", () => {
   });
 
   it("getKey extracts key from item using schema idField", () => {
-    const config = createConfig();
+    const config = createSubscriptionConfig();
     const item: TestItem = { id: ("test-123"), name: "Test", updatedAt: "2024-01-01" };
 
     expect(config.getKey(item)).toBe("test-123");
   });
 
   it("compare sorts by _uid timestamp ascending", () => {
-    const compare = createConfig().compare!;
+    const compare = createSubscriptionConfig().compare!;
 
     type ItemWithTimestamp = TestItem & { _uid: string };
     const older: ItemWithTimestamp = { id: ("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
@@ -76,7 +93,7 @@ describe("stdCollectionOptions", () => {
   });
 
   it("compare handles equal timestamps", () => {
-    const compare = createConfig().compare!;
+    const compare = createSubscriptionConfig().compare!;
 
     type ItemWithTimestamp = TestItem & { _uid: string };
     const a: ItemWithTimestamp = { id: ("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };

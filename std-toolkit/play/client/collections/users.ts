@@ -11,6 +11,7 @@ export const usersCollection = createCollection(
     cache: cache.schema(UserSchema),
 
     sync: ({ collection, onReady }) => ({
+      mode: "subscription" as const,
       effect: (latest) =>
         Effect.gen(function* () {
           const { api, collections } = yield* RealtimeClient;
