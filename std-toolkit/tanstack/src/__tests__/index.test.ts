@@ -29,7 +29,7 @@ describe("stdCollectionOptions", () => {
   const createConfig = () =>
     stdCollectionOptions({
       schema: TestSchema,
-      sync: () => ({ effect: Effect.succeed([]) }),
+      sync: () => ({ effect: () => Effect.void }),
       onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
     });
 

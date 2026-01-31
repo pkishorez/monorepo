@@ -37,7 +37,7 @@
     "ulid": "3.0.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260129.0",
+    "@cloudflare/workers-types": "4.20260131.0",
     "@effect/rpc": "0.73.0",
     "@effect/vitest": "0.27.0",
     "@tsconfig/node22": "22.0.5",
