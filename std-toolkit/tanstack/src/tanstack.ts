@@ -13,22 +13,32 @@ import {
   SyncStrategy,
   SyncMode,
   ExtractSyncMode,
+  FetchDirection,
   createSubscriptionSync,
   createQuerySync,
+  createCacheSync,
 } from "./strategies/index.js";
 
+type UpsertInput<TSchema extends AnyESchema> =
+  | EntityType<TSchema["Type"]>
+  | EntityType<TSchema["Type"]>[];
+
 type BaseCollectionUtils<TSchema extends AnyESchema> = {
-  upsert: (item: EntityType<TSchema["Type"]>, persist?: boolean) => void;
+  upsert: (item: UpsertInput<TSchema>, persist?: boolean) => void;
   schema: () => TSchema;
 };
 
 type QueryCollectionUtils<TSchema extends AnyESchema> =
   BaseCollectionUtils<TSchema> & {
-    syncLatest: () => Effect.Effect<EntityType<TSchema["Type"]> | null>;
-    loadOlder: () => Effect.Effect<EntityType<TSchema["Type"]>[]>;
+    fetch: (direction: "newer" | "older") => Effect.Effect<number>;
+    fetchAll: (direction: FetchDirection) => Effect.Effect<number>;
+    isSyncing: () => boolean;
   };
 
 type SubscriptionCollectionUtils<TSchema extends AnyESchema> =
+  BaseCollectionUtils<TSchema>;
+
+type CacheCollectionUtils<TSchema extends AnyESchema> =
   BaseCollectionUtils<TSchema>;
 
 export type CollectionUtils<
@@ -36,7 +46,9 @@ export type CollectionUtils<
   TMode extends SyncMode = SyncMode,
 > = TMode extends "query"
   ? QueryCollectionUtils<TSchema>
-  : SubscriptionCollectionUtils<TSchema>;
+  : TMode extends "subscription"
+    ? SubscriptionCollectionUtils<TSchema>
+    : CacheCollectionUtils<TSchema>;
 
 interface StdCollectionConfig<
   TItem extends object,
@@ -90,8 +102,10 @@ export const stdCollectionOptions = <
     schema,
   } = options;
 
-  let strategy: SyncStrategy<TItem> | null = null;
-  let applyToCollection: ((items: EntityType<TItem>[], persist?: boolean) => void) | null = null;
+  let strategy: SyncStrategy | null = null;
+  let applyToCollection:
+    | ((items: EntityType<TItem>[], persist?: boolean) => void)
+    | null = null;
 
   const createApplyToCollection = (
     params: Parameters<TanstackSyncConfig<TItem, string>["sync"]>[0],
@@ -122,6 +136,20 @@ export const stdCollectionOptions = <
     };
   };
 
+  const createStrategy = (
+    syncConfig: SyncConfig<TItem>,
+    context: Parameters<typeof createQuerySync<TItem>>[1],
+  ): SyncStrategy => {
+    switch (syncConfig.mode) {
+      case "subscription":
+        return createSubscriptionSync(syncConfig, context);
+      case "query":
+        return createQuerySync(syncConfig, context);
+      case "cache":
+        return createCacheSync(syncConfig, context);
+    }
+  };
+
   const tanstackSync: TanstackSyncConfig<TItem, string> = {
     sync: (params) => {
       const { collection, markReady } = params;
@@ -132,14 +160,11 @@ export const stdCollectionOptions = <
         onReady: markReady,
       });
 
-      strategy =
-        syncConfig.mode === "subscription"
-          ? createSubscriptionSync(syncConfig, {
-              cache,
-              applyToCollection,
-              markReady,
-            })
-          : createQuerySync(syncConfig, { cache, applyToCollection, markReady });
+      strategy = createStrategy(syncConfig, {
+        cache,
+        applyToCollection,
+        markReady,
+      });
 
       Effect.runPromise(strategy.initialize());
 
@@ -150,26 +175,35 @@ export const stdCollectionOptions = <
   type TMode = ExtractSyncMode<TConfig>;
   type Utils = CollectionUtils<TSchema, TMode>;
 
+  const upsert = (input: UpsertInput<TSchema>, persist?: boolean) => {
+    const items = Array.isArray(input) ? input : [input];
+    applyToCollection?.(items, persist);
+  };
+
   const baseUtils: BaseCollectionUtils<TSchema> = {
-    upsert: (item, persist) => {
-      applyToCollection?.([item], persist);
-    },
+    upsert,
     schema: () => schema,
   };
 
   const queryUtils: QueryCollectionUtils<TSchema> = {
     ...baseUtils,
-    syncLatest: () => {
+    fetch: (direction) => {
       if (!strategy) {
-        return Effect.succeed(null);
+        return Effect.succeed(0);
       }
-      return strategy.syncLatest().pipe(Effect.orDie);
+      return strategy.fetch(direction).pipe(Effect.orDie);
     },
-    loadOlder: () => {
+    fetchAll: (direction) => {
       if (!strategy) {
-        return Effect.succeed([]);
+        return Effect.succeed(0);
       }
-      return strategy.loadOlder().pipe(Effect.orDie);
+      return strategy.fetchAll(direction).pipe(Effect.orDie);
+    },
+    isSyncing: () => {
+      if (!strategy) {
+        return false;
+      }
+      return strategy.isSyncing();
     },
   };
 
@@ -188,7 +222,7 @@ export const stdCollectionOptions = <
     onInsert: async ({ transaction }) => {
       const { changes } = transaction.mutations[0]!;
       const result = await Effect.runPromise(onInsert(changes as TItem));
-      utils.upsert(result);
+      upsert(result);
     },
     onUpdate: async ({ transaction }) => {
       if (!onUpdate) return;
@@ -202,7 +236,7 @@ export const stdCollectionOptions = <
         updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
       };
       const result = await Effect.runPromise(onUpdate(payload));
-      utils.upsert(result);
+      upsert(result);
     },
   };
 };

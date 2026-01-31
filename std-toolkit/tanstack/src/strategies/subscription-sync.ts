@@ -1,10 +1,15 @@
 import { Effect, Option } from "effect";
-import { SyncStrategy, SyncContext, SubscriptionSyncConfig } from "./types.js";
+import {
+  SyncStrategy,
+  SyncContext,
+  SubscriptionSyncConfig,
+  FetchDirection,
+} from "./types.js";
 
 export const createSubscriptionSync = <TItem extends object>(
   config: SubscriptionSyncConfig<TItem>,
   context: SyncContext<TItem>,
-): SyncStrategy<TItem> => {
+): SyncStrategy => {
   const { cache, applyToCollection, markReady } = context;
 
   return {
@@ -21,12 +26,11 @@ export const createSubscriptionSync = <TItem extends object>(
         yield* config.effect(latest);
       }),
 
-    syncLatest: () =>
-      Effect.gen(function* () {
-        return Option.getOrNull(yield* cache.getLatest());
-      }),
+    fetch: () => Effect.succeed(0),
 
-    loadOlder: () => Effect.succeed([]),
+    fetchAll: (_direction: FetchDirection) => Effect.succeed(0),
+
+    isSyncing: () => false,
 
     cleanup: config.onCleanup,
   };
