@@ -1,13 +1,47 @@
-import { Collection, CollectionConfig, SyncConfig } from "@tanstack/react-db";
+import {
+  Collection,
+  CollectionConfig,
+  SyncConfig as TanstackSyncConfig,
+} from "@tanstack/react-db";
 import { Effect } from "effect";
 import { EntityType } from "@std-toolkit/core";
 import { CacheEntity } from "@std-toolkit/cache";
 import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
 import { AnyESchema, ESchemaIdField } from "@std-toolkit/eschema";
+import {
+  SyncConfig,
+  SyncStrategy,
+  SyncMode,
+  ExtractSyncMode,
+  createSubscriptionSync,
+  createQuerySync,
+} from "./strategies/index.js";
+
+type BaseCollectionUtils<TSchema extends AnyESchema> = {
+  upsert: (item: EntityType<TSchema["Type"]>, persist?: boolean) => void;
+  schema: () => TSchema;
+};
+
+type QueryCollectionUtils<TSchema extends AnyESchema> =
+  BaseCollectionUtils<TSchema> & {
+    syncLatest: () => Effect.Effect<EntityType<TSchema["Type"]> | null>;
+    loadOlder: () => Effect.Effect<EntityType<TSchema["Type"]>[]>;
+  };
+
+type SubscriptionCollectionUtils<TSchema extends AnyESchema> =
+  BaseCollectionUtils<TSchema>;
+
+export type CollectionUtils<
+  TSchema extends AnyESchema = AnyESchema,
+  TMode extends SyncMode = SyncMode,
+> = TMode extends "query"
+  ? QueryCollectionUtils<TSchema>
+  : SubscriptionCollectionUtils<TSchema>;
 
 interface StdCollectionConfig<
   TItem extends object,
   TSchema extends AnyESchema,
+  TConfig extends SyncConfig<TItem>,
 > {
   schema: TSchema;
   cache?: CacheEntity<TItem>;
@@ -15,15 +49,12 @@ interface StdCollectionConfig<
     collection: Collection<
       TItem,
       string,
-      CollectionUtils<TSchema>,
+      CollectionUtils<TSchema, ExtractSyncMode<TConfig>>,
       TSchema,
       object
     >;
     onReady: () => void;
-  }) => {
-    effect: (latest: EntityType<TItem> | null) => Effect.Effect<void>;
-    onCleanup?: () => void;
-  };
+  }) => TConfig;
   onInsert: (
     item: Omit<TItem, ESchemaIdField<TSchema>>,
   ) => Effect.Effect<EntityType<TItem>>;
@@ -36,21 +67,21 @@ interface StdCollectionConfig<
   ) => Effect.Effect<EntityType<TItem>>;
 }
 
-export type CollectionUtils<TSchema extends AnyESchema = AnyESchema> = {
-  upsert: (item: EntityType<TSchema["Type"]>, persist?: boolean) => void;
-  schema: () => TSchema;
-};
-export const stdCollectionOptions = <TSchema extends AnyESchema>(
-  options: StdCollectionConfig<TSchema["Type"], TSchema>,
+export const stdCollectionOptions = <
+  TSchema extends AnyESchema,
+  TConfig extends SyncConfig<TSchema["Type"]>,
+>(
+  options: StdCollectionConfig<TSchema["Type"], TSchema, TConfig>,
 ): CollectionConfig<
   TSchema["Type"],
   string,
   TSchema,
-  CollectionUtils<TSchema>
+  CollectionUtils<TSchema, ExtractSyncMode<TConfig>>
 > & {
   schema: TSchema;
 } => {
   type TItem = TSchema["Type"];
+
   const {
     onInsert,
     cache = new MemoryCacheEntity(options.schema),
@@ -58,79 +89,95 @@ export const stdCollectionOptions = <TSchema extends AnyESchema>(
     sync,
     schema,
   } = options;
-  const getKey = (item: TItem): string =>
-    item[schema.idField as keyof TItem] as string;
 
-  type SyncParams = Parameters<SyncConfig<TItem, string>["sync"]>[0];
-  const syncParamsRef: { current: SyncParams | null } = { current: null };
+  let strategy: SyncStrategy<TItem> | null = null;
+  let applyToCollection: ((items: EntityType<TItem>[], persist?: boolean) => void) | null = null;
 
-  const applyLocalChanges = (
-    values: readonly EntityType<TItem>[],
-    persist = false,
+  const createApplyToCollection = (
+    params: Parameters<TanstackSyncConfig<TItem, string>["sync"]>[0],
   ) => {
-    if (!syncParamsRef.current) return;
+    const { begin, collection, commit, write } = params;
 
-    const { begin, collection, commit, write } = syncParamsRef.current;
-    begin();
-    for (const value of values) {
-      const key = collection.getKeyFromItem(value.value as TItem);
-      const itemValue = { ...value.value, _uid: value.meta._uid } as TItem;
-      if (persist) {
-        Effect.runPromise(cache.put(value));
-      }
-      if (collection.has(key)) {
-        if (value.meta._d) {
-          write({ type: "delete", key });
-        } else {
-          write({ type: "update", value: itemValue });
+    return (items: EntityType<TItem>[], persist = false) => {
+      begin();
+      for (const item of items) {
+        const key = collection.getKeyFromItem(item.value as TItem);
+        const itemValue = { ...item.value, _uid: item.meta._uid } as TItem;
+
+        if (persist) {
+          Effect.runPromise(cache.put(item));
         }
-        continue;
-      }
 
-      if (!value.meta._d) {
-        write({ type: "insert", value: itemValue });
+        if (collection.has(key)) {
+          if (item.meta._d) {
+            write({ type: "delete", key });
+          } else {
+            write({ type: "update", value: itemValue });
+          }
+        } else if (!item.meta._d) {
+          write({ type: "insert", value: itemValue });
+        }
       }
-    }
-    commit();
+      commit();
+    };
   };
 
-  const tanstackSync: SyncConfig<TItem, string> = {
+  const tanstackSync: TanstackSyncConfig<TItem, string> = {
     sync: (params) => {
-      syncParamsRef.current = params;
       const { collection, markReady } = params;
-      const { effect, onCleanup } = sync({
+      applyToCollection = createApplyToCollection(params);
+
+      const syncConfig = sync({
         collection,
-        onReady: () => {
-          params.markReady();
-        },
+        onReady: markReady,
       });
-      Effect.runPromise(
-        Effect.gen(function* () {
-          const allItems = (yield* cache.getAll()).sort((a, z) =>
-            a.meta._uid.localeCompare(z.meta._uid),
-          );
-          const latest = allItems.at(-1);
 
-          applyLocalChanges(allItems);
-          if (allItems.length > 0) {
-            markReady();
-          }
-          yield* effect(latest ? latest : null);
-        }),
-      );
+      strategy =
+        syncConfig.mode === "subscription"
+          ? createSubscriptionSync(syncConfig, {
+              cache,
+              applyToCollection,
+              markReady,
+            })
+          : createQuerySync(syncConfig, { cache, applyToCollection, markReady });
 
-      return onCleanup;
+      Effect.runPromise(strategy.initialize());
+
+      return strategy.cleanup;
     },
   };
 
-  const utils: CollectionUtils<TSchema> = {
-    upsert: (item, persist) => applyLocalChanges([item], persist),
-    schema: () => options.schema,
+  type TMode = ExtractSyncMode<TConfig>;
+  type Utils = CollectionUtils<TSchema, TMode>;
+
+  const baseUtils: BaseCollectionUtils<TSchema> = {
+    upsert: (item, persist) => {
+      applyToCollection?.([item], persist);
+    },
+    schema: () => schema,
   };
+
+  const queryUtils: QueryCollectionUtils<TSchema> = {
+    ...baseUtils,
+    syncLatest: () => {
+      if (!strategy) {
+        return Effect.succeed(null);
+      }
+      return strategy.syncLatest().pipe(Effect.orDie);
+    },
+    loadOlder: () => {
+      if (!strategy) {
+        return Effect.succeed([]);
+      }
+      return strategy.loadOlder().pipe(Effect.orDie);
+    },
+  };
+
+  const utils = queryUtils as Utils;
 
   return {
     schema,
-    getKey,
+    getKey: (item: TItem) => item[schema.idField as keyof TItem] as string,
     sync: tanstackSync,
     utils,
     compare: (x, y) =>
@@ -141,7 +188,7 @@ export const stdCollectionOptions = <TSchema extends AnyESchema>(
     onInsert: async ({ transaction }) => {
       const { changes } = transaction.mutations[0]!;
       const result = await Effect.runPromise(onInsert(changes as TItem));
-      applyLocalChanges([result]);
+      utils.upsert(result);
     },
     onUpdate: async ({ transaction }) => {
       if (!onUpdate) return;
@@ -155,7 +202,7 @@ export const stdCollectionOptions = <TSchema extends AnyESchema>(
         updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
       };
       const result = await Effect.runPromise(onUpdate(payload));
-      applyLocalChanges([result]);
+      utils.upsert(result);
     },
   };
 };
