@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
-import { Effect, Schema } from "effect";
+import { Chunk, Effect, Schema, Stream } from "effect";
 import { ESchema } from "@std-toolkit/eschema";
 import { DynamoTable, DynamoEntity } from "../index.js";
 import { createDynamoDB } from "../services/dynamo-client.js";
@@ -275,6 +275,146 @@ describe("Simplified API Tests", () => {
         });
 
         expect(result.success).toBe(true);
+      }),
+    );
+  });
+
+  describe("queryStream(key, params, options) - Stream Query", () => {
+    it.effect("streams all items ascending with > null", () =>
+      Effect.gen(function* () {
+        const stream = OrderEntity.queryStream("primary", {
+          pk: { userId: "user-001" },
+          sk: { ">": null },
+        });
+
+        const batchesChunk = yield* Stream.runCollect(stream);
+        const batches = Chunk.toArray(batchesChunk);
+        const allItems = batches.flatMap((batch) => batch);
+
+        expect(allItems.length).toBe(3);
+        expect(allItems[0]?.value.orderId).toBe("order-001");
+        expect(allItems[2]?.value.orderId).toBe("order-003");
+      }),
+    );
+
+    it.effect("streams all items descending with < null", () =>
+      Effect.gen(function* () {
+        const stream = OrderEntity.queryStream("primary", {
+          pk: { userId: "user-001" },
+          sk: { "<": null },
+        });
+
+        const batchesChunk = yield* Stream.runCollect(stream);
+        const batches = Chunk.toArray(batchesChunk);
+        const allItems = batches.flatMap((batch) => batch);
+
+        expect(allItems.length).toBe(3);
+        expect(allItems[0]?.value.orderId).toBe("order-003");
+        expect(allItems[2]?.value.orderId).toBe("order-001");
+      }),
+    );
+
+    it.effect("respects batchSize option", () =>
+      Effect.gen(function* () {
+        const stream = OrderEntity.queryStream(
+          "primary",
+          {
+            pk: { userId: "user-001" },
+            sk: { ">": null },
+          },
+          { batchSize: 2 },
+        );
+
+        const batchesChunk = yield* Stream.runCollect(stream);
+        const batches = Chunk.toArray(batchesChunk);
+
+        expect(batches.length).toBe(2);
+        expect(batches[0]?.length).toBe(2);
+        expect(batches[1]?.length).toBe(1);
+      }),
+    );
+
+    it.effect("returns empty stream for empty partition", () =>
+      Effect.gen(function* () {
+        const stream = OrderEntity.queryStream("primary", {
+          pk: { userId: "non-existent-user" },
+          sk: { ">": null },
+        });
+
+        const batchesChunk = yield* Stream.runCollect(stream);
+        const batches = Chunk.toArray(batchesChunk);
+        const allItems = batches.flatMap((batch) => batch);
+
+        expect(allItems.length).toBe(0);
+      }),
+    );
+
+    it.effect("continues from cursor correctly (primary index)", () =>
+      Effect.gen(function* () {
+        const firstResult = yield* OrderEntity.query(
+          "primary",
+          {
+            pk: { userId: "user-001" },
+            sk: { ">": null },
+          },
+          { limit: 1 },
+        );
+
+        const cursor = firstResult.items[0]!.value.orderId;
+
+        const stream = OrderEntity.queryStream("primary", {
+          pk: { userId: "user-001" },
+          sk: { ">": cursor },
+        });
+
+        const batchesChunk = yield* Stream.runCollect(stream);
+        const batches = Chunk.toArray(batchesChunk);
+        const allItems = batches.flatMap((batch) => batch);
+
+        expect(allItems.length).toBe(2);
+        expect(allItems[0]?.value.orderId).toBe("order-002");
+        expect(allItems[1]?.value.orderId).toBe("order-003");
+      }),
+    );
+
+    it.effect("continues from cursor correctly (secondary index)", () =>
+      Effect.gen(function* () {
+        const firstResult = yield* OrderEntity.query(
+          "byStatus",
+          {
+            pk: { status: "pending" },
+            sk: { ">": null },
+          },
+          { limit: 1 },
+        );
+
+        const cursor = firstResult.items[0]!.meta._uid;
+
+        const stream = OrderEntity.queryStream("byStatus", {
+          pk: { status: "pending" },
+          sk: { ">": cursor },
+        });
+
+        const batchesChunk = yield* Stream.runCollect(stream);
+        const batches = Chunk.toArray(batchesChunk);
+        const allItems = batches.flatMap((batch) => batch);
+
+        expect(allItems.length).toBe(2);
+      }),
+    );
+
+    it.effect("works with secondary index", () =>
+      Effect.gen(function* () {
+        const stream = OrderEntity.queryStream("byStatus", {
+          pk: { status: "pending" },
+          sk: { ">": null },
+        });
+
+        const batchesChunk = yield* Stream.runCollect(stream);
+        const batches = Chunk.toArray(batchesChunk);
+        const allItems = batches.flatMap((batch) => batch);
+
+        expect(allItems.length).toBe(3);
       }),
     );
   });

@@ -49,11 +49,27 @@ export type SkParam =
   | { ">=": string | null };
 
 /**
+ * Sort key parameter for streaming queries.
+ * Only supports exclusive operators (> and <) for cursor-based pagination.
+ * - `>`: Ascending order (oldest to newest)
+ * - `<`: Descending order (newest to oldest)
+ */
+export type StreamSkParam = { ">": string | null } | { "<": string | null };
+
+/**
  * Options for simple query operations.
  */
 export interface SimpleQueryOptions {
   /** Maximum number of items to return */
   limit?: number;
+}
+
+/**
+ * Options for query stream operations.
+ */
+export interface QueryStreamOptions {
+  /** Number of items to fetch per batch (default: 100) */
+  batchSize?: number;
 }
 
 /**

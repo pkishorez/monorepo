@@ -1,5 +1,5 @@
 import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect, Option, Schema } from "effect";
+import { Chunk, Effect, Option, Schema, Stream } from "effect";
 import type { DynamoTableInstance } from "./dynamo-table.js";
 import { ConnectionService } from "@std-toolkit/core/server";
 import { DynamodbError } from "../errors.js";
@@ -8,7 +8,9 @@ import type {
   IndexPkValue,
   TransactItem,
   SkParam,
+  StreamSkParam,
   SimpleQueryOptions,
+  QueryStreamOptions,
   SubscribeOptions,
 } from "../types/index.js";
 import { extractKeyOp, getKeyOpScanDirection } from "../types/index.js";
@@ -692,6 +694,80 @@ export class DynamoEntity<
         return { items };
       }
     });
+  }
+
+  /**
+   * Streams all entities from an index until exhaustion.
+   * Uses cursor-based pagination to iterate through all items.
+   *
+   * @param key - "primary" for primary index, "timeline" for timeline index, or the secondary index name
+   * @param params - Query parameters with pk and sk (only > and < operators supported)
+   * @param options - Stream options including batchSize
+   * @returns A Stream that yields batches of entities
+   */
+  queryStream<
+    K extends
+      | "primary"
+      | (TTimelineDerivation extends StoredTimelineDerivation
+          ? "timeline"
+          : never)
+      | (keyof TSecondaryDerivationMap & string),
+  >(
+    key: K,
+    params: K extends "primary"
+      ? [TPrimaryPkKeys] extends [never]
+        ? { pk?: {}; sk: StreamSkParam }
+        : {
+            pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
+            sk: StreamSkParam;
+          }
+      : K extends "timeline"
+        ? [TPrimaryPkKeys] extends [never]
+          ? { pk?: {}; sk: StreamSkParam }
+          : {
+              pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
+              sk: StreamSkParam;
+            }
+        : K extends keyof TSecondaryDerivationMap
+          ? {
+              pk: Pick<
+                ESchemaType<TSchema>,
+                TSecondaryDerivationMap[K]["pkDeps"][number] &
+                  keyof ESchemaType<TSchema>
+              >;
+              sk: StreamSkParam;
+            }
+          : never,
+    options?: QueryStreamOptions,
+  ): Stream.Stream<EntityType<ESchemaType<TSchema>>[], DynamodbError> {
+    const batchSize = options?.batchSize ?? 100;
+    const operator = ">" in params.sk ? ">" : "<";
+    const initialCursor = ">" in params.sk ? params.sk[">"] : params.sk["<"];
+
+    return Stream.paginateChunkEffect(initialCursor, (cursor) =>
+      Effect.gen(this, function* () {
+        const result = yield* this.query(
+          key,
+          { pk: params.pk, sk: { [operator]: cursor } as SkParam } as any,
+          { limit: batchSize },
+        );
+        const items = result.items;
+        const chunk = Chunk.of(items);
+
+        if (items.length === 0 || items.length < batchSize) {
+          return [chunk, Option.none()];
+        }
+
+        const lastItem = items[items.length - 1]!;
+        const nextCursor =
+          key === "primary"
+            ? (lastItem.value as Record<string, unknown>)[
+                this.#eschema.idField
+              ] as string
+            : lastItem.meta._uid;
+        return [chunk, Option.some(nextCursor)];
+      }),
+    );
   }
 
   /**

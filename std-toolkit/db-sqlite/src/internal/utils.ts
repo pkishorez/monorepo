@@ -30,8 +30,14 @@ export type SkParam =
   | { ">": string | null }
   | { ">=": string | null };
 
+export type StreamSkParam = { ">": string | null } | { "<": string | null };
+
 export interface SimpleQueryOptions {
   limit?: number;
+}
+
+export interface QueryStreamOptions {
+  batchSize?: number;
 }
 
 export interface SubscribeOptions<K, PK> {
