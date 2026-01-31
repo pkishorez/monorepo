@@ -28,7 +28,7 @@
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "aws4fetch": "1.0.20",
-    "type-fest": "5.4.2",
+    "type-fest": "5.4.3",
     "ulid": "3.0.2"
   },
   "devDependencies": {

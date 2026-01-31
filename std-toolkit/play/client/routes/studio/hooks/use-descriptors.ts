@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Effect } from "effect";
 import { useComponentLifecycle } from "use-effect-ts";
 import { RealtimeClient, runtime } from "../../../services";
