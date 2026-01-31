@@ -6,6 +6,8 @@ import { CacheError } from "../error.js";
 import { IDBCacheEntity } from "./idb-cache-entity.js";
 
 const STORE_NAME = "items";
+const UID_INDEX = "by-uid";
+const DB_VERSION = 2;
 
 const connectionCache = new Map<string, IDBPDatabase>();
 const openedDatabases = new Set<string>();
@@ -14,11 +16,17 @@ async function getConnection(database: string): Promise<IDBPDatabase> {
   const cached = connectionCache.get(database);
   if (cached) return cached;
 
-  const db = await openDB(database, 1, {
-    upgrade(database) {
-      database.createObjectStore(STORE_NAME, {
-        keyPath: ["entity", "id"],
-      });
+  const db = await openDB(database, DB_VERSION, {
+    upgrade(database, oldVersion, _newVersion, transaction) {
+      if (oldVersion < 1) {
+        const store = database.createObjectStore(STORE_NAME, {
+          keyPath: ["entity", "id"],
+        });
+        store.createIndex(UID_INDEX, ["entity", "meta._uid"]);
+      } else if (oldVersion < 2) {
+        const store = transaction.objectStore(STORE_NAME);
+        store.createIndex(UID_INDEX, ["entity", "meta._uid"]);
+      }
     },
   });
 

@@ -1,6 +1,6 @@
 import type { AnyESchema } from "@std-toolkit/eschema";
 import type { EntityType } from "@std-toolkit/core";
-import { Effect, Option } from "effect";
+import { Effect, Option, Order, SortedMap } from "effect";
 import type { CacheEntity } from "../cache-entity.js";
 import { CacheError } from "../error.js";
 
@@ -11,15 +11,19 @@ type StoredItem = {
   meta: EntityType<unknown>["meta"];
 };
 
+const uidOrder = Order.string;
+
 export class MemoryCacheEntity<TSchema extends AnyESchema>
   implements CacheEntity<TSchema["Type"]>
 {
   #store: Map<string, StoredItem>;
   #eschema: TSchema;
+  #uidIndex: SortedMap.SortedMap<string, string>;
 
   constructor(eschema: TSchema, store?: Map<string, StoredItem>) {
     this.#eschema = eschema;
     this.#store = store ?? new Map();
+    this.#uidIndex = SortedMap.empty<string, string>(uidOrder);
   }
 
   #makeKey(id: string): string {
@@ -30,13 +34,21 @@ export class MemoryCacheEntity<TSchema extends AnyESchema>
     return Effect.try({
       try: () => {
         const id = String(item.value[this.#eschema.idField]);
+        const key = this.#makeKey(id);
         const stored: StoredItem = {
           entity: this.#eschema.name,
           id,
           value: item.value,
           meta: item.meta,
         };
-        this.#store.set(this.#makeKey(id), stored);
+
+        const existingItem = this.#store.get(key);
+        if (existingItem) {
+          this.#uidIndex = SortedMap.remove(this.#uidIndex, existingItem.meta._uid);
+        }
+
+        this.#store.set(key, stored);
+        this.#uidIndex = SortedMap.set(this.#uidIndex, item.meta._uid, key);
       },
       catch: (cause) => CacheError.putFailed("Failed to put item", cause),
     });
@@ -80,10 +92,62 @@ export class MemoryCacheEntity<TSchema extends AnyESchema>
     });
   }
 
+  getLatest(): Effect.Effect<
+    Option.Option<EntityType<TSchema["Type"]>>,
+    CacheError
+  > {
+    return Effect.try({
+      try: () => {
+        const last = SortedMap.lastOption(this.#uidIndex);
+        if (Option.isNone(last)) return Option.none();
+
+        const [, key] = last.value;
+        const item = this.#store.get(key);
+        if (!item) return Option.none();
+
+        return Option.some({
+          value: item.value as TSchema["Type"],
+          meta: item.meta,
+        });
+      },
+      catch: (cause) =>
+        CacheError.getFailed("Failed to get latest item", cause),
+    });
+  }
+
+  getOldest(): Effect.Effect<
+    Option.Option<EntityType<TSchema["Type"]>>,
+    CacheError
+  > {
+    return Effect.try({
+      try: () => {
+        const first = SortedMap.headOption(this.#uidIndex);
+        if (Option.isNone(first)) return Option.none();
+
+        const [, key] = first.value;
+        const item = this.#store.get(key);
+        if (!item) return Option.none();
+
+        return Option.some({
+          value: item.value as TSchema["Type"],
+          meta: item.meta,
+        });
+      },
+      catch: (cause) =>
+        CacheError.getFailed("Failed to get oldest item", cause),
+    });
+  }
+
   delete(id: string): Effect.Effect<void, CacheError> {
     return Effect.try({
       try: () => {
-        this.#store.delete(this.#makeKey(id));
+        const key = this.#makeKey(id);
+        const item = this.#store.get(key);
+
+        if (item) {
+          this.#uidIndex = SortedMap.remove(this.#uidIndex, item.meta._uid);
+        }
+        this.#store.delete(key);
       },
       catch: (cause) => CacheError.deleteFailed("Failed to delete item", cause),
     });
@@ -94,6 +158,7 @@ export class MemoryCacheEntity<TSchema extends AnyESchema>
       try: () => {
         for (const [key, item] of this.#store.entries()) {
           if (item.entity === this.#eschema.name) {
+            this.#uidIndex = SortedMap.remove(this.#uidIndex, item.meta._uid);
             this.#store.delete(key);
           }
         }
