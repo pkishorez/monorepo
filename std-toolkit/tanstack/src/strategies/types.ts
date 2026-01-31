@@ -14,23 +14,30 @@ export type QuerySyncConfig<TItem extends object> = {
     operator: "<" | ">",
     cursor: EntityType<TItem> | null,
   ) => Effect.Effect<EntityType<TItem>[]>;
-  onCleanup?: () => void;
+};
+
+export type CacheConfig = {
+  mode: "cache";
 };
 
 export type SyncConfig<TItem extends object> =
   | SubscriptionSyncConfig<TItem>
-  | QuerySyncConfig<TItem>;
+  | QuerySyncConfig<TItem>
+  | CacheConfig;
 
-export type SyncMode = "query" | "subscription";
+export type SyncMode = "query" | "subscription" | "cache";
 
 export type ExtractSyncMode<T> = T extends { mode: infer M extends SyncMode }
   ? M
   : never;
 
-export interface SyncStrategy<TItem extends object> {
+export type FetchDirection = "newer" | "older" | "both";
+
+export interface SyncStrategy {
   initialize(): Effect.Effect<void, CacheError>;
-  syncLatest(): Effect.Effect<EntityType<TItem> | null, CacheError>;
-  loadOlder(): Effect.Effect<EntityType<TItem>[], CacheError>;
+  fetch(direction: "newer" | "older"): Effect.Effect<number, CacheError>;
+  fetchAll(direction: FetchDirection): Effect.Effect<number, CacheError>;
+  isSyncing(): boolean;
   cleanup?: (() => void) | undefined;
 }
 

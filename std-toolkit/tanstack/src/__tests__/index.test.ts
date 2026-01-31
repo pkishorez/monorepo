@@ -40,6 +40,13 @@ describe("stdCollectionOptions", () => {
       onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
     });
 
+  const createCacheConfig = () =>
+    stdCollectionOptions({
+      schema: TestSchema,
+      sync: () => ({ mode: "cache" as const }),
+      onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
+    });
+
   it("returns config with required properties for subscription mode", () => {
     const config = createSubscriptionConfig();
 
@@ -61,8 +68,17 @@ describe("stdCollectionOptions", () => {
     const utils = config.utils!;
     expect(typeof utils.upsert).toBe("function");
     expect(typeof utils.schema).toBe("function");
-    expect(typeof utils.syncLatest).toBe("function");
-    expect(typeof utils.loadOlder).toBe("function");
+    expect(typeof utils.fetch).toBe("function");
+    expect(typeof utils.fetchAll).toBe("function");
+    expect(typeof utils.isSyncing).toBe("function");
+  });
+
+  it("returns config with base utils for cache mode", () => {
+    const config = createCacheConfig();
+
+    const utils = config.utils!;
+    expect(typeof utils.upsert).toBe("function");
+    expect(typeof utils.schema).toBe("function");
   });
 
   it("utils.schema() returns the provided schema", () => {
