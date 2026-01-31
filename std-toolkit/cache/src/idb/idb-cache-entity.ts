@@ -6,6 +6,7 @@ import type { CacheEntity } from "../cache-entity.js";
 import { CacheError } from "../error.js";
 
 const STORE_NAME = "items";
+const UID_INDEX = "by-uid";
 
 type StoredItem = {
   entity: string;
@@ -79,6 +80,60 @@ export class IDBCacheEntity<TSchema extends AnyESchema>
         }));
       },
       catch: (cause) => CacheError.getFailed("Failed to get all items", cause),
+    });
+  }
+
+  getLatest(): Effect.Effect<
+    Option.Option<EntityType<TSchema["Type"]>>,
+    CacheError
+  > {
+    return Effect.tryPromise({
+      try: async () => {
+        const tx = this.#db.transaction(STORE_NAME, "readonly");
+        const index = tx.store.index(UID_INDEX);
+        const range = IDBKeyRange.bound(
+          [this.#eschema.name],
+          [this.#eschema.name, "\uffffff"],
+        );
+        const cursor = await index.openCursor(range, "prev");
+
+        if (!cursor) return Option.none();
+
+        const item = cursor.value as StoredItem;
+        return Option.some({
+          value: item.value as TSchema["Type"],
+          meta: item.meta,
+        });
+      },
+      catch: (cause) =>
+        CacheError.getFailed("Failed to get latest item", cause),
+    });
+  }
+
+  getOldest(): Effect.Effect<
+    Option.Option<EntityType<TSchema["Type"]>>,
+    CacheError
+  > {
+    return Effect.tryPromise({
+      try: async () => {
+        const tx = this.#db.transaction(STORE_NAME, "readonly");
+        const index = tx.store.index(UID_INDEX);
+        const range = IDBKeyRange.bound(
+          [this.#eschema.name],
+          [this.#eschema.name, "\uffffff"],
+        );
+        const cursor = await index.openCursor(range, "next");
+
+        if (!cursor) return Option.none();
+
+        const item = cursor.value as StoredItem;
+        return Option.some({
+          value: item.value as TSchema["Type"],
+          meta: item.meta,
+        });
+      },
+      catch: (cause) =>
+        CacheError.getFailed("Failed to get oldest item", cause),
     });
   }
 

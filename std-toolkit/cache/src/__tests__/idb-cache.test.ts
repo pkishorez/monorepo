@@ -245,4 +245,108 @@ describe("IDBCache", () => {
         expect(allPosts).toHaveLength(1);
       }),
   );
+
+  it.effect("should get latest entity by _uid", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      yield* users.put({
+        value: { id: "user-1", name: "Alice", email: "alice@example.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+      });
+      yield* users.put({
+        value: { id: "user-2", name: "Bob", email: "bob@example.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+      });
+      yield* users.put({
+        value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+      });
+
+      const latest = yield* users.getLatest();
+      expect(Option.isSome(latest)).toBe(true);
+      if (Option.isSome(latest)) {
+        expect(latest.value.value.id).toBe("user-2");
+        expect(latest.value.meta._uid).toBe("uid-003");
+      }
+    }),
+  );
+
+  it.effect("should get oldest entity by _uid", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      yield* users.put({
+        value: { id: "user-1", name: "Alice", email: "alice@example.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+      });
+      yield* users.put({
+        value: { id: "user-2", name: "Bob", email: "bob@example.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+      });
+      yield* users.put({
+        value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+      });
+
+      const oldest = yield* users.getOldest();
+      expect(Option.isSome(oldest)).toBe(true);
+      if (Option.isSome(oldest)) {
+        expect(oldest.value.value.id).toBe("user-2");
+        expect(oldest.value.meta._uid).toBe("uid-001");
+      }
+    }),
+  );
+
+  it.effect("should return none for getLatest on empty store", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      const latest = yield* users.getLatest();
+      expect(Option.isNone(latest)).toBe(true);
+    }),
+  );
+
+  it.effect("should return none for getOldest on empty store", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+
+      const oldest = yield* users.getOldest();
+      expect(Option.isNone(oldest)).toBe(true);
+    }),
+  );
+
+  it.effect("should isolate getLatest/getOldest by schema type", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const users = cache.schema(UserSchema);
+      const posts = cache.schema(PostSchema);
+
+      yield* users.put({
+        value: { id: "user-1", name: "Alice", email: "alice@example.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-100", _d: false },
+      });
+      yield* posts.put({
+        value: { id: "post-1", title: "Hello", content: "World" },
+        meta: { _e: "Post", _v: "v1", _uid: "uid-200", _d: false },
+      });
+
+      const latestUser = yield* users.getLatest();
+      const latestPost = yield* posts.getLatest();
+
+      expect(Option.isSome(latestUser)).toBe(true);
+      expect(Option.isSome(latestPost)).toBe(true);
+
+      if (Option.isSome(latestUser)) {
+        expect(latestUser.value.value.id).toBe("user-1");
+      }
+      if (Option.isSome(latestPost)) {
+        expect(latestPost.value.value.id).toBe("post-1");
+      }
+    }),
+  );
 });
