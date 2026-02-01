@@ -223,7 +223,11 @@ export const stdCollectionOptions = <
       item[schema.idField as keyof TCollectionItem] as string,
     sync: tanstackSync,
     utils,
-    compare: (x, y) => (x._meta!._uid < y._meta!._uid ? -1 : 1),
+    compare: (x, y) => {
+      const xUid = x?._meta?._uid ?? "";
+      const yUid = y?._meta?._uid ?? "";
+      return xUid < yUid ? -1 : 1;
+    },
     onInsert: async ({ transaction }) => {
       const { changes } = transaction.mutations[0]!;
       const result = await Effect.runPromise(onInsert(changes as TItem));
