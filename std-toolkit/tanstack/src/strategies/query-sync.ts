@@ -27,6 +27,7 @@ export const createQuerySync = <TItem extends object>(
 
       const operator = direction === "newer" ? ">" : "<";
       const items = yield* config.getMore(operator, Option.getOrNull(cursor));
+      console.log("ITEMS FETCHED:", { items, len: items.length });
 
       if (items.length === 0) {
         return 0;

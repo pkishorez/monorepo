@@ -163,6 +163,7 @@ export class SQLiteEntity<
     const entityName = this.#eschema.name;
     return {
       name: entityName,
+      idField: this.#eschema.idField,
       version: this.#eschema.latestVersion,
       primaryIndex: {
         name: "primary",
@@ -602,7 +603,11 @@ export class SQLiteEntity<
             }
           : never,
     options?: QueryStreamOptions,
-  ): Stream.Stream<EntityType<ESchemaType<TSchema>>[], SqliteDBError, SqliteDB> {
+  ): Stream.Stream<
+    EntityType<ESchemaType<TSchema>>[],
+    SqliteDBError,
+    SqliteDB
+  > {
     const batchSize = options?.batchSize ?? 100;
     const operator = ">" in params.sk ? ">" : "<";
     const initialCursor = ">" in params.sk ? params.sk[">"] : params.sk["<"];
@@ -618,15 +623,15 @@ export class SQLiteEntity<
         const chunk = Chunk.of(items);
 
         if (items.length === 0 || items.length < batchSize) {
-          return [chunk, Option.none()];
+          return [chunk, Option.none<string | null>()];
         }
 
         const lastItem = items[items.length - 1]!;
         const nextCursor =
           key === "primary"
-            ? (lastItem.value as Record<string, unknown>)[
+            ? ((lastItem.value as Record<string, unknown>)[
                 this.#eschema.idField
-              ] as string
+              ] as string)
             : lastItem.meta._uid;
         return [chunk, Option.some(nextCursor)];
       }),

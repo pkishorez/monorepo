@@ -4,7 +4,7 @@ import {
   SyncConfig as TanstackSyncConfig,
 } from "@tanstack/react-db";
 import { Effect } from "effect";
-import { EntityType } from "@std-toolkit/core";
+import { EntityType, MetaSchema } from "@std-toolkit/core";
 import { CacheEntity } from "@std-toolkit/cache";
 import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
 import { AnyESchema, ESchemaIdField } from "@std-toolkit/eschema";
@@ -18,6 +18,10 @@ import {
   createQuerySync,
   createCacheSync,
 } from "./strategies/index.js";
+
+export type CollectionItem<T> = T & {
+  _meta?: typeof MetaSchema.Type;
+};
 
 type UpsertInput<TSchema extends AnyESchema> =
   | EntityType<TSchema["Type"]>
@@ -59,7 +63,7 @@ interface StdCollectionConfig<
   cache?: CacheEntity<TItem>;
   sync: (value: {
     collection: Collection<
-      TItem,
+      CollectionItem<TItem>,
       string,
       CollectionUtils<TSchema, ExtractSyncMode<TConfig>>,
       TSchema,
@@ -85,7 +89,7 @@ export const stdCollectionOptions = <
 >(
   options: StdCollectionConfig<TSchema["Type"], TSchema, TConfig>,
 ): CollectionConfig<
-  TSchema["Type"],
+  CollectionItem<TSchema["Type"]>,
   string,
   TSchema,
   CollectionUtils<TSchema, ExtractSyncMode<TConfig>>
@@ -93,6 +97,7 @@ export const stdCollectionOptions = <
   schema: TSchema;
 } => {
   type TItem = TSchema["Type"];
+  type TCollectionItem = CollectionItem<TItem>;
 
   const {
     onInsert,
@@ -108,15 +113,18 @@ export const stdCollectionOptions = <
     | null = null;
 
   const createApplyToCollection = (
-    params: Parameters<TanstackSyncConfig<TItem, string>["sync"]>[0],
+    params: Parameters<TanstackSyncConfig<TCollectionItem, string>["sync"]>[0],
   ) => {
     const { begin, collection, commit, write } = params;
 
     return (items: EntityType<TItem>[], persist = false) => {
       begin();
       for (const item of items) {
-        const key = collection.getKeyFromItem(item.value as TItem);
-        const itemValue = { ...item.value, _uid: item.meta._uid } as TItem;
+        const key = collection.getKeyFromItem(item.value as TCollectionItem);
+        const itemValue = {
+          ...item.value,
+          _meta: item.meta,
+        } as TCollectionItem;
 
         if (persist) {
           Effect.runPromise(cache.put(item));
@@ -150,7 +158,7 @@ export const stdCollectionOptions = <
     }
   };
 
-  const tanstackSync: TanstackSyncConfig<TItem, string> = {
+  const tanstackSync: TanstackSyncConfig<TCollectionItem, string> = {
     sync: (params) => {
       const { collection, markReady } = params;
       applyToCollection = createApplyToCollection(params);
@@ -210,15 +218,12 @@ export const stdCollectionOptions = <
   const utils = queryUtils as Utils;
 
   return {
-    schema,
-    getKey: (item: TItem) => item[schema.idField as keyof TItem] as string,
+    schema: schema["~standard"] ? schema : (undefined as any),
+    getKey: (item: TCollectionItem) =>
+      item[schema.idField as keyof TCollectionItem] as string,
     sync: tanstackSync,
     utils,
-    compare: (x, y) =>
-      (x as TItem & { _uid: string })._uid <
-      (y as TItem & { _uid: string })._uid
-        ? -1
-        : 1,
+    compare: (x, y) => (x._meta!._uid < y._meta!._uid ? -1 : 1),
     onInsert: async ({ transaction }) => {
       const { changes } = transaction.mutations[0]!;
       const result = await Effect.runPromise(onInsert(changes as TItem));

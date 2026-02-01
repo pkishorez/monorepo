@@ -29,6 +29,8 @@ export interface IndexDescriptor {
 export interface StdDescriptor {
   /** Name of the entity/table */
   name: string;
+  /** Id field of the entity/table */
+  idField: string;
   /** Schema version string */
   version: string;
   /** Primary index descriptor */

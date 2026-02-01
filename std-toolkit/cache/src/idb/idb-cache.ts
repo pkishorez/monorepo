@@ -1,9 +1,9 @@
 import type { IDBPDatabase } from "idb";
 import { openDB } from "idb";
-import type { AnyESchema } from "@std-toolkit/eschema";
 import { Effect } from "effect";
 import { CacheError } from "../error.js";
 import { IDBCacheEntity } from "./idb-cache-entity.js";
+import { CacheSchemaType } from "../cache-entity.js";
 
 const STORE_NAME = "items";
 const UID_INDEX = "by-uid";
@@ -80,7 +80,7 @@ export class IDBCache {
     this.#db = db;
   }
 
-  schema<TSchema extends AnyESchema>(
+  schema<TSchema extends CacheSchemaType>(
     eschema: TSchema,
   ): IDBCacheEntity<TSchema> {
     return new IDBCacheEntity(this.#db, eschema);
