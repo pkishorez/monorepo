@@ -1,6 +1,9 @@
 import type { EntityType } from "@std-toolkit/core";
 import type { Effect, Option } from "effect";
 import type { CacheError } from "./error.js";
+import { AnyESchema } from "@std-toolkit/eschema";
+
+export type CacheSchemaType = Pick<AnyESchema, "name" | "idField" | "Type">;
 
 export interface CacheEntity<T> {
   put(item: EntityType<T>): Effect.Effect<void, CacheError>;

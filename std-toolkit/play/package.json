@@ -37,12 +37,12 @@
     "@std-toolkit/tanstack": "workspace:*",
     "@tanstack/react-db": "0.1.69",
     "@tanstack/react-router": "1.157.17",
-    "framer-motion": "^12.29.2",
+    "framer-motion": "12.29.2",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "ulid": "3.0.2",
     "use-effect-ts": "workspace:*",
-    "zustand": "^5.0.10"
+    "zustand": "5.0.10"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260131.0",

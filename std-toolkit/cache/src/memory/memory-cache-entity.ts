@@ -1,7 +1,9 @@
-import type { AnyESchema } from "@std-toolkit/eschema";
 import type { EntityType } from "@std-toolkit/core";
 import { Effect, Option, Order, SortedMap } from "effect";
-import type { CacheEntity } from "../cache-entity.js";
+import type {
+  CacheEntity,
+  CacheSchemaType as CacheESchema,
+} from "../cache-entity.js";
 import { CacheError } from "../error.js";
 
 type StoredItem = {
@@ -13,9 +15,9 @@ type StoredItem = {
 
 const uidOrder = Order.string;
 
-export class MemoryCacheEntity<TSchema extends AnyESchema>
-  implements CacheEntity<TSchema["Type"]>
-{
+export class MemoryCacheEntity<
+  TSchema extends CacheESchema,
+> implements CacheEntity<TSchema["Type"]> {
   #store: Map<string, StoredItem>;
   #eschema: TSchema;
   #uidIndex: SortedMap.SortedMap<string, string>;
@@ -44,7 +46,10 @@ export class MemoryCacheEntity<TSchema extends AnyESchema>
 
         const existingItem = this.#store.get(key);
         if (existingItem) {
-          this.#uidIndex = SortedMap.remove(this.#uidIndex, existingItem.meta._uid);
+          this.#uidIndex = SortedMap.remove(
+            this.#uidIndex,
+            existingItem.meta._uid,
+          );
         }
 
         this.#store.set(key, stored);

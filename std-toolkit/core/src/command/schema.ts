@@ -79,6 +79,7 @@ export const IndexDescriptorSchema = Schema.Struct({
 
 export const StdDescriptorSchema = Schema.Struct({
   name: Schema.String,
+  idField: Schema.String,
   version: Schema.String,
   primaryIndex: IndexDescriptorSchema,
   timelineIndex: Schema.optional(IndexDescriptorSchema),
@@ -137,7 +138,13 @@ export const CommandResponseSchema = Schema.Union(
 export class CommandErrorSchema extends Schema.TaggedError<CommandErrorSchema>()(
   "CommandError",
   {
-    operation: Schema.Literal("insert", "update", "delete", "query", "descriptor"),
+    operation: Schema.Literal(
+      "insert",
+      "update",
+      "delete",
+      "query",
+      "descriptor",
+    ),
     entity: Schema.String,
     message: Schema.String,
     cause: Schema.optional(Schema.Unknown),
