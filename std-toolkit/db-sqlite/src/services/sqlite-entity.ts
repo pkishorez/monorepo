@@ -341,6 +341,7 @@ export class SQLiteEntity<
 
   /**
    * Deletes an entity (soft delete).
+   * Updates the item with _d: true and a new _uid so sync can pick up the change.
    *
    * @param keyValue - Object containing the primary key field values
    * @returns The deleted entity
@@ -370,11 +371,23 @@ export class SQLiteEntity<
         false,
       );
 
-      yield* this.#table.deleteItem({ pk, sk });
+      // Generate new _uid and encode with _d: true for soft delete
+      const { encoded, meta } = yield* this.#encode(existing.value, true);
+
+      // Update the item with _d: true and new _uid (soft delete)
+      const updateValues: Record<string, unknown> = {
+        _data: JSON.stringify(encoded),
+        _v: meta._v,
+        _uid: meta._uid,
+        _d: 1,
+        ...this.#deriveSecondaryIndexes({ ...existing.value, _uid: meta._uid }),
+      };
+
+      yield* this.#table.updateItem({ pk, sk }, updateValues);
 
       const deletedEntity = {
-        ...existing,
-        meta: { ...existing.meta, _d: true },
+        value: existing.value,
+        meta,
       };
 
       yield* this.#broadcast(deletedEntity);
