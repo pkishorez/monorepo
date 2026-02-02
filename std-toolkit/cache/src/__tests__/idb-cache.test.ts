@@ -349,4 +349,158 @@ describe("IDBCache", () => {
       }
     }),
   );
+
+  it.effect("should isolate data by partition", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const allUsers = cache.schema(UserSchema);
+      const tenantAUsers = cache.schema(UserSchema, { tenantId: "tenant-a" });
+      const tenantBUsers = cache.schema(UserSchema, { tenantId: "tenant-b" });
+
+      yield* allUsers.put(makeUserEntity("user-1", "Global User", "global@example.com"));
+      yield* tenantAUsers.put(makeUserEntity("user-2", "Tenant A User", "a@example.com"));
+      yield* tenantBUsers.put(makeUserEntity("user-3", "Tenant B User", "b@example.com"));
+
+      const globalResults = yield* allUsers.getAll();
+      const tenantAResults = yield* tenantAUsers.getAll();
+      const tenantBResults = yield* tenantBUsers.getAll();
+
+      expect(globalResults).toHaveLength(1);
+      expect(tenantAResults).toHaveLength(1);
+      expect(tenantBResults).toHaveLength(1);
+
+      expect(globalResults[0]?.value.id).toBe("user-1");
+      expect(tenantAResults[0]?.value.id).toBe("user-2");
+      expect(tenantBResults[0]?.value.id).toBe("user-3");
+    }),
+  );
+
+  it.effect("should get entity by id within partition", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const tenantAUsers = cache.schema(UserSchema, { tenantId: "tenant-a" });
+      const tenantBUsers = cache.schema(UserSchema, { tenantId: "tenant-b" });
+
+      yield* tenantAUsers.put(makeUserEntity("user-1", "Tenant A User", "a@example.com"));
+      yield* tenantBUsers.put(makeUserEntity("user-1", "Tenant B User", "b@example.com"));
+
+      const fromA = yield* tenantAUsers.get("user-1");
+      const fromB = yield* tenantBUsers.get("user-1");
+
+      expect(Option.isSome(fromA)).toBe(true);
+      expect(Option.isSome(fromB)).toBe(true);
+
+      if (Option.isSome(fromA)) {
+        expect(fromA.value.value.name).toBe("Tenant A User");
+      }
+      if (Option.isSome(fromB)) {
+        expect(fromB.value.value.name).toBe("Tenant B User");
+      }
+    }),
+  );
+
+  it.effect("should delete only within partition", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const tenantAUsers = cache.schema(UserSchema, { tenantId: "tenant-a" });
+      const tenantBUsers = cache.schema(UserSchema, { tenantId: "tenant-b" });
+
+      yield* tenantAUsers.put(makeUserEntity("user-1", "Tenant A User", "a@example.com"));
+      yield* tenantBUsers.put(makeUserEntity("user-1", "Tenant B User", "b@example.com"));
+
+      yield* tenantAUsers.delete("user-1");
+
+      const fromA = yield* tenantAUsers.get("user-1");
+      const fromB = yield* tenantBUsers.get("user-1");
+
+      expect(Option.isNone(fromA)).toBe(true);
+      expect(Option.isSome(fromB)).toBe(true);
+    }),
+  );
+
+  it.effect("should deleteAll only within partition", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const tenantAUsers = cache.schema(UserSchema, { tenantId: "tenant-a" });
+      const tenantBUsers = cache.schema(UserSchema, { tenantId: "tenant-b" });
+
+      yield* tenantAUsers.put(makeUserEntity("user-1", "User 1", "1@a.com"));
+      yield* tenantAUsers.put(makeUserEntity("user-2", "User 2", "2@a.com"));
+      yield* tenantBUsers.put(makeUserEntity("user-3", "User 3", "3@b.com"));
+
+      yield* tenantAUsers.deleteAll();
+
+      const tenantAResults = yield* tenantAUsers.getAll();
+      const tenantBResults = yield* tenantBUsers.getAll();
+
+      expect(tenantAResults).toHaveLength(0);
+      expect(tenantBResults).toHaveLength(1);
+    }),
+  );
+
+  it.effect("should getLatest/getOldest within partition boundary", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const tenantAUsers = cache.schema(UserSchema, { tenantId: "tenant-a" });
+      const tenantBUsers = cache.schema(UserSchema, { tenantId: "tenant-b" });
+
+      yield* tenantAUsers.put({
+        value: { id: "user-1", name: "Alice", email: "alice@a.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+      });
+      yield* tenantAUsers.put({
+        value: { id: "user-2", name: "Bob", email: "bob@a.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+      });
+      yield* tenantBUsers.put({
+        value: { id: "user-3", name: "Charlie", email: "charlie@b.com" },
+        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+      });
+
+      const latestA = yield* tenantAUsers.getLatest();
+      const oldestA = yield* tenantAUsers.getOldest();
+      const latestB = yield* tenantBUsers.getLatest();
+
+      expect(Option.isSome(latestA)).toBe(true);
+      expect(Option.isSome(oldestA)).toBe(true);
+      expect(Option.isSome(latestB)).toBe(true);
+
+      if (Option.isSome(latestA)) {
+        expect(latestA.value.value.id).toBe("user-2");
+        expect(latestA.value.meta._uid).toBe("uid-003");
+      }
+      if (Option.isSome(oldestA)) {
+        expect(oldestA.value.value.id).toBe("user-1");
+        expect(oldestA.value.meta._uid).toBe("uid-001");
+      }
+      if (Option.isSome(latestB)) {
+        expect(latestB.value.value.id).toBe("user-3");
+        expect(latestB.value.meta._uid).toBe("uid-002");
+      }
+    }),
+  );
+
+  it.effect("should serialize multi-field partition keys alphabetically", () =>
+    Effect.gen(function* () {
+      const cache = yield* IDBCache.open(getDbName());
+      const regionalUsers1 = cache.schema(UserSchema, {
+        tenantId: "acme",
+        region: "us-east",
+      });
+      const regionalUsers2 = cache.schema(UserSchema, {
+        region: "us-east",
+        tenantId: "acme",
+      });
+
+      yield* regionalUsers1.put(makeUserEntity("user-1", "User 1", "1@example.com"));
+
+      const results1 = yield* regionalUsers1.getAll();
+      const results2 = yield* regionalUsers2.getAll();
+
+      expect(results1).toHaveLength(1);
+      expect(results2).toHaveLength(1);
+      expect(results1[0]?.value.id).toBe("user-1");
+      expect(results2[0]?.value.id).toBe("user-1");
+    }),
+  );
 });

@@ -3,11 +3,15 @@ import { openDB } from "idb";
 import { Effect } from "effect";
 import { CacheError } from "../error.js";
 import { IDBCacheEntity } from "./idb-cache-entity.js";
-import { CacheSchemaType } from "../cache-entity.js";
+import {
+  CacheSchemaType,
+  PartitionKey,
+  serializePartition,
+} from "../cache-entity.js";
 
 const STORE_NAME = "items";
 const UID_INDEX = "by-uid";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const connectionCache = new Map<string, IDBPDatabase>();
 const openedDatabases = new Set<string>();
@@ -17,15 +21,15 @@ async function getConnection(database: string): Promise<IDBPDatabase> {
   if (cached) return cached;
 
   const db = await openDB(database, DB_VERSION, {
-    upgrade(database, oldVersion, _newVersion, transaction) {
-      if (oldVersion < 1) {
+    upgrade(database, oldVersion, _newVersion, _transaction) {
+      if (oldVersion < 3) {
+        if (database.objectStoreNames.contains(STORE_NAME)) {
+          database.deleteObjectStore(STORE_NAME);
+        }
         const store = database.createObjectStore(STORE_NAME, {
-          keyPath: ["entity", "id"],
+          keyPath: ["entity", "partition", "id"],
         });
-        store.createIndex(UID_INDEX, ["entity", "meta._uid"]);
-      } else if (oldVersion < 2) {
-        const store = transaction.objectStore(STORE_NAME);
-        store.createIndex(UID_INDEX, ["entity", "meta._uid"]);
+        store.createIndex(UID_INDEX, ["entity", "partition", "meta._uid"]);
       }
     },
   });
@@ -82,8 +86,9 @@ export class IDBCache {
 
   schema<TSchema extends CacheSchemaType>(
     eschema: TSchema,
+    partition?: PartitionKey,
   ): IDBCacheEntity<TSchema> {
-    return new IDBCacheEntity(this.#db, eschema);
+    return new IDBCacheEntity(this.#db, eschema, serializePartition(partition));
   }
 
   clear(): Effect.Effect<void, CacheError> {

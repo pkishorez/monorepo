@@ -8,6 +8,7 @@ import { CacheError } from "../error.js";
 
 type StoredItem = {
   entity: string;
+  partition: string;
   id: string;
   value: unknown;
   meta: EntityType<unknown>["meta"];
@@ -20,16 +21,22 @@ export class MemoryCacheEntity<
 > implements CacheEntity<TSchema["Type"]> {
   #store: Map<string, StoredItem>;
   #eschema: TSchema;
+  #partition: string;
   #uidIndex: SortedMap.SortedMap<string, string>;
 
-  constructor(eschema: TSchema, store?: Map<string, StoredItem>) {
+  constructor(
+    eschema: TSchema,
+    store?: Map<string, StoredItem>,
+    partition: string = "",
+  ) {
     this.#eschema = eschema;
     this.#store = store ?? new Map();
+    this.#partition = partition;
     this.#uidIndex = SortedMap.empty<string, string>(uidOrder);
   }
 
   #makeKey(id: string): string {
-    return `${this.#eschema.name}:${id}`;
+    return `${this.#eschema.name}:${this.#partition}:${id}`;
   }
 
   put(item: EntityType<TSchema["Type"]>): Effect.Effect<void, CacheError> {
@@ -39,6 +46,7 @@ export class MemoryCacheEntity<
         const key = this.#makeKey(id);
         const stored: StoredItem = {
           entity: this.#eschema.name,
+          partition: this.#partition,
           id,
           value: item.value,
           meta: item.meta,
@@ -83,7 +91,10 @@ export class MemoryCacheEntity<
         const items: EntityType<TSchema["Type"]>[] = [];
 
         for (const item of this.#store.values()) {
-          if (item.entity === this.#eschema.name) {
+          if (
+            item.entity === this.#eschema.name &&
+            item.partition === this.#partition
+          ) {
             items.push({
               value: item.value as TSchema["Type"],
               meta: item.meta,
@@ -162,7 +173,10 @@ export class MemoryCacheEntity<
     return Effect.try({
       try: () => {
         for (const [key, item] of this.#store.entries()) {
-          if (item.entity === this.#eschema.name) {
+          if (
+            item.entity === this.#eschema.name &&
+            item.partition === this.#partition
+          ) {
             this.#uidIndex = SortedMap.remove(this.#uidIndex, item.meta._uid);
             this.#store.delete(key);
           }

@@ -9,6 +9,7 @@ const UID_INDEX = "by-uid";
 
 type StoredItem = {
   entity: string;
+  partition: string;
   id: string;
   value: unknown;
   meta: EntityType<unknown>["meta"];
@@ -19,10 +20,12 @@ export class IDBCacheEntity<
 > implements CacheEntity<TSchema["Type"]> {
   #db: IDBPDatabase;
   #eschema: TSchema;
+  #partition: string;
 
-  constructor(db: IDBPDatabase, eschema: TSchema) {
+  constructor(db: IDBPDatabase, eschema: TSchema, partition: string = "") {
     this.#db = db;
     this.#eschema = eschema;
+    this.#partition = partition;
   }
 
   put(item: EntityType<TSchema["Type"]>): Effect.Effect<void, CacheError> {
@@ -31,6 +34,7 @@ export class IDBCacheEntity<
         const id = String(item.value[this.#eschema.idField]);
         const stored: StoredItem = {
           entity: this.#eschema.name,
+          partition: this.#partition,
           id,
           value: item.value,
           meta: item.meta,
@@ -48,6 +52,7 @@ export class IDBCacheEntity<
       try: async () => {
         const item: StoredItem | undefined = await this.#db.get(STORE_NAME, [
           this.#eschema.name,
+          this.#partition,
           id,
         ]);
 
@@ -68,8 +73,8 @@ export class IDBCacheEntity<
         const items: StoredItem[] = await this.#db.getAll(
           STORE_NAME,
           IDBKeyRange.bound(
-            [this.#eschema.name],
-            [this.#eschema.name, "\uffffff"],
+            [this.#eschema.name, this.#partition],
+            [this.#eschema.name, this.#partition, "\uffffff"],
           ),
         );
 
@@ -91,8 +96,8 @@ export class IDBCacheEntity<
         const tx = this.#db.transaction(STORE_NAME, "readonly");
         const index = tx.store.index(UID_INDEX);
         const range = IDBKeyRange.bound(
-          [this.#eschema.name],
-          [this.#eschema.name, "\uffffff"],
+          [this.#eschema.name, this.#partition],
+          [this.#eschema.name, this.#partition, "\uffffff"],
         );
         const cursor = await index.openCursor(range, "prev");
 
@@ -118,8 +123,8 @@ export class IDBCacheEntity<
         const tx = this.#db.transaction(STORE_NAME, "readonly");
         const index = tx.store.index(UID_INDEX);
         const range = IDBKeyRange.bound(
-          [this.#eschema.name],
-          [this.#eschema.name, "\uffffff"],
+          [this.#eschema.name, this.#partition],
+          [this.#eschema.name, this.#partition, "\uffffff"],
         );
         const cursor = await index.openCursor(range, "next");
 
@@ -138,7 +143,12 @@ export class IDBCacheEntity<
 
   delete(id: string): Effect.Effect<void, CacheError> {
     return Effect.tryPromise({
-      try: () => this.#db.delete(STORE_NAME, [this.#eschema.name, id]),
+      try: () =>
+        this.#db.delete(STORE_NAME, [
+          this.#eschema.name,
+          this.#partition,
+          id,
+        ]),
       catch: (cause) => CacheError.deleteFailed("Failed to delete item", cause),
     });
   }
@@ -148,8 +158,8 @@ export class IDBCacheEntity<
       try: async () => {
         const tx = this.#db.transaction(STORE_NAME, "readwrite");
         const range = IDBKeyRange.bound(
-          [this.#eschema.name],
-          [this.#eschema.name, "\uffffff"],
+          [this.#eschema.name, this.#partition],
+          [this.#eschema.name, this.#partition, "\uffffff"],
         );
         let cursor = await tx.store.openCursor(range);
 
