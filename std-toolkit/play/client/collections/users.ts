@@ -3,12 +3,16 @@ import { stdCollectionOptions } from "@std-toolkit/tanstack";
 import { Effect } from "effect";
 import { UserSchema } from "../../domain";
 import { RealtimeClient, runtime } from "../services";
-import { cache } from "./cache";
+import { IDBCacheEntity } from "./cache";
+
+const userCache = await Effect.runPromise(
+  IDBCacheEntity.make({ eschema: UserSchema }),
+);
 
 export const usersCollection = createCollection(
   stdCollectionOptions({
     schema: UserSchema,
-    cache: cache.schema(UserSchema),
+    cache: userCache,
 
     sync: ({ collection, onReady }) => ({
       mode: "subscription" as const,

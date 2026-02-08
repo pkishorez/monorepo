@@ -5,18 +5,6 @@ import { AnyESchema } from "@std-toolkit/eschema";
 
 export type CacheSchemaType = Pick<AnyESchema, "name" | "idField" | "Type">;
 
-export type PartitionKey = Record<string, string>;
-
-export function serializePartition(partition?: PartitionKey): string {
-  if (!partition || Object.keys(partition).length === 0) {
-    return "";
-  }
-  return Object.keys(partition)
-    .sort()
-    .map((key) => `${key}:${partition[key]}`)
-    .join("#");
-}
-
 export interface CacheEntity<T> {
   put(item: EntityType<T>): Effect.Effect<void, CacheError>;
   get(id: string): Effect.Effect<Option.Option<EntityType<T>>, CacheError>;

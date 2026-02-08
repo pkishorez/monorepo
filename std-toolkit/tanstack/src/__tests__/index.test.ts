@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Effect, Schema } from "effect";
 import { ESchema } from "@std-toolkit/eschema";
 import { EntityType } from "@std-toolkit/core";
+import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
 import { stdCollectionOptions, broadcastCollections } from "../index";
 
 const TestSchema = ESchema.make("TestEntity", "id", {
@@ -29,6 +30,7 @@ describe("stdCollectionOptions", () => {
   const createSubscriptionConfig = () =>
     stdCollectionOptions({
       schema: TestSchema,
+      cache: Effect.runSync(MemoryCacheEntity.make({ eschema: TestSchema })),
       sync: () => ({ mode: "subscription" as const, effect: () => Effect.void }),
       onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
     });
@@ -36,6 +38,7 @@ describe("stdCollectionOptions", () => {
   const createQueryConfig = () =>
     stdCollectionOptions({
       schema: TestSchema,
+      cache: Effect.runSync(MemoryCacheEntity.make({ eschema: TestSchema })),
       sync: () => ({ mode: "query" as const, getMore: () => Effect.succeed([]) }),
       onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
     });
@@ -43,6 +46,7 @@ describe("stdCollectionOptions", () => {
   const createCacheConfig = () =>
     stdCollectionOptions({
       schema: TestSchema,
+      cache: Effect.runSync(MemoryCacheEntity.make({ eschema: TestSchema })),
       sync: () => ({ mode: "cache" as const }),
       onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
     });
@@ -100,9 +104,8 @@ describe("stdCollectionOptions", () => {
   it("compare sorts by _uid timestamp ascending", () => {
     const compare = createSubscriptionConfig().compare!;
 
-    type ItemWithTimestamp = TestItem & { _uid: string };
-    const older: ItemWithTimestamp = { id: ("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
-    const newer: ItemWithTimestamp = { id: ("2"), name: "B", updatedAt: "", _uid: "2024-01-02T00:00:00Z" };
+    const older = { id: ("1"), name: "A", updatedAt: "", _meta: { _v: "v1", _e: "TestEntity", _d: false, _uid: "2024-01-01T00:00:00Z" } };
+    const newer = { id: ("2"), name: "B", updatedAt: "", _meta: { _v: "v1", _e: "TestEntity", _d: false, _uid: "2024-01-02T00:00:00Z" } };
 
     expect(compare(older, newer)).toBe(-1);
     expect(compare(newer, older)).toBe(1);
@@ -111,9 +114,8 @@ describe("stdCollectionOptions", () => {
   it("compare handles equal timestamps", () => {
     const compare = createSubscriptionConfig().compare!;
 
-    type ItemWithTimestamp = TestItem & { _uid: string };
-    const a: ItemWithTimestamp = { id: ("1"), name: "A", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
-    const b: ItemWithTimestamp = { id: ("2"), name: "B", updatedAt: "", _uid: "2024-01-01T00:00:00Z" };
+    const a = { id: ("1"), name: "A", updatedAt: "", _meta: { _v: "v1", _e: "TestEntity", _d: false, _uid: "2024-01-01T00:00:00Z" } };
+    const b = { id: ("2"), name: "B", updatedAt: "", _meta: { _v: "v1", _e: "TestEntity", _d: false, _uid: "2024-01-01T00:00:00Z" } };
 
     expect(compare(a, b)).toBe(1);
   });
