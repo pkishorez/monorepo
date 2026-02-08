@@ -5,7 +5,7 @@ import type { ESchemaDescriptor } from "@std-toolkit/eschema";
  */
 export interface IndexPatternDescriptor {
   /** Field names that the key depends on */
-  deps: string[];
+  deps: readonly string[];
   /** String pattern showing the key format (e.g., "ENTITY#{field1}#{field2}") */
   pattern: string;
 }
@@ -38,7 +38,7 @@ export interface StdDescriptor {
   /** Timeline index descriptor (optional, for time-ordered queries on same partition) */
   timelineIndex?: IndexDescriptor;
   /** Secondary index descriptors */
-  secondaryIndexes: IndexDescriptor[];
+  secondaryIndexes: readonly IndexDescriptor[];
   /** ESchema descriptor for the data schema */
   schema: ESchemaDescriptor;
 }

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "mcp__context7__query-docs",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm exec tsc:*)"
     ]
   }
 }

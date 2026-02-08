@@ -1,67 +1,45 @@
 import type { EntityType } from "@std-toolkit/core";
 import { Effect, Option, Order, SortedMap } from "effect";
-import type {
-  CacheEntity,
-  CacheSchemaType as CacheESchema,
-} from "../cache-entity.js";
+import type { CacheEntity, CacheSchemaType as CacheESchema } from "../cache-entity.js";
 import { CacheError } from "../error.js";
 
 type StoredItem = {
-  entity: string;
-  partition: string;
-  id: string;
   value: unknown;
   meta: EntityType<unknown>["meta"];
 };
 
-const uidOrder = Order.string;
+const stringOrder = Order.string;
 
 export class MemoryCacheEntity<
   TSchema extends CacheESchema,
 > implements CacheEntity<TSchema["Type"]> {
-  #store: Map<string, StoredItem>;
+  #store = new Map<string, StoredItem>();
   #eschema: TSchema;
-  #partition: string;
   #uidIndex: SortedMap.SortedMap<string, string>;
 
-  constructor(
-    eschema: TSchema,
-    store?: Map<string, StoredItem>,
-    partition: string = "",
-  ) {
+  private constructor(eschema: TSchema) {
     this.#eschema = eschema;
-    this.#store = store ?? new Map();
-    this.#partition = partition;
-    this.#uidIndex = SortedMap.empty<string, string>(uidOrder);
+    this.#uidIndex = SortedMap.empty<string, string>(stringOrder);
   }
 
-  #makeKey(id: string): string {
-    return `${this.#eschema.name}:${this.#partition}:${id}`;
+  static make<TSchema extends CacheESchema>(options: {
+    eschema: TSchema;
+  }): Effect.Effect<MemoryCacheEntity<TSchema>, never> {
+    return Effect.succeed(new MemoryCacheEntity(options.eschema));
   }
 
   put(item: EntityType<TSchema["Type"]>): Effect.Effect<void, CacheError> {
     return Effect.try({
       try: () => {
         const id = String(item.value[this.#eschema.idField]);
-        const key = this.#makeKey(id);
-        const stored: StoredItem = {
-          entity: this.#eschema.name,
-          partition: this.#partition,
-          id,
-          value: item.value,
-          meta: item.meta,
-        };
 
-        const existingItem = this.#store.get(key);
+        const existingItem = this.#store.get(id);
         if (existingItem) {
-          this.#uidIndex = SortedMap.remove(
-            this.#uidIndex,
-            existingItem.meta._uid,
-          );
+          this.#uidIndex = SortedMap.remove(this.#uidIndex, existingItem.meta._uid);
         }
 
-        this.#store.set(key, stored);
-        this.#uidIndex = SortedMap.set(this.#uidIndex, item.meta._uid, key);
+        this.#store.set(id, { value: item.value, meta: item.meta });
+        this.#uidIndex = SortedMap.set(this.#uidIndex, item.meta._uid, id);
       },
       catch: (cause) => CacheError.putFailed("Failed to put item", cause),
     });
@@ -72,7 +50,7 @@ export class MemoryCacheEntity<
   ): Effect.Effect<Option.Option<EntityType<TSchema["Type"]>>, CacheError> {
     return Effect.try({
       try: () => {
-        const item = this.#store.get(this.#makeKey(id));
+        const item = this.#store.get(id);
 
         if (!item) return Option.none();
 
@@ -87,23 +65,11 @@ export class MemoryCacheEntity<
 
   getAll(): Effect.Effect<EntityType<TSchema["Type"]>[], CacheError> {
     return Effect.try({
-      try: () => {
-        const items: EntityType<TSchema["Type"]>[] = [];
-
-        for (const item of this.#store.values()) {
-          if (
-            item.entity === this.#eschema.name &&
-            item.partition === this.#partition
-          ) {
-            items.push({
-              value: item.value as TSchema["Type"],
-              meta: item.meta,
-            });
-          }
-        }
-
-        return items;
-      },
+      try: () =>
+        Array.from(this.#store.values(), (item) => ({
+          value: item.value as TSchema["Type"],
+          meta: item.meta,
+        })),
       catch: (cause) => CacheError.getFailed("Failed to get all items", cause),
     });
   }
@@ -157,13 +123,12 @@ export class MemoryCacheEntity<
   delete(id: string): Effect.Effect<void, CacheError> {
     return Effect.try({
       try: () => {
-        const key = this.#makeKey(id);
-        const item = this.#store.get(key);
+        const item = this.#store.get(id);
 
         if (item) {
           this.#uidIndex = SortedMap.remove(this.#uidIndex, item.meta._uid);
         }
-        this.#store.delete(key);
+        this.#store.delete(id);
       },
       catch: (cause) => CacheError.deleteFailed("Failed to delete item", cause),
     });
@@ -172,15 +137,8 @@ export class MemoryCacheEntity<
   deleteAll(): Effect.Effect<void, CacheError> {
     return Effect.try({
       try: () => {
-        for (const [key, item] of this.#store.entries()) {
-          if (
-            item.entity === this.#eschema.name &&
-            item.partition === this.#partition
-          ) {
-            this.#uidIndex = SortedMap.remove(this.#uidIndex, item.meta._uid);
-            this.#store.delete(key);
-          }
-        }
+        this.#store.clear();
+        this.#uidIndex = SortedMap.empty<string, string>(stringOrder);
       },
       catch: (cause) =>
         CacheError.deleteFailed("Failed to delete all items", cause),

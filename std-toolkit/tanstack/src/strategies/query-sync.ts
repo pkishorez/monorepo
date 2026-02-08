@@ -27,7 +27,6 @@ export const createQuerySync = <TItem extends object>(
 
       const operator = direction === "newer" ? ">" : "<";
       const items = yield* config.getMore(operator, Option.getOrNull(cursor));
-      console.log("ITEMS FETCHED:", { items, len: items.length });
 
       if (items.length === 0) {
         return 0;
@@ -60,9 +59,48 @@ export const createQuerySync = <TItem extends object>(
     Effect.gen(function* () {
       let total = 0;
       let count: number;
+      const fetchedUids = new Set<string>();
 
       do {
-        count = yield* fetchInternal(direction);
+        const cursor =
+          direction === "newer"
+            ? yield* cache.getLatest()
+            : yield* cache.getOldest();
+
+        const operator = direction === "newer" ? ">" : "<";
+        const cursorValue = Option.getOrNull(cursor);
+        const items = yield* config.getMore(operator, cursorValue);
+
+        if (items.length === 0) {
+          count = 0;
+          break;
+        }
+
+        const duplicateItem = items.find((item) =>
+          fetchedUids.has(item.meta._uid),
+        );
+        if (duplicateItem) {
+          console.error(
+            "[query-sync] Infinite loop detected: duplicate item returned",
+            {
+              condition: `${operator} ${cursorValue?.meta._uid ?? "null"}`,
+              duplicateItem,
+              latest: Option.getOrNull(yield* cache.getLatest()),
+              oldest: Option.getOrNull(yield* cache.getOldest()),
+              issue: `Item ${duplicateItem.meta._uid} was already fetched in this session but returned again`,
+            },
+          );
+          break;
+        }
+
+        for (const item of items) {
+          fetchedUids.add(item.meta._uid);
+        }
+
+        yield* persistItems(items);
+        applyToCollection(items, true);
+
+        count = items.length;
         total += count;
       } while (count > 0);
 

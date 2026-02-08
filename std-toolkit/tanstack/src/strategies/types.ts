@@ -46,3 +46,23 @@ export interface SyncContext<TItem extends object> {
   applyToCollection: (items: EntityType<TItem>[], persist?: boolean) => void;
   markReady: () => void;
 }
+
+export type SyncTypeFactory<TItem extends object, TParams = any> = (
+  params: TParams,
+) => {
+  cache?: CacheEntity<TItem>;
+  getMore: (
+    operator: "<" | ">",
+    cursor: EntityType<TItem> | null,
+  ) => Effect.Effect<EntityType<TItem>[]>;
+};
+
+export interface SyncHandle {
+  fetch: (direction: "newer" | "older") => Effect.Effect<number>;
+  fetchAll: (direction: FetchDirection) => Effect.Effect<number>;
+  isSyncing: () => boolean;
+  dispose: () => void;
+}
+
+export type ExtractSyncParams<T> =
+  T extends (params: infer P) => any ? P : never;
