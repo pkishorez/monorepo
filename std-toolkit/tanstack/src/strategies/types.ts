@@ -10,6 +10,7 @@ export type SubscriptionSyncConfig<TItem extends object> = {
 
 export type QuerySyncConfig<TItem extends object> = {
   mode: "query";
+  orderBy?: keyof TItem | "_uid";
   getMore: (
     operator: "<" | ">",
     cursor: EntityType<TItem> | null,
