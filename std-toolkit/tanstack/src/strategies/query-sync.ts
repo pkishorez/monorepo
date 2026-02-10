@@ -1,11 +1,42 @@
 import { Effect, Option } from "effect";
 import { EntityType } from "@std-toolkit/core";
+import { CacheEntity, CacheError } from "@std-toolkit/cache";
 import {
   SyncStrategy,
   SyncContext,
   QuerySyncConfig,
   FetchDirection,
 } from "./types.js";
+
+const getCursorBySortField = <TItem extends object>(
+  cache: CacheEntity<TItem>,
+  direction: "newer" | "older",
+  orderBy: keyof TItem | "_uid",
+): Effect.Effect<Option.Option<EntityType<TItem>>, CacheError> =>
+  Effect.gen(function* () {
+    // Fast path: use existing cache methods for _uid
+    if (orderBy === "_uid") {
+      return direction === "newer"
+        ? yield* cache.getLatest()
+        : yield* cache.getOldest();
+    }
+
+    // Slow path: scan all items to find max/min by orderBy
+    const items = yield* cache.getAll();
+    if (items.length === 0) return Option.none<EntityType<TItem>>();
+
+    const comparator = (a: EntityType<TItem>, b: EntityType<TItem>) => {
+      const aVal = a.value[orderBy as keyof TItem];
+      const bVal = b.value[orderBy as keyof TItem];
+      return String(aVal ?? "").localeCompare(String(bVal ?? ""));
+    };
+
+    const sorted = [...items].sort(comparator);
+    const result =
+      direction === "newer" ? sorted[sorted.length - 1]! : sorted[0]!;
+
+    return Option.some(result);
+  });
 
 export const createQuerySync = <TItem extends object>(
   config: QuerySyncConfig<TItem>,
@@ -14,16 +45,14 @@ export const createQuerySync = <TItem extends object>(
   const { cache, applyToCollection, markReady } = context;
 
   let syncing = false;
+  const orderBy = config.orderBy ?? "_uid";
 
   const persistItems = (items: EntityType<TItem>[]) =>
     Effect.forEach(items, (item) => cache.put(item), { discard: true });
 
   const fetchInternal = (direction: "newer" | "older") =>
     Effect.gen(function* () {
-      const cursor =
-        direction === "newer"
-          ? yield* cache.getLatest()
-          : yield* cache.getOldest();
+      const cursor = yield* getCursorBySortField(cache, direction, orderBy);
 
       const operator = direction === "newer" ? ">" : "<";
       const items = yield* config.getMore(operator, Option.getOrNull(cursor));
@@ -62,10 +91,7 @@ export const createQuerySync = <TItem extends object>(
       const fetchedUids = new Set<string>();
 
       do {
-        const cursor =
-          direction === "newer"
-            ? yield* cache.getLatest()
-            : yield* cache.getOldest();
+        const cursor = yield* getCursorBySortField(cache, direction, orderBy);
 
         const operator = direction === "newer" ? ">" : "<";
         const cursorValue = Option.getOrNull(cursor);
@@ -80,13 +106,21 @@ export const createQuerySync = <TItem extends object>(
           fetchedUids.has(item.meta._uid),
         );
         if (duplicateItem) {
+          const cursorSortValue =
+            orderBy === "_uid"
+              ? cursorValue?.meta._uid
+              : cursorValue?.value[orderBy as keyof TItem];
           console.error(
             "[query-sync] Infinite loop detected: duplicate item returned",
             {
-              condition: `${operator} ${cursorValue?.meta._uid ?? "null"}`,
+              condition: `${operator} ${cursorSortValue ?? "null"} (by ${String(orderBy)})`,
               duplicateItem,
-              latest: Option.getOrNull(yield* cache.getLatest()),
-              oldest: Option.getOrNull(yield* cache.getOldest()),
+              latest: Option.getOrNull(
+                yield* getCursorBySortField(cache, "newer", orderBy),
+              ),
+              oldest: Option.getOrNull(
+                yield* getCursorBySortField(cache, "older", orderBy),
+              ),
               issue: `Item ${duplicateItem.meta._uid} was already fetched in this session but returned again`,
             },
           );

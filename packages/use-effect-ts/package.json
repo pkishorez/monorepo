@@ -24,8 +24,8 @@
   },
   "devDependencies": {
     "@monorepo/config": "workspace:*",
-    "@types/react": "19.2.10",
-    "effect": "3.19.15",
+    "@types/react": "19.2.13",
+    "effect": "3.19.16",
     "typescript": "5.9.3"
   },
   "peerDependencies": {

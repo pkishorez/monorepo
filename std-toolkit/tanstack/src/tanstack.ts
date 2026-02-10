@@ -78,7 +78,7 @@ interface StdCollectionConfig<
   TSyncs extends Record<string, SyncTypeFactory<TItem>> = {},
 > {
   schema: TSchema;
-  cache?: CacheEntity<TItem>;
+  cache?: CacheEntity<TItem> | Effect.Effect<CacheEntity<TItem>, unknown>;
   sync: (value: {
     collection: Collection<
       CollectionItem<TItem>,
@@ -128,8 +128,7 @@ export const stdCollectionOptions = <
     schema,
   } = options;
 
-  const cache = providedCache ?? Effect.runSync(MemoryCacheEntity.make({ eschema: schema }));
-
+  let resolvedCache: CacheEntity<TItem> | null = null;
   let strategy: SyncStrategy | null = null;
   let applyToCollection:
     | ((items: EntityType<TItem>[], persist?: boolean) => void)
@@ -142,6 +141,7 @@ export const stdCollectionOptions = <
 
   const createApplyToCollection = (
     params: Parameters<TanstackSyncConfig<TCollectionItem, string>["sync"]>[0],
+    cache: CacheEntity<TItem>,
   ) => {
     const { begin, collection, commit, write } = params;
 
@@ -189,20 +189,33 @@ export const stdCollectionOptions = <
   const tanstackSync: TanstackSyncConfig<TCollectionItem, string> = {
     sync: (params) => {
       const { collection, markReady } = params;
-      applyToCollection = createApplyToCollection(params);
 
-      const syncConfig = sync({
-        collection,
-        onReady: markReady,
+      const initEffect = Effect.gen(function* () {
+        // Resolve cache: Effect or direct value or default to MemoryCache
+        const cache: CacheEntity<TItem> = providedCache
+          ? Effect.isEffect(providedCache)
+            ? yield* (providedCache as Effect.Effect<CacheEntity<TItem>, unknown>)
+            : providedCache
+          : yield* MemoryCacheEntity.make({ eschema: schema });
+
+        resolvedCache = cache;
+        applyToCollection = createApplyToCollection(params, cache);
+
+        const syncConfig = sync({
+          collection,
+          onReady: markReady,
+        });
+
+        strategy = createStrategy(syncConfig, {
+          cache,
+          applyToCollection,
+          markReady,
+        });
+
+        yield* strategy.initialize();
       });
 
-      strategy = createStrategy(syncConfig, {
-        cache,
-        applyToCollection,
-        markReady,
-      });
-
-      Effect.runPromise(strategy.initialize());
+      Effect.runPromise(initEffect);
 
       return () => {
         strategy?.cleanup?.();
