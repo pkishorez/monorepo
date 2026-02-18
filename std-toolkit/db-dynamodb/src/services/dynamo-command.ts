@@ -56,8 +56,8 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
    * @param registry - The entity registry
    * @returns A new DynamoCommand instance
    */
-  static make(registry: AnyRegistry): DynamoCommand {
-    return new DynamoCommand(registry);
+  static make(registry: EntityRegistry<any, any>): DynamoCommand {
+    return new DynamoCommand(registry as AnyRegistry);
   }
 
   #registry: TRegistry;
