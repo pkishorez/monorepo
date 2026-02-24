@@ -35,9 +35,9 @@
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/sqlite": "workspace:*",
     "@std-toolkit/tanstack": "workspace:*",
-    "@tanstack/react-db": "0.1.70",
-    "@tanstack/react-router": "1.160.2",
-    "framer-motion": "12.34.1",
+    "@tanstack/react-db": "0.1.72",
+    "@tanstack/react-router": "1.162.9",
+    "framer-motion": "12.34.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "ulid": "3.0.2",
@@ -45,22 +45,22 @@
     "zustand": "5.0.11"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260218.0",
+    "@cloudflare/workers-types": "4.20260303.0",
     "@effect/vitest": "0.27.0",
-    "@tailwindcss/vite": "4.1.18",
+    "@tailwindcss/vite": "4.2.1",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.2.3",
+    "@types/node": "25.3.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.4",
     "concurrently": "9.2.1",
-    "effect": "3.19.18",
-    "tailwindcss": "4.1.18",
+    "effect": "3.19.19",
+    "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vite": "7.3.1",
     "vite-tsconfig-paths": "6.1.1",
     "vitest": "4.0.18",
-    "wrangler": "4.66.0"
+    "wrangler": "4.68.0"
   },
   "peerDependencies": {
     "effect": ">=3.0.0"
