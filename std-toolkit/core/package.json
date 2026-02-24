@@ -38,13 +38,13 @@
     "@std-toolkit/eschema": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260218.0",
+    "@cloudflare/workers-types": "4.20260303.0",
     "@effect/platform": "0.94.5",
     "@effect/rpc": "0.73.2",
     "@effect/vitest": "0.27.0",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.2.3",
-    "effect": "3.19.18",
+    "@types/node": "25.3.0",
+    "effect": "3.19.19",
     "typescript": "5.9.3",
     "vite": "7.3.1",
     "vite-tsconfig-paths": "6.1.1",
