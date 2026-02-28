@@ -15,7 +15,7 @@ import type {
 } from "../types/index.js";
 import { extractKeyOp, getKeyOpScanDirection } from "../types/index.js";
 import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
-import { deriveIndexKeyValue, generateUlid } from "../internal/index.js";
+import { deriveIndexKeyValue } from "../internal/index.js";
 import {
   buildExpr,
   type ConditionExprResult,
@@ -33,7 +33,7 @@ const metaSchema = Schema.Struct({
   _e: Schema.String,
   /** Schema version */
   _v: Schema.String,
-  /** ULID that changes on every write */
+  /** ISO timestamp that changes on every write */
   _uid: Schema.String,
   /** Soft delete flag */
   _d: Schema.Boolean,
@@ -77,12 +77,9 @@ export interface EntityType<T> {
 }
 
 /**
- * Makes the ID field optional for insert operations and accepts plain strings.
- * When not provided, a ULID will be auto-generated.
+ * Input type for insert operations. Omits the internal `_v` field.
  */
-type InsertInput<T, IdField extends string> = Omit<T, IdField | "_v"> & {
-  [K in IdField & keyof T]?: string;
-};
+type InsertInput<T, IdField extends string> = Omit<T, "_v">;
 
 /**
  * Stored derivation info for a secondary index.
@@ -331,9 +328,8 @@ export class DynamoEntity<
 
   /**
    * Inserts a new entity. Fails if an item with the same key already exists.
-   * The ID field is optional - if not provided, a ULID will be auto-generated.
    *
-   * @param value - The entity value to insert (ID field is optional)
+   * @param value - The entity value to insert
    * @param options - Insert options including condition
    * @returns The inserted entity with metadata
    */
@@ -345,13 +341,8 @@ export class DynamoEntity<
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
     return Effect.gen(function* () {
-      const idField = self.#eschema.idField;
-      const providedId = (value as Record<string, unknown>)[idField];
-      const generatedId = providedId ?? generateUlid();
-
       const fullValueWithId = {
         ...value,
-        [idField]: generatedId as string,
         _v: self.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
@@ -456,10 +447,9 @@ export class DynamoEntity<
 
   /**
    * Creates an insert operation for use in a transaction.
-   * The ID field is optional - if not provided, a ULID will be auto-generated.
    * Includes broadcast data for emitting changes after successful transaction.
    *
-   * @param value - The entity value to insert (ID field is optional)
+   * @param value - The entity value to insert
    * @param options - Insert options including condition
    * @returns A transaction item for insert with broadcast data
    */
@@ -470,14 +460,8 @@ export class DynamoEntity<
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
-      // Handle optional idField - auto-generate if not provided
-      const idField = this.#eschema.idField;
-      const providedId = (value as Record<string, unknown>)[idField];
-      const generatedId = providedId ?? generateUlid();
-
       const fullValueWithId = {
         ...value,
-        [idField]: generatedId as string,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
@@ -964,7 +948,7 @@ export class DynamoEntity<
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
-      const _uid = generateUlid();
+      const _uid = new Date().toISOString();
 
       const meta: MetaType = {
         _e: this.#eschema.name,
@@ -1021,7 +1005,7 @@ export class DynamoEntity<
       false,
     );
 
-    const _uid = generateUlid();
+    const _uid = new Date().toISOString();
     const updatesWithMeta = { ...updates, _uid };
     const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
 

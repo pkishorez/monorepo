@@ -9,5 +9,3 @@ export {
   toDiscriminatedGeneric,
   fromDiscriminatedGeneric,
 } from "./utils.js";
-
-export { generateUlid } from "./ulid.js";
