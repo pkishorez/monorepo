@@ -6,7 +6,6 @@ import {
   SqliteDBError,
   TransactionPendingBroadcasts,
 } from "../sql/db.js";
-import { ulid } from "ulid";
 import {
   deriveIndexKeyValue,
   extractKeyOp,
@@ -33,12 +32,9 @@ import { Prettify } from "@std-toolkit/eschema/types.js";
 type DerivableMetaFields = "_uid";
 
 /**
- * Makes the ID field optional for insert operations and accepts plain strings.
- * When not provided, a ULID will be auto-generated.
+ * Input type for insert operations. Omits the internal `_v` field.
  */
-type InsertInput<T, IdField extends string> = Omit<T, IdField | "_v"> & {
-  [K in IdField & keyof T]?: string;
-};
+type InsertInput<T, IdField extends string> = Omit<T, "_v">;
 
 /**
  * Represents an entity item with its value and metadata.
@@ -248,22 +244,16 @@ export class SQLiteEntity<
 
   /**
    * Inserts a new entity.
-   * The ID field is optional - if not provided, a ULID will be auto-generated.
    *
-   * @param value - The entity value to insert (ID field is optional)
+   * @param value - The entity value to insert
    * @returns The inserted entity with metadata
    */
   insert(
     value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
-      const idField = this.#eschema.idField;
-      const providedId = (value as Record<string, unknown>)[idField];
-      const generatedId = providedId ?? ulid();
-
       const fullValue = {
         ...value,
-        [idField]: generatedId as string,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
@@ -795,7 +785,7 @@ export class SQLiteEntity<
           meta: {
             _e: this.#eschema.name,
             _v: encoded._v as string,
-            _uid: ulid(),
+            _uid: new Date().toISOString(),
             _d: deleted,
           },
         })),

@@ -234,9 +234,6 @@ importers:
       type-fest:
         specifier: 5.4.4
         version: 5.4.4
-      ulid:
-        specifier: 3.0.2
-        version: 3.0.2
     devDependencies:
       '@effect/platform':
         specifier: 0.94.5
@@ -317,9 +314,6 @@ importers:
       '@std-toolkit/eschema':
         specifier: workspace:*
         version: link:../eschema
-      ulid:
-        specifier: 3.0.2
-        version: 3.0.2
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 4.20260303.0

@@ -1307,41 +1307,19 @@ describe("Timeline Index", () => {
     layer = SqliteDBBetterSqlite3(db);
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
-    // Insert tasks
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* taskEntity.insert({
-          taskId: "task-001",
-          projectId: "proj-timeline",
-          title: "First Task",
-          status: "pending",
-        });
-        yield* taskEntity.insert({
-          taskId: "task-002",
-          projectId: "proj-timeline",
-          title: "Second Task",
-          status: "in_progress",
-        });
-        yield* taskEntity.insert({
-          taskId: "task-003",
-          projectId: "proj-timeline",
-          title: "Third Task",
-          status: "completed",
-        });
-        yield* taskEntity.insert({
-          taskId: "task-004",
-          projectId: "proj-timeline",
-          title: "Fourth Task",
-          status: "pending",
-        });
-        yield* taskEntity.insert({
-          taskId: "task-005",
-          projectId: "proj-timeline",
-          title: "Fifth Task",
-          status: "in_progress",
-        });
-      }).pipe(Effect.provide(layer)),
-    );
+    // Insert tasks with small delays to ensure unique ISO timestamps
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const tasks = [
+      { taskId: "task-001", projectId: "proj-timeline", title: "First Task", status: "pending" },
+      { taskId: "task-002", projectId: "proj-timeline", title: "Second Task", status: "in_progress" },
+      { taskId: "task-003", projectId: "proj-timeline", title: "Third Task", status: "completed" },
+      { taskId: "task-004", projectId: "proj-timeline", title: "Fourth Task", status: "pending" },
+      { taskId: "task-005", projectId: "proj-timeline", title: "Fifth Task", status: "in_progress" },
+    ];
+    for (const data of tasks) {
+      await sleep(5);
+      await Effect.runPromise(taskEntity.insert(data).pipe(Effect.provide(layer)));
+    }
   });
 
   afterAll(() => db.close());
@@ -1587,6 +1565,9 @@ describe("Timeline Index", () => {
         });
 
         const originalUid = inserted.meta._uid;
+
+        // Small delay to ensure a different ISO timestamp
+        yield* Effect.promise(() => new Promise((r) => setTimeout(r, 5)));
 
         // Update the item
         const updated = yield* taskEntity.update(
