@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Effect, Schema } from "effect";
+import { Effect, Schema, SubscriptionRef } from "effect";
 import { ESchema } from "@std-toolkit/eschema";
 import { EntityType } from "@std-toolkit/core";
 import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
@@ -27,66 +27,39 @@ const createEntity = (
 });
 
 describe("stdCollectionOptions", () => {
-  const createSubscriptionConfig = () =>
+  const createConfig = () =>
     stdCollectionOptions({
       schema: TestSchema,
-      cache: Effect.runSync(MemoryCacheEntity.make({ eschema: TestSchema })),
-      sync: () => ({ mode: "subscription" as const, effect: () => Effect.void }),
-      onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
+      cache: MemoryCacheEntity.make({ eschema: TestSchema }),
+      getMore: () => Effect.succeed([]),
+      onInsert: (item) =>
+        Effect.succeed(createEntity({ ...item, id: "generated-id" })),
     });
 
-  const createQueryConfig = () =>
-    stdCollectionOptions({
-      schema: TestSchema,
-      cache: Effect.runSync(MemoryCacheEntity.make({ eschema: TestSchema })),
-      sync: () => ({ mode: "query" as const, getMore: () => Effect.succeed([]) }),
-      onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
-    });
-
-  const createCacheConfig = () =>
-    stdCollectionOptions({
-      schema: TestSchema,
-      cache: Effect.runSync(MemoryCacheEntity.make({ eschema: TestSchema })),
-      sync: () => ({ mode: "cache" as const }),
-      onInsert: (item) => Effect.succeed(createEntity({ ...item, id: "generated-id" })),
-    });
-
-  it("returns config with required properties for subscription mode", () => {
-    const config = createSubscriptionConfig();
+  it("returns config with required properties", () => {
+    const config = createConfig();
 
     expect(config.schema).toBe(TestSchema);
     expect(typeof config.getKey).toBe("function");
     expect(typeof config.sync.sync).toBe("function");
-
-    const utils = config.utils!;
-    expect(typeof utils.upsert).toBe("function");
-    expect(typeof utils.schema).toBe("function");
     expect(typeof config.compare).toBe("function");
     expect(typeof config.onInsert).toBe("function");
     expect(typeof config.onUpdate).toBe("function");
   });
 
-  it("returns config with sync utils for query mode", () => {
-    const config = createQueryConfig();
+  it("returns config with all utils", () => {
+    const config = createConfig();
 
     const utils = config.utils!;
     expect(typeof utils.upsert).toBe("function");
     expect(typeof utils.schema).toBe("function");
     expect(typeof utils.fetch).toBe("function");
     expect(typeof utils.fetchAll).toBe("function");
-    expect(typeof utils.isSyncing).toBe("function");
-  });
-
-  it("returns config with base utils for cache mode", () => {
-    const config = createCacheConfig();
-
-    const utils = config.utils!;
-    expect(typeof utils.upsert).toBe("function");
-    expect(typeof utils.schema).toBe("function");
+    expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing).toBe(true);
   });
 
   it("utils.schema() returns the provided schema", () => {
-    const utils = createSubscriptionConfig().utils!;
+    const utils = createConfig().utils!;
     const schema = utils.schema();
 
     expect(schema).toBe(TestSchema);
@@ -95,29 +68,79 @@ describe("stdCollectionOptions", () => {
   });
 
   it("getKey extracts key from item using schema idField", () => {
-    const config = createSubscriptionConfig();
-    const item: TestItem = { id: ("test-123"), name: "Test", updatedAt: "2024-01-01" };
+    const config = createConfig();
+    const item: TestItem = {
+      id: "test-123",
+      name: "Test",
+      updatedAt: "2024-01-01",
+    };
 
     expect(config.getKey(item)).toBe("test-123");
   });
 
   it("compare sorts by _uid timestamp ascending", () => {
-    const compare = createSubscriptionConfig().compare!;
+    const compare = createConfig().compare!;
 
-    const older = { id: ("1"), name: "A", updatedAt: "", _meta: { _v: "v1", _e: "TestEntity", _d: false, _uid: "2024-01-01T00:00:00Z" } };
-    const newer = { id: ("2"), name: "B", updatedAt: "", _meta: { _v: "v1", _e: "TestEntity", _d: false, _uid: "2024-01-02T00:00:00Z" } };
+    const older = {
+      id: "1",
+      name: "A",
+      updatedAt: "",
+      _meta: {
+        _v: "v1",
+        _e: "TestEntity",
+        _d: false,
+        _uid: "2024-01-01T00:00:00Z",
+      },
+    };
+    const newer = {
+      id: "2",
+      name: "B",
+      updatedAt: "",
+      _meta: {
+        _v: "v1",
+        _e: "TestEntity",
+        _d: false,
+        _uid: "2024-01-02T00:00:00Z",
+      },
+    };
 
     expect(compare(older, newer)).toBe(-1);
     expect(compare(newer, older)).toBe(1);
   });
 
   it("compare handles equal timestamps", () => {
-    const compare = createSubscriptionConfig().compare!;
+    const compare = createConfig().compare!;
 
-    const a = { id: ("1"), name: "A", updatedAt: "", _meta: { _v: "v1", _e: "TestEntity", _d: false, _uid: "2024-01-01T00:00:00Z" } };
-    const b = { id: ("2"), name: "B", updatedAt: "", _meta: { _v: "v1", _e: "TestEntity", _d: false, _uid: "2024-01-01T00:00:00Z" } };
+    const a = {
+      id: "1",
+      name: "A",
+      updatedAt: "",
+      _meta: {
+        _v: "v1",
+        _e: "TestEntity",
+        _d: false,
+        _uid: "2024-01-01T00:00:00Z",
+      },
+    };
+    const b = {
+      id: "2",
+      name: "B",
+      updatedAt: "",
+      _meta: {
+        _v: "v1",
+        _e: "TestEntity",
+        _d: false,
+        _uid: "2024-01-01T00:00:00Z",
+      },
+    };
 
     expect(compare(a, b)).toBe(1);
+  });
+
+  it("isSyncing is false initially", () => {
+    const config = createConfig();
+    const value = Effect.runSync(SubscriptionRef.get(config.utils!.isSyncing));
+    expect(value).toBe(false);
   });
 });
 
@@ -153,7 +176,7 @@ describe("broadcastCollections", () => {
     const message = {
       _tag: "@std-toolkit/broadcast" as const,
       values: [
-        createEntity({ id: ("1"), name: "Test", updatedAt: "2024-01-01" }),
+        createEntity({ id: "1", name: "Test", updatedAt: "2024-01-01" }),
       ],
     };
 

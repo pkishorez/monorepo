@@ -79,7 +79,7 @@ export interface EntityType<T> {
 /**
  * Input type for insert operations. Omits the internal `_v` field.
  */
-type InsertInput<T, IdField extends string> = Omit<T, "_v">;
+type InsertInput<T> = Omit<T, "_v">;
 
 /**
  * Stored derivation info for a secondary index.
@@ -334,7 +334,7 @@ export class DynamoEntity<
    * @returns The inserted entity with metadata
    */
   insert(
-    value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
+    value: InsertInput<ESchemaType<TSchema>>,
     options?: {
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
@@ -454,7 +454,7 @@ export class DynamoEntity<
    * @returns A transaction item for insert with broadcast data
    */
   insertOp(
-    value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
+    value: InsertInput<ESchemaType<TSchema>>,
     options?: {
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },

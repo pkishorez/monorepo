@@ -10,7 +10,9 @@
       "Bash(pnpm build:*)",
       "Bash(npm run build:*)",
       "Bash(tree:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pnpm test:run:*)",
+      "Bash(pnpm lint:*)"
     ]
   }
 }
