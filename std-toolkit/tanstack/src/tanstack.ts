@@ -1,26 +1,12 @@
 import {
-  Collection,
   CollectionConfig,
   SyncConfig as TanstackSyncConfig,
 } from "@tanstack/react-db";
-import { Effect } from "effect";
+import { Effect, Option, SubscriptionRef } from "effect";
 import { EntityType, MetaSchema } from "@std-toolkit/core";
-import { CacheEntity, serializePartition } from "@std-toolkit/cache";
+import { CacheEntity } from "@std-toolkit/cache";
 import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
 import { AnyESchema, ESchemaIdField } from "@std-toolkit/eschema";
-import {
-  SyncConfig,
-  SyncStrategy,
-  SyncMode,
-  ExtractSyncMode,
-  FetchDirection,
-  SyncTypeFactory,
-  SyncHandle,
-  ExtractSyncParams,
-  createSubscriptionSync,
-  createQuerySync,
-  createCacheSync,
-} from "./strategies/index.js";
 
 export type CollectionItem<T> = T & {
   _meta?: typeof MetaSchema.Type;
@@ -30,66 +16,23 @@ type UpsertInput<TSchema extends AnyESchema> =
   | EntityType<TSchema["Type"]>
   | EntityType<TSchema["Type"]>[];
 
-type BaseCollectionUtils<TSchema extends AnyESchema> = {
+export type CollectionUtils<TSchema extends AnyESchema = AnyESchema> = {
   upsert: (item: UpsertInput<TSchema>, persist?: boolean) => void;
   schema: () => TSchema;
+  fetch: () => Effect.Effect<number>;
+  fetchAll: () => Effect.Effect<number>;
+  isSyncing: SubscriptionRef.SubscriptionRef<boolean>;
 };
-
-type QueryCollectionUtils<TSchema extends AnyESchema> =
-  BaseCollectionUtils<TSchema> & {
-    fetch: (direction: "newer" | "older") => Effect.Effect<number>;
-    fetchAll: (direction: FetchDirection) => Effect.Effect<number>;
-    isSyncing: () => boolean;
-  };
-
-type SubscriptionCollectionUtils<TSchema extends AnyESchema> =
-  BaseCollectionUtils<TSchema>;
-
-type CacheCollectionUtils<TSchema extends AnyESchema> =
-  BaseCollectionUtils<TSchema>;
-
-type SyncMethodUtils<
-  TItem extends object,
-  TSyncs extends Record<string, SyncTypeFactory<TItem>>,
-> = [keyof TSyncs] extends [never]
-  ? {}
-  : {
-      sync: <K extends keyof TSyncs & string>(
-        name: K,
-        params: ExtractSyncParams<TSyncs[K]>,
-      ) => SyncHandle;
-    };
-
-export type CollectionUtils<
-  TSchema extends AnyESchema = AnyESchema,
-  TMode extends SyncMode = SyncMode,
-  TSyncs extends Record<string, SyncTypeFactory<TSchema["Type"]>> = {},
-> = (TMode extends "query"
-  ? QueryCollectionUtils<TSchema>
-  : TMode extends "subscription"
-    ? SubscriptionCollectionUtils<TSchema>
-    : CacheCollectionUtils<TSchema>) &
-  SyncMethodUtils<TSchema["Type"], TSyncs>;
 
 interface StdCollectionConfig<
   TItem extends object,
   TSchema extends AnyESchema,
-  TConfig extends SyncConfig<TItem>,
-  TSyncs extends Record<string, SyncTypeFactory<TItem>> = {},
 > {
   schema: TSchema;
-  cache?: CacheEntity<TItem> | Effect.Effect<CacheEntity<TItem>, unknown>;
-  sync: (value: {
-    collection: Collection<
-      CollectionItem<TItem>,
-      string,
-      CollectionUtils<TSchema, ExtractSyncMode<TConfig>>,
-      TSchema,
-      object
-    >;
-    onReady: () => void;
-  }) => TConfig;
-  syncs?: TSyncs;
+  cache?: Effect.Effect<CacheEntity<TItem>>;
+  getMore: (
+    cursor: EntityType<TItem> | null,
+  ) => Effect.Effect<EntityType<TItem>[]>;
   onInsert: (
     item: Omit<TItem, ESchemaIdField<TSchema>>,
   ) => Effect.Effect<EntityType<TItem>>;
@@ -102,42 +45,28 @@ interface StdCollectionConfig<
   ) => Effect.Effect<EntityType<TItem>>;
 }
 
-export const stdCollectionOptions = <
-  TSchema extends AnyESchema,
-  TConfig extends SyncConfig<TSchema["Type"]>,
-  TSyncs extends Record<string, SyncTypeFactory<TSchema["Type"]>> = {},
->(
-  options: StdCollectionConfig<TSchema["Type"], TSchema, TConfig, TSyncs>,
+export const stdCollectionOptions = <TSchema extends AnyESchema>(
+  options: StdCollectionConfig<TSchema["Type"], TSchema>,
 ): CollectionConfig<
   CollectionItem<TSchema["Type"]>,
   string,
   TSchema,
-  CollectionUtils<TSchema, ExtractSyncMode<TConfig>, TSyncs>
+  CollectionUtils<TSchema>
 > & {
   schema: TSchema;
 } => {
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
-  const {
-    onInsert,
-    cache: providedCache,
-    onUpdate,
-    sync,
-    syncs: syncFactories,
-    schema,
-  } = options;
+  const { onInsert, cache: providedCache, onUpdate, getMore, schema } = options;
+
+  const syncing = Effect.runSync(SubscriptionRef.make(false));
+  const semaphore = Effect.runSync(Effect.makeSemaphore(1));
 
   let resolvedCache: CacheEntity<TItem> | null = null;
-  let strategy: SyncStrategy | null = null;
   let applyToCollection:
     | ((items: EntityType<TItem>[], persist?: boolean) => void)
     | null = null;
-
-  const syncInstances = new Map<
-    string,
-    { strategy: SyncStrategy; handle: SyncHandle }
-  >();
 
   const createApplyToCollection = (
     params: Parameters<TanstackSyncConfig<TCollectionItem, string>["sync"]>[0],
@@ -155,7 +84,7 @@ export const stdCollectionOptions = <
         } as TCollectionItem;
 
         if (persist) {
-          Effect.runPromise(cache.put(item));
+          Effect.runPromise(cache.put(item)).catch(() => {});
         }
 
         if (collection.has(key)) {
@@ -172,144 +101,102 @@ export const stdCollectionOptions = <
     };
   };
 
-  const createStrategy = (
-    syncConfig: SyncConfig<TItem>,
-    context: Parameters<typeof createQuerySync<TItem>>[1],
-  ): SyncStrategy => {
-    switch (syncConfig.mode) {
-      case "subscription":
-        return createSubscriptionSync(syncConfig, context);
-      case "query":
-        return createQuerySync(syncConfig, context);
-      case "cache":
-        return createCacheSync(syncConfig, context);
-    }
-  };
+  const fetchOnePage = (cache: CacheEntity<TItem>) =>
+    Effect.gen(function* () {
+      const latest = yield* cache.getLatest();
+      const items = yield* getMore(Option.getOrNull(latest));
+      if (items.length === 0) return 0;
+      yield* Effect.forEach(items, (item) => cache.put(item), {
+        discard: true,
+      });
+      applyToCollection?.(items, true);
+      return items.length;
+    });
+
+  const withSyncGuard = <A, E>(effect: Effect.Effect<A, E>) =>
+    semaphore.withPermits(1)(
+      Effect.gen(function* () {
+        yield* SubscriptionRef.set(syncing, true);
+        return yield* effect;
+      }).pipe(Effect.ensuring(SubscriptionRef.set(syncing, false))),
+    );
+
+  const fetchAllPages = (cache: CacheEntity<TItem>) =>
+    Effect.gen(function* () {
+      let total = 0;
+
+      while (true) {
+        const beforeUid =
+          Option.getOrNull(yield* cache.getLatest())?.meta._uid ?? null;
+        const count = yield* fetchOnePage(cache);
+        if (count === 0) break;
+
+        const afterUid =
+          Option.getOrNull(yield* cache.getLatest())?.meta._uid ?? null;
+        if (afterUid === beforeUid) {
+          console.error(
+            "[std-toolkit/tanstack] Infinite loop detected: cursor did not advance",
+          );
+          break;
+        }
+
+        total += count;
+      }
+
+      return total;
+    });
 
   const tanstackSync: TanstackSyncConfig<TCollectionItem, string> = {
     sync: (params) => {
-      const { collection, markReady } = params;
+      const { markReady } = params;
 
       const initEffect = Effect.gen(function* () {
-        // Resolve cache: Effect or direct value or default to MemoryCache
-        const cache: CacheEntity<TItem> = providedCache
-          ? Effect.isEffect(providedCache)
-            ? yield* (providedCache as Effect.Effect<CacheEntity<TItem>, unknown>)
-            : providedCache
-          : yield* MemoryCacheEntity.make({ eschema: schema });
+        const cache: CacheEntity<TItem> = yield* providedCache ??
+          MemoryCacheEntity.make({ eschema: schema });
 
         resolvedCache = cache;
         applyToCollection = createApplyToCollection(params, cache);
 
-        const syncConfig = sync({
-          collection,
-          onReady: markReady,
-        });
+        const cachedItems = yield* cache.getAll();
+        if (cachedItems.length > 0) {
+          applyToCollection(cachedItems);
+          markReady();
+        }
 
-        strategy = createStrategy(syncConfig, {
-          cache,
-          applyToCollection,
-          markReady,
-        });
-
-        yield* strategy.initialize();
+        yield* withSyncGuard(fetchAllPages(cache));
+        markReady();
       });
 
-      Effect.runPromise(initEffect);
+      const cancel = Effect.runCallback(initEffect);
 
       return () => {
-        strategy?.cleanup?.();
-        for (const { strategy: s } of syncInstances.values()) {
-          s.cleanup?.();
-        }
-        syncInstances.clear();
+        cancel();
+        Effect.runSync(SubscriptionRef.set(syncing, false));
+        resolvedCache = null;
+        applyToCollection = null;
       };
     },
   };
-
-  type TMode = ExtractSyncMode<TConfig>;
-  type Utils = CollectionUtils<TSchema, TMode, TSyncs>;
 
   const upsert = (input: UpsertInput<TSchema>, persist?: boolean) => {
     const items = Array.isArray(input) ? input : [input];
     applyToCollection?.(items, persist);
   };
 
-  const baseUtils: BaseCollectionUtils<TSchema> = {
+  const guardedFetch = (
+    fn: (cache: CacheEntity<TItem>) => Effect.Effect<number, unknown>,
+  ): Effect.Effect<number> => {
+    if (!resolvedCache) return Effect.succeed(0);
+    return withSyncGuard(fn(resolvedCache)).pipe(Effect.orDie);
+  };
+
+  const utils: CollectionUtils<TSchema> = {
     upsert,
     schema: () => schema,
+    fetch: () => guardedFetch(fetchOnePage),
+    fetchAll: () => guardedFetch(fetchAllPages),
+    isSyncing: syncing,
   };
-
-  const queryUtils: QueryCollectionUtils<TSchema> = {
-    ...baseUtils,
-    fetch: (direction) => {
-      if (!strategy) {
-        return Effect.succeed(0);
-      }
-      return strategy.fetch(direction).pipe(Effect.orDie);
-    },
-    fetchAll: (direction) => {
-      if (!strategy) {
-        return Effect.succeed(0);
-      }
-      return strategy.fetchAll(direction).pipe(Effect.orDie);
-    },
-    isSyncing: () => {
-      if (!strategy) {
-        return false;
-      }
-      return strategy.isSyncing();
-    },
-  };
-
-  const syncMethod = syncFactories
-    ? <K extends keyof TSyncs & string>(
-        name: K,
-        params: ExtractSyncParams<TSyncs[K]>,
-      ): SyncHandle => {
-        const key = `${name}#${serializePartition(params as Record<string, string>)}`;
-
-        const existing = syncInstances.get(key);
-        if (existing) return existing.handle;
-
-        const factory = syncFactories[name]!;
-        const config = factory(params);
-        const scopedCache = config.cache ?? Effect.runSync(MemoryCacheEntity.make({ eschema: schema }));
-
-        const scopedApply = (items: EntityType<TItem>[]) => {
-          applyToCollection?.(items, false);
-        };
-
-        const scopedStrategy = createQuerySync(
-          { mode: "query", getMore: config.getMore },
-          {
-            cache: scopedCache,
-            applyToCollection: scopedApply,
-            markReady: () => {},
-          },
-        );
-
-        const handle: SyncHandle = {
-          fetch: (direction) =>
-            scopedStrategy.fetch(direction).pipe(Effect.orDie),
-          fetchAll: (direction) =>
-            scopedStrategy.fetchAll(direction).pipe(Effect.orDie),
-          isSyncing: () => scopedStrategy.isSyncing(),
-          dispose: () => {
-            scopedStrategy.cleanup?.();
-            syncInstances.delete(key);
-          },
-        };
-
-        syncInstances.set(key, { strategy: scopedStrategy, handle });
-        return handle;
-      }
-    : undefined;
-
-  const utils = {
-    ...queryUtils,
-    ...(syncMethod ? { sync: syncMethod } : {}),
-  } as unknown as Utils;
 
   return {
     schema: schema["~standard"] ? schema : (undefined as any),
