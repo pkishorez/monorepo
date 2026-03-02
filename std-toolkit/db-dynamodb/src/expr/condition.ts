@@ -14,6 +14,16 @@ export type CompiledConditionOperation<T = any> = {
 };
 
 /**
+ * A reference to another field, used for field-to-field comparisons.
+ *
+ * @typeParam T - The entity type this reference operates on
+ */
+export type FieldRef<T = any> = {
+  readonly type: "field_ref";
+  readonly key: ValidPaths<T>;
+};
+
+/**
  * A comparison condition operation (=, <>, <, <=, >, >=).
  *
  * @typeParam T - The entity type this condition operates on
@@ -22,7 +32,7 @@ export type CondOperation<T = any> = {
   type: "condition_condition";
   key: ValidPaths<T>;
   op: "=" | "<>" | "<" | "<=" | ">" | ">=";
-  value: any;
+  value: any | FieldRef<T>;
 };
 
 /**
@@ -97,11 +107,14 @@ type ValidConditionKeys<T> = T extends any
  * @typeParam T - The entity type the conditions operate on
  */
 type ConditionOps<T> = {
+  /** Creates a reference to another field for field-to-field comparisons */
+  ref: <Key extends ValidConditionKeys<T>>(key: Key) => FieldRef<T>;
+
   /** Creates a comparison condition */
   cond: <Key extends ValidConditionKeys<T>>(
     key: Key,
     op: "=" | "<>" | "<" | "<=" | ">" | ">=",
-    value: Get<T, Key>,
+    value: Get<T, Key> | FieldRef<T>,
   ) => CondOperation;
 
   /** Combines conditions with logical AND */
@@ -121,10 +134,16 @@ type ConditionOps<T> = {
   ) => AttributeExistsOperation;
 };
 
+function ref<T, Key extends ValidPaths<T> = ValidPaths<T>>(
+  key: Key,
+): FieldRef<T> {
+  return { type: "field_ref", key };
+}
+
 function cond<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   key: Key,
   op: "=" | "<>" | "<" | "<=" | ">" | ">=",
-  value: Get<T, Key>,
+  value: Get<T, Key> | FieldRef<T>,
 ): CondOperation<T> {
   return { type: "condition_condition", key, op, value };
 }
@@ -170,6 +189,7 @@ export function exprCondition<T>(
   builder: (ops: ConditionOps<T>) => AnyCondition<T>,
 ): ConditionOperation<T> {
   return builder({
+    ref: (key) => ref<any>(key as any),
     cond: (key, op, value) => cond<any>(key as any, op, value),
     and: (...ops: AnyCondition<T>[]) => and<T>(...ops),
     or: (...ops: AnyCondition<T>[]) => or<T>(...ops),
@@ -206,8 +226,14 @@ export function compileConditionExpr<T>(
 
   function compile(op: AnyCondition<T>): string {
     switch (op.type) {
-      case "condition_condition":
-        return `${attrBuilder.attr(op.key)} ${op.op} ${attrBuilder.value(op.value)}`;
+      case "condition_condition": {
+        const left = attrBuilder.attr(op.key);
+        const right =
+          op.value?.type === "field_ref"
+            ? attrBuilder.attr(op.value.key)
+            : attrBuilder.value(op.value);
+        return `${left} ${op.op} ${right}`;
+      }
       case "condition_and": {
         const exprs = op.conditions.map(compile);
         return `${exprs.join(" AND ")}`;

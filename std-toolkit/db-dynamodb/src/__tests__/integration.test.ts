@@ -1297,6 +1297,36 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           expect(result.Attributes?.flagged).toBe(true);
         }),
       );
+
+      it.effect("compares two fields using ref()", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: "COND_EXPR#7",
+            sk: "ITEM#1",
+            score: 80,
+            threshold: 50,
+          });
+
+          yield* table.putItem({
+            pk: "COND_EXPR#7",
+            sk: "ITEM#2",
+            score: 30,
+            threshold: 50,
+          });
+
+          const filter = exprFilter<{ score: number; threshold: number }>(
+            ($) => $.cond("score", ">", $.ref("threshold")),
+          );
+
+          const result = yield* table.query(
+            { pk: "COND_EXPR#7" },
+            { filter },
+          );
+
+          expect(result.Items).toHaveLength(1);
+          expect(result.Items?.[0]?.sk).toBe("ITEM#1");
+        }),
+      );
     });
 
     describe("updateExpr", () => {

@@ -10,6 +10,7 @@ export {
   compileConditionExpr,
   type ConditionOperation,
   type CompiledConditionOperation,
+  type FieldRef,
 } from "./condition.js";
 
 export {
