@@ -93,6 +93,16 @@ type AnyCondition<T = any> =
 export type ConditionOperation<T = any> = AnyCondition<T>;
 
 /**
+ * Accepts either a pre-built condition or a builder callback.
+ * Enables `condition: $ => $.cond(...)` shorthand.
+ *
+ * @typeParam T - The entity type this condition operates on
+ */
+export type ConditionInput<T = any> =
+  | ConditionOperation<T>
+  | ((ops: ConditionOps<T>) => AnyCondition<T>);
+
+/**
  * Valid keys for condition operations, handling any types.
  */
 type ValidConditionKeys<T> = T extends any
@@ -210,6 +220,16 @@ export function exprFilter<T>(
   builder: (ops: ConditionOps<T>) => AnyCondition<T>,
 ): ConditionOperation<T> {
   return exprCondition(builder);
+}
+
+/**
+ * Resolves a ConditionInput to a ConditionOperation.
+ * If the input is a function, it is called via exprCondition.
+ */
+export function resolveCondition<T>(
+  input: ConditionInput<T>,
+): ConditionOperation<T> {
+  return typeof input === "function" ? exprCondition<T>(input) : input;
 }
 
 /**

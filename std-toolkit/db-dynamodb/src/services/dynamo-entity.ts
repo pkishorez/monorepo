@@ -21,7 +21,12 @@ import {
   type ConditionExprResult,
   type UpdateExprResult,
 } from "../expr/build-expr.js";
-import { exprCondition, type ConditionOperation } from "../expr/condition.js";
+import {
+  exprCondition,
+  resolveCondition,
+  type ConditionOperation,
+  type ConditionInput,
+} from "../expr/condition.js";
 import { exprUpdate, type UpdateOps, type AnyOperation } from "../expr/update.js";
 import type { SortKeyparameter } from "../expr/key-condition.js";
 
@@ -363,7 +368,7 @@ export class DynamoEntity<
   insert(
     value: InsertInput<ESchemaType<TSchema>>,
     options?: {
-      condition?: ConditionOperation<ESchemaType<TSchema>>;
+      condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
@@ -410,7 +415,7 @@ export class DynamoEntity<
       | Partial<Omit<ESchemaType<TSchema>, "_v">>
       | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]),
     options?: {
-      condition?: ConditionOperation<ESchemaType<TSchema>>;
+      condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
@@ -485,7 +490,7 @@ export class DynamoEntity<
   insertOp(
     value: InsertInput<ESchemaType<TSchema>>,
     options?: {
-      condition?: ConditionOperation<ESchemaType<TSchema>>;
+      condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
@@ -524,7 +529,7 @@ export class DynamoEntity<
       | Partial<Omit<ESchemaType<TSchema>, "_v">>
       | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]),
     options?: {
-      condition?: ConditionOperation<ESchemaType<TSchema>>;
+      condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
@@ -961,7 +966,7 @@ export class DynamoEntity<
 
   #prepareInsert(
     fullValue: ESchemaType<TSchema>,
-    condition?: ConditionOperation<ESchemaType<TSchema>>,
+    condition?: ConditionInput<ESchemaType<TSchema>>,
   ): Effect.Effect<
     {
       item: Record<string, unknown>;
@@ -997,11 +1002,13 @@ export class DynamoEntity<
         ...indexMap,
       };
 
+      const resolvedCondition = condition ? resolveCondition(condition) : undefined;
+
       const exprResult = buildExpr({
         condition: exprCondition(($) =>
           $.and(
             ...([
-              condition,
+              resolvedCondition,
               $.attributeNotExists(this.#table.primary.pk as any),
               $.attributeNotExists(this.#table.primary.sk as any),
             ].filter(Boolean) as ConditionOperation[]),
@@ -1014,14 +1021,14 @@ export class DynamoEntity<
   }
 
   #buildUpdateCondition(
-    userCondition?: ConditionOperation<ESchemaType<TSchema>>,
+    userCondition?: ConditionInput<ESchemaType<TSchema>>,
   ): ConditionOperation {
     const ops: ConditionOperation[] = [
       exprCondition(($) =>
         $.cond("_v" as any, "=", this.#eschema.latestVersion),
       ),
     ];
-    if (userCondition) ops.push(userCondition);
+    if (userCondition) ops.push(resolveCondition(userCondition));
     return exprCondition(($) => $.and(...ops));
   }
 
@@ -1029,7 +1036,7 @@ export class DynamoEntity<
     keyValue: Record<string, unknown>,
     updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
     options?: {
-      condition?: ConditionOperation<ESchemaType<TSchema>>;
+      condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType } {
     const pk = deriveIndexKeyValue(
@@ -1077,7 +1084,7 @@ export class DynamoEntity<
     keyValue: Record<string, unknown>,
     builder: (ops: UpdateOps<any>) => AnyOperation<any>[],
     options?: {
-      condition?: ConditionOperation<ESchemaType<TSchema>>;
+      condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<
     { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType },

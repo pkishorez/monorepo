@@ -1,5 +1,6 @@
 // Public expression builders
 export { exprCondition, exprFilter } from "./condition.js";
+export type { ConditionInput } from "./condition.js";
 
 export { exprUpdate, opAdd, opIfNotExists } from "./update.js";
 
@@ -8,6 +9,7 @@ export { buildExpr } from "./build-expr.js";
 // Internal exports (for internal use only)
 export {
   compileConditionExpr,
+  resolveCondition,
   type ConditionOperation,
   type CompiledConditionOperation,
   type FieldRef,
