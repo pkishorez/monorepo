@@ -11,7 +11,8 @@
       "Bash(npm run build:*)",
       "Bash(npm test:*)",
       "Bash(npm run lint:*)",
-      "Bash(pnpm vitest:*)"
+      "Bash(pnpm vitest:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

@@ -17,6 +17,8 @@ export {
   compileUpdateExpr,
   type UpdateOperation,
   type CompiledUpdateOperation,
+  type UpdateOps,
+  type AnyOperation,
 } from "./update.js";
 
 export {

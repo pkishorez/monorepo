@@ -22,7 +22,7 @@ import {
   type UpdateExprResult,
 } from "../expr/build-expr.js";
 import { exprCondition, type ConditionOperation } from "../expr/condition.js";
-import { exprUpdate } from "../expr/update.js";
+import { exprUpdate, type UpdateOps, type AnyOperation } from "../expr/update.js";
 import type { SortKeyparameter } from "../expr/key-condition.js";
 
 /**
@@ -63,6 +63,22 @@ const isConditionalCheckFailed = (e: DynamodbError): boolean => {
     cause.error.name === "ConditionalCheckFailedException"
   );
 };
+
+/**
+ * Extracts root attribute keys from a (possibly nested) array of update operations.
+ */
+function extractKeysFromOps(ops: any[], out: Set<string> = new Set()): Set<string> {
+  for (const op of ops) {
+    if (Array.isArray(op)) {
+      extractKeysFromOps(op, out);
+    } else if (op && typeof op === "object" && "key" in op) {
+      const key = String(op.key);
+      const dot = key.indexOf(".");
+      out.add(dot === -1 ? key : key.slice(0, dot));
+    }
+  }
+  return out;
+}
 
 /**
  * Represents an entity item with its value and metadata.
@@ -195,6 +211,7 @@ export class DynamoEntity<
   #primaryDerivation: StoredPrimaryDerivation;
   #secondaryDerivations: TSecondaryDerivationMap;
   #timelineDerivation: TTimelineDerivation;
+  #derivationDeps: Set<string>;
 
   #service = Effect.serviceOption(ConnectionService).pipe(
     Effect.andThen(Option.getOrNull),
@@ -218,6 +235,16 @@ export class DynamoEntity<
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = secondaryDerivations;
     this.#timelineDerivation = timelineDerivation;
+
+    const deps = new Set<string>();
+    for (const [, deriv] of Object.entries(secondaryDerivations)) {
+      for (const dep of (deriv as StoredIndexDerivation).pkDeps) deps.add(dep);
+    }
+    if (timelineDerivation) {
+      for (const dep of (timelineDerivation as StoredTimelineDerivation).pkDeps)
+        deps.add(dep);
+    }
+    this.#derivationDeps = deps;
   }
 
   /**
@@ -369,27 +396,29 @@ export class DynamoEntity<
 
   /**
    * Updates an existing entity by its primary key.
+   * Accepts either a plain partial object or an expression builder callback.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity with fields to update
+   * @param updates - Partial entity or expression builder callback
    * @param options - Update options including condition
    * @returns The updated entity with new metadata
    */
   update(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema["idField"]>,
-    updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
+    updates:
+      | Partial<Omit<ESchemaType<TSchema>, "_v">>
+      | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]),
     options?: {
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
     return Effect.gen(function* () {
-      const { pk, sk, exprResult } = self.#prepareUpdate(
-        keyValue as Record<string, unknown>,
-        updates,
-        options,
-      );
+      const { pk, sk, exprResult } =
+        typeof updates === "function"
+          ? yield* self.#prepareUpdateExpr(keyValue as Record<string, unknown>, updates, options)
+          : self.#prepareUpdate(keyValue as Record<string, unknown>, updates, options);
 
       const result = yield* self.#table
         .updateItem({ pk, sk }, { ReturnValues: "ALL_NEW", ...exprResult })
@@ -484,36 +513,35 @@ export class DynamoEntity<
    * Pre-fetches the existing entity to include complete broadcast data.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity with fields to update
+   * @param updates - Partial entity or expression builder callback
    * @param options - Update options including condition
    * @returns A transaction item for update with broadcast data
    */
   updateOp(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema["idField"]>,
-    updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
+    updates:
+      | Partial<Omit<ESchemaType<TSchema>, "_v">>
+      | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]),
     options?: {
       condition?: ConditionOperation<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
     return Effect.gen(this, function* () {
-      // Pre-fetch existing entity to get complete data for broadcast
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
       }
 
-      const { pk, sk, exprResult, meta } = this.#prepareUpdate(
-        keyValue as Record<string, unknown>,
-        updates,
-        options,
-      );
+      const { pk, sk, exprResult, meta } =
+        typeof updates === "function"
+          ? yield* this.#prepareUpdateExpr(keyValue as Record<string, unknown>, updates, options)
+          : this.#prepareUpdate(keyValue as Record<string, unknown>, updates, options);
 
-      // Merge existing value with updates for broadcast
-      const mergedValue = {
-        ...existing.value,
-        ...updates,
-      } as ESchemaType<TSchema>;
+      const mergedValue =
+        typeof updates === "function"
+          ? existing.value
+          : ({ ...existing.value, ...updates } as ESchemaType<TSchema>);
 
       const tableOp = this.#table.opUpdateItem({ pk, sk }, exprResult);
       return {
@@ -985,6 +1013,18 @@ export class DynamoEntity<
     });
   }
 
+  #buildUpdateCondition(
+    userCondition?: ConditionOperation<ESchemaType<TSchema>>,
+  ): ConditionOperation {
+    const ops: ConditionOperation[] = [
+      exprCondition(($) =>
+        $.cond("_v" as any, "=", this.#eschema.latestVersion),
+      ),
+    ];
+    if (userCondition) ops.push(userCondition);
+    return exprCondition(($) => $.and(...ops));
+  }
+
   #prepareUpdate(
     keyValue: Record<string, unknown>,
     updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
@@ -1016,14 +1056,7 @@ export class DynamoEntity<
       _d: (updates as any)._d ?? false,
     };
 
-    const conditionOps: ConditionOperation[] = [
-      exprCondition(($) =>
-        $.cond("_v" as any, "=", this.#eschema.latestVersion),
-      ),
-    ];
-    if (options?.condition) conditionOps.push(options.condition);
-
-    const condition = exprCondition(($) => $.and(...conditionOps));
+    const condition = this.#buildUpdateCondition(options?.condition);
 
     const update = exprUpdate<any>(($) => [
       ...Object.entries({ ...updates, ...indexMap }).map(([key, v]) =>
@@ -1039,6 +1072,55 @@ export class DynamoEntity<
 
     return { pk, sk, exprResult, meta };
   }
+
+  #prepareUpdateExpr(
+    keyValue: Record<string, unknown>,
+    builder: (ops: UpdateOps<any>) => AnyOperation<any>[],
+    options?: {
+      condition?: ConditionOperation<ESchemaType<TSchema>>;
+    },
+  ): Effect.Effect<
+    { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType },
+    DynamodbError
+  > {
+    return Effect.gen(this, function* () {
+      const { pk, sk } = this.#derivePrimaryIndex(keyValue);
+
+      const userOps = exprUpdate<any>(builder);
+      const touchedKeys = extractKeysFromOps(userOps);
+
+      for (const key of touchedKeys) {
+        if (this.#derivationDeps.has(key)) {
+          return yield* Effect.fail(
+            DynamodbError.updateItemFailed(
+              `Cannot use expression builder to update "${key}" because it is a derivation dependency. Use a plain partial update instead.`,
+            ),
+          );
+        }
+      }
+
+      const _uid = new Date().toISOString();
+
+      const meta: MetaType = {
+        _e: this.#eschema.name,
+        _v: this.#eschema.latestVersion,
+        _uid,
+        _d: false,
+      };
+
+      const condition = this.#buildUpdateCondition(options?.condition);
+
+      const update = exprUpdate<any>(($) => [...userOps, $.set("_uid", _uid)]);
+
+      const exprResult = buildExpr({
+        update,
+        condition,
+      });
+
+      return { pk, sk, exprResult, meta };
+    });
+  }
+
 }
 
 /**
