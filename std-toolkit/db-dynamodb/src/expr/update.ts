@@ -59,7 +59,7 @@ type IfNotExistsOp<T, Key extends ValidPaths<T> = ValidPaths<T>> = {
  */
 type SetAppendOperation<
   T,
-  Path extends ValidPathsWithCond<T, any[]> = ValidPathsWithCond<T, any[]>,
+  Path extends ValidPathsWithCond<T, readonly any[]> = ValidPathsWithCond<T, readonly any[]>,
 > = {
   type: "update_set_append";
   key: Path;
@@ -74,7 +74,7 @@ type SetAppendOperation<
  */
 type SetPrependOperation<
   T,
-  Path extends ValidPathsWithCond<T, any[]> = ValidPathsWithCond<T, any[]>,
+  Path extends ValidPathsWithCond<T, readonly any[]> = ValidPathsWithCond<T, readonly any[]>,
 > = {
   type: "update_set_prepend";
   key: Path;
@@ -84,7 +84,7 @@ type SetPrependOperation<
 /**
  * Union of all possible update operation types.
  */
-type AnyOperation<T> =
+export type AnyOperation<T> =
   | SetOperation<T>
   | SetAppendOperation<T>
   | SetPrependOperation<T>
@@ -102,7 +102,7 @@ export type UpdateOperation<T = any> = AnyOperation<T>[];
  *
  * @typeParam T - The entity type the updates operate on
  */
-type UpdateOps<T> = {
+export type UpdateOps<T> = {
   /** Sets an attribute to a value, optionally with add or if_not_exists modifiers */
   set: <Key extends ValidPaths<T>>(
     key: Key,
@@ -122,13 +122,13 @@ type UpdateOps<T> = {
   ) => IfNotExistsOp<T, Key>;
 
   /** Appends values to the end of a list attribute */
-  append: <Path extends ValidPathsWithCond<T, any[]>>(
+  append: <Path extends ValidPathsWithCond<T, readonly any[]>>(
     key: Path,
     value: Get<T, Path>,
   ) => SetAppendOperation<T, Path>;
 
   /** Prepends values to the beginning of a list attribute */
-  prepend: <Path extends ValidPathsWithCond<T, any[]>>(
+  prepend: <Path extends ValidPathsWithCond<T, readonly any[]>>(
     key: Path,
     value: Get<T, Path>,
   ) => SetPrependOperation<T, Path>;
@@ -174,14 +174,14 @@ export function opIfNotExists<T, Key extends ValidPaths<T>>(
 
 function append<
   T,
-  Path extends ValidPathsWithCond<T, any[]> = ValidPathsWithCond<T, any[]>,
+  Path extends ValidPathsWithCond<T, readonly any[]> = ValidPathsWithCond<T, readonly any[]>,
 >(key: Path, value: Get<T, Path>): SetAppendOperation<T, Path> {
   return { type: "update_set_append", key, value };
 }
 
 function prepend<
   T,
-  Path extends ValidPathsWithCond<T, any[]> = ValidPathsWithCond<T, any[]>,
+  Path extends ValidPathsWithCond<T, readonly any[]> = ValidPathsWithCond<T, readonly any[]>,
 >(key: Path, value: Get<T, Path>): SetPrependOperation<T, Path> {
   return { type: "update_set_prepend", key, value };
 }
