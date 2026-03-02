@@ -66,6 +66,30 @@ describe("@std-toolkit/db-dynamodb", () => {
 
       expect(compiled.ConditionExpression).toContain(">");
     });
+
+    it("creates field-to-field condition with ref()", () => {
+      const condition = exprCondition<{ fieldA: number; fieldB: number }>(($) =>
+        $.cond("fieldA", "<", $.ref("fieldB")),
+      );
+      expect(condition.type).toBe("condition_condition");
+      if (condition.type === "condition_condition") {
+        expect(condition.value).toEqual({
+          type: "field_ref",
+          key: "fieldB",
+        });
+      }
+    });
+
+    it("compiles field-to-field condition to use attr names (not values)", () => {
+      const condition = exprCondition<{ fieldA: number; fieldB: number }>(($) =>
+        $.cond("fieldA", "<", $.ref("fieldB")),
+      );
+      const compiled = buildExpr({ condition });
+
+      expect(compiled.ConditionExpression).toContain("<");
+      expect(compiled.ConditionExpression).not.toContain(":");
+      expect(compiled.ExpressionAttributeValues).toBeUndefined();
+    });
   });
 
   describe("exprUpdate", () => {
