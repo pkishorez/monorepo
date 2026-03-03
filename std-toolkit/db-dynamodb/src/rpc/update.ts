@@ -29,7 +29,7 @@ export const makeUpdateHandler = <
     const typedPayload = payload as unknown as { updates: Record<string, unknown> } & Record<string, unknown>;
     const id = typedPayload[idField as string] as string;
     const keyValue = { [idField]: id } as any;
-    return (entity.update(keyValue, typedPayload.updates as any) as Effect.Effect<Result, DynamodbError>).pipe(
+    return (entity.update(keyValue, { update: typedPayload.updates as any }) as Effect.Effect<Result, DynamodbError>).pipe(
       Effect.mapError(mapError),
     );
   };

@@ -118,7 +118,7 @@ describe("Entity update with expression builder", () => {
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
         { teamId: "team-1", playerId: "player-1" },
-        ($) => [$.set("score", $.opAdd("score", 10))],
+        { update: ($) => [$.set("score", $.opAdd("score", 10))] },
       );
       expect(result.value.score).toBe(110);
     }),
@@ -128,7 +128,7 @@ describe("Entity update with expression builder", () => {
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
         { teamId: "team-1", playerId: "player-1" },
-        ($) => [$.set("loginCount", $.opIfNotExists("loginCount", 0))],
+        { update: ($) => [$.set("loginCount", $.opIfNotExists("loginCount", 0))] },
       );
       expect(result.value.loginCount).toBe(5);
     }),
@@ -138,7 +138,7 @@ describe("Entity update with expression builder", () => {
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
         { teamId: "team-1", playerId: "player-1" },
-        ($) => [$.append("tags", ["admin"])],
+        { update: ($) => [$.append("tags", ["admin"])] },
       );
       expect(result.value.tags).toEqual(["member", "admin"]);
     }),
@@ -148,7 +148,7 @@ describe("Entity update with expression builder", () => {
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
         { teamId: "team-1", playerId: "player-1" },
-        ($) => [$.prepend("history", [{ action: "login" }])],
+        { update: ($) => [$.prepend("history", [{ action: "login" }])] },
       );
       expect(result.value.history[0]).toEqual({ action: "login" });
       expect(result.value.history[1]).toEqual({ action: "joined" });
@@ -164,10 +164,10 @@ describe("Entity update with expression builder", () => {
 
       const result = yield* PlayerEntity.update(
         { teamId: "team-1", playerId: "player-1" },
-        ($) => [
+        { update: ($) => [
           $.set("score", $.opAdd("score", 5)),
           $.append("tags", ["vip"]),
-        ],
+        ] },
       );
 
       expect(result.value.score).toBe(before!.value.score + 5);
@@ -184,7 +184,7 @@ describe("Entity update with expression builder", () => {
 
       const result = yield* PlayerEntity.update(
         { teamId: "team-1", playerId: "player-1" },
-        ($) => [$.set("score", $.opAdd("score", 1))],
+        { update: ($) => [$.set("score", $.opAdd("score", 1))] },
       );
 
       expect(result.meta._uid).not.toBe(before!.meta._uid);
@@ -195,7 +195,7 @@ describe("Entity update with expression builder", () => {
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
         { teamId: "team-1", playerId: "player-1" },
-        ($) => [$.set("name" as any, "Bob" as any)],
+        { update: ($) => [$.set("name" as any, "Bob" as any)] },
       ).pipe(Effect.flip);
 
       expect(result).toBeInstanceOf(DynamodbError);
@@ -208,7 +208,7 @@ describe("Entity update with expression builder", () => {
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
         { teamId: "team-1", playerId: "player-1" },
-        { score: 999 },
+        { update: { score: 999 } },
       );
       expect(result.value.score).toBe(999);
     }),

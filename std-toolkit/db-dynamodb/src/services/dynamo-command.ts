@@ -144,7 +144,7 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
       const startedAt = Date.now();
       const entity = self.#getEntity(payload.entity);
 
-      const result = yield* entity.update(payload.key as any, payload.data as any).pipe(
+      const result = yield* entity.update(payload.key as any, { update: payload.data as any }).pipe(
         Effect.mapError((e) =>
           new CommandErrorClass({
             operation: "update",

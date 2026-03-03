@@ -108,7 +108,7 @@ describe("DynamoDB Error Handling", () => {
       Effect.gen(function* () {
         const error = yield* UserEntity.update(
           { userId: "non-existent-id" },
-          { name: "Updated Name" },
+          { update: { name: "Updated Name" } },
         ).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(DynamodbError);
@@ -124,7 +124,7 @@ describe("DynamoDB Error Handling", () => {
 
         yield* UserEntity.update(
           { userId: userId },
-          { name: "Updated Once" },
+          { update: { name: "Updated Once" } },
         );
 
         const result = yield* UserEntity.get({ userId: userId });
