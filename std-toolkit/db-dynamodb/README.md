@@ -286,22 +286,20 @@ const program = Effect.gen(function* () {
   });
 
   // Simple update - _i auto-increments, _u auto-updates
-  const updated = yield* UserEntity.update({ id: "456" }, { name: "Robert" });
+  const updated = yield* UserEntity.update({ id: "456" }, { update: { name: "Robert" } });
   console.log(updated.meta._i); // 1
 
   // Optimistic locking - pass expected _i value
   const result = yield* UserEntity.update(
     { id: "456" },
-    { email: "robert@example.com" },
-    { meta: { _i: updated.meta._i } },
+    { update: { email: "robert@example.com" }, meta: { _i: updated.meta._i } },
   );
   console.log(result.meta._i); // 2
 
   // If someone else updated, this fails
   const stale = yield* UserEntity.update(
     { id: "456" },
-    { name: "Bobby" },
-    { meta: { _i: 0 } }, // stale version
+    { update: { name: "Bobby" }, meta: { _i: 0 } }, // stale version
   ).pipe(Effect.either);
 
   if (stale._tag === "Left") {
@@ -459,7 +457,7 @@ const program = Effect.gen(function* () {
 
   const updateOp = yield* UserEntity.updateOp(
     { id: "existing-user" },
-    { status: "processed" },
+    { update: { status: "processed" } },
   );
 
   // For DynamoTable, use opPutItem/opUpdateItem

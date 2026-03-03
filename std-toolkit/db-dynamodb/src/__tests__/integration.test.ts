@@ -771,7 +771,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           const result = yield* UserEntity.update(
             { userId: "entity-update-1" },
-            { name: "Updated Name", age: 41 },
+            { update: { name: "Updated Name", age: 41 } },
           );
 
           expect(result.value.name).toBe("Updated Name");
@@ -791,12 +791,12 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           const first = yield* UserEntity.update(
             { userId: "entity-incr-1" },
-            { name: "Update 1" },
+            { update: { name: "Update 1" } },
           );
 
           const second = yield* UserEntity.update(
             { userId: "entity-incr-1" },
-            { name: "Update 2" },
+            { update: { name: "Update 2" } },
           );
 
           // _uid should be different after each update
@@ -817,7 +817,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           // Update with condition succeeds
           const result = yield* UserEntity.update(
             { userId: "entity-lock-1" },
-            { name: "Update 1" },
+            { update: { name: "Update 1" } },
           );
 
           expect(result.value.name).toBe("Update 1");
@@ -983,7 +983,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           const updateOp = yield* UserEntity.updateOp(
             { userId: "txn-existing-1" },
-            { status: "verified" },
+            { update: { status: "verified" } },
           );
 
           yield* table.transact([insertOp, updateOp]);
@@ -1766,7 +1766,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           // Update the item
           const updated = yield* TaskEntity.update(
             { projectId: "proj-update-test", taskId: "task-update-test" },
-            { title: "Updated Title", status: "completed" },
+            { update: { title: "Updated Title", status: "completed" } },
           );
 
           // _uid changes on update (as per the entity design)

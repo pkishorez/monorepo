@@ -404,26 +404,28 @@ export class DynamoEntity<
    * Accepts either a plain partial object or an expression builder callback.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity or expression builder callback
-   * @param options - Update options including condition
+   * @param params - Object containing the update and optional condition
+   * @param params.update - Partial entity or expression builder callback
+   * @param params.condition - Optional condition expression
    * @returns The updated entity with new metadata
    */
   update(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema["idField"]>,
-    updates:
-      | Partial<Omit<ESchemaType<TSchema>, "_v">>
-      | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]),
-    options?: {
+    params: {
+      update:
+        | Partial<Omit<ESchemaType<TSchema>, "_v">>
+        | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]);
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
+    const { update: updates, condition } = params;
     return Effect.gen(function* () {
       const { pk, sk, exprResult } =
         typeof updates === "function"
-          ? yield* self.#prepareUpdateExpr(keyValue as Record<string, unknown>, updates, options)
-          : self.#prepareUpdate(keyValue as Record<string, unknown>, updates, options);
+          ? yield* self.#prepareUpdateExpr(keyValue as Record<string, unknown>, updates, condition)
+          : self.#prepareUpdate(keyValue as Record<string, unknown>, updates, condition);
 
       const result = yield* self.#table
         .updateItem({ pk, sk }, { ReturnValues: "ALL_NEW", ...exprResult })
@@ -473,7 +475,7 @@ export class DynamoEntity<
         return yield* Effect.fail(DynamodbError.noItemToDelete());
       }
 
-      const result = yield* this.update(keyValue, { _d: true } as any);
+      const result = yield* this.update(keyValue, { update: { _d: true } as any });
 
       return result;
     });
@@ -518,20 +520,22 @@ export class DynamoEntity<
    * Pre-fetches the existing entity to include complete broadcast data.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity or expression builder callback
-   * @param options - Update options including condition
+   * @param params - Object containing the update and optional condition
+   * @param params.update - Partial entity or expression builder callback
+   * @param params.condition - Optional condition expression
    * @returns A transaction item for update with broadcast data
    */
   updateOp(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema["idField"]>,
-    updates:
-      | Partial<Omit<ESchemaType<TSchema>, "_v">>
-      | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]),
-    options?: {
+    params: {
+      update:
+        | Partial<Omit<ESchemaType<TSchema>, "_v">>
+        | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]);
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
+    const { update: updates, condition } = params;
     return Effect.gen(this, function* () {
       const existing = yield* this.get(keyValue);
       if (!existing) {
@@ -540,8 +544,8 @@ export class DynamoEntity<
 
       const { pk, sk, exprResult, meta } =
         typeof updates === "function"
-          ? yield* this.#prepareUpdateExpr(keyValue as Record<string, unknown>, updates, options)
-          : this.#prepareUpdate(keyValue as Record<string, unknown>, updates, options);
+          ? yield* this.#prepareUpdateExpr(keyValue as Record<string, unknown>, updates, condition)
+          : this.#prepareUpdate(keyValue as Record<string, unknown>, updates, condition);
 
       const mergedValue =
         typeof updates === "function"
@@ -1035,9 +1039,7 @@ export class DynamoEntity<
   #prepareUpdate(
     keyValue: Record<string, unknown>,
     updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
-    options?: {
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-    },
+    condition?: ConditionInput<ESchemaType<TSchema>>,
   ): { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType } {
     const pk = deriveIndexKeyValue(
       this.#eschema.name,
@@ -1063,7 +1065,7 @@ export class DynamoEntity<
       _d: (updates as any)._d ?? false,
     };
 
-    const condition = this.#buildUpdateCondition(options?.condition);
+    const builtCondition = this.#buildUpdateCondition(condition);
 
     const update = exprUpdate<any>(($) => [
       ...Object.entries({ ...updates, ...indexMap }).map(([key, v]) =>
@@ -1074,7 +1076,7 @@ export class DynamoEntity<
 
     const exprResult = buildExpr({
       update,
-      condition,
+      condition: builtCondition,
     });
 
     return { pk, sk, exprResult, meta };
@@ -1083,9 +1085,7 @@ export class DynamoEntity<
   #prepareUpdateExpr(
     keyValue: Record<string, unknown>,
     builder: (ops: UpdateOps<any>) => AnyOperation<any>[],
-    options?: {
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-    },
+    condition?: ConditionInput<ESchemaType<TSchema>>,
   ): Effect.Effect<
     { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType },
     DynamodbError
@@ -1115,13 +1115,13 @@ export class DynamoEntity<
         _d: false,
       };
 
-      const condition = this.#buildUpdateCondition(options?.condition);
+      const builtCondition = this.#buildUpdateCondition(condition);
 
       const update = exprUpdate<any>(($) => [...userOps, $.set("_uid", _uid)]);
 
       const exprResult = buildExpr({
         update,
-        condition,
+        condition: builtCondition,
       });
 
       return { pk, sk, exprResult, meta };
@@ -1209,6 +1209,7 @@ class EntityIndexDerivations<
         ...this.#secondaryDerivations,
         [entityIndexName]: newDeriv,
       },
+      this.#timelineDerivation,
     ) as EntityIndexDerivations<
       TTable,
       TSchema,
