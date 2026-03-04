@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect";
-import type { DynamoTableInstance } from "./dynamo-table.js";
+import type { DynamoTable } from "./dynamo-table.js";
 import type { DynamoEntity } from "./dynamo-entity.js";
 import type { TransactItem } from "../types/index.js";
 import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
@@ -17,7 +17,7 @@ type EntityName<T> =
 /**
  * Type for a map of entity names to DynamoEntity instances.
  */
-type EntitiesMap<TTable extends DynamoTableInstance> = Record<
+type EntitiesMap<TTable extends DynamoTable<any, any>> = Record<
   string,
   DynamoEntity<TTable, any, any, any>
 >;
@@ -31,7 +31,7 @@ type EntitiesMap<TTable extends DynamoTableInstance> = Record<
  * @typeParam TEntities - Map of entity names to entity instances
  */
 export class EntityRegistry<
-  TTable extends DynamoTableInstance,
+  TTable extends DynamoTable<any, any>,
   TEntities extends EntitiesMap<TTable>,
 > implements DescriptorProvider {
   /**
@@ -41,7 +41,7 @@ export class EntityRegistry<
    * @param table - The DynamoTable instance
    * @returns A builder to register entities
    */
-  static make<TTable extends DynamoTableInstance>(table: TTable) {
+  static make<TTable extends DynamoTable<any, any>>(table: TTable) {
     return new EntityRegistryBuilder<TTable, {}>(table, {});
   }
 
@@ -127,7 +127,7 @@ export class EntityRegistry<
  * @typeParam TEntities - Map of entity names to entity instances
  */
 class EntityRegistryBuilder<
-  TTable extends DynamoTableInstance,
+  TTable extends DynamoTable<any, any>,
   TEntities extends EntitiesMap<TTable>,
 > {
   #table: TTable;

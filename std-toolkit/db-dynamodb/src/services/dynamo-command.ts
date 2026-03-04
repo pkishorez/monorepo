@@ -20,7 +20,7 @@ import type {
 import { CommandError as CommandErrorClass } from "@std-toolkit/core/command";
 import type { EntityRegistry } from "./entity-registry.js";
 import type { DynamoEntity } from "./dynamo-entity.js";
-import type { DynamoTableInstance } from "./dynamo-table.js";
+import type { DynamoTable } from "./dynamo-table.js";
 import type { SkParam } from "../types/index.js";
 
 /**
@@ -37,7 +37,7 @@ const createTiming = (startedAt: number) => {
 
 type AnyEntity = DynamoEntity<any, any, any, any, any>;
 type AnyEntitiesMap = Record<string, AnyEntity>;
-type AnyRegistry = EntityRegistry<DynamoTableInstance, AnyEntitiesMap>;
+type AnyRegistry = EntityRegistry<DynamoTable<any, any>, AnyEntitiesMap>;
 
 /**
  * DynamoDB command processor for unified CRUD operations.
