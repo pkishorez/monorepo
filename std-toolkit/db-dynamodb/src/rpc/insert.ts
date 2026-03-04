@@ -1,12 +1,12 @@
 import { Effect } from "effect";
 import { StdToolkitError } from "@std-toolkit/core/rpc";
-import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
+import type { AnyEntityESchema, ESchemaType } from "@std-toolkit/eschema";
 import type { EntityType } from "../services/dynamo-entity.js";
 import { DynamodbError } from "../errors.js";
 import { type AnyDynamoEntity, mapError } from "./types.js";
 
 export const makeInsertHandler = <
-  TSchema extends AnyESchema,
+  TSchema extends AnyEntityESchema,
   TEntity extends AnyDynamoEntity<TSchema>,
   P extends string = "",
 >(

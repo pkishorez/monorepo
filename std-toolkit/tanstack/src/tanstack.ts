@@ -6,17 +6,17 @@ import { Effect, Option, SubscriptionRef } from "effect";
 import { EntityType, MetaSchema } from "@std-toolkit/core";
 import { CacheEntity } from "@std-toolkit/cache";
 import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
-import { AnyESchema, ESchemaIdField } from "@std-toolkit/eschema";
+import { AnyEntityESchema, ESchemaIdField } from "@std-toolkit/eschema";
 
 export type CollectionItem<T> = T & {
   _meta?: typeof MetaSchema.Type;
 };
 
-type UpsertInput<TSchema extends AnyESchema> =
+type UpsertInput<TSchema extends AnyEntityESchema> =
   | EntityType<TSchema["Type"]>
   | EntityType<TSchema["Type"]>[];
 
-export type CollectionUtils<TSchema extends AnyESchema = AnyESchema> = {
+export type CollectionUtils<TSchema extends AnyEntityESchema = AnyEntityESchema> = {
   upsert: (item: UpsertInput<TSchema>, persist?: boolean) => void;
   schema: () => TSchema;
   fetch: () => Effect.Effect<number>;
@@ -26,7 +26,7 @@ export type CollectionUtils<TSchema extends AnyESchema = AnyESchema> = {
 
 interface StdCollectionConfig<
   TItem extends object,
-  TSchema extends AnyESchema,
+  TSchema extends AnyEntityESchema,
 > {
   schema: TSchema;
   cache?: Effect.Effect<CacheEntity<TItem>>;
@@ -45,7 +45,7 @@ interface StdCollectionConfig<
   ) => Effect.Effect<EntityType<TItem>>;
 }
 
-export const stdCollectionOptions = <TSchema extends AnyESchema>(
+export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   options: StdCollectionConfig<TSchema["Type"], TSchema>,
 ): CollectionConfig<
   CollectionItem<TSchema["Type"]>,

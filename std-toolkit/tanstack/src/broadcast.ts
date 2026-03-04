@@ -1,10 +1,10 @@
 import { BroadcastSchema, EntityType } from "@std-toolkit/core";
-import { AnyESchema } from "@std-toolkit/eschema";
+import { AnyEntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
 type AnyCollectionUtils = {
   upsert: (item: EntityType<any>, persist?: boolean) => void;
-  schema: () => AnyESchema;
+  schema: () => AnyEntityESchema;
 };
 
 type AnyCollection = { utils: AnyCollectionUtils };
@@ -14,12 +14,12 @@ export const broadcastCollections = () => {
 
   return {
     add: (collection: {
-      utils: { upsert: Function; schema: () => AnyESchema };
+      utils: { upsert: Function; schema: () => AnyEntityESchema };
     }) => {
       collections.push(collection as AnyCollection);
     },
     remove: (collection: {
-      utils: { upsert: Function; schema: () => AnyESchema };
+      utils: { upsert: Function; schema: () => AnyEntityESchema };
     }) => {
       collections = collections.filter((c) => c !== collection);
     },

@@ -1,10 +1,10 @@
 import { Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 
 // =============================================================================
 // User Schema - v1 -> v2 (added bio) -> v3 (added followerCount)
 // =============================================================================
-export const userSchema = ESchema.make("User", "userId", {
+export const userSchema = EntityESchema.make("User", "userId", {
   username: Schema.String,
   email: Schema.String,
   createdAt: Schema.String,
@@ -41,7 +41,7 @@ export const userSchema = ESchema.make("User", "userId", {
 // =============================================================================
 // Post Schema - v1 -> v2 (added tags) -> v3 (added likeCount, viewCount)
 // =============================================================================
-export const postSchema = ESchema.make("Post", "postId", {
+export const postSchema = EntityESchema.make("Post", "postId", {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,
@@ -83,7 +83,7 @@ export const postSchema = ESchema.make("Post", "postId", {
 // =============================================================================
 // Comment Schema - v1 -> v2 (added editedAt)
 // =============================================================================
-export const commentSchema = ESchema.make("Comment", "commentId", {
+export const commentSchema = EntityESchema.make("Comment", "commentId", {
   postId: Schema.String,
   authorId: Schema.String,
   content: Schema.String,

@@ -1,12 +1,12 @@
 import { Effect } from "effect";
 import { StdToolkitError } from "@std-toolkit/core/rpc";
-import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
+import type { AnyEntityESchema, ESchemaType } from "@std-toolkit/eschema";
 import type { EntityType } from "../services/sqlite-entity.js";
 import { SqliteDB, SqliteDBError } from "../sql/db.js";
 import { type AnySQLiteEntity, mapError } from "./types.js";
 
 export const makeDeleteHandler = <
-  TSchema extends AnyESchema,
+  TSchema extends AnyEntityESchema,
   TEntity extends AnySQLiteEntity<TSchema>,
   P extends string = "",
 >(

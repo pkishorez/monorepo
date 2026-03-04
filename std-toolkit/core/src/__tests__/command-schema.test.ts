@@ -361,6 +361,7 @@ describe("Command Response Schemas", () => {
           descriptors: [
             {
               name: "User",
+              idField: "userId",
               version: "v1",
               primaryIndex: {
                 name: "primary",
@@ -545,6 +546,7 @@ describe("Descriptor Schemas", () => {
       Effect.gen(function* () {
         const descriptor = {
           name: "User",
+          idField: "userId",
           version: "v1",
           primaryIndex: {
             name: "primary",
@@ -572,6 +574,7 @@ describe("Descriptor Schemas", () => {
       Effect.gen(function* () {
         const descriptor = {
           name: "Event",
+          idField: "eventId",
           version: "v1",
           primaryIndex: {
             name: "primary",
@@ -597,6 +600,7 @@ describe("Descriptor Schemas", () => {
       Effect.gen(function* () {
         const descriptor = {
           name: "Simple",
+          idField: "id",
           version: "v1",
           primaryIndex: {
             name: "primary",

@@ -1,4 +1,4 @@
-import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
+import type { AnyEntityESchema, ESchemaType } from "@std-toolkit/eschema";
 import { Chunk, Effect, Option, Schema, Stream } from "effect";
 import type { DynamoTable } from "./dynamo-table.js";
 import { ConnectionService } from "@std-toolkit/core/server";
@@ -160,7 +160,7 @@ type ExtractKeys<T, Keys extends readonly (keyof T)[]> = Keys[number];
 export class DynamoEntity<
   TTable extends DynamoTable<any, any>,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
-  TSchema extends AnyESchema,
+  TSchema extends AnyEntityESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TTimelineDerivation extends StoredTimelineDerivation | null = null,
 > {
@@ -180,7 +180,7 @@ export class DynamoEntity<
        * @param eschema - The ESchema instance
        * @returns A builder to configure the primary index derivation
        */
-      eschema<TS extends AnyESchema>(eschema: TS) {
+      eschema<TS extends AnyEntityESchema>(eschema: TS) {
         return {
           /**
            * Defines the primary index derivation fields.
@@ -1135,7 +1135,7 @@ export class DynamoEntity<
  */
 class EntityIndexDerivations<
   TTable extends DynamoTable<any, any>,
-  TSchema extends AnyESchema,
+  TSchema extends AnyEntityESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TTimelineDerivation extends StoredTimelineDerivation | null = null,

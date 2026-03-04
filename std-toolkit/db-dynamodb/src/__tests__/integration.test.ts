@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import {
   DynamoTable,
   DynamoEntity,
@@ -36,7 +36,7 @@ const table = DynamoTable.make(localConfig)
 
 // Schema definitions for entity tests
 // New ESchema API: idField is second parameter
-const userSchema = ESchema.make("User", "userId", {
+const userSchema = EntityESchema.make("User", "userId", {
   name: Schema.String,
   email: Schema.String,
   status: Schema.String,
@@ -53,7 +53,7 @@ const UserEntity = DynamoEntity.make(table)
   .build();
 
 // Order schema for more complex tests
-const orderSchema = ESchema.make("Order", "orderId", {
+const orderSchema = EntityESchema.make("Order", "orderId", {
   userId: Schema.String,
   total: Schema.Number,
   status: Schema.String,
@@ -1506,7 +1506,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
   describe("Timeline Index", () => {
     // Create an entity with timeline index for time-ordered queries
-    const taskSchema = ESchema.make("Task", "taskId", {
+    const taskSchema = EntityESchema.make("Task", "taskId", {
       projectId: Schema.String,
       title: Schema.String,
       status: Schema.String,
@@ -1745,7 +1745,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
     describe("timeline index error handling", () => {
       // Create entity without timeline index to test error path
-      const noTimelineSchema = ESchema.make("NoTimeline", "id", {
+      const noTimelineSchema = EntityESchema.make("NoTimeline", "id", {
         value: Schema.String,
       }).build();
 

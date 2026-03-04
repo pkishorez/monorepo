@@ -1,8 +1,8 @@
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
 // Check what ESchema produces
-const UserSchema = ESchema.make("User", "userId", {
+const UserSchema = EntityESchema.make("User", "userId", {
   email: Schema.String,
   name: Schema.String,
 }).build();

@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "@effect/vitest";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { Effect, Layer, Schema } from "effect";
 import { SqliteDBBetterSqlite3 } from "../../sql/adapters/better-sqlite3.js";
 import { SqliteDB, SqliteDBError } from "../../sql/db.js";
@@ -10,18 +10,18 @@ import { EntityRegistry } from "../entity-registry.js";
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
-const UserSchema = ESchema.make("User", "userId", {
+const UserSchema = EntityESchema.make("User", "userId", {
   email: Schema.String,
   name: Schema.String,
 }).build();
 
-const PostSchema = ESchema.make("Post", "postId", {
+const PostSchema = EntityESchema.make("Post", "postId", {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,
 }).build();
 
-const CommentSchema = ESchema.make("Comment", "commentId", {
+const CommentSchema = EntityESchema.make("Comment", "commentId", {
   postId: Schema.String,
   timestamp: Schema.String,
   text: Schema.String,
@@ -554,7 +554,7 @@ describe("Query Operators", () => {
     .index("IDX1", "IDX1PK", "IDX1SK")
     .build();
 
-  const ItemSchema = ESchema.make("Item", "itemId", {
+  const ItemSchema = EntityESchema.make("Item", "itemId", {
     category: Schema.String,
     value: Schema.Number,
   }).build();
@@ -957,7 +957,7 @@ describe("Subscribe", () => {
     .index("IDX2", "IDX2PK", "IDX2SK")
     .build();
 
-  const EventSchema = ESchema.make("Event", "eventId", {
+  const EventSchema = EntityESchema.make("Event", "eventId", {
     streamId: Schema.String,
     data: Schema.String,
   }).build();
@@ -1056,7 +1056,7 @@ describe("Transactions Advanced", () => {
     .primary("pk", "sk")
     .build();
 
-  const CounterSchema = ESchema.make("Counter", "counterId", {
+  const CounterSchema = EntityESchema.make("Counter", "counterId", {
     count: Schema.Number,
   }).build();
 
@@ -1171,7 +1171,7 @@ describe("SQLite Entity Edge Cases", () => {
     .primary("pk", "sk")
     .build();
 
-  const SimpleSchema = ESchema.make("Simple", "simpleId", {
+  const SimpleSchema = EntityESchema.make("Simple", "simpleId", {
     value: Schema.Number,
   }).build();
 
@@ -1289,7 +1289,7 @@ describe("Timeline Index", () => {
     .index("IDX1", "IDX1PK", "IDX1SK")
     .build();
 
-  const TaskSchema = ESchema.make("Task", "taskId", {
+  const TaskSchema = EntityESchema.make("Task", "taskId", {
     projectId: Schema.String,
     title: Schema.String,
     status: Schema.String,
@@ -1517,7 +1517,7 @@ describe("Timeline Index", () => {
       .primary("pk", "sk")
       .build();
 
-    const NoTimelineSchema = ESchema.make("NoTimeline", "id", {
+    const NoTimelineSchema = EntityESchema.make("NoTimeline", "id", {
       value: Schema.String,
     }).build();
 
@@ -1667,7 +1667,7 @@ describe("Multiple Secondary Indexes", () => {
     .index("IDX2", "IDX2PK", "IDX2SK")
     .build();
 
-  const ProductSchema = ESchema.make("Product", "productId", {
+  const ProductSchema = EntityESchema.make("Product", "productId", {
     category: Schema.String,
     brand: Schema.String,
     price: Schema.Number,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import {
   DynamoTable,
   DynamoEntity,
@@ -152,7 +152,7 @@ describe("@std-toolkit/db-dynamodb", () => {
       .build();
 
     // New ESchema API: idField is second parameter
-    const userSchema = ESchema.make("User", "userId", {
+    const userSchema = EntityESchema.make("User", "userId", {
       name: Schema.String,
       email: Schema.String,
     }).build();

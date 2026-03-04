@@ -5,7 +5,10 @@
       "Bash(pnpm test:*)",
       "Bash(pnpm tsx:*)",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__query-docs"
+      "mcp__context7__query-docs",
+      "Bash(pnpm lint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest:*)"
     ]
   }
 }

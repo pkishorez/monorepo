@@ -1,134 +1,74 @@
 import { Effect, Schema } from "effect";
-import { ESchema } from "./index";
+import {
+  ESchema,
+  SingleEntityESchema,
+  EntityESchema,
+  type AnyESchema,
+} from "./index";
 
-// Define a User schema with "id" as the ID field
-const UserSchema = ESchema.make("User", "id", {
-  name: Schema.String,
-  email: Schema.String,
-  age: Schema.Number,
+// ─── ESchema (pure schema, no identity) ─────────────────────────────────────
+
+const AppConfig = ESchema.make({
+  theme: Schema.String,
+  maxRetries: Schema.Number,
 }).build();
 
-// Define a Post schema with "postId" as the ID field
-const PostSchema = ESchema.make("Post", "postId", {
-  title: Schema.String,
-  content: Schema.String,
-  authorId: Schema.String,
+// ─── SingleEntityESchema (named, no ID field) ───────────────────────────────
+
+const Settings = SingleEntityESchema.make("Settings", {
+  locale: Schema.String,
+  notifications: Schema.Boolean,
+}).build();
+
+// ─── EntityESchema (named + ID field) ────────────────────────────────────────
+
+const User = EntityESchema.make("User", "id", {
+  name: Schema.String,
+  email: Schema.String,
 })
-  .evolve("v2", { tags: Schema.Array(Schema.String) }, (prev) => ({
-    ...prev,
-    tags: [],
-  }))
+  .evolve("v2", { age: Schema.Number }, (prev) => ({ ...prev, age: 0 }))
   .build();
 
-// Type alias for the ID field type
-type UserId = string;
+// ─── Type hierarchy: EntityESchema assignable to AnyESchema ──────────────────
+
+function processSchema(schema: AnyESchema) {
+  return schema.getDescriptor();
+}
+
+// All three levels are assignable to AnyESchema
+processSchema(AppConfig);
+processSchema(Settings);
+processSchema(User);
+
+// EntityESchema → AnyESchema works
+const _widened: AnyESchema = User;
+
+// SingleEntityESchema → AnyESchema works
+const _widened2: AnyESchema = Settings;
+
+// AnyESchema → EntityESchema does NOT work (uncomment to see type error):
+// const _narrowed: EntityESchema<any, any, any, any> = AppConfig;
 
 async function main() {
-  console.log("=== ESchema Demo ===\n");
-
-  // 1. Schema properties
-  console.log("1. Schema properties:");
-  console.log(`   name: ${UserSchema.name}`);
-  console.log(`   idField: ${UserSchema.idField}`);
-  console.log(`   latestVersion: ${UserSchema.latestVersion}`);
-  console.log();
-
-  // 2. Fields - raw field definitions (includes ID)
-  console.log("2. Fields (raw field definitions):");
-  console.log(`   Field names:`, Object.keys(UserSchema.fields));
-  console.log(`   ID field included: ${"id" in UserSchema.fields}`);
-  console.log();
-
-  // 3. Schema - Effect Schema.Struct
-  console.log("3. Schema (Effect Schema.Struct):");
-  console.log(`   Fields:`, Object.keys(UserSchema.schema.fields));
-  console.log();
-
-  // 4. ID field
-  console.log("4. ID field:");
-  const userId: UserId = "user-123";
-  console.log(`   userId: ${userId}`);
-  console.log();
-
-  // 5. Encoding - same type as decoding
-  console.log("5. Encoding:");
-  const encoded = await Effect.runPromise(
-    UserSchema.encode({
-      id: "user-456",
-      name: "Alice",
-      email: "alice@example.com",
-      age: 30,
-    }),
+  console.log("=== ESchema ===");
+  const config = await Effect.runPromise(
+    AppConfig.encode({ theme: "dark", maxRetries: 3 }),
   );
-  type Test = (typeof UserSchema)["Type"];
-  console.log(`   Encoded:`, encoded);
-  console.log(`   Type: { id: string, name, email, age }`);
-  console.log();
+  console.log("config:", config);
 
-  // 6. Decoding - same type as encoding
-  console.log("6. Decoding:");
-  const decoded = await Effect.runPromise(
-    UserSchema.decode({
-      id: "user-789",
-      name: "Bob",
-      email: "bob@example.com",
-      age: 25,
-    }),
+  console.log("\n=== SingleEntityESchema ===");
+  console.log("name:", Settings.name);
+  const settings = await Effect.runPromise(
+    Settings.decode({ _v: "v1", locale: "en", notifications: true }),
   );
-  console.log(`   Decoded:`, decoded);
-  console.log(`   Type: { id: string, name, email, age }`);
-  console.log();
+  console.log("settings:", settings);
 
-  // 7. Re-encoding - seamless, same types
-  console.log("7. Re-encoding (seamless):");
-  const reEncoded = await Effect.runPromise(UserSchema.encode(decoded));
-  console.log(`   Re-encoded:`, reEncoded);
-  console.log(`   encode(decode(x)) works directly - same types!`);
-  console.log();
-
-  // 8. Using Effect Schema directly
-  console.log("8. Using Effect Schema directly:");
-  const directDecode = await Effect.runPromise(
-    Schema.decodeUnknown(UserSchema.schema)({
-      id: "user-direct",
-      name: "Direct",
-      email: "direct@example.com",
-      age: 40,
-    }),
+  console.log("\n=== EntityESchema ===");
+  console.log("name:", User.name, "| idField:", User.idField);
+  const user = await Effect.runPromise(
+    User.decode({ _v: "v1", id: "u1", name: "Alice", email: "a@b.com" }),
   );
-  console.log(`   Direct decode:`, directDecode);
-  console.log();
-
-  // 9. Schema evolution
-  console.log("9. Schema evolution (Post v1 -> v2):");
-  const postV1Data = {
-    _v: "v1" as const,
-    postId: "post-001",
-    title: "Hello World",
-    content: "This is my first post",
-    authorId: "user-456",
-  };
-  const migratedPost = await Effect.runPromise(PostSchema.decode(postV1Data));
-  console.log(`   V1 input:`, postV1Data);
-  console.log(`   Migrated to V2:`, migratedPost);
-  console.log();
-
-  // 10. JSON Schema descriptor (includes _v for storage)
-  console.log("10. JSON Schema descriptor:");
-  const descriptor = UserSchema.getDescriptor();
-  console.log(`   Properties:`, Object.keys(descriptor.properties));
-  console.log(`   $defs:`, Object.keys(descriptor.$defs || {}));
-  console.log(`   ID reference:`, descriptor.properties.id);
-  console.log();
-
-  // 11. Type summary
-  console.log("11. Type summary:");
-  console.log(
-    `   UserSchema.Type = { id: string, name: string, email: string, age: number }`,
-  );
-  console.log(`   Same type for encode() input and output`);
-  console.log(`   Same type for decode() output`);
-  console.log(`   _v is handled internally for versioning`);
+  console.log("user (migrated v1→v2):", user);
 }
 
 main().catch(console.error);

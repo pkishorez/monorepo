@@ -1,4 +1,4 @@
-import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
+import type { AnySingleEntityESchema, ESchemaType } from "@std-toolkit/eschema";
 import { Effect, Schema } from "effect";
 import type { DynamoTable } from "./dynamo-table.js";
 import { DynamodbError } from "../errors.js";
@@ -69,7 +69,7 @@ const isConditionalCheckFailed = (e: DynamodbError): boolean => {
  */
 export class DynamoSingleEntity<
   TTable extends DynamoTable<any, any>,
-  TSchema extends AnyESchema,
+  TSchema extends AnySingleEntityESchema,
 > {
   /**
    * Creates a new single entity builder for the given table.
@@ -84,7 +84,7 @@ export class DynamoSingleEntity<
        * @param eschema - The ESchema instance
        * @returns A builder to set the default value
        */
-      eschema<TS extends AnyESchema>(eschema: TS) {
+      eschema<TS extends AnySingleEntityESchema>(eschema: TS) {
         return {
           /**
            * Sets the default value and constructs the instance.
@@ -93,7 +93,7 @@ export class DynamoSingleEntity<
            * @param defaultValue - The default entity value
            * @returns The configured DynamoSingleEntity instance
            */
-          default(defaultValue: Omit<ESchemaType<TS>, "_v" | TS["idField"]>) {
+          default(defaultValue: Omit<ESchemaType<TS>, "_v">) {
             return new DynamoSingleEntity<TTable, TS>(
               table,
               eschema,
@@ -116,10 +116,7 @@ export class DynamoSingleEntity<
   ) {
     this.#table = table;
     this.#eschema = eschema;
-    this.#defaultValue = {
-      ...defaultValue,
-      [eschema.idField]: eschema.name,
-    } as ESchemaType<TSchema>;
+    this.#defaultValue = defaultValue as ESchemaType<TSchema>;
   }
 
   /**
@@ -184,12 +181,11 @@ export class DynamoSingleEntity<
    * @returns The written entity with metadata
    */
   put(
-    value: Omit<ESchemaType<TSchema>, "_v" | TSchema["idField"]>,
+    value: Omit<ESchemaType<TSchema>, "_v">,
   ): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
     return Effect.gen(this, function* () {
       const fullValue = {
         ...value,
-        [this.#eschema.idField]: this.#eschema.name,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
@@ -232,7 +228,7 @@ export class DynamoSingleEntity<
   update(
     params: {
       update:
-        | Partial<Omit<ESchemaType<TSchema>, "_v" | TSchema["idField"]>>
+        | Partial<Omit<ESchemaType<TSchema>, "_v">>
         | ((
             ops: UpdateOps<ESchemaType<TSchema>>,
           ) => AnyOperation<ESchemaType<TSchema>>[]);
@@ -290,7 +286,7 @@ export class DynamoSingleEntity<
   }
 
   #prepareUpdate(
-    updates: Partial<Omit<ESchemaType<TSchema>, "_v" | TSchema["idField"]>>,
+    updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
     condition?: ConditionInput<ESchemaType<TSchema>>,
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
     const pk = this.#derivePk();

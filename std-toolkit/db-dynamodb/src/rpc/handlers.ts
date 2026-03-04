@@ -1,4 +1,4 @@
-import type { AnyESchema } from "@std-toolkit/eschema";
+import type { AnyEntityESchema } from "@std-toolkit/eschema";
 import { type AnyDynamoEntity } from "./types.js";
 import { makeGetHandler } from "./get.js";
 import { makeInsertHandler } from "./insert.js";
@@ -6,7 +6,7 @@ import { makeUpdateHandler } from "./update.js";
 import { makeDeleteHandler } from "./delete.js";
 
 export const makeEntityRpcHandlers = <
-  TSchema extends AnyESchema,
+  TSchema extends AnyEntityESchema,
   TEntity extends AnyDynamoEntity<TSchema>,
   P extends string = "",
 >(

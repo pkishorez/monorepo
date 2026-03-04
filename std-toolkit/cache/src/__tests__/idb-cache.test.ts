@@ -1,7 +1,7 @@
 import "./setup";
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Option, Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import type { EntityType } from "@std-toolkit/core";
 import { IDBCacheEntity } from "../idb/idb-cache-entity.js";
 import { serializePartition } from "../idb/utils.js";
@@ -9,12 +9,12 @@ import { serializePartition } from "../idb/utils.js";
 let dbCounter = 0;
 const getDbName = () => `test-db-${++dbCounter}`;
 
-const UserSchema = ESchema.make("User", "id", {
+const UserSchema = EntityESchema.make("User", "id", {
   name: Schema.String,
   email: Schema.String,
 }).build();
 
-const PostSchema = ESchema.make("Post", "id", {
+const PostSchema = EntityESchema.make("Post", "id", {
   title: Schema.String,
   content: Schema.String,
 }).build();
