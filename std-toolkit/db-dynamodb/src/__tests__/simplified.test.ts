@@ -33,7 +33,7 @@ const orderSchema = EntityESchema.make("Order", "orderId", {
 }).build();
 
 // SK is automatically the idField (orderId) for primary index
-// SK is automatically _uid for secondary indexes
+// SK is automatically _u for secondary indexes
 const OrderEntity = DynamoEntity.make(table)
   .eschema(orderSchema)
   .primary({ pk: ["userId"] })
@@ -227,9 +227,9 @@ describe("Simplified API Tests", () => {
       }),
     );
 
-    it.effect("queries secondary index (SK is _uid)", () =>
+    it.effect("queries secondary index (SK is _u)", () =>
       Effect.gen(function* () {
-        // Secondary indexes use _uid as SK, not a custom field
+        // Secondary indexes use _u as SK, not a custom field
         // Query all items with >= null to get all
         const result = yield* OrderEntity.query("byStatus", {
           pk: { status: "pending" },
@@ -252,7 +252,7 @@ describe("Simplified API Tests", () => {
 
         expect(all.items.length).toBe(3);
 
-        const cursor = all.items[0]!.meta._uid;
+        const cursor = all.items[0]!.meta._u;
 
         const result = yield* OrderEntity.subscribe({
           key: "byStatus",
@@ -388,7 +388,7 @@ describe("Simplified API Tests", () => {
           { limit: 1 },
         );
 
-        const cursor = firstResult.items[0]!.meta._uid;
+        const cursor = firstResult.items[0]!.meta._u;
 
         const stream = OrderEntity.queryStream("byStatus", {
           pk: { status: "pending" },

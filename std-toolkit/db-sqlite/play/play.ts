@@ -39,8 +39,8 @@ const table = SQLiteTable.make({ tableName: "std_data" })
 const userEntity = SQLiteEntity.make(table)
   .eschema(UserSchema)
   .primary() // pk: entity name only, sk: userId (idField)
-  .index("IDX1", "byEmail", { pk: ["email"] }) // sk: _uid
-  .index("IDX2", "byStatus", { pk: ["status"] }) // sk: _uid
+  .index("IDX1", "byEmail", { pk: ["email"] }) // sk: _u
+  .index("IDX2", "byStatus", { pk: ["status"] }) // sk: _u
   .build();
 
 // Post entity: pk = "Post#authorId", sk = postId
@@ -48,7 +48,7 @@ const postEntity = SQLiteEntity.make(table)
   .eschema(PostSchema)
   .primary({ pk: ["authorId"] }) // sk: postId (idField)
   .timeline("IDX1")
-  .index("IDX2", "byAuthor", { pk: ["title"] }) // sk: _uid
+  .index("IDX2", "byAuthor", { pk: ["title"] }) // sk: _u
   .build();
 
 const registry = EntityRegistry.make(table)

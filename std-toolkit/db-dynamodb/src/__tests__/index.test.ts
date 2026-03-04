@@ -168,7 +168,7 @@ describe("@std-toolkit/db-dynamodb", () => {
     });
 
     it("creates entity with secondary index", () => {
-      // New API: SK is automatically _uid for secondary indexes
+      // New API: SK is automatically _u for secondary indexes
       const entity = DynamoEntity.make(table)
         .eschema(userSchema)
         .primary({ pk: ["userId"] })

@@ -9,12 +9,12 @@ import { CacheError } from "../error.js";
 
 const DEFAULT_DB_NAME = "std-toolkit-cache";
 const STORE_NAME = "items";
-const UID_INDEX = "by-uid";
+const UPDATED_INDEX = "by-updated";
 const DB_VERSION = 1;
 
 type StoredItem = {
   key: [string, string, string];
-  uidKey: [string, string, string];
+  updatedKey: [string, string, string];
   value: unknown;
   meta: EntityType<unknown>["meta"];
 };
@@ -32,7 +32,7 @@ const ConnectionPool = {
     const db = await openDB(dbName, DB_VERSION, {
       upgrade(database) {
         const store = database.createObjectStore(STORE_NAME, { keyPath: "key" });
-        store.createIndex(UID_INDEX, "uidKey");
+        store.createIndex(UPDATED_INDEX, "updatedKey");
       },
     });
 
@@ -138,7 +138,7 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
         const id = String(item.value[this.#eschema.idField]);
         const stored: StoredItem = {
           key: this.#makeKey(id),
-          uidKey: [this.#entity, this.#partition, item.meta._uid],
+          updatedKey: [this.#entity, this.#partition, item.meta._u],
           value: item.value,
           meta: item.meta,
         };
@@ -190,7 +190,7 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
     return Effect.tryPromise({
       try: async () => {
         const tx = this.#db.transaction(STORE_NAME, "readonly");
-        const index = tx.store.index(UID_INDEX);
+        const index = tx.store.index(UPDATED_INDEX);
         const cursor = await index.openCursor(this.#getKeyRange(), "prev");
 
         if (!cursor) return Option.none();
@@ -210,7 +210,7 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
     return Effect.tryPromise({
       try: async () => {
         const tx = this.#db.transaction(STORE_NAME, "readonly");
-        const index = tx.store.index(UID_INDEX);
+        const index = tx.store.index(UPDATED_INDEX);
         const cursor = await index.openCursor(this.#getKeyRange(), "next");
 
         if (!cursor) return Option.none();

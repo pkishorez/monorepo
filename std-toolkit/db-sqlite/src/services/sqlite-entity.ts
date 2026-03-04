@@ -29,7 +29,7 @@ import { Prettify } from "@std-toolkit/eschema/types.js";
 /**
  * Meta fields that can be used in index derivations.
  */
-type DerivableMetaFields = "_uid";
+type DerivableMetaFields = "_u";
 
 /**
  * Input type for insert operations. Omits the internal `_v` field.
@@ -317,8 +317,8 @@ export class SQLiteEntity<
       const updateValues: Record<string, unknown> = {
         _data: JSON.stringify(encoded),
         _v: meta._v,
-        _uid: meta._uid,
-        ...this.#deriveSecondaryIndexes({ ...fullValue, _uid: meta._uid }),
+        _u: meta._u,
+        ...this.#deriveSecondaryIndexes({ ...fullValue, _u: meta._u }),
       };
 
       yield* this.#table.updateItem({ pk, sk }, updateValues);
@@ -331,7 +331,7 @@ export class SQLiteEntity<
 
   /**
    * Deletes an entity (soft delete).
-   * Updates the item with _d: true and a new _uid so sync can pick up the change.
+   * Updates the item with _d: true and a new _u so sync can pick up the change.
    *
    * @param keyValue - Object containing the primary key field values
    * @returns The deleted entity
@@ -361,16 +361,16 @@ export class SQLiteEntity<
         false,
       );
 
-      // Generate new _uid and encode with _d: true for soft delete
+      // Generate new _u and encode with _d: true for soft delete
       const { encoded, meta } = yield* this.#encode(existing.value, true);
 
-      // Update the item with _d: true and new _uid (soft delete)
+      // Update the item with _d: true and new _u (soft delete)
       const updateValues: Record<string, unknown> = {
         _data: JSON.stringify(encoded),
         _v: meta._v,
-        _uid: meta._uid,
+        _u: meta._u,
         _d: 1,
-        ...this.#deriveSecondaryIndexes({ ...existing.value, _uid: meta._uid }),
+        ...this.#deriveSecondaryIndexes({ ...existing.value, _u: meta._u }),
       };
 
       yield* this.#table.updateItem({ pk, sk }, updateValues);
@@ -635,7 +635,7 @@ export class SQLiteEntity<
             ? ((lastItem.value as Record<string, unknown>)[
                 this.#eschema.idField
               ] as string)
-            : lastItem.meta._uid;
+            : lastItem.meta._u;
         return [chunk, Option.some(nextCursor)];
       }),
     );
@@ -647,7 +647,7 @@ export class SQLiteEntity<
    *
    * @param opts.key - "primary", "timeline", or secondary index name
    * @param opts.pk - Partition key fields for the selected index
-   * @param opts.cursor - The `_uid` cursor (string to continue from, null to start fresh)
+   * @param opts.cursor - The `_u` cursor (string to continue from, null to start fresh)
    * @param opts.limit - Optional batch size per query iteration
    * @returns All items after the cursor
    */
@@ -703,7 +703,7 @@ export class SQLiteEntity<
           (yield* this.#service)?.subscribe(this.#eschema.name);
           return { success: true };
         }
-        currentCursor = lastItem.meta._uid;
+        currentCursor = lastItem.meta._u;
       }
     });
   }
@@ -746,7 +746,7 @@ export class SQLiteEntity<
     return Effect.gen(this, function* () {
       const { encoded, meta } = yield* this.#encode(fullValue, false);
 
-      const valueWithMeta = { ...fullValue, _uid: meta._uid };
+      const valueWithMeta = { ...fullValue, _u: meta._u };
       const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
       const secondaryIndexes = this.#deriveSecondaryIndexes(valueWithMeta);
 
@@ -756,7 +756,7 @@ export class SQLiteEntity<
         _data: JSON.stringify(encoded),
         _e: this.#eschema.name,
         _v: meta._v,
-        _uid: meta._uid,
+        _u: meta._u,
         _d: 0,
         ...secondaryIndexes,
       };
@@ -785,7 +785,7 @@ export class SQLiteEntity<
           meta: {
             _e: this.#eschema.name,
             _v: encoded._v as string,
-            _uid: new Date().toISOString(),
+            _u: new Date().toISOString(),
             _d: deleted,
           },
         })),
@@ -807,7 +807,7 @@ export class SQLiteEntity<
           value: value as ESchemaType<TSchema>,
           meta: Schema.decodeSync(sqlMetaSchema)({
             _v: row._v,
-            _uid: row._uid,
+            _u: row._u,
             _d: row._d,
             _e: row._e ?? this.#eschema.name,
           }),
@@ -897,7 +897,7 @@ export class SQLiteEntity<
         }
       }
 
-      if (typeof value._uid !== "undefined") {
+      if (typeof value._u !== "undefined") {
         const skCol = this.#table.secondaryIndexMap[timeline.indexName]?.sk;
         if (skCol) {
           indexMap[skCol] = deriveIndexKeyValue(
@@ -968,13 +968,13 @@ class EntityIndexDerivations<
 
   /**
    * Maps a table index to a semantic entity index with custom derivation.
-   * SK is automatically set to `_uid` for secondary indexes.
+   * SK is automatically set to `_u` for secondary indexes.
    *
    * @typeParam IndexName - The index name on the table
    * @typeParam TPkKeys - Fields used for partition key derivation
    * @param indexName - The index name on the table (e.g., "IDX1")
    * @param entityIndexName - The semantic name for this entity's use of the index (e.g., "byEmail")
-   * @param derivation - The pk field array (sk is automatically _uid)
+   * @param derivation - The pk field array (sk is automatically _u)
    * @returns A builder with the index mapping added
    */
   index<
@@ -991,8 +991,8 @@ class EntityIndexDerivations<
       pk: TPkKeys;
     },
   ) {
-    // SK is always _uid for secondary indexes
-    const skKeys = ["_uid"] as const;
+    // SK is always _u for secondary indexes
+    const skKeys = ["_u"] as const;
     const newDeriv: StoredIndexDerivation = {
       indexName,
       entityIndexName,
@@ -1025,7 +1025,7 @@ class EntityIndexDerivations<
   }
 
   /**
-   * Configures a timeline index using the same PK as primary but SK = _uid.
+   * Configures a timeline index using the same PK as primary but SK = _u.
    * This enables time-ordered queries on the same partition.
    *
    * @typeParam IndexName - The index name on the table
@@ -1039,7 +1039,7 @@ class EntityIndexDerivations<
       indexName,
       entityIndexName: "timeline",
       pkDeps: this.#primaryDerivation.pk.map(String),
-      skDeps: ["_uid"] as const,
+      skDeps: ["_u"] as const,
     };
 
     return new EntityIndexDerivations<

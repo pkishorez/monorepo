@@ -267,7 +267,7 @@ describe("Command Response Schemas", () => {
       _v: "v1",
       _e: "User",
       _d: false,
-      _uid: "uid-123",
+      _u: "uid-123",
     },
   };
 
@@ -531,7 +531,7 @@ describe("Descriptor Schemas", () => {
         const index = {
           name: "byEmail",
           pk: { deps: ["email"], pattern: "{email}" },
-          sk: { deps: ["_uid"], pattern: "{_uid}" },
+          sk: { deps: ["_u"], pattern: "{_u}" },
         };
 
         const result = yield* Schema.decodeUnknown(IndexDescriptorSchema)(index);
@@ -557,7 +557,7 @@ describe("Descriptor Schemas", () => {
             {
               name: "byEmail",
               pk: { deps: ["email"], pattern: "{email}" },
-              sk: { deps: ["_uid"], pattern: "{_uid}" },
+              sk: { deps: ["_u"], pattern: "{_u}" },
             },
           ],
           schema: { type: "object", properties: {} },
@@ -584,7 +584,7 @@ describe("Descriptor Schemas", () => {
           timelineIndex: {
             name: "timeline",
             pk: { deps: ["streamId"], pattern: "Event#{streamId}" },
-            sk: { deps: ["_uid"], pattern: "{_uid}" },
+            sk: { deps: ["_u"], pattern: "{_u}" },
           },
           secondaryIndexes: [],
           schema: {},

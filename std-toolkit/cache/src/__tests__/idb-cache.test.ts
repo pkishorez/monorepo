@@ -29,7 +29,7 @@ function makeUserEntity(
     meta: {
       _e: UserSchema.name,
       _v: UserSchema.latestVersion,
-      _uid: `uid-${id}`,
+      _u: `uid-${id}`,
       _d: false,
     },
   };
@@ -45,7 +45,7 @@ function makePostEntity(
     meta: {
       _e: PostSchema.name,
       _v: PostSchema.latestVersion,
-      _uid: `uid-${id}`,
+      _u: `uid-${id}`,
       _d: false,
     },
   };
@@ -263,7 +263,7 @@ describe("IDBCacheEntity", () => {
       }),
   );
 
-  it.effect("should get latest entity by _uid", () =>
+  it.effect("should get latest entity by _u", () =>
     Effect.gen(function* () {
       const users = yield* IDBCacheEntity.make({
         name: getDbName(),
@@ -272,27 +272,27 @@ describe("IDBCacheEntity", () => {
 
       yield* users.put({
         value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
       });
       yield* users.put({
         value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
       });
       yield* users.put({
         value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
       });
 
       const latest = yield* users.getLatest();
       expect(Option.isSome(latest)).toBe(true);
       if (Option.isSome(latest)) {
         expect(latest.value.value.id).toBe("user-2");
-        expect(latest.value.meta._uid).toBe("uid-003");
+        expect(latest.value.meta._u).toBe("uid-003");
       }
     }),
   );
 
-  it.effect("should get oldest entity by _uid", () =>
+  it.effect("should get oldest entity by _u", () =>
     Effect.gen(function* () {
       const users = yield* IDBCacheEntity.make({
         name: getDbName(),
@@ -301,22 +301,22 @@ describe("IDBCacheEntity", () => {
 
       yield* users.put({
         value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
       });
       yield* users.put({
         value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
       });
       yield* users.put({
         value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
       });
 
       const oldest = yield* users.getOldest();
       expect(Option.isSome(oldest)).toBe(true);
       if (Option.isSome(oldest)) {
         expect(oldest.value.value.id).toBe("user-2");
-        expect(oldest.value.meta._uid).toBe("uid-001");
+        expect(oldest.value.meta._u).toBe("uid-001");
       }
     }),
   );
@@ -359,11 +359,11 @@ describe("IDBCacheEntity", () => {
 
       yield* users.put({
         value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-100", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-100", _d: false },
       });
       yield* posts.put({
         value: { id: "post-1", title: "Hello", content: "World" },
-        meta: { _e: "Post", _v: "v1", _uid: "uid-200", _d: false },
+        meta: { _e: "Post", _v: "v1", _u: "uid-200", _d: false },
       });
 
       const latestUser = yield* users.getLatest();
@@ -520,15 +520,15 @@ describe("IDBCacheEntity", () => {
 
       yield* tenantAUsers.put({
         value: { id: "user-1", name: "Alice", email: "alice@a.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
       });
       yield* tenantAUsers.put({
         value: { id: "user-2", name: "Bob", email: "bob@a.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
       });
       yield* tenantBUsers.put({
         value: { id: "user-3", name: "Charlie", email: "charlie@b.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
       });
 
       const latestA = yield* tenantAUsers.getLatest();
@@ -541,15 +541,15 @@ describe("IDBCacheEntity", () => {
 
       if (Option.isSome(latestA)) {
         expect(latestA.value.value.id).toBe("user-2");
-        expect(latestA.value.meta._uid).toBe("uid-003");
+        expect(latestA.value.meta._u).toBe("uid-003");
       }
       if (Option.isSome(oldestA)) {
         expect(oldestA.value.value.id).toBe("user-1");
-        expect(oldestA.value.meta._uid).toBe("uid-001");
+        expect(oldestA.value.meta._u).toBe("uid-001");
       }
       if (Option.isSome(latestB)) {
         expect(latestB.value.value.id).toBe("user-3");
-        expect(latestB.value.meta._uid).toBe("uid-002");
+        expect(latestB.value.meta._u).toBe("uid-002");
       }
     }),
   );

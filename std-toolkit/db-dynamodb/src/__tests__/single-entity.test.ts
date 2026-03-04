@@ -85,7 +85,7 @@ describe("DynamoSingleEntity", () => {
 
         expect(result.value.theme).toBe("light");
         expect(result.value.maxRetries).toBe(3);
-        expect(result.meta._uid).toBe("");
+        expect(result.meta._u).toBe("");
         expect(result.meta._e).toBe("AppConfig");
       }),
     );
@@ -101,7 +101,7 @@ describe("DynamoSingleEntity", () => {
 
         expect(result.value.theme).toBe("dark");
         expect(result.value.maxRetries).toBe(5);
-        expect(result.meta._uid).not.toBe("");
+        expect(result.meta._u).not.toBe("");
         expect(result.meta._e).toBe("AppConfig");
       }),
     );
@@ -117,7 +117,7 @@ describe("DynamoSingleEntity", () => {
 
         expect(result.value.theme).toBe("blue");
         expect(result.value.maxRetries).toBe(10);
-        expect(result.meta._uid).not.toBe("");
+        expect(result.meta._u).not.toBe("");
       }),
     );
 

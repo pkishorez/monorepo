@@ -797,7 +797,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         }),
       );
 
-      it.effect("updates _uid on each update", () =>
+      it.effect("updates _u on each update", () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
             userId: "entity-incr-1",
@@ -817,8 +817,8 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             { update: { name: "Update 2" } },
           );
 
-          // _uid should be different after each update
-          expect(second.meta._uid).not.toBe(first.meta._uid);
+          // _u should be different after each update
+          expect(second.meta._u).not.toBe(first.meta._u);
         }),
       );
 
@@ -1512,7 +1512,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       status: Schema.String,
     }).build();
 
-    // Entity with timeline index - uses same PK as primary but SK is _uid
+    // Entity with timeline index - uses same PK as primary but SK is _u
     const TaskEntity = DynamoEntity.make(table)
       .eschema(taskSchema)
       .primary({ pk: ["projectId"] })
@@ -1523,7 +1523,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
       beforeAll(async () => {
         await Effect.runPromise(
           Effect.gen(function* () {
-            // Insert tasks with delays to ensure different _uid values
+            // Insert tasks with delays to ensure different _u values
             yield* TaskEntity.insert({
               taskId: "task-001",
               projectId: "proj-timeline",
@@ -1558,7 +1558,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         );
       });
 
-      it.effect("queries all items in ascending order (by _uid)", () =>
+      it.effect("queries all items in ascending order (by _u)", () =>
         Effect.gen(function* () {
           const result = yield* TaskEntity.query("timeline", {
             pk: { projectId: "proj-timeline" },
@@ -1566,15 +1566,15 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           expect(result.items).toHaveLength(5);
-          // Verify items are in ascending _uid order
-          const uids = result.items.map((i) => i.meta._uid);
-          for (let i = 1; i < uids.length; i++) {
-            expect(uids[i]! > uids[i - 1]!).toBe(true);
+          // Verify items are in ascending _u order
+          const timestamps = result.items.map((i) => i.meta._u);
+          for (let i = 1; i < timestamps.length; i++) {
+            expect(timestamps[i]! > timestamps[i - 1]!).toBe(true);
           }
         }),
       );
 
-      it.effect("queries all items in descending order (by _uid)", () =>
+      it.effect("queries all items in descending order (by _u)", () =>
         Effect.gen(function* () {
           const result = yield* TaskEntity.query("timeline", {
             pk: { projectId: "proj-timeline" },
@@ -1582,15 +1582,15 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           });
 
           expect(result.items).toHaveLength(5);
-          // Verify items are in descending _uid order
-          const uids = result.items.map((i) => i.meta._uid);
-          for (let i = 1; i < uids.length; i++) {
-            expect(uids[i]! < uids[i - 1]!).toBe(true);
+          // Verify items are in descending _u order
+          const timestamps = result.items.map((i) => i.meta._u);
+          for (let i = 1; i < timestamps.length; i++) {
+            expect(timestamps[i]! < timestamps[i - 1]!).toBe(true);
           }
         }),
       );
 
-      it.effect("queries with limit (first N by ascending _uid)", () =>
+      it.effect("queries with limit (first N by ascending _u)", () =>
         Effect.gen(function* () {
           const result = yield* TaskEntity.query(
             "timeline",
@@ -1603,14 +1603,14 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           expect(result.items).toHaveLength(3);
           // Verify ascending order
-          const uids = result.items.map((i) => i.meta._uid);
-          for (let i = 1; i < uids.length; i++) {
-            expect(uids[i]! > uids[i - 1]!).toBe(true);
+          const timestamps = result.items.map((i) => i.meta._u);
+          for (let i = 1; i < timestamps.length; i++) {
+            expect(timestamps[i]! > timestamps[i - 1]!).toBe(true);
           }
         }),
       );
 
-      it.effect("queries with limit (last N by descending _uid)", () =>
+      it.effect("queries with limit (last N by descending _u)", () =>
         Effect.gen(function* () {
           const result = yield* TaskEntity.query(
             "timeline",
@@ -1623,9 +1623,9 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           expect(result.items).toHaveLength(3);
           // Verify descending order
-          const uids = result.items.map((i) => i.meta._uid);
-          for (let i = 1; i < uids.length; i++) {
-            expect(uids[i]! < uids[i - 1]!).toBe(true);
+          const timestamps = result.items.map((i) => i.meta._u);
+          for (let i = 1; i < timestamps.length; i++) {
+            expect(timestamps[i]! < timestamps[i - 1]!).toBe(true);
           }
         }),
       );
@@ -1644,9 +1644,9 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           expect(firstPage.items).toHaveLength(2);
 
-          // Use last item's _uid as cursor for next page
+          // Use last item's _u as cursor for next page
           const lastItem = firstPage.items[firstPage.items.length - 1];
-          const cursor = lastItem!.meta._uid;
+          const cursor = lastItem!.meta._u;
 
           const secondPage = yield* TaskEntity.query(
             "timeline",
@@ -1658,12 +1658,12 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           );
 
           expect(secondPage.items).toHaveLength(2);
-          // Verify all items on second page have _uid > cursor
+          // Verify all items on second page have _u > cursor
           for (const item of secondPage.items) {
-            expect(item.meta._uid > cursor).toBe(true);
+            expect(item.meta._u > cursor).toBe(true);
           }
           // Verify ascending order within page
-          expect(secondPage.items[1]!.meta._uid > secondPage.items[0]!.meta._uid).toBe(true);
+          expect(secondPage.items[1]!.meta._u > secondPage.items[0]!.meta._u).toBe(true);
         }),
       );
 
@@ -1681,9 +1681,9 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
           expect(lastPage.items).toHaveLength(2);
 
-          // Use last item's _uid as cursor for previous page
+          // Use last item's _u as cursor for previous page
           const lastItem = lastPage.items[lastPage.items.length - 1];
-          const cursor = lastItem!.meta._uid;
+          const cursor = lastItem!.meta._u;
 
           const previousPage = yield* TaskEntity.query(
             "timeline",
@@ -1695,12 +1695,12 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
           );
 
           expect(previousPage.items).toHaveLength(2);
-          // Verify all items on previous page have _uid < cursor
+          // Verify all items on previous page have _u < cursor
           for (const item of previousPage.items) {
-            expect(item.meta._uid < cursor).toBe(true);
+            expect(item.meta._u < cursor).toBe(true);
           }
           // Verify descending order within page
-          expect(previousPage.items[1]!.meta._uid < previousPage.items[0]!.meta._uid).toBe(true);
+          expect(previousPage.items[1]!.meta._u < previousPage.items[0]!.meta._u).toBe(true);
         }),
       );
 
@@ -1739,7 +1739,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         expect(descriptor.timelineIndex).toBeDefined();
         expect(descriptor.timelineIndex!.name).toBe("timeline");
         expect(descriptor.timelineIndex!.pk.deps).toContain("projectId");
-        expect(descriptor.timelineIndex!.sk.deps).toContain("_uid");
+        expect(descriptor.timelineIndex!.sk.deps).toContain("_u");
       });
     });
 
@@ -1779,7 +1779,7 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             status: "pending",
           });
 
-          const originalUid = inserted.meta._uid;
+          const originalUpdated = inserted.meta._u;
 
           // Update the item
           const updated = yield* TaskEntity.update(
@@ -1787,8 +1787,8 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
             { update: { title: "Updated Title", status: "completed" } },
           );
 
-          // _uid changes on update (as per the entity design)
-          expect(updated.meta._uid).not.toBe(originalUid);
+          // _u changes on update (as per the entity design)
+          expect(updated.meta._u).not.toBe(originalUpdated);
 
           // Query timeline should find the item
           const result = yield* TaskEntity.query("timeline", {

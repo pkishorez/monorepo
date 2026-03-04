@@ -41,17 +41,17 @@ describe("SQLite Single Table Design", () => {
     .build();
 
   // Create entities with derivations
-  // SK is automatic: uses idField for primary, _uid for secondary
+  // SK is automatic: uses idField for primary, _u for secondary
   const userEntity = SQLiteEntity.make(table)
     .eschema(UserSchema)
     .primary()  // pk: entity name only, sk: userId (from idField)
-    .index("IDX1", "byEmail", { pk: ["email"] })  // sk: _uid
+    .index("IDX1", "byEmail", { pk: ["email"] })  // sk: _u
     .build();
 
   const postEntity = SQLiteEntity.make(table)
     .eschema(PostSchema)
     .primary({ pk: ["authorId"] })  // sk: postId (from idField)
-    .index("IDX1", "byAuthor", { pk: ["authorId"] })  // sk: _uid
+    .index("IDX1", "byAuthor", { pk: ["authorId"] })  // sk: _u
     .build();
 
   // Create registry
@@ -241,7 +241,7 @@ describe("SQLite Single Table Design", () => {
           { email: "new@example.com" },
         );
 
-        // Should find by new email - sk is now _uid
+        // Should find by new email - sk is now _u
         const byNew = yield* userEntity.query("byEmail", {
           pk: { email: "new@example.com" },
           sk: { ">=": null },
@@ -562,7 +562,7 @@ describe("Query Operators", () => {
   const itemEntity = SQLiteEntity.make(table)
     .eschema(ItemSchema)
     .primary({ pk: ["category"] })  // sk: itemId (from idField)
-    .index("IDX1", "byCategory", { pk: ["category"] })  // sk: _uid
+    .index("IDX1", "byCategory", { pk: ["category"] })  // sk: _u
     .build();
 
   beforeAll(async () => {
@@ -754,7 +754,7 @@ describe("Query Operators", () => {
           sk: { ">=": null },
         });
 
-        // Secondary index uses _uid for sk, so order is by insertion time
+        // Secondary index uses _u for sk, so order is by insertion time
         expect(result.items).toHaveLength(5);
       }).pipe(Effect.provide(layer)),
     );
@@ -766,7 +766,7 @@ describe("Query Operators", () => {
           sk: { "<=": null },
         });
 
-        // Secondary index uses _uid for sk, so order is by insertion time (desc)
+        // Secondary index uses _u for sk, so order is by insertion time (desc)
         expect(result.items).toHaveLength(5);
       }).pipe(Effect.provide(layer)),
     );
@@ -836,7 +836,7 @@ describe("Primary Index with IdField", () => {
   const commentEntity = SQLiteEntity.make(table)
     .eschema(CommentSchema)
     .primary({ pk: ["postId"] })  // sk: commentId (from idField)
-    .index("IDX1", "byPost", { pk: ["postId"] })  // sk: _uid
+    .index("IDX1", "byPost", { pk: ["postId"] })  // sk: _u
     .build();
 
   beforeAll(async () => {
@@ -932,14 +932,14 @@ describe("Primary Index with IdField", () => {
     }).pipe(Effect.provide(layer)),
   );
 
-  it.effect("secondary index queries by _uid", () =>
+  it.effect("secondary index queries by _u", () =>
     Effect.gen(function* () {
       const result = yield* commentEntity.query("byPost", {
         pk: { postId: "post-1" },
         sk: { ">=": null },
       });
 
-      // Secondary index sk is _uid, so all items from post-1 are returned
+      // Secondary index sk is _u, so all items from post-1 are returned
       expect(result.items.length).toBe(4);
     }).pipe(Effect.provide(layer)),
   );
@@ -965,7 +965,7 @@ describe("Subscribe", () => {
   const eventEntity = SQLiteEntity.make(table)
     .eschema(EventSchema)
     .primary({ pk: ["streamId"] })  // sk: eventId (from idField)
-    .index("IDX1", "byStream", { pk: ["streamId"] })  // sk: _uid
+    .index("IDX1", "byStream", { pk: ["streamId"] })  // sk: _u
     .timeline("IDX2")
     .build();
 
@@ -1007,7 +1007,7 @@ describe("Subscribe", () => {
         sk: { ">=": null },
       });
 
-      const cursor = items.items[1]!.meta._uid;
+      const cursor = items.items[1]!.meta._u;
 
       const result = yield* eventEntity.subscribe({
         key: "timeline",
@@ -1032,10 +1032,10 @@ describe("Subscribe", () => {
     }).pipe(Effect.provide(layer)),
   );
 
-  it.effect("subscribe on secondary index uses _uid", () =>
+  it.effect("subscribe on secondary index uses _u", () =>
     Effect.gen(function* () {
-      // Secondary index sk is _uid, so we need to pass _uid value
-      // Since _uid is auto-generated, we can only test that it returns items
+      // Secondary index sk is _u, so we need to pass _u value
+      // Since _u is auto-generated, we can only test that it returns items
       const result = yield* eventEntity.query("byStream", {
         pk: { streamId: "stream-1" },
         sk: { ">=": null },
@@ -1295,7 +1295,7 @@ describe("Timeline Index", () => {
     status: Schema.String,
   }).build();
 
-  // Entity with timeline index - uses same PK as primary but SK is _uid
+  // Entity with timeline index - uses same PK as primary but SK is _u
   const taskEntity = SQLiteEntity.make(table)
     .eschema(TaskSchema)
     .primary({ pk: ["projectId"] }) // sk: taskId (from idField)
@@ -1325,7 +1325,7 @@ describe("Timeline Index", () => {
   afterAll(() => db.close());
 
   describe("timeline index queries", () => {
-    it.effect("queries all items in ascending order (by _uid)", () =>
+    it.effect("queries all items in ascending order (by _u)", () =>
       Effect.gen(function* () {
         const result = yield* taskEntity.query("timeline", {
           pk: { projectId: "proj-timeline" },
@@ -1333,15 +1333,15 @@ describe("Timeline Index", () => {
         });
 
         expect(result.items).toHaveLength(5);
-        // Verify items are in ascending _uid order
-        const uids = result.items.map((i) => i.meta._uid);
-        for (let i = 1; i < uids.length; i++) {
-          expect(uids[i]! > uids[i - 1]!).toBe(true);
+        // Verify items are in ascending _u order
+        const timestamps = result.items.map((i) => i.meta._u);
+        for (let i = 1; i < timestamps.length; i++) {
+          expect(timestamps[i]! > timestamps[i - 1]!).toBe(true);
         }
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("queries all items in descending order (by _uid)", () =>
+    it.effect("queries all items in descending order (by _u)", () =>
       Effect.gen(function* () {
         const result = yield* taskEntity.query("timeline", {
           pk: { projectId: "proj-timeline" },
@@ -1349,15 +1349,15 @@ describe("Timeline Index", () => {
         });
 
         expect(result.items).toHaveLength(5);
-        // Verify items are in descending _uid order
-        const uids = result.items.map((i) => i.meta._uid);
-        for (let i = 1; i < uids.length; i++) {
-          expect(uids[i]! < uids[i - 1]!).toBe(true);
+        // Verify items are in descending _u order
+        const timestamps = result.items.map((i) => i.meta._u);
+        for (let i = 1; i < timestamps.length; i++) {
+          expect(timestamps[i]! < timestamps[i - 1]!).toBe(true);
         }
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("queries with limit (first N by ascending _uid)", () =>
+    it.effect("queries with limit (first N by ascending _u)", () =>
       Effect.gen(function* () {
         const result = yield* taskEntity.query(
           "timeline",
@@ -1370,14 +1370,14 @@ describe("Timeline Index", () => {
 
         expect(result.items).toHaveLength(3);
         // Verify ascending order
-        const uids = result.items.map((i) => i.meta._uid);
-        for (let i = 1; i < uids.length; i++) {
-          expect(uids[i]! > uids[i - 1]!).toBe(true);
+        const timestamps = result.items.map((i) => i.meta._u);
+        for (let i = 1; i < timestamps.length; i++) {
+          expect(timestamps[i]! > timestamps[i - 1]!).toBe(true);
         }
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("queries with limit (last N by descending _uid)", () =>
+    it.effect("queries with limit (last N by descending _u)", () =>
       Effect.gen(function* () {
         const result = yield* taskEntity.query(
           "timeline",
@@ -1390,9 +1390,9 @@ describe("Timeline Index", () => {
 
         expect(result.items).toHaveLength(3);
         // Verify descending order
-        const uids = result.items.map((i) => i.meta._uid);
-        for (let i = 1; i < uids.length; i++) {
-          expect(uids[i]! < uids[i - 1]!).toBe(true);
+        const timestamps = result.items.map((i) => i.meta._u);
+        for (let i = 1; i < timestamps.length; i++) {
+          expect(timestamps[i]! < timestamps[i - 1]!).toBe(true);
         }
       }).pipe(Effect.provide(layer)),
     );
@@ -1411,9 +1411,9 @@ describe("Timeline Index", () => {
 
         expect(firstPage.items).toHaveLength(2);
 
-        // Use last item's _uid as cursor for next page
+        // Use last item's _u as cursor for next page
         const lastItem = firstPage.items[firstPage.items.length - 1];
-        const cursor = lastItem!.meta._uid;
+        const cursor = lastItem!.meta._u;
 
         const secondPage = yield* taskEntity.query(
           "timeline",
@@ -1425,12 +1425,12 @@ describe("Timeline Index", () => {
         );
 
         expect(secondPage.items).toHaveLength(2);
-        // Verify all items on second page have _uid > cursor
+        // Verify all items on second page have _u > cursor
         for (const item of secondPage.items) {
-          expect(item.meta._uid > cursor).toBe(true);
+          expect(item.meta._u > cursor).toBe(true);
         }
         // Verify ascending order within page
-        expect(secondPage.items[1]!.meta._uid > secondPage.items[0]!.meta._uid).toBe(true);
+        expect(secondPage.items[1]!.meta._u > secondPage.items[0]!.meta._u).toBe(true);
       }).pipe(Effect.provide(layer)),
     );
 
@@ -1448,9 +1448,9 @@ describe("Timeline Index", () => {
 
         expect(lastPage.items).toHaveLength(2);
 
-        // Use last item's _uid as cursor for previous page
+        // Use last item's _u as cursor for previous page
         const lastItem = lastPage.items[lastPage.items.length - 1];
-        const cursor = lastItem!.meta._uid;
+        const cursor = lastItem!.meta._u;
 
         const previousPage = yield* taskEntity.query(
           "timeline",
@@ -1462,12 +1462,12 @@ describe("Timeline Index", () => {
         );
 
         expect(previousPage.items).toHaveLength(2);
-        // Verify all items on previous page have _uid < cursor
+        // Verify all items on previous page have _u < cursor
         for (const item of previousPage.items) {
-          expect(item.meta._uid < cursor).toBe(true);
+          expect(item.meta._u < cursor).toBe(true);
         }
         // Verify descending order within page
-        expect(previousPage.items[1]!.meta._uid < previousPage.items[0]!.meta._uid).toBe(true);
+        expect(previousPage.items[1]!.meta._u < previousPage.items[0]!.meta._u).toBe(true);
       }).pipe(Effect.provide(layer)),
     );
 
@@ -1507,7 +1507,7 @@ describe("Timeline Index", () => {
       expect(descriptor.timelineIndex).toBeDefined();
       expect(descriptor.timelineIndex!.name).toBe("timeline");
       expect(descriptor.timelineIndex!.pk.deps).toContain("projectId");
-      expect(descriptor.timelineIndex!.sk.deps).toContain("_uid");
+      expect(descriptor.timelineIndex!.sk.deps).toContain("_u");
     });
   });
 
@@ -1554,7 +1554,7 @@ describe("Timeline Index", () => {
   });
 
   describe("timeline index with updates", () => {
-    it.effect("updated items get new _uid", () =>
+    it.effect("updated items get new _u", () =>
       Effect.gen(function* () {
         // Insert a new item
         const inserted = yield* taskEntity.insert({
@@ -1564,7 +1564,7 @@ describe("Timeline Index", () => {
           status: "pending",
         });
 
-        const originalUid = inserted.meta._uid;
+        const originalUpdated = inserted.meta._u;
 
         // Small delay to ensure a different ISO timestamp
         yield* Effect.promise(() => new Promise((r) => setTimeout(r, 5)));
@@ -1575,8 +1575,8 @@ describe("Timeline Index", () => {
           { title: "Updated Title", status: "completed" },
         );
 
-        // _uid changes on update (as per the entity design)
-        expect(updated.meta._uid).not.toBe(originalUid);
+        // _u changes on update (as per the entity design)
+        expect(updated.meta._u).not.toBe(originalUpdated);
 
         // Query timeline should find the item with new position
         const result = yield* taskEntity.query("timeline", {
@@ -1586,13 +1586,13 @@ describe("Timeline Index", () => {
 
         expect(result.items).toHaveLength(1);
         expect(result.items[0]!.value.title).toBe("Updated Title");
-        expect(result.items[0]!.meta._uid).toBe(updated.meta._uid);
+        expect(result.items[0]!.meta._u).toBe(updated.meta._u);
       }).pipe(Effect.provide(layer)),
     );
   });
 
   describe("timeline index subscribe", () => {
-    it.effect("subscribe on timeline uses _uid for cursor", () =>
+    it.effect("subscribe on timeline uses _u for cursor", () =>
       Effect.gen(function* () {
         // Get second item to use as cursor
         const items = yield* taskEntity.query(
@@ -1610,7 +1610,7 @@ describe("Timeline Index", () => {
         const result = yield* taskEntity.subscribe({
           key: "timeline",
           pk: { projectId: "proj-timeline" },
-          cursor: cursorItem.meta._uid,
+          cursor: cursorItem.meta._u,
         });
 
         expect(result.success).toBe(true);
@@ -1645,7 +1645,7 @@ describe("Timeline Index", () => {
         const result = yield* taskEntity.subscribe({
           key: "timeline",
           pk: { projectId: "proj-timeline" },
-          cursor: cursorItem.meta._uid,
+          cursor: cursorItem.meta._u,
           limit: 2,
         });
 
@@ -1677,8 +1677,8 @@ describe("Multiple Secondary Indexes", () => {
   const productEntity = SQLiteEntity.make(table)
     .eschema(ProductSchema)
     .primary()  // pk: Product (entity name), sk: productId (from idField)
-    .index("IDX1", "byCategory", { pk: ["category"] })  // sk: _uid
-    .index("IDX2", "byBrand", { pk: ["brand"] })  // sk: _uid
+    .index("IDX1", "byCategory", { pk: ["category"] })  // sk: _u
+    .index("IDX2", "byBrand", { pk: ["brand"] })  // sk: _u
     .build();
 
   beforeAll(async () => {

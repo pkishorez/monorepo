@@ -126,14 +126,14 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
       let total = 0;
 
       while (true) {
-        const beforeUid =
-          Option.getOrNull(yield* cache.getLatest())?.meta._uid ?? null;
+        const beforeUpdated =
+          Option.getOrNull(yield* cache.getLatest())?.meta._u ?? null;
         const count = yield* fetchOnePage(cache);
         if (count === 0) break;
 
-        const afterUid =
-          Option.getOrNull(yield* cache.getLatest())?.meta._uid ?? null;
-        if (afterUid === beforeUid) {
+        const afterUpdated =
+          Option.getOrNull(yield* cache.getLatest())?.meta._u ?? null;
+        if (afterUpdated === beforeUpdated) {
           console.error(
             "[std-toolkit/tanstack] Infinite loop detected: cursor did not advance",
           );
@@ -205,9 +205,9 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
     sync: tanstackSync,
     utils,
     compare: (x, y) => {
-      const xUid = x?._meta?._uid ?? "";
-      const yUid = y?._meta?._uid ?? "";
-      return xUid < yUid ? -1 : 1;
+      const xUpdated = x?._meta?._u ?? "";
+      const yUpdated = y?._meta?._u ?? "";
+      return xUpdated < yUpdated ? -1 : 1;
     },
     onInsert: async ({ transaction }) => {
       const { changes } = transaction.mutations[0]!;
