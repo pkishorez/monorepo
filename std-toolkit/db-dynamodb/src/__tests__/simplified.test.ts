@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { Chunk, Effect, Schema, Stream } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { DynamoTable, DynamoEntity } from "../index.js";
 import { createDynamoDB } from "../services/dynamo-client.js";
 
@@ -26,7 +26,7 @@ const table = DynamoTable.make(localConfig)
 
 // Order schema for testing with composite key
 // idField is "orderId" - automatically added as a branded string
-const orderSchema = ESchema.make("Order", "orderId", {
+const orderSchema = EntityESchema.make("Order", "orderId", {
   userId: Schema.String,
   total: Schema.Number,
   status: Schema.String,

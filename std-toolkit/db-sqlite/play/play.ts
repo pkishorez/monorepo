@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { Effect, Schema } from "effect";
 import { SqliteDBBetterSqlite3 } from "../src/sql/adapters/better-sqlite3.js";
 import { SQLiteTable } from "../src/services/SQLiteTable.js";
@@ -8,13 +8,13 @@ import { EntityRegistry } from "../src/registry/entity-registry.js";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
-const UserSchema = ESchema.make("User", "userId", {
+const UserSchema = EntityESchema.make("User", "userId", {
   email: Schema.String,
   name: Schema.String,
   status: Schema.Literal("active", "inactive"),
 }).build();
 
-const PostSchema = ESchema.make("Post", "postId", {
+const PostSchema = EntityESchema.make("Post", "postId", {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,

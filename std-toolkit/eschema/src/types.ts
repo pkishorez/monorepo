@@ -1,5 +1,4 @@
-// Standard Schema helper types
-import type { ESchema } from "./eschema";
+import type { ESchema, SingleEntityESchema, EntityESchema } from "./eschema";
 import { JSONSchema, Schema } from "effect";
 
 export type ESchemaDescriptor = JSONSchema.JsonSchema7Object & {
@@ -14,7 +13,6 @@ export type StructFieldsSchema<Or = never> = Record<
   | Or
 >;
 
-// Delta schema allows null for field removal
 export type DeltaSchema = Record<
   string,
   | Schema.Schema<any, any, never>
@@ -22,7 +20,6 @@ export type DeltaSchema = Record<
   | null
 >;
 
-// Merge schemas: Base minus Delta keys, plus non-null Delta keys
 export type MergeSchemas<
   Base extends StructFieldsSchema,
   Delta extends DeltaSchema,
@@ -46,7 +43,7 @@ export type ForbidUnderscorePrefix<T> = {
 
 /**
  * Type-level enforcement that the schema must not contain the ID field.
- * The ID field is automatically added by ESchema and is reserved.
+ * The ID field is automatically added by EntityESchema and is reserved.
  */
 export type ForbidIdField<T, IdField extends string> = {
   [K in keyof T]: K extends IdField
@@ -54,44 +51,17 @@ export type ForbidIdField<T, IdField extends string> = {
     : T[K];
 };
 
-// Type helpers
 export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
-// 1. Create a helper to generate a tuple of a specific length
 type BuildTuple<L extends number, T extends any[] = []> = T["length"] extends L
   ? T
   : BuildTuple<L, [...T, any]>;
 
-// 2. The core logic: Extract, Increment, and Reassemble
 export type NextVersion<V extends string> =
   V extends `v${infer Num extends number}`
     ? `v${[...BuildTuple<Num>, any]["length"] & number}`
-    : never;
-
-export type AnyESchema<
-  N extends string = string,
-  Id extends string = string,
-  V extends string = string,
-  S extends StructFieldsSchema = any,
-> = ESchema<N, Id, V, S>;
-
-/**
- * Extracts the type from an ESchema.
- * Same type for both encode and decode operations.
- */
-export type ESchemaType<T extends AnyESchema> =
-  T extends ESchema<infer _N, infer _Id, infer _V, infer TLatest>
-    ? Prettify<StructFieldsDecoded<TLatest>>
-    : never;
-
-/**
- * Extracts the ID field name from an ESchema.
- */
-export type ESchemaIdField<T extends AnyESchema> =
-  T extends ESchema<infer _N, infer Id, infer _V, infer _TLatest>
-    ? Id
     : never;
 
 /**
@@ -99,3 +69,63 @@ export type ESchemaIdField<T extends AnyESchema> =
  * Used for entity ID fields without branding.
  */
 export type IdSchema = Schema.Schema<string, string, never>;
+
+export type Evolution = {
+  version: string;
+  schema: StructFieldsSchema;
+  migration: ((prev: any) => any) | null;
+};
+
+// ─── Any* type aliases ──────────────────────────────────────────────────────
+
+/**
+ * Widest type — matches any ESchema (base, SingleEntity, or Entity).
+ */
+export type AnyESchema<
+  V extends string = string,
+  S extends StructFieldsSchema = any,
+> = ESchema<V, S>;
+
+/**
+ * Matches any SingleEntityESchema or EntityESchema (has name).
+ */
+export type AnySingleEntityESchema<
+  N extends string = string,
+  V extends string = string,
+  S extends StructFieldsSchema = any,
+> = SingleEntityESchema<N, V, S>;
+
+/**
+ * Matches any EntityESchema (has name + idField).
+ */
+export type AnyEntityESchema<
+  N extends string = string,
+  Id extends string = string,
+  V extends string = string,
+  S extends StructFieldsSchema = any,
+> = EntityESchema<N, Id, V, S>;
+
+// ─── Type extractors ────────────────────────────────────────────────────────
+
+/**
+ * Extracts the type from any ESchema level.
+ * Same type for both encode and decode operations.
+ */
+export type ESchemaType<T extends AnyESchema> =
+  T extends ESchema<infer _V, infer TLatest>
+    ? Prettify<StructFieldsDecoded<TLatest>>
+    : never;
+
+/**
+ * Extracts the ID field name from an EntityESchema.
+ */
+export type ESchemaIdField<T extends AnyEntityESchema> =
+  T extends EntityESchema<infer _N, infer Id, infer _V, infer _TLatest>
+    ? Id
+    : never;
+
+/**
+ * Extracts the name from a SingleEntityESchema or EntityESchema.
+ */
+export type ESchemaName<T extends AnySingleEntityESchema> =
+  T extends SingleEntityESchema<infer N, infer _V, infer _TLatest> ? N : never;

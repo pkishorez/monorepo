@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { DynamoTable, DynamoEntity } from "../index.js";
 import { createDynamoDB } from "../services/dynamo-client.js";
 import { DynamodbError } from "../errors.js";
@@ -23,7 +23,7 @@ const table = DynamoTable.make(localConfig)
   .gsi("GSI1", "GSI1PK", "GSI1SK")
   .build();
 
-const playerSchema = ESchema.make("Player", "playerId", {
+const playerSchema = EntityESchema.make("Player", "playerId", {
   teamId: Schema.String,
   name: Schema.String,
   score: Schema.Number,

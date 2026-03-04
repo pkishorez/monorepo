@@ -1,6 +1,6 @@
 import { Rpc } from "@effect/rpc";
 import { Schema } from "effect";
-import { ESchema, type StructFieldsSchema } from "@std-toolkit/eschema";
+import { EntityESchema, type StructFieldsSchema } from "@std-toolkit/eschema";
 import { EntitySchema } from "../schema";
 
 export class StdToolkitError extends Schema.TaggedError<StdToolkitError>()(
@@ -20,7 +20,7 @@ export const makeInsertRpc = <
   F extends StructFieldsSchema,
   P extends string = "",
 >(
-  eschema: ESchema<N, Id, V, F>,
+  eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
 ) => {
   const { [eschema.idField]: _id, ...fieldsWithoutId } = eschema.fields;
@@ -42,7 +42,7 @@ export const makeUpdateRpc = <
   F extends StructFieldsSchema,
   P extends string = "",
 >(
-  eschema: ESchema<N, Id, V, F>,
+  eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
 ) => {
   const { [eschema.idField]: _id, ...fieldsWithoutId } = eschema.fields;
@@ -72,7 +72,7 @@ export const makeDeleteRpc = <
   F extends StructFieldsSchema,
   P extends string = "",
 >(
-  eschema: ESchema<N, Id, V, F>,
+  eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
 ) => {
   const payloadSchema = Schema.Struct({
@@ -95,7 +95,7 @@ export const makeGetRpc = <
   F extends StructFieldsSchema,
   P extends string = "",
 >(
-  eschema: ESchema<N, Id, V, F>,
+  eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
 ) => {
   const payloadSchema = Schema.Struct({
@@ -118,7 +118,7 @@ export const makeEntityRpcGroup = <
   F extends StructFieldsSchema,
   P extends string = "",
 >(
-  eschema: ESchema<N, Id, V, F>,
+  eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
 ) => {
   return [

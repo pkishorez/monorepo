@@ -1,100 +1,43 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { Effect, JSONSchema, Schema } from "effect";
-import {
+import type {
   IdSchema,
-  DeltaSchema,
   ESchemaDescriptor,
+  Evolution,
   ForbidUnderscorePrefix,
   ForbidIdField,
-  MergeSchemas,
-  NextVersion,
   Prettify,
   StructFieldsDecoded,
   StructFieldsSchema,
 } from "./types";
 import { ESchemaError } from "./utils";
-import { struct, metaSchema } from "./schema";
+import { struct, metaSchema, INITIAL_VERSION } from "./schema";
+import {
+  ESchemaBuilder,
+  SingleEntityESchemaBuilder,
+  EntityESchemaBuilder,
+} from "./internal/builders";
 
 export class ESchema<
-  TName extends string,
-  TIdField extends string,
   TVersion extends string,
   TLatest extends StructFieldsSchema,
 > implements StandardSchemaV1<unknown, Prettify<StructFieldsDecoded<TLatest>>> {
-  /**
-   * Creates a new ESchema with the given name, ID field, and schema.
-   * The ID field is automatically added to the schema as a String field.
-   * It cannot be included in the user-provided schema.
-   *
-   * @param name - The entity name
-   * @param idField - The name of the ID field (e.g., "id", "userId")
-   * @param schema - The schema fields (must NOT include the ID field)
-   */
-  static make<
-    N extends string,
-    Id extends string,
-    I extends StructFieldsSchema,
-  >(
-    name: N,
-    idField: Id,
-    schema: I & ForbidUnderscorePrefix<I> & ForbidIdField<I, Id>,
-  ) {
-    // Create a plain string ID schema for this entity
-    const idSchema = Schema.String as IdSchema;
-
-    // Add the ID field to the schema at runtime
-    const schemaWithId = {
-      ...schema,
-      [idField]: idSchema,
-    } as I & Record<Id, IdSchema>;
-
-    return new Builder<N, Id, "v1", I & Record<Id, IdSchema>>(
-      name,
-      idField,
-      idSchema,
-      [
-        {
-          version: "v1",
-          schema: schemaWithId,
-          migration: null,
-        },
-      ],
-      "v1",
-    );
-  }
-
   constructor(
-    readonly name: TName,
-    readonly idField: TIdField,
     readonly latestVersion: TVersion,
-    private evolutions: {
-      version: string;
-      schema: StructFieldsSchema;
-      migration: ((prev: any) => any) | null;
-    }[] = [],
+    private evolutions: Evolution[] = [],
   ) {}
 
   makePartial(value: Partial<StructFieldsDecoded<TLatest>>) {
-    return {
-      ...value,
-      _v: this.latestVersion,
-    };
+    return { ...value, _v: this.latestVersion };
   }
 
-  /**
-   * The type for this schema (includes branded ID).
-   * Same type for both encode and decode operations.
-   */
   Type = null as unknown as Prettify<StructFieldsDecoded<TLatest>>;
 
-  /**
-   * Returns the raw field definitions for the latest schema version.
-   */
   get fields(): TLatest {
     const lastEvolution = this.evolutions?.at(-1);
     if (!lastEvolution?.schema) {
       throw new Error(
-        `ESchema "${this.name}" is not properly initialized. ` +
+        `ESchema is not properly initialized. ` +
         `This usually happens when the schema is accessed before module initialization completes. ` +
         `Consider using lazy initialization or avoiding top-level schema computations.`
       );
@@ -102,10 +45,6 @@ export class ESchema<
     return lastEvolution.schema as TLatest;
   }
 
-  /**
-   * Returns the Effect Schema for this entity.
-   * The type includes the branded ID.
-   */
   get schema(): Schema.Struct<TLatest> {
     return Schema.Struct(this.fields);
   }
@@ -143,19 +82,13 @@ export class ESchema<
         data = evo.migration!(data);
       }
 
-      return {
-        ...data,
-      } as StructFieldsDecoded<TLatest>;
+      return data as StructFieldsDecoded<TLatest>;
     });
   }
 
   encode(
     value: StructFieldsDecoded<TLatest>,
-  ): Effect.Effect<
-    Prettify<StructFieldsDecoded<TLatest>>,
-    ESchemaError,
-    never
-  > {
+  ): Effect.Effect<Prettify<StructFieldsDecoded<TLatest>>, ESchemaError, never> {
     return Effect.gen(this, function* () {
       const evolution = this.evolutions.at(-1);
       if (!evolution) {
@@ -169,7 +102,6 @@ export class ESchema<
         ),
       );
 
-      // Add _v at runtime for versioning (not in type)
       return {
         ...data,
         _v: this.latestVersion,
@@ -200,92 +132,95 @@ export class ESchema<
       }
       const cause = result.cause;
       if (cause._tag === "Fail") {
-        return {
-          issues: [{ message: cause.error.message }],
-        };
+        return { issues: [{ message: cause.error.message }] };
       }
-      return {
-        issues: [{ message: "Unknown error" }],
-      };
+      return { issues: [{ message: "Unknown error" }] };
     },
   };
 }
 
-class Builder<
+export namespace ESchema {
+  export function make<I extends StructFieldsSchema>(
+    schema: I & ForbidUnderscorePrefix<I>,
+  ) {
+    return new ESchemaBuilder<"v1", I>(
+      [{ version: INITIAL_VERSION, schema, migration: null }],
+      INITIAL_VERSION,
+    );
+  }
+}
+
+// Strip static side so subclasses don't inherit namespace `make`
+const ESchemaBase: new <
+  TVersion extends string,
+  TLatest extends StructFieldsSchema,
+>(
+  latestVersion: TVersion,
+  evolutions?: Evolution[],
+) => ESchema<TVersion, TLatest> = ESchema;
+
+export class SingleEntityESchema<
+  TName extends string,
+  TVersion extends string,
+  TLatest extends StructFieldsSchema,
+> extends ESchemaBase<TVersion, TLatest> {
+  constructor(
+    readonly name: TName,
+    latestVersion: TVersion,
+    evolutions: Evolution[] = [],
+  ) {
+    super(latestVersion, evolutions);
+  }
+}
+
+export namespace SingleEntityESchema {
+  export function make<N extends string, I extends StructFieldsSchema>(
+    name: N,
+    schema: I & ForbidUnderscorePrefix<I>,
+  ) {
+    return new SingleEntityESchemaBuilder<N, "v1", I>(
+      name,
+      [{ version: INITIAL_VERSION, schema, migration: null }],
+      INITIAL_VERSION,
+    );
+  }
+}
+
+export class EntityESchema<
   TName extends string,
   TIdField extends string,
   TVersion extends string,
   TLatest extends StructFieldsSchema,
-> {
+> extends ESchemaBase<TVersion, TLatest> {
   constructor(
-    private name: TName,
-    private _idField: TIdField,
-    private _idSchema: IdSchema,
-    private migrations: {
-      version: string;
-      schema: StructFieldsSchema;
-      migration: ((prev: any) => any) | null;
-    }[],
-    readonly version: TVersion,
-  ) {}
-
-  /**
-   * Evolves the schema to a new version with field changes.
-   * The delta schema must NOT include the ID field - it is inherited automatically.
-   *
-   * @param version - The new version (e.g., "v2")
-   * @param delta - Fields to add/modify/remove (null removes a field)
-   * @param migration - Function to migrate data from previous version
-   */
-  evolve<V extends NextVersion<TVersion>, D extends DeltaSchema>(
-    version: V,
-    delta: D & ForbidUnderscorePrefix<D> & ForbidIdField<D, TIdField>,
-    migration: (
-      prev: StructFieldsDecoded<TLatest>,
-    ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
+    readonly name: TName,
+    readonly idField: TIdField,
+    latestVersion: TVersion,
+    evolutions: Evolution[] = [],
   ) {
-    // Build the merged schema at runtime
-    const prevSchema = this.migrations.at(-1)?.schema ?? {};
-    const mergedSchema: StructFieldsSchema = { ...prevSchema };
-
-    for (const [key, value] of Object.entries(delta)) {
-      if (value === null) {
-        delete mergedSchema[key];
-      } else {
-        mergedSchema[key] = value;
-      }
-    }
-
-    // Ensure ID field is always present with branded type
-    mergedSchema[this._idField] = this._idSchema;
-
-    return new Builder<
-      TName,
-      TIdField,
-      V,
-      MergeSchemas<TLatest, D> & Record<TIdField, IdSchema>
-    >(
-      this.name,
-      this._idField,
-      this._idSchema,
-      [
-        ...this.migrations,
-        {
-          version,
-          schema: mergedSchema,
-          migration,
-        },
-      ],
-      version,
-    );
+    super(latestVersion, evolutions);
   }
+}
 
-  build() {
-    return new ESchema<TName, TIdField, TVersion, TLatest>(
-      this.name,
-      this._idField,
-      this.version,
-      this.migrations,
+export namespace EntityESchema {
+  export function make<
+    N extends string,
+    Id extends string,
+    I extends StructFieldsSchema,
+  >(
+    name: N,
+    idField: Id,
+    schema: I & ForbidUnderscorePrefix<I> & ForbidIdField<I, Id>,
+  ) {
+    const idSchema = Schema.String as IdSchema;
+    const schemaWithId = { ...schema, [idField]: idSchema } as I & Record<Id, IdSchema>;
+
+    return new EntityESchemaBuilder<N, Id, "v1", I & Record<Id, IdSchema>>(
+      name,
+      idField,
+      idSchema,
+      [{ version: INITIAL_VERSION, schema: schemaWithId, migration: null }],
+      INITIAL_VERSION,
     );
   }
 }

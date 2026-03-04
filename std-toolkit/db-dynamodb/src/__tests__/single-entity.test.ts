@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { SingleEntityESchema } from "@std-toolkit/eschema";
 import { DynamoTable, DynamoSingleEntity } from "../index.js";
 import { createDynamoDB } from "../services/dynamo-client.js";
 
@@ -19,7 +19,7 @@ const localConfig = {
 
 const table = DynamoTable.make(localConfig).primary("pk", "sk").build();
 
-const configSchema = ESchema.make("AppConfig", "configId", {
+const configSchema = SingleEntityESchema.make("AppConfig", {
   theme: Schema.String,
   maxRetries: Schema.Number,
 }).build();
@@ -175,7 +175,7 @@ describe("DynamoSingleEntity", () => {
 
     it.effect("fails with NoItemToUpdate on non-existent item", () =>
       Effect.gen(function* () {
-        const emptySchema = ESchema.make("EmptyConfig", "id", {
+        const emptySchema = SingleEntityESchema.make("EmptyConfig", {
           value: Schema.String,
         }).build();
 

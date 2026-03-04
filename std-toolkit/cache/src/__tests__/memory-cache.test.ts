@@ -1,10 +1,10 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Option, Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import type { EntityType } from "@std-toolkit/core";
 import { MemoryCacheEntity } from "../memory/memory-cache-entity.js";
 
-const UserSchema = ESchema.make("User", "id", {
+const UserSchema = EntityESchema.make("User", "id", {
   name: Schema.String,
   email: Schema.String,
 }).build();

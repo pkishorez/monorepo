@@ -1,4 +1,4 @@
-import type { AnyESchema, ESchemaType } from "@std-toolkit/eschema";
+import type { AnyEntityESchema, ESchemaType } from "@std-toolkit/eschema";
 import { Chunk, Effect, FiberRef, Option, Schema, Stream } from "effect";
 import type { SQLiteTableInstance, SortKeyCondition } from "./sqlite-table.js";
 import {
@@ -67,7 +67,7 @@ type IndexKeyFields<T, K extends keyof T | DerivableMetaFields> = Pick<
  */
 export class SQLiteEntity<
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
-  TSchema extends AnyESchema,
+  TSchema extends AnyEntityESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TTimelineDerivation extends StoredTimelineDerivation | null = null,
 > {
@@ -87,7 +87,7 @@ export class SQLiteEntity<
        * @param eschema - The ESchema instance
        * @returns A builder to configure the primary index derivation
        */
-      eschema<TS extends AnyESchema>(eschema: TS) {
+      eschema<TS extends AnyEntityESchema>(eschema: TS) {
         return {
           /**
            * Defines the primary index derivation fields.
@@ -934,7 +934,7 @@ export class SQLiteEntity<
  */
 class EntityIndexDerivations<
   TTable extends SQLiteTableInstance,
-  TSchema extends AnyESchema,
+  TSchema extends AnyEntityESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TTimelineDerivation extends StoredTimelineDerivation | null = null,

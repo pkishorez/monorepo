@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { Effect, Schema, SubscriptionRef } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { EntityType } from "@std-toolkit/core";
 import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
 import { stdCollectionOptions, broadcastCollections } from "../index";
 
-const TestSchema = ESchema.make("TestEntity", "id", {
+const TestSchema = EntityESchema.make("TestEntity", "id", {
   name: Schema.String,
   updatedAt: Schema.String,
 }).build();

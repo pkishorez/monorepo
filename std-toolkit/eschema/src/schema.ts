@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import type { StructFieldsSchema } from "./types";
+import type { DeltaSchema, StructFieldsSchema } from "./types";
 
 export function struct<S extends StructFieldsSchema>(
   fields: S,
@@ -15,6 +15,8 @@ export function struct<S extends StructFieldsSchema>(
   >;
 }
 
+export const INITIAL_VERSION = "v1" as const;
+
 export const metaSchema = Schema.Struct({
   _v: Schema.String,
 });
@@ -23,3 +25,18 @@ export const id = (identifier: string) =>
   Schema.String.annotations({
     jsonSchema: { identifier },
   });
+
+export function mergeDelta(
+  base: StructFieldsSchema,
+  delta: DeltaSchema,
+): StructFieldsSchema {
+  const merged: StructFieldsSchema = { ...base };
+  for (const [key, value] of Object.entries(delta)) {
+    if (value === null) {
+      delete merged[key];
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}

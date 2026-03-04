@@ -1,18 +1,18 @@
 import "./setup";
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Option, Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { IDBEntity } from "../index";
 
 describe("IDBEntity", () => {
   let dbCounter = 0;
 
-  const UserSchema = ESchema.make("User", "id", {
+  const UserSchema = EntityESchema.make("User", "id", {
     name: Schema.String,
     email: Schema.String,
   }).build();
 
-  const PostSchema = ESchema.make("Post", "id", {
+  const PostSchema = EntityESchema.make("Post", "id", {
     title: Schema.String,
   }).build();
 

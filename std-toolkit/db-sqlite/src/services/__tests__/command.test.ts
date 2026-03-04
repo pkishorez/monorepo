@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { Effect, Layer, Schema } from "effect";
 import { SqliteDBBetterSqlite3 } from "../../sql/adapters/better-sqlite3.js";
 import { SqliteDB } from "../../sql/db.js";
@@ -12,12 +12,12 @@ import { CommandError } from "@std-toolkit/core/command";
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
-const UserSchema = ESchema.make("User", "userId", {
+const UserSchema = EntityESchema.make("User", "userId", {
   email: Schema.String,
   name: Schema.String,
 }).build();
 
-const PostSchema = ESchema.make("Post", "postId", {
+const PostSchema = EntityESchema.make("Post", "postId", {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,
@@ -456,7 +456,7 @@ describe("SqliteCommand Error Handling", () => {
     .primary("pk", "sk")
     .build();
 
-  const SimpleSchema = ESchema.make("Simple", "id", {
+  const SimpleSchema = EntityESchema.make("Simple", "id", {
     value: Schema.String,
   }).build();
 
@@ -547,11 +547,11 @@ describe("SqliteCommand Cross-Entity Operations", () => {
     .primary("pk", "sk")
     .build();
 
-  const EntityASchema = ESchema.make("EntityA", "aId", {
+  const EntityASchema = EntityESchema.make("EntityA", "aId", {
     value: Schema.String,
   }).build();
 
-  const EntityBSchema = ESchema.make("EntityB", "bId", {
+  const EntityBSchema = EntityESchema.make("EntityB", "bId", {
     ref: Schema.String,
   }).build();
 

@@ -9,6 +9,9 @@ export {
   type SingleEntityType,
 } from "./services/index.js";
 
+// Client
+export { createDynamoDB } from "./services/dynamo-client.js";
+
 // Errors
 export { DynamodbError } from "./errors.js";
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { ESchema } from "@std-toolkit/eschema";
+import { EntityESchema } from "@std-toolkit/eschema";
 import { DynamoTable, DynamoEntity, EntityRegistry } from "../index.js";
 import { DynamoCommand } from "../services/dynamo-command.js";
 import { createDynamoDB } from "../services/dynamo-client.js";
@@ -21,12 +21,12 @@ const localConfig = {
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
-const UserSchema = ESchema.make("User", "userId", {
+const UserSchema = EntityESchema.make("User", "userId", {
   email: Schema.String,
   name: Schema.String,
 }).build();
 
-const PostSchema = ESchema.make("Post", "postId", {
+const PostSchema = EntityESchema.make("Post", "postId", {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,
