@@ -2,9 +2,11 @@
 export {
   DynamoTable,
   DynamoEntity,
+  DynamoSingleEntity,
   EntityRegistry,
   DynamoCommand,
   type EntityType,
+  type SingleEntityType,
 } from "./services/index.js";
 
 // Errors

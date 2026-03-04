@@ -682,6 +682,24 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         }),
       );
     });
+
+    describe("dangerouslyPurgeAllItems", () => {
+      it.effect("deletes all items from the table", () =>
+        Effect.gen(function* () {
+          yield* table.putItem({ pk: "PURGE#1", sk: "A", value: "1" });
+          yield* table.putItem({ pk: "PURGE#1", sk: "B", value: "2" });
+          yield* table.putItem({ pk: "PURGE#2", sk: "A", value: "3" });
+
+          const before = yield* table.scan();
+          expect(before.Items.length).toBeGreaterThanOrEqual(3);
+
+          yield* table.dangerouslyPurgeAllItems("I KNOW WHAT I AM DOING");
+
+          const after = yield* table.scan();
+          expect(after.Items.length).toBe(0);
+        }),
+      );
+    });
   });
 
   describe("DynamoEntity - High-level Operations", () => {
