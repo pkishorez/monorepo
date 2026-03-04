@@ -14,6 +14,7 @@ export type {
   Operator,
   KeyOp,
   SkParam,
+  CustomSkParam,
   StreamSkParam,
   SimpleQueryOptions,
   QueryStreamOptions,
