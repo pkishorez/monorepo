@@ -15,11 +15,11 @@ export class MemoryCacheEntity<
 > implements CacheEntity<TSchema["Type"]> {
   #store = new Map<string, StoredItem>();
   #eschema: TSchema;
-  #uidIndex: SortedMap.SortedMap<string, string>;
+  #updatedIndex: SortedMap.SortedMap<string, string>;
 
   private constructor(eschema: TSchema) {
     this.#eschema = eschema;
-    this.#uidIndex = SortedMap.empty<string, string>(stringOrder);
+    this.#updatedIndex = SortedMap.empty<string, string>(stringOrder);
   }
 
   static make<TSchema extends CacheESchema>(options: {
@@ -35,11 +35,11 @@ export class MemoryCacheEntity<
 
         const existingItem = this.#store.get(id);
         if (existingItem) {
-          this.#uidIndex = SortedMap.remove(this.#uidIndex, existingItem.meta._uid);
+          this.#updatedIndex = SortedMap.remove(this.#updatedIndex, existingItem.meta._u);
         }
 
         this.#store.set(id, { value: item.value, meta: item.meta });
-        this.#uidIndex = SortedMap.set(this.#uidIndex, item.meta._uid, id);
+        this.#updatedIndex = SortedMap.set(this.#updatedIndex, item.meta._u, id);
       },
       catch: (cause) => CacheError.putFailed("Failed to put item", cause),
     });
@@ -80,7 +80,7 @@ export class MemoryCacheEntity<
   > {
     return Effect.try({
       try: () => {
-        const last = SortedMap.lastOption(this.#uidIndex);
+        const last = SortedMap.lastOption(this.#updatedIndex);
         if (Option.isNone(last)) return Option.none();
 
         const [, key] = last.value;
@@ -103,7 +103,7 @@ export class MemoryCacheEntity<
   > {
     return Effect.try({
       try: () => {
-        const first = SortedMap.headOption(this.#uidIndex);
+        const first = SortedMap.headOption(this.#updatedIndex);
         if (Option.isNone(first)) return Option.none();
 
         const [, key] = first.value;
@@ -126,7 +126,7 @@ export class MemoryCacheEntity<
         const item = this.#store.get(id);
 
         if (item) {
-          this.#uidIndex = SortedMap.remove(this.#uidIndex, item.meta._uid);
+          this.#updatedIndex = SortedMap.remove(this.#updatedIndex, item.meta._u);
         }
         this.#store.delete(id);
       },
@@ -138,7 +138,7 @@ export class MemoryCacheEntity<
     return Effect.try({
       try: () => {
         this.#store.clear();
-        this.#uidIndex = SortedMap.empty<string, string>(stringOrder);
+        this.#updatedIndex = SortedMap.empty<string, string>(stringOrder);
       },
       catch: (cause) =>
         CacheError.deleteFailed("Failed to delete all items", cause),

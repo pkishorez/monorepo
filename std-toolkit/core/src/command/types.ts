@@ -46,7 +46,7 @@ export interface EntityType<T> {
     _v: string;
     _e: string;
     _d: boolean;
-    _uid: string;
+    _u: string;
   };
 }
 

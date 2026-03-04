@@ -189,7 +189,7 @@ const play = Effect.gen(function* () {
   }
 
   // ---------------------------------------------------------------------------
-  // Query Method 6: GSI query ascending (SK is automatically _uid)
+  // Query Method 6: GSI query ascending (SK is automatically _u)
   // ---------------------------------------------------------------------------
   yield* Console.log(
     "\n[7] query('byAuthor', { pk, sk: { '>=': null } }) - GSI all posts by bob\n",
@@ -207,16 +207,16 @@ const play = Effect.gen(function* () {
   }
 
   // ---------------------------------------------------------------------------
-  // Query Method 7: GSI query (SK is _uid for secondary indexes)
+  // Query Method 7: GSI query (SK is _u for secondary indexes)
   // ---------------------------------------------------------------------------
   yield* Console.log(
-    "\n[8] query('byAuthor') - Secondary indexes use _uid as SK (time-ordered)\n",
+    "\n[8] query('byAuthor') - Secondary indexes use _u as SK (time-ordered)\n",
   );
 
-  // Note: Secondary indexes now always use _uid as SK for time-ordered results
+  // Note: Secondary indexes now always use _u as SK for time-ordered results
   const q7 = yield* PostEntity.query("byAuthor", {
     pk: { authorId: "bob" },
-    sk: { "<=": null }, // All items descending by _uid (most recent first)
+    sk: { "<=": null }, // All items descending by _u (most recent first)
   });
   yield* Console.log(`    Found ${q7.items.length} posts (most recent first):`);
   for (const p of q7.items) {

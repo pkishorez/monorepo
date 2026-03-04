@@ -83,7 +83,7 @@ export interface SubscribeOptions<K, PK> {
   key: K;
   /** The partition key value for the selected index */
   pk: PK;
-  /** The cursor (_uid) to start from. null = start from beginning, string = continue from that point */
+  /** The cursor (_u) to start from. null = start from beginning, string = continue from that point */
   cursor: string | null;
   /** Maximum number of items to return per query batch */
   limit?: number;

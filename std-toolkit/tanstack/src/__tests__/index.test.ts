@@ -21,7 +21,7 @@ const createEntity = (
     _v: "v1",
     _e: "TestEntity",
     _d: false,
-    _uid: new Date().toISOString(),
+    _u: new Date().toISOString(),
     ...meta,
   },
 });
@@ -78,7 +78,7 @@ describe("stdCollectionOptions", () => {
     expect(config.getKey(item)).toBe("test-123");
   });
 
-  it("compare sorts by _uid timestamp ascending", () => {
+  it("compare sorts by _u timestamp ascending", () => {
     const compare = createConfig().compare!;
 
     const older = {
@@ -89,7 +89,7 @@ describe("stdCollectionOptions", () => {
         _v: "v1",
         _e: "TestEntity",
         _d: false,
-        _uid: "2024-01-01T00:00:00Z",
+        _u: "2024-01-01T00:00:00Z",
       },
     };
     const newer = {
@@ -100,7 +100,7 @@ describe("stdCollectionOptions", () => {
         _v: "v1",
         _e: "TestEntity",
         _d: false,
-        _uid: "2024-01-02T00:00:00Z",
+        _u: "2024-01-02T00:00:00Z",
       },
     };
 
@@ -119,7 +119,7 @@ describe("stdCollectionOptions", () => {
         _v: "v1",
         _e: "TestEntity",
         _d: false,
-        _uid: "2024-01-01T00:00:00Z",
+        _u: "2024-01-01T00:00:00Z",
       },
     };
     const b = {
@@ -130,7 +130,7 @@ describe("stdCollectionOptions", () => {
         _v: "v1",
         _e: "TestEntity",
         _d: false,
-        _uid: "2024-01-01T00:00:00Z",
+        _u: "2024-01-01T00:00:00Z",
       },
     };
 

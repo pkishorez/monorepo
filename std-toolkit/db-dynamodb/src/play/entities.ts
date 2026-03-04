@@ -14,7 +14,7 @@ export const UserEntity = DynamoEntity.make(table)
 // =============================================================================
 // Post Entity
 // PK: Post#{authorId}, SK: {postId} (idField)
-// GSI1 (byAuthor): PK: byAuthor#{authorId}, SK: {_uid}
+// GSI1 (byAuthor): PK: byAuthor#{authorId}, SK: {_u}
 // =============================================================================
 export const PostEntity = DynamoEntity.make(table)
   .eschema(postSchema)
@@ -26,7 +26,7 @@ export const PostEntity = DynamoEntity.make(table)
 // =============================================================================
 // Comment Entity
 // PK: Comment#{postId}, SK: {commentId} (idField)
-// GSI1 (byPost): PK: byPost#{postId}, SK: {_uid}
+// GSI1 (byPost): PK: byPost#{postId}, SK: {_u}
 // =============================================================================
 export const CommentEntity = DynamoEntity.make(table)
   .eschema(commentSchema)

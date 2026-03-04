@@ -39,7 +39,7 @@ const metaSchema = Schema.Struct({
   /** Schema version */
   _v: Schema.String,
   /** ISO timestamp that changes on every write */
-  _uid: Schema.String,
+  _u: Schema.String,
   /** Soft delete flag */
   _d: Schema.Boolean,
 });
@@ -52,7 +52,7 @@ type MetaType = typeof metaSchema.Type;
 /**
  * Meta fields that can be used in index derivations.
  */
-type DerivableMetaFields = "_uid";
+type DerivableMetaFields = "_u";
 
 /**
  * Checks if an error is a conditional check failure from DynamoDB.
@@ -128,7 +128,7 @@ interface StoredPrimaryDerivation {
 
 /**
  * Stored derivation info for a timeline index.
- * Uses the same PK as primary but SK is always _uid for time-ordering.
+ * Uses the same PK as primary but SK is always _u for time-ordering.
  */
 export interface StoredTimelineDerivation {
   /** The actual GSI name on the table (e.g., "GSI1") */
@@ -137,8 +137,8 @@ export interface StoredTimelineDerivation {
   entityIndexName: "timeline";
   /** Field names used to derive the partition key (same as primary) */
   pkDeps: string[];
-  /** Always ["_uid"] for time-ordered results */
-  skDeps: readonly ["_uid"];
+  /** Always ["_u"] for time-ordered results */
+  skDeps: readonly ["_u"];
 }
 
 /**
@@ -786,7 +786,7 @@ export class DynamoEntity<
             ? ((lastItem.value as Record<string, unknown>)[
                 this.#eschema.idField
               ] as string)
-            : lastItem.meta._uid;
+            : lastItem.meta._u;
         return [chunk, Option.some(nextCursor)];
       }),
     );
@@ -798,7 +798,7 @@ export class DynamoEntity<
    *
    * @param opts.key - "primary", "timeline", or secondary index name
    * @param opts.pk - Partition key fields for the selected index
-   * @param opts.cursor - The `_uid` cursor (string to continue from, null to start fresh)
+   * @param opts.cursor - The `_u` cursor (string to continue from, null to start fresh)
    * @param opts.limit - Optional batch size per query iteration
    * @returns All items after the cursor
    */
@@ -853,7 +853,7 @@ export class DynamoEntity<
           (yield* this.#service)?.subscribe(this.#eschema.name);
           return { success: true };
         }
-        currentCursor = lastItem.meta._uid;
+        currentCursor = lastItem.meta._u;
       }
     });
   }
@@ -923,7 +923,7 @@ export class DynamoEntity<
         );
       }
 
-      if (typeof value._uid !== "undefined") {
+      if (typeof value._u !== "undefined") {
         const skKey = `${timeline.gsiName}SK`;
         indexMap[skKey] = deriveIndexKeyValue(
           this.#eschema.name,
@@ -985,16 +985,16 @@ export class DynamoEntity<
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
-      const _uid = new Date().toISOString();
+      const _u = new Date().toISOString();
 
       const meta: MetaType = {
         _e: this.#eschema.name,
         _v: this.#eschema.latestVersion,
-        _uid,
+        _u,
         _d: false,
       };
 
-      const valueWithMeta = { ...fullValue, _uid };
+      const valueWithMeta = { ...fullValue, _u };
       const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
       const indexMap = this.#deriveSecondaryIndexes(valueWithMeta);
 
@@ -1054,14 +1054,14 @@ export class DynamoEntity<
       false,
     );
 
-    const _uid = new Date().toISOString();
-    const updatesWithMeta = { ...updates, _uid };
+    const _u = new Date().toISOString();
+    const updatesWithMeta = { ...updates, _u };
     const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
 
     const meta: MetaType = {
       _e: this.#eschema.name,
       _v: this.#eschema.latestVersion,
-      _uid,
+      _u,
       _d: (updates as any)._d ?? false,
     };
 
@@ -1071,7 +1071,7 @@ export class DynamoEntity<
       ...Object.entries({ ...updates, ...indexMap }).map(([key, v]) =>
         $.set(key, v),
       ),
-      $.set("_uid", _uid),
+      $.set("_u", _u),
     ]);
 
     const exprResult = buildExpr({
@@ -1106,18 +1106,18 @@ export class DynamoEntity<
         }
       }
 
-      const _uid = new Date().toISOString();
+      const _u = new Date().toISOString();
 
       const meta: MetaType = {
         _e: this.#eschema.name,
         _v: this.#eschema.latestVersion,
-        _uid,
+        _u,
         _d: false,
       };
 
       const builtCondition = this.#buildUpdateCondition(condition);
 
-      const update = exprUpdate<any>(($) => [...userOps, $.set("_uid", _uid)]);
+      const update = exprUpdate<any>(($) => [...userOps, $.set("_u", _u)]);
 
       const exprResult = buildExpr({
         update,
@@ -1169,13 +1169,13 @@ class EntityIndexDerivations<
 
   /**
    * Maps a table GSI to a semantic entity index with custom derivation.
-   * SK is automatically set to `_uid` for secondary indexes.
+   * SK is automatically set to `_u` for secondary indexes.
    *
    * @typeParam GsiName - The GSI name on the table
    * @typeParam TPkKeys - Fields used for partition key derivation
    * @param gsiName - The GSI name on the table (e.g., "GSI1")
    * @param entityIndexName - The semantic name for this entity's use of the GSI (e.g., "byEmail")
-   * @param derivation - The pk field array (sk is automatically _uid)
+   * @param derivation - The pk field array (sk is automatically _u)
    * @returns A builder with the index mapping added
    */
   index<
@@ -1192,8 +1192,8 @@ class EntityIndexDerivations<
       pk: TPkKeys;
     },
   ) {
-    // SK is always _uid for secondary indexes
-    const skKeys = ["_uid"] as const;
+    // SK is always _u for secondary indexes
+    const skKeys = ["_u"] as const;
     const newDeriv: StoredIndexDerivation = {
       gsiName,
       entityIndexName,
@@ -1227,7 +1227,7 @@ class EntityIndexDerivations<
   }
 
   /**
-   * Configures a timeline index using the same PK as primary but SK = _uid.
+   * Configures a timeline index using the same PK as primary but SK = _u.
    * This enables time-ordered queries on the same partition.
    *
    * @typeParam GsiName - The GSI name on the table
@@ -1241,7 +1241,7 @@ class EntityIndexDerivations<
       gsiName,
       entityIndexName: "timeline",
       pkDeps: this.#primaryDerivation.pk.map(String),
-      skDeps: ["_uid"] as const,
+      skDeps: ["_u"] as const,
     };
 
     return new EntityIndexDerivations<

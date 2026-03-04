@@ -18,7 +18,7 @@ export interface RawRow extends Record<string, unknown> {
   _data: string;
   _e: string;
   _v: string;
-  _uid: string;
+  _u: string;
   _d: number;
 }
 
@@ -102,7 +102,7 @@ export interface StoredPrimaryDerivation {
 
 /**
  * Stored derivation info for a timeline index.
- * Uses the same PK as primary but SK is always _uid for time-ordering.
+ * Uses the same PK as primary but SK is always _u for time-ordering.
  */
 export interface StoredTimelineDerivation {
   /** The index name on the table (e.g., "IDX1") */
@@ -111,6 +111,6 @@ export interface StoredTimelineDerivation {
   entityIndexName: "timeline";
   /** Field names used to derive the partition key (same as primary) */
   pkDeps: string[];
-  /** Always ["_uid"] for time-ordered results */
-  skDeps: readonly ["_uid"];
+  /** Always ["_u"] for time-ordered results */
+  skDeps: readonly ["_u"];
 }

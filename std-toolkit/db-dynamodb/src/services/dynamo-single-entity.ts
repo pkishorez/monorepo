@@ -26,7 +26,7 @@ const singleMetaSchema = Schema.Struct({
   /** Schema version */
   _v: Schema.String,
   /** ISO timestamp that changes on every write */
-  _uid: Schema.String,
+  _u: Schema.String,
 });
 
 /**
@@ -156,7 +156,7 @@ export class DynamoSingleEntity<
           meta: {
             _e: this.#eschema.name,
             _v: this.#eschema.latestVersion,
-            _uid: "",
+            _u: "",
           },
         };
       }
@@ -193,12 +193,12 @@ export class DynamoSingleEntity<
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
-      const _uid = new Date().toISOString();
+      const _u = new Date().toISOString();
 
       const meta: SingleMetaType = {
         _e: this.#eschema.name,
         _v: this.#eschema.latestVersion,
-        _uid,
+        _u,
       };
 
       const pk = this.#derivePk();
@@ -292,13 +292,13 @@ export class DynamoSingleEntity<
     const pk = this.#derivePk();
     const sk = this.#deriveSk();
 
-    const _uid = new Date().toISOString();
+    const _u = new Date().toISOString();
 
     const builtCondition = this.#buildUpdateCondition(condition);
 
     const update = exprUpdate<any>(($) => [
       ...Object.entries(updates).map(([key, v]) => $.set(key, v)),
-      $.set("_uid", _uid),
+      $.set("_u", _u),
     ]);
 
     const exprResult = buildExpr({
@@ -317,11 +317,11 @@ export class DynamoSingleEntity<
     const sk = this.#deriveSk();
 
     const userOps = exprUpdate<any>(builder);
-    const _uid = new Date().toISOString();
+    const _u = new Date().toISOString();
 
     const builtCondition = this.#buildUpdateCondition(condition);
 
-    const update = exprUpdate<any>(($) => [...userOps, $.set("_uid", _uid)]);
+    const update = exprUpdate<any>(($) => [...userOps, $.set("_u", _u)]);
 
     const exprResult = buildExpr({
       update,

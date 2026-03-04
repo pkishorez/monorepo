@@ -19,7 +19,7 @@ function makeUserEntity(
     meta: {
       _e: UserSchema.name,
       _v: UserSchema.latestVersion,
-      _uid: `uid-${id}`,
+      _u: `uid-${id}`,
       _d: false,
     },
   };
@@ -134,54 +134,54 @@ describe("MemoryCacheEntity", () => {
     }),
   );
 
-  it.effect("should get latest entity by _uid", () =>
+  it.effect("should get latest entity by _u", () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
         value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
       });
       yield* users.put({
         value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
       });
       yield* users.put({
         value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
       });
 
       const latest = yield* users.getLatest();
       expect(Option.isSome(latest)).toBe(true);
       if (Option.isSome(latest)) {
         expect(latest.value.value.id).toBe("user-2");
-        expect(latest.value.meta._uid).toBe("uid-003");
+        expect(latest.value.meta._u).toBe("uid-003");
       }
     }),
   );
 
-  it.effect("should get oldest entity by _uid", () =>
+  it.effect("should get oldest entity by _u", () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
         value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
       });
       yield* users.put({
         value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
       });
       yield* users.put({
         value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
       });
 
       const oldest = yield* users.getOldest();
       expect(Option.isSome(oldest)).toBe(true);
       if (Option.isSome(oldest)) {
         expect(oldest.value.value.id).toBe("user-2");
-        expect(oldest.value.meta._uid).toBe("uid-001");
+        expect(oldest.value.meta._u).toBe("uid-001");
       }
     }),
   );
@@ -210,15 +210,15 @@ describe("MemoryCacheEntity", () => {
 
       yield* users.put({
         value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
       });
       yield* users.put({
         value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
       });
       yield* users.put({
         value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
       });
 
       yield* users.delete("user-2");
@@ -227,7 +227,7 @@ describe("MemoryCacheEntity", () => {
       expect(Option.isSome(latest)).toBe(true);
       if (Option.isSome(latest)) {
         expect(latest.value.value.id).toBe("user-3");
-        expect(latest.value.meta._uid).toBe("uid-002");
+        expect(latest.value.meta._u).toBe("uid-002");
       }
     }),
   );
@@ -238,11 +238,11 @@ describe("MemoryCacheEntity", () => {
 
       yield* users.put({
         value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-003", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
       });
       yield* users.put({
         value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _uid: "uid-002", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
       });
 
       yield* users.put({
@@ -251,14 +251,14 @@ describe("MemoryCacheEntity", () => {
           name: "Alice Updated",
           email: "alice@example.com",
         },
-        meta: { _e: "User", _v: "v1", _uid: "uid-001", _d: false },
+        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
       });
 
       const latest = yield* users.getLatest();
       expect(Option.isSome(latest)).toBe(true);
       if (Option.isSome(latest)) {
         expect(latest.value.value.id).toBe("user-2");
-        expect(latest.value.meta._uid).toBe("uid-002");
+        expect(latest.value.meta._u).toBe("uid-002");
       }
     }),
   );

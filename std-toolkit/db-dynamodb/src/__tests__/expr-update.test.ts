@@ -175,7 +175,7 @@ describe("Entity update with expression builder", () => {
     }),
   );
 
-  it.effect("auto-injects _uid on expression builder updates", () =>
+  it.effect("auto-injects _u on expression builder updates", () =>
     Effect.gen(function* () {
       const before = yield* PlayerEntity.get({
         teamId: "team-1",
@@ -187,7 +187,7 @@ describe("Entity update with expression builder", () => {
         { update: ($) => [$.set("score", $.opAdd("score", 1))] },
       );
 
-      expect(result.meta._uid).not.toBe(before!.meta._uid);
+      expect(result.meta._u).not.toBe(before!.meta._u);
     }),
   );
 
