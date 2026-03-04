@@ -49,6 +49,19 @@ export type SkParam =
   | { ">=": string | null };
 
 /**
+ * Sort key parameter for custom-SK indexes.
+ * The value is a Pick of entity fields used as SK deps, or null for no SK condition.
+ *
+ * @typeParam T - The entity type
+ * @typeParam SkKeys - Tuple of SK field names
+ */
+export type CustomSkParam<T, SkKeys extends readonly (keyof T)[]> =
+  | { "<": Pick<T, SkKeys[number]> | null }
+  | { "<=": Pick<T, SkKeys[number]> | null }
+  | { ">": Pick<T, SkKeys[number]> | null }
+  | { ">=": Pick<T, SkKeys[number]> | null };
+
+/**
  * Sort key parameter for streaming queries.
  * Only supports exclusive operators (> and <) for cursor-based pagination.
  * - `>`: Ascending order (oldest to newest)
@@ -90,16 +103,16 @@ export interface SubscribeOptions<K, PK> {
 }
 
 /**
- * Extracts the operator and value from a KeyOp or SkParam.
+ * Extracts the operator and value from a KeyOp, SkParam, or CustomSkParam.
  *
- * @param op - The KeyOp/SkParam to extract from
- * @returns An object with the operator and value (value may be null for SkParam)
+ * @param op - The KeyOp/SkParam/CustomSkParam to extract from
+ * @returns An object with the operator and value (value may be null for SkParam/CustomSkParam)
  */
-export function extractKeyOp<T>(op: KeyOp<T> | SkParam): { operator: Operator; value: T | string | null } {
-  if ("<" in op) return { operator: "<", value: op["<"] };
-  if ("<=" in op) return { operator: "<=", value: op["<="] };
-  if (">" in op) return { operator: ">", value: op[">"] };
-  if (">=" in op) return { operator: ">=", value: op[">="] };
+export function extractKeyOp<T>(op: KeyOp<T> | SkParam | CustomSkParam<any, any>): { operator: Operator; value: T | string | Record<string, unknown> | null } {
+  if ("<" in op) return { operator: "<", value: op["<"] as any };
+  if ("<=" in op) return { operator: "<=", value: op["<="] as any };
+  if (">" in op) return { operator: ">", value: op[">"] as any };
+  if (">=" in op) return { operator: ">=", value: op[">="] as any };
   throw new Error("Invalid KeyOp: no valid operator found");
 }
 

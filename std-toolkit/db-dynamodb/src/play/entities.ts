@@ -42,3 +42,14 @@ export const UserByIdEntity = DynamoEntity.make(table)
   .eschema(userSchema)
   .primary() // No pk specified - uses entity name only
   .build();
+
+// =============================================================================
+// Post Entity with custom SK
+// GSI1 (byAuthorName): PK: byAuthorName#{authorId}, SK: {title}
+// =============================================================================
+export const PostWithCustomSkEntity = DynamoEntity.make(table)
+  .eschema(postSchema)
+  .primary({ pk: ["authorId"] })
+  .timeline("GSI2")
+  .index("GSI1", "byAuthorName", { pk: ["authorId"], sk: ["title"] })
+  .build();

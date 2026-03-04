@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
-import { Effect, Schema } from "effect";
+import { Effect, Schema, Stream } from "effect";
 import { EntityESchema } from "@std-toolkit/eschema";
 import {
   DynamoTable,
@@ -70,6 +70,21 @@ const orderSchema = EntityESchema.make("Order", "orderId", {
 const OrderEntity = DynamoEntity.make(table)
   .eschema(orderSchema)
   .primary({ pk: ["userId"] })
+  .build();
+
+// Product schema for custom SK tests
+const productSchema = EntityESchema.make("Product", "productId", {
+  category: Schema.String,
+  name: Schema.String,
+  price: Schema.Number,
+}).build();
+
+// Custom SK index: GSI1 sorts by name, GSI2 sorts by price (via _u default)
+const ProductEntity = DynamoEntity.make(table)
+  .eschema(productSchema)
+  .primary({ pk: ["category"] })
+  .index("GSI1", "byName", { pk: ["category"], sk: ["name"] })
+  .index("GSI2", "byCategoryDefault", { pk: ["category"] })
   .build();
 
 // Helper to create the test table
@@ -1859,6 +1874,86 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
 
         expect((result.Attributes?.config as any)?.theme).toBe("dark");
         expect((result.Attributes?.config as any)?.notifications).toBe(true);
+      }),
+    );
+  });
+
+  describe("custom SK indexes", () => {
+    it.effect("queries with custom SK field", () =>
+      Effect.gen(function* () {
+        yield* ProductEntity.insert({
+          productId: "prod-1",
+          category: "electronics",
+          name: "Alpha Widget",
+          price: 29.99,
+        });
+        yield* ProductEntity.insert({
+          productId: "prod-2",
+          category: "electronics",
+          name: "Beta Gadget",
+          price: 49.99,
+        });
+        yield* ProductEntity.insert({
+          productId: "prod-3",
+          category: "electronics",
+          name: "Gamma Device",
+          price: 19.99,
+        });
+
+        // Query all products in category by name ascending
+        const allAsc = yield* ProductEntity.query("byName", {
+          pk: { category: "electronics" },
+          sk: { ">=": null },
+        });
+        expect(allAsc.items.length).toBe(3);
+        expect(allAsc.items[0]?.value.name).toBe("Alpha Widget");
+        expect(allAsc.items[2]?.value.name).toBe("Gamma Device");
+
+        // Query products with name > "Beta Gadget"
+        const afterBeta = yield* ProductEntity.query("byName", {
+          pk: { category: "electronics" },
+          sk: { ">": { name: "Beta Gadget" } },
+        });
+        expect(afterBeta.items.length).toBe(1);
+        expect(afterBeta.items[0]?.value.name).toBe("Gamma Device");
+
+        // Query products with name <= "Beta Gadget" descending
+        const beforeBetaDesc = yield* ProductEntity.query("byName", {
+          pk: { category: "electronics" },
+          sk: { "<=": { name: "Beta Gadget" } },
+        });
+        expect(beforeBetaDesc.items.length).toBe(2);
+        expect(beforeBetaDesc.items[0]?.value.name).toBe("Beta Gadget");
+        expect(beforeBetaDesc.items[1]?.value.name).toBe("Alpha Widget");
+      }),
+    );
+
+    it.effect("default SK index still works alongside custom SK index", () =>
+      Effect.gen(function* () {
+        // byCategoryDefault uses _u SK (default)
+        const result = yield* ProductEntity.query("byCategoryDefault", {
+          pk: { category: "electronics" },
+          sk: { ">=": null },
+        });
+        expect(result.items.length).toBeGreaterThanOrEqual(3);
+      }),
+    );
+
+    it.effect("queryStream works with custom SK index", () =>
+      Effect.gen(function* () {
+        const stream = ProductEntity.queryStream(
+          "byName",
+          {
+            pk: { category: "electronics" },
+            sk: { ">": null },
+          },
+          { batchSize: 2 },
+        );
+        const chunks = yield* stream.pipe(
+          Stream.runCollect,
+          Effect.map((c) => Array.from(c).flat()),
+        );
+        expect(chunks.length).toBeGreaterThanOrEqual(3);
       }),
     );
   });

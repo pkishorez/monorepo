@@ -8,6 +8,7 @@ import type {
   IndexPkValue,
   TransactItem,
   SkParam,
+  CustomSkParam,
   StreamSkParam,
   SimpleQueryOptions,
   QueryStreamOptions,
@@ -114,6 +115,8 @@ export interface StoredIndexDerivation {
   pkDeps: string[];
   /** Field names used to derive the sort key */
   skDeps: string[];
+  /** True when skDeps = ["_u"] (timeline-style SK) */
+  isTimelineSk: boolean;
 }
 
 /**
@@ -146,6 +149,49 @@ export interface StoredTimelineDerivation {
  * For empty arrays, returns never so Pick<T, never> = {}
  */
 type ExtractKeys<T, Keys extends readonly (keyof T)[]> = Keys[number];
+
+/**
+ * Type-level check: is this SK tuple exactly ["_u"]?
+ */
+type IsTimelineSk<T extends readonly unknown[]> =
+  T extends readonly ["_u"] ? true : false;
+
+/**
+ * Extracts only keys from a secondary derivation map where isTimelineSk is true.
+ * Used to restrict subscribe() to _u-SK indexes only.
+ */
+type SubscribableSecondaryKeys<T extends Record<string, StoredIndexDerivation>> = {
+  [K in keyof T]: T[K]["isTimelineSk"] extends true ? K : never;
+}[keyof T] & string;
+
+/**
+ * Resolves the SK param type for a secondary index based on isTimelineSk.
+ * - isTimelineSk = true → SkParam (string | null cursor)
+ * - isTimelineSk = false → CustomSkParam (object | null)
+ */
+type ResolveSkParam<
+  TEntity,
+  TDeriv extends StoredIndexDerivation,
+> = TDeriv["isTimelineSk"] extends true
+  ? SkParam
+  : CustomSkParam<TEntity, TDeriv["skDeps"] & readonly (keyof TEntity)[]>;
+
+/**
+ * Resolves the stream SK param type for a secondary index based on isTimelineSk.
+ */
+type ResolveStreamSkParam<
+  TEntity,
+  TDeriv extends StoredIndexDerivation,
+> = TDeriv["isTimelineSk"] extends true
+  ? StreamSkParam
+  : CustomStreamSkParam<TEntity, TDeriv["skDeps"] & readonly (keyof TEntity)[]>;
+
+/**
+ * Stream SK param for custom-SK indexes (exclusive operators only).
+ */
+type CustomStreamSkParam<T, SkKeys extends readonly (keyof T)[]> =
+  | { ">": Pick<T, SkKeys[number]> | null }
+  | { "<": Pick<T, SkKeys[number]> | null };
 
 /**
  * A DynamoDB entity with type-safe CRUD operations and automatic index derivation.
@@ -243,7 +289,11 @@ export class DynamoEntity<
 
     const deps = new Set<string>();
     for (const [, deriv] of Object.entries(secondaryDerivations)) {
-      for (const dep of (deriv as StoredIndexDerivation).pkDeps) deps.add(dep);
+      const d = deriv as StoredIndexDerivation;
+      for (const dep of d.pkDeps) deps.add(dep);
+      for (const dep of d.skDeps) {
+        if (dep !== "_u") deps.add(dep);
+      }
     }
     if (timelineDerivation) {
       for (const dep of (timelineDerivation as StoredTimelineDerivation).pkDeps)
@@ -601,7 +651,7 @@ export class DynamoEntity<
                 TSecondaryDerivationMap[K]["pkDeps"][number] &
                   keyof ESchemaType<TSchema>
               >;
-              sk: SkParam;
+              sk: ResolveSkParam<ESchemaType<TSchema>, TSecondaryDerivationMap[K]>;
             }
           : never,
     options?: SimpleQueryOptions,
@@ -695,9 +745,11 @@ export class DynamoEntity<
           true,
         );
 
+        const resolvedSkValue = this.#resolveCustomSk(skValue, indexDerivation);
+
         const skCondition: SortKeyparameter | undefined =
-          skValue !== null
-            ? ({ [operator]: skValue } as SortKeyparameter)
+          resolvedSkValue !== null
+            ? ({ [operator]: resolvedSkValue } as SortKeyparameter)
             : undefined;
 
         const gsiQueryOptions: { Limit?: number; ScanIndexForward?: boolean } =
@@ -757,20 +809,32 @@ export class DynamoEntity<
                 TSecondaryDerivationMap[K]["pkDeps"][number] &
                   keyof ESchemaType<TSchema>
               >;
-              sk: StreamSkParam;
+              sk: ResolveStreamSkParam<ESchemaType<TSchema>, TSecondaryDerivationMap[K]>;
             }
           : never,
     options?: QueryStreamOptions,
   ): Stream.Stream<EntityType<ESchemaType<TSchema>>[], DynamodbError> {
     const batchSize = options?.batchSize ?? 100;
     const operator = ">" in params.sk ? ">" : "<";
-    const initialCursor = ">" in params.sk ? params.sk[">"] : params.sk["<"];
+    const initialSkValue = ">" in params.sk ? params.sk[">"] : params.sk["<"];
+
+    // Resolve the initial cursor: for custom SK, derive string from object
+    const indexDerivation = key !== "primary" && key !== "timeline"
+      ? this.#secondaryDerivations[key]
+      : undefined;
+    const isCustomSk = indexDerivation && !indexDerivation.isTimelineSk;
+
+    const initialCursor: string | null = isCustomSk
+      ? this.#resolveCustomSk(initialSkValue, indexDerivation!)
+      : (initialSkValue as string | null);
 
     return Stream.paginateChunkEffect(initialCursor, (cursor) =>
       Effect.gen(this, function* () {
+        const skParam = { [operator]: cursor } as SkParam;
+
         const result = yield* this.query(
           key,
-          { pk: params.pk, sk: { [operator]: cursor } as SkParam } as any,
+          { pk: params.pk, sk: skParam } as any,
           { limit: batchSize },
         );
         const items = result.items;
@@ -781,22 +845,26 @@ export class DynamoEntity<
         }
 
         const lastItem = items[items.length - 1]!;
-        const nextCursor: string | null =
-          key === "primary"
-            ? ((lastItem.value as Record<string, unknown>)[
-                this.#eschema.idField
-              ] as string)
-            : lastItem.meta._u;
+        let nextCursor: string | null;
+        if (key === "primary") {
+          nextCursor = (lastItem.value as Record<string, unknown>)[
+            this.#eschema.idField
+          ] as string;
+        } else if (isCustomSk) {
+          nextCursor = this.#resolveCustomSk(lastItem.value, indexDerivation!);
+        } else {
+          nextCursor = lastItem.meta._u;
+        }
         return [chunk, Option.some(nextCursor)];
       }),
     );
   }
 
   /**
-   * Subscribes to items from the primary index or a secondary index.
-   * Continuously fetches records until no more are available.
+   * Subscribes to items from the primary index or a _u-SK secondary index.
+   * Restricted to indexes where SK = _u (primary, timeline, default secondary).
    *
-   * @param opts.key - "primary", "timeline", or secondary index name
+   * @param opts.key - "primary", "timeline", or _u-SK secondary index name
    * @param opts.pk - Partition key fields for the selected index
    * @param opts.cursor - The `_u` cursor (string to continue from, null to start fresh)
    * @param opts.limit - Optional batch size per query iteration
@@ -808,7 +876,7 @@ export class DynamoEntity<
       | (TTimelineDerivation extends StoredTimelineDerivation
           ? "timeline"
           : never)
-      | (keyof TSecondaryDerivationMap & string),
+      | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
   >(
     opts: SubscribeOptions<
       K,
@@ -856,6 +924,21 @@ export class DynamoEntity<
         currentCursor = lastItem.meta._u;
       }
     });
+  }
+
+  #resolveCustomSk(
+    skValue: unknown,
+    indexDerivation: StoredIndexDerivation,
+  ): string | null {
+    if (skValue !== null && !indexDerivation.isTimelineSk && typeof skValue === "object") {
+      return deriveIndexKeyValue(
+        this.#eschema.name,
+        indexDerivation.skDeps,
+        skValue as Record<string, unknown>,
+        false,
+      );
+    }
+    return skValue as string | null;
   }
 
   #derivePrimaryIndex(value: any): IndexDefinition {
@@ -1169,13 +1252,14 @@ class EntityIndexDerivations<
 
   /**
    * Maps a table GSI to a semantic entity index with custom derivation.
-   * SK is automatically set to `_u` for secondary indexes.
+   * SK defaults to `_u` if not specified.
    *
    * @typeParam GsiName - The GSI name on the table
    * @typeParam TPkKeys - Fields used for partition key derivation
+   * @typeParam TSkKeys - Fields used for sort key derivation (defaults to ["_u"])
    * @param gsiName - The GSI name on the table (e.g., "GSI1")
    * @param entityIndexName - The semantic name for this entity's use of the GSI (e.g., "byEmail")
-   * @param derivation - The pk field array (sk is automatically _u)
+   * @param derivation - The pk and optional sk field arrays
    * @returns A builder with the index mapping added
    */
   index<
@@ -1185,20 +1269,26 @@ class EntityIndexDerivations<
       | keyof ESchemaType<TSchema>
       | DerivableMetaFields
     )[],
+    const TSkKeys extends readonly (
+      | keyof ESchemaType<TSchema>
+      | DerivableMetaFields
+    )[] = readonly ["_u"],
   >(
     gsiName: GsiName,
     entityIndexName: TEntityIndexName,
     derivation: {
       pk: TPkKeys;
+      sk?: TSkKeys;
     },
   ) {
-    // SK is always _u for secondary indexes
-    const skKeys = ["_u"] as const;
+    const skKeys = (derivation.sk ?? ["_u"]) as TSkKeys;
+    const isTimelineSk = skKeys.length === 1 && skKeys[0] === "_u";
     const newDeriv: StoredIndexDerivation = {
       gsiName,
       entityIndexName,
       pkDeps: derivation.pk.map(String),
-      skDeps: [...skKeys],
+      skDeps: (skKeys as readonly (string | symbol | number)[]).map(String),
+      isTimelineSk,
     };
 
     return new EntityIndexDerivations(
@@ -1219,7 +1309,8 @@ class EntityIndexDerivations<
           TEntityIndexName,
           StoredIndexDerivation & {
             pkDeps: TPkKeys;
-            skDeps: typeof skKeys;
+            skDeps: TSkKeys;
+            isTimelineSk: IsTimelineSk<TSkKeys>;
           }
         >,
       TTimelineDerivation
