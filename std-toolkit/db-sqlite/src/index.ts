@@ -18,6 +18,7 @@ export { SqliteDB, SqliteDBError, type SqliteDBErrorType } from "./sql/index.js"
 export type {
   RawRow,
   SkParam,
+  CustomSkParam,
   SimpleQueryOptions,
   SubscribeOptions,
   StoredIndexDerivation,

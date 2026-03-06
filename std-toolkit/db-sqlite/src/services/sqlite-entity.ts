@@ -15,6 +15,8 @@ import {
   type RowMeta,
   type SkParam,
   type StreamSkParam,
+  type CustomSkParam,
+  type CustomStreamSkParam,
   type SimpleQueryOptions,
   type QueryStreamOptions,
   type SubscribeOptions,
@@ -29,6 +31,39 @@ import { Prettify } from "@std-toolkit/eschema/types.js";
  * Meta fields that can be used in index derivations.
  */
 type DerivableMetaFields = "_u";
+
+/**
+ * Type-level check: is this SK tuple exactly ["_u"]?
+ */
+type IsTimelineSk<T extends readonly unknown[]> =
+  T extends readonly ["_u"] ? true : false;
+
+/**
+ * Extracts only keys from a secondary derivation map where isTimelineSk is true.
+ */
+type SubscribableSecondaryKeys<T extends Record<string, StoredIndexDerivation>> = {
+  [K in keyof T]: T[K]["isTimelineSk"] extends true ? K : never;
+}[keyof T] & string;
+
+/**
+ * Resolves the SK param type for a secondary index based on isTimelineSk.
+ */
+type ResolveSkParam<
+  TEntity,
+  TDeriv extends StoredIndexDerivation,
+> = TDeriv["isTimelineSk"] extends true
+  ? SkParam
+  : CustomSkParam<TEntity, TDeriv["skDeps"] & readonly (keyof TEntity)[]>;
+
+/**
+ * Resolves the stream SK param type for a secondary index based on isTimelineSk.
+ */
+type ResolveStreamSkParam<
+  TEntity,
+  TDeriv extends StoredIndexDerivation,
+> = TDeriv["isTimelineSk"] extends true
+  ? StreamSkParam
+  : CustomStreamSkParam<TEntity, TDeriv["skDeps"] & readonly (keyof TEntity)[]>;
 
 /**
  * Input type for insert operations. Omits the internal `_v` field.
@@ -391,7 +426,7 @@ export class SQLiteEntity<
                 TSecondaryDerivationMap[K]["pkDeps"][number] &
                   keyof ESchemaType<TSchema>
               >;
-              sk: SkParam;
+              sk: ResolveSkParam<ESchemaType<TSchema>, TSecondaryDerivationMap[K]>;
             }
           : never,
     options?: SimpleQueryOptions,
@@ -453,9 +488,11 @@ export class SQLiteEntity<
           true,
         );
 
+        const resolvedSkValue = this.#resolveCustomSk(skValue, indexDerivation);
+
         const skConditionSecondary: SortKeyCondition | undefined =
-          skValue !== null
-            ? ({ [operator]: skValue } as SortKeyCondition)
+          resolvedSkValue !== null
+            ? ({ [operator]: resolvedSkValue } as SortKeyCondition)
             : undefined;
 
         const secondaryQueryParams = skConditionSecondary
@@ -511,7 +548,7 @@ export class SQLiteEntity<
                 TSecondaryDerivationMap[K]["pkDeps"][number] &
                   keyof ESchemaType<TSchema>
               >;
-              sk: StreamSkParam;
+              sk: ResolveStreamSkParam<ESchemaType<TSchema>, TSecondaryDerivationMap[K]>;
             }
           : never,
     options?: QueryStreamOptions,
@@ -522,7 +559,16 @@ export class SQLiteEntity<
   > {
     const batchSize = options?.batchSize ?? 100;
     const operator = ">" in params.sk ? ">" : "<";
-    const initialCursor = ">" in params.sk ? params.sk[">"] : params.sk["<"];
+    const initialSkValue = ">" in params.sk ? params.sk[">"] : params.sk["<"];
+
+    const indexDerivation = key !== "primary"
+      ? this.#secondaryDerivations[key]
+      : undefined;
+    const isCustomSk = indexDerivation && !indexDerivation.isTimelineSk;
+
+    const initialCursor: string | null = isCustomSk
+      ? this.#resolveCustomSk(initialSkValue, indexDerivation!)
+      : (initialSkValue as string | null);
 
     return Stream.paginateChunkEffect(initialCursor, (cursor) =>
       Effect.gen(this, function* () {
@@ -539,12 +585,16 @@ export class SQLiteEntity<
         }
 
         const lastItem = items[items.length - 1]!;
-        const nextCursor =
-          key === "primary"
-            ? ((lastItem.value as Record<string, unknown>)[
-                this.#eschema.idField
-              ] as string)
-            : lastItem.meta._u;
+        let nextCursor: string | null;
+        if (key === "primary") {
+          nextCursor = (lastItem.value as Record<string, unknown>)[
+            this.#eschema.idField
+          ] as string;
+        } else if (isCustomSk) {
+          nextCursor = this.#resolveCustomSk(lastItem.value, indexDerivation!);
+        } else {
+          nextCursor = lastItem.meta._u;
+        }
         return [chunk, Option.some(nextCursor)];
       }),
     );
@@ -563,7 +613,7 @@ export class SQLiteEntity<
   subscribe<
     K extends
       | "primary"
-      | (keyof TSecondaryDerivationMap & string),
+      | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
   >(
     opts: SubscribeOptions<
       K,
@@ -723,6 +773,21 @@ export class SQLiteEntity<
     return Effect.all(items.map((item) => this.#parseRow(item)));
   }
 
+  #resolveCustomSk(
+    skValue: unknown,
+    indexDerivation: StoredIndexDerivation,
+  ): string | null {
+    if (skValue !== null && !indexDerivation.isTimelineSk && typeof skValue === "object") {
+      return deriveIndexKeyValue(
+        this.#eschema.name,
+        indexDerivation.skDeps,
+        skValue as Record<string, unknown>,
+        false,
+      );
+    }
+    return skValue as string | null;
+  }
+
   #derivePrimaryIndex(value: Record<string, unknown>): {
     pk: string;
     sk: string;
@@ -833,13 +898,14 @@ class EntityIndexDerivations<
 
   /**
    * Maps a table index to a semantic entity index with custom derivation.
-   * SK is automatically set to `_u` for secondary indexes.
+   * SK defaults to `_u` if not specified.
    *
    * @typeParam IndexName - The index name on the table
    * @typeParam TPkKeys - Fields used for partition key derivation
+   * @typeParam TSkKeys - Fields used for sort key derivation (defaults to ["_u"])
    * @param indexName - The index name on the table (e.g., "IDX1")
    * @param entityIndexName - The semantic name for this entity's use of the index (e.g., "byEmail")
-   * @param derivation - The pk field array (sk is automatically _u)
+   * @param derivation - The pk and optional sk field arrays
    * @returns A builder with the index mapping added
    */
   index<
@@ -849,20 +915,26 @@ class EntityIndexDerivations<
       | keyof ESchemaType<TSchema>
       | DerivableMetaFields
     )[],
+    const TSkKeys extends readonly (
+      | keyof ESchemaType<TSchema>
+      | DerivableMetaFields
+    )[] = readonly ["_u"],
   >(
     indexName: IndexNameStr,
     entityIndexName: EntityIndexName,
     derivation: {
       pk: TPkKeys;
+      sk?: TSkKeys;
     },
   ) {
-    // SK is always _u for secondary indexes
-    const skKeys = ["_u"] as const;
+    const skKeys = (derivation.sk ?? ["_u"]) as TSkKeys;
+    const isTimelineSk = skKeys.length === 1 && skKeys[0] === "_u";
     const newDeriv: StoredIndexDerivation = {
       indexName,
       entityIndexName,
       pkDeps: derivation.pk.map(String),
-      skDeps: [...skKeys],
+      skDeps: (skKeys as readonly (string | symbol | number)[]).map(String),
+      isTimelineSk,
     };
 
     return new EntityIndexDerivations(
@@ -882,7 +954,8 @@ class EntityIndexDerivations<
           EntityIndexName,
           StoredIndexDerivation & {
             pkDeps: TPkKeys;
-            skDeps: typeof skKeys;
+            skDeps: TSkKeys;
+            isTimelineSk: IsTimelineSk<TSkKeys>;
           }
         >
     >;
