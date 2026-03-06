@@ -90,7 +90,27 @@ export interface StoredIndexDerivation {
   entityIndexName: string;
   pkDeps: string[];
   skDeps: string[];
+  isTimelineSk: boolean;
 }
+
+/**
+ * Sort key parameter for custom-SK indexes.
+ *
+ * @typeParam T - The entity type
+ * @typeParam SkKeys - Tuple of SK field names
+ */
+export type CustomSkParam<T, SkKeys extends readonly (keyof T)[]> =
+  | { "<": Pick<T, SkKeys[number]> | null }
+  | { "<=": Pick<T, SkKeys[number]> | null }
+  | { ">": Pick<T, SkKeys[number]> | null }
+  | { ">=": Pick<T, SkKeys[number]> | null };
+
+/**
+ * Stream SK param for custom-SK indexes (exclusive operators only).
+ */
+export type CustomStreamSkParam<T, SkKeys extends readonly (keyof T)[]> =
+  | { ">": Pick<T, SkKeys[number]> | null }
+  | { "<": Pick<T, SkKeys[number]> | null };
 
 /**
  * Internal derivation info for the primary index.
