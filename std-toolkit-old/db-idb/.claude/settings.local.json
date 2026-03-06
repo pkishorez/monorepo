@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npm run test:*)",
-      "Bash(npm run lint)"
-    ],
-    "deny": []
-  }
-}
