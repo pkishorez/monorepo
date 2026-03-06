@@ -20,7 +20,6 @@ import type {
 import { CommandError as CommandErrorClass } from "@std-toolkit/core/command";
 import type { EntityRegistry } from "./entity-registry.js";
 import type { SQLiteEntity } from "./sqlite-entity.js";
-import type { SQLiteTableInstance } from "./sqlite-table.js";
 import type { SqliteDB } from "../sql/db.js";
 import type { SkParam } from "../internal/utils.js";
 
@@ -46,8 +45,7 @@ type AnyEntity = SQLiteEntity<any, any, any>;
  */
 export class SqliteCommand<
   TRegistry extends EntityRegistry<any, any>,
-> implements CommandProcessor<SqliteDB>
-{
+> implements CommandProcessor<SqliteDB> {
   static readonly RPC_PREFIX = "__std-toolkit__command" as const;
 
   /**
@@ -78,28 +76,42 @@ export class SqliteCommand<
   /**
    * Processes an insert command.
    */
-  process(payload: InsertPayload): Effect.Effect<InsertResponse, CommandError, SqliteDB>;
+  process(
+    payload: InsertPayload,
+  ): Effect.Effect<InsertResponse, CommandError, SqliteDB>;
   /**
    * Processes an update command.
    */
-  process(payload: UpdatePayload): Effect.Effect<UpdateResponse, CommandError, SqliteDB>;
+  process(
+    payload: UpdatePayload,
+  ): Effect.Effect<UpdateResponse, CommandError, SqliteDB>;
   /**
    * Processes a delete command.
    */
-  process(payload: DeletePayload): Effect.Effect<DeleteResponse, CommandError, SqliteDB>;
+  process(
+    payload: DeletePayload,
+  ): Effect.Effect<DeleteResponse, CommandError, SqliteDB>;
   /**
    * Processes a query command.
    */
-  process(payload: QueryPayload): Effect.Effect<QueryResponse, CommandError, SqliteDB>;
+  process(
+    payload: QueryPayload,
+  ): Effect.Effect<QueryResponse, CommandError, SqliteDB>;
   /**
    * Processes a descriptor command.
    */
-  process(payload: DescriptorPayload): Effect.Effect<DescriptorResponse, CommandError, SqliteDB>;
+  process(
+    payload: DescriptorPayload,
+  ): Effect.Effect<DescriptorResponse, CommandError, SqliteDB>;
   /**
    * Processes any command payload.
    */
-  process(payload: CommandPayload): Effect.Effect<CommandResponse, CommandError, SqliteDB>;
-  process(payload: CommandPayload): Effect.Effect<CommandResponse, CommandError, SqliteDB> {
+  process(
+    payload: CommandPayload,
+  ): Effect.Effect<CommandResponse, CommandError, SqliteDB>;
+  process(
+    payload: CommandPayload,
+  ): Effect.Effect<CommandResponse, CommandError, SqliteDB> {
     switch (payload.operation) {
       case "insert":
         return this.#processInsert(payload);
@@ -114,20 +126,23 @@ export class SqliteCommand<
     }
   }
 
-  #processInsert(payload: InsertPayload): Effect.Effect<InsertResponse, CommandError, SqliteDB> {
+  #processInsert(
+    payload: InsertPayload,
+  ): Effect.Effect<InsertResponse, CommandError, SqliteDB> {
     const self = this;
     return Effect.gen(function* () {
       const startedAt = Date.now();
       const entity = self.#getEntity(payload.entity);
 
       const result = yield* entity.insert(payload.data as any).pipe(
-        Effect.mapError((e) =>
-          new CommandErrorClass({
-            operation: "insert",
-            entity: payload.entity,
-            message: `Insert failed: ${String(e)}`,
-            cause: e,
-          }),
+        Effect.mapError(
+          (e) =>
+            new CommandErrorClass({
+              operation: "insert",
+              entity: payload.entity,
+              message: `Insert failed: ${String(e)}`,
+              cause: e,
+            }),
         ),
       );
 
@@ -140,22 +155,27 @@ export class SqliteCommand<
     });
   }
 
-  #processUpdate(payload: UpdatePayload): Effect.Effect<UpdateResponse, CommandError, SqliteDB> {
+  #processUpdate(
+    payload: UpdatePayload,
+  ): Effect.Effect<UpdateResponse, CommandError, SqliteDB> {
     const self = this;
     return Effect.gen(function* () {
       const startedAt = Date.now();
       const entity = self.#getEntity(payload.entity);
 
-      const result = yield* entity.update(payload.key as any, payload.data as any).pipe(
-        Effect.mapError((e) =>
-          new CommandErrorClass({
-            operation: "update",
-            entity: payload.entity,
-            message: `Update failed: ${String(e)}`,
-            cause: e,
-          }),
-        ),
-      );
+      const result = yield* entity
+        .update(payload.key as any, payload.data as any)
+        .pipe(
+          Effect.mapError(
+            (e) =>
+              new CommandErrorClass({
+                operation: "update",
+                entity: payload.entity,
+                message: `Update failed: ${String(e)}`,
+                cause: e,
+              }),
+          ),
+        );
 
       return {
         operation: "update" as const,
@@ -166,20 +186,23 @@ export class SqliteCommand<
     });
   }
 
-  #processDelete(payload: DeletePayload): Effect.Effect<DeleteResponse, CommandError, SqliteDB> {
+  #processDelete(
+    payload: DeletePayload,
+  ): Effect.Effect<DeleteResponse, CommandError, SqliteDB> {
     const self = this;
     return Effect.gen(function* () {
       const startedAt = Date.now();
       const entity = self.#getEntity(payload.entity);
 
       const result = yield* entity.delete(payload.key as any).pipe(
-        Effect.mapError((e) =>
-          new CommandErrorClass({
-            operation: "delete",
-            entity: payload.entity,
-            message: `Delete failed: ${String(e)}`,
-            cause: e,
-          }),
+        Effect.mapError(
+          (e) =>
+            new CommandErrorClass({
+              operation: "delete",
+              entity: payload.entity,
+              message: `Delete failed: ${String(e)}`,
+              cause: e,
+            }),
         ),
       );
 
@@ -192,7 +215,9 @@ export class SqliteCommand<
     });
   }
 
-  #processQuery(payload: QueryPayload): Effect.Effect<QueryResponse, CommandError, SqliteDB> {
+  #processQuery(
+    payload: QueryPayload,
+  ): Effect.Effect<QueryResponse, CommandError, SqliteDB> {
     const self = this;
     return Effect.gen(function* () {
       const startedAt = Date.now();
@@ -200,18 +225,22 @@ export class SqliteCommand<
 
       const sk = self.#convertSkCondition(payload.sk);
       const queryParams = { pk: payload.pk, sk } as any;
-      const options = payload.limit !== undefined ? { limit: payload.limit } : undefined;
+      const options =
+        payload.limit !== undefined ? { limit: payload.limit } : undefined;
 
-      const result = yield* entity.query(payload.index as any, queryParams, options).pipe(
-        Effect.mapError((e) =>
-          new CommandErrorClass({
-            operation: "query",
-            entity: payload.entity,
-            message: `Query failed: ${String(e)}`,
-            cause: e,
-          }),
-        ),
-      );
+      const result = yield* entity
+        .query(payload.index as any, queryParams, options)
+        .pipe(
+          Effect.mapError(
+            (e) =>
+              new CommandErrorClass({
+                operation: "query",
+                entity: payload.entity,
+                message: `Query failed: ${String(e)}`,
+                cause: e,
+              }),
+          ),
+        );
 
       return {
         operation: "query" as const,
@@ -222,7 +251,9 @@ export class SqliteCommand<
     });
   }
 
-  #processDescriptor(_payload: DescriptorPayload): Effect.Effect<DescriptorResponse, CommandError, SqliteDB> {
+  #processDescriptor(
+    _payload: DescriptorPayload,
+  ): Effect.Effect<DescriptorResponse, CommandError, SqliteDB> {
     const self = this;
     return Effect.sync(() => {
       const startedAt = Date.now();
