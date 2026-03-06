@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect";
 import type { DynamoTable } from "./dynamo-table.js";
 import type { DynamoEntity } from "./dynamo-entity.js";
+import type { DynamoSingleEntity } from "./dynamo-single-entity.js";
 import type { TransactItem } from "../types/index.js";
 import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
 import { ConnectionService } from "@std-toolkit/core/server";
@@ -15,11 +16,25 @@ type EntityName<T> =
     : never;
 
 /**
+ * Extracts the entity name from a DynamoSingleEntity type.
+ */
+type SingleEntityName<T> =
+  T extends DynamoSingleEntity<any, infer TSchema> ? TSchema["name"] : never;
+
+/**
  * Type for a map of entity names to DynamoEntity instances.
  */
 type EntitiesMap<TTable extends DynamoTable<any, any>> = Record<
   string,
   DynamoEntity<TTable, any, any, any>
+>;
+
+/**
+ * Type for a map of entity names to DynamoSingleEntity instances.
+ */
+type SingleEntitiesMap<TTable extends DynamoTable<any, any>> = Record<
+  string,
+  DynamoSingleEntity<TTable, any>
 >;
 
 /**
@@ -33,6 +48,7 @@ type EntitiesMap<TTable extends DynamoTable<any, any>> = Record<
 export class EntityRegistry<
   TTable extends DynamoTable<any, any>,
   TEntities extends EntitiesMap<TTable>,
+  TSingleEntities extends SingleEntitiesMap<TTable> = {},
 > implements DescriptorProvider {
   /**
    * Creates a new entity registry builder for the given table.
@@ -42,15 +58,21 @@ export class EntityRegistry<
    * @returns A builder to register entities
    */
   static make<TTable extends DynamoTable<any, any>>(table: TTable) {
-    return new EntityRegistryBuilder<TTable, {}>(table, {});
+    return new EntityRegistryBuilder<TTable, {}, {}>(table, {}, {});
   }
 
   #table: TTable;
   #entities: TEntities;
+  #singleEntities: TSingleEntities;
 
-  constructor(table: TTable, entities: TEntities) {
+  constructor(
+    table: TTable,
+    entities: TEntities,
+    singleEntities: TSingleEntities,
+  ) {
     this.#table = table;
     this.#entities = entities;
+    this.#singleEntities = singleEntities;
   }
 
   /**
@@ -62,13 +84,14 @@ export class EntityRegistry<
    * @returns Effect that completes when the transaction succeeds
    */
   transact(
-    items: TransactItem<EntityName<TEntities[keyof TEntities]>>[],
+    items: TransactItem<
+      | EntityName<TEntities[keyof TEntities]>
+      | SingleEntityName<TSingleEntities[keyof TSingleEntities]>
+    >[],
   ): Effect.Effect<void, DynamodbError> {
     return Effect.gen(this, function* () {
-      // Execute the transaction
       yield* this.#table.transact(items);
 
-      // Broadcast all entities after successful transaction
       const connectionService = yield* Effect.serviceOption(
         ConnectionService,
       ).pipe(Effect.andThen(Option.getOrNull));
@@ -85,6 +108,7 @@ export class EntityRegistry<
 
   /**
    * Gets the schema including all registered entity descriptors.
+   * Single entities are excluded — they have no index pattern visualization.
    */
   getSchema(): RegistrySchema {
     return {
@@ -106,10 +130,24 @@ export class EntityRegistry<
   }
 
   /**
-   * Gets all registered entity names.
+   * Accesses a registered single entity by its name.
+   *
+   * @typeParam K - The single entity name key
+   * @param name - The single entity name
+   * @returns The single entity instance
    */
-  get entityNames(): (keyof TEntities)[] {
-    return Object.keys(this.#entities) as (keyof TEntities)[];
+  singleEntity<K extends keyof TSingleEntities>(name: K): TSingleEntities[K] {
+    return this.#singleEntities[name];
+  }
+
+  /**
+   * Gets all registered entity names (both regular and single entities).
+   */
+  get entityNames(): (keyof TEntities | keyof TSingleEntities)[] {
+    return [
+      ...Object.keys(this.#entities),
+      ...Object.keys(this.#singleEntities),
+    ] as (keyof TEntities | keyof TSingleEntities)[];
   }
 
   /**
@@ -129,13 +167,20 @@ export class EntityRegistry<
 class EntityRegistryBuilder<
   TTable extends DynamoTable<any, any>,
   TEntities extends EntitiesMap<TTable>,
+  TSingleEntities extends SingleEntitiesMap<TTable>,
 > {
   #table: TTable;
   #entities: TEntities;
+  #singleEntities: TSingleEntities;
 
-  constructor(table: TTable, entities: TEntities) {
+  constructor(
+    table: TTable,
+    entities: TEntities,
+    singleEntities: TSingleEntities,
+  ) {
     this.#table = table;
     this.#entities = entities;
+    this.#singleEntities = singleEntities;
   }
 
   /**
@@ -150,12 +195,42 @@ class EntityRegistryBuilder<
     entity: TEntity,
   ): EntityRegistryBuilder<
     TTable,
-    TEntities & Record<EntityName<TEntity>, TEntity>
+    TEntities & Record<EntityName<TEntity>, TEntity>,
+    TSingleEntities
   > {
-    return new EntityRegistryBuilder(this.#table, {
-      ...this.#entities,
-      [entity.name]: entity,
-    } as TEntities & Record<EntityName<TEntity>, TEntity>);
+    return new EntityRegistryBuilder(
+      this.#table,
+      {
+        ...this.#entities,
+        [entity.name]: entity,
+      } as TEntities & Record<EntityName<TEntity>, TEntity>,
+      this.#singleEntities,
+    );
+  }
+
+  /**
+   * Registers a single entity with this entity registry.
+   * The entity name is automatically extracted from its schema.
+   *
+   * @typeParam TEntity - The DynamoSingleEntity type to register
+   * @param entity - The single entity instance to register
+   * @returns A builder with the single entity registered
+   */
+  registerSingle<TEntity extends DynamoSingleEntity<TTable, any>>(
+    entity: TEntity,
+  ): EntityRegistryBuilder<
+    TTable,
+    TEntities,
+    TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>
+  > {
+    return new EntityRegistryBuilder(
+      this.#table,
+      this.#entities,
+      {
+        ...this.#singleEntities,
+        [entity.name]: entity,
+      } as TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>,
+    );
   }
 
   /**
@@ -163,7 +238,11 @@ class EntityRegistryBuilder<
    *
    * @returns The configured EntityRegistry
    */
-  build(): EntityRegistry<TTable, TEntities> {
-    return new EntityRegistry(this.#table, this.#entities);
+  build(): EntityRegistry<TTable, TEntities, TSingleEntities> {
+    return new EntityRegistry(
+      this.#table,
+      this.#entities,
+      this.#singleEntities,
+    );
   }
 }

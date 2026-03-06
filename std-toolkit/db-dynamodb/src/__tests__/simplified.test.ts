@@ -243,26 +243,28 @@ describe("Simplified API Tests", () => {
   });
 
   describe("subscribe(opts) - Subscription Query", () => {
-    it.effect("succeeds with cursor from previous query on secondary index", () =>
-      Effect.gen(function* () {
-        const all = yield* OrderEntity.query("byStatus", {
-          pk: { status: "pending" },
-          sk: { ">=": null },
-        });
+    it.effect(
+      "succeeds with cursor from previous query on secondary index",
+      () =>
+        Effect.gen(function* () {
+          const all = yield* OrderEntity.query("byStatus", {
+            pk: { status: "pending" },
+            sk: { ">=": null },
+          });
 
-        expect(all.items.length).toBe(3);
+          expect(all.items.length).toBe(3);
 
-        const cursor = all.items[0]!.meta._u;
+          const cursor = all.items[0]!.meta._u;
 
-        const result = yield* OrderEntity.subscribe({
-          key: "byStatus",
-          pk: { status: "pending" },
-          cursor,
-          limit: 10,
-        });
+          const result = yield* OrderEntity.subscribe({
+            key: "byStatus",
+            pk: { status: "pending" },
+            cursor,
+            limit: 10,
+          });
 
-        expect(result.success).toBe(true);
-      }),
+          expect(result.success).toBe(true);
+        }),
     );
 
     it.effect("succeeds with null cursor on secondary index", () =>
