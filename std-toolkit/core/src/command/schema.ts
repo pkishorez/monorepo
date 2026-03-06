@@ -82,7 +82,6 @@ export const StdDescriptorSchema = Schema.Struct({
   idField: Schema.String,
   version: Schema.String,
   primaryIndex: IndexDescriptorSchema,
-  timelineIndex: Schema.optional(IndexDescriptorSchema),
   secondaryIndexes: Schema.Array(IndexDescriptorSchema),
   schema: Schema.Unknown,
 });

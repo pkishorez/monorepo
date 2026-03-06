@@ -36,7 +36,7 @@ const createTiming = (startedAt: number) => {
   };
 };
 
-type AnyEntity = SQLiteEntity<any, any, any, any>;
+type AnyEntity = SQLiteEntity<any, any, any>;
 
 /**
  * SQLite command processor for unified CRUD operations.

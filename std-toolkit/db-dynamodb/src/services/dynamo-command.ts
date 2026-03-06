@@ -35,7 +35,7 @@ const createTiming = (startedAt: number) => {
   };
 };
 
-type AnyEntity = DynamoEntity<any, any, any, any, any>;
+type AnyEntity = DynamoEntity<any, any, any, any>;
 type AnyEntitiesMap = Record<string, AnyEntity>;
 type AnyRegistry = EntityRegistry<DynamoTable<any, any>, AnyEntitiesMap>;
 

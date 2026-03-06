@@ -570,50 +570,5 @@ describe("Descriptor Schemas", () => {
       }),
     );
 
-    it.effect("validates descriptor with timeline index", () =>
-      Effect.gen(function* () {
-        const descriptor = {
-          name: "Event",
-          idField: "eventId",
-          version: "v1",
-          primaryIndex: {
-            name: "primary",
-            pk: { deps: ["streamId"], pattern: "Event#{streamId}" },
-            sk: { deps: ["eventId"], pattern: "{eventId}" },
-          },
-          timelineIndex: {
-            name: "timeline",
-            pk: { deps: ["streamId"], pattern: "Event#{streamId}" },
-            sk: { deps: ["_u"], pattern: "{_u}" },
-          },
-          secondaryIndexes: [],
-          schema: {},
-        };
-
-        const result = yield* Schema.decodeUnknown(StdDescriptorSchema)(descriptor);
-        expect(result.timelineIndex).toBeDefined();
-        expect(result.timelineIndex!.name).toBe("timeline");
-      }),
-    );
-
-    it.effect("validates descriptor without timeline index", () =>
-      Effect.gen(function* () {
-        const descriptor = {
-          name: "Simple",
-          idField: "id",
-          version: "v1",
-          primaryIndex: {
-            name: "primary",
-            pk: { deps: [], pattern: "Simple" },
-            sk: { deps: ["id"], pattern: "{id}" },
-          },
-          secondaryIndexes: [],
-          schema: {},
-        };
-
-        const result = yield* Schema.decodeUnknown(StdDescriptorSchema)(descriptor);
-        expect(result.timelineIndex).toBeUndefined();
-      }),
-    );
   });
 });

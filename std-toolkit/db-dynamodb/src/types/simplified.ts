@@ -88,11 +88,11 @@ export interface QueryStreamOptions {
 /**
  * Options for subscribe operations.
  *
- * @typeParam K - The key name type ("primary", "timeline", or index name)
+ * @typeParam K - The key name type ("primary" or index name)
  * @typeParam PK - The partition key value type for the selected index
  */
 export interface SubscribeOptions<K, PK> {
-  /** The index to subscribe to ("primary", "timeline", or index name) */
+  /** The index to subscribe to ("primary" or index name) */
   key: K;
   /** The partition key value for the selected index */
   pk: PK;

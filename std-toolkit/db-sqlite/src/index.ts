@@ -22,5 +22,4 @@ export type {
   SubscribeOptions,
   StoredIndexDerivation,
   StoredPrimaryDerivation,
-  StoredTimelineDerivation,
 } from "./internal/utils.js";

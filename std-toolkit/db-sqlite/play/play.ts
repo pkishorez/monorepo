@@ -47,7 +47,6 @@ const userEntity = SQLiteEntity.make(table)
 const postEntity = SQLiteEntity.make(table)
   .eschema(PostSchema)
   .primary({ pk: ["authorId"] }) // sk: postId (idField)
-  .timeline("IDX1")
   .index("IDX2", "byAuthor", { pk: ["title"] }) // sk: _u
   .build();
 

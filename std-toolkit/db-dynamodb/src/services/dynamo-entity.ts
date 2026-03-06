@@ -130,21 +130,6 @@ interface StoredPrimaryDerivation {
 }
 
 /**
- * Stored derivation info for a timeline index.
- * Uses the same PK as primary but SK is always _u for time-ordering.
- */
-export interface StoredTimelineDerivation {
-  /** The actual GSI name on the table (e.g., "GSI1") */
-  gsiName: string;
-  /** Always "timeline" */
-  entityIndexName: "timeline";
-  /** Field names used to derive the partition key (same as primary) */
-  pkDeps: string[];
-  /** Always ["_u"] for time-ordered results */
-  skDeps: readonly ["_u"];
-}
-
-/**
  * Helper type to extract the key type from an array of keys.
  * For empty arrays, returns never so Pick<T, never> = {}
  */
@@ -201,14 +186,12 @@ type CustomStreamSkParam<T, SkKeys extends readonly (keyof T)[]> =
  * @typeParam TSecondaryDerivationMap - Map of secondary index derivations
  * @typeParam TSchema - The ESchema type for this entity
  * @typeParam TPrimaryPkKeys - Keys used for primary partition key derivation
- * @typeParam TTimelineDerivation - Timeline derivation (or null if not configured)
  */
 export class DynamoEntity<
   TTable extends DynamoTable<any, any>,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyEntityESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
-  TTimelineDerivation extends StoredTimelineDerivation | null = null,
 > {
   /**
    * Creates a new entity builder for the given table.
@@ -248,9 +231,8 @@ export class DynamoEntity<
               TTable,
               TS,
               ExtractKeys<ESchemaType<TS>, TPkKeys>,
-              {},
-              null
-            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {}, null);
+              {}
+            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {});
           },
         };
       },
@@ -261,7 +243,6 @@ export class DynamoEntity<
   #eschema: TSchema;
   #primaryDerivation: StoredPrimaryDerivation;
   #secondaryDerivations: TSecondaryDerivationMap;
-  #timelineDerivation: TTimelineDerivation;
   #derivationDeps: Set<string>;
 
   #service = Effect.serviceOption(ConnectionService).pipe(
@@ -279,13 +260,11 @@ export class DynamoEntity<
     eschema: TSchema,
     primaryDerivation: StoredPrimaryDerivation,
     secondaryDerivations: TSecondaryDerivationMap,
-    timelineDerivation: TTimelineDerivation,
   ) {
     this.#table = table;
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = secondaryDerivations;
-    this.#timelineDerivation = timelineDerivation;
 
     const deps = new Set<string>();
     for (const [, deriv] of Object.entries(secondaryDerivations)) {
@@ -294,10 +273,6 @@ export class DynamoEntity<
       for (const dep of d.skDeps) {
         if (dep !== "_u") deps.add(dep);
       }
-    }
-    if (timelineDerivation) {
-      for (const dep of (timelineDerivation as StoredTimelineDerivation).pkDeps)
-        deps.add(dep);
     }
     this.#derivationDeps = deps;
   }
@@ -333,23 +308,6 @@ export class DynamoEntity<
           false,
         ),
       },
-      ...(this.#timelineDerivation
-        ? {
-            timelineIndex: {
-              name: "timeline",
-              pk: this.#extractIndexPattern(
-                this.#timelineDerivation.pkDeps,
-                entityName,
-                true,
-              ),
-              sk: this.#extractIndexPattern(
-                this.#timelineDerivation.skDeps as unknown as string[],
-                entityName,
-                false,
-              ),
-            },
-          }
-        : {}),
       secondaryIndexes: Object.entries(this.#secondaryDerivations).map(
         ([, deriv]) => ({
           name: deriv.entityIndexName,
@@ -624,9 +582,6 @@ export class DynamoEntity<
   query<
     K extends
       | "primary"
-      | (TTimelineDerivation extends StoredTimelineDerivation
-          ? "timeline"
-          : never)
       | (keyof TSecondaryDerivationMap & string),
   >(
     key: K,
@@ -637,14 +592,7 @@ export class DynamoEntity<
             pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
             sk: SkParam;
           }
-      : K extends "timeline"
-        ? [TPrimaryPkKeys] extends [never]
-          ? { pk?: {}; sk: SkParam }
-          : {
-              pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-              sk: SkParam;
-            }
-        : K extends keyof TSecondaryDerivationMap
+      : K extends keyof TSecondaryDerivationMap
           ? {
               pk: Pick<
                 ESchemaType<TSchema>,
@@ -688,43 +636,6 @@ export class DynamoEntity<
           { pk: derivedPk, sk: skCondition },
           queryOptions,
         );
-
-        const items = yield* this.#decodeItems(Items);
-        return { items };
-      } else if (key === "timeline") {
-        // Timeline index query
-        const timeline = this.#timelineDerivation;
-        if (!timeline) {
-          return yield* Effect.fail(
-            DynamodbError.queryFailed("Timeline index not configured"),
-          );
-        }
-
-        const derivedPk = deriveIndexKeyValue(
-          this.#eschema.name,
-          timeline.pkDeps,
-          (params.pk ?? {}) as Record<string, unknown>,
-          true,
-        );
-
-        const skCondition: SortKeyparameter | undefined =
-          skValue !== null
-            ? ({ [operator]: skValue } as SortKeyparameter)
-            : undefined;
-
-        const timelineQueryOptions: {
-          Limit?: number;
-          ScanIndexForward?: boolean;
-        } = {
-          ScanIndexForward: scanForward,
-        };
-        if (options?.limit !== undefined) {
-          timelineQueryOptions.Limit = options.limit;
-        }
-
-        const { Items } = yield* this.#table
-          .index(timeline.gsiName as any)
-          .query({ pk: derivedPk, sk: skCondition }, timelineQueryOptions);
 
         const items = yield* this.#decodeItems(Items);
         return { items };
@@ -774,7 +685,7 @@ export class DynamoEntity<
    * Streams all entities from an index until exhaustion.
    * Uses cursor-based pagination to iterate through all items.
    *
-   * @param key - "primary" for primary index, "timeline" for timeline index, or the secondary index name
+   * @param key - "primary" for primary index, or the secondary index name
    * @param params - Query parameters with pk and sk (only > and < operators supported)
    * @param options - Stream options including batchSize
    * @returns A Stream that yields batches of entities
@@ -782,9 +693,6 @@ export class DynamoEntity<
   queryStream<
     K extends
       | "primary"
-      | (TTimelineDerivation extends StoredTimelineDerivation
-          ? "timeline"
-          : never)
       | (keyof TSecondaryDerivationMap & string),
   >(
     key: K,
@@ -795,14 +703,7 @@ export class DynamoEntity<
             pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
             sk: StreamSkParam;
           }
-      : K extends "timeline"
-        ? [TPrimaryPkKeys] extends [never]
-          ? { pk?: {}; sk: StreamSkParam }
-          : {
-              pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-              sk: StreamSkParam;
-            }
-        : K extends keyof TSecondaryDerivationMap
+      : K extends keyof TSecondaryDerivationMap
           ? {
               pk: Pick<
                 ESchemaType<TSchema>,
@@ -819,7 +720,7 @@ export class DynamoEntity<
     const initialSkValue = ">" in params.sk ? params.sk[">"] : params.sk["<"];
 
     // Resolve the initial cursor: for custom SK, derive string from object
-    const indexDerivation = key !== "primary" && key !== "timeline"
+    const indexDerivation = key !== "primary"
       ? this.#secondaryDerivations[key]
       : undefined;
     const isCustomSk = indexDerivation && !indexDerivation.isTimelineSk;
@@ -862,9 +763,9 @@ export class DynamoEntity<
 
   /**
    * Subscribes to items from the primary index or a _u-SK secondary index.
-   * Restricted to indexes where SK = _u (primary, timeline, default secondary).
+   * Restricted to indexes where SK = _u (primary, default secondary).
    *
-   * @param opts.key - "primary", "timeline", or _u-SK secondary index name
+   * @param opts.key - "primary" or _u-SK secondary index name
    * @param opts.pk - Partition key fields for the selected index
    * @param opts.cursor - The `_u` cursor (string to continue from, null to start fresh)
    * @param opts.limit - Optional batch size per query iteration
@@ -873,9 +774,6 @@ export class DynamoEntity<
   subscribe<
     K extends
       | "primary"
-      | (TTimelineDerivation extends StoredTimelineDerivation
-          ? "timeline"
-          : never)
       | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
   >(
     opts: SubscribeOptions<
@@ -884,11 +782,7 @@ export class DynamoEntity<
         ? [TPrimaryPkKeys] extends [never]
           ? {}
           : IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>
-        : K extends "timeline"
-          ? [TPrimaryPkKeys] extends [never]
-            ? {}
-            : IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>
-          : K extends keyof TSecondaryDerivationMap
+        : K extends keyof TSecondaryDerivationMap
             ? Pick<
                 ESchemaType<TSchema>,
                 TSecondaryDerivationMap[K]["pkDeps"][number] &
@@ -983,34 +877,6 @@ export class DynamoEntity<
         indexMap[skKey] = deriveIndexKeyValue(
           this.#eschema.name,
           deriv.skDeps,
-          value,
-          false,
-        );
-      }
-    }
-
-    // Derive timeline index if configured
-    const timeline = this.#timelineDerivation;
-    if (timeline) {
-      if (
-        timeline.pkDeps.every(
-          (key: string) => typeof value[key] !== "undefined",
-        )
-      ) {
-        const pkKey = `${timeline.gsiName}PK`;
-        indexMap[pkKey] = deriveIndexKeyValue(
-          this.#eschema.name,
-          timeline.pkDeps,
-          value,
-          true,
-        );
-      }
-
-      if (typeof value._u !== "undefined") {
-        const skKey = `${timeline.gsiName}SK`;
-        indexMap[skKey] = deriveIndexKeyValue(
-          this.#eschema.name,
-          timeline.skDeps as unknown as string[],
           value,
           false,
         );
@@ -1221,7 +1087,6 @@ class EntityIndexDerivations<
   TSchema extends AnyEntityESchema,
   TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
-  TTimelineDerivation extends StoredTimelineDerivation | null = null,
 > {
   #table: TTable;
   #eschema: TSchema;
@@ -1230,7 +1095,6 @@ class EntityIndexDerivations<
     sk: readonly (keyof ESchemaType<TSchema>)[];
   };
   #secondaryDerivations: TSecondaryDerivationMap;
-  #timelineDerivation: TTimelineDerivation;
 
   constructor(
     table: TTable,
@@ -1240,14 +1104,11 @@ class EntityIndexDerivations<
       sk: readonly (keyof ESchemaType<TSchema>)[];
     },
     definitions: TSecondaryDerivationMap,
-    timelineDerivation?: TTimelineDerivation,
   ) {
     this.#table = table;
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = definitions;
-    this.#timelineDerivation = (timelineDerivation ??
-      null) as TTimelineDerivation;
   }
 
   /**
@@ -1299,7 +1160,6 @@ class EntityIndexDerivations<
         ...this.#secondaryDerivations,
         [entityIndexName]: newDeriv,
       },
-      this.#timelineDerivation,
     ) as EntityIndexDerivations<
       TTable,
       TSchema,
@@ -1312,42 +1172,8 @@ class EntityIndexDerivations<
             skDeps: TSkKeys;
             isTimelineSk: IsTimelineSk<TSkKeys>;
           }
-        >,
-      TTimelineDerivation
+        >
     >;
-  }
-
-  /**
-   * Configures a timeline index using the same PK as primary but SK = _u.
-   * This enables time-ordered queries on the same partition.
-   *
-   * @typeParam GsiName - The GSI name on the table
-   * @param gsiName - The GSI name on the table (e.g., "GSI1")
-   * @returns A builder with the timeline index configured
-   */
-  timeline<GsiName extends keyof TTable["secondaryIndexMap"] & string>(
-    gsiName: GsiName,
-  ) {
-    const timelineDerivation: StoredTimelineDerivation = {
-      gsiName,
-      entityIndexName: "timeline",
-      pkDeps: this.#primaryDerivation.pk.map(String),
-      skDeps: ["_u"] as const,
-    };
-
-    return new EntityIndexDerivations<
-      TTable,
-      TSchema,
-      TPrimaryPkKeys,
-      TSecondaryDerivationMap,
-      StoredTimelineDerivation
-    >(
-      this.#table,
-      this.#eschema,
-      this.#primaryDerivation,
-      this.#secondaryDerivations,
-      timelineDerivation,
-    );
   }
 
   /**
@@ -1365,14 +1191,12 @@ class EntityIndexDerivations<
       TTable,
       TSecondaryDerivationMap,
       TSchema,
-      TPrimaryPkKeys,
-      TTimelineDerivation
+      TPrimaryPkKeys
     >(
       this.#table,
       this.#eschema,
       storedPrimary,
       this.#secondaryDerivations,
-      this.#timelineDerivation,
     );
   }
 }
