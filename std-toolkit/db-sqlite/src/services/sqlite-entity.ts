@@ -35,15 +35,19 @@ type DerivableMetaFields = "_u";
 /**
  * Type-level check: is this SK tuple exactly ["_u"]?
  */
-type IsTimelineSk<T extends readonly unknown[]> =
-  T extends readonly ["_u"] ? true : false;
+type IsTimelineSk<T extends readonly unknown[]> = T extends readonly ["_u"]
+  ? true
+  : false;
 
 /**
  * Extracts only keys from a secondary derivation map where isTimelineSk is true.
  */
-type SubscribableSecondaryKeys<T extends Record<string, StoredIndexDerivation>> = {
+type SubscribableSecondaryKeys<
+  T extends Record<string, StoredIndexDerivation>,
+> = {
   [K in keyof T]: T[K]["isTimelineSk"] extends true ? K : never;
-}[keyof T] & string;
+}[keyof T] &
+  string;
 
 /**
  * Resolves the SK param type for a secondary index based on isTimelineSk.
@@ -68,7 +72,7 @@ type ResolveStreamSkParam<
 /**
  * Input type for insert operations. Omits the internal `_v` field.
  */
-type InsertInput<T, IdField extends string> = Omit<T, "_v">;
+type InsertInput<T> = Omit<T, "_v">;
 
 /**
  * Represents an entity item with its value and metadata.
@@ -261,7 +265,7 @@ export class SQLiteEntity<
    * @returns The inserted entity with metadata
    */
   insert(
-    value: InsertInput<ESchemaType<TSchema>, TSchema["idField"]>,
+    value: InsertInput<ESchemaType<TSchema>>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const fullValue = {
@@ -406,11 +410,7 @@ export class SQLiteEntity<
    * @param options - Query options including limit
    * @returns Array of matching entities with metadata
    */
-  query<
-    K extends
-      | "primary"
-      | keyof TSecondaryDerivationMap,
-  >(
+  query<K extends "primary" | keyof TSecondaryDerivationMap>(
     key: K,
     params: K extends "primary"
       ? [TPrimaryPkKeys] extends [never]
@@ -420,15 +420,18 @@ export class SQLiteEntity<
             sk: SkParam;
           }
       : K extends keyof TSecondaryDerivationMap
-          ? {
-              pk: Pick<
-                ESchemaType<TSchema>,
-                TSecondaryDerivationMap[K]["pkDeps"][number] &
-                  keyof ESchemaType<TSchema>
-              >;
-              sk: ResolveSkParam<ESchemaType<TSchema>, TSecondaryDerivationMap[K]>;
-            }
-          : never,
+        ? {
+            pk: Pick<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]["pkDeps"][number] &
+                keyof ESchemaType<TSchema>
+            >;
+            sk: ResolveSkParam<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]
+            >;
+          }
+        : never,
     options?: SimpleQueryOptions,
   ): Effect.Effect<
     { items: EntityType<ESchemaType<TSchema>>[] },
@@ -528,11 +531,7 @@ export class SQLiteEntity<
    * @param options - Stream options including batchSize
    * @returns A Stream that yields batches of entities
    */
-  queryStream<
-    K extends
-      | "primary"
-      | keyof TSecondaryDerivationMap,
-  >(
+  queryStream<K extends "primary" | keyof TSecondaryDerivationMap>(
     key: K,
     params: K extends "primary"
       ? [TPrimaryPkKeys] extends [never]
@@ -542,15 +541,18 @@ export class SQLiteEntity<
             sk: StreamSkParam;
           }
       : K extends keyof TSecondaryDerivationMap
-          ? {
-              pk: Pick<
-                ESchemaType<TSchema>,
-                TSecondaryDerivationMap[K]["pkDeps"][number] &
-                  keyof ESchemaType<TSchema>
-              >;
-              sk: ResolveStreamSkParam<ESchemaType<TSchema>, TSecondaryDerivationMap[K]>;
-            }
-          : never,
+        ? {
+            pk: Pick<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]["pkDeps"][number] &
+                keyof ESchemaType<TSchema>
+            >;
+            sk: ResolveStreamSkParam<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]
+            >;
+          }
+        : never,
     options?: QueryStreamOptions,
   ): Stream.Stream<
     EntityType<ESchemaType<TSchema>>[],
@@ -561,9 +563,8 @@ export class SQLiteEntity<
     const operator = ">" in params.sk ? ">" : "<";
     const initialSkValue = ">" in params.sk ? params.sk[">"] : params.sk["<"];
 
-    const indexDerivation = key !== "primary"
-      ? this.#secondaryDerivations[key]
-      : undefined;
+    const indexDerivation =
+      key !== "primary" ? this.#secondaryDerivations[key] : undefined;
     const isCustomSk = indexDerivation && !indexDerivation.isTimelineSk;
 
     const initialCursor: string | null = isCustomSk
@@ -611,9 +612,7 @@ export class SQLiteEntity<
    * @returns All items after the cursor
    */
   subscribe<
-    K extends
-      | "primary"
-      | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
+    K extends "primary" | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
   >(
     opts: SubscribeOptions<
       K,
@@ -622,12 +621,12 @@ export class SQLiteEntity<
           ? {}
           : Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>
         : K extends keyof TSecondaryDerivationMap
-            ? Pick<
-                ESchemaType<TSchema>,
-                TSecondaryDerivationMap[K]["pkDeps"][number] &
-                  keyof ESchemaType<TSchema>
-              >
-            : never
+          ? Pick<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]["pkDeps"][number] &
+                keyof ESchemaType<TSchema>
+            >
+          : never
     >,
   ): Effect.Effect<{ success: true }, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
@@ -777,7 +776,11 @@ export class SQLiteEntity<
     skValue: unknown,
     indexDerivation: StoredIndexDerivation,
   ): string | null {
-    if (skValue !== null && !indexDerivation.isTimelineSk && typeof skValue === "object") {
+    if (
+      skValue !== null &&
+      !indexDerivation.isTimelineSk &&
+      typeof skValue === "object"
+    ) {
       return deriveIndexKeyValue(
         this.#eschema.name,
         indexDerivation.skDeps,
@@ -972,11 +975,7 @@ class EntityIndexDerivations<
       skDeps: this.#primaryDerivation.sk.map(String),
     };
 
-    return new SQLiteEntity<
-      TSecondaryDerivationMap,
-      TSchema,
-      TPrimaryPkKeys
-    >(
+    return new SQLiteEntity<TSecondaryDerivationMap, TSchema, TPrimaryPkKeys>(
       this.#table,
       this.#eschema,
       storedPrimary,
