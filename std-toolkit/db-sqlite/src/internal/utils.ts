@@ -100,17 +100,3 @@ export interface StoredPrimaryDerivation {
   skDeps: string[];
 }
 
-/**
- * Stored derivation info for a timeline index.
- * Uses the same PK as primary but SK is always _u for time-ordering.
- */
-export interface StoredTimelineDerivation {
-  /** The index name on the table (e.g., "IDX1") */
-  indexName: string;
-  /** Always "timeline" */
-  entityIndexName: "timeline";
-  /** Field names used to derive the partition key (same as primary) */
-  pkDeps: string[];
-  /** Always ["_u"] for time-ordered results */
-  skDeps: readonly ["_u"];
-}

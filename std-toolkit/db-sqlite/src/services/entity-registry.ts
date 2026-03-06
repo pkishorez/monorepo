@@ -190,7 +190,7 @@ class EntityRegistryBuilder<
    * @param entity - The entity instance to register
    * @returns A builder with the entity registered
    */
-  register<TEntity extends SQLiteEntity<any, any, any, any>>(
+  register<TEntity extends SQLiteEntity<any, any, any>>(
     entity: TEntity,
   ): EntityRegistryBuilder<
     TTable,
