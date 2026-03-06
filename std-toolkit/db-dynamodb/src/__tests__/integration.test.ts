@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
 import { Effect, Schema, Stream } from "effect";
-import { EntityESchema } from "@std-toolkit/eschema";
+import { EntityESchema, SingleEntityESchema } from "@std-toolkit/eschema";
 import {
   DynamoTable,
   DynamoEntity,
+  DynamoSingleEntity,
+  EntityRegistry,
   DynamodbError,
   exprUpdate,
   buildExpr,
@@ -1955,6 +1957,70 @@ describe("@std-toolkit/db-dynamodb Integration Tests", () => {
         );
         expect(chunks.length).toBeGreaterThanOrEqual(3);
       }),
+    );
+  });
+
+  describe("EntityRegistry with single entities", () => {
+    const settingsSchema = SingleEntityESchema.make("Settings", {
+      darkMode: Schema.Boolean,
+      language: Schema.String,
+    }).build();
+
+    const Settings = DynamoSingleEntity.make(table)
+      .eschema(settingsSchema)
+      .default({ darkMode: false, language: "en" });
+
+    const registry = EntityRegistry.make(table)
+      .register(UserEntity)
+      .registerSingle(Settings)
+      .build();
+
+    it("provides access to single entity via singleEntity()", () => {
+      const s = registry.singleEntity("Settings");
+      expect(s.name).toBe("Settings");
+    });
+
+    it("includes single entity names in entityNames", () => {
+      const names = registry.entityNames;
+      expect(names).toContain("User");
+      expect(names).toContain("Settings");
+    });
+
+    it("getSchema excludes single entities", () => {
+      const schema = registry.getSchema();
+      const descriptorNames = schema.descriptors.map(
+        (d) => (d as any).entityName,
+      );
+      expect(descriptorNames).not.toContain("Settings");
+    });
+
+    it.effect(
+      "executes transaction with both entity and single entity ops",
+      () =>
+        Effect.gen(function* () {
+          yield* Settings.put({ darkMode: false, language: "en" });
+
+          const insertOp = yield* UserEntity.insertOp({
+            userId: "registry-txn-1",
+            name: "Registry Txn User",
+            email: "reg-txn@example.com",
+            status: "active",
+            age: 28,
+          });
+
+          const updateOp = yield* Settings.updateOp({
+            update: { darkMode: true },
+          });
+
+          yield* registry.transact([insertOp, updateOp]);
+
+          const user = yield* UserEntity.get({ userId: "registry-txn-1" });
+          expect(user).not.toBeNull();
+          expect(user?.value.name).toBe("Registry Txn User");
+
+          const settings = yield* Settings.get();
+          expect(settings.value.darkMode).toBe(true);
+        }),
     );
   });
 });

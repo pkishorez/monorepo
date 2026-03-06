@@ -15,6 +15,7 @@ import {
   type UpdateOps,
   type AnyOperation,
 } from "../expr/update.js";
+import type { TransactItem } from "../types/index.js";
 
 /**
  * Schema for single entity metadata stored with each item.
@@ -269,6 +270,49 @@ export class DynamoSingleEntity<
       return {
         value: decodedValue as ESchemaType<TSchema>,
         meta: updatedMeta,
+      };
+    });
+  }
+
+  /**
+   * Creates an update operation for use in a transaction.
+   * Pre-fetches the existing entity to include complete broadcast data.
+   *
+   * @param params - Object containing the update and optional condition
+   * @returns A transaction item for update with broadcast data
+   */
+  updateOp(
+    params: {
+      update:
+        | Partial<Omit<ESchemaType<TSchema>, "_v">>
+        | ((
+            ops: UpdateOps<ESchemaType<TSchema>>,
+          ) => AnyOperation<ESchemaType<TSchema>>[]);
+      condition?: ConditionInput<ESchemaType<TSchema>>;
+    },
+  ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
+    const { update: updates, condition } = params;
+    return Effect.gen(this, function* () {
+      const existing = yield* this.get();
+
+      const { pk, sk, exprResult } =
+        typeof updates === "function"
+          ? this.#prepareUpdateExpr(updates, condition)
+          : this.#prepareUpdate(updates, condition);
+
+      const mergedValue =
+        typeof updates === "function"
+          ? existing.value
+          : ({ ...existing.value, ...updates } as ESchemaType<TSchema>);
+
+      const tableOp = this.#table.opUpdateItem({ pk, sk }, exprResult);
+      return {
+        ...tableOp,
+        entityName: this.#eschema.name,
+        broadcast: {
+          value: mergedValue,
+          meta: { ...existing.meta, _d: false },
+        },
       };
     });
   }

@@ -191,4 +191,53 @@ describe("DynamoSingleEntity", () => {
       }),
     );
   });
+
+  describe("updateOp", () => {
+    it.effect("returns a TransactItem with plain object update", () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: "light", maxRetries: 3 });
+
+        const op = yield* AppConfig.updateOp({
+          update: { theme: "dark" },
+        });
+
+        expect(op.kind).toBe("update");
+        expect(op.entityName).toBe("AppConfig");
+        expect(op.broadcast).toBeDefined();
+        expect(op.broadcast?.value).toMatchObject({
+          theme: "dark",
+          maxRetries: 3,
+        });
+      }),
+    );
+
+    it.effect("returns a TransactItem with expression builder", () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: "light", maxRetries: 3 });
+
+        const op = yield* AppConfig.updateOp({
+          update: ($) => [$.set("maxRetries", $.opAdd("maxRetries", 10))],
+        });
+
+        expect(op.kind).toBe("update");
+        expect(op.entityName).toBe("AppConfig");
+        expect(op.broadcast).toBeDefined();
+      }),
+    );
+
+    it.effect("can be executed in a table transaction", () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: "light", maxRetries: 3 });
+
+        const op = yield* AppConfig.updateOp({
+          update: { theme: "neon" },
+        });
+
+        yield* table.transact([op]);
+
+        const result = yield* AppConfig.get();
+        expect(result.value.theme).toBe("neon");
+      }),
+    );
+  });
 });
