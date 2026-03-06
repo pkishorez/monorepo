@@ -1,9 +1,12 @@
 export {
   SQLiteTable,
   SQLiteEntity,
+  SQLiteSingleEntity,
   EntityRegistry,
   SqliteCommand,
   type EntityType,
+  type SingleEntityType,
+  type SingleMetaType,
   type SQLiteTableConfig,
   type IndexDefinition,
   type QueryResult,

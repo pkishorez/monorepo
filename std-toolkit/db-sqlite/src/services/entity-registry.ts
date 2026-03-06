@@ -1,5 +1,6 @@
 import { Effect, Exit, FiberRef, Option } from "effect";
 import type { SQLiteEntity } from "./sqlite-entity.js";
+import type { SQLiteSingleEntity } from "./sqlite-single-entity.js";
 import type { SQLiteTableInstance } from "./sqlite-table.js";
 import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
 import { ConnectionService } from "@std-toolkit/core/server";
@@ -9,8 +10,15 @@ import { SqliteDB, SqliteDBError, TransactionPendingBroadcasts } from "../sql/db
 type EntityName<T> =
   T extends SQLiteEntity<any, infer S, any> ? S["name"] : never;
 
+// Extract entity name from SQLiteSingleEntity
+type SingleEntityName<T> =
+  T extends SQLiteSingleEntity<any, infer TSchema> ? TSchema["name"] : never;
+
 // Entities map type
 type EntitiesMap = Record<string, SQLiteEntity<any, any, any>>;
+
+// Single entities map type
+type SingleEntitiesMap = Record<string, SQLiteSingleEntity<any, any>>;
 
 /**
  * Registry for managing multiple entities on a single shared SQLite table.
@@ -23,6 +31,7 @@ type EntitiesMap = Record<string, SQLiteEntity<any, any, any>>;
 export class EntityRegistry<
   TTable extends SQLiteTableInstance,
   TEntities extends EntitiesMap,
+  TSingleEntities extends SingleEntitiesMap = {},
 > implements DescriptorProvider {
   /**
    * Creates a new entity registry builder for the given table.
@@ -31,15 +40,21 @@ export class EntityRegistry<
    * @returns A builder to register entities
    */
   static make<TTable extends SQLiteTableInstance>(table: TTable) {
-    return new EntityRegistryBuilder<TTable, {}>(table, {});
+    return new EntityRegistryBuilder<TTable, {}, {}>(table, {}, {});
   }
 
   #table: TTable;
   #entities: TEntities;
+  #singleEntities: TSingleEntities;
 
-  constructor(table: TTable, entities: TEntities) {
+  constructor(
+    table: TTable,
+    entities: TEntities,
+    singleEntities: TSingleEntities,
+  ) {
     this.#table = table;
     this.#entities = entities;
+    this.#singleEntities = singleEntities;
   }
 
   /**
@@ -54,10 +69,24 @@ export class EntityRegistry<
   }
 
   /**
-   * Gets all registered entity names.
+   * Accesses a registered single entity by its name.
+   *
+   * @typeParam K - The single entity name key
+   * @param name - The single entity name
+   * @returns The single entity instance
    */
-  get entityNames(): (keyof TEntities)[] {
-    return Object.keys(this.#entities) as (keyof TEntities)[];
+  singleEntity<K extends keyof TSingleEntities>(name: K): TSingleEntities[K] {
+    return this.#singleEntities[name];
+  }
+
+  /**
+   * Gets all registered entity names (both regular and single entities).
+   */
+  get entityNames(): (keyof TEntities | keyof TSingleEntities)[] {
+    return [
+      ...Object.keys(this.#entities),
+      ...Object.keys(this.#singleEntities),
+    ] as (keyof TEntities | keyof TSingleEntities)[];
   }
 
   /**
@@ -137,13 +166,20 @@ export class EntityRegistry<
 class EntityRegistryBuilder<
   TTable extends SQLiteTableInstance,
   TEntities extends EntitiesMap,
+  TSingleEntities extends SingleEntitiesMap,
 > {
   #table: TTable;
   #entities: TEntities;
+  #singleEntities: TSingleEntities;
 
-  constructor(table: TTable, entities: TEntities) {
+  constructor(
+    table: TTable,
+    entities: TEntities,
+    singleEntities: TSingleEntities,
+  ) {
     this.#table = table;
     this.#entities = entities;
+    this.#singleEntities = singleEntities;
   }
 
   /**
@@ -158,12 +194,42 @@ class EntityRegistryBuilder<
     entity: TEntity,
   ): EntityRegistryBuilder<
     TTable,
-    TEntities & Record<EntityName<TEntity>, TEntity>
+    TEntities & Record<EntityName<TEntity>, TEntity>,
+    TSingleEntities
   > {
-    return new EntityRegistryBuilder(this.#table, {
-      ...this.#entities,
-      [entity.name]: entity,
-    } as TEntities & Record<EntityName<TEntity>, TEntity>);
+    return new EntityRegistryBuilder(
+      this.#table,
+      {
+        ...this.#entities,
+        [entity.name]: entity,
+      } as TEntities & Record<EntityName<TEntity>, TEntity>,
+      this.#singleEntities,
+    );
+  }
+
+  /**
+   * Registers a single entity with this registry.
+   * The entity name is automatically extracted from its schema.
+   *
+   * @typeParam TEntity - The SQLiteSingleEntity type to register
+   * @param entity - The single entity instance to register
+   * @returns A builder with the single entity registered
+   */
+  registerSingle<TEntity extends SQLiteSingleEntity<any, any>>(
+    entity: TEntity,
+  ): EntityRegistryBuilder<
+    TTable,
+    TEntities,
+    TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>
+  > {
+    return new EntityRegistryBuilder(
+      this.#table,
+      this.#entities,
+      {
+        ...this.#singleEntities,
+        [entity.name]: entity,
+      } as TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>,
+    );
   }
 
   /**
@@ -171,7 +237,11 @@ class EntityRegistryBuilder<
    *
    * @returns The configured EntityRegistry
    */
-  build(): EntityRegistry<TTable, TEntities> {
-    return new EntityRegistry(this.#table, this.#entities);
+  build(): EntityRegistry<TTable, TEntities, TSingleEntities> {
+    return new EntityRegistry(
+      this.#table,
+      this.#entities,
+      this.#singleEntities,
+    );
   }
 }
