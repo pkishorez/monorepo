@@ -13,6 +13,7 @@ interface StdSingleItemConfig<
   TItem extends object,
   TSchema extends AnySingleEntityESchema,
 > {
+  id?: string;
   schema: TSchema;
   get: () => Effect.Effect<EntityType<TItem>>;
   onUpdate?: (payload: {
@@ -27,7 +28,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
-  const { get, onUpdate, schema, cache: cacheEffect } = options;
+  const { id, get, onUpdate, schema, cache: cacheEffect } = options;
   const singletonKey = schema.name;
 
   const syncing = Effect.runSync(SubscriptionRef.make(false));
@@ -103,6 +104,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   };
 
   return {
+    ...(id !== undefined && { id }),
     schema: schema["~standard"] ? schema : (undefined as any),
     singleResult: true as const,
     getKey: () => singletonKey,

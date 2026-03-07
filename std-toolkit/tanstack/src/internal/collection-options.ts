@@ -28,6 +28,7 @@ interface StdCollectionConfigBase<
   TItem extends object,
   TSchema extends AnyEntityESchema,
 > {
+  id?: string;
   schema: TSchema;
   cache?: Effect.Effect<CacheEntity<TItem>>;
   onInsert: (
@@ -86,7 +87,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
-  const { onInsert, cache: providedCache, onUpdate, schema } = options;
+  const { id, onInsert, cache: providedCache, onUpdate, schema } = options;
   const syncMode = options.syncMode ?? "eager";
   const getMore = "getMore" in options ? options.getMore : undefined;
   const onLoadSubset =
@@ -212,6 +213,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   };
 
   return {
+    ...(id !== undefined && { id }),
     schema: schema["~standard"] ? schema : (undefined as any),
     getKey: (item: TCollectionItem) =>
       item[schema.idField as keyof TCollectionItem] as string,
