@@ -1,5 +1,7 @@
 import {
   CollectionConfig,
+  type LoadSubsetFn,
+  type SyncConfigRes,
   SyncConfig as TanstackSyncConfig,
 } from "@tanstack/react-db";
 import { Effect, Option, SubscriptionRef } from "effect";
@@ -7,6 +9,10 @@ import { EntityType, MetaSchema } from "@std-toolkit/core";
 import { CacheEntity } from "@std-toolkit/cache";
 import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
 import { AnyEntityESchema, ESchemaIdField } from "@std-toolkit/eschema";
+import {
+  parseLoadSubsetOptions,
+  type ParsedLoadSubsetOptions,
+} from "./load-subset-parser";
 
 export type CollectionItem<T> = T & {
   _meta?: typeof MetaSchema.Type;
@@ -24,15 +30,20 @@ export type CollectionUtils<TSchema extends AnyEntityESchema = AnyEntityESchema>
   isSyncing: SubscriptionRef.SubscriptionRef<boolean>;
 };
 
-interface StdCollectionConfig<
+type GetMoreFn<TItem extends object> = (
+  cursor: EntityType<TItem> | null,
+) => Effect.Effect<EntityType<TItem>[]>;
+
+type OnLoadSubsetFn<TItem extends object> = (
+  options: ParsedLoadSubsetOptions<TItem>,
+) => Effect.Effect<EntityType<TItem>[]>;
+
+interface StdCollectionConfigBase<
   TItem extends object,
   TSchema extends AnyEntityESchema,
 > {
   schema: TSchema;
   cache?: Effect.Effect<CacheEntity<TItem>>;
-  getMore: (
-    cursor: EntityType<TItem> | null,
-  ) => Effect.Effect<EntityType<TItem>[]>;
   onInsert: (
     item: Omit<TItem, ESchemaIdField<TSchema>>,
   ) => Effect.Effect<EntityType<TItem>>;
@@ -44,6 +55,37 @@ interface StdCollectionConfig<
     },
   ) => Effect.Effect<EntityType<TItem>>;
 }
+
+interface EagerConfig<TItem extends object, TSchema extends AnyEntityESchema>
+  extends StdCollectionConfigBase<TItem, TSchema> {
+  syncMode?: "eager";
+  getMore: GetMoreFn<TItem>;
+  onLoadSubset?: never;
+}
+
+interface OnDemandConfig<TItem extends object, TSchema extends AnyEntityESchema>
+  extends StdCollectionConfigBase<TItem, TSchema> {
+  syncMode: "on-demand";
+  getMore?: never;
+  onLoadSubset: OnLoadSubsetFn<TItem>;
+}
+
+interface ProgressiveConfig<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> extends StdCollectionConfigBase<TItem, TSchema> {
+  syncMode: "progressive";
+  getMore: GetMoreFn<TItem>;
+  onLoadSubset: OnLoadSubsetFn<TItem>;
+}
+
+type StdCollectionConfig<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> =
+  | EagerConfig<TItem, TSchema>
+  | OnDemandConfig<TItem, TSchema>
+  | ProgressiveConfig<TItem, TSchema>;
 
 export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   options: StdCollectionConfig<TSchema["Type"], TSchema>,
@@ -58,7 +100,11 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
-  const { onInsert, cache: providedCache, onUpdate, getMore, schema } = options;
+  const { onInsert, cache: providedCache, onUpdate, schema } = options;
+  const syncMode = options.syncMode ?? "eager";
+  const getMore = "getMore" in options ? options.getMore : undefined;
+  const onLoadSubset =
+    "onLoadSubset" in options ? options.onLoadSubset : undefined;
 
   const syncing = Effect.runSync(SubscriptionRef.make(false));
   const semaphore = Effect.runSync(Effect.makeSemaphore(1));
@@ -75,7 +121,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
     const { begin, collection, commit, write } = params;
 
     return (items: EntityType<TItem>[], persist = false) => {
-      begin();
+      begin({ immediate: true });
       for (const item of items) {
         const key = collection.getKeyFromItem(item.value as TCollectionItem);
         const itemValue = {
@@ -101,15 +147,19 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
     };
   };
 
+  const cacheAndApply = (cache: CacheEntity<TItem>, items: EntityType<TItem>[]) =>
+    Effect.gen(function* () {
+      yield* Effect.forEach(items, (item) => cache.put(item), { discard: true });
+      applyToCollection?.(items);
+    });
+
   const fetchOnePage = (cache: CacheEntity<TItem>) =>
     Effect.gen(function* () {
+      if (!getMore) return 0;
       const latest = yield* cache.getLatest();
       const items = yield* getMore(Option.getOrNull(latest));
       if (items.length === 0) return 0;
-      yield* Effect.forEach(items, (item) => cache.put(item), {
-        discard: true,
-      });
-      applyToCollection?.(items, true);
+      yield* cacheAndApply(cache, items);
       return items.length;
     });
 
@@ -157,24 +207,46 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
         resolvedCache = cache;
         applyToCollection = createApplyToCollection(params, cache);
 
-        const cachedItems = yield* cache.getAll();
-        if (cachedItems.length > 0) {
-          applyToCollection(cachedItems);
-          markReady();
+        if (syncMode !== "on-demand") {
+          const cachedItems = yield* cache.getAll();
+          if (cachedItems.length > 0) {
+            applyToCollection(cachedItems);
+            markReady();
+          }
         }
 
-        yield* withSyncGuard(fetchAllPages(cache));
+        if (syncMode === "eager" || syncMode === "progressive") {
+          yield* withSyncGuard(fetchAllPages(cache));
+        }
         markReady();
       });
 
       const cancel = Effect.runCallback(initEffect);
 
-      return () => {
+      const cleanup = () => {
         cancel();
         Effect.runSync(SubscriptionRef.set(syncing, false));
         resolvedCache = null;
         applyToCollection = null;
       };
+
+      const loadSubset: LoadSubsetFn | undefined = onLoadSubset
+        ? (loadOptions) => {
+            const parsed = parseLoadSubsetOptions<TItem>(loadOptions);
+            const effect = Effect.gen(function* () {
+              const items = yield* onLoadSubset(parsed);
+              if (items.length > 0 && resolvedCache) {
+                yield* cacheAndApply(resolvedCache!, items);
+              }
+            });
+            return Effect.runPromise(effect);
+          }
+        : undefined;
+
+      return {
+        cleanup,
+        ...(loadSubset && { loadSubset }),
+      } satisfies SyncConfigRes;
     },
   };
 
@@ -202,11 +274,15 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
     schema: schema["~standard"] ? schema : (undefined as any),
     getKey: (item: TCollectionItem) =>
       item[schema.idField as keyof TCollectionItem] as string,
+    ...(syncMode !== "eager" && {
+      syncMode: "on-demand" as const,
+    }),
     sync: tanstackSync,
     utils,
     compare: (x, y) => {
       const xUpdated = x?._meta?._u ?? "";
       const yUpdated = y?._meta?._u ?? "";
+      if (xUpdated === yUpdated) return 0;
       return xUpdated < yUpdated ? -1 : 1;
     },
     onInsert: async ({ transaction }) => {
