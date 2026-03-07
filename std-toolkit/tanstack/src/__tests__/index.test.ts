@@ -246,7 +246,7 @@ describe("stdSingleItemOptions", () => {
 
   it("getKey returns schema name as constant key", () => {
     const config = createConfig();
-    expect(config.getKey()).toBe("AppSettings");
+    expect(config.getKey({} as any)).toBe("AppSettings");
   });
 
   it("utils has schema, refetch, isSyncing but NOT upsert, fetch, fetchAll", () => {

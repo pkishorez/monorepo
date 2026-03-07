@@ -14,7 +14,11 @@ import {
   type ParsedLoadSubsetOptions,
 } from "../load-subset-parser";
 import { CollectionItem, CollectionUtils } from "../types";
-import { compareByMeta, makeApplyToCollection, makeWithSyncGuard } from "./shared";
+import {
+  compareByMeta,
+  makeApplyToCollection,
+  makeWithSyncGuard,
+} from "./shared";
 
 type GetMoreFn<TItem extends object> = (
   cursor: EntityType<TItem> | null,
@@ -31,9 +35,7 @@ interface StdCollectionConfigBase<
   id?: string;
   schema: TSchema;
   cache?: Effect.Effect<CacheEntity<TItem>>;
-  onInsert: (
-    item: Omit<TItem, ESchemaIdField<TSchema>>,
-  ) => Effect.Effect<EntityType<TItem>>;
+  onInsert: (item: TItem) => Effect.Effect<EntityType<TItem>>;
   onUpdate?: (
     payload: {
       [K in ESchemaIdField<TSchema>]: string;
@@ -43,15 +45,19 @@ interface StdCollectionConfigBase<
   ) => Effect.Effect<EntityType<TItem>>;
 }
 
-interface EagerConfig<TItem extends object, TSchema extends AnyEntityESchema>
-  extends StdCollectionConfigBase<TItem, TSchema> {
+interface EagerConfig<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> extends StdCollectionConfigBase<TItem, TSchema> {
   syncMode?: "eager";
   getMore: GetMoreFn<TItem>;
   onLoadSubset?: never;
 }
 
-interface OnDemandConfig<TItem extends object, TSchema extends AnyEntityESchema>
-  extends StdCollectionConfigBase<TItem, TSchema> {
+interface OnDemandConfig<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> extends StdCollectionConfigBase<TItem, TSchema> {
   syncMode: "on-demand";
   getMore?: never;
   onLoadSubset: OnLoadSubsetFn<TItem>;
@@ -102,9 +108,14 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
     | ((items: EntityType<TItem>[], persist?: boolean) => void)
     | null = null;
 
-  const cacheAndApply = (cache: CacheEntity<TItem>, items: EntityType<TItem>[]) =>
+  const cacheAndApply = (
+    cache: CacheEntity<TItem>,
+    items: EntityType<TItem>[],
+  ) =>
     Effect.gen(function* () {
-      yield* Effect.forEach(items, (item) => cache.put(item), { discard: true });
+      yield* Effect.forEach(items, (item) => cache.put(item), {
+        discard: true,
+      });
       applyToCollection?.(items);
     });
 
@@ -148,8 +159,8 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
       const { markReady } = params;
 
       const initEffect = Effect.gen(function* () {
-        const cache: CacheEntity<TItem> = yield* (providedCache ??
-          MemoryCacheEntity.make({ eschema: schema }));
+        const cache: CacheEntity<TItem> = yield* providedCache ??
+          MemoryCacheEntity.make({ eschema: schema });
 
         resolvedCache = cache;
         applyToCollection = makeApplyToCollection(params, cache, false);
