@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { Effect, Schema, SubscriptionRef } from "effect";
-import { EntityESchema } from "@std-toolkit/eschema";
+import { EntityESchema, SingleEntityESchema } from "@std-toolkit/eschema";
 import { EntityType } from "@std-toolkit/core";
 import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
-import { stdCollectionOptions, broadcastCollections } from "../index";
+import {
+  stdCollectionOptions,
+  stdSingleItemOptions,
+  broadcastCollections,
+} from "../index";
 
 const TestSchema = EntityESchema.make("TestEntity", "id", {
   name: Schema.String,
@@ -173,6 +177,102 @@ describe("stdCollectionOptions", () => {
     });
 
     expect(config.syncMode).toBe("on-demand");
+  });
+});
+
+const SingleTestSchema = SingleEntityESchema.make("AppSettings", {
+  theme: Schema.String,
+  language: Schema.String,
+}).build();
+
+type SingleTestItem = typeof SingleTestSchema.Type;
+
+const createSingleEntity = (
+  value: SingleTestItem,
+  meta: Partial<EntityType<SingleTestItem>["meta"]> = {},
+): EntityType<SingleTestItem> => ({
+  value,
+  meta: {
+    _v: "v1",
+    _e: "AppSettings",
+    _d: false,
+    _u: new Date().toISOString(),
+    ...meta,
+  },
+});
+
+describe("stdSingleItemOptions", () => {
+  const createConfig = () =>
+    stdSingleItemOptions({
+      schema: SingleTestSchema,
+      get: () =>
+        Effect.succeed(
+          createSingleEntity({ theme: "dark", language: "en" }),
+        ),
+    });
+
+  it("returns config with singleResult: true", () => {
+    const config = createConfig();
+    expect(config.singleResult).toBe(true);
+  });
+
+  it("has sync, onUpdate, schema, and utils", () => {
+    const config = createConfig();
+
+    expect(typeof config.sync.sync).toBe("function");
+    expect(typeof config.onUpdate).toBe("function");
+    expect(config.schema).toBe(SingleTestSchema);
+    expect(config.utils).toBeDefined();
+  });
+
+  it("does NOT have onInsert or compare", () => {
+    const config = createConfig();
+    expect(config).not.toHaveProperty("onInsert");
+    expect(config).not.toHaveProperty("compare");
+  });
+
+  it("getKey returns schema name as constant key", () => {
+    const config = createConfig();
+    expect(config.getKey()).toBe("AppSettings");
+  });
+
+  it("utils has schema, refetch, isSyncing but NOT upsert, fetch, fetchAll", () => {
+    const utils = createConfig().utils!;
+
+    expect(typeof utils.schema).toBe("function");
+    expect(typeof utils.refetch).toBe("function");
+    expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing).toBe(true);
+
+    expect(utils).not.toHaveProperty("upsert");
+    expect(utils).not.toHaveProperty("fetch");
+    expect(utils).not.toHaveProperty("fetchAll");
+  });
+
+  it("works without onUpdate (read-only)", () => {
+    const config = stdSingleItemOptions({
+      schema: SingleTestSchema,
+      get: () =>
+        Effect.succeed(
+          createSingleEntity({ theme: "light", language: "en" }),
+        ),
+    });
+
+    expect(config.singleResult).toBe(true);
+    expect(typeof config.onUpdate).toBe("function");
+  });
+
+  it("isSyncing starts as false", () => {
+    const config = createConfig();
+    const value = Effect.runSync(SubscriptionRef.get(config.utils!.isSyncing));
+    expect(value).toBe(false);
+  });
+
+  it("utils.schema() returns the provided schema", () => {
+    const utils = createConfig().utils!;
+    const schema = utils.schema();
+
+    expect(schema).toBe(SingleTestSchema);
+    expect(schema.name).toBe("AppSettings");
   });
 });
 
