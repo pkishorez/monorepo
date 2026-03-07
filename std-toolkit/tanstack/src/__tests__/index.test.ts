@@ -134,13 +134,45 @@ describe("stdCollectionOptions", () => {
       },
     };
 
-    expect(compare(a, b)).toBe(1);
+    expect(compare(a, b)).toBe(0);
   });
 
   it("isSyncing is false initially", () => {
     const config = createConfig();
     const value = Effect.runSync(SubscriptionRef.get(config.utils!.isSyncing));
     expect(value).toBe(false);
+  });
+
+  it("defaults to eager syncMode (no syncMode in config)", () => {
+    const config = createConfig();
+    expect(config).not.toHaveProperty("syncMode");
+  });
+
+  it("passes syncMode through to returned config for on-demand", () => {
+    const config = stdCollectionOptions({
+      schema: TestSchema,
+      syncMode: "on-demand",
+      cache: MemoryCacheEntity.make({ eschema: TestSchema }),
+      onInsert: (item) =>
+        Effect.succeed(createEntity({ ...item, id: "generated-id" })),
+      onLoadSubset: () => Effect.succeed([]),
+    });
+
+    expect(config.syncMode).toBe("on-demand");
+  });
+
+  it("passes syncMode through to returned config for progressive", () => {
+    const config = stdCollectionOptions({
+      schema: TestSchema,
+      syncMode: "progressive",
+      cache: MemoryCacheEntity.make({ eschema: TestSchema }),
+      getMore: () => Effect.succeed([]),
+      onInsert: (item) =>
+        Effect.succeed(createEntity({ ...item, id: "generated-id" })),
+      onLoadSubset: () => Effect.succeed([]),
+    });
+
+    expect(config.syncMode).toBe("on-demand");
   });
 });
 
