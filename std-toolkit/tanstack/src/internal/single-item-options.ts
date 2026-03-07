@@ -2,9 +2,10 @@ import {
   type SyncConfigRes,
   SyncConfig as TanstackSyncConfig,
 } from "@tanstack/react-db";
-import { Effect, SubscriptionRef } from "effect";
+import { Effect, Option, SubscriptionRef } from "effect";
 import { EntityType } from "@std-toolkit/core";
 import { AnySingleEntityESchema } from "@std-toolkit/eschema";
+import type { CacheSingleItem } from "@std-toolkit/cache";
 import { CollectionItem, SingleItemUtils } from "../types";
 import { makeWithSyncGuard } from "./shared";
 
@@ -17,6 +18,7 @@ interface StdSingleItemConfig<
   onUpdate?: (payload: {
     updates: Partial<TItem>;
   }) => Effect.Effect<EntityType<TItem>>;
+  cache?: Effect.Effect<CacheSingleItem<TItem>>;
 }
 
 export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
@@ -25,7 +27,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
-  const { get, onUpdate, schema } = options;
+  const { get, onUpdate, schema, cache: cacheEffect } = options;
   const singletonKey = schema.name;
 
   const syncing = Effect.runSync(SubscriptionRef.make(false));
@@ -33,6 +35,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   const withSyncGuard = makeWithSyncGuard(syncing, semaphore);
 
   let applyToCollection: ((item: EntityType<TItem>) => void) | null = null;
+  let resolvedCache: CacheSingleItem<TItem> | null = null;
 
   const createApplyToCollection = (
     params: Parameters<TanstackSyncConfig<TCollectionItem, string>["sync"]>[0],
@@ -53,6 +56,9 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
 
   const fetchItem = Effect.gen(function* () {
     const item = yield* get();
+    if (resolvedCache) {
+      yield* Effect.catchAll(resolvedCache.put(item), () => Effect.void);
+    }
     applyToCollection?.(item);
   });
 
@@ -62,6 +68,22 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
 
       const initEffect = Effect.gen(function* () {
         applyToCollection = createApplyToCollection(params);
+
+        if (cacheEffect) {
+          resolvedCache = yield* Effect.catchAll(cacheEffect, () =>
+            Effect.succeed(null),
+          );
+          const cached = resolvedCache
+            ? yield* Effect.catchAll(resolvedCache.get(), () =>
+                Effect.succeed(Option.none<EntityType<TItem>>()),
+              )
+            : Option.none<EntityType<TItem>>();
+          if (Option.isSome(cached)) {
+            applyToCollection(cached.value);
+            markReady();
+          }
+        }
+
         markReady();
         yield* withSyncGuard(fetchItem);
         markReady();
@@ -73,6 +95,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
         cancel();
         Effect.runSync(SubscriptionRef.set(syncing, false));
         applyToCollection = null;
+        resolvedCache = null;
       };
 
       return { cleanup } satisfies SyncConfigRes;
@@ -95,6 +118,11 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
       const result = await Effect.runPromise(
         onUpdate({ updates: changes as Partial<TItem> }),
       );
+      if (resolvedCache) {
+        await Effect.runPromise(
+          Effect.catchAll(resolvedCache.put(result), () => Effect.void),
+        );
+      }
       applyToCollection?.(result);
     },
   };
