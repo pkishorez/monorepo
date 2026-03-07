@@ -178,6 +178,19 @@ describe("stdCollectionOptions", () => {
 
     expect(config.syncMode).toBe("on-demand");
   });
+
+  it("passes id through to returned config", () => {
+    const config = stdCollectionOptions({
+      id: "custom-collection-id",
+      schema: TestSchema,
+      cache: MemoryCacheEntity.make({ eschema: TestSchema }),
+      getMore: () => Effect.succeed([]),
+      onInsert: (item) =>
+        Effect.succeed(createEntity({ ...item, id: "generated-id" })),
+    });
+
+    expect(config.id).toBe("custom-collection-id");
+  });
 });
 
 const SingleTestSchema = SingleEntityESchema.make("AppSettings", {
@@ -273,6 +286,19 @@ describe("stdSingleItemOptions", () => {
 
     expect(schema).toBe(SingleTestSchema);
     expect(schema.name).toBe("AppSettings");
+  });
+
+  it("passes id through to returned config", () => {
+    const config = stdSingleItemOptions({
+      id: "custom-single-id",
+      schema: SingleTestSchema,
+      get: () =>
+        Effect.succeed(
+          createSingleEntity({ theme: "dark", language: "en" }),
+        ),
+    });
+
+    expect(config.id).toBe("custom-single-id");
   });
 });
 
