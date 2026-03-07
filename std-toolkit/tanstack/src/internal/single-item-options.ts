@@ -27,11 +27,10 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
 ): CollectionConfig<
   CollectionItem<TSchema["Type"]>,
   string,
-  TSchema,
+  never,
   SingleItemUtils<TSchema>
-> & {
-  schema: TSchema;
-} & SingleResult => {
+> &
+  SingleResult => {
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
@@ -112,7 +111,6 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
 
   return {
     ...(id !== undefined && { id }),
-    schema: schema["~standard"] ? schema : (undefined as any),
     singleResult: true as const,
     getKey: () => singletonKey,
     sync: tanstackSync,
@@ -122,14 +120,13 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
       isSyncing: syncing,
     } satisfies SingleItemUtils<TSchema>,
     onUpdate: async ({ transaction }) => {
-      console.log("transaction", transaction);
       if (transaction.error) {
         console.error(transaction);
       }
       if (!onUpdate) return;
-      const { changes } = transaction.mutations[0]!;
+      const { modified } = transaction.mutations[0]!;
       const result = await Effect.runPromise(
-        onUpdate({ updates: changes as Partial<TItem> }),
+        onUpdate({ updates: modified as TItem }),
       );
       if (resolvedCache) {
         await Effect.runPromise(
