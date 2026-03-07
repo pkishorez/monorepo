@@ -1,66 +1,17 @@
 import type { IDBPDatabase } from "idb";
-import { openDB } from "idb";
-import type { EntityType } from "@std-toolkit/core";
 import { Effect, Option } from "effect";
 import type { CacheEntity, CacheSchemaType } from "../cache-entity.js";
 import type { PartitionKey } from "./utils.js";
 import { serializePartition } from "./utils.js";
 import { CacheError } from "../error.js";
-
-const DEFAULT_DB_NAME = "std-toolkit-cache";
-const STORE_NAME = "items";
-const UPDATED_INDEX = "by-updated";
-const DB_VERSION = 1;
-
-type StoredItem = {
-  key: [string, string, string];
-  updatedKey: [string, string, string];
-  value: unknown;
-  meta: EntityType<unknown>["meta"];
-};
-
-const ConnectionPool = {
-  connections: new Map<string, IDBPDatabase>(),
-  opened: new Set<string>(),
-
-  async acquire(dbName: string): Promise<IDBPDatabase> {
-    const cached = this.connections.get(dbName);
-    if (cached) {
-      return cached;
-    }
-
-    const db = await openDB(dbName, DB_VERSION, {
-      upgrade(database) {
-        const store = database.createObjectStore(STORE_NAME, { keyPath: "key" });
-        store.createIndex(UPDATED_INDEX, "updatedKey");
-      },
-    });
-
-    this.connections.set(dbName, db);
-    this.opened.add(dbName);
-    return db;
-  },
-
-  get(dbName: string): IDBPDatabase | undefined {
-    return this.connections.get(dbName);
-  },
-
-  async destroyAll(): Promise<void> {
-    for (const name of this.opened) {
-      const cached = this.connections.get(name);
-      if (cached) {
-        cached.close();
-        this.connections.delete(name);
-      }
-      await new Promise<void>((resolve, reject) => {
-        const request = indexedDB.deleteDatabase(name);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    }
-    this.opened.clear();
-  },
-};
+import type { EntityType } from "@std-toolkit/core";
+import {
+  DEFAULT_DB_NAME,
+  STORE_NAME,
+  UPDATED_INDEX,
+  ConnectionPool,
+  type StoredItem,
+} from "./internals.js";
 
 export class IDBCacheEntity<TSchema extends CacheSchemaType>
   implements CacheEntity<TSchema["Type"]>
