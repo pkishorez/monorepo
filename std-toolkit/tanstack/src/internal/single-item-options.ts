@@ -1,4 +1,6 @@
 import {
+  CollectionConfig,
+  type SingleResult,
   type SyncConfigRes,
   SyncConfig as TanstackSyncConfig,
 } from "@tanstack/react-db";
@@ -16,15 +18,20 @@ interface StdSingleItemConfig<
   id?: string;
   schema: TSchema;
   get: () => Effect.Effect<EntityType<TItem>>;
-  onUpdate?: (payload: {
-    updates: Partial<TItem>;
-  }) => Effect.Effect<EntityType<TItem>>;
+  onUpdate?: (payload: { updates: TItem }) => Effect.Effect<EntityType<TItem>>;
   cache?: Effect.Effect<CacheSingleItem<TItem>>;
 }
 
 export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   options: StdSingleItemConfig<TSchema["Type"], TSchema>,
-) => {
+): CollectionConfig<
+  CollectionItem<TSchema["Type"]>,
+  string,
+  TSchema,
+  SingleItemUtils<TSchema>
+> & {
+  schema: TSchema;
+} & SingleResult => {
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
@@ -114,7 +121,11 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
       refetch: () => withSyncGuard(fetchItem).pipe(Effect.orDie),
       isSyncing: syncing,
     } satisfies SingleItemUtils<TSchema>,
-    onUpdate: async ({ transaction }: any) => {
+    onUpdate: async ({ transaction }) => {
+      console.log("transaction", transaction);
+      if (transaction.error) {
+        console.error(transaction);
+      }
       if (!onUpdate) return;
       const { changes } = transaction.mutations[0]!;
       const result = await Effect.runPromise(
