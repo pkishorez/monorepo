@@ -14,7 +14,7 @@ export type CollectionUtils<TSchema extends AnyEntityESchema = AnyEntityESchema>
   schema: () => TSchema;
   fetch: () => Effect.Effect<number>;
   fetchAll: () => Effect.Effect<number>;
-  isSyncing: SubscriptionRef.SubscriptionRef<boolean>;
+  isSyncing: () => SubscriptionRef.SubscriptionRef<boolean>;
 };
 
 export type SingleItemUtils<
@@ -22,5 +22,5 @@ export type SingleItemUtils<
 > = {
   schema: () => TSchema;
   refetch: () => Effect.Effect<void>;
-  isSyncing: SubscriptionRef.SubscriptionRef<boolean>;
+  isSyncing: () => SubscriptionRef.SubscriptionRef<boolean>;
 };

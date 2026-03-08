@@ -85,7 +85,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
 ): CollectionConfig<
   CollectionItem<TSchema["Type"]>,
   string,
-  TSchema,
+  never,
   CollectionUtils<TSchema>
 > => {
   type TItem = TSchema["Type"];
@@ -234,7 +234,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
       schema: () => schema,
       fetch: () => guardedFetch(fetchOnePage),
       fetchAll: () => guardedFetch(fetchAllPages),
-      isSyncing: syncing,
+      isSyncing: () => syncing,
     },
     compare: compareByMeta,
     onInsert: async ({ transaction }) => {

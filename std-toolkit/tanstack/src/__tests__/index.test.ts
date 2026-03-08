@@ -59,7 +59,8 @@ describe("stdCollectionOptions", () => {
     expect(typeof utils.schema).toBe("function");
     expect(typeof utils.fetch).toBe("function");
     expect(typeof utils.fetchAll).toBe("function");
-    expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing).toBe(true);
+    expect(typeof utils.isSyncing).toBe("function");
+    expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing()).toBe(true);
   });
 
   it("utils.schema() returns the provided schema", () => {
@@ -143,7 +144,7 @@ describe("stdCollectionOptions", () => {
 
   it("isSyncing is false initially", () => {
     const config = createConfig();
-    const value = Effect.runSync(SubscriptionRef.get(config.utils!.isSyncing));
+    const value = Effect.runSync(SubscriptionRef.get(config.utils!.isSyncing()));
     expect(value).toBe(false);
   });
 
@@ -254,7 +255,8 @@ describe("stdSingleItemOptions", () => {
 
     expect(typeof utils.schema).toBe("function");
     expect(typeof utils.refetch).toBe("function");
-    expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing).toBe(true);
+    expect(typeof utils.isSyncing).toBe("function");
+    expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing()).toBe(true);
 
     expect(utils).not.toHaveProperty("upsert");
     expect(utils).not.toHaveProperty("fetch");
@@ -276,7 +278,7 @@ describe("stdSingleItemOptions", () => {
 
   it("isSyncing starts as false", () => {
     const config = createConfig();
-    const value = Effect.runSync(SubscriptionRef.get(config.utils!.isSyncing));
+    const value = Effect.runSync(SubscriptionRef.get(config.utils!.isSyncing()));
     expect(value).toBe(false);
   });
 
