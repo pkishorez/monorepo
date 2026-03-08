@@ -117,7 +117,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
     utils: {
       schema: () => schema,
       refetch: () => withSyncGuard(fetchItem).pipe(Effect.orDie),
-      isSyncing: syncing,
+      isSyncing: () => syncing,
     } satisfies SingleItemUtils<TSchema>,
     onUpdate: async ({ transaction }) => {
       if (transaction.error) {
