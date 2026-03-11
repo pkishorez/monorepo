@@ -2,6 +2,7 @@ packages:
   - packages/*
   - std-toolkit/*
   - effect/*
+  - whatever-code
 
 onlyBuiltDependencies:
   - better-sqlite3

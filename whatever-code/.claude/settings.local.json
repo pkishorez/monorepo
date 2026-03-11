@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(cd /Users/kishorepolamarasetty/CAREER/MINE/monorepo/whatever-code && pnpm build 2>&1)"
+    ]
+  }
+}
