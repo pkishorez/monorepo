@@ -4,8 +4,8 @@
     "types": ["node", "vitest/globals"],
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
 
     "rootDir": "./src",
     "outDir": "./dist",

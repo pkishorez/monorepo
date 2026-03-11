@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 import { SqliteDB, SqliteDBError } from "../db.js";
-import * as Sql from "../helpers";
+import * as Sql from "../helpers/index.js";
 import type { Where } from "../helpers/index.js";
 import { SqlStorage } from "@cloudflare/workers-types";
 

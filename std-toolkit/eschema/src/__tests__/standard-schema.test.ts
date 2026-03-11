@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Schema } from "effect";
-import { EntityESchema } from "../index";
+import { EntityESchema } from "../index.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 describe("Standard Schema v1 compatibility", () => {
@@ -70,7 +70,7 @@ describe("Standard Schema v1 compatibility", () => {
     const schema = EntityESchema.make("User", "id", {
       name: Schema.String,
     })
-      .evolve("v2", { email: Schema.String }, (v) => ({
+      .evolve("v2", { email: Schema.String }, (v: { id: string; name: string }) => ({
         ...v,
         email: "default@example.com",
       }))

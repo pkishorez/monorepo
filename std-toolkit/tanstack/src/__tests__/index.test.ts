@@ -7,7 +7,7 @@ import {
   stdCollectionOptions,
   stdSingleItemOptions,
   broadcastCollections,
-} from "../index";
+} from "../index.js";
 
 const TestSchema = EntityESchema.make("TestEntity", "id", {
   name: Schema.String,

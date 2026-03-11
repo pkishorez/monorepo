@@ -4,7 +4,7 @@ import {
   SingleEntityESchema,
   EntityESchema,
   type AnyESchema,
-} from "./index";
+} from "./index.js";
 
 // ─── ESchema (pure schema, no identity) ─────────────────────────────────────
 

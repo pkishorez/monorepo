@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Schema } from "effect";
-import { EntityESchema } from "../index";
-import { StringToNumber } from "./fixtures";
+import { EntityESchema } from "../index.js";
+import { StringToNumber } from "./fixtures.js";
 
 describe("ESchema.getDescriptor", () => {
   it("returns JSON Schema for encoded type including id field", () => {

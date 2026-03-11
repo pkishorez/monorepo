@@ -8,8 +8,8 @@ import { Effect, Option, SubscriptionRef } from "effect";
 import { EntityType } from "@std-toolkit/core";
 import { AnySingleEntityESchema } from "@std-toolkit/eschema";
 import type { CacheSingleItem } from "@std-toolkit/cache";
-import { CollectionItem, SingleItemUtils } from "../types";
-import { makeWithSyncGuard } from "./shared";
+import { CollectionItem, SingleItemUtils } from "../types.js";
+import { makeWithSyncGuard } from "./shared.js";
 
 interface StdSingleItemConfig<
   TItem extends object,

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { EntityESchema } from "../index";
-import { StringToNumber } from "./fixtures";
+import { EntityESchema } from "../index.js";
+import { StringToNumber } from "./fixtures.js";
 
 describe("ESchema.encode", () => {
   it.effect("encodes value with version metadata", () =>

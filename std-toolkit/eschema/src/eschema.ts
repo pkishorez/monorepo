@@ -9,14 +9,14 @@ import type {
   Prettify,
   StructFieldsDecoded,
   StructFieldsSchema,
-} from "./types";
-import { ESchemaError } from "./utils";
-import { struct, metaSchema, INITIAL_VERSION } from "./schema";
+} from "./types.js";
+import { ESchemaError } from "./utils.js";
+import { struct, metaSchema, INITIAL_VERSION } from "./schema.js";
 import {
   ESchemaBuilder,
   SingleEntityESchemaBuilder,
   EntityESchemaBuilder,
-} from "./internal/builders";
+} from "./internal/builders.js";
 
 export class ESchema<
   TVersion extends string,

@@ -5,4 +5,4 @@ export {
   makeUpdateRpc,
   makeDeleteRpc,
   makeEntityRpcGroup,
-} from "./eschema";
+} from "./eschema.js";

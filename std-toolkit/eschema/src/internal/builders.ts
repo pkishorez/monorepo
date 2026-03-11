@@ -9,9 +9,9 @@ import type {
   NextVersion,
   StructFieldsDecoded,
   StructFieldsSchema,
-} from "../types";
-import { mergeDelta } from "../schema";
-import { ESchema, SingleEntityESchema, EntityESchema } from "../eschema";
+} from "../types.js";
+import { mergeDelta } from "../schema.js";
+import { ESchema, SingleEntityESchema, EntityESchema } from "../eschema.js";
 
 function nextEvolutions(
   migrations: Evolution[],

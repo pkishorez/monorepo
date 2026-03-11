@@ -3,7 +3,7 @@ export {
   BroadcastSchema,
   MetaSchema,
   EntitySchema,
-} from "./schema";
+} from "./schema.js";
 
 export type {
   IndexPatternDescriptor,
@@ -12,4 +12,4 @@ export type {
   RegistrySchema,
   DescriptorProvider,
   DescriptorSource,
-} from "./descriptor";
+} from "./descriptor.js";

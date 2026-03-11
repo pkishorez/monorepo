@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import type { DeltaSchema, StructFieldsSchema } from "./types";
+import type { DeltaSchema, StructFieldsSchema } from "./types.js";
 
 export function struct<S extends StructFieldsSchema>(
   fields: S,

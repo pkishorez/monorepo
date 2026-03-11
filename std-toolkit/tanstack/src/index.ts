@@ -1,3 +1,3 @@
-export { stdCollectionOptions, stdSingleItemOptions } from "./tanstack";
-export type { CollectionUtils, SingleItemUtils, CollectionItem } from "./types";
-export { broadcastCollections } from "./broadcast";
+export { stdCollectionOptions, stdSingleItemOptions } from "./tanstack.js";
+export type { CollectionUtils, SingleItemUtils, CollectionItem } from "./types.js";
+export { broadcastCollections } from "./broadcast.js";

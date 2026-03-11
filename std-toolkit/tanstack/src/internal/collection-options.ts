@@ -12,13 +12,13 @@ import { AnyEntityESchema, ESchemaIdField } from "@std-toolkit/eschema";
 import {
   parseLoadSubsetOptions,
   type ParsedLoadSubsetOptions,
-} from "../load-subset-parser";
-import { CollectionItem, CollectionUtils } from "../types";
+} from "../load-subset-parser.js";
+import { CollectionItem, CollectionUtils } from "../types.js";
 import {
   compareByMeta,
   makeApplyToCollection,
   makeWithSyncGuard,
-} from "./shared";
+} from "./shared.js";
 
 type GetMoreFn<TItem extends object> = (
   cursor: EntityType<TItem> | null,
