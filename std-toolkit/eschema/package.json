@@ -21,9 +21,11 @@
     "test:run": "vitest run",
     "test:watch": "vitest --watch"
   },
+  "dependencies": {
+    "@standard-schema/spec": "1.1.0"
+  },
   "devDependencies": {
     "@effect/vitest": "0.27.0",
-    "@standard-schema/spec": "1.1.0",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.4.0",
     "effect": "3.19.19",

@@ -1,8 +1,8 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { SingleEntityESchema } from "../index";
-import { ESchemaError } from "../utils";
-import { StringToNumber } from "./fixtures";
+import { SingleEntityESchema } from "../index.js";
+import { ESchemaError } from "../utils.js";
+import { StringToNumber } from "./fixtures.js";
 
 describe("SingleEntityESchema.make", () => {
   it("exposes name property", () => {

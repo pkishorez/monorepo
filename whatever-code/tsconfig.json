@@ -4,8 +4,8 @@
     "types": ["node"],
     "lib": ["ESNext"],
     "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
 
     "rootDir": "./src",
     "outDir": "./dist",
@@ -14,8 +14,8 @@
 
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    "declaration": true,
-    "declarationMap": true,
+    "declaration": false,
+    "declarationMap": false,
     "noEmit": false,
     "skipLibCheck": true
   },

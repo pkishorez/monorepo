@@ -1,8 +1,8 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { ESchema } from "../index";
-import { ESchemaError } from "../utils";
-import { StringToNumber } from "./fixtures";
+import { ESchema } from "../index.js";
+import { ESchemaError } from "../utils.js";
+import { StringToNumber } from "./fixtures.js";
 
 describe("ESchema.make", () => {
   it.effect("creates a v1 schema and encodes with version", () =>

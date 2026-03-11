@@ -8,7 +8,7 @@ import {
   type AnySingleEntityESchema,
   type AnyEntityESchema,
   type ESchemaType,
-} from "../index";
+} from "../index.js";
 
 function acceptsAnyESchema(schema: AnyESchema) {
   return schema.getDescriptor();

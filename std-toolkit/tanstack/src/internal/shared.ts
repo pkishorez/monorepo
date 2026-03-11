@@ -2,7 +2,7 @@ import { SyncConfig as TanstackSyncConfig } from "@tanstack/react-db";
 import { Effect, SubscriptionRef } from "effect";
 import { EntityType } from "@std-toolkit/core";
 import { CacheEntity } from "@std-toolkit/cache";
-import { CollectionItem } from "../types";
+import { CollectionItem } from "../types.js";
 
 type SyncParams<T extends object> = Parameters<
   TanstackSyncConfig<CollectionItem<T>, string>["sync"]

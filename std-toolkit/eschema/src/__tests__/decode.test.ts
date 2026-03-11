@@ -1,8 +1,8 @@
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { EntityESchema } from "../index";
-import { ESchemaError } from "../utils";
-import { StringToNumber } from "./fixtures";
+import { EntityESchema } from "../index.js";
+import { ESchemaError } from "../utils.js";
+import { StringToNumber } from "./fixtures.js";
 
 describe("ESchema.decode", () => {
   it.effect("decodes v1 data without migration", () =>

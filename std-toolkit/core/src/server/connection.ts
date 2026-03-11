@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "effect";
-import { BroadcastSchema, EntityType } from "../schema";
+import { BroadcastSchema, EntityType } from "../schema.js";
 import { RpcSerialization } from "@effect/rpc";
-import { typedWebSocket } from "./typed";
+import { typedWebSocket } from "./typed.js";
 import { DurableObjectState, WebSocket } from "@cloudflare/workers-types";
 
 export class ConnectionService extends Context.Tag("ConnectionService")<

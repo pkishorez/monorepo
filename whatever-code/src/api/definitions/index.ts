@@ -1,5 +1,4 @@
+import { ClaudeRpcs } from "./claude.js";
 import { HelloRpcs } from "./hello.js";
 
-export { HelloRpcs };
-
-export class ApiRpcs extends HelloRpcs.merge() {}
+export const ApiRpcs = HelloRpcs.merge(ClaudeRpcs);

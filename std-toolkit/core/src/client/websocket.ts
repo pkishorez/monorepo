@@ -4,8 +4,8 @@ import { Socket } from "@effect/platform";
 import { Schedule, Option, Effect, Scope, Cause } from "effect";
 import { constVoid } from "effect/Function";
 import { RpcClientError } from "@effect/rpc/RpcClientError";
-import { isRpcServerMessage } from "./utils";
-import { makePinger } from "./pinger";
+import { isRpcServerMessage } from "./utils.js";
+import { makePinger } from "./pinger.js";
 import { constPing } from "@effect/rpc/RpcMessage";
 
 export const makeProtocolSocket = ({

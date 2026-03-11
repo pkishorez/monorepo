@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseLoadSubsetOptions } from "../load-subset-parser";
+import { parseLoadSubsetOptions } from "../load-subset-parser.js";
 import type { LoadSubsetOptions } from "@tanstack/react-db";
 
 type TestItem = {

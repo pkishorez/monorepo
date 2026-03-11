@@ -1,7 +1,7 @@
 import { Rpc } from "@effect/rpc";
 import { Schema } from "effect";
 import { EntityESchema, type StructFieldsSchema } from "@std-toolkit/eschema";
-import { EntitySchema } from "../schema";
+import { EntitySchema } from "../schema.js";
 
 export class StdToolkitError extends Schema.TaggedError<StdToolkitError>()(
   "StdToolkitError",

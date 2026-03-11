@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { Effect, Layer } from "effect";
 import { SqliteDB, SqliteDBError } from "../db.js";
-import * as Sql from "../helpers";
+import * as Sql from "../helpers/index.js";
 import type { Where } from "../helpers/index.js";
 
 export const SqliteDBBetterSqlite3 = (db: Database.Database) =>

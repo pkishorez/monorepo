@@ -1,8 +1,8 @@
 import { Rpc, RpcGroup, RpcSerialization, RpcServer } from "@effect/rpc";
 import { Deferred, Effect } from "effect";
-import { typedWebSocket } from "./typed";
+import { typedWebSocket } from "./typed.js";
 import { DurableObjectState, WebSocket } from "@cloudflare/workers-types";
-import { ConnectionService } from "./connection";
+import { ConnectionService } from "./connection.js";
 
 export const handleMessage = <Rpcs extends Rpc.Any>(
   state: DurableObjectState<any>,

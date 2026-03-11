@@ -1,4 +1,4 @@
-import type { ESchema, SingleEntityESchema, EntityESchema } from "./eschema";
+import type { ESchema, SingleEntityESchema, EntityESchema } from "./eschema.js";
 import { JSONSchema, Schema } from "effect";
 
 export type ESchemaDescriptor = JSONSchema.JsonSchema7Object & {

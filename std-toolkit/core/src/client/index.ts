@@ -1,1 +1,1 @@
-export { makeProtocolSocket } from "./websocket";
+export { makeProtocolSocket } from "./websocket.js";
