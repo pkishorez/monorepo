@@ -169,6 +169,12 @@ export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
       if (errorFactory) {
         return yield* Effect.fail(errorFactory(errorMeta));
       }
+
+      if (simpleErrorName === "InvalidSignatureException") {
+        return yield* Effect.fail(
+          DynamodbError.invalidSignature(errorMessage, errorMeta),
+        );
+      }
       return yield* Effect.fail(
         DynamodbError.unknownAwsError(simpleErrorName, errorMessage, errorMeta),
       );

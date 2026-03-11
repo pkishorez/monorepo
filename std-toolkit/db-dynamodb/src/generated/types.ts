@@ -1542,6 +1542,7 @@ export interface CreateGlobalSecondaryIndexAction {
   IndexName: string;
   /**
   * The key schema for the global secondary index.
+  * Global secondary index supports up to 4 partition and up to 4 sort keys.
   */
   KeySchema: Array<KeySchemaElement>;
   /**
@@ -1661,7 +1662,7 @@ export interface CreateTableInput {
   /**
   * An array of attributes that describe the key schema for the table and indexes.
   */
-  AttributeDefinitions: Array<AttributeDefinition>;
+  AttributeDefinitions?: Array<AttributeDefinition>;
   /**
   * The name of the table to create. You can also provide the Amazon Resource Name (ARN) of the table in
   * this parameter.
@@ -1694,7 +1695,7 @@ export interface CreateTableInput {
   * For more information, see Working with Tables in the Amazon DynamoDB Developer
   * Guide.
   */
-  KeySchema: Array<KeySchemaElement>;
+  KeySchema?: Array<KeySchemaElement>;
   /**
   * One or more local secondary indexes (the maximum is 5) to be created on the table.
   * Each index is scoped to a given partition key value. There is a 10 GB size limit per
@@ -1735,7 +1736,7 @@ export interface CreateTableInput {
   * IndexName - The name of the global secondary index. Must be unique
   * only for this table.
   * KeySchema - Specifies the key schema for the global secondary
-  * index.
+  * index. Each global secondary index supports up to 4 partition keys and up to 4 sort keys.
   * Projection - Specifies attributes that are copied (projected) from
   * the table into the index. These are in addition to the primary key attributes
   * and index key attributes, which are automatically projected. Each attribute
@@ -1846,6 +1847,17 @@ export interface CreateTableInput {
   * MaxReadRequestUnits, MaxWriteRequestUnits, or both.
   */
   OnDemandThroughput?: OnDemandThroughput;
+  /**
+  * The Amazon Resource Name (ARN) of the source table used for the creation
+  * of a multi-account global table.
+  */
+  GlobalTableSourceArn?: string;
+  /**
+  * Controls the settings synchronization mode for the global table. For multi-account global tables,
+  * this parameter is required and the only supported value is ENABLED. For same-account global tables,
+  * this parameter is set to ENABLED_WITH_OVERRIDES.
+  */
+  GlobalTableSettingsReplicationMode?: GlobalTableSettingsReplicationMode;
 }
 /**
  * Represents the output of a CreateTable operation.
@@ -2922,7 +2934,7 @@ export interface ExportTableToPointInTimeInput {
   * result might not be idempotent.
   * If you submit a request with the same client token but a change in other parameters
   * within the 8-hour idempotency window, DynamoDB returns an
-  * ImportConflictException.
+  * ExportConflictException.
   */
   ClientToken?: string;
   /**
@@ -3461,6 +3473,7 @@ export declare class GlobalTableNotFoundException extends EffectData.TaggedError
 )<{
   readonly message?: string;
 }> {}
+export type GlobalTableSettingsReplicationMode = "ENABLED" | "DISABLED" | "ENABLED_WITH_OVERRIDES";
 export type GlobalTableStatus = "CREATING" | "ACTIVE" | "DELETING" | "UPDATING";
 /**
  * Represents the properties of a witness Region in a MRSC global table.
@@ -5352,6 +5365,16 @@ export interface ReplicaDescription {
   */
   ReplicaInaccessibleDateTime?: Date | string;
   ReplicaTableClassSummary?: TableClassSummary;
+  /**
+  * Indicates one of the settings synchronization modes for the global table replica:
+  * ENABLED: Indicates that the settings synchronization mode for the global table
+  * replica is enabled.
+  * DISABLED: Indicates that the settings synchronization mode for the global table
+  * replica is disabled.
+  * ENABLED_WITH_OVERRIDES: This mode is set by default for a same account global table.
+  * Indicates that certain global table settings can be overridden.
+  */
+  GlobalTableSettingsReplicationMode?: GlobalTableSettingsReplicationMode;
 }
 export type ReplicaDescriptionList = Array<ReplicaDescription>;
 /**
@@ -6575,6 +6598,16 @@ export interface TableDescription {
   */
   GlobalTableWitnesses?: Array<GlobalTableWitnessDescription>;
   /**
+  * Indicates one of the settings synchronization modes for the global table:
+  * ENABLED: Indicates that the settings synchronization mode for the global table
+  * is enabled.
+  * DISABLED: Indicates that the settings synchronization mode for the global table is
+  * disabled.
+  * ENABLED_WITH_OVERRIDES: This mode is set by default for a same account global table.
+  * Indicates that certain global table settings can be overridden.
+  */
+  GlobalTableSettingsReplicationMode?: GlobalTableSettingsReplicationMode;
+  /**
   * Contains details for the restore.
   */
   RestoreSummary?: RestoreSummary;
@@ -6863,9 +6896,8 @@ export interface TransactGetItemsOutput {
  * There is insufficient provisioned capacity for the transaction to be
  * completed.
  * There is a user error, such as an invalid data format.
- * If using Java, DynamoDB lists the cancellation reasons on the
- * CancellationReasons property. This property is not set for other
- * languages. Transaction cancellation reasons are ordered in the order of requested
+ * DynamoDB lists the cancellation reasons on the
+ * CancellationReasons property. Transaction cancellation reasons are ordered in the order of requested
  * items, if an item has no error it will have None code and
  * Null message.
  * Cancellation reason codes and possible error messages:
@@ -7387,17 +7419,13 @@ export interface UpdateItemInput {
   * Both sets must have the same primitive data type. For example, if the
   * existing data type is a set of strings, the Value must also
   * be a set of strings.
-  * The ADD action only supports Number and set data types. In
-  * addition, ADD can only be used on top-level attributes, not
-  * nested attributes.
+  * The ADD action only supports Number and set data types.
   * DELETE - Deletes an element from a set.
   * If a set of values is specified, then those values are subtracted from the old
   * set. For example, if the attribute value was the set [a,b,c] and
   * the DELETE action specifies [a,c], then the final
   * attribute value is [b]. Specifying an empty set is an error.
-  * The DELETE action only supports set data types. In addition,
-  * DELETE can only be used on top-level attributes, not nested
-  * attributes.
+  * The DELETE action only supports set data types.
   * You can have many actions in a single expression, such as the following: SET
   * a=:value1, b=:value2 DELETE :value3, :value4, :value5
   * For more information on update expressions, see Modifying
@@ -7701,6 +7729,15 @@ export interface UpdateTableInput {
   * for updating a table.
   */
   WarmThroughput?: WarmThroughput;
+  /**
+  * Controls the settings replication mode for a global table replica. This attribute can be defined
+  * using UpdateTable operation only on a regional table with values:
+  * ENABLED: Defines settings replication on a regional table to be used as a
+  * source table for creating Multi-Account Global Table.
+  * DISABLED: Remove settings replication on a regional table. Settings replication needs
+  * to be defined to ENABLED again in order to create a Multi-Account Global Table using this table.
+  */
+  GlobalTableSettingsReplicationMode?: GlobalTableSettingsReplicationMode;
 }
 /**
  * Represents the output of an UpdateTable operation.

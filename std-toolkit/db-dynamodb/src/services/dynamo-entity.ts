@@ -363,7 +363,11 @@ export class DynamoEntity<
         value: value as ESchemaType<TSchema>,
         meta,
       };
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] get failed`, { error: e }),
+      ),
+    );
   }
 
   /**
@@ -404,7 +408,11 @@ export class DynamoEntity<
       const entity = { value: fullValue, meta };
       yield* self.#broadcast(entity);
       return entity;
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] insert failed`, { error: e }),
+      ),
+    );
   }
 
   /**
@@ -464,7 +472,11 @@ export class DynamoEntity<
       };
       yield* self.#broadcast(entity);
       return entity;
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] update failed`, { error: e }),
+      ),
+    );
   }
 
   /**
@@ -486,7 +498,11 @@ export class DynamoEntity<
       const result = yield* this.update(keyValue, { update: { _d: true } as any });
 
       return result;
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] delete failed`, { error: e }),
+      ),
+    );
   }
 
   /**
@@ -678,7 +694,11 @@ export class DynamoEntity<
         const items = yield* this.#decodeItems(Items);
         return { items };
       }
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] query failed`, { error: e }),
+      ),
+    );
   }
 
   /**

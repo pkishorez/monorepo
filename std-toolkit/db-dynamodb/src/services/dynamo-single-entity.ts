@@ -172,7 +172,11 @@ export class DynamoSingleEntity<
         value: value as ESchemaType<TSchema>,
         meta,
       };
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] get failed`, { error: e }),
+      ),
+    );
   }
 
   /**
@@ -215,7 +219,11 @@ export class DynamoSingleEntity<
       yield* this.#table.putItem(item);
 
       return { value: fullValue, meta };
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] put failed`, { error: e }),
+      ),
+    );
   }
 
   /**
@@ -271,7 +279,11 @@ export class DynamoSingleEntity<
         value: decodedValue as ESchemaType<TSchema>,
         meta: updatedMeta,
       };
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] update failed`, { error: e }),
+      ),
+    );
   }
 
   /**

@@ -31,6 +31,7 @@ export type DynamodbErrorType =
   | { _tag: "AccessDeniedException"; meta: AwsErrorMeta }
   | { _tag: "UnauthorizedException"; meta: AwsErrorMeta }
   | { _tag: "ValidationException"; meta: AwsErrorMeta }
+  | { _tag: "InvalidSignatureException"; message: string; meta: AwsErrorMeta }
   | { _tag: "UnknownAwsError"; name: string; message: string; meta: AwsErrorMeta };
 
 /**
@@ -176,6 +177,15 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    */
   static validationException(meta: AwsErrorMeta) {
     return new DynamodbError({ error: { _tag: "ValidationException", meta } });
+  }
+
+  /**
+   * Creates an error for invalid AWS signature responses (e.g., wrong region, expired credentials).
+   *
+   * @param meta - AWS error metadata
+   */
+  static invalidSignature(message: string, meta: AwsErrorMeta) {
+    return new DynamodbError({ error: { _tag: "InvalidSignatureException", message, meta } });
   }
 
   /**
