@@ -4,3 +4,4 @@ node_modules
 dist
 .coordination.*
 .wrangler
+.claude/settings.local.json
