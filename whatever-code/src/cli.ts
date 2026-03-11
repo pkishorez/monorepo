@@ -1,7 +1,6 @@
-import { Console, Effect } from "effect";
+import { startServer } from "./server.js";
 
-const main = Effect.gen(function* () {
-  yield* Console.log("whatever-code CLI is running");
+startServer({
+  port: 4400,
+  proxyTarget: "http://localhost:20004",
 });
-
-Effect.runPromise(main).catch(console.error);
