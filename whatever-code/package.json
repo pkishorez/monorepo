@@ -9,8 +9,14 @@
     "name": "Kishore"
   },
   "type": "module",
+  "exports": {
+    "./api/definitions": {
+      "types": "./dist/api/definitions/index.d.mts",
+      "import": "./dist/api/definitions/index.mjs"
+    }
+  },
   "bin": {
-    "whatever": "dist/cli.js"
+    "whatever": "dist/cli.mjs"
   },
   "files": [
     "dist/",
@@ -25,7 +31,9 @@
     "@effect/platform": "0.94.5",
     "@effect/platform-node": "0.104.1",
     "@effect/rpc": "0.73.2",
-    "effect": "3.19.19"
+    "@hono/node-server": "^1.19.11",
+    "effect": "3.19.19",
+    "hono": "^4.12.7"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.5",
