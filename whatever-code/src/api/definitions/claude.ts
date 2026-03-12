@@ -1,7 +1,13 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
-import { EntitySchema } from "@std-toolkit/core";
 import { Schema } from "effect";
-import { messageSchema } from "../entities/index.js";
+import {
+  ChatParams,
+  GetSessionMessagesParams,
+  ListSessionsParams,
+  Message,
+  SessionInfo,
+  SessionMsg,
+} from "./integrations/claude/index.js";
 
 export class ClaudeChatError extends Schema.TaggedError<ClaudeChatError>()(
   "ClaudeChatError",
@@ -9,13 +15,20 @@ export class ClaudeChatError extends Schema.TaggedError<ClaudeChatError>()(
 ) {}
 
 export class ClaudeRpcs extends RpcGroup.make(
-  Rpc.make("claudeChat", {
-    success: EntitySchema(messageSchema),
+  Rpc.make("chat", {
+    success: Message,
     error: ClaudeChatError,
-    payload: {
-      prompt: Schema.String,
-      sessionId: Schema.String,
-    },
+    payload: ChatParams,
     stream: true,
   }),
-) {}
+  Rpc.make("listSessions", {
+    success: Schema.Array(SessionInfo),
+    error: ClaudeChatError,
+    payload: ListSessionsParams,
+  }),
+  Rpc.make("getSessionMessages", {
+    success: Schema.Array(SessionMsg),
+    error: ClaudeChatError,
+    payload: GetSessionMessagesParams,
+  }),
+).prefix("claude.") {}
