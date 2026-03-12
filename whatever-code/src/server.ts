@@ -19,7 +19,7 @@ export function startServer(config: ServerConfig) {
     protocol: "http",
   }).pipe(
     Layer.provide(ApiHandlers),
-    Layer.provide(RpcSerialization.layerJson),
+    Layer.provide(RpcSerialization.layerNdjson),
   );
 
   const { dispose, handler: rpcHandler } =
