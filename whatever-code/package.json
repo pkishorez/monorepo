@@ -13,6 +13,10 @@
     "./api/definitions": {
       "types": "./dist/api/definitions/index.d.mts",
       "import": "./dist/api/definitions/index.mjs"
+    },
+    "./entity/claude": {
+      "types": "./dist/entity/claude/index.d.mts",
+      "import": "./dist/entity/claude/index.mjs"
     }
   },
   "bin": {
@@ -32,7 +36,10 @@
     "@effect/platform": "0.94.5",
     "@effect/platform-node": "0.104.1",
     "@effect/rpc": "0.73.2",
+    "better-sqlite3": "12.6.2",
     "effect": "3.19.19",
+    "env-paths": "^4.0.0",
+    "ulid": "^3.0.2",
     "uuid": "13.0.0"
   },
   "devDependencies": {
@@ -41,6 +48,7 @@
     "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/sqlite": "workspace:*",
     "@tsconfig/node22": "22.0.5",
+    "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.5.0",
     "tsdown": "0.21.2",
     "typescript": "5.9.3"

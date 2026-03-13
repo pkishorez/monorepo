@@ -98,7 +98,7 @@ export class EntityESchemaBuilder<
     private _idField: TIdField,
     private _idSchema: IdSchema,
     private migrations: Evolution[],
-    readonly version: TVersion,
+    private readonly version: TVersion,
   ) {}
 
   evolve<V extends NextVersion<TVersion>, D extends DeltaSchema>(

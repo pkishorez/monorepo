@@ -15,4 +15,11 @@ export default defineConfig([
     sourcemap: "inline",
     outDir: "dist/api/definitions",
   },
+  {
+    entry: ["src/entity/claude/index.ts"],
+    format: "esm",
+    dts: true,
+    sourcemap: "inline",
+    outDir: "dist/entity/claude",
+  },
 ]);
