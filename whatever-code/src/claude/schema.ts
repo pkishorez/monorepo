@@ -1,4 +1,4 @@
-import { Typed } from "../../../../lib/typed.js";
+import { Typed } from "../lib/typed.js";
 import type {
   GetSessionMessagesOptions,
   ListSessionsOptions,

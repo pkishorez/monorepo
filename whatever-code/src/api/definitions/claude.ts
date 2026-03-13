@@ -7,7 +7,7 @@ import {
   Message,
   SessionInfo,
   SessionMsg,
-} from "./integrations/claude/index.js";
+} from "../../claude/index.js";
 
 export class ClaudeChatError extends Schema.TaggedError<ClaudeChatError>()(
   "ClaudeChatError",
