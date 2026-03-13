@@ -6,6 +6,9 @@
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "WebSearch"
+    ],
+    "additionalDirectories": [
+      "/Users/kishorepolamarasetty/CAREER/MINE/monorepo/std-toolkit/db-sqlite"
     ]
   }
 }

@@ -1,4 +1,4 @@
-import { Typed } from "../lib/typed.js";
+import { Typed } from "../../lib/typed.js";
 import type {
   GetSessionMessagesOptions,
   ListSessionsOptions,
@@ -14,6 +14,7 @@ export const SessionMessage = Typed<SDKSessionMessage>();
 
 export const QueryParams = Typed<{
   prompt: string;
+  sessionId?: string;
   options?: QueryOptions;
 }>();
 export const ListSessionsParams = Typed<ListSessionsOptions>();

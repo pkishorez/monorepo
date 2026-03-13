@@ -224,10 +224,16 @@ function createSQLiteTableInstance<
           );
         }
 
-        // Create table with composite primary key
+        // Create table with composite primary key (no-op if table exists)
         yield* db.createTable(tableName, allColumns, [primary.pk, primary.sk]);
 
-        // Create secondary indexes
+        // Add any missing secondary index columns to existing table
+        for (const [, indexDef] of Object.entries(secondaryIndexMap)) {
+          yield* db.addColumn(tableName, indexDef.pk, "TEXT");
+          yield* db.addColumn(tableName, indexDef.sk, "TEXT");
+        }
+
+        // Create secondary indexes (no-op if index exists)
         for (const [indexName, indexDef] of Object.entries(secondaryIndexMap)) {
           yield* db.createIndex(tableName, `idx_${tableName}_${indexName}`, [
             indexDef.pk,
