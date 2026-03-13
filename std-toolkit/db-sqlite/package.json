@@ -36,18 +36,18 @@
     "@std-toolkit/eschema": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260310.1",
+    "@cloudflare/workers-types": "4.20260313.1",
     "@effect/rpc": "0.73.2",
     "@effect/vitest": "0.27.0",
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",
-    "@types/node": "25.4.0",
+    "@types/node": "25.5.0",
     "better-sqlite3": "12.6.2",
     "effect": "3.19.19",
     "typescript": "5.9.3",
     "vite": "7.3.1",
     "vite-tsconfig-paths": "6.1.1",
-    "vitest": "4.0.18"
+    "vitest": "4.1.0"
   },
   "peerDependencies": {
     "@effect/rpc": ">=0.73.0",

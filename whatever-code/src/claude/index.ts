@@ -1,8 +1,8 @@
 export {
-  ChatParams,
   GetSessionMessagesParams,
   ListSessionsParams,
   Message,
+  QueryParams,
   SessionInfo,
-  SessionMsg,
+  SessionMessage,
 } from "./schema.js";

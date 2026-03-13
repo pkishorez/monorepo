@@ -5,14 +5,14 @@ import type {
   Options as QueryOptions,
   SDKMessage,
   SDKSessionInfo,
-  SessionMessage,
+  SessionMessage as SDKSessionMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
 export const Message = Typed<SDKMessage>();
 export const SessionInfo = Typed<SDKSessionInfo>();
-export const SessionMsg = Typed<SessionMessage>();
+export const SessionMessage = Typed<SDKSessionMessage>();
 
-export const ChatParams = Typed<{
+export const QueryParams = Typed<{
   prompt: string;
   options?: QueryOptions;
 }>();
