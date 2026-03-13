@@ -31,4 +31,14 @@ export class ClaudeRpcs extends RpcGroup.make(
     error: ClaudeChatError,
     payload: GetSessionMessagesParams,
   }),
+  Rpc.make("interrupt", {
+    success: Schema.Void,
+    error: ClaudeChatError,
+    payload: Schema.Struct({ sessionId: Schema.String }),
+  }),
+  Rpc.make("stop", {
+    success: Schema.Void,
+    error: ClaudeChatError,
+    payload: Schema.Struct({ sessionId: Schema.String }),
+  }),
 ).prefix("claude.") {}

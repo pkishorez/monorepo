@@ -6,3 +6,4 @@ export {
   SessionInfo,
   SessionMessage,
 } from "./schema.js";
+export { ClaudeOrchestrator } from "./orchestrator.js";
