@@ -1,9 +1,12 @@
-import { serve } from "@hono/node-server";
-import { HttpLayerRouter } from "@effect/platform";
+import { createServer } from "node:http";
+import {
+  HttpLayerRouter,
+  HttpServerRequest,
+  HttpServerResponse,
+} from "@effect/platform";
+import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 import { RpcSerialization, RpcServer } from "@effect/rpc";
-import { Hono } from "hono";
-import { proxy } from "hono/proxy";
-import { Layer } from "effect";
+import { Effect, Layer, Option } from "effect";
 import { ApiRpcs } from "./api/definitions/index.js";
 import { ApiHandlers } from "./api/handlers/index.js";
 
@@ -16,47 +19,38 @@ export function startServer(config: ServerConfig) {
   const RpcRoute = RpcServer.layerHttpRouter({
     group: ApiRpcs,
     path: "/api",
-    protocol: "http",
+    protocol: "websocket",
   }).pipe(
     Layer.provide(ApiHandlers),
     Layer.provide(RpcSerialization.layerNdjson),
   );
 
-  const { dispose, handler: rpcHandler } =
-    HttpLayerRouter.toWebHandler(RpcRoute);
+  const ProxyRoute = Option.fromNullable(config.proxyTarget).pipe(
+    Option.map((target) =>
+      HttpLayerRouter.add(
+        "*",
+        "/*",
+        Effect.gen(function* () {
+          const req = yield* HttpServerRequest.HttpServerRequest;
+          const url = new URL(req.url, "http://localhost");
+          const response = yield* Effect.tryPromise(() =>
+            fetch(`${target}${url.pathname}${url.search}`, {
+              method: req.method,
+              headers: req.headers as Record<string, string>,
+            }),
+          );
+          return HttpServerResponse.fromWeb(response);
+        }),
+      ),
+    ),
+    Option.getOrElse(() => Layer.empty),
+  );
 
-  const app = new Hono();
+  const AllRoutes = Layer.mergeAll(RpcRoute, ProxyRoute);
 
-  app.all("/api", (c) => rpcHandler(c.req.raw));
+  const ServerLayer = HttpLayerRouter.serve(AllRoutes).pipe(
+    Layer.provide(NodeHttpServer.layer(createServer, { port: config.port })),
+  );
 
-  if (config.proxyTarget) {
-    const target = config.proxyTarget;
-    app.all("*", (c) => {
-      const url = new URL(c.req.url);
-      return proxy(`${target}${url.pathname}${url.search}`, {
-        ...c.req,
-        headers: c.req.header(),
-      });
-    });
-  }
-
-  const server = serve({ fetch: app.fetch, port: config.port }, () => {
-    console.log(`Server running on port ${config.port}`);
-  });
-
-  const shutdown = () => {
-    server.close();
-    dispose();
-  };
-
-  process.on("SIGINT", () => {
-    shutdown();
-    process.exit(0);
-  });
-  process.on("SIGTERM", () => {
-    shutdown();
-    process.exit(0);
-  });
-
-  return { server, shutdown };
+  NodeRuntime.runMain(Layer.launch(ServerLayer));
 }

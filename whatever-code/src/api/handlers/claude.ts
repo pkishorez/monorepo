@@ -3,7 +3,7 @@ import {
   listSessions,
   query,
 } from "@anthropic-ai/claude-agent-sdk";
-import { Effect, Stream } from "effect";
+import { Effect, Queue, Stream } from "effect";
 import { ClaudeChatError, ClaudeRpcs } from "../definitions/claude.js";
 
 export const ClaudeHandlers = ClaudeRpcs.toLayer(
