@@ -7,7 +7,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
 
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
 
     "strict": true,
@@ -19,6 +19,6 @@
     "noEmit": false,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "play.ts"],
   "exclude": ["dist", "node_modules"]
 }
