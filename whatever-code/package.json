@@ -32,10 +32,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@std-toolkit/eschema": "workspace:*",
     "@anthropic-ai/claude-agent-sdk": "0.2.75",
     "@effect/platform": "0.94.5",
     "@effect/platform-node": "0.104.1",
     "@effect/rpc": "0.73.2",
+    "@openai/codex-sdk": "^0.114.0",
     "better-sqlite3": "12.6.2",
     "effect": "3.19.19",
     "env-paths": "^4.0.0",
@@ -45,7 +47,6 @@
   "devDependencies": {
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/db-dynamodb": "workspace:*",
-    "@std-toolkit/eschema": "workspace:*",
     "@std-toolkit/sqlite": "workspace:*",
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",

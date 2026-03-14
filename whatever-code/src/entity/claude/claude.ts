@@ -5,9 +5,17 @@ import { Typed } from "../../lib/typed.js";
 
 export const claudeMessageEntity = EntityESchema.make("claudeMessage", "id", {
   sessionId: Schema.String,
+  turnId: Schema.String,
   data: Typed<SDKMessage>(),
 }).build();
 
 export const claudeSessionEntity = EntityESchema.make("claudeSession", "id", {
+  status: Schema.Literal("in_progress", "success", "error", "interrupted"),
+}).build();
+
+export const claudeTurnEntity = EntityESchema.make("claudeTurn", "id", {
+  sessionId: Schema.String,
+  status: Schema.Literal("in_progress", "success", "error", "interrupted"),
+  init: Schema.NullOr(Typed<SDKMessage>()),
   result: Schema.NullOr(Typed<SDKResultMessage>()),
 }).build();

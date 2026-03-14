@@ -1,6 +1,7 @@
 import { Layer } from "effect";
+import { AppHandlers } from "./app.js";
 import { ClaudeHandlers } from "./claude.js";
 
-export { ClaudeHandlers };
+export { AppHandlers, ClaudeHandlers };
 
-export const ApiHandlers = Layer.mergeAll(ClaudeHandlers);
+export const ApiHandlers = Layer.mergeAll(ClaudeHandlers, AppHandlers);

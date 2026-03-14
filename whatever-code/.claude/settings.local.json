@@ -8,7 +8,8 @@
       "WebSearch"
     ],
     "additionalDirectories": [
-      "/Users/kishorepolamarasetty/CAREER/MINE/monorepo/std-toolkit/db-sqlite"
+      "/Users/kishorepolamarasetty/CAREER/MINE/monorepo/std-toolkit/db-sqlite",
+      "/Users/kishorepolamarasetty/CAREER/MINE/monorepo/std-toolkit/core"
     ]
   }
 }

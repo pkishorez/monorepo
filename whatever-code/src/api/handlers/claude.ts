@@ -1,39 +1,44 @@
-import {
-  getSessionMessages,
-  listSessions,
-} from "@anthropic-ai/claude-agent-sdk";
 import { Effect, Stream } from "effect";
 import { ClaudeChatError, ClaudeRpcs } from "../definitions/claude.js";
-import { ClaudeOrchestrator } from "../../claude/index.js";
+import { ClaudeOrchestrator } from "../../claude/orchestrator.js";
+import {
+  claudeMessageSqliteEntity,
+  claudeSessionSqliteEntity,
+  claudeTurnSqliteEntity,
+} from "../../db/claude.js";
 
 export const ClaudeHandlers = ClaudeRpcs.toLayer(
   ClaudeRpcs.of({
-    "claude.chat": (params) =>
+    "claude.createSession": (params) =>
       Stream.unwrap(
-        Effect.gen(function* () {
-          const orchestrator = yield* ClaudeOrchestrator;
-          return orchestrator.chat(params);
-        }),
+        Effect.map(ClaudeOrchestrator, (o) => o.createSession(params)),
       ),
-    "claude.listSessions": (params) =>
-      Effect.tryPromise({
-        try: () => listSessions(params),
-        catch: (error) => new ClaudeChatError({ message: String(error) }),
-      }),
-    "claude.getSessionMessages": ({ sessionId, ...options }) =>
-      Effect.tryPromise({
-        try: () => getSessionMessages(sessionId, options),
-        catch: (error) => new ClaudeChatError({ message: String(error) }),
-      }),
-    "claude.interrupt": ({ sessionId }) =>
-      Effect.gen(function* () {
-        const orchestrator = yield* ClaudeOrchestrator;
-        yield* orchestrator.interrupt(sessionId);
-      }),
-    "claude.stop": ({ sessionId }) =>
-      Effect.gen(function* () {
-        const orchestrator = yield* ClaudeOrchestrator;
-        yield* orchestrator.stop(sessionId);
-      }),
+    "claude.continueSession": (params) =>
+      Stream.unwrap(
+        Effect.map(ClaudeOrchestrator, (o) => o.continueSession(params)),
+      ),
+    "claude.stopSession": ({ sessionId }) =>
+      Effect.flatMap(ClaudeOrchestrator, (o) => o.stopSession(sessionId)),
+    "claude.queryMessages": ({ ">": cursor }) =>
+      claudeMessageSqliteEntity
+        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .pipe(
+          Effect.map(({ items }) => items),
+          Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+        ),
+    "claude.querySessions": ({ ">": cursor }) =>
+      claudeSessionSqliteEntity
+        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .pipe(
+          Effect.map(({ items }) => items),
+          Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+        ),
+    "claude.queryTurns": ({ ">": cursor }) =>
+      claudeTurnSqliteEntity
+        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .pipe(
+          Effect.map(({ items }) => items),
+          Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+        ),
   }),
 );
