@@ -4,4 +4,4 @@ export {
   claudeSessionSqliteEntity,
   registry,
 } from "./claude.js";
-export { dbLayer } from "./layer.js";
+export { dbLayer, dataDir } from "./layer.js";

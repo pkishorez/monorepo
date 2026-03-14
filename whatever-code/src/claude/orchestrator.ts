@@ -166,44 +166,37 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           activeSessions.set(sessionId, session);
           yield* Queue.offer(inputQueue, userMessage);
           yield* startBackgroundFiber(sessionId, session, options);
-          return Stream.fromQueue(outputQueue);
         });
 
       const createSession = (params: typeof QueryParams.Type) =>
-        Stream.unwrap(
-          Effect.gen(function* () {
-            const sessionId = v7();
-            const turnId = ulid();
-            const userMessage = makeUserMessage(sessionId, params.prompt);
-
-            yield* Effect.all([
-              claudeSessionSqliteEntity.insert({
-                id: sessionId,
-                status: "in_progress",
-              }),
-              claudeTurnSqliteEntity.insert({
-                id: turnId,
-                sessionId,
-                status: "in_progress",
-                init: null,
-                result: null,
-              }),
-              claudeMessageSqliteEntity.insert({
-                id: ulid(),
-                sessionId,
-                turnId,
-                data: userMessage,
-              }),
-            ]).pipe(Effect.orDie);
-
-            return yield* startNewSession(
+        Effect.gen(function* () {
+          const sessionId = v7();
+          const turnId = ulid();
+          const userMessage = makeUserMessage(sessionId, params.prompt);
+          yield* Effect.all([
+            claudeSessionSqliteEntity.insert({
+              id: sessionId,
+              status: "in_progress",
+              absolutePath: params.cwd,
+            }),
+            claudeTurnSqliteEntity.insert({
+              id: turnId,
+              sessionId,
+              status: "in_progress",
+              init: null,
+              result: null,
+            }),
+            claudeMessageSqliteEntity.insert({
+              id: ulid(),
               sessionId,
               turnId,
-              userMessage,
-              params.options,
-            );
-          }),
-        );
+              data: userMessage,
+            }),
+          ]).pipe(Effect.orDie);
+
+          yield* startNewSession(sessionId, turnId, userMessage, params.options);
+          return { sessionId };
+        });
 
       const persistNewTurn = (
         sessionId: string,
@@ -231,46 +224,40 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
         ]).pipe(Effect.orDie);
 
       const continueSession = (params: typeof ContinueSessionParams.Type) =>
-        Stream.unwrap(
-          Effect.gen(function* () {
-            const userMessage = makeUserMessage(
-              params.sessionId,
-              params.prompt,
-            );
-            const existing = activeSessions.get(params.sessionId);
-            const turnId = ulid();
+        Effect.gen(function* () {
+          const userMessage = makeUserMessage(params.sessionId, params.prompt);
+          const existing = activeSessions.get(params.sessionId);
+          const turnId = ulid();
 
-            if (existing) {
-              if (!(yield* Queue.isShutdown(existing.outputQueue))) {
-                return yield* Effect.fail(
-                  new ClaudeChatError({
-                    message: "previous turn did not finish yet",
-                  }),
-                );
-              }
-
-              const newTurnQueue = yield* Queue.unbounded<SDKMessage>();
-
-              yield* persistNewTurn(params.sessionId, turnId, userMessage);
-
-              existing.turnId = turnId;
-              existing.outputQueue = newTurnQueue;
-
-              yield* Queue.offer(existing.inputQueue, userMessage);
-              return Stream.fromQueue(newTurnQueue);
+          if (existing) {
+            if (!(yield* Queue.isShutdown(existing.outputQueue))) {
+              return yield* Effect.fail(
+                new ClaudeChatError({
+                  message: "previous turn did not finish yet",
+                }),
+              );
             }
 
-            // Inactive session — resume
+            const newTurnQueue = yield* Queue.unbounded<SDKMessage>();
+
             yield* persistNewTurn(params.sessionId, turnId, userMessage);
 
-            return yield* startNewSession(
-              params.sessionId,
-              turnId,
-              userMessage,
-              params.options,
-            );
-          }),
-        );
+            existing.turnId = turnId;
+            existing.outputQueue = newTurnQueue;
+
+            yield* Queue.offer(existing.inputQueue, userMessage);
+            return;
+          }
+
+          // Inactive session — resume
+          yield* persistNewTurn(params.sessionId, turnId, userMessage);
+          yield* startNewSession(
+            params.sessionId,
+            turnId,
+            userMessage,
+            params.options,
+          );
+        });
 
       const stopSession = (sessionId: string) =>
         Effect.gen(function* () {
