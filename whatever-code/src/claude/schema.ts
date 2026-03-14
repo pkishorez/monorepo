@@ -9,6 +9,7 @@ export const Message = Typed<SDKMessage>();
 type SessionOptions = Pick<QueryOptions, "thinking" | "effort" | "model">;
 export const QueryParams = Typed<{
   prompt: string;
+  cwd: string;
   options?: SessionOptions;
 }>();
 export const ContinueSessionParams = Typed<{

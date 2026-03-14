@@ -8,4 +8,8 @@ export class AppRpcs extends RpcGroup.make(
     payload: Schema.Void,
     stream: true,
   }),
+  Rpc.make("revealDataFolder", {
+    success: Schema.Void,
+    payload: Schema.Void,
+  }),
 ).prefix("app.") {}

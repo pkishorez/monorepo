@@ -2,7 +2,6 @@ import { Rpc, RpcGroup } from "@effect/rpc";
 import { Schema } from "effect";
 import {
   ContinueSessionParams,
-  Message,
   QueryParams,
 } from "../../claude/index.js";
 import { EntitySchema } from "@std-toolkit/core";
@@ -19,16 +18,14 @@ export class ClaudeChatError extends Schema.TaggedError<ClaudeChatError>()(
 
 export class ClaudeRpcs extends RpcGroup.make(
   Rpc.make("createSession", {
-    success: Message,
+    success: Schema.Struct({ sessionId: Schema.String }),
     error: ClaudeChatError,
     payload: QueryParams,
-    stream: true,
   }),
   Rpc.make("continueSession", {
-    success: Message,
+    success: Schema.Void,
     error: ClaudeChatError,
     payload: ContinueSessionParams,
-    stream: true,
   }),
   Rpc.make("stopSession", {
     success: Schema.Void,
@@ -49,5 +46,17 @@ export class ClaudeRpcs extends RpcGroup.make(
     success: Schema.Array(EntitySchema(claudeTurnEntity)),
     error: ClaudeChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+  }),
+  Rpc.make("getProjects", {
+    success: Schema.Array(
+      Schema.Struct({
+        absolutePath: Schema.String,
+        homePath: Schema.String,
+        gitPath: Schema.String,
+        sessionCount: Schema.Number,
+      }),
+    ),
+    error: ClaudeChatError,
+    payload: Schema.Void,
   }),
 ).prefix("claude.") {}
