@@ -1,5 +1,5 @@
 import { SyncConfig as TanstackSyncConfig } from "@tanstack/react-db";
-import { Effect, SubscriptionRef } from "effect";
+import { Effect, Option, SubscriptionRef } from "effect";
 import { EntityType } from "@std-toolkit/core";
 import { CacheEntity } from "@std-toolkit/cache";
 import { CollectionItem } from "../types.js";
@@ -42,21 +42,37 @@ export const makeApplyToCollection = <TItem extends object>(
     begin({ immediate: true });
     for (const item of items) {
       const key = collection.getKeyFromItem(item.value as CollectionItem<TItem>);
+      const existing = collection.get(key);
+      const existingU = existing?._meta?._u ?? "";
+      const incomingU = item.meta._u ?? "";
 
-      if (alwaysPersist || persist) {
-        Effect.runPromise(cache.put(item)).catch(() => {});
+      if (existing && incomingU && existingU && incomingU <= existingU) {
+        continue;
       }
 
-      if (collection.has(key)) {
-        if (item.meta._d) {
-          write({ type: "delete", key });
-        } else {
-          const itemValue = { ...item.value, _meta: item.meta } as CollectionItem<TItem>;
-          write({ type: "update", value: itemValue });
-        }
-      } else if (!item.meta._d) {
+      if (alwaysPersist || persist) {
+        Effect.runPromise(
+          Effect.gen(function* () {
+            const cached = yield* cache.get(key);
+            const cachedU = Option.map(cached, (c) => c.meta._u ?? "").pipe(
+              Option.getOrElse(() => ""),
+            );
+            if (!cachedU || !incomingU || incomingU > cachedU) {
+              yield* cache.put(item);
+            }
+          }),
+        ).catch(() => {});
+      }
+
+      if (item.meta._d) {
+        if (collection.has(key)) write({ type: "delete", key });
+      } else {
         const itemValue = { ...item.value, _meta: item.meta } as CollectionItem<TItem>;
-        write({ type: "insert", value: itemValue });
+        if (collection.has(key)) {
+          write({ type: "update", value: itemValue });
+        } else {
+          write({ type: "insert", value: itemValue });
+        }
       }
     }
     commit();

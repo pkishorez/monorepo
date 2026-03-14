@@ -1,13 +1,16 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
 import { Schema } from "effect";
 import {
-  GetSessionMessagesParams,
-  ListSessionsParams,
+  ContinueSessionParams,
   Message,
   QueryParams,
-  SessionInfo,
-  SessionMessage,
 } from "../../claude/index.js";
+import { EntitySchema } from "@std-toolkit/core";
+import {
+  claudeMessageEntity,
+  claudeSessionEntity,
+  claudeTurnEntity,
+} from "../../entity/claude/index.js";
 
 export class ClaudeChatError extends Schema.TaggedError<ClaudeChatError>()(
   "ClaudeChatError",
@@ -15,30 +18,36 @@ export class ClaudeChatError extends Schema.TaggedError<ClaudeChatError>()(
 ) {}
 
 export class ClaudeRpcs extends RpcGroup.make(
-  Rpc.make("chat", {
+  Rpc.make("createSession", {
     success: Message,
     error: ClaudeChatError,
     payload: QueryParams,
     stream: true,
   }),
-  Rpc.make("listSessions", {
-    success: Schema.Array(SessionInfo),
+  Rpc.make("continueSession", {
+    success: Message,
     error: ClaudeChatError,
-    payload: ListSessionsParams,
+    payload: ContinueSessionParams,
+    stream: true,
   }),
-  Rpc.make("getSessionMessages", {
-    success: Schema.Array(SessionMessage),
-    error: ClaudeChatError,
-    payload: GetSessionMessagesParams,
-  }),
-  Rpc.make("interrupt", {
+  Rpc.make("stopSession", {
     success: Schema.Void,
     error: ClaudeChatError,
     payload: Schema.Struct({ sessionId: Schema.String }),
   }),
-  Rpc.make("stop", {
-    success: Schema.Void,
+  Rpc.make("queryMessages", {
+    success: Schema.Array(EntitySchema(claudeMessageEntity)),
     error: ClaudeChatError,
-    payload: Schema.Struct({ sessionId: Schema.String }),
+    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+  }),
+  Rpc.make("querySessions", {
+    success: Schema.Array(EntitySchema(claudeSessionEntity)),
+    error: ClaudeChatError,
+    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+  }),
+  Rpc.make("queryTurns", {
+    success: Schema.Array(EntitySchema(claudeTurnEntity)),
+    error: ClaudeChatError,
+    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
 ).prefix("claude.") {}

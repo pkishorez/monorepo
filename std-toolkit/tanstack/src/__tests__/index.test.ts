@@ -33,6 +33,7 @@ const createEntity = (
 describe("stdCollectionOptions", () => {
   const createConfig = () =>
     stdCollectionOptions({
+      syncMode: "eager",
       schema: TestSchema,
       cache: MemoryCacheEntity.make({ eschema: TestSchema }),
       getMore: () => Effect.succeed([]),
@@ -182,6 +183,7 @@ describe("stdCollectionOptions", () => {
 
   it("passes id through to returned config", () => {
     const config = stdCollectionOptions({
+      syncMode: "eager",
       id: "custom-collection-id",
       schema: TestSchema,
       cache: MemoryCacheEntity.make({ eschema: TestSchema }),

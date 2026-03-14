@@ -24,13 +24,16 @@ interface StdSingleItemConfig<
 
 export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   options: StdSingleItemConfig<TSchema["Type"], TSchema>,
-): CollectionConfig<
-  CollectionItem<TSchema["Type"]>,
-  string,
-  never,
-  SingleItemUtils<TSchema>
+): Omit<
+  CollectionConfig<
+    CollectionItem<TSchema["Type"]>,
+    string,
+    never,
+    SingleItemUtils<TSchema>
+  >,
+  "schema"
 > &
-  SingleResult => {
+  SingleResult & { schema: TSchema } => {
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
@@ -111,6 +114,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
 
   return {
     ...(id !== undefined && { id }),
+    schema,
     singleResult: true as const,
     getKey: () => singletonKey,
     sync: tanstackSync,

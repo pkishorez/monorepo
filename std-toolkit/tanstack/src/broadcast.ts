@@ -23,14 +23,14 @@ export const broadcastCollections = () => {
     }) => {
       collections = collections.filter((c) => c !== collection);
     },
-    process: (message: unknown) => {
+    process: (message: unknown, persist = false) => {
       if (!Schema.is(BroadcastSchema)(message)) return;
 
       for (const value of message.values) {
         const target = collections.find(
           (c) => value.meta._e === c.utils.schema().name,
         );
-        target?.utils.upsert(value as EntityType<any>, true);
+        target?.utils.upsert(value as EntityType<any>, persist);
       }
     },
   };

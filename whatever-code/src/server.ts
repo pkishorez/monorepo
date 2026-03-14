@@ -10,7 +10,8 @@ import { Effect, Layer, Option } from "effect";
 import { ApiRpcs } from "./api/definitions/index.js";
 import { ApiHandlers } from "./api/handlers/index.js";
 import { dbLayer } from "./db/index.js";
-import { ClaudeOrchestrator } from "./claude/index.js";
+import { ClaudeOrchestrator } from "./claude/orchestrator.js";
+import { ServicesLayer } from "./services/index.js";
 
 interface ServerConfig {
   port: number;
@@ -52,6 +53,7 @@ export function startServer(config: ServerConfig) {
 
   const ServerLayer = HttpLayerRouter.serve(AllRoutes).pipe(
     Layer.provide(ClaudeOrchestrator.Default),
+    Layer.provide(ServicesLayer),
     Layer.provide(dbLayer),
     Layer.provide(NodeHttpServer.layer(createServer, { port: config.port })),
   );

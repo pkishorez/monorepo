@@ -20,6 +20,10 @@
     "./adapters/better-sqlite3": {
       "types": "./dist/sql/adapters/better-sqlite3.d.ts",
       "default": "./dist/sql/adapters/better-sqlite3.js"
+    },
+    "./adapters/bun": {
+      "types": "./dist/sql/adapters/bun.d.ts",
+      "default": "./dist/sql/adapters/bun.js"
     }
   },
   "scripts": {
@@ -29,6 +33,7 @@
     "play": "pnpm tsx ./play/play.ts",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:bun": "bun test .bun.",
     "test:watch": "vitest --watch"
   },
   "dependencies": {
@@ -41,6 +46,7 @@
     "@effect/vitest": "0.27.0",
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",
+    "@types/bun": "1.3.10",
     "@types/node": "25.5.0",
     "better-sqlite3": "12.6.2",
     "effect": "3.19.19",

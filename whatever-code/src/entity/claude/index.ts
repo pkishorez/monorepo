@@ -1,1 +1,1 @@
-export { claudeMessageEntity, claudeSessionEntity } from "./claude.js";
+export { claudeMessageEntity, claudeSessionEntity, claudeTurnEntity } from "./claude.js";

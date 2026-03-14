@@ -5,23 +5,27 @@ export const makePinger = Effect.fnUntraced(function* <A, E, R>(
 ) {
   let receivedPong = true;
   const latch = Effect.unsafeMakeLatch();
+
   const reset = () => {
     receivedPong = true;
     latch.unsafeClose();
   };
+
   const onPong = () => {
     receivedPong = true;
   };
-  yield* Effect.suspend(() => {
-    if (!receivedPong) return latch.open;
-    receivedPong = false;
-    return writePing;
-  }).pipe(
-    Effect.delay("10 seconds"),
-    Effect.ignore,
-    Effect.forever,
-    Effect.interruptible,
-    Effect.forkScoped,
-  );
+
+  yield* Effect.gen(function* () {
+    while (true) {
+      yield* Effect.sleep("10 seconds");
+      if (receivedPong) {
+        receivedPong = false;
+        yield* Effect.ignore(writePing);
+      } else {
+        yield* latch.open;
+      }
+    }
+  }).pipe(Effect.interruptible, Effect.forkScoped);
+
   return { timeout: latch.await, reset, onPong } as const;
 });

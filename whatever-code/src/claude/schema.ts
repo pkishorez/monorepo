@@ -1,23 +1,18 @@
 import { Typed } from "../lib/typed.js";
 import type {
-  GetSessionMessagesOptions,
-  ListSessionsOptions,
   Options as QueryOptions,
   SDKMessage,
-  SDKSessionInfo,
-  SessionMessage as SDKSessionMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
 export const Message = Typed<SDKMessage>();
-export const SessionInfo = Typed<SDKSessionInfo>();
-export const SessionMessage = Typed<SDKSessionMessage>();
 
+type SessionOptions = Pick<QueryOptions, "thinking" | "effort" | "model">;
 export const QueryParams = Typed<{
   prompt: string;
-  sessionId?: string;
-  options?: QueryOptions;
+  options?: SessionOptions;
 }>();
-export const ListSessionsParams = Typed<ListSessionsOptions>();
-export const GetSessionMessagesParams = Typed<
-  GetSessionMessagesOptions & { sessionId: string }
->();
+export const ContinueSessionParams = Typed<{
+  sessionId: string;
+  prompt: string;
+  options?: SessionOptions;
+}>();
