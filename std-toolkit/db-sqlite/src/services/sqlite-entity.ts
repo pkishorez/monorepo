@@ -485,7 +485,7 @@ export class SQLiteEntity<
         }
 
         const derivedPk = deriveIndexKeyValue(
-          indexDerivation.entityIndexName,
+          `${this.#eschema.name}#${indexDerivation.entityIndexName}`,
           indexDerivation.pkDeps,
           params.pk as Record<string, unknown>,
           true,
@@ -825,7 +825,7 @@ export class SQLiteEntity<
         const pkCol = this.#table.secondaryIndexMap[deriv.indexName]?.pk;
         if (pkCol) {
           indexMap[pkCol] = deriveIndexKeyValue(
-            deriv.entityIndexName,
+            `${this.#eschema.name}#${deriv.entityIndexName}`,
             deriv.pkDeps,
             value,
             true,

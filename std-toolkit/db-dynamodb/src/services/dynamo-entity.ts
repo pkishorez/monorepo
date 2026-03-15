@@ -666,7 +666,7 @@ export class DynamoEntity<
         }
 
         const derivedPk = deriveIndexKeyValue(
-          indexDerivation.entityIndexName,
+          `${this.#eschema.name}#${indexDerivation.entityIndexName}`,
           indexDerivation.pkDeps,
           params.pk as Record<string, unknown>,
           true,
@@ -883,7 +883,7 @@ export class DynamoEntity<
       ) {
         const pkKey = `${deriv.gsiName}PK`;
         indexMap[pkKey] = deriveIndexKeyValue(
-          deriv.entityIndexName,
+          `${this.#eschema.name}#${deriv.entityIndexName}`,
           deriv.pkDeps,
           value,
           true,
