@@ -1422,3 +1422,167 @@ describe("Multiple Secondary Indexes", () => {
     }).pipe(Effect.provide(layer)),
   );
 });
+
+// ─── Cross-Entity Index Isolation ────────────────────────────────────────────
+
+describe("Cross-Entity Index Isolation", () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const table = SQLiteTable.make({ tableName: "isolation_test" })
+    .primary("pk", "sk")
+    .index("IDX1", "IDX1PK", "IDX1SK")
+    .index("IDX2", "IDX2PK", "IDX2SK")
+    .build();
+
+  // Two entities sharing the same entityIndexName with empty pk deps —
+  // this is the exact pattern that caused the "status is missing" decode error.
+  const SessionSchema = EntityESchema.make("Session", "sessionId", {
+    status: Schema.Literal("active", "closed"),
+    path: Schema.String,
+  }).build();
+
+  const MessageSchema = EntityESchema.make("Message", "messageId", {
+    sessionId: Schema.String,
+    text: Schema.String,
+  }).build();
+
+  const sessionEntity = SQLiteEntity.make(table)
+    .eschema(SessionSchema)
+    .primary()
+    .index("IDX1", "byStatus", { pk: ["status"] })
+    .index("IDX2", "byUpdatedAt", { pk: [] })
+    .build();
+
+  const messageEntity = SQLiteEntity.make(table)
+    .eschema(MessageSchema)
+    .primary({ pk: ["sessionId"] })
+    .index("IDX1", "bySession", { pk: ["sessionId"] })
+    .index("IDX2", "byUpdatedAt", { pk: [] })
+    .build();
+
+  const registry = EntityRegistry.make(table)
+    .register(sessionEntity)
+    .register(messageEntity)
+    .build();
+
+  beforeAll(async () => {
+    db = new Database(":memory:");
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* sessionEntity.insert({ sessionId: "s1", status: "active", path: "/foo" });
+        yield* messageEntity.insert({ messageId: "m1", sessionId: "s1", text: "hello" });
+        yield* sessionEntity.insert({ sessionId: "s2", status: "closed", path: "/bar" });
+        yield* messageEntity.insert({ messageId: "m2", sessionId: "s1", text: "world" });
+        yield* messageEntity.insert({ messageId: "m3", sessionId: "s2", text: "bye" });
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  afterAll(() => db.close());
+
+  it("stores entity-scoped IDX2PK for sessions", () => {
+    const rows = db
+      .prepare("SELECT IDX2PK FROM isolation_test WHERE _e = 'Session'")
+      .all() as { IDX2PK: string }[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.IDX2PK).toBe("Session#byUpdatedAt");
+    }
+  });
+
+  it("stores entity-scoped IDX2PK for messages", () => {
+    const rows = db
+      .prepare("SELECT IDX2PK FROM isolation_test WHERE _e = 'Message'")
+      .all() as { IDX2PK: string }[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.IDX2PK).toBe("Message#byUpdatedAt");
+    }
+  });
+
+  it("IDX2PK partitions are distinct across entities", () => {
+    const pks = db
+      .prepare("SELECT DISTINCT IDX2PK FROM isolation_test")
+      .all() as { IDX2PK: string }[];
+    const pkValues = pks.map((r) => r.IDX2PK);
+    expect(pkValues).toContain("Session#byUpdatedAt");
+    expect(pkValues).toContain("Message#byUpdatedAt");
+    expect(pkValues).not.toContain("byUpdatedAt");
+  });
+
+  it.effect("querying sessions byUpdatedAt returns only sessions", () =>
+    Effect.gen(function* () {
+      const result = yield* sessionEntity.query("byUpdatedAt", {
+        pk: {},
+        sk: { ">=": null },
+      });
+
+      expect(result.items).toHaveLength(2);
+      for (const item of result.items) {
+        expect(item.meta._e).toBe("Session");
+        expect(item.value).toHaveProperty("status");
+        expect(item.value).toHaveProperty("path");
+      }
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("querying messages byUpdatedAt returns only messages", () =>
+    Effect.gen(function* () {
+      const result = yield* messageEntity.query("byUpdatedAt", {
+        pk: {},
+        sk: { ">=": null },
+      });
+
+      expect(result.items).toHaveLength(3);
+      for (const item of result.items) {
+        expect(item.meta._e).toBe("Message");
+        expect(item.value).toHaveProperty("text");
+        expect(item.value).toHaveProperty("sessionId");
+      }
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("cursor pagination on sessions never returns message rows", () =>
+    Effect.gen(function* () {
+      const first = yield* sessionEntity.query(
+        "byUpdatedAt",
+        { pk: {}, sk: { ">=": null } },
+        { limit: 1 },
+      );
+      expect(first.items).toHaveLength(1);
+      const cursor = first.items[0]!.meta._u;
+
+      const rest = yield* sessionEntity.query("byUpdatedAt", {
+        pk: {},
+        sk: { ">=": cursor },
+      });
+      // All returned rows must be sessions — messages must never appear
+      for (const item of rest.items) {
+        expect(item.meta._e).toBe("Session");
+        expect(item.value).toHaveProperty("status");
+      }
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("adding more sessions does not affect message query count", () =>
+    Effect.gen(function* () {
+      yield* sessionEntity.insert({ sessionId: "s3", status: "active", path: "/baz" });
+
+      const sessions = yield* sessionEntity.query("byUpdatedAt", {
+        pk: {},
+        sk: { ">=": null },
+      });
+      const messages = yield* messageEntity.query("byUpdatedAt", {
+        pk: {},
+        sk: { ">=": null },
+      });
+
+      expect(sessions.items).toHaveLength(3);
+      expect(messages.items).toHaveLength(3);
+    }).pipe(Effect.provide(layer)),
+  );
+});

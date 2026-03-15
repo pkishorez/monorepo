@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { Effect, JSONSchema, Schema } from "effect";
+import { Effect, JSONSchema, ParseResult, Schema } from "effect";
 import type {
   IdSchema,
   ESchemaDescriptor,
@@ -69,6 +69,13 @@ export class ESchema<
       let data = yield* Schema.decodeUnknown(struct(evolution.schema))(
         value,
       ).pipe(
+        Effect.tapError((err) =>
+          Effect.sync(() =>
+            console.error(
+              `[ESchema] Decode failed for "${this.name}" (version ${_v}):\n${ParseResult.TreeFormatter.formatErrorSync(err)}`,
+            ),
+          ),
+        ),
         Effect.mapError(
           (err) => new ESchemaError({ message: "Decode failed", cause: err }),
         ),
