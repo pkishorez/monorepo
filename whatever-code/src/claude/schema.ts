@@ -1,7 +1,9 @@
+import type { Queue } from "effect";
 import { Typed } from "../lib/typed.js";
 import type {
   Options as QueryOptions,
   SDKMessage,
+  SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
 export const Message = Typed<SDKMessage>();
@@ -17,3 +19,10 @@ export const ContinueSessionParams = Typed<{
   prompt: string;
   options?: SessionOptions;
 }>();
+
+export interface ActiveSession {
+  abortController: AbortController;
+  inputQueue: Queue.Queue<SDKUserMessage>;
+  outputQueue: Queue.Queue<SDKMessage>;
+  turnId: string;
+}
