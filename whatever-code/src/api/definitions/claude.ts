@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import {
   ContinueSessionParams,
   QueryParams,
+  UpdateModelParams,
 } from "../../claude/index.js";
 import { EntitySchema } from "@std-toolkit/core";
 import {
@@ -47,6 +48,21 @@ export class ClaudeRpcs extends RpcGroup.make(
     error: ClaudeChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
+  Rpc.make("getSessionStatus", {
+    success: Schema.Struct({
+      session: Schema.NullOr(EntitySchema(claudeSessionEntity)),
+      latestTurn: Schema.NullOr(EntitySchema(claudeTurnEntity)),
+      isActiveInMemory: Schema.Boolean,
+      activeQueues: Schema.NullOr(
+        Schema.Struct({
+          inputQueueSize: Schema.Number,
+          outputQueueIsShutdown: Schema.Boolean,
+        }),
+      ),
+    }),
+    error: ClaudeChatError,
+    payload: Schema.Struct({ sessionId: Schema.String }),
+  }),
   Rpc.make("getProjects", {
     success: Schema.Array(
       Schema.Struct({
@@ -54,6 +70,22 @@ export class ClaudeRpcs extends RpcGroup.make(
         homePath: Schema.String,
         gitPath: Schema.String,
         sessionCount: Schema.Number,
+      }),
+    ),
+    error: ClaudeChatError,
+    payload: Schema.Void,
+  }),
+  Rpc.make("updateModel", {
+    success: Schema.Void,
+    error: ClaudeChatError,
+    payload: UpdateModelParams,
+  }),
+  Rpc.make("getModels", {
+    success: Schema.Array(
+      Schema.Struct({
+        value: Schema.String,
+        displayName: Schema.String,
+        description: Schema.String,
       }),
     ),
     error: ClaudeChatError,

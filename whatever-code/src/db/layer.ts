@@ -16,7 +16,7 @@ const makeDbLayer = (dbPath: string) =>
     }),
   );
 
-const paths = envPaths("whatever", { suffix: false });
+const paths = envPaths("whatever", { suffix: "" });
 mkdirSync(paths.data, { recursive: true });
 
 export const dataDir = paths.data;
