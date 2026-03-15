@@ -2,7 +2,7 @@ import {
   query,
   type Options as QueryOptions,
 } from "@anthropic-ai/claude-agent-sdk";
-import { Effect, Queue, Stream } from "effect";
+import { Effect, Exit, Queue, Stream } from "effect";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
 import {
@@ -25,6 +25,7 @@ export const startBackgroundFiber = (
       abortController: session.abortController,
     },
   });
+  session.query = queryResult;
 
   return Effect.forkScoped(
     Stream.fromAsyncIterable(
@@ -45,6 +46,10 @@ export const startBackgroundFiber = (
             yield* claudeTurnSqliteEntity
               .update({ id: turnId }, { init: message })
               .pipe(Effect.orDie);
+            yield* claudeSessionSqliteEntity
+              .update({ id: sessionId }, { model: message.model })
+              .pipe(Effect.orDie);
+            session.model = message.model;
           } else if (message.type === "result") {
             const status = message.is_error ? "error" : "success";
             yield* claudeTurnSqliteEntity
@@ -53,30 +58,34 @@ export const startBackgroundFiber = (
             yield* claudeSessionSqliteEntity
               .update({ id: sessionId }, { status })
               .pipe(Effect.orDie);
+            yield* Queue.shutdown(session.outputQueue);
           }
         }),
       ),
-      Effect.catchAll(() =>
-        activeSessions.has(sessionId)
-          ? Effect.all(
-              [
-                claudeTurnSqliteEntity
-                  .update({ id: session.turnId }, { status: "error" })
-                  .pipe(Effect.orDie),
-                claudeSessionSqliteEntity
-                  .update({ id: sessionId }, { status: "error" })
-                  .pipe(Effect.orDie),
-              ],
-              { discard: true },
-            )
-          : Effect.void,
-      ),
-      Effect.ensuring(
+      Effect.onExit((exit) =>
         Effect.gen(function* () {
           yield* Queue.shutdown(session.outputQueue);
+
+          if (!activeSessions.has(sessionId)) return;
           activeSessions.delete(sessionId);
+
+          if (Exit.isSuccess(exit)) return;
+
+          const status = Exit.isInterrupted(exit) ? "interrupted" : "error";
+          yield* Effect.all(
+            [
+              claudeTurnSqliteEntity
+                .update({ id: session.turnId }, { status })
+                .pipe(Effect.orDie),
+              claudeSessionSqliteEntity
+                .update({ id: sessionId }, { status })
+                .pipe(Effect.orDie),
+            ],
+            { discard: true },
+          );
         }),
       ),
+      Effect.catchAll(() => Effect.void),
     ),
   );
 };

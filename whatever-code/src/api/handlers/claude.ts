@@ -38,6 +38,18 @@ export const ClaudeHandlers = ClaudeRpcs.toLayer(
           Effect.map(({ items }) => items),
           Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
         ),
+    "claude.getSessionStatus": ({ sessionId }) =>
+      Effect.flatMap(ClaudeOrchestrator, (o) => o.getSessionStatus(sessionId)).pipe(
+        Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+      ),
+    "claude.updateModel": (params) =>
+      Effect.flatMap(ClaudeOrchestrator, (o) => o.updateModel(params)).pipe(
+        Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+      ),
+    "claude.getModels": () =>
+      Effect.flatMap(ClaudeOrchestrator, (o) => o.getModels()).pipe(
+        Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+      ),
     "claude.getProjects": () =>
       Effect.tryPromise({
         try: () => listSessions(),

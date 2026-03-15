@@ -12,6 +12,8 @@ export const claudeMessageEntity = EntityESchema.make("claudeMessage", "id", {
 export const claudeSessionEntity = EntityESchema.make("claudeSession", "id", {
   status: Schema.Literal("in_progress", "success", "error", "interrupted"),
   absolutePath: Schema.String,
+  name: Schema.optionalWith(Schema.String, { default: () => "" }),
+  model: Schema.optional(Schema.String),
 }).build();
 
 export const claudeTurnEntity = EntityESchema.make("claudeTurn", "id", {

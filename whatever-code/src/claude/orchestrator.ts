@@ -1,7 +1,9 @@
-import type {
-  Options as QueryOptions,
-  SDKMessage,
-  SDKUserMessage,
+import {
+  query as sdkQuery,
+  type ModelInfo,
+  type Options as QueryOptions,
+  type SDKMessage,
+  type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { Effect, Queue } from "effect";
 import { v7 } from "uuid";
@@ -15,6 +17,7 @@ import {
 import {
   ContinueSessionParams,
   QueryParams,
+  UpdateModelParams,
   type ActiveSession,
 } from "./schema.js";
 import { recoverInterruptedSessions } from "./internal/recover-interrupted.js";
@@ -100,6 +103,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
             inputQueue,
             outputQueue,
             turnId,
+            ...(queryOptions?.model !== undefined ? { model: queryOptions.model } : {}),
           };
           activeSessions.set(sessionId, session);
           yield* Queue.offer(inputQueue, userMessage);
@@ -122,6 +126,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               id: sessionId,
               status: "in_progress",
               absolutePath: params.cwd,
+              name: params.prompt.slice(0, 80),
             }),
             claudeTurnSqliteEntity.insert({
               id: turnId,
@@ -168,10 +173,42 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           }
 
           yield* persistNewTurn(params.sessionId, turnId, userMessage);
+          const dbSession = yield* claudeSessionSqliteEntity
+            .get({ id: params.sessionId })
+            .pipe(Effect.orDie);
+          const storedModel = dbSession?.value.model;
           yield* initSession(params.sessionId, turnId, userMessage, {
+            ...(storedModel !== undefined ? { model: storedModel } : {}),
             ...params.options,
             resume: params.sessionId,
           });
+        });
+
+      const getSessionStatus = (sessionId: string) =>
+        Effect.gen(function* () {
+          const session = yield* claudeSessionSqliteEntity
+            .get({ id: sessionId })
+            .pipe(Effect.orDie);
+
+          const { items: turns } = yield* claudeTurnSqliteEntity
+            .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+            .pipe(Effect.orDie);
+
+          const latestTurn = turns.at(-1) ?? null;
+
+          const active = activeSessions.get(sessionId);
+          if (!active) {
+            return { session, latestTurn, isActiveInMemory: false, activeQueues: null };
+          }
+
+          const inputQueueSize = yield* Queue.size(active.inputQueue);
+          const outputQueueIsShutdown = yield* Queue.isShutdown(active.outputQueue);
+          return {
+            session,
+            latestTurn,
+            isActiveInMemory: true,
+            activeQueues: { inputQueueSize, outputQueueIsShutdown },
+          };
         });
 
       const stopSession = (sessionId: string) =>
@@ -196,7 +233,46 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           yield* Queue.shutdown(session.outputQueue);
         });
 
-      return { createSession, continueSession, stopSession };
+      const updateModel = (params: typeof UpdateModelParams.Type) =>
+        Effect.gen(function* () {
+          yield* claudeSessionSqliteEntity
+            .update({ id: params.sessionId }, { model: params.model })
+            .pipe(Effect.orDie);
+          const existing = activeSessions.get(params.sessionId);
+          if (existing) {
+            existing.model = params.model;
+            if (existing.query) {
+              yield* Effect.tryPromise({
+                try: () => existing.query!.setModel(params.model),
+                catch: (e) => new ClaudeChatError({ message: String(e) }),
+              });
+            }
+          }
+        });
+
+      let cachedModels: ModelInfo[] | undefined;
+
+      const fetchModels = () => {
+        const activeQuery = [...activeSessions.values()].find((s) => s.query)?.query;
+        if (activeQuery) return activeQuery.supportedModels();
+        const ac = new AbortController();
+        async function* emptyPrompt() {}
+        const tempQuery = sdkQuery({ prompt: emptyPrompt(), options: { abortController: ac } });
+        return tempQuery.supportedModels().finally(() => ac.abort());
+      };
+
+      const getModels = () =>
+        Effect.gen(function* () {
+          if (cachedModels) return cachedModels;
+          const models = yield* Effect.tryPromise({
+            try: () => fetchModels(),
+            catch: (e) => new ClaudeChatError({ message: String(e) }),
+          });
+          cachedModels = models;
+          return models;
+        });
+
+      return { createSession, continueSession, stopSession, getSessionStatus, updateModel, getModels };
     }),
   },
 ) {}
