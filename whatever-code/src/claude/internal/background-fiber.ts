@@ -46,10 +46,6 @@ export const startBackgroundFiber = (
             yield* claudeTurnSqliteEntity
               .update({ id: turnId }, { init: message })
               .pipe(Effect.orDie);
-            yield* claudeSessionSqliteEntity
-              .update({ id: sessionId }, { model: message.model })
-              .pipe(Effect.orDie);
-            session.model = message.model;
           } else if (message.type === "result") {
             const status = message.is_error ? "error" : "success";
             yield* claudeTurnSqliteEntity

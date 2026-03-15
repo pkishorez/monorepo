@@ -103,7 +103,6 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
             inputQueue,
             outputQueue,
             turnId,
-            ...(queryOptions?.model !== undefined ? { model: queryOptions.model } : {}),
           };
           activeSessions.set(sessionId, session);
           yield* Queue.offer(inputQueue, userMessage);
@@ -168,6 +167,19 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
             yield* persistNewTurn(params.sessionId, turnId, userMessage);
             existing.turnId = turnId;
             existing.outputQueue = yield* Queue.unbounded<SDKMessage>();
+
+            if (existing.query) {
+              const dbSession = yield* claudeSessionSqliteEntity
+                .get({ id: params.sessionId })
+                .pipe(Effect.orDie);
+              if (dbSession?.value.model) {
+                yield* Effect.tryPromise({
+                  try: () => existing.query!.setModel(dbSession.value.model!),
+                  catch: (e) => new ClaudeChatError({ message: String(e) }),
+                });
+              }
+            }
+
             yield* Queue.offer(existing.inputQueue, userMessage);
             return;
           }
@@ -234,21 +246,9 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
         });
 
       const updateModel = (params: typeof UpdateModelParams.Type) =>
-        Effect.gen(function* () {
-          yield* claudeSessionSqliteEntity
-            .update({ id: params.sessionId }, { model: params.model })
-            .pipe(Effect.orDie);
-          const existing = activeSessions.get(params.sessionId);
-          if (existing) {
-            existing.model = params.model;
-            if (existing.query) {
-              yield* Effect.tryPromise({
-                try: () => existing.query!.setModel(params.model),
-                catch: (e) => new ClaudeChatError({ message: String(e) }),
-              });
-            }
-          }
-        });
+        claudeSessionSqliteEntity
+          .update({ id: params.sessionId }, { model: params.model })
+          .pipe(Effect.orDie);
 
       let cachedModels: ModelInfo[] | undefined;
 

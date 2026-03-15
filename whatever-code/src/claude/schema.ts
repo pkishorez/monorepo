@@ -26,7 +26,6 @@ export interface ActiveSession {
   inputQueue: Queue.Queue<SDKUserMessage>;
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
-  model?: string;
   query?: Query;
 }
 
