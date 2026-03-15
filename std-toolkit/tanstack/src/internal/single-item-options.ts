@@ -33,7 +33,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   >,
   "schema"
 > &
-  SingleResult & { schema: TSchema } => {
+  SingleResult => {
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
@@ -114,7 +114,6 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
 
   return {
     ...(id !== undefined && { id }),
-    schema,
     singleResult: true as const,
     getKey: () => singletonKey,
     sync: tanstackSync,

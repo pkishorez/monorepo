@@ -74,7 +74,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
     CollectionUtils<TSchema>
   >,
   "schema"
-> & { schema: TSchema } => {
+> => {
   type TItem = TSchema["Type"];
   type TCollectionItem = CollectionItem<TItem>;
 
@@ -236,7 +236,6 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
 
   return {
     ...(id !== undefined && { id }),
-    schema,
     getKey: (item: TCollectionItem) =>
       item[schema.idField as keyof TCollectionItem] as string,
     ...(syncMode !== "eager" && {

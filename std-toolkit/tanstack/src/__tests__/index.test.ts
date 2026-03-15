@@ -44,7 +44,7 @@ describe("stdCollectionOptions", () => {
   it("returns config with required properties", () => {
     const config = createConfig();
 
-    expect(config.schema).toBe(TestSchema);
+    expect(config.utils!.schema()).toBe(TestSchema);
     expect(typeof config.getKey).toBe("function");
     expect(typeof config.sync.sync).toBe("function");
     expect(typeof config.compare).toBe("function");
@@ -237,7 +237,7 @@ describe("stdSingleItemOptions", () => {
 
     expect(typeof config.sync.sync).toBe("function");
     expect(typeof config.onUpdate).toBe("function");
-    expect(config.schema).toBe(SingleTestSchema);
+    expect(config.utils!.schema()).toBe(SingleTestSchema);
     expect(config.utils).toBeDefined();
   });
 
