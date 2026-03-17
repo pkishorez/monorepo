@@ -22,4 +22,11 @@ export default defineConfig([
     sourcemap: "inline",
     outDir: "dist/entity/claude",
   },
+  {
+    entry: ["src/entity/project/index.ts"],
+    format: "esm",
+    dts: true,
+    sourcemap: "inline",
+    outDir: "dist/entity/project",
+  },
 ]);

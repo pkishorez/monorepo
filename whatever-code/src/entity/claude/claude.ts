@@ -14,6 +14,7 @@ export const claudeSessionEntity = EntityESchema.make("claudeSession", "id", {
   absolutePath: Schema.String,
   name: Schema.optionalWith(Schema.String, { default: () => "" }),
   model: Schema.optional(Schema.String),
+  sdkSessionCreated: Schema.optional(Schema.Boolean),
 }).build();
 
 export const claudeTurnEntity = EntityESchema.make("claudeTurn", "id", {

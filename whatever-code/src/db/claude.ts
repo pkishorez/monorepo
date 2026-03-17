@@ -4,6 +4,7 @@ import {
   claudeSessionEntity,
   claudeTurnEntity,
 } from "../entity/claude/index.js";
+import { projectEntity } from "../entity/project/index.js";
 import { table } from "./table.js";
 
 export const claudeMessageSqliteEntity = SQLiteEntity.make(table)
@@ -27,8 +28,16 @@ export const claudeTurnSqliteEntity = SQLiteEntity.make(table)
   .index("IDX2", "byUpdatedAt", { pk: [] })
   .build();
 
+export const projectSqliteEntity = SQLiteEntity.make(table)
+  .eschema(projectEntity)
+  .primary()
+  .index("IDX1", "bySessionId", { pk: ["sessionId"] })
+  .index("IDX2", "byUpdatedAt", { pk: [] })
+  .build();
+
 export const registry = EntityRegistry.make(table)
   .register(claudeMessageSqliteEntity)
   .register(claudeSessionSqliteEntity)
   .register(claudeTurnSqliteEntity)
+  .register(projectSqliteEntity)
   .build();
