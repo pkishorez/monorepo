@@ -3,22 +3,20 @@ import {
   claudeSessionSqliteEntity,
   claudeTurnSqliteEntity,
 } from "../db/claude.js";
-import type { ActiveSession } from "./schema.js";
+import type { ActiveTurn } from "./schema.js";
 import { recoverInterruptedSessions } from "./internal/recover-interrupted.js";
-import { initSession } from "./internal/init-session.js";
-import { createSession } from "./internal/create-session.js";
 import { continueSession } from "./internal/continue-session.js";
 import { makeModelOperations } from "./internal/models.js";
 
-const shutdownFinalizer = (activeSessions: Map<string, ActiveSession>) =>
+const shutdownFinalizer = (activeTurns: Map<string, ActiveTurn>) =>
   Effect.addFinalizer(() =>
     Effect.forEach(
-      activeSessions.entries(),
-      ([sessionId, session]) =>
+      activeTurns.entries(),
+      ([sessionId, turn]) =>
         Effect.all(
           [
             claudeTurnSqliteEntity
-              .update({ id: session.turnId }, { status: "interrupted" })
+              .update({ id: turn.turnId }, { status: "interrupted" })
               .pipe(Effect.orDie),
             claudeSessionSqliteEntity
               .update({ id: sessionId }, { status: "interrupted" })
@@ -26,25 +24,23 @@ const shutdownFinalizer = (activeSessions: Map<string, ActiveSession>) =>
           ],
           { discard: true },
         ).pipe(
-          Effect.ensuring(
-            Effect.sync(() => session.abortController.abort()),
-          ),
+          Effect.ensuring(Effect.sync(() => turn.abortController.abort())),
         ),
       { discard: true },
     ),
   );
 
-const stopSession = (activeSessions: Map<string, ActiveSession>) =>
-  (sessionId: string) =>
+const stopSession =
+  (activeTurns: Map<string, ActiveTurn>) => (sessionId: string) =>
     Effect.gen(function* () {
-      const session = activeSessions.get(sessionId);
-      if (!session) return;
+      const turn = activeTurns.get(sessionId);
+      if (!turn) return;
 
-      activeSessions.delete(sessionId);
+      activeTurns.delete(sessionId);
       yield* Effect.all(
         [
           claudeTurnSqliteEntity
-            .update({ id: session.turnId }, { status: "interrupted" })
+            .update({ id: turn.turnId }, { status: "interrupted" })
             .pipe(Effect.orDie),
           claudeSessionSqliteEntity
             .update({ id: sessionId }, { status: "interrupted" })
@@ -52,13 +48,12 @@ const stopSession = (activeSessions: Map<string, ActiveSession>) =>
         ],
         { discard: true },
       );
-      session.abortController.abort();
-      yield* Queue.shutdown(session.inputQueue);
-      yield* Queue.shutdown(session.outputQueue);
+      turn.abortController.abort();
+      yield* Queue.shutdown(turn.outputQueue);
     });
 
-const getSessionStatus = (activeSessions: Map<string, ActiveSession>) =>
-  (sessionId: string) =>
+const getSessionStatus =
+  (activeTurns: Map<string, ActiveTurn>) => (sessionId: string) =>
     Effect.gen(function* () {
       const session = yield* claudeSessionSqliteEntity
         .get({ id: sessionId })
@@ -70,7 +65,7 @@ const getSessionStatus = (activeSessions: Map<string, ActiveSession>) =>
 
       const latestTurn = turns.at(-1) ?? null;
 
-      const active = activeSessions.get(sessionId);
+      const active = activeTurns.get(sessionId);
       if (!active) {
         return {
           session,
@@ -80,15 +75,12 @@ const getSessionStatus = (activeSessions: Map<string, ActiveSession>) =>
         };
       }
 
-      const inputQueueSize = yield* Queue.size(active.inputQueue);
-      const outputQueueIsShutdown = yield* Queue.isShutdown(
-        active.outputQueue,
-      );
+      const outputQueueIsShutdown = yield* Queue.isShutdown(active.outputQueue);
       return {
         session,
         latestTurn,
         isActiveInMemory: true,
-        activeQueues: { inputQueueSize, outputQueueIsShutdown },
+        activeQueues: { outputQueueIsShutdown },
       };
     });
 
@@ -96,18 +88,16 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
   "ClaudeOrchestrator",
   {
     scoped: Effect.gen(function* () {
-      const activeSessions = new Map<string, ActiveSession>();
-      const init = initSession(activeSessions);
-      const { updateModel, getModels } = makeModelOperations(activeSessions);
+      const activeTurns = new Map<string, ActiveTurn>();
+      const { updateModel, getModels } = makeModelOperations();
 
       yield* recoverInterruptedSessions;
-      yield* shutdownFinalizer(activeSessions);
+      yield* shutdownFinalizer(activeTurns);
 
       return {
-        createSession: createSession(init),
-        continueSession: continueSession(activeSessions, init),
-        stopSession: stopSession(activeSessions),
-        getSessionStatus: getSessionStatus(activeSessions),
+        continueSession: continueSession(activeTurns),
+        stopSession: stopSession(activeTurns),
+        getSessionStatus: getSessionStatus(activeTurns),
         updateModel,
         getModels,
       };

@@ -1,4 +1,3 @@
-import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Effect } from "effect";
 import { ulid } from "ulid";
 import {
@@ -7,20 +6,10 @@ import {
   claudeTurnSqliteEntity,
 } from "../../db/claude.js";
 
-export const makeUserMessage = (
-  sessionId: string,
-  prompt: string,
-): SDKUserMessage => ({
-  type: "user",
-  message: { role: "user", content: prompt },
-  parent_tool_use_id: null,
-  session_id: sessionId,
-});
-
 export const persistNewTurn = (
   sessionId: string,
   turnId: string,
-  userMessage: SDKUserMessage,
+  prompt: string,
 ) =>
   Effect.all([
     claudeSessionSqliteEntity.update(
@@ -38,6 +27,11 @@ export const persistNewTurn = (
       id: ulid(),
       sessionId,
       turnId,
-      data: userMessage,
+      data: {
+        type: "user",
+        message: { role: "user", content: prompt },
+        parent_tool_use_id: null,
+        session_id: sessionId,
+      },
     }),
   ]).pipe(Effect.orDie);
