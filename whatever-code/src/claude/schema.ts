@@ -24,3 +24,15 @@ export const UpdateModelParams = Typed<{
   sessionId: string;
   model: string;
 }>();
+
+export type PermissionModeValue =
+  | "default"
+  | "acceptEdits"
+  | "bypassPermissions"
+  | "plan"
+  | "dontAsk";
+
+export const UpdateModeParams = Typed<{
+  sessionId: string;
+  permissionMode: PermissionModeValue;
+}>();

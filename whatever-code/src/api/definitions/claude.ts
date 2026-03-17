@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import {
   ContinueSessionParams,
   UpdateModelParams,
+  UpdateModeParams,
 } from "../../claude/index.js";
 import { EntitySchema } from "@std-toolkit/core";
 import {
@@ -61,12 +62,16 @@ export class ClaudeRpcs extends RpcGroup.make(
     error: ClaudeChatError,
     payload: UpdateModelParams,
   }),
+  Rpc.make("updateMode", {
+    success: Schema.Void,
+    error: ClaudeChatError,
+    payload: UpdateModeParams,
+  }),
   Rpc.make("getModels", {
     success: Schema.Array(
       Schema.Struct({
-        value: Schema.String,
-        displayName: Schema.String,
-        description: Schema.String,
+        model: Schema.String,
+        label: Schema.String,
       }),
     ),
     error: ClaudeChatError,

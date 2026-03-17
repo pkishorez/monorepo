@@ -1,4 +1,7 @@
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  SDKMessage,
+  Options as QueryOptions,
+} from "@anthropic-ai/claude-agent-sdk";
 import { Effect, Queue } from "effect";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
@@ -33,7 +36,9 @@ export const continueSession =
         .get({ id: params.sessionId })
         .pipe(Effect.orDie);
       const storedModel = dbSession?.value.model;
+      const storedPermissionMode = dbSession?.value.permissionMode;
       const sdkCreated = dbSession?.value.sdkSessionCreated ?? false;
+      const absolutePath = dbSession?.value.absolutePath;
 
       const outputQueue = yield* Queue.unbounded<SDKMessage>();
       const turn: ActiveTurn = {
@@ -43,18 +48,24 @@ export const continueSession =
       };
       activeTurns.set(params.sessionId, turn);
 
+      const options: QueryOptions = {
+        ...params.options,
+        ...(storedModel !== undefined ? { model: storedModel } : {}),
+        ...(sdkCreated
+          ? { resume: params.sessionId }
+          : { sessionId: params.sessionId }),
+        ...(absolutePath !== undefined ? { cwd: absolutePath } : {}),
+      };
+      if (storedPermissionMode !== undefined) {
+        options.permissionMode = storedPermissionMode;
+      }
+
       yield* startBackgroundFiber(
         activeTurns,
         params.sessionId,
         turn,
         params.prompt,
-        {
-          ...(storedModel !== undefined ? { model: storedModel } : {}),
-          ...params.options,
-          ...(sdkCreated
-            ? { resume: params.sessionId }
-            : { sessionId: params.sessionId }),
-        },
+        options,
       );
     }).pipe(
       Effect.withSpan("claude.continueSession", {
