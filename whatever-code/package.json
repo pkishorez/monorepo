@@ -32,12 +32,13 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@std-toolkit/eschema": "workspace:*",
     "@anthropic-ai/claude-agent-sdk": "0.2.75",
+    "@effect/opentelemetry": "^0.62.0",
     "@effect/platform": "0.94.5",
     "@effect/platform-node": "0.104.1",
     "@effect/rpc": "0.73.2",
     "@openai/codex-sdk": "^0.114.0",
+    "@std-toolkit/eschema": "workspace:*",
     "better-sqlite3": "12.6.2",
     "effect": "3.19.19",
     "env-paths": "^4.0.0",

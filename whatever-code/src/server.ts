@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import {
   HttpLayerRouter,
+  HttpMiddleware,
   HttpServerRequest,
   HttpServerResponse,
 } from "@effect/platform";
@@ -10,8 +11,9 @@ import { Effect, Layer, Option } from "effect";
 import { ApiRpcs } from "./api/definitions/index.js";
 import { ApiHandlers } from "./api/handlers/index.js";
 import { dbLayer } from "./db/index.js";
-import { ClaudeOrchestrator } from "./claude/orchestrator.js";
+import { ClaudeOrchestrator } from "./claude/claude.js";
 import { ServicesLayer } from "./services/index.js";
+import { TelemetryLayer } from "./telemetry.js";
 
 interface ServerConfig {
   port: number;
@@ -52,10 +54,12 @@ export function startServer(config: ServerConfig) {
   const AllRoutes = Layer.mergeAll(RpcRoute, ProxyRoute);
 
   const ServerLayer = HttpLayerRouter.serve(AllRoutes).pipe(
+    HttpMiddleware.withTracerDisabledWhen(() => true),
     Layer.provide(ClaudeOrchestrator.Default),
     Layer.provide(ServicesLayer),
     Layer.provide(dbLayer),
     Layer.provide(NodeHttpServer.layer(createServer, { port: config.port })),
+    Layer.provide(TelemetryLayer),
   );
 
   NodeRuntime.runMain(Layer.launch(ServerLayer));
