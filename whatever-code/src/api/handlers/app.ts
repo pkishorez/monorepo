@@ -1,5 +1,6 @@
 import { Effect, Stream } from "effect";
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { platform } from "node:os";
 import { v7 } from "uuid";
 import { listSessions } from "@anthropic-ai/claude-agent-sdk";
@@ -11,6 +12,8 @@ import {
   projectSqliteEntity,
 } from "../../db/claude.js";
 import { computePaths } from "../../lib/paths.js";
+
+const execFilePromise = promisify(execFile);
 
 const openCommand =
   platform() === "darwin"
@@ -103,6 +106,24 @@ export const AppHandlers = AppRpcs.toLayer(
               ...computePaths(cwd),
               sessionCount,
             }));
+        }),
+      ),
+    "app.getProjectFiles": ({ absolutePath }) =>
+      Effect.tryPromise({
+        try: () => execFilePromise("git", ["ls-files"], { cwd: absolutePath }),
+        catch: (e) => new AppError({ message: String(e) }),
+      }).pipe(
+        Effect.map(({ stdout }) => {
+          const files = stdout.trim().split("\n").filter(Boolean);
+          const dirs = new Set<string>();
+          for (const file of files) {
+            let i = file.indexOf("/");
+            while (i !== -1) {
+              dirs.add(file.slice(0, i + 1));
+              i = file.indexOf("/", i + 1);
+            }
+          }
+          return [...dirs].sort().concat(files);
         }),
       ),
   }),

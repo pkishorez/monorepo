@@ -44,4 +44,9 @@ export class AppRpcs extends RpcGroup.make(
     error: AppError,
     payload: Schema.Void,
   }),
+  Rpc.make("getProjectFiles", {
+    success: Schema.Array(Schema.String),
+    error: AppError,
+    payload: Schema.Struct({ absolutePath: Schema.String }),
+  }),
 ).prefix("app.") {}
