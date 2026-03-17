@@ -12,7 +12,10 @@ import {
 } from "../../db/claude.js";
 import type { ActiveTurn } from "../schema.js";
 
-const updateProjectStatus = (sessionId: string, status: "idle" | "active" | "error") =>
+const updateProjectStatus = (
+  sessionId: string,
+  status: "idle" | "active" | "error",
+) =>
   projectSqliteEntity
     .query("bySessionId", { pk: { sessionId }, sk: { ">": null } })
     .pipe(
@@ -37,11 +40,17 @@ export const startBackgroundFiber = (
     prompt,
     options: {
       ...queryOptions,
+      permissionMode: queryOptions?.permissionMode ?? "acceptEdits",
+      ...(queryOptions?.permissionMode === "bypassPermissions"
+        ? { allowDangerouslySkipPermissions: true }
+        : {}),
       abortController: turn.abortController,
     },
   });
 
-  const processMessage = (message: (typeof queryResult) extends AsyncGenerator<infer T> ? T : never) =>
+  const processMessage = (
+    message: typeof queryResult extends AsyncGenerator<infer T> ? T : never,
+  ) =>
     Effect.gen(function* () {
       const turnId = turn.turnId;
 
@@ -82,10 +91,7 @@ export const startBackgroundFiber = (
     });
 
   return Effect.forkScoped(
-    Stream.fromAsyncIterable(
-      queryResult,
-      (e) => new Error(String(e)),
-    ).pipe(
+    Stream.fromAsyncIterable(queryResult, (e) => new Error(String(e))).pipe(
       Stream.tap(processMessage),
       Stream.runDrain,
       Effect.onExit((exit) =>
@@ -120,7 +126,8 @@ export const startBackgroundFiber = (
           const cause = exit.pipe(Exit.causeOption);
           yield* Effect.logError("background fiber failed").pipe(
             Effect.annotateLogs({
-              cause: cause._tag === "Some" ? Cause.pretty(cause.value) : "unknown",
+              cause:
+                cause._tag === "Some" ? Cause.pretty(cause.value) : "unknown",
             }),
           );
           yield* Effect.all(

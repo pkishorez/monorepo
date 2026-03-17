@@ -1,6 +1,5 @@
 import { Effect, Fiber, Scope } from 'effect';
-import { useEffect } from 'react';
-import { useLiveRef } from './use-live-ref.js';
+import { useEffect, useRef } from 'react';
 
 export function useComponentLifecycle<A, E>(
   effect: Effect.Effect<A, E, Scope.Scope>,
@@ -10,7 +9,8 @@ export function useComponentLifecycle<A, E>(
     deps?: unknown[];
   } = {},
 ) {
-  const effectRef = useLiveRef(effect);
+  const effectRef = useRef(effect);
+  effectRef.current = effect;
 
   useEffect(() => {
     const scope = Effect.runSync(Scope.make());

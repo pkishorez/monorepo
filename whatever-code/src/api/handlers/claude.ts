@@ -42,6 +42,10 @@ export const ClaudeHandlers = ClaudeRpcs.toLayer(
       Effect.flatMap(ClaudeOrchestrator, (o) => o.updateModel(params)).pipe(
         Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
       ),
+    "claude.updateMode": (params) =>
+      Effect.flatMap(ClaudeOrchestrator, (o) => o.updateMode(params)).pipe(
+        Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+      ),
     "claude.getModels": () =>
       Effect.flatMap(ClaudeOrchestrator, (o) => o.getModels()).pipe(
         Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),

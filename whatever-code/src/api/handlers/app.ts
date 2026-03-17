@@ -55,33 +55,23 @@ export const AppHandlers = AppRpcs.toLayer(
           .pipe(Effect.orDie);
 
         if (existing) {
-          yield* projectSqliteEntity
+          return yield* projectSqliteEntity
             .update({ id: absolutePath }, { sessionId, status: "idle" })
-            .pipe(Effect.orDie);
-        } else {
-          const paths = computePaths(absolutePath);
-          yield* projectSqliteEntity
-            .insert({
-              id: absolutePath,
-              name: paths.gitPath,
-              homePath: paths.homePath,
-              gitPath: paths.gitPath,
-              agentType: "claude",
-              sessionId,
-              status: "idle",
-            })
             .pipe(Effect.orDie);
         }
 
-        const project = yield* projectSqliteEntity
-          .get({ id: absolutePath })
+        const paths = computePaths(absolutePath);
+        return yield* projectSqliteEntity
+          .insert({
+            id: absolutePath,
+            name: paths.gitPath,
+            homePath: paths.homePath,
+            gitPath: paths.gitPath,
+            agentType: "claude",
+            sessionId,
+            status: "idle",
+          })
           .pipe(Effect.orDie);
-        if (!project) {
-          return yield* Effect.fail(
-            new AppError({ message: "failed to retrieve project" }),
-          );
-        }
-        return project;
       }).pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),
     "app.queryProjects": ({ ">": cursor }) =>
       projectSqliteEntity
@@ -108,9 +98,33 @@ export const AppHandlers = AppRpcs.toLayer(
             }));
         }),
       ),
+    "app.newSession": ({ absolutePath }) =>
+      Effect.gen(function* () {
+        const sessionId = v7();
+        yield* claudeSessionSqliteEntity
+          .insert({
+            id: sessionId,
+            status: "success",
+            sdkSessionCreated: false,
+            absolutePath,
+            name: "",
+          })
+          .pipe(Effect.orDie);
+
+        const project = yield* projectSqliteEntity
+          .update({ id: absolutePath }, { sessionId, status: "idle" })
+          .pipe(Effect.orDie);
+
+        return project;
+      }).pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),
     "app.getProjectFiles": ({ absolutePath }) =>
       Effect.tryPromise({
-        try: () => execFilePromise("git", ["ls-files"], { cwd: absolutePath }),
+        try: () =>
+          execFilePromise(
+            "git",
+            ["ls-files", "--cached", "--others", "--exclude-standard"],
+            { cwd: absolutePath },
+          ),
         catch: (e) => new AppError({ message: String(e) }),
       }).pipe(
         Effect.map(({ stdout }) => {

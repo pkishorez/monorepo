@@ -1,44 +1,30 @@
-import {
-  query as sdkQuery,
-  type ModelInfo,
-} from "@anthropic-ai/claude-agent-sdk";
 import { Effect } from "effect";
-import { ClaudeChatError } from "../../api/definitions/claude.js";
 import { claudeSessionSqliteEntity } from "../../db/claude.js";
-import { UpdateModelParams } from "../schema.js";
+import { UpdateModelParams, UpdateModeParams } from "../schema.js";
 
-const fetchModels = async () => {
-  const ac = new AbortController();
-  async function* emptyPrompt() {}
-  const tempQuery = sdkQuery({
-    prompt: emptyPrompt(),
-    options: { abortController: ac },
-  });
-  try {
-    return await tempQuery.supportedModels();
-  } finally {
-    ac.abort();
-  }
-};
+export interface ModelOption {
+  model: string;
+  label: string;
+}
+
+const MODELS: ModelOption[] = [
+  { model: "claude-opus-4-6", label: "Opus 4.6" },
+  { model: "claude-sonnet-4-6", label: "Sonnet 4.6" },
+  { model: "claude-haiku-4-5-20251001", label: "Haiku 4.5" },
+];
 
 export const makeModelOperations = () => {
-  let cachedModels: ModelInfo[] | undefined;
-
   const updateModel = (params: typeof UpdateModelParams.Type) =>
     claudeSessionSqliteEntity
       .update({ id: params.sessionId }, { model: params.model })
       .pipe(Effect.orDie);
 
-  const getModels = () =>
-    Effect.gen(function* () {
-      if (cachedModels) return cachedModels;
-      const models = yield* Effect.tryPromise({
-        try: () => fetchModels(),
-        catch: (e) => new ClaudeChatError({ message: String(e) }),
-      });
-      cachedModels = models;
-      return models;
-    });
+  const getModels = () => Effect.succeed(MODELS);
 
-  return { updateModel, getModels };
+  const updateMode = (params: typeof UpdateModeParams.Type) =>
+    claudeSessionSqliteEntity
+      .update({ id: params.sessionId }, { permissionMode: params.permissionMode })
+      .pipe(Effect.orDie);
+
+  return { updateModel, updateMode, getModels };
 };
