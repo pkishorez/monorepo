@@ -6,7 +6,7 @@ import { MemoryCacheEntity } from "@std-toolkit/cache/memory";
 import {
   stdCollectionOptions,
   stdSingleItemOptions,
-  broadcastCollections,
+  collectionRegistry,
 } from "../index.js";
 
 const TestSchema = EntityESchema.make("TestEntity", "id", {
@@ -306,34 +306,40 @@ describe("stdSingleItemOptions", () => {
   });
 });
 
-describe("broadcastCollections", () => {
-  it("returns manager with add, remove, and process methods", () => {
-    const broadcast = broadcastCollections();
+describe("collectionRegistry", () => {
+  it("returns builder with add and build methods", () => {
+    const builder = collectionRegistry.create();
 
-    expect(typeof broadcast.add).toBe("function");
-    expect(typeof broadcast.remove).toBe("function");
-    expect(typeof broadcast.process).toBe("function");
+    expect(typeof builder.add).toBe("function");
+    expect(typeof builder.build).toBe("function");
+  });
+
+  it("build returns registry with process and fetchAll methods", () => {
+    const registry = collectionRegistry.create().build();
+
+    expect(typeof registry.process).toBe("function");
+    expect(typeof registry.fetchAll).toBe("function");
   });
 
   it("process ignores null and undefined", () => {
-    const broadcast = broadcastCollections();
+    const registry = collectionRegistry.create().build();
 
-    expect(() => broadcast.process(null)).not.toThrow();
-    expect(() => broadcast.process(undefined)).not.toThrow();
+    expect(() => registry.process(null)).not.toThrow();
+    expect(() => registry.process(undefined)).not.toThrow();
   });
 
   it("process ignores invalid message shapes", () => {
-    const broadcast = broadcastCollections();
+    const registry = collectionRegistry.create().build();
 
-    expect(() => broadcast.process({})).not.toThrow();
-    expect(() => broadcast.process({ _tag: "wrong" })).not.toThrow();
-    expect(() => broadcast.process({ values: [] })).not.toThrow();
-    expect(() => broadcast.process("string")).not.toThrow();
-    expect(() => broadcast.process(123)).not.toThrow();
+    expect(() => registry.process({})).not.toThrow();
+    expect(() => registry.process({ _tag: "wrong" })).not.toThrow();
+    expect(() => registry.process({ values: [] })).not.toThrow();
+    expect(() => registry.process("string")).not.toThrow();
+    expect(() => registry.process(123)).not.toThrow();
   });
 
   it("process ignores valid message when no collections registered", () => {
-    const broadcast = broadcastCollections();
+    const registry = collectionRegistry.create().build();
 
     const message = {
       _tag: "@std-toolkit/broadcast" as const,
@@ -342,6 +348,6 @@ describe("broadcastCollections", () => {
       ],
     };
 
-    expect(() => broadcast.process(message)).not.toThrow();
+    expect(() => registry.process(message)).not.toThrow();
   });
 });

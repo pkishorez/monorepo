@@ -27,6 +27,7 @@ export interface ActiveSession {
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
   query?: Query;
+  lastActivityAt: number;
 }
 
 export const UpdateModelParams = Typed<{
