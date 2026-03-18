@@ -12,16 +12,10 @@ export const claudeMessageEntity = EntityESchema.make("claudeMessage", "id", {
 export const claudeSessionEntity = EntityESchema.make("claudeSession", "id", {
   status: Schema.Literal("in_progress", "success", "error", "interrupted"),
   absolutePath: Schema.String,
-  name: Schema.optionalWith(Schema.String, { default: () => "" }),
+  name: Schema.optionalWith(Schema.String, { default: () => "New Session" }),
   model: Schema.optional(Schema.String),
   permissionMode: Schema.optional(
-    Schema.Literal(
-      "default",
-      "acceptEdits",
-      "bypassPermissions",
-      "plan",
-      "dontAsk",
-    ),
+    Schema.Literal("acceptEdits", "bypassPermissions", "plan"),
   ),
   sdkSessionCreated: Schema.Boolean,
 }).build();

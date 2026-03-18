@@ -89,7 +89,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
   {
     scoped: Effect.gen(function* () {
       const activeTurns = new Map<string, ActiveTurn>();
-      const { updateModel, updateMode, getModels } = makeModelOperations();
+      const { updateSession, getModels } = makeModelOperations();
 
       yield* recoverInterruptedSessions;
       yield* shutdownFinalizer(activeTurns);
@@ -98,8 +98,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
         continueSession: continueSession(activeTurns),
         stopSession: stopSession(activeTurns),
         getSessionStatus: getSessionStatus(activeTurns),
-        updateModel,
-        updateMode,
+        updateSession,
         getModels,
       };
     }),

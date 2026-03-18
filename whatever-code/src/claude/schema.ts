@@ -20,19 +20,15 @@ export interface ActiveTurn {
   turnId: string;
 }
 
-export const UpdateModelParams = Typed<{
-  sessionId: string;
-  model: string;
-}>();
-
 export type PermissionModeValue =
-  | "default"
   | "acceptEdits"
   | "bypassPermissions"
-  | "plan"
-  | "dontAsk";
+  | "plan";
 
-export const UpdateModeParams = Typed<{
+export const UpdateSessionParams = Typed<{
   sessionId: string;
-  permissionMode: PermissionModeValue;
+  updates: {
+    model?: string;
+    permissionMode?: PermissionModeValue;
+  };
 }>();
