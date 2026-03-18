@@ -50,7 +50,7 @@ export const AppHandlers = AppRpcs.toLayer(
             status: "success",
             sdkSessionCreated: false,
             absolutePath,
-            name: "",
+            name: "New Session",
           })
           .pipe(Effect.orDie);
 
@@ -100,6 +100,20 @@ export const AppHandlers = AppRpcs.toLayer(
       ),
     "app.newSession": ({ absolutePath }) =>
       Effect.gen(function* () {
+        const project = yield* projectSqliteEntity
+          .get({ id: absolutePath })
+          .pipe(Effect.orDie);
+
+        // If current session is empty, don't create another one
+        if (project?.value.sessionId) {
+          const currentSession = yield* claudeSessionSqliteEntity
+            .get({ id: project.value.sessionId })
+            .pipe(Effect.orDie);
+          if (currentSession && !currentSession.value.sdkSessionCreated) {
+            return project;
+          }
+        }
+
         const sessionId = v7();
         yield* claudeSessionSqliteEntity
           .insert({
@@ -107,16 +121,20 @@ export const AppHandlers = AppRpcs.toLayer(
             status: "success",
             sdkSessionCreated: false,
             absolutePath,
-            name: "",
+            name: "New Session",
           })
           .pipe(Effect.orDie);
 
-        const project = yield* projectSqliteEntity
+        const updated = yield* projectSqliteEntity
           .update({ id: absolutePath }, { sessionId, status: "idle" })
           .pipe(Effect.orDie);
 
-        return project;
+        return updated;
       }).pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),
+    "app.switchSession": ({ absolutePath, sessionId }) =>
+      projectSqliteEntity
+        .update({ id: absolutePath }, { sessionId, status: "idle" })
+        .pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),
     "app.getProjectFiles": ({ absolutePath }) =>
       Effect.tryPromise({
         try: () =>

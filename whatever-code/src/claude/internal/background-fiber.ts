@@ -1,5 +1,6 @@
 import {
   query,
+  getSessionInfo,
   type Options as QueryOptions,
 } from "@anthropic-ai/claude-agent-sdk";
 import { Cause, Effect, Exit, Queue, Stream } from "effect";
@@ -82,9 +83,24 @@ export const startBackgroundFiber = (
         yield* claudeSessionSqliteEntity
           .update({ id: sessionId }, { status })
           .pipe(Effect.orDie);
-        yield* updateProjectStatus(
-          sessionId,
-          status === "error" ? "error" : "idle",
+
+        yield* Effect.all(
+          [
+            Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
+              Effect.flatMap((info) => {
+                if (!info?.summary) return Effect.void;
+                return claudeSessionSqliteEntity
+                  .update({ id: sessionId }, { name: info.summary })
+                  .pipe(Effect.orDie);
+              }),
+              Effect.catchAll(() => Effect.void),
+            ),
+            updateProjectStatus(
+              sessionId,
+              status === "error" ? "error" : "idle",
+            ),
+          ],
+          { discard: true },
         );
         yield* Queue.shutdown(turn.outputQueue);
       }

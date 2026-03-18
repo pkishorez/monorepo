@@ -1,6 +1,5 @@
 export {
   ContinueSessionParams,
   Message,
-  UpdateModelParams,
-  UpdateModeParams,
+  UpdateSessionParams,
 } from "./schema.js";
