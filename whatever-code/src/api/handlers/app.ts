@@ -2,15 +2,11 @@ import { Effect, Stream } from "effect";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { platform } from "node:os";
-import { v7 } from "uuid";
 import { listSessions } from "@anthropic-ai/claude-agent-sdk";
 import { AppError, AppRpcs } from "../definitions/app.js";
 import { BroadcastService } from "../../services/broadcast.js";
 import { dataDir } from "../../db/index.js";
-import {
-  claudeSessionSqliteEntity,
-  projectSqliteEntity,
-} from "../../db/claude.js";
+import { projectSqliteEntity } from "../../db/claude.js";
 import { computePaths } from "../../lib/paths.js";
 
 const execFilePromise = promisify(execFile);
@@ -39,25 +35,8 @@ export const AppHandlers = AppRpcs.toLayer(
           .get({ id: absolutePath })
           .pipe(Effect.orDie);
 
-        if (existing?.value.sessionId) {
-          return existing;
-        }
-
-        const sessionId = v7();
-        yield* claudeSessionSqliteEntity
-          .insert({
-            id: sessionId,
-            status: "success",
-            sdkSessionCreated: false,
-            absolutePath,
-            name: "New Session",
-          })
-          .pipe(Effect.orDie);
-
         if (existing) {
-          return yield* projectSqliteEntity
-            .update({ id: absolutePath }, { sessionId, status: "idle" })
-            .pipe(Effect.orDie);
+          return existing;
         }
 
         const paths = computePaths(absolutePath);
@@ -68,7 +47,7 @@ export const AppHandlers = AppRpcs.toLayer(
             homePath: paths.homePath,
             gitPath: paths.gitPath,
             agentType: "claude",
-            sessionId,
+            sessionId: null,
             status: "idle",
           })
           .pipe(Effect.orDie);
@@ -98,39 +77,6 @@ export const AppHandlers = AppRpcs.toLayer(
             }));
         }),
       ),
-    "app.newSession": ({ absolutePath }) =>
-      Effect.gen(function* () {
-        const project = yield* projectSqliteEntity
-          .get({ id: absolutePath })
-          .pipe(Effect.orDie);
-
-        // If current session is empty, don't create another one
-        if (project?.value.sessionId) {
-          const currentSession = yield* claudeSessionSqliteEntity
-            .get({ id: project.value.sessionId })
-            .pipe(Effect.orDie);
-          if (currentSession && !currentSession.value.sdkSessionCreated) {
-            return project;
-          }
-        }
-
-        const sessionId = v7();
-        yield* claudeSessionSqliteEntity
-          .insert({
-            id: sessionId,
-            status: "success",
-            sdkSessionCreated: false,
-            absolutePath,
-            name: "New Session",
-          })
-          .pipe(Effect.orDie);
-
-        const updated = yield* projectSqliteEntity
-          .update({ id: absolutePath }, { sessionId, status: "idle" })
-          .pipe(Effect.orDie);
-
-        return updated;
-      }).pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),
     "app.switchSession": ({ absolutePath, sessionId }) =>
       projectSqliteEntity
         .update({ id: absolutePath }, { sessionId, status: "idle" })

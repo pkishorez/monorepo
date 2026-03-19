@@ -14,6 +14,14 @@ export const continueSession =
   (activeTurns: Map<string, ActiveTurn>) =>
   (params: typeof ContinueSessionParams.Type) =>
     Effect.gen(function* () {
+      if (!params.sessionId) {
+        return yield* Effect.fail(
+          new ClaudeChatError({
+            message: "sessionId is required to continue a session",
+          }),
+        );
+      }
+
       const existing = activeTurns.get(params.sessionId);
 
       if (existing) {
