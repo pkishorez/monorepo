@@ -32,3 +32,10 @@ export const UpdateSessionParams = Typed<{
     permissionMode?: PermissionModeValue;
   };
 }>();
+
+export const CreateSessionParams = Typed<{
+  absolutePath: string;
+  prompt: string;
+  model?: string;
+  permissionMode?: PermissionModeValue;
+}>();
