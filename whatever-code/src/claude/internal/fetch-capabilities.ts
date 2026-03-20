@@ -1,45 +1,35 @@
-import {
-  query,
-  type ModelInfo,
-  type SlashCommand,
-} from "@anthropic-ai/claude-agent-sdk";
 import { Effect } from "effect";
 
 export interface SessionCapabilities {
-  models: ModelInfo[];
-  commands: SlashCommand[];
+  models: {
+    value: string;
+    displayName: string;
+    description: string;
+  }[];
+  commands: {
+    name: string;
+    description: string;
+    argumentHint: string;
+  }[];
 }
 
-export const fetchSessionCapabilities = (absolutePath: string) =>
-  Effect.async<SessionCapabilities, Error>((resume) => {
-    async function* neverYield() {
-      await new Promise(() => {});
-    }
+const MODELS: SessionCapabilities["models"] = [
+  {
+    value: "claude-opus-4-6",
+    displayName: "Opus 4.6",
+    description: "Most capable model for complex tasks",
+  },
+  {
+    value: "claude-sonnet-4-6",
+    displayName: "Sonnet 4.6",
+    description: "Best balance of speed and capability",
+  },
+  {
+    value: "claude-haiku-4-5-20251001",
+    displayName: "Haiku 4.5",
+    description: "Fastest model for simple tasks",
+  },
+];
 
-    const q = query({
-      prompt: neverYield(),
-      options: { cwd: absolutePath, permissionMode: "plan" },
-    });
-
-    let resolved = false;
-
-    (async () => {
-      for await (const message of q) {
-        if (message.type === "system" && message.subtype === "init") {
-          const [models, commands] = await Promise.all([
-            q.supportedModels(),
-            q.supportedCommands(),
-          ]);
-          resolved = true;
-          q.close();
-          resume(Effect.succeed({ models, commands }));
-          break;
-        }
-      }
-      if (!resolved) {
-        resume(Effect.fail(new Error("Query ended before init")));
-      }
-    })();
-
-    return Effect.sync(() => q.close());
-  });
+export const fetchSessionCapabilities = (_absolutePath: string) =>
+  Effect.succeed<SessionCapabilities>({ models: MODELS, commands: [] });
