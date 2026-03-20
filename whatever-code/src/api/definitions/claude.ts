@@ -74,9 +74,6 @@ export class ClaudeRpcs extends RpcGroup.make(
           value: Schema.String,
           displayName: Schema.String,
           description: Schema.String,
-          supportsEffort: Schema.optional(Schema.Boolean),
-          supportsFastMode: Schema.optional(Schema.Boolean),
-          supportsAutoMode: Schema.optional(Schema.Boolean),
         }),
       ),
       commands: Schema.Array(
