@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import {
   ContinueSessionParams,
   CreateSessionParams,
+  RespondToToolParams,
   UpdateSessionParams,
 } from "../../claude/index.js";
 import { EntitySchema } from "@std-toolkit/core";
@@ -32,6 +33,11 @@ export class ClaudeRpcs extends RpcGroup.make(
     success: Schema.Void,
     error: ClaudeChatError,
     payload: Schema.Struct({ sessionId: Schema.String }),
+  }),
+  Rpc.make("respondToTool", {
+    success: Schema.Void,
+    error: ClaudeChatError,
+    payload: RespondToToolParams,
   }),
   Rpc.make("queryMessages", {
     success: Schema.Array(EntitySchema(claudeMessageEntity)),
