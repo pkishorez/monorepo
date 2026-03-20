@@ -1,4 +1,4 @@
-import type { Queue } from "effect";
+import type { Deferred, Queue } from "effect";
 import { Typed } from "../lib/typed.js";
 import type {
   Options as QueryOptions,
@@ -7,6 +7,10 @@ import type {
 
 export const Message = Typed<SDKMessage>();
 
+export type ToolResponse =
+  | { behavior: "allow"; updatedInput?: Record<string, unknown> }
+  | { behavior: "deny"; message: string };
+
 type SessionOptions = Pick<QueryOptions, "thinking" | "effort" | "model">;
 export const ContinueSessionParams = Typed<{
   sessionId: string;
@@ -14,10 +18,17 @@ export const ContinueSessionParams = Typed<{
   options?: SessionOptions;
 }>();
 
+export const RespondToToolParams = Typed<{
+  sessionId: string;
+  toolUseId: string;
+  response: ToolResponse;
+}>();
+
 export interface ActiveTurn {
   abortController: AbortController;
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
+  pendingTools: Map<string, Deferred.Deferred<ToolResponse>>;
 }
 
 export type PermissionModeValue =
