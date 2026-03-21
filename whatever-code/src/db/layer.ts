@@ -4,7 +4,7 @@ import { Effect, Layer } from "effect";
 import envPaths from "env-paths";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { registry } from "./claude.js";
+import { registry } from "./registry.js";
 
 const makeDbLayer = (dbPath: string) =>
   Layer.unwrapEffect(

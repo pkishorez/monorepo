@@ -3,6 +3,6 @@ export {
   claudeMessageSqliteEntity,
   claudeSessionSqliteEntity,
   projectSqliteEntity,
-  registry,
 } from "./claude.js";
+export { registry } from "./registry.js";
 export { dbLayer, dataDir } from "./layer.js";

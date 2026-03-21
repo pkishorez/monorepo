@@ -1,4 +1,4 @@
-import { EntityRegistry, SQLiteEntity } from "@std-toolkit/sqlite";
+import { SQLiteEntity } from "@std-toolkit/sqlite";
 import {
   claudeMessageEntity,
   claudeSessionEntity,
@@ -33,11 +33,4 @@ export const projectSqliteEntity = SQLiteEntity.make(table)
   .primary()
   .index("IDX1", "bySessionId", { pk: ["id"] })
   .index("IDX2", "byUpdatedAt", { pk: [] })
-  .build();
-
-export const registry = EntityRegistry.make(table)
-  .register(claudeMessageSqliteEntity)
-  .register(claudeSessionSqliteEntity)
-  .register(claudeTurnSqliteEntity)
-  .register(projectSqliteEntity)
   .build();
