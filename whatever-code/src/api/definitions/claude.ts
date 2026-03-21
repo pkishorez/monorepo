@@ -54,43 +54,9 @@ export class ClaudeRpcs extends RpcGroup.make(
     error: ClaudeChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
-  Rpc.make("getSessionStatus", {
-    success: Schema.Struct({
-      session: Schema.NullOr(EntitySchema(claudeSessionEntity)),
-      latestTurn: Schema.NullOr(EntitySchema(claudeTurnEntity)),
-      isActiveInMemory: Schema.Boolean,
-      activeQueues: Schema.NullOr(
-        Schema.Struct({
-          outputQueueIsShutdown: Schema.Boolean,
-        }),
-      ),
-    }),
-    error: ClaudeChatError,
-    payload: Schema.Struct({ sessionId: Schema.String }),
-  }),
   Rpc.make("updateSession", {
     success: EntitySchema(claudeSessionEntity),
     error: ClaudeChatError,
     payload: UpdateSessionParams,
-  }),
-  Rpc.make("getCapabilities", {
-    success: Schema.Struct({
-      models: Schema.Array(
-        Schema.Struct({
-          value: Schema.String,
-          displayName: Schema.String,
-          description: Schema.String,
-        }),
-      ),
-      commands: Schema.Array(
-        Schema.Struct({
-          name: Schema.String,
-          description: Schema.String,
-          argumentHint: Schema.String,
-        }),
-      ),
-    }),
-    error: ClaudeChatError,
-    payload: Schema.Struct({ absolutePath: Schema.String }),
   }),
 ).prefix("claude.") {}

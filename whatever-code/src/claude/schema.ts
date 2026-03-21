@@ -1,52 +1,66 @@
-import type { Deferred, Queue } from "effect";
+import type { Queue } from "effect";
+import { Schema } from "effect";
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Typed } from "../lib/typed.js";
-import type {
-  Options as QueryOptions,
-  SDKMessage,
-} from "@anthropic-ai/claude-agent-sdk";
 
 export const Message = Typed<SDKMessage>();
 
-export type ToolResponse =
-  | { behavior: "allow"; updatedInput?: Record<string, unknown> }
-  | { behavior: "deny"; message: string };
+export const PermissionMode = Schema.Literal(
+  "acceptEdits",
+  "bypassPermissions",
+  "plan",
+);
+export type PermissionModeValue = typeof PermissionMode.Type;
 
-type SessionOptions = Pick<QueryOptions, "thinking" | "effort" | "model">;
-export const ContinueSessionParams = Typed<{
-  sessionId: string;
-  prompt: string;
-  options?: SessionOptions;
-}>();
+export const ToolResponse = Schema.Union(
+  Schema.mutable(
+    Schema.Struct({
+      behavior: Schema.Literal("allow"),
+      updatedInput: Schema.optionalWith(
+        Schema.mutable(
+          Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+        ),
+        { exact: true },
+      ),
+    }),
+  ),
+  Schema.mutable(
+    Schema.Struct({
+      behavior: Schema.Literal("deny"),
+      message: Schema.String,
+    }),
+  ),
+);
+export type ToolResponse = typeof ToolResponse.Type;
 
-export const RespondToToolParams = Typed<{
-  sessionId: string;
-  toolUseId: string;
-  response: ToolResponse;
-}>();
+export const ContinueSessionParams = Schema.Struct({
+  sessionId: Schema.String,
+  prompt: Schema.String,
+});
+
+export const RespondToToolParams = Schema.Struct({
+  sessionId: Schema.String,
+  toolUseId: Schema.String,
+  response: ToolResponse,
+});
 
 export interface ActiveTurn {
   abortController: AbortController;
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
-  pendingTools: Map<string, Deferred.Deferred<ToolResponse>>;
 }
 
-export type PermissionModeValue =
-  | "acceptEdits"
-  | "bypassPermissions"
-  | "plan";
+export const UpdateSessionParams = Schema.Struct({
+  sessionId: Schema.String,
+  updates: Schema.Struct({
+    model: Schema.optionalWith(Schema.String, { exact: true }),
+    permissionMode: Schema.optionalWith(PermissionMode, { exact: true }),
+  }),
+});
 
-export const UpdateSessionParams = Typed<{
-  sessionId: string;
-  updates: {
-    model?: string;
-    permissionMode?: PermissionModeValue;
-  };
-}>();
-
-export const CreateSessionParams = Typed<{
-  absolutePath: string;
-  prompt: string;
-  model?: string;
-  permissionMode?: PermissionModeValue;
-}>();
+export const CreateSessionParams = Schema.Struct({
+  absolutePath: Schema.String,
+  prompt: Schema.String,
+  model: Schema.String,
+  permissionMode: PermissionMode,
+});

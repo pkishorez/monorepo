@@ -1,6 +1,5 @@
-import { Deferred, Effect } from "effect";
+import { Effect } from "effect";
 import { ulid } from "ulid";
-import type { ActiveTurn } from "./schema.js";
 import {
   claudeMessageSqliteEntity,
   claudeSessionSqliteEntity,
@@ -32,11 +31,11 @@ export const MODELS: SessionCapabilities["models"] = [
 ];
 
 export const updateProjectStatus = (
-  sessionId: string,
+  id: string,
   status: "idle" | "active" | "error",
 ) =>
   projectSqliteEntity
-    .query("bySessionId", { pk: { sessionId }, sk: { ">": null } })
+    .query("bySessionId", { pk: { id }, sk: { ">": null } })
     .pipe(
       Effect.flatMap(({ items }) => {
         const project = items[0];
@@ -59,7 +58,7 @@ export const markTurnStatus = (
         .update({ id: turnId }, { status })
         .pipe(Effect.orDie),
       claudeSessionSqliteEntity
-        .update({ id: sessionId }, { status })
+        .update({ sessionId }, { status })
         .pipe(Effect.orDie),
     ],
     { discard: true },
@@ -87,7 +86,7 @@ const markTurnsInterrupted = (sessionId: string) =>
       Effect.orDie,
     );
 
-export const recoverInterruptedSessions = Effect.gen(function* () {
+export const initSessions = Effect.gen(function* () {
   const { items: inProgressSessions } = yield* claudeSessionSqliteEntity
     .query("byStatus", { pk: { status: "in_progress" }, sk: { ">": null } })
     .pipe(Effect.orDie);
@@ -98,9 +97,9 @@ export const recoverInterruptedSessions = Effect.gen(function* () {
       Effect.all(
         [
           claudeSessionSqliteEntity
-            .update({ id: value.id }, { status: "interrupted" })
+            .update({ sessionId: value.sessionId }, { status: "interrupted" })
             .pipe(Effect.orDie),
-          markTurnsInterrupted(value.id),
+          markTurnsInterrupted(value.sessionId),
         ],
         { discard: true },
       ),
@@ -114,10 +113,7 @@ export const persistNewTurn = (
   prompt: string,
 ) =>
   Effect.all([
-    claudeSessionSqliteEntity.update(
-      { id: sessionId },
-      { status: "in_progress" },
-    ),
+    claudeSessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),
     claudeTurnSqliteEntity.insert({
       id: turnId,
       sessionId,
@@ -137,11 +133,3 @@ export const persistNewTurn = (
       },
     }),
   ]).pipe(Effect.orDie);
-
-export const rejectPendingTools = (turn: ActiveTurn, message: string) =>
-  Effect.gen(function* () {
-    for (const deferred of turn.pendingTools.values()) {
-      yield* Deferred.succeed(deferred, { behavior: "deny" as const, message });
-    }
-    turn.pendingTools.clear();
-  });

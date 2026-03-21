@@ -1,12 +1,14 @@
 import {
-  type Options as QueryOptions,
-  SDKMessage,
+  query,
+  getSessionInfo,
+  type SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import { Deferred, Effect, Queue } from "effect";
+import { Cause, Effect, Exit, Queue, Stream } from "effect";
 import { v7 } from "uuid";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../api/definitions/claude.js";
 import {
+  claudeMessageSqliteEntity,
   claudeSessionSqliteEntity,
   claudeTurnSqliteEntity,
   projectSqliteEntity,
@@ -15,171 +17,234 @@ import type { ActiveTurn } from "./schema.js";
 import {
   ContinueSessionParams,
   CreateSessionParams,
-  RespondToToolParams,
   UpdateSessionParams,
 } from "./schema.js";
-import { runQuery } from "./run-query.js";
 import {
-  MODELS,
   markTurnStatus,
   persistNewTurn,
-  recoverInterruptedSessions,
-  rejectPendingTools,
-  type SessionCapabilities,
+  initSessions,
+  updateProjectStatus,
 } from "./utils.js";
-
-const gracefulShutdown = (activeTurns: Map<string, ActiveTurn>) =>
-  Effect.forEach(
-    activeTurns.entries(),
-    ([sessionId, turn]) =>
-      markTurnStatus(turn.turnId, sessionId, "interrupted").pipe(
-        Effect.ensuring(
-          rejectPendingTools(turn, "Shutdown").pipe(
-            Effect.andThen(
-              Effect.sync(() => turn.abortController.abort()),
-            ),
-          ),
-        ),
-      ),
-    { discard: true },
-  );
-
-const guardPreviousTurn = (
-  activeTurns: Map<string, ActiveTurn>,
-  sessionId: string,
-) =>
-  Effect.gen(function* () {
-    const existing = activeTurns.get(sessionId);
-    if (!existing) return;
-
-    const isOutputDone = yield* Queue.isShutdown(existing.outputQueue);
-    if (!isOutputDone) {
-      yield* Effect.logWarning(
-        "rejecting continue — previous turn still active",
-      );
-      return yield* Effect.fail(
-        new ClaudeChatError({ message: "previous turn did not finish yet" }),
-      );
-    }
-    activeTurns.delete(sessionId);
-  });
-
-const createActiveTurn = (turnId: string) =>
-  Effect.map(Queue.unbounded<SDKMessage>(), (outputQueue): ActiveTurn => ({
-    abortController: new AbortController(),
-    outputQueue,
-    turnId,
-    pendingTools: new Map(),
-  }));
-
-const buildQueryOptions = (
-  userOptions: QueryOptions | undefined,
-  db: {
-    storedModel: string | undefined;
-    storedPermissionMode: string | undefined;
-    sdkCreated: boolean;
-    absolutePath: string | undefined;
-  },
-  sessionId: string,
-) => {
-  const base: QueryOptions = {
-    ...userOptions,
-    ...(db.storedModel !== undefined ? { model: db.storedModel } : {}),
-    ...(db.absolutePath !== undefined ? { cwd: db.absolutePath } : {}),
-  };
-  if (db.sdkCreated) base.resume = sessionId;
-  else base.sessionId = sessionId;
-  if (db.storedPermissionMode !== undefined)
-    (base as Record<string, unknown>).permissionMode =
-      db.storedPermissionMode;
-  return base;
-};
-
-const insertNewSession = (
-  sessionId: string,
-  params: typeof CreateSessionParams.Type,
-) =>
-  claudeSessionSqliteEntity
-    .insert({
-      id: sessionId,
-      status: "success",
-      sdkSessionCreated: false,
-      absolutePath: params.absolutePath,
-      name: "New Session",
-      ...(params.model !== undefined ? { model: params.model } : {}),
-      ...(params.permissionMode !== undefined
-        ? { permissionMode: params.permissionMode }
-        : {}),
-    })
-    .pipe(Effect.orDie);
-
-const linkProjectToSession = (absolutePath: string, sessionId: string) =>
-  projectSqliteEntity
-    .update({ id: absolutePath }, { sessionId, status: "idle" })
-    .pipe(Effect.orDie);
-
-const loadSessionFromDb = (sessionId: string) =>
-  claudeSessionSqliteEntity.get({ id: sessionId }).pipe(Effect.orDie);
 
 export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
   "ClaudeOrchestrator",
   {
     scoped: Effect.gen(function* () {
       const activeTurns = new Map<string, ActiveTurn>();
-      const runtime = yield* Effect.runtime<never>();
 
-      yield* recoverInterruptedSessions;
-      yield* Effect.addFinalizer(() => gracefulShutdown(activeTurns));
+      yield* initSessions;
+      yield* Effect.addFinalizer(() =>
+        ((activeTurns: Map<string, ActiveTurn>) =>
+          Effect.forEach(
+            activeTurns.entries(),
+            ([sessionId, turn]) =>
+              markTurnStatus(turn.turnId, sessionId, "interrupted"),
+            { discard: true },
+          ))(activeTurns),
+      );
 
       const createSession = (params: typeof CreateSessionParams.Type) =>
         Effect.gen(function* () {
           const sessionId = v7();
-          yield* insertNewSession(sessionId, params);
-          yield* linkProjectToSession(params.absolutePath, sessionId);
-          yield* continueSession({ sessionId, prompt: params.prompt });
+          yield* claudeSessionSqliteEntity
+            .insert({
+              sessionId,
+              status: "success",
+              absolutePath: params.absolutePath,
+              name: "New Session",
+              model: params.model,
+              permissionMode: params.permissionMode,
+            })
+            .pipe(Effect.orDie);
+          yield* projectSqliteEntity
+            .update(
+              { id: params.absolutePath },
+              { agent: { type: "claude", sessionId }, status: "idle" },
+            )
+            .pipe(Effect.orDie);
+          yield* continueSession({ sessionId, prompt: params.prompt }, true);
         }).pipe(
           Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
         );
 
-      const continueSession = (params: typeof ContinueSessionParams.Type) =>
+      const continueSession = (
+        params: typeof ContinueSessionParams.Type,
+        newSession = false,
+      ) =>
         Effect.gen(function* () {
-          if (!params.sessionId) {
-            return yield* Effect.fail(
-              new ClaudeChatError({
-                message: "sessionId is required to continue a session",
-              }),
-            );
+          const sessionId = params.sessionId;
+
+          const existing = activeTurns.get(sessionId);
+          if (existing) {
+            const isOutputDone = yield* Queue.isShutdown(existing.outputQueue);
+            if (!isOutputDone) {
+              yield* Effect.logWarning(
+                "rejecting continue — previous turn still active",
+              );
+              return yield* Effect.fail(
+                new ClaudeChatError({
+                  message: "previous turn did not finish yet",
+                }),
+              );
+            }
+            activeTurns.delete(sessionId);
           }
 
-          yield* guardPreviousTurn(activeTurns, params.sessionId);
+          const session = yield* claudeSessionSqliteEntity
+            .get({ sessionId })
+            .pipe(
+              Effect.orDie,
+              Effect.flatMap((row) =>
+                row
+                  ? Effect.succeed(row.value)
+                  : Effect.fail(
+                      new ClaudeChatError({
+                        message: `session ${sessionId} not found`,
+                      }),
+                    ),
+              ),
+            );
 
           const turnId = ulid();
-          yield* persistNewTurn(params.sessionId, turnId, params.prompt);
+          yield* persistNewTurn(sessionId, turnId, params.prompt);
 
-          const dbSession = yield* loadSessionFromDb(params.sessionId);
-
-          const turn = yield* createActiveTurn(turnId);
-          activeTurns.set(params.sessionId, turn);
-
-          const options = buildQueryOptions(
-            params.options,
-            {
-              storedModel: dbSession?.value.model,
-              storedPermissionMode: dbSession?.value.permissionMode,
-              sdkCreated: dbSession?.value.sdkSessionCreated ?? false,
-              absolutePath: dbSession?.value.absolutePath,
-            },
-            params.sessionId,
+          const turn = yield* Effect.map(
+            Queue.unbounded<SDKMessage>(),
+            (outputQueue): ActiveTurn => ({
+              abortController: new AbortController(),
+              outputQueue,
+              turnId,
+            }),
           );
+          activeTurns.set(sessionId, turn);
 
-          yield* runQuery({
-            runtime,
-            activeTurns,
-            sessionId: params.sessionId,
-            turn,
+          const queryResult = query({
             prompt: params.prompt,
-            queryOptions: options,
+            options: {
+              model: session.model,
+              cwd: session.absolutePath,
+              ...(newSession ? { sessionId } : { resume: sessionId }),
+              permissionMode: session.permissionMode,
+              ...(session.permissionMode === "bypassPermissions"
+                ? { allowDangerouslySkipPermissions: true }
+                : {}),
+              abortController: turn.abortController,
+              toolConfig: {
+                askUserQuestion: { previewFormat: "html" },
+              },
+              sandbox: {
+                enabled: true,
+                autoAllowBashIfSandboxed: true,
+              },
+            },
           });
+
+          type Message =
+            typeof queryResult extends AsyncGenerator<infer T> ? T : never;
+
+          const processMessage = (message: Message) =>
+            Effect.gen(function* () {
+              yield* claudeMessageSqliteEntity
+                .insert({
+                  id: ulid(),
+                  sessionId,
+                  turnId: turn.turnId,
+                  data: message,
+                })
+                .pipe(Effect.orDie);
+              yield* Queue.offer(turn.outputQueue, message);
+
+              if (message.type === "system" && message.subtype === "init") {
+                yield* Effect.log("session initialized").pipe(
+                  Effect.annotateLogs({ turnId: turn.turnId }),
+                );
+                yield* Effect.all(
+                  [
+                    claudeTurnSqliteEntity
+                      .update({ id: turn.turnId }, { init: message })
+                      .pipe(Effect.orDie),
+                    updateProjectStatus(sessionId, "active"),
+                  ],
+                  { discard: true },
+                );
+              } else if (message.type === "result") {
+                const status = message.is_error ? "error" : "success";
+
+                yield* Effect.log("turn completed").pipe(
+                  Effect.annotateLogs({ turnId: turn.turnId, status }),
+                );
+
+                yield* claudeTurnSqliteEntity
+                  .update({ id: turn.turnId }, { status, result: message })
+                  .pipe(Effect.orDie);
+                yield* claudeSessionSqliteEntity
+                  .update({ sessionId }, { status })
+                  .pipe(Effect.orDie);
+
+                yield* Effect.all(
+                  [
+                    Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
+                      Effect.flatMap((info) => {
+                        if (!info?.summary) return Effect.void;
+                        return claudeSessionSqliteEntity
+                          .update({ sessionId }, { name: info.summary })
+                          .pipe(Effect.orDie, Effect.asVoid);
+                      }),
+                      Effect.catchAll(() => Effect.void),
+                    ),
+                    updateProjectStatus(
+                      sessionId,
+                      status === "error" ? "error" : "idle",
+                    ),
+                  ],
+                  { discard: true },
+                );
+
+                yield* Queue.shutdown(turn.outputQueue);
+              }
+            });
+
+          const onFiberExit = (exit: Exit.Exit<void, Error>) =>
+            Effect.gen(function* () {
+              yield* Queue.shutdown(turn.outputQueue);
+
+              if (!activeTurns.has(sessionId)) return;
+              activeTurns.delete(sessionId);
+
+              if (Exit.isSuccess(exit)) {
+                yield* Effect.log("background fiber exited cleanly");
+              } else if (Exit.isInterrupted(exit)) {
+                yield* Effect.log("background fiber interrupted");
+                yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
+                yield* updateProjectStatus(sessionId, "idle");
+              } else {
+                const cause = exit.pipe(Exit.causeOption);
+                yield* Effect.logError("background fiber failed").pipe(
+                  Effect.annotateLogs({
+                    cause:
+                      cause._tag === "Some"
+                        ? Cause.pretty(cause.value)
+                        : "unknown",
+                  }),
+                );
+                yield* markTurnStatus(turn.turnId, sessionId, "error");
+                yield* updateProjectStatus(sessionId, "error");
+              }
+            });
+
+          yield* Effect.forkScoped(
+            Stream.fromAsyncIterable(
+              queryResult,
+              (e) => new Error(String(e)),
+            ).pipe(
+              Stream.tap(processMessage),
+              Stream.runDrain,
+              Effect.onExit(onFiberExit),
+              Effect.withSpan("claude.backgroundFiber", {
+                attributes: { sessionId },
+              }),
+            ),
+          );
         }).pipe(
           Effect.withSpan("claude.continueSession", {
             attributes: { sessionId: params.sessionId },
@@ -192,82 +257,21 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           if (!turn) return;
 
           activeTurns.delete(sessionId);
-          yield* rejectPendingTools(turn, "Session stopped");
           yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
           turn.abortController.abort();
           yield* Queue.shutdown(turn.outputQueue);
         });
 
-      const respondToTool = (params: typeof RespondToToolParams.Type) =>
-        Effect.gen(function* () {
-          const turn = activeTurns.get(params.sessionId);
-          if (!turn) {
-            return yield* Effect.logWarning(
-              "respondToTool: no active turn for session",
-            );
-          }
-
-          const deferred = turn.pendingTools.get(params.toolUseId);
-          if (!deferred) {
-            return yield* Effect.logWarning(
-              "respondToTool: no pending tool for toolUseId",
-            );
-          }
-
-          turn.pendingTools.delete(params.toolUseId);
-          yield* Deferred.succeed(deferred, params.response);
-          yield* Effect.log("respondToTool: resolved pending tool");
-        });
-
       const updateSession = (params: typeof UpdateSessionParams.Type) =>
         claudeSessionSqliteEntity
-          .update({ id: params.sessionId }, params.updates)
+          .update({ sessionId: params.sessionId }, params.updates)
           .pipe(Effect.orDie);
-
-      const getSessionStatus = (sessionId: string) =>
-        Effect.gen(function* () {
-          const session = yield* loadSessionFromDb(sessionId);
-          const { items: turns } = yield* claudeTurnSqliteEntity
-            .query("bySession", {
-              pk: { sessionId },
-              sk: { ">": null },
-            })
-            .pipe(Effect.orDie);
-
-          const latestTurn = turns.at(-1) ?? null;
-          const active = activeTurns.get(sessionId);
-
-          if (!active) {
-            return {
-              session,
-              latestTurn,
-              isActiveInMemory: false,
-              activeQueues: null,
-            };
-          }
-
-          const outputQueueIsShutdown = yield* Queue.isShutdown(
-            active.outputQueue,
-          );
-          return {
-            session,
-            latestTurn,
-            isActiveInMemory: true,
-            activeQueues: { outputQueueIsShutdown },
-          };
-        });
-
-      const getCapabilities = (_absolutePath: string) =>
-        Effect.succeed<SessionCapabilities>({ models: MODELS, commands: [] });
 
       return {
         createSession,
         continueSession,
         stopSession,
-        respondToTool,
         updateSession,
-        getSessionStatus,
-        getCapabilities,
       };
     }),
   },

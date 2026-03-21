@@ -7,10 +7,9 @@ export const OpenProjectParams = Schema.Struct({
   absolutePath: Schema.String,
 });
 
-export class AppError extends Schema.TaggedError<AppError>()(
-  "AppError",
-  { message: Schema.String },
-) {}
+export class AppError extends Schema.TaggedError<AppError>()("AppError", {
+  message: Schema.String,
+}) {}
 
 export class AppRpcs extends RpcGroup.make(
   Rpc.make("subscribe", {
@@ -54,7 +53,10 @@ export class AppRpcs extends RpcGroup.make(
     error: AppError,
     payload: Schema.Struct({
       absolutePath: Schema.String,
-      sessionId: Schema.NullOr(Schema.String),
+      agent: Schema.Struct({
+        type: Schema.Literal("claude"),
+        sessionId: Schema.NullOr(Schema.String),
+      }),
     }),
   }),
 ).prefix("app.") {}
