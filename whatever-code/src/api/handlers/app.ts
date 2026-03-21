@@ -46,8 +46,10 @@ export const AppHandlers = AppRpcs.toLayer(
             name: paths.gitPath,
             homePath: paths.homePath,
             gitPath: paths.gitPath,
-            agentType: "claude",
-            sessionId: null,
+            agent: {
+              type: "claude",
+              sessionId: null,
+            },
             status: "idle",
           })
           .pipe(Effect.orDie);
@@ -77,9 +79,15 @@ export const AppHandlers = AppRpcs.toLayer(
             }));
         }),
       ),
-    "app.switchSession": ({ absolutePath, sessionId }) =>
+    "app.switchSession": ({ absolutePath, agent }) =>
       projectSqliteEntity
-        .update({ id: absolutePath }, { sessionId, status: "idle" })
+        .update(
+          { id: absolutePath },
+          {
+            agent,
+            status: "idle",
+          },
+        )
         .pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),
     "app.getProjectFiles": ({ absolutePath }) =>
       Effect.tryPromise({

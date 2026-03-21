@@ -15,10 +15,13 @@ export const ClaudeHandlers = ClaudeRpcs.toLayer(
       Effect.flatMap(ClaudeOrchestrator, (o) => o.continueSession(params)),
     "claude.stopSession": ({ sessionId }) =>
       Effect.flatMap(ClaudeOrchestrator, (o) => o.stopSession(sessionId)),
-    "claude.respondToTool": (params) =>
-      Effect.flatMap(ClaudeOrchestrator, (o) => o.respondToTool(params)).pipe(
+    "claude.updateSession": (params) =>
+      Effect.flatMap(ClaudeOrchestrator, (o) => o.updateSession(params)).pipe(
         Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
       ),
+    "claude.respondToTool": () => Effect.dieMessage("Not implemented"),
+
+    // Queries.
     "claude.queryMessages": ({ ">": cursor }) =>
       claudeMessageSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
@@ -40,17 +43,5 @@ export const ClaudeHandlers = ClaudeRpcs.toLayer(
           Effect.map(({ items }) => items),
           Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
         ),
-    "claude.getSessionStatus": ({ sessionId }) =>
-      Effect.flatMap(ClaudeOrchestrator, (o) => o.getSessionStatus(sessionId)).pipe(
-        Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
-      ),
-    "claude.updateSession": (params) =>
-      Effect.flatMap(ClaudeOrchestrator, (o) => o.updateSession(params)).pipe(
-        Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
-      ),
-    "claude.getCapabilities": ({ absolutePath }) =>
-      Effect.flatMap(ClaudeOrchestrator, (o) => o.getCapabilities(absolutePath)).pipe(
-        Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
-      ),
   }),
 );

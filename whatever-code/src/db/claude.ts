@@ -31,7 +31,7 @@ export const claudeTurnSqliteEntity = SQLiteEntity.make(table)
 export const projectSqliteEntity = SQLiteEntity.make(table)
   .eschema(projectEntity)
   .primary()
-  .index("IDX1", "bySessionId", { pk: ["sessionId"] })
+  .index("IDX1", "bySessionId", { pk: ["id"] })
   .index("IDX2", "byUpdatedAt", { pk: [] })
   .build();
 

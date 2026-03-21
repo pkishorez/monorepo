@@ -5,7 +5,11 @@ export const projectEntity = EntityESchema.make("project", "id", {
   name: Schema.String,
   homePath: Schema.String,
   gitPath: Schema.String,
-  agentType: Schema.Literal("claude", "codex"),
-  sessionId: Schema.NullOr(Schema.String),
+  agent: Schema.Union(
+    Schema.Struct({
+      type: Schema.Literal("claude"),
+      sessionId: Schema.NullOr(Schema.String),
+    }),
+  ),
   status: Schema.Literal("idle", "active", "error"),
 }).build();
