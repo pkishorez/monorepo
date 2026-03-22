@@ -72,7 +72,7 @@ export class ESchema<
         Effect.tapError((err) =>
           Effect.sync(() =>
             console.error(
-              `[ESchema] Decode failed for "${this.name}" (version ${_v}):\n${ParseResult.TreeFormatter.formatErrorSync(err)}`,
+              `[ESchema] Decode failed for "${(this as any).name ?? "anonymous"}" (version ${_v}):\n${ParseResult.TreeFormatter.formatErrorSync(err)}`,
             ),
           ),
         ),

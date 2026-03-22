@@ -12,6 +12,8 @@ import { ApiRpcs } from "./api/definitions/index.js";
 import { ApiHandlers } from "./api/handlers/index.js";
 import { dbLayer } from "./db/index.js";
 import { ClaudeOrchestrator } from "./claude/claude.js";
+import { CodexOrchestrator } from "./codex/codex.js";
+import { CodexClient } from "./codex/client.js";
 import { ServicesLayer } from "./services/index.js";
 import { TelemetryLayer } from "./telemetry.js";
 
@@ -56,6 +58,8 @@ export function startServer(config: ServerConfig) {
   const ServerLayer = HttpLayerRouter.serve(AllRoutes).pipe(
     HttpMiddleware.withTracerDisabledWhen(() => true),
     Layer.provide(ClaudeOrchestrator.Default),
+    Layer.provide(CodexOrchestrator.Default),
+    Layer.provide(CodexClient.Default),
     Layer.provide(ServicesLayer),
     Layer.provide(dbLayer),
     Layer.provide(NodeHttpServer.layer(createServer, { port: config.port })),

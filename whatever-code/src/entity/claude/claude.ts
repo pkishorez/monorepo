@@ -13,6 +13,10 @@ export const claudeSessionEntity = EntityESchema.make(
     name: Schema.optionalWith(Schema.String, { exact: true }),
     model: Schema.String,
     permissionMode: Schema.Literal("acceptEdits", "bypassPermissions", "plan"),
+    persistSession: Schema.Boolean,
+    effort: Schema.Literal("low", "medium", "high", "max"),
+    maxTurns: Schema.Number,
+    maxBudgetUsd: Schema.Number,
   },
 ).build();
 
