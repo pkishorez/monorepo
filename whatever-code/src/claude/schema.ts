@@ -5,6 +5,8 @@ import { Typed } from "../lib/typed.js";
 
 export const Message = Typed<SDKMessage>();
 
+export const Effort = Schema.Literal("low", "medium", "high", "max");
+
 export const PermissionMode = Schema.Literal(
   "acceptEdits",
   "bypassPermissions",
@@ -55,6 +57,10 @@ export const UpdateSessionParams = Schema.Struct({
   updates: Schema.Struct({
     model: Schema.optionalWith(Schema.String, { exact: true }),
     permissionMode: Schema.optionalWith(PermissionMode, { exact: true }),
+    persistSession: Schema.optionalWith(Schema.Boolean, { exact: true }),
+    effort: Schema.optionalWith(Effort, { exact: true }),
+    maxTurns: Schema.optionalWith(Schema.Number, { exact: true }),
+    maxBudgetUsd: Schema.optionalWith(Schema.Number, { exact: true }),
   }),
 });
 
@@ -63,4 +69,8 @@ export const CreateSessionParams = Schema.Struct({
   prompt: Schema.String,
   model: Schema.String,
   permissionMode: PermissionMode,
+  persistSession: Schema.Boolean,
+  effort: Effort,
+  maxTurns: Schema.Number,
+  maxBudgetUsd: Schema.Number,
 });

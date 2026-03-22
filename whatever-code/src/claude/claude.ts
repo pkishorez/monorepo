@@ -54,6 +54,10 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               name: "New Session",
               model: params.model,
               permissionMode: params.permissionMode,
+              persistSession: params.persistSession,
+              effort: params.effort,
+              maxTurns: params.maxTurns,
+              maxBudgetUsd: params.maxBudgetUsd,
             })
             .pipe(Effect.orDie);
           yield* projectSqliteEntity
@@ -125,6 +129,12 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               cwd: session.absolutePath,
               ...(newSession ? { sessionId } : { resume: sessionId }),
               permissionMode: session.permissionMode,
+              persistSession: session.persistSession,
+              effort: session.effort,
+              ...(session.maxTurns > 0 ? { maxTurns: session.maxTurns } : {}),
+              ...(session.maxBudgetUsd > 0
+                ? { maxBudgetUsd: session.maxBudgetUsd }
+                : {}),
               ...(session.permissionMode === "bypassPermissions"
                 ? { allowDangerouslySkipPermissions: true }
                 : {}),

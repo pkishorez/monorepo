@@ -10,6 +10,10 @@ export const projectEntity = EntityESchema.make("project", "id", {
       type: Schema.Literal("claude"),
       sessionId: Schema.NullOr(Schema.String),
     }),
+    Schema.Struct({
+      type: Schema.Literal("codex"),
+      threadId: Schema.NullOr(Schema.String),
+    }),
   ),
   status: Schema.Literal("idle", "active", "error"),
 }).build();

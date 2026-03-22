@@ -25,12 +25,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@effect/cli": "0.73.2",
-    "@effect/platform": "0.94.5",
-    "@effect/platform-node": "0.104.1",
-    "@opentui/core": "0.1.87",
-    "@opentui/react": "0.1.87",
-    "effect": "3.19.19",
+    "@effect/cli": "0.75.0",
+    "@effect/platform": "0.96.0",
+    "@effect/platform-node": "0.106.0",
+    "@opentui/core": "0.1.90",
+    "@opentui/react": "0.1.90",
+    "effect": "3.21.0",
     "js-yaml": "4.1.1",
     "react": "19.2.4",
     "semver": "7.7.4",
@@ -39,9 +39,9 @@
     "use-effect-ts": "workspace:*"
   },
   "devDependencies": {
-    "@effect/vitest": "0.27.0",
+    "@effect/vitest": "0.29.0",
     "@tsconfig/node22": "22.0.5",
-    "@types/bun": "1.3.10",
+    "@types/bun": "1.3.11",
     "@types/js-yaml": "4.0.9",
     "@types/node": "25.5.0",
     "@types/react": "19.2.14",
