@@ -6,6 +6,7 @@ import {
   codexTurnSqliteEntity,
 } from "../db/codex.js";
 import { projectSqliteEntity } from "../db/claude.js";
+import type { TaskStatus } from "../entity/status.js";
 
 export const MODELS = [
   {
@@ -25,10 +26,7 @@ export const MODELS = [
   },
 ];
 
-export const updateProjectStatus = (
-  threadId: string,
-  status: "idle" | "active" | "error",
-) =>
+export const updateProjectStatus = (threadId: string, status: TaskStatus) =>
   projectSqliteEntity
     .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
     .pipe(
@@ -49,7 +47,7 @@ export const updateProjectStatus = (
 export const markTurnStatus = (
   turnId: string,
   threadId: string,
-  status: "interrupted" | "error" | "success",
+  status: TaskStatus,
 ) =>
   Effect.all(
     [

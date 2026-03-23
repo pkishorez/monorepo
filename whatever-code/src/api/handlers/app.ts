@@ -50,7 +50,7 @@ export const AppHandlers = AppRpcs.toLayer(
               type: "claude",
               sessionId: null,
             },
-            status: "idle",
+            status: "success",
           })
           .pipe(Effect.orDie);
       }).pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),
@@ -85,7 +85,7 @@ export const AppHandlers = AppRpcs.toLayer(
           { id: absolutePath },
           {
             agent,
-            status: "idle",
+            status: "success",
           },
         )
         .pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),

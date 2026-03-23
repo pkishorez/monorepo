@@ -16,17 +16,10 @@ export default defineConfig([
     outDir: "dist/api/definitions",
   },
   {
-    entry: ["src/claude/index.ts"],
+    entry: ["src/entity/index.ts"],
     format: "esm",
     dts: true,
     sourcemap: "inline",
-    outDir: "dist/claude",
-  },
-  {
-    entry: ["src/entity/project/index.ts"],
-    format: "esm",
-    dts: true,
-    sourcemap: "inline",
-    outDir: "dist/entity/project",
+    outDir: "dist/entity",
   },
 ]);

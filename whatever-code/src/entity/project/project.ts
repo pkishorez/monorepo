@@ -1,5 +1,6 @@
 import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
+import { TaskStatus } from "../status.js";
 
 export const projectEntity = EntityESchema.make("project", "id", {
   name: Schema.String,
@@ -15,5 +16,5 @@ export const projectEntity = EntityESchema.make("project", "id", {
       threadId: Schema.NullOr(Schema.String),
     }),
   ),
-  status: Schema.Literal("idle", "active", "error"),
+  status: TaskStatus,
 }).build();
