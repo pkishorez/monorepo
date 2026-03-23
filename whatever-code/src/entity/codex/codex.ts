@@ -2,12 +2,13 @@ import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 import { Typed } from "../../lib/typed.js";
 import type { ServerNotification, TokenUsage, TurnError } from "./types.js";
+import { TaskStatus } from "../status.js";
 
 export const codexThreadEntity = EntityESchema.make(
   "codexThread",
   "threadId",
   {
-    status: Schema.Literal("in_progress", "success", "error", "interrupted"),
+    status: TaskStatus,
     absolutePath: Schema.String,
     name: Schema.optionalWith(Schema.String, { exact: true }),
     model: Schema.String,
@@ -28,7 +29,7 @@ export const codexThreadEntity = EntityESchema.make(
 
 export const codexTurnEntity = EntityESchema.make("codexTurn", "id", {
   threadId: Schema.String,
-  status: Schema.Literal("in_progress", "success", "error", "interrupted"),
+  status: TaskStatus,
   message: Schema.optionalWith(Schema.String, { exact: true }),
   sdkTurnId: Schema.NullOr(Schema.String),
   usage: Schema.NullOr(Typed<TokenUsage>()),

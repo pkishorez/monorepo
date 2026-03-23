@@ -6,6 +6,7 @@ import {
   claudeTurnSqliteEntity,
   projectSqliteEntity,
 } from "../db/claude.js";
+import type { TaskStatus } from "../entity/status.js";
 
 export interface SessionCapabilities {
   models: { value: string; displayName: string; description: string }[];
@@ -30,10 +31,7 @@ export const MODELS: SessionCapabilities["models"] = [
   },
 ];
 
-export const updateProjectStatus = (
-  id: string,
-  status: "idle" | "active" | "error",
-) =>
+export const updateProjectStatus = (id: string, status: TaskStatus) =>
   projectSqliteEntity
     .query("bySessionId", { pk: { id }, sk: { ">": null } })
     .pipe(
@@ -50,7 +48,7 @@ export const updateProjectStatus = (
 export const markTurnStatus = (
   turnId: string,
   sessionId: string,
-  status: "interrupted" | "error",
+  status: TaskStatus,
 ) =>
   Effect.all(
     [

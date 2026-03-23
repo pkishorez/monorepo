@@ -14,13 +14,9 @@
       "types": "./dist/api/definitions/index.d.mts",
       "import": "./dist/api/definitions/index.mjs"
     },
-    "./claude": {
-      "types": "./dist/claude/index.d.mts",
-      "import": "./dist/claude/index.mjs"
-    },
-    "./entity/project": {
-      "types": "./dist/entity/project/index.d.mts",
-      "import": "./dist/entity/project/index.mjs"
+    "./entity": {
+      "types": "./dist/entity/index.d.mts",
+      "import": "./dist/entity/index.mjs"
     }
   },
   "bin": {

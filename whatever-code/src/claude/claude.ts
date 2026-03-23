@@ -38,7 +38,13 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           Effect.forEach(
             activeTurns.entries(),
             ([sessionId, turn]) =>
-              markTurnStatus(turn.turnId, sessionId, "interrupted"),
+              Effect.all(
+                [
+                  markTurnStatus(turn.turnId, sessionId, "interrupted"),
+                  updateProjectStatus(sessionId, "interrupted"),
+                ],
+                { discard: true },
+              ),
             { discard: true },
           ))(activeTurns),
       );
@@ -63,7 +69,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           yield* projectSqliteEntity
             .update(
               { id: params.absolutePath },
-              { agent: { type: "claude", sessionId }, status: "idle" },
+              { agent: { type: "claude", sessionId }, status: "success" },
             )
             .pipe(Effect.orDie);
           yield* continueSession({ sessionId, prompt: params.prompt }, true);
@@ -173,7 +179,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
                     claudeTurnSqliteEntity
                       .update({ id: turn.turnId }, { init: message })
                       .pipe(Effect.orDie),
-                    updateProjectStatus(sessionId, "active"),
+                    updateProjectStatus(sessionId, "in_progress"),
                   ],
                   { discard: true },
                 );
@@ -202,10 +208,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
                       }),
                       Effect.catchAll(() => Effect.void),
                     ),
-                    updateProjectStatus(
-                      sessionId,
-                      status === "error" ? "error" : "idle",
-                    ),
+                    updateProjectStatus(sessionId, status),
                   ],
                   { discard: true },
                 );
@@ -226,7 +229,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               } else if (Exit.isInterrupted(exit)) {
                 yield* Effect.log("background fiber interrupted");
                 yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
-                yield* updateProjectStatus(sessionId, "idle");
+                yield* updateProjectStatus(sessionId, "interrupted");
               } else {
                 const cause = exit.pipe(Exit.causeOption);
                 yield* Effect.logError("background fiber failed").pipe(
@@ -268,6 +271,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
 
           activeTurns.delete(sessionId);
           yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
+          yield* updateProjectStatus(sessionId, "interrupted");
           turn.abortController.abort();
           yield* Queue.shutdown(turn.outputQueue);
         });
