@@ -10,6 +10,7 @@ import {
   codexThreadSqliteEntity,
   codexTurnSqliteEntity,
 } from "./codex.js";
+import { workflowSqliteEntity } from "./workflow.js";
 import { table } from "./table.js";
 
 export const registry = EntityRegistry.make(table)
@@ -20,4 +21,5 @@ export const registry = EntityRegistry.make(table)
   .register(codexThreadSqliteEntity)
   .register(codexTurnSqliteEntity)
   .register(codexEventSqliteEntity)
+  .register(workflowSqliteEntity)
   .build();

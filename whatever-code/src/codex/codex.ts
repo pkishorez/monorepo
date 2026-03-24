@@ -8,7 +8,6 @@ import {
   codexThreadSqliteEntity,
   codexTurnSqliteEntity,
 } from "../db/codex.js";
-import { projectSqliteEntity } from "../db/claude.js";
 import type { ActiveTurn } from "./schema.js";
 import {
   CreateThreadParams,
@@ -20,7 +19,6 @@ import {
   markTurnStatus,
   persistNewTurn,
   initThreads,
-  updateProjectStatus,
 } from "./utils.js";
 import type { ServerNotification } from "../codex/generated/ServerNotification.js";
 import type { ServerRequest } from "../codex/generated/ServerRequest.js";
@@ -48,13 +46,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         Effect.forEach(
           activeTurns.entries(),
           ([threadId, turn]) =>
-            Effect.all(
-              [
-                markTurnStatus(turn.turnId, threadId, "interrupted"),
-                updateProjectStatus(threadId, "interrupted"),
-              ],
-              { discard: true },
-            ),
+            markTurnStatus(turn.turnId, threadId, "interrupted"),
           { discard: true },
         ),
       );
@@ -73,7 +65,6 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                   )
                   .pipe(Effect.orDie);
                 activeTurn.turn.sdkTurnId = turn.id;
-                yield* updateProjectStatus(activeTurn.ourThreadId, "in_progress");
               }
               break;
             }
@@ -85,7 +76,6 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
               if (turn.status === "completed") {
                 yield* markTurnStatus(at.turnId, ourThreadId, "success");
-                yield* updateProjectStatus(ourThreadId, "success");
               } else if (turn.status === "failed") {
                 yield* codexTurnSqliteEntity
                   .update(
@@ -96,10 +86,8 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                 yield* codexThreadSqliteEntity
                   .update({ threadId: ourThreadId }, { status: "error" })
                   .pipe(Effect.orDie);
-                yield* updateProjectStatus(ourThreadId, "error");
               } else if (turn.status === "interrupted") {
                 yield* markTurnStatus(at.turnId, ourThreadId, "interrupted");
-                yield* updateProjectStatus(ourThreadId, "interrupted");
               }
 
               activeTurns.delete(ourThreadId);
@@ -207,13 +195,6 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             })
             .pipe(Effect.orDie);
 
-          yield* projectSqliteEntity
-            .update(
-              { id: params.absolutePath },
-              { agent: { type: "codex", threadId }, status: "success" },
-            )
-            .pipe(Effect.orDie);
-
           const response = (yield* client.request("thread/start", {
             model: params.model,
             cwd: params.absolutePath,
@@ -230,6 +211,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           sdkThreadIdMap.set(sdkThreadId, threadId);
 
           yield* continueThread({ threadId, prompt: params.prompt });
+          return threadId;
         }).pipe(
           Effect.mapError((e) => new CodexChatError({ message: String(e) })),
         );
@@ -318,7 +300,6 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           activeTurns.delete(threadId);
           yield* markTurnStatus(turn.turnId, threadId, "interrupted");
-          yield* updateProjectStatus(threadId, "interrupted");
         });
 
       const updateThread = (params: typeof UpdateThreadParams.Type) =>

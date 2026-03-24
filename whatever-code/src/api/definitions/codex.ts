@@ -5,7 +5,7 @@ import {
   ContinueThreadParams,
   UpdateThreadParams,
   RespondToApprovalParams,
-} from "../../codex/index.js";
+} from "../../codex/schema.js";
 import { EntitySchema } from "@std-toolkit/core";
 import {
   codexEventEntity,

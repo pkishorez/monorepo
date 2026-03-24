@@ -14,6 +14,7 @@ import { dbLayer } from "./db/index.js";
 import { ClaudeOrchestrator } from "./claude/claude.js";
 import { CodexOrchestrator } from "./codex/codex.js";
 import { CodexClient } from "./codex/client.js";
+import { WorkflowOrchestrator } from "./workflow/index.js";
 import { ServicesLayer } from "./services/index.js";
 import { TelemetryLayer } from "./telemetry.js";
 
@@ -57,6 +58,7 @@ export function startServer(config: ServerConfig) {
 
   const ServerLayer = HttpLayerRouter.serve(AllRoutes).pipe(
     HttpMiddleware.withTracerDisabledWhen(() => true),
+    Layer.provide(WorkflowOrchestrator.Default),
     Layer.provide(ClaudeOrchestrator.Default),
     Layer.provide(CodexOrchestrator.Default),
     Layer.provide(CodexClient.Default),

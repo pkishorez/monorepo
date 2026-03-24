@@ -3,7 +3,7 @@ import {
   getSessionInfo,
   type SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import { Cause, Effect, Exit, Queue, Stream } from "effect";
+import { Cause, Deferred, Effect, Exit, Queue, Stream } from "effect";
 import { v7 } from "uuid";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../api/definitions/claude.js";
@@ -11,9 +11,8 @@ import {
   claudeMessageSqliteEntity,
   claudeSessionSqliteEntity,
   claudeTurnSqliteEntity,
-  projectSqliteEntity,
 } from "../db/claude.js";
-import type { ActiveTurn } from "./schema.js";
+import type { ActiveTurn, SessionRuntimeOptions } from "./schema.js";
 import {
   ContinueSessionParams,
   CreateSessionParams,
@@ -23,7 +22,6 @@ import {
   markTurnStatus,
   persistNewTurn,
   initSessions,
-  updateProjectStatus,
 } from "./utils.js";
 
 export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
@@ -38,18 +36,15 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           Effect.forEach(
             activeTurns.entries(),
             ([sessionId, turn]) =>
-              Effect.all(
-                [
-                  markTurnStatus(turn.turnId, sessionId, "interrupted"),
-                  updateProjectStatus(sessionId, "interrupted"),
-                ],
-                { discard: true },
-              ),
+              markTurnStatus(turn.turnId, sessionId, "interrupted"),
             { discard: true },
           ))(activeTurns),
       );
 
-      const createSession = (params: typeof CreateSessionParams.Type) =>
+      const createSession = (
+        params: typeof CreateSessionParams.Type,
+        runtimeOptions?: SessionRuntimeOptions,
+      ) =>
         Effect.gen(function* () {
           const sessionId = v7();
           yield* claudeSessionSqliteEntity
@@ -66,13 +61,16 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               maxBudgetUsd: params.maxBudgetUsd,
             })
             .pipe(Effect.orDie);
-          yield* projectSqliteEntity
-            .update(
-              { id: params.absolutePath },
-              { agent: { type: "claude", sessionId }, status: "success" },
-            )
-            .pipe(Effect.orDie);
-          yield* continueSession({ sessionId, prompt: params.prompt }, true);
+          yield* continueSession(
+            { sessionId, prompt: params.prompt },
+            true,
+            runtimeOptions,
+          );
+          const turn = activeTurns.get(sessionId);
+          if (turn) {
+            yield* Deferred.await(turn.initialized);
+          }
+          return sessionId;
         }).pipe(
           Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
         );
@@ -80,6 +78,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
       const continueSession = (
         params: typeof ContinueSessionParams.Type,
         newSession = false,
+        runtimeOptions?: SessionRuntimeOptions,
       ) =>
         Effect.gen(function* () {
           const sessionId = params.sessionId;
@@ -118,12 +117,14 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           const turnId = ulid();
           yield* persistNewTurn(sessionId, turnId, params.prompt);
 
+          const initialized = yield* Deferred.make<void, Error>();
           const turn = yield* Effect.map(
             Queue.unbounded<SDKMessage>(),
             (outputQueue): ActiveTurn => ({
               abortController: new AbortController(),
               outputQueue,
               turnId,
+              initialized,
             }),
           );
           activeTurns.set(sessionId, turn);
@@ -152,6 +153,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
                 enabled: true,
                 autoAllowBashIfSandboxed: true,
               },
+              ...runtimeOptions,
             },
           });
 
@@ -174,15 +176,10 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
                 yield* Effect.log("session initialized").pipe(
                   Effect.annotateLogs({ turnId: turn.turnId }),
                 );
-                yield* Effect.all(
-                  [
-                    claudeTurnSqliteEntity
-                      .update({ id: turn.turnId }, { init: message })
-                      .pipe(Effect.orDie),
-                    updateProjectStatus(sessionId, "in_progress"),
-                  ],
-                  { discard: true },
-                );
+                yield* claudeTurnSqliteEntity
+                  .update({ id: turn.turnId }, { init: message })
+                  .pipe(Effect.orDie);
+                yield* Deferred.succeed(turn.initialized, void 0);
               } else if (message.type === "result") {
                 const status = message.is_error ? "error" : "success";
 
@@ -197,20 +194,14 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
                   .update({ sessionId }, { status })
                   .pipe(Effect.orDie);
 
-                yield* Effect.all(
-                  [
-                    Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
-                      Effect.flatMap((info) => {
-                        if (!info?.summary) return Effect.void;
-                        return claudeSessionSqliteEntity
-                          .update({ sessionId }, { name: info.summary })
-                          .pipe(Effect.orDie, Effect.asVoid);
-                      }),
-                      Effect.catchAll(() => Effect.void),
-                    ),
-                    updateProjectStatus(sessionId, status),
-                  ],
-                  { discard: true },
+                yield* Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
+                  Effect.flatMap((info) => {
+                    if (!info?.summary) return Effect.void;
+                    return claudeSessionSqliteEntity
+                      .update({ sessionId }, { name: info.summary })
+                      .pipe(Effect.orDie, Effect.asVoid);
+                  }),
+                  Effect.catchAll(() => Effect.void),
                 );
 
                 yield* Queue.shutdown(turn.outputQueue);
@@ -225,23 +216,29 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               activeTurns.delete(sessionId);
 
               if (Exit.isSuccess(exit)) {
+                yield* Deferred.succeed(turn.initialized, void 0);
                 yield* Effect.log("background fiber exited cleanly");
               } else if (Exit.isInterrupted(exit)) {
+                yield* Deferred.fail(
+                  turn.initialized,
+                  new Error("session interrupted before init"),
+                );
                 yield* Effect.log("background fiber interrupted");
                 yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
-                yield* updateProjectStatus(sessionId, "interrupted");
               } else {
                 const cause = exit.pipe(Exit.causeOption);
+                const errorMsg =
+                  cause._tag === "Some"
+                    ? Cause.pretty(cause.value)
+                    : "unknown";
+                yield* Deferred.fail(
+                  turn.initialized,
+                  new Error(errorMsg),
+                );
                 yield* Effect.logError("background fiber failed").pipe(
-                  Effect.annotateLogs({
-                    cause:
-                      cause._tag === "Some"
-                        ? Cause.pretty(cause.value)
-                        : "unknown",
-                  }),
+                  Effect.annotateLogs({ cause: errorMsg }),
                 );
                 yield* markTurnStatus(turn.turnId, sessionId, "error");
-                yield* updateProjectStatus(sessionId, "error");
               }
             });
 
@@ -271,7 +268,6 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
 
           activeTurns.delete(sessionId);
           yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
-          yield* updateProjectStatus(sessionId, "interrupted");
           turn.abortController.abort();
           yield* Queue.shutdown(turn.outputQueue);
         });

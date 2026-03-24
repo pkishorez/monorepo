@@ -48,21 +48,4 @@ export class AppRpcs extends RpcGroup.make(
     error: AppError,
     payload: Schema.Struct({ absolutePath: Schema.String }),
   }),
-  Rpc.make("switchSession", {
-    success: EntitySchema(projectEntity),
-    error: AppError,
-    payload: Schema.Struct({
-      absolutePath: Schema.String,
-      agent: Schema.Union(
-        Schema.Struct({
-          type: Schema.Literal("claude"),
-          sessionId: Schema.NullOr(Schema.String),
-        }),
-        Schema.Struct({
-          type: Schema.Literal("codex"),
-          threadId: Schema.NullOr(Schema.String),
-        }),
-      ),
-    }),
-  }),
 ).prefix("app.") {}

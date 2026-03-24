@@ -5,44 +5,8 @@ import {
   codexThreadSqliteEntity,
   codexTurnSqliteEntity,
 } from "../db/codex.js";
-import { projectSqliteEntity } from "../db/claude.js";
 import type { TaskStatus } from "../entity/status.js";
 
-export const MODELS = [
-  {
-    value: "o3",
-    displayName: "o3",
-    description: "Most capable reasoning model",
-  },
-  {
-    value: "o4-mini",
-    displayName: "o4-mini",
-    description: "Fast and efficient reasoning model",
-  },
-  {
-    value: "codex-mini-latest",
-    displayName: "Codex Mini",
-    description: "Optimized for code tasks",
-  },
-];
-
-export const updateProjectStatus = (threadId: string, status: TaskStatus) =>
-  projectSqliteEntity
-    .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
-    .pipe(
-      Effect.flatMap(({ items }) => {
-        const project = items.find(
-          (p) =>
-            p.value.agent.type === "codex" &&
-            p.value.agent.threadId === threadId,
-        );
-        if (!project) return Effect.void;
-        return projectSqliteEntity
-          .update({ id: project.value.id }, { status })
-          .pipe(Effect.asVoid);
-      }),
-      Effect.orDie,
-    );
 
 export const markTurnStatus = (
   turnId: string,

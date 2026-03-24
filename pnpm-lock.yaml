@@ -396,7 +396,7 @@ importers:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
         specifier: 0.2.81
-        version: 0.2.81(zod@3.25.76)
+        version: 0.2.81(zod@4.3.6)
       '@effect/opentelemetry':
         specifier: ^0.62.0
         version: 0.62.0(@effect/platform@0.96.0(effect@3.21.0))(@opentelemetry/api@1.9.0)(@opentelemetry/resources@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-logs@0.213.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-metrics@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-node@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-web@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.40.0)(effect@3.21.0)
@@ -430,6 +430,9 @@ importers:
       uuid:
         specifier: 13.0.0
         version: 13.0.0
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@std-toolkit/core':
         specifier: workspace:*
@@ -3352,14 +3355,17 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.3.6:
+    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+
 snapshots:
 
   '@acemir/cssom@0.9.29':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.2.81(zod@3.25.76)':
+  '@anthropic-ai/claude-agent-sdk@0.2.81(zod@4.3.6)':
     dependencies:
-      zod: 3.25.76
+      zod: 4.3.6
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.5
       '@img/sharp-darwin-x64': 0.34.5
@@ -6031,3 +6037,5 @@ snapshots:
   yoga-layout@3.2.1: {}
 
   zod@3.25.76: {}
+
+  zod@4.3.6: {}
