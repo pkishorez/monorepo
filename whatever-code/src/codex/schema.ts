@@ -41,6 +41,24 @@ export const RespondToApprovalParams = Schema.Struct({
   decision: Schema.Literal("accept", "acceptForSession", "decline"),
 });
 
+export const MODELS = [
+  {
+    value: "o3",
+    displayName: "o3",
+    description: "Most capable reasoning model",
+  },
+  {
+    value: "o4-mini",
+    displayName: "o4-mini",
+    description: "Fast and efficient reasoning model",
+  },
+  {
+    value: "codex-mini-latest",
+    displayName: "Codex Mini",
+    description: "Optimized for code tasks",
+  },
+];
+
 export interface ActiveTurn {
   turnId: string;
   sdkTurnId: string | null;

@@ -6,7 +6,7 @@ export {
   SandboxMode,
   UpdateThreadParams,
 } from "./schema.js";
-export { MODELS } from "./utils.js";
+export { MODELS } from "./schema.js";
 export {
   codexEventEntity,
   codexThreadEntity,

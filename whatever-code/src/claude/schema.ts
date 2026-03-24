@@ -1,6 +1,6 @@
-import type { Queue } from "effect";
+import type { Deferred, Queue } from "effect";
 import { Schema } from "effect";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { SDKMessage, McpServerConfig, HookEvent, HookCallbackMatcher } from "@anthropic-ai/claude-agent-sdk";
 import { Typed } from "../lib/typed.js";
 
 export const Message = Typed<SDKMessage>();
@@ -8,9 +8,11 @@ export const Message = Typed<SDKMessage>();
 export const Effort = Schema.Literal("low", "medium", "high", "max");
 
 export const PermissionMode = Schema.Literal(
+  "default",
   "acceptEdits",
   "bypassPermissions",
   "plan",
+  "dontAsk",
 );
 export type PermissionModeValue = typeof PermissionMode.Type;
 
@@ -50,6 +52,7 @@ export interface ActiveTurn {
   abortController: AbortController;
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
+  initialized: Deferred.Deferred<void, Error>;
 }
 
 export const UpdateSessionParams = Schema.Struct({
@@ -74,3 +77,34 @@ export const CreateSessionParams = Schema.Struct({
   maxTurns: Schema.Number,
   maxBudgetUsd: Schema.Number,
 });
+
+export interface SessionCapabilities {
+  models: { value: string; displayName: string; description: string }[];
+  commands: { name: string; description: string; argumentHint: string }[];
+}
+
+export interface SessionRuntimeOptions {
+  mcpServers?: Record<string, McpServerConfig>;
+  systemPrompt?:
+    | string
+    | { type: "preset"; preset: "claude_code"; append?: string };
+  hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>>;
+}
+
+export const MODELS: SessionCapabilities["models"] = [
+  {
+    value: "claude-opus-4-6",
+    displayName: "Opus 4.6",
+    description: "Most capable model for complex tasks",
+  },
+  {
+    value: "claude-sonnet-4-6",
+    displayName: "Sonnet 4.6",
+    description: "Best balance of speed and capability",
+  },
+  {
+    value: "claude-haiku-4-5-20251001",
+    displayName: "Haiku 4.5",
+    description: "Fastest model for simple tasks",
+  },
+];

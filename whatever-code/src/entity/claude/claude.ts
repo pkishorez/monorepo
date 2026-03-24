@@ -13,7 +13,7 @@ export const claudeSessionEntity = EntityESchema.make(
     absolutePath: Schema.String,
     name: Schema.optionalWith(Schema.String, { exact: true }),
     model: Schema.String,
-    permissionMode: Schema.Literal("acceptEdits", "bypassPermissions", "plan"),
+    permissionMode: Schema.Literal("default", "acceptEdits", "bypassPermissions", "plan", "dontAsk"),
     persistSession: Schema.Boolean,
     effort: Schema.Literal("low", "medium", "high", "max"),
     maxTurns: Schema.Number,
