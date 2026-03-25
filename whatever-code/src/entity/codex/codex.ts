@@ -1,7 +1,8 @@
 import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 import { Typed } from "../../lib/typed.js";
-import type { ServerNotification, TokenUsage, TurnError } from "./types.js";
+import type { ServerNotification, TurnError } from "./types.js";
+import type { ThreadTokenUsage } from "../../codex/generated/v2/ThreadTokenUsage.js";
 import { TaskStatus } from "../status.js";
 
 export const codexThreadEntity = EntityESchema.make(
@@ -29,10 +30,10 @@ export const codexThreadEntity = EntityESchema.make(
 
 export const codexTurnEntity = EntityESchema.make("codexTurn", "id", {
   threadId: Schema.String,
+  model: Schema.String,
   status: TaskStatus,
-  message: Schema.optionalWith(Schema.String, { exact: true }),
   sdkTurnId: Schema.NullOr(Schema.String),
-  usage: Schema.NullOr(Typed<TokenUsage>()),
+  usage: Schema.NullOr(Typed<ThreadTokenUsage>()),
   error: Schema.NullOr(Typed<TurnError>()),
 }).build();
 

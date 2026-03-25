@@ -3,6 +3,7 @@ import { v7 } from "uuid";
 import { ClaudeOrchestrator } from "../claude/claude.js";
 import { CodexOrchestrator } from "../codex/codex.js";
 import { workflowSqliteEntity } from "../db/workflow.js";
+import { errorMessage } from "../lib/error.js";
 import {
   StartExecuteParams,
   ContinueExecuteParams,
@@ -43,7 +44,7 @@ const createAgentSession = (params: typeof StartExecuteParams.Type) => {
       return { type: "claude" as const, sessionId };
     }).pipe(
       Effect.mapError(
-        (e) => new ExecuteWorkflowError({ message: String(e) }),
+        (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
       ),
     );
   }
@@ -53,7 +54,7 @@ const createAgentSession = (params: typeof StartExecuteParams.Type) => {
     return { type: "codex" as const, threadId };
   }).pipe(
     Effect.mapError(
-      (e) => new ExecuteWorkflowError({ message: String(e) }),
+      (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
 };
@@ -76,7 +77,7 @@ export const startExecuteWorkflow = (
     return workflowId;
   }).pipe(
     Effect.mapError(
-      (e) => new ExecuteWorkflowError({ message: String(e) }),
+      (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
 
@@ -104,7 +105,7 @@ export const continueExecuteWorkflow = (
     Effect.mapError((e) =>
       e instanceof ExecuteWorkflowError
         ? e
-        : new ExecuteWorkflowError({ message: String(e) }),
+        : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
 
@@ -126,6 +127,6 @@ export const stopExecuteWorkflow = (
     Effect.mapError((e) =>
       e instanceof ExecuteWorkflowError
         ? e
-        : new ExecuteWorkflowError({ message: String(e) }),
+        : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );

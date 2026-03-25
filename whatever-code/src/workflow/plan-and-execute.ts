@@ -6,6 +6,7 @@ import { ClaudeOrchestrator } from "../claude/claude.js";
 import type { SessionRuntimeOptions } from "../claude/schema.js";
 import { projectSqliteEntity } from "../db/claude.js";
 import { workflowSqliteEntity } from "../db/workflow.js";
+import { errorMessage } from "../lib/error.js";
 import {
   StartPlanParams,
   ContinuePlanParams,
@@ -146,7 +147,7 @@ export const startPlan = (params: typeof StartPlanParams.Type) =>
     return workflowId;
   }).pipe(
     Effect.mapError(
-      (e) => new PlanAndExecuteWorkflowError({ message: String(e) }),
+      (e) => new PlanAndExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
 
@@ -184,7 +185,7 @@ export const continuePlan = (params: typeof ContinuePlanParams.Type) =>
     Effect.mapError((e) =>
       e instanceof PlanAndExecuteWorkflowError
         ? e
-        : new PlanAndExecuteWorkflowError({ message: String(e) }),
+        : new PlanAndExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
 
@@ -259,7 +260,7 @@ export const startExecutePhase = (
     Effect.mapError((e) =>
       e instanceof PlanAndExecuteWorkflowError
         ? e
-        : new PlanAndExecuteWorkflowError({ message: String(e) }),
+        : new PlanAndExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
 
@@ -295,7 +296,7 @@ export const continueExecutePhase = (
     Effect.mapError((e) =>
       e instanceof PlanAndExecuteWorkflowError
         ? e
-        : new PlanAndExecuteWorkflowError({ message: String(e) }),
+        : new PlanAndExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
 
@@ -322,7 +323,7 @@ export const stopPlanAndExecute = (
     Effect.mapError((e) =>
       e instanceof PlanAndExecuteWorkflowError
         ? e
-        : new PlanAndExecuteWorkflowError({ message: String(e) }),
+        : new PlanAndExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
 
