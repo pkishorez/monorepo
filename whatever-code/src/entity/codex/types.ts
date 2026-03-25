@@ -12,3 +12,23 @@ export type { ThreadResumeParams } from "../../codex/generated/v2/ThreadResumePa
 export type { AskForApproval } from "../../codex/generated/v2/AskForApproval.js";
 export type { SandboxMode } from "../../codex/generated/v2/SandboxMode.js";
 export type { RequestId } from "../../codex/generated/RequestId.js";
+
+import type { ServerNotification } from "../../codex/generated/ServerNotification.js";
+
+export const PERSISTED_NOTIFICATION_METHODS = [
+  "item/started",
+  "item/completed",
+  "turn/diff/updated",
+  "turn/plan/updated",
+  "error",
+] as const;
+
+export const PERSISTED_METHODS = new Set<string>(PERSISTED_NOTIFICATION_METHODS);
+
+export type PersistedNotificationMethod =
+  (typeof PERSISTED_NOTIFICATION_METHODS)[number];
+
+export type PersistedNotification = Extract<
+  ServerNotification,
+  { method: PersistedNotificationMethod }
+>;

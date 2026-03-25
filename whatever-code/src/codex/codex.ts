@@ -25,6 +25,31 @@ import type { ServerRequest } from "../codex/generated/ServerRequest.js";
 import type { RequestId } from "../codex/generated/RequestId.js";
 import type { ThreadStartResponse } from "../codex/generated/v2/ThreadStartResponse.js";
 import type { TurnStartResponse } from "../codex/generated/v2/TurnStartResponse.js";
+import type { SandboxPolicy } from "../codex/generated/v2/SandboxPolicy.js";
+import type { SandboxMode } from "../codex/generated/v2/SandboxMode.js";
+import {
+  PERSISTED_METHODS,
+  type PersistedNotification,
+} from "../entity/codex/types.js";
+import { errorMessage } from "../lib/error.js";
+
+function sandboxModeToPolicy(mode: SandboxMode): SandboxPolicy {
+  switch (mode) {
+    case "read-only":
+      return { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false };
+    case "workspace-write":
+      return {
+        type: "workspaceWrite",
+        writableRoots: [],
+        readOnlyAccess: { type: "fullAccess" },
+        networkAccess: false,
+        excludeTmpdirEnvVar: false,
+        excludeSlashTmp: false,
+      };
+    case "danger-full-access":
+      return { type: "dangerFullAccess" };
+  }
+}
 
 export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
   "CodexOrchestrator",
@@ -109,7 +134,29 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               }
               break;
             }
+            case "thread/tokenUsage/updated": {
+              const { threadId: sdkThreadId, tokenUsage } =
+                notification.params;
+              const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
+              if (activeTurn) {
+                yield* codexTurnSqliteEntity
+                  .update(
+                    { id: activeTurn.turn.turnId },
+                    { usage: tokenUsage },
+                  )
+                  .pipe(Effect.orDie);
+              }
+              break;
+            }
             default: {
+              if (!PERSISTED_METHODS.has(notification.method)) break;
+
+              // Skip SDK's item/started for userMessage — we already persist it in persistNewTurn
+              if (notification.method === "item/started") {
+                const item = (notification.params as { item?: { type?: string } }).item;
+                if (item?.type === "userMessage") break;
+              }
+
               const sdkThreadId = extractThreadId(notification);
               if (sdkThreadId) {
                 const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
@@ -119,7 +166,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                       id: ulid(),
                       threadId: activeTurn.ourThreadId,
                       turnId: activeTurn.turn.turnId,
-                      data: notification,
+                      data: notification as PersistedNotification,
                     })
                     .pipe(Effect.orDie);
                 }
@@ -213,7 +260,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           yield* continueThread({ threadId, prompt: params.prompt });
           return threadId;
         }).pipe(
-          Effect.mapError((e) => new CodexChatError({ message: String(e) })),
+          Effect.mapError((e) => new CodexChatError({ message: errorMessage(e) })),
         );
 
       const continueThread = (params: typeof ContinueThreadParams.Type) =>
@@ -253,18 +300,25 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           }
 
           const turnId = ulid();
-          yield* persistNewTurn(threadId, turnId, params.prompt);
+          yield* persistNewTurn(threadId, turnId, params.prompt, thread.model);
 
           const turn: ActiveTurn = { turnId, sdkTurnId: null };
           activeTurns.set(threadId, turn);
 
           if (!sdkThreadIdMap.has(thread.sdkThreadId)) {
+            yield* client.request("thread/resume", {
+              threadId: thread.sdkThreadId,
+              persistExtendedHistory: false,
+            });
             sdkThreadIdMap.set(thread.sdkThreadId, threadId);
           }
 
           const response = (yield* client.request("turn/start", {
             threadId: thread.sdkThreadId,
             input: [{ type: "text", text: params.prompt, text_elements: [] }],
+            model: thread.model,
+            approvalPolicy: thread.approvalPolicy,
+            sandboxPolicy: sandboxModeToPolicy(thread.sandboxMode as SandboxMode),
           })) as TurnStartResponse;
 
           turn.sdkTurnId = response.turn.id;
@@ -275,7 +329,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           Effect.mapError((e) =>
             e instanceof CodexChatError
               ? e
-              : new CodexChatError({ message: String(e) }),
+              : new CodexChatError({ message: errorMessage(e) }),
           ),
         );
 

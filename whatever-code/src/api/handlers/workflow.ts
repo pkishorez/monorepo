@@ -3,6 +3,7 @@ import { WorkflowRpcs } from "../definitions/workflow.js";
 import { WorkflowOrchestrator } from "../../workflow/index.js";
 import { workflowSqliteEntity } from "../../db/workflow.js";
 import { ExecuteWorkflowError } from "../../workflow/index.js";
+import { errorMessage } from "../../lib/error.js";
 
 export const WorkflowHandlers = WorkflowRpcs.toLayer(
   WorkflowRpcs.of({
@@ -53,7 +54,7 @@ export const WorkflowHandlers = WorkflowRpcs.toLayer(
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
         .pipe(
           Effect.map(({ items }) => items),
-          Effect.mapError((e) => new ExecuteWorkflowError({ message: String(e) })),
+          Effect.mapError((e) => new ExecuteWorkflowError({ message: errorMessage(e) })),
         ),
   }),
 );

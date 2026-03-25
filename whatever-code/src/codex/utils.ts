@@ -72,12 +72,14 @@ export const persistNewTurn = (
   threadId: string,
   turnId: string,
   prompt: string,
+  model: string,
 ) =>
   Effect.all([
     codexThreadSqliteEntity.update({ threadId }, { status: "in_progress" }),
     codexTurnSqliteEntity.insert({
       id: turnId,
       threadId,
+      model,
       status: "in_progress",
       sdkTurnId: null,
       usage: null,

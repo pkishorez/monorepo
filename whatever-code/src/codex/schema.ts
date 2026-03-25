@@ -43,19 +43,24 @@ export const RespondToApprovalParams = Schema.Struct({
 
 export const MODELS = [
   {
-    value: "o3",
-    displayName: "o3",
-    description: "Most capable reasoning model",
+    value: "gpt-5.4-mini",
+    displayName: "GPT-5.4 Mini",
+    description: "Fast and efficient for responsive coding tasks",
   },
   {
-    value: "o4-mini",
-    displayName: "o4-mini",
-    description: "Fast and efficient reasoning model",
+    value: "gpt-5.4",
+    displayName: "GPT-5.4",
+    description: "Flagship frontier model for professional work",
   },
   {
-    value: "codex-mini-latest",
-    displayName: "Codex Mini",
-    description: "Optimized for code tasks",
+    value: "gpt-5.3-codex",
+    displayName: "GPT-5.3 Codex",
+    description: "Industry-leading coding model for complex engineering",
+  },
+  {
+    value: "gpt-5.3-codex-spark",
+    displayName: "Codex Spark",
+    description: "Near-instant coding iteration (Pro only)",
   },
 ];
 
