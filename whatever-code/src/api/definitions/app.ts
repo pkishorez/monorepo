@@ -48,4 +48,33 @@ export class AppRpcs extends RpcGroup.make(
     error: AppError,
     payload: Schema.Struct({ absolutePath: Schema.String }),
   }),
+  Rpc.make("getGitDiff", {
+    success: Schema.Struct({
+      patch: Schema.String,
+    }),
+    error: AppError,
+    payload: Schema.Struct({ absolutePath: Schema.String }),
+  }),
+  Rpc.make("gitCommit", {
+    success: Schema.Struct({
+      hash: Schema.String,
+      summary: Schema.String,
+    }),
+    error: AppError,
+    payload: Schema.Struct({
+      absolutePath: Schema.String,
+      message: Schema.String,
+    }),
+  }),
+  Rpc.make("generateCommitMessage", {
+    success: Schema.Struct({
+      subject: Schema.String,
+      body: Schema.String,
+    }),
+    error: AppError,
+    payload: Schema.Struct({
+      absolutePath: Schema.String,
+      patch: Schema.String,
+    }),
+  }),
 ).prefix("app.") {}

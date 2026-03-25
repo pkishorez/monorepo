@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import {
   query,
   getSessionInfo,
@@ -277,11 +278,49 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           .update({ sessionId: params.sessionId }, params.updates)
           .pipe(Effect.orDie);
 
+      const oneShot = (params: {
+        cwd: string;
+        prompt: string;
+        model?: string;
+      }) =>
+        Effect.tryPromise({
+          try: async () => {
+            const args = [
+              "-p",
+              "--no-session-persistence",
+              "--output-format",
+              "text",
+              "--tools",
+              "",
+              ...(params.model ? ["--model", params.model] : []),
+              "-",
+            ];
+            const stdout = await new Promise<string>((resolve, reject) => {
+              const child = execFile(
+                "claude",
+                args,
+                { cwd: params.cwd, timeout: 60_000, maxBuffer: 1024 * 1024, env: { ...process.env } },
+                (error, out) => {
+                  if (error) return reject(error);
+                  resolve(String(out));
+                },
+              );
+              child.stdin?.end(params.prompt);
+            });
+            return stdout.trim();
+          },
+          catch: (e) =>
+            new ClaudeChatError({
+              message: e instanceof Error ? e.message : String(e),
+            }),
+        });
+
       return {
         createSession,
         continueSession,
         stopSession,
         updateSession,
+        oneShot,
       };
     }),
   },
