@@ -1,8 +1,10 @@
-import { Effect, Runtime } from "effect";
+import { execFile } from "node:child_process";
+import { Effect, Runtime, Schema } from "effect";
 import { v7 } from "uuid";
 import { ulid } from "ulid";
 import { CodexClient } from "./client.js";
 import { CodexChatError } from "../api/definitions/codex.js";
+import { execCodexJson } from "./exec-json.js";
 import {
   codexEventSqliteEntity,
   codexThreadSqliteEntity,
@@ -385,12 +387,60 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           pendingApprovals.delete(params.requestId);
         });
 
+      const oneShot = (params: {
+        cwd: string;
+        prompt: string;
+        model?: string;
+      }) =>
+        Effect.tryPromise({
+          try: async () => {
+            const args = [
+              "exec",
+              "--ephemeral",
+              "-s",
+              "read-only",
+              "--config",
+              'model_reasoning_effort="low"',
+              "-C",
+              params.cwd,
+              ...(params.model ? ["-m", params.model] : []),
+              "-",
+            ];
+            const stdout = await new Promise<string>((resolve, reject) => {
+              const child = execFile(
+                "codex",
+                args,
+                { timeout: 60_000, maxBuffer: 1024 * 1024, env: { ...process.env } },
+                (error, out) => {
+                  if (error) return reject(error);
+                  resolve(String(out));
+                },
+              );
+              child.stdin?.end(params.prompt);
+            });
+            return stdout.trim();
+          },
+          catch: (e) =>
+            new CodexChatError({
+              message: e instanceof Error ? e.message : String(e),
+            }),
+        });
+
+      const oneShotJson = <A, I, R>(params: {
+        cwd: string;
+        prompt: string;
+        schema: Schema.Schema<A, I, R>;
+        model?: string;
+      }) => execCodexJson(params);
+
       return {
         createThread,
         continueThread,
         stopThread,
         updateThread,
         respondToApproval,
+        oneShot,
+        oneShotJson,
       };
     }),
   },

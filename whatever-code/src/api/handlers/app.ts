@@ -1,9 +1,10 @@
-import { Effect, Stream } from "effect";
+import { Effect, Schema, Stream } from "effect";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { platform } from "node:os";
 import { listSessions } from "@anthropic-ai/claude-agent-sdk";
 import { AppError, AppRpcs } from "../definitions/app.js";
+import { CodexOrchestrator } from "../../codex/codex.js";
 import { BroadcastService } from "../../services/broadcast.js";
 import { dataDir } from "../../db/index.js";
 import { projectSqliteEntity } from "../../db/claude.js";
@@ -96,6 +97,87 @@ export const AppHandlers = AppRpcs.toLayer(
           }
           return [...dirs].sort().concat(files);
         }),
+      ),
+    "app.getGitDiff": ({ absolutePath }) =>
+      Effect.tryPromise({
+        try: async () => {
+          const { stdout: repoRoot } = await execFilePromise(
+            "git",
+            ["rev-parse", "--show-toplevel"],
+            { cwd: absolutePath },
+          );
+          const cwd = repoRoot.trim();
+          await execFilePromise(
+            "git",
+            ["add", "-A", "--intent-to-add"],
+            { cwd },
+          );
+          const { stdout: patch } = await execFilePromise(
+            "git",
+            ["diff", "HEAD", "--patch", "--minimal", "--no-color"],
+            { cwd, maxBuffer: 10 * 1024 * 1024 },
+          );
+          return { patch };
+        },
+        catch: (e) => new AppError({ message: String(e) }),
+      }),
+    "app.gitCommit": ({ absolutePath, message }) =>
+      Effect.tryPromise({
+        try: async () => {
+          await execFilePromise("git", ["add", "-A"], { cwd: absolutePath });
+          await execFilePromise("git", ["commit", "-m", message], {
+            cwd: absolutePath,
+          });
+          const { stdout } = await execFilePromise(
+            "git",
+            ["log", "-1", "--oneline"],
+            { cwd: absolutePath },
+          );
+          const line = stdout.trim();
+          const spaceIdx = line.indexOf(" ");
+          return {
+            hash: spaceIdx > 0 ? line.slice(0, spaceIdx) : line,
+            summary: spaceIdx > 0 ? line.slice(spaceIdx + 1) : line,
+          };
+        },
+        catch: (e) => new AppError({ message: String(e) }),
+      }),
+    "app.generateCommitMessage": ({ absolutePath, patch }) =>
+      Effect.gen(function* () {
+        const codex = yield* CodexOrchestrator;
+        const prompt = [
+          "You write concise git commit messages.",
+          "Return a JSON object with keys: subject, body.",
+          "Rules:",
+          "- subject must be imperative, <= 72 chars, and no trailing period",
+          "- body can be empty string or short bullet points",
+          "- capture the primary user-visible or developer-visible change",
+          "",
+          "Diff:",
+          patch.length > 40_000 ? patch.slice(0, 40_000) + "\n\n[truncated]" : patch,
+        ].join("\n");
+
+        const result = yield* codex.oneShotJson({
+          cwd: absolutePath,
+          prompt,
+          schema: Schema.Struct({
+            subject: Schema.String,
+            body: Schema.String,
+          }),
+        });
+
+        const raw = result.subject.trim().split(/\r?\n/g)[0]?.trim() ?? "";
+        const cleaned = raw.replace(/[.]+$/g, "").trim();
+        const subject =
+          cleaned.length === 0
+            ? "Update project files"
+            : cleaned.length <= 72
+              ? cleaned
+              : cleaned.slice(0, 72).trimEnd();
+
+        return { subject, body: result.body.trim() };
+      }).pipe(
+        Effect.mapError((e) => new AppError({ message: String(e) })),
       ),
   }),
 );
