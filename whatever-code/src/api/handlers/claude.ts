@@ -3,7 +3,6 @@ import { ClaudeChatError, ClaudeRpcs } from "../definitions/claude.js";
 import { ClaudeOrchestrator } from "../../agents/claude/claude.js";
 import {
   claudeMessageSqliteEntity,
-  claudeSessionSqliteEntity,
   claudeTurnSqliteEntity,
 } from "../../db/claude.js";
 
@@ -20,17 +19,8 @@ export const ClaudeHandlers = ClaudeRpcs.toLayer(
         Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
       ),
     "claude.respondToTool": () => Effect.dieMessage("Not implemented"),
-
-    // Queries.
     "claude.queryMessages": ({ ">": cursor }) =>
       claudeMessageSqliteEntity
-        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
-        .pipe(
-          Effect.map(({ items }) => items),
-          Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
-        ),
-    "claude.querySessions": ({ ">": cursor }) =>
-      claudeSessionSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
         .pipe(
           Effect.map(({ items }) => items),

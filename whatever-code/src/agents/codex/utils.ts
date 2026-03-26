@@ -2,16 +2,17 @@ import { Effect } from "effect";
 import { ulid } from "ulid";
 import {
   codexEventSqliteEntity,
-  codexThreadSqliteEntity,
   codexTurnSqliteEntity,
 } from "../../db/codex.js";
+import { sessionSqliteEntity } from "../../db/session.js";
+import { initSessionsForType } from "../shared/session.js";
 import type { TaskStatus } from "../../entity/status.js";
 import type { PromptContent } from "../shared/schema.js";
 
 
 export const markTurnStatus = (
   turnId: string,
-  threadId: string,
+  sessionId: string,
   status: TaskStatus,
 ) =>
   Effect.all(
@@ -19,17 +20,17 @@ export const markTurnStatus = (
       codexTurnSqliteEntity
         .update({ id: turnId }, { status })
         .pipe(Effect.orDie),
-      codexThreadSqliteEntity
-        .update({ threadId }, { status })
+      sessionSqliteEntity
+        .update({ sessionId }, { status })
         .pipe(Effect.orDie),
     ],
     { discard: true },
   );
 
-const markTurnsInterrupted = (threadId: string) =>
+const markTurnsInterrupted = (sessionId: string) =>
   codexTurnSqliteEntity
-    .query("byThread", {
-      pk: { threadId },
+    .query("bySession", {
+      pk: { sessionId },
       sk: { ">": null },
     })
     .pipe(
@@ -48,29 +49,10 @@ const markTurnsInterrupted = (threadId: string) =>
       Effect.orDie,
     );
 
-export const initThreads = Effect.gen(function* () {
-  const { items: inProgressThreads } = yield* codexThreadSqliteEntity
-    .query("byStatus", { pk: { status: "in_progress" }, sk: { ">": null } })
-    .pipe(Effect.orDie);
-
-  yield* Effect.forEach(
-    inProgressThreads,
-    ({ value }) =>
-      Effect.all(
-        [
-          codexThreadSqliteEntity
-            .update({ threadId: value.threadId }, { status: "interrupted" })
-            .pipe(Effect.orDie),
-          markTurnsInterrupted(value.threadId),
-        ],
-        { discard: true },
-      ),
-    { discard: true },
-  );
-});
+export const initSessions = initSessionsForType("codex", markTurnsInterrupted);
 
 export const persistNewTurn = (
-  threadId: string,
+  sessionId: string,
   turnId: string,
   prompt: typeof PromptContent.Type,
   model: string,
@@ -83,10 +65,10 @@ export const persistNewTurn = (
         .join("\n");
 
   return Effect.all([
-    codexThreadSqliteEntity.update({ threadId }, { status: "in_progress" }),
+    sessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),
     codexTurnSqliteEntity.insert({
       id: turnId,
-      threadId,
+      sessionId,
       model,
       status: "in_progress",
       sdkTurnId: null,
@@ -95,12 +77,12 @@ export const persistNewTurn = (
     }),
     codexEventSqliteEntity.insert({
       id: ulid(),
-      threadId,
+      sessionId,
       turnId,
       data: {
         method: "item/started",
         params: {
-          threadId,
+          threadId: sessionId,
           turnId,
           item: {
             type: "userMessage",

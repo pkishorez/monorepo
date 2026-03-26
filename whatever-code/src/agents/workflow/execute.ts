@@ -3,6 +3,7 @@ import { v7 } from "uuid";
 import { ClaudeOrchestrator } from "../claude/claude.js";
 import { CodexOrchestrator } from "../codex/codex.js";
 import { workflowSqliteEntity } from "../../db/workflow.js";
+import { sessionSqliteEntity } from "../../db/session.js";
 import { errorMessage } from "../../lib/error.js";
 import {
   StartExecuteParams,
@@ -36,12 +37,25 @@ const getWorkflow = (workflowId: string) =>
     ),
   );
 
+const getSession = (sessionId: string) =>
+  sessionSqliteEntity.get({ sessionId }).pipe(
+    Effect.orDie,
+    Effect.flatMap((row) =>
+      row
+        ? Effect.succeed(row.value)
+        : Effect.fail(
+            new ExecuteWorkflowError({
+              message: `session ${sessionId} not found`,
+            }),
+          ),
+    ),
+  );
+
 const createAgentSession = (params: typeof StartExecuteParams.Type) => {
   if (params.agent === "claude") {
     return Effect.gen(function* () {
       const claude = yield* ClaudeOrchestrator;
-      const sessionId = yield* claude.createSession(params.session);
-      return { type: "claude" as const, sessionId };
+      return yield* claude.createSession(params.session);
     }).pipe(
       Effect.mapError(
         (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
@@ -50,8 +64,7 @@ const createAgentSession = (params: typeof StartExecuteParams.Type) => {
   }
   return Effect.gen(function* () {
     const codex = yield* CodexOrchestrator;
-    const threadId = yield* codex.createThread(params.thread);
-    return { type: "codex" as const, threadId };
+    return yield* codex.createThread(params.thread);
   }).pipe(
     Effect.mapError(
       (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
@@ -86,18 +99,19 @@ export const continueExecuteWorkflow = (
 ) =>
   Effect.gen(function* () {
     const workflow = yield* getWorkflow(params.workflowId);
-    const ref = workflow.spec.executeSession;
+    const sessionId = workflow.spec.executeSession;
+    const session = yield* getSession(sessionId);
 
-    if (ref.type === "claude") {
+    if (session.type === "claude") {
       const claude = yield* ClaudeOrchestrator;
       yield* claude.continueSession({
-        sessionId: ref.sessionId,
+        sessionId,
         prompt: params.prompt,
       });
     } else {
       const codex = yield* CodexOrchestrator;
       yield* codex.continueThread({
-        threadId: ref.threadId,
+        sessionId,
         prompt: params.prompt,
       });
     }
@@ -114,14 +128,15 @@ export const stopExecuteWorkflow = (
 ) =>
   Effect.gen(function* () {
     const workflow = yield* getWorkflow(params.workflowId);
-    const ref = workflow.spec.executeSession;
+    const sessionId = workflow.spec.executeSession;
+    const session = yield* getSession(sessionId);
 
-    if (ref.type === "claude") {
+    if (session.type === "claude") {
       const claude = yield* ClaudeOrchestrator;
-      yield* claude.stopSession(ref.sessionId);
+      yield* claude.stopSession(sessionId);
     } else {
       const codex = yield* CodexOrchestrator;
-      yield* codex.stopThread(ref.threadId);
+      yield* codex.stopThread(sessionId);
     }
   }).pipe(
     Effect.mapError((e) =>

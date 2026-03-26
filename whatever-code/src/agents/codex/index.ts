@@ -9,6 +9,5 @@ export {
 export { MODELS } from "./schema.js";
 export {
   codexEventEntity,
-  codexThreadEntity,
   codexTurnEntity,
 } from "../../entity/codex/codex.js";

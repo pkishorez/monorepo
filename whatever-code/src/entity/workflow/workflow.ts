@@ -1,35 +1,24 @@
 import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
-export const SessionRef = Schema.Union(
-  Schema.Struct({
-    type: Schema.Literal("claude"),
-    sessionId: Schema.String,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("codex"),
-    threadId: Schema.String,
-  }),
-);
-
 const PlanningStage = Schema.Struct({
   stage: Schema.Literal("planning"),
-  planSession: SessionRef,
+  planSession: Schema.String,
   planArtifact: Schema.NullOr(Schema.String),
 });
 
 const ExecutingStage = Schema.Struct({
   stage: Schema.Literal("executing"),
-  planSession: SessionRef,
+  planSession: Schema.String,
   planArtifact: Schema.String,
-  executeSession: SessionRef,
+  executeSession: Schema.String,
 });
 
 const DoneStage = Schema.Struct({
   stage: Schema.Literal("done"),
-  planSession: SessionRef,
+  planSession: Schema.String,
   planArtifact: Schema.String,
-  executeSession: SessionRef,
+  executeSession: Schema.String,
 });
 
 const PlanAndExecuteSpec = Schema.Struct({
@@ -39,7 +28,7 @@ const PlanAndExecuteSpec = Schema.Struct({
 
 const ExecuteSpec = Schema.Struct({
   type: Schema.Literal("execute"),
-  executeSession: SessionRef,
+  executeSession: Schema.String,
 });
 
 const WorkflowSpec = Schema.Union(PlanAndExecuteSpec, ExecuteSpec);

@@ -1,7 +1,6 @@
 import { SQLiteEntity } from "@std-toolkit/sqlite";
 import {
   claudeMessageEntity,
-  claudeSessionEntity,
   claudeTurnEntity,
 } from "../entity/claude/index.js";
 import { projectEntity } from "../entity/project/index.js";
@@ -11,13 +10,6 @@ export const claudeMessageSqliteEntity = SQLiteEntity.make(table)
   .eschema(claudeMessageEntity)
   .primary()
   .index("IDX1", "bySession", { pk: ["sessionId"] })
-  .index("IDX2", "byUpdatedAt", { pk: [] })
-  .build();
-
-export const claudeSessionSqliteEntity = SQLiteEntity.make(table)
-  .eschema(claudeSessionEntity)
-  .primary()
-  .index("IDX1", "byStatus", { pk: ["status"] })
   .index("IDX2", "byUpdatedAt", { pk: [] })
   .build();
 

@@ -23,12 +23,12 @@ export const CreateThreadParams = Schema.Struct({
 });
 
 export const ContinueThreadParams = Schema.Struct({
-  threadId: Schema.String,
+  sessionId: Schema.String,
   prompt: PromptContent,
 });
 
 export const UpdateThreadParams = Schema.Struct({
-  threadId: Schema.String,
+  sessionId: Schema.String,
   updates: Schema.Struct({
     model: Schema.optionalWith(Schema.String, { exact: true }),
     approvalPolicy: Schema.optionalWith(ApprovalPolicy, { exact: true }),
@@ -37,7 +37,7 @@ export const UpdateThreadParams = Schema.Struct({
 });
 
 export const RespondToApprovalParams = Schema.Struct({
-  threadId: Schema.String,
+  sessionId: Schema.String,
   requestId: Schema.String,
   decision: Schema.Literal("accept", "acceptForSession", "decline"),
 });

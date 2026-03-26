@@ -10,9 +10,10 @@ import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
 import {
   claudeMessageSqliteEntity,
-  claudeSessionSqliteEntity,
   claudeTurnSqliteEntity,
 } from "../../db/claude.js";
+import { sessionSqliteEntity } from "../../db/session.js";
+import { updateSessionPayload } from "../shared/session.js";
 import type { ActiveTurn, SessionRuntimeOptions } from "./schema.js";
 import {
   ContinueSessionParams,
@@ -51,18 +52,22 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
       ) =>
         Effect.gen(function* () {
           const sessionId = v7();
-          yield* claudeSessionSqliteEntity
+          yield* sessionSqliteEntity
             .insert({
               sessionId,
+              type: "claude",
               status: "success",
               absolutePath: params.absolutePath,
               name: "New Session",
               model: params.model,
-              permissionMode: params.permissionMode,
-              persistSession: params.persistSession,
-              effort: params.effort,
-              maxTurns: params.maxTurns,
-              maxBudgetUsd: params.maxBudgetUsd,
+              payload: {
+                type: "claude",
+                permissionMode: params.permissionMode,
+                persistSession: params.persistSession,
+                effort: params.effort,
+                maxTurns: params.maxTurns,
+                maxBudgetUsd: params.maxBudgetUsd,
+              },
             })
             .pipe(Effect.orDie);
           yield* continueSession(
@@ -103,13 +108,13 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
             activeTurns.delete(sessionId);
           }
 
-          const session = yield* claudeSessionSqliteEntity
+          const session = yield* sessionSqliteEntity
             .get({ sessionId })
             .pipe(
               Effect.orDie,
               Effect.flatMap((row) =>
-                row
-                  ? Effect.succeed(row.value)
+                row && row.value.payload.type === "claude"
+                  ? Effect.succeed(row.value as typeof row.value & { payload: { type: "claude" } })
                   : Effect.fail(
                       new ClaudeChatError({
                         message: `session ${sessionId} not found`,
@@ -147,20 +152,21 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
                 };
               })();
 
+          const { payload } = session;
           const queryResult = query({
             prompt: sdkPrompt,
             options: {
               model: session.model,
               cwd: session.absolutePath,
               ...(newSession ? { sessionId } : { resume: sessionId }),
-              permissionMode: session.permissionMode,
-              persistSession: session.persistSession,
-              effort: session.effort,
-              ...(session.maxTurns > 0 ? { maxTurns: session.maxTurns } : {}),
-              ...(session.maxBudgetUsd > 0
-                ? { maxBudgetUsd: session.maxBudgetUsd }
+              permissionMode: payload.permissionMode,
+              persistSession: payload.persistSession,
+              effort: payload.effort,
+              ...(payload.maxTurns > 0 ? { maxTurns: payload.maxTurns } : {}),
+              ...(payload.maxBudgetUsd > 0
+                ? { maxBudgetUsd: payload.maxBudgetUsd }
                 : {}),
-              ...(session.permissionMode === "bypassPermissions"
+              ...(payload.permissionMode === "bypassPermissions"
                 ? { allowDangerouslySkipPermissions: true }
                 : {}),
               abortController: turn.abortController,
@@ -208,14 +214,14 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
                 yield* claudeTurnSqliteEntity
                   .update({ id: turn.turnId }, { status, result: message })
                   .pipe(Effect.orDie);
-                yield* claudeSessionSqliteEntity
+                yield* sessionSqliteEntity
                   .update({ sessionId }, { status })
                   .pipe(Effect.orDie);
 
                 yield* Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
                   Effect.flatMap((info) => {
                     if (!info?.summary) return Effect.void;
-                    return claudeSessionSqliteEntity
+                    return sessionSqliteEntity
                       .update({ sessionId }, { name: info.summary })
                       .pipe(Effect.orDie, Effect.asVoid);
                   }),
@@ -291,9 +297,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
         });
 
       const updateSession = (params: typeof UpdateSessionParams.Type) =>
-        claudeSessionSqliteEntity
-          .update({ sessionId: params.sessionId }, params.updates)
-          .pipe(Effect.orDie);
+        updateSessionPayload(params.sessionId, "claude", params.updates);
 
       const oneShot = (params: {
         cwd: string;

@@ -9,7 +9,6 @@ import {
 import { EntitySchema } from "@std-toolkit/core";
 import {
   claudeMessageEntity,
-  claudeSessionEntity,
   claudeTurnEntity,
 } from "../../entity/claude/index.js";
 
@@ -44,18 +43,13 @@ export class ClaudeRpcs extends RpcGroup.make(
     error: ClaudeChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
-  Rpc.make("querySessions", {
-    success: Schema.Array(EntitySchema(claudeSessionEntity)),
-    error: ClaudeChatError,
-    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
-  }),
   Rpc.make("queryTurns", {
     success: Schema.Array(EntitySchema(claudeTurnEntity)),
     error: ClaudeChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
   Rpc.make("updateSession", {
-    success: EntitySchema(claudeSessionEntity),
+    success: Schema.Void,
     error: ClaudeChatError,
     payload: UpdateSessionParams,
   }),
