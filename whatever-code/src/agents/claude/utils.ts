@@ -2,9 +2,10 @@ import { Effect } from "effect";
 import { ulid } from "ulid";
 import {
   claudeMessageSqliteEntity,
-  claudeSessionSqliteEntity,
   claudeTurnSqliteEntity,
 } from "../../db/claude.js";
+import { sessionSqliteEntity } from "../../db/session.js";
+import { initSessionsForType } from "../shared/session.js";
 import type { TaskStatus } from "../../entity/status.js";
 import type { PromptContent } from "../shared/schema.js";
 
@@ -19,7 +20,7 @@ export const markTurnStatus = (
       claudeTurnSqliteEntity
         .update({ id: turnId }, { status })
         .pipe(Effect.orDie),
-      claudeSessionSqliteEntity
+      sessionSqliteEntity
         .update({ sessionId }, { status })
         .pipe(Effect.orDie),
     ],
@@ -48,26 +49,7 @@ const markTurnsInterrupted = (sessionId: string) =>
       Effect.orDie,
     );
 
-export const initSessions = Effect.gen(function* () {
-  const { items: inProgressSessions } = yield* claudeSessionSqliteEntity
-    .query("byStatus", { pk: { status: "in_progress" }, sk: { ">": null } })
-    .pipe(Effect.orDie);
-
-  yield* Effect.forEach(
-    inProgressSessions,
-    ({ value }) =>
-      Effect.all(
-        [
-          claudeSessionSqliteEntity
-            .update({ sessionId: value.sessionId }, { status: "interrupted" })
-            .pipe(Effect.orDie),
-          markTurnsInterrupted(value.sessionId),
-        ],
-        { discard: true },
-      ),
-    { discard: true },
-  );
-});
+export const initSessions = initSessionsForType("claude", markTurnsInterrupted);
 
 export const persistNewTurn = (
   sessionId: string,
@@ -75,7 +57,7 @@ export const persistNewTurn = (
   prompt: typeof PromptContent.Type,
 ) =>
   Effect.all([
-    claudeSessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),
+    sessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),
     claudeTurnSqliteEntity.insert({
       id: turnId,
       sessionId,

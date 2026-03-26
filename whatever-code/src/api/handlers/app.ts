@@ -8,6 +8,7 @@ import { CodexOrchestrator } from "../../agents/codex/codex.js";
 import { BroadcastService } from "../../services/broadcast.js";
 import { dataDir } from "../../db/index.js";
 import { projectSqliteEntity } from "../../db/claude.js";
+import { sessionSqliteEntity } from "../../db/session.js";
 import { computePaths } from "../../lib/paths.js";
 
 const execFilePromise = promisify(execFile);
@@ -189,5 +190,12 @@ export const AppHandlers = AppRpcs.toLayer(
       }).pipe(
         Effect.mapError((e) => new AppError({ message: String(e) })),
       ),
+    "app.querySessions": ({ ">": cursor }) =>
+      sessionSqliteEntity
+        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .pipe(
+          Effect.map(({ items }) => items),
+          Effect.mapError((e) => new AppError({ message: String(e) })),
+        ),
   }),
 );

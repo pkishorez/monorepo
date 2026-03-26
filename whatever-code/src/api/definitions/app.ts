@@ -2,6 +2,7 @@ import { Rpc, RpcGroup } from "@effect/rpc";
 import { BroadcastSchema, EntitySchema } from "@std-toolkit/core";
 import { Schema } from "effect";
 import { projectEntity } from "../../entity/project/index.js";
+import { sessionEntity } from "../../entity/session/index.js";
 
 export const OpenProjectParams = Schema.Struct({
   absolutePath: Schema.String,
@@ -81,5 +82,10 @@ export class AppRpcs extends RpcGroup.make(
       absolutePath: Schema.String,
       patch: Schema.String,
     }),
+  }),
+  Rpc.make("querySessions", {
+    success: Schema.Array(EntitySchema(sessionEntity)),
+    error: AppError,
+    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
 ).prefix("app.") {}

@@ -7,9 +7,10 @@ import { CodexChatError } from "../../api/definitions/codex.js";
 import { execCodexJson } from "./exec-json.js";
 import {
   codexEventSqliteEntity,
-  codexThreadSqliteEntity,
   codexTurnSqliteEntity,
 } from "../../db/codex.js";
+import { sessionSqliteEntity } from "../../db/session.js";
+import { updateSessionPayload } from "../shared/session.js";
 import type { ActiveTurn } from "./schema.js";
 import {
   CreateThreadParams,
@@ -20,7 +21,7 @@ import {
 import {
   markTurnStatus,
   persistNewTurn,
-  initThreads,
+  initSessions,
 } from "./utils.js";
 import type { ServerNotification } from "./generated/ServerNotification.js";
 import type { ServerRequest } from "./generated/ServerRequest.js";
@@ -88,16 +89,16 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
       const activeTurns = new Map<string, ActiveTurn>();
       const pendingApprovals = new Map<
         string,
-        { serverRequestId: RequestId; threadId: string; turnId: string }
+        { serverRequestId: RequestId; sessionId: string; turnId: string }
       >();
 
-      yield* initThreads;
+      yield* initSessions;
 
       yield* Effect.addFinalizer(() =>
         Effect.forEach(
           activeTurns.entries(),
-          ([threadId, turn]) =>
-            markTurnStatus(turn.turnId, threadId, "interrupted"),
+          ([sessionId, turn]) =>
+            markTurnStatus(turn.turnId, sessionId, "interrupted"),
           { discard: true },
         ),
       );
@@ -123,10 +124,10 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               const { threadId: sdkThreadId, turn } = notification.params;
               const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
               if (!activeTurn) break;
-              const { ourThreadId, turn: at } = activeTurn;
+              const { ourSessionId, turn: at } = activeTurn;
 
               if (turn.status === "completed") {
-                yield* markTurnStatus(at.turnId, ourThreadId, "success");
+                yield* markTurnStatus(at.turnId, ourSessionId, "success");
               } else if (turn.status === "failed") {
                 yield* codexTurnSqliteEntity
                   .update(
@@ -134,14 +135,14 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                     { status: "error", error: turn.error },
                   )
                   .pipe(Effect.orDie);
-                yield* codexThreadSqliteEntity
-                  .update({ threadId: ourThreadId }, { status: "error" })
+                yield* sessionSqliteEntity
+                  .update({ sessionId: ourSessionId }, { status: "error" })
                   .pipe(Effect.orDie);
               } else if (turn.status === "interrupted") {
-                yield* markTurnStatus(at.turnId, ourThreadId, "interrupted");
+                yield* markTurnStatus(at.turnId, ourSessionId, "interrupted");
               }
 
-              activeTurns.delete(ourThreadId);
+              activeTurns.delete(ourSessionId);
               break;
             }
             case "thread/name/updated": {
@@ -150,9 +151,9 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               if (activeTurn) {
                 const name = (notification.params as { name?: string }).name;
                 if (name) {
-                  yield* codexThreadSqliteEntity
+                  yield* sessionSqliteEntity
                     .update(
-                      { threadId: activeTurn.ourThreadId },
+                      { sessionId: activeTurn.ourSessionId },
                       { name },
                     )
                     .pipe(Effect.orDie);
@@ -190,7 +191,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                   yield* codexEventSqliteEntity
                     .insert({
                       id: ulid(),
-                      threadId: activeTurn.ourThreadId,
+                      sessionId: activeTurn.ourSessionId,
                       turnId: activeTurn.turn.turnId,
                       data: notification as PersistedNotification,
                     })
@@ -221,7 +222,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           yield* codexEventSqliteEntity
             .insert({
               id: approvalId,
-              threadId: activeTurn.ourThreadId,
+              sessionId: activeTurn.ourSessionId,
               turnId: activeTurn.turn.turnId,
               data: {
                 method: request.method as ServerNotification["method"],
@@ -232,7 +233,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           pendingApprovals.set(approvalId, {
             serverRequestId,
-            threadId: activeTurn.ourThreadId,
+            sessionId: activeTurn.ourSessionId,
             turnId: activeTurn.turn.turnId,
           });
         });
@@ -245,26 +246,30 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
       const sdkThreadIdMap = new Map<string, string>();
 
       const findActiveTurnBySdkThreadId = (sdkThreadId: string) => {
-        const ourThreadId = sdkThreadIdMap.get(sdkThreadId);
-        if (!ourThreadId) return null;
-        const turn = activeTurns.get(ourThreadId);
+        const ourSessionId = sdkThreadIdMap.get(sdkThreadId);
+        if (!ourSessionId) return null;
+        const turn = activeTurns.get(ourSessionId);
         if (!turn) return null;
-        return { ourThreadId, turn };
+        return { ourSessionId, turn };
       };
 
       const createThread = (params: typeof CreateThreadParams.Type) =>
         Effect.gen(function* () {
-          const threadId = v7();
+          const sessionId = v7();
 
-          yield* codexThreadSqliteEntity
+          yield* sessionSqliteEntity
             .insert({
-              threadId,
+              sessionId,
+              type: "codex",
               status: "in_progress",
               absolutePath: params.absolutePath,
               model: params.model,
-              approvalPolicy: params.approvalPolicy,
-              sandboxMode: params.sandboxMode,
-              sdkThreadId: null,
+              payload: {
+                type: "codex",
+                approvalPolicy: params.approvalPolicy,
+                sandboxMode: params.sandboxMode,
+                sdkThreadId: null,
+              },
             })
             .pipe(Effect.orDie);
 
@@ -278,22 +283,32 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           })) as ThreadStartResponse;
 
           const sdkThreadId = response.thread.id;
-          yield* codexThreadSqliteEntity
-            .update({ threadId }, { sdkThreadId })
+          yield* sessionSqliteEntity
+            .update(
+              { sessionId },
+              {
+                payload: {
+                  type: "codex",
+                  approvalPolicy: params.approvalPolicy,
+                  sandboxMode: params.sandboxMode,
+                  sdkThreadId,
+                },
+              },
+            )
             .pipe(Effect.orDie);
-          sdkThreadIdMap.set(sdkThreadId, threadId);
+          sdkThreadIdMap.set(sdkThreadId, sessionId);
 
-          yield* continueThread({ threadId, prompt: params.prompt });
-          return threadId;
+          yield* continueThread({ sessionId, prompt: params.prompt });
+          return sessionId;
         }).pipe(
           Effect.mapError((e) => new CodexChatError({ message: errorMessage(e) })),
         );
 
       const continueThread = (params: typeof ContinueThreadParams.Type) =>
         Effect.gen(function* () {
-          const { threadId } = params;
+          const { sessionId } = params;
 
-          const existing = activeTurns.get(threadId);
+          const existing = activeTurns.get(sessionId);
           if (existing) {
             return yield* Effect.fail(
               new CodexChatError({
@@ -302,49 +317,50 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             );
           }
 
-          const thread = yield* codexThreadSqliteEntity
-            .get({ threadId })
+          const session = yield* sessionSqliteEntity
+            .get({ sessionId })
             .pipe(
               Effect.orDie,
               Effect.flatMap((row) =>
-                row
-                  ? Effect.succeed(row.value)
+                row && row.value.payload.type === "codex"
+                  ? Effect.succeed(row.value as typeof row.value & { payload: { type: "codex" } })
                   : Effect.fail(
                       new CodexChatError({
-                        message: `thread ${threadId} not found`,
+                        message: `codex session ${sessionId} not found`,
                       }),
                     ),
               ),
             );
 
-          if (!thread.sdkThreadId) {
+          const { payload } = session;
+          if (!payload.sdkThreadId) {
             return yield* Effect.fail(
               new CodexChatError({
-                message: `thread ${threadId} has no SDK thread ID`,
+                message: `session ${sessionId} has no SDK thread ID`,
               }),
             );
           }
 
           const turnId = ulid();
-          yield* persistNewTurn(threadId, turnId, params.prompt, thread.model);
+          yield* persistNewTurn(sessionId, turnId, params.prompt, session.model);
 
           const turn: ActiveTurn = { turnId, sdkTurnId: null };
-          activeTurns.set(threadId, turn);
+          activeTurns.set(sessionId, turn);
 
-          if (!sdkThreadIdMap.has(thread.sdkThreadId)) {
+          if (!sdkThreadIdMap.has(payload.sdkThreadId)) {
             yield* client.request("thread/resume", {
-              threadId: thread.sdkThreadId,
+              threadId: payload.sdkThreadId,
               persistExtendedHistory: false,
             });
-            sdkThreadIdMap.set(thread.sdkThreadId, threadId);
+            sdkThreadIdMap.set(payload.sdkThreadId, sessionId);
           }
 
           const response = (yield* client.request("turn/start", {
-            threadId: thread.sdkThreadId,
+            threadId: payload.sdkThreadId,
             input: promptToCodexInput(params.prompt),
-            model: thread.model,
-            approvalPolicy: thread.approvalPolicy,
-            sandboxPolicy: sandboxModeToPolicy(thread.sandboxMode as SandboxMode),
+            model: session.model,
+            approvalPolicy: payload.approvalPolicy,
+            sandboxPolicy: sandboxModeToPolicy(payload.sandboxMode as SandboxMode),
           })) as TurnStartResponse;
 
           turn.sdkTurnId = response.turn.id;
@@ -359,33 +375,31 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           ),
         );
 
-      const stopThread = (threadId: string) =>
+      const stopThread = (sessionId: string) =>
         Effect.gen(function* () {
-          const turn = activeTurns.get(threadId);
+          const turn = activeTurns.get(sessionId);
           if (!turn) return;
 
-          const thread = yield* codexThreadSqliteEntity
-            .get({ threadId })
+          const row = yield* sessionSqliteEntity
+            .get({ sessionId })
             .pipe(Effect.orDie);
-          if (!thread?.value.sdkThreadId) return;
+          if (!row || row.value.payload.type !== "codex" || !row.value.payload.sdkThreadId) return;
 
           if (turn.sdkTurnId) {
             yield* client
               .request("turn/interrupt", {
-                threadId: thread.value.sdkThreadId,
+                threadId: row.value.payload.sdkThreadId,
                 turnId: turn.sdkTurnId,
               })
               .pipe(Effect.catchAll(() => Effect.void));
           }
 
-          activeTurns.delete(threadId);
-          yield* markTurnStatus(turn.turnId, threadId, "interrupted");
+          activeTurns.delete(sessionId);
+          yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
         });
 
       const updateThread = (params: typeof UpdateThreadParams.Type) =>
-        codexThreadSqliteEntity
-          .update({ threadId: params.threadId }, params.updates)
-          .pipe(Effect.orDie);
+        updateSessionPayload(params.sessionId, "codex", params.updates);
 
       const respondToApproval = (
         params: typeof RespondToApprovalParams.Type,

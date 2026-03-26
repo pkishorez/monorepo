@@ -1,1 +1,1 @@
-export { workflowEntity, SessionRef } from "./workflow.js";
+export { workflowEntity } from "./workflow.js";

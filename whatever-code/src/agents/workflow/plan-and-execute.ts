@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ClaudeOrchestrator } from "../claude/claude.js";
 import type { SessionRuntimeOptions } from "../claude/schema.js";
 import { projectSqliteEntity } from "../../db/claude.js";
+import { sessionSqliteEntity } from "../../db/session.js";
 import { workflowSqliteEntity } from "../../db/workflow.js";
 import { errorMessage } from "../../lib/error.js";
 import {
@@ -137,7 +138,7 @@ export const startPlan = (params: typeof StartPlanParams.Type) =>
           type: "plan-and-execute",
           current: {
             stage: "planning",
-            planSession: { type: "claude", sessionId },
+            planSession: sessionId,
             planArtifact: null,
           },
         },
@@ -163,21 +164,28 @@ export const continuePlan = (params: typeof ContinuePlanParams.Type) =>
       );
     }
 
-    const ref = workflow.spec.current.planSession;
-    if (ref.type !== "claude") {
-      return yield* Effect.fail(
-        new PlanAndExecuteWorkflowError({
-          message: "plan-and-execute only supports Claude sessions",
-        }),
+    const sessionId = workflow.spec.current.planSession;
+    const session = yield* sessionSqliteEntity
+      .get({ sessionId })
+      .pipe(
+        Effect.orDie,
+        Effect.flatMap((row) =>
+          row && row.value.type === "claude"
+            ? Effect.succeed(row.value)
+            : Effect.fail(
+                new PlanAndExecuteWorkflowError({
+                  message: "plan-and-execute only supports Claude sessions",
+                }),
+              ),
+        ),
       );
-    }
 
     const runtimeOptions = yield* buildPlanningRuntimeOptions(
       params.workflowId,
     );
     const claude = yield* ClaudeOrchestrator;
     yield* claude.continueSession(
-      { sessionId: ref.sessionId, prompt: params.prompt },
+      { sessionId, prompt: params.prompt },
       false,
       runtimeOptions,
     );
@@ -250,7 +258,7 @@ export const startExecutePhase = (
               stage: "executing",
               planSession: workflow.spec.current.planSession,
               planArtifact,
-              executeSession: { type: "claude", sessionId },
+              executeSession: sessionId,
             },
           },
         },
@@ -278,18 +286,25 @@ export const continueExecutePhase = (
       );
     }
 
-    const ref = workflow.spec.current.executeSession;
-    if (ref.type !== "claude") {
-      return yield* Effect.fail(
-        new PlanAndExecuteWorkflowError({
-          message: "plan-and-execute only supports Claude sessions",
-        }),
+    const sessionId = workflow.spec.current.executeSession;
+    const session = yield* sessionSqliteEntity
+      .get({ sessionId })
+      .pipe(
+        Effect.orDie,
+        Effect.flatMap((row) =>
+          row && row.value.type === "claude"
+            ? Effect.succeed(row.value)
+            : Effect.fail(
+                new PlanAndExecuteWorkflowError({
+                  message: "plan-and-execute only supports Claude sessions",
+                }),
+              ),
+        ),
       );
-    }
 
     const claude = yield* ClaudeOrchestrator;
     yield* claude.continueSession({
-      sessionId: ref.sessionId,
+      sessionId,
       prompt: params.prompt,
     });
   }).pipe(
@@ -309,15 +324,9 @@ export const stopPlanAndExecute = (
     const { current } = workflow.spec;
 
     if (current.stage === "planning") {
-      const ref = current.planSession;
-      if (ref.type === "claude") {
-        yield* claude.stopSession(ref.sessionId);
-      }
+      yield* claude.stopSession(current.planSession);
     } else if (current.stage === "executing") {
-      const ref = current.executeSession;
-      if (ref.type === "claude") {
-        yield* claude.stopSession(ref.sessionId);
-      }
+      yield* claude.stopSession(current.executeSession);
     }
   }).pipe(
     Effect.mapError((e) =>

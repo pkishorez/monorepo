@@ -9,7 +9,6 @@ import {
 import { EntitySchema } from "@std-toolkit/core";
 import {
   codexEventEntity,
-  codexThreadEntity,
   codexTurnEntity,
 } from "../../entity/codex/index.js";
 
@@ -32,10 +31,10 @@ export class CodexRpcs extends RpcGroup.make(
   Rpc.make("stopThread", {
     success: Schema.Void,
     error: CodexChatError,
-    payload: Schema.Struct({ threadId: Schema.String }),
+    payload: Schema.Struct({ sessionId: Schema.String }),
   }),
   Rpc.make("updateThread", {
-    success: EntitySchema(codexThreadEntity),
+    success: Schema.Void,
     error: CodexChatError,
     payload: UpdateThreadParams,
   }),
@@ -46,11 +45,6 @@ export class CodexRpcs extends RpcGroup.make(
   }),
   Rpc.make("queryEvents", {
     success: Schema.Array(EntitySchema(codexEventEntity)),
-    error: CodexChatError,
-    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
-  }),
-  Rpc.make("queryThreads", {
-    success: Schema.Array(EntitySchema(codexThreadEntity)),
     error: CodexChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
