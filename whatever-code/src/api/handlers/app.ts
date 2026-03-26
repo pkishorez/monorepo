@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { platform } from "node:os";
 import { listSessions } from "@anthropic-ai/claude-agent-sdk";
 import { AppError, AppRpcs } from "../definitions/app.js";
-import { CodexOrchestrator } from "../../codex/codex.js";
+import { CodexOrchestrator } from "../../agents/codex/codex.js";
 import { BroadcastService } from "../../services/broadcast.js";
 import { dataDir } from "../../db/index.js";
 import { projectSqliteEntity } from "../../db/claude.js";
@@ -98,7 +98,7 @@ export const AppHandlers = AppRpcs.toLayer(
           return [...dirs].sort().concat(files);
         }),
       ),
-    "app.getGitDiff": ({ absolutePath }) =>
+    "app.getGitDiff": ({ absolutePath, statsOnly }) =>
       Effect.tryPromise({
         try: async () => {
           const { stdout: repoRoot } = await execFilePromise(
@@ -107,17 +107,27 @@ export const AppHandlers = AppRpcs.toLayer(
             { cwd: absolutePath },
           );
           const cwd = repoRoot.trim();
-          await execFilePromise(
-            "git",
-            ["add", "-A", "--intent-to-add"],
-            { cwd },
-          );
+          const [, { stdout: rawBranch }] = await Promise.all([
+            execFilePromise("git", ["add", "-A", "--intent-to-add"], { cwd }),
+            execFilePromise("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd }),
+          ]);
+          const branch = rawBranch.trim();
+          if (statsOnly) {
+            const { stdout: names } = await execFilePromise(
+              "git",
+              ["diff", "HEAD", "--name-only", "--no-color"],
+              { cwd },
+            );
+            const trimmed = names.trim();
+            const fileCount = trimmed ? trimmed.split("\n").length : 0;
+            return { patch: "", fileCount, branch };
+          }
           const { stdout: patch } = await execFilePromise(
             "git",
             ["diff", "HEAD", "--patch", "--minimal", "--no-color"],
             { cwd, maxBuffer: 10 * 1024 * 1024 },
           );
-          return { patch };
+          return { patch, fileCount: 0, branch };
         },
         catch: (e) => new AppError({ message: String(e) }),
       }),

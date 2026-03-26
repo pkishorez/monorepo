@@ -4,8 +4,9 @@ import {
   claudeMessageSqliteEntity,
   claudeSessionSqliteEntity,
   claudeTurnSqliteEntity,
-} from "../db/claude.js";
-import type { TaskStatus } from "../entity/status.js";
+} from "../../db/claude.js";
+import type { TaskStatus } from "../../entity/status.js";
+import type { PromptContent } from "../shared/schema.js";
 
 
 export const markTurnStatus = (
@@ -71,7 +72,7 @@ export const initSessions = Effect.gen(function* () {
 export const persistNewTurn = (
   sessionId: string,
   turnId: string,
-  prompt: string,
+  prompt: typeof PromptContent.Type,
 ) =>
   Effect.all([
     claudeSessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),

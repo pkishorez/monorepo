@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { CodexChatError, CodexRpcs } from "../definitions/codex.js";
-import { CodexOrchestrator } from "../../codex/codex.js";
+import { CodexOrchestrator } from "../../agents/codex/codex.js";
 import {
   codexEventSqliteEntity,
   codexThreadSqliteEntity,

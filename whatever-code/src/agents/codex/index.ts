@@ -11,4 +11,4 @@ export {
   codexEventEntity,
   codexThreadEntity,
   codexTurnEntity,
-} from "../entity/codex/codex.js";
+} from "../../entity/codex/codex.js";

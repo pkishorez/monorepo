@@ -16,9 +16,13 @@ export {
   PermissionMode,
   Message,
   ToolResponse,
+  PromptContent,
+  ContentBlock,
+  TextBlock,
+  ImageBlock,
   MODELS as ClaudeModels,
-} from "../../claude/schema.js";
-export type { PermissionModeValue } from "../../claude/schema.js";
+} from "../../agents/claude/schema.js";
+export type { PermissionModeValue } from "../../agents/claude/schema.js";
 
 export {
   CreateThreadParams,
@@ -28,7 +32,7 @@ export {
   ApprovalPolicy,
   SandboxMode,
   MODELS as CodexModels,
-} from "../../codex/schema.js";
+} from "../../agents/codex/schema.js";
 
 export {
   StartExecuteParams,
@@ -41,6 +45,6 @@ export {
   ContinueExecutePhaseParams,
   StopPlanAndExecuteParams,
   PlanAndExecuteWorkflowError,
-} from "../../workflow/schema.js";
+} from "../../agents/workflow/schema.js";
 
 export const ApiRpcs = ClaudeRpcs.merge(AppRpcs).merge(CodexRpcs).merge(WorkflowRpcs);

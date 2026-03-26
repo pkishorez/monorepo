@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { CreateSessionParams, Effort } from "../claude/schema.js";
+import { PromptContent } from "../shared/schema.js";
 
 const ExecutePermissionMode = Schema.Literal(
   "default",
@@ -28,7 +29,7 @@ export const StartExecuteParams = Schema.Union(
 
 export const ContinueExecuteParams = Schema.Struct({
   workflowId: Schema.String,
-  prompt: Schema.String,
+  prompt: PromptContent,
 });
 
 export const StopExecuteParams = Schema.Struct({
@@ -47,7 +48,7 @@ export const StartPlanParams = Schema.Struct({
 
 export const ContinuePlanParams = Schema.Struct({
   workflowId: Schema.String,
-  prompt: Schema.String,
+  prompt: PromptContent,
 });
 
 export const StartExecutePhaseParams = Schema.Struct({
@@ -61,7 +62,7 @@ export const StartExecutePhaseParams = Schema.Struct({
 
 export const ContinueExecutePhaseParams = Schema.Struct({
   workflowId: Schema.String,
-  prompt: Schema.String,
+  prompt: PromptContent,
 });
 
 export const StopPlanAndExecuteParams = Schema.Struct({

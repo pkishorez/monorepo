@@ -32,7 +32,7 @@
     "typescript": "5.9.3",
     "vite": "7.3.1",
     "vite-tsconfig-paths": "6.1.1",
-    "vitest": "4.1.0"
+    "vitest": "4.1.1"
   },
   "peerDependencies": {
     "effect": ">=3.0.0"

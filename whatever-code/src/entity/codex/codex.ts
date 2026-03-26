@@ -2,7 +2,7 @@ import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 import { Typed } from "../../lib/typed.js";
 import type { ServerNotification, TurnError } from "./types.js";
-import type { ThreadTokenUsage } from "../../codex/generated/v2/ThreadTokenUsage.js";
+import type { ThreadTokenUsage } from "../../agents/codex/generated/v2/ThreadTokenUsage.js";
 import { TaskStatus } from "../status.js";
 
 export const codexThreadEntity = EntityESchema.make(

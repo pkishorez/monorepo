@@ -51,9 +51,14 @@ export class AppRpcs extends RpcGroup.make(
   Rpc.make("getGitDiff", {
     success: Schema.Struct({
       patch: Schema.String,
+      fileCount: Schema.optionalWith(Schema.Number, { default: () => 0 }),
+      branch: Schema.optionalWith(Schema.String, { default: () => "" }),
     }),
     error: AppError,
-    payload: Schema.Struct({ absolutePath: Schema.String }),
+    payload: Schema.Struct({
+      absolutePath: Schema.String,
+      statsOnly: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+    }),
   }),
   Rpc.make("gitCommit", {
     success: Schema.Struct({

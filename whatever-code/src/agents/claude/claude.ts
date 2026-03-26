@@ -4,15 +4,15 @@ import {
   getSessionInfo,
   type SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import { Cause, Deferred, Effect, Exit, Queue, Stream } from "effect";
+import { Cause, Deferred, Effect, Exit, Queue, Runtime, Stream } from "effect";
 import { v7 } from "uuid";
 import { ulid } from "ulid";
-import { ClaudeChatError } from "../api/definitions/claude.js";
+import { ClaudeChatError } from "../../api/definitions/claude.js";
 import {
   claudeMessageSqliteEntity,
   claudeSessionSqliteEntity,
   claudeTurnSqliteEntity,
-} from "../db/claude.js";
+} from "../../db/claude.js";
 import type { ActiveTurn, SessionRuntimeOptions } from "./schema.js";
 import {
   ContinueSessionParams,
@@ -30,6 +30,9 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
   {
     scoped: Effect.gen(function* () {
       const activeTurns = new Map<string, ActiveTurn>();
+      const runtime = yield* Effect.runtime<never>();
+      const fork = <A, E>(effect: Effect.Effect<A, E, any>) =>
+        Runtime.runFork(runtime)(effect as Effect.Effect<A, E, never>);
 
       yield* initSessions;
       yield* Effect.addFinalizer(() =>
@@ -130,8 +133,22 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           );
           activeTurns.set(sessionId, turn);
 
+          const sdkPrompt = typeof params.prompt === "string"
+            ? params.prompt
+            : (async function* () {
+                yield {
+                  type: "user" as const,
+                  message: {
+                    role: "user" as const,
+                    content: params.prompt as any,
+                  },
+                  parent_tool_use_id: null,
+                  session_id: sessionId,
+                };
+              })();
+
           const queryResult = query({
-            prompt: params.prompt,
+            prompt: sdkPrompt,
             options: {
               model: session.model,
               cwd: session.absolutePath,
@@ -243,7 +260,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               }
             });
 
-          yield* Effect.forkScoped(
+          fork(
             Stream.fromAsyncIterable(
               queryResult,
               (e) => new Error(String(e)),
