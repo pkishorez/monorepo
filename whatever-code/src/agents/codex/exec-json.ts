@@ -3,7 +3,7 @@ import { writeFile, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { Effect, JSONSchema, Schema } from "effect";
-import { CodexChatError } from "../api/definitions/codex.js";
+import { CodexChatError } from "../../api/definitions/codex.js";
 
 const CODEX_TIMEOUT_MS = 60_000;
 
@@ -77,11 +77,16 @@ export const execCodexJson = <A, I, R>(params: {
           "-",
         ];
 
-        await execWithStdin("codex", args, {
-          cwd: params.cwd,
-          timeout: params.timeout ?? CODEX_TIMEOUT_MS,
-          maxBuffer: 1024 * 1024,
-        }, params.prompt);
+        await execWithStdin(
+          "codex",
+          args,
+          {
+            cwd: params.cwd,
+            timeout: params.timeout ?? CODEX_TIMEOUT_MS,
+            maxBuffer: 1024 * 1024,
+          },
+          params.prompt,
+        );
 
         const raw = await readFile(outputPath, "utf-8");
         return JSON.parse(raw) as A;

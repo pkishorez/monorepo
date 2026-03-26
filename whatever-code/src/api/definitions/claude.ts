@@ -5,7 +5,7 @@ import {
   CreateSessionParams,
   RespondToToolParams,
   UpdateSessionParams,
-} from "../../claude/schema.js";
+} from "../../agents/claude/schema.js";
 import { EntitySchema } from "@std-toolkit/core";
 import {
   claudeMessageEntity,

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { PromptContent } from "../shared/schema.js";
 
 export const ApprovalPolicy = Schema.Literal(
   "untrusted",
@@ -15,7 +16,7 @@ export const SandboxMode = Schema.Literal(
 
 export const CreateThreadParams = Schema.Struct({
   absolutePath: Schema.String,
-  prompt: Schema.String,
+  prompt: PromptContent,
   model: Schema.String,
   approvalPolicy: ApprovalPolicy,
   sandboxMode: SandboxMode,
@@ -23,7 +24,7 @@ export const CreateThreadParams = Schema.Struct({
 
 export const ContinueThreadParams = Schema.Struct({
   threadId: Schema.String,
-  prompt: Schema.String,
+  prompt: PromptContent,
 });
 
 export const UpdateThreadParams = Schema.Struct({

@@ -11,10 +11,10 @@ import { Effect, Layer, Option } from "effect";
 import { ApiRpcs } from "./api/definitions/index.js";
 import { ApiHandlers } from "./api/handlers/index.js";
 import { dbLayer } from "./db/index.js";
-import { ClaudeOrchestrator } from "./claude/claude.js";
-import { CodexOrchestrator } from "./codex/codex.js";
-import { CodexClient } from "./codex/client.js";
-import { WorkflowOrchestrator } from "./workflow/index.js";
+import { ClaudeOrchestrator } from "./agents/claude/claude.js";
+import { CodexOrchestrator } from "./agents/codex/codex.js";
+import { CodexClient } from "./agents/codex/client.js";
+import { WorkflowOrchestrator } from "./agents/workflow/index.js";
 import { ServicesLayer } from "./services/index.js";
 import { TelemetryLayer } from "./telemetry.js";
 

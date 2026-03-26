@@ -4,8 +4,9 @@ import {
   codexEventSqliteEntity,
   codexThreadSqliteEntity,
   codexTurnSqliteEntity,
-} from "../db/codex.js";
-import type { TaskStatus } from "../entity/status.js";
+} from "../../db/codex.js";
+import type { TaskStatus } from "../../entity/status.js";
+import type { PromptContent } from "../shared/schema.js";
 
 
 export const markTurnStatus = (
@@ -71,10 +72,17 @@ export const initThreads = Effect.gen(function* () {
 export const persistNewTurn = (
   threadId: string,
   turnId: string,
-  prompt: string,
+  prompt: typeof PromptContent.Type,
   model: string,
-) =>
-  Effect.all([
+) => {
+  const textContent = typeof prompt === "string"
+    ? prompt
+    : prompt
+        .filter((b) => b.type === "text")
+        .map((b) => b.text)
+        .join("\n");
+
+  return Effect.all([
     codexThreadSqliteEntity.update({ threadId }, { status: "in_progress" }),
     codexTurnSqliteEntity.insert({
       id: turnId,
@@ -97,9 +105,10 @@ export const persistNewTurn = (
           item: {
             type: "userMessage",
             id: ulid(),
-            content: [{ type: "text", text: prompt, text_elements: [] }],
+            content: [{ type: "text", text: textContent, text_elements: [] }],
           },
         },
       },
     }),
   ]).pipe(Effect.orDie);
+};

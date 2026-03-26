@@ -13,7 +13,7 @@ import {
   ContinueExecutePhaseParams,
   StopPlanAndExecuteParams,
   PlanAndExecuteWorkflowError,
-} from "../../workflow/schema.js";
+} from "../../agents/workflow/schema.js";
 
 export class WorkflowRpcs extends RpcGroup.make(
   Rpc.make("execute.start", {

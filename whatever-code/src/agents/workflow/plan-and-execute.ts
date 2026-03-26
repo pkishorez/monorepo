@@ -4,9 +4,9 @@ import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { ClaudeOrchestrator } from "../claude/claude.js";
 import type { SessionRuntimeOptions } from "../claude/schema.js";
-import { projectSqliteEntity } from "../db/claude.js";
-import { workflowSqliteEntity } from "../db/workflow.js";
-import { errorMessage } from "../lib/error.js";
+import { projectSqliteEntity } from "../../db/claude.js";
+import { workflowSqliteEntity } from "../../db/workflow.js";
+import { errorMessage } from "../../lib/error.js";
 import {
   StartPlanParams,
   ContinuePlanParams,

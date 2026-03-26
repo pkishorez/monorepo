@@ -3,13 +3,13 @@ import { Effect, Runtime, Schema } from "effect";
 import { v7 } from "uuid";
 import { ulid } from "ulid";
 import { CodexClient } from "./client.js";
-import { CodexChatError } from "../api/definitions/codex.js";
+import { CodexChatError } from "../../api/definitions/codex.js";
 import { execCodexJson } from "./exec-json.js";
 import {
   codexEventSqliteEntity,
   codexThreadSqliteEntity,
   codexTurnSqliteEntity,
-} from "../db/codex.js";
+} from "../../db/codex.js";
 import type { ActiveTurn } from "./schema.js";
 import {
   CreateThreadParams,
@@ -22,18 +22,42 @@ import {
   persistNewTurn,
   initThreads,
 } from "./utils.js";
-import type { ServerNotification } from "../codex/generated/ServerNotification.js";
-import type { ServerRequest } from "../codex/generated/ServerRequest.js";
-import type { RequestId } from "../codex/generated/RequestId.js";
-import type { ThreadStartResponse } from "../codex/generated/v2/ThreadStartResponse.js";
-import type { TurnStartResponse } from "../codex/generated/v2/TurnStartResponse.js";
-import type { SandboxPolicy } from "../codex/generated/v2/SandboxPolicy.js";
-import type { SandboxMode } from "../codex/generated/v2/SandboxMode.js";
+import type { ServerNotification } from "./generated/ServerNotification.js";
+import type { ServerRequest } from "./generated/ServerRequest.js";
+import type { RequestId } from "./generated/RequestId.js";
+import type { ThreadStartResponse } from "./generated/v2/ThreadStartResponse.js";
+import type { TurnStartResponse } from "./generated/v2/TurnStartResponse.js";
+import type { SandboxPolicy } from "./generated/v2/SandboxPolicy.js";
+import type { SandboxMode } from "./generated/v2/SandboxMode.js";
+import type { UserInput } from "./generated/v2/UserInput.js";
 import {
   PERSISTED_METHODS,
   type PersistedNotification,
-} from "../entity/codex/types.js";
-import { errorMessage } from "../lib/error.js";
+} from "../../entity/codex/types.js";
+import { errorMessage } from "../../lib/error.js";
+import type { PromptContent } from "../shared/schema.js";
+
+function promptToCodexInput(
+  prompt: typeof PromptContent.Type,
+): UserInput[] {
+  if (typeof prompt === "string") {
+    return [{ type: "text", text: prompt, text_elements: [] }];
+  }
+  const inputs: UserInput[] = [];
+  for (const block of prompt) {
+    if (block.type === "text") {
+      inputs.push({ type: "text", text: block.text, text_elements: [] });
+    } else if (block.type === "image") {
+      inputs.push({
+        type: "image",
+        url: `data:${block.source.media_type};base64,${block.source.data}`,
+      });
+    }
+  }
+  return inputs.length > 0
+    ? inputs
+    : [{ type: "text", text: "", text_elements: [] }];
+}
 
 function sandboxModeToPolicy(mode: SandboxMode): SandboxPolicy {
   switch (mode) {
@@ -317,7 +341,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           const response = (yield* client.request("turn/start", {
             threadId: thread.sdkThreadId,
-            input: [{ type: "text", text: params.prompt, text_elements: [] }],
+            input: promptToCodexInput(params.prompt),
             model: thread.model,
             approvalPolicy: thread.approvalPolicy,
             sandboxPolicy: sandboxModeToPolicy(thread.sandboxMode as SandboxMode),

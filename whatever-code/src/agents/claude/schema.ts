@@ -1,7 +1,9 @@
 import type { Deferred, Queue } from "effect";
 import { Schema } from "effect";
 import type { SDKMessage, McpServerConfig, HookEvent, HookCallbackMatcher } from "@anthropic-ai/claude-agent-sdk";
-import { Typed } from "../lib/typed.js";
+import { Typed } from "../../lib/typed.js";
+export { ImageBlock, TextBlock, ContentBlock, PromptContent } from "../shared/schema.js";
+import { PromptContent } from "../shared/schema.js";
 
 export const Message = Typed<SDKMessage>();
 
@@ -39,7 +41,7 @@ export type ToolResponse = typeof ToolResponse.Type;
 
 export const ContinueSessionParams = Schema.Struct({
   sessionId: Schema.String,
-  prompt: Schema.String,
+  prompt: PromptContent,
 });
 
 export const RespondToToolParams = Schema.Struct({
@@ -69,7 +71,7 @@ export const UpdateSessionParams = Schema.Struct({
 
 export const CreateSessionParams = Schema.Struct({
   absolutePath: Schema.String,
-  prompt: Schema.String,
+  prompt: PromptContent,
   model: Schema.String,
   permissionMode: PermissionMode,
   persistSession: Schema.Boolean,

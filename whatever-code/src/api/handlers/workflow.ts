@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 import { WorkflowRpcs } from "../definitions/workflow.js";
-import { WorkflowOrchestrator } from "../../workflow/index.js";
+import { WorkflowOrchestrator } from "../../agents/workflow/index.js";
 import { workflowSqliteEntity } from "../../db/workflow.js";
-import { ExecuteWorkflowError } from "../../workflow/index.js";
+import { ExecuteWorkflowError } from "../../agents/workflow/index.js";
 import { errorMessage } from "../../lib/error.js";
 
 export const WorkflowHandlers = WorkflowRpcs.toLayer(

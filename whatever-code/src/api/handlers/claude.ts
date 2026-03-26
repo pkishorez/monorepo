@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { ClaudeChatError, ClaudeRpcs } from "../definitions/claude.js";
-import { ClaudeOrchestrator } from "../../claude/claude.js";
+import { ClaudeOrchestrator } from "../../agents/claude/claude.js";
 import {
   claudeMessageSqliteEntity,
   claudeSessionSqliteEntity,
