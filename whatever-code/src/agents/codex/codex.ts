@@ -196,6 +196,18 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                       data: notification as PersistedNotification,
                     })
                     .pipe(Effect.orDie);
+
+                  if (notification.method === "item/completed") {
+                    const item = (notification.params as { item?: { type?: string; text?: string } }).item;
+                    if (item?.type === "plan" && typeof item.text === "string") {
+                      yield* codexTurnSqliteEntity
+                        .update(
+                          { id: activeTurn.turn.turnId },
+                          { planArtifact: item.text },
+                        )
+                        .pipe(Effect.orDie);
+                    }
+                  }
                 }
               }
               break;
@@ -264,6 +276,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               status: "in_progress",
               absolutePath: params.absolutePath,
               model: params.model,
+              interactionMode: params.interactionMode ?? "default",
               payload: {
                 type: "codex",
                 approvalPolicy: params.approvalPolicy,
@@ -361,6 +374,18 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             model: session.model,
             approvalPolicy: payload.approvalPolicy,
             sandboxPolicy: sandboxModeToPolicy(payload.sandboxMode as SandboxMode),
+            ...(session.interactionMode === "plan"
+              ? {
+                  collaborationMode: {
+                    mode: "plan" as const,
+                    settings: {
+                      model: session.model,
+                      reasoning_effort: null,
+                      developer_instructions: null,
+                    },
+                  },
+                }
+              : {}),
           })) as TurnStartResponse;
 
           turn.sdkTurnId = response.turn.id;

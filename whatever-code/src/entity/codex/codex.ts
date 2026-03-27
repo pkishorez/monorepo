@@ -12,6 +12,7 @@ export const codexTurnEntity = EntityESchema.make("codexTurn", "id", {
   sdkTurnId: Schema.NullOr(Schema.String),
   usage: Schema.NullOr(Typed<ThreadTokenUsage>()),
   error: Schema.NullOr(Typed<TurnError>()),
+  planArtifact: Schema.NullOr(Schema.String),
 }).build();
 
 export const codexEventEntity = EntityESchema.make("codexEvent", "id", {

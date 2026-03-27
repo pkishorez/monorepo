@@ -7,12 +7,6 @@ import {
   ContinueExecuteParams,
   StopExecuteParams,
   ExecuteWorkflowError,
-  StartPlanParams,
-  ContinuePlanParams,
-  StartExecutePhaseParams,
-  ContinueExecutePhaseParams,
-  StopPlanAndExecuteParams,
-  PlanAndExecuteWorkflowError,
 } from "../../agents/workflow/schema.js";
 
 export class WorkflowRpcs extends RpcGroup.make(
@@ -30,31 +24,6 @@ export class WorkflowRpcs extends RpcGroup.make(
     success: Schema.Void,
     error: ExecuteWorkflowError,
     payload: StopExecuteParams,
-  }),
-  Rpc.make("planAndExecute.startPlan", {
-    success: Schema.Struct({ workflowId: Schema.String }),
-    error: PlanAndExecuteWorkflowError,
-    payload: StartPlanParams,
-  }),
-  Rpc.make("planAndExecute.continuePlan", {
-    success: Schema.Void,
-    error: PlanAndExecuteWorkflowError,
-    payload: ContinuePlanParams,
-  }),
-  Rpc.make("planAndExecute.startExecute", {
-    success: Schema.Void,
-    error: PlanAndExecuteWorkflowError,
-    payload: StartExecutePhaseParams,
-  }),
-  Rpc.make("planAndExecute.continueExecute", {
-    success: Schema.Void,
-    error: PlanAndExecuteWorkflowError,
-    payload: ContinueExecutePhaseParams,
-  }),
-  Rpc.make("planAndExecute.stop", {
-    success: Schema.Void,
-    error: PlanAndExecuteWorkflowError,
-    payload: StopPlanAndExecuteParams,
   }),
   Rpc.make("query", {
     success: Schema.Array(EntitySchema(workflowEntity)),

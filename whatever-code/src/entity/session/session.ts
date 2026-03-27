@@ -2,6 +2,8 @@ import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 import { TaskStatus } from "../status.js";
 
+export const InteractionMode = Schema.Literal("default", "plan");
+
 export const ClaudePayload = Schema.Struct({
   type: Schema.Literal("claude"),
   permissionMode: Schema.Literal(
@@ -41,5 +43,9 @@ export const sessionEntity = EntityESchema.make("session", "sessionId", {
   absolutePath: Schema.String,
   name: Schema.optionalWith(Schema.String, { exact: true }),
   model: Schema.String,
+  interactionMode: Schema.optionalWith(InteractionMode, {
+    exact: true,
+    default: () => "default" as const,
+  }),
   payload: SessionPayload,
 }).build();

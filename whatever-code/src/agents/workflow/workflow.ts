@@ -4,13 +4,6 @@ import {
   continueExecuteWorkflow,
   stopExecuteWorkflow,
 } from "./execute.js";
-import {
-  startPlan,
-  continuePlan,
-  startExecutePhase,
-  continueExecutePhase,
-  stopPlanAndExecute,
-} from "./plan-and-execute.js";
 
 export class WorkflowOrchestrator extends Effect.Service<WorkflowOrchestrator>()(
   "WorkflowOrchestrator",
@@ -20,13 +13,6 @@ export class WorkflowOrchestrator extends Effect.Service<WorkflowOrchestrator>()
         start: startExecuteWorkflow,
         continue: continueExecuteWorkflow,
         stop: stopExecuteWorkflow,
-      },
-      planAndExecute: {
-        startPlan,
-        continuePlan,
-        startExecute: startExecutePhase,
-        continueExecute: continueExecutePhase,
-        stop: stopPlanAndExecute,
       },
     }),
   },
