@@ -54,8 +54,3 @@ export const MODELS = [
     description: "Near-instant coding iteration (Pro only)",
   },
 ];
-
-export interface ActiveTurn {
-  turnId: string;
-  sdkTurnId: string | null;
-}

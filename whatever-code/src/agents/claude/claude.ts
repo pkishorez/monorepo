@@ -15,7 +15,7 @@ import {
 } from "../../db/claude.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { updateSessionPayload } from "../shared/session.js";
-import type { ActiveTurn, SessionRuntimeOptions } from "./schema.js";
+import type { ActiveTurn, SessionRuntimeOptions } from "./internal.js";
 import {
   ContinueSessionParams,
   CreateSessionParams,

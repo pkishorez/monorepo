@@ -11,7 +11,7 @@ import {
 } from "../../db/codex.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { updateSessionPayload } from "../shared/session.js";
-import type { ActiveTurn } from "./schema.js";
+import type { ActiveTurn } from "./internal.js";
 import {
   CreateThreadParams,
   ContinueThreadParams,
