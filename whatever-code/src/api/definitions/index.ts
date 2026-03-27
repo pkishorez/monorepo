@@ -13,7 +13,7 @@ export {
   ContinueSessionParams,
   UpdateSessionParams,
   RespondToToolParams,
-  PermissionMode,
+  AccessMode,
   Message,
   ToolResponse,
   PromptContent,
@@ -22,15 +22,12 @@ export {
   ImageBlock,
   MODELS as ClaudeModels,
 } from "../../agents/claude/schema.js";
-export type { PermissionModeValue } from "../../agents/claude/schema.js";
 
 export {
   CreateThreadParams,
   ContinueThreadParams,
   UpdateThreadParams,
   RespondToApprovalParams,
-  ApprovalPolicy,
-  SandboxMode,
   MODELS as CodexModels,
 } from "../../agents/codex/schema.js";
 

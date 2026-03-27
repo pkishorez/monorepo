@@ -1,9 +1,8 @@
 export {
-  ApprovalPolicy,
+  AccessMode,
   ContinueThreadParams,
   CreateThreadParams,
   RespondToApprovalParams,
-  SandboxMode,
   UpdateThreadParams,
 } from "./schema.js";
 export { MODELS } from "./schema.js";

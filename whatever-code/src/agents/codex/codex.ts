@@ -17,6 +17,7 @@ import {
   ContinueThreadParams,
   UpdateThreadParams,
   RespondToApprovalParams,
+  AccessMode,
 } from "./schema.js";
 import {
   markTurnStatus,
@@ -29,7 +30,6 @@ import type { RequestId } from "./generated/RequestId.js";
 import type { ThreadStartResponse } from "./generated/v2/ThreadStartResponse.js";
 import type { TurnStartResponse } from "./generated/v2/TurnStartResponse.js";
 import type { SandboxPolicy } from "./generated/v2/SandboxPolicy.js";
-import type { SandboxMode } from "./generated/v2/SandboxMode.js";
 import type { UserInput } from "./generated/v2/UserInput.js";
 import {
   PERSISTED_METHODS,
@@ -60,22 +60,26 @@ function promptToCodexInput(
     : [{ type: "text", text: "", text_elements: [] }];
 }
 
-function sandboxModeToPolicy(mode: SandboxMode): SandboxPolicy {
-  switch (mode) {
-    case "read-only":
-      return { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false };
-    case "workspace-write":
-      return {
-        type: "workspaceWrite",
-        writableRoots: [],
-        readOnlyAccess: { type: "fullAccess" },
-        networkAccess: false,
-        excludeTmpdirEnvVar: false,
-        excludeSlashTmp: false,
-      };
-    case "danger-full-access":
-      return { type: "dangerFullAccess" };
+function accessModeToApprovalPolicy(mode: typeof AccessMode.Type) {
+  return mode === "full-access" ? "never" : "on-failure";
+}
+
+function accessModeToSandboxMode(mode: typeof AccessMode.Type) {
+  return mode === "full-access" ? "danger-full-access" : "workspace-write";
+}
+
+function accessModeToSandboxPolicy(mode: typeof AccessMode.Type): SandboxPolicy {
+  if (mode === "full-access") {
+    return { type: "dangerFullAccess" };
   }
+  return {
+    type: "workspaceWrite",
+    writableRoots: [],
+    readOnlyAccess: { type: "fullAccess" },
+    networkAccess: false,
+    excludeTmpdirEnvVar: false,
+    excludeSlashTmp: false,
+  };
 }
 
 export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
@@ -279,8 +283,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               interactionMode: params.interactionMode ?? "default",
               payload: {
                 type: "codex",
-                approvalPolicy: params.approvalPolicy,
-                sandboxMode: params.sandboxMode,
+                accessMode: params.accessMode,
                 sdkThreadId: null,
               },
             })
@@ -289,8 +292,8 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           const response = (yield* client.request("thread/start", {
             model: params.model,
             cwd: params.absolutePath,
-            approvalPolicy: params.approvalPolicy,
-            sandbox: params.sandboxMode,
+            approvalPolicy: accessModeToApprovalPolicy(params.accessMode),
+            sandbox: accessModeToSandboxMode(params.accessMode),
             experimentalRawEvents: false,
             persistExtendedHistory: false,
           })) as ThreadStartResponse;
@@ -302,8 +305,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               {
                 payload: {
                   type: "codex",
-                  approvalPolicy: params.approvalPolicy,
-                  sandboxMode: params.sandboxMode,
+                  accessMode: params.accessMode,
                   sdkThreadId,
                 },
               },
@@ -372,8 +374,8 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             threadId: payload.sdkThreadId,
             input: promptToCodexInput(params.prompt),
             model: session.model,
-            approvalPolicy: payload.approvalPolicy,
-            sandboxPolicy: sandboxModeToPolicy(payload.sandboxMode as SandboxMode),
+            approvalPolicy: accessModeToApprovalPolicy(payload.accessMode),
+            sandboxPolicy: accessModeToSandboxPolicy(payload.accessMode),
             ...(session.interactionMode === "plan"
               ? {
                   collaborationMode: {

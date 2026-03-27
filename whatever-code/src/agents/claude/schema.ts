@@ -2,21 +2,12 @@ import type { Deferred, Queue } from "effect";
 import { Schema } from "effect";
 import type { SDKMessage, McpServerConfig, HookEvent, HookCallbackMatcher } from "@anthropic-ai/claude-agent-sdk";
 import { Typed } from "../../lib/typed.js";
-export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode } from "../shared/schema.js";
-import { PromptContent, InteractionMode } from "../shared/schema.js";
+export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode, AccessMode } from "../shared/schema.js";
+import { PromptContent, InteractionMode, AccessMode } from "../shared/schema.js";
 
 export const Message = Typed<SDKMessage>();
 
 export const Effort = Schema.Literal("low", "medium", "high", "max");
-
-export const PermissionMode = Schema.Literal(
-  "default",
-  "acceptEdits",
-  "bypassPermissions",
-  "plan",
-  "dontAsk",
-);
-export type PermissionModeValue = typeof PermissionMode.Type;
 
 export const ToolResponse = Schema.Union(
   Schema.mutable(
@@ -62,7 +53,7 @@ export const UpdateSessionParams = Schema.Struct({
   sessionId: Schema.String,
   updates: Schema.Struct({
     model: Schema.optionalWith(Schema.String, { exact: true }),
-    permissionMode: Schema.optionalWith(PermissionMode, { exact: true }),
+    accessMode: Schema.optionalWith(AccessMode, { exact: true }),
     interactionMode: Schema.optionalWith(InteractionMode, { exact: true }),
     persistSession: Schema.optionalWith(Schema.Boolean, { exact: true }),
     effort: Schema.optionalWith(Effort, { exact: true }),
@@ -75,7 +66,7 @@ export const CreateSessionParams = Schema.Struct({
   absolutePath: Schema.String,
   prompt: PromptContent,
   model: Schema.String,
-  permissionMode: PermissionMode,
+  accessMode: AccessMode,
   interactionMode: Schema.optionalWith(InteractionMode, { exact: true, default: () => "default" as const }),
   persistSession: Schema.Boolean,
   effort: Effort,
