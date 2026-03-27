@@ -74,6 +74,7 @@ export const persistNewTurn = (
       sdkTurnId: null,
       usage: null,
       error: null,
+      planArtifact: null,
     }),
     codexEventSqliteEntity.insert({
       id: ulid(),

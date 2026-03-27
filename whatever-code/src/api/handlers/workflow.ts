@@ -23,32 +23,6 @@ export const WorkflowHandlers = WorkflowRpcs.toLayer(
         const orchestrator = yield* WorkflowOrchestrator;
         yield* orchestrator.execute.stop(params);
       }),
-    "workflow.planAndExecute.startPlan": (params) =>
-      Effect.gen(function* () {
-        const orchestrator = yield* WorkflowOrchestrator;
-        const workflowId = yield* orchestrator.planAndExecute.startPlan(params);
-        return { workflowId };
-      }),
-    "workflow.planAndExecute.continuePlan": (params) =>
-      Effect.gen(function* () {
-        const orchestrator = yield* WorkflowOrchestrator;
-        yield* orchestrator.planAndExecute.continuePlan(params);
-      }),
-    "workflow.planAndExecute.startExecute": (params) =>
-      Effect.gen(function* () {
-        const orchestrator = yield* WorkflowOrchestrator;
-        yield* orchestrator.planAndExecute.startExecute(params);
-      }),
-    "workflow.planAndExecute.continueExecute": (params) =>
-      Effect.gen(function* () {
-        const orchestrator = yield* WorkflowOrchestrator;
-        yield* orchestrator.planAndExecute.continueExecute(params);
-      }),
-    "workflow.planAndExecute.stop": (params) =>
-      Effect.gen(function* () {
-        const orchestrator = yield* WorkflowOrchestrator;
-        yield* orchestrator.planAndExecute.stop(params);
-      }),
     "workflow.query": ({ ">": cursor }) =>
       workflowSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })

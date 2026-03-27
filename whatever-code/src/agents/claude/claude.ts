@@ -3,6 +3,7 @@ import {
   query,
   getSessionInfo,
   type SDKMessage,
+  type HookInput,
 } from "@anthropic-ai/claude-agent-sdk";
 import { Cause, Deferred, Effect, Exit, Queue, Runtime, Stream } from "effect";
 import { v7 } from "uuid";
@@ -25,6 +26,60 @@ import {
   persistNewTurn,
   initSessions,
 } from "./utils.js";
+import { denyAllPermissionRequests } from "../shared/planning.js";
+
+const PLANNING_SYSTEM_PROMPT = `
+You are in PLANNING MODE. Your role is to help the user design an implementation plan.
+
+## Rules
+- Explore the codebase, ask clarifying questions, and think through the approach.
+- When you have a finalized plan, call the ExitPlanMode tool with the full plan in markdown.
+- Do NOT execute the plan (no code edits, no file writes, no destructive commands). Research and read-only operations are fine.
+
+## Plan format
+Your plan should include:
+1. **Context** — why this change is needed
+2. **Steps** — ordered list of changes with file paths
+3. **Verification** — how to test the changes
+`.trim();
+
+const buildPlanModeRuntimeOptions = (
+  rt: Runtime.Runtime<never>,
+  turnId: string,
+): SessionRuntimeOptions => {
+  const captureExitPlanMode = async (hookInput: HookInput) => {
+    if (hookInput.hook_event_name === "PreToolUse") {
+      const plan = (hookInput.tool_input as { plan?: unknown })?.plan;
+      if (typeof plan === "string") {
+        await Runtime.runPromise(rt)(
+          claudeTurnSqliteEntity
+            .update({ id: turnId }, { planArtifact: plan })
+            .pipe(Effect.orDie, Effect.asVoid) as Effect.Effect<void>,
+        );
+      }
+    }
+    return {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse" as const,
+        permissionDecision: "deny" as const,
+      },
+    };
+  };
+
+  return {
+    systemPrompt: {
+      type: "preset",
+      preset: "claude_code",
+      append: PLANNING_SYSTEM_PROMPT,
+    },
+    hooks: {
+      PreToolUse: [
+        { matcher: "ExitPlanMode", hooks: [captureExitPlanMode] },
+      ],
+      PermissionRequest: [{ hooks: [denyAllPermissionRequests] }],
+    },
+  };
+};
 
 export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
   "ClaudeOrchestrator",
@@ -60,6 +115,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               absolutePath: params.absolutePath,
               name: "New Session",
               model: params.model,
+              interactionMode: params.interactionMode ?? "default",
               payload: {
                 type: "claude",
                 permissionMode: params.permissionMode,
@@ -153,20 +209,30 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               })();
 
           const { payload } = session;
+          const isPlanMode = session.interactionMode === "plan";
+
+          const planModeOptions: SessionRuntimeOptions | undefined = isPlanMode
+            ? buildPlanModeRuntimeOptions(runtime, turnId)
+            : undefined;
+
+          const effectivePermissionMode = isPlanMode
+            ? ("plan" as const)
+            : payload.permissionMode;
+
           const queryResult = query({
             prompt: sdkPrompt,
             options: {
               model: session.model,
               cwd: session.absolutePath,
               ...(newSession ? { sessionId } : { resume: sessionId }),
-              permissionMode: payload.permissionMode,
+              permissionMode: effectivePermissionMode,
               persistSession: payload.persistSession,
               effort: payload.effort,
               ...(payload.maxTurns > 0 ? { maxTurns: payload.maxTurns } : {}),
               ...(payload.maxBudgetUsd > 0
                 ? { maxBudgetUsd: payload.maxBudgetUsd }
                 : {}),
-              ...(payload.permissionMode === "bypassPermissions"
+              ...(effectivePermissionMode === "bypassPermissions"
                 ? { allowDangerouslySkipPermissions: true }
                 : {}),
               abortController: turn.abortController,
@@ -175,9 +241,9 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               },
               sandbox: {
                 enabled: true,
-                autoAllowBashIfSandboxed: true,
               },
               ...runtimeOptions,
+              ...planModeOptions,
             },
           });
 

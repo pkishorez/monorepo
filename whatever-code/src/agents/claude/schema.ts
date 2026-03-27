@@ -2,8 +2,8 @@ import type { Deferred, Queue } from "effect";
 import { Schema } from "effect";
 import type { SDKMessage, McpServerConfig, HookEvent, HookCallbackMatcher } from "@anthropic-ai/claude-agent-sdk";
 import { Typed } from "../../lib/typed.js";
-export { ImageBlock, TextBlock, ContentBlock, PromptContent } from "../shared/schema.js";
-import { PromptContent } from "../shared/schema.js";
+export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode } from "../shared/schema.js";
+import { PromptContent, InteractionMode } from "../shared/schema.js";
 
 export const Message = Typed<SDKMessage>();
 
@@ -42,6 +42,7 @@ export type ToolResponse = typeof ToolResponse.Type;
 export const ContinueSessionParams = Schema.Struct({
   sessionId: Schema.String,
   prompt: PromptContent,
+  interactionMode: Schema.optionalWith(InteractionMode, { exact: true }),
 });
 
 export const RespondToToolParams = Schema.Struct({
@@ -62,6 +63,7 @@ export const UpdateSessionParams = Schema.Struct({
   updates: Schema.Struct({
     model: Schema.optionalWith(Schema.String, { exact: true }),
     permissionMode: Schema.optionalWith(PermissionMode, { exact: true }),
+    interactionMode: Schema.optionalWith(InteractionMode, { exact: true }),
     persistSession: Schema.optionalWith(Schema.Boolean, { exact: true }),
     effort: Schema.optionalWith(Effort, { exact: true }),
     maxTurns: Schema.optionalWith(Schema.Number, { exact: true }),
@@ -74,6 +76,7 @@ export const CreateSessionParams = Schema.Struct({
   prompt: PromptContent,
   model: Schema.String,
   permissionMode: PermissionMode,
+  interactionMode: Schema.optionalWith(InteractionMode, { exact: true, default: () => "default" as const }),
   persistSession: Schema.Boolean,
   effort: Effort,
   maxTurns: Schema.Number,

@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { sessionSqliteEntity } from "../../db/session.js";
+import type { InteractionMode } from "../../entity/session/session.js";
 import type { TaskStatus } from "../../entity/status.js";
 
 export const initSessionsForType = <R>(
@@ -33,7 +34,7 @@ export const initSessionsForType = <R>(
 export const updateSessionPayload = (
   sessionId: string,
   expectedType: "claude" | "codex",
-  updates: { model?: string; [key: string]: unknown },
+  updates: { model?: string; interactionMode?: typeof InteractionMode.Type; [key: string]: unknown },
 ) =>
   Effect.gen(function* () {
     const row = yield* sessionSqliteEntity
@@ -44,13 +45,14 @@ export const updateSessionPayload = (
         new Error(`${expectedType} session ${sessionId} not found`),
       );
     }
-    const { model, ...payloadUpdates } = updates;
+    const { model, interactionMode, ...payloadUpdates } = updates;
     const updatedPayload = { ...row.value.payload, ...payloadUpdates };
     yield* sessionSqliteEntity
       .update(
         { sessionId },
         {
           ...(model !== undefined ? { model } : {}),
+          ...(interactionMode !== undefined ? { interactionMode } : {}),
           payload: updatedPayload,
         },
       )

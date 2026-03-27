@@ -8,6 +8,7 @@ export {
 } from "./codex/index.js";
 export {
   sessionEntity,
+  InteractionMode,
   ClaudePayload,
   CodexPayload,
   SessionPayload,

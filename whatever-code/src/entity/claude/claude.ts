@@ -10,6 +10,7 @@ export const claudeTurnEntity = EntityESchema.make("claudeTurn", "id", {
   status: TaskStatus,
   init: Schema.NullOr(Typed<SDKSystemMessage>()),
   result: Schema.NullOr(Typed<SDKResultMessage>()),
+  planArtifact: Schema.NullOr(Schema.String),
 }).build();
 
 export const claudeMessageEntity = EntityESchema.make("claudeMessage", "id", {

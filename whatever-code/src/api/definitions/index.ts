@@ -39,12 +39,6 @@ export {
   ContinueExecuteParams,
   StopExecuteParams,
   ExecuteWorkflowError,
-  StartPlanParams,
-  ContinuePlanParams,
-  StartExecutePhaseParams,
-  ContinueExecutePhaseParams,
-  StopPlanAndExecuteParams,
-  PlanAndExecuteWorkflowError,
 } from "../../agents/workflow/schema.js";
 
 export const ApiRpcs = ClaudeRpcs.merge(AppRpcs).merge(CodexRpcs).merge(WorkflowRpcs);

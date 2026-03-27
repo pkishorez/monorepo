@@ -1,5 +1,7 @@
 import { Schema } from "effect";
-import { PromptContent } from "../shared/schema.js";
+import { PromptContent, InteractionMode } from "../shared/schema.js";
+
+export { InteractionMode } from "../shared/schema.js";
 
 export const ApprovalPolicy = Schema.Literal(
   "untrusted",
@@ -20,11 +22,13 @@ export const CreateThreadParams = Schema.Struct({
   model: Schema.String,
   approvalPolicy: ApprovalPolicy,
   sandboxMode: SandboxMode,
+  interactionMode: Schema.optionalWith(InteractionMode, { exact: true, default: () => "default" as const }),
 });
 
 export const ContinueThreadParams = Schema.Struct({
   sessionId: Schema.String,
   prompt: PromptContent,
+  interactionMode: Schema.optionalWith(InteractionMode, { exact: true }),
 });
 
 export const UpdateThreadParams = Schema.Struct({
@@ -33,6 +37,7 @@ export const UpdateThreadParams = Schema.Struct({
     model: Schema.optionalWith(Schema.String, { exact: true }),
     approvalPolicy: Schema.optionalWith(ApprovalPolicy, { exact: true }),
     sandboxMode: Schema.optionalWith(SandboxMode, { exact: true }),
+    interactionMode: Schema.optionalWith(InteractionMode, { exact: true }),
   }),
 });
 

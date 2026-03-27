@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+export { InteractionMode } from "../../entity/session/session.js";
 
 export const ImageBlock = Schema.Struct({
   type: Schema.Literal("image"),
