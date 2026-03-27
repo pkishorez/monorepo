@@ -3,16 +3,11 @@ import { Schema } from "effect";
 import { TaskStatus } from "../status.js";
 
 export const InteractionMode = Schema.Literal("default", "plan");
+export const AccessMode = Schema.Literal("supervised", "full-access");
 
 export const ClaudePayload = Schema.Struct({
   type: Schema.Literal("claude"),
-  permissionMode: Schema.Literal(
-    "default",
-    "acceptEdits",
-    "bypassPermissions",
-    "plan",
-    "dontAsk",
-  ),
+  accessMode: AccessMode,
   persistSession: Schema.Boolean,
   effort: Schema.Literal("low", "medium", "high", "max"),
   maxTurns: Schema.Number,
@@ -21,17 +16,7 @@ export const ClaudePayload = Schema.Struct({
 
 export const CodexPayload = Schema.Struct({
   type: Schema.Literal("codex"),
-  approvalPolicy: Schema.Literal(
-    "untrusted",
-    "on-failure",
-    "on-request",
-    "never",
-  ),
-  sandboxMode: Schema.Literal(
-    "read-only",
-    "workspace-write",
-    "danger-full-access",
-  ),
+  accessMode: AccessMode,
   sdkThreadId: Schema.NullOr(Schema.String),
 });
 

@@ -1,6 +1,7 @@
 export {
   sessionEntity,
   InteractionMode,
+  AccessMode,
   ClaudePayload,
   CodexPayload,
   SessionPayload,

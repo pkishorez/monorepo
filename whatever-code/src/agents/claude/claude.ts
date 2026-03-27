@@ -26,23 +26,6 @@ import {
   persistNewTurn,
   initSessions,
 } from "./utils.js";
-import { denyAllPermissionRequests } from "../shared/planning.js";
-
-const PLANNING_SYSTEM_PROMPT = `
-You are in PLANNING MODE. Your role is to help the user design an implementation plan.
-
-## Rules
-- Explore the codebase, ask clarifying questions, and think through the approach.
-- When you have a finalized plan, call the ExitPlanMode tool with the full plan in markdown.
-- Do NOT execute the plan (no code edits, no file writes, no destructive commands). Research and read-only operations are fine.
-
-## Plan format
-Your plan should include:
-1. **Context** — why this change is needed
-2. **Steps** — ordered list of changes with file paths
-3. **Verification** — how to test the changes
-`.trim();
-
 const buildPlanModeRuntimeOptions = (
   rt: Runtime.Runtime<never>,
   turnId: string,
@@ -66,12 +49,18 @@ const buildPlanModeRuntimeOptions = (
     };
   };
 
-  return {
-    systemPrompt: {
-      type: "preset",
-      preset: "claude_code",
-      append: PLANNING_SYSTEM_PROMPT,
+  const denyAllPermissionRequests = async () => ({
+    hookSpecificOutput: {
+      hookEventName: "PermissionRequest" as const,
+      decision: {
+        behavior: "deny" as const,
+        message:
+          "Planning mode does not allow operations that require permission.",
+      },
     },
+  });
+
+  return {
     hooks: {
       PreToolUse: [
         { matcher: "ExitPlanMode", hooks: [captureExitPlanMode] },
@@ -118,7 +107,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               interactionMode: params.interactionMode ?? "default",
               payload: {
                 type: "claude",
-                permissionMode: params.permissionMode,
+                accessMode: params.accessMode,
                 persistSession: params.persistSession,
                 effort: params.effort,
                 maxTurns: params.maxTurns,
@@ -217,7 +206,9 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
 
           const effectivePermissionMode = isPlanMode
             ? ("plan" as const)
-            : payload.permissionMode;
+            : payload.accessMode === "full-access"
+              ? ("bypassPermissions" as const)
+              : ("default" as const);
 
           const queryResult = query({
             prompt: sdkPrompt,
