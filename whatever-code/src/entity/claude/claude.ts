@@ -23,6 +23,12 @@ export interface PendingQuestion {
   questions: PendingQuestionItem[];
 }
 
+export interface PendingToolApproval {
+  toolUseId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+}
+
 export const claudeTurnEntity = EntityESchema.make("claudeTurn", "id", {
   sessionId: Schema.String,
   status: TaskStatus,
@@ -30,6 +36,7 @@ export const claudeTurnEntity = EntityESchema.make("claudeTurn", "id", {
   result: Schema.NullOr(Typed<SDKResultMessage>()),
   planArtifact: Schema.NullOr(Schema.String),
   pendingQuestion: Schema.NullOr(Typed<PendingQuestion>()),
+  pendingToolApprovals: Schema.Array(Typed<PendingToolApproval>()),
 }).build();
 
 export const claudeMessageEntity = EntityESchema.make("claudeMessage", "id", {

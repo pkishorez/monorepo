@@ -2,7 +2,7 @@ export {
   claudeMessageEntity,
   claudeTurnEntity,
 } from "./claude/index.js";
-export type { PendingQuestion, PendingQuestionItem, PendingQuestionOption } from "./claude/index.js";
+export type { PendingQuestion, PendingQuestionItem, PendingQuestionOption, PendingToolApproval } from "./claude/index.js";
 export {
   codexTurnEntity,
   codexEventEntity,
