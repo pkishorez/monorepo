@@ -18,7 +18,8 @@ export const ClaudeHandlers = ClaudeRpcs.toLayer(
       Effect.flatMap(ClaudeOrchestrator, (o) => o.updateSession(params)).pipe(
         Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
       ),
-    "claude.respondToTool": () => Effect.dieMessage("Not implemented"),
+    "claude.respondToTool": (params) =>
+      Effect.flatMap(ClaudeOrchestrator, (o) => o.respondToTool(params)),
     "claude.queryMessages": ({ ">": cursor }) =>
       claudeMessageSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })

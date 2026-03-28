@@ -15,10 +15,11 @@ import {
 } from "../../db/claude.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { updateSessionPayload } from "../shared/session.js";
-import type { ActiveTurn, SessionRuntimeOptions } from "./internal.js";
+import type { ActiveTurn, PendingToolResponse, SessionRuntimeOptions } from "./internal.js";
 import {
   ContinueSessionParams,
   CreateSessionParams,
+  RespondToToolParams,
   UpdateSessionParams,
 } from "./schema.js";
 import {
@@ -75,6 +76,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
   {
     scoped: Effect.gen(function* () {
       const activeTurns = new Map<string, ActiveTurn>();
+      const pendingToolResponses = new Map<string, PendingToolResponse>();
       const runtime = yield* Effect.runtime<never>();
       const fork = <A, E>(effect: Effect.Effect<A, E, any>) =>
         Runtime.runFork(runtime)(effect as Effect.Effect<A, E, never>);
@@ -210,6 +212,44 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               ? ("bypassPermissions" as const)
               : ("default" as const);
 
+          const canUseTool = async (
+            toolName: string,
+            input: Record<string, unknown>,
+            opts: { toolUseID: string; signal: AbortSignal },
+          ) => {
+            if (toolName !== "AskUserQuestion") {
+              return { behavior: "allow" as const };
+            }
+            return Runtime.runPromise(runtime)(
+              Effect.gen(function* () {
+                const deferred = yield* Deferred.make<typeof import("./schema.js").ToolResponse.Type, Error>();
+                const questions = (input as { questions?: unknown[] }).questions ?? [];
+                pendingToolResponses.set(opts.toolUseID, {
+                  deferred,
+                  sessionId,
+                  turnId: turn.turnId,
+                });
+                yield* claudeTurnSqliteEntity
+                  .update({ id: turn.turnId }, {
+                    pendingQuestion: {
+                      toolUseId: opts.toolUseID,
+                      questions: questions as any,
+                    },
+                  })
+                  .pipe(Effect.orDie);
+
+                const response = yield* Deferred.await(deferred);
+
+                pendingToolResponses.delete(opts.toolUseID);
+                yield* claudeTurnSqliteEntity
+                  .update({ id: turn.turnId }, { pendingQuestion: null })
+                  .pipe(Effect.orDie);
+
+                return response;
+              }) as Effect.Effect<any, any, never>,
+            );
+          };
+
           const queryResult = query({
             prompt: sdkPrompt,
             options: {
@@ -226,6 +266,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               ...(effectivePermissionMode === "bypassPermissions"
                 ? { allowDangerouslySkipPermissions: true }
                 : {}),
+              canUseTool,
               abortController: turn.abortController,
               toolConfig: {
                 askUserQuestion: { previewFormat: "html" },
@@ -347,10 +388,31 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           const turn = activeTurns.get(sessionId);
           if (!turn) return;
 
+          // Fail any pending tool responses for this session
+          for (const [toolUseId, pending] of pendingToolResponses) {
+            if (pending.sessionId === sessionId) {
+              yield* Deferred.fail(pending.deferred, new Error("session stopped"));
+              pendingToolResponses.delete(toolUseId);
+            }
+          }
+
           activeTurns.delete(sessionId);
           yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
           turn.abortController.abort();
           yield* Queue.shutdown(turn.outputQueue);
+        });
+
+      const respondToTool = (params: typeof RespondToToolParams.Type) =>
+        Effect.gen(function* () {
+          const pending = pendingToolResponses.get(params.toolUseId);
+          if (!pending) {
+            return yield* Effect.fail(
+              new ClaudeChatError({
+                message: `tool response ${params.toolUseId} not found`,
+              }),
+            );
+          }
+          yield* Deferred.succeed(pending.deferred, params.response);
         });
 
       const updateSession = (params: typeof UpdateSessionParams.Type) =>
@@ -398,6 +460,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
         continueSession,
         stopSession,
         updateSession,
+        respondToTool,
         oneShot,
       };
     }),

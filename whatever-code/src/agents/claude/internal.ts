@@ -1,11 +1,18 @@
 import type { Deferred, Queue } from "effect";
 import type { SDKMessage, McpServerConfig, HookEvent, HookCallbackMatcher } from "@anthropic-ai/claude-agent-sdk";
+import type { ToolResponse } from "./schema.js";
 
 export interface ActiveTurn {
   abortController: AbortController;
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
   initialized: Deferred.Deferred<void, Error>;
+}
+
+export interface PendingToolResponse {
+  deferred: Deferred.Deferred<ToolResponse, Error>;
+  sessionId: string;
+  turnId: string;
 }
 
 export interface SessionCapabilities {

@@ -18,14 +18,17 @@ export const ConnectionPool = {
   connections: new Map<string, IDBPDatabase>(),
   opened: new Set<string>(),
 
-  async acquire(dbName: string): Promise<IDBPDatabase> {
+  async acquire(dbName: string, version?: number): Promise<IDBPDatabase> {
     const cached = this.connections.get(dbName);
     if (cached) {
       return cached;
     }
 
-    const db = await openDB(dbName, DB_VERSION, {
-      upgrade(database) {
+    const db = await openDB(dbName, version ?? DB_VERSION, {
+      upgrade(database, oldVersion) {
+        if (oldVersion > 0 && database.objectStoreNames.contains(STORE_NAME)) {
+          database.deleteObjectStore(STORE_NAME);
+        }
         const store = database.createObjectStore(STORE_NAME, { keyPath: "key" });
         store.createIndex(UPDATED_INDEX, "updatedKey");
       },
@@ -38,6 +41,20 @@ export const ConnectionPool = {
 
   get(dbName: string): IDBPDatabase | undefined {
     return this.connections.get(dbName);
+  },
+
+  async destroy(name: string): Promise<void> {
+    const cached = this.connections.get(name);
+    if (cached) {
+      cached.close();
+      this.connections.delete(name);
+    }
+    this.opened.delete(name);
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(name);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
   },
 
   async destroyAll(): Promise<void> {
