@@ -71,6 +71,14 @@ export const onFiberExit = (
     Effect.gen(function* () {
       yield* Queue.shutdown(turn.outputQueue);
 
+      if (turn.stopped) {
+        yield* Deferred.fail(
+          turn.initialized,
+          new Error("session stopped"),
+        );
+        return;
+      }
+
       if (Exit.isSuccess(exit)) {
         yield* Deferred.succeed(turn.initialized, void 0);
         yield* Effect.log("background fiber exited cleanly");

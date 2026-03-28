@@ -11,6 +11,7 @@ import type { ToolResponse } from "../schema.js";
 export interface ActiveTurn {
   query: Query | null;
   fiber: Fiber.RuntimeFiber<void, Error> | null;
+  stopped: boolean;
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
   initialized: Deferred.Deferred<void, Error>;
