@@ -39,13 +39,13 @@ export const buildQueryOptions = (args: {
     ? ("plan" as const)
     : payload.accessMode === "full-access"
       ? ("bypassPermissions" as const)
-      : ("default" as const);
+      : undefined;
 
   return {
     model: session.model,
     cwd: session.absolutePath,
     ...(isNewSession ? { sessionId } : { resume: sessionId }),
-    permissionMode,
+    ...(permissionMode ? { permissionMode } : {}),
     persistSession: payload.persistSession,
     effort: payload.effort,
     ...when(payload.maxTurns > 0, { maxTurns: payload.maxTurns }),
@@ -55,7 +55,6 @@ export const buildQueryOptions = (args: {
     }),
     canUseTool,
     toolConfig: { askUserQuestion: { previewFormat: "html" } },
-    sandbox: { enabled: true },
     ...runtimeOptions,
     ...planModeOptions,
   } as Options;

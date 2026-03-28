@@ -89,6 +89,7 @@ export const makeSessionManager = (args: {
         runtime,
         turnId,
         pendingToolResponses,
+        accessMode: session.payload.accessMode,
       });
 
       const options = buildQueryOptions({
