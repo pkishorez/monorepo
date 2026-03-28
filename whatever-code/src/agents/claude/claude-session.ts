@@ -78,6 +78,7 @@ export const makeSessionManager = (args: {
         (outputQueue): ActiveTurn => ({
           query: null,
           fiber: null,
+          stopped: false,
           outputQueue,
           turnId,
           initialized,
@@ -110,6 +111,7 @@ export const makeSessionManager = (args: {
 
       turn.fiber = fork(
         Stream.fromAsyncIterable(queryResult, (e) => new Error(String(e))).pipe(
+          Stream.takeWhile(() => !turn.stopped),
           Stream.tap(processMessage(sessionId, turn)),
           Stream.catchAll(() => Stream.empty),
           Stream.runDrain,
@@ -137,6 +139,8 @@ export const makeSessionManager = (args: {
       const turn = currentTurn;
       if (!turn) return;
 
+      turn.stopped = true;
+
       for (const [toolUseId, pending] of pendingToolResponses) {
         yield* Deferred.fail(pending.deferred, new Error("session stopped"));
         pendingToolResponses.delete(toolUseId);
@@ -144,10 +148,17 @@ export const makeSessionManager = (args: {
 
       currentTurn = null;
       yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
-      if (turn.fiber) yield* Fiber.interrupt(turn.fiber);
+
+      const fiber = turn.fiber;
+      turn.fiber = null;
+      if (fiber && fiber.unsafePoll() === null) {
+        yield* Fiber.interrupt(fiber);
+      }
+
       try {
         turn.query?.close();
       } catch {}
+
       yield* Queue.shutdown(turn.outputQueue);
     });
 
