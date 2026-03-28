@@ -65,6 +65,7 @@ export const persistNewTurn = (
       init: null,
       result: null,
       planArtifact: null,
+      pendingQuestion: null,
     }),
     claudeMessageSqliteEntity.insert({
       id: ulid(),
