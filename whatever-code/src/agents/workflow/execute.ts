@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { v7 } from "uuid";
 import { ClaudeOrchestrator } from "../claude/claude.js";
 import { CodexOrchestrator } from "../codex/codex.js";
+import { WorktreeService } from "../../services/worktree.js";
 import { workflowSqliteEntity } from "../../db/workflow.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { errorMessage } from "../../lib/error.js";
@@ -77,13 +78,60 @@ export const startExecuteWorkflow = (
 ) =>
   Effect.gen(function* () {
     const workflowId = v7();
+    let worktreeMeta:
+      | { path: string; branch: string; repoPath: string }
+      | undefined;
+
+    if (params.worktree) {
+      const worktreeService = yield* WorktreeService;
+      const repoPath =
+        params.agent === "claude"
+          ? params.session.absolutePath
+          : params.thread.absolutePath;
+      const branch =
+        params.worktree.branchName ?? `execute/${workflowId.slice(0, 8)}`;
+
+      const createParams: {
+        repoPath: string;
+        branch: string;
+        baseBranch?: string;
+      } = { repoPath, branch };
+      if (params.worktree.baseBranch) {
+        createParams.baseBranch = params.worktree.baseBranch;
+      }
+      const result = yield* worktreeService.create(createParams);
+
+      worktreeMeta = {
+        path: result.worktreePath,
+        branch: result.branch,
+        repoPath,
+      };
+
+      // Override absolutePath so the session operates in the worktree
+      if (params.agent === "claude") {
+        params = {
+          ...params,
+          session: { ...params.session, absolutePath: result.worktreePath },
+        };
+      } else {
+        params = {
+          ...params,
+          thread: { ...params.thread, absolutePath: result.worktreePath },
+        };
+      }
+    }
+
     const executeSession = yield* createAgentSession(params);
 
     yield* workflowSqliteEntity
       .insert({
         workflowId,
         projectId: params.projectId,
-        spec: { type: "execute", executeSession },
+        spec: {
+          type: "execute",
+          executeSession,
+          ...(worktreeMeta ? { worktree: worktreeMeta } : {}),
+        },
       })
       .pipe(Effect.orDie);
 
@@ -138,6 +186,28 @@ export const stopExecuteWorkflow = (
       const codex = yield* CodexOrchestrator;
       yield* codex.stopThread(sessionId);
     }
+  }).pipe(
+    Effect.mapError((e) =>
+      e instanceof ExecuteWorkflowError
+        ? e
+        : new ExecuteWorkflowError({ message: errorMessage(e) }),
+    ),
+  );
+
+export const removeExecuteWorkflow = (params: { workflowId: string }) =>
+  Effect.gen(function* () {
+    const workflow = yield* getWorkflow(params.workflowId);
+
+    if (workflow.spec.worktree) {
+      const worktreeService = yield* WorktreeService;
+      yield* worktreeService.remove({
+        worktreePath: workflow.spec.worktree.path,
+      });
+    }
+
+    yield* workflowSqliteEntity
+      .delete({ workflowId: params.workflowId })
+      .pipe(Effect.orDie);
   }).pipe(
     Effect.mapError((e) =>
       e instanceof ExecuteWorkflowError

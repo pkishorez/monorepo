@@ -3,5 +3,6 @@ export {
   StartExecuteParams,
   ContinueExecuteParams,
   StopExecuteParams,
+  RemoveExecuteParams,
   ExecuteWorkflowError,
 } from "./schema.js";

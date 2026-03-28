@@ -4,6 +4,14 @@ import { Schema } from "effect";
 const WorkflowSpec = Schema.Struct({
   type: Schema.Literal("execute"),
   executeSession: Schema.String,
+  worktree: Schema.optionalWith(
+    Schema.Struct({
+      path: Schema.String,
+      branch: Schema.String,
+      repoPath: Schema.String,
+    }),
+    { exact: true },
+  ),
 });
 
 export const workflowEntity = EntityESchema.make("workflow", "workflowId", {
