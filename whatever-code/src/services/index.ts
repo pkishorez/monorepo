@@ -2,6 +2,7 @@ import { BroadcastSchema } from "@std-toolkit/core";
 import { ConnectionService } from "@std-toolkit/core/server";
 import { Effect, Layer } from "effect";
 import { BroadcastService } from "./broadcast.js";
+import { WorktreeService } from "./worktree.js";
 
 const connectionServiceLayer = Layer.effect(
   ConnectionService,
@@ -25,7 +26,7 @@ const connectionServiceLayer = Layer.effect(
   }),
 );
 
-export const ServicesLayer = Layer.provideMerge(
+export const ServicesLayer = Layer.mergeAll(
   connectionServiceLayer,
-  BroadcastService.Default,
-);
+  WorktreeService.Default,
+).pipe(Layer.provideMerge(BroadcastService.Default));

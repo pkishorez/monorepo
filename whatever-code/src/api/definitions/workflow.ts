@@ -6,6 +6,7 @@ import {
   StartExecuteParams,
   ContinueExecuteParams,
   StopExecuteParams,
+  RemoveExecuteParams,
   ExecuteWorkflowError,
 } from "../../agents/workflow/schema.js";
 
@@ -24,6 +25,11 @@ export class WorkflowRpcs extends RpcGroup.make(
     success: Schema.Void,
     error: ExecuteWorkflowError,
     payload: StopExecuteParams,
+  }),
+  Rpc.make("execute.remove", {
+    success: Schema.Void,
+    error: ExecuteWorkflowError,
+    payload: RemoveExecuteParams,
   }),
   Rpc.make("query", {
     success: Schema.Array(EntitySchema(workflowEntity)),

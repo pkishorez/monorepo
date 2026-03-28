@@ -3,6 +3,7 @@ import {
   startExecuteWorkflow,
   continueExecuteWorkflow,
   stopExecuteWorkflow,
+  removeExecuteWorkflow,
 } from "./execute.js";
 
 export class WorkflowOrchestrator extends Effect.Service<WorkflowOrchestrator>()(
@@ -13,6 +14,7 @@ export class WorkflowOrchestrator extends Effect.Service<WorkflowOrchestrator>()
         start: startExecuteWorkflow,
         continue: continueExecuteWorkflow,
         stop: stopExecuteWorkflow,
+        remove: removeExecuteWorkflow,
       },
     }),
   },
