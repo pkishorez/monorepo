@@ -9,7 +9,6 @@ import { initSessionsForType } from "../shared/session.js";
 import type { TaskStatus } from "../../entity/status.js";
 import type { PromptContent } from "../shared/schema.js";
 
-
 export const markTurnStatus = (
   turnId: string,
   sessionId: string,
@@ -20,14 +19,12 @@ export const markTurnStatus = (
       claudeTurnSqliteEntity
         .update({ id: turnId }, { status })
         .pipe(Effect.orDie),
-      sessionSqliteEntity
-        .update({ sessionId }, { status })
-        .pipe(Effect.orDie),
+      sessionSqliteEntity.update({ sessionId }, { status }).pipe(Effect.orDie),
     ],
     { discard: true },
   );
 
-const markTurnsInterrupted = (sessionId: string) =>
+export const initSessions = initSessionsForType("claude", (sessionId: string) =>
   claudeTurnSqliteEntity
     .query("bySession", {
       pk: { sessionId },
@@ -47,9 +44,8 @@ const markTurnsInterrupted = (sessionId: string) =>
         ),
       ),
       Effect.orDie,
-    );
-
-export const initSessions = initSessionsForType("claude", markTurnsInterrupted);
+    ),
+);
 
 export const persistNewTurn = (
   sessionId: string,

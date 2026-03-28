@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Typed } from "../../lib/typed.js";
-import type { SessionCapabilities } from "./internal.js";
+import type { SessionCapabilities } from "./internal/index.js";
 export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode, AccessMode } from "../shared/schema.js";
 import { PromptContent, InteractionMode, AccessMode } from "../shared/schema.js";
 

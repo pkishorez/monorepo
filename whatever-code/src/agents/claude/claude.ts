@@ -1,96 +1,44 @@
 import { execFile } from "node:child_process";
-import {
-  query,
-  getSessionInfo,
-  type SDKMessage,
-  type HookInput,
-} from "@anthropic-ai/claude-agent-sdk";
-import { Cause, Deferred, Effect, Exit, Queue, Runtime, Stream } from "effect";
+import { Effect, Runtime } from "effect";
 import { v7 } from "uuid";
-import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
-import {
-  claudeMessageSqliteEntity,
-  claudeTurnSqliteEntity,
-} from "../../db/claude.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { updateSessionPayload } from "../shared/session.js";
-import type { ActiveTurn, PendingToolResponse, SessionRuntimeOptions } from "./internal.js";
+import { makeSessionManager } from "./claude-session.js";
+import type { SessionRuntimeOptions } from "./internal/index.js";
+
+type SessionManager = ReturnType<typeof makeSessionManager>;
 import {
   ContinueSessionParams,
   CreateSessionParams,
   RespondToToolParams,
   UpdateSessionParams,
 } from "./schema.js";
-import {
-  markTurnStatus,
-  persistNewTurn,
-  initSessions,
-} from "./utils.js";
-const buildPlanModeRuntimeOptions = (
-  rt: Runtime.Runtime<never>,
-  turnId: string,
-): SessionRuntimeOptions => {
-  const captureExitPlanMode = async (hookInput: HookInput) => {
-    if (hookInput.hook_event_name === "PreToolUse") {
-      const plan = (hookInput.tool_input as { plan?: unknown })?.plan;
-      if (typeof plan === "string") {
-        await Runtime.runPromise(rt)(
-          claudeTurnSqliteEntity
-            .update({ id: turnId }, { planArtifact: plan })
-            .pipe(Effect.orDie, Effect.asVoid) as Effect.Effect<void>,
-        );
-      }
-    }
-    return {
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse" as const,
-        permissionDecision: "deny" as const,
-      },
-    };
-  };
-
-  const denyAllPermissionRequests = async () => ({
-    hookSpecificOutput: {
-      hookEventName: "PermissionRequest" as const,
-      decision: {
-        behavior: "deny" as const,
-        message:
-          "Planning mode does not allow operations that require permission.",
-      },
-    },
-  });
-
-  return {
-    hooks: {
-      PreToolUse: [
-        { matcher: "ExitPlanMode", hooks: [captureExitPlanMode] },
-      ],
-      PermissionRequest: [{ hooks: [denyAllPermissionRequests] }],
-    },
-  };
-};
+import { initSessions } from "./utils.js";
 
 export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
   "ClaudeOrchestrator",
   {
     scoped: Effect.gen(function* () {
-      const activeTurns = new Map<string, ActiveTurn>();
-      const pendingToolResponses = new Map<string, PendingToolResponse>();
+      const sessions = new Map<string, SessionManager>();
       const runtime = yield* Effect.runtime<never>();
       const fork = <A, E>(effect: Effect.Effect<A, E, any>) =>
         Runtime.runFork(runtime)(effect as Effect.Effect<A, E, never>);
 
       yield* initSessions;
+
       yield* Effect.addFinalizer(() =>
-        ((activeTurns: Map<string, ActiveTurn>) =>
-          Effect.forEach(
-            activeTurns.entries(),
-            ([sessionId, turn]) =>
-              markTurnStatus(turn.turnId, sessionId, "interrupted"),
-            { discard: true },
-          ))(activeTurns),
+        Effect.forEach(sessions.values(), (s) => s.stop(), { discard: true }),
       );
+
+      const getOrCreate = (sessionId: string): SessionManager => {
+        let session = sessions.get(sessionId);
+        if (!session) {
+          session = makeSessionManager({ sessionId, runtime, fork });
+          sessions.set(sessionId, session);
+        }
+        return session;
+      };
 
       const createSession = (
         params: typeof CreateSessionParams.Type,
@@ -117,302 +65,49 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               },
             })
             .pipe(Effect.orDie);
-          yield* continueSession(
-            { sessionId, prompt: params.prompt },
-            true,
-            runtimeOptions,
-          );
-          const turn = activeTurns.get(sessionId);
-          if (turn) {
-            yield* Deferred.await(turn.initialized);
-          }
+
+          const session = getOrCreate(sessionId);
+          yield* session.continue(params.prompt, runtimeOptions);
           return sessionId;
         }).pipe(
-          Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+          Effect.mapError((e) =>
+            e instanceof ClaudeChatError
+              ? e
+              : new ClaudeChatError({ message: String(e) }),
+          ),
         );
 
-      const continueSession = (
-        params: typeof ContinueSessionParams.Type,
-        newSession = false,
-        runtimeOptions?: SessionRuntimeOptions,
-      ) =>
+      const continueSession = (params: typeof ContinueSessionParams.Type) =>
         Effect.gen(function* () {
-          const sessionId = params.sessionId;
-
-          const existing = activeTurns.get(sessionId);
-          if (existing) {
-            const isOutputDone = yield* Queue.isShutdown(existing.outputQueue);
-            if (!isOutputDone) {
-              yield* Effect.logWarning(
-                "rejecting continue — previous turn still active",
-              );
-              return yield* Effect.fail(
-                new ClaudeChatError({
-                  message: "previous turn did not finish yet",
-                }),
-              );
-            }
-            activeTurns.delete(sessionId);
-          }
-
-          const session = yield* sessionSqliteEntity
-            .get({ sessionId })
-            .pipe(
-              Effect.orDie,
-              Effect.flatMap((row) =>
-                row && row.value.payload.type === "claude"
-                  ? Effect.succeed(row.value as typeof row.value & { payload: { type: "claude" } })
-                  : Effect.fail(
-                      new ClaudeChatError({
-                        message: `session ${sessionId} not found`,
-                      }),
-                    ),
-              ),
-            );
-
-          const turnId = ulid();
-          yield* persistNewTurn(sessionId, turnId, params.prompt);
-
-          const initialized = yield* Deferred.make<void, Error>();
-          const turn = yield* Effect.map(
-            Queue.unbounded<SDKMessage>(),
-            (outputQueue): ActiveTurn => ({
-              abortController: new AbortController(),
-              outputQueue,
-              turnId,
-              initialized,
-            }),
-          );
-          activeTurns.set(sessionId, turn);
-
-          const sdkPrompt = typeof params.prompt === "string"
-            ? params.prompt
-            : (async function* () {
-                yield {
-                  type: "user" as const,
-                  message: {
-                    role: "user" as const,
-                    content: params.prompt as any,
-                  },
-                  parent_tool_use_id: null,
-                  session_id: sessionId,
-                };
-              })();
-
-          const { payload } = session;
-          const isPlanMode = session.interactionMode === "plan";
-
-          const planModeOptions: SessionRuntimeOptions | undefined = isPlanMode
-            ? buildPlanModeRuntimeOptions(runtime, turnId)
-            : undefined;
-
-          const effectivePermissionMode = isPlanMode
-            ? ("plan" as const)
-            : payload.accessMode === "full-access"
-              ? ("bypassPermissions" as const)
-              : ("default" as const);
-
-          const canUseTool = async (
-            toolName: string,
-            input: Record<string, unknown>,
-            opts: { toolUseID: string; signal: AbortSignal },
-          ) => {
-            if (toolName !== "AskUserQuestion") {
-              return { behavior: "allow" as const };
-            }
-            return Runtime.runPromise(runtime)(
-              Effect.gen(function* () {
-                const deferred = yield* Deferred.make<typeof import("./schema.js").ToolResponse.Type, Error>();
-                const questions = (input as { questions?: unknown[] }).questions ?? [];
-                pendingToolResponses.set(opts.toolUseID, {
-                  deferred,
-                  sessionId,
-                  turnId: turn.turnId,
-                });
-                yield* claudeTurnSqliteEntity
-                  .update({ id: turn.turnId }, {
-                    pendingQuestion: {
-                      toolUseId: opts.toolUseID,
-                      questions: questions as any,
-                    },
-                  })
-                  .pipe(Effect.orDie);
-
-                const response = yield* Deferred.await(deferred);
-
-                pendingToolResponses.delete(opts.toolUseID);
-                yield* claudeTurnSqliteEntity
-                  .update({ id: turn.turnId }, { pendingQuestion: null })
-                  .pipe(Effect.orDie);
-
-                return response;
-              }) as Effect.Effect<any, any, never>,
-            );
-          };
-
-          const queryResult = query({
-            prompt: sdkPrompt,
-            options: {
-              model: session.model,
-              cwd: session.absolutePath,
-              ...(newSession ? { sessionId } : { resume: sessionId }),
-              permissionMode: effectivePermissionMode,
-              persistSession: payload.persistSession,
-              effort: payload.effort,
-              ...(payload.maxTurns > 0 ? { maxTurns: payload.maxTurns } : {}),
-              ...(payload.maxBudgetUsd > 0
-                ? { maxBudgetUsd: payload.maxBudgetUsd }
-                : {}),
-              ...(effectivePermissionMode === "bypassPermissions"
-                ? { allowDangerouslySkipPermissions: true }
-                : {}),
-              canUseTool,
-              abortController: turn.abortController,
-              toolConfig: {
-                askUserQuestion: { previewFormat: "html" },
-              },
-              sandbox: {
-                enabled: true,
-              },
-              ...runtimeOptions,
-              ...planModeOptions,
-            },
-          });
-
-          type Message =
-            typeof queryResult extends AsyncGenerator<infer T> ? T : never;
-
-          const processMessage = (message: Message) =>
-            Effect.gen(function* () {
-              yield* claudeMessageSqliteEntity
-                .insert({
-                  id: ulid(),
-                  sessionId,
-                  turnId: turn.turnId,
-                  data: message,
-                })
-                .pipe(Effect.orDie);
-              yield* Queue.offer(turn.outputQueue, message);
-
-              if (message.type === "system" && message.subtype === "init") {
-                yield* Effect.log("session initialized").pipe(
-                  Effect.annotateLogs({ turnId: turn.turnId }),
-                );
-                yield* claudeTurnSqliteEntity
-                  .update({ id: turn.turnId }, { init: message })
-                  .pipe(Effect.orDie);
-                yield* Deferred.succeed(turn.initialized, void 0);
-              } else if (message.type === "result") {
-                const status = message.is_error ? "error" : "success";
-
-                yield* Effect.log("turn completed").pipe(
-                  Effect.annotateLogs({ turnId: turn.turnId, status }),
-                );
-
-                yield* claudeTurnSqliteEntity
-                  .update({ id: turn.turnId }, { status, result: message })
-                  .pipe(Effect.orDie);
-                yield* sessionSqliteEntity
-                  .update({ sessionId }, { status })
-                  .pipe(Effect.orDie);
-
-                yield* Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
-                  Effect.flatMap((info) => {
-                    if (!info?.summary) return Effect.void;
-                    return sessionSqliteEntity
-                      .update({ sessionId }, { name: info.summary })
-                      .pipe(Effect.orDie, Effect.asVoid);
-                  }),
-                  Effect.catchAll(() => Effect.void),
-                );
-
-                yield* Queue.shutdown(turn.outputQueue);
-              }
-            });
-
-          const onFiberExit = (exit: Exit.Exit<void, Error>) =>
-            Effect.gen(function* () {
-              yield* Queue.shutdown(turn.outputQueue);
-
-              if (!activeTurns.has(sessionId)) return;
-              activeTurns.delete(sessionId);
-
-              if (Exit.isSuccess(exit)) {
-                yield* Deferred.succeed(turn.initialized, void 0);
-                yield* Effect.log("background fiber exited cleanly");
-              } else if (Exit.isInterrupted(exit)) {
-                yield* Deferred.fail(
-                  turn.initialized,
-                  new Error("session interrupted before init"),
-                );
-                yield* Effect.log("background fiber interrupted");
-                yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
-              } else {
-                const cause = exit.pipe(Exit.causeOption);
-                const errorMsg =
-                  cause._tag === "Some"
-                    ? Cause.pretty(cause.value)
-                    : "unknown";
-                yield* Deferred.fail(
-                  turn.initialized,
-                  new Error(errorMsg),
-                );
-                yield* Effect.logError("background fiber failed").pipe(
-                  Effect.annotateLogs({ cause: errorMsg }),
-                );
-                yield* markTurnStatus(turn.turnId, sessionId, "error");
-              }
-            });
-
-          fork(
-            Stream.fromAsyncIterable(
-              queryResult,
-              (e) => new Error(String(e)),
-            ).pipe(
-              Stream.tap(processMessage),
-              Stream.runDrain,
-              Effect.onExit(onFiberExit),
-              Effect.withSpan("claude.backgroundFiber", {
-                attributes: { sessionId },
-              }),
-            ),
-          );
+          const session = getOrCreate(params.sessionId);
+          yield* session.continue(params.prompt);
         }).pipe(
-          Effect.withSpan("claude.continueSession", {
-            attributes: { sessionId: params.sessionId },
-          }),
+          Effect.mapError((e) =>
+            e instanceof ClaudeChatError
+              ? e
+              : new ClaudeChatError({ message: String(e) }),
+          ),
         );
 
       const stopSession = (sessionId: string) =>
         Effect.gen(function* () {
-          const turn = activeTurns.get(sessionId);
-          if (!turn) return;
-
-          // Fail any pending tool responses for this session
-          for (const [toolUseId, pending] of pendingToolResponses) {
-            if (pending.sessionId === sessionId) {
-              yield* Deferred.fail(pending.deferred, new Error("session stopped"));
-              pendingToolResponses.delete(toolUseId);
-            }
-          }
-
-          activeTurns.delete(sessionId);
-          yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
-          turn.abortController.abort();
-          yield* Queue.shutdown(turn.outputQueue);
+          const session = sessions.get(sessionId);
+          if (!session) return;
+          yield* session.stop();
+          sessions.delete(sessionId);
         });
 
       const respondToTool = (params: typeof RespondToToolParams.Type) =>
         Effect.gen(function* () {
-          const pending = pendingToolResponses.get(params.toolUseId);
-          if (!pending) {
+          const session = sessions.get(params.sessionId);
+          if (!session) {
             return yield* Effect.fail(
               new ClaudeChatError({
-                message: `tool response ${params.toolUseId} not found`,
+                message: `session ${params.sessionId} not found`,
               }),
             );
           }
-          yield* Deferred.succeed(pending.deferred, params.response);
+          yield* session.respondToTool(params.toolUseId, params.response);
         });
 
       const updateSession = (params: typeof UpdateSessionParams.Type) =>
@@ -439,7 +134,12 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               const child = execFile(
                 "claude",
                 args,
-                { cwd: params.cwd, timeout: 60_000, maxBuffer: 1024 * 1024, env: { ...process.env } },
+                {
+                  cwd: params.cwd,
+                  timeout: 60_000,
+                  maxBuffer: 1024 * 1024,
+                  env: { ...process.env },
+                },
                 (error, out) => {
                   if (error) return reject(error);
                   resolve(String(out));
