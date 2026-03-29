@@ -1,11 +1,13 @@
 import { AppRpcs } from "./app.js";
 import { ClaudeRpcs } from "./claude.js";
 import { CodexRpcs } from "./codex.js";
+import { GitRpcs } from "./git.js";
 import { WorkflowRpcs } from "./workflow.js";
 
 export { AppRpcs, AppError, OpenProjectParams } from "./app.js";
 export { ClaudeRpcs, ClaudeChatError } from "./claude.js";
 export { CodexRpcs, CodexChatError } from "./codex.js";
+export { GitRpcs } from "./git.js";
 export { WorkflowRpcs } from "./workflow.js";
 
 export {
@@ -38,4 +40,4 @@ export {
   ExecuteWorkflowError,
 } from "../../agents/workflow/schema.js";
 
-export const ApiRpcs = ClaudeRpcs.merge(AppRpcs).merge(CodexRpcs).merge(WorkflowRpcs);
+export const ApiRpcs = ClaudeRpcs.merge(AppRpcs).merge(CodexRpcs).merge(GitRpcs).merge(WorkflowRpcs);

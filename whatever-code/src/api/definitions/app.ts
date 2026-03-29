@@ -49,40 +49,6 @@ export class AppRpcs extends RpcGroup.make(
     error: AppError,
     payload: Schema.Struct({ absolutePath: Schema.String }),
   }),
-  Rpc.make("getGitDiff", {
-    success: Schema.Struct({
-      patch: Schema.String,
-      fileCount: Schema.optionalWith(Schema.Number, { default: () => 0 }),
-      branch: Schema.optionalWith(Schema.String, { default: () => "" }),
-    }),
-    error: AppError,
-    payload: Schema.Struct({
-      absolutePath: Schema.String,
-      statsOnly: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-    }),
-  }),
-  Rpc.make("gitCommit", {
-    success: Schema.Struct({
-      hash: Schema.String,
-      summary: Schema.String,
-    }),
-    error: AppError,
-    payload: Schema.Struct({
-      absolutePath: Schema.String,
-      message: Schema.String,
-    }),
-  }),
-  Rpc.make("generateCommitMessage", {
-    success: Schema.Struct({
-      subject: Schema.String,
-      body: Schema.String,
-    }),
-    error: AppError,
-    payload: Schema.Struct({
-      absolutePath: Schema.String,
-      patch: Schema.String,
-    }),
-  }),
   Rpc.make("querySessions", {
     success: Schema.Array(EntitySchema(sessionEntity)),
     error: AppError,
