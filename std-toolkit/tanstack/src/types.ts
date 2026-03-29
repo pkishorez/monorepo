@@ -20,6 +20,7 @@ export type CollectionUtils<TSchema extends AnyEntityESchema = AnyEntityESchema>
 export type SingleItemUtils<
   TSchema extends AnySingleEntityESchema = AnySingleEntityESchema,
 > = {
+  upsert: (item: EntityType<TSchema["Type"]>, persist?: boolean) => void;
   schema: () => TSchema;
   refetch: () => Effect.Effect<void>;
   isSyncing: () => SubscriptionRef.SubscriptionRef<boolean>;
