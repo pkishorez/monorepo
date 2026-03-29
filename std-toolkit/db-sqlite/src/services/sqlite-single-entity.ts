@@ -1,8 +1,13 @@
 import type { AnySingleEntityESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect, Schema } from "effect";
+import { Effect, FiberRef, Option, Schema } from "effect";
+import type { EntityType } from "@std-toolkit/core";
 import type { SQLiteTableInstance } from "./sqlite-table.js";
-import { SqliteDBError } from "../sql/db.js";
+import {
+  SqliteDBError,
+  TransactionPendingBroadcasts,
+} from "../sql/db.js";
 import type { SqliteDB } from "../sql/db.js";
+import { ConnectionService } from "@std-toolkit/core/server";
 import { deriveIndexKeyValue, type RawRow } from "../internal/utils.js";
 
 /**
@@ -199,6 +204,8 @@ export class SQLiteSingleEntity<
         });
       }
 
+      const entity = { value: fullValue, meta: { ...meta, _d: false } };
+      yield* this.#broadcast(entity);
       return { value: fullValue, meta };
     });
   }
@@ -257,7 +264,29 @@ export class SQLiteSingleEntity<
 
       yield* this.#table.updateItem({ pk, sk }, updateValues);
 
+      const entity = { value: fullValue, meta: { ...meta, _d: false } };
+      yield* this.#broadcast(entity);
       return { value: fullValue, meta };
+    });
+  }
+
+  // ─── Private Helpers ───────────────────────────────────────────────────────
+
+  #service = Effect.serviceOption(ConnectionService).pipe(
+    Effect.andThen(Option.getOrNull),
+  );
+
+  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+    return Effect.gen(this, function* () {
+      const pending = yield* FiberRef.get(TransactionPendingBroadcasts);
+      if (Option.isSome(pending)) {
+        yield* FiberRef.set(
+          TransactionPendingBroadcasts,
+          Option.some([...pending.value, entity]),
+        );
+      } else {
+        (yield* this.#service)?.broadcast(entity);
+      }
     });
   }
 

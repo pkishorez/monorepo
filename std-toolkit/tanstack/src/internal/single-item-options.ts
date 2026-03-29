@@ -47,6 +47,15 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   let applyToCollection: ((item: EntityType<TItem>) => void) | null = null;
   let resolvedCache: CacheSingleItem<TItem> | null = null;
 
+  const upsert = (item: EntityType<TItem>, persist?: boolean) => {
+    applyToCollection?.(item);
+    if (persist && resolvedCache) {
+      Effect.runPromise(
+        Effect.catchAll(resolvedCache.put(item), () => Effect.void),
+      ).catch(() => {});
+    }
+  };
+
   const createApplyToCollection = (
     params: Parameters<TanstackSyncConfig<TCollectionItem, string>["sync"]>[0],
   ) => {
@@ -118,6 +127,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
     getKey: () => singletonKey,
     sync: tanstackSync,
     utils: {
+      upsert,
       schema: () => schema,
       refetch: () => withSyncGuard(fetchItem).pipe(Effect.orDie),
       isSyncing: () => syncing,
