@@ -150,6 +150,11 @@ export const continueExecuteWorkflow = (
     const sessionId = workflow.spec.executeSession;
     const session = yield* getSession(sessionId);
 
+    // Touch the workflow entity so its _u timestamp reflects recent activity
+    yield* workflowSqliteEntity
+      .update({ workflowId: params.workflowId }, {})
+      .pipe(Effect.orDie);
+
     if (session.type === "claude") {
       const claude = yield* ClaudeOrchestrator;
       yield* claude.continueSession({
