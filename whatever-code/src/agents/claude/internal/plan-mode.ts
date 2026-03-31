@@ -27,16 +27,29 @@ export const buildPlanModeRuntimeOptions = (
     };
   };
 
-  const denyAllPermissionRequests = async () => ({
-    hookSpecificOutput: {
-      hookEventName: "PermissionRequest" as const,
-      decision: {
-        behavior: "deny" as const,
-        message:
-          "Planning mode does not allow operations that require permission.",
+  const denyAllPermissionRequests = async (hookInput: HookInput) => {
+    // AskUserQuestion must always reach the user — even in plan mode,
+    // Claude needs to ask clarifying questions to build a good plan.
+    if (hookInput.tool_name === "AskUserQuestion") {
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PermissionRequest" as const,
+          decision: { behavior: "allow" as const },
+        },
+      };
+    }
+
+    return {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest" as const,
+        decision: {
+          behavior: "deny" as const,
+          message:
+            "Planning mode does not allow operations that require permission.",
+        },
       },
-    },
-  });
+    };
+  };
 
   return {
     hooks: {

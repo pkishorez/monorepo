@@ -35,11 +35,7 @@ export const buildQueryOptions = (args: {
     ? buildPlanModeRuntimeOptions(runtime, turnId)
     : undefined;
 
-  const permissionMode = isPlanMode
-    ? ("plan" as const)
-    : payload.accessMode === "full-access"
-      ? ("bypassPermissions" as const)
-      : undefined;
+  const permissionMode = isPlanMode ? ("plan" as const) : undefined;
 
   return {
     model: session.model,
@@ -50,9 +46,6 @@ export const buildQueryOptions = (args: {
     effort: payload.effort,
     ...when(payload.maxTurns > 0, { maxTurns: payload.maxTurns }),
     ...when(payload.maxBudgetUsd > 0, { maxBudgetUsd: payload.maxBudgetUsd }),
-    ...when(permissionMode === "bypassPermissions", {
-      allowDangerouslySkipPermissions: true,
-    }),
     canUseTool,
     toolConfig: { askUserQuestion: { previewFormat: "html" } },
     ...runtimeOptions,
