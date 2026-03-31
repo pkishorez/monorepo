@@ -4,6 +4,7 @@ import { v7 } from "uuid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { updateSessionPayload } from "../shared/session.js";
+import { deriveSessionName } from "../shared/session-name.js";
 import { makeSessionManager } from "./claude-session.js";
 import type { SessionRuntimeOptions } from "./internal/index.js";
 
@@ -52,7 +53,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               type: "claude",
               status: "success",
               absolutePath: params.absolutePath,
-              name: "New Session",
+              name: deriveSessionName(params.prompt),
               model: params.model,
               interactionMode: params.interactionMode ?? "default",
               payload: {
@@ -67,7 +68,15 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
             .pipe(Effect.orDie);
 
           const session = getOrCreate(sessionId);
-          yield* session.continue(params.prompt, runtimeOptions);
+          fork(
+            session.continue(params.prompt, runtimeOptions).pipe(
+              Effect.catchAll(() =>
+                sessionSqliteEntity
+                  .update({ sessionId }, { status: "error" })
+                  .pipe(Effect.orDie, Effect.asVoid),
+              ),
+            ),
+          );
           return sessionId;
         }).pipe(
           Effect.mapError((e) =>

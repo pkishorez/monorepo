@@ -11,6 +11,7 @@ import {
 } from "../../db/codex.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { updateSessionPayload } from "../shared/session.js";
+import { deriveSessionName } from "../shared/session-name.js";
 import type { ActiveTurn } from "./internal.js";
 import {
   CreateThreadParams,
@@ -279,6 +280,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               type: "codex",
               status: "in_progress",
               absolutePath: params.absolutePath,
+              name: deriveSessionName(params.prompt),
               model: params.model,
               interactionMode: params.interactionMode ?? "default",
               payload: {
@@ -289,31 +291,41 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             })
             .pipe(Effect.orDie);
 
-          const response = (yield* client.request("thread/start", {
-            model: params.model,
-            cwd: params.absolutePath,
-            approvalPolicy: accessModeToApprovalPolicy(params.accessMode),
-            sandbox: accessModeToSandboxMode(params.accessMode),
-            experimentalRawEvents: false,
-            persistExtendedHistory: false,
-          })) as ThreadStartResponse;
+          fork(
+            Effect.gen(function* () {
+              const response = (yield* client.request("thread/start", {
+                model: params.model,
+                cwd: params.absolutePath,
+                approvalPolicy: accessModeToApprovalPolicy(params.accessMode),
+                sandbox: accessModeToSandboxMode(params.accessMode),
+                experimentalRawEvents: false,
+                persistExtendedHistory: false,
+              })) as ThreadStartResponse;
 
-          const sdkThreadId = response.thread.id;
-          yield* sessionSqliteEntity
-            .update(
-              { sessionId },
-              {
-                payload: {
-                  type: "codex",
-                  accessMode: params.accessMode,
-                  sdkThreadId,
-                },
-              },
-            )
-            .pipe(Effect.orDie);
-          sdkThreadIdMap.set(sdkThreadId, sessionId);
+              const sdkThreadId = response.thread.id;
+              yield* sessionSqliteEntity
+                .update(
+                  { sessionId },
+                  {
+                    payload: {
+                      type: "codex",
+                      accessMode: params.accessMode,
+                      sdkThreadId,
+                    },
+                  },
+                )
+                .pipe(Effect.orDie);
+              sdkThreadIdMap.set(sdkThreadId, sessionId);
 
-          yield* continueThread({ sessionId, prompt: params.prompt });
+              yield* continueThread({ sessionId, prompt: params.prompt });
+            }).pipe(
+              Effect.catchAll(() =>
+                sessionSqliteEntity
+                  .update({ sessionId }, { status: "error" })
+                  .pipe(Effect.orDie, Effect.asVoid),
+              ),
+            ),
+          );
           return sessionId;
         }).pipe(
           Effect.mapError((e) => new CodexChatError({ message: errorMessage(e) })),
