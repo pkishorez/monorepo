@@ -79,10 +79,8 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           );
           return sessionId;
         }).pipe(
-          Effect.mapError((e) =>
-            e instanceof ClaudeChatError
-              ? e
-              : new ClaudeChatError({ message: String(e) }),
+          Effect.mapError(
+            (e) => new ClaudeChatError({ message: String(e) }),
           ),
         );
 
