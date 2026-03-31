@@ -41,12 +41,16 @@ export function startServer(config: ServerConfig) {
         Effect.gen(function* () {
           const req = yield* HttpServerRequest.HttpServerRequest;
           const url = new URL(req.url, "http://localhost");
-          const response = yield* Effect.tryPromise(() =>
-            fetch(`${target}${url.pathname}${url.search}`, {
-              method: req.method,
-              headers: req.headers as Record<string, string>,
-            }),
-          );
+          const { connection, ...forwardHeaders } = req.headers as Record<string, string>;
+          const response = yield* Effect.tryPromise({
+            try: () =>
+              fetch(`${target}${url.pathname}${url.search}`, {
+                method: req.method,
+                headers: forwardHeaders,
+              }),
+            catch: (e) =>
+              new Error(e instanceof Error ? e.message : String(e)),
+          });
           return HttpServerResponse.fromWeb(response);
         }),
       ),
