@@ -7,8 +7,8 @@ import type { PromptContent } from "../../shared/schema.js";
 
 export const isAskUserQuestion = (
   toolName: string,
-  input: Record<string, unknown>,
-): input is AskUserQuestionInput & Record<string, unknown> =>
+  _input: Record<string, unknown>,
+): _input is AskUserQuestionInput & Record<string, unknown> =>
   toolName === "AskUserQuestion";
 
 export const extractQuestions = (
