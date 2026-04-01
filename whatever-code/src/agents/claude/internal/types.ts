@@ -12,6 +12,7 @@ export interface ActiveTurn {
   query: Query | null;
   fiber: Fiber.RuntimeFiber<void, Error> | null;
   stopped: boolean;
+  resultReceived: boolean;
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
   initialized: Deferred.Deferred<void, Error>;

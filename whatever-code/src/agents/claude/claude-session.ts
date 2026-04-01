@@ -79,6 +79,7 @@ export const makeSessionManager = (args: {
           query: null,
           fiber: null,
           stopped: false,
+          resultReceived: false,
           outputQueue,
           turnId,
           initialized,
@@ -113,7 +114,6 @@ export const makeSessionManager = (args: {
         Stream.fromAsyncIterable(queryResult, (e) => new Error(String(e))).pipe(
           Stream.takeWhile(() => !turn.stopped),
           Stream.tap(processMessage(sessionId, turn)),
-          Stream.catchAll(() => Stream.empty),
           Stream.runDrain,
           Effect.onExit(onFiberExit(sessionId, turn)),
           Effect.withSpan("claude.backgroundFiber", {
@@ -149,15 +149,17 @@ export const makeSessionManager = (args: {
       currentTurn = null;
       yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
 
+      // Close the SDK query first to abort any in-flight API request,
+      // unblocking the stream so the fiber can actually terminate.
+      try {
+        turn.query?.close();
+      } catch {}
+
       const fiber = turn.fiber;
       turn.fiber = null;
       if (fiber && fiber.unsafePoll() === null) {
         yield* Fiber.interrupt(fiber);
       }
-
-      try {
-        turn.query?.close();
-      } catch {}
 
       yield* Queue.shutdown(turn.outputQueue);
     });
