@@ -407,6 +407,15 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             .update({ id: turnId }, { sdkTurnId: response.turn.id })
             .pipe(Effect.orDie);
         }).pipe(
+          Effect.tapError(() =>
+            Effect.gen(function* () {
+              const turn = activeTurns.get(params.sessionId);
+              if (turn) {
+                activeTurns.delete(params.sessionId);
+                yield* markTurnStatus(turn.turnId, params.sessionId, "error");
+              }
+            }),
+          ),
           Effect.mapError((e) =>
             e instanceof CodexChatError
               ? e

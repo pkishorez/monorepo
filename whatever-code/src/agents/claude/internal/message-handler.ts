@@ -35,6 +35,7 @@ export const processMessage = (
           .pipe(Effect.orDie);
         yield* Deferred.succeed(turn.initialized, void 0);
       } else if (message.type === "result") {
+        turn.resultReceived = true;
         const status = message.is_error ? "error" : "success";
 
         yield* Effect.log("turn completed").pipe(
@@ -81,7 +82,14 @@ export const onFiberExit = (
 
       if (Exit.isSuccess(exit)) {
         yield* Deferred.succeed(turn.initialized, void 0);
-        yield* Effect.log("background fiber exited cleanly");
+        if (!turn.resultReceived) {
+          yield* Effect.logWarning(
+            "background fiber exited without result message",
+          );
+          yield* markTurnStatus(turn.turnId, sessionId, "error");
+        } else {
+          yield* Effect.log("background fiber exited cleanly");
+        }
       } else if (Exit.isInterrupted(exit)) {
         yield* Deferred.fail(
           turn.initialized,
