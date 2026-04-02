@@ -13,6 +13,7 @@ import type { ActiveTurn } from "./types.js";
 export const processMessage = (
   sessionId: string,
   turn: ActiveTurn,
+  isNewSession: boolean,
 ) =>
   (message: SDKMessage) =>
     Effect.gen(function* () {
@@ -49,15 +50,17 @@ export const processMessage = (
           .update({ sessionId }, { status })
           .pipe(Effect.orDie);
 
-        yield* Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
-          Effect.flatMap((info) => {
-            if (!info?.summary) return Effect.void;
-            return sessionSqliteEntity
-              .update({ sessionId }, { name: info.summary })
-              .pipe(Effect.orDie, Effect.asVoid);
-          }),
-          Effect.catchAll(() => Effect.void),
-        );
+        if (isNewSession) {
+          yield* Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
+            Effect.flatMap((info) => {
+              if (!info?.summary) return Effect.void;
+              return sessionSqliteEntity
+                .update({ sessionId }, { name: info.summary })
+                .pipe(Effect.orDie, Effect.asVoid);
+            }),
+            Effect.catchAll(() => Effect.void),
+          );
+        }
 
         yield* Queue.shutdown(turn.outputQueue);
       }

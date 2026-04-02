@@ -113,7 +113,7 @@ export const makeSessionManager = (args: {
       turn.fiber = fork(
         Stream.fromAsyncIterable(queryResult, (e) => new Error(String(e))).pipe(
           Stream.takeWhile(() => !turn.stopped),
-          Stream.tap(processMessage(sessionId, turn)),
+          Stream.tap(processMessage(sessionId, turn, isNewSession)),
           Stream.runDrain,
           Effect.onExit(onFiberExit(sessionId, turn)),
           Effect.withSpan("claude.backgroundFiber", {
