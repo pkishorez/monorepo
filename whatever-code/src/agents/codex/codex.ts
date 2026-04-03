@@ -5,12 +5,10 @@ import { ulid } from "ulid";
 import { CodexClient } from "./client.js";
 import { CodexChatError } from "../../api/definitions/codex.js";
 import { execCodexJson } from "./exec-json.js";
-import {
-  codexEventSqliteEntity,
-  codexTurnSqliteEntity,
-} from "../../db/codex.js";
+import { codexEventSqliteEntity } from "../../db/codex.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { updateSessionPayload } from "../shared/session.js";
+import { updateCodexTurnPayload } from "../shared/turn.js";
 import { deriveSessionName } from "../shared/session-name.js";
 import type { ActiveTurn } from "./internal.js";
 import {
@@ -85,12 +83,10 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               const { threadId, turn } = notification.params;
               const activeTurn = findActiveTurnBySdkThreadId(threadId);
               if (activeTurn) {
-                yield* codexTurnSqliteEntity
-                  .update(
-                    { id: activeTurn.turn.turnId },
-                    { sdkTurnId: turn.id },
-                  )
-                  .pipe(Effect.orDie);
+                yield* updateCodexTurnPayload(activeTurn.turn.turnId, (payload) => ({
+                  ...payload,
+                  sdkTurnId: turn.id,
+                }));
                 activeTurn.turn.sdkTurnId = turn.id;
               }
               break;
@@ -104,15 +100,11 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               if (turn.status === "completed") {
                 yield* markTurnStatus(at.turnId, ourSessionId, "success");
               } else if (turn.status === "failed") {
-                yield* codexTurnSqliteEntity
-                  .update(
-                    { id: at.turnId },
-                    { status: "error", error: turn.error },
-                  )
-                  .pipe(Effect.orDie);
-                yield* sessionSqliteEntity
-                  .update({ sessionId: ourSessionId }, { status: "error" })
-                  .pipe(Effect.orDie);
+                yield* updateCodexTurnPayload(at.turnId, (payload) => ({
+                  ...payload,
+                  error: turn.error,
+                }));
+                yield* markTurnStatus(at.turnId, ourSessionId, "error");
               } else if (turn.status === "interrupted") {
                 yield* markTurnStatus(at.turnId, ourSessionId, "interrupted");
               }
@@ -141,12 +133,10 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                 notification.params;
               const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
               if (activeTurn) {
-                yield* codexTurnSqliteEntity
-                  .update(
-                    { id: activeTurn.turn.turnId },
-                    { usage: tokenUsage },
-                  )
-                  .pipe(Effect.orDie);
+                yield* updateCodexTurnPayload(activeTurn.turn.turnId, (payload) => ({
+                  ...payload,
+                  usage: tokenUsage,
+                }));
               }
               break;
             }
@@ -325,9 +315,10 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           })) as TurnStartResponse;
 
           turn.sdkTurnId = response.turn.id;
-          yield* codexTurnSqliteEntity
-            .update({ id: turnId }, { sdkTurnId: response.turn.id })
-            .pipe(Effect.orDie);
+          yield* updateCodexTurnPayload(turnId, (payload) => ({
+            ...payload,
+            sdkTurnId: response.turn.id,
+          }));
         }).pipe(
           Effect.tapError(() =>
             Effect.gen(function* () {

@@ -1,13 +1,43 @@
 import { getSessionInfo, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Cause, Deferred, Effect, Exit, Queue } from "effect";
 import { ulid } from "ulid";
-import {
-  claudeMessageSqliteEntity,
-  claudeTurnSqliteEntity,
-} from "../../../db/claude.js";
+import { claudeMessageSqliteEntity } from "../../../db/claude.js";
 import { sessionSqliteEntity } from "../../../db/session.js";
-import { markTurnStatus } from "../utils.js";
+import { updateClaudeTurnPayload, markTurnStatus } from "../../shared/turn.js";
 import type { ActiveTurn } from "./types.js";
+
+/** Extract model usage from a result message into our schema shape. */
+function extractModelUsage(
+  result: Record<string, unknown>,
+): Record<string, { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; contextWindow: number | null }> | null {
+  const modelUsage = result.modelUsage as
+    | Record<string, Record<string, unknown>>
+    | undefined;
+  if (!modelUsage) return null;
+
+  const out: Record<string, { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; contextWindow: number | null }> = {};
+  for (const [key, mu] of Object.entries(modelUsage)) {
+    out[key] = {
+      inputTokens: (mu.inputTokens as number) ?? 0,
+      outputTokens: (mu.outputTokens as number) ?? 0,
+      cacheReadInputTokens: (mu.cacheReadInputTokens as number) ?? 0,
+      contextWindow: (mu.contextWindow as number) ?? null,
+    };
+  }
+  return out;
+}
+
+/** Extract input_tokens from the SDK result's raw `usage` object.
+ *  This reflects the final API call's input size — i.e. the actual context
+ *  window consumption — unlike `modelUsage` which sums across all calls. */
+function extractLastInputTokens(
+  result: Record<string, unknown>,
+): number | null {
+  const usage = result.usage as Record<string, unknown> | undefined;
+  if (!usage) return null;
+  const inputTokens = usage.input_tokens as number | undefined;
+  return inputTokens ?? null;
+}
 
 /** Persists each SDK message to DB and routes init/result events. */
 export const processMessage = (
@@ -31,9 +61,10 @@ export const processMessage = (
         yield* Effect.log("session initialized").pipe(
           Effect.annotateLogs({ turnId: turn.turnId }),
         );
-        yield* claudeTurnSqliteEntity
-          .update({ id: turn.turnId }, { init: message })
-          .pipe(Effect.orDie);
+        yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
+          ...payload,
+          model: message.model,
+        }));
         yield* Deferred.succeed(turn.initialized, void 0);
       } else if (message.type === "result") {
         turn.resultReceived = true;
@@ -43,12 +74,15 @@ export const processMessage = (
           Effect.annotateLogs({ turnId: turn.turnId, status }),
         );
 
-        yield* claudeTurnSqliteEntity
-          .update({ id: turn.turnId }, { status, result: message })
-          .pipe(Effect.orDie);
-        yield* sessionSqliteEntity
-          .update({ sessionId }, { status })
-          .pipe(Effect.orDie);
+        const resultRecord = message as unknown as Record<string, unknown>;
+        yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
+          ...payload,
+          costUsd: (resultRecord.total_cost_usd as number) ?? null,
+          isError: message.is_error ?? false,
+          modelUsage: extractModelUsage(resultRecord),
+          lastInputTokens: extractLastInputTokens(resultRecord),
+        }));
+        yield* markTurnStatus(turn.turnId, sessionId, status);
 
         if (isNewSession) {
           yield* Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(

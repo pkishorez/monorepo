@@ -3,6 +3,7 @@ import { BroadcastSchema, EntitySchema } from "@std-toolkit/core";
 import { Schema } from "effect";
 import { projectEntity } from "../../entity/project/index.js";
 import { sessionEntity } from "../../entity/session/index.js";
+import { turnEntity } from "../../entity/turn/index.js";
 
 export const OpenProjectParams = Schema.Struct({
   absolutePath: Schema.String,
@@ -51,6 +52,11 @@ export class AppRpcs extends RpcGroup.make(
   }),
   Rpc.make("querySessions", {
     success: Schema.Array(EntitySchema(sessionEntity)),
+    error: AppError,
+    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+  }),
+  Rpc.make("queryTurns", {
+    success: Schema.Array(EntitySchema(turnEntity)),
     error: AppError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),

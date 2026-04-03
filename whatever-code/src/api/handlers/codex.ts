@@ -1,10 +1,7 @@
 import { Effect } from "effect";
 import { CodexChatError, CodexRpcs } from "../definitions/codex.js";
 import { CodexOrchestrator } from "../../agents/codex/codex.js";
-import {
-  codexEventSqliteEntity,
-  codexTurnSqliteEntity,
-} from "../../db/codex.js";
+import { codexEventSqliteEntity } from "../../db/codex.js";
 
 export const CodexHandlers = CodexRpcs.toLayer(
   CodexRpcs.of({
@@ -22,13 +19,6 @@ export const CodexHandlers = CodexRpcs.toLayer(
       Effect.flatMap(CodexOrchestrator, (o) => o.respondToApproval(params)),
     "codex.queryEvents": ({ ">": cursor }) =>
       codexEventSqliteEntity
-        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
-        .pipe(
-          Effect.map(({ items }) => items),
-          Effect.mapError((e) => new CodexChatError({ message: String(e) })),
-        ),
-    "codex.queryTurns": ({ ">": cursor }) =>
-      codexTurnSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
         .pipe(
           Effect.map(({ items }) => items),
