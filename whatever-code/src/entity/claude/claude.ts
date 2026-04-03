@@ -1,16 +1,7 @@
 import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
-import { SDKMessage, SDKResultMessage } from "./types.js";
+import { SDKMessage } from "./types.js";
 import { Typed } from "../../lib/typed.js";
-import { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
-import { TaskStatus } from "../status.js";
-
-export const claudeTurnEntity = EntityESchema.make("claudeTurn", "id", {
-  sessionId: Schema.String,
-  status: TaskStatus,
-  init: Schema.NullOr(Typed<SDKSystemMessage>()),
-  result: Schema.NullOr(Typed<SDKResultMessage>()),
-}).build();
 
 export const claudeMessageEntity = EntityESchema.make("claudeMessage", "id", {
   sessionId: Schema.String,

@@ -8,6 +8,7 @@ import { BroadcastService } from "../../services/broadcast.js";
 import { dataDir } from "../../db/index.js";
 import { projectSqliteEntity } from "../../db/claude.js";
 import { sessionSqliteEntity } from "../../db/session.js";
+import { turnSqliteEntity } from "../../db/turn.js";
 import { computePaths } from "../../lib/paths.js";
 
 const execFilePromise = promisify(execFile);
@@ -100,6 +101,13 @@ export const AppHandlers = AppRpcs.toLayer(
       ),
     "app.querySessions": ({ ">": cursor }) =>
       sessionSqliteEntity
+        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .pipe(
+          Effect.map(({ items }) => items),
+          Effect.mapError((e) => new AppError({ message: String(e) })),
+        ),
+    "app.queryTurns": ({ ">": cursor }) =>
+      turnSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
         .pipe(
           Effect.map(({ items }) => items),

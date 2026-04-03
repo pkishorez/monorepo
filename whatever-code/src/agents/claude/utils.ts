@@ -1,55 +1,15 @@
 import { Effect } from "effect";
 import { ulid } from "ulid";
-import {
-  claudeMessageSqliteEntity,
-  claudeTurnSqliteEntity,
-} from "../../db/claude.js";
+import { claudeMessageSqliteEntity } from "../../db/claude.js";
+import { turnSqliteEntity } from "../../db/turn.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { initSessionsForType } from "../shared/session.js";
-import type { TaskStatus } from "../../entity/status.js";
+import { markTurnsInterrupted } from "../shared/turn.js";
 import type { PromptContent } from "../shared/schema.js";
 
-export const markTurnStatus = (
-  turnId: string,
-  sessionId: string,
-  status: TaskStatus,
-) =>
-  Effect.all(
-    [
-      claudeTurnSqliteEntity
-        .update({ id: turnId }, {
-          status,
-        })
-        .pipe(Effect.orDie),
-      sessionSqliteEntity.update({ sessionId }, { status }).pipe(Effect.orDie),
-    ],
-    { discard: true },
-  );
+export { markTurnStatus } from "../shared/turn.js";
 
-export const initSessions = initSessionsForType("claude", (sessionId: string) =>
-  claudeTurnSqliteEntity
-    .query("bySession", {
-      pk: { sessionId },
-      sk: { ">": null },
-    })
-    .pipe(
-      Effect.flatMap(({ items }) =>
-        Effect.all(
-          items
-            .filter((t) => t.value.status === "in_progress")
-            .map((t) =>
-              claudeTurnSqliteEntity
-                .update({ id: t.value.id }, {
-                  status: "interrupted",
-                })
-                .pipe(Effect.orDie),
-            ),
-          { discard: true },
-        ),
-      ),
-      Effect.orDie,
-    ),
-);
+export const initSessions = initSessionsForType("claude", markTurnsInterrupted);
 
 export const persistNewTurn = (
   sessionId: string,
@@ -58,12 +18,19 @@ export const persistNewTurn = (
 ) =>
   Effect.all([
     sessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),
-    claudeTurnSqliteEntity.insert({
+    turnSqliteEntity.insert({
       id: turnId,
+      type: "claude",
       sessionId,
       status: "in_progress",
-      init: null,
-      result: null,
+      payload: {
+        type: "claude",
+        model: null,
+        costUsd: null,
+        isError: null,
+        modelUsage: null,
+        lastInputTokens: null,
+      },
     }),
     claudeMessageSqliteEntity.insert({
       id: ulid(),

@@ -3,7 +3,7 @@ import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Deferred, Effect, Fiber, Queue, Runtime, Stream } from "effect";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
-import { claudeTurnSqliteEntity } from "../../db/claude.js";
+import { turnSqliteEntity } from "../../db/turn.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { markTurnStatus, persistNewTurn } from "./utils.js";
 import {
@@ -62,7 +62,7 @@ export const makeSessionManager = (args: {
         ),
       );
 
-      const existingTurns = yield* claudeTurnSqliteEntity
+      const existingTurns = yield* turnSqliteEntity
         .query("bySession", { pk: { sessionId }, sk: { ">": null } })
         .pipe(Effect.orDie);
       const isNewSession = existingTurns.items.length === 0;

@@ -1,10 +1,7 @@
 import { Effect } from "effect";
 import { ClaudeChatError, ClaudeRpcs } from "../definitions/claude.js";
 import { ClaudeOrchestrator } from "../../agents/claude/claude.js";
-import {
-  claudeMessageSqliteEntity,
-  claudeTurnSqliteEntity,
-} from "../../db/claude.js";
+import { claudeMessageSqliteEntity } from "../../db/claude.js";
 
 export const ClaudeHandlers = ClaudeRpcs.toLayer(
   ClaudeRpcs.of({
@@ -22,13 +19,6 @@ export const ClaudeHandlers = ClaudeRpcs.toLayer(
       Effect.flatMap(ClaudeOrchestrator, (o) => o.respondToTool(params)),
     "claude.queryMessages": ({ ">": cursor }) =>
       claudeMessageSqliteEntity
-        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
-        .pipe(
-          Effect.map(({ items }) => items),
-          Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
-        ),
-    "claude.queryTurns": ({ ">": cursor }) =>
-      claudeTurnSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
         .pipe(
           Effect.map(({ items }) => items),

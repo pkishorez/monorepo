@@ -1,53 +1,13 @@
 import { Effect } from "effect";
 import { ulid } from "ulid";
-import {
-  codexEventSqliteEntity,
-  codexTurnSqliteEntity,
-} from "../../db/codex.js";
+import { codexEventSqliteEntity } from "../../db/codex.js";
+import { turnSqliteEntity } from "../../db/turn.js";
 import { sessionSqliteEntity } from "../../db/session.js";
 import { initSessionsForType } from "../shared/session.js";
-import type { TaskStatus } from "../../entity/status.js";
+import { markTurnsInterrupted } from "../shared/turn.js";
 import type { PromptContent } from "../shared/schema.js";
 
-
-export const markTurnStatus = (
-  turnId: string,
-  sessionId: string,
-  status: TaskStatus,
-) =>
-  Effect.all(
-    [
-      codexTurnSqliteEntity
-        .update({ id: turnId }, { status })
-        .pipe(Effect.orDie),
-      sessionSqliteEntity
-        .update({ sessionId }, { status })
-        .pipe(Effect.orDie),
-    ],
-    { discard: true },
-  );
-
-const markTurnsInterrupted = (sessionId: string) =>
-  codexTurnSqliteEntity
-    .query("bySession", {
-      pk: { sessionId },
-      sk: { ">": null },
-    })
-    .pipe(
-      Effect.flatMap(({ items }) =>
-        Effect.all(
-          items
-            .filter((t) => t.value.status === "in_progress")
-            .map((t) =>
-              codexTurnSqliteEntity
-                .update({ id: t.value.id }, { status: "interrupted" })
-                .pipe(Effect.orDie),
-            ),
-          { discard: true },
-        ),
-      ),
-      Effect.orDie,
-    );
+export { markTurnStatus } from "../shared/turn.js";
 
 export const initSessions = initSessionsForType("codex", markTurnsInterrupted);
 
@@ -66,14 +26,18 @@ export const persistNewTurn = (
 
   return Effect.all([
     sessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),
-    codexTurnSqliteEntity.insert({
+    turnSqliteEntity.insert({
       id: turnId,
+      type: "codex",
       sessionId,
-      model,
       status: "in_progress",
-      sdkTurnId: null,
-      usage: null,
-      error: null,
+      payload: {
+        type: "codex",
+        model,
+        sdkTurnId: null,
+        usage: null,
+        error: null,
+      },
     }),
     codexEventSqliteEntity.insert({
       id: ulid(),

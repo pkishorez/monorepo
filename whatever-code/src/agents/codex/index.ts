@@ -6,7 +6,4 @@ export {
   UpdateThreadParams,
 } from "./schema.js";
 export { MODELS } from "./schema.js";
-export {
-  codexEventEntity,
-  codexTurnEntity,
-} from "../../entity/codex/codex.js";
+export { codexEventEntity } from "../../entity/codex/codex.js";
