@@ -24,6 +24,17 @@ interface ServerConfig {
 }
 
 export function startServer(config: ServerConfig) {
+  // ── Global safety net ──
+  // Prevent the process from crashing on unexpected rejections or exceptions.
+  // These handlers act as a last resort; the root causes should be fixed in
+  // the service layer, but we never want the entire server to die.
+  process.on("unhandledRejection", (reason) => {
+    console.error("[unhandledRejection]", reason);
+  });
+  process.on("uncaughtException", (err) => {
+    console.error("[uncaughtException]", err);
+  });
+
   const RpcRoute = RpcServer.layerHttpRouter({
     group: ApiRpcs,
     path: "/api",

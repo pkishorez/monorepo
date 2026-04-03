@@ -2,7 +2,6 @@ export {
   ContinueSessionParams,
   CreateSessionParams,
   Message,
-  AccessMode,
   RespondToToolParams,
   ToolResponse,
   UpdateSessionParams,

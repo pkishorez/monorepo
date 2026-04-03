@@ -18,7 +18,6 @@ import {
   ContinueThreadParams,
   UpdateThreadParams,
   RespondToApprovalParams,
-  AccessMode,
 } from "./schema.js";
 import {
   markTurnStatus,
@@ -26,11 +25,8 @@ import {
   initSessions,
 } from "./utils.js";
 import type { ServerNotification } from "./generated/ServerNotification.js";
-import type { ServerRequest } from "./generated/ServerRequest.js";
-import type { RequestId } from "./generated/RequestId.js";
 import type { ThreadStartResponse } from "./generated/v2/ThreadStartResponse.js";
 import type { TurnStartResponse } from "./generated/v2/TurnStartResponse.js";
-import type { SandboxPolicy } from "./generated/v2/SandboxPolicy.js";
 import type { UserInput } from "./generated/v2/UserInput.js";
 import {
   PERSISTED_METHODS,
@@ -61,28 +57,6 @@ function promptToCodexInput(
     : [{ type: "text", text: "", text_elements: [] }];
 }
 
-function accessModeToApprovalPolicy(mode: typeof AccessMode.Type) {
-  return mode === "full-access" ? "never" : "on-failure";
-}
-
-function accessModeToSandboxMode(mode: typeof AccessMode.Type) {
-  return mode === "full-access" ? "danger-full-access" : "workspace-write";
-}
-
-function accessModeToSandboxPolicy(mode: typeof AccessMode.Type): SandboxPolicy {
-  if (mode === "full-access") {
-    return { type: "dangerFullAccess" };
-  }
-  return {
-    type: "workspaceWrite",
-    writableRoots: [],
-    readOnlyAccess: { type: "fullAccess" },
-    networkAccess: false,
-    excludeTmpdirEnvVar: false,
-    excludeSlashTmp: false,
-  };
-}
-
 export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
   "CodexOrchestrator",
   {
@@ -92,10 +66,6 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
       const fork = <A, E>(effect: Effect.Effect<A, E, any>) =>
         Runtime.runFork(runtime)(effect as Effect.Effect<A, E, never>);
       const activeTurns = new Map<string, ActiveTurn>();
-      const pendingApprovals = new Map<
-        string,
-        { serverRequestId: RequestId; sessionId: string; turnId: string }
-      >();
 
       yield* initSessions;
 
@@ -201,18 +171,6 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                       data: notification as PersistedNotification,
                     })
                     .pipe(Effect.orDie);
-
-                  if (notification.method === "item/completed") {
-                    const item = (notification.params as { item?: { type?: string; text?: string } }).item;
-                    if (item?.type === "plan" && typeof item.text === "string") {
-                      yield* codexTurnSqliteEntity
-                        .update(
-                          { id: activeTurn.turn.turnId },
-                          { planArtifact: item.text },
-                        )
-                        .pipe(Effect.orDie);
-                    }
-                  }
                 }
               }
               break;
@@ -222,43 +180,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         fork(effect);
       };
 
-      const handleServerRequest = (
-        serverRequestId: RequestId,
-        request: ServerRequest,
-      ) => {
-        const effect = Effect.gen(function* () {
-          const sdkThreadId = (request.params as { threadId?: string })
-            .threadId;
-          if (!sdkThreadId) return;
-
-          const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
-          if (!activeTurn) return;
-
-          const approvalId = ulid();
-
-          yield* codexEventSqliteEntity
-            .insert({
-              id: approvalId,
-              sessionId: activeTurn.ourSessionId,
-              turnId: activeTurn.turn.turnId,
-              data: {
-                method: request.method as ServerNotification["method"],
-                params: request.params,
-              } as ServerNotification,
-            })
-            .pipe(Effect.orDie);
-
-          pendingApprovals.set(approvalId, {
-            serverRequestId,
-            sessionId: activeTurn.ourSessionId,
-            turnId: activeTurn.turn.turnId,
-          });
-        });
-        fork(effect);
-      };
-
       client.onNotification(handleNotification);
-      client.onServerRequest(handleServerRequest);
 
       const sdkThreadIdMap = new Map<string, string>();
 
@@ -285,7 +207,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               interactionMode: params.interactionMode ?? "default",
               payload: {
                 type: "codex",
-                accessMode: params.accessMode,
+                accessMode: "full-access",
                 sdkThreadId: null,
               },
             })
@@ -296,8 +218,8 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               const response = (yield* client.request("thread/start", {
                 model: params.model,
                 cwd: params.absolutePath,
-                approvalPolicy: accessModeToApprovalPolicy(params.accessMode),
-                sandbox: accessModeToSandboxMode(params.accessMode),
+                approvalPolicy: "never",
+                sandbox: "danger-full-access",
                 experimentalRawEvents: false,
                 persistExtendedHistory: false,
               })) as ThreadStartResponse;
@@ -309,7 +231,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                   {
                     payload: {
                       type: "codex",
-                      accessMode: params.accessMode,
+                      accessMode: "full-access",
                       sdkThreadId,
                     },
                   },
@@ -386,8 +308,8 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             threadId: payload.sdkThreadId,
             input: promptToCodexInput(params.prompt),
             model: session.model,
-            approvalPolicy: accessModeToApprovalPolicy(payload.accessMode),
-            sandboxPolicy: accessModeToSandboxPolicy(payload.accessMode),
+            approvalPolicy: "never",
+            sandboxPolicy: { type: "dangerFullAccess" },
             ...(session.interactionMode === "plan"
               ? {
                   collaborationMode: {
@@ -450,28 +372,13 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         updateSessionPayload(params.sessionId, "codex", params.updates);
 
       const respondToApproval = (
-        params: typeof RespondToApprovalParams.Type,
+        _params: typeof RespondToApprovalParams.Type,
       ) =>
-        Effect.gen(function* () {
-          const pending = pendingApprovals.get(params.requestId);
-          if (!pending) {
-            return yield* Effect.fail(
-              new CodexChatError({
-                message: `approval request ${params.requestId} not found`,
-              }),
-            );
-          }
-
-          const decision =
-            params.decision === "accept"
-              ? "accept"
-              : params.decision === "acceptForSession"
-                ? "acceptForSession"
-                : "decline";
-
-          client.respond(pending.serverRequestId, { decision });
-          pendingApprovals.delete(params.requestId);
-        });
+        Effect.fail(
+          new CodexChatError({
+            message: "Not implemented yet for approval flow.",
+          }),
+        );
 
       const oneShot = (params: {
         cwd: string;

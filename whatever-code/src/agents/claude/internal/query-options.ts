@@ -1,9 +1,7 @@
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
-import type { Runtime } from "effect";
 import type { sessionEntity } from "../../../entity/session/session.js";
 import type { ClaudePayload } from "../../../entity/session/session.js";
 import { when } from "../../../lib/object.js";
-import { buildPlanModeRuntimeOptions } from "./plan-mode.js";
 import type { SessionRuntimeOptions } from "./types.js";
 
 type ClaudeSession = typeof sessionEntity.Type & {
@@ -15,8 +13,6 @@ export const buildQueryOptions = (args: {
   sessionId: string;
   isNewSession: boolean;
   canUseTool: Options["canUseTool"];
-  runtime: Runtime.Runtime<never>;
-  turnId: string;
   runtimeOptions?: SessionRuntimeOptions | undefined;
 }): Options => {
   const {
@@ -24,16 +20,10 @@ export const buildQueryOptions = (args: {
     sessionId,
     isNewSession,
     canUseTool,
-    runtime,
-    turnId,
     runtimeOptions,
   } = args;
   const { payload } = session;
   const isPlanMode = session.interactionMode === "plan";
-
-  const planModeOptions: SessionRuntimeOptions | undefined = isPlanMode
-    ? buildPlanModeRuntimeOptions(runtime, turnId)
-    : undefined;
 
   const permissionMode = isPlanMode ? ("plan" as const) : undefined;
 
@@ -47,8 +37,6 @@ export const buildQueryOptions = (args: {
     ...when(payload.maxTurns > 0, { maxTurns: payload.maxTurns }),
     ...when(payload.maxBudgetUsd > 0, { maxBudgetUsd: payload.maxBudgetUsd }),
     canUseTool,
-    toolConfig: { askUserQuestion: { previewFormat: "html" } },
     ...runtimeOptions,
-    ...planModeOptions,
   } as Options;
 };

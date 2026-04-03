@@ -2,8 +2,8 @@ import { Schema } from "effect";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Typed } from "../../lib/typed.js";
 import type { SessionCapabilities } from "./internal/index.js";
-export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode, AccessMode } from "../shared/schema.js";
-import { PromptContent, InteractionMode, AccessMode } from "../shared/schema.js";
+export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode } from "../shared/schema.js";
+import { PromptContent, InteractionMode } from "../shared/schema.js";
 
 export const Message = Typed<SDKMessage>();
 
@@ -46,7 +46,6 @@ export const UpdateSessionParams = Schema.Struct({
   sessionId: Schema.String,
   updates: Schema.Struct({
     model: Schema.optionalWith(Schema.String, { exact: true }),
-    accessMode: Schema.optionalWith(AccessMode, { exact: true }),
     interactionMode: Schema.optionalWith(InteractionMode, { exact: true }),
     persistSession: Schema.optionalWith(Schema.Boolean, { exact: true }),
     effort: Schema.optionalWith(Effort, { exact: true }),
@@ -59,7 +58,6 @@ export const CreateSessionParams = Schema.Struct({
   absolutePath: Schema.String,
   prompt: PromptContent,
   model: Schema.String,
-  accessMode: AccessMode,
   interactionMode: Schema.optionalWith(InteractionMode, { exact: true, default: () => "default" as const }),
   persistSession: Schema.Boolean,
   effort: Effort,

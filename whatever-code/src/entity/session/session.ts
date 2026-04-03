@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { TaskStatus } from "../status.js";
 
 export const InteractionMode = Schema.Literal("default", "plan");
-export const AccessMode = Schema.Literal("supervised", "full-access");
+export const AccessMode = Schema.Literal("full-access");
 
 export const ClaudePayload = Schema.Struct({
   type: Schema.Literal("claude"),

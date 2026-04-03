@@ -15,10 +15,9 @@ import {
 } from "./internal/index.js";
 import type {
   ActiveTurn,
-  PendingToolResponse,
   SessionRuntimeOptions,
 } from "./internal/index.js";
-import type { PromptContent, ToolResponse } from "./schema.js";
+import type { PromptContent } from "./schema.js";
 
 export const makeSessionManager = (args: {
   sessionId: string;
@@ -28,7 +27,6 @@ export const makeSessionManager = (args: {
   const { sessionId, runtime, fork } = args;
 
   let currentTurn: ActiveTurn | null = null;
-  const pendingToolResponses = new Map<string, PendingToolResponse>();
 
   const continueSession = (
     prompt: typeof PromptContent.Type,
@@ -87,20 +85,13 @@ export const makeSessionManager = (args: {
       );
       currentTurn = turn;
 
-      const canUseTool = makeCanUseTool({
-        runtime,
-        turnId,
-        pendingToolResponses,
-        accessMode: session.payload.accessMode,
-      });
+      const canUseTool = makeCanUseTool();
 
       const options = buildQueryOptions({
         session,
         sessionId,
         isNewSession,
         canUseTool,
-        runtime,
-        turnId,
         runtimeOptions,
       });
 
@@ -140,20 +131,9 @@ export const makeSessionManager = (args: {
       if (!turn) return;
 
       turn.stopped = true;
-
-      for (const [toolUseId, pending] of pendingToolResponses) {
-        yield* Deferred.fail(pending.deferred, new Error("session stopped"));
-        pendingToolResponses.delete(toolUseId);
-      }
-
       currentTurn = null;
-      yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
 
-      // Close the SDK query first to abort any in-flight API request,
-      // unblocking the stream so the fiber can actually terminate.
-      try {
-        turn.query?.close();
-      } catch {}
+      yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
 
       const fiber = turn.fiber;
       turn.fiber = null;
@@ -161,29 +141,15 @@ export const makeSessionManager = (args: {
         yield* Fiber.interrupt(fiber);
       }
 
-      yield* Queue.shutdown(turn.outputQueue);
-    });
+      const q = turn.query;
+      if (q) try { q.close(); } catch {}
 
-  const respondToTool = (
-    toolUseId: string,
-    response: typeof ToolResponse.Type,
-  ) =>
-    Effect.gen(function* () {
-      const pending = pendingToolResponses.get(toolUseId);
-      if (!pending) {
-        return yield* Effect.fail(
-          new ClaudeChatError({
-            message: `tool response ${toolUseId} not found`,
-          }),
-        );
-      }
-      yield* Deferred.succeed(pending.deferred, response);
+      yield* Queue.shutdown(turn.outputQueue);
     });
 
   return {
     sessionId,
     continue: continueSession,
     stop,
-    respondToTool,
   };
 };
