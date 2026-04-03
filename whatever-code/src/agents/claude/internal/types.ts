@@ -6,7 +6,6 @@ import type {
   HookCallbackMatcher,
   Query,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { ToolResponse } from "../schema.js";
 
 export interface ActiveTurn {
   query: Query | null;
@@ -16,11 +15,6 @@ export interface ActiveTurn {
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
   initialized: Deferred.Deferred<void, Error>;
-}
-
-export interface PendingToolResponse {
-  deferred: Deferred.Deferred<typeof ToolResponse.Type, Error>;
-  turnId: string;
 }
 
 export interface SessionCapabilities {

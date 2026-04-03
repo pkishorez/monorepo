@@ -5,38 +5,11 @@ import { Typed } from "../../lib/typed.js";
 import { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
 import { TaskStatus } from "../status.js";
 
-export interface PendingQuestionOption {
-  label: string;
-  description: string;
-  preview?: string;
-}
-
-export interface PendingQuestionItem {
-  question: string;
-  header: string;
-  options: PendingQuestionOption[];
-  multiSelect: boolean;
-}
-
-export interface PendingQuestion {
-  toolUseId: string;
-  questions: PendingQuestionItem[];
-}
-
-export interface PendingToolApproval {
-  toolUseId: string;
-  toolName: string;
-  input: Record<string, unknown>;
-}
-
 export const claudeTurnEntity = EntityESchema.make("claudeTurn", "id", {
   sessionId: Schema.String,
   status: TaskStatus,
   init: Schema.NullOr(Typed<SDKSystemMessage>()),
   result: Schema.NullOr(Typed<SDKResultMessage>()),
-  planArtifact: Schema.NullOr(Schema.String),
-  pendingQuestion: Schema.NullOr(Typed<PendingQuestion>()),
-  pendingToolApprovals: Schema.Array(Typed<PendingToolApproval>()),
 }).build();
 
 export const claudeMessageEntity = EntityESchema.make("claudeMessage", "id", {

@@ -15,7 +15,6 @@ export {
   ContinueSessionParams,
   UpdateSessionParams,
   RespondToToolParams,
-  AccessMode,
   Message,
   ToolResponse,
   PromptContent,

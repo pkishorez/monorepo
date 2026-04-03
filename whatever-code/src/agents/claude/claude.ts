@@ -58,7 +58,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               interactionMode: params.interactionMode ?? "default",
               payload: {
                 type: "claude",
-                accessMode: params.accessMode,
+                accessMode: "full-access",
                 persistSession: params.persistSession,
                 effort: params.effort,
                 maxTurns: params.maxTurns,
@@ -104,18 +104,12 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           sessions.delete(sessionId);
         });
 
-      const respondToTool = (params: typeof RespondToToolParams.Type) =>
-        Effect.gen(function* () {
-          const session = sessions.get(params.sessionId);
-          if (!session) {
-            return yield* Effect.fail(
-              new ClaudeChatError({
-                message: `session ${params.sessionId} not found`,
-              }),
-            );
-          }
-          yield* session.respondToTool(params.toolUseId, params.response);
-        });
+      const respondToTool = (_params: typeof RespondToToolParams.Type) =>
+        Effect.fail(
+          new ClaudeChatError({
+            message: "Not implemented yet for approval flow.",
+          }),
+        );
 
       const updateSession = (params: typeof UpdateSessionParams.Type) =>
         updateSessionPayload(params.sessionId, "claude", params.updates);

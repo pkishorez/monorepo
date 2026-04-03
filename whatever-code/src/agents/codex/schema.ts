@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { PromptContent, InteractionMode, AccessMode } from "../shared/schema.js";
+import { PromptContent, InteractionMode } from "../shared/schema.js";
 
 export { InteractionMode, AccessMode } from "../shared/schema.js";
 
@@ -7,7 +7,6 @@ export const CreateThreadParams = Schema.Struct({
   absolutePath: Schema.String,
   prompt: PromptContent,
   model: Schema.String,
-  accessMode: AccessMode,
   interactionMode: Schema.optionalWith(InteractionMode, { exact: true, default: () => "default" as const }),
 });
 
@@ -21,7 +20,6 @@ export const UpdateThreadParams = Schema.Struct({
   sessionId: Schema.String,
   updates: Schema.Struct({
     model: Schema.optionalWith(Schema.String, { exact: true }),
-    accessMode: Schema.optionalWith(AccessMode, { exact: true }),
     interactionMode: Schema.optionalWith(InteractionMode, { exact: true }),
   }),
 });

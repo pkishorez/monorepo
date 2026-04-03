@@ -19,8 +19,6 @@ export const markTurnStatus = (
       claudeTurnSqliteEntity
         .update({ id: turnId }, {
           status,
-          pendingQuestion: null,
-          pendingToolApprovals: [],
         })
         .pipe(Effect.orDie),
       sessionSqliteEntity.update({ sessionId }, { status }).pipe(Effect.orDie),
@@ -43,8 +41,6 @@ export const initSessions = initSessionsForType("claude", (sessionId: string) =>
               claudeTurnSqliteEntity
                 .update({ id: t.value.id }, {
                   status: "interrupted",
-                  pendingQuestion: null,
-                  pendingToolApprovals: [],
                 })
                 .pipe(Effect.orDie),
             ),
@@ -68,9 +64,6 @@ export const persistNewTurn = (
       status: "in_progress",
       init: null,
       result: null,
-      planArtifact: null,
-      pendingQuestion: null,
-      pendingToolApprovals: [],
     }),
     claudeMessageSqliteEntity.insert({
       id: ulid(),
