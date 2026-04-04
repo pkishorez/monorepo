@@ -75,6 +75,9 @@ export const processMessage = (
         yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
           ...payload,
           model: message.model,
+          cwd: (message as unknown as Record<string, unknown>).cwd as
+            | string
+            | null ?? null,
         }));
         yield* Deferred.succeed(turn.initialized, void 0);
       } else if (message.type === "result") {
@@ -92,6 +95,10 @@ export const processMessage = (
           isError: message.is_error ?? false,
           modelUsage: extractModelUsage(resultRecord),
           lastInputTokens: extractLastInputTokens(resultRecord),
+          resultSubtype: (resultRecord.subtype as string) ?? null,
+          resultErrors: Array.isArray(resultRecord.errors)
+            ? (resultRecord.errors as string[])
+            : null,
         }));
         yield* markTurnStatus(turn.turnId, sessionId, status);
 

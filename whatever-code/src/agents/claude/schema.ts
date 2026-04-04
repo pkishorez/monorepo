@@ -1,11 +1,12 @@
 import { Schema } from "effect";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Typed } from "../../lib/typed.js";
 import type { SessionCapabilities } from "./internal/index.js";
 export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode } from "../shared/schema.js";
 import { PromptContent, InteractionMode } from "../shared/schema.js";
+import type { ProjectedClaudeMessage } from "../../projection/claude-message.js";
+export type { ProjectedClaudeMessage } from "../../projection/claude-message.js";
 
-export const Message = Typed<SDKMessage>();
+export const Message = Typed<ProjectedClaudeMessage>();
 
 export const Effort = Schema.Literal("low", "medium", "high", "max");
 

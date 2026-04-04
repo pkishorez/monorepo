@@ -1,5 +1,11 @@
-export { claudeMessageEntity } from "./claude/index.js";
-export { codexEventEntity } from "./codex/index.js";
+export {
+  claudeMessageProjectedEntity,
+  codexEventProjectedEntity,
+} from "./projection/index.js";
+export type {
+  ProjectedClaudeMessage,
+  ProjectedCodexEvent,
+} from "./projection/index.js";
 export {
   sessionEntity,
   InteractionMode,

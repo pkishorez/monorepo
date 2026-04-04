@@ -9,6 +9,12 @@ import type { PromptContent } from "../shared/schema.js";
 
 export { markTurnStatus } from "../shared/turn.js";
 
+export const isStreamEvent = (method: string): boolean =>
+  method.endsWith("Delta") ||
+  method.endsWith("delta") ||
+  method.endsWith("progress") ||
+  method.endsWith("sessionUpdated");
+
 export const initSessions = initSessionsForType("codex", markTurnsInterrupted);
 
 export const persistNewTurn = (

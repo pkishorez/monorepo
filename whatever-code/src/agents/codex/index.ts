@@ -6,4 +6,3 @@ export {
   UpdateThreadParams,
 } from "./schema.js";
 export { MODELS } from "./schema.js";
-export { codexEventEntity } from "../../entity/codex/codex.js";

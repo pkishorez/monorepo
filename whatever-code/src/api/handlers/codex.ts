@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { CodexChatError, CodexRpcs } from "../definitions/codex.js";
 import { CodexOrchestrator } from "../../agents/codex/codex.js";
 import { codexEventSqliteEntity } from "../../db/entities/codex.js";
+import { applyProjection } from "../../projection/index.js";
 
 export const CodexHandlers = CodexRpcs.toLayer(
   CodexRpcs.of({
@@ -21,7 +22,11 @@ export const CodexHandlers = CodexRpcs.toLayer(
       codexEventSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
         .pipe(
-          Effect.map(({ items }) => items),
+          Effect.map(({ items }) =>
+            items
+              .map(applyProjection)
+              .filter((v): v is NonNullable<typeof v> => v !== null),
+          ),
           Effect.mapError((e) => new CodexChatError({ message: String(e) })),
         ),
   }),

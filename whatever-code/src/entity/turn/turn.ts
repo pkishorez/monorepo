@@ -35,6 +35,18 @@ export const ClaudeTurnPayload = Schema.Struct({
     exact: true,
     default: () => null,
   }),
+  cwd: Schema.optionalWith(Schema.NullOr(Schema.String), {
+    exact: true,
+    default: () => null,
+  }),
+  resultSubtype: Schema.optionalWith(Schema.NullOr(Schema.String), {
+    exact: true,
+    default: () => null,
+  }),
+  resultErrors: Schema.optionalWith(
+    Schema.NullOr(Schema.Array(Schema.String)),
+    { exact: true, default: () => null },
+  ),
 });
 
 // ── Codex sub-schemas ────────────────────────────────────────────────

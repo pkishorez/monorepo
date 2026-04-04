@@ -7,7 +7,7 @@ import {
   UpdateSessionParams,
 } from "../../agents/claude/schema.js";
 import { EntitySchema } from "@std-toolkit/core";
-import { claudeMessageEntity } from "../../entity/claude/index.js";
+import { claudeMessageProjectedEntity } from "../../entity/projection/claude-message.js";
 
 export class ClaudeChatError extends Schema.TaggedError<ClaudeChatError>()(
   "ClaudeChatError",
@@ -36,7 +36,7 @@ export class ClaudeRpcs extends RpcGroup.make(
     payload: RespondToToolParams,
   }),
   Rpc.make("queryMessages", {
-    success: Schema.Array(EntitySchema(claudeMessageEntity)),
+    success: Schema.Array(EntitySchema(claudeMessageProjectedEntity)),
     error: ClaudeChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
