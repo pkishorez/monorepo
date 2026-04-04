@@ -1,6 +1,6 @@
 import { SQLiteEntity } from "@std-toolkit/sqlite";
-import { codexEventEntity } from "../entity/codex/index.js";
-import { table } from "./table.js";
+import { codexEventEntity } from "../../entity/codex/index.js";
+import { table } from "../table.js";
 
 export const codexEventSqliteEntity = SQLiteEntity.make(table)
   .eschema(codexEventEntity)

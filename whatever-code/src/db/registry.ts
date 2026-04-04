@@ -2,11 +2,11 @@ import { EntityRegistry } from "@std-toolkit/sqlite";
 import {
   claudeMessageSqliteEntity,
   projectSqliteEntity,
-} from "./claude.js";
-import { codexEventSqliteEntity } from "./codex.js";
-import { sessionSqliteEntity } from "./session.js";
-import { turnSqliteEntity } from "./turn.js";
-import { workflowSqliteEntity } from "./workflow.js";
+} from "./entities/claude.js";
+import { codexEventSqliteEntity } from "./entities/codex.js";
+import { sessionSqliteEntity } from "./entities/session.js";
+import { turnSqliteEntity } from "./entities/turn.js";
+import { workflowSqliteEntity } from "./entities/workflow.js";
 import { table } from "./table.js";
 
 export const registry = EntityRegistry.make(table)

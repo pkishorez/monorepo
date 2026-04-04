@@ -1,6 +1,6 @@
 import { Effect } from "effect";
-import { turnSqliteEntity } from "../../db/turn.js";
-import { sessionSqliteEntity } from "../../db/session.js";
+import { turnSqliteEntity } from "../../db/entities/turn.js";
+import { sessionSqliteEntity } from "../../db/entities/session.js";
 import type {
   TurnPayload,
   ClaudeTurnPayload,

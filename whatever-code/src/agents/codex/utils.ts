@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 import { ulid } from "ulid";
-import { codexEventSqliteEntity } from "../../db/codex.js";
-import { turnSqliteEntity } from "../../db/turn.js";
-import { sessionSqliteEntity } from "../../db/session.js";
+import { codexEventSqliteEntity } from "../../db/entities/codex.js";
+import { turnSqliteEntity } from "../../db/entities/turn.js";
+import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { initSessionsForType } from "../shared/session.js";
 import { markTurnsInterrupted } from "../shared/turn.js";
 import type { PromptContent } from "../shared/schema.js";

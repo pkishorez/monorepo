@@ -1,8 +1,8 @@
 import { getSessionInfo, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Cause, Deferred, Effect, Exit, Queue } from "effect";
 import { ulid } from "ulid";
-import { claudeMessageSqliteEntity } from "../../../db/claude.js";
-import { sessionSqliteEntity } from "../../../db/session.js";
+import { claudeMessageSqliteEntity } from "../../../db/entities/claude.js";
+import { sessionSqliteEntity } from "../../../db/entities/session.js";
 import { updateClaudeTurnPayload, markTurnStatus } from "../../shared/turn.js";
 import type { ActiveTurn } from "./types.js";
 

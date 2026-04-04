@@ -6,9 +6,9 @@ import { listSessions } from "@anthropic-ai/claude-agent-sdk";
 import { AppError, AppRpcs } from "../definitions/app.js";
 import { BroadcastService } from "../../services/broadcast.js";
 import { dataDir } from "../../db/index.js";
-import { projectSqliteEntity } from "../../db/claude.js";
-import { sessionSqliteEntity } from "../../db/session.js";
-import { turnSqliteEntity } from "../../db/turn.js";
+import { projectSqliteEntity } from "../../db/entities/claude.js";
+import { sessionSqliteEntity } from "../../db/entities/session.js";
+import { turnSqliteEntity } from "../../db/entities/turn.js";
 import { computePaths } from "../../lib/paths.js";
 
 const execFilePromise = promisify(execFile);

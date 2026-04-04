@@ -1,7 +1,7 @@
 import { SQLiteEntity } from "@std-toolkit/sqlite";
-import { claudeMessageEntity } from "../entity/claude/index.js";
-import { projectEntity } from "../entity/project/index.js";
-import { table } from "./table.js";
+import { claudeMessageEntity } from "../../entity/claude/index.js";
+import { projectEntity } from "../../entity/project/index.js";
+import { table } from "../table.js";
 
 export const claudeMessageSqliteEntity = SQLiteEntity.make(table)
   .eschema(claudeMessageEntity)
