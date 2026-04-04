@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { sessionSqliteEntity } from "../../db/session.js";
+import { sessionSqliteEntity } from "../../db/entities/session.js";
 import type { InteractionMode } from "../../entity/session/session.js";
 import type { TaskStatus } from "../../entity/status.js";
 

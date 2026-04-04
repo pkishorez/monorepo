@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { CodexChatError, CodexRpcs } from "../definitions/codex.js";
 import { CodexOrchestrator } from "../../agents/codex/codex.js";
-import { codexEventSqliteEntity } from "../../db/codex.js";
+import { codexEventSqliteEntity } from "../../db/entities/codex.js";
 
 export const CodexHandlers = CodexRpcs.toLayer(
   CodexRpcs.of({

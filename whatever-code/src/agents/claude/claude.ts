@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { Effect, Runtime } from "effect";
 import { v7 } from "uuid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
-import { sessionSqliteEntity } from "../../db/session.js";
+import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { updateSessionPayload } from "../shared/session.js";
 import { deriveSessionName } from "../shared/session-name.js";
 import { makeSessionManager } from "./claude-session.js";

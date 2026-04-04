@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { ClaudeChatError, ClaudeRpcs } from "../definitions/claude.js";
 import { ClaudeOrchestrator } from "../../agents/claude/claude.js";
-import { claudeMessageSqliteEntity } from "../../db/claude.js";
+import { claudeMessageSqliteEntity } from "../../db/entities/claude.js";
 
 export const ClaudeHandlers = ClaudeRpcs.toLayer(
   ClaudeRpcs.of({

@@ -3,8 +3,8 @@ import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Deferred, Effect, Fiber, Queue, Runtime, Stream } from "effect";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
-import { turnSqliteEntity } from "../../db/turn.js";
-import { sessionSqliteEntity } from "../../db/session.js";
+import { turnSqliteEntity } from "../../db/entities/turn.js";
+import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { markTurnStatus, persistNewTurn } from "./utils.js";
 import {
   buildQueryOptions,

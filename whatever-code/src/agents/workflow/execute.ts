@@ -3,8 +3,8 @@ import { v7 } from "uuid";
 import { ClaudeOrchestrator } from "../claude/claude.js";
 import { CodexOrchestrator } from "../codex/codex.js";
 import { WorktreeService } from "../../services/worktree.js";
-import { workflowSqliteEntity } from "../../db/workflow.js";
-import { sessionSqliteEntity } from "../../db/session.js";
+import { workflowSqliteEntity } from "../../db/entities/workflow.js";
+import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { errorMessage } from "../../lib/error.js";
 import {
   StartExecuteParams,
