@@ -21,15 +21,12 @@ import {
   markTurnStatus,
   persistNewTurn,
   initSessions,
+  isStreamEvent,
 } from "./utils.js";
 import type { ServerNotification } from "./generated/ServerNotification.js";
 import type { ThreadStartResponse } from "./generated/v2/ThreadStartResponse.js";
 import type { TurnStartResponse } from "./generated/v2/TurnStartResponse.js";
 import type { UserInput } from "./generated/v2/UserInput.js";
-import {
-  PERSISTED_METHODS,
-  type PersistedNotification,
-} from "../../entity/codex/types.js";
 import { errorMessage } from "../../lib/error.js";
 import type { PromptContent } from "../shared/schema.js";
 
@@ -116,7 +113,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               const { threadId: sdkThreadId } = notification.params;
               const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
               if (activeTurn) {
-                const name = (notification.params as { name?: string }).name;
+                const name = notification.params.threadName;
                 if (name) {
                   yield* sessionSqliteEntity
                     .update(
@@ -140,14 +137,26 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               }
               break;
             }
-            default: {
-              if (!PERSISTED_METHODS.has(notification.method)) break;
+            case "item/started":
+            case "item/completed": {
+              // Skip SDK's userMessage events — we already persist the user message in persistNewTurn
+              if (notification.params.item.type === "userMessage") break;
 
-              // Skip SDK's item/started for userMessage — we already persist it in persistNewTurn
-              if (notification.method === "item/started") {
-                const item = (notification.params as { item?: { type?: string } }).item;
-                if (item?.type === "userMessage") break;
+              const activeTurn = findActiveTurnBySdkThreadId(notification.params.threadId);
+              if (activeTurn) {
+                yield* codexEventSqliteEntity
+                  .insert({
+                    id: ulid(),
+                    sessionId: activeTurn.ourSessionId,
+                    turnId: activeTurn.turn.turnId,
+                    data: notification,
+                  })
+                  .pipe(Effect.orDie);
               }
+              break;
+            }
+            default: {
+              if (isStreamEvent(notification.method)) break;
 
               const sdkThreadId = extractThreadId(notification);
               if (sdkThreadId) {
@@ -158,7 +167,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                       id: ulid(),
                       sessionId: activeTurn.ourSessionId,
                       turnId: activeTurn.turn.turnId,
-                      data: notification as PersistedNotification,
+                      data: notification,
                     })
                     .pipe(Effect.orDie);
                 }

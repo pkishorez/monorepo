@@ -7,7 +7,7 @@ import {
   RespondToApprovalParams,
 } from "../../agents/codex/schema.js";
 import { EntitySchema } from "@std-toolkit/core";
-import { codexEventEntity } from "../../entity/codex/index.js";
+import { codexEventProjectedEntity } from "../../entity/projection/codex-event.js";
 
 export class CodexChatError extends Schema.TaggedError<CodexChatError>()(
   "CodexChatError",
@@ -41,7 +41,7 @@ export class CodexRpcs extends RpcGroup.make(
     payload: RespondToApprovalParams,
   }),
   Rpc.make("queryEvents", {
-    success: Schema.Array(EntitySchema(codexEventEntity)),
+    success: Schema.Array(EntitySchema(codexEventProjectedEntity)),
     error: CodexChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
