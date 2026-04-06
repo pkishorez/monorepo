@@ -252,15 +252,15 @@ describe("stdSingleItemOptions", () => {
     expect(config.getKey({} as any)).toBe("AppSettings");
   });
 
-  it("utils has schema, refetch, isSyncing but NOT upsert, fetch, fetchAll", () => {
+  it("utils has schema, refetch, isSyncing, upsert but NOT fetch, fetchAll", () => {
     const utils = createConfig().utils!;
 
     expect(typeof utils.schema).toBe("function");
     expect(typeof utils.refetch).toBe("function");
     expect(typeof utils.isSyncing).toBe("function");
+    expect(typeof utils.upsert).toBe("function");
     expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing()).toBe(true);
 
-    expect(utils).not.toHaveProperty("upsert");
     expect(utils).not.toHaveProperty("fetch");
     expect(utils).not.toHaveProperty("fetchAll");
   });

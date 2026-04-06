@@ -38,7 +38,7 @@
     "effect": "3.21.0",
     "fake-indexeddb": "6.2.5",
     "typescript": "5.9.3",
-    "vite": "7.3.1",
+    "vite": "8.0.3",
     "vite-tsconfig-paths": "6.1.1",
     "vitest": "4.1.1"
   },

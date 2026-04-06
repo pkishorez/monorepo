@@ -1,9 +1,25 @@
 import type { EntityType } from "@std-toolkit/core";
 import type { ServerNotification } from "../agents/codex/generated/ServerNotification.js";
 
+type ToolStatus = "pending" | "success" | "error";
+
 export type ProjectedCodexEvent =
   | { type: "userMessage"; id: string; text: string; images: string[] }
-  | { type: "agentMessage"; id: string; text: string };
+  | { type: "agentMessage"; id: string; text: string }
+  | {
+      type: "tool";
+      id: string;
+      name: string;
+      status: ToolStatus;
+      input: Record<string, string>;
+    }
+  | {
+      type: "subagent";
+      id: string;
+      name: string;
+      status: ToolStatus;
+      description: string;
+    };
 
 interface CodexEventValue {
   id: string;
@@ -17,6 +33,12 @@ interface ProjectedCodexEventValue {
   sessionId: string;
   turnId: string;
   data: ProjectedCodexEvent;
+}
+
+function mapStatus(s: unknown): ToolStatus {
+  if (s === "completed") return "success";
+  if (s === "failed" || s === "declined") return "error";
+  return "pending";
 }
 
 export function projectCodexEvent(
@@ -45,6 +67,58 @@ export function projectCodexEvent(
     projected = { type: "userMessage", id: item.id, text, images };
   } else if (item.type === "agentMessage") {
     projected = { type: "agentMessage", id: item.id, text: item.text ?? "" };
+  } else if (item.type === "commandExecution") {
+    projected = {
+      type: "tool",
+      id: item.id,
+      name: "Bash",
+      status: mapStatus(item.status),
+      input: { command: item.command ?? "" },
+    };
+  } else if (item.type === "fileChange") {
+    const paths = (item.changes ?? []).map(
+      (c: { path?: string }) => c.path ?? "",
+    );
+    projected = {
+      type: "tool",
+      id: item.id,
+      name: "Edit",
+      status: mapStatus(item.status),
+      input: { file_path: paths.join(", ") },
+    };
+  } else if (item.type === "mcpToolCall") {
+    projected = {
+      type: "tool",
+      id: item.id,
+      name: item.tool ?? "mcp",
+      status: mapStatus(item.status),
+      input: {},
+    };
+  } else if (item.type === "dynamicToolCall") {
+    projected = {
+      type: "tool",
+      id: item.id,
+      name: item.tool ?? "tool",
+      status: mapStatus(item.status),
+      input: {},
+    };
+  } else if (item.type === "webSearch") {
+    projected = {
+      type: "tool",
+      id: item.id,
+      name: "WebSearch",
+      status: "success",
+      input: { query: item.query ?? "" },
+    };
+  } else if (item.type === "collabAgentToolCall") {
+    const prompt = item.prompt ?? "";
+    projected = {
+      type: "subagent",
+      id: item.id,
+      name: item.tool ?? "agent",
+      status: mapStatus(item.status),
+      description: prompt.length > 80 ? prompt.slice(0, 80) + "…" : prompt,
+    };
   }
 
   if (!projected) return null;
