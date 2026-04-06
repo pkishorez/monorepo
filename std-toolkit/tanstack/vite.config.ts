@@ -1,12 +1,9 @@
 import { defineConfig } from "vite";
-import viteTsConfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  plugins: [
-    viteTsConfigPaths({
-      projects: ["./tsconfig.json"],
-    }),
-  ],
+  resolve: {
+    tsconfigPaths: true,
+  },
   // @ts-ignore
   test: {
     globals: true,

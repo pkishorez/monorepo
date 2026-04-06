@@ -10,6 +10,7 @@ export const claudeMessageProjectedEntity = EntityESchema.make(
   {
     sessionId: Schema.String,
     turnId: Schema.String,
+    parentToolUseId: Schema.NullOr(Schema.String),
     data: Typed<ProjectedClaudeMessage>(),
   },
 ).build();
