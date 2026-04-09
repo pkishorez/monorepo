@@ -229,10 +229,11 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
 
   const guardedFetch = (
     fn: (cache: CacheEntity<TItem>) => Effect.Effect<number, unknown>,
-  ): Effect.Effect<number> => {
-    if (!resolvedCache) return Effect.succeed(0);
-    return withSyncGuard(fn(resolvedCache)).pipe(Effect.orDie);
-  };
+  ): Effect.Effect<number> =>
+    Effect.suspend(() => {
+      if (!resolvedCache) return Effect.succeed(0);
+      return withSyncGuard(fn(resolvedCache)).pipe(Effect.orDie);
+    });
 
   return {
     ...(id !== undefined && { id }),
