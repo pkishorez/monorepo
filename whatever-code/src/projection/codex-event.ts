@@ -19,7 +19,8 @@ export type ProjectedCodexEvent =
       name: string;
       status: ToolStatus;
       description: string;
-    };
+    }
+  | { type: "plan"; id: string; text: string };
 
 interface CodexEventValue {
   id: string;
@@ -119,6 +120,8 @@ export function projectCodexEvent(
       status: mapStatus(item.status),
       description: prompt.length > 80 ? prompt.slice(0, 80) + "…" : prompt,
     };
+  } else if (item.type === "plan" && method === "item/completed") {
+    projected = { type: "plan", id: item.id, text: item.text ?? "" };
   }
 
   if (!projected) return null;
