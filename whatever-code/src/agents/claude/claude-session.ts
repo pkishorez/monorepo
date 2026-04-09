@@ -13,10 +13,7 @@ import {
   onFiberExit,
   toSDKPrompt,
 } from "./internal/index.js";
-import type {
-  ActiveTurn,
-  SessionRuntimeOptions,
-} from "./internal/index.js";
+import type { ActiveTurn, SessionRuntimeOptions } from "./internal/index.js";
 import type { PromptContent } from "./schema.js";
 
 export const makeSessionManager = (args: {
@@ -24,7 +21,7 @@ export const makeSessionManager = (args: {
   runtime: Runtime.Runtime<never>;
   fork: <A, E>(effect: Effect.Effect<A, E, any>) => Fiber.RuntimeFiber<A, E>;
 }) => {
-  const { sessionId, runtime, fork } = args;
+  const { sessionId, fork } = args;
 
   let currentTurn: ActiveTurn | null = null;
 
@@ -85,7 +82,7 @@ export const makeSessionManager = (args: {
       );
       currentTurn = turn;
 
-      const canUseTool = makeCanUseTool();
+      const canUseTool = makeCanUseTool(session.payload.accessMode);
 
       const options = buildQueryOptions({
         session,
@@ -142,7 +139,10 @@ export const makeSessionManager = (args: {
       }
 
       const q = turn.query;
-      if (q) try { q.close(); } catch {}
+      if (q)
+        try {
+          q.close();
+        } catch {}
 
       yield* Queue.shutdown(turn.outputQueue);
     });
