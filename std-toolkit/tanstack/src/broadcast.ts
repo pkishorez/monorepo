@@ -29,7 +29,7 @@ type RegistryBuilder = {
 
 type CollectionRegistry = {
   process: (message: unknown, persist?: boolean) => void;
-  fetchAll: () => Effect.Effect<number[]>;
+  fetchAll: Effect.Effect<number[]>;
 };
 
 export const collectionRegistry = {
@@ -56,15 +56,14 @@ export const collectionRegistry = {
             target?.utils.upsert(value as EntityType<any>, persist);
           }
         },
-        fetchAll: () =>
-          Effect.all(
-            entries.map((e) =>
-              e.type === "collection"
-                ? e.utils.fetchAll()
-                : e.utils.refetch().pipe(Effect.map(() => 0)),
-            ),
-            { concurrency: "unbounded" },
+        fetchAll: Effect.all(
+          entries.map((e) =>
+            e.type === "collection"
+              ? e.utils.fetchAll()
+              : e.utils.refetch().pipe(Effect.map(() => 0)),
           ),
+          { concurrency: "unbounded" },
+        ),
       }),
     };
 

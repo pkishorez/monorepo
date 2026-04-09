@@ -12,7 +12,7 @@ export type ProjectedClaudeMessage =
     }
   | {
       type: "tool_result";
-      results: Array<{ toolUseId: string; isError: boolean }>;
+      results: Array<{ toolUseId: string; isError: boolean; content: string }>;
     };
 
 interface ClaudeMessageValue {
@@ -78,16 +78,44 @@ function extractUserTextAndImages(content: string | ContentBlockParam[]): {
   return { text, images };
 }
 
+function extractToolResultContent(
+  content: unknown,
+): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  let text = "";
+  for (const block of content) {
+    if (
+      typeof block === "object" &&
+      block !== null &&
+      "type" in block &&
+      block.type === "text" &&
+      "text" in block &&
+      typeof block.text === "string"
+    ) {
+      text += block.text;
+    }
+  }
+  return text;
+}
+
 function extractToolResults(
   content: string | ContentBlockParam[],
-): Array<{ toolUseId: string; isError: boolean }> | null {
+): Array<{ toolUseId: string; isError: boolean; content: string }> | null {
   if (typeof content === "string") return null;
-  const results: Array<{ toolUseId: string; isError: boolean }> = [];
+  const results: Array<{
+    toolUseId: string;
+    isError: boolean;
+    content: string;
+  }> = [];
   for (const block of content) {
     if (block.type === "tool_result") {
       results.push({
         toolUseId: block.tool_use_id,
         isError: block.is_error === true,
+        content: extractToolResultContent(
+          (block as unknown as Record<string, unknown>).content,
+        ),
       });
     }
   }
