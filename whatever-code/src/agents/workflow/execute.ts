@@ -220,3 +220,20 @@ export const removeExecuteWorkflow = (params: { workflowId: string }) =>
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
   );
+
+export const archiveWorkflow = (params: {
+  workflowId: string;
+  archived: boolean;
+}) =>
+  Effect.gen(function* () {
+    yield* getWorkflow(params.workflowId);
+    yield* workflowSqliteEntity
+      .update({ workflowId: params.workflowId }, { archived: params.archived })
+      .pipe(Effect.orDie);
+  }).pipe(
+    Effect.mapError((e) =>
+      e instanceof ExecuteWorkflowError
+        ? e
+        : new ExecuteWorkflowError({ message: errorMessage(e) }),
+    ),
+  );

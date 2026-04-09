@@ -28,6 +28,11 @@ export const WorkflowHandlers = WorkflowRpcs.toLayer(
         const orchestrator = yield* WorkflowOrchestrator;
         yield* orchestrator.execute.remove(params);
       }),
+    "workflow.archive": (params) =>
+      Effect.gen(function* () {
+        const orchestrator = yield* WorkflowOrchestrator;
+        yield* orchestrator.archive(params);
+      }),
     "workflow.query": ({ ">": cursor }) =>
       workflowSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })

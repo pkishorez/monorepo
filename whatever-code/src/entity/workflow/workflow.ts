@@ -17,4 +17,10 @@ const WorkflowSpec = Schema.Struct({
 export const workflowEntity = EntityESchema.make("workflow", "workflowId", {
   projectId: Schema.String,
   spec: WorkflowSpec,
-}).build();
+})
+  .evolve(
+    "v2",
+    { archived: Schema.optionalWith(Schema.Boolean, { exact: true }) },
+    (prev) => ({ ...prev }),
+  )
+  .build();

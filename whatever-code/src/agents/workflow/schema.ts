@@ -41,6 +41,11 @@ export const RemoveExecuteParams = Schema.Struct({
   workflowId: Schema.String,
 });
 
+export const ArchiveWorkflowParams = Schema.Struct({
+  workflowId: Schema.String,
+  archived: Schema.Boolean,
+});
+
 export class ExecuteWorkflowError extends Schema.TaggedError<ExecuteWorkflowError>()(
   "ExecuteWorkflowError",
   { message: Schema.String },

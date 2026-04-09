@@ -4,5 +4,6 @@ export {
   ContinueExecuteParams,
   StopExecuteParams,
   RemoveExecuteParams,
+  ArchiveWorkflowParams,
   ExecuteWorkflowError,
 } from "./schema.js";
