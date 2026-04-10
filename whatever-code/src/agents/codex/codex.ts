@@ -15,13 +15,16 @@ import {
   CreateThreadParams,
   ContinueThreadParams,
   UpdateThreadParams,
-  RespondToApprovalParams,
+  RespondToUserInputParams,
 } from "./schema.js";
 import {
   markTurnStatus,
   persistNewTurn,
   initSessions,
   isStreamEvent,
+  toUserInputQuestions,
+  toCodexUserInputAnswers,
+  extractAnswersFromInput,
 } from "./utils.js";
 import type { ServerNotification } from "./generated/ServerNotification.js";
 import type { ThreadStartResponse } from "./generated/v2/ThreadStartResponse.js";
@@ -62,13 +65,24 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         Runtime.runFork(runtime)(effect as Effect.Effect<A, E, never>);
       const activeTurns = new Map<string, ActiveTurn>();
 
+      /** Respond with empty answers to all pending user-input requests
+       *  so the subprocess doesn't hang, then clear the map. */
+      const drainPendingUserInputs = (turn: ActiveTurn) => {
+        for (const [, pending] of turn.pendingUserInputs) {
+          client.respond(pending.jsonRpcId, { answers: {} });
+        }
+        turn.pendingUserInputs.clear();
+      };
+
       yield* initSessions;
 
       yield* Effect.addFinalizer(() =>
         Effect.forEach(
           activeTurns.entries(),
-          ([sessionId, turn]) =>
-            markTurnStatus(turn.turnId, sessionId, "interrupted"),
+          ([sessionId, turn]) => {
+            drainPendingUserInputs(turn);
+            return markTurnStatus(turn.turnId, sessionId, "interrupted");
+          },
           { discard: true },
         ),
       );
@@ -181,6 +195,78 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
       client.onNotification(handleNotification);
 
+      // ── Handle server requests (user-input questions) ──
+      client.onServerRequest((jsonRpcId, request) => {
+        if (request.method !== "item/tool/requestUserInput") return;
+
+        const params = request.params;
+        const effect = Effect.gen(function* () {
+          const activeTurn = findActiveTurnBySdkThreadId(params.threadId);
+          if (!activeTurn) {
+            client.respond(jsonRpcId, { answers: {} });
+            return;
+          }
+
+          const { turn } = activeTurn;
+          const { questions, codexQuestionIds } = toUserInputQuestions(params.questions);
+
+          if (questions.length === 0) {
+            // All questions failed validation — respond with empty answers
+            client.respond(jsonRpcId, { answers: {} });
+            return;
+          }
+
+          // requestId doubles as the codex-event entity ID so the frontend
+          // can correlate the persisted event with the pending question entry.
+          const requestId = ulid();
+
+          // Store in memory for later lookup
+          turn.pendingUserInputs.set(requestId, {
+            jsonRpcId,
+            codexQuestionIds,
+            questions,
+          });
+
+          // Persist a synthetic event so the frontend can place the question
+          // in the natural transcript order instead of appending it later.
+          yield* codexEventSqliteEntity.insert({
+            id: requestId,
+            sessionId: activeTurn.ourSessionId,
+            turnId: turn.turnId,
+            data: {
+              method: "item/tool/requestUserInput",
+              params: {
+                threadId: params.threadId,
+                turnId: params.turnId,
+                itemId: params.itemId,
+                questions,
+              },
+            },
+          });
+
+          // Persist to DB so frontend discovers it
+          yield* updateCodexTurnPayload(turn.turnId, (payload) => ({
+            ...payload,
+            pendingQuestions: {
+              ...payload.pendingQuestions,
+              [requestId]: {
+                status: "pending" as const,
+                question: { questions },
+              },
+            },
+          }));
+        }).pipe(
+          // If DB persistence fails, clean up in-memory state and unblock
+          // the subprocess so it doesn't hang indefinitely.
+          Effect.catchAll(() =>
+            Effect.sync(() => {
+              client.respond(jsonRpcId, { answers: {} });
+            }),
+          ),
+        );
+        fork(effect);
+      });
+
       const sdkThreadIdMap = new Map<string, string>();
 
       const findActiveTurnBySdkThreadId = (sdkThreadId: string) => {
@@ -292,7 +378,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           const turnId = ulid();
           yield* persistNewTurn(sessionId, turnId, params.prompt, session.model);
 
-          const turn: ActiveTurn = { turnId, sdkTurnId: null };
+          const turn: ActiveTurn = { turnId, sdkTurnId: null, pendingUserInputs: new Map() };
           activeTurns.set(sessionId, turn);
 
           if (!sdkThreadIdMap.has(payload.sdkThreadId)) {
@@ -309,18 +395,14 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             model: session.model,
             approvalPolicy: "never",
             sandboxPolicy: { type: "dangerFullAccess" },
-            ...(session.interactionMode === "plan"
-              ? {
-                  collaborationMode: {
-                    mode: "plan" as const,
-                    settings: {
-                      model: session.model,
-                      reasoning_effort: null,
-                      developer_instructions: null,
-                    },
-                  },
-                }
-              : {}),
+            collaborationMode: {
+              mode: session.interactionMode === "plan" ? "plan" : "default",
+              settings: {
+                model: session.model,
+                reasoning_effort: null,
+                developer_instructions: null,
+              },
+            },
           })) as TurnStartResponse;
 
           turn.sdkTurnId = response.turn.id;
@@ -350,6 +432,8 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           const turn = activeTurns.get(sessionId);
           if (!turn) return;
 
+          drainPendingUserInputs(turn);
+
           const row = yield* sessionSqliteEntity
             .get({ sessionId })
             .pipe(Effect.orDie);
@@ -371,13 +455,65 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
       const updateThread = (params: typeof UpdateThreadParams.Type) =>
         updateSessionPayload(params.sessionId, "codex", params.updates);
 
-      const respondToApproval = (
-        _params: typeof RespondToApprovalParams.Type,
+      const respondToUserInput = (
+        params: typeof RespondToUserInputParams.Type,
       ) =>
-        Effect.fail(
-          new CodexChatError({
-            message: "Not implemented yet for approval flow.",
-          }),
+        Effect.gen(function* () {
+          const { sessionId, requestId, response } = params;
+          const turn = activeTurns.get(sessionId);
+          if (!turn) {
+            return yield* Effect.fail(
+              new CodexChatError({ message: "No active turn for this session" }),
+            );
+          }
+
+          const pending = turn.pendingUserInputs.get(requestId);
+          if (!pending) {
+            return yield* Effect.fail(
+              new CodexChatError({
+                message: `Unknown pending user input: ${requestId}`,
+              }),
+            );
+          }
+
+          // Persist "answered" state to DB — use in-memory questions as the
+          // source of truth rather than re-reading from the DB payload.
+          yield* updateCodexTurnPayload(turn.turnId, (payload) => ({
+            ...payload,
+            pendingQuestions: {
+              ...payload.pendingQuestions,
+              [requestId]: {
+                status: "answered" as const,
+                question: { questions: [...pending.questions] },
+                response:
+                  response.behavior === "allow"
+                    ? (response.updatedInput ?? {})
+                    : { denied: true, message: response.message },
+              },
+            },
+          }));
+
+          // Convert answers and send JSON-RPC response back to subprocess
+          if (response.behavior === "allow") {
+            const answers = extractAnswersFromInput(response.updatedInput);
+            const codexAnswers = toCodexUserInputAnswers(
+              answers,
+              pending.codexQuestionIds,
+              pending.questions,
+            );
+            client.respond(pending.jsonRpcId, { answers: codexAnswers });
+          } else {
+            // Denied — respond with empty answers
+            client.respond(pending.jsonRpcId, { answers: {} });
+          }
+
+          turn.pendingUserInputs.delete(requestId);
+        }).pipe(
+          Effect.mapError((e) =>
+            e instanceof CodexChatError
+              ? e
+              : new CodexChatError({ message: errorMessage(e) }),
+          ),
         );
 
       const oneShot = (params: {
@@ -431,7 +567,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         continueThread,
         stopThread,
         updateThread,
-        respondToApproval,
+        respondToUserInput,
         oneShot,
         oneShotJson,
       };

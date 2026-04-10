@@ -30,7 +30,7 @@ export {
   CreateThreadParams,
   ContinueThreadParams,
   UpdateThreadParams,
-  RespondToApprovalParams,
+  RespondToUserInputParams,
   MODELS as CodexModels,
 } from "../../agents/codex/schema.js";
 

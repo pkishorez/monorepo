@@ -2,7 +2,7 @@ export {
   AccessMode,
   ContinueThreadParams,
   CreateThreadParams,
-  RespondToApprovalParams,
+  RespondToUserInputParams,
   UpdateThreadParams,
 } from "./schema.js";
 export { MODELS } from "./schema.js";

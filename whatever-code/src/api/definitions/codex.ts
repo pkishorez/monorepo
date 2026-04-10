@@ -4,7 +4,7 @@ import {
   CreateThreadParams,
   ContinueThreadParams,
   UpdateThreadParams,
-  RespondToApprovalParams,
+  RespondToUserInputParams,
 } from "../../agents/codex/schema.js";
 import { EntitySchema } from "@std-toolkit/core";
 import { codexEventProjectedEntity } from "../../entity/projection/codex-event.js";
@@ -35,10 +35,10 @@ export class CodexRpcs extends RpcGroup.make(
     error: CodexChatError,
     payload: UpdateThreadParams,
   }),
-  Rpc.make("respondToApproval", {
+  Rpc.make("respondToUserInput", {
     success: Schema.Void,
     error: CodexChatError,
-    payload: RespondToApprovalParams,
+    payload: RespondToUserInputParams,
   }),
   Rpc.make("queryEvents", {
     success: Schema.Array(EntitySchema(codexEventProjectedEntity)),

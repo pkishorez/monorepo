@@ -1,35 +1,15 @@
 import { Schema } from "effect";
 import { Typed } from "../../lib/typed.js";
 import type { SessionCapabilities } from "./internal/index.js";
-export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode } from "../shared/schema.js";
-import { PromptContent, InteractionMode } from "../shared/schema.js";
+export { ImageBlock, TextBlock, ContentBlock, PromptContent, InteractionMode, ToolResponse } from "../shared/schema.js";
+export type { ToolResponse as ToolResponseType } from "../shared/schema.js";
+import { PromptContent, InteractionMode, ToolResponse } from "../shared/schema.js";
 import type { ProjectedClaudeMessage } from "../../projection/claude-message.js";
 export type { ProjectedClaudeMessage } from "../../projection/claude-message.js";
 
 export const Message = Typed<ProjectedClaudeMessage>();
 
 export const Effort = Schema.Literal("low", "medium", "high", "max");
-
-export const ToolResponse = Schema.Union(
-  Schema.mutable(
-    Schema.Struct({
-      behavior: Schema.Literal("allow"),
-      updatedInput: Schema.optionalWith(
-        Schema.mutable(
-          Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-        ),
-        { exact: true },
-      ),
-    }),
-  ),
-  Schema.mutable(
-    Schema.Struct({
-      behavior: Schema.Literal("deny"),
-      message: Schema.String,
-    }),
-  ),
-);
-export type ToolResponse = typeof ToolResponse.Type;
 
 export const ContinueSessionParams = Schema.Struct({
   sessionId: Schema.String,
