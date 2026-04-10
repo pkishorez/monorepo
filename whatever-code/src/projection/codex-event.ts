@@ -1,11 +1,18 @@
 import type { EntityType } from "@std-toolkit/core";
-import type { ServerNotification } from "../agents/codex/generated/ServerNotification.js";
+import type { CodexEventSource } from "../agents/codex/event-source.js";
+import type { QuestionItem } from "../entity/turn/turn.js";
 
 type ToolStatus = "pending" | "success" | "error";
 
 export type ProjectedCodexEvent =
   | { type: "userMessage"; id: string; text: string; images: string[] }
   | { type: "agentMessage"; id: string; text: string }
+  | {
+      type: "question";
+      id: string;
+      toolUseId: string;
+      questions: Array<typeof QuestionItem.Type>;
+    }
   | {
       type: "tool";
       id: string;
@@ -26,7 +33,7 @@ interface CodexEventValue {
   id: string;
   sessionId: string;
   turnId: string;
-  data: ServerNotification;
+  data: CodexEventSource;
 }
 
 interface ProjectedCodexEventValue {
@@ -49,6 +56,30 @@ export function projectCodexEvent(
   if (!raw || typeof raw !== "object") return null;
 
   const method = raw.method;
+  if (method === "item/tool/requestUserInput") {
+    const params = (raw as {
+      params?: { questions?: Array<typeof QuestionItem.Type> };
+    }).params;
+    if (!params?.questions) return null;
+
+    // toolUseId is set to the entity id (which is the server-generated
+    // requestId) for frontend compatibility with Claude's question shape.
+    return {
+      ...entity,
+      value: {
+        id: entity.value.id,
+        sessionId: entity.value.sessionId,
+        turnId: entity.value.turnId,
+        data: {
+          type: "question",
+          id: entity.value.id,
+          toolUseId: entity.value.id,
+          questions: params.questions,
+        },
+      },
+    };
+  }
+
   if (method !== "item/started" && method !== "item/completed") return null;
 
   const item = (raw as { params?: { item?: Record<string, any> } }).params
@@ -77,15 +108,19 @@ export function projectCodexEvent(
       input: { command: item.command ?? "" },
     };
   } else if (item.type === "fileChange") {
-    const paths = (item.changes ?? []).map(
-      (c: { path?: string }) => c.path ?? "",
-    );
+    const changes = item.changes ?? [];
+    const first = changes[0] as
+      | { path?: string; diff?: string; kind?: { type: string } }
+      | undefined;
+    const filePath = first?.path ?? "";
+    const diff = first?.diff ?? "";
+    const isAdd = first?.kind?.type === "add";
     projected = {
       type: "tool",
       id: item.id,
-      name: "Edit",
+      name: isAdd ? "Write" : "Edit",
       status: mapStatus(item.status),
-      input: { file_path: paths.join(", ") },
+      input: { file_path: filePath, diff },
     };
   } else if (item.type === "mcpToolCall") {
     projected = {

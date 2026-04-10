@@ -16,8 +16,8 @@ export const CodexHandlers = CodexRpcs.toLayer(
       Effect.flatMap(CodexOrchestrator, (o) => o.updateThread(params)).pipe(
         Effect.mapError((e) => new CodexChatError({ message: String(e) })),
       ),
-    "codex.respondToApproval": (params) =>
-      Effect.flatMap(CodexOrchestrator, (o) => o.respondToApproval(params)),
+    "codex.respondToUserInput": (params) =>
+      Effect.flatMap(CodexOrchestrator, (o) => o.respondToUserInput(params)),
     "codex.queryEvents": ({ ">": cursor }) =>
       codexEventSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })

@@ -109,6 +109,11 @@ export const CodexTurnPayload = Schema.Struct({
   sdkTurnId: Schema.NullOr(Schema.String),
   usage: Schema.NullOr(ThreadTokenUsage),
   error: Schema.NullOr(TurnError),
+  /** Questions awaiting user input, keyed by requestId. */
+  pendingQuestions: Schema.optionalWith(
+    Schema.Record({ key: Schema.String, value: PendingQuestionEntry }),
+    { exact: true, default: () => ({}) },
+  ),
 });
 
 // ── Unified turn ─────────────────────────────────────────────────────

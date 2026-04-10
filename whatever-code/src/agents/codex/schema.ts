@@ -1,7 +1,8 @@
 import { Schema } from "effect";
-import { PromptContent, InteractionMode } from "../shared/schema.js";
+import { PromptContent, InteractionMode, ToolResponse } from "../shared/schema.js";
 
 export { InteractionMode, AccessMode } from "../shared/schema.js";
+export { ToolResponse } from "../shared/schema.js";
 
 export const CreateThreadParams = Schema.Struct({
   absolutePath: Schema.String,
@@ -24,10 +25,10 @@ export const UpdateThreadParams = Schema.Struct({
   }),
 });
 
-export const RespondToApprovalParams = Schema.Struct({
+export const RespondToUserInputParams = Schema.Struct({
   sessionId: Schema.String,
   requestId: Schema.String,
-  decision: Schema.Literal("accept", "acceptForSession", "decline"),
+  response: ToolResponse,
 });
 
 export const MODELS = [
