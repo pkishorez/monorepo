@@ -33,6 +33,7 @@ export const persistNewTurn = (
         cwd: null,
         resultSubtype: null,
         resultErrors: null,
+        pendingQuestions: {},
       },
     }),
     claudeMessageSqliteEntity.insert({

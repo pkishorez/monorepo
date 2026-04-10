@@ -1,11 +1,12 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { PermissionResult, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Deferred, Effect, Fiber, Queue, Runtime, Stream } from "effect";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
 import { turnSqliteEntity } from "../../db/entities/turn.js";
 import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { markTurnStatus, persistNewTurn } from "./utils.js";
+import { updateClaudeTurnPayload } from "../shared/turn.js";
 import {
   buildQueryOptions,
   makeCanUseTool,
@@ -78,11 +79,16 @@ export const makeSessionManager = (args: {
           outputQueue,
           turnId,
           initialized,
+          pendingQuestions: new Map(),
         }),
       );
       currentTurn = turn;
 
-      const canUseTool = makeCanUseTool(session.payload.accessMode);
+      const canUseTool = makeCanUseTool(
+        session.payload.accessMode,
+        turn,
+        args.runtime,
+      );
 
       const options = buildQueryOptions({
         session,
@@ -122,6 +128,50 @@ export const makeSessionManager = (args: {
       }),
     );
 
+  const respondToUserQuestion = (
+    toolUseId: string,
+    response: PermissionResult,
+  ) =>
+    Effect.gen(function* () {
+      const turn = currentTurn;
+      if (!turn) {
+        return yield* Effect.fail(
+          new ClaudeChatError({ message: "No active turn" }),
+        );
+      }
+
+      const deferred = turn.pendingQuestions.get(toolUseId);
+      if (!deferred) {
+        return yield* Effect.fail(
+          new ClaudeChatError({
+            message: `No pending question for toolUseId: ${toolUseId}`,
+          }),
+        );
+      }
+
+      // Persist "answered" state to DB so the frontend sees it immediately
+      yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
+        ...payload,
+        pendingQuestions: {
+          ...payload.pendingQuestions,
+          [toolUseId]: {
+            status: "answered" as const,
+            question:
+              payload.pendingQuestions?.[toolUseId]?.question ?? {
+                questions: [],
+              },
+            response:
+              response.behavior === "allow"
+                ? (response.updatedInput ?? {})
+                : { denied: true, message: response.message },
+          },
+        },
+      }));
+
+      // Resolve the deferred — unblocks the SDK's canUseTool promise
+      yield* Deferred.succeed(deferred, response);
+    });
+
   const stop = () =>
     Effect.gen(function* () {
       const turn = currentTurn;
@@ -129,6 +179,12 @@ export const makeSessionManager = (args: {
 
       turn.stopped = true;
       currentTurn = null;
+
+      // Fail all pending user-question deferreds so canUseTool promises resolve
+      for (const [, deferred] of turn.pendingQuestions) {
+        yield* Deferred.fail(deferred, new Error("Session stopped"));
+      }
+      turn.pendingQuestions.clear();
 
       yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
 
@@ -150,6 +206,7 @@ export const makeSessionManager = (args: {
   return {
     sessionId,
     continue: continueSession,
+    respondToUserQuestion,
     stop,
   };
 };

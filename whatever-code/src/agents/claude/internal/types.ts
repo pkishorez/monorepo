@@ -4,6 +4,7 @@ import type {
   McpServerConfig,
   HookEvent,
   HookCallbackMatcher,
+  PermissionResult,
   Query,
 } from "@anthropic-ai/claude-agent-sdk";
 
@@ -15,6 +16,12 @@ export interface ActiveTurn {
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
   initialized: Deferred.Deferred<void, Error>;
+  /**
+   * Map of toolUseId → deferred permission result for AskUserQuestion calls
+   * awaiting user response. Resolved when the user answers via the
+   * `respondToUserQuestion` RPC.
+   */
+  pendingQuestions: Map<string, Deferred.Deferred<PermissionResult, Error>>;
 }
 
 export interface SessionCapabilities {

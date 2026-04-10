@@ -4,6 +4,33 @@ import { TaskStatus } from "../status.js";
 
 // ── Claude sub-schemas ───────────────────────────────────────────────
 
+export const QuestionOption = Schema.Struct({
+  label: Schema.String,
+  description: Schema.String,
+});
+
+export const QuestionItem = Schema.Struct({
+  question: Schema.String,
+  header: Schema.String,
+  options: Schema.Array(QuestionOption),
+  multiSelect: Schema.Boolean,
+});
+
+export const AskUserQuestionInput = Schema.Struct({
+  questions: Schema.Array(QuestionItem),
+});
+
+export const PendingQuestionEntry = Schema.Struct({
+  status: Schema.Literal("pending", "answered"),
+  /** Typed tool input from AskUserQuestion. */
+  question: AskUserQuestionInput,
+  /** The user's response, populated when status transitions to "answered". */
+  response: Schema.optionalWith(
+    Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    { exact: true },
+  ),
+});
+
 export const ModelUsageEntry = Schema.Struct({
   inputTokens: Schema.Number,
   outputTokens: Schema.Number,
@@ -46,6 +73,11 @@ export const ClaudeTurnPayload = Schema.Struct({
   resultErrors: Schema.optionalWith(
     Schema.NullOr(Schema.Array(Schema.String)),
     { exact: true, default: () => null },
+  ),
+  /** Questions awaiting user input, keyed by toolUseId. */
+  pendingQuestions: Schema.optionalWith(
+    Schema.Record({ key: Schema.String, value: PendingQuestionEntry }),
+    { exact: true, default: () => ({}) },
   ),
 });
 
