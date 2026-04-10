@@ -1,5 +1,12 @@
-import type { CanUseTool, PermissionResult } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  CanUseTool,
+  PermissionResult,
+} from "@anthropic-ai/claude-agent-sdk";
+import { Deferred, Effect, Exit, Runtime } from "effect";
 import type { AccessMode } from "../../../entity/session/session.js";
+import { AskUserQuestionInput } from "../../../entity/turn/turn.js";
+import { updateClaudeTurnPayload } from "../../shared/turn.js";
+import type { ActiveTurn } from "./types.js";
 
 /**
  * Creates the `canUseTool` callback for the SDK query.
@@ -9,12 +16,18 @@ import type { AccessMode } from "../../../entity/session/session.js";
  *
  * Denied tools:
  *  - ExitPlanMode  — plan lifecycle is managed by the UI, not the agent.
- *  - AskUserQuestion — interactive answer flow is not implemented yet.
+ *
+ * Deferred tools:
+ *  - AskUserQuestion — creates a Deferred that blocks until the user
+ *    responds via the `respondToUserQuestion` RPC. The pending state is
+ *    persisted to the turn payload so the frontend can render the question UI.
  */
 export const makeCanUseTool = (
   _accessMode: typeof AccessMode.Type,
+  turn: ActiveTurn,
+  runtime: Runtime.Runtime<never>,
 ): CanUseTool => {
-  return async (toolName, input, _opts): Promise<PermissionResult> => {
+  return async (toolName, input, opts): Promise<PermissionResult> => {
     if (toolName === "ExitPlanMode") {
       return {
         behavior: "deny",
@@ -22,12 +35,53 @@ export const makeCanUseTool = (
         interrupt: true,
       };
     }
+
     if (toolName === "AskUserQuestion") {
+      const toolUseId = opts.toolUseID;
+
+      // Create a Deferred that will be resolved when the user responds
+      const program = Effect.gen(function* () {
+        const deferred = yield* Deferred.make<PermissionResult, Error>();
+        turn.pendingQuestions.set(toolUseId, deferred);
+
+        // Persist pending state to turn DB so the frontend can discover it
+        yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
+          ...payload,
+          pendingQuestions: {
+            ...payload.pendingQuestions,
+            [toolUseId]: {
+              status: "pending" as const,
+              question: input as typeof AskUserQuestionInput.Type,
+            },
+          },
+        }));
+
+        // Block until the user responds (or the session is stopped)
+        return yield* Deferred.await(deferred);
+      });
+
+      // Bridge from Effect world to the plain Promise the SDK expects
+      const fiber = Runtime.runFork(runtime)(
+        program as Effect.Effect<PermissionResult, Error, never>,
+      );
+      const exit = await Effect.runPromise(
+        fiber.await as Effect.Effect<Exit.Exit<PermissionResult, Error>>,
+      );
+
+      // Clean up the in-memory map entry
+      turn.pendingQuestions.delete(toolUseId);
+
+      if (Exit.isSuccess(exit)) {
+        return exit.value;
+      }
+
+      // Deferred was failed (e.g. session stopped) — deny the tool
       return {
         behavior: "deny",
-        message: "Not implemented yet for approval flow.",
+        message: "User question was cancelled.",
       };
     }
+
     return { behavior: "allow", updatedInput: input };
   };
 };

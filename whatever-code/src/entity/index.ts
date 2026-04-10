@@ -24,6 +24,10 @@ export {
   TokenUsageBreakdown,
   ThreadTokenUsage,
   TurnError,
+  QuestionOption,
+  QuestionItem,
+  AskUserQuestionInput,
+  PendingQuestionEntry,
 } from "./turn/index.js";
 export { projectEntity } from "./project/index.js";
 export { workflowEntity } from "./workflow/index.js";

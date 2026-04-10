@@ -104,11 +104,26 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           sessions.delete(sessionId);
         });
 
-      const respondToTool = (_params: typeof RespondToToolParams.Type) =>
-        Effect.fail(
-          new ClaudeChatError({
-            message: "Not implemented yet for approval flow.",
-          }),
+      const respondToTool = (params: typeof RespondToToolParams.Type) =>
+        Effect.gen(function* () {
+          const session = sessions.get(params.sessionId);
+          if (!session) {
+            return yield* Effect.fail(
+              new ClaudeChatError({
+                message: `Session ${params.sessionId} not found`,
+              }),
+            );
+          }
+          yield* session.respondToUserQuestion(
+            params.toolUseId,
+            params.response,
+          );
+        }).pipe(
+          Effect.mapError((e) =>
+            e instanceof ClaudeChatError
+              ? e
+              : new ClaudeChatError({ message: String(e) }),
+          ),
         );
 
       const updateSession = (params: typeof UpdateSessionParams.Type) =>
