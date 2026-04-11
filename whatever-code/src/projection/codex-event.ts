@@ -4,6 +4,43 @@ import type { QuestionItem } from "../entity/turn/turn.js";
 
 type ToolStatus = "pending" | "success" | "error";
 
+/**
+ * Normalized, presentation-ready tool call shared across agents.
+ * Producers (Claude frontend normalizer + Codex backend projection) compute
+ * everything the UI needs; the renderer switches on `kind` exhaustively.
+ */
+export type ProjectedToolCall =
+  | {
+      kind: "file-edit";
+      status: ToolStatus;
+      filePath: string;
+      additions: number;
+      deletions: number;
+      body:
+        | { source: "patch"; patch: string }
+        | { source: "strings"; oldContent: string; newContent: string };
+    }
+  | {
+      kind: "file-write";
+      status: ToolStatus;
+      filePath: string;
+      content: string;
+      additions: number;
+    }
+  | { kind: "bash"; status: ToolStatus; command: string }
+  | { kind: "read"; status: ToolStatus; filePath: string; limit?: number }
+  | { kind: "grep"; status: ToolStatus; pattern: string }
+  | { kind: "glob"; status: ToolStatus; pattern: string }
+  | { kind: "web-search"; status: ToolStatus; query: string }
+  | { kind: "web-fetch"; status: ToolStatus }
+  | { kind: "prompt"; status: ToolStatus; prompt: string }
+  | {
+      kind: "generic";
+      status: ToolStatus;
+      name: string;
+      input: Record<string, unknown>;
+    };
+
 export type ProjectedCodexEvent =
   | { type: "userMessage"; id: string; text: string; images: string[] }
   | { type: "agentMessage"; id: string; text: string }
@@ -13,13 +50,7 @@ export type ProjectedCodexEvent =
       toolUseId: string;
       questions: Array<typeof QuestionItem.Type>;
     }
-  | {
-      type: "tool";
-      id: string;
-      name: string;
-      status: ToolStatus;
-      input: Record<string, string>;
-    }
+  | { type: "tool"; id: string; call: ProjectedToolCall }
   | {
       type: "subagent";
       id: string;
@@ -28,6 +59,27 @@ export type ProjectedCodexEvent =
       description: string;
     }
   | { type: "plan"; id: string; text: string };
+
+function countDiffLines(diff: string): { additions: number; deletions: number } {
+  let additions = 0;
+  let deletions = 0;
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("+") && !line.startsWith("+++")) additions++;
+    else if (line.startsWith("-") && !line.startsWith("---")) deletions++;
+  }
+  return { additions, deletions };
+}
+
+/**
+ * Codex emits bare unified hunks (starting with `@@`) without the `--- a/path`
+ * / `+++ b/path` file headers that a unified-diff parser needs to split files.
+ * Prepend headers when missing so downstream consumers can parse the patch.
+ */
+function ensureUnifiedDiffHeader(diff: string, filePath: string): string {
+  if (diff.startsWith("--- ") || diff.startsWith("diff --git")) return diff;
+  const path = filePath || "file";
+  return `--- a/${path}\n+++ b/${path}\n${diff}`;
+}
 
 interface CodexEventValue {
   id: string;
@@ -103,9 +155,11 @@ export function projectCodexEvent(
     projected = {
       type: "tool",
       id: item.id,
-      name: "Bash",
-      status: mapStatus(item.status),
-      input: { command: item.command ?? "" },
+      call: {
+        kind: "bash",
+        status: mapStatus(item.status),
+        command: item.command ?? "",
+      },
     };
   } else if (item.type === "fileChange") {
     const changes = item.changes ?? [];
@@ -114,37 +168,68 @@ export function projectCodexEvent(
       | undefined;
     const filePath = first?.path ?? "";
     const diff = first?.diff ?? "";
-    const isAdd = first?.kind?.type === "add";
-    projected = {
-      type: "tool",
-      id: item.id,
-      name: isAdd ? "Write" : "Edit",
-      status: mapStatus(item.status),
-      input: { file_path: filePath, diff },
-    };
+    const status = mapStatus(item.status);
+    if (first?.kind?.type === "add") {
+      projected = {
+        type: "tool",
+        id: item.id,
+        call: {
+          kind: "file-write",
+          status,
+          filePath,
+          content: diff,
+          additions: diff ? diff.split("\n").length : 0,
+        },
+      };
+    } else {
+      const { additions, deletions } = countDiffLines(diff);
+      projected = {
+        type: "tool",
+        id: item.id,
+        call: {
+          kind: "file-edit",
+          status,
+          filePath,
+          additions,
+          deletions,
+          body: {
+            source: "patch",
+            patch: ensureUnifiedDiffHeader(diff, filePath),
+          },
+        },
+      };
+    }
   } else if (item.type === "mcpToolCall") {
     projected = {
       type: "tool",
       id: item.id,
-      name: item.tool ?? "mcp",
-      status: mapStatus(item.status),
-      input: {},
+      call: {
+        kind: "generic",
+        status: mapStatus(item.status),
+        name: item.tool ?? "mcp",
+        input: {},
+      },
     };
   } else if (item.type === "dynamicToolCall") {
     projected = {
       type: "tool",
       id: item.id,
-      name: item.tool ?? "tool",
-      status: mapStatus(item.status),
-      input: {},
+      call: {
+        kind: "generic",
+        status: mapStatus(item.status),
+        name: item.tool ?? "tool",
+        input: {},
+      },
     };
   } else if (item.type === "webSearch") {
     projected = {
       type: "tool",
       id: item.id,
-      name: "WebSearch",
-      status: "success",
-      input: { query: item.query ?? "" },
+      call: {
+        kind: "web-search",
+        status: "success",
+        query: item.query ?? "",
+      },
     };
   } else if (item.type === "collabAgentToolCall") {
     const prompt = item.prompt ?? "";
