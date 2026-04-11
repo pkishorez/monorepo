@@ -24,7 +24,10 @@ export {
   MODELS as ClaudeModels,
 } from "../../agents/claude/schema.js";
 export type { ProjectedClaudeMessage } from "../../projection/claude-message.js";
-export type { ProjectedCodexEvent } from "../../projection/codex-event.js";
+export type {
+  ProjectedCodexEvent,
+  ProjectedToolCall,
+} from "../../projection/codex-event.js";
 
 export {
   CreateThreadParams,

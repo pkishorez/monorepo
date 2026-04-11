@@ -5,6 +5,7 @@ export {
 export type {
   ProjectedClaudeMessage,
   ProjectedCodexEvent,
+  ProjectedToolCall,
 } from "./projection/index.js";
 export {
   sessionEntity,
