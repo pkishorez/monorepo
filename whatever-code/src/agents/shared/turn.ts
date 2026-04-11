@@ -81,3 +81,15 @@ export const updateCodexTurnPayload = (
   updateTurnPayload(turnId, (payload) =>
     payload.type === "codex" ? updater(payload) : payload,
   );
+
+/** Finds the first turn with status "queued" for a session, if any. */
+export const findQueuedTurn = (sessionId: string) =>
+  turnSqliteEntity
+    .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+    .pipe(
+      Effect.map(
+        ({ items }) =>
+          items.find((t) => t.value.status === "queued")?.value ?? null,
+      ),
+      Effect.orDie,
+    );

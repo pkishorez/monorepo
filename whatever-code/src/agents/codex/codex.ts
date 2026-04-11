@@ -20,6 +20,10 @@ import {
 import {
   markTurnStatus,
   persistNewTurn,
+  persistQueuedTurn,
+  appendToQueuedTurn,
+  findQueuedTurn,
+  readMergedPrompt,
   initSessions,
   isStreamEvent,
   toUserInputQuestions,
@@ -121,6 +125,11 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               }
 
               activeTurns.delete(ourSessionId);
+
+              // Auto-drain: on success, execute queued turn if present
+              if (turn.status === "completed") {
+                yield* drainQueuedTurn(ourSessionId);
+              }
               break;
             }
             case "thread/name/updated": {
@@ -277,6 +286,24 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         return { ourSessionId, turn };
       };
 
+      const drainQueuedTurn = (sessionId: string) =>
+        Effect.gen(function* () {
+          const queued = yield* findQueuedTurn(sessionId);
+          if (!queued) return;
+          // prompt is re-read inside continueThread via readMergedPrompt when existingTurnId is set
+          yield* continueThread(
+            { sessionId, prompt: "" } as typeof ContinueThreadParams.Type,
+            queued.id,
+          );
+        }).pipe(
+          Effect.tapError((e) =>
+            Effect.logWarning("drainQueuedTurn failed").pipe(
+              Effect.annotateLogs({ sessionId, error: String(e) }),
+            ),
+          ),
+          Effect.catchAll(() => Effect.void),
+        );
+
       const createThread = (params: typeof CreateThreadParams.Type) =>
         Effect.gen(function* () {
           const sessionId = v7();
@@ -338,17 +365,42 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           Effect.mapError((e) => new CodexChatError({ message: errorMessage(e) })),
         );
 
-      const continueThread = (params: typeof ContinueThreadParams.Type) =>
+      const continueThread = (
+        params: typeof ContinueThreadParams.Type,
+        existingTurnId?: string,
+      ) =>
         Effect.gen(function* () {
           const { sessionId } = params;
 
+          // ── Guard: if a turn is still running, queue or append ──
           const existing = activeTurns.get(sessionId);
           if (existing) {
-            return yield* Effect.fail(
-              new CodexChatError({
-                message: "previous turn did not finish yet",
-              }),
-            );
+            const queued = yield* findQueuedTurn(sessionId);
+            if (queued) {
+              yield* appendToQueuedTurn(sessionId, queued.id, params.prompt);
+            } else {
+              const session = yield* sessionSqliteEntity
+                .get({ sessionId })
+                .pipe(
+                  Effect.orDie,
+                  Effect.flatMap((row) =>
+                    row && row.value.payload.type === "codex"
+                      ? Effect.succeed(row.value as typeof row.value & { payload: { type: "codex" } })
+                      : Effect.fail(
+                          new CodexChatError({
+                            message: `codex session ${sessionId} not found`,
+                          }),
+                        ),
+                  ),
+                );
+              yield* persistQueuedTurn(
+                sessionId,
+                ulid(),
+                params.prompt,
+                session.model,
+              );
+            }
+            return;
           }
 
           const session = yield* sessionSqliteEntity
@@ -375,8 +427,30 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             );
           }
 
-          const turnId = ulid();
-          yield* persistNewTurn(sessionId, turnId, params.prompt, session.model);
+          // ── Resolve which turn to execute ──
+          let turnId: string;
+          let sdkPrompt: typeof PromptContent.Type;
+
+          if (existingTurnId) {
+            // Drain path
+            turnId = existingTurnId;
+            sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
+            yield* markTurnStatus(turnId, sessionId, "in_progress");
+          } else {
+            // Check for existing queued turn
+            const queued = yield* findQueuedTurn(sessionId);
+            if (queued) {
+              turnId = queued.id;
+              yield* appendToQueuedTurn(sessionId, turnId, params.prompt);
+              sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
+              yield* markTurnStatus(turnId, sessionId, "in_progress");
+            } else {
+              // Fresh turn
+              turnId = ulid();
+              sdkPrompt = params.prompt;
+              yield* persistNewTurn(sessionId, turnId, params.prompt, session.model);
+            }
+          }
 
           const turn: ActiveTurn = { turnId, sdkTurnId: null, pendingUserInputs: new Map() };
           activeTurns.set(sessionId, turn);
@@ -391,7 +465,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           const response = (yield* client.request("turn/start", {
             threadId: payload.sdkThreadId,
-            input: promptToCodexInput(params.prompt),
+            input: promptToCodexInput(sdkPrompt),
             model: session.model,
             approvalPolicy: "never",
             sandboxPolicy: { type: "dangerFullAccess" },
