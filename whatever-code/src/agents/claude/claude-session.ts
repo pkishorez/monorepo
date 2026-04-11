@@ -163,7 +163,6 @@ export const makeSessionManager = (args: {
         ),
       );
 
-      yield* Deferred.await(turn.initialized);
     }).pipe(
       Effect.mapError((e) =>
         e instanceof ClaudeChatError
