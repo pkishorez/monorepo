@@ -5,11 +5,12 @@ import { turnSqliteEntity } from "../../db/entities/turn.js";
 import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { initSessionsForType } from "../shared/session.js";
 import { markTurnsInterrupted } from "../shared/turn.js";
+import { promptToText } from "../shared/session-name.js";
 import type { PromptContent } from "../shared/schema.js";
 import type { QuestionItem } from "../../entity/turn/turn.js";
 import type { ToolRequestUserInputQuestion } from "./generated/v2/ToolRequestUserInputQuestion.js";
 
-export { markTurnStatus } from "../shared/turn.js";
+export { markTurnStatus, findQueuedTurn } from "../shared/turn.js";
 
 export const isStreamEvent = (method: string): boolean =>
   method.endsWith("Delta") ||
@@ -19,54 +20,164 @@ export const isStreamEvent = (method: string): boolean =>
 
 export const initSessions = initSessionsForType("codex", markTurnsInterrupted);
 
+// ── Internal helpers ──
+
+const makeCodexTurnInsert = (
+  sessionId: string,
+  turnId: string,
+  model: string,
+  status: "in_progress" | "queued",
+) =>
+  turnSqliteEntity.insert({
+    id: turnId,
+    type: "codex",
+    sessionId,
+    status,
+    payload: {
+      type: "codex",
+      model,
+      sdkTurnId: null,
+      usage: null,
+      error: null,
+      pendingQuestions: {},
+    },
+  });
+
+const insertCodexUserEvent = (
+  sessionId: string,
+  turnId: string,
+  prompt: typeof PromptContent.Type,
+) =>
+  codexEventSqliteEntity.insert({
+    id: ulid(),
+    sessionId,
+    turnId,
+    data: {
+      method: "item/started",
+      params: {
+        threadId: sessionId,
+        turnId,
+        item: {
+          type: "userMessage",
+          id: ulid(),
+          content: [{ type: "text", text: promptToText(prompt, "\n"), text_elements: [] }],
+        },
+      },
+    },
+  });
+
+// ── Exports ──
+
 export const persistNewTurn = (
   sessionId: string,
   turnId: string,
   prompt: typeof PromptContent.Type,
   model: string,
-) => {
-  const textContent = typeof prompt === "string"
-    ? prompt
-    : prompt
-        .filter((b) => b.type === "text")
-        .map((b) => b.text)
-        .join("\n");
-
-  return Effect.all([
+) =>
+  Effect.all([
     sessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),
-    turnSqliteEntity.insert({
-      id: turnId,
-      type: "codex",
-      sessionId,
-      status: "in_progress",
-      payload: {
-        type: "codex",
-        model,
-        sdkTurnId: null,
-        usage: null,
-        error: null,
-        pendingQuestions: {},
-      },
-    }),
-    codexEventSqliteEntity.insert({
-      id: ulid(),
-      sessionId,
-      turnId,
-      data: {
-        method: "item/started",
-        params: {
-          threadId: sessionId,
-          turnId,
-          item: {
-            type: "userMessage",
-            id: ulid(),
-            content: [{ type: "text", text: textContent, text_elements: [] }],
+    makeCodexTurnInsert(sessionId, turnId, model, "in_progress"),
+    insertCodexUserEvent(sessionId, turnId, prompt),
+  ]).pipe(Effect.orDie);
+
+export const persistQueuedTurn = (
+  sessionId: string,
+  turnId: string,
+  prompt: typeof PromptContent.Type,
+  model: string,
+) =>
+  Effect.all([
+    makeCodexTurnInsert(sessionId, turnId, model, "queued"),
+    insertCodexUserEvent(sessionId, turnId, prompt),
+  ]).pipe(Effect.orDie);
+
+/** Merges a new prompt into the existing user message event of a queued turn. */
+export const appendToQueuedTurn = (
+  sessionId: string,
+  turnId: string,
+  prompt: typeof PromptContent.Type,
+) =>
+  Effect.gen(function* () {
+    const result = yield* codexEventSqliteEntity
+      .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+      .pipe(Effect.orDie);
+
+    const existing = result.items.find((e) => {
+      if (e.value.turnId !== turnId) return false;
+      const data = e.value.data as any;
+      return (
+        data.method === "item/started" &&
+        data.params?.item?.type === "userMessage"
+      );
+    });
+
+    if (!existing) {
+      yield* insertCodexUserEvent(sessionId, turnId, prompt).pipe(Effect.orDie);
+      return;
+    }
+
+    const existingTexts = (
+      (existing.value.data as any).params.item.content as Array<{
+        type: string;
+        text?: string;
+      }>
+    )
+      .filter((c) => c.type === "text" && c.text)
+      .map((c) => c.text!);
+    const newText = promptToText(prompt, "\n");
+    const mergedText = [...existingTexts, newText].join("\n");
+
+    yield* codexEventSqliteEntity
+      .update(
+        { id: existing.value.id },
+        {
+          data: {
+            method: "item/started",
+            params: {
+              ...(existing.value.data as any).params,
+              item: {
+                ...(existing.value.data as any).params.item,
+                content: [
+                  { type: "text", text: mergedText, text_elements: [] },
+                ],
+              },
+            },
           },
         },
-      },
-    }),
-  ]).pipe(Effect.orDie);
-};
+      )
+      .pipe(Effect.orDie);
+  });
+
+/**
+ * Reads the user message for a queued turn and returns its prompt content.
+ */
+export const readMergedPrompt = (sessionId: string, turnId: string) =>
+  Effect.gen(function* () {
+    const result = yield* codexEventSqliteEntity
+      .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+      .pipe(Effect.orDie);
+
+    const texts = result.items
+      .filter((e) => {
+        if (e.value.turnId !== turnId) return false;
+        const data = e.value.data as any;
+        return (
+          data.method === "item/started" &&
+          data.params?.item?.type === "userMessage"
+        );
+      })
+      .flatMap((e) => {
+        const content = (e.value.data as any).params.item.content as Array<{
+          type: string;
+          text?: string;
+        }>;
+        return content
+          .filter((c) => c.type === "text" && c.text)
+          .map((c) => c.text!);
+      });
+
+    return texts.join("\n") as typeof PromptContent.Type;
+  });
 
 // ── User-input conversion utilities ──────────────────────────────────
 

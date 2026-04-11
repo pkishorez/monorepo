@@ -3,12 +3,15 @@ import type { PromptContent } from "./schema.js";
 const SESSION_NAME_MAX_LENGTH = 100;
 
 /** Extract plain text from a PromptContent value. */
-function promptToText(prompt: typeof PromptContent.Type): string {
+export function promptToText(
+  prompt: typeof PromptContent.Type,
+  separator = " ",
+): string {
   if (typeof prompt === "string") return prompt;
   return prompt
     .filter((b) => b.type === "text")
     .map((b) => b.text)
-    .join(" ");
+    .join(separator);
 }
 
 /** Derive an initial session name from the prompt — first sentence, truncated. */

@@ -1,11 +1,18 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { PermissionResult, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { Deferred, Effect, Fiber, Queue, Runtime, Stream } from "effect";
+import { Deferred, Effect, Exit, Fiber, Queue, Runtime, Stream } from "effect";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
 import { turnSqliteEntity } from "../../db/entities/turn.js";
 import { sessionSqliteEntity } from "../../db/entities/session.js";
-import { markTurnStatus, persistNewTurn } from "./utils.js";
+import {
+  markTurnStatus,
+  persistNewTurn,
+  persistQueuedTurn,
+  appendToQueuedTurn,
+  findQueuedTurn,
+  readMergedPrompt,
+} from "./utils.js";
 import { updateClaudeTurnPayload } from "../shared/turn.js";
 import {
   buildQueryOptions,
@@ -29,20 +36,50 @@ export const makeSessionManager = (args: {
   const continueSession = (
     prompt: typeof PromptContent.Type,
     runtimeOptions?: SessionRuntimeOptions,
+    existingTurnId?: string,
   ) =>
     Effect.gen(function* () {
+      // ── Guard: if a turn is still running, queue or append ──
       if (currentTurn) {
         const isOutputDone = yield* Queue.isShutdown(currentTurn.outputQueue);
         if (!isOutputDone) {
-          return yield* Effect.fail(
-            new ClaudeChatError({
-              message: "previous turn did not finish yet",
-            }),
-          );
+          const queued = yield* findQueuedTurn(sessionId);
+          if (queued) {
+            yield* appendToQueuedTurn(sessionId, queued.id, prompt);
+          } else {
+            yield* persistQueuedTurn(sessionId, ulid(), prompt);
+          }
+          return;
         }
         currentTurn = null;
       }
 
+      // ── Resolve which turn to execute ──
+      let turnId: string;
+      let sdkPrompt: typeof PromptContent.Type;
+
+      if (existingTurnId) {
+        // Drain path — queued turn is already persisted
+        turnId = existingTurnId;
+        sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
+        yield* markTurnStatus(turnId, sessionId, "in_progress");
+      } else {
+        // Check for a queued turn (e.g. from a previous error/restart)
+        const queued = yield* findQueuedTurn(sessionId);
+        if (queued) {
+          turnId = queued.id;
+          yield* appendToQueuedTurn(sessionId, turnId, prompt);
+          sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
+          yield* markTurnStatus(turnId, sessionId, "in_progress");
+        } else {
+          // Fresh turn
+          turnId = ulid();
+          sdkPrompt = prompt;
+          yield* persistNewTurn(sessionId, turnId, prompt);
+        }
+      }
+
+      // ── Execute the turn ──
       const session = yield* sessionSqliteEntity.get({ sessionId }).pipe(
         Effect.orDie,
         Effect.flatMap((row) =>
@@ -63,10 +100,9 @@ export const makeSessionManager = (args: {
       const existingTurns = yield* turnSqliteEntity
         .query("bySession", { pk: { sessionId }, sk: { ">": null } })
         .pipe(Effect.orDie);
-      const isNewSession = existingTurns.items.length === 0;
-
-      const turnId = ulid();
-      yield* persistNewTurn(sessionId, turnId, prompt);
+      const isNewSession =
+        existingTurns.items.filter((t) => t.value.status !== "queued").length <=
+        1;
 
       const initialized = yield* Deferred.make<void, Error>();
       const turn = yield* Effect.map(
@@ -99,7 +135,7 @@ export const makeSessionManager = (args: {
       });
 
       const queryResult = query({
-        prompt: toSDKPrompt(sessionId, prompt),
+        prompt: toSDKPrompt(sessionId, sdkPrompt),
         options,
       });
       turn.query = queryResult;
@@ -116,6 +152,17 @@ export const makeSessionManager = (args: {
         ),
       );
 
+      fork(
+        Fiber.await(turn.fiber).pipe(
+          Effect.flatMap((exit) => {
+            if (Exit.isSuccess(exit) && turn.resultReceived && !turn.stopped) {
+              return drainQueuedTurn();
+            }
+            return Effect.void;
+          }),
+        ),
+      );
+
       yield* Deferred.await(turn.initialized);
     }).pipe(
       Effect.mapError((e) =>
@@ -126,6 +173,21 @@ export const makeSessionManager = (args: {
       Effect.withSpan("sessionManager.continue", {
         attributes: { sessionId },
       }),
+    );
+
+  const drainQueuedTurn = () =>
+    Effect.gen(function* () {
+      const queued = yield* findQueuedTurn(sessionId);
+      if (!queued) return;
+      // prompt is re-read inside continueSession via readMergedPrompt when existingTurnId is set
+      yield* continueSession("" as typeof PromptContent.Type, undefined, queued.id);
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logWarning("drainQueuedTurn failed").pipe(
+          Effect.annotateLogs({ sessionId, error: String(e) }),
+        ),
+      ),
+      Effect.catchAll(() => Effect.void),
     );
 
   const respondToUserQuestion = (

@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 export const TaskStatus = Schema.Literal(
   "in_progress",
+  "queued",
   "success",
   "error",
   "interrupted",
