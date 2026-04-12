@@ -40,6 +40,14 @@ export class ClaudeRpcs extends RpcGroup.make(
     error: ClaudeChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
+  Rpc.make("queryMessagesBySession", {
+    success: Schema.Array(EntitySchema(claudeMessageProjectedEntity)),
+    error: ClaudeChatError,
+    payload: Schema.Struct({
+      sessionId: Schema.String,
+      ">": Schema.NullOr(Schema.String),
+    }),
+  }),
   Rpc.make("updateSession", {
     success: Schema.Void,
     error: ClaudeChatError,

@@ -45,4 +45,12 @@ export class CodexRpcs extends RpcGroup.make(
     error: CodexChatError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
   }),
+  Rpc.make("queryEventsBySession", {
+    success: Schema.Array(EntitySchema(codexEventProjectedEntity)),
+    error: CodexChatError,
+    payload: Schema.Struct({
+      sessionId: Schema.String,
+      ">": Schema.NullOr(Schema.String),
+    }),
+  }),
 ).prefix("codex.") {}
