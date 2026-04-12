@@ -39,6 +39,11 @@ export class RalphLoopRpcs extends RpcGroup.make(
     error: RalphLoopError,
     payload: StartExecutionParams,
   }),
+  Rpc.make("interruptPlanning", {
+    success: Schema.Void,
+    error: RalphLoopError,
+    payload: RalphLoopIdParams,
+  }),
   Rpc.make("cancel", {
     success: Schema.Void,
     error: RalphLoopError,
