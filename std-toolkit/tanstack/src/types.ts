@@ -1,6 +1,7 @@
 import { Effect, SubscriptionRef } from "effect";
 import { EntityType, MetaSchema } from "@std-toolkit/core";
 import { AnyEntityESchema, AnySingleEntityESchema } from "@std-toolkit/eschema";
+import type { PartitionKey } from "@std-toolkit/cache";
 
 export type CollectionItem<T> = T & {
   _meta?: typeof MetaSchema.Type;
@@ -12,8 +13,8 @@ export type CollectionUtils<TSchema extends AnyEntityESchema = AnyEntityESchema>
     persist?: boolean,
   ) => void;
   schema: () => TSchema;
-  fetch: () => Effect.Effect<number>;
-  fetchAll: () => Effect.Effect<number>;
+  fetch: (partition?: PartitionKey) => Effect.Effect<number>;
+  fetchAll: (partition?: PartitionKey) => Effect.Effect<number>;
   isSyncing: () => SubscriptionRef.SubscriptionRef<boolean>;
 };
 

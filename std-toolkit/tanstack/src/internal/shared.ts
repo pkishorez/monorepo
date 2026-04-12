@@ -2,9 +2,10 @@ import { SyncConfig as TanstackSyncConfig } from "@tanstack/react-db";
 import { Effect, Option, SubscriptionRef } from "effect";
 import { EntityType } from "@std-toolkit/core";
 import { CacheEntity } from "@std-toolkit/cache";
+import { AnyEntityESchema, ESchemaIdField } from "@std-toolkit/eschema";
 import { CollectionItem } from "../types.js";
 
-type SyncParams<T extends object> = Parameters<
+export type SyncParams<T extends object> = Parameters<
   TanstackSyncConfig<CollectionItem<T>, string>["sync"]
 >[0];
 
@@ -33,8 +34,8 @@ export const makeWithSyncGuard =
 
 export const makeApplyToCollection = <TItem extends object>(
   params: SyncParams<TItem>,
-  cache: CacheEntity<TItem>,
-  alwaysPersist: boolean,
+  cache?: CacheEntity<TItem>,
+  alwaysPersist = false,
 ) => {
   const { begin, collection, commit, write } = params;
 
@@ -50,7 +51,7 @@ export const makeApplyToCollection = <TItem extends object>(
         continue;
       }
 
-      if (alwaysPersist || persist) {
+      if (cache && (alwaysPersist || persist)) {
         Effect.runPromise(
           Effect.gen(function* () {
             const cached = yield* cache.get(key);
@@ -78,3 +79,40 @@ export const makeApplyToCollection = <TItem extends object>(
     commit();
   };
 };
+
+export const makeMutationHandlers = <
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+>(
+  schema: TSchema,
+  upsert: (item: EntityType<TItem>) => void,
+  onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>,
+  onUpdate?: (
+    payload: {
+      [K in ESchemaIdField<TSchema>]: string;
+    } & {
+      updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
+    },
+  ) => Effect.Effect<EntityType<TItem>>,
+) => ({
+  onInsert: async ({ transaction }: { transaction: { mutations: { changes: unknown }[] } }) => {
+    if (!onInsert) return;
+    const { changes } = transaction.mutations[0]!;
+    const result = await Effect.runPromise(onInsert(changes as TItem));
+    upsert(result);
+  },
+  onUpdate: async ({ transaction }: { transaction: { mutations: { changes: unknown; key: string }[] } }) => {
+    if (!onUpdate) return;
+    const { changes, key } = transaction.mutations[0]!;
+    const payload = {
+      [schema.idField]: key,
+      updates: changes,
+    } as {
+      [K in ESchemaIdField<TSchema>]: string;
+    } & {
+      updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
+    };
+    const result = await Effect.runPromise(onUpdate(payload));
+    upsert(result);
+  },
+});

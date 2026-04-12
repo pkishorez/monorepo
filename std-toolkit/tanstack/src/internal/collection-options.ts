@@ -17,6 +17,7 @@ import { CollectionItem, CollectionUtils } from "../types.js";
 import {
   compareByMeta,
   makeApplyToCollection,
+  makeMutationHandlers,
   makeWithSyncGuard,
 } from "./shared.js";
 
@@ -247,30 +248,11 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
     utils: {
       upsert,
       schema: () => schema,
-      fetch: () => guardedFetch(fetchOnePage),
-      fetchAll: () => guardedFetch(fetchAllPages),
+      fetch: (_partition?) => guardedFetch(fetchOnePage),
+      fetchAll: (_partition?) => guardedFetch(fetchAllPages),
       isSyncing: () => syncing,
     },
     compare: compareByMeta,
-    onInsert: async ({ transaction }) => {
-      if (!onInsert) return;
-      const { changes } = transaction.mutations[0]!;
-      const result = await Effect.runPromise(onInsert(changes as TItem));
-      upsert(result);
-    },
-    onUpdate: async ({ transaction }) => {
-      if (!onUpdate) return;
-      const { changes, key } = transaction.mutations[0]!;
-      const payload = {
-        [schema.idField]: key,
-        updates: changes,
-      } as {
-        [K in ESchemaIdField<TSchema>]: string;
-      } & {
-        updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
-      };
-      const result = await Effect.runPromise(onUpdate(payload));
-      upsert(result);
-    },
+    ...makeMutationHandlers(schema, upsert, onInsert, onUpdate),
   };
 };
