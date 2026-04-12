@@ -17,6 +17,7 @@ export const claudeMessageSqliteEntity = SQLiteEntity.make(table)
   .primary()
   .index("IDX1", "bySession", { pk: ["sessionId"] })
   .index("IDX2", "byUpdatedAt", { pk: [] })
+  .index("IDX3", "byTurn", { pk: ["turnId"] })
   .build();
 
 export const projectSqliteEntity = SQLiteEntity.make(table)

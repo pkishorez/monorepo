@@ -85,11 +85,11 @@ export const appendToQueuedTurn = (
 ) =>
   Effect.gen(function* () {
     const result = yield* claudeMessageSqliteEntity
-      .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+      .query("byTurn", { pk: { turnId }, sk: { ">": null } })
       .pipe(Effect.orDie);
 
     const existing = result.items.find(
-      (m) => m.value.turnId === turnId && (m.value.data as any).type === "user",
+      (m) => (m.value.data as any).type === "user",
     );
 
     if (!existing) {
@@ -128,18 +128,17 @@ function promptToBlocks(
 
 /**
  * Reads all user messages for a turn and merges their prompts into a single
- * PromptContent value.  Messages are read from the `claudeMessageSqliteEntity`
- * by session (the only available index) then filtered by turnId.
+ * PromptContent value.
  */
 export const readMergedPrompt = (sessionId: string, turnId: string) =>
   Effect.gen(function* () {
     const result = yield* claudeMessageSqliteEntity
-      .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+      .query("byTurn", { pk: { turnId }, sk: { ">": null } })
       .pipe(Effect.orDie);
 
     const userMessages = result.items
       .filter(
-        (m) => m.value.turnId === turnId && (m.value.data as any).type === "user",
+        (m) => (m.value.data as any).type === "user",
       )
       .map((m) => (m.value.data as any).message.content as typeof PromptContent.Type);
 
