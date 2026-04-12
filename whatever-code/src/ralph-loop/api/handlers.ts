@@ -75,7 +75,7 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
               absolutePath: project.value.id,
               prompt: params.prompt,
               model: params.model,
-              interactionMode: "default",
+              interactionMode: "plan",
               persistSession: true,
               effort: "high",
               maxTurns: 0,
@@ -229,6 +229,18 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
             ),
           ) as Effect.Effect<void>,
         );
+      }).pipe(toRalphLoopError),
+
+    "ralphLoop.interruptPlanning": (params) =>
+      Effect.gen(function* () {
+        const loop = yield* getLoop(params.ralphLoopId);
+
+        if (loop.status !== "planning" && loop.status !== "reviewing") {
+          return;
+        }
+
+        const claude = yield* ClaudeOrchestrator;
+        yield* claude.stopSession(loop.planningSessionId);
       }).pipe(toRalphLoopError),
 
     "ralphLoop.cancel": (params) =>
