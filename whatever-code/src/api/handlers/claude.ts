@@ -46,5 +46,33 @@ export const ClaudeHandlers = ClaudeRpcs.toLayer(
       }).pipe(
         Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
       ),
+    "claude.queryMessagesBySession": ({ sessionId, ">": cursor }) =>
+      Effect.gen(function* () {
+        let currentCursor = cursor;
+        const projected: NonNullable<ReturnType<typeof applyProjection>>[] = [];
+
+        while (true) {
+          const { items } = yield* claudeMessageSqliteEntity.query(
+            "bySession",
+            { pk: { sessionId }, sk: { ">": currentCursor } },
+          );
+          if (items.length === 0) break;
+
+          for (const item of items) {
+            const p = applyProjection(item);
+            if (p) projected.push(p);
+          }
+
+          const lastU = items[items.length - 1]!.meta._u;
+          if (lastU === currentCursor) break;
+          currentCursor = lastU;
+
+          if (projected.length > 0) break;
+        }
+
+        return projected;
+      }).pipe(
+        Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+      ),
   }),
 );

@@ -29,5 +29,16 @@ export const CodexHandlers = CodexRpcs.toLayer(
           ),
           Effect.mapError((e) => new CodexChatError({ message: String(e) })),
         ),
+    "codex.queryEventsBySession": ({ sessionId, ">": cursor }) =>
+      codexEventSqliteEntity
+        .query("bySession", { pk: { sessionId }, sk: { ">": cursor } })
+        .pipe(
+          Effect.map(({ items }) =>
+            items
+              .map(applyProjection)
+              .filter((v): v is NonNullable<typeof v> => v !== null),
+          ),
+          Effect.mapError((e) => new CodexChatError({ message: String(e) })),
+        ),
   }),
 );
