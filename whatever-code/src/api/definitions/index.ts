@@ -2,6 +2,7 @@ import { AppRpcs } from "./app.js";
 import { ClaudeRpcs } from "./claude.js";
 import { CodexRpcs } from "./codex.js";
 import { GitRpcs } from "./git.js";
+import { TerminalRpcs } from "./terminal.js";
 import { WorkflowRpcs } from "./workflow.js";
 import { RalphLoopRpcs } from "../../ralph-loop/api/definitions.js";
 
@@ -9,6 +10,7 @@ export { AppRpcs, AppError, OpenProjectParams } from "./app.js";
 export { ClaudeRpcs, ClaudeChatError } from "./claude.js";
 export { CodexRpcs, CodexChatError } from "./codex.js";
 export { GitRpcs } from "./git.js";
+export { TerminalRpcs } from "./terminal.js";
 export { WorkflowRpcs } from "./workflow.js";
 export { RalphLoopRpcs } from "../../ralph-loop/api/definitions.js";
 export { RalphLoopError } from "../../ralph-loop/api/schema.js";
@@ -50,5 +52,6 @@ export {
 export const ApiRpcs = ClaudeRpcs.merge(AppRpcs)
   .merge(CodexRpcs)
   .merge(GitRpcs)
+  .merge(TerminalRpcs)
   .merge(WorkflowRpcs)
   .merge(RalphLoopRpcs);
