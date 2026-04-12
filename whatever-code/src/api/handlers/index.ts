@@ -4,8 +4,9 @@ import { ClaudeHandlers } from "./claude.js";
 import { CodexHandlers } from "./codex.js";
 import { GitHandlers } from "./git.js";
 import { WorkflowHandlers } from "./workflow.js";
+import { RalphLoopHandlers } from "../../ralph-loop/api/handlers.js";
 
-export { AppHandlers, ClaudeHandlers, CodexHandlers, GitHandlers, WorkflowHandlers };
+export { AppHandlers, ClaudeHandlers, CodexHandlers, GitHandlers, WorkflowHandlers, RalphLoopHandlers };
 
 export const ApiHandlers = Layer.mergeAll(
   ClaudeHandlers,
@@ -13,4 +14,5 @@ export const ApiHandlers = Layer.mergeAll(
   CodexHandlers,
   GitHandlers,
   WorkflowHandlers,
+  RalphLoopHandlers,
 );

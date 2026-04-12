@@ -49,8 +49,18 @@ export const CreateSessionParams = Schema.Struct({
 export const MODELS: SessionCapabilities["models"] = [
   {
     value: "claude-opus-4-6",
-    displayName: "Opus 4.6",
-    description: "Most capable model for complex tasks",
+    displayName: "Opus 4.6 (1M)",
+    description: "Most capable model for complex tasks, 1M context window",
+  },
+  {
+    value: "claude-opus-4-5-20251101",
+    displayName: "Opus 4.5",
+    description: "Highly capable Opus model, 200k context window",
+  },
+  {
+    value: "claude-opus-4-20250514",
+    displayName: "Opus 4 (200k)",
+    description: "Original Opus 4 model, 200k context window",
   },
   {
     value: "claude-sonnet-4-6",

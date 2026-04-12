@@ -17,6 +17,7 @@ import { CodexClient } from "./agents/codex/client.js";
 import { WorkflowOrchestrator } from "./agents/workflow/index.js";
 import { ServicesLayer } from "./services/index.js";
 import { TelemetryLayer } from "./telemetry.js";
+import { resumeExecutingLoops } from "./ralph-loop/index.js";
 
 interface ServerConfig {
   port: number;
@@ -71,7 +72,23 @@ export function startServer(config: ServerConfig) {
 
   const AllRoutes = Layer.mergeAll(RpcRoute, ProxyRoute);
 
-  const ServerLayer = HttpLayerRouter.serve(AllRoutes).pipe(
+  // Resume any ralph loops that were executing when the process last stopped.
+  const StartupLayer = Layer.effectDiscard(
+    Effect.forkDaemon(
+      resumeExecutingLoops.pipe(
+        Effect.catchAll((e) =>
+          Effect.logError("Failed to resume executing ralph loops").pipe(
+            Effect.annotateLogs({ error: String(e) }),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  const ServerLayer = HttpLayerRouter.serve(
+    Layer.mergeAll(AllRoutes, StartupLayer),
+    { disableLogger: true },
+  ).pipe(
     HttpMiddleware.withTracerDisabledWhen(() => true),
     Layer.provide(WorkflowOrchestrator.Default),
     Layer.provide(ClaudeOrchestrator.Default),

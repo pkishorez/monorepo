@@ -1,7 +1,7 @@
 import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
 
-const WorkflowSpec = Schema.Struct({
+const ExecuteWorkflowSpec = Schema.Struct({
   type: Schema.Literal("execute"),
   executeSession: Schema.String,
   worktree: Schema.optionalWith(
@@ -13,6 +13,13 @@ const WorkflowSpec = Schema.Struct({
     { exact: true },
   ),
 });
+
+const RalphLoopWorkflowSpec = Schema.Struct({
+  type: Schema.Literal("ralph-loop"),
+  ralphLoopId: Schema.String,
+});
+
+const WorkflowSpec = Schema.Union(ExecuteWorkflowSpec, RalphLoopWorkflowSpec);
 
 export const workflowEntity = EntityESchema.make("workflow", "workflowId", {
   projectId: Schema.String,
