@@ -70,10 +70,15 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           const session = getOrCreate(sessionId);
           fork(
             session.continue(params.prompt, runtimeOptions).pipe(
-              Effect.catchAll(() =>
-                sessionSqliteEntity
-                  .update({ sessionId }, { status: "error" })
-                  .pipe(Effect.orDie, Effect.asVoid),
+              Effect.catchAll((error) =>
+                Effect.logError("createSession: forked turn failed").pipe(
+                  Effect.annotateLogs({ sessionId, error: String(error) }),
+                  Effect.flatMap(() =>
+                    sessionSqliteEntity
+                      .update({ sessionId }, { status: "error" })
+                      .pipe(Effect.orDie, Effect.asVoid),
+                  ),
+                ),
               ),
             ),
           );
@@ -84,10 +89,13 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           ),
         );
 
-      const continueSession = (params: typeof ContinueSessionParams.Type) =>
+      const continueSession = (
+        params: typeof ContinueSessionParams.Type,
+        runtimeOptions?: SessionRuntimeOptions,
+      ) =>
         Effect.gen(function* () {
           const session = getOrCreate(params.sessionId);
-          yield* session.continue(params.prompt);
+          yield* session.continue(params.prompt, runtimeOptions);
         }).pipe(
           Effect.mapError((e) =>
             e instanceof ClaudeChatError

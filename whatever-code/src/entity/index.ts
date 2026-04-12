@@ -33,3 +33,9 @@ export {
 export { projectEntity } from "./project/index.js";
 export { workflowEntity } from "./workflow/index.js";
 export { TaskStatus } from "./status.js";
+export {
+  ralphLoopEntity,
+  RalphLoopStatus,
+  ralphLoopTaskEntity,
+  RalphLoopTaskStatus,
+} from "../ralph-loop/entity/index.js";

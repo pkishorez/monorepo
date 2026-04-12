@@ -13,7 +13,7 @@ import {
   ExecuteWorkflowError,
 } from "./schema.js";
 
-const getWorkflow = (workflowId: string) =>
+const getExecuteWorkflow = (workflowId: string) =>
   workflowSqliteEntity.get({ workflowId }).pipe(
     Effect.orDie,
     Effect.flatMap((row) =>
@@ -146,7 +146,7 @@ export const continueExecuteWorkflow = (
   params: typeof ContinueExecuteParams.Type,
 ) =>
   Effect.gen(function* () {
-    const workflow = yield* getWorkflow(params.workflowId);
+    const workflow = yield* getExecuteWorkflow(params.workflowId);
     const sessionId = workflow.spec.executeSession;
     const session = yield* getSession(sessionId);
 
@@ -180,7 +180,7 @@ export const stopExecuteWorkflow = (
   params: typeof StopExecuteParams.Type,
 ) =>
   Effect.gen(function* () {
-    const workflow = yield* getWorkflow(params.workflowId);
+    const workflow = yield* getExecuteWorkflow(params.workflowId);
     const sessionId = workflow.spec.executeSession;
     const session = yield* getSession(sessionId);
 
@@ -201,7 +201,7 @@ export const stopExecuteWorkflow = (
 
 export const removeExecuteWorkflow = (params: { workflowId: string }) =>
   Effect.gen(function* () {
-    const workflow = yield* getWorkflow(params.workflowId);
+    const workflow = yield* getExecuteWorkflow(params.workflowId);
 
     if (workflow.spec.worktree) {
       const worktreeService = yield* WorktreeService;
@@ -226,7 +226,18 @@ export const archiveWorkflow = (params: {
   archived: boolean;
 }) =>
   Effect.gen(function* () {
-    yield* getWorkflow(params.workflowId);
+    // Verify the workflow exists (without filtering by spec type — archiving
+    // is a generic operation that applies to any workflow kind).
+    const row = yield* workflowSqliteEntity
+      .get({ workflowId: params.workflowId })
+      .pipe(Effect.orDie);
+    if (!row) {
+      yield* Effect.fail(
+        new ExecuteWorkflowError({
+          message: `workflow ${params.workflowId} not found`,
+        }),
+      );
+    }
     yield* workflowSqliteEntity
       .update({ workflowId: params.workflowId }, { archived: params.archived })
       .pipe(Effect.orDie);
