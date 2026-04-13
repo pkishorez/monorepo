@@ -12,8 +12,9 @@ export const ContinuePlanningParams = Schema.Struct({
   prompt: PromptContent,
 });
 
-export const FinalizeTasksParams = Schema.Struct({
+export const StartExecutionParams = Schema.Struct({
   ralphLoopId: Schema.String,
+  model: Schema.String,
   prompt: Schema.String,
   branchName: Schema.String,
   tasks: Schema.Array(
@@ -22,11 +23,6 @@ export const FinalizeTasksParams = Schema.Struct({
       description: Schema.String,
     }),
   ),
-});
-
-export const StartExecutionParams = Schema.Struct({
-  ralphLoopId: Schema.String,
-  model: Schema.String,
 });
 
 export const RalphLoopIdParams = Schema.Struct({

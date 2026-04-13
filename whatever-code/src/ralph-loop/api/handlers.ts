@@ -150,25 +150,6 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
         );
       }).pipe(toRalphLoopError),
 
-    "ralphLoop.finalizeTasks": (params) =>
-      Effect.gen(function* () {
-        const loop = yield* getLoop(params.ralphLoopId);
-
-        if (loop.status !== "planning" && loop.status !== "reviewing") {
-          return yield* Effect.fail(
-            new RalphLoopError({
-              message: `Cannot finalize tasks: loop is in "${loop.status}" status`,
-            }),
-          );
-        }
-
-        yield* persistPlanData(params.ralphLoopId, {
-          prompt: params.prompt,
-          branchName: params.branchName,
-          tasks: params.tasks,
-        });
-      }).pipe(toRalphLoopError),
-
     "ralphLoop.startExecution": (params) =>
       Effect.gen(function* () {
         const loop = yield* getLoop(params.ralphLoopId);
@@ -180,6 +161,12 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
             }),
           );
         }
+
+        yield* persistPlanData(params.ralphLoopId, {
+          prompt: params.prompt,
+          branchName: params.branchName,
+          tasks: params.tasks,
+        });
 
         yield* ralphLoopSqliteEntity
           .update({ id: params.ralphLoopId }, { model: params.model })
@@ -197,7 +184,7 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
         }
 
         yield* createWorktreeForLoop(
-          { ...loop, model: params.model },
+          { ...loop, branchName: params.branchName, model: params.model },
           project.value.id,
         ).pipe(
           Effect.mapError(
