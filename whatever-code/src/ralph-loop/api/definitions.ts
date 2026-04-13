@@ -6,7 +6,6 @@ import { ralphLoopTaskEntity } from "../entity/ralph-loop-task.js";
 import {
   CreateRalphLoopParams,
   ContinuePlanningParams,
-  FinalizeTasksParams,
   StartExecutionParams,
   RalphLoopIdParams,
   QueryRalphLoopsParams,
@@ -28,11 +27,6 @@ export class RalphLoopRpcs extends RpcGroup.make(
     success: Schema.Void,
     error: RalphLoopError,
     payload: ContinuePlanningParams,
-  }),
-  Rpc.make("finalizeTasks", {
-    success: Schema.Void,
-    error: RalphLoopError,
-    payload: FinalizeTasksParams,
   }),
   Rpc.make("startExecution", {
     success: Schema.Void,

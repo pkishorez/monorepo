@@ -61,7 +61,7 @@ export const persistPlanData = (
     );
   });
 
-export const makeFinalizePlanMcpServer = (
+export const makeProposedPlanMcpServer = (
   ralphLoopId: string,
   runEffect: <A>(effect: Effect.Effect<A, any, any>) => Promise<A>,
 ) =>
@@ -70,11 +70,11 @@ export const makeFinalizePlanMcpServer = (
     version: "1.0.0",
     tools: [
       tool(
-        "finalizePlan",
+        "proposedPlan",
         [
           "Call this tool when you and the user have agreed on a plan for autonomous execution.",
-          "This saves the master prompt, branch name, and task list so the user can review and start execution.",
-          "You can call this tool multiple times — each call replaces the previous plan.",
+          "This presents the plan to the user for review before they start execution.",
+          "You can call this tool multiple times — each call replaces the previous proposal.",
         ].join(" "),
         {
           prompt: z
@@ -103,7 +103,18 @@ export const makeFinalizePlanMcpServer = (
             .describe("Ordered list of tasks to execute autonomously"),
         },
         async (args) => {
-          await runEffect(persistPlanData(ralphLoopId, args));
+          await runEffect(
+            ralphLoopSqliteEntity
+              .update(
+                { id: ralphLoopId },
+                {
+                  status: "reviewing",
+                  prompt: args.prompt,
+                  branchName: args.branchName,
+                },
+              )
+              .pipe(Effect.orDie),
+          );
 
           const taskSummary = args.tasks
             .map((t, i) => `${i + 1}. ${t.title}`)
@@ -114,14 +125,14 @@ export const makeFinalizePlanMcpServer = (
               {
                 type: "text",
                 text: [
-                  "Plan saved successfully!",
+                  "Plan proposed successfully!",
                   "",
                   `Branch: ${args.branchName}`,
                   `Tasks (${args.tasks.length}):`,
                   taskSummary,
                   "",
                   "The user can now review the plan in the UI and start execution.",
-                  "If they want changes, continue the conversation and call finalizePlan again with the updated plan.",
+                  "If they want changes, continue the conversation and call proposedPlan again with the updated plan.",
                 ].join("\n"),
               },
             ],
@@ -143,19 +154,19 @@ export const buildPlanningRuntimeOptions = (
       "IMPORTANT: You are in a Ralph Loop planning session.",
       "Your goal is to help the user plan a set of tasks for autonomous execution.",
       "",
-      "You have access to a `finalizePlan` MCP tool. When you and the user have",
-      "agreed on a plan, you MUST call `finalizePlan` with:",
+      "You have access to a `proposedPlan` MCP tool. When you and the user have",
+      "agreed on a plan, you MUST call `proposedPlan` with:",
       "- prompt: overarching instructions for the agent during execution",
       "- branchName: a meaningful git branch name",
       "- tasks: an ordered list of tasks with titles and detailed descriptions",
       "",
-      "Do NOT just describe the plan in text. Always call `finalizePlan` to submit it.",
+      "Do NOT just describe the plan in text. Always call `proposedPlan` to submit it.",
       "Do NOT call ExitPlanMode or any other plan exit mechanism.",
-      "The user can continue chatting after you call finalizePlan to refine the plan —",
-      "each finalizePlan call replaces the previous one.",
+      "The user can continue chatting after you call proposedPlan to refine the plan —",
+      "each proposedPlan call replaces the previous one.",
     ].join("\n"),
   },
   mcpServers: {
-    "ralph-loop-planning": makeFinalizePlanMcpServer(ralphLoopId, runEffect),
+    "ralph-loop-planning": makeProposedPlanMcpServer(ralphLoopId, runEffect),
   },
 });
