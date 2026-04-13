@@ -4,23 +4,37 @@ import type { ralphLoopTaskEntity } from "../entity/ralph-loop-task.js";
 type RalphLoop = typeof ralphLoopEntity.Type;
 type RalphLoopTask = typeof ralphLoopTaskEntity.Type;
 
+const STATUS_ICONS = {
+  completed: "✅",
+  running: "🔄",
+  failed: "❌",
+  pending: "⏳",
+} as const;
+
 const buildTaskListSection = (tasks: RalphLoopTask[]): string => {
   const sorted = [...tasks].sort((a, b) => a.order - b.order);
 
-  return sorted
-    .map((task) => {
-      if (task.status === "completed") {
-        return `- [x] Task (id="${task.id}"): "${task.title}" — ${task.outcome ?? "completed"}`;
-      }
-      if (task.status === "running") {
-        return `- [~] Task (id="${task.id}"): "${task.title}" — IN PROGRESS`;
-      }
-      if (task.status === "failed") {
-        return `- [!] Task (id="${task.id}"): "${task.title}" — FAILED${task.outcome ? `: ${task.outcome}` : ""}`;
-      }
-      return `- [ ] Task (id="${task.id}"): "${task.title}" — ${task.description}`;
-    })
-    .join("\n");
+  const completed = sorted.filter((t) => t.status === "completed");
+  const running = sorted.filter((t) => t.status === "running");
+  const failed = sorted.filter((t) => t.status === "failed");
+  const pending = sorted.filter((t) => t.status === "pending");
+
+  const progress = `Progress: ${completed.length}/${sorted.length} done${failed.length > 0 ? ` · ${failed.length} failed` : ""}${running.length > 0 ? ` · ${running.length} in progress` : ""}`;
+
+  const formatTask = (task: RalphLoopTask): string => {
+    const icon = STATUS_ICONS[task.status] ?? "⏳";
+    const detail =
+      task.status === "completed"
+        ? task.outcome ?? "done"
+        : task.status === "failed"
+          ? `FAILED${task.outcome ? `: ${task.outcome}` : ""}`
+          : task.status === "running"
+            ? "IN PROGRESS"
+            : task.description;
+    return `${icon} \`${task.id}\` **${task.title}** — ${detail}`;
+  };
+
+  return [progress, "", ...sorted.map(formatTask)].join("\n");
 };
 
 const buildLearningsSection = (tasks: RalphLoopTask[]): string => {
@@ -51,25 +65,20 @@ export const buildExecuteNextTaskPrompt = (
 
   return `${loop.prompt ?? ""}
 
-## Task List
+## Task Status
 ${buildTaskListSection(tasks)}
 ${buildLearningsSection(tasks)}
-## Instructions
-You are an autonomous task executor. Your job:
-
-1. **Pick the best next task**: Review the pending tasks (marked with [ ]) above. Consider dependencies — if a later task depends on an earlier one, prioritize the dependency. Pick the highest-priority pending task.
-
-2. **Claim it**: Call \`claimTask\` with the task's id before you start working. This updates the UI to show the task is in progress.
-
-3. **Implement it**: Do the work required by the task description. Be thorough.
-
-4. **Report completion**: Call \`taskDone\` with the taskId, a brief outcome summary, and any learnings that would help future tasks.
+## What to do
 
 ${
   pendingTasks.length === 1
-    ? `There is only one pending task: "${pendingTasks[0]!.title}" (id="${pendingTasks[0]!.id}"). Claim and execute it.`
-    : `There are ${pendingTasks.length} pending tasks. Pick the most appropriate one to work on next.`
+    ? `👉 One task remaining: **${pendingTasks[0]!.title}** (\`${pendingTasks[0]!.id}\`)`
+    : `👉 ${pendingTasks.length} tasks pending — pick the highest-priority one (respect dependencies).`
 }
 
-IMPORTANT: You MUST call \`taskDone\` when the task is complete — this is what signals the orchestrator to move on. Call \`claimTask\` first when possible so the UI tracks progress. Do NOT work on more than one task.`.trim();
+1. Call \`claimTask\` with the task id
+2. Implement the task thoroughly
+3. Call \`taskDone\` with outcome + learnings
+
+⚠️ You MUST call \`taskDone\` to signal completion. Work on exactly one task.`.trim();
 };
