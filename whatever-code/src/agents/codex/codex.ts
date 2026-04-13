@@ -93,6 +93,9 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
       const handleNotification = (notification: ServerNotification) => {
         const effect = Effect.gen(function* () {
+          yield* Effect.logDebug("codex: notification received").pipe(
+            Effect.annotateLogs({ method: notification.method }),
+          );
           switch (notification.method) {
             case "turn/started": {
               const { threadId, turn } = notification.params;
@@ -115,6 +118,15 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               if (turn.status === "completed") {
                 yield* markTurnStatus(at.turnId, ourSessionId, "success");
               } else if (turn.status === "failed") {
+                yield* Effect.logError("codex: turn failed").pipe(
+                  Effect.annotateLogs({
+                    sessionId: ourSessionId,
+                    turnId: at.turnId,
+                    errorMessage: turn.error?.message ?? "unknown",
+                    errorInfo: turn.error?.codexErrorInfo ?? "none",
+                    additionalDetails: turn.error?.additionalDetails ?? "none",
+                  }),
+                );
                 yield* updateCodexTurnPayload(at.turnId, (payload) => ({
                   ...payload,
                   error: turn.error,
@@ -198,7 +210,17 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               break;
             }
           }
-        });
+        }).pipe(
+          Effect.tapError((e) =>
+            Effect.logError("codex: handleNotification failed").pipe(
+              Effect.annotateLogs({
+                method: notification.method,
+                error: String(e),
+              }),
+            ),
+          ),
+          Effect.catchAll(() => Effect.void),
+        );
         fork(effect);
       };
 
@@ -267,6 +289,11 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         }).pipe(
           // If DB persistence fails, clean up in-memory state and unblock
           // the subprocess so it doesn't hang indefinitely.
+          Effect.tapError((e) =>
+            Effect.logError("codex: onServerRequest handler failed, responding with empty answers").pipe(
+              Effect.annotateLogs({ error: String(e) }),
+            ),
+          ),
           Effect.catchAll(() =>
             Effect.sync(() => {
               client.respond(jsonRpcId, { answers: {} });
@@ -353,6 +380,11 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
               yield* continueThread({ sessionId, prompt: params.prompt });
             }).pipe(
+              Effect.tapError((e) =>
+                Effect.logError("codex: createThread background task failed").pipe(
+                  Effect.annotateLogs({ sessionId, error: String(e) }),
+                ),
+              ),
               Effect.catchAll(() =>
                 sessionSqliteEntity
                   .update({ sessionId }, { status: "error" })
@@ -485,8 +517,14 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             sdkTurnId: response.turn.id,
           }));
         }).pipe(
-          Effect.tapError(() =>
+          Effect.tapError((e) =>
             Effect.gen(function* () {
+              yield* Effect.logError("codex: continueThread failed").pipe(
+                Effect.annotateLogs({
+                  sessionId: params.sessionId,
+                  error: String(e),
+                }),
+              );
               const turn = activeTurns.get(params.sessionId);
               if (turn) {
                 activeTurns.delete(params.sessionId);
