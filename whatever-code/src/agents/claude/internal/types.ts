@@ -25,7 +25,11 @@ export interface ActiveTurn {
 }
 
 export interface SessionCapabilities {
-  models: { value: string; displayName: string; description: string }[];
+  models: {
+    value: string;
+    displayName: string;
+    description: string;
+  }[];
   commands: { name: string; description: string; argumentHint: string }[];
 }
 
