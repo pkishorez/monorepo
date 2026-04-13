@@ -6,7 +6,8 @@
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "WebSearch",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(pnpm lint:*)"
     ],
     "additionalDirectories": [
       "/Users/kishorepolamarasetty/CAREER/MINE/monorepo/std-toolkit/db-sqlite",

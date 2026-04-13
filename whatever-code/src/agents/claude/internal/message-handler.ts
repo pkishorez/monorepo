@@ -27,29 +27,6 @@ function extractModelUsage(
   return out;
 }
 
-/** Extract total input tokens from the SDK result's `usage` object.
- *  This reflects the final API call's input size — i.e. the actual context
- *  window consumption — unlike `modelUsage` which sums across all calls.
- *
- *  The total includes `inputTokens` (non-cached), `cacheReadInputTokens`,
- *  and `cacheCreationInputTokens` so that prompt-caching doesn't cause the
- *  reported context usage to appear near-zero.
- *
- *  Note: the SDK uses camelCase keys on the `usage` object (matching
- *  `modelUsage` entries), NOT the raw API snake_case. */
-function extractLastInputTokens(
-  result: Record<string, unknown>,
-): number | null {
-  const usage = result.usage as Record<string, unknown> | undefined;
-  if (!usage) return null;
-  const inputTokens = (usage.inputTokens as number | undefined) ?? 0;
-  const cacheRead = (usage.cacheReadInputTokens as number | undefined) ?? 0;
-  const cacheCreation =
-    (usage.cacheCreationInputTokens as number | undefined) ?? 0;
-  const total = inputTokens + cacheRead + cacheCreation;
-  return total > 0 ? total : null;
-}
-
 /** Persists each SDK message to DB and routes init/result events. */
 export const processMessage = (
   sessionId: string,
@@ -94,7 +71,6 @@ export const processMessage = (
           costUsd: (resultRecord.total_cost_usd as number) ?? null,
           isError: message.is_error ?? false,
           modelUsage: extractModelUsage(resultRecord),
-          lastInputTokens: extractLastInputTokens(resultRecord),
           resultSubtype: (resultRecord.subtype as string) ?? null,
           resultErrors: Array.isArray(resultRecord.errors)
             ? (resultRecord.errors as string[])

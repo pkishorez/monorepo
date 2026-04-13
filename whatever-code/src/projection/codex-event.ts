@@ -26,6 +26,7 @@ export type ProjectedToolCall =
       filePath: string;
       content: string;
       additions: number;
+      body?: { source: "patch"; patch: string };
     }
   | { kind: "bash"; status: ToolStatus; command: string }
   | { kind: "read"; status: ToolStatus; filePath: string; limit?: number }
@@ -170,6 +171,7 @@ export function projectCodexEvent(
     const diff = first?.diff ?? "";
     const status = mapStatus(item.status);
     if (first?.kind?.type === "add") {
+      const patch = ensureUnifiedDiffHeader(diff, filePath);
       projected = {
         type: "tool",
         id: item.id,
@@ -178,7 +180,11 @@ export function projectCodexEvent(
           status,
           filePath,
           content: diff,
-          additions: diff ? diff.split("\n").length : 0,
+          additions: countDiffLines(diff).additions,
+          body: {
+            source: "patch",
+            patch,
+          },
         },
       };
     } else {

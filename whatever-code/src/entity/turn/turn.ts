@@ -55,13 +55,6 @@ export const ClaudeTurnPayload = Schema.Struct({
   costUsd: Schema.NullOr(Schema.Number),
   isError: Schema.NullOr(Schema.Boolean),
   modelUsage: Schema.NullOr(ModelUsage),
-  /** Input tokens from the final API call — represents the actual context
-   *  window usage for this turn.  `modelUsage` entries are cumulative across
-   *  all API calls (tool-use loops), so they over-count for display purposes. */
-  lastInputTokens: Schema.optionalWith(Schema.NullOr(Schema.Number), {
-    exact: true,
-    default: () => null,
-  }),
   cwd: Schema.optionalWith(Schema.NullOr(Schema.String), {
     exact: true,
     default: () => null,
