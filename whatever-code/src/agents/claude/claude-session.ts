@@ -1,5 +1,8 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { PermissionResult, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  PermissionResult,
+  SDKMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import { Deferred, Effect, Exit, Fiber, Queue, Runtime, Stream } from "effect";
 import { ulid } from "ulid";
 import { ClaudeChatError } from "../../api/definitions/claude.js";
@@ -162,7 +165,6 @@ export const makeSessionManager = (args: {
           }),
         ),
       );
-
     }).pipe(
       Effect.mapError((e) =>
         e instanceof ClaudeChatError
@@ -179,7 +181,11 @@ export const makeSessionManager = (args: {
       const queued = yield* findQueuedTurn(sessionId);
       if (!queued) return;
       // prompt is re-read inside continueSession via readMergedPrompt when existingTurnId is set
-      yield* continueSession("" as typeof PromptContent.Type, undefined, queued.id);
+      yield* continueSession(
+        "" as typeof PromptContent.Type,
+        undefined,
+        queued.id,
+      );
     }).pipe(
       Effect.tapError((e) =>
         Effect.logWarning("drainQueuedTurn failed").pipe(
@@ -217,10 +223,9 @@ export const makeSessionManager = (args: {
           ...payload.pendingQuestions,
           [toolUseId]: {
             status: "answered" as const,
-            question:
-              payload.pendingQuestions?.[toolUseId]?.question ?? {
-                questions: [],
-              },
+            question: payload.pendingQuestions?.[toolUseId]?.question ?? {
+              questions: [],
+            },
             response:
               response.behavior === "allow"
                 ? (response.updatedInput ?? {})

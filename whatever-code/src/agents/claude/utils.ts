@@ -29,7 +29,6 @@ const makeClaudeTurnInsert = (
       costUsd: null,
       isError: null,
       modelUsage: null,
-      lastInputTokens: null,
       cwd: null,
       resultSubtype: null,
       resultErrors: null,

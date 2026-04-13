@@ -9,6 +9,8 @@ export type ProjectedClaudeMessage =
       type: "assistant";
       text: string;
       toolCalls: Array<{ id: string; name: string; input: unknown }>;
+      /** Per-call input tokens from BetaUsage (not cumulative). */
+      contextTokens: number | null;
     }
   | {
       type: "tool_result";
@@ -165,7 +167,18 @@ export function projectClaudeMessage(
     const text = extractAssistantText(content);
     const toolCalls = extractToolCalls(content);
     if (!text && toolCalls.length === 0) return null;
-    return wrap(parentToolUseId, { type: "assistant", text, toolCalls });
+
+    const usage = raw.message?.usage as unknown as Record<string, unknown> | undefined;
+    let contextTokens: number | null = null;
+    if (usage) {
+      const input = (usage.input_tokens as number | undefined) ?? 0;
+      const cacheRead = (usage.cache_read_input_tokens as number | undefined) ?? 0;
+      const cacheCreation = (usage.cache_creation_input_tokens as number | undefined) ?? 0;
+      const total = input + cacheRead + cacheCreation;
+      if (total > 0) contextTokens = total;
+    }
+
+    return wrap(parentToolUseId, { type: "assistant", text, toolCalls, contextTokens });
   }
 
   return null;
