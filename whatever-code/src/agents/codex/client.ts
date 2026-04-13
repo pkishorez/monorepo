@@ -62,54 +62,119 @@ export class CodexClient extends Effect.Service<CodexClient>()(
 
         rl.on("line", (line) => {
           if (!line.trim()) return;
+          let msg: unknown;
           try {
-            const msg = JSON.parse(line);
-
-            if ("id" in msg && "result" in msg || "id" in msg && "error" in msg) {
-              const response = msg as JsonRpcResponse;
-              const deferred = pending.get(response.id);
-              if (deferred) {
-                pending.delete(response.id);
-                if (response.error) {
-                  Effect.runFork(
-                    Deferred.fail(
-                      deferred,
-                      new CodexClientError(response.error.message),
-                    ),
-                  );
-                } else {
-                  Effect.runFork(Deferred.succeed(deferred, response.result));
-                }
-              }
-              return;
-            }
-
-            if ("method" in msg && !("id" in msg)) {
-              if (notificationHandler) {
-                notificationHandler(msg as ServerNotification);
-              }
-              return;
-            }
-
-            if ("method" in msg && "id" in msg && !("result" in msg)) {
-              if (serverRequestHandler) {
-                serverRequestHandler(
-                  msg.id as RequestId,
-                  msg as ServerRequest,
-                );
-              }
-              return;
-            }
-          } catch {
-            // ignore parse errors
+            msg = JSON.parse(line);
+          } catch (e) {
+            Effect.runFork(
+              Effect.logError("codex: failed to parse line from subprocess").pipe(
+                Effect.annotateLogs({ line, error: String(e) }),
+              ),
+            );
+            return;
           }
+
+          if (
+            msg !== null &&
+            typeof msg === "object" &&
+            "id" in msg &&
+            ("result" in msg || "error" in msg)
+          ) {
+            const response = msg as JsonRpcResponse;
+            const deferred = pending.get(response.id);
+            if (deferred) {
+              pending.delete(response.id);
+              if (response.error) {
+                Effect.runFork(
+                  Effect.logError("codex: received error response").pipe(
+                    Effect.annotateLogs({
+                      requestId: response.id,
+                      errorCode: response.error.code,
+                      errorMessage: response.error.message,
+                    }),
+                    Effect.andThen(
+                      Deferred.fail(
+                        deferred,
+                        new CodexClientError(response.error.message),
+                      ),
+                    ),
+                  ),
+                );
+              } else {
+                Effect.runFork(Deferred.succeed(deferred, response.result));
+              }
+            } else {
+              Effect.runFork(
+                Effect.logWarning("codex: received response for unknown request id").pipe(
+                  Effect.annotateLogs({ requestId: response.id }),
+                ),
+              );
+            }
+            return;
+          }
+
+          if (
+            msg !== null &&
+            typeof msg === "object" &&
+            "method" in msg &&
+            !("id" in msg)
+          ) {
+            if (notificationHandler) {
+              notificationHandler(msg as ServerNotification);
+            }
+            return;
+          }
+
+          if (
+            msg !== null &&
+            typeof msg === "object" &&
+            "method" in msg &&
+            "id" in msg &&
+            !("result" in msg)
+          ) {
+            if (serverRequestHandler) {
+              serverRequestHandler(
+                (msg as { id: RequestId }).id,
+                msg as ServerRequest,
+              );
+            }
+            return;
+          }
+
+          Effect.runFork(
+            Effect.logWarning("codex: received unrecognized message from subprocess").pipe(
+              Effect.annotateLogs({ line }),
+            ),
+          );
         });
 
-        child.on("exit", () => {
+        child.on("exit", (code, signal) => {
+          if (pending.size > 0) {
+            Effect.runFork(
+              Effect.logError("codex: subprocess exited with pending requests").pipe(
+                Effect.annotateLogs({
+                  exitCode: code ?? "null",
+                  signal: signal ?? "null",
+                  pendingCount: pending.size,
+                }),
+              ),
+            );
+          }
           for (const [id, deferred] of pending) {
             pending.delete(id);
             Effect.runFork(
               Deferred.fail(deferred, new CodexClientError("process exited")),
+            );
+          }
+        });
+
+        child.stderr!.on("data", (chunk: Buffer) => {
+          const text = chunk.toString().trim();
+          if (text) {
+            Effect.runFork(
+              Effect.logWarning("codex: subprocess stderr").pipe(
+                Effect.annotateLogs({ stderr: text }),
+              ),
             );
           }
         });
