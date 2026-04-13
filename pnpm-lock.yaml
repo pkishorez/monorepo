@@ -424,6 +424,9 @@ importers:
       env-paths:
         specifier: 4.0.0
         version: 4.0.0
+      node-pty:
+        specifier: ^1.1.0
+        version: 1.1.0
       ulid:
         specifier: 3.0.2
         version: 3.0.2
@@ -2449,6 +2452,9 @@ packages:
   node-gyp-build-optional-packages@5.2.2:
     resolution: {integrity: sha512-s+w+rBWnpTMwSFbaE0UXsRlg7hU4FjekKU4eyAih5T8nJuNZT1nNsskXpxmeqSK9UzkBl6UgRlnKc8hz8IEqOw==}
     hasBin: true
+
+  node-pty@1.1.0:
+    resolution: {integrity: sha512-20JqtutY6JPXTUnL0ij1uad7Qe1baT46lyolh2sSENDd4sTzKZ4nmAFkeAARDKwmlLjPx6XKRlwRUxwjOy+lUg==}
 
   nodemon@3.1.14:
     resolution: {integrity: sha512-jakjZi93UtB3jHMWsXL68FXSAosbLfY0In5gtKq3niLSkrWznrVBzXFNOEMJUfc9+Ke7SHWoAZsiMkNP3vq6Jw==}
@@ -5113,6 +5119,10 @@ snapshots:
     dependencies:
       detect-libc: 2.1.2
     optional: true
+
+  node-pty@1.1.0:
+    dependencies:
+      node-addon-api: 7.1.1
 
   nodemon@3.1.14:
     dependencies:

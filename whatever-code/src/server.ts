@@ -17,6 +17,7 @@ import { CodexClient } from "./agents/codex/client.js";
 import { WorkflowOrchestrator } from "./agents/workflow/index.js";
 import { ServicesLayer } from "./services/index.js";
 import { TelemetryLayer } from "./telemetry.js";
+import { TerminalService } from "./terminal/index.js";
 import { resumeExecutingLoops } from "./ralph-loop/index.js";
 
 interface ServerConfig {
@@ -94,6 +95,7 @@ export function startServer(config: ServerConfig) {
     Layer.provide(ClaudeOrchestrator.Default),
     Layer.provide(CodexOrchestrator.Default),
     Layer.provide(CodexClient.Default),
+    Layer.provide(TerminalService.Default),
     Layer.provide(ServicesLayer),
     Layer.provide(dbLayer),
     Layer.provide(NodeHttpServer.layer(createServer, { port: config.port })),

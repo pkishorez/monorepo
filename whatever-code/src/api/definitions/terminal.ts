@@ -9,7 +9,10 @@ export class TerminalRpcs extends RpcGroup.make(
       alreadyRunning: Schema.Boolean,
     }),
     error: AppError,
-    payload: Schema.Struct({ absolutePath: Schema.String }),
+    payload: Schema.Struct({
+      absolutePath: Schema.String,
+      name: Schema.optionalWith(Schema.String, { default: () => "default" }),
+    }),
   }),
   Rpc.make("write", {
     success: Schema.Void,

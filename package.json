@@ -5,6 +5,7 @@
   "license": "ISC",
   "author": "Kishore",
   "scripts": {
+    "postinstall": "node scripts/fix-node-pty-permissions.js",
     "build": "pnpm -r build",
     "changeset": "changeset",
     "clean": "del-cli '**/.turbo' '**/node_modules' '**/dist'",

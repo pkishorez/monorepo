@@ -6,6 +6,7 @@ import { AppError } from "../api/definitions/app.js";
 interface TerminalSession {
   sessionId: string;
   absolutePath: string;
+  name: string;
   pty: IPty;
 }
 
@@ -13,14 +14,18 @@ export class TerminalService extends Effect.Service<TerminalService>()(
   "TerminalService",
   {
     effect: Effect.gen(function* () {
-      /** One terminal session per project, keyed by absolutePath. */
-      const sessionsByProject = new Map<string, TerminalSession>();
+      /** Terminal sessions keyed by "absolutePath:name". */
+      const sessionsByKey = new Map<string, TerminalSession>();
       /** Reverse lookup: sessionId → TerminalSession. */
       const sessionsById = new Map<string, TerminalSession>();
 
-      const open = (absolutePath: string) =>
+      const makeKey = (absolutePath: string, name: string) =>
+        `${absolutePath}:${name}`;
+
+      const open = (absolutePath: string, name: string = "default") =>
         Effect.gen(function* () {
-          const existing = sessionsByProject.get(absolutePath);
+          const key = makeKey(absolutePath, name);
+          const existing = sessionsByKey.get(key);
           if (existing) {
             return { sessionId: existing.sessionId, alreadyRunning: true };
           }
@@ -42,13 +47,12 @@ export class TerminalService extends Effect.Service<TerminalService>()(
               }),
           });
 
-          const session: TerminalSession = { sessionId, absolutePath, pty };
-          sessionsByProject.set(absolutePath, session);
+          const session: TerminalSession = { sessionId, absolutePath, name, pty };
+          sessionsByKey.set(key, session);
           sessionsById.set(sessionId, session);
 
-          // Clean up maps when the PTY process exits.
           pty.onExit(() => {
-            sessionsByProject.delete(absolutePath);
+            sessionsByKey.delete(key);
             sessionsById.delete(sessionId);
           });
 
@@ -82,7 +86,7 @@ export class TerminalService extends Effect.Service<TerminalService>()(
         Effect.gen(function* () {
           const session = yield* getSession(sessionId);
           session.pty.kill();
-          sessionsByProject.delete(session.absolutePath);
+          sessionsByKey.delete(makeKey(session.absolutePath, session.name));
           sessionsById.delete(sessionId);
         });
 
@@ -93,15 +97,30 @@ export class TerminalService extends Effect.Service<TerminalService>()(
             const queue = yield* Queue.unbounded<string>();
 
             // Bridge node-pty's callback-based onData into an Effect Queue.
-            const disposable = session.pty.onData((data) => {
+            const dataDisposable = session.pty.onData((data) => {
               Effect.runFork(Queue.offer(queue, data));
             });
 
-            // Clean up the listener when the stream scope is closed.
+            // Shut down the queue when the PTY exits so the stream completes cleanly.
+            const exitDisposable = session.pty.onExit(() => {
+              Effect.runFork(Queue.shutdown(queue));
+            });
+
+            // Clean up listeners when the stream scope is closed.
             yield* Scope.addFinalizer(
               yield* Effect.scope,
-              Effect.sync(() => disposable.dispose()),
+              Effect.sync(() => {
+                dataDisposable.dispose();
+                exitDisposable.dispose();
+              }),
             );
+
+            // Bounce the PTY size to force SIGWINCH so the foreground process
+            // redraws its screen. Essential when a client reconnects to a
+            // running session (the new xterm instance has no prior content).
+            const { cols, rows } = session.pty;
+            session.pty.resize(Math.max(1, cols - 1), rows);
+            session.pty.resize(cols, rows);
 
             return Stream.fromQueue(queue);
           }),
