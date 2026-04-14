@@ -45,6 +45,24 @@ export const processMessage = (
         .pipe(Effect.orDie);
       yield* Queue.offer(turn.outputQueue, message);
 
+      if (message.type === "assistant") {
+        const content = (message as unknown as { content?: Array<{ type: string; name?: string; id?: string }> }).content;
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            if (block.type === "tool_use") {
+              yield* Effect.logDebug("claude: tool_use").pipe(
+                Effect.annotateLogs({
+                  sessionId,
+                  turnId: turn.turnId,
+                  toolName: block.name ?? "unknown",
+                  toolUseId: block.id ?? "unknown",
+                }),
+              );
+            }
+          }
+        }
+      }
+
       if (message.type === "system" && message.subtype === "init") {
         yield* Effect.log("session initialized").pipe(
           Effect.annotateLogs({ turnId: turn.turnId }),
@@ -92,7 +110,16 @@ export const processMessage = (
 
         yield* Queue.shutdown(turn.outputQueue);
       }
-    });
+    }).pipe(
+      Effect.withSpan("claude.processMessage", {
+        attributes: {
+          sessionId,
+          turnId: turn.turnId,
+          "message.type": message.type,
+          "message.subtype": (message as any).subtype ?? null,
+        },
+      }),
+    );
 
 /** Handles fiber exit — cleans up turn state and marks status. */
 export const onFiberExit = (
@@ -138,4 +165,6 @@ export const onFiberExit = (
         );
         yield* markTurnStatus(turn.turnId, sessionId, "error");
       }
-    });
+    }).pipe(
+      Effect.withSpan("claude.fiberExit", { attributes: { sessionId, turnId: turn.turnId } }),
+    );

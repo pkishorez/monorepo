@@ -6,7 +6,8 @@ import { TerminalRpcs } from "./terminal.js";
 import { WorkflowRpcs } from "./workflow.js";
 import { RalphLoopRpcs } from "../../ralph-loop/api/definitions.js";
 
-export { AppRpcs, AppError, OpenProjectParams } from "./app.js";
+export { AppRpcs, AppError, OpenProjectParams, UpdateProjectSettingsParams } from "./app.js";
+export { ProjectSettings } from "../../core/entity/project/index.js";
 export { ClaudeRpcs, ClaudeChatError } from "./claude.js";
 export { CodexRpcs, CodexChatError } from "./codex.js";
 export { GitRpcs } from "./git.js";

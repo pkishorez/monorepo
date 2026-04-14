@@ -30,7 +30,7 @@ export {
   AskUserQuestionInput,
   PendingQuestionEntry,
 } from "./turn/index.js";
-export { projectEntity } from "./project/index.js";
+export { projectEntity, ProjectSettings } from "./project/index.js";
 export { workflowEntity } from "./workflow/index.js";
 export { TaskStatus } from "./status.js";
 export {

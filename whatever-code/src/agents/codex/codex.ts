@@ -405,9 +405,13 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               ),
             ),
           );
+          yield* Effect.log("codex: thread created").pipe(
+            Effect.annotateLogs({ sessionId }),
+          );
           return sessionId;
         }).pipe(
           Effect.mapError((e) => new CodexChatError({ message: errorMessage(e) })),
+          Effect.withSpan("codex.createThread", { attributes: { model: params.model } }),
         );
 
       const continueThread = (
@@ -550,6 +554,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               ? e
               : new CodexChatError({ message: errorMessage(e) }),
           ),
+          Effect.withSpan("codex.continueThread", { attributes: { sessionId: params.sessionId } }),
         );
 
       const stopThread = (sessionId: string) =>
@@ -575,10 +580,14 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           activeTurns.delete(sessionId);
           yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
-        });
+        }).pipe(
+          Effect.withSpan("codex.stopThread", { attributes: { sessionId } }),
+        );
 
       const updateThread = (params: typeof UpdateThreadParams.Type) =>
-        updateSessionPayload(params.sessionId, "codex", params.updates);
+        updateSessionPayload(params.sessionId, "codex", params.updates).pipe(
+          Effect.withSpan("codex.updateThread", { attributes: { sessionId: params.sessionId } }),
+        );
 
       const respondToUserInput = (
         params: typeof RespondToUserInputParams.Type,
@@ -646,6 +655,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               ? e
               : new CodexChatError({ message: errorMessage(e) }),
           ),
+          Effect.withSpan("codex.respondToUserInput", { attributes: { sessionId: params.sessionId } }),
         );
 
       const oneShot = (params: {
