@@ -33,6 +33,7 @@ const makeClaudeTurnInsert = (
       resultSubtype: null,
       resultErrors: null,
       pendingQuestions: {},
+      state: null,
     },
   });
 

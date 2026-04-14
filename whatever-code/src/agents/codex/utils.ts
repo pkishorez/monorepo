@@ -40,6 +40,7 @@ const makeCodexTurnInsert = (
       usage: null,
       error: null,
       pendingQuestions: {},
+      state: null,
     },
   });
 

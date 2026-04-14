@@ -187,6 +187,18 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                     data: notification,
                   })
                   .pipe(Effect.orDie);
+
+                if (
+                  notification.method === "item/completed" &&
+                  notification.params.item.type === "plan" &&
+                  typeof (notification.params.item as any).text === "string" &&
+                  (notification.params.item as any).text.length > 0
+                ) {
+                  yield* updateCodexTurnPayload(activeTurn.turn.turnId, (payload) => ({
+                    ...payload,
+                    state: "plan-ready" as const,
+                  }));
+                }
               }
               break;
             }
@@ -278,6 +290,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           // Persist to DB so frontend discovers it
           yield* updateCodexTurnPayload(turn.turnId, (payload) => ({
             ...payload,
+            state: "question" as const,
             pendingQuestions: {
               ...payload.pendingQuestions,
               [requestId]: {
@@ -590,9 +603,8 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           // Persist "answered" state to DB — use in-memory questions as the
           // source of truth rather than re-reading from the DB payload.
-          yield* updateCodexTurnPayload(turn.turnId, (payload) => ({
-            ...payload,
-            pendingQuestions: {
+          yield* updateCodexTurnPayload(turn.turnId, (payload) => {
+            const updatedPendingQuestions = {
               ...payload.pendingQuestions,
               [requestId]: {
                 status: "answered" as const,
@@ -602,8 +614,16 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                     ? (response.updatedInput ?? {})
                     : { denied: true, message: response.message },
               },
-            },
-          }));
+            };
+            const hasStillPending = Object.values(updatedPendingQuestions).some(
+              (e) => e.status === "pending",
+            );
+            return {
+              ...payload,
+              state: hasStillPending ? ("question" as const) : null,
+              pendingQuestions: updatedPendingQuestions,
+            };
+          });
 
           // Convert answers and send JSON-RPC response back to subprocess
           if (response.behavior === "allow") {

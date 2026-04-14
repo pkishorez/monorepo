@@ -217,9 +217,8 @@ export const makeSessionManager = (args: {
       }
 
       // Persist "answered" state to DB so the frontend sees it immediately
-      yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
-        ...payload,
-        pendingQuestions: {
+      yield* updateClaudeTurnPayload(turn.turnId, (payload) => {
+        const updatedPendingQuestions = {
           ...payload.pendingQuestions,
           [toolUseId]: {
             status: "answered" as const,
@@ -231,8 +230,16 @@ export const makeSessionManager = (args: {
                 ? (response.updatedInput ?? {})
                 : { denied: true, message: response.message },
           },
-        },
-      }));
+        };
+        const hasStillPending = Object.values(updatedPendingQuestions).some(
+          (e) => e.status === "pending",
+        );
+        return {
+          ...payload,
+          state: hasStillPending ? ("question" as const) : null,
+          pendingQuestions: updatedPendingQuestions,
+        };
+      });
 
       // Resolve the deferred — unblocks the SDK's canUseTool promise
       yield* Deferred.succeed(deferred, response);
