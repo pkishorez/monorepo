@@ -7,7 +7,7 @@ import {
   UpdateSessionParams,
 } from "../../agents/claude/schema.js";
 import { EntitySchema } from "@std-toolkit/core";
-import { claudeMessageProjectedEntity } from "../../entity/projection/claude-message.js";
+import { claudeMessageProjectedEntity } from "../../core/entity/projection/claude-message.js";
 
 export class ClaudeChatError extends Schema.TaggedError<ClaudeChatError>()(
   "ClaudeChatError",

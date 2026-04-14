@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-export { InteractionMode, AccessMode } from "../../entity/session/session.js";
+export { InteractionMode, AccessMode } from "../../core/entity/session/session.js";
 
 export const ToolResponse = Schema.Union(
   Schema.mutable(

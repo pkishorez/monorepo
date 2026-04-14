@@ -1,5 +1,5 @@
 import { SQLiteEntity } from "@std-toolkit/sqlite";
-import { workflowEntity } from "../../entity/workflow/index.js";
+import { workflowEntity } from "../../core/entity/workflow/index.js";
 import { table } from "../table.js";
 
 export const workflowSqliteEntity = SQLiteEntity.make(table)

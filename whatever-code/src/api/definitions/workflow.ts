@@ -1,7 +1,7 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
 import { EntitySchema } from "@std-toolkit/core";
 import { Schema } from "effect";
-import { workflowEntity } from "../../entity/workflow/index.js";
+import { workflowEntity } from "../../core/entity/workflow/index.js";
 import {
   StartExecuteParams,
   ContinueExecuteParams,

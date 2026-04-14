@@ -28,11 +28,11 @@ export {
   ImageBlock,
   MODELS as ClaudeModels,
 } from "../../agents/claude/schema.js";
-export type { ProjectedClaudeMessage } from "../../projection/claude-message.js";
+export type { ProjectedClaudeMessage } from "../../core/projection/claude-message.js";
 export type {
   ProjectedCodexEvent,
   ProjectedToolCall,
-} from "../../projection/codex-event.js";
+} from "../../core/projection/codex-event.js";
 
 export {
   CreateThreadParams,

@@ -1,5 +1,5 @@
 import { SQLiteEntity } from "@std-toolkit/sqlite";
-import { turnEntity } from "../../entity/turn/index.js";
+import { turnEntity } from "../../core/entity/turn/index.js";
 import { table } from "../table.js";
 
 export const turnSqliteEntity = SQLiteEntity.make(table)

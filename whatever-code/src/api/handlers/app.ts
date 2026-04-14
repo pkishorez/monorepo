@@ -9,7 +9,7 @@ import { dataDir } from "../../db/index.js";
 import { projectSqliteEntity } from "../../db/entities/claude.js";
 import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { turnSqliteEntity } from "../../db/entities/turn.js";
-import { computePaths } from "../../lib/paths.js";
+import { computePaths } from "../../core/lib/paths.js";
 
 const execFilePromise = promisify(execFile);
 

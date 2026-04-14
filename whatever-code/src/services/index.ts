@@ -3,7 +3,7 @@ import { ConnectionService } from "@std-toolkit/core/server";
 import { Effect, Layer } from "effect";
 import { BroadcastService } from "./broadcast.js";
 import { WorktreeService } from "./worktree.js";
-import { applyProjection } from "../projection/index.js";
+import { applyProjection } from "../projection.js";
 
 const connectionServiceLayer = Layer.effect(
   ConnectionService,

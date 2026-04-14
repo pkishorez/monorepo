@@ -1,7 +1,7 @@
 import { SQLiteEntity } from "@std-toolkit/sqlite";
 import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
-import { Typed } from "../../lib/typed.js";
+import { Typed } from "../../core/lib/typed.js";
 import type { CodexEventSource } from "../../agents/codex/event-source.js";
 import { table } from "../table.js";
 

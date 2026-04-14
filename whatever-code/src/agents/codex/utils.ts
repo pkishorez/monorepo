@@ -7,7 +7,7 @@ import { initSessionsForType } from "../shared/session.js";
 import { markTurnsInterrupted } from "../shared/turn.js";
 import { promptToText } from "../shared/session-name.js";
 import type { PromptContent } from "../shared/schema.js";
-import type { QuestionItem } from "../../entity/turn/turn.js";
+import type { QuestionItem } from "../../core/entity/turn/turn.js";
 import type { ToolRequestUserInputQuestion } from "./generated/v2/ToolRequestUserInputQuestion.js";
 
 export { markTurnStatus, findQueuedTurn } from "../shared/turn.js";
