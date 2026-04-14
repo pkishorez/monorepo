@@ -132,6 +132,7 @@ export const makeSessionManager = (args: {
           outputQueue,
           turnId,
           initialized,
+          planExited: false,
           pendingQuestions: new Map(),
           ...(onStatusUpdate ? { onStatusUpdate } : {}),
         }),

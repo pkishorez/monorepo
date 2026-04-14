@@ -14,6 +14,8 @@ export interface ActiveTurn {
   fiber: Fiber.RuntimeFiber<void, Error> | null;
   stopped: boolean;
   resultReceived: boolean;
+  /** Set when ExitPlanMode is intercepted — signals that the subsequent fiber failure is expected and clean. */
+  planExited: boolean;
   outputQueue: Queue.Queue<SDKMessage>;
   turnId: string;
   initialized: Deferred.Deferred<void, Error>;
