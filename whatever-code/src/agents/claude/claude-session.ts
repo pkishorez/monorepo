@@ -26,10 +26,11 @@ import {
 } from "./internal/index.js";
 import type { ActiveTurn, SessionRuntimeOptions } from "./internal/index.js";
 import type { PromptContent } from "./schema.js";
+import { SqliteDB } from "@std-toolkit/sqlite";
 
 export const makeSessionManager = (args: {
   sessionId: string;
-  runtime: Runtime.Runtime<never>;
+  runtime: Runtime.Runtime<SqliteDB>;
   fork: <A, E>(effect: Effect.Effect<A, E, any>) => Fiber.RuntimeFiber<A, E>;
 }) => {
   const { sessionId, fork } = args;

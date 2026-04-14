@@ -33,14 +33,14 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.2.84",
-    "@effect/opentelemetry": "0.62.0",
+    "@anthropic-ai/claude-agent-sdk": "0.2.107",
+    "@effect/opentelemetry": "0.63.0",
     "@effect/platform": "0.96.0",
     "@effect/platform-node": "0.106.0",
     "@effect/rpc": "0.75.0",
-    "@openai/codex-sdk": "0.114.0",
+    "@openai/codex-sdk": "0.120.0",
     "@std-toolkit/eschema": "workspace:*",
-    "better-sqlite3": "12.8.0",
+    "better-sqlite3": "12.9.0",
     "effect": "3.21.0",
     "env-paths": "4.0.0",
     "node-pty": "^1.1.0",
@@ -55,8 +55,8 @@
     "@std-toolkit/sqlite": "workspace:*",
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",
-    "@types/node": "25.5.0",
-    "tsdown": "0.21.5",
-    "typescript": "5.9.3"
+    "@types/node": "25.6.0",
+    "tsdown": "0.21.8",
+    "typescript": "6.0.2"
   }
 }

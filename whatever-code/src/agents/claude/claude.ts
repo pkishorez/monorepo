@@ -7,6 +7,7 @@ import { updateSessionPayload } from "../shared/session.js";
 import { deriveSessionName } from "../shared/session-name.js";
 import { makeSessionManager } from "./claude-session.js";
 import type { SessionRuntimeOptions } from "./internal/index.js";
+import { SqliteDB } from "@std-toolkit/sqlite";
 
 type SessionManager = ReturnType<typeof makeSessionManager>;
 import {
@@ -22,9 +23,9 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
   {
     scoped: Effect.gen(function* () {
       const sessions = new Map<string, SessionManager>();
-      const runtime = yield* Effect.runtime<never>();
+      const runtime = yield* Effect.runtime<SqliteDB>();
       const fork = <A, E>(effect: Effect.Effect<A, E, any>) =>
-        Runtime.runFork(runtime)(effect as Effect.Effect<A, E, never>);
+        Runtime.runFork(runtime)(effect as Effect.Effect<A, E, SqliteDB>);
 
       yield* initSessions;
 

@@ -13,16 +13,16 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "json-stringify-deterministic": "1.0.12",
+    "json-stringify-deterministic": "1.0.13",
     "type-fest": "5.5.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260317.1",
+    "@cloudflare/workers-types": "4.20260414.1",
     "@effect/platform": "0.96.0",
     "@effect/rpc": "0.75.0",
     "@tsconfig/node22": "22.0.5",
     "effect": "3.21.0",
-    "typescript": "5.9.3"
+    "typescript": "6.0.2"
   },
   "peerDependencies": {
     "@effect/platform": ">=0.94.1",

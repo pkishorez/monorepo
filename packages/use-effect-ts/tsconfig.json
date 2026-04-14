@@ -2,6 +2,7 @@
   "extends": "@monorepo/config/tsconfig.lib.json",
   "compilerOptions": {
     "lib": ["ESNext", "Dom"],
+    "rootDir": "src",
     "outDir": "dist"
   }
 }
