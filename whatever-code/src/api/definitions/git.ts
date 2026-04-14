@@ -57,4 +57,12 @@ export class GitRpcs extends RpcGroup.make(
       create: Schema.optionalWith(Schema.Boolean, { default: () => false }),
     }),
   }),
+  Rpc.make("getRoot", {
+    success: Schema.Struct({
+      absolutePath: Schema.String,
+      homePath: Schema.String,
+    }),
+    error: AppError,
+    payload: Schema.Struct({ absolutePath: Schema.String }),
+  }),
 ).prefix("git.") {}

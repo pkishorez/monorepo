@@ -2,6 +2,8 @@ import { Effect, Runtime } from "effect";
 import { v7 } from "uuid";
 import { RalphLoopRpcs } from "./definitions.js";
 import { RalphLoopError } from "./schema.js";
+import type { OnRalphLoopStatusUpdate } from "../../agents/workflow/schema.js";
+import { deriveSessionName } from "../../agents/shared/session-name.js";
 import { ClaudeOrchestrator } from "../../agents/claude/claude.js";
 import { projectSqliteEntity } from "../../db/entities/claude.js";
 import { ralphLoopSqliteEntity } from "../db/entities/ralph-loop.js";
@@ -19,6 +21,28 @@ import {
   persistPlanData,
 } from "../orchestrator/planning-tools.js";
 import { errorMessage } from "../../core/lib/error.js";
+
+/** Build a ralph-loop status update callback bound to a workflow. */
+const makeRalphLoopStatusCallback = (
+  workflowId: string,
+  ralphLoopId: string,
+): OnRalphLoopStatusUpdate =>
+  (update) =>
+    workflowSqliteEntity
+      .update(
+        { workflowId },
+        {
+          spec: {
+            type: "ralph-loop" as const,
+            ralphLoopId,
+            status: update.status,
+            completedTasks: update.completedTasks,
+            totalTasks: update.totalTasks,
+          },
+          ...(update.name ? { name: update.name } : {}),
+        },
+      )
+      .pipe(Effect.orDie, Effect.asVoid) as Effect.Effect<void>;
 
 const toRalphLoopError = Effect.mapError((e: unknown) =>
   e instanceof RalphLoopError
@@ -110,9 +134,13 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           .insert({
             workflowId,
             projectId: params.projectId,
+            name: deriveSessionName(params.prompt),
             spec: {
               type: "ralph-loop",
               ralphLoopId,
+              status: "planning",
+              completedTasks: 0,
+              totalTasks: 0,
             },
           })
           .pipe(Effect.orDie);
@@ -204,9 +232,20 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           ),
         );
 
+        // Find the workflow linked to this ralph loop so we can push status updates
+        const workflows = yield* workflowSqliteEntity
+          .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
+          .pipe(Effect.orDie);
+        const workflow = workflows.items.find(
+          (w) => w.value.spec.type === "ralph-loop" && w.value.spec.ralphLoopId === params.ralphLoopId,
+        );
+        const onStatusUpdate = workflow
+          ? makeRalphLoopStatusCallback(workflow.value.workflowId, params.ralphLoopId)
+          : undefined;
+
         const runtime = yield* Effect.runtime<never>();
         Runtime.runFork(runtime)(
-          startRalphLoopExecution(params.ralphLoopId).pipe(
+          startRalphLoopExecution(params.ralphLoopId, onStatusUpdate).pipe(
             Effect.catchAll((e) =>
               Effect.gen(function* () {
                 yield* Effect.logError("Ralph loop execution failed").pipe(
@@ -221,6 +260,14 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
                     { status: "failed" },
                   )
                   .pipe(Effect.orDie);
+                if (onStatusUpdate) {
+                  const tasks = yield* ralphLoopTaskSqliteEntity
+                    .query("byRalphLoop", { pk: { ralphLoopId: params.ralphLoopId }, sk: { ">": null } })
+                    .pipe(Effect.orDie);
+                  const total = tasks.items.filter((i) => !i.meta._d).length;
+                  const completed = tasks.items.filter((i) => !i.meta._d && i.value.status === "completed").length;
+                  yield* onStatusUpdate({ status: "failed", completedTasks: completed, totalTasks: total });
+                }
               }),
             ),
           ) as Effect.Effect<void>,
@@ -242,6 +289,21 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
 
         const claude = yield* ClaudeOrchestrator;
         yield* claude.stopSession(loop.planningSessionId);
+
+        // Push cancelled status to the workflow
+        const workflows = yield* workflowSqliteEntity
+          .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
+          .pipe(Effect.orDie);
+        const workflow = workflows.items.find(
+          (w) => w.value.spec.type === "ralph-loop" && w.value.spec.ralphLoopId === params.ralphLoopId,
+        );
+        if (workflow) {
+          yield* makeRalphLoopStatusCallback(workflow.value.workflowId, params.ralphLoopId)({
+            status: "cancelled",
+            completedTasks: 0,
+            totalTasks: 0,
+          });
+        }
       }).pipe(
         toRalphLoopError,
         Effect.withSpan("rpc.ralphLoop.interruptPlanning", {
@@ -250,7 +312,29 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
       ),
 
     "ralphLoop.cancel": (params) =>
-      cancelRalphLoop(params.ralphLoopId).pipe(
+      Effect.gen(function* () {
+        yield* cancelRalphLoop(params.ralphLoopId);
+
+        // Push cancelled status to the workflow
+        const workflows = yield* workflowSqliteEntity
+          .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
+          .pipe(Effect.orDie);
+        const workflow = workflows.items.find(
+          (w) => w.value.spec.type === "ralph-loop" && w.value.spec.ralphLoopId === params.ralphLoopId,
+        );
+        if (workflow) {
+          const tasks = yield* ralphLoopTaskSqliteEntity
+            .query("byRalphLoop", { pk: { ralphLoopId: params.ralphLoopId }, sk: { ">": null } })
+            .pipe(Effect.orDie);
+          const total = tasks.items.filter((i) => !i.meta._d).length;
+          const completed = tasks.items.filter((i) => !i.meta._d && i.value.status === "completed").length;
+          yield* makeRalphLoopStatusCallback(workflow.value.workflowId, params.ralphLoopId)({
+            status: "cancelled",
+            completedTasks: completed,
+            totalTasks: total,
+          });
+        }
+      }).pipe(
         toRalphLoopError,
         Effect.withSpan("rpc.ralphLoop.cancel", {
           attributes: { ralphLoopId: params.ralphLoopId },

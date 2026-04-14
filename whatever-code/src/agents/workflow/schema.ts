@@ -1,6 +1,7 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { CreateSessionParams } from "../claude/schema.js";
 import { PromptContent } from "../shared/schema.js";
+import type { ExecuteStatusType, RalphLoopSpecStatusType } from "../../core/entity/workflow/index.js";
 
 import { CreateThreadParams } from "../codex/schema.js";
 
@@ -50,3 +51,19 @@ export class ExecuteWorkflowError extends Schema.TaggedError<ExecuteWorkflowErro
   "ExecuteWorkflowError",
   { message: Schema.String },
 ) {}
+
+// ---------------------------------------------------------------------------
+// Status update callbacks — threaded into agent orchestrators
+// ---------------------------------------------------------------------------
+
+export type OnExecuteStatusUpdate = (update: {
+  status: ExecuteStatusType;
+  name?: string;
+}) => Effect.Effect<void>;
+
+export type OnRalphLoopStatusUpdate = (update: {
+  status: RalphLoopSpecStatusType;
+  completedTasks: number;
+  totalTasks: number;
+  name?: string;
+}) => Effect.Effect<void>;

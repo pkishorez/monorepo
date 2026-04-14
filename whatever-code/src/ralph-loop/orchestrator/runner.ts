@@ -10,9 +10,11 @@ import { ralphLoopSqliteEntity } from "../db/entities/ralph-loop.js";
 import { ralphLoopTaskSqliteEntity } from "../db/entities/ralph-loop-task.js";
 import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { turnSqliteEntity } from "../../db/entities/turn.js";
+import { workflowSqliteEntity } from "../../db/entities/workflow.js";
 import { buildExecuteNextTaskPrompt } from "./prompt-builder.js";
 import type { ralphLoopEntity } from "../entity/ralph-loop.js";
 import type { ralphLoopTaskEntity } from "../entity/ralph-loop-task.js";
+import type { OnRalphLoopStatusUpdate } from "../../agents/workflow/schema.js";
 
 type RalphLoop = typeof ralphLoopEntity.Type;
 type RalphLoopTask = typeof ralphLoopTaskEntity.Type;
@@ -410,7 +412,10 @@ const executeNextTask = (
  *
  * On any task failure the loop stops immediately (status → failed).
  */
-export const startRalphLoopExecution = (ralphLoopId: string) =>
+export const startRalphLoopExecution = (
+  ralphLoopId: string,
+  onStatusUpdate?: OnRalphLoopStatusUpdate,
+) =>
   Effect.gen(function* () {
     let loop = yield* getLoop(ralphLoopId);
 
@@ -424,9 +429,22 @@ export const startRalphLoopExecution = (ralphLoopId: string) =>
 
     const worktreePath = loop.worktree.path;
 
+    /** Helper to compute task stats and push a status update. */
+    const pushStatus = (status: Parameters<OnRalphLoopStatusUpdate>[0]["status"]) =>
+      Effect.gen(function* () {
+        if (!onStatusUpdate) return;
+        const tasks = yield* getTasks(ralphLoopId);
+        const total = tasks.length;
+        const completed = tasks.filter((t) => t.status === "completed").length;
+        yield* onStatusUpdate({ status, completedTasks: completed, totalTasks: total });
+      });
+
+    yield* pushStatus("executing");
+
     while (true) {
       loop = yield* getLoop(ralphLoopId);
       if (loop.status === "cancelled") {
+        yield* pushStatus("cancelled");
         break;
       }
 
@@ -435,6 +453,7 @@ export const startRalphLoopExecution = (ralphLoopId: string) =>
 
       if (pendingTasks.length === 0) {
         yield* setLoopStatus(ralphLoopId, "completed");
+        yield* pushStatus("completed");
         yield* Effect.log("ralphLoop: all tasks done").pipe(
           Effect.annotateLogs({ ralphLoopId }),
         );
@@ -475,12 +494,15 @@ export const startRalphLoopExecution = (ralphLoopId: string) =>
           )
           .pipe(Effect.orDie);
 
+        yield* pushStatus("executing");
+
         yield* Effect.log(`Task completed: "${taskId}"`).pipe(
           Effect.annotateLogs({ taskId, ralphLoopId }),
         );
       } else if (result.claimedTaskId) {
         yield* setTaskStatus(result.claimedTaskId, "failed");
         yield* setLoopStatus(ralphLoopId, "failed");
+        yield* pushStatus("failed");
 
         yield* Effect.logError(
           `Task failed: claimed task ${result.claimedTaskId} — session ended without calling taskDone`,
@@ -493,6 +515,7 @@ export const startRalphLoopExecution = (ralphLoopId: string) =>
         break;
       } else {
         yield* setLoopStatus(ralphLoopId, "failed");
+        yield* pushStatus("failed");
 
         yield* Effect.logError(
           "Execution session failed — no task was claimed",
@@ -519,6 +542,50 @@ export const startRalphLoopExecution = (ralphLoopId: string) =>
  *
  * Call this once at server startup.
  */
+/**
+ * On startup, mark any workflows stuck in an active status as interrupted/cancelled.
+ * This handles the case where the process died mid-execution.
+ */
+export const recoverStaleWorkflows = Effect.gen(function* () {
+  const allWorkflows = yield* workflowSqliteEntity
+    .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
+    .pipe(Effect.orDie);
+
+  let recovered = 0;
+  for (const item of allWorkflows.items) {
+    if (item.meta._d) continue;
+    const wf = item.value;
+    const { spec } = wf;
+
+    if (spec.type === "execute" && spec.status === "executing") {
+      yield* workflowSqliteEntity
+        .update(
+          { workflowId: wf.workflowId },
+          { spec: { ...spec, status: "interrupted" } },
+        )
+        .pipe(Effect.orDie);
+      recovered++;
+    } else if (
+      spec.type === "ralph-loop" &&
+      (spec.status === "executing" || spec.status === "planning")
+    ) {
+      yield* workflowSqliteEntity
+        .update(
+          { workflowId: wf.workflowId },
+          { spec: { ...spec, status: "cancelled" } },
+        )
+        .pipe(Effect.orDie);
+      recovered++;
+    }
+  }
+
+  if (recovered > 0) {
+    yield* Effect.log(`Recovered ${recovered} stale workflow(s) on startup`);
+  }
+}).pipe(
+  Effect.withSpan("recoverStaleWorkflows"),
+);
+
 export const resumeExecutingLoops = Effect.gen(function* () {
   const executingLoops = yield* ralphLoopSqliteEntity
     .query("byStatus", { pk: { status: "executing" }, sk: { ">": null } })

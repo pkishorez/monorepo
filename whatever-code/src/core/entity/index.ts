@@ -31,7 +31,15 @@ export {
   PendingQuestionEntry,
 } from "./turn/index.js";
 export { projectEntity, ProjectSettings } from "./project/index.js";
-export { workflowEntity } from "./workflow/index.js";
+export {
+  workflowEntity,
+  ExecuteStatus,
+  RalphLoopSpecStatus,
+} from "./workflow/index.js";
+export type {
+  ExecuteStatusType,
+  RalphLoopSpecStatusType,
+} from "./workflow/index.js";
 export { TaskStatus } from "./status.js";
 export {
   ralphLoopEntity,

@@ -33,10 +33,15 @@ export const makeCanUseTool = (
       const planInput = input as Record<string, unknown>;
       if (typeof planInput.plan === "string" && planInput.plan.length > 0) {
         await Runtime.runPromise(runtime)(
-          updateClaudeTurnPayload(turn.turnId, (payload) => ({
-            ...payload,
-            state: "plan-ready" as const,
-          })),
+          Effect.gen(function* () {
+            yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
+              ...payload,
+              state: "plan-ready" as const,
+            }));
+            if (turn.onStatusUpdate) {
+              yield* turn.onStatusUpdate({ status: "plan-ready" });
+            }
+          }),
         );
       }
       return {
@@ -66,6 +71,10 @@ export const makeCanUseTool = (
             },
           },
         }));
+
+        if (turn.onStatusUpdate) {
+          yield* turn.onStatusUpdate({ status: "question" });
+        }
 
         // Block until the user responds (or the session is stopped)
         return yield* Deferred.await(deferred);

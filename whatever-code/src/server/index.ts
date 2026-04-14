@@ -9,7 +9,7 @@ import { WorkflowOrchestrator } from "../agents/workflow/index.js";
 import { ServicesLayer } from "../services/index.js";
 import { TelemetryLayer } from "../telemetry.js";
 import { TerminalService } from "../terminal/index.js";
-import { resumeExecutingLoops } from "../ralph-loop/index.js";
+import { resumeExecutingLoops, recoverStaleWorkflows } from "../ralph-loop/index.js";
 import { dbLayer } from "../db/index.js";
 import { buildRpcRoute, buildProxyRoute, OtelRoute } from "./routes.js";
 
@@ -36,12 +36,14 @@ export function startServer(config: ServerConfig) {
     buildProxyRoute(config.proxyTarget),
   );
 
-  // Resume any ralph loops that were executing when the process last stopped.
+  // Recover stale workflow statuses, then resume any ralph loops that were
+  // executing when the process last stopped.
   const StartupLayer = Layer.effectDiscard(
     Effect.forkDaemon(
-      resumeExecutingLoops.pipe(
+      recoverStaleWorkflows.pipe(
+        Effect.flatMap(() => resumeExecutingLoops),
         Effect.catchAll((e) =>
-          Effect.logError("Failed to resume executing ralph loops").pipe(
+          Effect.logError("Startup recovery failed").pipe(
             Effect.annotateLogs({ error: String(e) }),
           ),
         ),

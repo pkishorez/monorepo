@@ -395,8 +395,8 @@ importers:
   whatever-code:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: 0.2.107
-        version: 0.2.107(zod@4.3.6)
+        specifier: 0.2.108
+        version: 0.2.108(zod@4.3.6)
       '@effect/opentelemetry':
         specifier: 0.63.0
         version: 0.63.0(@effect/platform@0.96.0(effect@3.21.0))(@opentelemetry/api@1.9.0)(@opentelemetry/resources@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-logs@0.213.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-metrics@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-node@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-web@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.40.0)(effect@3.21.0)
@@ -470,8 +470,8 @@ packages:
   '@acemir/cssom@0.9.29':
     resolution: {integrity: sha512-G90x0VW+9nW4dFajtjCoT+NM0scAfH9Mb08IcjgFHYbfiL/lU04dTF9JuVOi3/OH+DJCQdcIseSXkdCB9Ky6JA==}
 
-  '@anthropic-ai/claude-agent-sdk@0.2.107':
-    resolution: {integrity: sha512-zH5CCjvFn4A+RN0LLaqKJYEcGEg2O/Bm+tDpkBGcEKaRZOqwXkKJ2d9JmboALGSxsCAN5K0+uQxPgzk9LhiQzg==}
+  '@anthropic-ai/claude-agent-sdk@0.2.108':
+    resolution: {integrity: sha512-B6DDuzuguNu2P2rzVcEf0P0hKwEWqqwoXU9UsmYONFuTOHIqfvK8d8oDBwPCctQ/fG7nnJOf796RNAb/ZXM+Zg==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       zod: ^4.0.0
@@ -3429,7 +3429,7 @@ snapshots:
   '@acemir/cssom@0.9.29':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.2.107(zod@4.3.6)':
+  '@anthropic-ai/claude-agent-sdk@0.2.108(zod@4.3.6)':
     dependencies:
       '@anthropic-ai/sdk': 0.81.0(zod@4.3.6)
       '@modelcontextprotocol/sdk': 1.29.0(zod@4.3.6)
