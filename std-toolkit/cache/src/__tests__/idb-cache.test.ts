@@ -1,4 +1,4 @@
-import "./setup";
+import "./setup.js";
 import { describe, it, expect } from "@effect/vitest";
 import { Effect, Option, Schema } from "effect";
 import { EntityESchema } from "@std-toolkit/eschema";

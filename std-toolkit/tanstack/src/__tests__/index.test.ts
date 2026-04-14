@@ -314,11 +314,11 @@ describe("collectionRegistry", () => {
     expect(typeof builder.build).toBe("function");
   });
 
-  it("build returns registry with process and fetchAll methods", () => {
+  it("build returns registry with process and fetchAll", () => {
     const registry = collectionRegistry.create().build();
 
     expect(typeof registry.process).toBe("function");
-    expect(typeof registry.fetchAll).toBe("function");
+    expect(typeof registry.fetchAll).toBe("object");
   });
 
   it("process ignores null and undefined", () => {

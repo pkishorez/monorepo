@@ -7,6 +7,7 @@ import type { AccessMode } from "../../../entity/session/session.js";
 import { AskUserQuestionInput } from "../../../entity/turn/turn.js";
 import { updateClaudeTurnPayload } from "../../shared/turn.js";
 import type { ActiveTurn } from "./types.js";
+import { SqliteDB } from "@std-toolkit/sqlite";
 
 /**
  * Creates the `canUseTool` callback for the SDK query.
@@ -25,7 +26,7 @@ import type { ActiveTurn } from "./types.js";
 export const makeCanUseTool = (
   _accessMode: typeof AccessMode.Type,
   turn: ActiveTurn,
-  runtime: Runtime.Runtime<never>,
+  runtime: Runtime.Runtime<SqliteDB>,
 ): CanUseTool => {
   return async (toolName, input, opts): Promise<PermissionResult> => {
     if (toolName === "ExitPlanMode") {
@@ -72,7 +73,7 @@ export const makeCanUseTool = (
 
       // Bridge from Effect world to the plain Promise the SDK expects
       const fiber = Runtime.runFork(runtime)(
-        program as Effect.Effect<PermissionResult, Error, never>,
+        program as Effect.Effect<PermissionResult, Error, SqliteDB>,
       );
       const exit = await Effect.runPromise(
         fiber.await as Effect.Effect<Exit.Exit<PermissionResult, Error>>,
