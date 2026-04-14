@@ -44,6 +44,7 @@ export const makeCanUseTool = (
           }),
         );
       }
+      turn.planExited = true;
       return {
         behavior: "deny",
         message: "ExitPlanMode is managed by the UI.",
