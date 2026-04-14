@@ -19,6 +19,7 @@ export {
   cancelRalphLoop,
   createWorktreeForLoop,
   resumeExecutingLoops,
+  recoverStaleWorkflows,
 } from "./orchestrator/runner.js";
 
 export { buildExecuteNextTaskPrompt } from "./orchestrator/prompt-builder.js";

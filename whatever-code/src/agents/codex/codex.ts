@@ -11,6 +11,7 @@ import { updateSessionPayload } from "../shared/session.js";
 import { updateCodexTurnPayload } from "../shared/turn.js";
 import { deriveSessionName } from "../shared/session-name.js";
 import type { ActiveTurn } from "./internal.js";
+import type { OnExecuteStatusUpdate } from "../workflow/schema.js";
 import {
   CreateThreadParams,
   ContinueThreadParams,
@@ -117,6 +118,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
               if (turn.status === "completed") {
                 yield* markTurnStatus(at.turnId, ourSessionId, "success");
+                if (at.onStatusUpdate) yield* at.onStatusUpdate({ status: "success" });
               } else if (turn.status === "failed") {
                 yield* Effect.logError("codex: turn failed").pipe(
                   Effect.annotateLogs({
@@ -132,8 +134,10 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                   error: turn.error,
                 }));
                 yield* markTurnStatus(at.turnId, ourSessionId, "error");
+                if (at.onStatusUpdate) yield* at.onStatusUpdate({ status: "error" });
               } else if (turn.status === "interrupted") {
                 yield* markTurnStatus(at.turnId, ourSessionId, "interrupted");
+                if (at.onStatusUpdate) yield* at.onStatusUpdate({ status: "interrupted" });
               }
 
               activeTurns.delete(ourSessionId);
@@ -156,6 +160,9 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                       { name },
                     )
                     .pipe(Effect.orDie);
+                  if (activeTurn.turn.onStatusUpdate) {
+                    yield* activeTurn.turn.onStatusUpdate({ status: "executing", name });
+                  }
                 }
               }
               break;
@@ -198,6 +205,9 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                     ...payload,
                     state: "plan-ready" as const,
                   }));
+                  if (activeTurn.turn.onStatusUpdate) {
+                    yield* activeTurn.turn.onStatusUpdate({ status: "plan-ready" });
+                  }
                 }
               }
               break;
@@ -299,6 +309,10 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               },
             },
           }));
+
+          if (turn.onStatusUpdate) {
+            yield* turn.onStatusUpdate({ status: "question" });
+          }
         }).pipe(
           // If DB persistence fails, clean up in-memory state and unblock
           // the subprocess so it doesn't hang indefinitely.
@@ -344,7 +358,10 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           Effect.catchAll(() => Effect.void),
         );
 
-      const createThread = (params: typeof CreateThreadParams.Type) =>
+      const createThread = (
+        params: typeof CreateThreadParams.Type,
+        onStatusUpdate?: OnExecuteStatusUpdate,
+      ) =>
         Effect.gen(function* () {
           const sessionId = v7();
 
@@ -391,7 +408,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                 .pipe(Effect.orDie);
               sdkThreadIdMap.set(sdkThreadId, sessionId);
 
-              yield* continueThread({ sessionId, prompt: params.prompt });
+              yield* continueThread({ sessionId, prompt: params.prompt }, undefined, onStatusUpdate);
             }).pipe(
               Effect.tapError((e) =>
                 Effect.logError("codex: createThread background task failed").pipe(
@@ -417,6 +434,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
       const continueThread = (
         params: typeof ContinueThreadParams.Type,
         existingTurnId?: string,
+        onStatusUpdate?: OnExecuteStatusUpdate,
       ) =>
         Effect.gen(function* () {
           const { sessionId } = params;
@@ -501,7 +519,12 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             }
           }
 
-          const turn: ActiveTurn = { turnId, sdkTurnId: null, pendingUserInputs: new Map() };
+          const turn: ActiveTurn = {
+            turnId,
+            sdkTurnId: null,
+            pendingUserInputs: new Map(),
+            ...(onStatusUpdate ? { onStatusUpdate } : {}),
+          };
           activeTurns.set(sessionId, turn);
 
           if (!sdkThreadIdMap.has(payload.sdkThreadId)) {
@@ -580,6 +603,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           activeTurns.delete(sessionId);
           yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
+          if (turn.onStatusUpdate) yield* turn.onStatusUpdate({ status: "interrupted" });
         }).pipe(
           Effect.withSpan("codex.stopThread", { attributes: { sessionId } }),
         );
@@ -649,6 +673,11 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           }
 
           turn.pendingUserInputs.delete(requestId);
+
+          // If no more pending questions, notify workflow we're back to executing
+          if (turn.pendingUserInputs.size === 0 && turn.onStatusUpdate) {
+            yield* turn.onStatusUpdate({ status: "executing" });
+          }
         }).pipe(
           Effect.mapError((e) =>
             e instanceof CodexChatError

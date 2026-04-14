@@ -25,6 +25,7 @@ import {
   toSDKPrompt,
 } from "./internal/index.js";
 import type { ActiveTurn, SessionRuntimeOptions } from "./internal/index.js";
+import type { OnExecuteStatusUpdate } from "../workflow/schema.js";
 import type { PromptContent } from "./schema.js";
 import { SqliteDB } from "@std-toolkit/sqlite";
 
@@ -41,6 +42,7 @@ export const makeSessionManager = (args: {
     prompt: typeof PromptContent.Type,
     runtimeOptions?: SessionRuntimeOptions,
     existingTurnId?: string,
+    onStatusUpdate?: OnExecuteStatusUpdate,
   ) =>
     Effect.gen(function* () {
       // ── Guard: if a turn is still running, queue or append ──
@@ -131,6 +133,7 @@ export const makeSessionManager = (args: {
           turnId,
           initialized,
           pendingQuestions: new Map(),
+          ...(onStatusUpdate ? { onStatusUpdate } : {}),
         }),
       );
       currentTurn = turn;
@@ -254,6 +257,13 @@ export const makeSessionManager = (args: {
         };
       });
 
+      // If this is the last pending question, notify workflow we're back to executing.
+      // The deferred hasn't been removed from the map yet — it's removed in the
+      // tool-handler after it resolves — so count entries excluding this one.
+      if (turn.pendingQuestions.size <= 1 && turn.onStatusUpdate) {
+        yield* turn.onStatusUpdate({ status: "executing" });
+      }
+
       // Resolve the deferred — unblocks the SDK's canUseTool promise
       yield* Deferred.succeed(deferred, response);
     }).pipe(
@@ -275,6 +285,9 @@ export const makeSessionManager = (args: {
       turn.pendingQuestions.clear();
 
       yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
+      if (turn.onStatusUpdate) {
+        yield* turn.onStatusUpdate({ status: "interrupted" });
+      }
 
       const fiber = turn.fiber;
       turn.fiber = null;

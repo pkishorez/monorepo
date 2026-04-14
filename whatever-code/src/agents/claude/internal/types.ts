@@ -7,6 +7,7 @@ import type {
   PermissionResult,
   Query,
 } from "@anthropic-ai/claude-agent-sdk";
+import type { OnExecuteStatusUpdate } from "../../workflow/schema.js";
 
 export interface ActiveTurn {
   query: Query | null;
@@ -22,6 +23,8 @@ export interface ActiveTurn {
    * `respondToUserQuestion` RPC.
    */
   pendingQuestions: Map<string, Deferred.Deferred<PermissionResult, Error>>;
+  /** Optional callback to push status updates into the workflow entity. */
+  onStatusUpdate?: OnExecuteStatusUpdate;
 }
 
 export interface SessionCapabilities {

@@ -7,6 +7,7 @@ import { updateSessionPayload } from "../shared/session.js";
 import { deriveSessionName } from "../shared/session-name.js";
 import { makeSessionManager } from "./claude-session.js";
 import type { SessionRuntimeOptions } from "./internal/index.js";
+import type { OnExecuteStatusUpdate } from "../workflow/schema.js";
 import { SqliteDB } from "@std-toolkit/sqlite";
 
 type SessionManager = ReturnType<typeof makeSessionManager>;
@@ -45,6 +46,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
       const createSession = (
         params: typeof CreateSessionParams.Type,
         runtimeOptions?: SessionRuntimeOptions,
+        onStatusUpdate?: OnExecuteStatusUpdate,
       ) =>
         Effect.gen(function* () {
           const sessionId = v7();
@@ -72,14 +74,19 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
 
           const session = getOrCreate(sessionId);
           fork(
-            session.continue(params.prompt, runtimeOptions).pipe(
+            session.continue(params.prompt, runtimeOptions, undefined, onStatusUpdate).pipe(
               Effect.catchAll((error) =>
                 Effect.logError("createSession: forked turn failed").pipe(
                   Effect.annotateLogs({ sessionId, error: String(error) }),
                   Effect.flatMap(() =>
-                    sessionSqliteEntity
-                      .update({ sessionId }, { status: "error" })
-                      .pipe(Effect.orDie, Effect.asVoid),
+                    Effect.all([
+                      sessionSqliteEntity
+                        .update({ sessionId }, { status: "error" })
+                        .pipe(Effect.orDie, Effect.asVoid),
+                      onStatusUpdate
+                        ? onStatusUpdate({ status: "error" })
+                        : Effect.void,
+                    ]),
                   ),
                 ),
               ),
@@ -100,10 +107,11 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
       const continueSession = (
         params: typeof ContinueSessionParams.Type,
         runtimeOptions?: SessionRuntimeOptions,
+        onStatusUpdate?: OnExecuteStatusUpdate,
       ) =>
         Effect.gen(function* () {
           const session = getOrCreate(params.sessionId);
-          yield* session.continue(params.prompt, runtimeOptions);
+          yield* session.continue(params.prompt, runtimeOptions, undefined, onStatusUpdate);
         }).pipe(
           Effect.mapError((e) =>
             e instanceof ClaudeChatError

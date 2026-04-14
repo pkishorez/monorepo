@@ -99,13 +99,25 @@ export const processMessage = (
         if (isNewSession) {
           yield* Effect.tryPromise(() => getSessionInfo(sessionId)).pipe(
             Effect.flatMap((info) => {
-              if (!info?.summary) return Effect.void;
-              return sessionSqliteEntity
-                .update({ sessionId }, { name: info.summary })
-                .pipe(Effect.orDie, Effect.asVoid);
+              if (!info?.summary) {
+                // No name yet — still push terminal status
+                return turn.onStatusUpdate
+                  ? turn.onStatusUpdate({ status })
+                  : Effect.void;
+              }
+              return Effect.all([
+                sessionSqliteEntity
+                  .update({ sessionId }, { name: info.summary })
+                  .pipe(Effect.orDie, Effect.asVoid),
+                turn.onStatusUpdate
+                  ? turn.onStatusUpdate({ status, name: info.summary })
+                  : Effect.void,
+              ]).pipe(Effect.asVoid);
             }),
             Effect.catchAll(() => Effect.void),
           );
+        } else if (turn.onStatusUpdate) {
+          yield* turn.onStatusUpdate({ status });
         }
 
         yield* Queue.shutdown(turn.outputQueue);
@@ -145,6 +157,7 @@ export const onFiberExit = (
             "background fiber exited without result message",
           );
           yield* markTurnStatus(turn.turnId, sessionId, "error");
+          if (turn.onStatusUpdate) yield* turn.onStatusUpdate({ status: "error" });
         } else {
           yield* Effect.log("background fiber exited cleanly");
         }
@@ -155,6 +168,7 @@ export const onFiberExit = (
         );
         yield* Effect.log("background fiber interrupted");
         yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
+        if (turn.onStatusUpdate) yield* turn.onStatusUpdate({ status: "interrupted" });
       } else {
         const cause = exit.pipe(Exit.causeOption);
         const errorMsg =
@@ -164,6 +178,7 @@ export const onFiberExit = (
           Effect.annotateLogs({ cause: errorMsg }),
         );
         yield* markTurnStatus(turn.turnId, sessionId, "error");
+        if (turn.onStatusUpdate) yield* turn.onStatusUpdate({ status: "error" });
       }
     }).pipe(
       Effect.withSpan("claude.fiberExit", { attributes: { sessionId, turnId: turn.turnId } }),

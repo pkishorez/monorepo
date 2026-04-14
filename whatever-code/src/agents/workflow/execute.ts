@@ -6,11 +6,13 @@ import { WorktreeService } from "../../services/worktree.js";
 import { workflowSqliteEntity } from "../../db/entities/workflow.js";
 import { sessionSqliteEntity } from "../../db/entities/session.js";
 import { errorMessage } from "../../core/lib/error.js";
+import { deriveSessionName } from "../shared/session-name.js";
 import {
   StartExecuteParams,
   ContinueExecuteParams,
   StopExecuteParams,
   ExecuteWorkflowError,
+  type OnExecuteStatusUpdate,
 } from "./schema.js";
 
 const getExecuteWorkflow = (workflowId: string) =>
@@ -52,11 +54,14 @@ const getSession = (sessionId: string) =>
     ),
   );
 
-const createAgentSession = (params: typeof StartExecuteParams.Type) => {
+const createAgentSession = (
+  params: typeof StartExecuteParams.Type,
+  onStatusUpdate?: OnExecuteStatusUpdate,
+) => {
   if (params.agent === "claude") {
     return Effect.gen(function* () {
       const claude = yield* ClaudeOrchestrator;
-      return yield* claude.createSession(params.session);
+      return yield* claude.createSession(params.session, undefined, onStatusUpdate);
     }).pipe(
       Effect.mapError(
         (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
@@ -66,7 +71,7 @@ const createAgentSession = (params: typeof StartExecuteParams.Type) => {
   }
   return Effect.gen(function* () {
     const codex = yield* CodexOrchestrator;
-    return yield* codex.createThread(params.thread);
+    return yield* codex.createThread(params.thread, onStatusUpdate);
   }).pipe(
     Effect.mapError(
       (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
@@ -125,16 +130,43 @@ export const startExecuteWorkflow = (
       }
     }
 
-    const executeSession = yield* createAgentSession(params);
+    // Build the status callback — uses a mutable ref for the session ID
+    // since it's not known until createAgentSession returns. The callback
+    // is only invoked asynchronously from the forked fiber, so the ref
+    // will be set by the time any status update fires.
+    const sessionIdRef = { current: "" };
+    const onStatusUpdate: OnExecuteStatusUpdate = (update) =>
+      workflowSqliteEntity
+        .update(
+          { workflowId },
+          {
+            spec: {
+              type: "execute",
+              executeSession: sessionIdRef.current,
+              ...(worktreeMeta ? { worktree: worktreeMeta } : {}),
+              status: update.status,
+            },
+            ...(update.name ? { name: update.name } : {}),
+          },
+        )
+        .pipe(Effect.orDie, Effect.asVoid) as Effect.Effect<void>;
+
+    const executeSession = yield* createAgentSession(params, onStatusUpdate);
+    sessionIdRef.current = executeSession;
+
+    const prompt =
+      params.agent === "claude" ? params.session.prompt : params.thread.prompt;
 
     yield* workflowSqliteEntity
       .insert({
         workflowId,
         projectId: params.projectId,
+        name: deriveSessionName(prompt),
         spec: {
           type: "execute",
           executeSession,
           ...(worktreeMeta ? { worktree: worktreeMeta } : {}),
+          status: "executing",
         },
       })
       .pipe(Effect.orDie);
@@ -161,23 +193,32 @@ export const continueExecuteWorkflow = (
     const sessionId = workflow.spec.executeSession;
     const session = yield* getSession(sessionId);
 
-    // Touch the workflow entity so its _u timestamp reflects recent activity
-    yield* workflowSqliteEntity
-      .update({ workflowId: params.workflowId }, {})
-      .pipe(Effect.orDie);
+    // Rebuild the status callback from the existing spec config
+    const onStatusUpdate: OnExecuteStatusUpdate = (update) =>
+      workflowSqliteEntity
+        .update(
+          { workflowId: params.workflowId },
+          {
+            spec: { ...workflow.spec, status: update.status },
+            ...(update.name ? { name: update.name } : {}),
+          },
+        )
+        .pipe(Effect.orDie, Effect.asVoid) as Effect.Effect<void>;
+
+    yield* onStatusUpdate({ status: "executing" });
 
     if (session.type === "claude") {
       const claude = yield* ClaudeOrchestrator;
       yield* claude.continueSession({
         sessionId,
         prompt: params.prompt,
-      });
+      }, undefined, onStatusUpdate);
     } else {
       const codex = yield* CodexOrchestrator;
       yield* codex.continueThread({
         sessionId,
         prompt: params.prompt,
-      });
+      }, undefined, onStatusUpdate);
     }
 
     yield* Effect.log("workflow: continue dispatched").pipe(
@@ -207,6 +248,14 @@ export const stopExecuteWorkflow = (
       const codex = yield* CodexOrchestrator;
       yield* codex.stopThread(sessionId);
     }
+
+    // Mark workflow as interrupted
+    yield* workflowSqliteEntity
+      .update(
+        { workflowId: params.workflowId },
+        { spec: { ...workflow.spec, status: "interrupted" } },
+      )
+      .pipe(Effect.orDie);
   }).pipe(
     Effect.mapError((e) =>
       e instanceof ExecuteWorkflowError

@@ -4,20 +4,21 @@ import { promisify } from "node:util";
 import { AppError } from "../definitions/app.js";
 import { GitRpcs } from "../definitions/git.js";
 import { CodexOrchestrator } from "../../agents/codex/codex.js";
+import { computePaths } from "../../core/lib/paths.js";
 
 const execFilePromise = promisify(execFile);
+
+const resolveRoot = async (cwd: string): Promise<string> => {
+  const { stdout } = await execFilePromise("git", ["rev-parse", "--show-toplevel"], { cwd });
+  return stdout.trim();
+};
 
 export const GitHandlers = GitRpcs.toLayer(
   GitRpcs.of({
     "git.getDiff": ({ absolutePath, statsOnly }) =>
       Effect.tryPromise({
         try: async () => {
-          const { stdout: repoRoot } = await execFilePromise(
-            "git",
-            ["rev-parse", "--show-toplevel"],
-            { cwd: absolutePath },
-          );
-          const cwd = repoRoot.trim();
+          const cwd = await resolveRoot(absolutePath);
           const [, { stdout: rawBranch }] = await Promise.all([
             execFilePromise("git", ["add", "-A", "--intent-to-add"], { cwd }),
             execFilePromise("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd }),
@@ -108,12 +109,7 @@ export const GitHandlers = GitRpcs.toLayer(
     "git.listBranches": ({ absolutePath }) =>
       Effect.tryPromise({
         try: async () => {
-          const { stdout: repoRoot } = await execFilePromise(
-            "git",
-            ["rev-parse", "--show-toplevel"],
-            { cwd: absolutePath },
-          );
-          const cwd = repoRoot.trim();
+          const cwd = await resolveRoot(absolutePath);
           const { stdout } = await execFilePromise(
             "git",
             ["branch", "--no-color"],
@@ -128,6 +124,8 @@ export const GitHandlers = GitRpcs.toLayer(
               const name = trimmed.slice(2);
               current = name;
               branches.push(name);
+            } else if (trimmed.startsWith("+ ")) {
+              branches.push(trimmed.slice(2));
             } else {
               branches.push(trimmed);
             }
@@ -141,12 +139,7 @@ export const GitHandlers = GitRpcs.toLayer(
     "git.checkoutBranch": ({ absolutePath, branch, create }) =>
       Effect.tryPromise({
         try: async () => {
-          const { stdout: repoRoot } = await execFilePromise(
-            "git",
-            ["rev-parse", "--show-toplevel"],
-            { cwd: absolutePath },
-          );
-          const cwd = repoRoot.trim();
+          const cwd = await resolveRoot(absolutePath);
           const args = create
             ? ["checkout", "-b", branch]
             : ["checkout", branch];
@@ -156,6 +149,16 @@ export const GitHandlers = GitRpcs.toLayer(
         catch: (e) => new AppError({ message: String(e) }),
       }).pipe(
         Effect.withSpan("rpc.git.checkoutBranch", { attributes: { absolutePath, branch } }),
+      ),
+    "git.getRoot": ({ absolutePath }) =>
+      Effect.tryPromise({
+        try: async () => {
+          const root = await resolveRoot(absolutePath);
+          return { absolutePath: root, homePath: computePaths(root).homePath };
+        },
+        catch: (e) => new AppError({ message: String(e) }),
+      }).pipe(
+        Effect.withSpan("rpc.git.getRoot", { attributes: { absolutePath } }),
       ),
   }),
 );

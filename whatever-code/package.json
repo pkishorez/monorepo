@@ -33,7 +33,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.2.107",
+    "@anthropic-ai/claude-agent-sdk": "0.2.108",
     "@effect/opentelemetry": "0.63.0",
     "@effect/platform": "0.96.0",
     "@effect/platform-node": "0.106.0",
