@@ -53,6 +53,9 @@ export const makeSessionManager = (args: {
           } else {
             yield* persistQueuedTurn(sessionId, ulid(), prompt);
           }
+          yield* Effect.log("claude: turn busy, prompt queued").pipe(
+            Effect.annotateLogs({ sessionId, action: queued ? "appended" : "queued" }),
+          );
           return;
         }
         currentTurn = null;
@@ -61,9 +64,11 @@ export const makeSessionManager = (args: {
       // ── Resolve which turn to execute ──
       let turnId: string;
       let sdkPrompt: typeof PromptContent.Type;
+      let turnPath: "drain" | "queued" | "fresh";
 
       if (existingTurnId) {
         // Drain path — queued turn is already persisted
+        turnPath = "drain";
         turnId = existingTurnId;
         sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
         yield* markTurnStatus(turnId, sessionId, "in_progress");
@@ -71,17 +76,23 @@ export const makeSessionManager = (args: {
         // Check for a queued turn (e.g. from a previous error/restart)
         const queued = yield* findQueuedTurn(sessionId);
         if (queued) {
+          turnPath = "queued";
           turnId = queued.id;
           yield* appendToQueuedTurn(sessionId, turnId, prompt);
           sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
           yield* markTurnStatus(turnId, sessionId, "in_progress");
         } else {
           // Fresh turn
+          turnPath = "fresh";
           turnId = ulid();
           sdkPrompt = prompt;
           yield* persistNewTurn(sessionId, turnId, prompt);
         }
       }
+
+      yield* Effect.log("claude: executing turn").pipe(
+        Effect.annotateLogs({ sessionId, turnId, path: turnPath }),
+      );
 
       // ── Execute the turn ──
       const session = yield* sessionSqliteEntity.get({ sessionId }).pipe(
@@ -194,6 +205,7 @@ export const makeSessionManager = (args: {
         ),
       ),
       Effect.catchAll(() => Effect.void),
+      Effect.withSpan("claude.session.drainQueued", { attributes: { sessionId } }),
     );
 
   const respondToUserQuestion = (
@@ -244,7 +256,9 @@ export const makeSessionManager = (args: {
 
       // Resolve the deferred — unblocks the SDK's canUseTool promise
       yield* Deferred.succeed(deferred, response);
-    });
+    }).pipe(
+      Effect.withSpan("claude.session.respondToQuestion", { attributes: { sessionId, toolUseId } }),
+    );
 
   const stop = () =>
     Effect.gen(function* () {

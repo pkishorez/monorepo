@@ -48,6 +48,8 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
       ) =>
         Effect.gen(function* () {
           const sessionId = v7();
+          yield* Effect.annotateCurrentSpan("sessionId", sessionId);
+
           yield* sessionSqliteEntity
             .insert({
               sessionId,
@@ -83,11 +85,16 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               ),
             ),
           );
+
+          yield* Effect.log("claude: session created").pipe(
+            Effect.annotateLogs({ sessionId }),
+          );
           return sessionId;
         }).pipe(
           Effect.mapError(
             (e) => new ClaudeChatError({ message: String(e) }),
           ),
+          Effect.withSpan("claude.createSession", { attributes: { model: params.model } }),
         );
 
       const continueSession = (
@@ -103,6 +110,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               ? e
               : new ClaudeChatError({ message: String(e) }),
           ),
+          Effect.withSpan("claude.continueSession", { attributes: { sessionId: params.sessionId } }),
         );
 
       const stopSession = (sessionId: string) =>
@@ -111,7 +119,9 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           if (!session) return;
           yield* session.stop();
           sessions.delete(sessionId);
-        });
+        }).pipe(
+          Effect.withSpan("claude.stopSession", { attributes: { sessionId } }),
+        );
 
       const respondToTool = (params: typeof RespondToToolParams.Type) =>
         Effect.gen(function* () {
@@ -133,10 +143,15 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               ? e
               : new ClaudeChatError({ message: String(e) }),
           ),
+          Effect.withSpan("claude.respondToTool", {
+            attributes: { sessionId: params.sessionId, toolUseId: params.toolUseId },
+          }),
         );
 
       const updateSession = (params: typeof UpdateSessionParams.Type) =>
-        updateSessionPayload(params.sessionId, "claude", params.updates);
+        updateSessionPayload(params.sessionId, "claude", params.updates).pipe(
+          Effect.withSpan("claude.updateSession", { attributes: { sessionId: params.sessionId } }),
+        );
 
       const oneShot = (params: {
         cwd: string;
@@ -178,7 +193,9 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
             new ClaudeChatError({
               message: e instanceof Error ? e.message : String(e),
             }),
-        });
+        }).pipe(
+          Effect.withSpan("claude.oneShot", { attributes: { cwd: params.cwd } }),
+        );
 
       return {
         createSession,

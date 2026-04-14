@@ -61,6 +61,7 @@ const createAgentSession = (params: typeof StartExecuteParams.Type) => {
       Effect.mapError(
         (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
       ),
+      Effect.withSpan("workflow.createAgentSession", { attributes: { agent: params.agent } }),
     );
   }
   return Effect.gen(function* () {
@@ -70,6 +71,7 @@ const createAgentSession = (params: typeof StartExecuteParams.Type) => {
     Effect.mapError(
       (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
+    Effect.withSpan("workflow.createAgentSession", { attributes: { agent: params.agent } }),
   );
 };
 
@@ -99,7 +101,9 @@ export const startExecuteWorkflow = (
       if (params.worktree.baseBranch) {
         createParams.baseBranch = params.worktree.baseBranch;
       }
-      const result = yield* worktreeService.create(createParams);
+      const result = yield* worktreeService.create(createParams).pipe(
+        Effect.withSpan("workflow.createWorktree", { attributes: { repoPath, branch } }),
+      );
 
       worktreeMeta = {
         path: result.worktreePath,
@@ -135,11 +139,18 @@ export const startExecuteWorkflow = (
       })
       .pipe(Effect.orDie);
 
+    yield* Effect.log("workflow: record persisted").pipe(
+      Effect.annotateLogs({ workflowId, agent: params.agent }),
+    );
+
     return workflowId;
   }).pipe(
     Effect.mapError(
       (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
+    Effect.withSpan("workflow.execute.start", {
+      attributes: { agent: params.agent, hasWorktree: !!params.worktree },
+    }),
   );
 
 export const continueExecuteWorkflow = (
@@ -168,12 +179,17 @@ export const continueExecuteWorkflow = (
         prompt: params.prompt,
       });
     }
+
+    yield* Effect.log("workflow: continue dispatched").pipe(
+      Effect.annotateLogs({ workflowId: params.workflowId, sessionId, agent: session.type }),
+    );
   }).pipe(
     Effect.mapError((e) =>
       e instanceof ExecuteWorkflowError
         ? e
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
+    Effect.withSpan("workflow.execute.continue", { attributes: { workflowId: params.workflowId } }),
   );
 
 export const stopExecuteWorkflow = (
@@ -197,6 +213,7 @@ export const stopExecuteWorkflow = (
         ? e
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
+    Effect.withSpan("workflow.execute.stop", { attributes: { workflowId: params.workflowId } }),
   );
 
 export const removeExecuteWorkflow = (params: { workflowId: string }) =>
@@ -219,6 +236,7 @@ export const removeExecuteWorkflow = (params: { workflowId: string }) =>
         ? e
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
+    Effect.withSpan("workflow.execute.remove", { attributes: { workflowId: params.workflowId } }),
   );
 
 export const archiveWorkflow = (params: {
@@ -247,4 +265,5 @@ export const archiveWorkflow = (params: {
         ? e
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
+    Effect.withSpan("workflow.archive", { attributes: { workflowId: params.workflowId } }),
   );

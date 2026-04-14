@@ -1,12 +1,17 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
 import { BroadcastSchema, EntitySchema } from "@std-toolkit/core";
 import { Schema } from "effect";
-import { projectEntity } from "../../core/entity/project/index.js";
+import { projectEntity, ProjectSettings } from "../../core/entity/project/index.js";
 import { sessionEntity } from "../../core/entity/session/index.js";
 import { turnEntity } from "../../core/entity/turn/index.js";
 
 export const OpenProjectParams = Schema.Struct({
   absolutePath: Schema.String,
+});
+
+export const UpdateProjectSettingsParams = Schema.Struct({
+  id: Schema.String,
+  settings: ProjectSettings,
 });
 
 export class AppError extends Schema.TaggedError<AppError>()("AppError", {
@@ -59,5 +64,10 @@ export class AppRpcs extends RpcGroup.make(
     success: Schema.Array(EntitySchema(turnEntity)),
     error: AppError,
     payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+  }),
+  Rpc.make("updateProjectSettings", {
+    success: EntitySchema(projectEntity),
+    error: AppError,
+    payload: UpdateProjectSettingsParams,
   }),
 ).prefix("app.") {}

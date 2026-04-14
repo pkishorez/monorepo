@@ -266,7 +266,9 @@ const waitForSessionCompletion = (sessionId: string) =>
     }
 
     return yield* Effect.fail(new Error("Session timed out"));
-  });
+  }).pipe(
+    Effect.withSpan("ralphLoop.waitForSession", { attributes: { sessionId } }),
+  );
 
 // ---------------------------------------------------------------------------
 // Worktree creation
@@ -297,7 +299,9 @@ export const createWorktreeForLoop = (
       .pipe(Effect.orDie);
 
     return worktreeMeta;
-  });
+  }).pipe(
+    Effect.withSpan("ralphLoop.createWorktree", { attributes: { ralphLoopId: loop.id } }),
+  );
 
 // ---------------------------------------------------------------------------
 // Execute next task (single session that picks + executes)
@@ -386,7 +390,11 @@ const executeNextTask = (
       claimedTaskId: claimedTaskIdRef.current,
       taskDoneResult,
     };
-  });
+  }).pipe(
+    Effect.withSpan("ralphLoop.executeTask", {
+      attributes: { ralphLoopId: loop.id, taskCount: tasks.length },
+    }),
+  );
 
 // ---------------------------------------------------------------------------
 // Main orchestrator loop
@@ -427,6 +435,9 @@ export const startRalphLoopExecution = (ralphLoopId: string) =>
 
       if (pendingTasks.length === 0) {
         yield* setLoopStatus(ralphLoopId, "completed");
+        yield* Effect.log("ralphLoop: all tasks done").pipe(
+          Effect.annotateLogs({ ralphLoopId }),
+        );
         break;
       }
 
@@ -493,7 +504,9 @@ export const startRalphLoopExecution = (ralphLoopId: string) =>
         .update({ id: ralphLoopId }, { activeSessionId: null })
         .pipe(Effect.orDie);
     }
-  });
+  }).pipe(
+    Effect.withSpan("ralphLoop.execution", { attributes: { ralphLoopId } }),
+  );
 
 // ---------------------------------------------------------------------------
 // Resume executing loops on process restart

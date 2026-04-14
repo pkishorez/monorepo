@@ -41,7 +41,9 @@ export const GitHandlers = GitRpcs.toLayer(
           return { patch, fileCount: 0, branch };
         },
         catch: (e) => new AppError({ message: String(e) }),
-      }),
+      }).pipe(
+        Effect.withSpan("rpc.git.getDiff", { attributes: { absolutePath } }),
+      ),
     "git.commit": ({ absolutePath, message }) =>
       Effect.tryPromise({
         try: async () => {
@@ -62,7 +64,9 @@ export const GitHandlers = GitRpcs.toLayer(
           };
         },
         catch: (e) => new AppError({ message: String(e) }),
-      }),
+      }).pipe(
+        Effect.withSpan("rpc.git.commit", { attributes: { absolutePath } }),
+      ),
     "git.generateCommitMessage": ({ absolutePath, patch }) =>
       Effect.gen(function* () {
         const codex = yield* CodexOrchestrator;
@@ -99,6 +103,7 @@ export const GitHandlers = GitRpcs.toLayer(
         return { subject, body: result.body.trim() };
       }).pipe(
         Effect.mapError((e) => new AppError({ message: String(e) })),
+        Effect.withSpan("rpc.git.generateCommitMessage", { attributes: { absolutePath } }),
       ),
     "git.listBranches": ({ absolutePath }) =>
       Effect.tryPromise({
@@ -130,7 +135,9 @@ export const GitHandlers = GitRpcs.toLayer(
           return { current, branches };
         },
         catch: (e) => new AppError({ message: String(e) }),
-      }),
+      }).pipe(
+        Effect.withSpan("rpc.git.listBranches", { attributes: { absolutePath } }),
+      ),
     "git.checkoutBranch": ({ absolutePath, branch, create }) =>
       Effect.tryPromise({
         try: async () => {
@@ -147,6 +154,8 @@ export const GitHandlers = GitRpcs.toLayer(
           return { branch, created: create };
         },
         catch: (e) => new AppError({ message: String(e) }),
-      }),
+      }).pipe(
+        Effect.withSpan("rpc.git.checkoutBranch", { attributes: { absolutePath, branch } }),
+      ),
   }),
 );

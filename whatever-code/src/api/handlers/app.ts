@@ -30,7 +30,9 @@ export const AppHandlers = AppRpcs.toLayer(
           detached: true,
           stdio: "ignore",
         }).unref();
-      }),
+      }).pipe(
+        Effect.withSpan("rpc.app.revealDataFolder"),
+      ),
     "app.openProject": ({ absolutePath }) =>
       Effect.gen(function* () {
         const existing = yield* projectSqliteEntity
@@ -50,13 +52,17 @@ export const AppHandlers = AppRpcs.toLayer(
             gitPath: paths.gitPath,
           })
           .pipe(Effect.orDie);
-      }).pipe(Effect.mapError((e) => new AppError({ message: String(e) }))),
+      }).pipe(
+        Effect.mapError((e) => new AppError({ message: String(e) })),
+        Effect.withSpan("rpc.app.openProject", { attributes: { absolutePath } }),
+      ),
     "app.queryProjects": ({ ">": cursor }) =>
       projectSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
         .pipe(
           Effect.map(({ items }) => items),
           Effect.mapError((e) => new AppError({ message: String(e) })),
+          Effect.withSpan("rpc.app.queryProjects"),
         ),
     "app.discoverProjects": () =>
       Effect.tryPromise({
@@ -75,6 +81,7 @@ export const AppHandlers = AppRpcs.toLayer(
               sessionCount,
             }));
         }),
+        Effect.withSpan("rpc.app.discoverProjects"),
       ),
     "app.getProjectFiles": ({ absolutePath }) =>
       Effect.tryPromise({
@@ -98,6 +105,7 @@ export const AppHandlers = AppRpcs.toLayer(
           }
           return [...dirs].sort().concat(files);
         }),
+        Effect.withSpan("rpc.app.getProjectFiles", { attributes: { absolutePath } }),
       ),
     "app.querySessions": ({ ">": cursor }) =>
       sessionSqliteEntity
@@ -105,6 +113,7 @@ export const AppHandlers = AppRpcs.toLayer(
         .pipe(
           Effect.map(({ items }) => items),
           Effect.mapError((e) => new AppError({ message: String(e) })),
+          Effect.withSpan("rpc.app.querySessions"),
         ),
     "app.queryTurns": ({ ">": cursor }) =>
       turnSqliteEntity
@@ -112,6 +121,32 @@ export const AppHandlers = AppRpcs.toLayer(
         .pipe(
           Effect.map(({ items }) => items),
           Effect.mapError((e) => new AppError({ message: String(e) })),
+          Effect.withSpan("rpc.app.queryTurns"),
         ),
+    "app.updateProjectSettings": ({ id, settings }) =>
+      Effect.gen(function* () {
+        const existing = yield* projectSqliteEntity.get({ id }).pipe(Effect.orDie);
+        if (!existing) {
+          return yield* Effect.fail(new AppError({ message: `Project not found: ${id}` }));
+        }
+        const existingSettings = existing.value.settings;
+        const mergedTaskCommands =
+          settings.taskCommands || existingSettings?.taskCommands
+            ? { ...existingSettings?.taskCommands, ...settings.taskCommands }
+            : undefined;
+        const merged = {
+          ...existingSettings,
+          ...settings,
+          ...(mergedTaskCommands !== undefined ? { taskCommands: mergedTaskCommands } : {}),
+        };
+        yield* projectSqliteEntity.update({ id }, { settings: merged }).pipe(Effect.orDie);
+        const updated = yield* projectSqliteEntity.get({ id }).pipe(Effect.orDie);
+        return updated!;
+      }).pipe(
+        Effect.mapError((e) =>
+          e instanceof AppError ? e : new AppError({ message: String(e) }),
+        ),
+        Effect.withSpan("rpc.app.updateProjectSettings", { attributes: { id } }),
+      ),
   }),
 );

@@ -23,15 +23,21 @@ const buildTaskListSection = (tasks: RalphLoopTask[]): string => {
 
   const formatTask = (task: RalphLoopTask): string => {
     const icon = STATUS_ICONS[task.status] ?? "⏳";
-    const detail =
-      task.status === "completed"
-        ? task.outcome ?? "done"
-        : task.status === "failed"
-          ? `FAILED${task.outcome ? `: ${task.outcome}` : ""}`
-          : task.status === "running"
-            ? "IN PROGRESS"
-            : task.description;
-    return `${icon} \`${task.id}\` **${task.title}** — ${detail}`;
+    const titleLink = `[**${task.title}**](${task.id})`;
+
+    if (task.status === "completed") {
+      return `- ${icon} ${titleLink} — ${task.outcome ?? "done"}`;
+    }
+    if (task.status === "failed") {
+      return `- ${icon} ${titleLink} — FAILED${task.outcome ? `: ${task.outcome}` : ""}`;
+    }
+    if (task.status === "running") {
+      return `- ${icon} ${titleLink} — IN PROGRESS`;
+    }
+    const desc = task.description
+      ? `\n  ${task.description.length > 120 ? `${task.description.slice(0, 120)}…` : task.description}`
+      : "";
+    return `- ${icon} ${titleLink}${desc}`;
   };
 
   return [progress, "", ...sorted.map(formatTask)].join("\n");
@@ -72,13 +78,14 @@ ${buildLearningsSection(tasks)}
 
 ${
   pendingTasks.length === 1
-    ? `👉 One task remaining: **${pendingTasks[0]!.title}** (\`${pendingTasks[0]!.id}\`)`
+    ? `👉 One task remaining: [**${pendingTasks[0]!.title}**](${pendingTasks[0]!.id})`
     : `👉 ${pendingTasks.length} tasks pending — pick the highest-priority one (respect dependencies).`
 }
 
 1. Call \`claimTask\` with the task id
 2. Implement the task thoroughly
-3. Call \`taskDone\` with outcome + learnings
+3. If there are any changes, commit them: \`git add -A && git commit -m "task: <title>"\`
+4. Call \`taskDone\` with outcome + learnings
 
 ⚠️ You MUST call \`taskDone\` to signal completion. Work on exactly one task.`.trim();
 };

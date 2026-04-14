@@ -45,12 +45,11 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           );
         }
 
-        // Insert before session creation so finalizePlan tool can find the loop on the first turn
         yield* ralphLoopSqliteEntity
           .insert({
             id: ralphLoopId,
             projectId: params.projectId,
-            planningSessionId: "", // placeholder, updated below
+            planningSessionId: "",
             status: "planning",
           })
           .pipe(Effect.orDie);
@@ -119,7 +118,12 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           .pipe(Effect.orDie);
 
         return { ralphLoopId, planningSessionId, workflowId };
-      }).pipe(toRalphLoopError),
+      }).pipe(
+        toRalphLoopError,
+        Effect.withSpan("rpc.ralphLoop.create", {
+          attributes: { projectId: params.projectId, model: params.model },
+        }),
+      ),
 
     "ralphLoop.continuePlanning": (params) =>
       Effect.gen(function* () {
@@ -148,7 +152,12 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           },
           runtimeOptions,
         );
-      }).pipe(toRalphLoopError),
+      }).pipe(
+        toRalphLoopError,
+        Effect.withSpan("rpc.ralphLoop.continuePlanning", {
+          attributes: { ralphLoopId: params.ralphLoopId },
+        }),
+      ),
 
     "ralphLoop.startExecution": (params) =>
       Effect.gen(function* () {
@@ -216,7 +225,12 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
             ),
           ) as Effect.Effect<void>,
         );
-      }).pipe(toRalphLoopError),
+      }).pipe(
+        toRalphLoopError,
+        Effect.withSpan("rpc.ralphLoop.startExecution", {
+          attributes: { ralphLoopId: params.ralphLoopId },
+        }),
+      ),
 
     "ralphLoop.interruptPlanning": (params) =>
       Effect.gen(function* () {
@@ -228,15 +242,29 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
 
         const claude = yield* ClaudeOrchestrator;
         yield* claude.stopSession(loop.planningSessionId);
-      }).pipe(toRalphLoopError),
+      }).pipe(
+        toRalphLoopError,
+        Effect.withSpan("rpc.ralphLoop.interruptPlanning", {
+          attributes: { ralphLoopId: params.ralphLoopId },
+        }),
+      ),
 
     "ralphLoop.cancel": (params) =>
-      cancelRalphLoop(params.ralphLoopId).pipe(toRalphLoopError),
+      cancelRalphLoop(params.ralphLoopId).pipe(
+        toRalphLoopError,
+        Effect.withSpan("rpc.ralphLoop.cancel", {
+          attributes: { ralphLoopId: params.ralphLoopId },
+        }),
+      ),
 
     "ralphLoop.query": ({ ">": cursor }) =>
       ralphLoopSqliteEntity
         .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
-        .pipe(Effect.map(({ items }) => items), toRalphLoopError),
+        .pipe(
+          Effect.map(({ items }) => items),
+          toRalphLoopError,
+          Effect.withSpan("rpc.ralphLoop.query"),
+        ),
 
     "ralphLoop.queryTasks": ({ ralphLoopId }) =>
       ralphLoopTaskSqliteEntity
@@ -247,6 +275,7 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
         .pipe(
           Effect.map(({ items }) => items.filter((i) => !i.meta._d)),
           toRalphLoopError,
+          Effect.withSpan("rpc.ralphLoop.queryTasks", { attributes: { ralphLoopId } }),
         ),
   }),
 );
