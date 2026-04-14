@@ -49,6 +49,10 @@ export const ModelUsage = Schema.Record({
   value: ModelUsageEntry,
 });
 
+export const TurnState = Schema.NullOr(
+  Schema.Literal("question", "plan-ready"),
+);
+
 export const ClaudeTurnPayload = Schema.Struct({
   type: Schema.Literal("claude"),
   model: Schema.NullOr(Schema.String),
@@ -72,6 +76,8 @@ export const ClaudeTurnPayload = Schema.Struct({
     Schema.Record({ key: Schema.String, value: PendingQuestionEntry }),
     { exact: true, default: () => ({}) },
   ),
+  /** Active turn state written by the backend; null when idle. */
+  state: Schema.optionalWith(TurnState, { exact: true, default: () => null }),
 });
 
 // ── Codex sub-schemas ────────────────────────────────────────────────
@@ -107,6 +113,8 @@ export const CodexTurnPayload = Schema.Struct({
     Schema.Record({ key: Schema.String, value: PendingQuestionEntry }),
     { exact: true, default: () => ({}) },
   ),
+  /** Active turn state written by the backend; null when idle. */
+  state: Schema.optionalWith(TurnState, { exact: true, default: () => null }),
 });
 
 // ── Unified turn ─────────────────────────────────────────────────────

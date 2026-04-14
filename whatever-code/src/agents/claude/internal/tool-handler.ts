@@ -29,6 +29,15 @@ export const makeCanUseTool = (
 ): CanUseTool => {
   return async (toolName, input, opts): Promise<PermissionResult> => {
     if (toolName === "ExitPlanMode") {
+      const planInput = input as Record<string, unknown>;
+      if (typeof planInput.plan === "string" && planInput.plan.length > 0) {
+        await Runtime.runPromise(runtime)(
+          updateClaudeTurnPayload(turn.turnId, (payload) => ({
+            ...payload,
+            state: "plan-ready" as const,
+          })),
+        );
+      }
       return {
         behavior: "deny",
         message: "ExitPlanMode is managed by the UI.",
@@ -47,6 +56,7 @@ export const makeCanUseTool = (
         // Persist pending state to turn DB so the frontend can discover it
         yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
           ...payload,
+          state: "question" as const,
           pendingQuestions: {
             ...payload.pendingQuestions,
             [toolUseId]: {
