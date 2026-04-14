@@ -7,7 +7,7 @@ import {
   RespondToUserInputParams,
 } from "../../agents/codex/schema.js";
 import { EntitySchema } from "@std-toolkit/core";
-import { codexEventProjectedEntity } from "../../entity/projection/codex-event.js";
+import { codexEventProjectedEntity } from "../../core/entity/projection/codex-event.js";
 
 export class CodexChatError extends Schema.TaggedError<CodexChatError>()(
   "CodexChatError",

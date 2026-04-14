@@ -1,5 +1,5 @@
 import { SQLiteEntity } from "@std-toolkit/sqlite";
-import { sessionEntity } from "../../entity/session/index.js";
+import { sessionEntity } from "../../core/entity/session/index.js";
 import { table } from "../table.js";
 
 export const sessionSqliteEntity = SQLiteEntity.make(table)

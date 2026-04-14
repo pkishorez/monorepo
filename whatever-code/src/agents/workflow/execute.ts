@@ -5,7 +5,7 @@ import { CodexOrchestrator } from "../codex/codex.js";
 import { WorktreeService } from "../../services/worktree.js";
 import { workflowSqliteEntity } from "../../db/entities/workflow.js";
 import { sessionSqliteEntity } from "../../db/entities/session.js";
-import { errorMessage } from "../../lib/error.js";
+import { errorMessage } from "../../core/lib/error.js";
 import {
   StartExecuteParams,
   ContinueExecuteParams,

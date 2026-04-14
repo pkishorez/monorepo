@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { Typed } from "../../lib/typed.js";
+import { Typed } from "../../core/lib/typed.js";
 import type { SessionCapabilities } from "./internal/index.js";
 export {
   ImageBlock,
@@ -15,8 +15,8 @@ import {
   InteractionMode,
   ToolResponse,
 } from "../shared/schema.js";
-import type { ProjectedClaudeMessage } from "../../projection/claude-message.js";
-export type { ProjectedClaudeMessage } from "../../projection/claude-message.js";
+import type { ProjectedClaudeMessage } from "../../core/projection/claude-message.js";
+export type { ProjectedClaudeMessage } from "../../core/projection/claude-message.js";
 
 export const Message = Typed<ProjectedClaudeMessage>();
 

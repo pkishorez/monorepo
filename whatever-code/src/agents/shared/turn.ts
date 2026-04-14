@@ -5,8 +5,8 @@ import type {
   TurnPayload,
   ClaudeTurnPayload,
   CodexTurnPayload,
-} from "../../entity/turn/index.js";
-import type { TaskStatus } from "../../entity/status.js";
+} from "../../core/entity/turn/index.js";
+import type { TaskStatus } from "../../core/entity/status.js";
 
 export const markTurnStatus = (
   turnId: string,

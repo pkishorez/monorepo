@@ -1,7 +1,7 @@
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
-import type { sessionEntity } from "../../../entity/session/session.js";
-import type { ClaudePayload } from "../../../entity/session/session.js";
-import { when } from "../../../lib/object.js";
+import type { sessionEntity } from "../../../core/entity/session/session.js";
+import type { ClaudePayload } from "../../../core/entity/session/session.js";
+import { when } from "../../../core/lib/object.js";
 import type { SessionRuntimeOptions } from "./types.js";
 
 type ClaudeSession = typeof sessionEntity.Type & {

@@ -1,10 +1,11 @@
 import { Otlp } from "@effect/opentelemetry";
 import { FetchHttpClient } from "@effect/platform";
 import { Layer } from "effect";
+import { OTEL_BASE_URL } from "./constants.js";
 
 export const TelemetryLayer = Otlp.layerJson({
-  baseUrl: "http://localhost:4318",
+  baseUrl: OTEL_BASE_URL,
   resource: {
-    serviceName: "whatever-code",
+    serviceName: "whatever-code:backend",
   },
 }).pipe(Layer.provide(FetchHttpClient.layer));

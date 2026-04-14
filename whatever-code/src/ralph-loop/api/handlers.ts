@@ -18,7 +18,7 @@ import {
   buildPlanningRuntimeOptions,
   persistPlanData,
 } from "../orchestrator/planning-tools.js";
-import { errorMessage } from "../../lib/error.js";
+import { errorMessage } from "../../core/lib/error.js";
 
 const toRalphLoopError = Effect.mapError((e: unknown) =>
   e instanceof RalphLoopError

@@ -34,7 +34,7 @@ import type { ServerNotification } from "./generated/ServerNotification.js";
 import type { ThreadStartResponse } from "./generated/v2/ThreadStartResponse.js";
 import type { TurnStartResponse } from "./generated/v2/TurnStartResponse.js";
 import type { UserInput } from "./generated/v2/UserInput.js";
-import { errorMessage } from "../../lib/error.js";
+import { errorMessage } from "../../core/lib/error.js";
 import type { PromptContent } from "../shared/schema.js";
 
 function promptToCodexInput(

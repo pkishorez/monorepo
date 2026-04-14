@@ -1,4 +1,4 @@
-import { startServer } from "./server.js";
+import { startServer } from "./server/index.js";
 
 startServer({
   port: 4400,

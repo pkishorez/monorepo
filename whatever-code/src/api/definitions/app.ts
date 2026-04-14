@@ -1,9 +1,9 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
 import { BroadcastSchema, EntitySchema } from "@std-toolkit/core";
 import { Schema } from "effect";
-import { projectEntity } from "../../entity/project/index.js";
-import { sessionEntity } from "../../entity/session/index.js";
-import { turnEntity } from "../../entity/turn/index.js";
+import { projectEntity } from "../../core/entity/project/index.js";
+import { sessionEntity } from "../../core/entity/session/index.js";
+import { turnEntity } from "../../core/entity/turn/index.js";
 
 export const OpenProjectParams = Schema.Struct({
   absolutePath: Schema.String,

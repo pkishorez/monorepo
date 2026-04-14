@@ -3,8 +3,8 @@ import type {
   PermissionResult,
 } from "@anthropic-ai/claude-agent-sdk";
 import { Deferred, Effect, Exit, Runtime } from "effect";
-import type { AccessMode } from "../../../entity/session/session.js";
-import { AskUserQuestionInput } from "../../../entity/turn/turn.js";
+import type { AccessMode } from "../../../core/entity/session/session.js";
+import { AskUserQuestionInput } from "../../../core/entity/turn/turn.js";
 import { updateClaudeTurnPayload } from "../../shared/turn.js";
 import type { ActiveTurn } from "./types.js";
 import { SqliteDB } from "@std-toolkit/sqlite";

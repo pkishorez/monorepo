@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { sessionSqliteEntity } from "../../db/entities/session.js";
-import type { InteractionMode } from "../../entity/session/session.js";
-import type { TaskStatus } from "../../entity/status.js";
+import type { InteractionMode } from "../../core/entity/session/session.js";
+import type { TaskStatus } from "../../core/entity/status.js";
 
 export const initSessionsForType = <R>(
   sessionType: "claude" | "codex",

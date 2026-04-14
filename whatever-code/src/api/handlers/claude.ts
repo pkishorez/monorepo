@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { ClaudeChatError, ClaudeRpcs } from "../definitions/claude.js";
 import { ClaudeOrchestrator } from "../../agents/claude/claude.js";
 import { claudeMessageSqliteEntity } from "../../db/entities/claude.js";
-import { applyProjection } from "../../projection/index.js";
+import { applyProjection } from "../../projection.js";
 
 export const ClaudeHandlers = ClaudeRpcs.toLayer(
   ClaudeRpcs.of({

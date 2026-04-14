@@ -16,7 +16,7 @@ export default defineConfig([
     outDir: "dist/api/definitions",
   },
   {
-    entry: ["src/entity/index.ts"],
+    entry: ["src/core/entity/index.ts"],
     format: "esm",
     dts: true,
     sourcemap: "inline",

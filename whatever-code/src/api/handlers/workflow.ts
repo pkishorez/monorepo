@@ -3,7 +3,7 @@ import { WorkflowRpcs } from "../definitions/workflow.js";
 import { WorkflowOrchestrator } from "../../agents/workflow/index.js";
 import { workflowSqliteEntity } from "../../db/entities/workflow.js";
 import { ExecuteWorkflowError } from "../../agents/workflow/index.js";
-import { errorMessage } from "../../lib/error.js";
+import { errorMessage } from "../../core/lib/error.js";
 
 export const WorkflowHandlers = WorkflowRpcs.toLayer(
   WorkflowRpcs.of({

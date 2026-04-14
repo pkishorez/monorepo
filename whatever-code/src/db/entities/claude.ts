@@ -1,9 +1,9 @@
 import { SQLiteEntity } from "@std-toolkit/sqlite";
 import { EntityESchema } from "@std-toolkit/eschema";
 import { Schema } from "effect";
-import { Typed } from "../../lib/typed.js";
+import { Typed } from "../../core/lib/typed.js";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { projectEntity } from "../../entity/project/index.js";
+import { projectEntity } from "../../core/entity/project/index.js";
 import { table } from "../table.js";
 
 const claudeMessageEntity = EntityESchema.make("claudeMessage", "id", {
