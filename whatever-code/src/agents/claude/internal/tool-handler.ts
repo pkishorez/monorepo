@@ -47,8 +47,8 @@ export const makeCanUseTool = (
       turn.planExited = true;
       return {
         behavior: "deny",
-        message: "ExitPlanMode is managed by the UI.",
-        interrupt: true,
+        message:
+          "ExitPlanMode is explicitly managed by us. Exit the program now.",
       };
     }
 

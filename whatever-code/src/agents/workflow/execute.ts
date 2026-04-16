@@ -193,6 +193,13 @@ export const continueExecuteWorkflow = (
     const sessionId = workflow.spec.executeSession;
     const session = yield* getSession(sessionId);
 
+    // Atomically update interaction mode before continuing (e.g. plan → default)
+    if (params.interactionMode !== undefined) {
+      yield* sessionSqliteEntity
+        .update({ sessionId }, { interactionMode: params.interactionMode })
+        .pipe(Effect.orDie);
+    }
+
     // Rebuild the status callback from the existing spec config
     const onStatusUpdate: OnExecuteStatusUpdate = (update) =>
       workflowSqliteEntity
@@ -207,17 +214,23 @@ export const continueExecuteWorkflow = (
 
     yield* onStatusUpdate({ status: "executing" });
 
+    const modeOverride = params.interactionMode !== undefined
+      ? { interactionMode: params.interactionMode } as const
+      : {};
+
     if (session.type === "claude") {
       const claude = yield* ClaudeOrchestrator;
       yield* claude.continueSession({
         sessionId,
         prompt: params.prompt,
+        ...modeOverride,
       }, undefined, onStatusUpdate);
     } else {
       const codex = yield* CodexOrchestrator;
       yield* codex.continueThread({
         sessionId,
         prompt: params.prompt,
+        ...modeOverride,
       }, undefined, onStatusUpdate);
     }
 

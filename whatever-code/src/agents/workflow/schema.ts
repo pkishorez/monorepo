@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 import { CreateSessionParams } from "../claude/schema.js";
 import { PromptContent } from "../shared/schema.js";
+import { InteractionMode } from "../../core/entity/session/session.js";
 import type { ExecuteStatusType, RalphLoopSpecStatusType } from "../../core/entity/workflow/index.js";
 
 import { CreateThreadParams } from "../codex/schema.js";
@@ -32,6 +33,7 @@ export const StartExecuteParams = Schema.Union(
 export const ContinueExecuteParams = Schema.Struct({
   workflowId: Schema.String,
   prompt: PromptContent,
+  interactionMode: Schema.optionalWith(InteractionMode, { exact: true }),
 });
 
 export const StopExecuteParams = Schema.Struct({
