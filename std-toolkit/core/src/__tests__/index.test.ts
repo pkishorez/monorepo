@@ -1,11 +1,14 @@
-import { describe, it, expect } from "@effect/vitest";
-import { Effect } from "effect";
+import { describe, it, expect } from 'vitest';
 
-describe("rpc", () => {
-  it.effect("works with Effect", () =>
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
+import { Effect } from 'effect';
+
+describe('rpc', () => {
+  itEffect('works with Effect', () =>
     Effect.gen(function* () {
-      const result = yield* Effect.succeed("hello");
-      expect(result).toBe("hello");
+      const result = yield* Effect.succeed('hello');
+      expect(result).toBe('hello');
     }),
   );
 });

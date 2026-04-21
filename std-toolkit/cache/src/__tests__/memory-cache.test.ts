@@ -1,10 +1,13 @@
-import { describe, it, expect } from "@effect/vitest";
-import { Effect, Option, Schema } from "effect";
-import { EntityESchema } from "@std-toolkit/eschema";
-import type { EntityType } from "@std-toolkit/core";
-import { MemoryCacheEntity } from "../memory/memory-cache-entity.js";
+import { describe, it, expect } from 'vitest';
 
-const UserSchema = EntityESchema.make("User", "id", {
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
+import { Effect, Option, Schema } from 'effect';
+import { EntityESchema } from '@std-toolkit/eschema';
+import type { EntityType } from '@std-toolkit/core';
+import { MemoryCacheEntity } from '../memory/memory-cache-entity.js';
+
+const UserSchema = EntityESchema.make('User', 'id', {
   name: Schema.String,
   email: Schema.String,
 }).build();
@@ -25,87 +28,87 @@ function makeUserEntity(
   };
 }
 
-describe("MemoryCacheEntity", () => {
-  it.effect("should create via make factory", () =>
+describe('MemoryCacheEntity', () => {
+  itEffect('should create via make factory', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
       expect(users).toBeInstanceOf(MemoryCacheEntity);
 
-      const user = makeUserEntity("user-1", "John", "john@example.com");
+      const user = makeUserEntity('user-1', 'John', 'john@example.com');
       yield* users.put(user);
 
-      const retrieved = yield* users.get("user-1");
+      const retrieved = yield* users.get('user-1');
       expect(Option.isSome(retrieved)).toBe(true);
     }),
   );
 
-  it.effect("should put and get a single entity", () =>
+  itEffect('should put and get a single entity', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
-      const user = makeUserEntity("user-1", "John", "john@example.com");
+      const user = makeUserEntity('user-1', 'John', 'john@example.com');
       yield* users.put(user);
 
-      const retrieved = yield* users.get("user-1");
+      const retrieved = yield* users.get('user-1');
       expect(Option.isSome(retrieved)).toBe(true);
       if (Option.isSome(retrieved)) {
-        expect(retrieved.value.value.id).toBe("user-1");
-        expect(retrieved.value.value.name).toBe("John");
-        expect(retrieved.value.meta._e).toBe("User");
+        expect(retrieved.value.value.id).toBe('user-1');
+        expect(retrieved.value.value.name).toBe('John');
+        expect(retrieved.value.meta._e).toBe('User');
       }
     }),
   );
 
-  it.effect("should return none for non-existent entity", () =>
+  itEffect('should return none for non-existent entity', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
-      const retrieved = yield* users.get("non-existent");
+      const retrieved = yield* users.get('non-existent');
       expect(Option.isNone(retrieved)).toBe(true);
     }),
   );
 
-  it.effect("should get all entities of a type", () =>
+  itEffect('should get all entities of a type', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
-      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
-      yield* users.put(makeUserEntity("user-2", "Jane", "jane@example.com"));
-      yield* users.put(makeUserEntity("user-3", "Bob", "bob@example.com"));
+      yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
+      yield* users.put(makeUserEntity('user-2', 'Jane', 'jane@example.com'));
+      yield* users.put(makeUserEntity('user-3', 'Bob', 'bob@example.com'));
 
       const allUsers = yield* users.getAll();
       expect(allUsers).toHaveLength(3);
       expect(allUsers.map((u) => u.value.id).sort()).toEqual([
-        "user-1",
-        "user-2",
-        "user-3",
+        'user-1',
+        'user-2',
+        'user-3',
       ]);
     }),
   );
 
-  it.effect("should delete a single entity", () =>
+  itEffect('should delete a single entity', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
-      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
-      yield* users.put(makeUserEntity("user-2", "Jane", "jane@example.com"));
+      yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
+      yield* users.put(makeUserEntity('user-2', 'Jane', 'jane@example.com'));
 
-      yield* users.delete("user-1");
+      yield* users.delete('user-1');
 
-      const user1 = yield* users.get("user-1");
-      const user2 = yield* users.get("user-2");
+      const user1 = yield* users.get('user-1');
+      const user2 = yield* users.get('user-2');
 
       expect(Option.isNone(user1)).toBe(true);
       expect(Option.isSome(user2)).toBe(true);
     }),
   );
 
-  it.effect("should delete all entities of a type", () =>
+  itEffect('should delete all entities of a type', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
-      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
-      yield* users.put(makeUserEntity("user-2", "Jane", "jane@example.com"));
+      yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
+      yield* users.put(makeUserEntity('user-2', 'Jane', 'jane@example.com'));
 
       yield* users.deleteAll();
 
@@ -114,79 +117,79 @@ describe("MemoryCacheEntity", () => {
     }),
   );
 
-  it.effect("should update existing entity on put", () =>
+  itEffect('should update existing entity on put', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
-      yield* users.put(makeUserEntity("user-1", "John", "john@example.com"));
+      yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
       yield* users.put(
-        makeUserEntity("user-1", "John Updated", "john.updated@example.com"),
+        makeUserEntity('user-1', 'John Updated', 'john.updated@example.com'),
       );
 
       const allUsers = yield* users.getAll();
       expect(allUsers).toHaveLength(1);
 
-      const user = yield* users.get("user-1");
+      const user = yield* users.get('user-1');
       expect(Option.isSome(user)).toBe(true);
       if (Option.isSome(user)) {
-        expect(user.value.value.name).toBe("John Updated");
+        expect(user.value.value.name).toBe('John Updated');
       }
     }),
   );
 
-  it.effect("should get latest entity by _u", () =>
+  itEffect('should get latest entity by _u', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
-        value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
+        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* users.put({
-        value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
+        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
       yield* users.put({
-        value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
+        value: { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
 
       const latest = yield* users.getLatest();
       expect(Option.isSome(latest)).toBe(true);
       if (Option.isSome(latest)) {
-        expect(latest.value.value.id).toBe("user-2");
-        expect(latest.value.meta._u).toBe("uid-003");
+        expect(latest.value.value.id).toBe('user-2');
+        expect(latest.value.meta._u).toBe('uid-003');
       }
     }),
   );
 
-  it.effect("should get oldest entity by _u", () =>
+  itEffect('should get oldest entity by _u', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
-        value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
+        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
       yield* users.put({
-        value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
+        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* users.put({
-        value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
+        value: { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
 
       const oldest = yield* users.getOldest();
       expect(Option.isSome(oldest)).toBe(true);
       if (Option.isSome(oldest)) {
-        expect(oldest.value.value.id).toBe("user-2");
-        expect(oldest.value.meta._u).toBe("uid-001");
+        expect(oldest.value.value.id).toBe('user-2');
+        expect(oldest.value.meta._u).toBe('uid-001');
       }
     }),
   );
 
-  it.effect("should return none for getLatest on empty store", () =>
+  itEffect('should return none for getLatest on empty store', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
@@ -195,7 +198,7 @@ describe("MemoryCacheEntity", () => {
     }),
   );
 
-  it.effect("should return none for getOldest on empty store", () =>
+  itEffect('should return none for getOldest on empty store', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
@@ -204,61 +207,61 @@ describe("MemoryCacheEntity", () => {
     }),
   );
 
-  it.effect("should recalculate bounds when deleting latest item", () =>
+  itEffect('should recalculate bounds when deleting latest item', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
-        value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
+        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* users.put({
-        value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
+        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
       yield* users.put({
-        value: { id: "user-3", name: "Charlie", email: "charlie@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
+        value: { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
 
-      yield* users.delete("user-2");
+      yield* users.delete('user-2');
 
       const latest = yield* users.getLatest();
       expect(Option.isSome(latest)).toBe(true);
       if (Option.isSome(latest)) {
-        expect(latest.value.value.id).toBe("user-3");
-        expect(latest.value.meta._u).toBe("uid-002");
+        expect(latest.value.value.id).toBe('user-3');
+        expect(latest.value.meta._u).toBe('uid-002');
       }
     }),
   );
 
-  it.effect("should recalculate bounds when updating latest item", () =>
+  itEffect('should recalculate bounds when updating latest item', () =>
     Effect.gen(function* () {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
-        value: { id: "user-1", name: "Alice", email: "alice@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-003", _d: false },
+        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
       yield* users.put({
-        value: { id: "user-2", name: "Bob", email: "bob@example.com" },
-        meta: { _e: "User", _v: "v1", _u: "uid-002", _d: false },
+        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
 
       yield* users.put({
         value: {
-          id: "user-1",
-          name: "Alice Updated",
-          email: "alice@example.com",
+          id: 'user-1',
+          name: 'Alice Updated',
+          email: 'alice@example.com',
         },
-        meta: { _e: "User", _v: "v1", _u: "uid-001", _d: false },
+        meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
 
       const latest = yield* users.getLatest();
       expect(Option.isSome(latest)).toBe(true);
       if (Option.isSome(latest)) {
-        expect(latest.value.value.id).toBe("user-2");
-        expect(latest.value.meta._u).toBe("uid-002");
+        expect(latest.value.value.id).toBe('user-2');
+        expect(latest.value.meta._u).toBe('uid-002');
       }
     }),
   );

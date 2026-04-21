@@ -1,29 +1,32 @@
-import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
-import { Effect, Schema } from "effect";
-import { EntityESchema } from "@std-toolkit/eschema";
-import { DynamoTable, DynamoEntity } from "../index.js";
-import { createDynamoDB } from "../services/dynamo-client.js";
-import { DynamodbError } from "../errors.js";
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
+import { Effect, Schema } from 'effect';
+import { EntityESchema } from '@std-toolkit/eschema';
+import { DynamoTable, DynamoEntity } from '../index.js';
+import { createDynamoDB } from '../services/dynamo-client.js';
+import { DynamodbError } from '../errors.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-expr-update-test-${Date.now()}`;
-const LOCAL_ENDPOINT = "http://localhost:8090";
+const LOCAL_ENDPOINT = 'http://localhost:8090';
 
 const localConfig = {
   tableName: TEST_TABLE_NAME,
-  region: "us-east-1",
+  region: 'us-east-1',
   credentials: {
-    accessKeyId: "local",
-    secretAccessKey: "local",
+    accessKeyId: 'local',
+    secretAccessKey: 'local',
   },
   endpoint: LOCAL_ENDPOINT,
 };
 
 const table = DynamoTable.make(localConfig)
-  .primary("pk", "sk")
-  .gsi("GSI1", "GSI1PK", "GSI1SK")
+  .primary('pk', 'sk')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-const playerSchema = EntityESchema.make("Player", "playerId", {
+const playerSchema = EntityESchema.make('Player', 'playerId', {
   teamId: Schema.String,
   name: Schema.String,
   score: Schema.Number,
@@ -34,8 +37,8 @@ const playerSchema = EntityESchema.make("Player", "playerId", {
 
 const PlayerEntity = DynamoEntity.make(table)
   .eschema(playerSchema)
-  .primary({ pk: ["teamId"] })
-  .index("GSI1", "byName", { pk: ["name"] })
+  .primary({ pk: ['teamId'] })
+  .index('GSI1', 'byName', { pk: ['name'] })
   .build();
 
 async function createTestTable() {
@@ -46,23 +49,23 @@ async function createTestTable() {
       .createTable({
         TableName: TEST_TABLE_NAME,
         KeySchema: [
-          { AttributeName: "pk", KeyType: "HASH" },
-          { AttributeName: "sk", KeyType: "RANGE" },
+          { AttributeName: 'pk', KeyType: 'HASH' },
+          { AttributeName: 'sk', KeyType: 'RANGE' },
         ],
         AttributeDefinitions: [
-          { AttributeName: "pk", AttributeType: "S" },
-          { AttributeName: "sk", AttributeType: "S" },
-          { AttributeName: "GSI1PK", AttributeType: "S" },
-          { AttributeName: "GSI1SK", AttributeType: "S" },
+          { AttributeName: 'pk', AttributeType: 'S' },
+          { AttributeName: 'sk', AttributeType: 'S' },
+          { AttributeName: 'GSI1PK', AttributeType: 'S' },
+          { AttributeName: 'GSI1SK', AttributeType: 'S' },
         ],
         GlobalSecondaryIndexes: [
           {
-            IndexName: "GSI1",
+            IndexName: 'GSI1',
             KeySchema: [
-              { AttributeName: "GSI1PK", KeyType: "HASH" },
-              { AttributeName: "GSI1SK", KeyType: "RANGE" },
+              { AttributeName: 'GSI1PK', KeyType: 'HASH' },
+              { AttributeName: 'GSI1SK', KeyType: 'RANGE' },
             ],
-            Projection: { ProjectionType: "ALL" },
+            Projection: { ProjectionType: 'ALL' },
             ProvisionedThroughput: {
               ReadCapacityUnits: 5,
               WriteCapacityUnits: 5,
@@ -77,7 +80,7 @@ async function createTestTable() {
       .pipe(
         Effect.catchAll((e) => {
           const errorName = (e as any)?.error?.name;
-          if (errorName === "ResourceInUseException") return Effect.void;
+          if (errorName === 'ResourceInUseException') return Effect.void;
           return Effect.fail(e);
         }),
       ),
@@ -93,19 +96,19 @@ async function deleteTestTable() {
   }
 }
 
-describe("Entity update with expression builder", () => {
+describe('Entity update with expression builder', () => {
   beforeAll(async () => {
     await createTestTable();
 
     await Effect.runPromise(
       PlayerEntity.insert({
-        teamId: "team-1",
-        playerId: "player-1",
-        name: "Alice",
+        teamId: 'team-1',
+        playerId: 'player-1',
+        name: 'Alice',
         score: 100,
         loginCount: 5,
-        tags: ["member"],
-        history: [{ action: "joined" }],
+        tags: ['member'],
+        history: [{ action: 'joined' }],
       }),
     );
   });
@@ -114,100 +117,108 @@ describe("Entity update with expression builder", () => {
     await deleteTestTable();
   });
 
-  it.effect("opAdd increments a numeric field", () =>
+  itEffect('opAdd increments a numeric field', () =>
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
-        { teamId: "team-1", playerId: "player-1" },
-        { update: ($) => [$.set("score", $.opAdd("score", 10))] },
+        { teamId: 'team-1', playerId: 'player-1' },
+        { update: ($) => [$.set('score', $.opAdd('score', 10))] },
       );
       expect(result.value.score).toBe(110);
     }),
   );
 
-  it.effect("opIfNotExists sets value only if missing", () =>
+  itEffect('opIfNotExists sets value only if missing', () =>
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
-        { teamId: "team-1", playerId: "player-1" },
-        { update: ($) => [$.set("loginCount", $.opIfNotExists("loginCount", 0))] },
+        { teamId: 'team-1', playerId: 'player-1' },
+        {
+          update: ($) => [
+            $.set('loginCount', $.opIfNotExists('loginCount', 0)),
+          ],
+        },
       );
       expect(result.value.loginCount).toBe(5);
     }),
   );
 
-  it.effect("append adds items to end of list", () =>
+  itEffect('append adds items to end of list', () =>
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
-        { teamId: "team-1", playerId: "player-1" },
-        { update: ($) => [$.append("tags", ["admin"])] },
+        { teamId: 'team-1', playerId: 'player-1' },
+        { update: ($) => [$.append('tags', ['admin'])] },
       );
-      expect(result.value.tags).toEqual(["member", "admin"]);
+      expect(result.value.tags).toEqual(['member', 'admin']);
     }),
   );
 
-  it.effect("prepend adds items to beginning of list", () =>
+  itEffect('prepend adds items to beginning of list', () =>
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
-        { teamId: "team-1", playerId: "player-1" },
-        { update: ($) => [$.prepend("history", [{ action: "login" }])] },
+        { teamId: 'team-1', playerId: 'player-1' },
+        { update: ($) => [$.prepend('history', [{ action: 'login' }])] },
       );
-      expect(result.value.history[0]).toEqual({ action: "login" });
-      expect(result.value.history[1]).toEqual({ action: "joined" });
+      expect(result.value.history[0]).toEqual({ action: 'login' });
+      expect(result.value.history[1]).toEqual({ action: 'joined' });
     }),
   );
 
-  it.effect("mixed operations in single update", () =>
+  itEffect('mixed operations in single update', () =>
     Effect.gen(function* () {
       const before = yield* PlayerEntity.get({
-        teamId: "team-1",
-        playerId: "player-1",
+        teamId: 'team-1',
+        playerId: 'player-1',
       });
 
       const result = yield* PlayerEntity.update(
-        { teamId: "team-1", playerId: "player-1" },
-        { update: ($) => [
-          $.set("score", $.opAdd("score", 5)),
-          $.append("tags", ["vip"]),
-        ] },
+        { teamId: 'team-1', playerId: 'player-1' },
+        {
+          update: ($) => [
+            $.set('score', $.opAdd('score', 5)),
+            $.append('tags', ['vip']),
+          ],
+        },
       );
 
       expect(result.value.score).toBe(before!.value.score + 5);
-      expect(result.value.tags).toContain("vip");
+      expect(result.value.tags).toContain('vip');
     }),
   );
 
-  it.effect("auto-injects _u on expression builder updates", () =>
+  itEffect('auto-injects _u on expression builder updates', () =>
     Effect.gen(function* () {
       const before = yield* PlayerEntity.get({
-        teamId: "team-1",
-        playerId: "player-1",
+        teamId: 'team-1',
+        playerId: 'player-1',
       });
 
       const result = yield* PlayerEntity.update(
-        { teamId: "team-1", playerId: "player-1" },
-        { update: ($) => [$.set("score", $.opAdd("score", 1))] },
+        { teamId: 'team-1', playerId: 'player-1' },
+        { update: ($) => [$.set('score', $.opAdd('score', 1))] },
       );
 
       expect(result.meta._u).not.toBe(before!.meta._u);
     }),
   );
 
-  it.effect("throws when expression builder targets a derivation dep field", () =>
-    Effect.gen(function* () {
-      const result = yield* PlayerEntity.update(
-        { teamId: "team-1", playerId: "player-1" },
-        { update: ($) => [$.set("name" as any, "Bob" as any)] },
-      ).pipe(Effect.flip);
+  itEffect(
+    'throws when expression builder targets a derivation dep field',
+    () =>
+      Effect.gen(function* () {
+        const result = yield* PlayerEntity.update(
+          { teamId: 'team-1', playerId: 'player-1' },
+          { update: ($) => [$.set('name' as any, 'Bob' as any)] },
+        ).pipe(Effect.flip);
 
-      expect(result).toBeInstanceOf(DynamodbError);
-      expect(result.error._tag).toBe("UpdateItemFailed");
-      expect((result.error as any).cause).toMatch(/derivation dependency/);
-    }),
+        expect(result).toBeInstanceOf(DynamodbError);
+        expect(result.error._tag).toBe('UpdateItemFailed');
+        expect((result.error as any).cause).toMatch(/derivation dependency/);
+      }),
   );
 
-  it.effect("plain partial update still works", () =>
+  itEffect('plain partial update still works', () =>
     Effect.gen(function* () {
       const result = yield* PlayerEntity.update(
-        { teamId: "team-1", playerId: "player-1" },
+        { teamId: 'team-1', playerId: 'player-1' },
         { update: { score: 999 } },
       );
       expect(result.value.score).toBe(999);

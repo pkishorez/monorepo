@@ -21,12 +21,12 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "fmt": "vp fmt",
     "generate": "bun scripts/generate.ts",
-    "lint": "tsc --noEmit",
+    "lint": "vp check",
     "play": "bun src/play/index.ts",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:watch": "vitest --watch"
+    "test": "vp test",
+    "test:watch": "vp test --watch"
   },
   "dependencies": {
     "@std-toolkit/core": "workspace:*",
@@ -38,13 +38,10 @@
     "@effect/platform": "0.96.0",
     "@effect/platform-node": "0.106.0",
     "@effect/rpc": "0.75.0",
-    "@effect/vitest": "0.29.0",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.6.0",
     "effect": "3.21.1",
     "typescript": "6.0.3",
-    "vite": "8.0.9",
-    "vite-tsconfig-paths": "6.1.1",
     "vitest": "4.1.4"
   },
   "peerDependencies": {

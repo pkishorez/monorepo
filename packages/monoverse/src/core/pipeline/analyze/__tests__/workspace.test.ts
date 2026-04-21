@@ -1,12 +1,15 @@
 import * as path from 'node:path';
-import { describe, it, expect } from '@effect/vitest';
+import { describe, it, expect } from 'vitest';
+
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
 import { Effect } from 'effect';
 import { discoverWorkspaces } from '../workspace.js';
 
 const fixtures = path.join(import.meta.dirname, 'fixtures');
 
 describe('discoverWorkspaces', () => {
-  it.effect('discovers workspaces from glob patterns', () =>
+  itEffect('discovers workspaces from glob patterns', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'pnpm-monorepo');
       const result = yield* discoverWorkspaces(root, [
@@ -22,7 +25,7 @@ describe('discoverWorkspaces', () => {
     }),
   );
 
-  it.effect('parses workspace metadata', () =>
+  itEffect('parses workspace metadata', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'pnpm-monorepo');
       const result = yield* discoverWorkspaces(root, [
@@ -37,7 +40,7 @@ describe('discoverWorkspaces', () => {
     }),
   );
 
-  it.effect('collects all dependency types', () =>
+  itEffect('collects all dependency types', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'with-all-dep-types');
       const result = yield* discoverWorkspaces(root, [
@@ -61,7 +64,7 @@ describe('discoverWorkspaces', () => {
     }),
   );
 
-  it.effect('marks internal dependencies as workspace source', () =>
+  itEffect('marks internal dependencies as workspace source', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'with-internal-deps');
       const result = yield* discoverWorkspaces(root, [
@@ -78,7 +81,7 @@ describe('discoverWorkspaces', () => {
     }),
   );
 
-  it.effect('handles parse errors gracefully', () =>
+  itEffect('handles parse errors gracefully', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'with-invalid-json');
       const result = yield* discoverWorkspaces(root, [
@@ -93,7 +96,7 @@ describe('discoverWorkspaces', () => {
     }),
   );
 
-  it.effect('derives name from directory when missing', () =>
+  itEffect('derives name from directory when missing', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'missing-fields');
       const result = yield* discoverWorkspaces(root, [
@@ -104,7 +107,7 @@ describe('discoverWorkspaces', () => {
     }),
   );
 
-  it.effect('defaults version to 0.0.0 when missing', () =>
+  itEffect('defaults version to 0.0.0 when missing', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'missing-fields');
       const result = yield* discoverWorkspaces(root, [
@@ -115,7 +118,7 @@ describe('discoverWorkspaces', () => {
     }),
   );
 
-  it.effect('defaults private to false when missing', () =>
+  itEffect('defaults private to false when missing', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'missing-fields');
       const result = yield* discoverWorkspaces(root, [
@@ -126,7 +129,7 @@ describe('discoverWorkspaces', () => {
     }),
   );
 
-  it.effect('returns empty workspaces when no matches found', () =>
+  itEffect('returns empty workspaces when no matches found', () =>
     Effect.gen(function* () {
       const root = path.join(fixtures, 'empty-dir');
       const result = yield* discoverWorkspaces(root, [

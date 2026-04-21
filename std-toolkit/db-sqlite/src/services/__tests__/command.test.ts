@@ -1,23 +1,26 @@
-import Database from "better-sqlite3";
-import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
-import { EntityESchema } from "@std-toolkit/eschema";
-import { Effect, Layer, Schema } from "effect";
-import { SqliteDBBetterSqlite3 } from "../../sql/adapters/better-sqlite3.js";
-import { SqliteDB } from "../../sql/db.js";
-import { SQLiteTable } from "../sqlite-table.js";
-import { SQLiteEntity } from "../sqlite-entity.js";
-import { EntityRegistry } from "../entity-registry.js";
-import { SqliteCommand } from "../sqlite-command.js";
-import { CommandError } from "@std-toolkit/core/command";
+import Database from 'better-sqlite3';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
+import { EntityESchema } from '@std-toolkit/eschema';
+import { Effect, Layer, Schema } from 'effect';
+import { SqliteDBBetterSqlite3 } from '../../sql/adapters/better-sqlite3.js';
+import { SqliteDB } from '../../sql/db.js';
+import { SQLiteTable } from '../sqlite-table.js';
+import { SQLiteEntity } from '../sqlite-entity.js';
+import { EntityRegistry } from '../entity-registry.js';
+import { SqliteCommand } from '../sqlite-command.js';
+import { CommandError } from '@std-toolkit/core/command';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
-const UserSchema = EntityESchema.make("User", "userId", {
+const UserSchema = EntityESchema.make('User', 'userId', {
   email: Schema.String,
   name: Schema.String,
 }).build();
 
-const PostSchema = EntityESchema.make("Post", "postId", {
+const PostSchema = EntityESchema.make('Post', 'postId', {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,
@@ -25,25 +28,25 @@ const PostSchema = EntityESchema.make("Post", "postId", {
 
 // ─── Command Processor Tests ─────────────────────────────────────────────────
 
-describe("SqliteCommand", () => {
+describe('SqliteCommand', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
   let command: SqliteCommand<any>;
 
-  const table = SQLiteTable.make({ tableName: "command_test" })
-    .primary("pk", "sk")
-    .index("IDX1", "IDX1PK", "IDX1SK")
+  const table = SQLiteTable.make({ tableName: 'command_test' })
+    .primary('pk', 'sk')
+    .index('IDX1', 'IDX1PK', 'IDX1SK')
     .build();
 
   const userEntity = SQLiteEntity.make(table)
     .eschema(UserSchema)
     .primary()
-    .index("IDX1", "byEmail", { pk: ["email"] })
+    .index('IDX1', 'byEmail', { pk: ['email'] })
     .build();
 
   const postEntity = SQLiteEntity.make(table)
     .eschema(PostSchema)
-    .primary({ pk: ["authorId"] })
+    .primary({ pk: ['authorId'] })
     .build();
 
   const registry = EntityRegistry.make(table)
@@ -52,7 +55,7 @@ describe("SqliteCommand", () => {
     .build();
 
   beforeAll(async () => {
-    db = new Database(":memory:");
+    db = new Database(':memory:');
     layer = SqliteDBBetterSqlite3(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
@@ -60,58 +63,60 @@ describe("SqliteCommand", () => {
 
   afterAll(() => db.close());
 
-  describe("insert operation", () => {
-    it.effect("inserts a new entity", () =>
+  describe('insert operation', () => {
+    itEffect('inserts a new entity', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "insert",
-          entity: "User",
+          operation: 'insert',
+          entity: 'User',
           data: {
-            userId: "cmd-user-1",
-            email: "cmd@example.com",
-            name: "Command User",
+            userId: 'cmd-user-1',
+            email: 'cmd@example.com',
+            name: 'Command User',
           },
         });
 
-        expect(result.operation).toBe("insert");
-        expect(result.entity).toBe("User");
+        expect(result.operation).toBe('insert');
+        expect(result.entity).toBe('User');
         expect(result.data.value).toMatchObject({
-          userId: "cmd-user-1",
-          email: "cmd@example.com",
-          name: "Command User",
+          userId: 'cmd-user-1',
+          email: 'cmd@example.com',
+          name: 'Command User',
         });
         expect(result.timing.durationMs).toBeGreaterThanOrEqual(0);
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("returns timing information", () =>
+    itEffect('returns timing information', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "insert",
-          entity: "User",
+          operation: 'insert',
+          entity: 'User',
           data: {
-            userId: "timing-user",
-            email: "timing@example.com",
-            name: "Timing User",
+            userId: 'timing-user',
+            email: 'timing@example.com',
+            name: 'Timing User',
           },
         });
 
         expect(result.timing.startedAt).toBeGreaterThan(0);
-        expect(result.timing.completedAt).toBeGreaterThanOrEqual(result.timing.startedAt);
+        expect(result.timing.completedAt).toBeGreaterThanOrEqual(
+          result.timing.startedAt,
+        );
         expect(result.timing.durationMs).toBe(
           result.timing.completedAt - result.timing.startedAt,
         );
       }).pipe(Effect.provide(layer)),
     );
 
-    it("throws for non-existent entity in registry", async () => {
+    it('throws for non-existent entity in registry', async () => {
       await expect(
         Effect.runPromise(
           command
             .process({
-              operation: "insert",
-              entity: "NonExistent",
-              data: { id: "1" },
+              operation: 'insert',
+              entity: 'NonExistent',
+              data: { id: '1' },
             })
             .pipe(Effect.provide(layer)),
         ),
@@ -119,173 +124,173 @@ describe("SqliteCommand", () => {
     });
   });
 
-  describe("update operation", () => {
-    it.effect("updates an existing entity", () =>
+  describe('update operation', () => {
+    itEffect('updates an existing entity', () =>
       Effect.gen(function* () {
         yield* command.process({
-          operation: "insert",
-          entity: "User",
+          operation: 'insert',
+          entity: 'User',
           data: {
-            userId: "update-user-1",
-            email: "before@example.com",
-            name: "Before",
+            userId: 'update-user-1',
+            email: 'before@example.com',
+            name: 'Before',
           },
         });
 
         const result = yield* command.process({
-          operation: "update",
-          entity: "User",
-          key: { userId: "update-user-1" },
-          data: { name: "After" },
+          operation: 'update',
+          entity: 'User',
+          key: { userId: 'update-user-1' },
+          data: { name: 'After' },
         });
 
-        expect(result.operation).toBe("update");
-        expect(result.entity).toBe("User");
+        expect(result.operation).toBe('update');
+        expect(result.entity).toBe('User');
         expect(result.data.value).toMatchObject({
-          userId: "update-user-1",
-          email: "before@example.com",
-          name: "After",
+          userId: 'update-user-1',
+          email: 'before@example.com',
+          name: 'After',
         });
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("fails for non-existent entity", () =>
+    itEffect('fails for non-existent entity', () =>
       Effect.gen(function* () {
         const error = yield* command
           .process({
-            operation: "update",
-            entity: "User",
-            key: { userId: "non-existent" },
-            data: { name: "X" },
+            operation: 'update',
+            entity: 'User',
+            key: { userId: 'non-existent' },
+            data: { name: 'X' },
           })
           .pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(CommandError);
-        expect(error.operation).toBe("update");
+        expect(error.operation).toBe('update');
       }).pipe(Effect.provide(layer)),
     );
   });
 
-  describe("delete operation", () => {
-    it.effect("soft deletes an existing entity", () =>
+  describe('delete operation', () => {
+    itEffect('soft deletes an existing entity', () =>
       Effect.gen(function* () {
         yield* command.process({
-          operation: "insert",
-          entity: "User",
+          operation: 'insert',
+          entity: 'User',
           data: {
-            userId: "delete-user-1",
-            email: "delete@example.com",
-            name: "Delete Me",
+            userId: 'delete-user-1',
+            email: 'delete@example.com',
+            name: 'Delete Me',
           },
         });
 
         const result = yield* command.process({
-          operation: "delete",
-          entity: "User",
-          key: { userId: "delete-user-1" },
+          operation: 'delete',
+          entity: 'User',
+          key: { userId: 'delete-user-1' },
         });
 
-        expect(result.operation).toBe("delete");
-        expect(result.entity).toBe("User");
+        expect(result.operation).toBe('delete');
+        expect(result.entity).toBe('User');
         expect(result.data.meta._d).toBe(true);
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("fails for non-existent entity", () =>
+    itEffect('fails for non-existent entity', () =>
       Effect.gen(function* () {
         const error = yield* command
           .process({
-            operation: "delete",
-            entity: "User",
-            key: { userId: "non-existent-delete" },
+            operation: 'delete',
+            entity: 'User',
+            key: { userId: 'non-existent-delete' },
           })
           .pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(CommandError);
-        expect(error.operation).toBe("delete");
+        expect(error.operation).toBe('delete');
       }).pipe(Effect.provide(layer)),
     );
   });
 
-  describe("query operation", () => {
+  describe('query operation', () => {
     beforeAll(async () => {
       await Effect.runPromise(
         Effect.gen(function* () {
           yield* command.process({
-            operation: "insert",
-            entity: "Post",
+            operation: 'insert',
+            entity: 'Post',
             data: {
-              postId: "post-a",
-              authorId: "query-author",
-              title: "Post A",
-              content: "Content A",
+              postId: 'post-a',
+              authorId: 'query-author',
+              title: 'Post A',
+              content: 'Content A',
             },
           });
           yield* command.process({
-            operation: "insert",
-            entity: "Post",
+            operation: 'insert',
+            entity: 'Post',
             data: {
-              postId: "post-b",
-              authorId: "query-author",
-              title: "Post B",
-              content: "Content B",
+              postId: 'post-b',
+              authorId: 'query-author',
+              title: 'Post B',
+              content: 'Content B',
             },
           });
           yield* command.process({
-            operation: "insert",
-            entity: "Post",
+            operation: 'insert',
+            entity: 'Post',
             data: {
-              postId: "post-c",
-              authorId: "query-author",
-              title: "Post C",
-              content: "Content C",
+              postId: 'post-c',
+              authorId: 'query-author',
+              title: 'Post C',
+              content: 'Content C',
             },
           });
         }).pipe(Effect.provide(layer)),
       );
     });
 
-    it.effect("queries entities by primary index", () =>
+    itEffect('queries entities by primary index', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "query",
-          entity: "Post",
-          index: "primary",
-          pk: { authorId: "query-author" },
-          sk: { ">=": null },
+          operation: 'query',
+          entity: 'Post',
+          index: 'primary',
+          pk: { authorId: 'query-author' },
+          sk: { '>=': null },
         });
 
-        expect(result.operation).toBe("query");
-        expect(result.entity).toBe("Post");
+        expect(result.operation).toBe('query');
+        expect(result.entity).toBe('Post');
         expect(result.items.length).toBeGreaterThanOrEqual(3);
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("queries with sk condition", () =>
+    itEffect('queries with sk condition', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "query",
-          entity: "Post",
-          index: "primary",
-          pk: { authorId: "query-author" },
-          sk: { ">=": "post-b" },
+          operation: 'query',
+          entity: 'Post',
+          index: 'primary',
+          pk: { authorId: 'query-author' },
+          sk: { '>=': 'post-b' },
         });
 
         const postIds = result.items.map((i: any) => i.value.postId);
-        expect(postIds).toContain("post-b");
-        expect(postIds).toContain("post-c");
-        expect(postIds).not.toContain("post-a");
+        expect(postIds).toContain('post-b');
+        expect(postIds).toContain('post-c');
+        expect(postIds).not.toContain('post-a');
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("queries with limit", () =>
+    itEffect('queries with limit', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "query",
-          entity: "Post",
-          index: "primary",
-          pk: { authorId: "query-author" },
-          sk: { ">=": null },
+          operation: 'query',
+          entity: 'Post',
+          index: 'primary',
+          pk: { authorId: 'query-author' },
+          sk: { '>=': null },
           limit: 2,
         });
 
@@ -293,42 +298,42 @@ describe("SqliteCommand", () => {
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("queries by secondary index", () =>
+    itEffect('queries by secondary index', () =>
       Effect.gen(function* () {
         yield* command.process({
-          operation: "insert",
-          entity: "User",
+          operation: 'insert',
+          entity: 'User',
           data: {
-            userId: "idx-user",
-            email: "indexed@example.com",
-            name: "Indexed User",
+            userId: 'idx-user',
+            email: 'indexed@example.com',
+            name: 'Indexed User',
           },
         });
 
         const result = yield* command.process({
-          operation: "query",
-          entity: "User",
-          index: "byEmail",
-          pk: { email: "indexed@example.com" },
-          sk: { ">=": null },
+          operation: 'query',
+          entity: 'User',
+          index: 'byEmail',
+          pk: { email: 'indexed@example.com' },
+          sk: { '>=': null },
         });
 
         expect(result.items).toHaveLength(1);
         expect(result.items[0]!.value).toMatchObject({
-          userId: "idx-user",
-          email: "indexed@example.com",
+          userId: 'idx-user',
+          email: 'indexed@example.com',
         });
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("returns empty array for non-existent partition", () =>
+    itEffect('returns empty array for non-existent partition', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "query",
-          entity: "Post",
-          index: "primary",
-          pk: { authorId: "non-existent-author" },
-          sk: { ">=": null },
+          operation: 'query',
+          entity: 'Post',
+          index: 'primary',
+          pk: { authorId: 'non-existent-author' },
+          sk: { '>=': null },
         });
 
         expect(result.items).toHaveLength(0);
@@ -336,127 +341,129 @@ describe("SqliteCommand", () => {
     );
   });
 
-  describe("descriptor operation", () => {
-    it.effect("returns all entity descriptors", () =>
+  describe('descriptor operation', () => {
+    itEffect('returns all entity descriptors', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "descriptor",
+          operation: 'descriptor',
         });
 
-        expect(result.operation).toBe("descriptor");
+        expect(result.operation).toBe('descriptor');
         expect(result.descriptors).toHaveLength(2);
 
         const names = result.descriptors.map((d: any) => d.name);
-        expect(names).toContain("User");
-        expect(names).toContain("Post");
+        expect(names).toContain('User');
+        expect(names).toContain('Post');
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("includes timing information", () =>
+    itEffect('includes timing information', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "descriptor",
+          operation: 'descriptor',
         });
 
         expect(result.timing.startedAt).toBeGreaterThan(0);
-        expect(result.timing.completedAt).toBeGreaterThanOrEqual(result.timing.startedAt);
+        expect(result.timing.completedAt).toBeGreaterThanOrEqual(
+          result.timing.startedAt,
+        );
         expect(result.timing.durationMs).toBeGreaterThanOrEqual(0);
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("returns correct schema structure for each entity", () =>
+    itEffect('returns correct schema structure for each entity', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "descriptor",
+          operation: 'descriptor',
         });
 
-        const userDesc = result.descriptors.find((d: any) => d.name === "User");
+        const userDesc = result.descriptors.find((d: any) => d.name === 'User');
         expect(userDesc).toBeDefined();
-        expect(userDesc!.version).toBe("v1");
+        expect(userDesc!.version).toBe('v1');
         expect(userDesc!.primaryIndex).toBeDefined();
-        expect(userDesc!.primaryIndex.pk.pattern).toContain("User");
+        expect(userDesc!.primaryIndex.pk.pattern).toContain('User');
         expect(userDesc!.schema).toBeDefined();
 
-        const postDesc = result.descriptors.find((d: any) => d.name === "Post");
+        const postDesc = result.descriptors.find((d: any) => d.name === 'Post');
         expect(postDesc).toBeDefined();
-        expect(postDesc!.primaryIndex.pk.deps).toContain("authorId");
+        expect(postDesc!.primaryIndex.pk.deps).toContain('authorId');
       }).pipe(Effect.provide(layer)),
     );
 
-    it.effect("includes secondary index descriptors", () =>
+    itEffect('includes secondary index descriptors', () =>
       Effect.gen(function* () {
         const result = yield* command.process({
-          operation: "descriptor",
+          operation: 'descriptor',
         });
 
-        const userDesc = result.descriptors.find((d: any) => d.name === "User");
+        const userDesc = result.descriptors.find((d: any) => d.name === 'User');
         expect(userDesc).toBeDefined();
         expect(userDesc!.secondaryIndexes).toHaveLength(1);
-        expect(userDesc!.secondaryIndexes[0]!.name).toBe("byEmail");
-        expect(userDesc!.secondaryIndexes[0]!.pk.deps).toContain("email");
+        expect(userDesc!.secondaryIndexes[0]!.name).toBe('byEmail');
+        expect(userDesc!.secondaryIndexes[0]!.pk.deps).toContain('email');
       }).pipe(Effect.provide(layer)),
     );
   });
 
-  describe("toRpcHandler", () => {
-    it("returns handler object with default prefix", () => {
+  describe('toRpcHandler', () => {
+    it('returns handler object with default prefix', () => {
       const handlers = command.toRpcHandler();
 
-      expect(handlers).toHaveProperty("__std-toolkit__command");
-      expect(typeof handlers["__std-toolkit__command"]).toBe("function");
+      expect(handlers).toHaveProperty('__std-toolkit__command');
+      expect(typeof handlers['__std-toolkit__command']).toBe('function');
     });
 
-    it("returns handler object with custom suffix", () => {
-      const handlers = command.toRpcHandler("Admin");
+    it('returns handler object with custom suffix', () => {
+      const handlers = command.toRpcHandler('Admin');
 
-      expect(handlers).toHaveProperty("__std-toolkit__commandAdmin");
-      expect(typeof handlers["__std-toolkit__commandAdmin"]).toBe("function");
+      expect(handlers).toHaveProperty('__std-toolkit__commandAdmin');
+      expect(typeof handlers['__std-toolkit__commandAdmin']).toBe('function');
     });
 
-    it.effect("handler processes commands correctly", () =>
+    itEffect('handler processes commands correctly', () =>
       Effect.gen(function* () {
         const handlers = command.toRpcHandler();
-        const handler = handlers["__std-toolkit__command"];
+        const handler = handlers['__std-toolkit__command'];
 
         const result = yield* handler({
-          operation: "insert",
-          entity: "User",
+          operation: 'insert',
+          entity: 'User',
           data: {
-            userId: "rpc-user",
-            email: "rpc@example.com",
-            name: "RPC User",
+            userId: 'rpc-user',
+            email: 'rpc@example.com',
+            name: 'RPC User',
           },
         });
 
-        expect(result.operation).toBe("insert");
-        expect((result as { entity: string }).entity).toBe("User");
+        expect(result.operation).toBe('insert');
+        expect((result as { entity: string }).entity).toBe('User');
       }).pipe(Effect.provide(layer)),
     );
   });
 
-  describe("registry access", () => {
-    it("provides access to the registry", () => {
+  describe('registry access', () => {
+    it('provides access to the registry', () => {
       expect(command.registry).toBe(registry);
     });
 
-    it("static RPC_PREFIX is correct", () => {
-      expect(SqliteCommand.RPC_PREFIX).toBe("__std-toolkit__command");
+    it('static RPC_PREFIX is correct', () => {
+      expect(SqliteCommand.RPC_PREFIX).toBe('__std-toolkit__command');
     });
   });
 });
 
 // ─── Error Handling Tests ────────────────────────────────────────────────────
 
-describe("SqliteCommand Error Handling", () => {
+describe('SqliteCommand Error Handling', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
   let command: SqliteCommand<any>;
 
-  const table = SQLiteTable.make({ tableName: "error_test" })
-    .primary("pk", "sk")
+  const table = SQLiteTable.make({ tableName: 'error_test' })
+    .primary('pk', 'sk')
     .build();
 
-  const SimpleSchema = EntityESchema.make("Simple", "id", {
+  const SimpleSchema = EntityESchema.make('Simple', 'id', {
     value: Schema.String,
   }).build();
 
@@ -468,7 +475,7 @@ describe("SqliteCommand Error Handling", () => {
   const registry = EntityRegistry.make(table).register(simpleEntity).build();
 
   beforeAll(async () => {
-    db = new Database(":memory:");
+    db = new Database(':memory:');
     layer = SqliteDBBetterSqlite3(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
@@ -476,58 +483,58 @@ describe("SqliteCommand Error Handling", () => {
 
   afterAll(() => db.close());
 
-  it.effect("CommandError includes operation type", () =>
+  itEffect('CommandError includes operation type', () =>
     Effect.gen(function* () {
       const error = yield* command
         .process({
-          operation: "update",
-          entity: "Simple",
-          key: { id: "not-found" },
-          data: { value: "x" },
+          operation: 'update',
+          entity: 'Simple',
+          key: { id: 'not-found' },
+          data: { value: 'x' },
         })
         .pipe(Effect.flip);
 
-      expect(error.operation).toBe("update");
+      expect(error.operation).toBe('update');
     }).pipe(Effect.provide(layer)),
   );
 
-  it.effect("CommandError includes entity name", () =>
+  itEffect('CommandError includes entity name', () =>
     Effect.gen(function* () {
       const error = yield* command
         .process({
-          operation: "delete",
-          entity: "Simple",
-          key: { id: "not-found" },
+          operation: 'delete',
+          entity: 'Simple',
+          key: { id: 'not-found' },
         })
         .pipe(Effect.flip);
 
-      expect(error.entity).toBe("Simple");
+      expect(error.entity).toBe('Simple');
     }).pipe(Effect.provide(layer)),
   );
 
-  it.effect("CommandError includes descriptive message", () =>
+  itEffect('CommandError includes descriptive message', () =>
     Effect.gen(function* () {
       const error = yield* command
         .process({
-          operation: "update",
-          entity: "Simple",
-          key: { id: "not-found" },
-          data: { value: "x" },
+          operation: 'update',
+          entity: 'Simple',
+          key: { id: 'not-found' },
+          data: { value: 'x' },
         })
         .pipe(Effect.flip);
 
-      expect(error.message).toContain("Update failed");
+      expect(error.message).toContain('Update failed');
     }).pipe(Effect.provide(layer)),
   );
 
-  it.effect("CommandError includes cause", () =>
+  itEffect('CommandError includes cause', () =>
     Effect.gen(function* () {
       const error = yield* command
         .process({
-          operation: "update",
-          entity: "Simple",
-          key: { id: "not-found" },
-          data: { value: "x" },
+          operation: 'update',
+          entity: 'Simple',
+          key: { id: 'not-found' },
+          data: { value: 'x' },
         })
         .pipe(Effect.flip);
 
@@ -538,20 +545,20 @@ describe("SqliteCommand Error Handling", () => {
 
 // ─── Cross-Entity Command Tests ──────────────────────────────────────────────
 
-describe("SqliteCommand Cross-Entity Operations", () => {
+describe('SqliteCommand Cross-Entity Operations', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
   let command: SqliteCommand<any>;
 
-  const table = SQLiteTable.make({ tableName: "cross_entity" })
-    .primary("pk", "sk")
+  const table = SQLiteTable.make({ tableName: 'cross_entity' })
+    .primary('pk', 'sk')
     .build();
 
-  const EntityASchema = EntityESchema.make("EntityA", "aId", {
+  const EntityASchema = EntityESchema.make('EntityA', 'aId', {
     value: Schema.String,
   }).build();
 
-  const EntityBSchema = EntityESchema.make("EntityB", "bId", {
+  const EntityBSchema = EntityESchema.make('EntityB', 'bId', {
     ref: Schema.String,
   }).build();
 
@@ -571,7 +578,7 @@ describe("SqliteCommand Cross-Entity Operations", () => {
     .build();
 
   beforeAll(async () => {
-    db = new Database(":memory:");
+    db = new Database(':memory:');
     layer = SqliteDBBetterSqlite3(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
@@ -579,60 +586,60 @@ describe("SqliteCommand Cross-Entity Operations", () => {
 
   afterAll(() => db.close());
 
-  it.effect("processes commands for multiple entity types", () =>
+  itEffect('processes commands for multiple entity types', () =>
     Effect.gen(function* () {
       const resultA = yield* command.process({
-        operation: "insert",
-        entity: "EntityA",
-        data: { aId: "a-1", value: "hello" },
+        operation: 'insert',
+        entity: 'EntityA',
+        data: { aId: 'a-1', value: 'hello' },
       });
 
       const resultB = yield* command.process({
-        operation: "insert",
-        entity: "EntityB",
-        data: { bId: "b-1", ref: "a-1" },
+        operation: 'insert',
+        entity: 'EntityB',
+        data: { bId: 'b-1', ref: 'a-1' },
       });
 
-      expect(resultA.entity).toBe("EntityA");
-      expect(resultB.entity).toBe("EntityB");
+      expect(resultA.entity).toBe('EntityA');
+      expect(resultB.entity).toBe('EntityB');
     }).pipe(Effect.provide(layer)),
   );
 
-  it.effect("maintains entity isolation in queries", () =>
+  itEffect('maintains entity isolation in queries', () =>
     Effect.gen(function* () {
       yield* command.process({
-        operation: "insert",
-        entity: "EntityA",
-        data: { aId: "iso-a", value: "isolated" },
+        operation: 'insert',
+        entity: 'EntityA',
+        data: { aId: 'iso-a', value: 'isolated' },
       });
 
       yield* command.process({
-        operation: "insert",
-        entity: "EntityB",
-        data: { bId: "iso-b", ref: "isolated" },
+        operation: 'insert',
+        entity: 'EntityB',
+        data: { bId: 'iso-b', ref: 'isolated' },
       });
 
       const queryA = yield* command.process({
-        operation: "query",
-        entity: "EntityA",
-        index: "primary",
+        operation: 'query',
+        entity: 'EntityA',
+        index: 'primary',
         pk: {},
-        sk: { ">=": null },
+        sk: { '>=': null },
       });
 
       const queryB = yield* command.process({
-        operation: "query",
-        entity: "EntityB",
-        index: "primary",
+        operation: 'query',
+        entity: 'EntityB',
+        index: 'primary',
         pk: {},
-        sk: { ">=": null },
+        sk: { '>=': null },
       });
 
       const aIds = queryA.items.map((i: any) => i.meta._e);
       const bIds = queryB.items.map((i: any) => i.meta._e);
 
-      expect(aIds.every((e: string) => e === "EntityA")).toBe(true);
-      expect(bIds.every((e: string) => e === "EntityB")).toBe(true);
+      expect(aIds.every((e: string) => e === 'EntityA')).toBe(true);
+      expect(bIds.every((e: string) => e === 'EntityB')).toBe(true);
     }).pipe(Effect.provide(layer)),
   );
 });

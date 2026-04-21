@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from '@effect/vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
 import { Effect } from 'effect';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -29,7 +32,7 @@ describe('upsertDependency', () => {
     await fs.rm(tempDir, { recursive: true });
   });
 
-  it.effect('adds new dependency when not exists', () =>
+  itEffect('adds new dependency when not exists', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -53,7 +56,7 @@ describe('upsertDependency', () => {
     }),
   );
 
-  it.effect('updates existing dependency version', () =>
+  itEffect('updates existing dependency version', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -77,7 +80,7 @@ describe('upsertDependency', () => {
     }),
   );
 
-  it.effect('moves dependency to new section when type differs', () =>
+  itEffect('moves dependency to new section when type differs', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -102,7 +105,7 @@ describe('upsertDependency', () => {
     }),
   );
 
-  it.effect('adds to devDependencies', () =>
+  itEffect('adds to devDependencies', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -126,7 +129,7 @@ describe('upsertDependency', () => {
     }),
   );
 
-  it.effect('adds to peerDependencies', () =>
+  itEffect('adds to peerDependencies', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -170,7 +173,7 @@ describe('formatPackageJson', () => {
     await fs.rm(tempDir, { recursive: true });
   });
 
-  it.effect('sorts package.json keys', () =>
+  itEffect('sorts package.json keys', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -194,7 +197,7 @@ describe('formatPackageJson', () => {
     }),
   );
 
-  it.effect('does not write if already sorted', () =>
+  itEffect('does not write if already sorted', () =>
     Effect.gen(function* () {
       const original =
         JSON.stringify(
@@ -239,7 +242,7 @@ describe('removeDependency', () => {
     await fs.rm(tempDir, { recursive: true });
   });
 
-  it.effect('removes dependency from dependencies', () =>
+  itEffect('removes dependency from dependencies', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -266,7 +269,7 @@ describe('removeDependency', () => {
     }),
   );
 
-  it.effect('removes empty dependency object', () =>
+  itEffect('removes empty dependency object', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -288,7 +291,7 @@ describe('removeDependency', () => {
     }),
   );
 
-  it.effect('fails for missing dependency', () =>
+  itEffect('fails for missing dependency', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(
@@ -306,7 +309,7 @@ describe('removeDependency', () => {
     }),
   );
 
-  it.effect('removes from all dependency sections', () =>
+  itEffect('removes from all dependency sections', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         fs.writeFile(

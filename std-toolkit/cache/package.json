@@ -21,10 +21,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "lint": "tsc --noEmit",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:watch": "vitest --watch"
+    "fmt": "vp fmt",
+    "lint": "vp check",
+    "test": "vp test",
+    "test:watch": "vp test --watch"
   },
   "dependencies": {
     "@std-toolkit/core": "workspace:*",
@@ -32,14 +32,11 @@
     "idb": "8.0.3"
   },
   "devDependencies": {
-    "@effect/vitest": "0.29.0",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.6.0",
     "effect": "3.21.1",
     "fake-indexeddb": "6.2.5",
     "typescript": "6.0.3",
-    "vite": "8.0.9",
-    "vite-tsconfig-paths": "6.1.1",
     "vitest": "4.1.4"
   },
   "peerDependencies": {

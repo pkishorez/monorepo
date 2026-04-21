@@ -3,12 +3,11 @@
   "version": "0.0.21",
   "description": "A zero-config, opinionated monorepo management tool.",
   "keywords": [],
-  "repository": "pkishorez/monorepo",
   "license": "MIT",
   "author": {
     "name": "Kishore"
   },
-  "type": "module",
+  "repository": "pkishorez/monorepo",
   "bin": {
     "monoverse": "dist/cli.js"
   },
@@ -16,13 +15,15 @@
     "dist/",
     "README.md"
   ],
+  "type": "module",
   "scripts": {
     "build": "bun build.ts",
-    "lint": "tsc --noEmit",
+    "fmt": "vp fmt",
+    "lint": "vp check",
     "run:cli": "bun src/cli/index.ts",
     "run:tui": "bun run src/tui/index.tsx",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vp test",
+    "test:watch": "vp test --watch"
   },
   "dependencies": {
     "@effect/cli": "0.75.1",
@@ -39,7 +40,6 @@
     "use-effect-ts": "workspace:*"
   },
   "devDependencies": {
-    "@effect/vitest": "0.29.0",
     "@tsconfig/node22": "22.0.5",
     "@types/bun": "1.3.12",
     "@types/js-yaml": "4.0.9",
@@ -47,8 +47,6 @@
     "@types/react": "19.2.14",
     "@types/semver": "7.7.1",
     "nodemon": "3.1.14",
-    "vite": "8.0.9",
-    "vite-tsconfig-paths": "6.1.1",
     "vitest": "4.1.4"
   }
 }

@@ -1,5 +1,8 @@
 import { Effect } from 'effect';
-import { describe, it } from '@effect/vitest';
+import { describe, it } from 'vitest';
+
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
 import {
   normalizeSemver,
   InvalidSemverRangeError,
@@ -7,63 +10,63 @@ import {
 } from '../index.js';
 
 describe('normalizeSemver', () => {
-  it.effect('normalizes caret range', () =>
+  itEffect('normalizes caret range', () =>
     Effect.gen(function* () {
       const result = yield* normalizeSemver('^1.2.3');
       expect(result).toBe('1.2.3');
     }),
   );
 
-  it.effect('normalizes tilde range', () =>
+  itEffect('normalizes tilde range', () =>
     Effect.gen(function* () {
       const result = yield* normalizeSemver('~1.2.3');
       expect(result).toBe('1.2.3');
     }),
   );
 
-  it.effect('normalizes exact version', () =>
+  itEffect('normalizes exact version', () =>
     Effect.gen(function* () {
       const result = yield* normalizeSemver('1.2.3');
       expect(result).toBe('1.2.3');
     }),
   );
 
-  it.effect('normalizes gte range', () =>
+  itEffect('normalizes gte range', () =>
     Effect.gen(function* () {
       const result = yield* normalizeSemver('>=1.0.0');
       expect(result).toBe('1.0.0');
     }),
   );
 
-  it.effect('normalizes gt range', () =>
+  itEffect('normalizes gt range', () =>
     Effect.gen(function* () {
       const result = yield* normalizeSemver('>1.0.0');
       expect(result).toBe('1.0.1');
     }),
   );
 
-  it.effect('normalizes wildcard', () =>
+  itEffect('normalizes wildcard', () =>
     Effect.gen(function* () {
       const result = yield* normalizeSemver('1.x');
       expect(result).toBe('1.0.0');
     }),
   );
 
-  it.effect('normalizes star wildcard', () =>
+  itEffect('normalizes star wildcard', () =>
     Effect.gen(function* () {
       const result = yield* normalizeSemver('*');
       expect(result).toBe('0.0.0');
     }),
   );
 
-  it.effect('normalizes prerelease version', () =>
+  itEffect('normalizes prerelease version', () =>
     Effect.gen(function* () {
       const result = yield* normalizeSemver('^1.0.0-beta.1');
       expect(result).toBe('1.0.0-beta.1');
     }),
   );
 
-  it.effect('fails for workspace protocol', () =>
+  itEffect('fails for workspace protocol', () =>
     Effect.gen(function* () {
       const error = yield* normalizeSemver('workspace:*').pipe(Effect.flip);
       expect(error).toBeInstanceOf(InvalidSemverRangeError);
@@ -71,23 +74,23 @@ describe('normalizeSemver', () => {
     }),
   );
 
-  it.effect('fails for file protocol', () =>
+  itEffect('fails for file protocol', () =>
     Effect.gen(function* () {
       const error = yield* normalizeSemver('file:../local').pipe(Effect.flip);
       expect(error).toBeInstanceOf(InvalidSemverRangeError);
     }),
   );
 
-  it.effect('fails for git protocol', () =>
+  itEffect('fails for git protocol', () =>
     Effect.gen(function* () {
-      const error = yield* normalizeSemver('git+https://github.com/user/repo').pipe(
-        Effect.flip,
-      );
+      const error = yield* normalizeSemver(
+        'git+https://github.com/user/repo',
+      ).pipe(Effect.flip);
       expect(error).toBeInstanceOf(InvalidSemverRangeError);
     }),
   );
 
-  it.effect('fails for invalid range', () =>
+  itEffect('fails for invalid range', () =>
     Effect.gen(function* () {
       const error = yield* normalizeSemver('not-a-version').pipe(Effect.flip);
       expect(error).toBeInstanceOf(InvalidSemverRangeError);

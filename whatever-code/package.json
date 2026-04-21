@@ -3,11 +3,18 @@
   "version": "0.0.1",
   "description": "whatever-code CLI",
   "keywords": [],
-  "repository": "pkishorez/monorepo",
   "license": "MIT",
   "author": {
     "name": "Kishore"
   },
+  "repository": "pkishorez/monorepo",
+  "bin": {
+    "whatever": "dist/cli.mjs"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
   "type": "module",
   "exports": {
     "./api/definitions": {
@@ -19,18 +26,12 @@
       "import": "./dist/entity/index.mjs"
     }
   },
-  "bin": {
-    "whatever": "dist/cli.mjs"
-  },
-  "files": [
-    "dist/",
-    "README.md"
-  ],
   "scripts": {
-    "build": "tsdown",
+    "build": "vp pack",
     "codex:generate": "codex app-server generate-ts --out src/codex/generated --experimental && node scripts/fix-codex-imports.mjs",
-    "dev": "tsdown --watch",
-    "lint": "tsc --noEmit"
+    "dev": "vp pack --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.116",
@@ -56,7 +57,6 @@
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.6.0",
-    "tsdown": "0.21.9",
     "typescript": "6.0.3"
   }
 }

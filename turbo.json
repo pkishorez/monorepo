@@ -1,6 +1,0 @@
-{
-  "$schema": "https://turborepo.com/schema.json",
-  "tasks": {
-    "dev:cli": {}
-  }
-}
