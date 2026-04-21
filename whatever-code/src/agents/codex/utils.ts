@@ -1,24 +1,24 @@
-import { Effect } from "effect";
-import { ulid } from "ulid";
-import { codexEventSqliteEntity } from "../../db/entities/codex.js";
-import { turnSqliteEntity } from "../../db/entities/turn.js";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
-import { initSessionsForType } from "../shared/session.js";
-import { markTurnsInterrupted } from "../shared/turn.js";
-import { promptToText } from "../shared/session-name.js";
-import type { PromptContent } from "../shared/schema.js";
-import type { QuestionItem } from "../../core/entity/turn/turn.js";
-import type { ToolRequestUserInputQuestion } from "./generated/v2/ToolRequestUserInputQuestion.js";
+import { Effect } from 'effect';
+import { ulid } from 'ulid';
+import { codexEventSqliteEntity } from '../../db/entities/codex.js';
+import { turnSqliteEntity } from '../../db/entities/turn.js';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
+import { initSessionsForType } from '../shared/session.js';
+import { markTurnsInterrupted } from '../shared/turn.js';
+import { promptToText } from '../shared/session-name.js';
+import type { PromptContent } from '../shared/schema.js';
+import type { QuestionItem } from '../../core/entity/turn/turn.js';
+import type { ToolRequestUserInputQuestion } from './generated/v2/ToolRequestUserInputQuestion.js';
 
-export { markTurnStatus, findQueuedTurn } from "../shared/turn.js";
+export { markTurnStatus, findQueuedTurn } from '../shared/turn.js';
 
 export const isStreamEvent = (method: string): boolean =>
-  method.endsWith("Delta") ||
-  method.endsWith("delta") ||
-  method.endsWith("progress") ||
-  method.endsWith("sessionUpdated");
+  method.endsWith('Delta') ||
+  method.endsWith('delta') ||
+  method.endsWith('progress') ||
+  method.endsWith('sessionUpdated');
 
-export const initSessions = initSessionsForType("codex", markTurnsInterrupted);
+export const initSessions = initSessionsForType('codex', markTurnsInterrupted);
 
 // ── Internal helpers ──
 
@@ -26,15 +26,15 @@ const makeCodexTurnInsert = (
   sessionId: string,
   turnId: string,
   model: string,
-  status: "in_progress" | "queued",
+  status: 'in_progress' | 'queued',
 ) =>
   turnSqliteEntity.insert({
     id: turnId,
-    type: "codex",
+    type: 'codex',
     sessionId,
     status,
     payload: {
-      type: "codex",
+      type: 'codex',
       model,
       sdkTurnId: null,
       usage: null,
@@ -54,14 +54,20 @@ const insertCodexUserEvent = (
     sessionId,
     turnId,
     data: {
-      method: "item/started",
+      method: 'item/started',
       params: {
         threadId: sessionId,
         turnId,
         item: {
-          type: "userMessage",
+          type: 'userMessage',
           id: ulid(),
-          content: [{ type: "text", text: promptToText(prompt, "\n"), text_elements: [] }],
+          content: [
+            {
+              type: 'text',
+              text: promptToText(prompt, '\n'),
+              text_elements: [],
+            },
+          ],
         },
       },
     },
@@ -76,8 +82,8 @@ export const persistNewTurn = (
   model: string,
 ) =>
   Effect.all([
-    sessionSqliteEntity.update({ sessionId }, { status: "in_progress" }),
-    makeCodexTurnInsert(sessionId, turnId, model, "in_progress"),
+    sessionSqliteEntity.update({ sessionId }, { status: 'in_progress' }),
+    makeCodexTurnInsert(sessionId, turnId, model, 'in_progress'),
     insertCodexUserEvent(sessionId, turnId, prompt),
   ]).pipe(Effect.orDie);
 
@@ -88,7 +94,7 @@ export const persistQueuedTurn = (
   model: string,
 ) =>
   Effect.all([
-    makeCodexTurnInsert(sessionId, turnId, model, "queued"),
+    makeCodexTurnInsert(sessionId, turnId, model, 'queued'),
     insertCodexUserEvent(sessionId, turnId, prompt),
   ]).pipe(Effect.orDie);
 
@@ -100,15 +106,15 @@ export const appendToQueuedTurn = (
 ) =>
   Effect.gen(function* () {
     const result = yield* codexEventSqliteEntity
-      .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+      .query('bySession', { pk: { sessionId }, sk: { '>': null } })
       .pipe(Effect.orDie);
 
     const existing = result.items.find((e) => {
       if (e.value.turnId !== turnId) return false;
       const data = e.value.data as any;
       return (
-        data.method === "item/started" &&
-        data.params?.item?.type === "userMessage"
+        data.method === 'item/started' &&
+        data.params?.item?.type === 'userMessage'
       );
     });
 
@@ -123,23 +129,23 @@ export const appendToQueuedTurn = (
         text?: string;
       }>
     )
-      .filter((c) => c.type === "text" && c.text)
+      .filter((c) => c.type === 'text' && c.text)
       .map((c) => c.text!);
-    const newText = promptToText(prompt, "\n");
-    const mergedText = [...existingTexts, newText].join("\n");
+    const newText = promptToText(prompt, '\n');
+    const mergedText = [...existingTexts, newText].join('\n');
 
     yield* codexEventSqliteEntity
       .update(
         { id: existing.value.id },
         {
           data: {
-            method: "item/started",
+            method: 'item/started',
             params: {
               ...(existing.value.data as any).params,
               item: {
                 ...(existing.value.data as any).params.item,
                 content: [
-                  { type: "text", text: mergedText, text_elements: [] },
+                  { type: 'text', text: mergedText, text_elements: [] },
                 ],
               },
             },
@@ -155,7 +161,7 @@ export const appendToQueuedTurn = (
 export const readMergedPrompt = (sessionId: string, turnId: string) =>
   Effect.gen(function* () {
     const result = yield* codexEventSqliteEntity
-      .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+      .query('bySession', { pk: { sessionId }, sk: { '>': null } })
       .pipe(Effect.orDie);
 
     const texts = result.items
@@ -163,8 +169,8 @@ export const readMergedPrompt = (sessionId: string, turnId: string) =>
         if (e.value.turnId !== turnId) return false;
         const data = e.value.data as any;
         return (
-          data.method === "item/started" &&
-          data.params?.item?.type === "userMessage"
+          data.method === 'item/started' &&
+          data.params?.item?.type === 'userMessage'
         );
       })
       .flatMap((e) => {
@@ -173,11 +179,11 @@ export const readMergedPrompt = (sessionId: string, turnId: string) =>
           text?: string;
         }>;
         return content
-          .filter((c) => c.type === "text" && c.text)
+          .filter((c) => c.type === 'text' && c.text)
           .map((c) => c.text!);
       });
 
-    return texts.join("\n") as typeof PromptContent.Type;
+    return texts.join('\n') as typeof PromptContent.Type;
   });
 
 // ── User-input conversion utilities ──────────────────────────────────
@@ -190,7 +196,9 @@ export const readMergedPrompt = (sessionId: string, turnId: string) =>
  * Questions are silently dropped if required fields are missing/empty or
  * options are invalid — matching the Codex documentation spec.
  */
-export function toUserInputQuestions(codexQuestions: ToolRequestUserInputQuestion[]): {
+export function toUserInputQuestions(
+  codexQuestions: ToolRequestUserInputQuestion[],
+): {
   questions: Array<typeof QuestionItem.Type>;
   codexQuestionIds: string[];
 } {
@@ -253,7 +261,7 @@ export function toCodexUserInputAnswers(
     if (!codexId) continue;
 
     // Prefer index-based key, fall back to question text
-    const answer = answers[String(i)] ?? answers[questions[i]?.question ?? ""];
+    const answer = answers[String(i)] ?? answers[questions[i]?.question ?? ''];
     if (answer !== undefined) {
       result[codexId] = { answers: [answer] };
     }
@@ -270,12 +278,12 @@ export function toCodexUserInputAnswers(
 export function extractAnswersFromInput(
   updatedInput: Record<string, unknown> | undefined,
 ): Record<string, string> {
-  const raw = updatedInput?.["answers"];
-  if (typeof raw !== "object" || raw === null) return {};
+  const raw = updatedInput?.['answers'];
+  if (typeof raw !== 'object' || raw === null) return {};
 
   const result: Record<string, string> = {};
   for (const [key, val] of Object.entries(raw)) {
-    if (typeof val === "string") result[key] = val;
+    if (typeof val === 'string') result[key] = val;
   }
   return result;
 }

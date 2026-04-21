@@ -1,10 +1,10 @@
 import { Data, Effect, Schema } from 'effect';
 
 const NpmPackageSchema = Schema.Struct({
-  'name': Schema.String,
-  'modified': Schema.String,
+  name: Schema.String,
+  modified: Schema.String,
   'dist-tags': Schema.Record({ key: Schema.String, value: Schema.String }),
-  'versions': Schema.Record({
+  versions: Schema.Record({
     key: Schema.String,
     value: Schema.Struct({ version: Schema.String }),
   }),

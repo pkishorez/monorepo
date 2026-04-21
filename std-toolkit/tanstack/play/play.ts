@@ -1,5 +1,5 @@
-import { createLiveQueryCollection, eq } from "@tanstack/react-db";
-import { dummyCollection } from "../src/index";
+import { createLiveQueryCollection, eq } from '@tanstack/react-db';
+import { dummyCollection } from '../src/index';
 
 const liveQuery1 = createLiveQueryCollection((q) =>
   q.from({ items: dummyCollection }).select(({ items }) => items),
@@ -8,14 +8,14 @@ const liveQuery1 = createLiveQueryCollection((q) =>
 const liveQuery2 = createLiveQueryCollection((q) =>
   q
     .from({ items: dummyCollection })
-    .where(({ items }) => eq(items.category, "work"))
+    .where(({ items }) => eq(items.category, 'work'))
     .select(({ items }) => items),
 );
 
 const liveQuery3 = createLiveQueryCollection((q) =>
   q
     .from({ items: dummyCollection })
-    .orderBy(({ items }) => items.priority, "desc")
+    .orderBy(({ items }) => items.priority, 'desc')
     .limit(10)
     .offset(5)
     .select(({ items }) => items),

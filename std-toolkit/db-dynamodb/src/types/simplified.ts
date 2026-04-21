@@ -1,7 +1,7 @@
 /**
  * Comparison operators for simplified query API.
  */
-export type Operator = "<" | "<=" | ">" | ">=";
+export type Operator = '<' | '<=' | '>' | '>=';
 
 /**
  * Key operation type that wraps a value with a comparison operator.
@@ -14,11 +14,7 @@ export type Operator = "<" | "<=" | ">" | ">=";
  * const op: KeyOp<{ userId: string }> = { ">=": { userId: "123" } };
  * ```
  */
-export type KeyOp<T> =
-  | { "<": T }
-  | { "<=": T }
-  | { ">": T }
-  | { ">=": T };
+export type KeyOp<T> = { '<': T } | { '<=': T } | { '>': T } | { '>=': T };
 
 /**
  * Sort key parameter for simplified query API.
@@ -43,10 +39,10 @@ export type KeyOp<T> =
  * ```
  */
 export type SkParam =
-  | { "<": string | null }
-  | { "<=": string | null }
-  | { ">": string | null }
-  | { ">=": string | null };
+  | { '<': string | null }
+  | { '<=': string | null }
+  | { '>': string | null }
+  | { '>=': string | null };
 
 /**
  * Sort key parameter for custom-SK indexes.
@@ -56,10 +52,10 @@ export type SkParam =
  * @typeParam SkKeys - Tuple of SK field names
  */
 export type CustomSkParam<T, SkKeys extends readonly (keyof T)[]> =
-  | { "<": Pick<T, SkKeys[number]> | null }
-  | { "<=": Pick<T, SkKeys[number]> | null }
-  | { ">": Pick<T, SkKeys[number]> | null }
-  | { ">=": Pick<T, SkKeys[number]> | null };
+  | { '<': Pick<T, SkKeys[number]> | null }
+  | { '<=': Pick<T, SkKeys[number]> | null }
+  | { '>': Pick<T, SkKeys[number]> | null }
+  | { '>=': Pick<T, SkKeys[number]> | null };
 
 /**
  * Sort key parameter for streaming queries.
@@ -67,7 +63,7 @@ export type CustomSkParam<T, SkKeys extends readonly (keyof T)[]> =
  * - `>`: Ascending order (oldest to newest)
  * - `<`: Descending order (newest to oldest)
  */
-export type StreamSkParam = { ">": string | null } | { "<": string | null };
+export type StreamSkParam = { '>': string | null } | { '<': string | null };
 
 /**
  * Options for simple query operations.
@@ -108,12 +104,14 @@ export interface SubscribeOptions<K, PK> {
  * @param op - The KeyOp/SkParam/CustomSkParam to extract from
  * @returns An object with the operator and value (value may be null for SkParam/CustomSkParam)
  */
-export function extractKeyOp<T>(op: KeyOp<T> | SkParam | CustomSkParam<any, any>): { operator: Operator; value: T | string | Record<string, unknown> | null } {
-  if ("<" in op) return { operator: "<", value: op["<"] as any };
-  if ("<=" in op) return { operator: "<=", value: op["<="] as any };
-  if (">" in op) return { operator: ">", value: op[">"] as any };
-  if (">=" in op) return { operator: ">=", value: op[">="] as any };
-  throw new Error("Invalid KeyOp: no valid operator found");
+export function extractKeyOp<T>(
+  op: KeyOp<T> | SkParam | CustomSkParam<any, any>,
+): { operator: Operator; value: T | string | Record<string, unknown> | null } {
+  if ('<' in op) return { operator: '<', value: op['<'] as any };
+  if ('<=' in op) return { operator: '<=', value: op['<='] as any };
+  if ('>' in op) return { operator: '>', value: op['>'] as any };
+  if ('>=' in op) return { operator: '>=', value: op['>='] as any };
+  throw new Error('Invalid KeyOp: no valid operator found');
 }
 
 /**
@@ -125,5 +123,5 @@ export function extractKeyOp<T>(op: KeyOp<T> | SkParam | CustomSkParam<any, any>
  * @returns true for ascending, false for descending
  */
 export function getKeyOpScanDirection(operator: Operator): boolean {
-  return operator === ">" || operator === ">=";
+  return operator === '>' || operator === '>=';
 }

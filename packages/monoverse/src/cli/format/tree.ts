@@ -1,5 +1,5 @@
-import * as path from "node:path";
-import { theme as c } from "../../theme.js";
+import * as path from 'node:path';
+import { theme as c } from '../../theme.js';
 
 export type TreeItem = {
   path: string;
@@ -22,22 +22,22 @@ interface TreeNode {
 }
 
 const BOX = {
-  branch: "├── ",
-  lastBranch: "└── ",
-  vertical: "│   ",
-  empty: "    ",
+  branch: '├── ',
+  lastBranch: '└── ',
+  vertical: '│   ',
+  empty: '    ',
 } as const;
 
 function findCommonAncestor(paths: string[]): string {
-  if (paths.length === 0) return "/";
+  if (paths.length === 0) return '/';
 
   const firstPath = paths[0];
-  if (firstPath === undefined) return "/";
+  if (firstPath === undefined) return '/';
   if (paths.length === 1) return path.dirname(firstPath);
 
   const segments = paths.map((p) => p.split(path.sep));
   const firstSegments = segments[0];
-  if (firstSegments === undefined) return "/";
+  if (firstSegments === undefined) return '/';
 
   const minLength = Math.min(...segments.map((s) => s.length));
 
@@ -52,7 +52,7 @@ function findCommonAncestor(paths: string[]): string {
     }
   }
 
-  return commonParts.join(path.sep) || "/";
+  return commonParts.join(path.sep) || '/';
 }
 
 function buildTree(items: TreeItem[], commonAncestor: string): TreeNode {
@@ -115,16 +115,16 @@ function renderTree(
   const isCwd = cwd !== undefined && node.fullPath === cwd;
 
   if (isRoot) {
-    const cwdMarker = isCwd ? ` ${c.warning}(cwd)${c.reset}` : "";
+    const cwdMarker = isCwd ? ` ${c.warning}(cwd)${c.reset}` : '';
     lines.push(`${c.muted}${node.segment}${c.reset}${cwdMarker}`);
   } else {
     const branch = isLast ? BOX.lastBranch : BOX.branch;
-    const cwdMarker = isCwd ? ` ${c.warning}(cwd)${c.reset}` : "";
+    const cwdMarker = isCwd ? ` ${c.warning}(cwd)${c.reset}` : '';
 
     if (node.isWorkspace) {
       const name = node.workspaceName
         ? `${c.accent}(${node.workspaceName})${c.reset}`
-        : "";
+        : '';
       lines.push(
         `${prefix}${branch}${c.primary}${node.segment}${c.reset} ${name}${cwdMarker}`,
       );
@@ -144,14 +144,15 @@ function renderTree(
   });
 
   const hasChildren = sortedChildren.length > 0;
-  const newPrefix = isRoot ? "" : prefix + (isLast ? BOX.empty : BOX.vertical);
+  const newPrefix = isRoot ? '' : prefix + (isLast ? BOX.empty : BOX.vertical);
 
   if (node.annotations.length > 0) {
     for (let i = 0; i < node.annotations.length; i++) {
       const annotation = node.annotations[i];
       if (annotation === undefined) continue;
 
-      const isLastAnnotation = i === node.annotations.length - 1 && !hasChildren;
+      const isLastAnnotation =
+        i === node.annotations.length - 1 && !hasChildren;
       const annotationBranch = isLastAnnotation ? BOX.lastBranch : BOX.branch;
       lines.push(`${newPrefix}${annotationBranch}${annotation}`);
     }
@@ -165,23 +166,25 @@ function renderTree(
     lines.push(renderTree(child, cwd, newPrefix, childIsLast, false));
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 export function formatToTree(items: TreeItem[], options?: TreeOptions): string {
-  if (items.length === 0) return "";
+  if (items.length === 0) return '';
 
   const root = options?.root ?? process.cwd();
   const cwd = options?.cwd;
 
   const absolutePaths = items.map((item) => ({
     ...item,
-    path: path.isAbsolute(item.path) ? item.path : path.resolve(root, item.path),
+    path: path.isAbsolute(item.path)
+      ? item.path
+      : path.resolve(root, item.path),
   }));
 
   const allPaths = absolutePaths.map((item) => item.path);
   const commonAncestor = findCommonAncestor(allPaths);
 
   const tree = buildTree(absolutePaths, commonAncestor);
-  return renderTree(tree, cwd, "", true, true);
+  return renderTree(tree, cwd, '', true, true);
 }

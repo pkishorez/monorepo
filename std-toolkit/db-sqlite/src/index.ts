@@ -6,5 +6,5 @@ export {
   SqliteCommand,
   type EntityType,
   type SingleEntityType,
-} from "./services/index.js";
-export { SqliteDB, SqliteDBError } from "./sql/index.js";
+} from './services/index.js';
+export { SqliteDB, SqliteDBError } from './sql/index.js';

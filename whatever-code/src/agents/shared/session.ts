@@ -1,15 +1,15 @@
-import { Effect } from "effect";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
-import type { InteractionMode } from "../../core/entity/session/session.js";
-import type { TaskStatus } from "../../core/entity/status.js";
+import { Effect } from 'effect';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
+import type { InteractionMode } from '../../core/entity/session/session.js';
+import type { TaskStatus } from '../../core/entity/status.js';
 
 export const initSessionsForType = <R>(
-  sessionType: "claude" | "codex",
+  sessionType: 'claude' | 'codex',
   markTurnsInterrupted: (sessionId: string) => Effect.Effect<void, never, R>,
 ) =>
   Effect.gen(function* () {
     const { items: inProgressSessions } = yield* sessionSqliteEntity
-      .query("byStatus", { pk: { status: "in_progress" }, sk: { ">": null } })
+      .query('byStatus', { pk: { status: 'in_progress' }, sk: { '>': null } })
       .pipe(Effect.orDie);
 
     yield* Effect.forEach(
@@ -20,7 +20,7 @@ export const initSessionsForType = <R>(
             sessionSqliteEntity
               .update(
                 { sessionId: value.sessionId },
-                { status: "interrupted" as TaskStatus },
+                { status: 'interrupted' as TaskStatus },
               )
               .pipe(Effect.orDie),
             markTurnsInterrupted(value.sessionId),
@@ -33,8 +33,12 @@ export const initSessionsForType = <R>(
 
 export const updateSessionPayload = (
   sessionId: string,
-  expectedType: "claude" | "codex",
-  updates: { model?: string; interactionMode?: typeof InteractionMode.Type; [key: string]: unknown },
+  expectedType: 'claude' | 'codex',
+  updates: {
+    model?: string;
+    interactionMode?: typeof InteractionMode.Type;
+    [key: string]: unknown;
+  },
 ) =>
   Effect.gen(function* () {
     const row = yield* sessionSqliteEntity

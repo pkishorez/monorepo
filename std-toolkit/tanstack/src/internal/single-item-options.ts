@@ -3,13 +3,13 @@ import {
   type SingleResult,
   type SyncConfigRes,
   SyncConfig as TanstackSyncConfig,
-} from "@tanstack/react-db";
-import { Effect, Option, SubscriptionRef } from "effect";
-import { EntityType } from "@std-toolkit/core";
-import { AnySingleEntityESchema } from "@std-toolkit/eschema";
-import type { CacheSingleItem } from "@std-toolkit/cache";
-import { CollectionItem, SingleItemUtils } from "../types.js";
-import { makeWithSyncGuard } from "./shared.js";
+} from '@tanstack/react-db';
+import { Effect, Option, SubscriptionRef } from 'effect';
+import { EntityType } from '@std-toolkit/core';
+import { AnySingleEntityESchema } from '@std-toolkit/eschema';
+import type { CacheSingleItem } from '@std-toolkit/cache';
+import { CollectionItem, SingleItemUtils } from '../types.js';
+import { makeWithSyncGuard } from './shared.js';
 
 interface StdSingleItemConfig<
   TItem extends object,
@@ -23,18 +23,18 @@ interface StdSingleItemConfig<
 }
 
 export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
-  options: StdSingleItemConfig<TSchema["Type"], TSchema>,
+  options: StdSingleItemConfig<TSchema['Type'], TSchema>,
 ): Omit<
   CollectionConfig<
-    CollectionItem<TSchema["Type"]>,
+    CollectionItem<TSchema['Type']>,
     string,
     never,
     SingleItemUtils<TSchema>
   >,
-  "schema"
+  'schema'
 > &
   SingleResult => {
-  type TItem = TSchema["Type"];
+  type TItem = TSchema['Type'];
   type TCollectionItem = CollectionItem<TItem>;
 
   const { id, get, onUpdate, schema, cache: cacheEffect } = options;
@@ -57,7 +57,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   };
 
   const createApplyToCollection = (
-    params: Parameters<TanstackSyncConfig<TCollectionItem, string>["sync"]>[0],
+    params: Parameters<TanstackSyncConfig<TCollectionItem, string>['sync']>[0],
   ) => {
     const { begin, collection, commit, write } = params;
 
@@ -65,9 +65,9 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
       const itemValue = { ...item.value, _meta: item.meta } as TCollectionItem;
       begin({ immediate: true });
       if (collection.has(singletonKey)) {
-        write({ type: "update", value: itemValue });
+        write({ type: 'update', value: itemValue });
       } else {
-        write({ type: "insert", value: itemValue });
+        write({ type: 'insert', value: itemValue });
       }
       commit();
     };

@@ -40,10 +40,10 @@ Keep it short - just enough to get someone productive.
 
 ## API / Commands / Operations
 
-| Method/Command | Description |
-|----------------|-------------|
-| `method1()` | Brief description |
-| `method2()` | Brief description |
+| Method/Command | Description       |
+| -------------- | ----------------- |
+| `method1()`    | Brief description |
+| `method2()`    | Brief description |
 
 ---
 
@@ -68,6 +68,7 @@ Detailed explanation with code example.
 ## [Additional Sections]
 
 Add package-specific sections as needed:
+
 - Adapters (for packages with multiple backends)
 - Configuration (for configurable packages)
 - Schema Evolution (for eschema)

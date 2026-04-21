@@ -1,11 +1,11 @@
-import { Command } from "@effect/cli";
-import { Console, Effect } from "effect";
-import { Monoverse } from "../../core/index.js";
-import { toRelativePath } from "../../core/primitives/fs/index.js";
-import { theme as c } from "../../theme.js";
-import { formatToTree } from "../format/tree.js";
+import { Command } from '@effect/cli';
+import { Console, Effect } from 'effect';
+import { Monoverse } from '../../core/index.js';
+import { toRelativePath } from '../../core/primitives/fs/index.js';
+import { theme as c } from '../../theme.js';
+import { formatToTree } from '../format/tree.js';
 
-export const ls = Command.make("ls", {}, () =>
+export const ls = Command.make('ls', {}, () =>
   Effect.gen(function* () {
     const monoverse = yield* Monoverse;
     const analysis = yield* monoverse.analyze(process.cwd());
@@ -22,7 +22,9 @@ export const ls = Command.make("ls", {}, () =>
       yield* Console.log(`\nErrors (${analysis.errors.length})\n`);
       for (const error of analysis.errors) {
         const relativePath = toRelativePath(error.path, analysis.root);
-        yield* Console.log(`  ${c.accent}${relativePath}${c.reset}: ${c.muted}${error.message}${c.reset}`);
+        yield* Console.log(
+          `  ${c.accent}${relativePath}${c.reset}: ${c.muted}${error.message}${c.reset}`,
+        );
       }
     }
   }),

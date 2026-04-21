@@ -1,7 +1,7 @@
-import { Effect } from "effect";
-import { SqliteDB, SqliteDBError } from "../sql/db.js";
-import * as Sql from "../sql/helpers/index.js";
-import type { RawRow } from "../internal/utils.js";
+import { Effect } from 'effect';
+import { SqliteDB, SqliteDBError } from '../sql/db.js';
+import * as Sql from '../sql/helpers/index.js';
+import type { RawRow } from '../internal/utils.js';
 
 /**
  * Configuration for creating a SQLite table.
@@ -43,11 +43,11 @@ export interface KeyConditionParameters {
  * Sort key condition for queries.
  */
 export type SortKeyCondition =
-  | { "<": string }
-  | { "<=": string }
-  | { ">": string }
-  | { ">=": string }
-  | { "=": string }
+  | { '<': string }
+  | { '<=': string }
+  | { '>': string }
+  | { '>=': string }
+  | { '=': string }
   | { between: [string, string] }
   | { beginsWith: string };
 
@@ -55,13 +55,13 @@ export type SortKeyCondition =
  * Base table columns for the single-table design.
  */
 const TABLE_COLUMNS = [
-  Sql.column({ name: "pk", type: "TEXT" }),
-  Sql.column({ name: "sk", type: "TEXT" }),
-  Sql.column({ name: "_data", type: "TEXT" }),
-  Sql.column({ name: "_e", type: "TEXT" }),
-  Sql.column({ name: "_v", type: "TEXT" }),
-  Sql.column({ name: "_u", type: "TEXT" }),
-  Sql.column({ name: "_d", type: "INTEGER", default: 0 }),
+  Sql.column({ name: 'pk', type: 'TEXT' }),
+  Sql.column({ name: 'sk', type: 'TEXT' }),
+  Sql.column({ name: '_data', type: 'TEXT' }),
+  Sql.column({ name: '_e', type: 'TEXT' }),
+  Sql.column({ name: '_v', type: 'TEXT' }),
+  Sql.column({ name: '_u', type: 'TEXT' }),
+  Sql.column({ name: '_d', type: 'INTEGER', default: 0 }),
 ];
 
 /**
@@ -112,48 +112,48 @@ function createSQLiteTableInstance<
     cond: KeyConditionParameters,
   ): Sql.Where => {
     if (!cond.sk) {
-      return Sql.where(pkCol, "=", cond.pk);
+      return Sql.where(pkCol, '=', cond.pk);
     }
 
     const skCondition = cond.sk;
-    if ("<" in skCondition) {
+    if ('<' in skCondition) {
       return Sql.whereAnd(
-        Sql.where(pkCol, "=", cond.pk),
-        Sql.where(skCol, "<", skCondition["<"]),
+        Sql.where(pkCol, '=', cond.pk),
+        Sql.where(skCol, '<', skCondition['<']),
       );
     }
-    if ("<=" in skCondition) {
+    if ('<=' in skCondition) {
       return Sql.whereAnd(
-        Sql.where(pkCol, "=", cond.pk),
-        Sql.where(skCol, "<=", skCondition["<="]),
+        Sql.where(pkCol, '=', cond.pk),
+        Sql.where(skCol, '<=', skCondition['<=']),
       );
     }
-    if (">" in skCondition) {
+    if ('>' in skCondition) {
       return Sql.whereAnd(
-        Sql.where(pkCol, "=", cond.pk),
-        Sql.where(skCol, ">", skCondition[">"]),
+        Sql.where(pkCol, '=', cond.pk),
+        Sql.where(skCol, '>', skCondition['>']),
       );
     }
-    if (">=" in skCondition) {
+    if ('>=' in skCondition) {
       return Sql.whereAnd(
-        Sql.where(pkCol, "=", cond.pk),
-        Sql.where(skCol, ">=", skCondition[">="]),
+        Sql.where(pkCol, '=', cond.pk),
+        Sql.where(skCol, '>=', skCondition['>=']),
       );
     }
-    if ("=" in skCondition) {
+    if ('=' in skCondition) {
       return Sql.whereAnd(
-        Sql.where(pkCol, "=", cond.pk),
-        Sql.where(skCol, "=", skCondition["="]),
+        Sql.where(pkCol, '=', cond.pk),
+        Sql.where(skCol, '=', skCondition['=']),
       );
     }
-    if ("between" in skCondition) {
+    if ('between' in skCondition) {
       const [start, end] = skCondition.between;
       return {
         clause: `${pkCol} = ? AND ${skCol} BETWEEN ? AND ?`,
         params: [cond.pk, start, end],
       };
     }
-    if ("beginsWith" in skCondition) {
+    if ('beginsWith' in skCondition) {
       const prefix = skCondition.beginsWith;
       return {
         clause: `${pkCol} = ? AND ${skCol} LIKE ?`,
@@ -161,13 +161,13 @@ function createSQLiteTableInstance<
       };
     }
 
-    return Sql.where(pkCol, "=", cond.pk);
+    return Sql.where(pkCol, '=', cond.pk);
   };
 
-  const getSortDirection = (sk?: SortKeyCondition): "ASC" | "DESC" => {
-    if (!sk) return "ASC";
-    if ("<" in sk || "<=" in sk) return "DESC";
-    return "ASC";
+  const getSortDirection = (sk?: SortKeyCondition): 'ASC' | 'DESC' => {
+    if (!sk) return 'ASC';
+    if ('<' in sk || '<=' in sk) return 'DESC';
+    return 'ASC';
   };
 
   const rawQuery = (
@@ -183,9 +183,9 @@ function createSQLiteTableInstance<
       const whereClause = buildWhere(indexDef.pk, indexDef.sk, cond);
       const direction =
         options?.ScanIndexForward === false
-          ? "DESC"
+          ? 'DESC'
           : options?.ScanIndexForward === true
-            ? "ASC"
+            ? 'ASC'
             : getSortDirection(cond.sk);
 
       const rows = yield* db.query<RawRow>(tableName, whereClause, {
@@ -217,10 +217,10 @@ function createSQLiteTableInstance<
         const allColumns = [...TABLE_COLUMNS];
         for (const [, indexDef] of Object.entries(secondaryIndexMap)) {
           allColumns.push(
-            Sql.column({ name: indexDef.pk, type: "TEXT", nullable: true }),
+            Sql.column({ name: indexDef.pk, type: 'TEXT', nullable: true }),
           );
           allColumns.push(
-            Sql.column({ name: indexDef.sk, type: "TEXT", nullable: true }),
+            Sql.column({ name: indexDef.sk, type: 'TEXT', nullable: true }),
           );
         }
 
@@ -229,8 +229,8 @@ function createSQLiteTableInstance<
 
         // Add any missing secondary index columns to existing table
         for (const [, indexDef] of Object.entries(secondaryIndexMap)) {
-          yield* db.addColumn(tableName, indexDef.pk, "TEXT");
-          yield* db.addColumn(tableName, indexDef.sk, "TEXT");
+          yield* db.addColumn(tableName, indexDef.pk, 'TEXT');
+          yield* db.addColumn(tableName, indexDef.sk, 'TEXT');
         }
 
         // Create secondary indexes (no-op if index exists)
@@ -377,7 +377,7 @@ function createSQLiteTableInstance<
      * Deletes all rows from the table.
      */
     dangerouslyRemoveAllRows(
-      _: "i know what i am doing",
+      _: 'i know what i am doing',
     ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
       return SqliteDB.pipe(Effect.flatMap((db) => db.deleteAll(tableName)));
     },

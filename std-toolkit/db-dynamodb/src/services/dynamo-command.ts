@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect } from 'effect';
 import type {
   CommandError,
   CommandPayload,
@@ -16,12 +16,12 @@ import type {
   SkCondition,
   UpdatePayload,
   UpdateResponse,
-} from "@std-toolkit/core/command";
-import { CommandError as CommandErrorClass } from "@std-toolkit/core/command";
-import type { EntityRegistry } from "./entity-registry.js";
-import type { DynamoEntity } from "./dynamo-entity.js";
-import type { DynamoTable } from "./dynamo-table.js";
-import type { SkParam } from "../types/index.js";
+} from '@std-toolkit/core/command';
+import { CommandError as CommandErrorClass } from '@std-toolkit/core/command';
+import type { EntityRegistry } from './entity-registry.js';
+import type { DynamoEntity } from './dynamo-entity.js';
+import type { DynamoTable } from './dynamo-table.js';
+import type { SkParam } from '../types/index.js';
 
 /**
  * Creates timing information for a command.
@@ -45,10 +45,10 @@ type AnyRegistry = EntityRegistry<DynamoTable<any, any>, AnyEntitiesMap>;
  *
  * @typeParam TRegistry - The entity registry type
  */
-export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
-  implements CommandProcessor
-{
-  static readonly RPC_PREFIX = "__std-toolkit__command" as const;
+export class DynamoCommand<
+  TRegistry extends AnyRegistry = AnyRegistry,
+> implements CommandProcessor {
+  static readonly RPC_PREFIX = '__std-toolkit__command' as const;
 
   /**
    * Creates a new DynamoCommand instance.
@@ -92,45 +92,54 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
   /**
    * Processes a descriptor command.
    */
-  process(payload: DescriptorPayload): Effect.Effect<DescriptorResponse, CommandError>;
+  process(
+    payload: DescriptorPayload,
+  ): Effect.Effect<DescriptorResponse, CommandError>;
   /**
    * Processes any command payload.
    */
-  process(payload: CommandPayload): Effect.Effect<CommandResponse, CommandError>;
-  process(payload: CommandPayload): Effect.Effect<CommandResponse, CommandError> {
+  process(
+    payload: CommandPayload,
+  ): Effect.Effect<CommandResponse, CommandError>;
+  process(
+    payload: CommandPayload,
+  ): Effect.Effect<CommandResponse, CommandError> {
     switch (payload.operation) {
-      case "insert":
+      case 'insert':
         return this.#processInsert(payload);
-      case "update":
+      case 'update':
         return this.#processUpdate(payload);
-      case "delete":
+      case 'delete':
         return this.#processDelete(payload);
-      case "query":
+      case 'query':
         return this.#processQuery(payload);
-      case "descriptor":
+      case 'descriptor':
         return this.#processDescriptor(payload);
     }
   }
 
-  #processInsert(payload: InsertPayload): Effect.Effect<InsertResponse, CommandError> {
+  #processInsert(
+    payload: InsertPayload,
+  ): Effect.Effect<InsertResponse, CommandError> {
     const self = this;
     return Effect.gen(function* () {
       const startedAt = Date.now();
       const entity = self.#getEntity(payload.entity);
 
       const result = yield* entity.insert(payload.data as any).pipe(
-        Effect.mapError((e) =>
-          new CommandErrorClass({
-            operation: "insert",
-            entity: payload.entity,
-            message: `Insert failed: ${String(e)}`,
-            cause: e,
-          }),
+        Effect.mapError(
+          (e) =>
+            new CommandErrorClass({
+              operation: 'insert',
+              entity: payload.entity,
+              message: `Insert failed: ${String(e)}`,
+              cause: e,
+            }),
         ),
       );
 
       return {
-        operation: "insert" as const,
+        operation: 'insert' as const,
         entity: payload.entity,
         data: result,
         timing: createTiming(startedAt),
@@ -138,25 +147,30 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
     });
   }
 
-  #processUpdate(payload: UpdatePayload): Effect.Effect<UpdateResponse, CommandError> {
+  #processUpdate(
+    payload: UpdatePayload,
+  ): Effect.Effect<UpdateResponse, CommandError> {
     const self = this;
     return Effect.gen(function* () {
       const startedAt = Date.now();
       const entity = self.#getEntity(payload.entity);
 
-      const result = yield* entity.update(payload.key as any, { update: payload.data as any }).pipe(
-        Effect.mapError((e) =>
-          new CommandErrorClass({
-            operation: "update",
-            entity: payload.entity,
-            message: `Update failed: ${String(e)}`,
-            cause: e,
-          }),
-        ),
-      );
+      const result = yield* entity
+        .update(payload.key as any, { update: payload.data as any })
+        .pipe(
+          Effect.mapError(
+            (e) =>
+              new CommandErrorClass({
+                operation: 'update',
+                entity: payload.entity,
+                message: `Update failed: ${String(e)}`,
+                cause: e,
+              }),
+          ),
+        );
 
       return {
-        operation: "update" as const,
+        operation: 'update' as const,
         entity: payload.entity,
         data: result,
         timing: createTiming(startedAt),
@@ -164,25 +178,28 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
     });
   }
 
-  #processDelete(payload: DeletePayload): Effect.Effect<DeleteResponse, CommandError> {
+  #processDelete(
+    payload: DeletePayload,
+  ): Effect.Effect<DeleteResponse, CommandError> {
     const self = this;
     return Effect.gen(function* () {
       const startedAt = Date.now();
       const entity = self.#getEntity(payload.entity);
 
       const result = yield* entity.delete(payload.key as any).pipe(
-        Effect.mapError((e) =>
-          new CommandErrorClass({
-            operation: "delete",
-            entity: payload.entity,
-            message: `Delete failed: ${String(e)}`,
-            cause: e,
-          }),
+        Effect.mapError(
+          (e) =>
+            new CommandErrorClass({
+              operation: 'delete',
+              entity: payload.entity,
+              message: `Delete failed: ${String(e)}`,
+              cause: e,
+            }),
         ),
       );
 
       return {
-        operation: "delete" as const,
+        operation: 'delete' as const,
         entity: payload.entity,
         data: result,
         timing: createTiming(startedAt),
@@ -190,7 +207,9 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
     });
   }
 
-  #processQuery(payload: QueryPayload): Effect.Effect<QueryResponse, CommandError> {
+  #processQuery(
+    payload: QueryPayload,
+  ): Effect.Effect<QueryResponse, CommandError> {
     const self = this;
     return Effect.gen(function* () {
       const startedAt = Date.now();
@@ -198,21 +217,25 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
 
       const sk = self.#convertSkCondition(payload.sk);
       const queryParams = { pk: payload.pk, sk } as any;
-      const options = payload.limit !== undefined ? { limit: payload.limit } : undefined;
+      const options =
+        payload.limit !== undefined ? { limit: payload.limit } : undefined;
 
-      const result = yield* entity.query(payload.index as any, queryParams, options).pipe(
-        Effect.mapError((e) =>
-          new CommandErrorClass({
-            operation: "query",
-            entity: payload.entity,
-            message: `Query failed: ${String(e)}`,
-            cause: e,
-          }),
-        ),
-      );
+      const result = yield* entity
+        .query(payload.index as any, queryParams, options)
+        .pipe(
+          Effect.mapError(
+            (e) =>
+              new CommandErrorClass({
+                operation: 'query',
+                entity: payload.entity,
+                message: `Query failed: ${String(e)}`,
+                cause: e,
+              }),
+          ),
+        );
 
       return {
-        operation: "query" as const,
+        operation: 'query' as const,
         entity: payload.entity,
         items: result.items,
         timing: createTiming(startedAt),
@@ -220,13 +243,15 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
     });
   }
 
-  #processDescriptor(_payload: DescriptorPayload): Effect.Effect<DescriptorResponse, CommandError> {
+  #processDescriptor(
+    _payload: DescriptorPayload,
+  ): Effect.Effect<DescriptorResponse, CommandError> {
     const self = this;
     return Effect.sync(() => {
       const startedAt = Date.now();
 
       return {
-        operation: "descriptor" as const,
+        operation: 'descriptor' as const,
         timing: createTiming(startedAt),
         descriptors: self.#registry.getSchema().descriptors,
       };
@@ -251,9 +276,9 @@ export class DynamoCommand<TRegistry extends AnyRegistry = AnyRegistry>
    * @param suffix - Optional suffix to append to the RPC name
    * @returns An object with the RPC handler
    */
-  toRpcHandler<S extends string = "">(suffix?: S) {
+  toRpcHandler<S extends string = ''>(suffix?: S) {
     const self = this;
-    const s = (suffix ?? "") as S;
+    const s = (suffix ?? '') as S;
     const handlerName = `${DynamoCommand.RPC_PREFIX}${s}` as const;
 
     const handler = (payload: CommandPayloadSchemaType) =>

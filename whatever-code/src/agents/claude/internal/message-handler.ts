@@ -1,18 +1,16 @@
 import {
   getSessionInfo,
   type SDKMessage,
-} from "@anthropic-ai/claude-agent-sdk";
-import { Cause, Deferred, Effect, Exit, Queue } from "effect";
-import { ulid } from "ulid";
-import { claudeMessageSqliteEntity } from "../../../db/entities/claude.js";
-import { sessionSqliteEntity } from "../../../db/entities/session.js";
-import { updateClaudeTurnPayload, markTurnStatus } from "../../shared/turn.js";
-import type { ActiveTurn } from "./types.js";
+} from '@anthropic-ai/claude-agent-sdk';
+import { Cause, Deferred, Effect, Exit, Queue } from 'effect';
+import { ulid } from 'ulid';
+import { claudeMessageSqliteEntity } from '../../../db/entities/claude.js';
+import { sessionSqliteEntity } from '../../../db/entities/session.js';
+import { updateClaudeTurnPayload, markTurnStatus } from '../../shared/turn.js';
+import type { ActiveTurn } from './types.js';
 
 /** Extract model usage from a result message into our schema shape. */
-function extractModelUsage(
-  result: Record<string, unknown>,
-): Record<
+function extractModelUsage(result: Record<string, unknown>): Record<
   string,
   {
     inputTokens: number;
@@ -61,7 +59,7 @@ export const processMessage =
         .pipe(Effect.orDie);
       yield* Queue.offer(turn.outputQueue, message);
 
-      if (message.type === "assistant") {
+      if (message.type === 'assistant') {
         const content = (
           message as unknown as {
             content?: Array<{ type: string; name?: string; id?: string }>;
@@ -69,13 +67,13 @@ export const processMessage =
         ).content;
         if (Array.isArray(content)) {
           for (const block of content) {
-            if (block.type === "tool_use") {
-              yield* Effect.logDebug("claude: tool_use").pipe(
+            if (block.type === 'tool_use') {
+              yield* Effect.logDebug('claude: tool_use').pipe(
                 Effect.annotateLogs({
                   sessionId,
                   turnId: turn.turnId,
-                  toolName: block.name ?? "unknown",
-                  toolUseId: block.id ?? "unknown",
+                  toolName: block.name ?? 'unknown',
+                  toolUseId: block.id ?? 'unknown',
                 }),
               );
             }
@@ -83,8 +81,8 @@ export const processMessage =
         }
       }
 
-      if (message.type === "system" && message.subtype === "init") {
-        yield* Effect.log("session initialized").pipe(
+      if (message.type === 'system' && message.subtype === 'init') {
+        yield* Effect.log('session initialized').pipe(
           Effect.annotateLogs({ turnId: turn.turnId }),
         );
         yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
@@ -96,7 +94,7 @@ export const processMessage =
               | null) ?? null,
         }));
         yield* Deferred.succeed(turn.initialized, void 0);
-      } else if (message.type === "result") {
+      } else if (message.type === 'result') {
         // ExitPlanMode denial produces an error result — skip standard result
         // handling since plan-ready state and status were already set.
         if (turn.planExited) {
@@ -105,9 +103,9 @@ export const processMessage =
         }
 
         turn.resultReceived = true;
-        const status = message.is_error ? "error" : "success";
+        const status = message.is_error ? 'error' : 'success';
 
-        yield* Effect.log("turn completed").pipe(
+        yield* Effect.log('turn completed').pipe(
           Effect.annotateLogs({ turnId: turn.turnId, status }),
         );
 
@@ -151,12 +149,12 @@ export const processMessage =
         yield* Queue.shutdown(turn.outputQueue);
       }
     }).pipe(
-      Effect.withSpan("claude.processMessage", {
+      Effect.withSpan('claude.processMessage', {
         attributes: {
           sessionId,
           turnId: turn.turnId,
-          "message.type": message.type,
-          "message.subtype": (message as any).subtype ?? null,
+          'message.type': message.type,
+          'message.subtype': (message as any).subtype ?? null,
         },
       }),
     );
@@ -168,14 +166,14 @@ export const onFiberExit =
       yield* Queue.shutdown(turn.outputQueue);
 
       if (turn.stopped) {
-        yield* Deferred.fail(turn.initialized, new Error("session stopped"));
+        yield* Deferred.fail(turn.initialized, new Error('session stopped'));
         return;
       }
 
       if (turn.planExited) {
         yield* Deferred.succeed(turn.initialized, void 0);
-        yield* Effect.log("background fiber exited via ExitPlanMode");
-        yield* markTurnStatus(turn.turnId, sessionId, "success");
+        yield* Effect.log('background fiber exited via ExitPlanMode');
+        yield* markTurnStatus(turn.turnId, sessionId, 'success');
         return;
       }
 
@@ -183,37 +181,37 @@ export const onFiberExit =
         yield* Deferred.succeed(turn.initialized, void 0);
         if (!turn.resultReceived) {
           yield* Effect.logWarning(
-            "background fiber exited without result message",
+            'background fiber exited without result message',
           );
-          yield* markTurnStatus(turn.turnId, sessionId, "error");
+          yield* markTurnStatus(turn.turnId, sessionId, 'error');
           if (turn.onStatusUpdate)
-            yield* turn.onStatusUpdate({ status: "error" });
+            yield* turn.onStatusUpdate({ status: 'error' });
         } else {
-          yield* Effect.log("background fiber exited cleanly");
+          yield* Effect.log('background fiber exited cleanly');
         }
       } else if (Exit.isInterrupted(exit)) {
         yield* Deferred.fail(
           turn.initialized,
-          new Error("session interrupted before init"),
+          new Error('session interrupted before init'),
         );
-        yield* Effect.log("background fiber interrupted");
-        yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
+        yield* Effect.log('background fiber interrupted');
+        yield* markTurnStatus(turn.turnId, sessionId, 'interrupted');
         if (turn.onStatusUpdate)
-          yield* turn.onStatusUpdate({ status: "interrupted" });
+          yield* turn.onStatusUpdate({ status: 'interrupted' });
       } else {
         const cause = exit.pipe(Exit.causeOption);
         const errorMsg =
-          cause._tag === "Some" ? Cause.pretty(cause.value) : "unknown";
+          cause._tag === 'Some' ? Cause.pretty(cause.value) : 'unknown';
         yield* Deferred.fail(turn.initialized, new Error(errorMsg));
-        yield* Effect.logError("background fiber failed").pipe(
+        yield* Effect.logError('background fiber failed').pipe(
           Effect.annotateLogs({ cause: errorMsg }),
         );
-        yield* markTurnStatus(turn.turnId, sessionId, "error");
+        yield* markTurnStatus(turn.turnId, sessionId, 'error');
         if (turn.onStatusUpdate)
-          yield* turn.onStatusUpdate({ status: "error" });
+          yield* turn.onStatusUpdate({ status: 'error' });
       }
     }).pipe(
-      Effect.withSpan("claude.fiberExit", {
+      Effect.withSpan('claude.fiberExit', {
         attributes: { sessionId, turnId: turn.turnId },
       }),
     );

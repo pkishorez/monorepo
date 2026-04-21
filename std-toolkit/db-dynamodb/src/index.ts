@@ -7,13 +7,13 @@ export {
   DynamoCommand,
   type EntityType,
   type SingleEntityType,
-} from "./services/index.js";
+} from './services/index.js';
 
 // Client
-export { createDynamoDB } from "./services/dynamo-client.js";
+export { createDynamoDB } from './services/dynamo-client.js';
 
 // Errors
-export { DynamodbError } from "./errors.js";
+export { DynamodbError } from './errors.js';
 
 // Expression builders
 export {
@@ -23,7 +23,7 @@ export {
   buildExpr,
   opAdd,
   opIfNotExists,
-} from "./expr/index.js";
+} from './expr/index.js';
 
 // Marshall utilities
-export { marshall, unmarshall } from "./internal/marshall.js";
+export { marshall, unmarshall } from './internal/marshall.js';

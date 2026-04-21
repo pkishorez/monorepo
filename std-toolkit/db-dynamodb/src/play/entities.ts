@@ -1,6 +1,6 @@
-import { DynamoEntity } from "../index.js";
-import { table } from "./table.js";
-import { userSchema, postSchema, commentSchema } from "./schemas.js";
+import { DynamoEntity } from '../index.js';
+import { table } from './table.js';
+import { userSchema, postSchema, commentSchema } from './schemas.js';
 
 // =============================================================================
 // User Entity
@@ -8,7 +8,7 @@ import { userSchema, postSchema, commentSchema } from "./schemas.js";
 // =============================================================================
 export const UserEntity = DynamoEntity.make(table)
   .eschema(userSchema)
-  .primary({ pk: ["userId"] })
+  .primary({ pk: ['userId'] })
   .build();
 
 // =============================================================================
@@ -18,8 +18,8 @@ export const UserEntity = DynamoEntity.make(table)
 // =============================================================================
 export const PostEntity = DynamoEntity.make(table)
   .eschema(postSchema)
-  .primary({ pk: ["authorId"] })
-  .index("GSI1", "byAuthor", { pk: ["authorId"] })
+  .primary({ pk: ['authorId'] })
+  .index('GSI1', 'byAuthor', { pk: ['authorId'] })
   .build();
 
 // =============================================================================
@@ -29,8 +29,8 @@ export const PostEntity = DynamoEntity.make(table)
 // =============================================================================
 export const CommentEntity = DynamoEntity.make(table)
   .eschema(commentSchema)
-  .primary({ pk: ["postId"] })
-  .index("GSI1", "byPost", { pk: ["postId"] })
+  .primary({ pk: ['postId'] })
+  .index('GSI1', 'byPost', { pk: ['postId'] })
   .build();
 
 // =============================================================================
@@ -48,6 +48,6 @@ export const UserByIdEntity = DynamoEntity.make(table)
 // =============================================================================
 export const PostWithCustomSkEntity = DynamoEntity.make(table)
   .eschema(postSchema)
-  .primary({ pk: ["authorId"] })
-  .index("GSI1", "byAuthorName", { pk: ["authorId"], sk: ["title"] })
+  .primary({ pk: ['authorId'] })
+  .index('GSI1', 'byAuthorName', { pk: ['authorId'], sk: ['title'] })
   .build();

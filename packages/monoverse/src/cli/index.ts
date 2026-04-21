@@ -1,25 +1,34 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { Command, CliConfig } from "@effect/cli";
-import { NodeContext, NodeRuntime } from "@effect/platform-node";
-import { Console, Effect, Layer } from "effect";
-import { Monoverse } from "../core/index.js";
-import { tui, updates, add, rm, format, lint, fix, ls } from "./commands/index.js";
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Command, CliConfig } from '@effect/cli';
+import { NodeContext, NodeRuntime } from '@effect/platform-node';
+import { Console, Effect, Layer } from 'effect';
+import { Monoverse } from '../core/index.js';
+import {
+  tui,
+  updates,
+  add,
+  rm,
+  format,
+  lint,
+  fix,
+  ls,
+} from './commands/index.js';
 
 const getVersion = (): string => {
   try {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const pkgPath = join(__dirname, "..", "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    const pkgPath = join(__dirname, '..', 'package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
     return `v${pkg.version}`;
   } catch {
-    return "na";
+    return 'na';
   }
 };
 
-const monoverse = Command.make("monoverse", {}, () =>
-  Console.log("Use --help to see available commands"),
+const monoverse = Command.make('monoverse', {}, () =>
+  Console.log('Use --help to see available commands'),
 );
 
 const command = monoverse.pipe(
@@ -41,7 +50,7 @@ const command = monoverse.pipe(
 );
 
 const cli = Command.run(command, {
-  name: "monoverse",
+  name: 'monoverse',
   version: getVersion(),
 });
 

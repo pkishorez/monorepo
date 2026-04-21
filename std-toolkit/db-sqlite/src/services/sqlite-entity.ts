@@ -1,11 +1,11 @@
-import type { AnyEntityESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Chunk, Effect, FiberRef, Option, Schema, Stream } from "effect";
-import type { SQLiteTableInstance, SortKeyCondition } from "./sqlite-table.js";
+import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
+import { Chunk, Effect, FiberRef, Option, Schema, Stream } from 'effect';
+import type { SQLiteTableInstance, SortKeyCondition } from './sqlite-table.js';
 import {
   SqliteDB,
   SqliteDBError,
   TransactionPendingBroadcasts,
-} from "../sql/db.js";
+} from '../sql/db.js';
 import {
   deriveIndexKeyValue,
   extractKeyOp,
@@ -22,20 +22,20 @@ import {
   type SubscribeOptions,
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
-} from "../internal/utils.js";
-import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
-import { ConnectionService } from "@std-toolkit/core/server";
-import { Prettify } from "@std-toolkit/eschema/types.js";
+} from '../internal/utils.js';
+import type { StdDescriptor, IndexPatternDescriptor } from '@std-toolkit/core';
+import { ConnectionService } from '@std-toolkit/core/server';
+import { Prettify } from '@std-toolkit/eschema/types.js';
 
 /**
  * Meta fields that can be used in index derivations.
  */
-type DerivableMetaFields = "_u";
+type DerivableMetaFields = '_u';
 
 /**
  * Type-level check: is this SK tuple exactly ["_u"]?
  */
-type IsTimelineSk<T extends readonly unknown[]> = T extends readonly ["_u"]
+type IsTimelineSk<T extends readonly unknown[]> = T extends readonly ['_u']
   ? true
   : false;
 
@@ -45,7 +45,7 @@ type IsTimelineSk<T extends readonly unknown[]> = T extends readonly ["_u"]
 type SubscribableSecondaryKeys<
   T extends Record<string, StoredIndexDerivation>,
 > = {
-  [K in keyof T]: T[K]["isTimelineSk"] extends true ? K : never;
+  [K in keyof T]: T[K]['isTimelineSk'] extends true ? K : never;
 }[keyof T] &
   string;
 
@@ -55,9 +55,9 @@ type SubscribableSecondaryKeys<
 type ResolveSkParam<
   TEntity,
   TDeriv extends StoredIndexDerivation,
-> = TDeriv["isTimelineSk"] extends true
+> = TDeriv['isTimelineSk'] extends true
   ? SkParam
-  : CustomSkParam<TEntity, TDeriv["skDeps"] & readonly (keyof TEntity)[]>;
+  : CustomSkParam<TEntity, TDeriv['skDeps'] & readonly (keyof TEntity)[]>;
 
 /**
  * Resolves the stream SK param type for a secondary index based on isTimelineSk.
@@ -65,14 +65,14 @@ type ResolveSkParam<
 type ResolveStreamSkParam<
   TEntity,
   TDeriv extends StoredIndexDerivation,
-> = TDeriv["isTimelineSk"] extends true
+> = TDeriv['isTimelineSk'] extends true
   ? StreamSkParam
-  : CustomStreamSkParam<TEntity, TDeriv["skDeps"] & readonly (keyof TEntity)[]>;
+  : CustomStreamSkParam<TEntity, TDeriv['skDeps'] & readonly (keyof TEntity)[]>;
 
 /**
  * Input type for insert operations. Omits the internal `_v` field.
  */
-type InsertInput<T> = Omit<T, "_v">;
+type InsertInput<T> = Omit<T, '_v'>;
 
 /**
  * Represents an entity item with its value and metadata.
@@ -174,14 +174,14 @@ export class SQLiteEntity<
   /**
    * Gets the entity name from the schema.
    */
-  get name(): TSchema["name"] {
+  get name(): TSchema['name'] {
     return this.#eschema.name;
   }
 
   /**
    * Gets the ID field name from the schema.
    */
-  get idField(): TSchema["idField"] {
+  get idField(): TSchema['idField'] {
     return this.#eschema.idField;
   }
 
@@ -195,7 +195,7 @@ export class SQLiteEntity<
       idField: this.#eschema.idField,
       version: this.#eschema.latestVersion,
       primaryIndex: {
-        name: "primary",
+        name: 'primary',
         pk: this.#extractIndexPattern(
           this.#primaryDerivation.pkDeps,
           entityName,
@@ -230,7 +230,7 @@ export class SQLiteEntity<
    */
   get(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
   ): Effect.Effect<
     EntityType<ESchemaType<TSchema>> | null,
     SqliteDBError,
@@ -292,15 +292,15 @@ export class SQLiteEntity<
    */
   update(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
-    updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       // Get existing item
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(
-          SqliteDBError.updateFailed(this.#table.tableName, "Item not found"),
+          SqliteDBError.updateFailed(this.#table.tableName, 'Item not found'),
         );
       }
 
@@ -354,13 +354,13 @@ export class SQLiteEntity<
    */
   delete(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(
-          SqliteDBError.deleteFailed(this.#table.tableName, "Item not found"),
+          SqliteDBError.deleteFailed(this.#table.tableName, 'Item not found'),
         );
       }
 
@@ -410,9 +410,9 @@ export class SQLiteEntity<
    * @param options - Query options including limit
    * @returns Array of matching entities with metadata
    */
-  query<K extends "primary" | keyof TSecondaryDerivationMap>(
+  query<K extends 'primary' | keyof TSecondaryDerivationMap>(
     key: K,
-    params: K extends "primary"
+    params: K extends 'primary'
       ? [TPrimaryPkKeys] extends [never]
         ? { pk?: {}; sk: SkParam }
         : {
@@ -423,7 +423,7 @@ export class SQLiteEntity<
         ? {
             pk: Pick<
               ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]["pkDeps"][number] &
+              TSecondaryDerivationMap[K]['pkDeps'][number] &
                 keyof ESchemaType<TSchema>
             >;
             sk: ResolveSkParam<
@@ -442,7 +442,7 @@ export class SQLiteEntity<
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
 
-      if (key === "primary") {
+      if (key === 'primary') {
         // Primary index query
         const derivedPk = deriveIndexKeyValue(
           this.#eschema.name,
@@ -531,9 +531,9 @@ export class SQLiteEntity<
    * @param options - Stream options including batchSize
    * @returns A Stream that yields batches of entities
    */
-  queryStream<K extends "primary" | keyof TSecondaryDerivationMap>(
+  queryStream<K extends 'primary' | keyof TSecondaryDerivationMap>(
     key: K,
-    params: K extends "primary"
+    params: K extends 'primary'
       ? [TPrimaryPkKeys] extends [never]
         ? { pk?: {}; sk: StreamSkParam }
         : {
@@ -544,7 +544,7 @@ export class SQLiteEntity<
         ? {
             pk: Pick<
               ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]["pkDeps"][number] &
+              TSecondaryDerivationMap[K]['pkDeps'][number] &
                 keyof ESchemaType<TSchema>
             >;
             sk: ResolveStreamSkParam<
@@ -560,11 +560,11 @@ export class SQLiteEntity<
     SqliteDB
   > {
     const batchSize = options?.batchSize ?? 100;
-    const operator = ">" in params.sk ? ">" : "<";
-    const initialSkValue = ">" in params.sk ? params.sk[">"] : params.sk["<"];
+    const operator = '>' in params.sk ? '>' : '<';
+    const initialSkValue = '>' in params.sk ? params.sk['>'] : params.sk['<'];
 
     const indexDerivation =
-      key !== "primary" ? this.#secondaryDerivations[key] : undefined;
+      key !== 'primary' ? this.#secondaryDerivations[key] : undefined;
     const isCustomSk = indexDerivation && !indexDerivation.isTimelineSk;
 
     const initialCursor: string | null = isCustomSk
@@ -587,7 +587,7 @@ export class SQLiteEntity<
 
         const lastItem = items[items.length - 1]!;
         let nextCursor: string | null;
-        if (key === "primary") {
+        if (key === 'primary') {
           nextCursor = (lastItem.value as Record<string, unknown>)[
             this.#eschema.idField
           ] as string;
@@ -612,18 +612,18 @@ export class SQLiteEntity<
    * @returns All items after the cursor
    */
   subscribe<
-    K extends "primary" | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
+    K extends 'primary' | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
   >(
     opts: SubscribeOptions<
       K,
-      K extends "primary"
+      K extends 'primary'
         ? [TPrimaryPkKeys] extends [never]
           ? {}
           : Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>
         : K extends keyof TSecondaryDerivationMap
           ? Pick<
               ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]["pkDeps"][number] &
+              TSecondaryDerivationMap[K]['pkDeps'][number] &
                 keyof ESchemaType<TSchema>
             >
           : never
@@ -642,7 +642,7 @@ export class SQLiteEntity<
       while (true) {
         const result = yield* this.query(
           key,
-          { pk, sk: { ">": currentCursor } } as any,
+          { pk, sk: { '>': currentCursor } } as any,
           queryOptions,
         );
 
@@ -663,9 +663,9 @@ export class SQLiteEntity<
    * Removes all rows from the table.
    */
   dangerouslyRemoveAllRows(
-    _: "i know what i am doing",
+    _: 'i know what i am doing',
   ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
-    return this.#table.dangerouslyRemoveAllRows("i know what i am doing");
+    return this.#table.dangerouslyRemoveAllRows('i know what i am doing');
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
@@ -779,7 +779,7 @@ export class SQLiteEntity<
     if (
       skValue !== null &&
       !indexDerivation.isTimelineSk &&
-      typeof skValue === "object"
+      typeof skValue === 'object'
     ) {
       return deriveIndexKeyValue(
         this.#eschema.name,
@@ -820,7 +820,7 @@ export class SQLiteEntity<
       const deriv = derivation as StoredIndexDerivation;
 
       if (
-        deriv.pkDeps.every((key: string) => typeof value[key] !== "undefined")
+        deriv.pkDeps.every((key: string) => typeof value[key] !== 'undefined')
       ) {
         const pkCol = this.#table.secondaryIndexMap[deriv.indexName]?.pk;
         if (pkCol) {
@@ -834,7 +834,7 @@ export class SQLiteEntity<
       }
 
       if (
-        deriv.skDeps.every((key: string) => typeof value[key] !== "undefined")
+        deriv.skDeps.every((key: string) => typeof value[key] !== 'undefined')
       ) {
         const skCol = this.#table.secondaryIndexMap[deriv.indexName]?.sk;
         if (skCol) {
@@ -859,7 +859,7 @@ export class SQLiteEntity<
     if (deps.length === 0) {
       return { deps: [], pattern: prefix };
     }
-    const pattern = deps.map((d) => `{${d}}`).join("#");
+    const pattern = deps.map((d) => `{${d}}`).join('#');
     return {
       deps,
       pattern: includePrefix ? `${prefix}#${pattern}` : pattern,
@@ -912,7 +912,7 @@ class EntityIndexDerivations<
    * @returns A builder with the index mapping added
    */
   index<
-    IndexNameStr extends keyof TTable["secondaryIndexMap"] & string,
+    IndexNameStr extends keyof TTable['secondaryIndexMap'] & string,
     EntityIndexName extends string,
     const TPkKeys extends readonly (
       | keyof ESchemaType<TSchema>
@@ -921,7 +921,7 @@ class EntityIndexDerivations<
     const TSkKeys extends readonly (
       | keyof ESchemaType<TSchema>
       | DerivableMetaFields
-    )[] = readonly ["_u"],
+    )[] = readonly ['_u'],
   >(
     indexName: IndexNameStr,
     entityIndexName: EntityIndexName,
@@ -930,8 +930,8 @@ class EntityIndexDerivations<
       sk?: TSkKeys;
     },
   ) {
-    const skKeys = (derivation.sk ?? ["_u"]) as TSkKeys;
-    const isTimelineSk = skKeys.length === 1 && skKeys[0] === "_u";
+    const skKeys = (derivation.sk ?? ['_u']) as TSkKeys;
+    const isTimelineSk = skKeys.length === 1 && skKeys[0] === '_u';
     const newDeriv: StoredIndexDerivation = {
       indexName,
       entityIndexName,

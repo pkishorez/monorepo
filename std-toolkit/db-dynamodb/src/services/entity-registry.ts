@@ -1,25 +1,25 @@
-import { Effect, Option } from "effect";
-import type { DynamoTable } from "./dynamo-table.js";
-import type { DynamoEntity } from "./dynamo-entity.js";
-import type { DynamoSingleEntity } from "./dynamo-single-entity.js";
-import type { TransactItem } from "../types/index.js";
-import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
-import { ConnectionService } from "@std-toolkit/core/server";
-import { DynamodbError } from "../errors.js";
+import { Effect, Option } from 'effect';
+import type { DynamoTable } from './dynamo-table.js';
+import type { DynamoEntity } from './dynamo-entity.js';
+import type { DynamoSingleEntity } from './dynamo-single-entity.js';
+import type { TransactItem } from '../types/index.js';
+import type { DescriptorProvider, RegistrySchema } from '@std-toolkit/core';
+import { ConnectionService } from '@std-toolkit/core/server';
+import { DynamodbError } from '../errors.js';
 
 /**
  * Extracts the entity name from a DynamoEntity type.
  */
 type EntityName<T> =
   T extends DynamoEntity<any, any, infer TSchema, any>
-    ? TSchema["name"]
+    ? TSchema['name']
     : never;
 
 /**
  * Extracts the entity name from a DynamoSingleEntity type.
  */
 type SingleEntityName<T> =
-  T extends DynamoSingleEntity<any, infer TSchema> ? TSchema["name"] : never;
+  T extends DynamoSingleEntity<any, infer TSchema> ? TSchema['name'] : never;
 
 /**
  * Type for a map of entity names to DynamoEntity instances.
@@ -223,14 +223,10 @@ class EntityRegistryBuilder<
     TEntities,
     TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>
   > {
-    return new EntityRegistryBuilder(
-      this.#table,
-      this.#entities,
-      {
-        ...this.#singleEntities,
-        [entity.name]: entity,
-      } as TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>,
-    );
+    return new EntityRegistryBuilder(this.#table, this.#entities, {
+      ...this.#singleEntities,
+      [entity.name]: entity,
+    } as TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>);
   }
 
   /**

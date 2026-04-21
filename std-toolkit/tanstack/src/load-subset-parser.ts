@@ -1,4 +1,4 @@
-import type { LoadSubsetOptions } from "@tanstack/react-db";
+import type { LoadSubsetOptions } from '@tanstack/react-db';
 
 export type Operators<V> = {
   eq?: V;
@@ -17,7 +17,7 @@ export type Filters<T> = {
 
 export type Sort<T> = {
   field: keyof T;
-  direction: "asc" | "desc";
+  direction: 'asc' | 'desc';
 };
 
 export type ParsedLoadSubsetOptions<T> = {
@@ -38,14 +38,14 @@ type BasicExpr = {
 type OperatorName = keyof Operators<unknown>;
 
 const SUPPORTED_OPS: Set<string> = new Set<OperatorName>([
-  "eq",
-  "neq",
-  "gt",
-  "gte",
-  "lt",
-  "lte",
-  "in",
-  "like",
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'in',
+  'like',
 ]);
 
 function extractFilters(
@@ -54,7 +54,7 @@ function extractFilters(
 ): void {
   if (!expr) return;
 
-  if (expr.type === "func" && expr.name === "and" && expr.args) {
+  if (expr.type === 'func' && expr.name === 'and' && expr.args) {
     for (const arg of expr.args) {
       extractFilters(arg, filters);
     }
@@ -62,13 +62,13 @@ function extractFilters(
   }
 
   if (
-    expr.type === "func" &&
+    expr.type === 'func' &&
     expr.name &&
     SUPPORTED_OPS.has(expr.name) &&
     expr.args?.length === 2
   ) {
     const [left, right] = expr.args;
-    if (left?.type === "ref" && left.path && right?.type === "val") {
+    if (left?.type === 'ref' && left.path && right?.type === 'val') {
       const field = left.path[left.path.length - 1]!;
       if (!filters[field]) filters[field] = {};
       filters[field][expr.name] = right.value;
@@ -86,7 +86,7 @@ export const parseLoadSubsetOptions = <T>(
   if (options.orderBy) {
     for (const clause of options.orderBy) {
       const expr = clause.expression as BasicExpr;
-      if (expr?.type === "ref" && expr.path) {
+      if (expr?.type === 'ref' && expr.path) {
         sorts.push({
           field: expr.path[expr.path.length - 1] as keyof T,
           direction: clause.compareOptions.direction,

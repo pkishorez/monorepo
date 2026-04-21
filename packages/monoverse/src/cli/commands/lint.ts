@@ -1,27 +1,27 @@
-import { Command } from "@effect/cli";
-import { Console, Effect } from "effect";
-import { Monoverse } from "../../core/index.js";
-import type { Violation } from "../../core/pipeline/validate/index.js";
-import type { Workspace } from "../../core/pipeline/analyze/index.js";
-import { theme as c } from "../../theme.js";
-import { formatToTree, type TreeItem } from "../format/tree.js";
+import { Command } from '@effect/cli';
+import { Console, Effect } from 'effect';
+import { Monoverse } from '../../core/index.js';
+import type { Violation } from '../../core/pipeline/validate/index.js';
+import type { Workspace } from '../../core/pipeline/analyze/index.js';
+import { theme as c } from '../../theme.js';
+import { formatToTree, type TreeItem } from '../format/tree.js';
 
 const formatViolationDetail = (v: Violation): string => {
   switch (v._tag) {
-    case "ViolationVersionMismatch": {
+    case 'ViolationVersionMismatch': {
       const versions = v.allVersions.map((ver) =>
         ver === v.versionRange
           ? `${c.warning}${ver}${c.reset}`
-          : `${c.muted}${ver}${c.reset}`
+          : `${c.muted}${ver}${c.reset}`,
       );
-      return `${c.muted}${v.package}${c.reset} ${c.error}VersionMismatch${c.reset} (${versions.join(", ")})`;
+      return `${c.muted}${v.package}${c.reset} ${c.error}VersionMismatch${c.reset} (${versions.join(', ')})`;
     }
-    case "ViolationUnpinnedVersion":
+    case 'ViolationUnpinnedVersion':
       return `${c.muted}${v.package}${c.reset} ${c.error}UnpinnedVersion${c.reset} (${c.warning}${v.versionRange}${c.reset})`;
-    case "ViolationFormatPackageJson":
+    case 'ViolationFormatPackageJson':
       return `${c.error}FormatPackageJson${c.reset}`;
-    case "ViolationDuplicateWorkspace":
-      return `${c.error}DuplicateWorkspace${c.reset} ${c.muted}(${v.paths.join(", ")})${c.reset}`;
+    case 'ViolationDuplicateWorkspace':
+      return `${c.error}DuplicateWorkspace${c.reset} ${c.muted}(${v.paths.join(', ')})${c.reset}`;
   }
 };
 
@@ -56,7 +56,7 @@ const buildViolationsTree = (
   return items;
 };
 
-export const lint = Command.make("lint", {}, () =>
+export const lint = Command.make('lint', {}, () =>
   Effect.gen(function* () {
     const monoverse = yield* Monoverse;
     const analysis = yield* monoverse.analyze(process.cwd());

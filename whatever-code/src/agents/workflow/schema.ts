@@ -1,10 +1,13 @@
-import { Effect, Schema } from "effect";
-import { CreateSessionParams } from "../claude/schema.js";
-import { PromptContent } from "../shared/schema.js";
-import { InteractionMode } from "../../core/entity/session/session.js";
-import type { ExecuteStatusType, RalphLoopSpecStatusType } from "../../core/entity/workflow/index.js";
+import { Effect, Schema } from 'effect';
+import { CreateSessionParams } from '../claude/schema.js';
+import { PromptContent } from '../shared/schema.js';
+import { InteractionMode } from '../../core/entity/session/session.js';
+import type {
+  ExecuteStatusType,
+  RalphLoopSpecStatusType,
+} from '../../core/entity/workflow/index.js';
 
-import { CreateThreadParams } from "../codex/schema.js";
+import { CreateThreadParams } from '../codex/schema.js';
 
 const WorktreeParams = Schema.Struct({
   baseBranch: Schema.optionalWith(Schema.String, { exact: true }),
@@ -13,14 +16,14 @@ const WorktreeParams = Schema.Struct({
 
 const StartClaudeParams = Schema.Struct({
   projectId: Schema.String,
-  agent: Schema.Literal("claude"),
+  agent: Schema.Literal('claude'),
   session: CreateSessionParams,
   worktree: Schema.optionalWith(WorktreeParams, { exact: true }),
 });
 
 const StartCodexParams = Schema.Struct({
   projectId: Schema.String,
-  agent: Schema.Literal("codex"),
+  agent: Schema.Literal('codex'),
   thread: CreateThreadParams,
   worktree: Schema.optionalWith(WorktreeParams, { exact: true }),
 });
@@ -50,7 +53,7 @@ export const ArchiveWorkflowParams = Schema.Struct({
 });
 
 export class ExecuteWorkflowError extends Schema.TaggedError<ExecuteWorkflowError>()(
-  "ExecuteWorkflowError",
+  'ExecuteWorkflowError',
   { message: Schema.String },
 ) {}
 

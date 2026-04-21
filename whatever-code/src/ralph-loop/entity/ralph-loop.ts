@@ -1,13 +1,13 @@
-import { EntityESchema } from "@std-toolkit/eschema";
-import { Schema } from "effect";
+import { EntityESchema } from '@std-toolkit/eschema';
+import { Schema } from 'effect';
 
 export const RalphLoopStatus = Schema.Literal(
-  "planning",
-  "reviewing",
-  "executing",
-  "completed",
-  "failed",
-  "cancelled",
+  'planning',
+  'reviewing',
+  'executing',
+  'completed',
+  'failed',
+  'cancelled',
 );
 export type RalphLoopStatus = typeof RalphLoopStatus.Type;
 
@@ -17,7 +17,7 @@ const WorktreeMeta = Schema.Struct({
   repoPath: Schema.String,
 });
 
-export const ralphLoopEntity = EntityESchema.make("ralphLoop", "id", {
+export const ralphLoopEntity = EntityESchema.make('ralphLoop', 'id', {
   projectId: Schema.String,
   planningSessionId: Schema.String,
   status: RalphLoopStatus,

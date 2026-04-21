@@ -1,5 +1,5 @@
-import type { ESchema, SingleEntityESchema, EntityESchema } from "./eschema.js";
-import { JSONSchema, Schema } from "effect";
+import type { ESchema, SingleEntityESchema, EntityESchema } from './eschema.js';
+import { JSONSchema, Schema } from 'effect';
 
 export type ESchemaDescriptor = JSONSchema.JsonSchema7Object & {
   $schema?: string;
@@ -37,7 +37,7 @@ export type StructFieldsEncoded<T extends StructFieldsSchema> =
 
 export type ForbidUnderscorePrefix<T> = {
   [K in keyof T]: K extends `_${string}`
-    ? "Key with prefix _ is Forbidden."
+    ? 'Key with prefix _ is Forbidden.'
     : T[K];
 };
 
@@ -55,13 +55,13 @@ export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
-type BuildTuple<L extends number, T extends any[] = []> = T["length"] extends L
+type BuildTuple<L extends number, T extends any[] = []> = T['length'] extends L
   ? T
   : BuildTuple<L, [...T, any]>;
 
 export type NextVersion<V extends string> =
   V extends `v${infer Num extends number}`
-    ? `v${[...BuildTuple<Num>, any]["length"] & number}`
+    ? `v${[...BuildTuple<Num>, any]['length'] & number}`
     : never;
 
 /**

@@ -1,10 +1,10 @@
-import { Rpc } from "@effect/rpc";
-import { Schema } from "effect";
-import { EntityESchema, type StructFieldsSchema } from "@std-toolkit/eschema";
-import { EntitySchema } from "../schema.js";
+import { Rpc } from '@effect/rpc';
+import { Schema } from 'effect';
+import { EntityESchema, type StructFieldsSchema } from '@std-toolkit/eschema';
+import { EntitySchema } from '../schema.js';
 
 export class StdToolkitError extends Schema.TaggedError<StdToolkitError>()(
-  "StdToolkitError",
+  'StdToolkitError',
   {
     message: Schema.String,
     code: Schema.optional(Schema.String),
@@ -18,7 +18,7 @@ export const makeInsertRpc = <
   Id extends string,
   V extends string,
   F extends StructFieldsSchema,
-  P extends string = "",
+  P extends string = '',
 >(
   eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
@@ -26,7 +26,7 @@ export const makeInsertRpc = <
   const { [eschema.idField]: _id, ...fieldsWithoutId } = eschema.fields;
 
   const payloadSchema = Schema.Struct(fieldsWithoutId as OmitIdField<F, Id>);
-  const p = (prefix ?? "") as P;
+  const p = (prefix ?? '') as P;
 
   return Rpc.make(`${p}insert${eschema.name}` as `${P}insert${N}`, {
     payload: payloadSchema,
@@ -40,7 +40,7 @@ export const makeUpdateRpc = <
   Id extends string,
   V extends string,
   F extends StructFieldsSchema,
-  P extends string = "",
+  P extends string = '',
 >(
   eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
@@ -56,7 +56,7 @@ export const makeUpdateRpc = <
     updates: updatesSchema,
   } as Record<Id, typeof Schema.String> & { updates: typeof updatesSchema });
 
-  const p = (prefix ?? "") as P;
+  const p = (prefix ?? '') as P;
 
   return Rpc.make(`${p}update${eschema.name}` as `${P}update${N}`, {
     payload: payloadSchema,
@@ -70,7 +70,7 @@ export const makeDeleteRpc = <
   Id extends string,
   V extends string,
   F extends StructFieldsSchema,
-  P extends string = "",
+  P extends string = '',
 >(
   eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
@@ -79,7 +79,7 @@ export const makeDeleteRpc = <
     [eschema.idField]: Schema.String,
   } as Record<Id, typeof Schema.String>);
 
-  const p = (prefix ?? "") as P;
+  const p = (prefix ?? '') as P;
 
   return Rpc.make(`${p}delete${eschema.name}` as `${P}delete${N}`, {
     payload: payloadSchema,
@@ -93,7 +93,7 @@ export const makeGetRpc = <
   Id extends string,
   V extends string,
   F extends StructFieldsSchema,
-  P extends string = "",
+  P extends string = '',
 >(
   eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,
@@ -102,7 +102,7 @@ export const makeGetRpc = <
     [eschema.idField]: Schema.String,
   } as Record<Id, typeof Schema.String>);
 
-  const p = (prefix ?? "") as P;
+  const p = (prefix ?? '') as P;
 
   return Rpc.make(`${p}get${eschema.name}` as `${P}get${N}`, {
     payload: payloadSchema,
@@ -116,7 +116,7 @@ export const makeEntityRpcGroup = <
   Id extends string,
   V extends string,
   F extends StructFieldsSchema,
-  P extends string = "",
+  P extends string = '',
 >(
   eschema: EntityESchema<N, Id, V, F>,
   prefix?: P,

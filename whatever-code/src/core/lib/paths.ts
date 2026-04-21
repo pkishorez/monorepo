@@ -1,13 +1,13 @@
-import os from "os";
-import path from "path";
-import fs from "fs";
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 
 const homeDir = os.homedir();
 
 const getGitRoot = (cwd: string): string | null => {
   let dir = cwd;
   while (true) {
-    if (fs.existsSync(path.join(dir, ".git"))) return dir;
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) return null;
     dir = parent;
@@ -16,7 +16,9 @@ const getGitRoot = (cwd: string): string | null => {
 
 export const computePaths = (cwd: string) => {
   const absolutePath = cwd;
-  const homePath = cwd.startsWith(homeDir) ? "~" + cwd.slice(homeDir.length) : cwd;
+  const homePath = cwd.startsWith(homeDir)
+    ? '~' + cwd.slice(homeDir.length)
+    : cwd;
   const gitRoot = getGitRoot(cwd);
   const gitPath = gitRoot
     ? (() => {

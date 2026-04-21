@@ -1,5 +1,5 @@
-import { Schema } from "effect";
-import type { DeltaSchema, StructFieldsSchema } from "./types.js";
+import { Schema } from 'effect';
+import type { DeltaSchema, StructFieldsSchema } from './types.js';
 
 export function struct<S extends StructFieldsSchema>(
   fields: S,
@@ -15,7 +15,7 @@ export function struct<S extends StructFieldsSchema>(
   >;
 }
 
-export const INITIAL_VERSION = "v1" as const;
+export const INITIAL_VERSION = 'v1' as const;
 
 export const metaSchema = Schema.Struct({
   _v: Schema.String,

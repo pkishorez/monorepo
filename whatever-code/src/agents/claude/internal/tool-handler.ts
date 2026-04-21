@@ -1,13 +1,13 @@
 import type {
   CanUseTool,
   PermissionResult,
-} from "@anthropic-ai/claude-agent-sdk";
-import { Deferred, Effect, Exit, Runtime } from "effect";
-import type { AccessMode } from "../../../core/entity/session/session.js";
-import { AskUserQuestionInput } from "../../../core/entity/turn/turn.js";
-import { updateClaudeTurnPayload } from "../../shared/turn.js";
-import type { ActiveTurn } from "./types.js";
-import { SqliteDB } from "@std-toolkit/sqlite";
+} from '@anthropic-ai/claude-agent-sdk';
+import { Deferred, Effect, Exit, Runtime } from 'effect';
+import type { AccessMode } from '../../../core/entity/session/session.js';
+import { AskUserQuestionInput } from '../../../core/entity/turn/turn.js';
+import { updateClaudeTurnPayload } from '../../shared/turn.js';
+import type { ActiveTurn } from './types.js';
+import { SqliteDB } from '@std-toolkit/sqlite';
 
 /**
  * Creates the `canUseTool` callback for the SDK query.
@@ -29,30 +29,30 @@ export const makeCanUseTool = (
   runtime: Runtime.Runtime<SqliteDB>,
 ): CanUseTool => {
   return async (toolName, input, opts): Promise<PermissionResult> => {
-    if (toolName === "ExitPlanMode") {
+    if (toolName === 'ExitPlanMode') {
       const planInput = input as Record<string, unknown>;
-      if (typeof planInput.plan === "string" && planInput.plan.length > 0) {
+      if (typeof planInput.plan === 'string' && planInput.plan.length > 0) {
         await Runtime.runPromise(runtime)(
           Effect.gen(function* () {
             yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
               ...payload,
-              state: "plan-ready" as const,
+              state: 'plan-ready' as const,
             }));
             if (turn.onStatusUpdate) {
-              yield* turn.onStatusUpdate({ status: "plan-ready" });
+              yield* turn.onStatusUpdate({ status: 'plan-ready' });
             }
           }),
         );
       }
       turn.planExited = true;
       return {
-        behavior: "deny",
+        behavior: 'deny',
         message:
-          "ExitPlanMode is explicitly managed by us. Exit the program now.",
+          'ExitPlanMode is explicitly managed by us. Exit the program now.',
       };
     }
 
-    if (toolName === "AskUserQuestion") {
+    if (toolName === 'AskUserQuestion') {
       const toolUseId = opts.toolUseID;
 
       // Create a Deferred that will be resolved when the user responds
@@ -63,18 +63,18 @@ export const makeCanUseTool = (
         // Persist pending state to turn DB so the frontend can discover it
         yield* updateClaudeTurnPayload(turn.turnId, (payload) => ({
           ...payload,
-          state: "question" as const,
+          state: 'question' as const,
           pendingQuestions: {
             ...payload.pendingQuestions,
             [toolUseId]: {
-              status: "pending" as const,
+              status: 'pending' as const,
               question: input as typeof AskUserQuestionInput.Type,
             },
           },
         }));
 
         if (turn.onStatusUpdate) {
-          yield* turn.onStatusUpdate({ status: "question" });
+          yield* turn.onStatusUpdate({ status: 'question' });
         }
 
         // Block until the user responds (or the session is stopped)
@@ -98,11 +98,11 @@ export const makeCanUseTool = (
 
       // Deferred was failed (e.g. session stopped) — deny the tool
       return {
-        behavior: "deny",
-        message: "User question was cancelled.",
+        behavior: 'deny',
+        message: 'User question was cancelled.',
       };
     }
 
-    return { behavior: "allow", updatedInput: input };
+    return { behavior: 'allow', updatedInput: input };
   };
 };

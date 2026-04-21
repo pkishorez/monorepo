@@ -1,19 +1,19 @@
-import { Effect, Console } from "effect";
-import { DynamoTable } from "../index.js";
-import { createDynamoDB } from "../services/dynamo-client.js";
+import { Effect, Console } from 'effect';
+import { DynamoTable } from '../index.js';
+import { createDynamoDB } from '../services/dynamo-client.js';
 
 // =============================================================================
 // Configuration
 // =============================================================================
 export const PLAYGROUND_TABLE = `playground-${Date.now()}`;
-export const LOCAL_ENDPOINT = "http://localhost:8090";
+export const LOCAL_ENDPOINT = 'http://localhost:8090';
 
 export const localConfig = {
   tableName: PLAYGROUND_TABLE,
-  region: "us-east-1",
+  region: 'us-east-1',
   credentials: {
-    accessKeyId: "local",
-    secretAccessKey: "local",
+    accessKeyId: 'local',
+    secretAccessKey: 'local',
   },
   endpoint: LOCAL_ENDPOINT,
 };
@@ -22,9 +22,9 @@ export const localConfig = {
 // DynamoDB Table Definition
 // =============================================================================
 export const table = DynamoTable.make(localConfig)
-  .primary("pk", "sk")
-  .gsi("GSI1", "GSI1PK", "GSI1SK")
-  .gsi("GSI2", "GSI2PK", "GSI2SK")
+  .primary('pk', 'sk')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .gsi('GSI2', 'GSI2PK', 'GSI2SK')
   .build();
 
 // =============================================================================
@@ -39,7 +39,7 @@ export async function createPlaygroundTable() {
       Effect.tap(() => Console.log(`Created table: ${PLAYGROUND_TABLE}`)),
       Effect.catchAll((e) => {
         const errorName = (e as any)?.error?.name;
-        if (errorName === "ResourceInUseException") {
+        if (errorName === 'ResourceInUseException') {
           return Console.log(`Table ${PLAYGROUND_TABLE} already exists`);
         }
         return Effect.fail(e);
@@ -55,11 +55,13 @@ export async function deletePlaygroundTable() {
   try {
     const client = createDynamoDB(localConfig);
     await Effect.runPromise(
-      client.deleteTable({ TableName: PLAYGROUND_TABLE }).pipe(
-        Effect.tap(() => Console.log(`Deleted table: ${PLAYGROUND_TABLE}`)),
-      ),
+      client
+        .deleteTable({ TableName: PLAYGROUND_TABLE })
+        .pipe(
+          Effect.tap(() => Console.log(`Deleted table: ${PLAYGROUND_TABLE}`)),
+        ),
     );
   } catch (error) {
-    console.error("Failed to delete table:", error);
+    console.error('Failed to delete table:', error);
   }
 }

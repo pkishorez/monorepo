@@ -1,5 +1,5 @@
-import { Schema } from "effect";
-import { AnyESchema } from "@std-toolkit/eschema";
+import { Schema } from 'effect';
+import { AnyESchema } from '@std-toolkit/eschema';
 
 export const MetaSchema = Schema.Struct({
   _v: Schema.String,
@@ -14,7 +14,7 @@ export type EntityType<T> = {
 };
 
 export const BroadcastSchema = Schema.Struct({
-  _tag: Schema.Literal("@std-toolkit/broadcast"),
+  _tag: Schema.Literal('@std-toolkit/broadcast'),
   values: Schema.Array(
     Schema.Struct({ meta: MetaSchema, value: Schema.Unknown }),
   ),
@@ -22,6 +22,6 @@ export const BroadcastSchema = Schema.Struct({
 
 export const EntitySchema = <S extends AnyESchema>(eschema: S) =>
   Schema.Struct({
-    value: eschema.schema as unknown as Schema.Schema<S["Type"], S["Type"]>,
+    value: eschema.schema as unknown as Schema.Schema<S['Type'], S['Type']>,
     meta: MetaSchema,
   });

@@ -4133,9 +4133,7 @@
         },
         "aws.protocols#awsJson1_0": {},
         "smithy.api#documentation": "<fullname>Amazon DynamoDB</fullname>\n         <p>Amazon DynamoDB is a fully managed NoSQL database service that provides fast\n            and predictable performance with seamless scalability. DynamoDB lets you\n            offload the administrative burdens of operating and scaling a distributed database, so\n            that you don't have to worry about hardware provisioning, setup and configuration,\n            replication, software patching, or cluster scaling.</p>\n         <p>With DynamoDB, you can create database tables that can store and retrieve\n            any amount of data, and serve any level of request traffic. You can scale up or scale\n            down your tables' throughput capacity without downtime or performance degradation, and\n            use the Amazon Web Services Management Console to monitor resource utilization and performance\n            metrics.</p>\n         <p>DynamoDB automatically spreads the data and traffic for your tables over\n            a sufficient number of servers to handle your throughput and storage requirements, while\n            maintaining consistent and fast performance. All of your data is stored on solid state\n            disks (SSDs) and automatically replicated across multiple Availability Zones in an\n                Amazon Web Services Region, providing built-in high availability and data\n            durability.</p>",
-        "smithy.api#suppress": [
-          "RuleSetAwsBuiltIn.AWS::Auth::AccountId"
-        ],
+        "smithy.api#suppress": ["RuleSetAwsBuiltIn.AWS::Auth::AccountId"],
         "smithy.api#title": "Amazon DynamoDB",
         "smithy.api#xmlNamespace": {
           "uri": "http://dynamodb.amazonaws.com/doc/2012-08-10/"
@@ -4833,9 +4831,7 @@
                               "endpoint": {
                                 "url": "https://{ParsedArn#accountId}.ddb.{Region}.{PartitionResult#dualStackDnsSuffix}",
                                 "properties": {
-                                  "metricValues": [
-                                    "O"
-                                  ]
+                                  "metricValues": ["O"]
                                 },
                                 "headers": {}
                               },
@@ -4985,9 +4981,7 @@
                               "endpoint": {
                                 "url": "https://{ParsedArn#accountId}.ddb.{Region}.{PartitionResult#dualStackDnsSuffix}",
                                 "properties": {
-                                  "metricValues": [
-                                    "O"
-                                  ]
+                                  "metricValues": ["O"]
                                 },
                                 "headers": {}
                               },
@@ -5074,9 +5068,7 @@
                                       "endpoint": {
                                         "url": "https://{AccountId}.ddb.{Region}.{PartitionResult#dualStackDnsSuffix}",
                                         "properties": {
-                                          "metricValues": [
-                                            "O"
-                                          ]
+                                          "metricValues": ["O"]
                                         },
                                         "headers": {}
                                       },
@@ -5329,9 +5321,7 @@
                       "endpoint": {
                         "url": "https://{ParsedArn#accountId}.ddb.{Region}.{PartitionResult#dnsSuffix}",
                         "properties": {
-                          "metricValues": [
-                            "O"
-                          ]
+                          "metricValues": ["O"]
                         },
                         "headers": {}
                       },
@@ -5481,9 +5471,7 @@
                       "endpoint": {
                         "url": "https://{ParsedArn#accountId}.ddb.{Region}.{PartitionResult#dnsSuffix}",
                         "properties": {
-                          "metricValues": [
-                            "O"
-                          ]
+                          "metricValues": ["O"]
                         },
                         "headers": {}
                       },
@@ -5570,9 +5558,7 @@
                               "endpoint": {
                                 "url": "https://{AccountId}.ddb.{Region}.{PartitionResult#dnsSuffix}",
                                 "properties": {
-                                  "metricValues": [
-                                    "O"
-                                  ]
+                                  "metricValues": ["O"]
                                 },
                                 "headers": {}
                               },
@@ -10333,9 +10319,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://111111111111.ddb.us-east-1.api.aws"
                 }
@@ -10365,9 +10349,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://111111111111.ddb.us-east-1.amazonaws.com"
                 }
@@ -10397,9 +10379,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.amazonaws.com"
                 }
@@ -10445,9 +10425,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://222222222222.ddb.us-east-1.amazonaws.com"
                 }
@@ -10469,9 +10447,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.amazonaws.com"
                 }
@@ -10493,9 +10469,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.amazonaws.com"
                 }
@@ -10517,9 +10491,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://111111111111.ddb.us-east-1.amazonaws.com"
                 }
@@ -10541,9 +10513,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://111111111111.ddb.us-east-1.amazonaws.com"
                 }
@@ -10648,9 +10618,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://222222222222.ddb.us-east-1.api.aws"
                 }
@@ -10682,9 +10650,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://222222222222.ddb.us-east-1.amazonaws.com"
                 }
@@ -10871,9 +10837,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.api.aws"
                 }
@@ -10917,9 +10881,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.amazonaws.com"
                 }
@@ -10963,9 +10925,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://222222222222.ddb.us-east-1.amazonaws.com"
                 }
@@ -11050,9 +11010,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://111111111111.ddb.us-east-1.api.aws"
                 }
@@ -11082,9 +11040,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://111111111111.ddb.us-east-1.amazonaws.com"
                 }
@@ -11114,9 +11070,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.amazonaws.com"
                 }
@@ -11162,9 +11116,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://222222222222.ddb.us-east-1.amazonaws.com"
                 }
@@ -11186,9 +11138,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.amazonaws.com"
                 }
@@ -11210,9 +11160,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.amazonaws.com"
                 }
@@ -11234,9 +11182,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://111111111111.ddb.us-east-1.amazonaws.com"
                 }
@@ -11258,9 +11204,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://111111111111.ddb.us-east-1.amazonaws.com"
                 }
@@ -11361,9 +11305,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://222222222222.ddb.us-east-1.api.aws"
                 }
@@ -11395,9 +11337,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://222222222222.ddb.us-east-1.amazonaws.com"
                 }
@@ -11574,9 +11514,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.api.aws"
                 }
@@ -11620,9 +11558,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://333333333333.ddb.us-east-1.amazonaws.com"
                 }
@@ -11666,9 +11602,7 @@
               "expect": {
                 "endpoint": {
                   "properties": {
-                    "metricValues": [
-                      "O"
-                    ]
+                    "metricValues": ["O"]
                   },
                   "url": "https://222222222222.ddb.us-east-1.amazonaws.com"
                 }
@@ -17350,12 +17284,7 @@
             "title": "To list tables",
             "documentation": "This example lists all of the tables associated with the current AWS account and endpoint.",
             "output": {
-              "TableNames": [
-                "Forum",
-                "ProductCatalog",
-                "Reply",
-                "Thread"
-              ]
+              "TableNames": ["Forum", "ProductCatalog", "Reply", "Thread"]
             }
           }
         ],
@@ -18491,9 +18420,7 @@
           "items": "Items",
           "pageSize": "Limit"
         },
-        "smithy.api#suppress": [
-          "PaginatedTrait"
-        ]
+        "smithy.api#suppress": ["PaginatedTrait"]
       }
     },
     "com.amazonaws.dynamodb#QueryInput": {
@@ -20080,9 +20007,7 @@
           "items": "Items",
           "pageSize": "Limit"
         },
-        "smithy.api#suppress": [
-          "PaginatedTrait"
-        ]
+        "smithy.api#suppress": ["PaginatedTrait"]
       }
     },
     "com.amazonaws.dynamodb#ScanInput": {

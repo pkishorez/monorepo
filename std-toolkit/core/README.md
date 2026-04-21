@@ -11,7 +11,7 @@ pnpm add rpc effect
 ## Usage
 
 ```typescript
-import { hello } from "rpc";
+import { hello } from 'rpc';
 
 console.log(hello());
 ```

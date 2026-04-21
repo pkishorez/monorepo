@@ -1,7 +1,7 @@
-import { ClientEnd, FromServerEncoded } from "@effect/rpc/RpcMessage";
+import { ClientEnd, FromServerEncoded } from '@effect/rpc/RpcMessage';
 
 const serverMessageTags: Record<
-  FromServerEncoded["_tag"] | ClientEnd["_tag"],
+  FromServerEncoded['_tag'] | ClientEnd['_tag'],
   true
 > = {
   ClientEnd: true,
@@ -15,8 +15,8 @@ const serverMessageTags: Record<
 export const isRpcServerMessage = (
   message: unknown,
 ): message is FromServerEncoded =>
-  typeof message === "object" &&
+  typeof message === 'object' &&
   message !== null &&
-  "_tag" in message &&
-  typeof message._tag === "string" &&
+  '_tag' in message &&
+  typeof message._tag === 'string' &&
   message._tag in serverMessageTags;

@@ -1,9 +1,9 @@
-import { Rpc, RpcGroup } from "@effect/rpc";
-import { Schema } from "effect";
-import { AppError } from "./app.js";
+import { Rpc, RpcGroup } from '@effect/rpc';
+import { Schema } from 'effect';
+import { AppError } from './app.js';
 
 export class TerminalRpcs extends RpcGroup.make(
-  Rpc.make("open", {
+  Rpc.make('open', {
     success: Schema.Struct({
       sessionId: Schema.String,
       alreadyRunning: Schema.Boolean,
@@ -11,10 +11,10 @@ export class TerminalRpcs extends RpcGroup.make(
     error: AppError,
     payload: Schema.Struct({
       absolutePath: Schema.String,
-      name: Schema.optionalWith(Schema.String, { default: () => "default" }),
+      name: Schema.optionalWith(Schema.String, { default: () => 'default' }),
     }),
   }),
-  Rpc.make("write", {
+  Rpc.make('write', {
     success: Schema.Void,
     error: AppError,
     payload: Schema.Struct({
@@ -22,7 +22,7 @@ export class TerminalRpcs extends RpcGroup.make(
       data: Schema.String,
     }),
   }),
-  Rpc.make("resize", {
+  Rpc.make('resize', {
     success: Schema.Void,
     error: AppError,
     payload: Schema.Struct({
@@ -31,15 +31,15 @@ export class TerminalRpcs extends RpcGroup.make(
       rows: Schema.Number,
     }),
   }),
-  Rpc.make("close", {
+  Rpc.make('close', {
     success: Schema.Void,
     error: AppError,
     payload: Schema.Struct({ sessionId: Schema.String }),
   }),
-  Rpc.make("stream", {
+  Rpc.make('stream', {
     success: Schema.String,
     error: AppError,
     payload: Schema.Struct({ sessionId: Schema.String }),
     stream: true,
   }),
-).prefix("terminal.") {}
+).prefix('terminal.') {}

@@ -1,6 +1,6 @@
-import type { RequestId } from "./generated/RequestId.js";
-import type { QuestionItem } from "../../core/entity/turn/turn.js";
-import type { OnExecuteStatusUpdate } from "../workflow/schema.js";
+import type { RequestId } from './generated/RequestId.js';
+import type { QuestionItem } from '../../core/entity/turn/turn.js';
+import type { OnExecuteStatusUpdate } from '../workflow/schema.js';
 
 export interface PendingUserInput {
   jsonRpcId: RequestId;

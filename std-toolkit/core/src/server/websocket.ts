@@ -1,8 +1,8 @@
-import { Rpc, RpcGroup, RpcSerialization, RpcServer } from "@effect/rpc";
-import { Deferred, Effect } from "effect";
-import { typedWebSocket } from "./typed.js";
-import { DurableObjectState, WebSocket } from "@cloudflare/workers-types";
-import { ConnectionService } from "./connection.js";
+import { Rpc, RpcGroup, RpcSerialization, RpcServer } from '@effect/rpc';
+import { Deferred, Effect } from 'effect';
+import { typedWebSocket } from './typed.js';
+import { DurableObjectState, WebSocket } from '@cloudflare/workers-types';
+import { ConnectionService } from './connection.js';
 
 export const handleMessage = <Rpcs extends Rpc.Any>(
   state: DurableObjectState<any>,
@@ -27,7 +27,7 @@ export const handleMessage = <Rpcs extends Rpc.Any>(
             ws.send(encoded);
           }
           const r = response as { _tag: string };
-          if (r._tag === "Exit" || r._tag === "ClientEnd") {
+          if (r._tag === 'Exit' || r._tag === 'ClientEnd') {
             yield* Deferred.succeed(latch, undefined);
           }
         }),
@@ -35,7 +35,7 @@ export const handleMessage = <Rpcs extends Rpc.Any>(
 
     for (const msg of decoded) {
       const m = msg as { _tag: string };
-      if (m._tag === "Ping" || m._tag === "Pong") continue;
+      if (m._tag === 'Ping' || m._tag === 'Pong') continue;
       yield* rpcServer.write(clientId, msg as any);
     }
 

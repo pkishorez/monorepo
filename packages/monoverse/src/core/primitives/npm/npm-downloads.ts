@@ -33,7 +33,8 @@ export const fetchNpmDownloads = (
     const encoded = encodeURIComponent(packageName).replace('%40', '@');
 
     const response = yield* Effect.tryPromise({
-      try: () => fetch(`https://api.npmjs.org/downloads/point/${period}/${encoded}`),
+      try: () =>
+        fetch(`https://api.npmjs.org/downloads/point/${period}/${encoded}`),
       catch: (cause) => new NpmDownloadsError({ packageName, cause }),
     });
 
@@ -43,7 +44,10 @@ export const fetchNpmDownloads = (
 
     if (!response.ok) {
       return yield* Effect.fail(
-        new NpmDownloadsError({ packageName, cause: new Error(`HTTP ${response.status}`) }),
+        new NpmDownloadsError({
+          packageName,
+          cause: new Error(`HTTP ${response.status}`),
+        }),
       );
     }
 

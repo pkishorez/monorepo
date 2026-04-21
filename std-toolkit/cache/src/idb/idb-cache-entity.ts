@@ -1,21 +1,21 @@
-import type { IDBPDatabase } from "idb";
-import { Effect, Option } from "effect";
-import type { CacheEntity, CacheSchemaType } from "../cache-entity.js";
-import type { PartitionKey } from "./utils.js";
-import { serializePartition } from "./utils.js";
-import { CacheError } from "../error.js";
-import type { EntityType } from "@std-toolkit/core";
+import type { IDBPDatabase } from 'idb';
+import { Effect, Option } from 'effect';
+import type { CacheEntity, CacheSchemaType } from '../cache-entity.js';
+import type { PartitionKey } from './utils.js';
+import { serializePartition } from './utils.js';
+import { CacheError } from '../error.js';
+import type { EntityType } from '@std-toolkit/core';
 import {
   DEFAULT_DB_NAME,
   STORE_NAME,
   UPDATED_INDEX,
   ConnectionPool,
   type StoredItem,
-} from "./internals.js";
+} from './internals.js';
 
-export class IDBCacheEntity<TSchema extends CacheSchemaType>
-  implements CacheEntity<TSchema["Type"]>
-{
+export class IDBCacheEntity<
+  TSchema extends CacheSchemaType,
+> implements CacheEntity<TSchema['Type']> {
   #dbName: string;
   #entity: string;
   #partition: string;
@@ -47,8 +47,8 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
 
   #getKeyRange(): IDBKeyRange {
     return IDBKeyRange.bound(
-      [this.#entity, this.#partition, ""],
-      [this.#entity, this.#partition, "\uffff"],
+      [this.#entity, this.#partition, ''],
+      [this.#entity, this.#partition, '\uffff'],
     );
   }
 
@@ -71,7 +71,7 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
         });
       },
       catch: (cause) =>
-        CacheError.openFailed("Failed to open cache entity", cause),
+        CacheError.openFailed('Failed to open cache entity', cause),
     });
   }
 
@@ -79,11 +79,11 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
     return Effect.tryPromise({
       try: () => ConnectionPool.destroyAll(),
       catch: (cause) =>
-        CacheError.clearFailed("Failed to destroy all databases", cause),
+        CacheError.clearFailed('Failed to destroy all databases', cause),
     });
   }
 
-  put(item: EntityType<TSchema["Type"]>): Effect.Effect<void, CacheError> {
+  put(item: EntityType<TSchema['Type']>): Effect.Effect<void, CacheError> {
     return Effect.tryPromise({
       try: () => {
         const id = String(item.value[this.#eschema.idField]);
@@ -95,13 +95,13 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
         };
         return this.#db.put(STORE_NAME, stored);
       },
-      catch: (cause) => CacheError.putFailed("Failed to put item", cause),
+      catch: (cause) => CacheError.putFailed('Failed to put item', cause),
     }).pipe(Effect.asVoid);
   }
 
   get(
     id: string,
-  ): Effect.Effect<Option.Option<EntityType<TSchema["Type"]>>, CacheError> {
+  ): Effect.Effect<Option.Option<EntityType<TSchema['Type']>>, CacheError> {
     return Effect.tryPromise({
       try: async () => {
         const item: StoredItem | undefined = await this.#db.get(
@@ -112,15 +112,15 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema["Type"],
+          value: item.value as TSchema['Type'],
           meta: item.meta,
         });
       },
-      catch: (cause) => CacheError.getFailed("Failed to get item", cause),
+      catch: (cause) => CacheError.getFailed('Failed to get item', cause),
     });
   }
 
-  getAll(): Effect.Effect<EntityType<TSchema["Type"]>[], CacheError> {
+  getAll(): Effect.Effect<EntityType<TSchema['Type']>[], CacheError> {
     return Effect.tryPromise({
       try: async () => {
         const items: StoredItem[] = await this.#db.getAll(
@@ -129,65 +129,71 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
         );
 
         return items.map((item) => ({
-          value: item.value as TSchema["Type"],
+          value: item.value as TSchema['Type'],
           meta: item.meta,
         }));
       },
-      catch: (cause) => CacheError.getFailed("Failed to get all items", cause),
+      catch: (cause) => CacheError.getFailed('Failed to get all items', cause),
     });
   }
 
-  getLatest(): Effect.Effect<Option.Option<EntityType<TSchema["Type"]>>, CacheError> {
+  getLatest(): Effect.Effect<
+    Option.Option<EntityType<TSchema['Type']>>,
+    CacheError
+  > {
     return Effect.tryPromise({
       try: async () => {
-        const tx = this.#db.transaction(STORE_NAME, "readonly");
+        const tx = this.#db.transaction(STORE_NAME, 'readonly');
         const index = tx.store.index(UPDATED_INDEX);
-        const cursor = await index.openCursor(this.#getKeyRange(), "prev");
+        const cursor = await index.openCursor(this.#getKeyRange(), 'prev');
 
         if (!cursor) return Option.none();
 
         const item = cursor.value as StoredItem;
         return Option.some({
-          value: item.value as TSchema["Type"],
+          value: item.value as TSchema['Type'],
           meta: item.meta,
         });
       },
       catch: (cause) =>
-        CacheError.getFailed("Failed to get latest item", cause),
+        CacheError.getFailed('Failed to get latest item', cause),
     });
   }
 
-  getOldest(): Effect.Effect<Option.Option<EntityType<TSchema["Type"]>>, CacheError> {
+  getOldest(): Effect.Effect<
+    Option.Option<EntityType<TSchema['Type']>>,
+    CacheError
+  > {
     return Effect.tryPromise({
       try: async () => {
-        const tx = this.#db.transaction(STORE_NAME, "readonly");
+        const tx = this.#db.transaction(STORE_NAME, 'readonly');
         const index = tx.store.index(UPDATED_INDEX);
-        const cursor = await index.openCursor(this.#getKeyRange(), "next");
+        const cursor = await index.openCursor(this.#getKeyRange(), 'next');
 
         if (!cursor) return Option.none();
 
         const item = cursor.value as StoredItem;
         return Option.some({
-          value: item.value as TSchema["Type"],
+          value: item.value as TSchema['Type'],
           meta: item.meta,
         });
       },
       catch: (cause) =>
-        CacheError.getFailed("Failed to get oldest item", cause),
+        CacheError.getFailed('Failed to get oldest item', cause),
     });
   }
 
   delete(id: string): Effect.Effect<void, CacheError> {
     return Effect.tryPromise({
       try: () => this.#db.delete(STORE_NAME, this.#makeKey(id)),
-      catch: (cause) => CacheError.deleteFailed("Failed to delete item", cause),
+      catch: (cause) => CacheError.deleteFailed('Failed to delete item', cause),
     });
   }
 
   deleteAll(): Effect.Effect<void, CacheError> {
     return Effect.tryPromise({
       try: async () => {
-        const tx = this.#db.transaction(STORE_NAME, "readwrite");
+        const tx = this.#db.transaction(STORE_NAME, 'readwrite');
         let cursor = await tx.store.openCursor(this.#getKeyRange());
 
         while (cursor) {
@@ -198,7 +204,7 @@ export class IDBCacheEntity<TSchema extends CacheSchemaType>
         await tx.done;
       },
       catch: (cause) =>
-        CacheError.deleteFailed("Failed to delete all items", cause),
+        CacheError.deleteFailed('Failed to delete all items', cause),
     });
   }
 }

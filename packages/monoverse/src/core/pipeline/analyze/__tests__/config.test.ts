@@ -1,13 +1,14 @@
 import * as path from 'node:path';
 import { describe, it, expect } from 'vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 import { Effect } from 'effect';
 import { findConfigRoot, analyzeFromConfig } from '../config.js';
 
 const fixtures = path.join(import.meta.dirname, 'fixtures');
 const options = { stopAt: fixtures };
+
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
 
 describe('findConfigRoot', () => {
   itEffect('finds monoverse.json in current directory', () =>

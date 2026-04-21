@@ -1,1 +1,1 @@
-export { SqliteDB, SqliteDBError } from "./db.js";
+export { SqliteDB, SqliteDBError } from './db.js';

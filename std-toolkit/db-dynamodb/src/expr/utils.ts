@@ -1,6 +1,6 @@
-import { convertToAttr } from "../internal/marshall.js";
-import type { MarshalledOutput } from "../types/index.js";
-import type { DynamoAttrResult } from "./types.js";
+import { convertToAttr } from '../internal/marshall.js';
+import type { MarshalledOutput } from '../types/index.js';
+import type { DynamoAttrResult } from './types.js';
 
 /**
  * Empty attribute result constant for initialization.
@@ -18,14 +18,14 @@ export class AttributeMapBuilder {
   #i = 0;
   #attrNameMap: Record<string, string> = {};
   #attrValueMap: MarshalledOutput = {};
-  #prefix = "";
+  #prefix = '';
 
   /**
    * Creates a new AttributeMapBuilder with the specified prefix.
    *
    * @param prefix - Prefix for generated attribute placeholders (u_ for update, cf_ for condition/filter, k_ for key)
    */
-  constructor(prefix: `${"u" | "cf" | "k"}_`) {
+  constructor(prefix: `${'u' | 'cf' | 'k'}_`) {
     this.#prefix = prefix;
   }
 
@@ -37,13 +37,13 @@ export class AttributeMapBuilder {
    * @returns The placeholder reference string
    */
   attr(key: string) {
-    const attrKeys = key.split(".").map((v) => {
-      const [value, brackets = ""] = v.split(/(\[.*)/, 2);
+    const attrKeys = key.split('.').map((v) => {
+      const [value, brackets = ''] = v.split(/(\[.*)/, 2);
       const result = this.#attrHelper(value!);
       return result + brackets;
     });
 
-    return attrKeys.join(".");
+    return attrKeys.join('.');
   }
 
   /**

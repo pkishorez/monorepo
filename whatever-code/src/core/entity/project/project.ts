@@ -1,5 +1,5 @@
-import { EntityESchema } from "@std-toolkit/eschema";
-import { Schema } from "effect";
+import { EntityESchema } from '@std-toolkit/eschema';
+import { Schema } from 'effect';
 
 const TaskCommands = Schema.Struct({
   install: Schema.optionalWith(Schema.String, { exact: true }),
@@ -15,13 +15,13 @@ export const ProjectSettings = Schema.Struct({
   taskCommands: Schema.optionalWith(TaskCommands, { exact: true }),
 });
 
-export const projectEntity = EntityESchema.make("project", "id", {
+export const projectEntity = EntityESchema.make('project', 'id', {
   name: Schema.String,
   homePath: Schema.String,
   gitPath: Schema.String,
 })
   .evolve(
-    "v2",
+    'v2',
     { settings: Schema.optionalWith(ProjectSettings, { exact: true }) },
     (prev) => ({ ...prev }),
   )

@@ -1,26 +1,26 @@
-import { Effect } from "effect";
+import { Effect } from 'effect';
 import {
   analyzeProject,
   type ProjectAnalysis,
   type Workspace,
-} from "../pipeline/analyze/index.js";
+} from '../pipeline/analyze/index.js';
 import {
   upsertDependency,
   removeDependency,
   formatPackageJson,
-} from "../pipeline/modify/index.js";
+} from '../pipeline/modify/index.js';
 import {
   detectVersionMismatches,
   detectUnpinnedVersions,
   detectFormatPackageJson,
   detectDuplicateWorkspaces,
-} from "../pipeline/validate/index.js";
-import type { AddPackageOptions, RemovePackageOptions } from "./types.js";
-import { getUpdates, getUpdatesWithProgress } from "./updates.js";
+} from '../pipeline/validate/index.js';
+import type { AddPackageOptions, RemovePackageOptions } from './types.js';
+import { getUpdates, getUpdatesWithProgress } from './updates.js';
 
-export type { SemverUpdates, PackageUpdate, LoadProgress } from "./types.js";
+export type { SemverUpdates, PackageUpdate, LoadProgress } from './types.js';
 
-export class Monoverse extends Effect.Service<Monoverse>()("Monoverse", {
+export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
   succeed: {
     analyze: (startPath: string) => analyzeProject(startPath),
 

@@ -11,7 +11,7 @@ pnpm add @std-toolkit/tanstack effect
 ## Usage
 
 ```typescript
-import { hello } from "@std-toolkit/tanstack";
+import { hello } from '@std-toolkit/tanstack';
 
 console.log(hello());
 ```

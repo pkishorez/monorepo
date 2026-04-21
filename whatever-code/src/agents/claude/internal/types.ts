@@ -1,4 +1,4 @@
-import type { Deferred, Fiber, Queue } from "effect";
+import type { Deferred, Fiber, Queue } from 'effect';
 import type {
   SDKMessage,
   McpServerConfig,
@@ -6,8 +6,8 @@ import type {
   HookCallbackMatcher,
   PermissionResult,
   Query,
-} from "@anthropic-ai/claude-agent-sdk";
-import type { OnExecuteStatusUpdate } from "../../workflow/schema.js";
+} from '@anthropic-ai/claude-agent-sdk';
+import type { OnExecuteStatusUpdate } from '../../workflow/schema.js';
 
 export interface ActiveTurn {
   query: Query | null;
@@ -42,6 +42,6 @@ export interface SessionRuntimeOptions {
   mcpServers?: Record<string, McpServerConfig>;
   systemPrompt?:
     | string
-    | { type: "preset"; preset: "claude_code"; append?: string };
+    | { type: 'preset'; preset: 'claude_code'; append?: string };
   hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>>;
 }

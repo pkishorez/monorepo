@@ -1,9 +1,9 @@
-import { BroadcastSchema } from "@std-toolkit/core";
-import { ConnectionService } from "@std-toolkit/core/server";
-import { Effect, Layer } from "effect";
-import { BroadcastService } from "./broadcast.js";
-import { WorktreeService } from "./worktree.js";
-import { applyProjection } from "../projection.js";
+import { BroadcastSchema } from '@std-toolkit/core';
+import { ConnectionService } from '@std-toolkit/core/server';
+import { Effect, Layer } from 'effect';
+import { BroadcastService } from './broadcast.js';
+import { WorktreeService } from './worktree.js';
+import { applyProjection } from '../projection.js';
 
 const connectionServiceLayer = Layer.effect(
   ConnectionService,
@@ -16,7 +16,7 @@ const connectionServiceLayer = Layer.effect(
         Effect.runFork(
           broadcast.publish(
             BroadcastSchema.make({
-              _tag: "@std-toolkit/broadcast",
+              _tag: '@std-toolkit/broadcast',
               values: [projected],
             }),
           ),
@@ -25,22 +25,20 @@ const connectionServiceLayer = Layer.effect(
       emit: (values) => {
         const projected = values
           .map(applyProjection)
-          .filter(
-            (v): v is NonNullable<typeof v> => v !== null,
-          );
+          .filter((v): v is NonNullable<typeof v> => v !== null);
         if (projected.length === 0) return;
         Effect.runFork(
           broadcast.publish(
             BroadcastSchema.make({
-              _tag: "@std-toolkit/broadcast",
+              _tag: '@std-toolkit/broadcast',
               values: projected,
             }),
           ),
         );
       },
-      subscribe: () => Effect.runFork(Effect.die("subscribe: not implemented")),
+      subscribe: () => Effect.runFork(Effect.die('subscribe: not implemented')),
       unsubscribe: () =>
-        Effect.runFork(Effect.die("unsubscribe: not implemented")),
+        Effect.runFork(Effect.die('unsubscribe: not implemented')),
     });
   }),
 );

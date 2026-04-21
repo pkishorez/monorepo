@@ -1,9 +1,9 @@
-import { HttpClient } from "@effect/platform";
-import { Effect, Schema } from "effect";
-import { Manifest } from "./schemas.js";
+import { HttpClient } from '@effect/platform';
+import { Effect, Schema } from 'effect';
+import { Manifest } from './schemas.js';
 
 const DYNAMODB_SPEC_URL =
-  "https://raw.githubusercontent.com/aws/api-models-aws/refs/heads/main/models/dynamodb/service/2012-08-10/dynamodb-2012-08-10.json";
+  'https://raw.githubusercontent.com/aws/api-models-aws/refs/heads/main/models/dynamodb/service/2012-08-10/dynamodb-2012-08-10.json';
 
 export function loadManifest() {
   return Effect.gen(function* () {

@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect } from 'effect';
 import type {
   CommandError,
   CommandPayload,
@@ -16,12 +16,12 @@ import type {
   SkCondition,
   UpdatePayload,
   UpdateResponse,
-} from "@std-toolkit/core/command";
-import { CommandError as CommandErrorClass } from "@std-toolkit/core/command";
-import type { EntityRegistry } from "./entity-registry.js";
-import type { SQLiteEntity } from "./sqlite-entity.js";
-import type { SqliteDB } from "../sql/db.js";
-import type { SkParam } from "../internal/utils.js";
+} from '@std-toolkit/core/command';
+import { CommandError as CommandErrorClass } from '@std-toolkit/core/command';
+import type { EntityRegistry } from './entity-registry.js';
+import type { SQLiteEntity } from './sqlite-entity.js';
+import type { SqliteDB } from '../sql/db.js';
+import type { SkParam } from '../internal/utils.js';
 
 /**
  * Creates timing information for a command.
@@ -46,7 +46,7 @@ type AnyEntity = SQLiteEntity<any, any, any>;
 export class SqliteCommand<
   TRegistry extends EntityRegistry<any, any>,
 > implements CommandProcessor<SqliteDB> {
-  static readonly RPC_PREFIX = "__std-toolkit__command" as const;
+  static readonly RPC_PREFIX = '__std-toolkit__command' as const;
 
   /**
    * Creates a new SqliteCommand instance.
@@ -113,15 +113,15 @@ export class SqliteCommand<
     payload: CommandPayload,
   ): Effect.Effect<CommandResponse, CommandError, SqliteDB> {
     switch (payload.operation) {
-      case "insert":
+      case 'insert':
         return this.#processInsert(payload);
-      case "update":
+      case 'update':
         return this.#processUpdate(payload);
-      case "delete":
+      case 'delete':
         return this.#processDelete(payload);
-      case "query":
+      case 'query':
         return this.#processQuery(payload);
-      case "descriptor":
+      case 'descriptor':
         return this.#processDescriptor(payload);
     }
   }
@@ -138,7 +138,7 @@ export class SqliteCommand<
         Effect.mapError(
           (e) =>
             new CommandErrorClass({
-              operation: "insert",
+              operation: 'insert',
               entity: payload.entity,
               message: `Insert failed: ${String(e)}`,
               cause: e,
@@ -147,7 +147,7 @@ export class SqliteCommand<
       );
 
       return {
-        operation: "insert" as const,
+        operation: 'insert' as const,
         entity: payload.entity,
         data: result,
         timing: createTiming(startedAt),
@@ -169,7 +169,7 @@ export class SqliteCommand<
           Effect.mapError(
             (e) =>
               new CommandErrorClass({
-                operation: "update",
+                operation: 'update',
                 entity: payload.entity,
                 message: `Update failed: ${String(e)}`,
                 cause: e,
@@ -178,7 +178,7 @@ export class SqliteCommand<
         );
 
       return {
-        operation: "update" as const,
+        operation: 'update' as const,
         entity: payload.entity,
         data: result,
         timing: createTiming(startedAt),
@@ -198,7 +198,7 @@ export class SqliteCommand<
         Effect.mapError(
           (e) =>
             new CommandErrorClass({
-              operation: "delete",
+              operation: 'delete',
               entity: payload.entity,
               message: `Delete failed: ${String(e)}`,
               cause: e,
@@ -207,7 +207,7 @@ export class SqliteCommand<
       );
 
       return {
-        operation: "delete" as const,
+        operation: 'delete' as const,
         entity: payload.entity,
         data: result,
         timing: createTiming(startedAt),
@@ -234,7 +234,7 @@ export class SqliteCommand<
           Effect.mapError(
             (e) =>
               new CommandErrorClass({
-                operation: "query",
+                operation: 'query',
                 entity: payload.entity,
                 message: `Query failed: ${String(e)}`,
                 cause: e,
@@ -243,7 +243,7 @@ export class SqliteCommand<
         );
 
       return {
-        operation: "query" as const,
+        operation: 'query' as const,
         entity: payload.entity,
         items: result.items,
         timing: createTiming(startedAt),
@@ -259,7 +259,7 @@ export class SqliteCommand<
       const startedAt = Date.now();
 
       return {
-        operation: "descriptor" as const,
+        operation: 'descriptor' as const,
         timing: createTiming(startedAt),
         descriptors: self.#registry.getSchema().descriptors,
       };
@@ -284,9 +284,9 @@ export class SqliteCommand<
    * @param suffix - Optional suffix to append to the RPC name
    * @returns An object with the RPC handler
    */
-  toRpcHandler<S extends string = "">(suffix?: S) {
+  toRpcHandler<S extends string = ''>(suffix?: S) {
     const self = this;
-    const s = (suffix ?? "") as S;
+    const s = (suffix ?? '') as S;
     const handlerName = `${SqliteCommand.RPC_PREFIX}${s}` as const;
 
     const handler = (payload: CommandPayloadSchemaType) =>

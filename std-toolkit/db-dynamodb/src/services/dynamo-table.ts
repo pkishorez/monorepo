@@ -1,21 +1,21 @@
-import { Effect } from "effect";
-import { createDynamoDB, type DynamoDBClient } from "./dynamo-client.js";
-import { DynamodbError } from "../errors.js";
+import { Effect } from 'effect';
+import { createDynamoDB, type DynamoDBClient } from './dynamo-client.js';
+import { DynamodbError } from '../errors.js';
 import type {
   DynamoTableConfig,
   IndexDefinition,
   MarshalledOutput,
   TransactItem,
   TransactItemBase,
-} from "../types/index.js";
-import type { CreateTableInput } from "../generated/types.js";
-import { marshall, unmarshall } from "../internal/marshall.js";
+} from '../types/index.js';
+import type { CreateTableInput } from '../generated/types.js';
+import { marshall, unmarshall } from '../internal/marshall.js';
 import {
   keyConditionExpr,
   type KeyConditionExprParameters,
-} from "../expr/key-condition.js";
-import { buildExpr } from "../expr/build-expr.js";
-import { type ConditionOperation } from "../expr/condition.js";
+} from '../expr/key-condition.js';
+import { buildExpr } from '../expr/build-expr.js';
+import { type ConditionOperation } from '../expr/condition.js';
 
 /**
  * Result of a DynamoDB query or scan operation.
@@ -199,7 +199,7 @@ export class DynamoTable<
       ConditionExpression?: string;
       ExpressionAttributeNames?: Record<string, string>;
       ExpressionAttributeValues?: MarshalledOutput;
-      ReturnValues?: "ALL_OLD";
+      ReturnValues?: 'ALL_OLD';
     },
   ): Effect.Effect<
     { Attributes: Record<string, unknown> | null },
@@ -235,7 +235,7 @@ export class DynamoTable<
       ConditionExpression?: string;
       ExpressionAttributeNames?: Record<string, string>;
       ExpressionAttributeValues?: MarshalledOutput;
-      ReturnValues?: "ALL_NEW" | "ALL_OLD";
+      ReturnValues?: 'ALL_NEW' | 'ALL_OLD';
     },
   ): Effect.Effect<
     { Attributes: Record<string, unknown> | null },
@@ -359,7 +359,7 @@ export class DynamoTable<
     },
   ): TransactItemBase {
     return {
-      kind: "put",
+      kind: 'put',
       options: {
         TableName: this.tableName,
         Item: marshall(value),
@@ -385,7 +385,7 @@ export class DynamoTable<
     },
   ): TransactItemBase {
     return {
-      kind: "update",
+      kind: 'update',
       options: {
         TableName: this.tableName,
         Key: marshall({
@@ -409,7 +409,7 @@ export class DynamoTable<
     return this.#client
       .transactWriteItems({
         TransactItems: items.map((item) =>
-          item.kind === "put"
+          item.kind === 'put'
             ? { Put: item.options }
             : { Update: item.options },
         ),
@@ -426,9 +426,9 @@ export class DynamoTable<
    * @param confirmation - Must be exactly "I KNOW WHAT I AM DOING."
    */
   dangerouslyPurgeAllItems(
-    confirmation: "I KNOW WHAT I AM DOING",
+    confirmation: 'I KNOW WHAT I AM DOING',
   ): Effect.Effect<void, DynamodbError> {
-    if (confirmation !== "I KNOW WHAT I AM DOING") {
+    if (confirmation !== 'I KNOW WHAT I AM DOING') {
       return Effect.fail(
         DynamodbError.validationException({ statusCode: 400 }),
       );
@@ -465,7 +465,7 @@ export class DynamoTable<
    *
    * @returns The table schema without the TableName field
    */
-  getTableSchema(): Omit<CreateTableInput, "TableName"> {
+  getTableSchema(): Omit<CreateTableInput, 'TableName'> {
     const allSecondaryKeys = Object.entries(this.secondaryIndexMap).map(
       ([IndexName, { pk, sk }]) => ({ IndexName, pk, sk }),
     );
@@ -475,10 +475,10 @@ export class DynamoTable<
       .map(({ IndexName, pk, sk }) => ({
         IndexName,
         KeySchema: [
-          { AttributeName: pk, KeyType: "HASH" as const },
-          { AttributeName: sk, KeyType: "RANGE" as const },
+          { AttributeName: pk, KeyType: 'HASH' as const },
+          { AttributeName: sk, KeyType: 'RANGE' as const },
         ],
-        Projection: { ProjectionType: "ALL" as const },
+        Projection: { ProjectionType: 'ALL' as const },
       }));
 
     const localSecondaryIndexes = allSecondaryKeys
@@ -486,23 +486,23 @@ export class DynamoTable<
       .map(({ IndexName, sk }) => ({
         IndexName,
         KeySchema: [
-          { AttributeName: this.primary.pk, KeyType: "HASH" as const },
-          { AttributeName: sk, KeyType: "RANGE" as const },
+          { AttributeName: this.primary.pk, KeyType: 'HASH' as const },
+          { AttributeName: sk, KeyType: 'RANGE' as const },
         ],
-        Projection: { ProjectionType: "ALL" as const },
+        Projection: { ProjectionType: 'ALL' as const },
       }));
 
     return {
       KeySchema: [
-        { AttributeName: this.primary.pk, KeyType: "HASH" },
-        { AttributeName: this.primary.sk, KeyType: "RANGE" },
+        { AttributeName: this.primary.pk, KeyType: 'HASH' },
+        { AttributeName: this.primary.sk, KeyType: 'RANGE' },
       ],
       AttributeDefinitions: [
-        { AttributeName: this.primary.pk, AttributeType: "S" },
-        { AttributeName: this.primary.sk, AttributeType: "S" },
+        { AttributeName: this.primary.pk, AttributeType: 'S' },
+        { AttributeName: this.primary.sk, AttributeType: 'S' },
         ...allSecondaryKeys.flatMap((v) => [
-          { AttributeName: v.pk, AttributeType: "S" as const },
-          { AttributeName: v.sk, AttributeType: "S" as const },
+          { AttributeName: v.pk, AttributeType: 'S' as const },
+          { AttributeName: v.sk, AttributeType: 'S' as const },
         ]),
       ],
       ...(globalSecondaryIndexes.length > 0 && {
@@ -511,7 +511,7 @@ export class DynamoTable<
       ...(localSecondaryIndexes.length > 0 && {
         LocalSecondaryIndexes: localSecondaryIndexes,
       }),
-      BillingMode: "PAY_PER_REQUEST",
+      BillingMode: 'PAY_PER_REQUEST',
     };
   }
 }
@@ -551,12 +551,12 @@ class DynamoTableBuilder<
     return new DynamoTableBuilder<
       TPrimaryIndex,
       TSecondaryIndexMap &
-        Record<IndexName, { pk: TPrimaryIndex["pk"]; sk: Sk }>
+        Record<IndexName, { pk: TPrimaryIndex['pk']; sk: Sk }>
     >(this.#config, this.#primary, {
       ...this.#secondaryIndexMap,
       [name]: { pk: this.#primary.pk, sk },
     } as TSecondaryIndexMap &
-      Record<IndexName, { pk: TPrimaryIndex["pk"]; sk: Sk }>);
+      Record<IndexName, { pk: TPrimaryIndex['pk']; sk: Sk }>);
   }
 
   /**

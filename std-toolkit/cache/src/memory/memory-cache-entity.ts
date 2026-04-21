@@ -1,18 +1,21 @@
-import type { EntityType } from "@std-toolkit/core";
-import { Effect, Option, Order, SortedMap } from "effect";
-import type { CacheEntity, CacheSchemaType as CacheESchema } from "../cache-entity.js";
-import { CacheError } from "../error.js";
+import type { EntityType } from '@std-toolkit/core';
+import { Effect, Option, Order, SortedMap } from 'effect';
+import type {
+  CacheEntity,
+  CacheSchemaType as CacheESchema,
+} from '../cache-entity.js';
+import { CacheError } from '../error.js';
 
 type StoredItem = {
   value: unknown;
-  meta: EntityType<unknown>["meta"];
+  meta: EntityType<unknown>['meta'];
 };
 
 const stringOrder = Order.string;
 
 export class MemoryCacheEntity<
   TSchema extends CacheESchema,
-> implements CacheEntity<TSchema["Type"]> {
+> implements CacheEntity<TSchema['Type']> {
   #store = new Map<string, StoredItem>();
   #eschema: TSchema;
   #updatedIndex: SortedMap.SortedMap<string, string>;
@@ -28,26 +31,33 @@ export class MemoryCacheEntity<
     return Effect.succeed(new MemoryCacheEntity(options.eschema));
   }
 
-  put(item: EntityType<TSchema["Type"]>): Effect.Effect<void, CacheError> {
+  put(item: EntityType<TSchema['Type']>): Effect.Effect<void, CacheError> {
     return Effect.try({
       try: () => {
         const id = String(item.value[this.#eschema.idField]);
 
         const existingItem = this.#store.get(id);
         if (existingItem) {
-          this.#updatedIndex = SortedMap.remove(this.#updatedIndex, existingItem.meta._u);
+          this.#updatedIndex = SortedMap.remove(
+            this.#updatedIndex,
+            existingItem.meta._u,
+          );
         }
 
         this.#store.set(id, { value: item.value, meta: item.meta });
-        this.#updatedIndex = SortedMap.set(this.#updatedIndex, item.meta._u, id);
+        this.#updatedIndex = SortedMap.set(
+          this.#updatedIndex,
+          item.meta._u,
+          id,
+        );
       },
-      catch: (cause) => CacheError.putFailed("Failed to put item", cause),
+      catch: (cause) => CacheError.putFailed('Failed to put item', cause),
     });
   }
 
   get(
     id: string,
-  ): Effect.Effect<Option.Option<EntityType<TSchema["Type"]>>, CacheError> {
+  ): Effect.Effect<Option.Option<EntityType<TSchema['Type']>>, CacheError> {
     return Effect.try({
       try: () => {
         const item = this.#store.get(id);
@@ -55,27 +65,27 @@ export class MemoryCacheEntity<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema["Type"],
+          value: item.value as TSchema['Type'],
           meta: item.meta,
         });
       },
-      catch: (cause) => CacheError.getFailed("Failed to get item", cause),
+      catch: (cause) => CacheError.getFailed('Failed to get item', cause),
     });
   }
 
-  getAll(): Effect.Effect<EntityType<TSchema["Type"]>[], CacheError> {
+  getAll(): Effect.Effect<EntityType<TSchema['Type']>[], CacheError> {
     return Effect.try({
       try: () =>
         Array.from(this.#store.values(), (item) => ({
-          value: item.value as TSchema["Type"],
+          value: item.value as TSchema['Type'],
           meta: item.meta,
         })),
-      catch: (cause) => CacheError.getFailed("Failed to get all items", cause),
+      catch: (cause) => CacheError.getFailed('Failed to get all items', cause),
     });
   }
 
   getLatest(): Effect.Effect<
-    Option.Option<EntityType<TSchema["Type"]>>,
+    Option.Option<EntityType<TSchema['Type']>>,
     CacheError
   > {
     return Effect.try({
@@ -88,17 +98,17 @@ export class MemoryCacheEntity<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema["Type"],
+          value: item.value as TSchema['Type'],
           meta: item.meta,
         });
       },
       catch: (cause) =>
-        CacheError.getFailed("Failed to get latest item", cause),
+        CacheError.getFailed('Failed to get latest item', cause),
     });
   }
 
   getOldest(): Effect.Effect<
-    Option.Option<EntityType<TSchema["Type"]>>,
+    Option.Option<EntityType<TSchema['Type']>>,
     CacheError
   > {
     return Effect.try({
@@ -111,12 +121,12 @@ export class MemoryCacheEntity<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema["Type"],
+          value: item.value as TSchema['Type'],
           meta: item.meta,
         });
       },
       catch: (cause) =>
-        CacheError.getFailed("Failed to get oldest item", cause),
+        CacheError.getFailed('Failed to get oldest item', cause),
     });
   }
 
@@ -126,11 +136,14 @@ export class MemoryCacheEntity<
         const item = this.#store.get(id);
 
         if (item) {
-          this.#updatedIndex = SortedMap.remove(this.#updatedIndex, item.meta._u);
+          this.#updatedIndex = SortedMap.remove(
+            this.#updatedIndex,
+            item.meta._u,
+          );
         }
         this.#store.delete(id);
       },
-      catch: (cause) => CacheError.deleteFailed("Failed to delete item", cause),
+      catch: (cause) => CacheError.deleteFailed('Failed to delete item', cause),
     });
   }
 
@@ -141,7 +154,7 @@ export class MemoryCacheEntity<
         this.#updatedIndex = SortedMap.empty<string, string>(stringOrder);
       },
       catch: (cause) =>
-        CacheError.deleteFailed("Failed to delete all items", cause),
+        CacheError.deleteFailed('Failed to delete all items', cause),
     });
   }
 }

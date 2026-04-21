@@ -1,39 +1,37 @@
-import { Effect, Runtime } from "effect";
-import { v7 } from "uuid";
-import { RalphLoopRpcs } from "./definitions.js";
-import { RalphLoopError } from "./schema.js";
-import type { OnRalphLoopStatusUpdate } from "../../agents/workflow/schema.js";
-import { deriveSessionName } from "../../agents/shared/session-name.js";
-import { ClaudeOrchestrator } from "../../agents/claude/claude.js";
-import { projectSqliteEntity } from "../../db/entities/claude.js";
-import { ralphLoopSqliteEntity } from "../db/entities/ralph-loop.js";
-import { ralphLoopTaskSqliteEntity } from "../db/entities/ralph-loop-task.js";
-import { workflowSqliteEntity } from "../../db/entities/workflow.js";
+import { Effect, Runtime } from 'effect';
+import { v7 } from 'uuid';
+import { RalphLoopRpcs } from './definitions.js';
+import { RalphLoopError } from './schema.js';
+import type { OnRalphLoopStatusUpdate } from '../../agents/workflow/schema.js';
+import { deriveSessionName } from '../../agents/shared/session-name.js';
+import { ClaudeOrchestrator } from '../../agents/claude/claude.js';
+import { projectSqliteEntity } from '../../db/entities/claude.js';
+import { ralphLoopSqliteEntity } from '../db/entities/ralph-loop.js';
+import { ralphLoopTaskSqliteEntity } from '../db/entities/ralph-loop-task.js';
+import { workflowSqliteEntity } from '../../db/entities/workflow.js';
 import {
   createWorktreeForLoop,
   startRalphLoopExecution,
   cancelRalphLoop,
   makeRunEffect,
   getLoop,
-} from "../orchestrator/runner.js";
+} from '../orchestrator/runner.js';
 import {
   buildPlanningRuntimeOptions,
   persistPlanData,
-} from "../orchestrator/planning-tools.js";
-import { errorMessage } from "../../core/lib/error.js";
+} from '../orchestrator/planning-tools.js';
+import { errorMessage } from '../../core/lib/error.js';
 
 /** Build a ralph-loop status update callback bound to a workflow. */
-const makeRalphLoopStatusCallback = (
-  workflowId: string,
-  ralphLoopId: string,
-): OnRalphLoopStatusUpdate =>
+const makeRalphLoopStatusCallback =
+  (workflowId: string, ralphLoopId: string): OnRalphLoopStatusUpdate =>
   (update) =>
     workflowSqliteEntity
       .update(
         { workflowId },
         {
           spec: {
-            type: "ralph-loop" as const,
+            type: 'ralph-loop' as const,
             ralphLoopId,
             status: update.status,
             completedTasks: update.completedTasks,
@@ -52,7 +50,7 @@ const toRalphLoopError = Effect.mapError((e: unknown) =>
 
 export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
   RalphLoopRpcs.of({
-    "ralphLoop.create": (params) =>
+    'ralphLoop.create': (params) =>
       Effect.gen(function* () {
         const ralphLoopId = v7();
         const runtime = yield* Effect.runtime<never>();
@@ -73,8 +71,8 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           .insert({
             id: ralphLoopId,
             projectId: params.projectId,
-            planningSessionId: "",
-            status: "planning",
+            planningSessionId: '',
+            status: 'planning',
           })
           .pipe(Effect.orDie);
 
@@ -83,7 +81,7 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           runEffect,
         );
 
-        yield* Effect.logInfo("Creating ralph loop planning session").pipe(
+        yield* Effect.logInfo('Creating ralph loop planning session').pipe(
           Effect.annotateLogs({
             ralphLoopId,
             projectId: params.projectId,
@@ -98,9 +96,9 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
               absolutePath: project.value.id,
               prompt: params.prompt,
               model: params.model,
-              interactionMode: "plan",
+              interactionMode: 'plan',
               persistSession: true,
-              effort: "high",
+              effort: 'high',
               maxTurns: 0,
               maxBudgetUsd: 0,
             },
@@ -109,7 +107,7 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           .pipe(
             Effect.tapError((e) =>
               Effect.logError(
-                "Ralph loop planning session creation failed",
+                'Ralph loop planning session creation failed',
               ).pipe(
                 Effect.annotateLogs({
                   ralphLoopId,
@@ -136,9 +134,9 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
             projectId: params.projectId,
             name: deriveSessionName(params.prompt),
             spec: {
-              type: "ralph-loop",
+              type: 'ralph-loop',
               ralphLoopId,
-              status: "planning",
+              status: 'planning',
               completedTasks: 0,
               totalTasks: 0,
             },
@@ -148,16 +146,16 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
         return { ralphLoopId, planningSessionId, workflowId };
       }).pipe(
         toRalphLoopError,
-        Effect.withSpan("rpc.ralphLoop.create", {
+        Effect.withSpan('rpc.ralphLoop.create', {
           attributes: { projectId: params.projectId, model: params.model },
         }),
       ),
 
-    "ralphLoop.continuePlanning": (params) =>
+    'ralphLoop.continuePlanning': (params) =>
       Effect.gen(function* () {
         const loop = yield* getLoop(params.ralphLoopId);
 
-        if (loop.status !== "planning" && loop.status !== "reviewing") {
+        if (loop.status !== 'planning' && loop.status !== 'reviewing') {
           return yield* Effect.fail(
             new RalphLoopError({
               message: `Cannot continue planning: loop is in "${loop.status}" status`,
@@ -182,16 +180,16 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
         );
       }).pipe(
         toRalphLoopError,
-        Effect.withSpan("rpc.ralphLoop.continuePlanning", {
+        Effect.withSpan('rpc.ralphLoop.continuePlanning', {
           attributes: { ralphLoopId: params.ralphLoopId },
         }),
       ),
 
-    "ralphLoop.startExecution": (params) =>
+    'ralphLoop.startExecution': (params) =>
       Effect.gen(function* () {
         const loop = yield* getLoop(params.ralphLoopId);
 
-        if (loop.status !== "reviewing") {
+        if (loop.status !== 'reviewing') {
           return yield* Effect.fail(
             new RalphLoopError({
               message: `Cannot start execution: loop is in "${loop.status}" status`,
@@ -234,13 +232,18 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
 
         // Find the workflow linked to this ralph loop so we can push status updates
         const workflows = yield* workflowSqliteEntity
-          .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
+          .query('byUpdatedAt', { pk: {}, sk: { '>': null } })
           .pipe(Effect.orDie);
         const workflow = workflows.items.find(
-          (w) => w.value.spec.type === "ralph-loop" && w.value.spec.ralphLoopId === params.ralphLoopId,
+          (w) =>
+            w.value.spec.type === 'ralph-loop' &&
+            w.value.spec.ralphLoopId === params.ralphLoopId,
         );
         const onStatusUpdate = workflow
-          ? makeRalphLoopStatusCallback(workflow.value.workflowId, params.ralphLoopId)
+          ? makeRalphLoopStatusCallback(
+              workflow.value.workflowId,
+              params.ralphLoopId,
+            )
           : undefined;
 
         const runtime = yield* Effect.runtime<never>();
@@ -248,25 +251,31 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
           startRalphLoopExecution(params.ralphLoopId, onStatusUpdate).pipe(
             Effect.catchAll((e) =>
               Effect.gen(function* () {
-                yield* Effect.logError("Ralph loop execution failed").pipe(
+                yield* Effect.logError('Ralph loop execution failed').pipe(
                   Effect.annotateLogs({
                     ralphLoopId: params.ralphLoopId,
                     error: errorMessage(e),
                   }),
                 );
                 yield* ralphLoopSqliteEntity
-                  .update(
-                    { id: params.ralphLoopId },
-                    { status: "failed" },
-                  )
+                  .update({ id: params.ralphLoopId }, { status: 'failed' })
                   .pipe(Effect.orDie);
                 if (onStatusUpdate) {
                   const tasks = yield* ralphLoopTaskSqliteEntity
-                    .query("byRalphLoop", { pk: { ralphLoopId: params.ralphLoopId }, sk: { ">": null } })
+                    .query('byRalphLoop', {
+                      pk: { ralphLoopId: params.ralphLoopId },
+                      sk: { '>': null },
+                    })
                     .pipe(Effect.orDie);
                   const total = tasks.items.filter((i) => !i.meta._d).length;
-                  const completed = tasks.items.filter((i) => !i.meta._d && i.value.status === "completed").length;
-                  yield* onStatusUpdate({ status: "failed", completedTasks: completed, totalTasks: total });
+                  const completed = tasks.items.filter(
+                    (i) => !i.meta._d && i.value.status === 'completed',
+                  ).length;
+                  yield* onStatusUpdate({
+                    status: 'failed',
+                    completedTasks: completed,
+                    totalTasks: total,
+                  });
                 }
               }),
             ),
@@ -274,16 +283,16 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
         );
       }).pipe(
         toRalphLoopError,
-        Effect.withSpan("rpc.ralphLoop.startExecution", {
+        Effect.withSpan('rpc.ralphLoop.startExecution', {
           attributes: { ralphLoopId: params.ralphLoopId },
         }),
       ),
 
-    "ralphLoop.interruptPlanning": (params) =>
+    'ralphLoop.interruptPlanning': (params) =>
       Effect.gen(function* () {
         const loop = yield* getLoop(params.ralphLoopId);
 
-        if (loop.status !== "planning" && loop.status !== "reviewing") {
+        if (loop.status !== 'planning' && loop.status !== 'reviewing') {
           return;
         }
 
@@ -292,74 +301,91 @@ export const RalphLoopHandlers = RalphLoopRpcs.toLayer(
 
         // Push cancelled status to the workflow
         const workflows = yield* workflowSqliteEntity
-          .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
+          .query('byUpdatedAt', { pk: {}, sk: { '>': null } })
           .pipe(Effect.orDie);
         const workflow = workflows.items.find(
-          (w) => w.value.spec.type === "ralph-loop" && w.value.spec.ralphLoopId === params.ralphLoopId,
+          (w) =>
+            w.value.spec.type === 'ralph-loop' &&
+            w.value.spec.ralphLoopId === params.ralphLoopId,
         );
         if (workflow) {
-          yield* makeRalphLoopStatusCallback(workflow.value.workflowId, params.ralphLoopId)({
-            status: "cancelled",
+          yield* makeRalphLoopStatusCallback(
+            workflow.value.workflowId,
+            params.ralphLoopId,
+          )({
+            status: 'cancelled',
             completedTasks: 0,
             totalTasks: 0,
           });
         }
       }).pipe(
         toRalphLoopError,
-        Effect.withSpan("rpc.ralphLoop.interruptPlanning", {
+        Effect.withSpan('rpc.ralphLoop.interruptPlanning', {
           attributes: { ralphLoopId: params.ralphLoopId },
         }),
       ),
 
-    "ralphLoop.cancel": (params) =>
+    'ralphLoop.cancel': (params) =>
       Effect.gen(function* () {
         yield* cancelRalphLoop(params.ralphLoopId);
 
         // Push cancelled status to the workflow
         const workflows = yield* workflowSqliteEntity
-          .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
+          .query('byUpdatedAt', { pk: {}, sk: { '>': null } })
           .pipe(Effect.orDie);
         const workflow = workflows.items.find(
-          (w) => w.value.spec.type === "ralph-loop" && w.value.spec.ralphLoopId === params.ralphLoopId,
+          (w) =>
+            w.value.spec.type === 'ralph-loop' &&
+            w.value.spec.ralphLoopId === params.ralphLoopId,
         );
         if (workflow) {
           const tasks = yield* ralphLoopTaskSqliteEntity
-            .query("byRalphLoop", { pk: { ralphLoopId: params.ralphLoopId }, sk: { ">": null } })
+            .query('byRalphLoop', {
+              pk: { ralphLoopId: params.ralphLoopId },
+              sk: { '>': null },
+            })
             .pipe(Effect.orDie);
           const total = tasks.items.filter((i) => !i.meta._d).length;
-          const completed = tasks.items.filter((i) => !i.meta._d && i.value.status === "completed").length;
-          yield* makeRalphLoopStatusCallback(workflow.value.workflowId, params.ralphLoopId)({
-            status: "cancelled",
+          const completed = tasks.items.filter(
+            (i) => !i.meta._d && i.value.status === 'completed',
+          ).length;
+          yield* makeRalphLoopStatusCallback(
+            workflow.value.workflowId,
+            params.ralphLoopId,
+          )({
+            status: 'cancelled',
             completedTasks: completed,
             totalTasks: total,
           });
         }
       }).pipe(
         toRalphLoopError,
-        Effect.withSpan("rpc.ralphLoop.cancel", {
+        Effect.withSpan('rpc.ralphLoop.cancel', {
           attributes: { ralphLoopId: params.ralphLoopId },
         }),
       ),
 
-    "ralphLoop.query": ({ ">": cursor }) =>
+    'ralphLoop.query': ({ '>': cursor }) =>
       ralphLoopSqliteEntity
-        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .query('byUpdatedAt', { pk: {}, sk: { '>': cursor } })
         .pipe(
           Effect.map(({ items }) => items),
           toRalphLoopError,
-          Effect.withSpan("rpc.ralphLoop.query"),
+          Effect.withSpan('rpc.ralphLoop.query'),
         ),
 
-    "ralphLoop.queryTasks": ({ ralphLoopId }) =>
+    'ralphLoop.queryTasks': ({ ralphLoopId }) =>
       ralphLoopTaskSqliteEntity
-        .query("byRalphLoop", {
+        .query('byRalphLoop', {
           pk: { ralphLoopId },
-          sk: { ">": null },
+          sk: { '>': null },
         })
         .pipe(
           Effect.map(({ items }) => items.filter((i) => !i.meta._d)),
           toRalphLoopError,
-          Effect.withSpan("rpc.ralphLoop.queryTasks", { attributes: { ralphLoopId } }),
+          Effect.withSpan('rpc.ralphLoop.queryTasks', {
+            attributes: { ralphLoopId },
+          }),
         ),
   }),
 );

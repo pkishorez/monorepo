@@ -1,9 +1,9 @@
-import { compileConditionExpr, type ConditionOperation } from "./condition.js";
-import { compileUpdateExpr, type UpdateOperation } from "./update.js";
-import type { KeyconditionOperation } from "./key-condition.js";
-import { AttributeMapBuilder } from "./utils.js";
-import type { MarshalledOutput } from "../types/index.js";
-import type { DynamoAttrResult } from "./types.js";
+import { compileConditionExpr, type ConditionOperation } from './condition.js';
+import { compileUpdateExpr, type UpdateOperation } from './update.js';
+import type { KeyconditionOperation } from './key-condition.js';
+import { AttributeMapBuilder } from './utils.js';
+import type { MarshalledOutput } from '../types/index.js';
+import type { DynamoAttrResult } from './types.js';
 
 /**
  * Optional attribute maps that may be included in expression results.
@@ -119,11 +119,11 @@ export function buildExpr(
 
   const compiledUpdate = update ? compileUpdateExpr(update) : undefined;
   const compiledCondition =
-    "condition" in options && options.condition
+    'condition' in options && options.condition
       ? compileConditionExpr(options.condition)
       : undefined;
   const compiledFilter =
-    "filter" in options && options.filter
+    'filter' in options && options.filter
       ? compileConditionExpr(options.filter)
       : undefined;
 

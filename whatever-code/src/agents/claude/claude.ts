@@ -1,14 +1,14 @@
-import { execFile } from "node:child_process";
-import { Effect, Runtime } from "effect";
-import { v7 } from "uuid";
-import { ClaudeChatError } from "../../api/definitions/claude.js";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
-import { updateSessionPayload } from "../shared/session.js";
-import { deriveSessionName } from "../shared/session-name.js";
-import { makeSessionManager } from "./claude-session.js";
-import type { SessionRuntimeOptions } from "./internal/index.js";
-import type { OnExecuteStatusUpdate } from "../workflow/schema.js";
-import { SqliteDB } from "@std-toolkit/sqlite";
+import { execFile } from 'node:child_process';
+import { Effect, Runtime } from 'effect';
+import { v7 } from 'uuid';
+import { ClaudeChatError } from '../../api/definitions/claude.js';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
+import { updateSessionPayload } from '../shared/session.js';
+import { deriveSessionName } from '../shared/session-name.js';
+import { makeSessionManager } from './claude-session.js';
+import type { SessionRuntimeOptions } from './internal/index.js';
+import type { OnExecuteStatusUpdate } from '../workflow/schema.js';
+import { SqliteDB } from '@std-toolkit/sqlite';
 
 type SessionManager = ReturnType<typeof makeSessionManager>;
 import {
@@ -16,11 +16,11 @@ import {
   CreateSessionParams,
   RespondToToolParams,
   UpdateSessionParams,
-} from "./schema.js";
-import { initSessions } from "./utils.js";
+} from './schema.js';
+import { initSessions } from './utils.js';
 
 export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
-  "ClaudeOrchestrator",
+  'ClaudeOrchestrator',
   {
     scoped: Effect.gen(function* () {
       const sessions = new Map<string, SessionManager>();
@@ -50,20 +50,20 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
       ) =>
         Effect.gen(function* () {
           const sessionId = v7();
-          yield* Effect.annotateCurrentSpan("sessionId", sessionId);
+          yield* Effect.annotateCurrentSpan('sessionId', sessionId);
 
           yield* sessionSqliteEntity
             .insert({
               sessionId,
-              type: "claude",
-              status: "success",
+              type: 'claude',
+              status: 'success',
               absolutePath: params.absolutePath,
               name: deriveSessionName(params.prompt),
               model: params.model,
-              interactionMode: params.interactionMode ?? "default",
+              interactionMode: params.interactionMode ?? 'default',
               payload: {
-                type: "claude",
-                accessMode: "full-access",
+                type: 'claude',
+                accessMode: 'full-access',
                 persistSession: params.persistSession,
                 effort: params.effort,
                 maxTurns: params.maxTurns,
@@ -74,34 +74,41 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
 
           const session = getOrCreate(sessionId);
           fork(
-            session.continue(params.prompt, runtimeOptions, undefined, onStatusUpdate).pipe(
-              Effect.catchAll((error) =>
-                Effect.logError("createSession: forked turn failed").pipe(
-                  Effect.annotateLogs({ sessionId, error: String(error) }),
-                  Effect.flatMap(() =>
-                    Effect.all([
-                      sessionSqliteEntity
-                        .update({ sessionId }, { status: "error" })
-                        .pipe(Effect.orDie, Effect.asVoid),
-                      onStatusUpdate
-                        ? onStatusUpdate({ status: "error" })
-                        : Effect.void,
-                    ]),
+            session
+              .continue(
+                params.prompt,
+                runtimeOptions,
+                undefined,
+                onStatusUpdate,
+              )
+              .pipe(
+                Effect.catchAll((error) =>
+                  Effect.logError('createSession: forked turn failed').pipe(
+                    Effect.annotateLogs({ sessionId, error: String(error) }),
+                    Effect.flatMap(() =>
+                      Effect.all([
+                        sessionSqliteEntity
+                          .update({ sessionId }, { status: 'error' })
+                          .pipe(Effect.orDie, Effect.asVoid),
+                        onStatusUpdate
+                          ? onStatusUpdate({ status: 'error' })
+                          : Effect.void,
+                      ]),
+                    ),
                   ),
                 ),
               ),
-            ),
           );
 
-          yield* Effect.log("claude: session created").pipe(
+          yield* Effect.log('claude: session created').pipe(
             Effect.annotateLogs({ sessionId }),
           );
           return sessionId;
         }).pipe(
-          Effect.mapError(
-            (e) => new ClaudeChatError({ message: String(e) }),
-          ),
-          Effect.withSpan("claude.createSession", { attributes: { model: params.model } }),
+          Effect.mapError((e) => new ClaudeChatError({ message: String(e) })),
+          Effect.withSpan('claude.createSession', {
+            attributes: { model: params.model },
+          }),
         );
 
       const continueSession = (
@@ -111,14 +118,21 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
       ) =>
         Effect.gen(function* () {
           const session = getOrCreate(params.sessionId);
-          yield* session.continue(params.prompt, runtimeOptions, undefined, onStatusUpdate);
+          yield* session.continue(
+            params.prompt,
+            runtimeOptions,
+            undefined,
+            onStatusUpdate,
+          );
         }).pipe(
           Effect.mapError((e) =>
             e instanceof ClaudeChatError
               ? e
               : new ClaudeChatError({ message: String(e) }),
           ),
-          Effect.withSpan("claude.continueSession", { attributes: { sessionId: params.sessionId } }),
+          Effect.withSpan('claude.continueSession', {
+            attributes: { sessionId: params.sessionId },
+          }),
         );
 
       const stopSession = (sessionId: string) =>
@@ -128,7 +142,7 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
           yield* session.stop();
           sessions.delete(sessionId);
         }).pipe(
-          Effect.withSpan("claude.stopSession", { attributes: { sessionId } }),
+          Effect.withSpan('claude.stopSession', { attributes: { sessionId } }),
         );
 
       const respondToTool = (params: typeof RespondToToolParams.Type) =>
@@ -151,14 +165,19 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               ? e
               : new ClaudeChatError({ message: String(e) }),
           ),
-          Effect.withSpan("claude.respondToTool", {
-            attributes: { sessionId: params.sessionId, toolUseId: params.toolUseId },
+          Effect.withSpan('claude.respondToTool', {
+            attributes: {
+              sessionId: params.sessionId,
+              toolUseId: params.toolUseId,
+            },
           }),
         );
 
       const updateSession = (params: typeof UpdateSessionParams.Type) =>
-        updateSessionPayload(params.sessionId, "claude", params.updates).pipe(
-          Effect.withSpan("claude.updateSession", { attributes: { sessionId: params.sessionId } }),
+        updateSessionPayload(params.sessionId, 'claude', params.updates).pipe(
+          Effect.withSpan('claude.updateSession', {
+            attributes: { sessionId: params.sessionId },
+          }),
         );
 
       const oneShot = (params: {
@@ -169,18 +188,18 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
         Effect.tryPromise({
           try: async () => {
             const args = [
-              "-p",
-              "--no-session-persistence",
-              "--output-format",
-              "text",
-              "--tools",
-              "",
-              ...(params.model ? ["--model", params.model] : []),
-              "-",
+              '-p',
+              '--no-session-persistence',
+              '--output-format',
+              'text',
+              '--tools',
+              '',
+              ...(params.model ? ['--model', params.model] : []),
+              '-',
             ];
             const stdout = await new Promise<string>((resolve, reject) => {
               const child = execFile(
-                "claude",
+                'claude',
                 args,
                 {
                   cwd: params.cwd,
@@ -202,7 +221,9 @@ export class ClaudeOrchestrator extends Effect.Service<ClaudeOrchestrator>()(
               message: e instanceof Error ? e.message : String(e),
             }),
         }).pipe(
-          Effect.withSpan("claude.oneShot", { attributes: { cwd: params.cwd } }),
+          Effect.withSpan('claude.oneShot', {
+            attributes: { cwd: params.cwd },
+          }),
         );
 
       return {

@@ -1,5 +1,5 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { Effect, JSONSchema, ParseResult, Schema } from "effect";
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { Effect, JSONSchema, ParseResult, Schema } from 'effect';
 import type {
   IdSchema,
   ESchemaDescriptor,
@@ -9,14 +9,14 @@ import type {
   Prettify,
   StructFieldsDecoded,
   StructFieldsSchema,
-} from "./types.js";
-import { ESchemaError } from "./utils.js";
-import { struct, metaSchema, INITIAL_VERSION } from "./schema.js";
+} from './types.js';
+import { ESchemaError } from './utils.js';
+import { struct, metaSchema, INITIAL_VERSION } from './schema.js';
 import {
   ESchemaBuilder,
   SingleEntityESchemaBuilder,
   EntityESchemaBuilder,
-} from "./internal/builders.js";
+} from './internal/builders.js';
 
 export class ESchema<
   TVersion extends string,
@@ -38,8 +38,8 @@ export class ESchema<
     if (!lastEvolution?.schema) {
       throw new Error(
         `ESchema is not properly initialized. ` +
-        `This usually happens when the schema is accessed before module initialization completes. ` +
-        `Consider using lazy initialization or avoiding top-level schema computations.`
+          `This usually happens when the schema is accessed before module initialization completes. ` +
+          `Consider using lazy initialization or avoiding top-level schema computations.`,
       );
     }
     return lastEvolution.schema as TLatest;
@@ -72,19 +72,19 @@ export class ESchema<
         Effect.tapError((err) =>
           Effect.sync(() =>
             console.error(
-              `[ESchema] Decode failed for "${(this as any).name ?? "anonymous"}" (version ${_v}):\n${ParseResult.TreeFormatter.formatErrorSync(err)}`,
+              `[ESchema] Decode failed for "${(this as any).name ?? 'anonymous'}" (version ${_v}):\n${ParseResult.TreeFormatter.formatErrorSync(err)}`,
             ),
           ),
         ),
         Effect.mapError(
-          (err) => new ESchemaError({ message: "Decode failed", cause: err }),
+          (err) => new ESchemaError({ message: 'Decode failed', cause: err }),
         ),
       );
 
       for (let i = index + 1; i < this.evolutions.length; i++) {
         const evo = this.evolutions[i];
         if (!evo) {
-          return yield* new ESchemaError({ message: "Migration not found" });
+          return yield* new ESchemaError({ message: 'Migration not found' });
         }
         data = evo.migration!(data);
       }
@@ -95,17 +95,21 @@ export class ESchema<
 
   encode(
     value: StructFieldsDecoded<TLatest>,
-  ): Effect.Effect<Prettify<StructFieldsDecoded<TLatest>>, ESchemaError, never> {
+  ): Effect.Effect<
+    Prettify<StructFieldsDecoded<TLatest>>,
+    ESchemaError,
+    never
+  > {
     return Effect.gen(this, function* () {
       const evolution = this.evolutions.at(-1);
       if (!evolution) {
-        return yield* new ESchemaError({ message: "No evolutions found" });
+        return yield* new ESchemaError({ message: 'No evolutions found' });
       }
 
       const data = yield* Schema.encode(struct(this.fields))(value).pipe(
         Effect.mapError(
           (error) =>
-            new ESchemaError({ message: "Encode failed", cause: error }),
+            new ESchemaError({ message: 'Encode failed', cause: error }),
         ),
       );
 
@@ -124,24 +128,24 @@ export class ESchema<
     return JSONSchema.make(schemaWithVersion) as ESchemaDescriptor;
   }
 
-  "~standard" = {
+  '~standard' = {
     version: 1 as const,
-    vendor: "@std-toolkit/eschema",
+    vendor: '@std-toolkit/eschema',
     types: {
       input: null as unknown as Prettify<StructFieldsDecoded<TLatest>>,
       output: null as unknown as Prettify<StructFieldsDecoded<TLatest>>,
     },
     validate: (value: unknown) => {
       const result = Effect.runSyncExit(this.decode(value));
-      if (result._tag === "Success") {
+      if (result._tag === 'Success') {
         const value = result.value;
         return { value };
       }
       const cause = result.cause;
-      if (cause._tag === "Fail") {
+      if (cause._tag === 'Fail') {
         return { issues: [{ message: cause.error.message }] };
       }
-      return { issues: [{ message: "Unknown error" }] };
+      return { issues: [{ message: 'Unknown error' }] };
     },
   };
 }
@@ -150,7 +154,7 @@ export namespace ESchema {
   export function make<I extends StructFieldsSchema>(
     schema: I & ForbidUnderscorePrefix<I>,
   ) {
-    return new ESchemaBuilder<"v1", I>(
+    return new ESchemaBuilder<'v1', I>(
       [{ version: INITIAL_VERSION, schema, migration: null }],
       INITIAL_VERSION,
     );
@@ -185,7 +189,7 @@ export namespace SingleEntityESchema {
     name: N,
     schema: I & ForbidUnderscorePrefix<I>,
   ) {
-    return new SingleEntityESchemaBuilder<N, "v1", I>(
+    return new SingleEntityESchemaBuilder<N, 'v1', I>(
       name,
       [{ version: INITIAL_VERSION, schema, migration: null }],
       INITIAL_VERSION,
@@ -220,9 +224,10 @@ export namespace EntityESchema {
     schema: I & ForbidUnderscorePrefix<I> & ForbidIdField<I, Id>,
   ) {
     const idSchema = Schema.String as IdSchema;
-    const schemaWithId = { ...schema, [idField]: idSchema } as I & Record<Id, IdSchema>;
+    const schemaWithId = { ...schema, [idField]: idSchema } as I &
+      Record<Id, IdSchema>;
 
-    return new EntityESchemaBuilder<N, Id, "v1", I & Record<Id, IdSchema>>(
+    return new EntityESchemaBuilder<N, Id, 'v1', I & Record<Id, IdSchema>>(
       name,
       idField,
       idSchema,

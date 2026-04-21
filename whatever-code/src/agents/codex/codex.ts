@@ -1,23 +1,23 @@
-import { execFile } from "node:child_process";
-import { Effect, Runtime, Schema } from "effect";
-import { v7 } from "uuid";
-import { ulid } from "ulid";
-import { CodexClient } from "./client.js";
-import { CodexChatError } from "../../api/definitions/codex.js";
-import { execCodexJson } from "./exec-json.js";
-import { codexEventSqliteEntity } from "../../db/entities/codex.js";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
-import { updateSessionPayload } from "../shared/session.js";
-import { updateCodexTurnPayload } from "../shared/turn.js";
-import { deriveSessionName } from "../shared/session-name.js";
-import type { ActiveTurn } from "./internal.js";
-import type { OnExecuteStatusUpdate } from "../workflow/schema.js";
+import { execFile } from 'node:child_process';
+import { Effect, Runtime, Schema } from 'effect';
+import { v7 } from 'uuid';
+import { ulid } from 'ulid';
+import { CodexClient } from './client.js';
+import { CodexChatError } from '../../api/definitions/codex.js';
+import { execCodexJson } from './exec-json.js';
+import { codexEventSqliteEntity } from '../../db/entities/codex.js';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
+import { updateSessionPayload } from '../shared/session.js';
+import { updateCodexTurnPayload } from '../shared/turn.js';
+import { deriveSessionName } from '../shared/session-name.js';
+import type { ActiveTurn } from './internal.js';
+import type { OnExecuteStatusUpdate } from '../workflow/schema.js';
 import {
   CreateThreadParams,
   ContinueThreadParams,
   UpdateThreadParams,
   RespondToUserInputParams,
-} from "./schema.js";
+} from './schema.js';
 import {
   markTurnStatus,
   persistNewTurn,
@@ -30,38 +30,36 @@ import {
   toUserInputQuestions,
   toCodexUserInputAnswers,
   extractAnswersFromInput,
-} from "./utils.js";
-import type { ServerNotification } from "./generated/ServerNotification.js";
-import type { ThreadStartResponse } from "./generated/v2/ThreadStartResponse.js";
-import type { TurnStartResponse } from "./generated/v2/TurnStartResponse.js";
-import type { UserInput } from "./generated/v2/UserInput.js";
-import { errorMessage } from "../../core/lib/error.js";
-import type { PromptContent } from "../shared/schema.js";
+} from './utils.js';
+import type { ServerNotification } from './generated/ServerNotification.js';
+import type { ThreadStartResponse } from './generated/v2/ThreadStartResponse.js';
+import type { TurnStartResponse } from './generated/v2/TurnStartResponse.js';
+import type { UserInput } from './generated/v2/UserInput.js';
+import { errorMessage } from '../../core/lib/error.js';
+import type { PromptContent } from '../shared/schema.js';
 
-function promptToCodexInput(
-  prompt: typeof PromptContent.Type,
-): UserInput[] {
-  if (typeof prompt === "string") {
-    return [{ type: "text", text: prompt, text_elements: [] }];
+function promptToCodexInput(prompt: typeof PromptContent.Type): UserInput[] {
+  if (typeof prompt === 'string') {
+    return [{ type: 'text', text: prompt, text_elements: [] }];
   }
   const inputs: UserInput[] = [];
   for (const block of prompt) {
-    if (block.type === "text") {
-      inputs.push({ type: "text", text: block.text, text_elements: [] });
-    } else if (block.type === "image") {
+    if (block.type === 'text') {
+      inputs.push({ type: 'text', text: block.text, text_elements: [] });
+    } else if (block.type === 'image') {
       inputs.push({
-        type: "image",
+        type: 'image',
         url: `data:${block.source.media_type};base64,${block.source.data}`,
       });
     }
   }
   return inputs.length > 0
     ? inputs
-    : [{ type: "text", text: "", text_elements: [] }];
+    : [{ type: 'text', text: '', text_elements: [] }];
 }
 
 export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
-  "CodexOrchestrator",
+  'CodexOrchestrator',
   {
     scoped: Effect.gen(function* () {
       const client = yield* CodexClient;
@@ -86,7 +84,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           activeTurns.entries(),
           ([sessionId, turn]) => {
             drainPendingUserInputs(turn);
-            return markTurnStatus(turn.turnId, sessionId, "interrupted");
+            return markTurnStatus(turn.turnId, sessionId, 'interrupted');
           },
           { discard: true },
         ),
@@ -94,97 +92,107 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
       const handleNotification = (notification: ServerNotification) => {
         const effect = Effect.gen(function* () {
-          yield* Effect.logDebug("codex: notification received").pipe(
+          yield* Effect.logDebug('codex: notification received').pipe(
             Effect.annotateLogs({ method: notification.method }),
           );
           switch (notification.method) {
-            case "turn/started": {
+            case 'turn/started': {
               const { threadId, turn } = notification.params;
               const activeTurn = findActiveTurnBySdkThreadId(threadId);
               if (activeTurn) {
-                yield* updateCodexTurnPayload(activeTurn.turn.turnId, (payload) => ({
-                  ...payload,
-                  sdkTurnId: turn.id,
-                }));
+                yield* updateCodexTurnPayload(
+                  activeTurn.turn.turnId,
+                  (payload) => ({
+                    ...payload,
+                    sdkTurnId: turn.id,
+                  }),
+                );
                 activeTurn.turn.sdkTurnId = turn.id;
               }
               break;
             }
-            case "turn/completed": {
+            case 'turn/completed': {
               const { threadId: sdkThreadId, turn } = notification.params;
               const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
               if (!activeTurn) break;
               const { ourSessionId, turn: at } = activeTurn;
 
-              if (turn.status === "completed") {
-                yield* markTurnStatus(at.turnId, ourSessionId, "success");
-                if (at.onStatusUpdate) yield* at.onStatusUpdate({ status: "success" });
-              } else if (turn.status === "failed") {
-                yield* Effect.logError("codex: turn failed").pipe(
+              if (turn.status === 'completed') {
+                yield* markTurnStatus(at.turnId, ourSessionId, 'success');
+                if (at.onStatusUpdate)
+                  yield* at.onStatusUpdate({ status: 'success' });
+              } else if (turn.status === 'failed') {
+                yield* Effect.logError('codex: turn failed').pipe(
                   Effect.annotateLogs({
                     sessionId: ourSessionId,
                     turnId: at.turnId,
-                    errorMessage: turn.error?.message ?? "unknown",
-                    errorInfo: turn.error?.codexErrorInfo ?? "none",
-                    additionalDetails: turn.error?.additionalDetails ?? "none",
+                    errorMessage: turn.error?.message ?? 'unknown',
+                    errorInfo: turn.error?.codexErrorInfo ?? 'none',
+                    additionalDetails: turn.error?.additionalDetails ?? 'none',
                   }),
                 );
                 yield* updateCodexTurnPayload(at.turnId, (payload) => ({
                   ...payload,
                   error: turn.error,
                 }));
-                yield* markTurnStatus(at.turnId, ourSessionId, "error");
-                if (at.onStatusUpdate) yield* at.onStatusUpdate({ status: "error" });
-              } else if (turn.status === "interrupted") {
-                yield* markTurnStatus(at.turnId, ourSessionId, "interrupted");
-                if (at.onStatusUpdate) yield* at.onStatusUpdate({ status: "interrupted" });
+                yield* markTurnStatus(at.turnId, ourSessionId, 'error');
+                if (at.onStatusUpdate)
+                  yield* at.onStatusUpdate({ status: 'error' });
+              } else if (turn.status === 'interrupted') {
+                yield* markTurnStatus(at.turnId, ourSessionId, 'interrupted');
+                if (at.onStatusUpdate)
+                  yield* at.onStatusUpdate({ status: 'interrupted' });
               }
 
               activeTurns.delete(ourSessionId);
 
               // Auto-drain: on success, execute queued turn if present
-              if (turn.status === "completed") {
+              if (turn.status === 'completed') {
                 yield* drainQueuedTurn(ourSessionId);
               }
               break;
             }
-            case "thread/name/updated": {
+            case 'thread/name/updated': {
               const { threadId: sdkThreadId } = notification.params;
               const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
               if (activeTurn) {
                 const name = notification.params.threadName;
                 if (name) {
                   yield* sessionSqliteEntity
-                    .update(
-                      { sessionId: activeTurn.ourSessionId },
-                      { name },
-                    )
+                    .update({ sessionId: activeTurn.ourSessionId }, { name })
                     .pipe(Effect.orDie);
                   if (activeTurn.turn.onStatusUpdate) {
-                    yield* activeTurn.turn.onStatusUpdate({ status: "executing", name });
+                    yield* activeTurn.turn.onStatusUpdate({
+                      status: 'executing',
+                      name,
+                    });
                   }
                 }
               }
               break;
             }
-            case "thread/tokenUsage/updated": {
-              const { threadId: sdkThreadId, tokenUsage } =
-                notification.params;
+            case 'thread/tokenUsage/updated': {
+              const { threadId: sdkThreadId, tokenUsage } = notification.params;
               const activeTurn = findActiveTurnBySdkThreadId(sdkThreadId);
               if (activeTurn) {
-                yield* updateCodexTurnPayload(activeTurn.turn.turnId, (payload) => ({
-                  ...payload,
-                  usage: tokenUsage,
-                }));
+                yield* updateCodexTurnPayload(
+                  activeTurn.turn.turnId,
+                  (payload) => ({
+                    ...payload,
+                    usage: tokenUsage,
+                  }),
+                );
               }
               break;
             }
-            case "item/started":
-            case "item/completed": {
+            case 'item/started':
+            case 'item/completed': {
               // Skip SDK's userMessage events — we already persist the user message in persistNewTurn
-              if (notification.params.item.type === "userMessage") break;
+              if (notification.params.item.type === 'userMessage') break;
 
-              const activeTurn = findActiveTurnBySdkThreadId(notification.params.threadId);
+              const activeTurn = findActiveTurnBySdkThreadId(
+                notification.params.threadId,
+              );
               if (activeTurn) {
                 yield* codexEventSqliteEntity
                   .insert({
@@ -196,17 +204,22 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                   .pipe(Effect.orDie);
 
                 if (
-                  notification.method === "item/completed" &&
-                  notification.params.item.type === "plan" &&
-                  typeof (notification.params.item as any).text === "string" &&
+                  notification.method === 'item/completed' &&
+                  notification.params.item.type === 'plan' &&
+                  typeof (notification.params.item as any).text === 'string' &&
                   (notification.params.item as any).text.length > 0
                 ) {
-                  yield* updateCodexTurnPayload(activeTurn.turn.turnId, (payload) => ({
-                    ...payload,
-                    state: "plan-ready" as const,
-                  }));
+                  yield* updateCodexTurnPayload(
+                    activeTurn.turn.turnId,
+                    (payload) => ({
+                      ...payload,
+                      state: 'plan-ready' as const,
+                    }),
+                  );
                   if (activeTurn.turn.onStatusUpdate) {
-                    yield* activeTurn.turn.onStatusUpdate({ status: "plan-ready" });
+                    yield* activeTurn.turn.onStatusUpdate({
+                      status: 'plan-ready',
+                    });
                   }
                 }
               }
@@ -234,7 +247,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           }
         }).pipe(
           Effect.tapError((e) =>
-            Effect.logError("codex: handleNotification failed").pipe(
+            Effect.logError('codex: handleNotification failed').pipe(
               Effect.annotateLogs({
                 method: notification.method,
                 error: String(e),
@@ -250,7 +263,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
       // ── Handle server requests (user-input questions) ──
       client.onServerRequest((jsonRpcId, request) => {
-        if (request.method !== "item/tool/requestUserInput") return;
+        if (request.method !== 'item/tool/requestUserInput') return;
 
         const params = request.params;
         const effect = Effect.gen(function* () {
@@ -261,7 +274,9 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           }
 
           const { turn } = activeTurn;
-          const { questions, codexQuestionIds } = toUserInputQuestions(params.questions);
+          const { questions, codexQuestionIds } = toUserInputQuestions(
+            params.questions,
+          );
 
           if (questions.length === 0) {
             // All questions failed validation — respond with empty answers
@@ -287,7 +302,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             sessionId: activeTurn.ourSessionId,
             turnId: turn.turnId,
             data: {
-              method: "item/tool/requestUserInput",
+              method: 'item/tool/requestUserInput',
               params: {
                 threadId: params.threadId,
                 turnId: params.turnId,
@@ -300,26 +315,26 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           // Persist to DB so frontend discovers it
           yield* updateCodexTurnPayload(turn.turnId, (payload) => ({
             ...payload,
-            state: "question" as const,
+            state: 'question' as const,
             pendingQuestions: {
               ...payload.pendingQuestions,
               [requestId]: {
-                status: "pending" as const,
+                status: 'pending' as const,
                 question: { questions },
               },
             },
           }));
 
           if (turn.onStatusUpdate) {
-            yield* turn.onStatusUpdate({ status: "question" });
+            yield* turn.onStatusUpdate({ status: 'question' });
           }
         }).pipe(
           // If DB persistence fails, clean up in-memory state and unblock
           // the subprocess so it doesn't hang indefinitely.
           Effect.tapError((e) =>
-            Effect.logError("codex: onServerRequest handler failed, responding with empty answers").pipe(
-              Effect.annotateLogs({ error: String(e) }),
-            ),
+            Effect.logError(
+              'codex: onServerRequest handler failed, responding with empty answers',
+            ).pipe(Effect.annotateLogs({ error: String(e) })),
           ),
           Effect.catchAll(() =>
             Effect.sync(() => {
@@ -346,12 +361,12 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           if (!queued) return;
           // prompt is re-read inside continueThread via readMergedPrompt when existingTurnId is set
           yield* continueThread(
-            { sessionId, prompt: "" } as typeof ContinueThreadParams.Type,
+            { sessionId, prompt: '' } as typeof ContinueThreadParams.Type,
             queued.id,
           );
         }).pipe(
           Effect.tapError((e) =>
-            Effect.logWarning("drainQueuedTurn failed").pipe(
+            Effect.logWarning('drainQueuedTurn failed').pipe(
               Effect.annotateLogs({ sessionId, error: String(e) }),
             ),
           ),
@@ -368,15 +383,15 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           yield* sessionSqliteEntity
             .insert({
               sessionId,
-              type: "codex",
-              status: "in_progress",
+              type: 'codex',
+              status: 'in_progress',
               absolutePath: params.absolutePath,
               name: deriveSessionName(params.prompt),
               model: params.model,
-              interactionMode: params.interactionMode ?? "default",
+              interactionMode: params.interactionMode ?? 'default',
               payload: {
-                type: "codex",
-                accessMode: "full-access",
+                type: 'codex',
+                accessMode: 'full-access',
                 sdkThreadId: null,
               },
             })
@@ -384,11 +399,11 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           fork(
             Effect.gen(function* () {
-              const response = (yield* client.request("thread/start", {
+              const response = (yield* client.request('thread/start', {
                 model: params.model,
                 cwd: params.absolutePath,
-                approvalPolicy: "never",
-                sandbox: "danger-full-access",
+                approvalPolicy: 'never',
+                sandbox: 'danger-full-access',
                 experimentalRawEvents: false,
                 persistExtendedHistory: false,
               })) as ThreadStartResponse;
@@ -399,8 +414,8 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                   { sessionId },
                   {
                     payload: {
-                      type: "codex",
-                      accessMode: "full-access",
+                      type: 'codex',
+                      accessMode: 'full-access',
                       sdkThreadId,
                     },
                   },
@@ -408,27 +423,35 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                 .pipe(Effect.orDie);
               sdkThreadIdMap.set(sdkThreadId, sessionId);
 
-              yield* continueThread({ sessionId, prompt: params.prompt }, undefined, onStatusUpdate);
+              yield* continueThread(
+                { sessionId, prompt: params.prompt },
+                undefined,
+                onStatusUpdate,
+              );
             }).pipe(
               Effect.tapError((e) =>
-                Effect.logError("codex: createThread background task failed").pipe(
-                  Effect.annotateLogs({ sessionId, error: String(e) }),
-                ),
+                Effect.logError(
+                  'codex: createThread background task failed',
+                ).pipe(Effect.annotateLogs({ sessionId, error: String(e) })),
               ),
               Effect.catchAll(() =>
                 sessionSqliteEntity
-                  .update({ sessionId }, { status: "error" })
+                  .update({ sessionId }, { status: 'error' })
                   .pipe(Effect.orDie, Effect.asVoid),
               ),
             ),
           );
-          yield* Effect.log("codex: thread created").pipe(
+          yield* Effect.log('codex: thread created').pipe(
             Effect.annotateLogs({ sessionId }),
           );
           return sessionId;
         }).pipe(
-          Effect.mapError((e) => new CodexChatError({ message: errorMessage(e) })),
-          Effect.withSpan("codex.createThread", { attributes: { model: params.model } }),
+          Effect.mapError(
+            (e) => new CodexChatError({ message: errorMessage(e) }),
+          ),
+          Effect.withSpan('codex.createThread', {
+            attributes: { model: params.model },
+          }),
         );
 
       const continueThread = (
@@ -451,8 +474,12 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
                 .pipe(
                   Effect.orDie,
                   Effect.flatMap((row) =>
-                    row && row.value.payload.type === "codex"
-                      ? Effect.succeed(row.value as typeof row.value & { payload: { type: "codex" } })
+                    row && row.value.payload.type === 'codex'
+                      ? Effect.succeed(
+                          row.value as typeof row.value & {
+                            payload: { type: 'codex' };
+                          },
+                        )
                       : Effect.fail(
                           new CodexChatError({
                             message: `codex session ${sessionId} not found`,
@@ -470,20 +497,22 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             return;
           }
 
-          const session = yield* sessionSqliteEntity
-            .get({ sessionId })
-            .pipe(
-              Effect.orDie,
-              Effect.flatMap((row) =>
-                row && row.value.payload.type === "codex"
-                  ? Effect.succeed(row.value as typeof row.value & { payload: { type: "codex" } })
-                  : Effect.fail(
-                      new CodexChatError({
-                        message: `codex session ${sessionId} not found`,
-                      }),
-                    ),
-              ),
-            );
+          const session = yield* sessionSqliteEntity.get({ sessionId }).pipe(
+            Effect.orDie,
+            Effect.flatMap((row) =>
+              row && row.value.payload.type === 'codex'
+                ? Effect.succeed(
+                    row.value as typeof row.value & {
+                      payload: { type: 'codex' };
+                    },
+                  )
+                : Effect.fail(
+                    new CodexChatError({
+                      message: `codex session ${sessionId} not found`,
+                    }),
+                  ),
+            ),
+          );
 
           const { payload } = session;
           if (!payload.sdkThreadId) {
@@ -502,7 +531,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             // Drain path
             turnId = existingTurnId;
             sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
-            yield* markTurnStatus(turnId, sessionId, "in_progress");
+            yield* markTurnStatus(turnId, sessionId, 'in_progress');
           } else {
             // Check for existing queued turn
             const queued = yield* findQueuedTurn(sessionId);
@@ -510,12 +539,17 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               turnId = queued.id;
               yield* appendToQueuedTurn(sessionId, turnId, params.prompt);
               sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
-              yield* markTurnStatus(turnId, sessionId, "in_progress");
+              yield* markTurnStatus(turnId, sessionId, 'in_progress');
             } else {
               // Fresh turn
               turnId = ulid();
               sdkPrompt = params.prompt;
-              yield* persistNewTurn(sessionId, turnId, params.prompt, session.model);
+              yield* persistNewTurn(
+                sessionId,
+                turnId,
+                params.prompt,
+                session.model,
+              );
             }
           }
 
@@ -528,21 +562,21 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           activeTurns.set(sessionId, turn);
 
           if (!sdkThreadIdMap.has(payload.sdkThreadId)) {
-            yield* client.request("thread/resume", {
+            yield* client.request('thread/resume', {
               threadId: payload.sdkThreadId,
               persistExtendedHistory: false,
             });
             sdkThreadIdMap.set(payload.sdkThreadId, sessionId);
           }
 
-          const response = (yield* client.request("turn/start", {
+          const response = (yield* client.request('turn/start', {
             threadId: payload.sdkThreadId,
             input: promptToCodexInput(sdkPrompt),
             model: session.model,
-            approvalPolicy: "never",
-            sandboxPolicy: { type: "dangerFullAccess" },
+            approvalPolicy: 'never',
+            sandboxPolicy: { type: 'dangerFullAccess' },
             collaborationMode: {
-              mode: session.interactionMode === "plan" ? "plan" : "default",
+              mode: session.interactionMode === 'plan' ? 'plan' : 'default',
               settings: {
                 model: session.model,
                 reasoning_effort: null,
@@ -559,7 +593,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         }).pipe(
           Effect.tapError((e) =>
             Effect.gen(function* () {
-              yield* Effect.logError("codex: continueThread failed").pipe(
+              yield* Effect.logError('codex: continueThread failed').pipe(
                 Effect.annotateLogs({
                   sessionId: params.sessionId,
                   error: String(e),
@@ -568,7 +602,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               const turn = activeTurns.get(params.sessionId);
               if (turn) {
                 activeTurns.delete(params.sessionId);
-                yield* markTurnStatus(turn.turnId, params.sessionId, "error");
+                yield* markTurnStatus(turn.turnId, params.sessionId, 'error');
               }
             }),
           ),
@@ -577,7 +611,9 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               ? e
               : new CodexChatError({ message: errorMessage(e) }),
           ),
-          Effect.withSpan("codex.continueThread", { attributes: { sessionId: params.sessionId } }),
+          Effect.withSpan('codex.continueThread', {
+            attributes: { sessionId: params.sessionId },
+          }),
         );
 
       const stopThread = (sessionId: string) =>
@@ -590,11 +626,16 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           const row = yield* sessionSqliteEntity
             .get({ sessionId })
             .pipe(Effect.orDie);
-          if (!row || row.value.payload.type !== "codex" || !row.value.payload.sdkThreadId) return;
+          if (
+            !row ||
+            row.value.payload.type !== 'codex' ||
+            !row.value.payload.sdkThreadId
+          )
+            return;
 
           if (turn.sdkTurnId) {
             yield* client
-              .request("turn/interrupt", {
+              .request('turn/interrupt', {
                 threadId: row.value.payload.sdkThreadId,
                 turnId: turn.sdkTurnId,
               })
@@ -602,15 +643,18 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           }
 
           activeTurns.delete(sessionId);
-          yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
-          if (turn.onStatusUpdate) yield* turn.onStatusUpdate({ status: "interrupted" });
+          yield* markTurnStatus(turn.turnId, sessionId, 'interrupted');
+          if (turn.onStatusUpdate)
+            yield* turn.onStatusUpdate({ status: 'interrupted' });
         }).pipe(
-          Effect.withSpan("codex.stopThread", { attributes: { sessionId } }),
+          Effect.withSpan('codex.stopThread', { attributes: { sessionId } }),
         );
 
       const updateThread = (params: typeof UpdateThreadParams.Type) =>
-        updateSessionPayload(params.sessionId, "codex", params.updates).pipe(
-          Effect.withSpan("codex.updateThread", { attributes: { sessionId: params.sessionId } }),
+        updateSessionPayload(params.sessionId, 'codex', params.updates).pipe(
+          Effect.withSpan('codex.updateThread', {
+            attributes: { sessionId: params.sessionId },
+          }),
         );
 
       const respondToUserInput = (
@@ -621,7 +665,9 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
           const turn = activeTurns.get(sessionId);
           if (!turn) {
             return yield* Effect.fail(
-              new CodexChatError({ message: "No active turn for this session" }),
+              new CodexChatError({
+                message: 'No active turn for this session',
+              }),
             );
           }
 
@@ -640,26 +686,26 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
             const updatedPendingQuestions = {
               ...payload.pendingQuestions,
               [requestId]: {
-                status: "answered" as const,
+                status: 'answered' as const,
                 question: { questions: [...pending.questions] },
                 response:
-                  response.behavior === "allow"
+                  response.behavior === 'allow'
                     ? (response.updatedInput ?? {})
                     : { denied: true, message: response.message },
               },
             };
             const hasStillPending = Object.values(updatedPendingQuestions).some(
-              (e) => e.status === "pending",
+              (e) => e.status === 'pending',
             );
             return {
               ...payload,
-              state: hasStillPending ? ("question" as const) : null,
+              state: hasStillPending ? ('question' as const) : null,
               pendingQuestions: updatedPendingQuestions,
             };
           });
 
           // Convert answers and send JSON-RPC response back to subprocess
-          if (response.behavior === "allow") {
+          if (response.behavior === 'allow') {
             const answers = extractAnswersFromInput(response.updatedInput);
             const codexAnswers = toCodexUserInputAnswers(
               answers,
@@ -676,7 +722,7 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
 
           // If no more pending questions, notify workflow we're back to executing
           if (turn.pendingUserInputs.size === 0 && turn.onStatusUpdate) {
-            yield* turn.onStatusUpdate({ status: "executing" });
+            yield* turn.onStatusUpdate({ status: 'executing' });
           }
         }).pipe(
           Effect.mapError((e) =>
@@ -684,7 +730,9 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
               ? e
               : new CodexChatError({ message: errorMessage(e) }),
           ),
-          Effect.withSpan("codex.respondToUserInput", { attributes: { sessionId: params.sessionId } }),
+          Effect.withSpan('codex.respondToUserInput', {
+            attributes: { sessionId: params.sessionId },
+          }),
         );
 
       const oneShot = (params: {
@@ -695,22 +743,26 @@ export class CodexOrchestrator extends Effect.Service<CodexOrchestrator>()(
         Effect.tryPromise({
           try: async () => {
             const args = [
-              "exec",
-              "--ephemeral",
-              "-s",
-              "read-only",
-              "--config",
+              'exec',
+              '--ephemeral',
+              '-s',
+              'read-only',
+              '--config',
               'model_reasoning_effort="low"',
-              "-C",
+              '-C',
               params.cwd,
-              ...(params.model ? ["-m", params.model] : []),
-              "-",
+              ...(params.model ? ['-m', params.model] : []),
+              '-',
             ];
             const stdout = await new Promise<string>((resolve, reject) => {
               const child = execFile(
-                "codex",
+                'codex',
                 args,
-                { timeout: 60_000, maxBuffer: 1024 * 1024, env: { ...process.env } },
+                {
+                  timeout: 60_000,
+                  maxBuffer: 1024 * 1024,
+                  env: { ...process.env },
+                },
                 (error, out) => {
                   if (error) return reject(error);
                   resolve(String(out));

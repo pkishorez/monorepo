@@ -1,14 +1,14 @@
-import { Effect } from "effect";
+import { Effect } from 'effect';
 import {
   startExecuteWorkflow,
   continueExecuteWorkflow,
   stopExecuteWorkflow,
   removeExecuteWorkflow,
   archiveWorkflow,
-} from "./execute.js";
+} from './execute.js';
 
 export class WorkflowOrchestrator extends Effect.Service<WorkflowOrchestrator>()(
-  "WorkflowOrchestrator",
+  'WorkflowOrchestrator',
   {
     effect: Effect.succeed({
       execute: {

@@ -1,17 +1,17 @@
-import { Command, Options, Prompt } from "@effect/cli";
-import { Console, Effect } from "effect";
-import { Monoverse } from "../../core/index.js";
-import type { Workspace } from "../../core/pipeline/analyze/index.js";
+import { Command, Options, Prompt } from '@effect/cli';
+import { Console, Effect } from 'effect';
+import { Monoverse } from '../../core/index.js';
+import type { Workspace } from '../../core/pipeline/analyze/index.js';
 import type {
   ViolationUnpinnedVersion,
   ViolationVersionMismatch,
   ViolationDuplicateWorkspace,
-} from "../../core/pipeline/validate/index.js";
-import { normalizeSemver } from "../../core/primitives/semver/index.js";
-import { theme as c } from "../../theme.js";
+} from '../../core/pipeline/validate/index.js';
+import { normalizeSemver } from '../../core/primitives/semver/index.js';
+import { theme as c } from '../../theme.js';
 
-const interactiveOption = Options.boolean("interactive").pipe(
-  Options.withAlias("i"),
+const interactiveOption = Options.boolean('interactive').pipe(
+  Options.withAlias('i'),
   Options.withDefault(false),
 );
 
@@ -44,7 +44,7 @@ const groupMismatchesByPackage = (
 };
 
 export const fix = Command.make(
-  "fix",
+  'fix',
   { interactive: interactiveOption },
   ({ interactive }) =>
     Effect.gen(function* () {
@@ -60,7 +60,7 @@ export const fix = Command.make(
 
       const duplicateViolations = violations.filter(
         (v): v is ViolationDuplicateWorkspace =>
-          v._tag === "ViolationDuplicateWorkspace",
+          v._tag === 'ViolationDuplicateWorkspace',
       );
 
       if (duplicateViolations.length > 0) {
@@ -84,7 +84,7 @@ export const fix = Command.make(
       let mismatchFixedCount = 0;
 
       const formatViolations = violations.filter(
-        (v) => v._tag === "ViolationFormatPackageJson",
+        (v) => v._tag === 'ViolationFormatPackageJson',
       );
 
       if (formatViolations.length > 0) {
@@ -113,7 +113,7 @@ export const fix = Command.make(
 
       const unpinnedViolations = violations.filter(
         (v): v is ViolationUnpinnedVersion =>
-          v._tag === "ViolationUnpinnedVersion",
+          v._tag === 'ViolationUnpinnedVersion',
       );
 
       if (unpinnedViolations.length > 0) {
@@ -153,7 +153,7 @@ export const fix = Command.make(
 
       const mismatchViolations = violations.filter(
         (v): v is ViolationVersionMismatch =>
-          v._tag === "ViolationVersionMismatch",
+          v._tag === 'ViolationVersionMismatch',
       );
       const mismatchesByPackage = groupMismatchesByPackage(mismatchViolations);
 
@@ -169,7 +169,7 @@ export const fix = Command.make(
             const workspaces = info.workspacesByVersion.get(version) ?? [];
             const workspaceNames = workspaces
               .map((w) => w.workspace)
-              .join(", ");
+              .join(', ');
             return {
               title: `${version} ${c.muted}(${workspaceNames})${c.reset}`,
               value: version,
@@ -207,23 +207,23 @@ export const fix = Command.make(
       }
 
       yield* Console.log(`\nSummary`);
-      yield* Console.log(`${c.muted}${"─".repeat(40)}${c.reset}`);
+      yield* Console.log(`${c.muted}${'─'.repeat(40)}${c.reset}`);
 
       if (formattedCount > 0) {
         yield* Console.log(
-          `${c.success}Fixed${c.reset}    ${formattedCount} formatting issue${formattedCount === 1 ? "" : "s"}`,
+          `${c.success}Fixed${c.reset}    ${formattedCount} formatting issue${formattedCount === 1 ? '' : 's'}`,
         );
       }
 
       if (pinnedCount > 0) {
         yield* Console.log(
-          `${c.success}Fixed${c.reset}    ${pinnedCount} unpinned version${pinnedCount === 1 ? "" : "s"}`,
+          `${c.success}Fixed${c.reset}    ${pinnedCount} unpinned version${pinnedCount === 1 ? '' : 's'}`,
         );
       }
 
       if (mismatchFixedCount > 0) {
         yield* Console.log(
-          `${c.success}Fixed${c.reset}    ${mismatchFixedCount} version mismatch${mismatchFixedCount === 1 ? "" : "es"}`,
+          `${c.success}Fixed${c.reset}    ${mismatchFixedCount} version mismatch${mismatchFixedCount === 1 ? '' : 'es'}`,
         );
       }
 
@@ -231,12 +231,12 @@ export const fix = Command.make(
 
       if (skippedMismatches > 0) {
         yield* Console.log(
-          `${c.warning}Skipped${c.reset}  ${skippedMismatches} version mismatch${skippedMismatches === 1 ? "" : "es"} ${c.muted}(use -i to resolve)${c.reset}`,
+          `${c.warning}Skipped${c.reset}  ${skippedMismatches} version mismatch${skippedMismatches === 1 ? '' : 'es'} ${c.muted}(use -i to resolve)${c.reset}`,
         );
 
         for (const [pkg, info] of mismatchesByPackage) {
           yield* Console.log(
-            `${c.muted}         ${pkg}: ${info.versions.join(", ")}${c.reset}`,
+            `${c.muted}         ${pkg}: ${info.versions.join(', ')}${c.reset}`,
           );
         }
       }
@@ -244,7 +244,7 @@ export const fix = Command.make(
       const totalFixed = formattedCount + pinnedCount + mismatchFixedCount;
       const totalSkipped = skippedMismatches;
 
-      yield* Console.log(`${c.muted}${"─".repeat(40)}${c.reset}`);
+      yield* Console.log(`${c.muted}${'─'.repeat(40)}${c.reset}`);
       yield* Console.log(
         `Total    ${totalFixed} fixed, ${totalSkipped} skipped`,
       );

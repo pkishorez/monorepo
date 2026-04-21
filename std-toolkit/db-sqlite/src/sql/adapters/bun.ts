@@ -1,8 +1,8 @@
-import type { Database, SQLQueryBindings } from "bun:sqlite";
-import { Effect, Layer } from "effect";
-import { SqliteDB, SqliteDBError } from "../db.js";
-import * as Sql from "../helpers/index.js";
-import type { Where } from "../helpers/index.js";
+import type { Database, SQLQueryBindings } from 'bun:sqlite';
+import { Effect, Layer } from 'effect';
+import { SqliteDB, SqliteDBError } from '../db.js';
+import * as Sql from '../helpers/index.js';
+import type { Where } from '../helpers/index.js';
 
 const params = (p: unknown[]) => p as SQLQueryBindings[];
 
@@ -80,7 +80,7 @@ export const SqliteDBBun = (db: Database) =>
         });
         if (rows.length === 0) {
           return yield* Effect.fail(
-            SqliteDBError.getFailed(table, "Item not found"),
+            SqliteDBError.getFailed(table, 'Item not found'),
           );
         }
         return rows[0]!;
@@ -89,7 +89,12 @@ export const SqliteDBBun = (db: Database) =>
     query: <T extends Record<string, unknown>>(
       table: string,
       where: Where,
-      options?: { orderBy?: "ASC" | "DESC"; orderByColumn?: string; limit?: number; offset?: number },
+      options?: {
+        orderBy?: 'ASC' | 'DESC';
+        orderByColumn?: string;
+        limit?: number;
+        offset?: number;
+      },
     ) =>
       Effect.try({
         try: () => {

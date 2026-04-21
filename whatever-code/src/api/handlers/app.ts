@@ -1,39 +1,37 @@
-import { Effect, Stream } from "effect";
-import { spawn, execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { platform } from "node:os";
-import { listSessions } from "@anthropic-ai/claude-agent-sdk";
-import { AppError, AppRpcs } from "../definitions/app.js";
-import { BroadcastService } from "../../services/broadcast.js";
-import { dataDir } from "../../db/index.js";
-import { projectSqliteEntity } from "../../db/entities/claude.js";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
-import { turnSqliteEntity } from "../../db/entities/turn.js";
-import { computePaths } from "../../core/lib/paths.js";
+import { Effect, Stream } from 'effect';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { platform } from 'node:os';
+import { listSessions } from '@anthropic-ai/claude-agent-sdk';
+import { AppError, AppRpcs } from '../definitions/app.js';
+import { BroadcastService } from '../../services/broadcast.js';
+import { dataDir } from '../../db/index.js';
+import { projectSqliteEntity } from '../../db/entities/claude.js';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
+import { turnSqliteEntity } from '../../db/entities/turn.js';
+import { computePaths } from '../../core/lib/paths.js';
 
 const execFilePromise = promisify(execFile);
 
 const openCommand =
-  platform() === "darwin"
-    ? "open"
-    : platform() === "win32"
-      ? "explorer"
-      : "xdg-open";
+  platform() === 'darwin'
+    ? 'open'
+    : platform() === 'win32'
+      ? 'explorer'
+      : 'xdg-open';
 
 export const AppHandlers = AppRpcs.toLayer(
   AppRpcs.of({
-    "app.subscribe": () =>
+    'app.subscribe': () =>
       Stream.unwrap(BroadcastService.pipe(Effect.map((v) => v.subscribe))),
-    "app.revealDataFolder": () =>
+    'app.revealDataFolder': () =>
       Effect.sync(() => {
         spawn(openCommand, [dataDir], {
           detached: true,
-          stdio: "ignore",
+          stdio: 'ignore',
         }).unref();
-      }).pipe(
-        Effect.withSpan("rpc.app.revealDataFolder"),
-      ),
-    "app.openProject": ({ absolutePath }) =>
+      }).pipe(Effect.withSpan('rpc.app.revealDataFolder')),
+    'app.openProject': ({ absolutePath }) =>
       Effect.gen(function* () {
         const existing = yield* projectSqliteEntity
           .get({ id: absolutePath })
@@ -54,17 +52,19 @@ export const AppHandlers = AppRpcs.toLayer(
           .pipe(Effect.orDie);
       }).pipe(
         Effect.mapError((e) => new AppError({ message: String(e) })),
-        Effect.withSpan("rpc.app.openProject", { attributes: { absolutePath } }),
+        Effect.withSpan('rpc.app.openProject', {
+          attributes: { absolutePath },
+        }),
       ),
-    "app.queryProjects": ({ ">": cursor }) =>
+    'app.queryProjects': ({ '>': cursor }) =>
       projectSqliteEntity
-        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .query('byUpdatedAt', { pk: {}, sk: { '>': cursor } })
         .pipe(
           Effect.map(({ items }) => items),
           Effect.mapError((e) => new AppError({ message: String(e) })),
-          Effect.withSpan("rpc.app.queryProjects"),
+          Effect.withSpan('rpc.app.queryProjects'),
         ),
-    "app.discoverProjects": () =>
+    'app.discoverProjects': () =>
       Effect.tryPromise({
         try: () => listSessions(),
         catch: (e) => new AppError({ message: String(e) }),
@@ -81,53 +81,59 @@ export const AppHandlers = AppRpcs.toLayer(
               sessionCount,
             }));
         }),
-        Effect.withSpan("rpc.app.discoverProjects"),
+        Effect.withSpan('rpc.app.discoverProjects'),
       ),
-    "app.getProjectFiles": ({ absolutePath }) =>
+    'app.getProjectFiles': ({ absolutePath }) =>
       Effect.tryPromise({
         try: () =>
           execFilePromise(
-            "git",
-            ["ls-files", "--cached", "--others", "--exclude-standard"],
+            'git',
+            ['ls-files', '--cached', '--others', '--exclude-standard'],
             { cwd: absolutePath },
           ),
         catch: (e) => new AppError({ message: String(e) }),
       }).pipe(
         Effect.map(({ stdout }) => {
-          const files = stdout.trim().split("\n").filter(Boolean);
+          const files = stdout.trim().split('\n').filter(Boolean);
           const dirs = new Set<string>();
           for (const file of files) {
-            let i = file.indexOf("/");
+            let i = file.indexOf('/');
             while (i !== -1) {
               dirs.add(file.slice(0, i + 1));
-              i = file.indexOf("/", i + 1);
+              i = file.indexOf('/', i + 1);
             }
           }
           return [...dirs].sort().concat(files);
         }),
-        Effect.withSpan("rpc.app.getProjectFiles", { attributes: { absolutePath } }),
+        Effect.withSpan('rpc.app.getProjectFiles', {
+          attributes: { absolutePath },
+        }),
       ),
-    "app.querySessions": ({ ">": cursor }) =>
+    'app.querySessions': ({ '>': cursor }) =>
       sessionSqliteEntity
-        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .query('byUpdatedAt', { pk: {}, sk: { '>': cursor } })
         .pipe(
           Effect.map(({ items }) => items),
           Effect.mapError((e) => new AppError({ message: String(e) })),
-          Effect.withSpan("rpc.app.querySessions"),
+          Effect.withSpan('rpc.app.querySessions'),
         ),
-    "app.queryTurns": ({ ">": cursor }) =>
+    'app.queryTurns': ({ '>': cursor }) =>
       turnSqliteEntity
-        .query("byUpdatedAt", { pk: {}, sk: { ">": cursor } })
+        .query('byUpdatedAt', { pk: {}, sk: { '>': cursor } })
         .pipe(
           Effect.map(({ items }) => items),
           Effect.mapError((e) => new AppError({ message: String(e) })),
-          Effect.withSpan("rpc.app.queryTurns"),
+          Effect.withSpan('rpc.app.queryTurns'),
         ),
-    "app.updateProjectSettings": ({ id, settings }) =>
+    'app.updateProjectSettings': ({ id, settings }) =>
       Effect.gen(function* () {
-        const existing = yield* projectSqliteEntity.get({ id }).pipe(Effect.orDie);
+        const existing = yield* projectSqliteEntity
+          .get({ id })
+          .pipe(Effect.orDie);
         if (!existing) {
-          return yield* Effect.fail(new AppError({ message: `Project not found: ${id}` }));
+          return yield* Effect.fail(
+            new AppError({ message: `Project not found: ${id}` }),
+          );
         }
         const existingSettings = existing.value.settings;
         const mergedTaskCommands =
@@ -137,16 +143,24 @@ export const AppHandlers = AppRpcs.toLayer(
         const merged = {
           ...existingSettings,
           ...settings,
-          ...(mergedTaskCommands !== undefined ? { taskCommands: mergedTaskCommands } : {}),
+          ...(mergedTaskCommands !== undefined
+            ? { taskCommands: mergedTaskCommands }
+            : {}),
         };
-        yield* projectSqliteEntity.update({ id }, { settings: merged }).pipe(Effect.orDie);
-        const updated = yield* projectSqliteEntity.get({ id }).pipe(Effect.orDie);
+        yield* projectSqliteEntity
+          .update({ id }, { settings: merged })
+          .pipe(Effect.orDie);
+        const updated = yield* projectSqliteEntity
+          .get({ id })
+          .pipe(Effect.orDie);
         return updated!;
       }).pipe(
         Effect.mapError((e) =>
           e instanceof AppError ? e : new AppError({ message: String(e) }),
         ),
-        Effect.withSpan("rpc.app.updateProjectSettings", { attributes: { id } }),
+        Effect.withSpan('rpc.app.updateProjectSettings', {
+          attributes: { id },
+        }),
       ),
   }),
 );
