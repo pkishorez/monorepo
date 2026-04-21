@@ -5,21 +5,25 @@
   "license": "ISC",
   "author": "Kishore",
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "vp run -r build",
     "changeset": "changeset",
-    "clean": "del-cli '**/.turbo' '**/node_modules' '**/dist'",
+    "check": "vp check",
+    "clean": "del-cli '**/node_modules' '**/dist'",
+    "dev": "vp run -r dev",
+    "fmt": "vp fmt",
+    "lint": "vp check",
     "postinstall": "node scripts/fix-node-pty-permissions.js",
-    "lint": "pnpm -r lint",
-    "prepare-release": "changeset && changeset version",
     "release": "pnpm build && changeset publish",
-    "test:run": "pnpm -r test:run",
+    "test": "vp run -r test",
     "updates": "npx -y npm-check-updates -iws",
     "version": "changeset version"
   },
   "devDependencies": {
     "@changesets/changelog-github": "0.6.0",
     "@changesets/cli": "2.31.0",
-    "del-cli": "7.0.0"
+    "del-cli": "7.0.0",
+    "typescript": "6.0.3",
+    "vite-plus": "0.1.18"
   },
   "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319"
 }

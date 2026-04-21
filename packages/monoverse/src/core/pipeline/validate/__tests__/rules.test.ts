@@ -1,4 +1,7 @@
-import { describe, it, expect } from '@effect/vitest';
+import { describe, it, expect } from 'vitest';
+
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
 import { Effect } from 'effect';
 import type { ProjectAnalysis } from '../../analyze/types.js';
 import {
@@ -19,7 +22,7 @@ function createAnalysis(
 }
 
 describe('groupDependenciesByPackage', () => {
-  it.effect('groups dependencies by package name', () =>
+  itEffect('groups dependencies by package name', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -52,7 +55,9 @@ describe('groupDependenciesByPackage', () => {
         },
       ]);
 
-      const result = yield* Effect.sync(() => groupDependenciesByPackage(analysis));
+      const result = yield* Effect.sync(() =>
+        groupDependenciesByPackage(analysis),
+      );
 
       expect(result).toHaveLength(1);
       expect(result[0]!.name).toBe('react');
@@ -60,7 +65,7 @@ describe('groupDependenciesByPackage', () => {
     }),
   );
 
-  it.effect('filters by source', () =>
+  itEffect('filters by source', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -101,7 +106,7 @@ describe('groupDependenciesByPackage', () => {
 });
 
 describe('detectUnpinnedVersions', () => {
-  it.effect('detects caret ranges', () =>
+  itEffect('detects caret ranges', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -128,7 +133,7 @@ describe('detectUnpinnedVersions', () => {
     }),
   );
 
-  it.effect('detects tilde ranges', () =>
+  itEffect('detects tilde ranges', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -154,7 +159,7 @@ describe('detectUnpinnedVersions', () => {
     }),
   );
 
-  it.effect('detects wildcards', () =>
+  itEffect('detects wildcards', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -179,7 +184,7 @@ describe('detectUnpinnedVersions', () => {
     }),
   );
 
-  it.effect('allows pinned versions', () =>
+  itEffect('allows pinned versions', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -206,7 +211,7 @@ describe('detectUnpinnedVersions', () => {
 });
 
 describe('detectVersionMismatches', () => {
-  it.effect('detects different versions across workspaces', () =>
+  itEffect('detects different versions across workspaces', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -247,7 +252,7 @@ describe('detectVersionMismatches', () => {
     }),
   );
 
-  it.effect('ignores packages with same version', () =>
+  itEffect('ignores packages with same version', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -286,7 +291,7 @@ describe('detectVersionMismatches', () => {
     }),
   );
 
-  it.effect('ignores packages used in only one workspace', () =>
+  itEffect('ignores packages used in only one workspace', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -311,7 +316,7 @@ describe('detectVersionMismatches', () => {
     }),
   );
 
-  it.effect('includes all versions in details', () =>
+  itEffect('includes all versions in details', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {
@@ -367,7 +372,7 @@ describe('detectVersionMismatches', () => {
 });
 
 describe('detectFormatPackageJson', () => {
-  it.effect('returns empty for non-existent paths', () =>
+  itEffect('returns empty for non-existent paths', () =>
     Effect.gen(function* () {
       const analysis = createAnalysis([
         {

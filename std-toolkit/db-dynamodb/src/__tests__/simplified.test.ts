@@ -1,32 +1,35 @@
-import { describe, it, expect, beforeAll, afterAll } from "@effect/vitest";
-import { Chunk, Effect, Schema, Stream } from "effect";
-import { EntityESchema } from "@std-toolkit/eschema";
-import { DynamoTable, DynamoEntity } from "../index.js";
-import { createDynamoDB } from "../services/dynamo-client.js";
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
+  it(name, () => Effect.runPromise(fn()));
+import { Chunk, Effect, Schema, Stream } from 'effect';
+import { EntityESchema } from '@std-toolkit/eschema';
+import { DynamoTable, DynamoEntity } from '../index.js';
+import { createDynamoDB } from '../services/dynamo-client.js';
 
 // Use timestamp-based name to avoid schema conflicts between test runs
 const TEST_TABLE_NAME = `db-dynamodb-simplified-test-${Date.now()}`;
-const LOCAL_ENDPOINT = "http://localhost:8090";
+const LOCAL_ENDPOINT = 'http://localhost:8090';
 
 const localConfig = {
   tableName: TEST_TABLE_NAME,
-  region: "us-east-1",
+  region: 'us-east-1',
   credentials: {
-    accessKeyId: "local",
-    secretAccessKey: "local",
+    accessKeyId: 'local',
+    secretAccessKey: 'local',
   },
   endpoint: LOCAL_ENDPOINT,
 };
 
 // Create table instance
 const table = DynamoTable.make(localConfig)
-  .primary("pk", "sk")
-  .gsi("GSI1", "GSI1PK", "GSI1SK")
+  .primary('pk', 'sk')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
 // Order schema for testing with composite key
 // idField is "orderId" - automatically added as a branded string
-const orderSchema = EntityESchema.make("Order", "orderId", {
+const orderSchema = EntityESchema.make('Order', 'orderId', {
   userId: Schema.String,
   total: Schema.Number,
   status: Schema.String,
@@ -36,8 +39,8 @@ const orderSchema = EntityESchema.make("Order", "orderId", {
 // SK is automatically _u for secondary indexes
 const OrderEntity = DynamoEntity.make(table)
   .eschema(orderSchema)
-  .primary({ pk: ["userId"] })
-  .index("GSI1", "byStatus", { pk: ["status"] })
+  .primary({ pk: ['userId'] })
+  .index('GSI1', 'byStatus', { pk: ['status'] })
   .build();
 
 // Helper to create the test table
@@ -47,23 +50,23 @@ async function createTestTable() {
   const createParams = {
     TableName: TEST_TABLE_NAME,
     KeySchema: [
-      { AttributeName: "pk", KeyType: "HASH" },
-      { AttributeName: "sk", KeyType: "RANGE" },
+      { AttributeName: 'pk', KeyType: 'HASH' },
+      { AttributeName: 'sk', KeyType: 'RANGE' },
     ],
     AttributeDefinitions: [
-      { AttributeName: "pk", AttributeType: "S" },
-      { AttributeName: "sk", AttributeType: "S" },
-      { AttributeName: "GSI1PK", AttributeType: "S" },
-      { AttributeName: "GSI1SK", AttributeType: "S" },
+      { AttributeName: 'pk', AttributeType: 'S' },
+      { AttributeName: 'sk', AttributeType: 'S' },
+      { AttributeName: 'GSI1PK', AttributeType: 'S' },
+      { AttributeName: 'GSI1SK', AttributeType: 'S' },
     ],
     GlobalSecondaryIndexes: [
       {
-        IndexName: "GSI1",
+        IndexName: 'GSI1',
         KeySchema: [
-          { AttributeName: "GSI1PK", KeyType: "HASH" },
-          { AttributeName: "GSI1SK", KeyType: "RANGE" },
+          { AttributeName: 'GSI1PK', KeyType: 'HASH' },
+          { AttributeName: 'GSI1SK', KeyType: 'RANGE' },
         ],
-        Projection: { ProjectionType: "ALL" },
+        Projection: { ProjectionType: 'ALL' },
         ProvisionedThroughput: {
           ReadCapacityUnits: 5,
           WriteCapacityUnits: 5,
@@ -80,7 +83,7 @@ async function createTestTable() {
     client.createTable(createParams).pipe(
       Effect.catchAll((e) => {
         const errorName = (e as any)?.error?.name;
-        if (errorName === "ResourceInUseException") {
+        if (errorName === 'ResourceInUseException') {
           return Effect.void;
         }
         return Effect.fail(e);
@@ -98,7 +101,7 @@ async function deleteTestTable() {
   }
 }
 
-describe("Simplified API Tests", () => {
+describe('Simplified API Tests', () => {
   beforeAll(async () => {
     await createTestTable();
 
@@ -106,28 +109,28 @@ describe("Simplified API Tests", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         yield* OrderEntity.insert({
-          userId: "user-001",
-          orderId: "order-001",
+          userId: 'user-001',
+          orderId: 'order-001',
           total: 100,
-          status: "pending",
+          status: 'pending',
         });
         yield* OrderEntity.insert({
-          userId: "user-001",
-          orderId: "order-002",
+          userId: 'user-001',
+          orderId: 'order-002',
           total: 200,
-          status: "completed",
+          status: 'completed',
         });
         yield* OrderEntity.insert({
-          userId: "user-001",
-          orderId: "order-003",
+          userId: 'user-001',
+          orderId: 'order-003',
           total: 300,
-          status: "pending",
+          status: 'pending',
         });
         yield* OrderEntity.insert({
-          userId: "user-002",
-          orderId: "order-004",
+          userId: 'user-002',
+          orderId: 'order-004',
           total: 150,
-          status: "pending",
+          status: 'pending',
         });
       }),
     );
@@ -137,64 +140,64 @@ describe("Simplified API Tests", () => {
     await deleteTestTable();
   });
 
-  describe("query(key, params, options) - Simplified Query", () => {
-    it.effect("queries primary index with >= operator (ascending)", () =>
+  describe('query(key, params, options) - Simplified Query', () => {
+    itEffect('queries primary index with >= operator (ascending)', () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("primary", {
-          pk: { userId: "user-001" },
-          sk: { ">=": "order-001" },
+        const result = yield* OrderEntity.query('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '>=': 'order-001' },
         });
 
         expect(result.items.length).toBe(3);
         // Should be in ascending order
-        expect(result.items[0]?.value.orderId).toBe("order-001");
+        expect(result.items[0]?.value.orderId).toBe('order-001');
       }),
     );
 
-    it.effect("queries primary index with > operator (ascending)", () =>
+    itEffect('queries primary index with > operator (ascending)', () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("primary", {
-          pk: { userId: "user-001" },
-          sk: { ">": "order-001" },
+        const result = yield* OrderEntity.query('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '>': 'order-001' },
         });
 
         expect(result.items.length).toBe(2);
-        expect(result.items[0]?.value.orderId).toBe("order-002");
+        expect(result.items[0]?.value.orderId).toBe('order-002');
       }),
     );
 
-    it.effect("queries primary index with <= operator (descending)", () =>
+    itEffect('queries primary index with <= operator (descending)', () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("primary", {
-          pk: { userId: "user-001" },
-          sk: { "<=": "order-003" },
+        const result = yield* OrderEntity.query('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '<=': 'order-003' },
         });
 
         expect(result.items.length).toBe(3);
         // Should be in descending order
-        expect(result.items[0]?.value.orderId).toBe("order-003");
+        expect(result.items[0]?.value.orderId).toBe('order-003');
       }),
     );
 
-    it.effect("queries primary index with < operator (descending)", () =>
+    itEffect('queries primary index with < operator (descending)', () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("primary", {
-          pk: { userId: "user-001" },
-          sk: { "<": "order-003" },
+        const result = yield* OrderEntity.query('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '<': 'order-003' },
         });
 
         expect(result.items.length).toBe(2);
-        expect(result.items[0]?.value.orderId).toBe("order-002");
+        expect(result.items[0]?.value.orderId).toBe('order-002');
       }),
     );
 
-    it.effect("queries with limit option", () =>
+    itEffect('queries with limit option', () =>
       Effect.gen(function* () {
         const result = yield* OrderEntity.query(
-          "primary",
+          'primary',
           {
-            pk: { userId: "user-001" },
-            sk: { ">=": "order-001" },
+            pk: { userId: 'user-001' },
+            sk: { '>=': 'order-001' },
           },
           { limit: 2 },
         );
@@ -203,37 +206,37 @@ describe("Simplified API Tests", () => {
       }),
     );
 
-    it.effect("queries all items ascending with sk: { '>=': null }", () =>
+    itEffect("queries all items ascending with sk: { '>=': null }", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("primary", {
-          pk: { userId: "user-001" },
-          sk: { ">=": null },
+        const result = yield* OrderEntity.query('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '>=': null },
         });
 
         expect(result.items.length).toBe(3);
-        expect(result.items[0]?.value.orderId).toBe("order-001");
+        expect(result.items[0]?.value.orderId).toBe('order-001');
       }),
     );
 
-    it.effect("queries all items descending with sk: { '<=': null }", () =>
+    itEffect("queries all items descending with sk: { '<=': null }", () =>
       Effect.gen(function* () {
-        const result = yield* OrderEntity.query("primary", {
-          pk: { userId: "user-001" },
-          sk: { "<=": null },
+        const result = yield* OrderEntity.query('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '<=': null },
         });
 
         expect(result.items.length).toBe(3);
-        expect(result.items[0]?.value.orderId).toBe("order-003");
+        expect(result.items[0]?.value.orderId).toBe('order-003');
       }),
     );
 
-    it.effect("queries secondary index (SK is _u)", () =>
+    itEffect('queries secondary index (SK is _u)', () =>
       Effect.gen(function* () {
         // Secondary indexes use _u as SK, not a custom field
         // Query all items with >= null to get all
-        const result = yield* OrderEntity.query("byStatus", {
-          pk: { status: "pending" },
-          sk: { ">=": null },
+        const result = yield* OrderEntity.query('byStatus', {
+          pk: { status: 'pending' },
+          sk: { '>=': null },
         });
 
         // Should find all pending orders (3 total - user-001 has 2, user-002 has 1)
@@ -242,14 +245,14 @@ describe("Simplified API Tests", () => {
     );
   });
 
-  describe("subscribe(opts) - Subscription Query", () => {
-    it.effect(
-      "succeeds with cursor from previous query on secondary index",
+  describe('subscribe(opts) - Subscription Query', () => {
+    itEffect(
+      'succeeds with cursor from previous query on secondary index',
       () =>
         Effect.gen(function* () {
-          const all = yield* OrderEntity.query("byStatus", {
-            pk: { status: "pending" },
-            sk: { ">=": null },
+          const all = yield* OrderEntity.query('byStatus', {
+            pk: { status: 'pending' },
+            sk: { '>=': null },
           });
 
           expect(all.items.length).toBe(3);
@@ -257,8 +260,8 @@ describe("Simplified API Tests", () => {
           const cursor = all.items[0]!.meta._u;
 
           const result = yield* OrderEntity.subscribe({
-            key: "byStatus",
-            pk: { status: "pending" },
+            key: 'byStatus',
+            pk: { status: 'pending' },
             cursor,
             limit: 10,
           });
@@ -267,11 +270,11 @@ describe("Simplified API Tests", () => {
         }),
     );
 
-    it.effect("succeeds with null cursor on secondary index", () =>
+    itEffect('succeeds with null cursor on secondary index', () =>
       Effect.gen(function* () {
         const result = yield* OrderEntity.subscribe({
-          key: "byStatus",
-          pk: { status: "pending" },
+          key: 'byStatus',
+          pk: { status: 'pending' },
           cursor: null,
           limit: 10,
         });
@@ -281,12 +284,12 @@ describe("Simplified API Tests", () => {
     );
   });
 
-  describe("queryStream(key, params, options) - Stream Query", () => {
-    it.effect("streams all items ascending with > null", () =>
+  describe('queryStream(key, params, options) - Stream Query', () => {
+    itEffect('streams all items ascending with > null', () =>
       Effect.gen(function* () {
-        const stream = OrderEntity.queryStream("primary", {
-          pk: { userId: "user-001" },
-          sk: { ">": null },
+        const stream = OrderEntity.queryStream('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '>': null },
         });
 
         const batchesChunk = yield* Stream.runCollect(stream);
@@ -294,16 +297,16 @@ describe("Simplified API Tests", () => {
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(3);
-        expect(allItems[0]?.value.orderId).toBe("order-001");
-        expect(allItems[2]?.value.orderId).toBe("order-003");
+        expect(allItems[0]?.value.orderId).toBe('order-001');
+        expect(allItems[2]?.value.orderId).toBe('order-003');
       }),
     );
 
-    it.effect("streams all items descending with < null", () =>
+    itEffect('streams all items descending with < null', () =>
       Effect.gen(function* () {
-        const stream = OrderEntity.queryStream("primary", {
-          pk: { userId: "user-001" },
-          sk: { "<": null },
+        const stream = OrderEntity.queryStream('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '<': null },
         });
 
         const batchesChunk = yield* Stream.runCollect(stream);
@@ -311,18 +314,18 @@ describe("Simplified API Tests", () => {
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(3);
-        expect(allItems[0]?.value.orderId).toBe("order-003");
-        expect(allItems[2]?.value.orderId).toBe("order-001");
+        expect(allItems[0]?.value.orderId).toBe('order-003');
+        expect(allItems[2]?.value.orderId).toBe('order-001');
       }),
     );
 
-    it.effect("respects batchSize option", () =>
+    itEffect('respects batchSize option', () =>
       Effect.gen(function* () {
         const stream = OrderEntity.queryStream(
-          "primary",
+          'primary',
           {
-            pk: { userId: "user-001" },
-            sk: { ">": null },
+            pk: { userId: 'user-001' },
+            sk: { '>': null },
           },
           { batchSize: 2 },
         );
@@ -336,11 +339,11 @@ describe("Simplified API Tests", () => {
       }),
     );
 
-    it.effect("returns empty stream for empty partition", () =>
+    itEffect('returns empty stream for empty partition', () =>
       Effect.gen(function* () {
-        const stream = OrderEntity.queryStream("primary", {
-          pk: { userId: "non-existent-user" },
-          sk: { ">": null },
+        const stream = OrderEntity.queryStream('primary', {
+          pk: { userId: 'non-existent-user' },
+          sk: { '>': null },
         });
 
         const batchesChunk = yield* Stream.runCollect(stream);
@@ -351,22 +354,22 @@ describe("Simplified API Tests", () => {
       }),
     );
 
-    it.effect("continues from cursor correctly (primary index)", () =>
+    itEffect('continues from cursor correctly (primary index)', () =>
       Effect.gen(function* () {
         const firstResult = yield* OrderEntity.query(
-          "primary",
+          'primary',
           {
-            pk: { userId: "user-001" },
-            sk: { ">": null },
+            pk: { userId: 'user-001' },
+            sk: { '>': null },
           },
           { limit: 1 },
         );
 
         const cursor = firstResult.items[0]!.value.orderId;
 
-        const stream = OrderEntity.queryStream("primary", {
-          pk: { userId: "user-001" },
-          sk: { ">": cursor },
+        const stream = OrderEntity.queryStream('primary', {
+          pk: { userId: 'user-001' },
+          sk: { '>': cursor },
         });
 
         const batchesChunk = yield* Stream.runCollect(stream);
@@ -374,27 +377,27 @@ describe("Simplified API Tests", () => {
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(2);
-        expect(allItems[0]?.value.orderId).toBe("order-002");
-        expect(allItems[1]?.value.orderId).toBe("order-003");
+        expect(allItems[0]?.value.orderId).toBe('order-002');
+        expect(allItems[1]?.value.orderId).toBe('order-003');
       }),
     );
 
-    it.effect("continues from cursor correctly (secondary index)", () =>
+    itEffect('continues from cursor correctly (secondary index)', () =>
       Effect.gen(function* () {
         const firstResult = yield* OrderEntity.query(
-          "byStatus",
+          'byStatus',
           {
-            pk: { status: "pending" },
-            sk: { ">": null },
+            pk: { status: 'pending' },
+            sk: { '>': null },
           },
           { limit: 1 },
         );
 
         const cursor = firstResult.items[0]!.meta._u;
 
-        const stream = OrderEntity.queryStream("byStatus", {
-          pk: { status: "pending" },
-          sk: { ">": cursor },
+        const stream = OrderEntity.queryStream('byStatus', {
+          pk: { status: 'pending' },
+          sk: { '>': cursor },
         });
 
         const batchesChunk = yield* Stream.runCollect(stream);
@@ -405,11 +408,11 @@ describe("Simplified API Tests", () => {
       }),
     );
 
-    it.effect("works with secondary index", () =>
+    itEffect('works with secondary index', () =>
       Effect.gen(function* () {
-        const stream = OrderEntity.queryStream("byStatus", {
-          pk: { status: "pending" },
-          sk: { ">": null },
+        const stream = OrderEntity.queryStream('byStatus', {
+          pk: { status: 'pending' },
+          sk: { '>': null },
         });
 
         const batchesChunk = yield* Stream.runCollect(stream);

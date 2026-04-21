@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@effect/vitest';
+import { describe, it, expect } from 'vitest';
 import { parseDependencySource, parseDependencies } from '../dependency.js';
 
 describe('parseDependencySource', () => {
@@ -63,7 +63,7 @@ describe('parseDependencies', () => {
   });
 
   it('marks workspace dependencies', () => {
-    const deps = { '@internal/lib': 'workspace:*', 'react': '^18.0.0' };
+    const deps = { '@internal/lib': 'workspace:*', react: '^18.0.0' };
     const workspaceNames = new Set(['@internal/lib']);
     const result = parseDependencies(deps, 'dependency', workspaceNames);
 
