@@ -35,10 +35,10 @@
     "@effect/vitest": "0.29.0",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.6.0",
-    "effect": "3.21.0",
+    "effect": "3.21.1",
     "fake-indexeddb": "6.2.5",
-    "typescript": "6.0.2",
-    "vite": "8.0.8",
+    "typescript": "6.0.3",
+    "vite": "8.0.9",
     "vite-tsconfig-paths": "6.1.1",
     "vitest": "4.1.4"
   },
