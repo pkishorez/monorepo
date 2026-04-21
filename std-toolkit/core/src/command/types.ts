@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect } from 'effect';
 import {
   CommandTimingSchema,
   CommandPayloadSchema,
@@ -16,7 +16,7 @@ import {
   DescriptorResponseSchema,
   SkConditionSchema,
   StdDescriptorSchema,
-} from "./schema.js";
+} from './schema.js';
 
 // ─── TYPES DERIVED FROM SCHEMAS ───────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ export type DescriptorResponse = typeof DescriptorResponseSchema.Type;
 export type CommandResponse = typeof CommandResponseSchema.Type;
 export type StdDescriptor = typeof StdDescriptorSchema.Type;
 
-export { CommandErrorSchema as CommandError } from "./schema.js";
+export { CommandErrorSchema as CommandError } from './schema.js';
 
 // ─── INTERNAL INTERFACES ──────────────────────────────────────────────────────
 
@@ -58,10 +58,26 @@ export interface CommonResponse {
 // ─── COMMAND PROCESSOR INTERFACE ──────────────────────────────────────────────
 
 export interface CommandProcessor<R = never> {
-  process(payload: InsertPayload): Effect.Effect<InsertResponse, InstanceType<typeof CommandErrorSchema>, R>;
-  process(payload: UpdatePayload): Effect.Effect<UpdateResponse, InstanceType<typeof CommandErrorSchema>, R>;
-  process(payload: DeletePayload): Effect.Effect<DeleteResponse, InstanceType<typeof CommandErrorSchema>, R>;
-  process(payload: QueryPayload): Effect.Effect<QueryResponse, InstanceType<typeof CommandErrorSchema>, R>;
-  process(payload: DescriptorPayload): Effect.Effect<DescriptorResponse, InstanceType<typeof CommandErrorSchema>, R>;
-  process(payload: CommandPayload): Effect.Effect<CommandResponse, InstanceType<typeof CommandErrorSchema>, R>;
+  process(
+    payload: InsertPayload,
+  ): Effect.Effect<InsertResponse, InstanceType<typeof CommandErrorSchema>, R>;
+  process(
+    payload: UpdatePayload,
+  ): Effect.Effect<UpdateResponse, InstanceType<typeof CommandErrorSchema>, R>;
+  process(
+    payload: DeletePayload,
+  ): Effect.Effect<DeleteResponse, InstanceType<typeof CommandErrorSchema>, R>;
+  process(
+    payload: QueryPayload,
+  ): Effect.Effect<QueryResponse, InstanceType<typeof CommandErrorSchema>, R>;
+  process(
+    payload: DescriptorPayload,
+  ): Effect.Effect<
+    DescriptorResponse,
+    InstanceType<typeof CommandErrorSchema>,
+    R
+  >;
+  process(
+    payload: CommandPayload,
+  ): Effect.Effect<CommandResponse, InstanceType<typeof CommandErrorSchema>, R>;
 }

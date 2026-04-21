@@ -1,56 +1,56 @@
-import { Rpc, RpcGroup } from "@effect/rpc";
-import { Schema } from "effect";
+import { Rpc, RpcGroup } from '@effect/rpc';
+import { Schema } from 'effect';
 import {
   CreateThreadParams,
   ContinueThreadParams,
   UpdateThreadParams,
   RespondToUserInputParams,
-} from "../../agents/codex/schema.js";
-import { EntitySchema } from "@std-toolkit/core";
-import { codexEventProjectedEntity } from "../../core/entity/projection/codex-event.js";
+} from '../../agents/codex/schema.js';
+import { EntitySchema } from '@std-toolkit/core';
+import { codexEventProjectedEntity } from '../../core/entity/projection/codex-event.js';
 
 export class CodexChatError extends Schema.TaggedError<CodexChatError>()(
-  "CodexChatError",
+  'CodexChatError',
   { message: Schema.String },
 ) {}
 
 export class CodexRpcs extends RpcGroup.make(
-  Rpc.make("createThread", {
+  Rpc.make('createThread', {
     success: Schema.Void,
     error: CodexChatError,
     payload: CreateThreadParams,
   }),
-  Rpc.make("continueThread", {
+  Rpc.make('continueThread', {
     success: Schema.Void,
     error: CodexChatError,
     payload: ContinueThreadParams,
   }),
-  Rpc.make("stopThread", {
+  Rpc.make('stopThread', {
     success: Schema.Void,
     error: CodexChatError,
     payload: Schema.Struct({ sessionId: Schema.String }),
   }),
-  Rpc.make("updateThread", {
+  Rpc.make('updateThread', {
     success: Schema.Void,
     error: CodexChatError,
     payload: UpdateThreadParams,
   }),
-  Rpc.make("respondToUserInput", {
+  Rpc.make('respondToUserInput', {
     success: Schema.Void,
     error: CodexChatError,
     payload: RespondToUserInputParams,
   }),
-  Rpc.make("queryEvents", {
+  Rpc.make('queryEvents', {
     success: Schema.Array(EntitySchema(codexEventProjectedEntity)),
     error: CodexChatError,
-    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+    payload: Schema.Struct({ '>': Schema.NullOr(Schema.String) }),
   }),
-  Rpc.make("queryEventsBySession", {
+  Rpc.make('queryEventsBySession', {
     success: Schema.Array(EntitySchema(codexEventProjectedEntity)),
     error: CodexChatError,
     payload: Schema.Struct({
       sessionId: Schema.String,
-      ">": Schema.NullOr(Schema.String),
+      '>': Schema.NullOr(Schema.String),
     }),
   }),
-).prefix("codex.") {}
+).prefix('codex.') {}

@@ -1,19 +1,19 @@
-import type { EntityType } from "@std-toolkit/core";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { BetaContentBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages.mjs";
-import type { ContentBlockParam } from "@anthropic-ai/sdk/resources";
+import type { EntityType } from '@std-toolkit/core';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs';
+import type { ContentBlockParam } from '@anthropic-ai/sdk/resources';
 
 export type ProjectedClaudeMessage =
-  | { type: "user"; text: string; images: string[] }
+  | { type: 'user'; text: string; images: string[] }
   | {
-      type: "assistant";
+      type: 'assistant';
       text: string;
       toolCalls: Array<{ id: string; name: string; input: unknown }>;
       /** Per-call input tokens from BetaUsage (not cumulative). */
       contextTokens: number | null;
     }
   | {
-      type: "tool_result";
+      type: 'tool_result';
       results: Array<{ toolUseId: string; isError: boolean; content: string }>;
     };
 
@@ -33,9 +33,9 @@ interface ProjectedClaudeMessageValue {
 }
 
 function extractAssistantText(content: BetaContentBlock[]): string {
-  let text = "";
+  let text = '';
   for (const block of content) {
-    if (block.type === "text") {
+    if (block.type === 'text') {
       text += block.text;
     }
   }
@@ -51,7 +51,7 @@ function extractToolCalls(
     input: unknown;
   }> = [];
   for (const block of content) {
-    if (block.type === "tool_use") {
+    if (block.type === 'tool_use') {
       calls.push({ id: block.id, name: block.name, input: block.input });
     }
   }
@@ -62,17 +62,17 @@ function extractUserTextAndImages(content: string | ContentBlockParam[]): {
   text: string;
   images: string[];
 } {
-  if (typeof content === "string") return { text: content, images: [] };
-  let text = "";
+  if (typeof content === 'string') return { text: content, images: [] };
+  let text = '';
   const images: string[] = [];
   for (const block of content) {
-    if (block.type === "text") {
+    if (block.type === 'text') {
       text += block.text;
-    } else if (block.type === "image") {
+    } else if (block.type === 'image') {
       const source = block.source;
-      if (source.type === "base64") {
+      if (source.type === 'base64') {
         images.push(`data:${source.media_type};base64,${source.data}`);
-      } else if ("url" in source) {
+      } else if ('url' in source) {
         images.push(source.url);
       }
     }
@@ -80,20 +80,18 @@ function extractUserTextAndImages(content: string | ContentBlockParam[]): {
   return { text, images };
 }
 
-function extractToolResultContent(
-  content: unknown,
-): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  let text = "";
+function extractToolResultContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  let text = '';
   for (const block of content) {
     if (
-      typeof block === "object" &&
+      typeof block === 'object' &&
       block !== null &&
-      "type" in block &&
-      block.type === "text" &&
-      "text" in block &&
-      typeof block.text === "string"
+      'type' in block &&
+      block.type === 'text' &&
+      'text' in block &&
+      typeof block.text === 'string'
     ) {
       text += block.text;
     }
@@ -104,14 +102,14 @@ function extractToolResultContent(
 function extractToolResults(
   content: string | ContentBlockParam[],
 ): Array<{ toolUseId: string; isError: boolean; content: string }> | null {
-  if (typeof content === "string") return null;
+  if (typeof content === 'string') return null;
   const results: Array<{
     toolUseId: string;
     isError: boolean;
     content: string;
   }> = [];
   for (const block of content) {
-    if (block.type === "tool_result") {
+    if (block.type === 'tool_result') {
       results.push({
         toolUseId: block.tool_use_id,
         isError: block.is_error === true,
@@ -128,7 +126,7 @@ export function projectClaudeMessage(
   entity: EntityType<ClaudeMessageValue>,
 ): EntityType<ProjectedClaudeMessageValue> | null {
   const raw = entity.value.data;
-  if (!raw || typeof raw !== "object") return null;
+  if (!raw || typeof raw !== 'object') return null;
 
   const wrap = (
     parentToolUseId: string | null,
@@ -144,22 +142,25 @@ export function projectClaudeMessage(
     },
   });
 
-  if (raw.type === "user") {
+  if (raw.type === 'user') {
     const content = raw.message?.content;
     if (!content) return null;
     const parentToolUseId = raw.parent_tool_use_id ?? null;
 
     const toolResults = extractToolResults(content);
     if (toolResults) {
-      return wrap(parentToolUseId, { type: "tool_result", results: toolResults });
+      return wrap(parentToolUseId, {
+        type: 'tool_result',
+        results: toolResults,
+      });
     }
 
     const { text, images } = extractUserTextAndImages(content);
     if (!text && images.length === 0) return null;
-    return wrap(parentToolUseId, { type: "user", text, images });
+    return wrap(parentToolUseId, { type: 'user', text, images });
   }
 
-  if (raw.type === "assistant") {
+  if (raw.type === 'assistant') {
     const content = raw.message?.content;
     if (!content) return null;
     const parentToolUseId = raw.parent_tool_use_id ?? null;
@@ -168,17 +169,26 @@ export function projectClaudeMessage(
     const toolCalls = extractToolCalls(content);
     if (!text && toolCalls.length === 0) return null;
 
-    const usage = raw.message?.usage as unknown as Record<string, unknown> | undefined;
+    const usage = raw.message?.usage as unknown as
+      | Record<string, unknown>
+      | undefined;
     let contextTokens: number | null = null;
     if (usage) {
       const input = (usage.input_tokens as number | undefined) ?? 0;
-      const cacheRead = (usage.cache_read_input_tokens as number | undefined) ?? 0;
-      const cacheCreation = (usage.cache_creation_input_tokens as number | undefined) ?? 0;
+      const cacheRead =
+        (usage.cache_read_input_tokens as number | undefined) ?? 0;
+      const cacheCreation =
+        (usage.cache_creation_input_tokens as number | undefined) ?? 0;
       const total = input + cacheRead + cacheCreation;
       if (total > 0) contextTokens = total;
     }
 
-    return wrap(parentToolUseId, { type: "assistant", text, toolCalls, contextTokens });
+    return wrap(parentToolUseId, {
+      type: 'assistant',
+      text,
+      toolCalls,
+      contextTokens,
+    });
   }
 
   return null;

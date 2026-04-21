@@ -1,4 +1,4 @@
-export { type Statement } from "./utils.js";
+export { type Statement } from './utils.js';
 export {
   type Where,
   where,
@@ -13,7 +13,7 @@ export {
   begin,
   commit,
   rollback,
-} from "./operations.js";
+} from './operations.js';
 export {
   type TableColumn,
   type ColumnDef,
@@ -25,4 +25,4 @@ export {
   addColumn,
   createIndex,
   deleteAll,
-} from "./schema.js";
+} from './schema.js';

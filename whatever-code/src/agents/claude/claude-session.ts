@@ -1,13 +1,13 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import type {
   PermissionResult,
   SDKMessage,
-} from "@anthropic-ai/claude-agent-sdk";
-import { Deferred, Effect, Exit, Fiber, Queue, Runtime, Stream } from "effect";
-import { ulid } from "ulid";
-import { ClaudeChatError } from "../../api/definitions/claude.js";
-import { turnSqliteEntity } from "../../db/entities/turn.js";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
+} from '@anthropic-ai/claude-agent-sdk';
+import { Deferred, Effect, Exit, Fiber, Queue, Runtime, Stream } from 'effect';
+import { ulid } from 'ulid';
+import { ClaudeChatError } from '../../api/definitions/claude.js';
+import { turnSqliteEntity } from '../../db/entities/turn.js';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
 import {
   markTurnStatus,
   persistNewTurn,
@@ -15,19 +15,19 @@ import {
   appendToQueuedTurn,
   findQueuedTurn,
   readMergedPrompt,
-} from "./utils.js";
-import { updateClaudeTurnPayload } from "../shared/turn.js";
+} from './utils.js';
+import { updateClaudeTurnPayload } from '../shared/turn.js';
 import {
   buildQueryOptions,
   makeCanUseTool,
   processMessage,
   onFiberExit,
   toSDKPrompt,
-} from "./internal/index.js";
-import type { ActiveTurn, SessionRuntimeOptions } from "./internal/index.js";
-import type { OnExecuteStatusUpdate } from "../workflow/schema.js";
-import type { PromptContent } from "./schema.js";
-import { SqliteDB } from "@std-toolkit/sqlite";
+} from './internal/index.js';
+import type { ActiveTurn, SessionRuntimeOptions } from './internal/index.js';
+import type { OnExecuteStatusUpdate } from '../workflow/schema.js';
+import type { PromptContent } from './schema.js';
+import { SqliteDB } from '@std-toolkit/sqlite';
 
 export const makeSessionManager = (args: {
   sessionId: string;
@@ -55,8 +55,11 @@ export const makeSessionManager = (args: {
           } else {
             yield* persistQueuedTurn(sessionId, ulid(), prompt);
           }
-          yield* Effect.log("claude: turn busy, prompt queued").pipe(
-            Effect.annotateLogs({ sessionId, action: queued ? "appended" : "queued" }),
+          yield* Effect.log('claude: turn busy, prompt queued').pipe(
+            Effect.annotateLogs({
+              sessionId,
+              action: queued ? 'appended' : 'queued',
+            }),
           );
           return;
         }
@@ -66,33 +69,33 @@ export const makeSessionManager = (args: {
       // ── Resolve which turn to execute ──
       let turnId: string;
       let sdkPrompt: typeof PromptContent.Type;
-      let turnPath: "drain" | "queued" | "fresh";
+      let turnPath: 'drain' | 'queued' | 'fresh';
 
       if (existingTurnId) {
         // Drain path — queued turn is already persisted
-        turnPath = "drain";
+        turnPath = 'drain';
         turnId = existingTurnId;
         sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
-        yield* markTurnStatus(turnId, sessionId, "in_progress");
+        yield* markTurnStatus(turnId, sessionId, 'in_progress');
       } else {
         // Check for a queued turn (e.g. from a previous error/restart)
         const queued = yield* findQueuedTurn(sessionId);
         if (queued) {
-          turnPath = "queued";
+          turnPath = 'queued';
           turnId = queued.id;
           yield* appendToQueuedTurn(sessionId, turnId, prompt);
           sdkPrompt = yield* readMergedPrompt(sessionId, turnId);
-          yield* markTurnStatus(turnId, sessionId, "in_progress");
+          yield* markTurnStatus(turnId, sessionId, 'in_progress');
         } else {
           // Fresh turn
-          turnPath = "fresh";
+          turnPath = 'fresh';
           turnId = ulid();
           sdkPrompt = prompt;
           yield* persistNewTurn(sessionId, turnId, prompt);
         }
       }
 
-      yield* Effect.log("claude: executing turn").pipe(
+      yield* Effect.log('claude: executing turn').pipe(
         Effect.annotateLogs({ sessionId, turnId, path: turnPath }),
       );
 
@@ -100,10 +103,10 @@ export const makeSessionManager = (args: {
       const session = yield* sessionSqliteEntity.get({ sessionId }).pipe(
         Effect.orDie,
         Effect.flatMap((row) =>
-          row && row.value.payload.type === "claude"
+          row && row.value.payload.type === 'claude'
             ? Effect.succeed(
                 row.value as typeof row.value & {
-                  payload: { type: "claude" };
+                  payload: { type: 'claude' };
                 },
               )
             : Effect.fail(
@@ -115,10 +118,10 @@ export const makeSessionManager = (args: {
       );
 
       const existingTurns = yield* turnSqliteEntity
-        .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+        .query('bySession', { pk: { sessionId }, sk: { '>': null } })
         .pipe(Effect.orDie);
       const isNewSession =
-        existingTurns.items.filter((t) => t.value.status !== "queued").length <=
+        existingTurns.items.filter((t) => t.value.status !== 'queued').length <=
         1;
 
       const initialized = yield* Deferred.make<void, Error>();
@@ -165,7 +168,7 @@ export const makeSessionManager = (args: {
           Stream.tap(processMessage(sessionId, turn, isNewSession)),
           Stream.runDrain,
           Effect.onExit(onFiberExit(sessionId, turn)),
-          Effect.withSpan("claude.backgroundFiber", {
+          Effect.withSpan('claude.backgroundFiber', {
             attributes: { sessionId },
           }),
         ),
@@ -187,7 +190,7 @@ export const makeSessionManager = (args: {
           ? e
           : new ClaudeChatError({ message: String(e) }),
       ),
-      Effect.withSpan("sessionManager.continue", {
+      Effect.withSpan('sessionManager.continue', {
         attributes: { sessionId },
       }),
     );
@@ -198,18 +201,20 @@ export const makeSessionManager = (args: {
       if (!queued) return;
       // prompt is re-read inside continueSession via readMergedPrompt when existingTurnId is set
       yield* continueSession(
-        "" as typeof PromptContent.Type,
+        '' as typeof PromptContent.Type,
         undefined,
         queued.id,
       );
     }).pipe(
       Effect.tapError((e) =>
-        Effect.logWarning("drainQueuedTurn failed").pipe(
+        Effect.logWarning('drainQueuedTurn failed').pipe(
           Effect.annotateLogs({ sessionId, error: String(e) }),
         ),
       ),
       Effect.catchAll(() => Effect.void),
-      Effect.withSpan("claude.session.drainQueued", { attributes: { sessionId } }),
+      Effect.withSpan('claude.session.drainQueued', {
+        attributes: { sessionId },
+      }),
     );
 
   const respondToUserQuestion = (
@@ -220,7 +225,7 @@ export const makeSessionManager = (args: {
       const turn = currentTurn;
       if (!turn) {
         return yield* Effect.fail(
-          new ClaudeChatError({ message: "No active turn" }),
+          new ClaudeChatError({ message: 'No active turn' }),
         );
       }
 
@@ -238,22 +243,22 @@ export const makeSessionManager = (args: {
         const updatedPendingQuestions = {
           ...payload.pendingQuestions,
           [toolUseId]: {
-            status: "answered" as const,
+            status: 'answered' as const,
             question: payload.pendingQuestions?.[toolUseId]?.question ?? {
               questions: [],
             },
             response:
-              response.behavior === "allow"
+              response.behavior === 'allow'
                 ? (response.updatedInput ?? {})
                 : { denied: true, message: response.message },
           },
         };
         const hasStillPending = Object.values(updatedPendingQuestions).some(
-          (e) => e.status === "pending",
+          (e) => e.status === 'pending',
         );
         return {
           ...payload,
-          state: hasStillPending ? ("question" as const) : null,
+          state: hasStillPending ? ('question' as const) : null,
           pendingQuestions: updatedPendingQuestions,
         };
       });
@@ -262,13 +267,15 @@ export const makeSessionManager = (args: {
       // The deferred hasn't been removed from the map yet — it's removed in the
       // tool-handler after it resolves — so count entries excluding this one.
       if (turn.pendingQuestions.size <= 1 && turn.onStatusUpdate) {
-        yield* turn.onStatusUpdate({ status: "executing" });
+        yield* turn.onStatusUpdate({ status: 'executing' });
       }
 
       // Resolve the deferred — unblocks the SDK's canUseTool promise
       yield* Deferred.succeed(deferred, response);
     }).pipe(
-      Effect.withSpan("claude.session.respondToQuestion", { attributes: { sessionId, toolUseId } }),
+      Effect.withSpan('claude.session.respondToQuestion', {
+        attributes: { sessionId, toolUseId },
+      }),
     );
 
   const stop = () =>
@@ -281,13 +288,13 @@ export const makeSessionManager = (args: {
 
       // Fail all pending user-question deferreds so canUseTool promises resolve
       for (const [, deferred] of turn.pendingQuestions) {
-        yield* Deferred.fail(deferred, new Error("Session stopped"));
+        yield* Deferred.fail(deferred, new Error('Session stopped'));
       }
       turn.pendingQuestions.clear();
 
-      yield* markTurnStatus(turn.turnId, sessionId, "interrupted");
+      yield* markTurnStatus(turn.turnId, sessionId, 'interrupted');
       if (turn.onStatusUpdate) {
-        yield* turn.onStatusUpdate({ status: "interrupted" });
+        yield* turn.onStatusUpdate({ status: 'interrupted' });
       }
 
       const fiber = turn.fiber;

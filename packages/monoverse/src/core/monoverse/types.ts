@@ -1,5 +1,5 @@
-import type { DependencyType, Workspace } from "../pipeline/analyze/index.js";
-import type { PackageGroup } from "../pipeline/validate/types.js";
+import type { DependencyType, Workspace } from '../pipeline/analyze/index.js';
+import type { PackageGroup } from '../pipeline/validate/types.js';
 
 export interface AddPackageOptions {
   packageName: string;
@@ -23,7 +23,7 @@ export interface PackageUpdate {
   name: string;
   currentVersion: string;
   updates: SemverUpdates;
-  instances: PackageGroup["instances"];
+  instances: PackageGroup['instances'];
 }
 
 export interface LoadProgress {

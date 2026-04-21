@@ -36,7 +36,13 @@ export interface NpmPackageDetails {
   description: string | undefined;
   license: string | undefined;
   homepage: string | undefined;
-  repository: { type: string | undefined; url: string | undefined; directory: string | undefined } | undefined;
+  repository:
+    | {
+        type: string | undefined;
+        url: string | undefined;
+        directory: string | undefined;
+      }
+    | undefined;
   maintainers: Array<{ name: string; email: string | undefined }>;
 }
 
@@ -57,7 +63,10 @@ export const fetchNpmPackageDetails = (
 
     if (!response.ok) {
       return yield* Effect.fail(
-        new NpmDetailsError({ packageName, cause: new Error(`HTTP ${response.status}`) }),
+        new NpmDetailsError({
+          packageName,
+          cause: new Error(`HTTP ${response.status}`),
+        }),
       );
     }
 
@@ -66,7 +75,9 @@ export const fetchNpmPackageDetails = (
       catch: (cause) => new NpmDetailsError({ packageName, cause }),
     });
 
-    const data = yield* Schema.decodeUnknown(NpmPackageDetailsSchema)(json).pipe(
+    const data = yield* Schema.decodeUnknown(NpmPackageDetailsSchema)(
+      json,
+    ).pipe(
       Effect.mapError((cause) => new NpmDetailsError({ packageName, cause })),
     );
 
@@ -83,6 +94,9 @@ export const fetchNpmPackageDetails = (
             directory: data.repository.directory,
           }
         : undefined,
-      maintainers: (data.maintainers ?? []).map((m) => ({ name: m.name, email: m.email })),
+      maintainers: (data.maintainers ?? []).map((m) => ({
+        name: m.name,
+        email: m.email,
+      })),
     };
   });

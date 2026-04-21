@@ -1,10 +1,10 @@
-import { Context, Effect, Layer } from "effect";
-import { BroadcastSchema, EntityType } from "../schema.js";
-import { RpcSerialization } from "@effect/rpc";
-import { typedWebSocket } from "./typed.js";
-import { DurableObjectState, WebSocket } from "@cloudflare/workers-types";
+import { Context, Effect, Layer } from 'effect';
+import { BroadcastSchema, EntityType } from '../schema.js';
+import { RpcSerialization } from '@effect/rpc';
+import { typedWebSocket } from './typed.js';
+import { DurableObjectState, WebSocket } from '@cloudflare/workers-types';
 
-export class ConnectionService extends Context.Tag("ConnectionService")<
+export class ConnectionService extends Context.Tag('ConnectionService')<
   ConnectionService,
   {
     emit: (value: EntityType<any>[]) => void;
@@ -24,7 +24,7 @@ export class ConnectionService extends Context.Tag("ConnectionService")<
           emit(values: EntityType<any>[]) {
             const encoded = parser.encode(
               BroadcastSchema.make({
-                _tag: "@std-toolkit/broadcast",
+                _tag: '@std-toolkit/broadcast',
                 values,
               }),
             );
@@ -39,7 +39,7 @@ export class ConnectionService extends Context.Tag("ConnectionService")<
             const encoded = parser.encode(
               BroadcastSchema.make({
                 values: [value],
-                _tag: "@std-toolkit/broadcast",
+                _tag: '@std-toolkit/broadcast',
               }),
             );
 

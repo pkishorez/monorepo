@@ -1,33 +1,31 @@
-import { Effect } from "effect";
-import type { ProjectAnalysis } from "../pipeline/analyze/index.js";
+import { Effect } from 'effect';
+import type { ProjectAnalysis } from '../pipeline/analyze/index.js';
 import {
   groupDependenciesByPackage,
   type Violation,
-} from "../pipeline/validate/index.js";
-import { fetchNpmPackage } from "../primitives/npm/npm-pkg.js";
-import { extractVersion, calculateSemverUpdates } from "./semver.js";
-import type { PackageUpdate, LoadProgress } from "./types.js";
+} from '../pipeline/validate/index.js';
+import { fetchNpmPackage } from '../primitives/npm/npm-pkg.js';
+import { extractVersion, calculateSemverUpdates } from './semver.js';
+import type { PackageUpdate, LoadProgress } from './types.js';
 
 export const getUpdates = Effect.fn(function* (
   analysis: ProjectAnalysis,
-  violations: Violation[]
+  violations: Violation[],
 ) {
   const pkgs = groupDependenciesByPackage(analysis);
 
   const violatedPackages = new Set(violations.map((v) => v.package));
 
-  const cleanPackages = pkgs.filter(
-    (pkg) => !violatedPackages.has(pkg.name)
-  );
+  const cleanPackages = pkgs.filter((pkg) => !violatedPackages.has(pkg.name));
 
   const results = yield* Effect.forEach(
     cleanPackages,
     (pkg) =>
       fetchNpmPackage(pkg.name).pipe(
         Effect.map((npmInfo) => ({ pkg, npmInfo })),
-        Effect.catchAll(() => Effect.succeed(null))
+        Effect.catchAll(() => Effect.succeed(null)),
       ),
-    { concurrency: 10 }
+    { concurrency: 10 },
   );
 
   const updates: PackageUpdate[] = [];
@@ -36,15 +34,13 @@ export const getUpdates = Effect.fn(function* (
     if (!result) continue;
 
     const { pkg, npmInfo } = result;
-    const currentVersion = extractVersion(
-      pkg.instances[0]?.versionRange ?? ""
-    );
+    const currentVersion = extractVersion(pkg.instances[0]?.versionRange ?? '');
 
     if (!currentVersion) continue;
 
     const semverUpdates = calculateSemverUpdates(
       currentVersion,
-      npmInfo.versions
+      npmInfo.versions,
     );
 
     if (semverUpdates.patch || semverUpdates.minor || semverUpdates.major) {
@@ -64,15 +60,13 @@ export const getUpdatesWithProgress = Effect.fn(function* (
   analysis: ProjectAnalysis,
   violations: Violation[],
   onProgress: (progress: LoadProgress) => void,
-  onUpdate: (update: PackageUpdate) => void
+  onUpdate: (update: PackageUpdate) => void,
 ) {
   const pkgs = groupDependenciesByPackage(analysis);
 
   const violatedPackages = new Set(violations.map((v) => v.package));
 
-  const cleanPackages = pkgs.filter(
-    (pkg) => !violatedPackages.has(pkg.name)
-  );
+  const cleanPackages = pkgs.filter((pkg) => !violatedPackages.has(pkg.name));
 
   const total = cleanPackages.length;
   let loaded = 0;
@@ -85,7 +79,7 @@ export const getUpdatesWithProgress = Effect.fn(function* (
 
         const result = yield* fetchNpmPackage(pkg.name).pipe(
           Effect.map((npmInfo) => ({ pkg, npmInfo })),
-          Effect.catchAll(() => Effect.succeed(null))
+          Effect.catchAll(() => Effect.succeed(null)),
         );
 
         loaded++;
@@ -94,21 +88,17 @@ export const getUpdatesWithProgress = Effect.fn(function* (
 
         const { pkg: p, npmInfo } = result;
         const currentVersion = extractVersion(
-          p.instances[0]?.versionRange ?? ""
+          p.instances[0]?.versionRange ?? '',
         );
 
         if (!currentVersion) return;
 
         const semverUpdates = calculateSemverUpdates(
           currentVersion,
-          npmInfo.versions
+          npmInfo.versions,
         );
 
-        if (
-          semverUpdates.patch ||
-          semverUpdates.minor ||
-          semverUpdates.major
-        ) {
+        if (semverUpdates.patch || semverUpdates.minor || semverUpdates.major) {
           onUpdate({
             name: p.name,
             currentVersion,
@@ -117,8 +107,8 @@ export const getUpdatesWithProgress = Effect.fn(function* (
           });
         }
       }),
-    { concurrency: 10 }
+    { concurrency: 10 },
   );
 
-  onProgress({ total, loaded: total, currentPackage: "" });
+  onProgress({ total, loaded: total, currentPackage: '' });
 });

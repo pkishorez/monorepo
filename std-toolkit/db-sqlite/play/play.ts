@@ -1,20 +1,20 @@
-import Database from "better-sqlite3";
-import { EntityESchema } from "@std-toolkit/eschema";
-import { Effect, Schema } from "effect";
-import { SqliteDBBetterSqlite3 } from "../src/sql/adapters/better-sqlite3.js";
-import { SQLiteTable } from "../src/services/SQLiteTable.js";
-import { SQLiteEntity } from "../src/services/SQLiteEntity.js";
-import { EntityRegistry } from "../src/registry/entity-registry.js";
+import Database from 'better-sqlite3';
+import { EntityESchema } from '@std-toolkit/eschema';
+import { Effect, Schema } from 'effect';
+import { SqliteDBBetterSqlite3 } from '../src/sql/adapters/better-sqlite3.js';
+import { SQLiteTable } from '../src/services/SQLiteTable.js';
+import { SQLiteEntity } from '../src/services/SQLiteEntity.js';
+import { EntityRegistry } from '../src/registry/entity-registry.js';
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
-const UserSchema = EntityESchema.make("User", "userId", {
+const UserSchema = EntityESchema.make('User', 'userId', {
   email: Schema.String,
   name: Schema.String,
-  status: Schema.Literal("active", "inactive"),
+  status: Schema.Literal('active', 'inactive'),
 }).build();
 
-const PostSchema = EntityESchema.make("Post", "postId", {
+const PostSchema = EntityESchema.make('Post', 'postId', {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,
@@ -29,25 +29,25 @@ type PostId = string;
 
 // ─── Table & Entities ────────────────────────────────────────────────────────
 
-const table = SQLiteTable.make({ tableName: "std_data" })
-  .primary("pk", "sk")
-  .index("IDX1", "IDX1PK", "IDX1SK")
-  .index("IDX2", "IDX2PK", "IDX2SK")
+const table = SQLiteTable.make({ tableName: 'std_data' })
+  .primary('pk', 'sk')
+  .index('IDX1', 'IDX1PK', 'IDX1SK')
+  .index('IDX2', 'IDX2PK', 'IDX2SK')
   .build();
 
 // User entity: pk = "User", sk = userId
 const userEntity = SQLiteEntity.make(table)
   .eschema(UserSchema)
   .primary() // pk: entity name only, sk: userId (idField)
-  .index("IDX1", "byEmail", { pk: ["email"] }) // sk: _u
-  .index("IDX2", "byStatus", { pk: ["status"] }) // sk: _u
+  .index('IDX1', 'byEmail', { pk: ['email'] }) // sk: _u
+  .index('IDX2', 'byStatus', { pk: ['status'] }) // sk: _u
   .build();
 
 // Post entity: pk = "Post#authorId", sk = postId
 const postEntity = SQLiteEntity.make(table)
   .eschema(PostSchema)
-  .primary({ pk: ["authorId"] }) // sk: postId (idField)
-  .index("IDX2", "byAuthor", { pk: ["title"] }) // sk: _u
+  .primary({ pk: ['authorId'] }) // sk: postId (idField)
+  .index('IDX2', 'byAuthor', { pk: ['title'] }) // sk: _u
   .build();
 
 const registry = EntityRegistry.make(table)
@@ -59,27 +59,27 @@ const registry = EntityRegistry.make(table)
 
 const program = Effect.gen(function* () {
   yield* registry.setup();
-  yield* table.dangerouslyRemoveAllRows("i know what i am doing");
+  yield* table.dangerouslyRemoveAllRows('i know what i am doing');
 
-  console.log("=== SQLiteEntity Playground ===\n");
+  console.log('=== SQLiteEntity Playground ===\n');
 
   // ─── Insert Users ─────────────────────────────────────────────
-  console.log("--- Inserting Users ---");
+  console.log('--- Inserting Users ---');
 
   const user1 = yield* userEntity.insert({
-    userId: "u1",
-    email: "alice@example.com",
-    name: "Alice",
-    status: "active",
+    userId: 'u1',
+    email: 'alice@example.com',
+    name: 'Alice',
+    status: 'active',
   });
 
-  postEntity.query("primary", { pk: { authorId: "u1" }, sk: { ">=": null } });
+  postEntity.query('primary', { pk: { authorId: 'u1' }, sk: { '>=': null } });
 
   const user2 = yield* userEntity.insert({
-    userId: "u2",
-    email: "bob@example.com",
-    name: "Bob",
-    status: "active",
+    userId: 'u2',
+    email: 'bob@example.com',
+    name: 'Bob',
+    status: 'active',
   });
 
   console.log(`Inserted: ${user1.value.name} (${user1.value.userId})`);
@@ -89,38 +89,38 @@ const program = Effect.gen(function* () {
   console.log(`userId from return: ${returnedUserId}`);
 
   // ─── Insert Posts ────────────────────────────────────────────────────────
-  console.log("\n--- Inserting Posts ---");
+  console.log('\n--- Inserting Posts ---');
   const post1 = yield* postEntity.insert({
-    postId: "p1",
-    authorId: "u1",
-    title: "Hello World",
-    content: "This is my first post!",
+    postId: 'p1',
+    authorId: 'u1',
+    title: 'Hello World',
+    content: 'This is my first post!',
     published: true,
   });
   console.log(`Inserted: "${post1.value.title}" by ${post1.value.authorId}`);
 
   const post2 = yield* postEntity.insert({
-    postId: "p2",
-    authorId: "u1",
-    title: "Second Post",
-    content: "Another post from Alice",
+    postId: 'p2',
+    authorId: 'u1',
+    title: 'Second Post',
+    content: 'Another post from Alice',
     published: true,
   });
   console.log(`Inserted: "${post2.value.title}"`);
 
   // ─── Get by Primary Key ───────────────────────────────────────────
-  console.log("\n--- Get by Primary Key ---");
-  const fetchedUser = yield* userEntity.get({ userId: "u1" });
+  console.log('\n--- Get by Primary Key ---');
+  const fetchedUser = yield* userEntity.get({ userId: 'u1' });
   if (fetchedUser) {
     const fetchedId: UserId = fetchedUser.value.userId;
     console.log(`Fetched user: ${fetchedUser.value.name} (id: ${fetchedId})`);
   }
 
   // ─── Query ─────────────────────────────────────────
-  console.log("\n--- Query ---");
-  const alicePosts = yield* postEntity.query("byAuthor", {
-    pk: { title: "u1" },
-    sk: { ">=": null },
+  console.log('\n--- Query ---');
+  const alicePosts = yield* postEntity.query('byAuthor', {
+    pk: { title: 'u1' },
+    sk: { '>=': null },
   });
   console.log(`Alice's posts (${alicePosts.items.length}):`);
   for (const item of alicePosts.items) {
@@ -129,19 +129,19 @@ const program = Effect.gen(function* () {
   }
 
   // ─── Update ────────────────────────────────────────
-  console.log("\n--- Update ---");
+  console.log('\n--- Update ---');
   const updated = yield* userEntity.update(
     { userId: user2.value.userId },
-    { name: "Bobby" },
+    { name: 'Bobby' },
   );
   const updatedId: UserId = updated.value.userId;
   console.log(`Updated: ${updated.value.name} (id: ${updatedId})`);
 
   // ─── Secondary Index Query ───────────────────────────────────────────────
-  console.log("\n--- Query by Email (secondary index) ---");
-  const byEmail = yield* userEntity.query("byEmail", {
-    pk: { email: "alice@example.com" },
-    sk: { ">=": null },
+  console.log('\n--- Query by Email (secondary index) ---');
+  const byEmail = yield* userEntity.query('byEmail', {
+    pk: { email: 'alice@example.com' },
+    sk: { '>=': null },
   });
   if (byEmail.items[0]) {
     const emailUserId: UserId = byEmail.items[0].value.userId;
@@ -150,12 +150,12 @@ const program = Effect.gen(function* () {
     );
   }
 
-  console.log("\n=== Done ===");
+  console.log('\n=== Done ===');
 });
 
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
-const db = new Database(":memory:");
+const db = new Database(':memory:');
 const layer = SqliteDBBetterSqlite3(db);
 
 Effect.runPromise(program.pipe(Effect.provide(layer)))

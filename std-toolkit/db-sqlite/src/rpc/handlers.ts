@@ -1,14 +1,14 @@
-import type { AnyEntityESchema } from "@std-toolkit/eschema";
-import { type AnySQLiteEntity } from "./types.js";
-import { makeGetHandler } from "./get.js";
-import { makeInsertHandler } from "./insert.js";
-import { makeUpdateHandler } from "./update.js";
-import { makeDeleteHandler } from "./delete.js";
+import type { AnyEntityESchema } from '@std-toolkit/eschema';
+import { type AnySQLiteEntity } from './types.js';
+import { makeGetHandler } from './get.js';
+import { makeInsertHandler } from './insert.js';
+import { makeUpdateHandler } from './update.js';
+import { makeDeleteHandler } from './delete.js';
 
 export const makeEntityRpcHandlers = <
   TSchema extends AnyEntityESchema,
   TEntity extends AnySQLiteEntity<TSchema>,
-  P extends string = "",
+  P extends string = '',
 >(
   entity: TEntity,
   eschema: TSchema,

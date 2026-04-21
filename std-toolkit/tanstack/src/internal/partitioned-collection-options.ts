@@ -3,22 +3,22 @@ import {
   type LoadSubsetFn,
   type SyncConfigRes,
   SyncConfig as TanstackSyncConfig,
-} from "@tanstack/react-db";
-import { Effect, Option, SubscriptionRef } from "effect";
-import { EntityType } from "@std-toolkit/core";
+} from '@tanstack/react-db';
+import { Effect, Option, SubscriptionRef } from 'effect';
+import { EntityType } from '@std-toolkit/core';
 import {
   CacheEntity,
   type PartitionKey,
   serializePartition,
-} from "@std-toolkit/cache";
-import { AnyEntityESchema, ESchemaIdField } from "@std-toolkit/eschema";
-import { parseLoadSubsetOptions } from "../load-subset-parser.js";
-import { CollectionItem, CollectionUtils } from "../types.js";
+} from '@std-toolkit/cache';
+import { AnyEntityESchema, ESchemaIdField } from '@std-toolkit/eschema';
+import { parseLoadSubsetOptions } from '../load-subset-parser.js';
+import { CollectionItem, CollectionUtils } from '../types.js';
 import {
   compareByMeta,
   makeApplyToCollection,
   makeMutationHandlers,
-} from "./shared.js";
+} from './shared.js';
 
 type OnLoadPartitionFn<TItem extends object> = (
   partition: PartitionKey,
@@ -47,17 +47,17 @@ interface StdPartitionedCollectionConfig<
 export const stdPartitionedCollectionOptions = <
   TSchema extends AnyEntityESchema,
 >(
-  options: StdPartitionedCollectionConfig<TSchema["Type"], TSchema>,
+  options: StdPartitionedCollectionConfig<TSchema['Type'], TSchema>,
 ): Omit<
   CollectionConfig<
-    CollectionItem<TSchema["Type"]>,
+    CollectionItem<TSchema['Type']>,
     string,
     never,
     CollectionUtils<TSchema>
   >,
-  "schema"
+  'schema'
 > => {
-  type TItem = TSchema["Type"];
+  type TItem = TSchema['Type'];
   type TCollectionItem = CollectionItem<TItem>;
 
   const {
@@ -76,14 +76,10 @@ export const stdPartitionedCollectionOptions = <
   const loadedPartitions = new Set<string>();
   const inflight = new Map<string, Promise<void>>();
 
-  let applyToCollection:
-    | ((items: EntityType<TItem>[]) => void)
-    | null = null;
+  let applyToCollection: ((items: EntityType<TItem>[]) => void) | null = null;
 
   const updateSyncing = () => {
-    Effect.runSync(
-      SubscriptionRef.set(syncing, inflight.size > 0),
-    );
+    Effect.runSync(SubscriptionRef.set(syncing, inflight.size > 0));
   };
 
   const getOrCreateCache = (
@@ -112,10 +108,10 @@ export const stdPartitionedCollectionOptions = <
           Effect.gen(function* () {
             const id = item.value[schema.idField as keyof TItem] as string;
             const existing = yield* cache.get(id);
-            const existingU = Option.map(existing, (e) => e.meta._u ?? "").pipe(
-              Option.getOrElse(() => ""),
+            const existingU = Option.map(existing, (e) => e.meta._u ?? '').pipe(
+              Option.getOrElse(() => ''),
             );
-            const incomingU = item.meta._u ?? "";
+            const incomingU = item.meta._u ?? '';
             if (!existingU || !incomingU || incomingU > existingU) {
               yield* cache.put(item);
             }
@@ -131,10 +127,7 @@ export const stdPartitionedCollectionOptions = <
   ) =>
     Effect.gen(function* () {
       const latest = yield* cache.getLatest();
-      const items = yield* onLoadPartition(
-        partition,
-        Option.getOrNull(latest),
-      );
+      const items = yield* onLoadPartition(partition, Option.getOrNull(latest));
       if (items.length === 0) return 0;
       yield* cacheAndApply(cache, items);
       return items.length;
@@ -157,7 +150,7 @@ export const stdPartitionedCollectionOptions = <
           Option.getOrNull(yield* cache.getLatest())?.meta._u ?? null;
         if (afterUpdated === beforeUpdated) {
           console.error(
-            "[std-toolkit/tanstack] Infinite loop detected: cursor did not advance for partition",
+            '[std-toolkit/tanstack] Infinite loop detected: cursor did not advance for partition',
             partition,
           );
           break;
@@ -195,7 +188,7 @@ export const stdPartitionedCollectionOptions = <
         // Swallow so TanStack gets a resolved promise; partition stays
         // out of loadedPartitions so next query triggers a retry.
         console.error(
-          "[std-toolkit/tanstack] Failed to load partition",
+          '[std-toolkit/tanstack] Failed to load partition',
           partition,
           err,
         );
@@ -271,7 +264,7 @@ export const stdPartitionedCollectionOptions = <
     ...(id !== undefined && { id }),
     getKey: (item: TCollectionItem) =>
       item[schema.idField as keyof TCollectionItem] as string,
-    syncMode: "on-demand" as const,
+    syncMode: 'on-demand' as const,
     sync: tanstackSync,
     utils: {
       upsert,

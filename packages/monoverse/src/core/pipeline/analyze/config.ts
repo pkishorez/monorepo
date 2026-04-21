@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Schema } from 'effect';
 import {
   fileExists,
   getParentDirectory,
@@ -7,10 +7,10 @@ import {
   readFile,
   glob,
   dirname,
-} from "../../primitives/fs/index.js";
-import { findMonorepoRoot } from "./monorepo.js";
-import { discoverWorkspaces } from "./workspace.js";
-import type { MonoverseConfig, ProjectAnalysis } from "./types.js";
+} from '../../primitives/fs/index.js';
+import { findMonorepoRoot } from './monorepo.js';
+import { discoverWorkspaces } from './workspace.js';
+import type { MonoverseConfig, ProjectAnalysis } from './types.js';
 
 const MonoverseConfigSchema = Schema.Struct({
   projects: Schema.mutable(Schema.Array(Schema.String)),
@@ -34,10 +34,10 @@ export const findConfigRoot = (
     let currentPath = startPath;
 
     while (true) {
-      const configPath = joinPath(currentPath, "monoverse.json");
+      const configPath = joinPath(currentPath, 'monoverse.json');
       if (yield* fileExists(configPath)) {
         const content = yield* readFile(configPath).pipe(
-          Effect.catchAll(() => Effect.succeed("")),
+          Effect.catchAll(() => Effect.succeed('')),
         );
         const config = content
           ? yield* parseConfig(content).pipe(
@@ -64,15 +64,15 @@ const resolveProjectPaths = (
     const paths: string[] = [];
 
     for (const pattern of patterns) {
-      const isGlob = pattern.includes("*") || pattern.includes("?");
+      const isGlob = pattern.includes('*') || pattern.includes('?');
 
       if (!isGlob) {
         const absPath = joinPath(configRoot, pattern);
         if (yield* fileExists(absPath)) paths.push(absPath);
       } else {
-        const matches = yield* glob([joinPath(pattern, "package.json")], {
+        const matches = yield* glob([joinPath(pattern, 'package.json')], {
           cwd: configRoot,
-          ignore: ["**/node_modules/**"],
+          ignore: ['**/node_modules/**'],
           absolute: true,
         }).pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
         paths.push(...matches.map(dirname));
@@ -87,8 +87,8 @@ export const analyzeFromConfig = (
 ): Effect.Effect<ProjectAnalysis> =>
   Effect.gen(function* () {
     const seenPaths = new Set<string>();
-    const allWorkspaces: ProjectAnalysis["workspaces"] = [];
-    const allErrors: ProjectAnalysis["errors"] = [];
+    const allWorkspaces: ProjectAnalysis['workspaces'] = [];
+    const allErrors: ProjectAnalysis['errors'] = [];
 
     const projectPaths = yield* resolveProjectPaths(
       configRoot.root,
@@ -100,7 +100,7 @@ export const analyzeFromConfig = (
         stopAt: projectPath,
       }).pipe(Effect.either);
 
-      if (monorepo._tag === "Left") {
+      if (monorepo._tag === 'Left') {
         allErrors.push({
           path: projectPath,
           message: monorepo.left.message,

@@ -1,14 +1,11 @@
-import type { AnySingleEntityESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect, FiberRef, Option, Schema } from "effect";
-import type { EntityType } from "@std-toolkit/core";
-import type { SQLiteTableInstance } from "./sqlite-table.js";
-import {
-  SqliteDBError,
-  TransactionPendingBroadcasts,
-} from "../sql/db.js";
-import type { SqliteDB } from "../sql/db.js";
-import { ConnectionService } from "@std-toolkit/core/server";
-import { deriveIndexKeyValue, type RawRow } from "../internal/utils.js";
+import type { AnySingleEntityESchema, ESchemaType } from '@std-toolkit/eschema';
+import { Effect, FiberRef, Option, Schema } from 'effect';
+import type { EntityType } from '@std-toolkit/core';
+import type { SQLiteTableInstance } from './sqlite-table.js';
+import { SqliteDBError, TransactionPendingBroadcasts } from '../sql/db.js';
+import type { SqliteDB } from '../sql/db.js';
+import { ConnectionService } from '@std-toolkit/core/server';
+import { deriveIndexKeyValue, type RawRow } from '../internal/utils.js';
 
 /**
  * Schema for single entity metadata stored with each item.
@@ -75,7 +72,7 @@ export class SQLiteSingleEntity<
            * @param defaultValue - The default entity value
            * @returns The configured SQLiteSingleEntity instance
            */
-          default(defaultValue: Omit<ESchemaType<TS>, "_v">) {
+          default(defaultValue: Omit<ESchemaType<TS>, '_v'>) {
             return new SQLiteSingleEntity<TTable, TS>(
               table,
               eschema,
@@ -104,7 +101,7 @@ export class SQLiteSingleEntity<
   /**
    * Gets the entity name from the schema.
    */
-  get name(): TSchema["name"] {
+  get name(): TSchema['name'] {
     return this.#eschema.name;
   }
 
@@ -135,7 +132,7 @@ export class SQLiteSingleEntity<
           meta: {
             _e: this.#eschema.name,
             _v: this.#eschema.latestVersion,
-            _u: "",
+            _u: '',
           },
         };
       }
@@ -151,7 +148,7 @@ export class SQLiteSingleEntity<
    * @returns The written entity with metadata
    */
   put(
-    value: Omit<ESchemaType<TSchema>, "_v">,
+    value: Omit<ESchemaType<TSchema>, '_v'>,
   ): Effect.Effect<
     SingleEntityType<ESchemaType<TSchema>>,
     SqliteDBError,
@@ -218,7 +215,7 @@ export class SQLiteSingleEntity<
    * @returns The updated entity with new metadata
    */
   update(params: {
-    update: Partial<Omit<ESchemaType<TSchema>, "_v">>;
+    update: Partial<Omit<ESchemaType<TSchema>, '_v'>>;
   }): Effect.Effect<
     SingleEntityType<ESchemaType<TSchema>>,
     SqliteDBError,
@@ -227,9 +224,9 @@ export class SQLiteSingleEntity<
     return Effect.gen(this, function* () {
       const existing = yield* this.get();
 
-      if (existing.meta._u === "") {
+      if (existing.meta._u === '') {
         return yield* Effect.fail(
-          SqliteDBError.updateFailed(this.#table.tableName, "Item not found"),
+          SqliteDBError.updateFailed(this.#table.tableName, 'Item not found'),
         );
       }
 

@@ -1,19 +1,19 @@
-import { Effect } from "effect";
-import { v7 } from "uuid";
-import { ClaudeOrchestrator } from "../claude/claude.js";
-import { CodexOrchestrator } from "../codex/codex.js";
-import { WorktreeService } from "../../services/worktree.js";
-import { workflowSqliteEntity } from "../../db/entities/workflow.js";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
-import { errorMessage } from "../../core/lib/error.js";
-import { deriveSessionName } from "../shared/session-name.js";
+import { Effect } from 'effect';
+import { v7 } from 'uuid';
+import { ClaudeOrchestrator } from '../claude/claude.js';
+import { CodexOrchestrator } from '../codex/codex.js';
+import { WorktreeService } from '../../services/worktree.js';
+import { workflowSqliteEntity } from '../../db/entities/workflow.js';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
+import { errorMessage } from '../../core/lib/error.js';
+import { deriveSessionName } from '../shared/session-name.js';
 import {
   StartExecuteParams,
   ContinueExecuteParams,
   StopExecuteParams,
   ExecuteWorkflowError,
   type OnExecuteStatusUpdate,
-} from "./schema.js";
+} from './schema.js';
 
 const getExecuteWorkflow = (workflowId: string) =>
   workflowSqliteEntity.get({ workflowId }).pipe(
@@ -31,8 +31,8 @@ const getExecuteWorkflow = (workflowId: string) =>
       (
         workflow,
       ): workflow is typeof workflow & {
-        spec: Extract<typeof workflow.spec, { type: "execute" }>;
-      } => workflow.spec.type === "execute",
+        spec: Extract<typeof workflow.spec, { type: 'execute' }>;
+      } => workflow.spec.type === 'execute',
       () =>
         new ExecuteWorkflowError({
           message: `workflow ${workflowId} is not an execute workflow`,
@@ -58,15 +58,21 @@ const createAgentSession = (
   params: typeof StartExecuteParams.Type,
   onStatusUpdate?: OnExecuteStatusUpdate,
 ) => {
-  if (params.agent === "claude") {
+  if (params.agent === 'claude') {
     return Effect.gen(function* () {
       const claude = yield* ClaudeOrchestrator;
-      return yield* claude.createSession(params.session, undefined, onStatusUpdate);
+      return yield* claude.createSession(
+        params.session,
+        undefined,
+        onStatusUpdate,
+      );
     }).pipe(
       Effect.mapError(
         (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
       ),
-      Effect.withSpan("workflow.createAgentSession", { attributes: { agent: params.agent } }),
+      Effect.withSpan('workflow.createAgentSession', {
+        attributes: { agent: params.agent },
+      }),
     );
   }
   return Effect.gen(function* () {
@@ -76,13 +82,13 @@ const createAgentSession = (
     Effect.mapError(
       (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
-    Effect.withSpan("workflow.createAgentSession", { attributes: { agent: params.agent } }),
+    Effect.withSpan('workflow.createAgentSession', {
+      attributes: { agent: params.agent },
+    }),
   );
 };
 
-export const startExecuteWorkflow = (
-  params: typeof StartExecuteParams.Type,
-) =>
+export const startExecuteWorkflow = (params: typeof StartExecuteParams.Type) =>
   Effect.gen(function* () {
     const workflowId = v7();
     let worktreeMeta:
@@ -92,7 +98,7 @@ export const startExecuteWorkflow = (
     if (params.worktree) {
       const worktreeService = yield* WorktreeService;
       const repoPath =
-        params.agent === "claude"
+        params.agent === 'claude'
           ? params.session.absolutePath
           : params.thread.absolutePath;
       const branch =
@@ -107,7 +113,9 @@ export const startExecuteWorkflow = (
         createParams.baseBranch = params.worktree.baseBranch;
       }
       const result = yield* worktreeService.create(createParams).pipe(
-        Effect.withSpan("workflow.createWorktree", { attributes: { repoPath, branch } }),
+        Effect.withSpan('workflow.createWorktree', {
+          attributes: { repoPath, branch },
+        }),
       );
 
       worktreeMeta = {
@@ -117,7 +125,7 @@ export const startExecuteWorkflow = (
       };
 
       // Override absolutePath so the session operates in the worktree
-      if (params.agent === "claude") {
+      if (params.agent === 'claude') {
         params = {
           ...params,
           session: { ...params.session, absolutePath: result.worktreePath },
@@ -134,14 +142,14 @@ export const startExecuteWorkflow = (
     // since it's not known until createAgentSession returns. The callback
     // is only invoked asynchronously from the forked fiber, so the ref
     // will be set by the time any status update fires.
-    const sessionIdRef = { current: "" };
+    const sessionIdRef = { current: '' };
     const onStatusUpdate: OnExecuteStatusUpdate = (update) =>
       workflowSqliteEntity
         .update(
           { workflowId },
           {
             spec: {
-              type: "execute",
+              type: 'execute',
               executeSession: sessionIdRef.current,
               ...(worktreeMeta ? { worktree: worktreeMeta } : {}),
               status: update.status,
@@ -155,7 +163,7 @@ export const startExecuteWorkflow = (
     sessionIdRef.current = executeSession;
 
     const prompt =
-      params.agent === "claude" ? params.session.prompt : params.thread.prompt;
+      params.agent === 'claude' ? params.session.prompt : params.thread.prompt;
 
     yield* workflowSqliteEntity
       .insert({
@@ -163,15 +171,15 @@ export const startExecuteWorkflow = (
         projectId: params.projectId,
         name: deriveSessionName(prompt),
         spec: {
-          type: "execute",
+          type: 'execute',
           executeSession,
           ...(worktreeMeta ? { worktree: worktreeMeta } : {}),
-          status: "executing",
+          status: 'executing',
         },
       })
       .pipe(Effect.orDie);
 
-    yield* Effect.log("workflow: record persisted").pipe(
+    yield* Effect.log('workflow: record persisted').pipe(
       Effect.annotateLogs({ workflowId, agent: params.agent }),
     );
 
@@ -180,7 +188,7 @@ export const startExecuteWorkflow = (
     Effect.mapError(
       (e) => new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
-    Effect.withSpan("workflow.execute.start", {
+    Effect.withSpan('workflow.execute.start', {
       attributes: { agent: params.agent, hasWorktree: !!params.worktree },
     }),
   );
@@ -212,30 +220,43 @@ export const continueExecuteWorkflow = (
         )
         .pipe(Effect.orDie, Effect.asVoid) as Effect.Effect<void>;
 
-    yield* onStatusUpdate({ status: "executing" });
+    yield* onStatusUpdate({ status: 'executing' });
 
-    const modeOverride = params.interactionMode !== undefined
-      ? { interactionMode: params.interactionMode } as const
-      : {};
+    const modeOverride =
+      params.interactionMode !== undefined
+        ? ({ interactionMode: params.interactionMode } as const)
+        : {};
 
-    if (session.type === "claude") {
+    if (session.type === 'claude') {
       const claude = yield* ClaudeOrchestrator;
-      yield* claude.continueSession({
-        sessionId,
-        prompt: params.prompt,
-        ...modeOverride,
-      }, undefined, onStatusUpdate);
+      yield* claude.continueSession(
+        {
+          sessionId,
+          prompt: params.prompt,
+          ...modeOverride,
+        },
+        undefined,
+        onStatusUpdate,
+      );
     } else {
       const codex = yield* CodexOrchestrator;
-      yield* codex.continueThread({
-        sessionId,
-        prompt: params.prompt,
-        ...modeOverride,
-      }, undefined, onStatusUpdate);
+      yield* codex.continueThread(
+        {
+          sessionId,
+          prompt: params.prompt,
+          ...modeOverride,
+        },
+        undefined,
+        onStatusUpdate,
+      );
     }
 
-    yield* Effect.log("workflow: continue dispatched").pipe(
-      Effect.annotateLogs({ workflowId: params.workflowId, sessionId, agent: session.type }),
+    yield* Effect.log('workflow: continue dispatched').pipe(
+      Effect.annotateLogs({
+        workflowId: params.workflowId,
+        sessionId,
+        agent: session.type,
+      }),
     );
   }).pipe(
     Effect.mapError((e) =>
@@ -243,18 +264,18 @@ export const continueExecuteWorkflow = (
         ? e
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
-    Effect.withSpan("workflow.execute.continue", { attributes: { workflowId: params.workflowId } }),
+    Effect.withSpan('workflow.execute.continue', {
+      attributes: { workflowId: params.workflowId },
+    }),
   );
 
-export const stopExecuteWorkflow = (
-  params: typeof StopExecuteParams.Type,
-) =>
+export const stopExecuteWorkflow = (params: typeof StopExecuteParams.Type) =>
   Effect.gen(function* () {
     const workflow = yield* getExecuteWorkflow(params.workflowId);
     const sessionId = workflow.spec.executeSession;
     const session = yield* getSession(sessionId);
 
-    if (session.type === "claude") {
+    if (session.type === 'claude') {
       const claude = yield* ClaudeOrchestrator;
       yield* claude.stopSession(sessionId);
     } else {
@@ -266,7 +287,7 @@ export const stopExecuteWorkflow = (
     yield* workflowSqliteEntity
       .update(
         { workflowId: params.workflowId },
-        { spec: { ...workflow.spec, status: "interrupted" } },
+        { spec: { ...workflow.spec, status: 'interrupted' } },
       )
       .pipe(Effect.orDie);
   }).pipe(
@@ -275,7 +296,9 @@ export const stopExecuteWorkflow = (
         ? e
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
-    Effect.withSpan("workflow.execute.stop", { attributes: { workflowId: params.workflowId } }),
+    Effect.withSpan('workflow.execute.stop', {
+      attributes: { workflowId: params.workflowId },
+    }),
   );
 
 export const removeExecuteWorkflow = (params: { workflowId: string }) =>
@@ -298,7 +321,9 @@ export const removeExecuteWorkflow = (params: { workflowId: string }) =>
         ? e
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
-    Effect.withSpan("workflow.execute.remove", { attributes: { workflowId: params.workflowId } }),
+    Effect.withSpan('workflow.execute.remove', {
+      attributes: { workflowId: params.workflowId },
+    }),
   );
 
 export const archiveWorkflow = (params: {
@@ -327,5 +352,7 @@ export const archiveWorkflow = (params: {
         ? e
         : new ExecuteWorkflowError({ message: errorMessage(e) }),
     ),
-    Effect.withSpan("workflow.archive", { attributes: { workflowId: params.workflowId } }),
+    Effect.withSpan('workflow.archive', {
+      attributes: { workflowId: params.workflowId },
+    }),
   );

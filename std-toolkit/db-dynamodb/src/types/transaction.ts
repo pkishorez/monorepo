@@ -1,12 +1,12 @@
-import type { MarshalledOutput } from "./aws.js";
-import type { EntityType } from "@std-toolkit/core";
+import type { MarshalledOutput } from './aws.js';
+import type { EntityType } from '@std-toolkit/core';
 
 /**
  * Base type for table-level transaction operations without entity name.
  */
 export type TransactItemBase =
-  | { kind: "put"; options: PutOptions }
-  | { kind: "update"; options: UpdateOptions };
+  | { kind: 'put'; options: PutOptions }
+  | { kind: 'update'; options: UpdateOptions };
 
 /**
  * Full type for entity-level transaction operations with entity name for type-safe transactions.
@@ -16,13 +16,13 @@ export type TransactItemBase =
  */
 export type TransactItem<TEntityName extends string = string> =
   | {
-      kind: "put";
+      kind: 'put';
       entityName: TEntityName;
       options: PutOptions;
       broadcast?: EntityType<unknown>;
     }
   | {
-      kind: "update";
+      kind: 'update';
       entityName: TEntityName;
       options: UpdateOptions;
       broadcast?: EntityType<unknown>;
@@ -43,7 +43,7 @@ export interface PutOptions {
   /** Substitution tokens for attribute values in the condition expression */
   ExpressionAttributeValues?: MarshalledOutput | undefined;
   /** Whether to return the item's attributes if the condition check fails */
-  ReturnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE" | undefined;
+  ReturnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE' | undefined;
 }
 
 /**
@@ -63,5 +63,5 @@ export interface UpdateOptions {
   /** Substitution tokens for attribute values in expressions */
   ExpressionAttributeValues?: MarshalledOutput | undefined;
   /** Whether to return the item's attributes if the condition check fails */
-  ReturnValuesOnConditionCheckFailure?: "ALL_OLD" | "NONE" | undefined;
+  ReturnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE' | undefined;
 }

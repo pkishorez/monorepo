@@ -1,8 +1,8 @@
-import type Database from "better-sqlite3";
-import { Effect, Layer } from "effect";
-import { SqliteDB, SqliteDBError } from "../db.js";
-import * as Sql from "../helpers/index.js";
-import type { Where } from "../helpers/index.js";
+import type Database from 'better-sqlite3';
+import { Effect, Layer } from 'effect';
+import { SqliteDB, SqliteDBError } from '../db.js';
+import * as Sql from '../helpers/index.js';
+import type { Where } from '../helpers/index.js';
 
 export const SqliteDBBetterSqlite3 = (db: Database.Database) =>
   Layer.succeed(SqliteDB, {
@@ -78,7 +78,7 @@ export const SqliteDBBetterSqlite3 = (db: Database.Database) =>
         });
         if (rows.length === 0) {
           return yield* Effect.fail(
-            SqliteDBError.getFailed(table, "Item not found"),
+            SqliteDBError.getFailed(table, 'Item not found'),
           );
         }
         return rows[0]!;
@@ -87,7 +87,12 @@ export const SqliteDBBetterSqlite3 = (db: Database.Database) =>
     query: <T extends Record<string, unknown>>(
       table: string,
       where: Where,
-      options?: { orderBy?: "ASC" | "DESC"; orderByColumn?: string; limit?: number; offset?: number },
+      options?: {
+        orderBy?: 'ASC' | 'DESC';
+        orderByColumn?: string;
+        limit?: number;
+        offset?: number;
+      },
     ) =>
       Effect.try({
         try: () => {

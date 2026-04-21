@@ -1,20 +1,20 @@
-import { SyncConfig as TanstackSyncConfig } from "@tanstack/react-db";
-import { Effect, Option, SubscriptionRef } from "effect";
-import { EntityType } from "@std-toolkit/core";
-import { CacheEntity } from "@std-toolkit/cache";
-import { AnyEntityESchema, ESchemaIdField } from "@std-toolkit/eschema";
-import { CollectionItem } from "../types.js";
+import { SyncConfig as TanstackSyncConfig } from '@tanstack/react-db';
+import { Effect, Option, SubscriptionRef } from 'effect';
+import { EntityType } from '@std-toolkit/core';
+import { CacheEntity } from '@std-toolkit/cache';
+import { AnyEntityESchema, ESchemaIdField } from '@std-toolkit/eschema';
+import { CollectionItem } from '../types.js';
 
 export type SyncParams<T extends object> = Parameters<
-  TanstackSyncConfig<CollectionItem<T>, string>["sync"]
+  TanstackSyncConfig<CollectionItem<T>, string>['sync']
 >[0];
 
 export const compareByMeta = (
   x: CollectionItem<any>,
   y: CollectionItem<any>,
 ) => {
-  const xUpdated = x?._meta?._u ?? "";
-  const yUpdated = y?._meta?._u ?? "";
+  const xUpdated = x?._meta?._u ?? '';
+  const yUpdated = y?._meta?._u ?? '';
   if (xUpdated === yUpdated) return 0;
   return xUpdated < yUpdated ? -1 : 1;
 };
@@ -42,10 +42,12 @@ export const makeApplyToCollection = <TItem extends object>(
   return (items: EntityType<TItem>[], persist = false) => {
     begin({ immediate: true });
     for (const item of items) {
-      const key = collection.getKeyFromItem(item.value as CollectionItem<TItem>);
+      const key = collection.getKeyFromItem(
+        item.value as CollectionItem<TItem>,
+      );
       const existing = collection.get(key);
-      const existingU = existing?._meta?._u ?? "";
-      const incomingU = item.meta._u ?? "";
+      const existingU = existing?._meta?._u ?? '';
+      const incomingU = item.meta._u ?? '';
 
       if (existing && incomingU && existingU && incomingU <= existingU) {
         continue;
@@ -55,8 +57,8 @@ export const makeApplyToCollection = <TItem extends object>(
         Effect.runPromise(
           Effect.gen(function* () {
             const cached = yield* cache.get(key);
-            const cachedU = Option.map(cached, (c) => c.meta._u ?? "").pipe(
-              Option.getOrElse(() => ""),
+            const cachedU = Option.map(cached, (c) => c.meta._u ?? '').pipe(
+              Option.getOrElse(() => ''),
             );
             if (!cachedU || !incomingU || incomingU > cachedU) {
               yield* cache.put(item);
@@ -66,13 +68,16 @@ export const makeApplyToCollection = <TItem extends object>(
       }
 
       if (item.meta._d) {
-        if (collection.has(key)) write({ type: "delete", key });
+        if (collection.has(key)) write({ type: 'delete', key });
       } else {
-        const itemValue = { ...item.value, _meta: item.meta } as CollectionItem<TItem>;
+        const itemValue = {
+          ...item.value,
+          _meta: item.meta,
+        } as CollectionItem<TItem>;
         if (collection.has(key)) {
-          write({ type: "update", value: itemValue });
+          write({ type: 'update', value: itemValue });
         } else {
-          write({ type: "insert", value: itemValue });
+          write({ type: 'insert', value: itemValue });
         }
       }
     }
@@ -95,13 +100,21 @@ export const makeMutationHandlers = <
     },
   ) => Effect.Effect<EntityType<TItem>>,
 ) => ({
-  onInsert: async ({ transaction }: { transaction: { mutations: { changes: unknown }[] } }) => {
+  onInsert: async ({
+    transaction,
+  }: {
+    transaction: { mutations: { changes: unknown }[] };
+  }) => {
     if (!onInsert) return;
     const { changes } = transaction.mutations[0]!;
     const result = await Effect.runPromise(onInsert(changes as TItem));
     upsert(result);
   },
-  onUpdate: async ({ transaction }: { transaction: { mutations: { changes: unknown; key: string }[] } }) => {
+  onUpdate: async ({
+    transaction,
+  }: {
+    transaction: { mutations: { changes: unknown; key: string }[] };
+  }) => {
     if (!onUpdate) return;
     const { changes, key } = transaction.mutations[0]!;
     const payload = {

@@ -1,26 +1,26 @@
-import { Args, Command, Options, Prompt } from "@effect/cli";
-import { Console, Effect, Option } from "effect";
-import { Monoverse } from "../../core/index.js";
-import type { ProjectAnalysis } from "../../core/pipeline/analyze/types.js";
-import { groupDependenciesByPackage } from "../../core/pipeline/validate/group-by-package.js";
-import { fetchNpmPackage } from "../../core/primitives/npm/npm-pkg.js";
+import { Args, Command, Options, Prompt } from '@effect/cli';
+import { Console, Effect, Option } from 'effect';
+import { Monoverse } from '../../core/index.js';
+import type { ProjectAnalysis } from '../../core/pipeline/analyze/types.js';
+import { groupDependenciesByPackage } from '../../core/pipeline/validate/group-by-package.js';
+import { fetchNpmPackage } from '../../core/primitives/npm/npm-pkg.js';
 import {
   findCurrentWorkspace,
   toDependencyType,
   type DependencyTypeShort,
-} from "../helpers.js";
+} from '../helpers.js';
 
-const packageArg = Args.text({ name: "package" });
+const packageArg = Args.text({ name: 'package' });
 
-const typeOption = Options.choice("type", [
-  "dependency",
-  "dev",
-  "peer",
-  "optional",
-] as const).pipe(Options.withAlias("t"), Options.withDefault("dependency"));
+const typeOption = Options.choice('type', [
+  'dependency',
+  'dev',
+  'peer',
+  'optional',
+] as const).pipe(Options.withAlias('t'), Options.withDefault('dependency'));
 
-const versionOption = Options.text("version").pipe(
-  Options.withAlias("v"),
+const versionOption = Options.text('version').pipe(
+  Options.withAlias('v'),
   Options.optional,
 );
 
@@ -28,7 +28,7 @@ const findPackageVersionsInWorkspaces = (
   analysis: ProjectAnalysis,
   packageName: string,
 ): string[] => {
-  const groups = groupDependenciesByPackage(analysis, ["npm"]);
+  const groups = groupDependenciesByPackage(analysis, ['npm']);
   const packageGroup = groups.find((g) => g.name === packageName);
 
   if (!packageGroup) {
@@ -94,7 +94,7 @@ const handler = ({
   });
 
 export const add = Command.make(
-  "add",
+  'add',
   { package: packageArg, type: typeOption, version: versionOption },
   handler,
 );

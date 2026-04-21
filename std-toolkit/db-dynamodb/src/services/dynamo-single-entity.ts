@@ -1,21 +1,21 @@
-import type { AnySingleEntityESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Effect, Schema } from "effect";
-import type { DynamoTable } from "./dynamo-table.js";
-import { DynamodbError } from "../errors.js";
-import { deriveIndexKeyValue } from "../internal/index.js";
-import { buildExpr, type UpdateExprResult } from "../expr/build-expr.js";
+import type { AnySingleEntityESchema, ESchemaType } from '@std-toolkit/eschema';
+import { Effect, Schema } from 'effect';
+import type { DynamoTable } from './dynamo-table.js';
+import { DynamodbError } from '../errors.js';
+import { deriveIndexKeyValue } from '../internal/index.js';
+import { buildExpr, type UpdateExprResult } from '../expr/build-expr.js';
 import {
   exprCondition,
   resolveCondition,
   type ConditionOperation,
   type ConditionInput,
-} from "../expr/condition.js";
+} from '../expr/condition.js';
 import {
   exprUpdate,
   type UpdateOps,
   type AnyOperation,
-} from "../expr/update.js";
-import type { TransactItem } from "../types/index.js";
+} from '../expr/update.js';
+import type { TransactItem } from '../types/index.js';
 
 /**
  * Schema for single entity metadata stored with each item.
@@ -51,11 +51,11 @@ export interface SingleEntityType<T> {
  * Checks if an error is a conditional check failure from DynamoDB.
  */
 const isConditionalCheckFailed = (e: DynamodbError): boolean => {
-  if (!("cause" in e.error)) return false;
+  if (!('cause' in e.error)) return false;
   const cause = e.error.cause as DynamodbError | undefined;
   return (
-    cause?.error._tag === "UnknownAwsError" &&
-    cause.error.name === "ConditionalCheckFailedException"
+    cause?.error._tag === 'UnknownAwsError' &&
+    cause.error.name === 'ConditionalCheckFailedException'
   );
 };
 
@@ -94,7 +94,7 @@ export class DynamoSingleEntity<
            * @param defaultValue - The default entity value
            * @returns The configured DynamoSingleEntity instance
            */
-          default(defaultValue: Omit<ESchemaType<TS>, "_v">) {
+          default(defaultValue: Omit<ESchemaType<TS>, '_v'>) {
             return new DynamoSingleEntity<TTable, TS>(
               table,
               eschema,
@@ -123,7 +123,7 @@ export class DynamoSingleEntity<
   /**
    * Gets the entity name from the schema.
    */
-  get name(): TSchema["name"] {
+  get name(): TSchema['name'] {
     return this.#eschema.name;
   }
 
@@ -142,9 +142,9 @@ export class DynamoSingleEntity<
    * @param options - Optional read options
    * @returns The entity, guaranteed non-null
    */
-  get(
-    options?: { ConsistentRead?: boolean },
-  ): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
+  get(options?: {
+    ConsistentRead?: boolean;
+  }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
     return Effect.gen(this, function* () {
       const pk = this.#derivePk();
       const sk = this.#deriveSk();
@@ -157,7 +157,7 @@ export class DynamoSingleEntity<
           meta: {
             _e: this.#eschema.name,
             _v: this.#eschema.latestVersion,
-            _u: "",
+            _u: '',
           },
         };
       }
@@ -186,7 +186,7 @@ export class DynamoSingleEntity<
    * @returns The written entity with metadata
    */
   put(
-    value: Omit<ESchemaType<TSchema>, "_v">,
+    value: Omit<ESchemaType<TSchema>, '_v'>,
   ): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
     return Effect.gen(this, function* () {
       const fullValue = {
@@ -234,30 +234,28 @@ export class DynamoSingleEntity<
    * @param params - Object containing the update and optional condition
    * @returns The updated entity with new metadata
    */
-  update(
-    params: {
-      update:
-        | Partial<Omit<ESchemaType<TSchema>, "_v">>
-        | ((
-            ops: UpdateOps<ESchemaType<TSchema>>,
-          ) => AnyOperation<ESchemaType<TSchema>>[]);
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-    },
-  ): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
+  update(params: {
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          ops: UpdateOps<ESchemaType<TSchema>>,
+        ) => AnyOperation<ESchemaType<TSchema>>[]);
+    condition?: ConditionInput<ESchemaType<TSchema>>;
+  }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
     const self = this;
     const { update: updates, condition } = params;
     return Effect.gen(function* () {
       const { pk, sk, exprResult } =
-        typeof updates === "function"
+        typeof updates === 'function'
           ? self.#prepareUpdateExpr(updates, condition)
           : self.#prepareUpdate(updates, condition);
 
       const result = yield* self.#table
-        .updateItem({ pk, sk }, { ReturnValues: "ALL_NEW", ...exprResult })
+        .updateItem({ pk, sk }, { ReturnValues: 'ALL_NEW', ...exprResult })
         .pipe(
           Effect.mapError(
             (e): DynamodbError =>
-              e.error._tag === "UpdateItemFailed" && isConditionalCheckFailed(e)
+              e.error._tag === 'UpdateItemFailed' && isConditionalCheckFailed(e)
                 ? DynamodbError.noItemToUpdate()
                 : e,
           ),
@@ -293,27 +291,25 @@ export class DynamoSingleEntity<
    * @param params - Object containing the update and optional condition
    * @returns A transaction item for update with broadcast data
    */
-  updateOp(
-    params: {
-      update:
-        | Partial<Omit<ESchemaType<TSchema>, "_v">>
-        | ((
-            ops: UpdateOps<ESchemaType<TSchema>>,
-          ) => AnyOperation<ESchemaType<TSchema>>[]);
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-    },
-  ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
+  updateOp(params: {
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          ops: UpdateOps<ESchemaType<TSchema>>,
+        ) => AnyOperation<ESchemaType<TSchema>>[]);
+    condition?: ConditionInput<ESchemaType<TSchema>>;
+  }): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
     const { update: updates, condition } = params;
     return Effect.gen(this, function* () {
       const existing = yield* this.get();
 
       const { pk, sk, exprResult } =
-        typeof updates === "function"
+        typeof updates === 'function'
           ? this.#prepareUpdateExpr(updates, condition)
           : this.#prepareUpdate(updates, condition);
 
       const mergedValue =
-        typeof updates === "function"
+        typeof updates === 'function'
           ? existing.value
           : ({ ...existing.value, ...updates } as ESchemaType<TSchema>);
 
@@ -334,7 +330,7 @@ export class DynamoSingleEntity<
   ): ConditionOperation {
     const ops: ConditionOperation[] = [
       exprCondition(($) =>
-        $.cond("_v" as any, "=", this.#eschema.latestVersion),
+        $.cond('_v' as any, '=', this.#eschema.latestVersion),
       ),
     ];
     if (userCondition) ops.push(resolveCondition(userCondition));
@@ -342,7 +338,7 @@ export class DynamoSingleEntity<
   }
 
   #prepareUpdate(
-    updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
+    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
     condition?: ConditionInput<ESchemaType<TSchema>>,
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
     const pk = this.#derivePk();
@@ -354,7 +350,7 @@ export class DynamoSingleEntity<
 
     const update = exprUpdate<any>(($) => [
       ...Object.entries(updates).map(([key, v]) => $.set(key, v)),
-      $.set("_u", _u),
+      $.set('_u', _u),
     ]);
 
     const exprResult = buildExpr({
@@ -377,7 +373,7 @@ export class DynamoSingleEntity<
 
     const builtCondition = this.#buildUpdateCondition(condition);
 
-    const update = exprUpdate<any>(($) => [...userOps, $.set("_u", _u)]);
+    const update = exprUpdate<any>(($) => [...userOps, $.set('_u', _u)]);
 
     const exprResult = buildExpr({
       update,

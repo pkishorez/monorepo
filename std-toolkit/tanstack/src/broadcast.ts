@@ -1,6 +1,6 @@
-import { BroadcastSchema, EntityType } from "@std-toolkit/core";
-import { AnyEntityESchema, AnySingleEntityESchema } from "@std-toolkit/eschema";
-import { Effect, Schema } from "effect";
+import { BroadcastSchema, EntityType } from '@std-toolkit/core';
+import { AnyEntityESchema, AnySingleEntityESchema } from '@std-toolkit/eschema';
+import { Effect, Schema } from 'effect';
 
 type AnyCollectionUtils = {
   upsert: (item: EntityType<any>, persist?: boolean) => void;
@@ -18,8 +18,8 @@ type CollectionInput = { utils: AnyCollectionUtils };
 type SingleItemInput = { utils: AnySingleItemUtils };
 
 type InternalEntry =
-  | { type: "collection"; utils: AnyCollectionUtils }
-  | { type: "single-item"; utils: AnySingleItemUtils };
+  | { type: 'collection'; utils: AnyCollectionUtils }
+  | { type: 'single-item'; utils: AnySingleItemUtils };
 
 type RegistryBuilder = {
   add: (collection: CollectionInput) => RegistryBuilder;
@@ -38,11 +38,11 @@ export const collectionRegistry = {
 
     const builder: RegistryBuilder = {
       add: (collection) => {
-        entries.push({ type: "collection", utils: collection.utils });
+        entries.push({ type: 'collection', utils: collection.utils });
         return builder;
       },
       addSingle: (singleItem) => {
-        entries.push({ type: "single-item", utils: singleItem.utils });
+        entries.push({ type: 'single-item', utils: singleItem.utils });
         return builder;
       },
       build: () => ({
@@ -58,11 +58,11 @@ export const collectionRegistry = {
         },
         fetchAll: Effect.all(
           entries.map((e) =>
-            e.type === "collection"
+            e.type === 'collection'
               ? e.utils.fetchAll()
               : e.utils.refetch().pipe(Effect.map(() => 0)),
           ),
-          { concurrency: "unbounded" },
+          { concurrency: 'unbounded' },
         ),
       }),
     };

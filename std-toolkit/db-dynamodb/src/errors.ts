@@ -1,4 +1,4 @@
-import { Data } from "effect";
+import { Data } from 'effect';
 
 /**
  * Metadata for AWS API errors including HTTP status code and request ID.
@@ -15,30 +15,35 @@ export interface AwsErrorMeta {
  * Each error has a _tag field for pattern matching.
  */
 export type DynamodbErrorType =
-  | { _tag: "GetItemFailed"; cause: unknown }
-  | { _tag: "PutItemFailed"; cause: unknown }
-  | { _tag: "UpdateItemFailed"; cause: unknown }
-  | { _tag: "DeleteItemFailed"; cause: unknown }
-  | { _tag: "QueryFailed"; cause: unknown }
-  | { _tag: "ScanFailed"; cause: unknown }
-  | { _tag: "TransactionFailed"; cause: unknown }
-  | { _tag: "ItemAlreadyExists" }
-  | { _tag: "NoItemToUpdate" }
-  | { _tag: "NoItemToDelete" }
-  | { _tag: "ThrottlingException"; meta: AwsErrorMeta }
-  | { _tag: "ServiceUnavailable"; meta: AwsErrorMeta }
-  | { _tag: "RequestTimeout"; meta: AwsErrorMeta }
-  | { _tag: "AccessDeniedException"; meta: AwsErrorMeta }
-  | { _tag: "UnauthorizedException"; meta: AwsErrorMeta }
-  | { _tag: "ValidationException"; meta: AwsErrorMeta }
-  | { _tag: "InvalidSignatureException"; message: string; meta: AwsErrorMeta }
-  | { _tag: "UnknownAwsError"; name: string; message: string; meta: AwsErrorMeta };
+  | { _tag: 'GetItemFailed'; cause: unknown }
+  | { _tag: 'PutItemFailed'; cause: unknown }
+  | { _tag: 'UpdateItemFailed'; cause: unknown }
+  | { _tag: 'DeleteItemFailed'; cause: unknown }
+  | { _tag: 'QueryFailed'; cause: unknown }
+  | { _tag: 'ScanFailed'; cause: unknown }
+  | { _tag: 'TransactionFailed'; cause: unknown }
+  | { _tag: 'ItemAlreadyExists' }
+  | { _tag: 'NoItemToUpdate' }
+  | { _tag: 'NoItemToDelete' }
+  | { _tag: 'ThrottlingException'; meta: AwsErrorMeta }
+  | { _tag: 'ServiceUnavailable'; meta: AwsErrorMeta }
+  | { _tag: 'RequestTimeout'; meta: AwsErrorMeta }
+  | { _tag: 'AccessDeniedException'; meta: AwsErrorMeta }
+  | { _tag: 'UnauthorizedException'; meta: AwsErrorMeta }
+  | { _tag: 'ValidationException'; meta: AwsErrorMeta }
+  | { _tag: 'InvalidSignatureException'; message: string; meta: AwsErrorMeta }
+  | {
+      _tag: 'UnknownAwsError';
+      name: string;
+      message: string;
+      meta: AwsErrorMeta;
+    };
 
 /**
  * Unified error class for all DynamoDB operations.
  * Uses Effect's Data.TaggedError for structured error handling.
  */
-export class DynamodbError extends Data.TaggedError("DynamodbError")<{
+export class DynamodbError extends Data.TaggedError('DynamodbError')<{
   error: DynamodbErrorType;
 }> {
   /**
@@ -47,7 +52,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param cause - The underlying error or message
    */
   static getItemFailed(cause: unknown) {
-    return new DynamodbError({ error: { _tag: "GetItemFailed", cause } });
+    return new DynamodbError({ error: { _tag: 'GetItemFailed', cause } });
   }
 
   /**
@@ -56,7 +61,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param cause - The underlying error or message
    */
   static putItemFailed(cause: unknown) {
-    return new DynamodbError({ error: { _tag: "PutItemFailed", cause } });
+    return new DynamodbError({ error: { _tag: 'PutItemFailed', cause } });
   }
 
   /**
@@ -65,7 +70,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param cause - The underlying error or message
    */
   static updateItemFailed(cause: unknown) {
-    return new DynamodbError({ error: { _tag: "UpdateItemFailed", cause } });
+    return new DynamodbError({ error: { _tag: 'UpdateItemFailed', cause } });
   }
 
   /**
@@ -74,7 +79,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param cause - The underlying error or message
    */
   static deleteItemFailed(cause: unknown) {
-    return new DynamodbError({ error: { _tag: "DeleteItemFailed", cause } });
+    return new DynamodbError({ error: { _tag: 'DeleteItemFailed', cause } });
   }
 
   /**
@@ -83,7 +88,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param cause - The underlying error or message
    */
   static queryFailed(cause: unknown) {
-    return new DynamodbError({ error: { _tag: "QueryFailed", cause } });
+    return new DynamodbError({ error: { _tag: 'QueryFailed', cause } });
   }
 
   /**
@@ -92,7 +97,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param cause - The underlying error or message
    */
   static scanFailed(cause: unknown) {
-    return new DynamodbError({ error: { _tag: "ScanFailed", cause } });
+    return new DynamodbError({ error: { _tag: 'ScanFailed', cause } });
   }
 
   /**
@@ -101,28 +106,28 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param cause - The underlying error or message
    */
   static transactionFailed(cause: unknown) {
-    return new DynamodbError({ error: { _tag: "TransactionFailed", cause } });
+    return new DynamodbError({ error: { _tag: 'TransactionFailed', cause } });
   }
 
   /**
    * Creates an error when attempting to insert an item that already exists.
    */
   static itemAlreadyExists() {
-    return new DynamodbError({ error: { _tag: "ItemAlreadyExists" } });
+    return new DynamodbError({ error: { _tag: 'ItemAlreadyExists' } });
   }
 
   /**
    * Creates an error when attempting to update an item that doesn't exist.
    */
   static noItemToUpdate() {
-    return new DynamodbError({ error: { _tag: "NoItemToUpdate" } });
+    return new DynamodbError({ error: { _tag: 'NoItemToUpdate' } });
   }
 
   /**
    * Creates an error when attempting to delete an item that doesn't exist.
    */
   static noItemToDelete() {
-    return new DynamodbError({ error: { _tag: "NoItemToDelete" } });
+    return new DynamodbError({ error: { _tag: 'NoItemToDelete' } });
   }
 
   /**
@@ -131,7 +136,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param meta - AWS error metadata
    */
   static throttling(meta: AwsErrorMeta) {
-    return new DynamodbError({ error: { _tag: "ThrottlingException", meta } });
+    return new DynamodbError({ error: { _tag: 'ThrottlingException', meta } });
   }
 
   /**
@@ -140,7 +145,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param meta - AWS error metadata
    */
   static serviceUnavailable(meta: AwsErrorMeta) {
-    return new DynamodbError({ error: { _tag: "ServiceUnavailable", meta } });
+    return new DynamodbError({ error: { _tag: 'ServiceUnavailable', meta } });
   }
 
   /**
@@ -149,7 +154,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param meta - AWS error metadata
    */
   static requestTimeout(meta: AwsErrorMeta) {
-    return new DynamodbError({ error: { _tag: "RequestTimeout", meta } });
+    return new DynamodbError({ error: { _tag: 'RequestTimeout', meta } });
   }
 
   /**
@@ -158,7 +163,9 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param meta - AWS error metadata
    */
   static accessDenied(meta: AwsErrorMeta) {
-    return new DynamodbError({ error: { _tag: "AccessDeniedException", meta } });
+    return new DynamodbError({
+      error: { _tag: 'AccessDeniedException', meta },
+    });
   }
 
   /**
@@ -167,7 +174,9 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param meta - AWS error metadata
    */
   static unauthorized(meta: AwsErrorMeta) {
-    return new DynamodbError({ error: { _tag: "UnauthorizedException", meta } });
+    return new DynamodbError({
+      error: { _tag: 'UnauthorizedException', meta },
+    });
   }
 
   /**
@@ -176,7 +185,7 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param meta - AWS error metadata
    */
   static validationException(meta: AwsErrorMeta) {
-    return new DynamodbError({ error: { _tag: "ValidationException", meta } });
+    return new DynamodbError({ error: { _tag: 'ValidationException', meta } });
   }
 
   /**
@@ -185,7 +194,9 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param meta - AWS error metadata
    */
   static invalidSignature(message: string, meta: AwsErrorMeta) {
-    return new DynamodbError({ error: { _tag: "InvalidSignatureException", message, meta } });
+    return new DynamodbError({
+      error: { _tag: 'InvalidSignatureException', message, meta },
+    });
   }
 
   /**
@@ -196,6 +207,8 @@ export class DynamodbError extends Data.TaggedError("DynamodbError")<{
    * @param meta - AWS error metadata
    */
   static unknownAwsError(name: string, message: string, meta: AwsErrorMeta) {
-    return new DynamodbError({ error: { _tag: "UnknownAwsError", name, message, meta } });
+    return new DynamodbError({
+      error: { _tag: 'UnknownAwsError', name, message, meta },
+    });
   }
 }

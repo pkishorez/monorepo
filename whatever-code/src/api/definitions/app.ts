@@ -1,9 +1,12 @@
-import { Rpc, RpcGroup } from "@effect/rpc";
-import { BroadcastSchema, EntitySchema } from "@std-toolkit/core";
-import { Schema } from "effect";
-import { projectEntity, ProjectSettings } from "../../core/entity/project/index.js";
-import { sessionEntity } from "../../core/entity/session/index.js";
-import { turnEntity } from "../../core/entity/turn/index.js";
+import { Rpc, RpcGroup } from '@effect/rpc';
+import { BroadcastSchema, EntitySchema } from '@std-toolkit/core';
+import { Schema } from 'effect';
+import {
+  projectEntity,
+  ProjectSettings,
+} from '../../core/entity/project/index.js';
+import { sessionEntity } from '../../core/entity/session/index.js';
+import { turnEntity } from '../../core/entity/turn/index.js';
 
 export const OpenProjectParams = Schema.Struct({
   absolutePath: Schema.String,
@@ -14,31 +17,31 @@ export const UpdateProjectSettingsParams = Schema.Struct({
   settings: ProjectSettings,
 });
 
-export class AppError extends Schema.TaggedError<AppError>()("AppError", {
+export class AppError extends Schema.TaggedError<AppError>()('AppError', {
   message: Schema.String,
 }) {}
 
 export class AppRpcs extends RpcGroup.make(
-  Rpc.make("subscribe", {
+  Rpc.make('subscribe', {
     success: BroadcastSchema,
     payload: Schema.Void,
     stream: true,
   }),
-  Rpc.make("revealDataFolder", {
+  Rpc.make('revealDataFolder', {
     success: Schema.Void,
     payload: Schema.Void,
   }),
-  Rpc.make("openProject", {
+  Rpc.make('openProject', {
     success: EntitySchema(projectEntity),
     error: AppError,
     payload: OpenProjectParams,
   }),
-  Rpc.make("queryProjects", {
+  Rpc.make('queryProjects', {
     success: Schema.Array(EntitySchema(projectEntity)),
     error: AppError,
-    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+    payload: Schema.Struct({ '>': Schema.NullOr(Schema.String) }),
   }),
-  Rpc.make("discoverProjects", {
+  Rpc.make('discoverProjects', {
     success: Schema.Array(
       Schema.Struct({
         absolutePath: Schema.String,
@@ -50,24 +53,24 @@ export class AppRpcs extends RpcGroup.make(
     error: AppError,
     payload: Schema.Void,
   }),
-  Rpc.make("getProjectFiles", {
+  Rpc.make('getProjectFiles', {
     success: Schema.Array(Schema.String),
     error: AppError,
     payload: Schema.Struct({ absolutePath: Schema.String }),
   }),
-  Rpc.make("querySessions", {
+  Rpc.make('querySessions', {
     success: Schema.Array(EntitySchema(sessionEntity)),
     error: AppError,
-    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+    payload: Schema.Struct({ '>': Schema.NullOr(Schema.String) }),
   }),
-  Rpc.make("queryTurns", {
+  Rpc.make('queryTurns', {
     success: Schema.Array(EntitySchema(turnEntity)),
     error: AppError,
-    payload: Schema.Struct({ ">": Schema.NullOr(Schema.String) }),
+    payload: Schema.Struct({ '>': Schema.NullOr(Schema.String) }),
   }),
-  Rpc.make("updateProjectSettings", {
+  Rpc.make('updateProjectSettings', {
     success: EntitySchema(projectEntity),
     error: AppError,
     payload: UpdateProjectSettingsParams,
   }),
-).prefix("app.") {}
+).prefix('app.') {}

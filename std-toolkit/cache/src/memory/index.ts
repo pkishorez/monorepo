@@ -1,1 +1,1 @@
-export { MemoryCacheEntity } from "./memory-cache-entity.js";
+export { MemoryCacheEntity } from './memory-cache-entity.js';

@@ -1,6 +1,10 @@
 import { Effect } from 'effect';
 import type { Workspace } from '../../analyze/types.js';
-import { ALL_DEPENDENCY_KEYS, readPackageJson, writePackageJson } from '../package-json.js';
+import {
+  ALL_DEPENDENCY_KEYS,
+  readPackageJson,
+  writePackageJson,
+} from '../package-json.js';
 import { DependencyNotFoundError, ModifyError } from '../types.js';
 
 export interface RemoveDependencyOptions {

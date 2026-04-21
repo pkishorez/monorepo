@@ -1,8 +1,8 @@
-import { Effect, Layer } from "effect";
-import { SqliteDB, SqliteDBError } from "../db.js";
-import * as Sql from "../helpers/index.js";
-import type { Where } from "../helpers/index.js";
-import { SqlStorage } from "@cloudflare/workers-types";
+import { Effect, Layer } from 'effect';
+import { SqliteDB, SqliteDBError } from '../db.js';
+import * as Sql from '../helpers/index.js';
+import type { Where } from '../helpers/index.js';
+import { SqlStorage } from '@cloudflare/workers-types';
 
 interface DOSqlStorage {
   exec<T extends Record<string, unknown>>(
@@ -86,7 +86,7 @@ export const SqliteDBDO = (storage_: SqlStorage) => {
         });
         if (rows.length === 0) {
           return yield* Effect.fail(
-            SqliteDBError.getFailed(table, "Item not found"),
+            SqliteDBError.getFailed(table, 'Item not found'),
           );
         }
         return rows[0]!;
@@ -95,7 +95,12 @@ export const SqliteDBDO = (storage_: SqlStorage) => {
     query: <T extends Record<string, unknown>>(
       table: string,
       where: Where,
-      options?: { orderBy?: "ASC" | "DESC"; orderByColumn?: string; limit?: number; offset?: number },
+      options?: {
+        orderBy?: 'ASC' | 'DESC';
+        orderByColumn?: string;
+        limit?: number;
+        offset?: number;
+      },
     ) =>
       Effect.try({
         try: () => {

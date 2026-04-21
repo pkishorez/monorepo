@@ -1,5 +1,5 @@
-import type { Get, Paths } from "type-fest";
-import type { MarshalledOutput } from "../types/index.js";
+import type { Get, Paths } from 'type-fest';
+import type { MarshalledOutput } from '../types/index.js';
 
 /**
  * Result containing DynamoDB expression attribute maps.

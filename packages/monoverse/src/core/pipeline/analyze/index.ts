@@ -26,8 +26,4 @@ export const analyzeProject = (
 
 export { NotAMonorepoError } from './types.js';
 export { getPackageJsonStr } from './workspace.js';
-export type {
-  ProjectAnalysis,
-  Workspace,
-  DependencyType,
-} from './types.js';
+export type { ProjectAnalysis, Workspace, DependencyType } from './types.js';

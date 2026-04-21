@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema } from 'effect';
 
 // Base trait schema for Smithy traits
 const TraitValue = Schema.Union(
@@ -27,7 +27,7 @@ const OperationReference = Schema.Struct({
 
 // Shape definitions
 const OperationShape = Schema.Struct({
-  type: Schema.Literal("operation"),
+  type: Schema.Literal('operation'),
   input: Schema.optional(Schema.Struct({ target: Schema.String })),
   output: Schema.optional(Schema.Struct({ target: Schema.String })),
   errors: Schema.optional(
@@ -37,38 +37,38 @@ const OperationShape = Schema.Struct({
 });
 
 const ServiceShape = Schema.Struct({
-  type: Schema.Literal("service"),
+  type: Schema.Literal('service'),
   operations: Schema.optional(Schema.Array(OperationReference)),
   version: Schema.String,
   traits: Schema.optional(Traits),
 });
 
 const StructureShape = Schema.Struct({
-  type: Schema.Literal("structure"),
+  type: Schema.Literal('structure'),
   members: Schema.optional(Members),
   traits: Schema.optional(Traits),
 });
 
 const UnionShape = Schema.Struct({
-  type: Schema.Literal("union"),
+  type: Schema.Literal('union'),
   members: Schema.optional(Members),
   traits: Schema.optional(Traits),
 });
 
 const EnumShape = Schema.Struct({
-  type: Schema.Literal("enum"),
+  type: Schema.Literal('enum'),
   members: Schema.optional(Members),
   traits: Schema.optional(Traits),
 });
 
 const ListShape = Schema.Struct({
-  type: Schema.Literal("list"),
+  type: Schema.Literal('list'),
   member: Schema.optional(Schema.Struct({ target: Schema.String })),
   traits: Schema.optional(Traits),
 });
 
 const MapShape = Schema.Struct({
-  type: Schema.Literal("map"),
+  type: Schema.Literal('map'),
   key: Schema.optional(Schema.Struct({ target: Schema.String })),
   value: Schema.optional(Schema.Struct({ target: Schema.String })),
   traits: Schema.optional(Traits),
@@ -90,16 +90,16 @@ export const Shape = Schema.Union(
   EnumShape,
   ListShape,
   MapShape,
-  SimpleShapeSchema("boolean"),
-  SimpleShapeSchema("integer"),
-  SimpleShapeSchema("double"),
-  SimpleShapeSchema("float"),
-  SimpleShapeSchema("long"),
-  SimpleShapeSchema("string"),
-  SimpleShapeSchema("timestamp"),
-  SimpleShapeSchema("resource"),
-  SimpleShapeSchema("blob"),
-  SimpleShapeSchema("document"),
+  SimpleShapeSchema('boolean'),
+  SimpleShapeSchema('integer'),
+  SimpleShapeSchema('double'),
+  SimpleShapeSchema('float'),
+  SimpleShapeSchema('long'),
+  SimpleShapeSchema('string'),
+  SimpleShapeSchema('timestamp'),
+  SimpleShapeSchema('resource'),
+  SimpleShapeSchema('blob'),
+  SimpleShapeSchema('document'),
 );
 
 // eslint-disable-next-line ts/no-redeclare
@@ -116,7 +116,7 @@ const Metadata = Schema.Struct({
 });
 
 // Main manifest schema
-export class Manifest extends Schema.Class<Manifest>("Manifest")({
+export class Manifest extends Schema.Class<Manifest>('Manifest')({
   smithy: Schema.optional(Schema.String),
   metadata: Schema.optional(Metadata),
   shapes: Schema.Record({ key: Schema.String, value: Shape }),

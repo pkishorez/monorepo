@@ -1,14 +1,14 @@
-import { execFile } from "node:child_process";
-import { writeFile, readFile, unlink } from "node:fs/promises";
-import { join } from "node:path";
-import { randomUUID } from "node:crypto";
-import { Effect, JSONSchema, Schema } from "effect";
-import { CodexChatError } from "../../api/definitions/codex.js";
+import { execFile } from 'node:child_process';
+import { writeFile, readFile, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { Effect, JSONSchema, Schema } from 'effect';
+import { CodexChatError } from '../../api/definitions/codex.js';
 
 const CODEX_TIMEOUT_MS = 60_000;
 
 const tmpDir =
-  process.env.TMPDIR ?? process.env.TEMP ?? process.env.TMP ?? "/tmp";
+  process.env.TMPDIR ?? process.env.TEMP ?? process.env.TMP ?? '/tmp';
 
 function tempPath(prefix: string): string {
   return join(tmpDir, `wc-${prefix}-${process.pid}-${randomUUID()}.tmp`);
@@ -54,31 +54,31 @@ export const execCodexJson = <A, I, R>(params: {
 }): Effect.Effect<A, CodexChatError> =>
   Effect.tryPromise({
     try: async () => {
-      const schemaPath = tempPath("codex-schema");
-      const outputPath = tempPath("codex-output");
+      const schemaPath = tempPath('codex-schema');
+      const outputPath = tempPath('codex-output');
 
       try {
         const jsonSchema = JSONSchema.make(params.schema);
         await writeFile(schemaPath, JSON.stringify(jsonSchema));
-        await writeFile(outputPath, "");
+        await writeFile(outputPath, '');
 
         const args = [
-          "exec",
-          "--ephemeral",
-          "-s",
-          "read-only",
-          "--config",
+          'exec',
+          '--ephemeral',
+          '-s',
+          'read-only',
+          '--config',
           'model_reasoning_effort="low"',
-          "--output-schema",
+          '--output-schema',
           schemaPath,
-          "--output-last-message",
+          '--output-last-message',
           outputPath,
-          ...(params.model ? ["-m", params.model] : []),
-          "-",
+          ...(params.model ? ['-m', params.model] : []),
+          '-',
         ];
 
         await execWithStdin(
-          "codex",
+          'codex',
           args,
           {
             cwd: params.cwd,
@@ -88,7 +88,7 @@ export const execCodexJson = <A, I, R>(params: {
           params.prompt,
         );
 
-        const raw = await readFile(outputPath, "utf-8");
+        const raw = await readFile(outputPath, 'utf-8');
         return JSON.parse(raw) as A;
       } finally {
         await Promise.all([safeUnlink(schemaPath), safeUnlink(outputPath)]);

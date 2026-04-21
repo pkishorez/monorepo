@@ -1,10 +1,10 @@
-import type { Shape } from "./schemas.js";
-import type { TypeGenOptions } from "./type-mapper.js";
+import type { Shape } from './schemas.js';
+import type { TypeGenOptions } from './type-mapper.js';
 import {
   generateTypeReference,
   isRequired,
   mapSmithyTypeToTypeScript,
-} from "./type-mapper.js";
+} from './type-mapper.js';
 
 const INCLUDE_DOCUMENTATION = true;
 
@@ -13,18 +13,18 @@ export function getDocumentation(
 ): string | undefined {
   if (!INCLUDE_DOCUMENTATION || !traits) return undefined;
 
-  const docTrait = traits["smithy.api#documentation"];
-  if (!docTrait || typeof docTrait !== "string") return undefined;
+  const docTrait = traits['smithy.api#documentation'];
+  if (!docTrait || typeof docTrait !== 'string') return undefined;
 
   const cleanDoc = docTrait
-    .replace(/<\/?p>/g, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/^\s+/gm, "")
-    .replace(/\n\s*\n/g, "\n")
+    .replace(/<\/?p>/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/^\s+/gm, '')
+    .replace(/\n\s*\n/g, '\n')
     .trim();
 
   if (!cleanDoc) return undefined;
-  return `/**\n * ${cleanDoc.split("\n").join("\n * ")}\n */`;
+  return `/**\n * ${cleanDoc.split('\n').join('\n * ')}\n */`;
 }
 
 export function generateErrorInterface(
@@ -33,7 +33,7 @@ export function generateErrorInterface(
   options: TypeGenOptions,
 ): string {
   const doc = getDocumentation(shape.traits);
-  let code = "";
+  let code = '';
 
   if (doc) {
     code += `${doc}\n`;
@@ -41,7 +41,7 @@ export function generateErrorInterface(
 
   code += `export declare class ${shapeName} extends EffectData.TaggedError(\n`;
   code += `  "${shapeName}",\n`;
-  code += ")<{\n";
+  code += ')<{\n';
 
   if (shape.members) {
     for (const [memberName, member] of Object.entries(shape.members)) {
@@ -57,26 +57,26 @@ export function generateErrorInterface(
 
       if (memberDoc) {
         code += `  ${memberDoc
-          .split("\n")
+          .split('\n')
           .map((line) => `  ${line}`)
-          .join("\n")}\n`;
+          .join('\n')}\n`;
       }
 
-      code += `  readonly ${memberName}${optional ? "?" : ""}: ${fieldType};\n`;
+      code += `  readonly ${memberName}${optional ? '?' : ''}: ${fieldType};\n`;
     }
   }
 
-  code += "}> {}";
+  code += '}> {}';
   return code;
 }
 
 export function generateStructureInterface(
   name: string,
-  shape: Extract<Shape, { type: "structure" }>,
+  shape: Extract<Shape, { type: 'structure' }>,
   options: TypeGenOptions,
 ): string {
   const doc = getDocumentation(shape.traits);
-  let code = doc ? `${doc}\n` : "";
+  let code = doc ? `${doc}\n` : '';
 
   code += `export interface ${name} {\n`;
   if (shape.members) {
@@ -84,12 +84,12 @@ export function generateStructureInterface(
       const memberDoc = getDocumentation(member.traits);
       if (memberDoc) {
         code += `  ${memberDoc
-          .split("\n")
-          .map((line) => line.replace(/^\s*\*/, "  *"))
-          .join("\n")}\n`;
+          .split('\n')
+          .map((line) => line.replace(/^\s*\*/, '  *'))
+          .join('\n')}\n`;
       }
       const isRequiredField = isRequired(member.traits);
-      const questionMark = isRequiredField ? "" : "?";
+      const questionMark = isRequiredField ? '' : '?';
       const fieldType = generateTypeReference(
         member.target,
         memberName,
@@ -99,17 +99,17 @@ export function generateStructureInterface(
       code += `  ${memberName}${questionMark}: ${fieldType};\n`;
     }
   }
-  code += "}";
+  code += '}';
   return code;
 }
 
 export function generateUnionType(
   name: string,
-  shape: Extract<Shape, { type: "union" }>,
+  shape: Extract<Shape, { type: 'union' }>,
   options: TypeGenOptions,
 ): string {
   const doc = getDocumentation(shape.traits);
-  let code = doc ? `${doc}\n` : "";
+  let code = doc ? `${doc}\n` : '';
 
   if (shape.members) {
     const baseName = `_${name}`;
@@ -125,14 +125,14 @@ export function generateUnionType(
 
       if (memberDoc) {
         code += `  ${memberDoc
-          .split("\n")
-          .map((line) => line.replace(/^\s*\*/, "  *"))
-          .join("\n")}\n`;
+          .split('\n')
+          .map((line) => line.replace(/^\s*\*/, '  *'))
+          .join('\n')}\n`;
       }
 
       code += `  ${memberName}?: ${memberType};\n`;
     }
-    code += "}\n\n";
+    code += '}\n\n';
 
     const variants = Object.entries(shape.members).map(
       ([memberName, member]) => {
@@ -146,7 +146,7 @@ export function generateUnionType(
       },
     );
 
-    code += `export type ${name} = ${variants.join(" | ")};`;
+    code += `export type ${name} = ${variants.join(' | ')};`;
   } else {
     code += `export type ${name} = never;`;
   }
@@ -156,14 +156,14 @@ export function generateUnionType(
 
 export function generateEnumType(
   name: string,
-  shape: Extract<Shape, { type: "enum" }>,
+  shape: Extract<Shape, { type: 'enum' }>,
 ): string {
   const doc = getDocumentation(shape.traits);
-  let code = doc ? `${doc}\n` : "";
+  let code = doc ? `${doc}\n` : '';
 
   if (shape.members) {
     const enumValues = Object.keys(shape.members).map((key) => `"${key}"`);
-    code += `export type ${name} = ${enumValues.join(" | ")};`;
+    code += `export type ${name} = ${enumValues.join(' | ')};`;
   } else {
     code += `export type ${name} = never;`;
   }
@@ -173,11 +173,11 @@ export function generateEnumType(
 
 export function generateListType(
   name: string,
-  shape: Extract<Shape, { type: "list" }>,
+  shape: Extract<Shape, { type: 'list' }>,
   options: TypeGenOptions,
 ): string {
   const doc = getDocumentation(shape.traits);
-  let code = doc ? `${doc}\n` : "";
+  let code = doc ? `${doc}\n` : '';
 
   if (shape.member) {
     const memberType = generateTypeReference(
@@ -196,11 +196,11 @@ export function generateListType(
 
 export function generateMapType(
   name: string,
-  shape: Extract<Shape, { type: "map" }>,
+  shape: Extract<Shape, { type: 'map' }>,
   options: TypeGenOptions,
 ): string {
   const doc = getDocumentation(shape.traits);
-  let code = doc ? `${doc}\n` : "";
+  let code = doc ? `${doc}\n` : '';
 
   if (shape.key && shape.value) {
     const keyType = generateTypeReference(
@@ -236,7 +236,7 @@ export function generatePrimitiveType(
     options,
   );
   const doc = getDocumentation((shape as any).traits);
-  let code = "";
+  let code = '';
   if (doc) {
     code += `${doc}\n`;
   }

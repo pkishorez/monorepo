@@ -1,20 +1,17 @@
-import {
-  createSdkMcpServer,
-  tool,
-} from "@anthropic-ai/claude-agent-sdk";
-import { Effect, Runtime } from "effect";
-import { z } from "zod";
-import { ClaudeOrchestrator } from "../../agents/claude/claude.js";
-import { WorktreeService } from "../../services/worktree.js";
-import { ralphLoopSqliteEntity } from "../db/entities/ralph-loop.js";
-import { ralphLoopTaskSqliteEntity } from "../db/entities/ralph-loop-task.js";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
-import { turnSqliteEntity } from "../../db/entities/turn.js";
-import { workflowSqliteEntity } from "../../db/entities/workflow.js";
-import { buildExecuteNextTaskPrompt } from "./prompt-builder.js";
-import type { ralphLoopEntity } from "../entity/ralph-loop.js";
-import type { ralphLoopTaskEntity } from "../entity/ralph-loop-task.js";
-import type { OnRalphLoopStatusUpdate } from "../../agents/workflow/schema.js";
+import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { Effect, Runtime } from 'effect';
+import { z } from 'zod';
+import { ClaudeOrchestrator } from '../../agents/claude/claude.js';
+import { WorktreeService } from '../../services/worktree.js';
+import { ralphLoopSqliteEntity } from '../db/entities/ralph-loop.js';
+import { ralphLoopTaskSqliteEntity } from '../db/entities/ralph-loop-task.js';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
+import { turnSqliteEntity } from '../../db/entities/turn.js';
+import { workflowSqliteEntity } from '../../db/entities/workflow.js';
+import { buildExecuteNextTaskPrompt } from './prompt-builder.js';
+import type { ralphLoopEntity } from '../entity/ralph-loop.js';
+import type { ralphLoopTaskEntity } from '../entity/ralph-loop-task.js';
+import type { OnRalphLoopStatusUpdate } from '../../agents/workflow/schema.js';
 
 type RalphLoop = typeof ralphLoopEntity.Type;
 type RalphLoopTask = typeof ralphLoopTaskEntity.Type;
@@ -40,9 +37,9 @@ export const getLoop = (id: string) =>
 
 const getTasks = (ralphLoopId: string) =>
   ralphLoopTaskSqliteEntity
-    .query("byRalphLoop", {
+    .query('byRalphLoop', {
       pk: { ralphLoopId },
-      sk: { ">": null },
+      sk: { '>': null },
     })
     .pipe(
       Effect.orDie,
@@ -51,12 +48,12 @@ const getTasks = (ralphLoopId: string) =>
       ),
     );
 
-const setLoopStatus = (id: string, status: RalphLoop["status"]) =>
+const setLoopStatus = (id: string, status: RalphLoop['status']) =>
   ralphLoopSqliteEntity
     .update({ id }, { status })
     .pipe(Effect.orDie, Effect.asVoid);
 
-const setTaskStatus = (id: string, status: RalphLoopTask["status"]) =>
+const setTaskStatus = (id: string, status: RalphLoopTask['status']) =>
   ralphLoopTaskSqliteEntity
     .update({ id }, { status })
     .pipe(Effect.orDie, Effect.asVoid);
@@ -85,23 +82,23 @@ const makeExecutionMcpServer = (
   }) => void,
 ) =>
   createSdkMcpServer({
-    name: "ralph-loop-tools",
-    version: "1.0.0",
+    name: 'ralph-loop-tools',
+    version: '1.0.0',
     tools: [
       tool(
-        "claimTask",
-        "Call this tool to claim a pending task before you start working on it. You MUST call this before doing any implementation work. It marks the task as running.",
+        'claimTask',
+        'Call this tool to claim a pending task before you start working on it. You MUST call this before doing any implementation work. It marks the task as running.',
         {
           taskId: z
             .string()
-            .describe("The id of the pending task you want to claim"),
+            .describe('The id of the pending task you want to claim'),
         },
         async (args) => {
           if (claimedTaskIdRef.current !== null) {
             return {
               content: [
                 {
-                  type: "text" as const,
+                  type: 'text' as const,
                   text: `Error: You already claimed task ${claimedTaskIdRef.current}. Finish it first by calling taskDone.`,
                 },
               ],
@@ -114,31 +111,31 @@ const makeExecutionMcpServer = (
             return {
               content: [
                 {
-                  type: "text" as const,
+                  type: 'text' as const,
                   text: `Error: Task ${args.taskId} not found. Available pending tasks: ${tasks
-                    .filter((t) => t.status === "pending")
+                    .filter((t) => t.status === 'pending')
                     .map((t) => t.id)
-                    .join(", ")}`,
+                    .join(', ')}`,
                 },
               ],
               isError: true,
             };
           }
-          if (task.status === "completed") {
+          if (task.status === 'completed') {
             return {
               content: [
                 {
-                  type: "text" as const,
+                  type: 'text' as const,
                   text: `Task "${task.title}" is already completed. No-op.`,
                 },
               ],
             };
           }
-          if (task.status !== "pending") {
+          if (task.status !== 'pending') {
             return {
               content: [
                 {
-                  type: "text" as const,
+                  type: 'text' as const,
                   text: `Error: Task "${task.title}" is in "${task.status}" status, not "pending".`,
                 },
               ],
@@ -148,7 +145,7 @@ const makeExecutionMcpServer = (
 
           await runEffect(
             Effect.gen(function* () {
-              yield* setTaskStatus(args.taskId, "running");
+              yield* setTaskStatus(args.taskId, 'running');
               if (sessionIdRef.current) {
                 yield* ralphLoopTaskSqliteEntity
                   .update(
@@ -165,7 +162,7 @@ const makeExecutionMcpServer = (
           return {
             content: [
               {
-                type: "text" as const,
+                type: 'text' as const,
                 text: `Task "${task.title}" claimed. You are now working on it. Proceed with the implementation, then call taskDone when finished.`,
               },
             ],
@@ -173,17 +170,17 @@ const makeExecutionMcpServer = (
         },
       ),
       tool(
-        "taskDone",
-        "Call this tool when you have fully completed a task. Provide the taskId, a brief outcome summary, and any learnings that might help future tasks.",
+        'taskDone',
+        'Call this tool when you have fully completed a task. Provide the taskId, a brief outcome summary, and any learnings that might help future tasks.',
         {
-          taskId: z.string().describe("The id of the task you completed"),
+          taskId: z.string().describe('The id of the task you completed'),
           outcome: z
             .string()
-            .describe("Brief summary of what was accomplished"),
+            .describe('Brief summary of what was accomplished'),
           learnings: z
             .string()
             .describe(
-              "Insights, gotchas, or context that would help when working on subsequent tasks",
+              'Insights, gotchas, or context that would help when working on subsequent tasks',
             ),
         },
         async (args) => {
@@ -192,7 +189,7 @@ const makeExecutionMcpServer = (
             return {
               content: [
                 {
-                  type: "text" as const,
+                  type: 'text' as const,
                   text: `Error: Task ${args.taskId} not found.`,
                 },
               ],
@@ -204,7 +201,7 @@ const makeExecutionMcpServer = (
           return {
             content: [
               {
-                type: "text" as const,
+                type: 'text' as const,
                 text: `Task ${args.taskId} marked as done. The orchestrator will proceed to the next task.`,
               },
             ],
@@ -231,55 +228,50 @@ const waitForSessionCompletion = (sessionId: string) =>
         .get({ sessionId })
         .pipe(Effect.orDie);
       if (!session) {
-        return yield* Effect.fail(
-          new Error(`Session ${sessionId} not found`),
-        );
+        return yield* Effect.fail(new Error(`Session ${sessionId} not found`));
       }
 
       // Fast path: session-level status is already terminal.
       if (
-        session.value.status === "success" ||
-        session.value.status === "error" ||
-        session.value.status === "interrupted"
+        session.value.status === 'success' ||
+        session.value.status === 'error' ||
+        session.value.status === 'interrupted'
       ) {
         return session.value.status;
       }
 
       const turns = yield* turnSqliteEntity
-        .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+        .query('bySession', { pk: { sessionId }, sk: { '>': null } })
         .pipe(Effect.orDie);
 
       const activeTurns = turns.items
         .map((t) => t.value)
-        .filter((t) => t.status !== "queued");
+        .filter((t) => t.status !== 'queued');
 
       if (activeTurns.length > 0) {
         const latest = activeTurns[activeTurns.length - 1]!;
         if (
-          latest.status === "success" ||
-          latest.status === "error" ||
-          latest.status === "interrupted"
+          latest.status === 'success' ||
+          latest.status === 'error' ||
+          latest.status === 'interrupted'
         ) {
           return latest.status;
         }
       }
 
-      yield* Effect.sleep("3 seconds");
+      yield* Effect.sleep('3 seconds');
     }
 
-    return yield* Effect.fail(new Error("Session timed out"));
+    return yield* Effect.fail(new Error('Session timed out'));
   }).pipe(
-    Effect.withSpan("ralphLoop.waitForSession", { attributes: { sessionId } }),
+    Effect.withSpan('ralphLoop.waitForSession', { attributes: { sessionId } }),
   );
 
 // ---------------------------------------------------------------------------
 // Worktree creation
 // ---------------------------------------------------------------------------
 
-export const createWorktreeForLoop = (
-  loop: RalphLoop,
-  repoPath: string,
-) =>
+export const createWorktreeForLoop = (loop: RalphLoop, repoPath: string) =>
   Effect.gen(function* () {
     const worktreeService = yield* WorktreeService;
     const branch = loop.branchName ?? `ralph-loop/${loop.id.slice(0, 8)}`;
@@ -287,7 +279,7 @@ export const createWorktreeForLoop = (
     const result = yield* worktreeService.create({
       repoPath,
       branch,
-      baseBranch: "main",
+      baseBranch: 'main',
     });
 
     const worktreeMeta = {
@@ -302,7 +294,9 @@ export const createWorktreeForLoop = (
 
     return worktreeMeta;
   }).pipe(
-    Effect.withSpan("ralphLoop.createWorktree", { attributes: { ralphLoopId: loop.id } }),
+    Effect.withSpan('ralphLoop.createWorktree', {
+      attributes: { ralphLoopId: loop.id },
+    }),
   );
 
 // ---------------------------------------------------------------------------
@@ -349,30 +343,30 @@ const executeNextTask = (
       {
         absolutePath: worktreePath,
         prompt,
-        model: loop.model ?? "claude-sonnet-4-6",
-        interactionMode: "default",
+        model: loop.model ?? 'claude-sonnet-4-6',
+        interactionMode: 'default',
         persistSession: false,
-        effort: "high",
+        effort: 'high',
         maxTurns: 200,
         maxBudgetUsd: 5,
       },
       {
         systemPrompt: {
-          type: "preset",
-          preset: "claude_code",
+          type: 'preset',
+          preset: 'claude_code',
           append: [
-            "",
-            "IMPORTANT: You have access to `claimTask` and `taskDone` MCP tools.",
-            "1. Review the task list and pick the best pending task.",
-            "2. Call `claimTask` with the taskId to claim it before starting work.",
-            "3. Implement the task fully.",
-            "4. Call `taskDone` with the taskId, outcome, and learnings when finished.",
-            "",
-            "You MUST call `taskDone` when the task is complete. Calling `claimTask` first is recommended so the UI shows progress, but `taskDone` is what matters.",
-          ].join("\n"),
+            '',
+            'IMPORTANT: You have access to `claimTask` and `taskDone` MCP tools.',
+            '1. Review the task list and pick the best pending task.',
+            '2. Call `claimTask` with the taskId to claim it before starting work.',
+            '3. Implement the task fully.',
+            '4. Call `taskDone` with the taskId, outcome, and learnings when finished.',
+            '',
+            'You MUST call `taskDone` when the task is complete. Calling `claimTask` first is recommended so the UI shows progress, but `taskDone` is what matters.',
+          ].join('\n'),
         },
         mcpServers: {
-          "ralph-loop-tools": mcpServer,
+          'ralph-loop-tools': mcpServer,
         },
       },
     );
@@ -393,7 +387,7 @@ const executeNextTask = (
       taskDoneResult,
     };
   }).pipe(
-    Effect.withSpan("ralphLoop.executeTask", {
+    Effect.withSpan('ralphLoop.executeTask', {
       attributes: { ralphLoopId: loop.id, taskCount: tasks.length },
     }),
   );
@@ -421,57 +415,59 @@ export const startRalphLoopExecution = (
 
     if (!loop.worktree) {
       return yield* Effect.fail(
-        new Error("Worktree must be created before starting execution"),
+        new Error('Worktree must be created before starting execution'),
       );
     }
 
-    yield* setLoopStatus(ralphLoopId, "executing");
+    yield* setLoopStatus(ralphLoopId, 'executing');
 
     const worktreePath = loop.worktree.path;
 
     /** Helper to compute task stats and push a status update. */
-    const pushStatus = (status: Parameters<OnRalphLoopStatusUpdate>[0]["status"]) =>
+    const pushStatus = (
+      status: Parameters<OnRalphLoopStatusUpdate>[0]['status'],
+    ) =>
       Effect.gen(function* () {
         if (!onStatusUpdate) return;
         const tasks = yield* getTasks(ralphLoopId);
         const total = tasks.length;
-        const completed = tasks.filter((t) => t.status === "completed").length;
-        yield* onStatusUpdate({ status, completedTasks: completed, totalTasks: total });
+        const completed = tasks.filter((t) => t.status === 'completed').length;
+        yield* onStatusUpdate({
+          status,
+          completedTasks: completed,
+          totalTasks: total,
+        });
       });
 
-    yield* pushStatus("executing");
+    yield* pushStatus('executing');
 
     while (true) {
       loop = yield* getLoop(ralphLoopId);
-      if (loop.status === "cancelled") {
-        yield* pushStatus("cancelled");
+      if (loop.status === 'cancelled') {
+        yield* pushStatus('cancelled');
         break;
       }
 
       const tasks = yield* getTasks(ralphLoopId);
-      const pendingTasks = tasks.filter((t) => t.status === "pending");
+      const pendingTasks = tasks.filter((t) => t.status === 'pending');
 
       if (pendingTasks.length === 0) {
-        yield* setLoopStatus(ralphLoopId, "completed");
-        yield* pushStatus("completed");
-        yield* Effect.log("ralphLoop: all tasks done").pipe(
+        yield* setLoopStatus(ralphLoopId, 'completed');
+        yield* pushStatus('completed');
+        yield* Effect.log('ralphLoop: all tasks done').pipe(
           Effect.annotateLogs({ ralphLoopId }),
         );
         break;
       }
 
-      yield* Effect.log("Starting next task session").pipe(
+      yield* Effect.log('Starting next task session').pipe(
         Effect.annotateLogs({
           ralphLoopId,
           pendingCount: pendingTasks.length,
         }),
       );
 
-      const result = yield* executeNextTask(
-        loop,
-        tasks,
-        worktreePath,
-      ).pipe(
+      const result = yield* executeNextTask(loop, tasks, worktreePath).pipe(
         Effect.catchAll(() =>
           Effect.succeed({
             sessionId: null as string | null,
@@ -488,21 +484,18 @@ export const startRalphLoopExecution = (
       if (result.taskDoneResult) {
         const { taskId, outcome, learnings } = result.taskDoneResult;
         yield* ralphLoopTaskSqliteEntity
-          .update(
-            { id: taskId },
-            { status: "completed", outcome, learnings },
-          )
+          .update({ id: taskId }, { status: 'completed', outcome, learnings })
           .pipe(Effect.orDie);
 
-        yield* pushStatus("executing");
+        yield* pushStatus('executing');
 
         yield* Effect.log(`Task completed: "${taskId}"`).pipe(
           Effect.annotateLogs({ taskId, ralphLoopId }),
         );
       } else if (result.claimedTaskId) {
-        yield* setTaskStatus(result.claimedTaskId, "failed");
-        yield* setLoopStatus(ralphLoopId, "failed");
-        yield* pushStatus("failed");
+        yield* setTaskStatus(result.claimedTaskId, 'failed');
+        yield* setLoopStatus(ralphLoopId, 'failed');
+        yield* pushStatus('failed');
 
         yield* Effect.logError(
           `Task failed: claimed task ${result.claimedTaskId} — session ended without calling taskDone`,
@@ -514,11 +507,11 @@ export const startRalphLoopExecution = (
         );
         break;
       } else {
-        yield* setLoopStatus(ralphLoopId, "failed");
-        yield* pushStatus("failed");
+        yield* setLoopStatus(ralphLoopId, 'failed');
+        yield* pushStatus('failed');
 
         yield* Effect.logError(
-          "Execution session failed — no task was claimed",
+          'Execution session failed — no task was claimed',
         ).pipe(Effect.annotateLogs({ ralphLoopId }));
         break;
       }
@@ -528,7 +521,7 @@ export const startRalphLoopExecution = (
         .pipe(Effect.orDie);
     }
   }).pipe(
-    Effect.withSpan("ralphLoop.execution", { attributes: { ralphLoopId } }),
+    Effect.withSpan('ralphLoop.execution', { attributes: { ralphLoopId } }),
   );
 
 // ---------------------------------------------------------------------------
@@ -548,7 +541,7 @@ export const startRalphLoopExecution = (
  */
 export const recoverStaleWorkflows = Effect.gen(function* () {
   const allWorkflows = yield* workflowSqliteEntity
-    .query("byUpdatedAt", { pk: {}, sk: { ">": null } })
+    .query('byUpdatedAt', { pk: {}, sk: { '>': null } })
     .pipe(Effect.orDie);
 
   let recovered = 0;
@@ -557,22 +550,22 @@ export const recoverStaleWorkflows = Effect.gen(function* () {
     const wf = item.value;
     const { spec } = wf;
 
-    if (spec.type === "execute" && spec.status === "executing") {
+    if (spec.type === 'execute' && spec.status === 'executing') {
       yield* workflowSqliteEntity
         .update(
           { workflowId: wf.workflowId },
-          { spec: { ...spec, status: "interrupted" } },
+          { spec: { ...spec, status: 'interrupted' } },
         )
         .pipe(Effect.orDie);
       recovered++;
     } else if (
-      spec.type === "ralph-loop" &&
-      (spec.status === "executing" || spec.status === "planning")
+      spec.type === 'ralph-loop' &&
+      (spec.status === 'executing' || spec.status === 'planning')
     ) {
       yield* workflowSqliteEntity
         .update(
           { workflowId: wf.workflowId },
-          { spec: { ...spec, status: "cancelled" } },
+          { spec: { ...spec, status: 'cancelled' } },
         )
         .pipe(Effect.orDie);
       recovered++;
@@ -582,13 +575,11 @@ export const recoverStaleWorkflows = Effect.gen(function* () {
   if (recovered > 0) {
     yield* Effect.log(`Recovered ${recovered} stale workflow(s) on startup`);
   }
-}).pipe(
-  Effect.withSpan("recoverStaleWorkflows"),
-);
+}).pipe(Effect.withSpan('recoverStaleWorkflows'));
 
 export const resumeExecutingLoops = Effect.gen(function* () {
   const executingLoops = yield* ralphLoopSqliteEntity
-    .query("byStatus", { pk: { status: "executing" }, sk: { ">": null } })
+    .query('byStatus', { pk: { status: 'executing' }, sk: { '>': null } })
     .pipe(Effect.orDie);
 
   const loops = executingLoops.items
@@ -599,17 +590,17 @@ export const resumeExecutingLoops = Effect.gen(function* () {
 
   yield* Effect.log(
     `Resuming ${loops.length} executing ralph loop(s) after restart`,
-  ).pipe(Effect.annotateLogs({ loopIds: loops.map((l) => l.id).join(", ") }));
+  ).pipe(Effect.annotateLogs({ loopIds: loops.map((l) => l.id).join(', ') }));
 
   for (const loop of loops) {
     // Reset any "running" tasks back to "pending" — they were mid-flight
     // when the process died and need to be retried.
     const tasks = yield* getTasks(loop.id);
-    const runningTasks = tasks.filter((t) => t.status === "running");
+    const runningTasks = tasks.filter((t) => t.status === 'running');
 
     yield* Effect.all(
-      runningTasks.map((t) => setTaskStatus(t.id, "pending")),
-      { concurrency: "unbounded" },
+      runningTasks.map((t) => setTaskStatus(t.id, 'pending')),
+      { concurrency: 'unbounded' },
     );
 
     if (runningTasks.length > 0) {
@@ -622,15 +613,13 @@ export const resumeExecutingLoops = Effect.gen(function* () {
       startRalphLoopExecution(loop.id).pipe(
         Effect.catchAll((e) =>
           Effect.gen(function* () {
-            yield* Effect.logError(
-              "Resumed ralph loop execution failed",
-            ).pipe(
+            yield* Effect.logError('Resumed ralph loop execution failed').pipe(
               Effect.annotateLogs({
                 ralphLoopId: loop.id,
                 error: String(e),
               }),
             );
-            yield* setLoopStatus(loop.id, "failed");
+            yield* setLoopStatus(loop.id, 'failed');
           }),
         ),
       ),
@@ -644,5 +633,5 @@ export const resumeExecutingLoops = Effect.gen(function* () {
 
 export const cancelRalphLoop = (ralphLoopId: string) =>
   Effect.gen(function* () {
-    yield* setLoopStatus(ralphLoopId, "cancelled");
+    yield* setLoopStatus(ralphLoopId, 'cancelled');
   });

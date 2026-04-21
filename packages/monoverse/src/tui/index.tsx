@@ -1,25 +1,21 @@
-import { createCliRenderer } from "@opentui/core";
-import type { ScrollBoxRenderable } from "@opentui/core";
-import {
-  createRoot,
-  useKeyboard,
-  useTerminalDimensions,
-} from "@opentui/react";
-import { Effect } from "effect";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createCliRenderer } from '@opentui/core';
+import type { ScrollBoxRenderable } from '@opentui/core';
+import { createRoot, useKeyboard, useTerminalDimensions } from '@opentui/react';
+import { Effect } from 'effect';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Monoverse,
   type LoadProgress,
   type PackageUpdate,
-} from "../core/index.js";
-import { colors } from "../theme.js";
-import { PackageRow } from "./package-row.js";
+} from '../core/index.js';
+import { colors } from '../theme.js';
+import { PackageRow } from './package-row.js';
 import {
   createSelectablePackage,
   getLatestVersion,
   getUpdateType,
   type SelectablePackage,
-} from "./types.js";
+} from './types.js';
 
 export const renderTui = async (cwd: string = process.cwd()) => {
   function App() {
@@ -30,7 +26,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
     const [progress, setProgress] = useState<LoadProgress>({
       total: 0,
       loaded: 0,
-      currentPackage: "",
+      currentPackage: '',
     });
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -39,7 +35,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
     const selectedCount = packages.filter((p) => p.selected).length;
     const maxNameWidth = useMemo(
       () => Math.max(10, ...packages.map((p) => p.package.name.length)) + 1,
-      [packages]
+      [packages],
     );
 
     const summary = useMemo(() => {
@@ -49,16 +45,18 @@ export const renderTui = async (cwd: string = process.cwd()) => {
       let patch = 0;
       for (const p of selected) {
         const type = getUpdateType(p.package);
-        if (type === "major") major++;
-        else if (type === "minor") minor++;
-        else if (type === "patch") patch++;
+        if (type === 'major') major++;
+        else if (type === 'minor') minor++;
+        else if (type === 'patch') patch++;
       }
       return { major, minor, patch, total: packages.length };
     }, [packages]);
 
     useEffect(() => {
       if (scrollRef.current && packages.length > 0) {
-        scrollRef.current.scrollTo(Math.min(selectedIndex, packages.length - 1));
+        scrollRef.current.scrollTo(
+          Math.min(selectedIndex, packages.length - 1),
+        );
       }
     }, [selectedIndex, packages.length]);
 
@@ -67,7 +65,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
       setSelectedIndex(0);
       setIsLoading(true);
       setMessage(null);
-      setProgress({ total: 0, loaded: 0, currentPackage: "" });
+      setProgress({ total: 0, loaded: 0, currentPackage: '' });
 
       const program = Effect.gen(function* () {
         const monoverse = yield* Monoverse;
@@ -83,7 +81,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
             if (selectable) {
               setPackages((prev) => [...prev, selectable]);
             }
-          }
+          },
         );
 
         setIsLoading(false);
@@ -103,8 +101,8 @@ export const renderTui = async (cwd: string = process.cwd()) => {
       if (packages.length === 0) return;
       setPackages((prev) =>
         prev.map((p, i) =>
-          i === selectedIndex ? { ...p, selected: !p.selected } : p
-        )
+          i === selectedIndex ? { ...p, selected: !p.selected } : p,
+        ),
       );
     };
 
@@ -119,7 +117,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
     const handleSync = () => {
       const toSync = packages.filter((p) => p.selected);
       if (toSync.length === 0) {
-        setMessage("Nothing selected");
+        setMessage('Nothing selected');
         return;
       }
 
@@ -132,10 +130,10 @@ export const renderTui = async (cwd: string = process.cwd()) => {
         for (const item of toSync) {
           const targetVersion = getLatestVersion(item.package);
           for (const instance of item.package.instances) {
-            if (instance.type === "peerDependency") continue;
+            if (instance.type === 'peerDependency') continue;
 
             const workspace = analysis.workspaces.find(
-              (w) => w.name === instance.workspace
+              (w) => w.name === instance.workspace,
             );
             if (!workspace) continue;
 
@@ -164,42 +162,42 @@ export const renderTui = async (cwd: string = process.cwd()) => {
     };
 
     useKeyboard((key) => {
-      if (key.name === "q") {
+      if (key.name === 'q') {
         renderer.destroy();
         process.exit(0);
       }
 
       if (isSyncing) return;
 
-      if (key.name === "up" || key.name === "k") {
+      if (key.name === 'up' || key.name === 'k') {
         setSelectedIndex((prev: number) => Math.max(0, prev - 1));
         setMessage(null);
       }
 
-      if (key.name === "down" || key.name === "j") {
+      if (key.name === 'down' || key.name === 'j') {
         setSelectedIndex((prev: number) =>
-          Math.min(packages.length - 1, prev + 1)
+          Math.min(packages.length - 1, prev + 1),
         );
         setMessage(null);
       }
 
-      if (key.name === "space") {
+      if (key.name === 'space') {
         handleToggle();
       }
 
-      if (key.name === "a") {
+      if (key.name === 'a') {
         handleSelectAll();
       }
 
-      if (key.name === "n") {
+      if (key.name === 'n') {
         handleSelectNone();
       }
 
-      if (key.name === "s") {
+      if (key.name === 's') {
         handleSync();
       }
 
-      if (key.name === "r") {
+      if (key.name === 'r') {
         loadPackages();
       }
     });
@@ -210,7 +208,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
         : 0;
     const barWidth = Math.max(10, width - 30);
     const filledWidth = Math.round(
-      (progress.loaded / Math.max(1, progress.total)) * barWidth
+      (progress.loaded / Math.max(1, progress.total)) * barWidth,
     );
 
     return (
@@ -231,20 +229,27 @@ export const renderTui = async (cwd: string = process.cwd()) => {
               {summary.major > 0 && (
                 <>
                   <span fg={colors.error}>{summary.major} major</span>
-                  <span fg={colors.muted}>{summary.minor > 0 || summary.patch > 0 ? ", " : " "}</span>
+                  <span fg={colors.muted}>
+                    {summary.minor > 0 || summary.patch > 0 ? ', ' : ' '}
+                  </span>
                 </>
               )}
               {summary.minor > 0 && (
                 <>
                   <span fg={colors.warning}>{summary.minor} minor</span>
-                  <span fg={colors.muted}>{summary.patch > 0 ? ", " : " "}</span>
+                  <span fg={colors.muted}>
+                    {summary.patch > 0 ? ', ' : ' '}
+                  </span>
                 </>
               )}
               {summary.patch > 0 && (
                 <span fg={colors.cyan}>{summary.patch} patch</span>
               )}
               {selectedCount === 0 && <span fg={colors.muted}>none</span>}
-              <span fg={colors.muted}> ({selectedCount}/{summary.total})</span>
+              <span fg={colors.muted}>
+                {' '}
+                ({selectedCount}/{summary.total})
+              </span>
             </text>
           </box>
         )}
@@ -269,11 +274,13 @@ export const renderTui = async (cwd: string = process.cwd()) => {
         {isLoading && (
           <box paddingLeft={1} paddingRight={1} paddingBottom={1}>
             <text>
-              <span fg={colors.cyan}>{"█".repeat(filledWidth)}</span>
-              <span fg={colors.muted}>{"░".repeat(barWidth - filledWidth)}</span>
+              <span fg={colors.cyan}>{'█'.repeat(filledWidth)}</span>
+              <span fg={colors.muted}>
+                {'░'.repeat(barWidth - filledWidth)}
+              </span>
               <span fg={colors.text}> {progressPercent}%</span>
               <span fg={colors.muted}>
-                {" "}
+                {' '}
                 {progress.loaded}/{progress.total}
               </span>
             </text>
@@ -314,7 +321,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
   }
 
   const renderer = await createCliRenderer({
-    exitSignals: ["SIGTERM", "SIGINT", "SIGHUP"],
+    exitSignals: ['SIGTERM', 'SIGINT', 'SIGHUP'],
   });
 
   return createRoot(renderer).render(<App />);

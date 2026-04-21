@@ -1,1 +1,1 @@
-export { TerminalService } from "./service.js";
+export { TerminalService } from './service.js';

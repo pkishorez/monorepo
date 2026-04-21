@@ -21,7 +21,7 @@ export {
   StdDescriptorSchema,
   type CommandPayloadSchemaType,
   type CommandResponseSchemaType,
-} from "./schema.js";
+} from './schema.js';
 
 // Types (derived from schemas)
 export {
@@ -44,7 +44,7 @@ export {
   type EntityType,
   type CommonResponse,
   type CommandProcessor,
-} from "./types.js";
+} from './types.js';
 
 // RPC
-export { makeCommandRpc, type CommandRpc } from "./rpc.js";
+export { makeCommandRpc, type CommandRpc } from './rpc.js';

@@ -1,6 +1,6 @@
-import type { Manifest } from "./schemas.js";
-import type { TypeGenOptions } from "./type-mapper.js";
-import { Effect } from "effect";
+import type { Manifest } from './schemas.js';
+import type { TypeGenOptions } from './type-mapper.js';
+import { Effect } from 'effect';
 import {
   generateEnumType,
   generateErrorInterface,
@@ -9,13 +9,13 @@ import {
   generatePrimitiveType,
   generateStructureInterface,
   generateUnionType,
-} from "./code-generator.js";
+} from './code-generator.js';
 import {
   extractShapeName,
   getTypescriptSafeName,
   shouldSupportStreaming,
   toLowerCamelCase,
-} from "./type-mapper.js";
+} from './type-mapper.js';
 
 interface Operation {
   name: string;
@@ -26,11 +26,11 @@ export function generateDynamoDBCode(manifest: Manifest) {
   return Effect.gen(function* () {
     // Find service shape
     const serviceShapeEntry = Object.entries(manifest.shapes).find(
-      ([, shape]) => shape.type === "service",
+      ([, shape]) => shape.type === 'service',
     );
     if (!serviceShapeEntry) {
       return yield* Effect.fail(
-        new Error("No service shape found in DynamoDB manifest"),
+        new Error('No service shape found in DynamoDB manifest'),
       );
     }
 
@@ -54,7 +54,7 @@ export function generateDynamoDBCode(manifest: Manifest) {
     ): TypeGenOptions => ({
       manifest,
       typeNameMapping,
-      responseErrorTypeName: "ResponseError",
+      responseErrorTypeName: 'ResponseError',
       inputShapes,
       outputShapes,
       ...overrides,
@@ -73,10 +73,10 @@ function collectOperations(manifest: Manifest, serviceShape: any): Operation[] {
   const operations: Operation[] = [];
 
   // Collect from service shape
-  if (serviceShape.type === "service" && serviceShape.operations) {
+  if (serviceShape.type === 'service' && serviceShape.operations) {
     for (const opRef of serviceShape.operations) {
       const op = manifest.shapes[opRef.target];
-      if (op?.type === "operation") {
+      if (op?.type === 'operation') {
         operations.push({
           name: extractShapeName(opRef.target),
           shape: op,
@@ -87,7 +87,7 @@ function collectOperations(manifest: Manifest, serviceShape: any): Operation[] {
 
   // Also collect top-level operations
   for (const [shapeId, shape] of Object.entries(manifest.shapes)) {
-    if (shape.type === "operation") {
+    if (shape.type === 'operation') {
       const opName = extractShapeName(shapeId);
       if (!operations.find((op) => op.name === opName)) {
         operations.push({ name: opName, shape: shape as any });
@@ -118,7 +118,7 @@ function createTypeNameMapping(manifest: Manifest): Map<string, string> {
   const typeNameMapping = new Map<string, string>();
 
   const allShapes = Object.entries(manifest.shapes)
-    .filter(([shapeId]) => shapeId.includes("#"))
+    .filter(([shapeId]) => shapeId.includes('#'))
     .sort(([a], [b]) => {
       const aName = extractShapeName(a);
       const bName = extractShapeName(b);
@@ -146,22 +146,22 @@ function analyzeImports(manifest: Manifest, inputShapes: Set<string>) {
   for (const [shapeId, shape] of Object.entries(manifest.shapes)) {
     // Check for error shapes
     if (
-      shape.type === "structure" &&
+      shape.type === 'structure' &&
       shape.traits &&
-      "smithy.api#error" in shape.traits
+      'smithy.api#error' in shape.traits
     ) {
       imports.needsDataImport = true;
     }
 
     // Check for streaming fields
-    if (shape.type === "structure" && "members" in shape && shape.members) {
+    if (shape.type === 'structure' && 'members' in shape && shape.members) {
       const shapeName = extractShapeName(shapeId);
       for (const [memberName, member] of Object.entries(shape.members)) {
         if (shouldSupportStreaming(memberName, shapeName)) {
           const targetShape = manifest.shapes[member.target];
           if (
-            (targetShape && targetShape.type === "blob") ||
-            member.target === "smithy.api#Blob"
+            (targetShape && targetShape.type === 'blob') ||
+            member.target === 'smithy.api#Blob'
           ) {
             imports.needsStreamImport = true;
             if (inputShapes.has(shapeName)) {
@@ -185,7 +185,7 @@ function generateImports(imports: {
   needsStreamImport: boolean;
   needsBufferSupport: boolean;
 }): string {
-  let code = `import type { Effect${imports.needsStreamImport ? ", Stream" : ""}${imports.needsDataImport ? ", Data as EffectData" : ""} } from "effect";\n`;
+  let code = `import type { Effect${imports.needsStreamImport ? ', Stream' : ''}${imports.needsDataImport ? ', Data as EffectData' : ''} } from "effect";\n`;
 
   if (imports.needsBufferSupport) {
     code += `import type { Buffer } from "node:buffer";\n`;
@@ -215,17 +215,17 @@ function generateServiceClass(
     // Generate error union type
     const errorTypes = getErrorTypes(operation.shape.errors, typeNameMapping);
     const errorUnion =
-      errorTypes.length > 1 ? errorTypes.join(" | ") : errorTypes[0];
+      errorTypes.length > 1 ? errorTypes.join(' | ') : errorTypes[0];
 
     code += `  ${methodName}(\n`;
     code += `    input: ${inputType},\n`;
-    code += "  ): Effect.Effect<\n";
+    code += '  ): Effect.Effect<\n';
     code += `    ${outputType},\n`;
     code += `    ${errorUnion}\n`;
-    code += "  >;\n";
+    code += '  >;\n';
   }
 
-  code += "}\n\n";
+  code += '}\n\n';
   return code;
 }
 
@@ -233,8 +233,8 @@ function getOperationType(
   ref: { target: string } | undefined,
   typeNameMapping: Map<string, string>,
 ): string {
-  if (!ref) return "{}";
-  if (ref.target === "smithy.api#Unit") return "{}";
+  if (!ref) return '{}';
+  if (ref.target === 'smithy.api#Unit') return '{}';
 
   const shapeName = extractShapeName(ref.target);
   return typeNameMapping.get(shapeName) || shapeName;
@@ -249,7 +249,7 @@ function getErrorTypes(
       typeNameMapping.get(extractShapeName(error.target)) ||
       extractShapeName(error.target),
   );
-  errorTypes.push("DynamodbError");
+  errorTypes.push('DynamodbError');
   return errorTypes;
 }
 
@@ -258,11 +258,11 @@ function generateTypes(
   typeNameMapping: Map<string, string>,
   createTypeGenOptions: (overrides?: Partial<TypeGenOptions>) => TypeGenOptions,
 ): string {
-  let code = "";
+  let code = '';
   const generatedTypes = new Set<string>();
 
   const allShapes = Object.entries(manifest.shapes)
-    .filter(([shapeId]) => shapeId.includes("#"))
+    .filter(([shapeId]) => shapeId.includes('#'))
     .sort(([a], [b]) => {
       const aName = extractShapeName(a);
       const bName = extractShapeName(b);
@@ -280,9 +280,9 @@ function generateTypes(
     generatedTypes.add(finalTypeName);
 
     switch (shape.type) {
-      case "structure":
-        if (shape.type === "structure") {
-          if (shape.traits && "smithy.api#error" in shape.traits) {
+      case 'structure':
+        if (shape.type === 'structure') {
+          if (shape.traits && 'smithy.api#error' in shape.traits) {
             code += generateErrorInterface(
               finalTypeName,
               shape as any,
@@ -291,56 +291,56 @@ function generateTypes(
           } else {
             code += generateStructureInterface(
               finalTypeName,
-              shape as Extract<typeof shape, { type: "structure" }>,
+              shape as Extract<typeof shape, { type: 'structure' }>,
               createTypeGenOptions(),
             );
           }
         }
         break;
-      case "union":
-        if (shape.type === "union") {
+      case 'union':
+        if (shape.type === 'union') {
           code += generateUnionType(
             finalTypeName,
-            shape as Extract<typeof shape, { type: "union" }>,
+            shape as Extract<typeof shape, { type: 'union' }>,
             createTypeGenOptions(),
           );
         }
         break;
-      case "enum":
-        if (shape.type === "enum") {
+      case 'enum':
+        if (shape.type === 'enum') {
           code += generateEnumType(
             finalTypeName,
-            shape as Extract<typeof shape, { type: "enum" }>,
+            shape as Extract<typeof shape, { type: 'enum' }>,
           );
         }
         break;
-      case "list":
-        if (shape.type === "list") {
+      case 'list':
+        if (shape.type === 'list') {
           code += generateListType(
             finalTypeName,
-            shape as Extract<typeof shape, { type: "list" }>,
+            shape as Extract<typeof shape, { type: 'list' }>,
             createTypeGenOptions(),
           );
         }
         break;
-      case "map":
-        if (shape.type === "map") {
+      case 'map':
+        if (shape.type === 'map') {
           code += generateMapType(
             finalTypeName,
-            shape as Extract<typeof shape, { type: "map" }>,
+            shape as Extract<typeof shape, { type: 'map' }>,
             createTypeGenOptions(),
           );
         }
         break;
-      case "string":
-      case "integer":
-      case "long":
-      case "float":
-      case "double":
-      case "boolean":
-      case "timestamp":
-      case "blob":
-      case "document":
+      case 'string':
+      case 'integer':
+      case 'long':
+      case 'float':
+      case 'double':
+      case 'boolean':
+      case 'timestamp':
+      case 'blob':
+      case 'document':
         code += generatePrimitiveType(
           finalTypeName,
           shape,
@@ -349,9 +349,8 @@ function generateTypes(
         break;
     }
 
-    code += "\n";
+    code += '\n';
   }
 
   return code;
 }
-

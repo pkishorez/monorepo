@@ -1,1 +1,1 @@
-export { projectEntity, ProjectSettings } from "./project.js";
+export { projectEntity, ProjectSettings } from './project.js';

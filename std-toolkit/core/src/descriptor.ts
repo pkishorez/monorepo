@@ -1,4 +1,4 @@
-import type { ESchemaDescriptor } from "@std-toolkit/eschema";
+import type { ESchemaDescriptor } from '@std-toolkit/eschema';
 
 /**
  * Describes how an index key pattern is derived from entity fields.

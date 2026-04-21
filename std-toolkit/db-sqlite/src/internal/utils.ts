@@ -1,12 +1,12 @@
-import { MetaSchema } from "@std-toolkit/core";
-import { Schema } from "effect";
+import { MetaSchema } from '@std-toolkit/core';
+import { Schema } from 'effect';
 
 export const SqliteBool = Schema.transform(Schema.Number, Schema.Boolean, {
   decode: (n) => n !== 0,
   encode: (b) => (b ? 1 : 0),
 });
 
-export const sqlMetaSchema = MetaSchema.omit("_d").pipe(
+export const sqlMetaSchema = MetaSchema.omit('_d').pipe(
   Schema.extend(Schema.Struct({ _d: SqliteBool })),
 );
 
@@ -22,15 +22,15 @@ export interface RawRow extends Record<string, unknown> {
   _d: number;
 }
 
-type Operator = "<" | "<=" | ">" | ">=";
+type Operator = '<' | '<=' | '>' | '>=';
 
 export type SkParam =
-  | { "<": string | null }
-  | { "<=": string | null }
-  | { ">": string | null }
-  | { ">=": string | null };
+  | { '<': string | null }
+  | { '<=': string | null }
+  | { '>': string | null }
+  | { '>=': string | null };
 
-export type StreamSkParam = { ">": string | null } | { "<": string | null };
+export type StreamSkParam = { '>': string | null } | { '<': string | null };
 
 export interface SimpleQueryOptions {
   limit?: number;
@@ -60,27 +60,27 @@ export const deriveIndexKeyValue = (
     return prefix;
   }
 
-  const values = deps.map((dep) => String(value[dep] ?? ""));
+  const values = deps.map((dep) => String(value[dep] ?? ''));
 
   if (isPk) {
-    return `${prefix}#${values.join("#")}`;
+    return `${prefix}#${values.join('#')}`;
   }
 
-  return values.join("#");
+  return values.join('#');
 };
 
 export const extractKeyOp = (
   op: SkParam,
 ): { operator: Operator; value: string | null } => {
-  if ("<" in op) return { operator: "<", value: op["<"] };
-  if ("<=" in op) return { operator: "<=", value: op["<="] };
-  if (">" in op) return { operator: ">", value: op[">"] };
-  if (">=" in op) return { operator: ">=", value: op[">="] };
-  throw new Error("Invalid KeyOp: no valid operator found");
+  if ('<' in op) return { operator: '<', value: op['<'] };
+  if ('<=' in op) return { operator: '<=', value: op['<='] };
+  if ('>' in op) return { operator: '>', value: op['>'] };
+  if ('>=' in op) return { operator: '>=', value: op['>='] };
+  throw new Error('Invalid KeyOp: no valid operator found');
 };
 
 export const getKeyOpScanDirection = (operator: Operator): boolean =>
-  operator === ">" || operator === ">=";
+  operator === '>' || operator === '>=';
 
 /**
  * Stored derivation info for a secondary index.
@@ -100,17 +100,17 @@ export interface StoredIndexDerivation {
  * @typeParam SkKeys - Tuple of SK field names
  */
 export type CustomSkParam<T, SkKeys extends readonly (keyof T)[]> =
-  | { "<": Pick<T, SkKeys[number]> | null }
-  | { "<=": Pick<T, SkKeys[number]> | null }
-  | { ">": Pick<T, SkKeys[number]> | null }
-  | { ">=": Pick<T, SkKeys[number]> | null };
+  | { '<': Pick<T, SkKeys[number]> | null }
+  | { '<=': Pick<T, SkKeys[number]> | null }
+  | { '>': Pick<T, SkKeys[number]> | null }
+  | { '>=': Pick<T, SkKeys[number]> | null };
 
 /**
  * Stream SK param for custom-SK indexes (exclusive operators only).
  */
 export type CustomStreamSkParam<T, SkKeys extends readonly (keyof T)[]> =
-  | { ">": Pick<T, SkKeys[number]> | null }
-  | { "<": Pick<T, SkKeys[number]> | null };
+  | { '>': Pick<T, SkKeys[number]> | null }
+  | { '<': Pick<T, SkKeys[number]> | null };
 
 /**
  * Internal derivation info for the primary index.
@@ -119,4 +119,3 @@ export interface StoredPrimaryDerivation {
   pkDeps: string[];
   skDeps: string[];
 }
-

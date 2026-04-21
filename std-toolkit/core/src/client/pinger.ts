@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect } from 'effect';
 
 export const makePinger = Effect.fnUntraced(function* <A, E, R>(
   writePing: Effect.Effect<A, E, R>,
@@ -17,7 +17,7 @@ export const makePinger = Effect.fnUntraced(function* <A, E, R>(
 
   yield* Effect.gen(function* () {
     while (true) {
-      yield* Effect.sleep("10 seconds");
+      yield* Effect.sleep('10 seconds');
       if (receivedPong) {
         receivedPong = false;
         yield* Effect.ignore(writePing);

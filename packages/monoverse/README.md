@@ -27,19 +27,19 @@ Monoverse auto-detects your package manager (pnpm, yarn, npm, bun) and discovers
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| **Explore** | |
-| `ls` | List all workspaces in a tree structure |
-| **Dependency Management** | |
-| `add <pkg>` | Add a dependency to the current workspace |
-| `rm <pkg>` | Remove a dependency from the current workspace |
-| **Lint & Fix** | |
-| `lint` | Check for issues across all workspaces |
-| `fix` | Auto-fix detected issues |
-| `format` | Format all package.json files |
-| **TUI** | |
-| `tui` | Terminal UI (coming soon) |
+| Command                   | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| **Explore**               |                                                |
+| `ls`                      | List all workspaces in a tree structure        |
+| **Dependency Management** |                                                |
+| `add <pkg>`               | Add a dependency to the current workspace      |
+| `rm <pkg>`                | Remove a dependency from the current workspace |
+| **Lint & Fix**            |                                                |
+| `lint`                    | Check for issues across all workspaces         |
+| `fix`                     | Auto-fix detected issues                       |
+| `format`                  | Format all package.json files                  |
+| **TUI**                   |                                                |
+| `tui`                     | Terminal UI (coming soon)                      |
 
 ---
 
@@ -75,10 +75,10 @@ monoverse add -t dev vitest
 monoverse add -v 5.0.0 lodash
 ```
 
-| Option | Description |
-|--------|-------------|
-| `-t, --type` | `dependency` (default), `dev`, `peer`, `optional` |
-| `-v, --version` | Specific version to install |
+| Option          | Description                                       |
+| --------------- | ------------------------------------------------- |
+| `-t, --type`    | `dependency` (default), `dev`, `peer`, `optional` |
+| `-v, --version` | Specific version to install                       |
 
 Syncs to existing versions in other workspaces when available.
 
@@ -103,6 +103,7 @@ monoverse lint
 ```
 
 Detects:
+
 - Version mismatches across workspaces
 - Unpinned versions (`^1.0.0`, `~1.0.0`)
 - Unformatted package.json files
@@ -119,8 +120,8 @@ monoverse fix
 monoverse fix -i
 ```
 
-| Option | Description |
-|--------|-------------|
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
 | `-i, --interactive` | Resolve version mismatches interactively |
 
 ---

@@ -1,6 +1,6 @@
-import type { EntityType } from "@std-toolkit/core";
-import { projectClaudeMessage } from "./core/projection/claude-message.js";
-import { projectCodexEvent } from "./agents/codex/projection.js";
+import type { EntityType } from '@std-toolkit/core';
+import { projectClaudeMessage } from './core/projection/claude-message.js';
+import { projectCodexEvent } from './agents/codex/projection.js';
 
 const registry: Record<
   string,

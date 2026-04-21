@@ -1,14 +1,14 @@
-import * as semver from "semver";
-import type { SemverUpdates } from "./types.js";
+import * as semver from 'semver';
+import type { SemverUpdates } from './types.js';
 
 export function extractVersion(versionRange: string): string | null {
-  const cleaned = versionRange.replace(/[\^~>=<\s]/g, "");
+  const cleaned = versionRange.replace(/[\^~>=<\s]/g, '');
   return semver.valid(semver.coerce(cleaned));
 }
 
 export function calculateSemverUpdates(
   currentVersion: string,
-  allVersions: string[]
+  allVersions: string[],
 ): SemverUpdates {
   const current = semver.parse(currentVersion);
   if (!current) {

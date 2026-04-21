@@ -1,5 +1,5 @@
-import { Schema } from "effect";
-import { PromptContent } from "../../agents/shared/schema.js";
+import { Schema } from 'effect';
+import { PromptContent } from '../../agents/shared/schema.js';
 
 export const CreateRalphLoopParams = Schema.Struct({
   projectId: Schema.String,
@@ -30,7 +30,7 @@ export const RalphLoopIdParams = Schema.Struct({
 });
 
 export const QueryRalphLoopsParams = Schema.Struct({
-  ">": Schema.NullOr(Schema.String),
+  '>': Schema.NullOr(Schema.String),
 });
 
 export const QueryRalphLoopTasksParams = Schema.Struct({
@@ -38,6 +38,6 @@ export const QueryRalphLoopTasksParams = Schema.Struct({
 });
 
 export class RalphLoopError extends Schema.TaggedError<RalphLoopError>()(
-  "RalphLoopError",
+  'RalphLoopError',
   { message: Schema.String },
 ) {}

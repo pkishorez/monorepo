@@ -1,8 +1,8 @@
-import type { AnyEntityESchema, ESchemaType } from "@std-toolkit/eschema";
-import { Chunk, Effect, Option, Schema, Stream } from "effect";
-import type { DynamoTable } from "./dynamo-table.js";
-import { ConnectionService } from "@std-toolkit/core/server";
-import { DynamodbError } from "../errors.js";
+import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
+import { Chunk, Effect, Option, Schema, Stream } from 'effect';
+import type { DynamoTable } from './dynamo-table.js';
+import { ConnectionService } from '@std-toolkit/core/server';
+import { DynamodbError } from '../errors.js';
 import type {
   IndexDefinition,
   IndexPkValue,
@@ -13,23 +13,27 @@ import type {
   SimpleQueryOptions,
   QueryStreamOptions,
   SubscribeOptions,
-} from "../types/index.js";
-import { extractKeyOp, getKeyOpScanDirection } from "../types/index.js";
-import type { StdDescriptor, IndexPatternDescriptor } from "@std-toolkit/core";
-import { deriveIndexKeyValue } from "../internal/index.js";
+} from '../types/index.js';
+import { extractKeyOp, getKeyOpScanDirection } from '../types/index.js';
+import type { StdDescriptor, IndexPatternDescriptor } from '@std-toolkit/core';
+import { deriveIndexKeyValue } from '../internal/index.js';
 import {
   buildExpr,
   type ConditionExprResult,
   type UpdateExprResult,
-} from "../expr/build-expr.js";
+} from '../expr/build-expr.js';
 import {
   exprCondition,
   resolveCondition,
   type ConditionOperation,
   type ConditionInput,
-} from "../expr/condition.js";
-import { exprUpdate, type UpdateOps, type AnyOperation } from "../expr/update.js";
-import type { SortKeyparameter } from "../expr/key-condition.js";
+} from '../expr/condition.js';
+import {
+  exprUpdate,
+  type UpdateOps,
+  type AnyOperation,
+} from '../expr/update.js';
+import type { SortKeyparameter } from '../expr/key-condition.js';
 
 /**
  * Schema for entity metadata stored with each item.
@@ -53,7 +57,7 @@ type MetaType = typeof metaSchema.Type;
 /**
  * Meta fields that can be used in index derivations.
  */
-type DerivableMetaFields = "_u";
+type DerivableMetaFields = '_u';
 
 /**
  * Checks if an error is a conditional check failure from DynamoDB.
@@ -62,24 +66,27 @@ type DerivableMetaFields = "_u";
  * @returns True if the error is a conditional check failure
  */
 const isConditionalCheckFailed = (e: DynamodbError): boolean => {
-  if (!("cause" in e.error)) return false;
+  if (!('cause' in e.error)) return false;
   const cause = e.error.cause as DynamodbError | undefined;
   return (
-    cause?.error._tag === "UnknownAwsError" &&
-    cause.error.name === "ConditionalCheckFailedException"
+    cause?.error._tag === 'UnknownAwsError' &&
+    cause.error.name === 'ConditionalCheckFailedException'
   );
 };
 
 /**
  * Extracts root attribute keys from a (possibly nested) array of update operations.
  */
-function extractKeysFromOps(ops: any[], out: Set<string> = new Set()): Set<string> {
+function extractKeysFromOps(
+  ops: any[],
+  out: Set<string> = new Set(),
+): Set<string> {
   for (const op of ops) {
     if (Array.isArray(op)) {
       extractKeysFromOps(op, out);
-    } else if (op && typeof op === "object" && "key" in op) {
+    } else if (op && typeof op === 'object' && 'key' in op) {
       const key = String(op.key);
-      const dot = key.indexOf(".");
+      const dot = key.indexOf('.');
       out.add(dot === -1 ? key : key.slice(0, dot));
     }
   }
@@ -101,7 +108,7 @@ export interface EntityType<T> {
 /**
  * Input type for insert operations. Omits the internal `_v` field.
  */
-type InsertInput<T> = Omit<T, "_v">;
+type InsertInput<T> = Omit<T, '_v'>;
 
 /**
  * Stored derivation info for a secondary index.
@@ -138,16 +145,20 @@ type ExtractKeys<T, Keys extends readonly (keyof T)[]> = Keys[number];
 /**
  * Type-level check: is this SK tuple exactly ["_u"]?
  */
-type IsTimelineSk<T extends readonly unknown[]> =
-  T extends readonly ["_u"] ? true : false;
+type IsTimelineSk<T extends readonly unknown[]> = T extends readonly ['_u']
+  ? true
+  : false;
 
 /**
  * Extracts only keys from a secondary derivation map where isTimelineSk is true.
  * Used to restrict subscribe() to _u-SK indexes only.
  */
-type SubscribableSecondaryKeys<T extends Record<string, StoredIndexDerivation>> = {
-  [K in keyof T]: T[K]["isTimelineSk"] extends true ? K : never;
-}[keyof T] & string;
+type SubscribableSecondaryKeys<
+  T extends Record<string, StoredIndexDerivation>,
+> = {
+  [K in keyof T]: T[K]['isTimelineSk'] extends true ? K : never;
+}[keyof T] &
+  string;
 
 /**
  * Resolves the SK param type for a secondary index based on isTimelineSk.
@@ -157,9 +168,9 @@ type SubscribableSecondaryKeys<T extends Record<string, StoredIndexDerivation>> 
 type ResolveSkParam<
   TEntity,
   TDeriv extends StoredIndexDerivation,
-> = TDeriv["isTimelineSk"] extends true
+> = TDeriv['isTimelineSk'] extends true
   ? SkParam
-  : CustomSkParam<TEntity, TDeriv["skDeps"] & readonly (keyof TEntity)[]>;
+  : CustomSkParam<TEntity, TDeriv['skDeps'] & readonly (keyof TEntity)[]>;
 
 /**
  * Resolves the stream SK param type for a secondary index based on isTimelineSk.
@@ -167,16 +178,16 @@ type ResolveSkParam<
 type ResolveStreamSkParam<
   TEntity,
   TDeriv extends StoredIndexDerivation,
-> = TDeriv["isTimelineSk"] extends true
+> = TDeriv['isTimelineSk'] extends true
   ? StreamSkParam
-  : CustomStreamSkParam<TEntity, TDeriv["skDeps"] & readonly (keyof TEntity)[]>;
+  : CustomStreamSkParam<TEntity, TDeriv['skDeps'] & readonly (keyof TEntity)[]>;
 
 /**
  * Stream SK param for custom-SK indexes (exclusive operators only).
  */
 type CustomStreamSkParam<T, SkKeys extends readonly (keyof T)[]> =
-  | { ">": Pick<T, SkKeys[number]> | null }
-  | { "<": Pick<T, SkKeys[number]> | null };
+  | { '>': Pick<T, SkKeys[number]> | null }
+  | { '<': Pick<T, SkKeys[number]> | null };
 
 /**
  * A DynamoDB entity with type-safe CRUD operations and automatic index derivation.
@@ -271,7 +282,7 @@ export class DynamoEntity<
       const d = deriv as StoredIndexDerivation;
       for (const dep of d.pkDeps) deps.add(dep);
       for (const dep of d.skDeps) {
-        if (dep !== "_u") deps.add(dep);
+        if (dep !== '_u') deps.add(dep);
       }
     }
     this.#derivationDeps = deps;
@@ -280,7 +291,7 @@ export class DynamoEntity<
   /**
    * Gets the entity name from the schema.
    */
-  get name(): TSchema["name"] {
+  get name(): TSchema['name'] {
     return this.#eschema.name;
   }
 
@@ -296,7 +307,7 @@ export class DynamoEntity<
       idField: this.#eschema.idField,
       version: this.#eschema.latestVersion,
       primaryIndex: {
-        name: "primary",
+        name: 'primary',
         pk: this.#extractIndexPattern(
           this.#primaryDerivation.pkDeps,
           entityName,
@@ -332,7 +343,7 @@ export class DynamoEntity<
    */
   get(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
     options?: { ConsistentRead?: boolean },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>> | null, DynamodbError> {
     return Effect.gen(this, function* () {
@@ -396,11 +407,11 @@ export class DynamoEntity<
       );
 
       yield* self.#table
-        .putItem(item, { ReturnValues: "ALL_OLD", ...exprResult })
+        .putItem(item, { ReturnValues: 'ALL_OLD', ...exprResult })
         .pipe(
           Effect.catchIf(
             (e): e is DynamodbError =>
-              e.error._tag === "PutItemFailed" && isConditionalCheckFailed(e),
+              e.error._tag === 'PutItemFailed' && isConditionalCheckFailed(e),
             () => Effect.fail(DynamodbError.itemAlreadyExists()),
           ),
         );
@@ -427,11 +438,13 @@ export class DynamoEntity<
    */
   update(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
     params: {
       update:
-        | Partial<Omit<ESchemaType<TSchema>, "_v">>
-        | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]);
+        | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+        | ((
+            ops: UpdateOps<ESchemaType<TSchema>>,
+          ) => AnyOperation<ESchemaType<TSchema>>[]);
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
@@ -439,16 +452,24 @@ export class DynamoEntity<
     const { update: updates, condition } = params;
     return Effect.gen(function* () {
       const { pk, sk, exprResult } =
-        typeof updates === "function"
-          ? yield* self.#prepareUpdateExpr(keyValue as Record<string, unknown>, updates, condition)
-          : self.#prepareUpdate(keyValue as Record<string, unknown>, updates, condition);
+        typeof updates === 'function'
+          ? yield* self.#prepareUpdateExpr(
+              keyValue as Record<string, unknown>,
+              updates,
+              condition,
+            )
+          : self.#prepareUpdate(
+              keyValue as Record<string, unknown>,
+              updates,
+              condition,
+            );
 
       const result = yield* self.#table
-        .updateItem({ pk, sk }, { ReturnValues: "ALL_NEW", ...exprResult })
+        .updateItem({ pk, sk }, { ReturnValues: 'ALL_NEW', ...exprResult })
         .pipe(
           Effect.mapError(
             (e): DynamodbError =>
-              e.error._tag === "UpdateItemFailed" && isConditionalCheckFailed(e)
+              e.error._tag === 'UpdateItemFailed' && isConditionalCheckFailed(e)
                 ? DynamodbError.noItemToUpdate()
                 : e,
           ),
@@ -487,7 +508,7 @@ export class DynamoEntity<
    */
   delete(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     return Effect.gen(this, function* () {
       const existing = yield* this.get(keyValue);
@@ -495,7 +516,9 @@ export class DynamoEntity<
         return yield* Effect.fail(DynamodbError.noItemToDelete());
       }
 
-      const result = yield* this.update(keyValue, { update: { _d: true } as any });
+      const result = yield* this.update(keyValue, {
+        update: { _d: true } as any,
+      });
 
       return result;
     }).pipe(
@@ -518,7 +541,7 @@ export class DynamoEntity<
     options?: {
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
+  ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
     return Effect.gen(this, function* () {
       const fullValueWithId = {
         ...value,
@@ -551,14 +574,16 @@ export class DynamoEntity<
    */
   updateOp(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema["idField"]>,
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
     params: {
       update:
-        | Partial<Omit<ESchemaType<TSchema>, "_v">>
-        | ((ops: UpdateOps<ESchemaType<TSchema>>) => AnyOperation<ESchemaType<TSchema>>[]);
+        | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+        | ((
+            ops: UpdateOps<ESchemaType<TSchema>>,
+          ) => AnyOperation<ESchemaType<TSchema>>[]);
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<TransactItem<TSchema["name"]>, DynamodbError> {
+  ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
     const { update: updates, condition } = params;
     return Effect.gen(this, function* () {
       const existing = yield* this.get(keyValue);
@@ -567,12 +592,20 @@ export class DynamoEntity<
       }
 
       const { pk, sk, exprResult, meta } =
-        typeof updates === "function"
-          ? yield* this.#prepareUpdateExpr(keyValue as Record<string, unknown>, updates, condition)
-          : this.#prepareUpdate(keyValue as Record<string, unknown>, updates, condition);
+        typeof updates === 'function'
+          ? yield* this.#prepareUpdateExpr(
+              keyValue as Record<string, unknown>,
+              updates,
+              condition,
+            )
+          : this.#prepareUpdate(
+              keyValue as Record<string, unknown>,
+              updates,
+              condition,
+            );
 
       const mergedValue =
-        typeof updates === "function"
+        typeof updates === 'function'
           ? existing.value
           : ({ ...existing.value, ...updates } as ESchemaType<TSchema>);
 
@@ -595,13 +628,9 @@ export class DynamoEntity<
    * @param options - Query options including limit
    * @returns Array of matching entities with metadata
    */
-  query<
-    K extends
-      | "primary"
-      | (keyof TSecondaryDerivationMap & string),
-  >(
+  query<K extends 'primary' | (keyof TSecondaryDerivationMap & string)>(
     key: K,
-    params: K extends "primary"
+    params: K extends 'primary'
       ? [TPrimaryPkKeys] extends [never]
         ? { pk?: {}; sk: SkParam }
         : {
@@ -609,15 +638,18 @@ export class DynamoEntity<
             sk: SkParam;
           }
       : K extends keyof TSecondaryDerivationMap
-          ? {
-              pk: Pick<
-                ESchemaType<TSchema>,
-                TSecondaryDerivationMap[K]["pkDeps"][number] &
-                  keyof ESchemaType<TSchema>
-              >;
-              sk: ResolveSkParam<ESchemaType<TSchema>, TSecondaryDerivationMap[K]>;
-            }
-          : never,
+        ? {
+            pk: Pick<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]['pkDeps'][number] &
+                keyof ESchemaType<TSchema>
+            >;
+            sk: ResolveSkParam<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]
+            >;
+          }
+        : never,
     options?: SimpleQueryOptions,
   ): Effect.Effect<
     { items: EntityType<ESchemaType<TSchema>>[] },
@@ -627,7 +659,7 @@ export class DynamoEntity<
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
 
-      if (key === "primary") {
+      if (key === 'primary') {
         // Primary index query
         const derivedPk = deriveIndexKeyValue(
           this.#eschema.name,
@@ -710,13 +742,9 @@ export class DynamoEntity<
    * @param options - Stream options including batchSize
    * @returns A Stream that yields batches of entities
    */
-  queryStream<
-    K extends
-      | "primary"
-      | (keyof TSecondaryDerivationMap & string),
-  >(
+  queryStream<K extends 'primary' | (keyof TSecondaryDerivationMap & string)>(
     key: K,
-    params: K extends "primary"
+    params: K extends 'primary'
       ? [TPrimaryPkKeys] extends [never]
         ? { pk?: {}; sk: StreamSkParam }
         : {
@@ -724,25 +752,27 @@ export class DynamoEntity<
             sk: StreamSkParam;
           }
       : K extends keyof TSecondaryDerivationMap
-          ? {
-              pk: Pick<
-                ESchemaType<TSchema>,
-                TSecondaryDerivationMap[K]["pkDeps"][number] &
-                  keyof ESchemaType<TSchema>
-              >;
-              sk: ResolveStreamSkParam<ESchemaType<TSchema>, TSecondaryDerivationMap[K]>;
-            }
-          : never,
+        ? {
+            pk: Pick<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]['pkDeps'][number] &
+                keyof ESchemaType<TSchema>
+            >;
+            sk: ResolveStreamSkParam<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]
+            >;
+          }
+        : never,
     options?: QueryStreamOptions,
   ): Stream.Stream<EntityType<ESchemaType<TSchema>>[], DynamodbError> {
     const batchSize = options?.batchSize ?? 100;
-    const operator = ">" in params.sk ? ">" : "<";
-    const initialSkValue = ">" in params.sk ? params.sk[">"] : params.sk["<"];
+    const operator = '>' in params.sk ? '>' : '<';
+    const initialSkValue = '>' in params.sk ? params.sk['>'] : params.sk['<'];
 
     // Resolve the initial cursor: for custom SK, derive string from object
-    const indexDerivation = key !== "primary"
-      ? this.#secondaryDerivations[key]
-      : undefined;
+    const indexDerivation =
+      key !== 'primary' ? this.#secondaryDerivations[key] : undefined;
     const isCustomSk = indexDerivation && !indexDerivation.isTimelineSk;
 
     const initialCursor: string | null = isCustomSk
@@ -767,7 +797,7 @@ export class DynamoEntity<
 
         const lastItem = items[items.length - 1]!;
         let nextCursor: string | null;
-        if (key === "primary") {
+        if (key === 'primary') {
           nextCursor = (lastItem.value as Record<string, unknown>)[
             this.#eschema.idField
           ] as string;
@@ -792,23 +822,21 @@ export class DynamoEntity<
    * @returns All items after the cursor
    */
   subscribe<
-    K extends
-      | "primary"
-      | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
+    K extends 'primary' | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
   >(
     opts: SubscribeOptions<
       K,
-      K extends "primary"
+      K extends 'primary'
         ? [TPrimaryPkKeys] extends [never]
           ? {}
           : IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>
         : K extends keyof TSecondaryDerivationMap
-            ? Pick<
-                ESchemaType<TSchema>,
-                TSecondaryDerivationMap[K]["pkDeps"][number] &
-                  keyof ESchemaType<TSchema>
-              >
-            : never
+          ? Pick<
+              ESchemaType<TSchema>,
+              TSecondaryDerivationMap[K]['pkDeps'][number] &
+                keyof ESchemaType<TSchema>
+            >
+          : never
     >,
   ): Effect.Effect<{ success: true }, DynamodbError> {
     return Effect.gen(this, function* () {
@@ -824,7 +852,7 @@ export class DynamoEntity<
       while (true) {
         const result = yield* this.query(
           key,
-          { pk, sk: { ">": currentCursor } } as any,
+          { pk, sk: { '>': currentCursor } } as any,
           queryOptions,
         );
 
@@ -844,7 +872,11 @@ export class DynamoEntity<
     skValue: unknown,
     indexDerivation: StoredIndexDerivation,
   ): string | null {
-    if (skValue !== null && !indexDerivation.isTimelineSk && typeof skValue === "object") {
+    if (
+      skValue !== null &&
+      !indexDerivation.isTimelineSk &&
+      typeof skValue === 'object'
+    ) {
       return deriveIndexKeyValue(
         this.#eschema.name,
         indexDerivation.skDeps,
@@ -879,7 +911,7 @@ export class DynamoEntity<
       const deriv = derivation as StoredIndexDerivation;
 
       if (
-        deriv.pkDeps.every((key: string) => typeof value[key] !== "undefined")
+        deriv.pkDeps.every((key: string) => typeof value[key] !== 'undefined')
       ) {
         const pkKey = `${deriv.gsiName}PK`;
         indexMap[pkKey] = deriveIndexKeyValue(
@@ -891,7 +923,7 @@ export class DynamoEntity<
       }
 
       if (
-        deriv.skDeps.every((key: string) => typeof value[key] !== "undefined")
+        deriv.skDeps.every((key: string) => typeof value[key] !== 'undefined')
       ) {
         const skKey = `${deriv.gsiName}SK`;
         indexMap[skKey] = deriveIndexKeyValue(
@@ -914,7 +946,7 @@ export class DynamoEntity<
     if (deps.length === 0) {
       return { deps: [], pattern: prefix };
     }
-    const pattern = deps.map((d) => `{${d}}`).join("#");
+    const pattern = deps.map((d) => `{${d}}`).join('#');
     return {
       deps,
       pattern: includePrefix ? `${prefix}#${pattern}` : pattern,
@@ -975,7 +1007,9 @@ export class DynamoEntity<
         ...indexMap,
       };
 
-      const resolvedCondition = condition ? resolveCondition(condition) : undefined;
+      const resolvedCondition = condition
+        ? resolveCondition(condition)
+        : undefined;
 
       const exprResult = buildExpr({
         condition: exprCondition(($) =>
@@ -998,7 +1032,7 @@ export class DynamoEntity<
   ): ConditionOperation {
     const ops: ConditionOperation[] = [
       exprCondition(($) =>
-        $.cond("_v" as any, "=", this.#eschema.latestVersion),
+        $.cond('_v' as any, '=', this.#eschema.latestVersion),
       ),
     ];
     if (userCondition) ops.push(resolveCondition(userCondition));
@@ -1007,7 +1041,7 @@ export class DynamoEntity<
 
   #prepareUpdate(
     keyValue: Record<string, unknown>,
-    updates: Partial<Omit<ESchemaType<TSchema>, "_v">>,
+    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
     condition?: ConditionInput<ESchemaType<TSchema>>,
   ): { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType } {
     const pk = deriveIndexKeyValue(
@@ -1040,7 +1074,7 @@ export class DynamoEntity<
       ...Object.entries({ ...updates, ...indexMap }).map(([key, v]) =>
         $.set(key, v),
       ),
-      $.set("_u", _u),
+      $.set('_u', _u),
     ]);
 
     const exprResult = buildExpr({
@@ -1086,7 +1120,7 @@ export class DynamoEntity<
 
       const builtCondition = this.#buildUpdateCondition(condition);
 
-      const update = exprUpdate<any>(($) => [...userOps, $.set("_u", _u)]);
+      const update = exprUpdate<any>(($) => [...userOps, $.set('_u', _u)]);
 
       const exprResult = buildExpr({
         update,
@@ -1096,7 +1130,6 @@ export class DynamoEntity<
       return { pk, sk, exprResult, meta };
     });
   }
-
 }
 
 /**
@@ -1144,7 +1177,7 @@ class EntityIndexDerivations<
    * @returns A builder with the index mapping added
    */
   index<
-    GsiName extends keyof TTable["secondaryIndexMap"] & string,
+    GsiName extends keyof TTable['secondaryIndexMap'] & string,
     const TEntityIndexName extends string,
     const TPkKeys extends readonly (
       | keyof ESchemaType<TSchema>
@@ -1153,7 +1186,7 @@ class EntityIndexDerivations<
     const TSkKeys extends readonly (
       | keyof ESchemaType<TSchema>
       | DerivableMetaFields
-    )[] = readonly ["_u"],
+    )[] = readonly ['_u'],
   >(
     gsiName: GsiName,
     entityIndexName: TEntityIndexName,
@@ -1162,8 +1195,8 @@ class EntityIndexDerivations<
       sk?: TSkKeys;
     },
   ) {
-    const skKeys = (derivation.sk ?? ["_u"]) as TSkKeys;
-    const isTimelineSk = skKeys.length === 1 && skKeys[0] === "_u";
+    const skKeys = (derivation.sk ?? ['_u']) as TSkKeys;
+    const isTimelineSk = skKeys.length === 1 && skKeys[0] === '_u';
     const newDeriv: StoredIndexDerivation = {
       gsiName,
       entityIndexName,
@@ -1212,11 +1245,6 @@ class EntityIndexDerivations<
       TSecondaryDerivationMap,
       TSchema,
       TPrimaryPkKeys
-    >(
-      this.#table,
-      this.#eschema,
-      storedPrimary,
-      this.#secondaryDerivations,
-    );
+    >(this.#table, this.#eschema, storedPrimary, this.#secondaryDerivations);
   }
 }

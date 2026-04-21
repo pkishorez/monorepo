@@ -1,15 +1,15 @@
-import { Schema } from "effect";
-import { EntityESchema } from "@std-toolkit/eschema";
-import { Typed } from "../../lib/typed.js";
-import type { ProjectedCodexEvent } from "../../projection/codex-event.js";
+import { Schema } from 'effect';
+import { EntityESchema } from '@std-toolkit/eschema';
+import { Typed } from '../../lib/typed.js';
+import type { ProjectedCodexEvent } from '../../projection/codex-event.js';
 export type {
   ProjectedCodexEvent,
   ProjectedToolCall,
-} from "../../projection/codex-event.js";
+} from '../../projection/codex-event.js';
 
 export const codexEventProjectedEntity = EntityESchema.make(
-  "codexEvent",
-  "id",
+  'codexEvent',
+  'id',
   {
     sessionId: Schema.String,
     turnId: Schema.String,

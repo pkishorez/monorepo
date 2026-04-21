@@ -1,4 +1,4 @@
-import { Effect, Either, Schema } from "effect";
+import { Effect, Either, Schema } from 'effect';
 import {
   basename,
   dirname,
@@ -6,9 +6,9 @@ import {
   glob,
   joinPath,
   readFile,
-} from "../../primitives/fs/index.js";
-import { parseDependencies } from "./dependency.js";
-import type { AnalysisError, Workspace } from "./types.js";
+} from '../../primitives/fs/index.js';
+import { parseDependencies } from './dependency.js';
+import type { AnalysisError, Workspace } from './types.js';
 
 const RawPackageJsonSchema = Schema.Struct({
   name: Schema.optional(Schema.String),
@@ -41,20 +41,20 @@ const parseWorkspace = (
   workspaceNames: Set<string>,
 ): Workspace => ({
   name: raw.name ?? basename(dirname(pkgPath)),
-  version: raw.version ?? "0.0.0",
+  version: raw.version ?? '0.0.0',
   path: dirname(pkgPath),
   private: raw.private ?? false,
   dependencies: [
-    ...parseDependencies(raw.dependencies, "dependency", workspaceNames),
-    ...parseDependencies(raw.devDependencies, "devDependency", workspaceNames),
+    ...parseDependencies(raw.dependencies, 'dependency', workspaceNames),
+    ...parseDependencies(raw.devDependencies, 'devDependency', workspaceNames),
     ...parseDependencies(
       raw.peerDependencies,
-      "peerDependency",
+      'peerDependency',
       workspaceNames,
     ),
     ...parseDependencies(
       raw.optionalDependencies,
-      "optionalDependency",
+      'optionalDependency',
       workspaceNames,
     ),
   ],
@@ -73,11 +73,11 @@ export const discoverWorkspaces = (
     const workspaces: Workspace[] = [];
     const errors: AnalysisError[] = [];
 
-    const rootPackageJsonPath = joinPath(root, "package.json");
+    const rootPackageJsonPath = joinPath(root, 'package.json');
     const rootExists = yield* fileExists(rootPackageJsonPath);
     const workspacePaths = yield* glob(patterns, {
       cwd: root,
-      ignore: ["**/node_modules/**"],
+      ignore: ['**/node_modules/**'],
       absolute: true,
     }).pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
 
@@ -101,7 +101,7 @@ export const discoverWorkspaces = (
       } else {
         errors.push({
           path: pkgPath,
-          message: "Failed to parse package.json",
+          message: 'Failed to parse package.json',
           cause: result.left,
         });
       }
@@ -115,4 +115,4 @@ export const discoverWorkspaces = (
   });
 
 export const getPackageJsonStr = (workspace: Workspace) =>
-  readFile(joinPath(workspace.path, "package.json"));
+  readFile(joinPath(workspace.path, 'package.json'));

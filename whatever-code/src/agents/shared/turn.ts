@@ -1,12 +1,12 @@
-import { Effect } from "effect";
-import { turnSqliteEntity } from "../../db/entities/turn.js";
-import { sessionSqliteEntity } from "../../db/entities/session.js";
+import { Effect } from 'effect';
+import { turnSqliteEntity } from '../../db/entities/turn.js';
+import { sessionSqliteEntity } from '../../db/entities/session.js';
 import type {
   TurnPayload,
   ClaudeTurnPayload,
   CodexTurnPayload,
-} from "../../core/entity/turn/index.js";
-import type { TaskStatus } from "../../core/entity/status.js";
+} from '../../core/entity/turn/index.js';
+import type { TaskStatus } from '../../core/entity/status.js';
 
 export const markTurnStatus = (
   turnId: string,
@@ -15,9 +15,7 @@ export const markTurnStatus = (
 ) =>
   Effect.all(
     [
-      turnSqliteEntity
-        .update({ id: turnId }, { status })
-        .pipe(Effect.orDie),
+      turnSqliteEntity.update({ id: turnId }, { status }).pipe(Effect.orDie),
       sessionSqliteEntity.update({ sessionId }, { status }).pipe(Effect.orDie),
     ],
     { discard: true },
@@ -25,18 +23,18 @@ export const markTurnStatus = (
 
 export const markTurnsInterrupted = (sessionId: string) =>
   turnSqliteEntity
-    .query("bySession", {
+    .query('bySession', {
       pk: { sessionId },
-      sk: { ">": null },
+      sk: { '>': null },
     })
     .pipe(
       Effect.flatMap(({ items }) =>
         Effect.all(
           items
-            .filter((t) => t.value.status === "in_progress")
+            .filter((t) => t.value.status === 'in_progress')
             .map((t) =>
               turnSqliteEntity
-                .update({ id: t.value.id }, { status: "interrupted" })
+                .update({ id: t.value.id }, { status: 'interrupted' })
                 .pipe(Effect.orDie),
             ),
           { discard: true },
@@ -52,7 +50,7 @@ export const updateTurnPayload = (
   Effect.gen(function* () {
     const row = yield* turnSqliteEntity.get({ id: turnId }).pipe(Effect.orDie);
     if (!row) {
-      yield* Effect.logWarning("updateTurnPayload: turn not found").pipe(
+      yield* Effect.logWarning('updateTurnPayload: turn not found').pipe(
         Effect.annotateLogs({ turnId }),
       );
       return;
@@ -69,7 +67,7 @@ export const updateClaudeTurnPayload = (
   ) => typeof ClaudeTurnPayload.Type,
 ) =>
   updateTurnPayload(turnId, (payload) =>
-    payload.type === "claude" ? updater(payload) : payload,
+    payload.type === 'claude' ? updater(payload) : payload,
   );
 
 export const updateCodexTurnPayload = (
@@ -79,17 +77,17 @@ export const updateCodexTurnPayload = (
   ) => typeof CodexTurnPayload.Type,
 ) =>
   updateTurnPayload(turnId, (payload) =>
-    payload.type === "codex" ? updater(payload) : payload,
+    payload.type === 'codex' ? updater(payload) : payload,
   );
 
 /** Finds the first turn with status "queued" for a session, if any. */
 export const findQueuedTurn = (sessionId: string) =>
   turnSqliteEntity
-    .query("bySession", { pk: { sessionId }, sk: { ">": null } })
+    .query('bySession', { pk: { sessionId }, sk: { '>': null } })
     .pipe(
       Effect.map(
         ({ items }) =>
-          items.find((t) => t.value.status === "queued")?.value ?? null,
+          items.find((t) => t.value.status === 'queued')?.value ?? null,
       ),
       Effect.orDie,
     );

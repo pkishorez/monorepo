@@ -1,16 +1,16 @@
-import { Schema } from "effect";
-import { EntityESchema } from "@std-toolkit/eschema";
+import { Schema } from 'effect';
+import { EntityESchema } from '@std-toolkit/eschema';
 
 // =============================================================================
 // User Schema - v1 -> v2 (added bio) -> v3 (added followerCount)
 // =============================================================================
-export const userSchema = EntityESchema.make("User", "userId", {
+export const userSchema = EntityESchema.make('User', 'userId', {
   username: Schema.String,
   email: Schema.String,
   createdAt: Schema.String,
 })
   .evolve(
-    "v2",
+    'v2',
     {
       username: Schema.String,
       email: Schema.String,
@@ -19,11 +19,11 @@ export const userSchema = EntityESchema.make("User", "userId", {
     },
     (prev) => ({
       ...prev,
-      bio: "",
+      bio: '',
     }),
   )
   .evolve(
-    "v3",
+    'v3',
     {
       username: Schema.String,
       email: Schema.String,
@@ -41,14 +41,14 @@ export const userSchema = EntityESchema.make("User", "userId", {
 // =============================================================================
 // Post Schema - v1 -> v2 (added tags) -> v3 (added likeCount, viewCount)
 // =============================================================================
-export const postSchema = EntityESchema.make("Post", "postId", {
+export const postSchema = EntityESchema.make('Post', 'postId', {
   authorId: Schema.String,
   title: Schema.String,
   content: Schema.String,
   createdAt: Schema.String,
 })
   .evolve(
-    "v2",
+    'v2',
     {
       authorId: Schema.String,
       title: Schema.String,
@@ -62,7 +62,7 @@ export const postSchema = EntityESchema.make("Post", "postId", {
     }),
   )
   .evolve(
-    "v3",
+    'v3',
     {
       authorId: Schema.String,
       title: Schema.String,
@@ -83,14 +83,14 @@ export const postSchema = EntityESchema.make("Post", "postId", {
 // =============================================================================
 // Comment Schema - v1 -> v2 (added editedAt)
 // =============================================================================
-export const commentSchema = EntityESchema.make("Comment", "commentId", {
+export const commentSchema = EntityESchema.make('Comment', 'commentId', {
   postId: Schema.String,
   authorId: Schema.String,
   content: Schema.String,
   createdAt: Schema.String,
 })
   .evolve(
-    "v2",
+    'v2',
     {
       postId: Schema.String,
       authorId: Schema.String,

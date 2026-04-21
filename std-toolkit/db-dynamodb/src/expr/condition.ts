@@ -1,6 +1,6 @@
-import type { ExprResult, ValidPaths } from "./types.js";
-import type { Get, Paths } from "type-fest";
-import { AttributeMapBuilder } from "./utils.js";
+import type { ExprResult, ValidPaths } from './types.js';
+import type { Get, Paths } from 'type-fest';
+import { AttributeMapBuilder } from './utils.js';
 
 /**
  * A compiled condition operation ready for use in DynamoDB requests.
@@ -8,7 +8,7 @@ import { AttributeMapBuilder } from "./utils.js";
  * @typeParam T - The entity type this condition operates on
  */
 export type CompiledConditionOperation<T = any> = {
-  type: "condition_operation";
+  type: 'condition_operation';
   expr: ExprResult;
   value?: T;
 };
@@ -19,7 +19,7 @@ export type CompiledConditionOperation<T = any> = {
  * @typeParam T - The entity type this reference operates on
  */
 export type FieldRef<T = any> = {
-  readonly type: "field_ref";
+  readonly type: 'field_ref';
   readonly key: ValidPaths<T>;
 };
 
@@ -29,9 +29,9 @@ export type FieldRef<T = any> = {
  * @typeParam T - The entity type this condition operates on
  */
 export type CondOperation<T = any> = {
-  type: "condition_condition";
+  type: 'condition_condition';
   key: ValidPaths<T>;
-  op: "=" | "<>" | "<" | "<=" | ">" | ">=";
+  op: '=' | '<>' | '<' | '<=' | '>' | '>=';
   value: any | FieldRef<T>;
 };
 
@@ -41,7 +41,7 @@ export type CondOperation<T = any> = {
  * @typeParam T - The entity type this condition operates on
  */
 export type AndOperation<T = any> = {
-  type: "condition_and";
+  type: 'condition_and';
   conditions: AnyCondition<T>[];
 };
 
@@ -51,7 +51,7 @@ export type AndOperation<T = any> = {
  * @typeParam T - The entity type this condition operates on
  */
 export type OrOperation<T = any> = {
-  type: "condition_or";
+  type: 'condition_or';
   conditions: AnyCondition<T>[];
 };
 
@@ -61,7 +61,7 @@ export type OrOperation<T = any> = {
  * @typeParam T - The entity type this condition operates on
  */
 export type AttributeNotExistsOperation<T = any> = {
-  type: "condition_attribute_not_exists";
+  type: 'condition_attribute_not_exists';
   key: ValidPaths<T>;
 };
 
@@ -71,7 +71,7 @@ export type AttributeNotExistsOperation<T = any> = {
  * @typeParam T - The entity type this condition operates on
  */
 export type AttributeExistsOperation<T = any> = {
-  type: "condition_attribute_exists";
+  type: 'condition_attribute_exists';
   key: ValidPaths<T>;
 };
 
@@ -123,7 +123,7 @@ type ConditionOps<T> = {
   /** Creates a comparison condition */
   cond: <Key extends ValidConditionKeys<T>>(
     key: Key,
-    op: "=" | "<>" | "<" | "<=" | ">" | ">=",
+    op: '=' | '<>' | '<' | '<=' | '>' | '>=',
     value: Get<T, Key> | FieldRef<T>,
   ) => CondOperation;
 
@@ -147,35 +147,35 @@ type ConditionOps<T> = {
 function ref<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   key: Key,
 ): FieldRef<T> {
-  return { type: "field_ref", key };
+  return { type: 'field_ref', key };
 }
 
 function cond<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   key: Key,
-  op: "=" | "<>" | "<" | "<=" | ">" | ">=",
+  op: '=' | '<>' | '<' | '<=' | '>' | '>=',
   value: Get<T, Key> | FieldRef<T>,
 ): CondOperation<T> {
-  return { type: "condition_condition", key, op, value };
+  return { type: 'condition_condition', key, op, value };
 }
 
 function and<T>(...ops: AnyCondition<T>[]): AndOperation<T> {
-  return { type: "condition_and", conditions: ops };
+  return { type: 'condition_and', conditions: ops };
 }
 
 function or<T>(...ops: AnyCondition<T>[]): OrOperation<T> {
-  return { type: "condition_or", conditions: ops };
+  return { type: 'condition_or', conditions: ops };
 }
 
 function attributeNotExists<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   key: Key,
 ): AttributeNotExistsOperation<T> {
-  return { type: "condition_attribute_not_exists", key };
+  return { type: 'condition_attribute_not_exists', key };
 }
 
 function attributeExists<T, Key extends ValidPaths<T> = ValidPaths<T>>(
   key: Key,
 ): AttributeExistsOperation<T> {
-  return { type: "condition_attribute_exists", key };
+  return { type: 'condition_attribute_exists', key };
 }
 
 /**
@@ -229,7 +229,7 @@ export function exprFilter<T>(
 export function resolveCondition<T>(
   input: ConditionInput<T>,
 ): ConditionOperation<T> {
-  return typeof input === "function" ? exprCondition<T>(input) : input;
+  return typeof input === 'function' ? exprCondition<T>(input) : input;
 }
 
 /**
@@ -242,35 +242,35 @@ export function resolveCondition<T>(
 export function compileConditionExpr<T>(
   operation: ConditionOperation<T>,
 ): CompiledConditionOperation<T> {
-  const attrBuilder = new AttributeMapBuilder("cf_");
+  const attrBuilder = new AttributeMapBuilder('cf_');
 
   function compile(op: AnyCondition<T>): string {
     switch (op.type) {
-      case "condition_condition": {
+      case 'condition_condition': {
         const left = attrBuilder.attr(op.key);
         const right =
-          op.value?.type === "field_ref"
+          op.value?.type === 'field_ref'
             ? attrBuilder.attr(op.value.key)
             : attrBuilder.value(op.value);
         return `${left} ${op.op} ${right}`;
       }
-      case "condition_and": {
+      case 'condition_and': {
         const exprs = op.conditions.map(compile);
-        return `${exprs.join(" AND ")}`;
+        return `${exprs.join(' AND ')}`;
       }
-      case "condition_or": {
+      case 'condition_or': {
         const exprs = op.conditions.map(compile);
-        return `${exprs.join(" OR ")}`;
+        return `${exprs.join(' OR ')}`;
       }
-      case "condition_attribute_not_exists":
+      case 'condition_attribute_not_exists':
         return `attribute_not_exists(${attrBuilder.attr(op.key)})`;
-      case "condition_attribute_exists":
+      case 'condition_attribute_exists':
         return `attribute_exists(${attrBuilder.attr(op.key)})`;
     }
   }
 
   return {
-    type: "condition_operation",
+    type: 'condition_operation',
     expr: {
       expr: compile(operation),
       attrResult: attrBuilder.build(),

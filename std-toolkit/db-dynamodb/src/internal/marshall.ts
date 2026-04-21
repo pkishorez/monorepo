@@ -1,4 +1,4 @@
-import type { AttributeValue, MarshalledOutput } from "../types/index.js";
+import type { AttributeValue, MarshalledOutput } from '../types/index.js';
 
 /**
  * Converts a JavaScript object to DynamoDB marshalled format.
@@ -11,7 +11,7 @@ export function marshall(value: unknown): MarshalledOutput {
     return {};
   }
 
-  if (typeof value !== "object") {
+  if (typeof value !== 'object') {
     return {};
   }
 
@@ -33,15 +33,15 @@ export function convertToAttr(value: unknown): AttributeValue {
     return { NULL: true };
   }
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return { S: value };
   }
 
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     return { N: String(value) };
   }
 
-  if (typeof value === "boolean") {
+  if (typeof value === 'boolean') {
     return { BOOL: value };
   }
 
@@ -49,7 +49,7 @@ export function convertToAttr(value: unknown): AttributeValue {
     return { L: value.map(convertToAttr) };
   }
 
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     const m: Record<string, AttributeValue> = {};
     for (const [k, v] of Object.entries(value)) {
       m[k] = convertToAttr(v);
@@ -81,21 +81,21 @@ export function unmarshall(value: MarshalledOutput): Record<string, unknown> {
  * @returns The corresponding JavaScript value
  */
 function convertFromAttr(attr: AttributeValue): unknown {
-  if ("S" in attr) return attr.S;
-  if ("N" in attr) return Number(attr.N);
-  if ("BOOL" in attr) return attr.BOOL;
-  if ("NULL" in attr) return null;
-  if ("L" in attr) return attr.L.map(convertFromAttr);
-  if ("M" in attr) {
+  if ('S' in attr) return attr.S;
+  if ('N' in attr) return Number(attr.N);
+  if ('BOOL' in attr) return attr.BOOL;
+  if ('NULL' in attr) return null;
+  if ('L' in attr) return attr.L.map(convertFromAttr);
+  if ('M' in attr) {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(attr.M)) {
       result[k] = convertFromAttr(v);
     }
     return result;
   }
-  if ("SS" in attr) return attr.SS;
-  if ("NS" in attr) return attr.NS.map(Number);
-  if ("BS" in attr) return attr.BS;
+  if ('SS' in attr) return attr.SS;
+  if ('NS' in attr) return attr.NS.map(Number);
+  if ('BS' in attr) return attr.BS;
   return null;
 }
 
@@ -124,11 +124,11 @@ export const deriveIndexKeyValue = (
     return prefix;
   }
 
-  const values = deps.map((dep) => String(value[dep] ?? ""));
+  const values = deps.map((dep) => String(value[dep] ?? ''));
 
   if (isPrimaryKey) {
-    return `${prefix}#${values.join("#")}`;
+    return `${prefix}#${values.join('#')}`;
   }
 
-  return values.join("#");
+  return values.join('#');
 };

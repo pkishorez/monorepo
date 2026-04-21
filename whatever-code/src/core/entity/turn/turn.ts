@@ -1,6 +1,6 @@
-import { EntityESchema } from "@std-toolkit/eschema";
-import { Schema } from "effect";
-import { TaskStatus } from "../status.js";
+import { EntityESchema } from '@std-toolkit/eschema';
+import { Schema } from 'effect';
+import { TaskStatus } from '../status.js';
 
 // ── Claude sub-schemas ───────────────────────────────────────────────
 
@@ -21,7 +21,7 @@ export const AskUserQuestionInput = Schema.Struct({
 });
 
 export const PendingQuestionEntry = Schema.Struct({
-  status: Schema.Literal("pending", "answered"),
+  status: Schema.Literal('pending', 'answered'),
   /** Typed tool input from AskUserQuestion. */
   question: AskUserQuestionInput,
   /** The user's response, populated when status transitions to "answered". */
@@ -50,11 +50,11 @@ export const ModelUsage = Schema.Record({
 });
 
 export const TurnState = Schema.NullOr(
-  Schema.Literal("question", "plan-ready"),
+  Schema.Literal('question', 'plan-ready'),
 );
 
 export const ClaudeTurnPayload = Schema.Struct({
-  type: Schema.Literal("claude"),
+  type: Schema.Literal('claude'),
   model: Schema.NullOr(Schema.String),
   costUsd: Schema.NullOr(Schema.Number),
   isError: Schema.NullOr(Schema.Boolean),
@@ -103,7 +103,7 @@ export const TurnError = Schema.Struct({
 });
 
 export const CodexTurnPayload = Schema.Struct({
-  type: Schema.Literal("codex"),
+  type: Schema.Literal('codex'),
   model: Schema.String,
   sdkTurnId: Schema.NullOr(Schema.String),
   usage: Schema.NullOr(ThreadTokenUsage),
@@ -121,8 +121,8 @@ export const CodexTurnPayload = Schema.Struct({
 
 export const TurnPayload = Schema.Union(ClaudeTurnPayload, CodexTurnPayload);
 
-export const turnEntity = EntityESchema.make("turn", "id", {
-  type: Schema.Literal("claude", "codex"),
+export const turnEntity = EntityESchema.make('turn', 'id', {
+  type: Schema.Literal('claude', 'codex'),
   sessionId: Schema.String,
   status: TaskStatus,
   payload: TurnPayload,

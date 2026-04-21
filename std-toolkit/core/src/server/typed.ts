@@ -1,5 +1,5 @@
-import { WebSocket } from "@cloudflare/workers-types";
-import { Schema } from "effect";
+import { WebSocket } from '@cloudflare/workers-types';
+import { Schema } from 'effect';
 
 class TypedWebSocket<S extends Schema.Schema<any, any, never>> {
   private constructor(private schema: S) {}

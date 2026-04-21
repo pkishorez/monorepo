@@ -1,10 +1,10 @@
-import { SqliteDBBetterSqlite3 } from "@std-toolkit/sqlite/adapters/better-sqlite3";
-import Database from "better-sqlite3";
-import { Effect, Layer } from "effect";
-import envPaths from "env-paths";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { registry } from "./registry.js";
+import { SqliteDBBetterSqlite3 } from '@std-toolkit/sqlite/adapters/better-sqlite3';
+import Database from 'better-sqlite3';
+import { Effect, Layer } from 'effect';
+import envPaths from 'env-paths';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { registry } from './registry.js';
 
 const makeDbLayer = (dbPath: string) =>
   Layer.unwrapEffect(
@@ -16,8 +16,8 @@ const makeDbLayer = (dbPath: string) =>
     }),
   );
 
-const paths = envPaths("whatever", { suffix: "" });
+const paths = envPaths('whatever', { suffix: '' });
 mkdirSync(paths.data, { recursive: true });
 
 export const dataDir = paths.data;
-export const dbLayer = makeDbLayer(join(paths.data, "code.db"));
+export const dbLayer = makeDbLayer(join(paths.data, 'code.db'));

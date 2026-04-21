@@ -18,7 +18,9 @@ export function detectVersionMismatches(
     const dependenciesByPackage = groupDependenciesByPackage(analysis, ['npm']);
 
     for (const dep of dependenciesByPackage) {
-      const instances = dep.instances.filter((i) => i.type !== 'peerDependency');
+      const instances = dep.instances.filter(
+        (i) => i.type !== 'peerDependency',
+      );
       if (instances.length < 2) continue;
 
       const versions = new Set(instances.map((i) => i.versionRange));

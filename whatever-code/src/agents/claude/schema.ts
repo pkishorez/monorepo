@@ -1,6 +1,6 @@
-import { Schema } from "effect";
-import { Typed } from "../../core/lib/typed.js";
-import type { SessionCapabilities } from "./internal/index.js";
+import { Schema } from 'effect';
+import { Typed } from '../../core/lib/typed.js';
+import type { SessionCapabilities } from './internal/index.js';
 export {
   ImageBlock,
   TextBlock,
@@ -8,19 +8,19 @@ export {
   PromptContent,
   InteractionMode,
   ToolResponse,
-} from "../shared/schema.js";
-export type { ToolResponse as ToolResponseType } from "../shared/schema.js";
+} from '../shared/schema.js';
+export type { ToolResponse as ToolResponseType } from '../shared/schema.js';
 import {
   PromptContent,
   InteractionMode,
   ToolResponse,
-} from "../shared/schema.js";
-import type { ProjectedClaudeMessage } from "../../core/projection/claude-message.js";
-export type { ProjectedClaudeMessage } from "../../core/projection/claude-message.js";
+} from '../shared/schema.js';
+import type { ProjectedClaudeMessage } from '../../core/projection/claude-message.js';
+export type { ProjectedClaudeMessage } from '../../core/projection/claude-message.js';
 
 export const Message = Typed<ProjectedClaudeMessage>();
 
-export const Effort = Schema.Literal("low", "medium", "high", "max");
+export const Effort = Schema.Literal('low', 'medium', 'high', 'max');
 
 export const ContinueSessionParams = Schema.Struct({
   sessionId: Schema.String,
@@ -52,7 +52,7 @@ export const CreateSessionParams = Schema.Struct({
   model: Schema.String,
   interactionMode: Schema.optionalWith(InteractionMode, {
     exact: true,
-    default: () => "default" as const,
+    default: () => 'default' as const,
   }),
   persistSession: Schema.Boolean,
   effort: Effort,
@@ -60,31 +60,31 @@ export const CreateSessionParams = Schema.Struct({
   maxBudgetUsd: Schema.Number,
 });
 
-export const MODELS: SessionCapabilities["models"] = [
+export const MODELS: SessionCapabilities['models'] = [
   {
-    value: "claude-opus-4-6[1m]",
-    displayName: "Opus 4.6 [1m]",
-    description: "Most capable model, 1M context",
+    value: 'claude-opus-4-6[1m]',
+    displayName: 'Opus 4.6 [1m]',
+    description: 'Most capable model, 1M context',
   },
   {
-    value: "claude-opus-4-6",
-    displayName: "Opus 4.6",
-    description: "Most capable model, 200k context",
+    value: 'claude-opus-4-6',
+    displayName: 'Opus 4.6',
+    description: 'Most capable model, 200k context',
   },
   {
-    value: "claude-opus-4-5",
-    displayName: "Opus 4.5",
-    description: "Highly capable Opus model, 200k context",
+    value: 'claude-opus-4-5',
+    displayName: 'Opus 4.5',
+    description: 'Highly capable Opus model, 200k context',
   },
   {
-    value: "claude-sonnet-4-6",
-    displayName: "Sonnet 4.6",
-    description: "Best balance of speed and capability, 200k context",
+    value: 'claude-sonnet-4-6',
+    displayName: 'Sonnet 4.6',
+    description: 'Best balance of speed and capability, 200k context',
   },
 
   {
-    value: "claude-haiku-4-5",
-    displayName: "Haiku 4.5",
-    description: "Fastest model for simple tasks, 200k context",
+    value: 'claude-haiku-4-5',
+    displayName: 'Haiku 4.5',
+    description: 'Fastest model for simple tasks, 200k context',
   },
 ];

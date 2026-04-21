@@ -1,12 +1,12 @@
-import { RpcSerialization } from "@effect/rpc";
-import { Protocol } from "@effect/rpc/RpcClient";
-import { Socket } from "@effect/platform";
-import { Schedule, Option, Effect, Scope, Cause, Ref } from "effect";
-import { constVoid } from "effect/Function";
-import { RpcClientError } from "@effect/rpc/RpcClientError";
-import { isRpcServerMessage } from "./utils.js";
-import { makePinger } from "./pinger.js";
-import { constPing } from "@effect/rpc/RpcMessage";
+import { RpcSerialization } from '@effect/rpc';
+import { Protocol } from '@effect/rpc/RpcClient';
+import { Socket } from '@effect/platform';
+import { Schedule, Option, Effect, Scope, Cause, Ref } from 'effect';
+import { constVoid } from 'effect/Function';
+import { RpcClientError } from '@effect/rpc/RpcClientError';
+import { isRpcServerMessage } from './utils.js';
+import { makePinger } from './pinger.js';
+import { constPing } from '@effect/rpc/RpcMessage';
 
 export const makeProtocolSocket = ({
   retryTransientErrors = true,
@@ -21,7 +21,7 @@ export const makeProtocolSocket = ({
   onConnect?: Ref.Ref<ReadonlyArray<Effect.Effect<any>>>;
   onOtherMessage?: (message: unknown) => void;
 }): Effect.Effect<
-  Protocol["Type"],
+  Protocol['Type'],
   never,
   Scope.Scope | RpcSerialization.RpcSerialization | Socket.Socket
 > =>
@@ -46,7 +46,7 @@ export const makeProtocolSocket = ({
             body: () => {
               const response = responses[i++]!;
               if (isRpcServerMessage(response)) {
-                if (response._tag === "Pong") pinger.onPong();
+                if (response._tag === 'Pong') pinger.onPong();
                 return writeResponse(response);
               }
               onOtherMessage?.(response);
@@ -56,10 +56,10 @@ export const makeProtocolSocket = ({
           });
         } catch (defect) {
           return writeResponse({
-            _tag: "ClientProtocolError",
+            _tag: 'ClientProtocolError',
             error: new RpcClientError({
-              reason: "Protocol",
-              message: "Error decoding message",
+              reason: 'Protocol',
+              message: 'Error decoding message',
               cause: Cause.fail(defect),
             }),
           });
@@ -71,8 +71,8 @@ export const makeProtocolSocket = ({
         const error = Cause.failureOption(cause);
         return (
           Option.isSome(error) &&
-          (error.value.reason === "Open" ||
-            error.value.reason === "OpenTimeout")
+          (error.value.reason === 'Open' ||
+            error.value.reason === 'OpenTimeout')
         );
       };
 
@@ -80,8 +80,8 @@ export const makeProtocolSocket = ({
         pinger.timeout,
         Effect.fail(
           new Socket.SocketGenericError({
-            reason: "OpenTimeout",
-            cause: new Error("ping timeout"),
+            reason: 'OpenTimeout',
+            cause: new Error('ping timeout'),
           }),
         ),
       );
@@ -101,25 +101,25 @@ export const makeProtocolSocket = ({
         );
 
         return yield* Effect.fail(
-          new Socket.SocketCloseError({ reason: "Close", code: 1000 }),
+          new Socket.SocketCloseError({ reason: 'Close', code: 1000 }),
         );
       }).pipe(
         Effect.tapErrorCause((cause) => {
           if (isTransientError(cause)) return Effect.void;
           currentError = new RpcClientError({
-            reason: "Protocol",
-            message: "Error in socket",
+            reason: 'Protocol',
+            message: 'Error in socket',
             cause: Cause.squash(cause),
           });
           return writeResponse({
-            _tag: "ClientProtocolError",
+            _tag: 'ClientProtocolError',
             error: currentError,
           });
         }),
         Effect.retry(retrySchedule),
         Effect.annotateLogs({
-          module: "RpcClient",
-          method: "makeProtocolSocket",
+          module: 'RpcClient',
+          method: 'makeProtocolSocket',
         }),
         Effect.interruptible,
         Effect.forkScoped,

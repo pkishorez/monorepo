@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema } from 'effect';
 import type {
   DeltaSchema,
   Evolution,
@@ -9,9 +9,9 @@ import type {
   NextVersion,
   StructFieldsDecoded,
   StructFieldsSchema,
-} from "../types.js";
-import { mergeDelta } from "../schema.js";
-import { ESchema, SingleEntityESchema, EntityESchema } from "../eschema.js";
+} from '../types.js';
+import { mergeDelta } from '../schema.js';
+import { ESchema, SingleEntityESchema, EntityESchema } from '../eschema.js';
 
 function nextEvolutions(
   migrations: Evolution[],

@@ -10,21 +10,21 @@
 // This script is a workaround until a fixed version is published. Remove it
 // once node-pty ships a tarball with correct permissions.
 
-const path = require("path");
-const fs = require("fs");
-const { globSync } = require("fs");
+const path = require('path');
+const fs = require('fs');
+const { globSync } = require('fs');
 
 const pattern = path.join(
   __dirname,
-  "..",
-  "node_modules",
-  ".pnpm",
-  "node-pty@*",
-  "node_modules",
-  "node-pty",
-  "prebuilds",
+  '..',
+  'node_modules',
+  '.pnpm',
+  'node-pty@*',
+  'node_modules',
+  'node-pty',
+  'prebuilds',
   `${process.platform}-${process.arch}`,
-  "spawn-helper",
+  'spawn-helper',
 );
 
 for (const file of globSync(pattern)) {

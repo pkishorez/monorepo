@@ -15,10 +15,10 @@
  *   bun scripts/generate.ts src/generated/types.ts  # Custom output path
  */
 
-import process from "node:process";
-import { NodeFileSystem, NodeHttpClient } from "@effect/platform-node";
-import { Effect } from "effect";
-import { generateDynamoDBTypes } from "./generate/index.js";
+import process from 'node:process';
+import { NodeFileSystem, NodeHttpClient } from '@effect/platform-node';
+import { Effect } from 'effect';
+import { generateDynamoDBTypes } from './generate/index.js';
 
 // CLI handling
 if (import.meta.main) {
@@ -33,4 +33,7 @@ if (import.meta.main) {
   Effect.runPromise(program).catch(console.error);
 }
 
-export { generateDynamoDBCode, generateDynamoDBTypes } from "./generate/index.js";
+export {
+  generateDynamoDBCode,
+  generateDynamoDBTypes,
+} from './generate/index.js';

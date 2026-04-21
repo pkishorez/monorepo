@@ -3,9 +3,6 @@ export {
   unmarshall,
   convertToAttr,
   deriveIndexKeyValue,
-} from "./marshall.js";
+} from './marshall.js';
 
-export {
-  toDiscriminatedGeneric,
-  fromDiscriminatedGeneric,
-} from "./utils.js";
+export { toDiscriminatedGeneric, fromDiscriminatedGeneric } from './utils.js';

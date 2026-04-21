@@ -1,14 +1,21 @@
-import { Schema } from "effect";
-import { PromptContent, InteractionMode, ToolResponse } from "../shared/schema.js";
+import { Schema } from 'effect';
+import {
+  PromptContent,
+  InteractionMode,
+  ToolResponse,
+} from '../shared/schema.js';
 
-export { InteractionMode, AccessMode } from "../shared/schema.js";
-export { ToolResponse } from "../shared/schema.js";
+export { InteractionMode, AccessMode } from '../shared/schema.js';
+export { ToolResponse } from '../shared/schema.js';
 
 export const CreateThreadParams = Schema.Struct({
   absolutePath: Schema.String,
   prompt: PromptContent,
   model: Schema.String,
-  interactionMode: Schema.optionalWith(InteractionMode, { exact: true, default: () => "default" as const }),
+  interactionMode: Schema.optionalWith(InteractionMode, {
+    exact: true,
+    default: () => 'default' as const,
+  }),
 });
 
 export const ContinueThreadParams = Schema.Struct({
@@ -33,23 +40,23 @@ export const RespondToUserInputParams = Schema.Struct({
 
 export const MODELS = [
   {
-    value: "gpt-5.4-mini",
-    displayName: "GPT-5.4 Mini",
-    description: "Fast and efficient for responsive coding tasks",
+    value: 'gpt-5.4-mini',
+    displayName: 'GPT-5.4 Mini',
+    description: 'Fast and efficient for responsive coding tasks',
   },
   {
-    value: "gpt-5.4",
-    displayName: "GPT-5.4",
-    description: "Flagship frontier model for professional work",
+    value: 'gpt-5.4',
+    displayName: 'GPT-5.4',
+    description: 'Flagship frontier model for professional work',
   },
   {
-    value: "gpt-5.3-codex",
-    displayName: "GPT-5.3 Codex",
-    description: "Industry-leading coding model for complex engineering",
+    value: 'gpt-5.3-codex',
+    displayName: 'GPT-5.3 Codex',
+    description: 'Industry-leading coding model for complex engineering',
   },
   {
-    value: "gpt-5.3-codex-spark",
-    displayName: "Codex Spark",
-    description: "Near-instant coding iteration (Pro only)",
+    value: 'gpt-5.3-codex-spark',
+    displayName: 'Codex Spark',
+    description: 'Near-instant coding iteration (Pro only)',
   },
 ];

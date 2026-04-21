@@ -1,8 +1,8 @@
-import { EntityESchema } from "@std-toolkit/eschema";
-import { Schema } from "effect";
+import { EntityESchema } from '@std-toolkit/eschema';
+import { Schema } from 'effect';
 
 // Check what ESchema produces
-const UserSchema = EntityESchema.make("User", "userId", {
+const UserSchema = EntityESchema.make('User', 'userId', {
   email: Schema.String,
   name: Schema.String,
 }).build();
@@ -12,14 +12,14 @@ type UserType = typeof UserSchema.Type;
 //   ^? Should show: { userId: string; email: string; name: string }
 
 // Plain string assignment works now
-const testInput: Omit<UserType, "_v"> = {
-  userId: "plain-string",
-  email: "test@example.com",
-  name: "Test",
+const testInput: Omit<UserType, '_v'> = {
+  userId: 'plain-string',
+  email: 'test@example.com',
+  name: 'Test',
 };
 
 // ID is just a plain string
-const id: string = "u1";
+const id: string = 'u1';
 
-console.log("Type checks passed - see type annotations above");
+console.log('Type checks passed - see type annotations above');
 console.log(testInput, id);

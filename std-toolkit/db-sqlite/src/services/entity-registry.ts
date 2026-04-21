@@ -1,18 +1,22 @@
-import { Effect, Exit, FiberRef, Option } from "effect";
-import type { SQLiteEntity } from "./sqlite-entity.js";
-import type { SQLiteSingleEntity } from "./sqlite-single-entity.js";
-import type { SQLiteTableInstance } from "./sqlite-table.js";
-import type { DescriptorProvider, RegistrySchema } from "@std-toolkit/core";
-import { ConnectionService } from "@std-toolkit/core/server";
-import { SqliteDB, SqliteDBError, TransactionPendingBroadcasts } from "../sql/db.js";
+import { Effect, Exit, FiberRef, Option } from 'effect';
+import type { SQLiteEntity } from './sqlite-entity.js';
+import type { SQLiteSingleEntity } from './sqlite-single-entity.js';
+import type { SQLiteTableInstance } from './sqlite-table.js';
+import type { DescriptorProvider, RegistrySchema } from '@std-toolkit/core';
+import { ConnectionService } from '@std-toolkit/core/server';
+import {
+  SqliteDB,
+  SqliteDBError,
+  TransactionPendingBroadcasts,
+} from '../sql/db.js';
 
 // Extract entity name from SQLiteEntity
 type EntityName<T> =
-  T extends SQLiteEntity<any, infer S, any> ? S["name"] : never;
+  T extends SQLiteEntity<any, infer S, any> ? S['name'] : never;
 
 // Extract entity name from SQLiteSingleEntity
 type SingleEntityName<T> =
-  T extends SQLiteSingleEntity<any, infer TSchema> ? TSchema["name"] : never;
+  T extends SQLiteSingleEntity<any, infer TSchema> ? TSchema['name'] : never;
 
 // Entities map type
 type EntitiesMap = Record<string, SQLiteEntity<any, any, any>>;
@@ -111,7 +115,9 @@ export class EntityRegistry<
     return Effect.gen(function* () {
       const currentState = yield* FiberRef.get(TransactionPendingBroadcasts);
       if (Option.isSome(currentState)) {
-        return yield* Effect.fail(SqliteDBError.nestedTransactionNotSupported());
+        return yield* Effect.fail(
+          SqliteDBError.nestedTransactionNotSupported(),
+        );
       }
 
       yield* FiberRef.set(TransactionPendingBroadcasts, Option.some([]));
@@ -222,14 +228,10 @@ class EntityRegistryBuilder<
     TEntities,
     TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>
   > {
-    return new EntityRegistryBuilder(
-      this.#table,
-      this.#entities,
-      {
-        ...this.#singleEntities,
-        [entity.name]: entity,
-      } as TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>,
-    );
+    return new EntityRegistryBuilder(this.#table, this.#entities, {
+      ...this.#singleEntities,
+      [entity.name]: entity,
+    } as TSingleEntities & Record<SingleEntityName<TEntity>, TEntity>);
   }
 
   /**

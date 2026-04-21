@@ -1,17 +1,17 @@
-import type { IDBPDatabase } from "idb";
-import { openDB } from "idb";
-import type { EntityType } from "@std-toolkit/core";
+import type { IDBPDatabase } from 'idb';
+import { openDB } from 'idb';
+import type { EntityType } from '@std-toolkit/core';
 
-export const DEFAULT_DB_NAME = "std-toolkit-cache";
-export const STORE_NAME = "items";
-export const UPDATED_INDEX = "by-updated";
+export const DEFAULT_DB_NAME = 'std-toolkit-cache';
+export const STORE_NAME = 'items';
+export const UPDATED_INDEX = 'by-updated';
 export const DB_VERSION = 1;
 
 export type StoredItem = {
   key: [string, string, string];
   updatedKey: [string, string, string];
   value: unknown;
-  meta: EntityType<unknown>["meta"];
+  meta: EntityType<unknown>['meta'];
 };
 
 export const ConnectionPool = {
@@ -29,8 +29,10 @@ export const ConnectionPool = {
         if (oldVersion > 0 && database.objectStoreNames.contains(STORE_NAME)) {
           database.deleteObjectStore(STORE_NAME);
         }
-        const store = database.createObjectStore(STORE_NAME, { keyPath: "key" });
-        store.createIndex(UPDATED_INDEX, "updatedKey");
+        const store = database.createObjectStore(STORE_NAME, {
+          keyPath: 'key',
+        });
+        store.createIndex(UPDATED_INDEX, 'updatedKey');
       },
     });
 

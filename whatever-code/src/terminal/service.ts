@@ -1,7 +1,7 @@
-import { spawn as ptySpawn, type IPty } from "node-pty";
-import { Effect, Stream, Queue, Scope } from "effect";
-import { ulid } from "ulid";
-import { AppError } from "../api/definitions/app.js";
+import { spawn as ptySpawn, type IPty } from 'node-pty';
+import { Effect, Stream, Queue, Scope } from 'effect';
+import { ulid } from 'ulid';
+import { AppError } from '../api/definitions/app.js';
 
 interface TerminalSession {
   sessionId: string;
@@ -11,7 +11,7 @@ interface TerminalSession {
 }
 
 export class TerminalService extends Effect.Service<TerminalService>()(
-  "TerminalService",
+  'TerminalService',
   {
     effect: Effect.gen(function* () {
       /** Terminal sessions keyed by "absolutePath:name". */
@@ -22,7 +22,7 @@ export class TerminalService extends Effect.Service<TerminalService>()(
       const makeKey = (absolutePath: string, name: string) =>
         `${absolutePath}:${name}`;
 
-      const open = (absolutePath: string, name: string = "default") =>
+      const open = (absolutePath: string, name: string = 'default') =>
         Effect.gen(function* () {
           const key = makeKey(absolutePath, name);
           const existing = sessionsByKey.get(key);
@@ -34,8 +34,8 @@ export class TerminalService extends Effect.Service<TerminalService>()(
 
           const pty = yield* Effect.try({
             try: () =>
-              ptySpawn("nvim", [], {
-                name: "xterm-256color",
+              ptySpawn('nvim', [], {
+                name: 'xterm-256color',
                 cols: 80,
                 rows: 24,
                 cwd: absolutePath,
@@ -47,7 +47,12 @@ export class TerminalService extends Effect.Service<TerminalService>()(
               }),
           });
 
-          const session: TerminalSession = { sessionId, absolutePath, name, pty };
+          const session: TerminalSession = {
+            sessionId,
+            absolutePath,
+            name,
+            pty,
+          };
           sessionsByKey.set(key, session);
           sessionsById.set(sessionId, session);
 
@@ -64,7 +69,9 @@ export class TerminalService extends Effect.Service<TerminalService>()(
           const session = sessionsById.get(sessionId);
           if (!session) {
             return yield* Effect.fail(
-              new AppError({ message: `Terminal session not found: ${sessionId}` }),
+              new AppError({
+                message: `Terminal session not found: ${sessionId}`,
+              }),
             );
           }
           return session;

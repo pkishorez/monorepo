@@ -27,7 +27,8 @@ export const readPackageJson = (
     const filePath = joinPath(workspace.path, 'package.json');
     const raw = yield* readFile(filePath).pipe(
       Effect.mapError(
-        (e) => new PackageJsonParseError({ workspace: workspace.name, cause: e }),
+        (e) =>
+          new PackageJsonParseError({ workspace: workspace.name, cause: e }),
       ),
     );
 
