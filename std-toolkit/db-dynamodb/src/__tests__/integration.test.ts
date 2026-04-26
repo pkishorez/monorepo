@@ -863,6 +863,93 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
       );
     });
 
+    describe('delete', () => {
+      itEffect('soft deletes an existing entity (sets _d: true)', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-soft-delete-1',
+            name: 'Soft Delete',
+            email: 'soft-delete@example.com',
+            status: 'active',
+            age: 30,
+          });
+
+          const result = yield* UserEntity.delete({
+            userId: 'entity-soft-delete-1',
+          });
+
+          expect(result.meta._d).toBe(true);
+
+          // Row still physically exists — soft delete leaves the tombstone
+          const after = yield* UserEntity.get({
+            userId: 'entity-soft-delete-1',
+          });
+          expect(after).not.toBeNull();
+          expect(after?.meta._d).toBe(true);
+        }),
+      );
+
+      itEffect('hard deletes an existing entity when forceDelete is set', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-hard-delete-1',
+            name: 'Hard Delete',
+            email: 'hard-delete@example.com',
+            status: 'active',
+            age: 30,
+          });
+
+          const result = yield* UserEntity.delete(
+            { userId: 'entity-hard-delete-1' },
+            { forceDelete: 'I know what I am doing' },
+          );
+
+          expect(result.meta._d).toBe(true);
+
+          // Row is physically removed — hard delete leaves no tombstone
+          const after = yield* UserEntity.get({
+            userId: 'entity-hard-delete-1',
+          });
+          expect(after).toBeNull();
+        }),
+      );
+
+      itEffect(
+        'fails with NoItemToDelete when soft deleting missing entity',
+        () =>
+          Effect.gen(function* () {
+            const result = yield* UserEntity.delete({
+              userId: 'entity-missing-soft',
+            }).pipe(Effect.either);
+
+            expect(result._tag).toBe('Left');
+            if (result._tag === 'Left') {
+              expect((result.left as DynamodbError).error._tag).toBe(
+                'NoItemToDelete',
+              );
+            }
+          }),
+      );
+
+      itEffect(
+        'fails with NoItemToDelete when hard deleting missing entity',
+        () =>
+          Effect.gen(function* () {
+            const result = yield* UserEntity.delete(
+              { userId: 'entity-missing-hard' },
+              { forceDelete: 'I know what I am doing' },
+            ).pipe(Effect.either);
+
+            expect(result._tag).toBe('Left');
+            if (result._tag === 'Left') {
+              expect((result.left as DynamodbError).error._tag).toBe(
+                'NoItemToDelete',
+              );
+            }
+          }),
+      );
+    });
+
     describe('query', () => {
       itEffect('queries entities by primary key', () =>
         Effect.gen(function* () {
