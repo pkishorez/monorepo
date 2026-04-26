@@ -38,14 +38,14 @@
     "@std-toolkit/eschema": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260421.1",
-    "@effect/platform": "0.96.0",
-    "@effect/rpc": "0.75.0",
+    "@cloudflare/workers-types": "4.20260426.1",
+    "@effect/platform": "0.96.1",
+    "@effect/rpc": "0.75.1",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.6.0",
-    "effect": "3.21.1",
+    "effect": "3.21.2",
     "typescript": "6.0.3",
-    "vitest": "4.1.4"
+    "vitest": "4.1.5"
   },
   "peerDependencies": {
     "@effect/platform": ">=0.94.1",
