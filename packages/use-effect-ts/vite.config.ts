@@ -7,11 +7,4 @@ export default defineConfig({
   fmt: {
     ignorePatterns: ['dist/**'],
   },
-  resolve: {
-    tsconfigPaths: true,
-  },
-  test: {
-    globals: true,
-    include: ['src/**/__tests__/**/*.test.ts'],
-  },
 });

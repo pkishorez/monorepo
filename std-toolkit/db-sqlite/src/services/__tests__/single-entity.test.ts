@@ -140,7 +140,7 @@ describe('SQLiteSingleEntity', () => {
 
   describe('registry', () => {
     itEffect('registerSingle works', () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         const UserSchema = EntityESchema.make('User', 'userId', {
           name: Schema.String,
         }).build();

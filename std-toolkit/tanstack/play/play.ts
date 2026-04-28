@@ -21,9 +21,9 @@ const liveQuery3 = createLiveQueryCollection((q) =>
     .select(({ items }) => items),
 );
 
-const sub1 = liveQuery1.subscribeChanges(() => {});
-const sub2 = liveQuery2.subscribeChanges(() => {});
-const sub3 = liveQuery3.subscribeChanges(() => {});
+liveQuery1.subscribeChanges(() => {});
+liveQuery2.subscribeChanges(() => {});
+liveQuery3.subscribeChanges(() => {});
 
 setTimeout(
   () =>

@@ -256,13 +256,12 @@ export class DynamoEntity<
   #secondaryDerivations: TSecondaryDerivationMap;
   #derivationDeps: Set<string>;
 
-  #service = Effect.serviceOption(ConnectionService).pipe(
-    Effect.andThen(Option.getOrNull),
-  );
-
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
     return Effect.gen(this, function* () {
-      (yield* this.#service)?.broadcast(entity);
+      const service = yield* Effect.serviceOption(ConnectionService).pipe(
+        Effect.andThen(Option.getOrNull),
+      );
+      service?.broadcast(entity);
     });
   }
 
@@ -394,19 +393,18 @@ export class DynamoEntity<
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const fullValueWithId = {
         ...value,
-        _v: self.#eschema.latestVersion,
+        _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const { item, exprResult, meta, fullValue } = yield* self.#prepareInsert(
+      const { item, exprResult, meta, fullValue } = yield* this.#prepareInsert(
         fullValueWithId,
         options?.condition,
       );
 
-      yield* self.#table
+      yield* this.#table
         .putItem(item, { ReturnValues: 'ALL_OLD', ...exprResult })
         .pipe(
           Effect.catchIf(
@@ -417,7 +415,7 @@ export class DynamoEntity<
         );
 
       const entity = { value: fullValue, meta };
-      yield* self.#broadcast(entity);
+      yield* this.#broadcast(entity);
       return entity;
     }).pipe(
       Effect.tapError((e) =>
@@ -448,23 +446,22 @@ export class DynamoEntity<
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
-    const self = this;
     const { update: updates, condition } = params;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const { pk, sk, exprResult } =
         typeof updates === 'function'
-          ? yield* self.#prepareUpdateExpr(
+          ? yield* this.#prepareUpdateExpr(
               keyValue as Record<string, unknown>,
               updates,
               condition,
             )
-          : self.#prepareUpdate(
+          : this.#prepareUpdate(
               keyValue as Record<string, unknown>,
               updates,
               condition,
             );
 
-      const result = yield* self.#table
+      const result = yield* this.#table
         .updateItem({ pk, sk }, { ReturnValues: 'ALL_NEW', ...exprResult })
         .pipe(
           Effect.mapError(
@@ -479,7 +476,7 @@ export class DynamoEntity<
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
       }
 
-      const decodedValue = yield* self.#eschema
+      const decodedValue = yield* this.#eschema
         .decode(result.Attributes)
         .pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
 
@@ -491,7 +488,7 @@ export class DynamoEntity<
         value: decodedValue as ESchemaType<TSchema>,
         meta: updatedMeta,
       };
-      yield* self.#broadcast(entity);
+      yield* this.#broadcast(entity);
       return entity;
     }).pipe(
       Effect.tapError((e) =>
@@ -895,6 +892,9 @@ export class DynamoEntity<
   ): Effect.Effect<{ success: true }, DynamodbError> {
     return Effect.gen(this, function* () {
       const { key, pk, cursor, limit } = opts;
+      const service = yield* Effect.serviceOption(ConnectionService).pipe(
+        Effect.andThen(Option.getOrNull),
+      );
 
       const queryOptions: SimpleQueryOptions = {};
       if (limit !== undefined) {
@@ -910,11 +910,11 @@ export class DynamoEntity<
           queryOptions,
         );
 
-        (yield* this.#service)?.emit(result.items);
+        service?.emit(result.items);
 
         const lastItem = result.items[result.items.length - 1];
         if (!lastItem) {
-          (yield* this.#service)?.subscribe(this.#eschema.name);
+          service?.subscribe(this.#eschema.name);
           return { success: true };
         }
         currentCursor = lastItem.meta._u;

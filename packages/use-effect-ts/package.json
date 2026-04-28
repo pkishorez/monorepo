@@ -21,7 +21,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "fmt": "vp fmt",
-    "lint": "vp check"
+    "lint": "vp check && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/react": "19.2.14",

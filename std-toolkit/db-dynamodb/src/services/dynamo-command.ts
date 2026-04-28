@@ -121,10 +121,9 @@ export class DynamoCommand<
   #processInsert(
     payload: InsertPayload,
   ): Effect.Effect<InsertResponse, CommandError> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const startedAt = Date.now();
-      const entity = self.#getEntity(payload.entity);
+      const entity = this.#getEntity(payload.entity);
 
       const result = yield* entity.insert(payload.data as any).pipe(
         Effect.mapError(
@@ -150,10 +149,9 @@ export class DynamoCommand<
   #processUpdate(
     payload: UpdatePayload,
   ): Effect.Effect<UpdateResponse, CommandError> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const startedAt = Date.now();
-      const entity = self.#getEntity(payload.entity);
+      const entity = this.#getEntity(payload.entity);
 
       const result = yield* entity
         .update(payload.key as any, { update: payload.data as any })
@@ -181,10 +179,9 @@ export class DynamoCommand<
   #processDelete(
     payload: DeletePayload,
   ): Effect.Effect<DeleteResponse, CommandError> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const startedAt = Date.now();
-      const entity = self.#getEntity(payload.entity);
+      const entity = this.#getEntity(payload.entity);
 
       const result = yield* entity.delete(payload.key as any).pipe(
         Effect.mapError(
@@ -210,12 +207,11 @@ export class DynamoCommand<
   #processQuery(
     payload: QueryPayload,
   ): Effect.Effect<QueryResponse, CommandError> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const startedAt = Date.now();
-      const entity = self.#getEntity(payload.entity);
+      const entity = this.#getEntity(payload.entity);
 
-      const sk = self.#convertSkCondition(payload.sk);
+      const sk = this.#convertSkCondition(payload.sk);
       const queryParams = { pk: payload.pk, sk } as any;
       const options =
         payload.limit !== undefined ? { limit: payload.limit } : undefined;
@@ -246,14 +242,13 @@ export class DynamoCommand<
   #processDescriptor(
     _payload: DescriptorPayload,
   ): Effect.Effect<DescriptorResponse, CommandError> {
-    const self = this;
     return Effect.sync(() => {
       const startedAt = Date.now();
 
       return {
         operation: 'descriptor' as const,
         timing: createTiming(startedAt),
-        descriptors: self.#registry.getSchema().descriptors,
+        descriptors: this.#registry.getSchema().descriptors,
       };
     });
   }
@@ -277,12 +272,11 @@ export class DynamoCommand<
    * @returns An object with the RPC handler
    */
   toRpcHandler<S extends string = ''>(suffix?: S) {
-    const self = this;
     const s = (suffix ?? '') as S;
     const handlerName = `${DynamoCommand.RPC_PREFIX}${s}` as const;
 
     const handler = (payload: CommandPayloadSchemaType) =>
-      self.process(payload as CommandPayload);
+      this.process(payload as CommandPayload);
 
     return { [handlerName]: handler } as {
       [K in `${typeof DynamoCommand.RPC_PREFIX}${S}`]: typeof handler;

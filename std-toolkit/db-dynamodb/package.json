@@ -23,7 +23,8 @@
     "dev": "tsc --watch",
     "fmt": "vp fmt",
     "generate": "bun scripts/generate.ts",
-    "lint": "vp check",
+    "lint": "vp check && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit",
     "play": "bun src/play/index.ts",
     "test": "vp test",
     "test:watch": "vp test --watch"
