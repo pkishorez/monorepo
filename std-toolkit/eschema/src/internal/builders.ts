@@ -1,4 +1,3 @@
-import { Schema } from 'effect';
 import type {
   DeltaSchema,
   Evolution,

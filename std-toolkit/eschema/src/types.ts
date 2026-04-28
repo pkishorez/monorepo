@@ -116,6 +116,11 @@ export type ESchemaType<T extends AnyESchema> =
     ? Prettify<StructFieldsDecoded<TLatest>>
     : never;
 
+export type ESchemaEncoded<T extends AnyESchema> =
+  T extends ESchema<infer V, infer TLatest>
+    ? Prettify<StructFieldsEncoded<TLatest> & { readonly _v: V }>
+    : never;
+
 /**
  * Extracts the ID field name from an EntityESchema.
  */

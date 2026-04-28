@@ -4,7 +4,6 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '../index.js';
-import { StringToNumber } from './fixtures.js';
 
 describe('ESchema.evolve (multiple evolutions)', () => {
   itEffect('chains v1 → v2 → v3 migrations', () =>
