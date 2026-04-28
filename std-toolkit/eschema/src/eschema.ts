@@ -8,6 +8,7 @@ import type {
   ForbidIdField,
   Prettify,
   StructFieldsDecoded,
+  StructFieldsEncoded,
   StructFieldsSchema,
 } from './types.js';
 import { ESchemaError } from './utils.js';
@@ -235,4 +236,42 @@ export namespace EntityESchema {
       INITIAL_VERSION,
     );
   }
+}
+
+export function toSchema<V extends string, L extends StructFieldsSchema>(
+  eschema: ESchema<V, L>,
+): Schema.Schema<
+  Prettify<StructFieldsDecoded<L>>,
+  Prettify<StructFieldsEncoded<L>> & { readonly _v: string },
+  never
+> {
+  return Schema.declare(
+    [],
+    {
+      decode: () => (input, _options, ast) =>
+        eschema
+          .decode(input)
+          .pipe(
+            Effect.mapError(
+              (err) => new ParseResult.Type(ast, input, err.message),
+            ),
+          ),
+      encode: () => (input, _options, ast) =>
+        eschema
+          .encode(input as StructFieldsDecoded<L>)
+          .pipe(
+            Effect.mapError(
+              (err) => new ParseResult.Type(ast, input, err.message),
+            ),
+          ),
+    },
+    {
+      identifier: `ESchema(${(eschema as any).name ?? 'anonymous'})`,
+      jsonSchema: eschema.getDescriptor(),
+    },
+  ) as unknown as Schema.Schema<
+    Prettify<StructFieldsDecoded<L>>,
+    Prettify<StructFieldsEncoded<L>> & { readonly _v: string },
+    never
+  >;
 }

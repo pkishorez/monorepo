@@ -1,4 +1,9 @@
-export { ESchema, SingleEntityESchema, EntityESchema } from './eschema.js';
+export {
+  ESchema,
+  SingleEntityESchema,
+  EntityESchema,
+  toSchema,
+} from './eschema.js';
 export { ESchemaError } from './utils.js';
 export { id, metaSchema } from './schema.js';
 export type {
@@ -6,6 +11,7 @@ export type {
   AnySingleEntityESchema,
   AnyEntityESchema,
   ESchemaDescriptor,
+  ESchemaEncoded,
   ESchemaIdField,
   ESchemaName,
   ESchemaType as ESchemaResult,
