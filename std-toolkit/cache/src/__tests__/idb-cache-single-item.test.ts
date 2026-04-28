@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Option, Schema } from 'effect';
-import { SingleEntityESchema } from '@std-toolkit/eschema';
+import { SingleEntityESchema, type ESchemaEncoded } from '@std-toolkit/eschema';
 import type { EntityType } from '@std-toolkit/core';
 import { IDBCacheSingleItem } from '../idb/idb-cache-single-item.js';
 
@@ -19,9 +19,9 @@ const ConfigSchema = SingleEntityESchema.make('Config', {
 function makeConfigEntity(
   theme: string,
   locale: string,
-): EntityType<typeof ConfigSchema.Type> {
+): EntityType<ESchemaEncoded<typeof ConfigSchema>> {
   return {
-    value: { theme, locale },
+    value: { theme, locale, _v: 'v1' as const },
     meta: {
       _e: ConfigSchema.name,
       _v: ConfigSchema.latestVersion,

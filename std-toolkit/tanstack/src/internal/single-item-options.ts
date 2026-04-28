@@ -6,27 +6,35 @@ import {
 } from '@tanstack/react-db';
 import { Effect, Option, SubscriptionRef } from 'effect';
 import { EntityType } from '@std-toolkit/core';
-import { AnySingleEntityESchema } from '@std-toolkit/eschema';
+import {
+  AnySingleEntityESchema,
+  ESchemaEncoded,
+  ESchemaType,
+} from '@std-toolkit/eschema';
 import type { CacheSingleItem } from '@std-toolkit/cache';
 import { CollectionItem, SingleItemUtils } from '../types.js';
 import { makeWithSyncGuard } from './shared.js';
+import { decodeRow } from './codec.js';
 
-interface StdSingleItemConfig<
-  TItem extends object,
-  TSchema extends AnySingleEntityESchema,
-> {
+type EncodedItem<TSchema extends AnySingleEntityESchema> = EntityType<
+  ESchemaEncoded<TSchema>
+>;
+
+interface StdSingleItemConfig<TSchema extends AnySingleEntityESchema> {
   id?: string;
   schema: TSchema;
-  get: () => Effect.Effect<EntityType<TItem>>;
-  onUpdate?: (payload: { updates: TItem }) => Effect.Effect<EntityType<TItem>>;
-  cache?: Effect.Effect<CacheSingleItem<TItem>>;
+  get: () => Effect.Effect<EncodedItem<TSchema>>;
+  onUpdate?: (payload: {
+    updates: ESchemaType<TSchema>;
+  }) => Effect.Effect<EncodedItem<TSchema>>;
+  cache?: Effect.Effect<CacheSingleItem<ESchemaEncoded<TSchema>>>;
 }
 
 export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
-  options: StdSingleItemConfig<TSchema['Type'], TSchema>,
+  options: StdSingleItemConfig<TSchema>,
 ): Omit<
   CollectionConfig<
-    CollectionItem<TSchema['Type']>,
+    CollectionItem<ESchemaType<TSchema>>,
     string,
     never,
     SingleItemUtils<TSchema>
@@ -34,8 +42,9 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   'schema'
 > &
   SingleResult => {
-  type TItem = TSchema['Type'];
+  type TItem = ESchemaType<TSchema>;
   type TCollectionItem = CollectionItem<TItem>;
+  type TEncoded = ESchemaEncoded<TSchema>;
 
   const { id, get, onUpdate, schema, cache: cacheEffect } = options;
   const singletonKey = schema.name;
@@ -44,10 +53,10 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   const semaphore = Effect.runSync(Effect.makeSemaphore(1));
   const withSyncGuard = makeWithSyncGuard(syncing, semaphore);
 
-  let applyToCollection: ((item: EntityType<TItem>) => void) | null = null;
-  let resolvedCache: CacheSingleItem<TItem> | null = null;
+  let applyToCollection: ((item: EncodedItem<TSchema>) => void) | null = null;
+  let resolvedCache: CacheSingleItem<TEncoded> | null = null;
 
-  const upsert = (item: EntityType<TItem>, persist?: boolean) => {
+  const upsert = (item: EncodedItem<TSchema>, persist?: boolean) => {
     applyToCollection?.(item);
     if (persist && resolvedCache) {
       Effect.runPromise(
@@ -61,8 +70,8 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   ) => {
     const { begin, collection, commit, write } = params;
 
-    return (item: EntityType<TItem>) => {
-      const itemValue = { ...item.value, _meta: item.meta } as TCollectionItem;
+    return (item: EncodedItem<TSchema>) => {
+      const itemValue = decodeRow(schema, item) as TCollectionItem;
       begin({ immediate: true });
       if (collection.has(singletonKey)) {
         write({ type: 'update', value: itemValue });
@@ -90,13 +99,13 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
 
         if (cacheEffect) {
           resolvedCache = yield* Effect.catchAll(cacheEffect, () =>
-            Effect.succeed(null),
+            Effect.succeed(null as CacheSingleItem<TEncoded> | null),
           );
           const cached = resolvedCache
             ? yield* Effect.catchAll(resolvedCache.get(), () =>
-                Effect.succeed(Option.none<EntityType<TItem>>()),
+                Effect.succeed(Option.none<EncodedItem<TSchema>>()),
               )
-            : Option.none<EntityType<TItem>>();
+            : Option.none<EncodedItem<TSchema>>();
           if (Option.isSome(cached)) {
             applyToCollection(cached.value);
             markReady();

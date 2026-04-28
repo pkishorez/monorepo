@@ -11,7 +11,12 @@ import {
   type PartitionKey,
   serializePartition,
 } from '@std-toolkit/cache';
-import { AnyEntityESchema, ESchemaIdField } from '@std-toolkit/eschema';
+import {
+  AnyEntityESchema,
+  ESchemaEncoded,
+  ESchemaIdField,
+  ESchemaType,
+} from '@std-toolkit/eschema';
 import { parseLoadSubsetOptions } from '../load-subset-parser.js';
 import { CollectionItem, CollectionUtils } from '../types.js';
 import {
@@ -20,45 +25,49 @@ import {
   makeMutationHandlers,
 } from './shared.js';
 
-type OnLoadPartitionFn<TItem extends object> = (
-  partition: PartitionKey,
-  cursor: EntityType<TItem> | null,
-) => Effect.Effect<EntityType<TItem>[]>;
+type EncodedRow<TSchema extends AnyEntityESchema> = EntityType<
+  ESchemaEncoded<TSchema>
+>;
 
-interface StdPartitionedCollectionConfig<
-  TItem extends object,
-  TSchema extends AnyEntityESchema,
-> {
+type OnLoadPartitionFn<TSchema extends AnyEntityESchema> = (
+  partition: PartitionKey,
+  cursor: EncodedRow<TSchema> | null,
+) => Effect.Effect<EncodedRow<TSchema>[]>;
+
+interface StdPartitionedCollectionConfig<TSchema extends AnyEntityESchema> {
   id?: string;
   schema: TSchema;
-  partitionField: string & keyof TItem;
-  cache: (partition: PartitionKey) => Effect.Effect<CacheEntity<TItem>>;
-  onLoadPartition: OnLoadPartitionFn<TItem>;
-  onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>;
+  partitionField: string & keyof ESchemaType<TSchema>;
+  cache: (
+    partition: PartitionKey,
+  ) => Effect.Effect<CacheEntity<ESchemaEncoded<TSchema>>>;
+  onLoadPartition: OnLoadPartitionFn<TSchema>;
+  onInsert?: (item: ESchemaType<TSchema>) => Effect.Effect<EncodedRow<TSchema>>;
   onUpdate?: (
     payload: {
       [K in ESchemaIdField<TSchema>]: string;
     } & {
-      updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
+      updates: Partial<Omit<ESchemaType<TSchema>, ESchemaIdField<TSchema>>>;
     },
-  ) => Effect.Effect<EntityType<TItem>>;
+  ) => Effect.Effect<EncodedRow<TSchema>>;
 }
 
 export const stdPartitionedCollectionOptions = <
   TSchema extends AnyEntityESchema,
 >(
-  options: StdPartitionedCollectionConfig<TSchema['Type'], TSchema>,
+  options: StdPartitionedCollectionConfig<TSchema>,
 ): Omit<
   CollectionConfig<
-    CollectionItem<TSchema['Type']>,
+    CollectionItem<ESchemaType<TSchema>>,
     string,
     never,
     CollectionUtils<TSchema>
   >,
   'schema'
 > => {
-  type TItem = TSchema['Type'];
+  type TItem = ESchemaType<TSchema>;
   type TCollectionItem = CollectionItem<TItem>;
+  type TEncoded = ESchemaEncoded<TSchema>;
 
   const {
     id,
@@ -72,11 +81,11 @@ export const stdPartitionedCollectionOptions = <
 
   const syncing = Effect.runSync(SubscriptionRef.make(false));
 
-  const partitionCaches = new Map<string, CacheEntity<TItem>>();
+  const partitionCaches = new Map<string, CacheEntity<TEncoded>>();
   const loadedPartitions = new Set<string>();
   const inflight = new Map<string, Promise<void>>();
 
-  let applyToCollection: ((items: EntityType<TItem>[]) => void) | null = null;
+  let applyToCollection: ((items: EncodedRow<TSchema>[]) => void) | null = null;
 
   const updateSyncing = () => {
     Effect.runSync(SubscriptionRef.set(syncing, inflight.size > 0));
@@ -85,7 +94,7 @@ export const stdPartitionedCollectionOptions = <
   const getOrCreateCache = (
     key: string,
     partition: PartitionKey,
-  ): Effect.Effect<CacheEntity<TItem>> => {
+  ): Effect.Effect<CacheEntity<TEncoded>> => {
     const existing = partitionCaches.get(key);
     if (existing) return Effect.succeed(existing);
     return cacheFactory(partition).pipe(
@@ -98,15 +107,15 @@ export const stdPartitionedCollectionOptions = <
   };
 
   const cacheAndApply = (
-    cache: CacheEntity<TItem>,
-    items: EntityType<TItem>[],
+    cache: CacheEntity<TEncoded>,
+    items: EncodedRow<TSchema>[],
   ) =>
     Effect.gen(function* () {
       yield* Effect.forEach(
         items,
         (item) =>
           Effect.gen(function* () {
-            const id = item.value[schema.idField as keyof TItem] as string;
+            const id = item.value[schema.idField as keyof TEncoded] as string;
             const existing = yield* cache.get(id);
             const existingU = Option.map(existing, (e) => e.meta._u ?? '').pipe(
               Option.getOrElse(() => ''),
@@ -122,7 +131,7 @@ export const stdPartitionedCollectionOptions = <
     });
 
   const fetchOnePageForPartition = (
-    cache: CacheEntity<TItem>,
+    cache: CacheEntity<TEncoded>,
     partition: PartitionKey,
   ) =>
     Effect.gen(function* () {
@@ -134,7 +143,7 @@ export const stdPartitionedCollectionOptions = <
     });
 
   const fetchAllPagesForPartition = (
-    cache: CacheEntity<TItem>,
+    cache: CacheEntity<TEncoded>,
     partition: PartitionKey,
   ) =>
     Effect.gen(function* () {
@@ -185,8 +194,6 @@ export const stdPartitionedCollectionOptions = <
 
     const promise = Effect.runPromise(effect)
       .catch((err) => {
-        // Swallow so TanStack gets a resolved promise; partition stays
-        // out of loadedPartitions so next query triggers a retry.
         console.error(
           '[std-toolkit/tanstack] Failed to load partition',
           partition,
@@ -203,16 +210,12 @@ export const stdPartitionedCollectionOptions = <
     return promise;
   };
 
-  // --- TanStack sync ---
-
   const tanstackSync: TanstackSyncConfig<TCollectionItem, string> = {
     sync: (params) => {
       const { markReady } = params;
 
-      // Broadcast upserts don't persist — partition cache is populated during loadPartition
-      applyToCollection = makeApplyToCollection(params);
+      applyToCollection = makeApplyToCollection<TSchema>(schema, params);
 
-      // Partitions load on demand via loadSubset
       markReady();
 
       const loadSubset: LoadSubsetFn = (loadOptions) => {
@@ -248,12 +251,8 @@ export const stdPartitionedCollectionOptions = <
     },
   };
 
-  // --- Utils ---
-
-  // Broadcast upserts apply to TanStack only — no partition cache persist,
-  // since the data came from server and will be re-fetched on next partition load.
   const upsert = (
-    input: EntityType<TItem> | EntityType<TItem>[],
+    input: EncodedRow<TSchema> | EncodedRow<TSchema>[],
     _persist?: boolean,
   ) => {
     const items = Array.isArray(input) ? input : [input];
@@ -296,6 +295,6 @@ export const stdPartitionedCollectionOptions = <
       isSyncing: () => syncing,
     },
     compare: compareByMeta,
-    ...makeMutationHandlers(schema, upsert, onInsert, onUpdate),
+    ...makeMutationHandlers<TItem, TSchema>(schema, upsert, onInsert, onUpdate),
   };
 };

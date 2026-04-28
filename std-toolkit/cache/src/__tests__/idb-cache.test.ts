@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Option, Schema } from 'effect';
-import { EntityESchema } from '@std-toolkit/eschema';
+import { EntityESchema, type ESchemaEncoded } from '@std-toolkit/eschema';
 import type { EntityType } from '@std-toolkit/core';
 import { IDBCacheEntity } from '../idb/idb-cache-entity.js';
 import { serializePartition } from '../idb/utils.js';
@@ -26,9 +26,9 @@ function makeUserEntity(
   id: string,
   name: string,
   email: string,
-): EntityType<typeof UserSchema.Type> {
+): EntityType<ESchemaEncoded<typeof UserSchema>> {
   return {
-    value: { id, name, email },
+    value: { id, name, email, _v: 'v1' as const },
     meta: {
       _e: UserSchema.name,
       _v: UserSchema.latestVersion,
@@ -42,9 +42,9 @@ function makePostEntity(
   id: string,
   title: string,
   content: string,
-): EntityType<typeof PostSchema.Type> {
+): EntityType<ESchemaEncoded<typeof PostSchema>> {
   return {
-    value: { id, title, content },
+    value: { id, title, content, _v: 'v1' as const },
     meta: {
       _e: PostSchema.name,
       _v: PostSchema.latestVersion,
@@ -272,15 +272,30 @@ describe('IDBCacheEntity', () => {
       });
 
       yield* users.put({
-        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        value: {
+          id: 'user-1',
+          name: 'Alice',
+          email: 'alice@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        value: {
+          id: 'user-2',
+          name: 'Bob',
+          email: 'bob@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        value: {
+          id: 'user-3',
+          name: 'Charlie',
+          email: 'charlie@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
 
@@ -301,15 +316,30 @@ describe('IDBCacheEntity', () => {
       });
 
       yield* users.put({
-        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        value: {
+          id: 'user-1',
+          name: 'Alice',
+          email: 'alice@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        value: {
+          id: 'user-2',
+          name: 'Bob',
+          email: 'bob@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        value: {
+          id: 'user-3',
+          name: 'Charlie',
+          email: 'charlie@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
 
@@ -359,11 +389,21 @@ describe('IDBCacheEntity', () => {
       });
 
       yield* users.put({
-        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        value: {
+          id: 'user-1',
+          name: 'Alice',
+          email: 'alice@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-100', _d: false },
       });
       yield* posts.put({
-        value: { id: 'post-1', title: 'Hello', content: 'World' },
+        value: {
+          id: 'post-1',
+          title: 'Hello',
+          content: 'World',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'Post', _v: 'v1', _u: 'uid-200', _d: false },
       });
 
@@ -534,15 +574,30 @@ describe('IDBCacheEntity', () => {
       });
 
       yield* tenantAUsers.put({
-        value: { id: 'user-1', name: 'Alice', email: 'alice@a.com' },
+        value: {
+          id: 'user-1',
+          name: 'Alice',
+          email: 'alice@a.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* tenantAUsers.put({
-        value: { id: 'user-2', name: 'Bob', email: 'bob@a.com' },
+        value: {
+          id: 'user-2',
+          name: 'Bob',
+          email: 'bob@a.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
       yield* tenantBUsers.put({
-        value: { id: 'user-3', name: 'Charlie', email: 'charlie@b.com' },
+        value: {
+          id: 'user-3',
+          name: 'Charlie',
+          email: 'charlie@b.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
 

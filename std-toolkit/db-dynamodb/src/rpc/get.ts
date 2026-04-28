@@ -1,9 +1,9 @@
 import { Effect } from 'effect';
 import { StdToolkitError } from '@std-toolkit/core/rpc';
-import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
-import type { EntityType } from '../services/dynamo-entity.js';
+import type { AnyEntityESchema, ESchemaEncoded } from '@std-toolkit/eschema';
+import type { EntityRow, EntityType } from '@std-toolkit/core';
 import { DynamodbError } from '../errors.js';
-import { type AnyDynamoEntity, mapError } from './types.js';
+import { type AnyDynamoEntity, mapError, stripDecoded } from './types.js';
 
 export const makeGetHandler = <
   TSchema extends AnyEntityESchema,
@@ -14,10 +14,9 @@ export const makeGetHandler = <
   eschema: TSchema,
   prefix?: P,
 ) => {
-  type Entity = ESchemaType<TSchema>;
   type IdField = TSchema['idField'];
   type GetPayload = Record<IdField, string>;
-  type Result = EntityType<Entity> | null;
+  type Result = EntityType<ESchemaEncoded<TSchema>> | null;
 
   const idField = eschema.idField as IdField;
 
@@ -28,7 +27,13 @@ export const makeGetHandler = <
       idField as string
     ] as string;
     const keyValue = { [idField]: id } as any;
-    return (entity.get(keyValue) as Effect.Effect<Result, DynamodbError>).pipe(
+    return (
+      entity.get(keyValue) as Effect.Effect<
+        EntityRow<TSchema> | null,
+        DynamodbError
+      >
+    ).pipe(
+      Effect.map((row) => (row ? stripDecoded(row) : null)),
       Effect.mapError(mapError),
     );
   };

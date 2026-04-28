@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { Effect, Schema, SubscriptionRef } from 'effect';
-import { EntityESchema, SingleEntityESchema } from '@std-toolkit/eschema';
+import {
+  EntityESchema,
+  SingleEntityESchema,
+  ESchemaEncoded,
+} from '@std-toolkit/eschema';
 import { EntityType } from '@std-toolkit/core';
 import { MemoryCacheEntity } from '@std-toolkit/cache/memory';
 import {
@@ -15,12 +19,13 @@ const TestSchema = EntityESchema.make('TestEntity', 'id', {
 }).build();
 
 type TestItem = typeof TestSchema.Type;
+type TestEncoded = ESchemaEncoded<typeof TestSchema>;
 
 const createEntity = (
   value: TestItem,
-  meta: Partial<EntityType<TestItem>['meta']> = {},
-): EntityType<TestItem> => ({
-  value,
+  meta: Partial<EntityType<TestEncoded>['meta']> = {},
+): EntityType<TestEncoded> => ({
+  value: { ...value, _v: 'v1' as const },
   meta: {
     _v: 'v1',
     _e: 'TestEntity',
@@ -206,12 +211,13 @@ const SingleTestSchema = SingleEntityESchema.make('AppSettings', {
 }).build();
 
 type SingleTestItem = typeof SingleTestSchema.Type;
+type SingleTestEncoded = ESchemaEncoded<typeof SingleTestSchema>;
 
 const createSingleEntity = (
   value: SingleTestItem,
-  meta: Partial<EntityType<SingleTestItem>['meta']> = {},
-): EntityType<SingleTestItem> => ({
-  value,
+  meta: Partial<EntityType<SingleTestEncoded>['meta']> = {},
+): EntityType<SingleTestEncoded> => ({
+  value: { ...value, _v: 'v1' as const },
   meta: {
     _v: 'v1',
     _e: 'AppSettings',

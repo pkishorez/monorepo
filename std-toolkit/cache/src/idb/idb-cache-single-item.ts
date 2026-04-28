@@ -19,7 +19,7 @@ const SINGLETON_ID = '__singleton__';
 
 export class IDBCacheSingleItem<
   TSchema extends CacheSingleItemSchemaType,
-> implements CacheSingleItem<TSchema['Type']> {
+> implements CacheSingleItem<TSchema['Encoded']> {
   #dbName: string;
   #entity: string;
   #partition: string;
@@ -68,7 +68,7 @@ export class IDBCacheSingleItem<
     });
   }
 
-  put(item: EntityType<TSchema['Type']>): Effect.Effect<void, CacheError> {
+  put(item: EntityType<TSchema['Encoded']>): Effect.Effect<void, CacheError> {
     return Effect.tryPromise({
       try: () => {
         const stored: StoredItem = {
@@ -84,7 +84,10 @@ export class IDBCacheSingleItem<
     }).pipe(Effect.asVoid);
   }
 
-  get(): Effect.Effect<Option.Option<EntityType<TSchema['Type']>>, CacheError> {
+  get(): Effect.Effect<
+    Option.Option<EntityType<TSchema['Encoded']>>,
+    CacheError
+  > {
     return Effect.tryPromise({
       try: async () => {
         const item: StoredItem | undefined = await this.#db.get(
@@ -95,7 +98,7 @@ export class IDBCacheSingleItem<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema['Type'],
+          value: item.value as TSchema['Encoded'],
           meta: item.meta,
         });
       },

@@ -1,7 +1,16 @@
-import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
+import type {
+  AnyEntityESchema,
+  ESchemaEncoded,
+  ESchemaType,
+} from '@std-toolkit/eschema';
 import { Chunk, Effect, Option, Schema, Stream } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
 import { ConnectionService } from '@std-toolkit/core/server';
+import {
+  type EntityRow,
+  type EntityType as CoreEntityType,
+  makeEntityRow,
+} from '@std-toolkit/core';
 import { DynamodbError } from '../errors.js';
 import type {
   IndexDefinition,
@@ -94,16 +103,21 @@ function extractKeysFromOps(
 }
 
 /**
- * Represents an entity item with its value and metadata.
- *
- * @typeParam T - The entity value type
+ * Re-export the canonical `EntityType` and `EntityRow` shapes from core so
+ * dynamo-entity callers see the same wire/server contracts.
  */
-export interface EntityType<T> {
-  /** The entity data */
-  value: T;
-  /** Metadata about the entity item */
-  meta: MetaType;
-}
+export type { EntityType, EntityRow } from '@std-toolkit/core';
+
+/**
+ * Strips the server-only `decoded` Effect from a row before it crosses a
+ * JSON-serialization boundary (broadcast frame, transaction broadcast).
+ */
+const stripDecoded = <S extends AnyEntityESchema>(
+  row: EntityRow<S>,
+): CoreEntityType<ESchemaEncoded<S>> => ({
+  value: row.value,
+  meta: row.meta,
+});
 
 /**
  * Input type for insert operations. Omits the internal `_v` field.
@@ -256,12 +270,12 @@ export class DynamoEntity<
   #secondaryDerivations: TSecondaryDerivationMap;
   #derivationDeps: Set<string>;
 
-  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+  #broadcast(row: EntityRow<TSchema>) {
     return Effect.gen(this, function* () {
       const service = yield* Effect.serviceOption(ConnectionService).pipe(
         Effect.andThen(Option.getOrNull),
       );
-      service?.broadcast(entity);
+      service?.broadcast(stripDecoded(row));
     });
   }
 
@@ -344,7 +358,7 @@ export class DynamoEntity<
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
     options?: { ConsistentRead?: boolean },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>> | null, DynamodbError> {
+  ): Effect.Effect<EntityRow<TSchema> | null, DynamodbError> {
     return Effect.gen(this, function* () {
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
@@ -363,16 +377,7 @@ export class DynamoEntity<
 
       if (!Item) return null;
 
-      const value = yield* this.#eschema
-        .decode(Item)
-        .pipe(Effect.mapError((e) => DynamodbError.getItemFailed(e)));
-
-      const meta = Schema.decodeUnknownSync(metaSchema)(Item);
-
-      return {
-        value: value as ESchemaType<TSchema>,
-        meta,
-      };
+      return yield* this.#parseItem(Item);
     }).pipe(
       Effect.tapError((e) =>
         Effect.logError(`[${this.#eschema.name}] get failed`, { error: e }),
@@ -392,14 +397,14 @@ export class DynamoEntity<
     options?: {
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
+  ): Effect.Effect<EntityRow<TSchema>, DynamodbError> {
     return Effect.gen(this, function* () {
       const fullValueWithId = {
         ...value,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const { item, exprResult, meta, fullValue } = yield* this.#prepareInsert(
+      const { item, exprResult, meta, encoded } = yield* this.#prepareInsert(
         fullValueWithId,
         options?.condition,
       );
@@ -414,9 +419,13 @@ export class DynamoEntity<
           ),
         );
 
-      const entity = { value: fullValue, meta };
-      yield* this.#broadcast(entity);
-      return entity;
+      const row = yield* makeEntityRow(
+        this.#eschema,
+        encoded as ESchemaEncoded<TSchema>,
+        meta,
+      );
+      yield* this.#broadcast(row);
+      return row;
     }).pipe(
       Effect.tapError((e) =>
         Effect.logError(`[${this.#eschema.name}] insert failed`, { error: e }),
@@ -445,7 +454,7 @@ export class DynamoEntity<
           ) => AnyOperation<ESchemaType<TSchema>>[]);
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
+  ): Effect.Effect<EntityRow<TSchema>, DynamodbError> {
     const { update: updates, condition } = params;
     return Effect.gen(this, function* () {
       const { pk, sk, exprResult } =
@@ -476,20 +485,9 @@ export class DynamoEntity<
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
       }
 
-      const decodedValue = yield* this.#eschema
-        .decode(result.Attributes)
-        .pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
-
-      const updatedMeta = Schema.decodeUnknownSync(metaSchema)(
-        result.Attributes,
-      );
-
-      const entity = {
-        value: decodedValue as ESchemaType<TSchema>,
-        meta: updatedMeta,
-      };
-      yield* this.#broadcast(entity);
-      return entity;
+      const row = yield* this.#parseItem(result.Attributes);
+      yield* this.#broadcast(row);
+      return row;
     }).pipe(
       Effect.tapError((e) =>
         Effect.logError(`[${this.#eschema.name}] update failed`, { error: e }),
@@ -536,7 +534,7 @@ export class DynamoEntity<
     options?: {
       forceDelete?: 'I know what I am doing';
     },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
+  ): Effect.Effect<EntityRow<TSchema>, DynamodbError> {
     return Effect.gen(this, function* () {
       const existing = yield* this.get(keyValue);
       if (!existing) {
@@ -559,10 +557,10 @@ export class DynamoEntity<
 
         yield* this.#table.deleteItem({ pk, sk });
 
-        const deleted = {
-          value: existing.value,
-          meta: { ...existing.meta, _d: true },
-        };
+        const deleted = yield* makeEntityRow(this.#eschema, existing.value, {
+          ...existing.meta,
+          _d: true,
+        });
         yield* this.#broadcast(deleted);
         return deleted;
       }
@@ -599,7 +597,7 @@ export class DynamoEntity<
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const { item, exprResult, meta, fullValue } = yield* this.#prepareInsert(
+      const { item, exprResult, meta, encoded } = yield* this.#prepareInsert(
         fullValueWithId,
         options?.condition,
       );
@@ -608,7 +606,7 @@ export class DynamoEntity<
       return {
         ...tableOp,
         entityName: this.#eschema.name,
-        broadcast: { value: fullValue, meta },
+        broadcast: { value: encoded, meta },
       };
     });
   }
@@ -655,16 +653,29 @@ export class DynamoEntity<
               condition,
             );
 
-      const mergedValue =
-        typeof updates === 'function'
-          ? existing.value
-          : ({ ...existing.value, ...updates } as ESchemaType<TSchema>);
+      let broadcastValue: ESchemaEncoded<TSchema>;
+      if (typeof updates === 'function') {
+        broadcastValue = existing.value;
+      } else {
+        const decodedExisting = yield* existing.decoded.pipe(
+          Effect.mapError((e) => DynamodbError.updateItemFailed(e)),
+        );
+        const merged = {
+          ...decodedExisting,
+          ...updates,
+        } as ESchemaType<TSchema>;
+        broadcastValue = (yield* this.#eschema
+          .encode(merged as any)
+          .pipe(
+            Effect.mapError((e) => DynamodbError.updateItemFailed(e)),
+          )) as ESchemaEncoded<TSchema>;
+      }
 
       const tableOp = this.#table.opUpdateItem({ pk, sk }, exprResult);
       return {
         ...tableOp,
         entityName: this.#eschema.name,
-        broadcast: { value: mergedValue, meta },
+        broadcast: { value: broadcastValue, meta },
       };
     });
   }
@@ -702,10 +713,7 @@ export class DynamoEntity<
           }
         : never,
     options?: SimpleQueryOptions,
-  ): Effect.Effect<
-    { items: EntityType<ESchemaType<TSchema>>[] },
-    DynamodbError
-  > {
+  ): Effect.Effect<{ items: EntityRow<TSchema>[] }, DynamodbError> {
     return Effect.gen(this, function* () {
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
@@ -816,7 +824,7 @@ export class DynamoEntity<
           }
         : never,
     options?: QueryStreamOptions,
-  ): Stream.Stream<EntityType<ESchemaType<TSchema>>[], DynamodbError> {
+  ): Stream.Stream<EntityRow<TSchema>[], DynamodbError> {
     const batchSize = options?.batchSize ?? 100;
     const operator = '>' in params.sk ? '>' : '<';
     const initialSkValue = '>' in params.sk ? params.sk['>'] : params.sk['<'];
@@ -910,7 +918,7 @@ export class DynamoEntity<
           queryOptions,
         );
 
-        service?.emit(result.items);
+        service?.emit(result.items.map(stripDecoded));
 
         const lastItem = result.items[result.items.length - 1];
         if (!lastItem) {
@@ -1007,20 +1015,33 @@ export class DynamoEntity<
     };
   }
 
+  #parseItem(item: unknown): Effect.Effect<EntityRow<TSchema>, DynamodbError> {
+    return Effect.gen(this, function* () {
+      const meta = Schema.decodeUnknownSync(metaSchema)(item);
+      const encoded = this.#extractEncoded(item);
+      return yield* makeEntityRow(this.#eschema, encoded, meta);
+    });
+  }
+
+  /**
+   * Picks the encoded eschema fields (declared fields + `_v`) out of a raw
+   * dynamo Item, dropping storage-only columns (`pk`, `sk`, index columns)
+   * and meta (`_e`, `_u`, `_d`) so `row.value` carries only what
+   * `ESchemaEncoded<TSchema>` describes.
+   */
+  #extractEncoded(item: unknown): ESchemaEncoded<TSchema> {
+    const obj = item as Record<string, unknown>;
+    const out: Record<string, unknown> = { _v: obj._v };
+    for (const key of Object.keys(this.#eschema.fields)) {
+      if (key in obj) out[key] = obj[key];
+    }
+    return out as ESchemaEncoded<TSchema>;
+  }
+
   #decodeItems(
     items: unknown[],
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>[], DynamodbError> {
-    return Effect.all(
-      items.map((item) =>
-        this.#eschema.decode(item).pipe(
-          Effect.map((value) => ({
-            value: value as ESchemaType<TSchema>,
-            meta: Schema.decodeUnknownSync(metaSchema)(item),
-          })),
-          Effect.mapError((e) => DynamodbError.queryFailed(e)),
-        ),
-      ),
-    );
+  ): Effect.Effect<EntityRow<TSchema>[], DynamodbError> {
+    return Effect.all(items.map((item) => this.#parseItem(item)));
   }
 
   #prepareInsert(
@@ -1031,7 +1052,7 @@ export class DynamoEntity<
       item: Record<string, unknown>;
       exprResult: ConditionExprResult;
       meta: MetaType;
-      fullValue: ESchemaType<TSchema>;
+      encoded: ESchemaEncoded<TSchema>;
     },
     DynamodbError
   > {
@@ -1077,7 +1098,12 @@ export class DynamoEntity<
         ),
       });
 
-      return { item, exprResult, meta, fullValue };
+      return {
+        item,
+        exprResult,
+        meta,
+        encoded: encoded as ESchemaEncoded<TSchema>,
+      };
     });
   }
 

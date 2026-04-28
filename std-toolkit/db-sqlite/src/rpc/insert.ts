@@ -1,9 +1,13 @@
 import { Effect } from 'effect';
 import { StdToolkitError } from '@std-toolkit/core/rpc';
-import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
-import type { EntityType } from '../services/sqlite-entity.js';
+import type {
+  AnyEntityESchema,
+  ESchemaEncoded,
+  ESchemaType,
+} from '@std-toolkit/eschema';
+import type { EntityRow, EntityType } from '@std-toolkit/core';
 import { SqliteDB, SqliteDBError } from '../sql/db.js';
-import { type AnySQLiteEntity, mapError } from './types.js';
+import { type AnySQLiteEntity, mapError, stripDecoded } from './types.js';
 
 export const makeInsertHandler = <
   TSchema extends AnyEntityESchema,
@@ -17,18 +21,18 @@ export const makeInsertHandler = <
   type Entity = ESchemaType<TSchema>;
   type IdField = TSchema['idField'];
   type InsertPayload = Omit<Entity, IdField>;
-  type Result = EntityType<Entity>;
+  type Result = EntityType<ESchemaEncoded<TSchema>>;
 
   const handler = (
     payload: InsertPayload,
   ): Effect.Effect<Result, StdToolkitError, SqliteDB> =>
     (
       entity.insert(payload as any) as Effect.Effect<
-        Result,
+        EntityRow<TSchema>,
         SqliteDBError,
         SqliteDB
       >
-    ).pipe(Effect.mapError(mapError));
+    ).pipe(Effect.map(stripDecoded), Effect.mapError(mapError));
 
   const p = (prefix ?? '') as P;
   const handlerName = `${p}insert${eschema.name}` as const;

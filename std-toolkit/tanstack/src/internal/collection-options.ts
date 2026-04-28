@@ -8,7 +8,12 @@ import { Effect, Fiber, Option, Scope, SubscriptionRef } from 'effect';
 import { EntityType } from '@std-toolkit/core';
 import { CacheEntity } from '@std-toolkit/cache';
 import { MemoryCacheEntity } from '@std-toolkit/cache/memory';
-import { AnyEntityESchema, ESchemaIdField } from '@std-toolkit/eschema';
+import {
+  AnyEntityESchema,
+  ESchemaEncoded,
+  ESchemaIdField,
+  ESchemaType,
+} from '@std-toolkit/eschema';
 import {
   parseLoadSubsetOptions,
   type ParsedLoadSubsetOptions,
@@ -21,63 +26,67 @@ import {
   makeWithSyncGuard,
 } from './shared.js';
 
-type GetMoreFn<TItem extends object> = (
-  cursor: EntityType<TItem> | null,
-) => Effect.Effect<EntityType<TItem>[]>;
+type EncodedRow<TSchema extends AnyEntityESchema> = EntityType<
+  ESchemaEncoded<TSchema>
+>;
 
-type OnLoadSubsetFn<TItem extends object> = (
-  options: ParsedLoadSubsetOptions<TItem>,
-) => Effect.Effect<EntityType<TItem>[]>;
+type GetMoreFn<TSchema extends AnyEntityESchema> = (
+  cursor: EncodedRow<TSchema> | null,
+) => Effect.Effect<EncodedRow<TSchema>[]>;
 
-type SyncFn<TItem extends object> = (
-  emit: (items: EntityType<TItem> | EntityType<TItem>[]) => void,
+type OnLoadSubsetFn<TSchema extends AnyEntityESchema> = (
+  options: ParsedLoadSubsetOptions<ESchemaType<TSchema>>,
+) => Effect.Effect<EncodedRow<TSchema>[]>;
+
+type SyncFn<TSchema extends AnyEntityESchema> = (
+  emit: (items: EncodedRow<TSchema> | EncodedRow<TSchema>[]) => void,
 ) => Effect.Effect<void, never, Scope.Scope>;
 
-interface StdCollectionConfigBase<
-  TItem extends object,
-  TSchema extends AnyEntityESchema,
-> {
+interface StdCollectionConfigBase<TSchema extends AnyEntityESchema> {
   id?: string;
   schema: TSchema;
-  cache?: Effect.Effect<CacheEntity<TItem>>;
-  onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>;
+  cache?: Effect.Effect<CacheEntity<ESchemaEncoded<TSchema>>>;
+  onInsert?: (item: ESchemaType<TSchema>) => Effect.Effect<EncodedRow<TSchema>>;
   onUpdate?: (
     payload: {
       [K in ESchemaIdField<TSchema>]: string;
     } & {
-      updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
+      updates: Partial<Omit<ESchemaType<TSchema>, ESchemaIdField<TSchema>>>;
     },
-  ) => Effect.Effect<EntityType<TItem>>;
+  ) => Effect.Effect<EncodedRow<TSchema>>;
 }
 
-type StdCollectionConfig<
-  TItem extends object,
-  TSchema extends AnyEntityESchema,
-> = StdCollectionConfigBase<TItem, TSchema> &
-  (
-    | { syncMode: 'eager'; getMore: GetMoreFn<TItem>; sync?: SyncFn<TItem> }
-    | { syncMode: 'on-demand'; onLoadSubset: OnLoadSubsetFn<TItem> }
-    | {
-        syncMode: 'progressive';
-        getMore: GetMoreFn<TItem>;
-        onLoadSubset: OnLoadSubsetFn<TItem>;
-        sync?: SyncFn<TItem>;
-      }
-  );
+type StdCollectionConfig<TSchema extends AnyEntityESchema> =
+  StdCollectionConfigBase<TSchema> &
+    (
+      | {
+          syncMode: 'eager';
+          getMore: GetMoreFn<TSchema>;
+          sync?: SyncFn<TSchema>;
+        }
+      | { syncMode: 'on-demand'; onLoadSubset: OnLoadSubsetFn<TSchema> }
+      | {
+          syncMode: 'progressive';
+          getMore: GetMoreFn<TSchema>;
+          onLoadSubset: OnLoadSubsetFn<TSchema>;
+          sync?: SyncFn<TSchema>;
+        }
+    );
 
 export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
-  options: StdCollectionConfig<TSchema['Type'], TSchema>,
+  options: StdCollectionConfig<TSchema>,
 ): Omit<
   CollectionConfig<
-    CollectionItem<TSchema['Type']>,
+    CollectionItem<ESchemaType<TSchema>>,
     string,
     never,
     CollectionUtils<TSchema>
   >,
   'schema'
 > => {
-  type TItem = TSchema['Type'];
+  type TItem = ESchemaType<TSchema>;
   type TCollectionItem = CollectionItem<TItem>;
+  type TEncoded = ESchemaEncoded<TSchema>;
 
   const { id, onInsert, cache: providedCache, onUpdate, schema } = options;
   const syncMode = options.syncMode;
@@ -90,21 +99,21 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   const semaphore = Effect.runSync(Effect.makeSemaphore(1));
   const withSyncGuard = makeWithSyncGuard(syncing, semaphore);
 
-  let resolvedCache: CacheEntity<TItem> | null = null;
+  let resolvedCache: CacheEntity<TEncoded> | null = null;
   let applyToCollection:
-    | ((items: EntityType<TItem>[], persist?: boolean) => void)
+    | ((items: EncodedRow<TSchema>[], persist?: boolean) => void)
     | null = null;
 
   const cacheAndApply = (
-    cache: CacheEntity<TItem>,
-    items: EntityType<TItem>[],
+    cache: CacheEntity<TEncoded>,
+    items: EncodedRow<TSchema>[],
   ) =>
     Effect.gen(function* () {
       yield* Effect.forEach(
         items,
         (item) =>
           Effect.gen(function* () {
-            const id = item.value[schema.idField as keyof TItem] as string;
+            const id = item.value[schema.idField as keyof TEncoded] as string;
             const existing = yield* cache.get(id);
             const existingU = Option.map(existing, (e) => e.meta._u ?? '').pipe(
               Option.getOrElse(() => ''),
@@ -119,7 +128,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
       applyToCollection?.(items);
     });
 
-  const fetchOnePage = (cache: CacheEntity<TItem>) =>
+  const fetchOnePage = (cache: CacheEntity<TEncoded>) =>
     Effect.gen(function* () {
       if (!getMore) return 0;
       const latest = yield* cache.getLatest();
@@ -129,7 +138,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
       return items.length;
     });
 
-  const fetchAllPages = (cache: CacheEntity<TItem>) =>
+  const fetchAllPages = (cache: CacheEntity<TEncoded>) =>
     Effect.gen(function* () {
       let total = 0;
 
@@ -159,12 +168,20 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
       const { markReady } = params;
 
       const initEffect = Effect.gen(function* () {
-        const cache: CacheEntity<TItem> = yield* (
-          providedCache ?? MemoryCacheEntity.make({ eschema: schema })
+        const cache: CacheEntity<TEncoded> = yield* (
+          providedCache ??
+            (MemoryCacheEntity.make({
+              eschema: schema,
+            }) as unknown as Effect.Effect<CacheEntity<TEncoded>>)
         );
 
         resolvedCache = cache;
-        applyToCollection = makeApplyToCollection(params, cache, false);
+        applyToCollection = makeApplyToCollection<TSchema>(
+          schema,
+          params,
+          cache,
+          false,
+        );
 
         if (syncMode !== 'on-demand') {
           const cachedItems = yield* cache.getAll();
@@ -175,7 +192,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
         }
 
         if (syncFn) {
-          const emit = (input: EntityType<TItem> | EntityType<TItem>[]) => {
+          const emit = (input: EncodedRow<TSchema> | EncodedRow<TSchema>[]) => {
             const items = Array.isArray(input) ? input : [input];
             applyToCollection?.(items, false);
           };
@@ -222,7 +239,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   };
 
   const upsert = (
-    input: EntityType<TItem> | EntityType<TItem>[],
+    input: EncodedRow<TSchema> | EncodedRow<TSchema>[],
     persist?: boolean,
   ) => {
     const items = Array.isArray(input) ? input : [input];
@@ -230,7 +247,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   };
 
   const guardedFetch = (
-    fn: (cache: CacheEntity<TItem>) => Effect.Effect<number, unknown>,
+    fn: (cache: CacheEntity<TEncoded>) => Effect.Effect<number, unknown>,
   ): Effect.Effect<number> =>
     Effect.suspend(() => {
       if (!resolvedCache) return Effect.succeed(0);
@@ -254,6 +271,6 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
       isSyncing: () => syncing,
     },
     compare: compareByMeta,
-    ...makeMutationHandlers(schema, upsert, onInsert, onUpdate),
+    ...makeMutationHandlers<TItem, TSchema>(schema, upsert, onInsert, onUpdate),
   };
 };

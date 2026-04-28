@@ -15,7 +15,7 @@ const stringOrder = Order.string;
 
 export class MemoryCacheEntity<
   TSchema extends CacheESchema,
-> implements CacheEntity<TSchema['Type']> {
+> implements CacheEntity<TSchema['Encoded']> {
   #store = new Map<string, StoredItem>();
   #eschema: TSchema;
   #updatedIndex: SortedMap.SortedMap<string, string>;
@@ -31,7 +31,7 @@ export class MemoryCacheEntity<
     return Effect.succeed(new MemoryCacheEntity(options.eschema));
   }
 
-  put(item: EntityType<TSchema['Type']>): Effect.Effect<void, CacheError> {
+  put(item: EntityType<TSchema['Encoded']>): Effect.Effect<void, CacheError> {
     return Effect.try({
       try: () => {
         const id = String(item.value[this.#eschema.idField]);
@@ -57,7 +57,7 @@ export class MemoryCacheEntity<
 
   get(
     id: string,
-  ): Effect.Effect<Option.Option<EntityType<TSchema['Type']>>, CacheError> {
+  ): Effect.Effect<Option.Option<EntityType<TSchema['Encoded']>>, CacheError> {
     return Effect.try({
       try: () => {
         const item = this.#store.get(id);
@@ -65,7 +65,7 @@ export class MemoryCacheEntity<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema['Type'],
+          value: item.value as TSchema['Encoded'],
           meta: item.meta,
         });
       },
@@ -73,11 +73,11 @@ export class MemoryCacheEntity<
     });
   }
 
-  getAll(): Effect.Effect<EntityType<TSchema['Type']>[], CacheError> {
+  getAll(): Effect.Effect<EntityType<TSchema['Encoded']>[], CacheError> {
     return Effect.try({
       try: () =>
         Array.from(this.#store.values(), (item) => ({
-          value: item.value as TSchema['Type'],
+          value: item.value as TSchema['Encoded'],
           meta: item.meta,
         })),
       catch: (cause) => CacheError.getFailed('Failed to get all items', cause),
@@ -85,7 +85,7 @@ export class MemoryCacheEntity<
   }
 
   getLatest(): Effect.Effect<
-    Option.Option<EntityType<TSchema['Type']>>,
+    Option.Option<EntityType<TSchema['Encoded']>>,
     CacheError
   > {
     return Effect.try({
@@ -98,7 +98,7 @@ export class MemoryCacheEntity<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema['Type'],
+          value: item.value as TSchema['Encoded'],
           meta: item.meta,
         });
       },
@@ -108,7 +108,7 @@ export class MemoryCacheEntity<
   }
 
   getOldest(): Effect.Effect<
-    Option.Option<EntityType<TSchema['Type']>>,
+    Option.Option<EntityType<TSchema['Encoded']>>,
     CacheError
   > {
     return Effect.try({
@@ -121,7 +121,7 @@ export class MemoryCacheEntity<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema['Type'],
+          value: item.value as TSchema['Encoded'],
           meta: item.meta,
         });
       },

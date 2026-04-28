@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Option, Schema } from 'effect';
-import { EntityESchema } from '@std-toolkit/eschema';
+import { EntityESchema, type ESchemaEncoded } from '@std-toolkit/eschema';
 import type { EntityType } from '@std-toolkit/core';
 import { MemoryCacheEntity } from '../memory/memory-cache-entity.js';
 
@@ -16,9 +16,9 @@ function makeUserEntity(
   id: string,
   name: string,
   email: string,
-): EntityType<typeof UserSchema.Type> {
+): EntityType<ESchemaEncoded<typeof UserSchema>> {
   return {
-    value: { id, name, email },
+    value: { id, name, email, _v: 'v1' as const },
     meta: {
       _e: UserSchema.name,
       _v: UserSchema.latestVersion,
@@ -142,15 +142,30 @@ describe('MemoryCacheEntity', () => {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
-        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        value: {
+          id: 'user-1',
+          name: 'Alice',
+          email: 'alice@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        value: {
+          id: 'user-2',
+          name: 'Bob',
+          email: 'bob@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        value: {
+          id: 'user-3',
+          name: 'Charlie',
+          email: 'charlie@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
 
@@ -168,15 +183,30 @@ describe('MemoryCacheEntity', () => {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
-        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        value: {
+          id: 'user-1',
+          name: 'Alice',
+          email: 'alice@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        value: {
+          id: 'user-2',
+          name: 'Bob',
+          email: 'bob@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        value: {
+          id: 'user-3',
+          name: 'Charlie',
+          email: 'charlie@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
 
@@ -212,15 +242,30 @@ describe('MemoryCacheEntity', () => {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
-        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        value: {
+          id: 'user-1',
+          name: 'Alice',
+          email: 'alice@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        value: {
+          id: 'user-2',
+          name: 'Bob',
+          email: 'bob@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        value: {
+          id: 'user-3',
+          name: 'Charlie',
+          email: 'charlie@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
 
@@ -240,11 +285,21 @@ describe('MemoryCacheEntity', () => {
       const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
 
       yield* users.put({
-        value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        value: {
+          id: 'user-1',
+          name: 'Alice',
+          email: 'alice@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-003', _d: false },
       });
       yield* users.put({
-        value: { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        value: {
+          id: 'user-2',
+          name: 'Bob',
+          email: 'bob@example.com',
+          _v: 'v1' as const,
+        },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-002', _d: false },
       });
 
@@ -253,6 +308,7 @@ describe('MemoryCacheEntity', () => {
           id: 'user-1',
           name: 'Alice Updated',
           email: 'alice@example.com',
+          _v: 'v1' as const,
         },
         meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
       });

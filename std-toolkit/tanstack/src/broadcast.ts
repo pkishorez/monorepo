@@ -49,6 +49,8 @@ export const collectionRegistry = {
         process: (message: unknown, persist = false) => {
           if (!Schema.is(BroadcastSchema)(message)) return;
 
+          // Wire frames carry encoded values. Each collection's `upsert`
+          // decodes via its own schema before applying to the store.
           for (const value of message.values) {
             const target = entries.find(
               (e) => value.meta._e === e.utils.schema().name,

@@ -1,4 +1,8 @@
-import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
+import type {
+  AnyEntityESchema,
+  ESchemaEncoded,
+  ESchemaType,
+} from '@std-toolkit/eschema';
 import { Chunk, Effect, FiberRef, Option, Schema, Stream } from 'effect';
 import type { SQLiteTableInstance, SortKeyCondition } from './sqlite-table.js';
 import {
@@ -23,7 +27,13 @@ import {
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
 } from '../internal/utils.js';
-import type { StdDescriptor, IndexPatternDescriptor } from '@std-toolkit/core';
+import type {
+  EntityRow,
+  EntityType,
+  StdDescriptor,
+  IndexPatternDescriptor,
+} from '@std-toolkit/core';
+import { makeEntityRow } from '@std-toolkit/core';
 import { ConnectionService } from '@std-toolkit/core/server';
 import { Prettify } from '@std-toolkit/eschema/types.js';
 
@@ -74,17 +84,15 @@ type ResolveStreamSkParam<
  */
 type InsertInput<T> = Omit<T, '_v'>;
 
+export type { EntityType, EntityRow } from '@std-toolkit/core';
+
 /**
- * Represents an entity item with its value and metadata.
- *
- * @typeParam T - The entity value type
+ * Strips the server-only `decoded` Effect from an `EntityRow` so the row can
+ * cross a JSON serialization boundary (broadcast frames, FiberRef storage).
  */
-export interface EntityType<T> {
-  /** The entity data */
-  value: T;
-  /** Metadata about the entity item */
-  meta: RowMeta;
-}
+const stripDecoded = <S extends AnyEntityESchema>(
+  row: EntityRow<S>,
+): EntityType<ESchemaEncoded<S>> => ({ value: row.value, meta: row.meta });
 
 /**
  * Helper type to extract the key type from an array of keys.
@@ -231,11 +239,7 @@ export class SQLiteEntity<
   get(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
-  ): Effect.Effect<
-    EntityType<ESchemaType<TSchema>> | null,
-    SqliteDBError,
-    SqliteDB
-  > {
+  ): Effect.Effect<EntityRow<TSchema> | null, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
@@ -266,20 +270,24 @@ export class SQLiteEntity<
    */
   insert(
     value: InsertInput<ESchemaType<TSchema>>,
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<EntityRow<TSchema>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const fullValue = {
         ...value,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const { item, meta } = yield* this.#prepareInsert(fullValue);
+      const { item, encoded, meta } = yield* this.#prepareInsert(fullValue);
 
       yield* this.#table.putItem(item);
 
-      yield* this.#broadcast({ value: fullValue, meta });
-
-      return { value: fullValue, meta };
+      const row = yield* makeEntityRow(
+        this.#eschema,
+        encoded as ESchemaEncoded<TSchema>,
+        meta,
+      );
+      yield* this.#broadcast(row);
+      return row;
     });
   }
 
@@ -294,9 +302,8 @@ export class SQLiteEntity<
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<EntityRow<TSchema>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
-      // Get existing item
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(
@@ -304,9 +311,14 @@ export class SQLiteEntity<
         );
       }
 
-      // Merge updates
+      const existingDecoded = yield* existing.decoded.pipe(
+        Effect.mapError((e) =>
+          SqliteDBError.updateFailed(this.#table.tableName, e),
+        ),
+      );
+
       const fullValue = {
-        ...existing.value,
+        ...existingDecoded,
         ...updates,
       } as ESchemaType<TSchema>;
 
@@ -315,7 +327,6 @@ export class SQLiteEntity<
         existing.meta._d,
       );
 
-      // Compute primary keys
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
         this.#primaryDerivation.pkDeps,
@@ -329,7 +340,6 @@ export class SQLiteEntity<
         false,
       );
 
-      // Update the item
       const updateValues: Record<string, unknown> = {
         _data: JSON.stringify(encoded),
         _v: meta._v,
@@ -339,9 +349,13 @@ export class SQLiteEntity<
 
       yield* this.#table.updateItem({ pk, sk }, updateValues);
 
-      yield* this.#broadcast({ value: fullValue, meta });
-
-      return { value: fullValue, meta };
+      const row = yield* makeEntityRow(
+        this.#eschema,
+        encoded as ESchemaEncoded<TSchema>,
+        meta,
+      );
+      yield* this.#broadcast(row);
+      return row;
     });
   }
 
@@ -355,7 +369,7 @@ export class SQLiteEntity<
   delete(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
+  ): Effect.Effect<EntityRow<TSchema>, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const existing = yield* this.get(keyValue);
       if (!existing) {
@@ -363,6 +377,12 @@ export class SQLiteEntity<
           SqliteDBError.deleteFailed(this.#table.tableName, 'Item not found'),
         );
       }
+
+      const existingDecoded = yield* existing.decoded.pipe(
+        Effect.mapError((e) =>
+          SqliteDBError.deleteFailed(this.#table.tableName, e),
+        ),
+      );
 
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
@@ -378,27 +398,25 @@ export class SQLiteEntity<
       );
 
       // Generate new _u and encode with _d: true for soft delete
-      const { encoded, meta } = yield* this.#encode(existing.value, true);
+      const { encoded, meta } = yield* this.#encode(existingDecoded, true);
 
-      // Update the item with _d: true and new _u (soft delete)
       const updateValues: Record<string, unknown> = {
         _data: JSON.stringify(encoded),
         _v: meta._v,
         _u: meta._u,
         _d: 1,
-        ...this.#deriveSecondaryIndexes({ ...existing.value, _u: meta._u }),
+        ...this.#deriveSecondaryIndexes({ ...existingDecoded, _u: meta._u }),
       };
 
       yield* this.#table.updateItem({ pk, sk }, updateValues);
 
-      const deletedEntity = {
-        value: existing.value,
+      const row = yield* makeEntityRow(
+        this.#eschema,
+        encoded as ESchemaEncoded<TSchema>,
         meta,
-      };
-
-      yield* this.#broadcast(deletedEntity);
-
-      return deletedEntity;
+      );
+      yield* this.#broadcast(row);
+      return row;
     });
   }
 
@@ -433,11 +451,7 @@ export class SQLiteEntity<
           }
         : never,
     options?: SimpleQueryOptions,
-  ): Effect.Effect<
-    { items: EntityType<ESchemaType<TSchema>>[] },
-    SqliteDBError,
-    SqliteDB
-  > {
+  ): Effect.Effect<{ items: EntityRow<TSchema>[] }, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
@@ -554,11 +568,7 @@ export class SQLiteEntity<
           }
         : never,
     options?: QueryStreamOptions,
-  ): Stream.Stream<
-    EntityType<ESchemaType<TSchema>>[],
-    SqliteDBError,
-    SqliteDB
-  > {
+  ): Stream.Stream<EntityRow<TSchema>[], SqliteDBError, SqliteDB> {
     const batchSize = options?.batchSize ?? 100;
     const operator = '>' in params.sk ? '>' : '<';
     const initialSkValue = '>' in params.sk ? params.sk['>'] : params.sk['<'];
@@ -649,7 +659,7 @@ export class SQLiteEntity<
           queryOptions,
         );
 
-        service?.emit(result.items);
+        service?.emit(result.items.map(stripDecoded));
 
         const lastItem = result.items[result.items.length - 1];
         if (!lastItem) {
@@ -673,27 +683,30 @@ export class SQLiteEntity<
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+  #broadcast(row: EntityRow<TSchema>) {
     return Effect.gen(this, function* () {
+      const wireRow = stripDecoded(row);
       const pending = yield* FiberRef.get(TransactionPendingBroadcasts);
       if (Option.isSome(pending)) {
         yield* FiberRef.set(
           TransactionPendingBroadcasts,
-          Option.some([...pending.value, entity]),
+          Option.some([...pending.value, wireRow]),
         );
       } else {
         const service = yield* Effect.serviceOption(ConnectionService).pipe(
           Effect.andThen(Option.getOrNull),
         );
-        service?.broadcast(entity);
+        service?.broadcast(wireRow);
       }
     });
   }
 
-  #prepareInsert(
-    fullValue: ESchemaType<TSchema>,
-  ): Effect.Effect<
-    { item: Record<string, unknown>; meta: RowMeta },
+  #prepareInsert(fullValue: ESchemaType<TSchema>): Effect.Effect<
+    {
+      item: Record<string, unknown>;
+      encoded: Record<string, unknown>;
+      meta: RowMeta;
+    },
     SqliteDBError
   > {
     return Effect.gen(this, function* () {
@@ -714,7 +727,7 @@ export class SQLiteEntity<
         ...secondaryIndexes,
       };
 
-      return { item, meta };
+      return { item, encoded, meta };
     });
   }
 
@@ -745,32 +758,25 @@ export class SQLiteEntity<
       );
   }
 
-  #parseRow(
-    row: RawRow,
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError> {
-    return this.#eschema
-      .decode({ ...JSON.parse(row._data), _v: row._v })
-      .pipe(
-        Effect.mapError((e) =>
-          SqliteDBError.queryFailed(this.#table.tableName, e),
-        ),
-      )
-      .pipe(
-        Effect.map((value) => ({
-          value: value as ESchemaType<TSchema>,
-          meta: Schema.decodeSync(sqlMetaSchema)({
-            _v: row._v,
-            _u: row._u,
-            _d: row._d,
-            _e: row._e ?? this.#eschema.name,
-          }),
-        })),
-      );
+  #parseRow(row: RawRow): Effect.Effect<EntityRow<TSchema>, SqliteDBError> {
+    return Effect.gen(this, function* () {
+      const encoded = {
+        ...JSON.parse(row._data),
+        _v: row._v,
+      } as ESchemaEncoded<TSchema>;
+      const meta = Schema.decodeSync(sqlMetaSchema)({
+        _v: row._v,
+        _u: row._u,
+        _d: row._d,
+        _e: row._e ?? this.#eschema.name,
+      });
+      return yield* makeEntityRow(this.#eschema, encoded, meta);
+    });
   }
 
   #decodeItems(
     items: RawRow[],
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>[], SqliteDBError> {
+  ): Effect.Effect<EntityRow<TSchema>[], SqliteDBError> {
     return Effect.all(items.map((item) => this.#parseRow(item)));
   }
 

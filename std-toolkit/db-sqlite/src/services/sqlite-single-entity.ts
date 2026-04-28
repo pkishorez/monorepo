@@ -1,4 +1,8 @@
-import type { AnySingleEntityESchema, ESchemaType } from '@std-toolkit/eschema';
+import type {
+  AnySingleEntityESchema,
+  ESchemaEncoded,
+  ESchemaType,
+} from '@std-toolkit/eschema';
 import { Effect, FiberRef, Option, Schema } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { SQLiteTableInstance } from './sqlite-table.js';
@@ -201,8 +205,10 @@ export class SQLiteSingleEntity<
         });
       }
 
-      const entity = { value: fullValue, meta: { ...meta, _d: false } };
-      yield* this.#broadcast(entity);
+      yield* this.#broadcast({
+        value: encoded as ESchemaEncoded<TSchema>,
+        meta: { ...meta, _d: false },
+      });
       return { value: fullValue, meta };
     });
   }
@@ -261,15 +267,17 @@ export class SQLiteSingleEntity<
 
       yield* this.#table.updateItem({ pk, sk }, updateValues);
 
-      const entity = { value: fullValue, meta: { ...meta, _d: false } };
-      yield* this.#broadcast(entity);
+      yield* this.#broadcast({
+        value: encoded as ESchemaEncoded<TSchema>,
+        meta: { ...meta, _d: false },
+      });
       return { value: fullValue, meta };
     });
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+  #broadcast(entity: EntityType<ESchemaEncoded<TSchema>>) {
     return Effect.gen(this, function* () {
       const pending = yield* FiberRef.get(TransactionPendingBroadcasts);
       if (Option.isSome(pending)) {

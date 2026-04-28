@@ -2,8 +2,14 @@ import { SyncConfig as TanstackSyncConfig } from '@tanstack/react-db';
 import { Effect, Option, SubscriptionRef } from 'effect';
 import { EntityType } from '@std-toolkit/core';
 import { CacheEntity } from '@std-toolkit/cache';
-import { AnyEntityESchema, ESchemaIdField } from '@std-toolkit/eschema';
+import {
+  AnyEntityESchema,
+  ESchemaEncoded,
+  ESchemaIdField,
+  ESchemaType,
+} from '@std-toolkit/eschema';
 import { CollectionItem } from '../types.js';
+import { decodeRow } from './codec.js';
 
 export type SyncParams<T extends object> = Parameters<
   TanstackSyncConfig<CollectionItem<T>, string>['sync']
@@ -32,19 +38,19 @@ export const makeWithSyncGuard =
       }).pipe(Effect.ensuring(SubscriptionRef.set(syncing, false))),
     );
 
-export const makeApplyToCollection = <TItem extends object>(
-  params: SyncParams<TItem>,
-  cache?: CacheEntity<TItem>,
+export const makeApplyToCollection = <TSchema extends AnyEntityESchema>(
+  schema: TSchema,
+  params: SyncParams<ESchemaType<TSchema>>,
+  cache?: CacheEntity<ESchemaEncoded<TSchema>>,
   alwaysPersist = false,
 ) => {
   const { begin, collection, commit, write } = params;
+  const idField = schema.idField as keyof ESchemaEncoded<TSchema>;
 
-  return (items: EntityType<TItem>[], persist = false) => {
+  return (items: EntityType<ESchemaEncoded<TSchema>>[], persist = false) => {
     begin({ immediate: true });
     for (const item of items) {
-      const key = collection.getKeyFromItem(
-        item.value as CollectionItem<TItem>,
-      );
+      const key = String(item.value[idField]);
       const existing = collection.get(key);
       const existingU = existing?._meta?._u ?? '';
       const incomingU = item.meta._u ?? '';
@@ -70,10 +76,7 @@ export const makeApplyToCollection = <TItem extends object>(
       if (item.meta._d) {
         if (collection.has(key)) write({ type: 'delete', key });
       } else {
-        const itemValue = {
-          ...item.value,
-          _meta: item.meta,
-        } as CollectionItem<TItem>;
+        const itemValue = decodeRow(schema, item);
         if (collection.has(key)) {
           write({ type: 'update', value: itemValue });
         } else {
@@ -90,15 +93,17 @@ export const makeMutationHandlers = <
   TSchema extends AnyEntityESchema,
 >(
   schema: TSchema,
-  upsert: (item: EntityType<TItem>) => void,
-  onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>,
+  upsert: (item: EntityType<ESchemaEncoded<TSchema>>) => void,
+  onInsert?: (
+    item: TItem,
+  ) => Effect.Effect<EntityType<ESchemaEncoded<TSchema>>>,
   onUpdate?: (
     payload: {
       [K in ESchemaIdField<TSchema>]: string;
     } & {
       updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
     },
-  ) => Effect.Effect<EntityType<TItem>>,
+  ) => Effect.Effect<EntityType<ESchemaEncoded<TSchema>>>,
 ) => ({
   onInsert: async ({
     transaction,
