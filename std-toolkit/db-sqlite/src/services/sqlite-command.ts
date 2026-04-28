@@ -129,10 +129,9 @@ export class SqliteCommand<
   #processInsert(
     payload: InsertPayload,
   ): Effect.Effect<InsertResponse, CommandError, SqliteDB> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const startedAt = Date.now();
-      const entity = self.#getEntity(payload.entity);
+      const entity = this.#getEntity(payload.entity);
 
       const result = yield* entity.insert(payload.data as any).pipe(
         Effect.mapError(
@@ -158,10 +157,9 @@ export class SqliteCommand<
   #processUpdate(
     payload: UpdatePayload,
   ): Effect.Effect<UpdateResponse, CommandError, SqliteDB> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const startedAt = Date.now();
-      const entity = self.#getEntity(payload.entity);
+      const entity = this.#getEntity(payload.entity);
 
       const result = yield* entity
         .update(payload.key as any, payload.data as any)
@@ -189,10 +187,9 @@ export class SqliteCommand<
   #processDelete(
     payload: DeletePayload,
   ): Effect.Effect<DeleteResponse, CommandError, SqliteDB> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const startedAt = Date.now();
-      const entity = self.#getEntity(payload.entity);
+      const entity = this.#getEntity(payload.entity);
 
       const result = yield* entity.delete(payload.key as any).pipe(
         Effect.mapError(
@@ -218,12 +215,11 @@ export class SqliteCommand<
   #processQuery(
     payload: QueryPayload,
   ): Effect.Effect<QueryResponse, CommandError, SqliteDB> {
-    const self = this;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const startedAt = Date.now();
-      const entity = self.#getEntity(payload.entity);
+      const entity = this.#getEntity(payload.entity);
 
-      const sk = self.#convertSkCondition(payload.sk);
+      const sk = this.#convertSkCondition(payload.sk);
       const queryParams = { pk: payload.pk, sk } as any;
       const options =
         payload.limit !== undefined ? { limit: payload.limit } : undefined;
@@ -254,14 +250,13 @@ export class SqliteCommand<
   #processDescriptor(
     _payload: DescriptorPayload,
   ): Effect.Effect<DescriptorResponse, CommandError, SqliteDB> {
-    const self = this;
     return Effect.sync(() => {
       const startedAt = Date.now();
 
       return {
         operation: 'descriptor' as const,
         timing: createTiming(startedAt),
-        descriptors: self.#registry.getSchema().descriptors,
+        descriptors: this.#registry.getSchema().descriptors,
       };
     });
   }
@@ -285,12 +280,11 @@ export class SqliteCommand<
    * @returns An object with the RPC handler
    */
   toRpcHandler<S extends string = ''>(suffix?: S) {
-    const self = this;
     const s = (suffix ?? '') as S;
     const handlerName = `${SqliteCommand.RPC_PREFIX}${s}` as const;
 
     const handler = (payload: CommandPayloadSchemaType) =>
-      self.process(payload as CommandPayload);
+      this.process(payload as CommandPayload);
 
     return { [handlerName]: handler } as {
       [K in `${typeof SqliteCommand.RPC_PREFIX}${S}`]: typeof handler;

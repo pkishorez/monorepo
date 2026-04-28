@@ -5,6 +5,7 @@ export default defineConfig({
     ignorePatterns: [
       'dist/**',
       '*.gen.ts',
+      '**/std-toolkit/db-dynamodb/src/generated/**',
       'whatever-code/src/codex/generated/**',
       '**/__tests__/fixtures/**',
     ],
@@ -17,6 +18,7 @@ export default defineConfig({
     ignorePatterns: [
       'dist/**',
       '*.gen.ts',
+      '**/std-toolkit/db-dynamodb/src/generated/**',
       'whatever-code/src/codex/generated/**',
       '**/__tests__/fixtures/**',
     ],

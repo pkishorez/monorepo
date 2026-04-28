@@ -631,6 +631,9 @@ export class SQLiteEntity<
   ): Effect.Effect<{ success: true }, SqliteDBError, SqliteDB> {
     return Effect.gen(this, function* () {
       const { key, pk, cursor, limit } = opts;
+      const service = yield* Effect.serviceOption(ConnectionService).pipe(
+        Effect.andThen(Option.getOrNull),
+      );
 
       const queryOptions: SimpleQueryOptions = {};
       if (limit !== undefined) {
@@ -646,12 +649,12 @@ export class SQLiteEntity<
           queryOptions,
         );
 
-        (yield* this.#service)?.emit(result.items);
+        service?.emit(result.items);
 
         const lastItem = result.items[result.items.length - 1];
         if (!lastItem) {
           //Start subscribing from now!
-          (yield* this.#service)?.subscribe(this.#eschema.name);
+          service?.subscribe(this.#eschema.name);
           return { success: true };
         }
         currentCursor = lastItem.meta._u;
@@ -670,10 +673,6 @@ export class SQLiteEntity<
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  #service = Effect.serviceOption(ConnectionService).pipe(
-    Effect.andThen(Option.getOrNull),
-  );
-
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
     return Effect.gen(this, function* () {
       const pending = yield* FiberRef.get(TransactionPendingBroadcasts);
@@ -683,7 +682,10 @@ export class SQLiteEntity<
           Option.some([...pending.value, entity]),
         );
       } else {
-        (yield* this.#service)?.broadcast(entity);
+        const service = yield* Effect.serviceOption(ConnectionService).pipe(
+          Effect.andThen(Option.getOrNull),
+        );
+        service?.broadcast(entity);
       }
     });
   }

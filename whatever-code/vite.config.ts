@@ -1,6 +1,12 @@
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
+  lint: {
+    ignorePatterns: ['dist/**', 'src/codex/generated/**'],
+  },
+  fmt: {
+    ignorePatterns: ['dist/**', 'src/codex/generated/**'],
+  },
   pack: [
     {
       entry: ['src/cli.ts'],

@@ -13,7 +13,7 @@ interface TerminalSession {
 export class TerminalService extends Effect.Service<TerminalService>()(
   'TerminalService',
   {
-    effect: Effect.gen(function* () {
+    effect: Effect.sync(() => {
       /** Terminal sessions keyed by "absolutePath:name". */
       const sessionsByKey = new Map<string, TerminalSession>();
       /** Reverse lookup: sessionId → TerminalSession. */

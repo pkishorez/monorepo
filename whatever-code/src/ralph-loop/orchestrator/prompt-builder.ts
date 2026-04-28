@@ -17,7 +17,6 @@ const buildTaskListSection = (tasks: RalphLoopTask[]): string => {
   const completed = sorted.filter((t) => t.status === 'completed');
   const running = sorted.filter((t) => t.status === 'running');
   const failed = sorted.filter((t) => t.status === 'failed');
-  const pending = sorted.filter((t) => t.status === 'pending');
 
   const progress = `Progress: ${completed.length}/${sorted.length} done${failed.length > 0 ? ` · ${failed.length} failed` : ''}${running.length > 0 ? ` · ${running.length} in progress` : ''}`;
 

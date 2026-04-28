@@ -6,7 +6,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
 import { EntityESchema } from '@std-toolkit/eschema';
 import { Effect, Layer, Schema } from 'effect';
 import { SqliteDBBetterSqlite3 } from '../../sql/adapters/better-sqlite3.js';
-import { SqliteDB, SqliteDBError } from '../../sql/db.js';
+import { SqliteDB } from '../../sql/db.js';
 import { SQLiteTable } from '../sqlite-table.js';
 import { SQLiteEntity } from '../sqlite-entity.js';
 import { EntityRegistry } from '../entity-registry.js';

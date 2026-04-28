@@ -1,10 +1,7 @@
 import type { EntityType } from '@std-toolkit/core';
 import type { CodexEventSource } from './event-source.js';
 import type { QuestionItem } from '../../core/entity/turn/turn.js';
-import type {
-  ProjectedCodexEvent,
-  ProjectedToolCall,
-} from '../../core/projection/codex-event.js';
+import type { ProjectedCodexEvent } from '../../core/projection/codex-event.js';
 
 type ToolStatus = 'pending' | 'success' | 'error';
 

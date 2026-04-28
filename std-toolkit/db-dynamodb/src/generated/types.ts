@@ -1,5 +1,6 @@
 // This file is auto-generated from AWS Smithy specs. Do not edit manually.
 
+// eslint-disable-next-line no-unused-vars
 import type { Effect, Data as EffectData } from 'effect';
 import type { DynamodbError } from '../errors.js';
 

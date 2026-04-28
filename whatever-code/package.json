@@ -31,18 +31,19 @@
     "codex:generate": "codex app-server generate-ts --out src/codex/generated --experimental && node scripts/fix-codex-imports.mjs",
     "dev": "vp pack --watch",
     "fmt": "vp fmt",
-    "lint": "vp check"
+    "lint": "vp check && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.116",
     "@effect/opentelemetry": "0.63.0",
-    "@effect/platform": "0.96.0",
+    "@effect/platform": "0.96.1",
     "@effect/platform-node": "0.106.0",
-    "@effect/rpc": "0.75.0",
+    "@effect/rpc": "0.75.1",
     "@openai/codex-sdk": "0.122.0",
     "@std-toolkit/eschema": "workspace:*",
     "better-sqlite3": "12.9.0",
-    "effect": "3.21.1",
+    "effect": "3.21.2",
     "env-paths": "4.0.0",
     "node-pty": "1.1.0",
     "ulid": "3.0.2",
@@ -50,7 +51,7 @@
     "zod": "4.3.6"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "0.90.0",
+    "@anthropic-ai/sdk": "0.81.0",
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/db-dynamodb": "workspace:*",
     "@std-toolkit/sqlite": "workspace:*",

@@ -19,7 +19,8 @@
   "scripts": {
     "build": "bun build.ts",
     "fmt": "vp fmt",
-    "lint": "vp check",
+    "lint": "vp check && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit",
     "run:cli": "bun src/cli/index.ts",
     "run:tui": "bun run src/tui/index.tsx",
     "test": "vp test",

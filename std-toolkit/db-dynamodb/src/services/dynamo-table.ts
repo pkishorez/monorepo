@@ -307,11 +307,12 @@ export class DynamoTable<
    * @returns An object with query and scan methods for the index
    */
   index<IndexName extends keyof TSecondaryIndexMap>(indexName: IndexName) {
-    const self = this;
     const indexDef = this.secondaryIndexMap[indexName as string];
     if (!indexDef) {
       throw new Error(`Index ${String(indexName)} not found`);
     }
+    const rawQuery = this.#rawQuery.bind(this);
+    const rawScan = this.#rawScan.bind(this);
     return {
       /**
        * Queries items using the secondary index.
@@ -324,7 +325,7 @@ export class DynamoTable<
           filter?: ConditionOperation;
         },
       ): Effect.Effect<QueryResult, DynamodbError> {
-        return self.#rawQuery(indexDef, cond, {
+        return rawQuery(indexDef, cond, {
           ...options,
           IndexName: indexName as string,
         });
@@ -335,7 +336,7 @@ export class DynamoTable<
       scan(options?: {
         Limit?: number;
       }): Effect.Effect<QueryResult, DynamodbError> {
-        return self.#rawScan({
+        return rawScan({
           ...options,
           IndexName: indexName as string,
         });

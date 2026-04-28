@@ -28,7 +28,6 @@ const formatViolationDetail = (v: Violation): string => {
 const buildViolationsTree = (
   violations: Violation[],
   workspaces: Workspace[],
-  root: string,
 ): TreeItem[] => {
   const violationsByWorkspace = new Map<string, Violation[]>();
   for (const v of violations) {
@@ -71,11 +70,7 @@ export const lint = Command.make('lint', {}, () =>
       `${c.error}Found ${violations.length} issues${c.reset}\n`,
     );
 
-    const items = buildViolationsTree(
-      violations,
-      analysis.workspaces,
-      analysis.root,
-    );
+    const items = buildViolationsTree(violations, analysis.workspaces);
     const tree = formatToTree(items, { root: analysis.root });
     yield* Console.error(tree);
 

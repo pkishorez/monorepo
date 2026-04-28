@@ -29,10 +29,8 @@ export function buildProxyRoute(proxyTarget?: string) {
         Effect.gen(function* () {
           const req = yield* HttpServerRequest.HttpServerRequest;
           const url = new URL(req.url, 'http://localhost');
-          const { connection, ...forwardHeaders } = req.headers as Record<
-            string,
-            string
-          >;
+          const { connection: _connection, ...forwardHeaders } =
+            req.headers as Record<string, string>;
           const response = yield* Effect.tryPromise({
             try: () =>
               fetch(`${target}${url.pathname}${url.search}`, {
@@ -57,10 +55,11 @@ export const OtelRoute = HttpLayerRouter.add(
     const url = new URL(req.url, 'http://localhost');
     const otelPath = url.pathname.replace(/^\/otel/, '');
     const body = yield* req.arrayBuffer.pipe(Effect.orDie);
-    const { connection, host, ...forwardHeaders } = req.headers as Record<
-      string,
-      string
-    >;
+    const {
+      connection: _connection,
+      host: _host,
+      ...forwardHeaders
+    } = req.headers as Record<string, string>;
     const response = yield* Effect.tryPromise({
       try: () =>
         fetch(`${OTEL_BASE_URL}${otelPath}${url.search}`, {

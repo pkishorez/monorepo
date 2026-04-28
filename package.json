@@ -13,7 +13,7 @@
     "dev": "vp run -r dev",
     "fmt": "vp fmt",
     "postinstall": "node scripts/fix-node-pty-permissions.cjs",
-    "lint": "vp check",
+    "lint": "vp check && pnpm -r lint",
     "release": "pnpm build && changeset publish",
     "test": "vp run -r test",
     "updates": "npx -y npm-check-updates -iws",

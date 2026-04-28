@@ -242,15 +242,14 @@ export class DynamoSingleEntity<
         ) => AnyOperation<ESchemaType<TSchema>>[]);
     condition?: ConditionInput<ESchemaType<TSchema>>;
   }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
-    const self = this;
     const { update: updates, condition } = params;
-    return Effect.gen(function* () {
+    return Effect.gen(this, function* () {
       const { pk, sk, exprResult } =
         typeof updates === 'function'
-          ? self.#prepareUpdateExpr(updates, condition)
-          : self.#prepareUpdate(updates, condition);
+          ? this.#prepareUpdateExpr(updates, condition)
+          : this.#prepareUpdate(updates, condition);
 
-      const result = yield* self.#table
+      const result = yield* this.#table
         .updateItem({ pk, sk }, { ReturnValues: 'ALL_NEW', ...exprResult })
         .pipe(
           Effect.mapError(
@@ -265,7 +264,7 @@ export class DynamoSingleEntity<
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
       }
 
-      const decodedValue = yield* self.#eschema
+      const decodedValue = yield* this.#eschema
         .decode(result.Attributes)
         .pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
 
