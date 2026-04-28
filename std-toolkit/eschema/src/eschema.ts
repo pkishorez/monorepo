@@ -33,6 +33,9 @@ export class ESchema<
   }
 
   Type = null as unknown as Prettify<StructFieldsDecoded<TLatest>>;
+  Encoded = null as unknown as Prettify<StructFieldsEncoded<TLatest>> & {
+    readonly _v: TVersion;
+  };
 
   get fields(): TLatest {
     const lastEvolution = this.evolutions?.at(-1);
@@ -97,7 +100,7 @@ export class ESchema<
   encode(
     value: StructFieldsDecoded<TLatest>,
   ): Effect.Effect<
-    Prettify<StructFieldsDecoded<TLatest>>,
+    Prettify<StructFieldsEncoded<TLatest>> & { readonly _v: TVersion },
     ESchemaError,
     never
   > {
@@ -117,7 +120,7 @@ export class ESchema<
       return {
         ...data,
         _v: this.latestVersion,
-      } as unknown as StructFieldsDecoded<TLatest>;
+      } as Prettify<StructFieldsEncoded<TLatest>> & { readonly _v: TVersion };
     });
   }
 

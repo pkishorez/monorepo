@@ -4,6 +4,7 @@
   "keywords": [],
   "license": "ISC",
   "author": "Kishore",
+  "type": "module",
   "scripts": {
     "build": "vp run -r build",
     "changeset": "changeset",
@@ -11,7 +12,7 @@
     "clean": "del-cli '**/node_modules' '**/dist'",
     "dev": "vp run -r dev",
     "fmt": "vp fmt",
-    "postinstall": "node scripts/fix-node-pty-permissions.js",
+    "postinstall": "node scripts/fix-node-pty-permissions.cjs",
     "lint": "vp check",
     "release": "pnpm build && changeset publish",
     "test": "vp run -r test",
