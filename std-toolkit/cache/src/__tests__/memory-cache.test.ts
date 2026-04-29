@@ -2,26 +2,22 @@ import { describe, it, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
-import { Effect, Option, Schema } from 'effect';
-import { EntityESchema } from '@std-toolkit/eschema';
+import { Effect, Option } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import { MemoryCacheEntity } from '../memory/memory-cache-entity.js';
 
-const UserSchema = EntityESchema.make('User', 'id', {
-  name: Schema.String,
-  email: Schema.String,
-}).build();
+type User = { id: string; name: string; email: string };
 
 function makeUserEntity(
   id: string,
   name: string,
   email: string,
-): EntityType<typeof UserSchema.Type> {
+): EntityType<User> {
   return {
     value: { id, name, email },
     meta: {
-      _e: UserSchema.name,
-      _v: UserSchema.latestVersion,
+      _e: 'User',
+      _v: 'v1',
       _u: `uid-${id}`,
       _d: false,
     },
@@ -31,7 +27,10 @@ function makeUserEntity(
 describe('MemoryCacheEntity', () => {
   itEffect('should create via make factory', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
       expect(users).toBeInstanceOf(MemoryCacheEntity);
 
       const user = makeUserEntity('user-1', 'John', 'john@example.com');
@@ -44,7 +43,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should put and get a single entity', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       const user = makeUserEntity('user-1', 'John', 'john@example.com');
       yield* users.put(user);
@@ -61,7 +63,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should return none for non-existent entity', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       const retrieved = yield* users.get('non-existent');
       expect(Option.isNone(retrieved)).toBe(true);
@@ -70,7 +75,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should get all entities of a type', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
       yield* users.put(makeUserEntity('user-2', 'Jane', 'jane@example.com'));
@@ -88,7 +96,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should delete a single entity', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
       yield* users.put(makeUserEntity('user-2', 'Jane', 'jane@example.com'));
@@ -105,7 +116,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should delete all entities of a type', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
       yield* users.put(makeUserEntity('user-2', 'Jane', 'jane@example.com'));
@@ -119,7 +133,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should update existing entity on put', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
       yield* users.put(
@@ -139,7 +156,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should get latest entity by _u', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       yield* users.put({
         value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
@@ -165,7 +185,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should get oldest entity by _u', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       yield* users.put({
         value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
@@ -191,7 +214,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should return none for getLatest on empty store', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       const latest = yield* users.getLatest();
       expect(Option.isNone(latest)).toBe(true);
@@ -200,7 +226,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should return none for getOldest on empty store', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       const oldest = yield* users.getOldest();
       expect(Option.isNone(oldest)).toBe(true);
@@ -209,7 +238,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should recalculate bounds when deleting latest item', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       yield* users.put({
         value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
@@ -237,7 +269,10 @@ describe('MemoryCacheEntity', () => {
 
   itEffect('should recalculate bounds when updating latest item', () =>
     Effect.gen(function* () {
-      const users = yield* MemoryCacheEntity.make({ eschema: UserSchema });
+      const users = yield* MemoryCacheEntity.make<User>({
+        name: 'User',
+        idField: 'id',
+      });
 
       yield* users.put({
         value: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },

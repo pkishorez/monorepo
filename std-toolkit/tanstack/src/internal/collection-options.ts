@@ -160,7 +160,11 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
 
       const initEffect = Effect.gen(function* () {
         const cache: CacheEntity<TItem> = yield* (
-          providedCache ?? MemoryCacheEntity.make({ eschema: schema })
+          providedCache ??
+            MemoryCacheEntity.make<TItem>({
+              name: schema.name,
+              idField: schema.idField as string,
+            })
         );
 
         resolvedCache = cache;

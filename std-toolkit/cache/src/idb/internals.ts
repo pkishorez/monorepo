@@ -5,11 +5,11 @@ import type { EntityType } from '@std-toolkit/core';
 export const DEFAULT_DB_NAME = 'std-toolkit-cache';
 export const STORE_NAME = 'items';
 export const UPDATED_INDEX = 'by-updated';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export type StoredItem = {
-  key: [string, string, string];
-  updatedKey: [string, string, string];
+  key: [string, string];
+  updatedKey: [string, string];
   value: unknown;
   meta: EntityType<unknown>['meta'];
 };

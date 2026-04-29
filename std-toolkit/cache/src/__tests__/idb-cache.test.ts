@@ -3,35 +3,27 @@ import { describe, it, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
-import { Effect, Option, Schema } from 'effect';
-import { EntityESchema } from '@std-toolkit/eschema';
+import { Effect, Option } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import { IDBCacheEntity } from '../idb/idb-cache-entity.js';
 import { serializePartition } from '../idb/utils.js';
 
+type User = { id: string; name: string; email: string };
+type Post = { id: string; title: string; content: string };
+
 let dbCounter = 0;
 const getDbName = () => `test-db-${++dbCounter}`;
-
-const UserSchema = EntityESchema.make('User', 'id', {
-  name: Schema.String,
-  email: Schema.String,
-}).build();
-
-const PostSchema = EntityESchema.make('Post', 'id', {
-  title: Schema.String,
-  content: Schema.String,
-}).build();
 
 function makeUserEntity(
   id: string,
   name: string,
   email: string,
-): EntityType<typeof UserSchema.Type> {
+): EntityType<User> {
   return {
     value: { id, name, email },
     meta: {
-      _e: UserSchema.name,
-      _v: UserSchema.latestVersion,
+      _e: 'User',
+      _v: 'v1',
       _u: `uid-${id}`,
       _d: false,
     },
@@ -42,12 +34,12 @@ function makePostEntity(
   id: string,
   title: string,
   content: string,
-): EntityType<typeof PostSchema.Type> {
+): EntityType<Post> {
   return {
     value: { id, title, content },
     meta: {
-      _e: PostSchema.name,
-      _v: PostSchema.latestVersion,
+      _e: 'Post',
+      _v: 'v1',
       _u: `uid-${id}`,
       _d: false,
     },
@@ -57,9 +49,10 @@ function makePostEntity(
 describe('IDBCacheEntity', () => {
   itEffect('should open cache entity', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
       expect(users).toBeInstanceOf(IDBCacheEntity);
     }),
@@ -67,9 +60,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should put and get a single entity', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       const user = makeUserEntity('user-1', 'John', 'john@example.com');
@@ -87,9 +81,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should return none for non-existent entity', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       const retrieved = yield* users.get('non-existent');
@@ -99,9 +94,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should get all entities of a type', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
@@ -120,9 +116,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should delete a single entity', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
@@ -140,9 +137,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should delete all entities of a type', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
@@ -155,16 +153,18 @@ describe('IDBCacheEntity', () => {
     }),
   );
 
-  itEffect('should isolate entities by schema type (different stores)', () =>
+  itEffect('should isolate entities by name', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const users = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User',
+        idField: 'id',
       });
-      const posts = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: PostSchema,
+      const posts = yield* IDBCacheEntity.make<Post>({
+        dbName,
+        name: 'Post',
+        idField: 'id',
       });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
@@ -182,9 +182,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should update existing entity on put', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
@@ -208,13 +209,15 @@ describe('IDBCacheEntity', () => {
       const dbName1 = getDbName();
       const dbName2 = getDbName();
 
-      const users1 = yield* IDBCacheEntity.make({
-        name: dbName1,
-        eschema: UserSchema,
+      const users1 = yield* IDBCacheEntity.make<User>({
+        dbName: dbName1,
+        name: 'User',
+        idField: 'id',
       });
-      const users2 = yield* IDBCacheEntity.make({
-        name: dbName2,
-        eschema: UserSchema,
+      const users2 = yield* IDBCacheEntity.make<User>({
+        dbName: dbName2,
+        name: 'User',
+        idField: 'id',
       });
 
       yield* users1.put(makeUserEntity('user-1', 'John', 'john@example.com'));
@@ -222,13 +225,15 @@ describe('IDBCacheEntity', () => {
 
       yield* IDBCacheEntity.destroyAllDatabases();
 
-      const newUsers1 = yield* IDBCacheEntity.make({
-        name: dbName1,
-        eschema: UserSchema,
+      const newUsers1 = yield* IDBCacheEntity.make<User>({
+        dbName: dbName1,
+        name: 'User',
+        idField: 'id',
       });
-      const newUsers2 = yield* IDBCacheEntity.make({
-        name: dbName2,
-        eschema: UserSchema,
+      const newUsers2 = yield* IDBCacheEntity.make<User>({
+        dbName: dbName2,
+        name: 'User',
+        idField: 'id',
       });
 
       const results1 = yield* newUsers1.getAll();
@@ -239,16 +244,18 @@ describe('IDBCacheEntity', () => {
     }),
   );
 
-  itEffect('should only delete entities for specific store in deleteAll', () =>
+  itEffect('should only delete entities for specific name in deleteAll', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const users = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User',
+        idField: 'id',
       });
-      const posts = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: PostSchema,
+      const posts = yield* IDBCacheEntity.make<Post>({
+        dbName,
+        name: 'Post',
+        idField: 'id',
       });
 
       yield* users.put(makeUserEntity('user-1', 'John', 'john@example.com'));
@@ -266,9 +273,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should get latest entity by _u', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       yield* users.put({
@@ -295,9 +303,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should get oldest entity by _u', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       yield* users.put({
@@ -324,9 +333,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should return none for getLatest on empty store', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       const latest = yield* users.getLatest();
@@ -336,9 +346,10 @@ describe('IDBCacheEntity', () => {
 
   itEffect('should return none for getOldest on empty store', () =>
     Effect.gen(function* () {
-      const users = yield* IDBCacheEntity.make({
-        name: getDbName(),
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName: getDbName(),
+        name: 'User',
+        idField: 'id',
       });
 
       const oldest = yield* users.getOldest();
@@ -346,16 +357,18 @@ describe('IDBCacheEntity', () => {
     }),
   );
 
-  itEffect('should isolate getLatest/getOldest by schema type', () =>
+  itEffect('should isolate getLatest/getOldest by name', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const users = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
+      const users = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User',
+        idField: 'id',
       });
-      const posts = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: PostSchema,
+      const posts = yield* IDBCacheEntity.make<Post>({
+        dbName,
+        name: 'Post',
+        idField: 'id',
       });
 
       yield* users.put({
@@ -382,22 +395,23 @@ describe('IDBCacheEntity', () => {
     }),
   );
 
-  itEffect('should isolate data by partition', () =>
+  itEffect('should isolate data by name', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const allUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
+      const allUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User',
+        idField: 'id',
       });
-      const tenantAUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-a' },
+      const tenantAUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-a',
+        idField: 'id',
       });
-      const tenantBUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-b' },
+      const tenantBUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-b',
+        idField: 'id',
       });
 
       yield* allUsers.put(
@@ -424,18 +438,18 @@ describe('IDBCacheEntity', () => {
     }),
   );
 
-  itEffect('should get entity by id within partition', () =>
+  itEffect('should get entity by id within name scope', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const tenantAUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-a' },
+      const tenantAUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-a',
+        idField: 'id',
       });
-      const tenantBUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-b' },
+      const tenantBUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-b',
+        idField: 'id',
       });
 
       yield* tenantAUsers.put(
@@ -460,18 +474,18 @@ describe('IDBCacheEntity', () => {
     }),
   );
 
-  itEffect('should delete only within partition', () =>
+  itEffect('should delete only within name scope', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const tenantAUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-a' },
+      const tenantAUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-a',
+        idField: 'id',
       });
-      const tenantBUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-b' },
+      const tenantBUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-b',
+        idField: 'id',
       });
 
       yield* tenantAUsers.put(
@@ -491,18 +505,18 @@ describe('IDBCacheEntity', () => {
     }),
   );
 
-  itEffect('should deleteAll only within partition', () =>
+  itEffect('should deleteAll only within name scope', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const tenantAUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-a' },
+      const tenantAUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-a',
+        idField: 'id',
       });
-      const tenantBUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-b' },
+      const tenantBUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-b',
+        idField: 'id',
       });
 
       yield* tenantAUsers.put(makeUserEntity('user-1', 'User 1', '1@a.com'));
@@ -519,18 +533,18 @@ describe('IDBCacheEntity', () => {
     }),
   );
 
-  itEffect('should getLatest/getOldest within partition boundary', () =>
+  itEffect('should getLatest/getOldest within name boundary', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const tenantAUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-a' },
+      const tenantAUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-a',
+        idField: 'id',
       });
-      const tenantBUsers = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: { tenantId: 'tenant-b' },
+      const tenantBUsers = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: 'User:tenant-b',
+        idField: 'id',
       });
 
       yield* tenantAUsers.put({
@@ -572,21 +586,23 @@ describe('IDBCacheEntity', () => {
   itEffect('should serialize multi-field partition keys alphabetically', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const regionalUsers1 = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: {
-          tenantId: 'acme',
-          region: 'us-east',
-        },
+      const partition = serializePartition({
+        tenantId: 'acme',
+        region: 'us-east',
       });
-      const regionalUsers2 = yield* IDBCacheEntity.make({
-        name: dbName,
-        eschema: UserSchema,
-        partition: {
-          region: 'us-east',
-          tenantId: 'acme',
-        },
+      const regionalUsers1 = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: `User:${partition}`,
+        idField: 'id',
+      });
+      const partition2 = serializePartition({
+        region: 'us-east',
+        tenantId: 'acme',
+      });
+      const regionalUsers2 = yield* IDBCacheEntity.make<User>({
+        dbName,
+        name: `User:${partition2}`,
+        idField: 'id',
       });
 
       yield* regionalUsers1.put(
