@@ -3,28 +3,21 @@ import { describe, it, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
-import { Effect, Option, Schema } from 'effect';
-import { SingleEntityESchema } from '@std-toolkit/eschema';
+import { Effect, Option } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import { IDBCacheSingleItem } from '../idb/idb-cache-single-item.js';
+
+type Config = { theme: string; locale: string };
 
 let dbCounter = 0;
 const getDbName = () => `test-single-db-${++dbCounter}`;
 
-const ConfigSchema = SingleEntityESchema.make('Config', {
-  theme: Schema.String,
-  locale: Schema.String,
-}).build();
-
-function makeConfigEntity(
-  theme: string,
-  locale: string,
-): EntityType<typeof ConfigSchema.Type> {
+function makeConfigEntity(theme: string, locale: string): EntityType<Config> {
   return {
     value: { theme, locale },
     meta: {
-      _e: ConfigSchema.name,
-      _v: ConfigSchema.latestVersion,
+      _e: 'Config',
+      _v: 'v1',
       _u: `uid-${Date.now()}`,
       _d: false,
     },
@@ -34,9 +27,9 @@ function makeConfigEntity(
 describe('IDBCacheSingleItem', () => {
   itEffect('should open cache single item', () =>
     Effect.gen(function* () {
-      const config = yield* IDBCacheSingleItem.make({
-        name: getDbName(),
-        eschema: ConfigSchema,
+      const config = yield* IDBCacheSingleItem.make<Config>({
+        dbName: getDbName(),
+        name: 'Config',
       });
       expect(config).toBeInstanceOf(IDBCacheSingleItem);
     }),
@@ -44,9 +37,9 @@ describe('IDBCacheSingleItem', () => {
 
   itEffect('should put and get a single item', () =>
     Effect.gen(function* () {
-      const config = yield* IDBCacheSingleItem.make({
-        name: getDbName(),
-        eschema: ConfigSchema,
+      const config = yield* IDBCacheSingleItem.make<Config>({
+        dbName: getDbName(),
+        name: 'Config',
       });
 
       const item = makeConfigEntity('dark', 'en-US');
@@ -64,9 +57,9 @@ describe('IDBCacheSingleItem', () => {
 
   itEffect('should return none when empty', () =>
     Effect.gen(function* () {
-      const config = yield* IDBCacheSingleItem.make({
-        name: getDbName(),
-        eschema: ConfigSchema,
+      const config = yield* IDBCacheSingleItem.make<Config>({
+        dbName: getDbName(),
+        name: 'Config',
       });
 
       const retrieved = yield* config.get();
@@ -76,9 +69,9 @@ describe('IDBCacheSingleItem', () => {
 
   itEffect('should delete the item', () =>
     Effect.gen(function* () {
-      const config = yield* IDBCacheSingleItem.make({
-        name: getDbName(),
-        eschema: ConfigSchema,
+      const config = yield* IDBCacheSingleItem.make<Config>({
+        dbName: getDbName(),
+        name: 'Config',
       });
 
       yield* config.put(makeConfigEntity('dark', 'en-US'));
@@ -91,9 +84,9 @@ describe('IDBCacheSingleItem', () => {
 
   itEffect('should overwrite on put', () =>
     Effect.gen(function* () {
-      const config = yield* IDBCacheSingleItem.make({
-        name: getDbName(),
-        eschema: ConfigSchema,
+      const config = yield* IDBCacheSingleItem.make<Config>({
+        dbName: getDbName(),
+        name: 'Config',
       });
 
       yield* config.put(makeConfigEntity('dark', 'en-US'));
@@ -108,18 +101,16 @@ describe('IDBCacheSingleItem', () => {
     }),
   );
 
-  itEffect('should isolate by partition', () =>
+  itEffect('should isolate by name', () =>
     Effect.gen(function* () {
       const dbName = getDbName();
-      const configA = yield* IDBCacheSingleItem.make({
-        name: dbName,
-        eschema: ConfigSchema,
-        partition: { tenantId: 'tenant-a' },
+      const configA = yield* IDBCacheSingleItem.make<Config>({
+        dbName,
+        name: 'Config:tenant-a',
       });
-      const configB = yield* IDBCacheSingleItem.make({
-        name: dbName,
-        eschema: ConfigSchema,
-        partition: { tenantId: 'tenant-b' },
+      const configB = yield* IDBCacheSingleItem.make<Config>({
+        dbName,
+        name: 'Config:tenant-b',
       });
 
       yield* configA.put(makeConfigEntity('dark', 'en-US'));

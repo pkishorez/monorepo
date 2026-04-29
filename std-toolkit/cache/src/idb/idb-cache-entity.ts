@@ -1,8 +1,6 @@
 import type { IDBPDatabase } from 'idb';
 import { Effect, Option } from 'effect';
-import type { CacheEntity, CacheSchemaType } from '../cache-entity.js';
-import type { PartitionKey } from './utils.js';
-import { serializePartition } from './utils.js';
+import type { CacheEntity } from '../cache-entity.js';
 import { CacheError } from '../error.js';
 import type { EntityType } from '@std-toolkit/core';
 import {
@@ -13,24 +11,19 @@ import {
   type StoredItem,
 } from './internals.js';
 
-export class IDBCacheEntity<
-  TSchema extends CacheSchemaType,
-> implements CacheEntity<TSchema['Type']> {
+export class IDBCacheEntity<T> implements CacheEntity<T> {
   #dbName: string;
-  #entity: string;
-  #partition: string;
-  #eschema: TSchema;
+  #name: string;
+  #idField: string;
 
   private constructor(options: {
     dbName: string;
-    entity: string;
-    partition: string;
-    eschema: TSchema;
+    name: string;
+    idField: string;
   }) {
     this.#dbName = options.dbName;
-    this.#entity = options.entity;
-    this.#partition = options.partition;
-    this.#eschema = options.eschema;
+    this.#name = options.name;
+    this.#idField = options.idField;
   }
 
   get #db(): IDBPDatabase {
@@ -41,33 +34,28 @@ export class IDBCacheEntity<
     return db;
   }
 
-  #makeKey(id: string): [string, string, string] {
-    return [this.#entity, this.#partition, id];
+  #makeKey(id: string): [string, string] {
+    return [this.#name, id];
   }
 
   #getKeyRange(): IDBKeyRange {
-    return IDBKeyRange.bound(
-      [this.#entity, this.#partition, ''],
-      [this.#entity, this.#partition, '\uffff'],
-    );
+    return IDBKeyRange.bound([this.#name, ''], [this.#name, '￿']);
   }
 
-  static make<TSchema extends CacheSchemaType>(options: {
-    name?: string;
-    eschema: TSchema;
-    partition?: PartitionKey;
-  }): Effect.Effect<IDBCacheEntity<TSchema>, CacheError> {
-    const dbName = options.name ?? DEFAULT_DB_NAME;
-    const partition = serializePartition(options.partition);
+  static make<T>(options: {
+    dbName?: string;
+    name: string;
+    idField: string;
+  }): Effect.Effect<IDBCacheEntity<T>, CacheError> {
+    const dbName = options.dbName ?? DEFAULT_DB_NAME;
 
     return Effect.tryPromise({
       try: async () => {
         await ConnectionPool.acquire(dbName);
-        return new IDBCacheEntity({
+        return new IDBCacheEntity<T>({
           dbName,
-          entity: options.eschema.name,
-          partition,
-          eschema: options.eschema,
+          name: options.name,
+          idField: options.idField,
         });
       },
       catch: (cause) =>
@@ -83,13 +71,15 @@ export class IDBCacheEntity<
     });
   }
 
-  put(item: EntityType<TSchema['Type']>): Effect.Effect<void, CacheError> {
+  put(item: EntityType<T>): Effect.Effect<void, CacheError> {
     return Effect.tryPromise({
       try: () => {
-        const id = String(item.value[this.#eschema.idField]);
+        const id = String(
+          (item.value as Record<string, unknown>)[this.#idField],
+        );
         const stored: StoredItem = {
           key: this.#makeKey(id),
-          updatedKey: [this.#entity, this.#partition, item.meta._u],
+          updatedKey: [this.#name, item.meta._u],
           value: item.value,
           meta: item.meta,
         };
@@ -99,9 +89,7 @@ export class IDBCacheEntity<
     }).pipe(Effect.asVoid);
   }
 
-  get(
-    id: string,
-  ): Effect.Effect<Option.Option<EntityType<TSchema['Type']>>, CacheError> {
+  get(id: string): Effect.Effect<Option.Option<EntityType<T>>, CacheError> {
     return Effect.tryPromise({
       try: async () => {
         const item: StoredItem | undefined = await this.#db.get(
@@ -112,7 +100,7 @@ export class IDBCacheEntity<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema['Type'],
+          value: item.value as T,
           meta: item.meta,
         });
       },
@@ -120,7 +108,7 @@ export class IDBCacheEntity<
     });
   }
 
-  getAll(): Effect.Effect<EntityType<TSchema['Type']>[], CacheError> {
+  getAll(): Effect.Effect<EntityType<T>[], CacheError> {
     return Effect.tryPromise({
       try: async () => {
         const items: StoredItem[] = await this.#db.getAll(
@@ -129,7 +117,7 @@ export class IDBCacheEntity<
         );
 
         return items.map((item) => ({
-          value: item.value as TSchema['Type'],
+          value: item.value as T,
           meta: item.meta,
         }));
       },
@@ -137,10 +125,7 @@ export class IDBCacheEntity<
     });
   }
 
-  getLatest(): Effect.Effect<
-    Option.Option<EntityType<TSchema['Type']>>,
-    CacheError
-  > {
+  getLatest(): Effect.Effect<Option.Option<EntityType<T>>, CacheError> {
     return Effect.tryPromise({
       try: async () => {
         const tx = this.#db.transaction(STORE_NAME, 'readonly');
@@ -151,7 +136,7 @@ export class IDBCacheEntity<
 
         const item = cursor.value as StoredItem;
         return Option.some({
-          value: item.value as TSchema['Type'],
+          value: item.value as T,
           meta: item.meta,
         });
       },
@@ -160,10 +145,7 @@ export class IDBCacheEntity<
     });
   }
 
-  getOldest(): Effect.Effect<
-    Option.Option<EntityType<TSchema['Type']>>,
-    CacheError
-  > {
+  getOldest(): Effect.Effect<Option.Option<EntityType<T>>, CacheError> {
     return Effect.tryPromise({
       try: async () => {
         const tx = this.#db.transaction(STORE_NAME, 'readonly');
@@ -174,7 +156,7 @@ export class IDBCacheEntity<
 
         const item = cursor.value as StoredItem;
         return Option.some({
-          value: item.value as TSchema['Type'],
+          value: item.value as T,
           meta: item.meta,
         });
       },

@@ -35,7 +35,10 @@ describe('stdCollectionOptions', () => {
     stdCollectionOptions({
       syncMode: 'eager',
       schema: TestSchema,
-      cache: MemoryCacheEntity.make({ eschema: TestSchema }),
+      cache: MemoryCacheEntity.make<TestItem>({
+        name: TestSchema.name,
+        idField: 'id',
+      }),
       getMore: () => Effect.succeed([]),
       onInsert: (item) =>
         Effect.succeed(createEntity({ ...item, id: 'generated-id' })),
@@ -162,7 +165,10 @@ describe('stdCollectionOptions', () => {
     const config = stdCollectionOptions({
       schema: TestSchema,
       syncMode: 'on-demand',
-      cache: MemoryCacheEntity.make({ eschema: TestSchema }),
+      cache: MemoryCacheEntity.make<TestItem>({
+        name: TestSchema.name,
+        idField: 'id',
+      }),
       onInsert: (item) =>
         Effect.succeed(createEntity({ ...item, id: 'generated-id' })),
       onLoadSubset: () => Effect.succeed([]),
@@ -175,7 +181,10 @@ describe('stdCollectionOptions', () => {
     const config = stdCollectionOptions({
       schema: TestSchema,
       syncMode: 'progressive',
-      cache: MemoryCacheEntity.make({ eschema: TestSchema }),
+      cache: MemoryCacheEntity.make<TestItem>({
+        name: TestSchema.name,
+        idField: 'id',
+      }),
       getMore: () => Effect.succeed([]),
       onInsert: (item) =>
         Effect.succeed(createEntity({ ...item, id: 'generated-id' })),
@@ -190,7 +199,10 @@ describe('stdCollectionOptions', () => {
       syncMode: 'eager',
       id: 'custom-collection-id',
       schema: TestSchema,
-      cache: MemoryCacheEntity.make({ eschema: TestSchema }),
+      cache: MemoryCacheEntity.make<TestItem>({
+        name: TestSchema.name,
+        idField: 'id',
+      }),
       getMore: () => Effect.succeed([]),
       onInsert: (item) =>
         Effect.succeed(createEntity({ ...item, id: 'generated-id' })),

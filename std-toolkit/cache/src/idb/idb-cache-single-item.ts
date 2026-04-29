@@ -1,12 +1,7 @@
 import type { IDBPDatabase } from 'idb';
 import { Effect, Option } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
-import type {
-  CacheSingleItem,
-  CacheSingleItemSchemaType,
-} from '../cache-single-item.js';
-import type { PartitionKey } from './utils.js';
-import { serializePartition } from './utils.js';
+import type { CacheSingleItem } from '../cache-single-item.js';
 import { CacheError } from '../error.js';
 import {
   DEFAULT_DB_NAME,
@@ -17,21 +12,13 @@ import {
 
 const SINGLETON_ID = '__singleton__';
 
-export class IDBCacheSingleItem<
-  TSchema extends CacheSingleItemSchemaType,
-> implements CacheSingleItem<TSchema['Type']> {
+export class IDBCacheSingleItem<T> implements CacheSingleItem<T> {
   #dbName: string;
-  #entity: string;
-  #partition: string;
+  #name: string;
 
-  private constructor(options: {
-    dbName: string;
-    entity: string;
-    partition: string;
-  }) {
+  private constructor(options: { dbName: string; name: string }) {
     this.#dbName = options.dbName;
-    this.#entity = options.entity;
-    this.#partition = options.partition;
+    this.#name = options.name;
   }
 
   get #db(): IDBPDatabase {
@@ -42,25 +29,22 @@ export class IDBCacheSingleItem<
     return db;
   }
 
-  get #key(): [string, string, string] {
-    return [this.#entity, this.#partition, SINGLETON_ID];
+  get #key(): [string, string] {
+    return [this.#name, SINGLETON_ID];
   }
 
-  static make<TSchema extends CacheSingleItemSchemaType>(options: {
-    name?: string;
-    eschema: TSchema;
-    partition?: PartitionKey;
-  }): Effect.Effect<IDBCacheSingleItem<TSchema>, CacheError> {
-    const dbName = options.name ?? DEFAULT_DB_NAME;
-    const partition = serializePartition(options.partition);
+  static make<T>(options: {
+    dbName?: string;
+    name: string;
+  }): Effect.Effect<IDBCacheSingleItem<T>, CacheError> {
+    const dbName = options.dbName ?? DEFAULT_DB_NAME;
 
     return Effect.tryPromise({
       try: async () => {
         await ConnectionPool.acquire(dbName);
-        return new IDBCacheSingleItem({
+        return new IDBCacheSingleItem<T>({
           dbName,
-          entity: options.eschema.name,
-          partition,
+          name: options.name,
         });
       },
       catch: (cause) =>
@@ -68,12 +52,12 @@ export class IDBCacheSingleItem<
     });
   }
 
-  put(item: EntityType<TSchema['Type']>): Effect.Effect<void, CacheError> {
+  put(item: EntityType<T>): Effect.Effect<void, CacheError> {
     return Effect.tryPromise({
       try: () => {
         const stored: StoredItem = {
           key: this.#key,
-          updatedKey: [this.#entity, this.#partition, item.meta._u],
+          updatedKey: [this.#name, item.meta._u],
           value: item.value,
           meta: item.meta,
         };
@@ -84,7 +68,7 @@ export class IDBCacheSingleItem<
     }).pipe(Effect.asVoid);
   }
 
-  get(): Effect.Effect<Option.Option<EntityType<TSchema['Type']>>, CacheError> {
+  get(): Effect.Effect<Option.Option<EntityType<T>>, CacheError> {
     return Effect.tryPromise({
       try: async () => {
         const item: StoredItem | undefined = await this.#db.get(
@@ -95,7 +79,7 @@ export class IDBCacheSingleItem<
         if (!item) return Option.none();
 
         return Option.some({
-          value: item.value as TSchema['Type'],
+          value: item.value as T,
           meta: item.meta,
         });
       },

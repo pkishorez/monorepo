@@ -15,7 +15,8 @@
       "Bash(pnpm -r test:*)",
       "WebSearch",
       "Bash(grep:*)",
-      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && grep -A 2 \"\"\\\\\"\"name\\\\\"\"\"\" {}')"
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && grep -A 2 \"\"\\\\\"\"name\\\\\"\"\"\" {}')",
+      "Bash(pnpm lint:tsc)"
     ]
   }
 }

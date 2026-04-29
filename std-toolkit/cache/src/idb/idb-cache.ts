@@ -1,7 +1,4 @@
 import { Effect } from 'effect';
-import type { CacheSchemaType } from '../cache-entity.js';
-import type { CacheSingleItemSchemaType } from '../cache-single-item.js';
-import type { PartitionKey } from './utils.js';
 import { IDBCacheEntity } from './idb-cache-entity.js';
 import { IDBCacheSingleItem } from './idb-cache-single-item.js';
 import { CacheError } from '../error.js';
@@ -17,31 +14,29 @@ export class IDBCache {
     this.version = version;
   }
 
-  entity<TSchema extends CacheSchemaType>(options: {
-    eschema: TSchema;
-    partition?: PartitionKey;
-  }): Effect.Effect<IDBCacheEntity<TSchema>, CacheError> {
+  entity<T>(options: {
+    name: string;
+    idField: string;
+  }): Effect.Effect<IDBCacheEntity<T>, CacheError> {
     return this.#ensureReady().pipe(
       Effect.flatMap(() =>
-        IDBCacheEntity.make({
-          name: this.name,
-          eschema: options.eschema,
-          ...(options.partition && { partition: options.partition }),
+        IDBCacheEntity.make<T>({
+          dbName: this.name,
+          name: options.name,
+          idField: options.idField,
         }),
       ),
     );
   }
 
-  singleItem<TSchema extends CacheSingleItemSchemaType>(options: {
-    eschema: TSchema;
-    partition?: PartitionKey;
-  }): Effect.Effect<IDBCacheSingleItem<TSchema>, CacheError> {
+  singleItem<T>(options: {
+    name: string;
+  }): Effect.Effect<IDBCacheSingleItem<T>, CacheError> {
     return this.#ensureReady().pipe(
       Effect.flatMap(() =>
-        IDBCacheSingleItem.make({
-          name: this.name,
-          eschema: options.eschema,
-          ...(options.partition && { partition: options.partition }),
+        IDBCacheSingleItem.make<T>({
+          dbName: this.name,
+          name: options.name,
         }),
       ),
     );
