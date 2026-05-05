@@ -26,6 +26,8 @@ export const id = (identifier: string) =>
     jsonSchema: { identifier },
   });
 
+export const fromType = <T>() => Schema.Unknown as unknown as Schema.Schema<T>;
+
 export function mergeDelta(
   base: StructFieldsSchema,
   delta: DeltaSchema,

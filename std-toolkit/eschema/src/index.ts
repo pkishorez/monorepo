@@ -5,7 +5,7 @@ export {
   toSchema,
 } from './eschema.js';
 export { ESchemaError } from './utils.js';
-export { id, metaSchema } from './schema.js';
+export { fromType, id, metaSchema } from './schema.js';
 export type {
   AnyESchema,
   AnySingleEntityESchema,
