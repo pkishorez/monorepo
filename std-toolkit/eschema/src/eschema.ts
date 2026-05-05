@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { Effect, JSONSchema, ParseResult, Schema } from 'effect';
+import { Effect, JSONSchema, ParseResult, Schema, SchemaAST } from 'effect';
 import type {
   IdSchema,
   ESchemaDescriptor,
@@ -73,13 +73,6 @@ export class ESchema<
       let data = yield* Schema.decodeUnknown(struct(evolution.schema))(
         value,
       ).pipe(
-        Effect.tapError((err) =>
-          Effect.sync(() =>
-            console.error(
-              `[ESchema] Decode failed for "${(this as any).name ?? 'anonymous'}" (version ${_v}):\n${ParseResult.TreeFormatter.formatErrorSync(err)}`,
-            ),
-          ),
-        ),
         Effect.mapError(
           (err) => new ESchemaError({ message: 'Decode failed', cause: err }),
         ),
@@ -244,8 +237,8 @@ export namespace EntityESchema {
 export function toSchema<V extends string, L extends StructFieldsSchema>(
   eschema: ESchema<V, L>,
 ): Schema.Schema<
-  Prettify<StructFieldsDecoded<L>>,
-  Prettify<StructFieldsEncoded<L>> & { readonly _v: string },
+  StructFieldsDecoded<L>,
+  StructFieldsEncoded<L> & { readonly _v: string },
   never
 > {
   return Schema.declare(
@@ -270,11 +263,11 @@ export function toSchema<V extends string, L extends StructFieldsSchema>(
     },
     {
       identifier: `ESchema(${(eschema as any).name ?? 'anonymous'})`,
-      jsonSchema: eschema.getDescriptor(),
+      [SchemaAST.SurrogateAnnotationId]: eschema.schema.ast,
     },
   ) as unknown as Schema.Schema<
-    Prettify<StructFieldsDecoded<L>>,
-    Prettify<StructFieldsEncoded<L>> & { readonly _v: string },
+    StructFieldsDecoded<L>,
+    StructFieldsEncoded<L> & { readonly _v: string },
     never
   >;
 }
