@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
-import { ESchema } from '../index.js';
+import { ESchema, fromType } from '../index.js';
 import { ESchemaError } from '../utils.js';
 import { StringToNumber } from './fixtures.js';
 
@@ -144,4 +144,23 @@ describe('ESchema.getDescriptor', () => {
     const vSchema = descriptor.properties._v as { enum?: string[] };
     expect(vSchema.enum).toEqual(['v1']);
   });
+});
+
+describe('fromType', () => {
+  itEffect('passes unknown values through as the requested type', () =>
+    Effect.gen(function* () {
+      type ExternalShape = {
+        readonly expression: readonly [string, readonly unknown[]];
+      };
+
+      const ExternalShapeSchema = fromType<ExternalShape>();
+      const input = { expression: ['val', ['path']] as const };
+
+      const decoded = yield* Schema.decodeUnknown(ExternalShapeSchema)(input);
+      const encoded = yield* Schema.encode(ExternalShapeSchema)(decoded);
+
+      expect(decoded.expression[0]).toBe('val');
+      expect(encoded).toBe(input);
+    }),
+  );
 });
