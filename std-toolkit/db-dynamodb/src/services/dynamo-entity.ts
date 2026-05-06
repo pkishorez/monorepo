@@ -499,7 +499,9 @@ export class DynamoEntity<
           Effect.mapError(
             (e): DynamodbError =>
               e.error._tag === 'UpdateItemFailed' && isConditionalCheckFailed(e)
-                ? DynamodbError.noItemToUpdate()
+                ? condition
+                  ? DynamodbError.conditionCheckFailed()
+                  : DynamodbError.noItemToUpdate()
                 : e,
           ),
         );
