@@ -50,6 +50,8 @@ export interface DynamoDBClient {
   scan(input: unknown): Effect.Effect<any, any>;
   /** Executes a transactional write of multiple items */
   transactWriteItems(input: unknown): Effect.Effect<any, any>;
+  /** Writes or deletes up to 25 items in a single batch */
+  batchWriteItem(input: unknown): Effect.Effect<any, any>;
   /** Creates a new DynamoDB table */
   createTable(input: unknown): Effect.Effect<any, any>;
   /** Deletes a DynamoDB table */
@@ -188,6 +190,7 @@ export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
     query: (input) => makeRequest('query', input),
     scan: (input) => makeRequest('scan', input),
     transactWriteItems: (input) => makeRequest('transactWriteItems', input),
+    batchWriteItem: (input) => makeRequest('batchWriteItem', input),
     createTable: (input) => makeRequest('createTable', input),
     deleteTable: (input) => makeRequest('deleteTable', input),
     describeTable: (input) => makeRequest('describeTable', input),
