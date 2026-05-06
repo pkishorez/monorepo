@@ -25,6 +25,10 @@ export type DynamodbErrorType =
   | { _tag: 'BatchWriteFailed'; cause: unknown }
   | { _tag: 'ItemAlreadyExists' }
   | { _tag: 'NoItemToUpdate' }
+  | {
+      _tag: 'ConditionCheckFailed';
+      message: string;
+    }
   | { _tag: 'NoItemToDelete' }
   | { _tag: 'ThrottlingException'; meta: AwsErrorMeta }
   | { _tag: 'ServiceUnavailable'; meta: AwsErrorMeta }
@@ -126,6 +130,20 @@ export class DynamodbError extends Data.TaggedError('DynamodbError')<{
    */
   static noItemToUpdate() {
     return new DynamodbError({ error: { _tag: 'NoItemToUpdate' } });
+  }
+
+  /**
+   * Creates an error when a conditional update fails and a custom condition
+   * was provided — the item may not exist, or the custom condition failed.
+   */
+  static conditionCheckFailed() {
+    return new DynamodbError({
+      error: {
+        _tag: 'ConditionCheckFailed',
+        message:
+          'Conditional check failed: the item may not exist, or the provided condition was not met.',
+      },
+    });
   }
 
   /**
