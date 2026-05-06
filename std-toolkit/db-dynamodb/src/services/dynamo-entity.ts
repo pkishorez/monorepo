@@ -424,6 +424,38 @@ export class DynamoEntity<
     );
   }
 
+  batchInsert(values: InsertInput<ESchemaType<TSchema>>[]): Effect.Effect<
+    {
+      written: EntityType<ESchemaType<TSchema>>[];
+      unprocessedIndexes: number[];
+    },
+    DynamodbError
+  > {
+    return Effect.gen(this, function* () {
+      const items: Record<string, unknown>[] = [];
+      const entities: EntityType<ESchemaType<TSchema>>[] = [];
+      for (const value of values) {
+        const fullValue = {
+          ...value,
+          _v: this.#eschema.latestVersion,
+        } as unknown as ESchemaType<TSchema>;
+        const prepared = yield* this.#prepareInsert(fullValue);
+        items.push(prepared.item);
+        entities.push({ value: prepared.fullValue, meta: prepared.meta });
+      }
+      const { unprocessedIndexes } = yield* this.#table.batchWrite(items);
+      const failed = new Set(unprocessedIndexes);
+      const written = entities.filter((_, i) => !failed.has(i));
+      return { written, unprocessedIndexes };
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] batchInsert failed`, {
+          error: e,
+        }),
+      ),
+    );
+  }
+
   /**
    * Updates an existing entity by its primary key.
    * Accepts either a plain partial object or an expression builder callback.

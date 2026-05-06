@@ -422,6 +422,46 @@ export class DynamoTable<
   }
 
   /**
+   * Writes items in batches of 25 (DynamoDB BatchWriteItem limit).
+   * Returns indices of items that DynamoDB did not process.
+   */
+  batchWrite(
+    items: Record<string, unknown>[],
+  ): Effect.Effect<{ unprocessedIndexes: number[] }, DynamodbError> {
+    return Effect.gen(this, function* () {
+      const unprocessedIndexes: number[] = [];
+
+      for (let i = 0; i < items.length; i += 25) {
+        const chunk = items.slice(i, i + 25);
+        const requests = chunk.map((item) => ({
+          PutRequest: { Item: marshall(item) },
+        }));
+
+        const response: any = yield* this.#client
+          .batchWriteItem({
+            RequestItems: { [this.tableName]: requests },
+          })
+          .pipe(Effect.mapError(DynamodbError.batchWriteFailed));
+
+        const unprocessed: any[] =
+          response.UnprocessedItems?.[this.tableName] ?? [];
+
+        for (let u = 0; u < unprocessed.length; u++) {
+          const unprocessedItem = unmarshall(unprocessed[u].PutRequest.Item);
+          const originalIdx = chunk.findIndex(
+            (item) =>
+              item[this.primary.pk] === unprocessedItem[this.primary.pk] &&
+              item[this.primary.sk] === unprocessedItem[this.primary.sk],
+          );
+          if (originalIdx !== -1) unprocessedIndexes.push(i + originalIdx);
+        }
+      }
+
+      return { unprocessedIndexes };
+    });
+  }
+
+  /**
    * Deletes all items from the table. Scans and deletes in a loop.
    *
    * @param confirmation - Must be exactly "I KNOW WHAT I AM DOING."
