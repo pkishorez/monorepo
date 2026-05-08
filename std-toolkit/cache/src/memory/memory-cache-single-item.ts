@@ -1,11 +1,11 @@
-import type { EntityType } from '@std-toolkit/core';
+import type { SingleEntityType } from '@std-toolkit/core';
 import { Effect, Option } from 'effect';
 import type { CacheSingleItem } from '../cache-single-item.js';
 import { CacheError } from '../error.js';
 
 type StoredItem = {
   value: unknown;
-  meta: EntityType<unknown>['meta'];
+  meta: SingleEntityType<unknown>['meta'];
 };
 
 export class MemoryCacheSingleItem<T> implements CacheSingleItem<T> {
@@ -19,7 +19,7 @@ export class MemoryCacheSingleItem<T> implements CacheSingleItem<T> {
     return Effect.succeed(new MemoryCacheSingleItem());
   }
 
-  put(item: EntityType<T>): Effect.Effect<void, CacheError> {
+  put(item: SingleEntityType<T>): Effect.Effect<void, CacheError> {
     return Effect.try({
       try: () => {
         this.#item = { value: item.value, meta: item.meta };
@@ -29,7 +29,7 @@ export class MemoryCacheSingleItem<T> implements CacheSingleItem<T> {
     });
   }
 
-  get(): Effect.Effect<Option.Option<EntityType<T>>, CacheError> {
+  get(): Effect.Effect<Option.Option<SingleEntityType<T>>, CacheError> {
     return Effect.try({
       try: () => {
         if (!this.#item) return Option.none();

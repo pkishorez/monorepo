@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Option } from 'effect';
-import type { EntityType } from '@std-toolkit/core';
+import type { SingleEntityType } from '@std-toolkit/core';
 import { IDBCacheSingleItem } from '../idb/idb-cache-single-item.js';
 
 type Config = { theme: string; locale: string };
@@ -12,14 +12,16 @@ type Config = { theme: string; locale: string };
 let dbCounter = 0;
 const getDbName = () => `test-single-db-${++dbCounter}`;
 
-function makeConfigEntity(theme: string, locale: string): EntityType<Config> {
+function makeConfigEntity(
+  theme: string,
+  locale: string,
+): SingleEntityType<Config> {
   return {
     value: { theme, locale },
     meta: {
       _e: 'Config',
       _v: 'v1',
       _u: `uid-${Date.now()}`,
-      _d: false,
     },
   };
 }

@@ -1,0 +1,166 @@
+import type { CollectionConfig, SingleResult } from '@tanstack/react-db';
+import type { Effect } from 'effect';
+import type {
+  EntityType,
+  SingleEntityType,
+  MetaSchema,
+} from '@std-toolkit/core';
+import type { CacheStore } from '@std-toolkit/cache';
+import type {
+  AnyEntityESchema,
+  AnySingleEntityESchema,
+  ESchemaIdField,
+} from '@std-toolkit/eschema';
+
+export type CollectionItem<T> = T & {
+  _meta?: typeof MetaSchema.Type;
+};
+
+export type UpdatePayload<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> = {
+  [K in ESchemaIdField<TSchema>]: string;
+} & {
+  updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
+};
+
+export interface TotalSyncConfig<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> {
+  schema: TSchema;
+  cache?: CacheStore;
+  query: (
+    cursor: EntityType<TItem> | null,
+  ) => Effect.Effect<EntityType<TItem>[]>;
+  onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>;
+  onUpdate?: (
+    payload: UpdatePayload<TItem, TSchema>,
+  ) => Effect.Effect<EntityType<TItem>>;
+  onDelete?: (id: string) => Effect.Effect<void>;
+}
+
+export type OnDemandQueries<TItem extends object> = {
+  [K in keyof TItem]?: (
+    value: TItem[K],
+    cursor: EntityType<TItem> | null,
+  ) => Effect.Effect<EntityType<TItem>[]>;
+};
+
+export interface OnDemandConfig<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> {
+  schema: TSchema;
+  cache?: CacheStore;
+  queries: OnDemandQueries<TItem>;
+  onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>;
+  onUpdate?: (
+    payload: UpdatePayload<TItem, TSchema>,
+  ) => Effect.Effect<EntityType<TItem>>;
+  onDelete?: (id: string) => Effect.Effect<void>;
+}
+
+export interface SingleItemConfig<
+  TItem extends object,
+  TSchema extends AnySingleEntityESchema,
+> {
+  schema: TSchema;
+  cache?: CacheStore;
+  get: () => Effect.Effect<SingleEntityType<TItem>>;
+  onUpdate?: (payload: {
+    updates: TItem;
+  }) => Effect.Effect<SingleEntityType<TItem>>;
+}
+
+export type StdCollectionUtils<
+  TItem extends object = Record<string, unknown>,
+  TSchema extends AnyEntityESchema = AnyEntityESchema,
+> = {
+  upsert: (item: EntityType<TItem> | EntityType<TItem>[]) => void;
+  remove: (keys: string | string[]) => void;
+  schema: () => TSchema;
+  fetchMore: () => Effect.Effect<number>;
+};
+
+export type StdPartitionedUtils<
+  TItem extends object = Record<string, unknown>,
+  TSchema extends AnyEntityESchema = AnyEntityESchema,
+> = {
+  upsert: (item: EntityType<TItem> | EntityType<TItem>[]) => void;
+  remove: (keys: string | string[]) => void;
+  schema: () => TSchema;
+  fetchMore: (partition: Partial<TItem>) => Effect.Effect<number>;
+};
+
+export type StdSingleItemUtils<
+  TItem extends object = Record<string, unknown>,
+  TSchema extends AnySingleEntityESchema = AnySingleEntityESchema,
+> = {
+  upsert: (item: SingleEntityType<TItem>) => void;
+  refresh: () => Effect.Effect<SingleEntityType<TItem>>;
+  schema: () => TSchema;
+};
+
+export type TotalSyncResult<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> = CollectionConfig<
+  CollectionItem<TItem>,
+  string,
+  never,
+  StdCollectionUtils<TItem, TSchema>
+> & {
+  utils: StdCollectionUtils<TItem, TSchema>;
+};
+
+export type OnDemandResult<
+  TItem extends object,
+  TSchema extends AnyEntityESchema,
+> = CollectionConfig<
+  CollectionItem<TItem>,
+  string,
+  never,
+  StdPartitionedUtils<TItem, TSchema>
+> & {
+  utils: StdPartitionedUtils<TItem, TSchema>;
+};
+
+export type SingleItemResult<
+  TItem extends object,
+  TSchema extends AnySingleEntityESchema,
+> = CollectionConfig<
+  CollectionItem<TItem>,
+  string,
+  never,
+  StdSingleItemUtils<TItem, TSchema>
+> &
+  SingleResult & {
+    utils: StdSingleItemUtils<TItem, TSchema>;
+  };
+
+export interface StdSync {
+  totalSync: <TSchema extends AnyEntityESchema>(
+    config: TotalSyncConfig<TSchema['Type'], TSchema>,
+  ) => TotalSyncResult<TSchema['Type'], TSchema>;
+  onDemand: <TSchema extends AnyEntityESchema>(
+    config: OnDemandConfig<TSchema['Type'], TSchema>,
+  ) => OnDemandResult<TSchema['Type'], TSchema>;
+  singleItem: <TSchema extends AnySingleEntityESchema>(
+    config: SingleItemConfig<TSchema['Type'], TSchema>,
+  ) => SingleItemResult<TSchema['Type'], TSchema>;
+  registry: () => CollectionRegistry;
+}
+
+export type CollectionRef = {
+  utils: {
+    upsert: (item: EntityType<any> | EntityType<any>[]) => void;
+    remove?: (keys: string | string[]) => void;
+    schema: () => AnyEntityESchema | AnySingleEntityESchema;
+  };
+};
+
+export interface CollectionRegistry {
+  process: (message: unknown) => void;
+}

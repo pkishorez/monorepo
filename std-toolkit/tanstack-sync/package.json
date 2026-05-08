@@ -1,0 +1,44 @@
+{
+  "name": "@std-toolkit/tanstack-sync",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Simplified TanStack DB integration with three sync patterns",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*",
+      "import": "./dist/*"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vp test",
+    "test:watch": "vp test --watch"
+  },
+  "dependencies": {
+    "@std-toolkit/cache": "workspace:*",
+    "@std-toolkit/core": "workspace:*",
+    "@std-toolkit/eschema": "workspace:*"
+  },
+  "devDependencies": {
+    "@tanstack/query-db-collection": "1.0.36",
+    "@tanstack/react-db": "0.1.83",
+    "@tsconfig/node22": "22.0.5",
+    "@types/node": "25.6.0",
+    "effect": "3.21.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
+  },
+  "peerDependencies": {
+    "@tanstack/react-db": ">=0.1.64",
+    "effect": ">=3.0.0"
+  }
+}

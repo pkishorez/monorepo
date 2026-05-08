@@ -2,9 +2,10 @@ import { Effect } from 'effect';
 import { IDBCacheEntity } from './idb-cache-entity.js';
 import { IDBCacheSingleItem } from './idb-cache-single-item.js';
 import { CacheError } from '../error.js';
+import type { CacheStore } from '../cache-store.js';
 import { ConnectionPool } from './internals.js';
 
-export class IDBCache {
+export class IDBCache implements CacheStore {
   readonly name: string;
   readonly version: number;
   #readyPromise: Promise<void> | null = null;

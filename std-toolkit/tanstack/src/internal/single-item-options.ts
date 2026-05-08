@@ -5,7 +5,7 @@ import {
   SyncConfig as TanstackSyncConfig,
 } from '@tanstack/react-db';
 import { Effect, Option, SubscriptionRef } from 'effect';
-import { EntityType } from '@std-toolkit/core';
+import { SingleEntityType } from '@std-toolkit/core';
 import { AnySingleEntityESchema } from '@std-toolkit/eschema';
 import type { CacheSingleItem } from '@std-toolkit/cache';
 import { CollectionItem, SingleItemUtils } from '../types.js';
@@ -17,8 +17,10 @@ interface StdSingleItemConfig<
 > {
   id?: string;
   schema: TSchema;
-  get: () => Effect.Effect<EntityType<TItem>>;
-  onUpdate?: (payload: { updates: TItem }) => Effect.Effect<EntityType<TItem>>;
+  get: () => Effect.Effect<SingleEntityType<TItem>>;
+  onUpdate?: (payload: {
+    updates: TItem;
+  }) => Effect.Effect<SingleEntityType<TItem>>;
   cache?: Effect.Effect<CacheSingleItem<TItem>>;
 }
 
@@ -44,10 +46,11 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   const semaphore = Effect.runSync(Effect.makeSemaphore(1));
   const withSyncGuard = makeWithSyncGuard(syncing, semaphore);
 
-  let applyToCollection: ((item: EntityType<TItem>) => void) | null = null;
+  let applyToCollection: ((item: SingleEntityType<TItem>) => void) | null =
+    null;
   let resolvedCache: CacheSingleItem<TItem> | null = null;
 
-  const upsert = (item: EntityType<TItem>, persist?: boolean) => {
+  const upsert = (item: SingleEntityType<TItem>, persist?: boolean) => {
     applyToCollection?.(item);
     if (persist && resolvedCache) {
       Effect.runPromise(
@@ -61,7 +64,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   ) => {
     const { begin, collection, commit, write } = params;
 
-    return (item: EntityType<TItem>) => {
+    return (item: SingleEntityType<TItem>) => {
       const itemValue = { ...item.value, _meta: item.meta } as TCollectionItem;
       begin({ immediate: true });
       if (collection.has(singletonKey)) {
@@ -94,9 +97,9 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
           );
           const cached = resolvedCache
             ? yield* Effect.catchAll(resolvedCache.get(), () =>
-                Effect.succeed(Option.none<EntityType<TItem>>()),
+                Effect.succeed(Option.none<SingleEntityType<TItem>>()),
               )
-            : Option.none<EntityType<TItem>>();
+            : Option.none<SingleEntityType<TItem>>();
           if (Option.isSome(cached)) {
             applyToCollection(cached.value);
             markReady();

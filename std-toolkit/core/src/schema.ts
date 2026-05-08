@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { AnyESchema } from '@std-toolkit/eschema';
+import type { AnyESchema, AnySingleEntityESchema } from '@std-toolkit/eschema';
 
 export const MetaSchema = Schema.Struct({
   _v: Schema.String,
@@ -8,9 +8,20 @@ export const MetaSchema = Schema.Struct({
   _u: Schema.String,
 });
 
+export const SingleEntityMetaSchema = Schema.Struct({
+  _v: Schema.String,
+  _e: Schema.String,
+  _u: Schema.String,
+});
+
 export type EntityType<T> = {
   value: T;
   meta: typeof MetaSchema.Type;
+};
+
+export type SingleEntityType<T> = {
+  value: T;
+  meta: typeof SingleEntityMetaSchema.Type;
 };
 
 export const BroadcastSchema = Schema.Struct({
@@ -24,4 +35,12 @@ export const EntitySchema = <S extends AnyESchema>(eschema: S) =>
   Schema.Struct({
     value: eschema.schema as unknown as Schema.Schema<S['Type'], S['Type']>,
     meta: MetaSchema,
+  });
+
+export const SingleEntitySchema = <S extends AnySingleEntityESchema>(
+  eschema: S,
+) =>
+  Schema.Struct({
+    value: eschema.schema as unknown as Schema.Schema<S['Type'], S['Type']>,
+    meta: SingleEntityMetaSchema,
   });
