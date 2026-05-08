@@ -1,5 +1,5 @@
 import { Effect, SubscriptionRef } from 'effect';
-import { EntityType, MetaSchema } from '@std-toolkit/core';
+import { EntityType, SingleEntityType, MetaSchema } from '@std-toolkit/core';
 import { AnyEntityESchema, AnySingleEntityESchema } from '@std-toolkit/eschema';
 import type { PartitionKey } from '@std-toolkit/cache';
 
@@ -23,7 +23,7 @@ export type CollectionUtils<
 export type SingleItemUtils<
   TSchema extends AnySingleEntityESchema = AnySingleEntityESchema,
 > = {
-  upsert: (item: EntityType<TSchema['Type']>, persist?: boolean) => void;
+  upsert: (item: SingleEntityType<TSchema['Type']>, persist?: boolean) => void;
   schema: () => TSchema;
   refetch: () => Effect.Effect<void>;
   isSyncing: () => SubscriptionRef.SubscriptionRef<boolean>;

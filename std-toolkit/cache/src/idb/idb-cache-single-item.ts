@@ -1,6 +1,6 @@
 import type { IDBPDatabase } from 'idb';
 import { Effect, Option } from 'effect';
-import type { EntityType } from '@std-toolkit/core';
+import type { SingleEntityType } from '@std-toolkit/core';
 import type { CacheSingleItem } from '../cache-single-item.js';
 import { CacheError } from '../error.js';
 import {
@@ -52,14 +52,14 @@ export class IDBCacheSingleItem<T> implements CacheSingleItem<T> {
     });
   }
 
-  put(item: EntityType<T>): Effect.Effect<void, CacheError> {
+  put(item: SingleEntityType<T>): Effect.Effect<void, CacheError> {
     return Effect.tryPromise({
       try: () => {
         const stored: StoredItem = {
           key: this.#key,
           updatedKey: [this.#name, item.meta._u],
           value: item.value,
-          meta: item.meta,
+          meta: { ...item.meta, _d: false },
         };
         return this.#db.put(STORE_NAME, stored);
       },
@@ -68,7 +68,7 @@ export class IDBCacheSingleItem<T> implements CacheSingleItem<T> {
     }).pipe(Effect.asVoid);
   }
 
-  get(): Effect.Effect<Option.Option<EntityType<T>>, CacheError> {
+  get(): Effect.Effect<Option.Option<SingleEntityType<T>>, CacheError> {
     return Effect.tryPromise({
       try: async () => {
         const item: StoredItem | undefined = await this.#db.get(
@@ -80,7 +80,7 @@ export class IDBCacheSingleItem<T> implements CacheSingleItem<T> {
 
         return Option.some({
           value: item.value as T,
-          meta: item.meta,
+          meta: { _v: item.meta._v, _e: item.meta._e, _u: item.meta._u },
         });
       },
       catch: (cause) =>

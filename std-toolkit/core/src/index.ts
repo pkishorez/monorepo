@@ -1,8 +1,11 @@
 export {
   EntityType,
+  SingleEntityType,
   BroadcastSchema,
   MetaSchema,
+  SingleEntityMetaSchema,
   EntitySchema,
+  SingleEntitySchema,
 } from './schema.js';
 
 export type {
