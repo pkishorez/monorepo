@@ -5,3 +5,4 @@ dist
 .coordination.*
 .wrangler
 .claude/settings.local.json
+.claude/prds

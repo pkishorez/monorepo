@@ -893,7 +893,9 @@ export class DynamoEntity<
 
         const skCondition: SortKeyparameter | undefined =
           skValue !== null
-            ? ({ [operator]: skValue } as SortKeyparameter)
+            ? operator === 'beginsWith'
+              ? { beginsWith: skValue as string }
+              : ({ [operator]: skValue } as SortKeyparameter)
             : undefined;
 
         const queryOptions: { Limit?: number; ScanIndexForward?: boolean } = {
@@ -931,7 +933,9 @@ export class DynamoEntity<
 
         const skCondition: SortKeyparameter | undefined =
           resolvedSkValue !== null
-            ? ({ [operator]: resolvedSkValue } as SortKeyparameter)
+            ? operator === 'beginsWith'
+              ? { beginsWith: resolvedSkValue }
+              : ({ [operator]: resolvedSkValue } as SortKeyparameter)
             : undefined;
 
         const gsiQueryOptions: { Limit?: number; ScanIndexForward?: boolean } =

@@ -17,7 +17,7 @@ export { createDynamoDB } from './services/dynamo-client.js';
 export { DynamodbError } from './errors.js';
 
 // Migration
-export type { MigrationOptions } from './types/migration.js';
+export type { MigrationOptions, MigrationReport } from './types/migration.js';
 
 // Expression builders
 export {

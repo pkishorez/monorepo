@@ -97,6 +97,19 @@ const ProductEntity = DynamoEntity.make(table)
   .index('GSI2', 'byCategoryDefault', { pk: ['category'] })
   .build();
 
+// Compound SK entity for beginsWith tests: sk = ["name", "sub"]
+const gadgetSchema = EntityESchema.make('Gadget', 'gadgetId', {
+  brand: Schema.String,
+  name: Schema.String,
+  sub: Schema.String,
+}).build();
+
+const GadgetEntity = DynamoEntity.make(table)
+  .eschema(gadgetSchema)
+  .primary({ pk: ['brand'] })
+  .index('GSI1', 'byNameSub', { pk: ['brand'], sk: ['name', 'sub'] })
+  .build();
+
 // Nested evolving ESchema for update encoding tests
 const addressSchema = ESchema.make({
   street: Schema.String,
@@ -1245,6 +1258,42 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
           expect(result.items.length).toBe(2);
         }),
       );
+
+      itEffect('queries with beginsWith on primary index', () =>
+        Effect.gen(function* () {
+          yield* OrderEntity.insert({
+            orderId: 'order-2024-01',
+            userId: 'bw-user-1',
+            total: 100,
+            status: 'pending',
+            items: [],
+          });
+          yield* OrderEntity.insert({
+            orderId: 'order-2024-02',
+            userId: 'bw-user-1',
+            total: 200,
+            status: 'pending',
+            items: [],
+          });
+          yield* OrderEntity.insert({
+            orderId: 'order-2023-12',
+            userId: 'bw-user-1',
+            total: 150,
+            status: 'completed',
+            items: [],
+          });
+
+          const result = yield* OrderEntity.query('primary', {
+            pk: { userId: 'bw-user-1' },
+            sk: { beginsWith: 'order-2024' },
+          });
+
+          expect(result.items.length).toBe(2);
+          expect(
+            result.items.every((i) => i.value.orderId.startsWith('order-2024')),
+          ).toBe(true);
+        }),
+      );
     });
 
     describe('index queries', () => {
@@ -1291,6 +1340,155 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
           });
 
           expect(result.items.length).toBe(2);
+        }),
+      );
+
+      describe('beginsWith with compound SK ["name", "sub"]', () => {
+        itEffect(
+          'full first field + partial second field: only matching sub prefix returned',
+          () =>
+            Effect.gen(function* () {
+              // SK: "phone#pro-max", "phone#pro-lite", "phone#air", "laptop#pro"
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-fs-1',
+                brand: 'bw-fs',
+                name: 'phone',
+                sub: 'pro-max',
+              });
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-fs-2',
+                brand: 'bw-fs',
+                name: 'phone',
+                sub: 'pro-lite',
+              });
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-fs-3',
+                brand: 'bw-fs',
+                name: 'phone',
+                sub: 'air',
+              });
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-fs-4',
+                brand: 'bw-fs',
+                name: 'laptop',
+                sub: 'pro',
+              });
+
+              // SK prefix "phone#pro" → matches "phone#pro-max", "phone#pro-lite" (not "phone#air")
+              const result = yield* GadgetEntity.query('byNameSub', {
+                pk: { brand: 'bw-fs' },
+                sk: { beginsWith: { name: 'phone', sub: 'pro' } },
+              });
+
+              expect(result.items.length).toBe(2);
+              expect(
+                result.items.every((i) => i.value.sub.startsWith('pro')),
+              ).toBe(true);
+            }),
+        );
+
+        itEffect(
+          'only first field given: all sub values for that name returned',
+          () =>
+            Effect.gen(function* () {
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-of-1',
+                brand: 'bw-of',
+                name: 'phone',
+                sub: 'pro-max',
+              });
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-of-2',
+                brand: 'bw-of',
+                name: 'phone',
+                sub: 'pro-lite',
+              });
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-of-3',
+                brand: 'bw-of',
+                name: 'phone',
+                sub: 'air',
+              });
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-of-4',
+                brand: 'bw-of',
+                name: 'laptop',
+                sub: 'pro',
+              });
+
+              // SK prefix "phone#" (sub missing → '') → matches all phone items regardless of sub
+              const result = yield* GadgetEntity.query('byNameSub', {
+                pk: { brand: 'bw-of' },
+                sk: { beginsWith: { name: 'phone' } },
+              });
+
+              expect(result.items.length).toBe(3);
+              expect(result.items.every((i) => i.value.name === 'phone')).toBe(
+                true,
+              );
+            }),
+        );
+
+        itEffect(
+          'partial first field with absent second: does not match items with different first field',
+          () =>
+            Effect.gen(function* () {
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-pf-1',
+                brand: 'bw-pf',
+                name: 'phone',
+                sub: 'pro',
+              });
+              yield* GadgetEntity.insert({
+                gadgetId: 'g-pf-2',
+                brand: 'bw-pf',
+                name: 'phon',
+                sub: 'pro',
+              });
+
+              // SK prefix "phon#" → does NOT match "phone#pro" (different segment boundary)
+              // Only matches items where name is exactly "phon"
+              const result = yield* GadgetEntity.query('byNameSub', {
+                pk: { brand: 'bw-pf' },
+                sk: { beginsWith: { name: 'phon' } },
+              });
+
+              expect(result.items.length).toBe(1);
+              expect(result.items[0]?.value.name).toBe('phon');
+            }),
+        );
+      });
+
+      itEffect('queries by GSI with beginsWith on custom SK', () =>
+        Effect.gen(function* () {
+          yield* ProductEntity.insert({
+            productId: 'prod-1',
+            category: 'bw-electronics',
+            name: 'phone-pro',
+            price: 999,
+          });
+          yield* ProductEntity.insert({
+            productId: 'prod-2',
+            category: 'bw-electronics',
+            name: 'phone-lite',
+            price: 499,
+          });
+          yield* ProductEntity.insert({
+            productId: 'prod-3',
+            category: 'bw-electronics',
+            name: 'tablet-1',
+            price: 799,
+          });
+
+          const result = yield* ProductEntity.query('byName', {
+            pk: { category: 'bw-electronics' },
+            sk: { beginsWith: { name: 'phone' } },
+          });
+
+          expect(result.items.length).toBe(2);
+          expect(
+            result.items.every((i) => i.value.name.startsWith('phone')),
+          ).toBe(true);
         }),
       );
     });

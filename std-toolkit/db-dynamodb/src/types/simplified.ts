@@ -1,7 +1,7 @@
 /**
  * Comparison operators for simplified query API.
  */
-export type Operator = '<' | '<=' | '>' | '>=';
+export type Operator = '<' | '<=' | '>' | '>=' | 'beginsWith';
 
 /**
  * Key operation type that wraps a value with a comparison operator.
@@ -39,6 +39,7 @@ export type KeyOp<T> = { '<': T } | { '<=': T } | { '>': T } | { '>=': T };
  * ```
  */
 export type SkParam =
+  | { beginsWith: string }
   | { '<': string | null }
   | { '<=': string | null }
   | { '>': string | null }
@@ -52,6 +53,7 @@ export type SkParam =
  * @typeParam SkKeys - Tuple of SK field names
  */
 export type CustomSkParam<T, SkKeys extends readonly (keyof T)[]> =
+  | { beginsWith: Partial<Pick<T, SkKeys[number]>> }
   | { '<': Pick<T, SkKeys[number]> | null }
   | { '<=': Pick<T, SkKeys[number]> | null }
   | { '>': Pick<T, SkKeys[number]> | null }
@@ -107,6 +109,8 @@ export interface SubscribeOptions<K, PK> {
 export function extractKeyOp<T>(
   op: KeyOp<T> | SkParam | CustomSkParam<any, any>,
 ): { operator: Operator; value: T | string | Record<string, unknown> | null } {
+  if ('beginsWith' in op)
+    return { operator: 'beginsWith', value: op['beginsWith'] as any };
   if ('<' in op) return { operator: '<', value: op['<'] as any };
   if ('<=' in op) return { operator: '<=', value: op['<='] as any };
   if ('>' in op) return { operator: '>', value: op['>'] as any };
@@ -123,5 +127,5 @@ export function extractKeyOp<T>(
  * @returns true for ascending, false for descending
  */
 export function getKeyOpScanDirection(operator: Operator): boolean {
-  return operator === '>' || operator === '>=';
+  return operator === '>' || operator === '>=' || operator === 'beginsWith';
 }
