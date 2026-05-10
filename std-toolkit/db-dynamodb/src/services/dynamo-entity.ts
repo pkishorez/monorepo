@@ -6,6 +6,7 @@ import { DynamodbError } from '../errors.js';
 import type {
   IndexDefinition,
   IndexPkValue,
+  MigrationInspection,
   TransactItem,
   SkParam,
   CustomSkParam,
@@ -16,7 +17,12 @@ import type {
 } from '../types/index.js';
 import { extractKeyOp, getKeyOpScanDirection } from '../types/index.js';
 import type { StdDescriptor, IndexPatternDescriptor } from '@std-toolkit/core';
-import { deriveIndexKeyValue } from '../internal/index.js';
+import {
+  deriveIndexKeyValue,
+  sameValue,
+  isConditionalCheckFailed,
+  extractTableKey,
+} from '../internal/index.js';
 import {
   buildExpr,
   type ConditionExprResult,
@@ -59,19 +65,20 @@ type MetaType = typeof metaSchema.Type;
  */
 type DerivableMetaFields = '_u';
 
-/**
- * Checks if an error is a conditional check failure from DynamoDB.
- *
- * @param e - The DynamoDB error to check
- * @returns True if the error is a conditional check failure
- */
-const isConditionalCheckFailed = (e: DynamodbError): boolean => {
-  if (!('cause' in e.error)) return false;
-  const cause = e.error.cause as DynamodbError | undefined;
-  return (
-    cause?.error._tag === 'UnknownAwsError' &&
-    cause.error.name === 'ConditionalCheckFailedException'
-  );
+type RegularEntityMigrationInspection = Extract<
+  MigrationInspection,
+  { reasons: string[] }
+>;
+
+type MigrationWriteIntent = {
+  type: 'put';
+  item: Record<string, unknown>;
+};
+
+type InternalMigrationInspection = {
+  inspection: RegularEntityMigrationInspection;
+  decodedValue?: ESchemaType<any>;
+  writeIntent?: MigrationWriteIntent;
 };
 
 /**
@@ -255,6 +262,7 @@ export class DynamoEntity<
   #primaryDerivation: StoredPrimaryDerivation;
   #secondaryDerivations: TSecondaryDerivationMap;
   #derivationDeps: Set<string>;
+  #indexAttrNames: Set<string>;
 
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
     return Effect.gen(this, function* () {
@@ -285,6 +293,18 @@ export class DynamoEntity<
       }
     }
     this.#derivationDeps = deps;
+
+    const indexAttrNames = new Set<string>([
+      table.primary.pk,
+      table.primary.sk,
+    ]);
+    for (const index of Object.values(
+      table.secondaryIndexMap,
+    ) as IndexDefinition[]) {
+      indexAttrNames.add(index.pk);
+      indexAttrNames.add(index.sk);
+    }
+    this.#indexAttrNames = indexAttrNames;
   }
 
   /**
@@ -292,6 +312,124 @@ export class DynamoEntity<
    */
   get name(): TSchema['name'] {
     return this.#eschema.name;
+  }
+
+  inspectMigration(
+    rawItem: Record<string, unknown>,
+  ): Effect.Effect<RegularEntityMigrationInspection, DynamodbError> {
+    return this.#inspectMigrationWithWriteIntent(rawItem).pipe(
+      Effect.map(({ inspection }) => inspection),
+    );
+  }
+
+  migrationWriteIntent(
+    rawItem: Record<string, unknown>,
+  ): Effect.Effect<MigrationWriteIntent | undefined, DynamodbError> {
+    return Effect.gen(this, function* () {
+      const internal = yield* this.#inspectMigrationWithWriteIntent(rawItem);
+      if (
+        typeof internal.inspection.state !== 'object' ||
+        internal.inspection.state.type !== 'stale' ||
+        !internal.decodedValue
+      ) {
+        return undefined;
+      }
+
+      const canonical = yield* this.#canonicalizeDecodedValue(
+        internal.decodedValue as ESchemaType<TSchema>,
+        rawItem,
+        new Date().toISOString(),
+      );
+      return { type: 'put' as const, item: canonical.item };
+    });
+  }
+
+  #inspectMigrationWithWriteIntent(
+    rawItem: Record<string, unknown>,
+  ): Effect.Effect<InternalMigrationInspection, DynamodbError> {
+    return Effect.gen(this, function* () {
+      const storedKey = extractTableKey(rawItem, this.#table.primary);
+      if (rawItem._e !== this.#eschema.name) {
+        return {
+          inspection: {
+            entity: this.#eschema.name,
+            state: { type: 'ignored' },
+            ...(storedKey ? { storedKey } : {}),
+            reasons: ['entity-mismatch'],
+          },
+        };
+      }
+      if (typeof rawItem._u !== 'string') {
+        return {
+          inspection: {
+            entity: this.#eschema.name,
+            state: { type: 'corrupt' },
+            ...(storedKey ? { storedKey } : {}),
+            reasons: ['missing-_u'],
+          },
+        };
+      }
+
+      const decoded = yield* this.#eschema.decode(rawItem).pipe(Effect.either);
+      if (decoded._tag === 'Left') {
+        return {
+          inspection: {
+            entity: this.#eschema.name,
+            state: { type: 'corrupt' },
+            ...(storedKey ? { storedKey } : {}),
+            reasons: ['decode-failed'],
+          },
+        };
+      }
+      const value = decoded.right;
+      const canonical = yield* this.#canonicalizeDecodedValue(
+        value as ESchemaType<TSchema>,
+        rawItem,
+      );
+      if (storedKey && !sameValue(storedKey, canonical.key)) {
+        return {
+          inspection: {
+            entity: this.#eschema.name,
+            state: { type: 'primaryKeyChanged' },
+            storedKey,
+            canonicalKey: canonical.key,
+            reasons: ['primary-key-changed'],
+          },
+        };
+      }
+
+      const dataDrift = !sameValue(
+        this.#semanticItem(rawItem),
+        canonical.semanticItem,
+      );
+      const indexDrift = !sameValue(
+        this.#secondaryIndexAttributes(rawItem),
+        canonical.indexAttributes,
+      );
+      const reasons = [
+        ...(dataDrift ? ['data-drift'] : []),
+        ...(indexDrift ? ['index-drift'] : []),
+      ];
+
+      const inspection: RegularEntityMigrationInspection = {
+        entity: this.#eschema.name,
+        state:
+          dataDrift || indexDrift
+            ? { type: 'stale', data: dataDrift, indexes: indexDrift }
+            : { type: 'valid' },
+        ...(storedKey ? { storedKey } : {}),
+        canonicalKey: canonical.key,
+        reasons,
+      };
+
+      return {
+        inspection,
+        decodedValue: value as ESchemaType<TSchema>,
+        ...(dataDrift || indexDrift
+          ? { writeIntent: { type: 'put', item: canonical.item } as const }
+          : {}),
+      };
+    });
   }
 
   /**
@@ -487,7 +625,7 @@ export class DynamoEntity<
               updates,
               condition,
             )
-          : this.#prepareUpdate(
+          : yield* this.#prepareUpdate(
               keyValue as Record<string, unknown>,
               updates,
               condition,
@@ -683,7 +821,7 @@ export class DynamoEntity<
               updates,
               condition,
             )
-          : this.#prepareUpdate(
+          : yield* this.#prepareUpdate(
               keyValue as Record<string, unknown>,
               updates,
               condition,
@@ -1026,6 +1164,83 @@ export class DynamoEntity<
     return indexMap;
   }
 
+  #indexAttributeNames(): Set<string> {
+    return this.#indexAttrNames;
+  }
+
+  #semanticItem(item: Record<string, unknown>): Record<string, unknown> {
+    const indexAttributeNames = this.#indexAttributeNames();
+    const semantic: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(item)) {
+      if (indexAttributeNames.has(key)) continue;
+      if (key === '_u') continue;
+      semantic[key] = value;
+    }
+    return semantic;
+  }
+
+  #secondaryIndexAttributes(
+    item: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const attributes: Record<string, unknown> = {};
+    for (const index of Object.values(
+      this.#table.secondaryIndexMap,
+    ) as IndexDefinition[]) {
+      if (typeof item[index.pk] !== 'undefined') {
+        attributes[index.pk] = item[index.pk];
+      }
+      if (typeof item[index.sk] !== 'undefined') {
+        attributes[index.sk] = item[index.sk];
+      }
+    }
+    return attributes;
+  }
+
+  #canonicalizeDecodedValue(
+    value: ESchemaType<TSchema>,
+    rawItem: Record<string, unknown>,
+    updateTimestamp?: string,
+  ): Effect.Effect<
+    {
+      item: Record<string, unknown>;
+      key: { pk: string; sk: string };
+      semanticItem: Record<string, unknown>;
+      indexAttributes: Record<string, unknown>;
+    },
+    DynamodbError
+  > {
+    return Effect.gen(this, function* () {
+      const encoded = yield* this.#eschema
+        .encode(value as any)
+        .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+
+      const _u = updateTimestamp ?? rawItem._u;
+      const meta: MetaType = {
+        _e: this.#eschema.name,
+        _v: this.#eschema.latestVersion,
+        _u: typeof _u === 'string' ? _u : '',
+        _d: typeof rawItem._d === 'boolean' ? rawItem._d : false,
+      };
+      const valueWithMeta = { ...value, _u: meta._u };
+      const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
+      const indexAttributes = this.#deriveSecondaryIndexes(valueWithMeta);
+      const item = {
+        ...encoded,
+        ...meta,
+        [this.#table.primary.pk]: primaryIndex.pk,
+        [this.#table.primary.sk]: primaryIndex.sk,
+        ...indexAttributes,
+      };
+
+      return {
+        item,
+        key: primaryIndex,
+        semanticItem: this.#semanticItem(item),
+        indexAttributes,
+      };
+    });
+  }
+
   #extractIndexPattern(
     deps: string[],
     prefix: string,
@@ -1131,46 +1346,60 @@ export class DynamoEntity<
     keyValue: Record<string, unknown>,
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
     condition?: ConditionInput<ESchemaType<TSchema>>,
-  ): { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType } {
-    const pk = deriveIndexKeyValue(
-      this.#eschema.name,
-      this.#primaryDerivation.pkDeps,
-      keyValue,
-      true,
-    );
-    const sk = deriveIndexKeyValue(
-      this.#eschema.name,
-      this.#primaryDerivation.skDeps,
-      keyValue,
-      false,
-    );
+  ): Effect.Effect<
+    { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType },
+    DynamodbError
+  > {
+    return Effect.gen(this, function* () {
+      const pk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.pkDeps,
+        keyValue,
+        true,
+      );
+      const sk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.skDeps,
+        keyValue,
+        false,
+      );
 
-    const _u = new Date().toISOString();
-    const updatesWithMeta = { ...updates, _u };
-    const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
+      const { _d, _e, _v, _u: _uInput, ...entityUpdates } = updates as any;
 
-    const meta: MetaType = {
-      _e: this.#eschema.name,
-      _v: this.#eschema.latestVersion,
-      _u,
-      _d: (updates as any)._d ?? false,
-    };
+      const encodedUpdates = yield* (
+        Schema.encode(Schema.partial(this.#eschema.schema))(
+          entityUpdates,
+        ) as Effect.Effect<Record<string, unknown>, unknown, never>
+      ).pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
 
-    const builtCondition = this.#buildUpdateCondition(condition);
+      const _u = new Date().toISOString();
+      const updatesWithMeta = { ...encodedUpdates, _u };
+      const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
 
-    const update = exprUpdate<any>(($) => [
-      ...Object.entries({ ...updates, ...indexMap }).map(([key, v]) =>
-        $.set(key, v),
-      ),
-      $.set('_u', _u),
-    ]);
+      const meta: MetaType = {
+        _e: this.#eschema.name,
+        _v: this.#eschema.latestVersion,
+        _u,
+        _d: _d ?? false,
+      };
 
-    const exprResult = buildExpr({
-      update,
-      condition: builtCondition,
+      const builtCondition = this.#buildUpdateCondition(condition);
+
+      const update = exprUpdate<any>(($) => [
+        ...Object.entries({ ...encodedUpdates, ...indexMap }).map(([key, v]) =>
+          $.set(key, v),
+        ),
+        $.set('_u', _u),
+        ...(_d !== undefined ? [$.set('_d', _d)] : []),
+      ]);
+
+      const exprResult = buildExpr({
+        update,
+        condition: builtCondition,
+      });
+
+      return { pk, sk, exprResult, meta };
     });
-
-    return { pk, sk, exprResult, meta };
   }
 
   #prepareUpdateExpr(
@@ -1198,6 +1427,7 @@ export class DynamoEntity<
       }
 
       const _u = new Date().toISOString();
+      const indexMap = this.#deriveSecondaryIndexes({ _u });
 
       const meta: MetaType = {
         _e: this.#eschema.name,
@@ -1208,7 +1438,11 @@ export class DynamoEntity<
 
       const builtCondition = this.#buildUpdateCondition(condition);
 
-      const update = exprUpdate<any>(($) => [...userOps, $.set('_u', _u)]);
+      const update = exprUpdate<any>(($) => [
+        ...userOps,
+        ...Object.entries(indexMap).map(([key, v]) => $.set(key, v)),
+        $.set('_u', _u),
+      ]);
 
       const exprResult = buildExpr({
         update,

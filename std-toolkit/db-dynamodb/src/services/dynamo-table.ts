@@ -27,6 +27,31 @@ export interface QueryResult {
   LastEvaluatedKey?: Record<string, unknown>;
 }
 
+export interface TableIndexDescription {
+  indexName: string;
+  indexStatus?: string;
+  estimatedItemCount?: number;
+  indexSizeBytes?: number;
+}
+
+export interface TableDescription {
+  tableName: string;
+  tableStatus?: string;
+  estimatedItemCount?: number;
+  tableSizeBytes?: number;
+  indexes: TableIndexDescription[];
+}
+
+interface TableScanOptions {
+  Limit?: number;
+  ExclusiveStartKey?: Record<string, unknown>;
+  Segment?: number;
+  TotalSegments?: number;
+  ConsistentRead?: boolean;
+}
+
+type IndexScanOptions = Omit<TableScanOptions, 'ConsistentRead'>;
+
 /**
  * A DynamoDB table with type-safe index configuration and CRUD operations.
  *
@@ -120,6 +145,9 @@ export class DynamoTable<
     IndexName?: string;
     Limit?: number;
     ExclusiveStartKey?: Record<string, unknown>;
+    Segment?: number;
+    TotalSegments?: number;
+    ConsistentRead?: boolean;
   }): Effect.Effect<QueryResult, DynamodbError> {
     const scanOptions: Record<string, unknown> = {
       TableName: this.tableName,
@@ -128,6 +156,11 @@ export class DynamoTable<
     if (options?.Limit !== undefined) scanOptions.Limit = options.Limit;
     if (options?.ExclusiveStartKey)
       scanOptions.ExclusiveStartKey = marshall(options.ExclusiveStartKey);
+    if (options?.Segment !== undefined) scanOptions.Segment = options.Segment;
+    if (options?.TotalSegments !== undefined)
+      scanOptions.TotalSegments = options.TotalSegments;
+    if (!options?.IndexName && options?.ConsistentRead !== undefined)
+      scanOptions.ConsistentRead = options.ConsistentRead;
 
     return this.#client.scan(scanOptions).pipe(
       Effect.map((response: any) => {
@@ -156,6 +189,32 @@ export class DynamoTable<
         Effect.map(() => undefined),
         Effect.mapError(DynamodbError.deleteItemFailed),
       );
+  }
+
+  describe(): Effect.Effect<TableDescription, DynamodbError> {
+    return this.#client.describeTable({ TableName: this.tableName }).pipe(
+      Effect.map((response: any) => {
+        const tableDescription = response.Table ?? {};
+        const indexes = [
+          ...(tableDescription.LocalSecondaryIndexes ?? []),
+          ...(tableDescription.GlobalSecondaryIndexes ?? []),
+        ].map((index: any) => ({
+          indexName: index.IndexName,
+          indexStatus: index.IndexStatus,
+          estimatedItemCount: index.ItemCount,
+          indexSizeBytes: index.IndexSizeBytes,
+        }));
+
+        return {
+          tableName: tableDescription.TableName ?? this.tableName,
+          tableStatus: tableDescription.TableStatus,
+          estimatedItemCount: tableDescription.ItemCount,
+          tableSizeBytes: tableDescription.TableSizeBytes,
+          indexes,
+        };
+      }),
+      Effect.mapError(DynamodbError.describeFailed),
+    );
   }
 
   /**
@@ -293,9 +352,7 @@ export class DynamoTable<
    * @param options - Scan options including limit
    * @returns The scan result with items and optional pagination token
    */
-  scan(options?: {
-    Limit?: number;
-  }): Effect.Effect<QueryResult, DynamodbError> {
+  scan(options?: TableScanOptions): Effect.Effect<QueryResult, DynamodbError> {
     return this.#rawScan(options);
   }
 
@@ -333,9 +390,9 @@ export class DynamoTable<
       /**
        * Scans all items in the secondary index.
        */
-      scan(options?: {
-        Limit?: number;
-      }): Effect.Effect<QueryResult, DynamodbError> {
+      scan(
+        options?: IndexScanOptions,
+      ): Effect.Effect<QueryResult, DynamodbError> {
         return rawScan({
           ...options,
           IndexName: indexName as string,

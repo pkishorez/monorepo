@@ -21,6 +21,7 @@ export type DynamodbErrorType =
   | { _tag: 'DeleteItemFailed'; cause: unknown }
   | { _tag: 'QueryFailed'; cause: unknown }
   | { _tag: 'ScanFailed'; cause: unknown }
+  | { _tag: 'DescribeFailed'; cause: unknown }
   | { _tag: 'TransactionFailed'; cause: unknown }
   | { _tag: 'BatchWriteFailed'; cause: unknown }
   | { _tag: 'ItemAlreadyExists' }
@@ -103,6 +104,10 @@ export class DynamodbError extends Data.TaggedError('DynamodbError')<{
    */
   static scanFailed(cause: unknown) {
     return new DynamodbError({ error: { _tag: 'ScanFailed', cause } });
+  }
+
+  static describeFailed(cause: unknown) {
+    return new DynamodbError({ error: { _tag: 'DescribeFailed', cause } });
   }
 
   /**
