@@ -510,6 +510,159 @@ const program = Effect.gen(function* () {
 
 ---
 
+## Entity Schema Migration
+
+There are two migration paths:
+
+- **Soft schema migration** happens when an entity is read through `DynamoEntity` or `DynamoSingleEntity`. Schema evolution decodes older versions into the current in-memory shape for that operation.
+- **Persisted-row migration** scans the table, detects rows that no longer match the current entity definition, and optionally rewrites those rows back to canonical DynamoDB items.
+
+Persisted-row migration is exposed on `EntityRegistry`, because a registry knows every entity that owns rows in the table.
+
+```typescript
+import {
+  DynamoEntity,
+  DynamoTable,
+  EntityRegistry,
+} from '@std-toolkit/db-dynamodb';
+import { EntityESchema } from '@std-toolkit/eschema';
+import { Effect, Schema } from 'effect';
+
+const table = DynamoTable.make({
+  tableName: 'my-table',
+  region: 'us-east-1',
+  credentials: { accessKeyId: '...', secretAccessKey: '...' },
+})
+  .primary('pk', 'sk')
+  .gsi('byEmail', 'byEmailPK', 'byEmailSK')
+  .build();
+
+const userSchema = EntityESchema.make('User', 'id', {
+  email: Schema.String,
+  name: Schema.String,
+})
+  .evolve('v2', { plan: Schema.String }, (value) => ({
+    ...value,
+    plan: 'free',
+  }))
+  .build();
+
+const UserEntity = DynamoEntity.make(table)
+  .eschema(userSchema)
+  .primary({ pk: ['id'] })
+  .index('byEmail', { pk: ['email'] })
+  .build();
+
+const registry = EntityRegistry.make(table).register(UserEntity).build();
+```
+
+### Inspect One Row
+
+Use `inspectMigration` when you already have a raw stored item and want to know whether that item is current, stale, corrupt, ignored, or blocked by a primary key change.
+
+```typescript
+const program = Effect.gen(function* () {
+  const { Item } = yield* table.getItem(
+    { pk: 'User#123', sk: '123' },
+    { ConsistentRead: true },
+  );
+
+  if (Item) {
+    const inspection = yield* UserEntity.inspectMigration(Item);
+    console.log(inspection.state);
+  }
+});
+```
+
+Primary key changes are reported as `primaryKeyChanged`, but they are not migrated automatically. Move those rows with an application-specific backfill that can choose the new key, verify references, and delete the old row deliberately.
+
+### Dry-Run First
+
+`migrate`, `migrateStream`, and `inspectMigration` use the same persisted-row migration model. Registry migrations default to dry-run mode, so this scans and reports only:
+
+```typescript
+const report = yield * registry.migrate();
+```
+
+Real writes require `dryRun: false`:
+
+```typescript
+const report =
+  yield *
+  registry.migrate({
+    dryRun: false,
+    progress: { estimatedTotal: false },
+  });
+```
+
+When writes are enabled, stale rows are rewritten as canonical entity rows. The rewrite refreshes derived primary and secondary index attributes, applies schema evolution, updates entity metadata, and removes unknown or obsolete attributes owned by that entity, including removed GSI columns. Rows that are valid, ignored, corrupt, or whose primary key would change are reported but not rewritten.
+
+### Final Report API
+
+Use `migrate` when you only need the final `MigrationReport`:
+
+```typescript
+const report =
+  yield *
+  registry.migrate({
+    entities: ['User'],
+    dryRun: false,
+  });
+
+console.log(report.items.scanned, report.items.migrated, report.items.failed);
+```
+
+### Streaming API
+
+Use `migrateStream` for CLIs, job logs, or dashboards that need progress after each scan page and segment completion:
+
+```typescript
+const reports = registry.migrateStream({
+  scan: {
+    totalSegments: 4,
+    pageLimit: 100,
+    consistentRead: true,
+  },
+  concurrency: {
+    itemsPerSegment: 8,
+  },
+});
+```
+
+The final streamed report is the same report returned by `migrate` for the same table state and options.
+
+### Scan And Progress Options
+
+`scan.totalSegments` controls DynamoDB parallel scan segment count. Use `1` for a single scan worker, or a larger number to scan multiple table segments concurrently.
+
+`scan.pageLimit` sets the DynamoDB `Scan` page size for each request. Smaller pages emit progress more frequently; larger pages reduce request overhead.
+
+`scan.consistentRead` passes DynamoDB `ConsistentRead` to scan requests. Strongly consistent scans cost more and are not available for every access pattern.
+
+`concurrency.itemsPerSegment` controls how many scanned items are inspected or rewritten concurrently within each segment.
+
+Progress estimates use DynamoDB table item counts when no explicit estimate is provided. DynamoDB item counts are approximate, so callers should compute display ratios from `items.scanned` and `progress.estimatedTotal` when they provide a known estimate, or from `items.scanned` and `progress.total` while treating `progress.approximate` as advisory.
+
+```typescript
+const report =
+  yield *
+  registry.migrate({
+    progress: { estimatedTotal: 50_000 },
+  });
+
+const ratio = report.progress
+  ? report.items.scanned / report.progress.total
+  : undefined;
+```
+
+Set `progress.estimatedTotal` to `false` to skip the table description call and omit progress totals.
+
+### Contributor Testing
+
+Migration tests must use a real local DynamoDB instance. Do not mock the stream, table, or client for migration behavior; seed rows into local DynamoDB, call the public APIs (`inspectMigration`, `migrateStream`, or `migrate`), and assert against stored rows and returned reports.
+
+---
+
 ## Gotchas
 
 ### 1. Primary Key Must Have Both PK and SK
@@ -623,7 +776,7 @@ sk: { deps: ["type", "date"], derive: (v) => [v.type, v.date] }
 # Install dependencies
 pnpm install
 
-# Run tests (requires DynamoDB Local on port 8000)
+# Run tests (requires DynamoDB Local on port 8090)
 pnpm test
 
 # Type check
@@ -636,5 +789,5 @@ pnpm build
 ### Running DynamoDB Local
 
 ```bash
-docker run -p 8000:8000 amazon/dynamodb-local
+docker run -p 8090:8000 amazon/dynamodb-local
 ```

@@ -5,4 +5,13 @@ export {
   deriveIndexKeyValue,
 } from './marshall.js';
 
-export { toDiscriminatedGeneric, fromDiscriminatedGeneric } from './utils.js';
+export {
+  toDiscriminatedGeneric,
+  fromDiscriminatedGeneric,
+  stableStringify,
+  sameValue,
+  isConditionalCheckFailed,
+  extractTableKey,
+} from './utils.js';
+
+export { createMigrationReportAccumulator } from './migration-report.js';

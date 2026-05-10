@@ -3,7 +3,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema, Stream } from 'effect';
-import { EntityESchema, SingleEntityESchema } from '@std-toolkit/eschema';
+import {
+  ESchema,
+  EntityESchema,
+  SingleEntityESchema,
+  toSchema,
+} from '@std-toolkit/eschema';
 import {
   DynamoTable,
   DynamoEntity,
@@ -90,6 +95,25 @@ const ProductEntity = DynamoEntity.make(table)
   .primary({ pk: ['category'] })
   .index('GSI1', 'byName', { pk: ['category'], sk: ['name'] })
   .index('GSI2', 'byCategoryDefault', { pk: ['category'] })
+  .build();
+
+// Nested evolving ESchema for update encoding tests
+const addressSchema = ESchema.make({
+  street: Schema.String,
+  city: Schema.String,
+})
+  .evolve('v2', { country: Schema.String }, (v) => ({ ...v, country: 'US' }))
+  .build();
+
+const profileSchema = EntityESchema.make('Profile', 'profileId', {
+  name: Schema.String,
+  address: toSchema(addressSchema),
+}).build();
+
+const ProfileEntity = DynamoEntity.make(table)
+  .eschema(profileSchema)
+  .primary({ pk: ['profileId'] })
+  .index('GSI1', 'all', { pk: [] })
   .build();
 
 // Helper to create the test table
@@ -584,6 +608,72 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
           expect(result.Items.length).toBeLessThanOrEqual(5);
         }),
       );
+
+      itEffect('supports pagination, segments, and consistent reads', () =>
+        Effect.gen(function* () {
+          for (let i = 0; i < 8; i++) {
+            yield* table.putItem({
+              pk: `SCAN#base#${i}`,
+              sk: 'ITEM',
+              value: i,
+            });
+          }
+
+          const firstPage = yield* table.scan({
+            Limit: 1,
+            ConsistentRead: true,
+          });
+
+          expect(firstPage.Items.length).toBe(1);
+          expect(firstPage.LastEvaluatedKey).toBeDefined();
+
+          const secondPage = yield* table.scan({
+            Limit: 1,
+            ExclusiveStartKey: firstPage.LastEvaluatedKey!,
+            ConsistentRead: true,
+          });
+
+          expect(secondPage.Items.length).toBe(1);
+          expect(
+            `${secondPage.Items[0]?.pk}:${secondPage.Items[0]?.sk}`,
+          ).not.toBe(`${firstPage.Items[0]?.pk}:${firstPage.Items[0]?.sk}`);
+
+          const fullScan = yield* table.scan({ ConsistentRead: true });
+          const segment0 = yield* table.scan({
+            Segment: 0,
+            TotalSegments: 2,
+            ConsistentRead: true,
+          });
+          const segment1 = yield* table.scan({
+            Segment: 1,
+            TotalSegments: 2,
+            ConsistentRead: true,
+          });
+
+          const fullKeys = new Set(
+            fullScan.Items.map((item) => `${item.pk}:${item.sk}`),
+          );
+          const segmentKeys = new Set(
+            [...segment0.Items, ...segment1.Items].map(
+              (item) => `${item.pk}:${item.sk}`,
+            ),
+          );
+
+          for (const key of fullKeys) {
+            expect(segmentKeys.has(key)).toBe(true);
+          }
+
+          const segment0Keys = new Set(
+            segment0.Items.map((item) => `${item.pk}:${item.sk}`),
+          );
+          const segment1Keys = new Set(
+            segment1.Items.map((item) => `${item.pk}:${item.sk}`),
+          );
+          for (const key of segment0Keys) {
+            expect(segment1Keys.has(key)).toBe(false);
+          }
+        }),
+      );
     });
 
     describe('index operations', () => {
@@ -620,6 +710,111 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
 
           // Should have items with GSI pk from previous test
           expect(result.Items.some((i) => i['GSI1PK'])).toBe(true);
+        }),
+      );
+
+      itEffect(
+        'scans GSI with supported pagination and segment options only',
+        () =>
+          Effect.gen(function* () {
+            for (let i = 0; i < 8; i++) {
+              yield* table.putItem({
+                pk: `SCAN#gsi#${i}`,
+                sk: 'ITEM',
+                GSI1PK: `SCAN#gsi`,
+                GSI1SK: `${i}`,
+                value: i,
+              });
+            }
+
+            const firstPage = yield* table.index('GSI1').scan({ Limit: 1 });
+
+            expect(firstPage.Items.length).toBe(1);
+            expect(firstPage.LastEvaluatedKey).toBeDefined();
+
+            const secondPage = yield* table.index('GSI1').scan({
+              Limit: 1,
+              ExclusiveStartKey: firstPage.LastEvaluatedKey!,
+            });
+
+            expect(secondPage.Items.length).toBe(1);
+            expect(
+              `${secondPage.Items[0]?.pk}:${secondPage.Items[0]?.sk}`,
+            ).not.toBe(`${firstPage.Items[0]?.pk}:${firstPage.Items[0]?.sk}`);
+
+            const fullScan = yield* table.index('GSI1').scan();
+            const segment0 = yield* table.index('GSI1').scan({
+              Segment: 0,
+              TotalSegments: 2,
+            });
+            const segment1 = yield* table.index('GSI1').scan({
+              Segment: 1,
+              TotalSegments: 2,
+            });
+
+            const fullKeys = new Set(
+              fullScan.Items.map((item) => `${item.pk}:${item.sk}`),
+            );
+            const segmentKeys = new Set(
+              [...segment0.Items, ...segment1.Items].map(
+                (item) => `${item.pk}:${item.sk}`,
+              ),
+            );
+
+            for (const key of fullKeys) {
+              expect(segmentKeys.has(key)).toBe(true);
+            }
+
+            const segment0Keys = new Set(
+              segment0.Items.map((item) => `${item.pk}:${item.sk}`),
+            );
+            const segment1Keys = new Set(
+              segment1.Items.map((item) => `${item.pk}:${item.sk}`),
+            );
+            for (const key of segment0Keys) {
+              expect(segment1Keys.has(key)).toBe(false);
+            }
+
+            const result = yield* table
+              .index('GSI1')
+              .scan({ ConsistentRead: true } as never);
+
+            expect(result.Items.some((item) => item.GSI1PK)).toBe(true);
+          }),
+      );
+    });
+
+    describe('describe', () => {
+      itEffect('returns normalized table and index estimates', () =>
+        Effect.gen(function* () {
+          yield* table.putItem({
+            pk: 'DESCRIBE#1',
+            sk: 'ITEM',
+            GSI1PK: 'DESCRIBE',
+            GSI1SK: 'ITEM',
+            value: 'describe',
+          });
+
+          const description = yield* table.describe();
+
+          expect(description.tableName).toBe(TEST_TABLE_NAME);
+          expect(description.tableStatus).toBe('ACTIVE');
+          expect(typeof description.estimatedItemCount).toBe('number');
+          expect(typeof description.tableSizeBytes).toBe('number');
+          expect(description.indexes).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                indexName: 'GSI1',
+                estimatedItemCount: expect.any(Number),
+                indexSizeBytes: expect.any(Number),
+              }),
+              expect.objectContaining({
+                indexName: 'GSI2',
+                estimatedItemCount: expect.any(Number),
+                indexSizeBytes: expect.any(Number),
+              }),
+            ]),
+          );
         }),
       );
     });
@@ -860,6 +1055,51 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
 
           expect(result.value.name).toBe('Update 1');
         }),
+      );
+
+      itEffect(
+        'encodes nested evolving ESchema fields correctly on update',
+        () =>
+          Effect.gen(function* () {
+            yield* ProfileEntity.insert({
+              profileId: 'profile-nested-1',
+              name: 'Alice',
+              address: {
+                street: '1 Main St',
+                city: 'Springfield',
+                country: 'US',
+              },
+            });
+
+            yield* ProfileEntity.update(
+              { profileId: 'profile-nested-1' },
+              {
+                update: {
+                  address: {
+                    street: '2 Oak Ave',
+                    city: 'Shelbyville',
+                    country: 'US',
+                  },
+                },
+              },
+            );
+
+            // Read the raw item to check that _v is present inside address
+            const raw = yield* table.getItem({
+              pk: 'Profile#profile-nested-1',
+              sk: 'profile-nested-1',
+            });
+
+            const address = raw.Item?.address as
+              | Record<string, unknown>
+              | undefined;
+            expect(address?.street).toBe('2 Oak Ave');
+            expect(address?._v).toBe('v2');
+
+            // Migration inspection should see the item as valid (no data-drift)
+            const inspection = yield* ProfileEntity.inspectMigration(raw.Item!);
+            expect(inspection.state).toEqual({ type: 'valid' });
+          }),
       );
     });
 

@@ -7,6 +7,7 @@ export {
   DynamoCommand,
   type EntityType,
   type SingleEntityType,
+  type TableDescription,
 } from './services/index.js';
 
 // Client
@@ -14,6 +15,9 @@ export { createDynamoDB } from './services/dynamo-client.js';
 
 // Errors
 export { DynamodbError } from './errors.js';
+
+// Migration
+export type { MigrationOptions } from './types/migration.js';
 
 // Expression builders
 export {

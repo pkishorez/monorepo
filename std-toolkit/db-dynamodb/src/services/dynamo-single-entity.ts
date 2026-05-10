@@ -2,7 +2,11 @@ import type { AnySingleEntityESchema, ESchemaType } from '@std-toolkit/eschema';
 import { Effect, Schema } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
 import { DynamodbError } from '../errors.js';
-import { deriveIndexKeyValue } from '../internal/index.js';
+import {
+  deriveIndexKeyValue,
+  sameValue,
+  isConditionalCheckFailed,
+} from '../internal/index.js';
 import { buildExpr, type UpdateExprResult } from '../expr/build-expr.js';
 import {
   exprCondition,
@@ -16,6 +20,7 @@ import {
   type AnyOperation,
 } from '../expr/update.js';
 import type { TransactItem } from '../types/index.js';
+import type { MigrationInspection } from '../types/migration.js';
 
 /**
  * Schema for single entity metadata stored with each item.
@@ -47,16 +52,17 @@ export interface SingleEntityType<T> {
   meta: SingleMetaType;
 }
 
-/**
- * Checks if an error is a conditional check failure from DynamoDB.
- */
-const isConditionalCheckFailed = (e: DynamodbError): boolean => {
-  if (!('cause' in e.error)) return false;
-  const cause = e.error.cause as DynamodbError | undefined;
-  return (
-    cause?.error._tag === 'UnknownAwsError' &&
-    cause.error.name === 'ConditionalCheckFailedException'
-  );
+type SingleEntityCanonicalMigrationIntent = {
+  item: Record<string, unknown>;
+};
+
+const migrationRowsMatch = (
+  stored: Record<string, unknown>,
+  canonical: Record<string, unknown>,
+): boolean => {
+  const { _u: _s, ...storedStable } = stored;
+  const { _u: _c, ...canonicalStable } = canonical;
+  return sameValue(storedStable, canonicalStable);
 };
 
 /**
@@ -127,12 +133,106 @@ export class DynamoSingleEntity<
     return this.#eschema.name;
   }
 
-  #derivePk(): string {
+  inspectMigration(
+    rawItem: Record<string, unknown>,
+  ): Effect.Effect<MigrationInspection, never> {
+    return this.#canonicalMigrationIntent(rawItem).pipe(
+      Effect.map(({ item }): MigrationInspection => {
+        const storedKey = {
+          pk: rawItem[this.#table.primary.pk],
+          sk: rawItem[this.#table.primary.sk],
+        };
+        const canonicalKey = {
+          pk: item[this.#table.primary.pk],
+          sk: item[this.#table.primary.sk],
+        };
+
+        if (
+          storedKey.pk !== canonicalKey.pk ||
+          storedKey.sk !== canonicalKey.sk
+        ) {
+          return {
+            entity: this.#eschema.name,
+            state: { type: 'primaryKeyChanged' },
+            reasons: ['primaryKeyChanged'],
+          };
+        }
+
+        if (!migrationRowsMatch(rawItem, item)) {
+          return {
+            entity: this.#eschema.name,
+            state: { type: 'stale', data: true, indexes: false },
+            reasons: ['staleData'],
+          };
+        }
+
+        return {
+          entity: this.#eschema.name,
+          state: { type: 'valid' },
+          reasons: [],
+        };
+      }),
+      Effect.catchAll(
+        (): Effect.Effect<MigrationInspection, never> =>
+          Effect.succeed({
+            entity: this.#eschema.name,
+            state: { type: 'corrupt' },
+            reasons: ['corrupt'],
+          }),
+      ),
+    );
+  }
+
+  migrationWriteIntent(
+    rawItem: Record<string, unknown>,
+  ): Effect.Effect<SingleEntityCanonicalMigrationIntent | undefined, never> {
+    return this.#canonicalMigrationIntent(
+      rawItem,
+      new Date().toISOString(),
+    ).pipe(
+      Effect.map(
+        ({ item }): SingleEntityCanonicalMigrationIntent | undefined => {
+          const storedPk = rawItem[this.#table.primary.pk];
+          const storedSk = rawItem[this.#table.primary.sk];
+          const canonicalPk = item[this.#table.primary.pk];
+          const canonicalSk = item[this.#table.primary.sk];
+          if (storedPk !== canonicalPk || storedSk !== canonicalSk)
+            return undefined;
+          if (migrationRowsMatch(rawItem, item)) return undefined;
+          return { item };
+        },
+      ),
+      Effect.catchAll(() => Effect.succeed(undefined)),
+    );
+  }
+
+  #derivePrimaryKey(): string {
     return deriveIndexKeyValue(this.#eschema.name, [], {}, true);
   }
 
-  #deriveSk(): string {
-    return deriveIndexKeyValue(this.#eschema.name, [], {}, true);
+  #canonicalMigrationIntent(
+    rawItem: Record<string, unknown>,
+    updateTimestamp?: string,
+  ): Effect.Effect<SingleEntityCanonicalMigrationIntent, unknown> {
+    return Effect.gen(this, function* () {
+      if (typeof rawItem._u !== 'string') {
+        return yield* Effect.fail('missingUpdateTimestamp');
+      }
+
+      const value = yield* this.#eschema.decode(rawItem);
+      const encoded = yield* this.#eschema.encode(value as any);
+
+      const item = {
+        ...encoded,
+        _e: this.#eschema.name,
+        _v: this.#eschema.latestVersion,
+        _u: updateTimestamp ?? rawItem._u,
+        [this.#table.primary.pk]: this.#derivePrimaryKey(),
+        [this.#table.primary.sk]: this.#derivePrimaryKey(),
+      };
+
+      return { item };
+    });
   }
 
   /**
@@ -146,8 +246,8 @@ export class DynamoSingleEntity<
     ConsistentRead?: boolean;
   }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
     return Effect.gen(this, function* () {
-      const pk = this.#derivePk();
-      const sk = this.#deriveSk();
+      const pk = this.#derivePrimaryKey();
+      const sk = this.#derivePrimaryKey();
 
       const { Item } = yield* this.#table.getItem({ pk, sk }, options);
 
@@ -206,8 +306,8 @@ export class DynamoSingleEntity<
         _u,
       };
 
-      const pk = this.#derivePk();
-      const sk = this.#deriveSk();
+      const pk = this.#derivePrimaryKey();
+      const sk = this.#derivePrimaryKey();
 
       const item = {
         ...encoded,
@@ -342,8 +442,8 @@ export class DynamoSingleEntity<
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
     condition?: ConditionInput<ESchemaType<TSchema>>,
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
-    const pk = this.#derivePk();
-    const sk = this.#deriveSk();
+    const pk = this.#derivePrimaryKey();
+    const sk = this.#derivePrimaryKey();
 
     const _u = new Date().toISOString();
 
@@ -366,8 +466,8 @@ export class DynamoSingleEntity<
     builder: (ops: UpdateOps<any>) => AnyOperation<any>[],
     condition?: ConditionInput<ESchemaType<TSchema>>,
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
-    const pk = this.#derivePk();
-    const sk = this.#deriveSk();
+    const pk = this.#derivePrimaryKey();
+    const sk = this.#derivePrimaryKey();
 
     const userOps = exprUpdate<any>(builder);
     const _u = new Date().toISOString();
