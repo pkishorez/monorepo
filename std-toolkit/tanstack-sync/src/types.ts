@@ -1,5 +1,5 @@
 import type { CollectionConfig, SingleResult } from '@tanstack/react-db';
-import type { Effect } from 'effect';
+import type { Effect, Scope } from 'effect';
 import type {
   EntityType,
   SingleEntityType,
@@ -14,6 +14,15 @@ import type {
 
 export type CollectionItem<T> = T & {
   _meta?: typeof MetaSchema.Type;
+};
+
+export type QueryContext<TItem extends object> = {
+  getCursor: Effect.Effect<EntityType<TItem> | null>;
+};
+
+export type SubscribeContext<TItem extends object> = {
+  getCursor: Effect.Effect<EntityType<TItem> | null>;
+  push: (items: EntityType<TItem>[], options?: { persist?: boolean }) => void;
 };
 
 export type UpdatePayload<
@@ -31,9 +40,11 @@ export interface TotalSyncConfig<
 > {
   schema: TSchema;
   cache?: CacheStore;
-  query: (
-    cursor: EntityType<TItem> | null,
-  ) => Effect.Effect<EntityType<TItem>[]>;
+  fetchOnMount?: boolean;
+  query: (ctx: QueryContext<TItem>) => Effect.Effect<EntityType<TItem>[]>;
+  subscribe?: (
+    ctx: SubscribeContext<TItem>,
+  ) => Effect.Effect<void, never, Scope.Scope>;
   onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>;
   onUpdate?: (
     payload: UpdatePayload<TItem, TSchema>,
@@ -42,10 +53,16 @@ export interface TotalSyncConfig<
 }
 
 export type OnDemandQueries<TItem extends object> = {
-  [K in keyof TItem]?: (
-    value: TItem[K],
-    cursor: EntityType<TItem> | null,
-  ) => Effect.Effect<EntityType<TItem>[]>;
+  [K in keyof TItem]?: {
+    query: (
+      value: TItem[K],
+      ctx: QueryContext<TItem>,
+    ) => Effect.Effect<EntityType<TItem>[]>;
+    subscribe?: (
+      value: TItem[K],
+      ctx: SubscribeContext<TItem>,
+    ) => Effect.Effect<void, never, Scope.Scope>;
+  };
 };
 
 export interface OnDemandConfig<
@@ -54,6 +71,7 @@ export interface OnDemandConfig<
 > {
   schema: TSchema;
   cache?: CacheStore;
+  fetchOnMount?: boolean;
   queries: OnDemandQueries<TItem>;
   onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>;
   onUpdate?: (

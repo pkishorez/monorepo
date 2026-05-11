@@ -190,18 +190,20 @@ describe('tanstack sync configs', () => {
     const config = createStdSync().onDemand({
       schema: TestSchema,
       queries: {
-        channelId: () => {
-          queryCount += 1;
-          return Effect.succeed(
-            queryCount === 1
-              ? [
-                  entity(
-                    { id: '1', name: 'cached', channelId: 'a' },
-                    '2024-01-03T00:00:00.000Z',
-                  ),
-                ]
-              : [],
-          );
+        channelId: {
+          query: () => {
+            queryCount += 1;
+            return Effect.succeed(
+              queryCount === 1
+                ? [
+                    entity(
+                      { id: '1', name: 'cached', channelId: 'a' },
+                      '2024-01-03T00:00:00.000Z',
+                    ),
+                  ]
+                : [],
+            );
+          },
         },
       },
     });
