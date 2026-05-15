@@ -2238,7 +2238,13 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
             update: { darkMode: true },
           });
 
-          yield* registry.transact([insertOp, updateOp]);
+          const entities = yield* registry.transact([insertOp, updateOp]);
+
+          expect(entities).toHaveLength(2);
+          expect(entities[0]?.value).toMatchObject({
+            name: 'Registry Txn User',
+          });
+          expect(entities[1]?.value).toMatchObject({ darkMode: true });
 
           const user = yield* UserEntity.get({ userId: 'registry-txn-1' });
           expect(user).not.toBeNull();
