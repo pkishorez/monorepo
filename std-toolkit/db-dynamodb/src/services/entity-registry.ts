@@ -7,7 +7,11 @@ import type {
   MigrationReport,
   TransactItem,
 } from '../types/index.js';
-import type { DescriptorProvider, RegistrySchema } from '@std-toolkit/core';
+import type {
+  DescriptorProvider,
+  EntityType,
+  RegistrySchema,
+} from '@std-toolkit/core';
 import { ConnectionService } from '@std-toolkit/core/server';
 import { DynamodbError } from '../errors.js';
 import {
@@ -100,7 +104,7 @@ export class EntityRegistry<
       | EntityName<TEntities[keyof TEntities]>
       | SingleEntityName<TSingleEntities[keyof TSingleEntities]>
     >[],
-  ): Effect.Effect<void, DynamodbError> {
+  ): Effect.Effect<EntityType<unknown>[], DynamodbError> {
     return Effect.gen(this, function* () {
       yield* this.#table.transact(items);
 
@@ -108,13 +112,14 @@ export class EntityRegistry<
         ConnectionService,
       ).pipe(Effect.andThen(Option.getOrNull));
 
-      if (connectionService) {
-        for (const item of items) {
-          if (item.broadcast) {
-            connectionService.broadcast(item.broadcast);
-          }
+      const entities: EntityType<unknown>[] = [];
+      for (const item of items) {
+        if (item.broadcast) {
+          entities.push(item.broadcast);
+          connectionService?.broadcast(item.broadcast);
         }
       }
+      return entities;
     });
   }
 
