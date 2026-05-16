@@ -1,0 +1,5 @@
+{
+  "$schema": "https://reactcosmos.org/schema/cosmos.config.json",
+  "plugins": ["react-cosmos-plugin-vite"],
+  "port": 20005
+}
