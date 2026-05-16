@@ -1,0 +1,756 @@
+{
+  "package": {
+    "name": "@std-toolkit/cache",
+    "version": "0.0.1",
+    "description": "Effect-based cache with IndexedDB support for EntityType storage"
+  },
+  "home": "# @std-toolkit/cache\n\nAn **Effect-native cache** for `@std-toolkit/core` entities. The package\ndefines three small interfaces — `CacheStore`, `CacheEntity<T>`,\n`CacheSingleItem<T>` — and ships two concrete backends: an in-process\n`MemoryCache` and a browser-side `IDBCache` built on IndexedDB. Every\noperation is an `Effect.Effect<A, CacheError>`, so caching composes with\nthe rest of an Effect pipeline (retry, timeout, tracing) without bespoke\nglue.\n\nThe cache is **entity-shaped**, not blob-shaped. Values are\n`EntityType<T>` / `SingleEntityType<T>` from `@std-toolkit/core`: a `value`\npayload plus a `meta` block carrying entity tag (`_e`), schema version\n(`_v`), an update marker (`_u`) and a soft-delete flag (`_d`). The `_u`\nfield is the only sort key the cache understands; it is what\n`getLatest()` / `getOldest()` consult, and what keeps the IDB index in\norder.\n\n## Architecture\n\n```mermaid\nflowchart LR\n  store[\"CacheStore\"]\n  entity[\"CacheEntity<T>\"]\n  single[\"CacheSingleItem<T>\"]\n\n  store -->|\".entity({name, idField})\"| entity\n  store -->|\".singleItem({name})\"| single\n\n  subgraph memory_backend[\"MemoryCache\"]\n    mEnt[\"Map + SortedMap(_u)\"]\n    mSingle[\"single slot\"]\n  end\n\n  subgraph idb_backend[\"IDBCache\"]\n    pool[\"ConnectionPool\"]\n    osEntity[\"object store + UPDATED_INDEX\"]\n    osSingle[\"singletons store\"]\n    pool --> osEntity\n    pool --> osSingle\n  end\n\n  entity -.-> mEnt\n  entity -.-> osEntity\n  single -.-> mSingle\n  single -.-> osSingle\n\n  subgraph err[\"error surface\"]\n    open[\"OpenFailed\"]\n    get[\"GetFailed\"]\n    put[\"PutFailed\"]\n    del[\"DeleteFailed\"]\n    clr[\"ClearFailed\"]\n  end\n\n  entity -.->|\"CacheError\"| err\n  single -.->|\"CacheError\"| err\n```\n\n## Install\n\n```bash\npnpm add @std-toolkit/cache effect\n```\n\nThe `IDBCache` backend requires a browser (or `fake-indexeddb` in tests).\nThe `MemoryCache` backend has no runtime dependencies.\n\n## Quick start\n\n```ts\nimport { Effect } from 'effect';\nimport { MemoryCache } from '@std-toolkit/cache/memory';\n\ntype User = { id: string; name: string };\n\nconst program = Effect.gen(function* () {\n  const cache = new MemoryCache();\n  const users = yield* cache.entity<User>({ name: 'User', idField: 'id' });\n\n  yield* users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\n\n  const latest = yield* users.getLatest();\n  // Option.some({ value: { id: 'u1', name: 'Alice' }, meta: { ... } })\n});\n\nEffect.runPromise(program);\n```\n\n## Backends\n\n| Backend       | Module                      | Persistence | Use when                            |\n| ------------- | --------------------------- | ----------- | ----------------------------------- |\n| `MemoryCache` | `@std-toolkit/cache/memory` | none        | tests, ephemeral state, server-side |\n| `IDBCache`    | `@std-toolkit/cache/idb`    | IndexedDB   | browser caching across reloads      |\n\nBoth implement the same `CacheStore` interface; swap the constructor and\nnothing else has to change.\n\n## Modules\n\n- [errors](./errors/index.doc.md) — `CacheError` tagged-error variants\n- [partition](./partition/index.doc.md) — `serializePartition` key helper\n- [memory](./memory/index.doc.md) — `MemoryCache`, `MemoryCacheEntity`, `MemoryCacheSingleItem`\n- [idb](./idb/index.doc.md) — `IDBCache`, `IDBCacheEntity`, `IDBCacheSingleItem`\n\n## Why another cache?\n\n- **Entity-shaped, not blob-shaped.** Values carry a `meta` block, so the\n  cache knows about schema version (`_v`) and update marker (`_u`)\n  without having to call back into user code.\n- **`getLatest()` / `getOldest()` are first-class.** Both backends keep\n  a `_u`-ordered index so recency queries are O(log n), not O(n).\n- **One error type for the whole surface.** Every fallible operation\n  returns `Effect.Effect<A, CacheError>`, and `CacheError.error._tag`\n  is a closed union — `Effect.catchTag('CacheError', …)` covers\n  everything.\n- **Backend-agnostic at the call site.** `CacheStore` is the only\n  interface the application code needs; the choice between in-memory\n  and IndexedDB is a single line at construction.\n",
+  "files": [
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/errors/index.test.ts",
+      "doc": "---\ntitle: errors\norder: 1\n---\n\n# errors\n\nEvery fallible operation on a `CacheStore`, `CacheEntity<T>` or\n`CacheSingleItem<T>` returns `Effect.Effect<A, CacheError>`. `CacheError`\nis a single tagged error class; the _kind_ of failure is carried inside\n`error._tag`, and the original cause (an IndexedDB `DOMException`, a\nthrown predicate, etc.) is preserved in `error.cause`.\n\nThis keeps the failure surface trivially matchable:\n`Effect.catchTag('CacheError', …)` is enough to recover from every\ncache-level failure, regardless of backend.\n\n## Usage\n\n```ts\nimport { Effect } from 'effect';\nimport { CacheError } from '@std-toolkit/cache';\n\nconst safe = users.get('u1').pipe(\n  Effect.catchTag('CacheError', (err) => {\n    console.error(err.error._tag, err.error.message, err.error.cause);\n    return Effect.succeed(Option.none());\n  }),\n);\n```\n\n## Shape\n\n```ts\nclass CacheError extends Data.TaggedError('CacheError')<{\n  error: CacheErrorType;\n}> {}\n\ntype CacheErrorType =\n  | { _tag: 'OpenFailed'; message: string; cause?: unknown }\n  | { _tag: 'GetFailed'; message: string; cause?: unknown }\n  | { _tag: 'PutFailed'; message: string; cause?: unknown }\n  | { _tag: 'DeleteFailed'; message: string; cause?: unknown }\n  | { _tag: 'ClearFailed'; message: string; cause?: unknown };\n```\n\n| Field           | Meaning                                                        |\n| --------------- | -------------------------------------------------------------- |\n| `_tag`          | Always `'CacheError'` (set by `Data.TaggedError`).             |\n| `error._tag`    | The failure kind — one of the five variants above.             |\n| `error.message` | Short human-readable summary supplied by the call site.        |\n| `error.cause`   | Underlying error (e.g. an IndexedDB `DOMException`), optional. |\n\n## Variant catalog\n\n| Variant        | Raised by                                                         |\n| -------------- | ----------------------------------------------------------------- |\n| `OpenFailed`   | `IDBCache#ensureReady`, `IDBCacheEntity.make` — DB couldn't open. |\n| `GetFailed`    | `get`, `getAll`, `getLatest`, `getOldest` — read threw.           |\n| `PutFailed`    | `put` — write threw (constraint violation, quota, etc.).          |\n| `DeleteFailed` | `delete`, `deleteAll` — delete threw.                             |\n| `ClearFailed`  | `IDBCache#destroy`, `destroyAllDatabases` — teardown threw.       |\n\nEach variant has a matching static factory on `CacheError`:\n`CacheError.openFailed`, `getFailed`, `putFailed`, `deleteFailed`,\n`clearFailed`.\n\n## Examples\n\n### Pattern-match on the outer tag\n\n```ts\nconst recovered = users\n  .get('u1')\n  .pipe(Effect.catchTag('CacheError', () => Effect.succeed(Option.none())));\n```\n\n### Branch on the inner variant\n\n```ts\nconst result = users\n  .put(item)\n  .pipe(\n    Effect.catchTag('CacheError', (err) =>\n      err.error._tag === 'PutFailed'\n        ? Effect.logWarning(`write rejected: ${err.error.message}`)\n        : Effect.fail(err),\n    ),\n  );\n```\n\n### Construct via static factory\n\n```ts\nconst err = CacheError.putFailed('quota exceeded', new DOMException('quota'));\nerr._tag; // 'CacheError'\nerr.error._tag; // 'PutFailed'\nerr.error.message; // 'quota exceeded'\nerr.error.cause; // DOMException\n```\n\n## Edge cases\n\n- **`CacheError` is the only error type from the public surface.** Every\n  `get` / `put` / `delete` failure is wrapped; no raw `DOMException` or\n  thrown predicate escapes unwrapped from either backend.\n- **`error._tag` is a closed vocabulary.** Callers can branch on it as a\n  literal string union without worrying about new variants appearing\n  silently.\n- **`cause` is `unknown`.** Production code should not depend on its\n  shape; treat it as informational. The IDB backend typically sets it to\n  the underlying `DOMException`, but the type does not promise that.\n- **Static factories preserve `cause`.** Calling\n  `CacheError.openFailed(msg, e)` sets both `message` and `cause`; the\n  second argument is optional.\n- **`Data.TaggedError` makes `_tag === 'CacheError'`.** This is how\n  `Effect.catchTag('CacheError', …)` matches; do not rely on\n  `instanceof` for cross-realm code.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `CacheError._tag` is `'CacheError'`.\n- Each static factory (`openFailed`, `getFailed`, `putFailed`,\n  `deleteFailed`, `clearFailed`) sets `error._tag` to the matching\n  variant string.\n- `cause` is preserved when supplied, and omitted (undefined) when not.\n- `Effect.catchTag('CacheError', …)` recovers from a real backend\n  failure (a `MemoryCacheEntity` `get` after an in-flight throw).\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "CacheError shape",
+          "children": [
+            {
+              "kind": "test",
+              "name": "CacheError._tag is CacheError",
+              "status": "pass",
+              "duration": 0.9375829999999041,
+              "doc": "`Data.TaggedError` sets the outer `_tag` so `Effect.catchTag` can match it across realms.",
+              "location": {
+                "line": 12,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'CacheError._tag is CacheError',\n  '`Data.TaggedError` sets the outer `_tag` so `Effect.catchTag` can match it across realms.',\n  () => {\n    const err = CacheError.getFailed('boom');\n    expect(err._tag).toBe('CacheError');\n  },\n);",
+              "snippetStartLine": 12
+            },
+            {
+              "kind": "test",
+              "name": "openFailed sets error._tag to OpenFailed",
+              "status": "pass",
+              "duration": 0.5850419999999303,
+              "doc": "The static factory maps to the matching variant in the inner discriminated union.",
+              "location": {
+                "line": 21,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'openFailed sets error._tag to OpenFailed',\n  'The static factory maps to the matching variant in the inner discriminated union.',\n  () => {\n    const err = CacheError.openFailed('db unreachable');\n    expect(err.error._tag).toBe('OpenFailed');\n    expect(err.error.message).toBe('db unreachable');\n  },\n);",
+              "snippetStartLine": 21
+            },
+            {
+              "kind": "test",
+              "name": "getFailed sets error._tag to GetFailed",
+              "status": "pass",
+              "duration": 0.10820800000010422,
+              "doc": "Every read-path failure routes through this variant.",
+              "location": {
+                "line": 31,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'getFailed sets error._tag to GetFailed',\n  'Every read-path failure routes through this variant.',\n  () => {\n    const err = CacheError.getFailed('read threw');\n    expect(err.error._tag).toBe('GetFailed');\n  },\n);",
+              "snippetStartLine": 31
+            },
+            {
+              "kind": "test",
+              "name": "putFailed sets error._tag to PutFailed",
+              "status": "pass",
+              "duration": 0.09683399999994435,
+              "doc": "Every write-path failure routes through this variant.",
+              "location": {
+                "line": 40,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'putFailed sets error._tag to PutFailed',\n  'Every write-path failure routes through this variant.',\n  () => {\n    const err = CacheError.putFailed('quota');\n    expect(err.error._tag).toBe('PutFailed');\n  },\n);",
+              "snippetStartLine": 40
+            },
+            {
+              "kind": "test",
+              "name": "deleteFailed sets error._tag to DeleteFailed",
+              "status": "pass",
+              "duration": 0.08249999999998181,
+              "doc": "Single- and bulk-delete share this variant.",
+              "location": {
+                "line": 49,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'deleteFailed sets error._tag to DeleteFailed',\n  'Single- and bulk-delete share this variant.',\n  () => {\n    const err = CacheError.deleteFailed('locked');\n    expect(err.error._tag).toBe('DeleteFailed');\n  },\n);",
+              "snippetStartLine": 49
+            },
+            {
+              "kind": "test",
+              "name": "clearFailed sets error._tag to ClearFailed",
+              "status": "pass",
+              "duration": 0.557790999999952,
+              "doc": "Teardown failures (`destroy`, `destroyAllDatabases`) use this variant.",
+              "location": {
+                "line": 58,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'clearFailed sets error._tag to ClearFailed',\n  'Teardown failures (`destroy`, `destroyAllDatabases`) use this variant.',\n  () => {\n    const err = CacheError.clearFailed('not allowed');\n    expect(err.error._tag).toBe('ClearFailed');\n  },\n);",
+              "snippetStartLine": 58
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "cause preservation",
+          "children": [
+            {
+              "kind": "test",
+              "name": "cause is preserved when supplied",
+              "status": "pass",
+              "duration": 0.12583300000005693,
+              "doc": "The underlying error reaches the catch handler unchanged.",
+              "location": {
+                "line": 73,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'cause is preserved when supplied',\n  'The underlying error reaches the catch handler unchanged.',\n  () => {\n    const underlying = new Error('disk full');\n    const err = CacheError.putFailed('write failed', underlying);\n    expect(err.error.cause).toBe(underlying);\n  },\n);",
+              "snippetStartLine": 73
+            },
+            {
+              "kind": "test",
+              "name": "cause is undefined when omitted",
+              "status": "pass",
+              "duration": 0.09691700000007586,
+              "doc": "Variants raised without an underlying error report `cause: undefined`.",
+              "location": {
+                "line": 83,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'cause is undefined when omitted',\n  'Variants raised without an underlying error report `cause: undefined`.',\n  () => {\n    const err = CacheError.getFailed('missing');\n    expect(err.error.cause).toBeUndefined();\n  },\n);",
+              "snippetStartLine": 83
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "catchTag recovers from a real backend failure",
+          "children": [
+            {
+              "kind": "test",
+              "name": "catchTag recovers from a put that throws via a bad idField",
+              "status": "pass",
+              "duration": 6.330458999999792,
+              "doc": "The `MemoryCacheEntity` wraps the synchronous throw in `PutFailed`, which the tag handler catches.",
+              "location": {
+                "line": 98,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'catchTag recovers from a put that throws via a bad idField',\n  'The `MemoryCacheEntity` wraps the synchronous throw in `PutFailed`, which the tag handler catches.',\n  async () => {\n    const cache = await Effect.runPromise(\n      MemoryCacheEntity.make<{ id: string }>({\n        name: 'Thing',\n        idField: 'id',\n      }),\n    );\n\n    // Force a throw inside `put` by handing it a value whose lookup\n    // of `idField` blows up (Proxy that throws on property read).\n    const exploding = new Proxy(\n      {},\n      {\n        get() {\n          throw new Error('boom');\n        },\n      },\n    ) as { id: string };\n\n    const recovered = await Effect.runPromise(\n      cache\n        .put({\n          value: exploding,\n          meta: { _e: 'Thing', _v: 'v1', _u: 'uid-1', _d: false },\n        })\n        .pipe(\n          Effect.catchTag('CacheError', (err) =>\n            Effect.succeed(`caught:${err.error._tag}`),\n          ),\n        ),\n    );\n\n    expect(recovered).toBe('caught:PutFailed');\n\n    const empty = await Effect.runPromise(cache.get('anything'));\n    expect(Option.isNone(empty)).toBe(true);\n  },\n);",
+              "snippetStartLine": 98
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/idb/index.test.ts",
+      "doc": "---\ntitle: idb\norder: 4\n---\n\n# idb\n\n`IDBCache` is the browser-side backend for `CacheStore`, built on\nIndexedDB via the [`idb`](https://github.com/jakearchibald/idb) wrapper.\nA single named database holds a shared object store, partitioned by\nentity name. The store keeps an `updatedKey` index so `getLatest()` /\n`getOldest()` can answer in O(log n) via an IndexedDB cursor instead of\nloading every row.\n\n`IDBCacheSingleItem` is the single-slot analogue; it reserves a fixed\n`__singleton__` id within the same store.\n\nTests run against [`fake-indexeddb`](https://github.com/dumbmatter/fakeIndexedDB),\nwhich the package already ships as a devDependency.\n\n## Usage\n\n```ts\nimport { Effect } from 'effect';\nimport { IDBCache } from '@std-toolkit/cache/idb';\n\nconst program = Effect.gen(function* () {\n  const cache = new IDBCache('app-cache', 1);\n  const users = yield* cache.entity<User>({ name: 'User', idField: 'id' });\n\n  yield* users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\n});\n```\n\n## API\n\n| Export                  | Kind  | Notes                                                                                  |\n| ----------------------- | ----- | -------------------------------------------------------------------------------------- |\n| `IDBCache`              | class | `new IDBCache(dbName, version)`. Opens lazily on the first `entity`/`singleItem` call. |\n| `IDBCacheEntity<T>`     | class | Created via `IDBCacheEntity.make({ dbName?, name, idField })`.                         |\n| `IDBCacheSingleItem<T>` | class | Created via `IDBCacheSingleItem.make({ dbName?, name })`.                              |\n\n`IDBCacheEntity.destroyAllDatabases()` is a static escape hatch that\nclears every IDB database known to the connection pool — intended for\ntests.\n\n## Examples\n\n### Round-trip a single entity through IDB\n\n```ts\nconst cache = new IDBCache('app-cache', 1);\nconst users = yield * cache.entity<User>({ name: 'User', idField: 'id' });\n\nyield *\n  users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\n\nconst got = yield * users.get('u1'); // Option.some(...)\n```\n\n### `getLatest()` / `getOldest()` via the `_u` index\n\n```ts\nyield* users.put({ value: { id: 'a' }, meta: { ..., _u: 'uid-002' } });\nyield* users.put({ value: { id: 'b' }, meta: { ..., _u: 'uid-001' } });\nyield* users.put({ value: { id: 'c' }, meta: { ..., _u: 'uid-003' } });\n\n(yield* users.getLatest()).value.value.id;  // 'c'\n(yield* users.getOldest()).value.value.id;  // 'b'\n```\n\n### Two entities under different names share the same DB\n\n```ts\nconst users = yield * cache.entity<User>({ name: 'User', idField: 'id' });\nconst posts = yield * cache.entity<Post>({ name: 'Post', idField: 'id' });\n\nyield * users.put(u1);\nyield * posts.put(p1);\n\n(yield * users.getAll()).length; // 1 — bounded to the User name range\n(yield * posts.getAll()).length; // 1 — bounded to the Post name range\n```\n\n### Single-item slot\n\n```ts\nconst slot =\n  yield *\n  IDBCacheSingleItem.make<Settings>({\n    dbName: 'app-cache',\n    name: 'Settings',\n  });\nyield *\n  slot.put({\n    value: { theme: 'dark' },\n    meta: { _e: 'Settings', _v: 'v1', _u: 'uid-1' },\n  });\n```\n\n## Edge cases\n\n- **The DB opens lazily.** `IDBCache#entity` / `#singleItem` call\n  `ConnectionPool.acquire` on first use; construction of `IDBCache`\n  itself does no I/O.\n- **Open failures surface as `CacheError` with `error._tag ===\n'OpenFailed'`.** Anything thrown by the underlying `idb` open call is\n  wrapped.\n- **Entities under different `name`s within the same DB are isolated.**\n  Each row is keyed by `[name, id]` and queries use a name-bounded\n  `IDBKeyRange`, so `getAll` for `name: 'User'` never returns `Post`\n  rows.\n- **`getLatest` / `getOldest` walk the `UPDATED_INDEX` cursor.** They\n  open a `prev` (resp. `next`) cursor bounded to the name range, so the\n  first hit is the answer — no full scan.\n- **A missing `_u` index entry yields `Option.none()`.** An empty\n  cursor on the bounded range returns `None`, matching the in-memory\n  backend.\n- **`IDBCacheSingleItem` reserves the id `__singleton__`.** A regular\n  entity named the same that puts an item with id `__singleton__` would\n  collide — keep entity and single-item names disjoint.\n- **`IDBCacheSingleItem#put` always writes `_d: false` into the stored\n  meta.** The single-item interface has no soft-delete concept; the\n  flag is normalised away on write.\n- **`destroyAllDatabases` is a global teardown.** It drops every\n  database held by the connection pool — only use it between tests, not\n  in production code.\n\n## Tests\n\nThe suites in `index.test.ts` lock down (against `fake-indexeddb`):\n\n- `IDBCache#entity` returns a working `IDBCacheEntity`.\n- `put` then `get` round-trips both `value` and `meta`.\n- `get` on a missing id returns `Option.none()`.\n- `getAll` returns every stored row exactly once for a given name.\n- Two entities under different `name`s in the same DB do not see each\n  other's rows.\n- `getLatest` / `getOldest` consult the `_u` index across the name\n  range.\n- `delete` of a known id removes the row; `deleteAll` clears the\n  name-bounded range.\n- `IDBCacheSingleItem` round-trips a single value; `delete` empties\n  the slot.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "IDBCache facade",
+          "children": [
+            {
+              "kind": "test",
+              "name": "entity() returns a usable IDBCacheEntity",
+              "status": "pass",
+              "duration": 8.08524999999986,
+              "doc": "A facade-issued entity round-trips a put/get without further setup.",
+              "location": {
+                "line": 40,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'entity() returns a usable IDBCacheEntity',\n  'A facade-issued entity round-trips a put/get without further setup.',\n  async () => {\n    const cache = new IDBCache(nextDb(), 1);\n    const users = await Effect.runPromise(\n      cache.entity<User>({ name: 'User', idField: 'id' }),\n    );\n    expect(users).toBeInstanceOf(IDBCacheEntity);\n\n    await Effect.runPromise(users.put(user('u1', 'Alice', 'uid-1')));\n    const got = await Effect.runPromise(users.get('u1'));\n    expect(Option.isSome(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 40
+            },
+            {
+              "kind": "test",
+              "name": "singleItem() returns a usable IDBCacheSingleItem",
+              "status": "pass",
+              "duration": 1.5184999999999036,
+              "doc": "A facade-issued slot round-trips a put/get without further setup.",
+              "location": {
+                "line": 56,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'singleItem() returns a usable IDBCacheSingleItem',\n  'A facade-issued slot round-trips a put/get without further setup.',\n  async () => {\n    const cache = new IDBCache(nextDb(), 1);\n    const slot = await Effect.runPromise(\n      cache.singleItem<Settings>({ name: 'Settings' }),\n    );\n    expect(slot).toBeInstanceOf(IDBCacheSingleItem);\n\n    await Effect.runPromise(slot.put(settings('dark', 'uid-1')));\n    const got = await Effect.runPromise(slot.get());\n    expect(Option.isSome(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 56
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "IDBCacheEntity put/get round-trip",
+          "children": [
+            {
+              "kind": "test",
+              "name": "put then get returns the stored value and meta",
+              "status": "pass",
+              "duration": 2.224083000000064,
+              "doc": "Both `value` and `meta` survive serialization into IndexedDB and back.",
+              "location": {
+                "line": 78,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'put then get returns the stored value and meta',\n  'Both `value` and `meta` survive serialization into IndexedDB and back.',\n  async () => {\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName: nextDb(),\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'Alice', 'uid-1')));\n    const got = await Effect.runPromise(users.get('u1'));\n    expect(Option.isSome(got)).toBe(true);\n    if (Option.isSome(got)) {\n      expect(got.value.value).toEqual({ id: 'u1', name: 'Alice' });\n      expect(got.value.meta._u).toBe('uid-1');\n      expect(got.value.meta._e).toBe('User');\n    }\n  },\n);",
+              "snippetStartLine": 78
+            },
+            {
+              "kind": "test",
+              "name": "get of a missing id returns Option.none()",
+              "status": "pass",
+              "duration": 0.8994999999999891,
+              "doc": "A cache miss is reported as `None`; no error is raised.",
+              "location": {
+                "line": 100,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'get of a missing id returns Option.none()',\n  'A cache miss is reported as `None`; no error is raised.',\n  async () => {\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName: nextDb(),\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    const got = await Effect.runPromise(users.get('missing'));\n    expect(Option.isNone(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 100
+            },
+            {
+              "kind": "test",
+              "name": "getAll returns every row for the entity name",
+              "status": "pass",
+              "duration": 2.891542000000072,
+              "doc": "Three puts under one name produce three rows in `getAll`.",
+              "location": {
+                "line": 116,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'getAll returns every row for the entity name',\n  'Three puts under one name produce three rows in `getAll`.',\n  async () => {\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName: nextDb(),\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'A', 'uid-1')));\n    await Effect.runPromise(users.put(user('u2', 'B', 'uid-2')));\n    await Effect.runPromise(users.put(user('u3', 'C', 'uid-3')));\n\n    const all = await Effect.runPromise(users.getAll());\n    expect(all.map((u) => u.value.id).sort()).toEqual(['u1', 'u2', 'u3']);\n  },\n);",
+              "snippetStartLine": 116
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "IDBCacheEntity name isolation",
+          "children": [
+            {
+              "kind": "test",
+              "name": "two entities under different names do not share rows",
+              "status": "pass",
+              "duration": 2.827209000000039,
+              "doc": "A `User` `getAll` returns only `User` rows even though `Post` rows live in the same DB.",
+              "location": {
+                "line": 142,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'two entities under different names do not share rows',\n  'A `User` `getAll` returns only `User` rows even though `Post` rows live in the same DB.',\n  async () => {\n    const dbName = nextDb();\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName,\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    const posts = await Effect.runPromise(\n      IDBCacheEntity.make<Post>({\n        dbName,\n        name: 'Post',\n        idField: 'id',\n      }),\n    );\n\n    await Effect.runPromise(users.put(user('u1', 'Alice', 'uid-1')));\n    await Effect.runPromise(posts.put(post('p1', 'Hello', 'uid-2')));\n\n    const allUsers = await Effect.runPromise(users.getAll());\n    const allPosts = await Effect.runPromise(posts.getAll());\n    expect(allUsers).toHaveLength(1);\n    expect(allPosts).toHaveLength(1);\n    expect(allUsers[0]?.value.id).toBe('u1');\n    expect(allPosts[0]?.value.id).toBe('p1');\n  },\n);",
+              "snippetStartLine": 142
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "IDBCacheEntity _u-ordered retrieval",
+          "children": [
+            {
+              "kind": "test",
+              "name": "getLatest returns the largest _u within the entity name",
+              "status": "pass",
+              "duration": 3.740707999999813,
+              "doc": "Insertion order does not affect the result.",
+              "location": {
+                "line": 180,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'getLatest returns the largest _u within the entity name',\n  'Insertion order does not affect the result.',\n  async () => {\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName: nextDb(),\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    await Effect.runPromise(users.put(user('a', 'A', 'uid-002')));\n    await Effect.runPromise(users.put(user('b', 'B', 'uid-001')));\n    await Effect.runPromise(users.put(user('c', 'C', 'uid-003')));\n\n    const latest = await Effect.runPromise(users.getLatest());\n    expect(Option.isSome(latest)).toBe(true);\n    if (Option.isSome(latest)) {\n      expect(latest.value.value.id).toBe('c');\n      expect(latest.value.meta._u).toBe('uid-003');\n    }\n  },\n);",
+              "snippetStartLine": 180
+            },
+            {
+              "kind": "test",
+              "name": "getOldest returns the smallest _u within the entity name",
+              "status": "pass",
+              "duration": 1.5792089999999916,
+              "doc": "Symmetric to `getLatest`, just walking the cursor in the other direction.",
+              "location": {
+                "line": 204,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'getOldest returns the smallest _u within the entity name',\n  'Symmetric to `getLatest`, just walking the cursor in the other direction.',\n  async () => {\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName: nextDb(),\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    await Effect.runPromise(users.put(user('a', 'A', 'uid-002')));\n    await Effect.runPromise(users.put(user('b', 'B', 'uid-001')));\n    await Effect.runPromise(users.put(user('c', 'C', 'uid-003')));\n\n    const oldest = await Effect.runPromise(users.getOldest());\n    expect(Option.isSome(oldest)).toBe(true);\n    if (Option.isSome(oldest)) {\n      expect(oldest.value.value.id).toBe('b');\n      expect(oldest.value.meta._u).toBe('uid-001');\n    }\n  },\n);",
+              "snippetStartLine": 204
+            },
+            {
+              "kind": "test",
+              "name": "empty range → getLatest / getOldest return Option.none()",
+              "status": "pass",
+              "duration": 3.1882920000000468,
+              "doc": "An empty cursor on the name-bounded range degrades to `None`, matching the in-memory backend.",
+              "location": {
+                "line": 228,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'empty range → getLatest / getOldest return Option.none()',\n  'An empty cursor on the name-bounded range degrades to `None`, matching the in-memory backend.',\n  async () => {\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName: nextDb(),\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    expect(Option.isNone(await Effect.runPromise(users.getLatest()))).toBe(\n      true,\n    );\n    expect(Option.isNone(await Effect.runPromise(users.getOldest()))).toBe(\n      true,\n    );\n  },\n);",
+              "snippetStartLine": 228
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "IDBCacheEntity deletion",
+          "children": [
+            {
+              "kind": "test",
+              "name": "delete of a known id removes the row",
+              "status": "pass",
+              "duration": 29.155958000000055,
+              "doc": "A subsequent `get` for the same id returns `None`; other rows remain.",
+              "location": {
+                "line": 254,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'delete of a known id removes the row',\n  'A subsequent `get` for the same id returns `None`; other rows remain.',\n  async () => {\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName: nextDb(),\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'A', 'uid-1')));\n    await Effect.runPromise(users.put(user('u2', 'B', 'uid-2')));\n    await Effect.runPromise(users.delete('u1'));\n\n    const got = await Effect.runPromise(users.get('u1'));\n    expect(Option.isNone(got)).toBe(true);\n    const all = await Effect.runPromise(users.getAll());\n    expect(all).toHaveLength(1);\n  },\n);",
+              "snippetStartLine": 254
+            },
+            {
+              "kind": "test",
+              "name": "deleteAll clears the name-bounded range",
+              "status": "pass",
+              "duration": 9.107958000000053,
+              "doc": "After `deleteAll`, `getAll` is empty and `getLatest` is `None`.",
+              "location": {
+                "line": 276,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'deleteAll clears the name-bounded range',\n  'After `deleteAll`, `getAll` is empty and `getLatest` is `None`.',\n  async () => {\n    const users = await Effect.runPromise(\n      IDBCacheEntity.make<User>({\n        dbName: nextDb(),\n        name: 'User',\n        idField: 'id',\n      }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'A', 'uid-1')));\n    await Effect.runPromise(users.put(user('u2', 'B', 'uid-2')));\n    await Effect.runPromise(users.deleteAll());\n\n    const all = await Effect.runPromise(users.getAll());\n    expect(all).toHaveLength(0);\n    expect(Option.isNone(await Effect.runPromise(users.getLatest()))).toBe(\n      true,\n    );\n  },\n);",
+              "snippetStartLine": 276
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "IDBCacheSingleItem holds at most one value",
+          "children": [
+            {
+              "kind": "test",
+              "name": "get on a fresh slot returns Option.none()",
+              "status": "pass",
+              "duration": 5.066458999999895,
+              "doc": "An unwritten slot reads as empty.",
+              "location": {
+                "line": 305,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'get on a fresh slot returns Option.none()',\n  'An unwritten slot reads as empty.',\n  async () => {\n    const slot = await Effect.runPromise(\n      IDBCacheSingleItem.make<Settings>({\n        dbName: nextDb(),\n        name: 'Settings',\n      }),\n    );\n    const got = await Effect.runPromise(slot.get());\n    expect(Option.isNone(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 305
+            },
+            {
+              "kind": "test",
+              "name": "put then get round-trips the value and meta",
+              "status": "pass",
+              "duration": 1.62112500000012,
+              "doc": "Both fields survive the IDB round-trip.",
+              "location": {
+                "line": 320,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'put then get round-trips the value and meta',\n  'Both fields survive the IDB round-trip.',\n  async () => {\n    const slot = await Effect.runPromise(\n      IDBCacheSingleItem.make<Settings>({\n        dbName: nextDb(),\n        name: 'Settings',\n      }),\n    );\n    await Effect.runPromise(slot.put(settings('dark', 'uid-1')));\n    const got = await Effect.runPromise(slot.get());\n    expect(Option.isSome(got)).toBe(true);\n    if (Option.isSome(got)) {\n      expect(got.value.value).toEqual({ theme: 'dark' });\n      expect(got.value.meta._u).toBe('uid-1');\n    }\n  },\n);",
+              "snippetStartLine": 320
+            },
+            {
+              "kind": "test",
+              "name": "delete empties the slot",
+              "status": "pass",
+              "duration": 1.9679999999998472,
+              "doc": "After `delete`, `get` returns `None`.",
+              "location": {
+                "line": 340,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'delete empties the slot',\n  'After `delete`, `get` returns `None`.',\n  async () => {\n    const slot = await Effect.runPromise(\n      IDBCacheSingleItem.make<Settings>({\n        dbName: nextDb(),\n        name: 'Settings',\n      }),\n    );\n    await Effect.runPromise(slot.put(settings('dark', 'uid-1')));\n    await Effect.runPromise(slot.delete());\n    const got = await Effect.runPromise(slot.get());\n    expect(Option.isNone(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 340
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/memory/index.test.ts",
+      "doc": "---\ntitle: memory\norder: 3\n---\n\n# memory\n\n`MemoryCache` is the in-process backend for `CacheStore`. It stores\n`EntityType<T>` values in a `Map<id, item>` and maintains a parallel\n`SortedMap<_u, id>` index so `getLatest()` / `getOldest()` are O(log n)\ninstead of O(n). `MemoryCacheSingleItem` is the trivial single-slot\nanalogue.\n\nThe backend has no dependencies beyond `effect`. It is the right choice\nfor tests, server-side ephemeral caching, or any context where data\nshould not survive a process restart.\n\n## Usage\n\n```ts\nimport { Effect } from 'effect';\nimport { MemoryCache } from '@std-toolkit/cache/memory';\n\nconst program = Effect.gen(function* () {\n  const cache = new MemoryCache();\n  const users = yield* cache.entity<User>({ name: 'User', idField: 'id' });\n\n  yield* users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\n});\n```\n\n## API\n\n| Export                     | Kind  | Notes                                                        |\n| -------------------------- | ----- | ------------------------------------------------------------ |\n| `MemoryCache`              | class | Implements `CacheStore`. Construct with `new MemoryCache()`. |\n| `MemoryCacheEntity<T>`     | class | Created via `MemoryCacheEntity.make({ name, idField })`.     |\n| `MemoryCacheSingleItem<T>` | class | Created via `MemoryCacheSingleItem.make({ name })`.          |\n\n`MemoryCache#entity` and `#singleItem` return\n`Effect.Effect<…, never>` — construction cannot fail for this backend.\nAll instance methods (`put`, `get`, `getAll`, `getLatest`, `getOldest`,\n`delete`, `deleteAll`) return `Effect.Effect<…, CacheError>` because\ntheir bodies are wrapped in `Effect.try` for symmetry with the IDB\nbackend.\n\n## Examples\n\n### Round-trip a single entity\n\n```ts\nconst users =\n  yield *\n  MemoryCacheEntity.make<User>({\n    name: 'User',\n    idField: 'id',\n  });\nyield *\n  users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\nconst got = yield * users.get('u1'); // Option.some({ value, meta })\n```\n\n### Missing key returns `Option.none()`\n\n```ts\nconst got = yield * users.get('missing'); // Option.none()\n```\n\n### `put` of an existing id overwrites\n\n```ts\nyield* users.put({ value: { id: 'u1', name: 'Alice' }, meta: { ... } });\nyield* users.put({ value: { id: 'u1', name: 'Alice II' }, meta: { ... } });\n(yield* users.getAll()).length; // 1\n```\n\n### `getLatest()` / `getOldest()` track by `_u`\n\n```ts\nyield* users.put({ value: { id: 'a' }, meta: { ..., _u: 'uid-002' } });\nyield* users.put({ value: { id: 'b' }, meta: { ..., _u: 'uid-001' } });\nyield* users.put({ value: { id: 'c' }, meta: { ..., _u: 'uid-003' } });\n\n(yield* users.getLatest()).value.value.id;  // 'c' (_u uid-003)\n(yield* users.getOldest()).value.value.id;  // 'b' (_u uid-001)\n```\n\n### Single-item slot\n\n```ts\nconst slot = yield * MemoryCacheSingleItem.make<Settings>({ name: 'Settings' });\nyield *\n  slot.put({\n    value: { theme: 'dark' },\n    meta: { _e: 'Settings', _v: 'v1', _u: 'uid-1' },\n  });\nconst got = yield * slot.get(); // Option.some({ value, meta })\nyield * slot.delete();\nconst gone = yield * slot.get(); // Option.none()\n```\n\n## Edge cases\n\n- **`MemoryCache#entity` / `#singleItem` cannot fail.** They are typed\n  as `Effect.Effect<…, never>` because the underlying constructor only\n  allocates JavaScript objects.\n- **The id is derived from `value[idField]` via `String(...)`.** Numeric\n  ids are coerced to strings; the cache only ever keys by string.\n- **`put` on an existing id replaces the row and rewrites the `_u`\n  index.** The old `_u` entry is removed before the new one is inserted,\n  so `getLatest()` / `getOldest()` reflect the new marker.\n- **`getLatest()` / `getOldest()` consult `_u` only.** No clock, no\n  insertion order, no schema version. Two items with identical `_u`\n  collapse to one entry in the sorted index — avoid generating\n  duplicates.\n- **`delete` of an unknown id is a no-op.** No error is raised, and the\n  `_u` index is left untouched.\n- **`deleteAll` resets both the store and the `_u` index.** A subsequent\n  `getLatest()` / `getOldest()` returns `Option.none()`.\n- **Empty store → `Option.none()` for `getLatest` / `getOldest`.**\n  Callers do not need to special-case the empty case before checking\n  the option.\n- **`MemoryCacheSingleItem` holds at most one value.** A second `put`\n  overwrites the slot; `delete` empties it. `get` on an empty slot\n  returns `Option.none()`.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `MemoryCache#entity` returns a working `MemoryCacheEntity`.\n- `put` then `get` round-trips both `value` and `meta`.\n- `get` on a missing id returns `Option.none()`.\n- `getAll` returns every stored row exactly once.\n- `put` on an existing id replaces the row (length stays at 1).\n- `getLatest` / `getOldest` track by `_u`, including after updates.\n- `delete` of an unknown id is a no-op.\n- `deleteAll` empties the store and the `_u` index.\n- `MemoryCacheSingleItem` round-trips a single value and `delete`\n  empties it.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "MemoryCache facade",
+          "children": [
+            {
+              "kind": "test",
+              "name": "entity() returns a usable MemoryCacheEntity",
+              "status": "pass",
+              "duration": 2.59375,
+              "doc": "A facade-issued entity round-trips a put/get without further setup.",
+              "location": {
+                "line": 29,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'entity() returns a usable MemoryCacheEntity',\n  'A facade-issued entity round-trips a put/get without further setup.',\n  async () => {\n    const cache = new MemoryCache();\n    const users = await Effect.runPromise(\n      cache.entity<User>({ name: 'User', idField: 'id' }),\n    );\n    expect(users).toBeInstanceOf(MemoryCacheEntity);\n\n    await Effect.runPromise(users.put(user('u1', 'Alice', 'uid-1')));\n    const got = await Effect.runPromise(users.get('u1'));\n    expect(Option.isSome(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 29
+            },
+            {
+              "kind": "test",
+              "name": "singleItem() returns a usable MemoryCacheSingleItem",
+              "status": "pass",
+              "duration": 0.46416599999997743,
+              "doc": "A facade-issued single-item slot round-trips a put/get without further setup.",
+              "location": {
+                "line": 45,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'singleItem() returns a usable MemoryCacheSingleItem',\n  'A facade-issued single-item slot round-trips a put/get without further setup.',\n  async () => {\n    const cache = new MemoryCache();\n    const slot = await Effect.runPromise(\n      cache.singleItem<Settings>({ name: 'Settings' }),\n    );\n    expect(slot).toBeInstanceOf(MemoryCacheSingleItem);\n\n    await Effect.runPromise(slot.put(settings('dark', 'uid-1')));\n    const got = await Effect.runPromise(slot.get());\n    expect(Option.isSome(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 45
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "MemoryCacheEntity put/get round-trip",
+          "children": [
+            {
+              "kind": "test",
+              "name": "put then get returns the stored value and meta",
+              "status": "pass",
+              "duration": 0.9728749999999309,
+              "doc": "Both `value` and `meta` are preserved verbatim across the round-trip.",
+              "location": {
+                "line": 67,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'put then get returns the stored value and meta',\n  'Both `value` and `meta` are preserved verbatim across the round-trip.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'Alice', 'uid-1')));\n    const got = await Effect.runPromise(users.get('u1'));\n    expect(Option.isSome(got)).toBe(true);\n    if (Option.isSome(got)) {\n      expect(got.value.value).toEqual({ id: 'u1', name: 'Alice' });\n      expect(got.value.meta._u).toBe('uid-1');\n      expect(got.value.meta._e).toBe('User');\n    }\n  },\n);",
+              "snippetStartLine": 67
+            },
+            {
+              "kind": "test",
+              "name": "get of a missing id returns Option.none()",
+              "status": "pass",
+              "duration": 0.21741700000006858,
+              "doc": "No error is raised for a cache miss; callers branch on the option.",
+              "location": {
+                "line": 85,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'get of a missing id returns Option.none()',\n  'No error is raised for a cache miss; callers branch on the option.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    const got = await Effect.runPromise(users.get('missing'));\n    expect(Option.isNone(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 85
+            },
+            {
+              "kind": "test",
+              "name": "getAll returns every stored row",
+              "status": "pass",
+              "duration": 0.3029999999998836,
+              "doc": "Three distinct puts produce three rows in `getAll`.",
+              "location": {
+                "line": 97,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'getAll returns every stored row',\n  'Three distinct puts produce three rows in `getAll`.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'A', 'uid-1')));\n    await Effect.runPromise(users.put(user('u2', 'B', 'uid-2')));\n    await Effect.runPromise(users.put(user('u3', 'C', 'uid-3')));\n\n    const all = await Effect.runPromise(users.getAll());\n    expect(all.map((u) => u.value.id).sort()).toEqual(['u1', 'u2', 'u3']);\n  },\n);",
+              "snippetStartLine": 97
+            },
+            {
+              "kind": "test",
+              "name": "put on an existing id replaces the row",
+              "status": "pass",
+              "duration": 0.8636669999998503,
+              "doc": "Repeated puts under the same id keep the store at length 1; the latest write wins.",
+              "location": {
+                "line": 113,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'put on an existing id replaces the row',\n  'Repeated puts under the same id keep the store at length 1; the latest write wins.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'Alice', 'uid-1')));\n    await Effect.runPromise(users.put(user('u1', 'Alice II', 'uid-2')));\n\n    const all = await Effect.runPromise(users.getAll());\n    expect(all).toHaveLength(1);\n    expect(all[0]?.value.name).toBe('Alice II');\n  },\n);",
+              "snippetStartLine": 113
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "MemoryCacheEntity _u-ordered retrieval",
+          "children": [
+            {
+              "kind": "test",
+              "name": "getLatest tracks the largest _u",
+              "status": "pass",
+              "duration": 0.42183299999987867,
+              "doc": "Inserting in arbitrary order, `getLatest` returns the row whose `_u` sorts last.",
+              "location": {
+                "line": 135,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'getLatest tracks the largest _u',\n  'Inserting in arbitrary order, `getLatest` returns the row whose `_u` sorts last.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('a', 'A', 'uid-002')));\n    await Effect.runPromise(users.put(user('b', 'B', 'uid-001')));\n    await Effect.runPromise(users.put(user('c', 'C', 'uid-003')));\n\n    const latest = await Effect.runPromise(users.getLatest());\n    expect(Option.isSome(latest)).toBe(true);\n    if (Option.isSome(latest)) {\n      expect(latest.value.value.id).toBe('c');\n      expect(latest.value.meta._u).toBe('uid-003');\n    }\n  },\n);",
+              "snippetStartLine": 135
+            },
+            {
+              "kind": "test",
+              "name": "getOldest tracks the smallest _u",
+              "status": "pass",
+              "duration": 0.22504200000003038,
+              "doc": "The same store, queried for the oldest, returns the row whose `_u` sorts first.",
+              "location": {
+                "line": 155,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'getOldest tracks the smallest _u',\n  'The same store, queried for the oldest, returns the row whose `_u` sorts first.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('a', 'A', 'uid-002')));\n    await Effect.runPromise(users.put(user('b', 'B', 'uid-001')));\n    await Effect.runPromise(users.put(user('c', 'C', 'uid-003')));\n\n    const oldest = await Effect.runPromise(users.getOldest());\n    expect(Option.isSome(oldest)).toBe(true);\n    if (Option.isSome(oldest)) {\n      expect(oldest.value.value.id).toBe('b');\n      expect(oldest.value.meta._u).toBe('uid-001');\n    }\n  },\n);",
+              "snippetStartLine": 155
+            },
+            {
+              "kind": "test",
+              "name": "empty store → getLatest / getOldest return Option.none()",
+              "status": "pass",
+              "duration": 0.1572919999998703,
+              "doc": "Both endpoints degrade to `None` rather than throwing on an empty store.",
+              "location": {
+                "line": 175,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'empty store → getLatest / getOldest return Option.none()',\n  'Both endpoints degrade to `None` rather than throwing on an empty store.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    expect(Option.isNone(await Effect.runPromise(users.getLatest()))).toBe(\n      true,\n    );\n    expect(Option.isNone(await Effect.runPromise(users.getOldest()))).toBe(\n      true,\n    );\n  },\n);",
+              "snippetStartLine": 175
+            },
+            {
+              "kind": "test",
+              "name": "put replaces the prior _u entry for the same id",
+              "status": "pass",
+              "duration": 0.31970799999999144,
+              "doc": "Updating a row removes its previous `_u` from the index before inserting the new one.",
+              "location": {
+                "line": 191,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'put replaces the prior _u entry for the same id',\n  'Updating a row removes its previous `_u` from the index before inserting the new one.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('a', 'A', 'uid-003')));\n    await Effect.runPromise(users.put(user('b', 'B', 'uid-002')));\n    await Effect.runPromise(users.put(user('a', 'A2', 'uid-001')));\n\n    const latest = await Effect.runPromise(users.getLatest());\n    expect(Option.isSome(latest)).toBe(true);\n    if (Option.isSome(latest)) {\n      expect(latest.value.value.id).toBe('b');\n      expect(latest.value.meta._u).toBe('uid-002');\n    }\n  },\n);",
+              "snippetStartLine": 191
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "MemoryCacheEntity deletion",
+          "children": [
+            {
+              "kind": "test",
+              "name": "delete of a known id removes the row",
+              "status": "pass",
+              "duration": 0.29245800000012423,
+              "doc": "The deleted id no longer appears in `get` or `getAll`.",
+              "location": {
+                "line": 217,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'delete of a known id removes the row',\n  'The deleted id no longer appears in `get` or `getAll`.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'A', 'uid-1')));\n    await Effect.runPromise(users.put(user('u2', 'B', 'uid-2')));\n    await Effect.runPromise(users.delete('u1'));\n\n    const got = await Effect.runPromise(users.get('u1'));\n    expect(Option.isNone(got)).toBe(true);\n    const all = await Effect.runPromise(users.getAll());\n    expect(all).toHaveLength(1);\n  },\n);",
+              "snippetStartLine": 217
+            },
+            {
+              "kind": "test",
+              "name": "delete of an unknown id is a no-op",
+              "status": "pass",
+              "duration": 0.13316699999995762,
+              "doc": "The call succeeds and the store is unchanged.",
+              "location": {
+                "line": 235,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'delete of an unknown id is a no-op',\n  'The call succeeds and the store is unchanged.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'A', 'uid-1')));\n    await Effect.runPromise(users.delete('missing'));\n\n    const all = await Effect.runPromise(users.getAll());\n    expect(all).toHaveLength(1);\n  },\n);",
+              "snippetStartLine": 235
+            },
+            {
+              "kind": "test",
+              "name": "deleteAll empties the store and the _u index",
+              "status": "pass",
+              "duration": 0.1695839999999862,
+              "doc": "A subsequent `getLatest` returns `None`; `getAll` is empty.",
+              "location": {
+                "line": 250,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'deleteAll empties the store and the _u index',\n  'A subsequent `getLatest` returns `None`; `getAll` is empty.',\n  async () => {\n    const users = await Effect.runPromise(\n      MemoryCacheEntity.make<User>({ name: 'User', idField: 'id' }),\n    );\n    await Effect.runPromise(users.put(user('u1', 'A', 'uid-1')));\n    await Effect.runPromise(users.put(user('u2', 'B', 'uid-2')));\n    await Effect.runPromise(users.deleteAll());\n\n    const all = await Effect.runPromise(users.getAll());\n    expect(all).toHaveLength(0);\n    expect(Option.isNone(await Effect.runPromise(users.getLatest()))).toBe(\n      true,\n    );\n  },\n);",
+              "snippetStartLine": 250
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "MemoryCacheSingleItem holds at most one value",
+          "children": [
+            {
+              "kind": "test",
+              "name": "get on a fresh slot returns Option.none()",
+              "status": "pass",
+              "duration": 0.06504099999983737,
+              "doc": "An unwritten slot reads as empty rather than throwing.",
+              "location": {
+                "line": 275,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'get on a fresh slot returns Option.none()',\n  'An unwritten slot reads as empty rather than throwing.',\n  async () => {\n    const slot = await Effect.runPromise(\n      MemoryCacheSingleItem.make<Settings>({ name: 'Settings' }),\n    );\n    const got = await Effect.runPromise(slot.get());\n    expect(Option.isNone(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 275
+            },
+            {
+              "kind": "test",
+              "name": "put then get round-trips the value and meta",
+              "status": "pass",
+              "duration": 0.11216699999999946,
+              "doc": "Both fields are preserved; subsequent reads see the same payload.",
+              "location": {
+                "line": 287,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'put then get round-trips the value and meta',\n  'Both fields are preserved; subsequent reads see the same payload.',\n  async () => {\n    const slot = await Effect.runPromise(\n      MemoryCacheSingleItem.make<Settings>({ name: 'Settings' }),\n    );\n    await Effect.runPromise(slot.put(settings('dark', 'uid-1')));\n    const got = await Effect.runPromise(slot.get());\n    expect(Option.isSome(got)).toBe(true);\n    if (Option.isSome(got)) {\n      expect(got.value.value).toEqual({ theme: 'dark' });\n      expect(got.value.meta._u).toBe('uid-1');\n    }\n  },\n);",
+              "snippetStartLine": 287
+            },
+            {
+              "kind": "test",
+              "name": "second put overwrites the slot",
+              "status": "pass",
+              "duration": 0.09491699999989578,
+              "doc": "There is no append semantics — the latest write wins.",
+              "location": {
+                "line": 304,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'second put overwrites the slot',\n  'There is no append semantics — the latest write wins.',\n  async () => {\n    const slot = await Effect.runPromise(\n      MemoryCacheSingleItem.make<Settings>({ name: 'Settings' }),\n    );\n    await Effect.runPromise(slot.put(settings('dark', 'uid-1')));\n    await Effect.runPromise(slot.put(settings('light', 'uid-2')));\n    const got = await Effect.runPromise(slot.get());\n    if (Option.isSome(got)) {\n      expect(got.value.value.theme).toBe('light');\n      expect(got.value.meta._u).toBe('uid-2');\n    }\n  },\n);",
+              "snippetStartLine": 304
+            },
+            {
+              "kind": "test",
+              "name": "delete empties the slot",
+              "status": "pass",
+              "duration": 0.08716699999990851,
+              "doc": "After `delete`, a subsequent `get` returns `Option.none()`.",
+              "location": {
+                "line": 321,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'delete empties the slot',\n  'After `delete`, a subsequent `get` returns `Option.none()`.',\n  async () => {\n    const slot = await Effect.runPromise(\n      MemoryCacheSingleItem.make<Settings>({ name: 'Settings' }),\n    );\n    await Effect.runPromise(slot.put(settings('dark', 'uid-1')));\n    await Effect.runPromise(slot.delete());\n    const got = await Effect.runPromise(slot.get());\n    expect(Option.isNone(got)).toBe(true);\n  },\n);",
+              "snippetStartLine": 321
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/partition/index.test.ts",
+      "doc": "---\ntitle: partition\norder: 2\n---\n\n# partition\n\nA **partition key** is a small record of `string → string` pairs that\nscopes a set of cached entities (e.g. `{ tenant: 'acme', region: 'eu' }`).\n`serializePartition` turns that record into a canonical, order-stable\nstring suitable for use as part of an IndexedDB key, a hash bucket, or a\nlog label.\n\nThe function is pure: same input → same output, no allocation hidden\nbehind a global. It is the only key helper exported from the package\nroot.\n\n## Usage\n\n```ts\nimport { serializePartition, type PartitionKey } from '@std-toolkit/cache';\n\nconst key: PartitionKey = { tenant: 'acme', region: 'eu' };\nserializePartition(key); // 'region:eu#tenant:acme'\n```\n\n## API\n\n| Argument    | Type                        | Meaning                                             |\n| ----------- | --------------------------- | --------------------------------------------------- |\n| `partition` | `PartitionKey \\| undefined` | A `Record<string, string>`; absent or empty → `''`. |\n| **returns** | `string`                    | `'<k1>:<v1>#<k2>:<v2>#…'`, keys sorted ascendingly. |\n\n`PartitionKey` is just `Record<string, string>`; the alias exists so call\nsites read declaratively.\n\n## Examples\n\n### Empty / missing partition\n\n```ts\nserializePartition(); // ''\nserializePartition({}); // ''\nserializePartition(undefined); // ''\n```\n\n### Single pair\n\n```ts\nserializePartition({ tenant: 'acme' }); // 'tenant:acme'\n```\n\n### Order-stable across input order\n\n```ts\nconst a = serializePartition({ tenant: 'acme', region: 'eu' });\nconst b = serializePartition({ region: 'eu', tenant: 'acme' });\na === b; // true — keys are sorted before joining\n// both === 'region:eu#tenant:acme'\n```\n\n### Multi-key, sorted output\n\n```ts\nserializePartition({ z: '1', a: '2', m: '3' });\n// 'a:2#m:3#z:1'\n```\n\n## Edge cases\n\n- **Empty or missing partition → empty string.** Both `undefined` and\n  `{}` produce `''`; callers can concatenate the result with a fixed\n  prefix and the empty case degrades gracefully.\n- **Keys are sorted ASCII-ascending before joining.** Two partitions\n  with the same entries but different declaration order produce the\n  same string — required for the value to be usable as a stable key.\n- **Separator characters are not escaped.** Values containing `':'` or\n  `'#'` will round-trip ambiguously. The caller is expected to keep\n  partition values free of those characters; the function is intended\n  for short tags, not arbitrary blobs.\n- **Values are coerced via template-string interpolation.** Because\n  `PartitionKey` is typed as `Record<string, string>`, non-string values\n  are a type error at the call site; at runtime the function would\n  still produce a string, but that behavior is unspecified.\n- **The function is pure.** No globals, no allocation outside the\n  returned string, no I/O — safe in any Effect or sync context.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- Empty, `{}`, and `undefined` all map to `''`.\n- A single-pair input emits `'<k>:<v>'`.\n- Two inputs with the same entries in different orders produce the same\n  output.\n- Multi-key output is sorted ASCII-ascending by key.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "serializePartition handles the empty cases",
+          "children": [
+            {
+              "kind": "test",
+              "name": "undefined → empty string",
+              "status": "pass",
+              "duration": 2.934834000000137,
+              "doc": "No argument means no partition; the function returns `\"\"`.",
+              "location": {
+                "line": 10,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'undefined → empty string',\n  'No argument means no partition; the function returns `\"\"`.',\n  () => {\n    expect(serializePartition()).toBe('');\n  },\n);",
+              "snippetStartLine": 10
+            },
+            {
+              "kind": "test",
+              "name": "empty record → empty string",
+              "status": "pass",
+              "duration": 0.12241699999981392,
+              "doc": "An empty `{}` is treated the same as a missing partition.",
+              "location": {
+                "line": 18,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'empty record → empty string',\n  'An empty `{}` is treated the same as a missing partition.',\n  () => {\n    expect(serializePartition({})).toBe('');\n  },\n);",
+              "snippetStartLine": 18
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "serializePartition shapes the output",
+          "children": [
+            {
+              "kind": "test",
+              "name": "single pair → \"<k>:<v>\"",
+              "status": "pass",
+              "duration": 0.09933299999988776,
+              "doc": "No `#` is emitted when there is only one entry.",
+              "location": {
+                "line": 32,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'single pair → \"<k>:<v>\"',\n  'No `#` is emitted when there is only one entry.',\n  () => {\n    expect(serializePartition({ tenant: 'acme' })).toBe('tenant:acme');\n  },\n);",
+              "snippetStartLine": 32
+            },
+            {
+              "kind": "test",
+              "name": "multi-key output is sorted ASCII-ascending by key",
+              "status": "pass",
+              "duration": 0.0914580000001024,
+              "doc": "Output is `a:..#m:..#z:..` regardless of declaration order.",
+              "location": {
+                "line": 40,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'multi-key output is sorted ASCII-ascending by key',\n  'Output is `a:..#m:..#z:..` regardless of declaration order.',\n  () => {\n    expect(serializePartition({ z: '1', a: '2', m: '3' })).toBe(\n      'a:2#m:3#z:1',\n    );\n  },\n);",
+              "snippetStartLine": 40
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "serializePartition is order-stable",
+          "children": [
+            {
+              "kind": "test",
+              "name": "same entries in different orders → same output",
+              "status": "pass",
+              "duration": 0.09924999999998363,
+              "doc": "Sorting keys before joining is what makes the function suitable for keying.",
+              "location": {
+                "line": 56,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'same entries in different orders → same output',\n  'Sorting keys before joining is what makes the function suitable for keying.',\n  () => {\n    const a = serializePartition({ tenant: 'acme', region: 'eu' });\n    const b = serializePartition({ region: 'eu', tenant: 'acme' });\n    expect(a).toBe(b);\n    expect(a).toBe('region:eu#tenant:acme');\n  },\n);",
+              "snippetStartLine": 56
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "folders": [
+    {
+      "path": "vtest/errors",
+      "doc": "---\ntitle: errors\norder: 1\n---\n\n# errors\n\nEvery fallible operation on a `CacheStore`, `CacheEntity<T>` or\n`CacheSingleItem<T>` returns `Effect.Effect<A, CacheError>`. `CacheError`\nis a single tagged error class; the _kind_ of failure is carried inside\n`error._tag`, and the original cause (an IndexedDB `DOMException`, a\nthrown predicate, etc.) is preserved in `error.cause`.\n\nThis keeps the failure surface trivially matchable:\n`Effect.catchTag('CacheError', …)` is enough to recover from every\ncache-level failure, regardless of backend.\n\n## Usage\n\n```ts\nimport { Effect } from 'effect';\nimport { CacheError } from '@std-toolkit/cache';\n\nconst safe = users.get('u1').pipe(\n  Effect.catchTag('CacheError', (err) => {\n    console.error(err.error._tag, err.error.message, err.error.cause);\n    return Effect.succeed(Option.none());\n  }),\n);\n```\n\n## Shape\n\n```ts\nclass CacheError extends Data.TaggedError('CacheError')<{\n  error: CacheErrorType;\n}> {}\n\ntype CacheErrorType =\n  | { _tag: 'OpenFailed'; message: string; cause?: unknown }\n  | { _tag: 'GetFailed'; message: string; cause?: unknown }\n  | { _tag: 'PutFailed'; message: string; cause?: unknown }\n  | { _tag: 'DeleteFailed'; message: string; cause?: unknown }\n  | { _tag: 'ClearFailed'; message: string; cause?: unknown };\n```\n\n| Field           | Meaning                                                        |\n| --------------- | -------------------------------------------------------------- |\n| `_tag`          | Always `'CacheError'` (set by `Data.TaggedError`).             |\n| `error._tag`    | The failure kind — one of the five variants above.             |\n| `error.message` | Short human-readable summary supplied by the call site.        |\n| `error.cause`   | Underlying error (e.g. an IndexedDB `DOMException`), optional. |\n\n## Variant catalog\n\n| Variant        | Raised by                                                         |\n| -------------- | ----------------------------------------------------------------- |\n| `OpenFailed`   | `IDBCache#ensureReady`, `IDBCacheEntity.make` — DB couldn't open. |\n| `GetFailed`    | `get`, `getAll`, `getLatest`, `getOldest` — read threw.           |\n| `PutFailed`    | `put` — write threw (constraint violation, quota, etc.).          |\n| `DeleteFailed` | `delete`, `deleteAll` — delete threw.                             |\n| `ClearFailed`  | `IDBCache#destroy`, `destroyAllDatabases` — teardown threw.       |\n\nEach variant has a matching static factory on `CacheError`:\n`CacheError.openFailed`, `getFailed`, `putFailed`, `deleteFailed`,\n`clearFailed`.\n\n## Examples\n\n### Pattern-match on the outer tag\n\n```ts\nconst recovered = users\n  .get('u1')\n  .pipe(Effect.catchTag('CacheError', () => Effect.succeed(Option.none())));\n```\n\n### Branch on the inner variant\n\n```ts\nconst result = users\n  .put(item)\n  .pipe(\n    Effect.catchTag('CacheError', (err) =>\n      err.error._tag === 'PutFailed'\n        ? Effect.logWarning(`write rejected: ${err.error.message}`)\n        : Effect.fail(err),\n    ),\n  );\n```\n\n### Construct via static factory\n\n```ts\nconst err = CacheError.putFailed('quota exceeded', new DOMException('quota'));\nerr._tag; // 'CacheError'\nerr.error._tag; // 'PutFailed'\nerr.error.message; // 'quota exceeded'\nerr.error.cause; // DOMException\n```\n\n## Edge cases\n\n- **`CacheError` is the only error type from the public surface.** Every\n  `get` / `put` / `delete` failure is wrapped; no raw `DOMException` or\n  thrown predicate escapes unwrapped from either backend.\n- **`error._tag` is a closed vocabulary.** Callers can branch on it as a\n  literal string union without worrying about new variants appearing\n  silently.\n- **`cause` is `unknown`.** Production code should not depend on its\n  shape; treat it as informational. The IDB backend typically sets it to\n  the underlying `DOMException`, but the type does not promise that.\n- **Static factories preserve `cause`.** Calling\n  `CacheError.openFailed(msg, e)` sets both `message` and `cause`; the\n  second argument is optional.\n- **`Data.TaggedError` makes `_tag === 'CacheError'`.** This is how\n  `Effect.catchTag('CacheError', …)` matches; do not rely on\n  `instanceof` for cross-realm code.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `CacheError._tag` is `'CacheError'`.\n- Each static factory (`openFailed`, `getFailed`, `putFailed`,\n  `deleteFailed`, `clearFailed`) sets `error._tag` to the matching\n  variant string.\n- `cause` is preserved when supplied, and omitted (undefined) when not.\n- `Effect.catchTag('CacheError', …)` recovers from a real backend\n  failure (a `MemoryCacheEntity` `get` after an in-flight throw).\n"
+    },
+    {
+      "path": "vtest/idb",
+      "doc": "---\ntitle: idb\norder: 4\n---\n\n# idb\n\n`IDBCache` is the browser-side backend for `CacheStore`, built on\nIndexedDB via the [`idb`](https://github.com/jakearchibald/idb) wrapper.\nA single named database holds a shared object store, partitioned by\nentity name. The store keeps an `updatedKey` index so `getLatest()` /\n`getOldest()` can answer in O(log n) via an IndexedDB cursor instead of\nloading every row.\n\n`IDBCacheSingleItem` is the single-slot analogue; it reserves a fixed\n`__singleton__` id within the same store.\n\nTests run against [`fake-indexeddb`](https://github.com/dumbmatter/fakeIndexedDB),\nwhich the package already ships as a devDependency.\n\n## Usage\n\n```ts\nimport { Effect } from 'effect';\nimport { IDBCache } from '@std-toolkit/cache/idb';\n\nconst program = Effect.gen(function* () {\n  const cache = new IDBCache('app-cache', 1);\n  const users = yield* cache.entity<User>({ name: 'User', idField: 'id' });\n\n  yield* users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\n});\n```\n\n## API\n\n| Export                  | Kind  | Notes                                                                                  |\n| ----------------------- | ----- | -------------------------------------------------------------------------------------- |\n| `IDBCache`              | class | `new IDBCache(dbName, version)`. Opens lazily on the first `entity`/`singleItem` call. |\n| `IDBCacheEntity<T>`     | class | Created via `IDBCacheEntity.make({ dbName?, name, idField })`.                         |\n| `IDBCacheSingleItem<T>` | class | Created via `IDBCacheSingleItem.make({ dbName?, name })`.                              |\n\n`IDBCacheEntity.destroyAllDatabases()` is a static escape hatch that\nclears every IDB database known to the connection pool — intended for\ntests.\n\n## Examples\n\n### Round-trip a single entity through IDB\n\n```ts\nconst cache = new IDBCache('app-cache', 1);\nconst users = yield * cache.entity<User>({ name: 'User', idField: 'id' });\n\nyield *\n  users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\n\nconst got = yield * users.get('u1'); // Option.some(...)\n```\n\n### `getLatest()` / `getOldest()` via the `_u` index\n\n```ts\nyield* users.put({ value: { id: 'a' }, meta: { ..., _u: 'uid-002' } });\nyield* users.put({ value: { id: 'b' }, meta: { ..., _u: 'uid-001' } });\nyield* users.put({ value: { id: 'c' }, meta: { ..., _u: 'uid-003' } });\n\n(yield* users.getLatest()).value.value.id;  // 'c'\n(yield* users.getOldest()).value.value.id;  // 'b'\n```\n\n### Two entities under different names share the same DB\n\n```ts\nconst users = yield * cache.entity<User>({ name: 'User', idField: 'id' });\nconst posts = yield * cache.entity<Post>({ name: 'Post', idField: 'id' });\n\nyield * users.put(u1);\nyield * posts.put(p1);\n\n(yield * users.getAll()).length; // 1 — bounded to the User name range\n(yield * posts.getAll()).length; // 1 — bounded to the Post name range\n```\n\n### Single-item slot\n\n```ts\nconst slot =\n  yield *\n  IDBCacheSingleItem.make<Settings>({\n    dbName: 'app-cache',\n    name: 'Settings',\n  });\nyield *\n  slot.put({\n    value: { theme: 'dark' },\n    meta: { _e: 'Settings', _v: 'v1', _u: 'uid-1' },\n  });\n```\n\n## Edge cases\n\n- **The DB opens lazily.** `IDBCache#entity` / `#singleItem` call\n  `ConnectionPool.acquire` on first use; construction of `IDBCache`\n  itself does no I/O.\n- **Open failures surface as `CacheError` with `error._tag ===\n'OpenFailed'`.** Anything thrown by the underlying `idb` open call is\n  wrapped.\n- **Entities under different `name`s within the same DB are isolated.**\n  Each row is keyed by `[name, id]` and queries use a name-bounded\n  `IDBKeyRange`, so `getAll` for `name: 'User'` never returns `Post`\n  rows.\n- **`getLatest` / `getOldest` walk the `UPDATED_INDEX` cursor.** They\n  open a `prev` (resp. `next`) cursor bounded to the name range, so the\n  first hit is the answer — no full scan.\n- **A missing `_u` index entry yields `Option.none()`.** An empty\n  cursor on the bounded range returns `None`, matching the in-memory\n  backend.\n- **`IDBCacheSingleItem` reserves the id `__singleton__`.** A regular\n  entity named the same that puts an item with id `__singleton__` would\n  collide — keep entity and single-item names disjoint.\n- **`IDBCacheSingleItem#put` always writes `_d: false` into the stored\n  meta.** The single-item interface has no soft-delete concept; the\n  flag is normalised away on write.\n- **`destroyAllDatabases` is a global teardown.** It drops every\n  database held by the connection pool — only use it between tests, not\n  in production code.\n\n## Tests\n\nThe suites in `index.test.ts` lock down (against `fake-indexeddb`):\n\n- `IDBCache#entity` returns a working `IDBCacheEntity`.\n- `put` then `get` round-trips both `value` and `meta`.\n- `get` on a missing id returns `Option.none()`.\n- `getAll` returns every stored row exactly once for a given name.\n- Two entities under different `name`s in the same DB do not see each\n  other's rows.\n- `getLatest` / `getOldest` consult the `_u` index across the name\n  range.\n- `delete` of a known id removes the row; `deleteAll` clears the\n  name-bounded range.\n- `IDBCacheSingleItem` round-trips a single value; `delete` empties\n  the slot.\n"
+    },
+    {
+      "path": "vtest/memory",
+      "doc": "---\ntitle: memory\norder: 3\n---\n\n# memory\n\n`MemoryCache` is the in-process backend for `CacheStore`. It stores\n`EntityType<T>` values in a `Map<id, item>` and maintains a parallel\n`SortedMap<_u, id>` index so `getLatest()` / `getOldest()` are O(log n)\ninstead of O(n). `MemoryCacheSingleItem` is the trivial single-slot\nanalogue.\n\nThe backend has no dependencies beyond `effect`. It is the right choice\nfor tests, server-side ephemeral caching, or any context where data\nshould not survive a process restart.\n\n## Usage\n\n```ts\nimport { Effect } from 'effect';\nimport { MemoryCache } from '@std-toolkit/cache/memory';\n\nconst program = Effect.gen(function* () {\n  const cache = new MemoryCache();\n  const users = yield* cache.entity<User>({ name: 'User', idField: 'id' });\n\n  yield* users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\n});\n```\n\n## API\n\n| Export                     | Kind  | Notes                                                        |\n| -------------------------- | ----- | ------------------------------------------------------------ |\n| `MemoryCache`              | class | Implements `CacheStore`. Construct with `new MemoryCache()`. |\n| `MemoryCacheEntity<T>`     | class | Created via `MemoryCacheEntity.make({ name, idField })`.     |\n| `MemoryCacheSingleItem<T>` | class | Created via `MemoryCacheSingleItem.make({ name })`.          |\n\n`MemoryCache#entity` and `#singleItem` return\n`Effect.Effect<…, never>` — construction cannot fail for this backend.\nAll instance methods (`put`, `get`, `getAll`, `getLatest`, `getOldest`,\n`delete`, `deleteAll`) return `Effect.Effect<…, CacheError>` because\ntheir bodies are wrapped in `Effect.try` for symmetry with the IDB\nbackend.\n\n## Examples\n\n### Round-trip a single entity\n\n```ts\nconst users =\n  yield *\n  MemoryCacheEntity.make<User>({\n    name: 'User',\n    idField: 'id',\n  });\nyield *\n  users.put({\n    value: { id: 'u1', name: 'Alice' },\n    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },\n  });\nconst got = yield * users.get('u1'); // Option.some({ value, meta })\n```\n\n### Missing key returns `Option.none()`\n\n```ts\nconst got = yield * users.get('missing'); // Option.none()\n```\n\n### `put` of an existing id overwrites\n\n```ts\nyield* users.put({ value: { id: 'u1', name: 'Alice' }, meta: { ... } });\nyield* users.put({ value: { id: 'u1', name: 'Alice II' }, meta: { ... } });\n(yield* users.getAll()).length; // 1\n```\n\n### `getLatest()` / `getOldest()` track by `_u`\n\n```ts\nyield* users.put({ value: { id: 'a' }, meta: { ..., _u: 'uid-002' } });\nyield* users.put({ value: { id: 'b' }, meta: { ..., _u: 'uid-001' } });\nyield* users.put({ value: { id: 'c' }, meta: { ..., _u: 'uid-003' } });\n\n(yield* users.getLatest()).value.value.id;  // 'c' (_u uid-003)\n(yield* users.getOldest()).value.value.id;  // 'b' (_u uid-001)\n```\n\n### Single-item slot\n\n```ts\nconst slot = yield * MemoryCacheSingleItem.make<Settings>({ name: 'Settings' });\nyield *\n  slot.put({\n    value: { theme: 'dark' },\n    meta: { _e: 'Settings', _v: 'v1', _u: 'uid-1' },\n  });\nconst got = yield * slot.get(); // Option.some({ value, meta })\nyield * slot.delete();\nconst gone = yield * slot.get(); // Option.none()\n```\n\n## Edge cases\n\n- **`MemoryCache#entity` / `#singleItem` cannot fail.** They are typed\n  as `Effect.Effect<…, never>` because the underlying constructor only\n  allocates JavaScript objects.\n- **The id is derived from `value[idField]` via `String(...)`.** Numeric\n  ids are coerced to strings; the cache only ever keys by string.\n- **`put` on an existing id replaces the row and rewrites the `_u`\n  index.** The old `_u` entry is removed before the new one is inserted,\n  so `getLatest()` / `getOldest()` reflect the new marker.\n- **`getLatest()` / `getOldest()` consult `_u` only.** No clock, no\n  insertion order, no schema version. Two items with identical `_u`\n  collapse to one entry in the sorted index — avoid generating\n  duplicates.\n- **`delete` of an unknown id is a no-op.** No error is raised, and the\n  `_u` index is left untouched.\n- **`deleteAll` resets both the store and the `_u` index.** A subsequent\n  `getLatest()` / `getOldest()` returns `Option.none()`.\n- **Empty store → `Option.none()` for `getLatest` / `getOldest`.**\n  Callers do not need to special-case the empty case before checking\n  the option.\n- **`MemoryCacheSingleItem` holds at most one value.** A second `put`\n  overwrites the slot; `delete` empties it. `get` on an empty slot\n  returns `Option.none()`.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `MemoryCache#entity` returns a working `MemoryCacheEntity`.\n- `put` then `get` round-trips both `value` and `meta`.\n- `get` on a missing id returns `Option.none()`.\n- `getAll` returns every stored row exactly once.\n- `put` on an existing id replaces the row (length stays at 1).\n- `getLatest` / `getOldest` track by `_u`, including after updates.\n- `delete` of an unknown id is a no-op.\n- `deleteAll` empties the store and the `_u` index.\n- `MemoryCacheSingleItem` round-trips a single value and `delete`\n  empties it.\n"
+    },
+    {
+      "path": "vtest/partition",
+      "doc": "---\ntitle: partition\norder: 2\n---\n\n# partition\n\nA **partition key** is a small record of `string → string` pairs that\nscopes a set of cached entities (e.g. `{ tenant: 'acme', region: 'eu' }`).\n`serializePartition` turns that record into a canonical, order-stable\nstring suitable for use as part of an IndexedDB key, a hash bucket, or a\nlog label.\n\nThe function is pure: same input → same output, no allocation hidden\nbehind a global. It is the only key helper exported from the package\nroot.\n\n## Usage\n\n```ts\nimport { serializePartition, type PartitionKey } from '@std-toolkit/cache';\n\nconst key: PartitionKey = { tenant: 'acme', region: 'eu' };\nserializePartition(key); // 'region:eu#tenant:acme'\n```\n\n## API\n\n| Argument    | Type                        | Meaning                                             |\n| ----------- | --------------------------- | --------------------------------------------------- |\n| `partition` | `PartitionKey \\| undefined` | A `Record<string, string>`; absent or empty → `''`. |\n| **returns** | `string`                    | `'<k1>:<v1>#<k2>:<v2>#…'`, keys sorted ascendingly. |\n\n`PartitionKey` is just `Record<string, string>`; the alias exists so call\nsites read declaratively.\n\n## Examples\n\n### Empty / missing partition\n\n```ts\nserializePartition(); // ''\nserializePartition({}); // ''\nserializePartition(undefined); // ''\n```\n\n### Single pair\n\n```ts\nserializePartition({ tenant: 'acme' }); // 'tenant:acme'\n```\n\n### Order-stable across input order\n\n```ts\nconst a = serializePartition({ tenant: 'acme', region: 'eu' });\nconst b = serializePartition({ region: 'eu', tenant: 'acme' });\na === b; // true — keys are sorted before joining\n// both === 'region:eu#tenant:acme'\n```\n\n### Multi-key, sorted output\n\n```ts\nserializePartition({ z: '1', a: '2', m: '3' });\n// 'a:2#m:3#z:1'\n```\n\n## Edge cases\n\n- **Empty or missing partition → empty string.** Both `undefined` and\n  `{}` produce `''`; callers can concatenate the result with a fixed\n  prefix and the empty case degrades gracefully.\n- **Keys are sorted ASCII-ascending before joining.** Two partitions\n  with the same entries but different declaration order produce the\n  same string — required for the value to be usable as a stable key.\n- **Separator characters are not escaped.** Values containing `':'` or\n  `'#'` will round-trip ambiguously. The caller is expected to keep\n  partition values free of those characters; the function is intended\n  for short tags, not arbitrary blobs.\n- **Values are coerced via template-string interpolation.** Because\n  `PartitionKey` is typed as `Record<string, string>`, non-string values\n  are a type error at the call site; at runtime the function would\n  still produce a string, but that behavior is unspecified.\n- **The function is pure.** No globals, no allocation outside the\n  returned string, no I/O — safe in any Effect or sync context.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- Empty, `{}`, and `undefined` all map to `''`.\n- A single-pair input emits `'<k>:<v>'`.\n- Two inputs with the same entries in different orders produce the same\n  output.\n- Multi-key output is sorted ASCII-ascending by key.\n"
+    }
+  ],
+  "summary": {
+    "total": 45,
+    "passed": 45,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 2000,
+    "startedAt": "2026-05-16T17:49:47.727Z",
+    "finishedAt": "2026-05-16T17:49:49.727Z"
+  }
+}

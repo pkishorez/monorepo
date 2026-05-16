@@ -16,12 +16,15 @@
     "./memory": {
       "types": "./dist/memory/index.d.ts",
       "default": "./dist/memory/index.js"
-    }
+    },
+    "./vtest-report": "./vtest/report.json"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "fmt": "vp fmt",
+    "test:docs": "vitest run --config vitest.docs.config.ts",
+    "test:docs:watch": "vitest run --config vitest.docs.config.ts --watch",
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",
     "test": "vp test",
@@ -32,6 +35,7 @@
     "idb": "8.0.3"
   },
   "devDependencies": {
+    "@monorepo/vtest": "workspace:*",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.8.0",
     "effect": "3.21.2",

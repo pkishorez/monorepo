@@ -10,8 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DevIndexRouteImport } from './routes/dev/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as DocsPkgRouteImport } from './routes/docs/$pkg'
 import { Route as DevUiRouteImport } from './routes/dev/ui'
 import { Route as DevFormsRouteImport } from './routes/dev/forms'
 import { Route as BlogSlugRouteImport } from './routes/blog/_slug'
@@ -26,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/docs/',
+  path: '/docs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DevIndexRoute = DevIndexRouteImport.update({
   id: '/dev/',
   path: '/dev/',
@@ -34,6 +41,11 @@ const DevIndexRoute = DevIndexRouteImport.update({
 const BlogIndexRoute = BlogIndexRouteImport.update({
   id: '/blog/',
   path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsPkgRoute = DocsPkgRouteImport.update({
+  id: '/docs/$pkg',
+  path: '/docs/$pkg',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevUiRoute = DevUiRouteImport.update({
@@ -82,8 +94,10 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogSlugRouteWithChildren
   '/dev/forms': typeof DevFormsRoute
   '/dev/ui': typeof DevUiRoute
+  '/docs/$pkg': typeof DocsPkgRoute
   '/blog/': typeof BlogIndexRoute
   '/dev/': typeof DevIndexRoute
+  '/docs/': typeof DocsIndexRoute
   '/blog/effect-all/': typeof BlogSlugEffectAllIndexRoute
   '/blog/fiber-part-1/': typeof BlogSlugFiberPart1IndexRoute
   '/blog/fiber-part-2/': typeof BlogSlugFiberPart2IndexRoute
@@ -95,7 +109,9 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogIndexRoute
   '/dev/forms': typeof DevFormsRoute
   '/dev/ui': typeof DevUiRoute
+  '/docs/$pkg': typeof DocsPkgRoute
   '/dev': typeof DevIndexRoute
+  '/docs': typeof DocsIndexRoute
   '/blog/effect-all': typeof BlogSlugEffectAllIndexRoute
   '/blog/fiber-part-1': typeof BlogSlugFiberPart1IndexRoute
   '/blog/fiber-part-2': typeof BlogSlugFiberPart2IndexRoute
@@ -108,8 +124,10 @@ export interface FileRoutesById {
   '/blog/_slug': typeof BlogSlugRouteWithChildren
   '/dev/forms': typeof DevFormsRoute
   '/dev/ui': typeof DevUiRoute
+  '/docs/$pkg': typeof DocsPkgRoute
   '/blog/': typeof BlogIndexRoute
   '/dev/': typeof DevIndexRoute
+  '/docs/': typeof DocsIndexRoute
   '/blog/_slug/effect-all/': typeof BlogSlugEffectAllIndexRoute
   '/blog/_slug/fiber-part-1/': typeof BlogSlugFiberPart1IndexRoute
   '/blog/_slug/fiber-part-2/': typeof BlogSlugFiberPart2IndexRoute
@@ -123,8 +141,10 @@ export interface FileRouteTypes {
     | '/blog'
     | '/dev/forms'
     | '/dev/ui'
+    | '/docs/$pkg'
     | '/blog/'
     | '/dev/'
+    | '/docs/'
     | '/blog/effect-all/'
     | '/blog/fiber-part-1/'
     | '/blog/fiber-part-2/'
@@ -136,7 +156,9 @@ export interface FileRouteTypes {
     | '/blog'
     | '/dev/forms'
     | '/dev/ui'
+    | '/docs/$pkg'
     | '/dev'
+    | '/docs'
     | '/blog/effect-all'
     | '/blog/fiber-part-1'
     | '/blog/fiber-part-2'
@@ -148,8 +170,10 @@ export interface FileRouteTypes {
     | '/blog/_slug'
     | '/dev/forms'
     | '/dev/ui'
+    | '/docs/$pkg'
     | '/blog/'
     | '/dev/'
+    | '/docs/'
     | '/blog/_slug/effect-all/'
     | '/blog/_slug/fiber-part-1/'
     | '/blog/_slug/fiber-part-2/'
@@ -162,8 +186,10 @@ export interface RootRouteChildren {
   BlogSlugRoute: typeof BlogSlugRouteWithChildren
   DevFormsRoute: typeof DevFormsRoute
   DevUiRoute: typeof DevUiRoute
+  DocsPkgRoute: typeof DocsPkgRoute
   BlogIndexRoute: typeof BlogIndexRoute
   DevIndexRoute: typeof DevIndexRoute
+  DocsIndexRoute: typeof DocsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -173,6 +199,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/': {
+      id: '/docs/'
+      path: '/docs'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dev/': {
@@ -187,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/blog'
       fullPath: '/blog/'
       preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/$pkg': {
+      id: '/docs/$pkg'
+      path: '/docs/$pkg'
+      fullPath: '/docs/$pkg'
+      preLoaderRoute: typeof DocsPkgRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dev/ui': {
@@ -273,8 +313,10 @@ const rootRouteChildren: RootRouteChildren = {
   BlogSlugRoute: BlogSlugRouteWithChildren,
   DevFormsRoute: DevFormsRoute,
   DevUiRoute: DevUiRoute,
+  DocsPkgRoute: DocsPkgRoute,
   BlogIndexRoute: BlogIndexRoute,
   DevIndexRoute: DevIndexRoute,
+  DocsIndexRoute: DocsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

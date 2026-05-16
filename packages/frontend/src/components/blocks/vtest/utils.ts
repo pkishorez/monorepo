@@ -11,6 +11,7 @@ export const formatDuration = (ms: number | undefined): string => {
 
 export type ParsedDoc = {
   title?: string;
+  order?: number;
   body: string;
 };
 
@@ -19,7 +20,12 @@ export const parseDoc = (raw: string | undefined): ParsedDoc => {
   try {
     const { data, content } = matter(raw);
     const title = typeof data.title === 'string' ? data.title : undefined;
-    return { ...(title !== undefined && { title }), body: content };
+    const order = typeof data.order === 'number' ? data.order : undefined;
+    return {
+      ...(title !== undefined && { title }),
+      ...(order !== undefined && { order }),
+      body: content,
+    };
   } catch {
     return { body: raw };
   }
@@ -32,6 +38,9 @@ export const deriveTitle = (file: FileNode): string => {
   if (h1?.[1]) return h1[1].trim();
   return file.name;
 };
+
+export const deriveOrder = (raw: string | undefined): number | undefined =>
+  parseDoc(raw).order;
 
 // PageHeader already shows the file title — strip a leading `# title` from
 // the doc body so it isn't rendered twice.

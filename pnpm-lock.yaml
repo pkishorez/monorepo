@@ -44,6 +44,9 @@ importers:
       '@monorepo/trace-viewer':
         specifier: workspace:*
         version: link:../../packages/trace-viewer
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@rollup/browser':
         specifier: 4.60.4
         version: 4.60.4
@@ -62,9 +65,15 @@ importers:
       '@std-toolkit/core':
         specifier: workspace:*
         version: link:../../std-toolkit/core
+      '@std-toolkit/db-dynamodb':
+        specifier: workspace:*
+        version: link:../../std-toolkit/db-dynamodb
       '@std-toolkit/eschema':
         specifier: workspace:*
         version: link:../../std-toolkit/eschema
+      '@std-toolkit/sqlite':
+        specifier: workspace:*
+        version: link:../../std-toolkit/db-sqlite
       '@tanstack/ai':
         specifier: 0.17.0
         version: 0.17.0(@opentelemetry/api@1.9.1)
@@ -470,6 +479,9 @@ importers:
         specifier: 8.0.3
         version: 8.0.3
     devDependencies:
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
@@ -578,6 +590,9 @@ importers:
       '@effect/rpc':
         specifier: 0.75.1
         version: 0.75.1(@effect/platform@0.96.1(effect@3.21.2))(effect@3.21.2)
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
@@ -609,6 +624,9 @@ importers:
         specifier: 1.1.0
         version: 1.1.0
     devDependencies:
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
