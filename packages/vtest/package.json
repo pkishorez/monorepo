@@ -1,0 +1,22 @@
+{
+  "name": "@monorepo/vtest",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./reporter": "./src/reporter.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "lint": "vp check && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "25.8.0",
+    "typescript": "6.0.3",
+    "vitest": "3.2.4"
+  },
+  "peerDependencies": {
+    "vitest": ">=3.0.0"
+  }
+}

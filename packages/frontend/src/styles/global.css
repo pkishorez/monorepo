@@ -1,0 +1,9 @@
+/* This file is meant to be imported as is in frontend projects!. */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
+
+@import './typography.css';
+@import './theme.css';

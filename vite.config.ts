@@ -8,6 +8,8 @@ export default defineConfig({
       '**/std-toolkit/db-dynamodb/src/generated/**',
       'whatever-code/src/codex/generated/**',
       '**/__tests__/fixtures/**',
+      'packages/frontend/src/components/ui/**',
+      'packages/frontend/vtest/**',
     ],
   },
   fmt: {
@@ -21,10 +23,13 @@ export default defineConfig({
       '**/std-toolkit/db-dynamodb/src/generated/**',
       'whatever-code/src/codex/generated/**',
       '**/__tests__/fixtures/**',
+      'packages/frontend/src/components/ui/**',
+      'packages/frontend/vtest/**',
     ],
   },
   staged: {
     '*.{ts,tsx}': 'vp check --fix',
     '*.{json,md,css}': 'vp fmt --write',
+    'packages/frontend/{src,vtest}/**': 'pnpm --filter @monorepo/frontend docs',
   },
 });
