@@ -1,0 +1,41 @@
+{
+  "name": "@monorepo/trace-viewer",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@floating-ui/react": "0.27.19",
+    "@monorepo/frontend": "workspace:*",
+    "@standard-schema/spec": "1.1.0",
+    "use-effect-ts": "workspace:*",
+    "zustand": "5.0.13"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.5",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "effect": "3.21.2",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "tailwindcss": "4.3.0",
+    "typescript": "6.0.3"
+  },
+  "peerDependencies": {
+    "effect": ">=3.19.14",
+    "react": ">=19.2.3",
+    "react-dom": ">=19.2.3",
+    "use-effect-ts": "*"
+  }
+}
