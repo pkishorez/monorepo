@@ -43,6 +43,7 @@ const makeHarness = (
       get: (key: string) => rows.get(key),
       has: (key: string) => rows.has(key),
       getKeyFromItem: getKey,
+      on: () => () => {},
     },
     begin: () => {},
     write: (message: {
