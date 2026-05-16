@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm tsc:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(pnpm wrangler types:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm exec *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm remove *)",
+      "Read(//Users/kishorepolamarasetty/CAREER/MINE/private-monorepo/**)",
+      "Bash(cat packages/frontend/src/form/fields/text-field.tsx packages/frontend/src/form/fields/textarea-field.tsx packages/frontend/src/form/fields/select-field.tsx packages/frontend/src/form/fields/switch-field.tsx packages/frontend/src/form/fields/date-picker-field.tsx)"
+    ],
+    "additionalDirectories": [
+      "/Users/kishorepolamarasetty/CAREER/MINE/monorepo/std-toolkit",
+      "/Users/kishorepolamarasetty/CAREER/MINE/private-monorepo/apps/voucherify/",
+      "/Users/kishorepolamarasetty/CAREER/MINE/private-monorepo/packages/frontend/",
+      "/Users/kishorepolamarasetty/CAREER/MINE/private-monorepo/packages/auth"
+    ]
+  }
+}

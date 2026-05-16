@@ -1,0 +1,86 @@
+---
+title: Fiber (Part 3) - Interruption & Lifecycle
+summary: 'Interruption and Lifecycle hooks of fibers'
+---
+
+Part 2 (Forking & Joining Fibers) is <Link to="/blog/fiber-part-2">here</Link>
+
+<Hr />
+
+## Interruption
+
+Effect fibers can be interrupted. And this is a huge advantage when building resilient applications.
+The ability to interrupt fibers on whim ensures that we can avoid wasting resources, and prevent stale computations from continuing unnecessarily.
+
+<CodeBlock
+  id="interruption"
+  config={{ layoutType: 'layered', secondInPxs: 400 }}
+/>
+
+Above:
+
+- We forked a fiber that runs 3 tasks sequentially. Each one takes 300 millis of time to completion.
+- We then wait for **300 + 150 millis**
+  - which means the first task would have completed, and the second one would be in progress.
+- When we interrupt the fiber, the **second task is immediately interrupted**, and the whole fiber comes to a halt.
+
+### Uninterruptible blocks
+
+By default, all fibers are interruptible. But we can also create uninterruptible block within a fiber.
+Such that, any code running within that block cannot be interrupted.
+
+To make a block of code uninterruptible, we can use `Effect.uninterruptible` combinator.
+
+<CodeBlock
+  id="uninterruptible"
+  config={{ layoutType: 'layered', secondInPxs: 400 }}
+/>
+
+This example is exactly similar to the previous one, except the whole forked fiber is wrapped within `Effect.uninterruptible`.
+Because of this, the fiber cannot be interrupted. And it completes all 3 tasks successfully.
+
+What if we only mark the individual tasks as uninterruptible?
+
+<CodeBlock
+  id="task-uninterruptible"
+  config={{ layoutType: 'layered', secondInPxs: 400 }}
+/>
+
+Even though the fiber is trying to interrupted mid 2nd task, it completes. And then the fiber is interrupted.
+
+<Note>
+  Where you mark a block uninterruptible is important. If you want to make only
+  a part of the fiber uninterruptible, you need to wrap just that part with
+  `Effect.uninterruptible`.
+</Note>
+
+Uninterruptible blocks are especially important when we have critical sections of code where multiple steps should be executed atomically without interruption.
+
+We will look at a use case of it in resource management in the next part of this series.
+
+## Lifecycle Hooks
+
+Effect provides lifecycle hooks to run specific effects based on how a fiber completes its execution.
+
+Some of the important lifecycle hooks are:
+
+1. Effect.tap<br />
+   To run an effect when the fiber completes execution successfully.
+2. Effect.onError<br/>
+   To run an effect when the fiber fails with an error.
+3. Effect.onInterrupt<br/>
+   To run an effect when the fiber is interrupted.
+4. Effect.ensuring<br/>
+   To run an effect regardless of how fiber completed its execution! This is similar to `finally` block in try-catch-finally construct.
+5. Effect.onExit<br/>
+   Similar to `Effect.ensuring`, but provides the exit cause (success, failure, interruption) as input to the effect. This single handler can be used to handle all cases by pattern matching on the exit cause.
+
+<CodeBlock
+  id="lifecycle"
+  config={{ layoutType: 'layered', secondInPxs: 420 }}
+/>
+
+Some important points to note about these lifecycle hooks:
+
+- Interruption itself is a failure. So, if a fiber is interrupted, both `Effect.onInterrupt` and `Effect.onError` handlers will be executed.
+- `Effect.ensuring` and `Effect.onExit` gets executed always regardless of how the fiber completes.

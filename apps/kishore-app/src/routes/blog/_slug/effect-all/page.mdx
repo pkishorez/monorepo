@@ -1,0 +1,68 @@
+---
+title: 'Effect.all'
+summary: 'Effect.all is a powerful combinator that allows you to run multiple effects concurrently with various concurrency and error handling strategies.'
+---
+
+As simple as it might seem, `Effect.all()` is very ergonomic for expressing simple concurrency patterns we use day
+to day.
+
+To keep our code concise, let's define a helper function called `runTask()` that defines an Effect that sleeps for a given time, and is wrapped in a span for observability.
+
+```ts
+import { Duration, Effect } from 'effect';
+
+export const runTask = (name: string, duration: Duration.DurationInput = 300) =>
+  Effect.sleep(duration).pipe(Effect.withSpan(name));
+
+export default { runTask };
+```
+
+## Concurrency strategies
+
+### Default behaviour - Sequential
+
+Effect.all by default runs effects in sequence. It's similar to running effects one after another.
+
+<CodeBlock id="sequential" />
+
+In this case, executing using Effect.all, or running effects one after another is just the same.
+
+### Unbounded concurrency
+
+<CodeBlock id="concurrent-unbounded" />
+
+Unbounded concurrency means that all effects run in parallel at the same time. This is similar to Promise.all in JavaScript.
+
+But what if you want to only have at most n effects run at the same time?
+
+### n concurrency
+
+<CodeBlock id="concurrent-limited" />
+
+Here, we have configured Effect.all to run at most 4 effects at the same time.
+If you run the trace viewer, you can see the number of concurrent effects never exceeds 4!
+
+## Exit behaviour
+
+By default, Effect.all will fail fast. This means that if any of the effects fail, the whole Effect.all will fail immediately.
+
+### Fail fast (default)
+
+<CodeBlock id="fail-fast" />
+
+As you can see, the later effects are not executed once the first effect fails.
+
+Now, we can change this behavior to collect all errors instead of failing fast.
+
+### Collect errors
+
+To collect all errors, we can use the `either` mode of Effect.all or the `validate` mode.
+
+<CodeBlock id="collect-errors" config={{ enableSelect: true }} />
+
+With either mode, even though one or more effects fail, all effects are executed.
+The return value of Effect.all in this case is all successes/failures captured in an Either.
+
+And with validate, even if one or more effects fail, all effects are executed.
+But an important caveat here is that with Either we collect all the results in Either, while
+with validate we fail the whole Effect if any of the effects fail, even though all effects are executed.

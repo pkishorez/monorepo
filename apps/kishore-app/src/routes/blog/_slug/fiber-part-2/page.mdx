@@ -1,0 +1,100 @@
+---
+title: Fiber (Part 2) - Fork and Join
+summary: 'Forking and Joining fibers'
+---
+
+Part 1 (What is Fiber, and structured concurrency) is <Link to="/blog/fiber-part-1">here</Link>
+
+We talk about forking and joining fibers in this one.
+
+<Hr />
+
+While <Link to="/blog/effect-all">Effect.all</Link> is great for running a defined number of effects concurrently, for dynamically spawning
+
+<FootNote label="concurrent">**Testing...**</FootNote>
+executions, we can use fiber's concurrency primitives.
+
+For that we need to understand 2 concepts:
+
+1. Forking a Fiber
+2. Joining a Fiber
+
+### 1. Forking a Fiber
+
+What does it mean to fork a fiber?
+
+By forking a fiber, the running fiber creates another fiber that runs concurrently alongside the current one. Here is an example:
+
+<CodeBlock id="fork" config={{ enableTooltip: true }} />
+
+When we run fork, a new fiber gets created and returned immediately. Its literally a 0 second operation.
+
+> Fork is non-blocking, it returns immediately with a Fiber that represents the forked computation.
+
+So:
+
+- **fork-1** runs for **100 millis**
+- **fork-2** runs for **200 millis**
+- **fork-3** runs for **300 millis**
+- Parent effect runs for a total of **500 millis**.
+
+Because the parent runs for 500 millis which is greater than the max duration of all the fibers aka 300 millis, all the child fibers got a chance to finish their work.
+
+But what happens, if we don't make the parent sleep for **500 millis** at the end?
+
+<CodeBlock id="fork2" />
+
+None of the forked fibers even run!
+
+And what if we only wait for 250 millis?
+
+<CodeBlock id="fork3" config={{ enableTooltip: true }} />
+
+**fork-1** and **fork-2** complete, but **fork-3** gets interrupted at 250 millis.
+
+This is just structured concurrency at play. None of the child fibers can outlive the parent fiber.
+If they go beyond, they get interrupted.
+
+How can we ensure a forked fiber is completed before the parent fiber exit?
+
+That is where joining a fiber comes into play.
+
+### 2. Joining a Fiber
+
+Joining a fiber means, waiting for the fiber to complete and get its result.
+
+<CodeBlock id="join" />
+
+But what happens if the forked fiber fails?
+
+<CodeBlock id="join-error" />
+
+Well, the parent fiber fails as well!
+
+> Joining a fiber that fails causes the parent fiber to fail as well.
+
+With fork and join, the structured concurrency is still honored. When the parent fiber exits, all its child fibers are interrupted if they are still running.
+
+But what if we want a fiber to outlive its parent fiber? For that we have daemon fibers.
+
+## Daemon Fibers
+
+Similar to fork, we have a forkDaemon operation that creates a fiber that outlives its parent fiber.
+
+<CodeBlock id="fork-daemon" />
+
+A daemon fiber is not interrupted when its parent fiber exits.
+
+Except for the fact it outlives its parent, it behaves the same way as a normal fiber. It can be interrupted, joined just like other fibers.
+
+Deamon fibers are useful for background tasks that need to run independently of the parent fiber.
+
+But they should be used judiciously, as they can lead to resource leaks if not managed properly.
+
+import { FiberOverviewImage } from './components/image';
+
+<FiberOverviewImage />
+
+What other options do we have to break out of structured concurrency?
+
+Scope. Scope provides super fine grained control over the lifecycle of fibers. To really master concurrency in Effect.TS, understanding scope is essential.
