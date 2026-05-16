@@ -31,5 +31,7 @@ export default defineConfig({
     '*.{ts,tsx}': 'vp check --fix',
     '*.{json,md,css}': 'vp fmt --write',
     'packages/frontend/{src,vtest}/**': 'pnpm --filter @monorepo/frontend docs',
+    'std-toolkit/db-dynamodb/{src,vtest}/**':
+      'pnpm --filter @std-toolkit/db-dynamodb docs',
   },
 });

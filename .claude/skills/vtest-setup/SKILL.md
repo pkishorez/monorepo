@@ -1,6 +1,6 @@
 ---
 name: vtest-setup
-description: Wires a package in the private-monorepo to generate live documentation via @monorepo/vtest. Installs the dep, writes vitest.docs.config.ts, adds a `docs` script, exposes the generated report through package.json exports, scaffolds the vtest/ folder, and registers a vp staged rule so the report stays fresh on commit. Use when the user wants to set up vtest docs for a package, run /vtest-setup, or asks how to start generating vtest reports in a package that doesn't have them yet.
+description: Wires a package in the monorepo to generate live documentation via @monorepo/vtest. Installs the dep, writes vitest.docs.config.ts, adds a `docs` script, exposes the generated report through package.json exports, scaffolds the vtest/ folder, and registers a vp staged rule so the report stays fresh on commit. Use when the user wants to set up vtest docs for a package, run /vtest-setup, or asks how to start generating vtest reports in a package that doesn't have them yet.
 ---
 
 # vtest-setup
@@ -56,7 +56,7 @@ Do not write a `vtest/.gitignore` — `report.json` must be committed.
 
 ### 5. Register pre-commit regeneration
 
-Edit `/Users/kishorepolamarasetty/CAREER/MINE/private-monorepo/vite.config.ts`. Inside `staged: { ... }`, append (preserving existing entries):
+Edit `/Users/kishorepolamarasetty/CAREER/MINE/monorepo/vite.config.ts`. Inside `staged: { ... }`, append (preserving existing entries):
 
 ```ts
 '<rel-path>/{src,vtest}/**': 'pnpm --filter <pkg-name> docs',

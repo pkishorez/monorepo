@@ -544,6 +544,9 @@ importers:
       '@effect/rpc':
         specifier: 0.75.1
         version: 0.75.1(@effect/platform@0.96.1(effect@3.21.2))(effect@3.21.2)
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
