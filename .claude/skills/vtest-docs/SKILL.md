@@ -1,6 +1,6 @@
 ---
 name: vtest-docs
-description: Generates and updates vtest test+doc files for a package's public API in the private-monorepo. Auto-detects skeleton vs module mode, proposes a topic-grouped folder tree, and drafts per-module `*.test.ts` + `*.doc.md` files using the PAGE-ANATOMY conventions. Use when the user wants to author or extend vtest documentation, runs /vtest-docs, asks to generate docs for a module, or wants to add a home/folder prose pass.
+description: Generates and updates vtest test+doc files for a package's public API in the monorepo. Auto-detects skeleton vs module mode, proposes a topic-grouped folder tree, and drafts per-module `*.test.ts` + `*.doc.md` files using the PAGE-ANATOMY conventions. Use when the user wants to author or extend vtest documentation, runs /vtest-docs, asks to generate docs for a module, or wants to add a home/folder prose pass.
 ---
 
 # vtest-docs
