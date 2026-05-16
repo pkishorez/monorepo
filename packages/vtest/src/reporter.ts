@@ -418,4 +418,26 @@ export class VTestReporter {
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, `${JSON.stringify(report, null, 2)}\n`, 'utf-8');
   }
+
+  onTestRunEnd(testModules: ReadonlyArray<unknown> = []): void {
+    const files: VitestFile[] = (testModules as Array<Record<string, unknown>>)
+      .map((module) => {
+        const moduleId =
+          (module.moduleId as string | undefined) ??
+          (module.filepath as string | undefined);
+        const taskGetter = module.task as (() => unknown) | undefined;
+        const rootTask =
+          typeof taskGetter === 'function'
+            ? taskGetter.call(module)
+            : module.task;
+        if (!moduleId || !rootTask) return undefined;
+        return {
+          ...(rootTask as VitestSuite),
+          filepath: moduleId,
+        } as VitestFile;
+      })
+      .filter((f): f is VitestFile => Boolean(f));
+
+    this.onFinished(files, []);
+  }
 }

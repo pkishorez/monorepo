@@ -30,8 +30,15 @@ export default defineConfig({
   staged: {
     '*.{ts,tsx}': 'vp check --fix',
     '*.{json,md,css}': 'vp fmt --write',
-    'packages/frontend/{src,vtest}/**': 'pnpm --filter @monorepo/frontend docs',
+    'packages/frontend/{src,vtest}/**':
+      'pnpm --filter @monorepo/frontend test:docs',
     'std-toolkit/db-dynamodb/{src,vtest}/**':
-      'pnpm --filter @std-toolkit/db-dynamodb docs',
+      'pnpm --filter @std-toolkit/db-dynamodb test:docs',
+    'std-toolkit/eschema/{src,vtest}/**':
+      'pnpm --filter @std-toolkit/eschema test:docs',
+    'std-toolkit/cache/{src,vtest}/**':
+      'pnpm --filter @std-toolkit/cache test:docs',
+    'std-toolkit/db-sqlite/{src,vtest}/**':
+      'pnpm --filter @std-toolkit/sqlite test:docs',
   },
 });

@@ -1,7 +1,14 @@
 import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion';
-import { ChevronDownIcon, MenuIcon, MoonIcon, SunIcon } from 'lucide-react';
+import {
+  ChevronDownIcon,
+  FileTextIcon,
+  FolderIcon,
+  MenuIcon,
+  MoonIcon,
+  SunIcon,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 
 import type {
   FileNode,
@@ -18,20 +25,31 @@ import { cn } from '#lib/utils';
 
 import { Markdown } from './markdown';
 import { TestTree } from './test-tree';
-import { deriveTitle, formatDuration, stripLeadingH1 } from './utils';
+import {
+  deriveOrder,
+  deriveTitle,
+  formatDuration,
+  stripLeadingH1,
+} from './utils';
 
 type FileLeaf = {
   kind: 'leaf';
   index: number;
   file: FileNode;
   title: string;
+  order?: number;
 };
 type FolderNode = {
   kind: 'folder';
   name: string;
   path: string;
   doc?: string;
+  order?: number;
   children: TreeChild[];
+  // When a folder shares its `index.doc.md` with a sibling `index.test.ts`,
+  // we drop the duplicate leaf and attach it here so the folder page can
+  // still render the file's tests.
+  absorbed?: FileLeaf;
 };
 type TreeChild = FolderNode | FileLeaf;
 
@@ -63,15 +81,21 @@ const buildTree = (
     return folder;
   };
 
+  const makeLeaf = (file: FileNode, i: number): FileLeaf => {
+    const order = deriveOrder(file.doc);
+    return {
+      kind: 'leaf',
+      index: i,
+      file,
+      title: titles[i] ?? file.name,
+      ...(order !== undefined && { order }),
+    };
+  };
+
   files.forEach((file, i) => {
     const segments = file.filepath.split('/').filter(Boolean);
     if (segments.length === 0) {
-      root.push({
-        kind: 'leaf',
-        index: i,
-        file,
-        title: titles[i] ?? file.name,
-      });
+      root.push(makeLeaf(file, i));
       return;
     }
     segments.pop(); // drop filename
@@ -82,25 +106,9 @@ const buildTree = (
       cursor = folder.children;
       path = folder.path;
     }
-    cursor.push({
-      kind: 'leaf',
-      index: i,
-      file,
-      title: titles[i] ?? file.name,
-    });
+    cursor.push(makeLeaf(file, i));
   });
 
-  const sortChildren = (nodes: TreeChild[]): void => {
-    nodes.sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
-      const an = a.kind === 'folder' ? a.name : a.title;
-      const bn = b.kind === 'folder' ? b.name : b.title;
-      return an.localeCompare(bn);
-    });
-    for (const n of nodes) {
-      if (n.kind === 'folder') sortChildren(n.children);
-    }
-  };
   // Attach folder docs by path. If a doc references a path that has no
   // auto-created folder yet, create it so it's still navigable.
   for (const fd of folderDocs ?? []) {
@@ -117,18 +125,84 @@ const buildTree = (
     }
     if (folder) {
       folder.doc = fd.doc;
+      const order = deriveOrder(fd.doc);
+      if (order !== undefined) folder.order = order;
       if (fd.name) folder.name = fd.name;
     }
   }
 
-  sortChildren(root);
+  // Bottom-up simplify:
+  // - Absorb a sibling leaf whose doc IS the folder's `index.doc.md` (same
+  //   string), so we don't list the doc twice.
+  // - If a folder ends up with no nested children, render it as a leaf —
+  //   the folder *is* the entry.
+  // - If a folder has a single leaf child and no own content, promote that
+  //   leaf with the folder's name to skip a redundant level.
+  const simplify = (nodes: TreeChild[]): TreeChild[] =>
+    nodes.map((n) => {
+      if (n.kind !== 'folder') return n;
+      let children = simplify(n.children);
+      let absorbed = n.absorbed;
+      if (n.doc !== undefined && !absorbed) {
+        const i = children.findIndex(
+          (c) => c.kind === 'leaf' && c.file.doc === n.doc,
+        );
+        if (i >= 0) {
+          absorbed = children[i] as FileLeaf;
+          children = children.filter((_, j) => j !== i);
+        }
+      }
+      const orderOverride =
+        n.order !== undefined ? { order: n.order } : undefined;
+      if (children.length === 0 && absorbed) {
+        return { ...absorbed, title: n.name, ...orderOverride };
+      }
+      if (
+        children.length === 1 &&
+        children[0]!.kind === 'leaf' &&
+        !n.doc &&
+        !absorbed
+      ) {
+        return {
+          ...(children[0] as FileLeaf),
+          title: n.name,
+          ...orderOverride,
+        };
+      }
+      return { ...n, children, ...(absorbed && { absorbed }) };
+    });
 
-  // strip a single shared root folder so the tree doesn't waste a level —
-  // unless that folder has its own doc (then it's a real selectable page).
-  if (root.length === 1 && root[0]!.kind === 'folder' && !root[0]!.doc) {
-    return root[0]!.children;
+  const simplified = simplify(root);
+
+  // Sort by explicit `order` frontmatter first; entries with order come
+  // before unordered ones. Within the same group, folders come before
+  // files, then alphabetical for stable output.
+  const sortChildren = (nodes: TreeChild[]): void => {
+    nodes.sort((a, b) => {
+      const ao = a.order ?? Number.POSITIVE_INFINITY;
+      const bo = b.order ?? Number.POSITIVE_INFINITY;
+      if (ao !== bo) return ao - bo;
+      if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
+      const an = a.kind === 'folder' ? a.name : a.title;
+      const bn = b.kind === 'folder' ? b.name : b.title;
+      return an.localeCompare(bn);
+    });
+    for (const n of nodes) {
+      if (n.kind === 'folder') sortChildren(n.children);
+    }
+  };
+  sortChildren(simplified);
+
+  // Strip a single empty wrapper root so the tree doesn't waste a level.
+  if (
+    simplified.length === 1 &&
+    simplified[0]!.kind === 'folder' &&
+    !simplified[0]!.doc &&
+    !simplified[0]!.absorbed
+  ) {
+    return simplified[0]!.children;
   }
-  return root;
+  return simplified;
 };
 
 const findFolder = (
@@ -144,30 +218,23 @@ const findFolder = (
   return undefined;
 };
 
-const collectFolderPaths = (nodes: TreeChild[]): string[] => {
-  const out: string[] = [];
-  const walk = (n: TreeChild): void => {
-    if (n.kind === 'folder') {
-      out.push(n.path);
-      n.children.forEach(walk);
-    }
-  };
-  nodes.forEach(walk);
-  return out;
-};
-
 const folderStats = (node: FolderNode): { total: number; failed: number } => {
   let total = 0;
   let failed = 0;
+  const add = (file: FileNode): void => {
+    const c = countTests(file);
+    total += c.total;
+    failed += c.failed;
+  };
   const walk = (n: TreeChild): void => {
     if (n.kind === 'leaf') {
-      const c = countTests(n.file);
-      total += c.total;
-      failed += c.failed;
-    } else {
-      n.children.forEach(walk);
+      add(n.file);
+      return;
     }
+    if (n.absorbed) add(n.absorbed.file);
+    n.children.forEach(walk);
   };
+  if (node.absorbed) add(node.absorbed.file);
   node.children.forEach(walk);
   return { total, failed };
 };
@@ -249,6 +316,10 @@ function LeafRow({
       >
         {/* spacer to align with folder chevron */}
         <span aria-hidden className="w-4 shrink-0" />
+        <FileTextIcon
+          aria-hidden
+          className="text-muted-foreground/60 size-3.5 shrink-0"
+        />
         <span className="flex-1 truncate">{leaf.title}</span>
         <CountSlot total={total} failed={failed} />
       </button>
@@ -266,30 +337,37 @@ function FolderRow({
   onSelect: () => void;
 }) {
   const { total, failed } = folderStats(folder);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Name click: select on first click; if already active, also toggle expand.
+  const handleNameClick = () => {
+    if (active) triggerRef.current?.click();
+    onSelect();
+  };
   return (
     <div className="relative flex items-stretch">
       <ActiveBar show={active} />
-      {/* Chevron is the accordion trigger — clicks here only toggle. */}
       <AccordionPrimitive.Trigger
+        ref={triggerRef}
         aria-label={`Toggle ${folder.name}`}
         className="text-muted-foreground hover:text-foreground hover:bg-muted/40 group/chev flex w-5 shrink-0 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       >
         <ChevronDownIcon className="size-3 transition-transform duration-150 group-aria-expanded/chev:rotate-180" />
       </AccordionPrimitive.Trigger>
-      {/* Name button selects/navigates — separate hit target from the chevron. */}
       <button
         type="button"
-        onClick={onSelect}
+        onClick={handleNameClick}
         title={folder.path}
         className={cn(
           'flex flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm transition-colors',
           active
-            ? 'bg-muted text-foreground font-medium'
-            : folder.doc
-              ? 'text-foreground hover:bg-muted/60'
-              : 'text-foreground/90 hover:bg-muted/60',
+            ? 'bg-muted text-foreground font-semibold'
+            : 'text-foreground font-medium hover:bg-muted/60',
         )}
       >
+        <FolderIcon
+          aria-hidden
+          className="text-muted-foreground/70 size-3.5 shrink-0"
+        />
         <span className="flex-1 truncate">{folder.name}</span>
         <CountSlot total={total} failed={failed} />
       </button>
@@ -306,10 +384,8 @@ function TreeNodes({
   active: Page;
   onSelect: (p: Page) => void;
 }) {
-  const folderPaths = useMemo(() => collectFolderPaths(nodes), [nodes]);
-
   return (
-    <Accordion multiple defaultValue={folderPaths} className="gap-0.5">
+    <Accordion multiple defaultValue={[]} className="gap-0.5">
       {nodes.map((node) => {
         if (node.kind === 'leaf') {
           return (
@@ -377,25 +453,33 @@ function SidebarBody({
   tree,
   active,
   onSelect,
+  packageHeader,
+  themeToggle,
 }: {
   report: VTestReport;
   tree: TreeChild[];
   active: Page;
   onSelect: (p: Page) => void;
+  packageHeader?: ReactNode;
+  themeToggle?: ReactNode;
 }) {
   return (
     <div className="flex h-full flex-col">
       <div className="bg-card/40 border-b px-5 py-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <div className="text-foreground truncate font-mono text-sm font-semibold tracking-tight">
-              {report.package.name}
-            </div>
-            <div className="text-muted-foreground mt-0.5 font-mono text-[11px]">
-              v{report.package.version}
-            </div>
+            {packageHeader ?? (
+              <>
+                <div className="text-foreground truncate font-mono text-sm font-semibold tracking-tight">
+                  {report.package.name}
+                </div>
+                <div className="text-muted-foreground mt-0.5 font-mono text-[11px]">
+                  v{report.package.version}
+                </div>
+              </>
+            )}
           </div>
-          <ThemeToggle />
+          {themeToggle ?? <ThemeToggle />}
         </div>
         <div className="mt-3">
           <SummaryHeader summary={report.summary} />
@@ -441,19 +525,25 @@ function DesktopSidebar({
   tree,
   active,
   onSelect,
+  packageHeader,
+  themeToggle,
 }: {
   report: VTestReport;
   tree: TreeChild[];
   active: Page;
   onSelect: (p: Page) => void;
+  packageHeader?: ReactNode;
+  themeToggle?: ReactNode;
 }) {
   return (
-    <aside className="bg-card/30 sticky top-0 hidden h-[100dvh] w-72 shrink-0 border-r md:block">
+    <aside className="bg-card/30 hidden h-full w-72 shrink-0 border-r md:block">
       <SidebarBody
         report={report}
         tree={tree}
         active={active}
         onSelect={onSelect}
+        packageHeader={packageHeader}
+        themeToggle={themeToggle}
       />
     </aside>
   );
@@ -464,15 +554,19 @@ function MobileSidebar({
   tree,
   active,
   onSelect,
+  packageHeader,
+  themeToggle,
 }: {
   report: VTestReport;
   tree: TreeChild[];
   active: Page;
   onSelect: (p: Page) => void;
+  packageHeader?: ReactNode;
+  themeToggle?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="bg-card/40 sticky top-0 z-30 flex items-center gap-2 border-b px-3 py-2 md:hidden">
+    <div className="bg-card/40 z-30 flex shrink-0 items-center gap-2 border-b px-3 py-2 md:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger
           render={
@@ -494,15 +588,19 @@ function MobileSidebar({
               onSelect(p);
               setOpen(false);
             }}
+            packageHeader={packageHeader}
+            themeToggle={themeToggle}
           />
         </SheetContent>
       </Sheet>
       <div className="min-w-0 flex-1">
-        <div className="text-foreground truncate font-mono text-sm font-semibold tracking-tight">
-          {report.package.name}
-        </div>
+        {packageHeader ?? (
+          <div className="text-foreground truncate font-mono text-sm font-semibold tracking-tight">
+            {report.package.name}
+          </div>
+        )}
       </div>
-      <ThemeToggle />
+      {themeToggle ?? <ThemeToggle />}
     </div>
   );
 }
@@ -708,6 +806,8 @@ function FolderPage({
   folder: FolderNode;
   onSelect: (p: Page) => void;
 }) {
+  const absorbedFile = folder.absorbed?.file;
+  const fileStats = absorbedFile ? countTests(absorbedFile) : undefined;
   return (
     <article>
       <PageHeader
@@ -719,6 +819,27 @@ function FolderPage({
         <div className="mb-12">
           <Markdown source={stripLeadingH1(folder.doc)} />
         </div>
+      )}
+      {absorbedFile && absorbedFile.children.length > 0 && fileStats && (
+        <section className="mb-12">
+          <div className="mb-5 flex items-baseline justify-between border-b pb-3">
+            <h2 className="text-foreground text-sm font-semibold tracking-wider uppercase">
+              Tests
+            </h2>
+            <div className="text-muted-foreground font-mono text-xs">
+              {fileStats.total} test{fileStats.total === 1 ? '' : 's'}
+              {fileStats.failed > 0 && (
+                <span className="ml-2 text-red-500">
+                  · {fileStats.failed} failing
+                </span>
+              )}
+            </div>
+          </div>
+          <TestTree
+            children={absorbedFile.children}
+            filepath={absorbedFile.filepath}
+          />
+        </section>
       )}
       {folder.children.length > 0 && (
         <section>
@@ -784,7 +905,15 @@ function FolderPage({
   );
 }
 
-export function VTestDocs({ report }: { report: VTestReport }) {
+export function VTestDocs({
+  report,
+  packageHeader,
+  themeToggle,
+}: {
+  report: VTestReport;
+  packageHeader?: ReactNode;
+  themeToggle?: ReactNode;
+}) {
   const [page, setPage] = useState<Page>(() =>
     report.home !== undefined
       ? { kind: 'home' }
@@ -840,12 +969,14 @@ export function VTestDocs({ report }: { report: VTestReport }) {
   };
 
   return (
-    <div className="bg-background text-foreground flex min-h-[100dvh]">
+    <div className="bg-background text-foreground flex h-[100dvh] overflow-hidden">
       <DesktopSidebar
         report={report}
         tree={tree}
         active={page}
         onSelect={setPage}
+        packageHeader={packageHeader}
+        themeToggle={themeToggle}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileSidebar
@@ -853,8 +984,10 @@ export function VTestDocs({ report }: { report: VTestReport }) {
           tree={tree}
           active={page}
           onSelect={setPage}
+          packageHeader={packageHeader}
+          themeToggle={themeToggle}
         />
-        <main className="flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto">
           <div className="mx-auto max-w-3xl px-6 py-8 md:px-10 md:py-12">
             {renderMain()}
           </div>

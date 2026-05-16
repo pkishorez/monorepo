@@ -1,0 +1,758 @@
+{
+  "package": {
+    "name": "@std-toolkit/eschema",
+    "version": "0.0.1"
+  },
+  "home": "# @std-toolkit/eschema\n\nAn **evolving schema** is a versioned schema definition where every encoded\nvalue is tagged with the schema version (`_v`) at which it was written, and\nthe schema itself carries an ordered chain of migrations from `v1` up to the\ncurrent latest version. Reading old data is a one-call operation: the schema\ndecodes the row against the version stamp, then folds the row forward\nthrough every subsequent migration until it matches the latest shape. The\ncaller never sees a version older than `latest`, and the storage layer is\nfree to lazily rewrite rows on the next write.\n\nThis package is a thin, type-driven wrapper over\n[Effect Schema](https://effect.website/docs/schema/introduction) that\nexposes that flow as `make → evolve → build → encode/decode`, with three\nflavors (`ESchema`, `SingleEntityESchema`, `EntityESchema`) that differ only\nin identity (anonymous, named, named + id field). It implements\n[Standard Schema v1](https://github.com/standard-schema/standard-schema) so\nthe result drops into any form library or validator that speaks the spec.\n\n## Architecture\n\n```mermaid\nflowchart LR\n  make[\"ESchema.make(fields)\"]\n  ev1[\".evolve(v2, delta, m1)\"]\n  ev2[\".evolve(v3, delta, m2)\"]\n  built[\"ESchema (v3)\"]\n\n  make --> ev1 --> ev2 --> built\n\n  subgraph read_path[\"read path\"]\n    raw[\"raw row<br/>{ _v: 'v1', ... }\"]\n    decV1[\"decode @ v1\"]\n    mig1[\"migration v1→v2\"]\n    mig2[\"migration v2→v3\"]\n    out[\"latest-shape value\"]\n    raw --> decV1 --> mig1 --> mig2 --> out\n  end\n\n  subgraph write_path[\"write path\"]\n    inp[\"latest-shape value\"]\n    encV3[\"encode @ v3\"]\n    stamped[\"{ ...encoded, _v: 'v3' }\"]\n    inp --> encV3 --> stamped\n  end\n\n  built -.->|\"holds the chain\"| decV1\n  built -.->|\"holds the chain\"| encV3\n```\n\n## Install\n\n```bash\npnpm add @std-toolkit/eschema effect\n```\n\n## Quick start\n\n```ts\nimport { Effect, Schema } from 'effect';\nimport { ESchema } from '@std-toolkit/eschema';\n\nconst User = ESchema.make({ name: Schema.String })\n  .evolve('v2', { email: Schema.String }, (prev) => ({\n    ...prev,\n    email: 'unknown@example.com',\n  }))\n  .build();\n\nconst latest = Effect.runSync(User.decode({ _v: 'v1', name: 'Bob' }));\n// { name: 'Bob', email: 'unknown@example.com' }\n```\n\n## Variants\n\n| Variant               | Adds                        | Use when                                          |\n| --------------------- | --------------------------- | ------------------------------------------------- |\n| `ESchema`             | nothing                     | Anonymous payload (config blobs, message bodies)  |\n| `SingleEntityESchema` | `name`                      | Named singleton (e.g. `Settings`, `FeatureFlags`) |\n| `EntityESchema`       | `name` + reserved `idField` | Rows in a keyed store (DynamoDB, Postgres, KV)    |\n\n## Modules\n\n- [make](./make/index.doc.md) — create an `ESchema` / `SingleEntityESchema` / `EntityESchema` builder\n- [evolve](./evolve/index.doc.md) — add a new version with a delta and migration\n- [encode](./encode/index.doc.md) — produce a wire value stamped with the latest `_v`\n- [decode](./decode/index.doc.md) — accept any past version and fold forward to the latest shape\n- [interop](./interop/index.doc.md) — `toSchema`, `getDescriptor`, Standard Schema v1\n- [errors](./errors/index.doc.md) — `ESchemaError` shape and when each variant fires\n\n## Why another schema library?\n\n- **Schemas are evolvable, not frozen.** Adding a field is a one-line\n  `.evolve()` step. Old rows decode into the current shape on read; no\n  separate \"migration\" job needs to touch the data first.\n- **Migrations are typed end-to-end.** The `prev → next` function is\n  parameterised by the previous version's decoded shape, so a missing\n  field at v2 is a TypeScript error, not a runtime surprise.\n- **Reserved fields are enforced at the type level.** Keys starting with\n  `_` are rejected at `make`/`evolve`, and on `EntityESchema` the `idField`\n  is reserved so the library's metadata never collides with user fields.\n- **Standard Schema v1 out of the box.** The built schema exposes\n  `~standard.validate` so it drops into any compatible form / validator.\n",
+  "files": [
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/decode/index.test.ts",
+      "doc": "---\ntitle: decode\norder: 3\n---\n\n# decode\n\n`schema.decode(value)` reads the `_v` field off the input (falling back to\n`latestVersion` if it is missing), decodes the row through the matching\nevolution's struct, and then folds the result forward by applying every\nsubsequent migration in order. The output is always the latest decoded\nshape.\n\nDecode is the read path. It is the only place migrations run, and it is\nwhere unknown versions, bad shapes, and broken chains surface as\n`ESchemaError`.\n\n## Usage\n\n```ts\nconst decoded = yield * User.decode({ _v: 'v1', name: 'Bob' });\n// migrated up to latest — { name: 'Bob', email: 'unknown@example.com', ... }\n```\n\n## API\n\n| Argument    | Type                                     | Meaning                                                          |\n| ----------- | ---------------------------------------- | ---------------------------------------------------------------- |\n| `value`     | `unknown`                                | The raw row. `_v` is read if present; otherwise `latestVersion`. |\n| **returns** | `Effect<Decoded<TLatest>, ESchemaError>` | Latest-shape decoded value.                                      |\n\n## Flow\n\n```\n1.  read `_v` from `value` (if missing, default to latestVersion)\n2.  locate the evolution at that version\n       └─ not found?  → ESchemaError('Unknown schema version: …')\n3.  decode `value` through `Schema.Struct(evolution.schema)`\n       └─ ParseError? → ESchemaError('Decode failed', cause=ParseError)\n4.  for each evolution after the matched one:\n       data = evolution.migration(data)\n5.  return data as Decoded<TLatest>\n```\n\n## Examples\n\n### Migrate forward through the chain\n\n```ts\nconst User = ESchema.make({ name: Schema.String })\n  .evolve('v2', { email: Schema.String }, (p) => ({\n    ...p,\n    email: 'unknown@example.com',\n  }))\n  .evolve('v3', { verified: Schema.Boolean }, (p) => ({\n    ...p,\n    verified: false,\n  }))\n  .build();\n\nconst out = Effect.runSync(User.decode({ _v: 'v1', name: 'Bob' }));\n// { name: 'Bob', email: 'unknown@example.com', verified: false }\n```\n\n### Missing `_v` is treated as latest\n\n```ts\nconst out = Effect.runSync(User.decode({ name: 'Bob' }));\n// decoded against the latest struct directly, no migrations run\n```\n\n### Unknown `_v`\n\n```ts\nconst result = Effect.runSyncExit(User.decode({ _v: 'v99', name: 'Bob' }));\n// Failure(ESchemaError('Unknown schema version: v99'))\n```\n\n### Bad shape\n\n```ts\nconst result = Effect.runSyncExit(User.decode({ _v: 'v1', name: 42 }));\n// Failure(ESchemaError('Decode failed', cause: ParseError))\n```\n\n### EntityESchema — id field required\n\n```ts\nconst User = EntityESchema.make('User', 'id', { name: Schema.String }).build();\nconst out = Effect.runSync(User.decode({ _v: 'v1', id: 'u1', name: 'Alice' }));\nout.id; // 'u1'\n```\n\n## Edge cases\n\n- **Missing `_v` defaults to `latestVersion`.** A row with no version stamp\n  is decoded against the latest struct directly; no migrations run. This\n  is how new clients writing to a v1-only schema interact with the read\n  path before any evolution exists.\n- **Unknown `_v` fails with `Unknown schema version: <v>`.** Including\n  the value in the message lets callers debug stale producers in\n  production without inspecting the schema chain.\n- **Decode failure wraps the `ParseError` as `cause`.** The `message` is\n  the constant `'Decode failed'`; the `cause` field carries the original\n  Effect Schema `ParseError` for inspection.\n- **Migrations are applied strictly after `index + 1`.** A row at `v2`\n  in a v1→v2→v3 chain runs only the `v2→v3` migration. A row at the\n  latest version runs none.\n- **The migration function is invoked synchronously.** Throwing inside a\n  migration is not caught by `decode` — the exception escapes the\n  Effect.\n- **Decode is the only entry point that runs migrations.** The struct\n  encoder, `getDescriptor`, and `~standard.validate` reuse `decode`\n  semantics; they all fold forward to the latest shape.\n- **`~standard.validate` runs `decode` synchronously via\n  `Effect.runSyncExit`.** Any failure surfaces as `{ issues: [{ message }] }`.\n  Migrations that perform async work would break this surface — keep them\n  pure.\n- **A v1 row encoded by the library carries `_v: 'v1'`; that stamp is\n  what `decode` reads back.** Round-trips are stable: `encode → decode`\n  ends at the same latest shape regardless of the value's history.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- v1 → latest migration chain folds every step.\n- Missing `_v` falls back to `latestVersion` (no migrations).\n- Unknown `_v` fails with `Unknown schema version: <v>`.\n- Decode of a bad shape fails with `ESchemaError('Decode failed')`.\n- Migration runs only for versions strictly older than the row.\n- `~standard.validate` returns `{ value }` on success and `{ issues }` on failure.\n- EntityESchema decode requires the id field.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "decode folds migrations forward",
+          "children": [
+            {
+              "kind": "test",
+              "name": "v1 → latest migration chain folds every step",
+              "status": "pass",
+              "duration": 2.672207999999955,
+              "doc": "A v1 row in a v1→v2→v3 schema emerges with every field added by intermediate migrations.",
+              "location": {
+                "line": 11,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'v1 → latest migration chain folds every step',\n  'A v1 row in a v1→v2→v3 schema emerges with every field added by intermediate migrations.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => ({ ...p, b: 'B' }))\n      .evolve('v3', { c: Schema.Number }, (p) => ({ ...p, c: 3 }))\n      .build();\n    const out = await Effect.runPromise(s.decode({ _v: 'v1', a: 'A' }));\n    expect(out).toEqual({ a: 'A', b: 'B', c: 3 });\n  },\n);",
+              "snippetStartLine": 11
+            },
+            {
+              "kind": "test",
+              "name": "migration runs only for versions strictly older than the row",
+              "status": "pass",
+              "duration": 0.7343329999998787,
+              "doc": "A v2 row in the same v1→v2→v3 chain runs only the v2→v3 migration; the v1→v2 migration is skipped.",
+              "location": {
+                "line": 24,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'migration runs only for versions strictly older than the row',\n  'A v2 row in the same v1→v2→v3 chain runs only the v2→v3 migration; the v1→v2 migration is skipped.',\n  async () => {\n    let v1Calls = 0;\n    let v2Calls = 0;\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => {\n        v1Calls += 1;\n        return { ...p, b: 'B' };\n      })\n      .evolve('v3', { c: Schema.Number }, (p) => {\n        v2Calls += 1;\n        return { ...p, c: 3 };\n      })\n      .build();\n    await Effect.runPromise(s.decode({ _v: 'v2', a: 'A', b: 'b' }));\n    expect(v1Calls).toBe(0);\n    expect(v2Calls).toBe(1);\n  },\n);",
+              "snippetStartLine": 24
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "decode handles missing or unknown _v",
+          "children": [
+            {
+              "kind": "test",
+              "name": "missing _v falls back to latestVersion",
+              "status": "pass",
+              "duration": 0.6105830000001333,
+              "doc": "No migrations run; the row is decoded directly against the latest struct.",
+              "location": {
+                "line": 52,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'missing _v falls back to latestVersion',\n  'No migrations run; the row is decoded directly against the latest struct.',\n  async () => {\n    let migrated = 0;\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => {\n        migrated += 1;\n        return { ...p, b: 'B' };\n      })\n      .build();\n    const out = await Effect.runPromise(s.decode({ a: 'A', b: 'B' }));\n    expect(out).toEqual({ a: 'A', b: 'B' });\n    expect(migrated).toBe(0);\n  },\n);",
+              "snippetStartLine": 52
+            },
+            {
+              "kind": "test",
+              "name": "unknown _v fails with Unknown schema version: <v>",
+              "status": "pass",
+              "duration": 1.0143329999998514,
+              "doc": "The message includes the offending version string so callers can diagnose stale producers without inspecting the chain.",
+              "location": {
+                "line": 69,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'unknown _v fails with Unknown schema version: <v>',\n  'The message includes the offending version string so callers can diagnose stale producers without inspecting the chain.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const result = await Effect.runPromise(\n      s.decode({ _v: 'v99', a: 'A' }).pipe(Effect.either),\n    );\n    expect(result._tag).toBe('Left');\n    if (result._tag === 'Left') {\n      expect(result.left).toBeInstanceOf(ESchemaError);\n      expect(result.left.message).toContain('v99');\n    }\n  },\n);",
+              "snippetStartLine": 69
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "decode failure surfaces as ESchemaError(Decode failed)",
+          "children": [
+            {
+              "kind": "test",
+              "name": "decode of a bad shape fails with ESchemaError(Decode failed)",
+              "status": "pass",
+              "duration": 0.5432499999999436,
+              "doc": "A type mismatch in the input fails the struct decoder and surfaces as a wrapped `ESchemaError`.",
+              "location": {
+                "line": 91,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'decode of a bad shape fails with ESchemaError(Decode failed)',\n  'A type mismatch in the input fails the struct decoder and surfaces as a wrapped `ESchemaError`.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const result = await Effect.runPromise(\n      s.decode({ _v: 'v1', a: 42 }).pipe(Effect.either),\n    );\n    expect(result._tag).toBe('Left');\n    if (result._tag === 'Left') {\n      expect(result.left).toBeInstanceOf(ESchemaError);\n      expect(result.left.message).toBe('Decode failed');\n      expect(result.left.cause).toBeDefined();\n    }\n  },\n);",
+              "snippetStartLine": 91
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "EntityESchema decode requires the id field",
+          "children": [
+            {
+              "kind": "test",
+              "name": "EntityESchema decode succeeds with idField present",
+              "status": "pass",
+              "duration": 0.45591699999999946,
+              "doc": "A row with `id` is decoded; the id is part of the output.",
+              "location": {
+                "line": 114,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'EntityESchema decode succeeds with idField present',\n  'A row with `id` is decoded; the id is part of the output.',\n  async () => {\n    const s = EntityESchema.make('User', 'id', {\n      name: Schema.String,\n    }).build();\n    const out = await Effect.runPromise(\n      s.decode({ _v: 'v1', id: 'u1', name: 'Alice' }),\n    );\n    expect(out).toEqual({ id: 'u1', name: 'Alice' });\n  },\n);",
+              "snippetStartLine": 114
+            },
+            {
+              "kind": "test",
+              "name": "EntityESchema decode fails without idField",
+              "status": "pass",
+              "duration": 0.28404199999999946,
+              "doc": "A row missing `id` fails the struct decoder; the wrapped error is `Decode failed`.",
+              "location": {
+                "line": 128,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'EntityESchema decode fails without idField',\n  'A row missing `id` fails the struct decoder; the wrapped error is `Decode failed`.',\n  async () => {\n    const s = EntityESchema.make('User', 'id', {\n      name: Schema.String,\n    }).build();\n    const result = await Effect.runPromise(\n      s.decode({ _v: 'v1', name: 'Alice' }).pipe(Effect.either),\n    );\n    expect(result._tag).toBe('Left');\n    if (result._tag === 'Left') {\n      expect((result.left as ESchemaError).message).toBe('Decode failed');\n    }\n  },\n);",
+              "snippetStartLine": 128
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/encode/index.test.ts",
+      "doc": "---\ntitle: encode\norder: 2\n---\n\n# encode\n\n`schema.encode(value)` runs the **latest** version's struct encoder against\n`value` and stamps the result with `_v: latestVersion`. The return type is\n`Effect<Encoded & { _v }, ESchemaError>` — failures from Effect Schema's\nencoder are wrapped in `ESchemaError` with `message: 'Encode failed'` and\nthe original `ParseError` set as `cause`.\n\nEncode never runs migrations. It is the inverse of decoding a row at the\nlatest version; older versions are not encodable through this method.\n\n## Usage\n\n```ts\nconst encoded =\n  yield * User.encode({ id: '1', name: 'Alice', email: 'a@b.com' });\nencoded._v; // 'v1' (or whatever `latestVersion` is)\nencoded.name; // 'Alice'\n```\n\n## API\n\n| Argument    | Type                                                                 | Meaning                                                         |\n| ----------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |\n| `value`     | `Decoded<TLatest>`                                                   | The latest-shape value. `_v` must **not** be set by the caller. |\n| **returns** | `Effect<Encoded<TLatest> & { readonly _v: TVersion }, ESchemaError>` | Encoded payload plus the `_v` stamp at the latest version.      |\n\n## Examples\n\n### Round-trip via Effect Schema transform\n\n```ts\nconst StringToNumber = Schema.transform(Schema.String, Schema.Number, {\n  decode: (s) => parseInt(s),\n  encode: (n) => String(n),\n  strict: true,\n});\n\nconst Counter = ESchema.make({ count: StringToNumber }).build();\n\nconst out = Effect.runSync(Counter.encode({ count: 42 }));\nout.count; // \"42\"\nout._v; // 'v1'\n```\n\n### Encode fails — surfaces as ESchemaError\n\n```ts\nconst result = Effect.runSyncExit(\n  User.encode({ id: '1', name: 1 as unknown as string, email: 'x' }),\n);\nresult._tag; // 'Failure'\n// cause.error is an ESchemaError with message 'Encode failed'\n```\n\n### makePartial helper for partial updates\n\n```ts\nUser.makePartial({ name: 'Bob' });\n// { name: 'Bob', _v: 'v1' }  — type-only convenience, no validation\n```\n\n## Edge cases\n\n- **`_v` is stamped, never read from the value.** Even if the caller\n  sneaks `_v: 'older'` into the input, the result carries `_v:\nlatestVersion`. The encoder's source of truth is the schema, not the\n  value.\n- **Encode runs through the latest struct only.** Older versions are not\n  reachable; if you need a downgrade, do it manually before encoding.\n- **`Encode failed` wraps the underlying `ParseError` as `cause`.** The\n  consumer keeps the original Effect Schema error for inspection without\n  having to pattern-match on `ESchemaError`'s internals.\n- **An entity's `idField` is encoded as a regular string column.** No\n  branding, no transform; whatever `Schema.String` would write is what\n  ends up on the wire.\n- **`makePartial` is type-level only.** It tags an object with the latest\n  `_v` for use in update-style APIs; it does **not** validate the partial\n  against the schema.\n- **Encode is synchronous-friendly.** The struct encoder is pure; you can\n  `Effect.runSync` an encode of any plain-data input without expecting\n  async errors.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- Encode stamps the latest `_v` regardless of caller input.\n- Encode runs Effect Schema transforms in the encode direction.\n- Encode of an invalid value fails with `ESchemaError(message='Encode failed')`.\n- `makePartial` tags the value with `_v` without validating it.\n- EntityESchema encode writes the id field through as a regular string.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "encode stamps the latest _v",
+          "children": [
+            {
+              "kind": "test",
+              "name": "encode stamps the latest _v on a v1-only schema",
+              "status": "pass",
+              "duration": 8.807332999999971,
+              "doc": "A freshly-made schema encodes to `_v: \"v1\"`.",
+              "location": {
+                "line": 11,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'encode stamps the latest _v on a v1-only schema',\n  'A freshly-made schema encodes to `_v: \"v1\"`.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const out = await Effect.runPromise(s.encode({ a: 'x' }));\n    expect(out._v).toBe('v1');\n  },\n);",
+              "snippetStartLine": 11
+            },
+            {
+              "kind": "test",
+              "name": "encode stamps the latest _v after several evolutions",
+              "status": "pass",
+              "duration": 1.5462079999999787,
+              "doc": "After two evolutions the stamp is `v3`, regardless of what shape the value came from.",
+              "location": {
+                "line": 21,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'encode stamps the latest _v after several evolutions',\n  'After two evolutions the stamp is `v3`, regardless of what shape the value came from.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => ({ ...p, b: '' }))\n      .evolve('v3', { c: Schema.Number }, (p) => ({ ...p, c: 0 }))\n      .build();\n    const out = await Effect.runPromise(s.encode({ a: 'x', b: 'y', c: 1 }));\n    expect(out._v).toBe('v3');\n  },\n);",
+              "snippetStartLine": 21
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "encode runs the struct encoder",
+          "children": [
+            {
+              "kind": "test",
+              "name": "encode runs Effect Schema transforms in the encode direction",
+              "status": "pass",
+              "duration": 3.7330839999999625,
+              "doc": "A `Schema.transform(String, Number)` round-trips `42` → `\"42\"` on encode.",
+              "location": {
+                "line": 40,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'encode runs Effect Schema transforms in the encode direction',\n  'A `Schema.transform(String, Number)` round-trips `42` → `\"42\"` on encode.',\n  async () => {\n    const StringToNumber = Schema.transform(Schema.String, Schema.Number, {\n      decode: (s) => Number.parseInt(s, 10),\n      encode: (n) => String(n),\n      strict: true,\n    });\n    const s = ESchema.make({ count: StringToNumber }).build();\n    const out = await Effect.runPromise(s.encode({ count: 42 }));\n    expect(out.count).toBe('42');\n  },\n);",
+              "snippetStartLine": 40
+            },
+            {
+              "kind": "test",
+              "name": "EntityESchema encode writes idField as a regular string",
+              "status": "pass",
+              "duration": 0.4910829999998896,
+              "doc": "The id column is just `Schema.String` — no branding, no transform.",
+              "location": {
+                "line": 55,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'EntityESchema encode writes idField as a regular string',\n  'The id column is just `Schema.String` — no branding, no transform.',\n  async () => {\n    const s = EntityESchema.make('User', 'id', {\n      name: Schema.String,\n    }).build();\n    const out = await Effect.runPromise(\n      s.encode({ id: 'u1', name: 'Alice' }),\n    );\n    expect(out.id).toBe('u1');\n    expect(out.name).toBe('Alice');\n  },\n);",
+              "snippetStartLine": 55
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "encode failure surfaces as ESchemaError",
+          "children": [
+            {
+              "kind": "test",
+              "name": "encode of an invalid value fails with ESchemaError(message=Encode failed)",
+              "status": "pass",
+              "duration": 0.9922090000000026,
+              "doc": "A type mismatch in the input produces an `ESchemaError` whose message is `Encode failed`.",
+              "location": {
+                "line": 76,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'encode of an invalid value fails with ESchemaError(message=Encode failed)',\n  'A type mismatch in the input produces an `ESchemaError` whose message is `Encode failed`.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const result = await Effect.runPromise(\n      s.encode({ a: 1 as unknown as string }).pipe(Effect.either),\n    );\n    expect(result._tag).toBe('Left');\n    if (result._tag === 'Left') {\n      expect(result.left).toBeInstanceOf(ESchemaError);\n      expect(result.left.message).toBe('Encode failed');\n    }\n  },\n);",
+              "snippetStartLine": 76
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "makePartial helper",
+          "children": [
+            {
+              "kind": "test",
+              "name": "makePartial tags the value with _v without validating",
+              "status": "pass",
+              "duration": 0.14833299999986593,
+              "doc": "The returned object has `_v: latestVersion` and the original keys; no schema check runs.",
+              "location": {
+                "line": 98,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'makePartial tags the value with _v without validating',\n  'The returned object has `_v: latestVersion` and the original keys; no schema check runs.',\n  () => {\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => ({ ...p, b: '' }))\n      .build();\n    const partial = s.makePartial({ a: 'x' });\n    expect(partial._v).toBe('v2');\n    expect(partial.a).toBe('x');\n  },\n);",
+              "snippetStartLine": 98
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/errors/index.test.ts",
+      "doc": "---\ntitle: errors\norder: 5\n---\n\n# errors\n\nEvery fallible operation on an `ESchema` returns\n`Effect.Effect<A, ESchemaError>`. `ESchemaError` is a single tagged error\ntype with a small, fixed set of `message` values; everything else (the\nunderlying Effect Schema `ParseError`, AST, etc.) is carried in `cause`.\n\nThis keeps the failure surface trivially matchable:\n`Effect.catchTag('ESchemaError', …)` is enough to recover from every\nschema-level failure.\n\n## Usage\n\n```ts\nimport { Effect } from 'effect';\nimport { ESchemaError } from '@std-toolkit/eschema';\n\nconst safe = User.decode(rawData).pipe(\n  Effect.catchTag('ESchemaError', (err) => {\n    console.error(err.message, err.cause);\n    return Effect.succeed(defaultUser);\n  }),\n);\n```\n\n## Shape\n\n```ts\nclass ESchemaError extends Data.TaggedError('ESchemaError')<{\n  message: string;\n  data?: unknown;\n  cause?: unknown;\n}> {}\n```\n\n| Field     | Meaning                                                                   |\n| --------- | ------------------------------------------------------------------------- |\n| `_tag`    | `'ESchemaError'` (set by `Data.TaggedError`)                              |\n| `message` | A short, fixed string identifying the failure mode (see below).           |\n| `data`    | Optional structured payload — currently unused by the library.            |\n| `cause`   | The underlying error (e.g. an Effect Schema `ParseError`) for inspection. |\n\n## Message catalog\n\n| Message                         | Raised by                                | `cause`             |\n| ------------------------------- | ---------------------------------------- | ------------------- |\n| `'Encode failed'`               | `encode` — struct encoder rejected input | Effect `ParseError` |\n| `'Decode failed'`               | `decode` — struct decoder rejected input | Effect `ParseError` |\n| `'Unknown schema version: <v>'` | `decode` — `_v` not found in chain       | none                |\n| `'Migration not found'`         | `decode` — internal invariant breach     | none                |\n| `'No evolutions found'`         | `encode` — internal invariant breach     | none                |\n\nThe two \"internal invariant\" messages should never fire through the public\nAPI; they exist defensively in case a malformed `Evolution[]` reaches the\nruntime.\n\n## Examples\n\n### Pattern-match on the tag\n\n```ts\nconst recovered = User.decode(value).pipe(\n  Effect.catchTag('ESchemaError', () => Effect.succeed(null)),\n);\n```\n\n### Inspect the underlying ParseError\n\n```ts\nconst result = Effect.runSyncExit(User.decode({ _v: 'v1', name: 42 }));\n// result.cause.error.message === 'Decode failed'\n// result.cause.error.cause is the underlying ParseError\n```\n\n### Through Standard Schema\n\n```ts\nconst r = User['~standard'].validate({ _v: 'v99' });\n// { issues: [{ message: 'Unknown schema version: v99' }] }\n```\n\n## Edge cases\n\n- **`ESchemaError` is the only error type from the public surface.** Every\n  `encode` / `decode` failure is wrapped; no `ParseError` escapes\n  unwrapped from the package.\n- **`message` is a closed vocabulary.** Callers can branch on it as a\n  literal string without worrying about new variants appearing silently.\n- **`cause` is `unknown`.** Production code should not depend on its\n  shape; treat it as informational. Where it is set, it is an Effect\n  `ParseError`, but the type does not promise that.\n- **`'Encode failed'` and `'Decode failed'` are the only messages that\n  carry a `cause`.** Version-mismatch errors set `cause` to `undefined`\n  because the failure is detected before the struct decoder runs.\n- **The `Unknown schema version` message embeds the bad value.** The\n  rendered string is `Unknown schema version: <_v>`, so logs include the\n  offending stamp.\n- **`Migration not found` indicates corruption.** If you see this, an\n  `Evolution[]` array has been built by hand or mutated after `.build()`.\n  Use the public builder API.\n- **`Data.TaggedError` makes `_tag === 'ESchemaError'`.** This is how\n  `Effect.catchTag('ESchemaError', …)` matches; do not rely on\n  `instanceof` for cross-realm code.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `ESchemaError._tag` is `'ESchemaError'`.\n- `encode` failure has `message === 'Encode failed'` and a `cause`.\n- `decode` failure (bad shape) has `message === 'Decode failed'` and a `cause`.\n- `decode` of an unknown `_v` has `message` containing the offending version string.\n- `Effect.catchTag('ESchemaError', …)` recovers from every failure mode.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "ESchemaError shape",
+          "children": [
+            {
+              "kind": "test",
+              "name": "ESchemaError._tag is ESchemaError",
+              "status": "pass",
+              "duration": 1.1756250000000819,
+              "doc": "`Data.TaggedError` sets `_tag` so `Effect.catchTag` can match it across realms.",
+              "location": {
+                "line": 11,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'ESchemaError._tag is ESchemaError',\n  '`Data.TaggedError` sets `_tag` so `Effect.catchTag` can match it across realms.',\n  () => {\n    const err = new ESchemaError({ message: 'x' });\n    expect(err._tag).toBe('ESchemaError');\n  },\n);",
+              "snippetStartLine": 11
+            },
+            {
+              "kind": "test",
+              "name": "encode failure has message=Encode failed and a cause",
+              "status": "pass",
+              "duration": 2.1000830000000406,
+              "doc": "A type mismatch on encode wraps the Effect Schema `ParseError` as `cause`.",
+              "location": {
+                "line": 20,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'encode failure has message=Encode failed and a cause',\n  'A type mismatch on encode wraps the Effect Schema `ParseError` as `cause`.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const result = await Effect.runPromise(\n      s.encode({ a: 1 as unknown as string }).pipe(Effect.either),\n    );\n    if (result._tag === 'Left') {\n      expect(result.left.message).toBe('Encode failed');\n      expect(result.left.cause).toBeDefined();\n    } else {\n      throw new Error('expected Left');\n    }\n  },\n);",
+              "snippetStartLine": 20
+            },
+            {
+              "kind": "test",
+              "name": "decode failure (bad shape) has message=Decode failed and a cause",
+              "status": "pass",
+              "duration": 0.5772920000001704,
+              "doc": "The struct decoder's `ParseError` is carried in `cause`; the wrapper message is constant.",
+              "location": {
+                "line": 37,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'decode failure (bad shape) has message=Decode failed and a cause',\n  \"The struct decoder's `ParseError` is carried in `cause`; the wrapper message is constant.\",\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const result = await Effect.runPromise(\n      s.decode({ _v: 'v1', a: 42 }).pipe(Effect.either),\n    );\n    if (result._tag === 'Left') {\n      expect(result.left.message).toBe('Decode failed');\n      expect(result.left.cause).toBeDefined();\n    } else {\n      throw new Error('expected Left');\n    }\n  },\n);",
+              "snippetStartLine": 37
+            },
+            {
+              "kind": "test",
+              "name": "decode of an unknown _v embeds the offending version string",
+              "status": "pass",
+              "duration": 0.2977080000000569,
+              "doc": "The rendered message is `Unknown schema version: <_v>` so logs identify the stale producer.",
+              "location": {
+                "line": 54,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'decode of an unknown _v embeds the offending version string',\n  'The rendered message is `Unknown schema version: <_v>` so logs identify the stale producer.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const result = await Effect.runPromise(\n      s.decode({ _v: 'v42', a: 'x' }).pipe(Effect.either),\n    );\n    if (result._tag === 'Left') {\n      expect(result.left.message).toContain('v42');\n    } else {\n      throw new Error('expected Left');\n    }\n  },\n);",
+              "snippetStartLine": 54
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "catchTag recovers every failure mode",
+          "children": [
+            {
+              "kind": "test",
+              "name": "catchTag recovers from decode failure",
+              "status": "pass",
+              "duration": 0.6253750000000764,
+              "doc": "A wrapped `ESchemaError` from `decode` is caught by the tag handler and replaced with a fallback.",
+              "location": {
+                "line": 76,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'catchTag recovers from decode failure',\n  'A wrapped `ESchemaError` from `decode` is caught by the tag handler and replaced with a fallback.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const recovered = await Effect.runPromise(\n      s\n        .decode({ _v: 'v1', a: 42 })\n        .pipe(\n          Effect.catchTag('ESchemaError', () =>\n            Effect.succeed({ a: 'fallback' }),\n          ),\n        ),\n    );\n    expect(recovered).toEqual({ a: 'fallback' });\n  },\n);",
+              "snippetStartLine": 76
+            },
+            {
+              "kind": "test",
+              "name": "catchTag recovers from unknown version failure",
+              "status": "pass",
+              "duration": 0.26316700000006676,
+              "doc": "Version-mismatch errors share the same `_tag`, so a single `catchTag` handler covers them too.",
+              "location": {
+                "line": 94,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'catchTag recovers from unknown version failure',\n  'Version-mismatch errors share the same `_tag`, so a single `catchTag` handler covers them too.',\n  async () => {\n    const s = ESchema.make({ a: Schema.String }).build();\n    const recovered = await Effect.runPromise(\n      s\n        .decode({ _v: 'v99', a: 'x' })\n        .pipe(\n          Effect.catchTag('ESchemaError', () =>\n            Effect.succeed({ a: 'fallback' }),\n          ),\n        ),\n    );\n    expect(recovered).toEqual({ a: 'fallback' });\n  },\n);",
+              "snippetStartLine": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/evolve/index.test.ts",
+      "doc": "---\ntitle: evolve\norder: 4\n---\n\n# evolve\n\n`.evolve(version, delta, migration)` appends a new version to the chain. A\n**delta** is a `Record<key, Schema | null>`: a Schema entry adds-or-replaces\nthat field on the previous version's struct, and a `null` entry **removes**\nthe field. The **migration** is a pure function that runs against decoded\nvalues when reading an older row, transforming the previous version's shape\ninto the new one. The migration return type is constrained by `MergeSchemas`\nso a missing field is a compile error.\n\nVersions are linear strings: the first is `'v1'`, and each `.evolve()`\nexpects `NextVersion<TVersion>` — i.e. `'v2'` after `'v1'`, `'v3'` after\n`'v2'`. The compiler enforces the sequence; the runtime trusts it.\n\n## Usage\n\n```ts\nconst User = ESchema.make({ name: Schema.String })\n  .evolve('v2', { email: Schema.String }, (prev) => ({\n    ...prev,\n    email: 'unknown@example.com',\n  }))\n  .evolve('v3', { verified: Schema.Boolean }, (prev) => ({\n    ...prev,\n    verified: false,\n  }))\n  .build();\n```\n\n## API\n\n| Argument    | Type                                                                   | Meaning                                                                |\n| ----------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |\n| `version`   | `NextVersion<TVersion>` — literal `'v(N+1)'`                           | New latest version. The compiler enforces the sequence.                |\n| `delta`     | `Record<key, Schema                                                    | null>`                                                                 | Adds (Schema) or removes (`null`) fields versus the previous version. |\n| `migration` | `(prev: Decoded<previous>) => Decoded<merged>`                         | Pure transform from the previous decoded shape to the new one.         |\n| **returns** | next builder with `TVersion = V`, `TLatest = MergeSchemas<TLatest, D>` | Mergeable into the chain; final shape only available after `.build()`. |\n\nThe merge semantics:\n\n```\nMergeSchemas<Base, Delta> = Omit<Base, keyof Delta>\n                          & { [K in keyof Delta as Delta[K] extends null ? never : K]: Delta[K] }\n```\n\nThat is: every key in the delta is dropped from base; non-null delta keys\nare added back with the new schema. Equivalent at runtime to `mergeDelta`\nin `src/schema.ts`.\n\n## Examples\n\n### Add a field\n\n```ts\nschema.evolve('v2', { age: Schema.Number }, (prev) => ({ ...prev, age: 0 }));\n```\n\n### Remove a field\n\n```ts\nschema.evolve('v2', { legacy: null }, (prev) => {\n  const { legacy: _drop, ...rest } = prev;\n  return rest;\n});\n```\n\n### Transform — remove + add (rename)\n\n```ts\nschema.evolve(\n  'v2',\n  { firstName: null, lastName: null, fullName: Schema.String },\n  (prev) => ({ id: prev.id, fullName: `${prev.firstName} ${prev.lastName}` }),\n);\n```\n\n### Replace a field's schema (same key, different shape)\n\n```ts\nschema.evolve('v2', { count: Schema.NumberFromString }, (prev) => ({\n  ...prev,\n  count: prev.count, // type changes, value parses through the new schema on encode/decode\n}));\n```\n\n### Entity — id field is re-injected each evolve\n\n```ts\nconst User = EntityESchema.make('User', 'id', { name: Schema.String })\n  .evolve('v2', { age: Schema.Number }, (prev) => ({ ...prev, age: 0 }))\n  .build();\n\n'id' in User.fields; // true — re-added by the builder's postMerge hook\n```\n\n## Edge cases\n\n- **Version strings are sequenced at the type level.** `NextVersion<'v1'> =\n'v2'`. Passing `'v2'` after `'v3'` is a TypeScript error. The runtime\n  never validates this — it trusts the compiler.\n- **A `null` delta entry removes the field.** `mergeDelta` deletes the key\n  from the merged record. A subsequent `.evolve()` may re-introduce the\n  same key with a different schema.\n- **Migration sees the previous version's decoded type.** It receives the\n  output of running the previous evolution's struct through `decode`, so\n  any field transforms have already run.\n- **Migration is invoked only when the read version is older than this\n  step.** If a row is stored at this version or newer, the migration for\n  this step is skipped.\n- **Migrations are pure and synchronous.** They return a value, not an\n  `Effect`. Throwing inside a migration propagates as an unhandled\n  exception; `decode` does not wrap it in `ESchemaError`.\n- **Underscore-prefixed delta keys are forbidden at the type level.** The\n  same `ForbidUnderscorePrefix` guard applies on every `.evolve()`.\n- **`EntityESchema.evolve` re-bans the id field in the delta.** The id\n  column is injected for you on every evolution; supplying it in the\n  delta is rejected at compile time.\n- **`.fields` returns the last evolution's merged schema.** It is **not**\n  the union of all evolutions. Only the latest shape is exposed.\n- **The chain is monotone — there is no \"branch\" or \"rollback\".** `evolve`\n  only appends. Once `.build()` is called, the chain is frozen.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- v1 → v2 → v3 chain assembles in order; `.latestVersion` matches.\n- A `null` delta entry removes the field from `.fields`.\n- A non-null delta entry adds the field to `.fields`.\n- A rename (remove + add) survives a v1 decode.\n- `EntityESchema.evolve` re-injects `idField` on every step.\n- Migration receives the previous decoded shape (not the raw row).\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "evolve appends versions in order",
+          "children": [
+            {
+              "kind": "test",
+              "name": "v1 → v2 → v3 chain assembles in order",
+              "status": "pass",
+              "duration": 1.0024160000000393,
+              "doc": "The builder accepts `NextVersion<TVersion>` literals only; the latest version after two evolutions is `v3`.",
+              "location": {
+                "line": 11,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'v1 → v2 → v3 chain assembles in order',\n  'The builder accepts `NextVersion<TVersion>` literals only; the latest version after two evolutions is `v3`.',\n  () => {\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => ({ ...p, b: '' }))\n      .evolve('v3', { c: Schema.Number }, (p) => ({ ...p, c: 0 }))\n      .build();\n    expect(s.latestVersion).toBe('v3');\n  },\n);",
+              "snippetStartLine": 11
+            },
+            {
+              "kind": "test",
+              "name": ".fields returns the latest merged schema, not a union",
+              "status": "pass",
+              "duration": 0.3892909999999574,
+              "doc": "Reading `.fields` after `.evolve()` reflects the final shape — earlier evolutions are not visible.",
+              "location": {
+                "line": 23,
+                "column": 5
+              },
+              "snippet": "vtest(\n  '.fields returns the latest merged schema, not a union',\n  'Reading `.fields` after `.evolve()` reflects the final shape — earlier evolutions are not visible.',\n  () => {\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => ({ ...p, b: '' }))\n      .build();\n    expect(Object.keys(s.fields).sort()).toEqual(['a', 'b']);\n  },\n);",
+              "snippetStartLine": 23
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "delta semantics: add / remove / rename",
+          "children": [
+            {
+              "kind": "test",
+              "name": "a null delta entry removes the field from .fields",
+              "status": "pass",
+              "duration": 0.1043329999999969,
+              "doc": "After `.evolve(\"v2\", { legacy: null }, …)` the `legacy` key is not present on `.fields`.",
+              "location": {
+                "line": 40,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'a null delta entry removes the field from .fields',\n  'After `.evolve(\"v2\", { legacy: null }, …)` the `legacy` key is not present on `.fields`.',\n  () => {\n    const s = ESchema.make({ a: Schema.String, legacy: Schema.String })\n      .evolve('v2', { legacy: null }, (p) => ({ a: p.a }))\n      .build();\n    expect('legacy' in s.fields).toBe(false);\n  },\n);",
+              "snippetStartLine": 40
+            },
+            {
+              "kind": "test",
+              "name": "a non-null delta entry adds the field to .fields",
+              "status": "pass",
+              "duration": 0.08691700000008495,
+              "doc": "Adding a field with `.evolve()` makes it appear on `.fields` immediately.",
+              "location": {
+                "line": 51,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'a non-null delta entry adds the field to .fields',\n  'Adding a field with `.evolve()` makes it appear on `.fields` immediately.',\n  () => {\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.Number }, (p) => ({ ...p, b: 0 }))\n      .build();\n    expect('b' in s.fields).toBe(true);\n  },\n);",
+              "snippetStartLine": 51
+            },
+            {
+              "kind": "test",
+              "name": "rename (remove + add) survives a v1 decode",
+              "status": "pass",
+              "duration": 1.7655419999998685,
+              "doc": "A v1 row is migrated through the rename and emerges at the new key.",
+              "location": {
+                "line": 62,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'rename (remove + add) survives a v1 decode',\n  'A v1 row is migrated through the rename and emerges at the new key.',\n  async () => {\n    const s = ESchema.make({\n      firstName: Schema.String,\n      lastName: Schema.String,\n    })\n      .evolve(\n        'v2',\n        {\n          firstName: null,\n          lastName: null,\n          fullName: Schema.String,\n        },\n        (p) => ({ fullName: `${p.firstName} ${p.lastName}` }),\n      )\n      .build();\n    const out = await Effect.runPromise(\n      s.decode({ _v: 'v1', firstName: 'John', lastName: 'Doe' }),\n    );\n    expect(out).toEqual({ fullName: 'John Doe' });\n  },\n);",
+              "snippetStartLine": 62
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "migration is pure and version-aware",
+          "children": [
+            {
+              "kind": "test",
+              "name": "migration is invoked only for older versions",
+              "status": "pass",
+              "duration": 0.28833300000019335,
+              "doc": "A row already at the latest version skips every migration step.",
+              "location": {
+                "line": 93,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'migration is invoked only for older versions',\n  'A row already at the latest version skips every migration step.',\n  async () => {\n    let calls = 0;\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => {\n        calls += 1;\n        return { ...p, b: '' };\n      })\n      .build();\n    await Effect.runPromise(s.decode({ _v: 'v2', a: 'x', b: 'y' }));\n    expect(calls).toBe(0);\n  },\n);",
+              "snippetStartLine": 93
+            },
+            {
+              "kind": "test",
+              "name": "migration sees the previous decoded shape",
+              "status": "pass",
+              "duration": 0.21454199999993762,
+              "doc": "The migration argument matches the previous evolution's struct, not the raw input row.",
+              "location": {
+                "line": 109,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'migration sees the previous decoded shape',\n  \"The migration argument matches the previous evolution's struct, not the raw input row.\",\n  async () => {\n    let seen: unknown;\n    const s = ESchema.make({ a: Schema.String })\n      .evolve('v2', { b: Schema.String }, (p) => {\n        seen = p;\n        return { ...p, b: 'added' };\n      })\n      .build();\n    await Effect.runPromise(s.decode({ _v: 'v1', a: 'hi' }));\n    expect(seen).toEqual({ a: 'hi' });\n  },\n);",
+              "snippetStartLine": 109
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "EntityESchema.evolve re-injects idField",
+          "children": [
+            {
+              "kind": "test",
+              "name": "idField appears on .fields after every evolution",
+              "status": "pass",
+              "duration": 0.18241699999998673,
+              "doc": "A v2 entity still has its id field even though the v2 delta only added new columns.",
+              "location": {
+                "line": 131,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'idField appears on .fields after every evolution',\n  'A v2 entity still has its id field even though the v2 delta only added new columns.',\n  () => {\n    const s = EntityESchema.make('User', 'id', { name: Schema.String })\n      .evolve('v2', { age: Schema.Number }, (p) => ({ ...p, age: 0 }))\n      .build();\n    expect('id' in s.fields).toBe(true);\n  },\n);",
+              "snippetStartLine": 131
+            },
+            {
+              "kind": "test",
+              "name": "EntityESchema.evolve rejects the id field in the delta at type level",
+              "status": "pass",
+              "duration": 0.09529199999997218,
+              "doc": "A delta that mentions the id field collides with `ForbidIdField<D, IdField>` at compile time.",
+              "location": {
+                "line": 142,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'EntityESchema.evolve rejects the id field in the delta at type level',\n  'A delta that mentions the id field collides with `ForbidIdField<D, IdField>` at compile time.',\n  () => {\n    const builder = EntityESchema.make('User', 'id', {\n      name: Schema.String,\n    });\n    // @ts-expect-error — `id` is reserved as the id field.\n    builder.evolve('v2', { id: Schema.String }, (p) => p);\n    expect(true).toBe(true);\n  },\n);",
+              "snippetStartLine": 142
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/interop/index.test.ts",
+      "doc": "---\ntitle: interop\norder: 6\n---\n\n# interop\n\nThree interop surfaces let an `ESchema` participate in ecosystems that don't\nspeak the package's `decode`/`encode` directly:\n\n| Surface             | Returns                                            | Use case                                  |\n| ------------------- | -------------------------------------------------- | ----------------------------------------- |\n| `toSchema(eschema)` | `Schema.Schema<Decoded, Encoded & { _v: string }>` | Embed inside another Effect Schema graph. |\n| `.getDescriptor()`  | `JsonSchema7Object` (JSON Schema draft 7)          | Tools that expect JSON Schema.            |\n| `.~standard`        | `StandardSchemaV1` with `validate(value)`          | Form libraries, validators, RPC adapters. |\n\nThe decode/migration chain runs **through every interop surface**. Embedding\nan evolving schema inside a non-evolving one does not lose the version-aware\nread path.\n\n## Usage\n\n```ts\nimport { toSchema } from '@std-toolkit/eschema';\n\nconst Inner = ESchema.make({ a: Schema.String })\n  .evolve('v2', { b: Schema.String }, (p) => ({ ...p, b: '' }))\n  .build();\n\nconst Embedded = Schema.Struct({ inner: toSchema(Inner) });\n\n// Standard Schema validate\nconst result = Inner['~standard'].validate({ _v: 'v1', a: 'x' });\n// { value: { a: 'x', b: '' } }\n```\n\n## API\n\n### `toSchema(eschema)`\n\nWraps the schema in `Schema.declare` so it can be embedded in another\nEffect Schema graph. Both `decode` and `encode` callbacks delegate to the\nevolving schema's methods; failures are translated to\n`ParseResult.Type` so they integrate cleanly with parent parse errors.\n\nThe wrapped schema's identifier is `ESchema(<name>)` for named variants and\n`ESchema(anonymous)` for the base flavor.\n\n### `eschema.getDescriptor()`\n\nReturns a `JsonSchema7Object` rendered by Effect's\n`JSONSchema.make(struct)`, with `_v: Schema.Literal(latestVersion)` added to\nthe struct first. The output includes `$schema` / `$defs` and is safe to\nserialize to disk.\n\n### `eschema['~standard']`\n\nImplements [Standard Schema v1](https://github.com/standard-schema/standard-schema):\n\n```ts\n{\n  version: 1,\n  vendor: '@std-toolkit/eschema',\n  types: { input, output },\n  validate: (value) => { value } | { issues: [{ message }] },\n}\n```\n\n`validate` runs the full decode + migration chain synchronously via\n`Effect.runSyncExit`. On `Success` it returns `{ value }`; on `Fail` it\nreturns `{ issues: [{ message }] }` with the error's `message`; on any\nother cause shape it returns `{ issues: [{ message: 'Unknown error' }] }`.\n\n## Examples\n\n### Embed an ESchema inside another Effect Schema\n\n```ts\nconst Envelope = Schema.Struct({\n  sentAt: Schema.String,\n  payload: toSchema(User),\n});\n\nconst decoded = Effect.runSync(\n  Schema.decodeUnknown(Envelope)({\n    sentAt: '2025-01-01',\n    payload: { _v: 'v1', name: 'Bob' },\n  }),\n);\n// payload is fully migrated to the latest User shape\n```\n\n### JSON Schema for documentation\n\n```ts\nconst json = User.getDescriptor();\njson.$schema; // 'http://json-schema.org/draft-07/schema#'\njson.properties._v.enum; // ['v1'] (or [latestVersion])\njson.required.includes('_v'); // true\n```\n\n### Standard Schema with a form library\n\n```ts\n// any library that consumes StandardSchemaV1 will accept this\nform.use(User);\n```\n\n### Standard Schema — failure shape\n\n```ts\nconst result = User['~standard'].validate({ _v: 'v99', name: 'B' });\n// { issues: [{ message: 'Unknown schema version: v99' }] }\n```\n\n## Edge cases\n\n- **`toSchema` preserves the migration chain.** A v1 row inside the\n  wrapped schema is decoded and migrated to the latest shape just as\n  `decode` would; the parent Schema sees the latest shape.\n- **`toSchema` errors map to `ParseResult.Type`.** The `ESchemaError`'s\n  `message` is passed as the `Type` constructor's message argument, so a\n  parent decoder gets a clean parse error rather than a foreign error\n  type.\n- **`getDescriptor` injects `_v` as a literal.** The descriptor always\n  declares `_v` as `Schema.Literal(latestVersion)`, so any JSON Schema\n  consumer sees the version as a required constant.\n- **`~standard.validate` runs decode synchronously.** It uses\n  `Effect.runSyncExit`; an asynchronous side effect inside a migration\n  would surface as `{ issues: [{ message: 'Unknown error' }] }`.\n- **`~standard.validate` failure preserves the original `message`.** A\n  `Fail` cause maps to a single-issue `{ issues }` whose message is the\n  `ESchemaError`'s message — both `Decode failed` and\n  `Unknown schema version: …` come through verbatim.\n- **`~standard.vendor` is `'@std-toolkit/eschema'`, `version` is `1`.**\n  This is a contract for adapters and should not change.\n- **`toSchema` identifier uses the entity name when present.** For\n  `EntityESchema` / `SingleEntityESchema` the wrapped schema's identifier\n  is `ESchema(<name>)`; for plain `ESchema` it is `ESchema(anonymous)`.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `toSchema` round-trips a v1 row through the parent decoder, fully migrated.\n- `toSchema` maps `ESchemaError` to `ParseResult.Type` with the error message.\n- `getDescriptor` includes `_v` as a literal at the latest version.\n- `~standard.validate` returns `{ value }` on success.\n- `~standard.validate` returns `{ issues: [{ message }] }` on a decode failure.\n- `~standard.validate` returns the `Unknown schema version` message verbatim on bad `_v`.\n- `~standard.vendor` is `@std-toolkit/eschema` and `version` is `1`.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "toSchema embeds an ESchema in another Schema",
+          "children": [
+            {
+              "kind": "test",
+              "name": "toSchema round-trips a v1 row through the parent decoder, fully migrated",
+              "status": "pass",
+              "duration": 5.554458000000068,
+              "doc": "A row stamped `_v: \"v1\"` inside an envelope ends up at the latest shape after parent decode.",
+              "location": {
+                "line": 15,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'toSchema round-trips a v1 row through the parent decoder, fully migrated',\n  'A row stamped `_v: \"v1\"` inside an envelope ends up at the latest shape after parent decode.',\n  async () => {\n    const Envelope = Schema.Struct({ payload: toSchema(v1tov2) });\n    const out = await Effect.runPromise(\n      Schema.decodeUnknown(Envelope)({\n        payload: { _v: 'v1', a: 'A' },\n      }),\n    );\n    expect(out.payload).toEqual({ a: 'A', b: 'B' });\n  },\n);",
+              "snippetStartLine": 15
+            },
+            {
+              "kind": "test",
+              "name": "toSchema maps ESchemaError to ParseResult.Type with the error message",
+              "status": "pass",
+              "duration": 1.7745409999999993,
+              "doc": "A failed embedded decode surfaces as a parent `ParseError` carrying the original `ESchemaError.message`.",
+              "location": {
+                "line": 29,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'toSchema maps ESchemaError to ParseResult.Type with the error message',\n  'A failed embedded decode surfaces as a parent `ParseError` carrying the original `ESchemaError.message`.',\n  async () => {\n    const Envelope = Schema.Struct({ payload: toSchema(v1tov2) });\n    const result = await Effect.runPromise(\n      Schema.decodeUnknown(Envelope)({\n        payload: { _v: 'v99', a: 'A' },\n      }).pipe(Effect.either),\n    );\n    expect(result._tag).toBe('Left');\n  },\n);",
+              "snippetStartLine": 29
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "getDescriptor renders a JSON Schema with the _v literal",
+          "children": [
+            {
+              "kind": "test",
+              "name": "getDescriptor includes _v as a literal at the latest version",
+              "status": "pass",
+              "duration": 1.0854170000000067,
+              "doc": "The descriptor's `properties._v.const` is `latestVersion`.",
+              "location": {
+                "line": 49,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'getDescriptor includes _v as a literal at the latest version',\n  \"The descriptor's `properties._v.const` is `latestVersion`.\",\n  () => {\n    const desc = v1tov2.getDescriptor();\n    const props = (\n      desc as unknown as {\n        properties: Record<string, { enum?: string[] }>;\n      }\n    ).properties;\n    expect(props._v?.enum).toEqual(['v2']);\n  },\n);",
+              "snippetStartLine": 49
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "standard schema v1 surface",
+          "children": [
+            {
+              "kind": "test",
+              "name": "~standard.vendor is @std-toolkit/eschema and version is 1",
+              "status": "pass",
+              "duration": 0.12633400000004258,
+              "doc": "These values are part of the public contract with Standard Schema consumers.",
+              "location": {
+                "line": 69,
+                "column": 5
+              },
+              "snippet": "vtest(\n  '~standard.vendor is @std-toolkit/eschema and version is 1',\n  'These values are part of the public contract with Standard Schema consumers.',\n  () => {\n    expect(v1tov2['~standard'].vendor).toBe('@std-toolkit/eschema');\n    expect(v1tov2['~standard'].version).toBe(1);\n  },\n);",
+              "snippetStartLine": 69
+            },
+            {
+              "kind": "test",
+              "name": "~standard.validate returns { value } on success",
+              "status": "pass",
+              "duration": 0.8860419999998612,
+              "doc": "A valid row decodes to the latest shape; the result has `value` only, no `issues`.",
+              "location": {
+                "line": 78,
+                "column": 5
+              },
+              "snippet": "vtest(\n  '~standard.validate returns { value } on success',\n  'A valid row decodes to the latest shape; the result has `value` only, no `issues`.',\n  () => {\n    const r = v1tov2['~standard'].validate({ _v: 'v1', a: 'A' });\n    expect('value' in r).toBe(true);\n  },\n);",
+              "snippetStartLine": 78
+            },
+            {
+              "kind": "test",
+              "name": "~standard.validate returns { issues: [{ message }] } on decode failure",
+              "status": "pass",
+              "duration": 1.2277079999998932,
+              "doc": "A type mismatch produces a single issue whose message is `Decode failed`.",
+              "location": {
+                "line": 87,
+                "column": 5
+              },
+              "snippet": "vtest(\n  '~standard.validate returns { issues: [{ message }] } on decode failure',\n  'A type mismatch produces a single issue whose message is `Decode failed`.',\n  () => {\n    const r = v1tov2['~standard'].validate({ _v: 'v1', a: 1 });\n    expect('issues' in r).toBe(true);\n    if ('issues' in r) {\n      expect(r.issues?.[0]?.message).toBe('Decode failed');\n    }\n  },\n);",
+              "snippetStartLine": 87
+            },
+            {
+              "kind": "test",
+              "name": "~standard.validate returns the Unknown schema version message verbatim",
+              "status": "pass",
+              "duration": 0.6062080000001515,
+              "doc": "An unrecognised `_v` propagates through to the `issues[0].message` field.",
+              "location": {
+                "line": 99,
+                "column": 5
+              },
+              "snippet": "vtest(\n  '~standard.validate returns the Unknown schema version message verbatim',\n  'An unrecognised `_v` propagates through to the `issues[0].message` field.',\n  () => {\n    const r = v1tov2['~standard'].validate({ _v: 'v99', a: 'A' });\n    expect('issues' in r).toBe(true);\n    if ('issues' in r) {\n      expect(r.issues?.[0]?.message).toContain('v99');\n    }\n  },\n);",
+              "snippetStartLine": 99
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "index",
+      "filepath": "vtest/make/index.test.ts",
+      "doc": "---\ntitle: make\norder: 1\n---\n\n# make\n\nEvery evolving schema starts with a `make` call. The package exposes three\nflavors that differ only in identity:\n\n| Flavor                     | Signature                     | Identity                 |\n| -------------------------- | ----------------------------- | ------------------------ |\n| `ESchema.make`             | `make(fields)`                | none — anonymous payload |\n| `SingleEntityESchema.make` | `make(name, fields)`          | named singleton          |\n| `EntityESchema.make`       | `make(name, idField, fields)` | named + reserved id key  |\n\nAll three return a **builder**. The builder can be `.evolve()`'d zero or\nmore times, and is finalized with `.build()`. The initial version is always\n`'v1'`; nothing about the version chain is configurable at `make` time.\n\n## Usage\n\n```ts\n// anonymous\nconst Config = ESchema.make({ theme: Schema.String }).build();\n\n// named singleton\nconst Settings = SingleEntityESchema.make('Settings', {\n  locale: Schema.String,\n}).build();\n\n// named + id field\nconst User = EntityESchema.make('User', 'id', {\n  name: Schema.String,\n  email: Schema.String,\n}).build();\n```\n\n## API\n\n| Argument    | Type                                 | Meaning                                                                       |\n| ----------- | ------------------------------------ | ----------------------------------------------------------------------------- |\n| `name`      | `string` (SingleEntity/Entity)       | Stored on the built schema as `.name`. Used by `toSchema` identifier.         |\n| `idField`   | `string` (Entity only)               | Name of the auto-added `Schema.String` ID field. Cannot appear in `fields`.   |\n| `fields`    | `StructFieldsSchema`                 | Effect Schema fields. Keys starting with `_` are forbidden at the type level. |\n| **returns** | `*Builder` with `.evolve` / `.build` | Builder seeded with `[{ version: 'v1', schema: fields }]`.                    |\n\n## Examples\n\n### Pure (anonymous) payload\n\n```ts\nconst Event = ESchema.make({\n  topic: Schema.String,\n  body: Schema.Unknown,\n}).build();\n```\n\n### Named singleton with a synthetic field\n\n```ts\nconst Settings = SingleEntityESchema.make('Settings', {\n  locale: Schema.String,\n  notifications: Schema.Boolean,\n}).build();\n\nSettings.name; // 'Settings'\n```\n\n### Entity — id field is auto-added\n\n```ts\nconst User = EntityESchema.make('User', 'id', {\n  email: Schema.String,\n}).build();\n\nUser.idField; // 'id'\n'id' in User.fields; // true — added by the library, not the caller\n```\n\n### Underscore-prefixed key — type error\n\n```ts\n// @ts-expect-error — `_internal` collides with the metadata namespace.\nEntityESchema.make('X', 'id', { _internal: Schema.String });\n```\n\n### Entity — id field listed in `fields` is rejected\n\n```ts\n// @ts-expect-error — `id` is reserved as the id field.\nEntityESchema.make('X', 'id', { id: Schema.String, name: Schema.String });\n```\n\n## Edge cases\n\n- **Initial version is always `v1`.** There is no `make({ version: 'v2', ... })`\n  back-door. A first version must be `v1` and the chain grows upward from\n  there.\n- **Underscore-prefixed keys are forbidden at the type level.** The\n  `ForbidUnderscorePrefix<I>` constraint marks any `_*` key with a string\n  literal type that doesn't match `Schema`, surfacing as a TypeScript error\n  rather than a runtime check.\n- **`EntityESchema.make` auto-adds `idField` as a `Schema.String`.** The\n  caller doesn't (and cannot) declare it; it shows up on `.fields` after\n  `make` returns.\n- **`idField` cannot appear in the user-supplied fields.** `ForbidIdField`\n  rejects any key that matches `idField` at the type level, even though the\n  library adds the same name internally.\n- **`make` returns a builder, not a schema.** Forgetting `.build()` leaves\n  you with an object that has no `decode`/`encode`. The runtime surface\n  only appears after `.build()`.\n- **`.fields` access before any evolution is safe.** The initial evolution\n  set in `make` is enough to satisfy the `fields` getter — no `.evolve()`\n  is required.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `ESchema.make` constructs a v1-only schema whose `.fields` matches the input.\n- `SingleEntityESchema.make` exposes `.name`.\n- `EntityESchema.make` adds `idField` to `.fields` as `Schema.String`.\n- `EntityESchema.make` rejects an explicit id field at type level.\n- Underscore-prefixed keys are rejected at type level.\n- Builders carry through to the latest version `'v1'` until `.evolve()` is called.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "make seeds an initial v1 schema",
+          "children": [
+            {
+              "kind": "test",
+              "name": "ESchema.make builds a v1-only schema",
+              "status": "pass",
+              "duration": 5.1330420000001595,
+              "doc": "No `.evolve()` is required to reach a usable schema.",
+              "location": {
+                "line": 15,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'ESchema.make builds a v1-only schema',\n  'No `.evolve()` is required to reach a usable schema.',\n  () => {\n    const s = ESchema.make({ theme: Schema.String }).build();\n    expect(s.latestVersion).toBe('v1');\n    expect(Object.keys(s.fields)).toContain('theme');\n  },\n);",
+              "snippetStartLine": 15
+            },
+            {
+              "kind": "test",
+              "name": "SingleEntityESchema.make exposes .name",
+              "status": "pass",
+              "duration": 0.2103749999998854,
+              "doc": "The name supplied to `make` is stored on the built schema and survives `.evolve()`.",
+              "location": {
+                "line": 25,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'SingleEntityESchema.make exposes .name',\n  'The name supplied to `make` is stored on the built schema and survives `.evolve()`.',\n  () => {\n    const s = SingleEntityESchema.make('Settings', {\n      locale: Schema.String,\n    }).build();\n    expect(s.name).toBe('Settings');\n    expect(s.latestVersion).toBe('v1');\n  },\n);",
+              "snippetStartLine": 25
+            },
+            {
+              "kind": "test",
+              "name": "EntityESchema.make exposes .name and .idField",
+              "status": "pass",
+              "duration": 0.19229100000006838,
+              "doc": "Identity is `{ name, idField }`; both are surfaced on the built schema.",
+              "location": {
+                "line": 37,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'EntityESchema.make exposes .name and .idField',\n  'Identity is `{ name, idField }`; both are surfaced on the built schema.',\n  () => {\n    const s = EntityESchema.make('User', 'id', {\n      name: Schema.String,\n    }).build();\n    expect(s.name).toBe('User');\n    expect(s.idField).toBe('id');\n  },\n);",
+              "snippetStartLine": 37
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "EntityESchema auto-adds idField",
+          "children": [
+            {
+              "kind": "test",
+              "name": "idField is present on .fields after make",
+              "status": "pass",
+              "duration": 0.08191699999997581,
+              "doc": "A pre-`.evolve()` schema already carries the id column on `.fields`.",
+              "location": {
+                "line": 55,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'idField is present on .fields after make',\n  'A pre-`.evolve()` schema already carries the id column on `.fields`.',\n  () => {\n    const s = EntityESchema.make('User', 'id', {\n      name: Schema.String,\n    }).build();\n    expect('id' in s.fields).toBe(true);\n  },\n);",
+              "snippetStartLine": 55
+            },
+            {
+              "kind": "test",
+              "name": "idField is preserved across evolutions",
+              "status": "pass",
+              "duration": 0.16300000000001091,
+              "doc": "Each `.evolve()` re-injects the id field, even if the delta does not mention it.",
+              "location": {
+                "line": 66,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'idField is preserved across evolutions',\n  'Each `.evolve()` re-injects the id field, even if the delta does not mention it.',\n  () => {\n    const s = EntityESchema.make('User', 'id', {\n      name: Schema.String,\n    })\n      .evolve('v2', { age: Schema.Number }, (p) => ({ ...p, age: 0 }))\n      .build();\n    expect('id' in s.fields).toBe(true);\n    expect('age' in s.fields).toBe(true);\n  },\n);",
+              "snippetStartLine": 66
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "type-level guards on field keys",
+          "children": [
+            {
+              "kind": "test",
+              "name": "underscore-prefixed keys are forbidden at type level",
+              "status": "pass",
+              "duration": 0.0805000000000291,
+              "doc": "The `ForbidUnderscorePrefix<I>` constraint maps `_*` keys to a string literal type, surfacing as a TypeScript error in user code.",
+              "location": {
+                "line": 86,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'underscore-prefixed keys are forbidden at type level',\n  'The `ForbidUnderscorePrefix<I>` constraint maps `_*` keys to a string literal type, surfacing as a TypeScript error in user code.',\n  () => {\n    // @ts-expect-error — `_internal` collides with the metadata namespace.\n    ESchema.make({ _internal: Schema.String });\n    expect(true).toBe(true);\n  },\n);",
+              "snippetStartLine": 86
+            },
+            {
+              "kind": "test",
+              "name": "EntityESchema rejects an explicit id field at type level",
+              "status": "pass",
+              "duration": 0.07500000000004547,
+              "doc": "`ForbidIdField<I, Id>` rejects any user-supplied key equal to `idField`, even though the library adds the same name itself.",
+              "location": {
+                "line": 96,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'EntityESchema rejects an explicit id field at type level',\n  '`ForbidIdField<I, Id>` rejects any user-supplied key equal to `idField`, even though the library adds the same name itself.',\n  () => {\n    // @ts-expect-error — `id` is reserved as the id field.\n    EntityESchema.make('X', 'id', {\n      id: Schema.String,\n      name: Schema.String,\n    });\n    expect(true).toBe(true);\n  },\n);",
+              "snippetStartLine": 96
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "folders": [
+    {
+      "path": "vtest/decode",
+      "doc": "---\ntitle: decode\norder: 3\n---\n\n# decode\n\n`schema.decode(value)` reads the `_v` field off the input (falling back to\n`latestVersion` if it is missing), decodes the row through the matching\nevolution's struct, and then folds the result forward by applying every\nsubsequent migration in order. The output is always the latest decoded\nshape.\n\nDecode is the read path. It is the only place migrations run, and it is\nwhere unknown versions, bad shapes, and broken chains surface as\n`ESchemaError`.\n\n## Usage\n\n```ts\nconst decoded = yield * User.decode({ _v: 'v1', name: 'Bob' });\n// migrated up to latest — { name: 'Bob', email: 'unknown@example.com', ... }\n```\n\n## API\n\n| Argument    | Type                                     | Meaning                                                          |\n| ----------- | ---------------------------------------- | ---------------------------------------------------------------- |\n| `value`     | `unknown`                                | The raw row. `_v` is read if present; otherwise `latestVersion`. |\n| **returns** | `Effect<Decoded<TLatest>, ESchemaError>` | Latest-shape decoded value.                                      |\n\n## Flow\n\n```\n1.  read `_v` from `value` (if missing, default to latestVersion)\n2.  locate the evolution at that version\n       └─ not found?  → ESchemaError('Unknown schema version: …')\n3.  decode `value` through `Schema.Struct(evolution.schema)`\n       └─ ParseError? → ESchemaError('Decode failed', cause=ParseError)\n4.  for each evolution after the matched one:\n       data = evolution.migration(data)\n5.  return data as Decoded<TLatest>\n```\n\n## Examples\n\n### Migrate forward through the chain\n\n```ts\nconst User = ESchema.make({ name: Schema.String })\n  .evolve('v2', { email: Schema.String }, (p) => ({\n    ...p,\n    email: 'unknown@example.com',\n  }))\n  .evolve('v3', { verified: Schema.Boolean }, (p) => ({\n    ...p,\n    verified: false,\n  }))\n  .build();\n\nconst out = Effect.runSync(User.decode({ _v: 'v1', name: 'Bob' }));\n// { name: 'Bob', email: 'unknown@example.com', verified: false }\n```\n\n### Missing `_v` is treated as latest\n\n```ts\nconst out = Effect.runSync(User.decode({ name: 'Bob' }));\n// decoded against the latest struct directly, no migrations run\n```\n\n### Unknown `_v`\n\n```ts\nconst result = Effect.runSyncExit(User.decode({ _v: 'v99', name: 'Bob' }));\n// Failure(ESchemaError('Unknown schema version: v99'))\n```\n\n### Bad shape\n\n```ts\nconst result = Effect.runSyncExit(User.decode({ _v: 'v1', name: 42 }));\n// Failure(ESchemaError('Decode failed', cause: ParseError))\n```\n\n### EntityESchema — id field required\n\n```ts\nconst User = EntityESchema.make('User', 'id', { name: Schema.String }).build();\nconst out = Effect.runSync(User.decode({ _v: 'v1', id: 'u1', name: 'Alice' }));\nout.id; // 'u1'\n```\n\n## Edge cases\n\n- **Missing `_v` defaults to `latestVersion`.** A row with no version stamp\n  is decoded against the latest struct directly; no migrations run. This\n  is how new clients writing to a v1-only schema interact with the read\n  path before any evolution exists.\n- **Unknown `_v` fails with `Unknown schema version: <v>`.** Including\n  the value in the message lets callers debug stale producers in\n  production without inspecting the schema chain.\n- **Decode failure wraps the `ParseError` as `cause`.** The `message` is\n  the constant `'Decode failed'`; the `cause` field carries the original\n  Effect Schema `ParseError` for inspection.\n- **Migrations are applied strictly after `index + 1`.** A row at `v2`\n  in a v1→v2→v3 chain runs only the `v2→v3` migration. A row at the\n  latest version runs none.\n- **The migration function is invoked synchronously.** Throwing inside a\n  migration is not caught by `decode` — the exception escapes the\n  Effect.\n- **Decode is the only entry point that runs migrations.** The struct\n  encoder, `getDescriptor`, and `~standard.validate` reuse `decode`\n  semantics; they all fold forward to the latest shape.\n- **`~standard.validate` runs `decode` synchronously via\n  `Effect.runSyncExit`.** Any failure surfaces as `{ issues: [{ message }] }`.\n  Migrations that perform async work would break this surface — keep them\n  pure.\n- **A v1 row encoded by the library carries `_v: 'v1'`; that stamp is\n  what `decode` reads back.** Round-trips are stable: `encode → decode`\n  ends at the same latest shape regardless of the value's history.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- v1 → latest migration chain folds every step.\n- Missing `_v` falls back to `latestVersion` (no migrations).\n- Unknown `_v` fails with `Unknown schema version: <v>`.\n- Decode of a bad shape fails with `ESchemaError('Decode failed')`.\n- Migration runs only for versions strictly older than the row.\n- `~standard.validate` returns `{ value }` on success and `{ issues }` on failure.\n- EntityESchema decode requires the id field.\n"
+    },
+    {
+      "path": "vtest/encode",
+      "doc": "---\ntitle: encode\norder: 2\n---\n\n# encode\n\n`schema.encode(value)` runs the **latest** version's struct encoder against\n`value` and stamps the result with `_v: latestVersion`. The return type is\n`Effect<Encoded & { _v }, ESchemaError>` — failures from Effect Schema's\nencoder are wrapped in `ESchemaError` with `message: 'Encode failed'` and\nthe original `ParseError` set as `cause`.\n\nEncode never runs migrations. It is the inverse of decoding a row at the\nlatest version; older versions are not encodable through this method.\n\n## Usage\n\n```ts\nconst encoded =\n  yield * User.encode({ id: '1', name: 'Alice', email: 'a@b.com' });\nencoded._v; // 'v1' (or whatever `latestVersion` is)\nencoded.name; // 'Alice'\n```\n\n## API\n\n| Argument    | Type                                                                 | Meaning                                                         |\n| ----------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |\n| `value`     | `Decoded<TLatest>`                                                   | The latest-shape value. `_v` must **not** be set by the caller. |\n| **returns** | `Effect<Encoded<TLatest> & { readonly _v: TVersion }, ESchemaError>` | Encoded payload plus the `_v` stamp at the latest version.      |\n\n## Examples\n\n### Round-trip via Effect Schema transform\n\n```ts\nconst StringToNumber = Schema.transform(Schema.String, Schema.Number, {\n  decode: (s) => parseInt(s),\n  encode: (n) => String(n),\n  strict: true,\n});\n\nconst Counter = ESchema.make({ count: StringToNumber }).build();\n\nconst out = Effect.runSync(Counter.encode({ count: 42 }));\nout.count; // \"42\"\nout._v; // 'v1'\n```\n\n### Encode fails — surfaces as ESchemaError\n\n```ts\nconst result = Effect.runSyncExit(\n  User.encode({ id: '1', name: 1 as unknown as string, email: 'x' }),\n);\nresult._tag; // 'Failure'\n// cause.error is an ESchemaError with message 'Encode failed'\n```\n\n### makePartial helper for partial updates\n\n```ts\nUser.makePartial({ name: 'Bob' });\n// { name: 'Bob', _v: 'v1' }  — type-only convenience, no validation\n```\n\n## Edge cases\n\n- **`_v` is stamped, never read from the value.** Even if the caller\n  sneaks `_v: 'older'` into the input, the result carries `_v:\nlatestVersion`. The encoder's source of truth is the schema, not the\n  value.\n- **Encode runs through the latest struct only.** Older versions are not\n  reachable; if you need a downgrade, do it manually before encoding.\n- **`Encode failed` wraps the underlying `ParseError` as `cause`.** The\n  consumer keeps the original Effect Schema error for inspection without\n  having to pattern-match on `ESchemaError`'s internals.\n- **An entity's `idField` is encoded as a regular string column.** No\n  branding, no transform; whatever `Schema.String` would write is what\n  ends up on the wire.\n- **`makePartial` is type-level only.** It tags an object with the latest\n  `_v` for use in update-style APIs; it does **not** validate the partial\n  against the schema.\n- **Encode is synchronous-friendly.** The struct encoder is pure; you can\n  `Effect.runSync` an encode of any plain-data input without expecting\n  async errors.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- Encode stamps the latest `_v` regardless of caller input.\n- Encode runs Effect Schema transforms in the encode direction.\n- Encode of an invalid value fails with `ESchemaError(message='Encode failed')`.\n- `makePartial` tags the value with `_v` without validating it.\n- EntityESchema encode writes the id field through as a regular string.\n"
+    },
+    {
+      "path": "vtest/errors",
+      "doc": "---\ntitle: errors\norder: 5\n---\n\n# errors\n\nEvery fallible operation on an `ESchema` returns\n`Effect.Effect<A, ESchemaError>`. `ESchemaError` is a single tagged error\ntype with a small, fixed set of `message` values; everything else (the\nunderlying Effect Schema `ParseError`, AST, etc.) is carried in `cause`.\n\nThis keeps the failure surface trivially matchable:\n`Effect.catchTag('ESchemaError', …)` is enough to recover from every\nschema-level failure.\n\n## Usage\n\n```ts\nimport { Effect } from 'effect';\nimport { ESchemaError } from '@std-toolkit/eschema';\n\nconst safe = User.decode(rawData).pipe(\n  Effect.catchTag('ESchemaError', (err) => {\n    console.error(err.message, err.cause);\n    return Effect.succeed(defaultUser);\n  }),\n);\n```\n\n## Shape\n\n```ts\nclass ESchemaError extends Data.TaggedError('ESchemaError')<{\n  message: string;\n  data?: unknown;\n  cause?: unknown;\n}> {}\n```\n\n| Field     | Meaning                                                                   |\n| --------- | ------------------------------------------------------------------------- |\n| `_tag`    | `'ESchemaError'` (set by `Data.TaggedError`)                              |\n| `message` | A short, fixed string identifying the failure mode (see below).           |\n| `data`    | Optional structured payload — currently unused by the library.            |\n| `cause`   | The underlying error (e.g. an Effect Schema `ParseError`) for inspection. |\n\n## Message catalog\n\n| Message                         | Raised by                                | `cause`             |\n| ------------------------------- | ---------------------------------------- | ------------------- |\n| `'Encode failed'`               | `encode` — struct encoder rejected input | Effect `ParseError` |\n| `'Decode failed'`               | `decode` — struct decoder rejected input | Effect `ParseError` |\n| `'Unknown schema version: <v>'` | `decode` — `_v` not found in chain       | none                |\n| `'Migration not found'`         | `decode` — internal invariant breach     | none                |\n| `'No evolutions found'`         | `encode` — internal invariant breach     | none                |\n\nThe two \"internal invariant\" messages should never fire through the public\nAPI; they exist defensively in case a malformed `Evolution[]` reaches the\nruntime.\n\n## Examples\n\n### Pattern-match on the tag\n\n```ts\nconst recovered = User.decode(value).pipe(\n  Effect.catchTag('ESchemaError', () => Effect.succeed(null)),\n);\n```\n\n### Inspect the underlying ParseError\n\n```ts\nconst result = Effect.runSyncExit(User.decode({ _v: 'v1', name: 42 }));\n// result.cause.error.message === 'Decode failed'\n// result.cause.error.cause is the underlying ParseError\n```\n\n### Through Standard Schema\n\n```ts\nconst r = User['~standard'].validate({ _v: 'v99' });\n// { issues: [{ message: 'Unknown schema version: v99' }] }\n```\n\n## Edge cases\n\n- **`ESchemaError` is the only error type from the public surface.** Every\n  `encode` / `decode` failure is wrapped; no `ParseError` escapes\n  unwrapped from the package.\n- **`message` is a closed vocabulary.** Callers can branch on it as a\n  literal string without worrying about new variants appearing silently.\n- **`cause` is `unknown`.** Production code should not depend on its\n  shape; treat it as informational. Where it is set, it is an Effect\n  `ParseError`, but the type does not promise that.\n- **`'Encode failed'` and `'Decode failed'` are the only messages that\n  carry a `cause`.** Version-mismatch errors set `cause` to `undefined`\n  because the failure is detected before the struct decoder runs.\n- **The `Unknown schema version` message embeds the bad value.** The\n  rendered string is `Unknown schema version: <_v>`, so logs include the\n  offending stamp.\n- **`Migration not found` indicates corruption.** If you see this, an\n  `Evolution[]` array has been built by hand or mutated after `.build()`.\n  Use the public builder API.\n- **`Data.TaggedError` makes `_tag === 'ESchemaError'`.** This is how\n  `Effect.catchTag('ESchemaError', …)` matches; do not rely on\n  `instanceof` for cross-realm code.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `ESchemaError._tag` is `'ESchemaError'`.\n- `encode` failure has `message === 'Encode failed'` and a `cause`.\n- `decode` failure (bad shape) has `message === 'Decode failed'` and a `cause`.\n- `decode` of an unknown `_v` has `message` containing the offending version string.\n- `Effect.catchTag('ESchemaError', …)` recovers from every failure mode.\n"
+    },
+    {
+      "path": "vtest/evolve",
+      "doc": "---\ntitle: evolve\norder: 4\n---\n\n# evolve\n\n`.evolve(version, delta, migration)` appends a new version to the chain. A\n**delta** is a `Record<key, Schema | null>`: a Schema entry adds-or-replaces\nthat field on the previous version's struct, and a `null` entry **removes**\nthe field. The **migration** is a pure function that runs against decoded\nvalues when reading an older row, transforming the previous version's shape\ninto the new one. The migration return type is constrained by `MergeSchemas`\nso a missing field is a compile error.\n\nVersions are linear strings: the first is `'v1'`, and each `.evolve()`\nexpects `NextVersion<TVersion>` — i.e. `'v2'` after `'v1'`, `'v3'` after\n`'v2'`. The compiler enforces the sequence; the runtime trusts it.\n\n## Usage\n\n```ts\nconst User = ESchema.make({ name: Schema.String })\n  .evolve('v2', { email: Schema.String }, (prev) => ({\n    ...prev,\n    email: 'unknown@example.com',\n  }))\n  .evolve('v3', { verified: Schema.Boolean }, (prev) => ({\n    ...prev,\n    verified: false,\n  }))\n  .build();\n```\n\n## API\n\n| Argument    | Type                                                                   | Meaning                                                                |\n| ----------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |\n| `version`   | `NextVersion<TVersion>` — literal `'v(N+1)'`                           | New latest version. The compiler enforces the sequence.                |\n| `delta`     | `Record<key, Schema                                                    | null>`                                                                 | Adds (Schema) or removes (`null`) fields versus the previous version. |\n| `migration` | `(prev: Decoded<previous>) => Decoded<merged>`                         | Pure transform from the previous decoded shape to the new one.         |\n| **returns** | next builder with `TVersion = V`, `TLatest = MergeSchemas<TLatest, D>` | Mergeable into the chain; final shape only available after `.build()`. |\n\nThe merge semantics:\n\n```\nMergeSchemas<Base, Delta> = Omit<Base, keyof Delta>\n                          & { [K in keyof Delta as Delta[K] extends null ? never : K]: Delta[K] }\n```\n\nThat is: every key in the delta is dropped from base; non-null delta keys\nare added back with the new schema. Equivalent at runtime to `mergeDelta`\nin `src/schema.ts`.\n\n## Examples\n\n### Add a field\n\n```ts\nschema.evolve('v2', { age: Schema.Number }, (prev) => ({ ...prev, age: 0 }));\n```\n\n### Remove a field\n\n```ts\nschema.evolve('v2', { legacy: null }, (prev) => {\n  const { legacy: _drop, ...rest } = prev;\n  return rest;\n});\n```\n\n### Transform — remove + add (rename)\n\n```ts\nschema.evolve(\n  'v2',\n  { firstName: null, lastName: null, fullName: Schema.String },\n  (prev) => ({ id: prev.id, fullName: `${prev.firstName} ${prev.lastName}` }),\n);\n```\n\n### Replace a field's schema (same key, different shape)\n\n```ts\nschema.evolve('v2', { count: Schema.NumberFromString }, (prev) => ({\n  ...prev,\n  count: prev.count, // type changes, value parses through the new schema on encode/decode\n}));\n```\n\n### Entity — id field is re-injected each evolve\n\n```ts\nconst User = EntityESchema.make('User', 'id', { name: Schema.String })\n  .evolve('v2', { age: Schema.Number }, (prev) => ({ ...prev, age: 0 }))\n  .build();\n\n'id' in User.fields; // true — re-added by the builder's postMerge hook\n```\n\n## Edge cases\n\n- **Version strings are sequenced at the type level.** `NextVersion<'v1'> =\n'v2'`. Passing `'v2'` after `'v3'` is a TypeScript error. The runtime\n  never validates this — it trusts the compiler.\n- **A `null` delta entry removes the field.** `mergeDelta` deletes the key\n  from the merged record. A subsequent `.evolve()` may re-introduce the\n  same key with a different schema.\n- **Migration sees the previous version's decoded type.** It receives the\n  output of running the previous evolution's struct through `decode`, so\n  any field transforms have already run.\n- **Migration is invoked only when the read version is older than this\n  step.** If a row is stored at this version or newer, the migration for\n  this step is skipped.\n- **Migrations are pure and synchronous.** They return a value, not an\n  `Effect`. Throwing inside a migration propagates as an unhandled\n  exception; `decode` does not wrap it in `ESchemaError`.\n- **Underscore-prefixed delta keys are forbidden at the type level.** The\n  same `ForbidUnderscorePrefix` guard applies on every `.evolve()`.\n- **`EntityESchema.evolve` re-bans the id field in the delta.** The id\n  column is injected for you on every evolution; supplying it in the\n  delta is rejected at compile time.\n- **`.fields` returns the last evolution's merged schema.** It is **not**\n  the union of all evolutions. Only the latest shape is exposed.\n- **The chain is monotone — there is no \"branch\" or \"rollback\".** `evolve`\n  only appends. Once `.build()` is called, the chain is frozen.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- v1 → v2 → v3 chain assembles in order; `.latestVersion` matches.\n- A `null` delta entry removes the field from `.fields`.\n- A non-null delta entry adds the field to `.fields`.\n- A rename (remove + add) survives a v1 decode.\n- `EntityESchema.evolve` re-injects `idField` on every step.\n- Migration receives the previous decoded shape (not the raw row).\n"
+    },
+    {
+      "path": "vtest/interop",
+      "doc": "---\ntitle: interop\norder: 6\n---\n\n# interop\n\nThree interop surfaces let an `ESchema` participate in ecosystems that don't\nspeak the package's `decode`/`encode` directly:\n\n| Surface             | Returns                                            | Use case                                  |\n| ------------------- | -------------------------------------------------- | ----------------------------------------- |\n| `toSchema(eschema)` | `Schema.Schema<Decoded, Encoded & { _v: string }>` | Embed inside another Effect Schema graph. |\n| `.getDescriptor()`  | `JsonSchema7Object` (JSON Schema draft 7)          | Tools that expect JSON Schema.            |\n| `.~standard`        | `StandardSchemaV1` with `validate(value)`          | Form libraries, validators, RPC adapters. |\n\nThe decode/migration chain runs **through every interop surface**. Embedding\nan evolving schema inside a non-evolving one does not lose the version-aware\nread path.\n\n## Usage\n\n```ts\nimport { toSchema } from '@std-toolkit/eschema';\n\nconst Inner = ESchema.make({ a: Schema.String })\n  .evolve('v2', { b: Schema.String }, (p) => ({ ...p, b: '' }))\n  .build();\n\nconst Embedded = Schema.Struct({ inner: toSchema(Inner) });\n\n// Standard Schema validate\nconst result = Inner['~standard'].validate({ _v: 'v1', a: 'x' });\n// { value: { a: 'x', b: '' } }\n```\n\n## API\n\n### `toSchema(eschema)`\n\nWraps the schema in `Schema.declare` so it can be embedded in another\nEffect Schema graph. Both `decode` and `encode` callbacks delegate to the\nevolving schema's methods; failures are translated to\n`ParseResult.Type` so they integrate cleanly with parent parse errors.\n\nThe wrapped schema's identifier is `ESchema(<name>)` for named variants and\n`ESchema(anonymous)` for the base flavor.\n\n### `eschema.getDescriptor()`\n\nReturns a `JsonSchema7Object` rendered by Effect's\n`JSONSchema.make(struct)`, with `_v: Schema.Literal(latestVersion)` added to\nthe struct first. The output includes `$schema` / `$defs` and is safe to\nserialize to disk.\n\n### `eschema['~standard']`\n\nImplements [Standard Schema v1](https://github.com/standard-schema/standard-schema):\n\n```ts\n{\n  version: 1,\n  vendor: '@std-toolkit/eschema',\n  types: { input, output },\n  validate: (value) => { value } | { issues: [{ message }] },\n}\n```\n\n`validate` runs the full decode + migration chain synchronously via\n`Effect.runSyncExit`. On `Success` it returns `{ value }`; on `Fail` it\nreturns `{ issues: [{ message }] }` with the error's `message`; on any\nother cause shape it returns `{ issues: [{ message: 'Unknown error' }] }`.\n\n## Examples\n\n### Embed an ESchema inside another Effect Schema\n\n```ts\nconst Envelope = Schema.Struct({\n  sentAt: Schema.String,\n  payload: toSchema(User),\n});\n\nconst decoded = Effect.runSync(\n  Schema.decodeUnknown(Envelope)({\n    sentAt: '2025-01-01',\n    payload: { _v: 'v1', name: 'Bob' },\n  }),\n);\n// payload is fully migrated to the latest User shape\n```\n\n### JSON Schema for documentation\n\n```ts\nconst json = User.getDescriptor();\njson.$schema; // 'http://json-schema.org/draft-07/schema#'\njson.properties._v.enum; // ['v1'] (or [latestVersion])\njson.required.includes('_v'); // true\n```\n\n### Standard Schema with a form library\n\n```ts\n// any library that consumes StandardSchemaV1 will accept this\nform.use(User);\n```\n\n### Standard Schema — failure shape\n\n```ts\nconst result = User['~standard'].validate({ _v: 'v99', name: 'B' });\n// { issues: [{ message: 'Unknown schema version: v99' }] }\n```\n\n## Edge cases\n\n- **`toSchema` preserves the migration chain.** A v1 row inside the\n  wrapped schema is decoded and migrated to the latest shape just as\n  `decode` would; the parent Schema sees the latest shape.\n- **`toSchema` errors map to `ParseResult.Type`.** The `ESchemaError`'s\n  `message` is passed as the `Type` constructor's message argument, so a\n  parent decoder gets a clean parse error rather than a foreign error\n  type.\n- **`getDescriptor` injects `_v` as a literal.** The descriptor always\n  declares `_v` as `Schema.Literal(latestVersion)`, so any JSON Schema\n  consumer sees the version as a required constant.\n- **`~standard.validate` runs decode synchronously.** It uses\n  `Effect.runSyncExit`; an asynchronous side effect inside a migration\n  would surface as `{ issues: [{ message: 'Unknown error' }] }`.\n- **`~standard.validate` failure preserves the original `message`.** A\n  `Fail` cause maps to a single-issue `{ issues }` whose message is the\n  `ESchemaError`'s message — both `Decode failed` and\n  `Unknown schema version: …` come through verbatim.\n- **`~standard.vendor` is `'@std-toolkit/eschema'`, `version` is `1`.**\n  This is a contract for adapters and should not change.\n- **`toSchema` identifier uses the entity name when present.** For\n  `EntityESchema` / `SingleEntityESchema` the wrapped schema's identifier\n  is `ESchema(<name>)`; for plain `ESchema` it is `ESchema(anonymous)`.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `toSchema` round-trips a v1 row through the parent decoder, fully migrated.\n- `toSchema` maps `ESchemaError` to `ParseResult.Type` with the error message.\n- `getDescriptor` includes `_v` as a literal at the latest version.\n- `~standard.validate` returns `{ value }` on success.\n- `~standard.validate` returns `{ issues: [{ message }] }` on a decode failure.\n- `~standard.validate` returns the `Unknown schema version` message verbatim on bad `_v`.\n- `~standard.vendor` is `@std-toolkit/eschema` and `version` is `1`.\n"
+    },
+    {
+      "path": "vtest/make",
+      "doc": "---\ntitle: make\norder: 1\n---\n\n# make\n\nEvery evolving schema starts with a `make` call. The package exposes three\nflavors that differ only in identity:\n\n| Flavor                     | Signature                     | Identity                 |\n| -------------------------- | ----------------------------- | ------------------------ |\n| `ESchema.make`             | `make(fields)`                | none — anonymous payload |\n| `SingleEntityESchema.make` | `make(name, fields)`          | named singleton          |\n| `EntityESchema.make`       | `make(name, idField, fields)` | named + reserved id key  |\n\nAll three return a **builder**. The builder can be `.evolve()`'d zero or\nmore times, and is finalized with `.build()`. The initial version is always\n`'v1'`; nothing about the version chain is configurable at `make` time.\n\n## Usage\n\n```ts\n// anonymous\nconst Config = ESchema.make({ theme: Schema.String }).build();\n\n// named singleton\nconst Settings = SingleEntityESchema.make('Settings', {\n  locale: Schema.String,\n}).build();\n\n// named + id field\nconst User = EntityESchema.make('User', 'id', {\n  name: Schema.String,\n  email: Schema.String,\n}).build();\n```\n\n## API\n\n| Argument    | Type                                 | Meaning                                                                       |\n| ----------- | ------------------------------------ | ----------------------------------------------------------------------------- |\n| `name`      | `string` (SingleEntity/Entity)       | Stored on the built schema as `.name`. Used by `toSchema` identifier.         |\n| `idField`   | `string` (Entity only)               | Name of the auto-added `Schema.String` ID field. Cannot appear in `fields`.   |\n| `fields`    | `StructFieldsSchema`                 | Effect Schema fields. Keys starting with `_` are forbidden at the type level. |\n| **returns** | `*Builder` with `.evolve` / `.build` | Builder seeded with `[{ version: 'v1', schema: fields }]`.                    |\n\n## Examples\n\n### Pure (anonymous) payload\n\n```ts\nconst Event = ESchema.make({\n  topic: Schema.String,\n  body: Schema.Unknown,\n}).build();\n```\n\n### Named singleton with a synthetic field\n\n```ts\nconst Settings = SingleEntityESchema.make('Settings', {\n  locale: Schema.String,\n  notifications: Schema.Boolean,\n}).build();\n\nSettings.name; // 'Settings'\n```\n\n### Entity — id field is auto-added\n\n```ts\nconst User = EntityESchema.make('User', 'id', {\n  email: Schema.String,\n}).build();\n\nUser.idField; // 'id'\n'id' in User.fields; // true — added by the library, not the caller\n```\n\n### Underscore-prefixed key — type error\n\n```ts\n// @ts-expect-error — `_internal` collides with the metadata namespace.\nEntityESchema.make('X', 'id', { _internal: Schema.String });\n```\n\n### Entity — id field listed in `fields` is rejected\n\n```ts\n// @ts-expect-error — `id` is reserved as the id field.\nEntityESchema.make('X', 'id', { id: Schema.String, name: Schema.String });\n```\n\n## Edge cases\n\n- **Initial version is always `v1`.** There is no `make({ version: 'v2', ... })`\n  back-door. A first version must be `v1` and the chain grows upward from\n  there.\n- **Underscore-prefixed keys are forbidden at the type level.** The\n  `ForbidUnderscorePrefix<I>` constraint marks any `_*` key with a string\n  literal type that doesn't match `Schema`, surfacing as a TypeScript error\n  rather than a runtime check.\n- **`EntityESchema.make` auto-adds `idField` as a `Schema.String`.** The\n  caller doesn't (and cannot) declare it; it shows up on `.fields` after\n  `make` returns.\n- **`idField` cannot appear in the user-supplied fields.** `ForbidIdField`\n  rejects any key that matches `idField` at the type level, even though the\n  library adds the same name internally.\n- **`make` returns a builder, not a schema.** Forgetting `.build()` leaves\n  you with an object that has no `decode`/`encode`. The runtime surface\n  only appears after `.build()`.\n- **`.fields` access before any evolution is safe.** The initial evolution\n  set in `make` is enough to satisfy the `fields` getter — no `.evolve()`\n  is required.\n\n## Tests\n\nThe suites in `index.test.ts` lock down:\n\n- `ESchema.make` constructs a v1-only schema whose `.fields` matches the input.\n- `SingleEntityESchema.make` exposes `.name`.\n- `EntityESchema.make` adds `idField` to `.fields` as `Schema.String`.\n- `EntityESchema.make` rejects an explicit id field at type level.\n- Underscore-prefixed keys are rejected at type level.\n- Builders carry through to the latest version `'v1'` until `.evolve()` is called.\n"
+    }
+  ],
+  "summary": {
+    "total": 42,
+    "passed": 42,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 2060,
+    "startedAt": "2026-05-16T17:49:47.706Z",
+    "finishedAt": "2026-05-16T17:49:49.766Z"
+  }
+}

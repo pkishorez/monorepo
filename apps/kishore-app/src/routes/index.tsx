@@ -2,40 +2,21 @@ import { cn } from '@monorepo/frontend/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Button } from '@monorepo/frontend/components/ui/button';
 import {
+  BookOpenIcon,
+  FileTextIcon,
   LucideGithub,
   LucideLinkedin,
   LucideTwitter,
   SunIcon,
 } from '@monorepo/frontend/lucide';
 import { useTheme } from '@/components/theme';
-import { allEffectPosts } from 'content-collections';
 
 export const Route = createFileRoute('/')({
   component: RouteComponent,
-  loader: () => {
-    // Sort posts by createdAt descending (newest first)
-    const sortedPosts = [...allEffectPosts].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-    return {
-      posts: sortedPosts.slice(0, 3),
-      hasMore: sortedPosts.length > 3,
-    };
-  },
 });
 
 function RouteComponent() {
   const { toggleTheme } = useTheme();
-  const { posts, hasMore } = Route.useLoaderData();
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   return (
     <div
@@ -74,35 +55,34 @@ function RouteComponent() {
           </p>
         </div>
 
-        {/* Blog section */}
-        <div className="flex flex-col gap-3">
-          <h2 className="text-2xl font-semibold text-foreground/90">
-            Latest Writing
-          </h2>
-          {posts.map((post) => (
-            <Link key={post.slug} to={`/blog/${post.slug}` as string}>
-              <div className="border border-border/40 rounded-lg p-4 hover:border-border/60 hover:bg-accent/30 transition-all group">
-                <div className="space-y-2">
-                  <div className="text-base font-medium group-hover:text-primary transition-colors">
-                    {post.title}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {post.summary}
-                  </div>
-                  <div className="text-xs text-muted-foreground/70">
-                    {formatDate(post.createdAt)}
-                  </div>
+        {/* Nav */}
+        <div className="flex flex-col gap-2">
+          <Link to="/docs">
+            <div className="border border-border/40 rounded-lg p-4 hover:border-border/60 hover:bg-accent/30 transition-all group flex items-center gap-3">
+              <BookOpenIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <div className="flex-1">
+                <div className="text-base font-medium group-hover:text-primary transition-colors">
+                  Docs
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Generated documentation across monorepo packages.
                 </div>
               </div>
-            </Link>
-          ))}
-          {hasMore && (
-            <div className="text-center py-2">
-              <Link to="/blog" className="text-sm text-primary hover:underline">
-                Show more →
-              </Link>
             </div>
-          )}
+          </Link>
+          <Link to="/blog">
+            <div className="border border-border/40 rounded-lg p-4 hover:border-border/60 hover:bg-accent/30 transition-all group flex items-center gap-3">
+              <FileTextIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <div className="flex-1">
+                <div className="text-base font-medium group-hover:text-primary transition-colors">
+                  Blog
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Writing on Effect, fibers, and runtime design.
+                </div>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Social links */}

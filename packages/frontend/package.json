@@ -26,7 +26,7 @@
     "cosmos-export": "cosmos-export",
     "dev": "cosmos",
     "lint": "vp check && tsc --noEmit",
-    "docs": "vitest run --config vitest.docs.config.ts"
+    "test:docs": "vitest run --config vitest.docs.config.ts --passWithNoTests"
   },
   "dependencies": {
     "@base-ui/react": "1.4.1",
