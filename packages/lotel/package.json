@@ -1,0 +1,55 @@
+{
+  "name": "lotel",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Local OpenTelemetry server for development",
+  "bin": {
+    "lotel": "dist/cli/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./domain": {
+      "types": "./dist/domain/index.d.ts",
+      "default": "./dist/domain/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "dev": "tsx src/cli/index.ts --port 14318",
+    "lint": "vp check src package.json tsconfig.json && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vp test src",
+    "test:watch": "vp test src --watch"
+  },
+  "dependencies": {
+    "@effect/cli": "0.75.1",
+    "@effect/platform": "0.96.1",
+    "@effect/platform-node": "0.106.0",
+    "@std-toolkit/core": "workspace:*",
+    "@std-toolkit/eschema": "workspace:*",
+    "@std-toolkit/sqlite": "workspace:*",
+    "better-sqlite3": "12.10.0",
+    "effect": "3.21.2"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.5",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "25.8.0",
+    "tsx": "4.22.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
+  }
+}

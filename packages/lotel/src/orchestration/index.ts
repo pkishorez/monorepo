@@ -1,0 +1,15 @@
+export {
+  clearTelemetry,
+  ingestLogs,
+  ingestMetrics,
+  ingestTraces,
+  isLogsRequest,
+  isMetricsRequest,
+  isTraceRequest,
+  logRecordsFromRequest,
+  metricRecordsFromRequest,
+  queryLogs,
+  queryMetrics,
+  queryTraces,
+  traceRecordsFromRequest,
+} from './telemetry.js';
