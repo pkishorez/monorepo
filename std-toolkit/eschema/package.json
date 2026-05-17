@@ -18,11 +18,11 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "fmt": "vp fmt",
-    "test:docs": "vitest run --config vitest.docs.config.ts",
-    "test:docs:watch": "vitest run --config vitest.docs.config.ts --watch",
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",
     "test": "vp test",
+    "test:docs": "vitest run --config vitest.docs.config.ts",
+    "test:docs:watch": "vitest run --config vitest.docs.config.ts --watch",
     "test:watch": "vp test --watch"
   },
   "dependencies": {

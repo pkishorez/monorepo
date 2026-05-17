@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OtelIndexRouteImport } from './routes/otel/index'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DevIndexRouteImport } from './routes/dev/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
@@ -26,6 +27,11 @@ import { Route as BlogSlugEffectAllIndexRouteImport } from './routes/blog/_slug/
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OtelIndexRoute = OtelIndexRouteImport.update({
+  id: '/otel/',
+  path: '/otel/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsIndexRoute = DocsIndexRouteImport.update({
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/blog/': typeof BlogIndexRoute
   '/dev/': typeof DevIndexRoute
   '/docs/': typeof DocsIndexRoute
+  '/otel/': typeof OtelIndexRoute
   '/blog/effect-all/': typeof BlogSlugEffectAllIndexRoute
   '/blog/fiber-part-1/': typeof BlogSlugFiberPart1IndexRoute
   '/blog/fiber-part-2/': typeof BlogSlugFiberPart2IndexRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/docs/$pkg': typeof DocsPkgRoute
   '/dev': typeof DevIndexRoute
   '/docs': typeof DocsIndexRoute
+  '/otel': typeof OtelIndexRoute
   '/blog/effect-all': typeof BlogSlugEffectAllIndexRoute
   '/blog/fiber-part-1': typeof BlogSlugFiberPart1IndexRoute
   '/blog/fiber-part-2': typeof BlogSlugFiberPart2IndexRoute
@@ -128,6 +136,7 @@ export interface FileRoutesById {
   '/blog/': typeof BlogIndexRoute
   '/dev/': typeof DevIndexRoute
   '/docs/': typeof DocsIndexRoute
+  '/otel/': typeof OtelIndexRoute
   '/blog/_slug/effect-all/': typeof BlogSlugEffectAllIndexRoute
   '/blog/_slug/fiber-part-1/': typeof BlogSlugFiberPart1IndexRoute
   '/blog/_slug/fiber-part-2/': typeof BlogSlugFiberPart2IndexRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/dev/'
     | '/docs/'
+    | '/otel/'
     | '/blog/effect-all/'
     | '/blog/fiber-part-1/'
     | '/blog/fiber-part-2/'
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/docs/$pkg'
     | '/dev'
     | '/docs'
+    | '/otel'
     | '/blog/effect-all'
     | '/blog/fiber-part-1'
     | '/blog/fiber-part-2'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/dev/'
     | '/docs/'
+    | '/otel/'
     | '/blog/_slug/effect-all/'
     | '/blog/_slug/fiber-part-1/'
     | '/blog/_slug/fiber-part-2/'
@@ -190,6 +202,7 @@ export interface RootRouteChildren {
   BlogIndexRoute: typeof BlogIndexRoute
   DevIndexRoute: typeof DevIndexRoute
   DocsIndexRoute: typeof DocsIndexRoute
+  OtelIndexRoute: typeof OtelIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -199,6 +212,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/otel/': {
+      id: '/otel/'
+      path: '/otel'
+      fullPath: '/otel/'
+      preLoaderRoute: typeof OtelIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/': {
@@ -317,6 +337,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogIndexRoute: BlogIndexRoute,
   DevIndexRoute: DevIndexRoute,
   DocsIndexRoute: DocsIndexRoute,
+  OtelIndexRoute: OtelIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
