@@ -19,7 +19,7 @@ export const buildTotalSync = <TSchema extends AnyEntityESchema>(
     defaultPartitionKey: '',
     partitions: {},
     singletonQuery: {
-      query: (ctx) => config.query(ctx),
+      ...(config.query && { query: (ctx) => config.query!(ctx) }),
       ...(config.subscribe && {
         subscribe: (ctx) => config.subscribe!(ctx),
       }),
@@ -27,6 +27,7 @@ export const buildTotalSync = <TSchema extends AnyEntityESchema>(
   };
 
   if (config.cache !== undefined) opts.cache = config.cache;
+  if (config.options !== undefined) opts.options = config.options;
   if (config.onInsert !== undefined) opts.onInsert = config.onInsert;
   if (config.onUpdate !== undefined) opts.onUpdate = config.onUpdate;
   if (config.onDelete !== undefined) opts.onDelete = config.onDelete;

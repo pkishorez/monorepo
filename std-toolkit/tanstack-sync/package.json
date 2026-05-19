@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
+    "build:watch": "tsc --watch",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",

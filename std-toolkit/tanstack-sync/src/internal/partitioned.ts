@@ -15,6 +15,7 @@ import type { AnyEntityESchema } from '@std-toolkit/eschema';
 import type {
   CollectionItem,
   QueryContext,
+  StdCollectionOptions,
   SubscribeContext,
   UpdatePayload,
 } from '../types.js';
@@ -32,7 +33,7 @@ import {
 } from './shared.js';
 
 type PartitionHandler<TItem extends object> = {
-  query: (
+  query?: (
     value: unknown,
     ctx: QueryContext<TItem>,
   ) => Effect.Effect<EntityType<TItem>[]>;
@@ -43,7 +44,7 @@ type PartitionHandler<TItem extends object> = {
 };
 
 type SingletonHandler<TItem extends object> = {
-  query: (ctx: QueryContext<TItem>) => Effect.Effect<EntityType<TItem>[]>;
+  query?: (ctx: QueryContext<TItem>) => Effect.Effect<EntityType<TItem>[]>;
   subscribe?: (
     ctx: SubscribeContext<TItem>,
   ) => Effect.Effect<void, never, Scope.Scope>;
@@ -55,6 +56,7 @@ export type PartitionedOptions<
 > = {
   schema: TSchema;
   cache?: CacheStore;
+  options?: StdCollectionOptions;
   fetchOnMount: boolean;
   partitions: Record<string, PartitionHandler<TItem>>;
   defaultPartitionKey: string;
@@ -201,10 +203,10 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
       return;
     }
 
-    if (!handler.subscribe && options.fetchOnMount) {
+    if (!handler.subscribe && options.fetchOnMount && handler.query) {
       const queryEffect = isSingleton
-        ? (handler as SingletonHandler<TItem>).query({ getCursor })
-        : (handler as PartitionHandler<TItem>).query(partitionValue, {
+        ? (handler as SingletonHandler<TItem>).query!({ getCursor })
+        : (handler as PartitionHandler<TItem>).query!(partitionValue, {
             getCursor,
           });
 
@@ -222,6 +224,8 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
   const fetchMore = (partition: Partial<TItem>): Effect.Effect<number> =>
     Effect.suspend(() => {
       if (isSingleton) {
+        if (!singletonQuery!.query) return Effect.succeed(0);
+        const queryFn = singletonQuery!.query;
         const key = options.defaultPartitionKey;
         const semaphore = getOrCreateSemaphore(key);
 
@@ -230,7 +234,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
             const cacheP = getOrCreateCache(key);
             const cache = yield* Effect.promise(() => cacheP);
             const getCursor = makeCursor(cacheP);
-            const items = yield* singletonQuery!.query({ getCursor });
+            const items = yield* queryFn({ getCursor });
             if (items.length === 0) return 0;
             yield* cacheEntities(cache, schema, items);
             writeToCollection(items);
@@ -243,7 +247,8 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
       if (entries.length === 0) return Effect.succeed(0);
       const [field, value] = entries[0]!;
       const handler = partitions[field];
-      if (!handler) return Effect.succeed(0);
+      if (!handler || !handler.query) return Effect.succeed(0);
+      const queryFn = handler.query;
 
       const partitionKey: PartitionKey = { [field]: String(value) };
       const key = serializePartition(partitionKey);
@@ -254,7 +259,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           const cacheP = getOrCreateCache(key);
           const cache = yield* Effect.promise(() => cacheP);
           const getCursor = makeCursor(cacheP);
-          const items = yield* handler.query(value, { getCursor });
+          const items = yield* queryFn(value, { getCursor });
           if (items.length === 0) return 0;
           yield* cacheEntities(cache, schema, items);
           writeToCollection(items);
@@ -289,6 +294,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
   > & {
     utils: PartitionedUtils<TItem, TSchema>;
   } = {
+    ...options.options,
     id: schema.name,
     getKey: (item: TCollItem) => getItemId(item, schema.idField),
     ...(isSingleton ? {} : { syncMode: 'on-demand' as const }),
@@ -296,17 +302,6 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
       rowUpdateMode: 'full',
       sync: (params) => {
         callbacks = params as SyncCallbacks<TCollItem>;
-
-        const unsubscribeFromCollection = params.collection.on(
-          'subscribers:change',
-          ({ subscriberCount }) => {
-            if (subscriberCount !== 0) return;
-            for (const fiber of subscribeFibers.values()) {
-              Effect.runFork(Fiber.interrupt(fiber));
-            }
-            subscribeFibers.clear();
-          },
-        );
 
         void (async () => {
           if (isSingleton) {
@@ -334,7 +329,10 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
 
         return {
           cleanup: () => {
-            unsubscribeFromCollection();
+            for (const fiber of subscribeFibers.values()) {
+              Effect.runFork(Fiber.interrupt(fiber));
+            }
+            subscribeFibers.clear();
             callbacks = null;
           },
           ...(isSingleton
