@@ -111,6 +111,7 @@ export const buildSingleItem = <TSchema extends AnySingleEntityESchema>(
   });
 
   const config: SingleItemResult<TItem, TSchema> = {
+    ...options.options,
     id: schema.name,
     getKey: () => singletonKey,
     singleResult: true as const,

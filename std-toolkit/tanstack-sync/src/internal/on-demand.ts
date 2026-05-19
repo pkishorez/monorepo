@@ -12,7 +12,7 @@ export const buildOnDemand = <TSchema extends AnyEntityESchema>(
   const rawQueries = config.queries as Record<
     string,
     {
-      query: (value: unknown, ctx: unknown) => unknown;
+      query?: (value: unknown, ctx: unknown) => unknown;
       subscribe?: (value: unknown, ctx: unknown) => unknown;
     }
   >;
@@ -20,11 +20,10 @@ export const buildOnDemand = <TSchema extends AnyEntityESchema>(
   const partitions = Object.fromEntries(
     Object.entries(rawQueries).map(([field, handler]) => {
       const entry: {
-        query: typeof handler.query;
+        query?: typeof handler.query;
         subscribe?: typeof handler.subscribe;
-      } = {
-        query: handler.query,
-      };
+      } = {};
+      if (handler.query !== undefined) entry.query = handler.query;
       if (handler.subscribe !== undefined) entry.subscribe = handler.subscribe;
       return [field, entry];
     }),
@@ -38,6 +37,7 @@ export const buildOnDemand = <TSchema extends AnyEntityESchema>(
   };
 
   if (config.cache !== undefined) opts.cache = config.cache;
+  if (config.options !== undefined) opts.options = config.options;
   if (config.onInsert !== undefined) opts.onInsert = config.onInsert;
   if (config.onUpdate !== undefined) opts.onUpdate = config.onUpdate;
   if (config.onDelete !== undefined) opts.onDelete = config.onDelete;

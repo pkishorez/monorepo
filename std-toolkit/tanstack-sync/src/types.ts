@@ -25,6 +25,19 @@ export type SubscribeContext<TItem extends object> = {
   push: (items: EntityType<TItem>[], options?: { persist?: boolean }) => void;
 };
 
+export type StdCollectionOptions = Omit<
+  CollectionConfig<any, string>,
+  | 'id'
+  | 'getKey'
+  | 'schema'
+  | 'syncMode'
+  | 'sync'
+  | 'onInsert'
+  | 'onUpdate'
+  | 'onDelete'
+  | 'utils'
+>;
+
 export type UpdatePayload<
   TItem extends object,
   TSchema extends AnyEntityESchema,
@@ -40,8 +53,9 @@ export interface TotalSyncConfig<
 > {
   schema: TSchema;
   cache?: CacheStore;
+  options?: StdCollectionOptions;
   fetchOnMount?: boolean;
-  query: (ctx: QueryContext<TItem>) => Effect.Effect<EntityType<TItem>[]>;
+  query?: (ctx: QueryContext<TItem>) => Effect.Effect<EntityType<TItem>[]>;
   subscribe?: (
     ctx: SubscribeContext<TItem>,
   ) => Effect.Effect<void, never, Scope.Scope>;
@@ -54,7 +68,7 @@ export interface TotalSyncConfig<
 
 export type OnDemandQueries<TItem extends object> = {
   [K in keyof TItem]?: {
-    query: (
+    query?: (
       value: TItem[K],
       ctx: QueryContext<TItem>,
     ) => Effect.Effect<EntityType<TItem>[]>;
@@ -71,6 +85,7 @@ export interface OnDemandConfig<
 > {
   schema: TSchema;
   cache?: CacheStore;
+  options?: StdCollectionOptions;
   fetchOnMount?: boolean;
   queries: OnDemandQueries<TItem>;
   onInsert?: (item: TItem) => Effect.Effect<EntityType<TItem>>;
@@ -86,6 +101,7 @@ export interface SingleItemConfig<
 > {
   schema: TSchema;
   cache?: CacheStore;
+  options?: StdCollectionOptions;
   get: () => Effect.Effect<SingleEntityType<TItem>>;
   onUpdate?: (payload: {
     updates: TItem;
