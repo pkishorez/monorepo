@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useLiveQuery } from '@tanstack/react-db';
-import { SearchIcon } from '@monorepo/frontend/lucide';
-import { Button } from '@monorepo/frontend/components/ui/button';
-import { Kbd } from '@monorepo/frontend/components/ui/kbd';
-import { OtelTraceViewer } from '@monorepo/frontend/components/blocks/otel-trace-viewer/otel-trace-viewer';
 import {
   groupByTrace,
+  TraceDock,
   type TraceGroup,
-} from '@monorepo/frontend/components/blocks/otel-trace-viewer/otel-trace-viewer';
+} from '@monorepo/frontend/components/blocks/otel-trace-viewer';
 import {
   transformLog,
   transformSpan,
@@ -19,15 +16,23 @@ import type {
   StoredTraceRecordValue,
 } from 'lotel/client';
 import type { OtelCollections } from './collections';
-import { FilterBar } from './filter-bar';
-import { TraceDock } from './trace-dock';
+import {
+  FilterControls,
+  FilterPills,
+  GroupByControl,
+  ServiceFilter,
+} from './filter-bar';
+import { GroupedList } from './grouped-list';
+import { ServiceGlossary } from './service-glossary';
 import {
   applyFilters,
+  computeServiceInsights,
   discoverAttributeKeys,
   discoverAttributeValues,
-  discoverServiceNames,
-  useFilters,
-} from './use-filters';
+  discoverServiceOptions,
+  SERVICE_ATTR_KEY,
+} from './filters';
+import { useLotelStore } from './store';
 
 export function Viewer({ collections }: { collections: OtelCollections }) {
   const { data: traceItems } = useLiveQuery(collections.traces);
@@ -39,16 +44,13 @@ export function Viewer({ collections }: { collections: OtelCollections }) {
   );
   const allTraces = useMemo(() => groupByTrace(spans), [spans]);
 
-  const {
-    filters,
-    setServiceName,
-    setSinceNow,
-    clearSinceNow,
-    addAttributeFilter,
-    removeAttributeFilter,
-  } = useFilters();
+  const filters = useLotelStore((s) => s.filters);
+  const setFilters = useLotelStore((s) => s.setFilters);
+  const traceListSettings = useLotelStore((s) => s.traceList);
+  const setTraceListSettings = useLotelStore((s) => s.setTraceList);
+  const dockSettings = useLotelStore((s) => s.dock);
+  const setDockSettings = useLotelStore((s) => s.setDock);
 
-  const serviceNames = useMemo(() => discoverServiceNames(spans), [spans]);
   const attributeKeys = useMemo(() => discoverAttributeKeys(spans), [spans]);
   const getAttributeValues = useCallback(
     (key: string) => discoverAttributeValues(spans, key),
@@ -60,148 +62,187 @@ export function Viewer({ collections }: { collections: OtelCollections }) {
     [allTraces, spans, filters],
   );
 
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
-  const [dockOpen, setDockOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const tracesWithoutServiceFilter = useMemo(() => {
+    const withoutService = {
+      ...filters,
+      attributeFilters: filters.attributeFilters.filter(
+        (f) => f.key !== SERVICE_ATTR_KEY,
+      ),
+    };
+    return applyFilters(allTraces, spans, withoutService).visible;
+  }, [allTraces, spans, filters]);
 
-  const selectedTrace = useMemo(
-    () =>
-      selectedTraceId
-        ? (allTraces.find((t) => t.traceId === selectedTraceId) ?? null)
-        : null,
-    [allTraces, selectedTraceId],
+  const serviceOptions = useMemo(
+    () => discoverServiceOptions(allTraces, tracesWithoutServiceFilter),
+    [allTraces, tracesWithoutServiceFilter],
   );
+
+  const serviceInsights = useMemo(
+    () => computeServiceInsights(tracesWithoutServiceFilter),
+    [tracesWithoutServiceFilter],
+  );
+
+  const selectedService =
+    filters.attributeFilters.find((f) => f.key === SERVICE_ATTR_KEY)?.value ??
+    null;
+
+  const selectService = useCallback(
+    (name: string) => {
+      const withoutService = filters.attributeFilters.filter(
+        (f) => f.key !== SERVICE_ATTR_KEY,
+      );
+      setFilters({
+        ...filters,
+        attributeFilters: [
+          ...withoutService,
+          { id: crypto.randomUUID(), key: SERVICE_ATTR_KEY, value: name },
+        ],
+      });
+    },
+    [filters, setFilters],
+  );
+
+  const selectedTrace = useMemo<TraceGroup | null>(
+    () =>
+      traceListSettings.selectedTraceId
+        ? (allTraces.find(
+            (t) => t.traceId === traceListSettings.selectedTraceId,
+          ) ?? null)
+        : null,
+    [allTraces, traceListSettings.selectedTraceId],
+  );
+
+  const heightRef = useRef(dockSettings.height);
+  heightRef.current = dockSettings.height;
+
+  const onDividerMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const startH = heightRef.current;
+
+      function onMouseMove(ev: MouseEvent) {
+        const next = Math.max(120, startH + startY - ev.clientY);
+        heightRef.current = next;
+        setDockSettings({ ...dockSettings, height: next });
+      }
+
+      function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    },
+    [dockSettings, setDockSettings],
+  );
+
+  const dockVisible = selectedTrace !== null && dockSettings.open;
 
   const handleSelectTrace = useCallback(
     (trace: TraceGroup) => {
-      if (trace.traceId === selectedTraceId) {
-        setDockOpen((open) => !open);
+      const prevId = traceListSettings.selectedTraceId;
+      if (trace.traceId === prevId) {
+        setDockSettings({ ...dockSettings, open: !dockSettings.open });
       } else {
-        setSelectedTraceId(trace.traceId);
-        setDockOpen(true);
+        setTraceListSettings({
+          ...traceListSettings,
+          selectedTraceId: trace.traceId,
+        });
+        setDockSettings({ ...dockSettings, open: true });
       }
-
-      const traceSpans = spans.filter((s) => s.traceId === trace.traceId);
-      console.group(`[otel] ${trace.name} — ${trace.traceId}`);
-      if (trace.missingRoot)
-        console.warn('⚠ No root span (parentSpanId === null is absent)');
-      console.table(
-        traceSpans.map((s) => ({
-          spanId: s.spanId,
-          parentSpanId: s.parentSpanId ?? '(root)',
-          name: s.name,
-          status: s.status,
-          duration:
-            s.endTime !== null ? `${s.endTime - s.startTime}ms` : 'running',
-          attributes: s.attributes,
-        })),
-      );
-      console.groupEnd();
     },
-    [spans, selectedTraceId],
+    [dockSettings, setDockSettings, setTraceListSettings, traceListSettings],
   );
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setPaletteOpen(true);
-      }
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  const [dockHeight, setDockHeight] = useState(300);
-  const dockHeightRef = useRef(dockHeight);
-  dockHeightRef.current = dockHeight;
-
-  const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startH = dockHeightRef.current;
-
-    function onMouseMove(ev: MouseEvent) {
-      setDockHeight(Math.max(120, Math.min(600, startH + startY - ev.clientY)));
-    }
-
-    function onMouseUp() {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    }
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }, []);
 
   return (
     <div className="flex h-full flex-col">
-      {/* Sticky top bar: filters + hidden count + trace count + search */}
-      <div className="shrink-0 border-b border-border/40 bg-background px-6 py-3 max-w-7xl mx-auto w-full">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <FilterBar
-            serviceNames={serviceNames}
-            attributeKeys={attributeKeys}
-            getAttributeValues={getAttributeValues}
-            filters={filters}
-            onServiceChange={setServiceName}
-            onSinceNow={() => setSinceNow(Date.now())}
-            onClearSinceNow={clearSinceNow}
-            onAddAttributeFilter={addAttributeFilter}
-            onRemoveAttributeFilter={removeAttributeFilter}
-          />
-          <div className="flex items-center gap-3 shrink-0">
-            {hiddenBySinceNow > 0 && (
-              <span className="text-xs text-muted-foreground">
-                ↑ {hiddenBySinceNow} hidden
-              </span>
-            )}
-            <span className="text-xs text-muted-foreground">
-              {traces.length} trace{traces.length !== 1 ? 's' : ''}
-            </span>
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => setPaletteOpen(true)}
-              className="gap-1.5"
-            >
-              <SearchIcon className="size-3" />
-              Search
-              <Kbd>⌘K</Kbd>
-            </Button>
+      <div className="shrink-0 border-b border-border/40 bg-background px-6 pt-3 pb-2 max-w-7xl mx-auto w-full">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex shrink-0 items-center gap-1.5">
+            <ServiceFilter
+              filters={filters}
+              onFiltersChange={setFilters}
+              options={serviceOptions}
+            />
+            <FilterControls
+              filters={filters}
+              onFiltersChange={setFilters}
+              attributeKeys={attributeKeys}
+              getAttributeValues={getAttributeValues}
+            />
           </div>
+          {selectedService !== null && (
+            <div className="flex shrink-0 items-center gap-3">
+              <GroupByControl
+                value={traceListSettings.groupBy}
+                onChange={(next) =>
+                  setTraceListSettings({
+                    ...traceListSettings,
+                    groupBy: next,
+                  })
+                }
+                attributeKeys={attributeKeys}
+              />
+              {hiddenBySinceNow > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  ↑ {hiddenBySinceNow} hidden
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {traces.length} trace{traces.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
         </div>
+        {(filters.attributeFilters.some((f) => f.key !== SERVICE_ATTR_KEY) ||
+          filters.sinceNow !== null) && (
+          <div className="mt-2">
+            <FilterPills filters={filters} onFiltersChange={setFilters} />
+          </div>
+        )}
       </div>
 
-      {/* Scrollable trace list */}
       <div
         className={cn(
           'min-h-0 flex-1 overflow-auto px-6 py-4 max-w-7xl mx-auto w-full',
           scrollbarStyles,
         )}
       >
-        <OtelTraceViewer
-          traces={traces}
-          selectedTraceId={selectedTraceId}
-          onSelectTrace={handleSelectTrace}
-          paletteOpen={paletteOpen}
-          onPaletteOpenChange={setPaletteOpen}
-          showListHeader={false}
-        />
+        {selectedService === null ? (
+          <ServiceGlossary
+            insights={serviceInsights}
+            onSelectService={selectService}
+          />
+        ) : traces.length === 0 ? (
+          <div className="flex items-center justify-center rounded-lg border border-border p-10 text-sm text-muted-foreground">
+            No traces
+          </div>
+        ) : (
+          <GroupedList
+            traces={traces}
+            spans={spans}
+            settings={traceListSettings}
+            onSettingsChange={setTraceListSettings}
+            onSelectTrace={handleSelectTrace}
+          />
+        )}
       </div>
 
-      {/* Full-width dock */}
-      {selectedTrace && dockOpen && (
+      {dockVisible && selectedTrace && (
         <>
           <div
             className="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/20"
             onMouseDown={onDividerMouseDown}
           />
-          <div style={{ height: dockHeight }} className="shrink-0">
+          <div style={{ height: dockSettings.height }} className="shrink-0">
             <TraceDock
               key={selectedTrace.traceId}
               trace={selectedTrace}
-              onToggle={() => setDockOpen(false)}
+              settings={dockSettings}
+              onSettingsChange={setDockSettings}
+              onClose={() => setDockSettings({ ...dockSettings, open: false })}
             />
           </div>
         </>

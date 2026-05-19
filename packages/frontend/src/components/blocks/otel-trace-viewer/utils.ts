@@ -40,6 +40,12 @@ export type TraceGroup = {
   duration: number | null;
   startTime: number;
   endTime: number | null;
+  /**
+   * Most recent activity timestamp across every span in the trace, in ms.
+   * Unlike {@link startTime} this advances as new spans arrive — use it for
+   * "last seen" displays and similar recency signals.
+   */
+  lastActivity: number;
   roots: SpanNode[];
   missingRoot: boolean;
 };
@@ -130,6 +136,14 @@ export function groupByTrace(spans: OtelSpan[]): TraceGroup[] {
       }
     }
 
+    let lastActivity = minStart;
+    for (const s of traceSpans) {
+      if (s.startTime > lastActivity) lastActivity = s.startTime;
+      if (s.endTime !== null && s.endTime > lastActivity) {
+        lastActivity = s.endTime;
+      }
+    }
+
     return {
       traceId,
       name,
@@ -139,6 +153,7 @@ export function groupByTrace(spans: OtelSpan[]): TraceGroup[] {
       duration,
       startTime,
       endTime,
+      lastActivity,
       roots,
       missingRoot,
     };

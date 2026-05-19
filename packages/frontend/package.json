@@ -10,6 +10,7 @@
     "#hooks/*": "./src/hooks/*.ts"
   },
   "exports": {
+    "./components/blocks/*": "./src/components/blocks/*/index.ts",
     "./components/*": "./src/components/*.tsx",
     "./lib/shadow-dom": "./src/lib/shadow-dom.tsx",
     "./lib/*": "./src/lib/*.ts",

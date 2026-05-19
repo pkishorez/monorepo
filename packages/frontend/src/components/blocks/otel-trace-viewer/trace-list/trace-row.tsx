@@ -12,7 +12,6 @@ import type { TraceGroup } from '../utils';
 import { formatDuration } from '../utils';
 
 export const LIST_NAME_COL_WIDTH = 200;
-export const LIST_SERVICE_COL_WIDTH = 140;
 export const LIST_SPANS_COL_WIDTH = 56;
 
 interface TraceRowProps {
@@ -71,18 +70,6 @@ export function TraceRow({
         {trace.missingRoot && (
           <span className="shrink-0 text-[10px] text-destructive">no root</span>
         )}
-      </div>
-
-      <div
-        className="flex shrink-0 items-center overflow-hidden border-r border-border/30 px-3"
-        style={{ width: `${LIST_SERVICE_COL_WIDTH}px` }}
-      >
-        <span
-          className="truncate font-mono text-[10px] text-muted-foreground"
-          title={trace.serviceName ?? undefined}
-        >
-          {trace.serviceName ?? '—'}
-        </span>
       </div>
 
       <div

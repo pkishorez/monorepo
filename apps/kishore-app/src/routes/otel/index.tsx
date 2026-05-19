@@ -6,8 +6,8 @@ import { ConfigForm } from './internal/config-form';
 import { ErrorBanner } from './internal/error-banner';
 import { Header } from './internal/header';
 import { LotelClient, makeLotelRuntime } from './internal/runtime';
-import { useBaseUrl } from './internal/use-base-url';
 import { usePoll } from './internal/use-poll';
+import { useLotelStore } from './internal/store';
 import { Viewer } from './internal/viewer';
 
 export const Route = createFileRoute('/otel/')({
@@ -19,7 +19,13 @@ export const Route = createFileRoute('/otel/')({
 });
 
 function OtelRoute() {
-  const { baseUrl, setBaseUrl } = useBaseUrl();
+  const baseUrl = useLotelStore((s) => s.config.baseUrl);
+  const setConfig = useLotelStore((s) => s.setConfig);
+
+  const setBaseUrl = useCallback(
+    (next: string) => setConfig({ baseUrl: next }),
+    [setConfig],
+  );
 
   if (!baseUrl) {
     return (

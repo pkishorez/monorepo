@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@monorepo/frontend/components/ui/button';
 import { Input } from '@monorepo/frontend/components/ui/input';
-import { isValidBaseUrl } from './use-base-url';
+import { isValidBaseUrl } from './store';
 
 const DEFAULT_URL = 'http://localhost:14318';
 

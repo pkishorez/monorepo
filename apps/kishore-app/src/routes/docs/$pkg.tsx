@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 
-import { VTestDocs } from '@monorepo/frontend/components/blocks/vtest/docs-view';
+import { VTestDocs } from '@monorepo/frontend/components/blocks/vtest';
 import { Button } from '@monorepo/frontend/components/ui/button';
 import { MoonIcon, SunIcon } from '@monorepo/frontend/lucide';
 

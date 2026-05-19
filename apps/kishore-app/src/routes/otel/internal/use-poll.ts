@@ -2,7 +2,7 @@ import { Effect } from 'effect';
 import { useEffect, useState } from 'react';
 import type { OtelCollections } from './collections';
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 1000;
 
 export function usePoll(collections: OtelCollections) {
   const [error, setError] = useState<unknown>(null);
