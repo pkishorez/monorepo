@@ -13,15 +13,17 @@ interface GanttProps {
 }
 
 export function Gantt({ trace, selectedSpanId, onSpanClick }: GanttProps) {
-  const traceStart = trace.startTime;
-  const traceEnd = useMemo(() => {
-    if (trace.endTime !== null) return trace.endTime;
+  const { traceStart, traceEnd } = useMemo(() => {
     const allSpans = collectSpans(trace.roots);
+    const starts = allSpans.map((s) => s.startTime);
     const ends = allSpans
       .map((s) => s.endTime)
       .filter((e): e is number => e !== null);
-    return ends.length > 0 ? Math.max(...ends) : traceStart + 1;
-  }, [trace, traceStart]);
+    const minStart = starts.length > 0 ? Math.min(...starts) : trace.startTime;
+    const maxEnd =
+      ends.length > 0 ? Math.max(...ends) : (trace.endTime ?? minStart + 1);
+    return { traceStart: minStart, traceEnd: maxEnd };
+  }, [trace]);
 
   const rows = useMemo(
     () => buildGanttRows(trace.roots, traceStart, traceEnd),

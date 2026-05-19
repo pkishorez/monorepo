@@ -24,13 +24,20 @@ export function GanttRow({ row, selected, onClick }: GanttRowProps) {
   return (
     <button
       onClick={onClick}
+      aria-current={selected ? 'true' : undefined}
       className={cn(
-        'group flex w-full items-stretch border-b border-border/20 text-left',
+        'group relative flex w-full items-stretch border-b border-border/20 text-left',
         'transition-colors hover:bg-muted/20',
-        selected && 'bg-muted/40',
+        selected && 'bg-primary/10 hover:bg-primary/10',
       )}
       style={{ minHeight: `${ROW_HEIGHT_PX}px` }}
     >
+      {selected && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-0.5 bg-primary"
+        />
+      )}
       {/* Name column — indented by depth, comfortable left/right padding */}
       <div
         className="flex shrink-0 items-center gap-1.5 overflow-hidden border-r border-border/30"
@@ -42,7 +49,10 @@ export function GanttRow({ row, selected, onClick }: GanttRowProps) {
       >
         <StatusDot status={span.status} />
         <span
-          className="min-w-0 flex-1 truncate font-mono text-xs"
+          className={cn(
+            'min-w-0 flex-1 truncate font-mono text-xs',
+            selected && 'font-semibold text-foreground',
+          )}
           title={formatSpanName(span.name, span.attributes)}
         >
           {formatSpanName(span.name, span.attributes)}
@@ -76,7 +86,7 @@ export function GanttRow({ row, selected, onClick }: GanttRowProps) {
               span.status === 'running' && 'animate-pulse',
               selected &&
                 cn(
-                  'ring-1 ring-offset-1 ring-offset-background',
+                  'ring-2 ring-offset-1 ring-offset-background',
                   STATUS_RING[span.status],
                 ),
             )}

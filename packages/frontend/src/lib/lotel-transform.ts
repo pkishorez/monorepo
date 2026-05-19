@@ -71,6 +71,42 @@ function resolveStatus(
   return 'unset';
 }
 
+/**
+ * Upgrade the span status to 'error' when semantic conventions indicate a
+ * failure even though the sender did not set status.code = ERROR. Catches HTTP
+ * 5xx (and 4xx on client spans), the `error.type` attribute, and exception
+ * events.
+ */
+function inferErrorFromSemantics(
+  baseStatus: OtelStatus,
+  attributes: Record<string, unknown>,
+  events: OtelEvent[],
+  spanKind: number | undefined,
+): OtelStatus {
+  if (baseStatus === 'error' || baseStatus === 'running') return baseStatus;
+
+  if (attributes['error.type'] !== undefined) return 'error';
+  if (events.some((e) => e.name === 'exception')) return 'error';
+
+  const httpCodeRaw =
+    attributes['http.response.status_code'] ?? attributes['http.status_code'];
+  const httpCode =
+    typeof httpCodeRaw === 'number'
+      ? httpCodeRaw
+      : typeof httpCodeRaw === 'string'
+        ? Number(httpCodeRaw)
+        : NaN;
+  if (Number.isFinite(httpCode)) {
+    // SPAN_KIND_CLIENT = 3 in OTel proto. For client spans, 4xx is also an
+    // error from the caller's perspective. For other kinds (server, internal),
+    // treat 5xx as error.
+    const threshold = spanKind === 3 ? 400 : 500;
+    if (httpCode >= threshold) return 'error';
+  }
+
+  return baseStatus;
+}
+
 export function transformSpan(stored: StoredTraceRecordValue): OtelSpan {
   const { record: span, context } = stored;
 
@@ -91,6 +127,15 @@ export function transformSpan(stored: StoredTraceRecordValue): OtelSpan {
     attributes: kvArrayToRecord(e.attributes),
   }));
 
+  const baseStatus = resolveStatus(statusCode, endTimeMs);
+  const spanKind = typeof span.kind === 'number' ? span.kind : undefined;
+  const status = inferErrorFromSemantics(
+    baseStatus,
+    attributes,
+    events,
+    spanKind,
+  );
+
   return {
     traceId: span.traceId ?? '',
     spanId: span.spanId ?? '',
@@ -98,7 +143,7 @@ export function transformSpan(stored: StoredTraceRecordValue): OtelSpan {
     name: span.name ?? '',
     startTime: nanosToMs(span.startTimeUnixNano),
     endTime: endTimeMs,
-    status: resolveStatus(statusCode, endTimeMs),
+    status,
     attributes,
     events,
   };

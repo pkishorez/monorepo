@@ -9,7 +9,6 @@ import { GanttHeader } from '../trace-dialog/gantt/gantt-header';
 import type { TraceGroup } from '../utils';
 import {
   LIST_NAME_COL_WIDTH,
-  LIST_SERVICE_COL_WIDTH,
   LIST_SPANS_COL_WIDTH,
   TraceRow,
 } from './trace-row';
@@ -93,14 +92,6 @@ export function TraceList({
             >
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Name
-              </span>
-            </div>
-            <div
-              className="flex shrink-0 items-center border-r border-border/30 px-3"
-              style={{ width: `${LIST_SERVICE_COL_WIDTH}px` }}
-            >
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Service
               </span>
             </div>
             <div
