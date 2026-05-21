@@ -1,4 +1,25 @@
-import type { OtelSpan, OtelStatus } from './types';
+import type { OtelEvent, OtelSpan, OtelStatus } from './types';
+
+const LOG_INDICATOR_KEYS = [
+  'severityNumber',
+  'severityText',
+  'log.severityNumber',
+  'log.severityText',
+  'body',
+  'log.message',
+];
+
+/**
+ * Treat a span event as a log record when it carries any of the standard
+ * OTel log attributes. Hand-authored `span.AddEvent` calls without these
+ * fall through as legacy events (the deprecated API).
+ */
+export function isLog(event: OtelEvent): boolean {
+  for (const key of LOG_INDICATOR_KEYS) {
+    if (key in event.attributes) return true;
+  }
+  return false;
+}
 
 export function formatDuration(ms: number | null): string {
   if (ms === null) return '—';

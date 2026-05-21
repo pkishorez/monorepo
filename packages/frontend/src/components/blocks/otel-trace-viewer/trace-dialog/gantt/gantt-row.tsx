@@ -1,7 +1,7 @@
 import { cn } from '#lib/utils';
 
 import { STATUS_BG, STATUS_RING, StatusDot } from '../../status';
-import { formatSpanName } from '../../utils';
+import { formatSpanName, isLog } from '../../utils';
 import {
   BAR_COL_INSET,
   BAR_HEIGHT_PX,
@@ -19,7 +19,7 @@ interface GanttRowProps {
 
 export function GanttRow({ row, selected, onClick }: GanttRowProps) {
   const { span, depth, startPct, widthPct } = row;
-  const eventCount = span.events.length;
+  const logCount = span.events.filter(isLog).length;
 
   return (
     <button
@@ -57,9 +57,9 @@ export function GanttRow({ row, selected, onClick }: GanttRowProps) {
         >
           {formatSpanName(span.name, span.attributes)}
         </span>
-        {eventCount > 0 && (
+        {logCount > 0 && (
           <span className="ml-1 shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
-            {eventCount} {eventCount === 1 ? 'event' : 'events'}
+            {logCount} {logCount === 1 ? 'log' : 'logs'}
           </span>
         )}
       </div>
