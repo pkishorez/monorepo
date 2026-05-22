@@ -23,9 +23,16 @@ const emptyIssues = () => ({
   errors: 0,
 });
 
+const emptyDrift = () => ({
+  dataDrift: 0,
+  indexDrift: 0,
+  primaryKeyChanged: 0,
+});
+
 const emptyEntity = (): MigrationEntityReport => ({
   ...emptyItems(),
   issues: emptyIssues(),
+  drift: emptyDrift(),
 });
 
 const freezeReport = (snapshot: MigrationReport): MigrationReport => {
@@ -36,13 +43,18 @@ const freezeReport = (snapshot: MigrationReport): MigrationReport => {
   }
   for (const entity of Object.values(snapshot.entities)) {
     Object.freeze(entity.issues);
+    Object.freeze(entity.drift);
     Object.freeze(entity);
   }
   for (const segment of Object.values(snapshot.segments)) {
     Object.freeze(segment);
   }
+  for (const failure of snapshot.failures) {
+    Object.freeze(failure);
+  }
   Object.freeze(snapshot.entities);
   Object.freeze(snapshot.segments);
+  Object.freeze(snapshot.failures);
   return Object.freeze(snapshot);
 };
 
@@ -56,6 +68,7 @@ export const createMigrationReportAccumulator = (
     issues: emptyIssues(),
     entities: {},
     segments: {},
+    failures: [],
   };
 
   const markRunning = () => {
@@ -108,15 +121,34 @@ export const createMigrationReportAccumulator = (
         if (stateType === 'stale') {
           report.items.migrate += 1;
           entityReport(entity).migrate += 1;
+          if (inspection.state.data) {
+            entityReport(entity).drift.dataDrift += 1;
+          }
+          if (inspection.state.indexes) {
+            entityReport(entity).drift.indexDrift += 1;
+          }
           addWarning(entity);
         }
         if (stateType === 'primaryKeyChanged') {
           report.items.migrate += 1;
           entityReport(entity).migrate += 1;
+          entityReport(entity).drift.primaryKeyChanged += 1;
           addError(entity);
+          report.failures.push({
+            entity,
+            ...(inspection.storedKey ? { key: inspection.storedKey } : {}),
+            error: `Primary key changed${inspection.reasons.length > 0 ? ': ' + inspection.reasons.join('; ') : ''}`,
+            timestamp: new Date().toISOString(),
+          });
         }
         if (stateType === 'corrupt') {
           addError(entity);
+          report.failures.push({
+            entity,
+            ...(inspection.storedKey ? { key: inspection.storedKey } : {}),
+            error: `Corrupt item${inspection.reasons.length > 0 ? ': ' + inspection.reasons.join('; ') : ''}`,
+            timestamp: new Date().toISOString(),
+          });
         }
         if (stateType === 'ignored') {
           report.items.ignored += 1;
@@ -138,6 +170,11 @@ export const createMigrationReportAccumulator = (
       }
       if (inspection.state === 'invalid') {
         addError(inspection.entity);
+        report.failures.push({
+          ...(inspection.entity ? { entity: inspection.entity } : {}),
+          error: `Invalid item${inspection.reason ? ': ' + inspection.reason : ''}`,
+          timestamp: new Date().toISOString(),
+        });
       }
     },
     recordScanned: ({
@@ -162,11 +199,15 @@ export const createMigrationReportAccumulator = (
       markRunning();
       segmentReport(segment).complete = true;
     },
-    recordSegmentFailed: (segment: string) => {
+    recordSegmentFailed: (segment: string, error?: string) => {
       markRunning();
       segmentReport(segment).complete = false;
       report.items.failed += 1;
       addError();
+      report.failures.push({
+        error: error ?? `Segment ${segment} scan failed`,
+        timestamp: new Date().toISOString(),
+      });
     },
     recordMigrated: ({ entity }: { entity?: string } = {}) => {
       markRunning();
@@ -179,13 +220,25 @@ export const createMigrationReportAccumulator = (
         entityReport(entity).migrated += 1;
       }
     },
-    recordFailed: ({ entity }: { entity?: string } = {}) => {
+    recordFailed: (
+      detail: {
+        entity?: string;
+        key?: { pk: string; sk: string };
+        error?: string;
+      } = {},
+    ) => {
       markRunning();
       report.items.failed += 1;
-      if (entity) {
-        entityReport(entity).failed += 1;
+      if (detail.entity) {
+        entityReport(detail.entity).failed += 1;
       }
-      addError(entity);
+      addError(detail.entity);
+      report.failures.push({
+        ...(detail.entity ? { entity: detail.entity } : {}),
+        ...(detail.key ? { key: detail.key } : {}),
+        error: detail.error ?? 'Unknown error',
+        timestamp: new Date().toISOString(),
+      });
     },
     complete: () => {
       report.phase =
@@ -224,6 +277,7 @@ export const createMigrationReportAccumulator = (
             {
               ...value,
               issues: { ...value.issues },
+              drift: { ...value.drift },
             },
           ]),
         ),
@@ -233,6 +287,7 @@ export const createMigrationReportAccumulator = (
             { ...value },
           ]),
         ),
+        failures: [...report.failures],
       });
     },
   };

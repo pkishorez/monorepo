@@ -23,6 +23,20 @@ import { exprCondition } from '../expr/condition.js';
 
 const MIGRATION_RETRY_LIMIT = 3;
 
+const formatMigrationError = (error: DynamodbError): string => {
+  const e = error.error;
+  if ('cause' in e) {
+    return `${e._tag}: ${e.cause instanceof Error ? e.cause.message : String(e.cause)}`;
+  }
+  if ('message' in e) {
+    return `${e._tag}: ${e.message}`;
+  }
+  if ('meta' in e) {
+    return `${e._tag} (HTTP ${e.meta.statusCode})`;
+  }
+  return e._tag;
+};
+
 /**
  * Extracts the entity name from a DynamoEntity type.
  */
@@ -281,7 +295,11 @@ export class EntityRegistry<
               return;
             }
 
-            accumulator.recordFailed({ entity: entityName });
+            accumulator.recordFailed({
+              entity: entityName,
+              key: storedKey,
+              error: formatMigrationError(writeResult.left),
+            });
           });
 
         const scanSegment = (segment: number) => {
@@ -314,7 +332,10 @@ export class EntityRegistry<
               ).pipe(Effect.either);
 
               if (pageResult._tag === 'Left') {
-                accumulator.recordSegmentFailed(segmentKey);
+                accumulator.recordSegmentFailed(
+                  segmentKey,
+                  formatMigrationError(pageResult.left),
+                );
                 return [
                   Chunk.of(accumulator.snapshot()),
                   Option.none<{ lastKey?: Record<string, unknown> }>(),

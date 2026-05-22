@@ -15,6 +15,8 @@ export type {
   MigrationInspectionState,
   MigrationInspection,
   MigrationReport,
+  MigrationFailure,
+  MigrationDriftReport,
   MigrationItemReport,
   MigrationIssueReport,
   MigrationEntityReport,
