@@ -66,8 +66,15 @@ export type MigrationIssueReport = {
   errors: number;
 };
 
+export type MigrationDriftReport = {
+  dataDrift: number;
+  indexDrift: number;
+  primaryKeyChanged: number;
+};
+
 export type MigrationEntityReport = MigrationItemReport & {
   issues: MigrationIssueReport;
+  drift: MigrationDriftReport;
 };
 
 export type MigrationSegmentReport = {
@@ -82,6 +89,13 @@ export type MigrationProgressEstimate = {
   approximate?: boolean;
 };
 
+export type MigrationFailure = {
+  entity?: string;
+  key?: { pk: string; sk: string };
+  error: string;
+  timestamp: string;
+};
+
 export type MigrationReport = {
   phase: MigrationState;
   progress?: MigrationProgressEstimate;
@@ -89,6 +103,7 @@ export type MigrationReport = {
   issues: MigrationIssueReport;
   entities: Record<string, MigrationEntityReport>;
   segments: Record<string, MigrationSegmentReport>;
+  failures: MigrationFailure[];
 };
 
 export type MigrationOptions = {

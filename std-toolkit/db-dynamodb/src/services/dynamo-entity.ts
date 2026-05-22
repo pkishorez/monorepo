@@ -372,12 +372,17 @@ export class DynamoEntity<
 
       const decoded = yield* this.#eschema.decode(rawItem).pipe(Effect.either);
       if (decoded._tag === 'Left') {
+        const decodeError = decoded.left;
+        const causeMessage =
+          decodeError.cause instanceof Error
+            ? decodeError.cause.message
+            : undefined;
         return {
           inspection: {
             entity: this.#eschema.name,
             state: { type: 'corrupt' },
             ...(storedKey ? { storedKey } : {}),
-            reasons: ['decode-failed'],
+            reasons: ['decode-failed', ...(causeMessage ? [causeMessage] : [])],
           },
         };
       }

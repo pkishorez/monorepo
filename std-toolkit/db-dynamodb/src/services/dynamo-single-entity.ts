@@ -172,14 +172,22 @@ export class DynamoSingleEntity<
           reasons: [],
         };
       }),
-      Effect.catchAll(
-        (): Effect.Effect<MigrationInspection, never> =>
-          Effect.succeed({
-            entity: this.#eschema.name,
-            state: { type: 'corrupt' },
-            reasons: ['corrupt'],
-          }),
-      ),
+      Effect.catchAll((err): Effect.Effect<MigrationInspection, never> => {
+        const causeMessage =
+          err instanceof Error
+            ? err.message
+            : err &&
+                typeof err === 'object' &&
+                'cause' in err &&
+                err.cause instanceof Error
+              ? err.cause.message
+              : undefined;
+        return Effect.succeed({
+          entity: this.#eschema.name,
+          state: { type: 'corrupt' },
+          reasons: ['corrupt', ...(causeMessage ? [causeMessage] : [])],
+        });
+      }),
     );
   }
 

@@ -31,7 +31,7 @@ export const buildOnDemand = <TSchema extends AnyEntityESchema>(
 
   const opts: PartitionedOptions<TItem, TSchema> = {
     schema: config.schema,
-    fetchOnMount: config.fetchOnMount ?? false,
+    fetchOnMount: config.fetchOnMount ?? true,
     defaultPartitionKey: '',
     partitions,
   };
