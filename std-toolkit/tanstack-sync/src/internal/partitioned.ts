@@ -193,13 +193,26 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     };
 
     if (handler.subscribe && !subscribeFibers.has(key)) {
+      let resolveInitialSync!: () => void;
+      const initialSyncDone = new Promise<void>((r) => {
+        resolveInitialSync = r;
+      });
+
+      const onInitialSyncDone = () => resolveInitialSync();
+
       const subscribeEffect = isSingleton
-        ? (handler as SingletonHandler<TItem>).subscribe!({ getCursor, push })
+        ? (handler as SingletonHandler<TItem>).subscribe!({
+            getCursor,
+            push,
+            onInitialSyncDone,
+          })
         : (handler as PartitionHandler<TItem>).subscribe!(partitionValue, {
             getCursor,
             push,
+            onInitialSyncDone,
           });
       await forkSubscribeFiber(key, subscribeEffect);
+      await initialSyncDone;
       return;
     }
 

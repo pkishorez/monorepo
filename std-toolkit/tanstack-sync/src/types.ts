@@ -23,6 +23,7 @@ export type QueryContext<TItem extends object> = {
 export type SubscribeContext<TItem extends object> = {
   getCursor: Effect.Effect<EntityType<TItem> | null>;
   push: (items: EntityType<TItem>[], options?: { persist?: boolean }) => void;
+  onInitialSyncDone: () => void;
 };
 
 export type StdCollectionOptions = Omit<
