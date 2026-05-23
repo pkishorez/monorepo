@@ -4,10 +4,12 @@
   "type": "module",
   "scripts": {
     "build": "vp build",
+    "depcruise": "depcruise-viz",
     "deploy": "vp build && wrangler deploy",
     "dev": "vp dev --port 20001",
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit",
+    "lint:depcruise": "depcruise-viz lint",
     "serve": "vp preview",
     "test": "vp test",
     "types": "wrangler types"
@@ -68,6 +70,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
+    "dependency-cruiser-viz": "workspace:*",
     "jsdom": "29.1.1",
     "remark-frontmatter": "5.0.0",
     "remark-mdx-frontmatter": "5.2.0",

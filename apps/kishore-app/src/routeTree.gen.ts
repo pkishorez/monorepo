@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as OtelIndexRouteImport } from './routes/otel/index'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DevIndexRouteImport } from './routes/dev/index'
+import { Route as DepCruiserIndexRouteImport } from './routes/dep-cruiser/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as DocsPkgRouteImport } from './routes/docs/$pkg'
 import { Route as DevUiRouteImport } from './routes/dev/ui'
@@ -42,6 +43,11 @@ const DocsIndexRoute = DocsIndexRouteImport.update({
 const DevIndexRoute = DevIndexRouteImport.update({
   id: '/dev/',
   path: '/dev/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DepCruiserIndexRoute = DepCruiserIndexRouteImport.update({
+  id: '/dep-cruiser/',
+  path: '/dep-cruiser/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/dev/ui': typeof DevUiRoute
   '/docs/$pkg': typeof DocsPkgRoute
   '/blog/': typeof BlogIndexRoute
+  '/dep-cruiser/': typeof DepCruiserIndexRoute
   '/dev/': typeof DevIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/otel/': typeof OtelIndexRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/dev/forms': typeof DevFormsRoute
   '/dev/ui': typeof DevUiRoute
   '/docs/$pkg': typeof DocsPkgRoute
+  '/dep-cruiser': typeof DepCruiserIndexRoute
   '/dev': typeof DevIndexRoute
   '/docs': typeof DocsIndexRoute
   '/otel': typeof OtelIndexRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/dev/ui': typeof DevUiRoute
   '/docs/$pkg': typeof DocsPkgRoute
   '/blog/': typeof BlogIndexRoute
+  '/dep-cruiser/': typeof DepCruiserIndexRoute
   '/dev/': typeof DevIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/otel/': typeof OtelIndexRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/dev/ui'
     | '/docs/$pkg'
     | '/blog/'
+    | '/dep-cruiser/'
     | '/dev/'
     | '/docs/'
     | '/otel/'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/dev/forms'
     | '/dev/ui'
     | '/docs/$pkg'
+    | '/dep-cruiser'
     | '/dev'
     | '/docs'
     | '/otel'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/dev/ui'
     | '/docs/$pkg'
     | '/blog/'
+    | '/dep-cruiser/'
     | '/dev/'
     | '/docs/'
     | '/otel/'
@@ -200,6 +212,7 @@ export interface RootRouteChildren {
   DevUiRoute: typeof DevUiRoute
   DocsPkgRoute: typeof DocsPkgRoute
   BlogIndexRoute: typeof BlogIndexRoute
+  DepCruiserIndexRoute: typeof DepCruiserIndexRoute
   DevIndexRoute: typeof DevIndexRoute
   DocsIndexRoute: typeof DocsIndexRoute
   OtelIndexRoute: typeof OtelIndexRoute
@@ -233,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/dev'
       fullPath: '/dev/'
       preLoaderRoute: typeof DevIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dep-cruiser/': {
+      id: '/dep-cruiser/'
+      path: '/dep-cruiser'
+      fullPath: '/dep-cruiser/'
+      preLoaderRoute: typeof DepCruiserIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog/': {
@@ -335,6 +355,7 @@ const rootRouteChildren: RootRouteChildren = {
   DevUiRoute: DevUiRoute,
   DocsPkgRoute: DocsPkgRoute,
   BlogIndexRoute: BlogIndexRoute,
+  DepCruiserIndexRoute: DepCruiserIndexRoute,
   DevIndexRoute: DevIndexRoute,
   DocsIndexRoute: DocsIndexRoute,
   OtelIndexRoute: OtelIndexRoute,
