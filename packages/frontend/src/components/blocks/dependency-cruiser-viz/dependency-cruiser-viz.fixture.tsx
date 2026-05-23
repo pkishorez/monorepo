@@ -1,4 +1,5 @@
 import {
+  feature,
   layer,
   layersTopDown,
   toVisualizationConfig,
@@ -81,6 +82,80 @@ const complexConfig = toVisualizationConfig({
   rules: [api, web, worker, cli],
 });
 
+const fullConfigWithFeatures = toVisualizationConfig({
+  rootDir: 'src',
+  rules: [backend, frontend],
+  features: [
+    feature(
+      'auth',
+      ['src/server/auth', 'src/services/auth', 'src/domain/identity'],
+      { description: 'Authentication & session management' },
+    ),
+    feature(
+      'orders',
+      [
+        'src/server/orders',
+        'src/orchestrator/order-flow',
+        'src/services/order-service',
+        'src/domain/order',
+      ],
+      { description: 'Order processing pipeline' },
+    ),
+    feature('shared', ['src/domain/types', 'src/services/email'], {
+      description: 'Shared utilities and cross-cutting concerns',
+    }),
+  ],
+});
+
+const complexConfigWithFeatures = toVisualizationConfig({
+  rootDir: 'src',
+  rules: [api, web, worker, cli],
+  features: [
+    feature(
+      'user-management',
+      [
+        'src/controllers/user-controller',
+        'src/services/user-service',
+        'src/repositories/user-repo',
+        'src/pages/settings',
+        'src/hooks/use-auth',
+        'src/state/store',
+        'src/config/app',
+      ],
+      { description: 'User CRUD and profile management' },
+    ),
+    feature(
+      'order-processing',
+      [
+        'src/controllers/order-controller',
+        'src/services/order-service',
+        'src/repositories/order-repo',
+        'src/scheduler/cron',
+        'src/jobs/email-job',
+        'src/queues/email-queue',
+        'src/config/database',
+      ],
+      { description: 'Order lifecycle and background processing' },
+    ),
+    feature(
+      'shared-infra',
+      [
+        'src/gateway/router',
+        'src/gateway/auth-guard',
+        'src/middleware/cors',
+        'src/middleware/logger',
+        'src/database/client',
+        'src/database/migrations',
+        'src/config/app',
+        'src/config/database',
+        'src/utils/format',
+        'src/utils/validate',
+      ],
+      { description: 'Shared infrastructure and utilities' },
+    ),
+  ],
+});
+
 const fullSummary: VizSummary = {
   ignoredFiles: ['src/styles.css'],
   violations: [
@@ -143,6 +218,45 @@ const fullSummary: VizSummary = {
         'src/routes/login.tsx',
         'src/routes/dashboard.tsx',
       ],
+    },
+  ],
+};
+
+const fullSummaryWithFeatures: VizSummary = {
+  ...fullSummary,
+  featureViolations: [
+    {
+      from: 'auth',
+      to: 'orders',
+      fromFile: 'src/services/auth/login.ts',
+      toFile: 'src/services/order-service/create.ts',
+      rule: 'feature auth: cannot import src/services/order-service',
+      severity: 'error',
+    },
+  ],
+  featureCoveredFiles: [
+    {
+      feature: 'auth',
+      files: [
+        'src/server/auth/login-handler.ts',
+        'src/server/auth/session.ts',
+        'src/services/auth/login.ts',
+        'src/services/auth/validate.ts',
+        'src/domain/identity/user.ts',
+      ],
+    },
+    {
+      feature: 'orders',
+      files: [
+        'src/server/orders/create-handler.ts',
+        'src/orchestrator/order-flow/pipeline.ts',
+        'src/services/order-service/create.ts',
+        'src/domain/order/order.ts',
+      ],
+    },
+    {
+      feature: 'shared',
+      files: ['src/domain/types/common.ts', 'src/services/email/send.ts'],
     },
   ],
 };
@@ -249,6 +363,69 @@ const complexSummary: VizSummary = {
   ],
 };
 
+const complexSummaryWithFeatures: VizSummary = {
+  ...complexSummary,
+  featureViolations: [
+    {
+      from: 'user-management',
+      to: 'order-processing',
+      fromFile: 'src/services/user-service.ts',
+      toFile: 'src/services/order-service.ts',
+      rule: 'feature user-management: cannot import src/services/order-service',
+      severity: 'error',
+    },
+    {
+      from: 'order-processing',
+      to: 'user-management',
+      fromFile: 'src/repositories/order-repo.ts',
+      toFile: 'src/repositories/user-repo.ts',
+      rule: 'feature order-processing: cannot import src/repositories/user-repo',
+      severity: 'error',
+    },
+  ],
+  featureCoveredFiles: [
+    {
+      feature: 'user-management',
+      files: [
+        'src/controllers/user-controller.ts',
+        'src/services/user-service.ts',
+        'src/repositories/user-repo.ts',
+        'src/pages/settings.tsx',
+        'src/hooks/use-auth.ts',
+        'src/state/store.ts',
+        'src/config/app.ts',
+      ],
+    },
+    {
+      feature: 'order-processing',
+      files: [
+        'src/controllers/order-controller.ts',
+        'src/services/order-service.ts',
+        'src/repositories/order-repo.ts',
+        'src/scheduler/cron.ts',
+        'src/jobs/email-job.ts',
+        'src/queues/email-queue.ts',
+        'src/config/database.ts',
+      ],
+    },
+    {
+      feature: 'shared-infra',
+      files: [
+        'src/gateway/router.ts',
+        'src/gateway/auth-guard.ts',
+        'src/middleware/cors.ts',
+        'src/middleware/logger.ts',
+        'src/database/client.ts',
+        'src/database/migrations.ts',
+        'src/config/app.ts',
+        'src/config/database.ts',
+        'src/utils/format.ts',
+        'src/utils/validate.ts',
+      ],
+    },
+  ],
+};
+
 export default {
   simple: (
     <DependencyCruiserViz visualization={simpleConfig} summary={fullSummary} />
@@ -260,6 +437,18 @@ export default {
     <DependencyCruiserViz
       visualization={complexConfig}
       summary={complexSummary}
+    />
+  ),
+  'with-features': (
+    <DependencyCruiserViz
+      visualization={fullConfigWithFeatures}
+      summary={fullSummaryWithFeatures}
+    />
+  ),
+  'complex-with-features': (
+    <DependencyCruiserViz
+      visualization={complexConfigWithFeatures}
+      summary={complexSummaryWithFeatures}
     />
   ),
 };

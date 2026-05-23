@@ -1,6 +1,6 @@
 import type { IRegularForbiddenRuleType } from 'dependency-cruiser';
 
-import type { DependencyCruiserConfig, Rule } from './types.js';
+import type { DependencyCruiserConfig, Feature, Rule } from './types.js';
 
 function pathToPattern(p: string): string {
   return p.endsWith('.ts') || p.endsWith('.tsx') || p.endsWith('.js')
@@ -10,14 +10,13 @@ function pathToPattern(p: string): string {
 
 export function toDependencyCruiserConfig(
   rules: Rule[],
+  features?: Feature[],
 ): DependencyCruiserConfig {
   const forbidden: IRegularForbiddenRuleType[] = [];
 
   for (const rule of rules) {
     const { layers } = rule;
 
-    // layers[0] is top (entry point), layers[n-1] is bottom.
-    // Lower layers must not import from upper layers.
     for (let upper = 0; upper < layers.length; upper++) {
       const upperLayer = layers[upper]!;
 
@@ -34,6 +33,34 @@ export function toDependencyCruiserConfig(
               to: { path: pathToPattern(toPath) },
             });
           }
+        }
+      }
+    }
+  }
+
+  if (features && features.length > 0) {
+    const allFeaturePaths = new Set<string>();
+    for (const f of features) {
+      for (const p of f.paths) {
+        allFeaturePaths.add(p);
+      }
+    }
+
+    for (const feat of features) {
+      const featurePathSet = new Set(feat.paths);
+      const foreignPaths = [...allFeaturePaths].filter(
+        (p) => !featurePathSet.has(p),
+      );
+
+      for (const fromPath of feat.paths) {
+        for (const toPath of foreignPaths) {
+          forbidden.push({
+            name: `feature ${feat.name}: cannot import ${toPath}`,
+            comment: `Path "${toPath}" is not part of feature "${feat.name}"`,
+            severity: 'error',
+            from: { path: pathToPattern(fromPath) },
+            to: { path: pathToPattern(toPath) },
+          });
         }
       }
     }

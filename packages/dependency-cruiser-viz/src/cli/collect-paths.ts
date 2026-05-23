@@ -11,5 +11,13 @@ export function collectPaths(config: ProjectConfig): string[] {
     }
   }
 
+  if (config.features) {
+    for (const feat of config.features) {
+      for (const p of feat.paths) {
+        paths.add(p);
+      }
+    }
+  }
+
   return [...paths];
 }

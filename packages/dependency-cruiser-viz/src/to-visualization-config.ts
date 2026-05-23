@@ -42,5 +42,17 @@ export function toVisualizationConfig(
   if (config.ignore && config.ignore.length > 0) {
     result.ignore = config.ignore;
   }
+  if (config.features && config.features.length > 0) {
+    result.features = config.features.map((f) => {
+      const entry: NonNullable<VisualizationConfig['features']>[number] = {
+        name: f.name,
+        paths: [...f.paths],
+      };
+      if (f.config.description !== undefined) {
+        entry.description = f.config.description;
+      }
+      return entry;
+    });
+  }
   return result;
 }

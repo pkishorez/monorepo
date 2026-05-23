@@ -228,6 +228,12 @@ const stableStringify = (value: unknown): string => {
 const sortedRows = (rows: Record<string, unknown>[]) =>
   rows.map((row) => stableStringify(row)).sort((a, b) => a.localeCompare(b));
 
+const emptyDrift = () => ({
+  dataDrift: 0,
+  indexDrift: 0,
+  primaryKeyChanged: 0,
+});
+
 describe('registry migration dry-run stream', () => {
   beforeAll(async () => {
     await createTestTable();
@@ -357,6 +363,11 @@ describe('registry migration dry-run stream', () => {
                 warnings: 1,
                 errors: 2,
               },
+              drift: {
+                dataDrift: 0,
+                indexDrift: 1,
+                primaryKeyChanged: 1,
+              },
             },
             EvolvedSettings: {
               scanned: 1,
@@ -367,6 +378,11 @@ describe('registry migration dry-run stream', () => {
               issues: {
                 warnings: 1,
                 errors: 0,
+              },
+              drift: {
+                dataDrift: 1,
+                indexDrift: 0,
+                primaryKeyChanged: 0,
               },
             },
             Settings: {
@@ -379,6 +395,7 @@ describe('registry migration dry-run stream', () => {
                 warnings: 0,
                 errors: 0,
               },
+              drift: emptyDrift(),
             },
           },
           segments: {
@@ -387,7 +404,28 @@ describe('registry migration dry-run stream', () => {
               complete: true,
             },
           },
+          failures: expect.arrayContaining([
+            expect.objectContaining({
+              entity: 'Account',
+              key: {
+                pk: 'Account#corrupt',
+                sk: 'corrupt',
+              },
+              error: expect.stringContaining('Corrupt item'),
+              timestamp: expect.any(String),
+            }),
+            expect.objectContaining({
+              entity: 'Account',
+              key: {
+                pk: 'Account#wrong-key',
+                sk: 'key-change',
+              },
+              error: expect.stringContaining('Primary key changed'),
+              timestamp: expect.any(String),
+            }),
+          ]),
         });
+        expect(finalReport?.failures).toHaveLength(2);
 
         const after = yield* table.scan({ ConsistentRead: true });
         expect(sortedRows(after.Items)).toEqual(sortedRows(before.Items));
@@ -1258,6 +1296,7 @@ describe('registry migration dry-run stream', () => {
                 warnings: 0,
                 errors: 0,
               },
+              drift: emptyDrift(),
             },
           },
           segments: {
@@ -1266,6 +1305,7 @@ describe('registry migration dry-run stream', () => {
               complete: true,
             },
           },
+          failures: [],
         });
 
         const after = yield* table.scan({ ConsistentRead: true });
