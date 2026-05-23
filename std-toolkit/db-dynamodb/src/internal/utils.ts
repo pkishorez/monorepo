@@ -29,6 +29,14 @@ export const isConditionalCheckFailed = (e: DynamodbError): boolean => {
   );
 };
 
+export const extractConditionFailureItem = (
+  e: DynamodbError,
+): Record<string, unknown> | undefined => {
+  if (!('cause' in e.error)) return undefined;
+  const cause = e.error.cause as any;
+  return cause?.conditionFailureItem;
+};
+
 export const extractTableKey = (
   item: Record<string, unknown>,
   primary: { pk: string; sk: string },

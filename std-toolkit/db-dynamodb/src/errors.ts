@@ -30,6 +30,8 @@ export type DynamodbErrorType =
       _tag: 'ConditionCheckFailed';
       message: string;
     }
+  | { _tag: 'ItemVersionMismatch' }
+  | { _tag: 'ItemMigrationFailed'; cause: unknown }
   | { _tag: 'NoItemToDelete' }
   | { _tag: 'ThrottlingException'; meta: AwsErrorMeta }
   | { _tag: 'ServiceUnavailable'; meta: AwsErrorMeta }
@@ -148,6 +150,24 @@ export class DynamodbError extends Data.TaggedError('DynamodbError')<{
         message:
           'Conditional check failed: the item may not exist, or the provided condition was not met.',
       },
+    });
+  }
+
+  /**
+   * Creates an error when an update targets an item on an older schema version
+   * and auto-migration is disabled.
+   */
+  static itemVersionMismatch() {
+    return new DynamodbError({ error: { _tag: 'ItemVersionMismatch' } });
+  }
+
+  /**
+   * Creates an error when auto-migration attempted to put the migrated item
+   * but a concurrent writer already changed it.
+   */
+  static itemMigrationFailed(cause: unknown) {
+    return new DynamodbError({
+      error: { _tag: 'ItemMigrationFailed', cause },
     });
   }
 

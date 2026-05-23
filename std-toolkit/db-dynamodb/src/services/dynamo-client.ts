@@ -1,6 +1,8 @@
 import { AwsClient } from 'aws4fetch';
 import * as Effect from 'effect/Effect';
 import { DynamodbError, type AwsErrorMeta } from '../errors.js';
+import { unmarshall } from '../internal/marshall.js';
+import type { MarshalledOutput } from '../types/index.js';
 import type { AwsCredentials, DynamoTableConfig } from '../types/index.js';
 
 function extractErrorName(awsErrorType: string): string {
@@ -177,9 +179,21 @@ export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
           DynamodbError.invalidSignature(errorMessage, errorMeta),
         );
       }
-      return yield* Effect.fail(
-        DynamodbError.unknownAwsError(simpleErrorName, errorMessage, errorMeta),
+
+      const error = DynamodbError.unknownAwsError(
+        simpleErrorName,
+        errorMessage,
+        errorMeta,
       );
+      if (
+        simpleErrorName === 'ConditionalCheckFailedException' &&
+        errorData.Item
+      ) {
+        (error as any).conditionFailureItem = unmarshall(
+          errorData.Item as MarshalledOutput,
+        );
+      }
+      return yield* Effect.fail(error);
     });
 
   return {

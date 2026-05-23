@@ -21,6 +21,7 @@ import {
   deriveIndexKeyValue,
   sameValue,
   isConditionalCheckFailed,
+  extractConditionFailureItem,
   extractTableKey,
 } from '../internal/index.js';
 import {
@@ -619,9 +620,10 @@ export class DynamoEntity<
             ops: UpdateOps<ESchemaType<TSchema>>,
           ) => AnyOperation<ESchemaType<TSchema>>[]);
       condition?: ConditionInput<ESchemaType<TSchema>>;
+      autoMigrate?: boolean;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
-    const { update: updates, condition } = params;
+    const { update: updates, condition, autoMigrate = true } = params;
     return Effect.gen(this, function* () {
       const { pk, sk, exprResult } =
         typeof updates === 'function'
@@ -636,18 +638,41 @@ export class DynamoEntity<
               condition,
             );
 
-      const result = yield* this.#table
-        .updateItem({ pk, sk }, { ReturnValues: 'ALL_NEW', ...exprResult })
-        .pipe(
-          Effect.mapError(
-            (e): DynamodbError =>
-              e.error._tag === 'UpdateItemFailed' && isConditionalCheckFailed(e)
-                ? condition
-                  ? DynamodbError.conditionCheckFailed()
-                  : DynamodbError.noItemToUpdate()
-                : e,
-          ),
+      const attemptUpdate = () =>
+        this.#table.updateItem(
+          { pk, sk },
+          {
+            ReturnValues: 'ALL_NEW',
+            ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+            ...exprResult,
+          },
         );
+
+      const result = yield* attemptUpdate().pipe(
+        Effect.catchIf(
+          (e): e is DynamodbError =>
+            e.error._tag === 'UpdateItemFailed' && isConditionalCheckFailed(e),
+          (e) => this.#handleConditionFailure(e, autoMigrate, condition),
+        ),
+        Effect.andThen((resultOrRetry) => {
+          if ('_retry' in resultOrRetry) {
+            return attemptUpdate().pipe(
+              Effect.mapError((retryErr): DynamodbError => {
+                if (
+                  retryErr.error._tag === 'UpdateItemFailed' &&
+                  isConditionalCheckFailed(retryErr)
+                ) {
+                  return condition
+                    ? DynamodbError.conditionCheckFailed()
+                    : DynamodbError.noItemToUpdate();
+                }
+                return retryErr;
+              }),
+            );
+          }
+          return Effect.succeed(resultOrRetry);
+        }),
+      );
 
       if (!result.Attributes) {
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
@@ -1336,6 +1361,79 @@ export class DynamoEntity<
       });
 
       return { item, exprResult, meta, fullValue };
+    });
+  }
+
+  #handleConditionFailure(
+    error: DynamodbError,
+    autoMigrate: boolean,
+    userCondition?: ConditionInput<ESchemaType<TSchema>>,
+  ): Effect.Effect<
+    | { Attributes: Record<string, unknown> | null }
+    | { _retry: true; Attributes: null },
+    DynamodbError
+  > {
+    const existingItem = extractConditionFailureItem(error);
+
+    if (!existingItem) {
+      return Effect.fail(DynamodbError.noItemToUpdate());
+    }
+
+    const storedVersion = existingItem._v;
+    if (storedVersion === this.#eschema.latestVersion) {
+      return Effect.fail(
+        userCondition
+          ? DynamodbError.conditionCheckFailed()
+          : DynamodbError.noItemToUpdate(),
+      );
+    }
+
+    if (!autoMigrate) {
+      return Effect.fail(DynamodbError.itemVersionMismatch());
+    }
+
+    return this.#ensureLatestVersion(existingItem).pipe(
+      Effect.map(() => ({ _retry: true as const, Attributes: null })),
+    );
+  }
+
+  #ensureLatestVersion(
+    rawItem: Record<string, unknown>,
+  ): Effect.Effect<void, DynamodbError> {
+    return Effect.gen(this, function* () {
+      const decoded = yield* this.#eschema
+        .decode(rawItem)
+        .pipe(Effect.mapError((e) => DynamodbError.itemMigrationFailed(e)));
+
+      const canonical = yield* this.#canonicalizeDecodedValue(
+        decoded as ESchemaType<TSchema>,
+        rawItem,
+        typeof rawItem._u === 'string' ? rawItem._u : new Date().toISOString(),
+      ).pipe(Effect.mapError((e) => DynamodbError.itemMigrationFailed(e)));
+
+      const oldVersion = rawItem._v;
+      const conditionExpr = buildExpr({
+        condition: exprCondition(($) =>
+          $.cond('_v' as any, '=', oldVersion as any),
+        ),
+      });
+
+      yield* this.#table
+        .putItem(canonical.item, {
+          ...conditionExpr,
+        })
+        .pipe(
+          Effect.catchIf(
+            (e): e is DynamodbError =>
+              e.error._tag === 'PutItemFailed' && isConditionalCheckFailed(e),
+            () =>
+              Effect.fail(
+                DynamodbError.itemMigrationFailed(
+                  'Concurrent write detected during migration',
+                ),
+              ),
+          ),
+        );
     });
   }
 
