@@ -1,1 +1,1 @@
-export { HelloHandlersLive } from './hello.js';
+export { TerminalHandlersLive } from './terminal.js';

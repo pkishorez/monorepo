@@ -1,89 +1,47 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import { Cause, Effect, Fiber, Stream } from 'effect';
-import { CodeClient, codeRuntime } from './internal/effect';
-import type { HelloMessage } from '@/domain/hello';
+import { useMachine } from '@xstate/react';
+import { useMemo } from 'react';
+import { terminalMachine } from './components/terminal-machine';
+import { Terminal } from './components/terminal';
+import { SessionList } from './components/session-list';
 
 function HomePage() {
-  const [hello, setHello] = useState<HelloMessage | null>(null);
-  const [streamMessages, setStreamMessages] = useState<HelloMessage[]>([]);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
-    'idle',
-  );
+  const [state, send] = useMachine(terminalMachine);
 
-  useEffect(() => {
-    setStatus('loading');
+  const activeSession = useMemo(() => {
+    if (state.context.activeSessionId === null) return null;
+    return (
+      state.context.sessions.find(
+        (s) => s.id === state.context.activeSessionId,
+      ) ?? null
+    );
+  }, [state.context.sessions, state.context.activeSessionId]);
 
-    const program = Effect.gen(function* () {
-      const { client } = yield* CodeClient;
-
-      const result = yield* client.getHello();
-      setHello(result);
-
-      yield* client
-        .streamHello()
-        .pipe(
-          Stream.runForEach((msg) =>
-            Effect.sync(() => setStreamMessages((prev) => [...prev, msg])),
-          ),
-        );
-    });
-
-    const fiber = codeRuntime.runFork(program);
-
-    fiber.addObserver((exit) => {
-      if (exit._tag === 'Success') setStatus('done');
-      else if (Cause.isInterruptedOnly(exit.cause)) setStatus('idle');
-      else {
-        setStatus('error');
-        console.error('RPC error:', exit.cause);
-      }
-    });
-
-    return () => {
-      Effect.runFork(Fiber.interrupt(fiber));
-    };
-  }, []);
+  if (state.matches('active') && state.context.activeSessionId !== null) {
+    return (
+      <Terminal
+        sessionId={state.context.activeSessionId}
+        readOnly={state.context.readOnly}
+        config={
+          activeSession
+            ? { cols: activeSession.cols, rows: activeSession.rows }
+            : undefined
+        }
+        onBack={() => send({ type: 'DISCONNECT' })}
+      />
+    );
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="mx-auto w-full max-w-lg space-y-8 p-8">
-        <h1 className="text-3xl font-bold">code</h1>
-
-        <section className="space-y-2">
-          <h2 className="text-lg font-semibold">Normal RPC</h2>
-          <div className="rounded-lg border p-4">
-            {hello ? (
-              <p>{hello.message}</p>
-            ) : (
-              <p className="text-muted-foreground">Loading...</p>
-            )}
-          </div>
-        </section>
-
-        <section className="space-y-2">
-          <h2 className="text-lg font-semibold">Streaming RPC</h2>
-          <div className="rounded-lg border p-4">
-            {streamMessages.length === 0 && status === 'loading' && (
-              <p className="text-muted-foreground">Waiting for stream...</p>
-            )}
-            <ul className="space-y-1">
-              {streamMessages.map((msg, i) => (
-                <li key={i}>{msg.message}</li>
-              ))}
-            </ul>
-            {status === 'done' && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Stream complete
-              </p>
-            )}
-            {status === 'error' && (
-              <p className="mt-2 text-sm text-red-500">Stream error</p>
-            )}
-          </div>
-        </section>
-      </div>
-    </div>
+    <SessionList
+      sessions={state.context.sessions}
+      loading={state.matches('loading')}
+      creating={state.matches('creating')}
+      error={state.context.error}
+      onSelect={(id, readOnly) => send({ type: 'SELECT', id, readOnly })}
+      onCreate={() => send({ type: 'CREATE' })}
+      onRefresh={() => send({ type: 'REFRESH' })}
+    />
   );
 }
 

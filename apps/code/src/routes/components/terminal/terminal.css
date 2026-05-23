@@ -1,0 +1,31 @@
+.terminal-container {
+  position: relative;
+  width: 100%;
+  border: 2px solid #1f2937;
+  border-radius: 8px;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.terminal-container--mobile {
+  margin: 16px;
+  width: calc(100% - 32px);
+}
+
+.terminal-content {
+  width: 100%;
+  overflow: hidden;
+}
+
+.terminal-content .xterm .xterm-viewport {
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+}
+
+.terminal-content .xterm .xterm-viewport::-webkit-scrollbar {
+  display: none !important;
+}
+
+.terminal-content .xterm .xterm-scrollable-element > .scrollbar {
+  display: none !important;
+}
