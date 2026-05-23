@@ -1,3 +1,4 @@
+export { feature } from './feature.js';
 export { layer } from './layer.js';
 export { layersTopDown } from './layers-top-down.js';
 export { toDependencyCruiserConfig } from './to-dependency-cruiser-config.js';
@@ -7,6 +8,7 @@ export type {
   DependencyCruiserConfig,
   DepcruiseVizData,
   DepcruiseVizResult,
+  Feature,
   ProjectConfig,
   VisualizationConfig,
   VizSummary,

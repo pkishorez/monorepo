@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { createMigrationReportAccumulator } from '../index.js';
 
+const emptyDrift = () => ({
+  dataDrift: 0,
+  indexDrift: 0,
+  primaryKeyChanged: 0,
+});
+
 describe('migration report accumulator', () => {
   it('starts with an initial empty migration report', () => {
     const accumulator = createMigrationReportAccumulator();
@@ -21,6 +27,7 @@ describe('migration report accumulator', () => {
       },
       entities: {},
       segments: {},
+      failures: [],
     });
   });
 
@@ -57,6 +64,7 @@ describe('migration report accumulator', () => {
             warnings: 0,
             errors: 0,
           },
+          drift: emptyDrift(),
         },
       },
       segments: {
@@ -65,6 +73,7 @@ describe('migration report accumulator', () => {
           complete: false,
         },
       },
+      failures: [],
     });
   });
 

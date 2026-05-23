@@ -25,6 +25,8 @@ export function summarizeCruiseResult(
 
   const violations: VizSummary['violations'] = [];
   for (const v of cruiseResult.summary.violations) {
+    if (isFeatureRule(v.rule.name)) continue;
+
     const fromLayer = findLayer(v.from, layerPatterns);
     const toLayer = findLayer(v.to, layerPatterns);
     if (fromLayer && toLayer) {
@@ -79,7 +81,63 @@ export function summarizeCruiseResult(
     }
   }
 
-  return { violations, orphanFiles, ignoredFiles, coveredFiles };
+  const result: VizSummary = {
+    violations,
+    orphanFiles,
+    ignoredFiles,
+    coveredFiles,
+  };
+
+  if (visualization.features && visualization.features.length > 0) {
+    const featurePatterns: Array<{
+      feature: string;
+      patterns: RegExp[];
+    }> = visualization.features.map((f) => ({
+      feature: f.name,
+      patterns: f.paths.map(pathToRegExp),
+    }));
+
+    const featureViolations: NonNullable<VizSummary['featureViolations']> = [];
+    for (const v of cruiseResult.summary.violations) {
+      if (!isFeatureRule(v.rule.name)) continue;
+
+      const fromFeature = findFeature(v.from, featurePatterns);
+      const toFeature = findFeature(v.to, featurePatterns);
+      if (fromFeature && toFeature && fromFeature !== toFeature) {
+        featureViolations.push({
+          from: fromFeature,
+          to: toFeature,
+          fromFile: v.from,
+          toFile: v.to,
+          rule: v.rule.name,
+          severity: v.rule.severity,
+        });
+      }
+    }
+
+    const featureCoveredFiles: NonNullable<VizSummary['featureCoveredFiles']> =
+      featurePatterns.map(({ feature }) => ({
+        feature,
+        files: [] as string[],
+      }));
+
+    for (const mod of modules) {
+      const source = mod.source;
+      if (ignorePatterns.some((re) => re.test(source))) continue;
+
+      for (let i = 0; i < featurePatterns.length; i++) {
+        const { patterns } = featurePatterns[i]!;
+        if (patterns.some((re) => re.test(source))) {
+          featureCoveredFiles[i]!.files.push(source);
+        }
+      }
+    }
+
+    result.featureViolations = featureViolations;
+    result.featureCoveredFiles = featureCoveredFiles;
+  }
+
+  return result;
 }
 
 function findLayer(
@@ -92,6 +150,22 @@ function findLayer(
     }
   }
   return undefined;
+}
+
+function findFeature(
+  filePath: string,
+  featurePatterns: Array<{ feature: string; patterns: RegExp[] }>,
+): string | undefined {
+  for (const { feature, patterns } of featurePatterns) {
+    if (patterns.some((re) => re.test(filePath))) {
+      return feature;
+    }
+  }
+  return undefined;
+}
+
+function isFeatureRule(ruleName: string): boolean {
+  return ruleName.startsWith('feature ');
 }
 
 function pathToRegExp(p: string): RegExp {

@@ -38,5 +38,15 @@ export async function loadConfig(configPath: string): Promise<ProjectConfig> {
     }
   }
 
+  if (config.features) {
+    for (const feat of config.features) {
+      if (feat?.kind !== 'feature') {
+        throw new Error(
+          `Config at "${configPath}" contains an invalid feature. Each feature must be created with feature()`,
+        );
+      }
+    }
+  }
+
   return config;
 }

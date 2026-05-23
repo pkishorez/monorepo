@@ -16,7 +16,10 @@ const CONFIG_PATH = resolve('depcruise.config.ts');
 
 async function cruiseProject() {
   const projectConfig = await loadConfig(CONFIG_PATH);
-  const depCruiserConfig = toDependencyCruiserConfig(projectConfig.rules);
+  const depCruiserConfig = toDependencyCruiserConfig(
+    projectConfig.rules,
+    projectConfig.features,
+  );
   const visualization = toVisualizationConfig(projectConfig);
   const result = await cruise([projectConfig.rootDir], {
     ruleSet: depCruiserConfig,
@@ -56,17 +59,20 @@ async function viz(): Promise<void> {
 
 async function lint(): Promise<void> {
   const output = await cruiseProject();
-  const { violations } = output.summary;
+  const { violations, featureViolations = [] } = output.summary;
+  const totalViolations = violations.length + featureViolations.length;
 
-  if (violations.length === 0) {
+  if (totalViolations === 0) {
     process.stdout.write('No dependency violations found.\n');
     return;
   }
 
-  process.stderr.write(
-    `Found ${violations.length} dependency violation(s):\n\n`,
-  );
+  process.stderr.write(`Found ${totalViolations} dependency violation(s):\n\n`);
   for (const v of violations) {
+    process.stderr.write(`  ${v.severity} ${v.rule}\n`);
+    process.stderr.write(`    ${v.from} → ${v.to}\n\n`);
+  }
+  for (const v of featureViolations) {
     process.stderr.write(`  ${v.severity} ${v.rule}\n`);
     process.stderr.write(`    ${v.from} → ${v.to}\n\n`);
   }
