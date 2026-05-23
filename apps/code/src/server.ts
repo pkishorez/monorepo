@@ -5,7 +5,8 @@ import { RpcServer, RpcSerialization } from '@effect/rpc';
 import { NodeSocketServer } from '@effect/platform-node';
 import { NodeRuntime } from '@effect/platform-node';
 import { AppRpcs } from './server/api/app.js';
-import { HelloHandlersLive } from './server/handlers/hello.js';
+import { TerminalHandlersLive } from './server/handlers/terminal.js';
+import { TerminalServiceLive } from './services/terminal.js';
 import { makeTelemetryLayer } from './services/telemetry.js';
 import { createRequestHandler } from './server/http.js';
 
@@ -18,7 +19,8 @@ const OTEL_BASE_URL = (process.env.OTEL_BASE_URL ?? '')
 const httpServer = createServer();
 
 const RpcLive = RpcServer.layer(AppRpcs).pipe(
-  Layer.provide(HelloHandlersLive),
+  Layer.provide(TerminalHandlersLive),
+  Layer.provide(TerminalServiceLive),
   Layer.provide(RpcServer.layerProtocolSocketServer),
   Layer.provide(RpcSerialization.layerNdjson),
   Layer.provide(

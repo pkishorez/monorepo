@@ -5,3 +5,11 @@
 @import '@monorepo/frontend/styles/global.css';
 @import '@monorepo/frontend/styles/typography.css';
 @import '@monorepo/frontend/styles/font-inter.css';
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100dvh;
+  overflow: hidden;
+}
