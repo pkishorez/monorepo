@@ -1,0 +1,38 @@
+{
+  "name": "dependency-cruiser-viz",
+  "version": "0.0.1",
+  "private": false,
+  "repository": "pkishorez/monorepo",
+  "bin": {
+    "depcruise-viz": "dist/cli/index.js"
+  },
+  "files": [
+    "LICENCE",
+    "README.md",
+    "dist/",
+    "src/"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dependency-cruiser": "17.4.0",
+    "jiti": "2.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "25.8.0",
+    "typescript": "6.0.3"
+  }
+}
