@@ -1,6 +1,9 @@
-import type { Rule, VisualizationConfig } from './types.js';
+import type { ProjectConfig, VisualizationConfig } from './types.js';
 
-export function toVisualizationConfig(rules: Rule[]): VisualizationConfig {
+export function toVisualizationConfig(
+  config: ProjectConfig,
+): VisualizationConfig {
+  const { rules, rootDir } = config;
   const stacks: VisualizationConfig['stacks'] = [];
 
   for (const rule of rules) {
@@ -35,5 +38,9 @@ export function toVisualizationConfig(rules: Rule[]): VisualizationConfig {
     stacks.push(stack);
   }
 
-  return { stacks };
+  const result: VisualizationConfig = { rootDir, stacks };
+  if (config.ignore && config.ignore.length > 0) {
+    result.ignore = config.ignore;
+  }
+  return result;
 }

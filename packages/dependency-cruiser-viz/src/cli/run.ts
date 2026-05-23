@@ -5,38 +5,40 @@ import { resolve } from 'node:path';
 import { cruise } from 'dependency-cruiser';
 import type { ICruiseResult } from 'dependency-cruiser';
 
+import { summarizeCruiseResult } from '../summarize-cruise-result.js';
 import { toDependencyCruiserConfig } from '../to-dependency-cruiser-config.js';
 import { toVisualizationConfig } from '../to-visualization-config.js';
-import type { DepcruiseVizResult } from '../types.js';
+import type { DepcruiseVizData, DepcruiseVizResult } from '../types.js';
 
-import { collectPaths } from './collect-paths.js';
 import { loadConfig } from './load-config.js';
 
 const CONFIG_PATH = resolve('depcruise.config.ts');
 
 async function cruiseProject() {
-  const rules = await loadConfig(CONFIG_PATH);
-  const config = toDependencyCruiserConfig(rules);
-  const visualization = toVisualizationConfig(rules);
-  const sourcePaths = collectPaths(rules);
-  const result = await cruise(sourcePaths, {
-    ruleSet: config,
+  const projectConfig = await loadConfig(CONFIG_PATH);
+  const depCruiserConfig = toDependencyCruiserConfig(projectConfig.rules);
+  const visualization = toVisualizationConfig(projectConfig);
+  const result = await cruise([projectConfig.rootDir], {
+    ruleSet: depCruiserConfig,
     validate: true,
   });
 
+  const cruiseResult = result.output as ICruiseResult;
+  const summary = summarizeCruiseResult(cruiseResult, visualization);
+
   return {
-    config,
+    config: depCruiserConfig,
     visualization,
-    cruiseResult: result.output,
+    summary,
   } satisfies DepcruiseVizResult;
 }
 
 async function viz(): Promise<void> {
   const output = await cruiseProject();
 
-  const vizData = {
-    config: output.config,
+  const vizData: DepcruiseVizData = {
     visualization: output.visualization,
+    summary: output.summary,
   };
   const hash = encodeURIComponent(JSON.stringify(vizData));
   const url = `http://localhost:20001/dep-cruiser#${hash}`;
@@ -54,8 +56,7 @@ async function viz(): Promise<void> {
 
 async function lint(): Promise<void> {
   const output = await cruiseProject();
-  const cruiseResult = output.cruiseResult as ICruiseResult;
-  const { violations } = cruiseResult.summary;
+  const { violations } = output.summary;
 
   if (violations.length === 0) {
     process.stdout.write('No dependency violations found.\n');
@@ -66,7 +67,7 @@ async function lint(): Promise<void> {
     `Found ${violations.length} dependency violation(s):\n\n`,
   );
   for (const v of violations) {
-    process.stderr.write(`  ${v.rule.severity} ${v.rule.name}\n`);
+    process.stderr.write(`  ${v.severity} ${v.rule}\n`);
     process.stderr.write(`    ${v.from} → ${v.to}\n\n`);
   }
 

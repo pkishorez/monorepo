@@ -1,4 +1,4 @@
-import type { ICruiseResult, IFlattenedRuleSet } from 'dependency-cruiser';
+import type { IFlattenedRuleSet } from 'dependency-cruiser';
 
 export type LayerConfig = {
   description?: string;
@@ -23,7 +23,15 @@ export type LayerStack = {
 
 export type Rule = LayerStack;
 
+export type ProjectConfig = {
+  rootDir: string;
+  ignore?: string[];
+  rules: Rule[];
+};
+
 export type VisualizationConfig = {
+  rootDir: string;
+  ignore?: string[];
   stacks: Array<{
     name: string;
     description?: string;
@@ -36,10 +44,32 @@ export type VisualizationConfig = {
   }>;
 };
 
+export type VizSummary = {
+  violations: Array<{
+    from: string;
+    to: string;
+    fromFile: string;
+    toFile: string;
+    rule: string;
+    severity: string;
+  }>;
+  orphanFiles: string[];
+  ignoredFiles: string[];
+  coveredFiles: Array<{
+    layer: string;
+    files: string[];
+  }>;
+};
+
 export type DependencyCruiserConfig = IFlattenedRuleSet;
+
+export type DepcruiseVizData = {
+  visualization: VisualizationConfig;
+  summary: VizSummary;
+};
 
 export type DepcruiseVizResult = {
   config: DependencyCruiserConfig;
   visualization: VisualizationConfig;
-  cruiseResult: ICruiseResult | string;
+  summary: VizSummary;
 };

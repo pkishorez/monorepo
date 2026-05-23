@@ -1,9 +1,9 @@
-import type { Rule } from '../types.js';
+import type { ProjectConfig } from '../types.js';
 
-export function collectPaths(rules: Rule[]): string[] {
+export function collectPaths(config: ProjectConfig): string[] {
   const paths = new Set<string>();
 
-  for (const rule of rules) {
+  for (const rule of config.rules) {
     for (const layer of rule.layers) {
       for (const p of layer.paths) {
         paths.add(p);
