@@ -1,6 +1,6 @@
 import { ClientOnly, createFileRoute } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import type { DepcruiseVizResult } from 'dependency-cruiser-viz';
+import type { DepcruiseVizData } from 'dependency-cruiser-viz';
 import { DependencyCruiserViz } from '@monorepo/frontend/components/blocks/dependency-cruiser-viz';
 
 export const Route = createFileRoute('/dep-cruiser/')({
@@ -12,19 +12,17 @@ export const Route = createFileRoute('/dep-cruiser/')({
 });
 
 function DepCruiserRoute() {
-  const result = useMemo(() => {
+  const data = useMemo(() => {
     const hash = window.location.hash.slice(1);
     if (!hash) return null;
     try {
-      const json = JSON.parse(decodeURIComponent(hash)) as DepcruiseVizResult;
-      console.log(json);
-      return json;
+      return JSON.parse(decodeURIComponent(hash)) as DepcruiseVizData;
     } catch {
       return null;
     }
   }, []);
 
-  if (!result) {
+  if (!data) {
     return (
       <div className="flex h-dvh items-center justify-center text-gray-500">
         No visualization config found in URL hash.
@@ -32,5 +30,5 @@ function DepCruiserRoute() {
     );
   }
 
-  return <DependencyCruiserViz config={result.visualization} />;
+  return <DependencyCruiserViz {...data} />;
 }

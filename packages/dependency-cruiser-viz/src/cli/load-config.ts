@@ -2,29 +2,35 @@ import { existsSync } from 'node:fs';
 
 import { createJiti } from 'jiti';
 
-import type { Rule } from '../types.js';
+import type { ProjectConfig } from '../types.js';
 
 const jiti = createJiti(import.meta.url, { interopDefault: true });
 
-export async function loadConfig(configPath: string): Promise<Rule[]> {
+export async function loadConfig(configPath: string): Promise<ProjectConfig> {
   if (!existsSync(configPath)) {
     throw new Error(`Config file not found: ${configPath}`);
   }
 
   const mod = (await jiti.import(configPath)) as {
     default?: unknown;
-    rules?: unknown;
   };
 
-  const rules = mod.default ?? mod.rules;
+  const exported = mod.default;
 
-  if (!Array.isArray(rules)) {
+  if (
+    !exported ||
+    typeof exported !== 'object' ||
+    !('rootDir' in exported) ||
+    !('rules' in exported)
+  ) {
     throw new Error(
-      `Config at "${configPath}" must export a default or named "rules" array of Rule objects`,
+      `Config at "${configPath}" must export a ProjectConfig: { rootDir: string; rules: Rule[] }`,
     );
   }
 
-  for (const rule of rules) {
+  const config = exported as ProjectConfig;
+
+  for (const rule of config.rules) {
     if (rule?.kind !== 'layer-stack') {
       throw new Error(
         `Config at "${configPath}" contains an invalid rule. Each rule must be created with layersTopDown()`,
@@ -32,5 +38,5 @@ export async function loadConfig(configPath: string): Promise<Rule[]> {
     }
   }
 
-  return rules as Rule[];
+  return config;
 }
