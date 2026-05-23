@@ -295,6 +295,7 @@ export class DynamoTable<
       ExpressionAttributeNames?: Record<string, string>;
       ExpressionAttributeValues?: MarshalledOutput;
       ReturnValues?: 'ALL_NEW' | 'ALL_OLD';
+      ReturnValuesOnConditionCheckFailure?: 'ALL_OLD' | 'NONE';
     },
   ): Effect.Effect<
     { Attributes: Record<string, unknown> | null },

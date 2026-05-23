@@ -11,6 +11,7 @@ export {
   stableStringify,
   sameValue,
   isConditionalCheckFailed,
+  extractConditionFailureItem,
   extractTableKey,
 } from './utils.js';
 
