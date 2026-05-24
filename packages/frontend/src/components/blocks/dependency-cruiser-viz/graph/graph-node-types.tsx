@@ -1,4 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import { Fragment } from 'react';
 
 import { cn } from '#lib/utils';
 
@@ -30,9 +31,41 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
         data.isDimmed ? 'cursor-default opacity-15' : 'cursor-pointer',
       )}
     >
-      <Handle type="target" position={Position.Top} className="!opacity-0" />
+      {data.handleOffsets ? (
+        data.handleOffsets.map((h) => (
+          <Fragment key={h.stackName}>
+            <Handle
+              type="target"
+              position={Position.Top}
+              id={`top-${h.stackName}`}
+              style={{ left: `${h.offsetPct}%` }}
+              className="!opacity-0"
+            />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              id={`bottom-${h.stackName}`}
+              style={{ left: `${h.offsetPct}%` }}
+              className="!opacity-0"
+            />
+          </Fragment>
+        ))
+      ) : (
+        <>
+          <Handle
+            type="target"
+            position={Position.Top}
+            className="!opacity-0"
+          />
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            className="!opacity-0"
+          />
+        </>
+      )}
       <div
-        style={{ width: LAYER_NODE_WIDTH }}
+        style={{ width: data.nodeWidth ?? LAYER_NODE_WIDTH }}
         className={cn(
           'rounded-lg px-5 py-2 text-center text-[13px] font-semibold whitespace-nowrap',
           data.isEntry
@@ -53,7 +86,6 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
           {data.violationCount}
         </span>
       )}
-      <Handle type="source" position={Position.Bottom} className="!opacity-0" />
     </div>
   );
 }
