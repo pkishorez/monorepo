@@ -93,12 +93,12 @@ export type VizSummary = {
 export type DependencyCruiserConfig = IFlattenedRuleSet;
 
 export type DepcruiseVizData = {
-  visualization: VisualizationConfig;
+  config: VisualizationConfig;
   summary: VizSummary;
 };
 
 export type DepcruiseVizResult = {
-  config: DependencyCruiserConfig;
-  visualization: VisualizationConfig;
+  dependencyCruiserConfig: DependencyCruiserConfig;
+  config: VisualizationConfig;
   summary: VizSummary;
 };

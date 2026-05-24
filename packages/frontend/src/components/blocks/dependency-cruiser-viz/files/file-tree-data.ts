@@ -1,13 +1,5 @@
-import type { TreeViewElement } from '#components/ui/file-tree';
-
-import type { VizSummary } from './types';
-
-export type FileStatus = 'covered' | 'violation' | 'orphan' | 'ignored';
-
-export type FileTreeNode = TreeViewElement & {
-  status?: FileStatus;
-  children?: FileTreeNode[];
-};
+import type { VizSummary } from '../types';
+import type { FileStatus, FileTreeNode } from './file-tree-types';
 
 export function buildFileTree(summary: VizSummary): FileTreeNode[] {
   const fileStatuses = new Map<string, FileStatus>();
@@ -36,7 +28,6 @@ export function buildFileTree(summary: VizSummary): FileTreeNode[] {
   }
 
   const root: FileTreeNode[] = [];
-
   const sorted = [...fileStatuses.entries()].sort(([a], [b]) =>
     a.localeCompare(b),
   );
@@ -70,6 +61,46 @@ export function buildFileTree(summary: VizSummary): FileTreeNode[] {
 
   propagateFolderStatus(root);
   return root;
+}
+
+export function filterTree(
+  nodes: FileTreeNode[],
+  allowedFiles: Set<string>,
+): FileTreeNode[] {
+  return nodes.reduce<FileTreeNode[]>((acc, node) => {
+    if (node.type === 'file') {
+      if (allowedFiles.has(node.id)) acc.push(node);
+    } else if (node.children) {
+      const filteredChildren = filterTree(node.children, allowedFiles);
+      if (filteredChildren.length > 0) {
+        acc.push({ ...node, children: filteredChildren });
+      }
+    }
+    return acc;
+  }, []);
+}
+
+export function collectAllFileIds(nodes: FileTreeNode[]): Set<string> {
+  const ids = new Set<string>();
+  function collect(ns: FileTreeNode[]) {
+    for (const n of ns) {
+      if (n.type === 'file') ids.add(n.id);
+      else if (n.children) collect(n.children);
+    }
+  }
+  collect(nodes);
+  return ids;
+}
+
+export function collectExpandedIds(paths: string[]): string[] {
+  const ids = new Set<string>();
+  for (const p of paths) {
+    const segments = p.split('/');
+    for (let i = 1; i <= segments.length; i++) {
+      ids.add(segments.slice(0, i).join('/'));
+    }
+  }
+  return [...ids];
 }
 
 function propagateFolderStatus(nodes: FileTreeNode[]): FileStatus | undefined {

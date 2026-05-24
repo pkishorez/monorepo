@@ -1,10 +1,11 @@
 import type { Edge, Node } from '@xyflow/react';
 import { MarkerType } from '@xyflow/react';
 
-import type { VisualizationConfig, VizSummary } from './types';
+import type { VisualizationConfig, VizSummary } from '../types';
 
 export type LayerNodeData = {
   label: string;
+  layerName: string;
   isEntry: boolean;
   isShared: boolean;
   description?: string;
@@ -16,11 +17,12 @@ export type LayerNodeData = {
 
 export type StackHeaderNodeData = {
   label: string;
+  stackName: string;
   description?: string;
   isDimmed: boolean;
 };
 
-export const NODE_WIDTH = 160;
+export const LAYER_NODE_WIDTH = 160;
 const NODE_HEIGHT = 40;
 const HEADER_HEIGHT = 30;
 const HEADER_GAP = 16;
@@ -29,7 +31,7 @@ const COL_GAP = 140;
 const EDGE_COLOR = '#94a3b8';
 const VIOLATION_EDGE_COLOR = '#ef4444';
 
-export function computeLayout(
+export function computeLayerLayout(
   config: VisualizationConfig,
   summary?: VizSummary,
   selectedLayer?: string | null,
@@ -101,7 +103,7 @@ export function computeLayout(
 
   const stackCenterX = new Map<string, number>();
   for (let i = 0; i < stackColumns.length; i++) {
-    stackCenterX.set(stackColumns[i]!.name, i * (NODE_WIDTH + COL_GAP));
+    stackCenterX.set(stackColumns[i]!.name, i * (LAYER_NODE_WIDTH + COL_GAP));
   }
 
   const yOffset = HEADER_HEIGHT + HEADER_GAP;
@@ -136,10 +138,8 @@ export function computeLayout(
   }
 
   const dependedOn = new Set(hierarchyEdges.map((e) => e.to));
-
-  const nodes: Node[] = [];
-
   const hasSelection = !!selectedLayer;
+  const nodes: Node[] = [];
 
   for (const col of stackColumns) {
     const cx = stackCenterX.get(col.name)!;
@@ -148,10 +148,11 @@ export function computeLayout(
       id: `header-${col.name}`,
       type: 'stackHeader',
       position: { x: cx, y: 0 },
-      width: NODE_WIDTH,
+      width: LAYER_NODE_WIDTH,
       height: HEADER_HEIGHT,
       data: {
         label: col.name,
+        stackName: col.name,
         description: col.description,
         isDimmed: hasSelection && !colHasSelected,
       } satisfies StackHeaderNodeData,
@@ -164,10 +165,11 @@ export function computeLayout(
       id: name,
       type: 'layer',
       position: pos,
-      width: NODE_WIDTH,
+      width: LAYER_NODE_WIDTH,
       height: NODE_HEIGHT,
       data: {
         label: name,
+        layerName: name,
         isEntry: !dependedOn.has(name),
         isShared: shared.has(name),
         description: meta?.description,
@@ -179,35 +181,25 @@ export function computeLayout(
     });
   }
 
-  const violationEdgeSet = new Set<string>();
-  if (summary) {
-    for (const v of summary.violations) {
-      violationEdgeSet.add(`${v.from}->${v.to}`);
-    }
-  }
-
   const dimmedOpacity = 0.4;
 
-  const edges: Edge[] = hierarchyEdges.map((e) => {
-    const isDimmed = hasSelection;
-    return {
-      id: `${e.from}->${e.to}`,
-      source: e.from,
-      target: e.to,
-      type: 'smoothstep',
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: 14,
-        height: 14,
-        color: EDGE_COLOR,
-      },
-      style: {
-        stroke: EDGE_COLOR,
-        strokeWidth: 1.5,
-        opacity: isDimmed ? dimmedOpacity : 1,
-      },
-    };
-  });
+  const edges: Edge[] = hierarchyEdges.map((e) => ({
+    id: `${e.from}->${e.to}`,
+    source: e.from,
+    target: e.to,
+    type: 'smoothstep',
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: 14,
+      height: 14,
+      color: EDGE_COLOR,
+    },
+    style: {
+      stroke: EDGE_COLOR,
+      strokeWidth: 1.5,
+      opacity: hasSelection ? dimmedOpacity : 1,
+    },
+  }));
 
   if (summary) {
     for (const v of summary.violations) {

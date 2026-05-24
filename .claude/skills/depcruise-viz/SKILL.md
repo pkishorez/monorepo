@@ -19,6 +19,40 @@ If the user provided specific intent (e.g. "add features", "update layers"), foc
 
 ---
 
+## Path selection policy
+
+Layer paths should be directory-first. Prefer mapping an entire folder that represents an architectural boundary, such as `src/routes`, `src/services`, `src/domain`, or `src/lib`.
+
+Use file paths in layer definitions only as explicit exceptions, and make the reason clear in the recommendation. Good exceptions include standalone root entrypoints like `src/index.ts`, `src/server.ts`, or a single file that genuinely has no cohesive folder boundary.
+
+Do not enumerate every file in a folder just to avoid broad matching. If a directory contains nested tests, fixtures, generated files, or mixed concerns, prefer one of these approaches:
+
+- Keep the directory as the layer path and add a separate higher-level test/fixture layer when needed.
+- Split or rebalance layers around actual directories.
+- Add ignore entries for files that should not participate in dependency validation.
+- Use a file path only when the file is truly a standalone exception.
+
+When presenting proposed layers, call out every file-level layer path and why it is an exception.
+
+---
+
+## Stack selection policy
+
+Each `layersTopDown()` stack should model one architectural concern. Do not put every discovered directory into one global stack just because it exists under `src/`.
+
+Use separate stacks for independent concerns that have different dependency semantics. Common examples:
+
+- **Production/runtime** — app or library source layers, ordered from entrypoints down to foundations.
+- **Tests** — test directories as the top layer, followed by the production layers they are allowed to exercise.
+- **Examples/playgrounds/scripts** — local development or demo code as the top layer, followed by the production layers it may import.
+- **Server/client/worker** — separate runtime targets when they have distinct entrypoints and allowed dependency directions.
+
+Layers may be reused across stacks when a concern depends on the same lower layers. For example, a package can have `layersTopDown('production', productionLayers)` and `layersTopDown('tests', [tests, ...productionLayers])`.
+
+When presenting proposed stacks, explain the concern each stack enforces and why it is separate.
+
+---
+
 ## Setup mode
 
 Run when no `depcruise.config.ts` exists yet.
@@ -98,13 +132,14 @@ This procedure is shared by both modes.
 
 1. **Map the directory structure** — list top-level directories and key files under `src/` (or the main source root).
 2. **Analyze the import graph** — read the actual imports across files to understand which directories depend on which. Identify the natural dependency flow.
-3. **Propose layers** — group directories into layers ordered top-down (entry points at top, foundational code at bottom). Each layer should be a cohesive group that depends only on layers below it.
+3. **Propose layers and stacks** — group directories into layers, then organize those layers into one or more concern-specific stacks ordered top-down (entry points at top, foundational code at bottom). Each layer should be cohesive and depend only on layers below it within that stack. Use directory paths by default; file paths are exceptions that require a clear reason. Keep tests, playgrounds, scripts, and separate runtime targets in their own stacks unless there is a specific reason to combine them.
 4. **Identify features** — look for cross-cutting concerns that span multiple layers. Features are groups of files across different directories that together implement a single capability. Good candidates:
    - A "feature folder" pattern where related files live in different layers (e.g. a route + component + service for the same feature)
    - Shared utilities or modules used across many layers
    - Domain concepts that touch multiple architectural boundaries
 5. **Present the recommendation** — show the user:
    - The proposed layers with their paths and dependency direction
+   - The proposed stacks and the concern each one enforces
    - The proposed features with their paths and which layers they cross
    - Any existing violations (lower layers importing upper layers)
    - Orphan files not covered by any layer or feature
@@ -119,7 +154,7 @@ This procedure is shared by both modes.
 Creates a single layer — a logical group of files that belong together.
 
 - `name` — unique identifier for the layer (e.g. `"ui"`, `"domain"`)
-- `paths` — array of file paths or directories relative to the package root (e.g. `["src/components"]`, `["src/utils.ts"]`)
+- `paths` — array of directories relative to the package root by default (e.g. `["src/components"]`). File paths such as `["src/index.ts"]` are allowed only for explicit standalone exceptions.
 - `config` — optional `{ description?: string }`
 
 A directory path like `"src/api"` matches everything inside it. A file path like `"src/index.ts"` matches that exact file.

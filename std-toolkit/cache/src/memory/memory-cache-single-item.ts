@@ -13,7 +13,7 @@ export class MemoryCacheSingleItem<T> implements CacheSingleItem<T> {
 
   private constructor() {}
 
-  static make<T>(options: {
+  static make<T>(_options: {
     name: string;
   }): Effect.Effect<MemoryCacheSingleItem<T>, never> {
     return Effect.succeed(new MemoryCacheSingleItem());

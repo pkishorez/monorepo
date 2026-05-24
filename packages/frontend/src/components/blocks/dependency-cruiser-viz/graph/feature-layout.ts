@@ -1,11 +1,12 @@
 import type { Edge, Node } from '@xyflow/react';
 import { MarkerType } from '@xyflow/react';
 
-import type { VisualizationConfig, VizSummary } from './types';
+import type { VisualizationConfig, VizSummary } from '../types';
 
 export type FeaturePathNodeData = {
   label: string;
-  featureName: string;
+  path: string;
+  featureNames: string[];
   isShared: boolean;
   violationCount: number;
   isSelected: boolean;
@@ -14,6 +15,7 @@ export type FeaturePathNodeData = {
 
 export type FeatureHeaderNodeData = {
   label: string;
+  featureName: string;
   description?: string;
   violationCount: number;
   isSelected: boolean;
@@ -65,17 +67,22 @@ export function computeFeatureLayout(
         (violationCountByFeature.get(v.to) ?? 0) + 1,
       );
 
-      for (const feat of features) {
-        if (feat.name === v.from) {
-          for (const p of feat.paths) {
-            if (v.fromFile.startsWith(p)) {
-              violationCountByPath.set(
-                p,
-                (violationCountByPath.get(p) ?? 0) + 1,
-              );
-            }
-          }
-        }
+      const fromFeature = features.find((feat) => feat.name === v.from);
+      const fromPath = fromFeature?.paths.find((p) => v.fromFile.startsWith(p));
+      if (fromPath) {
+        violationCountByPath.set(
+          fromPath,
+          (violationCountByPath.get(fromPath) ?? 0) + 1,
+        );
+      }
+
+      const toFeature = features.find((feat) => feat.name === v.to);
+      const toPath = toFeature?.paths.find((p) => v.toFile.startsWith(p));
+      if (toPath) {
+        violationCountByPath.set(
+          toPath,
+          (violationCountByPath.get(toPath) ?? 0) + 1,
+        );
       }
     }
   }
@@ -156,6 +163,7 @@ export function computeFeatureLayout(
       height: HEADER_HEIGHT,
       data: {
         label: col.name,
+        featureName: col.name,
         description: col.description,
         violationCount: violationCountByFeature.get(col.name) ?? 0,
         isSelected,
@@ -177,7 +185,8 @@ export function computeFeatureLayout(
         height: NODE_HEIGHT,
         data: {
           label: path.split('/').pop() ?? path,
-          featureName: col.name,
+          path,
+          featureNames: [col.name],
           isShared: false,
           violationCount: violationCountByPath.get(path) ?? 0,
           isSelected: isFeatureSelected,
@@ -200,7 +209,8 @@ export function computeFeatureLayout(
       height: NODE_HEIGHT,
       data: {
         label: path.split('/').pop() ?? path,
-        featureName: feats.join(', '),
+        path,
+        featureNames: feats,
         isShared: true,
         violationCount: violationCountByPath.get(path) ?? 0,
         isSelected: anyFeatureSelected,
