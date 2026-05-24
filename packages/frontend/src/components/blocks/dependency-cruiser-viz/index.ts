@@ -6,5 +6,4 @@ export type {
   DepcruiseVizData,
   VisualizationConfig,
   VizSummary,
-  ViewMode,
 } from './types';

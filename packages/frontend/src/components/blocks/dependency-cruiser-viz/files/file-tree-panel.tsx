@@ -1,96 +1,119 @@
-import { EyeIcon, EyeOffIcon, FolderOpenIcon } from 'lucide-react';
-
 import { cn } from '#lib/utils';
 
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '#components/ui/resizable';
+
+import type { VisualizationConfig } from '../types';
 import { CoverageStats } from './coverage-stats';
-import type { FileTreeViewModel } from './file-tree-model';
+import { FEATURE_OVERVIEW, type FileTreeViewModel } from './file-tree-model';
 import { FileTreeView } from './file-tree-view';
 import { ViolationList } from './violation-list';
 
 type FileTreePanelProps = {
   view: FileTreeViewModel;
-  onToggleHideIrrelevant: () => void;
+  features?: VisualizationConfig['features'];
+  onSelectFeature: (feature: string | null) => void;
 };
 
 export function FileTreePanel({
   view,
-  onToggleHideIrrelevant,
+  features,
+  onSelectFeature,
 }: FileTreePanelProps) {
+  const hasFeatures = (features ?? []).length > 0;
+  const isOverview = view.selectedFeature === FEATURE_OVERVIEW;
+  const hasViolations = view.violations.length > 0;
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-background">
       <div className="flex flex-col gap-2 border-b border-border px-4 py-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">{view.title}</h3>
-          {view.isFeatureView && (
-            <button
-              onClick={onToggleHideIrrelevant}
-              title={
-                view.hideIrrelevantFiles
-                  ? 'Show all files'
-                  : 'Hide irrelevant files'
-              }
-              className={cn(
-                'rounded-md p-1 transition-colors hover:bg-muted',
-                view.hideIrrelevantFiles
-                  ? 'text-primary'
-                  : 'text-muted-foreground',
-              )}
-            >
-              {view.hideIrrelevantFiles ? (
-                <EyeOffIcon className="size-4" />
-              ) : (
-                <EyeIcon className="size-4" />
-              )}
-            </button>
-          )}
-        </div>
+        <h3 className="text-sm font-semibold">{view.title}</h3>
         <CoverageStats stats={view.stats} />
       </div>
-      {!view.isFeatureView && (
+
+      {hasFeatures && (
         <div className="border-b border-border px-4 py-3">
-          {view.selectedLayer && view.selectedLayerPaths ? (
-            <div className="flex flex-col gap-1.5">
-              <h4 className="text-xs font-semibold text-primary">
-                {view.selectedLayer}
-              </h4>
-              <div className="flex flex-col gap-0.5">
-                {view.selectedLayerPaths.map((p) => (
-                  <span
-                    key={p}
-                    className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground"
-                  >
-                    <FolderOpenIcon className="size-3 shrink-0" />
-                    {p}
-                  </span>
-                ))}
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() =>
+                onSelectFeature(isOverview ? null : FEATURE_OVERVIEW)
+              }
+              className={cn(
+                'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                isOverview
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground',
+              )}
+            >
+              overview
+            </button>
+            {features!.map((f) => {
+              const vc = view.featureViolationCounts.find(
+                (v) => v.featureName === f.name,
+              );
+              const isSelected = view.selectedFeature === f.name;
+              return (
+                <button
+                  key={f.name}
+                  onClick={() => onSelectFeature(isSelected ? null : f.name)}
+                  className={cn(
+                    'relative rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                    isSelected
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground',
+                  )}
+                >
+                  {f.name}
+                  {vc && vc.count > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
+                      {vc.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {hasViolations ? (
+        <div className="min-h-0 flex-1">
+          <ResizablePanelGroup orientation="vertical">
+            <ResizablePanel defaultSize={70} minSize={20}>
+              <div className="h-full overflow-auto">
+                <FileTreeView
+                  tree={view.tree}
+                  treeKey={view.treeKey}
+                  expandedItems={view.expandedItems}
+                  highlightedFiles={view.highlightedFiles}
+                  uncoveredFiles={view.uncoveredFiles}
+                  configuredPaths={view.configuredPaths}
+                  sortOrder={view.sortOrder}
+                />
               </div>
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground/50">
-              Hover or click a layer to see its paths
-            </span>
-          )}
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={30} minSize={10}>
+              <ViolationList violations={view.violations} />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <FileTreeView
+            tree={view.tree}
+            treeKey={view.treeKey}
+            expandedItems={view.expandedItems}
+            highlightedFiles={view.highlightedFiles}
+            uncoveredFiles={view.uncoveredFiles}
+            configuredPaths={view.configuredPaths}
+            sortOrder={view.sortOrder}
+          />
         </div>
       )}
-      <ViolationList violations={view.violations} />
-      {view.isFeatureView && !view.selectedFeature && (
-        <div className="border-b border-border px-4 py-3">
-          <span className="text-xs text-muted-foreground/50">
-            Click a feature to see its files
-          </span>
-        </div>
-      )}
-      <div className="flex-1 overflow-hidden">
-        <FileTreeView
-          tree={view.tree}
-          treeKey={view.treeKey}
-          expandedItems={view.expandedItems}
-          highlightedFiles={view.highlightedFiles}
-          configuredPaths={view.configuredPaths}
-          sortOrder={view.sortOrder}
-          statusOverrides={view.statusOverrides}
-        />
-      </div>
     </div>
   );
 }

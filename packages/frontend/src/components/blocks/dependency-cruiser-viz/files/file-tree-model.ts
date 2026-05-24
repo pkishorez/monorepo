@@ -1,124 +1,122 @@
-import type { ViewMode, VisualizationConfig, VizSummary } from '../types';
+import type { VisualizationConfig, VizSummary } from '../types';
 import {
   buildFileTree,
-  collectAllFileIds,
   collectExpandedIds,
   filterTree,
 } from './file-tree-data';
 import {
+  getAllFeatureCoveredFiles,
   getConfiguredPaths,
   getCoverageStats,
   getFeatureFiles,
-  getFeatureStatusOverrides,
+  getFeatureViolationCounts,
   getHighlightedFiles,
   getLayerPathOrder,
-  getPanelTitle,
-  getRelevantPaths,
   getSortOrder,
+  getUncoveredFiles,
+  getViolations,
 } from './file-tree-selectors';
 import type { FileTreeViewModel } from './file-tree-types';
 
 export type {
   CoverageStatItem,
+  FeatureViolationCount,
   FileStatus,
   FileTreeNode,
   FileTreeViewModel,
   ViolationItem,
 } from './file-tree-types';
 
+export const FEATURE_OVERVIEW = '__overview__';
+
 type FileTreeViewModelInput = {
   config: VisualizationConfig;
   summary: VizSummary;
-  viewMode: ViewMode;
   selectedLayer: string | null;
   selectedLayerPaths: string[] | null;
   selectedFeature: string | null;
-  hoveredFeaturePath: string | null;
-  hideIrrelevantFiles: boolean;
 };
 
 export function getFileTreeViewModel({
   config,
   summary,
-  viewMode,
   selectedLayer,
   selectedLayerPaths,
   selectedFeature,
-  hoveredFeaturePath,
-  hideIrrelevantFiles,
 }: FileTreeViewModelInput): FileTreeViewModel {
   const tree = buildFileTree(summary);
-  const isFeatureView = viewMode === 'features';
-  const selectedLayerViolations = selectedLayer
-    ? summary.violations.filter(
-        (v) => v.from === selectedLayer || v.to === selectedLayer,
-      )
-    : [];
-  const selectedFeatureViolations =
-    selectedFeature && summary.featureViolations
-      ? summary.featureViolations.filter(
-          (v) => v.from === selectedFeature || v.to === selectedFeature,
-        )
-      : [];
-  const featureFiles =
-    isFeatureView && selectedFeature && summary.featureCoveredFiles
-      ? getFeatureFiles(summary, selectedFeature)
-      : null;
-  const allFileIds = collectAllFileIds(tree);
   const configuredPaths = getConfiguredPaths(config);
   const layerOrder = getLayerPathOrder(config);
-  const allRelevantPaths = getRelevantPaths({
-    config,
-    configuredPaths,
-    isFeatureView,
-    selectedFeature,
-    selectedLayerPaths,
-  });
+
+  const isFeatureOverview = selectedFeature === FEATURE_OVERVIEW;
+  const actualFeature =
+    selectedFeature && !isFeatureOverview ? selectedFeature : null;
+
+  const featureFiles = actualFeature
+    ? getFeatureFiles(summary, actualFeature)
+    : null;
+
+  const allFeatureCovered = isFeatureOverview
+    ? getAllFeatureCoveredFiles(summary)
+    : null;
+
+  const overviewFeatureFiles = allFeatureCovered;
+
   const displayTree =
-    hideIrrelevantFiles && isFeatureView && featureFiles
-      ? filterTree(tree, featureFiles)
-      : tree;
+    actualFeature && featureFiles ? filterTree(tree, featureFiles) : tree;
+
+  const relevantPaths = actualFeature
+    ? getFeaturePaths(config, actualFeature)
+    : (selectedLayerPaths ?? [...configuredPaths]);
 
   return {
-    title: getPanelTitle(isFeatureView, selectedFeature),
-    isFeatureView,
-    selectedLayer,
-    selectedLayerPaths,
+    title: isFeatureOverview
+      ? 'Feature Coverage'
+      : actualFeature
+        ? `Feature: ${actualFeature}`
+        : 'File Coverage',
     selectedFeature,
-    hideIrrelevantFiles,
     stats: getCoverageStats({
-      isFeatureView,
-      selectedFeature,
-      selectedFeatureViolations,
       summary,
+      selectedLayer: isFeatureOverview ? null : selectedLayer,
+      selectedFeature: actualFeature,
+      isFeatureOverview,
     }),
-    violations: isFeatureView
-      ? selectedFeature
-        ? selectedFeatureViolations
-        : (summary.featureViolations ?? [])
-      : selectedLayer
-        ? selectedLayerViolations
-        : summary.violations,
+    violations: getViolations({
+      summary,
+      selectedLayer: isFeatureOverview ? null : selectedLayer,
+      selectedFeature: actualFeature,
+      isFeatureOverview,
+    }),
+    featureViolationCounts: getFeatureViolationCounts(summary, config.features),
     tree: displayTree,
-    treeKey: isFeatureView
-      ? `feature-${selectedFeature ?? 'default'}-${hideIrrelevantFiles}`
-      : `layer-${selectedLayer ?? 'default'}`,
+    treeKey: isFeatureOverview
+      ? 'feature-overview'
+      : actualFeature
+        ? `feature-${actualFeature}`
+        : `layer-${selectedLayer ?? 'default'}`,
     highlightedFiles: getHighlightedFiles({
-      allFileIds,
-      featureFiles,
-      hoveredFeaturePath,
-      isFeatureView,
-      selectedLayer,
       summary,
+      selectedLayer: isFeatureOverview ? null : selectedLayer,
+      featureFiles: featureFiles ?? overviewFeatureFiles,
     }),
+    uncoveredFiles: allFeatureCovered
+      ? getUncoveredFiles(summary, allFeatureCovered)
+      : null,
     configuredPaths,
     sortOrder: getSortOrder({
       config,
-      isFeatureView,
-      selectedFeature,
+      selectedFeature: actualFeature,
       layerOrder,
     }),
-    statusOverrides: getFeatureStatusOverrides(summary, isFeatureView),
-    expandedItems: collectExpandedIds(allRelevantPaths),
+    expandedItems: collectExpandedIds(relevantPaths),
   };
+}
+
+function getFeaturePaths(
+  config: VisualizationConfig,
+  featureName: string,
+): string[] {
+  const feat = config.features?.find((f) => f.name === featureName);
+  return feat?.paths ?? [];
 }

@@ -3,11 +3,6 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { cn } from '#lib/utils';
 
 import {
-  FEATURE_NODE_WIDTH,
-  type FeatureHeaderNodeData,
-  type FeaturePathNodeData,
-} from './feature-layout';
-import {
   LAYER_NODE_WIDTH,
   type LayerNodeData,
   type StackHeaderNodeData,
@@ -19,7 +14,7 @@ function StackHeaderNode({ data }: NodeProps<Node<StackHeaderNodeData>>) {
       style={{ width: LAYER_NODE_WIDTH }}
       className={cn(
         'text-center text-xs font-bold uppercase tracking-wider text-muted-foreground transition-opacity',
-        data.isDimmed && 'opacity-40',
+        data.isDimmed && 'opacity-15',
       )}
     >
       {data.label}
@@ -31,8 +26,8 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
   return (
     <div
       className={cn(
-        'relative cursor-pointer transition-opacity',
-        data.isDimmed && 'opacity-40',
+        'relative transition-opacity',
+        data.isDimmed ? 'cursor-default opacity-15' : 'cursor-pointer',
       )}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
@@ -48,59 +43,7 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
             : 'border border-border',
           data.violationCount > 0 && 'ring-2 ring-red-500/50',
           data.isSelected && 'ring-2 ring-primary',
-        )}
-      >
-        {data.label}
-      </div>
-      {data.violationCount > 0 && (
-        <span className="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-          {data.violationCount}
-        </span>
-      )}
-      <Handle type="source" position={Position.Bottom} className="!opacity-0" />
-    </div>
-  );
-}
-
-function FeatureHeaderNode({ data }: NodeProps<Node<FeatureHeaderNodeData>>) {
-  return (
-    <div
-      style={{ width: FEATURE_NODE_WIDTH }}
-      className={cn(
-        'relative cursor-pointer text-center text-xs font-bold uppercase tracking-wider text-muted-foreground transition-opacity',
-        data.isDimmed && 'opacity-40',
-        data.isSelected && 'text-primary',
-      )}
-    >
-      {data.label}
-      {data.violationCount > 0 && (
-        <span className="absolute -top-1 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-          {data.violationCount}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function FeaturePathNode({ data }: NodeProps<Node<FeaturePathNodeData>>) {
-  return (
-    <div
-      className={cn(
-        'relative transition-opacity',
-        data.isDimmed && 'opacity-40',
-      )}
-    >
-      <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <div
-        style={{ width: FEATURE_NODE_WIDTH }}
-        className={cn(
-          'rounded-lg px-4 py-2 text-center text-[13px] font-medium whitespace-nowrap',
-          'bg-card text-card-foreground',
-          data.isShared
-            ? 'border-2 border-dashed border-muted-foreground'
-            : 'border border-border',
-          data.violationCount > 0 && 'ring-2 ring-red-500/50',
-          data.isSelected && 'ring-2 ring-primary',
+          data.isFeatureLayer && !data.isSelected && 'ring-2 ring-primary/40',
         )}
       >
         {data.label}
@@ -118,9 +61,4 @@ function FeaturePathNode({ data }: NodeProps<Node<FeaturePathNodeData>>) {
 export const layerNodeTypes = {
   layer: LayerNode,
   stackHeader: StackHeaderNode,
-};
-
-export const featureNodeTypes = {
-  featurePath: FeaturePathNode,
-  featureHeader: FeatureHeaderNode,
 };

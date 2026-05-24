@@ -7,10 +7,8 @@ import type {
   DependencyCruiserVizActions,
   DependencyCruiserVizGraphView,
 } from '../use-dependency-cruiser-viz';
-import { FeatureGraphPanel } from './feature-graph-panel';
 import { LayerGraphPanel } from './layer-graph-panel';
 import { FIT_VIEW_OPTIONS } from './react-flow-options';
-import { ViewToggle } from './view-toggle';
 
 type GraphPanelProps = {
   view: DependencyCruiserVizGraphView;
@@ -26,35 +24,18 @@ export function GraphPanel({ view, actions }: GraphPanelProps) {
 
   return (
     <ResizablePanel
-      defaultSize={view.hasSummary ? 70 : 100}
+      defaultSize={view.summary ? 70 : 100}
       minSize={40}
       onResize={handleResize}
     >
-      <div className="relative h-full w-full">
-        <ViewToggle
-          viewMode={view.viewMode}
-          onViewModeChange={actions.setViewMode}
-          hasFeatures={view.hasFeatures}
-        />
-        {view.viewMode === 'layers' ? (
-          <LayerGraphPanel
-            config={view.config}
-            summary={view.summary}
-            activeLayer={view.activeLayer}
-            onSelectLayer={actions.selectLayer}
-            onHoverLayer={actions.hoverLayer}
-          />
-        ) : (
-          <FeatureGraphPanel
-            config={view.config}
-            summary={view.summary}
-            activeFeature={view.activeFeature}
-            onSelectFeature={actions.selectFeature}
-            onHoverFeature={actions.hoverFeature}
-            onHoverFeaturePath={actions.hoverFeaturePath}
-          />
-        )}
-      </div>
+      <LayerGraphPanel
+        config={view.config}
+        summary={view.summary}
+        activeLayer={view.activeLayer}
+        selectedFeature={view.selectedFeature}
+        onSelectLayer={actions.selectLayer}
+        onHoverLayer={actions.hoverLayer}
+      />
     </ResizablePanel>
   );
 }

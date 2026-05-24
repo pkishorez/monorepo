@@ -7,7 +7,7 @@ import {
 
 import { cn } from '#lib/utils';
 
-import type { CoverageStatItem, FileStatus } from './file-tree-model';
+import type { CoverageStatItem, FileStatus } from './file-tree-types';
 
 const statIcons: Record<
   FileStatus,

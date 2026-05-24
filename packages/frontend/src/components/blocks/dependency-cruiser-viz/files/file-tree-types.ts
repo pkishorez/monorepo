@@ -23,20 +23,22 @@ export type CoverageStatItem = {
   muted?: boolean;
 };
 
+export type FeatureViolationCount = {
+  featureName: string;
+  count: number;
+};
+
 export type FileTreeViewModel = {
   title: string;
-  isFeatureView: boolean;
-  selectedLayer: string | null;
-  selectedLayerPaths: string[] | null;
   selectedFeature: string | null;
-  hideIrrelevantFiles: boolean;
   stats: CoverageStatItem[];
   violations: ViolationItem[];
+  featureViolationCounts: FeatureViolationCount[];
   tree: FileTreeNode[];
   treeKey: string;
   highlightedFiles: Set<string> | null;
+  uncoveredFiles: Set<string> | null;
   configuredPaths: Set<string>;
   sortOrder: Map<string, number>;
-  statusOverrides: Map<string, FileStatus> | null;
   expandedItems: string[];
 };

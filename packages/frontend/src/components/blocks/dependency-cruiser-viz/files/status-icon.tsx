@@ -8,7 +8,7 @@ import {
 
 import { cn } from '#lib/utils';
 
-import type { FileStatus } from './file-tree-model';
+import type { FileStatus } from './file-tree-types';
 
 const statusIcons: Record<
   FileStatus,

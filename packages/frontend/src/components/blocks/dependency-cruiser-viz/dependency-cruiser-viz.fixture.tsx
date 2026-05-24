@@ -259,6 +259,40 @@ const fullSummaryWithFeatures: VizSummary = {
       files: ['src/domain/types/common.ts', 'src/services/email/send.ts'],
     },
   ],
+  featureFileEdges: [
+    {
+      from: 'src/server/auth/login-handler.ts',
+      to: 'src/services/auth/login.ts',
+    },
+    {
+      from: 'src/server/auth/login-handler.ts',
+      to: 'src/server/auth/session.ts',
+    },
+    { from: 'src/services/auth/login.ts', to: 'src/services/auth/validate.ts' },
+    { from: 'src/services/auth/login.ts', to: 'src/domain/identity/user.ts' },
+    {
+      from: 'src/services/auth/login.ts',
+      to: 'src/services/order-service/create.ts',
+    },
+    {
+      from: 'src/services/auth/validate.ts',
+      to: 'src/domain/identity/user.ts',
+    },
+    { from: 'src/server/auth/session.ts', to: 'src/domain/identity/user.ts' },
+    {
+      from: 'src/server/orders/create-handler.ts',
+      to: 'src/orchestrator/order-flow/pipeline.ts',
+    },
+    {
+      from: 'src/orchestrator/order-flow/pipeline.ts',
+      to: 'src/services/order-service/create.ts',
+    },
+    {
+      from: 'src/services/order-service/create.ts',
+      to: 'src/domain/order/order.ts',
+    },
+    { from: 'src/domain/types/common.ts', to: 'src/services/email/send.ts' },
+  ],
 };
 
 const complexSummary: VizSummary = {
@@ -423,6 +457,45 @@ const complexSummaryWithFeatures: VizSummary = {
         'src/utils/validate.ts',
       ],
     },
+  ],
+  featureFileEdges: [
+    {
+      from: 'src/controllers/user-controller.ts',
+      to: 'src/services/user-service.ts',
+    },
+    {
+      from: 'src/services/user-service.ts',
+      to: 'src/repositories/user-repo.ts',
+    },
+    {
+      from: 'src/services/user-service.ts',
+      to: 'src/services/order-service.ts',
+    },
+    { from: 'src/services/user-service.ts', to: 'src/config/app.ts' },
+    { from: 'src/pages/settings.tsx', to: 'src/hooks/use-auth.ts' },
+    { from: 'src/pages/settings.tsx', to: 'src/state/store.ts' },
+    { from: 'src/hooks/use-auth.ts', to: 'src/config/app.ts' },
+    {
+      from: 'src/controllers/order-controller.ts',
+      to: 'src/services/order-service.ts',
+    },
+    {
+      from: 'src/services/order-service.ts',
+      to: 'src/repositories/order-repo.ts',
+    },
+    {
+      from: 'src/repositories/order-repo.ts',
+      to: 'src/repositories/user-repo.ts',
+    },
+    { from: 'src/repositories/order-repo.ts', to: 'src/config/database.ts' },
+    { from: 'src/scheduler/cron.ts', to: 'src/jobs/email-job.ts' },
+    { from: 'src/jobs/email-job.ts', to: 'src/queues/email-queue.ts' },
+    { from: 'src/gateway/router.ts', to: 'src/gateway/auth-guard.ts' },
+    { from: 'src/gateway/router.ts', to: 'src/middleware/cors.ts' },
+    { from: 'src/gateway/auth-guard.ts', to: 'src/middleware/logger.ts' },
+    { from: 'src/database/client.ts', to: 'src/config/database.ts' },
+    { from: 'src/database/migrations.ts', to: 'src/database/client.ts' },
+    { from: 'src/utils/validate.ts', to: 'src/utils/format.ts' },
   ],
 };
 

@@ -80,23 +80,14 @@ export function filterTree(
   }, []);
 }
 
-export function collectAllFileIds(nodes: FileTreeNode[]): Set<string> {
+/**
+ * Expand only up to configured path depth — not beyond.
+ */
+export function collectExpandedIds(configuredPaths: string[]): string[] {
   const ids = new Set<string>();
-  function collect(ns: FileTreeNode[]) {
-    for (const n of ns) {
-      if (n.type === 'file') ids.add(n.id);
-      else if (n.children) collect(n.children);
-    }
-  }
-  collect(nodes);
-  return ids;
-}
-
-export function collectExpandedIds(paths: string[]): string[] {
-  const ids = new Set<string>();
-  for (const p of paths) {
+  for (const p of configuredPaths) {
     const segments = p.split('/');
-    for (let i = 1; i <= segments.length; i++) {
+    for (let i = 1; i < segments.length; i++) {
       ids.add(segments.slice(0, i).join('/'));
     }
   }
