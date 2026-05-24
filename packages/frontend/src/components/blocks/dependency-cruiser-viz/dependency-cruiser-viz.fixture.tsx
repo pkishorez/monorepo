@@ -427,27 +427,21 @@ const complexSummaryWithFeatures: VizSummary = {
 };
 
 export default {
-  simple: (
-    <DependencyCruiserViz visualization={simpleConfig} summary={fullSummary} />
-  ),
-  full: (
-    <DependencyCruiserViz visualization={fullConfig} summary={fullSummary} />
-  ),
+  simple: <DependencyCruiserViz config={simpleConfig} summary={fullSummary} />,
+  'graph-only': <DependencyCruiserViz config={fullConfig} />,
+  full: <DependencyCruiserViz config={fullConfig} summary={fullSummary} />,
   complex: (
-    <DependencyCruiserViz
-      visualization={complexConfig}
-      summary={complexSummary}
-    />
+    <DependencyCruiserViz config={complexConfig} summary={complexSummary} />
   ),
   'with-features': (
     <DependencyCruiserViz
-      visualization={fullConfigWithFeatures}
+      config={fullConfigWithFeatures}
       summary={fullSummaryWithFeatures}
     />
   ),
   'complex-with-features': (
     <DependencyCruiserViz
-      visualization={complexConfigWithFeatures}
+      config={complexConfigWithFeatures}
       summary={complexSummaryWithFeatures}
     />
   ),

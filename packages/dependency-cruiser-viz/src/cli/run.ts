@@ -16,22 +16,22 @@ const CONFIG_PATH = resolve('depcruise.config.ts');
 
 async function cruiseProject() {
   const projectConfig = await loadConfig(CONFIG_PATH);
-  const depCruiserConfig = toDependencyCruiserConfig(
+  const dependencyCruiserConfig = toDependencyCruiserConfig(
     projectConfig.rules,
     projectConfig.features,
   );
-  const visualization = toVisualizationConfig(projectConfig);
+  const config = toVisualizationConfig(projectConfig);
   const result = await cruise([projectConfig.rootDir], {
-    ruleSet: depCruiserConfig,
+    ruleSet: dependencyCruiserConfig,
     validate: true,
   });
 
   const cruiseResult = result.output as ICruiseResult;
-  const summary = summarizeCruiseResult(cruiseResult, visualization);
+  const summary = summarizeCruiseResult(cruiseResult, config);
 
   return {
-    config: depCruiserConfig,
-    visualization,
+    dependencyCruiserConfig,
+    config,
     summary,
   } satisfies DepcruiseVizResult;
 }
@@ -40,7 +40,7 @@ async function viz(): Promise<void> {
   const output = await cruiseProject();
 
   const vizData: DepcruiseVizData = {
-    visualization: output.visualization,
+    config: output.config,
     summary: output.summary,
   };
   const hash = encodeURIComponent(JSON.stringify(vizData));

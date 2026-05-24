@@ -1,9 +1,15 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite-plus';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import viteReact from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+  lint: {
+    ignorePatterns: ['**/dist/**'],
+  },
+  fmt: {
+    ignorePatterns: ['**/dist/**'],
+  },
   plugins: [
     tailwindcss(),
     TanStackRouterVite({

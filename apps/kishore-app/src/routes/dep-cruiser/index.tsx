@@ -25,7 +25,7 @@ function DepCruiserRoute() {
   if (!data) {
     return (
       <div className="flex h-dvh items-center justify-center text-gray-500">
-        No visualization config found in URL hash.
+        No dependency visualization data found in URL hash.
       </div>
     );
   }
