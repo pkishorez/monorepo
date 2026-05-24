@@ -35,7 +35,7 @@ export function LayerGraphPanel({
       if (node.type !== 'layer') return;
       const data = node.data as LayerNodeData;
       if (data.isDimmed) return;
-      onSelectLayer(node.id);
+      onSelectLayer(data.layerName);
     },
     [onSelectLayer],
   );
@@ -49,7 +49,7 @@ export function LayerGraphPanel({
       if (node.type !== 'layer') return;
       const data = node.data as LayerNodeData;
       if (data.isDimmed) return;
-      onHoverLayer(node.id);
+      onHoverLayer(data.layerName);
     },
     [onHoverLayer],
   );

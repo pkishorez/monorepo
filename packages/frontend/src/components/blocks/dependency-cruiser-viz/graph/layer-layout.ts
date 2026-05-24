@@ -4,6 +4,11 @@ import { MarkerType } from '@xyflow/react';
 import { FEATURE_OVERVIEW } from '../files/file-tree-model';
 import type { VisualizationConfig, VizSummary } from '../types';
 
+export type HandleOffset = {
+  stackName: string;
+  offsetPct: number;
+};
+
 export type LayerNodeData = {
   label: string;
   layerName: string;
@@ -15,6 +20,8 @@ export type LayerNodeData = {
   isSelected: boolean;
   isFeatureLayer: boolean;
   isDimmed: boolean;
+  nodeWidth?: number;
+  handleOffsets?: HandleOffset[];
 };
 
 export type StackHeaderNodeData = {
@@ -89,7 +96,6 @@ export function computeLayerLayout(
   }
 
   const layerToStacks = new Map<string, string[]>();
-  const hierarchyEdges: Array<{ from: string; to: string }> = [];
   const layerMeta = new Map<
     string,
     { description?: string; paths: string[] }
@@ -116,13 +122,6 @@ export function computeLayerLayout(
         });
       }
     }
-    for (let i = 0; i < stack.layers.length - 1; i++) {
-      const from = stack.layers[i]!.name;
-      const to = stack.layers[i + 1]!.name;
-      if (!hierarchyEdges.some((e) => e.from === from && e.to === to)) {
-        hierarchyEdges.push({ from, to });
-      }
-    }
   }
 
   const shared = new Set<string>();
@@ -133,7 +132,7 @@ export function computeLayerLayout(
   const stackColumns = config.stacks.map((s) => ({
     name: s.name,
     description: s.description,
-    layers: s.layers.filter((l) => !shared.has(l.name)).map((l) => l.name),
+    layers: s.layers.map((l) => l.name),
   }));
 
   const stackCenterX = new Map<string, number>();
@@ -141,38 +140,71 @@ export function computeLayerLayout(
     stackCenterX.set(stackColumns[i]!.name, i * (LAYER_NODE_WIDTH + COL_GAP));
   }
 
+  const levels = computeLevels(config.stacks);
   const yOffset = HEADER_HEIGHT + HEADER_GAP;
   const positions = new Map<string, { x: number; y: number }>();
-  let maxExclusiveRow = 0;
+  const nodeWidths = new Map<string, number>();
+  const handleOffsetsMap = new Map<string, HandleOffset[]>();
 
-  for (const col of stackColumns) {
-    const cx = stackCenterX.get(col.name)!;
-    for (let row = 0; row < col.layers.length; row++) {
-      positions.set(col.layers[row]!, {
-        x: cx,
-        y: yOffset + row * (NODE_HEIGHT + ROW_GAP),
-      });
-      maxExclusiveRow = Math.max(maxExclusiveRow, row);
+  for (const stack of config.stacks) {
+    const cx = stackCenterX.get(stack.name)!;
+    for (const layer of stack.layers) {
+      if (!shared.has(layer.name) && !positions.has(layer.name)) {
+        positions.set(layer.name, {
+          x: cx,
+          y: yOffset + levels.get(layer.name)! * (NODE_HEIGHT + ROW_GAP),
+        });
+      }
     }
   }
 
-  const sharedOrdered = [...shared].sort((a, b) => {
-    const rankA = maxRankAcrossStacks(a, config);
-    const rankB = maxRankAcrossStacks(b, config);
-    return rankA - rankB;
-  });
+  for (const layerName of shared) {
+    const stacks = layerToStacks.get(layerName)!;
+    const xPositions = stacks.map((s) => stackCenterX.get(s)!);
+    const leftX = Math.min(...xPositions);
+    const rightX = Math.max(...xPositions);
+    const width = rightX + LAYER_NODE_WIDTH - leftX;
 
-  for (let i = 0; i < sharedOrdered.length; i++) {
-    const name = sharedOrdered[i]!;
-    const stacks = layerToStacks.get(name)!;
-    const cx =
-      stacks.reduce((sum, s) => sum + (stackCenterX.get(s) ?? 0), 0) /
-      stacks.length;
-    const y = yOffset + (maxExclusiveRow + 1 + i) * (NODE_HEIGHT + ROW_GAP);
-    positions.set(name, { x: cx, y });
+    positions.set(layerName, {
+      x: leftX,
+      y: yOffset + levels.get(layerName)! * (NODE_HEIGHT + ROW_GAP),
+    });
+    nodeWidths.set(layerName, width);
+
+    handleOffsetsMap.set(
+      layerName,
+      stacks.map((s) => ({
+        stackName: s,
+        offsetPct:
+          ((stackCenterX.get(s)! - leftX + LAYER_NODE_WIDTH / 2) / width) * 100,
+      })),
+    );
   }
 
-  const dependedOn = new Set(hierarchyEdges.map((e) => e.to));
+  type PerStackEdge = {
+    stackName: string;
+    from: string;
+    to: string;
+    sourceHandle?: string;
+    targetHandle?: string;
+  };
+  const hierarchyEdges: PerStackEdge[] = [];
+
+  for (const stack of config.stacks) {
+    for (let i = 0; i < stack.layers.length - 1; i++) {
+      const fromName = stack.layers[i]!.name;
+      const toName = stack.layers[i + 1]!.name;
+      hierarchyEdges.push({
+        stackName: stack.name,
+        from: fromName,
+        to: toName,
+        sourceHandle: shared.has(fromName) ? `bottom-${stack.name}` : undefined,
+        targetHandle: shared.has(toName) ? `top-${stack.name}` : undefined,
+      });
+    }
+  }
+
+  const dependedOnLayers = new Set(hierarchyEdges.map((e) => e.to));
   const featureLayers = getFeatureLayers(config, selectedFeature);
   const hasFeatureSelection = featureLayers.size > 0;
   const hasLayerSelection = !!selectedLayer;
@@ -202,10 +234,10 @@ export function computeLayerLayout(
     });
   }
 
-  for (const [name, pos] of positions) {
-    const meta = layerMeta.get(name);
-    const isFeatureLayer = featureLayers.has(name);
-    const isLayerSelected = name === selectedLayer;
+  for (const [layerName, pos] of positions) {
+    const meta = layerMeta.get(layerName);
+    const isFeatureLayer = featureLayers.has(layerName);
+    const isLayerSelected = layerName === selectedLayer;
 
     let isDimmed = false;
     if (hasFeatureSelection) {
@@ -214,40 +246,56 @@ export function computeLayerLayout(
       isDimmed = !isLayerSelected;
     }
 
+    const width = nodeWidths.get(layerName) ?? LAYER_NODE_WIDTH;
     nodes.push({
-      id: name,
+      id: layerName,
       type: 'layer',
       position: pos,
-      width: LAYER_NODE_WIDTH,
+      width,
       height: NODE_HEIGHT,
       data: {
-        label: name,
-        layerName: name,
-        isEntry: !dependedOn.has(name),
-        isShared: shared.has(name),
+        label: layerName,
+        layerName,
+        isEntry: !dependedOnLayers.has(layerName),
+        isShared: shared.has(layerName),
         description: meta?.description,
         paths: meta?.paths,
-        violationCount: violationCountByLayer.get(name) ?? 0,
+        violationCount: violationCountByLayer.get(layerName) ?? 0,
         isSelected: isLayerSelected,
         isFeatureLayer,
         isDimmed,
+        nodeWidth: nodeWidths.get(layerName),
+        handleOffsets: handleOffsetsMap.get(layerName),
       } satisfies LayerNodeData,
     });
   }
 
   const dimmedOpacity = 0.15;
 
-  const activeEdgeIds = hasFeatureSelection
-    ? computeActiveEdges(hierarchyEdges, featureLayers)
+  const uniqueLayerEdges: Array<{ from: string; to: string }> = [];
+  const seenPairs = new Set<string>();
+  for (const e of hierarchyEdges) {
+    const key = `${e.from}->${e.to}`;
+    if (!seenPairs.has(key)) {
+      seenPairs.add(key);
+      uniqueLayerEdges.push({ from: e.from, to: e.to });
+    }
+  }
+
+  const activeEdgePairs = hasFeatureSelection
+    ? computeActiveEdges(uniqueLayerEdges, featureLayers)
     : new Set<string>();
 
   const edges: Edge[] = hierarchyEdges.map((e) => {
-    const edgeId = `${e.from}->${e.to}`;
-    const isActive = hasFeatureSelection && activeEdgeIds.has(edgeId);
+    const edgeId = `${e.stackName}:${e.from}->${e.to}`;
+    const pairKey = `${e.from}->${e.to}`;
+    const isActive = hasFeatureSelection && activeEdgePairs.has(pairKey);
     return {
       id: edgeId,
       source: e.from,
       target: e.to,
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
       type: 'smoothstep',
       markerEnd: {
         type: MarkerType.ArrowClosed,
@@ -264,34 +312,45 @@ export function computeLayerLayout(
   });
 
   if (summary) {
+    const seenViolationEdges = new Set<string>();
     for (const v of summary.violations) {
-      const edgeId = `violation-${v.from}->${v.to}`;
-      if (edges.some((e) => e.id === edgeId)) continue;
+      const matchingStacks = config.stacks.filter(
+        (s) =>
+          s.layers.some((l) => l.name === v.from) &&
+          s.layers.some((l) => l.name === v.to),
+      );
+      for (const stack of matchingStacks) {
+        const edgeId = `violation-${stack.name}:${v.from}->${v.to}`;
+        if (seenViolationEdges.has(edgeId)) continue;
+        seenViolationEdges.add(edgeId);
 
-      const isViolationActive =
-        hasFeatureSelection &&
-        featureLayers.has(v.from) &&
-        featureLayers.has(v.to);
+        const isViolationActive =
+          hasFeatureSelection &&
+          featureLayers.has(v.from) &&
+          featureLayers.has(v.to);
 
-      edges.push({
-        id: edgeId,
-        source: v.from,
-        target: v.to,
-        type: 'smoothstep',
-        animated: !hasSelection || isViolationActive,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 14,
-          height: 14,
-          color: VIOLATION_EDGE_COLOR,
-        },
-        style: {
-          stroke: VIOLATION_EDGE_COLOR,
-          strokeWidth: 2,
-          strokeDasharray: '6 3',
-          opacity: hasSelection && !isViolationActive ? dimmedOpacity : 1,
-        },
-      });
+        edges.push({
+          id: edgeId,
+          source: v.from,
+          target: v.to,
+          sourceHandle: shared.has(v.from) ? `bottom-${stack.name}` : undefined,
+          targetHandle: shared.has(v.to) ? `top-${stack.name}` : undefined,
+          type: 'smoothstep',
+          animated: !hasSelection || isViolationActive,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 14,
+            height: 14,
+            color: VIOLATION_EDGE_COLOR,
+          },
+          style: {
+            stroke: VIOLATION_EDGE_COLOR,
+            strokeWidth: 2,
+            strokeDasharray: '6 3',
+            opacity: hasSelection && !isViolationActive ? dimmedOpacity : 1,
+          },
+        });
+      }
     }
   }
 
@@ -299,13 +358,13 @@ export function computeLayerLayout(
 }
 
 function computeActiveEdges(
-  hierarchyEdges: Array<{ from: string; to: string }>,
+  layerEdges: Array<{ from: string; to: string }>,
   featureLayers: Set<string>,
 ): Set<string> {
   const children = new Map<string, string[]>();
   const parents = new Map<string, string[]>();
 
-  for (const e of hierarchyEdges) {
+  for (const e of layerEdges) {
     let c = children.get(e.from);
     if (!c) {
       c = [];
@@ -355,7 +414,7 @@ function computeActiveEdges(
   }
 
   const active = new Set<string>();
-  for (const e of hierarchyEdges) {
+  for (const e of layerEdges) {
     if (canReachFeatureUp(e.from) && canReachFeatureDown(e.to)) {
       active.add(`${e.from}->${e.to}`);
     }
@@ -363,14 +422,38 @@ function computeActiveEdges(
   return active;
 }
 
-function maxRankAcrossStacks(
-  layerName: string,
-  config: VisualizationConfig,
-): number {
-  let max = 0;
-  for (const stack of config.stacks) {
-    const idx = stack.layers.findIndex((l) => l.name === layerName);
-    if (idx > max) max = idx;
+function computeLevels(
+  stacks: VisualizationConfig['stacks'],
+): Map<string, number> {
+  const predecessors = new Map<string, Set<string>>();
+
+  for (const stack of stacks) {
+    for (const layer of stack.layers) {
+      if (!predecessors.has(layer.name))
+        predecessors.set(layer.name, new Set());
+    }
+    for (let i = 1; i < stack.layers.length; i++) {
+      predecessors.get(stack.layers[i]!.name)!.add(stack.layers[i - 1]!.name);
+    }
   }
-  return max;
+
+  const levels = new Map<string, number>();
+
+  function getLevel(name: string): number {
+    if (levels.has(name)) return levels.get(name)!;
+    const preds = predecessors.get(name);
+    if (!preds || preds.size === 0) {
+      levels.set(name, 0);
+      return 0;
+    }
+    const level = Math.max(...[...preds].map(getLevel)) + 1;
+    levels.set(name, level);
+    return level;
+  }
+
+  for (const name of predecessors.keys()) {
+    getLevel(name);
+  }
+
+  return levels;
 }
