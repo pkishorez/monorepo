@@ -42,10 +42,24 @@ const VIOLATION_EDGE_COLOR = '#ef4444';
 
 function getFeatureLayers(
   config: VisualizationConfig,
+  summary: VizSummary | undefined,
   featureName: string | null | undefined,
 ): Set<string> {
   const layers = new Set<string>();
   if (!featureName || !config.features) return layers;
+
+  if (summary?.featureGraphs) {
+    const graphs =
+      featureName === FEATURE_OVERVIEW
+        ? summary.featureGraphs
+        : summary.featureGraphs.filter((g) => g.feature === featureName);
+    for (const graph of graphs) {
+      for (const node of graph.nodes) {
+        for (const layer of node.layers) layers.add(layer);
+      }
+    }
+    if (layers.size > 0) return layers;
+  }
 
   const features =
     featureName === FEATURE_OVERVIEW
@@ -205,7 +219,7 @@ export function computeLayerLayout(
   }
 
   const dependedOnLayers = new Set(hierarchyEdges.map((e) => e.to));
-  const featureLayers = getFeatureLayers(config, selectedFeature);
+  const featureLayers = getFeatureLayers(config, summary, selectedFeature);
   const hasFeatureSelection = featureLayers.size > 0;
   const hasLayerSelection = !!selectedLayer;
   const hasSelection = hasLayerSelection || hasFeatureSelection;

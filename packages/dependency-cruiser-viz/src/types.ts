@@ -70,29 +70,48 @@ export type VizSummary = {
     rule: string;
     severity: string;
   }>;
-  orphanFiles: string[];
+  layerOrphanFiles: string[];
   ignoredFiles: string[];
   coveredFiles: Array<{
     layer: string;
     files: string[];
   }>;
-  featureViolations?: Array<{
-    from: string;
-    to: string;
-    fromFile: string;
-    toFile: string;
-    rule: string;
-    severity: string;
-  }>;
-  featureCoveredFiles?: Array<{
+  featureGraphs?: Array<{
     feature: string;
-    files: string[];
+    seeds: string[];
+    nodes: Array<{
+      file: string;
+      kind: 'seed' | 'derived';
+      layers: string[];
+      minDepth: number;
+      maxDepth: number;
+    }>;
+    edges: Array<{
+      from: string;
+      to: string;
+      dependencyKind: 'runtime' | 'type-only';
+    }>;
   }>;
-  featureFileEdges?: Array<{
-    from: string;
-    to: string;
-  }>;
+  featureOrphanFiles?: string[];
+  featureGraphViolations?: FeatureGraphViolation[];
 };
+
+export type FeatureGraphViolation =
+  | {
+      kind: 'feature-cycle';
+      feature: string;
+      fromFile: string;
+      toFile: string;
+      cycle: string[];
+      severity: 'error';
+    }
+  | {
+      kind: 'feature-unresolved-import';
+      feature: string;
+      fromFile: string;
+      specifier: string;
+      severity: 'error';
+    };
 
 export type DependencyCruiserConfig = IFlattenedRuleSet;
 

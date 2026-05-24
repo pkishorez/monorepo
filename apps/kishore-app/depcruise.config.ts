@@ -13,18 +13,29 @@ const services = layer('services', ['src/services']);
 const lib = layer('lib', ['src/lib']);
 
 const blog = feature('blog', [
-  'src/routes/blog',
-  'src/components/blog',
-  'src/components/code-block',
+  'src/routes/blog/index.tsx',
+  'src/routes/blog/_slug.tsx',
+  'src/routes/blog/_slug/effect-all/index.tsx',
+  'src/routes/blog/_slug/fiber-part-1/index.tsx',
+  'src/routes/blog/_slug/fiber-part-2/index.tsx',
+  'src/routes/blog/_slug/fiber-part-3/index.tsx',
+  'src/routes/blog/_slug/fiber-part-4/index.tsx',
 ]);
 
-const docs = feature('docs', ['src/routes/docs', 'src/docs']);
+const docs = feature('docs', [
+  'src/routes/docs/index.tsx',
+  'src/routes/docs/$pkg.tsx',
+]);
 
-const otel = feature('otel', ['src/routes/otel']);
+const otel = feature('otel', ['src/routes/otel/index.tsx']);
 
-const depCruiser = feature('dep-cruiser', ['src/routes/dep-cruiser']);
+const depCruiser = feature('dep-cruiser', ['src/routes/dep-cruiser/index.tsx']);
 
-const dev = feature('dev', ['src/routes/dev']);
+const dev = feature('dev', [
+  'src/routes/dev/index.tsx',
+  'src/routes/dev/forms.tsx',
+  'src/routes/dev/ui.tsx',
+]);
 
 export default {
   rootDir: 'src',

@@ -9,6 +9,7 @@ export type {
   DepcruiseVizData,
   DepcruiseVizResult,
   Feature,
+  FeatureGraphViolation,
   ProjectConfig,
   VisualizationConfig,
   VizSummary,

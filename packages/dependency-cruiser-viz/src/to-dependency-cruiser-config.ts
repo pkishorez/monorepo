@@ -1,6 +1,6 @@
 import type { IRegularForbiddenRuleType } from 'dependency-cruiser';
 
-import type { DependencyCruiserConfig, Feature, Rule } from './types.js';
+import type { DependencyCruiserConfig, Rule } from './types.js';
 import { validateLayerOrdering } from './validate-layer-ordering.js';
 
 function pathToPattern(p: string): string {
@@ -11,7 +11,6 @@ function pathToPattern(p: string): string {
 
 export function toDependencyCruiserConfig(
   rules: Rule[],
-  features?: Feature[],
 ): DependencyCruiserConfig {
   validateLayerOrdering(rules);
 
@@ -36,34 +35,6 @@ export function toDependencyCruiserConfig(
               to: { path: pathToPattern(toPath) },
             });
           }
-        }
-      }
-    }
-  }
-
-  if (features && features.length > 0) {
-    const allFeaturePaths = new Set<string>();
-    for (const f of features) {
-      for (const p of f.paths) {
-        allFeaturePaths.add(p);
-      }
-    }
-
-    for (const feat of features) {
-      const featurePathSet = new Set(feat.paths);
-      const foreignPaths = [...allFeaturePaths].filter(
-        (p) => !featurePathSet.has(p),
-      );
-
-      for (const fromPath of feat.paths) {
-        for (const toPath of foreignPaths) {
-          forbidden.push({
-            name: `feature ${feat.name}: cannot import ${toPath}`,
-            comment: `Path "${toPath}" is not part of feature "${feat.name}"`,
-            severity: 'error',
-            from: { path: pathToPattern(fromPath) },
-            to: { path: pathToPattern(toPath) },
-          });
         }
       }
     }

@@ -86,22 +86,15 @@ const fullConfigWithFeatures = toVisualizationConfig({
   rootDir: 'src',
   rules: [backend, frontend],
   features: [
-    feature(
-      'auth',
-      ['src/server/auth', 'src/services/auth', 'src/domain/identity'],
-      { description: 'Authentication & session management' },
-    ),
+    feature('auth', ['src/server/handler.ts'], {
+      description: 'Authentication & session management',
+    }),
     feature(
       'orders',
-      [
-        'src/server/orders',
-        'src/orchestrator/order-flow',
-        'src/services/order-service',
-        'src/domain/order',
-      ],
+      ['src/orchestrator/pipeline.ts', 'src/orchestrator/workflow.ts'],
       { description: 'Order processing pipeline' },
     ),
-    feature('shared', ['src/domain/types', 'src/services/email'], {
+    feature('shared', ['src/domain/types.ts'], {
       description: 'Shared utilities and cross-cutting concerns',
     }),
   ],
@@ -113,44 +106,17 @@ const complexConfigWithFeatures = toVisualizationConfig({
   features: [
     feature(
       'user-management',
-      [
-        'src/controllers/user-controller',
-        'src/services/user-service',
-        'src/repositories/user-repo',
-        'src/pages/settings',
-        'src/hooks/use-auth',
-        'src/state/store',
-        'src/config/app',
-      ],
+      ['src/controllers/user-controller.ts', 'src/pages/settings.tsx'],
       { description: 'User CRUD and profile management' },
     ),
     feature(
       'order-processing',
-      [
-        'src/controllers/order-controller',
-        'src/services/order-service',
-        'src/repositories/order-repo',
-        'src/scheduler/cron',
-        'src/jobs/email-job',
-        'src/queues/email-queue',
-        'src/config/database',
-      ],
+      ['src/controllers/order-controller.ts', 'src/scheduler/cron.ts'],
       { description: 'Order lifecycle and background processing' },
     ),
     feature(
       'shared-infra',
-      [
-        'src/gateway/router',
-        'src/gateway/auth-guard',
-        'src/middleware/cors',
-        'src/middleware/logger',
-        'src/database/client',
-        'src/database/migrations',
-        'src/config/app',
-        'src/config/database',
-        'src/utils/format',
-        'src/utils/validate',
-      ],
+      ['src/gateway/router.ts', 'src/database/client.ts'],
       { description: 'Shared infrastructure and utilities' },
     ),
   ],
@@ -176,7 +142,7 @@ const fullSummary: VizSummary = {
       severity: 'error',
     },
   ],
-  orphanFiles: [
+  layerOrphanFiles: [
     'src/scripts/seed.ts',
     'src/scripts/migrate.ts',
     'src/types/global.d.ts',
@@ -224,74 +190,113 @@ const fullSummary: VizSummary = {
 
 const fullSummaryWithFeatures: VizSummary = {
   ...fullSummary,
-  featureViolations: [
+  featureOrphanFiles: [
+    'src/routes/index.tsx',
+    'src/routes/login.tsx',
+    'src/routes/dashboard.tsx',
+  ],
+  featureGraphViolations: [
     {
-      from: 'auth',
-      to: 'orders',
-      fromFile: 'src/services/auth/login.ts',
-      toFile: 'src/services/order-service/create.ts',
-      rule: 'feature auth: cannot import src/services/order-service',
+      kind: 'feature-unresolved-import',
+      feature: 'auth',
+      fromFile: 'src/services/auth.ts',
+      specifier: '@/missing-auth-helper',
       severity: 'error',
     },
   ],
-  featureCoveredFiles: [
+  featureGraphs: [
     {
       feature: 'auth',
-      files: [
-        'src/server/auth/login-handler.ts',
-        'src/server/auth/session.ts',
-        'src/services/auth/login.ts',
-        'src/services/auth/validate.ts',
-        'src/domain/identity/user.ts',
+      seeds: ['src/server/handler.ts'],
+      nodes: [
+        {
+          file: 'src/domain/user.ts',
+          kind: 'derived',
+          layers: ['domain'],
+          minDepth: 2,
+          maxDepth: 2,
+        },
+        {
+          file: 'src/server/handler.ts',
+          kind: 'seed',
+          layers: ['server'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+        {
+          file: 'src/services/auth.ts',
+          kind: 'derived',
+          layers: ['services'],
+          minDepth: 1,
+          maxDepth: 1,
+        },
+      ],
+      edges: [
+        {
+          from: 'src/server/handler.ts',
+          to: 'src/services/auth.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/services/auth.ts',
+          to: 'src/domain/user.ts',
+          dependencyKind: 'type-only',
+        },
       ],
     },
     {
       feature: 'orders',
-      files: [
-        'src/server/orders/create-handler.ts',
-        'src/orchestrator/order-flow/pipeline.ts',
-        'src/services/order-service/create.ts',
-        'src/domain/order/order.ts',
+      seeds: ['src/orchestrator/pipeline.ts'],
+      nodes: [
+        {
+          file: 'src/domain/order.ts',
+          kind: 'derived',
+          layers: ['domain'],
+          minDepth: 2,
+          maxDepth: 2,
+        },
+        {
+          file: 'src/orchestrator/pipeline.ts',
+          kind: 'seed',
+          layers: ['orchestrator'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+        {
+          file: 'src/orchestrator/workflow.ts',
+          kind: 'derived',
+          layers: ['orchestrator'],
+          minDepth: 1,
+          maxDepth: 1,
+        },
+      ],
+      edges: [
+        {
+          from: 'src/orchestrator/pipeline.ts',
+          to: 'src/orchestrator/workflow.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/orchestrator/workflow.ts',
+          to: 'src/domain/order.ts',
+          dependencyKind: 'runtime',
+        },
       ],
     },
     {
       feature: 'shared',
-      files: ['src/domain/types/common.ts', 'src/services/email/send.ts'],
+      seeds: ['src/domain/types.ts'],
+      nodes: [
+        {
+          file: 'src/domain/types.ts',
+          kind: 'seed',
+          layers: ['domain'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+      ],
+      edges: [],
     },
-  ],
-  featureFileEdges: [
-    {
-      from: 'src/server/auth/login-handler.ts',
-      to: 'src/services/auth/login.ts',
-    },
-    {
-      from: 'src/server/auth/login-handler.ts',
-      to: 'src/server/auth/session.ts',
-    },
-    { from: 'src/services/auth/login.ts', to: 'src/services/auth/validate.ts' },
-    { from: 'src/services/auth/login.ts', to: 'src/domain/identity/user.ts' },
-    {
-      from: 'src/services/auth/login.ts',
-      to: 'src/services/order-service/create.ts',
-    },
-    {
-      from: 'src/services/auth/validate.ts',
-      to: 'src/domain/identity/user.ts',
-    },
-    { from: 'src/server/auth/session.ts', to: 'src/domain/identity/user.ts' },
-    {
-      from: 'src/server/orders/create-handler.ts',
-      to: 'src/orchestrator/order-flow/pipeline.ts',
-    },
-    {
-      from: 'src/orchestrator/order-flow/pipeline.ts',
-      to: 'src/services/order-service/create.ts',
-    },
-    {
-      from: 'src/services/order-service/create.ts',
-      to: 'src/domain/order/order.ts',
-    },
-    { from: 'src/domain/types/common.ts', to: 'src/services/email/send.ts' },
   ],
 };
 
@@ -323,7 +328,7 @@ const complexSummary: VizSummary = {
       severity: 'warn',
     },
   ],
-  orphanFiles: [
+  layerOrphanFiles: [
     'src/scripts/deploy.ts',
     'src/scripts/seed.ts',
     'src/types/env.d.ts',
@@ -399,103 +404,261 @@ const complexSummary: VizSummary = {
 
 const complexSummaryWithFeatures: VizSummary = {
   ...complexSummary,
-  featureViolations: [
+  featureOrphanFiles: [
+    'src/components/header.tsx',
+    'src/components/sidebar.tsx',
+    'src/components/footer.tsx',
+    'src/commands/init.ts',
+    'src/commands/migrate.ts',
+    'src/prompts/confirm.ts',
+  ],
+  featureGraphViolations: [
     {
-      from: 'user-management',
-      to: 'order-processing',
-      fromFile: 'src/services/user-service.ts',
-      toFile: 'src/services/order-service.ts',
-      rule: 'feature user-management: cannot import src/services/order-service',
-      severity: 'error',
-    },
-    {
-      from: 'order-processing',
-      to: 'user-management',
-      fromFile: 'src/repositories/order-repo.ts',
-      toFile: 'src/repositories/user-repo.ts',
-      rule: 'feature order-processing: cannot import src/repositories/user-repo',
+      kind: 'feature-cycle',
+      feature: 'user-management',
+      fromFile: 'src/repositories/user-repo.ts',
+      toFile: 'src/services/user-service.ts',
+      cycle: [
+        'src/services/user-service.ts',
+        'src/repositories/user-repo.ts',
+        'src/services/user-service.ts',
+      ],
       severity: 'error',
     },
   ],
-  featureCoveredFiles: [
+  featureGraphs: [
     {
       feature: 'user-management',
-      files: [
-        'src/controllers/user-controller.ts',
-        'src/services/user-service.ts',
-        'src/repositories/user-repo.ts',
-        'src/pages/settings.tsx',
-        'src/hooks/use-auth.ts',
-        'src/state/store.ts',
-        'src/config/app.ts',
+      seeds: ['src/controllers/user-controller.ts', 'src/pages/settings.tsx'],
+      nodes: [
+        {
+          file: 'src/config/app.ts',
+          kind: 'derived',
+          layers: ['config'],
+          minDepth: 2,
+          maxDepth: 3,
+        },
+        {
+          file: 'src/controllers/user-controller.ts',
+          kind: 'seed',
+          layers: ['controllers'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+        {
+          file: 'src/hooks/use-auth.ts',
+          kind: 'derived',
+          layers: ['hooks'],
+          minDepth: 1,
+          maxDepth: 1,
+        },
+        {
+          file: 'src/pages/settings.tsx',
+          kind: 'seed',
+          layers: ['pages'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+        {
+          file: 'src/repositories/user-repo.ts',
+          kind: 'derived',
+          layers: ['repositories'],
+          minDepth: 2,
+          maxDepth: 2,
+        },
+        {
+          file: 'src/services/user-service.ts',
+          kind: 'derived',
+          layers: ['services'],
+          minDepth: 1,
+          maxDepth: 3,
+        },
+        {
+          file: 'src/state/store.ts',
+          kind: 'derived',
+          layers: ['state'],
+          minDepth: 1,
+          maxDepth: 1,
+        },
+      ],
+      edges: [
+        {
+          from: 'src/controllers/user-controller.ts',
+          to: 'src/services/user-service.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/hooks/use-auth.ts',
+          to: 'src/config/app.ts',
+          dependencyKind: 'type-only',
+        },
+        {
+          from: 'src/pages/settings.tsx',
+          to: 'src/hooks/use-auth.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/pages/settings.tsx',
+          to: 'src/state/store.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/repositories/user-repo.ts',
+          to: 'src/services/user-service.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/services/user-service.ts',
+          to: 'src/config/app.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/services/user-service.ts',
+          to: 'src/repositories/user-repo.ts',
+          dependencyKind: 'runtime',
+        },
       ],
     },
     {
       feature: 'order-processing',
-      files: [
-        'src/controllers/order-controller.ts',
-        'src/services/order-service.ts',
-        'src/repositories/order-repo.ts',
-        'src/scheduler/cron.ts',
-        'src/jobs/email-job.ts',
-        'src/queues/email-queue.ts',
-        'src/config/database.ts',
+      seeds: ['src/controllers/order-controller.ts', 'src/scheduler/cron.ts'],
+      nodes: [
+        {
+          file: 'src/config/database.ts',
+          kind: 'derived',
+          layers: ['config'],
+          minDepth: 3,
+          maxDepth: 3,
+        },
+        {
+          file: 'src/controllers/order-controller.ts',
+          kind: 'seed',
+          layers: ['controllers'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+        {
+          file: 'src/jobs/email-job.ts',
+          kind: 'derived',
+          layers: ['jobs'],
+          minDepth: 1,
+          maxDepth: 1,
+        },
+        {
+          file: 'src/queues/email-queue.ts',
+          kind: 'derived',
+          layers: ['queues'],
+          minDepth: 2,
+          maxDepth: 2,
+        },
+        {
+          file: 'src/repositories/order-repo.ts',
+          kind: 'derived',
+          layers: ['repositories'],
+          minDepth: 2,
+          maxDepth: 2,
+        },
+        {
+          file: 'src/scheduler/cron.ts',
+          kind: 'seed',
+          layers: ['scheduler'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+        {
+          file: 'src/services/order-service.ts',
+          kind: 'derived',
+          layers: ['services'],
+          minDepth: 1,
+          maxDepth: 1,
+        },
+      ],
+      edges: [
+        {
+          from: 'src/controllers/order-controller.ts',
+          to: 'src/services/order-service.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/jobs/email-job.ts',
+          to: 'src/queues/email-queue.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/repositories/order-repo.ts',
+          to: 'src/config/database.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/scheduler/cron.ts',
+          to: 'src/jobs/email-job.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/services/order-service.ts',
+          to: 'src/repositories/order-repo.ts',
+          dependencyKind: 'runtime',
+        },
       ],
     },
     {
       feature: 'shared-infra',
-      files: [
-        'src/gateway/router.ts',
-        'src/gateway/auth-guard.ts',
-        'src/middleware/cors.ts',
-        'src/middleware/logger.ts',
-        'src/database/client.ts',
-        'src/database/migrations.ts',
-        'src/config/app.ts',
-        'src/config/database.ts',
-        'src/utils/format.ts',
-        'src/utils/validate.ts',
+      seeds: ['src/gateway/router.ts', 'src/database/client.ts'],
+      nodes: [
+        {
+          file: 'src/database/client.ts',
+          kind: 'seed',
+          layers: ['database'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+        {
+          file: 'src/gateway/auth-guard.ts',
+          kind: 'derived',
+          layers: ['gateway'],
+          minDepth: 1,
+          maxDepth: 1,
+        },
+        {
+          file: 'src/gateway/router.ts',
+          kind: 'seed',
+          layers: ['gateway'],
+          minDepth: 0,
+          maxDepth: 0,
+        },
+        {
+          file: 'src/middleware/cors.ts',
+          kind: 'derived',
+          layers: ['middleware'],
+          minDepth: 1,
+          maxDepth: 1,
+        },
+        {
+          file: 'src/middleware/logger.ts',
+          kind: 'derived',
+          layers: ['middleware'],
+          minDepth: 2,
+          maxDepth: 2,
+        },
+      ],
+      edges: [
+        {
+          from: 'src/gateway/auth-guard.ts',
+          to: 'src/middleware/logger.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/gateway/router.ts',
+          to: 'src/gateway/auth-guard.ts',
+          dependencyKind: 'runtime',
+        },
+        {
+          from: 'src/gateway/router.ts',
+          to: 'src/middleware/cors.ts',
+          dependencyKind: 'runtime',
+        },
       ],
     },
-  ],
-  featureFileEdges: [
-    {
-      from: 'src/controllers/user-controller.ts',
-      to: 'src/services/user-service.ts',
-    },
-    {
-      from: 'src/services/user-service.ts',
-      to: 'src/repositories/user-repo.ts',
-    },
-    {
-      from: 'src/services/user-service.ts',
-      to: 'src/services/order-service.ts',
-    },
-    { from: 'src/services/user-service.ts', to: 'src/config/app.ts' },
-    { from: 'src/pages/settings.tsx', to: 'src/hooks/use-auth.ts' },
-    { from: 'src/pages/settings.tsx', to: 'src/state/store.ts' },
-    { from: 'src/hooks/use-auth.ts', to: 'src/config/app.ts' },
-    {
-      from: 'src/controllers/order-controller.ts',
-      to: 'src/services/order-service.ts',
-    },
-    {
-      from: 'src/services/order-service.ts',
-      to: 'src/repositories/order-repo.ts',
-    },
-    {
-      from: 'src/repositories/order-repo.ts',
-      to: 'src/repositories/user-repo.ts',
-    },
-    { from: 'src/repositories/order-repo.ts', to: 'src/config/database.ts' },
-    { from: 'src/scheduler/cron.ts', to: 'src/jobs/email-job.ts' },
-    { from: 'src/jobs/email-job.ts', to: 'src/queues/email-queue.ts' },
-    { from: 'src/gateway/router.ts', to: 'src/gateway/auth-guard.ts' },
-    { from: 'src/gateway/router.ts', to: 'src/middleware/cors.ts' },
-    { from: 'src/gateway/auth-guard.ts', to: 'src/middleware/logger.ts' },
-    { from: 'src/database/client.ts', to: 'src/config/database.ts' },
-    { from: 'src/database/migrations.ts', to: 'src/database/client.ts' },
-    { from: 'src/utils/validate.ts', to: 'src/utils/format.ts' },
   ],
 };
 

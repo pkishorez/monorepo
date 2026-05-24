@@ -17,21 +17,21 @@ export function getCoverageStats({
   isFeatureOverview?: boolean;
 }): CoverageStatItem[] {
   if (selectedFeature) {
-    const featureViolations =
-      summary.featureViolations?.filter(
-        (v) => v.from === selectedFeature || v.to === selectedFeature,
+    const graphViolations =
+      summary.featureGraphViolations?.filter(
+        (v) => v.feature === selectedFeature,
       ) ?? [];
     const coveredCount =
-      summary.featureCoveredFiles?.find((c) => c.feature === selectedFeature)
-        ?.files.length ?? 0;
+      summary.featureGraphs?.find((g) => g.feature === selectedFeature)?.nodes
+        .length ?? 0;
 
     return [
       {
         key: 'violations',
         status: 'violation',
-        count: featureViolations.length,
-        label: featureViolations.length === 1 ? 'violation' : 'violations',
-        hidden: featureViolations.length === 0,
+        count: graphViolations.length,
+        label: graphViolations.length === 1 ? 'violation' : 'violations',
+        hidden: graphViolations.length === 0,
       },
       {
         key: 'covered',
@@ -44,16 +44,8 @@ export function getCoverageStats({
 
   if (isFeatureOverview) {
     const allFeatureCovered = getAllFeatureCoveredFiles(summary);
-    const totalFiles = new Set<string>();
-    for (const { files } of summary.coveredFiles) {
-      for (const f of files) totalFiles.add(f);
-    }
-    for (const f of summary.orphanFiles) totalFiles.add(f);
-
-    const uncoveredCount = [...totalFiles].filter(
-      (f) => !allFeatureCovered.has(f) && !summary.ignoredFiles.includes(f),
-    ).length;
-    const violationCount = summary.featureViolations?.length ?? 0;
+    const uncoveredCount = summary.featureOrphanFiles?.length ?? 0;
+    const violationCount = summary.featureGraphViolations?.length ?? 0;
 
     return [
       {
@@ -96,7 +88,7 @@ export function getCoverageStats({
     {
       key: 'uncovered',
       status: 'orphan',
-      count: summary.orphanFiles.length,
+      count: summary.layerOrphanFiles.length,
       label: 'uncovered',
     },
     {
@@ -128,12 +120,12 @@ export function getViolations({
   isFeatureOverview?: boolean;
 }): ViolationItem[] {
   if (selectedFeature) {
-    return (summary.featureViolations ?? []).filter(
-      (v) => v.from === selectedFeature || v.to === selectedFeature,
-    );
+    return (summary.featureGraphViolations ?? [])
+      .filter((v) => v.feature === selectedFeature)
+      .map(toViolationItem);
   }
   if (isFeatureOverview) {
-    return summary.featureViolations ?? [];
+    return (summary.featureGraphViolations ?? []).map(toViolationItem);
   }
   if (selectedLayer) {
     return summary.violations.filter(
@@ -173,53 +165,36 @@ export function getFeatureFiles(
   summary: VizSummary,
   selectedFeature: string,
 ): Set<string> | null {
-  const entry = summary.featureCoveredFiles?.find(
-    (c) => c.feature === selectedFeature,
+  const graph = summary.featureGraphs?.find(
+    (g) => g.feature === selectedFeature,
   );
-  return entry ? new Set(entry.files) : null;
+  return graph ? new Set(graph.nodes.map((node) => node.file)) : null;
 }
 
 export function getFeatureViolationCounts(
   summary: VizSummary,
   features: VisualizationConfig['features'],
 ): FeatureViolationCount[] {
-  if (!features || !summary.featureViolations) return [];
+  if (!features || !summary.featureGraphViolations) return [];
   return features.map((f) => ({
     featureName: f.name,
-    count: summary.featureViolations!.filter(
-      (v) => v.from === f.name || v.to === f.name,
-    ).length,
+    count: summary.featureGraphViolations!.filter((v) => v.feature === f.name)
+      .length,
   }));
 }
 
 export function getAllFeatureCoveredFiles(summary: VizSummary): Set<string> {
   const covered = new Set<string>();
-  if (summary.featureCoveredFiles) {
-    for (const { files } of summary.featureCoveredFiles) {
-      for (const f of files) covered.add(f);
+  if (summary.featureGraphs) {
+    for (const graph of summary.featureGraphs) {
+      for (const node of graph.nodes) covered.add(node.file);
     }
   }
   return covered;
 }
 
-export function getUncoveredFiles(
-  summary: VizSummary,
-  coveredByFeatures: Set<string>,
-): Set<string> {
-  const uncovered = new Set<string>();
-  for (const { files } of summary.coveredFiles) {
-    for (const f of files) {
-      if (!coveredByFeatures.has(f) && !summary.ignoredFiles.includes(f)) {
-        uncovered.add(f);
-      }
-    }
-  }
-  for (const f of summary.orphanFiles) {
-    if (!coveredByFeatures.has(f) && !summary.ignoredFiles.includes(f)) {
-      uncovered.add(f);
-    }
-  }
-  return uncovered;
+export function getUncoveredFiles(summary: VizSummary): Set<string> {
+  return new Set(summary.featureOrphanFiles ?? []);
 }
 
 export function getConfiguredPaths(config: VisualizationConfig): Set<string> {
@@ -267,4 +242,24 @@ export function getSortOrder({
     }
   }
   return layerOrder;
+}
+
+function toViolationItem(
+  violation: NonNullable<VizSummary['featureGraphViolations']>[number],
+): ViolationItem {
+  if (violation.kind === 'feature-cycle') {
+    return {
+      from: violation.feature,
+      to: 'cycle',
+      fromFile: violation.fromFile,
+      toFile: violation.cycle.join(' -> '),
+    };
+  }
+
+  return {
+    from: violation.feature,
+    to: 'unresolved import',
+    fromFile: violation.fromFile,
+    toFile: violation.specifier,
+  };
 }

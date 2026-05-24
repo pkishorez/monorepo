@@ -23,9 +23,10 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "fmt": "vp fmt",
-    "lint": "vp check && pnpm lint:tsc",
-    "lint:tsc": "tsc --noEmit"
+    "fmt": "vp fmt src test package.json tsconfig.json depcruise.config.ts",
+    "lint": "vp check src test package.json tsconfig.json depcruise.config.ts && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit",
+    "test": "pnpm build && node --test test/*.test.mjs"
   },
   "dependencies": {
     "dependency-cruiser": "17.4.0",

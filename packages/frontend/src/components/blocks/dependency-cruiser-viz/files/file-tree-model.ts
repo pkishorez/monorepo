@@ -66,7 +66,7 @@ export function getFileTreeViewModel({
     actualFeature && featureFiles ? filterTree(tree, featureFiles) : tree;
 
   const relevantPaths = actualFeature
-    ? getFeaturePaths(config, actualFeature)
+    ? getFeaturePaths(summary, config, actualFeature)
     : (selectedLayerPaths ?? [...configuredPaths]);
 
   return {
@@ -100,9 +100,7 @@ export function getFileTreeViewModel({
       selectedLayer: isFeatureOverview ? null : selectedLayer,
       featureFiles: featureFiles ?? overviewFeatureFiles,
     }),
-    uncoveredFiles: allFeatureCovered
-      ? getUncoveredFiles(summary, allFeatureCovered)
-      : null,
+    uncoveredFiles: allFeatureCovered ? getUncoveredFiles(summary) : null,
     configuredPaths,
     sortOrder: getSortOrder({
       config,
@@ -114,9 +112,12 @@ export function getFileTreeViewModel({
 }
 
 function getFeaturePaths(
+  summary: VizSummary,
   config: VisualizationConfig,
   featureName: string,
 ): string[] {
+  const graph = summary.featureGraphs?.find((g) => g.feature === featureName);
+  if (graph) return graph.nodes.map((node) => node.file);
   const feat = config.features?.find((f) => f.name === featureName);
   return feat?.paths ?? [];
 }
