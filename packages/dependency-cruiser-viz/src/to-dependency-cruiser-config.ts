@@ -1,6 +1,7 @@
 import type { IRegularForbiddenRuleType } from 'dependency-cruiser';
 
 import type { DependencyCruiserConfig, Feature, Rule } from './types.js';
+import { validateLayerOrdering } from './validate-layer-ordering.js';
 
 function pathToPattern(p: string): string {
   return p.endsWith('.ts') || p.endsWith('.tsx') || p.endsWith('.js')
@@ -12,6 +13,8 @@ export function toDependencyCruiserConfig(
   rules: Rule[],
   features?: Feature[],
 ): DependencyCruiserConfig {
+  validateLayerOrdering(rules);
+
   const forbidden: IRegularForbiddenRuleType[] = [];
 
   for (const rule of rules) {

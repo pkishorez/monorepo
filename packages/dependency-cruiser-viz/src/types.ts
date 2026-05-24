@@ -88,6 +88,10 @@ export type VizSummary = {
     feature: string;
     files: string[];
   }>;
+  featureFileEdges?: Array<{
+    from: string;
+    to: string;
+  }>;
 };
 
 export type DependencyCruiserConfig = IFlattenedRuleSet;

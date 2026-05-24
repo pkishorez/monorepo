@@ -1,9 +1,12 @@
 import type { ProjectConfig, VisualizationConfig } from './types.js';
+import { validateLayerOrdering } from './validate-layer-ordering.js';
 
 export function toVisualizationConfig(
   config: ProjectConfig,
 ): VisualizationConfig {
   const { rules, rootDir } = config;
+  validateLayerOrdering(rules);
+
   const stacks: VisualizationConfig['stacks'] = [];
 
   for (const rule of rules) {

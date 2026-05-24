@@ -133,8 +133,29 @@ export function summarizeCruiseResult(
       }
     }
 
+    const featureCoveredSet = new Set<string>();
+    for (const { files } of featureCoveredFiles) {
+      for (const f of files) featureCoveredSet.add(f);
+    }
+
+    const featureFileEdges: NonNullable<VizSummary['featureFileEdges']> = [];
+    for (const mod of modules) {
+      if (!featureCoveredSet.has(mod.source)) continue;
+      for (const dep of mod.dependencies) {
+        const target = dep.resolved;
+        if (
+          !dep.coreModule &&
+          !dep.couldNotResolve &&
+          (target.startsWith(rootDir + '/') || target === rootDir)
+        ) {
+          featureFileEdges.push({ from: mod.source, to: target });
+        }
+      }
+    }
+
     result.featureViolations = featureViolations;
     result.featureCoveredFiles = featureCoveredFiles;
+    result.featureFileEdges = featureFileEdges;
   }
 
   return result;

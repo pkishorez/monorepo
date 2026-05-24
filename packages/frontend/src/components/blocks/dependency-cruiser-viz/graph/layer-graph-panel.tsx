@@ -4,6 +4,7 @@ import type { MouseEvent } from 'react';
 
 import type { VisualizationConfig, VizSummary } from '../types';
 import { layerNodeTypes } from './graph-node-types';
+import type { LayerNodeData } from './layer-layout';
 import { computeLayerLayout } from './layer-layout';
 import { FIT_VIEW_OPTIONS } from './react-flow-options';
 
@@ -11,6 +12,7 @@ type LayerGraphPanelProps = {
   config: VisualizationConfig;
   summary?: VizSummary;
   activeLayer: string | null;
+  selectedFeature: string | null;
   onSelectLayer: (layer: string | null) => void;
   onHoverLayer: (layer: string | null) => void;
 };
@@ -19,19 +21,21 @@ export function LayerGraphPanel({
   config,
   summary,
   activeLayer,
+  selectedFeature,
   onSelectLayer,
   onHoverLayer,
 }: LayerGraphPanelProps) {
   const { nodes, edges } = useMemo(
-    () => computeLayerLayout(config, summary, activeLayer),
-    [config, summary, activeLayer],
+    () => computeLayerLayout(config, summary, activeLayer, selectedFeature),
+    [config, summary, activeLayer, selectedFeature],
   );
 
   const handleNodeClick = useCallback(
     (_: MouseEvent, node: Node) => {
-      if (node.type === 'layer') {
-        onSelectLayer(node.id);
-      }
+      if (node.type !== 'layer') return;
+      const data = node.data as LayerNodeData;
+      if (data.isDimmed) return;
+      onSelectLayer(node.id);
     },
     [onSelectLayer],
   );
@@ -42,9 +46,10 @@ export function LayerGraphPanel({
 
   const handleNodeMouseEnter = useCallback(
     (_: MouseEvent, node: Node) => {
-      if (node.type === 'layer') {
-        onHoverLayer(node.id);
-      }
+      if (node.type !== 'layer') return;
+      const data = node.data as LayerNodeData;
+      if (data.isDimmed) return;
+      onHoverLayer(node.id);
     },
     [onHoverLayer],
   );

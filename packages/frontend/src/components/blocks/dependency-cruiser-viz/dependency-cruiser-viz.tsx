@@ -33,7 +33,8 @@ export function DependencyCruiserViz({
               <ResizablePanel defaultSize={30} minSize={15}>
                 <FileTreePanel
                   view={viz.files}
-                  onToggleHideIrrelevant={viz.actions.toggleHideIrrelevant}
+                  features={config.features}
+                  onSelectFeature={viz.actions.selectFeature}
                 />
               </ResizablePanel>
             </>

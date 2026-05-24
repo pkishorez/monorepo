@@ -1,6 +1,7 @@
 import type { Edge, Node } from '@xyflow/react';
 import { MarkerType } from '@xyflow/react';
 
+import { FEATURE_OVERVIEW } from '../files/file-tree-model';
 import type { VisualizationConfig, VizSummary } from '../types';
 
 export type LayerNodeData = {
@@ -12,6 +13,7 @@ export type LayerNodeData = {
   paths?: string[];
   violationCount: number;
   isSelected: boolean;
+  isFeatureLayer: boolean;
   isDimmed: boolean;
 };
 
@@ -31,10 +33,43 @@ const COL_GAP = 140;
 const EDGE_COLOR = '#94a3b8';
 const VIOLATION_EDGE_COLOR = '#ef4444';
 
+function getFeatureLayers(
+  config: VisualizationConfig,
+  featureName: string | null | undefined,
+): Set<string> {
+  const layers = new Set<string>();
+  if (!featureName || !config.features) return layers;
+
+  const features =
+    featureName === FEATURE_OVERVIEW
+      ? config.features
+      : config.features.filter((f) => f.name === featureName);
+
+  if (features.length === 0) return layers;
+
+  for (const feat of features) {
+    for (const stack of config.stacks) {
+      for (const layer of stack.layers) {
+        for (const featurePath of feat.paths) {
+          if (
+            layer.paths.some(
+              (lp) => featurePath.startsWith(lp + '/') || featurePath === lp,
+            )
+          ) {
+            layers.add(layer.name);
+          }
+        }
+      }
+    }
+  }
+  return layers;
+}
+
 export function computeLayerLayout(
   config: VisualizationConfig,
   summary?: VizSummary,
   selectedLayer?: string | null,
+  selectedFeature?: string | null,
 ): {
   nodes: Node[];
   edges: Edge[];
@@ -138,12 +173,20 @@ export function computeLayerLayout(
   }
 
   const dependedOn = new Set(hierarchyEdges.map((e) => e.to));
-  const hasSelection = !!selectedLayer;
+  const featureLayers = getFeatureLayers(config, selectedFeature);
+  const hasFeatureSelection = featureLayers.size > 0;
+  const hasLayerSelection = !!selectedLayer;
+  const hasSelection = hasLayerSelection || hasFeatureSelection;
+
   const nodes: Node[] = [];
 
   for (const col of stackColumns) {
     const cx = stackCenterX.get(col.name)!;
-    const colHasSelected = col.layers.includes(selectedLayer ?? '');
+    const colHasSelected =
+      hasLayerSelection && col.layers.includes(selectedLayer!);
+    const colHasFeature =
+      hasFeatureSelection && col.layers.some((l) => featureLayers.has(l));
+
     nodes.push({
       id: `header-${col.name}`,
       type: 'stackHeader',
@@ -154,13 +197,23 @@ export function computeLayerLayout(
         label: col.name,
         stackName: col.name,
         description: col.description,
-        isDimmed: hasSelection && !colHasSelected,
+        isDimmed: hasSelection && !colHasSelected && !colHasFeature,
       } satisfies StackHeaderNodeData,
     });
   }
 
   for (const [name, pos] of positions) {
     const meta = layerMeta.get(name);
+    const isFeatureLayer = featureLayers.has(name);
+    const isLayerSelected = name === selectedLayer;
+
+    let isDimmed = false;
+    if (hasFeatureSelection) {
+      isDimmed = !isFeatureLayer;
+    } else if (hasLayerSelection) {
+      isDimmed = !isLayerSelected;
+    }
+
     nodes.push({
       id: name,
       type: 'layer',
@@ -175,43 +228,57 @@ export function computeLayerLayout(
         description: meta?.description,
         paths: meta?.paths,
         violationCount: violationCountByLayer.get(name) ?? 0,
-        isSelected: name === selectedLayer,
-        isDimmed: hasSelection && name !== selectedLayer,
+        isSelected: isLayerSelected,
+        isFeatureLayer,
+        isDimmed,
       } satisfies LayerNodeData,
     });
   }
 
-  const dimmedOpacity = 0.4;
+  const dimmedOpacity = 0.15;
 
-  const edges: Edge[] = hierarchyEdges.map((e) => ({
-    id: `${e.from}->${e.to}`,
-    source: e.from,
-    target: e.to,
-    type: 'smoothstep',
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      width: 14,
-      height: 14,
-      color: EDGE_COLOR,
-    },
-    style: {
-      stroke: EDGE_COLOR,
-      strokeWidth: 1.5,
-      opacity: hasSelection ? dimmedOpacity : 1,
-    },
-  }));
+  const activeEdgeIds = hasFeatureSelection
+    ? computeActiveEdges(hierarchyEdges, featureLayers)
+    : new Set<string>();
+
+  const edges: Edge[] = hierarchyEdges.map((e) => {
+    const edgeId = `${e.from}->${e.to}`;
+    const isActive = hasFeatureSelection && activeEdgeIds.has(edgeId);
+    return {
+      id: edgeId,
+      source: e.from,
+      target: e.to,
+      type: 'smoothstep',
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 14,
+        height: 14,
+        color: EDGE_COLOR,
+      },
+      style: {
+        stroke: EDGE_COLOR,
+        strokeWidth: 1.5,
+        opacity: hasSelection && !isActive ? dimmedOpacity : 1,
+      },
+    };
+  });
 
   if (summary) {
     for (const v of summary.violations) {
       const edgeId = `violation-${v.from}->${v.to}`;
       if (edges.some((e) => e.id === edgeId)) continue;
 
+      const isViolationActive =
+        hasFeatureSelection &&
+        featureLayers.has(v.from) &&
+        featureLayers.has(v.to);
+
       edges.push({
         id: edgeId,
         source: v.from,
         target: v.to,
         type: 'smoothstep',
-        animated: !hasSelection,
+        animated: !hasSelection || isViolationActive,
         markerEnd: {
           type: MarkerType.ArrowClosed,
           width: 14,
@@ -222,13 +289,78 @@ export function computeLayerLayout(
           stroke: VIOLATION_EDGE_COLOR,
           strokeWidth: 2,
           strokeDasharray: '6 3',
-          opacity: hasSelection ? dimmedOpacity : 1,
+          opacity: hasSelection && !isViolationActive ? dimmedOpacity : 1,
         },
       });
     }
   }
 
   return { nodes, edges };
+}
+
+function computeActiveEdges(
+  hierarchyEdges: Array<{ from: string; to: string }>,
+  featureLayers: Set<string>,
+): Set<string> {
+  const children = new Map<string, string[]>();
+  const parents = new Map<string, string[]>();
+
+  for (const e of hierarchyEdges) {
+    let c = children.get(e.from);
+    if (!c) {
+      c = [];
+      children.set(e.from, c);
+    }
+    c.push(e.to);
+    let p = parents.get(e.to);
+    if (!p) {
+      p = [];
+      parents.set(e.to, p);
+    }
+    p.push(e.from);
+  }
+
+  const upCache = new Map<string, boolean>();
+  const upVisiting = new Set<string>();
+  function canReachFeatureUp(node: string): boolean {
+    if (upCache.has(node)) return upCache.get(node)!;
+    if (upVisiting.has(node)) return false;
+    if (featureLayers.has(node)) {
+      upCache.set(node, true);
+      return true;
+    }
+    upVisiting.add(node);
+    const result = (parents.get(node) ?? []).some((p) => canReachFeatureUp(p));
+    upVisiting.delete(node);
+    upCache.set(node, result);
+    return result;
+  }
+
+  const downCache = new Map<string, boolean>();
+  const downVisiting = new Set<string>();
+  function canReachFeatureDown(node: string): boolean {
+    if (downCache.has(node)) return downCache.get(node)!;
+    if (downVisiting.has(node)) return false;
+    if (featureLayers.has(node)) {
+      downCache.set(node, true);
+      return true;
+    }
+    downVisiting.add(node);
+    const result = (children.get(node) ?? []).some((c) =>
+      canReachFeatureDown(c),
+    );
+    downVisiting.delete(node);
+    downCache.set(node, result);
+    return result;
+  }
+
+  const active = new Set<string>();
+  for (const e of hierarchyEdges) {
+    if (canReachFeatureUp(e.from) && canReachFeatureDown(e.to)) {
+      active.add(`${e.from}->${e.to}`);
+    }
+  }
+  return active;
 }
 
 function maxRankAcrossStacks(

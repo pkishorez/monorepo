@@ -7,7 +7,7 @@ import {
 import { cn } from '#lib/utils';
 import type { ReactNode } from 'react';
 
-import type { FileStatus, FileTreeNode } from './file-tree-model';
+import type { FileTreeNode } from './file-tree-model';
 import { StatusIcon } from './status-icon';
 
 type FileTreeViewProps = {
@@ -15,9 +15,9 @@ type FileTreeViewProps = {
   treeKey: string;
   expandedItems: string[];
   highlightedFiles: Set<string> | null;
+  uncoveredFiles: Set<string> | null;
   configuredPaths: Set<string>;
   sortOrder: Map<string, number>;
-  statusOverrides: Map<string, FileStatus> | null;
 };
 
 export function FileTreeView({
@@ -25,9 +25,9 @@ export function FileTreeView({
   treeKey,
   expandedItems,
   highlightedFiles,
+  uncoveredFiles,
   configuredPaths,
   sortOrder,
-  statusOverrides,
 }: FileTreeViewProps) {
   return (
     <Tree
@@ -35,32 +35,31 @@ export function FileTreeView({
       elements={tree as TreeViewElement[]}
       initialExpandedItems={expandedItems}
     >
-      {renderFileTreeNodes({
+      {renderNodes({
         nodes: tree,
         highlightedFiles,
+        uncoveredFiles,
         configuredPaths,
         sortOrder,
-        statusOverrides,
       })}
     </Tree>
   );
 }
 
-function renderFileTreeNodes({
+function renderNodes({
   nodes,
   highlightedFiles,
+  uncoveredFiles,
   configuredPaths,
   sortOrder,
-  statusOverrides,
 }: {
   nodes: FileTreeNode[];
   highlightedFiles: Set<string> | null;
+  uncoveredFiles: Set<string> | null;
   configuredPaths: Set<string>;
   sortOrder: Map<string, number>;
-  statusOverrides: Map<string, FileStatus> | null;
 }): ReactNode {
   const sorted = [...nodes].sort((a, b) => {
-    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
     const orderA = sortOrder.get(a.id);
     const orderB = sortOrder.get(b.id);
     if (orderA != null && orderB != null) return orderA - orderB;
@@ -70,16 +69,16 @@ function renderFileTreeNodes({
   });
 
   return sorted.map((node) => {
-    const effectiveStatus = statusOverrides?.get(node.id) ?? node.status;
-
     if (node.type === 'folder') {
       const folderDimmed =
-        highlightedFiles && !folderContainsHighlighted(node, highlightedFiles);
+        highlightedFiles &&
+        !folderContainsAny(node, highlightedFiles) &&
+        !folderContainsAny(node, uncoveredFiles);
+      const folderUncovered =
+        uncoveredFiles &&
+        !folderContainsAny(node, highlightedFiles) &&
+        folderContainsAny(node, uncoveredFiles);
       const isConfigured = configuredPaths.has(node.id);
-      const folderStatus =
-        statusOverrides && node.children
-          ? deriveFolderStatus(node.children, statusOverrides)
-          : effectiveStatus;
 
       return (
         <Folder
@@ -88,22 +87,21 @@ function renderFileTreeNodes({
           element={node.name}
           className={cn(
             isConfigured && 'font-semibold',
-            !highlightedFiles && folderStatus === 'violation' && 'text-red-500',
-            !highlightedFiles && folderStatus === 'orphan' && 'text-yellow-500',
-            !highlightedFiles &&
-              folderStatus === 'covered' &&
-              'text-foreground',
-            !highlightedFiles && folderStatus === 'ignored' && 'opacity-40',
+            !highlightedFiles && node.status === 'violation' && 'text-red-500',
+            !highlightedFiles && node.status === 'orphan' && 'text-yellow-500',
+            !highlightedFiles && node.status === 'covered' && 'text-foreground',
+            !highlightedFiles && node.status === 'ignored' && 'opacity-40',
+            folderUncovered && 'text-yellow-500',
             folderDimmed && 'opacity-30',
           )}
         >
           {node.children
-            ? renderFileTreeNodes({
+            ? renderNodes({
                 nodes: node.children,
                 highlightedFiles,
+                uncoveredFiles,
                 configuredPaths,
                 sortOrder,
-                statusOverrides,
               })
             : null}
         </Folder>
@@ -111,19 +109,19 @@ function renderFileTreeNodes({
     }
 
     const isHighlighted = highlightedFiles?.has(node.id);
-    const isDimmed = highlightedFiles && !isHighlighted;
+    const isUncovered = uncoveredFiles?.has(node.id);
+    const isDimmed = highlightedFiles && !isHighlighted && !isUncovered;
 
     return (
       <File
         key={node.id}
         value={node.id}
-        fileIcon={<StatusIcon status={effectiveStatus} />}
+        fileIcon={<StatusIcon status={isUncovered ? 'orphan' : node.status} />}
         className={cn(
           isHighlighted && 'rounded-md bg-primary/10 font-medium',
-          !highlightedFiles &&
-            effectiveStatus === 'covered' &&
-            'text-foreground',
-          !highlightedFiles && effectiveStatus === 'ignored' && 'opacity-40',
+          isUncovered && 'text-yellow-500',
+          !highlightedFiles && node.status === 'covered' && 'text-foreground',
+          !highlightedFiles && node.status === 'ignored' && 'opacity-40',
           isDimmed && 'opacity-30',
         )}
       >
@@ -133,35 +131,13 @@ function renderFileTreeNodes({
   });
 }
 
-function folderContainsHighlighted(
+function folderContainsAny(
   node: FileTreeNode,
-  highlightedFiles: Set<string>,
+  fileSet: Set<string> | null,
 ): boolean {
-  if (node.type === 'file') return highlightedFiles.has(node.id);
+  if (!fileSet) return false;
+  if (node.type === 'file') return fileSet.has(node.id);
   return (
-    node.children?.some((child) =>
-      folderContainsHighlighted(child, highlightedFiles),
-    ) ?? false
+    node.children?.some((child) => folderContainsAny(child, fileSet)) ?? false
   );
-}
-
-function deriveFolderStatus(
-  children: FileTreeNode[],
-  overrides: Map<string, FileStatus>,
-): FileStatus | undefined {
-  const statuses = new Set<FileStatus>();
-  for (const child of children) {
-    if (child.type === 'folder' && child.children) {
-      const s = deriveFolderStatus(child.children, overrides);
-      if (s) statuses.add(s);
-    } else {
-      const s = overrides.get(child.id);
-      if (s) statuses.add(s);
-    }
-  }
-  if (statuses.has('violation')) return 'violation';
-  if (statuses.has('orphan')) return 'orphan';
-  if (statuses.has('covered')) return 'covered';
-  if (statuses.has('ignored')) return 'ignored';
-  return undefined;
 }
