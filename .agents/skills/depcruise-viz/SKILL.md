@@ -53,6 +53,18 @@ When presenting proposed stacks, explain the concern each stack enforces and why
 
 ---
 
+## Feature seed graph policy
+
+Features are seed-based dependency graphs. Do not treat a feature as a folder label, and do not require users to list every file the feature depends on.
+
+Each `feature()` path must be an individual seed file under `rootDir`. Folder paths are invalid at runtime. From those seed files, depcruise-viz derives the transitive project-local dependency graph, excluding ignored files and external packages. Type-only imports are included as leaf nodes/edges but are not traversed further; if the same target is also reached through a runtime import, runtime takes precedence.
+
+Feature graphs are descriptive, not restrictive: cross-feature imports are allowed and shown in the derived graph. Layer rules still enforce architectural direction separately.
+
+Feature graph lint failures are limited to graph problems: cycles reachable from feature seeds and unresolved project-local imports reachable from feature seeds. Missing seeds, ignored seeds, seeds outside `rootDir`, and seed or derived files not covered by a layer are hard runtime errors because the graph would be untrustworthy.
+
+---
+
 ## Setup mode
 
 Run when no `depcruise.config.ts` exists yet.
@@ -106,6 +118,8 @@ Look for:
 
 - **Uncovered directories** — source directories not matched by any layer or feature
 - **Missing features** — cross-cutting concerns that span multiple layers (shared utilities, common patterns, feature slices)
+- **Feature seed issues** — missing, ignored, folder-like, outside-root, or unlayered seed files
+- **Feature graph gaps** — source files not reachable from any configured feature seed
 - **Stale paths** — layer/feature paths that reference directories or files that no longer exist
 - **Layer rebalancing** — directories that have grown and might deserve their own layer
 - **Ignore candidates** — generated files, test fixtures, or other files that should be excluded
@@ -133,14 +147,14 @@ This procedure is shared by both modes.
 1. **Map the directory structure** — list top-level directories and key files under `src/` (or the main source root).
 2. **Analyze the import graph** — read the actual imports across files to understand which directories depend on which. Identify the natural dependency flow.
 3. **Propose layers and stacks** — group directories into layers, then organize those layers into one or more concern-specific stacks ordered top-down (entry points at top, foundational code at bottom). Each layer should be cohesive and depend only on layers below it within that stack. Use directory paths by default; file paths are exceptions that require a clear reason. Keep tests, playgrounds, scripts, and separate runtime targets in their own stacks unless there is a specific reason to combine them.
-4. **Identify features** — look for cross-cutting concerns that span multiple layers. Features are groups of files across different directories that together implement a single capability. Good candidates:
-   - A "feature folder" pattern where related files live in different layers (e.g. a route + component + service for the same feature)
-   - Shared utilities or modules used across many layers
+4. **Identify features** — choose seed files that represent the user-facing or public entry points for a capability, then let depcruise-viz derive the transitive project-local dependency graph. Feature paths must be files, not folders. Good candidates:
+   - Route files, RPC handlers, CLI commands, workers, or public entrypoint files that start a capability
+   - Multiple seed files when one capability has multiple entry points
    - Domain concepts that touch multiple architectural boundaries
 5. **Present the recommendation** — show the user:
    - The proposed layers with their paths and dependency direction
    - The proposed stacks and the concern each one enforces
-   - The proposed features with their paths and which layers they cross
+   - The proposed feature seed files and which layers their derived graphs are expected to cross
    - Any existing violations (lower layers importing upper layers)
    - Orphan files not covered by any layer or feature
 6. **Ask for confirmation** — let the user adjust names, grouping, ordering, or feature boundaries before generating/updating the config.
@@ -179,13 +193,13 @@ For example, with `[ui, domain, infra]`:
 
 ### `feature(name, paths, config?)`
 
-Defines a cross-cutting feature — a group of files that together implement a single capability, potentially spanning multiple layers.
+Defines a cross-cutting feature as one or more seed files. Depcruise-viz derives the transitive project-local dependency graph from those seeds.
 
 - `name` — unique identifier for the feature (e.g. `"auth"`, `"billing"`)
-- `paths` — array of file/directory paths relative to the package root
+- `paths` — array of file paths relative to the package root. Directories are invalid feature seeds.
 - `config` — optional `{ description?: string }`
 
-Features are independent of layers. They track file coverage for a logical capability and enforce that feature boundaries are respected (files within a feature should not have unexpected dependencies on other features' internals).
+Features are independent of layers. They declare seed files only; depcruise-viz derives the full local graph from those seeds and groups derived nodes by layer. External packages are not included in the feature graph. Type-only imports are included as leaf nodes/edges but are not traversed further. Feature graph violations are cycles and unresolved project-local imports reachable from seeds.
 
 ### Config file format
 
@@ -249,15 +263,13 @@ const services = layer('services', ['src/services']);
 const lib = layer('lib', ['src/lib']);
 
 const auth = feature('auth', [
-  'src/routes/auth',
-  'src/components/auth',
-  'src/services/auth.ts',
+  'src/routes/auth/index.tsx',
+  'src/routes/auth/callback.tsx',
 ]);
 
 const billing = feature('billing', [
-  'src/routes/billing',
-  'src/components/billing',
-  'src/services/billing.ts',
+  'src/routes/billing/index.tsx',
+  'src/routes/billing/invoice.tsx',
 ]);
 
 export default {

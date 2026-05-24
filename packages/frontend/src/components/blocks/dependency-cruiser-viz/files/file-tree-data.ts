@@ -14,7 +14,7 @@ export function buildFileTree(summary: VizSummary): FileTreeNode[] {
     fileStatuses.set(f, 'ignored');
   }
 
-  for (const f of summary.orphanFiles) {
+  for (const f of summary.layerOrphanFiles) {
     fileStatuses.set(f, 'orphan');
   }
 
@@ -22,6 +22,10 @@ export function buildFileTree(summary: VizSummary): FileTreeNode[] {
   for (const v of summary.violations) {
     violationFiles.add(v.fromFile);
     violationFiles.add(v.toFile);
+  }
+  for (const v of summary.featureGraphViolations ?? []) {
+    violationFiles.add(v.fromFile);
+    if (v.kind === 'feature-cycle') violationFiles.add(v.toFile);
   }
   for (const f of violationFiles) {
     fileStatuses.set(f, 'violation');

@@ -1,9 +1,10 @@
 import { exec } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { platform } from 'node:os';
 import { resolve } from 'node:path';
 
 import { cruise } from 'dependency-cruiser';
-import type { ICruiseResult } from 'dependency-cruiser';
+import type { ICruiseOptions, ICruiseResult } from 'dependency-cruiser';
 
 import { summarizeCruiseResult } from '../summarize-cruise-result.js';
 import { toDependencyCruiserConfig } from '../to-dependency-cruiser-config.js';
@@ -18,13 +19,18 @@ async function cruiseProject() {
   const projectConfig = await loadConfig(CONFIG_PATH);
   const dependencyCruiserConfig = toDependencyCruiserConfig(
     projectConfig.rules,
-    projectConfig.features,
   );
   const config = toVisualizationConfig(projectConfig);
-  const result = await cruise([projectConfig.rootDir], {
+  const cruiseOptions: ICruiseOptions = {
     ruleSet: dependencyCruiserConfig,
+    tsPreCompilationDeps: 'specify',
     validate: true,
-  });
+  };
+  if (existsSync('tsconfig.json')) {
+    cruiseOptions.tsConfig = { fileName: 'tsconfig.json' };
+  }
+
+  const result = await cruise([projectConfig.rootDir], cruiseOptions);
 
   const cruiseResult = result.output as ICruiseResult;
   const summary = summarizeCruiseResult(cruiseResult, config);
@@ -59,8 +65,8 @@ async function viz(): Promise<void> {
 
 async function lint(): Promise<void> {
   const output = await cruiseProject();
-  const { violations, featureViolations = [] } = output.summary;
-  const totalViolations = violations.length + featureViolations.length;
+  const { violations, featureGraphViolations = [] } = output.summary;
+  const totalViolations = violations.length + featureGraphViolations.length;
 
   if (totalViolations === 0) {
     process.stdout.write('No dependency violations found.\n');
@@ -70,11 +76,18 @@ async function lint(): Promise<void> {
   process.stderr.write(`Found ${totalViolations} dependency violation(s):\n\n`);
   for (const v of violations) {
     process.stderr.write(`  ${v.severity} ${v.rule}\n`);
-    process.stderr.write(`    ${v.from} → ${v.to}\n\n`);
+    process.stderr.write(`    ${v.from} -> ${v.to}\n`);
+    process.stderr.write(`    ${v.fromFile} -> ${v.toFile}\n\n`);
   }
-  for (const v of featureViolations) {
-    process.stderr.write(`  ${v.severity} ${v.rule}\n`);
-    process.stderr.write(`    ${v.from} → ${v.to}\n\n`);
+  for (const v of featureGraphViolations) {
+    if (v.kind === 'feature-cycle') {
+      process.stderr.write(`  ${v.severity} ${v.kind}: ${v.feature}\n`);
+      process.stderr.write(`    ${v.fromFile} -> ${v.toFile}\n`);
+      process.stderr.write(`    cycle: ${v.cycle.join(' -> ')}\n\n`);
+    } else {
+      process.stderr.write(`  ${v.severity} ${v.kind}: ${v.feature}\n`);
+      process.stderr.write(`    ${v.fromFile} -> ${v.specifier}\n\n`);
+    }
   }
 
   process.exit(1);
