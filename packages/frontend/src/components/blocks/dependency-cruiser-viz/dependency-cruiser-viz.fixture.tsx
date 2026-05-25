@@ -88,14 +88,16 @@ const fullConfigWithFeatures = toVisualizationConfig({
   features: [
     feature('auth', ['src/server/handler.ts'], {
       description: 'Authentication & session management',
+      group: 'api',
     }),
     feature(
       'orders',
       ['src/orchestrator/pipeline.ts', 'src/orchestrator/workflow.ts'],
-      { description: 'Order processing pipeline' },
+      { description: 'Order processing pipeline', group: 'api' },
     ),
     feature('shared', ['src/domain/types.ts'], {
       description: 'Shared utilities and cross-cutting concerns',
+      group: 'infra',
     }),
   ],
 });
@@ -107,17 +109,23 @@ const complexConfigWithFeatures = toVisualizationConfig({
     feature(
       'user-management',
       ['src/controllers/user-controller.ts', 'src/pages/settings.tsx'],
-      { description: 'User CRUD and profile management' },
+      {
+        description: 'User CRUD and profile management',
+        group: 'api',
+      },
     ),
     feature(
       'order-processing',
       ['src/controllers/order-controller.ts', 'src/scheduler/cron.ts'],
-      { description: 'Order lifecycle and background processing' },
+      {
+        description: 'Order lifecycle and background processing',
+        group: 'api',
+      },
     ),
     feature(
       'shared-infra',
       ['src/gateway/router.ts', 'src/database/client.ts'],
-      { description: 'Shared infrastructure and utilities' },
+      { description: 'Shared infrastructure and utilities', group: 'infra' },
     ),
   ],
 });

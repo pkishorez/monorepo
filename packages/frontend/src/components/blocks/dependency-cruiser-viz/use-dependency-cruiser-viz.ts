@@ -12,29 +12,38 @@ export type DependencyCruiserVizGraphView = {
   summary?: VizSummary;
   activeLayer: string | null;
   selectedFeature: string | null;
+  graphMode: 'layers' | 'features';
 };
 
 export type DependencyCruiserVizActions = {
   selectLayer: (layer: string | null) => void;
   hoverLayer: (layer: string | null) => void;
   selectFeature: (feature: string | null) => void;
+  setGraphMode: (mode: 'layers' | 'features') => void;
+  hoverGraphFiles: (files: string[] | null) => void;
 };
 
 type State = {
   selectedLayer: string | null;
   hoveredLayer: string | null;
   selectedFeature: string | null;
+  graphMode: 'layers' | 'features';
+  hoveredGraphFiles: string[] | null;
 };
 
 type Action =
   | { type: 'select-layer'; layer: string | null }
   | { type: 'hover-layer'; layer: string | null }
-  | { type: 'select-feature'; feature: string | null };
+  | { type: 'select-feature'; feature: string | null }
+  | { type: 'set-graph-mode'; mode: 'layers' | 'features' }
+  | { type: 'hover-graph-files'; files: string[] | null };
 
 const initialState: State = {
   selectedLayer: null,
   hoveredLayer: null,
   selectedFeature: null,
+  graphMode: 'layers',
+  hoveredGraphFiles: null,
 };
 
 export function useDependencyCruiserViz({
@@ -61,8 +70,14 @@ export function useDependencyCruiserViz({
       summary,
       activeLayer,
       selectedFeature: state.selectedFeature,
+      graphMode: state.graphMode,
     }),
-    [activeLayer, config, state.selectedFeature, summary],
+    [activeLayer, config, state.selectedFeature, state.graphMode, summary],
+  );
+
+  const hoveredGraphFilesSet = useMemo(
+    () => (state.hoveredGraphFiles ? new Set(state.hoveredGraphFiles) : null),
+    [state.hoveredGraphFiles],
   );
 
   const files = useMemo(
@@ -74,9 +89,17 @@ export function useDependencyCruiserViz({
             selectedLayer: activeLayer,
             selectedLayerPaths: activeLayerPaths,
             selectedFeature: state.selectedFeature,
+            hoveredGraphFiles: hoveredGraphFilesSet,
           })
         : null,
-    [activeLayer, activeLayerPaths, config, state.selectedFeature, summary],
+    [
+      activeLayer,
+      activeLayerPaths,
+      config,
+      state.selectedFeature,
+      hoveredGraphFilesSet,
+      summary,
+    ],
   );
 
   const actions = useMemo<DependencyCruiserVizActions>(
@@ -84,6 +107,9 @@ export function useDependencyCruiserViz({
       selectLayer: (layer) => dispatch({ type: 'select-layer', layer }),
       hoverLayer: (layer) => dispatch({ type: 'hover-layer', layer }),
       selectFeature: (feature) => dispatch({ type: 'select-feature', feature }),
+      setGraphMode: (mode) => dispatch({ type: 'set-graph-mode', mode }),
+      hoverGraphFiles: (files) =>
+        dispatch({ type: 'hover-graph-files', files }),
     }),
     [],
   );
@@ -99,5 +125,9 @@ function reducer(state: State, action: Action): State {
       return { ...state, hoveredLayer: action.layer };
     case 'select-feature':
       return { ...state, selectedFeature: action.feature };
+    case 'set-graph-mode':
+      return { ...state, graphMode: action.mode };
+    case 'hover-graph-files':
+      return { ...state, hoveredGraphFiles: action.files };
   }
 }

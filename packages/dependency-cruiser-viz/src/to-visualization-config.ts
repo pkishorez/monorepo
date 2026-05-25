@@ -54,6 +54,12 @@ export function toVisualizationConfig(
       if (f.config.description !== undefined) {
         entry.description = f.config.description;
       }
+      if (f.config.stopTraversalAt && f.config.stopTraversalAt.length > 0) {
+        entry.stopTraversalAt = [...f.config.stopTraversalAt];
+      }
+      if (f.config.group !== undefined) {
+        entry.group = f.config.group;
+      }
       return entry;
     });
   }

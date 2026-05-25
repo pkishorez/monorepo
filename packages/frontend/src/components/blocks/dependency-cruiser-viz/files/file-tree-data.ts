@@ -98,6 +98,45 @@ export function collectExpandedIds(configuredPaths: string[]): string[] {
   return [...ids];
 }
 
+const FEATURE_AUTO_EXPAND_FILE_LIMIT = 6;
+
+export function collectFeatureExpandedIds(nodes: FileTreeNode[]): string[] {
+  const ids = new Set<string>();
+
+  for (const node of nodes) {
+    collectFeatureExpandedFolderIds(node, 0, ids);
+  }
+
+  return [...ids];
+}
+
+function collectFeatureExpandedFolderIds(
+  node: FileTreeNode,
+  depth: number,
+  ids: Set<string>,
+): void {
+  if (node.type !== 'folder') return;
+
+  const shouldExpand =
+    depth === 0 ||
+    (depth === 1 && countFiles(node) <= FEATURE_AUTO_EXPAND_FILE_LIMIT);
+
+  if (shouldExpand) ids.add(node.id);
+  if (depth >= 1) return;
+
+  for (const child of node.children ?? []) {
+    collectFeatureExpandedFolderIds(child, depth + 1, ids);
+  }
+}
+
+function countFiles(node: FileTreeNode): number {
+  if (node.type === 'file') return 1;
+  return (node.children ?? []).reduce(
+    (sum, child) => sum + countFiles(child),
+    0,
+  );
+}
+
 function propagateFolderStatus(nodes: FileTreeNode[]): FileStatus | undefined {
   for (const node of nodes) {
     if (node.type === 'folder' && node.children) {

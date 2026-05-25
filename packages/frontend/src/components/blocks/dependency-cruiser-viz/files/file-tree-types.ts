@@ -37,8 +37,10 @@ export type FileTreeViewModel = {
   tree: FileTreeNode[];
   treeKey: string;
   highlightedFiles: Set<string> | null;
+  featureSeedFiles: Set<string> | null;
   uncoveredFiles: Set<string> | null;
   configuredPaths: Set<string>;
   sortOrder: Map<string, number>;
   expandedItems: string[];
+  hoveredGraphFiles: Set<string> | null;
 };

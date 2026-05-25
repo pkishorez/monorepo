@@ -57,7 +57,7 @@ When presenting proposed stacks, explain the concern each stack enforces and why
 
 Features are seed-based dependency graphs. Do not treat a feature as a folder label, and do not require users to list every file the feature depends on.
 
-Each `feature()` path must be an individual seed file under `rootDir`. Folder paths are invalid at runtime. From those seed files, depcruise-viz derives the transitive project-local dependency graph, excluding ignored files and external packages. Type-only imports are included as leaf nodes/edges but are not traversed further; if the same target is also reached through a runtime import, runtime takes precedence.
+Each `feature()` path must be an individual seed file under `rootDir`. Folder paths are invalid at runtime. From those seed files, depcruise-viz derives the transitive project-local dependency graph, excluding ignored files and external packages. Type-only imports are included as leaf nodes/edges but are not traversed further; if the same target is also reached through a runtime import, runtime takes precedence. A feature can also set `stopTraversalAt` to exact file paths that should remain visible as leaf nodes without pulling in their own dependencies.
 
 Feature graphs are descriptive, not restrictive: cross-feature imports are allowed and shown in the derived graph. Layer rules still enforce architectural direction separately.
 
@@ -197,9 +197,9 @@ Defines a cross-cutting feature as one or more seed files. Depcruise-viz derives
 
 - `name` — unique identifier for the feature (e.g. `"auth"`, `"billing"`)
 - `paths` — array of file paths relative to the package root. Directories are invalid feature seeds.
-- `config` — optional `{ description?: string }`
+- `config` — optional `{ description?: string; stopTraversalAt?: string[] }`
 
-Features are independent of layers. They declare seed files only; depcruise-viz derives the full local graph from those seeds and groups derived nodes by layer. External packages are not included in the feature graph. Type-only imports are included as leaf nodes/edges but are not traversed further. Feature graph violations are cycles and unresolved project-local imports reachable from seeds.
+Features are independent of layers. They declare seed files only; depcruise-viz derives the full local graph from those seeds and groups derived nodes by layer. External packages are not included in the feature graph. Type-only imports are included as leaf nodes/edges but are not traversed further. `stopTraversalAt` paths are exact files under `rootDir`; when reached, the file is included as a leaf and traversal stops there. Feature graph violations are cycles and unresolved project-local imports reachable from seeds.
 
 ### Config file format
 
@@ -267,10 +267,13 @@ const auth = feature('auth', [
   'src/routes/auth/callback.tsx',
 ]);
 
-const billing = feature('billing', [
-  'src/routes/billing/index.tsx',
-  'src/routes/billing/invoice.tsx',
-]);
+const billing = feature(
+  'billing',
+  ['src/routes/billing/index.tsx', 'src/routes/billing/invoice.tsx'],
+  {
+    stopTraversalAt: ['src/services/payment-client.ts'],
+  },
+);
 
 export default {
   rootDir: 'src',

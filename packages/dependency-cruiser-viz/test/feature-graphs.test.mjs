@@ -152,6 +152,66 @@ test('runtime edges take precedence over type-only edges', () => {
   assert.equal(summary.featureGraphs?.[0]?.edges[0]?.dependencyKind, 'runtime');
 });
 
+test('feature traversal stops include runtime targets as leaf nodes', () => {
+  const summary = summarizeCruiseResult(
+    {
+      modules: [
+        {
+          source: 'src/routes/orders.ts',
+          dependencies: [dependency('src/components/order-view.tsx')],
+        },
+        {
+          source: 'src/components/order-view.tsx',
+          dependencies: [dependency('src/lib/format.ts')],
+        },
+        {
+          source: 'src/lib/format.ts',
+          dependencies: [],
+        },
+      ],
+      summary: { violations: [] },
+    },
+    toVisualizationConfig({
+      rootDir: 'src',
+      rules: [layersTopDown('app', [routes, components, lib])],
+      features: [
+        feature('orders', ['src/routes/orders.ts'], {
+          stopTraversalAt: ['src/components/order-view.tsx'],
+        }),
+      ],
+    }),
+  );
+
+  assert.deepEqual(summary.featureOrphanFiles, ['src/lib/format.ts']);
+  assert.deepEqual(summary.featureGraphs?.[0], {
+    feature: 'orders',
+    seeds: ['src/routes/orders.ts'],
+    nodes: [
+      {
+        file: 'src/components/order-view.tsx',
+        kind: 'derived',
+        layers: ['components'],
+        minDepth: 1,
+        maxDepth: 1,
+      },
+      {
+        file: 'src/routes/orders.ts',
+        kind: 'seed',
+        layers: ['routes'],
+        minDepth: 0,
+        maxDepth: 0,
+      },
+    ],
+    edges: [
+      {
+        from: 'src/routes/orders.ts',
+        to: 'src/components/order-view.tsx',
+        dependencyKind: 'runtime',
+      },
+    ],
+  });
+});
+
 test('cycles and unresolved imports reachable from feature seeds are violations', () => {
   const summary = summarizeCruiseResult(
     {

@@ -165,6 +165,8 @@ function buildFeatureGraph({
 } {
   const seeds = [...new Set(feature.paths)];
   const seedSet = new Set(seeds);
+  const stopTraversalAt = [...new Set(feature.stopTraversalAt ?? [])];
+  const stopTraversalSet = new Set(stopTraversalAt);
   const nodes = new Map<string, FeatureGraphNode>();
   const edgeKinds = new Map<string, DependencyKind>();
   const violations: FeatureGraphViolation[] = [];
@@ -174,6 +176,17 @@ function buildFeatureGraph({
     validateSeed({
       featureName: feature.name,
       seed,
+      moduleBySource,
+      allProjectModuleSources,
+      rootDir,
+      ignorePatterns,
+      layerPatterns,
+    });
+  }
+  for (const file of stopTraversalAt) {
+    validateTraversalStop({
+      featureName: feature.name,
+      file,
       moduleBySource,
       allProjectModuleSources,
       rootDir,
@@ -232,6 +245,8 @@ function buildFeatureGraph({
 
   function walk(file: string, depth: number, path: string[]): void {
     addNode(file, depth);
+    if (stopTraversalSet.has(file)) return;
+
     const mod = moduleBySource.get(file);
     if (!mod) return;
 
@@ -281,7 +296,7 @@ function buildFeatureGraph({
         continue;
       }
 
-      if (dependencyKind === 'type-only') {
+      if (dependencyKind === 'type-only' || stopTraversalSet.has(target)) {
         addNode(target, depth + 1);
         continue;
       }
@@ -310,6 +325,45 @@ function buildFeatureGraph({
     },
     violations,
   };
+}
+
+function validateTraversalStop({
+  featureName,
+  file,
+  moduleBySource,
+  allProjectModuleSources,
+  rootDir,
+  ignorePatterns,
+  layerPatterns,
+}: {
+  featureName: string;
+  file: string;
+  moduleBySource: Map<string, CruiseModule>;
+  allProjectModuleSources: Set<string>;
+  rootDir: string;
+  ignorePatterns: RegExp[];
+  layerPatterns: LayerPattern[];
+}): void {
+  if (!isProjectPath(file, rootDir) || file === rootDir) {
+    throw new Error(
+      `Feature "${featureName}" traversal stop "${file}" must be a file under "${rootDir}"`,
+    );
+  }
+  if (isIgnored(file, ignorePatterns)) {
+    throw new Error(
+      `Feature "${featureName}" traversal stop "${file}" is ignored and cannot be used as a traversal stop`,
+    );
+  }
+  if (!allProjectModuleSources.has(file) || !moduleBySource.has(file)) {
+    throw new Error(
+      `Feature "${featureName}" traversal stop "${file}" must be a file present in the dependency graph`,
+    );
+  }
+  if (findLayers(file, layerPatterns).length === 0) {
+    throw new Error(
+      `Feature "${featureName}" traversal stop "${file}" is not covered by any layer`,
+    );
+  }
 }
 
 function validateSeed({
