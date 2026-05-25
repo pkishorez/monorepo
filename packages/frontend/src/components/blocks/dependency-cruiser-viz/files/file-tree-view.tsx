@@ -15,9 +15,11 @@ type FileTreeViewProps = {
   treeKey: string;
   expandedItems: string[];
   highlightedFiles: Set<string> | null;
+  featureSeedFiles: Set<string> | null;
   uncoveredFiles: Set<string> | null;
   configuredPaths: Set<string>;
   sortOrder: Map<string, number>;
+  hoveredGraphFiles: Set<string> | null;
 };
 
 export function FileTreeView({
@@ -25,22 +27,26 @@ export function FileTreeView({
   treeKey,
   expandedItems,
   highlightedFiles,
+  featureSeedFiles,
   uncoveredFiles,
   configuredPaths,
   sortOrder,
+  hoveredGraphFiles,
 }: FileTreeViewProps) {
   return (
     <Tree
-      key={treeKey}
+      key={hoveredGraphFiles ? `${treeKey}-hover` : treeKey}
       elements={tree as TreeViewElement[]}
       initialExpandedItems={expandedItems}
     >
       {renderNodes({
         nodes: tree,
         highlightedFiles,
+        featureSeedFiles,
         uncoveredFiles,
         configuredPaths,
         sortOrder,
+        hoveredGraphFiles,
       })}
     </Tree>
   );
@@ -49,15 +55,19 @@ export function FileTreeView({
 function renderNodes({
   nodes,
   highlightedFiles,
+  featureSeedFiles,
   uncoveredFiles,
   configuredPaths,
   sortOrder,
+  hoveredGraphFiles,
 }: {
   nodes: FileTreeNode[];
   highlightedFiles: Set<string> | null;
+  featureSeedFiles: Set<string> | null;
   uncoveredFiles: Set<string> | null;
   configuredPaths: Set<string>;
   sortOrder: Map<string, number>;
+  hoveredGraphFiles: Set<string> | null;
 }): ReactNode {
   const sorted = [...nodes].sort((a, b) => {
     const orderA = sortOrder.get(a.id);
@@ -75,10 +85,10 @@ function renderNodes({
         !folderContainsAny(node, highlightedFiles) &&
         !folderContainsAny(node, uncoveredFiles);
       const folderUncovered =
-        uncoveredFiles &&
-        !folderContainsAny(node, highlightedFiles) &&
-        folderContainsAny(node, uncoveredFiles);
+        uncoveredFiles && folderContainsAny(node, uncoveredFiles);
       const isConfigured = configuredPaths.has(node.id);
+      const folderHoverDimmed =
+        hoveredGraphFiles && !folderContainsAny(node, hoveredGraphFiles);
 
       return (
         <Folder
@@ -93,15 +103,18 @@ function renderNodes({
             !highlightedFiles && node.status === 'ignored' && 'opacity-40',
             folderUncovered && 'text-yellow-500',
             folderDimmed && 'opacity-30',
+            folderHoverDimmed && 'opacity-20',
           )}
         >
           {node.children
             ? renderNodes({
                 nodes: node.children,
                 highlightedFiles,
+                featureSeedFiles,
                 uncoveredFiles,
                 configuredPaths,
                 sortOrder,
+                hoveredGraphFiles,
               })
             : null}
         </Folder>
@@ -111,6 +124,9 @@ function renderNodes({
     const isHighlighted = highlightedFiles?.has(node.id);
     const isUncovered = uncoveredFiles?.has(node.id);
     const isDimmed = highlightedFiles && !isHighlighted && !isUncovered;
+    const isSeed = featureSeedFiles?.has(node.id);
+    const isGraphHovered = hoveredGraphFiles?.has(node.id);
+    const isGraphDimmed = hoveredGraphFiles && !isGraphHovered;
 
     return (
       <File
@@ -123,9 +139,17 @@ function renderNodes({
           !highlightedFiles && node.status === 'covered' && 'text-foreground',
           !highlightedFiles && node.status === 'ignored' && 'opacity-40',
           isDimmed && 'opacity-30',
+          isGraphHovered &&
+            'rounded-md bg-primary/20 font-semibold ring-1 ring-primary/30',
+          isGraphDimmed && 'opacity-20',
         )}
       >
-        <span className="truncate">{node.name}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{node.name}</span>
+        {isSeed ? (
+          <span className="shrink-0 rounded-sm border border-primary/30 bg-primary/10 px-1 py-0.5 text-[10px] leading-none font-semibold text-primary uppercase">
+            seed
+          </span>
+        ) : null}
       </File>
     );
   });

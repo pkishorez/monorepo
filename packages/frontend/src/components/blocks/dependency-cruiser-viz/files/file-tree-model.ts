@@ -1,6 +1,7 @@
 import type { VisualizationConfig, VizSummary } from '../types';
 import {
   buildFileTree,
+  collectFeatureExpandedIds,
   collectExpandedIds,
   filterTree,
 } from './file-tree-data';
@@ -35,6 +36,7 @@ type FileTreeViewModelInput = {
   selectedLayer: string | null;
   selectedLayerPaths: string[] | null;
   selectedFeature: string | null;
+  hoveredGraphFiles?: Set<string> | null;
 };
 
 export function getFileTreeViewModel({
@@ -43,6 +45,7 @@ export function getFileTreeViewModel({
   selectedLayer,
   selectedLayerPaths,
   selectedFeature,
+  hoveredGraphFiles,
 }: FileTreeViewModelInput): FileTreeViewModel {
   const tree = buildFileTree(summary);
   const configuredPaths = getConfiguredPaths(config);
@@ -64,6 +67,9 @@ export function getFileTreeViewModel({
 
   const displayTree =
     actualFeature && featureFiles ? filterTree(tree, featureFiles) : tree;
+  const featureSeedFiles = actualFeature
+    ? getFeatureSeedFiles(summary, actualFeature)
+    : null;
 
   const relevantPaths = actualFeature
     ? getFeaturePaths(summary, config, actualFeature)
@@ -100,6 +106,7 @@ export function getFileTreeViewModel({
       selectedLayer: isFeatureOverview ? null : selectedLayer,
       featureFiles: featureFiles ?? overviewFeatureFiles,
     }),
+    featureSeedFiles,
     uncoveredFiles: allFeatureCovered ? getUncoveredFiles(summary) : null,
     configuredPaths,
     sortOrder: getSortOrder({
@@ -107,7 +114,12 @@ export function getFileTreeViewModel({
       selectedFeature: actualFeature,
       layerOrder,
     }),
-    expandedItems: collectExpandedIds(relevantPaths),
+    expandedItems: hoveredGraphFiles
+      ? collectExpandedIds([...hoveredGraphFiles])
+      : actualFeature && featureFiles
+        ? collectSelectedFeatureExpandedIds(displayTree, featureSeedFiles)
+        : collectExpandedIds(relevantPaths),
+    hoveredGraphFiles: hoveredGraphFiles ?? null,
   };
 }
 
@@ -120,4 +132,24 @@ function getFeaturePaths(
   if (graph) return graph.nodes.map((node) => node.file);
   const feat = config.features?.find((f) => f.name === featureName);
   return feat?.paths ?? [];
+}
+
+function getFeatureSeedFiles(
+  summary: VizSummary,
+  featureName: string,
+): Set<string> | null {
+  const graph = summary.featureGraphs?.find((g) => g.feature === featureName);
+  return graph ? new Set(graph.seeds) : null;
+}
+
+function collectSelectedFeatureExpandedIds(
+  tree: FileTreeViewModel['tree'],
+  featureSeedFiles: Set<string> | null,
+): string[] {
+  return [
+    ...new Set([
+      ...collectFeatureExpandedIds(tree),
+      ...collectExpandedIds([...(featureSeedFiles ?? [])]),
+    ]),
+  ];
 }

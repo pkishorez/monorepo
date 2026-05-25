@@ -23,6 +23,8 @@ export type LayerStack = {
 
 export type FeatureConfig = {
   description?: string;
+  stopTraversalAt?: string[];
+  group?: string;
 };
 
 export type Feature = {
@@ -58,6 +60,8 @@ export type VisualizationConfig = {
     name: string;
     paths: string[];
     description?: string;
+    stopTraversalAt?: string[];
+    group?: string;
   }>;
 };
 
