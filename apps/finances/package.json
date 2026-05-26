@@ -1,0 +1,48 @@
+{
+  "name": "finances",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build && tsc --noEmit",
+    "dev": "tsx src/server.ts",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && depcruise-viz lint",
+    "serve": "NODE_ENV=production tsx src/server.ts",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@effect/platform": "0.96.1",
+    "@effect/platform-browser": "0.76.0",
+    "@effect/platform-node": "0.106.0",
+    "@effect/rpc": "0.75.1",
+    "@monorepo/frontend": "workspace:*",
+    "@std-toolkit/core": "workspace:*",
+    "@std-toolkit/eschema": "workspace:*",
+    "@std-toolkit/sqlite": "workspace:*",
+    "@std-toolkit/tanstack": "workspace:*",
+    "@std-toolkit/tanstack-sync": "workspace:*",
+    "@tanstack/react-db": "0.1.83",
+    "@tanstack/react-router": "1.170.3",
+    "better-sqlite3": "12.10.0",
+    "dependency-cruiser-viz": "workspace:*",
+    "effect": "3.21.2",
+    "lucide-react": "0.577.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "recharts": "3.8.1",
+    "tailwindcss": "4.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.0",
+    "@tanstack/router-plugin": "1.168.5",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "25.8.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "tsx": "4.22.1",
+    "typescript": "6.0.3",
+    "vite": "8.0.13",
+    "vitest": "4.1.5"
+  }
+}
