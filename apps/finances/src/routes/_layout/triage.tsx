@@ -10,7 +10,9 @@ import {
 import { createFileRoute } from '@tanstack/react-router';
 import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { Effect, Schema } from 'effect';
+import { useIsMobile } from '@monorepo/frontend/hooks/use-mobile';
 import { Badge } from '@monorepo/frontend/components/ui/badge';
+import { Skeleton } from '@monorepo/frontend/components/ui/skeleton';
 import { Button } from '@monorepo/frontend/components/ui/button';
 import { Checkbox } from '@monorepo/frontend/components/ui/checkbox';
 import {
@@ -628,6 +630,8 @@ function TriagePage() {
     setSelectedIds(new Set());
   }, [cancelOutValidation.valid, cancelOutSource, selectedIds]);
 
+  const isMobile = useIsMobile();
+
   const columns: ColumnDef<MergedTransaction>[] = useMemo(
     () => [
       {
@@ -715,7 +719,7 @@ function TriagePage() {
           return (
             <div className="absolute inset-0 flex items-center justify-center transition-colors hover:bg-muted">
               <StickyNote
-                className={`size-3.5 ${hasNotes ? 'text-foreground' : 'text-muted-foreground'}`}
+                className={`size-3.5 ${hasNotes ? 'text-primary' : 'text-muted-foreground'}`}
               />
             </div>
           );
@@ -791,12 +795,25 @@ function TriagePage() {
     <div className="flex flex-col gap-6">
       <div className="sticky top-0 z-10 -mx-4 -mt-4 flex flex-col gap-4 bg-background px-4 pt-4 pb-4">
         <div className="rounded-lg border bg-card p-4">
-          <Progress value={coverage.percentage} className="flex-1">
-            <span className="text-sm font-medium">
-              {coverage.percentage}% of spend resolved
+          <div className="flex items-center justify-between gap-4">
+            <Progress value={coverage.percentage} className="flex-1">
+              <span className="text-sm font-medium">
+                {coverage.percentage}% of spend resolved
+              </span>
+            </Progress>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {loading ? (
+                <>Syncing... ({merged.length} loaded)</>
+              ) : triageData.length !== merged.length ? (
+                <>
+                  {triageData.length} of {merged.length} records
+                </>
+              ) : (
+                <>{merged.length} records</>
+              )}
             </span>
-          </Progress>
-          {activeCancelTab === null && (
+          </div>
+          {activeCancelTab === null && !loading && (
             <span className="mt-1.5 block text-xs text-muted-foreground">
               {pageResolvedCount} of {pageItemCount} on this page resolved
             </span>
@@ -1046,19 +1063,47 @@ function TriagePage() {
       </div>
 
       {activeCancelTab === 'cancel-out' && matchablePairs ? (
-        <CancelOutGroupedTable
-          groups={matchablePairs}
-          columns={columns}
-          selectedIds={selectedIds}
-          onToggleSelection={toggleSelection}
-          cancelOutValidation={cancelOutValidation}
-          onCancelOut={handleCancelOut}
-          loading={loading}
-        />
+        isMobile ? (
+          <MobileCancelOutCards
+            groups={matchablePairs}
+            selectedIds={selectedIds}
+            onToggleSelection={toggleSelection}
+            cancelOutValidation={cancelOutValidation}
+            onCancelOut={handleCancelOut}
+            loading={loading}
+          />
+        ) : (
+          <CancelOutGroupedTable
+            groups={matchablePairs}
+            columns={columns}
+            selectedIds={selectedIds}
+            onToggleSelection={toggleSelection}
+            cancelOutValidation={cancelOutValidation}
+            onCancelOut={handleCancelOut}
+            loading={loading}
+          />
+        )
       ) : activeCancelTab === 'cancelled' ? (
         <CancelledView
           groups={cancelledGroups}
           onUncancel={handleUncancel}
+          loading={loading}
+        />
+      ) : isMobile ? (
+        <MobileTriageCards
+          data={triageData}
+          page={page}
+          setPage={setPage}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          uniqueCategories={uniqueCategories}
+          originalCategoryMap={originalCategoryMap}
+          subcategoriesByCategory={subcategoriesByCategory}
+          onCategoryChange={handleInlineCategory}
+          onSubcategoryChange={handleInlineSubcategory}
+          onVerify={handleInlineVerify}
+          onIgnore={handleInlineIgnore}
+          onNotesOpen={setNotesOpenId}
           loading={loading}
         />
       ) : (
@@ -1075,7 +1120,6 @@ function TriagePage() {
           loading={loading}
           getRowClassName={(row, _index) => {
             if (row.ignore) return 'line-through opacity-60';
-            if (row.verified) return 'opacity-50';
             return '';
           }}
           emptyState="No transactions match the current filters."
@@ -1242,6 +1286,166 @@ function CancelOutGroupedTable({
       <div className="flex flex-wrap items-center justify-end gap-2">
         <span className="text-sm text-muted-foreground">
           Page {page + 1} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page === 0}
+          onClick={() => setPage(page - 1)}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page >= totalPages - 1}
+          onClick={() => setPage(page + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function MobileCancelOutCards({
+  groups,
+  selectedIds,
+  onToggleSelection,
+  cancelOutValidation,
+  onCancelOut,
+  loading,
+}: {
+  groups: Map<number, MergedTransaction[]>;
+  selectedIds: Set<string>;
+  onToggleSelection: (id: string) => void;
+  cancelOutValidation: { valid: boolean; reason: string };
+  onCancelOut: () => void;
+  loading: boolean;
+}) {
+  const sortedGroups = useMemo(
+    () => [...groups.entries()].sort(([a], [b]) => b - a),
+    [groups],
+  );
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const toggleGroup = useCallback((amount: number) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(amount)) next.delete(amount);
+      else next.add(amount);
+      return next;
+    });
+  }, []);
+
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(sortedGroups.length / pageSize));
+  const visibleGroups = sortedGroups.slice(
+    page * pageSize,
+    (page + 1) * pageSize,
+  );
+
+  if (loading) {
+    return (
+      <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Button
+          variant="default"
+          size="sm"
+          disabled={!cancelOutValidation.valid}
+          onClick={onCancelOut}
+        >
+          Cancel Out
+        </Button>
+        {selectedIds.size > 0 && (
+          <span className="text-sm text-muted-foreground">
+            {selectedIds.size} selected
+          </span>
+        )}
+        {!cancelOutValidation.valid && selectedIds.size > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {cancelOutValidation.reason}
+          </span>
+        )}
+      </div>
+
+      {visibleGroups.length === 0 ? (
+        <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+          No matchable pairs found.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {visibleGroups.map(([absAmount, rows]) => (
+            <div key={absAmount} className="rounded-lg border bg-card">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
+                onClick={() => toggleGroup(absAmount)}
+              >
+                <ChevronRight
+                  className={`size-3.5 shrink-0 transition-transform ${expandedGroups.has(absAmount) ? 'rotate-90' : ''}`}
+                />
+                <span className="text-sm font-medium">
+                  {formatCurrency(absAmount)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  ({rows.length} {rows.length === 1 ? 'record' : 'records'})
+                </span>
+              </button>
+              {expandedGroups.has(absAmount) && (
+                <div className="border-t">
+                  {rows.map((row) => (
+                    <div
+                      key={row.id}
+                      className={`flex items-start gap-3 border-b px-3 py-2.5 last:border-b-0 ${selectedIds.has(row.id) ? 'bg-primary/5' : ''}`}
+                      onClick={() => onToggleSelection(row.id)}
+                    >
+                      <Checkbox
+                        checked={selectedIds.has(row.id)}
+                        onCheckedChange={() => onToggleSelection(row.id)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="min-w-0 flex-1 text-sm leading-snug">
+                            {row.description}
+                          </span>
+                          <span
+                            className={`shrink-0 font-mono text-sm tabular-nums ${row.amount < 0 ? 'text-destructive' : 'text-positive'}`}
+                          >
+                            {row.amount < 0 ? '-' : '+'}
+                            {formatCurrency(row.amount)}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{row.bank || '-'}</span>
+                          {row.owner && (
+                            <span className="font-semibold">{row.owner}</span>
+                          )}
+                          <span>{row.date}</span>
+                          {row.category && <span>{row.category}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <span className="text-sm text-muted-foreground">
+          {page + 1} / {totalPages}
         </span>
         <Button
           variant="outline"
@@ -1581,6 +1785,11 @@ const NotesDialog = memo(function NotesDialog({
     onOpenChange(false);
   }, [txn, notes, onSave, onOpenChange]);
 
+  const handleDelete = useCallback(() => {
+    if (txn) onSave(txn, '');
+    onOpenChange(false);
+  }, [txn, onSave, onOpenChange]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -1594,12 +1803,373 @@ const NotesDialog = memo(function NotesDialog({
           rows={4}
         />
         <DialogFooter>
+          {existingNotes && (
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+          )}
           <Button onClick={handleSave}>Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 });
+
+const MobileInlineCategoryCell = memo(function MobileInlineCategoryCell({
+  txn,
+  suggestions,
+  originalCategory,
+  onSave,
+}: {
+  txn: MergedTransaction;
+  suggestions: string[];
+  originalCategory: string;
+  onSave: (txn: MergedTransaction, category: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const wasOverridden =
+    txn.category !== originalCategory && originalCategory !== '';
+
+  const handleValueChange = useCallback(
+    (val: string | null) => {
+      if (val) {
+        onSave(txn, val);
+        setEditing(false);
+      }
+    },
+    [txn, onSave],
+  );
+
+  const handleInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && inputValue.trim()) {
+        onSave(txn, inputValue.trim());
+        setEditing(false);
+      }
+    },
+    [txn, inputValue, onSave],
+  );
+
+  if (editing) {
+    return (
+      <Combobox
+        value={txn.category || null}
+        onValueChange={handleValueChange}
+        onInputValueChange={setInputValue}
+        onOpenChange={(o) => {
+          if (!o) setEditing(false);
+        }}
+      >
+        <ComboboxInput
+          placeholder="Set category..."
+          className="h-8 w-full text-sm"
+          onKeyDown={handleInputKeyDown}
+          autoFocus
+        />
+        <ComboboxContent>
+          <ComboboxList>
+            {suggestions.map((cat) => (
+              <ComboboxItem key={cat} value={cat}>
+                {cat}
+              </ComboboxItem>
+            ))}
+          </ComboboxList>
+          <ComboboxEmpty>Press Enter to save</ComboboxEmpty>
+        </ComboboxContent>
+      </Combobox>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="flex items-center gap-1 text-left text-sm"
+      onClick={() => setEditing(true)}
+    >
+      <span className="truncate">
+        {txn.category || (
+          <span className="text-muted-foreground">Set category...</span>
+        )}
+      </span>
+      {wasOverridden && (
+        <span className="text-[10px] italic text-muted-foreground">
+          (was: {originalCategory})
+        </span>
+      )}
+    </button>
+  );
+});
+
+const MobileInlineSubcategoryCell = memo(function MobileInlineSubcategoryCell({
+  txn,
+  suggestions,
+  onSave,
+}: {
+  txn: MergedTransaction;
+  suggestions: string[];
+  onSave: (txn: MergedTransaction, subcategory: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+
+  const handleValueChange = useCallback(
+    (val: string | null) => {
+      if (val) {
+        onSave(txn, val);
+        setEditing(false);
+      }
+    },
+    [txn, onSave],
+  );
+
+  const handleInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && inputValue.trim()) {
+        onSave(txn, inputValue.trim());
+        setEditing(false);
+      }
+    },
+    [txn, inputValue, onSave],
+  );
+
+  if (editing) {
+    return (
+      <Combobox
+        value={txn.subcategory || null}
+        onValueChange={handleValueChange}
+        onInputValueChange={setInputValue}
+        onOpenChange={(o) => {
+          if (!o) setEditing(false);
+        }}
+      >
+        <ComboboxInput
+          placeholder="Subcategory..."
+          className="h-7 w-full text-xs"
+          onKeyDown={handleInputKeyDown}
+          autoFocus
+        />
+        <ComboboxContent>
+          <ComboboxList>
+            {suggestions.map((sub) => (
+              <ComboboxItem key={sub} value={sub}>
+                {sub}
+              </ComboboxItem>
+            ))}
+          </ComboboxList>
+          <ComboboxEmpty>Press Enter to save</ComboboxEmpty>
+        </ComboboxContent>
+      </Combobox>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="text-left text-xs"
+      onClick={() => setEditing(true)}
+    >
+      {txn.subcategory || (
+        <span className="text-muted-foreground">Subcategory...</span>
+      )}
+    </button>
+  );
+});
+
+function MobileTriageCards({
+  data,
+  page,
+  setPage,
+  pageSize,
+  setPageSize,
+  uniqueCategories,
+  originalCategoryMap,
+  subcategoriesByCategory,
+  onCategoryChange,
+  onSubcategoryChange,
+  onVerify,
+  onIgnore,
+  onNotesOpen,
+  loading,
+}: {
+  data: MergedTransaction[];
+  page: number;
+  setPage: (p: number) => void;
+  pageSize: number;
+  setPageSize: (s: number) => void;
+  uniqueCategories: string[];
+  originalCategoryMap: Map<string, string>;
+  subcategoriesByCategory: Map<string, string[]>;
+  onCategoryChange: (txn: MergedTransaction, category: string) => void;
+  onSubcategoryChange: (txn: MergedTransaction, subcategory: string) => void;
+  onVerify: (txn: MergedTransaction) => void;
+  onIgnore: (txn: MergedTransaction) => void;
+  onNotesOpen: (id: string) => void;
+  loading: boolean;
+}) {
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const start = page * pageSize;
+  const visibleRows = data.slice(start, start + pageSize);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="rounded-lg border bg-card p-4">
+            <Skeleton className="mb-2 h-5 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (visibleRows.length === 0) {
+    return (
+      <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+        No transactions match the current filters.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        {visibleRows.map((txn) => {
+          const rowOpacity = txn.ignore ? 'opacity-60' : '';
+          return (
+            <div
+              key={txn.id}
+              className={`rounded-lg border bg-card p-3 ${rowOpacity} ${txn.ignore ? 'line-through' : ''}`}
+            >
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
+                  {txn.description}
+                </span>
+                <span
+                  className={`shrink-0 font-mono text-sm font-semibold tabular-nums ${txn.amount < 0 ? 'text-destructive' : 'text-positive'}`}
+                >
+                  {txn.amount < 0 ? '-' : '+'}
+                  {formatCurrency(txn.amount)}
+                </span>
+              </div>
+
+              <div className="mb-2 flex flex-col gap-1">
+                <MobileInlineCategoryCell
+                  txn={txn}
+                  suggestions={uniqueCategories}
+                  originalCategory={originalCategoryMap.get(txn.id) ?? ''}
+                  onSave={onCategoryChange}
+                />
+                <MobileInlineSubcategoryCell
+                  txn={txn}
+                  suggestions={
+                    subcategoriesByCategory.get(txn.category ?? '') ?? []
+                  }
+                  onSave={onSubcategoryChange}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{txn.bank || '-'}</span>
+                  {txn.owner && (
+                    <>
+                      <span className="text-[10px]">/</span>
+                      <span className="font-semibold">{txn.owner}</span>
+                    </>
+                  )}
+                  <span className="text-[10px]">/</span>
+                  <span>{txn.date}</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="rounded p-1.5 transition-colors hover:bg-muted"
+                    onClick={() => onNotesOpen(txn.id)}
+                  >
+                    <StickyNote
+                      className={`size-3.5 ${(txn.notes ?? '').length > 0 ? 'text-foreground' : 'text-muted-foreground'}`}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded p-1.5 transition-colors hover:bg-muted"
+                    onClick={() => (txn.ignore ? onIgnore(txn) : onVerify(txn))}
+                  >
+                    {txn.ignore ? (
+                      <EyeOff className="size-4 text-muted-foreground" />
+                    ) : txn.verified ? (
+                      <CircleCheck className="size-4 text-primary" />
+                    ) : (
+                      <Circle className="size-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded p-1.5 transition-colors hover:bg-muted"
+                    onClick={() => onIgnore(txn)}
+                  >
+                    <EyeOff
+                      className={`size-3.5 ${txn.ignore ? 'text-primary' : 'text-muted-foreground'}`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-4 px-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Rows</span>
+          <Select
+            value={pageSize}
+            onValueChange={(val) => {
+              setPageSize(val as number);
+              setPage(0);
+            }}
+          >
+            <SelectTrigger size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50, 100].map((size) => (
+                <SelectItem key={size} value={size}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            {page + 1} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage(page - 1)}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage(page + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EmptyState() {
   const fileInputRef = useRef<HTMLInputElement>(null);
