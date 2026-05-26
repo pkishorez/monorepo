@@ -3,6 +3,7 @@ import {
   DayPicker,
   getDefaultClassNames,
   type DayButton,
+  type DateRange,
   type Locale,
 } from "react-day-picker"
 
@@ -216,3 +217,4 @@ function CalendarDayButton({
 }
 
 export { Calendar, CalendarDayButton }
+export type { DateRange }

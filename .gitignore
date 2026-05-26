@@ -6,3 +6,5 @@ dist
 .wrangler
 .claude/settings.local.json
 .claude/prds
+/apps/finances/.claude/prds
+/apps/finances/.finances
