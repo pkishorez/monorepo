@@ -1,5 +1,5 @@
 import { createCollection } from '@tanstack/react-db';
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import { createStdSync } from '@std-toolkit/tanstack-sync';
 import { OverrideSchema } from '@/domain/index';
@@ -10,11 +10,23 @@ const std = createStdSync();
 
 const overridesSyncConfig = std.totalSync({
   schema: OverrideSchema,
-  query: () =>
+  subscribe: ({ getCursor, push, onInitialSyncDone }) =>
     Effect.gen(function* () {
       const { client } = yield* FinancesClient;
-      const res = yield* client.listOverrides({});
-      return res as EntityType<Override>[];
+      const cursor = yield* getCursor;
+      const stream = client.subscribeOverrides({
+        cursor: cursor?.meta._u ?? null,
+      });
+
+      yield* Stream.runForEach(stream, (event) =>
+        Effect.sync(() => {
+          if (event._tag === 'batch') {
+            push(event.items as EntityType<Override>[]);
+          } else if (event._tag === 'initial-sync-done') {
+            onInitialSyncDone();
+          }
+        }),
+      );
     }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
   onInsert: (item) =>
     Effect.gen(function* () {

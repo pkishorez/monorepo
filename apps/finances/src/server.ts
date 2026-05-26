@@ -7,8 +7,9 @@ import { RpcServer, RpcSerialization } from '@effect/rpc';
 import { NodeSocketServer, NodeRuntime } from '@effect/platform-node';
 import {
   AppRpcs,
-  CategorySettingHandlersLive,
   OverrideHandlersLive,
+  SettingsHandlersLive,
+  TransactionHandlersLive,
 } from './server/index.js';
 import { makeDbLayer } from './services/index.js';
 
@@ -19,11 +20,13 @@ const httpServer = createServer();
 
 const CombinedHandlersLive = Effect.all([
   OverrideHandlersLive,
-  CategorySettingHandlersLive,
+  TransactionHandlersLive,
+  SettingsHandlersLive,
 ]).pipe(
-  Effect.map(([overrides, categorySettings]) => ({
+  Effect.map(([overrides, transactions, settings]) => ({
     ...overrides,
-    ...categorySettings,
+    ...transactions,
+    ...settings,
   })),
 );
 

@@ -9,6 +9,7 @@ export {
   wherePkSkExact,
   insert,
   update,
+  delete,
   select,
   begin,
   commit,

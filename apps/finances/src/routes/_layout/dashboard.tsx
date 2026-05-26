@@ -76,7 +76,7 @@ import {
 } from '@/routes/internal/collections';
 import { useDateRange } from '@/routes/internal/date-range-context';
 import { FinancesClient, financesRuntime } from '@/routes/internal/effect';
-import type { OverrideSchema, CategorySettingSchema } from '@/domain';
+import type { OverrideSchema, SettingsSchema } from '@/domain';
 import {
   mergeTransactionsWithOverrides,
   filterForAnalysis,
@@ -85,7 +85,7 @@ import {
 } from '@/orchestration';
 
 type Override = typeof OverrideSchema.Type;
-type CategorySetting = typeof CategorySettingSchema.Type;
+type Settings = typeof SettingsSchema.Type;
 
 type TimeRange = 'this-month' | 'last-3' | 'last-6' | 'this-year' | 'all';
 type GroupBy = 'category' | 'bank' | 'type';
@@ -200,7 +200,7 @@ function DashboardPage() {
     txnQuery.isLoading || ovdQuery.isLoading || settingsQuery.isLoading;
   const transactions = txnQuery.data ?? [];
   const overrides = (ovdQuery.data ?? []) as Override[];
-  const settings = (settingsQuery.data ?? []) as CategorySetting[];
+  const settings = (settingsQuery.data ?? { categoryTypes: {} }) as Settings;
 
   const [timeRange, setTimeRange] = useState<TimeRange>('this-month');
   const [groupBy, setGroupBy] = useState<GroupBy>('category');
@@ -220,9 +220,11 @@ function DashboardPage() {
 
   const settingsMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const s of settings) m.set(s.category, s.type);
+    for (const [category, type] of Object.entries(settings.categoryTypes)) {
+      m.set(category, type);
+    }
     return m;
-  }, [settings]);
+  }, [settings.categoryTypes]);
 
   const merged = useMemo(
     () => mergeTransactionsWithOverrides(transactions, overrides),
@@ -552,7 +554,7 @@ function DashboardPage() {
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {Array.from({ length: 5 }, (_, i) => (
             <Card key={i} className="min-h-[140px] rounded-sm">
               <CardHeader>
@@ -591,7 +593,7 @@ function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-semibold tracking-tight">Dashboard</h2>
           <p className="text-xs text-muted-foreground">
@@ -607,7 +609,7 @@ function DashboardPage() {
             setGranularityOverride(null);
           }}
         >
-          <SelectTrigger className="w-[180px] min-h-9">
+          <SelectTrigger className="w-full min-h-9 sm:w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -620,7 +622,7 @@ function DashboardPage() {
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           title="Total Income"
           icon={<TrendingUp className="size-4 text-positive" />}
@@ -687,7 +689,7 @@ function DashboardPage() {
       <Card>
         <CardContent className="pt-6">
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
               <TabsList>
                 <TabsTrigger value="chart" className="min-h-9 min-w-[72px]">
                   Chart
@@ -697,7 +699,7 @@ function DashboardPage() {
                 </TabsTrigger>
               </TabsList>
               {activeTab === 'chart' && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Select
                     value={granularityOverride ?? autoGranularity}
                     onValueChange={(val) =>
@@ -706,7 +708,7 @@ function DashboardPage() {
                       )
                     }
                   >
-                    <SelectTrigger className="w-[120px] min-h-9">
+                    <SelectTrigger className="w-full min-h-9 sm:w-[120px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -718,7 +720,7 @@ function DashboardPage() {
                     value={groupBy}
                     onValueChange={(val) => setGroupBy(val as GroupBy)}
                   >
-                    <SelectTrigger className="w-[160px] min-h-9">
+                    <SelectTrigger className="w-full min-h-9 sm:w-[160px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -737,7 +739,7 @@ function DashboardPage() {
                     setTablePage(0);
                   }}
                 >
-                  <SelectTrigger className="w-[160px] min-h-9">
+                  <SelectTrigger className="w-full min-h-9 sm:w-[160px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1071,8 +1073,15 @@ function EmptyState() {
         try {
           const raw = JSON.parse(e.target?.result as string);
           const decoded = Schema.decodeUnknownSync(ProjectionOutputSchema)(raw);
-          replaceTransactions(decoded.transactions as never);
-          setError(null);
+          void replaceTransactions(decoded)
+            .then(() => setError(null))
+            .catch((uploadErr) =>
+              setError(
+                uploadErr instanceof Error
+                  ? uploadErr.message
+                  : 'Failed to upload transactions',
+              ),
+            );
         } catch (err) {
           setError(
             err instanceof Error ? err.message : 'Failed to parse JSON file',

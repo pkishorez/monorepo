@@ -329,6 +329,18 @@ function createSQLiteTableInstance<
     },
 
     /**
+     * Hard-deletes rows matching a where clause.
+     */
+    delete(
+      where: Sql.Where,
+    ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
+      return Effect.gen(function* () {
+        const db = yield* SqliteDB;
+        return yield* db.delete(tableName, where);
+      });
+    },
+
+    /**
      * Queries items using the primary index.
      *
      * @param cond - Key condition parameters

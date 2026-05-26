@@ -1,9 +1,7 @@
+import { EntityESchema } from '@std-toolkit/eschema';
 import { Schema } from 'effect';
 
-export class TransactionSchema extends Schema.Class<TransactionSchema>(
-  'TransactionSchema',
-)({
-  id: Schema.String,
+const TransactionFields = {
   date: Schema.String,
   owner: Schema.String,
   bank: Schema.String,
@@ -13,11 +11,17 @@ export class TransactionSchema extends Schema.Class<TransactionSchema>(
   category: Schema.String,
   subcategory: Schema.String,
   is_transfer: Schema.Boolean,
-}) {}
+};
+
+export const TransactionSchema = EntityESchema.make(
+  'Transaction',
+  'id',
+  TransactionFields,
+).build();
 
 export const ProjectionOutputSchema = Schema.Struct({
   generated_at: Schema.String,
   accounts: Schema.Array(Schema.String),
   total_transactions: Schema.Number,
-  transactions: Schema.Array(TransactionSchema),
+  transactions: Schema.Array(TransactionSchema.schema),
 });

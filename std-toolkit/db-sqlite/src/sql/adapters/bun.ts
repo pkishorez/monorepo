@@ -61,6 +61,16 @@ export const SqliteDBBun = (db: Database) =>
         catch: (cause) => SqliteDBError.updateFailed(table, cause),
       }),
 
+    delete: (table, where) =>
+      Effect.try({
+        try: () => {
+          const stmt = Sql.delete(table, where);
+          const result = db.prepare(stmt.query).run(...params(stmt.params));
+          return { rowsDeleted: result.changes };
+        },
+        catch: (cause) => SqliteDBError.deleteFailed(table, cause),
+      }),
+
     deleteAll: (table) =>
       Effect.try({
         try: () => {

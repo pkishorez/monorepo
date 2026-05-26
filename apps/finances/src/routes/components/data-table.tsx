@@ -24,6 +24,8 @@ export interface ColumnDef<T> {
   header: string;
   render: (row: T) => ReactNode;
   sortable?: boolean;
+  className?: string;
+  onCellClick?: (row: T, e: React.MouseEvent) => void;
 }
 
 interface Sort {
@@ -44,6 +46,7 @@ interface DataTableProps<T> {
   setExpandedId?: (id: string | null) => void;
   renderExpanded?: (row: T) => ReactNode;
   getRowId: (row: T) => string;
+  getRowClassName?: (row: T, index: number) => string;
   loading?: boolean;
   emptyState?: ReactNode;
 }
@@ -82,6 +85,7 @@ export function DataTable<T>({
   setExpandedId,
   renderExpanded,
   getRowId,
+  getRowClassName,
   loading = false,
   emptyState,
 }: DataTableProps<T>) {
@@ -91,77 +95,92 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
-      <Table className="table-fixed">
-        <TableHeader>
-          <TableRow>
-            {columns.map((col) => (
-              <TableHead key={col.key}>
-                {col.sortable ? (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 hover:text-foreground"
-                    onClick={() => setSort(toggleSort(sort, col.key))}
-                  >
-                    {col.header}
-                    <SortIcon sort={sort} columnKey={col.key} />
-                  </button>
-                ) : (
-                  col.header
-                )}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => (
-              <TableRow key={i}>
-                {columns.map((col) => (
-                  <TableCell key={col.key}>
-                    <Skeleton className="h-5 w-full" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : visibleRows.length === 0 ? (
+      <div className="overflow-x-auto">
+        <Table className="min-w-full">
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                {emptyState ?? 'No results.'}
-              </TableCell>
+              {columns.map((col) => (
+                <TableHead key={col.key} className={col.className}>
+                  {col.sortable ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                      onClick={() => setSort(toggleSort(sort, col.key))}
+                    >
+                      {col.header}
+                      <SortIcon sort={sort} columnKey={col.key} />
+                    </button>
+                  ) : (
+                    col.header
+                  )}
+                </TableHead>
+              ))}
             </TableRow>
-          ) : (
-            visibleRows.map((row) => {
-              const id = getRowId(row);
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => (
+                <TableRow key={i}>
+                  {columns.map((col) => (
+                    <TableCell key={col.key} className={col.className}>
+                      <Skeleton className="h-5 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : visibleRows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  {emptyState ?? 'No results.'}
+                </TableCell>
+              </TableRow>
+            ) : (
+              visibleRows.map((row, index) => {
+                const id = getRowId(row);
+                const rowClassName = getRowClassName?.(row, index) ?? '';
 
-              if (!setExpandedId) {
+                if (!setExpandedId) {
+                  return (
+                    <TableRow key={id} className={`group/row ${rowClassName}`}>
+                      {columns.map((col) => (
+                        <TableCell
+                          key={col.key}
+                          className={`py-3 ${col.className ?? ''} ${col.onCellClick ? 'cursor-pointer' : ''}`}
+                          onClick={
+                            col.onCellClick
+                              ? (e) => col.onCellClick!(row, e)
+                              : undefined
+                          }
+                        >
+                          {col.render(row)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                }
+
+                const isExpanded = expandedId === id;
                 return (
-                  <TableRow key={id}>
-                    {columns.map((col) => (
-                      <TableCell key={col.key} className="py-3">
-                        {col.render(row)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                  <ExpandableRow
+                    key={id}
+                    row={row}
+                    columns={columns}
+                    isExpanded={isExpanded}
+                    onToggle={() => setExpandedId(isExpanded ? null : id)}
+                    renderExpanded={renderExpanded}
+                    rowClassName={rowClassName}
+                  />
                 );
-              }
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-              const isExpanded = expandedId === id;
-              return (
-                <ExpandableRow
-                  key={id}
-                  row={row}
-                  columns={columns}
-                  isExpanded={isExpanded}
-                  onToggle={() => setExpandedId(isExpanded ? null : id)}
-                  renderExpanded={renderExpanded}
-                />
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
-
-      <div className="flex items-center justify-between px-2">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Rows per page</span>
           <Select
@@ -216,22 +235,35 @@ function ExpandableRow<T>({
   isExpanded,
   onToggle,
   renderExpanded,
+  rowClassName,
 }: {
   row: T;
   columns: ColumnDef<T>[];
   isExpanded: boolean;
   onToggle: () => void;
   renderExpanded?: (row: T) => ReactNode;
+  rowClassName?: string;
 }) {
   return (
     <>
       <TableRow
-        className="cursor-pointer transition-colors hover:bg-muted/50"
+        className={`group/row cursor-pointer transition-colors hover:bg-muted/50 ${rowClassName ?? ''}`}
         aria-expanded={isExpanded}
         onClick={onToggle}
       >
         {columns.map((col) => (
-          <TableCell key={col.key} className="py-3">
+          <TableCell
+            key={col.key}
+            className={`py-3 ${col.className ?? ''} ${col.onCellClick ? 'cursor-pointer' : ''}`}
+            onClick={
+              col.onCellClick
+                ? (e) => {
+                    e.stopPropagation();
+                    col.onCellClick!(row, e);
+                  }
+                : undefined
+            }
+          >
             {col.render(row)}
           </TableCell>
         ))}

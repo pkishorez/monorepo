@@ -1076,6 +1076,67 @@ describe('Subscribe', () => {
   );
 });
 
+describe('SQLiteEntity hardDelete', () => {
+  let db: Database.Database;
+  let layer: Layer.Layer<SqliteDB>;
+
+  const table = SQLiteTable.make({ tableName: 'hard_delete_test' })
+    .primary('pk', 'sk')
+    .build();
+
+  const userEntity = SQLiteEntity.make(table)
+    .eschema(UserSchema)
+    .primary()
+    .build();
+
+  const postEntity = SQLiteEntity.make(table)
+    .eschema(PostSchema)
+    .primary({ pk: ['authorId'] })
+    .build();
+
+  beforeAll(async () => {
+    db = new Database(':memory:');
+    layer = SqliteDBBetterSqlite3(db);
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+  });
+
+  afterAll(() => db.close());
+
+  itEffect('deletes only rows for the entity in a shared table', () =>
+    Effect.gen(function* () {
+      yield* userEntity.insert({
+        userId: 'user-hard-delete',
+        email: 'hard-delete@example.com',
+        name: 'Hard Delete',
+      });
+      yield* postEntity.insert({
+        authorId: 'author-hard-delete',
+        postId: 'post-hard-delete',
+        title: 'Preserved',
+        content: 'Still here',
+      });
+
+      const result = yield* userEntity.hardDelete();
+
+      expect(result.rowsDeleted).toBe(1);
+      expect(
+        db
+          .prepare(
+            'SELECT COUNT(*) as count FROM hard_delete_test WHERE _e = ?',
+          )
+          .get('User'),
+      ).toEqual({ count: 0 });
+      expect(
+        db
+          .prepare(
+            'SELECT COUNT(*) as count FROM hard_delete_test WHERE _e = ?',
+          )
+          .get('Post'),
+      ).toEqual({ count: 1 });
+    }).pipe(Effect.provide(layer)),
+  );
+});
+
 // ─── Transaction Tests ───────────────────────────────────────────────────────
 
 describe('Transactions Advanced', () => {

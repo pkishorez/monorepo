@@ -82,6 +82,13 @@ export const update = (
   };
 };
 
+const deleteWhere = (table: string, w: Where): Statement => ({
+  query: sql`DELETE FROM ${table} WHERE ${w.clause}`,
+  params: w.params,
+});
+
+export { deleteWhere as delete };
+
 type SelectOptions = {
   orderBy?: 'ASC' | 'DESC';
   orderByColumn?: string;

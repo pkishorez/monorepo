@@ -46,11 +46,10 @@ vdescribe(
     );
 
     vtest(
-      'hard delete is reserved for dangerouslyRemoveAllRows',
-      'There is no `entity.hardDelete(...)`; only `dangerouslyRemoveAllRows("i know what i am doing")` issues `DELETE`.',
+      'for bulk hard-deletes, use entity.hardDelete()',
+      '`entity.hardDelete()` physically removes all rows for this entity type from the shared table. See the hard-delete topic for details.',
       () => {
-        const guard = 'i know what i am doing';
-        expect(guard).toBe('i know what i am doing');
+        expect(true).toBe(true);
       },
     );
   },

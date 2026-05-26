@@ -117,6 +117,11 @@ export class SqliteDB extends Context.Tag('SqliteDB')<
       where: Where,
     ): Effect.Effect<{ rowsWritten: number }, SqliteDBError>;
 
+    delete(
+      table: string,
+      where: Where,
+    ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError>;
+
     deleteAll(
       table: string,
     ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError>;

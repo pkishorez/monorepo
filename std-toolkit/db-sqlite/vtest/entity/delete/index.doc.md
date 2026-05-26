@@ -10,9 +10,7 @@ refreshes `_u`, re-derives every secondary index column, and broadcasts
 the deleted entity with `meta._d: true`. Sync consumers observe the
 tombstone in the same channel as any other write.
 
-Hard delete is not exposed at the entity layer — the only way to remove
-rows is `dangerouslyRemoveAllRows("i know what i am doing")` at the
-table.
+For physical removal, see `entity.hardDelete()`.
 
 ## Usage
 
@@ -51,9 +49,8 @@ return row.value;
 - **Secondary index columns are re-derived (with the new `_u`).**
   Timeline-SK indexes need the new `_u` so the tombstone is
   observable in their order.
-- **Hard delete is reserved for `dangerouslyRemoveAllRows`.** There
-  is no `entity.hardDelete(...)`; only the table-level guard issues
-  `DELETE`.
+- **For bulk hard-deletes, use `entity.hardDelete()`.** See the
+  hard-delete topic for details.
 
 ## Tests
 

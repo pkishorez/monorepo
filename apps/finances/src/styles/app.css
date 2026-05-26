@@ -3,3 +3,28 @@
 @source '../**/*.tsx';
 
 @import '@monorepo/frontend/styles/global.css';
+
+@media (pointer: fine) {
+  * {
+    &::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: oklch(from currentColor l c h / 0.2);
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background: oklch(from currentColor l c h / 0.3);
+      background-clip: padding-box;
+    }
+    &::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+  }
+}

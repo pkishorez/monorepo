@@ -67,6 +67,16 @@ export const SqliteDBDO = (storage_: SqlStorage) => {
         catch: (cause) => SqliteDBError.updateFailed(table, cause),
       }),
 
+    delete: (table, where) =>
+      Effect.try({
+        try: () => {
+          const stmt = Sql.delete(table, where);
+          const result = storage.exec(stmt.query, ...stmt.params);
+          return { rowsDeleted: result.rowsWritten };
+        },
+        catch: (cause) => SqliteDBError.deleteFailed(table, cause),
+      }),
+
     deleteAll: (table) =>
       Effect.try({
         try: () => {
