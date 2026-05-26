@@ -39,7 +39,7 @@ import {
   TableRow,
 } from '@monorepo/frontend/components/ui/table';
 import { Upload, Trash2 } from 'lucide-react';
-import { ProjectionOutputSchema } from '@/domain';
+import { DEFAULT_SETTINGS, ProjectionOutputSchema } from '@/domain';
 import {
   transactionsCollection,
   replaceTransactions,
@@ -89,8 +89,15 @@ function DataManagementSection() {
         try {
           const raw = JSON.parse(e.target?.result as string);
           const decoded = Schema.decodeUnknownSync(ProjectionOutputSchema)(raw);
-          replaceTransactions(decoded.transactions as never);
-          setUploadError(null);
+          void replaceTransactions(decoded)
+            .then(() => setUploadError(null))
+            .catch((uploadErr) =>
+              setUploadError(
+                uploadErr instanceof Error
+                  ? uploadErr.message
+                  : 'Failed to upload transactions',
+              ),
+            );
         } catch (err) {
           setUploadError(
             err instanceof Error ? err.message : 'Failed to parse JSON file',
@@ -105,11 +112,20 @@ function DataManagementSection() {
   );
 
   const handleClearData = useCallback(() => {
-    const keys = Array.from(transactionsCollection.state.keys());
-    if (keys.length > 0) {
-      transactionsCollection.delete(keys);
-    }
-    setUploadError(null);
+    void replaceTransactions({
+      generated_at: new Date().toISOString(),
+      accounts: [],
+      total_transactions: 0,
+      transactions: [],
+    })
+      .then(() => setUploadError(null))
+      .catch((clearErr) =>
+        setUploadError(
+          clearErr instanceof Error
+            ? clearErr.message
+            : 'Failed to clear transactions',
+        ),
+      );
   }, []);
 
   return (
@@ -196,7 +212,7 @@ function CategoryTypeMappingSection() {
 
   const transactions = txnQuery.data ?? [];
   const overrides = ovdQuery.data ?? [];
-  const settings = settingsQuery.data ?? [];
+  const settings = settingsQuery.data ?? DEFAULT_SETTINGS;
 
   const merged = useMemo(
     () => mergeTransactionsWithOverrides(transactions, overrides),
@@ -205,11 +221,11 @@ function CategoryTypeMappingSection() {
 
   const settingsMap = useMemo(() => {
     const map = new Map<string, CategoryType>();
-    for (const s of settings) {
-      map.set(s.category, s.type);
+    for (const [category, type] of Object.entries(settings.categoryTypes)) {
+      map.set(category, type);
     }
     return map;
-  }, [settings]);
+  }, [settings.categoryTypes]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -246,40 +262,25 @@ function CategoryTypeMappingSection() {
 
   const handleTypeChange = useCallback(
     (category: string, value: string) => {
+      const categoryTypes = { ...settings.categoryTypes };
       if (value === 'auto') {
-        const keys = Array.from(settingsCollection.state.keys());
-        const key = keys.find((k) => {
-          const item = settingsCollection.state.get(k);
-          return item?.category === category;
-        });
-        if (key) {
-          settingsCollection.delete([key]);
-        }
-        financesRuntime
-          .runPromise(
-            Effect.gen(function* () {
-              const { client } = yield* FinancesClient;
-              yield* client.deleteCategorySetting({ category });
-            }),
-          )
-          .catch(() => {});
-        return;
+        delete categoryTypes[category];
+      } else {
+        categoryTypes[category] = value as CategoryType;
       }
 
+      const nextSettings = { categoryTypes };
       const now = new Date().toISOString();
       settingsUtils.upsert({
-        value: { category, type: value as CategoryType },
-        meta: { _v: '1', _e: 'CategorySetting', _d: false, _u: now },
+        value: nextSettings,
+        meta: { _v: 'v1', _e: 'Settings', _u: now },
       });
 
       financesRuntime
         .runPromise(
           Effect.gen(function* () {
             const { client } = yield* FinancesClient;
-            yield* client.saveCategorySetting({
-              category,
-              type: value as CategoryType,
-            });
+            yield* client.putSettings(nextSettings);
           }),
         )
         .catch(() => {});

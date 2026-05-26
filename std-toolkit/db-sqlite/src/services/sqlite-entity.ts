@@ -6,6 +6,7 @@ import {
   SqliteDBError,
   TransactionPendingBroadcasts,
 } from '../sql/db.js';
+import * as Sql from '../sql/helpers/index.js';
 import {
   deriveIndexKeyValue,
   extractKeyOp,
@@ -400,6 +401,19 @@ export class SQLiteEntity<
 
       return deletedEntity;
     });
+  }
+
+  /**
+   * Hard-deletes this entity's rows from the shared table.
+   *
+   * @param where - Optional additional row filter
+   */
+  hardDelete(
+    where: Sql.Where = Sql.whereNone,
+  ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
+    return this.#table.delete(
+      Sql.whereAnd(Sql.where('_e', '=', this.#eschema.name), where),
+    );
   }
 
   /**

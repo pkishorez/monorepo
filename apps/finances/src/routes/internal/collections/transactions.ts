@@ -1,42 +1,56 @@
 import { createCollection } from '@tanstack/react-db';
-import { Effect } from 'effect';
-import { EntityESchema } from '@std-toolkit/eschema';
-import { Schema } from 'effect';
-import { stdCollectionOptions } from '@std-toolkit/tanstack';
-import type { TransactionSchema } from '@/domain/transaction';
+import { Effect, Stream } from 'effect';
+import type { EntityType } from '@std-toolkit/core';
+import { createStdSync } from '@std-toolkit/tanstack-sync';
+import { ProjectionOutputSchema, TransactionSchema } from '@/domain/index';
+import { FinancesClient, financesRuntime } from '@/routes/internal/effect';
 
-const TransactionESchema = EntityESchema.make('Transaction', 'id', {
-  date: Schema.String,
-  owner: Schema.String,
-  bank: Schema.String,
-  description: Schema.String,
-  amount: Schema.Number,
-  type: Schema.Literal('credit', 'debit'),
-  category: Schema.String,
-  subcategory: Schema.String,
-  is_transfer: Schema.Boolean,
-}).build();
+type ProjectionOutput = typeof ProjectionOutputSchema.Type;
+type Transaction = typeof TransactionSchema.Type;
 
-export const transactionsCollection = createCollection(
-  stdCollectionOptions({
-    schema: TransactionESchema,
-    syncMode: 'eager',
-    getMore: () => Effect.succeed([]),
-  }),
-);
+const std = createStdSync();
 
-export function replaceTransactions(transactions: TransactionSchema[]) {
-  const keys = Array.from(transactionsCollection.state.keys());
-  if (keys.length > 0) {
-    transactionsCollection.delete(keys);
-  }
+const transactionsSyncConfig = std.totalSync({
+  schema: TransactionSchema,
+  subscribe: ({ getCursor, push, onInitialSyncDone }) =>
+    Effect.gen(function* () {
+      const { client } = yield* FinancesClient;
+      const cursor = yield* getCursor;
+      const stream = client.subscribeTransactions({
+        cursor: cursor?.meta._u ?? null,
+      });
 
-  if (transactions.length > 0) {
-    const now = new Date().toISOString();
-    const items = transactions.map((t) => ({
-      ...t,
-      _meta: { _v: '1', _e: 'Transaction', _d: false, _u: now },
-    }));
-    transactionsCollection.insert(items);
-  }
+      yield* Stream.runForEach(stream, (event) =>
+        Effect.sync(() => {
+          if (event._tag === 'batch') {
+            push(event.items as EntityType<Transaction>[]);
+          } else if (event._tag === 'initial-sync-done') {
+            onInitialSyncDone();
+          }
+        }),
+      );
+    }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
+});
+
+export const transactionsCollection = createCollection(transactionsSyncConfig);
+export const transactionsUtils = transactionsSyncConfig.utils;
+
+export function replaceTransactions(projection: ProjectionOutput) {
+  return financesRuntime
+    .runPromise(
+      Effect.gen(function* () {
+        const { client } = yield* FinancesClient;
+        return yield* client.replaceTransactions(projection);
+      }),
+    )
+    .then((items) => {
+      const keys = Array.from(transactionsCollection.state.keys());
+      if (keys.length > 0) {
+        transactionsUtils.remove(keys);
+      }
+      if (items.length > 0) {
+        transactionsUtils.upsert(items as EntityType<Transaction>[]);
+      }
+      return items;
+    });
 }

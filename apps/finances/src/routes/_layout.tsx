@@ -9,7 +9,12 @@ import {
   PopoverTrigger,
 } from '@monorepo/frontend/components/ui/popover';
 import { Separator } from '@monorepo/frontend/components/ui/separator';
-import { CalendarIcon, Settings, X } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from '@monorepo/frontend/components/ui/sheet';
+import { CalendarIcon, Menu, Settings, X } from 'lucide-react';
 import type { DateRange } from '@monorepo/frontend/components/ui/calendar';
 import { transactionsCollection } from '@/routes/internal/collections';
 import {
@@ -131,10 +136,13 @@ function DateRangePicker() {
           <CalendarIcon className="size-3.5" />
           <span className="max-w-[200px] truncate">{label}</span>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
-          <div className="flex">
-            <div className="flex flex-col gap-1 border-r p-3">
-              <span className="mb-1 px-2 text-xs font-medium text-muted-foreground">
+        <PopoverContent
+          className="w-auto max-w-[calc(100vw-2rem)] p-0"
+          align="end"
+        >
+          <div className="flex max-sm:flex-col">
+            <div className="flex gap-1 border-r p-3 max-sm:flex-wrap max-sm:border-r-0 max-sm:border-b">
+              <span className="mb-1 w-full px-2 text-xs font-medium text-muted-foreground">
                 Quick select
               </span>
               {presets.map((preset) => (
@@ -154,7 +162,11 @@ function DateRangePicker() {
                 mode="range"
                 selected={dateRange}
                 onSelect={(range) => setDateRange(range ?? undefined)}
-                numberOfMonths={2}
+                numberOfMonths={
+                  typeof window !== 'undefined' && window.innerWidth < 640
+                    ? 1
+                    : 2
+                }
                 disabled={[
                   ...(minDate ? [{ before: minDate }] : []),
                   ...(maxDate ? [{ after: maxDate }] : []),
@@ -187,35 +199,72 @@ function DateRangePicker() {
   );
 }
 
+const NAV_LINK_CLASS =
+  'rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground [&.active]:bg-muted [&.active]:text-foreground';
+
 function LayoutComponent() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   return (
     <DateRangeProvider>
       <div className="flex h-full flex-col">
         <header className="flex items-center gap-4 border-b px-4 py-2">
           <h1 className="text-lg font-semibold">Finances</h1>
-          <nav className="flex gap-1">
-            <Link
-              to="/triage"
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground [&.active]:bg-muted [&.active]:text-foreground"
-            >
+          <nav className="hidden gap-1 sm:flex">
+            <Link to="/triage" className={NAV_LINK_CLASS}>
               Triage
             </Link>
-            <Link
-              to="/dashboard"
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground [&.active]:bg-muted [&.active]:text-foreground"
-            >
+            <Link to="/dashboard" className={NAV_LINK_CLASS}>
               Dashboard
             </Link>
           </nav>
           <div className="ml-auto flex items-center gap-3">
             <DateRangePicker />
-            <Separator orientation="vertical" className="h-5" />
+            <Separator orientation="vertical" className="hidden h-5 sm:block" />
             <Link
               to="/settings"
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground [&.active]:text-foreground"
+              className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground sm:block [&.active]:text-foreground"
             >
               <Settings className="size-4" />
             </Link>
+            <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+              <SheetTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="size-8 p-0 sm:hidden"
+                  />
+                }
+              >
+                <Menu className="size-4" />
+              </SheetTrigger>
+              <SheetContent side="right" className="w-56">
+                <nav className="flex flex-col gap-1 pt-4">
+                  <Link
+                    to="/triage"
+                    className={NAV_LINK_CLASS}
+                    onClick={() => setMobileNavOpen(false)}
+                  >
+                    Triage
+                  </Link>
+                  <Link
+                    to="/dashboard"
+                    className={NAV_LINK_CLASS}
+                    onClick={() => setMobileNavOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    to="/settings"
+                    className={NAV_LINK_CLASS}
+                    onClick={() => setMobileNavOpen(false)}
+                  >
+                    Settings
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </header>
         <main className="flex-1 overflow-auto p-4">

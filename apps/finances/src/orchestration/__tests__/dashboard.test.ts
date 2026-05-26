@@ -106,7 +106,12 @@ describe('aggregateByMonth', () => {
 
   it('labels missing category as Uncategorized', () => {
     const txns: MergedTransaction[] = [
-      makeTxn({ id: 'tx1', date: '2024-03-15', amount: -100 }),
+      makeTxn({
+        id: 'tx1',
+        date: '2024-03-15',
+        amount: -100,
+        category: undefined as never,
+      }),
     ];
 
     const result = aggregateByMonth(txns);
@@ -370,7 +375,7 @@ describe('extractCategories', () => {
 
   it('excludes undefined categories', () => {
     const txns: MergedTransaction[] = [
-      makeTxn({ id: 'tx1' }),
+      makeTxn({ id: 'tx1', category: undefined as never }),
       makeTxn({ id: 'tx2', category: 'food' }),
     ];
 

@@ -1,6 +1,14 @@
-import { Fragment, memo, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createFileRoute } from '@tanstack/react-router';
-import { useLiveQuery } from '@tanstack/react-db';
+import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { Effect, Schema } from 'effect';
 import { Badge } from '@monorepo/frontend/components/ui/badge';
 import { Button } from '@monorepo/frontend/components/ui/button';
@@ -14,12 +22,17 @@ import {
   ComboboxList,
 } from '@monorepo/frontend/components/ui/combobox';
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@monorepo/frontend/components/ui/context-menu';
+import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@monorepo/frontend/components/ui/dialog';
 import { Input } from '@monorepo/frontend/components/ui/input';
 import { Progress } from '@monorepo/frontend/components/ui/progress';
@@ -47,13 +60,24 @@ import {
 } from '@monorepo/frontend/components/ui/table';
 import {
   Check,
+  ChevronRight,
+  Circle,
+  CircleCheck,
   EyeOff,
   RotateCcw,
   StickyNote,
+  Undo2,
   UploadCloud,
   X,
 } from 'lucide-react';
-import { ProjectionOutputSchema } from '@/domain';
+import {
+  ProjectionOutputSchema,
+  filterByTriageTab,
+  filterCancelled,
+  groupCancelledPairs,
+  computeMatchablePairs,
+  type CancelledGroup,
+} from '@/domain';
 import { DataTable, type ColumnDef } from '@/routes/components/data-table';
 import {
   transactionsCollection,
@@ -63,15 +87,9 @@ import {
 } from '@/routes/internal/collections';
 import { useDateRange } from '@/routes/internal/date-range-context';
 import { FinancesClient, financesRuntime } from '@/routes/internal/effect';
-import type { OverrideSchema } from '@/domain';
-import {
-  computeCoverage,
-  mergeTransactionsWithOverrides,
-  type MergedTransaction,
-} from '@/orchestration';
-
-type Override = typeof OverrideSchema.Type;
-type StatusTab = 'all' | 'unverified' | 'verified' | 'ignored' | 'transfers';
+import { computeCoverage, type MergedTransaction } from '@/orchestration';
+type TriageTab = 'all' | 'unresolved' | 'resolved' | 'ignored';
+type CancelTab = 'cancel-out' | 'cancelled';
 type SortKey = 'amount' | 'date';
 type SortDirection = 'asc' | 'desc';
 
@@ -84,13 +102,6 @@ interface AmountRange {
   min: string;
   max: string;
 }
-
-const STATUS_OPTIONS: { value: StatusTab; label: string }[] = [
-  { value: 'transfers', label: 'Transfers' },
-  { value: 'unverified', label: 'Unverified' },
-  { value: 'verified', label: 'Verified' },
-  { value: 'ignored', label: 'Ignored' },
-];
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'date-desc', label: 'Date newest' },
@@ -135,7 +146,10 @@ function MultiSelectCombobox({
           if (val) onToggle(val);
         }}
       >
-        <ComboboxInput placeholder={displayLabel} className="h-9 w-40" />
+        <ComboboxInput
+          placeholder={displayLabel}
+          className="h-9 w-full sm:w-40"
+        />
         <ComboboxContent>
           <ComboboxList>
             {options.map((opt) => (
@@ -187,6 +201,53 @@ function sortMerged(
   return sorted;
 }
 
+function applyUserFilters(
+  data: MergedTransaction[],
+  filters: {
+    bankFilters: string[];
+    categoryFilters: string[];
+    ownerFilters: string[];
+    amountRange: AmountRange;
+    search: string;
+  },
+): MergedTransaction[] {
+  let result = data;
+
+  if (filters.bankFilters.length > 0) {
+    result = result.filter((t) => filters.bankFilters.includes(t.bank));
+  }
+  if (filters.categoryFilters.length > 0) {
+    result = result.filter(
+      (t) => t.category && filters.categoryFilters.includes(t.category),
+    );
+  }
+  if (filters.ownerFilters.length > 0) {
+    result = result.filter(
+      (t) => t.owner && filters.ownerFilters.includes(t.owner),
+    );
+  }
+
+  const minAmount = filters.amountRange.min
+    ? parseFloat(filters.amountRange.min)
+    : null;
+  const maxAmount = filters.amountRange.max
+    ? parseFloat(filters.amountRange.max)
+    : null;
+  if (minAmount !== null && !isNaN(minAmount)) {
+    result = result.filter((t) => Math.abs(t.amount) >= minAmount);
+  }
+  if (maxAmount !== null && !isNaN(maxAmount)) {
+    result = result.filter((t) => Math.abs(t.amount) <= maxAmount);
+  }
+
+  if (filters.search.trim()) {
+    const term = filters.search.trim().toLowerCase();
+    result = result.filter((t) => t.description.toLowerCase().includes(term));
+  }
+
+  return result;
+}
+
 function saveOverride(overrideValue: {
   transactionId: string;
   category: string;
@@ -217,19 +278,41 @@ function saveOverride(overrideValue: {
 }
 
 function TriagePage() {
-  const txnQuery = useLiveQuery(transactionsCollection);
-  const ovdQuery = useLiveQuery(overridesCollection);
+  const { data: allMerged = [], isLoading: loading } = useLiveQuery((q) =>
+    q
+      .from({ t: transactionsCollection })
+      .leftJoin({ o: overridesCollection }, ({ t, o }) =>
+        eq(t.id, o.transactionId),
+      )
+      .select(({ t, o }) => ({
+        id: t.id,
+        date: t.date,
+        owner: t.owner,
+        bank: t.bank,
+        description: t.description,
+        amount: t.amount,
+        type: t.type,
+        original_category: t.category,
+        category: coalesce(o.category, t.category),
+        subcategory: coalesce(o.subcategory, t.subcategory),
+        is_transfer: t.is_transfer,
+        notes: o.notes,
+        verified: o.verified,
+        ignore: o.ignore,
+        cancelled_by: o.cancelled_by,
+      })),
+  );
   const { dateRange } = useDateRange();
 
-  const loading = txnQuery.isLoading || ovdQuery.isLoading;
-  const transactions = txnQuery.data ?? [];
-  const overrides = (ovdQuery.data ?? []) as Override[];
-
-  const [statusFilters, setStatusFilters] = useState<StatusTab[]>([
-    'transfers',
-  ]);
+  const [activeTriageTab, setActiveTriageTab] =
+    useState<TriageTab>('unresolved');
+  const [activeCancelTab, setActiveCancelTab] = useState<CancelTab | null>(
+    null,
+  );
+  const [notesOpenId, setNotesOpenId] = useState<string | null>(null);
   const [bankFilters, setBankFilters] = useState<string[]>([]);
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [ownerFilters, setOwnerFilters] = useState<string[]>([]);
   const [amountRange, setAmountRange] = useState<AmountRange>({
     min: '',
     max: '',
@@ -238,11 +321,6 @@ function TriagePage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-
-  const allMerged = useMemo(
-    () => mergeTransactionsWithOverrides(transactions, overrides),
-    [transactions, overrides],
-  );
 
   const merged = useMemo(() => {
     if (!dateRange?.from) return allMerged;
@@ -253,26 +331,29 @@ function TriagePage() {
     return allMerged.filter((t) => t.date >= fromStr && t.date <= toStr);
   }, [allMerged, dateRange]);
 
-  const { uniqueCategories, uniqueBanks } = useMemo(() => {
+  const { uniqueCategories, uniqueBanks, uniqueOwners } = useMemo(() => {
     const cats = new Set<string>();
     const banks = new Set<string>();
+    const owners = new Set<string>();
     for (const t of merged) {
       if (t.category) cats.add(t.category);
       if (t.bank) banks.add(t.bank);
+      if (t.owner) owners.add(t.owner);
     }
     return {
       uniqueCategories: [...cats].sort(),
       uniqueBanks: [...banks].sort(),
+      uniqueOwners: [...owners].sort(),
     };
   }, [merged]);
 
   const originalCategoryMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const t of transactions) {
-      map.set(t.id, t.category);
+    for (const t of merged) {
+      map.set(t.id, t.original_category ?? t.category);
     }
     return map;
-  }, [transactions]);
+  }, [merged]);
 
   const subcategoriesByCategory = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -295,73 +376,44 @@ function TriagePage() {
   const debits = useMemo(() => merged.filter((t) => t.amount < 0), [merged]);
   const coverage = useMemo(() => computeCoverage(debits), [debits]);
 
-  const filteredData = useMemo(() => {
-    let data = merged;
+  const userFilters = useMemo(
+    () => ({ bankFilters, categoryFilters, ownerFilters, amountRange, search }),
+    [bankFilters, categoryFilters, ownerFilters, amountRange, search],
+  );
 
-    if (statusFilters.length > 0) {
-      data = data.filter((t) => {
-        return statusFilters.some((status) => {
-          if (status === 'transfers')
-            return t.is_transfer === true && !t.cancelled_by;
-          if (status === 'unverified')
-            return !t.verified && !t.ignore && !t.is_transfer;
-          if (status === 'verified') return t.verified === true && !t.ignore;
-          if (status === 'ignored') return t.ignore === true;
-          return true;
-        });
-      });
-    }
+  const triageData = useMemo(() => {
+    if (activeCancelTab !== null) return [];
+    const data = filterByTriageTab(merged, activeTriageTab);
+    return sortMerged(applyUserFilters(data, userFilters), sort);
+  }, [activeCancelTab, merged, activeTriageTab, userFilters, sort]);
 
-    if (bankFilters.length > 0) {
-      data = data.filter((t) => bankFilters.includes(t.bank));
-    }
+  const cancelledGroups = useMemo(() => {
+    if (activeCancelTab !== 'cancelled') return [];
+    const filtered = applyUserFilters(filterCancelled(merged), userFilters);
+    return groupCancelledPairs(filtered);
+  }, [activeCancelTab, merged, userFilters]);
 
-    if (categoryFilters.length > 0) {
-      data = data.filter(
-        (t) => t.category && categoryFilters.includes(t.category),
-      );
-    }
+  const matchablePairs = useMemo(() => {
+    if (activeCancelTab !== 'cancel-out') return null;
+    const filtered = applyUserFilters(merged, userFilters);
+    return computeMatchablePairs(filtered);
+  }, [activeCancelTab, merged, userFilters]);
 
-    const minAmount = amountRange.min ? parseFloat(amountRange.min) : null;
-    const maxAmount = amountRange.max ? parseFloat(amountRange.max) : null;
-    if (minAmount !== null && !isNaN(minAmount)) {
-      data = data.filter((t) => Math.abs(t.amount) >= minAmount);
-    }
-    if (maxAmount !== null && !isNaN(maxAmount)) {
-      data = data.filter((t) => Math.abs(t.amount) <= maxAmount);
-    }
-
-    if (search.trim()) {
-      const term = search.trim().toLowerCase();
-      data = data.filter((t) => t.description.toLowerCase().includes(term));
-    }
-
-    return sortMerged(data, sort);
-  }, [
-    merged,
-    statusFilters,
-    bankFilters,
-    categoryFilters,
-    amountRange,
-    search,
-    sort,
-  ]);
-
-  const pageVerifiedCount = useMemo(() => {
+  const pageResolvedCount = useMemo(() => {
     const start = page * pageSize;
-    const pageItems = filteredData.slice(start, start + pageSize);
+    const pageItems = triageData.slice(start, start + pageSize);
     return pageItems.filter((t) => t.verified === true).length;
-  }, [filteredData, page, pageSize]);
+  }, [triageData, page, pageSize]);
 
   const pageItemCount = useMemo(() => {
     const start = page * pageSize;
-    return filteredData.slice(start, start + pageSize).length;
-  }, [filteredData, page, pageSize]);
+    return triageData.slice(start, start + pageSize).length;
+  }, [triageData, page, pageSize]);
 
   const handleReset = useCallback(() => {
-    setStatusFilters([]);
     setBankFilters([]);
     setCategoryFilters([]);
+    setOwnerFilters([]);
     setAmountRange({ min: '', max: '' });
     setSort(DEFAULT_SORT);
     setSearch('');
@@ -385,14 +437,14 @@ function TriagePage() {
 
   const hasActiveFilters = useMemo(
     () =>
-      statusFilters.length > 0 ||
       bankFilters.length > 0 ||
       categoryFilters.length > 0 ||
+      ownerFilters.length > 0 ||
       amountRange.min !== '' ||
       amountRange.max !== '' ||
       sort.key !== DEFAULT_SORT.key ||
       sort.direction !== DEFAULT_SORT.direction,
-    [statusFilters, bankFilters, categoryFilters, amountRange, sort],
+    [bankFilters, categoryFilters, ownerFilters, amountRange, sort],
   );
 
   const sortValue = `${sort.key}-${sort.direction}`;
@@ -409,11 +461,6 @@ function TriagePage() {
     [],
   );
 
-  const removeStatusFilter = useCallback((value: StatusTab) => {
-    setStatusFilters((prev) => prev.filter((v) => v !== value));
-    setPage(0);
-  }, []);
-
   const removeBankFilter = useCallback((value: string) => {
     setBankFilters((prev) => prev.filter((v) => v !== value));
     setPage(0);
@@ -421,6 +468,11 @@ function TriagePage() {
 
   const removeCategoryFilter = useCallback((value: string) => {
     setCategoryFilters((prev) => prev.filter((v) => v !== value));
+    setPage(0);
+  }, []);
+
+  const removeOwnerFilter = useCallback((value: string) => {
+    setOwnerFilters((prev) => prev.filter((v) => v !== value));
     setPage(0);
   }, []);
 
@@ -488,24 +540,21 @@ function TriagePage() {
     [],
   );
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const isTransfersView = useMemo(
-    () => statusFilters.length === 1 && statusFilters[0] === 'transfers',
-    [statusFilters],
-  );
-
-  const transferGroups = useMemo(() => {
-    if (!isTransfersView) return null;
-    const groups = new Map<number, MergedTransaction[]>();
-    for (const t of filteredData) {
-      const absAmount = Math.abs(t.amount);
-      const existing = groups.get(absAmount);
-      if (existing) existing.push(t);
-      else groups.set(absAmount, [t]);
+  const handleUncancel = useCallback((group: CancelledGroup) => {
+    for (const txn of group.transactions) {
+      saveOverride({
+        transactionId: txn.id,
+        category: txn.category ?? '',
+        subcategory: txn.subcategory ?? '',
+        ...(txn.notes ? { notes: txn.notes } : {}),
+        verified: txn.verified ?? false,
+        ignore: txn.ignore ?? false,
+        cancelled_by: null,
+      });
     }
-    return groups;
-  }, [isTransfersView, filteredData]);
+  }, []);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggleSelection = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -516,11 +565,20 @@ function TriagePage() {
     });
   }, []);
 
+  const cancelOutSource = useMemo(() => {
+    if (!matchablePairs) return [];
+    const all: MergedTransaction[] = [];
+    for (const rows of matchablePairs.values()) {
+      all.push(...rows);
+    }
+    return all;
+  }, [matchablePairs]);
+
   const cancelOutValidation = useMemo(() => {
     if (selectedIds.size !== 2) {
       return { valid: false, reason: 'Select exactly 2 records to cancel out' };
     }
-    const selected = filteredData.filter((t) => selectedIds.has(t.id));
+    const selected = cancelOutSource.filter((t) => selectedIds.has(t.id));
     if (selected.length !== 2) {
       return { valid: false, reason: 'Select exactly 2 records to cancel out' };
     }
@@ -539,11 +597,11 @@ function TriagePage() {
       };
     }
     return { valid: true, reason: '' };
-  }, [selectedIds, filteredData]);
+  }, [selectedIds, cancelOutSource]);
 
   const handleCancelOut = useCallback(() => {
     if (!cancelOutValidation.valid) return;
-    const selected = filteredData.filter((t) => selectedIds.has(t.id));
+    const selected = cancelOutSource.filter((t) => selectedIds.has(t.id));
     if (selected.length !== 2) return;
     const [a, b] = selected as [MergedTransaction, MergedTransaction];
 
@@ -568,7 +626,7 @@ function TriagePage() {
     });
 
     setSelectedIds(new Set());
-  }, [cancelOutValidation.valid, filteredData, selectedIds]);
+  }, [cancelOutValidation.valid, cancelOutSource, selectedIds]);
 
   const columns: ColumnDef<MergedTransaction>[] = useMemo(
     () => [
@@ -576,13 +634,17 @@ function TriagePage() {
         key: 'description',
         header: 'Description',
         sortable: false,
+        className: 'w-[40%] min-w-[200px]',
         render: (row) => (
-          <span className="text-sm leading-snug">{row.description}</span>
+          <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-snug group-hover/row:overflow-visible group-hover/row:whitespace-normal">
+            {row.description}
+          </span>
         ),
       },
       {
         key: 'category',
         header: 'Category / Subcategory',
+        className: 'min-w-[180px]',
         render: (row) => (
           <div
             className="flex flex-col gap-1"
@@ -606,35 +668,94 @@ function TriagePage() {
       },
       {
         key: 'amount',
-        header: 'Amount / Bank',
+        header: 'Amount',
+        className: 'min-w-[120px]',
         render: (row) => (
-          <div className="flex flex-col items-end gap-0.5 text-right">
-            <span
-              className={`font-mono text-sm tabular-nums ${row.amount < 0 ? 'text-destructive' : 'text-positive'}`}
-            >
-              {row.amount < 0 ? '-' : '+'}
-              {formatCurrency(row.amount)}
+          <span
+            className={`font-mono text-sm tabular-nums ${row.amount < 0 ? 'text-destructive' : 'text-positive'}`}
+          >
+            {row.amount < 0 ? '-' : '+'}
+            {formatCurrency(row.amount)}
+          </span>
+        ),
+      },
+      {
+        key: 'bank',
+        header: 'Bank',
+        className: 'min-w-[120px]',
+        render: (row) => (
+          <div className="flex flex-col">
+            <span className="text-sm text-muted-foreground">
+              {row.bank || '-'}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {row.bank || '-'} · {row.date}
-            </span>
+            {row.owner && (
+              <span className="text-xs font-semibold">{row.owner}</span>
+            )}
           </div>
+        ),
+      },
+      {
+        key: 'date',
+        header: 'Date',
+        className: 'min-w-[100px]',
+        render: (row) => (
+          <span className="text-sm text-muted-foreground">{row.date}</span>
         ),
       },
       {
         key: 'notes',
         header: '',
-        render: (row) => <NotesDialog txn={row} onSave={handleNotesSave} />,
+        className: 'relative w-14 !p-0',
+        onCellClick: (row, e) => {
+          e.stopPropagation();
+          setNotesOpenId(row.id);
+        },
+        render: (row) => {
+          const hasNotes = (row.notes ?? '').length > 0;
+          return (
+            <div className="absolute inset-0 flex items-center justify-center transition-colors hover:bg-muted">
+              <StickyNote
+                className={`size-3.5 ${hasNotes ? 'text-foreground' : 'text-muted-foreground'}`}
+              />
+            </div>
+          );
+        },
       },
       {
         key: 'status',
         header: '',
+        className: 'relative w-14 !p-0',
+        onCellClick: (row, e) => {
+          e.stopPropagation();
+          if (row.ignore) {
+            handleInlineIgnore(row);
+          } else {
+            handleInlineVerify(row);
+          }
+        },
         render: (row) => (
-          <InlineStatusCell
-            txn={row}
-            onVerifyToggle={handleInlineVerify}
-            onIgnoreToggle={handleInlineIgnore}
-          />
+          <ContextMenu>
+            <ContextMenuTrigger className="absolute inset-0 flex items-center justify-center transition-colors hover:bg-muted">
+              {row.ignore ? (
+                <EyeOff className="size-4 text-muted-foreground" />
+              ) : row.verified ? (
+                <CircleCheck className="size-4 text-primary" />
+              ) : (
+                <Circle className="size-4 text-muted-foreground" />
+              )}
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleInlineIgnore(row);
+                }}
+              >
+                <EyeOff className="size-4" />
+                {row.ignore ? 'Unignore' : 'Ignore'}
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         ),
       },
     ],
@@ -650,7 +771,19 @@ function TriagePage() {
     ],
   );
 
-  if (!loading && transactions.length === 0) {
+  const handleTriageTabClick = useCallback((tab: TriageTab) => {
+    setActiveTriageTab(tab);
+    setActiveCancelTab(null);
+    setPage(0);
+  }, []);
+
+  const handleCancelTabClick = useCallback((tab: CancelTab) => {
+    setActiveCancelTab(tab);
+    setPage(0);
+    setSelectedIds(new Set());
+  }, []);
+
+  if (!loading && allMerged.length === 0) {
     return <EmptyState />;
   }
 
@@ -660,23 +793,60 @@ function TriagePage() {
         <div className="rounded-lg border bg-card p-4">
           <Progress value={coverage.percentage} className="flex-1">
             <span className="text-sm font-medium">
-              {coverage.percentage}% of spend verified
+              {coverage.percentage}% of spend resolved
             </span>
           </Progress>
-          <span className="mt-1.5 block text-xs text-muted-foreground">
-            {pageVerifiedCount} of {pageItemCount} on this page verified
-          </span>
+          {activeCancelTab === null && (
+            <span className="mt-1.5 block text-xs text-muted-foreground">
+              {pageResolvedCount} of {pageItemCount} on this page resolved
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-6">
+          <div className="flex items-center gap-1 rounded-md bg-muted p-1">
+            {(['all', 'unresolved', 'resolved', 'ignored'] as TriageTab[]).map(
+              (tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => handleTriageTabClick(tab)}
+                  className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                    activeCancelTab === null && activeTriageTab === tab
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ),
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 rounded-md bg-muted p-1">
+            {(['cancel-out', 'cancelled'] as CancelTab[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => handleCancelTabClick(tab)}
+                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                  activeCancelTab === tab
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab === 'cancel-out' ? 'Cancel Out' : 'Cancelled'}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
           <MultiSelectCombobox
-            label="Status"
-            selected={statusFilters}
-            options={STATUS_OPTIONS.map((o) => o.value)}
-            labels={Object.fromEntries(
-              STATUS_OPTIONS.map((o) => [o.value, o.label]),
-            )}
-            onToggle={(val) => toggleFilter(setStatusFilters, val as StatusTab)}
+            label="Owner"
+            selected={ownerFilters}
+            options={uniqueOwners}
+            onToggle={(val) => toggleFilter(setOwnerFilters, val)}
           />
 
           <MultiSelectCombobox
@@ -703,10 +873,13 @@ function TriagePage() {
                 placeholder="Min"
                 value={amountRange.min}
                 onChange={(e) => {
-                  setAmountRange((prev) => ({ ...prev, min: e.target.value }));
+                  setAmountRange((prev) => ({
+                    ...prev,
+                    min: e.target.value,
+                  }));
                   setPage(0);
                 }}
-                className="h-9 w-24"
+                className="h-9 w-20 sm:w-24"
               />
               <span className="text-xs text-muted-foreground">–</span>
               <Input
@@ -714,10 +887,13 @@ function TriagePage() {
                 placeholder="Max"
                 value={amountRange.max}
                 onChange={(e) => {
-                  setAmountRange((prev) => ({ ...prev, max: e.target.value }));
+                  setAmountRange((prev) => ({
+                    ...prev,
+                    max: e.target.value,
+                  }));
                   setPage(0);
                 }}
-                className="h-9 w-24"
+                className="h-9 w-20 sm:w-24"
               />
             </div>
           </div>
@@ -736,7 +912,7 @@ function TriagePage() {
                 setSort({ key, direction: dir });
               }}
             >
-              <SelectTrigger className="h-9 w-40">
+              <SelectTrigger className="h-9 w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -778,17 +954,6 @@ function TriagePage() {
 
         {hasActiveFilters && (
           <div className="flex flex-wrap items-center gap-1.5">
-            {statusFilters.map((s) => (
-              <Badge key={`status-${s}`} variant="secondary" className="gap-1">
-                Status: {STATUS_OPTIONS.find((o) => o.value === s)?.label ?? s}
-                <button
-                  onClick={() => removeStatusFilter(s)}
-                  className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
-                >
-                  <X className="size-3" />
-                </button>
-              </Badge>
-            ))}
             {bankFilters.map((b) => (
               <Badge key={`bank-${b}`} variant="secondary" className="gap-1">
                 Bank: {b}
@@ -809,6 +974,17 @@ function TriagePage() {
                 Category: {c}
                 <button
                   onClick={() => removeCategoryFilter(c)}
+                  className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            ))}
+            {ownerFilters.map((o) => (
+              <Badge key={`owner-${o}`} variant="secondary" className="gap-1">
+                Owner: {o}
+                <button
+                  onClick={() => removeOwnerFilter(o)}
                   className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
                 >
                   <X className="size-3" />
@@ -869,9 +1045,9 @@ function TriagePage() {
         <Separator />
       </div>
 
-      {isTransfersView && transferGroups ? (
-        <TransfersGroupedTable
-          groups={transferGroups}
+      {activeCancelTab === 'cancel-out' && matchablePairs ? (
+        <CancelOutGroupedTable
+          groups={matchablePairs}
           columns={columns}
           selectedIds={selectedIds}
           onToggleSelection={toggleSelection}
@@ -879,9 +1055,15 @@ function TriagePage() {
           onCancelOut={handleCancelOut}
           loading={loading}
         />
+      ) : activeCancelTab === 'cancelled' ? (
+        <CancelledView
+          groups={cancelledGroups}
+          onUncancel={handleUncancel}
+          loading={loading}
+        />
       ) : (
         <DataTable
-          data={filteredData}
+          data={triageData}
           columns={columns}
           sort={sort ? { key: sort.key, direction: sort.direction } : null}
           setSort={handleSortToggle}
@@ -891,14 +1073,27 @@ function TriagePage() {
           setPageSize={setPageSize}
           getRowId={(row) => row.id}
           loading={loading}
+          getRowClassName={(row, _index) => {
+            if (row.ignore) return 'line-through opacity-60';
+            if (row.verified) return 'opacity-50';
+            return '';
+          }}
           emptyState="No transactions match the current filters."
         />
       )}
+      <NotesDialog
+        txn={merged.find((t) => t.id === notesOpenId) ?? null}
+        open={notesOpenId !== null}
+        onOpenChange={(open) => {
+          if (!open) setNotesOpenId(null);
+        }}
+        onSave={handleNotesSave}
+      />
     </div>
   );
 }
 
-function TransfersGroupedTable({
+function CancelOutGroupedTable({
   groups,
   columns,
   selectedIds,
@@ -919,6 +1114,24 @@ function TransfersGroupedTable({
   const sortedGroups = useMemo(
     () => [...groups.entries()].sort(([a], [b]) => b - a),
     [groups],
+  );
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const toggleGroup = useCallback((amount: number) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(amount)) next.delete(amount);
+      else next.add(amount);
+      return next;
+    });
+  }, []);
+
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(sortedGroups.length / pageSize));
+  const visibleGroups = sortedGroups.slice(
+    page * pageSize,
+    (page + 1) * pageSize,
   );
 
   return (
@@ -950,64 +1163,244 @@ function TransfersGroupedTable({
         )}
       </div>
 
-      <Table className="table-fixed">
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10" />
-            {columns.map((col) => (
-              <TableHead key={col.key}>{col.header}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
+      <div className="overflow-x-auto">
+        <Table className="min-w-full">
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={colCount} className="h-24 text-center">
-                Loading...
-              </TableCell>
+              <TableHead className="w-10" />
+              {columns.map((col) => (
+                <TableHead key={col.key} className={col.className}>
+                  {col.header}
+                </TableHead>
+              ))}
             </TableRow>
-          ) : sortedGroups.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={colCount} className="h-24 text-center">
-                No unmatched transfers found.
-              </TableCell>
-            </TableRow>
-          ) : (
-            sortedGroups.map(([absAmount, rows]) => (
-              <Fragment key={absAmount}>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableCell
-                    colSpan={colCount}
-                    className="text-xs font-medium text-muted-foreground"
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={colCount} className="h-24 text-center">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : visibleGroups.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={colCount} className="h-24 text-center">
+                  No matchable pairs found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              visibleGroups.map(([absAmount, rows]) => (
+                <Fragment key={absAmount}>
+                  <TableRow
+                    className="cursor-pointer bg-muted/50 hover:bg-muted/50"
+                    onClick={() => toggleGroup(absAmount)}
                   >
-                    {formatCurrency(absAmount)}
-                    <span className="ml-1.5 text-[10px] font-normal">
-                      ({rows.length} {rows.length === 1 ? 'record' : 'records'})
-                    </span>
-                  </TableCell>
-                </TableRow>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="w-10 py-3">
-                      <Checkbox
-                        checked={selectedIds.has(row.id)}
-                        onCheckedChange={() => onToggleSelection(row.id)}
+                    <TableCell
+                      colSpan={colCount}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      <ChevronRight
+                        className={`mr-1.5 inline-block size-3.5 transition-transform ${expandedGroups.has(absAmount) ? 'rotate-90' : ''}`}
                       />
+                      {formatCurrency(absAmount)}
+                      <span className="ml-1.5 text-[10px] font-normal">
+                        ({rows.length}{' '}
+                        {rows.length === 1 ? 'record' : 'records'})
+                      </span>
                     </TableCell>
-                    {columns.map((col) => (
-                      <TableCell key={col.key} className="py-3">
-                        {col.render(row)}
-                      </TableCell>
-                    ))}
                   </TableRow>
-                ))}
-              </Fragment>
-            ))
-          )}
-        </TableBody>
-      </Table>
+                  {expandedGroups.has(absAmount) &&
+                    rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        className="group/row cursor-pointer transition-colors hover:bg-muted/50"
+                        onClick={() => onToggleSelection(row.id)}
+                      >
+                        <TableCell className="w-10 py-3">
+                          <Checkbox
+                            checked={selectedIds.has(row.id)}
+                            onCheckedChange={() => onToggleSelection(row.id)}
+                          />
+                        </TableCell>
+                        {columns.map((col) => (
+                          <TableCell
+                            key={col.key}
+                            className={`py-3 ${col.className ?? ''}`}
+                          >
+                            {col.render(row)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                </Fragment>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <span className="text-sm text-muted-foreground">
+          Page {page + 1} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page === 0}
+          onClick={() => setPage(page - 1)}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page >= totalPages - 1}
+          onClick={() => setPage(page + 1)}
+        >
+          Next
+        </Button>
+      </div>
     </div>
   );
+}
+
+function CancelledView({
+  groups,
+  onUncancel,
+  loading,
+}: {
+  groups: CancelledGroup[];
+  onUncancel: (group: CancelledGroup) => void;
+  loading: boolean;
+}) {
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  const totalPages = Math.max(1, Math.ceil(groups.length / pageSize));
+  const visible = groups.slice(page * pageSize, (page + 1) * pageSize);
+
+  if (loading) {
+    return (
+      <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+        Loading...
+      </div>
+    );
+  }
+
+  if (groups.length === 0) {
+    return (
+      <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+        No cancelled transactions.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-3">
+        {visible.map((group) => {
+          const key = group.transactions.map((t) => t.id).join('-');
+          return (
+            <div key={key} className="rounded-lg border bg-card">
+              {group.transactions.map((txn, i) => (
+                <div
+                  key={txn.id}
+                  className={`group/row flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 ${
+                    i < group.transactions.length - 1
+                      ? 'border-b border-dashed'
+                      : ''
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm group-hover/row:overflow-visible group-hover/row:whitespace-normal">
+                    {txn.description}
+                  </span>
+                  <span className="shrink-0 text-sm text-muted-foreground">
+                    {txn.category ?? '-'}
+                  </span>
+                  <span
+                    className={`shrink-0 font-mono text-sm tabular-nums ${txn.amount < 0 ? 'text-destructive' : 'text-positive'}`}
+                  >
+                    {txn.amount < 0 ? '-' : '+'}
+                    {formatCurrency(txn.amount)}
+                  </span>
+                  <span className="w-16 shrink-0 text-sm text-muted-foreground">
+                    {txn.bank || '-'}
+                  </span>
+                  <span className="w-24 shrink-0 text-sm text-muted-foreground">
+                    {txn.date}
+                  </span>
+                </div>
+              ))}
+              <div className="flex items-center justify-end border-t px-4 py-2">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={() => onUncancel(group)}
+                      />
+                    }
+                  >
+                    <Undo2 className="size-3.5" />
+                    Uncancel
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {group.type === 'pair'
+                      ? 'Restore both transactions'
+                      : 'Restore this transaction'}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <span className="text-sm text-muted-foreground">
+          Page {page + 1} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page === 0}
+          onClick={() => setPage(page - 1)}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page >= totalPages - 1}
+          onClick={() => setPage(page + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function useRowHover() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    const row = el?.closest('tr');
+    if (!row) return;
+    const enter = () => setHovered(true);
+    const leave = () => setHovered(false);
+    row.addEventListener('pointerenter', enter);
+    row.addEventListener('pointerleave', leave);
+    return () => {
+      row.removeEventListener('pointerenter', enter);
+      row.removeEventListener('pointerleave', leave);
+    };
+  }, []);
+
+  return { ref, hovered };
 }
 
 const InlineCategoryCell = memo(function InlineCategoryCell({
@@ -1021,6 +1414,9 @@ const InlineCategoryCell = memo(function InlineCategoryCell({
   originalCategory: string;
   onSave: (txn: MergedTransaction, category: string) => void;
 }) {
+  const { ref, hovered } = useRowHover();
+  const [open, setOpen] = useState(false);
+  const active = hovered || open;
   const [inputValue, setInputValue] = useState('');
   const wasOverridden =
     txn.category !== originalCategory && originalCategory !== '';
@@ -1049,94 +1445,46 @@ const InlineCategoryCell = memo(function InlineCategoryCell({
   );
 
   return (
-    <div className="flex flex-col gap-0.5" onClick={(e) => e.stopPropagation()}>
-      <Combobox
-        value={txn.category || null}
-        onValueChange={handleValueChange}
-        onInputValueChange={handleInputValueChange}
-      >
-        <ComboboxInput
-          placeholder="Set category..."
-          className="h-8 w-36 text-sm"
-          onKeyDown={handleInputKeyDown}
-        />
-        <ComboboxContent>
-          <ComboboxList>
-            {suggestions.map((cat) => (
-              <ComboboxItem key={cat} value={cat}>
-                {cat}
-              </ComboboxItem>
-            ))}
-          </ComboboxList>
-          <ComboboxEmpty>No matches</ComboboxEmpty>
-        </ComboboxContent>
-      </Combobox>
+    <div
+      ref={ref}
+      className="flex flex-col gap-0.5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {active ? (
+        <Combobox
+          value={txn.category || null}
+          onValueChange={handleValueChange}
+          onInputValueChange={handleInputValueChange}
+          onOpenChange={(o) => setOpen(o)}
+        >
+          <ComboboxInput
+            placeholder="Set category..."
+            className="h-8 w-36 text-sm"
+            onKeyDown={handleInputKeyDown}
+          />
+          <ComboboxContent>
+            <ComboboxList>
+              {suggestions.map((cat) => (
+                <ComboboxItem key={cat} value={cat}>
+                  {cat}
+                </ComboboxItem>
+              ))}
+            </ComboboxList>
+            <ComboboxEmpty>No matches</ComboboxEmpty>
+          </ComboboxContent>
+        </Combobox>
+      ) : (
+        <span className="flex h-8 w-36 items-center truncate text-sm">
+          {txn.category || (
+            <span className="text-muted-foreground">Set category...</span>
+          )}
+        </span>
+      )}
       <span
         className={`h-[18px] px-1.5 text-[11px] italic ${wasOverridden ? 'text-muted-foreground' : 'invisible'}`}
       >
-        was: {wasOverridden ? originalCategory || '-' : ' '}
+        was: {wasOverridden ? originalCategory || '-' : ' '}
       </span>
-    </div>
-  );
-});
-
-const InlineStatusCell = memo(function InlineStatusCell({
-  txn,
-  onVerifyToggle,
-  onIgnoreToggle,
-}: {
-  txn: MergedTransaction;
-  onVerifyToggle: (txn: MergedTransaction) => void;
-  onIgnoreToggle: (txn: MergedTransaction) => void;
-}) {
-  return (
-    <div
-      className="flex items-center gap-1"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {txn.cancelled_by && <Badge variant="destructive">Cancelled</Badge>}
-
-      {!txn.cancelled_by && !txn.is_transfer && (
-        <>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant={txn.verified ? 'default' : 'outline'}
-                  size="icon"
-                  className="min-h-7 min-w-7 size-7"
-                  onClick={() => onVerifyToggle(txn)}
-                />
-              }
-            >
-              <Check className="size-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>
-              {txn.verified ? 'Unverify' : 'Mark verified'}
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant={txn.ignore ? 'secondary' : 'ghost'}
-                  size="icon"
-                  className="min-h-7 min-w-7 size-7"
-                  onClick={() => onIgnoreToggle(txn)}
-                />
-              }
-            >
-              <EyeOff className="size-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>
-              {txn.ignore ? 'Unignore' : 'Ignore'}
-            </TooltipContent>
-          </Tooltip>
-        </>
-      )}
-
-      {txn.is_transfer && <Badge variant="outline">Transfer</Badge>}
     </div>
   );
 });
@@ -1150,6 +1498,9 @@ const InlineSubcategoryCell = memo(function InlineSubcategoryCell({
   suggestions: string[];
   onSave: (txn: MergedTransaction, subcategory: string) => void;
 }) {
+  const { ref, hovered } = useRowHover();
+  const [open, setOpen] = useState(false);
+  const active = hovered || open;
   const [inputValue, setInputValue] = useState('');
 
   const handleValueChange = useCallback(
@@ -1170,79 +1521,83 @@ const InlineSubcategoryCell = memo(function InlineSubcategoryCell({
   );
 
   return (
-    <Combobox
-      value={txn.subcategory || null}
-      onValueChange={handleValueChange}
-      onInputValueChange={setInputValue}
-    >
-      <ComboboxInput
-        placeholder="Subcategory..."
-        className="h-7 w-36 text-xs"
-        onKeyDown={handleInputKeyDown}
-      />
-      <ComboboxContent>
-        <ComboboxList>
-          {suggestions.map((sub) => (
-            <ComboboxItem key={sub} value={sub}>
-              {sub}
-            </ComboboxItem>
-          ))}
-        </ComboboxList>
-        <ComboboxEmpty>Press Enter to save</ComboboxEmpty>
-      </ComboboxContent>
-    </Combobox>
+    <div ref={ref}>
+      {active ? (
+        <Combobox
+          value={txn.subcategory || null}
+          onValueChange={handleValueChange}
+          onInputValueChange={setInputValue}
+          onOpenChange={(o) => setOpen(o)}
+        >
+          <ComboboxInput
+            placeholder="Subcategory..."
+            className="h-7 w-36 text-xs"
+            onKeyDown={handleInputKeyDown}
+          />
+          <ComboboxContent>
+            <ComboboxList>
+              {suggestions.map((sub) => (
+                <ComboboxItem key={sub} value={sub}>
+                  {sub}
+                </ComboboxItem>
+              ))}
+            </ComboboxList>
+            <ComboboxEmpty>Press Enter to save</ComboboxEmpty>
+          </ComboboxContent>
+        </Combobox>
+      ) : (
+        <span className="flex h-7 w-36 items-center truncate text-xs">
+          {txn.subcategory || (
+            <span className="text-muted-foreground">Subcategory...</span>
+          )}
+        </span>
+      )}
+    </div>
   );
 });
 
 const NotesDialog = memo(function NotesDialog({
   txn,
   onSave,
+  open,
+  onOpenChange,
 }: {
-  txn: MergedTransaction;
+  txn: MergedTransaction | null;
   onSave: (txn: MergedTransaction, notes: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const existingNotes = txn.notes ?? '';
-  const hasNotes = existingNotes.length > 0;
+  const existingNotes = txn?.notes ?? '';
   const [notes, setNotes] = useState(existingNotes);
-  const [open, setOpen] = useState(false);
+
+  const prevOpen = useRef(open);
+  if (open && !prevOpen.current) {
+    setNotes(existingNotes);
+  }
+  prevOpen.current = open;
 
   const handleSave = useCallback(() => {
-    onSave(txn, notes);
-    setOpen(false);
-  }, [txn, notes, onSave]);
+    if (txn) onSave(txn, notes);
+    onOpenChange(false);
+  }, [txn, notes, onSave, onOpenChange]);
 
   return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger
-          render={
-            <Button
-              variant={hasNotes ? 'secondary' : 'ghost'}
-              size="icon"
-              className="min-h-7 min-w-7 size-7"
-            />
-          }
-        >
-          <StickyNote
-            className={`size-3.5 ${hasNotes ? 'text-foreground' : 'text-muted-foreground'}`}
-          />
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Notes</DialogTitle>
-          </DialogHeader>
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add notes..."
-            rows={4}
-          />
-          <DialogFooter>
-            <Button onClick={handleSave}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Notes</DialogTitle>
+        </DialogHeader>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Add notes..."
+          rows={4}
+        />
+        <DialogFooter>
+          <Button onClick={handleSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 });
 
@@ -1260,8 +1615,15 @@ function EmptyState() {
         try {
           const raw = JSON.parse(e.target?.result as string);
           const decoded = Schema.decodeUnknownSync(ProjectionOutputSchema)(raw);
-          replaceTransactions(decoded.transactions as never);
-          setError(null);
+          void replaceTransactions(decoded)
+            .then(() => setError(null))
+            .catch((uploadErr) =>
+              setError(
+                uploadErr instanceof Error
+                  ? uploadErr.message
+                  : 'Failed to upload transactions',
+              ),
+            );
         } catch (err) {
           setError(
             err instanceof Error ? err.message : 'Failed to parse JSON file',

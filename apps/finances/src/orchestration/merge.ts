@@ -1,15 +1,11 @@
 import type { OverrideSchema } from '@/domain';
 import type { TransactionSchema } from '@/domain';
+import type { MergedTransaction } from '@/domain/merged-transaction.js';
 
 type Transaction = typeof TransactionSchema.Type;
 type Override = typeof OverrideSchema.Type;
 
-export interface MergedTransaction extends Transaction {
-  notes?: string;
-  verified?: boolean;
-  ignore?: boolean;
-  cancelled_by?: string | null;
-}
+export type { MergedTransaction };
 
 /**
  * Spreads override fields over matching transactions by `transactionId`.

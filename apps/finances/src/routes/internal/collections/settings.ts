@@ -1,37 +1,22 @@
 import { createCollection } from '@tanstack/react-db';
 import { Effect } from 'effect';
-import type { EntityType } from '@std-toolkit/core';
 import { createStdSync } from '@std-toolkit/tanstack-sync';
-import { CategorySettingSchema } from '@/domain/index';
+import { SettingsSchema } from '@/domain/index';
 import { FinancesClient } from '@/routes/internal/effect';
 
-type CategorySetting = typeof CategorySettingSchema.Type;
 const std = createStdSync();
 
-const settingsSyncConfig = std.totalSync({
-  schema: CategorySettingSchema,
-  query: () =>
+const settingsSyncConfig = std.singleItem({
+  schema: SettingsSchema,
+  get: () =>
     Effect.gen(function* () {
       const { client } = yield* FinancesClient;
-      const res = yield* client.listCategorySettings({});
-      return res as EntityType<CategorySetting>[];
+      return yield* client.getSettings({});
     }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
-  onInsert: (item) =>
+  onUpdate: ({ updates }) =>
     Effect.gen(function* () {
       const { client } = yield* FinancesClient;
-      return yield* client.saveCategorySetting({
-        category: item.category,
-        type: item.type,
-      });
-    }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
-  onUpdate: (payload) =>
-    Effect.gen(function* () {
-      const { client } = yield* FinancesClient;
-      return yield* client.saveCategorySetting({
-        category: payload.category,
-        type: 'spend',
-        ...payload.updates,
-      });
+      return yield* client.putSettings(updates);
     }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
 });
 
