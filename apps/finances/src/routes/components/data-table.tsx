@@ -95,8 +95,8 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <Table className="min-w-full">
+      <div className="overflow-hidden">
+        <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow>
               {columns.map((col) => (

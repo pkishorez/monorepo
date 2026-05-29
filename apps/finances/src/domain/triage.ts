@@ -80,7 +80,7 @@ export function computeMatchablePairs(
   const groups = new Map<number, MergedTransaction[]>();
 
   for (const t of transactions) {
-    if (t.cancelled_by) continue;
+    if (t.cancelled_by || t.verified || t.ignore) continue;
     const absAmount = Math.abs(t.amount);
     const existing = groups.get(absAmount);
     if (existing) existing.push(t);

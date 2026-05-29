@@ -14,13 +14,17 @@ import {
   SheetContent,
   SheetTrigger,
 } from '@monorepo/frontend/components/ui/sheet';
-import { CalendarIcon, Menu, Settings, X } from 'lucide-react';
+import {
+  CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  Settings,
+  X,
+} from 'lucide-react';
 import type { DateRange } from '@monorepo/frontend/components/ui/calendar';
 import { transactionsCollection } from '@/routes/internal/collections';
-import {
-  DateRangeProvider,
-  useDateRange,
-} from '@/routes/internal/date-range-context';
+import { useDateRange } from '@/routes/internal/stores';
 
 type Preset = { label: string; getRange: (min: Date, max: Date) => DateRange };
 
@@ -79,6 +83,9 @@ function formatDate(d: Date): string {
 function DateRangePicker() {
   const { dateRange, setDateRange } = useDateRange();
   const [open, setOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date | undefined>(
+    undefined,
+  );
 
   const txnQuery = useLiveQuery(transactionsCollection);
   const transactions = txnQuery.data ?? [];
@@ -100,13 +107,36 @@ function DateRangePicker() {
   const now = useMemo(() => new Date(), []);
   const presets = useMemo(() => getPresets(now), [now]);
 
+  const displayMonth = useMemo(() => {
+    if (calendarMonth) return calendarMonth;
+    const base = dateRange?.from ?? maxDate;
+    if (!base) return undefined;
+    return new Date(base.getFullYear(), base.getMonth() - 1, 1);
+  }, [calendarMonth, dateRange?.from, maxDate]);
+
   const handlePreset = useCallback(
     (preset: Preset) => {
       if (!minDate || !maxDate) return;
-      setDateRange(preset.getRange(minDate, maxDate));
+      const range = preset.getRange(minDate, maxDate);
+      setDateRange(range);
+      if (range.from) {
+        setCalendarMonth(
+          new Date(range.from.getFullYear(), range.from.getMonth(), 1),
+        );
+      }
       setOpen(false);
     },
     [minDate, maxDate, setDateRange],
+  );
+
+  const handleJump = useCallback(
+    (direction: -1 | 1) => {
+      setCalendarMonth((prev) => {
+        const base = prev ?? displayMonth ?? now;
+        return new Date(base.getFullYear(), base.getMonth() + direction * 6, 1);
+      });
+    },
+    [displayMonth, now],
   );
 
   const handleClear = useCallback(() => {
@@ -123,7 +153,13 @@ function DateRangePicker() {
 
   return (
     <div className="flex items-center gap-1.5">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (!o) setCalendarMonth(undefined);
+        }}
+      >
         <PopoverTrigger
           render={
             <Button
@@ -137,12 +173,12 @@ function DateRangePicker() {
           <span className="max-w-[200px] truncate">{label}</span>
         </PopoverTrigger>
         <PopoverContent
-          className="w-auto max-w-[calc(100vw-2rem)] p-0"
+          className="w-auto max-w-[calc(100vw-2rem)] overflow-auto p-0"
           align="end"
         >
           <div className="flex max-sm:flex-col">
-            <div className="flex gap-1 border-r p-3 max-sm:flex-wrap max-sm:border-r-0 max-sm:border-b">
-              <span className="mb-1 w-full px-2 text-xs font-medium text-muted-foreground">
+            <div className="flex flex-col gap-0.5 border-r p-3 max-sm:flex-row max-sm:flex-wrap max-sm:border-r-0 max-sm:border-b">
+              <span className="mb-1 px-2 text-xs font-medium text-muted-foreground max-sm:w-full">
                 Quick select
               </span>
               {presets.map((preset) => (
@@ -157,11 +193,32 @@ function DateRangePicker() {
                 </Button>
               ))}
             </div>
-            <div className="p-3">
+            <div className="flex flex-col gap-2 p-3">
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => handleJump(-1)}
+                >
+                  <ChevronLeft className="size-3" />6 months
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => handleJump(1)}
+                >
+                  6 months
+                  <ChevronRight className="size-3" />
+                </Button>
+              </div>
               <Calendar
                 mode="range"
                 selected={dateRange}
                 onSelect={(range) => setDateRange(range ?? undefined)}
+                month={displayMonth}
+                onMonthChange={setCalendarMonth}
                 numberOfMonths={
                   typeof window !== 'undefined' && window.innerWidth < 640
                     ? 1
@@ -171,15 +228,6 @@ function DateRangePicker() {
                   ...(minDate ? [{ before: minDate }] : []),
                   ...(maxDate ? [{ after: maxDate }] : []),
                 ]}
-                defaultMonth={
-                  (dateRange?.from ?? maxDate)
-                    ? new Date(
-                        (dateRange?.from ?? maxDate!).getFullYear(),
-                        (dateRange?.from ?? maxDate!).getMonth() - 1,
-                        1,
-                      )
-                    : undefined
-                }
               />
             </div>
           </div>
@@ -206,72 +254,70 @@ function LayoutComponent() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
-    <DateRangeProvider>
-      <div className="flex h-full flex-col">
-        <header className="flex items-center gap-4 border-b px-4 py-2">
-          <h1 className="text-lg font-semibold">Finances</h1>
-          <nav className="hidden gap-1 sm:flex">
-            <Link to="/triage" className={NAV_LINK_CLASS}>
-              Triage
-            </Link>
-            <Link to="/dashboard" className={NAV_LINK_CLASS}>
-              Dashboard
-            </Link>
-          </nav>
-          <div className="ml-auto flex items-center gap-3">
-            <DateRangePicker />
-            <Separator orientation="vertical" className="hidden h-5 sm:block" />
-            <Link
-              to="/settings"
-              className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground sm:block [&.active]:text-foreground"
+    <div className="flex h-full flex-col">
+      <header className="flex items-center gap-4 border-b px-4 py-2">
+        <h1 className="text-lg font-semibold">Finances</h1>
+        <nav className="hidden gap-1 sm:flex">
+          <Link to="/triage" className={NAV_LINK_CLASS}>
+            Triage
+          </Link>
+          <Link to="/dashboard" className={NAV_LINK_CLASS}>
+            Dashboard
+          </Link>
+        </nav>
+        <div className="ml-auto flex items-center gap-3">
+          <DateRangePicker />
+          <Separator orientation="vertical" className="hidden h-5 sm:block" />
+          <Link
+            to="/settings"
+            className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground sm:block [&.active]:text-foreground"
+          >
+            <Settings className="size-4" />
+          </Link>
+          <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+            <SheetTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="size-8 p-0 sm:hidden"
+                />
+              }
             >
-              <Settings className="size-4" />
-            </Link>
-            <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-              <SheetTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="size-8 p-0 sm:hidden"
-                  />
-                }
-              >
-                <Menu className="size-4" />
-              </SheetTrigger>
-              <SheetContent side="right" className="w-56">
-                <nav className="flex flex-col gap-1 pt-4">
-                  <Link
-                    to="/triage"
-                    className={NAV_LINK_CLASS}
-                    onClick={() => setMobileNavOpen(false)}
-                  >
-                    Triage
-                  </Link>
-                  <Link
-                    to="/dashboard"
-                    className={NAV_LINK_CLASS}
-                    onClick={() => setMobileNavOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    to="/settings"
-                    className={NAV_LINK_CLASS}
-                    onClick={() => setMobileNavOpen(false)}
-                  >
-                    Settings
-                  </Link>
-                </nav>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto p-4">
-          <Outlet />
-        </main>
-      </div>
-    </DateRangeProvider>
+              <Menu className="size-4" />
+            </SheetTrigger>
+            <SheetContent side="right" className="w-56">
+              <nav className="flex flex-col gap-1 pt-4">
+                <Link
+                  to="/triage"
+                  className={NAV_LINK_CLASS}
+                  onClick={() => setMobileNavOpen(false)}
+                >
+                  Triage
+                </Link>
+                <Link
+                  to="/dashboard"
+                  className={NAV_LINK_CLASS}
+                  onClick={() => setMobileNavOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/settings"
+                  className={NAV_LINK_CLASS}
+                  onClick={() => setMobileNavOpen(false)}
+                >
+                  Settings
+                </Link>
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </header>
+      <main className="flex-1 overflow-auto p-4">
+        <Outlet />
+      </main>
+    </div>
   );
 }
 
