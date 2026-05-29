@@ -1,4 +1,4 @@
-import { cn } from '../lib/utils';
+import { cn } from '#lib/utils';
 
 const baseStyles = cn(
   'pointer-fine:[&::-webkit-scrollbar-track]:bg-transparent',

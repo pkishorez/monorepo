@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && tsc --noEmit",
+    "build:ondemand": "vite build && tsc --noEmit",
     "dev": "tsx src/server.ts",
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit && depcruise-viz lint",
