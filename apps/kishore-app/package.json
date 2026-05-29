@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vp build",
+    "build:ondemand": "vp build",
     "depcruise": "depcruise-viz",
     "deploy": "vp build && wrangler deploy",
     "dev": "vp dev --port 20001",

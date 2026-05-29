@@ -39,6 +39,7 @@ const config = defineConfig({
     tanstackStart({
       prerender: {
         enabled: true,
+        filter: (page) => !page.path.endsWith('.doc.md'),
       },
       router: {
         routeFileIgnorePattern: '(components|internal)',
