@@ -14,7 +14,6 @@ import { Checkbox } from '@monorepo/frontend/components/ui/checkbox';
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
   type ChartConfig,
@@ -64,7 +63,14 @@ import {
   ClipboardCheck,
   Pencil,
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ReferenceLine,
+} from 'recharts';
 import { ProjectionOutputSchema } from '@/domain';
 import { DataTable, type ColumnDef } from '@/routes/components/data-table';
 import {
@@ -74,7 +80,7 @@ import {
   overridesUtils,
   settingsCollection,
 } from '@/routes/internal/collections';
-import { useDateRange } from '@/routes/internal/date-range-context';
+import { useDateRange, useDashboardStore } from '@/routes/internal/stores';
 import { FinancesClient, financesRuntime } from '@/routes/internal/effect';
 import type { OverrideSchema, SettingsSchema } from '@/domain';
 import {
@@ -87,22 +93,40 @@ import {
 type Override = typeof OverrideSchema.Type;
 type Settings = typeof SettingsSchema.Type;
 
-type TimeRange = 'this-month' | 'last-3' | 'last-6' | 'this-year' | 'all';
 type GroupBy = 'category' | 'bank' | 'type';
 type Granularity = 'day' | 'month';
 type ActiveTab = 'chart' | 'table';
 
-const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
-  { value: 'this-month', label: 'This month' },
-  { value: 'last-3', label: 'Last 3 months' },
-  { value: 'last-6', label: 'Last 6 months' },
-  { value: 'this-year', label: 'This year' },
-  { value: 'all', label: 'All time' },
-];
-
 export const Route = createFileRoute('/_layout/dashboard')({
   component: DashboardPage,
 });
+
+const MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+function formatPeriodLabel(period: string): string {
+  if (period.length === 7) {
+    const [y, m] = period.split('-');
+    return `${MONTH_SHORT[Number(m) - 1]} '${y!.slice(2)}`;
+  }
+  if (period.length === 10) {
+    const [y, m, d] = period.split('-');
+    return `${Number(d)} ${MONTH_SHORT[Number(m) - 1]} '${y!.slice(2)}`;
+  }
+  return period;
+}
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
@@ -113,36 +137,15 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-function getTimeRangeStart(range: TimeRange, now: Date): Date | null {
-  if (range === 'all') return null;
-  const d = new Date(now.getFullYear(), now.getMonth(), 1);
-  if (range === 'this-month') return d;
-  if (range === 'last-3') {
-    d.setMonth(d.getMonth() - 2);
-    return d;
-  }
-  if (range === 'last-6') {
-    d.setMonth(d.getMonth() - 5);
-    return d;
-  }
-  return new Date(now.getFullYear(), 0, 1);
-}
-
 function getPreviousPeriodRange(
-  range: TimeRange,
-  now: Date,
+  dateRange: { from?: Date; to?: Date } | undefined,
 ): { start: Date; end: Date } | null {
-  if (range === 'all') return null;
-  const currentStart = getTimeRangeStart(range, now)!;
-  const monthSpan =
-    (now.getFullYear() - currentStart.getFullYear()) * 12 +
-    now.getMonth() -
-    currentStart.getMonth() +
-    1;
-  const prevEnd = new Date(currentStart);
-  prevEnd.setDate(prevEnd.getDate() - 1);
-  const prevStart = new Date(currentStart);
-  prevStart.setMonth(prevStart.getMonth() - monthSpan);
+  if (!dateRange?.from) return null;
+  const from = dateRange.from;
+  const to = dateRange.to ?? from;
+  const spanMs = to.getTime() - from.getTime();
+  const prevEnd = new Date(from.getTime() - 1);
+  const prevStart = new Date(from.getTime() - spanMs - 1);
   return { start: prevStart, end: prevEnd };
 }
 
@@ -154,12 +157,6 @@ function resolveType(
   if (catType) return catType as 'income' | 'spend' | 'transfer' | 'ignore';
   if (txn.is_transfer) return 'transfer';
   return txn.type === 'credit' ? 'income' : 'spend';
-}
-
-function computeTimeRangeSpanDays(range: TimeRange, now: Date): number {
-  const start = getTimeRangeStart(range, now);
-  if (!start) return Infinity;
-  return Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function saveOverride(overrideValue: {
@@ -190,6 +187,82 @@ function saveOverride(overrideValue: {
     .catch(() => {});
 }
 
+function ChartTooltipCustom({
+  active,
+  payload,
+  label,
+  config,
+  segmentKeys,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    dataKey: string;
+    value: number;
+    payload: Record<string, number | string>;
+  }>;
+  label?: string;
+  config: ChartConfig;
+  segmentKeys: string[];
+}) {
+  if (!active || !payload?.length) return null;
+
+  const row = payload[0]!.payload;
+  const entries = segmentKeys
+    .map((key) => ({
+      key,
+      value: Number(row[key] ?? 0),
+      color: config[key]?.color ?? 'var(--muted)',
+    }))
+    .filter((e) => e.value !== 0)
+    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+
+  const incomeTotal = entries
+    .filter((e) => e.value > 0)
+    .reduce((s, e) => s + e.value, 0);
+  const spendTotal = entries
+    .filter((e) => e.value < 0)
+    .reduce((s, e) => s + Math.abs(e.value), 0);
+
+  return (
+    <div className="rounded-lg border bg-background px-3 py-2.5 shadow-xl text-xs min-w-[200px]">
+      <div className="mb-2 font-medium text-sm">
+        {formatPeriodLabel(String(label))}
+      </div>
+      {incomeTotal > 0 && (
+        <div className="flex items-center justify-between gap-6 text-positive font-medium mb-1">
+          <span>Income</span>
+          <span className="tabular-nums">{formatCurrency(incomeTotal)}</span>
+        </div>
+      )}
+      {spendTotal > 0 && (
+        <div className="flex items-center justify-between gap-6 text-destructive font-medium mb-1">
+          <span>Spend</span>
+          <span className="tabular-nums">{formatCurrency(spendTotal)}</span>
+        </div>
+      )}
+      {entries.length > 0 && <div className="my-1.5 border-t border-border" />}
+      <div className="flex flex-col gap-0.5">
+        {entries.map((e) => (
+          <div key={e.key} className="flex items-center justify-between gap-6">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block size-2.5 rounded-[2px] shrink-0"
+                style={{ backgroundColor: e.color }}
+              />
+              <span className="text-muted-foreground truncate max-w-[140px]">
+                {e.key}
+              </span>
+            </div>
+            <span className="tabular-nums font-medium">
+              {formatCurrency(Math.abs(e.value))}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DashboardPage() {
   const txnQuery = useLiveQuery(transactionsCollection);
   const ovdQuery = useLiveQuery(overridesCollection);
@@ -202,21 +275,24 @@ function DashboardPage() {
   const overrides = (ovdQuery.data ?? []) as Override[];
   const settings = (settingsQuery.data ?? { categoryTypes: {} }) as Settings;
 
-  const [timeRange, setTimeRange] = useState<TimeRange>('this-month');
-  const [groupBy, setGroupBy] = useState<GroupBy>('category');
-  const [granularityOverride, setGranularityOverride] =
-    useState<Granularity | null>(null);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('chart');
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
-  const [tableSort, setTableSort] = useState<{
-    key: string;
-    direction: 'asc' | 'desc';
-  } | null>(null);
-  const [tablePage, setTablePage] = useState(0);
-  const [tablePageSize, setTablePageSize] = useState(25);
-  const [editingTxn, setEditingTxn] = useState<
-    (MergedTransaction & { resolvedType: string }) | null
-  >(null);
+  const {
+    groupBy,
+    setGroupBy,
+    granularityOverride,
+    setGranularityOverride,
+    activeTab,
+    setActiveTab,
+    selectedMonth,
+    setSelectedMonth,
+    tableSort,
+    setTableSort,
+    tablePage,
+    setTablePage,
+    tablePageSize,
+    setTablePageSize,
+    editingTxn,
+    setEditingTxn,
+  } = useDashboardStore();
 
   const settingsMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -255,21 +331,12 @@ function DashboardPage() {
   const triagePercent =
     totalCount > 0 ? Math.round((verifiedCount / totalCount) * 100) : 0;
 
-  const now = useMemo(() => new Date(), []);
-
-  const filteredData = useMemo(() => {
-    const start = getTimeRangeStart(timeRange, now);
-    if (!start) return analysisData;
-    const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
-    return analysisData.filter((txn) => txn.date.slice(0, 7) >= startStr);
-  }, [analysisData, timeRange, now]);
-
   const typedData = useMemo(() => {
-    return filteredData.map((txn) => ({
+    return analysisData.map((txn) => ({
       ...txn,
       resolvedType: resolveType(txn, settingsMap),
     }));
-  }, [filteredData, settingsMap]);
+  }, [analysisData, settingsMap]);
 
   const incomeTransactions = useMemo(
     () => typedData.filter((t) => t.resolvedType === 'income'),
@@ -307,17 +374,16 @@ function DashboardPage() {
   }, [spendTransactions]);
 
   const prevPeriodChange = useMemo(() => {
-    const prev = getPreviousPeriodRange(timeRange, now);
+    const prev = getPreviousPeriodRange(dateRange);
     if (!prev) return null;
 
-    const prevStartStr = `${prev.start.getFullYear()}-${String(prev.start.getMonth() + 1).padStart(2, '0')}`;
-    const prevEndStr = `${prev.end.getFullYear()}-${String(prev.end.getMonth() + 1).padStart(2, '0')}`;
+    const prevStartStr = prev.start.toISOString().slice(0, 10);
+    const prevEndStr = prev.end.toISOString().slice(0, 10);
 
-    const prevData = analysisData
-      .filter((txn) => {
-        const m = txn.date.slice(0, 7);
-        return m >= prevStartStr && m <= prevEndStr;
-      })
+    const allMergedForAnalysis = filterForAnalysis(merged);
+    const prevData = allMergedForAnalysis
+      .filter((txn) => txn.date >= prevStartStr && txn.date <= prevEndStr)
+      .filter((txn) => txn.verified === true)
       .map((txn) => ({ ...txn, resolvedType: resolveType(txn, settingsMap) }));
 
     const prevIncome = prevData
@@ -334,12 +400,16 @@ function DashboardPage() {
         prevSpend > 0 ? ((totalSpend - prevSpend) / prevSpend) * 100 : null,
       savings: prevIncome - prevSpend,
     };
-  }, [timeRange, now, analysisData, settingsMap, totalIncome, totalSpend]);
+  }, [dateRange, merged, settingsMap, totalIncome, totalSpend]);
 
   const autoGranularity: Granularity = useMemo(() => {
-    const spanDays = computeTimeRangeSpanDays(timeRange, now);
+    if (!dateRange?.from) return 'month';
+    const to = dateRange.to ?? dateRange.from;
+    const spanDays = Math.ceil(
+      (to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24),
+    );
     return spanDays <= 31 ? 'day' : 'month';
-  }, [timeRange, now]);
+  }, [dateRange]);
 
   const effectiveGranularity = granularityOverride ?? autoGranularity;
 
@@ -593,33 +663,12 @@ function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold tracking-tight">Dashboard</h2>
-          <p className="text-xs text-muted-foreground">
-            Showing {verifiedCount.toLocaleString()} of{' '}
-            {totalCount.toLocaleString()} verified transactions
-          </p>
-        </div>
-        <Select
-          value={timeRange}
-          onValueChange={(val) => {
-            setTimeRange(val as TimeRange);
-            setTablePage(0);
-            setGranularityOverride(null);
-          }}
-        >
-          <SelectTrigger className="w-full min-h-9 sm:w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {TIME_RANGE_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-semibold tracking-tight">Dashboard</h2>
+        <p className="text-xs text-muted-foreground">
+          Showing {verifiedCount.toLocaleString()} of{' '}
+          {totalCount.toLocaleString()} verified transactions
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -745,7 +794,7 @@ function DashboardPage() {
                   <SelectContent>
                     {months.map((m) => (
                       <SelectItem key={m} value={m}>
-                        {m}
+                        {formatPeriodLabel(m)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -777,7 +826,12 @@ function DashboardPage() {
                       vertical={false}
                       className="stroke-border/40"
                     />
-                    <XAxis dataKey="period" tickLine={false} axisLine={false} />
+                    <XAxis
+                      dataKey="period"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={formatPeriodLabel}
+                    />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
@@ -788,34 +842,17 @@ function DashboardPage() {
                         }).format(v)
                       }
                     />
+                    <ReferenceLine
+                      y={0}
+                      className="[&_line]:stroke-foreground/30"
+                      strokeWidth={1.5}
+                    />
                     <ChartTooltip
+                      cursor={{ className: 'fill-muted/30' }}
                       content={
-                        <ChartTooltipContent
-                          formatter={(value, _name, item) => {
-                            const numValue =
-                              typeof value === 'number' ? value : Number(value);
-                            const payload = item?.payload as
-                              | Record<string, number>
-                              | undefined;
-                            const periodTotal = payload
-                              ? segmentKeys.reduce(
-                                  (s, k) => s + Math.abs(payload[k] ?? 0),
-                                  0,
-                                )
-                              : 0;
-                            const pct =
-                              periodTotal > 0
-                                ? (
-                                    (Math.abs(numValue) / periodTotal) *
-                                    100
-                                  ).toFixed(1)
-                                : '0';
-                            return (
-                              <span>
-                                {formatCurrency(Math.abs(numValue))} ({pct}%)
-                              </span>
-                            );
-                          }}
+                        <ChartTooltipCustom
+                          config={chartConfig}
+                          segmentKeys={segmentKeys}
                         />
                       }
                     />
@@ -827,7 +864,6 @@ function DashboardPage() {
                         stackId="stack"
                         fill={`var(--color-${key})`}
                         className="cursor-pointer"
-                        radius={[2, 2, 0, 0]}
                       />
                     ))}
                   </BarChart>
