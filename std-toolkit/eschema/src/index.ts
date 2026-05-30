@@ -14,7 +14,6 @@ export type {
   ESchemaEncoded,
   ESchemaIdField,
   ESchemaName,
-  ESchemaType as ESchemaResult,
   ESchemaType,
   StructFieldsSchema,
 } from './types.js';

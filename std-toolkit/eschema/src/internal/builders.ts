@@ -13,16 +13,16 @@ import { mergeDelta } from '../schema.js';
 import { ESchema, SingleEntityESchema, EntityESchema } from '../eschema.js';
 
 function nextEvolutions(
-  migrations: Evolution[],
+  evolutions: Evolution[],
   version: string,
   delta: DeltaSchema,
   migration: (prev: any) => any,
   postMerge?: (merged: StructFieldsSchema) => void,
 ): Evolution[] {
-  const prevSchema = migrations.at(-1)?.schema ?? {};
+  const prevSchema = evolutions.at(-1)?.schema ?? {};
   const merged = mergeDelta(prevSchema, delta);
   postMerge?.(merged);
-  return [...migrations, { version, schema: merged, migration }];
+  return [...evolutions, { version, schema: merged, migration }];
 }
 
 export class ESchemaBuilder<
@@ -30,7 +30,7 @@ export class ESchemaBuilder<
   TLatest extends StructFieldsSchema,
 > {
   constructor(
-    private migrations: Evolution[],
+    private evolutions: Evolution[],
     readonly version: TVersion,
   ) {}
 
@@ -42,13 +42,13 @@ export class ESchemaBuilder<
     ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
   ) {
     return new ESchemaBuilder<V, MergeSchemas<TLatest, D>>(
-      nextEvolutions(this.migrations, version, delta, migration),
+      nextEvolutions(this.evolutions, version, delta, migration),
       version,
     );
   }
 
   build() {
-    return new ESchema<TVersion, TLatest>(this.version, this.migrations);
+    return new ESchema<TVersion, TLatest>(this.version, this.evolutions);
   }
 }
 
@@ -59,7 +59,7 @@ export class SingleEntityESchemaBuilder<
 > {
   constructor(
     private name: TName,
-    private migrations: Evolution[],
+    private evolutions: Evolution[],
     readonly version: TVersion,
   ) {}
 
@@ -72,7 +72,7 @@ export class SingleEntityESchemaBuilder<
   ) {
     return new SingleEntityESchemaBuilder<TName, V, MergeSchemas<TLatest, D>>(
       this.name,
-      nextEvolutions(this.migrations, version, delta, migration),
+      nextEvolutions(this.evolutions, version, delta, migration),
       version,
     );
   }
@@ -81,7 +81,7 @@ export class SingleEntityESchemaBuilder<
     return new SingleEntityESchema<TName, TVersion, TLatest>(
       this.name,
       this.version,
-      this.migrations,
+      this.evolutions,
     );
   }
 }
@@ -96,7 +96,7 @@ export class EntityESchemaBuilder<
     private name: TName,
     private _idField: TIdField,
     private _idSchema: IdSchema,
-    private migrations: Evolution[],
+    private evolutions: Evolution[],
     private readonly version: TVersion,
   ) {}
 
@@ -116,7 +116,7 @@ export class EntityESchemaBuilder<
       this.name,
       this._idField,
       this._idSchema,
-      nextEvolutions(this.migrations, version, delta, migration, (merged) => {
+      nextEvolutions(this.evolutions, version, delta, migration, (merged) => {
         merged[this._idField] = this._idSchema;
       }),
       version,
@@ -128,7 +128,7 @@ export class EntityESchemaBuilder<
       this.name,
       this._idField,
       this.version,
-      this.migrations,
+      this.evolutions,
     );
   }
 }

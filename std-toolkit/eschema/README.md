@@ -27,13 +27,12 @@ const UserSchema = ESchema.make('User', {
 const encoded = Effect.runSync(
   UserSchema.encode({ name: 'Alice', email: 'alice@example.com' }),
 );
-// { _v: "v1", _e: "User", name: "Alice", email: "alice@example.com" }
+// { _v: "v1", name: "Alice", email: "alice@example.com" }
 
 // Decode (returns Effect)
 const decoded = Effect.runSync(
   UserSchema.decode({
     _v: 'v1',
-    _e: 'User',
     name: 'Alice',
     email: 'alice@example.com',
   }),
@@ -64,9 +63,7 @@ const UserSchema = ESchema.make('User', {
   .build();
 
 // Old v1 data automatically migrates through v2 → v3
-const result = Effect.runSync(
-  UserSchema.decode({ _v: 'v1', _e: 'User', name: 'Bob' }),
-);
+const result = Effect.runSync(UserSchema.decode({ _v: 'v1', name: 'Bob' }));
 // { name: "Bob", email: "unknown@example.com", verified: false }
 ```
 
@@ -116,13 +113,12 @@ schema.evolve(
 
 ### schema.encode(value)
 
-Encodes a value with version and entity metadata. Returns `Effect<{ data, meta }, ESchemaError>`.
+Encodes a value with version metadata. Returns `Effect<Encoded, ESchemaError>`.
 
 ```typescript
-const { data, meta } =
+const encoded =
   yield * schema.encode({ title: 'Widget', price: 9.99, currency: 'USD' });
-// data: { title: "Widget", price: 9.99, currency: "USD" }
-// meta: { _v: "v2", _e: "Product" }
+// { title: "Widget", price: 9.99, currency: "USD", _v: "v2" }
 ```
 
 ---
@@ -187,10 +183,9 @@ schema['~standard'].validate(input); // { value: T } | { issues: [...] }
 
 All encoded values include:
 
-| Field | Description                       |
-| ----- | --------------------------------- |
-| `_v`  | Version string (e.g., "v1", "v2") |
-| `_e`  | Entity name                       |
+| Field | Description                      |
+| ----- | -------------------------------- |
+| `_v`  | Version stamp (e.g., "v1", "v2") |
 
 ## Gotchas
 
