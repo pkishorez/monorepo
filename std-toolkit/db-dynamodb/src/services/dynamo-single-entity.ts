@@ -434,6 +434,22 @@ export class DynamoSingleEntity<
     });
   }
 
+  /**
+   * Hard-deletes the entity record from DynamoDB.
+   * Subsequent `get` calls will return the default value.
+   */
+  delete(): Effect.Effect<void, DynamodbError> {
+    return Effect.gen(this, function* () {
+      const pk = this.#derivePrimaryKey();
+      const sk = this.#derivePrimaryKey();
+      yield* this.#table.deleteItem({ pk, sk });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] delete failed`, { error: e }),
+      ),
+    );
+  }
+
   #buildUpdateCondition(
     userCondition?: ConditionInput<ESchemaType<TSchema>>,
   ): ConditionOperation {

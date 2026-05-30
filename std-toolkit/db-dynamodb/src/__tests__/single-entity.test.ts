@@ -444,6 +444,41 @@ describe('DynamoSingleEntity', () => {
     );
   });
 
+  describe('delete', () => {
+    itEffect('hard-deletes the record and get returns default', () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: 'purple', maxRetries: 7 });
+
+        const before = yield* AppConfig.get();
+        expect(before.value.theme).toBe('purple');
+
+        yield* AppConfig.delete();
+
+        const after = yield* AppConfig.get();
+        expect(after.value.theme).toBe('light');
+        expect(after.value.maxRetries).toBe(3);
+        expect(after.meta._u).toBe('');
+      }),
+    );
+
+    itEffect('is a no-op when item does not exist', () =>
+      Effect.gen(function* () {
+        const noopSchema = SingleEntityESchema.make('NoopDeleteConfig', {
+          value: Schema.String,
+        }).build();
+
+        const NoopConfig = DynamoSingleEntity.make(table)
+          .eschema(noopSchema)
+          .default({ value: 'default' });
+
+        yield* NoopConfig.delete();
+
+        const result = yield* NoopConfig.get();
+        expect(result.value.value).toBe('default');
+      }),
+    );
+  });
+
   describe('updateOp', () => {
     itEffect('returns a TransactItem with plain object update', () =>
       Effect.gen(function* () {
