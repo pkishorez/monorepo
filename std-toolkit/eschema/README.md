@@ -67,6 +67,42 @@ const result = Effect.runSync(UserSchema.decode({ _v: 'v1', name: 'Bob' }));
 // { name: "Bob", email: "unknown@example.com", verified: false }
 ```
 
+### Adopting eschema for existing data
+
+Data without a `_v` stamp is decoded as the **earliest** version (`v1`), not
+the latest. This makes wrapping a plain Effect Schema in an `ESchema` an
+incremental, non-breaking change: data already persisted under your original
+schema decodes as `v1` and folds forward through your migrations.
+
+```typescript
+// Legacy row written before adopting eschema — no `_v` stamp.
+const decoded = Effect.runSync(UserSchema.decode({ name: 'Bob' }));
+// Treated as v1 → migrates to latest:
+// { name: "Bob", email: "unknown@example.com", verified: false }
+```
+
+The contract: your `v1` fields must match the schema your existing data was
+written with. eschema cannot detect a mismatch — if unstamped data does not
+match `v1`, decode **fails loudly** rather than guessing another version.
+
+This rule is a no-op until you evolve past `v1`: on a single-version schema
+`v1` _is_ the latest, so unstamped data decodes identically either way. It only
+changes behavior once both an evolution and unstamped legacy data exist —
+exactly the migration case it exists to support.
+
+> **Composition note.** An evolving schema is **not isolated** once it is nested
+> in another via `toSchema`. Each nested evolving schema decodes through its
+> _own_ chain, so the "no-op until you evolve" and "unstamped = `v1`" rules
+> apply per-schema at _every_ level of the tree — not just at the outer one.
+>
+> The consequence: **evolving a nested schema changes what its parent decodes
+> to, even though the parent's own version is unchanged.** A parent stamped
+> `v1` whose child has evolved `v1 → v2` will now yield child values folded
+> forward to `v2`. This is intended — the nested value migrates independently of
+> the parent — but it means the parent's decoded shape can shift without any
+> change to the parent's `_v`. When auditing the impact of this rule, audit the
+> whole nesting tree, not only the schemas you evolved directly.
+
 ## API
 
 | Method                                | Description                                        |

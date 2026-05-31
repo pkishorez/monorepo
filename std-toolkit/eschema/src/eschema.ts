@@ -59,7 +59,9 @@ export class ESchema<
     return Effect.gen(this, function* () {
       const _v = yield* Schema.decodeUnknown(metaSchema)(value).pipe(
         Effect.map((v) => v._v),
-        Effect.orElseSucceed(() => this.latestVersion),
+        Effect.orElseSucceed(
+          () => this.evolutions[0]?.version ?? this.latestVersion,
+        ),
       );
       const index = this.evolutions.findIndex((v) => v.version === _v);
       const evolution = this.evolutions[index];

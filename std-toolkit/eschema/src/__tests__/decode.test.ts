@@ -73,7 +73,7 @@ describe('ESchema.decode', () => {
     }),
   );
 
-  itEffect('defaults to latest version when _v is missing', () =>
+  itEffect('treats missing _v as the earliest version (v1)', () =>
     Effect.gen(function* () {
       const schema = EntityESchema.make('Test', 'id', {
         a: Schema.String,

@@ -13,6 +13,11 @@ A versioned schema definition that carries an ordered chain of versions from
 read. The central concept of the package; `ESchema` in code.
 _Avoid_: schema (alone), eschema (in prose)
 
+**value evolving schema**:
+An evolving schema whose decoded value is a single value rather than a field
+map, while still carrying its own chain and folding older encoded data forward.
+_Avoid_: literal schema, scalar schema, primitive schema
+
 **variant**:
 One of the three kinds of evolving schema — `ESchema`, `SingleEntityESchema`,
 `EntityESchema` — which differ only in identity.
@@ -126,8 +131,26 @@ _Avoid_: json schema (for our output), spec, shape
 
 **Effect Schema view**:
 The native Effect `Schema` produced by `toSchema()`, letting an evolving schema
-drop into Effect pipelines.
+drop into Effect pipelines — and letting one evolving schema be embedded as a
+field of another (see _nested evolving schema_).
 _Avoid_: native schema, raw schema
+
+**nested evolving schema**:
+An evolving schema used as the value of a field inside another evolving schema,
+embedded via the _Effect Schema view_ (`toSchema`). A nested evolving schema
+decodes through its _own_ chain, independently of the parent: its unstamped
+values fold forward from its own `v1`, and its `_v` stamp is separate from the
+parent's. The verb for the relationship is _compose_.
+_Avoid_: child schema, sub-schema, inner schema (in prose)
+
+**non-isolation**:
+The property that an evolving schema's decode behavior is not local once it is
+composed. Because a nested evolving schema folds forward through its own chain,
+**evolving a nested schema changes what its parent decodes to even though the
+parent's version is unchanged**. Versioning is per-schema; observable decode
+behavior is tree-wide. The "no-op until you evolve past `v1`" guarantee is
+therefore a whole-tree statement, not a per-schema one.
+_Avoid_: coupling, leakage
 
 **widening type**:
 One of `AnyESchema` / `AnySingleEntityESchema` / `AnyEntityESchema` — the
