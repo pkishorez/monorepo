@@ -8,9 +8,17 @@ import type {
   NextVersion,
   StructFieldsDecoded,
   StructFieldsSchema,
+  ValueEvolution,
+  ValueSchema,
+  ValueSchemaDecoded,
 } from '../types.js';
 import { mergeDelta } from '../schema.js';
-import { ESchema, SingleEntityESchema, EntityESchema } from '../eschema.js';
+import {
+  ESchema,
+  SingleEntityESchema,
+  EntityESchema,
+  ValueESchema,
+} from '../eschema.js';
 
 function nextEvolutions(
   evolutions: Evolution[],
@@ -23,6 +31,15 @@ function nextEvolutions(
   const merged = mergeDelta(prevSchema, delta);
   postMerge?.(merged);
   return [...evolutions, { version, schema: merged, migration }];
+}
+
+function nextValueEvolutions(
+  evolutions: ValueEvolution[],
+  version: string,
+  schema: ValueSchema,
+  migration: (prev: any) => any,
+): ValueEvolution[] {
+  return [...evolutions, { version, schema, migration }];
 }
 
 export class ESchemaBuilder<
@@ -130,5 +147,30 @@ export class EntityESchemaBuilder<
       this.version,
       this.evolutions,
     );
+  }
+}
+
+export class ValueESchemaBuilder<
+  TVersion extends string,
+  TLatest extends ValueSchema,
+> {
+  constructor(
+    private evolutions: ValueEvolution[],
+    readonly version: TVersion,
+  ) {}
+
+  evolve<V extends NextVersion<TVersion>, S extends ValueSchema>(
+    version: V,
+    schema: S,
+    migration: (prev: ValueSchemaDecoded<TLatest>) => ValueSchemaDecoded<S>,
+  ) {
+    return new ValueESchemaBuilder<V, S>(
+      nextValueEvolutions(this.evolutions, version, schema, migration),
+      version,
+    );
+  }
+
+  build() {
+    return new ValueESchema<TVersion, TLatest>(this.version, this.evolutions);
   }
 }

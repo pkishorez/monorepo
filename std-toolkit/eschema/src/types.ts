@@ -1,4 +1,9 @@
-import type { ESchema, SingleEntityESchema, EntityESchema } from './eschema.js';
+import type {
+  ESchema,
+  SingleEntityESchema,
+  EntityESchema,
+  ValueESchema,
+} from './eschema.js';
 import { JSONSchema, Schema } from 'effect';
 
 export type ESchemaDescriptor = JSONSchema.JsonSchema7Object & {
@@ -34,6 +39,21 @@ export type StructFieldsDecoded<T extends StructFieldsSchema> =
 
 export type StructFieldsEncoded<T extends StructFieldsSchema> =
   Schema.Schema.Encoded<Schema.Struct<T>>;
+
+export type ValueSchema = Schema.Schema<any, any, never>;
+
+export type ValueSchemaDecoded<T extends ValueSchema> = Schema.Schema.Type<T>;
+
+export type ValueSchemaEncoded<T extends ValueSchema> =
+  Schema.Schema.Encoded<T>;
+
+export type ValueEnvelopeEncoded<
+  TVersion extends string,
+  TSchema extends ValueSchema,
+> = {
+  readonly _v: TVersion;
+  readonly value: ValueSchemaEncoded<TSchema>;
+};
 
 export type ForbidUnderscorePrefix<T> = {
   [K in keyof T]: K extends `_${string}`
@@ -76,6 +96,12 @@ export type Evolution = {
   migration: ((prev: any) => any) | null;
 };
 
+export type ValueEvolution = {
+  version: string;
+  schema: ValueSchema;
+  migration: ((prev: any) => any) | null;
+};
+
 // ─── Any* type aliases ──────────────────────────────────────────────────────
 
 /**
@@ -105,21 +131,36 @@ export type AnyEntityESchema<
   S extends StructFieldsSchema = any,
 > = EntityESchema<N, Id, V, S>;
 
+export type AnyValueESchema<
+  V extends string = string,
+  S extends ValueSchema = any,
+> = ValueESchema<V, S>;
+
+export type AnyEvolvingSchema =
+  | AnyESchema
+  | AnySingleEntityESchema
+  | AnyEntityESchema
+  | AnyValueESchema;
+
 // ─── Type extractors ────────────────────────────────────────────────────────
 
 /**
  * Extracts the type from any ESchema level.
  * Same type for both encode and decode operations.
  */
-export type ESchemaType<T extends AnyESchema> =
-  T extends ESchema<infer _V, infer TLatest>
-    ? Prettify<StructFieldsDecoded<TLatest>>
-    : never;
+export type ESchemaType<T extends AnyEvolvingSchema> =
+  T extends ValueESchema<infer _V, infer TLatest>
+    ? ValueSchemaDecoded<TLatest>
+    : T extends ESchema<infer _V, infer TLatest>
+      ? Prettify<StructFieldsDecoded<TLatest>>
+      : never;
 
-export type ESchemaEncoded<T extends AnyESchema> =
-  T extends ESchema<infer V, infer TLatest>
-    ? Prettify<StructFieldsEncoded<TLatest> & { readonly _v: V }>
-    : never;
+export type ESchemaEncoded<T extends AnyEvolvingSchema> =
+  T extends ValueESchema<infer V, infer TLatest>
+    ? ValueEnvelopeEncoded<V, TLatest>
+    : T extends ESchema<infer V, infer TLatest>
+      ? Prettify<StructFieldsEncoded<TLatest> & { readonly _v: V }>
+      : never;
 
 /**
  * Extracts the ID field name from an EntityESchema.

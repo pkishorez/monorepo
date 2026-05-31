@@ -14,20 +14,21 @@ read. The central concept of the package; `ESchema` in code.
 _Avoid_: schema (alone), eschema (in prose)
 
 **value evolving schema**:
-An evolving schema whose decoded value is a single value rather than a field
-map, while still carrying its own chain and folding older encoded data forward.
+An evolving schema whose versions replace the decoded value as a whole rather
+than evolving a field map by delta. It can stand alone or be nested inside
+another evolving schema.
 _Avoid_: literal schema, scalar schema, primitive schema
 
 **variant**:
-One of the three kinds of evolving schema — `ESchema`, `SingleEntityESchema`,
-`EntityESchema` — which differ only in identity.
-_Avoid_: flavor, level, kind
+One of the object-shaped kinds of evolving schema — `ESchema`,
+`SingleEntityESchema`, `EntityESchema` — which differ only in identity.
+_Avoid_: flavor, level, kind, value evolving schema
 
 **identity**:
 The single axis that separates the three variants. `ESchema` is _anonymous_
 (no identity); `SingleEntityESchema` is a _named singleton_ (identified by its
 name, exactly one instance); `EntityESchema` is a _keyed entity_ (identified by
-name plus a per-row id field).
+name plus a per-row id field). A value evolving schema has no identity.
 
 **name**:
 The human-readable identifier of a `SingleEntityESchema` or `EntityESchema`
@@ -49,7 +50,8 @@ _Avoid_: revision, rev
 **migration**:
 The pure function `(prev) => next` that transforms a decoded value from the
 previous version's shape into the next. Runs only on decode, only when reading
-older data.
+older data. For a value evolving schema, it receives and returns decoded values,
+not value envelopes.
 _Avoid_: transform, upgrade, converter
 
 **evolution**:
@@ -65,7 +67,8 @@ _Avoid_: history, versions list
 
 **fields**:
 The full field map — `Record<key, Schema>` — passed to `make` and held by each
-evolution. `StructFieldsSchema` in code.
+evolution. `StructFieldsSchema` in code. Value evolving schemas do not have
+fields.
 _Avoid_: properties, attributes, columns
 
 **delta**:
@@ -73,6 +76,11 @@ The partial change passed to `evolve` — `Record<key, Schema | null>` — where
 `Schema` entry adds-or-replaces a field and `null` removes it. `DeltaSchema` in
 code.
 _Avoid_: patch, diff, change set
+
+**value schema**:
+The complete Effect Schema for one version of a value evolving schema. Value
+evolution replaces the value schema as a whole instead of applying a delta.
+_Avoid_: value fields, scalar fields, literal fields
 
 **shape**:
 The structure of a decoded value at a given version. Decode "folds forward to
@@ -85,10 +93,24 @@ fields. The output of `decode` and the input to `encode`.
 _Avoid_: latest-shape value, model, domain object
 
 **encoded value**:
-The persisted or transmitted value — the decoded value plus the `_v` version
-stamp. The output of `encode` and the input to `decode`. "row" and "wire value"
-are acceptable storage/transport-flavored synonyms inside examples only.
+The persisted or transmitted value that carries the decoded value and the `_v`
+version stamp. The output of `encode` and the input to `decode`. "row" and
+"wire value" are acceptable storage/transport-flavored synonyms inside examples
+only.
 _Avoid_: payload, raw row, stamped value (as the canonical term)
+
+**bare value**:
+A pre-adoption value for a value evolving schema with no envelope and no version
+stamp. On the read path, a bare value is treated as earliest-version data,
+including when the value evolving schema is nested. A value with the value
+envelope shape is interpreted as an encoded value, not as a bare value.
+_Avoid_: raw value, plain value, unwrapped value
+
+**value envelope**:
+The encoded value shape for a value evolving schema: an object with `_v` and
+`value`, where `value` holds the encoded form of the decoded value. The `_v`
+key is the discriminator for this internal shape.
+_Avoid_: wrapper, box, container
 
 **read path**:
 The decode direction: `encoded value → decoded value`. The only place
@@ -109,7 +131,9 @@ _Avoid_: version tag, version marker, \_v label
 **reserved key**:
 Any key starting with `_` — owned by the library, never allowed in a user's
 fields (enforced by `ForbidUnderscorePrefix`). The `idField` of an
-`EntityESchema` is separately reserved.
+`EntityESchema` is separately reserved. Value envelopes use this rule to reserve
+`_v` for library metadata at the envelope boundary; this does not reserve
+underscore-prefixed keys inside the value itself.
 _Avoid_: metadata key, system key, forbidden field
 
 **builder**:
@@ -126,21 +150,36 @@ _Avoid_: pipeline, flow (as the canonical name)
 **descriptor**:
 The JSON Schema view of an evolving schema, produced by `getDescriptor()` and
 typed `ESchemaDescriptor`. A deliberate abstraction — say "descriptor", not
-"the JSON Schema", when referring to this output.
+"the JSON Schema", when referring to this output. It describes the canonical
+encoded value, not legacy bare values accepted on the read path.
 _Avoid_: json schema (for our output), spec, shape
+
+**Standard Schema view**:
+The Standard Schema v1 interface exposed by a built evolving schema. It follows
+the read path: validation accepts the same inputs as `decode` and returns a
+decoded value.
+_Avoid_: validator view, standard validator
 
 **Effect Schema view**:
 The native Effect `Schema` produced by `toSchema()`, letting an evolving schema
 drop into Effect pipelines — and letting one evolving schema be embedded as a
-field of another (see _nested evolving schema_).
+field of another (see _nested evolving schema_). The same function exposes
+object-shaped and value evolving schemas.
 _Avoid_: native schema, raw schema
+
+**latest schema**:
+The latest Effect Schema for the decoded value. For an object-shaped evolving
+schema it is the struct built from latest fields; for a value evolving schema it
+is the latest value schema.
+_Avoid_: current schema, head schema
 
 **nested evolving schema**:
 An evolving schema used as the value of a field inside another evolving schema,
 embedded via the _Effect Schema view_ (`toSchema`). A nested evolving schema
 decodes through its _own_ chain, independently of the parent: its unstamped
-values fold forward from its own `v1`, and its `_v` stamp is separate from the
-parent's. The verb for the relationship is _compose_.
+values fold forward from its own `v1`, its bare values are accepted when it is a
+value evolving schema, and its `_v` stamp is separate from the parent's. The verb
+for the relationship is _compose_.
 _Avoid_: child schema, sub-schema, inner schema (in prose)
 
 **non-isolation**:
@@ -153,8 +192,11 @@ therefore a whole-tree statement, not a per-schema one.
 _Avoid_: coupling, leakage
 
 **widening type**:
-One of `AnyESchema` / `AnySingleEntityESchema` / `AnyEntityESchema` — the
-`Any*` types that accept any variant at that identity level or wider.
+One of the `Any*` types that accepts a family of built evolving schemas:
+`AnyESchema`, `AnySingleEntityESchema`, and `AnyEntityESchema` for
+object-shaped variants; `AnyValueESchema` for value evolving schemas. Use a
+separate all-family widening type, `AnyEvolvingSchema`, when code must accept
+either object-shaped or value evolving schemas.
 _Avoid_: base type, generic type, wildcard
 
 ## Type extractors
@@ -162,8 +204,10 @@ _Avoid_: base type, generic type, wildcard
 The decoded/encoded/identity types of an evolving schema, mirroring Effect's
 `Schema.Type` / `Schema.Encoded` convention:
 
-- `ESchemaType<T>` — the **decoded value** type. (`ESchemaResult` is removed.)
-- `ESchemaEncoded<T>` — the **encoded value** type (decoded plus `_v`).
+- `ESchemaType<T>` — the **decoded value** type. Works for object-shaped and
+  value evolving schemas. (`ESchemaResult` is removed.)
+- `ESchemaEncoded<T>` — the **encoded value** type. For a value evolving schema,
+  this is the value envelope.
 - `ESchemaIdField<T>` — the **id field** name of an `EntityESchema`.
 - `ESchemaName<T>` — the **name** of a named variant.
 
