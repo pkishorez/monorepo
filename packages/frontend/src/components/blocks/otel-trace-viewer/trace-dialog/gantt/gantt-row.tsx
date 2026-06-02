@@ -15,9 +15,15 @@ interface GanttRowProps {
   row: GanttRowData;
   selected: boolean;
   onClick: () => void;
+  nameColWidth?: number;
 }
 
-export function GanttRow({ row, selected, onClick }: GanttRowProps) {
+export function GanttRow({
+  row,
+  selected,
+  onClick,
+  nameColWidth = NAME_COL_WIDTH,
+}: GanttRowProps) {
   const { span, depth, startPct, widthPct } = row;
   const logCount = span.events.filter(isLog).length;
 
@@ -42,7 +48,7 @@ export function GanttRow({ row, selected, onClick }: GanttRowProps) {
       <div
         className="flex shrink-0 items-center gap-1.5 overflow-hidden border-r border-border/30"
         style={{
-          width: `${NAME_COL_WIDTH}px`,
+          width: `${nameColWidth}px`,
           paddingLeft: `${depth * INDENT_PX + 12}px`,
           paddingRight: '12px',
         }}

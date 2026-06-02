@@ -2,7 +2,6 @@ import type { VTestReport } from '@monorepo/vtest/types';
 
 import cacheReport from '@std-toolkit/cache/vtest-report';
 import dbDynamodbReport from '@std-toolkit/db-dynamodb/vtest-report';
-import eschemaReport from '@std-toolkit/eschema/vtest-report';
 import sqliteReport from '@std-toolkit/sqlite/vtest-report';
 
 export type DocsEntry = {
@@ -19,12 +18,12 @@ export const docsRegistry: DocsEntry[] = [
     collection: 'std-toolkit',
     report: dbDynamodbReport as VTestReport,
   },
-  {
-    slug: 'eschema',
-    title: 'eschema',
-    collection: 'std-toolkit',
-    report: eschemaReport as VTestReport,
-  },
+  // {
+  //   slug: 'eschema',
+  //   title: 'eschema',
+  //   collection: 'std-toolkit',
+  //   report: eschemaReport as VTestReport,
+  // },
   {
     slug: 'sqlite',
     title: 'SQLite',

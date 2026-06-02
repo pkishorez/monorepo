@@ -13,6 +13,7 @@ export type TraceDockSettings = {
   open: boolean;
   height: number;
   sidebarWidth: number;
+  nameColWidth: number;
   sidebarOpen: boolean;
   selectedSpanId: string | null;
 };
@@ -111,6 +112,10 @@ export function TraceDock({
             trace={trace}
             selectedSpanId={selectedSpan?.spanId ?? null}
             onSpanClick={handleSpanClick}
+            nameColWidth={settings.nameColWidth}
+            onNameColWidthChange={(next) =>
+              onSettingsChange({ ...settings, nameColWidth: next })
+            }
           />
         </div>
         {selectedSpan && (
