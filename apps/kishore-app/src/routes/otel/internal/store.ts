@@ -18,6 +18,7 @@ export type DockSettings = {
   open: boolean;
   height: number;
   sidebarWidth: number;
+  nameColWidth: number;
   sidebarOpen: boolean;
   selectedSpanId: string | null;
 };
@@ -58,6 +59,7 @@ const INITIAL: State = {
     open: false,
     height: 300,
     sidebarWidth: 360,
+    nameColWidth: 248,
     sidebarOpen: true,
     selectedSpanId: null,
   },

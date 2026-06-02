@@ -2,6 +2,8 @@ import type { OtelSpan } from '../../types';
 import type { SpanNode } from '../../utils';
 
 export const NAME_COL_WIDTH = 248;
+export const MIN_NAME_COL_WIDTH = 140;
+export const MAX_NAME_COL_WIDTH = 640;
 export const ROW_HEIGHT_PX = 32;
 export const BAR_HEIGHT_PX = 18;
 export const INDENT_PX = 16;
