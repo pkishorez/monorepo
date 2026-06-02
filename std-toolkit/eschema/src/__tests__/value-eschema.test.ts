@@ -170,7 +170,7 @@ describe('ValueESchema composition', () => {
 
   const Ticket = ESchema.make({
     title: Schema.String,
-    status: toSchema(Status),
+    status: toSchema(Status, { name: 'Status' }),
   }).build();
 
   itEffect('encodes nested values as envelopes', () =>
