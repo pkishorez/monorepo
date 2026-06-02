@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Effect, Schema } from 'effect';
+import { Effect, JSONSchema, Schema } from 'effect';
 import {
   ESchema,
   SingleEntityESchema,
@@ -23,7 +23,7 @@ const LineItem = EntityESchema.make('LineItem', 'id', {
 const Order = EntityESchema.make('Order', 'orderId', {
   customer: Schema.String,
   items: Schema.Array(toSchema(LineItem)),
-  shippingAddress: toSchema(Address),
+  shippingAddress: toSchema(Address, { name: 'Address' }),
 }).build();
 
 describe('toSchema composition', () => {
@@ -182,7 +182,7 @@ describe('toSchema composition', () => {
     const Parent = ESchema.make({
       name: Schema.String,
     })
-      .evolve('v2', { child: toSchema(Child) }, (prev) => ({
+      .evolve('v2', { child: toSchema(Child, { name: 'Child' }) }, (prev) => ({
         ...prev,
         child: { value: 'default' },
       }))
@@ -223,12 +223,12 @@ describe('toSchema composition', () => {
 
     const Branch = ESchema.make({
       label: Schema.String,
-      leaf: toSchema(Leaf),
+      leaf: toSchema(Leaf, { name: 'Leaf' }),
     }).build();
 
     const Root = ESchema.make({
       title: Schema.String,
-      branch: toSchema(Branch),
+      branch: toSchema(Branch, { name: 'Branch' }),
     }).build();
 
     itEffect('encodes and decodes three levels deep', () =>
@@ -261,7 +261,7 @@ describe('toSchema composition', () => {
     }).build();
 
     const Composite = ESchema.make({
-      p: toSchema(plain),
+      p: toSchema(plain, { name: 'plain' }),
       n: toSchema(named),
       e: toSchema(entity),
     }).build();
@@ -286,7 +286,9 @@ describe('toSchema composition', () => {
 
     const WithOptional = ESchema.make({
       name: Schema.String,
-      child: Schema.optionalWith(toSchema(Child), { exact: true }),
+      child: Schema.optionalWith(toSchema(Child, { name: 'Child' }), {
+        exact: true,
+      }),
     }).build();
 
     itEffect('roundtrips with optional present', () =>
@@ -324,5 +326,37 @@ describe('toSchema composition', () => {
         expect(result.message).toBe('Decode failed');
       }),
     );
+  });
+
+  describe('toSchema identifier', () => {
+    const anonymous = ESchema.make({ x: Schema.Number }).build();
+    const namedEntity = EntityESchema.make('Item', 'id', {
+      z: Schema.Boolean,
+    }).build();
+
+    // The identifier annotation is what JSON Schema generation uses as the
+    // `$defs` key, so assert through that observable surface.
+    const idOf = (schema: Schema.Schema<any, any, never>) =>
+      Object.keys(JSONSchema.make(schema).$defs ?? {})[0];
+
+    it('throws on an anonymous eschema with no explicit name', () => {
+      expect(() => toSchema(anonymous)).toThrow(/anonymous ESchema/);
+    });
+
+    it('uses an explicit name when provided', () => {
+      expect(idOf(toSchema(anonymous, { name: 'Order' }))).toBe(
+        'ESchema(Order)',
+      );
+    });
+
+    it("falls back to the eschema's own name", () => {
+      expect(idOf(toSchema(namedEntity))).toBe('ESchema(Item)');
+    });
+
+    it('lets an explicit name take precedence over the eschema name', () => {
+      expect(idOf(toSchema(namedEntity, { name: 'Override' }))).toBe(
+        'ESchema(Override)',
+      );
+    });
   });
 });

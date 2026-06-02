@@ -372,8 +372,18 @@ export namespace ValueESchema {
   }
 }
 
+export interface ToSchemaOptions {
+  /**
+   * Identifier to use for the resulting schema (drives the OpenAPI / JSON
+   * Schema `$defs` key). Takes precedence over the eschema's own `name`. An
+   * explicit name is required whenever the eschema is anonymous.
+   */
+  readonly name?: string;
+}
+
 export function toSchema<V extends string, L extends StructFieldsSchema>(
   eschema: ESchema<V, L>,
+  options?: ToSchemaOptions,
 ): Schema.Schema<
   StructFieldsDecoded<L>,
   StructFieldsEncoded<L> & { readonly _v: string },
@@ -381,6 +391,7 @@ export function toSchema<V extends string, L extends StructFieldsSchema>(
 >;
 export function toSchema<V extends string, L extends ValueSchema>(
   eschema: ValueESchema<V, L>,
+  options?: ToSchemaOptions,
 ): Schema.Schema<
   ValueSchemaDecoded<L>,
   { readonly _v: string; readonly value: ValueSchemaEncoded<L> },
@@ -390,7 +401,19 @@ export function toSchema(
   eschema:
     | ESchema<string, StructFieldsSchema>
     | ValueESchema<string, ValueSchema>,
+  options?: ToSchemaOptions,
 ): any {
+  const isValue = eschema instanceof ValueESchema;
+  const name = options?.name ?? (eschema as { name?: string }).name;
+  if (name === undefined || name === '') {
+    const kind = isValue ? 'ValueESchema' : 'ESchema';
+    throw new Error(
+      `toSchema: cannot derive an identifier from an anonymous ${kind}. ` +
+        `Build it with a name (e.g. SingleEntityESchema.make / EntityESchema.make) ` +
+        `or pass one explicitly: toSchema(schema, { name: 'MyName' }).`,
+    );
+  }
+  const identifier = isValue ? `ValueESchema(${name})` : `ESchema(${name})`;
   return Schema.declare(
     [],
     {
@@ -412,10 +435,7 @@ export function toSchema(
           ),
     },
     {
-      identifier:
-        eschema instanceof ValueESchema
-          ? 'ValueESchema(anonymous)'
-          : `ESchema(${(eschema as any).name ?? 'anonymous'})`,
+      identifier,
       [SchemaAST.SurrogateAnnotationId]: eschema.schema.ast,
     },
   ) as unknown as Schema.Schema<unknown, unknown, never>;

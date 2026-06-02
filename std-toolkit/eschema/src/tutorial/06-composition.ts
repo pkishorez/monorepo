@@ -31,8 +31,8 @@ const Status = ValueESchema.make(Schema.Literal('draft', 'published'))
 // The parent embeds both children via `toSchema`, including an array of them.
 const Ticket = ESchema.make({
   title: Schema.String,
-  status: toSchema(Status),
-  addresses: Schema.Array(toSchema(Address)),
+  status: toSchema(Status, { name: 'Status' }),
+  addresses: Schema.Array(toSchema(Address, { name: 'Address' })),
 }).build();
 
 Effect.runSync(

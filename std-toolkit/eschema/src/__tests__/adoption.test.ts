@@ -91,7 +91,7 @@ describe('adoption: plain schema -> evolving schema', () => {
           // later: old orders carry an unstamped nested address.
           const Order = EntityESchema.make('Order', 'id', {
             customer: Schema.String,
-            shippingAddress: toSchema(Address),
+            shippingAddress: toSchema(Address, { name: 'Address' }),
           }).build();
 
           const decoded = yield* Order.decode({
@@ -116,7 +116,7 @@ describe('adoption: plain schema -> evolving schema', () => {
           // The parent itself is a single-version (v1) schema and was never
           // evolved, yet decoding folds the nested address to its latest shape.
           const Order = EntityESchema.make('Order', 'id', {
-            shippingAddress: toSchema(Address),
+            shippingAddress: toSchema(Address, { name: 'Address' }),
           }).build();
 
           const decoded = yield* Order.decode({
@@ -140,13 +140,13 @@ describe('adoption: plain schema -> evolving schema', () => {
         Effect.gen(function* () {
           const Order = EntityESchema.make('Order', 'id', {
             customer: Schema.String,
-            shippingAddress: toSchema(Address),
+            shippingAddress: toSchema(Address, { name: 'Address' }),
           })
             .evolve(
               'v2',
               {
                 customer: Schema.String,
-                shippingAddress: toSchema(Address),
+                shippingAddress: toSchema(Address, { name: 'Address' }),
                 priority: Schema.Boolean,
               },
               (p) => ({ ...p, priority: false }),
@@ -174,7 +174,7 @@ describe('adoption: plain schema -> evolving schema', () => {
       () =>
         Effect.gen(function* () {
           const Order = EntityESchema.make('Order', 'id', {
-            addresses: Schema.Array(toSchema(Address)),
+            addresses: Schema.Array(toSchema(Address, { name: 'Address' })),
           }).build();
 
           const decoded = yield* Order.decode({
@@ -198,7 +198,7 @@ describe('adoption: plain schema -> evolving schema', () => {
       () =>
         Effect.gen(function* () {
           const Order = EntityESchema.make('Order', 'id', {
-            shippingAddress: toSchema(Address),
+            shippingAddress: toSchema(Address, { name: 'Address' }),
           }).build();
 
           const error = yield* Effect.flip(

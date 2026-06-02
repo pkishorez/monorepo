@@ -25,7 +25,7 @@ import { ESchema, toSchema } from '../index.js';
 const ChildV1 = ESchema.make({ value: Schema.String }).build();
 const ParentA = ESchema.make({
   name: Schema.String,
-  child: toSchema(ChildV1),
+  child: toSchema(ChildV1, { name: 'Child' }),
 }).build();
 
 // --- Version B of the world: the SAME child, now evolved to v2 ------------
@@ -35,7 +35,7 @@ const ChildV2 = ESchema.make({ value: Schema.String })
   .build();
 const ParentB = ESchema.make({
   name: Schema.String,
-  child: toSchema(ChildV2),
+  child: toSchema(ChildV2, { name: 'Child' }),
 }).build();
 
 // The exact same stored row, parent still stamped v1, child still stamped v1.
