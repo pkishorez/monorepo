@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
-import { Chunk, Effect, Schema, Stream } from 'effect';
+import { Effect, Schema, Stream } from 'effect';
 import { EntityESchema } from '@std-toolkit/eschema';
 import { DynamoTable, DynamoEntity } from '../index.js';
 import { createDynamoDB } from '../services/dynamo-client.js';
@@ -81,7 +81,7 @@ async function createTestTable() {
 
   await Effect.runPromise(
     client.createTable(createParams).pipe(
-      Effect.catchAll((e) => {
+      Effect.catch((e) => {
         const errorName = (e as any)?.error?.name;
         if (errorName === 'ResourceInUseException') {
           return Effect.void;
@@ -292,8 +292,7 @@ describe('Simplified API Tests', () => {
           sk: { '>': null },
         });
 
-        const batchesChunk = yield* Stream.runCollect(stream);
-        const batches = Chunk.toArray(batchesChunk);
+        const batches = yield* Stream.runCollect(stream);
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(3);
@@ -309,8 +308,7 @@ describe('Simplified API Tests', () => {
           sk: { '<': null },
         });
 
-        const batchesChunk = yield* Stream.runCollect(stream);
-        const batches = Chunk.toArray(batchesChunk);
+        const batches = yield* Stream.runCollect(stream);
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(3);
@@ -330,8 +328,7 @@ describe('Simplified API Tests', () => {
           { batchSize: 2 },
         );
 
-        const batchesChunk = yield* Stream.runCollect(stream);
-        const batches = Chunk.toArray(batchesChunk);
+        const batches = yield* Stream.runCollect(stream);
 
         expect(batches.length).toBe(2);
         expect(batches[0]?.length).toBe(2);
@@ -346,8 +343,7 @@ describe('Simplified API Tests', () => {
           sk: { '>': null },
         });
 
-        const batchesChunk = yield* Stream.runCollect(stream);
-        const batches = Chunk.toArray(batchesChunk);
+        const batches = yield* Stream.runCollect(stream);
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(0);
@@ -372,8 +368,7 @@ describe('Simplified API Tests', () => {
           sk: { '>': cursor },
         });
 
-        const batchesChunk = yield* Stream.runCollect(stream);
-        const batches = Chunk.toArray(batchesChunk);
+        const batches = yield* Stream.runCollect(stream);
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(2);
@@ -400,8 +395,7 @@ describe('Simplified API Tests', () => {
           sk: { '>': cursor },
         });
 
-        const batchesChunk = yield* Stream.runCollect(stream);
-        const batches = Chunk.toArray(batchesChunk);
+        const batches = yield* Stream.runCollect(stream);
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(2);
@@ -415,8 +409,7 @@ describe('Simplified API Tests', () => {
           sk: { '>': null },
         });
 
-        const batchesChunk = yield* Stream.runCollect(stream);
-        const batches = Chunk.toArray(batchesChunk);
+        const batches = yield* Stream.runCollect(stream);
         const allItems = batches.flatMap((batch) => batch);
 
         expect(allItems.length).toBe(3);

@@ -52,7 +52,7 @@ async function createTestTable() {
 
   await Effect.runPromise(
     client.createTable(createParams).pipe(
-      Effect.catchAll((e) => {
+      Effect.catch((e) => {
         const errorName = (e as any)?.error?.name;
         if (errorName === 'ResourceInUseException') {
           return Effect.void;

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
-import { Chunk, Effect, Layer, Schema, Stream } from 'effect';
+import { Effect, Layer, Schema, Stream } from 'effect';
 import { EntityESchema, SingleEntityESchema } from '@std-toolkit/eschema';
 import { ConnectionService } from '@std-toolkit/core/server';
 
@@ -190,7 +190,7 @@ async function createTestTable() {
         },
       })
       .pipe(
-        Effect.catchAll((e) => {
+        Effect.catch((e) => {
           const errorName = (e as any)?.error?.name;
           if (errorName === 'ResourceInUseException') {
             return Effect.void;
@@ -319,7 +319,7 @@ describe('registry migration dry-run stream', () => {
 
         const reports = yield* registry
           .migrateStream({ batchSize: 3 })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
         const finalReport = reports.at(-1);
 
         expect(reports.length).toBeGreaterThanOrEqual(2);
@@ -456,7 +456,7 @@ describe('registry migration dry-run stream', () => {
         });
         const streamedReports = yield* registry
           .migrateStream({ progress: { estimatedTotal: false } })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
 
         expect(report).toEqual(streamedReports.at(-1));
         expect(report.items).toMatchObject({
@@ -494,7 +494,7 @@ describe('registry migration dry-run stream', () => {
           dryRun: false,
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
 
       const { Item } = yield* table.getItem(
         {
@@ -554,7 +554,7 @@ describe('registry migration dry-run stream', () => {
           dryRun: false,
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
       const streamedFinalReport = streamedReports.at(-1);
 
       yield* table.dangerouslyPurgeAllItems('I KNOW WHAT I AM DOING');
@@ -648,7 +648,7 @@ describe('registry migration dry-run stream', () => {
             dryRun: false,
             progress: { estimatedTotal: false },
           })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
 
         const { Item: missing } = yield* table.getItem(
           { pk: 'Account#missing-index', sk: 'missing-index' },
@@ -707,7 +707,7 @@ describe('registry migration dry-run stream', () => {
           dryRun: false,
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
 
       const { Item } = yield* table.getItem(
         { pk: 'EvolvedSettings', sk: 'EvolvedSettings' },
@@ -754,7 +754,7 @@ describe('registry migration dry-run stream', () => {
           dryRun: false,
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
 
       const { Item } = yield* table.getItem(
         { pk: 'Account#missing-delete-flag', sk: 'missing-delete-flag' },
@@ -797,7 +797,7 @@ describe('registry migration dry-run stream', () => {
           dryRun: false,
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
 
       const { Item } = yield* table.getItem(
         { pk: 'EvolvingAccount#mixed-drift', sk: 'mixed-drift' },
@@ -865,7 +865,7 @@ describe('registry migration dry-run stream', () => {
             dryRun: false,
             progress: { estimatedTotal: false },
           })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
 
         const after = yield* table.scan({ ConsistentRead: true });
 
@@ -910,11 +910,7 @@ describe('registry migration dry-run stream', () => {
           dryRun: false,
           progress: { estimatedTotal: false },
         })
-        .pipe(
-          Stream.runCollect,
-          Effect.map(Chunk.toArray),
-          Effect.provide(connectionLayer),
-        );
+        .pipe(Stream.runCollect, Effect.provide(connectionLayer));
 
       expect(reports.at(-1)?.items).toMatchObject({
         migrated: 1,
@@ -967,7 +963,7 @@ describe('registry migration dry-run stream', () => {
             dryRun: false,
             progress: { estimatedTotal: false },
           })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
 
         const { Item } = yield* table.getItem(
           { pk: 'Account#conditional-race', sk: 'conditional-race' },
@@ -1037,7 +1033,7 @@ describe('registry migration dry-run stream', () => {
             dryRun: false,
             progress: { estimatedTotal: false },
           })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
 
         const { Item } = yield* table.getItem(
           { pk: 'Account#retry-stale-conflict', sk: 'retry-stale-conflict' },
@@ -1103,7 +1099,7 @@ describe('registry migration dry-run stream', () => {
           dryRun: false,
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
 
       const { Item } = yield* table.getItem(
         { pk: 'Account#persistent-conflict', sk: 'persistent-conflict' },
@@ -1187,7 +1183,7 @@ describe('registry migration dry-run stream', () => {
             dryRun: false,
             progress: { estimatedTotal: false },
           })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
 
         const { Item: failedItem } = yield* table.getItem(
           {
@@ -1263,7 +1259,7 @@ describe('registry migration dry-run stream', () => {
 
         const reports = yield* registry
           .migrateStream({ entities: ['Settings'] })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
         const finalReport = reports.at(-1);
 
         expect(finalReport).toEqual({
@@ -1333,7 +1329,7 @@ describe('registry migration dry-run stream', () => {
 
       const reports = yield* registry
         .migrateStream({ scan: { totalSegments: 3 } })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
       const finalReport = reports.at(-1);
 
       expect(finalReport).toMatchObject({
@@ -1414,7 +1410,7 @@ describe('registry migration dry-run stream', () => {
           scan: { totalSegments: 3 },
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
       const finalReport = reports.at(-1);
 
       expect(finalReport).toMatchObject({
@@ -1452,7 +1448,7 @@ describe('registry migration dry-run stream', () => {
 
       const reports = yield* registry
         .migrateStream({ progress: { estimatedTotal: 10 } })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
 
       expect(reports.at(-1)?.progress).toEqual({
         scanned: 2,
@@ -1477,7 +1473,7 @@ describe('registry migration dry-run stream', () => {
 
         const reports = yield* observedRegistry
           .migrateStream({ progress: { estimatedTotal: false } })
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
 
         expect(reports.at(-1)?.progress).toBeUndefined();
         expect(observed.describes).toEqual([]);
@@ -1504,7 +1500,7 @@ describe('registry migration dry-run stream', () => {
 
         const reports = yield* observedRegistry
           .migrateStream()
-          .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+          .pipe(Stream.runCollect);
 
         expect(observed.describes).toHaveLength(1);
         expect(reports.at(-1)?.progress).toEqual({
@@ -1560,7 +1556,7 @@ describe('registry migration dry-run stream', () => {
           scan: { pageLimit: 1 },
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
 
       expect(reports.at(-1)?.items.scanned).toBe(3);
       expect(observed.scans.length).toBeGreaterThan(1);
@@ -1650,7 +1646,7 @@ describe('registry migration dry-run stream', () => {
           concurrency: { itemsPerSegment: 2 },
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect, Effect.map(Chunk.toArray));
+        .pipe(Stream.runCollect);
 
       expect(reports.at(-1)?.items.scanned).toBe(6);
       expect(maxActive).toBe(2);

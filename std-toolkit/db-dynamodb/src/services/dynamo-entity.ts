@@ -1,5 +1,5 @@
 import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
-import { Chunk, Effect, Option, Schema, Stream } from 'effect';
+import { Effect, Option, Schema, Stream, Struct } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
 import { ConnectionService } from '@std-toolkit/core/server';
 import { DynamodbError } from '../errors.js';
@@ -266,9 +266,9 @@ export class DynamoEntity<
   #indexAttrNames: Set<string>;
 
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const service = yield* Effect.serviceOption(ConnectionService).pipe(
-        Effect.andThen(Option.getOrNull),
+        Effect.map(Option.getOrNull),
       );
       service?.broadcast(entity);
     });
@@ -326,7 +326,7 @@ export class DynamoEntity<
   migrationWriteIntent(
     rawItem: Record<string, unknown>,
   ): Effect.Effect<MigrationWriteIntent | undefined, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const internal = yield* this.#inspectMigrationWithWriteIntent(rawItem);
       if (
         typeof internal.inspection.state !== 'object' ||
@@ -348,7 +348,7 @@ export class DynamoEntity<
   #inspectMigrationWithWriteIntent(
     rawItem: Record<string, unknown>,
   ): Effect.Effect<InternalMigrationInspection, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const storedKey = extractTableKey(rawItem, this.#table.primary);
       if (rawItem._e !== this.#eschema.name) {
         return {
@@ -371,9 +371,9 @@ export class DynamoEntity<
         };
       }
 
-      const decoded = yield* this.#eschema.decode(rawItem).pipe(Effect.either);
-      if (decoded._tag === 'Left') {
-        const decodeError = decoded.left;
+      const decoded = yield* this.#eschema.decode(rawItem).pipe(Effect.result);
+      if (decoded._tag === 'Failure') {
+        const decodeError = decoded.failure;
         const causeMessage =
           decodeError.cause instanceof Error
             ? decodeError.cause.message
@@ -387,7 +387,7 @@ export class DynamoEntity<
           },
         };
       }
-      const value = decoded.right;
+      const value = decoded.success;
       const canonical = yield* this.#canonicalizeDecodedValue(
         value as ESchemaType<TSchema>,
         rawItem,
@@ -489,7 +489,7 @@ export class DynamoEntity<
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
     options?: { ConsistentRead?: boolean },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>> | null, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
         this.#primaryDerivation.pkDeps,
@@ -537,7 +537,7 @@ export class DynamoEntity<
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const fullValueWithId = {
         ...value,
         _v: this.#eschema.latestVersion,
@@ -575,7 +575,7 @@ export class DynamoEntity<
     },
     DynamodbError
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const items: Record<string, unknown>[] = [];
       const entities: EntityType<ESchemaType<TSchema>>[] = [];
       for (const value of values) {
@@ -624,7 +624,7 @@ export class DynamoEntity<
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
     const { update: updates, condition, autoMigrate = true } = params;
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { pk, sk, exprResult } =
         typeof updates === 'function'
           ? yield* this.#prepareUpdateExpr(
@@ -739,7 +739,7 @@ export class DynamoEntity<
       forceDelete?: 'I know what I am doing';
     },
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(DynamodbError.noItemToDelete());
@@ -795,7 +795,7 @@ export class DynamoEntity<
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
   ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const fullValueWithId = {
         ...value,
         _v: this.#eschema.latestVersion,
@@ -838,7 +838,7 @@ export class DynamoEntity<
     },
   ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
     const { update: updates, condition } = params;
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
@@ -908,7 +908,7 @@ export class DynamoEntity<
     { items: EntityType<ESchemaType<TSchema>>[] },
     DynamodbError
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
 
@@ -1036,8 +1036,8 @@ export class DynamoEntity<
       ? this.#resolveCustomSk(initialSkValue, indexDerivation!)
       : (initialSkValue as string | null);
 
-    return Stream.paginateChunkEffect(initialCursor, (cursor) =>
-      Effect.gen(this, function* () {
+    return Stream.paginate(initialCursor, (cursor) =>
+      Effect.gen({ self: this }, function* () {
         const skParam = { [operator]: cursor } as SkParam;
 
         const result = yield* this.query(
@@ -1046,7 +1046,7 @@ export class DynamoEntity<
           { limit: batchSize },
         );
         const items = result.items;
-        const chunk = Chunk.of(items);
+        const chunk = [items];
 
         if (items.length === 0 || items.length < batchSize) {
           return [chunk, Option.none<string | null>()];
@@ -1096,10 +1096,10 @@ export class DynamoEntity<
           : never
     >,
   ): Effect.Effect<{ success: true }, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { key, pk, cursor, limit } = opts;
       const service = yield* Effect.serviceOption(ConnectionService).pipe(
-        Effect.andThen(Option.getOrNull),
+        Effect.map(Option.getOrNull),
       );
 
       const queryOptions: SimpleQueryOptions = {};
@@ -1243,7 +1243,7 @@ export class DynamoEntity<
     },
     DynamodbError
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const encoded = yield* this.#eschema
         .encode(value as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
@@ -1318,7 +1318,7 @@ export class DynamoEntity<
     },
     DynamodbError
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const encoded = yield* this.#eschema
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
@@ -1400,7 +1400,7 @@ export class DynamoEntity<
   #ensureLatestVersion(
     rawItem: Record<string, unknown>,
   ): Effect.Effect<void, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const decoded = yield* this.#eschema
         .decode(rawItem)
         .pipe(Effect.mapError((e) => DynamodbError.itemMigrationFailed(e)));
@@ -1457,7 +1457,7 @@ export class DynamoEntity<
     { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType },
     DynamodbError
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
         this.#primaryDerivation.pkDeps,
@@ -1474,9 +1474,13 @@ export class DynamoEntity<
       const { _d, _e, _v, _u: _uInput, ...entityUpdates } = updates as any;
 
       const encodedUpdates = yield* (
-        Schema.encode(Schema.partial(this.#eschema.schema))(
-          entityUpdates,
-        ) as Effect.Effect<Record<string, unknown>, unknown, never>
+        Schema.encodeEffect(
+          this.#eschema.schema.mapFields(Struct.map(Schema.optional)),
+        )(entityUpdates) as Effect.Effect<
+          Record<string, unknown>,
+          unknown,
+          never
+        >
       ).pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
 
       const _u = new Date().toISOString();
@@ -1517,7 +1521,7 @@ export class DynamoEntity<
     { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType },
     DynamodbError
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { pk, sk } = this.#derivePrimaryIndex(keyValue);
 
       const userOps = exprUpdate<any>(builder);

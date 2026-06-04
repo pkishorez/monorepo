@@ -182,7 +182,7 @@ async function createTestTable() {
 
   await Effect.runPromise(
     client.createTable(createParams).pipe(
-      Effect.catchAll((e) => {
+      Effect.catch((e) => {
         // Table already exists is fine, ResourceInUseException
         const errorName = (e as any)?.error?.name;
         if (errorName === 'ResourceInUseException') {
@@ -282,9 +282,9 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
                 ConditionExpression: 'attribute_not_exists(pk)',
               },
             )
-            .pipe(Effect.either);
+            .pipe(Effect.result);
 
-          expect(result._tag).toBe('Left');
+          expect(result._tag).toBe('Failure');
         }),
       );
     });
@@ -965,9 +965,9 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
             email: 'dup2@example.com',
             status: 'inactive',
             age: 26,
-          }).pipe(Effect.either);
+          }).pipe(Effect.result);
 
-          expect(result._tag).toBe('Left');
+          expect(result._tag).toBe('Failure');
         }),
       );
     });
@@ -1173,11 +1173,11 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
           Effect.gen(function* () {
             const result = yield* UserEntity.delete({
               userId: 'entity-missing-soft',
-            }).pipe(Effect.either);
+            }).pipe(Effect.result);
 
-            expect(result._tag).toBe('Left');
-            if (result._tag === 'Left') {
-              expect((result.left as DynamodbError).error._tag).toBe(
+            expect(result._tag).toBe('Failure');
+            if (result._tag === 'Failure') {
+              expect((result.failure as DynamodbError).error._tag).toBe(
                 'NoItemToDelete',
               );
             }
@@ -1191,11 +1191,11 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
             const result = yield* UserEntity.delete(
               { userId: 'entity-missing-hard' },
               { forceDelete: 'I know what I am doing' },
-            ).pipe(Effect.either);
+            ).pipe(Effect.result);
 
-            expect(result._tag).toBe('Left');
-            if (result._tag === 'Left') {
-              expect((result.left as DynamodbError).error._tag).toBe(
+            expect(result._tag).toBe('Failure');
+            if (result._tag === 'Failure') {
+              expect((result.failure as DynamodbError).error._tag).toBe(
                 'NoItemToDelete',
               );
             }

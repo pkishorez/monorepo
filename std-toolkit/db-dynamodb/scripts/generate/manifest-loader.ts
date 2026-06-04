@@ -1,5 +1,5 @@
-import { HttpClient } from '@effect/platform';
 import { Effect, Schema } from 'effect';
+import { HttpClient } from 'effect/unstable/http';
 import { Manifest } from './schemas.js';
 
 const DYNAMODB_SPEC_URL =
@@ -19,7 +19,7 @@ export function loadManifest() {
     }
 
     const content = yield* response.json;
-    const manifest = yield* Schema.decodeUnknown(Manifest)(content);
+    const manifest = yield* Schema.decodeUnknownEffect(Manifest)(content);
 
     return { manifest, rawJson: content };
   });
