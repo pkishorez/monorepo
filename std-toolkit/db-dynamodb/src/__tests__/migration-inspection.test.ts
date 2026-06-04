@@ -63,7 +63,7 @@ const optionalIndexSchema = EntityESchema.make(
   'accountId',
   {
     email: Schema.String,
-    alias: Schema.optionalWith(Schema.String, { exact: true }),
+    alias: Schema.optionalKey(Schema.String),
   },
 ).build();
 
@@ -124,7 +124,7 @@ async function createTestTable() {
         },
       })
       .pipe(
-        Effect.catchAll((e) => {
+        Effect.catch((e) => {
           const errorName = (e as any)?.error?.name;
           if (errorName === 'ResourceInUseException') {
             return Effect.void;

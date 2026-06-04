@@ -172,7 +172,7 @@ export class DynamoSingleEntity<
           reasons: [],
         };
       }),
-      Effect.catchAll((err): Effect.Effect<MigrationInspection, never> => {
+      Effect.catch((err): Effect.Effect<MigrationInspection, never> => {
         const causeMessage =
           err instanceof Error
             ? err.message
@@ -210,7 +210,7 @@ export class DynamoSingleEntity<
           return { item };
         },
       ),
-      Effect.catchAll(() => Effect.succeed(undefined)),
+      Effect.catch(() => Effect.succeed(undefined)),
     );
   }
 
@@ -222,7 +222,7 @@ export class DynamoSingleEntity<
     rawItem: Record<string, unknown>,
     updateTimestamp?: string,
   ): Effect.Effect<SingleEntityCanonicalMigrationIntent, unknown> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       if (typeof rawItem._u !== 'string') {
         return yield* Effect.fail('missingUpdateTimestamp');
       }
@@ -253,7 +253,7 @@ export class DynamoSingleEntity<
   get(options?: {
     ConsistentRead?: boolean;
   }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const pk = this.#derivePrimaryKey();
       const sk = this.#derivePrimaryKey();
 
@@ -296,7 +296,7 @@ export class DynamoSingleEntity<
   put(
     value: Omit<ESchemaType<TSchema>, '_v'>,
   ): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const fullValue = {
         ...value,
         _v: this.#eschema.latestVersion,
@@ -351,7 +351,7 @@ export class DynamoSingleEntity<
     condition?: ConditionInput<ESchemaType<TSchema>>;
   }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
     const { update: updates, condition } = params;
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { pk, sk, exprResult } =
         typeof updates === 'function'
           ? this.#prepareUpdateExpr(updates, condition)
@@ -409,7 +409,7 @@ export class DynamoSingleEntity<
     condition?: ConditionInput<ESchemaType<TSchema>>;
   }): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
     const { update: updates, condition } = params;
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get();
 
       const { pk, sk, exprResult } =
@@ -439,7 +439,7 @@ export class DynamoSingleEntity<
    * Subsequent `get` calls will return the default value.
    */
   delete(): Effect.Effect<void, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const pk = this.#derivePrimaryKey();
       const sk = this.#derivePrimaryKey();
       yield* this.#table.deleteItem({ pk, sk });

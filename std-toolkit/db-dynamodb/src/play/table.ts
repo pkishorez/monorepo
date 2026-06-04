@@ -37,7 +37,7 @@ export async function createPlaygroundTable() {
   await Effect.runPromise(
     client.createTable({ TableName: PLAYGROUND_TABLE, ...tableSchema }).pipe(
       Effect.tap(() => Console.log(`Created table: ${PLAYGROUND_TABLE}`)),
-      Effect.catchAll((e) => {
+      Effect.catch((e) => {
         const errorName = (e as any)?.error?.name;
         if (errorName === 'ResourceInUseException') {
           return Console.log(`Table ${PLAYGROUND_TABLE} already exists`);

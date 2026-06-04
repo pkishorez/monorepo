@@ -486,7 +486,7 @@ export class DynamoTable<
   batchWrite(
     items: Record<string, unknown>[],
   ): Effect.Effect<{ unprocessedIndexes: number[] }, DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const unprocessedIndexes: number[] = [];
 
       for (let i = 0; i < items.length; i += 25) {
@@ -533,7 +533,7 @@ export class DynamoTable<
       );
     }
 
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       let lastKey: Record<string, unknown> | undefined;
 
       do {

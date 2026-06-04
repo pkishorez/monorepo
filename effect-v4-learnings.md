@@ -318,3 +318,22 @@ SchemaGetter.transform(fn) }))`.** `decodeTo`'s transformation arg is a
 - **`Struct.omit(k)` and `Schema.extend(struct)` are gone.** A v4 `Schema.Struct`
   exposes `.fields`; reshape by spreading: `Schema.Struct({ ...Base.fields, k:
 NewSchema })` (drop/override keys directly).
+
+### Platform / Stream / Effect (found migrating `db-dynamodb`)
+
+- **`@effect/platform` `FileSystem` / `Path` are now TOP-LEVEL core modules**
+  (`effect/FileSystem`, importable as `import { FileSystem } from 'effect'`) —
+  **not** under `effect/unstable/*`. Only the HTTP/HttpApi pieces live under
+  `effect/unstable/http` (e.g. `HttpClient`); `client.get`/`response.status`/
+  `response.json` are unchanged. `@effect/platform-node` survives standalone
+  (`NodeFileSystem`, `NodeHttpClient`).
+- **`Stream.runCollect` now returns `Effect<Array<A>>`** (was `Chunk`). Drop any
+  trailing `Effect.map(Chunk.toArray)` / `Chunk.toArray(result)` adapters.
+- **`Effect.catchAll` → `Effect.catch`** (recovers from all typed errors; same
+  callback shape `(error) => Effect`).
+- **`Effect.either` → `Effect.result`** (already noted under Effect/Cause):
+  consumers must switch `_tag === 'Right'|'Left'` → `'Success'|'Failure'` and
+  `.right`/`.left` → `.success`/`.failure` (including runtime `expect` asserts).
+- **`Schema.partial(struct)` → `struct.mapFields(Struct.map(Schema.optional))`**
+  (already noted under `core`; confirmed `.mapFields` works on
+  `Schema.Struct<...>` returned by eschema's `.schema`).

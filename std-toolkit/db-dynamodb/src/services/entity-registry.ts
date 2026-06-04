@@ -1,4 +1,4 @@
-import { Chunk, Effect, Option, Stream } from 'effect';
+import { Effect, Option, Stream } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoEntity } from './dynamo-entity.js';
 import type { DynamoSingleEntity } from './dynamo-single-entity.js';
@@ -119,12 +119,12 @@ export class EntityRegistry<
       | SingleEntityName<TSingleEntities[keyof TSingleEntities]>
     >[],
   ): Effect.Effect<EntityType<unknown>[], DynamodbError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       yield* this.#table.transact(items);
 
       const connectionService = yield* Effect.serviceOption(
         ConnectionService,
-      ).pipe(Effect.andThen(Option.getOrNull));
+      ).pipe(Effect.map(Option.getOrNull));
 
       const entities: EntityType<unknown>[] = [];
       for (const item of items) {
@@ -230,7 +230,7 @@ export class EntityRegistry<
           segmentKey: string,
           item: Record<string, unknown>,
         ) =>
-          Effect.gen(this, function* () {
+          Effect.gen({ self: this }, function* () {
             const entityName =
               typeof item._e === 'string' ? item._e : undefined;
 
@@ -286,10 +286,10 @@ export class EntityRegistry<
               storedKey,
               canonicalItem: writeIntent.item,
               regular: isRegularEntity,
-            }).pipe(Effect.either);
+            }).pipe(Effect.result);
 
-            if (writeResult._tag === 'Right') {
-              if (writeResult.right === 'migrated') {
+            if (writeResult._tag === 'Success') {
+              if (writeResult.success === 'migrated') {
                 accumulator.recordMigrated({ entity: entityName });
               }
               return;
@@ -298,20 +298,20 @@ export class EntityRegistry<
             accumulator.recordFailed({
               entity: entityName,
               key: storedKey,
-              error: formatMigrationError(writeResult.left),
+              error: formatMigrationError(writeResult.failure),
             });
           });
 
         const scanSegment = (segment: number) => {
           const segmentKey = String(segment);
 
-          return Stream.paginateChunkEffect<
+          return Stream.paginate<
             { lastKey?: Record<string, unknown> },
             MigrationReport,
             DynamodbError,
             never
           >({}, ({ lastKey }) =>
-            Effect.gen(this, function* () {
+            Effect.gen({ self: this }, function* () {
               const scanInput = {
                 ...(scanOptions.pageLimit
                   ? { Limit: scanOptions.pageLimit }
@@ -329,20 +329,20 @@ export class EntityRegistry<
               };
               const pageResult = yield* this.#scanMigrationPageWithRetry(
                 scanInput,
-              ).pipe(Effect.either);
+              ).pipe(Effect.result);
 
-              if (pageResult._tag === 'Left') {
+              if (pageResult._tag === 'Failure') {
                 accumulator.recordSegmentFailed(
                   segmentKey,
-                  formatMigrationError(pageResult.left),
+                  formatMigrationError(pageResult.failure),
                 );
                 return [
-                  Chunk.of(accumulator.snapshot()),
+                  [accumulator.snapshot()],
                   Option.none<{ lastKey?: Record<string, unknown> }>(),
                 ];
               }
 
-              const page = pageResult.right;
+              const page = pageResult.success;
 
               yield* Effect.forEach(
                 page.Items,
@@ -352,14 +352,14 @@ export class EntityRegistry<
 
               if (page.LastEvaluatedKey) {
                 return [
-                  Chunk.of(accumulator.snapshot()),
+                  [accumulator.snapshot()],
                   Option.some({ lastKey: page.LastEvaluatedKey }),
                 ];
               }
 
               accumulator.completeSegment(segmentKey);
               return [
-                Chunk.of(accumulator.snapshot()),
+                [accumulator.snapshot()],
                 Option.none<{ lastKey?: Record<string, unknown> }>(),
               ];
             }),
@@ -434,21 +434,21 @@ export class EntityRegistry<
     },
     DynamodbError
   > {
-    return Effect.gen(this, function* () {
-      const result = yield* this.#table.scan(options).pipe(Effect.either);
+    return Effect.gen({ self: this }, function* () {
+      const result = yield* this.#table.scan(options).pipe(Effect.result);
 
-      if (result._tag === 'Right') {
-        return result.right;
+      if (result._tag === 'Success') {
+        return result.success;
       }
 
       if (
-        this.#isRecoverableDynamoFailure(result.left) &&
+        this.#isRecoverableDynamoFailure(result.failure) &&
         attempt < MIGRATION_RETRY_LIMIT
       ) {
         return yield* this.#scanMigrationPageWithRetry(options, attempt + 1);
       }
 
-      return yield* Effect.fail(result.left);
+      return yield* Effect.fail(result.failure);
     });
   }
 
@@ -465,15 +465,15 @@ export class EntityRegistry<
   }): Effect.Effect<'migrated' | 'resolved', DynamodbError> {
     const attempt = options.attempt ?? 0;
 
-    return Effect.gen(this, function* () {
-      const result = yield* this.#putMigrationItem(options).pipe(Effect.either);
+    return Effect.gen({ self: this }, function* () {
+      const result = yield* this.#putMigrationItem(options).pipe(Effect.result);
 
-      if (result._tag === 'Right') {
+      if (result._tag === 'Success') {
         return 'migrated' as const;
       }
 
       if (
-        this.#isConditionalConflict(result.left) &&
+        this.#isConditionalConflict(result.failure) &&
         attempt < MIGRATION_RETRY_LIMIT
       ) {
         const current = yield* this.#table.getItem(options.storedKey, {
@@ -508,7 +508,7 @@ export class EntityRegistry<
       }
 
       if (
-        this.#isRecoverableDynamoFailure(result.left) &&
+        this.#isRecoverableDynamoFailure(result.failure) &&
         attempt < MIGRATION_RETRY_LIMIT
       ) {
         return yield* this.#writeMigrationItemWithRetry({
@@ -517,7 +517,7 @@ export class EntityRegistry<
         });
       }
 
-      return yield* Effect.fail(result.left);
+      return yield* Effect.fail(result.failure);
     });
   }
 

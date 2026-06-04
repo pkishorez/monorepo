@@ -1,5 +1,4 @@
-import { FileSystem } from '@effect/platform';
-import { Effect } from 'effect';
+import { Effect, FileSystem } from 'effect';
 import { generateDynamoDBCode } from './generator.js';
 import { loadManifest } from './manifest-loader.js';
 
