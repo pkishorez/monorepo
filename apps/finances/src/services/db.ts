@@ -68,15 +68,15 @@ export interface DbShape {
   registry: typeof registry;
 }
 
-export class Db extends Context.Tag('finances/Db')<Db, DbShape>() {}
+export class Db extends Context.Service<Db, DbShape>()('finances/Db') {}
 
 export const makeDbLayer = (dbPath: string = DEFAULT_DB_PATH) => {
-  const sqliteLayer = Layer.scoped(
+  const sqliteLayer = Layer.effect(
     SqliteDB,
     makeDatabase(dbPath).pipe(
       Effect.map((database) => SqliteDBBetterSqlite3(database)),
       Effect.flatMap((layer) => Layer.build(layer)),
-      Effect.map((context) => Context.unsafeGet(context, SqliteDB)),
+      Effect.map((context) => Context.getUnsafe(context, SqliteDB)),
     ),
   );
 

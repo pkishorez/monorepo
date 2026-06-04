@@ -7,7 +7,7 @@ const TransactionFields = {
   bank: Schema.String,
   description: Schema.String,
   amount: Schema.Number,
-  type: Schema.Literal('credit', 'debit'),
+  type: Schema.Literals(['credit', 'debit']),
   category: Schema.String,
   subcategory: Schema.String,
   is_transfer: Schema.Boolean,

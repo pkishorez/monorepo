@@ -29,7 +29,7 @@ const transactionsSyncConfig = std.totalSync({
           }
         }),
       );
-    }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
+    }).pipe(Effect.provide(FinancesClient.layer), Effect.orDie),
 });
 
 export const transactionsCollection = createCollection(transactionsSyncConfig);

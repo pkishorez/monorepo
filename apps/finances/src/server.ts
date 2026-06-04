@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Effect, Layer } from 'effect';
-import { RpcServer, RpcSerialization } from '@effect/rpc';
+import { RpcServer, RpcSerialization } from 'effect/unstable/rpc';
 import { NodeSocketServer, NodeRuntime } from '@effect/platform-node';
 import {
   AppRpcs,
@@ -45,7 +45,7 @@ const RpcLive = RpcServer.layer(AppRpcs).pipe(
 const program = Effect.gen(function* () {
   yield* Effect.log('Effect RPC server started');
   yield* Effect.never;
-}).pipe(Effect.provide(RpcLive));
+}).pipe(Effect.provide(RpcLive)) as Effect.Effect<void>;
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',

@@ -1,4 +1,4 @@
-import { Rpc, RpcGroup } from '@effect/rpc';
+import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { Schema } from 'effect';
 import { makeEntityRpcGroup, StdToolkitError } from '@std-toolkit/core/rpc';
 import { EntitySchema, SingleEntitySchema } from '@std-toolkit/core';
@@ -40,14 +40,14 @@ const SubscribePayloadSchema = Schema.Struct({
 const makeSyncEventSchema = <S extends Parameters<typeof EntitySchema>[0]>(
   schema: S,
 ) =>
-  Schema.Union(
+  Schema.Union([
     Schema.Struct({
       _tag: Schema.Literal('batch'),
       items: Schema.Array(EntitySchema(schema)),
     }),
     Schema.Struct({ _tag: Schema.Literal('initial-sync-done') }),
     Schema.Struct({ _tag: Schema.Literal('heartbeat') }),
-  );
+  ]);
 
 const subscribeTransactions = Rpc.make('subscribeTransactions', {
   payload: SubscribePayloadSchema,

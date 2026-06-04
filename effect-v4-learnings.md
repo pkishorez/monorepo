@@ -437,3 +437,28 @@ encode: SchemaGetter.transformOptional(Option.flatten) }))`. Wrap it in a small
   acquire/release effect (or one that runs `Layer.build`) works directly.
 - **`Context.unsafeGet(ctx, tag)` → `Context.getUnsafe(ctx, tag)`** (Unsafe
   suffix moved to the end, matching the `makeUnsafe` convention).
+
+### Schema.Union / RpcServer.layer (found migrating `finances`)
+
+- **`Schema.Union(a, b, c)` → `Schema.Union([a, b, c])`.** `Schema.Union` now
+  takes a single **array** of members (optional 2nd options arg), not variadic
+  args. A lingering variadic call surfaces as "Expected 1-2 arguments, but got
+  N". (`Schema.Literals([...])` and `Schema.Record(key, value)` positional are
+  already noted above.)
+- **`RpcServer.layer(group)` leaves an `any` in its layer requirement.** Its
+  `R` is `Protocol | Rpc.ToHandler<Rpcs> | Rpc.Middleware<Rpcs> |
+Rpc.ServicesServer<Rpcs>`, and `Middleware`/`ServicesServer` resolve to `any`
+  even for a trivial single-rpc group. After `Layer.provide`-ing every real dep
+  (handlers, protocol, serialization, socket server, db), the built layer's `R`
+  stays `any`, which `NodeRuntime.runMain` rejects (`any` not assignable to
+  `never`, overload "no properties in common"). Narrow with a single cast at the
+  provide site: `eff.pipe(Effect.provide(RpcLive)) as Effect.Effect<void>` (or
+  annotate the provided layer's R to `never`). Runtime is unaffected — the layer
+  is fully provided; this only papers over upstream `any` widening.
+- **`@effect/platform-node` `NodeSocketServer` / `NodeRuntime` survive
+  unchanged in v4** (`NodeSocketServer.layerWebSocket({ server, path })`,
+  `NodeRuntime.runMain`), as does `@effect/platform-browser`
+  `BrowserSocket.layerWebSocket(url)`. The rpc protocol layers
+  (`RpcServer.layerProtocolSocketServer`, `RpcClient.layerProtocolSocket`,
+  `RpcSerialization.layerNdjson`) moved to `effect/unstable/rpc` but keep the
+  same shapes.
