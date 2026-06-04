@@ -1,4 +1,9 @@
-import { Rpc, RpcGroup, RpcSerialization, RpcServer } from '@effect/rpc';
+import {
+  Rpc,
+  RpcGroup,
+  RpcSerialization,
+  RpcServer,
+} from 'effect/unstable/rpc';
 import { Deferred, Effect } from 'effect';
 import { typedWebSocket } from './typed.js';
 import { DurableObjectState, WebSocket } from '@cloudflare/workers-types';
@@ -12,7 +17,7 @@ export const handleMessage = <Rpcs extends Rpc.Any>(
 ) =>
   Effect.gen(function* () {
     const serialization = yield* RpcSerialization.RpcSerialization;
-    const parser = serialization.unsafeMake();
+    const parser = serialization.makeUnsafe();
     const decoded = parser.decode(message);
     const { clientId } = typedWebSocket.get(ws);
 

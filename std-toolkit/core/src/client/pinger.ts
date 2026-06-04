@@ -1,14 +1,14 @@
-import { Effect } from 'effect';
+import { Effect, Latch } from 'effect';
 
 export const makePinger = Effect.fnUntraced(function* <A, E, R>(
   writePing: Effect.Effect<A, E, R>,
 ) {
   let receivedPong = true;
-  const latch = Effect.unsafeMakeLatch();
+  const latch = Latch.makeUnsafe();
 
   const reset = () => {
     receivedPong = true;
-    latch.unsafeClose();
+    latch.closeUnsafe();
   };
 
   const onPong = () => {

@@ -1,4 +1,7 @@
-import { ClientEnd, FromServerEncoded } from '@effect/rpc/RpcMessage';
+import type {
+  ClientEnd,
+  FromServerEncoded,
+} from 'effect/unstable/rpc/RpcMessage';
 
 const serverMessageTags: Record<
   FromServerEncoded['_tag'] | ClientEnd['_tag'],

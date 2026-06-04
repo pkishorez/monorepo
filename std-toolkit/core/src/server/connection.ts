@@ -1,10 +1,10 @@
 import { Context, Effect, Layer } from 'effect';
 import { BroadcastSchema, EntityType } from '../schema.js';
-import { RpcSerialization } from '@effect/rpc';
+import { RpcSerialization } from 'effect/unstable/rpc';
 import { typedWebSocket } from './typed.js';
 import { DurableObjectState, WebSocket } from '@cloudflare/workers-types';
 
-export class ConnectionService extends Context.Tag('ConnectionService')<
+export class ConnectionService extends Context.Service<
   ConnectionService,
   {
     emit: (value: EntityType<any>[]) => void;
@@ -12,13 +12,13 @@ export class ConnectionService extends Context.Tag('ConnectionService')<
     subscribe: (entity: string) => void;
     unsubscribe: (entity: string) => void;
   }
->() {
+>()('ConnectionService') {
   static make(state: DurableObjectState<any>, websocket: WebSocket) {
     return Layer.effect(
       ConnectionService,
       Effect.gen(function* () {
         const serialization = yield* RpcSerialization.RpcSerialization;
-        const parser = serialization.unsafeMake();
+        const parser = serialization.makeUnsafe();
 
         return {
           emit(values: EntityType<any>[]) {
@@ -56,13 +56,16 @@ export class ConnectionService extends Context.Tag('ConnectionService')<
           subscribe(entity) {
             typedWebSocket.update(websocket, (meta) => ({
               ...meta,
-              subscriptionEntities: meta.subscriptionEntities.add(entity),
+              subscriptionEntities: new Set(meta.subscriptionEntities).add(
+                entity,
+              ),
             }));
           },
           unsubscribe(entity) {
             const meta = typedWebSocket.get(websocket);
-            meta.subscriptionEntities.delete(entity);
-            typedWebSocket.set(websocket, meta);
+            const subscriptionEntities = new Set(meta.subscriptionEntities);
+            subscriptionEntities.delete(entity);
+            typedWebSocket.set(websocket, { ...meta, subscriptionEntities });
           },
         };
       }),

@@ -33,7 +33,7 @@ export const BroadcastSchema = Schema.Struct({
 
 export const EntitySchema = <S extends AnyESchema>(eschema: S) =>
   Schema.Struct({
-    value: eschema.schema as unknown as Schema.Schema<S['Type'], S['Type']>,
+    value: eschema.schema as unknown as Schema.Codec<S['Type'], S['Type']>,
     meta: MetaSchema,
   });
 
@@ -41,6 +41,6 @@ export const SingleEntitySchema = <S extends AnySingleEntityESchema>(
   eschema: S,
 ) =>
   Schema.Struct({
-    value: eschema.schema as unknown as Schema.Schema<S['Type'], S['Type']>,
+    value: eschema.schema as unknown as Schema.Codec<S['Type'], S['Type']>,
     meta: SingleEntityMetaSchema,
   });

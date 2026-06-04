@@ -1,4 +1,4 @@
-import { Rpc } from '@effect/rpc';
+import { Rpc } from 'effect/unstable/rpc';
 import {
   CommandPayloadSchema,
   CommandResponseSchema,

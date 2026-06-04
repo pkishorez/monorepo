@@ -9,7 +9,7 @@ export const CommandTimingSchema = Schema.Struct({
   durationMs: Schema.Number,
 });
 
-export const EntityTypeSchema = <T extends Schema.Schema.Any>(valueSchema: T) =>
+export const EntityTypeSchema = <T extends Schema.Top>(valueSchema: T) =>
   Schema.Struct({
     value: valueSchema,
     meta: MetaSchema,
@@ -20,34 +20,34 @@ export const EntityTypeSchema = <T extends Schema.Schema.Any>(valueSchema: T) =>
 export const InsertPayloadSchema = Schema.Struct({
   operation: Schema.Literal('insert'),
   entity: Schema.String,
-  data: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  data: Schema.Record(Schema.String, Schema.Unknown),
 });
 
 export const UpdatePayloadSchema = Schema.Struct({
   operation: Schema.Literal('update'),
   entity: Schema.String,
-  key: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  data: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  key: Schema.Record(Schema.String, Schema.Unknown),
+  data: Schema.Record(Schema.String, Schema.Unknown),
 });
 
 export const DeletePayloadSchema = Schema.Struct({
   operation: Schema.Literal('delete'),
   entity: Schema.String,
-  key: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  key: Schema.Record(Schema.String, Schema.Unknown),
 });
 
-export const SkConditionSchema = Schema.Union(
+export const SkConditionSchema = Schema.Union([
   Schema.Struct({ '<': Schema.NullOr(Schema.String) }),
   Schema.Struct({ '<=': Schema.NullOr(Schema.String) }),
   Schema.Struct({ '>': Schema.NullOr(Schema.String) }),
   Schema.Struct({ '>=': Schema.NullOr(Schema.String) }),
-);
+]);
 
 export const QueryPayloadSchema = Schema.Struct({
   operation: Schema.Literal('query'),
   entity: Schema.String,
   index: Schema.String,
-  pk: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  pk: Schema.Record(Schema.String, Schema.Unknown),
   sk: SkConditionSchema,
   limit: Schema.optional(Schema.Number),
 });
@@ -56,13 +56,13 @@ export const DescriptorPayloadSchema = Schema.Struct({
   operation: Schema.Literal('descriptor'),
 });
 
-export const CommandPayloadSchema = Schema.Union(
+export const CommandPayloadSchema = Schema.Union([
   InsertPayloadSchema,
   UpdatePayloadSchema,
   DeletePayloadSchema,
   QueryPayloadSchema,
   DescriptorPayloadSchema,
-);
+]);
 
 // ─── DESCRIPTOR SCHEMAS ───────────────────────────────────────────────────────
 
@@ -124,26 +124,26 @@ export const DescriptorResponseSchema = Schema.Struct({
   descriptors: Schema.Array(StdDescriptorSchema),
 });
 
-export const CommandResponseSchema = Schema.Union(
+export const CommandResponseSchema = Schema.Union([
   InsertResponseSchema,
   UpdateResponseSchema,
   DeleteResponseSchema,
   QueryResponseSchema,
   DescriptorResponseSchema,
-);
+]);
 
 // ─── ERROR SCHEMA ─────────────────────────────────────────────────────────────
 
-export class CommandErrorSchema extends Schema.TaggedError<CommandErrorSchema>()(
+export class CommandErrorSchema extends Schema.TaggedErrorClass<CommandErrorSchema>()(
   'CommandError',
   {
-    operation: Schema.Literal(
+    operation: Schema.Literals([
       'insert',
       'update',
       'delete',
       'query',
       'descriptor',
-    ),
+    ]),
     entity: Schema.String,
     message: Schema.String,
     cause: Schema.optional(Schema.Unknown),
