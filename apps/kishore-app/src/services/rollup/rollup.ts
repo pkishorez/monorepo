@@ -1,11 +1,11 @@
 import { rollup } from '@rollup/browser';
-import { Effect } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 import { transform } from 'sucrase';
 
-export class RollupService extends Effect.Service<RollupService>()(
+export class RollupService extends Context.Service<RollupService>()(
   'kishore-app:RollupService',
   {
-    effect: Effect.succeed({
+    make: Effect.succeed({
       generate: async function (
         code: string,
         modules: Record<string, string> = {},
@@ -68,4 +68,6 @@ export class RollupService extends Effect.Service<RollupService>()(
       },
     }),
   },
-) {}
+) {
+  static readonly layer = Layer.effect(this, this.make);
+}

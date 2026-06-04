@@ -1,33 +1,44 @@
 import { Schema } from 'effect';
 import { useAppForm } from '@monorepo/frontend/form';
 
-const RegistrationSchema = Schema.standardSchemaV1(
+const RegistrationSchema = Schema.toStandardSchemaV1(
   Schema.Struct({
     username: Schema.String.pipe(
-      Schema.minLength(3, {
-        message: () => 'Username must be at least 3 characters',
-      }),
+      Schema.check(
+        Schema.isMinLength(3, {
+          message: 'Username must be at least 3 characters',
+        }),
+      ),
     ),
     email: Schema.String.pipe(
-      Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
-        message: () => 'Please enter a valid email',
-      }),
+      Schema.check(
+        Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+          message: 'Please enter a valid email',
+        }),
+      ),
     ),
     password: Schema.String.pipe(
-      Schema.minLength(8, {
-        message: () => 'Password must be at least 8 characters',
-      }),
+      Schema.check(
+        Schema.isMinLength(8, {
+          message: 'Password must be at least 8 characters',
+        }),
+      ),
     ),
     confirmPassword: Schema.String,
     role: Schema.String.pipe(
-      Schema.minLength(1, { message: () => 'Please select a role' }),
+      Schema.check(Schema.isMinLength(1, { message: 'Please select a role' })),
     ),
   }).pipe(
-    Schema.filter((data) => {
-      if (data.password !== data.confirmPassword) {
-        return { path: ['confirmPassword'], message: 'Passwords do not match' };
-      }
-    }),
+    Schema.check(
+      Schema.makeFilter((data) => {
+        if (data.password !== data.confirmPassword) {
+          return {
+            path: ['confirmPassword'],
+            issue: 'Passwords do not match',
+          };
+        }
+      }),
+    ),
   ),
 );
 

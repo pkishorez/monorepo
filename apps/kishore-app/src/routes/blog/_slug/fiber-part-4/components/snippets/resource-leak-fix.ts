@@ -2,7 +2,7 @@ import type { ResourceOptions } from '@/components/code-block/resource';
 import { Effect } from 'effect';
 
 export default Effect.fn(function* ({ aquireResource }: ResourceOptions) {
-  yield* Effect.fork(
+  yield* Effect.forkChild(
     Effect.gen(function* () {
       yield* Effect.gen(function* () {
         const { release } = yield* aquireResource(`resource`, 300).pipe(

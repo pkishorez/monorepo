@@ -1,6 +1,6 @@
 import { Duration, Effect, Fiber } from 'effect';
 
-const runTask = (name: string, duration: Duration.DurationInput = 300) =>
+const runTask = (name: string, duration: Duration.Input = 300) =>
   Effect.sleep(duration).pipe(Effect.withSpan(name));
 
 const allTasks = Array.from({ length: 10 }, (_, i) =>
@@ -17,6 +17,7 @@ const all = Effect.all(allTasks, {}).pipe(Effect.withSpan('Effect.all'));
 export default Effect.gen(function* () {
   // Both examples do the same thing.
   // Effect.all without any options, runs all effects in sequence
-  const fiber = yield* Effect.forkAll([all, sequence]);
-  yield* Fiber.join(fiber);
+  const allFiber = yield* Effect.forkChild(all);
+  const sequenceFiber = yield* Effect.forkChild(sequence);
+  yield* Fiber.joinAll([allFiber, sequenceFiber]);
 });

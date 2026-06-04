@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
 import { cn } from '@monorepo/frontend/utils';
 import { useState } from 'react';
@@ -12,6 +12,8 @@ import { runtime } from '@/services/runtime';
 import { AnimateHeight } from '../animate-height';
 import { Button } from '@monorepo/frontend/components/ui/button';
 import { Maximize2, Minimize2 } from '@monorepo/frontend/lucide';
+
+const runtimeLayer = Layer.effectContext(runtime.contextEffect);
 
 const highlighter = Effect.runSync(
   Effect.cached(
@@ -57,7 +59,7 @@ export function CodeHighlight({
         ],
       });
       setHighlightedCode(highlighted);
-    }).pipe(Effect.withSpan('highlight'), Effect.provide(runtime)),
+    }).pipe(Effect.withSpan('highlight'), Effect.provide(runtimeLayer)),
     { deps: [code] },
   );
   const [maximize, setMaximize] = useState(false);
@@ -148,7 +150,7 @@ export function InlineCode({
         ],
       });
       setHighlightedCode(highlighted);
-    }).pipe(Effect.withSpan('highlight'), Effect.provide(runtime)),
+    }).pipe(Effect.withSpan('highlight'), Effect.provide(runtimeLayer)),
     { deps: [code] },
   );
 

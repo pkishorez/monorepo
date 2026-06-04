@@ -4,7 +4,7 @@ import { Effect, Fiber } from 'effect';
 const time = 1000;
 export default Effect.fn(function* ({ aquireResource }: ResourceOptions) {
   let resources: Resource[] = [];
-  const fiber = yield* Effect.fork(
+  const fiber = yield* Effect.forkChild(
     Effect.gen(function* () {
       for (let i = 0; i < 3; i++) {
         resources.push(

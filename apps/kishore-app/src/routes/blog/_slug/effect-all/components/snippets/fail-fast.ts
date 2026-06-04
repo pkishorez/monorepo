@@ -2,7 +2,7 @@ import { Duration, Effect } from 'effect';
 
 const runTask = (
   name: string,
-  duration: Duration.DurationInput = 300,
+  duration: Duration.Input = 300,
   status: 'succeed' | 'fail' = 'succeed',
 ) =>
   Effect.sleep(duration).pipe(

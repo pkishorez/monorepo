@@ -8,7 +8,7 @@ export default Effect.fn(function* ({ aquireResource }: ResourceOptions) {
     Effect.withSpan('make-scope'),
   );
 
-  const fiber = yield* Effect.fork(
+  const fiber = yield* Effect.forkChild(
     Effect.gen(function* () {
       for (let i = 0; i < 3; i++) {
         const { release } = yield* aquireResource(`resource-${i}`, time).pipe(

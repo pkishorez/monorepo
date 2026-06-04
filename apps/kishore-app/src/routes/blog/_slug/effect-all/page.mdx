@@ -11,7 +11,7 @@ To keep our code concise, let's define a helper function called `runTask()` that
 ```ts
 import { Duration, Effect } from 'effect';
 
-export const runTask = (name: string, duration: Duration.DurationInput = 300) =>
+export const runTask = (name: string, duration: Duration.Input = 300) =>
   Effect.sleep(duration).pipe(Effect.withSpan(name));
 
 export default { runTask };

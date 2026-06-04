@@ -36,6 +36,6 @@ export default Effect.gen(function* () {
         Effect.withSpan('ex: interrupt'),
       ),
     ],
-    { mode: 'validate', concurrency: 'unbounded' },
+    { mode: 'result', concurrency: 'unbounded' },
   );
 });

@@ -462,3 +462,59 @@ Rpc.ServicesServer<Rpcs>`, and `Middleware`/`ServicesServer` resolve to `any`
   (`RpcServer.layerProtocolSocketServer`, `RpcClient.layerProtocolSocket`,
   `RpcSerialization.layerNdjson`) moved to `effect/unstable/rpc` but keep the
   same shapes.
+
+### Effect / Fiber / Duration / ManagedRuntime / HttpApiClient (found migrating `kishore-app`)
+
+- **`Effect.fork` → `Effect.forkChild`; `Effect.forkDaemon` → `Effect.forkDetach`;
+  `Effect.forkAll` is REMOVED.** (fork/forkDaemon already noted under `tanstack`.)
+  Replace `forkAll([a, b])` with per-effect `Effect.forkChild` + `Fiber.joinAll([
+fa, fb])`. A lingering `Effect.fork`/`forkDaemon` on an eagerly-built
+  (module-default-exported) effect throws `(void 0) is not a function` at
+  evaluation, not just a type error. `Fiber.joinAll(iterable)` exists.
+- **`Effect.Effect.Success<T>` / `Effect.Effect.Error<T>` → `Effect.Success<T>` /
+  `Effect.Error<T>`.** The nested `Effect.Effect` namespace is gone; the
+  type-extractors live directly on the `Effect` module.
+- **`Duration.DurationInput` → `Duration.Input`.**
+- **`Effect.all(..., { mode: 'either' | 'validate' })` → `{ mode: 'result' }`.**
+  v4 collapses both v3 result-collecting modes into a single `'result'` (modes
+  are `'default' | 'result'`); each element becomes a `Result`.
+- **`Effect.provide` no longer accepts a `ManagedRuntime`** (only Layer / Context
+  / array of layers). To inject a `ManagedRuntime`'s services into an effect,
+  wrap its context: `Layer.effectContext(runtime.contextEffect)` and provide that
+  layer. `ManagedRuntime` exposes `contextEffect: Effect<Context<R>, ER>` (and a
+  Promise `context()`); the built context is cached, so this is cheap.
+- **`Layer.effectContext(eff)` builds a `Layer<R, E>` from an
+  `Effect<Context<R>, E>`** (the context-producing layer constructor).
+- **HttpApiClient request payload field `urlParams` → `query`** (client side
+  mirror of the server-side `setUrlParams`→`query` rename):
+  `client.group.endpoint({ query })`. `payload`/`params`/`headers` unchanged.
+
+### Service (`Effect.Service` → `Context.Service`, more, found migrating `kishore-app`)
+
+- **`Effect.Service<Self>()(id, { effect: eff })` → `Context.Service<Self>()(id,
+{ make: eff })`** (the `effect` config key joins `succeed` as removed; pass a
+  single `make`). Add `static readonly layer = Layer.effect(this, this.make)` and
+  rename `.Default` call sites to `.layer` (already noted under `monoverse`;
+  confirmed for the `{ effect }` form too).
+
+### Schema checks / standard schema / Date (found migrating `kishore-app`)
+
+- **`Schema.standardSchemaV1(s)` → `Schema.toStandardSchemaV1(s)`** (returns
+  `StandardSchemaV1<Encoded, Type> & S`; usable directly as a form validator).
+- **Length/pattern refinements moved to the `Check` API, applied via
+  `Schema.check`** (a pipeable; `self.check(...)` is the method form):
+  - `.pipe(Schema.minLength(n, opts))` →
+    `.pipe(Schema.check(Schema.isMinLength(n, opts)))`
+  - `Schema.maxLength` → `Schema.isMaxLength`; `Schema.pattern(re, opts)` →
+    `Schema.isPattern(re, opts)`. (Also `isGreaterThanOrEqualTo`, `isNonEmpty`,
+    `isStartsWith`, … — the `is*` prefix is the convention.)
+  - The check `message` annotation is a **plain string**, not a `() => string`
+    thunk.
+- **`Schema.filter(predicate)` → `Schema.check(Schema.makeFilter(predicate))`.**
+  The predicate returns `FilterOutput =
+undefined | boolean | FilterIssue | ReadonlyArray<FilterIssue>` where
+  `FilterIssue = string | SchemaIssue.Issue | { path, issue }`. So a v3 filter
+  returning `string | string[] | undefined` ports as-is; a cross-field
+  `{ path, message }` becomes `{ path, issue }`.
+- **`Schema.DateFromSelf` → `Schema.Date`** (the runtime `Date`-instance schema;
+  `Schema.DateTimeUtc*` are the DateTime codecs).

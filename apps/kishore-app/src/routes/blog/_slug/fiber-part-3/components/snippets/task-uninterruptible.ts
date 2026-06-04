@@ -4,7 +4,7 @@ const runTask = (name: string, time = 300) =>
   Effect.sleep(time).pipe(Effect.withSpan(name));
 
 export default Effect.gen(function* () {
-  const fiber = yield* Effect.forkDaemon(
+  const fiber = yield* Effect.forkDetach(
     Effect.gen(function* () {
       for (let i = 0; i < 3; i++) {
         yield* runTask(`task-${i}`, 300).pipe(Effect.uninterruptible);

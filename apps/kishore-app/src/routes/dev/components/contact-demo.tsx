@@ -1,22 +1,28 @@
 import { Schema } from 'effect';
 import { useAppForm } from '@monorepo/frontend/form';
 
-const ContactSchema = Schema.standardSchemaV1(
+const ContactSchema = Schema.toStandardSchemaV1(
   Schema.Struct({
     name: Schema.String.pipe(
-      Schema.minLength(2, {
-        message: () => 'Name must be at least 2 characters',
-      }),
+      Schema.check(
+        Schema.isMinLength(2, {
+          message: 'Name must be at least 2 characters',
+        }),
+      ),
     ),
     email: Schema.String.pipe(
-      Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
-        message: () => 'Please enter a valid email',
-      }),
+      Schema.check(
+        Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+          message: 'Please enter a valid email',
+        }),
+      ),
     ),
     message: Schema.String.pipe(
-      Schema.minLength(10, {
-        message: () => 'Message must be at least 10 characters',
-      }),
+      Schema.check(
+        Schema.isMinLength(10, {
+          message: 'Message must be at least 10 characters',
+        }),
+      ),
     ),
   }),
 );
