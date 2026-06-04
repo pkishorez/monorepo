@@ -353,3 +353,9 @@ NewSchema })` (drop/override keys directly).
   `SubscriptionRef.isSubscriptionRef(u)`** (predicate) to test for a
   SubscriptionRef instead of the `TypeId in obj` symbol check.
 - **`Effect.runCallback` is unchanged** (returns a cancel/interrupt function).
+- **`Effect.forkDaemon(effect)` → `Effect.forkDetach(effect)`** (detached daemon
+  fiber, not tied to the parent fiber's scope; `forkChild` is the scoped child
+  form). Found migrating `tanstack-sync`.
+- **`Fiber.RuntimeFiber<A, E>` is gone → use `Fiber.Fiber<A, E>`** (the single
+  `Fiber.Fiber` interface is the fiber type now). `Fiber.interrupt(fiber)`
+  unchanged (returns `Effect<void>`). Found migrating `tanstack-sync`.

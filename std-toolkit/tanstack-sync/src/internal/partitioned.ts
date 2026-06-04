@@ -6,7 +6,7 @@ import type {
   LoadSubsetOptions,
   CollectionConfig,
 } from '@tanstack/react-db';
-import { Effect, Fiber, Option, Scope } from 'effect';
+import { Effect, Fiber, Option, Scope, Semaphore } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { CacheEntity, CacheStore, PartitionKey } from '@std-toolkit/cache';
 import { serializePartition } from '@std-toolkit/cache';
@@ -95,8 +95,8 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
   const store = resolveCache(options.cache);
 
   const partitionCaches = new Map<string, Promise<CacheEntity<TItem>>>();
-  const partitionSemaphores = new Map<string, Effect.Semaphore>();
-  const subscribeFibers = new Map<string, Fiber.RuntimeFiber<void, unknown>>();
+  const partitionSemaphores = new Map<string, Semaphore.Semaphore>();
+  const subscribeFibers = new Map<string, Fiber.Fiber<void, unknown>>();
 
   let callbacks: SyncCallbacks<TCollItem> | null = null;
 
@@ -110,7 +110,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           idField: schema.idField,
         })
         .pipe(
-          Effect.catchAll(() =>
+          Effect.catch(() =>
             MemoryCacheEntity.make<TItem>({
               name: `${schema.name}:${key}`,
               idField: schema.idField,
@@ -122,10 +122,10 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     return promise;
   };
 
-  const getOrCreateSemaphore = (key: string): Effect.Semaphore => {
+  const getOrCreateSemaphore = (key: string): Semaphore.Semaphore => {
     const existing = partitionSemaphores.get(key);
     if (existing) return existing;
-    const semaphore = Effect.runSync(Effect.makeSemaphore(1));
+    const semaphore = Semaphore.makeUnsafe(1);
     partitionSemaphores.set(key, semaphore);
     return semaphore;
   };
@@ -154,7 +154,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
   ): Promise<void> => {
     if (subscribeFibers.has(key)) return;
     const fiber = await Effect.runPromise(
-      Effect.forkDaemon(Effect.scoped(subscribeEffect)),
+      Effect.forkDetach(Effect.scoped(subscribeEffect)),
     );
     subscribeFibers.set(key, fiber);
   };
@@ -431,7 +431,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
         await Effect.runPromise(
           Effect.forEach(
             caches,
-            (cache) => Effect.catchAll(cache.delete(key), () => Effect.void),
+            (cache) => Effect.catch(cache.delete(key), () => Effect.void),
             { discard: true },
           ),
         );
