@@ -14,6 +14,7 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm -r lint",
     "release": "pnpm build && changeset publish",
+    "subtrees:update": "bash scripts/update-subtrees.sh",
     "test": "vp run -r test",
     "updates": "npx -y npm-check-updates -iws",
     "version": "changeset version"
