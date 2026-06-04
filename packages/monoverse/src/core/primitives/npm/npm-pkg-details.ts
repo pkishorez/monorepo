@@ -75,7 +75,7 @@ export const fetchNpmPackageDetails = (
       catch: (cause) => new NpmDetailsError({ packageName, cause }),
     });
 
-    const data = yield* Schema.decodeUnknown(NpmPackageDetailsSchema)(
+    const data = yield* Schema.decodeUnknownEffect(NpmPackageDetailsSchema)(
       json,
     ).pipe(
       Effect.mapError((cause) => new NpmDetailsError({ packageName, cause })),

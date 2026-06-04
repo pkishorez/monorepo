@@ -18,12 +18,12 @@ interface MonorepoRoot {
 
 const PackageJsonSchema = Schema.Struct({
   workspaces: Schema.optional(
-    Schema.Union(
+    Schema.Union([
       Schema.mutable(Schema.Array(Schema.String)),
       Schema.Struct({
         packages: Schema.optional(Schema.mutable(Schema.Array(Schema.String))),
       }),
-    ),
+    ]),
   ),
 });
 
@@ -48,14 +48,16 @@ const detectPackageManager = (dirPath: string): Effect.Effect<PackageManager> =>
   });
 
 const parseYaml = (content: string) =>
-  Effect.try(() => yaml.load(content) as unknown).pipe(
-    Effect.flatMap(Schema.decodeUnknown(PnpmWorkspaceSchema)),
-  );
+  Effect.try({
+    try: () => yaml.load(content) as unknown,
+    catch: (cause) => cause,
+  }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(PnpmWorkspaceSchema)));
 
 const parsePackageJson = (content: string) =>
-  Effect.try(() => JSON.parse(content) as unknown).pipe(
-    Effect.flatMap(Schema.decodeUnknown(PackageJsonSchema)),
-  );
+  Effect.try({
+    try: () => JSON.parse(content) as unknown,
+    catch: (cause) => cause,
+  }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(PackageJsonSchema)));
 
 const getPnpmWorkspacePatterns = (
   dirPath: string,
@@ -66,12 +68,12 @@ const getPnpmWorkspacePatterns = (
     if (!exists) return null;
 
     const content = yield* readFile(wsPath).pipe(
-      Effect.catchAll(() => Effect.succeed('')),
+      Effect.catch(() => Effect.succeed('')),
     );
     if (!content) return null;
 
     const result = yield* parseYaml(content).pipe(
-      Effect.catchAll(() => Effect.succeed(null)),
+      Effect.catch(() => Effect.succeed(null)),
     );
 
     return result?.packages ?? null;
@@ -86,12 +88,12 @@ const getPackageJsonWorkspacePatterns = (
     if (!exists) return null;
 
     const content = yield* readFile(pkgPath).pipe(
-      Effect.catchAll(() => Effect.succeed('')),
+      Effect.catch(() => Effect.succeed('')),
     );
     if (!content) return null;
 
     const pkg = yield* parsePackageJson(content).pipe(
-      Effect.catchAll(() => Effect.succeed(null)),
+      Effect.catch(() => Effect.succeed(null)),
     );
     if (!pkg) return null;
 

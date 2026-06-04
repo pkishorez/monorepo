@@ -210,3 +210,66 @@ kind: 'Timeout' | 'Unknown', cause }) })`. `Socket.SocketCloseError` is now
   for the effectful decoder (mirrors the `decode`/`encode` `Effect`-suffix rule).
   For primitive/struct schemas the decode services resolve to `never`, so
   `Effect.runPromise` still type-checks.
+
+### CLI (folded `@effect/cli` → `effect/unstable/cli`, found migrating `monoverse`)
+
+The CLI API changed **shape**, not just import path. Module split: `Options` →
+`Flag`, `Args` → `Argument`. `Command` and `Prompt` keep their names.
+
+- **`Args.text({ name })` → `Argument.string(name)`** (positional names are a
+  plain string arg now, no options object). Other `Args.*` → `Argument.*`.
+- **`Options.*` → `Flag.*`:** `Options.text` → `Flag.string`,
+  `Options.boolean` → `Flag.boolean`, `Options.choice(name, choices)` →
+  `Flag.choice(name, choices)` (still returns the literal union
+  `Flag<Choices[number]>`). Combinators move too:
+  `Options.withAlias/withDefault/optional` → `Flag.withAlias/withDefault/
+optional` (same pipe semantics).
+- **`Prompt` is unchanged:** still a yieldable `Effect` (`yield* Prompt.select(
+{ message, choices: [{ title, value }] })`), `Prompt.select/confirm/text/…`
+  same option shapes.
+- **`Command.make(name, config, handler)` / `withSubcommands` / pipe composition
+  unchanged.** Config record maps keys → `Flag`/`Argument` values as before.
+- **`Command.run(command, { name, version })` → `Command.run(command,
+{ version })`:** the `name` field is **gone**, and the result is now an
+  **`Effect`** that reads argv from the `Stdio` service — not a
+  `(argv) => Effect` function. So `cli(process.argv).pipe(...)` becomes
+  `cli.pipe(...)`; you no longer thread `process.argv`. `Command.runWith(cmd,
+{ version })(argvArray)` is the explicit-args form (for tests).
+- **`CliConfig` is removed** — no v4 equivalent for
+  `CliConfig.layer({ isCaseSensitive, showBuiltIns, showTypes })`. Drop the
+  layer. Consequence: subcommand/flag matching is **case-sensitive** in v4 and
+  there is no opt-out via this API.
+- **`Command.Environment` = `FileSystem | Path | Terminal |
+ChildProcessSpawner | Stdio`.** Provide it on Node with
+  `NodeServices.layer` (see Platform below).
+
+### Platform-node (surviving package, found migrating `monoverse`)
+
+- **`NodeContext` is gone → use `NodeServices.layer`.** `NodeServices.layer`
+  provides the whole bundle (FileSystem, Path, Stdio, Terminal,
+  ChildProcessSpawner, Crypto), which is exactly what `Command.Environment`
+  needs. `NodeStdio.layer` / `NodeTerminal.layer` exist standalone if you only
+  need pieces.
+- **`NodeRuntime.runMain` unchanged** (`runMain(opts)(effect)` /
+  `runMain(effect, opts)`), but the effect must be fully provided
+  (`Effect<A, E>`, no `R`).
+
+### Service (`Effect.Service` → `Context.Service`, found migrating `monoverse`)
+
+- **`Effect.Service<Self>()(id, { succeed: {...} })` →
+  `Context.Service<Self>()(id, { make: Effect.succeed({...}) })`.** The
+  `succeed` / `effect` config keys are gone; pass a single `make` (an `Effect`
+  or a factory `(...args) => Effect`). When `make`'s `R` is `never` it's exposed
+  as a static `this.make`.
+- **No auto-generated `.Default` layer.** Build it yourself:
+  `static readonly layer = Layer.effect(this, this.make)` (add `Layer.provide`
+  for deps; the v3 `dependencies` option no longer exists). The class stays
+  yieldable as a tag (`yield* MyService`). Rename `MyService.Default` call sites
+  to `MyService.layer`.
+
+### Effect.try (found migrating `monoverse`)
+
+- **`Effect.try(thunk)` → `Effect.try({ try, catch })`.** The bare-thunk
+  overload is gone; only the `{ try, catch }` object form remains (same as
+  `Effect.tryPromise`). When a downstream `Effect.catch` recovers, a passthrough
+  `catch: (cause) => cause` keeps the original error.

@@ -16,7 +16,7 @@ export function detectFormatPackageJson(
 
     for (const workspace of analysis.workspaces) {
       const content = yield* getPackageJsonStr(workspace).pipe(
-        Effect.catchAll(() => Effect.succeed(null)),
+        Effect.catch(() => Effect.succeed(null)),
       );
       if (content === null) continue;
 

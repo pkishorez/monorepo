@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Command, CliConfig } from '@effect/cli';
-import { NodeContext, NodeRuntime } from '@effect/platform-node';
+import { Command } from 'effect/unstable/cli';
+import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Console, Effect, Layer } from 'effect';
 import { Monoverse } from '../core/index.js';
 import {
@@ -50,21 +50,12 @@ const command = monoverse.pipe(
 );
 
 const cli = Command.run(command, {
-  name: 'monoverse',
   version: getVersion(),
 });
 
-const MainLayer = Layer.mergeAll(
-  NodeContext.layer,
-  Monoverse.Default,
-  CliConfig.layer({
-    isCaseSensitive: false,
-    showBuiltIns: false,
-    showTypes: false,
-  }),
-);
+const MainLayer = Layer.mergeAll(NodeServices.layer, Monoverse.layer);
 
-cli(process.argv).pipe(
+cli.pipe(
   Effect.provide(MainLayer),
   NodeRuntime.runMain({ disableErrorReporting: true }),
 );

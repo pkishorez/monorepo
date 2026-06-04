@@ -56,7 +56,7 @@ export const fileExists = (filePath: string): Effect.Effect<boolean> =>
       return true;
     },
     catch: () => false,
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)));
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
 
 export const joinPath = (...paths: string[]): string => nodePath.join(...paths);
 

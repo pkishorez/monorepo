@@ -1,4 +1,4 @@
-import { Command } from '@effect/cli';
+import { Command } from 'effect/unstable/cli';
 import { Console, Effect } from 'effect';
 import { Monoverse } from '../../core/index.js';
 import type { Violation } from '../../core/pipeline/validate/index.js';

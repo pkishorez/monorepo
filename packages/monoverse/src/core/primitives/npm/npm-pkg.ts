@@ -3,11 +3,11 @@ import { Data, Effect, Schema } from 'effect';
 const NpmPackageSchema = Schema.Struct({
   name: Schema.String,
   modified: Schema.String,
-  'dist-tags': Schema.Record({ key: Schema.String, value: Schema.String }),
-  versions: Schema.Record({
-    key: Schema.String,
-    value: Schema.Struct({ version: Schema.String }),
-  }),
+  'dist-tags': Schema.Record(Schema.String, Schema.String),
+  versions: Schema.Record(
+    Schema.String,
+    Schema.Struct({ version: Schema.String }),
+  ),
 });
 
 export class NpmError extends Data.TaggedError('NpmError')<{
@@ -59,7 +59,7 @@ export const fetchNpmPackage = (
       catch: (cause) => new NpmError({ packageName, cause }),
     });
 
-    const data = yield* Schema.decodeUnknown(NpmPackageSchema)(json).pipe(
+    const data = yield* Schema.decodeUnknownEffect(NpmPackageSchema)(json).pipe(
       Effect.mapError((cause) => new NpmError({ packageName, cause })),
     );
 
