@@ -284,3 +284,37 @@ ChildProcessSpawner | Stdio`.** Provide it on Node with
   overload is gone; only the `{ try, catch }` object form remains (same as
   `Effect.tryPromise`). When a downstream `Effect.catch` recovers, a passthrough
   `catch: (cause) => cause` keeps the original error.
+
+### Service / Context / FiberRef / Stream / Schema (found migrating `db-sqlite`)
+
+- **`Context.Tag(id)<Self, Shape>()` → `Context.Service<Self, Shape>()(id)`.**
+  Plain `Context.Tag` class services (not just `Effect.Service`) migrate to
+  `Context.Service` — type params first, id string as the call argument. A
+  lingering v3 Tag surfaces as misleading "`[Symbol.iterator]` missing" errors at
+  `yield* MyTag` sites and as `implicit any` on `Layer.succeed(MyTag, {...})`
+  handler params (the v3 Tag isn't a v4 service key, so its shape doesn't infer).
+- **Custom `FiberRef.unsafeMake<T>(init)` → `Context.Reference<T>(id, {
+defaultValue: () => init })`** (`effect` no longer exports `FiberRef` at all).
+  A `Reference`'s value is **fixed for the scope it's provided to** — there is no
+  in-fiber `FiberRef.set`. Read with `yield* MyRef`; scope a value with
+  `Effect.provideService(MyRef, value)`. For a ref used as a mutable accumulator
+  across an effect (old `get`/`set`-replace pattern), provide a `Some(mutable
+container)` once and **mutate it in place** (e.g. `ref.value.push(x)`); keep a
+  local handle to read results back after the scoped effect completes.
+- **`Effect.andThen(fn)` rejects plain value-returning functions.** In v4
+  `Effect.andThen` only accepts an `Effect` or `() => Effect`; a mapping function
+  returning a non-Effect (e.g. `Option.getOrNull`, `A | null`) must use
+  `Effect.map` instead.
+- **`Stream.paginateChunkEffect` removed → `Stream.paginate(s, f)`.** The page
+  fn returns `Effect<[ReadonlyArray<A>, Option<S>]>` (emits flattened array
+  elements, **not** `Chunk`). To keep emitting a whole batch as one element, wrap
+  it: `[[items], nextState]` instead of `Chunk.of(items)`.
+- **`Schema.transform(from, to, { decode, encode })` →
+  `from.pipe(Schema.decodeTo(to, { decode: SchemaGetter.transform(fn), encode:
+SchemaGetter.transform(fn) }))`.** `decodeTo`'s transformation arg is a
+  `{ decode: Getter, encode: Getter }` (build getters with `SchemaGetter.transform`
+  for pure fns) — passing a `SchemaTransformation.transform(...)` result is the
+  wrong shape for this overload.
+- **`Struct.omit(k)` and `Schema.extend(struct)` are gone.** A v4 `Schema.Struct`
+  exposes `.fields`; reshape by spreading: `Schema.Struct({ ...Base.fields, k:
+NewSchema })` (drop/override keys directly).

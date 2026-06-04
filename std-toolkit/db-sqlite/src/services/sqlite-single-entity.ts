@@ -1,5 +1,5 @@
 import type { AnySingleEntityESchema, ESchemaType } from '@std-toolkit/eschema';
-import { Effect, FiberRef, Option, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { SQLiteTableInstance } from './sqlite-table.js';
 import { SqliteDBError, TransactionPendingBroadcasts } from '../sql/db.js';
@@ -121,7 +121,7 @@ export class SQLiteSingleEntity<
     SqliteDBError,
     SqliteDB
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { pk, sk } = this.#deriveKey();
 
       const { Item } = yield* this.#table.getItem({ pk, sk });
@@ -154,7 +154,7 @@ export class SQLiteSingleEntity<
     SqliteDBError,
     SqliteDB
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const fullValue = {
         ...value,
         _v: this.#eschema.latestVersion,
@@ -221,7 +221,7 @@ export class SQLiteSingleEntity<
     SqliteDBError,
     SqliteDB
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get();
 
       if (existing.meta._u === '') {
@@ -270,16 +270,13 @@ export class SQLiteSingleEntity<
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
-    return Effect.gen(this, function* () {
-      const pending = yield* FiberRef.get(TransactionPendingBroadcasts);
+    return Effect.gen({ self: this }, function* () {
+      const pending = yield* TransactionPendingBroadcasts;
       if (Option.isSome(pending)) {
-        yield* FiberRef.set(
-          TransactionPendingBroadcasts,
-          Option.some([...pending.value, entity]),
-        );
+        pending.value.push(entity);
       } else {
         const service = yield* Effect.serviceOption(ConnectionService).pipe(
-          Effect.andThen(Option.getOrNull),
+          Effect.map(Option.getOrNull),
         );
         service?.broadcast(entity);
       }

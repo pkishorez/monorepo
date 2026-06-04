@@ -129,7 +129,7 @@ export class SqliteCommand<
   #processInsert(
     payload: InsertPayload,
   ): Effect.Effect<InsertResponse, CommandError, SqliteDB> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const startedAt = Date.now();
       const entity = this.#getEntity(payload.entity);
 
@@ -157,7 +157,7 @@ export class SqliteCommand<
   #processUpdate(
     payload: UpdatePayload,
   ): Effect.Effect<UpdateResponse, CommandError, SqliteDB> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const startedAt = Date.now();
       const entity = this.#getEntity(payload.entity);
 
@@ -187,7 +187,7 @@ export class SqliteCommand<
   #processDelete(
     payload: DeletePayload,
   ): Effect.Effect<DeleteResponse, CommandError, SqliteDB> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const startedAt = Date.now();
       const entity = this.#getEntity(payload.entity);
 
@@ -215,7 +215,7 @@ export class SqliteCommand<
   #processQuery(
     payload: QueryPayload,
   ): Effect.Effect<QueryResponse, CommandError, SqliteDB> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const startedAt = Date.now();
       const entity = this.#getEntity(payload.entity);
 
@@ -274,7 +274,7 @@ export class SqliteCommand<
   }
 
   /**
-   * Creates an RPC handler object for use with @effect/rpc.
+   * Creates an RPC handler object for use with effect/unstable/rpc.
    *
    * @param suffix - Optional suffix to append to the RPC name
    * @returns An object with the RPC handler

@@ -1,10 +1,10 @@
-import { Context, Data, Effect, FiberRef, Option } from 'effect';
+import { Context, Data, Effect, Option } from 'effect';
 import type { Where } from './helpers/index.js';
 import type { EntityType } from '@std-toolkit/core';
 
-export const TransactionPendingBroadcasts = FiberRef.unsafeMake<
+export const TransactionPendingBroadcasts = Context.Reference<
   Option.Option<Array<EntityType<unknown>>>
->(Option.none());
+>('TransactionPendingBroadcasts', { defaultValue: () => Option.none() });
 
 export type SqliteDBErrorType =
   | { _tag: 'CreateTableFailed'; table: string; cause: unknown }
@@ -85,7 +85,7 @@ export class SqliteDBError extends Data.TaggedError('SqliteDBError')<{
   }
 }
 
-export class SqliteDB extends Context.Tag('SqliteDB')<
+export class SqliteDB extends Context.Service<
   SqliteDB,
   {
     createTable(
@@ -146,4 +146,4 @@ export class SqliteDB extends Context.Tag('SqliteDB')<
     commit(): Effect.Effect<void, SqliteDBError>;
     rollback(): Effect.Effect<void, SqliteDBError>;
   }
->() {}
+>()('SqliteDB') {}

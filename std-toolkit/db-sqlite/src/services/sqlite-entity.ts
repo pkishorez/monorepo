@@ -1,5 +1,5 @@
 import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
-import { Chunk, Effect, FiberRef, Option, Schema, Stream } from 'effect';
+import { Effect, Option, Schema, Stream } from 'effect';
 import type { SQLiteTableInstance, SortKeyCondition } from './sqlite-table.js';
 import {
   SqliteDB,
@@ -237,7 +237,7 @@ export class SQLiteEntity<
     SqliteDBError,
     SqliteDB
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
         this.#primaryDerivation.pkDeps,
@@ -268,7 +268,7 @@ export class SQLiteEntity<
   insert(
     value: InsertInput<ESchemaType<TSchema>>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const fullValue = {
         ...value,
         _v: this.#eschema.latestVersion,
@@ -296,7 +296,7 @@ export class SQLiteEntity<
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       // Get existing item
       const existing = yield* this.get(keyValue);
       if (!existing) {
@@ -357,7 +357,7 @@ export class SQLiteEntity<
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(
@@ -452,7 +452,7 @@ export class SQLiteEntity<
     SqliteDBError,
     SqliteDB
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
       const scanForward = getKeyOpScanDirection(operator);
 
@@ -585,18 +585,17 @@ export class SQLiteEntity<
       ? this.#resolveCustomSk(initialSkValue, indexDerivation!)
       : (initialSkValue as string | null);
 
-    return Stream.paginateChunkEffect(initialCursor, (cursor) =>
-      Effect.gen(this, function* () {
+    return Stream.paginate(initialCursor, (cursor: string | null) =>
+      Effect.gen({ self: this }, function* () {
         const result = yield* this.query(
           key,
           { pk: params.pk, sk: { [operator]: cursor } as SkParam } as any,
           { limit: batchSize },
         );
         const items = result.items;
-        const chunk = Chunk.of(items);
 
         if (items.length === 0 || items.length < batchSize) {
-          return [chunk, Option.none<string | null>()];
+          return [[items], Option.none<string | null>()] as const;
         }
 
         const lastItem = items[items.length - 1]!;
@@ -610,7 +609,7 @@ export class SQLiteEntity<
         } else {
           nextCursor = lastItem.meta._u;
         }
-        return [chunk, Option.some(nextCursor)];
+        return [[items], Option.some(nextCursor)] as const;
       }),
     );
   }
@@ -643,10 +642,10 @@ export class SQLiteEntity<
           : never
     >,
   ): Effect.Effect<{ success: true }, SqliteDBError, SqliteDB> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { key, pk, cursor, limit } = opts;
       const service = yield* Effect.serviceOption(ConnectionService).pipe(
-        Effect.andThen(Option.getOrNull),
+        Effect.map(Option.getOrNull),
       );
 
       const queryOptions: SimpleQueryOptions = {};
@@ -688,16 +687,13 @@ export class SQLiteEntity<
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
-    return Effect.gen(this, function* () {
-      const pending = yield* FiberRef.get(TransactionPendingBroadcasts);
+    return Effect.gen({ self: this }, function* () {
+      const pending = yield* TransactionPendingBroadcasts;
       if (Option.isSome(pending)) {
-        yield* FiberRef.set(
-          TransactionPendingBroadcasts,
-          Option.some([...pending.value, entity]),
-        );
+        pending.value.push(entity);
       } else {
         const service = yield* Effect.serviceOption(ConnectionService).pipe(
-          Effect.andThen(Option.getOrNull),
+          Effect.map(Option.getOrNull),
         );
         service?.broadcast(entity);
       }
@@ -710,7 +706,7 @@ export class SQLiteEntity<
     { item: Record<string, unknown>; meta: RowMeta },
     SqliteDBError
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const { encoded, meta } = yield* this.#encode(fullValue, false);
 
       const valueWithMeta = { ...fullValue, _u: meta._u };
