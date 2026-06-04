@@ -394,6 +394,42 @@ moved to `effect/unstable/http`.
   option of `HttpRouter.serve`. `HttpRouter.serve` already adds `logger` unless
   `disableLogger: true`.
 
+### Observability / OTLP (folded out of `@effect/opentelemetry`, found migrating `code`)
+
+- **The OTLP exporters moved from `@effect/opentelemetry` into core
+  `effect/unstable/observability`.** The surviving `@effect/opentelemetry` v4
+  package only exports `Logger`, `Metrics`, `NodeSdk`, `Resource`, `Tracer`,
+  `WebSdk` — **not** `Otlp`, `OtlpLogger`, `OtlpTracer`, `OtlpMetrics`,
+  `OtlpSerialization`. Re-import those from `effect/unstable/observability`;
+  the module names and option shapes are unchanged (`OtlpLogger.layer({ url,
+resource, maxBatchSize, exportInterval })`, `Otlp.layerJson({ baseUrl,
+resource, *ExportInterval })`, `OtlpSerialization.layerJson`). `Otlp.layerJson`
+  still bundles `OtlpSerialization` internally. If OTLP was the only use of
+  `@effect/opentelemetry`, drop the dependency.
+
+### Stream / PubSub (found migrating `code`)
+
+- **`Stream.unwrapScoped` is gone.** The v3
+  `Stream.unwrapScoped(Effect.map(PubSub.subscribe(p), Stream.fromQueue))`
+  pattern collapses to **`Stream.fromPubSub(p)`** (v4 streams a PubSub directly;
+  it manages the scoped subscription internally). `Stream.fromQueue` still exists
+  for raw `Queue.Dequeue`s. `Stream.unwrap` (non-scoped) remains.
+
+### Schema `optionalWith({ as: 'Option' })` (found migrating `code`)
+
+- **`Schema.optionalWith(s, { as: 'Option' })` has no built-in v4 form** (the
+  decision tree in `migration/schema.md` only covers `exact`/`default`/
+  `nullable`). Reproduce the "absent key → `Option.none()`, present →
+  `Option.some(v)`, always-present decoded type" behaviour with:
+  `Schema.optionalKey(s).pipe(Schema.decodeTo(Schema.Option(s), {
+decode: SchemaGetter.transformOptional(Option.some),
+encode: SchemaGetter.transformOptional(Option.flatten) }))`. Wrap it in a small
+  `asOption` helper if used repeatedly.
+- **`Schema.withDecodingDefaultType` takes an `Effect`, not a thunk.**
+  `optionalWith(s, { default: () => 1000 })` →
+  `s.pipe(Schema.withDecodingDefaultType(Effect.succeed(1000)))` (pass the
+  `Effect` value directly).
+
 ### Layer / Context (more, found migrating `lotel`)
 
 - **`Layer.scoped(tag, effect)` is removed → use `Layer.effect(tag, effect)`.**

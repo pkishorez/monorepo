@@ -28,62 +28,61 @@ export interface TerminalSession {
   readonly outputPubSub: PubSub.PubSub<string>;
 }
 
-export class TerminalService extends Context.Tag('TerminalService')<
-  TerminalService,
-  {
-    readonly create: (params: {
+export interface TerminalServiceShape {
+  readonly create: (params: {
+    command: Option.Option<{
+      cmd: string;
+      args: Option.Option<readonly string[]>;
+    }>;
+    cwd: string;
+    env: Option.Option<Record<string, string>>;
+    cols: number;
+    rows: number;
+    scrollback: number;
+  }) => Effect.Effect<{ id: number }, TerminalSpawnError>;
+
+  readonly list: () => Effect.Effect<
+    Array<{
+      id: number;
       command: Option.Option<{
         cmd: string;
         args: Option.Option<readonly string[]>;
       }>;
       cwd: string;
-      env: Option.Option<Record<string, string>>;
       cols: number;
       rows: number;
-      scrollback: number;
-    }) => Effect.Effect<{ id: number }, TerminalSpawnError>;
+      status: 'running' | 'exited';
+      exitCode: Option.Option<number>;
+    }>
+  >;
 
-    readonly list: () => Effect.Effect<
-      Array<{
-        id: number;
-        command: Option.Option<{
-          cmd: string;
-          args: Option.Option<readonly string[]>;
-        }>;
-        cwd: string;
-        cols: number;
-        rows: number;
-        status: 'running' | 'exited';
-        exitCode: Option.Option<number>;
-      }>
-    >;
+  readonly getSnapshot: (
+    id: number,
+  ) => Effect.Effect<{ data: string }, TerminalNotFoundError>;
 
-    readonly getSnapshot: (
-      id: number,
-    ) => Effect.Effect<{ data: string }, TerminalNotFoundError>;
+  readonly stream: (
+    id: number,
+  ) => Effect.Effect<Stream.Stream<string>, TerminalNotFoundError>;
 
-    readonly stream: (
-      id: number,
-    ) => Effect.Effect<Stream.Stream<string>, TerminalNotFoundError>;
+  readonly write: (
+    id: number,
+    data: string,
+  ) => Effect.Effect<void, TerminalNotFoundError>;
 
-    readonly write: (
-      id: number,
-      data: string,
-    ) => Effect.Effect<void, TerminalNotFoundError>;
+  readonly resize: (
+    id: number,
+    cols: number,
+    rows: number,
+  ) => Effect.Effect<void, TerminalNotFoundError>;
 
-    readonly resize: (
-      id: number,
-      cols: number,
-      rows: number,
-    ) => Effect.Effect<void, TerminalNotFoundError>;
+  readonly kill: (id: number) => Effect.Effect<void, TerminalNotFoundError>;
+}
 
-    readonly kill: (id: number) => Effect.Effect<void, TerminalNotFoundError>;
-  }
->() {}
-
-export const TerminalServiceLive = Layer.effect(
+export class TerminalService extends Context.Service<
   TerminalService,
-  Effect.gen(function* () {
+  TerminalServiceShape
+>()('TerminalService', {
+  make: Effect.gen(function* () {
     const sessions = yield* Ref.make<Map<number, TerminalSession>>(new Map());
     const nextId = yield* Ref.make(1);
 
@@ -243,12 +242,7 @@ export const TerminalServiceLive = Layer.effect(
       stream: (id) =>
         Effect.gen(function* () {
           const session = yield* getSession(id);
-          return Stream.unwrapScoped(
-            Effect.map(
-              PubSub.subscribe(session.outputPubSub),
-              Stream.fromQueue,
-            ),
-          );
+          return Stream.fromPubSub(session.outputPubSub);
         }),
 
       write: (id, data) =>
@@ -273,4 +267,8 @@ export const TerminalServiceLive = Layer.effect(
         }),
     };
   }),
-);
+}) {
+  static readonly layer = Layer.effect(this, this.make);
+}
+
+export const TerminalServiceLive = TerminalService.layer;

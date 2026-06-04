@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import path from 'node:path';
 import { Effect, Layer } from 'effect';
-import { RpcServer, RpcSerialization } from '@effect/rpc';
+import { RpcServer, RpcSerialization } from 'effect/unstable/rpc';
 import { NodeSocketServer } from '@effect/platform-node';
 import { NodeRuntime } from '@effect/platform-node';
 import { AppRpcs } from './server/api/app.js';

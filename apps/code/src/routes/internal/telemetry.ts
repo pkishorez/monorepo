@@ -2,8 +2,8 @@ import {
   OtlpLogger,
   OtlpSerialization,
   OtlpTracer,
-} from '@effect/opentelemetry';
-import { FetchHttpClient } from '@effect/platform';
+} from 'effect/unstable/observability';
+import { FetchHttpClient } from 'effect/unstable/http';
 import { Layer } from 'effect';
 
 const resource = { serviceName: 'code:frontend' };

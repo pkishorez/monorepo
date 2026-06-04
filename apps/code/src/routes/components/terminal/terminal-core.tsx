@@ -263,7 +263,7 @@ export const TerminalCore = forwardRef<TerminalCoreHandle, TerminalCoreProps>(
       const fiber = codeRuntime.runFork(program);
 
       fiber.addObserver((exit) => {
-        if (exit._tag === 'Failure' && !Cause.isInterruptedOnly(exit.cause)) {
+        if (exit._tag === 'Failure' && !Cause.hasInterruptsOnly(exit.cause)) {
           console.error('Terminal error:', exit.cause);
         }
       });
