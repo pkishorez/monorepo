@@ -4,7 +4,7 @@ import {
   type SyncConfigRes,
   SyncConfig as TanstackSyncConfig,
 } from '@tanstack/react-db';
-import { Effect, Option, SubscriptionRef } from 'effect';
+import { Effect, Option, Semaphore, SubscriptionRef } from 'effect';
 import { SingleEntityType } from '@std-toolkit/core';
 import { AnySingleEntityESchema } from '@std-toolkit/eschema';
 import type { CacheSingleItem } from '@std-toolkit/cache';
@@ -43,7 +43,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   const singletonKey = schema.name;
 
   const syncing = Effect.runSync(SubscriptionRef.make(false));
-  const semaphore = Effect.runSync(Effect.makeSemaphore(1));
+  const semaphore = Effect.runSync(Semaphore.make(1));
   const withSyncGuard = makeWithSyncGuard(syncing, semaphore);
 
   let applyToCollection: ((item: SingleEntityType<TItem>) => void) | null =
@@ -54,7 +54,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
     applyToCollection?.(item);
     if (persist && resolvedCache) {
       Effect.runPromise(
-        Effect.catchAll(resolvedCache.put(item), () => Effect.void),
+        Effect.catch(resolvedCache.put(item), () => Effect.void),
       ).catch(() => {});
     }
   };
@@ -79,7 +79,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
   const fetchItem = Effect.gen(function* () {
     const item = yield* get();
     if (resolvedCache) {
-      yield* Effect.catchAll(resolvedCache.put(item), () => Effect.void);
+      yield* Effect.catch(resolvedCache.put(item), () => Effect.void);
     }
     applyToCollection?.(item);
   });
@@ -92,11 +92,11 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
         applyToCollection = createApplyToCollection(params);
 
         if (cacheEffect) {
-          resolvedCache = yield* Effect.catchAll(cacheEffect, () =>
+          resolvedCache = yield* Effect.catch(cacheEffect, () =>
             Effect.succeed(null),
           );
           const cached = resolvedCache
-            ? yield* Effect.catchAll(resolvedCache.get(), () =>
+            ? yield* Effect.catch(resolvedCache.get(), () =>
                 Effect.succeed(Option.none<SingleEntityType<TItem>>()),
               )
             : Option.none<SingleEntityType<TItem>>();
@@ -146,7 +146,7 @@ export const stdSingleItemOptions = <TSchema extends AnySingleEntityESchema>(
       );
       if (resolvedCache) {
         await Effect.runPromise(
-          Effect.catchAll(resolvedCache.put(result), () => Effect.void),
+          Effect.catch(resolvedCache.put(result), () => Effect.void),
         );
       }
       applyToCollection?.(result);

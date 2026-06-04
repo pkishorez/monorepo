@@ -4,7 +4,14 @@ import {
   type SyncConfigRes,
   SyncConfig as TanstackSyncConfig,
 } from '@tanstack/react-db';
-import { Effect, Fiber, Option, Scope, SubscriptionRef } from 'effect';
+import {
+  Effect,
+  Fiber,
+  Option,
+  Scope,
+  Semaphore,
+  SubscriptionRef,
+} from 'effect';
 import { EntityType } from '@std-toolkit/core';
 import { CacheEntity } from '@std-toolkit/cache';
 import { MemoryCacheEntity } from '@std-toolkit/cache/memory';
@@ -87,7 +94,7 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
   const syncFn = 'sync' in options ? options.sync : undefined;
 
   const syncing = Effect.runSync(SubscriptionRef.make(false));
-  const semaphore = Effect.runSync(Effect.makeSemaphore(1));
+  const semaphore = Effect.runSync(Semaphore.make(1));
   const withSyncGuard = makeWithSyncGuard(syncing, semaphore);
 
   let resolvedCache: CacheEntity<TItem> | null = null;
@@ -183,7 +190,9 @@ export const stdCollectionOptions = <TSchema extends AnyEntityESchema>(
             const items = Array.isArray(input) ? input : [input];
             applyToCollection?.(items, false);
           };
-          const syncFiber = yield* Effect.fork(Effect.scoped(syncFn(emit)));
+          const syncFiber = yield* Effect.forkChild(
+            Effect.scoped(syncFn(emit)),
+          );
           yield* withSyncGuard(fetchAllPages(cache));
           markReady();
           yield* Fiber.join(syncFiber);

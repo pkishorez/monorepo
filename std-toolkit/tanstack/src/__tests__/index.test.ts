@@ -64,9 +64,7 @@ describe('stdCollectionOptions', () => {
     expect(typeof utils.fetch).toBe('function');
     expect(typeof utils.fetchAll).toBe('function');
     expect(typeof utils.isSyncing).toBe('function');
-    expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing()).toBe(
-      true,
-    );
+    expect(SubscriptionRef.isSubscriptionRef(utils.isSyncing())).toBe(true);
   });
 
   it('utils.schema() returns the provided schema', () => {
@@ -273,9 +271,7 @@ describe('stdSingleItemOptions', () => {
     expect(typeof utils.refetch).toBe('function');
     expect(typeof utils.isSyncing).toBe('function');
     expect(typeof utils.upsert).toBe('function');
-    expect(SubscriptionRef.SubscriptionRefTypeId in utils.isSyncing()).toBe(
-      true,
-    );
+    expect(SubscriptionRef.isSubscriptionRef(utils.isSyncing())).toBe(true);
 
     expect(utils).not.toHaveProperty('fetch');
     expect(utils).not.toHaveProperty('fetchAll');
