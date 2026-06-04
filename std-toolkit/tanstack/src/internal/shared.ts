@@ -1,5 +1,5 @@
 import { SyncConfig as TanstackSyncConfig } from '@tanstack/react-db';
-import { Effect, Option, SubscriptionRef } from 'effect';
+import { Effect, Option, Semaphore, SubscriptionRef } from 'effect';
 import { EntityType } from '@std-toolkit/core';
 import { CacheEntity } from '@std-toolkit/cache';
 import { AnyEntityESchema, ESchemaIdField } from '@std-toolkit/eschema';
@@ -22,7 +22,7 @@ export const compareByMeta = (
 export const makeWithSyncGuard =
   (
     syncing: SubscriptionRef.SubscriptionRef<boolean>,
-    semaphore: Effect.Semaphore,
+    semaphore: Semaphore.Semaphore,
   ) =>
   <A, E>(effect: Effect.Effect<A, E>) =>
     semaphore.withPermits(1)(

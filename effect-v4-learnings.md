@@ -337,3 +337,19 @@ NewSchema })` (drop/override keys directly).
 - **`Schema.partial(struct)` → `struct.mapFields(Struct.map(Schema.optional))`**
   (already noted under `core`; confirmed `.mapFields` works on
   `Schema.Struct<...>` returned by eschema's `.schema`).
+
+### Semaphore / Fork / SubscriptionRef (found migrating `tanstack`)
+
+- **`Effect.makeSemaphore(n)` → `Semaphore.make(n)`** (new top-level `Semaphore`
+  module; `Semaphore.makeUnsafe(n)` is the sync form). The `Effect.Semaphore`
+  type moved to `Semaphore.Semaphore`. The instance shape
+  (`withPermits(n)(effect)`, `withPermit`, `withPermitsIfAvailable`) is unchanged.
+- **`Effect.fork(effect)` → `Effect.forkChild(effect)`** (child fiber tied to the
+  current fiber; `Fiber.join`/`Fiber.await` unchanged). `Effect.forkScoped` is the
+  scope-tied form. A lingering `Effect.fork` widened the enclosing gen's `R` to
+  `unknown`, surfacing as a misleading "`Effect<…, unknown>` not assignable to
+  `Effect<…, never>`" error at the `Effect.runCallback` call site.
+- **`SubscriptionRef.SubscriptionRefTypeId` is gone → use
+  `SubscriptionRef.isSubscriptionRef(u)`** (predicate) to test for a
+  SubscriptionRef instead of the `TypeId in obj` symbol check.
+- **`Effect.runCallback` is unchanged** (returns a cancel/interrupt function).
