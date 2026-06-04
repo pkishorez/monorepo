@@ -152,3 +152,61 @@ These remain separate packages in v4 and are bumped to the matching beta:
   `FiberSet.make/run` (both `make` still need `Scope.Scope`, both `run` keep
   the dual `(self, eff)` / curried `(self)(eff)` forms returning
   `Effect<Fiber>`), and all `Effect.runFork/runSync/runPromise/runPromiseExit`.
+
+### RPC / Socket (transferable, found migrating `core`)
+
+Folded `@effect/rpc` → `effect/unstable/rpc`; the v3 `@effect/platform`
+`Socket` → `effect/unstable/socket` (**not** under `http`). Subpaths exist:
+`effect/unstable/rpc/RpcMessage`, `.../RpcClientError`.
+
+- **`RpcSerialization.RpcSerialization` is a `Context.Service`**; the parser
+  factory renamed `serialization.unsafeMake()` → `serialization.makeUnsafe()`.
+  The `Parser` shape (`{ decode, encode }`) is unchanged.
+- **`RpcServer.makeNoSerialization(rpcs, { onFromServer, disableClientAcks,
+… })`** and its returned `.write(clientId, message)` are unchanged. `Rpc.make`
+  unchanged.
+- **`RpcClient.Protocol` is now a `Context.Service` class** (was a
+  `Context.Tag`). Use the service-shape type `RpcClient.Protocol['Service']`
+  (replaces v3 `Protocol['Type']`). `Protocol.make(fn)` callback signature is
+  now `fn(writeResponse, clientIds)`: `writeResponse(clientId, response)` takes
+  a client id, and server-broadcast messages must fan out over `clientIds`
+  (`Effect.forEach(clientIds, (id) => writeResponse(id, response))`). The
+  returned protocol's `send` is `(clientId, request) => …`.
+- **`RpcClientError` reshaped to a single `reason` union.** It is a
+  `Schema.ErrorClass` whose `reason` is a union of reason classes
+  (`SocketErrorReason`, `HttpClientErrorSchema`, `WorkerErrorReason`,
+  `RpcClientDefect`). The old flat `{ reason: 'Protocol', message, cause }` is
+  gone. Protocol/decoding failures →
+  `new RpcClientError({ reason: new RpcClientDefect({ message, cause }) })`
+  (`RpcClientDefect` from `effect/unstable/rpc/RpcClientError`).
+- **Socket errors reshaped.** `Socket.SocketGenericError` removed; open/timeout
+  failures are `new Socket.SocketError({ reason: new Socket.SocketOpenError({
+kind: 'Timeout' | 'Unknown', cause }) })`. `Socket.SocketCloseError` is now
+  `{ code, closeReason? }` wrapped in `Socket.SocketError({ reason })`. Detect a
+  transient open error via `Cause.findError(cause)` (`Result`) →
+  `Result.isSuccess(r) && r.success.reason._tag === 'SocketOpenError'`
+  (`Cause.failureOption` is gone; use `Cause.findError`). `socket.runRaw(handler,
+{ onOpen })` and `socket.writer` are unchanged.
+- **`FromServerEncoded` tags unchanged** (`Chunk`, `Exit`, `Defect`, `Pong`,
+  `ClientProtocolError`; plus `ClientEnd`). `RpcMessage.constPing` / `constPong`
+  unchanged.
+
+### Effect / Latch / Schema (more, found migrating `core`)
+
+- **`Effect.tapErrorCause` → `Effect.tapCause`.**
+- **`Effect.unsafeMakeLatch()` → `Latch.makeUnsafe()`** (new top-level `Latch`
+  module). `latch.unsafeClose()` → `latch.closeUnsafe()`; `latch.await` /
+  `latch.open` unchanged.
+- **`Schema.partial(struct)` →
+  `struct.mapFields(Struct.map(Schema.optional))`** (import `Struct`;
+  `Struct.map(Schema.optionalKey)` for the exact `{ exact: true }` form).
+- **`Schema.Set(x)` → `Schema.ReadonlySet(x)`.** Decodes to a real `Set` at
+  runtime but is typed `ReadonlySet`; copy via `new Set(...)` at mutation sites.
+- **`Schema.Schema.Any` → `Schema.Top`** (constraint for "any schema").
+- **`Schema.TaggedError<Self>()(tag, fields)` →
+  `Schema.TaggedErrorClass<Self>()(tag, fields)`** (likewise plain
+  `Schema.ErrorClass`). Instances stay yieldable.
+- **`Schema.decodeUnknown` was repurposed → use `Schema.decodeUnknownEffect`**
+  for the effectful decoder (mirrors the `decode`/`encode` `Effect`-suffix rule).
+  For primitive/struct schemas the decode services resolve to `never`, so
+  `Effect.runPromise` still type-checks.

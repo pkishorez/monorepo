@@ -1,12 +1,16 @@
-import { RpcSerialization } from '@effect/rpc';
-import { Protocol } from '@effect/rpc/RpcClient';
-import { Socket } from '@effect/platform';
-import { Schedule, Option, Effect, Scope, Cause, Ref } from 'effect';
+import { RpcSerialization, RpcClient } from 'effect/unstable/rpc';
+import { Socket } from 'effect/unstable/socket';
+import { Schedule, Effect, Scope, Cause, Result, Ref } from 'effect';
 import { constVoid } from 'effect/Function';
-import { RpcClientError } from '@effect/rpc/RpcClientError';
+import {
+  RpcClientError,
+  RpcClientDefect,
+} from 'effect/unstable/rpc/RpcClientError';
 import { isRpcServerMessage } from './utils.js';
 import { makePinger } from './pinger.js';
-import { constPing } from '@effect/rpc/RpcMessage';
+import { constPing } from 'effect/unstable/rpc/RpcMessage';
+
+const { Protocol } = RpcClient;
 
 export const makeProtocolSocket = ({
   retryTransientErrors = true,
@@ -21,19 +25,24 @@ export const makeProtocolSocket = ({
   onConnect?: Ref.Ref<ReadonlyArray<Effect.Effect<any>>>;
   onOtherMessage?: (message: unknown) => void;
 }): Effect.Effect<
-  Protocol['Type'],
+  RpcClient.Protocol['Service'],
   never,
   Scope.Scope | RpcSerialization.RpcSerialization | Socket.Socket
 > =>
   Protocol.make(
-    Effect.fnUntraced(function* (writeResponse) {
+    Effect.fnUntraced(function* (writeResponse, clientIds) {
       const socket = yield* Socket.Socket;
       const serialization = yield* RpcSerialization.RpcSerialization;
       const write = yield* socket.writer;
-      let parser = serialization.unsafeMake();
+      let parser = serialization.makeUnsafe();
       const pinger = yield* makePinger(write(parser.encode(constPing)!));
 
       let currentError: RpcClientError | undefined;
+
+      const broadcast = (response: any) =>
+        Effect.forEach(clientIds, (clientId) =>
+          writeResponse(clientId, response),
+        );
 
       const handleMessage = (message: string | Uint8Array) => {
         try {
@@ -47,7 +56,7 @@ export const makeProtocolSocket = ({
               const response = responses[i++]!;
               if (isRpcServerMessage(response)) {
                 if (response._tag === 'Pong') pinger.onPong();
-                return writeResponse(response);
+                return broadcast(response);
               }
               onOtherMessage?.(response);
               return Effect.void;
@@ -55,12 +64,13 @@ export const makeProtocolSocket = ({
             step: constVoid,
           });
         } catch (defect) {
-          return writeResponse({
+          return broadcast({
             _tag: 'ClientProtocolError',
             error: new RpcClientError({
-              reason: 'Protocol',
-              message: 'Error decoding message',
-              cause: Cause.fail(defect),
+              reason: new RpcClientDefect({
+                message: 'Error decoding message',
+                cause: defect,
+              }),
             }),
           });
         }
@@ -68,26 +78,27 @@ export const makeProtocolSocket = ({
 
       const isTransientError = (cause: Cause.Cause<Socket.SocketError>) => {
         if (!retryTransientErrors) return false;
-        const error = Cause.failureOption(cause);
+        const error = Cause.findError(cause);
         return (
-          Option.isSome(error) &&
-          (error.value.reason === 'Open' ||
-            error.value.reason === 'OpenTimeout')
+          Result.isSuccess(error) &&
+          error.success.reason._tag === 'SocketOpenError'
         );
       };
 
       const pingTimeout = Effect.andThen(
         pinger.timeout,
         Effect.fail(
-          new Socket.SocketGenericError({
-            reason: 'OpenTimeout',
-            cause: new Error('ping timeout'),
+          new Socket.SocketError({
+            reason: new Socket.SocketOpenError({
+              kind: 'Timeout',
+              cause: new Error('ping timeout'),
+            }),
           }),
         ),
       );
 
       const connectAndRun = Effect.gen(function* () {
-        parser = serialization.unsafeMake();
+        parser = serialization.makeUnsafe();
         currentError = undefined;
         pinger.reset();
 
@@ -101,17 +112,23 @@ export const makeProtocolSocket = ({
         );
 
         return yield* Effect.fail(
-          new Socket.SocketCloseError({ reason: 'Close', code: 1000 }),
+          new Socket.SocketError({
+            reason: new Socket.SocketCloseError({ code: 1000 }),
+          }),
         );
       }).pipe(
-        Effect.tapErrorCause((cause) => {
+        Effect.tapCause((cause) => {
           if (isTransientError(cause)) return Effect.void;
+          const error = Cause.findError(cause);
           currentError = new RpcClientError({
-            reason: 'Protocol',
-            message: 'Error in socket',
-            cause: Cause.squash(cause),
+            reason: Result.isSuccess(error)
+              ? error.success.reason
+              : new RpcClientDefect({
+                  message: 'Error in socket',
+                  cause: Cause.squash(cause),
+                }),
           });
-          return writeResponse({
+          return broadcast({
             _tag: 'ClientProtocolError',
             error: currentError,
           });
@@ -128,7 +145,7 @@ export const makeProtocolSocket = ({
       yield* connectAndRun;
 
       return {
-        send(request) {
+        send(_clientId, request) {
           if (currentError) return Effect.fail(currentError);
           const encoded = parser.encode(request);
           if (encoded === undefined) return Effect.void;

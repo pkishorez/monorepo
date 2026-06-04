@@ -1,9 +1,9 @@
-import { Rpc } from '@effect/rpc';
-import { Schema } from 'effect';
+import { Rpc } from 'effect/unstable/rpc';
+import { Schema, Struct } from 'effect';
 import { EntityESchema, type StructFieldsSchema } from '@std-toolkit/eschema';
 import { EntitySchema } from '../schema.js';
 
-export class StdToolkitError extends Schema.TaggedError<StdToolkitError>()(
+export class StdToolkitError extends Schema.TaggedErrorClass<StdToolkitError>()(
   'StdToolkitError',
   {
     message: Schema.String,
@@ -47,9 +47,9 @@ export const makeUpdateRpc = <
 ) => {
   const { [eschema.idField]: _id, ...fieldsWithoutId } = eschema.fields;
 
-  const updatesSchema = Schema.partial(
-    Schema.Struct(fieldsWithoutId as OmitIdField<F, Id>),
-  );
+  const updatesSchema = Schema.Struct(
+    fieldsWithoutId as OmitIdField<F, Id>,
+  ).mapFields(Struct.map(Schema.optional));
 
   const payloadSchema = Schema.Struct({
     [eschema.idField]: Schema.String,

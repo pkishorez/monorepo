@@ -37,7 +37,7 @@ describe('Command Payload Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(InsertPayloadSchema)(payload);
+          yield* Schema.decodeUnknownEffect(InsertPayloadSchema)(payload);
         expect(result.operation).toBe('insert');
         expect(result.entity).toBe('User');
         expect(result.data).toEqual({ id: '1', name: 'Test' });
@@ -52,10 +52,10 @@ describe('Command Payload Schemas', () => {
           data: {},
         };
 
-        const result = yield* Schema.decodeUnknown(InsertPayloadSchema)(
+        const result = yield* Schema.decodeUnknownEffect(InsertPayloadSchema)(
           payload,
-        ).pipe(Effect.either);
-        expect(result._tag).toBe('Left');
+        ).pipe(Effect.result);
+        expect(result._tag).toBe('Failure');
       }),
     );
   });
@@ -71,7 +71,7 @@ describe('Command Payload Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(UpdatePayloadSchema)(payload);
+          yield* Schema.decodeUnknownEffect(UpdatePayloadSchema)(payload);
         expect(result.operation).toBe('update');
         expect(result.key).toEqual({ id: '1' });
         expect(result.data).toEqual({ name: 'Updated' });
@@ -89,7 +89,7 @@ describe('Command Payload Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(DeletePayloadSchema)(payload);
+          yield* Schema.decodeUnknownEffect(DeletePayloadSchema)(payload);
         expect(result.operation).toBe('delete');
         expect(result.key).toEqual({ id: '1' });
       }),
@@ -107,7 +107,8 @@ describe('Command Payload Schemas', () => {
           sk: { '>=': null },
         };
 
-        const result = yield* Schema.decodeUnknown(QueryPayloadSchema)(payload);
+        const result =
+          yield* Schema.decodeUnknownEffect(QueryPayloadSchema)(payload);
         expect(result.operation).toBe('query');
         expect(result.index).toBe('primary');
         expect(result.sk).toEqual({ '>=': null });
@@ -125,7 +126,8 @@ describe('Command Payload Schemas', () => {
           limit: 10,
         };
 
-        const result = yield* Schema.decodeUnknown(QueryPayloadSchema)(payload);
+        const result =
+          yield* Schema.decodeUnknownEffect(QueryPayloadSchema)(payload);
         expect(result.limit).toBe(10);
       }),
     );
@@ -140,7 +142,8 @@ describe('Command Payload Schemas', () => {
           sk: { '>': 'a' },
         };
 
-        const result = yield* Schema.decodeUnknown(QueryPayloadSchema)(payload);
+        const result =
+          yield* Schema.decodeUnknownEffect(QueryPayloadSchema)(payload);
         expect(result.limit).toBeUndefined();
       }),
     );
@@ -153,9 +156,9 @@ describe('Command Payload Schemas', () => {
           operation: 'descriptor',
         };
 
-        const result = yield* Schema.decodeUnknown(DescriptorPayloadSchema)(
-          payload,
-        );
+        const result = yield* Schema.decodeUnknownEffect(
+          DescriptorPayloadSchema,
+        )(payload);
         expect(result.operation).toBe('descriptor');
       }),
     );
@@ -164,7 +167,7 @@ describe('Command Payload Schemas', () => {
   describe('SkConditionSchema', () => {
     itEffect('validates >= operator', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(SkConditionSchema)({
+        const result = yield* Schema.decodeUnknownEffect(SkConditionSchema)({
           '>=': null,
         });
         expect(result).toEqual({ '>=': null });
@@ -173,7 +176,7 @@ describe('Command Payload Schemas', () => {
 
     itEffect('validates > operator with value', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(SkConditionSchema)({
+        const result = yield* Schema.decodeUnknownEffect(SkConditionSchema)({
           '>': 'abc',
         });
         expect(result).toEqual({ '>': 'abc' });
@@ -182,7 +185,7 @@ describe('Command Payload Schemas', () => {
 
     itEffect('validates <= operator', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(SkConditionSchema)({
+        const result = yield* Schema.decodeUnknownEffect(SkConditionSchema)({
           '<=': null,
         });
         expect(result).toEqual({ '<=': null });
@@ -191,7 +194,7 @@ describe('Command Payload Schemas', () => {
 
     itEffect('validates < operator with value', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(SkConditionSchema)({
+        const result = yield* Schema.decodeUnknownEffect(SkConditionSchema)({
           '<': 'xyz',
         });
         expect(result).toEqual({ '<': 'xyz' });
@@ -209,7 +212,7 @@ describe('Command Payload Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(CommandPayloadSchema)(payload);
+          yield* Schema.decodeUnknownEffect(CommandPayloadSchema)(payload);
         expect(result.operation).toBe('insert');
       }),
     );
@@ -224,7 +227,7 @@ describe('Command Payload Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(CommandPayloadSchema)(payload);
+          yield* Schema.decodeUnknownEffect(CommandPayloadSchema)(payload);
         expect(result.operation).toBe('update');
       }),
     );
@@ -238,7 +241,7 @@ describe('Command Payload Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(CommandPayloadSchema)(payload);
+          yield* Schema.decodeUnknownEffect(CommandPayloadSchema)(payload);
         expect(result.operation).toBe('delete');
       }),
     );
@@ -254,7 +257,7 @@ describe('Command Payload Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(CommandPayloadSchema)(payload);
+          yield* Schema.decodeUnknownEffect(CommandPayloadSchema)(payload);
         expect(result.operation).toBe('query');
       }),
     );
@@ -266,7 +269,7 @@ describe('Command Payload Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(CommandPayloadSchema)(payload);
+          yield* Schema.decodeUnknownEffect(CommandPayloadSchema)(payload);
         expect(result.operation).toBe('descriptor');
       }),
     );
@@ -303,7 +306,7 @@ describe('Command Response Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(InsertResponseSchema)(response);
+          yield* Schema.decodeUnknownEffect(InsertResponseSchema)(response);
         expect(result.operation).toBe('insert');
         expect(result.data.value).toEqual({ id: '1', name: 'Test' });
       }),
@@ -321,7 +324,7 @@ describe('Command Response Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(UpdateResponseSchema)(response);
+          yield* Schema.decodeUnknownEffect(UpdateResponseSchema)(response);
         expect(result.operation).toBe('update');
       }),
     );
@@ -341,7 +344,7 @@ describe('Command Response Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(DeleteResponseSchema)(response);
+          yield* Schema.decodeUnknownEffect(DeleteResponseSchema)(response);
         expect(result.operation).toBe('delete');
         expect(result.data.meta._d).toBe(true);
       }),
@@ -359,7 +362,7 @@ describe('Command Response Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(QueryResponseSchema)(response);
+          yield* Schema.decodeUnknownEffect(QueryResponseSchema)(response);
         expect(result.operation).toBe('query');
         expect(result.items).toHaveLength(2);
       }),
@@ -375,7 +378,7 @@ describe('Command Response Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(QueryResponseSchema)(response);
+          yield* Schema.decodeUnknownEffect(QueryResponseSchema)(response);
         expect(result.items).toHaveLength(0);
       }),
     );
@@ -403,9 +406,9 @@ describe('Command Response Schemas', () => {
           ],
         };
 
-        const result = yield* Schema.decodeUnknown(DescriptorResponseSchema)(
-          response,
-        );
+        const result = yield* Schema.decodeUnknownEffect(
+          DescriptorResponseSchema,
+        )(response);
         expect(result.operation).toBe('descriptor');
         expect(result.descriptors).toHaveLength(1);
         expect(result.descriptors[0]!.name).toBe('User');
@@ -420,9 +423,9 @@ describe('Command Response Schemas', () => {
           descriptors: [],
         };
 
-        const result = yield* Schema.decodeUnknown(DescriptorResponseSchema)(
-          response,
-        );
+        const result = yield* Schema.decodeUnknownEffect(
+          DescriptorResponseSchema,
+        )(response);
         expect(result.descriptors).toHaveLength(0);
       }),
     );
@@ -445,10 +448,10 @@ describe('Command Response Schemas', () => {
           items: [],
         };
 
-        const insert = yield* Schema.decodeUnknown(CommandResponseSchema)(
+        const insert = yield* Schema.decodeUnknownEffect(CommandResponseSchema)(
           insertResponse,
         );
-        const query = yield* Schema.decodeUnknown(CommandResponseSchema)(
+        const query = yield* Schema.decodeUnknownEffect(CommandResponseSchema)(
           queryResponse,
         );
 
@@ -470,7 +473,8 @@ describe('CommandTimingSchema', () => {
         durationMs: 100,
       };
 
-      const result = yield* Schema.decodeUnknown(CommandTimingSchema)(timing);
+      const result =
+        yield* Schema.decodeUnknownEffect(CommandTimingSchema)(timing);
       expect(result.durationMs).toBe(100);
     }),
   );
@@ -481,10 +485,10 @@ describe('CommandTimingSchema', () => {
         startedAt: Date.now(),
       };
 
-      const result = yield* Schema.decodeUnknown(CommandTimingSchema)(
+      const result = yield* Schema.decodeUnknownEffect(CommandTimingSchema)(
         timing,
-      ).pipe(Effect.either);
-      expect(result._tag).toBe('Left');
+      ).pipe(Effect.result);
+      expect(result._tag).toBe('Failure');
     }),
   );
 });
@@ -549,7 +553,7 @@ describe('Descriptor Schemas', () => {
           pattern: 'Tenant#{tenantId}#User#{userId}',
         };
 
-        const result = yield* Schema.decodeUnknown(
+        const result = yield* Schema.decodeUnknownEffect(
           IndexPatternDescriptorSchema,
         )(pattern);
         expect(result.deps).toEqual(['tenantId', 'userId']);
@@ -564,7 +568,7 @@ describe('Descriptor Schemas', () => {
           pattern: 'User',
         };
 
-        const result = yield* Schema.decodeUnknown(
+        const result = yield* Schema.decodeUnknownEffect(
           IndexPatternDescriptorSchema,
         )(pattern);
         expect(result.deps).toHaveLength(0);
@@ -581,7 +585,7 @@ describe('Descriptor Schemas', () => {
           sk: { deps: ['_u'], pattern: '{_u}' },
         };
 
-        const result = yield* Schema.decodeUnknown(IndexDescriptorSchema)(
+        const result = yield* Schema.decodeUnknownEffect(IndexDescriptorSchema)(
           index,
         );
         expect(result.name).toBe('byEmail');
@@ -613,7 +617,7 @@ describe('Descriptor Schemas', () => {
         };
 
         const result =
-          yield* Schema.decodeUnknown(StdDescriptorSchema)(descriptor);
+          yield* Schema.decodeUnknownEffect(StdDescriptorSchema)(descriptor);
         expect(result.name).toBe('User');
         expect(result.version).toBe('v1');
         expect(result.secondaryIndexes).toHaveLength(1);
