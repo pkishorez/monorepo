@@ -19,7 +19,9 @@ export function useRunEffectQueue<Args extends any[], A, E>(
     isExecuting.current = true;
     Effect.runPromiseExit(
       Effect.gen(function* () {
-        const fiberHandle = yield* FiberHandle.make().pipe(Scope.extend(scope));
+        const fiberHandle = yield* FiberHandle.make().pipe(
+          Scope.provide(scope),
+        );
 
         const fiber = yield* FiberHandle.run(fiberHandle)(fn(...first));
 

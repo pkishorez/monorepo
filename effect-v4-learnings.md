@@ -105,3 +105,20 @@ These remain separate packages in v4 and are bumped to the matching beta:
   `.value` / `.cause`.
 - **`Data.TaggedError(...)` is unchanged** and instances remain yieldable
   (`yield* new MyError({...})`).
+
+### Scope / Fiber (transferable, found migrating `use-effect-ts`)
+
+- **`Scope.extend(scope)` → `Scope.provide(scope)`.** Same dual signature
+  (`(value) => (self) => …` and `(self, value)`); pipes a scope into an
+  effect's requirements (`Exclude<R, Scope>`). Leaving the old name in place
+  also surfaced as misleading downstream "unknown not assignable" errors
+  (e.g. `useState` setters) because `extend` typed its result as `unknown`.
+- **`Scope.CloseableScope` → `Scope.Closeable`** (the closeable scope type).
+  `Scope.make()` still returns it; `Scope.close(scope, exit)` unchanged.
+- **`Fiber.interrupt(fiber)` now returns `Effect<void>`**, not
+  `Effect<Exit>`. To get the exit, interrupt then `Fiber.await(fiber)`
+  (`Fiber.await` returns `Effect<Exit<A, E>>`). `Fiber.join` unchanged.
+- **Unchanged in v4:** `Exit.void`, `FiberHandle.make/run`,
+  `FiberSet.make/run` (both `make` still need `Scope.Scope`, both `run` keep
+  the dual `(self, eff)` / curried `(self)(eff)` forms returning
+  `Effect<Fiber>`), and all `Effect.runFork/runSync/runPromise/runPromiseExit`.
