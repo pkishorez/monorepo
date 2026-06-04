@@ -1,5 +1,5 @@
 import type { UpdateMutationFnParams } from '@tanstack/react-db';
-import { Effect } from 'effect';
+import { Effect, Semaphore } from 'effect';
 import type { SingleEntityType, EntityType } from '@std-toolkit/core';
 import type { CacheSingleItem } from '@std-toolkit/cache';
 import { MemoryCacheSingleItem } from '@std-toolkit/cache/memory';
@@ -51,7 +51,7 @@ export const buildSingleItem = <TSchema extends AnySingleEntityESchema>(
   const { schema, get, onUpdate } = options;
   const store = resolveCache(options.cache);
   const singletonKey = schema.name;
-  const refreshSemaphore = Effect.runSync(Effect.makeSemaphore(1));
+  const refreshSemaphore = Semaphore.makeUnsafe(1);
 
   let cachePromise: Promise<CacheSingleItem<TItem>> | null = null;
   let callbacks: SyncCallbacks<TCollItem> | null = null;
@@ -62,7 +62,7 @@ export const buildSingleItem = <TSchema extends AnySingleEntityESchema>(
         store
           .singleItem<TItem>({ name: schema.name })
           .pipe(
-            Effect.catchAll(() =>
+            Effect.catch(() =>
               MemoryCacheSingleItem.make<TItem>({ name: schema.name }),
             ),
           ),
@@ -87,7 +87,7 @@ export const buildSingleItem = <TSchema extends AnySingleEntityESchema>(
         Effect.gen(function* () {
           const item = yield* get();
           const cache = yield* Effect.promise(initCache);
-          yield* Effect.catchAll(cache.put(item), () => Effect.void);
+          yield* Effect.catch(cache.put(item), () => Effect.void);
           writeToCollection([item]);
           return item;
         }),
@@ -131,7 +131,7 @@ export const buildSingleItem = <TSchema extends AnySingleEntityESchema>(
             refreshSemaphore.withPermits(1)(get()),
           );
           await Effect.runPromise(
-            Effect.catchAll(cache.put(item), () => Effect.void),
+            Effect.catch(cache.put(item), () => Effect.void),
           );
           writeToCollection([item]);
         })()
@@ -161,7 +161,7 @@ export const buildSingleItem = <TSchema extends AnySingleEntityESchema>(
         const result = await Effect.runPromise(onUpdate({ updates: value }));
         const cache = await initCache();
         await Effect.runPromise(
-          Effect.catchAll(cache.put(result), () => Effect.void),
+          Effect.catch(cache.put(result), () => Effect.void),
         );
         writeToCollection([result]);
       },
