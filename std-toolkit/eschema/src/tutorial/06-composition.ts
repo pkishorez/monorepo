@@ -24,8 +24,8 @@ const Address = ESchema.make({
 }).build();
 
 // A nested value schema (lesson 5) — composes just as well.
-const Status = ValueESchema.make(Schema.Literal('draft', 'published'))
-  .evolve('v2', Schema.Literal('draft', 'review', 'published'), (v) => v)
+const Status = ValueESchema.make(Schema.Literals(['draft', 'published']))
+  .evolve('v2', Schema.Literals(['draft', 'review', 'published']), (v) => v)
   .build();
 
 // The parent embeds both children via `toSchema`, including an array of them.

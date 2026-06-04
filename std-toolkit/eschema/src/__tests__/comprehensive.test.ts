@@ -330,7 +330,9 @@ describe('edge cases', () => {
   describe('optional fields with transforms', () => {
     const schema = ESchema.make({
       name: Schema.String,
-      score: Schema.optionalWith(StringToNumber, { default: () => 0 }),
+      score: StringToNumber.pipe(
+        Schema.withDecodingDefaultType(Effect.succeed(0)),
+      ),
     }).build();
 
     itEffect('encode with optional present', () =>

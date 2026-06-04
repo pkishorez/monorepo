@@ -19,10 +19,10 @@ import { Effect, Schema } from 'effect';
 import { ValueESchema } from '../index.js';
 
 // A status enum. v1 has two states; v2 adds 'review' in the middle.
-const Status = ValueESchema.make(Schema.Literal('draft', 'published'))
+const Status = ValueESchema.make(Schema.Literals(['draft', 'published']))
   .evolve(
     'v2',
-    Schema.Literal('draft', 'review', 'published'),
+    Schema.Literals(['draft', 'review', 'published']),
     // The migration gets the decoded value and returns the next value. Here the
     // old states are still valid, so it passes them through unchanged.
     (value) => value,

@@ -10,16 +10,21 @@
  *
  * Run it:  npx tsx src/tutorial/04-transform-rename-remove.ts
  */
-import { Effect, Schema } from 'effect';
+import { Effect, Schema, SchemaTransformation } from 'effect';
 import { ESchema } from '../index.js';
 
 // --- Transform: stored type differs from the in-memory type ---------------
 // A field can be an Effect Schema transformation. Here the wire value is a
 // string, but your code works with a number. encode/decode convert both ways.
-const StringToNumber = Schema.transform(Schema.String, Schema.Number, {
-  decode: (s) => parseInt(s, 10),
-  encode: (n) => String(n),
-});
+const StringToNumber = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.Number,
+    SchemaTransformation.transform({
+      decode: (s) => parseInt(s, 10),
+      encode: (n) => String(n),
+    }),
+  ),
+);
 
 const Counter = ESchema.make({ count: StringToNumber }).build();
 console.log(

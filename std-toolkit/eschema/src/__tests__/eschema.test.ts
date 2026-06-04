@@ -156,8 +156,9 @@ describe('fromType', () => {
       const ExternalShapeSchema = fromType<ExternalShape>();
       const input = { expression: ['val', ['path']] as const };
 
-      const decoded = yield* Schema.decodeUnknown(ExternalShapeSchema)(input);
-      const encoded = yield* Schema.encode(ExternalShapeSchema)(decoded);
+      const decoded =
+        yield* Schema.decodeUnknownEffect(ExternalShapeSchema)(input);
+      const encoded = yield* Schema.encodeEffect(ExternalShapeSchema)(decoded);
 
       expect(decoded.expression[0]).toBe('val');
       expect(encoded).toBe(input);

@@ -116,10 +116,10 @@ describe('ValueESchema.make', () => {
 describe('ValueESchema.evolve', () => {
   itEffect('migrates through whole-value schema replacements', () =>
     Effect.gen(function* () {
-      const schema = ValueESchema.make(Schema.Literal('draft', 'published'))
+      const schema = ValueESchema.make(Schema.Literals(['draft', 'published']))
         .evolve(
           'v2',
-          Schema.Literal('draft', 'review', 'published'),
+          Schema.Literals(['draft', 'review', 'published']),
           (value) => value,
         )
         .build();
@@ -160,10 +160,10 @@ describe('ValueESchema transforms', () => {
 });
 
 describe('ValueESchema composition', () => {
-  const Status = ValueESchema.make(Schema.Literal('draft', 'published'))
+  const Status = ValueESchema.make(Schema.Literals(['draft', 'published']))
     .evolve(
       'v2',
-      Schema.Literal('draft', 'review', 'published'),
+      Schema.Literals(['draft', 'review', 'published']),
       (value) => value,
     )
     .build();

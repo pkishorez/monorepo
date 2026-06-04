@@ -4,26 +4,18 @@ import type {
   EntityESchema,
   ValueESchema,
 } from './eschema.js';
-import { JSONSchema, Schema } from 'effect';
+import { JsonSchema, Schema } from 'effect';
 
-export type ESchemaDescriptor = JSONSchema.JsonSchema7Object & {
+export type ESchemaDescriptor = JsonSchema.JsonSchema & {
+  type?: string;
+  properties: Record<string, JsonSchema.JsonSchema>;
   $schema?: string;
-  $defs?: Record<string, JSONSchema.JsonSchema7>;
+  $defs?: Record<string, JsonSchema.JsonSchema>;
 };
 
-export type StructFieldsSchema<Or = never> = Record<
-  string,
-  | Schema.Schema<any, any, never>
-  | Schema.PropertySignature<any, any, any, any, any, any, never>
-  | Or
->;
+export type StructFieldsSchema<Or = never> = Record<string, Schema.Top | Or>;
 
-export type DeltaSchema = Record<
-  string,
-  | Schema.Schema<any, any, never>
-  | Schema.PropertySignature<any, any, any, any, any, any, never>
-  | null
->;
+export type DeltaSchema = Record<string, Schema.Top | null>;
 
 export type MergeSchemas<
   Base extends StructFieldsSchema,
@@ -38,14 +30,13 @@ export type StructFieldsDecoded<T extends StructFieldsSchema> =
   Schema.Schema.Type<Schema.Struct<T>>;
 
 export type StructFieldsEncoded<T extends StructFieldsSchema> =
-  Schema.Schema.Encoded<Schema.Struct<T>>;
+  Schema.Codec.Encoded<Schema.Struct<T>>;
 
-export type ValueSchema = Schema.Schema<any, any, never>;
+export type ValueSchema = Schema.Codec<any, any>;
 
 export type ValueSchemaDecoded<T extends ValueSchema> = Schema.Schema.Type<T>;
 
-export type ValueSchemaEncoded<T extends ValueSchema> =
-  Schema.Schema.Encoded<T>;
+export type ValueSchemaEncoded<T extends ValueSchema> = Schema.Codec.Encoded<T>;
 
 export type ValueEnvelopeEncoded<
   TVersion extends string,
@@ -88,7 +79,7 @@ export type NextVersion<V extends string> =
  * Simple string ID schema type.
  * Used for entity ID fields without branding.
  */
-export type IdSchema = Schema.Schema<string, string, never>;
+export type IdSchema = Schema.Codec<string, string>;
 
 export type Evolution = {
   version: string;
