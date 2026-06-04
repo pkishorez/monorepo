@@ -475,9 +475,9 @@ describe('SQLite Single Table Design', () => {
               return yield* Effect.fail(new Error('Rollback'));
             }),
           )
-          .pipe(Effect.either);
+          .pipe(Effect.result);
 
-        expect(result._tag).toBe('Left');
+        expect(result._tag).toBe('Failure');
 
         const user = yield* userEntity.get({ userId: 'tx-rollback-user' });
         expect(user).toBeNull();
@@ -1197,9 +1197,9 @@ describe('Transactions Advanced', () => {
             yield* counterEntity.insert({ counterId: 'r3', count: 3 });
           }),
         )
-        .pipe(Effect.either);
+        .pipe(Effect.result);
 
-      expect(result._tag).toBe('Left');
+      expect(result._tag).toBe('Failure');
 
       // All should be rolled back
       const r1 = yield* counterEntity.get({ counterId: 'r1' });
@@ -1583,7 +1583,7 @@ describe('Cross-Entity Index Isolation', () => {
   // Two entities sharing the same entityIndexName with empty pk deps —
   // this is the exact pattern that caused the "status is missing" decode error.
   const SessionSchema = EntityESchema.make('Session', 'sessionId', {
-    status: Schema.Literal('active', 'closed'),
+    status: Schema.Literals(['active', 'closed']),
     path: Schema.String,
   }).build();
 

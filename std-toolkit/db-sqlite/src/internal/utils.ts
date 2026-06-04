@@ -1,14 +1,17 @@
 import { MetaSchema } from '@std-toolkit/core';
-import { Schema } from 'effect';
+import { Schema, SchemaGetter } from 'effect';
 
-export const SqliteBool = Schema.transform(Schema.Number, Schema.Boolean, {
-  decode: (n) => n !== 0,
-  encode: (b) => (b ? 1 : 0),
-});
-
-export const sqlMetaSchema = MetaSchema.omit('_d').pipe(
-  Schema.extend(Schema.Struct({ _d: SqliteBool })),
+export const SqliteBool = Schema.Number.pipe(
+  Schema.decodeTo(Schema.Boolean, {
+    decode: SchemaGetter.transform((n: number) => n !== 0),
+    encode: SchemaGetter.transform((b: boolean) => (b ? 1 : 0)),
+  }),
 );
+
+export const sqlMetaSchema = Schema.Struct({
+  ...MetaSchema.fields,
+  _d: SqliteBool,
+});
 
 export type RowMeta = typeof sqlMetaSchema.Type;
 

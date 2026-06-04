@@ -199,10 +199,10 @@ describe('SqliteDBBun adapter', () => {
             'test_table',
             Sql.where('id', '=', 'missing'),
           );
-        }).pipe(Effect.provide(layer), Effect.either),
+        }).pipe(Effect.provide(layer), Effect.result),
       );
 
-      expect(result._tag).toBe('Left');
+      expect(result._tag).toBe('Failure');
     });
   });
 
