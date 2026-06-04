@@ -27,12 +27,10 @@
     "test:watch": "vp test --watch"
   },
   "dependencies": {
-    "@effect/cli": "0.75.1",
-    "@effect/platform": "0.96.1",
-    "@effect/platform-node": "0.106.0",
+    "@effect/platform-node": "4.0.0-beta.78",
     "@opentui/core": "0.3.1",
     "@opentui/react": "0.3.1",
-    "effect": "3.21.2",
+    "effect": "4.0.0-beta.78",
     "js-yaml": "4.2.0",
     "react": "19.2.7",
     "semver": "7.8.1",
