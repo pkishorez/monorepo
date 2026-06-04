@@ -12,12 +12,12 @@ const settingsSyncConfig = std.singleItem({
     Effect.gen(function* () {
       const { client } = yield* FinancesClient;
       return yield* client.getSettings({});
-    }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
+    }).pipe(Effect.provide(FinancesClient.layer), Effect.orDie),
   onUpdate: ({ updates }) =>
     Effect.gen(function* () {
       const { client } = yield* FinancesClient;
       return yield* client.putSettings(updates);
-    }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
+    }).pipe(Effect.provide(FinancesClient.layer), Effect.orDie),
 });
 
 export const settingsCollection = createCollection(settingsSyncConfig);

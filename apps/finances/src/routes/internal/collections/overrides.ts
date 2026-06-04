@@ -27,7 +27,7 @@ const overridesSyncConfig = std.totalSync({
           }
         }),
       );
-    }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
+    }).pipe(Effect.provide(FinancesClient.layer), Effect.orDie),
   onInsert: (item) =>
     Effect.gen(function* () {
       const { client } = yield* FinancesClient;
@@ -40,7 +40,7 @@ const overridesSyncConfig = std.totalSync({
         ignore: item.ignore,
         cancelled_by: item.cancelled_by,
       });
-    }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
+    }).pipe(Effect.provide(FinancesClient.layer), Effect.orDie),
   onUpdate: (payload) =>
     Effect.gen(function* () {
       const { client } = yield* FinancesClient;
@@ -53,7 +53,7 @@ const overridesSyncConfig = std.totalSync({
         cancelled_by: null,
         ...payload.updates,
       });
-    }).pipe(Effect.provide(FinancesClient.Default), Effect.orDie),
+    }).pipe(Effect.provide(FinancesClient.layer), Effect.orDie),
 });
 
 export const overridesCollection = createCollection(overridesSyncConfig);

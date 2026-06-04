@@ -1,4 +1,4 @@
-import { Chunk, Effect, Stream } from 'effect';
+import { Effect, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   OverrideHandlersLive,
@@ -65,7 +65,7 @@ const makeOverride = (
 });
 
 const takeEvents = <A, E, R>(stream: Stream.Stream<A, E, R>, count: number) =>
-  stream.pipe(Stream.take(count), Stream.runCollect, Effect.map(Chunk.toArray));
+  stream.pipe(Stream.take(count), Stream.runCollect);
 
 describe('transaction replacement', () => {
   itEffect('deletes old transactions and inserts uploaded transactions', () =>

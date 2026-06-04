@@ -44,7 +44,7 @@ const makeSyncStream = <T>(
   payload: { cursor: string | null; limit?: number },
   fallback: string,
 ) =>
-  Stream.unfoldEffect<SyncState, SyncEvent<T>, SqliteDBError, SqliteDB>(
+  Stream.paginate<SyncState, SyncEvent<T>, SqliteDBError, SqliteDB>(
     { cursor: payload.cursor, initialSyncDone: false },
     (state) =>
       Effect.gen(function* () {
@@ -63,18 +63,18 @@ const makeSyncStream = <T>(
             cursor: last.meta._u,
             initialSyncDone: state.initialSyncDone,
           };
-          return Option.some([event, nextState] as const);
+          return [[event], Option.some(nextState)] as const;
         }
 
         if (!state.initialSyncDone) {
           const event: SyncEvent<T> = { _tag: 'initial-sync-done' };
           const nextState: SyncState = { ...state, initialSyncDone: true };
-          return Option.some([event, nextState] as const);
+          return [[event], Option.some(nextState)] as const;
         }
 
         yield* Effect.sleep(HEARTBEAT_INTERVAL);
         const event: SyncEvent<T> = { _tag: 'heartbeat' };
-        return Option.some([event, state] as const);
+        return [[event], Option.some(state)] as const;
       }),
   ).pipe(Stream.mapError((error) => mapError(error, fallback)));
 
