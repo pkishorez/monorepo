@@ -105,6 +105,36 @@ These remain separate packages in v4 and are bumped to the matching beta:
   `.value` / `.cause`.
 - **`Data.TaggedError(...)` is unchanged** and instances remain yieldable
   (`yield* new MyError({...})`).
+- **`Cause.isInterrupted` → `Cause.hasInterrupts`** (flattened Cause; also
+  `hasFails`, `hasInterruptsOnly`). Use these instead of `cause._tag` checks.
+
+### Schema (more, found migrating `trace-viewer`)
+
+- **`Schema.Record({ key, value })` → `Schema.Record(key, value)`** (positional
+  args; optional 3rd `keyValueCombiner` options object).
+- **`Schema.Literal('a', 'b')` → `Schema.Literals(['a', 'b'])`** (already noted
+  above; confirmed for the value-codec case too).
+- **`Schema.decodeUnknownEither` → `Schema.decodeUnknownResult`** (returns
+  `Result`, tags `'Success'`/`'Failure'` not `'Right'`/`'Left'`). Also
+  `decodeUnknownExit` / `decodeUnknownOption` variants exist.
+
+### SubscriptionRef / Stream / Tracer / Array (found migrating `trace-viewer`)
+
+- **`SubscriptionRef` is no longer method-based.** `ref.modify(fn)` →
+  `SubscriptionRef.modify(ref, fn)`; `ref.changes` →
+  `SubscriptionRef.changes(ref)` (returns a value `Stream<A>`).
+- **`Stream.runForEachChunk` removed; `Stream.chunks` now emits
+  `NonEmptyReadonlyArray`** (not `Chunk`). To process per-batch, use
+  `Stream.chunks` + `Stream.runForEach`. Replace `Chunk.last` with
+  `Array.lastNonEmpty` (or `Array.last` → `Option`).
+- **`Layer.setTracer(t)` removed.** `Tracer.Tracer` is a `Context.Reference`;
+  install with `Layer.succeed(Tracer.Tracer, t)`.
+- **`Tracer.make({ span })` span callback takes a single options object** now:
+  `{ name, parent, annotations, links, startTime, kind, root, sampled }` (was
+  positional). The v3 `context` field is renamed `annotations`
+  (`Context.Context<never>`) on both span options and the returned `Span`. The
+  tracer-level `context` hook is now optional with a `(primitive, fiber)`
+  signature — omit unless needed.
 
 ### Scope / Fiber (transferable, found migrating `use-effect-ts`)
 

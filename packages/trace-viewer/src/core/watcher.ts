@@ -24,7 +24,10 @@ export function createTracerWatcher({
     );
     const updateRef = () => {
       Effect.runSync(
-        ref.modify((v) => [v, { value: Array.from(spanMap.values()), i: ++i }]),
+        SubscriptionRef.modify(ref, (v) => [
+          v,
+          { value: Array.from(spanMap.values()), i: ++i },
+        ]),
       );
     };
 
@@ -50,9 +53,17 @@ export function createTracerWatcher({
     };
   })();
 
-  const TracerLayer = Layer.setTracer(
+  const TracerLayer = Layer.succeed(
+    Tracer.Tracer,
     Tracer.make({
-      span(name, parent, context, links, spanStartTime, kind) {
+      span({
+        name,
+        parent,
+        annotations,
+        links,
+        startTime: spanStartTime,
+        kind,
+      }) {
         const spanId = `span:${uid++}`;
 
         add(spanId, {
@@ -75,7 +86,7 @@ export function createTracerWatcher({
           _tag: 'Span',
           kind,
           links,
-          context,
+          annotations,
           name,
           sampled: false,
           spanId,
@@ -119,7 +130,6 @@ export function createTracerWatcher({
           parent,
         };
       },
-      context: (fn) => fn(),
     }),
   );
 
