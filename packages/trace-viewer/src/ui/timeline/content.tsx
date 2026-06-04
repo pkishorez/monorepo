@@ -9,7 +9,7 @@ import {
 } from '@monorepo/frontend/motion';
 import { cn } from '@monorepo/frontend/utils';
 import { useComponentLifecycle, useEventCallback } from 'use-effect-ts';
-import { Chunk, Effect, Stream } from 'effect';
+import { Array as Arr, Effect, Stream, SubscriptionRef } from 'effect';
 import type { TracerSpanSubscriptionRef } from '../../types.js';
 import { tracerSpanSchema } from '../../core/schema.js';
 import {
@@ -92,10 +92,11 @@ function useLayout(tracerRef: TracerSpanSubscriptionRef) {
 
   useComponentLifecycle(
     Effect.gen(function* () {
-      yield* tracerRef.changes.pipe(
-        Stream.runForEachChunk(
+      yield* SubscriptionRef.changes(tracerRef).pipe(
+        Stream.chunks,
+        Stream.runForEach(
           Effect.fn(function* (chunk) {
-            const latest = yield* Chunk.last(chunk);
+            const latest = Arr.lastNonEmpty(chunk);
             const result = executeLayout(latest.value);
             layoutRef.current = result;
             setLayout(result);

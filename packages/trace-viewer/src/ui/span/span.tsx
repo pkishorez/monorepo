@@ -55,7 +55,7 @@ function getSpanStatus(span: AllLayoutResults['spans'][number]): SpanStatus {
   const { end } = span.orig;
   if (end === null) return 'in-progress';
   if (end.exit._tag === 'Failure') {
-    return Cause.isInterrupted(end.exit.cause) ? 'interrupted' : 'error';
+    return Cause.hasInterrupts(end.exit.cause) ? 'interrupted' : 'error';
   }
   return 'success';
 }

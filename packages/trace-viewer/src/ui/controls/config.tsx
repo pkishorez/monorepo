@@ -36,7 +36,7 @@ const LAYOUT_TYPES = ['base', 'compact'] as const;
 
 const globalConfigSchema = Schema.Struct({
   secondInPxs: Schema.Number,
-  layoutType: Schema.Literal('base', 'compact'),
+  layoutType: Schema.Literals(['base', 'compact']),
   maxGapInPxs: Schema.Number,
   minSpanDurationInPxs: Schema.Number,
   isLive: Schema.Boolean,
@@ -104,11 +104,11 @@ export const useGlobalConfig = create<GlobalConfigStore>()(
         const persisted = persistedState as Partial<GlobalConfigStore>;
 
         // Try to parse the persisted config with the schema
-        const parseResult = Schema.decodeUnknownEither(globalConfigSchema)(
+        const parseResult = Schema.decodeUnknownResult(globalConfigSchema)(
           persisted?.config,
         );
 
-        if (parseResult._tag === 'Left') {
+        if (parseResult._tag === 'Failure') {
           // If parsing fails, return current state (default values)
           return currentState;
         }

@@ -1,4 +1,4 @@
-import { Exit, Schema } from 'effect';
+import { Cause, Exit, Schema } from 'effect';
 export type ExitStatus = 'success' | 'failure' | 'interrupted' | 'running';
 
 export const getExitStatus = <E>(exit?: Exit.Exit<E>): ExitStatus => {
@@ -8,7 +8,7 @@ export const getExitStatus = <E>(exit?: Exit.Exit<E>): ExitStatus => {
     case 'Success':
       return 'success';
     case 'Failure':
-      if (exit.cause._tag === 'Interrupt') {
+      if (Cause.hasInterrupts(exit.cause)) {
         return 'interrupted';
       } else {
         return 'failure';
@@ -34,12 +34,12 @@ export const tracerSpanSchema = Schema.Struct({
   ),
 
   name: Schema.String,
-  attributes: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  attributes: Schema.Record(Schema.String, Schema.Unknown),
   events: Schema.Array(
     Schema.Struct({
       name: Schema.String,
       time: TimeInMillis,
-      attributes: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+      attributes: Schema.Record(Schema.String, Schema.Unknown),
     }),
   ),
 });
