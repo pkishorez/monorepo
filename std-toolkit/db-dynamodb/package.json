@@ -38,7 +38,7 @@
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
     "aws4fetch": "1.0.20",
-    "type-fest": "5.6.0"
+    "type-fest": "5.7.0"
   },
   "devDependencies": {
     "@effect/platform": "0.96.1",
@@ -46,7 +46,7 @@
     "@effect/rpc": "0.75.1",
     "@monorepo/vtest": "workspace:*",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.8.0",
+    "@types/node": "25.9.1",
     "dependency-cruiser-viz": "workspace:*",
     "effect": "3.21.2",
     "typescript": "6.0.3",

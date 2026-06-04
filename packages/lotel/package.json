@@ -47,8 +47,8 @@
   "devDependencies": {
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",
-    "@types/node": "25.8.0",
-    "tsx": "4.22.1",
+    "@types/node": "25.9.1",
+    "tsx": "4.22.4",
     "typescript": "6.0.3",
     "vitest": "4.1.5"
   }

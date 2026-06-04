@@ -37,7 +37,7 @@
   "devDependencies": {
     "@monorepo/vtest": "workspace:*",
     "@tsconfig/node22": "22.0.5",
-    "@types/node": "25.8.0",
+    "@types/node": "25.9.1",
     "effect": "3.21.2",
     "fake-indexeddb": "6.2.5",
     "typescript": "6.0.3",
