@@ -4,6 +4,7 @@ export default defineConfig({
   lint: {
     ignorePatterns: [
       'dist/**',
+      'repos/effect-smol/**',
       '*.gen.ts',
       '**/std-toolkit/db-dynamodb/src/generated/**',
       'whatever-code/src/codex/generated/**',
@@ -19,6 +20,7 @@ export default defineConfig({
     singleQuote: true,
     ignorePatterns: [
       'dist/**',
+      'repos/effect-smol/**',
       '*.gen.ts',
       '**/std-toolkit/db-dynamodb/src/generated/**',
       'whatever-code/src/codex/generated/**',
