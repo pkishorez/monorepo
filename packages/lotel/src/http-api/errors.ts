@@ -1,4 +1,3 @@
-import { HttpApiSchema } from '@effect/platform';
 import { Schema } from 'effect';
 import type { SqliteDBError } from '@std-toolkit/sqlite';
 
@@ -8,10 +7,10 @@ const BadRequestPayload = Schema.Struct({
   reason: Schema.String,
 });
 
-export class BadRequestError extends Schema.TaggedError<BadRequestError>()(
+export class BadRequestError extends Schema.TaggedErrorClass<BadRequestError>()(
   'BadRequestError',
   { error: BadRequestPayload },
-  HttpApiSchema.annotations({ status: 400 }),
+  { httpApiStatus: 400 },
 ) {
   static badRequest(operation: string, reason: string) {
     return new BadRequestError({
@@ -25,10 +24,10 @@ const UnsupportedMediaPayload = Schema.Struct({
   contentType: Schema.optional(Schema.String),
 });
 
-export class UnsupportedMediaTypeError extends Schema.TaggedError<UnsupportedMediaTypeError>()(
+export class UnsupportedMediaTypeError extends Schema.TaggedErrorClass<UnsupportedMediaTypeError>()(
   'UnsupportedMediaTypeError',
   { error: UnsupportedMediaPayload },
-  HttpApiSchema.annotations({ status: 415 }),
+  { httpApiStatus: 415 },
 ) {
   static unsupported(contentType?: string) {
     return new UnsupportedMediaTypeError({
@@ -46,10 +45,10 @@ const InternalPayload = Schema.Struct({
   cause: Schema.optional(Schema.String),
 });
 
-export class InternalError extends Schema.TaggedError<InternalError>()(
+export class InternalError extends Schema.TaggedErrorClass<InternalError>()(
   'InternalError',
   { error: InternalPayload },
-  HttpApiSchema.annotations({ status: 500 }),
+  { httpApiStatus: 500 },
 ) {
   static internal(operation: string, cause?: string) {
     return new InternalError({
