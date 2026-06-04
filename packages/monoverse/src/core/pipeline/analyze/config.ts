@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Effect, Result, Schema } from 'effect';
 import {
   fileExists,
   getParentDirectory,
@@ -22,9 +22,10 @@ export interface ConfigRoot {
 }
 
 const parseConfig = (content: string) =>
-  Effect.try(() => JSON.parse(content) as unknown).pipe(
-    Effect.flatMap(Schema.decodeUnknown(MonoverseConfigSchema)),
-  );
+  Effect.try({
+    try: () => JSON.parse(content) as unknown,
+    catch: (cause) => cause,
+  }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(MonoverseConfigSchema)));
 
 export const findConfigRoot = (
   startPath: string,
@@ -37,11 +38,11 @@ export const findConfigRoot = (
       const configPath = joinPath(currentPath, 'monoverse.json');
       if (yield* fileExists(configPath)) {
         const content = yield* readFile(configPath).pipe(
-          Effect.catchAll(() => Effect.succeed('')),
+          Effect.catch(() => Effect.succeed('')),
         );
         const config = content
           ? yield* parseConfig(content).pipe(
-              Effect.catchAll(() => Effect.succeed(null)),
+              Effect.catch(() => Effect.succeed(null)),
             )
           : null;
         if (config) {
@@ -74,7 +75,7 @@ const resolveProjectPaths = (
           cwd: configRoot,
           ignore: ['**/node_modules/**'],
           absolute: true,
-        }).pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
+        }).pipe(Effect.catch(() => Effect.succeed([] as string[])));
         paths.push(...matches.map(dirname));
       }
     }
@@ -98,19 +99,19 @@ export const analyzeFromConfig = (
     for (const projectPath of projectPaths) {
       const monorepo = yield* findMonorepoRoot(projectPath, {
         stopAt: projectPath,
-      }).pipe(Effect.either);
+      }).pipe(Effect.result);
 
-      if (monorepo._tag === 'Left') {
+      if (Result.isFailure(monorepo)) {
         allErrors.push({
           path: projectPath,
-          message: monorepo.left.message,
+          message: monorepo.failure.message,
         });
         continue;
       }
 
       const { workspaces, errors } = yield* discoverWorkspaces(
         projectPath,
-        monorepo.right.patterns,
+        monorepo.success.patterns,
       );
 
       for (const ws of workspaces) {

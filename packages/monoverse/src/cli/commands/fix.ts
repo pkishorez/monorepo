@@ -1,4 +1,4 @@
-import { Command, Options, Prompt } from '@effect/cli';
+import { Command, Flag, Prompt } from 'effect/unstable/cli';
 import { Console, Effect } from 'effect';
 import { Monoverse } from '../../core/index.js';
 import type { Workspace } from '../../core/pipeline/analyze/index.js';
@@ -10,9 +10,9 @@ import type {
 import { normalizeSemver } from '../../core/primitives/semver/index.js';
 import { theme as c } from '../../theme.js';
 
-const interactiveOption = Options.boolean('interactive').pipe(
-  Options.withAlias('i'),
-  Options.withDefault(false),
+const interactiveOption = Flag.boolean('interactive').pipe(
+  Flag.withAlias('i'),
+  Flag.withDefault(false),
 );
 
 interface MismatchInfo {
@@ -101,7 +101,7 @@ export const fix = Command.make(
 
           const result = yield* monoverse.formatWorkspace(workspace).pipe(
             Effect.map(() => true),
-            Effect.catchAll(() => Effect.succeed(false)),
+            Effect.catch(() => Effect.succeed(false)),
           );
 
           if (result) formattedCount++;
@@ -127,7 +127,7 @@ export const fix = Command.make(
 
           const pinnedVersion = yield* normalizeSemver(
             violation.versionRange,
-          ).pipe(Effect.catchAll(() => Effect.succeed(null)));
+          ).pipe(Effect.catch(() => Effect.succeed(null)));
           if (!pinnedVersion) continue;
 
           const result = yield* monoverse
@@ -139,7 +139,7 @@ export const fix = Command.make(
             })
             .pipe(
               Effect.map(() => true),
-              Effect.catchAll(() => Effect.succeed(false)),
+              Effect.catch(() => Effect.succeed(false)),
             );
 
           if (result) pinnedCount++;
@@ -195,7 +195,7 @@ export const fix = Command.make(
                 })
                 .pipe(
                   Effect.map(() => true),
-                  Effect.catchAll(() => Effect.succeed(false)),
+                  Effect.catch(() => Effect.succeed(false)),
                 );
 
               if (result) mismatchFixedCount++;

@@ -1,4 +1,4 @@
-import { Args, Command, Options, Prompt } from '@effect/cli';
+import { Argument, Command, Flag, Prompt } from 'effect/unstable/cli';
 import { Console, Effect, Option } from 'effect';
 import { Monoverse } from '../../core/index.js';
 import type { ProjectAnalysis } from '../../core/pipeline/analyze/types.js';
@@ -10,18 +10,18 @@ import {
   type DependencyTypeShort,
 } from '../helpers.js';
 
-const packageArg = Args.text({ name: 'package' });
+const packageArg = Argument.string('package');
 
-const typeOption = Options.choice('type', [
+const typeOption = Flag.choice('type', [
   'dependency',
   'dev',
   'peer',
   'optional',
-] as const).pipe(Options.withAlias('t'), Options.withDefault('dependency'));
+] as const).pipe(Flag.withAlias('t'), Flag.withDefault('dependency'));
 
-const versionOption = Options.text('version').pipe(
-  Options.withAlias('v'),
-  Options.optional,
+const versionOption = Flag.string('version').pipe(
+  Flag.withAlias('v'),
+  Flag.optional,
 );
 
 const findPackageVersionsInWorkspaces = (

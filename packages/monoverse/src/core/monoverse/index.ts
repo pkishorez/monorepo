@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 import {
   analyzeProject,
   type ProjectAnalysis,
@@ -20,8 +20,8 @@ import { getUpdates, getUpdatesWithProgress } from './updates.js';
 
 export type { SemverUpdates, PackageUpdate, LoadProgress } from './types.js';
 
-export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
-  succeed: {
+export class Monoverse extends Context.Service<Monoverse>()('Monoverse', {
+  make: Effect.succeed({
     analyze: (startPath: string) => analyzeProject(startPath),
 
     validate: (analysis: ProjectAnalysis) =>
@@ -57,5 +57,7 @@ export class Monoverse extends Effect.Service<Monoverse>()('Monoverse', {
     getUpdates,
 
     getUpdatesWithProgress,
-  },
-}) {}
+  }),
+}) {
+  static readonly layer = Layer.effect(this, this.make);
+}

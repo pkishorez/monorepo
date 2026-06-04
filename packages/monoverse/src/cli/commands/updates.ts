@@ -1,4 +1,4 @@
-import { Command } from '@effect/cli';
+import { Command } from 'effect/unstable/cli';
 import { Effect } from 'effect';
 import { renderTui } from '../../tui/index.js';
 

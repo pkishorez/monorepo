@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
-import { Effect, Exit } from 'effect';
+import { Cause, Effect, Exit, Result } from 'effect';
 import { findMonorepoRoot } from '../monorepo.js';
 import { NotAMonorepoError } from '../types.js';
 
@@ -97,10 +97,10 @@ describe('findMonorepoRoot', () => {
 
       expect(Exit.isFailure(exit)).toBe(true);
       if (Exit.isFailure(exit)) {
-        const error = exit.cause;
-        expect(error._tag).toBe('Fail');
-        if (error._tag === 'Fail') {
-          expect(error.error).toBeInstanceOf(NotAMonorepoError);
+        const error = Cause.findError(exit.cause);
+        expect(Result.isSuccess(error)).toBe(true);
+        if (Result.isSuccess(error)) {
+          expect(error.success).toBeInstanceOf(NotAMonorepoError);
         }
       }
     }),

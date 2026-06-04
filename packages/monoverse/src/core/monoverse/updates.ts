@@ -23,7 +23,7 @@ export const getUpdates = Effect.fn(function* (
     (pkg) =>
       fetchNpmPackage(pkg.name).pipe(
         Effect.map((npmInfo) => ({ pkg, npmInfo })),
-        Effect.catchAll(() => Effect.succeed(null)),
+        Effect.catch(() => Effect.succeed(null)),
       ),
     { concurrency: 10 },
   );
@@ -79,7 +79,7 @@ export const getUpdatesWithProgress = Effect.fn(function* (
 
         const result = yield* fetchNpmPackage(pkg.name).pipe(
           Effect.map((npmInfo) => ({ pkg, npmInfo })),
-          Effect.catchAll(() => Effect.succeed(null)),
+          Effect.catch(() => Effect.succeed(null)),
         );
 
         loaded++;

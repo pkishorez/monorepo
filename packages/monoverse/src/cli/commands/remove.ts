@@ -1,9 +1,9 @@
-import { Args, Command } from '@effect/cli';
+import { Argument, Command } from 'effect/unstable/cli';
 import { Console, Effect } from 'effect';
 import { Monoverse } from '../../core/index.js';
 import { findCurrentWorkspace } from '../helpers.js';
 
-const packageArg = Args.text({ name: 'package' });
+const packageArg = Argument.string('package');
 
 const handler = ({ package: pkg }: { package: string }) =>
   Effect.gen(function* () {

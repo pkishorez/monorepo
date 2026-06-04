@@ -85,7 +85,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
         );
 
         setIsLoading(false);
-      }).pipe(Effect.provide(Monoverse.Default));
+      }).pipe(Effect.provide(Monoverse.layer));
 
       Effect.runPromise(program).catch((err) => {
         setMessage(`Error: ${String(err)}`);
@@ -145,7 +145,7 @@ export const renderTui = async (cwd: string = process.cwd()) => {
             });
           }
         }
-      }).pipe(Effect.provide(Monoverse.Default));
+      }).pipe(Effect.provide(Monoverse.layer));
 
       Effect.runPromise(program)
         .then(() => {

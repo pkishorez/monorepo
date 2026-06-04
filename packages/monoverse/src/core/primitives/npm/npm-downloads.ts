@@ -56,7 +56,9 @@ export const fetchNpmDownloads = (
       catch: (cause) => new NpmDownloadsError({ packageName, cause }),
     });
 
-    const data = yield* Schema.decodeUnknown(NpmDownloadsSchema)(json).pipe(
+    const data = yield* Schema.decodeUnknownEffect(NpmDownloadsSchema)(
+      json,
+    ).pipe(
       Effect.mapError((cause) => new NpmDownloadsError({ packageName, cause })),
     );
 

@@ -1,4 +1,4 @@
-import { Effect, Either, Schema } from 'effect';
+import { Effect, Result, Schema } from 'effect';
 import {
   basename,
   dirname,
@@ -14,17 +14,13 @@ const RawPackageJsonSchema = Schema.Struct({
   name: Schema.optional(Schema.String),
   version: Schema.optional(Schema.String),
   private: Schema.optional(Schema.Boolean),
-  dependencies: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }),
-  ),
-  devDependencies: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }),
-  ),
+  dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  devDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   peerDependencies: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }),
+    Schema.Record(Schema.String, Schema.String),
   ),
   optionalDependencies: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }),
+    Schema.Record(Schema.String, Schema.String),
   ),
 });
 
@@ -61,9 +57,10 @@ const parseWorkspace = (
 });
 
 const parsePackageJson = (content: string) =>
-  Effect.try(() => JSON.parse(content) as unknown).pipe(
-    Effect.flatMap(Schema.decodeUnknown(RawPackageJsonSchema)),
-  );
+  Effect.try({
+    try: () => JSON.parse(content) as unknown,
+    catch: (cause) => cause,
+  }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(RawPackageJsonSchema)));
 
 export const discoverWorkspaces = (
   root: string,
@@ -79,7 +76,7 @@ export const discoverWorkspaces = (
       cwd: root,
       ignore: ['**/node_modules/**'],
       absolute: true,
-    }).pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
+    }).pipe(Effect.catch(() => Effect.succeed([] as string[])));
 
     const allPaths = rootExists
       ? [rootPackageJsonPath, ...workspacePaths]
@@ -90,11 +87,11 @@ export const discoverWorkspaces = (
     for (const pkgPath of allPaths) {
       const result = yield* readFile(pkgPath).pipe(
         Effect.flatMap(parsePackageJson),
-        Effect.either,
+        Effect.result,
       );
 
-      if (Either.isRight(result)) {
-        const rawPackageJson = result.right;
+      if (Result.isSuccess(result)) {
+        const rawPackageJson = result.success;
         const name = rawPackageJson.name ?? basename(dirname(pkgPath));
         workspaceNames.add(name);
         rawPackages.push({ path: pkgPath, raw: rawPackageJson });
@@ -102,7 +99,7 @@ export const discoverWorkspaces = (
         errors.push({
           path: pkgPath,
           message: 'Failed to parse package.json',
-          cause: result.left,
+          cause: result.failure,
         });
       }
     }
