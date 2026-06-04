@@ -21,19 +21,19 @@ const regionData: Record<string, { value: string; label: string }[]> = {
   ],
 };
 
-const DependentSchema = Schema.standardSchemaV1(
+const DependentSchema = Schema.toStandardSchemaV1(
   Schema.Struct({
     country: Schema.String.pipe(
-      Schema.minLength(1, { message: () => 'Select a country' }),
+      Schema.check(Schema.isMinLength(1, { message: 'Select a country' })),
     ),
     region: Schema.String.pipe(
-      Schema.minLength(1, { message: () => 'Select a region' }),
+      Schema.check(Schema.isMinLength(1, { message: 'Select a region' })),
     ),
     city: Schema.String.pipe(
-      Schema.minLength(2, { message: () => 'Enter a city' }),
+      Schema.check(Schema.isMinLength(2, { message: 'Enter a city' })),
     ),
     postalCode: Schema.String.pipe(
-      Schema.minLength(3, { message: () => 'Enter a postal code' }),
+      Schema.check(Schema.isMinLength(3, { message: 'Enter a postal code' })),
     ),
   }),
 );

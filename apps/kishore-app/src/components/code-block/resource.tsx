@@ -54,9 +54,7 @@ export const useResourceMap = () => {
 };
 export type ResourceResult = ReturnType<typeof useResourceMap>;
 export type ResourceOptions = { aquireResource: ResourceResult['aquire'] };
-export type Resource = Effect.Effect.Success<
-  ReturnType<ResourceResult['aquire']>
->;
+export type Resource = Effect.Success<ReturnType<ResourceResult['aquire']>>;
 
 const MButton = motion.create(Button);
 export function ResourceUI({

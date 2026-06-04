@@ -1,6 +1,6 @@
 import { Duration, Effect } from 'effect';
 
-const runTask = (name: string, duration: Duration.DurationInput = 300) =>
+const runTask = (name: string, duration: Duration.Input = 300) =>
   Effect.sleep(duration).pipe(Effect.withSpan(name));
 
 // [!code a:3] [!code b:2]

@@ -1,27 +1,29 @@
 import { Schema } from 'effect';
 import { useAppForm } from '@monorepo/frontend/form';
 
-const KitchenSinkSchema = Schema.standardSchemaV1(
+const KitchenSinkSchema = Schema.toStandardSchemaV1(
   Schema.Struct({
     fullName: Schema.String.pipe(
-      Schema.minLength(2, { message: () => 'Required' }),
+      Schema.check(Schema.isMinLength(2, { message: 'Required' })),
     ),
     email: Schema.String.pipe(
-      Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
-        message: () => 'Invalid email',
-      }),
+      Schema.check(
+        Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+          message: 'Invalid email',
+        }),
+      ),
     ),
     bio: Schema.String.pipe(
-      Schema.maxLength(500, { message: () => 'Max 500 characters' }),
+      Schema.check(Schema.isMaxLength(500, { message: 'Max 500 characters' })),
     ),
     role: Schema.String.pipe(
-      Schema.minLength(1, { message: () => 'Select a role' }),
+      Schema.check(Schema.isMinLength(1, { message: 'Select a role' })),
     ),
-    startDate: Schema.UndefinedOr(Schema.DateFromSelf),
+    startDate: Schema.UndefinedOr(Schema.Date),
     newsletter: Schema.Boolean,
     darkMode: Schema.Boolean,
     password: Schema.String.pipe(
-      Schema.minLength(8, { message: () => 'At least 8 characters' }),
+      Schema.check(Schema.isMinLength(8, { message: 'At least 8 characters' })),
     ),
   }),
 );

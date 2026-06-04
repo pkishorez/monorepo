@@ -21,9 +21,9 @@ export function buildCollections(baseUrl: string) {
         Effect.gen(function* () {
           const cursor = yield* getCursor;
           const client = yield* LotelClient;
-          const urlParams: { cursor?: string } = {};
-          if (cursor?.value.id) urlParams.cursor = cursor.value.id;
-          const res = yield* client.lotel.queryTraces({ urlParams });
+          const query: { cursor?: string } = {};
+          if (cursor?.value.id) query.cursor = cursor.value.id;
+          const res = yield* client.lotel.queryTraces({ query });
           return res.items as EntityType<StoredTraceRecordValue>[];
         }).pipe(Effect.provide(layer), Effect.orDie),
     }),
@@ -36,9 +36,9 @@ export function buildCollections(baseUrl: string) {
         Effect.gen(function* () {
           const cursor = yield* getCursor;
           const client = yield* LotelClient;
-          const urlParams: { cursor?: string } = {};
-          if (cursor?.value.id) urlParams.cursor = cursor.value.id;
-          const res = yield* client.lotel.queryLogs({ urlParams });
+          const query: { cursor?: string } = {};
+          if (cursor?.value.id) query.cursor = cursor.value.id;
+          const res = yield* client.lotel.queryLogs({ query });
           return res.items as EntityType<StoredLogRecordValue>[];
         }).pipe(Effect.provide(layer), Effect.orDie),
     }),

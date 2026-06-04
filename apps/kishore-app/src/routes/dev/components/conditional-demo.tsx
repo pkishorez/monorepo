@@ -1,16 +1,18 @@
 import { Schema } from 'effect';
 import { useAppForm } from '@monorepo/frontend/form';
 
-const ConditionalSchema = Schema.standardSchemaV1(
+const ConditionalSchema = Schema.toStandardSchemaV1(
   Schema.Struct({
     contactMethod: Schema.String.pipe(
-      Schema.minLength(1, { message: () => 'Select a contact method' }),
+      Schema.check(
+        Schema.isMinLength(1, { message: 'Select a contact method' }),
+      ),
     ),
     email: Schema.String,
     phone: Schema.String,
     preferredTime: Schema.String,
     hasDeadline: Schema.Boolean,
-    deadline: Schema.UndefinedOr(Schema.DateFromSelf),
+    deadline: Schema.UndefinedOr(Schema.Date),
     notes: Schema.String,
   }),
 );

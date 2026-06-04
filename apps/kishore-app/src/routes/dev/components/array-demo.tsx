@@ -4,18 +4,20 @@ import { PlusIcon, XIcon } from '@monorepo/frontend/lucide';
 import { Label } from '@monorepo/frontend/components/ui/label';
 import { useAppForm } from '@monorepo/frontend/form';
 
-const ArraySchema = Schema.standardSchemaV1(
+const ArraySchema = Schema.toStandardSchemaV1(
   Schema.Struct({
     projectName: Schema.String.pipe(
-      Schema.minLength(2, { message: () => 'Project name is required' }),
+      Schema.check(
+        Schema.isMinLength(2, { message: 'Project name is required' }),
+      ),
     ),
     tags: Schema.Array(
       Schema.Struct({
         key: Schema.String.pipe(
-          Schema.minLength(1, { message: () => 'Key is required' }),
+          Schema.check(Schema.isMinLength(1, { message: 'Key is required' })),
         ),
         value: Schema.String.pipe(
-          Schema.minLength(1, { message: () => 'Value is required' }),
+          Schema.check(Schema.isMinLength(1, { message: 'Value is required' })),
         ),
       }),
     ),

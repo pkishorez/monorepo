@@ -1,50 +1,58 @@
 import { Schema } from 'effect';
 import { useAppForm } from '@monorepo/frontend/form';
 
-const CustomErrorsSchema = Schema.standardSchemaV1(
+const CustomErrorsSchema = Schema.toStandardSchemaV1(
   Schema.Struct({
     username: Schema.String.pipe(
-      Schema.filter((s) => {
-        const errors: string[] = [];
-        if (s.length < 3) errors.push('Too short — at least 3 characters');
-        if (s.length > 20) errors.push('Too long — max 20 characters');
-        if (s.length > 0 && !/^[a-z0-9_]+$/.test(s))
-          errors.push('Only lowercase letters, numbers, and underscores');
-        if (errors.length > 0) return errors;
-      }),
+      Schema.check(
+        Schema.makeFilter((s) => {
+          const errors: string[] = [];
+          if (s.length < 3) errors.push('Too short — at least 3 characters');
+          if (s.length > 20) errors.push('Too long — max 20 characters');
+          if (s.length > 0 && !/^[a-z0-9_]+$/.test(s))
+            errors.push('Only lowercase letters, numbers, and underscores');
+          if (errors.length > 0) return errors;
+        }),
+      ),
     ),
     age: Schema.String.pipe(
-      Schema.filter((s) => {
-        const n = Number(s);
-        if (s === '') return 'Age is required';
-        if (Number.isNaN(n)) return 'Must be a number';
-        if (!Number.isInteger(n)) return 'Must be a whole number';
-        const errors: string[] = [];
-        if (n < 13) errors.push('Must be at least 13 years old');
-        if (n > 150) errors.push("That doesn't seem right...");
-        if (errors.length > 0) return errors;
-      }),
+      Schema.check(
+        Schema.makeFilter((s) => {
+          const n = Number(s);
+          if (s === '') return 'Age is required';
+          if (Number.isNaN(n)) return 'Must be a number';
+          if (!Number.isInteger(n)) return 'Must be a whole number';
+          const errors: string[] = [];
+          if (n < 13) errors.push('Must be at least 13 years old');
+          if (n > 150) errors.push("That doesn't seem right...");
+          if (errors.length > 0) return errors;
+        }),
+      ),
     ),
     website: Schema.String.pipe(
-      Schema.filter((s) => {
-        if (s === '') return undefined;
-        try {
-          new URL(s);
-        } catch {
-          return 'Enter a valid URL (e.g. https://example.com)';
-        }
-      }),
+      Schema.check(
+        Schema.makeFilter((s) => {
+          if (s === '') return undefined;
+          try {
+            new URL(s);
+          } catch {
+            return 'Enter a valid URL (e.g. https://example.com)';
+          }
+        }),
+      ),
     ),
     coupon: Schema.String.pipe(
-      Schema.filter((s) => {
-        if (s === '') return undefined;
-        const errors: string[] = [];
-        if (s.length !== 8)
-          errors.push('Coupon codes are exactly 8 characters');
-        if (!/^[A-Z0-9]+$/.test(s))
-          errors.push('Use uppercase letters and numbers only');
-        if (errors.length > 0) return errors;
-      }),
+      Schema.check(
+        Schema.makeFilter((s) => {
+          if (s === '') return undefined;
+          const errors: string[] = [];
+          if (s.length !== 8)
+            errors.push('Coupon codes are exactly 8 characters');
+          if (!/^[A-Z0-9]+$/.test(s))
+            errors.push('Use uppercase letters and numbers only');
+          if (errors.length > 0) return errors;
+        }),
+      ),
     ),
   }),
 );

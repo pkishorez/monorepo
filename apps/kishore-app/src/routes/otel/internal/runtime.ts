@@ -1,16 +1,16 @@
-import { FetchHttpClient, HttpApiClient } from '@effect/platform';
 import { Context, Effect, Layer, ManagedRuntime } from 'effect';
+import { FetchHttpClient } from 'effect/unstable/http';
+import { HttpApiClient } from 'effect/unstable/httpapi';
 import { LotelApi } from 'lotel/client';
 
-type Client = Effect.Effect.Success<ReturnType<typeof makeClientEffect>>;
+type Client = Effect.Success<ReturnType<typeof makeClientEffect>>;
 
 const makeClientEffect = (baseUrl: string) =>
   HttpApiClient.make(LotelApi, { baseUrl });
 
-export class LotelClient extends Context.Tag('otel-route/LotelClient')<
-  LotelClient,
-  Client
->() {}
+export class LotelClient extends Context.Service<LotelClient, Client>()(
+  'otel-route/LotelClient',
+) {}
 
 export const makeLotelClientLayer = (baseUrl: string) =>
   Layer.effect(LotelClient, makeClientEffect(baseUrl)).pipe(
