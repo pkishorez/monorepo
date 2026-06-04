@@ -26,14 +26,14 @@
     "@tsconfig/node22": "22.0.5",
     "@types/react": "19.2.16",
     "@types/react-dom": "19.2.3",
-    "effect": "3.21.2",
+    "effect": "4.0.0-beta.78",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "tailwindcss": "4.3.0",
     "typescript": "6.0.3"
   },
   "peerDependencies": {
-    "effect": ">=3.19.14",
+    "effect": "4.0.0-beta.78",
     "react": ">=19.2.3",
     "react-dom": ">=19.2.3",
     "use-effect-ts": "*"

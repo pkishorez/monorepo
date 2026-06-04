@@ -11,11 +11,9 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@effect/opentelemetry": "0.63.0",
-    "@effect/platform": "0.96.1",
-    "@effect/platform-browser": "0.76.0",
-    "@effect/platform-node": "0.106.0",
-    "@effect/rpc": "0.75.1",
+    "@effect/opentelemetry": "4.0.0-beta.78",
+    "@effect/platform-browser": "4.0.0-beta.78",
+    "@effect/platform-node": "4.0.0-beta.78",
     "@monorepo/frontend": "workspace:*",
     "@std-toolkit/tanstack-sync": "workspace:*",
     "@tanstack/react-db": "0.1.85",
@@ -27,7 +25,7 @@
     "@xterm/addon-webgl": "0.19.0",
     "@xterm/headless": "6.0.0",
     "@xterm/xterm": "6.0.0",
-    "effect": "3.21.2",
+    "effect": "4.0.0-beta.78",
     "node-pty": "1.1.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
