@@ -359,3 +359,45 @@ NewSchema })` (drop/override keys directly).
 - **`Fiber.RuntimeFiber<A, E>` is gone → use `Fiber.Fiber<A, E>`** (the single
   `Fiber.Fiber` interface is the fiber type now). `Fiber.interrupt(fiber)`
   unchanged (returns `Effect<void>`). Found migrating `tanstack-sync`.
+
+### HttpApi (folded `@effect/platform` HttpApi → `effect/unstable/httpapi`, found migrating `lotel`)
+
+Module names are unchanged (`HttpApi`, `HttpApiEndpoint`, `HttpApiGroup`,
+`HttpApiBuilder`, `HttpApiSchema`), but the **shape** changed. `HttpMiddleware`
+moved to `effect/unstable/http`.
+
+- **`HttpApiEndpoint` is now an options-object constructor, not fluent.**
+  `HttpApiEndpoint.post(name, path).setPayload(p).addSuccess(s).addError(e1)
+.addError(e2)` → `HttpApiEndpoint.post(name, path, { payload, success, error })`.
+  Multiple errors go in `error: [E1, E2, E3]` (array). `setUrlParams(s)` →
+  `query: s`. Other slots: `params`, `headers`.
+- **`HttpApiEndpoint.del` is exported as `delete`** (reserved-word export). Call
+  `HttpApiEndpoint.delete(...)`. `get`/`post` unchanged.
+- **Handler context field `urlParams` → `query`.** In `handlers.handle(name,
+({ query: { ... } }) => …)`. `payload`, `request` unchanged.
+- **`HttpApiSchema.annotations({ status: n })` is gone.** v4 has
+  `HttpApiSchema.status(code)` — a pipeable that does
+  `.annotate({ httpApiStatus: code })` (accepts a number or a status literal like
+  `"Created"`). For a `Schema.TaggedErrorClass`/`ErrorClass` 3rd-arg annotations
+  object, pass `{ httpApiStatus: 400 }` directly instead of piping.
+- **`HttpApiBuilder.api(api)` → `HttpApiBuilder.layer(api)`** (registers the
+  api's routes into an `HttpRouter`; returns a `Layer` needing
+  `HttpRouter | HttpPlatform | FileSystem | Path | Etag.Generator` + the group
+  services). `HttpApiBuilder.group(api, name, build)` is unchanged.
+- **`HttpApiBuilder.serve(...)` is removed.** Serve an HttpApi via the router:
+  `HttpRouter.serve(appLayer, { middleware })` where `appLayer` is the
+  `HttpApiBuilder.layer(api)` (with handler group layers provided). The result
+  needs `HttpServer.HttpServer` — on Node provide
+  `NodeHttpServer.layer(createServer, { host, port })` (this also bundles
+  `NodeServices`, `HttpPlatform`, `Etag.Generator`). The old logger+cors wrap
+  (`HttpMiddleware.logger(HttpMiddleware.cors()(app))`) becomes the `middleware`
+  option of `HttpRouter.serve`. `HttpRouter.serve` already adds `logger` unless
+  `disableLogger: true`.
+
+### Layer / Context (more, found migrating `lotel`)
+
+- **`Layer.scoped(tag, effect)` is removed → use `Layer.effect(tag, effect)`.**
+  `Layer.effect` now types `R` as `Exclude<R, Scope.Scope>`, so a scoped
+  acquire/release effect (or one that runs `Layer.build`) works directly.
+- **`Context.unsafeGet(ctx, tag)` → `Context.getUnsafe(ctx, tag)`** (Unsafe
+  suffix moved to the end, matching the `makeUnsafe` convention).

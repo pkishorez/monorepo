@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 import { createServer } from 'node:http';
-import { Command, Options } from '@effect/cli';
-import { HttpApiBuilder, HttpMiddleware } from '@effect/platform';
+import { Console, Effect, Layer, Option } from 'effect';
+import { Command, Flag } from 'effect/unstable/cli';
+import { HttpMiddleware, HttpRouter } from 'effect/unstable/http';
 import {
-  NodeContext,
   NodeHttpServer,
   NodeRuntime,
+  NodeServices,
 } from '@effect/platform-node';
-import { Console, Effect, Layer, Option } from 'effect';
 import { DEFAULT_DB_PATH, makeDbLayer } from '../storage/index.js';
 import { LotelApiLive } from '../server/http-api.js';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 4318;
 
-const hostOption = Options.text('host').pipe(Options.optional);
-const portOption = Options.integer('port').pipe(Options.optional);
-const dbOption = Options.text('db').pipe(Options.optional);
+const hostFlag = Flag.string('host').pipe(Flag.optional);
+const portFlag = Flag.integer('port').pipe(Flag.optional);
+const dbFlag = Flag.string('db').pipe(Flag.optional);
 
 const fromOption = <A>(option: Option.Option<A>, fallback: A): A =>
   Option.match(option, {
@@ -26,7 +26,7 @@ const fromOption = <A>(option: Option.Option<A>, fallback: A): A =>
 
 const command = Command.make(
   'lotel',
-  { host: hostOption, port: portOption, db: dbOption },
+  { host: hostFlag, port: portFlag, db: dbFlag },
   ({ host, port, db }) =>
     Effect.gen(function* () {
       const resolvedHost = fromOption(
@@ -49,10 +49,9 @@ const command = Command.make(
       );
       yield* Console.log(`sqlite database: ${resolvedDb}`);
 
-      const serverLayer = HttpApiBuilder.serve((app) =>
-        HttpMiddleware.logger(HttpMiddleware.cors()(app)),
-      ).pipe(
-        Layer.provide(LotelApiLive),
+      const serverLayer = HttpRouter.serve(LotelApiLive, {
+        middleware: (app) => HttpMiddleware.logger(HttpMiddleware.cors()(app)),
+      }).pipe(
         Layer.provide(makeDbLayer({ dbPath: resolvedDb })),
         Layer.provide(
           NodeHttpServer.layer(createServer, {
@@ -67,11 +66,7 @@ const command = Command.make(
 );
 
 const cli = Command.run(command, {
-  name: 'lotel',
   version: 'v0.0.1',
 });
 
-cli(process.argv).pipe(
-  Effect.provide(Layer.mergeAll(NodeContext.layer)),
-  NodeRuntime.runMain(),
-);
+cli.pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain());

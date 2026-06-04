@@ -1,5 +1,5 @@
-import { HttpApiBuilder } from '@effect/platform';
 import { Effect } from 'effect';
+import { HttpApiBuilder } from 'effect/unstable/httpapi';
 import { BadRequestError, InternalError, LotelApi } from '../http-api/index.js';
 import {
   clearTelemetry,
@@ -72,17 +72,17 @@ export const LotelHandlersLive = HttpApiBuilder.group(
           return success(accepted);
         }),
       )
-      .handle('queryTraces', ({ urlParams: { cursor } }) =>
+      .handle('queryTraces', ({ query: { cursor } }) =>
         queryTraces(cursor).pipe(
           Effect.mapError(InternalError.fromSqlite('queryTraces')),
         ),
       )
-      .handle('queryLogs', ({ urlParams: { cursor } }) =>
+      .handle('queryLogs', ({ query: { cursor } }) =>
         queryLogs(cursor).pipe(
           Effect.mapError(InternalError.fromSqlite('queryLogs')),
         ),
       )
-      .handle('queryMetrics', ({ urlParams: { cursor } }) =>
+      .handle('queryMetrics', ({ query: { cursor } }) =>
         queryMetrics(cursor).pipe(
           Effect.mapError(InternalError.fromSqlite('queryMetrics')),
         ),

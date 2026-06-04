@@ -1,4 +1,8 @@
-import { HttpApi, HttpApiEndpoint, HttpApiGroup } from '@effect/platform';
+import {
+  HttpApi,
+  HttpApiEndpoint,
+  HttpApiGroup,
+} from 'effect/unstable/httpapi';
 import { EntitySchema } from '@std-toolkit/core';
 import { fromType } from '@std-toolkit/eschema';
 import { Schema } from 'effect';
@@ -41,45 +45,50 @@ const MetricListResponse = Schema.Struct({
   items: Schema.Array(EntitySchema(MetricRecordSchema)),
 });
 
-const ingestTraces = HttpApiEndpoint.post('ingestTraces', '/v1/traces')
-  .setPayload(fromType<ExportTraceServiceRequest>())
-  .addSuccess(IngestResponse)
-  .addError(BadRequestError)
-  .addError(UnsupportedMediaTypeError)
-  .addError(InternalError);
+const ingestTraces = HttpApiEndpoint.post('ingestTraces', '/v1/traces', {
+  payload: fromType<ExportTraceServiceRequest>(),
+  success: IngestResponse,
+  error: [BadRequestError, UnsupportedMediaTypeError, InternalError],
+});
 
-const ingestLogs = HttpApiEndpoint.post('ingestLogs', '/v1/logs')
-  .setPayload(fromType<ExportLogsServiceRequest>())
-  .addSuccess(IngestResponse)
-  .addError(BadRequestError)
-  .addError(UnsupportedMediaTypeError)
-  .addError(InternalError);
+const ingestLogs = HttpApiEndpoint.post('ingestLogs', '/v1/logs', {
+  payload: fromType<ExportLogsServiceRequest>(),
+  success: IngestResponse,
+  error: [BadRequestError, UnsupportedMediaTypeError, InternalError],
+});
 
-const ingestMetrics = HttpApiEndpoint.post('ingestMetrics', '/v1/metrics')
-  .setPayload(fromType<ExportMetricsServiceRequest>())
-  .addSuccess(IngestResponse)
-  .addError(BadRequestError)
-  .addError(UnsupportedMediaTypeError)
-  .addError(InternalError);
+const ingestMetrics = HttpApiEndpoint.post('ingestMetrics', '/v1/metrics', {
+  payload: fromType<ExportMetricsServiceRequest>(),
+  success: IngestResponse,
+  error: [BadRequestError, UnsupportedMediaTypeError, InternalError],
+});
 
-const queryTraces = HttpApiEndpoint.get('queryTraces', '/api/traces')
-  .setUrlParams(CursorParams)
-  .addSuccess(TraceListResponse)
-  .addError(InternalError);
+const queryTraces = HttpApiEndpoint.get('queryTraces', '/api/traces', {
+  query: CursorParams,
+  success: TraceListResponse,
+  error: InternalError,
+});
 
-const queryLogs = HttpApiEndpoint.get('queryLogs', '/api/logs')
-  .setUrlParams(CursorParams)
-  .addSuccess(LogListResponse)
-  .addError(InternalError);
+const queryLogs = HttpApiEndpoint.get('queryLogs', '/api/logs', {
+  query: CursorParams,
+  success: LogListResponse,
+  error: InternalError,
+});
 
-const queryMetrics = HttpApiEndpoint.get('queryMetrics', '/api/metrics')
-  .setUrlParams(CursorParams)
-  .addSuccess(MetricListResponse)
-  .addError(InternalError);
+const queryMetrics = HttpApiEndpoint.get('queryMetrics', '/api/metrics', {
+  query: CursorParams,
+  success: MetricListResponse,
+  error: InternalError,
+});
 
-const clearTelemetry = HttpApiEndpoint.del('clearTelemetry', '/api/telemetry')
-  .addSuccess(ClearResponse)
-  .addError(InternalError);
+const clearTelemetry = HttpApiEndpoint.delete(
+  'clearTelemetry',
+  '/api/telemetry',
+  {
+    success: ClearResponse,
+    error: InternalError,
+  },
+);
 
 export const LotelGroup = HttpApiGroup.make('lotel')
   .add(ingestTraces)
