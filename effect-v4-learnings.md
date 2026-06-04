@@ -118,6 +118,17 @@ These remain separate packages in v4 and are bumped to the matching beta:
   `Result`, tags `'Success'`/`'Failure'` not `'Right'`/`'Left'`). Also
   `decodeUnknownExit` / `decodeUnknownOption` variants exist.
 
+### Collections / Order (transferable, found migrating `cache`)
+
+- **`SortedMap` is removed from `effect` core in v4.** There is no sorted-map
+  collection (core has `HashMap`, `MutableHashMap`, `TxHashMap`, `RcMap`,
+  `LayerMap`, `FiberMap` — none ordered). If a `SortedMap` was only a secondary
+  index to find min/max by a key, drop it and compute the extremum on demand by
+  scanning the primary structure with an `Order` comparator (simpler, no
+  reinvented primitive).
+- **`Order.string` → `Order.String`** (capitalized in v4; likewise the other
+  primitive orders). Compose with `Order.mapInput(Order.String, (x) => x.key)`.
+
 ### SubscriptionRef / Stream / Tracer / Array (found migrating `trace-viewer`)
 
 - **`SubscriptionRef` is no longer method-based.** `ref.modify(fn)` →
