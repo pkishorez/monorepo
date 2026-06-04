@@ -1,36 +1,41 @@
-import { Schema } from 'effect';
+import { Effect, Option, Schema, SchemaGetter } from 'effect';
+
+const asOption = <S extends Schema.Top>(schema: S) =>
+  Schema.optionalKey(schema).pipe(
+    Schema.decodeTo(Schema.Option(schema), {
+      decode: SchemaGetter.transformOptional((o) => Option.some(o)),
+      encode: SchemaGetter.transformOptional(Option.flatten),
+    }),
+  );
 
 export class TerminalCommand extends Schema.Class<TerminalCommand>(
   'TerminalCommand',
 )({
   cmd: Schema.String,
-  args: Schema.optionalWith(Schema.Array(Schema.String), { as: 'Option' }),
+  args: asOption(Schema.Array(Schema.String)),
 }) {}
 
 export class CreateTerminalRequest extends Schema.Class<CreateTerminalRequest>(
   'CreateTerminalRequest',
 )({
-  command: Schema.optionalWith(TerminalCommand, { as: 'Option' }),
+  command: asOption(TerminalCommand),
   cwd: Schema.String,
-  env: Schema.optionalWith(
-    Schema.Record({ key: Schema.String, value: Schema.String }),
-    {
-      as: 'Option',
-    },
-  ),
+  env: asOption(Schema.Record(Schema.String, Schema.String)),
   cols: Schema.Number,
   rows: Schema.Number,
-  scrollback: Schema.optionalWith(Schema.Number, { default: () => 1000 }),
+  scrollback: Schema.Number.pipe(
+    Schema.withDecodingDefaultType(Effect.succeed(1000)),
+  ),
 }) {}
 
 export class TerminalInfo extends Schema.Class<TerminalInfo>('TerminalInfo')({
   id: Schema.Number,
-  command: Schema.optionalWith(TerminalCommand, { as: 'Option' }),
+  command: asOption(TerminalCommand),
   cwd: Schema.String,
   cols: Schema.Number,
   rows: Schema.Number,
-  status: Schema.Literal('running', 'exited'),
-  exitCode: Schema.optionalWith(Schema.Number, { as: 'Option' }),
+  status: Schema.Literals(['running', 'exited']),
+  exitCode: asOption(Schema.Number),
 }) {}
 
 export class TerminalCreated extends Schema.Class<TerminalCreated>(
@@ -66,12 +71,12 @@ export class ResizeTerminalRequest extends Schema.Class<ResizeTerminalRequest>(
   rows: Schema.Number,
 }) {}
 
-export class TerminalSpawnError extends Schema.TaggedError<TerminalSpawnError>()(
+export class TerminalSpawnError extends Schema.TaggedErrorClass<TerminalSpawnError>()(
   'TerminalSpawnError',
   { message: Schema.String },
 ) {}
 
-export class TerminalNotFoundError extends Schema.TaggedError<TerminalNotFoundError>()(
+export class TerminalNotFoundError extends Schema.TaggedErrorClass<TerminalNotFoundError>()(
   'TerminalNotFoundError',
   { id: Schema.Number },
 ) {}
