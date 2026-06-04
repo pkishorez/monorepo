@@ -14,12 +14,13 @@ export function useComponentLifecycle<A, E>(
 
   useEffect(() => {
     const scope = Effect.runSync(Scope.make());
-    const fiber = Effect.runFork(effectRef.current.pipe(Scope.extend(scope)));
+    const fiber = Effect.runFork(effectRef.current.pipe(Scope.provide(scope)));
 
     return () => {
       Effect.runFork(
         Effect.gen(function* () {
-          const exit = yield* Fiber.interrupt(fiber);
+          yield* Fiber.interrupt(fiber);
+          const exit = yield* Fiber.await(fiber);
           yield* Scope.close(scope, exit);
         }),
       );

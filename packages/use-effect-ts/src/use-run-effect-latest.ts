@@ -10,7 +10,7 @@ export function useRunEffectLatest<Args extends any[], A, E>(
 
   useComponentScope((scope) => {
     const fiberHandle = Effect.runSync(
-      FiberHandle.make().pipe(Scope.extend(scope)),
+      FiberHandle.make().pipe(Scope.provide(scope)),
     );
     setFiberHandle(fiberHandle);
   });

@@ -2,9 +2,9 @@ import { Effect, Exit, Scope } from 'effect';
 import { useEffect, useState } from 'react';
 
 export function useComponentScope(
-  setup?: (scope: Scope.CloseableScope) => void,
-): Scope.CloseableScope | undefined {
-  const [scope, setScope] = useState<Scope.CloseableScope>();
+  setup?: (scope: Scope.Closeable) => void,
+): Scope.Closeable | undefined {
+  const [scope, setScope] = useState<Scope.Closeable>();
 
   useEffect(() => {
     const s = Effect.runSync(Scope.make());

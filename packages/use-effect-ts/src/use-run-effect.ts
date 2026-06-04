@@ -7,7 +7,7 @@ export function useRunEffect<Args extends any[], A, E>(
 ) {
   const [fiberSet, setFiberSet] = useState<FiberSet.FiberSet | null>(null);
   useComponentScope((scope) => {
-    const fiberSet = Effect.runSync(FiberSet.make().pipe(Scope.extend(scope)));
+    const fiberSet = Effect.runSync(FiberSet.make().pipe(Scope.provide(scope)));
     setFiberSet(fiberSet);
   });
 
