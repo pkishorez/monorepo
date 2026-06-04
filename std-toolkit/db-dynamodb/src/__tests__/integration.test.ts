@@ -120,7 +120,7 @@ const addressSchema = ESchema.make({
 
 const profileSchema = EntityESchema.make('Profile', 'profileId', {
   name: Schema.String,
-  address: toSchema(addressSchema),
+  address: toSchema(addressSchema, { name: 'Address' }),
 }).build();
 
 const ProfileEntity = DynamoEntity.make(table)

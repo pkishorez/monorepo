@@ -20,15 +20,15 @@
     "@monorepo/frontend": "workspace:*",
     "@standard-schema/spec": "1.1.0",
     "use-effect-ts": "workspace:*",
-    "zustand": "5.0.13"
+    "zustand": "5.0.14"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.5",
-    "@types/react": "19.2.14",
+    "@types/react": "19.2.16",
     "@types/react-dom": "19.2.3",
     "effect": "3.21.2",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "tailwindcss": "4.3.0",
     "typescript": "6.0.3"
   },
