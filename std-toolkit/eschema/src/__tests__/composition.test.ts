@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Effect, JSONSchema, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import {
   ESchema,
   SingleEntityESchema,
@@ -286,9 +286,7 @@ describe('toSchema composition', () => {
 
     const WithOptional = ESchema.make({
       name: Schema.String,
-      child: Schema.optionalWith(toSchema(Child, { name: 'Child' }), {
-        exact: true,
-      }),
+      child: Schema.optionalKey(toSchema(Child, { name: 'Child' })),
     }).build();
 
     itEffect('roundtrips with optional present', () =>
@@ -336,8 +334,8 @@ describe('toSchema composition', () => {
 
     // The identifier annotation is what JSON Schema generation uses as the
     // `$defs` key, so assert through that observable surface.
-    const idOf = (schema: Schema.Schema<any, any, never>) =>
-      Object.keys(JSONSchema.make(schema).$defs ?? {})[0];
+    const idOf = (schema: Schema.Codec<any, any>) =>
+      Object.keys(Schema.toJsonSchemaDocument(schema).definitions)[0];
 
     it('throws on an anonymous eschema with no explicit name', () => {
       expect(() => toSchema(anonymous)).toThrow(/anonymous ESchema/);

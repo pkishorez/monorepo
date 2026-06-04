@@ -54,8 +54,8 @@ console.log(
 // with. eschema cannot detect a mismatch up front: if an unstamped row does not
 // match v1, decode FAILS LOUDLY rather than silently guessing another version.
 const wrongShape = { fullName: 'Bob' }; // never matched v1's `name`
-const result = Effect.runSync(Effect.either(User.decode(wrongShape)));
-console.log('mismatched legacy row fails:', result._tag); // => 'Left'
+const result = Effect.runSync(Effect.result(User.decode(wrongShape)));
+console.log('mismatched legacy row fails:', result._tag); // => 'Failure'
 
 // Takeaway: freeze v1 to mirror your real historical data, then only ever move
 // forward with `.evolve`. Never edit v1 after data exists.

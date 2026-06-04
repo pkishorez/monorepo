@@ -23,9 +23,9 @@ describe('EntityESchema.make', () => {
     Effect.gen(function* () {
       const schema = EntityESchema.make('Complex', 'id', {
         count: StringToNumber,
-        optional: Schema.optionalWith(Schema.String, {
-          default: () => 'default',
-        }),
+        optional: Schema.String.pipe(
+          Schema.withDecodingDefaultType(Effect.succeed('default')),
+        ),
         nullable: Schema.NullOr(Schema.String),
       }).build();
 

@@ -3,15 +3,13 @@ import type { DeltaSchema, StructFieldsSchema } from './types.js';
 
 export function struct<S extends StructFieldsSchema>(
   fields: S,
-): Schema.Schema<
+): Schema.Codec<
   Schema.Schema.Type<Schema.Struct<S>>,
-  Schema.Schema.Encoded<Schema.Struct<S>>,
-  never
+  Schema.Codec.Encoded<Schema.Struct<S>>
 > {
-  return Schema.Struct(fields) as unknown as Schema.Schema<
+  return Schema.Struct(fields) as unknown as Schema.Codec<
     Schema.Schema.Type<Schema.Struct<S>>,
-    Schema.Schema.Encoded<Schema.Struct<S>>,
-    never
+    Schema.Codec.Encoded<Schema.Struct<S>>
   >;
 }
 
@@ -22,11 +20,10 @@ export const metaSchema = Schema.Struct({
 });
 
 export const id = (identifier: string) =>
-  Schema.String.annotations({
-    jsonSchema: { identifier },
-  });
+  Schema.String.annotate({ identifier });
 
-export const fromType = <T>() => Schema.Unknown as unknown as Schema.Schema<T>;
+export const fromType = <T>() =>
+  Schema.Unknown as unknown as Schema.Codec<T, T>;
 
 export function mergeDelta(
   base: StructFieldsSchema,

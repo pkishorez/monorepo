@@ -1,5 +1,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { Effect, JSONSchema, ParseResult, Schema, SchemaAST } from 'effect';
+import {
+  Cause,
+  Effect,
+  Option,
+  Schema,
+  SchemaGetter,
+  SchemaIssue,
+} from 'effect';
 import type {
   IdSchema,
   ESchemaDescriptor,
@@ -27,6 +34,15 @@ import {
 
 function hasVersionStamp(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && '_v' in value;
+}
+
+function toDescriptor(schema: Schema.Top): ESchemaDescriptor {
+  const { schema: root, definitions } = Schema.toJsonSchemaDocument(schema);
+  const descriptor = { ...root } as ESchemaDescriptor;
+  if (Object.keys(definitions).length > 0) {
+    descriptor.$defs = definitions;
+  }
+  return descriptor;
 }
 
 export class ESchema<
@@ -66,8 +82,8 @@ export class ESchema<
   decode(
     value: unknown,
   ): Effect.Effect<Prettify<StructFieldsDecoded<TLatest>>, ESchemaError> {
-    return Effect.gen(this, function* () {
-      const _v = yield* Schema.decodeUnknown(metaSchema)(value).pipe(
+    return Effect.gen({ self: this }, function* () {
+      const _v = yield* Schema.decodeUnknownEffect(metaSchema)(value).pipe(
         Effect.map((v) => v._v),
         Effect.orElseSucceed(
           () => this.evolutions[0]?.version ?? this.latestVersion,
@@ -82,7 +98,7 @@ export class ESchema<
         });
       }
 
-      let data = yield* Schema.decodeUnknown(struct(evolution.schema))(
+      let data = yield* Schema.decodeUnknownEffect(struct(evolution.schema))(
         value,
       ).pipe(
         Effect.mapError(
@@ -109,13 +125,13 @@ export class ESchema<
     ESchemaError,
     never
   > {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const evolution = this.evolutions.at(-1);
       if (!evolution) {
         return yield* new ESchemaError({ message: 'No evolutions found' });
       }
 
-      const data = yield* Schema.encode(struct(this.fields))(value).pipe(
+      const data = yield* Schema.encodeEffect(struct(this.fields))(value).pipe(
         Effect.mapError(
           (error) =>
             new ESchemaError({ message: 'Encode failed', cause: error }),
@@ -134,7 +150,7 @@ export class ESchema<
       ...this.fields,
       _v: Schema.Literal(this.latestVersion),
     });
-    return JSONSchema.make(schemaWithVersion) as ESchemaDescriptor;
+    return toDescriptor(schemaWithVersion);
   }
 
   '~standard' = {
@@ -149,9 +165,9 @@ export class ESchema<
       if (result._tag === 'Success') {
         return { value: result.value };
       }
-      const cause = result.cause;
-      if (cause._tag === 'Fail') {
-        return { issues: [{ message: cause.error.message }] };
+      const error = Cause.findErrorOption(result.cause);
+      if (Option.isSome(error)) {
+        return { issues: [{ message: error.value.message }] };
       }
       return { issues: [{ message: 'Unknown error' }] };
     },
@@ -272,10 +288,10 @@ export class ValueESchema<
   decode(
     value: unknown,
   ): Effect.Effect<ValueSchemaDecoded<TLatest>, ESchemaError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const isEnvelope = hasVersionStamp(value);
       const _v = isEnvelope
-        ? yield* Schema.decodeUnknown(metaSchema)(value).pipe(
+        ? yield* Schema.decodeUnknownEffect(metaSchema)(value).pipe(
             Effect.map((v) => v._v),
             Effect.mapError(
               (err) =>
@@ -294,7 +310,9 @@ export class ValueESchema<
       }
 
       const input = isEnvelope ? value.value : value;
-      let data = yield* Schema.decodeUnknown(evolution.schema)(input).pipe(
+      let data = yield* Schema.decodeUnknownEffect(evolution.schema)(
+        input,
+      ).pipe(
         Effect.mapError(
           (err) => new ESchemaError({ message: 'Decode failed', cause: err }),
         ),
@@ -315,12 +333,12 @@ export class ValueESchema<
   encode(
     value: ValueSchemaDecoded<TLatest>,
   ): Effect.Effect<ValueEnvelopeEncoded<TVersion, TLatest>, ESchemaError> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       if (this.evolutions.length === 0) {
         return yield* new ESchemaError({ message: 'No evolutions found' });
       }
 
-      const data = yield* Schema.encode(this.schema)(value).pipe(
+      const data = yield* Schema.encodeEffect(this.schema)(value).pipe(
         Effect.mapError(
           (error) =>
             new ESchemaError({ message: 'Encode failed', cause: error }),
@@ -339,7 +357,7 @@ export class ValueESchema<
       _v: Schema.Literal(this.latestVersion),
       value: this.schema,
     });
-    return JSONSchema.make(schemaWithVersion) as ESchemaDescriptor;
+    return toDescriptor(schemaWithVersion);
   }
 
   '~standard' = {
@@ -354,9 +372,9 @@ export class ValueESchema<
       if (result._tag === 'Success') {
         return { value: result.value };
       }
-      const cause = result.cause;
-      if (cause._tag === 'Fail') {
-        return { issues: [{ message: cause.error.message }] };
+      const error = Cause.findErrorOption(result.cause);
+      if (Option.isSome(error)) {
+        return { issues: [{ message: error.value.message }] };
       }
       return { issues: [{ message: 'Unknown error' }] };
     },
@@ -384,18 +402,16 @@ export interface ToSchemaOptions {
 export function toSchema<V extends string, L extends StructFieldsSchema>(
   eschema: ESchema<V, L>,
   options?: ToSchemaOptions,
-): Schema.Schema<
+): Schema.Codec<
   StructFieldsDecoded<L>,
-  StructFieldsEncoded<L> & { readonly _v: string },
-  never
+  StructFieldsEncoded<L> & { readonly _v: string }
 >;
 export function toSchema<V extends string, L extends ValueSchema>(
   eschema: ValueESchema<V, L>,
   options?: ToSchemaOptions,
-): Schema.Schema<
+): Schema.Codec<
   ValueSchemaDecoded<L>,
-  { readonly _v: string; readonly value: ValueSchemaEncoded<L> },
-  never
+  { readonly _v: string; readonly value: ValueSchemaEncoded<L> }
 >;
 export function toSchema(
   eschema:
@@ -414,29 +430,20 @@ export function toSchema(
     );
   }
   const identifier = isValue ? `ValueESchema(${name})` : `ESchema(${name})`;
-  return Schema.declare(
-    [],
-    {
-      decode: () => (input, _options, ast) =>
+  const toIssue = (input: unknown, err: ESchemaError) =>
+    new SchemaIssue.InvalidValue(Option.some(input), { message: err.message });
+  return Schema.Unknown.pipe(
+    Schema.decodeTo(Schema.Unknown, {
+      decode: SchemaGetter.transformOrFail((input: unknown) =>
         eschema
           .decode(input)
-          .pipe(
-            Effect.mapError(
-              (err) => new ParseResult.Type(ast, input, err.message),
-            ),
-          ),
-      encode: () => (input, _options, ast) =>
+          .pipe(Effect.mapError((err) => toIssue(input, err))),
+      ),
+      encode: SchemaGetter.transformOrFail((input: unknown) =>
         eschema
           .encode(input as never)
-          .pipe(
-            Effect.mapError(
-              (err) => new ParseResult.Type(ast, input, err.message),
-            ),
-          ),
-    },
-    {
-      identifier,
-      [SchemaAST.SurrogateAnnotationId]: eschema.schema.ast,
-    },
-  ) as unknown as Schema.Schema<unknown, unknown, never>;
+          .pipe(Effect.mapError((err) => toIssue(input, err))),
+      ),
+    }),
+  ).annotate({ identifier });
 }

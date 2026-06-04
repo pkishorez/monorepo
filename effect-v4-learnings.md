@@ -48,4 +48,60 @@ These remain separate packages in v4 and are bumped to the matching beta:
 
 ## Per-package learnings
 
-(Append entries below as packages are migrated.)
+### Schema (transferable, found migrating `eschema`)
+
+- **`Schema.Schema<T>` is single-parameter now.** The 3-param
+  `Schema.Schema<A, E, R>` is gone; the codec type is
+  `Schema.Codec<Type, Encoded, RD, RE>`. Replace `Schema.Schema<A, E, never>`
+  with `Schema.Codec<A, E>`. `Schema.Schema<T>` (one arg) still exists but
+  inherits `unknown` decode/encode services from `Top` — if a `never`-service
+  schema is needed (e.g. to satisfy `Effect<…, …, never>` call sites), use
+  `Schema.Codec<T, T>` instead.
+- **Type/Encoded extractors split by namespace:** `Schema.Schema.Type<S>` is
+  fine, but `Encoded` moved to `Schema.Codec.Encoded<S>` (also
+  `Schema.Codec.DecodingServices` / `EncodingServices`).
+- **`Struct.Fields` is `Record<PropertyKey, Top>`.** A field union of
+  `Schema | PropertySignature` collapses to `Schema.Top`.
+- **Effectful decode/encode gained an `Effect` suffix:** `Schema.decodeUnknown`
+  → `Schema.decodeUnknownEffect`, `Schema.encode` → `Schema.encodeEffect`
+  (likewise `decode`/`encodeUnknown`). The bare names were repurposed.
+- **`Schema.transform(from, to, { decode, encode })`** →
+  `from.pipe(Schema.decodeTo(to, SchemaTransformation.transform({ … })))`.
+  For effectful transforms use a `SchemaGetter.transformOrFail` getter that
+  returns `Effect<T, SchemaIssue.Issue, R>`.
+- **`Schema.Literal('a', 'b')` (multiple)** → `Schema.Literals(['a', 'b'])`.
+  `Schema.Literal` now takes a single literal.
+- **`Schema.optionalWith` is gone** (see `migration/schema.md` decision tree):
+  `{ exact: true }` → `Schema.optionalKey(s)`; `{ default }` →
+  `s.pipe(Schema.withDecodingDefaultType(Effect.succeed(d)))`;
+  `{ exact: true, default }` → `withDecodingDefaultTypeKey`.
+- **Annotations:** `.annotations(a)` → `.annotate(a)`. The JSON-Schema/`$defs`
+  identifier is now a first-class `{ identifier }` annotation; annotating _any_
+  schema with `identifier` makes it a `#/$defs/<identifier>` reference.
+- **JSON Schema generation:** `JSONSchema.make(schema)` →
+  `Schema.toJsonSchemaDocument(schema)`, returning
+  `{ dialect, schema, definitions }` (root in `.schema`, `$defs` in
+  `.definitions`). The `JSONSchema` module is now `JsonSchema` and its
+  `JsonSchema7*` types are gone (`JsonSchema.JsonSchema` is an open record).
+- **`Schema.declare` reshaped + `SchemaAST.SurrogateAnnotationId` removed.**
+  `declare(is, ann)` is now a type-guard constructor; `declareConstructor` is
+  the parametric codec form. To wrap arbitrary effectful decode/encode as a
+  permissive codec (the old `declare(... , { decode, encode }, { surrogate })`
+  pattern), use
+  `Schema.Unknown.pipe(Schema.decodeTo(Schema.Unknown, { decode, encode }))`
+  with `SchemaGetter.transformOrFail` adapters, and an `{ identifier }`
+  annotation for the `$defs` key. Failures map to `SchemaIssue.InvalidValue`.
+
+### Effect / Cause (transferable)
+
+- **`Effect.gen(this, fn)` → `Effect.gen({ self: this }, fn)`** (self must be
+  wrapped in an options object).
+- **`Effect.either` → `Effect.result`** (returns `Result.Result`; tags are
+  `'Success'`/`'Failure'`, not `'Right'`/`'Left'`). `Effect.exit` still exists
+  for the `Exit` form.
+- **`Cause` is flattened:** no `cause._tag === 'Fail'` / `cause.error`. Extract
+  with `Cause.findErrorOption(cause)` (→ `Option`) or `Cause.findError(cause)`
+  (→ `Result`). `Exit` still uses `_tag: 'Success' | 'Failure'` with
+  `.value` / `.cause`.
+- **`Data.TaggedError(...)` is unchanged** and instances remain yieldable
+  (`yield* new MyError({...})`).
