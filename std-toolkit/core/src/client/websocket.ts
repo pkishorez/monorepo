@@ -36,6 +36,7 @@ export const makeProtocolSocket = ({
       const write = yield* socket.writer;
       let parser = serialization.makeUnsafe();
       const pinger = yield* makePinger(write(parser.encode(constPing)!));
+      const requestClientMap = new Map<string, number>();
 
       let currentError: RpcClientError | undefined;
 
@@ -55,7 +56,19 @@ export const makeProtocolSocket = ({
             body: () => {
               const response = responses[i++]!;
               if (isRpcServerMessage(response)) {
-                if (response._tag === 'Pong') pinger.onPong();
+                if (response._tag === 'Pong') {
+                  pinger.onPong();
+                  return Effect.void;
+                }
+                if ('requestId' in response) {
+                  const clientId = requestClientMap.get(response.requestId);
+                  if (clientId !== undefined) {
+                    if (response._tag === 'Exit') {
+                      requestClientMap.delete(response.requestId);
+                    }
+                    return writeResponse(clientId, response);
+                  }
+                }
                 return broadcast(response);
               }
               onOtherMessage?.(response);
@@ -145,8 +158,11 @@ export const makeProtocolSocket = ({
       yield* connectAndRun;
 
       return {
-        send(_clientId, request) {
+        send(clientId, request) {
           if (currentError) return Effect.fail(currentError);
+          if (request._tag === 'Request') {
+            requestClientMap.set(request.id, clientId);
+          }
           const encoded = parser.encode(request);
           if (encoded === undefined) return Effect.void;
           return Effect.orDie(write(encoded));

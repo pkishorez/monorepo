@@ -432,18 +432,30 @@ export function toSchema(
   const identifier = isValue ? `ValueESchema(${name})` : `ESchema(${name})`;
   const toIssue = (input: unknown, err: ESchemaError) =>
     new SchemaIssue.InvalidValue(Option.some(input), { message: err.message });
-  return Schema.Unknown.pipe(
-    Schema.decodeTo(Schema.Unknown, {
-      decode: SchemaGetter.transformOrFail((input: unknown) =>
-        eschema
-          .decode(input)
-          .pipe(Effect.mapError((err) => toIssue(input, err))),
-      ),
-      encode: SchemaGetter.transformOrFail((input: unknown) =>
-        eschema
-          .encode(input as never)
-          .pipe(Effect.mapError((err) => toIssue(input, err))),
-      ),
-    }),
-  ).annotate({ identifier });
+  const surrogate = Schema.declare<unknown>(
+    (_input: unknown): _input is unknown => true,
+    {
+      toCodec: () =>
+        Schema.link<unknown>()(eschema.schema, {
+          decode: SchemaGetter.passthrough({ strict: false }),
+          encode: SchemaGetter.passthrough({ strict: false }),
+        }),
+    },
+  );
+  return surrogate
+    .pipe(
+      Schema.decodeTo(Schema.Unknown, {
+        decode: SchemaGetter.transformOrFail((input: unknown) =>
+          eschema
+            .decode(input)
+            .pipe(Effect.mapError((err) => toIssue(input, err))),
+        ),
+        encode: SchemaGetter.transformOrFail((input: unknown) =>
+          eschema
+            .encode(input as never)
+            .pipe(Effect.mapError((err) => toIssue(input, err))),
+        ),
+      }),
+    )
+    .annotate({ identifier });
 }
