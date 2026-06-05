@@ -8,7 +8,7 @@ export const getExitStatus = <E>(exit?: Exit.Exit<E>): ExitStatus => {
     case 'Success':
       return 'success';
     case 'Failure':
-      if (Cause.hasInterrupts(exit.cause)) {
+      if (Cause.hasInterruptsOnly(exit.cause)) {
         return 'interrupted';
       } else {
         return 'failure';

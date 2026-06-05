@@ -356,5 +356,21 @@ describe('toSchema composition', () => {
         'ESchema(Override)',
       );
     });
+
+    it('preserves the nested schema definition shape', () => {
+      const Child = ESchema.make({ value: Schema.String }).build();
+      const Parent = ESchema.make({
+        child: toSchema(Child, { name: 'Child' }),
+      }).build();
+
+      const descriptor = Parent.getDescriptor();
+
+      expect(descriptor.$defs?.['ESchema(Child)']).toMatchObject({
+        type: 'object',
+        properties: {
+          value: { type: 'string' },
+        },
+      });
+    });
   });
 });
