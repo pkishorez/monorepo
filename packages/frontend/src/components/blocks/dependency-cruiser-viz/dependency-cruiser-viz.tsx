@@ -7,10 +7,10 @@ import {
   ResizablePanelGroup,
 } from '#components/ui/resizable';
 
-import { FileTreePanel } from './files/file-tree-panel';
-import { GraphPanel } from './graph/graph-panel';
+import { FileTreePanel } from './files';
+import { GraphPanel } from './graph';
 import { useDependencyCruiserViz } from './use-dependency-cruiser-viz';
-import type { DepcruiseVizData } from './types';
+import type { DepcruiseVizData } from './model';
 
 export type DependencyCruiserVizProps = Omit<DepcruiseVizData, 'summary'> & {
   summary?: DepcruiseVizData['summary'];
@@ -26,7 +26,14 @@ export function DependencyCruiserViz({
     <div className="h-dvh w-full">
       <ReactFlowProvider>
         <ResizablePanelGroup orientation="horizontal">
-          <GraphPanel view={viz.graph} actions={viz.actions} />
+          <GraphPanel
+            view={viz.graph}
+            onSelectFeature={viz.actions.selectFeature}
+            onSelectModule={viz.actions.selectModule}
+            onSelectLayer={viz.actions.selectLayer}
+            onHoverLayer={viz.actions.hoverLayer}
+            onSetCanvasMode={viz.actions.setCanvasMode}
+          />
           {viz.files && (
             <>
               <ResizableHandle withHandle />

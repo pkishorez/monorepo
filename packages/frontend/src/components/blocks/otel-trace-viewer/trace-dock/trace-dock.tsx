@@ -4,10 +4,10 @@ import { ChevronDownIcon } from 'lucide-react';
 import { Button } from '#components/ui/button';
 
 import { StatusDot } from '../status';
-import { Gantt } from '../trace-dialog/gantt/gantt';
-import { SpanDetail } from '../trace-dialog/span-detail/span-detail';
-import type { OtelSpan } from '../types';
-import { collectSpans, formatDuration, type TraceGroup } from '../utils';
+import { Gantt } from '../gantt/gantt';
+import { SpanDetail } from '../span-detail/span-detail';
+import type { OtelSpan } from '../trace-model';
+import { collectSpans, formatDuration, type TraceGroup } from '../trace-model';
 
 export type TraceDockSettings = {
   open: boolean;

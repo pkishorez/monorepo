@@ -1,6 +1,6 @@
 import { cn } from '#lib/utils';
 
-import type { OtelStatus } from './types';
+import type { OtelStatus } from './trace-model';
 
 export const STATUS_BG: Record<OtelStatus, string> = {
   success: 'bg-emerald-700 dark:bg-emerald-600',

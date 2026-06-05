@@ -1,49 +1,59 @@
 import { useMemo, useReducer } from 'react';
 
-import {
-  getFileTreeViewModel,
-  type FileTreeViewModel,
-} from './files/file-tree-model';
-import { getLayerPaths } from './model/selection-selectors';
-import type { VisualizationConfig, VizSummary } from './types';
+import { getFileTreeViewModel, type FileTreeViewModel } from './files';
+import type { VisualizationConfig, VizSummary } from './model';
+
+export type CanvasMode = 'layers' | 'features';
 
 export type DependencyCruiserVizGraphView = {
   config: VisualizationConfig;
   summary?: VizSummary;
   activeLayer: string | null;
   selectedFeature: string | null;
-  graphMode: 'layers' | 'features';
+  selectedModule: string | null;
+  canvasMode: CanvasMode;
+};
+
+export type GraphHover = {
+  /** Full folder path of the hovered module (e.g. `src/routes/otel/internal`). */
+  modulePath: string;
+  /** Full file paths belonging to the hovered module. */
+  files: string[];
 };
 
 export type DependencyCruiserVizActions = {
   selectLayer: (layer: string | null) => void;
   hoverLayer: (layer: string | null) => void;
   selectFeature: (feature: string | null) => void;
-  setGraphMode: (mode: 'layers' | 'features') => void;
-  hoverGraphFiles: (files: string[] | null) => void;
+  selectModule: (key: string | null) => void;
+  hoverGraphModule: (hover: GraphHover | null) => void;
+  setCanvasMode: (mode: CanvasMode) => void;
 };
 
 type State = {
   selectedLayer: string | null;
   hoveredLayer: string | null;
   selectedFeature: string | null;
-  graphMode: 'layers' | 'features';
-  hoveredGraphFiles: string[] | null;
+  selectedModule: string | null;
+  hoveredModule: GraphHover | null;
+  canvasMode: CanvasMode;
 };
 
 type Action =
   | { type: 'select-layer'; layer: string | null }
   | { type: 'hover-layer'; layer: string | null }
   | { type: 'select-feature'; feature: string | null }
-  | { type: 'set-graph-mode'; mode: 'layers' | 'features' }
-  | { type: 'hover-graph-files'; files: string[] | null };
+  | { type: 'select-module'; key: string | null }
+  | { type: 'hover-graph-module'; hover: GraphHover | null }
+  | { type: 'set-canvas-mode'; mode: CanvasMode };
 
 const initialState: State = {
   selectedLayer: null,
   hoveredLayer: null,
   selectedFeature: null,
-  graphMode: 'layers',
-  hoveredGraphFiles: null,
+  selectedModule: null,
+  hoveredModule: null,
+  canvasMode: 'layers',
 };
 
 export function useDependencyCruiserViz({
@@ -59,10 +69,6 @@ export function useDependencyCruiserViz({
 } {
   const [state, dispatch] = useReducer(reducer, initialState);
   const activeLayer = state.selectedLayer ?? state.hoveredLayer;
-  const activeLayerPaths = useMemo(
-    () => getLayerPaths(config, activeLayer),
-    [activeLayer, config],
-  );
 
   const graph = useMemo(
     () => ({
@@ -70,14 +76,22 @@ export function useDependencyCruiserViz({
       summary,
       activeLayer,
       selectedFeature: state.selectedFeature,
-      graphMode: state.graphMode,
+      selectedModule: state.selectedModule,
+      canvasMode: state.canvasMode,
     }),
-    [activeLayer, config, state.selectedFeature, state.graphMode, summary],
+    [
+      activeLayer,
+      config,
+      state.selectedFeature,
+      state.selectedModule,
+      state.canvasMode,
+      summary,
+    ],
   );
 
   const hoveredGraphFilesSet = useMemo(
-    () => (state.hoveredGraphFiles ? new Set(state.hoveredGraphFiles) : null),
-    [state.hoveredGraphFiles],
+    () => (state.hoveredModule ? new Set(state.hoveredModule.files) : null),
+    [state.hoveredModule],
   );
 
   const files = useMemo(
@@ -87,17 +101,19 @@ export function useDependencyCruiserViz({
             config,
             summary,
             selectedLayer: activeLayer,
-            selectedLayerPaths: activeLayerPaths,
             selectedFeature: state.selectedFeature,
+            selectedModule: state.selectedModule,
             hoveredGraphFiles: hoveredGraphFilesSet,
+            hoveredModulePath: state.hoveredModule?.modulePath ?? null,
           })
         : null,
     [
       activeLayer,
-      activeLayerPaths,
       config,
       state.selectedFeature,
+      state.selectedModule,
       hoveredGraphFilesSet,
+      state.hoveredModule,
       summary,
     ],
   );
@@ -107,9 +123,10 @@ export function useDependencyCruiserViz({
       selectLayer: (layer) => dispatch({ type: 'select-layer', layer }),
       hoverLayer: (layer) => dispatch({ type: 'hover-layer', layer }),
       selectFeature: (feature) => dispatch({ type: 'select-feature', feature }),
-      setGraphMode: (mode) => dispatch({ type: 'set-graph-mode', mode }),
-      hoverGraphFiles: (files) =>
-        dispatch({ type: 'hover-graph-files', files }),
+      selectModule: (key) => dispatch({ type: 'select-module', key }),
+      hoverGraphModule: (hover) =>
+        dispatch({ type: 'hover-graph-module', hover }),
+      setCanvasMode: (mode) => dispatch({ type: 'set-canvas-mode', mode }),
     }),
     [],
   );
@@ -124,10 +141,22 @@ function reducer(state: State, action: Action): State {
     case 'hover-layer':
       return { ...state, hoveredLayer: action.layer };
     case 'select-feature':
-      return { ...state, selectedFeature: action.feature };
-    case 'set-graph-mode':
-      return { ...state, graphMode: action.mode };
-    case 'hover-graph-files':
-      return { ...state, hoveredGraphFiles: action.files };
+      return {
+        ...state,
+        selectedFeature: action.feature,
+        selectedModule: null,
+        canvasMode: 'features',
+      };
+    case 'select-module':
+      return {
+        ...state,
+        selectedFeature: null,
+        selectedModule: state.selectedModule === action.key ? null : action.key,
+        canvasMode: 'features',
+      };
+    case 'hover-graph-module':
+      return { ...state, hoveredModule: action.hover };
+    case 'set-canvas-mode':
+      return { ...state, canvasMode: action.mode };
   }
 }

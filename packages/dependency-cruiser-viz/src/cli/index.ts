@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import { run } from './run.js';
+import { Effect } from 'effect';
+import { NodeRuntime, NodeServices } from '@effect/platform-node';
 
-run().catch((err: unknown) => {
-  process.stderr.write(
-    `Error: ${err instanceof Error ? err.message : String(err)}\n`,
-  );
-  process.exit(1);
-});
+import { cli } from './run.js';
+
+cli.pipe(
+  Effect.provide(NodeServices.layer),
+  NodeRuntime.runMain({ disableErrorReporting: true }),
+);

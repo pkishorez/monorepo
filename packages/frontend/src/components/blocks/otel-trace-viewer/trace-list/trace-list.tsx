@@ -5,8 +5,8 @@ import { SearchIcon } from 'lucide-react';
 import { Button } from '#components/ui/button';
 import { Kbd } from '#components/ui/kbd';
 
-import { GanttHeader } from '../trace-dialog/gantt/gantt-header';
-import type { TraceGroup } from '../utils';
+import { GanttHeader } from '../gantt/gantt-header';
+import type { TraceGroup } from '../trace-model';
 import {
   LIST_NAME_COL_WIDTH,
   LIST_SPANS_COL_WIDTH,

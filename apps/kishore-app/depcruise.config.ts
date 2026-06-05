@@ -2,40 +2,47 @@ import {
   feature,
   layer,
   layersTopDown,
+  module,
   type ProjectConfig,
 } from 'dependency-cruiser-viz';
 
-const server = layer('server', ['src/server.ts', 'src/durable-objects']);
-const entrypoints = layer('entrypoints', ['src/router.tsx']);
-const routes = layer('routes', ['src/routes', 'src/docs']);
-const components = layer('components', ['src/components']);
-const services = layer('services', ['src/services']);
-const lib = layer('lib', ['src/lib']);
+const server = layer('server', ['src/server.ts', 'src/durable-objects'], {
+  description: 'Worker entry and durable objects',
+});
 
-const blog = feature('blog', [
-  'src/routes/blog/index.tsx',
-  'src/routes/blog/_slug.tsx',
-  'src/routes/blog/_slug/effect-all/index.tsx',
-  'src/routes/blog/_slug/fiber-part-1/index.tsx',
-  'src/routes/blog/_slug/fiber-part-2/index.tsx',
-  'src/routes/blog/_slug/fiber-part-3/index.tsx',
-  'src/routes/blog/_slug/fiber-part-4/index.tsx',
-]);
+const entrypoints = layer('entrypoints', ['src/router.tsx'], {
+  description: 'Client/server router bootstrap',
+});
 
-const docs = feature('docs', [
-  'src/routes/docs/index.tsx',
-  'src/routes/docs/$pkg.tsx',
-]);
+const routes = layer('routes', ['src/routes', 'src/docs'], {
+  description: 'File-based route tree and per-route UI',
+});
 
-const otel = feature('otel', ['src/routes/otel/index.tsx']);
+const components = layer('components', ['src/components'], {
+  description: 'Shared presentational components',
+});
 
-const depCruiser = feature('dep-cruiser', ['src/routes/dep-cruiser/index.tsx']);
+const services = layer('services', ['src/services'], {
+  description: 'Runtime services (rollup bundling, app runtime)',
+});
 
-const dev = feature('dev', [
-  'src/routes/dev/index.tsx',
-  'src/routes/dev/forms.tsx',
-  'src/routes/dev/ui.tsx',
-]);
+const lib = layer('lib', ['src/lib'], {
+  description: 'Framework-agnostic helpers',
+});
+
+const blog = feature('blog', { description: 'Blog index and per-slug posts' });
+const docs = feature('docs', { description: 'Package documentation routes' });
+const otel = feature('otel', { description: 'OpenTelemetry trace viewer' });
+const depCruiser = feature('dep-cruiser', {
+  description: 'Dependency cruiser visualization route',
+});
+const dev = feature('dev', { description: 'Internal dev/playground routes' });
+const codeBlock = feature('code-block', {
+  description: 'Syntax-highlighted code block component, shared with blog',
+});
+const rollup = feature('rollup', {
+  description: 'In-browser rollup bundling service',
+});
 
 export default {
   rootDir: 'src',
@@ -50,5 +57,21 @@ export default {
       lib,
     ]),
   ],
-  features: [blog, docs, otel, depCruiser, dev],
+  features: [blog, docs, otel, depCruiser, dev, codeBlock, rollup],
+  modules: [
+    module('src/routes/blog', { feature: 'blog' }),
+    module('src/routes/docs', { feature: 'docs' }),
+    module('src/routes/otel', { feature: 'otel' }),
+    module('src/routes/otel/internal', { feature: 'otel' }),
+    module('src/routes/dev', { feature: 'dev' }),
+    module('src/routes/dev/components', { feature: 'dev' }),
+    module('src/routes/dep-cruiser', { feature: 'dep-cruiser' }),
+    module('src/components/blog', { feature: 'blog' }),
+    module('src/components/code-block', {
+      feature: 'code-block',
+      visibility: 'shared',
+      sharedWith: ['blog'],
+    }),
+    module('src/services/rollup', { feature: 'rollup' }),
+  ],
 } satisfies ProjectConfig;
