@@ -2,13 +2,12 @@ import {
   feature,
   layer,
   layersTopDown,
+  module,
   toVisualizationConfig,
   type VizSummary,
 } from 'dependency-cruiser-viz';
 
 import { DependencyCruiserViz } from './dependency-cruiser-viz';
-
-const domainLayer = layer('domain', ['src/domain']);
 
 const backend = layersTopDown('backend', [
   layer('server', ['src/server'], {
@@ -16,12 +15,12 @@ const backend = layersTopDown('backend', [
   }),
   layer('orchestrator', ['src/orchestrator']),
   layer('services', ['src/services']),
-  domainLayer,
+  layer('domain', ['src/domain']),
 ]);
 
 const frontend = layersTopDown('frontend', [
   layer('routes', ['src/routes'], { description: 'Page-level UI components' }),
-  domainLayer,
+  layer('domain', ['src/domain']),
 ]);
 
 const simpleConfig = toVisualizationConfig({
@@ -39,94 +38,38 @@ const fullConfig = toVisualizationConfig({
   rules: [backend, frontend],
 });
 
-const dbLayer = layer('database', ['src/database']);
-const configLayer = layer('config', ['src/config']);
-const utilsLayer = layer('utils', ['src/utils']);
-
-const api = layersTopDown('api', [
-  layer('gateway', ['src/gateway']),
-  layer('middleware', ['src/middleware']),
-  layer('controllers', ['src/controllers']),
-  layer('services', ['src/services']),
-  layer('repositories', ['src/repositories']),
-  dbLayer,
-  configLayer,
-]);
-
-const web = layersTopDown('web', [
-  layer('pages', ['src/pages']),
-  layer('components', ['src/components']),
-  layer('hooks', ['src/hooks']),
-  layer('state', ['src/state']),
-  utilsLayer,
-  configLayer,
-]);
-
-const worker = layersTopDown('worker', [
-  layer('scheduler', ['src/scheduler']),
-  layer('jobs', ['src/jobs']),
-  layer('queues', ['src/queues']),
-  dbLayer,
-  configLayer,
-]);
-
-const cli = layersTopDown('cli', [
-  layer('commands', ['src/commands']),
-  layer('prompts', ['src/prompts']),
-  utilsLayer,
-  configLayer,
-]);
-
-const complexConfig = toVisualizationConfig({
-  rootDir: 'src',
-  rules: [api, web, worker, cli],
-});
-
 const fullConfigWithFeatures = toVisualizationConfig({
   rootDir: 'src',
   rules: [backend, frontend],
   features: [
-    feature('auth', ['src/server/handler.ts'], {
+    feature('auth', {
       description: 'Authentication & session management',
-      group: 'api',
     }),
-    feature(
-      'orders',
-      ['src/orchestrator/pipeline.ts', 'src/orchestrator/workflow.ts'],
-      { description: 'Order processing pipeline', group: 'api' },
-    ),
-    feature('shared', ['src/domain/types.ts'], {
+    feature('orders', { description: 'Order processing pipeline' }),
+    feature('shared', {
       description: 'Shared utilities and cross-cutting concerns',
-      group: 'infra',
     }),
+    feature('dashboard', { description: 'Observability dashboard routes' }),
   ],
-});
-
-const complexConfigWithFeatures = toVisualizationConfig({
-  rootDir: 'src',
-  rules: [api, web, worker, cli],
-  features: [
-    feature(
-      'user-management',
-      ['src/controllers/user-controller.ts', 'src/pages/settings.tsx'],
-      {
-        description: 'User CRUD and profile management',
-        group: 'api',
-      },
-    ),
-    feature(
-      'order-processing',
-      ['src/controllers/order-controller.ts', 'src/scheduler/cron.ts'],
-      {
-        description: 'Order lifecycle and background processing',
-        group: 'api',
-      },
-    ),
-    feature(
-      'shared-infra',
-      ['src/gateway/router.ts', 'src/database/client.ts'],
-      { description: 'Shared infrastructure and utilities', group: 'infra' },
-    ),
+  modules: [
+    module('src/server/auth', { feature: 'auth' }),
+    module('src/services/auth', { feature: 'auth' }),
+    module('src/orchestrator/pipeline', { feature: 'orders' }),
+    module('src/orchestrator/workflow', { feature: 'orders' }),
+    module('src/domain/order', { feature: 'orders' }),
+    // A shared module owned by `shared`, consumed by both other features.
+    module('src/domain/types', {
+      feature: 'shared',
+      sharedWith: ['auth', 'orders'],
+    }),
+    // A public utility importable by everyone (axis-3 public cluster).
+    module('src/domain/logger', { feature: 'shared', visibility: 'public' }),
+    // A private module of `shared` that `auth` illegally reaches into.
+    module('src/domain/user', { feature: 'shared' }),
+    // Nested modules: `otel` is a declared module whose path is a prefix of the
+    // deeper declared module `otel/internal` (exercises Change 2).
+    module('src/routes/otel', { feature: 'dashboard' }),
+    module('src/routes/otel/internal', { feature: 'dashboard' }),
   ],
 });
 
@@ -183,6 +126,7 @@ const fullSummary: VizSummary = {
         'src/domain/user.ts',
         'src/domain/order.ts',
         'src/domain/types.ts',
+        'src/domain/logger.ts',
       ],
     },
     {
@@ -191,481 +135,163 @@ const fullSummary: VizSummary = {
         'src/routes/index.tsx',
         'src/routes/login.tsx',
         'src/routes/dashboard.tsx',
+        'src/routes/otel/panel.tsx',
+        'src/routes/otel/internal/trace-store.ts',
       ],
     },
   ],
+  moduleCoverage: [],
+  coverageGaps: [],
+  breaches: [],
+  featureEdges: [],
+  featureModuleEdges: [],
 };
 
 const fullSummaryWithFeatures: VizSummary = {
   ...fullSummary,
-  featureOrphanFiles: [
-    'src/routes/index.tsx',
-    'src/routes/login.tsx',
-    'src/routes/dashboard.tsx',
-  ],
-  featureGraphViolations: [
+  moduleCoverage: [
     {
-      kind: 'feature-unresolved-import',
+      module: 'auth',
+      layer: 'server',
       feature: 'auth',
-      fromFile: 'src/services/auth.ts',
-      specifier: '@/missing-auth-helper',
-      severity: 'error',
-    },
-  ],
-  featureGraphs: [
-    {
-      feature: 'auth',
-      seeds: ['src/server/handler.ts'],
-      nodes: [
-        {
-          file: 'src/domain/user.ts',
-          kind: 'derived',
-          layers: ['domain'],
-          minDepth: 2,
-          maxDepth: 2,
-        },
-        {
-          file: 'src/server/handler.ts',
-          kind: 'seed',
-          layers: ['server'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-        {
-          file: 'src/services/auth.ts',
-          kind: 'derived',
-          layers: ['services'],
-          minDepth: 1,
-          maxDepth: 1,
-        },
-      ],
-      edges: [
-        {
-          from: 'src/server/handler.ts',
-          to: 'src/services/auth.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/services/auth.ts',
-          to: 'src/domain/user.ts',
-          dependencyKind: 'type-only',
-        },
-      ],
+      visibility: 'private',
+      files: ['src/server/handler.ts'],
     },
     {
+      module: 'auth',
+      layer: 'services',
+      feature: 'auth',
+      visibility: 'private',
+      files: ['src/services/auth.ts'],
+    },
+    {
+      module: 'pipeline',
+      layer: 'orchestrator',
       feature: 'orders',
-      seeds: ['src/orchestrator/pipeline.ts'],
-      nodes: [
-        {
-          file: 'src/domain/order.ts',
-          kind: 'derived',
-          layers: ['domain'],
-          minDepth: 2,
-          maxDepth: 2,
-        },
-        {
-          file: 'src/orchestrator/pipeline.ts',
-          kind: 'seed',
-          layers: ['orchestrator'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-        {
-          file: 'src/orchestrator/workflow.ts',
-          kind: 'derived',
-          layers: ['orchestrator'],
-          minDepth: 1,
-          maxDepth: 1,
-        },
-      ],
-      edges: [
-        {
-          from: 'src/orchestrator/pipeline.ts',
-          to: 'src/orchestrator/workflow.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/orchestrator/workflow.ts',
-          to: 'src/domain/order.ts',
-          dependencyKind: 'runtime',
-        },
-      ],
+      visibility: 'private',
+      files: ['src/orchestrator/pipeline.ts'],
+    },
+    {
+      module: 'workflow',
+      layer: 'orchestrator',
+      feature: 'orders',
+      visibility: 'private',
+      files: ['src/orchestrator/workflow.ts'],
+    },
+    {
+      module: 'order',
+      layer: 'domain',
+      feature: 'orders',
+      visibility: 'private',
+      files: ['src/domain/order.ts'],
+    },
+    {
+      module: 'types',
+      layer: 'domain',
+      feature: 'shared',
+      visibility: 'shared',
+      sharedWith: ['auth', 'orders'],
+      files: ['src/domain/types.ts'],
+    },
+    {
+      module: 'logger',
+      layer: 'domain',
+      feature: 'shared',
+      visibility: 'public',
+      files: ['src/domain/logger.ts'],
+    },
+    {
+      module: 'user',
+      layer: 'domain',
+      feature: 'shared',
+      visibility: 'private',
+      files: ['src/domain/user.ts'],
+    },
+    {
+      module: 'otel',
+      layer: 'routes',
+      feature: 'dashboard',
+      visibility: 'private',
+      files: ['src/routes/otel/panel.tsx'],
+    },
+    {
+      module: 'otel/internal',
+      layer: 'routes',
+      feature: 'dashboard',
+      visibility: 'private',
+      files: ['src/routes/otel/internal/trace-store.ts'],
+    },
+  ],
+  // `src/server/middleware.ts` sits in the server layer but no module owns it.
+  coverageGaps: ['src/server/middleware.ts'],
+  breaches: [
+    {
+      fromModule: 'auth',
+      fromFeature: 'auth',
+      toModule: 'user',
+      toFeature: 'shared',
+      toVisibility: 'private',
+      fromFile: 'src/services/auth.ts',
+      toFile: 'src/domain/user.ts',
+      reason: 'private-cross-feature',
+    },
+    // `dashboard` illegally reaches into a private `orders` module.
+    {
+      fromModule: 'otel',
+      fromFeature: 'dashboard',
+      toModule: 'pipeline',
+      toFeature: 'orders',
+      toVisibility: 'private',
+      fromFile: 'src/routes/otel/panel.tsx',
+      toFile: 'src/orchestrator/pipeline.ts',
+      reason: 'private-cross-feature',
+    },
+  ],
+  featureEdges: [
+    // auth and orders both legally consume the shared `types` module.
+    { from: 'auth', to: 'shared', via: ['types'] },
+    { from: 'orders', to: 'shared', via: ['types'] },
+    // dashboard legally consumes the shared `types` module too.
+    { from: 'dashboard', to: 'shared', via: ['types'] },
+  ],
+  featureModuleEdges: [
+    // `shared` OWNS the axis-3 shared `types` and public `logger` modules.
+    {
+      feature: 'shared',
+      module: 'types',
+      layer: 'domain',
+      visibility: 'shared',
+      relation: 'owns',
     },
     {
       feature: 'shared',
-      seeds: ['src/domain/types.ts'],
-      nodes: [
-        {
-          file: 'src/domain/types.ts',
-          kind: 'seed',
-          layers: ['domain'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-      ],
-      edges: [],
+      module: 'logger',
+      layer: 'domain',
+      visibility: 'public',
+      relation: 'owns',
     },
-  ],
-};
-
-const complexSummary: VizSummary = {
-  ignoredFiles: ['src/styles.css', 'src/generated/types.ts'],
-  violations: [
+    // `auth` and `orders` CONSUME the shared `types` (cross-feature borrow).
     {
-      from: 'repositories',
-      to: 'controllers',
-      fromFile: 'src/repositories/user-repo.ts',
-      toFile: 'src/controllers/user-controller.ts',
-      rule: 'api: repositories cannot import controllers',
-      severity: 'error',
+      feature: 'auth',
+      module: 'types',
+      layer: 'domain',
+      visibility: 'shared',
+      relation: 'consumes',
     },
     {
-      from: 'state',
-      to: 'pages',
-      fromFile: 'src/state/store.ts',
-      toFile: 'src/pages/home.tsx',
-      rule: 'web: state cannot import pages',
-      severity: 'error',
+      feature: 'orders',
+      module: 'types',
+      layer: 'domain',
+      visibility: 'shared',
+      relation: 'consumes',
     },
+    // `auth` CONSUMES the public `logger` util.
     {
-      from: 'queues',
-      to: 'scheduler',
-      fromFile: 'src/queues/email-queue.ts',
-      toFile: 'src/scheduler/cron.ts',
-      rule: 'worker: queues cannot import scheduler',
-      severity: 'warn',
-    },
-  ],
-  layerOrphanFiles: [
-    'src/scripts/deploy.ts',
-    'src/scripts/seed.ts',
-    'src/types/env.d.ts',
-    'src/constants/index.ts',
-    'src/constants/errors.ts',
-  ],
-  coveredFiles: [
-    {
-      layer: 'gateway',
-      files: ['src/gateway/router.ts', 'src/gateway/auth-guard.ts'],
-    },
-    {
-      layer: 'middleware',
-      files: ['src/middleware/cors.ts', 'src/middleware/logger.ts'],
-    },
-    {
-      layer: 'controllers',
-      files: [
-        'src/controllers/user-controller.ts',
-        'src/controllers/order-controller.ts',
-      ],
-    },
-    {
-      layer: 'services',
-      files: ['src/services/user-service.ts', 'src/services/order-service.ts'],
-    },
-    {
-      layer: 'repositories',
-      files: [
-        'src/repositories/user-repo.ts',
-        'src/repositories/order-repo.ts',
-      ],
-    },
-    {
-      layer: 'database',
-      files: ['src/database/client.ts', 'src/database/migrations.ts'],
-    },
-    {
-      layer: 'config',
-      files: ['src/config/app.ts', 'src/config/database.ts'],
-    },
-    {
-      layer: 'pages',
-      files: ['src/pages/home.tsx', 'src/pages/settings.tsx'],
-    },
-    {
-      layer: 'components',
-      files: [
-        'src/components/header.tsx',
-        'src/components/sidebar.tsx',
-        'src/components/footer.tsx',
-      ],
-    },
-    { layer: 'hooks', files: ['src/hooks/use-auth.ts'] },
-    { layer: 'state', files: ['src/state/store.ts', 'src/state/slices.ts'] },
-    { layer: 'utils', files: ['src/utils/format.ts', 'src/utils/validate.ts'] },
-    {
-      layer: 'scheduler',
-      files: ['src/scheduler/cron.ts', 'src/scheduler/runner.ts'],
-    },
-    {
-      layer: 'jobs',
-      files: ['src/jobs/email-job.ts', 'src/jobs/cleanup-job.ts'],
-    },
-    { layer: 'queues', files: ['src/queues/email-queue.ts'] },
-    {
-      layer: 'commands',
-      files: ['src/commands/init.ts', 'src/commands/migrate.ts'],
-    },
-    { layer: 'prompts', files: ['src/prompts/confirm.ts'] },
-  ],
-};
-
-const complexSummaryWithFeatures: VizSummary = {
-  ...complexSummary,
-  featureOrphanFiles: [
-    'src/components/header.tsx',
-    'src/components/sidebar.tsx',
-    'src/components/footer.tsx',
-    'src/commands/init.ts',
-    'src/commands/migrate.ts',
-    'src/prompts/confirm.ts',
-  ],
-  featureGraphViolations: [
-    {
-      kind: 'feature-cycle',
-      feature: 'user-management',
-      fromFile: 'src/repositories/user-repo.ts',
-      toFile: 'src/services/user-service.ts',
-      cycle: [
-        'src/services/user-service.ts',
-        'src/repositories/user-repo.ts',
-        'src/services/user-service.ts',
-      ],
-      severity: 'error',
-    },
-  ],
-  featureGraphs: [
-    {
-      feature: 'user-management',
-      seeds: ['src/controllers/user-controller.ts', 'src/pages/settings.tsx'],
-      nodes: [
-        {
-          file: 'src/config/app.ts',
-          kind: 'derived',
-          layers: ['config'],
-          minDepth: 2,
-          maxDepth: 3,
-        },
-        {
-          file: 'src/controllers/user-controller.ts',
-          kind: 'seed',
-          layers: ['controllers'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-        {
-          file: 'src/hooks/use-auth.ts',
-          kind: 'derived',
-          layers: ['hooks'],
-          minDepth: 1,
-          maxDepth: 1,
-        },
-        {
-          file: 'src/pages/settings.tsx',
-          kind: 'seed',
-          layers: ['pages'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-        {
-          file: 'src/repositories/user-repo.ts',
-          kind: 'derived',
-          layers: ['repositories'],
-          minDepth: 2,
-          maxDepth: 2,
-        },
-        {
-          file: 'src/services/user-service.ts',
-          kind: 'derived',
-          layers: ['services'],
-          minDepth: 1,
-          maxDepth: 3,
-        },
-        {
-          file: 'src/state/store.ts',
-          kind: 'derived',
-          layers: ['state'],
-          minDepth: 1,
-          maxDepth: 1,
-        },
-      ],
-      edges: [
-        {
-          from: 'src/controllers/user-controller.ts',
-          to: 'src/services/user-service.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/hooks/use-auth.ts',
-          to: 'src/config/app.ts',
-          dependencyKind: 'type-only',
-        },
-        {
-          from: 'src/pages/settings.tsx',
-          to: 'src/hooks/use-auth.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/pages/settings.tsx',
-          to: 'src/state/store.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/repositories/user-repo.ts',
-          to: 'src/services/user-service.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/services/user-service.ts',
-          to: 'src/config/app.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/services/user-service.ts',
-          to: 'src/repositories/user-repo.ts',
-          dependencyKind: 'runtime',
-        },
-      ],
-    },
-    {
-      feature: 'order-processing',
-      seeds: ['src/controllers/order-controller.ts', 'src/scheduler/cron.ts'],
-      nodes: [
-        {
-          file: 'src/config/database.ts',
-          kind: 'derived',
-          layers: ['config'],
-          minDepth: 3,
-          maxDepth: 3,
-        },
-        {
-          file: 'src/controllers/order-controller.ts',
-          kind: 'seed',
-          layers: ['controllers'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-        {
-          file: 'src/jobs/email-job.ts',
-          kind: 'derived',
-          layers: ['jobs'],
-          minDepth: 1,
-          maxDepth: 1,
-        },
-        {
-          file: 'src/queues/email-queue.ts',
-          kind: 'derived',
-          layers: ['queues'],
-          minDepth: 2,
-          maxDepth: 2,
-        },
-        {
-          file: 'src/repositories/order-repo.ts',
-          kind: 'derived',
-          layers: ['repositories'],
-          minDepth: 2,
-          maxDepth: 2,
-        },
-        {
-          file: 'src/scheduler/cron.ts',
-          kind: 'seed',
-          layers: ['scheduler'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-        {
-          file: 'src/services/order-service.ts',
-          kind: 'derived',
-          layers: ['services'],
-          minDepth: 1,
-          maxDepth: 1,
-        },
-      ],
-      edges: [
-        {
-          from: 'src/controllers/order-controller.ts',
-          to: 'src/services/order-service.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/jobs/email-job.ts',
-          to: 'src/queues/email-queue.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/repositories/order-repo.ts',
-          to: 'src/config/database.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/scheduler/cron.ts',
-          to: 'src/jobs/email-job.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/services/order-service.ts',
-          to: 'src/repositories/order-repo.ts',
-          dependencyKind: 'runtime',
-        },
-      ],
-    },
-    {
-      feature: 'shared-infra',
-      seeds: ['src/gateway/router.ts', 'src/database/client.ts'],
-      nodes: [
-        {
-          file: 'src/database/client.ts',
-          kind: 'seed',
-          layers: ['database'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-        {
-          file: 'src/gateway/auth-guard.ts',
-          kind: 'derived',
-          layers: ['gateway'],
-          minDepth: 1,
-          maxDepth: 1,
-        },
-        {
-          file: 'src/gateway/router.ts',
-          kind: 'seed',
-          layers: ['gateway'],
-          minDepth: 0,
-          maxDepth: 0,
-        },
-        {
-          file: 'src/middleware/cors.ts',
-          kind: 'derived',
-          layers: ['middleware'],
-          minDepth: 1,
-          maxDepth: 1,
-        },
-        {
-          file: 'src/middleware/logger.ts',
-          kind: 'derived',
-          layers: ['middleware'],
-          minDepth: 2,
-          maxDepth: 2,
-        },
-      ],
-      edges: [
-        {
-          from: 'src/gateway/auth-guard.ts',
-          to: 'src/middleware/logger.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/gateway/router.ts',
-          to: 'src/gateway/auth-guard.ts',
-          dependencyKind: 'runtime',
-        },
-        {
-          from: 'src/gateway/router.ts',
-          to: 'src/middleware/cors.ts',
-          dependencyKind: 'runtime',
-        },
-      ],
+      feature: 'auth',
+      module: 'logger',
+      layer: 'domain',
+      visibility: 'public',
+      relation: 'consumes',
     },
   ],
 };
@@ -674,19 +300,10 @@ export default {
   simple: <DependencyCruiserViz config={simpleConfig} summary={fullSummary} />,
   'graph-only': <DependencyCruiserViz config={fullConfig} />,
   full: <DependencyCruiserViz config={fullConfig} summary={fullSummary} />,
-  complex: (
-    <DependencyCruiserViz config={complexConfig} summary={complexSummary} />
-  ),
   'with-features': (
     <DependencyCruiserViz
       config={fullConfigWithFeatures}
       summary={fullSummaryWithFeatures}
-    />
-  ),
-  'complex-with-features': (
-    <DependencyCruiserViz
-      config={complexConfigWithFeatures}
-      summary={complexSummaryWithFeatures}
     />
   ),
 };

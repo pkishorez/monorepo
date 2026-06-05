@@ -23,17 +23,21 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "fmt": "vp fmt src test package.json tsconfig.json depcruise.config.ts",
-    "lint": "vp check src test package.json tsconfig.json depcruise.config.ts && pnpm lint:tsc",
-    "lint:tsc": "tsc --noEmit",
-    "test": "pnpm build && node --test test/*.test.mjs"
+    "fmt": "vp fmt src test package.json tsconfig.json tsconfig.test.json depcruise.config.ts",
+    "lint": "vp check src test package.json tsconfig.json tsconfig.test.json depcruise.config.ts && pnpm lint:tsc",
+    "lint:tsc": "tsc -p tsconfig.test.json",
+    "lint:depcruise": "pnpm build && node dist/cli/index.js lint",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@effect/platform-node": "4.0.0-beta.78",
     "dependency-cruiser": "17.4.3",
+    "effect": "4.0.0-beta.78",
     "jiti": "2.7.0"
   },
   "devDependencies": {
     "@types/node": "25.9.1",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
   }
 }

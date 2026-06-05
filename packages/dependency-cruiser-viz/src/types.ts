@@ -21,16 +21,22 @@ export type LayerStack = {
   readonly config: LayerStackConfig;
 };
 
+export type Visibility = 'private' | 'shared' | 'public';
+
+export type ModuleDecl = {
+  readonly path: string;
+  readonly feature?: string;
+  readonly visibility: Visibility;
+  readonly sharedWith?: readonly string[];
+};
+
 export type FeatureConfig = {
   description?: string;
-  stopTraversalAt?: string[];
-  group?: string;
 };
 
 export type Feature = {
   readonly kind: 'feature';
   readonly name: string;
-  readonly paths: readonly string[];
   readonly config: FeatureConfig;
 };
 
@@ -40,6 +46,7 @@ export type ProjectConfig = {
   rootDir: string;
   ignore?: string[];
   rules: Rule[];
+  modules?: ModuleDecl[];
   features?: Feature[];
 };
 
@@ -58,10 +65,15 @@ export type VisualizationConfig = {
   }>;
   features?: Array<{
     name: string;
-    paths: string[];
     description?: string;
-    stopTraversalAt?: string[];
-    group?: string;
+  }>;
+  modules?: Array<{
+    path: string;
+    name: string;
+    layer: string;
+    feature?: string;
+    visibility: Visibility;
+    sharedWith?: string[];
   }>;
 };
 
@@ -80,42 +92,34 @@ export type VizSummary = {
     layer: string;
     files: string[];
   }>;
-  featureGraphs?: Array<{
-    feature: string;
-    seeds: string[];
-    nodes: Array<{
-      file: string;
-      kind: 'seed' | 'derived';
-      layers: string[];
-      minDepth: number;
-      maxDepth: number;
-    }>;
-    edges: Array<{
-      from: string;
-      to: string;
-      dependencyKind: 'runtime' | 'type-only';
-    }>;
+  moduleCoverage: Array<{
+    module: string;
+    layer: string;
+    feature?: string;
+    visibility: Visibility;
+    sharedWith?: string[];
+    files: string[];
   }>;
-  featureOrphanFiles?: string[];
-  featureGraphViolations?: FeatureGraphViolation[];
+  coverageGaps: string[];
+  breaches: Array<{
+    fromModule: string;
+    fromFeature: string | null;
+    toModule: string;
+    toFeature: string | null;
+    toVisibility: Visibility;
+    fromFile: string;
+    toFile: string;
+    reason: 'private-cross-feature' | 'not-in-shared-with' | 'infra-to-owned';
+  }>;
+  featureEdges: Array<{ from: string; to: string; via: string[] }>;
+  featureModuleEdges: Array<{
+    feature: string;
+    module: string;
+    layer: string;
+    visibility: 'shared' | 'public';
+    relation: 'owns' | 'consumes';
+  }>;
 };
-
-export type FeatureGraphViolation =
-  | {
-      kind: 'feature-cycle';
-      feature: string;
-      fromFile: string;
-      toFile: string;
-      cycle: string[];
-      severity: 'error';
-    }
-  | {
-      kind: 'feature-unresolved-import';
-      feature: string;
-      fromFile: string;
-      specifier: string;
-      severity: 'error';
-    };
 
 export type DependencyCruiserConfig = IFlattenedRuleSet;
 

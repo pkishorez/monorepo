@@ -7,9 +7,9 @@ import {
   TooltipTrigger,
 } from '#components/ui/tooltip';
 import { STATUS_BG, StatusDot } from '../status';
-import { BAR_COL_INSET, BAR_HEIGHT_PX } from '../trace-dialog/gantt/layout';
-import type { TraceGroup } from '../utils';
-import { formatDuration } from '../utils';
+import { BAR_COL_INSET, BAR_HEIGHT_PX } from '../gantt/layout';
+import type { TraceGroup } from '../trace-model';
+import { formatDuration } from '../trace-model';
 
 export const LIST_NAME_COL_WIDTH = 200;
 export const LIST_SPANS_COL_WIDTH = 56;

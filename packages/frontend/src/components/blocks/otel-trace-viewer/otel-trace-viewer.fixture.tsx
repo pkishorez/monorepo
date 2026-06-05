@@ -1,6 +1,6 @@
-import { OtelTraceViewer } from './otel-trace-viewer';
-import type { OtelSpan } from './types';
-import { groupByTrace } from './utils';
+import { TraceDock, type TraceDockSettings } from './trace-dock';
+import { TraceList } from './trace-list';
+import { groupByTrace, type OtelSpan } from './trace-model';
 
 const spans: OtelSpan[] = [
   // Trace 1: successful POST request with nested spans
@@ -278,25 +278,45 @@ const overlappingSpans: OtelSpan[] = [
   },
 ];
 
+const dockSettings: TraceDockSettings = {
+  open: true,
+  height: 420,
+  sidebarWidth: 360,
+  nameColWidth: 240,
+  sidebarOpen: true,
+  selectedSpanId: null,
+};
+
 export default {
   default: (
     <div className="p-6 max-w-5xl mx-auto">
-      <OtelTraceViewer traces={groupByTrace(spans)} />
+      <TraceList traces={groupByTrace(spans)} onSelectTrace={() => {}} />
     </div>
   ),
   'overlapping-spans': (
     <div className="p-6 max-w-5xl mx-auto">
-      <OtelTraceViewer traces={groupByTrace(overlappingSpans)} />
+      <TraceList
+        traces={groupByTrace(overlappingSpans)}
+        onSelectTrace={() => {}}
+      />
     </div>
   ),
   empty: (
     <div className="p-6 max-w-5xl mx-auto">
-      <OtelTraceViewer traces={[]} />
+      <TraceList traces={[]} onSelectTrace={() => {}} />
     </div>
   ),
   'single-span': (
     <div className="p-6 max-w-5xl mx-auto">
-      <OtelTraceViewer traces={groupByTrace([spans[0]!])} />
+      <TraceList traces={groupByTrace([spans[0]!])} onSelectTrace={() => {}} />
     </div>
+  ),
+  dock: (
+    <TraceDock
+      trace={groupByTrace(overlappingSpans)[0]!}
+      settings={dockSettings}
+      onSettingsChange={() => {}}
+      onClose={() => {}}
+    />
   ),
 };

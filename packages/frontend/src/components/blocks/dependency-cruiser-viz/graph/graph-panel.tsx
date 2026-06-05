@@ -1,47 +1,74 @@
 import { useReactFlow } from '@xyflow/react';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { ResizablePanel } from '#components/ui/resizable';
 import { cn } from '#lib/utils';
 
-import { FEATURE_OVERVIEW } from '../files/file-tree-model';
-import type {
-  DependencyCruiserVizActions,
-  DependencyCruiserVizGraphView,
-} from '../use-dependency-cruiser-viz';
-import { FeatureGraphPanel } from './feature-graph-panel';
-import { LayerGraphPanel } from './layer-graph-panel';
+import { ResizablePanel } from '#components/ui/resizable';
+
+import type { DependencyCruiserVizGraphView } from '../use-dependency-cruiser-viz';
+import { FeatureGraphPanel } from './feature';
+import { LayerGraphPanel } from './layer';
 import { FIT_VIEW_OPTIONS } from './react-flow-options';
+
+type GraphViewMode = 'layers' | 'features';
 
 type GraphPanelProps = {
   view: DependencyCruiserVizGraphView;
-  actions: DependencyCruiserVizActions;
+  /** Toggles the shared `selectedFeature` state from the feature graph. */
+  onSelectFeature: (feature: string | null) => void;
+  /** Toggles the shared `selectedModule` state from the feature graph. */
+  onSelectModule: (key: string | null) => void;
+  /** Toggles the shared `selectedLayer` state from the layer graph. */
+  onSelectLayer?: (layer: string | null) => void;
+  /** Sets the hovered layer for the layer graph. */
+  onHoverLayer?: (layer: string | null) => void;
+  /** Manual override for the canvas tab (Layers | Features). */
+  onSetCanvasMode: (mode: GraphViewMode) => void;
 };
 
-export function GraphPanel({ view, actions }: GraphPanelProps) {
+function ViewModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: GraphViewMode;
+  onChange: (mode: GraphViewMode) => void;
+}) {
+  return (
+    <div className="absolute left-3 top-3 z-10 flex rounded-md border border-border bg-background/80 p-0.5 shadow-sm backdrop-blur">
+      {(['layers', 'features'] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onChange(m)}
+          aria-pressed={mode === m}
+          className={cn(
+            'rounded px-2.5 py-1 text-xs font-medium capitalize transition-colors',
+            mode === m
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {m}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function GraphPanel({
+  view,
+  onSelectFeature,
+  onSelectModule,
+  onSelectLayer,
+  onHoverLayer,
+  onSetCanvasMode,
+}: GraphPanelProps) {
+  const hasFeatures = (view.config.features ?? []).length > 0;
   const { fitView } = useReactFlow();
 
   const handleResize = useCallback(() => {
     requestAnimationFrame(() => fitView(FIT_VIEW_OPTIONS));
   }, [fitView]);
-
-  const featureGraph = useMemo(() => {
-    if (
-      !view.selectedFeature ||
-      view.selectedFeature === FEATURE_OVERVIEW ||
-      !view.summary?.featureGraphs
-    )
-      return null;
-    return (
-      view.summary.featureGraphs.find(
-        (g) => g.feature === view.selectedFeature,
-      ) ?? null
-    );
-  }, [view.selectedFeature, view.summary?.featureGraphs]);
-
-  const showToggle = featureGraph !== null;
-  const showFeatureGraph =
-    view.graphMode === 'features' && featureGraph !== null;
 
   return (
     <ResizablePanel
@@ -50,64 +77,28 @@ export function GraphPanel({ view, actions }: GraphPanelProps) {
       onResize={handleResize}
     >
       <div className="relative h-full w-full">
-        {showToggle && (
-          <div className="absolute top-3 right-3 z-10 flex rounded-md border border-border bg-card shadow-sm">
-            <ToggleButton
-              active={view.graphMode === 'layers'}
-              onClick={() => actions.setGraphMode('layers')}
-            >
-              Layers
-            </ToggleButton>
-            <ToggleButton
-              active={view.graphMode === 'features'}
-              onClick={() => actions.setGraphMode('features')}
-            >
-              Feature
-            </ToggleButton>
-          </div>
+        {hasFeatures && (
+          <ViewModeToggle mode={view.canvasMode} onChange={onSetCanvasMode} />
         )}
-
-        {showFeatureGraph ? (
+        {view.canvasMode === 'features' && hasFeatures ? (
           <FeatureGraphPanel
-            featureGraph={featureGraph}
-            onHoverFiles={actions.hoverGraphFiles}
+            config={view.config}
+            summary={view.summary}
+            selectedFeature={view.selectedFeature}
+            selectedModule={view.selectedModule}
+            onSelectFeature={onSelectFeature}
+            onSelectModule={onSelectModule}
           />
         ) : (
           <LayerGraphPanel
             config={view.config}
             summary={view.summary}
             activeLayer={view.activeLayer}
-            selectedFeature={view.selectedFeature}
-            onSelectLayer={actions.selectLayer}
-            onHoverLayer={actions.hoverLayer}
+            onSelectLayer={onSelectLayer ?? (() => {})}
+            onHoverLayer={onHoverLayer ?? (() => {})}
           />
         )}
       </div>
     </ResizablePanel>
-  );
-}
-
-function ToggleButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'px-3 py-1 text-xs font-medium transition-colors',
-        'first:rounded-l-md last:rounded-r-md',
-        active
-          ? 'bg-primary text-primary-foreground'
-          : 'text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
   );
 }

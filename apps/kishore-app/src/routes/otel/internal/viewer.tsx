@@ -4,11 +4,9 @@ import {
   groupByTrace,
   TraceDock,
   type TraceGroup,
-} from '@monorepo/frontend/components/blocks/otel-trace-viewer';
-import {
   transformLog,
   transformSpan,
-} from '@monorepo/frontend/lib/lotel-transform';
+} from '@monorepo/frontend/components/blocks/otel-trace-viewer';
 import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
 import { cn } from '@monorepo/frontend/lib/utils';
 import type {

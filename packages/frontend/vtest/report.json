@@ -4,14 +4,820 @@
     "version": "0.0.0"
   },
   "home": "# @monorepo/frontend\n\nLive documentation for the frontend's utility surface, generated from the\ntest suite by `@monorepo/vtest`. **Every code sample on every page is a real\ntest that just ran** — if the page renders, the assertion held.\n\n## How docs work\n\n```mermaid\nflowchart LR\n  Tests([vtest/**/*.test.ts]) --> Reporter\n  Doc([vtest/**/*.doc.md]) --> Reporter\n  Home([vtest/home.md]) --> Reporter\n  Reporter --> JSON([vtest/report.json])\n  JSON --> Renderer([VTestDocs])\n```\n\n| Source                 | Becomes                                    |\n| ---------------------- | ------------------------------------------ |\n| `vtest/home.md`        | this overview page                         |\n| `<dir>/index.doc.md`   | the folder/section page                    |\n| `<dir>/<name>.doc.md`  | the module page header                     |\n| `vdescribe(name, doc)` | a suite row — click for the suite dialog   |\n| `vtest(name, doc, fn)` | a row inside the suite dialog with snippet |\n\n## Modules\n\n- **strings** — case conversion, slug generation\n- **numbers** — clamping, linear interpolation\n- **arrays** — chunking, deduplication\n- **parser** — a tiny tokenizer used to stress-test snippet extraction\n\n> Every test below is green; intentionally broken / pending / skipped\n> examples live in the playground fixture, not here.\n",
-  "files": [],
+  "files": [
+    {
+      "kind": "file",
+      "name": "chunk",
+      "filepath": "vtest/arrays/chunk.test.ts",
+      "doc": "---\ntitle: chunk\n---\n\n# chunk\n\nSplits an array into fixed-size sub-arrays. The last chunk may be shorter\nthan `size`.\n\n```ts\nchunk([1, 2, 3, 4, 5], 2); // [[1, 2], [3, 4], [5]]\nchunk([], 3);              // []\n```\n\n> **Invariant.** `chunk(xs, n).flat().length === xs.length`. Verified by\n> the *no item loss* test below.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "evenly divisible",
+          "children": [
+            {
+              "kind": "test",
+              "name": "splits into uniform pairs",
+              "status": "pass",
+              "duration": 1.0985829999999908,
+              "doc": "Six items, size two.",
+              "location": {
+                "line": 18,
+                "column": 5
+              },
+              "snippet": "vtest('splits into uniform pairs', 'Six items, size two.', () => {\n  expect(chunk([1, 2, 3, 4, 5, 6], 2)).toEqual([\n    [1, 2],\n    [3, 4],\n    [5, 6],\n  ]);\n});",
+              "snippetStartLine": 18
+            },
+            {
+              "kind": "test",
+              "name": "splits into uniform triples",
+              "status": "pass",
+              "duration": 0.12062499999998977,
+              "doc": "Same input, different chunk size.",
+              "location": {
+                "line": 26,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'splits into uniform triples',\n  'Same input, different chunk size.',\n  () => {\n    expect(chunk([1, 2, 3, 4, 5, 6], 3)).toEqual([\n      [1, 2, 3],\n      [4, 5, 6],\n    ]);\n  },\n);",
+              "snippetStartLine": 26
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "remainder",
+          "children": [
+            {
+              "kind": "test",
+              "name": "final chunk shorter than size",
+              "status": "pass",
+              "duration": 0.09966699999998241,
+              "doc": "Five items, size two — final chunk has one element.",
+              "location": {
+                "line": 43,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'final chunk shorter than size',\n  'Five items, size two — final chunk has one element.',\n  () => {\n    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);\n  },\n);",
+              "snippetStartLine": 43
+            },
+            {
+              "kind": "test",
+              "name": "no item loss",
+              "status": "pass",
+              "duration": 0.23670799999999304,
+              "doc": "Property: the flattened chunks equal the original array.",
+              "location": {
+                "line": 51,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'no item loss',\n  'Property: the flattened chunks equal the original array.',\n  () => {\n    const xs = [10, 20, 30, 40, 50, 60, 70];\n    for (const n of [1, 2, 3, 4, 5, 6, 7]) {\n      expect(chunk(xs, n).flat()).toEqual(xs);\n    }\n  },\n);",
+              "snippetStartLine": 51
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "degenerate inputs",
+          "children": [
+            {
+              "kind": "test",
+              "name": "empty input → empty output",
+              "status": "pass",
+              "duration": 0.07229100000000699,
+              "doc": "No work to do.",
+              "location": {
+                "line": 68,
+                "column": 5
+              },
+              "snippet": "vtest('empty input → empty output', 'No work to do.', () => {\n  expect(chunk([], 3)).toEqual([]);\n});",
+              "snippetStartLine": 68
+            },
+            {
+              "kind": "test",
+              "name": "size larger than length",
+              "status": "pass",
+              "duration": 0.07699999999999818,
+              "doc": "Returns a single chunk containing the whole array.",
+              "location": {
+                "line": 72,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'size larger than length',\n  'Returns a single chunk containing the whole array.',\n  () => {\n    expect(chunk([1, 2, 3], 10)).toEqual([[1, 2, 3]]);\n  },\n);",
+              "snippetStartLine": 72
+            },
+            {
+              "kind": "test",
+              "name": "size <= 0 throws",
+              "status": "pass",
+              "duration": 0.17491699999999355,
+              "doc": "`size` is a positive integer.",
+              "location": {
+                "line": 80,
+                "column": 5
+              },
+              "snippet": "vtest('size <= 0 throws', '`size` is a positive integer.', () => {\n  expect(() => chunk([1, 2, 3], 0)).toThrow(RangeError);\n  expect(() => chunk([1, 2, 3], -1)).toThrow(RangeError);\n});",
+              "snippetStartLine": 80
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "unique",
+      "filepath": "vtest/arrays/unique.test.ts",
+      "doc": "---\ntitle: unique\n---\n\n# unique\n\nRemoves duplicate elements, preserving the order of the first occurrence\nof each.\n\n```ts\nunique([1, 2, 1, 3, 2]);   // [1, 2, 3]\nunique(['a', 'A', 'a']);   // ['a', 'A']\n```\n\nA second-argument key function turns it into a *first-wins* deduplicator\nkeyed by anything you like — useful for collapsing objects by `id`.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "identity key",
+          "children": [
+            {
+              "kind": "test",
+              "name": "removes duplicates in order of first occurrence",
+              "status": "pass",
+              "duration": 1.2164999999999964,
+              "doc": "Order-preserving.",
+              "location": {
+                "line": 24,
+                "column": 5
+              },
+              "snippet": "vtest('removes duplicates in order of first occurrence', 'Order-preserving.', () => {\n  expect(unique([1, 2, 1, 3, 2, 4])).toEqual([1, 2, 3, 4]);\n});",
+              "snippetStartLine": 24
+            },
+            {
+              "kind": "test",
+              "name": "is case-sensitive for strings",
+              "status": "pass",
+              "duration": 0.1082919999999774,
+              "doc": "`\"a\"` and `\"A\"` are distinct under the default comparator.",
+              "location": {
+                "line": 28,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'is case-sensitive for strings',\n  '`\"a\"` and `\"A\"` are distinct under the default comparator.',\n  () => {\n    expect(unique(['a', 'A', 'a', 'B'])).toEqual(['a', 'A', 'B']);\n  },\n);",
+              "snippetStartLine": 28
+            },
+            {
+              "kind": "test",
+              "name": "handles an empty input",
+              "status": "pass",
+              "duration": 0.08150000000000546,
+              "doc": "Edge case.",
+              "location": {
+                "line": 36,
+                "column": 5
+              },
+              "snippet": "vtest('handles an empty input', 'Edge case.', () => {\n  expect(unique<number>([])).toEqual([]);\n});",
+              "snippetStartLine": 36
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "with a key function",
+          "children": [
+            {
+              "kind": "test",
+              "name": "collapses objects by id",
+              "status": "pass",
+              "duration": 0.12279200000000401,
+              "doc": "The canonical use case — merging two paginated result pages.",
+              "location": {
+                "line": 46,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'collapses objects by id',\n  'The canonical use case — merging two paginated result pages.',\n  () => {\n    const rows = [\n      { id: 1, name: 'a' },\n      { id: 2, name: 'b' },\n      { id: 1, name: 'a-updated' },\n    ];\n    expect(unique(rows, (r) => r.id)).toEqual([\n      { id: 1, name: 'a' },\n      { id: 2, name: 'b' },\n    ]);\n  },\n);",
+              "snippetStartLine": 46
+            },
+            {
+              "kind": "test",
+              "name": "allows case-insensitive string dedup",
+              "status": "pass",
+              "duration": 0.09458300000000008,
+              "doc": "Lowercasing the key folds `\"a\"` and `\"A\"` into the same bucket.",
+              "location": {
+                "line": 62,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'allows case-insensitive string dedup',\n  'Lowercasing the key folds `\"a\"` and `\"A\"` into the same bucket.',\n  () => {\n    expect(unique(['a', 'A', 'b'], (s) => s.toLowerCase())).toEqual([\n      'a',\n      'b',\n    ]);\n  },\n);",
+              "snippetStartLine": 62
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "clamp",
+      "filepath": "vtest/numbers/clamp.test.ts",
+      "doc": "---\ntitle: clamp\n---\n\n# clamp\n\nConstrains a number to a closed interval `[min, max]`.\n\n```ts\nclamp(5, 0, 10);    // 5\nclamp(-1, 0, 10);   // 0\nclamp(99, 0, 10);   // 10\n```\n\n`NaN` propagates: `clamp(NaN, 0, 1)` returns `NaN`, matching the behaviour\nof `Math.min` / `Math.max`.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "in range",
+          "children": [
+            {
+              "kind": "test",
+              "name": "identity for interior values",
+              "status": "pass",
+              "duration": 0.8542499999999791,
+              "doc": "No-op when the value is interior.",
+              "location": {
+                "line": 12,
+                "column": 5
+              },
+              "snippet": "vtest('identity for interior values', 'No-op when the value is interior.', () => {\n  expect(clamp(5, 0, 10)).toBe(5);\n});",
+              "snippetStartLine": 12
+            },
+            {
+              "kind": "test",
+              "name": "identity at the endpoints",
+              "status": "pass",
+              "duration": 0.1098750000000166,
+              "doc": "Both endpoints are inclusive — clamping at the boundary is a no-op.",
+              "location": {
+                "line": 16,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'identity at the endpoints',\n  'Both endpoints are inclusive — clamping at the boundary is a no-op.',\n  () => {\n    expect(clamp(0, 0, 10)).toBe(0);\n    expect(clamp(10, 0, 10)).toBe(10);\n  },\n);",
+              "snippetStartLine": 16
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "out of range",
+          "children": [
+            {
+              "kind": "test",
+              "name": "clamps below `lo`",
+              "status": "pass",
+              "duration": 0.07837500000002251,
+              "doc": "Negative example.",
+              "location": {
+                "line": 31,
+                "column": 5
+              },
+              "snippet": "vtest('clamps below `lo`', 'Negative example.', () => {\n  expect(clamp(-3, 0, 10)).toBe(0);\n});",
+              "snippetStartLine": 31
+            },
+            {
+              "kind": "test",
+              "name": "clamps above `hi`",
+              "status": "pass",
+              "duration": 0.07974999999999,
+              "doc": "Above-bound example.",
+              "location": {
+                "line": 35,
+                "column": 5
+              },
+              "snippet": "vtest('clamps above `hi`', 'Above-bound example.', () => {\n  expect(clamp(42, 0, 10)).toBe(10);\n});",
+              "snippetStartLine": 35
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "special values",
+          "children": [
+            {
+              "kind": "test",
+              "name": "NaN propagates",
+              "status": "pass",
+              "duration": 0.07704200000000583,
+              "doc": "`Math.min(NaN, ...)` is `NaN`, so the result is `NaN` for any clamp range.",
+              "location": {
+                "line": 45,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'NaN propagates',\n  '`Math.min(NaN, ...)` is `NaN`, so the result is `NaN` for any clamp range.',\n  () => {\n    expect(clamp(Number.NaN, 0, 1)).toBeNaN();\n  },\n);",
+              "snippetStartLine": 45
+            },
+            {
+              "kind": "test",
+              "name": "Infinity is clamped",
+              "status": "pass",
+              "duration": 0.07329100000001176,
+              "doc": "`+Infinity` becomes `hi`; `-Infinity` becomes `lo`.",
+              "location": {
+                "line": 53,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'Infinity is clamped',\n  '`+Infinity` becomes `hi`; `-Infinity` becomes `lo`.',\n  () => {\n    expect(clamp(Number.POSITIVE_INFINITY, 0, 1)).toBe(1);\n    expect(clamp(Number.NEGATIVE_INFINITY, 0, 1)).toBe(0);\n  },\n);",
+              "snippetStartLine": 53
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "interpolate",
+      "filepath": "vtest/numbers/interpolate.test.ts",
+      "doc": "---\ntitle: interpolate\n---\n\n# interpolate\n\nLinear interpolation between two scalars by a parameter `t ∈ [0, 1]`.\n\n```ts\nlerp(0, 100, 0.25); // 25\nlerp(10, 20, 0.5);  // 15\n```\n\nThe implementation uses the **monotonic** form `a + (b - a) * t` rather than\n`a * (1 - t) + b * t`. The monotonic form guarantees `lerp(a, b, 0) === a`\nand `lerp(a, b, 1) === b` exactly, even with floating-point rounding —\nwhich the other form does not.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "lerp",
+          "children": [
+            {
+              "kind": "test",
+              "name": "exact endpoint identity at t=0 and t=1",
+              "status": "pass",
+              "duration": 1.2769999999999868,
+              "doc": "Required by the monotonic form.",
+              "location": {
+                "line": 14,
+                "column": 5
+              },
+              "snippet": "vtest('exact endpoint identity at t=0 and t=1', 'Required by the monotonic form.', () => {\n  expect(lerp(10, 20, 0)).toBe(10);\n  expect(lerp(10, 20, 1)).toBe(20);\n});",
+              "snippetStartLine": 14
+            },
+            {
+              "kind": "test",
+              "name": "returns the midpoint at t=0.5",
+              "status": "pass",
+              "duration": 0.09699999999997999,
+              "doc": "The simplest non-trivial case.",
+              "location": {
+                "line": 19,
+                "column": 5
+              },
+              "snippet": "vtest('returns the midpoint at t=0.5', 'The simplest non-trivial case.', () => {\n  expect(lerp(0, 100, 0.5)).toBe(50);\n});",
+              "snippetStartLine": 19
+            },
+            {
+              "kind": "test",
+              "name": "extrapolates when t is outside [0,1]",
+              "status": "pass",
+              "duration": 0.09866700000000606,
+              "doc": "`lerp` does not clamp — `t = 1.5` returns the point a further half-step past `b`.",
+              "location": {
+                "line": 23,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'extrapolates when t is outside [0,1]',\n  '`lerp` does not clamp — `t = 1.5` returns the point a further half-step past `b`.',\n  () => {\n    expect(lerp(0, 100, 1.5)).toBe(150);\n    expect(lerp(0, 100, -0.5)).toBe(-50);\n  },\n);",
+              "snippetStartLine": 23
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "inverseLerp",
+          "children": [
+            {
+              "kind": "test",
+              "name": "round-trips lerp at a few sample points",
+              "status": "pass",
+              "duration": 0.19050000000001432,
+              "doc": "`inverseLerp ∘ lerp` is the identity on `t`.",
+              "location": {
+                "line": 38,
+                "column": 5
+              },
+              "snippet": "vtest('round-trips lerp at a few sample points', '`inverseLerp ∘ lerp` is the identity on `t`.', () => {\n  for (const t of [0, 0.25, 0.5, 0.75, 1]) {\n    expect(inverseLerp(10, 20, lerp(10, 20, t))).toBeCloseTo(t);\n  }\n});",
+              "snippetStartLine": 38
+            },
+            {
+              "kind": "test",
+              "name": "returns 0 / 1 at the endpoints",
+              "status": "pass",
+              "duration": 0.07733400000000756,
+              "doc": "Sanity boundary check.",
+              "location": {
+                "line": 44,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'returns 0 / 1 at the endpoints',\n  'Sanity boundary check.',\n  () => {\n    expect(inverseLerp(10, 20, 10)).toBe(0);\n    expect(inverseLerp(10, 20, 20)).toBe(1);\n  },\n);",
+              "snippetStartLine": 44
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "tokenize",
+      "filepath": "vtest/parser/tokenize.test.ts",
+      "doc": "---\ntitle: tokenize\n---\n\n# tokenize\n\nA toy tokenizer for arithmetic expressions over integers.\n\n```\nexpr   = term { ('+' | '-') term }\nterm   = factor { ('*' | '/') factor }\nfactor = INT | '(' expr ')'\n```\n\nThe tokenizer emits:\n\n| Token      | Match               |\n| ---------- | ------------------- |\n| `NUMBER`   | `/[0-9]+/`          |\n| `OP`       | `+ - * /`           |\n| `LPAREN`   | `(`                 |\n| `RPAREN`   | `)`                 |\n\nThis module pulls double duty: it also stress-tests the docs **snippet\nextractor**, since the test bodies below contain template literals with\n`${}` interpolation, nested arrow functions, single- and double-quoted\nstrings containing `(`, and inline comments — all things the lexical\nscanner in the reporter has to navigate to find the matching `)`.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "numbers",
+          "children": [
+            {
+              "kind": "test",
+              "name": "single digit",
+              "status": "pass",
+              "duration": 1.1034589999999866,
+              "doc": "The simplest possible input.",
+              "location": {
+                "line": 55,
+                "column": 5
+              },
+              "snippet": "vtest('single digit', 'The simplest possible input.', () => {\n  expect(tokenize('7')).toEqual([{ kind: 'NUMBER', value: 7 }]);\n});",
+              "snippetStartLine": 55
+            },
+            {
+              "kind": "test",
+              "name": "multiple digits become one token",
+              "status": "pass",
+              "duration": 0.12745900000001598,
+              "doc": "The scanner is greedy.",
+              "location": {
+                "line": 59,
+                "column": 5
+              },
+              "snippet": "vtest('multiple digits become one token', 'The scanner is greedy.', () => {\n  expect(tokenize('1234')).toEqual([{ kind: 'NUMBER', value: 1234 }]);\n});",
+              "snippetStartLine": 59
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "operators and parens",
+          "children": [
+            {
+              "kind": "test",
+              "name": "plus and minus",
+              "status": "pass",
+              "duration": 0.13970900000001052,
+              "doc": "Tests that adjacent operator characters tokenize independently — `1+-2` produces three tokens, not one.",
+              "location": {
+                "line": 69,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'plus and minus',\n  'Tests that adjacent operator characters tokenize independently — `1+-2` produces three tokens, not one.',\n  () => {\n    // Whitespace is optional and ignored.\n    const tokens = tokenize('1+-2');\n    expect(tokens).toEqual([\n      { kind: 'NUMBER', value: 1 },\n      { kind: 'OP', op: '+' },\n      { kind: 'OP', op: '-' },\n      { kind: 'NUMBER', value: 2 },\n    ]);\n  },\n);",
+              "snippetStartLine": 69
+            },
+            {
+              "kind": "test",
+              "name": "parens around an expression",
+              "status": "pass",
+              "duration": 0.18512499999999932,
+              "doc": "Snippet-extractor stress: this body uses a template literal with `${}` interpolation that contains a `(` and a `)` — the scanner must not treat those as the outer call boundary.",
+              "location": {
+                "line": 84,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'parens around an expression',\n  'Snippet-extractor stress: this body uses a template literal with `${}` interpolation that contains a `(` and a `)` — the scanner must not treat those as the outer call boundary.',\n  () => {\n    const input = `(1 + 2)`;\n    const expected = `(1 + 2)`;\n    // The literal we just built (`${expected}`) and the input should agree.\n    expect(input).toBe(expected);\n    expect(tokenize(input)).toEqual([\n      { kind: 'LPAREN' },\n      { kind: 'NUMBER', value: 1 },\n      { kind: 'OP', op: '+' },\n      { kind: 'NUMBER', value: 2 },\n      { kind: 'RPAREN' },\n    ]);\n  },\n);",
+              "snippetStartLine": 84
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "whitespace and comments",
+          "children": [
+            {
+              "kind": "test",
+              "name": "skips spaces, tabs, and newlines",
+              "status": "pass",
+              "duration": 0.11424999999999841,
+              "doc": "A body spanning multiple lines with mixed whitespace.",
+              "location": {
+                "line": 108,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'skips spaces, tabs, and newlines',\n  'A body spanning multiple lines with mixed whitespace.',\n  () => {\n    // The tokenizer should treat all of these as equivalent.\n    const a = tokenize('1 + 2');\n    const b = tokenize('1\\t+\\t2');\n    const c = tokenize('1\\n+\\n2');\n    expect(a).toEqual(b);\n    expect(b).toEqual(c);\n  },\n);",
+              "snippetStartLine": 108
+            },
+            {
+              "kind": "test",
+              "name": "string args containing parens do not confuse anything",
+              "status": "pass",
+              "duration": 0.12479200000001356,
+              "doc": "Snippet-extractor stress: the string literal `\")\"` below contains a paren that must NOT close the outer `vtest(` call.",
+              "location": {
+                "line": 121,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'string args containing parens do not confuse anything',\n  'Snippet-extractor stress: the string literal `\")\"` below contains a paren that must NOT close the outer `vtest(` call.',\n  () => {\n    const paren = ')';\n    const fakeOpen = '(';\n    expect(paren).toBe(')');\n    expect(fakeOpen).toBe('(');\n    // Sanity: tokenizer still works on a real expression with parens.\n    expect(tokenize('(7)')).toEqual([\n      { kind: 'LPAREN' },\n      { kind: 'NUMBER', value: 7 },\n      { kind: 'RPAREN' },\n    ]);\n  },\n);",
+              "snippetStartLine": 121
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "errors",
+          "children": [
+            {
+              "kind": "test",
+              "name": "throws on an unknown character",
+              "status": "pass",
+              "duration": 0.438083000000006,
+              "doc": "The error message mentions the offending character and its zero-based offset.",
+              "location": {
+                "line": 144,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'throws on an unknown character',\n  'The error message mentions the offending character and its zero-based offset.',\n  () => {\n    expect(() => tokenize('1 ? 2')).toThrow(\n      /unexpected character \\? at offset 2/,\n    );\n  },\n);",
+              "snippetStartLine": 144
+            },
+            {
+              "kind": "test",
+              "name": "nested arrow function in the body",
+              "status": "pass",
+              "duration": 0.093166999999994,
+              "doc": "Snippet-extractor stress: defining and invoking an inner arrow function with its own parens.",
+              "location": {
+                "line": 154,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'nested arrow function in the body',\n  'Snippet-extractor stress: defining and invoking an inner arrow function with its own parens.',\n  () => {\n    const double = (n: number): number => n * 2;\n    const values = [1, 2, 3].map(double);\n    expect(values).toEqual([2, 4, 6]);\n  },\n);",
+              "snippetStartLine": 154
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "case",
+      "filepath": "vtest/strings/case.test.ts",
+      "doc": "---\ntitle: case\n---\n\n# case\n\nCase conversions for identifier-shaped strings. All converters round-trip\nbetween word-tokens and the target style; non-alphanumeric characters act\nas token separators.\n\n| Function     | Input            | Output           |\n| ------------ | ---------------- | ---------------- |\n| `camel`      | `\"hello world\"`  | `\"helloWorld\"`   |\n| `pascal`     | `\"hello world\"`  | `\"HelloWorld\"`   |\n| `kebab`      | `\"helloWorld\"`   | `\"hello-world\"`  |\n| `snake`      | `\"helloWorld\"`   | `\"hello_world\"`  |\n\nThe tokenizer treats a transition from lower→upper as a boundary, so\n`HTTPServer` becomes `[\"HTTP\", \"Server\"]` rather than splitting the\nacronym. That choice is deliberate — see the *acronyms* suite below.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "camel",
+          "children": [
+            {
+              "kind": "test",
+              "name": "joins space-separated words",
+              "status": "pass",
+              "duration": 0.9667919999999981,
+              "doc": "A plain English phrase becomes a single identifier.",
+              "location": {
+                "line": 51,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'joins space-separated words',\n  'A plain English phrase becomes a single identifier.',\n  () => {\n    expect(camel('hello world')).toBe('helloWorld');\n  },\n);",
+              "snippetStartLine": 51
+            },
+            {
+              "kind": "test",
+              "name": "lowercases an already-camel input",
+              "status": "pass",
+              "duration": 0.09995800000001509,
+              "doc": "Round-tripping `camelCase → camel` is the identity, modulo first-letter casing.",
+              "location": {
+                "line": 59,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'lowercases an already-camel input',\n  'Round-tripping `camelCase → camel` is the identity, modulo first-letter casing.',\n  () => {\n    expect(camel('helloWorld')).toBe('helloWorld');\n  },\n);",
+              "snippetStartLine": 59
+            },
+            {
+              "kind": "test",
+              "name": "joins hyphen-separated and snake-separated forms",
+              "status": "pass",
+              "duration": 0.0962080000000185,
+              "doc": "Mixed separators are all treated equivalently.",
+              "location": {
+                "line": 67,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'joins hyphen-separated and snake-separated forms',\n  'Mixed separators are all treated equivalently.',\n  () => {\n    expect(camel('hello-world')).toBe('helloWorld');\n    expect(camel('hello_world')).toBe('helloWorld');\n  },\n);",
+              "snippetStartLine": 67
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "pascal",
+          "children": [
+            {
+              "kind": "test",
+              "name": "title-cases the first token",
+              "status": "pass",
+              "duration": 0.1503330000000176,
+              "doc": "Distinguishes `pascal` from `camel`.",
+              "location": {
+                "line": 82,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'title-cases the first token',\n  'Distinguishes `pascal` from `camel`.',\n  () => {\n    expect(pascal('hello world')).toBe('HelloWorld');\n  },\n);",
+              "snippetStartLine": 82
+            },
+            {
+              "kind": "test",
+              "name": "handles a single token",
+              "status": "pass",
+              "duration": 0.07695799999999053,
+              "doc": "Trivial case.",
+              "location": {
+                "line": 90,
+                "column": 5
+              },
+              "snippet": "vtest('handles a single token', 'Trivial case.', () => {\n  expect(pascal('hello')).toBe('Hello');\n});",
+              "snippetStartLine": 90
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "kebab / snake",
+          "children": [
+            {
+              "kind": "test",
+              "name": "splits camelCase by case boundary",
+              "status": "pass",
+              "duration": 0.09379200000000765,
+              "doc": "The core tokenizer behaviour.",
+              "location": {
+                "line": 100,
+                "column": 5
+              },
+              "snippet": "vtest('splits camelCase by case boundary', 'The core tokenizer behaviour.', () => {\n  expect(kebab('helloWorld')).toBe('hello-world');\n  expect(snake('helloWorld')).toBe('hello_world');\n});",
+              "snippetStartLine": 100
+            },
+            {
+              "kind": "test",
+              "name": "collapses repeated separators",
+              "status": "pass",
+              "duration": 0.08691699999999969,
+              "doc": "Multiple non-alphanumerics in a row produce a single boundary, not multiple empty tokens.",
+              "location": {
+                "line": 105,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'collapses repeated separators',\n  'Multiple non-alphanumerics in a row produce a single boundary, not multiple empty tokens.',\n  () => {\n    expect(kebab('hello   world')).toBe('hello-world');\n    expect(snake('hello___world')).toBe('hello_world');\n  },\n);",
+              "snippetStartLine": 105
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "acronyms",
+          "children": [
+            {
+              "kind": "test",
+              "name": "keeps acronyms intact in camel output",
+              "status": "pass",
+              "duration": 0.08420800000001805,
+              "doc": "For `HTTPServer`, the boundary lands between `HTTP` and `Server` — not inside `HTTP`.",
+              "location": {
+                "line": 120,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'keeps acronyms intact in camel output',\n  'For `HTTPServer`, the boundary lands between `HTTP` and `Server` — not inside `HTTP`.',\n  () => {\n    expect(camel('HTTPServer')).toBe('httpServer');\n    expect(kebab('HTTPServer')).toBe('http-server');\n  },\n);",
+              "snippetStartLine": 120
+            },
+            {
+              "kind": "test",
+              "name": "handles trailing acronyms",
+              "status": "pass",
+              "duration": 0.08395799999999554,
+              "doc": "A trailing all-caps run becomes its own final token.",
+              "location": {
+                "line": 129,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'handles trailing acronyms',\n  'A trailing all-caps run becomes its own final token.',\n  () => {\n    expect(kebab('parseURL')).toBe('parse-url');\n    expect(snake('toJSON')).toBe('to_json');\n  },\n);",
+              "snippetStartLine": 129
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "file",
+      "name": "slugify",
+      "filepath": "vtest/strings/slugify.test.ts",
+      "doc": "---\ntitle: slugify\n---\n\n# slugify\n\nTurns arbitrary text into a URL-safe slug. Diacritics are stripped via NFD\nnormalisation; runs of non-alphanumerics collapse to a single hyphen.\n\n```ts\nslugify('Héllo, World!');   // 'hello-world'\nslugify('  --leading--  ');  // 'leading'\n```\n\n## Why NFD?\n\nUnicode lets the same visible glyph be encoded multiple ways. NFD splits\ncharacters into base + combining marks so the diacritics can be filtered\nwith a single regex, regardless of source encoding.\n",
+      "children": [
+        {
+          "kind": "suite",
+          "name": "happy path",
+          "children": [
+            {
+              "kind": "test",
+              "name": "lowercases ASCII",
+              "status": "pass",
+              "duration": 0.9582920000000001,
+              "doc": "Trivial casefolding.",
+              "location": {
+                "line": 17,
+                "column": 5
+              },
+              "snippet": "vtest('lowercases ASCII', 'Trivial casefolding.', () => {\n  expect(slugify('Hello World')).toBe('hello-world');\n});",
+              "snippetStartLine": 17
+            },
+            {
+              "kind": "test",
+              "name": "strips diacritics via NFD",
+              "status": "pass",
+              "duration": 0.15100000000001046,
+              "doc": "Combining marks are removed; the underlying base letter survives.",
+              "location": {
+                "line": 21,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'strips diacritics via NFD',\n  'Combining marks are removed; the underlying base letter survives.',\n  () => {\n    expect(slugify('Héllo Wörld')).toBe('hello-world');\n    expect(slugify('Café crème')).toBe('cafe-creme');\n  },\n);",
+              "snippetStartLine": 21
+            },
+            {
+              "kind": "test",
+              "name": "drops punctuation",
+              "status": "pass",
+              "duration": 0.07974999999999,
+              "doc": "Any non-alphanumeric character becomes a separator candidate.",
+              "location": {
+                "line": 30,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'drops punctuation',\n  'Any non-alphanumeric character becomes a separator candidate.',\n  () => {\n    expect(slugify(\"It's a test!\")).toBe('it-s-a-test');\n  },\n);",
+              "snippetStartLine": 30
+            }
+          ]
+        },
+        {
+          "kind": "suite",
+          "name": "edge cases",
+          "children": [
+            {
+              "kind": "test",
+              "name": "collapses runs of separators",
+              "status": "pass",
+              "duration": 0.08362500000001205,
+              "doc": "Multiple symbols in a row collapse to a single hyphen.",
+              "location": {
+                "line": 44,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'collapses runs of separators',\n  'Multiple symbols in a row collapse to a single hyphen.',\n  () => {\n    expect(slugify('a   b---c')).toBe('a-b-c');\n  },\n);",
+              "snippetStartLine": 44
+            },
+            {
+              "kind": "test",
+              "name": "trims leading and trailing hyphens",
+              "status": "pass",
+              "duration": 0.08329200000000014,
+              "doc": "After collapsing, the result is stripped on both ends.",
+              "location": {
+                "line": 52,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'trims leading and trailing hyphens',\n  'After collapsing, the result is stripped on both ends.',\n  () => {\n    expect(slugify('  --leading--  ')).toBe('leading');\n    expect(slugify('!!middle!!')).toBe('middle');\n  },\n);",
+              "snippetStartLine": 52
+            },
+            {
+              "kind": "test",
+              "name": "returns empty for separator-only input",
+              "status": "pass",
+              "duration": 0.07954200000000355,
+              "doc": "No alphanumerics means no slug.",
+              "location": {
+                "line": 61,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'returns empty for separator-only input',\n  'No alphanumerics means no slug.',\n  () => {\n    expect(slugify('!!!')).toBe('');\n    expect(slugify('   ')).toBe('');\n  },\n);",
+              "snippetStartLine": 61
+            },
+            {
+              "kind": "test",
+              "name": "preserves digits",
+              "status": "pass",
+              "duration": 0.07025000000001569,
+              "doc": "Numbers are alphanumerics — they survive the filter.",
+              "location": {
+                "line": 70,
+                "column": 5
+              },
+              "snippet": "vtest(\n  'preserves digits',\n  'Numbers are alphanumerics — they survive the filter.',\n  () => {\n    expect(slugify('2026 roadmap')).toBe('2026-roadmap');\n  },\n);",
+              "snippetStartLine": 70
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "folders": [
+    {
+      "path": "vtest/arrays",
+      "doc": "# Arrays\n\nSmall, allocation-conscious helpers that take an array and return a new\narray. Everything here is **pure** — no in-place mutation — and works on\nboth arrays and array-like iterables where possible.\n\n## Modules\n\n| Module   | Role                                                      |\n| -------- | --------------------------------------------------------- |\n| `chunk`  | Split into fixed-size sub-arrays; last chunk may be short |\n| `unique` | Remove duplicates preserving first-seen order             |\n\n## Conventions\n\n- **Input is never mutated.** Every helper returns a fresh array; this is\n  the property that lets these compose safely in pipelines.\n- **Order is preserved** unless the helper's name says otherwise. `unique`\n  keeps the first occurrence; nothing here re-sorts.\n- **Empty input is a valid input.** Each module's `empty / edge` suite\n  pins down the empty-array contract so callers don't need their own\n  guard.\n\n> If you find yourself reaching for `lodash` for a one-liner, check here\n> first — most array helpers we use live here and have tests next to the\n> docs that prove the behaviour.\n"
+    },
+    {
+      "path": "vtest/numbers",
+      "doc": "# Numbers\n\nNumeric primitives for clamping, mapping, and interpolating values across\nranges. Everything is total — every input has a defined output, including\nthe awkward ones (`NaN`, `±Infinity`, inverted bounds).\n\n## Modules\n\n| Module        | Role                                                 |\n| ------------- | ---------------------------------------------------- |\n| `clamp`       | Constrain a number to a closed interval `[min, max]` |\n| `interpolate` | Linear interpolation between two values              |\n\n## Conventions\n\n- **`NaN` propagates.** Matching `Math.min` / `Math.max`, any helper\n  receiving `NaN` returns `NaN` rather than silently coercing.\n- **Bounds are not validated.** Inverted intervals (`min > max`) are the\n  caller's mistake; the helpers document their behaviour but do not\n  throw. This keeps the hot path branch-free.\n- **No locale or formatting concerns.** Pure numeric in/out — string\n  formatting belongs in `strings/` or a dedicated `Intl` wrapper.\n\n> Each module's tests cover the canonical case, the boundary cases (at\n> `min`, at `max`, and `NaN`), and at least one degenerate input.\n"
+    },
+    {
+      "path": "vtest/parser",
+      "doc": "# Parser\n\nA toy tokenizer for arithmetic expressions over integers. This module\nexists for two reasons:\n\n1. It's a small, real grammar that exercises the lexer-style code paths\n   we want examples of in the codebase.\n2. Its test bodies are **deliberately gnarly** — template literals with\n   `${}` interpolation, nested arrow functions, single- and double-quoted\n   strings containing `(`, inline comments — so they double as a stress\n   test for the docs **snippet extractor** in `@monorepo/vtest`.\n\n## Modules\n\n| Module     | Role                                          |\n| ---------- | --------------------------------------------- |\n| `tokenize` | Turns a source string into an array of tokens |\n\n## Why this lives here\n\nMost utility folders ship _functions_; this one also ships a\n_specification_. If you're looking at it because a docs page is missing\nits snippet, the bug is almost certainly in the reporter's call-snippet\nextractor — open `packages/vtest/src/reporter.ts` and check\n`extractCallSnippet`. The `failure modes` suite pins down inputs that\nhistorically broke it.\n\n> This is the only module under `vtest/` that has a meta-purpose. Treat\n> it as a fixture, not as production code.\n"
+    },
+    {
+      "path": "vtest/strings",
+      "doc": "# Strings\n\nString helpers for identifier-shaped values — the kind you derive from\nuser input or from other strings, not the kind you display. Output is\nalways ASCII-safe unless a module explicitly says otherwise.\n\n## Modules\n\n| Module    | Role                                               |\n| --------- | -------------------------------------------------- |\n| `case`    | `camel` / `pascal` / `kebab` / `snake` conversions |\n| `slugify` | URL-safe slug generation with diacritic folding    |\n\n## Conventions\n\n- **Tokenization is shared.** A lower→upper transition is a word boundary\n  (`HTTPServer` → `HTTP`, `Server`), and so are runs of non-alphanumerics.\n  Both modules use the same rule so `case` and `slugify` stay consistent\n  on the same input.\n- **Acronyms are preserved as a single token.** This is a deliberate\n  choice — the alternative (`H`, `T`, `T`, `P`, `Server`) round-trips\n  poorly. See the `acronyms` suite in `case` for the pinned behaviour.\n- **Empty / whitespace-only input** always returns `\"\"` rather than\n  throwing.\n\n> If you need internationalised case folding (Turkish-i, German-ß), reach\n> for `Intl.Collator` instead — these helpers are intentionally\n> ASCII-first.\n"
+    }
+  ],
   "summary": {
-    "total": 0,
-    "passed": 0,
+    "total": 47,
+    "passed": 47,
     "failed": 0,
     "skipped": 0,
-    "durationMs": 15,
-    "startedAt": "2026-05-23T21:32:42.570Z",
-    "finishedAt": "2026-05-23T21:32:42.585Z"
+    "durationMs": 164,
+    "startedAt": "2026-06-05T17:18:29.423Z",
+    "finishedAt": "2026-06-05T17:18:29.587Z"
   }
 }

@@ -1,11 +1,6 @@
 export { TraceList } from './trace-list';
-export { TraceDock, type TraceDockSettings } from './trace-dock';
-export { CommandPalette } from './command-palette';
-export { serviceColor, type ServiceColor } from './service-color';
-export {
-  formatDuration,
-  groupByTrace,
-  type SpanNode,
-  type TraceGroup,
-} from './utils';
-export type { OtelEvent, OtelSpan, OtelStatus } from './types';
+export { TraceDock } from './trace-dock';
+export { serviceColor } from './service-color';
+export { groupByTrace, type TraceGroup } from './trace-model';
+export { transformSpan, transformLog } from './trace-model';
+export type { OtelSpan } from './trace-model';
