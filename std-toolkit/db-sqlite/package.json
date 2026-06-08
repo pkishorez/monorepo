@@ -24,8 +24,7 @@
     "./adapters/bun": {
       "types": "./dist/sql/adapters/bun.d.ts",
       "default": "./dist/sql/adapters/bun.js"
-    },
-    "./vtest-report": "./vtest/report.json"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -34,11 +33,9 @@
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",
     "play": "pnpm tsx ./play/play.ts",
-    "test": "vp test",
+    "test": "vitest run",
     "test:bun": "bun test .bun.",
-    "test:docs": "vitest run --config vitest.docs.config.ts",
-    "test:docs:watch": "vitest run --config vitest.docs.config.ts --watch",
-    "test:watch": "vp test --watch"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@std-toolkit/core": "workspace:*",

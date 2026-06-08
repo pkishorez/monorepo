@@ -26,7 +26,7 @@ const config = defineConfig({
   plugins: [
     devtools({ injectSource: { enabled: false } }),
 
-    contentCollections(),
+    !isTest && contentCollections(),
     mdx({
       remarkPlugins: [
         remarkFrontmatter,

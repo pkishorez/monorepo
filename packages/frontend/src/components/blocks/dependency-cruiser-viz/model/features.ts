@@ -4,15 +4,17 @@ import type { VizSummary } from './types';
 export type FeatureFocus = {
   /** `layer::name` keys of modules owned by the selected feature. */
   owned: Set<string>;
-  /** `layer::name` keys of shared modules the feature legally consumes. */
+  /** `layer::name` keys of shared/public modules the feature legally consumes. */
   consumed: Set<string>;
 };
 
 /**
  * For a selected feature F, the modules to light up on the canvas / tree:
  * - owned: `moduleCoverage` where `feature === F`
- * - consumed: shared modules named in `featureEdges` `via` where `from === F`,
- *   owned by `e.to` (resolved against moduleCoverage of the owning feature).
+ * - consumed: shared/public modules F actually imports, taken straight from
+ *   `featureModuleEdges` with `relation === 'consumes'`. This is the real
+ *   import graph, so a public (ownerless) module only lights up for the
+ *   features that genuinely depend on it — never for every feature.
  */
 export function featureFocus(
   summary: VizSummary | undefined,
@@ -26,20 +28,9 @@ export function featureFocus(
     if (m.feature === feature) owned.add(moduleKey(m.layer, m.module));
   }
 
-  const viaByOwner = new Map<string, Set<string>>();
-  for (const e of summary.featureEdges) {
-    if (e.from !== feature) continue;
-    let set = viaByOwner.get(e.to);
-    if (!set) {
-      set = new Set<string>();
-      viaByOwner.set(e.to, set);
-    }
-    for (const name of e.via) set.add(name);
-  }
-  for (const m of summary.moduleCoverage) {
-    const names = m.feature ? viaByOwner.get(m.feature) : undefined;
-    if (names && names.has(m.module)) {
-      consumed.add(moduleKey(m.layer, m.module));
+  for (const e of summary.featureModuleEdges) {
+    if (e.feature === feature && e.relation === 'consumes') {
+      consumed.add(moduleKey(e.layer, e.module));
     }
   }
 

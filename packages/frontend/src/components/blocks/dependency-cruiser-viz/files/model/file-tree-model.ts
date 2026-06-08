@@ -115,7 +115,7 @@ export function getFileTreeViewModel({
     // Default expansion opens every ancestor down to (and including the row
     // for) each module, leaving the module folder itself collapsed. Stable
     // across feature selection and hover so persistent expansion is preserved.
-    expandedItems: collectModuleCollapsedIds(tree, modulePaths),
+    expandedItems: collectModuleCollapsedIds(tree, layerPaths, modulePaths),
     hoveredGraphFiles: hoveredGraphFiles ?? null,
     hoveredModulePath: hoveredModulePath ?? null,
   };

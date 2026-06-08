@@ -16,8 +16,7 @@
     "./memory": {
       "types": "./dist/memory/index.d.ts",
       "default": "./dist/memory/index.js"
-    },
-    "./vtest-report": "./vtest/report.json"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -25,10 +24,8 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",
-    "test": "vp test",
-    "test:docs": "vitest run --config vitest.docs.config.ts",
-    "test:docs:watch": "vitest run --config vitest.docs.config.ts --watch",
-    "test:watch": "vp test --watch"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@std-toolkit/core": "workspace:*",

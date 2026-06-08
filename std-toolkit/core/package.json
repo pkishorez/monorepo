@@ -32,14 +32,15 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",
-    "test": "vp test",
-    "test:watch": "vp test --watch"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@std-toolkit/eschema": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260517.1",
+    "@monorepo/vtest": "workspace:*",
     "@tsconfig/node22": "22.0.5",
     "@types/node": "25.9.1",
     "effect": "4.0.0-beta.78",

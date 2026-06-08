@@ -14,7 +14,7 @@ const entrypoints = layer('entrypoints', ['src/router.tsx'], {
   description: 'Client/server router bootstrap',
 });
 
-const routes = layer('routes', ['src/routes', 'src/docs'], {
+const routes = layer('routes', ['src/routes'], {
   description: 'File-based route tree and per-route UI',
 });
 
@@ -31,18 +31,11 @@ const lib = layer('lib', ['src/lib'], {
 });
 
 const blog = feature('blog', { description: 'Blog index and per-slug posts' });
-const docs = feature('docs', { description: 'Package documentation routes' });
 const otel = feature('otel', { description: 'OpenTelemetry trace viewer' });
-const depCruiser = feature('dep-cruiser', {
-  description: 'Dependency cruiser visualization route',
+const devtools = feature('devtools', {
+  description: 'DevTools workbench (vtest reader + dependency graph)',
 });
 const dev = feature('dev', { description: 'Internal dev/playground routes' });
-const codeBlock = feature('code-block', {
-  description: 'Syntax-highlighted code block component, shared with blog',
-});
-const rollup = feature('rollup', {
-  description: 'In-browser rollup bundling service',
-});
 
 export default {
   rootDir: 'src',
@@ -57,21 +50,20 @@ export default {
       lib,
     ]),
   ],
-  features: [blog, docs, otel, depCruiser, dev, codeBlock, rollup],
+  features: [blog, otel, devtools, dev],
   modules: [
     module('src/routes/blog', { feature: 'blog' }),
-    module('src/routes/docs', { feature: 'docs' }),
     module('src/routes/otel', { feature: 'otel' }),
     module('src/routes/otel/internal', { feature: 'otel' }),
     module('src/routes/dev', { feature: 'dev' }),
     module('src/routes/dev/components', { feature: 'dev' }),
-    module('src/routes/dep-cruiser', { feature: 'dep-cruiser' }),
+    module('src/routes/devtools', { feature: 'devtools' }),
+    module('src/routes/devtools/internal', { feature: 'devtools' }),
     module('src/components/blog', { feature: 'blog' }),
     module('src/components/code-block', {
-      feature: 'code-block',
       visibility: 'shared',
       sharedWith: ['blog'],
     }),
-    module('src/services/rollup', { feature: 'rollup' }),
+    module('src/services/rollup'),
   ],
 } satisfies ProjectConfig;

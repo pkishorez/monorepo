@@ -1,6 +1,3 @@
-import { useReactFlow } from '@xyflow/react';
-import { useCallback } from 'react';
-
 import { cn } from '#lib/utils';
 
 import { ResizablePanel } from '#components/ui/resizable';
@@ -8,7 +5,6 @@ import { ResizablePanel } from '#components/ui/resizable';
 import type { DependencyCruiserVizGraphView } from '../use-dependency-cruiser-viz';
 import { FeatureGraphPanel } from './feature';
 import { LayerGraphPanel } from './layer';
-import { FIT_VIEW_OPTIONS } from './react-flow-options';
 
 type GraphViewMode = 'layers' | 'features';
 
@@ -64,18 +60,9 @@ export function GraphPanel({
   onSetCanvasMode,
 }: GraphPanelProps) {
   const hasFeatures = (view.config.features ?? []).length > 0;
-  const { fitView } = useReactFlow();
-
-  const handleResize = useCallback(() => {
-    requestAnimationFrame(() => fitView(FIT_VIEW_OPTIONS));
-  }, [fitView]);
 
   return (
-    <ResizablePanel
-      defaultSize={view.summary ? 70 : 100}
-      minSize={40}
-      onResize={handleResize}
-    >
+    <ResizablePanel defaultSize={view.summary ? 70 : 100} minSize={40}>
       <div className="relative h-full w-full">
         {hasFeatures && (
           <ViewModeToggle mode={view.canvasMode} onChange={onSetCanvasMode} />

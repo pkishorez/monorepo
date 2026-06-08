@@ -165,13 +165,10 @@ export function computeFeatureLayout(
     // Module-selection dimming: every module except the selected one dims
     // (public included — the focus is on a single module, not a feature).
     const moduleDimmed = selectedModule !== null && !isSelected;
-    // Feature-selection dimming (existing): public modules stay full-opacity;
-    // only owned/shared modules dim outside the focused feature.
-    const featureDimmed =
-      m.visibility !== 'public' &&
-      selectedFeature !== null &&
-      !isOwned &&
-      !isConsumed;
+    // Feature-selection dimming: a module stays lit only when the focused
+    // feature owns or actually imports it. Public/shared modules are no longer
+    // exempt — an ownerless public module dims unless this feature consumes it.
+    const featureDimmed = selectedFeature !== null && !isOwned && !isConsumed;
     return {
       id: `module:${m.key}`,
       type: 'module',
@@ -336,9 +333,10 @@ export function computeFeatureLayout(
     if (e.relation === 'owns') {
       edges.push({
         id: `owns:${e.feature}->${key}`,
-        source: `feature:${e.feature}`,
+        source: `group:${e.feature}`,
         target: `module:${key}`,
         type: 'smoothstep',
+        hidden: dimmed,
         markerEnd: { type: MarkerType.ArrowClosed },
         style: {
           stroke: 'var(--foreground)',
@@ -347,14 +345,12 @@ export function computeFeatureLayout(
         },
       });
     } else {
-      const labelOpacity = dimmed ? 0.15 : 0.85;
       edges.push({
         id: `consumes:${e.feature}->${key}`,
-        source: `feature:${e.feature}`,
+        source: `group:${e.feature}`,
         target: `module:${key}`,
         type: 'smoothstep',
-        label: 'borrows',
-        labelShowBg: true,
+        hidden: dimmed,
         markerEnd: { type: MarkerType.ArrowClosed },
         style: {
           stroke: 'var(--muted-foreground)',
@@ -362,8 +358,6 @@ export function computeFeatureLayout(
           strokeDasharray: '4 3',
           opacity: dimmed ? 0.1 : 0.5,
         },
-        labelStyle: { fontSize: 9, opacity: labelOpacity },
-        labelBgStyle: { opacity: labelOpacity, fill: 'var(--card)' },
         data: { isDimmed: dimmed },
       });
     }
@@ -394,9 +388,10 @@ export function computeFeatureLayout(
     const labelOpacity = dimmed ? 0.2 : 1;
     edges.push({
       id,
-      source: `feature:${b.fromFeature}`,
+      source: `group:${b.fromFeature}`,
       target: `module:${targetKey}`,
       type: 'smoothstep',
+      hidden: dimmed,
       label: 'breach',
       labelShowBg: true,
       animated: !dimmed,
