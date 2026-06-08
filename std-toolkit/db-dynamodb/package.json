@@ -16,8 +16,7 @@
     "./*": {
       "types": "./dist/*",
       "import": "./dist/*"
-    },
-    "./vtest-report": "./vtest/report.json"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -29,10 +28,8 @@
     "lint:depcruise": "depcruise-viz lint",
     "lint:tsc": "tsc --noEmit",
     "play": "bun src/play/index.ts",
-    "test": "vp test",
-    "test:docs": "vitest run --config vitest.docs.config.ts",
-    "test:docs:watch": "vitest run --config vitest.docs.config.ts --watch",
-    "test:watch": "vp test --watch"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@std-toolkit/core": "workspace:*",

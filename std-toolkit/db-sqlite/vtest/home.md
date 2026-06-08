@@ -1,124 +1,71 @@
-# @std-toolkit/sqlite
+# SQLite
 
-A type-safe SQLite abstraction built on Effect. The package layers a thin
-`SQLiteTable` wrapper underneath a schema-driven `SQLiteEntity` /
-`SQLiteSingleEntity` runtime, and unifies multiple entities behind an
-`EntityRegistry` that owns the shared table and cross-entity transactions.
+A typed, Effect-based **single-table store** for the versioned records the rest
+of the toolkit speaks in. When a server (or a browser, or a Durable Object)
+needs durable, queryable storage with strict access patterns, it reaches for
+this package. Its job is to give you DynamoDB-style _single-table design_ on top
+of plain SQLite: one physical table, many logical entities, every access pattern
+pre-declared as an index.
 
-The documentation here is **operation-centric**. The table-level API is a
-deliberately small substrate — the interesting behaviour (key derivation,
-soft delete, broadcast, paginated streaming, registry transactions) all
-lives at the entity / single-entity / registry layer, and is documented
-operation-by-operation in the folders below.
+## The problem
 
-The package mirrors `@std-toolkit/db-dynamodb` on purpose: the entity API
-surface, schema contract, and key-derivation rules are identical, so you
-can target one in production and the other in local / browser / embedded
-contexts (Bun, better-sqlite3, Durable Objects) with no application
-changes.
+Raw SQLite gives you tables and SQL strings. That's a lot of rope. This package
+trades arbitrary SQL for a small, disciplined surface: you declare your entities
+and the keys you'll look them up by, and you get back type-safe `insert` /
+`get` / `query` Effects. Every row already carries the toolkit's versioning
+envelope, so encoding, schema versions, soft-deletes, and recency come for free.
 
-## Architecture
+## The mental model
 
-```mermaid
-flowchart TB
-  app["Application code"]
-  cmd["SqliteCommand<br/>(JSON CRUD facade)"]
-  reg["EntityRegistry<br/>(register, transaction)"]
-  ent["SQLiteEntity<br/>(get/insert/update/delete/query/queryStream/subscribe)"]
-  single["SQLiteSingleEntity<br/>(default + get/put/update)"]
-  table["SQLiteTable<br/>(setup, putItem, getItem, query, index)"]
-  db["SqliteDB<br/>(Context.Tag)"]
-  adapter["Adapter Layer<br/>(better-sqlite3 / bun / DO)"]
-  sqlite[("SQLite engine")]
+Five ideas hold the whole package together:
 
-  app --> cmd
-  app --> reg
-  cmd --> reg
-  reg --> ent
-  reg --> single
-  ent --> table
-  single --> table
-  reg --> table
-  table --> db
-  db --> adapter
-  adapter --> sqlite
+1. **One table, many entities.** A `SQLiteTable` is a single physical table with
+   a generic `pk`/`sk` (partition key / sort key) shape — the DynamoDB
+   single-table pattern. You never make one table per entity. Instead a
+   `SQLiteEntity` _shares_ the table and carves out its own keyspace by prefixing
+   keys with its name (`User#…`, `Post#…`).
+
+2. **The DB is a service, the adapter is a layer.** Operations are
+   `Effect<…, SqliteDBError, SqliteDB>`. You satisfy the `SqliteDB` requirement
+   by providing an adapter layer — `SqliteDBBetterSqlite3(db)` for Node, plus
+   `bun` and Durable-Object adapters — so the same entity code runs on any
+   backend.
+
+3. **You store the value; the entity manages the envelope.** You hand an entity
+   a plain value validated by an `ESchema`. It wraps it with `meta`
+   (`_e` entity name, `_v` schema version, `_u` a monotonic update key, `_d` a
+   soft-delete flag), derives the keys, and hands the same shape back. Versioning,
+   ordering, and sync all ride on that envelope.
+
+4. **Access patterns are declared, not improvised.** The primary index addresses
+   a record by its id within a partition. Need another lookup — "users by email",
+   "posts by author over time"? You declare a **secondary index** up front. There
+   is no ad-hoc `WHERE`; every query goes through a key you named.
+
+5. **Composition and atomicity.** An `EntityRegistry` gathers many entities on
+   one shared table, sets it up in one call, and wraps multi-entity work in a
+   `transaction`. A `SqliteCommand` turns the whole registry into a single
+   JSON-in/JSON-out processor for RPC.
+
+## How the pieces fit
+
+```
+SQLiteTable ──shared by──▶ SQLiteEntity<T>        (keyed records, secondary indexes)
+            └─────────────▶ SQLiteSingleEntity<T>  (exactly one record, with a default)
+
+EntityRegistry ──gathers──▶ many entities on one table  ──▶ setup() / transaction()
+                                                        └──▶ SqliteCommand (JSON RPC surface)
+
+every row:    meta = { _e, _v, _u, _d }      every op: Effect<…, SqliteDBError, SqliteDB>
+runnable DB:  Effect.provide(SqliteDBBetterSqlite3(new Database(':memory:')))
 ```
 
-## Install
+## How to read this tutorial
 
-```bash
-pnpm add @std-toolkit/sqlite effect @std-toolkit/eschema
-```
-
-Pick an adapter for your environment:
-
-```ts
-import { SqliteDBBetterSqlite3 } from '@std-toolkit/sqlite/adapters/better-sqlite3';
-import { SqliteDBBun } from '@std-toolkit/sqlite/adapters/bun';
-import { SqliteDBDurableObject } from '@std-toolkit/sqlite/adapters/do';
-```
-
-## Quick start
-
-```ts
-import { SQLiteTable, SQLiteEntity, EntityRegistry } from '@std-toolkit/sqlite';
-import { SqliteDBBetterSqlite3 } from '@std-toolkit/sqlite/adapters/better-sqlite3';
-import { EntityESchema } from '@std-toolkit/eschema';
-import { Effect, Schema } from 'effect';
-import Database from 'better-sqlite3';
-
-const table = SQLiteTable.make({ tableName: 'std_data' })
-  .primary('pk', 'sk')
-  .index('IDX1', 'IDX1PK', 'IDX1SK')
-  .build();
-
-const user = EntityESchema.make('User', 'userId', {
-  email: Schema.String,
-  name: Schema.String,
-}).build();
-
-const UserEntity = SQLiteEntity.make(table)
-  .eschema(user)
-  .primary()
-  .index('IDX1', 'byEmail', { pk: ['email'] })
-  .build();
-
-const registry = EntityRegistry.make(table).register(UserEntity).build();
-
-const db = new Database(':memory:');
-const layer = SqliteDBBetterSqlite3(db);
-
-await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
-```
-
-## Modules
-
-- [table](./table/index.doc.md) — `SQLiteTable` substrate: single-table
-  layout, `setup`, primary/secondary index columns, raw item ops
-- [entity](./entity/index.doc.md) — `SQLiteEntity` operations: get,
-  insert, update, delete, query, queryStream, subscribe, secondary
-  indexes, broadcast
-- [single-entity](./single-entity/index.doc.md) — `SQLiteSingleEntity`
-  operations: get (with default), put, update
-- [registry](./registry/index.doc.md) — `EntityRegistry` operations:
-  register, transaction
-- [command](./command/index.doc.md) — `SqliteCommand` JSON facade:
-  insert, update, delete, query, descriptor (+ RPC handler)
-
-## Why another SQLite wrapper?
-
-- **Single-table design, ported.** One row layout (`pk`, `sk`, `_data`,
-  `_e`, `_v`, `_u`, `_d` plus secondary index columns) for every entity.
-  You add an entity by declaring a schema, not by running a migration.
-- **Keys are _derived_, not stored manually.** You declare which entity
-  fields contribute to each index; the library writes (and refreshes) the
-  pk/sk columns on every put.
-- **Soft delete by default.** `entity.delete(...)` updates `_d = 1` plus
-  a new `_u` so sync consumers can observe the tombstone — hard delete
-  is reserved for `dangerouslyRemoveAllRows`.
-- **Transactions broadcast on commit.** Writes made inside
-  `registry.transaction(effect)` collect broadcasts in a `FiberRef`; the
-  flushed batch only fires once the SQLite `COMMIT` succeeds.
-- **Adapter-agnostic.** The same entity code runs on `better-sqlite3`
-  (Node), `bun:sqlite` (Bun), or Cloudflare Durable Object SQL — only
-  the `SqliteDB` layer changes.
+Start with **the shared table** — how single-table design works and how you get
+a runnable DB. Then **the entity**: writing and reading versioned records, and
+soft delete. Next the two halves of access modelling — **primary keys** (the
+partition you query within) and **secondary indexes** (extra access patterns).
+Then **the single entity** for genuinely singular data, and finally **the
+registry** that composes many entities on one table with transactions. Each
+feature teaches one idea with a runnable example you can expand.

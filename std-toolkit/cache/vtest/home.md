@@ -1,123 +1,57 @@
-# @std-toolkit/cache
+# Cache
 
-An **Effect-native cache** for `@std-toolkit/core` entities. The package
-defines three small interfaces — `CacheStore`, `CacheEntity<T>`,
-`CacheSingleItem<T>` — and ships two concrete backends: an in-process
-`MemoryCache` and a browser-side `IDBCache` built on IndexedDB. Every
-operation is an `Effect.Effect<A, CacheError>`, so caching composes with
-the rest of an Effect pipeline (retry, timeout, tracing) without bespoke
-glue.
+A typed, Effect-based **local store** for the versioned records the rest of the
+toolkit speaks in. When an app needs to keep data on the device — to render
+instantly on reload, to work offline, to avoid re-fetching — it reaches for
+cache. The package's job is to make that storage _uniform_: the same small API
+whether the data lives in plain memory or in the browser's IndexedDB.
 
-The cache is **entity-shaped**, not blob-shaped. Values are
-`EntityType<T>` / `SingleEntityType<T>` from `@std-toolkit/core`: a `value`
-payload plus a `meta` block carrying entity tag (`_e`), schema version
-(`_v`), an update marker (`_u`) and a soft-delete flag (`_d`). The `_u`
-field is the only sort key the cache understands; it is what
-`getLatest()` / `getOldest()` consult, and what keeps the IDB index in
-order.
+## The mental model
 
-## Architecture
+Think of cache as a set of small, named drawers you read and write through
+Effects. Five ideas hold the whole package together:
 
-```mermaid
-flowchart LR
-  store["CacheStore"]
-  entity["CacheEntity<T>"]
-  single["CacheSingleItem<T>"]
+1. **You store envelopes, not raw values.** Every record is an `EntityType<T>`
+   — your value wrapped with `meta` (`_e` type, `_v` schema version, `_u` a
+   monotonic update key, `_d` a soft-delete flag). The cache never invents this
+   envelope; you hand it one and it hands the same shape back. The envelope is
+   what makes versioning, ordering, and de-duplication possible.
 
-  store -->|".entity({name, idField})"| entity
-  store -->|".singleItem({name})"| single
+2. **Two shapes of drawer.** A `CacheEntity<T>` is a _keyed collection_ — many
+   records of one kind, addressed by id (think "all the users"). A
+   `CacheSingleItem<T>` is a _single slot_ — exactly one record, no id (think
+   "the current session"). Most data is a collection; settings-like data is a
+   single item.
 
-  subgraph memory_backend["MemoryCache"]
-    mEnt["Map + SortedMap(_u)"]
-    mSingle["single slot"]
-  end
+3. **A store is a factory.** You never construct a drawer directly. A
+   `CacheStore` mints them: `store.entity({ name, idField })` and
+   `store.singleItem({ name })`. The same `CacheStore` interface is implemented
+   by every backend, so swapping memory for IndexedDB changes one line and
+   nothing else.
 
-  subgraph idb_backend["IDBCache"]
-    pool["ConnectionPool"]
-    osEntity["object store + UPDATED_INDEX"]
-    osSingle["singletons store"]
-    pool --> osEntity
-    pool --> osSingle
-  end
+4. **Recency is first-class.** Because each envelope carries `_u`, a collection
+   can answer "what's the newest record?" and "what's the oldest?" without you
+   tracking timestamps yourself — `getLatest()` / `getOldest()`.
 
-  entity -.-> mEnt
-  entity -.-> osEntity
-  single -.-> mSingle
-  single -.-> osSingle
+5. **Everything is an Effect that can fail with `CacheError`.** No throwing, no
+   silent `null`. Reads return `Option`, every operation returns an
+   `Effect<…, CacheError>`, and namespacing within a backend is done with
+   _partition keys_ serialized by `serializePartition`.
 
-  subgraph err["error surface"]
-    open["OpenFailed"]
-    get["GetFailed"]
-    put["PutFailed"]
-    del["DeleteFailed"]
-    clr["ClearFailed"]
-  end
+## How the pieces fit
 
-  entity -.->|"CacheError"| err
-  single -.->|"CacheError"| err
+```
+CacheStore  ──entity()──▶  CacheEntity<T>     (many records, keyed by id)
+            ──singleItem()▶ CacheSingleItem<T> (one record, no id)
+
+every record:  EntityType<T> = { value: T, meta: { _e, _v, _u, _d } }
+every result:  Effect<…, CacheError>, reads wrapped in Option
 ```
 
-## Install
+## How to read this tutorial
 
-```bash
-pnpm add @std-toolkit/cache effect
-```
-
-The `IDBCache` backend requires a browser (or `fake-indexeddb` in tests).
-The `MemoryCache` backend has no runtime dependencies.
-
-## Quick start
-
-```ts
-import { Effect } from 'effect';
-import { MemoryCache } from '@std-toolkit/cache/memory';
-
-type User = { id: string; name: string };
-
-const program = Effect.gen(function* () {
-  const cache = new MemoryCache();
-  const users = yield* cache.entity<User>({ name: 'User', idField: 'id' });
-
-  yield* users.put({
-    value: { id: 'u1', name: 'Alice' },
-    meta: { _e: 'User', _v: 'v1', _u: 'uid-001', _d: false },
-  });
-
-  const latest = yield* users.getLatest();
-  // Option.some({ value: { id: 'u1', name: 'Alice' }, meta: { ... } })
-});
-
-Effect.runPromise(program);
-```
-
-## Backends
-
-| Backend       | Module                      | Persistence | Use when                            |
-| ------------- | --------------------------- | ----------- | ----------------------------------- |
-| `MemoryCache` | `@std-toolkit/cache/memory` | none        | tests, ephemeral state, server-side |
-| `IDBCache`    | `@std-toolkit/cache/idb`    | IndexedDB   | browser caching across reloads      |
-
-Both implement the same `CacheStore` interface; swap the constructor and
-nothing else has to change.
-
-## Modules
-
-- [errors](./errors/index.doc.md) — `CacheError` tagged-error variants
-- [partition](./partition/index.doc.md) — `serializePartition` key helper
-- [memory](./memory/index.doc.md) — `MemoryCache`, `MemoryCacheEntity`, `MemoryCacheSingleItem`
-- [idb](./idb/index.doc.md) — `IDBCache`, `IDBCacheEntity`, `IDBCacheSingleItem`
-
-## Why another cache?
-
-- **Entity-shaped, not blob-shaped.** Values carry a `meta` block, so the
-  cache knows about schema version (`_v`) and update marker (`_u`)
-  without having to call back into user code.
-- **`getLatest()` / `getOldest()` are first-class.** Both backends keep
-  a `_u`-ordered index so recency queries are O(log n), not O(n).
-- **One error type for the whole surface.** Every fallible operation
-  returns `Effect.Effect<A, CacheError>`, and `CacheError.error._tag`
-  is a closed union — `Effect.catchTag('CacheError', …)` covers
-  everything.
-- **Backend-agnostic at the call site.** `CacheStore` is the only
-  interface the application code needs; the choice between in-memory
-  and IndexedDB is a single line at construction.
+Follow the features top-to-bottom. We start with the **envelope** (what you
+actually store), then the two drawer shapes — **keyed collection** and **single
+item** — then the **recency** queries that the envelope unlocks, then the
+**store factory** that ties the backends together, and finally **partition
+keys** for namespacing. Each feature teaches one idea with a runnable example.

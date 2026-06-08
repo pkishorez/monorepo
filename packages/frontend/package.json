@@ -19,8 +19,7 @@
     "./lucide": "./src/lib/lucide.ts",
     "./motion": "./src/lib/motion.ts",
     "./form": "./src/form/index.ts",
-    "./styles/*": "./src/styles/*",
-    "./vtest-report": "./vtest/report.json"
+    "./styles/*": "./src/styles/*"
   },
   "scripts": {
     "addcomp": "./scripts/addcomp.sh",
@@ -28,15 +27,13 @@
     "depcruise": "depcruise-viz",
     "dev": "cosmos",
     "lint": "vp check && tsc --noEmit",
-    "lint:depcruise": "depcruise-viz lint",
-    "test:docs": "vitest run --config vitest.docs.config.ts --passWithNoTests"
+    "lint:depcruise": "depcruise-viz lint"
   },
   "dependencies": {
     "@base-ui/react": "1.5.0",
     "@dagrejs/dagre": "^3.0.0",
     "@emotion/is-prop-valid": "1.4.0",
     "@fontsource-variable/inter": "5.2.8",
-    "@monorepo/vtest": "file:../vtest",
     "@tanstack/react-form": "1.33.0",
     "@uiw/react-json-view": "2.0.0-alpha.42",
     "@xyflow/react": "12.11.0",

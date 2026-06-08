@@ -214,6 +214,9 @@ importers:
       '@effect/platform-browser':
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78(effect@4.0.0-beta.78)
+      '@monorepo/devtools':
+        specifier: workspace:*
+        version: link:../../packages/devtools
       '@monorepo/frontend':
         specifier: workspace:*
         version: link:../../packages/frontend
@@ -265,6 +268,9 @@ importers:
       '@tanstack/react-db':
         specifier: 0.1.85
         version: 0.1.85(react@19.2.7)(typescript@6.0.3)
+      '@tanstack/react-query':
+        specifier: 5.100.10
+        version: 5.100.10(react@19.2.7)
       '@tanstack/react-router':
         specifier: 1.170.3
         version: 1.170.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -415,6 +421,31 @@ importers:
         specifier: 4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  packages/devtools:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 4.0.0-beta.78
+        version: 4.0.0-beta.78(effect@4.0.0-beta.78)(ioredis@5.11.1)
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../vtest
+      dependency-cruiser-viz:
+        specifier: workspace:*
+        version: link:../dependency-cruiser-viz
+      effect:
+        specifier: 4.0.0-beta.78
+        version: 4.0.0-beta.78
+    devDependencies:
+      '@types/node':
+        specifier: 25.9.1
+        version: 25.9.1
+      tsx:
+        specifier: 4.22.4
+        version: 4.22.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/frontend:
     dependencies:
       '@base-ui/react':
@@ -429,9 +460,6 @@ importers:
       '@fontsource-variable/inter':
         specifier: 5.2.8
         version: 5.2.8
-      '@monorepo/vtest':
-        specifier: file:../vtest
-        version: link:../vtest
       '@tanstack/react-form':
         specifier: 1.33.0
         version: 1.33.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -721,10 +749,17 @@ importers:
         version: 6.0.3
 
   packages/vtest:
+    dependencies:
+      effect:
+        specifier: 4.0.0-beta.78
+        version: 4.0.0-beta.78
     devDependencies:
       '@types/node':
         specifier: 25.9.1
         version: 25.9.1
+      dependency-cruiser-viz:
+        specifier: workspace:*
+        version: link:../dependency-cruiser-viz
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -772,6 +807,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 4.20260517.1
         version: 4.20260517.1
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
@@ -874,6 +912,9 @@ importers:
         specifier: 1.1.0
         version: 1.1.0
     devDependencies:
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
@@ -905,6 +946,9 @@ importers:
         specifier: workspace:*
         version: link:../eschema
     devDependencies:
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@tanstack/react-db':
         specifier: 0.1.85
         version: 0.1.85(react@19.2.7)(typescript@6.0.3)
@@ -936,6 +980,9 @@ importers:
         specifier: workspace:*
         version: link:../eschema
     devDependencies:
+      '@monorepo/vtest':
+        specifier: workspace:*
+        version: link:../../packages/vtest
       '@tanstack/query-db-collection':
         specifier: 1.0.38
         version: 1.0.38(@tanstack/query-core@5.100.10)(typescript@6.0.3)

@@ -75,50 +75,54 @@ export function buildFileTree(
 }
 
 /**
- * Expand folders down to — but not into — the module level, so the tree opens
- * collapsed at modules with their files hidden until the user drills in.
+ * Expand folders down to — but not into — the layer/module boundary, so the
+ * tree opens collapsed at each layer or module with its contents hidden until
+ * the user drills in.
  *
- * Only the path leading to a module is auto-opened: a module folder itself is
- * left collapsed (visible, contents hidden), and a non-module folder that has
- * no module descendant is also left collapsed. Ancestors of modules expand.
+ * Only the path leading to a boundary is auto-opened: a boundary folder (layer
+ * or module) is left collapsed (visible, contents hidden) unless it contains a
+ * deeper boundary, in which case it expands so the deeper one stays reachable.
+ * A non-boundary folder with no boundary descendant is also left collapsed.
  */
 export function collectModuleCollapsedIds(
   nodes: FileTreeNode[],
+  layerPaths: Set<string>,
   modulePaths: Set<string>,
 ): string[] {
   const ids = new Set<string>();
   for (const node of nodes) {
-    collectModuleAncestorIds(node, modulePaths, ids);
+    collectBoundaryAncestorIds(node, layerPaths, modulePaths, ids);
   }
   return [...ids];
 }
 
 /**
- * Returns true if `node` is, or contains, a declared module. As a side effect,
- * adds every folder that leads to a deeper module to `ids` (so only the
- * DEEPEST module — one with no module descendant — renders collapsed).
+ * Returns true if `node` is, or contains, a declared layer or module. As a side
+ * effect, adds every folder that leads to a deeper boundary to `ids` (so only
+ * the DEEPEST boundary — one with no boundary descendant — renders collapsed).
  */
-function collectModuleAncestorIds(
+function collectBoundaryAncestorIds(
   node: FileTreeNode,
+  layerPaths: Set<string>,
   modulePaths: Set<string>,
   ids: Set<string>,
 ): boolean {
   if (node.type !== 'folder') return false;
 
-  const isModule = modulePaths.has(node.id);
-  let hasModuleDescendant = false;
+  const isBoundary = layerPaths.has(node.id) || modulePaths.has(node.id);
+  let hasBoundaryDescendant = false;
   for (const child of node.children ?? []) {
-    if (collectModuleAncestorIds(child, modulePaths, ids)) {
-      hasModuleDescendant = true;
+    if (collectBoundaryAncestorIds(child, layerPaths, modulePaths, ids)) {
+      hasBoundaryDescendant = true;
     }
   }
 
-  // Expand any folder that contains a deeper declared module — even one that is
-  // itself a module — so a nested module stays reachable. Only the deepest
-  // module (no module descendant) is left collapsed.
-  if (hasModuleDescendant) ids.add(node.id);
+  // Expand any folder that contains a deeper boundary — even one that is itself
+  // a layer or module — so the deeper boundary stays reachable. Only the
+  // deepest boundary (no boundary descendant) is left collapsed.
+  if (hasBoundaryDescendant) ids.add(node.id);
 
-  return isModule || hasModuleDescendant;
+  return isBoundary || hasBoundaryDescendant;
 }
 
 function propagateFolderStatus(nodes: FileTreeNode[]): FileStatus | undefined {

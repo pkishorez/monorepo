@@ -4,7 +4,10 @@ import { createJiti } from 'jiti';
 
 import type { ProjectConfig } from '../types.js';
 
-const jiti = createJiti(import.meta.url, { interopDefault: true });
+const jiti = createJiti(import.meta.url, {
+  interopDefault: true,
+  moduleCache: false,
+});
 
 export async function loadConfig(configPath: string): Promise<ProjectConfig> {
   if (!existsSync(configPath)) {

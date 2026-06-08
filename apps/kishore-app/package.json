@@ -17,6 +17,7 @@
   "dependencies": {
     "@content-collections/mdx": "0.2.2",
     "@effect/platform-browser": "4.0.0-beta.78",
+    "@monorepo/devtools": "workspace:*",
     "@monorepo/frontend": "workspace:*",
     "@monorepo/trace-viewer": "workspace:*",
     "@monorepo/vtest": "workspace:*",
@@ -34,6 +35,7 @@
     "@tanstack/ai-openrouter": "0.13.0",
     "@tanstack/ai-react": "0.15.3",
     "@tanstack/react-db": "0.1.85",
+    "@tanstack/react-query": "5.100.10",
     "@tanstack/react-router": "1.170.3",
     "@tanstack/react-router-ssr-query": "1.167.1",
     "@tanstack/react-start": "1.168.5",

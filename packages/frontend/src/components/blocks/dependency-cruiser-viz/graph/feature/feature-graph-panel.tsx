@@ -3,11 +3,12 @@ import {
   Handle,
   Position,
   ReactFlow,
+  ReactFlowProvider,
   useReactFlow,
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { cn } from '#lib/utils';
 
@@ -24,6 +25,7 @@ import {
   type ModuleNodeData,
 } from './feature-graph-layout';
 import { FIT_VIEW_OPTIONS } from '../react-flow-options';
+import { useFitViewOnResize } from '../use-fit-view-on-resize';
 
 type FeatureGraphPanelProps = {
   config: VisualizationConfig;
@@ -58,6 +60,9 @@ function FeatureGroupNode({ data }: NodeProps<Node<FeatureGroupNodeData>>) {
       <span className="absolute left-3 top-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {data.name}
       </span>
+      {/* Edges to axis-3 originate here (group's right edge) so they leave the
+          column clear of the private modules and share a centered vertical bus. */}
+      <Handle type="source" position={Position.Right} className="!opacity-0" />
     </button>
   );
 }
@@ -184,7 +189,15 @@ function TierLegend() {
   );
 }
 
-export function FeatureGraphPanel({
+export function FeatureGraphPanel(props: FeatureGraphPanelProps) {
+  return (
+    <ReactFlowProvider>
+      <FeatureGraphPanelInner {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+function FeatureGraphPanelInner({
   config,
   summary,
   selectedFeature,
@@ -192,6 +205,8 @@ export function FeatureGraphPanel({
   onSelectFeature,
   onSelectModule,
 }: FeatureGraphPanelProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fitted = useFitViewOnResize(containerRef);
   const { fitView } = useReactFlow();
 
   const handleSelectFeature = useCallback(
@@ -241,7 +256,13 @@ export function FeatureGraphPanel({
   }, [fitView, nodes.length]);
 
   return (
-    <div className="relative h-full w-full">
+    <div
+      ref={containerRef}
+      className={cn(
+        'relative h-full w-full transition-opacity duration-150',
+        fitted ? 'opacity-100' : 'opacity-0',
+      )}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -250,6 +271,7 @@ export function FeatureGraphPanel({
         fitViewOptions={FIT_VIEW_OPTIONS}
         nodesDraggable={false}
         nodesConnectable={false}
+        zoomOnDoubleClick={false}
         onPaneClick={handlePaneClick}
         proOptions={{ hideAttribution: true }}
       >

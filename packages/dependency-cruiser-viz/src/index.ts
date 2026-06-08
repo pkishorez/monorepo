@@ -4,6 +4,7 @@ export {
   toDependencyCruiserConfig,
   toVisualizationConfig,
 } from './compile/index.js';
+export { cruiseProject } from './cruise/index.js';
 export type {
   DepcruiseVizData,
   ProjectConfig,
