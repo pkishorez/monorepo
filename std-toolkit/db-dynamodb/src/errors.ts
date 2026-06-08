@@ -47,6 +47,42 @@ export type DynamodbErrorType =
       meta: AwsErrorMeta;
     };
 
+const formatMeta = (meta: AwsErrorMeta): string =>
+  meta.requestId
+    ? `(status ${meta.statusCode}, requestId ${meta.requestId})`
+    : `(status ${meta.statusCode})`;
+
+const describeError = (error: DynamodbErrorType): string => {
+  switch (error._tag) {
+    case 'UnknownAwsError':
+      return `${error.name}: ${error.message} ${formatMeta(error.meta)}`;
+    case 'InvalidSignatureException':
+      return `${error._tag}: ${error.message} ${formatMeta(error.meta)}`;
+    case 'ThrottlingException':
+    case 'ServiceUnavailable':
+    case 'RequestTimeout':
+    case 'AccessDeniedException':
+    case 'UnauthorizedException':
+    case 'ValidationException':
+      return `${error._tag} ${formatMeta(error.meta)}`;
+    case 'ConditionCheckFailed':
+      return `${error._tag}: ${error.message}`;
+    case 'GetItemFailed':
+    case 'PutItemFailed':
+    case 'UpdateItemFailed':
+    case 'DeleteItemFailed':
+    case 'QueryFailed':
+    case 'ScanFailed':
+    case 'DescribeFailed':
+    case 'TransactionFailed':
+    case 'BatchWriteFailed':
+    case 'ItemMigrationFailed':
+      return `${error._tag}: ${String(error.cause)}`;
+    default:
+      return error._tag;
+  }
+};
+
 /**
  * Unified error class for all DynamoDB operations.
  * Uses Effect's Data.TaggedError for structured error handling.
@@ -54,6 +90,15 @@ export type DynamodbErrorType =
 export class DynamodbError extends Data.TaggedError('DynamodbError')<{
   error: DynamodbErrorType;
 }> {
+  /**
+   * Human-readable summary used when the error is logged or rendered in a
+   * Cause. Without this, `Data.TaggedError` logs a bare `DynamodbError:` with
+   * no payload, hiding the actual AWS error name/message.
+   */
+  override get message(): string {
+    return describeError(this.error);
+  }
+
   /**
    * Creates an error for a failed GetItem operation.
    *
