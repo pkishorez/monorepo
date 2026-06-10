@@ -7,6 +7,7 @@ export { CodeBlock } from './code-block';
 export { Markdown } from './markdown';
 export { HealthBadge } from './health-badge';
 export { VtestView } from './view';
+export { toVtestConfig } from './to-config';
 
 export type {
   TestStatus,

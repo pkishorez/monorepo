@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { expect, test } from 'vitest';
 
-import { cruiseProject } from '../src/index.js';
+import { cruiseProject } from '../src/node.js';
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 

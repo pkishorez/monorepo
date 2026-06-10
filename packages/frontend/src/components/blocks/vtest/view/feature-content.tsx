@@ -19,7 +19,7 @@ export function FeatureContent({ feature }: FeatureContentProps) {
 
   return (
     <article className="mx-auto w-full max-w-3xl px-6 py-10 lg:px-10">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-foreground">
+      <h1 className="mb-8 text-4xl font-bold tracking-tight text-foreground">
         {feature.name}
       </h1>
       {segments.map((segment, i) => {

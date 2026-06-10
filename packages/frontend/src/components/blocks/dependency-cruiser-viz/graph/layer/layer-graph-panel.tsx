@@ -51,7 +51,6 @@ function LayerGraphPanelInner({
     (_: MouseEvent, node: Node) => {
       if (node.type !== 'layer') return;
       const data = node.data as LayerNodeData;
-      if (data.isDimmed) return;
       onSelectLayer(data.layerName);
     },
     [onSelectLayer],

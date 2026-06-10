@@ -29,6 +29,8 @@
   --color-chart-9: var(--chart-9);
   --color-positive: var(--positive);
   --color-positive-foreground: var(--positive-foreground);
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, 'SF Mono', 'Menlo', monospace;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);

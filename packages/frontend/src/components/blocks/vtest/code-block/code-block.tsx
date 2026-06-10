@@ -56,8 +56,8 @@ export function CodeBlock({
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border border-white/10 ${className ?? ''}`}
-      style={{ background: '#0b0b0e' }}
+      className={`not-prose group/code overflow-hidden border border-white/[0.06] ${className ?? ''}`}
+      style={{ background: 'oklch(0.145 0 0)' }}
     >
       {hasHeader && (
         <CodeHeader
@@ -70,10 +70,10 @@ export function CodeBlock({
       <Highlight code={clean} language={language} theme={themes.vsDark}>
         {({ className: prismClass, tokens, getLineProps, getTokenProps }) => (
           <pre
-            className={`overflow-auto p-0 text-[0.875rem] leading-6 ${prismClass}`}
+            className={`overflow-auto p-0 text-[0.8125rem] leading-[1.7] tracking-[-0.01em] ${prismClass}`}
             style={{ background: 'transparent' }}
           >
-            <code className="block min-w-fit py-3 font-mono">
+            <code className="block min-w-fit py-4 font-mono">
               {tokens.map((line, i) => {
                 const lineProps = getLineProps({ line });
                 const fileLine = startLineNumber + i;
@@ -82,13 +82,15 @@ export function CodeBlock({
                   <div
                     key={i}
                     {...lineProps}
-                    className={`flex pr-4 pl-3 ${lineProps.className ?? ''} ${
-                      isHot ? 'bg-amber-400/[0.08]' : ''
+                    className={`flex pr-6 pl-5 ${lineProps.className ?? ''} ${
+                      isHot
+                        ? 'bg-amber-300/[0.07] shadow-[inset_2px_0_0_0_rgba(251,191,36,0.5)]'
+                        : ''
                     }`}
                   >
                     {showLineNumbers && (
                       <span
-                        className="mr-4 shrink-0 select-none text-right text-zinc-600 tabular-nums"
+                        className="mr-5 shrink-0 select-none text-right text-zinc-700 tabular-nums transition-colors group-hover/code:text-zinc-600"
                         style={{ width: gutterWidth }}
                       >
                         {fileLine}
@@ -132,16 +134,22 @@ function CodeHeader({
   };
 
   return (
-    <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.02] px-3 py-2">
-      <span className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.6875rem] font-medium tracking-wide text-zinc-400 uppercase">
-        {language}
+    <div className="flex items-center gap-3 border-b border-white/[0.06] px-5 py-3">
+      <span className="flex shrink-0 gap-1.5" aria-hidden>
+        <span className="size-3 rounded-full bg-white/[0.08]" />
+        <span className="size-3 rounded-full bg-white/[0.08]" />
+        <span className="size-3 rounded-full bg-white/[0.08]" />
       </span>
-      {filename && (
+      {filename ? (
         <span
-          className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-500"
+          className="min-w-0 flex-1 truncate text-center font-mono text-xs text-zinc-500"
           title={filename}
         >
           {filename}
+        </span>
+      ) : (
+        <span className="flex-1 font-mono text-[0.6875rem] font-medium tracking-widest text-zinc-600 uppercase">
+          {language}
         </span>
       )}
       <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -149,7 +157,7 @@ function CodeHeader({
         <button
           type="button"
           onClick={copy}
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
           aria-label="Copy code"
         >
           {copied ? (

@@ -2,12 +2,17 @@
   "name": "@monorepo/devtools",
   "version": "0.0.0",
   "private": true,
+  "bin": {
+    "devtools-report": "src/cli/main.ts"
+  },
   "type": "module",
   "exports": {
-    "./rpc": "./src/rpc/index.ts"
+    "./rpc": "./src/rpc/index.ts",
+    "./report": "./src/report/index.ts"
   },
   "scripts": {
     "dev": "tsx src/server/main.ts",
+    "report": "tsx src/cli/main.ts",
     "lint": "vp check && tsc --noEmit"
   },
   "dependencies": {
