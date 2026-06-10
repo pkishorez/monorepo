@@ -27,11 +27,13 @@ function CodeRenderer({
     );
   }
   return (
-    <CodeBlock
-      code={String(children).replace(/\n$/, '')}
-      language={match[1] || 'tsx'}
-      showHeader
-    />
+    <div className="my-6">
+      <CodeBlock
+        code={String(children).replace(/\n$/, '')}
+        language={match[1] || 'tsx'}
+        showHeader
+      />
+    </div>
   );
 }
 
@@ -52,14 +54,14 @@ function PreRenderer({ children }: ComponentPropsWithoutRef<'pre'>) {
 export function Markdown({ source }: MarkdownProps) {
   return (
     <div
-      className="prose prose-sm dark:prose-invert max-w-none leading-relaxed
+      className="prose prose-base dark:prose-invert max-w-none leading-relaxed
         prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground
-        prose-h1:text-2xl prose-h2:mt-8 prose-h2:text-xl prose-h3:text-base
+        prose-h1:text-3xl prose-h2:mt-8 prose-h2:text-2xl prose-h3:text-lg
         prose-p:text-foreground/85
-        prose-li:text-foreground/85 prose-li:my-1
+        prose-li:text-foreground/85 prose-li:my-1.5
         prose-strong:text-foreground prose-strong:font-semibold
         prose-a:text-primary prose-a:font-medium prose-a:no-underline hover:prose-a:underline prose-a:underline-offset-4
-        prose-code:rounded prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.8125em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
+        prose-code:rounded prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.875em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
         prose-pre:m-0 prose-pre:bg-transparent prose-pre:p-0
         prose-blockquote:border-l-2 prose-blockquote:border-primary/40 prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:text-muted-foreground
         prose-hr:border-border/60

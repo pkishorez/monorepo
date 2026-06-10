@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CodeIcon } from 'lucide-react';
+import { ChevronRightIcon } from 'lucide-react';
 
 import { HealthBadge } from '../health-badge';
 import type { VtestGroup } from '../types';
@@ -11,10 +11,10 @@ interface TestGroupCardProps {
 }
 
 /**
- * An inline test-group card rendered at a directive offset inside the prose. It
- * shows the group's roll-up health and each documented test with its
- * description and status dot. Clicking a test opens the group-scoped two-pane
- * dialog focused on that test.
+ * An inline test group rendered at a directive offset inside the prose. A thin
+ * label row (group id, test count, roll-up health) sits above a flat,
+ * borderless list of the documented tests — each a clickable row that opens the
+ * group-scoped dialog focused on that test.
  */
 export function TestGroupCard({ group }: TestGroupCardProps) {
   const [active, setActive] = useState<string | null>(null);
@@ -27,11 +27,10 @@ export function TestGroupCard({ group }: TestGroupCardProps) {
   };
 
   return (
-    <section className="not-prose my-7 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <header className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <CodeIcon className="size-4 shrink-0 text-muted-foreground" />
-          <code className="truncate font-mono text-sm font-medium text-foreground">
+    <section className="not-prose my-8 border border-border bg-card/30">
+      <header className="flex items-center justify-between gap-3 border-b border-border bg-muted/30 px-5 py-3">
+        <div className="flex min-w-0 items-baseline gap-2.5">
+          <code className="truncate font-mono text-sm font-semibold tracking-tight text-foreground">
             {group.id}
           </code>
           <span className="shrink-0 text-xs text-muted-foreground">
@@ -47,26 +46,27 @@ export function TestGroupCard({ group }: TestGroupCardProps) {
             <button
               type="button"
               onClick={() => openTest(test.name)}
-              className="flex w-full items-start gap-2.5 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+              className="group/test flex w-full items-start gap-3.5 px-5 py-3.5 text-left transition-colors hover:bg-muted/40"
             >
-              <span className="mt-1.5">
+              <span className="mt-[0.4rem]">
                 <StatusDot status={test.status} />
               </span>
-              <span className="min-w-0">
-                <span className="block font-mono text-sm font-medium text-foreground">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[0.9375rem] leading-snug font-medium text-foreground transition-colors group-hover/test:text-primary">
                   {test.name}
                 </span>
                 {test.vdoc && (
-                  <span className="mt-0.5 block text-sm text-muted-foreground">
+                  <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
                     {test.vdoc}
                   </span>
                 )}
               </span>
+              <ChevronRightIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground/40 transition-colors group-hover/test:text-foreground" />
             </button>
           </li>
         ))}
         {group.tests.length === 0 && (
-          <li className="px-4 py-3 text-sm text-muted-foreground">
+          <li className="px-5 py-3.5 text-sm text-muted-foreground">
             No documented tests in this group.
           </li>
         )}

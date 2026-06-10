@@ -12,7 +12,6 @@ import {
 import { CodeBlock } from '../code-block';
 import { StatusBadge } from '../test-group/status-badge';
 import type { VtestFile, VtestGroup, VtestTest } from '../types';
-import { StatusDot } from './status-dot';
 
 interface GroupTestDialogProps {
   /** The group whose tests and source files are shown. */
@@ -26,11 +25,10 @@ interface GroupTestDialogProps {
 }
 
 /**
- * Two-pane, group-scoped test dialog. The left rail is a real nav listing the
- * group's tests with status dots and vdoc subtitles; the right pane shows the
- * selected test's header (name, status, duration, error) followed by ONLY that
- * test's source by default, with a toggle to expand to the full file. Purely
- * presentational — no run actions.
+ * Single-test, group-scoped modal. Shows only the clicked test: its header
+ * (name, status, duration, error) followed by ONLY that test's source by
+ * default, with a toggle to expand to the full file. Purely presentational —
+ * no run actions.
  */
 export function GroupTestDialog({
   group,
@@ -38,87 +36,26 @@ export function GroupTestDialog({
   open,
   onOpenChange,
 }: GroupTestDialogProps) {
-  const [selected, setSelected] = useState<string | null>(activeTest);
   const test =
-    group.tests.find((t) => t.name === selected) ?? group.tests[0] ?? null;
+    group.tests.find((t) => t.name === activeTest) ?? group.tests[0] ?? null;
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (next) setSelected(activeTest);
-        onOpenChange(next);
-      }}
-    >
-      <DialogContent className="flex h-[88dvh] max-h-[88dvh] w-[min(96vw,72rem)] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
-        <DialogHeader className="shrink-0 border-b border-border px-5 py-3">
-          <DialogTitle className="font-mono text-sm">{group.id}</DialogTitle>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[88dvh] w-[min(96vw,56rem)] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="shrink-0 border-b border-border px-7 py-4">
+          <DialogTitle className="font-mono text-sm text-muted-foreground">
+            {group.id}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1">
-          <nav className="flex w-72 shrink-0 flex-col border-r border-border bg-muted/20">
-            <div className="flex items-center justify-between px-4 py-2.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              <span>Tests</span>
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[0.6875rem] text-foreground">
-                {group.tests.length}
-              </span>
-            </div>
-            <div className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
-              {group.tests.map((t) => {
-                const isActive = test?.name === t.name;
-                return (
-                  <button
-                    type="button"
-                    key={t.name}
-                    onClick={() => setSelected(t.name)}
-                    className={`relative flex w-full items-start gap-2.5 rounded-md py-2 pr-2.5 pl-3 text-left transition-colors ${
-                      isActive
-                        ? 'bg-background shadow-sm'
-                        : 'hover:bg-background/60'
-                    }`}
-                  >
-                    {isActive && (
-                      <span className="absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-primary" />
-                    )}
-                    <span className="mt-0.5 shrink-0">
-                      <StatusDot status={t.status} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={`block text-[0.8125rem] leading-snug ${
-                          isActive
-                            ? 'font-medium text-foreground'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {t.name}
-                      </span>
-                      {t.vdoc && (
-                        <span className="mt-0.5 block truncate text-[0.6875rem] text-muted-foreground/70">
-                          {t.vdoc}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-              {group.tests.length === 0 && (
-                <p className="px-2 py-3 text-xs text-muted-foreground">
-                  No documented tests.
-                </p>
-              )}
-            </div>
-          </nav>
-
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            {test ? (
-              <TestDetail test={test} group={group} />
-            ) : (
-              <p className="p-6 text-sm text-muted-foreground">
-                Select a test to inspect.
-              </p>
-            )}
-          </div>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {test ? (
+            <TestDetail test={test} group={group} />
+          ) : (
+            <p className="p-7 text-base text-muted-foreground">
+              No test to inspect.
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -128,19 +65,19 @@ export function GroupTestDialog({
 function TestDetail({ test, group }: { test: VtestTest; group: VtestGroup }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="shrink-0 space-y-2.5 border-b border-border px-6 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-base leading-snug font-semibold text-foreground">
+      <header className="shrink-0 space-y-3.5 border-b border-border px-7 py-6">
+        <div className="flex items-start justify-between gap-4">
+          <h3 className="text-xl leading-snug font-semibold text-foreground">
             {test.name}
           </h3>
           <StatusBadge status={test.status} />
         </div>
         {test.vdoc && (
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="text-base leading-relaxed text-muted-foreground">
             {test.vdoc}
           </p>
         )}
-        <dl className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+        <dl className="flex flex-wrap gap-x-6 gap-y-1.5 pt-1 text-sm">
           <Meta label="File">
             <span className="font-mono text-foreground" title={test.file}>
               {basename(test.file)}
@@ -161,11 +98,11 @@ function TestDetail({ test, group }: { test: VtestTest; group: VtestGroup }) {
         </dl>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-7">
         {test.error && (
-          <div className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+          <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
             <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
-            <pre className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-xs text-foreground">
+            <pre className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-sm text-foreground">
               {test.error}
             </pre>
           </div>

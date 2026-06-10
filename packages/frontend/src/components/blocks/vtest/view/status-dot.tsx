@@ -20,7 +20,7 @@ const LABEL: Record<TestStatus, string> = {
 export function StatusDot({ status }: { status: TestStatus }) {
   return (
     <span
-      className={`inline-block size-2 shrink-0 rounded-full ${DOT[status]}`}
+      className={`inline-block size-2.5 shrink-0 rounded-full ${DOT[status]}`}
       aria-label={LABEL[status]}
     />
   );
