@@ -1,6 +1,5 @@
 import {
   featureFileSets,
-  fileVisibility,
   moduleFiles,
   moduleVisibilityByPath,
   type VisualizationConfig,
@@ -80,8 +79,6 @@ export function getFileTreeViewModel({
     featureFileSets: featureSets ?? moduleSets,
   });
 
-  const colorByTier = selectedFeature !== null || selectedModule != null;
-
   const coverageGapFiles = getCoverageGapFiles(summary);
 
   return {
@@ -96,14 +93,9 @@ export function getFileTreeViewModel({
     highlightedFiles: highlight.all,
     ownedFiles: highlight.owned,
     consumedFiles: highlight.consumed,
-    // Per-file visibility tier; only consumed by the tree when a feature is
-    // selected (so layer/coverage context coloring is unchanged).
-    fileVisibility: fileVisibility(summary),
-    // Module folders are tier-colored by their declared visibility, always
+    // Module folders carry their declared tier as a marker dot, always
     // (independent of selection). Keyed by full module path = the folder id.
     moduleVisibility: moduleVisibilityByPath(config),
-    // Color highlighted rows by tier whenever a feature OR a module is selected.
-    colorByTier,
     coverageGapFiles,
     coverageGapsByLayer: getCoverageGapsByLayer(summary),
     configuredPaths,

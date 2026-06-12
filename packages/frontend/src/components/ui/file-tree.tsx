@@ -306,6 +306,8 @@ type FolderProps = {
   element: string
   isSelectable?: boolean
   isSelect?: boolean
+  /** Rendered after the (truncating) label, e.g. a status dot or badge. */
+  suffix?: React.ReactNode
 } & AccordionPrimitive.Item.Props
 
 const Folder = forwardRef<
@@ -319,6 +321,7 @@ const Folder = forwardRef<
       value,
       isSelectable = true,
       isSelect,
+      suffix,
       children,
       ...props
     },
@@ -366,6 +369,7 @@ const Folder = forwardRef<
                 : (closeIcon ?? <FolderIcon className="size-4" />)}
             </span>
             <span className="truncate" title={element}>{element}</span>
+            {suffix}
           </AccordionPrimitive.Trigger>
         </AccordionPrimitive.Header>
         <AccordionPrimitive.Panel className="data-closed:animate-accordion-up data-open:animate-accordion-down relative h-full overflow-hidden text-sm">

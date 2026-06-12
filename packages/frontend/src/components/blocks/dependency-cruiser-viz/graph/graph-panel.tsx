@@ -2,11 +2,12 @@ import { cn } from '#lib/utils';
 
 import { ResizablePanel } from '#components/ui/resizable';
 
-import type { DependencyCruiserVizGraphView } from '../use-dependency-cruiser-viz';
-import { FeatureGraphPanel } from './feature';
+import type {
+  CanvasMode,
+  DependencyCruiserVizGraphView,
+} from '../use-dependency-cruiser-viz';
+import { FeatureLayersPanel } from './feature-layers';
 import { LayerGraphPanel } from './layer';
-
-type GraphViewMode = 'layers' | 'features';
 
 type GraphPanelProps = {
   view: DependencyCruiserVizGraphView;
@@ -18,33 +19,39 @@ type GraphPanelProps = {
   onSelectLayer?: (layer: string | null) => void;
   /** Sets the hovered layer for the layer graph. */
   onHoverLayer?: (layer: string | null) => void;
-  /** Manual override for the canvas tab (Layers | Features). */
-  onSetCanvasMode: (mode: GraphViewMode) => void;
+  /** Manual override for the canvas tab. */
+  onSetCanvasMode: (mode: CanvasMode) => void;
+};
+
+const TAB_LABELS: Record<CanvasMode, string> = {
+  layers: 'Layers',
+  features: 'Features',
 };
 
 function ViewModeToggle({
   mode,
   onChange,
 }: {
-  mode: GraphViewMode;
-  onChange: (mode: GraphViewMode) => void;
+  mode: CanvasMode;
+  onChange: (mode: CanvasMode) => void;
 }) {
+  const tabs: CanvasMode[] = ['layers', 'features'];
   return (
     <div className="absolute left-3 top-3 z-10 flex rounded-md border border-border bg-background/80 p-0.5 shadow-sm backdrop-blur">
-      {(['layers', 'features'] as const).map((m) => (
+      {tabs.map((m) => (
         <button
           key={m}
           type="button"
           onClick={() => onChange(m)}
           aria-pressed={mode === m}
           className={cn(
-            'rounded px-2.5 py-1 text-xs font-medium capitalize transition-colors',
+            'rounded px-2.5 py-1 text-xs font-medium transition-colors',
             mode === m
               ? 'bg-primary/10 text-primary'
               : 'text-muted-foreground hover:text-foreground',
           )}
         >
-          {m}
+          {TAB_LABELS[m]}
         </button>
       ))}
     </div>
@@ -68,14 +75,16 @@ export function GraphPanel({
           <ViewModeToggle mode={view.canvasMode} onChange={onSetCanvasMode} />
         )}
         {view.canvasMode === 'features' && hasFeatures ? (
-          <FeatureGraphPanel
-            config={view.config}
-            summary={view.summary}
-            selectedFeature={view.selectedFeature}
-            selectedModule={view.selectedModule}
-            onSelectFeature={onSelectFeature}
-            onSelectModule={onSelectModule}
-          />
+          <div className="h-full w-full pt-10">
+            <FeatureLayersPanel
+              config={view.config}
+              summary={view.summary}
+              selectedFeature={view.selectedFeature}
+              selectedModule={view.selectedModule}
+              onSelectFeature={onSelectFeature}
+              onSelectModule={onSelectModule}
+            />
+          </div>
         ) : (
           <LayerGraphPanel
             config={view.config}
