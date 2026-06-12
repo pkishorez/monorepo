@@ -12,6 +12,7 @@ export {
 export {
   allModules,
   moduleFiles,
+  moduleKey,
   resolveBreachModule,
   type ModuleNode,
 } from './modules';

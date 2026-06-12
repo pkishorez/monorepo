@@ -134,8 +134,6 @@ export function FileTreePanel({
                   highlightedFiles={view.highlightedFiles}
                   ownedFiles={view.ownedFiles}
                   consumedFiles={view.consumedFiles}
-                  colorByTier={view.colorByTier}
-                  fileVisibility={view.fileVisibility}
                   moduleVisibility={view.moduleVisibility}
                   coverageGapFiles={view.coverageGapFiles}
                   configuredPaths={view.configuredPaths}
@@ -160,8 +158,6 @@ export function FileTreePanel({
             highlightedFiles={view.highlightedFiles}
             ownedFiles={view.ownedFiles}
             consumedFiles={view.consumedFiles}
-            colorByTier={view.colorByTier}
-            fileVisibility={view.fileVisibility}
             moduleVisibility={view.moduleVisibility}
             coverageGapFiles={view.coverageGapFiles}
             configuredPaths={view.configuredPaths}

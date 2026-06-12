@@ -296,14 +296,22 @@ const fullSummaryWithFeatures: VizSummary = {
   ],
 };
 
+const fullHeight = (node: React.ReactNode) => (
+  <div className="h-svh">{node}</div>
+);
+
 export default {
-  simple: <DependencyCruiserViz config={simpleConfig} summary={fullSummary} />,
-  'graph-only': <DependencyCruiserViz config={fullConfig} />,
-  full: <DependencyCruiserViz config={fullConfig} summary={fullSummary} />,
-  'with-features': (
+  simple: fullHeight(
+    <DependencyCruiserViz config={simpleConfig} summary={fullSummary} />,
+  ),
+  'graph-only': fullHeight(<DependencyCruiserViz config={fullConfig} />),
+  full: fullHeight(
+    <DependencyCruiserViz config={fullConfig} summary={fullSummary} />,
+  ),
+  'with-features': fullHeight(
     <DependencyCruiserViz
       config={fullConfigWithFeatures}
       summary={fullSummaryWithFeatures}
-    />
+    />,
   ),
 };

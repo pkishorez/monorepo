@@ -2,6 +2,7 @@ import type { Edge, Node } from '@xyflow/react';
 import { MarkerType } from '@xyflow/react';
 
 import type { VisualizationConfig, VizSummary } from '../../model';
+import { buildLayerModel } from '../../model/layer-model';
 
 export type HandleOffset = {
   stackName: string;
@@ -60,6 +61,10 @@ export function computeLayerLayout(
     }
   }
 
+  // Derive slot/section/ordering from the shared layer model
+  const layerModel = buildLayerModel(config, summary);
+
+  // Build layer-to-stacks map for shared layer detection and handle offsets
   const layerToStacks = new Map<string, string[]>();
   const layerMeta = new Map<
     string,
@@ -105,7 +110,14 @@ export function computeLayerLayout(
     stackCenterX.set(stackColumns[i]!.name, i * (LAYER_NODE_WIDTH + COL_GAP));
   }
 
-  const levels = computeLevels(config.stacks);
+  // Derive per-layer level from layerModel slot index (replaces computeLevels)
+  const levelByLayer = new Map<string, number>();
+  for (const slot of layerModel.slots) {
+    for (const section of slot.sections) {
+      levelByLayer.set(section.layer, slot.index);
+    }
+  }
+
   const yOffset = HEADER_HEIGHT + HEADER_GAP;
   const positions = new Map<string, { x: number; y: number }>();
   const nodeWidths = new Map<string, number>();
@@ -117,7 +129,7 @@ export function computeLayerLayout(
       if (!shared.has(layer.name) && !positions.has(layer.name)) {
         positions.set(layer.name, {
           x: cx,
-          y: yOffset + levels.get(layer.name)! * (NODE_HEIGHT + ROW_GAP),
+          y: yOffset + levelByLayer.get(layer.name)! * (NODE_HEIGHT + ROW_GAP),
         });
       }
     }
@@ -132,7 +144,7 @@ export function computeLayerLayout(
 
     positions.set(layerName, {
       x: leftX,
-      y: yOffset + levels.get(layerName)! * (NODE_HEIGHT + ROW_GAP),
+      y: yOffset + levelByLayer.get(layerName)! * (NODE_HEIGHT + ROW_GAP),
     });
     nodeWidths.set(layerName, width);
 
@@ -287,40 +299,4 @@ export function computeLayerLayout(
   }
 
   return { nodes, edges };
-}
-
-function computeLevels(
-  stacks: VisualizationConfig['stacks'],
-): Map<string, number> {
-  const predecessors = new Map<string, Set<string>>();
-
-  for (const stack of stacks) {
-    for (const layer of stack.layers) {
-      if (!predecessors.has(layer.name))
-        predecessors.set(layer.name, new Set());
-    }
-    for (let i = 1; i < stack.layers.length; i++) {
-      predecessors.get(stack.layers[i]!.name)!.add(stack.layers[i - 1]!.name);
-    }
-  }
-
-  const levels = new Map<string, number>();
-
-  function getLevel(name: string): number {
-    if (levels.has(name)) return levels.get(name)!;
-    const preds = predecessors.get(name);
-    if (!preds || preds.size === 0) {
-      levels.set(name, 0);
-      return 0;
-    }
-    const level = Math.max(...[...preds].map(getLevel)) + 1;
-    levels.set(name, level);
-    return level;
-  }
-
-  for (const name of predecessors.keys()) {
-    getLevel(name);
-  }
-
-  return levels;
 }

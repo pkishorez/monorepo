@@ -1,3 +1,4 @@
+import { XIcon } from 'lucide-react';
 import {
   File,
   Folder,
@@ -21,15 +22,7 @@ type FileTreeViewProps = {
   ownedFiles: Set<string> | null;
   /** Files the feature CONSUMES (borrows) — subtle highlight + marker. */
   consumedFiles: Set<string> | null;
-  /**
-   * When true (a feature is selected), highlighted rows are colored by the
-   * visibility tier of their owning module instead of the owned/consumed
-   * primary scheme. Owned/consumed stays as an orthogonal "borrowed" marker.
-   */
-  colorByTier: boolean;
-  /** File path -> visibility tier of its owning module. */
-  fileVisibility: Map<string, Visibility>;
-  /** Full module path -> declared visibility tier, for module folder colors. */
+  /** Full module path -> declared visibility tier, for module folder dots. */
   moduleVisibility: Map<string, Visibility>;
   /** Coverage-gap files: in a layer but no declared module. */
   coverageGapFiles: Set<string>;
@@ -47,8 +40,6 @@ export function FileTreeView({
   highlightedFiles,
   ownedFiles,
   consumedFiles,
-  colorByTier,
-  fileVisibility,
   moduleVisibility,
   coverageGapFiles,
   configuredPaths,
@@ -67,8 +58,6 @@ export function FileTreeView({
         highlightedFiles,
         ownedFiles,
         consumedFiles,
-        colorByTier,
-        fileVisibility,
         moduleVisibility,
         coverageGapFiles,
         configuredPaths,
@@ -80,13 +69,23 @@ export function FileTreeView({
   );
 }
 
+/** A small colored marker dot appended to a row, mirroring the graph chips. */
+function MarkerDot({ color, label }: { color: string; label?: string }) {
+  return (
+    <span
+      aria-hidden={label ? undefined : true}
+      title={label}
+      className="ml-1 h-1.5 w-1.5 shrink-0 rounded-full"
+      style={{ backgroundColor: color }}
+    />
+  );
+}
+
 function renderNodes({
   nodes,
   highlightedFiles,
   ownedFiles,
   consumedFiles,
-  colorByTier,
-  fileVisibility,
   moduleVisibility,
   coverageGapFiles,
   configuredPaths,
@@ -98,8 +97,6 @@ function renderNodes({
   highlightedFiles: Set<string> | null;
   ownedFiles: Set<string> | null;
   consumedFiles: Set<string> | null;
-  colorByTier: boolean;
-  fileVisibility: Map<string, Visibility>;
   moduleVisibility: Map<string, Visibility>;
   coverageGapFiles: Set<string>;
   configuredPaths: Set<string>;
@@ -121,7 +118,6 @@ function renderNodes({
       // When a feature is active, dim folders that contain no active file.
       const folderDimmed =
         highlightedFiles && !folderContainsAny(node, highlightedFiles);
-      const folderHasGap = folderContainsAny(node, coverageGapFiles);
       const isConfigured = configuredPaths.has(node.id);
       const isLayer = node.nodeKind === 'layer';
       const isModule = node.nodeKind === 'module';
@@ -135,41 +131,40 @@ function renderNodes({
       const folderHoverDimmed = hoveredModulePath != null && !isOnHoverPath;
       const isHoveredModuleFolder =
         hoveredModulePath != null && node.id === hoveredModulePath;
-      // Module folders are colored by their visibility tier at all times
-      // (green=public, yellow=shared, gray=private). Tier is a raw hsl string,
-      // applied inline. Fall back to violet if the path isn't in the map.
-      const moduleTierColor = isModule
-        ? moduleVisibility.has(node.id)
-          ? VISIBILITY_COLOR[moduleVisibility.get(node.id)!]
-          : undefined
+      // Module folders carry their visibility tier as a dot (violet fallback
+      // when no declared tier is found), matching the graph's chip dots.
+      const moduleTier = isModule
+        ? (moduleVisibility.get(node.id) ?? 'private')
         : undefined;
+      const hasViolation = isIntermediate && node.status === 'violation';
 
       return (
         <Folder
           key={node.id}
           value={node.id}
           element={node.name}
-          style={moduleTierColor ? { color: moduleTierColor } : undefined}
+          suffix={
+            moduleTier ? (
+              <MarkerDot
+                color={VISIBILITY_COLOR[moduleTier]}
+                label={moduleTier}
+              />
+            ) : hasViolation ? (
+              <MarkerDot color="hsl(0 84% 60%)" label="contains violations" />
+            ) : undefined
+          }
           className={cn(
             isConfigured && 'font-semibold',
-            // Layers read sky; module folders are tier-colored inline above
-            // (with a violet fallback when no declared tier is found). Feature
-            // de-emphasis is applied via opacity alone (see folderDimmed below).
-            isLayer && 'text-sky-500',
-            isModule && !moduleTierColor && 'text-violet-500',
-            // Intermediate (non-module) grouping folders read in a muted tone
-            // so the eye distinguishes module boundaries from plain folders.
-            isIntermediate &&
-              node.status !== 'violation' &&
-              !folderHasGap &&
-              'text-muted-foreground/70',
-            isIntermediate && node.status === 'violation' && 'text-red-500',
-            isIntermediate && folderHasGap && 'text-muted-foreground',
+            // Layers read sky — the one structural accent; modules and plain
+            // folders stay neutral, with tier carried by the suffix dot.
+            isLayer && 'text-sky-600 dark:text-sky-400',
+            isModule && 'text-foreground/80',
+            isIntermediate && 'text-muted-foreground/70',
             node.status === 'ignored' && 'opacity-40',
-            folderDimmed && 'opacity-[0.12]',
-            folderHoverDimmed && 'opacity-20',
+            folderDimmed && 'opacity-35',
+            folderHoverDimmed && 'opacity-35',
             isHoveredModuleFolder &&
-              'rounded-md bg-primary/15 font-semibold text-primary ring-1 ring-primary/30',
+              'rounded-md bg-primary/15 text-primary ring-1 ring-primary/30',
           )}
         >
           {node.children
@@ -178,8 +173,6 @@ function renderNodes({
                 highlightedFiles,
                 ownedFiles,
                 consumedFiles,
-                colorByTier,
-                fileVisibility,
                 moduleVisibility,
                 coverageGapFiles,
                 configuredPaths,
@@ -201,50 +194,28 @@ function renderNodes({
     const isGraphHovered = hoveredGraphFiles?.has(node.id);
     const isGraphDimmed = hoveredModulePath != null && !isGraphHovered;
 
-    // Feature/module context: the row is colored by the module's VISIBILITY
-    // TIER (green=public, yellow=shared, gray=private) — text only, no box/ring
-    // (a ring/background reads like a selection). The "BORROWED" badge on a
-    // consumed file stays as an orthogonal marker. Layer/coverage context
-    // (colorByTier=false) is unchanged.
-    const tier =
-      colorByTier && isHighlighted ? fileVisibility.get(node.id) : undefined;
-    const tierColor = tier ? VISIBILITY_COLOR[tier] : undefined;
-
     return (
       <File
         key={node.id}
         value={node.id}
         fileIcon={<StatusIcon status={node.status} />}
-        style={tierColor ? { color: tierColor } : undefined}
         className={cn(
-          tierColor && 'font-medium',
-          // Owned without tier (layer context): strong primary fill.
-          !colorByTier &&
-            isOwned &&
-            'rounded-md bg-primary/10 font-medium text-primary',
-          // Consumed without tier (layer context): cooler sky tint + marker.
-          !colorByTier &&
-            isConsumed &&
+          isOwned && 'rounded-md bg-primary/10 text-primary',
+          isConsumed &&
             'rounded-md bg-sky-500/5 text-sky-700 underline decoration-sky-500/50 decoration-dashed underline-offset-2 dark:text-sky-300',
-          !highlightedFiles &&
-            isGap &&
-            'text-muted-foreground decoration-dotted underline-offset-2',
           !highlightedFiles && node.status === 'ignored' && 'opacity-40',
-          isDimmed && 'opacity-[0.12]',
-          isGraphHovered &&
-            'rounded-md bg-primary/20 font-semibold ring-1 ring-primary/30',
-          isGraphDimmed && 'opacity-20',
+          isDimmed && 'opacity-35',
+          isGraphHovered && 'rounded-md bg-primary/20 ring-1 ring-primary/30',
+          isGraphDimmed && 'opacity-35',
         )}
       >
         <span className="min-w-0 flex-1 truncate text-left">{node.name}</span>
-        {isConsumed ? (
-          <span className="shrink-0 rounded-sm border border-border bg-muted/60 px-1 py-0.5 text-[10px] leading-none font-medium uppercase opacity-80">
-            borrowed
-          </span>
-        ) : null}
         {!highlightedFiles && isGap ? (
-          <span className="shrink-0 rounded-sm border border-border bg-muted px-1 py-0.5 text-[10px] leading-none font-medium text-muted-foreground uppercase">
-            no module
+          <span title="not in any module" className="shrink-0">
+            <XIcon
+              aria-label="not in any module"
+              className="size-3 text-muted-foreground/50"
+            />
           </span>
         ) : null}
       </File>

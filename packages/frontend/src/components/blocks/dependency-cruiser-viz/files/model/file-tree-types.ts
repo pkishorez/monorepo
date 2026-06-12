@@ -60,22 +60,11 @@ export type FileTreeViewModel = {
    */
   consumedFiles: Set<string> | null;
   /**
-   * File path -> visibility tier of its owning module. Used to color the
-   * highlighted rows by tier (green=public, yellow=shared, gray=private) when a
-   * feature is selected; ignored otherwise.
-   */
-  fileVisibility: Map<string, Visibility>;
-  /**
-   * Full module path -> declared visibility tier. Used to color MODULE folder
-   * rows by tier (green=public, yellow=shared, gray=private) at all times,
-   * independent of selection (tier is a static property of the module).
+   * Full module path -> declared visibility tier. Rendered as a marker dot on
+   * MODULE folder rows (green=public, yellow=shared, violet=private) at all
+   * times, independent of selection (tier is a static property of the module).
    */
   moduleVisibility: Map<string, Visibility>;
-  /**
-   * Color highlighted file rows by their module's visibility tier. True when a
-   * feature OR a module is selected; false in layer/coverage context.
-   */
-  colorByTier: boolean;
   /**
    * Files inside a declared layer but in no declared module (coverage gaps),
    * shown distinctly so they can be promoted into a module.
