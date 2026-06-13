@@ -124,7 +124,10 @@ function enforce({
   for (const mod of modules) {
     const fromEntry = findModule(mod.source, moduleEntries);
     if (!fromEntry) continue;
-    const F = fromEntry.feature;
+    // The set of features this module participates in: its owning feature, or
+    // every feature it is shared with. `null` marks ownerless infra (the
+    // wiring), which may reach shared/public targets but no feature's privates.
+    const fromAudience = audienceOf(fromEntry);
 
     for (const dep of mod.dependencies) {
       if (dep.couldNotResolve || dep.coreModule) continue;
@@ -140,61 +143,42 @@ function enforce({
       const toEntry = findModule(target, moduleEntries);
       if (!toEntry || toEntry.path === fromEntry.path) continue;
 
-      const legal =
-        toEntry.visibility === 'public' ||
-        (F !== null && toEntry.feature === F) ||
-        (toEntry.visibility === 'shared' &&
-          F !== null &&
-          toEntry.sharedWith.includes(F)) ||
-        (F === null && toEntry.feature === null);
-
-      if (legal) {
-        if (toEntry.feature !== null && toEntry.feature !== F && F !== null) {
-          const key = `${F}\0${toEntry.feature}`;
-          const via = edges.get(key) ?? new Set<string>();
-          via.add(toEntry.name);
-          edges.set(key, via);
+      if (fromAudience === null) {
+        // Infra wiring: shared/public targets are fine; a feature's private
+        // internals are not.
+        if (toEntry.visibility === 'public' || toEntry.feature === null) {
+          continue;
         }
-        if (
-          F !== null &&
-          (toEntry.visibility === 'shared' || toEntry.visibility === 'public')
-        ) {
-          const relation = toEntry.feature === F ? 'owns' : 'consumes';
-          const key = `${F}\0${toEntry.layer}\0${toEntry.name}\0${relation}`;
-          if (!moduleEdges.has(key)) {
-            moduleEdges.set(key, {
-              feature: F,
-              module: toEntry.name,
-              layer: toEntry.layer,
-              visibility: toEntry.visibility,
-              relation,
-            });
-          }
-        }
+        recordBreach(breaches, seenBreach, {
+          fromEntry,
+          fromFeature: null,
+          toEntry,
+          fromFile: mod.source,
+          toFile: target,
+          reason: 'infra-to-owned',
+        });
         continue;
       }
 
-      const reason: VizSummary['breaches'][number]['reason'] =
-        F === null
-          ? 'infra-to-owned'
-          : toEntry.visibility === 'shared'
-            ? 'not-in-shared-with'
-            : 'private-cross-feature';
-
-      const breachKey = `${mod.source}\0${target}`;
-      if (seenBreach.has(breachKey)) continue;
-      seenBreach.add(breachKey);
-
-      breaches.push({
-        fromModule: fromEntry.name,
-        fromFeature: F,
-        toModule: toEntry.name,
-        toFeature: toEntry.feature,
-        toVisibility: toEntry.visibility,
-        fromFile: mod.source,
-        toFile: target,
-        reason,
-      });
+      // A consumer may only reach a target every one of its features is
+      // permitted to use; any feature outside the target's audience breaches.
+      for (const f of fromAudience) {
+        if (permits(toEntry, f)) {
+          recordLegalEdges(f, toEntry, edges, moduleEdges);
+          continue;
+        }
+        recordBreach(breaches, seenBreach, {
+          fromEntry,
+          fromFeature: f,
+          toEntry,
+          fromFile: mod.source,
+          toFile: target,
+          reason:
+            toEntry.visibility === 'shared'
+              ? 'not-in-shared-with'
+              : 'private-cross-feature',
+        });
+      }
     }
   }
 
@@ -225,6 +209,82 @@ function enforce({
   );
 
   return { breaches, featureEdges, featureModuleEdges };
+}
+
+/**
+ * The features a module participates in as a consumer: its owning feature when
+ * private, the features it is shared with when shared, or `null` for ownerless
+ * infra (public modules with no feature). Public-but-feature-owned modules
+ * still carry their owning feature so their imports are attributed correctly.
+ */
+function audienceOf(entry: ModuleEntry): Set<string> | null {
+  if (entry.feature !== null) return new Set([entry.feature]);
+  if (entry.sharedWith.length > 0) return new Set(entry.sharedWith);
+  return null;
+}
+
+/** Whether feature `f` is allowed to import `toEntry`. */
+function permits(toEntry: ModuleEntry, f: string): boolean {
+  return (
+    toEntry.visibility === 'public' ||
+    toEntry.feature === f ||
+    (toEntry.visibility === 'shared' && toEntry.sharedWith.includes(f))
+  );
+}
+
+function recordLegalEdges(
+  f: string,
+  toEntry: ModuleEntry,
+  edges: Map<string, Set<string>>,
+  moduleEdges: Map<string, VizSummary['featureModuleEdges'][number]>,
+): void {
+  if (toEntry.feature !== null && toEntry.feature !== f) {
+    const key = `${f}\0${toEntry.feature}`;
+    const via = edges.get(key) ?? new Set<string>();
+    via.add(toEntry.name);
+    edges.set(key, via);
+  }
+  if (toEntry.visibility === 'shared' || toEntry.visibility === 'public') {
+    const relation = toEntry.feature === f ? 'owns' : 'consumes';
+    const key = `${f}\0${toEntry.layer}\0${toEntry.name}\0${relation}`;
+    if (!moduleEdges.has(key)) {
+      moduleEdges.set(key, {
+        feature: f,
+        module: toEntry.name,
+        layer: toEntry.layer,
+        visibility: toEntry.visibility,
+        relation,
+      });
+    }
+  }
+}
+
+function recordBreach(
+  breaches: VizSummary['breaches'],
+  seenBreach: Set<string>,
+  b: {
+    fromEntry: ModuleEntry;
+    fromFeature: string | null;
+    toEntry: ModuleEntry;
+    fromFile: string;
+    toFile: string;
+    reason: VizSummary['breaches'][number]['reason'];
+  },
+): void {
+  const breachKey = `${b.fromFile}\0${b.toFile}\0${b.fromFeature ?? ''}`;
+  if (seenBreach.has(breachKey)) return;
+  seenBreach.add(breachKey);
+
+  breaches.push({
+    fromModule: b.fromEntry.name,
+    fromFeature: b.fromFeature,
+    toModule: b.toEntry.name,
+    toFeature: b.toEntry.feature,
+    toVisibility: b.toEntry.visibility,
+    fromFile: b.fromFile,
+    toFile: b.toFile,
+    reason: b.reason,
+  });
 }
 
 function getLayerPatterns(visualization: VisualizationConfig): LayerPattern[] {

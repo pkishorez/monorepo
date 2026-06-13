@@ -1007,9 +1007,15 @@ importers:
       '@types/node':
         specifier: 25.9.1
         version: 25.9.1
+      '@types/react':
+        specifier: 19.2.7
+        version: 19.2.7
       effect:
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -4039,6 +4045,9 @@ packages:
 
   '@types/react@19.2.16':
     resolution: {integrity: sha512-esJiCAnl0kfpNdE69f3So4WJUXy95dLZydX0KwK46riIHDzHM7O9Vtf9xCHW0PXIqvgqNrswl522kA/5yx+F4w==}
+
+  '@types/react@19.2.7':
+    resolution: {integrity: sha512-MWtvHrGZLFttgeEj28VXHxpmwYbor/ATPYbBfSFZEIRK0ecCFLl2Qo55z52Hss+UV9CRN7trSeq1zbgx7YDWWg==}
 
   '@types/resolve@1.20.6':
     resolution: {integrity: sha512-A4STmOXPhMUtHH+S6ymgE2GiBSMqf4oTvcQZMcHzokuTLVYzXTB8ttjcgxOVaAp2lGwEdzZ0J+cRbbeevQj1UQ==}
@@ -10890,6 +10899,10 @@ snapshots:
       '@types/react': 19.2.16
 
   '@types/react@19.2.16':
+    dependencies:
+      csstype: 3.2.3
+
+  '@types/react@19.2.7':
     dependencies:
       csstype: 3.2.3
 

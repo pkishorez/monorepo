@@ -292,6 +292,96 @@ test('shared not-in-shared-with is a breach', () => {
   expect_equal(summary.breaches[0]!.reason, 'not-in-shared-with');
 });
 
+test('shared module consuming a target outside its audience is a breach', () => {
+  const cfg = baseConfig({
+    modules: [
+      module('src/components/cart', { sharedWith: ['orders'] }),
+      module('src/lib/format', { sharedWith: ['billing'] }),
+    ],
+  });
+  const summary = summarize(
+    {
+      modules: [
+        {
+          source: 'src/components/cart/view.tsx',
+          dependencies: [dependency('src/lib/format/money.ts')],
+        },
+        { source: 'src/lib/format/money.ts', dependencies: [] },
+      ],
+      summary: { violations: [] },
+    },
+    cfg,
+  );
+  expect_equal(summary.breaches.length, 1);
+  expect_equal(summary.breaches[0]!.reason, 'not-in-shared-with');
+  expect_equal(summary.breaches[0]!.fromFeature, 'orders');
+});
+
+test('shared module consuming a target within its audience is legal', () => {
+  const cfg = baseConfig({
+    modules: [
+      module('src/components/cart', { sharedWith: ['orders'] }),
+      module('src/lib/format', { sharedWith: ['orders', 'billing'] }),
+    ],
+  });
+  const summary = summarize(
+    {
+      modules: [
+        {
+          source: 'src/components/cart/view.tsx',
+          dependencies: [dependency('src/lib/format/money.ts')],
+        },
+        { source: 'src/lib/format/money.ts', dependencies: [] },
+      ],
+      summary: { violations: [] },
+    },
+    cfg,
+  );
+  expect_deepEqual(summary.breaches, []);
+  expect_deepEqual(summary.featureModuleEdges, [
+    {
+      feature: 'orders',
+      module: 'format',
+      layer: 'lib',
+      visibility: 'shared',
+      relation: 'consumes',
+    },
+  ]);
+});
+
+test('shared module with a wider audience breaches once per unpermitted feature', () => {
+  const cfg = toVisualizationConfig({
+    rootDir: 'src',
+    rules: [layersTopDown('app', [routes, components, lib])],
+    features: [feature('orders'), feature('billing'), feature('shipping')],
+    modules: [
+      module('src/components/cart', {
+        sharedWith: ['orders', 'billing', 'shipping'],
+      }),
+      module('src/lib/format', { sharedWith: ['orders'] }),
+    ],
+  });
+  const summary = summarize(
+    {
+      modules: [
+        {
+          source: 'src/components/cart/view.tsx',
+          dependencies: [dependency('src/lib/format/money.ts')],
+        },
+        { source: 'src/lib/format/money.ts', dependencies: [] },
+      ],
+      summary: { violations: [] },
+    },
+    cfg,
+  );
+  expect_equal(summary.breaches.length, 2);
+  expect_deepEqual(summary.breaches.map((b) => b.fromFeature).sort(), [
+    'billing',
+    'shipping',
+  ]);
+  expect_equal(summary.breaches[0]!.reason, 'not-in-shared-with');
+});
+
 test('infra (ownerless) importing a non-public owned module is a breach', () => {
   const cfg = baseConfig({
     modules: [
