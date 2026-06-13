@@ -8,7 +8,8 @@ import type { OutlineHeading } from './markdown-outline';
 
 interface OnThisPageProps {
   headings: readonly OutlineHeading[];
-  health: VtestHealth;
+  /** Omitted on the overview page, where per-feature health is meaningless. */
+  health?: VtestHealth;
   diagnostics: readonly Diagnostic[];
 }
 
@@ -18,12 +19,14 @@ export function OnThisPage({ headings, health, diagnostics }: OnThisPageProps) {
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 border-l border-border xl:block">
       <ScrollArea className="h-full">
         <div className="space-y-6 p-5">
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Health
-            </p>
-            <HealthBadge health={health} />
-          </div>
+          {health !== undefined && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Health
+              </p>
+              <HealthBadge health={health} />
+            </div>
+          )}
 
           {headings.length > 0 && (
             <div>

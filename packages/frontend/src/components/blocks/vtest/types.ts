@@ -119,6 +119,8 @@ export interface TocSection {
  */
 export interface VtestConfig {
   readonly package: { readonly name: string; readonly dir: string };
+  /** The package's `home.md` overview prose, or `null`/absent when it ships none. */
+  readonly overview?: string | null;
   readonly toc: { readonly sections: readonly TocSection[] };
   readonly features: readonly VtestConfigFeature[];
 }

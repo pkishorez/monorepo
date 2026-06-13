@@ -1,1 +1,1 @@
-export { discoverFeatures, DiscoverError } from './discover';
+export { discoverFeatures, loadHome, DiscoverError } from './discover';

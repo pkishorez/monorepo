@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { BookOpenIcon } from 'lucide-react';
 
+import { Markdown } from '../markdown';
 import type { VtestConfig } from '../types';
 import { FeatureContent } from './feature-content';
 import { parseHeadings } from './markdown-outline';
 import { OnThisPage } from './on-this-page';
 import { featureHealth } from './status-dot';
-import { TocSidebar } from './toc-sidebar';
+import { HOME_ID, TocSidebar } from './toc-sidebar';
 
 interface VtestViewProps {
   /** The full reader payload (DevTools `RunVtest` `available: true` branch). */
@@ -22,6 +23,10 @@ interface VtestViewProps {
  */
 export function VtestView({ config }: VtestViewProps) {
   const { toc, features } = config;
+  const overview =
+    typeof config.overview === 'string' && config.overview.trim().length > 0
+      ? config.overview
+      : null;
 
   const orderedNames = useMemo(() => {
     const fromToc = toc.sections.flatMap((s) => s.features);
@@ -33,19 +38,26 @@ export function VtestView({ config }: VtestViewProps) {
   }, [toc.sections, features]);
 
   const [selected, setSelected] = useState<string | null>(null);
-  const selectedName = selected ?? orderedNames[0] ?? null;
+  // The overview is the default landing when a package ships a `home.md`.
+  const selectedName =
+    selected ?? (overview ? HOME_ID : (orderedNames[0] ?? null));
+  const isHome = selectedName === HOME_ID;
 
   const featuresByName = useMemo(
     () => new Map(features.map((f) => [f.name, f])),
     [features],
   );
-  const feature = selectedName
-    ? (featuresByName.get(selectedName) ?? null)
-    : null;
+  const feature =
+    !isHome && selectedName ? (featuresByName.get(selectedName) ?? null) : null;
 
   const headings = useMemo(
-    () => (feature ? parseHeadings(feature.markdown) : []),
-    [feature],
+    () =>
+      isHome && overview
+        ? parseHeadings(overview)
+        : feature
+          ? parseHeadings(feature.markdown)
+          : [],
+    [isHome, overview, feature],
   );
 
   return (
@@ -55,6 +67,7 @@ export function VtestView({ config }: VtestViewProps) {
           sections={toc.sections}
           selected={selectedName}
           onSelect={setSelected}
+          showHome={overview !== null}
           healthOf={(name) => {
             const f = featuresByName.get(name);
             return f ? featureHealth(f) : 'unknown';
@@ -62,7 +75,11 @@ export function VtestView({ config }: VtestViewProps) {
         />
 
         <main className="min-w-0 flex-1">
-          {feature ? (
+          {isHome && overview ? (
+            <article className="mx-auto w-full max-w-3xl px-6 py-10 lg:px-10">
+              <Markdown source={overview} />
+            </article>
+          ) : feature ? (
             <FeatureContent feature={feature} />
           ) : (
             <div className="p-10">
@@ -74,13 +91,15 @@ export function VtestView({ config }: VtestViewProps) {
           )}
         </main>
 
-        {feature && (
+        {isHome && overview ? (
+          <OnThisPage headings={headings} diagnostics={[]} />
+        ) : feature ? (
           <OnThisPage
             headings={headings}
             health={featureHealth(feature)}
             diagnostics={feature.diagnostics}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );
