@@ -7,6 +7,7 @@ import { Effect } from 'effect';
 import {
   discoverFeatures,
   extractTests,
+  loadHome,
   loadToc,
   validate,
 } from '@monorepo/vtest/analysis';
@@ -57,10 +58,11 @@ const assembleGroup = (group: Feature['groups'][number]) =>
 /** Build the fast docs payload (markdown, toc, pending test rows) for `dir`. */
 export const assembleVtestDocs = (dir: string) =>
   Effect.gen(function* () {
-    const [features, toc, diagnostics] = yield* Effect.all([
+    const [features, toc, diagnostics, overview] = yield* Effect.all([
       discoverFeatures(dir),
       loadToc(dir),
       validate(dir),
+      loadHome(dir),
     ]);
 
     const diagnosticsByFeature = new Map<string, Array<Diagnostic>>();
@@ -87,6 +89,7 @@ export const assembleVtestDocs = (dir: string) =>
     return {
       available: true as const,
       package: { name: path.basename(dir), dir },
+      overview,
       toc: { sections: toc.sections },
       features: assembledFeatures,
     };

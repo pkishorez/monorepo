@@ -85,6 +85,20 @@ const discoverFeature = (
   });
 
 /**
+ * Read a package's `vtest/home.md` overview, or `null` when the package does
+ * not ship one. This is the landing prose shown above the feature list — it is
+ * intentionally outside `toc.ts` (which lists only features).
+ */
+export const loadHome = (
+  packageRoot: string,
+): Effect.Effect<string | null, DiscoverError> =>
+  readFile(path.join(packageRoot, 'vtest', 'home.md')).pipe(
+    Effect.catch((error) =>
+      isMissing(error.reason) ? Effect.succeed(null) : Effect.fail(error),
+    ),
+  );
+
+/**
  * Scan a package root's `vtest/features/*` tree, returning one {@link Feature}
  * per folder with its parsed `doc.md` directives and discovered test groups.
  */

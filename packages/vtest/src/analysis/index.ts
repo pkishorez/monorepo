@@ -1,4 +1,4 @@
-export { discoverFeatures, DiscoverError } from './discover/index.js';
+export { discoverFeatures, loadHome, DiscoverError } from './discover/index.js';
 export { parseDirectives } from './parse/index.js';
 export { discoverPackages, extractTests } from './packages/index.js';
 export { loadToc, TocError } from './toc/index.js';

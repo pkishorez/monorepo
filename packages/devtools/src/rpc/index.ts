@@ -50,6 +50,8 @@ const RunVtestSuccess = Schema.Union([
   Schema.Struct({
     available: Schema.Literal(true),
     package: Schema.Struct({ name: Schema.String, dir: Schema.String }),
+    /** The package's `home.md` overview prose, or `null` when it ships none. */
+    overview: Schema.NullOr(Schema.String),
     toc: Schema.Struct({ sections: Schema.Array(TocSection) }),
     features: Schema.Array(VtestFeature),
   }),
