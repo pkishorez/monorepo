@@ -41,10 +41,13 @@ export function GroupTestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[88dvh] w-[min(96vw,56rem)] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
-        <DialogHeader className="shrink-0 border-b border-border px-7 py-4">
-          <DialogTitle className="font-mono text-sm text-muted-foreground">
-            {group.id}
+      <DialogContent className="flex h-[90dvh] max-h-[90dvh] w-[min(96vw,72rem)] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[72rem]">
+        <DialogHeader className="shrink-0 border-b border-border px-8 py-4">
+          <DialogTitle className="flex items-center gap-2 font-mono text-sm text-muted-foreground">
+            <FileIcon className="size-4 shrink-0 opacity-60" />
+            <span className="truncate" title={group.id}>
+              {group.id}
+            </span>
           </DialogTitle>
         </DialogHeader>
 
@@ -52,7 +55,7 @@ export function GroupTestDialog({
           {test ? (
             <TestDetail test={test} group={group} />
           ) : (
-            <p className="p-7 text-base text-muted-foreground">
+            <p className="p-8 text-base text-muted-foreground">
               No test to inspect.
             </p>
           )}
@@ -65,9 +68,9 @@ export function GroupTestDialog({
 function TestDetail({ test, group }: { test: VtestTest; group: VtestGroup }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="shrink-0 space-y-3.5 border-b border-border px-7 py-6">
+      <header className="shrink-0 space-y-3.5 border-b border-border px-8 py-6">
         <div className="flex items-start justify-between gap-4">
-          <h3 className="text-xl leading-snug font-semibold text-foreground">
+          <h3 className="text-2xl leading-snug font-semibold tracking-tight text-foreground">
             {test.name}
           </h3>
           <StatusBadge status={test.status} />
@@ -98,7 +101,7 @@ function TestDetail({ test, group }: { test: VtestTest; group: VtestGroup }) {
         </dl>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-7">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-8">
         {test.error && (
           <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
             <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
@@ -164,7 +167,7 @@ function TestSource({ test, group }: { test: VtestTest; group: VtestGroup }) {
     <button
       type="button"
       onClick={() => setShowFull((v) => !v)}
-      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
+      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       <CodeIcon className="size-3.5" />
       {showFull ? 'Test only' : 'Full file'}
