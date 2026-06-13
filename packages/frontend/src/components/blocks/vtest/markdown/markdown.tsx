@@ -1,17 +1,20 @@
 import type { ComponentPropsWithoutRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSlug from 'rehype-slug';
 
 import { CodeBlock } from '../code-block';
+import { MermaidDiagram } from '../mermaid-diagram';
 
 interface MarkdownProps {
   source: string;
 }
 
 /**
- * Routes fenced code blocks through {@link CodeBlock} (prism) for syntax
- * highlighting while leaving inline code as the prose pill style. The language
- * is read from the fence info string (`language-ts` → `ts`), falling back to
- * `tsx`.
+ * Routes fenced code blocks through {@link CodeBlock} (Shiki) for syntax
+ * highlighting while leaving inline code as the prose pill style. A `mermaid`
+ * fence is rendered as a diagram via {@link MermaidDiagram} instead. The
+ * language is read from the fence info string (`language-ts` → `ts`), falling
+ * back to `tsx`.
  */
 function CodeRenderer({
   className,
@@ -26,13 +29,14 @@ function CodeRenderer({
       </code>
     );
   }
+  const code = String(children).replace(/\n$/, '');
+  const language = match[1] || 'tsx';
+  if (language === 'mermaid') {
+    return <MermaidDiagram code={code} />;
+  }
   return (
     <div className="my-6">
-      <CodeBlock
-        code={String(children).replace(/\n$/, '')}
-        language={match[1] || 'tsx'}
-        showHeader
-      />
+      <CodeBlock code={code} language={language} showHeader />
     </div>
   );
 }
@@ -68,7 +72,10 @@ export function Markdown({ source }: MarkdownProps) {
         prose-img:rounded-lg prose-img:border prose-img:border-border
         prose-table:text-sm prose-th:text-foreground prose-th:font-semibold prose-td:border-border prose-th:border-border"
     >
-      <ReactMarkdown components={{ code: CodeRenderer, pre: PreRenderer }}>
+      <ReactMarkdown
+        rehypePlugins={[rehypeSlug]}
+        components={{ code: CodeRenderer, pre: PreRenderer }}
+      >
         {source}
       </ReactMarkdown>
     </div>
