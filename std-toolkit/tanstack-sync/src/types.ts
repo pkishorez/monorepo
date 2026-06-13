@@ -1,4 +1,8 @@
-import type { CollectionConfig, SingleResult } from '@tanstack/react-db';
+import type {
+  CollectionConfig,
+  SingleResult,
+  VirtualRowProps,
+} from '@tanstack/react-db';
 import type { Effect, Scope } from 'effect';
 import type {
   EntityType,
@@ -12,9 +16,14 @@ import type {
   ESchemaIdField,
 } from '@std-toolkit/eschema';
 
+// Virtual props ($synced, $origin, ...) are added at runtime by @tanstack/db on
+// every read, but the `useLiveQuery(() => collection)` overload types `data` as
+// the bare row type and drops them. The collection here is created without a
+// StandardSchema, so input and output share one row type — hence the props are
+// declared optional, surfacing on reads without being required on writes.
 export type CollectionItem<T> = T & {
   _meta?: typeof MetaSchema.Type;
-};
+} & Partial<VirtualRowProps<string>>;
 
 export type QueryContext<TItem extends object> = {
   getCursor: Effect.Effect<EntityType<TItem> | null>;

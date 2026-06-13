@@ -39,8 +39,8 @@ importers:
         specifier: workspace:*
         version: link:../../std-toolkit/tanstack-sync
       '@tanstack/react-db':
-        specifier: 0.1.85
-        version: 0.1.85(react@19.2.7)(typescript@6.0.3)
+        specifier: 0.1.86
+        version: 0.1.86(react@19.2.7)(typescript@6.0.3)
       '@tanstack/react-router':
         specifier: 1.170.3
         version: 1.170.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -139,8 +139,8 @@ importers:
         specifier: workspace:*
         version: link:../../std-toolkit/tanstack-sync
       '@tanstack/react-db':
-        specifier: 0.1.85
-        version: 0.1.85(react@19.2.7)(typescript@6.0.3)
+        specifier: 0.1.86
+        version: 0.1.86(react@19.2.7)(typescript@6.0.3)
       '@tanstack/react-router':
         specifier: 1.170.3
         version: 1.170.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -266,8 +266,8 @@ importers:
         specifier: 0.15.3
         version: 0.15.3(@opentelemetry/api@1.9.1)(@tanstack/ai@0.27.0(@opentelemetry/api@1.9.1))(@types/react@19.2.16)(react@19.2.7)
       '@tanstack/react-db':
-        specifier: 0.1.85
-        version: 0.1.85(react@19.2.7)(typescript@6.0.3)
+        specifier: 0.1.86
+        version: 0.1.86(react@19.2.7)(typescript@6.0.3)
       '@tanstack/react-query':
         specifier: 5.100.10
         version: 5.100.10(react@19.2.7)
@@ -953,8 +953,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/vtest
       '@tanstack/react-db':
-        specifier: 0.1.85
-        version: 0.1.85(react@19.2.7)(typescript@6.0.3)
+        specifier: 0.1.86
+        version: 0.1.86(react@19.2.7)(typescript@6.0.3)
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
@@ -987,11 +987,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/vtest
       '@tanstack/query-db-collection':
-        specifier: 1.0.38
-        version: 1.0.38(@tanstack/query-core@5.100.10)(typescript@6.0.3)
+        specifier: 1.0.40
+        version: 1.0.40(@tanstack/query-core@5.100.10)(typescript@6.0.3)
       '@tanstack/react-db':
-        specifier: 0.1.85
-        version: 0.1.85(react@19.2.7)(typescript@6.0.3)
+        specifier: 0.1.86
+        version: 0.1.86(react@19.2.7)(typescript@6.0.3)
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
@@ -3581,8 +3581,8 @@ packages:
     peerDependencies:
       typescript: '>=4.7'
 
-  '@tanstack/db@0.6.7':
-    resolution: {integrity: sha512-nCwOhNXogu3JHdkNPXX6+B8aL0F4wVe0CwLvNS7ccCQ6m9147L8qJewL4IZVyACQDsLGs5MKg91x+VUiD+MplQ==}
+  '@tanstack/db@0.6.8':
+    resolution: {integrity: sha512-1dzwxYH7jizvpOzVsVmxZ8dGwMPDaA+YcinEmAszoUYF7mgSL0RiIiGHFBAc0WyVvHES7vSHg6x0WslX8C+TTQ==}
     peerDependencies:
       typescript: '>=4.7'
 
@@ -3637,14 +3637,14 @@ packages:
   '@tanstack/query-core@5.100.10':
     resolution: {integrity: sha512-8UR0yJR+GiQ40m3lPhUr0xbfAupe6GSQiksSBSa9SM2NjezFyxXCIA69/lz8cSoNKZLrw1/PktIyQBJcVeMi3w==}
 
-  '@tanstack/query-db-collection@1.0.38':
-    resolution: {integrity: sha512-cHD951MBgOvzI+/6367Bf3S88z5n9demxZ7+MfqxRJdXxaogF73h8Pjg+iB9Lnb4WZB8oU6g9eDexaZakLeiBA==}
+  '@tanstack/query-db-collection@1.0.40':
+    resolution: {integrity: sha512-93iWTBvNwLmhH4L7BL66Khr/pan2pXbdXa0uRtjThW5KRvwBCH13E5CM0PVd1QO9EcrSM+HcNg3MLUPR0EJGPg==}
     peerDependencies:
       '@tanstack/query-core': ^5.0.0
       typescript: '>=4.7'
 
-  '@tanstack/react-db@0.1.85':
-    resolution: {integrity: sha512-OaZCTiCxAag8opGF0As8iRSrbFfGg/ggLWuXYdvMufoNHnDYsc/n2sULgGhFT1U1/1Q4zbkayz445NlDhC/5vg==}
+  '@tanstack/react-db@0.1.86':
+    resolution: {integrity: sha512-s/8Iv5IrJd0jGeVwX/x3fn7GrPwCGkakzdfxvp2ju2o267uvV5YC2+MviVo9UIGZ+cCLdFAHjxY6P9+WZWTRAg==}
     peerDependencies:
       react: '>=16.8.0'
 
@@ -10283,7 +10283,7 @@ snapshots:
       sorted-btree: 1.8.1
       typescript: 6.0.3
 
-  '@tanstack/db@0.6.7(typescript@6.0.3)':
+  '@tanstack/db@0.6.8(typescript@6.0.3)':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@tanstack/db-ivm': 0.1.18(typescript@6.0.3)
@@ -10358,16 +10358,16 @@ snapshots:
 
   '@tanstack/query-core@5.100.10': {}
 
-  '@tanstack/query-db-collection@1.0.38(@tanstack/query-core@5.100.10)(typescript@6.0.3)':
+  '@tanstack/query-db-collection@1.0.40(@tanstack/query-core@5.100.10)(typescript@6.0.3)':
     dependencies:
       '@standard-schema/spec': 1.1.0
-      '@tanstack/db': 0.6.7(typescript@6.0.3)
+      '@tanstack/db': 0.6.8(typescript@6.0.3)
       '@tanstack/query-core': 5.100.10
       typescript: 6.0.3
 
-  '@tanstack/react-db@0.1.85(react@19.2.7)(typescript@6.0.3)':
+  '@tanstack/react-db@0.1.86(react@19.2.7)(typescript@6.0.3)':
     dependencies:
-      '@tanstack/db': 0.6.7(typescript@6.0.3)
+      '@tanstack/db': 0.6.8(typescript@6.0.3)
       react: 19.2.7
       use-sync-external-store: 1.6.0(react@19.2.7)
     transitivePeerDependencies:
