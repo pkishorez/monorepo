@@ -145,6 +145,18 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
   const writeToCollection = (items: EntityType<TItem>[]) =>
     writeEntitiesToCollection(callbacks, items, { immediate: true });
 
+  // An optimistic mutation (collection.update/insert) keeps its row flagged
+  // `$synced: false` until a sync write lands *after* the transaction reaches
+  // `completed`. Writing the server result back synchronously inside the
+  // mutation handler lands it while the transaction is still `persisting`, so
+  // @tanstack/db re-adds the optimistic upsert and never clears it — the row
+  // stays `$synced: false` forever. Deferring the write-back to a macrotask
+  // lets the handler settle and the transaction complete first, so the write
+  // flips `$synced` to true.
+  const writeToCollectionAfterCommit = (items: EntityType<TItem>[]) => {
+    setTimeout(() => writeToCollection(items), 100);
+  };
+
   const removeFromCollection = (keys: string[]) =>
     writeKeysToCollection(callbacks, keys, { immediate: true });
 
@@ -403,7 +415,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           const cache = await getOrCreateCache(options.defaultPartitionKey);
           await Effect.runPromise(cacheEntities(cache, schema, [result]));
         }
-        writeToCollection([result]);
+        writeToCollectionAfterCommit([result]);
       },
     }),
     ...(onUpdate && {
@@ -418,7 +430,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           updates,
         );
         const result = await Effect.runPromise(onUpdate(payload));
-        writeToCollection([result]);
+        writeToCollectionAfterCommit([result]);
       },
     }),
     ...(onDelete && {
