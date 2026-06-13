@@ -1,6 +1,5 @@
 import type { TestContext } from 'vitest';
-import { describe, test } from 'vitest';
-import { getCurrentSuite } from 'vitest/suite';
+import { describe, test, TestRunner } from 'vitest';
 
 type Awaitable<T> = T | Promise<T>;
 type TestFn = (ctx: TestContext) => Awaitable<void>;
@@ -20,7 +19,7 @@ const setMeta = (
  */
 export const vdescribe = (name: string, doc: string, fn: () => void): void => {
   describe(name, () => {
-    const suite = getCurrentSuite() as unknown as {
+    const suite = TestRunner.getCurrentSuite() as unknown as {
       meta?: Record<string, unknown>;
     };
     if (suite && !suite.meta) suite.meta = {};
