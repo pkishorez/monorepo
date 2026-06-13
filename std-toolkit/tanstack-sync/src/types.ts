@@ -126,6 +126,8 @@ export type StdCollectionUtils<
   remove: (keys: string | string[]) => void;
   schema: () => TSchema;
   fetchMore: () => Effect.Effect<number>;
+  pendingCount: (key: string) => number;
+  subscribePending: (listener: () => void) => () => void;
 };
 
 export type StdPartitionedUtils<
@@ -136,6 +138,8 @@ export type StdPartitionedUtils<
   remove: (keys: string | string[]) => void;
   schema: () => TSchema;
   fetchMore: (partition: Partial<TItem>) => Effect.Effect<number>;
+  pendingCount: (key: string) => number;
+  subscribePending: (listener: () => void) => () => void;
 };
 
 export type StdSingleItemUtils<

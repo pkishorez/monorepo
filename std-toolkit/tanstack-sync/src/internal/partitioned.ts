@@ -76,6 +76,8 @@ type PartitionedUtils<
   remove: (keys: string | string[]) => void;
   schema: () => TSchema;
   fetchMore: (partition: Partial<TItem>) => Effect.Effect<number>;
+  pendingCount: (key: string) => number;
+  subscribePending: (listener: () => void) => () => void;
 };
 
 export const buildPartitioned = <TSchema extends AnyEntityESchema>(
@@ -94,14 +96,33 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     options;
   const store = resolveCache(options.cache);
 
-  const partitionCaches = new Map<string, Promise<CacheEntity<TItem>>>();
-  const partitionSemaphores = new Map<string, Semaphore.Semaphore>();
-  const subscribeFibers = new Map<string, Fiber.Fiber<void, unknown>>();
+  const partitionCacheMap = new Map<string, Promise<CacheEntity<TItem>>>();
+  const partitionSemaphoreMap = new Map<string, Semaphore.Semaphore>();
+  const updateSemaphoreMap = new Map<string, Semaphore.Semaphore>();
+  const subscribeFiberMap = new Map<string, Fiber.Fiber<void, unknown>>();
+  const pendingCountMap = new Map<string, number>();
+  const pendingListenerSet = new Set<() => void>();
 
   let callbacks: SyncCallbacks<TCollItem> | null = null;
 
+  const notifyPending = (): void => {
+    for (const listener of pendingListenerSet) listener();
+  };
+
+  const incrementPending = (key: string): void => {
+    pendingCountMap.set(key, (pendingCountMap.get(key) ?? 0) + 1);
+    notifyPending();
+  };
+
+  const decrementPending = (key: string): void => {
+    const next = (pendingCountMap.get(key) ?? 0) - 1;
+    if (next <= 0) pendingCountMap.delete(key);
+    else pendingCountMap.set(key, next);
+    notifyPending();
+  };
+
   const getOrCreateCache = (key: string): Promise<CacheEntity<TItem>> => {
-    const existing = partitionCaches.get(key);
+    const existing = partitionCacheMap.get(key);
     if (existing) return existing;
     const promise = Effect.runPromise(
       store
@@ -118,15 +139,23 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           ),
         ),
     );
-    partitionCaches.set(key, promise);
+    partitionCacheMap.set(key, promise);
     return promise;
   };
 
   const getOrCreateSemaphore = (key: string): Semaphore.Semaphore => {
-    const existing = partitionSemaphores.get(key);
+    const existing = partitionSemaphoreMap.get(key);
     if (existing) return existing;
     const semaphore = Semaphore.makeUnsafe(1);
-    partitionSemaphores.set(key, semaphore);
+    partitionSemaphoreMap.set(key, semaphore);
+    return semaphore;
+  };
+
+  const getOrCreateUpdateSemaphore = (key: string): Semaphore.Semaphore => {
+    const existing = updateSemaphoreMap.get(key);
+    if (existing) return existing;
+    const semaphore = Semaphore.makeUnsafe(1);
+    updateSemaphoreMap.set(key, semaphore);
     return semaphore;
   };
 
@@ -145,18 +174,6 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
   const writeToCollection = (items: EntityType<TItem>[]) =>
     writeEntitiesToCollection(callbacks, items, { immediate: true });
 
-  // An optimistic mutation (collection.update/insert) keeps its row flagged
-  // `$synced: false` until a sync write lands *after* the transaction reaches
-  // `completed`. Writing the server result back synchronously inside the
-  // mutation handler lands it while the transaction is still `persisting`, so
-  // @tanstack/db re-adds the optimistic upsert and never clears it — the row
-  // stays `$synced: false` forever. Deferring the write-back to a macrotask
-  // lets the handler settle and the transaction complete first, so the write
-  // flips `$synced` to true.
-  const writeToCollectionAfterCommit = (items: EntityType<TItem>[]) => {
-    setTimeout(() => writeToCollection(items), 100);
-  };
-
   const removeFromCollection = (keys: string[]) =>
     writeKeysToCollection(callbacks, keys, { immediate: true });
 
@@ -164,11 +181,11 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     key: string,
     subscribeEffect: Effect.Effect<void, never, Scope.Scope>,
   ): Promise<void> => {
-    if (subscribeFibers.has(key)) return;
+    if (subscribeFiberMap.has(key)) return;
     const fiber = await Effect.runPromise(
       Effect.forkDetach(Effect.scoped(subscribeEffect)),
     );
-    subscribeFibers.set(key, fiber);
+    subscribeFiberMap.set(key, fiber);
   };
 
   const activatePartition = async (
@@ -204,7 +221,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
       }
     };
 
-    if (handler.subscribe && !subscribeFibers.has(key)) {
+    if (handler.subscribe && !subscribeFiberMap.has(key)) {
       let resolveInitialSync!: () => void;
       const initialSyncDone = new Promise<void>((r) => {
         resolveInitialSync = r;
@@ -302,11 +319,22 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     removeFromCollection(Array.isArray(keys) ? keys : [keys]);
   };
 
+  const pendingCount = (key: string): number => pendingCountMap.get(key) ?? 0;
+
+  const subscribePending = (listener: () => void): (() => void) => {
+    pendingListenerSet.add(listener);
+    return () => {
+      pendingListenerSet.delete(listener);
+    };
+  };
+
   const utils: PartitionedUtils<TItem, TSchema> = {
     upsert,
     remove,
     schema: () => schema,
     fetchMore,
+    pendingCount,
+    subscribePending,
   };
 
   tracker.register({ utils: { upsert, remove, schema: () => schema } });
@@ -333,7 +361,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
             const key = options.defaultPartitionKey;
             await activatePartition(key, null, singletonQuery!, true, true);
           } else {
-            for (const [, cacheP] of partitionCaches) {
+            for (const [, cacheP] of partitionCacheMap) {
               const cache = await cacheP;
               const allCached = await Effect.runPromise(cache.getAll());
               if (allCached.length > 0) {
@@ -354,10 +382,10 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
 
         return {
           cleanup: () => {
-            for (const fiber of subscribeFibers.values()) {
+            for (const fiber of subscribeFiberMap.values()) {
               Effect.runFork(Fiber.interrupt(fiber));
             }
-            subscribeFibers.clear();
+            subscribeFiberMap.clear();
             callbacks = null;
           },
           ...(isSingleton
@@ -415,7 +443,16 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           const cache = await getOrCreateCache(options.defaultPartitionKey);
           await Effect.runPromise(cacheEntities(cache, schema, [result]));
         }
-        writeToCollectionAfterCommit([result]);
+        // Write back once the transaction reaches `completed` — @tanstack/db
+        // only retires the optimistic overlay against completed transactions,
+        // and the transaction stays `persisting` until this handler resolves.
+        // A write-back inside the handler lands the value but never clears the
+        // overlay, leaving the row `$synced: false` forever. `isPersisted`
+        // resolves exactly when the transaction completes; do not await it
+        // here, as it only resolves after this handler returns.
+        transaction.isPersisted.promise.finally(() =>
+          writeToCollection([result]),
+        );
       },
     }),
     ...(onUpdate && {
@@ -423,14 +460,34 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
         transaction,
       }: UpdateMutationFnParams<TCollItem, string>) => {
         const mutation = transaction.mutations[0];
+        const key = String(mutation.key);
         const updates = stripMetaPartial<TItem>(mutation.changes);
         const payload = buildUpdatePayload<TItem, TSchema>(
           schema,
-          String(mutation.key),
+          key,
           updates,
         );
-        const result = await Effect.runPromise(onUpdate(payload));
-        writeToCollectionAfterCommit([result]);
+        // Count this update as pending the moment it is queued, and clear it
+        // once the transaction settles (resolve or reject) — not when the API
+        // returns — so the count tracks "queued or in flight, not yet synced".
+        incrementPending(key);
+        transaction.isPersisted.promise
+          .finally(() => decrementPending(key))
+          .catch(() => {});
+        // Serialize updates per item key: never run two server calls in
+        // flight for the same row. Send-order is not arrival-order, so an
+        // in-flight update must finish before the next one starts. The
+        // semaphore is FIFO, so queued updates run in submission order.
+        const semaphore = getOrCreateUpdateSemaphore(key);
+        const result = await Effect.runPromise(
+          onUpdate(payload) // br
+            .pipe(semaphore.withPermits(1)),
+        );
+        // See onInsert: defer the write-back to transaction completion so the
+        // optimistic overlay is retired and the row flips to `$synced: true`.
+        transaction.isPersisted.promise.finally(() =>
+          writeToCollection([result]),
+        );
       },
     }),
     ...(onDelete && {
@@ -439,7 +496,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
       }: DeleteMutationFnParams<TCollItem, string>) => {
         const key = String(transaction.mutations[0].key);
         await Effect.runPromise(onDelete(key));
-        const caches = await Promise.all(partitionCaches.values());
+        const caches = await Promise.all(partitionCacheMap.values());
         await Effect.runPromise(
           Effect.forEach(
             caches,
@@ -447,7 +504,14 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
             { discard: true },
           ),
         );
-        removeFromCollection([key]);
+        // See onInsert: defer the sync delete to transaction completion. The
+        // optimistic-delete overlay only retires against a completed
+        // transaction; removing during `persisting` lands the sync delete but
+        // leaves the overlay stuck, so a later server-side re-insert of the
+        // same key would stay hidden forever.
+        transaction.isPersisted.promise.finally(() =>
+          removeFromCollection([key]),
+        );
       },
     }),
     utils,

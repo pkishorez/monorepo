@@ -39,6 +39,8 @@ export const buildTotalSync = <TSchema extends AnyEntityESchema>(
     remove: inner.utils.remove,
     schema: inner.utils.schema,
     fetchMore: () => inner.utils.fetchMore({}),
+    pendingCount: inner.utils.pendingCount,
+    subscribePending: inner.utils.subscribePending,
   };
 
   return {
