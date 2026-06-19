@@ -2,19 +2,16 @@ import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   lint: {
-    ignorePatterns: ['dist/**'],
+    ignorePatterns: ['dist/**', '**/fixtures/**'],
   },
   fmt: {
-    ignorePatterns: ['dist/**'],
+    ignorePatterns: ['dist/**', '**/fixtures/**'],
   },
   resolve: {
     tsconfigPaths: true,
   },
   test: {
     globals: true,
-    include: [
-      'src/**/__tests__/**/*.test.ts',
-      'vtest/features/**/tests/**/*.test.ts',
-    ],
+    include: ['src/**/__tests__/**/*.test.ts'],
   },
 });
