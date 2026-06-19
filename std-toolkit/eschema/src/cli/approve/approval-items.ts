@@ -21,8 +21,7 @@ export function approvalItems(
         (issue) =>
           (issue._tag === 'NewVersion' ||
             issue._tag === 'ModifiedVersion' ||
-            issue._tag === 'MissingVersionFile' ||
-            issue._tag === 'OrphanSnapshotFile') &&
+            issue._tag === 'MissingVersionFile') &&
           issue.version !== undefined,
       )
       .map((issue) => ({
@@ -32,12 +31,10 @@ export function approvalItems(
           (issue._tag === 'NewVersion' ||
             issue.version === schema.latestVersion ||
             force) &&
-          issue._tag !== 'MissingVersionFile' &&
-          issue._tag !== 'OrphanSnapshotFile',
+          issue._tag !== 'MissingVersionFile',
         blockReason:
-          issue._tag === 'MissingVersionFile' ||
-          issue._tag === 'OrphanSnapshotFile'
-            ? 'Report only: missing or deleted version files are not approved automatically.'
+          issue._tag === 'MissingVersionFile'
+            ? 'Manual fix required: see the lint message for instructions.'
             : 'Approval blocked: use --force',
       })),
   );

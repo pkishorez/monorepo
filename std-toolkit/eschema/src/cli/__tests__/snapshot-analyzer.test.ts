@@ -122,10 +122,7 @@ describe('snapshot analyzer', () => {
 
     const report = await analyze(root);
 
-    expect(issueTags(report)).toEqual([
-      'MissingVersionFile',
-      'OrphanSnapshotFile',
-    ]);
+    expect(issueTags(report)).toEqual(['MissingVersionFile']);
   });
 
   it('formats a unified diff for modified version rendering', () => {

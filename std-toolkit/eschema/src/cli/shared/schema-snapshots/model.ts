@@ -20,8 +20,7 @@ export type SnapshotIssue = {
     | 'MissingSnapshotFile'
     | 'SnapshotHashMismatch'
     | 'ModifiedVersion'
-    | 'MissingVersionFile'
-    | 'OrphanSnapshotFile';
+    | 'MissingVersionFile';
   readonly schemaPath: string;
   readonly path?: string;
   readonly version?: string;
