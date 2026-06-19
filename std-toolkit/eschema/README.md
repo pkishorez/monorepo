@@ -103,6 +103,127 @@ exactly the migration case it exists to support.
 > change to the parent's `_v`. When auditing the impact of this rule, audit the
 > whole nesting tree, not only the schemas you evolved directly.
 
+## Schema approval
+
+Source snapshots protect local schema version files from accidental mutation
+after explicit approval. The workflow is file-local: each `versions/vN.ts` file
+is approved against a raw source copy in `__snapshots__/vN.ts.snap` and a
+`snapshots.json` hash manifest. It does not inspect transitive imports or
+semantic schema descriptors.
+
+The `eschema` CLI always requires `--root`; there is no default schema root.
+The root is the schema collection root, and schema paths below it may be nested
+grouping paths such as `identity/user-profile`.
+
+Commands:
+
+```bash
+eschema create --root <schemas-root> <schema-path>
+eschema lint --root <schemas-root>
+eschema approve --root <schemas-root> [--force]
+```
+
+Example workflow:
+
+```bash
+eschema create --root src/schemas identity/user-profile
+eschema approve --root src/schemas
+eschema lint --root src/schemas
+```
+
+`create` scaffolds a plain `ESchema` schema root. It does not scaffold
+`ValueESchema`, `SingleEntityESchema`, or `EntityESchema` variants. For
+`identity/user-profile`, the initial files are:
+
+```text
+src/schemas/
+└── identity/
+    └── user-profile/
+        ├── index.ts
+        ├── schema.ts
+        └── versions/
+            └── v1.ts
+```
+
+Generated `schema.ts`:
+
+```typescript
+import { v1 } from './versions/v1.js';
+
+export const schema = v1.build();
+```
+
+Generated `versions/v1.ts`:
+
+```typescript
+import { Schema } from 'effect';
+import { ESchema } from '@std-toolkit/eschema';
+
+export const v1 = ESchema.make({
+  name: Schema.String,
+});
+```
+
+Generated `index.ts`:
+
+```typescript
+import type { ESchemaType } from '@std-toolkit/eschema';
+import { schema } from './schema.js';
+
+export { schema as userProfileSchema };
+
+export type UserProfile = ESchemaType<typeof schema>;
+```
+
+`schema.ts` is machine-facing and must export `const schema = latest.build()`,
+where `latest` is the highest contiguous version file. `index.ts` is
+scaffolded for convenience, but it is user-owned after creation; `lint` and
+`approve` do not validate or modify it.
+
+After approval, the schema root includes the strict snapshot files:
+
+```text
+src/schemas/identity/user-profile/
+├── index.ts
+├── schema.ts
+├── versions/
+│   └── v1.ts
+├── __snapshots__/
+│   └── v1.ts.snap
+└── snapshots.json
+```
+
+`.snap` files contain the raw approved source content without a generated
+header. `snapshots.json` is a simple version-to-hash map:
+
+```json
+{
+  "v1": "sha256-..."
+}
+```
+
+Run `eschema approve --root <schemas-root>` when a new latest version is
+ready for approval. The command prompts for each approvable change and accepts
+`approve`, `a`, `ignore`, or `i`. Modified non-latest versions are reported but
+blocked by default; approving them requires:
+
+```bash
+eschema approve --root <schemas-root> --force
+```
+
+Missing or deleted version references are report-only and are not approved by
+`approve`.
+
+Use lint in CI:
+
+```bash
+eschema lint --root <schemas-root>
+```
+
+`lint` prints each discovered schema, latest version, per-version status, every
+issue, and a diff for modified versions. It exits `0` when every version is
+approved and exits `1` when any issue exists.
+
 ## API
 
 | Method                                | Description                                        |
