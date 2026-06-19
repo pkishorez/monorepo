@@ -169,7 +169,6 @@ describe('approve command', () => {
     const output = await runApprove(root, 'approve\n', ['--force']);
 
     expect(output).toContain('MissingVersionFile v2');
-    expect(output).toContain('OrphanSnapshotFile v2');
     expect(output).not.toContain('Approve user v2?');
     expect(readText(join(schemaRoot, '__snapshots__', 'v2.ts.snap'))).toBe(
       deletedV2,

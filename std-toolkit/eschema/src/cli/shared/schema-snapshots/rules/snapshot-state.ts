@@ -64,7 +64,7 @@ function analyzeVersion(
           'MissingSnapshotFile',
           schema.path,
           { path: snapshotFile, version: versionFile.version },
-          `Missing snapshot file for ${versionFile.version}`,
+          `__snapshots__/${versionFile.version}.ts.snap was deleted manually. Restore it from git or run eschema approve to re-snapshot.`,
         ),
       );
     }
@@ -92,7 +92,7 @@ function analyzeVersion(
           'SnapshotHashMismatch',
           schema.path,
           { path: snapshot.path, version: versionFile.version },
-          `Snapshot hash mismatch for ${versionFile.version}`,
+          `__snapshots__/${versionFile.version}.ts.snap was modified manually. Restore it from git — do not edit snapshot files directly.`,
         ),
         expectedHash: manifestHash,
         actualHash,
