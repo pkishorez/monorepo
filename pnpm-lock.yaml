@@ -985,9 +985,6 @@ importers:
 
   std-toolkit/tanstack-sync:
     dependencies:
-      '@std-toolkit/cache':
-        specifier: workspace:*
-        version: link:../cache
       '@std-toolkit/core':
         specifier: workspace:*
         version: link:../core
@@ -995,9 +992,6 @@ importers:
         specifier: workspace:*
         version: link:../eschema
     devDependencies:
-      '@monorepo/vtest':
-        specifier: workspace:*
-        version: link:../../packages/vtest
       '@tanstack/query-db-collection':
         specifier: 1.0.40
         version: 1.0.40(@tanstack/query-core@5.100.10)(typescript@6.0.3)
@@ -1013,6 +1007,9 @@ importers:
       '@types/react':
         specifier: 19.2.7
         version: 19.2.7
+      dependency-cruiser-viz:
+        specifier: workspace:*
+        version: link:../../packages/dependency-cruiser-viz
       effect:
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78
@@ -1022,9 +1019,6 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
 packages:
 
