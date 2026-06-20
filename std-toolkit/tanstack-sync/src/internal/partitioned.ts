@@ -5,7 +5,10 @@ import type {
   DeleteMutationFnParams,
   LoadSubsetOptions,
   CollectionConfig,
+  Transaction,
 } from '@tanstack/react-db';
+import { createPacedMutations, debounceStrategy } from '@tanstack/react-db';
+import type { DebounceStrategyOptions } from '@tanstack/react-db';
 import { Effect, Fiber, Option, Scope, Semaphore } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { CacheEntity, CacheStore, PartitionKey } from '@std-toolkit/cache';
@@ -66,6 +69,7 @@ export type PartitionedOptions<
     payload: UpdatePayload<TItem, TSchema>,
   ) => Effect.Effect<EntityType<TItem>>;
   onDelete?: (id: string) => Effect.Effect<void>;
+  updateDebounceOptions?: DebounceStrategyOptions;
 };
 
 type PartitionedUtils<
@@ -78,6 +82,7 @@ type PartitionedUtils<
   fetchMore: (partition: Partial<TItem>) => Effect.Effect<number>;
   pendingCount: (key: string) => number;
   subscribePending: (listener: () => void) => () => void;
+  queueUpdate: (key: string, changes: Partial<TItem>) => Transaction;
 };
 
 export const buildPartitioned = <TSchema extends AnyEntityESchema>(
@@ -98,7 +103,10 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
 
   const partitionCacheMap = new Map<string, Promise<CacheEntity<TItem>>>();
   const partitionSemaphoreMap = new Map<string, Semaphore.Semaphore>();
-  const updateSemaphoreMap = new Map<string, Semaphore.Semaphore>();
+  const updateMutateMap = new Map<
+    string,
+    (changes: Partial<TItem>) => Transaction
+  >();
   const subscribeFiberMap = new Map<string, Fiber.Fiber<void, unknown>>();
   const pendingCountMap = new Map<string, number>();
   const pendingListenerSet = new Set<() => void>();
@@ -151,12 +159,39 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     return semaphore;
   };
 
-  const getOrCreateUpdateSemaphore = (key: string): Semaphore.Semaphore => {
-    const existing = updateSemaphoreMap.get(key);
+  const getOrCreateUpdateMutate = (
+    key: string,
+  ): ((changes: Partial<TItem>) => Transaction) => {
+    const existing = updateMutateMap.get(key);
     if (existing) return existing;
-    const semaphore = Semaphore.makeUnsafe(1);
-    updateSemaphoreMap.set(key, semaphore);
-    return semaphore;
+    const mutate = createPacedMutations<Partial<TItem>>({
+      onMutate: (changes) => {
+        callbacks!.collection.update(key, (draft: TCollItem) => {
+          Object.assign(draft, changes);
+        });
+      },
+      mutationFn: async ({ transaction }) => {
+        const mutation = transaction.mutations[0]!;
+        const updates = stripMetaPartial<TItem>(mutation.changes);
+        const payload = buildUpdatePayload<TItem, TSchema>(
+          schema,
+          key,
+          updates,
+        );
+        incrementPending(key);
+        try {
+          const result = await Effect.runPromise(onUpdate!(payload));
+          writeToCollection([result]);
+        } finally {
+          decrementPending(key);
+        }
+      },
+      strategy: debounceStrategy(
+        options.updateDebounceOptions ?? { wait: 2000 },
+      ),
+    });
+    updateMutateMap.set(key, mutate);
+    return mutate;
   };
 
   const makeCursor = (
@@ -167,9 +202,6 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
       Effect.map(Option.getOrNull),
       Effect.orDie,
     );
-
-  const writeToCollectionOnMount = (items: EntityType<TItem>[]) =>
-    writeEntitiesToCollection(callbacks, items);
 
   const writeToCollection = (items: EntityType<TItem>[]) =>
     writeEntitiesToCollection(callbacks, items);
@@ -200,7 +232,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
 
     const cached = await Effect.runPromise(cache.getAll());
     if (isOnMount) {
-      writeToCollectionOnMount(cached);
+      writeToCollection(cached);
     } else {
       writeToCollection(cached);
     }
@@ -328,6 +360,13 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     };
   };
 
+  const queueUpdate = onUpdate
+    ? (key: string, changes: Partial<TItem>): Transaction =>
+        getOrCreateUpdateMutate(key)(changes)
+    : (_key: string, _changes: Partial<TItem>): Transaction => {
+        throw new Error('queueUpdate requires onUpdate to be defined');
+      };
+
   const utils: PartitionedUtils<TItem, TSchema> = {
     upsert,
     remove,
@@ -335,6 +374,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     fetchMore,
     pendingCount,
     subscribePending,
+    queueUpdate,
   };
 
   tracker.register({ utils: { upsert, remove, schema: () => schema } });
@@ -365,7 +405,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
               const cache = await cacheP;
               const allCached = await Effect.runPromise(cache.getAll());
               if (allCached.length > 0) {
-                writeToCollectionOnMount(allCached);
+                writeToCollection(allCached);
               }
             }
           }
@@ -386,6 +426,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
               Effect.runFork(Fiber.interrupt(fiber));
             }
             subscribeFiberMap.clear();
+            updateMutateMap.clear();
             callbacks = null;
           },
           ...(isSingleton
@@ -437,13 +478,19 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
         transaction,
       }: InsertMutationFnParams<TCollItem, string>) => {
         const mutation = transaction.mutations[0];
+        const key = String(mutation.key);
         const value = stripMeta<TItem>(mutation.modified);
-        const result = await Effect.runPromise(onInsert(value));
-        if (isSingleton && options.defaultPartitionKey) {
-          const cache = await getOrCreateCache(options.defaultPartitionKey);
-          await Effect.runPromise(cacheEntities(cache, schema, [result]));
+        incrementPending(key);
+        try {
+          const result = await Effect.runPromise(onInsert(value));
+          if (isSingleton && options.defaultPartitionKey) {
+            const cache = await getOrCreateCache(options.defaultPartitionKey);
+            await Effect.runPromise(cacheEntities(cache, schema, [result]));
+          }
+          writeToCollection([result]);
+        } finally {
+          decrementPending(key);
         }
-        writeToCollection([result]);
       },
     }),
     ...(onUpdate && {
@@ -458,23 +505,13 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           key,
           updates,
         );
-        // Count this update as pending the moment it is queued, and clear it
-        // once the transaction settles (resolve or reject) — not when the API
-        // returns — so the count tracks "queued or in flight, not yet synced".
         incrementPending(key);
-        transaction.isPersisted.promise
-          .finally(() => decrementPending(key))
-          .catch(() => {});
-        // Serialize updates per item key: never run two server calls in
-        // flight for the same row. Send-order is not arrival-order, so an
-        // in-flight update must finish before the next one starts. The
-        // semaphore is FIFO, so queued updates run in submission order.
-        const semaphore = getOrCreateUpdateSemaphore(key);
-        const result = await Effect.runPromise(
-          onUpdate(payload) // br
-            .pipe(semaphore.withPermits(1)),
-        );
-        writeToCollection([result]);
+        try {
+          const result = await Effect.runPromise(onUpdate(payload));
+          writeToCollection([result]);
+        } finally {
+          decrementPending(key);
+        }
       },
     }),
     ...(onDelete && {
@@ -482,16 +519,21 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
         transaction,
       }: DeleteMutationFnParams<TCollItem, string>) => {
         const key = String(transaction.mutations[0].key);
-        await Effect.runPromise(onDelete(key));
-        const caches = await Promise.all(partitionCacheMap.values());
-        await Effect.runPromise(
-          Effect.forEach(
-            caches,
-            (cache) => Effect.catch(cache.delete(key), () => Effect.void),
-            { discard: true },
-          ),
-        );
-        removeFromCollection([key]);
+        incrementPending(key);
+        try {
+          await Effect.runPromise(onDelete(key));
+          const caches = await Promise.all(partitionCacheMap.values());
+          await Effect.runPromise(
+            Effect.forEach(
+              caches,
+              (cache) => Effect.catch(cache.delete(key), () => Effect.void),
+              { discard: true },
+            ),
+          );
+          removeFromCollection([key]);
+        } finally {
+          decrementPending(key);
+        }
       },
     }),
     utils,
