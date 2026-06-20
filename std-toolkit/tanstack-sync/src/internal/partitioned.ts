@@ -28,7 +28,7 @@ import {
   stripMeta,
   stripMetaPartial,
   writeEntitiesToCollection,
-  writeKeysToCollection,
+  deleteKeysFromCollection,
   type SyncCallbacks,
 } from './shared.js';
 
@@ -172,10 +172,10 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
     writeEntitiesToCollection(callbacks, items);
 
   const writeToCollection = (items: EntityType<TItem>[]) =>
-    writeEntitiesToCollection(callbacks, items, { immediate: true });
+    writeEntitiesToCollection(callbacks, items);
 
   const removeFromCollection = (keys: string[]) =>
-    writeKeysToCollection(callbacks, keys, { immediate: true });
+    deleteKeysFromCollection(callbacks, keys);
 
   const forkSubscribeFiber = async (
     key: string,
@@ -443,16 +443,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           const cache = await getOrCreateCache(options.defaultPartitionKey);
           await Effect.runPromise(cacheEntities(cache, schema, [result]));
         }
-        // Write back once the transaction reaches `completed` — @tanstack/db
-        // only retires the optimistic overlay against completed transactions,
-        // and the transaction stays `persisting` until this handler resolves.
-        // A write-back inside the handler lands the value but never clears the
-        // overlay, leaving the row `$synced: false` forever. `isPersisted`
-        // resolves exactly when the transaction completes; do not await it
-        // here, as it only resolves after this handler returns.
-        transaction.isPersisted.promise.finally(() =>
-          writeToCollection([result]),
-        );
+        writeToCollection([result]);
       },
     }),
     ...(onUpdate && {
@@ -483,11 +474,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
           onUpdate(payload) // br
             .pipe(semaphore.withPermits(1)),
         );
-        // See onInsert: defer the write-back to transaction completion so the
-        // optimistic overlay is retired and the row flips to `$synced: true`.
-        transaction.isPersisted.promise.finally(() =>
-          writeToCollection([result]),
-        );
+        writeToCollection([result]);
       },
     }),
     ...(onDelete && {
@@ -504,14 +491,7 @@ export const buildPartitioned = <TSchema extends AnyEntityESchema>(
             { discard: true },
           ),
         );
-        // See onInsert: defer the sync delete to transaction completion. The
-        // optimistic-delete overlay only retires against a completed
-        // transaction; removing during `persisting` lands the sync delete but
-        // leaves the overlay stuck, so a later server-side re-insert of the
-        // same key would stay hidden forever.
-        transaction.isPersisted.promise.finally(() =>
-          removeFromCollection([key]),
-        );
+        removeFromCollection([key]);
       },
     }),
     utils,

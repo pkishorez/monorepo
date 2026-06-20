@@ -75,7 +75,7 @@ export const buildSingleItem = <TSchema extends AnySingleEntityESchema>(
     writeItems(callbacks, items);
 
   const writeToCollection = (items: SingleEntityType<TItem>[]) =>
-    writeItems(callbacks, items, { immediate: true });
+    writeItems(callbacks, items);
 
   const upsert = (item: SingleEntityType<TItem>) => {
     writeToCollection([item]);

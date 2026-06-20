@@ -109,7 +109,7 @@ export const writeEntitiesToCollection = <TItem extends object>(
   callbacks.commit();
 };
 
-export const writeKeysToCollection = <TItem extends object>(
+export const deleteKeysFromCollection = <TItem extends object>(
   callbacks: SyncCallbacks<CollectionItem<TItem>> | null,
   keys: string[],
   options?: { immediate?: boolean },
