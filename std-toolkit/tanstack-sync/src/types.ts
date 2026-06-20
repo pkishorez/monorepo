@@ -1,8 +1,10 @@
 import type {
   CollectionConfig,
   SingleResult,
+  Transaction,
   VirtualRowProps,
 } from '@tanstack/react-db';
+import type { DebounceStrategyOptions } from '@tanstack/react-db';
 import type { Effect, Scope } from 'effect';
 import type {
   EntityType,
@@ -74,6 +76,7 @@ export interface TotalSyncConfig<
     payload: UpdatePayload<TItem, TSchema>,
   ) => Effect.Effect<EntityType<TItem>>;
   onDelete?: (id: string) => Effect.Effect<void>;
+  updateDebounceOptions?: DebounceStrategyOptions;
 }
 
 export type OnDemandQueries<TItem extends object> = {
@@ -103,6 +106,7 @@ export interface OnDemandConfig<
     payload: UpdatePayload<TItem, TSchema>,
   ) => Effect.Effect<EntityType<TItem>>;
   onDelete?: (id: string) => Effect.Effect<void>;
+  updateDebounceOptions?: DebounceStrategyOptions;
 }
 
 export interface SingleItemConfig<
@@ -128,6 +132,7 @@ export type StdCollectionUtils<
   fetchMore: () => Effect.Effect<number>;
   pendingCount: (key: string) => number;
   subscribePending: (listener: () => void) => () => void;
+  queueUpdate: (key: string, changes: Partial<TItem>) => Transaction;
 };
 
 export type StdPartitionedUtils<
@@ -140,6 +145,7 @@ export type StdPartitionedUtils<
   fetchMore: (partition: Partial<TItem>) => Effect.Effect<number>;
   pendingCount: (key: string) => number;
   subscribePending: (listener: () => void) => () => void;
+  queueUpdate: (key: string, changes: Partial<TItem>) => Transaction;
 };
 
 export type StdSingleItemUtils<

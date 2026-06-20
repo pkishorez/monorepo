@@ -41,6 +41,8 @@ export const buildOnDemand = <TSchema extends AnyEntityESchema>(
   if (config.onInsert !== undefined) opts.onInsert = config.onInsert;
   if (config.onUpdate !== undefined) opts.onUpdate = config.onUpdate;
   if (config.onDelete !== undefined) opts.onDelete = config.onDelete;
+  if (config.updateDebounceOptions !== undefined)
+    opts.updateDebounceOptions = config.updateDebounceOptions;
 
   return buildPartitioned(tracker, opts) as unknown as OnDemandResult<
     TItem,
