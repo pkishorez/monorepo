@@ -1,35 +1,26 @@
 import { createCollection } from '@tanstack/react-db';
-import { Effect, Stream } from 'effect';
+import { Effect } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
-import { createStdSync } from '@std-toolkit/tanstack-sync';
+import { createStdSync, syncStrategy } from '@std-toolkit/tanstack-sync';
 import { ProjectionOutputSchema, TransactionSchema } from '@/domain/index';
 import { FinancesClient, financesRuntime } from '@/routes/internal/effect';
+import { streamSource } from './utils.js';
 
 type ProjectionOutput = typeof ProjectionOutputSchema.Type;
 type Transaction = typeof TransactionSchema.Type;
 
 const std = createStdSync();
 
-const transactionsSyncConfig = std.totalSync({
+const transactionsSyncConfig = std.sync({
   schema: TransactionSchema,
-  subscribe: ({ getCursor, push, onInitialSyncDone }) =>
-    Effect.gen(function* () {
-      const { client } = yield* FinancesClient;
-      const cursor = yield* getCursor;
-      const stream = client.subscribeTransactions({
-        cursor: cursor?.meta._u ?? null,
-      });
-
-      yield* Stream.runForEach(stream, (event) =>
-        Effect.sync(() => {
-          if (event._tag === 'batch') {
-            push(event.items as EntityType<Transaction>[]);
-          } else if (event._tag === 'initial-sync-done') {
-            onInitialSyncDone();
-          }
-        }),
-      );
-    }).pipe(Effect.provide(FinancesClient.layer), Effect.orDie),
+  strategy: syncStrategy.oldToNew({
+    stream: streamSource((cursor) =>
+      Effect.gen(function* () {
+        const { client } = yield* FinancesClient;
+        return client.subscribeTransactions({ cursor });
+      }),
+    ),
+  }),
 });
 
 export const transactionsCollection = createCollection(transactionsSyncConfig);
@@ -44,12 +35,10 @@ export function replaceTransactions(projection: ProjectionOutput) {
       }),
     )
     .then((items) => {
-      const keys = Array.from(transactionsCollection.state.keys());
-      if (keys.length > 0) {
-        transactionsUtils.remove(keys);
-      }
       if (items.length > 0) {
-        transactionsUtils.upsert(items as EntityType<Transaction>[]);
+        void Effect.runPromise(
+          transactionsUtils.writeUpsert(items as EntityType<Transaction>[]),
+        );
       }
       return items;
     });

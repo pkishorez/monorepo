@@ -25,7 +25,6 @@
     "@shikijs/langs": "4.2.0",
     "@shikijs/themes": "4.2.0",
     "@shikijs/transformers": "4.2.0",
-    "@std-toolkit/cache": "workspace:*",
     "@std-toolkit/core": "workspace:*",
     "@std-toolkit/db-dynamodb": "workspace:*",
     "@std-toolkit/eschema": "workspace:*",
