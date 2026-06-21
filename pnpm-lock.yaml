@@ -132,9 +132,6 @@ importers:
       '@std-toolkit/sqlite':
         specifier: workspace:*
         version: link:../../std-toolkit/db-sqlite
-      '@std-toolkit/tanstack':
-        specifier: workspace:*
-        version: link:../../std-toolkit/tanstack
       '@std-toolkit/tanstack-sync':
         specifier: workspace:*
         version: link:../../std-toolkit/tanstack-sync
@@ -238,9 +235,6 @@ importers:
       '@shikijs/transformers':
         specifier: 4.2.0
         version: 4.2.0
-      '@std-toolkit/cache':
-        specifier: workspace:*
-        version: link:../../std-toolkit/cache
       '@std-toolkit/core':
         specifier: workspace:*
         version: link:../../std-toolkit/core
@@ -779,37 +773,6 @@ importers:
         specifier: 4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  std-toolkit/cache:
-    dependencies:
-      '@std-toolkit/core':
-        specifier: workspace:*
-        version: link:../core
-      idb:
-        specifier: 8.0.3
-        version: 8.0.3
-    devDependencies:
-      '@monorepo/vtest':
-        specifier: workspace:*
-        version: link:../../packages/vtest
-      '@tsconfig/node22':
-        specifier: 22.0.5
-        version: 22.0.5
-      '@types/node':
-        specifier: 25.9.1
-        version: 25.9.1
-      effect:
-        specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78
-      fake-indexeddb:
-        specifier: 6.2.5
-        version: 6.2.5
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
   std-toolkit/core:
     dependencies:
       '@std-toolkit/eschema':
@@ -930,43 +893,6 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5
     devDependencies:
-      '@tsconfig/node22':
-        specifier: 22.0.5
-        version: 22.0.5
-      '@types/node':
-        specifier: 25.9.1
-        version: 25.9.1
-      effect:
-        specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  std-toolkit/tanstack:
-    dependencies:
-      '@standard-schema/spec':
-        specifier: 1.1.0
-        version: 1.1.0
-      '@std-toolkit/cache':
-        specifier: workspace:*
-        version: link:../cache
-      '@std-toolkit/core':
-        specifier: workspace:*
-        version: link:../core
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../eschema
-    devDependencies:
-      '@monorepo/vtest':
-        specifier: workspace:*
-        version: link:../../packages/vtest
-      '@tanstack/react-db':
-        specifier: 0.1.86
-        version: 0.1.86(react@19.2.7)(typescript@6.0.3)
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5

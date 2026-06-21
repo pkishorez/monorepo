@@ -278,10 +278,12 @@ function saveOverride(overrideValue: {
     cancelled_by: overrideValue.cancelled_by ?? null,
   };
   const now = new Date().toISOString();
-  overridesUtils.upsert({
-    value: payload,
-    meta: { _v: '1', _e: 'Override', _d: false, _u: now },
-  });
+  void Effect.runPromise(
+    overridesUtils.writeUpsert({
+      value: payload,
+      meta: { _v: '1', _e: 'Override', _d: false, _u: now },
+    }),
+  );
 
   financesRuntime
     .runPromise(
