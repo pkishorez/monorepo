@@ -2,12 +2,8 @@ import { Effect, Exit, Option } from 'effect';
 import type { SQLiteEntity } from './sqlite-entity.js';
 import type { SQLiteSingleEntity } from './sqlite-single-entity.js';
 import type { SQLiteTableInstance } from './sqlite-table.js';
-import type {
-  DescriptorProvider,
-  EntityType,
-  RegistrySchema,
-} from '@std-toolkit/core';
-import { ConnectionService } from '@std-toolkit/core/server';
+import type { EntityType } from '@std-toolkit/core';
+import { Broadcaster } from '@std-toolkit/core';
 import {
   SqliteDB,
   SqliteDBError,
@@ -30,7 +26,6 @@ type SingleEntitiesMap = Record<string, SQLiteSingleEntity<any, any>>;
 
 /**
  * Registry for managing multiple entities on a single shared SQLite table.
- * Implements DescriptorProvider for unified schema access.
  * Provides type-safe access to entities and database operations.
  *
  * @typeParam TTable - The shared SQLiteTable instance type
@@ -40,7 +35,7 @@ export class EntityRegistry<
   TTable extends SQLiteTableInstance,
   TEntities extends EntitiesMap,
   TSingleEntities extends SingleEntitiesMap = {},
-> implements DescriptorProvider {
+> {
   /**
    * Creates a new entity registry builder for the given table.
    *
@@ -144,9 +139,9 @@ export class EntityRegistry<
         ),
       );
 
-      const connectionService = yield* Effect.serviceOption(
-        ConnectionService,
-      ).pipe(Effect.map(Option.getOrNull));
+      const connectionService = yield* Effect.serviceOption(Broadcaster).pipe(
+        Effect.map(Option.getOrNull),
+      );
       if (connectionService) {
         for (const entity of pending) {
           connectionService.broadcast(entity);
@@ -155,15 +150,6 @@ export class EntityRegistry<
 
       return result;
     });
-  }
-
-  /**
-   * Gets the full database schema including all registered entity descriptors.
-   */
-  getSchema(): RegistrySchema {
-    return {
-      descriptors: Object.values(this.#entities).map((e) => e.getDescriptor()),
-    };
   }
 }
 

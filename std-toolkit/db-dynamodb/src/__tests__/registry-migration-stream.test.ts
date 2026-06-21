@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { EntityESchema, SingleEntityESchema } from '@std-toolkit/eschema';
-import { ConnectionService } from '@std-toolkit/core/server';
+import { Broadcaster } from '@std-toolkit/core';
 
 import {
   DynamoEntity,
@@ -909,7 +909,7 @@ describe('registry migration dry-run stream', () => {
         status: 'active',
       });
 
-      const connectionLayer = Layer.succeed(ConnectionService, {
+      const connectionLayer = Layer.succeed(Broadcaster, {
         emit: () => {},
         broadcast: () => {
           broadcasts += 1;

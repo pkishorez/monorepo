@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { StdToolkitError } from '@std-toolkit/core/rpc';
+import { StdToolkitError } from '@std-toolkit/core';
 import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
 import type { EntityType } from '../services/dynamo-entity.js';
 import { DynamodbError } from '../errors.js';

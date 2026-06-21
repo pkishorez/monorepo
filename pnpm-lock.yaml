@@ -779,12 +779,6 @@ importers:
         specifier: workspace:*
         version: link:../eschema
     devDependencies:
-      '@cloudflare/workers-types':
-        specifier: 4.20260517.1
-        version: 4.20260517.1
-      '@monorepo/vtest':
-        specifier: workspace:*
-        version: link:../../packages/vtest
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5

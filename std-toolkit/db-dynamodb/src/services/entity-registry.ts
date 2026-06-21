@@ -8,12 +8,8 @@ import type {
   MigrationReport,
   TransactItem,
 } from '../types/index.js';
-import type {
-  DescriptorProvider,
-  EntityType,
-  RegistrySchema,
-} from '@std-toolkit/core';
-import { ConnectionService } from '@std-toolkit/core/server';
+import type { EntityType } from '@std-toolkit/core';
+import { Broadcaster } from '@std-toolkit/core';
 import { DynamodbError } from '../errors.js';
 import {
   createMigrationReportAccumulator,
@@ -70,7 +66,6 @@ type SingleEntitiesMap<TTable extends DynamoTable<any, any>> = Record<
 
 /**
  * Registry for managing multiple entities within a single DynamoDB table.
- * Implements DescriptorProvider for unified schema access across database types.
  * Provides type-safe access to entities and cross-entity transactions.
  *
  * @typeParam TTable - The DynamoTable instance type
@@ -80,7 +75,7 @@ export class EntityRegistry<
   TTable extends DynamoTable<any, any>,
   TEntities extends EntitiesMap<TTable>,
   TSingleEntities extends SingleEntitiesMap<TTable> = {},
-> implements DescriptorProvider {
+> {
   /**
    * Creates a new entity registry builder for the given table.
    *
@@ -123,9 +118,9 @@ export class EntityRegistry<
     return Effect.gen({ self: this }, function* () {
       yield* this.#table.transact(items);
 
-      const connectionService = yield* Effect.serviceOption(
-        ConnectionService,
-      ).pipe(Effect.map(Option.getOrNull));
+      const connectionService = yield* Effect.serviceOption(Broadcaster).pipe(
+        Effect.map(Option.getOrNull),
+      );
 
       const entities: EntityType<unknown>[] = [];
       for (const item of items) {
@@ -136,18 +131,6 @@ export class EntityRegistry<
       }
       return entities;
     });
-  }
-
-  /**
-   * Gets the schema including all registered entity descriptors.
-   * Single entities are excluded — they have no index pattern visualization.
-   */
-  getSchema(): RegistrySchema {
-    return {
-      descriptors: Object.values(this.#entities).map((entity) =>
-        entity.getDescriptor(),
-      ),
-    };
   }
 
   /**

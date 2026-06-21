@@ -1,18 +1,11 @@
 export {
   EntityType,
   SingleEntityType,
-  BroadcastSchema,
   MetaSchema,
-  SingleEntityMetaSchema,
   EntitySchema,
   SingleEntitySchema,
 } from './schema.js';
 
-export type {
-  IndexPatternDescriptor,
-  IndexDescriptor,
-  StdDescriptor,
-  RegistrySchema,
-  DescriptorProvider,
-  DescriptorSource,
-} from './descriptor.js';
+export { StdToolkitError } from './error.js';
+
+export { Broadcaster } from './broadcaster.js';

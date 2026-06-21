@@ -2221,14 +2221,6 @@ describe('@std-toolkit/db-dynamodb Integration Tests', () => {
       expect(names).toContain('Settings');
     });
 
-    it('getSchema excludes single entities', () => {
-      const schema = registry.getSchema();
-      const descriptorNames = schema.descriptors.map(
-        (d) => (d as any).entityName,
-      );
-      expect(descriptorNames).not.toContain('Settings');
-    });
-
     itEffect(
       'executes transaction with both entity and single entity ops',
       () =>

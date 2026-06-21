@@ -12,5 +12,3 @@ export {
 } from './dynamo-single-entity.js';
 
 export { EntityRegistry } from './entity-registry.js';
-
-export { DynamoCommand } from './dynamo-command.js';

@@ -5,4 +5,3 @@ export {
   type SingleEntityType,
 } from './sqlite-single-entity.js';
 export { EntityRegistry } from './entity-registry.js';
-export { SqliteCommand } from './sqlite-command.js';

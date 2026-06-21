@@ -8,7 +8,7 @@ export const MetaSchema = Schema.Struct({
   _u: Schema.String,
 });
 
-export const SingleEntityMetaSchema = Schema.Struct({
+const SingleEntityMetaSchema = Schema.Struct({
   _v: Schema.String,
   _e: Schema.String,
   _u: Schema.String,
@@ -23,13 +23,6 @@ export type SingleEntityType<T> = {
   value: T;
   meta: typeof SingleEntityMetaSchema.Type;
 };
-
-export const BroadcastSchema = Schema.Struct({
-  _tag: Schema.Literal('@std-toolkit/broadcast'),
-  values: Schema.Array(
-    Schema.Struct({ meta: MetaSchema, value: Schema.Unknown }),
-  ),
-});
 
 export const EntitySchema = <S extends AnyESchema>(eschema: S) =>
   Schema.Struct({

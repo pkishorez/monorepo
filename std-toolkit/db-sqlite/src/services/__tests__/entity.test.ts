@@ -418,18 +418,6 @@ describe('SQLite Single Table Design', () => {
       expect(names).toContain('User');
       expect(names).toContain('Post');
     });
-
-    it('returns schema with all entity descriptors', () => {
-      const schema = registry.getSchema();
-      expect(schema.descriptors).toHaveLength(2);
-
-      const userDesc = schema.descriptors.find((d) => d.name === 'User');
-      expect(userDesc).toBeDefined();
-      expect(userDesc!.primaryIndex.pk.pattern).toContain('User');
-
-      const postDesc = schema.descriptors.find((d) => d.name === 'Post');
-      expect(postDesc).toBeDefined();
-    });
   });
 
   describe('transactions', () => {
@@ -515,36 +503,6 @@ describe('SQLite Single Table Design', () => {
         expect(entityNames).toContain('Post');
       }).pipe(Effect.provide(layer)),
     );
-  });
-
-  describe('getDescriptor', () => {
-    it('returns descriptor with pk prefix', () => {
-      const descriptor = userEntity.getDescriptor();
-
-      expect(descriptor.name).toBe('User');
-      expect(descriptor.primaryIndex.pk.pattern).toContain('User');
-      // pk deps is empty for User (uses entity name only)
-      expect(descriptor.primaryIndex.pk.deps).toEqual([]);
-    });
-
-    it('returns secondary index descriptors', () => {
-      const descriptor = userEntity.getDescriptor();
-
-      expect(descriptor.secondaryIndexes).toHaveLength(1);
-      const byEmail = descriptor.secondaryIndexes.find(
-        (i) => i.name === 'byEmail',
-      );
-      expect(byEmail).toBeDefined();
-      expect(byEmail!.pk.deps).toContain('email');
-    });
-
-    it('includes schema descriptor', () => {
-      const descriptor = postEntity.getDescriptor();
-
-      expect(descriptor.schema).toBeDefined();
-      expect(descriptor.schema.properties).toHaveProperty('authorId');
-      expect(descriptor.schema.properties).toHaveProperty('postId');
-    });
   });
 });
 

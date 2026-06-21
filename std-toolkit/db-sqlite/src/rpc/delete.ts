@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { StdToolkitError } from '@std-toolkit/core/rpc';
+import { StdToolkitError } from '@std-toolkit/core';
 import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
 import type { EntityType } from '../services/sqlite-entity.js';
 import { SqliteDB, SqliteDBError } from '../sql/db.js';

@@ -2,7 +2,7 @@ import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
 import { Effect, Option, Schema, Stream, Struct } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
-import { ConnectionService } from '@std-toolkit/core/server';
+import { Broadcaster } from '@std-toolkit/core';
 import { DynamodbError } from '../errors.js';
 import type {
   IndexDefinition,
@@ -17,7 +17,6 @@ import type {
   SubscribeOptions,
 } from '../types/index.js';
 import { extractKeyOp, getKeyOpScanDirection } from '../types/index.js';
-import type { StdDescriptor, IndexPatternDescriptor } from '@std-toolkit/core';
 import {
   deriveIndexKeyValue,
   sameValue,
@@ -268,7 +267,7 @@ export class DynamoEntity<
 
   #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
     return Effect.gen({ self: this }, function* () {
-      const service = yield* Effect.serviceOption(ConnectionService).pipe(
+      const service = yield* Effect.serviceOption(Broadcaster).pipe(
         Effect.map(Option.getOrNull),
       );
       service?.broadcast(entity);
@@ -437,45 +436,6 @@ export class DynamoEntity<
           : {}),
       };
     });
-  }
-
-  /**
-   * Gets the unified descriptor for this entity including schema and index info.
-   *
-   * @returns The StdDescriptor for this entity
-   */
-  getDescriptor(): StdDescriptor {
-    const entityName = this.#eschema.name;
-    return {
-      name: entityName,
-      idField: this.#eschema.idField,
-      version: this.#eschema.latestVersion,
-      primaryIndex: {
-        name: 'primary',
-        pk: this.#extractIndexPattern(
-          this.#primaryDerivation.pkDeps,
-          entityName,
-          true,
-        ),
-        sk: this.#extractIndexPattern(
-          this.#primaryDerivation.skDeps,
-          entityName,
-          false,
-        ),
-      },
-      secondaryIndexes: Object.entries(this.#secondaryDerivations).map(
-        ([, deriv]) => ({
-          name: deriv.entityIndexName,
-          pk: this.#extractIndexPattern(
-            deriv.pkDeps,
-            deriv.entityIndexName,
-            true,
-          ),
-          sk: this.#extractIndexPattern(deriv.skDeps, entityName, false),
-        }),
-      ),
-      schema: this.#eschema.getDescriptor(),
-    };
   }
 
   /**
@@ -1109,7 +1069,7 @@ export class DynamoEntity<
   ): Effect.Effect<{ success: true }, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const { key, pk, cursor, limit } = opts;
-      const service = yield* Effect.serviceOption(ConnectionService).pipe(
+      const service = yield* Effect.serviceOption(Broadcaster).pipe(
         Effect.map(Option.getOrNull),
       );
 
@@ -1284,21 +1244,6 @@ export class DynamoEntity<
         indexAttributes,
       };
     });
-  }
-
-  #extractIndexPattern(
-    deps: string[],
-    prefix: string,
-    includePrefix: boolean,
-  ): IndexPatternDescriptor {
-    if (deps.length === 0) {
-      return { deps: [], pattern: prefix };
-    }
-    const pattern = deps.map((d) => `{${d}}`).join('#');
-    return {
-      deps,
-      pattern: includePrefix ? `${prefix}#${pattern}` : pattern,
-    };
   }
 
   #decodeItems(
