@@ -7,7 +7,7 @@ import {
   SqliteDBError,
   TransactionPendingBroadcasts,
 } from '../sql/db.js';
-import { ConnectionService } from '@std-toolkit/core/server';
+import { Broadcaster } from '@std-toolkit/core';
 import { deriveIndexKeyValue, type RawRow } from '../internal/utils.js';
 
 /**
@@ -276,7 +276,7 @@ export class SQLiteSingleEntity<
       if (Option.isSome(pending)) {
         pending.value.push(entity);
       } else {
-        const service = yield* Effect.serviceOption(ConnectionService).pipe(
+        const service = yield* Effect.serviceOption(Broadcaster).pipe(
           Effect.map(Option.getOrNull),
         );
         service?.broadcast(entity);

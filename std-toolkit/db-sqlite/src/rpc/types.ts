@@ -1,7 +1,7 @@
 import type { AnyEntityESchema } from '@std-toolkit/eschema';
 import type { SQLiteEntity } from '../services/sqlite-entity.js';
 import type { StoredIndexDerivation } from '../internal/utils.js';
-import { StdToolkitError } from '@std-toolkit/core/rpc';
+import { StdToolkitError } from '@std-toolkit/core';
 import { SqliteDBError } from '../sql/db.js';
 
 export type AnySQLiteEntity<S extends AnyEntityESchema = AnyEntityESchema> =

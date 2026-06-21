@@ -3,7 +3,6 @@ export {
   SQLiteEntity,
   SQLiteSingleEntity,
   EntityRegistry,
-  SqliteCommand,
   type EntityType,
   type SingleEntityType,
 } from './services/index.js';

@@ -159,12 +159,6 @@ describe('SQLiteSingleEntity', () => {
         const names = registry.entityNames;
         expect(names).toContain('User');
         expect(names).toContain('AppConfig');
-
-        // getSchema excludes single entities
-        const schema = registry.getSchema();
-        const descriptorNames = schema.descriptors.map((d) => d.name);
-        expect(descriptorNames).toContain('User');
-        expect(descriptorNames).not.toContain('AppConfig');
       }).pipe(Effect.provide(layer)),
     );
   });

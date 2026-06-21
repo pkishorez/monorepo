@@ -21,14 +21,6 @@ export const registry = EntityRegistry.make(table)
 // registry.entity("Invalid") ✗ - compile error
 
 // =============================================================================
-// Get schema for visualization
-// =============================================================================
-export function logSchema() {
-  const schema = registry.getSchema();
-  console.log(JSON.stringify(schema, null, 2));
-}
-
-// =============================================================================
 // Type-safe transactions
 // =============================================================================
 export const exampleTransaction = Effect.gen(function* () {

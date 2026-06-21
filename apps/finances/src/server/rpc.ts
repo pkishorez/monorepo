@@ -1,19 +1,11 @@
 import { Rpc } from 'effect/unstable/rpc';
 import { Schema, Struct } from 'effect';
 import { EntityESchema, type StructFieldsSchema } from '@std-toolkit/eschema';
-import { EntitySchema } from '../schema.js';
-
-export class StdToolkitError extends Schema.TaggedErrorClass<StdToolkitError>()(
-  'StdToolkitError',
-  {
-    message: Schema.String,
-    code: Schema.optional(Schema.String),
-  },
-) {}
+import { EntitySchema, StdToolkitError } from '@std-toolkit/core';
 
 type OmitIdField<T, IdField extends string> = Omit<T, IdField>;
 
-export const makeInsertRpc = <
+const makeInsertRpc = <
   N extends string,
   Id extends string,
   V extends string,
@@ -35,7 +27,7 @@ export const makeInsertRpc = <
   });
 };
 
-export const makeUpdateRpc = <
+const makeUpdateRpc = <
   N extends string,
   Id extends string,
   V extends string,
@@ -65,7 +57,7 @@ export const makeUpdateRpc = <
   });
 };
 
-export const makeDeleteRpc = <
+const makeDeleteRpc = <
   N extends string,
   Id extends string,
   V extends string,
@@ -88,7 +80,7 @@ export const makeDeleteRpc = <
   });
 };
 
-export const makeGetRpc = <
+const makeGetRpc = <
   N extends string,
   Id extends string,
   V extends string,

@@ -4,7 +4,6 @@ export {
   DynamoEntity,
   DynamoSingleEntity,
   EntityRegistry,
-  DynamoCommand,
   type EntityType,
   type SingleEntityType,
   type TableDescription,

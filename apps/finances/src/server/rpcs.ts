@@ -1,7 +1,11 @@
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { Schema } from 'effect';
-import { makeEntityRpcGroup, StdToolkitError } from '@std-toolkit/core/rpc';
-import { EntitySchema, SingleEntitySchema } from '@std-toolkit/core';
+import { makeEntityRpcGroup } from './rpc.js';
+import {
+  EntitySchema,
+  SingleEntitySchema,
+  StdToolkitError,
+} from '@std-toolkit/core';
 import {
   OverrideSchema,
   ProjectionOutputSchema,

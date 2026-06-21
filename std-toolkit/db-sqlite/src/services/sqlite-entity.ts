@@ -24,8 +24,7 @@ import {
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
 } from '../internal/utils.js';
-import type { StdDescriptor, IndexPatternDescriptor } from '@std-toolkit/core';
-import { ConnectionService } from '@std-toolkit/core/server';
+import { Broadcaster } from '@std-toolkit/core';
 import { Prettify } from '@std-toolkit/eschema/types.js';
 
 /**
@@ -184,43 +183,6 @@ export class SQLiteEntity<
    */
   get idField(): TSchema['idField'] {
     return this.#eschema.idField;
-  }
-
-  /**
-   * Gets the unified descriptor for this entity including schema and index info.
-   */
-  getDescriptor(): StdDescriptor {
-    const entityName = this.#eschema.name;
-    return {
-      name: entityName,
-      idField: this.#eschema.idField,
-      version: this.#eschema.latestVersion,
-      primaryIndex: {
-        name: 'primary',
-        pk: this.#extractIndexPattern(
-          this.#primaryDerivation.pkDeps,
-          entityName,
-          true,
-        ),
-        sk: this.#extractIndexPattern(
-          this.#primaryDerivation.skDeps,
-          entityName,
-          false,
-        ),
-      },
-      secondaryIndexes: Object.entries(this.#secondaryDerivations).map(
-        ([, deriv]) => ({
-          name: deriv.entityIndexName,
-          pk: this.#extractIndexPattern(
-            deriv.pkDeps,
-            deriv.entityIndexName,
-            true,
-          ),
-          sk: this.#extractIndexPattern(deriv.skDeps, entityName, false),
-        }),
-      ),
-      schema: this.#eschema.getDescriptor(),
-    };
   }
 
   /**
@@ -650,7 +612,7 @@ export class SQLiteEntity<
   ): Effect.Effect<{ success: true }, SqliteDBError, SqliteDB> {
     return Effect.gen({ self: this }, function* () {
       const { key, pk, cursor, limit } = opts;
-      const service = yield* Effect.serviceOption(ConnectionService).pipe(
+      const service = yield* Effect.serviceOption(Broadcaster).pipe(
         Effect.map(Option.getOrNull),
       );
 
@@ -698,7 +660,7 @@ export class SQLiteEntity<
       if (Option.isSome(pending)) {
         pending.value.push(entity);
       } else {
-        const service = yield* Effect.serviceOption(ConnectionService).pipe(
+        const service = yield* Effect.serviceOption(Broadcaster).pipe(
           Effect.map(Option.getOrNull),
         );
         service?.broadcast(entity);
@@ -871,21 +833,6 @@ export class SQLiteEntity<
     }
 
     return indexMap;
-  }
-
-  #extractIndexPattern(
-    deps: string[],
-    prefix: string,
-    includePrefix: boolean,
-  ): IndexPatternDescriptor {
-    if (deps.length === 0) {
-      return { deps: [], pattern: prefix };
-    }
-    const pattern = deps.map((d) => `{${d}}`).join('#');
-    return {
-      deps,
-      pattern: includePrefix ? `${prefix}#${pattern}` : pattern,
-    };
   }
 }
 
