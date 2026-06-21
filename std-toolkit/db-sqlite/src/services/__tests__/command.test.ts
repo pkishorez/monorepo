@@ -5,7 +5,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { EntityESchema } from '@std-toolkit/eschema';
 import { Effect, Layer, Schema } from 'effect';
-import { SqliteDBBetterSqlite3 } from '../../sql/adapters/better-sqlite3.js';
+import { betterSqlite3Layer } from '../../sql/adapters/better-sqlite3.js';
 import { SqliteDB } from '../../sql/db.js';
 import { SQLiteTable } from '../sqlite-table.js';
 import { SQLiteEntity } from '../sqlite-entity.js';
@@ -56,7 +56,7 @@ describe('SqliteCommand', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
   });
@@ -476,7 +476,7 @@ describe('SqliteCommand Error Handling', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
   });
@@ -579,7 +579,7 @@ describe('SqliteCommand Cross-Entity Operations', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
   });

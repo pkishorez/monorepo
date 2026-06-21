@@ -1,7 +1,7 @@
 import { Database } from 'bun:sqlite';
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { Effect } from 'effect';
-import { SqliteDBBun } from '../bun.js';
+import { bunSqliteLayer } from '../bun.js';
 import { SqliteDB } from '../../db.js';
 import * as Sql from '../../helpers/index.js';
 import { spawnSync } from 'node:child_process';
@@ -54,7 +54,7 @@ describe('cross-adapter compatibility', () => {
     });
 
     test('bun reads rows written by better-sqlite3', () => {
-      const layer = SqliteDBBun(db);
+      const layer = bunSqliteLayer(db);
       const rows = Effect.runSync(
         Effect.gen(function* () {
           const sqliteDB = yield* SqliteDB;
@@ -76,7 +76,7 @@ describe('cross-adapter compatibility', () => {
     });
 
     test('bun reads single row via get', () => {
-      const layer = SqliteDBBun(db);
+      const layer = bunSqliteLayer(db);
       const row = Effect.runSync(
         Effect.gen(function* () {
           const sqliteDB = yield* SqliteDB;
@@ -114,7 +114,7 @@ describe('cross-adapter compatibility', () => {
       dbPath = join(tmpDir, 'bun-to-bs3.db');
 
       const bunDb = new Database(dbPath);
-      const layer = SqliteDBBun(bunDb);
+      const layer = bunSqliteLayer(bunDb);
 
       Effect.runSync(
         Effect.gen(function* () {
@@ -222,7 +222,7 @@ describe('cross-adapter compatibility', () => {
       dbPath = join(tmpDir, 'roundtrip.db');
 
       const bunDb = new Database(dbPath);
-      const layer = SqliteDBBun(bunDb);
+      const layer = bunSqliteLayer(bunDb);
 
       Effect.runSync(
         Effect.gen(function* () {
@@ -259,7 +259,7 @@ describe('cross-adapter compatibility', () => {
 
     test('bun reads updated data from better-sqlite3', () => {
       const db = new Database(dbPath, { readonly: true });
-      const layer = SqliteDBBun(db);
+      const layer = bunSqliteLayer(db);
 
       const rows = Effect.runSync(
         Effect.gen(function* () {

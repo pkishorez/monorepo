@@ -1,17 +1,17 @@
 import Database from 'better-sqlite3';
 import { EntityESchema } from '@std-toolkit/eschema';
 import { Effect, Schema } from 'effect';
-import { SqliteDBBetterSqlite3 } from '../src/sql/adapters/better-sqlite3.js';
-import { SQLiteTable } from '../src/services/SQLiteTable.js';
-import { SQLiteEntity } from '../src/services/SQLiteEntity.js';
-import { EntityRegistry } from '../src/registry/entity-registry.js';
+import { betterSqlite3Layer } from './sql/adapters/better-sqlite3.js';
+import { SQLiteTable } from './services/sqlite-table.js';
+import { SQLiteEntity } from './services/sqlite-entity.js';
+import { EntityRegistry } from './services/entity-registry.js';
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
 const UserSchema = EntityESchema.make('User', 'userId', {
   email: Schema.String,
   name: Schema.String,
-  status: Schema.Literal('active', 'inactive'),
+  status: Schema.Literals(['active', 'inactive']),
 }).build();
 
 const PostSchema = EntityESchema.make('Post', 'postId', {
@@ -47,7 +47,7 @@ const userEntity = SQLiteEntity.make(table)
 const postEntity = SQLiteEntity.make(table)
   .eschema(PostSchema)
   .primary({ pk: ['authorId'] }) // sk: postId (idField)
-  .index('IDX2', 'byAuthor', { pk: ['title'] }) // sk: _u
+  .index('IDX2', 'byAuthor', { pk: ['authorId'] }) // sk: _u
   .build();
 
 const registry = EntityRegistry.make(table)
@@ -72,8 +72,6 @@ const program = Effect.gen(function* () {
     name: 'Alice',
     status: 'active',
   });
-
-  postEntity.query('primary', { pk: { authorId: 'u1' }, sk: { '>=': null } });
 
   const user2 = yield* userEntity.insert({
     userId: 'u2',
@@ -119,7 +117,7 @@ const program = Effect.gen(function* () {
   // ─── Query ─────────────────────────────────────────
   console.log('\n--- Query ---');
   const alicePosts = yield* postEntity.query('byAuthor', {
-    pk: { title: 'u1' },
+    pk: { authorId: 'u1' },
     sk: { '>=': null },
   });
   console.log(`Alice's posts (${alicePosts.items.length}):`);
@@ -156,7 +154,7 @@ const program = Effect.gen(function* () {
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 const db = new Database(':memory:');
-const layer = SqliteDBBetterSqlite3(db);
+const layer = betterSqlite3Layer(db);
 
 Effect.runPromise(program.pipe(Effect.provide(layer)))
   .then(() => db.close())

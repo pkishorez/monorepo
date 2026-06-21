@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 import {
   describe,
   test,
@@ -6,19 +6,19 @@ import {
   beforeAll,
   afterAll,
   beforeEach,
-} from 'bun:test';
+} from 'vitest';
 import { Effect } from 'effect';
-import { bunSqliteLayer } from '../bun.js';
+import { nodeSqliteLayer } from '../node.js';
 import { SqliteDB, SqliteDBError } from '../../db.js';
 import * as Sql from '../../helpers/index.js';
 
-describe('bunSqliteLayer adapter', () => {
-  let db: Database;
-  let layer: ReturnType<typeof bunSqliteLayer>;
+describe('nodeSqliteLayer adapter', () => {
+  let db: DatabaseSync;
+  let layer: ReturnType<typeof nodeSqliteLayer>;
 
   beforeAll(() => {
-    db = new Database(':memory:');
-    layer = bunSqliteLayer(db);
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db);
   });
 
   afterAll(() => db.close());

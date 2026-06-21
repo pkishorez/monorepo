@@ -9,7 +9,7 @@ import {
   SQLiteTable,
   SqliteDB,
 } from '@std-toolkit/sqlite';
-import { SqliteDBBetterSqlite3 } from '@std-toolkit/sqlite/adapters/better-sqlite3';
+import { betterSqlite3Layer } from '@std-toolkit/sqlite/adapters/better-sqlite3';
 import {
   DEFAULT_SETTINGS,
   OverrideSchema,
@@ -74,7 +74,7 @@ export const makeDbLayer = (dbPath: string = DEFAULT_DB_PATH) => {
   const sqliteLayer = Layer.effect(
     SqliteDB,
     makeDatabase(dbPath).pipe(
-      Effect.map((database) => SqliteDBBetterSqlite3(database)),
+      Effect.map((database) => betterSqlite3Layer(database)),
       Effect.flatMap((layer) => Layer.build(layer)),
       Effect.map((context) => Context.getUnsafe(context, SqliteDB)),
     ),

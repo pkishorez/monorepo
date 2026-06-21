@@ -24,6 +24,10 @@
     "./adapters/bun": {
       "types": "./dist/sql/adapters/bun.d.ts",
       "default": "./dist/sql/adapters/bun.js"
+    },
+    "./adapters/node": {
+      "types": "./dist/sql/adapters/node.d.ts",
+      "default": "./dist/sql/adapters/node.js"
     }
   },
   "scripts": {
@@ -32,7 +36,7 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",
-    "play": "pnpm tsx ./play/play.ts",
+    "play": "pnpm tsx ./src/play.ts",
     "test": "vitest run",
     "test:bun": "bun test .bun.",
     "test:watch": "vitest"
@@ -43,7 +47,6 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260517.1",
-    "@monorepo/vtest": "workspace:*",
     "@tsconfig/node22": "22.0.5",
     "@types/better-sqlite3": "7.6.13",
     "@types/bun": "1.3.14",
@@ -55,5 +58,8 @@
   },
   "peerDependencies": {
     "effect": "4.0.0-beta.78"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

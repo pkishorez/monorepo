@@ -5,7 +5,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { SingleEntityESchema, EntityESchema } from '@std-toolkit/eschema';
 import { Effect, type Layer, Schema } from 'effect';
-import { SqliteDBBetterSqlite3 } from '../../sql/adapters/better-sqlite3.js';
+import { betterSqlite3Layer } from '../../sql/adapters/better-sqlite3.js';
 import type { SqliteDB } from '../../sql/db.js';
 import { SQLiteTable } from '../sqlite-table.js';
 import { SQLiteEntity } from '../sqlite-entity.js';
@@ -35,7 +35,7 @@ describe('SQLiteSingleEntity', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 

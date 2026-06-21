@@ -1,12 +1,12 @@
-import type { Database, SQLQueryBindings } from 'bun:sqlite';
+import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 import { Effect, Layer } from 'effect';
 import { SqliteDB, SqliteDBError } from '../db.js';
 import * as Sql from '../helpers/index.js';
 import type { Where } from '../helpers/index.js';
 
-const params = (p: unknown[]) => p as SQLQueryBindings[];
+const params = (p: unknown[]) => p as SQLInputValue[];
 
-export const bunSqliteLayer = (db: Database) =>
+export const nodeSqliteLayer = (db: DatabaseSync) =>
   Layer.succeed(SqliteDB, {
     createTable: (table, columns, primaryKey) =>
       Effect.try({
@@ -23,7 +23,7 @@ export const bunSqliteLayer = (db: Database) =>
           const info = Sql.tableInfo(table);
           const columns = db
             .prepare(info.query)
-            .all(...params(info.params)) as Sql.TableColumn[];
+            .all(...params(info.params)) as unknown as Sql.TableColumn[];
           if (Sql.columnExists(columns, column)) return;
           const stmt = Sql.addColumn(table, column, type);
           db.prepare(stmt.query).run(...params(stmt.params));
@@ -46,7 +46,7 @@ export const bunSqliteLayer = (db: Database) =>
         try: () => {
           const stmt = Sql.insert(table, values);
           const result = db.prepare(stmt.query).run(...params(stmt.params));
-          return { rowsWritten: result.changes };
+          return { rowsWritten: Number(result.changes) };
         },
         catch: (cause) => SqliteDBError.insertFailed(table, cause),
       }),
@@ -56,7 +56,7 @@ export const bunSqliteLayer = (db: Database) =>
         try: () => {
           const stmt = Sql.update(table, values, where);
           const result = db.prepare(stmt.query).run(...params(stmt.params));
-          return { rowsWritten: result.changes };
+          return { rowsWritten: Number(result.changes) };
         },
         catch: (cause) => SqliteDBError.updateFailed(table, cause),
       }),
@@ -66,7 +66,7 @@ export const bunSqliteLayer = (db: Database) =>
         try: () => {
           const stmt = Sql.delete(table, where);
           const result = db.prepare(stmt.query).run(...params(stmt.params));
-          return { rowsDeleted: result.changes };
+          return { rowsDeleted: Number(result.changes) };
         },
         catch: (cause) => SqliteDBError.deleteFailed(table, cause),
       }),
@@ -76,7 +76,7 @@ export const bunSqliteLayer = (db: Database) =>
         try: () => {
           const stmt = Sql.deleteAll(table);
           const result = db.prepare(stmt.query).run(...params(stmt.params));
-          return { rowsDeleted: result.changes };
+          return { rowsDeleted: Number(result.changes) };
         },
         catch: (cause) => SqliteDBError.deleteFailed(table, cause),
       }),
@@ -85,7 +85,10 @@ export const bunSqliteLayer = (db: Database) =>
       Effect.gen(function* () {
         const stmt = Sql.select(table, where, { limit: 1 });
         const rows = yield* Effect.try({
-          try: () => db.prepare(stmt.query).all(...params(stmt.params)) as T[],
+          try: () =>
+            db
+              .prepare(stmt.query)
+              .all(...params(stmt.params)) as unknown as T[],
           catch: (cause) => SqliteDBError.getFailed(table, cause),
         });
         if (rows.length === 0) {
@@ -109,7 +112,9 @@ export const bunSqliteLayer = (db: Database) =>
       Effect.try({
         try: () => {
           const stmt = Sql.select(table, where, options);
-          return db.prepare(stmt.query).all(...params(stmt.params)) as T[];
+          return db
+            .prepare(stmt.query)
+            .all(...params(stmt.params)) as unknown as T[];
         },
         catch: (cause) => SqliteDBError.queryFailed(table, cause),
       }),
