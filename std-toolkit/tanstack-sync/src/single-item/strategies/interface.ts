@@ -1,6 +1,7 @@
 import type { Effect, Scope } from 'effect';
 import type { WriteError } from '../../source-of-truth/write-error.js';
 import type { StrategyContext } from '../../partitioned/strategies/interface.js';
+import type { StrategyStateSpec } from '../../partitioned/strategy-state.js';
 
 export type { StrategyContext } from '../../partitioned/strategies/interface.js';
 
@@ -11,8 +12,10 @@ export type { StrategyContext } from '../../partitioned/strategies/interface.js'
  * Its error channel is `WriteError`: the strategy does NOT catch `writeServerTruth`
  * failures — the engine owns the log-and-restart-on-2s policy.
  */
-export type SingleItemStrategy<TItem extends object> = {
+export type SingleItemStrategy<TItem extends object, TState = unknown> = {
+  name: string;
+  state: StrategyStateSpec<TState>;
   run: (
-    ctx: StrategyContext<TItem>,
+    ctx: StrategyContext<TItem, TState>,
   ) => Effect.Effect<void, WriteError, Scope.Scope>;
 };

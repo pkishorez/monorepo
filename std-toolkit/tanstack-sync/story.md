@@ -14,7 +14,10 @@ Everything starts with one call. `createStdSync` accepts shared defaults that ev
 collection built from this instance inherits.
 
 ```ts
-const std = createStdSync({ options: { gcTime: 5000 } });
+const std = createStdSync({
+  options: { gcTime: 5000 },
+  offlineStorage: idbStorage({ name: 'app-sync', version: 1 }),
+});
 ```
 
 Behind the instance is a single **tracker** that remembers every collection created from
@@ -142,9 +145,10 @@ tasks.utils.pacedUpdate(id, { status: 'done' });
 `utils` is engine-owned and generic only — a **flat map of functions**, with **no `sync`
 key**. The flat shape is required: TanStack's `CollectionImpl.utils` field is typed
 `Record<string, Fn>`, so a nested-object util collapses the collection's row type to
-`never`. Strategies are self-driving (a pull strategy loops until it drains); there is no
-public `fetchMore`. Heterogeneous per-partition strategies cannot share a typed util
-surface, so the public utils are uniform across every collection:
+`never`. Strategies are self-driving (a pull strategy loops until it drains); manual
+paging is not part of the public utility surface. Heterogeneous per-partition strategies
+cannot share a typed util surface, so the public utils are uniform across every
+collection:
 
 ```ts
 utils.schema();
@@ -153,6 +157,8 @@ utils.pacedUpdate(key, changes);
 utils.pendingCount(key);
 utils.subscribePending(listener);
 ```
+
+`utils.writeUpsert(entityOrEntities)` returns `Effect.Effect<void, WriteError>`.
 
 ---
 
@@ -165,8 +171,9 @@ Server entities
   │
   ▼
 Source of Truth (per collection)
-  - server-confirmed entities only, one Map<id, Entity> per collection
+  - server-confirmed entities only, one entity namespace per collection
   - atomic batch writes; convergence and tombstones applied here
+  - optionally backed by Offline Storage group `sot/{schema.name}`
   - live even when the TanStack collection is unmounted
   │
   ▼
@@ -176,13 +183,20 @@ Collection projection (ephemeral)
 
 Sync State (per collection + partition)
   - serializable strategy-owned data (e.g. a cursor)
-  - stored by the engine, interpreted only by the strategy
+  - stored by the engine with the owning strategy name
+  - decoded through the strategy state schema before the strategy sees it
+  - optionally backed by Offline Storage group `state/{schema.name}`
   - never advanced by registry, mutation results, or manual persisted writes
 ```
 
+Offline Storage is the live backend for SoT and Sync State when configured, not a
+hydration-only copy. Convergence reads from and writes to the configured storage groups
+directly, so persisted writes made while a TanStack collection is unmounted remain the
+state that later mounts and strategies observe.
+
 **Data flow on strategy sync:**
 
-1. Strategy reads its own Sync State (`ctx.getState`).
+1. Strategy reads its own decoded Sync State (`ctx.getState`).
 2. Strategy fetches or subscribes.
 3. Strategy calls `ctx.writeServerTruth(entities)`.
 4. Engine atomically writes the batch to SoT and projects accepted state if mounted.
@@ -192,8 +206,13 @@ Sync State (per collection + partition)
 successful no-ops. The strategy does not catch `WriteError`; it lets it surface. The engine
 logs the failure and restarts `run` from the top on a 2-second spaced schedule.
 
+If persisted Sync State belongs to a different strategy name or fails the current strategy's
+state schema, the engine logs a warning, resets that partition to the strategy's empty state,
+and continues from that empty state.
+
 **On mount:** the engine projects current SoT into the TanStack collection before strategy
-lifecycle start. **On page reload:** in-memory SoT, projection, and Sync State all clear.
+lifecycle start. **On page reload:** collection projection clears; SoT and Sync State
+survive only when the configured Offline Storage adapter is durable.
 
 ---
 

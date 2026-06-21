@@ -1,93 +1,159 @@
 # @std-toolkit/tanstack-sync
 
-Simplified TanStack DB integration built on TanStack DB native `CollectionConfig` sync. Three sync patterns, Effect-based mutations, ESchema integration, automatic cache management.
+TanStack DB sync helpers for Effect-based server APIs. Keyed collections use
+`sync`; singleton collections use `singleItemSync`; optional Offline Storage can
+persist engine-owned Source of Truth and Sync State.
 
 ## Setup
 
+<!-- prettier-ignore -->
 ```typescript
-import { createStdSync } from '@std-toolkit/tanstack-sync';
 import { createCollection } from '@tanstack/react-db';
-import { IDBCache } from '@std-toolkit/cache/idb';
+import { Effect } from 'effect';
+import { createStdSync, syncStrategy, singleItemSyncStrategy, paceStrategy } from '@std-toolkit/tanstack-sync';
+import { idbStorage } from '@std-toolkit/tanstack-sync/offline-storage/idb';
 
-const std = createStdSync();
-
-// Optional: persistent cache (shared across collections)
-const persistentCache = new IDBCache('my-app', 1);
+const std = createStdSync({ offlineStorage: idbStorage({ name: 'app-sync', version: 1 }) });
 ```
 
-## Total Sync
+`idbStorage` is the public IndexedDB adapter. The only public storage subpath is
+`@std-toolkit/tanstack-sync/offline-storage/idb`; storage groups and memory storage are
+engine internals.
 
-Fetch all data eagerly. The sync layer loads cached data first, then fetches newer data with your Effect-based query.
+## Keyed Sync
+
+Mirror a whole entity set with a global strategy:
 
 ```typescript
-const usersCollection = createCollection(
-  std.totalSync({
-    schema: UserSchema,
-    cache: persistentCache,
-    query: (cursor) => api.getAllUsers(cursor),
-    onInsert: (user) => api.createUser(user),
-    onUpdate: ({ id, updates }) => api.updateUser(id, updates),
-    onDelete: (id) => api.deleteUser(id),
+const tasksCollection = createCollection(
+  std.sync({
+    schema: TaskSchema,
+    strategy: syncStrategy.oldToNew({
+      fetch: ({ cursor }) => api.getTasks({ cursor }),
+    }),
+    updatePacing: paceStrategy.coalesce({ wait: 50 }),
+    onInsert: (task) => api.createTask(task),
+    onUpdate: ({ id, updates }) => api.updateTask(id, updates),
+    onDelete: (id) => api.deleteTask(id),
   }),
 );
-
-// Fetch more (cursor-based pagination)
-Effect.runPromise(usersCollection.utils.fetchMore());
 ```
 
-## On-Demand
-
-Partition-based loading. One field = one query handler. Data loads when queried.
+Load keyed partitions on demand by declaring a `partitions` map. Each partition factory
+captures its value and returns a strategy.
 
 ```typescript
 const messagesCollection = createCollection(
-  std.onDemand({
+  std.sync({
     schema: MessageSchema,
-    cache: persistentCache,
-    queries: {
-      channelId: (channelId, cursor) => api.getMessages(channelId, cursor),
+    partitions: {
+      channelId: (channelId) =>
+        syncStrategy.oldToNew({
+          fetch: ({ cursor }) => api.getMessages(channelId, { cursor }),
+        }),
     },
-    onInsert: (msg) => api.createMessage(msg),
+    onInsert: (message) => api.createMessage(message),
     onUpdate: ({ id, updates }) => api.updateMessage(id, updates),
     onDelete: (id) => api.deleteMessage(id),
   }),
 );
-
-// Fetch more for a specific partition
-Effect.runPromise(messagesCollection.utils.fetchMore({ channelId: 'ch1' }));
 ```
 
-## Single Item
+## Single Item Sync
 
-Fetch one singleton (app settings, user profile).
+Use `singleItemSync` for exactly one record, such as app settings or a profile.
 
 ```typescript
-const appSettings = createCollection(
-  std.singleItem({
-    schema: AppSettingsSchema,
-    cache: persistentCache,
-    get: () => api.getSettings(),
-    onUpdate: ({ updates }) => api.updateSettings(updates),
+const settingsCollection = createCollection(
+  std.singleItemSync({
+    schema: SettingsSchema,
+    strategy: singleItemSyncStrategy.getOnce({
+      get: () => api.getSettings(),
+    }),
+    onUpdate: ({ updates }) => api.saveSettings(updates),
   }),
 );
 ```
 
-## Registry (Broadcast Routing)
+## Offline Storage
 
-Auto-collects all collections created through the factory. Route WebSocket messages to the right collection by entity name.
+Root storage is inherited by collections when they omit `offlineStorage`.
+
+```typescript
+const std = createStdSync({
+  offlineStorage: idbStorage({ name: 'app-sync', version: 1 }),
+});
+
+const inheritedStorageCollection = createCollection(
+  std.sync({
+    schema: TaskSchema,
+    strategy: syncStrategy.oldToNew({
+      fetch: ({ cursor }) => api.getTasks({ cursor }),
+    }),
+  }),
+);
+```
+
+A collection can opt out of the root adapter and use collection-local memory by setting
+`offlineStorage: false`.
+
+```typescript
+const memoryOnlyCollection = createCollection(
+  std.sync({
+    schema: DraftSchema,
+    offlineStorage: false,
+    strategy: syncStrategy.oldToNew({
+      fetch: ({ cursor }) => api.getDrafts({ cursor }),
+    }),
+  }),
+);
+```
+
+Offline Storage backs the engine-owned Source of Truth and Sync State. It is the live
+backend for convergence, tombstone retention, and strategy state; it is not a
+hydration-only layer. Storage write failures surface through `WriteError.Storage` and are
+not silently replaced with memory storage.
+
+Strategy state is stored with the owning strategy name and validated against that
+strategy's state schema on read. If a stored slot belongs to a different strategy or fails
+schema validation, the engine logs a warning and resets that slot to the strategy's empty
+state.
+
+## Utils
+
+Collection utilities are flat engine-owned functions:
+
+```typescript
+tasksCollection.utils.schema();
+tasksCollection.utils.writeUpsert(entityOrEntities);
+tasksCollection.utils.pacedUpdate(taskId, { status: 'done' });
+tasksCollection.utils.pendingCount(taskId);
+tasksCollection.utils.subscribePending(listener);
+```
+
+`utils.writeUpsert(entityOrEntities)` returns `Effect.Effect<void, WriteError>`, so run or
+compose it like any other Effect:
+
+```typescript
+await Effect.runPromise(tasksCollection.utils.writeUpsert(entityOrEntities));
+```
+
+`writeUpsert` writes server-confirmed entities through Source of Truth convergence and
+projects accepted changes when the TanStack collection is mounted. `pacedUpdate` is for
+optimistic updates that call the configured `onUpdate` handler.
+
+## Registry
+
+The registry routes broadcast envelopes to collections created by the same `createStdSync`
+instance.
 
 ```typescript
 const registry = std.registry();
 
-onWebSocketMessage((msg) => registry.process(msg));
+socket.onmessage = (event) => {
+  registry.process({ values: JSON.parse(event.data), persist: true });
+};
 ```
 
-Messages matching `BroadcastSchema` are routed by `meta._e` to the matching collection's `upsert`.
-
-## Cache
-
-- **Default**: in-memory (no config needed)
-- **Persistent**: pass an `IDBCache` instance via `cache` option
-- Cache is only updated from API responses, never from broadcasts
-- Refetch is additive — new data is merged into cache, existing records are preserved
-- After page reload, broadcast-delivered data not yet fetched via API won't be in cache — next API call picks it up
+`persist: true` writes server truth through Source of Truth. `persist: false` only
+projects to currently mounted collections.
