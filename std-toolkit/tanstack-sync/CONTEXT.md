@@ -111,7 +111,7 @@ Serializable per-strategy, per-partition data stored by the engine and interpret
 Examples:
 
 - `OldToNew` may track a high-water mark.
-- A future `NewToOld` may track page tokens or gap windows.
+- `NewToOld` tracks a list of covered `_u` slices plus a `reachedOldest` flag.
 - A polling single-item strategy may not need any state.
 
 Sync State is one serializable slot per strategy partition. It is fully detached from SoT — no value in Sync State is derived from SoT and vice versa. The strategy is responsible for ordering: it first ensures items are written to SoT via `writeServerTruth`, then advances its own Sync State.
@@ -169,7 +169,33 @@ The strategy contract is a single method `run(ctx): Effect<void, WriteError, Sco
 **Partitioned strategy family**:
 
 - **OldToNew** — fetches from older records toward newer records.
-- **NewToOld** _(future)_ — fetches from newer records backward.
+- **NewToOld** _(future)_ — newest-first delivery with a live tail. Exists to escape `OldToNew`'s limitation: with a large backlog, `OldToNew` blocks the newest records behind a full replay of the backlog. `NewToOld` makes the newest records visible **immediately** and pushes the bulk fill into the background. It runs two activities under the strategy scope:
+  - **Live tail** (`subscribeNewer`, a stream): each session anchors at the **fresh current top** (the newest record of the latest slice it just fetched), then streams forward live. It anchors at the fresh top, **not** the saved high-water — anchoring at the saved high would re-impose the `OldToNew` replay problem.
+  - **Backfill** (`fetchOlder`, a cursor-based pull): a single descending frontier from the latest slice's low end, skipping/merging older covered ranges as it meets them, draining toward the absolute bottom in the background.
+
+  Covered state is a **persisted list of disjoint `_u` ranges (slices)** plus a single collection-level `reachedOldest` flag:
+
+  ```ts
+  type Slice = { low: Cursor; high: Cursor }; // lowest & highest _u of a contiguous loaded range
+  type NewToOldState = { slices: Slice[]; reachedOldest: boolean };
+  ```
+
+  - A **slice** is a contiguous loaded range `[low, high]` of `_u` values.
+  - **Reconcile** runs on every batch (live-tail push and backfill pull alike): extend the touched slice, then merge any slices that overlap or touch, keeping the list disjoint and minimal. Overlap is detected by `_u` comparison — the strategy reads `_u` to sort batches and compare boundaries; the cursor is opaque only as to _how to fetch older from it_. Exact no-overlap adjacency is undetectable but harmless: backfill overlaps into the next slice on its next page and merges then.
+  - **`reachedOldest`** is a property of the whole sync, not of a slice. It becomes true only after the lowest material slice has been proven to reach the absolute floor. An empty collection leaves `reachedOldest: false` because there is no bottom slice to anchor future gaps. The Upward Migration invariant guarantees the oldest record never moves, so once a material floor is proven, the flag is true forever. Every later session is then **pure gap-filling above the floor** — backfill stops as soon as its frontier merges into the bottom-most slice and never probes below the floor again.
+  - The **latest slice** is just the session's first `fetchOlder({ cursor: null })` (null ⇒ newest page); no separate "get latest" endpoint.
+
+  **Run shape.** Every session (warm or cold) runs the same sequence: (1) `fetchOlder({ cursor: null })` → reconcile → `freshTop`; (2) start the live tail anchored at `freshTop`; (3) start backfill descending from the latest page's low. The live tail anchors at the **fresh** top every time, never the saved high. Both fibers live under the one strategy `scope` and share the `slices` state through a single `SynchronizedRef` whose `updateEffect` reconciles and persists atomically. A `WriteError` in either fiber surfaces and restarts the whole `run` (per the standard strategy contract); the restart re-reads persisted `slices`/`reachedOldest` and resumes.
+
+  A large reload gap produces genuinely disjoint slices (old region + fresh top slice) with a real gap that backfill grinds through later; if the data did not grow, the fresh latest slice overlaps the saved top slice and reconcile collapses them, so no spurious gap. Relies on the **Upward Migration invariant** below to keep covered ranges trustworthy across reloads.
+
+#### Upward Migration invariant (`_u` ordering)
+
+`_u` is a global monotonic update key: an update moves a record strictly above every existing `_u` (toward "now"). Records therefore migrate **only upward**, never downward into a historical interval.
+
+Consequence: a `_u` interval, once fully drained, is **permanently complete** — it can only _shed_ records (they get edited and jump to the top, where a later pass re-fetches them and convergence dedupes by id) and can **never gain** a record it did not already see. This is what lets `NewToOld` snapshot frozen `_u` boundary values and trust that "covered" stays covered across sessions, without needing a separate creation key.
+
+The cursor handed to the user's fetch closure is **opaque** (the boundary entity, as in `OldToNew`); the strategy never interprets it. "Fetch older records than this cursor" and any tie-breaking to keep `_u` a strict total order are the closure's concern. The strategy assumes `_u` is strictly unique per entity and only records the `[oldest, newest]` `_u` range of each returned batch.
 
 **Single-item strategy family**:
 
