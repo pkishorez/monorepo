@@ -10,7 +10,7 @@ import {
   SqliteDB,
   SqliteDBError,
 } from '@std-toolkit/sqlite';
-import { SqliteDBBetterSqlite3 } from '@std-toolkit/sqlite/adapters/better-sqlite3';
+import { betterSqlite3Layer } from '@std-toolkit/sqlite/adapters/better-sqlite3';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -131,7 +131,7 @@ export const makeDbLayer = (options: DbOptions = {}) => {
   const sqliteLayer = Layer.effect(
     SqliteDB,
     makeDatabase(options).pipe(
-      Effect.map((database) => SqliteDBBetterSqlite3(database)),
+      Effect.map((database) => betterSqlite3Layer(database)),
       Effect.flatMap((layer) => Layer.build(layer)),
       Effect.map((context) => Context.getUnsafe(context, SqliteDB)),
     ),

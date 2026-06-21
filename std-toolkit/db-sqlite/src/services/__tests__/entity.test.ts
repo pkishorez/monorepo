@@ -5,7 +5,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { EntityESchema } from '@std-toolkit/eschema';
 import { Effect, Layer, Schema } from 'effect';
-import { SqliteDBBetterSqlite3 } from '../../sql/adapters/better-sqlite3.js';
+import { betterSqlite3Layer } from '../../sql/adapters/better-sqlite3.js';
 import { SqliteDB } from '../../sql/db.js';
 import { SQLiteTable } from '../sqlite-table.js';
 import { SQLiteEntity } from '../sqlite-entity.js';
@@ -65,7 +65,7 @@ describe('SQLite Single Table Design', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
   });
 
@@ -572,7 +572,7 @@ describe('Query Operators', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     // Insert test data with sequential item IDs
@@ -852,7 +852,7 @@ describe('Primary Index with IdField', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     // Insert comments
@@ -981,7 +981,7 @@ describe('Subscribe', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     await Effect.runPromise(
@@ -1096,7 +1096,7 @@ describe('SQLiteEntity hardDelete', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -1160,7 +1160,7 @@ describe('Transactions Advanced', () => {
 
   beforeEach(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
   });
 
@@ -1296,7 +1296,7 @@ describe('SQLite Entity Edge Cases', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -1448,7 +1448,7 @@ describe('Multiple Secondary Indexes', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     await Effect.runPromise(
@@ -1613,7 +1613,7 @@ describe('Cross-Entity Index Isolation', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = SqliteDBBetterSqlite3(db);
+    layer = betterSqlite3Layer(db);
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
 
     await Effect.runPromise(

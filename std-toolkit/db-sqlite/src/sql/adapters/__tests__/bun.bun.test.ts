@@ -8,17 +8,17 @@ import {
   beforeEach,
 } from 'bun:test';
 import { Effect } from 'effect';
-import { SqliteDBBun } from '../bun.js';
+import { bunSqliteLayer } from '../bun.js';
 import { SqliteDB, SqliteDBError } from '../../db.js';
 import * as Sql from '../../helpers/index.js';
 
-describe('SqliteDBBun adapter', () => {
+describe('bunSqliteLayer adapter', () => {
   let db: Database;
-  let layer: ReturnType<typeof SqliteDBBun>;
+  let layer: ReturnType<typeof bunSqliteLayer>;
 
   beforeAll(() => {
     db = new Database(':memory:');
-    layer = SqliteDBBun(db);
+    layer = bunSqliteLayer(db);
   });
 
   afterAll(() => db.close());

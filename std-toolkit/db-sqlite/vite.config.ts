@@ -12,10 +12,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    include: [
-      'src/**/__tests__/**/*.test.ts',
-      'vtest/features/**/tests/**/*.test.ts',
-    ],
+    include: ['src/**/__tests__/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/*.bun.test.ts'],
   },
 });
