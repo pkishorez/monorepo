@@ -18,6 +18,10 @@ import type {
   StrategyContext,
 } from './strategies/interface.js';
 import type { PaceStrategyFactory } from '../paced/pace-strategy.js';
+import {
+  offlineStorageGroupName,
+  type OfflineStorage,
+} from '../offline-storage/index.js';
 
 const GLOBAL_KEY = '__total__';
 
@@ -35,7 +39,9 @@ type Projector<TItem> = ReturnType<typeof makeCollectionProjector<TItem>>;
  */
 export type EngineUtils = {
   schema: () => AnyEntityESchema;
-  writeUpsert: (entities: EntityType<unknown> | EntityType<unknown>[]) => void;
+  writeUpsert: (
+    entities: EntityType<unknown> | EntityType<unknown>[],
+  ) => Effect.Effect<void, WriteError>;
   pacedUpdate: (key: string, changes: Record<string, unknown>) => Transaction;
   pendingCount: (key: string) => number;
   subscribePending: (listener: () => void) => () => void;
@@ -56,10 +62,10 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
   tracker: Tracker,
   config: {
     schema: S;
-    strategy?: PartitionedStrategy<S['Type']>;
+    strategy?: PartitionedStrategy<S['Type'], any>;
     partitions?: Record<
       string,
-      (value: unknown) => PartitionedStrategy<S['Type']>
+      (value: unknown) => PartitionedStrategy<S['Type'], any>
     >;
     onInsert?: (item: S['Type']) => Effect.Effect<EntityType<S['Type']>>;
     onUpdate?: (
@@ -67,6 +73,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     ) => Effect.Effect<EntityType<S['Type']>>;
     onDelete?: (id: string) => Effect.Effect<EntityType<S['Type']>>;
     updatePacing?: PaceStrategyFactory;
+    offlineStorage: OfflineStorage;
   },
 ): CollectionConfig<CollectionItem<S['Type']>, string, never, EngineUtils> & {
   utils: EngineUtils;
@@ -77,8 +84,15 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
   const { schema } = config;
   const partitionFields = Object.keys(config.partitions ?? {});
 
-  const sot = makeSourceOfTruth<TItem>(schema);
-  const stateStore = makeSyncStateStore();
+  const sot = makeSourceOfTruth<TItem>({
+    schema,
+    group: config.offlineStorage.group(
+      offlineStorageGroupName.sourceOfTruth(schema.name),
+    ),
+  });
+  const syncStateGroup = config.offlineStorage.group(
+    offlineStorageGroupName.syncState(schema.name),
+  );
   const pending = makePendingTracker();
   let projector: Projector<TItem> | null = null;
   let collectionUpdate:
@@ -104,25 +118,34 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     return typeof id === 'string' ? id : null;
   };
 
-  const buildCtx = (
+  const buildCtx = <TState>(
     key: string,
     scope: Scope.Scope,
-  ): StrategyContext<TItem> => ({
-    writeServerTruth,
-    getState: stateStore.get(key),
-    setState: (s) => stateStore.set(key, s),
-    scope,
-  });
+    strat: PartitionedStrategy<TItem, TState>,
+  ): StrategyContext<TItem, TState> => {
+    const stateStore = makeSyncStateStore({
+      schemaName: schema.name,
+      strategyName: strat.name,
+      group: syncStateGroup,
+      state: strat.state,
+    });
+    return {
+      writeServerTruth,
+      getState: stateStore.get(key),
+      setState: (s) => stateStore.set(key, s),
+      scope,
+    };
+  };
 
-  const activatePartition = (
+  const activatePartition = <TState>(
     key: string,
-    strat: PartitionedStrategy<TItem>,
+    strat: PartitionedStrategy<TItem, TState>,
   ): void => {
     void Effect.runPromise(
       Effect.gen(function* () {
         const scope = yield* Scope.make();
         scopes.set(key, scope);
-        const run = strat.run(buildCtx(key, scope)).pipe(
+        const run = strat.run(buildCtx(key, scope, strat)).pipe(
           Scope.provide(scope),
           Effect.tapError((e) =>
             Effect.sync(() =>
@@ -161,7 +184,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     schema: () => schema,
     writeUpsert: (entities) => {
       const batch = toArray(entities) as EntityType<TItem>[];
-      void Effect.runPromise(writeServerTruth(batch));
+      return writeServerTruth(batch);
     },
     pacedUpdate: (key, changes) =>
       handlers.pacedUpdate(
@@ -205,14 +228,22 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
           Effect.gen(function* () {
             const all = yield* sot.getAll();
             projector?.projectAll(all);
-          }),
+            callbacks.markReady();
+            if (config.strategy) {
+              activatePartition(GLOBAL_KEY, config.strategy);
+            }
+          }).pipe(
+            Effect.tapError((error) =>
+              Effect.sync(() =>
+                console.error(
+                  '[tanstack-sync] failed to read offline storage before collection ready',
+                  error,
+                ),
+              ),
+            ),
+            Effect.ignore,
+          ),
         );
-
-        if (config.strategy) {
-          activatePartition(GLOBAL_KEY, config.strategy);
-        }
-
-        callbacks.markReady();
 
         const loadSubset = (opts: LoadSubsetOptions): true => {
           const r = resolvePartitionKey(opts, partitionFields);

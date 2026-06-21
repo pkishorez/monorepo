@@ -75,11 +75,11 @@ A partition is not a collection-retention boundary. Rows loaded by inactive part
 
 The per-collection server-confirmed state owned by the engine.
 
-For keyed collections, it is a plain in-memory `Map<id, Entity>`, **one per collection** (not per partition). For single-item collections, it is the singleton equivalent.
+For keyed collections, it is one entity namespace per collection (not per partition). For single-item collections, it is the singleton equivalent.
 
-SoT is **fully detached from Sync State**. There is no derivation between them — the engine never reads SoT to compute a cursor or high-water mark. The old "derive latest/oldest from the stored cache" model is gone. A strategy that needs a cursor stores it in its own Sync State.
+SoT is **fully detached from Sync State**. There is no derivation between them — the engine never reads SoT to compute a cursor or high-water mark. A strategy that needs a cursor stores it in its own Sync State.
 
-In-memory only for now. A future thin persistent key-value layer (IndexedDB or similar) will back both SoT and Sync State without changing the engine.
+SoT can use the default memory backend or a configured Offline Storage backend. When Offline Storage is durable, SoT remains available across reloads.
 
 **What writes to SoT:**
 
@@ -102,11 +102,11 @@ Server-truth writes are atomic. A batch either succeeds as a whole or fails thro
 
 The TanStack DB write side of the engine. It translates SoT state into insert/update/delete messages for the collection callbacks.
 
-Projection is ephemeral. On reload it clears. When persistence is added, the collection is rebuilt from persisted SoT.
+Projection is ephemeral. On reload it clears. When durable Offline Storage is configured, the collection is rebuilt from persisted SoT.
 
 ### Sync State
 
-Serializable per-strategy, per-partition data stored by the engine and interpreted by the strategy.
+Serializable per-strategy, per-partition data stored by the engine and interpreted by the strategy. Persisted Sync State is wrapped with the owning strategy name and decoded through that strategy's state schema before a strategy sees it.
 
 Examples:
 
@@ -114,9 +114,9 @@ Examples:
 - A future `NewToOld` may track page tokens or gap windows.
 - A polling single-item strategy may not need any state.
 
-Sync State is a plain in-memory `Map<partitionKey, unknown>` per collection. It is fully detached from SoT — no value in Sync State is derived from SoT and vice versa. The strategy is responsible for ordering: it first ensures items are written to SoT via `writeServerTruth`, then advances its own Sync State.
+Sync State is one serializable slot per strategy partition. It is fully detached from SoT — no value in Sync State is derived from SoT and vice versa. The strategy is responsible for ordering: it first ensures items are written to SoT via `writeServerTruth`, then advances its own Sync State.
 
-The engine owns storage mechanics; the strategy owns meaning. Sync State is affected only by strategy-owned sync operations. Registry writes, mutation results, and manual persisted writes never advance it.
+The engine owns storage mechanics; the strategy owns meaning. If the stored strategy name does not match the current strategy, or the stored state fails the current strategy schema, the engine logs a warning, resets that slot to the strategy's empty state, and continues. Sync State is affected only by strategy-owned sync operations. Registry writes, mutation results, and manual persisted writes never advance it.
 
 Runtime resources such as fibers, subscriptions, abort controllers, semaphores, and callbacks are not Sync State.
 
@@ -126,7 +126,7 @@ Optional durable local storage for engine-owned Source of Truth and Sync State.
 
 Offline Storage is not Collection Projection. It may support offline-capable behavior, but it does not by itself define mutation queuing, conflict policy, or network behavior.
 
-An Offline Storage Group is a named key-value space inside Offline Storage. Source of Truth uses one group per collection, keyed by entity id. Sync State uses one group per collection, keyed by partition identity such as the global partition or a serialized partition field/value pair.
+An Offline Storage Group is a named key-value space inside Offline Storage. Source of Truth uses one group per collection, keyed by entity id or singleton key. Sync State uses one group per collection, keyed by partition identity such as the global partition or a serialized partition field/value pair.
 
 _Avoid_: Cache.
 
@@ -134,7 +134,7 @@ _Avoid_: Cache.
 
 The active runtime window in which a strategy may perform work.
 
-For `totalSync`, the global partition starts when collection sync starts and stops when collection cleanup runs.
+For a global keyed strategy, the global partition starts when collection sync starts and stops when collection cleanup runs.
 
 For `partitionSync`, each partition starts and stops through TanStack DB's `loadSubset` / `unloadSubset` lifecycle.
 
@@ -149,10 +149,10 @@ A strategy is **partition-blind**. Its entire contract is "given my current curs
 A strategy does not own SoT. At lifecycle start the engine calls `run(ctx)` with a `StrategyContext`:
 
 ```ts
-type StrategyContext<TItem> = {
+type StrategyContext<TItem, TState> = {
   writeServerTruth: (entities) => Effect.Effect<void, WriteError>;
-  getState: Effect.Effect<unknown | null>; // this partition's sync state
-  setState: (state) => Effect.Effect<void>; // routed to this partition's slot
+  getState: Effect.Effect<TState>; // decoded state for this strategy partition
+  setState: (state: TState) => Effect.Effect<void>; // routed to this partition's slot
   scope: Scope.Scope; // for subscriptions/fibers
 };
 ```
@@ -163,7 +163,7 @@ The strategy contract is a single method `run(ctx): Effect<void, WriteError, Sco
 
 **Strategy binding per shape:**
 
-- `totalSync` — `strategy` is a single strategy instance (collection-scoped, one global partition).
+- Global keyed strategy — `strategy` is a single strategy instance (collection-scoped, one global partition).
 - `partitionSync` — `strategy` is a factory `(partitionValue) => Strategy`. The engine calls it on partition refcount `0→1`; the strategy captures the value by closure and stays partition-blind.
 
 **Partitioned strategy family**:
@@ -195,19 +195,17 @@ Mutation results do not touch Sync State.
 
 ### Utils
 
-The public utility surface is grouped by concern.
+The public utility surface is a flat set of engine-owned functions.
 
 ```ts
 utils.schema();
-utils.write.upsert(entityOrEntities, { persist });
-utils.mutation.pacedUpdate(key, changes);
-utils.mutation.pendingCount(key);
-utils.mutation.subscribePending(listener);
+utils.writeUpsert(entityOrEntities);
+utils.pacedUpdate(key, changes);
+utils.pendingCount(key);
+utils.subscribePending(listener);
 ```
 
-`utils.write.upsert(..., { persist: true })` writes SoT + collection projection.  
-`utils.write.upsert(..., { persist: false })` writes collection projection only.  
-`persist` is required.
+`utils.writeUpsert(entityOrEntities)` returns `Effect.Effect<void, WriteError>` and writes server truth through SoT convergence.
 
 ### Registry
 

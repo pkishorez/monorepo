@@ -1,7 +1,7 @@
 import { Effect, Stream } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { PartitionedStrategy, StrategyContext } from '../interface.js';
-import type { OldToNewState } from './state.js';
+import { OldToNewStateSchema, type OldToNewState } from './state.js';
 
 type Cursor<TItem> = { cursor: EntityType<TItem> | null };
 
@@ -35,8 +35,13 @@ type StreamConfig<TItem> = {
  */
 export const oldToNew = <TItem extends object>(
   config: FetchConfig<TItem> | StreamConfig<TItem>,
-): PartitionedStrategy<TItem> => ({
-  run: (ctx: StrategyContext<TItem>) =>
+): PartitionedStrategy<TItem, OldToNewState> => ({
+  name: 'old-to-new',
+  state: {
+    schema: OldToNewStateSchema,
+    empty: { cursor: null },
+  },
+  run: (ctx: StrategyContext<TItem, OldToNewState>) =>
     Effect.gen(function* () {
       const writeBatch = (batch: EntityType<TItem>[]) =>
         Effect.gen(function* () {
@@ -48,9 +53,7 @@ export const oldToNew = <TItem extends object>(
 
       const readCursor = Effect.map(
         ctx.getState,
-        (state) =>
-          ((state as OldToNewState | null)?.cursor ??
-            null) as EntityType<TItem> | null,
+        (state) => state.cursor as EntityType<TItem> | null,
       );
 
       if ('stream' in config) {

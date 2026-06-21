@@ -28,6 +28,9 @@ const registry = layer('registry', ['src/registry'], {
 const sourceOfTruth = layer('source-of-truth', ['src/source-of-truth'], {
   description: 'Convergence engine and write-error types',
 });
+const offlineStorage = layer('offline-storage', ['src/offline-storage'], {
+  description: 'Internal grouped key-value storage and public adapters',
+});
 const util = layer('util', ['src/util', 'src/types.ts'], {
   description: 'Shared types and utility helpers',
 });
@@ -50,6 +53,7 @@ export default {
       paced,
       registry,
       sourceOfTruth,
+      offlineStorage,
       util,
     ]),
   ],
@@ -72,6 +76,7 @@ export default {
     module('src/paced'),
     module('src/registry'),
     module('src/source-of-truth'),
+    module('src/offline-storage'),
     module('src/util'),
   ],
 } satisfies ProjectConfig;

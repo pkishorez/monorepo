@@ -13,9 +13,9 @@
       "types": "./dist/paced/index.d.ts",
       "default": "./dist/paced/index.js"
     },
-    "./*": {
-      "types": "./dist/*",
-      "import": "./dist/*"
+    "./offline-storage/idb": {
+      "types": "./dist/offline-storage/adapters/idb/index.d.ts",
+      "default": "./dist/offline-storage/adapters/idb/index.js"
     }
   },
   "scripts": {
@@ -24,11 +24,13 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && pnpm lint:depcruise",
     "lint:depcruise": "depcruise-viz lint",
-    "lint:tsc": "tsc --noEmit"
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@std-toolkit/core": "workspace:*",
-    "@std-toolkit/eschema": "workspace:*"
+    "@std-toolkit/eschema": "workspace:*",
+    "idb": "8.0.3"
   },
   "devDependencies": {
     "@tanstack/query-db-collection": "1.0.40",
@@ -38,8 +40,10 @@
     "@types/react": "19.2.7",
     "dependency-cruiser-viz": "workspace:*",
     "effect": "4.0.0-beta.78",
+    "fake-indexeddb": "6.2.5",
     "react": "19.2.7",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
   },
   "peerDependencies": {
     "@tanstack/react-db": ">=0.1.64",

@@ -12,6 +12,12 @@ import type { StdCollectionOptions, UpdatePayload } from './types.js';
 import type { PartitionedStrategy } from './partitioned/strategies/index.js';
 import type { SingleItemStrategy } from './single-item/strategies/index.js';
 import type { PaceStrategyFactory } from './paced/pace-strategy.js';
+import {
+  resolveCollectionOfflineStorage,
+  resolveRootOfflineStorage,
+  type OfflineStorage,
+  type OfflineStorageSetting,
+} from './offline-storage/index.js';
 
 /**
  * Config for the keyed `sync` method. One collection may carry a global `strategy`
@@ -21,11 +27,11 @@ import type { PaceStrategyFactory } from './paced/pace-strategy.js';
  */
 type SyncConfig<S extends AnyEntityESchema> = {
   schema: S;
-  strategy?: PartitionedStrategy<S['Type']>;
+  strategy?: PartitionedStrategy<S['Type'], any>;
   partitions?: {
     [F in keyof S['Type'] & string]?: (
       partitionValue: S['Type'][F],
-    ) => PartitionedStrategy<S['Type']>;
+    ) => PartitionedStrategy<S['Type'], any>;
   };
   options?: StdCollectionOptions;
   onInsert?: (item: S['Type']) => Effect.Effect<EntityType<S['Type']>>;
@@ -34,17 +40,19 @@ type SyncConfig<S extends AnyEntityESchema> = {
   ) => Effect.Effect<EntityType<S['Type']>>;
   onDelete?: (id: string) => Effect.Effect<EntityType<S['Type']>>;
   updatePacing?: PaceStrategyFactory;
+  offlineStorage?: OfflineStorageSetting;
 };
 
 /** Config for the `singleItemSync` method (collection-level lifecycle, no partitions). */
 type SingleItemSyncConfig<S extends AnySingleEntityESchema> = {
   schema: S;
-  strategy: SingleItemStrategy<S['Type']>;
+  strategy: SingleItemStrategy<S['Type'], any>;
   options?: StdCollectionOptions;
   onUpdate?: (payload: {
     updates: Partial<S['Type']>;
   }) => Effect.Effect<SingleEntityType<S['Type']>>;
   updatePacing?: PaceStrategyFactory;
+  offlineStorage?: OfflineStorageSetting;
 };
 
 /**
@@ -56,28 +64,43 @@ type SingleItemSyncConfig<S extends AnySingleEntityESchema> = {
  */
 export const createStdSync = (defaults?: {
   options?: StdCollectionOptions;
+  offlineStorage?: OfflineStorage | false;
 }) => {
   const tracker = makeTracker();
+  const rootOfflineStorage = resolveRootOfflineStorage(
+    defaults?.offlineStorage,
+  );
 
   const mergeOptions = (options?: StdCollectionOptions): StdCollectionOptions =>
     ({ ...defaults?.options, ...options }) as StdCollectionOptions;
 
+  const resolveOfflineStorage = (override?: OfflineStorageSetting) =>
+    resolveCollectionOfflineStorage({
+      inherited: rootOfflineStorage,
+      override,
+    });
+
   return {
     sync: <S extends AnyEntityESchema>(config: SyncConfig<S>) => {
-      const { options, ...rest } = config;
-      const built = buildPartitioned(
-        tracker,
-        rest as Parameters<typeof buildPartitioned<S>>[1],
-      );
+      const { options, offlineStorage, ...rest } = config;
+      const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
+      const built = buildPartitioned(tracker, {
+        ...rest,
+        offlineStorage: collectionOfflineStorage,
+      } as Parameters<typeof buildPartitioned<S>>[1]);
       return { ...mergeOptions(options), ...built };
     },
     singleItemSync: <S extends AnySingleEntityESchema>(
       config: SingleItemSyncConfig<S>,
-    ) =>
-      buildSingleItem(tracker, {
-        ...config,
-        options: mergeOptions(config.options),
-      }),
+    ) => {
+      const { options, offlineStorage, ...rest } = config;
+      const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
+      return buildSingleItem(tracker, {
+        ...rest,
+        offlineStorage: collectionOfflineStorage,
+        options: mergeOptions(options),
+      });
+    },
     registry: () => buildRegistry(tracker),
   };
 };

@@ -3,10 +3,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Effect } from 'effect';
 import { buildCollections } from './internal/collections';
 import { ConfigForm } from './internal/config-form';
-import { ErrorBanner } from './internal/error-banner';
 import { Header } from './internal/header';
 import { LotelClient, makeLotelRuntime } from './internal/runtime';
-import { usePoll } from './internal/use-poll';
 import { useLotelStore } from './internal/store';
 import { Viewer } from './internal/viewer';
 
@@ -53,8 +51,6 @@ function Configured({
     [baseUrl, resetKey],
   );
 
-  const { error } = usePoll(collections);
-
   const handleClear = useCallback(async () => {
     try {
       await runtime.runPromise(
@@ -79,7 +75,6 @@ function Configured({
             onChangeBaseUrl={onChangeBaseUrl}
             onClear={handleClear}
           />
-          {error ? <ErrorBanner baseUrl={baseUrl} /> : null}
         </div>
         <div className="min-h-0 flex-1">
           <Viewer key={resetKey} collections={collections} />
