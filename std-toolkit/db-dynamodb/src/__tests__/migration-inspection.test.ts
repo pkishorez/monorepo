@@ -3,10 +3,19 @@ import { Effect, Schema } from 'effect';
 import { EntityESchema } from '@std-toolkit/eschema';
 
 import { DynamoEntity, DynamoTable } from '../index.js';
-import { createDynamoDB } from '../services/dynamo-client.js';
+import {
+  createDynamoDB,
+  dynamoDBLayer,
+  DynamoDB,
+} from '../services/dynamo-client.js';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
+const itEffect = <A, E>(
+  name: string,
+  fn: () => Effect.Effect<A, E, DynamoDB>,
+) =>
+  it(name, () =>
+    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+  );
 
 const TEST_TABLE_NAME = `db-dynamodb-migration-inspection-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -21,7 +30,7 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make(localConfig)
+const table = DynamoTable.make()
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .gsi('GSI2', 'GSI2PK', 'GSI2SK')

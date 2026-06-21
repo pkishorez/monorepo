@@ -33,7 +33,7 @@ describe('SqliteCommand', () => {
   let layer: Layer.Layer<SqliteDB>;
   let command: SqliteCommand<any>;
 
-  const table = SQLiteTable.make({ tableName: 'command_test' })
+  const table = SQLiteTable.make()
     .primary('pk', 'sk')
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .build();
@@ -56,7 +56,7 @@ describe('SqliteCommand', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'command_test');
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
   });
@@ -459,9 +459,7 @@ describe('SqliteCommand Error Handling', () => {
   let layer: Layer.Layer<SqliteDB>;
   let command: SqliteCommand<any>;
 
-  const table = SQLiteTable.make({ tableName: 'error_test' })
-    .primary('pk', 'sk')
-    .build();
+  const table = SQLiteTable.make().primary('pk', 'sk').build();
 
   const SimpleSchema = EntityESchema.make('Simple', 'id', {
     value: Schema.String,
@@ -476,7 +474,7 @@ describe('SqliteCommand Error Handling', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'error_test');
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
   });
@@ -550,9 +548,7 @@ describe('SqliteCommand Cross-Entity Operations', () => {
   let layer: Layer.Layer<SqliteDB>;
   let command: SqliteCommand<any>;
 
-  const table = SQLiteTable.make({ tableName: 'cross_entity' })
-    .primary('pk', 'sk')
-    .build();
+  const table = SQLiteTable.make().primary('pk', 'sk').build();
 
   const EntityASchema = EntityESchema.make('EntityA', 'aId', {
     value: Schema.String,
@@ -579,7 +575,7 @@ describe('SqliteCommand Cross-Entity Operations', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'cross_entity');
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
     command = SqliteCommand.make(registry);
   });

@@ -1,11 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
+const itEffect = <A, E>(
+  name: string,
+  fn: () => Effect.Effect<A, E, DynamoDB>,
+) =>
+  it(name, () =>
+    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+  );
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '@std-toolkit/eschema';
 import { DynamoTable, DynamoEntity } from '../index.js';
-import { createDynamoDB } from '../services/dynamo-client.js';
+import {
+  createDynamoDB,
+  dynamoDBLayer,
+  DynamoDB,
+} from '../services/dynamo-client.js';
 import { DynamodbError } from '../errors.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-expr-update-test-${Date.now()}`;
@@ -21,7 +30,7 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make(localConfig)
+const table = DynamoTable.make()
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
@@ -109,7 +118,7 @@ describe('Entity update with expression builder', () => {
         loginCount: 5,
         tags: ['member'],
         history: [{ action: 'joined' }],
-      }),
+      }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
     );
   });
 

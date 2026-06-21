@@ -9,10 +9,19 @@ import {
   DynamoTable,
   EntityRegistry,
 } from '../index.js';
-import { createDynamoDB } from '../services/dynamo-client.js';
+import {
+  createDynamoDB,
+  dynamoDBLayer,
+  DynamoDB,
+} from '../services/dynamo-client.js';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
+const itEffect = <A, E>(
+  name: string,
+  fn: () => Effect.Effect<A, E, DynamoDB>,
+) =>
+  it(name, () =>
+    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+  );
 
 const TEST_TABLE_NAME = `db-dynamodb-registry-migration-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -27,7 +36,7 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make(localConfig)
+const table = DynamoTable.make()
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .gsi('GSI2', 'GSI2PK', 'GSI2SK')
@@ -108,35 +117,37 @@ const makeObservedRegistry = (observed: {
       return client.describeTable(input);
     },
   };
-  const observedTable = new DynamoTable(
-    localConfig,
-    table.primary,
-    table.secondaryIndexMap,
-    observedClient,
-  );
-  const ObservedAccount = DynamoEntity.make(observedTable)
+  const ObservedAccount = DynamoEntity.make(table)
     .eschema(accountSchema)
     .primary({ pk: ['accountId'] })
     .index('GSI1', 'byEmail', { pk: ['email'] })
     .build();
-  const ObservedEvolvingAccount = DynamoEntity.make(observedTable)
+  const ObservedEvolvingAccount = DynamoEntity.make(table)
     .eschema(evolvingAccountSchema)
     .primary({ pk: ['accountId'] })
     .index('GSI1', 'byEmail', { pk: ['email'] })
     .build();
-  const ObservedSettings = DynamoSingleEntity.make(observedTable)
+  const ObservedSettings = DynamoSingleEntity.make(table)
     .eschema(settingsSchema)
     .default({ theme: 'light' });
-  const ObservedEvolvedSettings = DynamoSingleEntity.make(observedTable)
+  const ObservedEvolvedSettings = DynamoSingleEntity.make(table)
     .eschema(evolvedSettingsSchema)
     .default({ theme: 'light', maxRetries: 3 });
 
-  return EntityRegistry.make(observedTable)
+  const registry = EntityRegistry.make(table)
     .register(ObservedAccount)
     .register(ObservedEvolvingAccount)
     .registerSingle(ObservedSettings)
     .registerSingle(ObservedEvolvedSettings)
     .build();
+
+  return {
+    registry,
+    layer: Layer.succeed(DynamoDB, {
+      client: observedClient,
+      tableName: TEST_TABLE_NAME,
+    }),
+  };
 };
 
 async function createTestTable() {
@@ -241,7 +252,9 @@ describe('registry migration dry-run stream', () => {
 
   beforeEach(async () => {
     await Effect.runPromise(
-      table.dangerouslyPurgeAllItems('I KNOW WHAT I AM DOING'),
+      table
+        .dangerouslyPurgeAllItems('I KNOW WHAT I AM DOING')
+        .pipe(Effect.provide(dynamoDBLayer(localConfig))),
     );
   });
 
@@ -1390,18 +1403,16 @@ describe('registry migration dry-run stream', () => {
               : input,
           ),
       };
-      const failingTable = new DynamoTable(
-        localConfig,
-        table.primary,
-        table.secondaryIndexMap,
-        failingClient,
-      );
-      const FailingAccount = DynamoEntity.make(failingTable)
+      const failingLayer = Layer.succeed(DynamoDB, {
+        client: failingClient,
+        tableName: TEST_TABLE_NAME,
+      });
+      const FailingAccount = DynamoEntity.make(table)
         .eschema(accountSchema)
         .primary({ pk: ['accountId'] })
         .index('GSI1', 'byEmail', { pk: ['email'] })
         .build();
-      const failingRegistry = EntityRegistry.make(failingTable)
+      const failingRegistry = EntityRegistry.make(table)
         .register(FailingAccount)
         .build();
 
@@ -1410,7 +1421,7 @@ describe('registry migration dry-run stream', () => {
           scan: { totalSegments: 3 },
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect);
+        .pipe(Stream.runCollect, Effect.provide(failingLayer));
       const finalReport = reports.at(-1);
 
       expect(finalReport).toMatchObject({
@@ -1469,11 +1480,12 @@ describe('registry migration dry-run stream', () => {
         });
 
         const observed: { describes: unknown[] } = { describes: [] };
-        const observedRegistry = makeObservedRegistry(observed);
+        const { registry: observedRegistry, layer: observedLayer } =
+          makeObservedRegistry(observed);
 
         const reports = yield* observedRegistry
           .migrateStream({ progress: { estimatedTotal: false } })
-          .pipe(Stream.runCollect);
+          .pipe(Stream.runCollect, Effect.provide(observedLayer));
 
         expect(reports.at(-1)?.progress).toBeUndefined();
         expect(observed.describes).toEqual([]);
@@ -1496,11 +1508,12 @@ describe('registry migration dry-run stream', () => {
         });
 
         const observed: { describes: unknown[] } = { describes: [] };
-        const observedRegistry = makeObservedRegistry(observed);
+        const { registry: observedRegistry, layer: observedLayer } =
+          makeObservedRegistry(observed);
 
         const reports = yield* observedRegistry
           .migrateStream()
-          .pipe(Stream.runCollect);
+          .pipe(Stream.runCollect, Effect.provide(observedLayer));
 
         expect(observed.describes).toHaveLength(1);
         expect(reports.at(-1)?.progress).toEqual({
@@ -1523,11 +1536,12 @@ describe('registry migration dry-run stream', () => {
         });
 
         const observed: { scans: unknown[] } = { scans: [] };
-        const observedRegistry = makeObservedRegistry(observed);
+        const { registry: observedRegistry, layer: observedLayer } =
+          makeObservedRegistry(observed);
 
         yield* observedRegistry
           .migrateStream({ progress: { estimatedTotal: false } })
-          .pipe(Stream.runCollect);
+          .pipe(Stream.runCollect, Effect.provide(observedLayer));
 
         expect(observed.scans.length).toBeGreaterThan(0);
         expect(
@@ -1549,14 +1563,15 @@ describe('registry migration dry-run stream', () => {
       }
 
       const observed: { scans: unknown[] } = { scans: [] };
-      const observedRegistry = makeObservedRegistry(observed);
+      const { registry: observedRegistry, layer: observedLayer } =
+        makeObservedRegistry(observed);
 
       const reports = yield* observedRegistry
         .migrateStream({
           scan: { pageLimit: 1 },
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect);
+        .pipe(Stream.runCollect, Effect.provide(observedLayer));
 
       expect(reports.at(-1)?.items.scanned).toBe(3);
       expect(observed.scans.length).toBeGreaterThan(1);
@@ -1577,14 +1592,15 @@ describe('registry migration dry-run stream', () => {
       });
 
       const observed: { scans: unknown[] } = { scans: [] };
-      const observedRegistry = makeObservedRegistry(observed);
+      const { registry: observedRegistry, layer: observedLayer } =
+        makeObservedRegistry(observed);
 
       yield* observedRegistry
         .migrateStream({
           scan: { consistentRead: true },
           progress: { estimatedTotal: false },
         })
-        .pipe(Stream.runCollect);
+        .pipe(Stream.runCollect, Effect.provide(observedLayer));
 
       expect(observed.scans.length).toBeGreaterThan(0);
       expect(
@@ -1605,14 +1621,7 @@ describe('registry migration dry-run stream', () => {
         });
       }
 
-      const client = createDynamoDB(localConfig);
-      const observedTable = new DynamoTable(
-        localConfig,
-        table.primary,
-        table.secondaryIndexMap,
-        client,
-      );
-      const ObservedAccount = DynamoEntity.make(observedTable)
+      const ObservedAccount = DynamoEntity.make(table)
         .eschema(accountSchema)
         .primary({ pk: ['accountId'] })
         .index('GSI1', 'byEmail', { pk: ['email'] })
@@ -1637,7 +1646,7 @@ describe('registry migration dry-run stream', () => {
           return Reflect.get(target, property, target);
         },
       }) as typeof ObservedAccount;
-      const observedRegistry = EntityRegistry.make(observedTable)
+      const observedRegistry = EntityRegistry.make(table)
         .register(SlowAccount)
         .build();
 

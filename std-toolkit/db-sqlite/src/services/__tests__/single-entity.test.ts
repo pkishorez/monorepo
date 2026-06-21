@@ -25,9 +25,7 @@ describe('SQLiteSingleEntity', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'std_data' })
-    .primary('pk', 'sk')
-    .build();
+  const table = SQLiteTable.make().primary('pk', 'sk').build();
 
   const AppConfig = SQLiteSingleEntity.make(table)
     .eschema(configSchema)
@@ -35,7 +33,7 @@ describe('SQLiteSingleEntity', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'std_data');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -117,9 +115,7 @@ describe('SQLiteSingleEntity', () => {
           value: Schema.String,
         }).build();
 
-        const emptyTable = SQLiteTable.make({ tableName: 'std_empty' })
-          .primary('pk', 'sk')
-          .build();
+        const emptyTable = SQLiteTable.make().primary('pk', 'sk').build();
 
         yield* emptyTable.setup();
 

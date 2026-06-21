@@ -819,9 +819,6 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78(effect@4.0.0-beta.78)(ioredis@5.11.1)
-      '@monorepo/vtest':
-        specifier: workspace:*
-        version: link:../../packages/vtest
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5

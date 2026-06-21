@@ -32,8 +32,6 @@ export type TransactItem<TEntityName extends string = string> =
  * Options for a DynamoDB Put operation in a transaction.
  */
 export interface PutOptions {
-  /** Name of the DynamoDB table */
-  TableName: string;
   /** The item to put, in marshalled DynamoDB format */
   Item: MarshalledOutput;
   /** Optional condition expression that must be satisfied for the put to succeed */
@@ -50,8 +48,6 @@ export interface PutOptions {
  * Options for a DynamoDB Update operation in a transaction.
  */
 export interface UpdateOptions {
-  /** Name of the DynamoDB table */
-  TableName: string;
   /** The primary key of the item to update, in marshalled DynamoDB format */
   Key: MarshalledOutput;
   /** The update expression defining the attributes to modify */

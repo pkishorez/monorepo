@@ -4,14 +4,6 @@ import * as Sql from '../sql/helpers/index.js';
 import type { RawRow } from '../internal/utils.js';
 
 /**
- * Configuration for creating a SQLite table.
- */
-export interface SQLiteTableConfig {
-  /** The name of the table */
-  tableName: string;
-}
-
-/**
  * Defines the structure of a primary or secondary index.
  */
 export interface IndexDefinition {
@@ -70,12 +62,14 @@ const TABLE_COLUMNS = [
  */
 export const SQLiteTable = {
   /**
-   * Creates a new SQLite table builder with the given configuration.
+   * Creates a new SQLite table builder.
    *
-   * @param config - The table configuration
+   * The table definition is pure topology (keys and indexes); the physical
+   * table name is supplied separately via `betterSqlite3Layer`.
+   *
    * @returns A builder to configure the primary key
    */
-  make(config: SQLiteTableConfig) {
+  make() {
     return {
       /**
        * Defines the primary key structure for the table.
@@ -87,7 +81,7 @@ export const SQLiteTable = {
        * @returns A builder to add secondary indexes
        */
       primary<Pk extends string, Sk extends string>(pk: Pk, sk: Sk) {
-        return new SQLiteTableBuilder(config, { pk, sk }, {});
+        return new SQLiteTableBuilder({ pk, sk }, {});
       },
     };
   },
@@ -99,13 +93,7 @@ export const SQLiteTable = {
 function createSQLiteTableInstance<
   TPrimaryIndex extends IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition>,
->(
-  config: SQLiteTableConfig,
-  primary: TPrimaryIndex,
-  secondaryIndexMap: TSecondaryIndexMap,
-) {
-  const tableName = config.tableName;
-
+>(primary: TPrimaryIndex, secondaryIndexMap: TSecondaryIndexMap) {
   const buildWhere = (
     pkCol: string,
     skCol: string,
@@ -188,7 +176,7 @@ function createSQLiteTableInstance<
             ? 'ASC'
             : getSortDirection(cond.sk);
 
-      const rows = yield* db.query<RawRow>(tableName, whereClause, {
+      const rows = yield* db.query<RawRow>(db.tableName, whereClause, {
         orderBy: direction,
         orderByColumn: indexDef.sk,
         limit: options?.Limit ?? 100,
@@ -199,8 +187,6 @@ function createSQLiteTableInstance<
   };
 
   return {
-    /** The name of the SQLite table */
-    tableName,
     /** The primary index definition */
     primary,
     /** Map of secondary index names to their definitions */
@@ -225,20 +211,24 @@ function createSQLiteTableInstance<
         }
 
         // Create table with composite primary key (no-op if table exists)
-        yield* db.createTable(tableName, allColumns, [primary.pk, primary.sk]);
+        yield* db.createTable(db.tableName, allColumns, [
+          primary.pk,
+          primary.sk,
+        ]);
 
         // Add any missing secondary index columns to existing table
         for (const [, indexDef] of Object.entries(secondaryIndexMap)) {
-          yield* db.addColumn(tableName, indexDef.pk, 'TEXT');
-          yield* db.addColumn(tableName, indexDef.sk, 'TEXT');
+          yield* db.addColumn(db.tableName, indexDef.pk, 'TEXT');
+          yield* db.addColumn(db.tableName, indexDef.sk, 'TEXT');
         }
 
         // Create secondary indexes (no-op if index exists)
         for (const [indexName, indexDef] of Object.entries(secondaryIndexMap)) {
-          yield* db.createIndex(tableName, `idx_${tableName}_${indexName}`, [
-            indexDef.pk,
-            indexDef.sk,
-          ]);
+          yield* db.createIndex(
+            db.tableName,
+            `idx_${db.tableName}_${indexName}`,
+            [indexDef.pk, indexDef.sk],
+          );
         }
       });
     },
@@ -261,7 +251,7 @@ function createSQLiteTableInstance<
           key.sk,
         );
 
-        const rows = yield* db.query<RawRow>(tableName, whereClause, {
+        const rows = yield* db.query<RawRow>(db.tableName, whereClause, {
           limit: 1,
         });
 
@@ -280,7 +270,7 @@ function createSQLiteTableInstance<
     ): Effect.Effect<void, SqliteDBError, SqliteDB> {
       return Effect.gen(function* () {
         const db = yield* SqliteDB;
-        yield* db.insert(tableName, value);
+        yield* db.insert(db.tableName, value);
       });
     },
 
@@ -303,7 +293,7 @@ function createSQLiteTableInstance<
           key.pk,
           key.sk,
         );
-        yield* db.update(tableName, values, whereClause);
+        yield* db.update(db.tableName, values, whereClause);
       });
     },
 
@@ -324,7 +314,7 @@ function createSQLiteTableInstance<
           key.sk,
         );
         // Use soft delete by updating _d flag
-        yield* db.update(tableName, { _d: 1 }, whereClause);
+        yield* db.update(db.tableName, { _d: 1 }, whereClause);
       });
     },
 
@@ -336,7 +326,7 @@ function createSQLiteTableInstance<
     ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
       return Effect.gen(function* () {
         const db = yield* SqliteDB;
-        return yield* db.delete(tableName, where);
+        return yield* db.delete(db.tableName, where);
       });
     },
 
@@ -391,7 +381,7 @@ function createSQLiteTableInstance<
     dangerouslyRemoveAllRows(
       _: 'i know what i am doing',
     ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
-      return SqliteDB.pipe(Effect.flatMap((db) => db.deleteAll(tableName)));
+      return SqliteDB.pipe(Effect.flatMap((db) => db.deleteAll(db.tableName)));
     },
   };
 }
@@ -416,16 +406,10 @@ class SQLiteTableBuilder<
   TPrimaryIndex extends IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition>,
 > {
-  #config: SQLiteTableConfig;
   #primary: TPrimaryIndex;
   #secondaryIndexMap: TSecondaryIndexMap;
 
-  constructor(
-    config: SQLiteTableConfig,
-    primary: TPrimaryIndex,
-    secondaryIndexMap: TSecondaryIndexMap,
-  ) {
-    this.#config = config;
+  constructor(primary: TPrimaryIndex, secondaryIndexMap: TSecondaryIndexMap) {
     this.#primary = primary;
     this.#secondaryIndexMap = secondaryIndexMap;
   }
@@ -449,7 +433,7 @@ class SQLiteTableBuilder<
     return new SQLiteTableBuilder<
       TPrimaryIndex,
       TSecondaryIndexMap & Record<IndexName, { pk: Pk; sk: Sk }>
-    >(this.#config, this.#primary, {
+    >(this.#primary, {
       ...this.#secondaryIndexMap,
       [name]: { pk, sk },
     } as TSecondaryIndexMap & Record<IndexName, { pk: Pk; sk: Sk }>);
@@ -461,10 +445,6 @@ class SQLiteTableBuilder<
    * @returns The configured SQLiteTableInstance
    */
   build(): SQLiteTableInstance<TPrimaryIndex, TSecondaryIndexMap> {
-    return createSQLiteTableInstance(
-      this.#config,
-      this.#primary,
-      this.#secondaryIndexMap,
-    );
+    return createSQLiteTableInstance(this.#primary, this.#secondaryIndexMap);
   }
 }

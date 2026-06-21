@@ -1,11 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
+const itEffect = <A, E>(
+  name: string,
+  fn: () => Effect.Effect<A, E, DynamoDB>,
+) =>
+  it(name, () =>
+    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+  );
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '@std-toolkit/eschema';
 import { DynamoTable, DynamoEntity, DynamodbError } from '../index.js';
-import { createDynamoDB } from '../services/dynamo-client.js';
+import {
+  createDynamoDB,
+  dynamoDBLayer,
+  DynamoDB,
+} from '../services/dynamo-client.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-error-test-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -20,7 +29,7 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make(localConfig).primary('pk', 'sk').build();
+const table = DynamoTable.make().primary('pk', 'sk').build();
 
 // New ESchema API: idField is second parameter
 const userSchema = EntityESchema.make('User', 'userId', {
@@ -34,12 +43,7 @@ const UserEntity = DynamoEntity.make(table)
   .build();
 
 async function createTestTable() {
-  const client = createDynamoDB({
-    tableName: TEST_TABLE_NAME,
-    region: localConfig.region,
-    credentials: localConfig.credentials,
-    endpoint: LOCAL_ENDPOINT,
-  });
+  const client = createDynamoDB(localConfig);
 
   const createParams = {
     TableName: TEST_TABLE_NAME,
@@ -134,12 +138,15 @@ describe('DynamoDB Error Handling', () => {
   });
 
   describe('Table operations with non-existent table', () => {
-    const badTable = DynamoTable.make({
+    const badTable = DynamoTable.make().primary('pk', 'sk').build();
+    const badLayer = dynamoDBLayer({
       ...localConfig,
       tableName: 'non-existent-table',
-    })
-      .primary('pk', 'sk')
-      .build();
+    });
+    const itEffect = <A, E>(
+      name: string,
+      fn: () => Effect.Effect<A, E, DynamoDB>,
+    ) => it(name, () => Effect.runPromise(fn().pipe(Effect.provide(badLayer))));
 
     itEffect('fails with QueryFailed when querying non-existent table', () =>
       Effect.gen(function* () {
@@ -200,12 +207,15 @@ describe('DynamoDB Error Handling', () => {
   });
 
   describe('Entity operations with non-existent table', () => {
-    const badTable = DynamoTable.make({
+    const badTable = DynamoTable.make().primary('pk', 'sk').build();
+    const badLayer = dynamoDBLayer({
       ...localConfig,
       tableName: 'non-existent-entity-table',
-    })
-      .primary('pk', 'sk')
-      .build();
+    });
+    const itEffect = <A, E>(
+      name: string,
+      fn: () => Effect.Effect<A, E, DynamoDB>,
+    ) => it(name, () => Effect.runPromise(fn().pipe(Effect.provide(badLayer))));
 
     const BadUserEntity = DynamoEntity.make(badTable)
       .eschema(userSchema)
@@ -255,12 +265,15 @@ describe('DynamoDB Error Handling', () => {
   });
 
   describe('Error cause preservation', () => {
-    const badTable = DynamoTable.make({
+    const badTable = DynamoTable.make().primary('pk', 'sk').build();
+    const badLayer = dynamoDBLayer({
       ...localConfig,
       tableName: 'non-existent-cause-table',
-    })
-      .primary('pk', 'sk')
-      .build();
+    });
+    const itEffect = <A, E>(
+      name: string,
+      fn: () => Effect.Effect<A, E, DynamoDB>,
+    ) => it(name, () => Effect.runPromise(fn().pipe(Effect.provide(badLayer))));
 
     itEffect('preserves underlying AWS error details in cause', () =>
       Effect.gen(function* () {

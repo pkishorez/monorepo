@@ -1,11 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
+const itEffect = <A, E>(
+  name: string,
+  fn: () => Effect.Effect<A, E, DynamoDB>,
+) =>
+  it(name, () =>
+    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+  );
 import { Effect, Schema, Stream } from 'effect';
 import { EntityESchema } from '@std-toolkit/eschema';
 import { DynamoTable, DynamoEntity } from '../index.js';
-import { createDynamoDB } from '../services/dynamo-client.js';
+import {
+  createDynamoDB,
+  dynamoDBLayer,
+  DynamoDB,
+} from '../services/dynamo-client.js';
 
 // Use timestamp-based name to avoid schema conflicts between test runs
 const TEST_TABLE_NAME = `db-dynamodb-simplified-test-${Date.now()}`;
@@ -22,7 +31,7 @@ const localConfig = {
 };
 
 // Create table instance
-const table = DynamoTable.make(localConfig)
+const table = DynamoTable.make()
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
@@ -132,7 +141,7 @@ describe('Simplified API Tests', () => {
           total: 150,
           status: 'pending',
         });
-      }),
+      }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
     );
   });
 

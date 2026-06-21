@@ -301,7 +301,10 @@ export class SQLiteEntity<
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(
-          SqliteDBError.updateFailed(this.#table.tableName, 'Item not found'),
+          SqliteDBError.updateFailed(
+            (yield* SqliteDB).tableName,
+            'Item not found',
+          ),
         );
       }
 
@@ -361,7 +364,10 @@ export class SQLiteEntity<
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(
-          SqliteDBError.deleteFailed(this.#table.tableName, 'Item not found'),
+          SqliteDBError.deleteFailed(
+            (yield* SqliteDB).tableName,
+            'Item not found',
+          ),
         );
       }
 
@@ -492,7 +498,7 @@ export class SQLiteEntity<
         if (!indexDerivation) {
           return yield* Effect.fail(
             SqliteDBError.queryFailed(
-              this.#table.tableName,
+              (yield* SqliteDB).tableName,
               `Index ${String(key)} not found`,
             ),
           );
@@ -704,7 +710,8 @@ export class SQLiteEntity<
     fullValue: ESchemaType<TSchema>,
   ): Effect.Effect<
     { item: Record<string, unknown>; meta: RowMeta },
-    SqliteDBError
+    SqliteDBError,
+    SqliteDB
   > {
     return Effect.gen({ self: this }, function* () {
       const { encoded, meta } = yield* this.#encode(fullValue, false);
@@ -733,54 +740,57 @@ export class SQLiteEntity<
     deleted: boolean,
   ): Effect.Effect<
     { encoded: Record<string, unknown>; meta: RowMeta },
-    SqliteDBError
+    SqliteDBError,
+    SqliteDB
   > {
-    return this.#eschema
-      .encode(value as Record<string, unknown>)
-      .pipe(
-        Effect.mapError((e) =>
-          SqliteDBError.insertFailed(this.#table.tableName, e),
+    return Effect.flatMap(SqliteDB, (db) =>
+      this.#eschema
+        .encode(value as Record<string, unknown>)
+        .pipe(
+          Effect.mapError((e) => SqliteDBError.insertFailed(db.tableName, e)),
         ),
-      )
-      .pipe(
-        Effect.map((encoded) => ({
-          encoded,
-          meta: {
-            _e: this.#eschema.name,
-            _v: encoded._v as string,
-            _u: new Date().toISOString(),
-            _d: deleted,
-          },
-        })),
-      );
+    ).pipe(
+      Effect.map((encoded) => ({
+        encoded,
+        meta: {
+          _e: this.#eschema.name,
+          _v: encoded._v as string,
+          _u: new Date().toISOString(),
+          _d: deleted,
+        },
+      })),
+    );
   }
 
   #parseRow(
     row: RawRow,
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError> {
-    return this.#eschema
-      .decode({ ...JSON.parse(row._data), _v: row._v })
-      .pipe(
-        Effect.mapError((e) =>
-          SqliteDBError.queryFailed(this.#table.tableName, e),
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
+    return Effect.flatMap(SqliteDB, (db) =>
+      this.#eschema
+        .decode({ ...JSON.parse(row._data), _v: row._v })
+        .pipe(
+          Effect.mapError((e) => SqliteDBError.queryFailed(db.tableName, e)),
         ),
-      )
-      .pipe(
-        Effect.map((value) => ({
-          value: value as ESchemaType<TSchema>,
-          meta: Schema.decodeSync(sqlMetaSchema)({
-            _v: row._v,
-            _u: row._u,
-            _d: row._d,
-            _e: row._e ?? this.#eschema.name,
-          }),
-        })),
-      );
+    ).pipe(
+      Effect.map((value) => ({
+        value: value as ESchemaType<TSchema>,
+        meta: Schema.decodeSync(sqlMetaSchema)({
+          _v: row._v,
+          _u: row._u,
+          _d: row._d,
+          _e: row._e ?? this.#eschema.name,
+        }),
+      })),
+    );
   }
 
   #decodeItems(
     items: RawRow[],
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>[], SqliteDBError> {
+  ): Effect.Effect<
+    EntityType<ESchemaType<TSchema>>[],
+    SqliteDBError,
+    SqliteDB
+  > {
     return Effect.all(items.map((item) => this.#parseRow(item)));
   }
 

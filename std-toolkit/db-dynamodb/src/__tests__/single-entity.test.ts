@@ -1,11 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
+const itEffect = <A, E>(
+  name: string,
+  fn: () => Effect.Effect<A, E, DynamoDB>,
+) =>
+  it(name, () =>
+    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+  );
 import { Effect, Schema } from 'effect';
 import { SingleEntityESchema } from '@std-toolkit/eschema';
 import { DynamoTable, DynamoSingleEntity } from '../index.js';
-import { createDynamoDB } from '../services/dynamo-client.js';
+import {
+  createDynamoDB,
+  dynamoDBLayer,
+  DynamoDB,
+} from '../services/dynamo-client.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-single-entity-test-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -20,7 +29,7 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make(localConfig).primary('pk', 'sk').build();
+const table = DynamoTable.make().primary('pk', 'sk').build();
 
 const configSchema = SingleEntityESchema.make('AppConfig', {
   theme: Schema.String,

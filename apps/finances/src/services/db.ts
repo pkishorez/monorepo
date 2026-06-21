@@ -34,7 +34,7 @@ const makeDatabase = (dbPath: string) =>
     (database) => Effect.sync(() => database.close()),
   );
 
-const table = SQLiteTable.make({ tableName: TABLE_NAME })
+const table = SQLiteTable.make()
   .primary('pk', 'sk')
   .index('Timeline', 'timeline_pk', 'timeline_sk')
   .build();
@@ -74,7 +74,7 @@ export const makeDbLayer = (dbPath: string = DEFAULT_DB_PATH) => {
   const sqliteLayer = Layer.effect(
     SqliteDB,
     makeDatabase(dbPath).pipe(
-      Effect.map((database) => betterSqlite3Layer(database)),
+      Effect.map((database) => betterSqlite3Layer(database, TABLE_NAME)),
       Effect.flatMap((layer) => Layer.build(layer)),
       Effect.map((context) => Context.getUnsafe(context, SqliteDB)),
     ),

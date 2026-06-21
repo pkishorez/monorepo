@@ -11,7 +11,12 @@ export {
 } from './services/index.js';
 
 // Client
-export { createDynamoDB } from './services/dynamo-client.js';
+export {
+  createDynamoDB,
+  DynamoDB,
+  dynamoDBLayer,
+} from './services/dynamo-client.js';
+export type { DynamoConnection } from './types/index.js';
 
 // Errors
 export { DynamodbError } from './errors.js';

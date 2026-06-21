@@ -6,8 +6,10 @@ import type { Where } from '../helpers/index.js';
 
 const params = (p: unknown[]) => p as SQLQueryBindings[];
 
-export const bunSqliteLayer = (db: Database) =>
+export const bunSqliteLayer = (db: Database, tableName: string) =>
   Layer.succeed(SqliteDB, {
+    tableName,
+
     createTable: (table, columns, primaryKey) =>
       Effect.try({
         try: () => {

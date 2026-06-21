@@ -118,20 +118,12 @@ describe('@std-toolkit/db-dynamodb', () => {
 
   describe('DynamoTable', () => {
     it('creates table instance with DynamoTable.make', () => {
-      const table = DynamoTable.make({
-        tableName: 'test-table',
-        region: 'us-east-1',
-        credentials: {
-          accessKeyId: 'test',
-          secretAccessKey: 'test',
-        },
-      })
+      const table = DynamoTable.make()
         .primary('pk', 'sk')
         .gsi('GSI1', 'GSI1PK', 'GSI1SK')
         .build();
 
       expect(table).toBeDefined();
-      expect(table.tableName).toBe('test-table');
       expect(table.primary).toEqual({ pk: 'pk', sk: 'sk' });
       expect(table.secondaryIndexMap).toHaveProperty('GSI1');
     });
@@ -139,14 +131,7 @@ describe('@std-toolkit/db-dynamodb', () => {
 
   describe('DynamoEntity', () => {
     // Create a table instance for testing entities
-    const table = DynamoTable.make({
-      tableName: 'test-table',
-      region: 'us-east-1',
-      credentials: {
-        accessKeyId: 'test',
-        secretAccessKey: 'test',
-      },
-    })
+    const table = DynamoTable.make()
       .primary('pk', 'sk')
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
       .build();

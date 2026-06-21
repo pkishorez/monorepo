@@ -2,8 +2,11 @@ import type { AnySingleEntityESchema, ESchemaType } from '@std-toolkit/eschema';
 import { Effect, Option, Schema } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { SQLiteTableInstance } from './sqlite-table.js';
-import { SqliteDBError, TransactionPendingBroadcasts } from '../sql/db.js';
-import type { SqliteDB } from '../sql/db.js';
+import {
+  SqliteDB,
+  SqliteDBError,
+  TransactionPendingBroadcasts,
+} from '../sql/db.js';
 import { ConnectionService } from '@std-toolkit/core/server';
 import { deriveIndexKeyValue, type RawRow } from '../internal/utils.js';
 
@@ -155,6 +158,7 @@ export class SQLiteSingleEntity<
     SqliteDB
   > {
     return Effect.gen({ self: this }, function* () {
+      const db = yield* SqliteDB;
       const fullValue = {
         ...value,
         _v: this.#eschema.latestVersion,
@@ -163,9 +167,7 @@ export class SQLiteSingleEntity<
       const encoded = yield* this.#eschema
         .encode(fullValue as any)
         .pipe(
-          Effect.mapError((e) =>
-            SqliteDBError.insertFailed(this.#table.tableName, e),
-          ),
+          Effect.mapError((e) => SqliteDBError.insertFailed(db.tableName, e)),
         );
 
       const _u = new Date().toISOString();
@@ -222,11 +224,12 @@ export class SQLiteSingleEntity<
     SqliteDB
   > {
     return Effect.gen({ self: this }, function* () {
+      const db = yield* SqliteDB;
       const existing = yield* this.get();
 
       if (existing.meta._u === '') {
         return yield* Effect.fail(
-          SqliteDBError.updateFailed(this.#table.tableName, 'Item not found'),
+          SqliteDBError.updateFailed(db.tableName, 'Item not found'),
         );
       }
 
@@ -238,9 +241,7 @@ export class SQLiteSingleEntity<
       const encoded = yield* this.#eschema
         .encode(fullValue as any)
         .pipe(
-          Effect.mapError((e) =>
-            SqliteDBError.updateFailed(this.#table.tableName, e),
-          ),
+          Effect.mapError((e) => SqliteDBError.updateFailed(db.tableName, e)),
         );
 
       const _u = new Date().toISOString();
@@ -285,23 +286,26 @@ export class SQLiteSingleEntity<
 
   #parseRow(
     row: RawRow,
-  ): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, SqliteDBError> {
-    return this.#eschema
-      .decode({ ...JSON.parse(row._data), _v: row._v })
-      .pipe(
-        Effect.mapError((e) =>
-          SqliteDBError.queryFailed(this.#table.tableName, e),
+  ): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    SqliteDBError,
+    SqliteDB
+  > {
+    return Effect.flatMap(SqliteDB, (db) =>
+      this.#eschema
+        .decode({ ...JSON.parse(row._data), _v: row._v })
+        .pipe(
+          Effect.mapError((e) => SqliteDBError.queryFailed(db.tableName, e)),
         ),
-      )
-      .pipe(
-        Effect.map((value) => ({
-          value: value as ESchemaType<TSchema>,
-          meta: Schema.decodeUnknownSync(singleMetaSchema)({
-            _e: row._e ?? this.#eschema.name,
-            _v: row._v,
-            _u: row._u,
-          }),
-        })),
-      );
+    ).pipe(
+      Effect.map((value) => ({
+        value: value as ESchemaType<TSchema>,
+        meta: Schema.decodeUnknownSync(singleMetaSchema)({
+          _e: row._e ?? this.#eschema.name,
+          _v: row._v,
+          _u: row._u,
+        }),
+      })),
+    );
   }
 }

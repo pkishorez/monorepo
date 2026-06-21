@@ -1,8 +1,7 @@
 import { Effect } from 'effect';
-import { createDynamoDB, type DynamoDBClient } from './dynamo-client.js';
+import { DynamoDB } from './dynamo-client.js';
 import { DynamodbError } from '../errors.js';
 import type {
-  DynamoTableConfig,
   IndexDefinition,
   MarshalledOutput,
   TransactItem,
@@ -62,30 +61,23 @@ export class DynamoTable<
   TPrimaryIndex extends IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition>,
 > {
-  readonly tableName: string;
   readonly primary: TPrimaryIndex;
   readonly secondaryIndexMap: TSecondaryIndexMap;
-  #client: DynamoDBClient;
 
-  constructor(
-    config: DynamoTableConfig,
-    primary: TPrimaryIndex,
-    secondaryIndexMap: TSecondaryIndexMap,
-    client: DynamoDBClient,
-  ) {
-    this.tableName = config.tableName;
+  constructor(primary: TPrimaryIndex, secondaryIndexMap: TSecondaryIndexMap) {
     this.primary = primary;
     this.secondaryIndexMap = secondaryIndexMap;
-    this.#client = client;
   }
 
   /**
-   * Creates a new DynamoDB table builder with the given configuration.
+   * Creates a new DynamoDB table builder.
    *
-   * @param config - The table configuration including name, region, and credentials
+   * The table definition is pure topology (keys and indexes); the physical
+   * table name and connection are supplied separately via {@link dynamoDBLayer}.
+   *
    * @returns A builder to configure the primary key
    */
-  static make(config: DynamoTableConfig) {
+  static make() {
     return {
       /**
        * Defines the primary key structure for the table.
@@ -97,7 +89,7 @@ export class DynamoTable<
        * @returns A builder to add secondary indexes
        */
       primary<Pk extends string, Sk extends string>(pk: Pk, sk: Sk) {
-        return new DynamoTableBuilder(config, { pk, sk }, {});
+        return new DynamoTableBuilder({ pk, sk }, {});
       },
     };
   }
@@ -111,14 +103,13 @@ export class DynamoTable<
       ScanIndexForward?: boolean;
       filter?: ConditionOperation;
     },
-  ): Effect.Effect<QueryResult, DynamodbError> {
+  ): Effect.Effect<QueryResult, DynamodbError, DynamoDB> {
     const exprResult = buildExpr({
       keyCondition: keyConditionExpr(indexDef, cond),
       filter: options?.filter,
     });
 
     const queryOptions: Record<string, unknown> = {
-      TableName: this.tableName,
       ...exprResult,
     };
 
@@ -127,7 +118,9 @@ export class DynamoTable<
     if (options?.ScanIndexForward !== undefined)
       queryOptions.ScanIndexForward = options.ScanIndexForward;
 
-    return this.#client.query(queryOptions).pipe(
+    return Effect.flatMap(DynamoDB, ({ client, tableName }) =>
+      client.query({ TableName: tableName, ...queryOptions }),
+    ).pipe(
       Effect.map((response: any) => {
         const result: QueryResult = {
           Items: response.Items?.map(unmarshall) ?? [],
@@ -148,10 +141,8 @@ export class DynamoTable<
     Segment?: number;
     TotalSegments?: number;
     ConsistentRead?: boolean;
-  }): Effect.Effect<QueryResult, DynamodbError> {
-    const scanOptions: Record<string, unknown> = {
-      TableName: this.tableName,
-    };
+  }): Effect.Effect<QueryResult, DynamodbError, DynamoDB> {
+    const scanOptions: Record<string, unknown> = {};
     if (options?.IndexName) scanOptions.IndexName = options.IndexName;
     if (options?.Limit !== undefined) scanOptions.Limit = options.Limit;
     if (options?.ExclusiveStartKey)
@@ -162,7 +153,9 @@ export class DynamoTable<
     if (!options?.IndexName && options?.ConsistentRead !== undefined)
       scanOptions.ConsistentRead = options.ConsistentRead;
 
-    return this.#client.scan(scanOptions).pipe(
+    return Effect.flatMap(DynamoDB, ({ client, tableName }) =>
+      client.scan({ TableName: tableName, ...scanOptions }),
+    ).pipe(
       Effect.map((response: any) => {
         const result: QueryResult = {
           Items: response.Items?.map(unmarshall) ?? [],
@@ -176,24 +169,30 @@ export class DynamoTable<
     );
   }
 
-  #rawDeleteItem(key: IndexDefinition): Effect.Effect<void, DynamodbError> {
-    return this.#client
-      .deleteItem({
-        TableName: this.tableName,
+  #rawDeleteItem(
+    key: IndexDefinition,
+  ): Effect.Effect<void, DynamodbError, DynamoDB> {
+    return Effect.flatMap(DynamoDB, ({ client, tableName }) =>
+      client.deleteItem({
+        TableName: tableName,
         Key: marshall({
           [this.primary.pk]: key.pk,
           [this.primary.sk]: key.sk,
         }),
-      })
-      .pipe(
-        Effect.map(() => undefined),
-        Effect.mapError(DynamodbError.deleteItemFailed),
-      );
+      }),
+    ).pipe(
+      Effect.map(() => undefined),
+      Effect.mapError(DynamodbError.deleteItemFailed),
+    );
   }
 
-  describe(): Effect.Effect<TableDescription, DynamodbError> {
-    return this.#client.describeTable({ TableName: this.tableName }).pipe(
-      Effect.map((response: any) => {
+  describe(): Effect.Effect<TableDescription, DynamodbError, DynamoDB> {
+    return Effect.flatMap(DynamoDB, ({ client, tableName }) =>
+      client
+        .describeTable({ TableName: tableName })
+        .pipe(Effect.map((response: any) => ({ response, tableName }))),
+    ).pipe(
+      Effect.map(({ response, tableName }) => {
         const tableDescription = response.Table ?? {};
         const indexes = [
           ...(tableDescription.LocalSecondaryIndexes ?? []),
@@ -206,7 +205,7 @@ export class DynamoTable<
         }));
 
         return {
-          tableName: tableDescription.TableName ?? this.tableName,
+          tableName: tableDescription.TableName ?? tableName,
           tableStatus: tableDescription.TableStatus,
           estimatedItemCount: tableDescription.ItemCount,
           tableSizeBytes: tableDescription.TableSizeBytes,
@@ -227,22 +226,26 @@ export class DynamoTable<
   getItem(
     key: IndexDefinition,
     options?: { ConsistentRead?: boolean },
-  ): Effect.Effect<{ Item: Record<string, unknown> | null }, DynamodbError> {
-    return this.#client
-      .getItem({
-        TableName: this.tableName,
+  ): Effect.Effect<
+    { Item: Record<string, unknown> | null },
+    DynamodbError,
+    DynamoDB
+  > {
+    return Effect.flatMap(DynamoDB, ({ client, tableName }) =>
+      client.getItem({
+        TableName: tableName,
         Key: marshall({
           [this.primary.pk]: key.pk,
           [this.primary.sk]: key.sk,
         }),
         ConsistentRead: options?.ConsistentRead,
-      })
-      .pipe(
-        Effect.map((response: any) => ({
-          Item: response.Item ? unmarshall(response.Item) : null,
-        })),
-        Effect.mapError(DynamodbError.getItemFailed),
-      );
+      }),
+    ).pipe(
+      Effect.map((response: any) => ({
+        Item: response.Item ? unmarshall(response.Item) : null,
+      })),
+      Effect.mapError(DynamodbError.getItemFailed),
+    );
   }
 
   /**
@@ -262,22 +265,23 @@ export class DynamoTable<
     },
   ): Effect.Effect<
     { Attributes: Record<string, unknown> | null },
-    DynamodbError
+    DynamodbError,
+    DynamoDB
   > {
-    return this.#client
-      .putItem({
-        TableName: this.tableName,
+    return Effect.flatMap(DynamoDB, ({ client, tableName }) =>
+      client.putItem({
+        TableName: tableName,
         Item: marshall(value),
         ...options,
-      })
-      .pipe(
-        Effect.map((response: any) => ({
-          Attributes: response.Attributes
-            ? unmarshall(response.Attributes)
-            : null,
-        })),
-        Effect.mapError(DynamodbError.putItemFailed),
-      );
+      }),
+    ).pipe(
+      Effect.map((response: any) => ({
+        Attributes: response.Attributes
+          ? unmarshall(response.Attributes)
+          : null,
+      })),
+      Effect.mapError(DynamodbError.putItemFailed),
+    );
   }
 
   /**
@@ -299,25 +303,26 @@ export class DynamoTable<
     },
   ): Effect.Effect<
     { Attributes: Record<string, unknown> | null },
-    DynamodbError
+    DynamodbError,
+    DynamoDB
   > {
-    return this.#client
-      .updateItem({
-        TableName: this.tableName,
+    return Effect.flatMap(DynamoDB, ({ client, tableName }) =>
+      client.updateItem({
+        TableName: tableName,
         Key: marshall({
           [this.primary.pk]: key.pk,
           [this.primary.sk]: key.sk,
         }),
         ...options,
-      })
-      .pipe(
-        Effect.map((response: any) => ({
-          Attributes: response.Attributes
-            ? unmarshall(response.Attributes)
-            : null,
-        })),
-        Effect.mapError(DynamodbError.updateItemFailed),
-      );
+      }),
+    ).pipe(
+      Effect.map((response: any) => ({
+        Attributes: response.Attributes
+          ? unmarshall(response.Attributes)
+          : null,
+      })),
+      Effect.mapError(DynamodbError.updateItemFailed),
+    );
   }
 
   /**
@@ -325,7 +330,9 @@ export class DynamoTable<
    *
    * @param key - The primary key of the item to delete
    */
-  deleteItem(key: IndexDefinition): Effect.Effect<void, DynamodbError> {
+  deleteItem(
+    key: IndexDefinition,
+  ): Effect.Effect<void, DynamodbError, DynamoDB> {
     return this.#rawDeleteItem(key);
   }
 
@@ -343,7 +350,7 @@ export class DynamoTable<
       ScanIndexForward?: boolean;
       filter?: ConditionOperation;
     },
-  ): Effect.Effect<QueryResult, DynamodbError> {
+  ): Effect.Effect<QueryResult, DynamodbError, DynamoDB> {
     return this.#rawQuery(this.primary, cond, options);
   }
 
@@ -353,7 +360,9 @@ export class DynamoTable<
    * @param options - Scan options including limit
    * @returns The scan result with items and optional pagination token
    */
-  scan(options?: TableScanOptions): Effect.Effect<QueryResult, DynamodbError> {
+  scan(
+    options?: TableScanOptions,
+  ): Effect.Effect<QueryResult, DynamodbError, DynamoDB> {
     return this.#rawScan(options);
   }
 
@@ -382,7 +391,7 @@ export class DynamoTable<
           ScanIndexForward?: boolean;
           filter?: ConditionOperation;
         },
-      ): Effect.Effect<QueryResult, DynamodbError> {
+      ): Effect.Effect<QueryResult, DynamodbError, DynamoDB> {
         return rawQuery(indexDef, cond, {
           ...options,
           IndexName: indexName as string,
@@ -393,7 +402,7 @@ export class DynamoTable<
        */
       scan(
         options?: IndexScanOptions,
-      ): Effect.Effect<QueryResult, DynamodbError> {
+      ): Effect.Effect<QueryResult, DynamodbError, DynamoDB> {
         return rawScan({
           ...options,
           IndexName: indexName as string,
@@ -420,7 +429,6 @@ export class DynamoTable<
     return {
       kind: 'put',
       options: {
-        TableName: this.tableName,
         Item: marshall(value),
         ...options,
       },
@@ -446,7 +454,6 @@ export class DynamoTable<
     return {
       kind: 'update',
       options: {
-        TableName: this.tableName,
         Key: marshall({
           [this.primary.pk]: key.pk,
           [this.primary.sk]: key.sk,
@@ -464,19 +471,19 @@ export class DynamoTable<
    */
   transact(
     items: (TransactItem | TransactItemBase)[],
-  ): Effect.Effect<void, DynamodbError> {
-    return this.#client
-      .transactWriteItems({
+  ): Effect.Effect<void, DynamodbError, DynamoDB> {
+    return Effect.flatMap(DynamoDB, ({ client, tableName }) =>
+      client.transactWriteItems({
         TransactItems: items.map((item) =>
           item.kind === 'put'
-            ? { Put: item.options }
-            : { Update: item.options },
+            ? { Put: { TableName: tableName, ...item.options } }
+            : { Update: { TableName: tableName, ...item.options } },
         ),
-      })
-      .pipe(
-        Effect.map(() => undefined),
-        Effect.mapError(DynamodbError.transactionFailed),
-      );
+      }),
+    ).pipe(
+      Effect.map(() => undefined),
+      Effect.mapError(DynamodbError.transactionFailed),
+    );
   }
 
   /**
@@ -485,8 +492,9 @@ export class DynamoTable<
    */
   batchWrite(
     items: Record<string, unknown>[],
-  ): Effect.Effect<{ unprocessedIndexes: number[] }, DynamodbError> {
+  ): Effect.Effect<{ unprocessedIndexes: number[] }, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
+      const { client, tableName } = yield* DynamoDB;
       const unprocessedIndexes: number[] = [];
 
       for (let i = 0; i < items.length; i += 25) {
@@ -495,14 +503,13 @@ export class DynamoTable<
           PutRequest: { Item: marshall(item) },
         }));
 
-        const response: any = yield* this.#client
+        const response: any = yield* client
           .batchWriteItem({
-            RequestItems: { [this.tableName]: requests },
+            RequestItems: { [tableName]: requests },
           })
           .pipe(Effect.mapError(DynamodbError.batchWriteFailed));
 
-        const unprocessed: any[] =
-          response.UnprocessedItems?.[this.tableName] ?? [];
+        const unprocessed: any[] = response.UnprocessedItems?.[tableName] ?? [];
 
         for (let u = 0; u < unprocessed.length; u++) {
           const unprocessedItem = unmarshall(unprocessed[u].PutRequest.Item);
@@ -526,7 +533,7 @@ export class DynamoTable<
    */
   dangerouslyPurgeAllItems(
     confirmation: 'I KNOW WHAT I AM DOING',
-  ): Effect.Effect<void, DynamodbError> {
+  ): Effect.Effect<void, DynamodbError, DynamoDB> {
     if (confirmation !== 'I KNOW WHAT I AM DOING') {
       return Effect.fail(
         DynamodbError.validationException({ statusCode: 400 }),
@@ -622,16 +629,10 @@ class DynamoTableBuilder<
   TPrimaryIndex extends IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition>,
 > {
-  #config: DynamoTableConfig;
   #primary: TPrimaryIndex;
   #secondaryIndexMap: TSecondaryIndexMap;
 
-  constructor(
-    config: DynamoTableConfig,
-    primary: TPrimaryIndex,
-    secondaryIndexMap: TSecondaryIndexMap,
-  ) {
-    this.#config = config;
+  constructor(primary: TPrimaryIndex, secondaryIndexMap: TSecondaryIndexMap) {
     this.#primary = primary;
     this.#secondaryIndexMap = secondaryIndexMap;
   }
@@ -651,7 +652,7 @@ class DynamoTableBuilder<
       TPrimaryIndex,
       TSecondaryIndexMap &
         Record<IndexName, { pk: TPrimaryIndex['pk']; sk: Sk }>
-    >(this.#config, this.#primary, {
+    >(this.#primary, {
       ...this.#secondaryIndexMap,
       [name]: { pk: this.#primary.pk, sk },
     } as TSecondaryIndexMap &
@@ -678,7 +679,7 @@ class DynamoTableBuilder<
     return new DynamoTableBuilder<
       TPrimaryIndex,
       TSecondaryIndexMap & Record<IndexName, { pk: Pk; sk: Sk }>
-    >(this.#config, this.#primary, {
+    >(this.#primary, {
       ...this.#secondaryIndexMap,
       [name]: { pk, sk },
     } as TSecondaryIndexMap & Record<IndexName, { pk: Pk; sk: Sk }>);
@@ -690,12 +691,6 @@ class DynamoTableBuilder<
    * @returns The configured DynamoTable
    */
   build(): DynamoTable<TPrimaryIndex, TSecondaryIndexMap> {
-    const client = createDynamoDB(this.#config);
-    return new DynamoTable(
-      this.#config,
-      this.#primary,
-      this.#secondaryIndexMap,
-      client,
-    );
+    return new DynamoTable(this.#primary, this.#secondaryIndexMap);
   }
 }

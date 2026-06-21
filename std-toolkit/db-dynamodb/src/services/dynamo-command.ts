@@ -21,6 +21,7 @@ import { CommandError as CommandErrorClass } from '@std-toolkit/core/command';
 import type { EntityRegistry } from './entity-registry.js';
 import type { DynamoEntity } from './dynamo-entity.js';
 import type { DynamoTable } from './dynamo-table.js';
+import type { DynamoDB } from './dynamo-client.js';
 import type { SkParam } from '../types/index.js';
 
 /**
@@ -47,7 +48,7 @@ type AnyRegistry = EntityRegistry<DynamoTable<any, any>, AnyEntitiesMap>;
  */
 export class DynamoCommand<
   TRegistry extends AnyRegistry = AnyRegistry,
-> implements CommandProcessor {
+> implements CommandProcessor<DynamoDB> {
   static readonly RPC_PREFIX = '__std-toolkit__command' as const;
 
   /**
@@ -76,34 +77,42 @@ export class DynamoCommand<
   /**
    * Processes an insert command.
    */
-  process(payload: InsertPayload): Effect.Effect<InsertResponse, CommandError>;
+  process(
+    payload: InsertPayload,
+  ): Effect.Effect<InsertResponse, CommandError, DynamoDB>;
   /**
    * Processes an update command.
    */
-  process(payload: UpdatePayload): Effect.Effect<UpdateResponse, CommandError>;
+  process(
+    payload: UpdatePayload,
+  ): Effect.Effect<UpdateResponse, CommandError, DynamoDB>;
   /**
    * Processes a delete command.
    */
-  process(payload: DeletePayload): Effect.Effect<DeleteResponse, CommandError>;
+  process(
+    payload: DeletePayload,
+  ): Effect.Effect<DeleteResponse, CommandError, DynamoDB>;
   /**
    * Processes a query command.
    */
-  process(payload: QueryPayload): Effect.Effect<QueryResponse, CommandError>;
+  process(
+    payload: QueryPayload,
+  ): Effect.Effect<QueryResponse, CommandError, DynamoDB>;
   /**
    * Processes a descriptor command.
    */
   process(
     payload: DescriptorPayload,
-  ): Effect.Effect<DescriptorResponse, CommandError>;
+  ): Effect.Effect<DescriptorResponse, CommandError, DynamoDB>;
   /**
    * Processes any command payload.
    */
   process(
     payload: CommandPayload,
-  ): Effect.Effect<CommandResponse, CommandError>;
+  ): Effect.Effect<CommandResponse, CommandError, DynamoDB>;
   process(
     payload: CommandPayload,
-  ): Effect.Effect<CommandResponse, CommandError> {
+  ): Effect.Effect<CommandResponse, CommandError, DynamoDB> {
     switch (payload.operation) {
       case 'insert':
         return this.#processInsert(payload);
@@ -120,7 +129,7 @@ export class DynamoCommand<
 
   #processInsert(
     payload: InsertPayload,
-  ): Effect.Effect<InsertResponse, CommandError> {
+  ): Effect.Effect<InsertResponse, CommandError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const startedAt = Date.now();
       const entity = this.#getEntity(payload.entity);
@@ -148,7 +157,7 @@ export class DynamoCommand<
 
   #processUpdate(
     payload: UpdatePayload,
-  ): Effect.Effect<UpdateResponse, CommandError> {
+  ): Effect.Effect<UpdateResponse, CommandError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const startedAt = Date.now();
       const entity = this.#getEntity(payload.entity);
@@ -178,7 +187,7 @@ export class DynamoCommand<
 
   #processDelete(
     payload: DeletePayload,
-  ): Effect.Effect<DeleteResponse, CommandError> {
+  ): Effect.Effect<DeleteResponse, CommandError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const startedAt = Date.now();
       const entity = this.#getEntity(payload.entity);
@@ -206,7 +215,7 @@ export class DynamoCommand<
 
   #processQuery(
     payload: QueryPayload,
-  ): Effect.Effect<QueryResponse, CommandError> {
+  ): Effect.Effect<QueryResponse, CommandError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const startedAt = Date.now();
       const entity = this.#getEntity(payload.entity);

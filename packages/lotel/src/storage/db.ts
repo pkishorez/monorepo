@@ -83,15 +83,9 @@ export interface DbShape {
   metricRecord: EntityService<StoredMetricRecordValue>;
 }
 
-const dbEffect = (
-  options: DbOptions,
-): Effect.Effect<DbShape, SqliteDBError, SqliteDB> =>
+const dbEffect = (): Effect.Effect<DbShape, SqliteDBError, SqliteDB> =>
   Effect.gen(function* () {
-    const table = SQLiteTable.make({
-      tableName: options.tableName ?? DEFAULT_TABLE_NAME,
-    })
-      .primary('pk', 'sk')
-      .build();
+    const table = SQLiteTable.make().primary('pk', 'sk').build();
 
     const traceRecord = SQLiteEntity.make(table)
       .eschema(TraceRecordSchema)
@@ -131,13 +125,13 @@ export const makeDbLayer = (options: DbOptions = {}) => {
   const sqliteLayer = Layer.effect(
     SqliteDB,
     makeDatabase(options).pipe(
-      Effect.map((database) => betterSqlite3Layer(database)),
+      Effect.map((database) =>
+        betterSqlite3Layer(database, options.tableName ?? DEFAULT_TABLE_NAME),
+      ),
       Effect.flatMap((layer) => Layer.build(layer)),
       Effect.map((context) => Context.getUnsafe(context, SqliteDB)),
     ),
   );
 
-  return Layer.effect(Db, dbEffect(options)).pipe(
-    Layer.provideMerge(sqliteLayer),
-  );
+  return Layer.effect(Db, dbEffect()).pipe(Layer.provideMerge(sqliteLayer));
 };

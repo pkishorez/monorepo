@@ -1,11 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
+const itEffect = <A, E>(
+  name: string,
+  fn: () => Effect.Effect<A, E, DynamoDB>,
+) =>
+  it(name, () =>
+    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+  );
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '@std-toolkit/eschema';
 import { DynamoTable, DynamoEntity, DynamodbError } from '../index.js';
-import { createDynamoDB } from '../services/dynamo-client.js';
+import {
+  createDynamoDB,
+  dynamoDBLayer,
+  DynamoDB,
+} from '../services/dynamo-client.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-auto-migrate-test-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -20,7 +29,7 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make(localConfig).primary('pk', 'sk').build();
+const table = DynamoTable.make().primary('pk', 'sk').build();
 
 const settingsSchemaV1 = EntityESchema.make('Settings', 'settingsId', {
   theme: Schema.String,

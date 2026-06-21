@@ -1,12 +1,21 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
+const itEffect = <A, E>(
+  name: string,
+  fn: () => Effect.Effect<A, E, DynamoDB>,
+) =>
+  it(name, () =>
+    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+  );
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '@std-toolkit/eschema';
 import { DynamoTable, DynamoEntity, EntityRegistry } from '../index.js';
 import { DynamoCommand } from '../services/dynamo-command.js';
-import { createDynamoDB } from '../services/dynamo-client.js';
+import {
+  createDynamoDB,
+  dynamoDBLayer,
+  DynamoDB,
+} from '../services/dynamo-client.js';
 import { CommandError } from '@std-toolkit/core/command';
 
 const TEST_TABLE_NAME = `db-dynamodb-command-test-${Date.now()}`;
@@ -37,7 +46,7 @@ const PostSchema = EntityESchema.make('Post', 'postId', {
 
 // ─── Table and Entities Setup ────────────────────────────────────────────────
 
-const table = DynamoTable.make(localConfig)
+const table = DynamoTable.make()
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
@@ -179,11 +188,13 @@ describe('DynamoCommand', () => {
     it('throws for non-existent entity in registry', async () => {
       await expect(
         Effect.runPromise(
-          command.process({
-            operation: 'insert',
-            entity: 'NonExistent',
-            data: { id: '1' },
-          }),
+          command
+            .process({
+              operation: 'insert',
+              entity: 'NonExistent',
+              data: { id: '1' },
+            })
+            .pipe(Effect.provide(dynamoDBLayer(localConfig))),
         ),
       ).rejects.toThrow('Entity "NonExistent" not found in registry');
     });
@@ -311,7 +322,7 @@ describe('DynamoCommand', () => {
               content: 'Content C',
             },
           });
-        }),
+        }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
       );
     });
 

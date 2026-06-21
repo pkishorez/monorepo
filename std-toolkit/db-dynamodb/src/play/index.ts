@@ -1,6 +1,8 @@
 import { Effect, Console } from 'effect';
+import { dynamoDBLayer } from '../index.js';
 import {
   createPlaygroundTable,
+  localConnection,
   deletePlaygroundTable,
   PLAYGROUND_TABLE,
   LOCAL_ENDPOINT,
@@ -267,7 +269,9 @@ async function main() {
 
   try {
     await createPlaygroundTable();
-    await Effect.runPromise(play);
+    await Effect.runPromise(
+      play.pipe(Effect.provide(dynamoDBLayer(localConnection))),
+    );
     console.log('\nPlayground completed successfully!');
   } catch (error) {
     console.error('\nPlayground failed:', error);

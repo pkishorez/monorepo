@@ -37,7 +37,7 @@ describe('SQLite Single Table Design', () => {
   let layer: Layer.Layer<SqliteDB>;
 
   // Create shared table with indexes
-  const table = SQLiteTable.make({ tableName: 'std_data' })
+  const table = SQLiteTable.make()
     .primary('pk', 'sk')
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -65,7 +65,7 @@ describe('SQLite Single Table Design', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'std_data');
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
   });
 
@@ -554,7 +554,7 @@ describe('Query Operators', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'query_ops' })
+  const table = SQLiteTable.make()
     .primary('pk', 'sk')
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .build();
@@ -572,7 +572,7 @@ describe('Query Operators', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'query_ops');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     // Insert test data with sequential item IDs
@@ -839,7 +839,7 @@ describe('Primary Index with IdField', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'composite_sk' })
+  const table = SQLiteTable.make()
     .primary('pk', 'sk')
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .build();
@@ -852,7 +852,7 @@ describe('Primary Index with IdField', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'composite_sk');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     // Insert comments
@@ -962,7 +962,7 @@ describe('Subscribe', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'subscribe_test' })
+  const table = SQLiteTable.make()
     .primary('pk', 'sk')
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -981,7 +981,7 @@ describe('Subscribe', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'subscribe_test');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     await Effect.runPromise(
@@ -1080,9 +1080,7 @@ describe('SQLiteEntity hardDelete', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'hard_delete_test' })
-    .primary('pk', 'sk')
-    .build();
+  const table = SQLiteTable.make().primary('pk', 'sk').build();
 
   const userEntity = SQLiteEntity.make(table)
     .eschema(UserSchema)
@@ -1096,7 +1094,7 @@ describe('SQLiteEntity hardDelete', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'hard_delete_test');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -1143,9 +1141,7 @@ describe('Transactions Advanced', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'tx_test' })
-    .primary('pk', 'sk')
-    .build();
+  const table = SQLiteTable.make().primary('pk', 'sk').build();
 
   const CounterSchema = EntityESchema.make('Counter', 'counterId', {
     count: Schema.Number,
@@ -1160,7 +1156,7 @@ describe('Transactions Advanced', () => {
 
   beforeEach(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'tx_test');
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
   });
 
@@ -1281,9 +1277,7 @@ describe('SQLite Entity Edge Cases', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'edge_data' })
-    .primary('pk', 'sk')
-    .build();
+  const table = SQLiteTable.make().primary('pk', 'sk').build();
 
   const SimpleSchema = EntityESchema.make('Simple', 'simpleId', {
     value: Schema.Number,
@@ -1296,7 +1290,7 @@ describe('SQLite Entity Edge Cases', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'edge_data');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -1426,7 +1420,7 @@ describe('Multiple Secondary Indexes', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'multi_idx' })
+  const table = SQLiteTable.make()
     .primary('pk', 'sk')
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -1448,7 +1442,7 @@ describe('Multiple Secondary Indexes', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'multi_idx');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     await Effect.runPromise(
@@ -1574,7 +1568,7 @@ describe('Cross-Entity Index Isolation', () => {
   let db: Database.Database;
   let layer: Layer.Layer<SqliteDB>;
 
-  const table = SQLiteTable.make({ tableName: 'isolation_test' })
+  const table = SQLiteTable.make()
     .primary('pk', 'sk')
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -1613,7 +1607,7 @@ describe('Cross-Entity Index Isolation', () => {
 
   beforeAll(async () => {
     db = new Database(':memory:');
-    layer = betterSqlite3Layer(db);
+    layer = betterSqlite3Layer(db, 'isolation_test');
     await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
 
     await Effect.runPromise(
