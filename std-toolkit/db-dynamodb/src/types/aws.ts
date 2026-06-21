@@ -11,15 +11,18 @@ export interface AwsCredentials {
 }
 
 /**
- * Configuration for connecting to a DynamoDB table.
+ * Connection details for a live DynamoDB client, provided via `dynamoDBLayer`.
+ *
+ * This binds a table definition (pure topology) to a physical table in a
+ * specific environment: its name plus how to reach it.
  */
-export interface DynamoTableConfig {
+export interface DynamoConnection {
   /** Name of the DynamoDB table */
   readonly tableName: string;
   /** AWS region where the table is located */
   readonly region?: string;
   /** AWS credentials for authentication */
-  readonly credentials?: AwsCredentials;
+  readonly credentials: AwsCredentials;
   /** Custom endpoint URL for local development or DynamoDB-compatible services */
   readonly endpoint?: string;
 }

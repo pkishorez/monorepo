@@ -1,5 +1,6 @@
 import { Effect, Option, Stream } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
+import type { DynamoDB } from './dynamo-client.js';
 import type { DynamoEntity } from './dynamo-entity.js';
 import type { DynamoSingleEntity } from './dynamo-single-entity.js';
 import type {
@@ -118,7 +119,7 @@ export class EntityRegistry<
       | EntityName<TEntities[keyof TEntities]>
       | SingleEntityName<TSingleEntities[keyof TSingleEntities]>
     >[],
-  ): Effect.Effect<EntityType<unknown>[], DynamodbError> {
+  ): Effect.Effect<EntityType<unknown>[], DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       yield* this.#table.transact(items);
 
@@ -183,7 +184,7 @@ export class EntityRegistry<
 
   migrateStream(
     options: MigrationOptions = {},
-  ): Stream.Stream<MigrationReport, DynamodbError> {
+  ): Stream.Stream<MigrationReport, DynamodbError, DynamoDB> {
     const effectiveOptions: MigrationOptions = {
       ...options,
       dryRun: options.dryRun ?? true,
@@ -309,7 +310,7 @@ export class EntityRegistry<
             { lastKey?: Record<string, unknown> },
             MigrationReport,
             DynamodbError,
-            never
+            DynamoDB
           >({}, ({ lastKey }) =>
             Effect.gen({ self: this }, function* () {
               const scanInput = {
@@ -392,7 +393,7 @@ export class EntityRegistry<
 
   migrate(
     options: MigrationOptions = {},
-  ): Effect.Effect<MigrationReport, DynamodbError> {
+  ): Effect.Effect<MigrationReport, DynamodbError, DynamoDB> {
     return this.migrateStream(options).pipe(
       Stream.runLast,
       Effect.map(Option.getOrThrow),
@@ -411,7 +412,7 @@ export class EntityRegistry<
     storedKey: { pk: string; sk: string };
     canonicalItem: Record<string, unknown>;
     regular: boolean;
-  }): Effect.Effect<void, DynamodbError> {
+  }): Effect.Effect<void, DynamodbError, DynamoDB> {
     const condition = this.#migrationPutCondition(options);
     return this.#table
       .putItem(options.canonicalItem, condition)
@@ -432,7 +433,8 @@ export class EntityRegistry<
       Items: Record<string, unknown>[];
       LastEvaluatedKey?: Record<string, unknown>;
     },
-    DynamodbError
+    DynamodbError,
+    DynamoDB
   > {
     return Effect.gen({ self: this }, function* () {
       const result = yield* this.#table.scan(options).pipe(Effect.result);
@@ -462,7 +464,7 @@ export class EntityRegistry<
     canonicalItem: Record<string, unknown>;
     regular: boolean;
     attempt?: number;
-  }): Effect.Effect<'migrated' | 'resolved', DynamodbError> {
+  }): Effect.Effect<'migrated' | 'resolved', DynamodbError, DynamoDB> {
     const attempt = options.attempt ?? 0;
 
     return Effect.gen({ self: this }, function* () {

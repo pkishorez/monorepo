@@ -40,7 +40,7 @@ export { extractKeyOp, getKeyOpScanDirection } from './simplified.js';
 
 // Internal types (re-exported for internal use only)
 export type {
-  DynamoTableConfig,
+  DynamoConnection,
   AttributeValue,
   MarshalledOutput,
 } from './aws.js';

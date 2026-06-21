@@ -1,6 +1,7 @@
 import type { AnyEntityESchema, ESchemaType } from '@std-toolkit/eschema';
 import { Effect, Option, Schema, Stream, Struct } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
+import type { DynamoDB } from './dynamo-client.js';
 import { ConnectionService } from '@std-toolkit/core/server';
 import { DynamodbError } from '../errors.js';
 import type {
@@ -488,7 +489,11 @@ export class DynamoEntity<
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
     options?: { ConsistentRead?: boolean },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>> | null, DynamodbError> {
+  ): Effect.Effect<
+    EntityType<ESchemaType<TSchema>> | null,
+    DynamodbError,
+    DynamoDB
+  > {
     return Effect.gen({ self: this }, function* () {
       const pk = deriveIndexKeyValue(
         this.#eschema.name,
@@ -536,7 +541,7 @@ export class DynamoEntity<
     options?: {
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const fullValueWithId = {
         ...value,
@@ -573,7 +578,8 @@ export class DynamoEntity<
       written: EntityType<ESchemaType<TSchema>>[];
       unprocessedIndexes: number[];
     },
-    DynamodbError
+    DynamodbError,
+    DynamoDB
   > {
     return Effect.gen({ self: this }, function* () {
       const items: Record<string, unknown>[] = [];
@@ -622,7 +628,7 @@ export class DynamoEntity<
       condition?: ConditionInput<ESchemaType<TSchema>>;
       autoMigrate?: boolean;
     },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
     const { update: updates, condition, autoMigrate = true } = params;
     return Effect.gen({ self: this }, function* () {
       const { pk, sk, exprResult } =
@@ -738,7 +744,7 @@ export class DynamoEntity<
     options?: {
       forceDelete?: 'I know what I am doing';
     },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError> {
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get(keyValue);
       if (!existing) {
@@ -794,7 +800,7 @@ export class DynamoEntity<
     options?: {
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
+  ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const fullValueWithId = {
         ...value,
@@ -836,7 +842,7 @@ export class DynamoEntity<
           ) => AnyOperation<ESchemaType<TSchema>>[]);
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
+  ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError, DynamoDB> {
     const { update: updates, condition } = params;
     return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get(keyValue);
@@ -906,7 +912,8 @@ export class DynamoEntity<
     options?: SimpleQueryOptions,
   ): Effect.Effect<
     { items: EntityType<ESchemaType<TSchema>>[] },
-    DynamodbError
+    DynamodbError,
+    DynamoDB
   > {
     return Effect.gen({ self: this }, function* () {
       const { operator, value: skValue } = extractKeyOp(params.sk as SkParam);
@@ -1022,7 +1029,11 @@ export class DynamoEntity<
           }
         : never,
     options?: QueryStreamOptions,
-  ): Stream.Stream<EntityType<ESchemaType<TSchema>>[], DynamodbError> {
+  ): Stream.Stream<
+    EntityType<ESchemaType<TSchema>>[],
+    DynamodbError,
+    DynamoDB
+  > {
     const batchSize = options?.batchSize ?? 100;
     const operator = '>' in params.sk ? '>' : '<';
     const initialSkValue = '>' in params.sk ? params.sk['>'] : params.sk['<'];
@@ -1095,7 +1106,7 @@ export class DynamoEntity<
             >
           : never
     >,
-  ): Effect.Effect<{ success: true }, DynamodbError> {
+  ): Effect.Effect<{ success: true }, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const { key, pk, cursor, limit } = opts;
       const service = yield* Effect.serviceOption(ConnectionService).pipe(
@@ -1371,7 +1382,8 @@ export class DynamoEntity<
   ): Effect.Effect<
     | { Attributes: Record<string, unknown> | null }
     | { _retry: true; Attributes: null },
-    DynamodbError
+    DynamodbError,
+    DynamoDB
   > {
     const existingItem = extractConditionFailureItem(error);
 
@@ -1399,7 +1411,7 @@ export class DynamoEntity<
 
   #ensureLatestVersion(
     rawItem: Record<string, unknown>,
-  ): Effect.Effect<void, DynamodbError> {
+  ): Effect.Effect<void, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const decoded = yield* this.#eschema
         .decode(rawItem)

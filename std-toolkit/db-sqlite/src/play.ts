@@ -29,7 +29,7 @@ type PostId = string;
 
 // ─── Table & Entities ────────────────────────────────────────────────────────
 
-const table = SQLiteTable.make({ tableName: 'std_data' })
+const table = SQLiteTable.make()
   .primary('pk', 'sk')
   .index('IDX1', 'IDX1PK', 'IDX1SK')
   .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -154,7 +154,7 @@ const program = Effect.gen(function* () {
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 const db = new Database(':memory:');
-const layer = betterSqlite3Layer(db);
+const layer = betterSqlite3Layer(db, 'std_data');
 
 Effect.runPromise(program.pipe(Effect.provide(layer)))
   .then(() => db.close())

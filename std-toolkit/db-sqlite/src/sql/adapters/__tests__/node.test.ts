@@ -18,7 +18,7 @@ describe('nodeSqliteLayer adapter', () => {
 
   beforeAll(() => {
     db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db);
+    layer = nodeSqliteLayer(db, 'test_table');
   });
 
   afterAll(() => db.close());

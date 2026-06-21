@@ -1,6 +1,7 @@
 import { Effect, Console } from 'effect';
 import { DynamoTable } from '../index.js';
 import { createDynamoDB } from '../services/dynamo-client.js';
+import type { DynamoConnection } from '../index.js';
 
 // =============================================================================
 // Configuration
@@ -8,7 +9,7 @@ import { createDynamoDB } from '../services/dynamo-client.js';
 export const PLAYGROUND_TABLE = `playground-${Date.now()}`;
 export const LOCAL_ENDPOINT = 'http://localhost:8090';
 
-export const localConfig = {
+export const localConnection: DynamoConnection = {
   tableName: PLAYGROUND_TABLE,
   region: 'us-east-1',
   credentials: {
@@ -21,7 +22,7 @@ export const localConfig = {
 // =============================================================================
 // DynamoDB Table Definition
 // =============================================================================
-export const table = DynamoTable.make(localConfig)
+export const table = DynamoTable.make()
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .gsi('GSI2', 'GSI2PK', 'GSI2SK')
@@ -31,7 +32,7 @@ export const table = DynamoTable.make(localConfig)
 // Table Management
 // =============================================================================
 export async function createPlaygroundTable() {
-  const client = createDynamoDB(localConfig);
+  const client = createDynamoDB(localConnection);
   const tableSchema = table.getTableSchema();
 
   await Effect.runPromise(
@@ -53,7 +54,7 @@ export async function createPlaygroundTable() {
 
 export async function deletePlaygroundTable() {
   try {
-    const client = createDynamoDB(localConfig);
+    const client = createDynamoDB(localConnection);
     await Effect.runPromise(
       client
         .deleteTable({ TableName: PLAYGROUND_TABLE })

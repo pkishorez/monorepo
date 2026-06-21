@@ -18,7 +18,7 @@ describe('bunSqliteLayer adapter', () => {
 
   beforeAll(() => {
     db = new Database(':memory:');
-    layer = bunSqliteLayer(db);
+    layer = bunSqliteLayer(db, 'test_table');
   });
 
   afterAll(() => db.close());

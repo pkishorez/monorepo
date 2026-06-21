@@ -6,8 +6,10 @@ import type { Where } from '../helpers/index.js';
 
 const params = (p: unknown[]) => p as SQLInputValue[];
 
-export const nodeSqliteLayer = (db: DatabaseSync) =>
+export const nodeSqliteLayer = (db: DatabaseSync, tableName: string) =>
   Layer.succeed(SqliteDB, {
+    tableName,
+
     createTable: (table, columns, primaryKey) =>
       Effect.try({
         try: () => {

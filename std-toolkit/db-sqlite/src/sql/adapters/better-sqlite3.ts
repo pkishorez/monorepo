@@ -4,8 +4,10 @@ import { SqliteDB, SqliteDBError } from '../db.js';
 import * as Sql from '../helpers/index.js';
 import type { Where } from '../helpers/index.js';
 
-export const betterSqlite3Layer = (db: Database.Database) =>
+export const betterSqlite3Layer = (db: Database.Database, tableName: string) =>
   Layer.succeed(SqliteDB, {
+    tableName,
+
     createTable: (table, columns, primaryKey) =>
       Effect.try({
         try: () => {

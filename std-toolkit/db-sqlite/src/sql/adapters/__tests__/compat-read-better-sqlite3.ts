@@ -12,7 +12,7 @@ if (!dbPath) {
 }
 
 const db = new Database(dbPath, { readonly: mode !== 'update' });
-const layer = betterSqlite3Layer(db);
+const layer = betterSqlite3Layer(db, 'compat_test');
 
 if (mode === 'update') {
   db.prepare('UPDATE compat_test SET name = ?, age = ? WHERE id = ?').run(

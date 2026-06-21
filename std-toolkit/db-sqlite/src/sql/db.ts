@@ -88,6 +88,9 @@ export class SqliteDBError extends Data.TaggedError('SqliteDBError')<{
 export class SqliteDB extends Context.Service<
   SqliteDB,
   {
+    /** The physical table name this connection is bound to. */
+    readonly tableName: string;
+
     createTable(
       table: string,
       columns: string[],

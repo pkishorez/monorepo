@@ -1,6 +1,7 @@
 import type { AnySingleEntityESchema, ESchemaType } from '@std-toolkit/eschema';
 import { Effect, Schema } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
+import type { DynamoDB } from './dynamo-client.js';
 import { DynamodbError } from '../errors.js';
 import {
   deriveIndexKeyValue,
@@ -252,7 +253,11 @@ export class DynamoSingleEntity<
    */
   get(options?: {
     ConsistentRead?: boolean;
-  }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
+  }): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > {
     return Effect.gen({ self: this }, function* () {
       const pk = this.#derivePrimaryKey();
       const sk = this.#derivePrimaryKey();
@@ -295,7 +300,11 @@ export class DynamoSingleEntity<
    */
   put(
     value: Omit<ESchemaType<TSchema>, '_v'>,
-  ): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
+  ): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > {
     return Effect.gen({ self: this }, function* () {
       const fullValue = {
         ...value,
@@ -349,7 +358,11 @@ export class DynamoSingleEntity<
           ops: UpdateOps<ESchemaType<TSchema>>,
         ) => AnyOperation<ESchemaType<TSchema>>[]);
     condition?: ConditionInput<ESchemaType<TSchema>>;
-  }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, DynamodbError> {
+  }): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > {
     const { update: updates, condition } = params;
     return Effect.gen({ self: this }, function* () {
       const { pk, sk, exprResult } =
@@ -407,7 +420,7 @@ export class DynamoSingleEntity<
           ops: UpdateOps<ESchemaType<TSchema>>,
         ) => AnyOperation<ESchemaType<TSchema>>[]);
     condition?: ConditionInput<ESchemaType<TSchema>>;
-  }): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError> {
+  }): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError, DynamoDB> {
     const { update: updates, condition } = params;
     return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get();
@@ -438,7 +451,7 @@ export class DynamoSingleEntity<
    * Hard-deletes the entity record from DynamoDB.
    * Subsequent `get` calls will return the default value.
    */
-  delete(): Effect.Effect<void, DynamodbError> {
+  delete(): Effect.Effect<void, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const pk = this.#derivePrimaryKey();
       const sk = this.#derivePrimaryKey();

@@ -11,9 +11,14 @@ interface DOSqlStorage {
   ): { toArray(): T[]; rowsWritten: number };
 }
 
-export const durableObjectSqliteLayer = (storage_: SqlStorage) => {
+export const durableObjectSqliteLayer = (
+  storage_: SqlStorage,
+  tableName: string,
+) => {
   const storage: DOSqlStorage = storage_ as unknown as DOSqlStorage;
   return Layer.succeed(SqliteDB, {
+    tableName,
+
     createTable: (table, columns, primaryKey) =>
       Effect.try({
         try: () => {

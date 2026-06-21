@@ -10,7 +10,7 @@ if (!dbPath) {
 }
 
 const db = new Database(dbPath);
-const layer = betterSqlite3Layer(db);
+const layer = betterSqlite3Layer(db, 'compat_test');
 
 await Effect.runPromise(
   Effect.gen(function* () {

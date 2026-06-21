@@ -1,9 +1,10 @@
 import { AwsClient } from 'aws4fetch';
+import { Context, Layer } from 'effect';
 import * as Effect from 'effect/Effect';
 import { DynamodbError, type AwsErrorMeta } from '../errors.js';
 import { unmarshall } from '../internal/marshall.js';
 import type { MarshalledOutput } from '../types/index.js';
-import type { AwsCredentials, DynamoTableConfig } from '../types/index.js';
+import type { AwsCredentials, DynamoConnection } from '../types/index.js';
 
 function extractErrorName(awsErrorType: string): string {
   const parts = awsErrorType.split('#');
@@ -66,22 +67,27 @@ export interface DynamoDBClient {
  * Creates a DynamoDB client that uses AWS4 signing for authentication.
  * Uses the aws4fetch library to make signed HTTP requests to the DynamoDB API.
  *
- * @param config - Configuration for the DynamoDB connection
+ * The client itself is table-agnostic; the table name is bound separately by
+ * {@link dynamoDBLayer}.
+ *
+ * @param connection - Connection details (region, credentials, endpoint)
  * @returns A DynamoDBClient with Effect-wrapped operations
  * @throws Error if credentials are not provided
  */
-export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
-  const region = config.region ?? 'us-east-1';
+export function createDynamoDB(
+  connection: Omit<DynamoConnection, 'tableName'>,
+): DynamoDBClient {
+  const region = connection.region ?? 'us-east-1';
   const endpoint =
-    config.endpoint ?? `https://dynamodb.${region}.amazonaws.com/`;
+    connection.endpoint ?? `https://dynamodb.${region}.amazonaws.com/`;
 
-  if (!config.credentials) {
+  if (!connection.credentials) {
     throw new Error('DynamoDB credentials are required');
   }
 
   const clientPromise = createAwsClient({
     region,
-    credentials: config.credentials,
+    credentials: connection.credentials,
   });
 
   const makeRequest = (methodName: string, input: unknown) =>
@@ -210,3 +216,38 @@ export function createDynamoDB(config: DynamoTableConfig): DynamoDBClient {
     describeTable: (input) => makeRequest('describeTable', input),
   };
 }
+
+/**
+ * The value provided by the {@link DynamoDB} service: a live client plus the
+ * name of the physical table it is bound to.
+ */
+export interface DynamoDBService {
+  /** The authenticated DynamoDB client */
+  readonly client: DynamoDBClient;
+  /** The physical table name operations target */
+  readonly tableName: string;
+}
+
+/**
+ * The DynamoDB service. Provide it with {@link dynamoDBLayer} so that table and
+ * entity operations can resolve a live client and the target table name from
+ * the Effect context instead of having them baked into the table definition.
+ */
+export class DynamoDB extends Context.Service<DynamoDB, DynamoDBService>()(
+  'DynamoDB',
+) {}
+
+/**
+ * Builds a layer that provides the {@link DynamoDB} service from the given
+ * connection (table name, region, credentials, endpoint).
+ *
+ * @param connection - The table binding: name plus how to reach it
+ * @returns A layer providing the `DynamoDB` service
+ */
+export const dynamoDBLayer = (
+  connection: DynamoConnection,
+): Layer.Layer<DynamoDB> =>
+  Layer.succeed(DynamoDB, {
+    client: createDynamoDB(connection),
+    tableName: connection.tableName,
+  });
