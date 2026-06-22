@@ -17,7 +17,7 @@
     "@std-toolkit/tanstack-sync": "workspace:*",
     "@tanstack/react-db": "0.1.86",
     "@tanstack/react-router": "1.170.3",
-    "@xstate/react": "5.0.0",
+    "@xstate/react": "6.1.0",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/addon-serialize": "0.14.0",
     "@xterm/addon-unicode11": "0.9.0",

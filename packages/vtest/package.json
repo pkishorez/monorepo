@@ -10,9 +10,9 @@
     "./run": "./src/run/index.ts"
   },
   "scripts": {
-    "test": "vp test src",
     "lint": "vp check && tsc --noEmit",
-    "lint:depcruise": "depcruise-viz lint"
+    "lint:depcruise": "depcruise-viz lint",
+    "test": "vp test src"
   },
   "dependencies": {
     "effect": "4.0.0-beta.78"
