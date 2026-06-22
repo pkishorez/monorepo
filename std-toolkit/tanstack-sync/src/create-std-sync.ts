@@ -1,4 +1,4 @@
-import type { Effect } from 'effect';
+import { Effect } from 'effect';
 import type { EntityType, SingleEntityType } from '@std-toolkit/core';
 import type {
   AnyEntityESchema,
@@ -6,8 +6,13 @@ import type {
 } from '@std-toolkit/eschema';
 import { makeTracker } from './registry/tracker.js';
 import { buildRegistry } from './registry/index.js';
-import { buildPartitioned } from './partitioned/index.js';
+import {
+  buildPartitioned,
+  restoreCachedPartitions,
+} from './partitioned/index.js';
 import { buildSingleItem } from './single-item/index.js';
+import { makeSyncInspector } from './inspector/index.js';
+import type { SyncInspector } from './inspector/index.js';
 import type { StdCollectionOptions, UpdatePayload } from './types.js';
 import type { PartitionedStrategy } from './partitioned/strategies/index.js';
 import type { SingleItemStrategy } from './single-item/strategies/index.js';
@@ -67,8 +72,18 @@ export const createStdSync = (defaults?: {
   offlineStorage?: OfflineStorage | false;
 }) => {
   const tracker = makeTracker();
+  const inspector = makeSyncInspector();
   const rootOfflineStorage = resolveRootOfflineStorage(
     defaults?.offlineStorage,
+  );
+
+  void Effect.runPromise(
+    rootOfflineStorage.inspect().pipe(
+      Effect.tap((groups) =>
+        Effect.sync(() => restoreCachedPartitions(inspector, groups)),
+      ),
+      Effect.ignore,
+    ),
   );
 
   const mergeOptions = (options?: StdCollectionOptions): StdCollectionOptions =>
@@ -84,10 +99,10 @@ export const createStdSync = (defaults?: {
     sync: <S extends AnyEntityESchema>(config: SyncConfig<S>) => {
       const { options, offlineStorage, ...rest } = config;
       const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
-      const built = buildPartitioned(tracker, {
+      const built = buildPartitioned(tracker, inspector, {
         ...rest,
         offlineStorage: collectionOfflineStorage,
-      } as Parameters<typeof buildPartitioned<S>>[1]);
+      } as Parameters<typeof buildPartitioned<S>>[2]);
       return { ...mergeOptions(options), ...built };
     },
     singleItemSync: <S extends AnySingleEntityESchema>(
@@ -95,12 +110,13 @@ export const createStdSync = (defaults?: {
     ) => {
       const { options, offlineStorage, ...rest } = config;
       const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
-      return buildSingleItem(tracker, {
+      return buildSingleItem(tracker, inspector, {
         ...rest,
         offlineStorage: collectionOfflineStorage,
         options: mergeOptions(options),
       });
     },
     registry: () => buildRegistry(tracker),
+    inspector: inspector as SyncInspector,
   };
 };

@@ -4,10 +4,14 @@ import { storageError } from '../source-of-truth/index.js';
 import type { WriteError } from '../source-of-truth/index.js';
 import type { StrategyStateSpec } from './strategy-state.js';
 
-/**
- * Per-collection+partition strategy-owned state store, keyed by partition key.
- * State is opaque to the engine — only the owning strategy interprets it.
- */
+export type PartitionMeta = {
+  collectionName: string;
+  partitionField: string;
+  partitionValue: string;
+  partitionKey: string;
+  itemCount: number;
+};
+
 export const makeSyncStateStore = <TState = unknown>(args: {
   schemaName: string;
   strategyName: string;
@@ -15,11 +19,16 @@ export const makeSyncStateStore = <TState = unknown>(args: {
   state: StrategyStateSpec<TState>;
 }): {
   get: (key: string) => Effect.Effect<TState, WriteError>;
-  set: (key: string, state: TState) => Effect.Effect<void, WriteError>;
+  set: (
+    key: string,
+    state: TState,
+    meta?: PartitionMeta,
+  ) => Effect.Effect<void, WriteError>;
 } => {
   type StoredStrategyState = {
     strategy: string;
     value: unknown;
+    meta?: PartitionMeta;
   };
 
   const isStoredStrategyState = (
@@ -32,11 +41,20 @@ export const makeSyncStateStore = <TState = unknown>(args: {
 
   const emptyState = (): TState => structuredClone(args.state.empty);
 
-  const putEnvelope = (key: string, state: TState) =>
+  const baseMeta = (key: string, itemCount: number): PartitionMeta => ({
+    collectionName: args.schemaName,
+    partitionField: '',
+    partitionValue: '',
+    partitionKey: key,
+    itemCount,
+  });
+
+  const putEnvelope = (key: string, value: unknown, meta: PartitionMeta) =>
     args.group
       .put<StoredStrategyState>(key, {
         strategy: args.strategyName,
-        value: state,
+        value,
+        meta,
       })
       .pipe(
         Effect.mapError((cause) =>
@@ -51,7 +69,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
     Effect.gen(function* () {
       const state = emptyState();
       yield* Effect.sync(() => console.warn(message));
-      yield* putEnvelope(key, state);
+      yield* putEnvelope(key, state, baseMeta(key, 0));
       return state;
     });
 
@@ -71,7 +89,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
         if (!isStoredStrategyState(stored)) {
           return yield* reset(
             key,
-            `[tanstack-sync] reset legacy sync state for "${args.schemaName}" strategy "${args.strategyName}" because it was not stored in the strategy-state envelope`,
+            `[tanstack-sync] reset legacy sync state for "${args.schemaName}" strategy "${args.strategyName}" because it was missing the strategy-state envelope (strategy/value)`,
           );
         }
 
@@ -94,6 +112,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
         );
         return yield* decoded;
       }),
-    set: (key, state) => putEnvelope(key, state),
+    set: (key, state, meta) =>
+      putEnvelope(key, state, meta ?? baseMeta(key, 0)),
   };
 };

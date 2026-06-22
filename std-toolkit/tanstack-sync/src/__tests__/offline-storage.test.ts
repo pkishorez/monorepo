@@ -67,6 +67,10 @@ const makeCallbacks = () => {
       markReady: vi.fn(() => events.push('ready')),
       collection: {
         update: vi.fn(),
+        on: vi.fn(() => vi.fn()),
+        status: 'ready',
+        size: 0,
+        subscriberCount: 0,
       },
     },
     events,
@@ -102,6 +106,7 @@ const failingWriteStorage = (): OfflineStorage => ({
     clear: () => Effect.succeed(undefined),
   }),
   clear: () => Effect.succeed(undefined),
+  inspect: () => Effect.succeed([]),
 });
 
 const failingReadStorage = (): OfflineStorage => ({
@@ -119,6 +124,7 @@ const failingReadStorage = (): OfflineStorage => ({
     clear: () => Effect.succeed(undefined),
   }),
   clear: () => Effect.succeed(undefined),
+  inspect: () => Effect.succeed([]),
 });
 
 const failingSingletonReadStorage = (): OfflineStorage => ({
@@ -136,6 +142,7 @@ const failingSingletonReadStorage = (): OfflineStorage => ({
     clear: () => Effect.succeed(undefined),
   }),
   clear: () => Effect.succeed(undefined),
+  inspect: () => Effect.succeed([]),
 });
 
 const failingSingletonWriteStorage = (): OfflineStorage => ({
@@ -153,6 +160,7 @@ const failingSingletonWriteStorage = (): OfflineStorage => ({
     clear: () => Effect.succeed(undefined),
   }),
   clear: () => Effect.succeed(undefined),
+  inspect: () => Effect.succeed([]),
 });
 
 describe('keyed sync offline storage', () => {
@@ -378,10 +386,12 @@ describe('keyed sync offline storage', () => {
           .group(offlineStorageGroupName.syncState(todoSchema.name))
           .get(partitionKey),
       ),
-    ).resolves.toEqual({
-      strategy: 'current-strategy',
-      value: { cursor: null },
-    });
+    ).resolves.toEqual(
+      expect.objectContaining({
+        strategy: 'current-strategy',
+        value: { cursor: null },
+      }),
+    );
     expect(warnSpy).toHaveBeenCalledWith(
       '[tanstack-sync] reset sync state for "Todo" because stored strategy "previous-strategy" does not match current strategy "current-strategy"',
     );
@@ -442,10 +452,12 @@ describe('keyed sync offline storage', () => {
           .group(offlineStorageGroupName.syncState(todoSchema.name))
           .get(partitionKey),
       ),
-    ).resolves.toEqual({
-      strategy: 'test-partition',
-      value: { cursor: null },
-    });
+    ).resolves.toEqual(
+      expect.objectContaining({
+        strategy: 'test-partition',
+        value: { cursor: null },
+      }),
+    );
     expect(warnSpy).toHaveBeenCalledWith(
       '[tanstack-sync] reset sync state for "Todo" strategy "test-partition" because stored state failed schema validation',
     );
@@ -510,6 +522,23 @@ describe('keyed sync offline storage', () => {
     );
     expect(callbacks.markReady).not.toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  it('marks the inspector collection cleaned-up after keyed collection cleanup', async () => {
+    const std = createStdSync();
+    const collection = std.sync({ schema: todoSchema });
+    const { callbacks, subscription } = mount(collection);
+
+    await vi.waitFor(() =>
+      expect(callbacks.markReady).toHaveBeenCalledTimes(1),
+    );
+    subscription.cleanup();
+
+    expect(std.inspector.collections.get(todoSchema.name)).toMatchObject({
+      status: 'cleaned-up',
+      itemCount: 0,
+      subscriberCount: 0,
+    });
   });
 
   it('persists registry writes while unmounted and projects them on mount', async () => {
@@ -656,6 +685,26 @@ describe('single-item sync offline storage', () => {
     errorSpy.mockRestore();
   });
 
+  it('marks the inspector collection cleaned-up after single-item cleanup', async () => {
+    const std = createStdSync();
+    const collection = std.singleItemSync({
+      schema: settingsSchema,
+      strategy: noopSingleStrategy,
+    });
+    const { callbacks, subscription } = mount(collection);
+
+    await vi.waitFor(() =>
+      expect(callbacks.markReady).toHaveBeenCalledTimes(1),
+    );
+    await subscription.cleanup();
+
+    expect(std.inspector.collections.get(settingsSchema.name)).toMatchObject({
+      status: 'cleaned-up',
+      itemCount: 0,
+      subscriberCount: 0,
+    });
+  });
+
   it('resumes a single-item strategy from persisted sync state', async () => {
     const storage = memoryOfflineStorage();
 
@@ -682,10 +731,12 @@ describe('single-item sync offline storage', () => {
             .group(offlineStorageGroupName.syncState(settingsSchema.name))
             .get('__single__'),
         ),
-      ).resolves.toEqual({
-        strategy: 'settings-cursor',
-        value: { cursor: 'settings-v2' },
-      });
+      ).resolves.toEqual(
+        expect.objectContaining({
+          strategy: 'settings-cursor',
+          value: { cursor: 'settings-v2' },
+        }),
+      );
     });
 
     const observed: unknown[] = [];

@@ -13,6 +13,7 @@ import type { Accepted } from '../source-of-truth/index.js';
 import { storageError } from '../source-of-truth/write-error.js';
 import type { WriteError } from '../source-of-truth/write-error.js';
 import type { CollectionHandle, Tracker } from '../registry/tracker.js';
+import type { WritableSyncInspector } from '../inspector/index.js';
 import type { StrategyContext } from '../partitioned/strategies/interface.js';
 import { makeSyncStateStore } from '../partitioned/sync-state.js';
 import type { CollectionItem, StdCollectionOptions } from '../types.js';
@@ -28,14 +29,6 @@ import {
 const SINGLETON_KEY = '__singleton__';
 const SINGLE_STATE_KEY = '__single__';
 
-/**
- * The mounted-collection result a single-item collection produces: a TanStack
- * `CollectionConfig` plus engine-owned `utils` (schema, write, mutation handlers).
- * Unlike the keyed engine there is no `sync` util key — the single-item family has
- * collection-level lifecycle only. The `& SingleResult` marker (`singleResult: true` in
- * the config) makes `useLiveQuery` surface `data` as the single row (`TItem | undefined`)
- * rather than a one-element array.
- */
 export type SingleItemResult<
   TItem extends object,
   S extends AnySingleEntityESchema,
@@ -55,12 +48,6 @@ export type SingleItemResult<
     };
   };
 
-/**
- * Convergence-guarded singleton cell: the single-item equivalent of the keyed SoT.
- * `write` converges the incoming entity against the retained cell (a slow response
- * can't overwrite a newer `_u`), returning the accepted delta. The cell + its value
- * survive unmount; only the projector is torn down on cleanup.
- */
 const makeSingletonCell = <TItem>(group: OfflineStorageGroup) => {
   return {
     write: (
@@ -96,16 +83,9 @@ const makeSingletonCell = <TItem>(group: OfflineStorageGroup) => {
   };
 };
 
-/**
- * Builds a mounted single-item collection. The strategy runs against a singleton
- * SoT cell with collection-level lifecycle only — no partitions, no `loadSubset`.
- * On mount the projector backfills the retained cell, opens one collection-level
- * scope, and forks the retry-wrapped `strategy.run`; on unmount the scope closes and
- * the projector is nulled (cell + state survive). A `CollectionHandle` is registered
- * so the registry can target single-item collections.
- */
 export const buildSingleItem = <S extends AnySingleEntityESchema>(
   tracker: Tracker,
+  inspector: WritableSyncInspector,
   config: {
     schema: S;
     strategy: SingleItemStrategy<S['Type'], any>;
@@ -166,6 +146,16 @@ export const buildSingleItem = <S extends AnySingleEntityESchema>(
   };
   tracker.register(handle);
 
+  inspector.upsertCollection({
+    id: schema.name,
+    collectionName: schema.name,
+    kind: 'single-item',
+    status: 'idle',
+    itemCount: 0,
+    subscriberCount: 0,
+    partitionFields: [],
+  });
+
   const handlers = buildMutationHandlers<TItem>({
     writeServerTruth,
     onUpdate,
@@ -179,6 +169,33 @@ export const buildSingleItem = <S extends AnySingleEntityESchema>(
     projector = local;
     collectionUpdate = (updater) =>
       callbacks.collection.update(schema.name, updater);
+
+    const native = callbacks.collection;
+    const writeInspectorCollection = (): void =>
+      inspector.upsertCollection({
+        id: schema.name,
+        collectionName: schema.name,
+        kind: 'single-item',
+        status: native.status,
+        itemCount: native.size,
+        subscriberCount: native.subscriberCount,
+        partitionFields: [],
+      });
+    const writeCleanedUpInspectorCollection = (): void =>
+      inspector.updateCollection(schema.name, {
+        status: 'cleaned-up',
+        itemCount: 0,
+        subscriberCount: 0,
+      });
+    writeInspectorCollection();
+    const offStatusChange = native.on(
+      'status:change',
+      writeInspectorCollection,
+    );
+    const offSubscribersChange = native.on(
+      'subscribers:change',
+      writeInspectorCollection,
+    );
 
     const run = Effect.runPromise(
       Effect.catch(
@@ -227,6 +244,9 @@ export const buildSingleItem = <S extends AnySingleEntityESchema>(
 
     return {
       cleanup: async () => {
+        offStatusChange();
+        offSubscribersChange();
+        writeCleanedUpInspectorCollection();
         const mounted = await run;
         if (!mounted) return;
         const { scope, fiber } = mounted;
