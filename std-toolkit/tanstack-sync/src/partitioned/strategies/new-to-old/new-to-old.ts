@@ -1,15 +1,17 @@
 import { Deferred, Effect, Stream, SynchronizedRef } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { PartitionedStrategy, StrategyContext } from '../interface.js';
+import {
+  makeSlice,
+  newestOf,
+  oldestOf,
+  reconcile,
+  topSlice,
+  uOf,
+  type Cursor,
+  type Slice,
+} from '../slices/index.js';
 import { NewToOldStateSchema, type NewToOldState } from './state.js';
-
-type Cursor<TItem> = EntityType<TItem>;
-
-type Slice<TItem> = {
-  low: Cursor<TItem>;
-  high: Cursor<TItem>;
-  itemCount: number;
-};
 
 type CursorCtx<TItem> = { cursor: Cursor<TItem> | null };
 
@@ -28,42 +30,6 @@ type NewToOldConfig<TItem> = {
     ctx: CursorCtx<TItem>,
   ) => Effect.Effect<Stream.Stream<EntityType<TItem>[]>>;
 };
-
-const uOf = <TItem>(entity: Cursor<TItem>): string => entity.meta._u;
-
-const oldestOf = <TItem>(batch: EntityType<TItem>[]): Cursor<TItem> =>
-  batch.reduce((acc, e) => (uOf(e) < uOf(acc) ? e : acc));
-
-const newestOf = <TItem>(batch: EntityType<TItem>[]): Cursor<TItem> =>
-  batch.reduce((acc, e) => (uOf(e) > uOf(acc) ? e : acc));
-
-const makeSlice = <TItem>(
-  low: Cursor<TItem>,
-  high: Cursor<TItem>,
-): Slice<TItem> => ({ low, high, itemCount: 0 });
-
-const reconcile = <TItem>(
-  slices: readonly Slice<TItem>[],
-  candidate: Slice<TItem>,
-): Slice<TItem>[] => {
-  const all = [...slices, candidate].sort((a, b) =>
-    uOf(a.low) < uOf(b.low) ? -1 : uOf(a.low) > uOf(b.low) ? 1 : 0,
-  );
-  const merged: Slice<TItem>[] = [];
-  for (const slice of all) {
-    const last = merged[merged.length - 1];
-    if (last && uOf(slice.low) <= uOf(last.high)) {
-      if (uOf(slice.high) > uOf(last.high)) last.high = slice.high;
-    } else {
-      merged.push(makeSlice(slice.low, slice.high));
-    }
-  }
-  return merged;
-};
-
-const topSlice = <TItem>(
-  slices: readonly Slice<TItem>[],
-): Slice<TItem> | null => slices[slices.length - 1] ?? null;
 
 const topReachesFloor = (state: NewToOldState): boolean =>
   state.slices.length === 1;

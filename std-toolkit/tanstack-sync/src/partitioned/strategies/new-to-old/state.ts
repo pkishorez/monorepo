@@ -1,16 +1,5 @@
 import { Schema } from 'effect';
-import { MetaSchema } from '@std-toolkit/core';
-
-const CursorSchema = Schema.Struct({
-  value: Schema.Unknown,
-  meta: MetaSchema,
-});
-
-const SliceSchema = Schema.Struct({
-  low: CursorSchema,
-  high: CursorSchema,
-  itemCount: Schema.Number,
-});
+import { SliceSchema } from '../slices/index.js';
 
 export const NewToOldStateSchema = Schema.Struct({
   slices: Schema.Array(SliceSchema),
