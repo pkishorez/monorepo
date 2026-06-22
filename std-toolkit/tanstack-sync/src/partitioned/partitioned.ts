@@ -74,12 +74,10 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
   const { schema } = config;
   const partitionFields = Object.keys(config.partitions ?? {});
 
-  const sot = makeSourceOfTruth<TItem>({
-    schema,
-    group: config.offlineStorage.group(
-      offlineStorageGroupName.sourceOfTruth(schema.name),
-    ),
-  });
+  const sotGroup = config.offlineStorage.group(
+    offlineStorageGroupName.sourceOfTruth(schema.name),
+  );
+  const sot = makeSourceOfTruth<TItem>({ schema, group: sotGroup });
   const syncStateGroup = config.offlineStorage.group(
     offlineStorageGroupName.syncState(schema.name),
   );
@@ -99,6 +97,22 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     size: number;
     subscriberCount: number;
   } | null = null;
+
+  inspector.attachStorage(schema.name, {
+    readValues: () =>
+      sot.getAll().pipe(Effect.map((entities) => entities.map((e) => e.value))),
+    clearEntries: () => sotGroup.clear(),
+    // Drop the retained in-memory snapshot too, so a still-resident (but
+    // unsubscribed) partition can't re-persist the state we just deleted.
+    clearSyncState: (partitionKey) =>
+      syncStateGroup
+        .delete(partitionKey)
+        .pipe(
+          Effect.tap(() =>
+            Effect.sync(() => latestPartitionSnapshot.delete(partitionKey)),
+          ),
+        ),
+  });
 
   type PartitionDescriptor = {
     partitionField: string;
