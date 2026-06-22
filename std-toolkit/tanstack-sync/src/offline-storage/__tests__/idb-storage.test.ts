@@ -15,11 +15,16 @@ describe('idbStorage', () => {
     expect(() => idbStorage({ name: 'valid', version: 0 })).toThrow();
     expect(() => idbStorage({ name: 'valid', version: 1.5 })).toThrow();
     expect(() => idbStorage({ name: 'valid', version: '' })).toThrow();
+  });
 
+  it('constructs without IndexedDB and fails only when an operation runs', async () => {
     const indexedDB = globalThis.indexedDB;
     Reflect.deleteProperty(globalThis, 'indexedDB');
     try {
-      expect(() => idbStorage({ name: 'missing-idb' })).toThrow();
+      const storage = idbStorage({ name: 'missing-idb' });
+      await expect(
+        Effect.runPromise(storage.group('sot/users').getAll()),
+      ).rejects.toThrow();
     } finally {
       Object.defineProperty(globalThis, 'indexedDB', {
         configurable: true,

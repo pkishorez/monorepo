@@ -14,10 +14,11 @@ export type IdbStorageOptions = {
   version?: DataVersion;
 };
 
+// Factory-time validation is pure: it never touches `indexedDB`, so an
+// `idbStorage` handle can be constructed during SSR/module-eval (where no
+// IndexedDB exists). The presence check is deferred to `acquireDatabase`, which
+// only runs inside the async storage operations — all client-side.
 const validateOptions = (options: IdbStorageOptions): DataVersion => {
-  if (!globalThis.indexedDB) {
-    throw new Error('IndexedDB is not available');
-  }
   if (options.name.length === 0) {
     throw new Error('IndexedDB storage name must not be empty');
   }

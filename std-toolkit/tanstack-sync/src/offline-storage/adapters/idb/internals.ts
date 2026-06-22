@@ -21,6 +21,9 @@ export const acquireDatabase = async (
   name: string,
   dataVersion: DataVersion,
 ): Promise<IDBPDatabase> => {
+  if (!globalThis.indexedDB) {
+    throw new Error('IndexedDB is not available');
+  }
   let db = connections.get(name);
   if (!db) {
     db = await openDB(name, DB_SCHEMA_VERSION, {
