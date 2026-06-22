@@ -100,18 +100,27 @@ export const buildSingleItem = <S extends AnySingleEntityESchema>(
   type TItem = S['Type'];
 
   const { schema, strategy, options, onUpdate, updatePacing } = config;
-  const cell = makeSingletonCell<TItem>(
-    config.offlineStorage.group(
-      offlineStorageGroupName.sourceOfTruth(schema.name),
-    ),
+  const sotGroup = config.offlineStorage.group(
+    offlineStorageGroupName.sourceOfTruth(schema.name),
+  );
+  const cell = makeSingletonCell<TItem>(sotGroup);
+  const syncStateGroup = config.offlineStorage.group(
+    offlineStorageGroupName.syncState(schema.name),
   );
   const stateStore = makeSyncStateStore({
     schemaName: schema.name,
     strategyName: strategy.name,
-    group: config.offlineStorage.group(
-      offlineStorageGroupName.syncState(schema.name),
-    ),
+    group: syncStateGroup,
     state: strategy.state,
+  });
+
+  inspector.attachStorage(schema.name, {
+    readValues: () =>
+      cell
+        .current()
+        .pipe(Effect.map((entities) => entities.map((e) => e.value))),
+    clearEntries: () => sotGroup.clear(),
+    clearSyncState: (partitionKey) => syncStateGroup.delete(partitionKey),
   });
 
   type Projector = ReturnType<typeof makeCollectionProjector<TItem>>;
