@@ -34,7 +34,7 @@
     "@tanstack/ai-openrouter": "0.13.0",
     "@tanstack/ai-react": "0.15.3",
     "@tanstack/react-db": "0.1.86",
-    "@tanstack/react-query": "5.100.10",
+    "@tanstack/react-query": "5.101.0",
     "@tanstack/react-router": "1.170.3",
     "@tanstack/react-router-ssr-query": "1.167.1",
     "@tanstack/react-start": "1.168.5",

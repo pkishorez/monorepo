@@ -30,8 +30,8 @@
     "build:watch": "tsc --watch",
     "fmt": "vp fmt src test package.json tsconfig.json tsconfig.test.json depcruise.config.ts",
     "lint": "vp check src test package.json tsconfig.json tsconfig.test.json depcruise.config.ts && pnpm lint:tsc",
-    "lint:tsc": "tsc -p tsconfig.test.json",
     "lint:depcruise": "pnpm build && node dist/cli/index.js lint",
+    "lint:tsc": "tsc -p tsconfig.test.json",
     "test": "vitest run"
   },
   "dependencies": {
