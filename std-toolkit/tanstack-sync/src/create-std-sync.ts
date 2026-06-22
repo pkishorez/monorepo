@@ -77,14 +77,22 @@ export const createStdSync = (defaults?: {
     defaults?.offlineStorage,
   );
 
-  void Effect.runPromise(
-    rootOfflineStorage.inspect().pipe(
-      Effect.tap((groups) =>
-        Effect.sync(() => restoreCachedPartitions(inspector, groups)),
+  // Hydrate the inspector from offline storage, but only in the browser.
+  // Offline storage is browser-only, so this is a no-op on the server — and
+  // crucially, kicking off async I/O here would run during module evaluation
+  // (collections construct their sync at module top level). Cloudflare Workers
+  // forbid async I/O in global scope, so doing it unconditionally crashes the
+  // worker's init (and thus SSR/prerender) before any request is served.
+  if (typeof window !== 'undefined') {
+    void Effect.runPromise(
+      rootOfflineStorage.inspect().pipe(
+        Effect.tap((groups) =>
+          Effect.sync(() => restoreCachedPartitions(inspector, groups)),
+        ),
+        Effect.ignore,
       ),
-      Effect.ignore,
-    ),
-  );
+    );
+  }
 
   const mergeOptions = (options?: StdCollectionOptions): StdCollectionOptions =>
     ({ ...defaults?.options, ...options }) as StdCollectionOptions;
