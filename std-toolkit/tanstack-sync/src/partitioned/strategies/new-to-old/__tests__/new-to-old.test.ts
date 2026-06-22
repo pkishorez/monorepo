@@ -88,6 +88,41 @@ describe('newToOld', () => {
     );
   });
 
+  it('merges contiguous live-tail batches into one slice when the backfill is empty', async () => {
+    const written: EntityType<Item>[] = [];
+    let state: NewToOldState = { slices: [], reachedOldest: false };
+    const ctx: StrategyContext<Item, NewToOldState> = {
+      writeServerTruth: (entities) =>
+        Effect.sync(() => {
+          written.push(...(entities as EntityType<Item>[]));
+        }),
+      getState: Effect.sync(() => state),
+      setState: (s) =>
+        Effect.sync(() => {
+          state = s;
+        }),
+      scope: undefined as unknown as Scope.Scope,
+    };
+
+    const batches = [
+      ['u01', 'u02'],
+      ['u03', 'u04'],
+      ['u05', 'u06'],
+    ].map((page) => page.map((u) => entity(u, u)));
+
+    const strategy = newToOld<Item>({
+      subscribeOlder: () => Effect.sync(() => Stream.empty),
+      subscribeNewer: () => Effect.sync(() => Stream.fromIterable(batches)),
+    });
+
+    await Effect.runPromise(Effect.scoped(strategy.run(ctx)));
+
+    expect(state.slices).toHaveLength(1);
+    expect(uOf(state.slices[0]!.low as EntityType<Item>)).toBe('u01');
+    expect(uOf(state.slices[0]!.high as EntityType<Item>)).toBe('u06');
+    expect(written).toHaveLength(6);
+  });
+
   it('connects adjacent pages without leaving a gap', async () => {
     const dataset = ['u01', 'u02', 'u03', 'u04'].map((u) => entity(u, u));
     const { state } = await drive({ dataset, pageSize: 2 });

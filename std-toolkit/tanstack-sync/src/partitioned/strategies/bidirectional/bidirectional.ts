@@ -107,12 +107,19 @@ export const bidirectional = <TItem extends object>(
 
       const liveTail = Effect.gen(function* () {
         const stream = yield* config.subscribeNewer({ cursor: freshTop });
+        // Anchor every streamed range to the previous batch's newest cursor so
+        // successive tail batches stay contiguous and `reconcile` collapses them
+        // into one slice. Without advancing the anchor, an empty initial fetch
+        // (`freshTop === null`) makes each batch a disjoint range that never
+        // merges — e.g. generating 10k items yields one slice per batch.
+        let tailAnchor: Cursor<TItem> | null = freshTop;
         yield* Stream.runForEach(stream, (batch) =>
           Effect.gen(function* () {
             if (batch.length === 0) return;
             yield* ctx.writeServerTruth(batch);
-            const low = freshTop ?? oldestOf(batch);
-            yield* commit(addRange(low, newestOf(batch)));
+            const high = newestOf(batch);
+            yield* commit(addRange(tailAnchor ?? oldestOf(batch), high));
+            tailAnchor = high;
           }),
         );
       });
