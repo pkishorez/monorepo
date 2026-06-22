@@ -1,4 +1,3 @@
-import { createCollection } from '@tanstack/react-db';
 import { Effect } from 'effect';
 import {
   createStdSync,
@@ -10,7 +9,7 @@ import { run } from './utils.js';
 
 const std = createStdSync();
 
-const settingsSyncConfig = std.singleItemSync({
+export const settingsCollection = std.singleItemCollection({
   schema: SettingsSchema,
   strategy: singleItemSyncStrategy.getOnce({
     get: () =>
@@ -32,5 +31,4 @@ const settingsSyncConfig = std.singleItemSync({
     ),
 });
 
-export const settingsCollection = createCollection(settingsSyncConfig);
-export const settingsUtils = settingsSyncConfig.utils;
+export const settingsUtils = settingsCollection.utils;

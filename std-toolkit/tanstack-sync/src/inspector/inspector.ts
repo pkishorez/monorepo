@@ -10,6 +10,9 @@ type InspectorStore<T extends object> = Collection<T, string, any>;
 export type SyncInspector = {
   collections: InspectorStore<InspectorCollection>;
   partitions: InspectorStore<InspectorPartition>;
+  getCollection: (
+    collectionName: string,
+  ) => Collection<any, any, any> | undefined;
 };
 
 export type WritableSyncInspector = SyncInspector & {
@@ -17,6 +20,10 @@ export type WritableSyncInspector = SyncInspector & {
   upsertPartition: (row: InspectorPartition) => void;
   updateCollection: (id: string, partial: Partial<InspectorCollection>) => void;
   updatePartition: (id: string, partial: Partial<InspectorPartition>) => void;
+  attachCollection: (
+    collectionName: string,
+    collection: Collection<any, any, any>,
+  ) => void;
 };
 
 const upsertInto = <T extends { id: string }>(
@@ -55,12 +62,17 @@ export const makeSyncInspector = (): WritableSyncInspector => {
     }),
   );
 
+  const liveCollections = new Map<string, Collection<any, any, any>>();
+
   return {
     collections,
     partitions,
+    getCollection: (name) => liveCollections.get(name),
     upsertCollection: (row) => upsertInto(collections, row),
     upsertPartition: (row) => upsertInto(partitions, row),
     updateCollection: (id, partial) => mergeInto(collections, id, partial),
     updatePartition: (id, partial) => mergeInto(partitions, id, partial),
+    attachCollection: (name, collection) =>
+      liveCollections.set(name, collection),
   };
 };
