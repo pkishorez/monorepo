@@ -189,6 +189,23 @@ The strategy contract is a single method `run(ctx): Effect<void, WriteError, Sco
 
   A large reload gap produces genuinely disjoint slices (old region + fresh top slice) with a real gap that backfill grinds through later; if the data did not grow, the fresh latest slice overlaps the saved top slice and reconcile collapses them, so no spurious gap. Relies on the **Upward Migration invariant** below to keep covered ranges trustworthy across reloads.
 
+- **Bidirectional** _(future)_ — newest-first delivery (like `NewToOld`) plus a second backfill frontier ascending from the absolute oldest record. Exists to make the **oldest** records visible immediately too, instead of only after the downward backfill grinds through the whole backlog. Coverage converges on a single gap closed from **both ends**. Both backfill directions are **cursor pulls** (loops), so each re-reads the shared slice list every iteration and stops cleanly at collapse; only the live tail is a stream. It runs three activities under the strategy scope:
+  - **Live tail** (`subscribeNewer`, a stream): anchors at the session's fresh top, streams forward live, stays open.
+  - **Downward frontier** (`fetchOlder`, a cursor pull): `{ cursor: null }` resolves the **newest page**; a non-null cursor resolves the page strictly **older** than it. Descends from the top slice's low.
+  - **Upward frontier** (`fetchNewer`, a cursor pull): `{ cursor: null }` resolves the **oldest page**; a non-null cursor resolves the page strictly **newer** than it; an empty batch means the frontier has caught up. Ascends from the bottom slice's high.
+
+  Every session seeds the newest page (`fetchOlder({ cursor: null })`) and the oldest page (`fetchNewer({ cursor: null })`) — both complete before the fibers start, giving a deterministic two-slice (or already-collapsed) starting state. The live tail anchors at the `freshTop` from the newest-page seed.
+
+  Covered state is the same disjoint `_u` slice list as `NewToOld`, **minus** `reachedOldest`:
+
+  ```ts
+  type BidirectionalState = { slices: Slice[] };
+  ```
+
+  `reachedOldest` is dropped because the upward frontier anchors the true floor on page one of every session, so "have we reached the oldest" is always yes — a constant flag carries no information. The inspector's slice-count derivation keys off `slices` alone, so parity holds.
+  - **Termination** is **single-slice collapse**: when the slice list reduces to one contiguous range, both anchors are covered and the gap is closed. The downward frontier marches from the top slice's `low` (swallowing middle gaps as it descends); the upward frontier marches from the bottom slice's `high` (swallowing middle gaps as it rises). Whichever reconciles the closing batch produces `slices.length === 1`; the other observes it on its next loop and exits. A warm resume whose gap is already closed starts, both pulls see one slice, exit immediately, and only the live tail keeps running.
+  - **Empty collection**: a frontier whose **seed page is empty** exits immediately. With a genuinely empty dataset neither pull has anything to do, `slices` stays empty (never reaches one slice — harmless), and the live tail parks waiting for the first arrival. So a frontier stops when `slices` collapses to one **or** its seed page is empty.
+
 #### Upward Migration invariant (`_u` ordering)
 
 `_u` is a global monotonic update key: an update moves a record strictly above every existing `_u` (toward "now"). Records therefore migrate **only upward**, never downward into a historical interval.

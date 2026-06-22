@@ -16,6 +16,10 @@ export type InspectorStrategyState =
       strategy: 'newToOld';
       slices: ReadonlyArray<{ low: unknown; high: unknown; itemCount: number }>;
       reachedOldest: boolean;
+    }
+  | {
+      strategy: 'bidirectional';
+      slices: ReadonlyArray<{ low: unknown; high: unknown; itemCount: number }>;
     };
 
 export type InspectorPartition = {

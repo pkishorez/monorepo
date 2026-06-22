@@ -75,23 +75,34 @@ export const describeStrategyState = (
   strategyName: string,
   value: unknown,
 ): InspectorStrategyState => {
-  if (strategyName === 'new-to-old') {
+  const readSlices = (): {
+    low: unknown;
+    high: unknown;
+    itemCount: number;
+  }[] => {
     const rawSlices =
       value != null &&
       typeof value === 'object' &&
       Array.isArray((value as { slices?: unknown }).slices)
         ? (value as { slices: RawSlice[] }).slices
         : [];
-    const slices = rawSlices.map((slice) => ({
+    return rawSlices.map((slice) => ({
       low: slice.low,
       high: slice.high,
       itemCount: slice.itemCount,
     }));
+  };
+
+  if (strategyName === 'bidirectional') {
+    return { strategy: 'bidirectional', slices: readSlices() };
+  }
+
+  if (strategyName === 'new-to-old') {
     const reachedOldest =
       value != null && typeof value === 'object'
         ? Boolean((value as { reachedOldest?: unknown }).reachedOldest)
         : false;
-    return { strategy: 'newToOld', slices, reachedOldest };
+    return { strategy: 'newToOld', slices: readSlices(), reachedOldest };
   }
 
   const cursor =
