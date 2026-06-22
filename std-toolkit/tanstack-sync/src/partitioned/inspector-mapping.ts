@@ -40,14 +40,35 @@ const countInRange = (
   return count;
 };
 
+const countByField = (
+  entities: ReadonlyArray<EntityType<unknown>>,
+  partitionField: string,
+  partitionValue: string,
+): number => {
+  if (partitionField === '') return entities.length;
+  let count = 0;
+  for (const entity of entities) {
+    const fieldValue = (entity.value as Record<string, unknown>)[
+      partitionField
+    ];
+    if (String(fieldValue) === partitionValue) count += 1;
+  }
+  return count;
+};
+
 export const countNewToOldSlices = (
   value: unknown,
   entities: ReadonlyArray<EntityType<unknown>>,
   partitionField: string,
   partitionValue: string,
 ): { value: unknown; itemCount: number } => {
+  // Cursor-based (`oldToNew`) state has no slices: its membership is the set of
+  // entities matching the partition field, not a windowed range.
   if (value == null || typeof value !== 'object' || !('slices' in value)) {
-    return { value, itemCount: 0 };
+    return {
+      value,
+      itemCount: countByField(entities, partitionField, partitionValue),
+    };
   }
   const slices = (value as { slices?: unknown }).slices;
   if (!Array.isArray(slices)) return { value, itemCount: 0 };

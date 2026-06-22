@@ -405,10 +405,20 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
               partitionField: r.field,
               partitionValue: String(r.partitionValue),
             });
-            activatePartition(
-              r.partitionKey,
-              config.partitions![r.field]!(r.partitionValue),
+            const strat = config.partitions![r.field]!(r.partitionValue);
+            // Register the partition the moment it activates, before any data
+            // arrives. The strategy only writes its inspector row after the
+            // first non-empty batch, so an empty (or not-yet-synced) partition
+            // would otherwise stay invisible even while live and fetching.
+            inspector.upsertPartition(
+              describePartition(
+                r.partitionKey,
+                0,
+                strat.name,
+                strat.state.empty,
+              ),
             );
+            activatePartition(r.partitionKey, strat);
           }
           inspector.updatePartition(partitionIdOf(r.partitionKey), {
             activity: 'active',

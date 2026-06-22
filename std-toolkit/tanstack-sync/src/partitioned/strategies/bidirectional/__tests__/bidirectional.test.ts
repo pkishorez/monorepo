@@ -98,6 +98,45 @@ describe('bidirectional', () => {
     expect(written).toHaveLength(0);
   });
 
+  it('merges contiguous live-tail batches into one slice when the initial fetch is empty', async () => {
+    const written: EntityType<Item>[] = [];
+    let state: BidirectionalState = { slices: [] };
+    const ctx: StrategyContext<Item, BidirectionalState> = {
+      writeServerTruth: (entities) =>
+        Effect.sync(() => {
+          written.push(...(entities as EntityType<Item>[]));
+        }),
+      getState: Effect.sync(() => state),
+      setState: (s) =>
+        Effect.sync(() => {
+          state = s;
+        }),
+      scope: undefined as unknown as Scope.Scope,
+    };
+
+    // Empty campaign at subscription time, then four disjoint live batches —
+    // exactly what generating vouchers in pages produces.
+    const batches = [
+      ['u01', 'u02'],
+      ['u03', 'u04'],
+      ['u05', 'u06'],
+      ['u07', 'u08'],
+    ].map((page) => page.map((u) => entity(u, u)));
+
+    const strategy = bidirectional<Item>({
+      fetchOlder: () => Effect.sync(() => []),
+      fetchNewer: () => Effect.sync(() => []),
+      subscribeNewer: () => Effect.sync(() => Stream.fromIterable(batches)),
+    });
+
+    await Effect.runPromise(Effect.scoped(strategy.run(ctx)));
+
+    expect(state.slices).toHaveLength(1);
+    expect(uOf(state.slices[0]!.low as EntityType<Item>)).toBe('u01');
+    expect(uOf(state.slices[0]!.high as EntityType<Item>)).toBe('u08');
+    expect(written).toHaveLength(8);
+  });
+
   it('resumes a warm session and refills the top gap', async () => {
     const session1 = ['u01', 'u02', 'u03', 'u04'].map((u) => entity(u, u));
     const first = await drive({ dataset: session1, pageSize: 2 });
