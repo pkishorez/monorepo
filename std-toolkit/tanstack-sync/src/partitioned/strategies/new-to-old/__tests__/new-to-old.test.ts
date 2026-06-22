@@ -14,11 +14,6 @@ const entity = (id: string, u: string): EntityType<Item> => ({
 
 const uOf = (e: EntityType<Item>) => e.meta._u;
 
-/**
- * Drives `newToOld.run` against an in-memory dataset sorted ascending by `_u`,
- * recording every server-truth write and every `fetchOlder` cursor. `subscribeNewer`
- * returns a finite stream so `run` completes for assertions.
- */
 const drive = async (opts: {
   dataset: EntityType<Item>[];
   pageSize: number;
@@ -48,7 +43,7 @@ const drive = async (opts: {
   };
 
   const strategy = newToOld<Item>({
-    fetchOlder: ({ cursor }) =>
+    subscribeOlder: ({ cursor }) =>
       Effect.sync(() => {
         olderCursors.push(
           cursor === null ? null : uOf(cursor as EntityType<Item>),
@@ -56,8 +51,12 @@ const drive = async (opts: {
         const pool =
           cursor === null
             ? sorted
-            : sorted.filter((e) => uOf(e) < uOf(cursor as EntityType<Item>));
-        return pool.slice(-opts.pageSize);
+            : sorted.filter((e) => uOf(e) <= uOf(cursor as EntityType<Item>));
+        const pages: EntityType<Item>[][] = [];
+        for (let end = pool.length; end > 0; end -= opts.pageSize) {
+          pages.push(pool.slice(Math.max(0, end - opts.pageSize), end));
+        }
+        return Stream.fromIterable(pages);
       }),
     subscribeNewer: ({ cursor }) =>
       Effect.sync(() => {
@@ -92,8 +91,6 @@ describe('newToOld', () => {
   it('connects adjacent pages without leaving a gap', async () => {
     const dataset = ['u01', 'u02', 'u03', 'u04'].map((u) => entity(u, u));
     const { state } = await drive({ dataset, pageSize: 2 });
-    // pages [u03,u04] and [u01,u02] are adjacent, not overlapping — the cursor
-    // boundary must still merge them into a single slice.
     expect(state.slices).toHaveLength(1);
   });
 
@@ -120,7 +117,7 @@ describe('newToOld', () => {
     expect(new Set(next.written.map((e) => e.value.id))).toEqual(
       new Set(dataset.map((e) => e.value.id)),
     );
-    expect(next.olderCursors).toEqual([null, 'u03', 'u01']);
+    expect(next.olderCursors).toEqual([null]);
   });
 
   it('normalizes a legacy empty reachedOldest state before backfilling', async () => {
@@ -138,7 +135,7 @@ describe('newToOld', () => {
     expect(new Set(next.written.map((e) => e.value.id))).toEqual(
       new Set(dataset.map((e) => e.value.id)),
     );
-    expect(next.olderCursors).toEqual([null, 'u03', 'u01']);
+    expect(next.olderCursors).toEqual([null]);
   });
 
   it('resumes a warm session, fills the top gap, and never re-probes the floor', async () => {
@@ -146,7 +143,6 @@ describe('newToOld', () => {
     const first = await drive({ dataset: session1, pageSize: 2 });
     expect(first.state.reachedOldest).toBe(true);
 
-    // 30-day gap: four newer records appear at the top.
     const session2 = [
       ...session1,
       ...['u05', 'u06', 'u07', 'u08'].map((u) => entity(u, u)),
@@ -157,12 +153,9 @@ describe('newToOld', () => {
       initial: first.state,
     });
 
-    // Everything collapses to one slice covering the full range.
     expect(second.state.slices).toHaveLength(1);
     expect(uOf(second.state.slices[0]!.low as EntityType<Item>)).toBe('u01');
     expect(uOf(second.state.slices[0]!.high as EntityType<Item>)).toBe('u08');
-    // Because reachedOldest was already true, backfill stops once the top slice
-    // reaches the floor — it must never fetch older than the oldest record.
     expect(second.olderCursors).not.toContain('u01');
   });
 });

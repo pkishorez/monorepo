@@ -1,26 +1,29 @@
-import { Effect, Stream, SynchronizedRef } from 'effect';
+import { Deferred, Effect, Stream, SynchronizedRef } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { PartitionedStrategy, StrategyContext } from '../interface.js';
 import { NewToOldStateSchema, type NewToOldState } from './state.js';
 
 type Cursor<TItem> = EntityType<TItem>;
 
-type Slice<TItem> = { low: Cursor<TItem>; high: Cursor<TItem> };
+type Slice<TItem> = {
+  low: Cursor<TItem>;
+  high: Cursor<TItem>;
+  itemCount: number;
+};
 
 type CursorCtx<TItem> = { cursor: Cursor<TItem> | null };
 
 /**
- * Newest-first source split across two directions:
- *
- * - `fetchOlder` — cursor-based pull. `{ cursor: null }` must resolve the newest
- *   page; a non-null cursor resolves the page strictly older than it. An empty
- *   batch signals the absolute oldest record has been reached.
- * - `subscribeNewer` — a stream anchored at the session's fresh top. It must
- *   deliver every record newer than the cursor (catching up any missed) and then
- *   stay live. A `null` cursor (empty dataset) means "from the start, live".
+ * Newest-first source split across two streams. `subscribeOlder` is finite,
+ * descends toward the oldest record, and completes when the floor is reached.
+ * A non-null older cursor resumes from and including that cursor. `subscribeNewer`
+ * is live, starts strictly after the supplied cursor, catches up missed records,
+ * and then stays open.
  */
 type NewToOldConfig<TItem> = {
-  fetchOlder: (ctx: CursorCtx<TItem>) => Effect.Effect<EntityType<TItem>[]>;
+  subscribeOlder: (
+    ctx: CursorCtx<TItem>,
+  ) => Effect.Effect<Stream.Stream<EntityType<TItem>[]>>;
   subscribeNewer: (
     ctx: CursorCtx<TItem>,
   ) => Effect.Effect<Stream.Stream<EntityType<TItem>[]>>;
@@ -34,10 +37,11 @@ const oldestOf = <TItem>(batch: EntityType<TItem>[]): Cursor<TItem> =>
 const newestOf = <TItem>(batch: EntityType<TItem>[]): Cursor<TItem> =>
   batch.reduce((acc, e) => (uOf(e) > uOf(acc) ? e : acc));
 
-/**
- * Inserts a candidate range into the slice list and merges any slices that
- * overlap or touch, keeping the list disjoint, ascending, and minimal.
- */
+const makeSlice = <TItem>(
+  low: Cursor<TItem>,
+  high: Cursor<TItem>,
+): Slice<TItem> => ({ low, high, itemCount: 0 });
+
 const reconcile = <TItem>(
   slices: readonly Slice<TItem>[],
   candidate: Slice<TItem>,
@@ -46,48 +50,24 @@ const reconcile = <TItem>(
     uOf(a.low) < uOf(b.low) ? -1 : uOf(a.low) > uOf(b.low) ? 1 : 0,
   );
   const merged: Slice<TItem>[] = [];
-  for (const s of all) {
+  for (const slice of all) {
     const last = merged[merged.length - 1];
-    if (last && uOf(s.low) <= uOf(last.high)) {
-      if (uOf(s.high) > uOf(last.high)) last.high = s.high;
+    if (last && uOf(slice.low) <= uOf(last.high)) {
+      if (uOf(slice.high) > uOf(last.high)) last.high = slice.high;
     } else {
-      merged.push({ low: s.low, high: s.high });
+      merged.push(makeSlice(slice.low, slice.high));
     }
   }
   return merged;
 };
 
-/**
- * The slice holding the session's fresh top — the one with the maximum high.
- * `reconcile` keeps slices disjoint and ascending, so the top is the last one.
- */
 const topSlice = <TItem>(
   slices: readonly Slice<TItem>[],
 ): Slice<TItem> | null => slices[slices.length - 1] ?? null;
 
-/**
- * True once the top slice reaches the floor: nothing is loaded below it. With a
- * disjoint, ascending slice list that holds exactly when it has collapsed to one
- * material slice.
- */
 const topReachesFloor = (state: NewToOldState): boolean =>
   state.slices.length === 1;
 
-/**
- * Newest-first strategy with a live tail. Each session first pulls the newest
- * page (`fetchOlder({ cursor: null })`) to anchor at the *fresh* top, then runs
- * two activities concurrently under the engine's retry/scope:
- *
- * - the **live tail** (`subscribeNewer`) extends the top slice upward as new
- *   records arrive;
- * - the **backfill** frontier (`fetchOlder`) descends from the newest page,
- *   reconciling/merging older slices until it hits the floor.
- *
- * State is held in a `SynchronizedRef` so both fibers reconcile atomically; every
- * commit writes server-truth first, then persists the new sync-state. `WriteError`
- * is not caught — it surfaces so the engine restarts the whole run, both fibers
- * together, resuming from the persisted slices.
- */
 export const newToOld = <TItem extends object>(
   config: NewToOldConfig<TItem>,
 ): PartitionedStrategy<TItem, NewToOldState> => ({
@@ -101,8 +81,6 @@ export const newToOld = <TItem extends object>(
       const initial = yield* ctx.getState;
       const stateRef = yield* SynchronizedRef.make(initial);
 
-      // Serialized read-modify-persist: SoT is already written by the caller; this
-      // advances sync-state atomically and returns the committed state.
       const commit = (f: (s: NewToOldState) => NewToOldState) =>
         SynchronizedRef.modifyEffect(stateRef, (s) => {
           const next = f(s);
@@ -114,7 +92,10 @@ export const newToOld = <TItem extends object>(
         (s: NewToOldState): NewToOldState => ({
           ...s,
           reachedOldest: s.slices.length === 0 ? false : s.reachedOldest,
-          slices: reconcile(s.slices as readonly Slice<TItem>[], { low, high }),
+          slices: reconcile(
+            s.slices as readonly Slice<TItem>[],
+            makeSlice(low, high),
+          ),
         });
 
       const markReachedOldest = (s: NewToOldState): NewToOldState => ({
@@ -122,49 +103,59 @@ export const newToOld = <TItem extends object>(
         reachedOldest: true,
       });
 
-      // 1. Latest page — anchors the fresh top and seeds the backfill cursor.
-      const latest = yield* config.fetchOlder({ cursor: null });
-      let freshTop: Cursor<TItem> | null = null;
-      let backfillCursor: Cursor<TItem> | null = null;
-      if (latest.length > 0) {
-        yield* ctx.writeServerTruth(latest);
-        freshTop = newestOf(latest);
-        backfillCursor = oldestOf(latest);
-        yield* commit(addRange(backfillCursor, freshTop));
+      const topAtStart = topSlice(initial.slices as readonly Slice<TItem>[]);
+      const rangeAlreadyComplete =
+        initial.reachedOldest && topReachesFloor(initial);
+      const topReady = yield* Deferred.make<Cursor<TItem> | null>();
+
+      if (topAtStart !== null) {
+        yield* Deferred.succeed(topReady, topAtStart.high);
       }
 
-      // 2. Live tail — extends the top slice upward, anchored at the fresh top.
-      const liveTail = Effect.gen(function* () {
-        const stream = yield* config.subscribeNewer({ cursor: freshTop });
-        yield* Stream.runForEach(stream, (batch) =>
+      const runBackfill = Effect.gen(function* () {
+        if (rangeAlreadyComplete) return;
+
+        const olderStream = yield* config.subscribeOlder({
+          cursor: topAtStart?.low ?? null,
+        });
+        let sawRecord = topAtStart !== null;
+        let sharedTop = topAtStart !== null;
+        let previousFloor = topAtStart?.low;
+
+        yield* Stream.runForEach(olderStream, (batch) =>
+          Effect.gen(function* () {
+            if (batch.length === 0) return;
+            sawRecord = true;
+            yield* ctx.writeServerTruth(batch);
+            const batchTop = newestOf(batch);
+            const batchFloor = oldestOf(batch);
+            yield* commit(addRange(batchFloor, previousFloor ?? batchTop));
+            previousFloor = batchFloor;
+            if (!sharedTop) {
+              sharedTop = true;
+              yield* Deferred.succeed(topReady, batchTop);
+            }
+          }),
+        );
+
+        if (sawRecord) yield* commit(markReachedOldest);
+        yield* Deferred.succeed(topReady, null);
+      });
+
+      const runLiveTail = Effect.gen(function* () {
+        const top = yield* Deferred.await(topReady);
+        const newerStream = yield* config.subscribeNewer({ cursor: top });
+        yield* Stream.runForEach(newerStream, (batch) =>
           Effect.gen(function* () {
             if (batch.length === 0) return;
             yield* ctx.writeServerTruth(batch);
-            const low = freshTop ?? oldestOf(batch);
-            yield* commit(addRange(low, newestOf(batch)));
+            yield* commit(addRange(top ?? oldestOf(batch), newestOf(batch)));
           }),
         );
       });
 
-      // 3. Backfill — descends from the newest page, merging older slices.
-      const backfill = Effect.gen(function* () {
-        let cursor = backfillCursor;
-        while (cursor !== null) {
-          const state = yield* SynchronizedRef.get(stateRef);
-          if (state.reachedOldest && topReachesFloor(state)) return;
-
-          const batch = yield* config.fetchOlder({ cursor });
-          if (batch.length === 0) {
-            yield* commit(markReachedOldest);
-            return;
-          }
-          yield* ctx.writeServerTruth(batch);
-          const next = yield* commit(addRange(oldestOf(batch), cursor));
-          const top = topSlice(next.slices as readonly Slice<TItem>[]);
-          cursor = top === null ? null : top.low;
-        }
+      yield* Effect.all([runBackfill, runLiveTail], {
+        concurrency: 'unbounded',
       });
-
-      yield* Effect.all([backfill, liveTail], { concurrency: 'unbounded' });
     }),
 });

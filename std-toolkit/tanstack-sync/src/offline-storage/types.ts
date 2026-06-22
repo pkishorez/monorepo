@@ -18,6 +18,10 @@ export type OfflineStorageGroup = {
 export type OfflineStorage = {
   group: (name: string) => OfflineStorageGroup;
   clear: () => Effect.Effect<void, OfflineStorageError>;
+  inspect: () => Effect.Effect<
+    Array<{ group: string; entries: Array<{ key: string; value: unknown }> }>,
+    OfflineStorageError
+  >;
 };
 
 export type OfflineStorageSetting = OfflineStorage | false;

@@ -118,6 +118,30 @@ export const idbStorage = (options: IdbStorageOptions): OfflineStorage => {
 
   return {
     group: makeGroup,
+    inspect: () =>
+      Effect.tryPromise({
+        try: async () => {
+          const tx = (await db()).transaction(ENTRY_STORE, 'readonly');
+          const grouped = new Map<
+            string,
+            Array<{ key: string; value: unknown }>
+          >();
+          let cursor = await tx.store.index(GROUP_INDEX).openCursor();
+          while (cursor) {
+            const entry = cursor.value as StoredEntry;
+            const entries = grouped.get(entry.group) ?? [];
+            entries.push({ key: entry.key, value: entry.value });
+            grouped.set(entry.group, entries);
+            cursor = await cursor.continue();
+          }
+          await tx.done;
+          return Array.from(grouped, ([group, entries]) => ({
+            group,
+            entries,
+          }));
+        },
+        catch: (cause) => offlineStorageError('getAll', cause),
+      }),
     clear: () =>
       Effect.tryPromise({
         try: async () => {

@@ -12,6 +12,15 @@ import type { CollectionItem, UpdatePayload } from '../types.js';
 import type { Tracker } from '../registry/tracker.js';
 import { makeSyncStateStore } from './sync-state.js';
 import { resolvePartitionKey } from './partition-router.js';
+import {
+  countNewToOldSlices,
+  describeStrategyState,
+} from './inspector-mapping.js';
+import { GLOBAL_PARTITION_KEY } from './constants.js';
+import type {
+  InspectorPartition,
+  WritableSyncInspector,
+} from '../inspector/index.js';
 import { buildMutationHandlers, makePendingTracker } from './mutations.js';
 import type {
   PartitionedStrategy,
@@ -23,20 +32,8 @@ import {
   type OfflineStorage,
 } from '../offline-storage/index.js';
 
-const GLOBAL_KEY = '__total__';
-
 type Projector<TItem> = ReturnType<typeof makeCollectionProjector<TItem>>;
 
-/**
- * The engine-owned, schema-generic utilities attached to a partitioned collection.
- * Carries no `sync` key — sync wiring is internal to `buildPartitioned`. Every member is
- * a flat function: TanStack's `CollectionImpl.utils` field is typed `Record<string, Fn>`,
- * so a nested-object util would collapse the collection's row type to `never`. `writeUpsert`
- * persists the given server entities through SoT convergence — the manual escape hatch for
- * injecting server truth already in hand. `pacedUpdate` exposes the per-key paced update path;
- * `pendingCount` reports the in-flight mutation count for a single key, and `subscribePending`
- * fires on every change to any key's count.
- */
 export type EngineUtils = {
   schema: () => AnyEntityESchema;
   writeUpsert: (
@@ -50,16 +47,9 @@ export type EngineUtils = {
 const toArray = <T>(value: T | T[]): T[] =>
   Array.isArray(value) ? value : [value];
 
-/**
- * Assembles a partitioned sync collection over one shared Source of Truth: a global
- * `strategy` running under `__total__` plus a per-partition strategy map activated and
- * deactivated by TanStack `loadSubset`/`unloadSubset` refcounting. SoT, sync-state, and
- * refcounts live in the returned config's closure and survive unmount; only the projector
- * and running scopes are torn down on `cleanup`. Registers a `CollectionHandle` with the
- * tracker so the registry can route broadcast traffic to this collection.
- */
 export const buildPartitioned = <S extends AnyEntityESchema>(
   tracker: Tracker,
+  inspector: WritableSyncInspector,
   config: {
     schema: S;
     strategy?: PartitionedStrategy<S['Type'], any>;
@@ -100,12 +90,102 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     | null = null;
   const refcounts = new Map<string, number>();
   const scopes = new Map<string, Scope.Closeable>();
+  const latestPartitionSnapshot = new Map<
+    string,
+    { strategyName: string; value: unknown }
+  >();
+  let liveCollection: {
+    status: string;
+    size: number;
+    subscriberCount: number;
+  } | null = null;
+
+  type PartitionDescriptor = {
+    partitionField: string;
+    partitionValue: string;
+  };
+  const partitionDescriptors = new Map<string, PartitionDescriptor>();
+
+  const partitionIdOf = (partitionKey: string): string =>
+    `${schema.name}:${partitionKey}`;
+
+  const emptyPartitionDescriptor: PartitionDescriptor = {
+    partitionField: '',
+    partitionValue: '',
+  };
+
+  const descriptorOf = (partitionKey: string): PartitionDescriptor =>
+    partitionDescriptors.get(partitionKey) ?? emptyPartitionDescriptor;
+
+  const partitionActivityOf = (
+    partitionKey: string,
+  ): InspectorPartition['activity'] =>
+    partitionKey === GLOBAL_PARTITION_KEY ||
+    (refcounts.get(partitionKey) ?? 0) > 0
+      ? 'active'
+      : 'cached';
+
+  const subscriberCountOf = (partitionKey: string): number =>
+    partitionKey === GLOBAL_PARTITION_KEY
+      ? (liveCollection?.subscriberCount ?? 0)
+      : (refcounts.get(partitionKey) ?? 0);
+
+  const describePartition = (
+    partitionKey: string,
+    itemCount: number,
+    strategyName: string,
+    strategyValue: unknown,
+  ): InspectorPartition => {
+    const descriptor = descriptorOf(partitionKey);
+    return {
+      id: partitionIdOf(partitionKey),
+      collectionName: schema.name,
+      partitionField: descriptor.partitionField,
+      partitionValue: descriptor.partitionValue,
+      partitionKey,
+      partitionKind:
+        partitionKey === GLOBAL_PARTITION_KEY ? 'global' : 'partition',
+      activity: partitionActivityOf(partitionKey),
+      itemCount,
+      subscriberCount: subscriberCountOf(partitionKey),
+      strategyState: describeStrategyState(strategyName, strategyValue),
+    };
+  };
+
+  const refreshInspectorCounts = Effect.gen(function* () {
+    const entities = yield* sot.getAll();
+    for (const partitionKey of scopes.keys()) {
+      const snapshot = latestPartitionSnapshot.get(partitionKey);
+      if (!snapshot) continue;
+      const descriptor = descriptorOf(partitionKey);
+      const { value, itemCount } = countNewToOldSlices(
+        snapshot.value,
+        entities,
+        descriptor.partitionField,
+        descriptor.partitionValue,
+      );
+      latestPartitionSnapshot.set(partitionKey, {
+        strategyName: snapshot.strategyName,
+        value,
+      });
+      inspector.updatePartition(partitionIdOf(partitionKey), {
+        itemCount,
+        strategyState: describeStrategyState(snapshot.strategyName, value),
+      });
+    }
+    if (liveCollection) {
+      inspector.updateCollection(schema.name, {
+        itemCount: liveCollection.size,
+      });
+    }
+  });
 
   const writeServerTruth = (
     entities: EntityType<TItem>[],
   ): Effect.Effect<void, import('../source-of-truth/index.js').WriteError> =>
     sot.write(entities).pipe(
       Effect.tap((accepted) => Effect.sync(() => projector?.project(accepted))),
+      Effect.tap(() => refreshInspectorCounts),
       Effect.asVoid,
     );
 
@@ -129,10 +209,34 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
       group: syncStateGroup,
       state: strat.state,
     });
+    const setState = (s: TState): Effect.Effect<void, WriteError> =>
+      Effect.gen(function* () {
+        const entities = yield* sot.getAll();
+        const descriptor = descriptorOf(key);
+        const { value, itemCount } = countNewToOldSlices(
+          s,
+          entities,
+          descriptor.partitionField,
+          descriptor.partitionValue,
+        );
+        latestPartitionSnapshot.set(key, { strategyName: strat.name, value });
+        yield* stateStore.set(key, value as TState, {
+          collectionName: schema.name,
+          partitionField: descriptor.partitionField,
+          partitionValue: descriptor.partitionValue,
+          partitionKey: key,
+          itemCount,
+        });
+        yield* Effect.sync(() =>
+          inspector.upsertPartition(
+            describePartition(key, itemCount, strat.name, value),
+          ),
+        );
+      });
     return {
       writeServerTruth,
       getState: stateStore.get(key),
-      setState: (s) => stateStore.set(key, s),
+      setState,
       scope,
     };
   };
@@ -163,6 +267,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     const scope = scopes.get(key);
     if (!scope) return;
     scopes.delete(key);
+    latestPartitionSnapshot.delete(key);
     void Effect.runPromise(Scope.close(scope, Exit.succeed(undefined)));
   };
 
@@ -210,6 +315,28 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     ) => Effect.Effect<void, WriteError>,
   });
 
+  const collectionKind = partitionFields.length > 0 ? 'partitioned' : 'keyed';
+
+  const writeInspectorCollection = (): void =>
+    inspector.upsertCollection({
+      id: schema.name,
+      collectionName: schema.name,
+      kind: collectionKind,
+      status: liveCollection?.status ?? 'idle',
+      itemCount: liveCollection?.size ?? 0,
+      subscriberCount: liveCollection?.subscriberCount ?? 0,
+      partitionFields,
+    });
+
+  const writeCleanedUpInspectorCollection = (): void =>
+    inspector.updateCollection(schema.name, {
+      status: 'cleaned-up',
+      itemCount: 0,
+      subscriberCount: 0,
+    });
+
+  writeInspectorCollection();
+
   return {
     getKey: (item) => String((item as Record<string, unknown>)[schema.idField]),
     rowUpdateMode: 'full',
@@ -224,13 +351,29 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
         collectionUpdate = (key, updater) =>
           callbacks.collection.update(key, updater);
 
+        const native = callbacks.collection;
+        liveCollection = native;
+        writeInspectorCollection();
+        const offStatusChange = native.on(
+          'status:change',
+          writeInspectorCollection,
+        );
+        const offSubscribersChange = native.on('subscribers:change', () => {
+          writeInspectorCollection();
+          if (config.strategy) {
+            inspector.updatePartition(partitionIdOf(GLOBAL_PARTITION_KEY), {
+              subscriberCount: native.subscriberCount,
+            });
+          }
+        });
+
         void Effect.runPromise(
           Effect.gen(function* () {
             const all = yield* sot.getAll();
             projector?.projectAll(all);
             callbacks.markReady();
             if (config.strategy) {
-              activatePartition(GLOBAL_KEY, config.strategy);
+              activatePartition(GLOBAL_PARTITION_KEY, config.strategy);
             }
           }).pipe(
             Effect.tapError((error) =>
@@ -258,28 +401,48 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
           const next = (refcounts.get(r.partitionKey) ?? 0) + 1;
           refcounts.set(r.partitionKey, next);
           if (next === 1) {
+            partitionDescriptors.set(r.partitionKey, {
+              partitionField: r.field,
+              partitionValue: String(r.partitionValue),
+            });
             activatePartition(
               r.partitionKey,
               config.partitions![r.field]!(r.partitionValue),
             );
           }
+          inspector.updatePartition(partitionIdOf(r.partitionKey), {
+            activity: 'active',
+            subscriberCount: next,
+          });
           return true;
         };
 
         const unloadSubset = (opts: LoadSubsetOptions): void => {
           const r = resolvePartitionKey(opts, partitionFields);
           if (!r) return;
-          const next = (refcounts.get(r.partitionKey) ?? 0) - 1;
-          refcounts.set(r.partitionKey, Math.max(0, next));
-          if (next === 0) {
-            deactivatePartition(r.partitionKey);
-          }
+          const next = Math.max(0, (refcounts.get(r.partitionKey) ?? 0) - 1);
+          refcounts.set(r.partitionKey, next);
+          if (next === 0) deactivatePartition(r.partitionKey);
+          inspector.updatePartition(partitionIdOf(r.partitionKey), {
+            activity: next > 0 ? 'active' : 'cached',
+            subscriberCount: next,
+          });
         };
 
         const cleanup = (): void => {
+          offStatusChange();
+          offSubscribersChange();
+          writeCleanedUpInspectorCollection();
+          if (config.strategy) {
+            inspector.updatePartition(partitionIdOf(GLOBAL_PARTITION_KEY), {
+              activity: 'cached',
+              subscriberCount: 0,
+            });
+          }
           closeAllScopes();
           projector = null;
           collectionUpdate = null;
+          liveCollection = null;
         };
 
         return { cleanup, loadSubset, unloadSubset };

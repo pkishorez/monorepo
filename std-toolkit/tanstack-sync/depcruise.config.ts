@@ -19,6 +19,9 @@ const sync = layer('sync', ['src/partitioned', 'src/single-item'], {
 const projection = layer('projection', ['src/collection-projection'], {
   description: 'Collection view / projector',
 });
+const inspector = layer('inspector', ['src/inspector'], {
+  description: 'Devtools inspector collections and row types',
+});
 const paced = layer('paced', ['src/paced'], {
   description: 'Pacing and coalescing infrastructure',
 });
@@ -50,6 +53,7 @@ export default {
       entrypoint,
       sync,
       projection,
+      inspector,
       paced,
       registry,
       sourceOfTruth,
@@ -73,6 +77,7 @@ export default {
     module('src/create-std-sync.ts', { feature: 'api' }),
     module('src/types.ts'),
     module('src/collection-projection'),
+    module('src/inspector'),
     module('src/paced'),
     module('src/registry'),
     module('src/source-of-truth'),

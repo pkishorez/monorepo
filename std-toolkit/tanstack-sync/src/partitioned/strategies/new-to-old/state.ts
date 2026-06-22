@@ -9,6 +9,7 @@ const CursorSchema = Schema.Struct({
 const SliceSchema = Schema.Struct({
   low: CursorSchema,
   high: CursorSchema,
+  itemCount: Schema.Number,
 });
 
 export const NewToOldStateSchema = Schema.Struct({
@@ -16,13 +17,4 @@ export const NewToOldStateSchema = Schema.Struct({
   reachedOldest: Schema.Boolean,
 });
 
-/**
- * Sync-state shape for the `newToOld` strategy.
- *
- * `slices` is the disjoint, ascending list of contiguous loaded `_u` ranges
- * (`low`/`high` are the oldest and newest cursors of each range). `reachedOldest`
- * is a collection-level flag that flips true only after the lowest material
- * slice has been proven to reach the absolute floor. Empty collections keep the
- * floor unproven because there is no bottom slice to anchor future gaps.
- */
 export type NewToOldState = typeof NewToOldStateSchema.Type;

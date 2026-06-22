@@ -73,6 +73,18 @@ export const memoryOfflineStorage = (): OfflineStorage => {
 
   return {
     group: makeGroup,
+    inspect: () =>
+      Effect.try({
+        try: () =>
+          Array.from(groups, ([group, entries]) => ({
+            group,
+            entries: Array.from(entries, ([key, value]) => ({
+              key,
+              value: clone(value),
+            })),
+          })),
+        catch: (cause) => offlineStorageError('getAll', cause),
+      }),
     clear: () =>
       Effect.try({
         try: () => {
