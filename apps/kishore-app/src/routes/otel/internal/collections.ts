@@ -1,4 +1,3 @@
-import { createCollection } from '@tanstack/react-db';
 import { Effect, Stream } from 'effect';
 import {
   LogRecordSchema,
@@ -42,23 +41,19 @@ export function buildCollections(baseUrl: string) {
       },
     });
 
-  const traces = createCollection(
-    std.sync({
-      schema: TraceRecordSchema,
-      strategy: pollingStrategy<StoredTraceRecordValue>((client, query) =>
-        client.lotel.queryTraces({ query }),
-      ),
-    }),
-  );
+  const traces = std.collection({
+    schema: TraceRecordSchema,
+    strategy: pollingStrategy<StoredTraceRecordValue>((client, query) =>
+      client.lotel.queryTraces({ query }),
+    ),
+  });
 
-  const logs = createCollection(
-    std.sync({
-      schema: LogRecordSchema,
-      strategy: pollingStrategy<StoredLogRecordValue>((client, query) =>
-        client.lotel.queryLogs({ query }),
-      ),
-    }),
-  );
+  const logs = std.collection({
+    schema: LogRecordSchema,
+    strategy: pollingStrategy<StoredLogRecordValue>((client, query) =>
+      client.lotel.queryLogs({ query }),
+    ),
+  });
 
   return { traces, logs };
 }

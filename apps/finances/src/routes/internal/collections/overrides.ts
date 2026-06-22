@@ -1,4 +1,3 @@
-import { createCollection } from '@tanstack/react-db';
 import { Effect } from 'effect';
 import { createStdSync, syncStrategy } from '@std-toolkit/tanstack-sync';
 import { OverrideSchema } from '@/domain/index';
@@ -7,7 +6,7 @@ import { run, streamSource } from './utils.js';
 
 const std = createStdSync();
 
-const overridesSyncConfig = std.sync({
+export const overridesCollection = std.collection({
   schema: OverrideSchema,
   strategy: syncStrategy.oldToNew({
     stream: streamSource((cursor) =>
@@ -49,5 +48,4 @@ const overridesSyncConfig = std.sync({
     ),
 });
 
-export const overridesCollection = createCollection(overridesSyncConfig);
-export const overridesUtils = overridesSyncConfig.utils;
+export const overridesUtils = overridesCollection.utils;

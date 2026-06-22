@@ -1,4 +1,5 @@
 import { Effect } from 'effect';
+import { createCollection } from '@tanstack/react-db';
 import type { EntityType, SingleEntityType } from '@std-toolkit/core';
 import type {
   AnyEntityESchema,
@@ -103,26 +104,42 @@ export const createStdSync = (defaults?: {
       override,
     });
 
+  const sync = <S extends AnyEntityESchema>(config: SyncConfig<S>) => {
+    const { options, offlineStorage, ...rest } = config;
+    const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
+    const built = buildPartitioned(tracker, inspector, {
+      ...rest,
+      offlineStorage: collectionOfflineStorage,
+    } as Parameters<typeof buildPartitioned<S>>[2]);
+    return { ...mergeOptions(options), ...built };
+  };
+
+  const singleItemSync = <S extends AnySingleEntityESchema>(
+    config: SingleItemSyncConfig<S>,
+  ) => {
+    const { options, offlineStorage, ...rest } = config;
+    const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
+    return buildSingleItem(tracker, inspector, {
+      ...rest,
+      offlineStorage: collectionOfflineStorage,
+      options: mergeOptions(options),
+    });
+  };
+
   return {
-    sync: <S extends AnyEntityESchema>(config: SyncConfig<S>) => {
-      const { options, offlineStorage, ...rest } = config;
-      const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
-      const built = buildPartitioned(tracker, inspector, {
-        ...rest,
-        offlineStorage: collectionOfflineStorage,
-      } as Parameters<typeof buildPartitioned<S>>[2]);
-      return { ...mergeOptions(options), ...built };
+    sync,
+    singleItemSync,
+    collection: <S extends AnyEntityESchema>(config: SyncConfig<S>) => {
+      const collection = createCollection(sync(config));
+      inspector.attachCollection(config.schema.name, collection);
+      return collection;
     },
-    singleItemSync: <S extends AnySingleEntityESchema>(
+    singleItemCollection: <S extends AnySingleEntityESchema>(
       config: SingleItemSyncConfig<S>,
     ) => {
-      const { options, offlineStorage, ...rest } = config;
-      const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
-      return buildSingleItem(tracker, inspector, {
-        ...rest,
-        offlineStorage: collectionOfflineStorage,
-        options: mergeOptions(options),
-      });
+      const collection = createCollection(singleItemSync(config));
+      inspector.attachCollection(config.schema.name, collection);
+      return collection;
     },
     registry: () => buildRegistry(tracker),
     inspector: inspector as SyncInspector,

@@ -1,4 +1,3 @@
-import { createCollection } from '@tanstack/react-db';
 import { Effect } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import { createStdSync, syncStrategy } from '@std-toolkit/tanstack-sync';
@@ -11,7 +10,7 @@ type Transaction = typeof TransactionSchema.Type;
 
 const std = createStdSync();
 
-const transactionsSyncConfig = std.sync({
+export const transactionsCollection = std.collection({
   schema: TransactionSchema,
   strategy: syncStrategy.oldToNew({
     stream: streamSource((cursor) =>
@@ -23,8 +22,7 @@ const transactionsSyncConfig = std.sync({
   }),
 });
 
-export const transactionsCollection = createCollection(transactionsSyncConfig);
-export const transactionsUtils = transactionsSyncConfig.utils;
+export const transactionsUtils = transactionsCollection.utils;
 
 export function replaceTransactions(projection: ProjectionOutput) {
   return financesRuntime
