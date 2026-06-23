@@ -19,7 +19,7 @@ The server/wire form of a record:
 - `_u` — **update key**. Server-assigned ISO timestamp string. Higher lexicographic value wins.
 - `_d` — **deletion flag**. `true` means the entity is a tombstone.
 
-Users do not author Entity Meta during normal collection mutations. Server APIs return envelopes; the sync engine consumes them.
+Users do not author Entity Meta during normal collection mutations. Server APIs return entities; the sync engine consumes them.
 
 ### Item
 
@@ -37,7 +37,7 @@ TanStack DB adds computed sync annotations such as `$synced` and `$origin` on re
 
 Within one `createStdSync()` instance, an entity type may belong to exactly one collection. Entity identity is `schema.name`.
 
-A tracker registration for an already-owned `schema.name` is a configuration error. Incoming envelopes with `meta._e` that does not match the target collection's `schema.name` are wrong-entity inputs.
+A tracker registration for an already-owned `schema.name` is a configuration error. Incoming entities with `meta._e` that does not match the target collection's `schema.name` are wrong-entity inputs.
 
 ### Convergence Rule
 
@@ -60,12 +60,12 @@ The collection may contain rows from partitions that are no longer active. Parti
 
 Two public methods:
 
-- **sync** — a keyed collection. Declares an optional **global** strategy (mirrors the whole set, runs the `__total__` partition) and/or an optional **`partitions`** map (per field-value slice, activated on demand). Global and partitions coexist in one engine over one shared SoT.
+- **sync** — a keyed collection. Declares an optional **global** strategy (mirrors the whole set, runs the **global partition**) and/or an optional **`partitions`** map (per field-value slice, activated on demand). Global and partitions coexist in one engine over one shared SoT.
 - **singleItemSync** — holds exactly one record with no id field. Separate strategy family.
 
 ### Partition
 
-A sync lifecycle boundary for `partitionSync`, scoped to one `partitionField = value`.
+A sync lifecycle boundary for a partitioned `sync` collection, scoped to one `partitionField = value`.
 
 Partitions are activated by TanStack DB `loadSubset(options)` and deactivated by `unloadSubset(options)`. The engine refcounts matching subsets. Refcount `0 -> 1` starts the partition strategy runtime; refcount `1 -> 0` stops it.
 
@@ -84,7 +84,7 @@ SoT can use the default memory backend or a configured Offline Storage backend. 
 **What writes to SoT:**
 
 - Strategy results through the internal server-truth writer.
-- Mutation results after the server returns an envelope.
+- Mutation results after the server returns a confirmed entity.
 - Manual writes with `persist: true`.
 - Broadcasts with `persist: true`.
 
@@ -96,7 +96,7 @@ SoT can use the default memory backend or a configured Offline Storage backend. 
 
 SoT can be written while the TanStack collection is unmounted. If callbacks are absent, projection is deferred. On mount, the engine projects current SoT into the collection.
 
-Server-truth writes are atomic. A batch either succeeds as a whole or fails through `WriteError`. Stale valid envelopes are no-ops, not failures.
+Server-truth writes are atomic. A batch either succeeds as a whole or fails through `WriteError`. Stale valid entities are no-ops, not failures.
 
 ### Collection Projection
 
@@ -106,7 +106,19 @@ Projection is ephemeral. On reload it clears. When durable Offline Storage is co
 
 ### Sync State
 
-Serializable per-strategy, per-partition data stored by the engine and interpreted by the strategy. Persisted Sync State is wrapped with the owning strategy name and decoded through that strategy's state schema before a strategy sees it.
+Serializable per-strategy, per-partition data stored by the engine and interpreted by the strategy. Persisted Sync State is wrapped as a **Stored Sync State** and decoded through that strategy's state schema before a strategy sees it.
+
+A **Stored Sync State** is the on-disk wrapper the engine writes to Offline Storage for one strategy partition:
+
+```
+{ strategy: string, value: unknown, meta?: PartitionMeta }
+```
+
+- `strategy` — the owning strategy name. On read, a mismatch resets the slot to the strategy's empty state.
+- `value` — the opaque strategy-owned Sync State.
+- `meta` — optional partition identity for inspection.
+
+It shares no vocabulary with **Entity**: it carries strategy bookkeeping, never server truth. (The internal identifiers `StoredStrategyState` / `StoredEnvelope` refer to this wrapper; "envelope" is retired as a glossary term.)
 
 Examples:
 
@@ -126,7 +138,7 @@ Optional durable local storage for engine-owned Source of Truth and Sync State.
 
 Offline Storage is not Collection Projection. It may support offline-capable behavior, but it does not by itself define mutation queuing, conflict policy, or network behavior.
 
-An Offline Storage Group is a named key-value space inside Offline Storage. Source of Truth uses one group per collection, keyed by entity id or singleton key. Sync State uses one group per collection, keyed by partition identity such as the global partition or a serialized partition field/value pair.
+An Offline Storage Group is a named key-value space inside Offline Storage. Source of Truth uses one group per collection, keyed by entity id or singleton key. Sync State uses one group per collection, keyed by partition identity such as the global partition (internal key `GLOBAL_PARTITION_KEY = '__total__'`) or a serialized partition field/value pair.
 
 _Avoid_: Cache.
 
@@ -136,9 +148,15 @@ The active runtime window in which a strategy may perform work.
 
 For a global keyed strategy, the global partition starts when collection sync starts and stops when collection cleanup runs.
 
-For `partitionSync`, each partition starts and stops through TanStack DB's `loadSubset` / `unloadSubset` lifecycle.
+For a partitioned `sync` collection, each partition starts and stops through TanStack DB's `loadSubset` / `unloadSubset` lifecycle.
 
 For `singleItemSync`, lifecycle is collection-level: start on sync start, stop on cleanup.
+
+### Cursor
+
+An opaque boundary marker handed to the user's `fetch` closure. Concretely it is the boundary **entity** (`Cursor<TItem> = EntityType<TItem>`), not a bare `_u` string.
+
+The strategy never interprets a cursor except to read `_u` for ordering and boundary comparison. "How to fetch older/newer than this cursor" — and any tie-breaking to keep `_u` a strict total order — is the closure's concern. `{ cursor: null }` means the natural extreme page (newest for `fetchOlder`, oldest for `fetchNewer`).
 
 ### Sync Strategy
 
@@ -164,7 +182,7 @@ The strategy contract is a single method `run(ctx): Effect<void, WriteError, Sco
 **Strategy binding per shape:**
 
 - Global keyed strategy — `strategy` is a single strategy instance (collection-scoped, one global partition).
-- `partitionSync` — `strategy` is a factory `(partitionValue) => Strategy`. The engine calls it on partition refcount `0→1`; the strategy captures the value by closure and stays partition-blind.
+- Partitioned `sync` — each entry in the `partitions` map is a factory `(partitionValue) => Strategy`. The engine calls it on partition refcount `0→1`; the strategy captures the value by closure and stays partition-blind.
 
 **Partitioned strategy family**:
 
@@ -176,11 +194,11 @@ The strategy contract is a single method `run(ctx): Effect<void, WriteError, Sco
   Covered state is a **persisted list of disjoint `_u` ranges (slices)** plus a single collection-level `reachedOldest` flag:
 
   ```ts
-  type Slice = { low: Cursor; high: Cursor }; // lowest & highest _u of a contiguous loaded range
+  type Slice = { low: Cursor; high: Cursor }; // boundary entities at the lowest & highest _u of a contiguous loaded range
   type NewToOldState = { slices: Slice[]; reachedOldest: boolean };
   ```
 
-  - A **slice** is a contiguous loaded range `[low, high]` of `_u` values.
+  - A **slice** is a contiguous loaded range whose `low`/`high` are the boundary **entities** at the oldest and newest `_u` of the range. Slice ordering and overlap are computed by comparing those entities' `_u`.
   - **Reconcile** runs on every batch (live-tail push and backfill pull alike): extend the touched slice, then merge any slices that overlap or touch, keeping the list disjoint and minimal. Overlap is detected by `_u` comparison — the strategy reads `_u` to sort batches and compare boundaries; the cursor is opaque only as to _how to fetch older from it_. Exact no-overlap adjacency is undetectable but harmless: backfill overlaps into the next slice on its next page and merges then.
   - **`reachedOldest`** is a property of the whole sync, not of a slice. It becomes true only after the lowest material slice has been proven to reach the absolute floor. An empty collection leaves `reachedOldest: false` because there is no bottom slice to anchor future gaps. The Upward Migration invariant guarantees the oldest record never moves, so once a material floor is proven, the flag is true forever. Every later session is then **pure gap-filling above the floor** — backfill stops as soon as its frontier merges into the bottom-most slice and never probes below the floor again.
   - The **latest slice** is just the session's first `fetchOlder({ cursor: null })` (null ⇒ newest page); no separate "get latest" endpoint.
@@ -229,10 +247,10 @@ Flow:
 1. TanStack DB handles optimistic mutation state and rollback.
 2. The engine extracts the mutation payload.
 3. The user-supplied Effect calls the server.
-4. The server returns a confirmed envelope.
-5. The engine writes that envelope through `writeServerTruth`.
+4. The server returns a confirmed entity.
+5. The engine writes that entity through `writeServerTruth`.
 
-`onDelete` returns a tombstone envelope with `_d: true`, not `void`.
+`onDelete` returns a tombstone entity with `_d: true`, not `void`.
 
 Mutation results do not touch Sync State.
 
@@ -252,7 +270,7 @@ utils.subscribePending(listener);
 
 ### Registry
 
-The router for broadcast messages. `registry()` returns `process(message)`, which routes each envelope by `_e` to the collection that owns that entity type in the same `createStdSync()` instance.
+The router for broadcast messages. `registry()` returns `process(message)`, which routes each entity by `_e` to the collection that owns that entity type in the same `createStdSync()` instance.
 
 Because entity ownership is disjoint, each `_e` has at most one target collection.
 
@@ -278,7 +296,7 @@ Internal structure that remembers which collections a `createStdSync()` instance
 
 The factory. One call per app or feature scope. Returns `sync`, `singleItemSync`, and `registry`.
 
-`sync` is the unified keyed-collection method. One collection declares an optional **global** `strategy` (an instance, runs the `__total__` partition at sync start) and an optional **`partitions`** map (`field → (partitionValue) => Strategy`, each activated on a matching `loadSubset`). Both coexist in one engine sharing one SoT; convergence dedupes overlap. The runtime routes each live query: matching partition field → that partition's strategy; no match → covered by the global (or `console.error` if no global configured).
+`sync` is the unified keyed-collection method. One collection declares an optional **global** `strategy` (an instance, runs the **global partition** at sync start) and an optional **`partitions`** map (`field → (partitionValue) => Strategy`, each activated on a matching `loadSubset`). Both coexist in one engine sharing one SoT; convergence dedupes overlap. The runtime routes each live query: matching partition field → that partition's strategy; no match → covered by the global (or `console.error` if no global configured).
 
 The public surface of the main barrel, no exported types: `createStdSync`, `syncStrategy` (`syncStrategy.oldToNew`), `singleItemSyncStrategy` (`singleItemSyncStrategy.getOnce`), and `paceStrategy` (`paceStrategy.coalesce`, `paceStrategy.debounce`, ...). The `@std-toolkit/tanstack-sync/paced` subpath additionally exports the raw `coalesceStrategy` primitive. All config/result/interface types flow through inference.
 
