@@ -1,4 +1,5 @@
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
+import { MetaSchema } from '@std-toolkit/core';
 import type { EntityType } from '@std-toolkit/core';
 import type { AnyEntityESchema } from '@std-toolkit/eschema';
 import type { OfflineStorageGroup } from '../offline-storage/index.js';
@@ -28,20 +29,21 @@ export type SourceOfTruth<TItem> = {
   get: (id: string) => Effect.Effect<EntityType<TItem> | null, WriteError>;
 };
 
+const isMeta = Schema.is(MetaSchema);
+
+/**
+ * Structural guard on the entity wire shape: a present `value` plus a well-formed
+ * meta block. It reuses core's `MetaSchema` for the meta check and deliberately
+ * does not validate the value's domain fields — SoT stores server truth verbatim
+ * and converges by `_u`.
+ */
 const isStructurallySound = (
   entity: unknown,
 ): entity is EntityType<unknown> => {
   if (entity == null || typeof entity !== 'object') return false;
   const candidate = entity as { value?: unknown; meta?: unknown };
   if (!('value' in candidate) || candidate.value == null) return false;
-  const meta = candidate.meta as Record<string, unknown> | undefined;
-  if (meta == null || typeof meta !== 'object') return false;
-  return (
-    typeof meta._e === 'string' &&
-    typeof meta._u === 'string' &&
-    typeof meta._v === 'string' &&
-    typeof meta._d === 'boolean'
-  );
+  return isMeta(candidate.meta);
 };
 
 /**
