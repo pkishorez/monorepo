@@ -137,6 +137,22 @@ describe('bidirectional', () => {
     expect(written).toHaveLength(8);
   });
 
+  it('does not re-fetch the already-loaded window on resume', async () => {
+    const dataset = ['u01', 'u02', 'u03', 'u04', 'u05', 'u06'].map((u) =>
+      entity(u, u),
+    );
+    const first = await drive({ dataset, pageSize: 2 });
+    expect(first.state.slices).toHaveLength(1);
+    expect(uOf(first.state.slices[0]!.low as EntityType<Item>)).toBe('u01');
+    expect(uOf(first.state.slices[0]!.high as EntityType<Item>)).toBe('u06');
+
+    // Re-open with no new server data: a complete slice must reconcile to a
+    // no-op and write nothing — no re-download of the loaded range.
+    const second = await drive({ dataset, pageSize: 2, initial: first.state });
+    expect(second.state.slices).toHaveLength(1);
+    expect(second.written).toHaveLength(0);
+  });
+
   it('resumes a warm session and refills the top gap', async () => {
     const session1 = ['u01', 'u02', 'u03', 'u04'].map((u) => entity(u, u));
     const first = await drive({ dataset: session1, pageSize: 2 });

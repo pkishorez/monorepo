@@ -141,6 +141,17 @@ export const makeSyncInspector = (): WritableSyncInspector => {
     );
   };
 
+  // Drop a partition row to zero so its card reflects the cleared storage
+  // immediately, rather than showing the stale snapshot until the next re-sync.
+  const resetPartitionRow = (id: string): void => {
+    const row = partitions.toArray.find((p) => p.id === id);
+    if (!row) return;
+    mergeInto(partitions, id, {
+      itemCount: 0,
+      strategyState: emptyStrategyState(row.strategyState.strategy),
+    });
+  };
+
   return {
     collections,
     partitions,
@@ -159,26 +170,37 @@ export const makeSyncInspector = (): WritableSyncInspector => {
       if (!controls) return Effect.succeed(0);
       return controls.readValues().pipe(Effect.map((values) => values.length));
     },
-    clearEntries: (name) =>
-      storageControls.get(name)?.clearEntries() ?? Effect.void,
-    clearSyncState: (name, partitionKey) => {
+    clearEntries: (name) => {
       const controls = storageControls.get(name);
       if (!controls) return Effect.void;
-      return controls.clearSyncState(partitionKey).pipe(
-        // Reset the live row so the card drops to zero immediately, rather than
-        // showing the stale snapshot until the partition next re-syncs.
+      // Clearing entries also clears every partition's sync state, so zero each
+      // partition row and the collection's total to match the cleared storage.
+      return controls.clearEntries().pipe(
         Effect.tap(() =>
           Effect.sync(() => {
-            const id = `${name}:${partitionKey}`;
-            const row = partitions.toArray.find((p) => p.id === id);
-            if (!row) return;
-            mergeInto(partitions, id, {
-              itemCount: 0,
-              strategyState: emptyStrategyState(row.strategyState.strategy),
-            });
+            for (const row of partitions.toArray) {
+              if (row.collectionName === name) resetPartitionRow(row.id);
+            }
+            const collectionRow = collections.toArray.find(
+              (c) => c.collectionName === name,
+            );
+            if (collectionRow) {
+              mergeInto(collections, collectionRow.id, { itemCount: 0 });
+            }
           }),
         ),
       );
+    },
+    clearSyncState: (name, partitionKey) => {
+      const controls = storageControls.get(name);
+      if (!controls) return Effect.void;
+      return controls
+        .clearSyncState(partitionKey)
+        .pipe(
+          Effect.tap(() =>
+            Effect.sync(() => resetPartitionRow(`${name}:${partitionKey}`)),
+          ),
+        );
     },
     upsertCollection: (row) => upsertInto(collections, row),
     upsertPartition: (row) => upsertInto(partitions, row),

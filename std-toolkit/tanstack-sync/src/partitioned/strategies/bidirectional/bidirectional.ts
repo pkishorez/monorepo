@@ -57,23 +57,32 @@ export const bidirectional = <TItem extends object>(
           ),
         });
 
-      const [latest, oldest] = yield* Effect.all(
-        [
-          config.fetchOlder({ cursor: null }),
-          config.fetchNewer({ cursor: null }),
-        ],
-        { concurrency: 'unbounded' },
-      );
-
       let freshTop: Cursor<TItem> | null = null;
-      if (latest.length > 0) {
-        yield* ctx.writeServerTruth(latest);
-        freshTop = newestOf(latest);
-        yield* commit(addRange(oldestOf(latest), freshTop));
-      }
-      if (oldest.length > 0) {
-        yield* ctx.writeServerTruth(oldest);
-        yield* commit(addRange(oldestOf(oldest), newestOf(oldest)));
+
+      const resumeTop = topSlice(initial.slices as readonly Slice<TItem>[]);
+      if (resumeTop) {
+        // Resume from persisted slices: the live tail catches up newer items and
+        // the gap-fill loops cover the rest. Re-anchoring would re-fetch ranges
+        // already in offline storage.
+        freshTop = resumeTop.high;
+      } else {
+        const [latest, oldest] = yield* Effect.all(
+          [
+            config.fetchOlder({ cursor: null }),
+            config.fetchNewer({ cursor: null }),
+          ],
+          { concurrency: 'unbounded' },
+        );
+
+        if (latest.length > 0) {
+          yield* ctx.writeServerTruth(latest);
+          freshTop = newestOf(latest);
+          yield* commit(addRange(oldestOf(latest), freshTop));
+        }
+        if (oldest.length > 0) {
+          yield* ctx.writeServerTruth(oldest);
+          yield* commit(addRange(oldestOf(oldest), newestOf(oldest)));
+        }
       }
 
       const collapsed = (s: BidirectionalState): boolean =>

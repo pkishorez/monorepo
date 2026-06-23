@@ -101,17 +101,42 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
   inspector.attachStorage(schema.name, {
     readValues: () =>
       sot.getAll().pipe(Effect.map((entities) => entities.map((e) => e.value))),
-    clearEntries: () => sotGroup.clear(),
-    // Drop the retained in-memory snapshot too, so a still-resident (but
-    // unsubscribed) partition can't re-persist the state we just deleted.
+    // A live subscriber's strategy would re-persist the state we delete, so
+    // refuse unless subscribers are zero. Clearing entities also clears the
+    // cursors that describe them, else the strategy resumes from slices for
+    // data that no longer exists.
+    clearEntries: () =>
+      Effect.gen(function* () {
+        if (
+          (liveCollection?.subscriberCount ?? 0) > 0 ||
+          [...refcounts.values()].some((count) => count > 0)
+        ) {
+          return yield* Effect.fail(
+            new Error(
+              `[tanstack-sync] refusing to clear entries for "${schema.name}" with active subscribers`,
+            ),
+          );
+        }
+        yield* sotGroup.clear();
+        yield* syncStateGroup.clear();
+        latestPartitionSnapshot.clear();
+      }),
     clearSyncState: (partitionKey) =>
-      syncStateGroup
-        .delete(partitionKey)
-        .pipe(
-          Effect.tap(() =>
-            Effect.sync(() => latestPartitionSnapshot.delete(partitionKey)),
-          ),
-        ),
+      Effect.gen(function* () {
+        const subscribers =
+          partitionKey === GLOBAL_PARTITION_KEY
+            ? (liveCollection?.subscriberCount ?? 0)
+            : (refcounts.get(partitionKey) ?? 0);
+        if (subscribers > 0) {
+          return yield* Effect.fail(
+            new Error(
+              `[tanstack-sync] refusing to clear sync state for "${partitionKey}" with active subscribers`,
+            ),
+          );
+        }
+        yield* syncStateGroup.delete(partitionKey);
+        latestPartitionSnapshot.delete(partitionKey);
+      }),
   });
 
   type PartitionDescriptor = {
@@ -420,18 +445,19 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
               partitionValue: String(r.partitionValue),
             });
             const strat = config.partitions![r.field]!(r.partitionValue);
-            // Register the partition the moment it activates, before any data
-            // arrives. The strategy only writes its inspector row after the
-            // first non-empty batch, so an empty (or not-yet-synced) partition
-            // would otherwise stay invisible even while live and fetching.
-            inspector.upsertPartition(
-              describePartition(
-                r.partitionKey,
-                0,
-                strat.name,
-                strat.state.empty,
-              ),
-            );
+            // Seed a placeholder row only for a never-seen partition; a cached
+            // partition already carries its restored count and slices, and
+            // overwriting it would blank the row to zero until resync.
+            if (!inspector.partitions.has(partitionIdOf(r.partitionKey))) {
+              inspector.upsertPartition(
+                describePartition(
+                  r.partitionKey,
+                  0,
+                  strat.name,
+                  strat.state.empty,
+                ),
+              );
+            }
             activatePartition(r.partitionKey, strat);
           }
           inspector.updatePartition(partitionIdOf(r.partitionKey), {
