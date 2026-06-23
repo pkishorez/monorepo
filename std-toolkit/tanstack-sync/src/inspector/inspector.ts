@@ -29,8 +29,8 @@ const emptyStrategyState = (
 /**
  * Per-collection handle onto its offline storage, registered by the sync engine
  * at build time. Lets the inspector expose semantic storage operations without
- * its consumer (devtools) reconstructing group-name conventions or the SoT
- * envelope shape — those stay owned by the engine that wrote them.
+ * its consumer (devtools) reconstructing group-name conventions or the Stored
+ * Sync State shape — those stay owned by the engine that wrote them.
  */
 export type CollectionStorageControls = {
   /** Live (non-tombstoned) domain values from the collection's source of truth. */

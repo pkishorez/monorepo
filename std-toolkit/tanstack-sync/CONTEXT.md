@@ -118,7 +118,7 @@ A **Stored Sync State** is the on-disk wrapper the engine writes to Offline Stor
 - `value` — the opaque strategy-owned Sync State.
 - `meta` — optional partition identity for inspection.
 
-It shares no vocabulary with **Entity**: it carries strategy bookkeeping, never server truth. (The internal identifiers `StoredStrategyState` / `StoredEnvelope` refer to this wrapper; "envelope" is retired as a glossary term.)
+It shares no vocabulary with **Entity**: it carries strategy bookkeeping, never server truth. (The internal identifier `StoredStrategyState` refers to this wrapper; "envelope" is retired as a glossary term.)
 
 Examples:
 

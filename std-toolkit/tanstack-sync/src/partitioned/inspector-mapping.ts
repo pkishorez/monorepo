@@ -135,7 +135,7 @@ export const describeStrategyState = (
 
 const STATE_GROUP_PREFIX = 'state/';
 
-type StoredEnvelope = {
+type StoredStrategyState = {
   strategy: string;
   value: unknown;
   meta: {
@@ -147,7 +147,9 @@ type StoredEnvelope = {
   };
 };
 
-const isStoredEnvelope = (value: unknown): value is StoredEnvelope => {
+const isStoredStrategyState = (
+  value: unknown,
+): value is StoredStrategyState => {
   if (value == null || typeof value !== 'object') return false;
   const candidate = value as Record<string, unknown>;
   if (typeof candidate.strategy !== 'string' || !('value' in candidate)) {
@@ -174,7 +176,7 @@ export const restoreCachedPartitions = (
   for (const { group, entries } of groups) {
     if (!group.startsWith(STATE_GROUP_PREFIX)) continue;
     for (const { key, value } of entries) {
-      if (!isStoredEnvelope(value)) continue;
+      if (!isStoredStrategyState(value)) continue;
       const { meta } = value;
       const id = `${meta.collectionName}:${key}`;
       if (inspector.partitions.has(id)) continue;
