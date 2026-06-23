@@ -16,10 +16,10 @@ const SINGLE_KEY = '__single__';
 /**
  * Builds the single-item mutation handlers. There is no insert or delete: a
  * single-item record has collection-level lifecycle only. `onUpdate` runs the user
- * Effect and flushes the returned server envelope through `writeServerTruth`.
+ * Effect and flushes the returned server entity through `writeServerTruth`.
  * `pacedUpdate` paces optimistic updates through a single in-flight gate (default
  * `coalesce`), applying the optimistic row via the supplied `optimistic` callback
- * and flushing the confirmed envelope. Mutation results never touch sync-state.
+ * and flushing the confirmed entity. Mutation results never touch sync-state.
  */
 export const buildMutationHandlers = <TItem extends object>(args: {
   writeServerTruth: (

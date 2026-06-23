@@ -49,7 +49,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
     itemCount,
   });
 
-  const putEnvelope = (key: string, value: unknown, meta: PartitionMeta) =>
+  const putStoredState = (key: string, value: unknown, meta: PartitionMeta) =>
     args.group
       .put<StoredStrategyState>(key, {
         strategy: args.strategyName,
@@ -69,7 +69,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
     Effect.gen(function* () {
       const state = emptyState();
       yield* Effect.sync(() => console.warn(message));
-      yield* putEnvelope(key, state, baseMeta(key, 0));
+      yield* putStoredState(key, state, baseMeta(key, 0));
       return state;
     });
 
@@ -89,7 +89,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
         if (!isStoredStrategyState(stored)) {
           return yield* reset(
             key,
-            `[tanstack-sync] reset legacy sync state for "${args.schemaName}" strategy "${args.strategyName}" because it was missing the strategy-state envelope (strategy/value)`,
+            `[tanstack-sync] reset legacy sync state for "${args.schemaName}" strategy "${args.strategyName}" because it was missing the Stored Sync State wrapper (strategy/value)`,
           );
         }
 
@@ -113,6 +113,6 @@ export const makeSyncStateStore = <TState = unknown>(args: {
         return yield* decoded;
       }),
     set: (key, state, meta) =>
-      putEnvelope(key, state, meta ?? baseMeta(key, 0)),
+      putStoredState(key, state, meta ?? baseMeta(key, 0)),
   };
 };

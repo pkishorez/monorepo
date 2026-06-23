@@ -66,10 +66,10 @@ const stripMeta = <TItem extends object>(
 /**
  * Builds the TanStack mutation handlers for a partitioned collection. Each handler
  * extracts the payload from the transaction, runs the user Effect, and flushes the
- * returned server envelope through `writeServerTruth`; `onDelete` flushes the
+ * returned server entity through `writeServerTruth`; `onDelete` flushes the
  * tombstone the user Effect returns. `pacedUpdate` paces optimistic updates per key via
  * `buildPacedUpdate` (default `coalesce`), applying the optimistic row through the
- * engine-supplied `optimistic` callback and flushing the confirmed envelope through
+ * engine-supplied `optimistic` callback and flushing the confirmed entity through
  * `writeServerTruth`. Mutation results never touch sync-state.
  */
 export const buildMutationHandlers = <S extends AnyEntityESchema>(args: {
