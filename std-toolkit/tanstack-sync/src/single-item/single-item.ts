@@ -216,6 +216,9 @@ export const buildSingleItem = <S extends AnySingleEntityESchema>(
           const scope = yield* Scope.make();
 
           const ctx: StrategyContext<TItem, typeof strategy.state.empty> = {
+            // Single-item collections have no forward fetch; strategies that
+            // need a forward fetch are partitioned, not single-item.
+            forwardFetch: () => Effect.succeed([]),
             writeServerTruth,
             getState: stateStore.get(SINGLE_STATE_KEY),
             setState: (state) => stateStore.set(SINGLE_STATE_KEY, state),

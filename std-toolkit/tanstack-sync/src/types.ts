@@ -1,5 +1,6 @@
 import type { CollectionConfig, VirtualRowProps } from '@tanstack/react-db';
-import type { MetaSchema } from '@std-toolkit/core';
+import type { Effect } from 'effect';
+import type { EntityType, MetaSchema } from '@std-toolkit/core';
 import type { AnyEntityESchema, ESchemaIdField } from '@std-toolkit/eschema';
 
 /**
@@ -15,6 +16,15 @@ import type { AnyEntityESchema, ESchemaIdField } from '@std-toolkit/eschema';
 export type CollectionItem<T> = T & {
   _meta?: typeof MetaSchema.Type;
 } & Partial<VirtualRowProps<string>>;
+
+/**
+ * Per-partition forward (old→new) fetch source. The partition factory supplies
+ * one; old→new and bidirectional consume it as their forward direction (new→old
+ * declares but does not consume it), and the cadence repair loop reuses it.
+ */
+export type ForwardFetch<T> = (ctx: {
+  cursor: EntityType<T> | null;
+}) => Effect.Effect<EntityType<T>[]>;
 
 /**
  * Pass-through TanStack collection options, with the fields the engine owns

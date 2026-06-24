@@ -18,6 +18,8 @@ The server/wire form of a record:
 - `_v` — **schema version**. Passed through by the sync engine.
 - `_u` — **update key**. Server-assigned ISO timestamp string. Higher lexicographic value wins.
 - `_d` — **deletion flag**. `true` means the entity is a tombstone.
+- `_s` — **server observation time** (optional, epoch ms). When the server recorded the entity. Used by Cadence Sync to detect freshly-delivered rows.
+- `_c` — **client receipt time** (optional, epoch ms). When the client received the entity. The `_c − _s` gap is the clock skew Cadence Sync corrects for when judging readiness.
 
 Users do not author Entity Meta during normal collection mutations. Server APIs return entities; the sync engine consumes them.
 
@@ -237,6 +239,16 @@ The cursor handed to the user's fetch closure is **opaque** (the boundary entity
 - **GetOnce** — fetches once on lifecycle start.
 - **Poll** — fetches on start and repeats while active.
 - **Subscribe** — receives a stream while active.
+
+### Cadence Sync
+
+A drift-repair loop that runs **in parallel** with a partition's Sync Strategy, forked under the same partition scope. It does not pull new history; it re-confirms recently-delivered rows so the strategy's covered ranges do not silently drift.
+
+Each pass scans the partition's projected rows (narrowed to `field = value`) for **suspects** — rows delivered so close to their own `_u` that sibling records at the same `_u` may still have been in flight (`_s − Date.parse(_u) < window`). Once the oldest suspect has aged past `readiness` (adjusting for the `_c − _s` clock skew), it re-fetches from the suspect's predecessor anchor and writes the result through `writeServerTruth`.
+
+Cadence Sync **only writes Source of Truth**; it never reads or advances Sync State — it owns no cursor and claims no forward progress. It is optional per partition (`cadence?: CadenceConfig | false`) and inherits a `defaultCadence` from `createStdSync`. Config is `{ window, readiness, pollDelay, debug? }`.
+
+_Avoid_: Cadence Sync Strategy (it is not a Sync Strategy), polling.
 
 ### Mutations (`onInsert` / `onUpdate` / `onDelete`)
 

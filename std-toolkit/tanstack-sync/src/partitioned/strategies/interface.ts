@@ -2,6 +2,8 @@ import type { Effect, Scope } from 'effect';
 import type { EntityType } from '@std-toolkit/core';
 import type { WriteError } from '../../source-of-truth/write-error.js';
 import type { StrategyStateSpec } from '../strategy-state.js';
+import type { ForwardFetch } from '../../types.js';
+import type { CadenceConfig } from '../../cadence-sync/index.js';
 
 /**
  * The engine-provided surface a partitioned strategy runs against. Carries no
@@ -9,6 +11,7 @@ import type { StrategyStateSpec } from '../strategy-state.js';
  * slot. `writeServerTruth` exposes the engine's SoT-write-then-project composition.
  */
 export type StrategyContext<TItem, TState = unknown> = {
+  forwardFetch: ForwardFetch<TItem>;
   writeServerTruth: (
     entities: EntityType<TItem>[],
   ) => Effect.Effect<void, WriteError>;
@@ -28,4 +31,17 @@ export type PartitionedStrategy<TItem extends object, TState = unknown> = {
   run: (
     ctx: StrategyContext<TItem, TState>,
   ) => Effect.Effect<void, WriteError, Scope.Scope>;
+};
+
+/**
+ * One sync entry — used both as a total collection's `sync` and as what each
+ * partition factory returns: the sync strategy, its mandatory forward fetch, and
+ * an optional cadence repair policy. `cadence`: an object overrides, `false`
+ * force-disables (overriding any inherited default), and omitting it inherits the
+ * `createStdSync` default (or stays off).
+ */
+export type PartitionEntry<TItem extends object, TState = any> = {
+  strategy: PartitionedStrategy<TItem, TState>;
+  forwardFetch: ForwardFetch<TItem>;
+  cadence?: CadenceConfig | false;
 };

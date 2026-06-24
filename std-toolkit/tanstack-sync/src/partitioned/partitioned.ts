@@ -1,4 +1,9 @@
 import { Duration, Effect, Exit, Schedule, Scope } from 'effect';
+import {
+  runCadenceSync,
+  type CadenceConfig,
+  type SyncCollection,
+} from '../cadence-sync/index.js';
 import type {
   CollectionConfig,
   LoadSubsetOptions,
@@ -6,6 +11,7 @@ import type {
 } from '@tanstack/react-db';
 import type { EntityType } from '@std-toolkit/core';
 import type { AnyEntityESchema } from '@std-toolkit/eschema';
+import type { ForwardFetch } from '../types.js';
 import { makeSourceOfTruth, WriteError } from '../source-of-truth/index.js';
 import { makeCollectionProjector } from '../collection-projection/index.js';
 import type { CollectionItem, UpdatePayload } from '../types.js';
@@ -24,6 +30,7 @@ import type {
 import { buildMutationHandlers, makePendingTracker } from './mutations.js';
 import type {
   PartitionedStrategy,
+  PartitionEntry,
   StrategyContext,
 } from './strategies/interface.js';
 import type { PaceStrategyFactory } from '../paced/pace-strategy.js';
@@ -52,11 +59,8 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
   inspector: WritableSyncInspector,
   config: {
     schema: S;
-    strategy?: PartitionedStrategy<S['Type'], any>;
-    partitions?: Record<
-      string,
-      (value: unknown) => PartitionedStrategy<S['Type'], any>
-    >;
+    total?: PartitionEntry<S['Type']>;
+    partitions?: Record<string, (value: unknown) => PartitionEntry<S['Type']>>;
     onInsert?: (item: S['Type']) => Effect.Effect<EntityType<S['Type']>>;
     onUpdate?: (
       payload: UpdatePayload<S['Type'], S>,
@@ -64,6 +68,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     onDelete?: (id: string) => Effect.Effect<EntityType<S['Type']>>;
     updatePacing?: PaceStrategyFactory;
     offlineStorage: OfflineStorage;
+    defaultCadence?: CadenceConfig;
   },
 ): CollectionConfig<CollectionItem<S['Type']>, string, never, EngineUtils> & {
   utils: EngineUtils;
@@ -97,6 +102,12 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     size: number;
     subscriberCount: number;
   } | null = null;
+  // The full native collection, needed by per-partition cadence loops for their
+  // queries and subscriber latch (the narrowed `liveCollection` view is not enough).
+  let nativeCollection: SyncCollection<TItem> | null = null;
+  // Resolved cadence per active partition, surfaced to the inspector and reused
+  // by describePartition across its several call sites.
+  const partitionCadence = new Map<string, CadenceConfig>();
 
   inspector.attachStorage(schema.name, {
     readValues: () =>
@@ -176,6 +187,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     strategyValue: unknown,
   ): InspectorPartition => {
     const descriptor = descriptorOf(partitionKey);
+    const cadence = partitionCadence.get(partitionKey);
     return {
       id: partitionIdOf(partitionKey),
       collectionName: schema.name,
@@ -188,6 +200,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
       itemCount,
       subscriberCount: subscriberCountOf(partitionKey),
       strategyState: describeStrategyState(strategyName, strategyValue),
+      ...(cadence ? { cadence } : {}),
     };
   };
 
@@ -241,6 +254,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     key: string,
     scope: Scope.Scope,
     strat: PartitionedStrategy<TItem, TState>,
+    forwardFetch: ForwardFetch<TItem>,
   ): StrategyContext<TItem, TState> => {
     const stateStore = makeSyncStateStore({
       schemaName: schema.name,
@@ -273,6 +287,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
         );
       });
     return {
+      forwardFetch,
       writeServerTruth,
       getState: stateStore.get(key),
       setState,
@@ -280,24 +295,83 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
     };
   };
 
+  type PartitionRuntime = {
+    forwardFetch: ForwardFetch<TItem>;
+    cadence?: CadenceConfig | undefined;
+    partition?: { field: string; value: string } | undefined;
+  };
+
+  // Resolves a partition's cadence (explicit `false` disables it, otherwise the
+  // entry's own cadence wins over the collection default) and records the result
+  // in `partitionCadence` for the inspector.
+  const resolveCadence = (
+    key: string,
+    entry: { cadence?: CadenceConfig | false | undefined },
+  ): CadenceConfig | undefined => {
+    const cadence =
+      entry.cadence === false
+        ? undefined
+        : (entry.cadence ?? config.defaultCadence);
+    if (cadence) partitionCadence.set(key, cadence);
+    else partitionCadence.delete(key);
+    return cadence;
+  };
+
+  // Shared supervision for a forked partition fiber: log errors and defects, then
+  // retry on a fixed cadence so a crashed fork recovers without tearing down the
+  // partition scope.
+  const superviseFiber = <A, E>(
+    label: string,
+    effect: Effect.Effect<A, E, Scope.Scope>,
+    scope: Scope.Scope,
+  ): Effect.Effect<A, E> =>
+    effect.pipe(
+      Scope.provide(scope),
+      Effect.tapError((e) =>
+        Effect.sync(() => console.error(`[tanstack-sync] ${label} failed`, e)),
+      ),
+      Effect.tapDefect((defect) =>
+        Effect.sync(() =>
+          console.error(`[tanstack-sync] ${label} crashed`, defect),
+        ),
+      ),
+      Effect.retry(Schedule.spaced(Duration.seconds(2))),
+    );
+
   const activatePartition = <TState>(
     key: string,
     strat: PartitionedStrategy<TItem, TState>,
+    runtime: PartitionRuntime,
   ): void => {
     void Effect.runPromise(
       Effect.gen(function* () {
         const scope = yield* Scope.make();
         scopes.set(key, scope);
-        const run = strat.run(buildCtx(key, scope, strat)).pipe(
-          Scope.provide(scope),
-          Effect.tapError((e) =>
-            Effect.sync(() =>
-              console.error('[tanstack-sync] strategy run failed', e),
-            ),
-          ),
-          Effect.retry(Schedule.spaced(Duration.seconds(2))),
+        const run = superviseFiber(
+          'strategy run',
+          strat.run(buildCtx(key, scope, strat, runtime.forwardFetch)),
+          scope,
         );
         yield* Effect.forkIn(run, scope);
+
+        // Cadence repair runs in parallel with the strategy, on the same partition
+        // scope, so deactivatePartition tears it down. Scoped to this partition's
+        // records via `runtime.partition`.
+        if (runtime.cadence && nativeCollection) {
+          const forwardFetch = runtime.forwardFetch;
+          const cadenceRun = superviseFiber(
+            'cadence sync',
+            runCadenceSync({
+              collection: nativeCollection,
+              fetchFrom: (anchor) => forwardFetch({ cursor: anchor }),
+              writeServerTruth,
+              partition: runtime.partition,
+              config: runtime.cadence,
+            }),
+            scope,
+          );
+          yield* Effect.forkIn(cadenceRun, scope);
+        }
       }),
     );
   };
@@ -392,14 +466,16 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
 
         const native = callbacks.collection;
         liveCollection = native;
+        nativeCollection = native as unknown as SyncCollection<TItem>;
         writeInspectorCollection();
+
         const offStatusChange = native.on(
           'status:change',
           writeInspectorCollection,
         );
         const offSubscribersChange = native.on('subscribers:change', () => {
           writeInspectorCollection();
-          if (config.strategy) {
+          if (config.total) {
             inspector.updatePartition(partitionIdOf(GLOBAL_PARTITION_KEY), {
               subscriberCount: native.subscriberCount,
             });
@@ -411,8 +487,16 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
             const all = yield* sot.getAll();
             projector?.projectAll(all);
             callbacks.markReady();
-            if (config.strategy) {
-              activatePartition(GLOBAL_PARTITION_KEY, config.strategy);
+            if (config.total) {
+              // Total sync is one implicit partition over the whole set: its
+              // strategy drives the live tail while `forwardFetch` is the poll
+              // handle cadence repair reuses, exactly like a keyed partition.
+              const entry = config.total;
+              const cadence = resolveCadence(GLOBAL_PARTITION_KEY, entry);
+              activatePartition(GLOBAL_PARTITION_KEY, entry.strategy, {
+                forwardFetch: entry.forwardFetch,
+                cadence,
+              });
             }
           }).pipe(
             Effect.tapError((error) =>
@@ -430,9 +514,9 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
         const loadSubset = (opts: LoadSubsetOptions): true => {
           const r = resolvePartitionKey(opts, partitionFields);
           if (!r) {
-            if (!config.strategy) {
+            if (!config.total) {
               console.error(
-                '[tanstack-sync] no partition matched and no global strategy serves this query',
+                '[tanstack-sync] no partition matched and no total sync serves this query',
               );
             }
             return true;
@@ -444,7 +528,9 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
               partitionField: r.field,
               partitionValue: String(r.partitionValue),
             });
-            const strat = config.partitions![r.field]!(r.partitionValue);
+            const entry = config.partitions![r.field]!(r.partitionValue);
+            const strat = entry.strategy;
+            const cadence = resolveCadence(r.partitionKey, entry);
             // Seed a placeholder row only for a never-seen partition; a cached
             // partition already carries its restored count and slices, and
             // overwriting it would blank the row to zero until resync.
@@ -458,7 +544,11 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
                 ),
               );
             }
-            activatePartition(r.partitionKey, strat);
+            activatePartition(r.partitionKey, strat, {
+              forwardFetch: entry.forwardFetch,
+              cadence,
+              partition: { field: r.field, value: String(r.partitionValue) },
+            });
           }
           inspector.updatePartition(partitionIdOf(r.partitionKey), {
             activity: 'active',
@@ -483,7 +573,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
           offStatusChange();
           offSubscribersChange();
           writeCleanedUpInspectorCollection();
-          if (config.strategy) {
+          if (config.total) {
             inspector.updatePartition(partitionIdOf(GLOBAL_PARTITION_KEY), {
               activity: 'cached',
               subscriberCount: 0,
@@ -493,6 +583,7 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
           projector = null;
           collectionUpdate = null;
           liveCollection = null;
+          nativeCollection = null;
         };
 
         return { cleanup, loadSubset, unloadSubset };
