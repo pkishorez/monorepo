@@ -82,10 +82,10 @@ export const createStdSync = (defaults?: {
   cadence?: CadenceConfig;
 }) => {
   const tracker = makeTracker();
-  const inspector = makeSyncInspector();
   const rootOfflineStorage = resolveRootOfflineStorage(
     defaults?.offlineStorage,
   );
+  const inspector = makeSyncInspector(rootOfflineStorage);
 
   // Hydrate the inspector from offline storage, but only in the browser.
   // Offline storage is browser-only, so this is a no-op on the server — and

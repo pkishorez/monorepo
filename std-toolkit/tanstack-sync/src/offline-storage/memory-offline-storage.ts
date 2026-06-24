@@ -72,6 +72,7 @@ export const memoryOfflineStorage = (): OfflineStorage => {
   });
 
   return {
+    descriptor: { kind: 'memory' },
     group: makeGroup,
     inspect: () =>
       Effect.try({

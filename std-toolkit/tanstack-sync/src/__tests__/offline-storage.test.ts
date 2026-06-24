@@ -92,6 +92,7 @@ const mount = (collection: {
 };
 
 const failingWriteStorage = (): OfflineStorage => ({
+  descriptor: { kind: 'indexeddb', name: ':test:' },
   group: () => ({
     get: () => Effect.succeed(null),
     getAll: () => Effect.succeed([]),
@@ -110,6 +111,7 @@ const failingWriteStorage = (): OfflineStorage => ({
 });
 
 const failingReadStorage = (): OfflineStorage => ({
+  descriptor: { kind: 'indexeddb', name: ':test:' },
   group: () => ({
     get: () => Effect.succeed(null),
     getAll: () =>
@@ -128,6 +130,7 @@ const failingReadStorage = (): OfflineStorage => ({
 });
 
 const failingSingletonReadStorage = (): OfflineStorage => ({
+  descriptor: { kind: 'indexeddb', name: ':test:' },
   group: () => ({
     get: () =>
       Effect.fail({
@@ -146,6 +149,7 @@ const failingSingletonReadStorage = (): OfflineStorage => ({
 });
 
 const failingSingletonWriteStorage = (): OfflineStorage => ({
+  descriptor: { kind: 'indexeddb', name: ':test:' },
   group: () => ({
     get: () => Effect.succeed(null),
     getAll: () => Effect.succeed([]),

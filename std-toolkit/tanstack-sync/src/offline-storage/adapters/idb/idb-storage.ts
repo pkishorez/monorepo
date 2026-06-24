@@ -118,6 +118,7 @@ export const idbStorage = (options: IdbStorageOptions): OfflineStorage => {
   });
 
   return {
+    descriptor: { kind: 'indexeddb', name: options.name },
     group: makeGroup,
     inspect: () =>
       Effect.tryPromise({

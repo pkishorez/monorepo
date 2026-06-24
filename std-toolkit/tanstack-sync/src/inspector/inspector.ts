@@ -4,6 +4,7 @@ import {
 } from '@tanstack/react-db';
 import type { Collection } from '@tanstack/react-db';
 import { Effect } from 'effect';
+import type { OfflineStorage } from '../offline-storage/index.js';
 import type {
   InspectorCollection,
   InspectorPartition,
@@ -44,6 +45,8 @@ export type CollectionStorageControls = {
 export type SyncInspector = {
   collections: InspectorStore<InspectorCollection>;
   partitions: InspectorStore<InspectorPartition>;
+  /** The root offline storage backing the sync, exposing its backing-store name. */
+  storage: OfflineStorage;
   getCollection: (
     collectionName: string,
   ) => Collection<any, any, any> | undefined;
@@ -106,7 +109,9 @@ const mergeInto = <T extends { id: string }>(
   });
 };
 
-export const makeSyncInspector = (): WritableSyncInspector => {
+export const makeSyncInspector = (
+  storage: OfflineStorage,
+): WritableSyncInspector => {
   const collections = createCollection(
     localOnlyCollectionOptions<InspectorCollection, string>({
       getKey: (row) => row.id,
@@ -155,6 +160,7 @@ export const makeSyncInspector = (): WritableSyncInspector => {
   return {
     collections,
     partitions,
+    storage,
     getCollection: (name) => liveCollections.get(name),
     readEntities: (name, partitionKey) => {
       const controls = storageControls.get(name);
