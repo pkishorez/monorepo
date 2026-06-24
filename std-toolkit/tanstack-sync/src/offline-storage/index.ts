@@ -7,4 +7,5 @@ export type {
   OfflineStorage,
   OfflineStorageGroup,
   OfflineStorageSetting,
+  StorageDescriptor,
 } from './types.js';

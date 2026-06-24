@@ -16,7 +16,7 @@ import { memoryOfflineStorage } from '../../offline-storage/memory-offline-stora
 type Item = { id: string };
 
 const makeOfflineStorage = () => memoryOfflineStorage();
-const makeInspector = () => makeSyncInspector();
+const makeInspector = () => makeSyncInspector(memoryOfflineStorage());
 
 const schema = {
   name: 'CadenceTest',
