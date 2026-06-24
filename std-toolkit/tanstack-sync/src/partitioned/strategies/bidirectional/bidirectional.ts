@@ -17,7 +17,6 @@ type CursorCtx<TItem> = { cursor: Cursor<TItem> | null };
 
 type BidirectionalConfig<TItem> = {
   fetchOlder: (ctx: CursorCtx<TItem>) => Effect.Effect<EntityType<TItem>[]>;
-  fetchNewer: (ctx: CursorCtx<TItem>) => Effect.Effect<EntityType<TItem>[]>;
   subscribeNewer: (
     ctx: CursorCtx<TItem>,
   ) => Effect.Effect<Stream.Stream<EntityType<TItem>[]>>;
@@ -69,7 +68,7 @@ export const bidirectional = <TItem extends object>(
         const [latest, oldest] = yield* Effect.all(
           [
             config.fetchOlder({ cursor: null }),
-            config.fetchNewer({ cursor: null }),
+            ctx.forwardFetch({ cursor: null }),
           ],
           { concurrency: 'unbounded' },
         );
@@ -107,7 +106,7 @@ export const bidirectional = <TItem extends object>(
           if (collapsed(s)) return;
           const bottom = bottomSlice(s.slices as readonly Slice<TItem>[]);
           if (bottom === null) return;
-          const batch = yield* config.fetchNewer({ cursor: bottom.high });
+          const batch = yield* ctx.forwardFetch({ cursor: bottom.high });
           if (batch.length === 0) return;
           yield* ctx.writeServerTruth(batch);
           yield* commit(addRange(bottom.high, newestOf(batch)));

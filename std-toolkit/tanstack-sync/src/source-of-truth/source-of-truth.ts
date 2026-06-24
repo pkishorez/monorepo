@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Clock, Effect, Schema } from 'effect';
 import { MetaSchema } from '@std-toolkit/core';
 import type { EntityType } from '@std-toolkit/core';
 import type { AnyEntityESchema } from '@std-toolkit/eschema';
@@ -93,6 +93,10 @@ export const makeSourceOfTruth = <TItem>(args: {
         const tombstoned: string[] = [];
         const entries: Array<{ key: string; value: EntityType<TItem> }> = [];
 
+        // One client-receipt timestamp for the whole batch — the `_c` stamp marks
+        // when this delivery arrived, which is shared across its entities.
+        const clientNow = yield* Clock.currentTimeMillis;
+
         for (const incoming of entities) {
           const id = idOf(incoming)!;
           const current = yield* group
@@ -102,10 +106,33 @@ export const makeSourceOfTruth = <TItem>(args: {
                 storageError('failed to read Source of Truth entity', cause),
               ),
             );
-          if (converge(current, incoming) === 'skip') continue;
-          entries.push({ key: id, value: incoming });
-          if (incoming.meta._d) tombstoned.push(id);
-          else upserts.push(incoming);
+          if (converge(current, incoming) === 'skip') {
+            // The value is stale by `_u`, but a present `_s` (the server-settle
+            // marker) must still be reconciled onto the stored record so the
+            // cadence view reflects the latest delivery. Meta-only — the value
+            // is untouched.
+            if (
+              current != null &&
+              !current.meta._d &&
+              incoming.meta._s != null &&
+              incoming.meta._s !== current.meta._s
+            ) {
+              const merged = {
+                ...current,
+                meta: { ...current.meta, _s: incoming.meta._s, _c: clientNow },
+              } as EntityType<TItem>;
+              entries.push({ key: id, value: merged });
+              upserts.push(merged);
+            }
+            continue;
+          }
+          const stamped = {
+            ...incoming,
+            meta: { ...incoming.meta, _c: clientNow },
+          } as EntityType<TItem>;
+          entries.push({ key: id, value: stamped });
+          if (stamped.meta._d) tombstoned.push(id);
+          else upserts.push(stamped);
         }
 
         if (entries.length > 0) {

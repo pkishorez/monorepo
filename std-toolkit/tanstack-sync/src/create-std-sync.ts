@@ -15,7 +15,7 @@ import { buildSingleItem } from './single-item/index.js';
 import { makeSyncInspector } from './inspector/index.js';
 import type { SyncInspector } from './inspector/index.js';
 import type { StdCollectionOptions, UpdatePayload } from './types.js';
-import type { PartitionedStrategy } from './partitioned/strategies/index.js';
+import type { PartitionEntry } from './partitioned/strategies/index.js';
 import type { SingleItemStrategy } from './single-item/strategies/index.js';
 import type { PaceStrategyFactory } from './paced/pace-strategy.js';
 import {
@@ -24,21 +24,29 @@ import {
   type OfflineStorage,
   type OfflineStorageSetting,
 } from './offline-storage/index.js';
+import type { CadenceConfig } from './cadence-sync/index.js';
 
 /**
- * Config for the keyed `sync` method. One collection may carry a global `strategy`
- * (mirrors the whole set, serving partition-less queries) and a `partitions` map
- * (keyed by partition field, each a factory of that field's typed value)
- * simultaneously; both are optional and share one engine, SoT, and projector.
+ * Config for the keyed `sync` method. A collection is *either* total or
+ * partitioned, expressed through the single `sync` field:
+ *   - a total `PartitionEntry` (`{ strategy, forwardFetch, cadence? }`) mirrors the whole
+ *     set as one implicit partition, serving partition-less queries; or
+ *   - a `partitions` map (keyed by partition field, each a factory of that
+ *     field's typed value) where every entry is the same `PartitionEntry` shape.
+ * Both arms share one engine, SoT, projector, and cadence wiring. Omit `sync`
+ * entirely for a storage-only collection fed solely by `writeUpsert`/the registry.
  */
 type SyncConfig<S extends AnyEntityESchema> = {
   schema: S;
-  strategy?: PartitionedStrategy<S['Type'], any>;
-  partitions?: {
-    [F in keyof S['Type'] & string]?: (
-      partitionValue: S['Type'][F],
-    ) => PartitionedStrategy<S['Type'], any>;
-  };
+  sync?:
+    | PartitionEntry<S['Type']>
+    | {
+        partitions: {
+          [F in keyof S['Type'] & string]?: (
+            partitionValue: S['Type'][F],
+          ) => PartitionEntry<S['Type']>;
+        };
+      };
   options?: StdCollectionOptions;
   onInsert?: (item: S['Type']) => Effect.Effect<EntityType<S['Type']>>;
   onUpdate?: (
@@ -71,6 +79,7 @@ type SingleItemSyncConfig<S extends AnySingleEntityESchema> = {
 export const createStdSync = (defaults?: {
   options?: StdCollectionOptions;
   offlineStorage?: OfflineStorage | false;
+  cadence?: CadenceConfig;
 }) => {
   const tracker = makeTracker();
   const inspector = makeSyncInspector();
@@ -105,11 +114,15 @@ export const createStdSync = (defaults?: {
     });
 
   const sync = <S extends AnyEntityESchema>(config: SyncConfig<S>) => {
-    const { options, offlineStorage, ...rest } = config;
+    const { sync: syncField, options, offlineStorage, ...rest } = config;
     const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
+    const partitioned = !!syncField && 'partitions' in syncField;
     const built = buildPartitioned(tracker, inspector, {
       ...rest,
+      total: syncField && !partitioned ? syncField : undefined,
+      partitions: partitioned ? syncField.partitions : undefined,
       offlineStorage: collectionOfflineStorage,
+      defaultCadence: defaults?.cadence,
     } as Parameters<typeof buildPartitioned<S>>[2]);
     return { ...mergeOptions(options), ...built };
   };

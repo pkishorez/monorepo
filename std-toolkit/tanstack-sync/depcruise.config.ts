@@ -13,9 +13,13 @@ const entrypoint = layer(
     description: 'Public API entrypoints',
   },
 );
-const sync = layer('sync', ['src/partitioned', 'src/single-item'], {
-  description: 'Sync strategy implementations',
-});
+const sync = layer(
+  'sync',
+  ['src/partitioned', 'src/single-item', 'src/cadence-sync'],
+  {
+    description: 'Sync strategy implementations',
+  },
+);
 const projection = layer('projection', ['src/collection-projection'], {
   description: 'Collection view / projector',
 });
@@ -81,6 +85,7 @@ export default {
     module('src/paced'),
     module('src/registry'),
     module('src/source-of-truth'),
+    module('src/cadence-sync'),
     module('src/offline-storage'),
     module('src/util'),
   ],

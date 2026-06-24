@@ -30,6 +30,7 @@ const drive = async (opts: {
   };
 
   const ctx: StrategyContext<Item, NewToOldState> = {
+    forwardFetch: () => Effect.sync(() => []),
     writeServerTruth: (entities) =>
       Effect.sync(() => {
         written.push(...(entities as EntityType<Item>[]));
@@ -92,6 +93,7 @@ describe('newToOld', () => {
     const written: EntityType<Item>[] = [];
     let state: NewToOldState = { slices: [], reachedOldest: false };
     const ctx: StrategyContext<Item, NewToOldState> = {
+      forwardFetch: () => Effect.sync(() => []),
       writeServerTruth: (entities) =>
         Effect.sync(() => {
           written.push(...(entities as EntityType<Item>[]));

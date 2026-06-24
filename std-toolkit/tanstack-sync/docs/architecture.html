@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tanstack-sync — How it all fits together</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <style>
+      :root {
+        --bg: #0e1116;
+        --panel: #161b22;
+        --panel-2: #1c232d;
+        --ink: #e6edf3;
+        --muted: #9aa7b4;
+        --line: #2a323d;
+        --accent: #58a6ff;
+        --sot: #f0883e;
+        --state: #a371f7;
+        --strat: #3fb950;
+        --cadence: #db61a2;
+        --proj: #56d4dd;
+        --warn: #d29922;
+        --radius: 12px;
+        --maxw: 1080px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(
+          1200px 600px at 50% -10%,
+          #18202b 0%,
+          var(--bg) 60%
+        );
+        color: var(--ink);
+        font:
+          16px/1.6 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .wrap {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 20px 120px;
+      }
+
+      header.hero {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 64px 20px 28px;
+      }
+      .eyebrow {
+        color: var(--accent);
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-size: 12px;
+      }
+      h1 {
+        font-size: 40px;
+        line-height: 1.1;
+        margin: 10px 0 8px;
+        letter-spacing: -0.02em;
+      }
+      .lede {
+        font-size: 18px;
+        color: var(--muted);
+        max-width: 760px;
+      }
+      .mantra {
+        margin: 26px 0 0;
+        padding: 18px 22px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+        border-radius: var(--radius);
+        font-size: 17px;
+      }
+      .mantra b {
+        color: var(--ink);
+      }
+
+      nav.toc {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: rgba(14, 17, 22, 0.82);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--line);
+        margin-top: 30px;
+      }
+      nav.toc ol {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 12px 20px;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+        counter-reset: step;
+      }
+      nav.toc a {
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 500;
+        counter-increment: step;
+      }
+      nav.toc a::before {
+        content: counter(step) '. ';
+        color: var(--accent);
+      }
+      nav.toc a:hover {
+        color: var(--ink);
+      }
+
+      section {
+        margin-top: 56px;
+        scroll-margin-top: 64px;
+      }
+      h2 {
+        font-size: 26px;
+        margin: 0 0 6px;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+      h2 .layer-no {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--bg);
+        background: var(--accent);
+        border-radius: 999px;
+        width: 26px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+      }
+      h2 .sub {
+        font-size: 14px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      h3 {
+        font-size: 18px;
+        margin: 28px 0 6px;
+      }
+      p {
+        margin: 10px 0;
+      }
+      .muted {
+        color: var(--muted);
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 20px 22px;
+        margin: 16px 0;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 760px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 30px;
+        }
+      }
+
+      .pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+      }
+      .pill.sot {
+        color: var(--sot);
+        border-color: color-mix(in srgb, var(--sot) 50%, var(--line));
+      }
+      .pill.state {
+        color: var(--state);
+        border-color: color-mix(in srgb, var(--state) 50%, var(--line));
+      }
+      .pill.strat {
+        color: var(--strat);
+        border-color: color-mix(in srgb, var(--strat) 50%, var(--line));
+      }
+      .pill.cadence {
+        color: var(--cadence);
+        border-color: color-mix(in srgb, var(--cadence) 50%, var(--line));
+      }
+      .pill.proj {
+        color: var(--proj);
+        border-color: color-mix(in srgb, var(--proj) 50%, var(--line));
+      }
+
+      .diagram {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px;
+        margin: 18px 0;
+        overflow-x: auto;
+      }
+      .diagram .cap {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0 0 6px;
+      }
+      .mermaid {
+        display: flex;
+        justify-content: center;
+      }
+
+      .callout {
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        margin: 18px 0;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 14px;
+        align-items: start;
+      }
+      .callout .ic {
+        font-size: 20px;
+        line-height: 1.2;
+      }
+      .callout.myth {
+        border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+      }
+      .callout.key {
+        border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+      }
+      .callout h4 {
+        margin: 0 0 4px;
+        font-size: 15px;
+      }
+      .callout p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .callout strong {
+        color: var(--ink);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      td code,
+      p code,
+      li code,
+      .card code {
+        background: var(--panel-2);
+        padding: 1px 6px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #e6edf3;
+      }
+      code,
+      pre {
+        font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+      }
+      pre {
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      ul,
+      ol {
+        padding-left: 22px;
+      }
+      li {
+        margin: 6px 0;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        margin: 8px 0 0;
+        font-size: 13px;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--muted);
+      }
+      .dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+
+      footer {
+        max-width: var(--maxw);
+        margin: 80px auto 0;
+        padding: 24px 20px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <div class="eyebrow">tanstack-sync · system architecture</div>
+      <h1>How it all fits together</h1>
+      <p class="lede">
+        One collection pulls in a lot of concepts — strategies, partitions, a
+        source of truth, per-partition sync state, a parallel cadence repair
+        loop. This page is the mental model that ties them together, traced as
+        five layers from <em>"a UI mounts a query"</em> down to
+        <em>"rows appear, stay fresh, and survive reload."</em>
+      </p>
+      <div class="mantra">
+        <b>The whole system in one sentence:</b> a collection is one
+        <b>Shape</b>; a keyed collection runs sibling <b>Partitions</b> gated by
+        subscriber count; inside each live partition a <b>Strategy</b> and a
+        <b>Cadence loop</b> run in parallel, both writing one shared
+        <b>Source&nbsp;of&nbsp;Truth</b> while each partition keeps its own
+        detached <b>Sync&nbsp;State</b>; a <b>Projector</b> turns SoT into the
+        UI's rows.
+      </div>
+    </header>
+
+    <nav class="toc">
+      <ol>
+        <li><a href="#layer1">Shape</a></li>
+        <li><a href="#layer2">Lifecycle</a></li>
+        <li><a href="#layer3">Runtime</a></li>
+        <li><a href="#layer4">Shared state</a></li>
+        <li><a href="#layer5">Projection</a></li>
+        <li><a href="#bigpicture">The whole picture</a></li>
+        <li><a href="#strategies">Strategies</a></li>
+      </ol>
+    </nav>
+
+    <div class="wrap">
+      <div class="card">
+        <strong>Colour key</strong> — the same five colours are used in every
+        diagram and pill on this page:
+        <div class="legend" style="margin-top: 10px">
+          <span
+            ><i class="dot" style="background: var(--strat)"></i> Sync Strategy
+            — forward progress</span
+          >
+          <span
+            ><i class="dot" style="background: var(--cadence)"></i> Cadence loop
+            — drift repair</span
+          >
+          <span
+            ><i class="dot" style="background: var(--sot)"></i> Source of Truth
+            — server-confirmed state</span
+          >
+          <span
+            ><i class="dot" style="background: var(--state)"></i> Sync State —
+            per-partition bookkeeping</span
+          >
+          <span
+            ><i class="dot" style="background: var(--proj)"></i> Projector →
+            Collection — what the UI sees</span
+          >
+        </div>
+      </div>
+
+      <!-- LAYER 1 -->
+      <section id="layer1">
+        <h2>
+          <span class="layer-no">1</span> Shape
+          <span class="sub">— what a collection <em>is</em></span>
+        </h2>
+        <p>
+          Every collection is one of two shapes. The shape decides whether
+          partitions even exist.
+        </p>
+        <div class="grid2">
+          <div class="card">
+            <span class="pill">singleItemSync</span>
+            <h3 style="margin-top: 10px">Single-item</h3>
+            <p class="muted">
+              Holds exactly one record, no id field, no partitions. Lifecycle is
+              collection-level. A degenerate case of everything below: one
+              runtime, one record.
+            </p>
+          </div>
+          <div class="card">
+            <span class="pill">sync</span>
+            <h3 style="margin-top: 10px">Keyed</h3>
+            <p class="muted">
+              A keyed set of records. Declares an optional
+              <b>global</b> strategy and/or a <b>flat map</b> of field-value
+              partitions. Both coexist over one shared SoT.
+            </p>
+          </div>
+        </div>
+
+        <p>
+          Within a keyed collection there are two kinds of partition, and they
+          are <b>siblings</b>:
+        </p>
+        <ul>
+          <li>
+            <b>The global partition</b> (internal key <code>__total__</code>) —
+            mirrors the whole set. Starts when the collection's sync starts.
+          </li>
+          <li>
+            <b>Field-value partitions</b> — one per
+            <code>partitionField = value</code> slice, e.g.
+            <code>status = "open"</code>. Activated on demand when a UI query
+            loads that subset.
+          </li>
+        </ul>
+
+        <div class="callout myth">
+          <div class="ic">⚠️</div>
+          <div>
+            <h4>Myth: partitions nest inside the "total" partition</h4>
+            <p>
+              They don't.
+              <strong>The global partition is not a container</strong> — it is a
+              peer that happens to cover the whole set. Global and field
+              partitions are flat siblings sharing <strong>one</strong> SoT
+              id-space; convergence by <code>_u</code> dedupes any row that two
+              partitions both deliver. There is no recursion: a strategy is
+              partition-blind and cannot spawn sub-partitions. "Total vs
+              individual" is about
+              <strong>which slice a runtime covers</strong>, never nesting.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- LAYER 2 -->
+      <section id="layer2">
+        <h2>
+          <span class="layer-no">2</span> Lifecycle
+          <span class="sub"
+            >— <em>when</em> sync runs, driven by subscriber count</span
+          >
+        </h2>
+        <p>
+          A partition is a <b>lifecycle boundary</b>, not a retention boundary.
+          The engine refcounts how many UI subscribers want each slice. The
+          refcount edges — not data, not timers — start and stop work.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Edge</th>
+              <th>What fires</th>
+              <th>Tracked by</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>0 → 1</code></td>
+              <td>
+                Open a <b>scope</b>; fork the strategy fiber + cadence fiber
+              </td>
+              <td>
+                global: TanStack <code>subscriberCount</code> · field: engine
+                <code>refcount</code> via <code>loadSubset</code>
+              </td>
+            </tr>
+            <tr>
+              <td><code>1 → 0</code></td>
+              <td>
+                Close the scope → both fibers torn down via their finalizers
+              </td>
+              <td>same, via <code>unloadSubset</code></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout key">
+          <div class="ic">📌</div>
+          <div>
+            <h4>Stopping sync ≠ removing rows</h4>
+            <p>
+              When a partition's refcount hits <code>0</code> the engine stops
+              <strong>sync work</strong> (fibers, fetches, subscriptions). Rows
+              that partition already projected <strong>stay visible</strong> in
+              the collection. The <em>scope</em> is the unit of teardown; the
+              projected rows are not.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- LAYER 3 -->
+      <section id="layer3">
+        <h2>
+          <span class="layer-no">3</span> Runtime
+          <span class="sub"
+            >— what runs <em>inside</em> one live partition</span
+          >
+        </h2>
+        <p>
+          Once a partition's scope is open,
+          <b>two fibers run in parallel</b> under it. They never coordinate
+          directly — they meet only at the shared Source of Truth.
+        </p>
+        <div class="grid2">
+          <div class="card">
+            <span class="pill strat">Strategy fiber</span>
+            <h3 style="margin-top: 10px">Forward progress</h3>
+            <p class="muted">
+              Partition-blind. Given its cursor, it pulls or streams the next
+              batch of server entities and writes them to SoT, then advances its
+              own Sync State. Decides the <em>order</em> data flows in
+              (oldest-first, newest-first, both ends).
+            </p>
+          </div>
+          <div class="card">
+            <span class="pill cadence">Cadence fiber</span>
+            <h3 style="margin-top: 10px">Drift repair</h3>
+            <p class="muted">
+              Scans the partition's projected rows for <em>suspects</em> —
+              records delivered so close to their own <code>_u</code> that
+              siblings may still be in flight. After a readiness window it
+              re-fetches from a predecessor anchor and writes SoT. Repairs gaps
+              the strategy can't see.
+            </p>
+          </div>
+        </div>
+        <div class="callout key">
+          <div class="ic">🔀</div>
+          <div>
+            <h4>Cadence is repair, not a second strategy</h4>
+            <p>
+              The cadence loop <strong>never touches Sync State</strong> — it
+              owns no cursor and makes no forward progress claim. It only
+              re-confirms recent rows into SoT so the strategy's "covered"
+              ranges don't quietly drift. It is optional per partition (<code
+                >cadence?: CadenceConfig | false</code
+              >) and inherits a default from the factory.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- LAYER 4 -->
+      <section id="layer4">
+        <h2>
+          <span class="layer-no">4</span> Shared state
+          <span class="sub"
+            >— two stores that never derive from each other</span
+          >
+        </h2>
+        <div class="grid2">
+          <div class="card">
+            <span class="pill sot">Source of Truth</span>
+            <h3 style="margin-top: 10px">Per collection · one id-space</h3>
+            <p class="muted">
+              Server-confirmed entities <code>{ value, meta }</code>, keyed by
+              id, tombstones kept. Written by strategies, mutations, and
+              persisted broadcasts. Atomic batches; convergence keeps the newest
+              <code>_u</code>. Shared by <em>all</em> partitions of the
+              collection.
+            </p>
+          </div>
+          <div class="card">
+            <span class="pill state">Sync State</span>
+            <h3 style="margin-top: 10px">Per strategy · per partition</h3>
+            <p class="muted">
+              One serializable slot of strategy bookkeeping — a cursor, or a
+              list of covered <code>_u</code> slices. Wrapped on disk as
+              <code>{ strategy, value, meta }</code>; a name/schema mismatch
+              resets it to empty. Carries no server truth.
+            </p>
+          </div>
+        </div>
+        <div class="callout key">
+          <div class="ic">🧩</div>
+          <div>
+            <h4>The detachment rule (the load-bearing invariant)</h4>
+            <p>
+              <strong>SoT and Sync State are fully detached</strong> — neither
+              is ever derived from the other. The engine never reads SoT to
+              reconstruct a cursor; a strategy never reads its slices to decide
+              what truth to keep. A strategy always writes SoT
+              <em>first</em> via <code>writeServerTruth</code>, then advances
+              its own state. This is why a swapped or reset strategy must
+              re-fetch rather than "rebuild from SoT," and why durable offline
+              storage can persist both independently.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- LAYER 5 -->
+      <section id="layer5">
+        <h2>
+          <span class="layer-no">5</span> Projection
+          <span class="sub">— SoT becomes the rows the UI reads</span>
+        </h2>
+        <p>
+          The <b>Projector</b> is the only writer to the TanStack DB collection.
+          It translates SoT deltas into insert/update/delete messages: newer
+          <code>_u</code> updates a row, a <code>_d: true</code> tombstone
+          removes the visible row. Projection is <b>ephemeral</b> — it clears on
+          reload and is rebuilt from persisted SoT when durable offline storage
+          is configured.
+        </p>
+        <div class="callout key">
+          <div class="ic">👁️</div>
+          <div>
+            <h4>What the UI sees vs. what is true</h4>
+            <p>
+              The collection (Items: flat fields + <code>_meta</code>) is a
+              <strong>projection</strong>, not the truth. SoT can be written
+              while the collection is unmounted; on mount the engine projects
+              current SoT in. The <strong>Inspector</strong> reads the layers
+              below the projection — partition activity, strategy progress,
+              storage health — for devtools.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- BIG PICTURE -->
+      <section id="bigpicture">
+        <h2><span class="layer-no">★</span> The whole picture</h2>
+
+        <div class="diagram">
+          <p class="cap">
+            Structure — one keyed collection, with partitions as flat siblings
+            over one shared SoT
+          </p>
+          <pre class="mermaid">
+flowchart TB
+  UI["UI query / component"]:::ui
+  subgraph COLL["One keyed collection (one entity type)"]
+    direction TB
+    subgraph PARTS["Partitions — flat siblings, gated by subscriber count"]
+      direction LR
+      subgraph GP["Global partition · __total__"]
+        direction TB
+        GS["Strategy fiber"]:::strat
+        GC["Cadence fiber"]:::cadence
+      end
+      subgraph FP["Field partition · status = open"]
+        direction TB
+        FS["Strategy fiber"]:::strat
+        FC["Cadence fiber"]:::cadence
+      end
+    end
+    GST["Sync State<br/>(global slot)"]:::state
+    FST["Sync State<br/>(field slot)"]:::state
+    SOT["Source of Truth<br/>one id-space · convergence by _u"]:::sot
+    PROJ["Projector"]:::proj
+    DBC["TanStack DB collection<br/>(Items the UI reads)"]:::ui
+  end
+  SRV["Server fetch / subscribe closures"]:::srv
+
+  UI -- "loadSubset / unloadSubset<br/>(refcount)" --> PARTS
+  GS <-- "read/advance" --> GST
+  FS <-- "read/advance" --> FST
+  GS -- writeServerTruth --> SOT
+  FS -- writeServerTruth --> SOT
+  GC -- "re-fetch suspects" --> SOT
+  FC -- "re-fetch suspects" --> SOT
+  GS -.-> SRV
+  FS -.-> SRV
+  GC -.-> SRV
+  FC -.-> SRV
+  SOT -- "deltas" --> PROJ --> DBC --> UI
+
+  classDef strat fill:#0f2a16,stroke:#3fb950,color:#d7ffe0;
+  classDef cadence fill:#2a0f1f,stroke:#db61a2,color:#ffd9ec;
+  classDef sot fill:#2a1a0c,stroke:#f0883e,color:#ffe2c7;
+  classDef state fill:#1e1330,stroke:#a371f7,color:#e9dcff;
+  classDef proj fill:#0c2728,stroke:#56d4dd,color:#cffafd;
+  classDef ui fill:#161b22,stroke:#58a6ff,color:#e6edf3;
+  classDef srv fill:#161b22,stroke:#9aa7b4,color:#cbd5e1;
+      </pre>
+        </div>
+
+        <div class="diagram">
+          <p class="cap">
+            Lifecycle — one partition over time, driven by subscriber count
+          </p>
+          <pre class="mermaid">
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Active: subscriber 0 → 1<br/>open scope · fork strategy ∥ cadence
+  state Active {
+    direction LR
+    Strategy: Strategy fiber<br/>pulls/streams → writes SoT → advances Sync State
+    Cadence: Cadence fiber<br/>scans suspects → re-fetches → writes SoT
+    Strategy --> Strategy
+    Cadence --> Cadence
+  }
+  Active --> Idle: subscriber 1 → 0<br/>close scope · tear down both fibers
+  note right of Idle
+    Projected rows stay visible.
+    Sync State persists for a warm resume.
+  end note
+      </pre>
+        </div>
+      </section>
+
+      <!-- STRATEGIES -->
+      <section id="strategies">
+        <h2>
+          <span class="layer-no">↳</span> Strategy family
+          <span class="sub"
+            >— the only thing that varies the <em>order</em> of forward
+            progress</span
+          >
+        </h2>
+        <p class="muted">
+          All keyed strategies share one contract — <code>run(ctx)</code> with
+          <code>writeServerTruth</code>,
+          <code>getState</code>/<code>setState</code>, and a <code>scope</code>.
+          They differ only in how they walk <code>_u</code>. Their soundness
+          rests on the <b>Upward Migration invariant</b>: an edit moves a
+          record's <code>_u</code> strictly to "now," so a fully-drained
+          <code>_u</code> interval is permanently complete.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>Shape</th>
+              <th>Sync State</th>
+              <th>Use when</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill strat">oldToNew</span></td>
+              <td>
+                Single forward pull, oldest → newest. Completes when a batch
+                drains.
+              </td>
+              <td><code>{ cursor }</code></td>
+              <td>Small/medium backlog; newest rows can wait for replay.</td>
+            </tr>
+            <tr>
+              <td><span class="pill strat">newToOld</span></td>
+              <td>
+                Live tail at the fresh top <b>∥</b> one descending backfill
+                frontier.
+              </td>
+              <td><code>{ slices[], reachedOldest }</code></td>
+              <td>Large backlog; newest rows must appear immediately.</td>
+            </tr>
+            <tr>
+              <td><span class="pill strat">bidirectional</span></td>
+              <td>
+                Live tail <b>∥</b> descending frontier <b>∥</b> ascending
+                frontier; gap closes from both ends.
+              </td>
+              <td><code>{ slices[] }</code></td>
+              <td>Both newest <em>and</em> oldest must appear immediately.</td>
+            </tr>
+            <tr>
+              <td colspan="4" class="muted" style="padding-top: 14px">
+                <b>Single-item family:</b>
+                <span class="pill">getOnce</span> fetch once on start ·
+                <span class="pill">poll</span> repeat while active ·
+                <span class="pill">subscribe</span> stream while active.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted">
+          See <a href="adr/0003-new-to-old-sync-strategy.md">ADR 0003</a> for
+          why <code>newToOld</code> tracks slices, and
+          <a href="../CONTEXT.md">CONTEXT.md</a> for the full ubiquitous
+          language.
+        </p>
+      </section>
+    </div>
+
+    <footer class="wrap" style="padding-top: 24px">
+      Generated for <code>@std-toolkit/tanstack-sync</code>. The glossary lives
+      in <a href="../CONTEXT.md">CONTEXT.md</a>; pointed decisions live in
+      <a href="adr/">docs/adr/</a>. This page is the connective tissue between
+      them.
+    </footer>
+
+    <script>
+      const dark = {
+        theme: 'base',
+        themeVariables: {
+          background: '#161b22',
+          primaryColor: '#1c232d',
+          primaryBorderColor: '#2a323d',
+          primaryTextColor: '#e6edf3',
+          lineColor: '#9aa7b4',
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
+        },
+      };
+      mermaid.initialize({
+        startOnLoad: true,
+        securityLevel: 'loose',
+        ...dark,
+      });
+    </script>
+  </body>
+</html>

@@ -33,4 +33,5 @@ export type InspectorPartition = {
   itemCount: number;
   subscriberCount: number;
   strategyState: InspectorStrategyState;
+  cadence?: { window: number; readiness: number; pollDelay: number };
 };

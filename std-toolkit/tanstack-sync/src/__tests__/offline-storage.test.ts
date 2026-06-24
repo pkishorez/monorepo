@@ -302,16 +302,23 @@ describe('keyed sync offline storage', () => {
     const collection = createStdSync().sync({
       schema: todoSchema,
       offlineStorage: storage,
-      partitions: {
-        listId: () => ({
-          name: 'test-partition',
-          state: cursorState(),
-          run: (ctx) =>
-            ctx.getState.pipe(
-              Effect.tap((state) => Effect.sync(() => observed.push(state))),
-              Effect.asVoid,
-            ),
-        }),
+      sync: {
+        partitions: {
+          listId: () => ({
+            strategy: {
+              name: 'test-partition',
+              state: cursorState(),
+              run: (ctx) =>
+                ctx.getState.pipe(
+                  Effect.tap((state) =>
+                    Effect.sync(() => observed.push(state)),
+                  ),
+                  Effect.asVoid,
+                ),
+            },
+            forwardFetch: () => Effect.succeed([]),
+          }),
+        },
       },
     });
     const { callbacks, subscription } = mount(collection);
@@ -351,16 +358,23 @@ describe('keyed sync offline storage', () => {
     const collection = createStdSync().sync({
       schema: todoSchema,
       offlineStorage: storage,
-      partitions: {
-        listId: () => ({
-          name: 'current-strategy',
-          state: cursorState(),
-          run: (ctx) =>
-            ctx.getState.pipe(
-              Effect.tap((state) => Effect.sync(() => observed.push(state))),
-              Effect.asVoid,
-            ),
-        }),
+      sync: {
+        partitions: {
+          listId: () => ({
+            strategy: {
+              name: 'current-strategy',
+              state: cursorState(),
+              run: (ctx) =>
+                ctx.getState.pipe(
+                  Effect.tap((state) =>
+                    Effect.sync(() => observed.push(state)),
+                  ),
+                  Effect.asVoid,
+                ),
+            },
+            forwardFetch: () => Effect.succeed([]),
+          }),
+        },
       },
     });
     const { callbacks, subscription } = mount(collection);
@@ -417,16 +431,23 @@ describe('keyed sync offline storage', () => {
     const collection = createStdSync().sync({
       schema: todoSchema,
       offlineStorage: storage,
-      partitions: {
-        listId: () => ({
-          name: 'test-partition',
-          state: cursorState(),
-          run: (ctx) =>
-            ctx.getState.pipe(
-              Effect.tap((state) => Effect.sync(() => observed.push(state))),
-              Effect.asVoid,
-            ),
-        }),
+      sync: {
+        partitions: {
+          listId: () => ({
+            strategy: {
+              name: 'test-partition',
+              state: cursorState(),
+              run: (ctx) =>
+                ctx.getState.pipe(
+                  Effect.tap((state) =>
+                    Effect.sync(() => observed.push(state)),
+                  ),
+                  Effect.asVoid,
+                ),
+            },
+            forwardFetch: () => Effect.succeed([]),
+          }),
+        },
       },
     });
     const { callbacks, subscription } = mount(collection);
@@ -500,7 +521,13 @@ describe('keyed sync offline storage', () => {
         id: 'local',
         listId: 'inbox',
         title: 'local',
-        _meta: { _e: 'Todo', _v: 'v1', _u: '1', _d: false },
+        _meta: expect.objectContaining({
+          _e: 'Todo',
+          _v: 'v1',
+          _u: '1',
+          _d: false,
+          _c: expect.any(Number),
+        }),
       },
     });
   });
@@ -526,7 +553,9 @@ describe('keyed sync offline storage', () => {
 
   it('marks the inspector collection cleaned-up after keyed collection cleanup', async () => {
     const std = createStdSync();
-    const collection = std.sync({ schema: todoSchema });
+    const collection = std.sync({
+      schema: todoSchema,
+    });
     const { callbacks, subscription } = mount(collection);
 
     await vi.waitFor(() =>
@@ -544,7 +573,9 @@ describe('keyed sync offline storage', () => {
   it('persists registry writes while unmounted and projects them on mount', async () => {
     const storage = memoryOfflineStorage();
     const std = createStdSync({ offlineStorage: storage });
-    const collection = std.sync({ schema: todoSchema });
+    const collection = std.sync({
+      schema: todoSchema,
+    });
 
     std.registry().process({
       persist: true,
@@ -576,7 +607,13 @@ describe('keyed sync offline storage', () => {
         id: 'todo-1',
         listId: 'inbox',
         title: 'from registry',
-        _meta: { _e: 'Todo', _v: 'v1', _u: '1', _d: false },
+        _meta: expect.objectContaining({
+          _e: 'Todo',
+          _v: 'v1',
+          _u: '1',
+          _d: false,
+          _c: expect.any(Number),
+        }),
       },
     });
   });

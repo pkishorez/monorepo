@@ -6,6 +6,8 @@ export const MetaSchema = Schema.Struct({
   _e: Schema.String,
   _d: Schema.Boolean,
   _u: Schema.String,
+  _s: Schema.optional(Schema.Number),
+  _c: Schema.optional(Schema.Number),
 });
 
 const SingleEntityMetaSchema = Schema.Struct({

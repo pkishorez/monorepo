@@ -25,19 +25,6 @@ const drive = async (opts: {
   const written: EntityType<Item>[] = [];
   let state: BidirectionalState = opts.initial ?? { slices: [] };
 
-  const ctx: StrategyContext<Item, BidirectionalState> = {
-    writeServerTruth: (entities) =>
-      Effect.sync(() => {
-        written.push(...(entities as EntityType<Item>[]));
-      }),
-    getState: Effect.sync(() => state),
-    setState: (s) =>
-      Effect.sync(() => {
-        state = s;
-      }),
-    scope: undefined as unknown as Scope.Scope,
-  };
-
   const olderPage = (cursor: EntityType<Item> | null) => {
     const pool =
       cursor === null ? sorted : sorted.filter((e) => uOf(e) < uOf(cursor));
@@ -50,11 +37,24 @@ const drive = async (opts: {
     return pool.slice(0, opts.pageSize);
   };
 
+  const ctx: StrategyContext<Item, BidirectionalState> = {
+    forwardFetch: ({ cursor }) =>
+      Effect.sync(() => newerPage(cursor as EntityType<Item> | null)),
+    writeServerTruth: (entities) =>
+      Effect.sync(() => {
+        written.push(...(entities as EntityType<Item>[]));
+      }),
+    getState: Effect.sync(() => state),
+    setState: (s) =>
+      Effect.sync(() => {
+        state = s;
+      }),
+    scope: undefined as unknown as Scope.Scope,
+  };
+
   const strategy = bidirectional<Item>({
     fetchOlder: ({ cursor }) =>
       Effect.sync(() => olderPage(cursor as EntityType<Item> | null)),
-    fetchNewer: ({ cursor }) =>
-      Effect.sync(() => newerPage(cursor as EntityType<Item> | null)),
     subscribeNewer: ({ cursor }) =>
       Effect.sync(() => {
         const newer =
@@ -102,6 +102,7 @@ describe('bidirectional', () => {
     const written: EntityType<Item>[] = [];
     let state: BidirectionalState = { slices: [] };
     const ctx: StrategyContext<Item, BidirectionalState> = {
+      forwardFetch: () => Effect.sync(() => []),
       writeServerTruth: (entities) =>
         Effect.sync(() => {
           written.push(...(entities as EntityType<Item>[]));
@@ -125,7 +126,6 @@ describe('bidirectional', () => {
 
     const strategy = bidirectional<Item>({
       fetchOlder: () => Effect.sync(() => []),
-      fetchNewer: () => Effect.sync(() => []),
       subscribeNewer: () => Effect.sync(() => Stream.fromIterable(batches)),
     });
 
