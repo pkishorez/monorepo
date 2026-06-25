@@ -33,7 +33,7 @@ const lib = layer('lib', ['src/lib'], {
 const blog = feature('blog', { description: 'Blog index and per-slug posts' });
 const otel = feature('otel', { description: 'OpenTelemetry trace viewer' });
 const devtools = feature('devtools', {
-  description: 'DevTools workbench (vtest reader + dependency graph)',
+  description: 'DevTools workbench (dependency graph)',
 });
 const dev = feature('dev', { description: 'Internal dev/playground routes' });
 

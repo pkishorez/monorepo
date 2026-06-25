@@ -24,9 +24,6 @@ const dependencyCruiserViz = feature('dependency-cruiser-viz', {
 const otelTraceViewer = feature('otel-trace-viewer', {
   description: 'OpenTelemetry trace viewer',
 });
-const vtest = feature('vtest', {
-  description: 'vtest live-documentation viewer',
-});
 const hello = feature('hello', {
   description: 'Minimal example block',
 });
@@ -35,7 +32,7 @@ export default {
   rootDir: 'src',
   ignore: ['src/css.d.ts', 'src/cosmos.decorator.tsx', 'src/styles'],
   rules: [layersTopDown('frontend', [composites, ui, foundation])],
-  features: [dependencyCruiserViz, otelTraceViewer, vtest, hello],
+  features: [dependencyCruiserViz, otelTraceViewer, hello],
   modules: [
     module('src/components/blocks/dependency-cruiser-viz', {
       feature: 'dependency-cruiser-viz',
@@ -49,10 +46,6 @@ export default {
     }),
     module('src/components/blocks/otel-trace-viewer', {
       feature: 'otel-trace-viewer',
-      visibility: 'public',
-    }),
-    module('src/components/blocks/vtest', {
-      feature: 'vtest',
       visibility: 'public',
     }),
   ],
