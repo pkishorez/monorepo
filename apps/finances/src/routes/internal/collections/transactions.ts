@@ -12,14 +12,18 @@ const std = createStdSync();
 
 export const transactionsCollection = std.collection({
   schema: TransactionSchema,
-  strategy: syncStrategy.oldToNew({
-    stream: streamSource((cursor) =>
-      Effect.gen(function* () {
-        const { client } = yield* FinancesClient;
-        return client.subscribeTransactions({ cursor });
-      }),
-    ),
-  }),
+  sync: {
+    strategy: syncStrategy.oldToNew({
+      stream: streamSource((cursor) =>
+        Effect.gen(function* () {
+          const { client } = yield* FinancesClient;
+          return client.subscribeTransactions({ cursor });
+        }),
+      ),
+    }),
+    forwardFetch: () => Effect.succeed([]),
+    cadence: false,
+  },
 });
 
 export const transactionsUtils = transactionsCollection.utils;

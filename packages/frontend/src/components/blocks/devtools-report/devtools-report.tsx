@@ -1,10 +1,4 @@
-import {
-  CheckIcon,
-  FlaskConicalIcon,
-  NetworkIcon,
-  TriangleAlertIcon,
-  XIcon,
-} from 'lucide-react';
+import { CheckIcon, NetworkIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '#components/ui/button';
 import {
@@ -19,23 +13,17 @@ import {
   DependencyCruiserViz,
   toDepcruiseVizData,
 } from '../dependency-cruiser-viz';
-import { toVtestConfig, VtestView } from '../vtest';
-import {
-  depcruiseStats,
-  vtestStats,
-  type DepcruiseStats,
-  type VtestStats,
-} from './stats';
+import { depcruiseStats, type DepcruiseStats } from './stats';
 
 /**
- * Render a raw, untyped devtools report (`{ vtest, depcruise }`) as a tabbed
- * workbench. Each tool gets a tab only when its slice is `available`; a tool
+ * Render a raw, untyped devtools report (`{ depcruise }`) as a tabbed
+ * workbench. The tool gets a tab only when its slice is `available`; a tool
  * that is not configured is dropped entirely rather than shown as an error.
  *
- * The wrapper is deliberately thin: each embedded tool already summarises
- * itself, so the only chrome added here is a tab bar whose triggers carry a
- * single concise health badge (tests passed/failed, architecture issues) for
- * at-a-glance status. Renders an empty state when neither tool is available.
+ * The wrapper is deliberately thin: the embedded tool already summarises
+ * itself, so the only chrome added here is a tab bar whose trigger carries a
+ * single concise health badge (architecture issues) for at-a-glance status.
+ * Renders an empty state when the tool is not available.
  *
  * Pass `onClose` to surface a close button on the right of the top nav (e.g.
  * when the report is hosted in a dialog or panel).
@@ -52,27 +40,16 @@ export function DevtoolsReport({
       ? (report as Record<string, unknown>)[key]
       : undefined;
 
-  const vtest = toVtestConfig(slice('vtest'));
   const depcruise = toDepcruiseVizData(slice('depcruise'));
 
-  const vStats = vtest ? vtestStats(vtest) : null;
   const dStats = depcruise ? depcruiseStats(depcruise) : null;
 
-  if (!vtest && !depcruise) return <EmptyReport />;
-
-  const first = vtest ? 'vtest' : 'depcruise';
+  if (!depcruise) return <EmptyReport />;
 
   return (
-    <Tabs defaultValue={first} className="h-svh gap-0">
+    <Tabs defaultValue="depcruise" className="h-svh gap-0">
       <div className="flex shrink-0 items-center gap-4 border-b border-border/60 bg-background/80 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/60">
         <TabsList className="gap-1 rounded-lg border border-border/60 bg-muted p-1">
-          {vtest && vStats && (
-            <TabsTrigger value="vtest" className={tabTrigger}>
-              <FlaskConicalIcon className="size-3.5 opacity-70" />
-              VTest
-              <VtestTabBadge stats={vStats} />
-            </TabsTrigger>
-          )}
           {depcruise && dStats && (
             <TabsTrigger value="depcruise" className={tabTrigger}>
               <NetworkIcon className="size-3.5 opacity-70" />
@@ -95,11 +72,6 @@ export function DevtoolsReport({
         )}
       </div>
 
-      {vtest && vStats && (
-        <TabsContent value="vtest" className="min-h-0 flex-1 overflow-y-auto">
-          <VtestView config={vtest} />
-        </TabsContent>
-      )}
       {depcruise && dStats && (
         <TabsContent value="depcruise" className="min-h-0 flex-1">
           <DependencyCruiserViz {...depcruise} />
@@ -154,32 +126,6 @@ function StatusCount({
   );
 }
 
-/** Single health count for the VTest tab: the headline outcome only. */
-function VtestTabBadge({ stats }: { stats: VtestStats }) {
-  if (!stats.ran) {
-    return <StatusCount tone="muted">{stats.total}</StatusCount>;
-  }
-  if (stats.fail > 0) {
-    return (
-      <StatusCount tone="danger" icon={XIcon}>
-        {stats.fail}
-      </StatusCount>
-    );
-  }
-  if (stats.diagnostics > 0) {
-    return (
-      <StatusCount tone="warn" icon={TriangleAlertIcon}>
-        {stats.diagnostics}
-      </StatusCount>
-    );
-  }
-  return (
-    <StatusCount tone="ok" icon={CheckIcon}>
-      {stats.pass}
-    </StatusCount>
-  );
-}
-
 /** Single health count for the DepCruise tab: clean, or the issue count. */
 function DepcruiseTabBadge({ stats }: { stats: DepcruiseStats }) {
   if (stats.clean) {
@@ -200,7 +146,7 @@ function EmptyReport() {
         <EmptyHeader>
           <EmptyTitle>No tools configured</EmptyTitle>
           <EmptyDescription>
-            This report has neither vtest docs nor a dependency graph.
+            This report has no dependency graph.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

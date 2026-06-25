@@ -65,7 +65,7 @@ function RouteComponent() {
                   DevTools
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Vtest docs and dependency graphs for any package.
+                  Dependency graphs for any package.
                 </div>
               </div>
             </div>

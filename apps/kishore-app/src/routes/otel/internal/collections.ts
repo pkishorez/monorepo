@@ -43,16 +43,24 @@ export function buildCollections(baseUrl: string) {
 
   const traces = std.collection({
     schema: TraceRecordSchema,
-    strategy: pollingStrategy<StoredTraceRecordValue>((client, query) =>
-      client.lotel.queryTraces({ query }),
-    ),
+    sync: {
+      strategy: pollingStrategy<StoredTraceRecordValue>((client, query) =>
+        client.lotel.queryTraces({ query }),
+      ),
+      forwardFetch: () => Effect.succeed([]),
+      cadence: false,
+    },
   });
 
   const logs = std.collection({
     schema: LogRecordSchema,
-    strategy: pollingStrategy<StoredLogRecordValue>((client, query) =>
-      client.lotel.queryLogs({ query }),
-    ),
+    sync: {
+      strategy: pollingStrategy<StoredLogRecordValue>((client, query) =>
+        client.lotel.queryLogs({ query }),
+      ),
+      forwardFetch: () => Effect.succeed([]),
+      cadence: false,
+    },
   });
 
   return { traces, logs };

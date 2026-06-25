@@ -1,1 +1,0 @@
-export { parseDirectives } from './parse';

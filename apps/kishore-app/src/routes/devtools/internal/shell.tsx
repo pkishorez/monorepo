@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { DependencyCruiserViz } from '@monorepo/frontend/components/blocks/dependency-cruiser-viz';
-import { VtestView } from '@monorepo/frontend/components/blocks/vtest';
 import {
   Dialog,
   DialogContent,
@@ -16,14 +15,9 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@monorepo/frontend/components/ui/empty';
-import { DevtoolsHeader, type DevtoolsTab } from './header';
+import { DevtoolsHeader } from './header';
 import { ProjectManager } from './project-manager';
-import {
-  mergeRunRecords,
-  useDepcruise,
-  useVtestDocs,
-  useVtestRun,
-} from './queries';
+import { useDepcruise } from './queries';
 import { makeDevtoolsRuntime } from './runtime';
 import { useDevtoolsStore } from './store';
 
@@ -38,39 +32,26 @@ export function DevtoolsShell() {
   const runtime = useMemo(() => makeDevtoolsRuntime(devUrl), [devUrl]);
   const path = selectedPath ?? '';
 
-  const [tab, setTab] = useState<DevtoolsTab>('vtest');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showHome, setShowHome] = useState(!selectedPath);
-  const [depcruiseOpened, setDepcruiseOpened] = useState(false);
 
-  const docs = useVtestDocs(runtime, path);
-  const run = useVtestRun(runtime, path);
-  const depcruise = useDepcruise(runtime, path, depcruiseOpened);
+  const depcruise = useDepcruise(runtime, path);
 
   const selected = projects.find((p) => p.path === selectedPath) ?? null;
   const selectedLabel = selected
     ? (selected.label ?? selected.path.split('/').pop() ?? selected.path)
     : null;
 
-  const onTab = (next: DevtoolsTab) => {
-    if (next === 'depcruise') setDepcruiseOpened(true);
-    setTab(next);
-  };
-
   const reload = () => {
-    void queryClient.invalidateQueries({ queryKey: ['vtest-docs', runtime] });
-    void queryClient.invalidateQueries({ queryKey: ['vtest-run', runtime] });
     void queryClient.invalidateQueries({ queryKey: ['depcruise', runtime] });
   };
 
-  const isReloading = docs.isFetching || run.isFetching || depcruise.isFetching;
+  const isReloading = depcruise.isFetching;
 
   if (showHome || !selectedPath) {
     return (
       <div className="min-h-dvh">
         <DevtoolsHeader
-          tab={tab}
-          onTab={onTab}
           onHome={() => navigate({ to: '/' })}
           onNavigate={() => setDialogOpen(true)}
           onReload={reload}
@@ -84,8 +65,7 @@ export function DevtoolsShell() {
               <EmptyHeader>
                 <EmptyTitle>No projects added</EmptyTitle>
                 <EmptyDescription>
-                  Add a project below to visualize its vtest docs and dependency
-                  graph.
+                  Add a project below to visualize its dependency graph.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -100,8 +80,6 @@ export function DevtoolsShell() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <DevtoolsHeader
-        tab={tab}
-        onTab={onTab}
         onHome={() => setShowHome(true)}
         onNavigate={() => setDialogOpen(true)}
         onReload={reload}
@@ -109,16 +87,8 @@ export function DevtoolsShell() {
         canReload
         isReloading={isReloading}
       />
-      <div
-        className={
-          tab === 'vtest' ? 'min-h-0 flex-1 overflow-y-auto' : 'min-h-0 flex-1'
-        }
-      >
-        {tab === 'vtest' ? (
-          <VtestPane docs={docs} run={run} />
-        ) : (
-          <DepcruisePane depcruise={depcruise} />
-        )}
+      <div className="min-h-0 flex-1">
+        <DepcruisePane depcruise={depcruise} />
       </div>
       <NavigateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
@@ -147,30 +117,7 @@ function NavigateDialog({
   );
 }
 
-type VtestQuery = ReturnType<typeof useVtestDocs>;
-type RunQuery = ReturnType<typeof useVtestRun>;
 type DepcruiseQuery = ReturnType<typeof useDepcruise>;
-
-/**
- * Renders the vtest reader as soon as the fast docs resolve (with pending
- * statuses), then re-renders with filled statuses once the slow run resolves. A
- * subtle banner signals an in-flight run while the docs are already visible.
- */
-function VtestPane({ docs, run }: { docs: VtestQuery; run: RunQuery }) {
-  if (docs.isPending) return <Loading />;
-  if (docs.isError) return <ErrorState message={messageOf(docs.error)} />;
-  if (!docs.data.available) return <NotConfigured tool="VTest" />;
-
-  const records = run.data?.available ? run.data.records : undefined;
-  const config = mergeRunRecords(docs.data, records);
-
-  return (
-    <div className="relative">
-      {run.isFetching && <RunningTests />}
-      <VtestView config={config} />
-    </div>
-  );
-}
 
 function DepcruisePane({ depcruise }: { depcruise: DepcruiseQuery }) {
   if (depcruise.isPending) return <Loading />;
@@ -178,14 +125,6 @@ function DepcruisePane({ depcruise }: { depcruise: DepcruiseQuery }) {
     return <ErrorState message={messageOf(depcruise.error)} />;
   if (!depcruise.data.available) return <NotConfigured tool="DepCruise" />;
   return <DependencyCruiserViz {...depcruise.data.data} />;
-}
-
-function RunningTests() {
-  return (
-    <div className="absolute right-4 top-4 z-10 rounded-md border bg-background/80 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
-      Running tests…
-    </div>
-  );
 }
 
 function Loading() {

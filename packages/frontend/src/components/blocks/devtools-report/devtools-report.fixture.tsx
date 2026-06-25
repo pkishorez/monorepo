@@ -4,27 +4,7 @@ import {
   toVisualizationConfig,
   type VizSummary,
 } from 'dependency-cruiser-viz';
-import { config as vtestConfig } from '../vtest/fixtures';
-import type { TestStatus, VtestConfig } from '../vtest';
 import { DevtoolsReport } from './devtools-report';
-
-/** Rewrite every test's status, to synthesise run-outcome variants. */
-const withStatuses = (
-  config: VtestConfig,
-  map: (status: TestStatus) => TestStatus,
-): VtestConfig => ({
-  ...config,
-  features: config.features.map((feature) => ({
-    ...feature,
-    groups: feature.groups.map((group) => ({
-      ...group,
-      tests: group.tests.map((test) => ({ ...test, status: map(test.status) })),
-    })),
-  })),
-});
-
-const allPassing = withStatuses(vtestConfig, () => 'pass');
-const notRun = withStatuses(vtestConfig, () => 'pending');
 
 const depcruiseConfig = toVisualizationConfig({
   rootDir: 'src',
@@ -69,47 +49,25 @@ const dirtySummary: VizSummary = {
 };
 
 const report = (
-  vtest: VtestConfig | null,
   depcruise: { config: typeof depcruiseConfig; summary: VizSummary } | null,
 ): unknown => ({
-  vtest: vtest ? { available: true, ...vtest } : { available: false },
   depcruise: depcruise
     ? { available: true, data: depcruise }
     : { available: false },
 });
 
 export default {
-  'passing + clean': (
+  clean: (
     <DevtoolsReport
-      report={report(allPassing, {
-        config: depcruiseConfig,
-        summary: cleanSummary,
-      })}
+      report={report({ config: depcruiseConfig, summary: cleanSummary })}
     />
   ),
-  'failing + violations': (
+  violations: (
     <DevtoolsReport
-      report={report(vtestConfig, {
-        config: depcruiseConfig,
-        summary: dirtySummary,
-      })}
+      report={report({ config: depcruiseConfig, summary: dirtySummary })}
       onClose={() => console.log('close')}
     />
   ),
-  'not run': (
-    <DevtoolsReport
-      report={report(notRun, {
-        config: depcruiseConfig,
-        summary: cleanSummary,
-      })}
-    />
-  ),
-  'vtest only': <DevtoolsReport report={report(allPassing, null)} />,
-  'depcruise only': (
-    <DevtoolsReport
-      report={report(null, { config: depcruiseConfig, summary: dirtySummary })}
-    />
-  ),
-  empty: <DevtoolsReport report={report(null, null)} />,
+  empty: <DevtoolsReport report={report(null)} />,
   'malformed input': <DevtoolsReport report="not a report" />,
 };

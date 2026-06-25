@@ -10,7 +10,6 @@ export default defineConfig({
       'whatever-code/src/codex/generated/**',
       '**/__tests__/fixtures/**',
       'packages/frontend/src/components/ui/**',
-      'packages/frontend/vtest/**',
     ],
   },
   fmt: {
@@ -26,7 +25,6 @@ export default defineConfig({
       'whatever-code/src/codex/generated/**',
       '**/__tests__/fixtures/**',
       'packages/frontend/src/components/ui/**',
-      'packages/frontend/vtest/**',
     ],
   },
   staged: {

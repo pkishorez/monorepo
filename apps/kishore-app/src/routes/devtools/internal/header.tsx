@@ -3,22 +3,16 @@ import { Button } from '@monorepo/frontend/components/ui/button';
 import { Kbd } from '@monorepo/frontend/components/ui/kbd';
 import {
   ChevronsUpDownIcon,
-  FlaskConicalIcon,
   FolderIcon,
-  NetworkIcon,
   RotateCwIcon,
 } from '@monorepo/frontend/lucide';
 import { cn } from '@monorepo/frontend/utils';
 
-export type DevtoolsTab = 'vtest' | 'depcruise';
-
 /**
- * The DevTools chrome toolbar: a "DevTools" home button, a segmented VTest /
- * DepCruise tool switch, a center project switcher, and a top-right reload.
+ * The DevTools chrome toolbar: a "DevTools" home button, a center project
+ * switcher, and a top-right reload.
  */
 export function DevtoolsHeader({
-  tab,
-  onTab,
   onHome,
   onNavigate,
   onReload,
@@ -26,8 +20,6 @@ export function DevtoolsHeader({
   canReload,
   isReloading,
 }: {
-  tab: DevtoolsTab;
-  onTab: (tab: DevtoolsTab) => void;
   onHome: () => void;
   onNavigate: () => void;
   onReload: () => void;
@@ -45,8 +37,6 @@ export function DevtoolsHeader({
         DevTools
       </button>
 
-      <SegmentedTabs tab={tab} onTab={onTab} />
-
       <div className="flex flex-1 items-center justify-center">
         <ProjectSwitcher label={selectedLabel} onClick={onNavigate} />
       </div>
@@ -62,53 +52,6 @@ export function DevtoolsHeader({
         <RotateCwIcon className={cn('size-4', isReloading && 'animate-spin')} />
       </Button>
     </header>
-  );
-}
-
-const TABS: ReadonlyArray<{
-  value: DevtoolsTab;
-  label: string;
-  icon: typeof FlaskConicalIcon;
-}> = [
-  { value: 'vtest', label: 'VTest', icon: FlaskConicalIcon },
-  { value: 'depcruise', label: 'DepCruise', icon: NetworkIcon },
-];
-
-/** A compact segmented control switching between the DevTools tools. */
-function SegmentedTabs({
-  tab,
-  onTab,
-}: {
-  tab: DevtoolsTab;
-  onTab: (tab: DevtoolsTab) => void;
-}) {
-  return (
-    <div
-      role="tablist"
-      className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 bg-muted/60 p-0.5"
-    >
-      {TABS.map(({ value, label, icon: Icon }) => {
-        const active = tab === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onTab(value)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
-              active
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <Icon className="size-3.5" />
-            {label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

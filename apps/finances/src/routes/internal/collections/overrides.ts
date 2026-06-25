@@ -8,14 +8,18 @@ const std = createStdSync();
 
 export const overridesCollection = std.collection({
   schema: OverrideSchema,
-  strategy: syncStrategy.oldToNew({
-    stream: streamSource((cursor) =>
-      Effect.gen(function* () {
-        const { client } = yield* FinancesClient;
-        return client.subscribeOverrides({ cursor });
-      }),
-    ),
-  }),
+  sync: {
+    strategy: syncStrategy.oldToNew({
+      stream: streamSource((cursor) =>
+        Effect.gen(function* () {
+          const { client } = yield* FinancesClient;
+          return client.subscribeOverrides({ cursor });
+        }),
+      ),
+    }),
+    forwardFetch: () => Effect.succeed([]),
+    cadence: false,
+  },
   onInsert: (item) =>
     run(
       Effect.gen(function* () {

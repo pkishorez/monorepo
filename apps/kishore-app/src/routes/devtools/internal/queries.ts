@@ -1,11 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Effect } from 'effect';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { mergeRunRecords } from '@monorepo/devtools/report';
 import type { DevtoolsRpc } from '@monorepo/devtools/rpc';
 import { DevtoolsClient, type DevtoolsRuntime } from './runtime';
-
-export { mergeRunRecords };
 
 /** The resolved RPC client object carrying the DevTools procedures. */
 type Client = Effect.Success<typeof DevtoolsClient>;
@@ -16,20 +13,8 @@ type RpcSuccess<Tag extends string> = Rpc.Success<
   Rpc.ExtractTag<DevtoolsRpcs, Tag>
 >;
 
-/** The `RunVtestDocs` success payload (fast docs, tests in `pending`). */
-export type RunVtestDocsResult = RpcSuccess<'RunVtestDocs'>;
-/** The `RunVtestRun` success payload (flat per-test run records). */
-export type RunVtestRunResult = RpcSuccess<'RunVtestRun'>;
 /** The `RunDepcruise` success payload (discriminated availability union). */
 export type RunDepcruiseResult = RpcSuccess<'RunDepcruise'>;
-
-/** The `available: true` docs payload, shaped like a `VtestView` config. */
-export type VtestDocs = Extract<RunVtestDocsResult, { available: true }>;
-/** A single flat run record from `RunVtestRun`. */
-export type RunRecord = Extract<
-  RunVtestRunResult,
-  { available: true }
->['records'][number];
 
 /**
  * Bridge an Effect that needs {@link DevtoolsClient} into a Promise the
@@ -47,43 +32,11 @@ const runProcedure = <A>(
     }),
   );
 
-/**
- * Fast docs query: markdown, toc and pending test rows for `path`. Renders
- * immediately without running any tests. Disabled when `path` is empty.
- */
-export function useVtestDocs(runtime: DevtoolsRuntime, path: string) {
-  return useQuery({
-    queryKey: ['vtest-docs', runtime, path] as const,
-    queryFn: () => runProcedure(runtime, (c) => c.RunVtestDocs({ path })),
-    enabled: !!path,
-  });
-}
-
-/**
- * Slow run query: executes the package's tests and returns flat per-test
- * records. Runs in parallel with {@link useVtestDocs}. Disabled when `path` is
- * empty.
- */
-export function useVtestRun(runtime: DevtoolsRuntime, path: string) {
-  return useQuery({
-    queryKey: ['vtest-run', runtime, path] as const,
-    queryFn: () => runProcedure(runtime, (c) => c.RunVtestRun({ path })),
-    enabled: !!path,
-  });
-}
-
-/**
- * Dependency-cruiser graph for `path`. Lazy: only fires once `enabled` is true
- * (the DepCruise tab has been opened), so it never blocks the vtest queries.
- */
-export function useDepcruise(
-  runtime: DevtoolsRuntime,
-  path: string,
-  enabled: boolean,
-) {
+/** Dependency-cruiser graph for `path`. Disabled when `path` is empty. */
+export function useDepcruise(runtime: DevtoolsRuntime, path: string) {
   return useQuery({
     queryKey: ['depcruise', runtime, path] as const,
     queryFn: () => runProcedure(runtime, (c) => c.RunDepcruise({ path })),
-    enabled: enabled && !!path,
+    enabled: !!path,
   });
 }
