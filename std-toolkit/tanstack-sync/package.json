@@ -43,7 +43,7 @@
     "fake-indexeddb": "6.2.5",
     "react": "19.2.7",
     "typescript": "6.0.3",
-    "vitest": "4.1.5"
+    "vitest": "4.1.9"
   },
   "peerDependencies": {
     "@tanstack/react-db": ">=0.1.64",
