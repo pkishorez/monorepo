@@ -1,0 +1,145 @@
+{
+  "name": "std-toolkit",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Database-agnostic sync utilities — schema evolution, DynamoDB/SQLite adapters, TanStack DB integration",
+  "keywords": [
+    "dynamodb",
+    "effect",
+    "schema",
+    "sqlite",
+    "sync",
+    "tanstack"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo"
+  },
+  "bin": {
+    "eschema": "dist/eschema/cli/main.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "exports": {
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./eschema": {
+      "types": "./dist/eschema/index.d.ts",
+      "default": "./dist/eschema/index.js"
+    },
+    "./eschema/*": {
+      "types": "./dist/eschema/*",
+      "import": "./dist/eschema/*"
+    },
+    "./dynamodb": {
+      "types": "./dist/dynamodb/index.d.ts",
+      "default": "./dist/dynamodb/index.js"
+    },
+    "./dynamodb/rpc": {
+      "types": "./dist/dynamodb/rpc/index.d.ts",
+      "default": "./dist/dynamodb/rpc/index.js"
+    },
+    "./dynamodb/*": {
+      "types": "./dist/dynamodb/*",
+      "import": "./dist/dynamodb/*"
+    },
+    "./sqlite": {
+      "types": "./dist/sqlite/index.d.ts",
+      "default": "./dist/sqlite/index.js"
+    },
+    "./sqlite/rpc": {
+      "types": "./dist/sqlite/rpc/index.d.ts",
+      "default": "./dist/sqlite/rpc/index.js"
+    },
+    "./sqlite/adapters/do": {
+      "types": "./dist/sqlite/sql/adapters/do.d.ts",
+      "default": "./dist/sqlite/sql/adapters/do.js"
+    },
+    "./sqlite/adapters/better-sqlite3": {
+      "types": "./dist/sqlite/sql/adapters/better-sqlite3.d.ts",
+      "default": "./dist/sqlite/sql/adapters/better-sqlite3.js"
+    },
+    "./sqlite/adapters/bun": {
+      "types": "./dist/sqlite/sql/adapters/bun.d.ts",
+      "default": "./dist/sqlite/sql/adapters/bun.js"
+    },
+    "./sqlite/adapters/node": {
+      "types": "./dist/sqlite/sql/adapters/node.d.ts",
+      "default": "./dist/sqlite/sql/adapters/node.js"
+    },
+    "./tanstack-sync": {
+      "types": "./dist/tanstack-sync/index.d.ts",
+      "default": "./dist/tanstack-sync/index.js"
+    },
+    "./tanstack-sync/paced": {
+      "types": "./dist/tanstack-sync/paced/index.d.ts",
+      "default": "./dist/tanstack-sync/paced/index.js"
+    },
+    "./tanstack-sync/offline-storage/idb": {
+      "types": "./dist/tanstack-sync/offline-storage/adapters/idb/index.d.ts",
+      "default": "./dist/tanstack-sync/offline-storage/adapters/idb/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "vp check && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit",
+    "lint:depcruise": "depcruise-viz lint",
+    "fmt": "vp fmt",
+    "generate": "bun scripts/dynamodb/generate.ts",
+    "play": "bun src/sqlite/play.ts"
+  },
+  "dependencies": {
+    "@effect/platform-node": "4.0.0-beta.78",
+    "@standard-schema/spec": "1.1.0",
+    "aws4fetch": "1.0.20",
+    "idb": "8.0.3",
+    "kleur": "4.1.5",
+    "type-fest": "5.7.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260517.1",
+    "@tanstack/query-db-collection": "1.0.40",
+    "@tanstack/react-db": "0.1.86",
+    "@tsconfig/node22": "22.0.5",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/bun": "1.3.14",
+    "@types/node": "25.9.1",
+    "@types/react": "19.2.16",
+    "better-sqlite3": "12.10.0",
+    "dependency-cruiser-viz": "workspace:*",
+    "effect": "4.0.0-beta.78",
+    "fake-indexeddb": "6.2.5",
+    "react": "19.2.7",
+    "typescript": "6.0.3",
+    "vite-plus": "0.1.24",
+    "vitest": "4.1.5"
+  },
+  "peerDependencies": {
+    "@tanstack/react-db": ">=0.1.64",
+    "effect": "4.0.0-beta.78",
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-db": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

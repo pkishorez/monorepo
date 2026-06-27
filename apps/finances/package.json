@@ -14,10 +14,6 @@
     "@effect/platform-browser": "4.0.0-beta.78",
     "@effect/platform-node": "4.0.0-beta.78",
     "@monorepo/frontend": "workspace:*",
-    "@std-toolkit/core": "workspace:*",
-    "@std-toolkit/eschema": "workspace:*",
-    "@std-toolkit/sqlite": "workspace:*",
-    "@std-toolkit/tanstack-sync": "workspace:*",
     "@tanstack/react-db": "0.1.86",
     "@tanstack/react-router": "1.170.3",
     "better-sqlite3": "12.10.0",
@@ -27,6 +23,7 @@
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "recharts": "3.8.1",
+    "std-toolkit": "workspace:*",
     "tailwindcss": "4.3.0",
     "zustand": "5.0.14"
   },

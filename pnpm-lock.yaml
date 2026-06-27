@@ -35,9 +35,6 @@ importers:
       '@monorepo/frontend':
         specifier: workspace:*
         version: link:../../packages/frontend
-      '@std-toolkit/tanstack-sync':
-        specifier: workspace:*
-        version: link:../../std-toolkit/tanstack-sync
       '@tanstack/react-db':
         specifier: 0.1.86
         version: 0.1.86(react@19.2.7)(typescript@6.0.3)
@@ -77,6 +74,9 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+      std-toolkit:
+        specifier: workspace:*
+        version: link:../../std-toolkit
       tailwindcss:
         specifier: 4.3.0
         version: 4.3.0
@@ -123,18 +123,6 @@ importers:
       '@monorepo/frontend':
         specifier: workspace:*
         version: link:../../packages/frontend
-      '@std-toolkit/core':
-        specifier: workspace:*
-        version: link:../../std-toolkit/core
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../../std-toolkit/eschema
-      '@std-toolkit/sqlite':
-        specifier: workspace:*
-        version: link:../../std-toolkit/db-sqlite
-      '@std-toolkit/tanstack-sync':
-        specifier: workspace:*
-        version: link:../../std-toolkit/tanstack-sync
       '@tanstack/react-db':
         specifier: 0.1.86
         version: 0.1.86(react@19.2.7)(typescript@6.0.3)
@@ -162,6 +150,9 @@ importers:
       recharts:
         specifier: 3.8.1
         version: 3.8.1(@types/react@19.2.16)(react-dom@19.2.7(react@19.2.7))(react-is@19.2.6)(react@19.2.7)(redux@5.0.1)
+      std-toolkit:
+        specifier: workspace:*
+        version: link:../../std-toolkit
       tailwindcss:
         specifier: 4.3.0
         version: 4.3.0
@@ -220,9 +211,6 @@ importers:
       '@monorepo/trace-viewer':
         specifier: workspace:*
         version: link:../../packages/trace-viewer
-      '@monorepo/vtest':
-        specifier: workspace:*
-        version: link:../../packages/vtest
       '@rollup/browser':
         specifier: 4.61.0
         version: 4.61.0
@@ -235,21 +223,6 @@ importers:
       '@shikijs/transformers':
         specifier: 4.2.0
         version: 4.2.0
-      '@std-toolkit/core':
-        specifier: workspace:*
-        version: link:../../std-toolkit/core
-      '@std-toolkit/db-dynamodb':
-        specifier: workspace:*
-        version: link:../../std-toolkit/db-dynamodb
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../../std-toolkit/eschema
-      '@std-toolkit/sqlite':
-        specifier: workspace:*
-        version: link:../../std-toolkit/db-sqlite
-      '@std-toolkit/tanstack-sync':
-        specifier: workspace:*
-        version: link:../../std-toolkit/tanstack-sync
       '@tanstack/ai':
         specifier: 0.27.0
         version: 0.27.0(@opentelemetry/api@1.9.1)
@@ -292,6 +265,9 @@ importers:
       shiki-magic-move:
         specifier: 1.4.0
         version: 1.4.0(react@19.2.7)(shiki@4.2.0)(solid-js@1.9.13)
+      std-toolkit:
+        specifier: workspace:*
+        version: link:../../std-toolkit
       sucrase:
         specifier: 3.35.1
         version: 3.35.1
@@ -420,9 +396,6 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78(effect@4.0.0-beta.78)(ioredis@5.11.1)
-      '@monorepo/vtest':
-        specifier: workspace:*
-        version: link:../vtest
       dependency-cruiser-viz:
         specifier: workspace:*
         version: link:../dependency-cruiser-viz
@@ -602,21 +575,15 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78(effect@4.0.0-beta.78)(ioredis@5.11.1)
-      '@std-toolkit/core':
-        specifier: workspace:*
-        version: link:../../std-toolkit/core
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../../std-toolkit/eschema
-      '@std-toolkit/sqlite':
-        specifier: workspace:*
-        version: link:../../std-toolkit/db-sqlite
       better-sqlite3:
         specifier: 12.10.0
         version: 12.10.0
       effect:
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78
+      std-toolkit:
+        specifier: workspace:*
+        version: link:../../std-toolkit
     devDependencies:
       '@tsconfig/node22':
         specifier: 22.0.5
@@ -754,96 +721,36 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
-  packages/vtest:
+  std-toolkit:
     dependencies:
-      effect:
+      '@effect/platform-node':
         specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78
-    devDependencies:
-      '@types/node':
-        specifier: 25.9.1
-        version: 25.9.1
-      dependency-cruiser-viz:
-        specifier: workspace:*
-        version: link:../dependency-cruiser-viz
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  std-toolkit/core:
-    dependencies:
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../eschema
-    devDependencies:
-      '@tsconfig/node22':
-        specifier: 22.0.5
-        version: 22.0.5
-      '@types/node':
-        specifier: 25.9.1
-        version: 25.9.1
-      effect:
-        specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  std-toolkit/db-dynamodb:
-    dependencies:
-      '@std-toolkit/core':
-        specifier: workspace:*
-        version: link:../core
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../eschema
+        version: 4.0.0-beta.78(effect@4.0.0-beta.78)(ioredis@5.11.1)
+      '@standard-schema/spec':
+        specifier: 1.1.0
+        version: 1.1.0
       aws4fetch:
         specifier: 1.0.20
         version: 1.0.20
+      idb:
+        specifier: 8.0.3
+        version: 8.0.3
+      kleur:
+        specifier: 4.1.5
+        version: 4.1.5
       type-fest:
         specifier: 5.7.0
         version: 5.7.0
     devDependencies:
-      '@effect/platform-node':
-        specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78(effect@4.0.0-beta.78)(ioredis@5.11.1)
-      '@tsconfig/node22':
-        specifier: 22.0.5
-        version: 22.0.5
-      '@types/node':
-        specifier: 25.9.1
-        version: 25.9.1
-      dependency-cruiser-viz:
-        specifier: workspace:*
-        version: link:../../packages/dependency-cruiser-viz
-      effect:
-        specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  std-toolkit/db-sqlite:
-    dependencies:
-      '@std-toolkit/core':
-        specifier: workspace:*
-        version: link:../core
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../eschema
-    devDependencies:
       '@cloudflare/workers-types':
         specifier: 4.20260517.1
         version: 4.20260517.1
+      '@tanstack/query-db-collection':
+        specifier: 1.0.40
+        version: 1.0.40(@tanstack/query-core@5.101.0)(typescript@6.0.3)
+      '@tanstack/react-db':
+        specifier: 0.1.86
+        version: 0.1.86(react@19.2.7)(typescript@6.0.3)
       '@tsconfig/node22':
         specifier: 22.0.5
         version: 22.0.5
@@ -856,77 +763,15 @@ importers:
       '@types/node':
         specifier: 25.9.1
         version: 25.9.1
-      better-sqlite3:
-        specifier: 12.10.0
-        version: 12.10.0
-      effect:
-        specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  std-toolkit/eschema:
-    dependencies:
-      '@effect/platform-node':
-        specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78(effect@4.0.0-beta.78)(ioredis@5.11.1)
-      '@standard-schema/spec':
-        specifier: 1.1.0
-        version: 1.1.0
-      kleur:
-        specifier: 4.1.5
-        version: 4.1.5
-    devDependencies:
-      '@tsconfig/node22':
-        specifier: 22.0.5
-        version: 22.0.5
-      '@types/node':
-        specifier: 25.9.1
-        version: 25.9.1
-      effect:
-        specifier: 4.0.0-beta.78
-        version: 4.0.0-beta.78
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  std-toolkit/tanstack-sync:
-    dependencies:
-      '@std-toolkit/core':
-        specifier: workspace:*
-        version: link:../core
-      '@std-toolkit/eschema':
-        specifier: workspace:*
-        version: link:../eschema
-      idb:
-        specifier: 8.0.3
-        version: 8.0.3
-    devDependencies:
-      '@tanstack/query-db-collection':
-        specifier: 1.0.40
-        version: 1.0.40(@tanstack/query-core@5.101.0)(typescript@6.0.3)
-      '@tanstack/react-db':
-        specifier: 0.1.86
-        version: 0.1.86(react@19.2.7)(typescript@6.0.3)
-      '@tsconfig/node22':
-        specifier: 22.0.5
-        version: 22.0.5
-      '@types/node':
-        specifier: 25.9.1
-        version: 25.9.1
       '@types/react':
         specifier: 19.2.16
         version: 19.2.16
+      better-sqlite3:
+        specifier: 12.10.0
+        version: 12.10.0
       dependency-cruiser-viz:
         specifier: workspace:*
-        version: link:../../packages/dependency-cruiser-viz
+        version: link:../packages/dependency-cruiser-viz
       effect:
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78
@@ -939,6 +784,9 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+      vite-plus:
+        specifier: 0.1.24
+        version: 0.1.24(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)
       vitest:
         specifier: 4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
@@ -10957,7 +10805,7 @@ snapshots:
       tinyexec: 1.1.1
       tinyglobby: 0.2.17
       vite: 8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
-      ws: 8.20.0
+      ws: 8.20.1
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@types/node': 25.9.1
