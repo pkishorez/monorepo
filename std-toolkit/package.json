@@ -1,12 +1,13 @@
 {
   "name": "std-toolkit",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "private": false,
-  "description": "Database-agnostic sync utilities — schema evolution, DynamoDB/SQLite adapters, TanStack DB integration",
+  "description": "Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, DynamoDB/SQLite adapters, and TanStack DB integration",
   "keywords": [
     "dynamodb",
     "effect",
     "schema",
+    "single table design",
     "sqlite",
     "sync",
     "tanstack"
@@ -40,40 +41,40 @@
       "import": "./dist/eschema/*"
     },
     "./dynamodb": {
-      "types": "./dist/dynamodb/index.d.ts",
-      "default": "./dist/dynamodb/index.js"
+      "types": "./dist/db/dynamodb/index.d.ts",
+      "default": "./dist/db/dynamodb/index.js"
     },
     "./dynamodb/rpc": {
-      "types": "./dist/dynamodb/rpc/index.d.ts",
-      "default": "./dist/dynamodb/rpc/index.js"
+      "types": "./dist/db/dynamodb/rpc/index.d.ts",
+      "default": "./dist/db/dynamodb/rpc/index.js"
     },
     "./dynamodb/*": {
-      "types": "./dist/dynamodb/*",
-      "import": "./dist/dynamodb/*"
+      "types": "./dist/db/dynamodb/*",
+      "import": "./dist/db/dynamodb/*"
     },
     "./sqlite": {
-      "types": "./dist/sqlite/index.d.ts",
-      "default": "./dist/sqlite/index.js"
+      "types": "./dist/db/sqlite/index.d.ts",
+      "default": "./dist/db/sqlite/index.js"
     },
     "./sqlite/rpc": {
-      "types": "./dist/sqlite/rpc/index.d.ts",
-      "default": "./dist/sqlite/rpc/index.js"
+      "types": "./dist/db/sqlite/rpc/index.d.ts",
+      "default": "./dist/db/sqlite/rpc/index.js"
     },
     "./sqlite/adapters/do": {
-      "types": "./dist/sqlite/sql/adapters/do.d.ts",
-      "default": "./dist/sqlite/sql/adapters/do.js"
+      "types": "./dist/db/sqlite/sql/adapters/do.d.ts",
+      "default": "./dist/db/sqlite/sql/adapters/do.js"
     },
     "./sqlite/adapters/better-sqlite3": {
-      "types": "./dist/sqlite/sql/adapters/better-sqlite3.d.ts",
-      "default": "./dist/sqlite/sql/adapters/better-sqlite3.js"
+      "types": "./dist/db/sqlite/sql/adapters/better-sqlite3.d.ts",
+      "default": "./dist/db/sqlite/sql/adapters/better-sqlite3.js"
     },
     "./sqlite/adapters/bun": {
-      "types": "./dist/sqlite/sql/adapters/bun.d.ts",
-      "default": "./dist/sqlite/sql/adapters/bun.js"
+      "types": "./dist/db/sqlite/sql/adapters/bun.d.ts",
+      "default": "./dist/db/sqlite/sql/adapters/bun.js"
     },
     "./sqlite/adapters/node": {
-      "types": "./dist/sqlite/sql/adapters/node.d.ts",
-      "default": "./dist/sqlite/sql/adapters/node.js"
+      "types": "./dist/db/sqlite/sql/adapters/node.d.ts",
+      "default": "./dist/db/sqlite/sql/adapters/node.js"
     },
     "./tanstack-sync": {
       "types": "./dist/tanstack-sync/index.d.ts",
@@ -90,15 +91,15 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
+    "build:watch": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",
     "lint:depcruise": "depcruise-viz lint",
     "fmt": "vp fmt",
-    "generate": "bun scripts/dynamodb/generate.ts",
-    "play": "bun src/sqlite/play.ts"
+    "dynamodb:generate": "bun scripts/dynamodb/generate.ts",
+    "sqlite:play": "bun src/db/sqlite/play.ts"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.78",

@@ -36,28 +36,28 @@ const tanstackSyncFeature = feature('tanstack-sync', {
 // Intra-folder layers — rebased from the two preserved per-package configs.
 // ---------------------------------------------------------------------------
 
-// --- dynamodb (src/services → src/dynamodb/services, etc.) ---
-const dynamodbBarrel = layer('dynamodb-barrel', ['src/dynamodb/index.ts'], {
+// --- dynamodb (src/services → src/db/dynamodb/services, etc.) ---
+const dynamodbBarrel = layer('dynamodb-barrel', ['src/db/dynamodb/index.ts'], {
   description: 'Public barrel',
 });
 const dynamodbServices = layer(
   'services',
-  ['src/dynamodb/services', 'src/dynamodb/rpc'],
+  ['src/db/dynamodb/services', 'src/db/dynamodb/rpc'],
   { description: 'Entity/command surface and RPC handlers' },
 );
-const dynamodbExpr = layer('expr', ['src/dynamodb/expr'], {
+const dynamodbExpr = layer('expr', ['src/db/dynamodb/expr'], {
   description: 'Expression builders',
 });
-const dynamodbInternal = layer('internal', ['src/dynamodb/internal'], {
+const dynamodbInternal = layer('internal', ['src/db/dynamodb/internal'], {
   description: 'Internal DynamoDB implementation details',
 });
-const dynamodbGenerated = layer('generated', ['src/dynamodb/generated'], {
+const dynamodbGenerated = layer('generated', ['src/db/dynamodb/generated'], {
   description: 'Generated code',
 });
-const dynamodbTypes = layer('types', ['src/dynamodb/types'], {
+const dynamodbTypes = layer('types', ['src/db/dynamodb/types'], {
   description: 'DynamoDB type definitions',
 });
-const dynamodbErrors = layer('errors', ['src/dynamodb/errors.ts'], {
+const dynamodbErrors = layer('errors', ['src/db/dynamodb/errors.ts'], {
   description: 'DynamoDB error types',
 });
 
@@ -88,16 +88,16 @@ const coreImpl = layer(
 );
 
 // --- sqlite: barrel over implementation ---
-const sqliteBarrel = layer('sqlite-barrel', ['src/sqlite/index.ts'], {
+const sqliteBarrel = layer('sqlite-barrel', ['src/db/sqlite/index.ts'], {
   description: 'Public barrel',
 });
 const sqliteImpl = layer(
   'sqlite-impl',
   [
-    'src/sqlite/internal',
-    'src/sqlite/rpc',
-    'src/sqlite/services',
-    'src/sqlite/sql',
+    'src/db/sqlite/internal',
+    'src/db/sqlite/rpc',
+    'src/db/sqlite/services',
+    'src/db/sqlite/sql',
   ],
   { description: 'Internal implementation' },
 );
@@ -154,7 +154,7 @@ export default {
     'src/*/play.ts',
     'src/eschema/tutorial/**',
     'src/eschema/cli/**',
-    'src/dynamodb/depcruise.config.ts',
+    'src/db/dynamodb/depcruise.config.ts',
     'src/tanstack-sync/depcruise.config.ts',
   ],
   rules: [
@@ -213,21 +213,21 @@ export default {
     module('src/core/schema.ts', { feature: 'core' }),
 
     // dynamodb — not consumed by any sibling folder
-    module('src/dynamodb/index.ts', { feature: 'dynamodb' }),
-    module('src/dynamodb/services', { feature: 'dynamodb' }),
-    module('src/dynamodb/rpc', { feature: 'dynamodb' }),
-    module('src/dynamodb/expr', { feature: 'dynamodb' }),
-    module('src/dynamodb/internal', { feature: 'dynamodb' }),
-    module('src/dynamodb/generated', { feature: 'dynamodb' }),
-    module('src/dynamodb/types', { feature: 'dynamodb' }),
-    module('src/dynamodb/errors.ts', { feature: 'dynamodb' }),
+    module('src/db/dynamodb/index.ts', { feature: 'dynamodb' }),
+    module('src/db/dynamodb/services', { feature: 'dynamodb' }),
+    module('src/db/dynamodb/rpc', { feature: 'dynamodb' }),
+    module('src/db/dynamodb/expr', { feature: 'dynamodb' }),
+    module('src/db/dynamodb/internal', { feature: 'dynamodb' }),
+    module('src/db/dynamodb/generated', { feature: 'dynamodb' }),
+    module('src/db/dynamodb/types', { feature: 'dynamodb' }),
+    module('src/db/dynamodb/errors.ts', { feature: 'dynamodb' }),
 
     // sqlite — not consumed by any sibling folder
-    module('src/sqlite/index.ts', { feature: 'sqlite' }),
-    module('src/sqlite/internal', { feature: 'sqlite' }),
-    module('src/sqlite/rpc', { feature: 'sqlite' }),
-    module('src/sqlite/services', { feature: 'sqlite' }),
-    module('src/sqlite/sql', { feature: 'sqlite' }),
+    module('src/db/sqlite/index.ts', { feature: 'sqlite' }),
+    module('src/db/sqlite/internal', { feature: 'sqlite' }),
+    module('src/db/sqlite/rpc', { feature: 'sqlite' }),
+    module('src/db/sqlite/services', { feature: 'sqlite' }),
+    module('src/db/sqlite/sql', { feature: 'sqlite' }),
 
     // tanstack-sync — not consumed by any sibling folder
     module('src/tanstack-sync/index.ts', { feature: 'tanstack-sync' }),
