@@ -21,10 +21,10 @@
     "dist",
     "node_modules",
     "src/eschema/cli/__tests__/fixtures/**",
-    "src/sqlite/sql/adapters/bun.ts",
-    "src/sqlite/sql/adapters/__tests__/bun.bun.test.ts",
-    "src/sqlite/sql/adapters/__tests__/compat.bun.test.ts",
-    "src/sqlite/sql/adapters/__tests__/compat-read-better-sqlite3.ts",
-    "src/sqlite/sql/adapters/__tests__/compat-seed-better-sqlite3.ts"
+    "src/db/sqlite/sql/adapters/bun.ts",
+    "src/db/sqlite/sql/adapters/__tests__/bun.bun.test.ts",
+    "src/db/sqlite/sql/adapters/__tests__/compat.bun.test.ts",
+    "src/db/sqlite/sql/adapters/__tests__/compat-read-better-sqlite3.ts",
+    "src/db/sqlite/sql/adapters/__tests__/compat-seed-better-sqlite3.ts"
   ]
 }
