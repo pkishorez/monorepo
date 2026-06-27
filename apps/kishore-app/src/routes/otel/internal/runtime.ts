@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, ManagedRuntime } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { HttpApiClient } from 'effect/unstable/httpapi';
-import { LotelApi } from 'lotel/client';
+import { LotelApi } from '@kishorez/lotel/client';
 
 type Client = Effect.Success<ReturnType<typeof makeClientEffect>>;
 

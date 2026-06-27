@@ -4,7 +4,7 @@ import {
   layersTopDown,
   module,
   type ProjectConfig,
-} from 'dependency-cruiser-viz';
+} from 'depcruise-viz';
 
 const composites = layer('composites', ['src/components/blocks', 'src/form'], {
   description: 'Domain widgets and the form kit',
@@ -18,7 +18,7 @@ const foundation = layer('foundation', ['src/lib', 'src/hooks'], {
   description: 'Framework-agnostic helpers and hooks',
 });
 
-const dependencyCruiserViz = feature('dependency-cruiser-viz', {
+const dependencyCruiserViz = feature('depcruise-viz', {
   description: 'Dependency-cruiser layer/feature/module visualization',
 });
 const otelTraceViewer = feature('otel-trace-viewer', {
@@ -35,14 +35,14 @@ export default {
   features: [dependencyCruiserViz, otelTraceViewer, hello],
   modules: [
     module('src/components/blocks/dependency-cruiser-viz', {
-      feature: 'dependency-cruiser-viz',
+      feature: 'depcruise-viz',
       visibility: 'public',
     }),
     module('src/components/blocks/dependency-cruiser-viz/files', {
-      feature: 'dependency-cruiser-viz',
+      feature: 'depcruise-viz',
     }),
     module('src/components/blocks/dependency-cruiser-viz/graph', {
-      feature: 'dependency-cruiser-viz',
+      feature: 'depcruise-viz',
     }),
     module('src/components/blocks/otel-trace-viewer', {
       feature: 'otel-trace-viewer',

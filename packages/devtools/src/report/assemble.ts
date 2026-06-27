@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { Effect } from 'effect';
-import { cruiseProject } from 'dependency-cruiser-viz/node';
+import { cruiseProject } from 'depcruise-viz/node';
 import { DevtoolsRpcError } from '../rpc/index.js';
 
 /** Resolve an input path to an absolute path, expanding a leading `~`. */

@@ -1,6 +1,6 @@
 {
   "name": "std-toolkit",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": false,
   "description": "Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, DynamoDB/SQLite adapters, and TanStack DB integration",
   "keywords": [
@@ -119,7 +119,7 @@
     "@types/node": "25.9.1",
     "@types/react": "19.2.16",
     "better-sqlite3": "12.10.0",
-    "dependency-cruiser-viz": "workspace:*",
+    "depcruise-viz": "workspace:*",
     "effect": "4.0.0-beta.78",
     "fake-indexeddb": "6.2.5",
     "react": "19.2.7",

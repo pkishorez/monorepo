@@ -1,14 +1,16 @@
 {
-  "name": "lotel",
+  "name": "@kishorez/lotel",
   "version": "0.0.1",
   "private": true,
   "description": "Local OpenTelemetry server for development",
+  "license": "MIT",
   "bin": {
     "lotel": "dist/cli/index.js"
   },
   "files": [
     "dist/",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "type": "module",
   "exports": {

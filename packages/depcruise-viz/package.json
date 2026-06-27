@@ -1,7 +1,7 @@
 {
-  "name": "dependency-cruiser-viz",
+  "name": "depcruise-viz",
   "version": "0.0.1",
-  "private": false,
+  "private": true,
   "repository": "pkishorez/monorepo",
   "bin": {
     "depcruise-viz": "dist/cli/index.js"

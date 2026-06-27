@@ -4,7 +4,7 @@ import {
   layersTopDown,
   module,
   type ProjectConfig,
-} from 'dependency-cruiser-viz';
+} from 'depcruise-viz';
 
 const server = layer('server', ['src/server.ts', 'src/durable-objects'], {
   description: 'Worker entry and durable objects',

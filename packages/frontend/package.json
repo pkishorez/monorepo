@@ -44,7 +44,7 @@
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.4.0",
-    "dependency-cruiser-viz": "file:../dependency-cruiser-viz",
+    "depcruise-viz": "workspace:*",
     "embla-carousel-react": "8.6.0",
     "gray-matter": "4.0.3",
     "input-otp": "1.4.2",
@@ -68,6 +68,7 @@
     "vaul": "1.1.2"
   },
   "devDependencies": {
+    "@kishorez/lotel": "workspace:*",
     "@tailwindcss/typography": "0.5.19",
     "@tailwindcss/vite": "4.3.0",
     "@types/node": "25.9.1",
@@ -75,7 +76,6 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "globals": "17.6.0",
-    "lotel": "workspace:*",
     "react-cosmos": "7.3.0",
     "react-cosmos-plugin-vite": "7.3.0",
     "typescript": "6.0.3",

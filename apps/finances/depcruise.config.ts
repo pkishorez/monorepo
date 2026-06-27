@@ -1,8 +1,4 @@
-import {
-  layer,
-  layersTopDown,
-  type ProjectConfig,
-} from 'dependency-cruiser-viz';
+import { layer, layersTopDown, type ProjectConfig } from 'depcruise-viz';
 
 const routes = layer('routes', ['src/routes']);
 const orchestration = layer('orchestration', ['src/orchestration']);

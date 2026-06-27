@@ -4,7 +4,7 @@ import {
   layersTopDown,
   module,
   type ProjectConfig,
-} from 'dependency-cruiser-viz';
+} from 'depcruise-viz';
 
 const cli = layer('cli', ['src/cli'], {
   description: 'CLI entry, command wiring, config loading',

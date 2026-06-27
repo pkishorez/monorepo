@@ -4,7 +4,7 @@ import {
   layersTopDown,
   module,
   type ProjectConfig,
-} from 'dependency-cruiser-viz';
+} from 'depcruise-viz';
 
 // ---------------------------------------------------------------------------
 // Cross-folder features — one per internal folder (former package).
