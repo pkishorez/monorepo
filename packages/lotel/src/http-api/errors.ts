@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import type { SqliteDBError } from '@std-toolkit/sqlite';
+import type { SqliteDBError } from 'std-toolkit/sqlite';
 
 const BadRequestPayload = Schema.Struct({
   _tag: Schema.Literal('BadRequest'),

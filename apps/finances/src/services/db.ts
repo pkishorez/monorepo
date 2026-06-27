@@ -8,8 +8,8 @@ import {
   SQLiteSingleEntity,
   SQLiteTable,
   SqliteDB,
-} from '@std-toolkit/sqlite';
-import { betterSqlite3Layer } from '@std-toolkit/sqlite/adapters/better-sqlite3';
+} from 'std-toolkit/sqlite';
+import { betterSqlite3Layer } from 'std-toolkit/sqlite/adapters/better-sqlite3';
 import {
   DEFAULT_SETTINGS,
   OverrideSchema,

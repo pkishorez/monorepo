@@ -1,4 +1,4 @@
-import { EntityESchema, fromType } from '@std-toolkit/eschema';
+import { EntityESchema, fromType } from 'std-toolkit/eschema';
 import type {
   LogRecord,
   LogRecordContext,

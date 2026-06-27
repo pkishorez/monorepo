@@ -1,4 +1,4 @@
-import { EntityESchema } from '@std-toolkit/eschema';
+import { EntityESchema } from 'std-toolkit/eschema';
 import { Schema } from 'effect';
 
 export const OverrideSchema = EntityESchema.make('Override', 'transactionId', {

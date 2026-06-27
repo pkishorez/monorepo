@@ -1,5 +1,5 @@
 import { Duration, Effect, Result, Schedule, Stream } from 'effect';
-import type { EntityType } from '@std-toolkit/core';
+import type { EntityType } from 'std-toolkit/core';
 import { FinancesClient, financesRuntime } from '../effect';
 
 const toObservableError = (error: unknown): Error =>

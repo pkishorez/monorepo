@@ -21,8 +21,6 @@
     "dist",
     "node_modules",
     "src/eschema/cli/__tests__/fixtures/**",
-    "src/dynamodb/depcruise.config.ts",
-    "src/tanstack-sync/depcruise.config.ts",
     "src/sqlite/sql/adapters/bun.ts",
     "src/sqlite/sql/adapters/__tests__/bun.bun.test.ts",
     "src/sqlite/sql/adapters/__tests__/compat.bun.test.ts",

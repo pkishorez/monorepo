@@ -25,7 +25,7 @@ import {
   type StoredPrimaryDerivation,
 } from '../internal/utils.js';
 import { Broadcaster } from '../../core/index.js';
-import { Prettify } from '../../eschema/types.js';
+import type { Prettify } from '../../eschema/index.js';
 
 /**
  * Meta fields that can be used in index derivations.

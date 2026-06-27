@@ -2,15 +2,15 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import Database from 'better-sqlite3';
 import { Context, Effect, Layer } from 'effect';
-import type { EntityType } from '@std-toolkit/core';
+import type { EntityType } from 'std-toolkit/core';
 import {
   EntityRegistry,
   SQLiteEntity,
   SQLiteTable,
   SqliteDB,
   SqliteDBError,
-} from '@std-toolkit/sqlite';
-import { betterSqlite3Layer } from '@std-toolkit/sqlite/adapters/better-sqlite3';
+} from 'std-toolkit/sqlite';
+import { betterSqlite3Layer } from 'std-toolkit/sqlite/adapters/better-sqlite3';
 import {
   LogRecordSchema,
   MetricRecordSchema,

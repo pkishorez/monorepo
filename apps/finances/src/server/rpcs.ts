@@ -5,7 +5,7 @@ import {
   EntitySchema,
   SingleEntitySchema,
   StdToolkitError,
-} from '@std-toolkit/core';
+} from 'std-toolkit/core';
 import {
   OverrideSchema,
   ProjectionOutputSchema,

@@ -1,8 +1,8 @@
 import { Effect, Option, Stream } from 'effect';
-import type { EntityType } from '@std-toolkit/core';
-import { StdToolkitError } from '@std-toolkit/core';
-import { makeEntityRpcHandlers } from '@std-toolkit/sqlite/rpc';
-import { type SqliteDB, SqliteDBError } from '@std-toolkit/sqlite';
+import type { EntityType } from 'std-toolkit/core';
+import { StdToolkitError } from 'std-toolkit/core';
+import { makeEntityRpcHandlers } from 'std-toolkit/sqlite/rpc';
+import { type SqliteDB, SqliteDBError } from 'std-toolkit/sqlite';
 import {
   OverrideSchema,
   ProjectionOutputSchema,

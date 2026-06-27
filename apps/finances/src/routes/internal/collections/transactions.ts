@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import type { EntityType } from '@std-toolkit/core';
-import { createStdSync, syncStrategy } from '@std-toolkit/tanstack-sync';
+import type { EntityType } from 'std-toolkit/core';
+import { createStdSync, syncStrategy } from 'std-toolkit/tanstack-sync';
 import { ProjectionOutputSchema, TransactionSchema } from '@/domain/index';
 import { FinancesClient, financesRuntime } from '@/routes/internal/effect';
 import { streamSource } from './utils.js';

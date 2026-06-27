@@ -5,8 +5,8 @@ import {
   type StoredLogRecordValue,
   type StoredTraceRecordValue,
 } from 'lotel/client';
-import type { EntityType } from '@std-toolkit/core';
-import { createStdSync, syncStrategy } from '@std-toolkit/tanstack-sync';
+import type { EntityType } from 'std-toolkit/core';
+import { createStdSync, syncStrategy } from 'std-toolkit/tanstack-sync';
 import { LotelClient, makeLotelClientLayer } from './runtime';
 
 const POLL_INTERVAL_MS = 1000;

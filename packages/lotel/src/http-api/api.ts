@@ -3,8 +3,8 @@ import {
   HttpApiEndpoint,
   HttpApiGroup,
 } from 'effect/unstable/httpapi';
-import { EntitySchema } from '@std-toolkit/core';
-import { fromType } from '@std-toolkit/eschema';
+import { EntitySchema } from 'std-toolkit/core';
+import { fromType } from 'std-toolkit/eschema';
 import { Schema } from 'effect';
 import {
   LogRecordSchema,
