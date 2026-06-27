@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type { DepcruiseVizData } from 'dependency-cruiser-viz';
+import type { DepcruiseVizData } from 'depcruise-viz';
 
 /** A genuine fs/exec failure while assembling a payload (not "not configured"). */
 export class DevtoolsRpcError extends Schema.TaggedErrorClass<DevtoolsRpcError>(

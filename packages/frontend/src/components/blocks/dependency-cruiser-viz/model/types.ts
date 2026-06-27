@@ -3,4 +3,4 @@ export type {
   Visibility,
   VisualizationConfig,
   VizSummary,
-} from 'dependency-cruiser-viz';
+} from 'depcruise-viz';

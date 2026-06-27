@@ -5,7 +5,7 @@ import {
   module,
   toVisualizationConfig,
   type VizSummary,
-} from 'dependency-cruiser-viz';
+} from 'depcruise-viz';
 
 import { DependencyCruiserViz } from './dependency-cruiser-viz';
 

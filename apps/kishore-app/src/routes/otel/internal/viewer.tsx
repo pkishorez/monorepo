@@ -12,7 +12,7 @@ import { cn } from '@monorepo/frontend/lib/utils';
 import type {
   StoredLogRecordValue,
   StoredTraceRecordValue,
-} from 'lotel/client';
+} from '@kishorez/lotel/client';
 import type { OtelCollections } from './collections';
 import {
   FilterControls,

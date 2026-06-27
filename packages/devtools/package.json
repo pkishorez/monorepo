@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.78",
-    "dependency-cruiser-viz": "workspace:*",
+    "depcruise-viz": "workspace:*",
     "effect": "4.0.0-beta.78"
   },
   "devDependencies": {

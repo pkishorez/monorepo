@@ -1,7 +1,7 @@
 import type {
   StoredLogRecordValue,
   StoredTraceRecordValue,
-} from 'lotel/client';
+} from '@kishorez/lotel/client';
 import type { OtelEvent, OtelSpan, OtelStatus } from './types.js';
 
 type KV = NonNullable<StoredTraceRecordValue['record']['attributes']>[number];

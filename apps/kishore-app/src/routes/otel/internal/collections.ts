@@ -4,7 +4,7 @@ import {
   TraceRecordSchema,
   type StoredLogRecordValue,
   type StoredTraceRecordValue,
-} from 'lotel/client';
+} from '@kishorez/lotel/client';
 import type { EntityType } from 'std-toolkit/core';
 import { createStdSync, syncStrategy } from 'std-toolkit/tanstack-sync';
 import { LotelClient, makeLotelClientLayer } from './runtime';

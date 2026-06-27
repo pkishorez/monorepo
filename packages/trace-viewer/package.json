@@ -1,5 +1,6 @@
 {
   "name": "@monorepo/trace-viewer",
+  "private": true,
   "files": [
     "dist"
   ],

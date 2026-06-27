@@ -3,7 +3,7 @@ import {
   layersTopDown,
   toVisualizationConfig,
   type VizSummary,
-} from 'dependency-cruiser-viz';
+} from 'depcruise-viz';
 import { DevtoolsReport } from './devtools-report';
 
 const depcruiseConfig = toVisualizationConfig({
