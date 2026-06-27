@@ -7,7 +7,6 @@ import {
   oldestOf,
   reconcile,
   topSlice,
-  uOf,
   type Cursor,
   type Slice,
 } from '../slices/index.js';

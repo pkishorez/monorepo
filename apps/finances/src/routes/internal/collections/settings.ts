@@ -2,7 +2,7 @@ import { Effect } from 'effect';
 import {
   createStdSync,
   singleItemSyncStrategy,
-} from '@std-toolkit/tanstack-sync';
+} from 'std-toolkit/tanstack-sync';
 import { SettingsSchema } from '@/domain/index';
 import { FinancesClient } from '@/routes/internal/effect';
 import { run } from './utils.js';

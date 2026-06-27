@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { createStdSync, syncStrategy } from '@std-toolkit/tanstack-sync';
+import { createStdSync, syncStrategy } from 'std-toolkit/tanstack-sync';
 import { OverrideSchema } from '@/domain/index';
 import { FinancesClient } from '@/routes/internal/effect';
 import { run, streamSource } from './utils.js';

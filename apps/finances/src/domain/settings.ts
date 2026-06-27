@@ -1,4 +1,4 @@
-import { SingleEntityESchema } from '@std-toolkit/eschema';
+import { SingleEntityESchema } from 'std-toolkit/eschema';
 import { Schema } from 'effect';
 
 export const CategoryTypeSchema = Schema.Literals([

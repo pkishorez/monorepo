@@ -7,7 +7,7 @@ import {
 } from '../handlers.js';
 import { makeDbLayer } from '../../services/index.js';
 import { Db } from '../../services/db.js';
-import type { SqliteDB } from '@std-toolkit/sqlite';
+import type { SqliteDB } from 'std-toolkit/sqlite';
 import type {
   OverrideSchema,
   ProjectionOutputSchema,

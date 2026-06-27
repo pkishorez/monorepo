@@ -1,7 +1,7 @@
 import { Rpc } from 'effect/unstable/rpc';
 import { Schema, Struct } from 'effect';
-import { EntityESchema, type StructFieldsSchema } from '@std-toolkit/eschema';
-import { EntitySchema, StdToolkitError } from '@std-toolkit/core';
+import { EntityESchema, type StructFieldsSchema } from 'std-toolkit/eschema';
+import { EntitySchema, StdToolkitError } from 'std-toolkit/core';
 
 type OmitIdField<T, IdField extends string> = Omit<T, IdField>;
 

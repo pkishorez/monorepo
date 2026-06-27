@@ -8,6 +8,7 @@ export {
 export { ESchemaError } from './utils.js';
 export { fromType, id, metaSchema } from './schema.js';
 export type {
+  Prettify,
   AnyESchema,
   AnyEvolvingSchema,
   AnySingleEntityESchema,
