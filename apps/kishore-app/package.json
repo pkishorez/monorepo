@@ -17,8 +17,8 @@
   "dependencies": {
     "@content-collections/mdx": "0.2.2",
     "@effect/platform-browser": "4.0.0-beta.78",
+    "@kishorez/devtools": "workspace:*",
     "@kishorez/lotel": "workspace:*",
-    "@monorepo/devtools": "workspace:*",
     "@monorepo/frontend": "workspace:*",
     "@monorepo/trace-viewer": "workspace:*",
     "@rollup/browser": "4.61.0",

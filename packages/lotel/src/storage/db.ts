@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { Context, Effect, Layer } from 'effect';
 import type { EntityType } from 'std-toolkit/core';
 import {
@@ -10,7 +10,7 @@ import {
   SqliteDB,
   SqliteDBError,
 } from 'std-toolkit/sqlite';
-import { betterSqlite3Layer } from 'std-toolkit/sqlite/adapters/better-sqlite3';
+import { nodeSqliteLayer } from 'std-toolkit/sqlite/adapters/node';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -26,7 +26,7 @@ export const DEFAULT_TABLE_NAME = 'lotel_data';
 export interface DbOptions {
   dbPath?: string;
   tableName?: string;
-  database?: Database.Database;
+  database?: DatabaseSync;
   closeDatabase?: boolean;
 }
 
@@ -41,7 +41,7 @@ const makeDatabase = (options: DbOptions) =>
       if (options.database) return options.database;
       const dbPath = options.dbPath ?? DEFAULT_DB_PATH;
       ensureDbParent(dbPath);
-      return new Database(dbPath);
+      return new DatabaseSync(dbPath);
     }),
     (database) =>
       Effect.sync(() => {
@@ -126,7 +126,7 @@ export const makeDbLayer = (options: DbOptions = {}) => {
     SqliteDB,
     makeDatabase(options).pipe(
       Effect.map((database) =>
-        betterSqlite3Layer(database, options.tableName ?? DEFAULT_TABLE_NAME),
+        nodeSqliteLayer(database, options.tableName ?? DEFAULT_TABLE_NAME),
       ),
       Effect.flatMap((layer) => Layer.build(layer)),
       Effect.map((context) => Context.getUnsafe(context, SqliteDB)),

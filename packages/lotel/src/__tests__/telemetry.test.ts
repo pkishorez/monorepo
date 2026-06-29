@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Effect } from 'effect';
 import { makeDbLayer } from '../storage/index.js';
@@ -18,7 +18,7 @@ import type {
 } from '../domain/index.js';
 
 const runWithDb = <A, E, R>(
-  db: Database.Database,
+  db: DatabaseSync,
   effect: Effect.Effect<A, E, R>,
 ) => {
   const provided = effect.pipe(
@@ -34,10 +34,10 @@ const runWithDb = <A, E, R>(
 };
 
 describe('lotel telemetry storage', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
 
   beforeEach(() => {
-    db = new Database(':memory:');
+    db = new DatabaseSync(':memory:');
   });
 
   afterEach(() => {
