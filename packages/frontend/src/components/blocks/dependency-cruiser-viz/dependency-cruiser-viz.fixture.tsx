@@ -1,5 +1,6 @@
 import {
   feature,
+  group,
   layer,
   layersTopDown,
   module,
@@ -307,6 +308,39 @@ const fullSummaryWithFeatures: VizSummary = {
   ],
 };
 
+// Grouped config: a `db` group with two independent stacks (the sub-project
+// family case) and an `api` group, plus an ungrouped stack. The layer name
+// `internal` appears in two different groups and must NOT merge.
+const dynamodbStack = layersTopDown('dynamodb', [
+  layer('dynamodb-barrel', ['src/db/dynamodb/index.ts']),
+  layer('services', ['src/db/dynamodb/services']),
+  layer('internal', ['src/db/dynamodb/internal']),
+]);
+
+const sqliteStack = layersTopDown('sqlite', [
+  layer('sqlite-barrel', ['src/db/sqlite/index.ts']),
+  layer('sqlite-impl', ['src/db/sqlite/impl']),
+]);
+
+const apiStack = layersTopDown('api', [
+  layer('routes', ['src/api/routes']),
+  layer('internal', ['src/api/internal']),
+]);
+
+const ungroupedStack = layersTopDown('scripts', [
+  layer('cli', ['src/scripts/cli']),
+  layer('lib', ['src/scripts/lib']),
+]);
+
+const groupedConfig = toVisualizationConfig({
+  rootDir: 'src',
+  rules: [
+    ...group('db', [dynamodbStack, sqliteStack]),
+    ...group('api', [apiStack]),
+    ungroupedStack,
+  ],
+});
+
 const fullHeight = (node: React.ReactNode) => (
   <div className="h-svh">{node}</div>
 );
@@ -325,4 +359,5 @@ export default {
       summary={fullSummaryWithFeatures}
     />,
   ),
+  grouped: fullHeight(<DependencyCruiserViz config={groupedConfig} />),
 };

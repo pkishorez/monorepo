@@ -27,6 +27,8 @@ export type ModuleNode = {
   key: string;
   layer: string;
   name: string;
+  /** Owning group, or '' for the implicit default group. */
+  group: string;
   /** Owning feature, or null for an unowned utility. */
   feature: string | null;
   visibility: Visibility;
@@ -53,6 +55,7 @@ export function allModules(
   const record = (
     layer: string,
     name: string,
+    group: string,
     feature: string | undefined,
     visibility: Visibility,
     sharedWith: readonly string[] | undefined,
@@ -61,12 +64,14 @@ export function allModules(
     const existing = byKey.get(key);
     if (existing) {
       if (feature) existing.feature = feature;
+      if (group) existing.group = group;
       return;
     }
     byKey.set(key, {
       key,
       layer,
       name,
+      group,
       feature: feature ?? null,
       visibility,
       sharedWith: [...(sharedWith ?? [])],
@@ -77,10 +82,17 @@ export function allModules(
   };
 
   for (const m of config.modules ?? []) {
-    record(m.layer, m.name, m.feature, m.visibility, m.sharedWith);
+    record(
+      m.layer,
+      m.name,
+      m.group ?? '',
+      m.feature,
+      m.visibility,
+      m.sharedWith,
+    );
   }
   for (const m of summary?.moduleCoverage ?? []) {
-    record(m.layer, m.module, m.feature, m.visibility, m.sharedWith);
+    record(m.layer, m.module, '', m.feature, m.visibility, m.sharedWith);
   }
 
   // Breaches carry module NAMES (not keys), so attribute each breach to every

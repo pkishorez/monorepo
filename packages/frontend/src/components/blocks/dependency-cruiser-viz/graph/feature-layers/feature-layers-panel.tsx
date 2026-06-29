@@ -369,17 +369,37 @@ const ModuleInteractionContext = createContext<ModuleInteraction | null>(null);
 function LayerGridNode({ data }: NodeProps<Node<LayerGridNodeData>>) {
   const interaction = useContext(ModuleInteractionContext);
   if (!interaction) return null;
+  const hasGroups = data.grid.groupBands.length > 0;
+  // When groups exist, a leading column holds the group band labels; stack
+  // labels and cards shift right by one.
+  const groupCol = hasGroups ? 1 : 0;
+  const stackCol = groupCol + 1;
+  const cardColBase = stackCol + 1;
   return (
     <div
       className="grid gap-3"
       style={{
-        gridTemplateColumns: `max-content repeat(${data.grid.columnCount}, 15rem)`,
+        gridTemplateColumns: `${hasGroups ? 'max-content ' : ''}max-content repeat(${data.grid.columnCount}, 15rem)`,
       }}
     >
+      {data.grid.groupBands.map((band) => (
+        <div
+          key={band.group}
+          style={{
+            gridColumn: groupCol,
+            gridRow: `${band.rowStart + 1} / span ${band.rowSpan}`,
+          }}
+          className="flex items-center justify-center rounded-md bg-muted/30 px-1"
+        >
+          <span className="rotate-180 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70 [writing-mode:vertical-rl]">
+            {band.group}
+          </span>
+        </div>
+      ))}
       {data.grid.stackRows.map((stack, row) => (
         <div
           key={stack}
-          style={{ gridColumn: 1, gridRow: row + 1 }}
+          style={{ gridColumn: stackCol, gridRow: row + 1 }}
           className="flex items-center"
         >
           <span className="rotate-180 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 [writing-mode:vertical-rl]">
@@ -389,9 +409,9 @@ function LayerGridNode({ data }: NodeProps<Node<LayerGridNodeData>>) {
       ))}
       {data.grid.cards.map((card) => (
         <div
-          key={card.layer}
+          key={card.key}
           style={{
-            gridColumn: card.column + 2,
+            gridColumn: card.column + cardColBase,
             gridRow: `${card.rowStart + 1} / span ${card.rowSpan}`,
           }}
         >

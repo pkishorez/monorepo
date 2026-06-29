@@ -1,6 +1,7 @@
 import type { ICruiseResult } from 'dependency-cruiser';
 
 import type { Visibility, VisualizationConfig, VizSummary } from '../types.js';
+import { assertGroupIsolation } from './detect-cross-group-edges.js';
 import { detectLayerConflicts } from './detect-layer-conflicts.js';
 
 type CruiseModule = ICruiseResult['modules'][number];
@@ -23,6 +24,8 @@ export function summarizeCruiseResult(
   cruiseResult: ICruiseResult,
   visualization: VisualizationConfig,
 ): VizSummary {
+  assertGroupIsolation(cruiseResult, visualization);
+
   const layerPatterns = getLayerPatterns(visualization);
   const ignorePatterns = (visualization.ignore ?? []).map(pathToRegExp);
   const rootDir = visualization.rootDir;
