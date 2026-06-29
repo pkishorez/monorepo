@@ -32,6 +32,8 @@ export type ModuleNode = {
   visibility: Visibility;
   sharedWith: string[];
   fileCount: number;
+  /** Number of breaches this module participates in (as source or target). */
+  breachCount: number;
   isBreached: boolean;
 };
 
@@ -69,6 +71,7 @@ export function allModules(
       visibility,
       sharedWith: [...(sharedWith ?? [])],
       fileCount: files.get(key)?.length ?? 0,
+      breachCount: 0,
       isBreached: false,
     });
   };
@@ -80,13 +83,23 @@ export function allModules(
     record(m.layer, m.module, m.feature, m.visibility, m.sharedWith);
   }
 
-  const breachedNames = new Set<string>();
+  // Breaches carry module NAMES (not keys), so attribute each breach to every
+  // node sharing that name — matching the loose name-based resolution elsewhere.
+  const breachCountByName = new Map<string, number>();
   for (const b of summary?.breaches ?? []) {
-    breachedNames.add(b.fromModule);
-    breachedNames.add(b.toModule);
+    breachCountByName.set(
+      b.fromModule,
+      (breachCountByName.get(b.fromModule) ?? 0) + 1,
+    );
+    breachCountByName.set(
+      b.toModule,
+      (breachCountByName.get(b.toModule) ?? 0) + 1,
+    );
   }
   for (const node of byKey.values()) {
-    if (breachedNames.has(node.name)) node.isBreached = true;
+    const count = breachCountByName.get(node.name) ?? 0;
+    node.breachCount = count;
+    node.isBreached = count > 0;
   }
 
   return [...byKey.values()];

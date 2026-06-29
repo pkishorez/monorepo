@@ -67,6 +67,21 @@ function reportCoverage(summary: VizSummary): void {
     }
   }
 
+  if (summary.conflicts.length > 0) {
+    lines.push(
+      yellow(
+        `  warning: ${summary.conflicts.length} overlapping layer pattern(s) — files matching both are attributed to the first-declared layer:`,
+      ),
+    );
+    for (const c of summary.conflicts) {
+      lines.push(
+        yellow(
+          `    - ${c.layerA} (${c.pathA}) overlaps ${c.layerB} (${c.pathB})`,
+        ),
+      );
+    }
+  }
+
   process.stdout.write(lines.join('\n') + '\n');
 }
 

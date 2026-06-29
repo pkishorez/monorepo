@@ -39,7 +39,10 @@ export function DependencyCruiserViz({
               <FileTreePanel
                 view={viz.files}
                 features={config.features}
+                canvasMode={viz.graph.canvasMode}
+                selectedViolation={viz.graph.selectedViolation}
                 onSelectFeature={viz.actions.selectFeature}
+                onSelectViolation={viz.actions.selectViolation}
               />
             </ResizablePanel>
           </>

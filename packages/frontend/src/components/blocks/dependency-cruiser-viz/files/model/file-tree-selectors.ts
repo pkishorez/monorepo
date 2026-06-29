@@ -9,10 +9,12 @@ export function getCoverageStats({
   summary,
   selectedLayer,
   selectedFeature,
+  coverageMode,
 }: {
   summary: VizSummary;
   selectedLayer: string | null;
   selectedFeature: string | null;
+  coverageMode: 'layers' | 'features';
 }): CoverageStatItem[] {
   if (selectedFeature) {
     const covered = featureFiles(summary, selectedFeature)?.size ?? 0;
@@ -26,12 +28,44 @@ export function getCoverageStats({
     ];
   }
 
+  const ignoredCount = summary.ignoredFiles.length;
+
+  // Features tab: report MODULE coverage — files claimed by a declared module
+  // vs files inside a layer but in no module (the coverage gaps).
+  if (coverageMode === 'features') {
+    const moduleCovered = new Set<string>();
+    for (const m of summary.moduleCoverage) {
+      for (const f of m.files) moduleCovered.add(f);
+    }
+    return [
+      {
+        key: 'present',
+        status: 'covered',
+        count: moduleCovered.size,
+        label: 'present',
+      },
+      {
+        key: 'not-covered',
+        status: 'orphan',
+        count: summary.coverageGaps.length,
+        label: 'not covered',
+      },
+      {
+        key: 'ignored',
+        status: 'ignored',
+        count: ignoredCount,
+        label: 'ignored',
+        hidden: ignoredCount === 0,
+        muted: true,
+      },
+    ];
+  }
+
   const layerViolationCount = selectedLayer
     ? summary.violations.filter(
         (v) => v.from === selectedLayer || v.to === selectedLayer,
       ).length
     : summary.violations.length;
-  const ignoredCount = summary.ignoredFiles.length;
 
   return [
     {
@@ -42,16 +76,16 @@ export function getCoverageStats({
       hidden: layerViolationCount === 0,
     },
     {
-      key: 'uncovered',
-      status: 'orphan',
-      count: summary.layerOrphanFiles.length,
-      label: 'uncovered',
-    },
-    {
-      key: 'covered',
+      key: 'present',
       status: 'covered',
       count: summary.coveredFiles.reduce((sum, l) => sum + l.files.length, 0),
-      label: 'covered',
+      label: 'present',
+    },
+    {
+      key: 'not-covered',
+      status: 'orphan',
+      count: summary.layerOrphanFiles.length,
+      label: 'not covered',
     },
     {
       key: 'ignored',
@@ -66,31 +100,27 @@ export function getCoverageStats({
 
 export function getViolations({
   summary,
-  selectedLayer,
   selectedFeature,
 }: {
   summary: VizSummary;
-  selectedLayer: string | null;
   selectedFeature: string | null;
 }): ViolationItem[] {
   if (selectedFeature) return [];
-  if (selectedLayer) {
-    return summary.violations.filter(
-      (v) => v.from === selectedLayer || v.to === selectedLayer,
-    );
-  }
+  // The full list is always returned (no layer filtering) so the panel never
+  // resizes on hover/selection; the active layer dims unrelated rows instead.
   return summary.violations;
 }
 
 /**
- * Resolve the file sets the tree should highlight.
+ * Resolve the file sets the tree should highlight. Layer and feature are
+ * mutually exclusive axes (the active tab supplies at most one), so they're
+ * never combined here.
  *
- * - With a selected feature, returns its two tiers — `owned` (strong) and
- *   `consumed` (subtle) — alongside their union as `all` (used for folder
- *   containment / dimming). When a layer is ALSO active, both tiers are
- *   intersected with that layer's files so the same layer-scoping applies.
- * - With only a layer selected, that layer's files become `owned` (the
- *   existing single-tier behavior) and `consumed` is null.
+ * - With a feature/module selection, returns its two tiers — `owned` (strong)
+ *   and `consumed` (subtle) — alongside their union as `all` (used for folder
+ *   containment / dimming).
+ * - With only a layer selected, that layer's files become `owned` and
+ *   `consumed` is null.
  * - With nothing selected, every field is null (no highlight).
  */
 export function getHighlightedFiles({
@@ -107,17 +137,7 @@ export function getHighlightedFiles({
   consumed: Set<string> | null;
 } {
   if (featureFileSets) {
-    let { owned, consumed } = featureFileSets;
-    if (selectedLayer) {
-      const layerEntry = summary.coveredFiles.find(
-        (c) => c.layer === selectedLayer,
-      );
-      if (layerEntry) {
-        const layerFiles = new Set(layerEntry.files);
-        owned = new Set([...owned].filter((f) => layerFiles.has(f)));
-        consumed = new Set([...consumed].filter((f) => layerFiles.has(f)));
-      }
-    }
+    const { owned, consumed } = featureFileSets;
     if (owned.size === 0 && consumed.size === 0) {
       return { all: null, owned: null, consumed: null };
     }

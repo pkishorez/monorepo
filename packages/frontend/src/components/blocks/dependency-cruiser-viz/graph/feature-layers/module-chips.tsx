@@ -9,8 +9,13 @@ import {
   type ModuleChip,
 } from '../../model/layer-model';
 
-/** Max chips shown per folder group before collapsing into "+N more". */
+/** Max top-level rows shown per folder group before collapsing into "+N more". */
 const GROUP_CHIP_CAP = 12;
+
+/** Left padding (px) added per containment depth level. */
+const INDENT_PER_DEPTH = 14;
+/** Base left padding (px) for a depth-0 row. */
+const INDENT_BASE = 8;
 
 type HighlightState = {
   /** Union of owned ∪ consumed — null means nothing selected (rest state). */
@@ -20,16 +25,23 @@ type HighlightState = {
   selectedModule: string | null;
 };
 
-type ModuleChipsProps = HighlightState & {
-  groups: ChipGroup[];
+type RowActions = {
   onSelectModule: (key: string | null) => void;
+  /** Transient focus while pointing at a row — dims the other modules. */
+  onHoverModule?: (key: string | null) => void;
 };
 
+type ModuleChipsProps = HighlightState &
+  RowActions & {
+    groups: ChipGroup[];
+  };
+
 /**
- * A layer card's body: folder groups of module chips. Chips are neutral at
- * rest (visibility tier shown as a dot); the color budget is spent on feature
- * selection — owned fills primary, consumed gets a dashed outline, the rest
- * dims. Nested chips render inside their parent module's card.
+ * A layer card's body: folder groups rendered as a full-width vertical list, one
+ * module per row. Rows indent by containment depth so the module hierarchy is
+ * scannable. Rows are neutral at rest (visibility tier shown as a leading dot);
+ * the color budget is spent on feature selection — owned fills primary, consumed
+ * gets a dashed outline, the rest dims.
  */
 export function ModuleChips({
   groups,
@@ -38,6 +50,7 @@ export function ModuleChips({
   consumedModules,
   selectedModule,
   onSelectModule,
+  onHoverModule,
 }: ModuleChipsProps) {
   return (
     <div className="flex flex-col gap-2.5 px-2.5 py-2">
@@ -50,6 +63,7 @@ export function ModuleChips({
           consumedModules={consumedModules}
           selectedModule={selectedModule}
           onSelectModule={onSelectModule}
+          onHoverModule={onHoverModule}
         />
       ))}
     </div>
@@ -59,11 +73,12 @@ export function ModuleChips({
 function FolderGroup({
   group,
   onSelectModule,
+  onHoverModule,
   ...highlight
-}: HighlightState & {
-  group: ChipGroup;
-  onSelectModule: (key: string | null) => void;
-}) {
+}: HighlightState &
+  RowActions & {
+    group: ChipGroup;
+  }) {
   const [expanded, setExpanded] = useState(false);
 
   const overflowing = group.chips.length > GROUP_CHIP_CAP;
@@ -92,18 +107,20 @@ function FolderGroup({
     : highlight;
 
   return (
-    <div className={cn('flex flex-col gap-1', groupDimmed && 'opacity-35')}>
+    <div className={cn('flex flex-col gap-0.5', groupDimmed && 'opacity-35')}>
       {group.folder && (
-        <div className="truncate text-[10px] font-medium tracking-wide text-muted-foreground/60">
+        <div className="truncate px-2 text-[10px] font-medium tracking-wide text-muted-foreground/60">
           {group.folder}/
         </div>
       )}
-      <div className="flex flex-wrap items-start gap-1">
+      <div className="flex flex-col">
         {visible.map((chip) => (
-          <ChipView
+          <ModuleRow
             key={chip.module.key}
             chip={chip}
+            depth={0}
             onSelectModule={onSelectModule}
+            onHoverModule={onHoverModule}
             {...inner}
           />
         ))}
@@ -114,7 +131,8 @@ function FolderGroup({
               event.stopPropagation();
               setExpanded(true);
             }}
-            className="nodrag nopan rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+            style={{ paddingLeft: INDENT_BASE }}
+            className="nodrag nopan flex w-full items-center rounded-md py-1.5 pr-2 text-left text-[11px] text-muted-foreground/70 hover:bg-muted hover:text-foreground"
           >
             +{group.chips.length - GROUP_CHIP_CAP} more
           </button>
@@ -124,95 +142,108 @@ function FolderGroup({
   );
 }
 
-function ChipView({
+function ModuleRow({
   chip,
+  depth,
   onSelectModule,
+  onHoverModule,
   ...highlight
-}: HighlightState & {
-  chip: ModuleChip;
-  onSelectModule: (key: string | null) => void;
-}) {
-  const { highlightedModules, selectedModule } = highlight;
-
-  if (chip.children.length === 0) {
-    return (
-      <LeafChip chip={chip} onSelectModule={onSelectModule} {...highlight} />
-    );
-  }
+}: HighlightState &
+  RowActions & {
+    chip: ModuleChip;
+    depth: number;
+  }) {
+  const { highlightedModules } = highlight;
 
   const subtreeDimmed =
     highlightedModules !== null &&
     !chipKeys(chip).some((key) => highlightedModules.has(key));
 
+  // Once a subtree is dimmed as a whole, descendants render at rest so the
+  // opacities don't compound across nesting levels.
   const inner = subtreeDimmed
     ? { ...highlight, highlightedModules: null }
     : highlight;
 
   return (
-    <div
-      className={cn(
-        'flex min-w-0 flex-col gap-1 rounded-lg border border-border/60 bg-background/40 p-1',
-        subtreeDimmed && 'opacity-35',
-        selectedModule === chip.module.key && 'border-primary/50',
-      )}
-    >
-      <LeafChip chip={chip} onSelectModule={onSelectModule} {...inner} />
-      <div className="flex flex-wrap gap-1 pl-2">
-        {chip.children.map((child) => (
-          <ChipView
-            key={child.module.key}
-            chip={child}
-            onSelectModule={onSelectModule}
-            {...inner}
-          />
-        ))}
-      </div>
-    </div>
+    <>
+      <LeafRow
+        chip={chip}
+        depth={depth}
+        rowDimmed={subtreeDimmed}
+        onSelectModule={onSelectModule}
+        onHoverModule={onHoverModule}
+        {...highlight}
+      />
+      {chip.children.map((child) => (
+        <ModuleRow
+          key={child.module.key}
+          chip={child}
+          depth={depth + 1}
+          onSelectModule={onSelectModule}
+          onHoverModule={onHoverModule}
+          {...inner}
+        />
+      ))}
+    </>
   );
 }
 
-function LeafChip({
+function LeafRow({
   chip,
+  depth,
+  rowDimmed,
   highlightedModules,
   ownedModules,
   consumedModules,
   selectedModule,
   onSelectModule,
-}: HighlightState & {
-  chip: ModuleChip;
-  onSelectModule: (key: string | null) => void;
-}) {
+  onHoverModule,
+}: HighlightState &
+  RowActions & {
+    chip: ModuleChip;
+    depth: number;
+    /** Whether the whole subtree (computed by the parent) is dimmed. */
+    rowDimmed: boolean;
+  }) {
   const key = chip.module.key;
   const isOwned = ownedModules?.has(key) ?? false;
   const isConsumed = !isOwned && (consumedModules?.has(key) ?? false);
   const isDimmed =
-    highlightedModules !== null &&
-    !highlightedModules.has(key) &&
-    // Inside a parent card the container already dims the whole subtree.
-    !chip.children.some((child) =>
-      chipKeys(child).some((k) => highlightedModules.has(k)),
-    );
+    rowDimmed && highlightedModules !== null && !highlightedModules.has(key);
   const isSelected = selectedModule === key;
+  const breachCount = chip.module.breachCount;
+  const isBreached = breachCount > 0;
 
   return (
     <button
       type="button"
-      title={`${chip.module.layer} / ${chip.module.name || '(root)'}${
+      title={`${chip.module.layer} / ${chip.module.name || '(layer root)'}${
         chip.module.feature ? ` — ${chip.module.feature}` : ''
-      } · ${chip.module.visibility}`}
+      } · ${chip.module.visibility}${
+        isBreached
+          ? ` · ${breachCount} breach${breachCount === 1 ? '' : 'es'}`
+          : ''
+      }`}
       onClick={(event) => {
         event.stopPropagation();
         onSelectModule(isSelected ? null : key);
       }}
+      onMouseEnter={() => onHoverModule?.(key)}
+      onMouseLeave={() => onHoverModule?.(null)}
+      style={{ paddingLeft: INDENT_BASE + depth * INDENT_PER_DEPTH }}
       className={cn(
-        'nodrag nopan flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs transition-colors',
-        'border-border/60 bg-muted/40 text-foreground/80 hover:border-border hover:bg-muted',
+        'nodrag nopan relative flex w-full items-center gap-1.5 rounded-md border border-transparent py-1.5 pr-2 text-left text-xs transition-colors',
+        // Hover reads as a neutral muted fill; selection (below) owns the
+        // primary tint + ring, so the two never look alike.
+        'text-foreground/80 hover:border-border hover:bg-muted',
         isOwned &&
-          'border-primary/60 bg-primary/15 text-primary hover:bg-primary/20',
+          'border-primary/60 bg-primary/15 text-primary hover:bg-primary/25',
         isConsumed &&
           'border-dashed border-sky-500/60 bg-sky-500/10 text-sky-700 hover:bg-sky-500/15 dark:text-sky-300',
+        isBreached && 'ring-2 ring-inset ring-destructive/50',
         isDimmed && 'opacity-35 hover:opacity-100',
-        isSelected && 'ring-1 ring-primary/60',
+        isSelected && 'ring-2 ring-inset ring-primary',
       )}
     >
       <span
@@ -221,6 +252,11 @@ function LeafChip({
         style={{ backgroundColor: VISIBILITY_COLOR[chip.module.visibility] }}
       />
       <span className="truncate">{chip.label}</span>
+      {isBreached && (
+        <span className="ml-auto flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground">
+          {breachCount}
+        </span>
+      )}
     </button>
   );
 }

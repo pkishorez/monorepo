@@ -76,6 +76,7 @@ const summary: VizSummary = {
     },
   ],
   coverageGaps: [],
+  conflicts: [],
   breaches: [
     {
       fromModule: 'auth',

@@ -1,8 +1,8 @@
 import type { TreeViewElement } from '#components/ui/file-tree';
 
-import type { Visibility } from '../../model';
+import type { Breach, LayerConflict, Visibility } from '../../model';
 
-export type FileStatus = 'covered' | 'violation' | 'orphan' | 'ignored';
+export type FileStatus = 'covered' | 'orphan' | 'ignored';
 
 /**
  * The structural role of a tree node, used for color-coding:
@@ -15,6 +15,12 @@ export type NodeKind = 'layer' | 'module' | 'other';
 export type FileTreeNode = TreeViewElement & {
   status?: FileStatus;
   nodeKind?: NodeKind;
+  /**
+   * Visibility tier of the declared module a node IS (its id matches a module
+   * path) — module folders and single-file modules. Undefined for intermediate
+   * folders and non-module files. Drives the Features-tab visibility dot.
+   */
+  visibility?: Visibility;
   children?: FileTreeNode[];
 };
 
@@ -25,9 +31,12 @@ export type ViolationItem = {
   toFile: string;
 };
 
+/** Coverage-summary rows also report violations, which are not a file status. */
+export type StatKind = FileStatus | 'violation';
+
 export type CoverageStatItem = {
   key: string;
-  status: FileStatus;
+  status: StatKind;
   count: number;
   label: string;
   hidden?: boolean;
@@ -39,6 +48,12 @@ export type FileTreeViewModel = {
   selectedFeature: string | null;
   stats: CoverageStatItem[];
   violations: ViolationItem[];
+  /** Active (selected/hovered) layer; dims violation rows not touching it. */
+  activeLayer: string | null;
+  /** Feature/visibility boundary breaches (static list, shown in the sidebar). */
+  breaches: Breach[];
+  /** Overlapping layer-pattern conflicts (static list, shown in the sidebar). */
+  conflicts: LayerConflict[];
   tree: FileTreeNode[];
   treeKey: string;
   /**
@@ -60,12 +75,6 @@ export type FileTreeViewModel = {
    */
   consumedFiles: Set<string> | null;
   /**
-   * Full module path -> declared visibility tier. Rendered as a marker dot on
-   * MODULE folder rows (green=public, yellow=shared, violet=private) at all
-   * times, independent of selection (tier is a static property of the module).
-   */
-  moduleVisibility: Map<string, Visibility>;
-  /**
    * Files inside a declared layer but in no declared module (coverage gaps),
    * shown distinctly so they can be promoted into a module.
    */
@@ -79,6 +88,19 @@ export type FileTreeViewModel = {
   layerPaths: Set<string>;
   sortOrder: Map<string, number>;
   expandedItems: string[];
+  /**
+   * Identity of the current expansion intent (selected module/layer, or
+   * `'default'`). The tree re-applies {@link expandedItems} only when this
+   * changes, so manual expand/collapse persists between selections.
+   */
+  expansionSignal: string;
+  /**
+   * Whether {@link expandedItems} represents a transient FOCUS on a selected
+   * module/layer (true) versus the baseline view (false). The tree snapshots the
+   * user's expansion on entering focus and restores it when focus clears, so a
+   * hover/selection never clobbers the manual expand/collapse state.
+   */
+  expansionFocused: boolean;
   hoveredGraphFiles: Set<string> | null;
   /** Full folder path of the canvas-hovered module, for transient highlight. */
   hoveredModulePath: string | null;

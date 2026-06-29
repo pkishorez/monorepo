@@ -44,7 +44,7 @@
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.4.0",
-    "depcruise-viz": "workspace:*",
+    "depcruise-viz": "file:../depcruise-viz",
     "embla-carousel-react": "8.6.0",
     "gray-matter": "4.0.3",
     "input-otp": "1.4.2",

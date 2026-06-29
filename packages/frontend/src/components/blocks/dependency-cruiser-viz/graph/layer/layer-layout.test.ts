@@ -59,6 +59,7 @@ const SUMMARY: VizSummary = {
   ignoredFiles: [],
   coveredFiles: [],
   coverageGaps: [],
+  conflicts: [],
   featureEdges: [],
   featureModuleEdges: [],
 };
@@ -77,5 +78,25 @@ describe('computeLayerLayout characterization', () => {
   it('matches snapshot with selectedLayer', () => {
     const result = computeLayerLayout(CONFIG, undefined, 'routes');
     expect(result).toMatchSnapshot();
+  });
+
+  it('draws a violation edge only for the selected violation', () => {
+    const result = computeLayerLayout(CONFIG, SUMMARY, null, {
+      from: 'routes',
+      to: 'data',
+    });
+    const violationEdges = result.edges.filter((e) =>
+      e.id.startsWith('violation:'),
+    );
+    expect(violationEdges).toHaveLength(1);
+    expect(violationEdges[0]).toMatchObject({
+      source: 'routes',
+      target: 'data',
+    });
+  });
+
+  it('draws no violation edges without a selected violation', () => {
+    const result = computeLayerLayout(CONFIG, SUMMARY);
+    expect(result.edges.some((e) => e.id.startsWith('violation:'))).toBe(false);
   });
 });
