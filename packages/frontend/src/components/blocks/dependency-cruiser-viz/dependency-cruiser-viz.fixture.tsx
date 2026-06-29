@@ -147,6 +147,7 @@ const fullSummary: VizSummary = {
   breaches: [],
   featureEdges: [],
   featureModuleEdges: [],
+  moduleEdges: [],
 };
 
 const fullSummaryWithFeatures: VizSummary = {
@@ -304,6 +305,52 @@ const fullSummaryWithFeatures: VizSummary = {
       layer: 'domain',
       visibility: 'public',
       relation: 'consumes',
+    },
+  ],
+  moduleEdges: [
+    // auth's internal slice + its borrows.
+    {
+      fromLayer: 'server',
+      fromModule: 'auth',
+      toLayer: 'services',
+      toModule: 'auth',
+      kind: 'legal',
+    },
+    {
+      fromLayer: 'services',
+      fromModule: 'auth',
+      toLayer: 'domain',
+      toModule: 'types',
+      kind: 'legal',
+    },
+    {
+      fromLayer: 'server',
+      fromModule: 'auth',
+      toLayer: 'domain',
+      toModule: 'logger',
+      kind: 'legal',
+    },
+    // orders' internal slice + its borrow.
+    {
+      fromLayer: 'orchestrator',
+      fromModule: 'pipeline',
+      toLayer: 'orchestrator',
+      toModule: 'workflow',
+      kind: 'legal',
+    },
+    {
+      fromLayer: 'orchestrator',
+      fromModule: 'workflow',
+      toLayer: 'domain',
+      toModule: 'order',
+      kind: 'legal',
+    },
+    {
+      fromLayer: 'domain',
+      fromModule: 'order',
+      toLayer: 'domain',
+      toModule: 'types',
+      kind: 'legal',
     },
   ],
 };

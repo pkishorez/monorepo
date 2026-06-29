@@ -32,6 +32,7 @@ const cleanSummary: VizSummary = {
   breaches: [],
   featureEdges: [],
   featureModuleEdges: [],
+  moduleEdges: [],
 };
 
 const dirtySummary: VizSummary = {

@@ -138,6 +138,17 @@ export type FeatureModuleEdge = {
   relation: 'owns' | 'consumes';
 };
 
+/** A resolved import between two distinct modules, used to draw the per-feature
+ * module-connection graph. `kind` distinguishes a permitted import from one
+ * that breaches module visibility. */
+export type ModuleEdge = {
+  fromLayer: string;
+  fromModule: string;
+  toLayer: string;
+  toModule: string;
+  kind: 'legal' | 'breach';
+};
+
 /** Two distinct layers whose path patterns overlap, so a file can match both
  * and is silently attributed to the first-declared layer. */
 export type LayerConflict = {
@@ -161,6 +172,7 @@ export type VizSummary = {
   breaches: Breach[];
   featureEdges: FeatureEdge[];
   featureModuleEdges: FeatureModuleEdge[];
+  moduleEdges: ModuleEdge[];
 };
 
 export type DependencyCruiserConfig = IFlattenedRuleSet;

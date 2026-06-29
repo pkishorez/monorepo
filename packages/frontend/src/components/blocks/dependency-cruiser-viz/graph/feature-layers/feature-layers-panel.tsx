@@ -5,7 +5,15 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { createContext, useContext, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 
 import { cn } from '#lib/utils';
@@ -19,6 +27,7 @@ import {
 import {
   allModules,
   featureFocus,
+  featureModuleGraph,
   moduleKey,
   VISIBILITY_COLOR,
   type Visibility,
@@ -39,6 +48,7 @@ import {
   type FilterChipId,
 } from './feature-layers-model';
 import { ModuleChips } from './module-chips';
+import { FeatureGraphPanel } from './feature-graph-panel';
 
 type FeatureLayersPanelProps = {
   config: VisualizationConfig;
@@ -73,8 +83,20 @@ function FeatureLayersPanelInner({
 }: FeatureLayersPanelProps) {
   const [hoveredChip, setHoveredChip] = useState<string | null>(null);
   const [hoveredModule, setHoveredModule] = useState<string | null>(null);
+  // When a feature is selected the canvas defaults to its module-connection
+  // graph; 'grid' falls back to the layer-grid highlight view. Reset to 'graph'
+  // whenever the feature clears so the next feature opens in graph mode.
+  const [featureView, setFeatureView] = useState<'graph' | 'grid'>('graph');
+  useEffect(() => {
+    if (!selectedFeature) setFeatureView('graph');
+  }, [selectedFeature]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const fitted = useFitViewOnResize(containerRef);
+  // The grid container is unmounted in graph mode; re-attach the resize observer
+  // whenever it comes back (feature cleared or 'grid' view selected).
+  const fitted = useFitViewOnResize(containerRef, [
+    selectedFeature,
+    featureView,
+  ]);
 
   const model = useMemo(
     () => buildFeatureLayersModel(config, summary),
@@ -189,13 +211,25 @@ function FeatureLayersPanelInner({
     [model.layerGrid, declaredKeys],
   );
 
+  // While a feature is selected, a module may only be selected if it belongs to
+  // that feature (owned ∪ consumed). With no feature, selection is unrestricted.
+  const guardedSelectModule = useCallback(
+    (key: string | null) => {
+      if (key !== null && selectedFeature && !highlightedModules?.has(key)) {
+        return;
+      }
+      onSelectModule(key);
+    },
+    [selectedFeature, highlightedModules, onSelectModule],
+  );
+
   const interaction = useMemo<ModuleInteraction>(
     () => ({
       highlightedModules,
       ownedModules,
       consumedModules,
       selectedModule,
-      onSelectModule,
+      onSelectModule: guardedSelectModule,
       onHoverModule: setHoveredModule,
     }),
     [
@@ -203,9 +237,26 @@ function FeatureLayersPanelInner({
       ownedModules,
       consumedModules,
       selectedModule,
-      onSelectModule,
+      guardedSelectModule,
     ],
   );
+
+  // The selected feature's module-connection graph (nodes = owned ∪ consumed,
+  // edges = real imports between them) and the keys it owns (for node styling).
+  const featureGraph = useMemo(
+    () =>
+      selectedFeature
+        ? featureModuleGraph(config, summary, selectedFeature)
+        : null,
+    [config, summary, selectedFeature],
+  );
+  const ownedKeys = useMemo(
+    () =>
+      selectedFeature ? featureFocus(summary, selectedFeature).owned : null,
+    [summary, selectedFeature],
+  );
+
+  const showGraph = Boolean(selectedFeature) && featureView === 'graph';
 
   function handleChipClick(id: string) {
     onSelectFeature(selectedFeature === id ? null : id);
@@ -290,36 +341,69 @@ function FeatureLayersPanelInner({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        {selectedFeature && (
+          <div className="flex shrink-0 rounded-md border border-border bg-background/80 p-0.5">
+            {(['graph', 'grid'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setFeatureView(v)}
+                aria-pressed={featureView === v}
+                className={cn(
+                  'rounded px-2 py-0.5 text-[11px] font-medium capitalize transition-colors',
+                  featureView === v
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Layer cards canvas: the whole grid is a single zoomable/pannable node */}
-      <div
-        ref={containerRef}
-        className={cn(
-          'min-h-0 flex-1 transition-opacity duration-150',
-          fitted ? 'opacity-100' : 'opacity-0',
-        )}
-      >
-        <ModuleInteractionContext.Provider value={interaction}>
-          <ReactFlow
-            nodes={nodes}
-            nodeTypes={layerGridNodeTypes}
-            fitView
-            fitViewOptions={FIT_VIEW_OPTIONS}
-            minZoom={0.1}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            zoomOnDoubleClick={false}
-            onPaneClick={handleClearSelection}
-            // Also enables pointer events on the node: react-flow sets
-            // `pointer-events: none` on nodes with no interactivity at all.
-            onNodeClick={handleClearSelection}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background color="var(--border)" gap={20} />
-          </ReactFlow>
-        </ModuleInteractionContext.Provider>
-      </div>
+      {/* Canvas: a feature's module-connection graph by default, or the layer
+          grid (Grid view / no feature selected). */}
+      {showGraph && featureGraph && ownedKeys ? (
+        <div className="min-h-0 flex-1">
+          <FeatureGraphPanel
+            graph={featureGraph}
+            ownedKeys={ownedKeys}
+            selectedModule={selectedModule}
+            onSelectModule={onSelectModule}
+            onHoverModule={setHoveredModule}
+          />
+        </div>
+      ) : (
+        <div
+          ref={containerRef}
+          className={cn(
+            'min-h-0 flex-1 transition-opacity duration-150',
+            fitted ? 'opacity-100' : 'opacity-0',
+          )}
+        >
+          <ModuleInteractionContext.Provider value={interaction}>
+            <ReactFlow
+              nodes={nodes}
+              nodeTypes={layerGridNodeTypes}
+              fitView
+              fitViewOptions={FIT_VIEW_OPTIONS}
+              minZoom={0.1}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              zoomOnDoubleClick={false}
+              onPaneClick={handleClearSelection}
+              // Also enables pointer events on the node: react-flow sets
+              // `pointer-events: none` on nodes with no interactivity at all.
+              onNodeClick={handleClearSelection}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background color="var(--border)" gap={20} />
+            </ReactFlow>
+          </ModuleInteractionContext.Provider>
+        </div>
+      )}
 
       {/* Footer: reading hint + tier legend */}
       <div className="flex shrink-0 items-center justify-between border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">

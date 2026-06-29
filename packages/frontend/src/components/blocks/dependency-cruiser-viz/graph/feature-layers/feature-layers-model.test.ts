@@ -91,6 +91,7 @@ const summary: VizSummary = {
   ],
   featureEdges: [],
   featureModuleEdges: [],
+  moduleEdges: [],
 };
 
 describe('buildFeatureLayersModel', () => {

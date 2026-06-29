@@ -75,7 +75,7 @@ export function summarizeCruiseResult(
     )
     .sort((a, b) => a.localeCompare(b));
 
-  const { breaches, featureEdges, featureModuleEdges } = enforce({
+  const { breaches, featureEdges, featureModuleEdges, moduleEdges } = enforce({
     moduleEntries,
     modules,
     moduleBySource,
@@ -94,6 +94,7 @@ export function summarizeCruiseResult(
     breaches,
     featureEdges,
     featureModuleEdges,
+    moduleEdges,
   };
 }
 
@@ -113,6 +114,7 @@ function enforce({
   breaches: VizSummary['breaches'];
   featureEdges: VizSummary['featureEdges'];
   featureModuleEdges: VizSummary['featureModuleEdges'];
+  moduleEdges: VizSummary['moduleEdges'];
 } {
   const breaches: VizSummary['breaches'] = [];
   const seenBreach = new Set<string>();
@@ -121,10 +123,13 @@ function enforce({
   const edges = new Map<string, Set<string>>();
 
   /** key `feature\0layer\0module\0relation` -> record. */
-  const moduleEdges = new Map<
+  const featureModuleMap = new Map<
     string,
     VizSummary['featureModuleEdges'][number]
   >();
+
+  /** key `fromLayer\0fromModule\0toLayer\0toModule\0kind` -> module→module edge. */
+  const moduleEdgeMap = new Map<string, VizSummary['moduleEdges'][number]>();
 
   for (const mod of modules) {
     const fromEntry = findModule(mod.source, moduleEntries);
@@ -162,6 +167,7 @@ function enforce({
           toFile: target,
           reason: 'infra-to-owned',
         });
+        addModuleEdge(moduleEdgeMap, fromEntry, toEntry, 'breach');
         continue;
       }
 
@@ -169,7 +175,8 @@ function enforce({
       // permitted to use; any feature outside the target's audience breaches.
       for (const f of fromAudience) {
         if (permits(toEntry, f)) {
-          recordLegalEdges(f, toEntry, edges, moduleEdges);
+          recordLegalEdges(f, toEntry, edges, featureModuleMap);
+          addModuleEdge(moduleEdgeMap, fromEntry, toEntry, 'legal');
           continue;
         }
         recordBreach(breaches, seenBreach, {
@@ -183,6 +190,7 @@ function enforce({
               ? 'not-in-shared-with'
               : 'private-cross-feature',
         });
+        addModuleEdge(moduleEdgeMap, fromEntry, toEntry, 'breach');
       }
     }
   }
@@ -204,7 +212,7 @@ function enforce({
   );
 
   const featureModuleEdges: VizSummary['featureModuleEdges'] = [
-    ...moduleEdges.values(),
+    ...featureModuleMap.values(),
   ].sort(
     (a, b) =>
       a.feature.localeCompare(b.feature) ||
@@ -213,7 +221,36 @@ function enforce({
       a.relation.localeCompare(b.relation),
   );
 
-  return { breaches, featureEdges, featureModuleEdges };
+  const moduleEdges: VizSummary['moduleEdges'] = [
+    ...moduleEdgeMap.values(),
+  ].sort(
+    (a, b) =>
+      a.fromLayer.localeCompare(b.fromLayer) ||
+      a.fromModule.localeCompare(b.fromModule) ||
+      a.toLayer.localeCompare(b.toLayer) ||
+      a.toModule.localeCompare(b.toModule) ||
+      a.kind.localeCompare(b.kind),
+  );
+
+  return { breaches, featureEdges, featureModuleEdges, moduleEdges };
+}
+
+/** Record a deduped module→module import edge (`legal` or `breach`). */
+function addModuleEdge(
+  moduleEdges: Map<string, VizSummary['moduleEdges'][number]>,
+  fromEntry: ModuleEntry,
+  toEntry: ModuleEntry,
+  kind: 'legal' | 'breach',
+): void {
+  const key = `${fromEntry.layer}\0${fromEntry.name}\0${toEntry.layer}\0${toEntry.name}\0${kind}`;
+  if (moduleEdges.has(key)) return;
+  moduleEdges.set(key, {
+    fromLayer: fromEntry.layer,
+    fromModule: fromEntry.name,
+    toLayer: toEntry.layer,
+    toModule: toEntry.name,
+    kind,
+  });
 }
 
 /**

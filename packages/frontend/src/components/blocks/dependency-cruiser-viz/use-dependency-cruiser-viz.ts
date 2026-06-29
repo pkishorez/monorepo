@@ -169,9 +169,12 @@ function reducer(state: State, action: Action): State {
         canvasMode: 'features',
       };
     case 'select-module':
+      // Module selection layers on top of any selected feature (co-selection):
+      // the feature stays selected so the tree keeps its feature focus while the
+      // highlight narrows to this module. Membership (module ∈ feature) is
+      // enforced at the call sites, not here.
       return {
         ...state,
-        selectedFeature: null,
         selectedModule: state.selectedModule === action.key ? null : action.key,
         selectedViolation: null,
         canvasMode: 'features',

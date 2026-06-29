@@ -23,6 +23,7 @@ export type {
   LayerConflict,
   LayerViolation,
   ModuleCoverage,
+  ModuleEdge,
   ProjectConfig,
   Visibility,
   VisualizationConfig,

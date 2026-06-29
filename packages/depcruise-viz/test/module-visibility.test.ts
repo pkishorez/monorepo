@@ -230,6 +230,15 @@ test('public module is usable by anyone', () => {
   expect_deepEqual(summary.featureEdges, [
     { from: 'orders', to: 'billing', via: ['format'] },
   ]);
+  expect_deepEqual(summary.moduleEdges, [
+    {
+      fromLayer: 'routes',
+      fromModule: 'orders',
+      toLayer: 'lib',
+      toModule: 'format',
+      kind: 'legal',
+    },
+  ]);
 });
 
 test('shared honored only for listed features', () => {
@@ -290,6 +299,15 @@ test('shared not-in-shared-with is a breach', () => {
   );
   expect_equal(summary.breaches.length, 1);
   expect_equal(summary.breaches[0]!.reason, 'not-in-shared-with');
+  expect_deepEqual(summary.moduleEdges, [
+    {
+      fromLayer: 'routes',
+      fromModule: 'other',
+      toLayer: 'lib',
+      toModule: 'format',
+      kind: 'breach',
+    },
+  ]);
 });
 
 test('shared module consuming a target outside its audience is a breach', () => {
