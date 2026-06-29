@@ -65,7 +65,10 @@ export function FileTreePanel({
 
   // Focus mode: when a feature/module/layer is highlighting the tree, this
   // prunes everything that isn't highlighted so only the focus remains.
-  const isHighlighting = view.highlightedFiles != null;
+  // Focus prunes to the feature's full scope (not the narrower module highlight
+  // when a module is co-selected), so focusing keeps the whole feature visible.
+  const focusScope = view.focusScopeFiles ?? view.highlightedFiles;
+  const isHighlighting = focusScope != null;
   const [showOnlyHighlighted, setShowOnlyHighlighted] = useState(false);
   // The toggle is only meaningful while something is highlighting; reset it
   // once the highlight clears so it doesn't silently apply on the next select.
@@ -73,7 +76,7 @@ export function FileTreePanel({
     if (!isHighlighting) setShowOnlyHighlighted(false);
   }, [isHighlighting]);
   const highlightFilter =
-    showOnlyHighlighted && isHighlighting ? view.highlightedFiles : null;
+    showOnlyHighlighted && isHighlighting ? focusScope : null;
 
   // Clicking a coverage stat focuses the tree on just that status; clicking the
   // same stat again clears it. Reset when switching tabs so a filter never

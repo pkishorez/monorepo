@@ -76,21 +76,34 @@ export function getFileTreeViewModel({
     ? featureFileSets(summary, selectedFeature)
     : null;
 
-  // Module selection (mutually exclusive with feature) highlights that module's
-  // files as a single tier-colored set; there's no owned/consumed split.
-  const moduleSets =
-    !selectedFeature && selectedModule
-      ? (() => {
-          const files = moduleFiles(summary).get(selectedModule);
-          if (!files || files.length === 0) return null;
-          return { owned: new Set(files), consumed: new Set<string>() };
-        })()
-      : null;
+  // Module selection highlights that module's files as a single tier-colored
+  // set; there's no owned/consumed split. It may stand alone OR layer on top of
+  // a selected feature (co-selection).
+  const moduleSets = selectedModule
+    ? (() => {
+        const files = moduleFiles(summary).get(selectedModule);
+        if (!files || files.length === 0) return null;
+        return { owned: new Set(files), consumed: new Set<string>() };
+      })()
+    : null;
+
+  // Styling (color + dimming) narrows to the module when one is co-selected on
+  // top of a feature; otherwise it follows whichever single axis is active.
+  const stylingSets =
+    featureSets && moduleSets ? moduleSets : (featureSets ?? moduleSets);
+  // The "focus" toggle prunes to the broader feature scope so co-selecting a
+  // module never collapses the focused tree to that one module.
+  const focusScopeSets = featureSets ?? moduleSets;
 
   const highlight = getHighlightedFiles({
     summary,
     selectedLayer,
-    featureFileSets: featureSets ?? moduleSets,
+    featureFileSets: stylingSets,
+  });
+  const focusScope = getHighlightedFiles({
+    summary,
+    selectedLayer,
+    featureFileSets: focusScopeSets,
   });
 
   // In the Features tab the tree itself colors module coverage (gaps render as
@@ -153,6 +166,7 @@ export function getFileTreeViewModel({
     // expansion state is preserved; restyling alone reflects the feature.
     treeKey: 'tree',
     highlightedFiles: highlight.all,
+    focusScopeFiles: focusScope.all,
     ownedFiles: highlight.owned,
     consumedFiles: highlight.consumed,
     coverageGapFiles,

@@ -1,7 +1,7 @@
 {
-  "name": "@monorepo/devtools",
+  "name": "@kishorez/devtools",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
   "bin": {
     "devtools-report": "src/cli/main.ts"
   },

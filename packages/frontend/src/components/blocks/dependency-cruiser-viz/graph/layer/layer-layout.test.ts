@@ -62,6 +62,7 @@ const SUMMARY: VizSummary = {
   conflicts: [],
   featureEdges: [],
   featureModuleEdges: [],
+  moduleEdges: [],
 };
 
 describe('computeLayerLayout characterization', () => {

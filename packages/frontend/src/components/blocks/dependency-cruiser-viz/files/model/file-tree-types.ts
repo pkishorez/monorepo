@@ -63,6 +63,14 @@ export type FileTreeViewModel = {
    */
   highlightedFiles: Set<string> | null;
   /**
+   * The set the file-tree "focus" toggle prunes to. Normally equal to
+   * {@link highlightedFiles}, but when a module is co-selected on top of a
+   * feature it stays the FEATURE's full reach — so focusing keeps the whole
+   * feature visible while {@link highlightedFiles}/{@link ownedFiles} narrow to
+   * the selected module. Null when nothing is highlighting.
+   */
+  focusScopeFiles: Set<string> | null;
+  /**
    * Files of modules the selected feature OWNS (its own vertical slice), or a
    * selected layer's files. Rendered with the STRONG/primary highlight. Null
    * when nothing is selected.
