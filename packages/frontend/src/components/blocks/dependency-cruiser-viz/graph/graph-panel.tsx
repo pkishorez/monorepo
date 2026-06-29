@@ -89,7 +89,9 @@ export function GraphPanel({
           <LayerGraphPanel
             config={view.config}
             summary={view.summary}
-            activeLayer={view.activeLayer}
+            selectedLayer={view.selectedLayer}
+            hoveredLayer={view.hoveredLayer}
+            selectedViolation={view.selectedViolation}
             onSelectLayer={onSelectLayer ?? (() => {})}
             onHoverLayer={onHoverLayer ?? (() => {})}
           />

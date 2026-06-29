@@ -77,48 +77,78 @@ export type VisualizationConfig = {
   }>;
 };
 
+/** A layer-ordering violation: `fromFile` (in layer `from`) imports `toFile`
+ * (in layer `to`) against the stack's top-down ordering. */
+export type LayerViolation = {
+  from: string;
+  to: string;
+  fromFile: string;
+  toFile: string;
+  rule: string;
+  severity: string;
+};
+
+/** Files covered by a declared module, with its resolved tier/owner. */
+export type ModuleCoverage = {
+  module: string;
+  layer: string;
+  feature?: string;
+  visibility: Visibility;
+  sharedWith?: string[];
+  files: string[];
+};
+
+export type BreachReason =
+  | 'private-cross-feature'
+  | 'not-in-shared-with'
+  | 'infra-to-owned';
+
+/** A feature/visibility boundary breach: an import that crosses module
+ * ownership in a way the declared visibility does not permit. */
+export type Breach = {
+  fromModule: string;
+  fromFeature: string | null;
+  toModule: string;
+  toFeature: string | null;
+  toVisibility: Visibility;
+  fromFile: string;
+  toFile: string;
+  reason: BreachReason;
+};
+
+export type FeatureEdge = { from: string; to: string; via: string[] };
+
+export type FeatureModuleEdge = {
+  feature: string;
+  module: string;
+  layer: string;
+  visibility: 'shared' | 'public';
+  relation: 'owns' | 'consumes';
+};
+
+/** Two distinct layers whose path patterns overlap, so a file can match both
+ * and is silently attributed to the first-declared layer. */
+export type LayerConflict = {
+  layerA: string;
+  layerB: string;
+  pathA: string;
+  pathB: string;
+};
+
 export type VizSummary = {
-  violations: Array<{
-    from: string;
-    to: string;
-    fromFile: string;
-    toFile: string;
-    rule: string;
-    severity: string;
-  }>;
+  violations: LayerViolation[];
   layerOrphanFiles: string[];
   ignoredFiles: string[];
   coveredFiles: Array<{
     layer: string;
     files: string[];
   }>;
-  moduleCoverage: Array<{
-    module: string;
-    layer: string;
-    feature?: string;
-    visibility: Visibility;
-    sharedWith?: string[];
-    files: string[];
-  }>;
+  moduleCoverage: ModuleCoverage[];
   coverageGaps: string[];
-  breaches: Array<{
-    fromModule: string;
-    fromFeature: string | null;
-    toModule: string;
-    toFeature: string | null;
-    toVisibility: Visibility;
-    fromFile: string;
-    toFile: string;
-    reason: 'private-cross-feature' | 'not-in-shared-with' | 'infra-to-owned';
-  }>;
-  featureEdges: Array<{ from: string; to: string; via: string[] }>;
-  featureModuleEdges: Array<{
-    feature: string;
-    module: string;
-    layer: string;
-    visibility: 'shared' | 'public';
-    relation: 'owns' | 'consumes';
-  }>;
+  conflicts: LayerConflict[];
+  breaches: Breach[];
+  featureEdges: FeatureEdge[];
+  featureModuleEdges: FeatureModuleEdge[];
 };
 
 export type DependencyCruiserConfig = IFlattenedRuleSet;

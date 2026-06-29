@@ -1,36 +1,53 @@
-import type { VizSummary } from '../../model';
+import type { Visibility, VizSummary } from '../../model';
 import type { FileStatus, FileTreeNode } from './file-tree-types';
 
-export function buildFileTree(
-  summary: VizSummary,
-  layerPaths: Set<string>,
-  modulePaths: Set<string>,
-): FileTreeNode[] {
-  const fileStatuses = new Map<string, FileStatus>();
+/** Which coverage axis the tree classifies files against. */
+export type CoverageMode = 'layers' | 'features';
 
-  for (const { files } of summary.coveredFiles) {
-    for (const f of files) {
-      fileStatuses.set(f, 'covered');
+/**
+ * Classify every scanned file as covered / orphan / ignored against the active
+ * coverage axis:
+ * - `layers`: covered = inside a declared layer; orphan = matches no layer.
+ * - `features`: covered = claimed by a declared module; orphan = everything else
+ *   that isn't ignored (layer files in no module — the coverage gaps — plus files
+ *   in no layer at all). This makes the Features tab a true module-coverage tree.
+ *
+ * `ignored` always wins (ignored files never count toward either axis).
+ */
+export function computeFileStatuses(
+  summary: VizSummary,
+  mode: CoverageMode,
+): Map<string, FileStatus> {
+  const statuses = new Map<string, FileStatus>();
+
+  if (mode === 'features') {
+    const moduleCovered = new Set<string>();
+    for (const m of summary.moduleCoverage) {
+      for (const f of m.files) moduleCovered.add(f);
+    }
+    for (const { files } of summary.coveredFiles) {
+      for (const f of files) {
+        statuses.set(f, moduleCovered.has(f) ? 'covered' : 'orphan');
+      }
+    }
+  } else {
+    for (const { files } of summary.coveredFiles) {
+      for (const f of files) statuses.set(f, 'covered');
     }
   }
 
-  for (const f of summary.ignoredFiles) {
-    fileStatuses.set(f, 'ignored');
-  }
+  for (const f of summary.layerOrphanFiles) statuses.set(f, 'orphan');
+  for (const f of summary.ignoredFiles) statuses.set(f, 'ignored');
 
-  for (const f of summary.layerOrphanFiles) {
-    fileStatuses.set(f, 'orphan');
-  }
+  return statuses;
+}
 
-  const violationFiles = new Set<string>();
-  for (const v of summary.violations) {
-    violationFiles.add(v.fromFile);
-    violationFiles.add(v.toFile);
-  }
-  for (const f of violationFiles) {
-    fileStatuses.set(f, 'violation');
-  }
-
+export function buildFileTree(
+  fileStatuses: Map<string, FileStatus>,
+  layerPaths: Set<string>,
+  modulePaths: Set<string>,
+  moduleVisibility: Map<string, Visibility>,
+): FileTreeNode[] {
   const root: FileTreeNode[] = [];
   const sorted = [...fileStatuses.entries()].sort(([a], [b]) =>
     a.localeCompare(b),
@@ -52,13 +69,14 @@ export function buildFileTree(
           name: part,
           type: isFile ? 'file' : 'folder',
           status: isFile ? status : undefined,
-          nodeKind: isFile
-            ? 'other'
-            : layerPaths.has(id)
-              ? 'layer'
-              : modulePaths.has(id)
-                ? 'module'
-                : 'other',
+          // A node IS a module when its own path is declared — true for module
+          // folders and single-file modules alike, so both surface the dot.
+          nodeKind: layerPaths.has(id)
+            ? 'layer'
+            : modulePaths.has(id)
+              ? 'module'
+              : 'other',
+          visibility: moduleVisibility.get(id),
           children: isFile ? undefined : [],
         };
         current.push(existing);
@@ -72,6 +90,45 @@ export function buildFileTree(
 
   propagateFolderStatus(root);
   return root;
+}
+
+/**
+ * Expansion ids for opening a single target one level deep: every ancestor
+ * folder leading to `targetId` and the target itself. Descendant folders stay
+ * collapsed, so selecting a module or layer reveals only its immediate children
+ * — the user drills deeper manually. Everything outside this path stays closed.
+ */
+export function collectExpandedForTarget(
+  nodes: FileTreeNode[],
+  targetId: string,
+): string[] {
+  const ids = new Set<string>();
+  for (const node of nodes) collectTargetIds(node, targetId, [], ids);
+  return [...ids];
+}
+
+function collectTargetIds(
+  node: FileTreeNode,
+  targetId: string,
+  ancestors: string[],
+  ids: Set<string>,
+): boolean {
+  // The target may itself be a file — a module declared as a single file — in
+  // which case only its ancestors are expanded (a leaf has nothing to open) so
+  // the file and its highlight become visible.
+  if (node.id === targetId) {
+    for (const id of ancestors) ids.add(id);
+    if (node.type === 'folder') ids.add(node.id);
+    return true;
+  }
+
+  if (node.type !== 'folder') return false;
+
+  const path = [...ancestors, node.id];
+  for (const child of node.children ?? []) {
+    if (collectTargetIds(child, targetId, path, ids)) return true;
+  }
+  return false;
 }
 
 /**
@@ -134,7 +191,6 @@ function propagateFolderStatus(nodes: FileTreeNode[]): FileStatus | undefined {
   }
 
   const statuses = new Set(nodes.map((n) => n.status).filter(Boolean));
-  if (statuses.has('violation')) return 'violation';
   if (statuses.has('orphan')) return 'orphan';
   if (statuses.has('covered')) return 'covered';
   if (statuses.has('ignored')) return 'ignored';

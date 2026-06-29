@@ -14,6 +14,7 @@ const mod = (
   visibility: 'private',
   sharedWith: [],
   fileCount: 0,
+  breachCount: 0,
   isBreached: false,
   ...overrides,
 });
@@ -80,9 +81,9 @@ describe('buildLayerCardGroups', () => {
     ]);
   });
 
-  it('labels a module whose path equals the layer path as (root)', () => {
+  it('labels a module whose path equals the layer path as (layer root)', () => {
     const groups = buildLayerCardGroups([mod('')], new Set());
-    expect(groups[0]!.chips[0]!.label).toBe('(root)');
+    expect(groups[0]!.chips[0]!.label).toBe('(layer root)');
   });
 });
 

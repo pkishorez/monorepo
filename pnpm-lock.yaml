@@ -458,7 +458,7 @@ importers:
         specifier: 4.4.0
         version: 4.4.0
       depcruise-viz:
-        specifier: workspace:*
+        specifier: file:../depcruise-viz
         version: link:../depcruise-viz
       embla-carousel-react:
         specifier: 8.6.0

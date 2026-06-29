@@ -1,5 +1,7 @@
 export type {
+  Breach,
   DepcruiseVizData,
+  LayerConflict,
   Visibility,
   VisualizationConfig,
   VizSummary,

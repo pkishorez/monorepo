@@ -64,10 +64,22 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
           />
         </>
       )}
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="violation-source"
+        className="!opacity-0"
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="violation-target"
+        className="!opacity-0"
+      />
       <div
         style={{ width: data.nodeWidth ?? LAYER_NODE_WIDTH }}
         className={cn(
-          'rounded-lg px-5 py-2 text-center text-[13px] font-semibold whitespace-nowrap',
+          'rounded-lg px-5 py-2 text-center text-[13px] font-semibold whitespace-nowrap transition-shadow',
           data.isEntry
             ? 'bg-primary text-primary-foreground'
             : 'bg-card text-card-foreground',
@@ -75,7 +87,10 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
             ? 'border-2 border-dashed border-muted-foreground'
             : 'border border-border',
           data.violationCount > 0 && 'ring-2 ring-destructive/50',
-          data.isSelected && 'ring-2 ring-primary',
+          data.isHovered &&
+            !data.isSelected &&
+            'ring-2 ring-primary/40 ring-offset-1 ring-offset-background',
+          data.isSelected && 'ring-2 ring-primary shadow-lg shadow-primary/20',
         )}
       >
         {data.label}

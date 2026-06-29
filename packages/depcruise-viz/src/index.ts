@@ -5,7 +5,14 @@ export {
   toVisualizationConfig,
 } from './compile/index.js';
 export type {
+  Breach,
+  BreachReason,
   DepcruiseVizData,
+  FeatureEdge,
+  FeatureModuleEdge,
+  LayerConflict,
+  LayerViolation,
+  ModuleCoverage,
   ProjectConfig,
   Visibility,
   VisualizationConfig,

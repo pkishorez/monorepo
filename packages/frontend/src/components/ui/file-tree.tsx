@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react"
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion"
@@ -31,6 +32,8 @@ type TreeContextProps = {
   expandedItems: string[] | undefined
   indicator: boolean
   handleExpand: (id: string) => void
+  /** Recursively expand/collapse a folder and all its descendant folders. */
+  handleExpandRecursive: (id: string) => void
   selectItem: (id: string) => void
   setExpandedItems?: React.Dispatch<React.SetStateAction<string[] | undefined>>
   openIcon?: React.ReactNode
@@ -62,6 +65,36 @@ const mergeExpandedItems = (
   currentItems: string[] | undefined,
   nextItems: string[]
 ) => [...new Set([...(currentItems ?? []), ...nextItems])]
+
+/**
+ * Collect a folder's id and every descendant folder id (depth-first) from the
+ * element tree, used to expand or collapse a whole subtree at once.
+ */
+const collectFolderSubtreeIds = (
+  elements: TreeViewElement[] | undefined,
+  rootId: string
+): string[] => {
+  if (!elements) return []
+  const result: string[] = []
+  const collect = (element: TreeViewElement) => {
+    result.push(element.id)
+    for (const child of element.children ?? []) {
+      if (isFolderElement(child)) collect(child)
+    }
+  }
+  const find = (els: TreeViewElement[]): boolean => {
+    for (const element of els) {
+      if (element.id === rootId) {
+        if (isFolderElement(element)) collect(element)
+        return true
+      }
+      if (element.children && find(element.children)) return true
+    }
+    return false
+  }
+  find(elements)
+  return result
+}
 
 const treeCollator = new Intl.Collator("en", {
   numeric: true,
@@ -151,6 +184,22 @@ type TreeViewProps = {
   indicator?: boolean
   elements?: TreeViewElement[]
   initialExpandedItems?: string[]
+  /**
+   * Controlled expansion set re-applied whenever {@link expansionSignal}
+   * changes. Manual expand/collapse persists between signal changes, so the
+   * tree can snap to a focused subtree on selection without losing local edits.
+   */
+  expandedItems?: string[]
+  /** Identity of the current expansion intent; a change re-applies expandedItems. */
+  expansionSignal?: string
+  /**
+   * Whether the current {@link expandedItems} is a transient FOCUS (e.g. a
+   * hovered/selected subtree) rather than the baseline. On entering focus the
+   * tree snapshots the user's expansion; on leaving focus it restores that
+   * snapshot instead of the (default) controlled set, so focus never clobbers
+   * the manual expand/collapse state.
+   */
+  expansionFocused?: boolean
   openIcon?: React.ReactNode
   closeIcon?: React.ReactNode
   sort?: TreeSortMode
@@ -166,6 +215,9 @@ const Tree = forwardRef<HTMLDivElement, TreeViewProps>(
       elements,
       initialSelectedId,
       initialExpandedItems,
+      expandedItems: controlledExpandedItems,
+      expansionSignal,
+      expansionFocused = false,
       children,
       indicator = true,
       openIcon,
@@ -195,6 +247,31 @@ const Tree = forwardRef<HTMLDivElement, TreeViewProps>(
         return [...(prev ?? []), id]
       })
     }, [])
+
+    // Right-click on a folder: always open the folder itself, then toggle every
+    // DESCENDANT folder. If any descendant is currently open, collapse them all
+    // (keeping this folder open); otherwise expand the whole subtree.
+    const handleExpandRecursive = useCallback(
+      (id: string) => {
+        const descendantIds = collectFolderSubtreeIds(elements, id).filter(
+          (item) => item !== id
+        )
+        setExpandedItems((prev) => {
+          const anyExpanded = descendantIds.some((item) =>
+            prev?.includes(item)
+          )
+          if (anyExpanded) {
+            const remove = new Set(descendantIds)
+            return mergeExpandedItems(
+              (prev ?? []).filter((item) => !remove.has(item)),
+              [id]
+            )
+          }
+          return mergeExpandedItems(prev, [id, ...descendantIds])
+        })
+      },
+      [elements]
+    )
 
     const expandSpecificTargetedElements = useCallback(
       (elements?: TreeViewElement[], selectId?: string) => {
@@ -238,6 +315,37 @@ const Tree = forwardRef<HTMLDivElement, TreeViewProps>(
       }
     }, [initialSelectedId, elements, expandSpecificTargetedElements])
 
+    // Snapshot of the user's expansion captured just before a focus began, and
+    // a flag for whether the tree is currently in a focused state. Refs (not
+    // state) so reading them never re-runs the effect.
+    const expandedItemsRef = useRef(expandedItems)
+    expandedItemsRef.current = expandedItems
+    const preFocusRef = useRef<string[] | undefined>(undefined)
+    const wasFocusedRef = useRef(false)
+
+    // Re-apply the controlled expansion set whenever the expansion intent
+    // changes (e.g. a module/layer is selected/hovered), snapping to the focused
+    // subtree. On entering focus we snapshot the user's current expansion; on
+    // leaving focus we restore that snapshot rather than the (default) controlled
+    // set, so a transient hover/selection never clobbers manual expand/collapse.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+      if (expansionSignal === undefined) return
+
+      if (expansionFocused) {
+        if (!wasFocusedRef.current) {
+          preFocusRef.current = expandedItemsRef.current
+          wasFocusedRef.current = true
+        }
+        if (controlledExpandedItems) setExpandedItems(controlledExpandedItems)
+      } else if (wasFocusedRef.current) {
+        wasFocusedRef.current = false
+        setExpandedItems(preFocusRef.current)
+      } else if (controlledExpandedItems) {
+        setExpandedItems(controlledExpandedItems)
+      }
+    }, [expansionSignal])
+
     const direction = dir === "rtl" ? "rtl" : "ltr"
     const treeChildren =
       children ?? (elements ? renderTreeElements(elements, sort) : null)
@@ -248,6 +356,7 @@ const Tree = forwardRef<HTMLDivElement, TreeViewProps>(
           selectedId,
           expandedItems,
           handleExpand,
+          handleExpandRecursive,
           selectItem,
           setExpandedItems,
           indicator,
@@ -330,14 +439,13 @@ const Folder = forwardRef<
     const {
       direction,
       handleExpand,
+      handleExpandRecursive,
       expandedItems,
       indicator,
-      selectedId,
       selectItem,
       openIcon,
       closeIcon,
     } = useTree()
-    const isSelected = isSelect ?? selectedId === value
 
     return (
       <AccordionPrimitive.Item
@@ -349,10 +457,9 @@ const Folder = forwardRef<
         <AccordionPrimitive.Header className="min-w-0 overflow-hidden">
           <AccordionPrimitive.Trigger
             className={cn(
-              `flex items-center gap-1 rounded-md text-sm min-w-0 max-w-full`,
+              `flex w-full items-center gap-1 rounded-md text-sm min-w-0 max-w-full`,
               className,
               {
-                "bg-muted rounded-md": isSelected && isSelectable,
                 "cursor-pointer": isSelectable,
                 "cursor-not-allowed opacity-50": !isSelectable,
               }
@@ -361,6 +468,10 @@ const Folder = forwardRef<
             onClick={() => {
               selectItem(value)
               handleExpand(value)
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              handleExpandRecursive(value)
             }}
           >
             <span className="shrink-0">
@@ -414,8 +525,7 @@ const File = forwardRef<
     },
     ref
   ) => {
-    const { direction, selectedId, selectItem } = useTree()
-    const isSelected = isSelect ?? selectedId === value
+    const { direction, selectItem } = useTree()
     return (
       <button
         ref={ref}
@@ -423,9 +533,6 @@ const File = forwardRef<
         disabled={!isSelectable}
         className={cn(
           "flex w-full min-w-0 items-center gap-1 rounded-md pr-1 text-sm duration-200 ease-in-out rtl:pr-0 rtl:pl-1",
-          {
-            "bg-muted": isSelected && isSelectable,
-          },
           isSelectable ? "cursor-pointer" : "cursor-not-allowed opacity-50",
           direction === "rtl" ? "rtl" : "ltr",
           className

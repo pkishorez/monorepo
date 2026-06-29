@@ -18,6 +18,7 @@ export type LayerNodeData = {
   paths?: string[];
   violationCount: number;
   isSelected: boolean;
+  isHovered: boolean;
   isDimmed: boolean;
   nodeWidth?: number;
   handleOffsets?: HandleOffset[];
@@ -39,10 +40,14 @@ const COL_GAP = 140;
 const EDGE_COLOR = '#94a3b8';
 const VIOLATION_EDGE_COLOR = '#ef4444';
 
+export type SelectedViolation = { from: string; to: string };
+
 export function computeLayerLayout(
   config: VisualizationConfig,
   summary?: VizSummary,
   selectedLayer?: string | null,
+  selectedViolation?: SelectedViolation | null,
+  hoveredLayer?: string | null,
 ): {
   nodes: Node[];
   edges: Edge[];
@@ -182,15 +187,22 @@ export function computeLayerLayout(
   }
 
   const dependedOnLayers = new Set(hierarchyEdges.map((e) => e.to));
-  const hasLayerSelection = !!selectedLayer;
-  const hasSelection = hasLayerSelection;
+  const selectedLayers = new Set<string>();
+  if (selectedLayer) selectedLayers.add(selectedLayer);
+  if (selectedViolation) {
+    selectedLayers.add(selectedViolation.from);
+    selectedLayers.add(selectedViolation.to);
+  }
+  const activeLayers = new Set(selectedLayers);
+  if (hoveredLayer) activeLayers.add(hoveredLayer);
+  const hasSelection = activeLayers.size > 0;
 
   const nodes: Node[] = [];
 
   for (const col of stackColumns) {
     const cx = stackCenterX.get(col.name)!;
     const colHasSelected =
-      hasLayerSelection && col.layers.includes(selectedLayer!);
+      hasSelection && col.layers.some((l) => activeLayers.has(l));
 
     nodes.push({
       id: `header-${col.name}`,
@@ -209,8 +221,8 @@ export function computeLayerLayout(
 
   for (const [layerName, pos] of positions) {
     const meta = layerMeta.get(layerName);
-    const isLayerSelected = layerName === selectedLayer;
-    const isDimmed = hasLayerSelection && !isLayerSelected;
+    const isLayerSelected = selectedLayers.has(layerName);
+    const isDimmed = hasSelection && !activeLayers.has(layerName);
 
     const width = nodeWidths.get(layerName) ?? LAYER_NODE_WIDTH;
     nodes.push({
@@ -228,6 +240,7 @@ export function computeLayerLayout(
         paths: meta?.paths,
         violationCount: violationCountByLayer.get(layerName) ?? 0,
         isSelected: isLayerSelected,
+        isHovered: layerName === hoveredLayer,
         isDimmed,
         nodeWidth: nodeWidths.get(layerName),
         handleOffsets: handleOffsetsMap.get(layerName),
@@ -260,41 +273,29 @@ export function computeLayerLayout(
     };
   });
 
-  if (summary) {
-    const seenViolationEdges = new Set<string>();
-    for (const v of summary.violations) {
-      const matchingStacks = config.stacks.filter(
-        (s) =>
-          s.layers.some((l) => l.name === v.from) &&
-          s.layers.some((l) => l.name === v.to),
-      );
-      for (const stack of matchingStacks) {
-        const edgeId = `violation-${stack.name}:${v.from}->${v.to}`;
-        if (seenViolationEdges.has(edgeId)) continue;
-        seenViolationEdges.add(edgeId);
-
-        edges.push({
-          id: edgeId,
-          source: v.from,
-          target: v.to,
-          sourceHandle: shared.has(v.from) ? `bottom-${stack.name}` : undefined,
-          targetHandle: shared.has(v.to) ? `top-${stack.name}` : undefined,
-          type: 'smoothstep',
-          animated: !hasSelection,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 14,
-            height: 14,
-            color: VIOLATION_EDGE_COLOR,
-          },
-          style: {
-            stroke: VIOLATION_EDGE_COLOR,
-            strokeWidth: 2,
-            strokeDasharray: '6 3',
-            opacity: hasSelection ? dimmedOpacity : 1,
-          },
-        });
-      }
+  if (selectedViolation) {
+    const { from, to } = selectedViolation;
+    if (positions.has(from) && positions.has(to)) {
+      edges.push({
+        id: `violation:${from}->${to}`,
+        source: from,
+        target: to,
+        sourceHandle: 'violation-source',
+        targetHandle: 'violation-target',
+        type: 'smoothstep',
+        animated: true,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 14,
+          height: 14,
+          color: VIOLATION_EDGE_COLOR,
+        },
+        style: {
+          stroke: VIOLATION_EDGE_COLOR,
+          strokeWidth: 2,
+          strokeDasharray: '6 3',
+        },
+      });
     }
   }
 

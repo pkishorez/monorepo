@@ -41,7 +41,7 @@ export function buildLayerCardGroups(
   for (const mod of sorted) {
     const chip: ModuleChip = {
       module: mod,
-      label: mod.name === '' ? '(root)' : mod.name,
+      label: mod.name === '' ? '(layer root)' : mod.name,
       declared: declaredKeys.has(mod.key),
       children: [],
     };

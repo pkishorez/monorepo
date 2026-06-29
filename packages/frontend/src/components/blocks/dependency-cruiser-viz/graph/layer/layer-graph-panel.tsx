@@ -11,7 +11,7 @@ import { cn } from '#lib/utils';
 
 import type { VisualizationConfig, VizSummary } from '../../model';
 import { layerNodeTypes } from './layer-node-types';
-import type { LayerNodeData } from './layer-layout';
+import type { LayerNodeData, SelectedViolation } from './layer-layout';
 import { computeLayerLayout } from './layer-layout';
 import { FIT_VIEW_OPTIONS } from '../react-flow-options';
 import { useFitViewOnResize } from '../use-fit-view-on-resize';
@@ -19,7 +19,9 @@ import { useFitViewOnResize } from '../use-fit-view-on-resize';
 type LayerGraphPanelProps = {
   config: VisualizationConfig;
   summary?: VizSummary;
-  activeLayer: string | null;
+  selectedLayer: string | null;
+  hoveredLayer: string | null;
+  selectedViolation?: SelectedViolation | null;
   onSelectLayer: (layer: string | null) => void;
   onHoverLayer: (layer: string | null) => void;
 };
@@ -35,7 +37,9 @@ export function LayerGraphPanel(props: LayerGraphPanelProps) {
 function LayerGraphPanelInner({
   config,
   summary,
-  activeLayer,
+  selectedLayer,
+  hoveredLayer,
+  selectedViolation,
   onSelectLayer,
   onHoverLayer,
 }: LayerGraphPanelProps) {
@@ -43,8 +47,15 @@ function LayerGraphPanelInner({
   const fitted = useFitViewOnResize(containerRef);
 
   const { nodes, edges } = useMemo(
-    () => computeLayerLayout(config, summary, activeLayer),
-    [config, summary, activeLayer],
+    () =>
+      computeLayerLayout(
+        config,
+        summary,
+        selectedLayer,
+        selectedViolation,
+        hoveredLayer,
+      ),
+    [config, summary, selectedLayer, hoveredLayer, selectedViolation],
   );
 
   const handleNodeClick = useCallback(

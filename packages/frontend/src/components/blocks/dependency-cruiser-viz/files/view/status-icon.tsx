@@ -1,5 +1,4 @@
 import {
-  CircleAlertIcon,
   CircleCheckIcon,
   CircleHelpIcon,
   CircleMinusIcon,
@@ -14,7 +13,6 @@ const statusIcons: Record<
   FileStatus,
   { icon: typeof FileIcon; className: string }
 > = {
-  violation: { icon: CircleAlertIcon, className: 'text-red-500' },
   orphan: { icon: CircleHelpIcon, className: 'text-yellow-500' },
   covered: {
     icon: CircleCheckIcon,

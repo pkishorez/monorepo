@@ -1,6 +1,7 @@
 import type { ICruiseResult } from 'dependency-cruiser';
 
 import type { Visibility, VisualizationConfig, VizSummary } from '../types.js';
+import { detectLayerConflicts } from './detect-layer-conflicts.js';
 
 type CruiseModule = ICruiseResult['modules'][number];
 
@@ -86,6 +87,7 @@ export function summarizeCruiseResult(
     coveredFiles,
     moduleCoverage,
     coverageGaps,
+    conflicts: detectLayerConflicts(visualization),
     breaches,
     featureEdges,
     featureModuleEdges,

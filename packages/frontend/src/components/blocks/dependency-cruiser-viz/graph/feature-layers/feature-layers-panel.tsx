@@ -5,7 +5,7 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useMemo, useRef, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 
 import { cn } from '#lib/utils';
@@ -72,6 +72,7 @@ function FeatureLayersPanelInner({
   onSelectModule,
 }: FeatureLayersPanelProps) {
   const [hoveredChip, setHoveredChip] = useState<string | null>(null);
+  const [hoveredModule, setHoveredModule] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fitted = useFitViewOnResize(containerRef);
 
@@ -91,12 +92,16 @@ function FeatureLayersPanelInner({
   // Derive highlight sets from active chip (hovered takes priority over selected)
   const activeChipId = hoveredChip ?? selectedFeature;
 
-  const { ownedModules, consumedModules, highlightedModules } = useMemo(() => {
+  const chipHighlight = useMemo(() => {
     if (!activeChipId) {
       return {
         ownedModules: null,
         consumedModules: null,
         highlightedModules: null,
+      } as {
+        ownedModules: Set<string> | null;
+        consumedModules: Set<string> | null;
+        highlightedModules: Set<string> | null;
       };
     }
 
@@ -130,6 +135,23 @@ function FeatureLayersPanelInner({
     };
   }, [activeChipId, model, summary, modules]);
 
+  // With no feature/filter chip active, the selected and hovered modules both
+  // stay lit (everything else dims) — so hovering elsewhere never suppresses the
+  // selection. Only the selected module gets the strong "owned" fill; the
+  // hovered one reads via its distinct hover style.
+  const { ownedModules, consumedModules, highlightedModules } = useMemo(() => {
+    if (activeChipId) return chipHighlight;
+    const lit = new Set<string>();
+    if (selectedModule) lit.add(selectedModule);
+    if (hoveredModule) lit.add(hoveredModule);
+    if (lit.size === 0) return chipHighlight;
+    return {
+      ownedModules: selectedModule ? new Set([selectedModule]) : null,
+      consumedModules: null,
+      highlightedModules: lit,
+    };
+  }, [activeChipId, hoveredModule, selectedModule, chipHighlight]);
+
   // For module-click: which chips own/consume the selected module?
   const moduleHighlightedChips = useMemo<Set<string>>(() => {
     if (!selectedModule || activeChipId) return new Set();
@@ -150,6 +172,9 @@ function FeatureLayersPanelInner({
     return touched;
   }, [selectedModule, activeChipId, model, summary, modules]);
 
+  // The grid is a single React Flow node. Selection/hover highlighting flows
+  // through context rather than node.data so it never recreates the node — which
+  // would make React Flow re-measure and visibly flicker on every mouse move.
   const nodes = useMemo<Node<LayerGridNodeData>[]>(
     () => [
       {
@@ -158,20 +183,22 @@ function FeatureLayersPanelInner({
         position: { x: 0, y: 0 },
         draggable: false,
         selectable: false,
-        data: {
-          grid: model.layerGrid,
-          declaredKeys,
-          highlightedModules,
-          ownedModules,
-          consumedModules,
-          selectedModule,
-          onSelectModule,
-        },
+        data: { grid: model.layerGrid, declaredKeys },
       },
     ],
+    [model.layerGrid, declaredKeys],
+  );
+
+  const interaction = useMemo<ModuleInteraction>(
+    () => ({
+      highlightedModules,
+      ownedModules,
+      consumedModules,
+      selectedModule,
+      onSelectModule,
+      onHoverModule: setHoveredModule,
+    }),
     [
-      model.layerGrid,
-      declaredKeys,
       highlightedModules,
       ownedModules,
       consumedModules,
@@ -273,23 +300,25 @@ function FeatureLayersPanelInner({
           fitted ? 'opacity-100' : 'opacity-0',
         )}
       >
-        <ReactFlow
-          nodes={nodes}
-          nodeTypes={layerGridNodeTypes}
-          fitView
-          fitViewOptions={FIT_VIEW_OPTIONS}
-          minZoom={0.1}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          zoomOnDoubleClick={false}
-          onPaneClick={handleClearSelection}
-          // Also enables pointer events on the node: react-flow sets
-          // `pointer-events: none` on nodes with no interactivity at all.
-          onNodeClick={handleClearSelection}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background color="var(--border)" gap={20} />
-        </ReactFlow>
+        <ModuleInteractionContext.Provider value={interaction}>
+          <ReactFlow
+            nodes={nodes}
+            nodeTypes={layerGridNodeTypes}
+            fitView
+            fitViewOptions={FIT_VIEW_OPTIONS}
+            minZoom={0.1}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            zoomOnDoubleClick={false}
+            onPaneClick={handleClearSelection}
+            // Also enables pointer events on the node: react-flow sets
+            // `pointer-events: none` on nodes with no interactivity at all.
+            onNodeClick={handleClearSelection}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background color="var(--border)" gap={20} />
+          </ReactFlow>
+        </ModuleInteractionContext.Provider>
       </div>
 
       {/* Footer: reading hint + tier legend */}
@@ -322,14 +351,24 @@ function moduleHighlightedChipsHasFilter(
 type LayerGridNodeData = {
   grid: LayerGrid;
   declaredKeys: ReadonlySet<string>;
+};
+
+/** Selection/hover state for the module list, kept off node.data to avoid
+ *  recreating the React Flow node (and the flicker that causes) on every event. */
+type ModuleInteraction = {
   highlightedModules: Set<string> | null;
   ownedModules: Set<string> | null;
   consumedModules: Set<string> | null;
   selectedModule: string | null;
   onSelectModule: (key: string | null) => void;
+  onHoverModule: (key: string | null) => void;
 };
 
+const ModuleInteractionContext = createContext<ModuleInteraction | null>(null);
+
 function LayerGridNode({ data }: NodeProps<Node<LayerGridNodeData>>) {
+  const interaction = useContext(ModuleInteractionContext);
+  if (!interaction) return null;
   return (
     <div
       className="grid gap-3"
@@ -359,11 +398,12 @@ function LayerGridNode({ data }: NodeProps<Node<LayerGridNodeData>>) {
           <LayerCard
             card={card}
             declaredKeys={data.declaredKeys}
-            highlightedModules={data.highlightedModules}
-            ownedModules={data.ownedModules}
-            consumedModules={data.consumedModules}
-            selectedModule={data.selectedModule}
-            onSelectModule={data.onSelectModule}
+            highlightedModules={interaction.highlightedModules}
+            ownedModules={interaction.ownedModules}
+            consumedModules={interaction.consumedModules}
+            selectedModule={interaction.selectedModule}
+            onSelectModule={interaction.onSelectModule}
+            onHoverModule={interaction.onHoverModule}
           />
         </div>
       ))}
@@ -381,6 +421,7 @@ type LayerCardProps = {
   consumedModules: Set<string> | null;
   selectedModule: string | null;
   onSelectModule: (key: string | null) => void;
+  onHoverModule: (key: string | null) => void;
 };
 
 function LayerCard({
@@ -391,6 +432,7 @@ function LayerCard({
   consumedModules,
   selectedModule,
   onSelectModule,
+  onHoverModule,
 }: LayerCardProps) {
   const groups = useMemo(
     () => buildLayerCardGroups(card.modules, declaredKeys),
@@ -430,6 +472,7 @@ function LayerCard({
           consumedModules={consumedModules}
           selectedModule={selectedModule}
           onSelectModule={onSelectModule}
+          onHoverModule={onHoverModule}
         />
       )}
     </div>
