@@ -164,3 +164,53 @@ describe('buildLayerGrid', () => {
     expect(data.stacks).toEqual(['web']);
   });
 });
+
+const GROUPED_CONFIG: VisualizationConfig = {
+  rootDir: '.',
+  stacks: [
+    {
+      name: 'dynamodb',
+      group: 'db',
+      allowedImports: [],
+      layers: [
+        { name: 'barrel', paths: ['src/db/dynamodb/index.ts'] },
+        { name: 'internal', paths: ['src/db/dynamodb/internal'] },
+      ],
+    },
+    {
+      name: 'api',
+      group: 'svc',
+      allowedImports: [],
+      layers: [
+        { name: 'routes', paths: ['src/api/routes'] },
+        { name: 'internal', paths: ['src/api/internal'] },
+      ],
+    },
+  ],
+  modules: [],
+};
+
+describe('grouping', () => {
+  it('does not merge a layer name shared across different groups', () => {
+    const model = buildLayerModel(GROUPED_CONFIG);
+    const internals = model.slots
+      .flatMap((s) => s.sections)
+      .filter((sec) => sec.layer === 'internal');
+    expect(internals).toHaveLength(2);
+    expect(internals.map((s) => s.key).sort()).toEqual([
+      'db::internal',
+      'svc::internal',
+    ]);
+    expect(internals.map((s) => s.group).sort()).toEqual(['db', 'svc']);
+  });
+
+  it('produces a contiguous band per non-default group', () => {
+    const grid = buildLayerGrid(GROUPED_CONFIG);
+    expect(grid.groupBands).toEqual([
+      { group: 'db', rowStart: 0, rowSpan: 1 },
+      { group: 'svc', rowStart: 1, rowSpan: 1 },
+    ]);
+    const internalCards = grid.cards.filter((c) => c.layer === 'internal');
+    expect(internalCards).toHaveLength(2);
+  });
+});

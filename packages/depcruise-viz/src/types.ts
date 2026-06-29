@@ -12,6 +12,13 @@ export type Layer = {
 
 export type LayerStackConfig = {
   description?: string;
+  /**
+   * The group this stack belongs to. Stacks sharing a group render inside one
+   * labeled region and form an isolated unit: layer identity is namespaced per
+   * group, so the same layer name in another group is a distinct layer.
+   * Absent means the implicit default group (shared by all ungrouped stacks).
+   */
+  group?: string;
 };
 
 export type LayerStack = {
@@ -56,6 +63,7 @@ export type VisualizationConfig = {
   stacks: Array<{
     name: string;
     description?: string;
+    group?: string;
     layers: Array<{
       name: string;
       paths: string[];
@@ -71,11 +79,15 @@ export type VisualizationConfig = {
     path: string;
     name: string;
     layer: string;
+    group?: string;
     feature?: string;
     visibility: Visibility;
     sharedWith?: string[];
   }>;
 };
+
+/** The implicit group every ungrouped stack belongs to. */
+export const DEFAULT_GROUP = '';
 
 /** A layer-ordering violation: `fromFile` (in layer `from`) imports `toFile`
  * (in layer `to`) against the stack's top-down ordering. */

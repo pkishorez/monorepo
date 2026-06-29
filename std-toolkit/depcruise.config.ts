@@ -1,5 +1,6 @@
 import {
   feature,
+  group,
   layer,
   layersTopDown,
   module,
@@ -147,6 +148,41 @@ const syncUtil = layer(
   { description: 'Shared types and utility helpers' },
 );
 
+// ---------------------------------------------------------------------------
+// Stacks — one per intra-folder layering. Grouped below by src bounded context
+// (per CONTEXT-MAP.md): core, eschema, db (dynamodb + sqlite), tanstack-sync.
+// ---------------------------------------------------------------------------
+
+const eschemaStructure = layersTopDown('eschema-structure', [
+  eschemaBarrel,
+  eschemaImpl,
+]);
+const coreStructure = layersTopDown('core-structure', [coreBarrel, coreImpl]);
+const sqliteStructure = layersTopDown('sqlite-structure', [
+  sqliteBarrel,
+  sqliteImpl,
+]);
+const dynamodbArchitecture = layersTopDown('dynamodb-architecture', [
+  dynamodbBarrel,
+  dynamodbServices,
+  dynamodbExpr,
+  dynamodbInternal,
+  dynamodbGenerated,
+  dynamodbTypes,
+  dynamodbErrors,
+]);
+const tanstackSyncArchitecture = layersTopDown('tanstack-sync-architecture', [
+  syncEntrypoint,
+  syncSync,
+  syncProjection,
+  syncInspector,
+  syncPaced,
+  syncRegistry,
+  syncSourceOfTruth,
+  syncOfflineStorage,
+  syncUtil,
+]);
+
 export default {
   rootDir: 'src',
   ignore: [
@@ -154,33 +190,12 @@ export default {
     'src/*/play.ts',
     'src/eschema/tutorial/**',
     'src/eschema/cli/**',
-    'src/db/dynamodb/depcruise.config.ts',
-    'src/tanstack-sync/depcruise.config.ts',
   ],
   rules: [
-    layersTopDown('eschema-structure', [eschemaBarrel, eschemaImpl]),
-    layersTopDown('core-structure', [coreBarrel, coreImpl]),
-    layersTopDown('sqlite-structure', [sqliteBarrel, sqliteImpl]),
-    layersTopDown('dynamodb-architecture', [
-      dynamodbBarrel,
-      dynamodbServices,
-      dynamodbExpr,
-      dynamodbInternal,
-      dynamodbGenerated,
-      dynamodbTypes,
-      dynamodbErrors,
-    ]),
-    layersTopDown('tanstack-sync-architecture', [
-      syncEntrypoint,
-      syncSync,
-      syncProjection,
-      syncInspector,
-      syncPaced,
-      syncRegistry,
-      syncSourceOfTruth,
-      syncOfflineStorage,
-      syncUtil,
-    ]),
+    ...group('core', [coreStructure]),
+    ...group('eschema', [eschemaStructure]),
+    ...group('db', [dynamodbArchitecture, sqliteStructure]),
+    ...group('tanstack-sync', [tanstackSyncArchitecture]),
   ],
   features: [
     eschemaFeature,

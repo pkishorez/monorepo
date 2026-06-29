@@ -38,6 +38,9 @@ export function toVisualizationConfig(
     if (rule.config.description !== undefined) {
       stack.description = rule.config.description;
     }
+    if (rule.config.group !== undefined) {
+      stack.group = rule.config.group;
+    }
     stacks.push(stack);
   }
 
@@ -67,7 +70,7 @@ export function toVisualizationConfig(
   return result;
 }
 
-type LayerLookup = { name: string; paths: string[] };
+type LayerLookup = { name: string; group?: string; paths: string[] };
 
 function resolveModules(
   config: ProjectConfig,
@@ -76,7 +79,11 @@ function resolveModules(
   const layers: LayerLookup[] = [];
   for (const rule of config.rules) {
     for (const l of rule.layers) {
-      layers.push({ name: l.name, paths: [...l.paths] });
+      const lookup: LayerLookup = { name: l.name, paths: [...l.paths] };
+      if (rule.config.group !== undefined) {
+        lookup.group = rule.config.group;
+      }
+      layers.push(lookup);
     }
   }
 
@@ -120,6 +127,9 @@ function resolveModules(
       layer: owningLayer.name,
       visibility: mod.visibility,
     };
+    if (owningLayer.group !== undefined) {
+      entry.group = owningLayer.group;
+    }
     if (mod.feature !== undefined) {
       entry.feature = mod.feature;
     }

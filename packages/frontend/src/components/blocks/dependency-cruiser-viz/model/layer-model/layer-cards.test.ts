@@ -10,6 +10,7 @@ const mod = (
   key: `routes::${name}`,
   layer: 'routes',
   name,
+  group: '',
   feature: null,
   visibility: 'private',
   sharedWith: [],
