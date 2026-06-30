@@ -1,7 +1,7 @@
 {
   "name": "depcruise-viz",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
+  "private": false,
   "repository": "pkishorez/monorepo",
   "bin": {
     "depcruise-viz": "dist/cli/index.js"
