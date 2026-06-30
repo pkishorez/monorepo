@@ -7,17 +7,22 @@ import {
 } from '@kishorez/lotel/client';
 import type { EntityType } from 'std-toolkit/core';
 import { createStdSync, syncStrategy } from 'std-toolkit/tanstack-sync';
-import { LotelClient, makeLotelClientLayer } from './runtime';
+import { DevtoolsClient, makeDevtoolsClientLayer } from '../runtime';
 
 const POLL_INTERVAL_MS = 1000;
 
-export function buildCollections(baseUrl: string) {
-  const layer = makeLotelClientLayer(baseUrl);
+/**
+ * Build the live Telemetry collections (traces, logs) backed by the DevTools
+ * RPC client at `baseUrl`. Reads poll the umbrella `/rpc` surface; telemetry is
+ * global, so no project is involved.
+ */
+export function buildTelemetryCollections(baseUrl: string) {
+  const layer = makeDevtoolsClientLayer(baseUrl);
   const std = createStdSync();
 
   const pollingStrategy = <V extends { id: string }>(
     queryPage: (
-      client: Effect.Success<typeof LotelClient>,
+      client: Effect.Success<typeof DevtoolsClient>,
       query: { cursor?: string },
     ) => Effect.Effect<{ readonly items: readonly unknown[] }, unknown, never>,
   ) =>
@@ -27,7 +32,7 @@ export function buildCollections(baseUrl: string) {
         return Effect.succeed(
           Stream.fromEffectRepeat(
             Effect.gen(function* () {
-              const client = yield* LotelClient;
+              const client = yield* DevtoolsClient;
               const query: { cursor?: string } = {};
               if (cursor?.value.id) query.cursor = cursor.value.id;
               const res = yield* queryPage(client, query);
@@ -45,7 +50,7 @@ export function buildCollections(baseUrl: string) {
     schema: TraceRecordSchema,
     sync: {
       strategy: pollingStrategy<StoredTraceRecordValue>((client, query) =>
-        client.lotel.queryTraces({ query }),
+        client.QueryTraces(query),
       ),
       forwardFetch: () => Effect.succeed([]),
       cadence: false,
@@ -56,7 +61,7 @@ export function buildCollections(baseUrl: string) {
     schema: LogRecordSchema,
     sync: {
       strategy: pollingStrategy<StoredLogRecordValue>((client, query) =>
-        client.lotel.queryLogs({ query }),
+        client.QueryLogs(query),
       ),
       forwardFetch: () => Effect.succeed([]),
       cadence: false,
@@ -66,4 +71,4 @@ export function buildCollections(baseUrl: string) {
   return { traces, logs };
 }
 
-export type OtelCollections = ReturnType<typeof buildCollections>;
+export type TelemetryCollections = ReturnType<typeof buildTelemetryCollections>;

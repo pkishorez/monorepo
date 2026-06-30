@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { DependencyCruiserViz } from '@monorepo/frontend/components/blocks/dependency-cruiser-viz';
+import { Button } from '@monorepo/frontend/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -15,25 +16,175 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@monorepo/frontend/components/ui/empty';
-import { DevtoolsHeader } from './header';
+import { ServerIcon, WifiOffIcon } from '@monorepo/frontend/lucide';
+import { CommandHint } from './command-hint';
+import { useServerHealth } from './health';
+import { DevtoolsHeader, ProjectSwitcher, ReloadButton } from './header';
 import { ProjectManager } from './project-manager';
-import { useDepcruise } from './queries';
-import { makeDevtoolsRuntime } from './runtime';
-import { useDevtoolsStore } from './store';
+import { clearTelemetry, useDepcruise } from './queries';
+import { makeDevtoolsRuntime, type DevtoolsRuntime } from './runtime';
+import { isValidBaseUrl, useDevtoolsStore } from './store';
+import { routeApi, useActiveTool } from './use-active-tool';
+import { buildTelemetryCollections } from './telemetry/collections';
+import { Header as TelemetryHeader } from './telemetry/header';
+import { Viewer } from './telemetry/viewer';
 
-/** The full DevTools workbench for a single configured dev URL. */
+/** The DevTools workbench: tool-first, sharing one DevTools URL / runtime. */
 export function DevtoolsShell() {
+  const devUrl = useDevtoolsStore((s) => s.devUrl);
+  const [activeTool] = useActiveTool();
+  const urlParam = routeApi.useSearch({ select: (s) => s.url });
+  const navigate = useNavigate();
+
+  // Adopt a server URL handed in by the CLI as `?url=` (e.g. the link printed
+  // by `devtools` on startup), then strip it from the address bar so the link is
+  // single-use and doesn't linger.
+  useEffect(() => {
+    if (!urlParam) return;
+    const trimmed = urlParam.trim();
+    if (isValidBaseUrl(trimmed)) {
+      useDevtoolsStore.getState().setDevUrl(trimmed.replace(/\/+$/, ''));
+    }
+    void navigate({
+      to: '/devtools',
+      search: (prev) => ({ tool: prev.tool ?? 'otel', url: undefined }),
+      replace: true,
+    });
+  }, [urlParam, navigate]);
+
+  const health = useServerHealth(devUrl);
+  const runtime = useMemo(() => makeDevtoolsRuntime(devUrl), [devUrl]);
+
+  if (!isValidBaseUrl(devUrl)) return <NotConnected />;
+
+  return (
+    <>
+      {health === 'offline' ? <OfflineBanner /> : null}
+      {activeTool === 'otel' ? (
+        <TelemetryPane devUrl={devUrl} runtime={runtime} />
+      ) : (
+        <DependenciesPane runtime={runtime} />
+      )}
+    </>
+  );
+}
+
+/** Floating prompt shown when the configured server can't be reached. */
+function OfflineBanner() {
+  const devUrl = useDevtoolsStore((s) => s.devUrl);
+  const setConnectionOpen = useDevtoolsStore((s) => s.setConnectionOpen);
+
+  return (
+    <div className="fixed inset-x-0 top-2 z-50 flex justify-center px-4">
+      <div className="flex items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm shadow-sm backdrop-blur">
+        <WifiOffIcon className="size-4 shrink-0 text-destructive" />
+        <span className="min-w-0">
+          Can't reach <span className="font-mono">{devUrl}</span>. Is the
+          DevTools server running?
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          onClick={() => setConnectionOpen(true)}
+        >
+          Configure
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Fail-early state shown when no DevTools server URL is configured yet. */
+function NotConnected() {
+  const navigate = useNavigate();
+  const setConnectionOpen = useDevtoolsStore((s) => s.setConnectionOpen);
+
+  return (
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <DevtoolsHeader onHome={() => navigate({ to: '/' })} />
+      <div className="flex min-h-0 flex-1 items-center justify-center p-12">
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No connection configured</EmptyTitle>
+            <EmptyDescription>
+              Point DevTools at a running server to start inspecting telemetry
+              and dependencies.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button className="mt-4" onClick={() => setConnectionOpen(true)}>
+            <ServerIcon className="size-4" />
+            Configure connection
+          </Button>
+          <div className="mt-6 w-full max-w-sm text-left">
+            <CommandHint />
+          </div>
+        </Empty>
+      </div>
+    </div>
+  );
+}
+
+/** Global Telemetry tool: a live trace/log viewer over the DevTools RPC surface. */
+function TelemetryPane({
+  devUrl,
+  runtime,
+}: {
+  devUrl: string;
+  runtime: DevtoolsRuntime;
+}) {
+  const navigate = useNavigate();
+  const [resetKey, setResetKey] = useState(0);
+
+  const collections = useMemo(
+    () => buildTelemetryCollections(devUrl),
+    [devUrl, resetKey],
+  );
+
+  const handleClear = useCallback(async () => {
+    try {
+      await clearTelemetry(runtime);
+    } catch {
+      // remount even if the delete failed; the user can retry
+    }
+    setResetKey((k) => k + 1);
+  }, [runtime]);
+
+  return (
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <DevtoolsHeader
+        onHome={() => navigate({ to: '/' })}
+        actions={<TelemetryHeader onClear={handleClear} />}
+      />
+      <div className="min-h-0 flex-1">
+        <Viewer key={resetKey} collections={collections} />
+      </div>
+    </div>
+  );
+}
+
+/** Per-project Dependencies tool: the dependency-cruiser graph for a package. */
+function DependenciesPane({ runtime }: { runtime: DevtoolsRuntime }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const devUrl = useDevtoolsStore((s) => s.devUrl);
   const projects = useDevtoolsStore((s) => s.projects);
   const selectedPath = useDevtoolsStore((s) => s.selectedPath);
-
-  const runtime = useMemo(() => makeDevtoolsRuntime(devUrl), [devUrl]);
   const path = selectedPath ?? '';
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showHome, setShowHome] = useState(!selectedPath);
+
+  // ⌘K / Ctrl+K opens the project picker (mounted only on the depcruise tab).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setDialogOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const depcruise = useDepcruise(runtime, path);
 
@@ -47,30 +198,34 @@ export function DevtoolsShell() {
   };
 
   const isReloading = depcruise.isFetching;
+  const projectSwitcher = (
+    <ProjectSwitcher
+      label={selectedLabel}
+      onClick={() => setDialogOpen(true)}
+    />
+  );
 
   if (showHome || !selectedPath) {
     return (
-      <div className="min-h-dvh">
+      <div className="flex h-dvh flex-col overflow-hidden">
         <DevtoolsHeader
           onHome={() => navigate({ to: '/' })}
-          onNavigate={() => setDialogOpen(true)}
-          onReload={reload}
-          selectedLabel={selectedLabel}
-          canReload={!!selectedPath}
-          isReloading={isReloading}
+          center={projectSwitcher}
         />
-        <div className="mx-auto max-w-2xl space-y-6 p-8">
-          {projects.length === 0 && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>No projects added</EmptyTitle>
-                <EmptyDescription>
-                  Add a project below to visualize its dependency graph.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-          <ProjectManager onSelected={() => setShowHome(false)} />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className="mx-auto max-w-2xl space-y-6 p-8">
+            {projects.length === 0 && (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No projects added</EmptyTitle>
+                  <EmptyDescription>
+                    Add a project below to visualize its dependency graph.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+            <ProjectManager onSelected={() => setShowHome(false)} />
+          </div>
         </div>
         <NavigateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
       </div>
@@ -80,12 +235,11 @@ export function DevtoolsShell() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <DevtoolsHeader
-        onHome={() => setShowHome(true)}
-        onNavigate={() => setDialogOpen(true)}
-        onReload={reload}
-        selectedLabel={selectedLabel}
-        canReload
-        isReloading={isReloading}
+        onHome={() => navigate({ to: '/' })}
+        center={projectSwitcher}
+        actions={
+          <ReloadButton onReload={reload} canReload isReloading={isReloading} />
+        }
       />
       <div className="min-h-0 flex-1">
         <DepcruisePane depcruise={depcruise} />

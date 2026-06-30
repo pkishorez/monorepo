@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Effect } from 'effect';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type { DevtoolsRpc } from '@monorepo/devtools/rpc';
+import type { DevtoolsRpc } from '@kishorez/devtools/rpc';
 import { DevtoolsClient, type DevtoolsRuntime } from './runtime';
 
 /** The resolved RPC client object carrying the DevTools procedures. */
@@ -39,4 +39,11 @@ export function useDepcruise(runtime: DevtoolsRuntime, path: string) {
     queryFn: () => runProcedure(runtime, (c) => c.RunDepcruise({ path })),
     enabled: !!path,
   });
+}
+
+/** Delete every trace, log, and metric from the DevTools server. */
+export function clearTelemetry(
+  runtime: DevtoolsRuntime,
+): Promise<{ deleted: number }> {
+  return runProcedure(runtime, (c) => c.ClearTelemetry({}));
 }

@@ -13,6 +13,7 @@
     "dev": "vp run -r dev",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm -r lint",
+    "gh:version": "GITHUB_TOKEN=$(gh auth token --user pkishorez) pnpm changeset version",
     "release": "pnpm build && changeset publish",
     "subtrees:update": "bash scripts/update-subtrees.sh",
     "test": "vp run -r test",

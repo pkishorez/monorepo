@@ -1,10 +1,25 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { Effect } from 'effect';
+import {
+  clearTelemetry,
+  queryLogs,
+  queryMetrics,
+  queryTraces,
+} from '@kishorez/lotel';
 import { assembleDepcruise, resolvePath } from '../report/assemble.js';
-import { DevtoolsRpc } from '../rpc/index.js';
+import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 
-/** Live handlers for the {@link DevtoolsRpc} group. */
+const toRpcError = (cause: unknown): DevtoolsRpcError =>
+  cause instanceof DevtoolsRpcError
+    ? cause
+    : new DevtoolsRpcError({ message: String(cause) });
+
+/**
+ * Live handlers for the {@link DevtoolsRpc} group. The telemetry read
+ * procedures call lotel's orchestration and therefore require the lotel `Db`,
+ * which is provided by the server entrypoint.
+ */
 export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
   RunDepcruise: ({ path: input }) =>
     Effect.gen(function* () {
@@ -14,4 +29,15 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
       }
       return yield* assembleDepcruise(dir);
     }),
+  QueryTraces: ({ cursor }) =>
+    queryTraces(cursor).pipe(Effect.mapError(toRpcError)),
+  QueryLogs: ({ cursor }) =>
+    queryLogs(cursor).pipe(Effect.mapError(toRpcError)),
+  QueryMetrics: ({ cursor }) =>
+    queryMetrics(cursor).pipe(Effect.mapError(toRpcError)),
+  ClearTelemetry: () =>
+    clearTelemetry.pipe(
+      Effect.map((deleted) => ({ deleted })),
+      Effect.mapError(toRpcError),
+    ),
 });
