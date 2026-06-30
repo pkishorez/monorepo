@@ -9,7 +9,7 @@ library:
   name: 'depcruise-viz'
   version: '0.0.1'
   repository: 'pkishorez/monorepo'
-  description: 'Author a project''s layered architecture as a typed config, compile it to dependency-cruiser rules, and enforce layer ordering and module-visibility boundaries.'
+  description: "Author a project's layered architecture as a typed config, compile it to dependency-cruiser rules, and enforce layer ordering and module-visibility boundaries."
   primary_framework: 'framework-agnostic'
 
 domains:
@@ -125,7 +125,7 @@ skills:
         priority: 'HIGH'
         status: 'active'
       - mistake: 'Overlapping layer path patterns'
-        mechanism: 'When two layers'' paths overlap, a file matches both and is silently attributed to the first-declared layer; reported only as a warning.'
+        mechanism: "When two layers' paths overlap, a file matches both and is silently attributed to the first-declared layer; reported only as a warning."
         wrong_pattern: |
           layer('core', ['src'])
           layer('cli', ['src/cli']) // src/cli also matches 'core'
@@ -197,7 +197,11 @@ skills:
         priority: 'HIGH'
         status: 'active'
         skills:
-          ['author-architecture-config', 'enforce-boundaries', 'programmatic-analysis']
+          [
+            'author-architecture-config',
+            'enforce-boundaries',
+            'programmatic-analysis',
+          ]
 
 tensions:
   - name: 'Granularity vs maintenance overhead'

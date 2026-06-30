@@ -1,5 +1,11 @@
 # depcruise-viz
 
+## 0.0.3
+
+### Patch Changes
+
+- Fix CLI crash with `Cannot find module 'ioredis'` by importing `NodeRuntime` and `NodeServices` from their `@effect/platform-node` subpaths instead of the barrel, which eagerly re-exports `NodeRedis` and forces resolution of the unused `ioredis` peer dependency.
+
 ## 0.0.2
 
 ### Patch Changes
