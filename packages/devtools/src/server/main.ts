@@ -79,6 +79,25 @@ const makeIndexRouteLive = ({
  */
 const RoutesLive = Layer.mergeAll(RpcRouteLive, LotelApiLive);
 
+/**
+ * Stamp `Access-Control-Allow-Private-Network: true` onto every response.
+ * The hosted frontend is served over HTTPS from a public origin, so requests
+ * to this loopback server trigger Chrome's Private Network Access preflight,
+ * which {@link HttpMiddleware.cors} does not satisfy on its own. Wrapping the
+ * cors'd app means the header lands on both the 204 preflight and real
+ * responses; browsers ignore it where it isn't needed.
+ */
+const allowPrivateNetwork = <E, R>(
+  app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
+) =>
+  Effect.map(app, (response) =>
+    HttpServerResponse.setHeader(
+      response,
+      'access-control-allow-private-network',
+      'true',
+    ),
+  );
+
 const makeServerLive = ({
   port,
   db,
@@ -96,10 +115,12 @@ const makeServerLive = ({
       // The frontend is served from a different origin, so allow cross-origin calls
       // to both the `/rpc` and `/v1/*` surfaces.
       middleware: (app) =>
-        HttpMiddleware.cors({
-          allowedOrigins: ['*'],
-          allowedMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-        })(app),
+        allowPrivateNetwork(
+          HttpMiddleware.cors({
+            allowedOrigins: ['*'],
+            allowedMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+          })(app),
+        ),
     },
   ).pipe(
     Layer.provide(makeDbLayer({ dbPath: db })),
