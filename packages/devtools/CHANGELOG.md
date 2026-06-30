@@ -1,5 +1,19 @@
 # @kishorez/devtools
 
+## 0.0.2
+
+### Patch Changes
+
+- fix: send Access-Control-Allow-Private-Network header for localhost preflights
+
+  The hosted frontend is served over HTTPS from a public origin, so browsers
+  issue a Private Network Access preflight when it calls the loopback devtools
+  server. The plain CORS middleware doesn't answer that preflight, so requests
+  were blocked with a CORS error (only when using the published package — local
+  `pnpm dev` proxies the calls same-origin and never hits it). Stamp
+  `Access-Control-Allow-Private-Network: true` onto responses so the preflight
+  succeeds.
+
 ## 0.0.1
 
 ### Patch Changes
