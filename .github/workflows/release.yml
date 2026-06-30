@@ -46,7 +46,7 @@ jobs:
           # monoverse builds via Bun and is intentionally kept out of the generic
           # `pnpm build` (which consumers run) so it doesn't force Bun on them.
           # Build it here, only on the publish path.
-          publish: pnpm --filter monoverse run build:ondemand && pnpm release
+          publish: pnpm release:ci
           title: 'chore: release packages'
           commit: 'chore: release packages'
         env:
