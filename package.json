@@ -14,7 +14,7 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm -r lint",
     "gh:version": "GITHUB_TOKEN=$(gh auth token --user pkishorez) pnpm changeset version",
-    "release": "pnpm build && pnpm --filter monoverse run build:ondemand && pnpm lint && pnpm changeset release",
+    "release": "pnpm changeset publish",
     "subtrees:update": "bash scripts/update-subtrees.sh",
     "test": "vp run -r test",
     "updates": "npx -y npm-check-updates -iws",

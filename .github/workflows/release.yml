@@ -38,14 +38,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build
+        run: pnpm build
+
+      # monoverse builds via Bun and is intentionally kept out of the generic
+      # `pnpm build` (which consumers run) so it doesn't force Bun on them.
+      - name: Build monoverse
+        run: pnpm --filter monoverse run build:ondemand
+
+      # Re-link workspace bins (e.g. depcruise-viz) now that their dist/ exists;
+      # the initial install ran before any build, so those bins were skipped.
+      - name: Link workspace bins
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm run version
-          # monoverse builds via Bun and is intentionally kept out of the generic
-          # `pnpm build` (which consumers run) so it doesn't force Bun on them.
-          # Build it here, only on the publish path.
           publish: pnpm run release
           title: 'chore: release packages'
           commit: 'chore: release packages'
