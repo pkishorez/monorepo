@@ -429,7 +429,7 @@ const Folder = forwardRef<
       element,
       value,
       isSelectable = true,
-      isSelect,
+      isSelect: _isSelect,
       suffix,
       children,
       ...props
@@ -518,7 +518,7 @@ const File = forwardRef<
       handleSelect,
       onClick,
       isSelectable = true,
-      isSelect,
+      isSelect: _isSelect,
       fileIcon,
       children,
       ...props

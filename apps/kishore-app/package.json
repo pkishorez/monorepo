@@ -8,8 +8,8 @@
     "deploy": "vp build && wrangler deploy",
     "dev": "vp dev --port 20001",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc --noEmit",
     "lint:depcruise": "depcruise-viz lint",
+    "lint:ondemand": "vp check && tsc --noEmit && depcruise-viz lint",
     "serve": "vp preview",
     "test": "vp test",
     "types": "wrangler types"
