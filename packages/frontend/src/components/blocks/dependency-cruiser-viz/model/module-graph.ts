@@ -14,6 +14,14 @@ export type FeatureModuleGraphEdge = {
  * modules as nodes, and the real module→module imports between them
  * (`summary.moduleEdges`) as edges. Edges touching a module outside the
  * feature's set are dropped, so the graph stays scoped to the feature.
+ *
+ * Every real import is kept (no transitive reduction): the layer-swimlane
+ * layout already reads cleanly, and showing each hop is what makes the graph
+ * usable as the feature's end-to-end import map. The one exception is edges
+ * between a module and a sub-module nested under it (e.g. `cart` ↔
+ * `cart/multi-reservation` in the same layer): that is folder containment, not
+ * a dependency worth drawing, so it is suppressed and the pair is clustered
+ * together in the layout instead.
  */
 export type FeatureModuleGraph = {
   nodes: ModuleNode[];
@@ -37,61 +45,30 @@ export function featureModuleGraph(
     const from = moduleKey(e.fromLayer, e.fromModule);
     const to = moduleKey(e.toLayer, e.toModule);
     if (!keys.has(from) || !keys.has(to) || from === to) continue;
+    // Containment, not dependency: a module and its own nested sub-module share
+    // a family and must not be wired together.
+    if (
+      moduleFamily(e.fromLayer, e.fromModule) ===
+      moduleFamily(e.toLayer, e.toModule)
+    ) {
+      continue;
+    }
     const id = `${from}\0${to}\0${e.kind}`;
     if (seen.has(id)) continue;
     seen.add(id);
     edges.push({ from, to, kind: e.kind });
   }
 
-  return { nodes, edges: transitivelyReduce(edges) };
+  return { nodes, edges };
 }
 
 /**
- * Drop redundant `legal` edges to declutter the graph: a direct edge u→v is
- * removed when v is already reachable from u through a longer legal path, so the
- * graph keeps the same reachability with far fewer lines (transitive reduction).
- * `breach` edges are always kept — a visibility violation is never implied by
- * another path and must stay visible.
+ * The containment family of a module: its layer plus the first segment of its
+ * name. `cart` and `cart/multi-reservation` in the same layer share the family
+ * `layer::cart`, so the graph treats the sub-module as nested inside its parent
+ * rather than as an independent peer.
  */
-function transitivelyReduce(
-  edges: FeatureModuleGraphEdge[],
-): FeatureModuleGraphEdge[] {
-  // Reachability is computed over legal edges only; an indirect path made of
-  // legal hops is what makes a direct legal edge redundant.
-  const adjacency = new Map<string, Set<string>>();
-  for (const e of edges) {
-    if (e.kind !== 'legal') continue;
-    const out = adjacency.get(e.from) ?? new Set<string>();
-    out.add(e.to);
-    adjacency.set(e.from, out);
-  }
-
-  /** Can `target` be reached from `from` without taking the direct hop? */
-  const reachableAvoidingDirect = (from: string, target: string): boolean => {
-    // Mark `from` visited so a cycle back to it never re-expands its neighbors
-    // (which would let the search sneak through the very edge we're excluding).
-    const visited = new Set<string>([from]);
-    const stack: string[] = [];
-    for (const n of adjacency.get(from) ?? []) {
-      if (n === target || visited.has(n)) continue; // skip the direct edge
-      visited.add(n);
-      stack.push(n);
-    }
-    while (stack.length > 0) {
-      const node = stack.pop()!;
-      if (node === target) return true;
-      for (const next of adjacency.get(node) ?? []) {
-        if (!visited.has(next)) {
-          visited.add(next);
-          stack.push(next);
-        }
-      }
-    }
-    return false;
-  };
-
-  return edges.filter((e) => {
-    if (e.kind !== 'legal') return true;
-    return !reachableAvoidingDirect(e.from, e.to);
-  });
+export function moduleFamily(layer: string, name: string): string {
+  const slash = name.indexOf('/');
+  return `${layer}::${slash === -1 ? name : name.slice(0, slash)}`;
 }

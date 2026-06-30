@@ -49,6 +49,7 @@ import {
 } from './feature-layers-model';
 import { ModuleChips } from './module-chips';
 import { FeatureGraphPanel } from './feature-graph-panel';
+import type { ColumnMode } from './feature-graph-layout';
 
 type FeatureLayersPanelProps = {
   config: VisualizationConfig;
@@ -87,6 +88,9 @@ function FeatureLayersPanelInner({
   // graph; 'grid' falls back to the layer-grid highlight view. Reset to 'graph'
   // whenever the feature clears so the next feature opens in graph mode.
   const [featureView, setFeatureView] = useState<'graph' | 'grid'>('graph');
+  // Column-assignment rule for the graph: 'layer' bands modules by architecture
+  // layer; 'depth' packs each node just past whatever imports it.
+  const [columnMode, setColumnMode] = useState<ColumnMode>('layer');
   useEffect(() => {
     if (!selectedFeature) setFeatureView('graph');
   }, [selectedFeature]);
@@ -256,6 +260,22 @@ function FeatureLayersPanelInner({
     [summary, selectedFeature],
   );
 
+  // Architecture layers in declared order, deduped across stacks — the swimlane
+  // column order for the feature graph.
+  const layerOrder = useMemo(() => {
+    const seen = new Set<string>();
+    const order: string[] = [];
+    for (const stack of config.stacks) {
+      for (const l of stack.layers) {
+        if (!seen.has(l.name)) {
+          seen.add(l.name);
+          order.push(l.name);
+        }
+      }
+    }
+    return order;
+  }, [config]);
+
   const showGraph = Boolean(selectedFeature) && featureView === 'graph';
 
   function handleChipClick(id: string) {
@@ -341,6 +361,36 @@ function FeatureLayersPanelInner({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        {showGraph && (
+          <div className="flex shrink-0 rounded-md border border-border bg-background/80 p-0.5">
+            {(
+              [
+                ['layer', 'Layers'],
+                ['depth', 'Compact'],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setColumnMode(mode)}
+                aria-pressed={columnMode === mode}
+                title={
+                  mode === 'layer'
+                    ? 'Columns by architecture layer'
+                    : 'Columns packed by import depth'
+                }
+                className={cn(
+                  'rounded px-2 py-0.5 text-[11px] font-medium transition-colors',
+                  columnMode === mode
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {selectedFeature && (
           <div className="flex shrink-0 rounded-md border border-border bg-background/80 p-0.5">
             {(['graph', 'grid'] as const).map((v) => (
@@ -370,6 +420,8 @@ function FeatureLayersPanelInner({
           <FeatureGraphPanel
             graph={featureGraph}
             ownedKeys={ownedKeys}
+            layerOrder={layerOrder}
+            columnMode={columnMode}
             selectedModule={selectedModule}
             onSelectModule={onSelectModule}
             onHoverModule={setHoveredModule}

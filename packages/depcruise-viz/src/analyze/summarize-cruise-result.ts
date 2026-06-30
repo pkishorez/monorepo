@@ -65,6 +65,17 @@ export function summarizeCruiseResult(
 
   const moduleCoverage = buildModuleCoverage({ moduleEntries, modules });
 
+  // Declared modules that own no files — every file beneath their path belongs
+  // to a more-specific nested module, so the declaration is redundant and would
+  // otherwise render as an edge-less phantom node in the visualization.
+  const coveredByName = new Map(
+    moduleCoverage.map((m) => [`${m.layer}\0${m.module}`, m.files.length]),
+  );
+  const emptyModules: VizSummary['emptyModules'] = moduleEntries
+    .filter((e) => (coveredByName.get(`${e.layer}\0${e.name}`) ?? 0) === 0)
+    .map((e) => ({ path: e.path, layer: e.layer, name: e.name }))
+    .sort((a, b) => a.path.localeCompare(b.path));
+
   const coverageGaps = modules
     .map((m) => m.source)
     .filter(
@@ -90,6 +101,7 @@ export function summarizeCruiseResult(
     coveredFiles,
     moduleCoverage,
     coverageGaps,
+    emptyModules,
     conflicts: detectLayerConflicts(visualization),
     breaches,
     featureEdges,

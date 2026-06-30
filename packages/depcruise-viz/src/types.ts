@@ -168,6 +168,9 @@ export type VizSummary = {
   }>;
   moduleCoverage: ModuleCoverage[];
   coverageGaps: string[];
+  /** Declared modules whose path resolves to zero files — usually a redundant
+   * declaration whose files are all owned by a more-specific nested module. */
+  emptyModules: Array<{ path: string; layer: string; name: string }>;
   conflicts: LayerConflict[];
   breaches: Breach[];
   featureEdges: FeatureEdge[];

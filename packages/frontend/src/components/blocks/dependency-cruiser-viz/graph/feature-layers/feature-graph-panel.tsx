@@ -4,6 +4,7 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   type Edge,
   type Node,
   type NodeProps,
@@ -26,7 +27,9 @@ import { FIT_VIEW_OPTIONS } from '../react-flow-options';
 import { useFitViewOnResize } from '../use-fit-view-on-resize';
 import {
   BREACH_EDGE_COLOR,
+  type ColumnMode,
   computeFeatureGraphLayout,
+  CYCLE_EDGE_COLOR,
   LEGAL_EDGE_COLOR,
   MODULE_NODE_WIDTH,
   type ModuleGraphNodeData,
@@ -43,6 +46,10 @@ type FeatureGraphPanelProps = {
   graph: FeatureModuleGraph;
   /** `layer::name` keys the feature OWNS (vs consumes) — drives node tier. */
   ownedKeys: ReadonlySet<string>;
+  /** Architecture layers in declared order — drives the swimlane columns. */
+  layerOrder: readonly string[];
+  /** Column-assignment rule: layer swimlanes or compact import-depth. */
+  columnMode: ColumnMode;
   selectedModule: string | null;
   onSelectModule: (key: string | null) => void;
   onHoverModule?: (key: string | null) => void;
@@ -76,12 +83,23 @@ export function FeatureGraphPanel(props: FeatureGraphPanelProps) {
 function FeatureGraphPanelInner({
   graph,
   ownedKeys,
+  layerOrder,
+  columnMode,
   selectedModule,
   onSelectModule,
   onHoverModule,
 }: FeatureGraphPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fitted = useFitViewOnResize(containerRef);
+  const { fitView } = useReactFlow();
+
+  // Switching features swaps the whole module graph; recenter so the new graph
+  // fills the viewport instead of inheriting the previous feature's pan/zoom.
+  // A frame's delay lets React Flow position/measure the new nodes first.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => void fitView(FIT_VIEW_OPTIONS));
+    return () => cancelAnimationFrame(raf);
+  }, [graph, columnMode, fitView]);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   // Right-clicked node: highlights the WHOLE chain it belongs to (every node
   // reachable up- or downstream), not just its direct neighbours.
@@ -90,8 +108,8 @@ function FeatureGraphPanelInner({
   // Stable across hovers — only recomputed when the graph itself changes, so
   // React Flow keeps the same node/edge instances and never re-measures.
   const { nodes, edges } = useMemo(
-    () => computeFeatureGraphLayout(graph, ownedKeys),
-    [graph, ownedKeys],
+    () => computeFeatureGraphLayout(graph, ownedKeys, layerOrder, columnMode),
+    [graph, ownedKeys, layerOrder, columnMode],
   );
 
   // A pin from one feature's graph is meaningless in another — drop it when the
@@ -128,8 +146,12 @@ function FeatureGraphPanelInner({
   const decoratedEdges = useMemo(
     () =>
       edges.map((e) => {
-        const isBreach =
-          (e.data as { kind?: string } | undefined)?.kind === 'breach';
+        const kind = (e.data as { kind?: string } | undefined)?.kind;
+        const isBreach = kind === 'breach';
+        const isCycle = kind === 'cycle';
+        // Breach + cycle both read as "against the flow" — keep their own colour
+        // and dashes even when highlighted, rather than turning primary.
+        const flagged = isBreach || isCycle;
         const incident = chainMode
           ? // Whole chain: light every edge whose endpoints are both in it.
             connectedKeys != null &&
@@ -137,8 +159,12 @@ function FeatureGraphPanelInner({
             connectedKeys.has(e.target)
           : activeKey != null &&
             (e.source === activeKey || e.target === activeKey);
-        const baseColor = isBreach ? BREACH_EDGE_COLOR : LEGAL_EDGE_COLOR;
-        const stroke = incident && !isBreach ? ACTIVE_EDGE_COLOR : baseColor;
+        const baseColor = isBreach
+          ? BREACH_EDGE_COLOR
+          : isCycle
+            ? CYCLE_EDGE_COLOR
+            : LEGAL_EDGE_COLOR;
+        const stroke = incident && !flagged ? ACTIVE_EDGE_COLOR : baseColor;
         const opacity = !activeKey
           ? IDLE_EDGE_OPACITY
           : incident
@@ -146,11 +172,11 @@ function FeatureGraphPanelInner({
             : FADED_EDGE_OPACITY;
         return {
           ...e,
-          animated: isBreach && (incident || !activeKey),
+          animated: flagged && (incident || !activeKey),
           style: {
             ...e.style,
             stroke,
-            strokeWidth: incident ? (isBreach ? 2.5 : 2) : isBreach ? 2 : 1.5,
+            strokeWidth: incident ? (flagged ? 2.5 : 2) : flagged ? 2 : 1.5,
             opacity,
             transition: 'opacity 150ms, stroke 150ms',
           },
