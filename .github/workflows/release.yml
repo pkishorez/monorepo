@@ -42,7 +42,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: pnpm version
+          version: pnpm run version
           # monoverse builds via Bun and is intentionally kept out of the generic
           # `pnpm build` (which consumers run) so it doesn't force Bun on them.
           # Build it here, only on the publish path.
