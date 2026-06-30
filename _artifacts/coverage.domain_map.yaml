@@ -1,0 +1,19 @@
+# Repo-root intent coverage plan.
+#
+# This file carries only the workspace `coverage` block. Intent reads coverage
+# ignores from `_artifacts/*domain_map.yaml` / `*skill_tree.yaml` files, so it
+# is named with the `domain_map.yaml` suffix; it declares no skills.
+#
+# Public workspace packages with package-local skills/ (depcruise-viz,
+# std-toolkit) are covered automatically. Packages listed below are public but
+# intentionally deferred — remove an entry once its skills are scaffolded.
+# Private workspace packages are skipped by `intent stale` automatically.
+
+coverage:
+  ignored_packages:
+    - name: packages/devtools
+      reason: skills deferred — will scaffold later
+    - name: packages/monoverse
+      reason: skills deferred — will scaffold later
+    - name: packages/use-effect-ts
+      reason: skills deferred — will scaffold later
