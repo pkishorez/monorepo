@@ -16,6 +16,7 @@
     "gh:version": "GITHUB_TOKEN=$(gh auth token --user pkishorez) pnpm changeset version",
     "release": "pnpm build && changeset publish",
     "release:ci": "pnpm --filter monoverse run build:ondemand && pnpm release",
+    "release:local": "pnpm --filter monoverse run build:ondemand && pnpm release",
     "subtrees:update": "bash scripts/update-subtrees.sh",
     "test": "vp run -r test",
     "updates": "npx -y npm-check-updates -iws",
