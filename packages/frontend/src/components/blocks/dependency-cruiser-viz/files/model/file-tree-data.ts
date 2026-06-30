@@ -83,7 +83,15 @@ export function buildFileTree(
       }
 
       if (!isFile) {
-        current = existing.children!;
+        // A path may appear both as a leaf file and as a directory ancestor of
+        // another path (the same string classified two ways upstream). The node
+        // was first created as a file with no children; promote it to a folder
+        // so traversal can descend instead of dereferencing `undefined`.
+        if (!existing.children) {
+          existing.type = 'folder';
+          existing.children = [];
+        }
+        current = existing.children;
       }
     }
   }

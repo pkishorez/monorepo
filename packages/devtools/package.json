@@ -1,6 +1,6 @@
 {
   "name": "@kishorez/devtools",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": false,
   "description": "Local devtools RPC server for inspecting a project's dependency graph",
   "keywords": [
@@ -39,14 +39,14 @@
     "@effect/platform-node": "4.0.0-beta.78",
     "dependency-cruiser": "17.4.3",
     "effect": "4.0.0-beta.78",
-    "jiti": "2.7.0"
+    "jiti": "2.7.0",
+    "typescript": "6.0.3"
   },
   "devDependencies": {
     "@kishorez/lotel": "workspace:*",
     "@types/node": "25.9.1",
     "depcruise-viz": "workspace:*",
     "std-toolkit": "workspace:*",
-    "tsx": "4.22.4",
-    "typescript": "6.0.3"
+    "tsx": "4.22.4"
   }
 }
