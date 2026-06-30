@@ -1,5 +1,11 @@
 # depcruise-viz
 
+## 0.0.4
+
+### Patch Changes
+
+- Bundle typescript as well, for depcruise to work properly. Fix ui for frontend.
+
 ## 0.0.3
 
 ### Patch Changes
