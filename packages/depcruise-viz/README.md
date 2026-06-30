@@ -4,6 +4,8 @@ Author your project's layered architecture as a typed config, then enforce its b
 
 You describe layers, features, and module visibility in a `depcruise.config.ts`; `depcruise-viz` compiles that into dependency-cruiser rules, cruises the codebase, and reports layer violations and boundary breaches. The same compiled model also produces a visualization config for rendering the graph.
 
+> If you use an AI agent, run `npx @tanstack/intent@latest install` to load this package's skills into your agent config.
+
 ## Prerequisites
 
 - **Node.js** with ESM support
