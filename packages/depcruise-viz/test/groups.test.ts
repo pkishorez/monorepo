@@ -9,6 +9,7 @@ import {
   layersTopDown,
   module,
   summarizeCruiseResult,
+  toDependencyCruiserConfig,
   toVisualizationConfig,
 } from '../src/index.js';
 
@@ -100,6 +101,35 @@ test('the same layer name in two groups stays distinct', () => {
   });
   const domains = cfg.modules!.filter((m) => m.layer === 'domain');
   expect(domains.map((m) => m.group).sort()).toEqual(['alpha', 'beta']);
+});
+
+test('reused layer names in opposite orders across groups do not form a cycle', () => {
+  const alpha = layersTopDown('a', [
+    layer('api', ['src/a/api']),
+    layer('core', ['src/a/core']),
+  ]);
+  const beta = layersTopDown('b', [
+    layer('core', ['src/b/core']),
+    layer('api', ['src/b/api']),
+  ]);
+  expect(() =>
+    toDependencyCruiserConfig([
+      ...group('alpha', [alpha]),
+      ...group('beta', [beta]),
+    ]),
+  ).not.toThrow();
+});
+
+test('a genuine cycle within one group is still detected', () => {
+  const x = layersTopDown('x', [
+    layer('api', ['src/api']),
+    layer('core', ['src/core']),
+  ]);
+  const y = layersTopDown('y', [
+    layer('core', ['src/core']),
+    layer('api', ['src/api']),
+  ]);
+  expect(() => toDependencyCruiserConfig([x, y])).toThrow(/cycle detected/);
 });
 
 // --- cross-group isolation ----------------------------------------------------
