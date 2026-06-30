@@ -5,7 +5,7 @@ import {
   HttpClientRequest,
 } from 'effect/unstable/http';
 import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
-import { DevtoolsRpc } from '@monorepo/devtools/rpc';
+import { DevtoolsRpc } from '@kishorez/devtools/rpc';
 
 type Client = Effect.Success<ReturnType<typeof makeClientEffect>>;
 

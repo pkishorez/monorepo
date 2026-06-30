@@ -13,7 +13,7 @@ import type {
   StoredLogRecordValue,
   StoredTraceRecordValue,
 } from '@kishorez/lotel/client';
-import type { OtelCollections } from './collections';
+import type { TelemetryCollections } from './collections';
 import {
   FilterControls,
   FilterPills,
@@ -32,7 +32,7 @@ import {
 } from './filters';
 import { useLotelStore } from './store';
 
-export function Viewer({ collections }: { collections: OtelCollections }) {
+export function Viewer({ collections }: { collections: TelemetryCollections }) {
   const { data: traceItems } = useLiveQuery(collections.traces);
   const { data: logItems } = useLiveQuery(collections.logs);
 

@@ -9,11 +9,16 @@ export type Project = {
   label?: string;
 };
 
+/** The active DevTools tool. otel is global; depcruise is per-project. */
+export type DevtoolsTool = 'otel' | 'depcruise';
+
 type State = {
-  /** DevTools server base URL (no trailing `/rpc`). */
+  /** DevTools server base URL (no trailing `/rpc`). Empty until configured. */
   devUrl: string;
   projects: Project[];
   selectedPath: string | null;
+  /** Transient: whether the connection-config dialog is open. Not persisted. */
+  connectionOpen: boolean;
 };
 
 type Actions = {
@@ -21,14 +26,14 @@ type Actions = {
   addProject: (project: Project) => void;
   removeProject: (path: string) => void;
   selectProject: (path: string | null) => void;
+  setConnectionOpen: (open: boolean) => void;
 };
 
-const DEFAULT_DEV_URL = 'http://127.0.0.1:14400';
-
 const INITIAL: State = {
-  devUrl: DEFAULT_DEV_URL,
+  devUrl: '',
   projects: [],
   selectedPath: null,
+  connectionOpen: false,
 };
 
 export const useDevtoolsStore = create<State & Actions>()(
@@ -36,6 +41,7 @@ export const useDevtoolsStore = create<State & Actions>()(
     (set) => ({
       ...INITIAL,
       setDevUrl: (devUrl) => set({ devUrl }),
+      setConnectionOpen: (connectionOpen) => set({ connectionOpen }),
       addProject: (project) =>
         set((s) =>
           s.projects.some((p) => p.path === project.path)

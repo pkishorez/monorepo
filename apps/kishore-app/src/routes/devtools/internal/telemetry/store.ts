@@ -27,12 +27,7 @@ export type PaletteSettings = {
   open: boolean;
 };
 
-export type Config = {
-  baseUrl: string | null;
-};
-
 type State = {
-  config: Config;
   filters: Filters;
   traceList: TraceListSettings;
   dock: DockSettings;
@@ -40,7 +35,6 @@ type State = {
 };
 
 type Actions = {
-  setConfig: (next: Config) => void;
   setFilters: (next: Filters) => void;
   setTraceList: (next: TraceListSettings) => void;
   setDock: (next: DockSettings) => void;
@@ -48,7 +42,6 @@ type Actions = {
 };
 
 const INITIAL: State = {
-  config: { baseUrl: null },
   filters: { attributeFilters: [], sinceNow: null },
   traceList: {
     groupBy: null,
@@ -70,7 +63,6 @@ export const useLotelStore = create<State & Actions>()(
   persist(
     (set) => ({
       ...INITIAL,
-      setConfig: (config) => set({ config }),
       setFilters: (filters) => set({ filters }),
       setTraceList: (traceList) => set({ traceList }),
       setDock: (dock) => set({ dock }),
@@ -80,7 +72,6 @@ export const useLotelStore = create<State & Actions>()(
       name: 'lotel:data',
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
-        config: s.config,
         filters: s.filters,
         traceList: s.traceList,
         dock: s.dock,
@@ -89,12 +80,3 @@ export const useLotelStore = create<State & Actions>()(
     },
   ),
 );
-
-export function isValidBaseUrl(value: string): boolean {
-  try {
-    const u = new URL(value);
-    return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}

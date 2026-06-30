@@ -57,7 +57,7 @@ function RouteComponent() {
 
         {/* Nav */}
         <div className="flex flex-col gap-2">
-          <Link to="/devtools">
+          <Link to="/devtools" search={{ tool: 'otel' }}>
             <div className="border border-border/40 rounded-lg p-4 hover:border-border/60 hover:bg-accent/30 transition-all group flex items-center gap-3">
               <BookOpenIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
               <div className="flex-1">

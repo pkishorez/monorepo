@@ -1,7 +1,23 @@
-export { LotelGroup } from './http-api/index.js';
+export { LotelApi, LotelGroup } from './http-api/index.js';
 export { LotelHandlersLive } from './server/index.js';
-export { makeDbLayer, type DbOptions } from './storage/index.js';
-export type {
-  StoredLogRecordValue,
-  StoredTraceRecordValue,
+export { LotelApiLive } from './server/http-api.js';
+export {
+  Db,
+  makeDbLayer,
+  DEFAULT_DB_PATH,
+  type DbOptions,
+} from './storage/index.js';
+export {
+  clearTelemetry,
+  queryLogs,
+  queryMetrics,
+  queryTraces,
+} from './orchestration/index.js';
+export {
+  LogRecordSchema,
+  MetricRecordSchema,
+  TraceRecordSchema,
+  type StoredLogRecordValue,
+  type StoredMetricRecordValue,
+  type StoredTraceRecordValue,
 } from './domain/index.js';

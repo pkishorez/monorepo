@@ -1,6 +1,6 @@
 {
   "name": "depcruise-viz",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "private": true,
   "repository": "pkishorez/monorepo",
   "bin": {
