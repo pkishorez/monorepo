@@ -1,6 +1,6 @@
 {
   "name": "@kishorez/lotel",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Local OpenTelemetry server for development",
   "license": "MIT",

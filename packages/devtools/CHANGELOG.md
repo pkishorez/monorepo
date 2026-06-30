@@ -1,4 +1,4 @@
-# lotel
+# @kishorez/devtools
 
 ## 0.0.1
 
@@ -8,12 +8,3 @@
   - **depcruise-viz**: dependency-graph visualizer built on dependency-cruiser output.
   - **@kishorez/devtools**: local devtools RPC server for inspecting a project's dependency graph.
   - **@kishorez/lotel**: local OpenTelemetry server for development (internal/private — versioned but not published to npm).
-
-- Updated dependencies []:
-  - std-toolkit@0.0.1
-
-## 0.0.1
-
-### Patch Changes
-
-- Initial public release. Local OpenTelemetry server for development — capture, store, and inspect traces locally.
