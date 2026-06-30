@@ -497,6 +497,29 @@ test('coverageGaps lists layer files in no declared module', () => {
   expect_deepEqual(summary.coverageGaps, ['src/components/loose.ts']);
 });
 
+test('emptyModules flags declared modules whose files are owned by a nested module', () => {
+  const cfg = baseConfig({
+    modules: [
+      // Parent owns no files of its own — everything lives in the nested module.
+      module('src/lib/orders', { feature: 'orders' }),
+      module('src/lib/orders/reservation', { feature: 'orders' }),
+    ],
+  });
+  const summary = summarize(
+    {
+      modules: [
+        { source: 'src/lib/orders/reservation/a.ts', dependencies: [] },
+        { source: 'src/lib/orders/reservation/b.ts', dependencies: [] },
+      ],
+      summary: { violations: [] },
+    },
+    cfg,
+  );
+  expect_deepEqual(summary.emptyModules, [
+    { path: 'src/lib/orders', layer: 'lib', name: 'orders' },
+  ]);
+});
+
 test('moduleCoverage lists files per module with metadata', () => {
   const cfg = baseConfig({
     modules: [

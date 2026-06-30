@@ -46,7 +46,23 @@ export async function cruiseProject(
 
   // `baseDir` resolves both the input globs and the emitted module sources, so
   // pass `rootDir` relative to it (not an absolute path, which would double-join).
-  const result = await cruise([projectConfig.rootDir], cruiseOptions);
+  //
+  // dependency-cruiser's module RESOLVER still keys off the real process cwd
+  // (the `baseDir` option only relativizes reported paths), so resolving from a
+  // host process whose cwd is not the cruised package — e.g. the DevTools server
+  // — makes most imports fail to resolve and silently drops their edges. chdir
+  // into the package for the duration of the cruise (restored in `finally`) and
+  // bust the resolver cache so it re-initialises against this cwd.
+  const previousCwd = process.cwd();
+  let result: Awaited<ReturnType<typeof cruise>>;
+  try {
+    process.chdir(baseDir);
+    result = await cruise([projectConfig.rootDir], cruiseOptions, {
+      bustTheCache: true,
+    });
+  } finally {
+    process.chdir(previousCwd);
+  }
 
   const cruiseResult = result.output as ICruiseResult;
   const summary = summarizeCruiseResult(cruiseResult, config);

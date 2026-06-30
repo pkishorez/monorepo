@@ -143,6 +143,7 @@ const fullSummary: VizSummary = {
   ],
   moduleCoverage: [],
   coverageGaps: [],
+  emptyModules: [],
   conflicts: [],
   breaches: [],
   featureEdges: [],
@@ -227,6 +228,7 @@ const fullSummaryWithFeatures: VizSummary = {
   ],
   // `src/server/middleware.ts` sits in the server layer but no module owns it.
   coverageGaps: ['src/server/middleware.ts'],
+  emptyModules: [],
   // `otel` (a routes sub-layer) overlaps the `routes` layer path, so files
   // under it match both — demoing the Conflicts section.
   conflicts: [

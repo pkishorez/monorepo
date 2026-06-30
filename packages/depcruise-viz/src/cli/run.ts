@@ -67,6 +67,17 @@ function reportCoverage(summary: VizSummary): void {
     }
   }
 
+  if (summary.emptyModules.length > 0) {
+    lines.push(
+      yellow(
+        `  warning: ${summary.emptyModules.length} declared module(s) own no files (redundant — files belong to a nested module):`,
+      ),
+    );
+    for (const m of summary.emptyModules) {
+      lines.push(yellow(`    - ${m.path} (${m.layer})`));
+    }
+  }
+
   if (summary.conflicts.length > 0) {
     lines.push(
       yellow(

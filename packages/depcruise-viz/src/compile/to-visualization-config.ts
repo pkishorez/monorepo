@@ -142,7 +142,19 @@ function resolveModules(
   return resolved;
 }
 
+/**
+ * A module's display name relative to its layer. Normally the path tail below
+ * the layer (`src/domain/cart` under `src/domain` → `cart`). When a module is
+ * declared at exactly its layer's path (e.g. the `services` layer lists
+ * `src/services/order-items` as one of its paths and a module is declared
+ * there), the tail would be empty; fall back to the path's basename so every
+ * module surfaces under its own name instead of collapsing into a single
+ * anonymous "(layer root)" node shared by all such modules.
+ */
 function deriveModuleName(modulePath: string, layerPath: string): string {
-  if (modulePath === layerPath) return '';
+  if (modulePath === layerPath) {
+    const slash = layerPath.lastIndexOf('/');
+    return slash === -1 ? layerPath : layerPath.slice(slash + 1);
+  }
   return modulePath.slice(layerPath.length + 1);
 }

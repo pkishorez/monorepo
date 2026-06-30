@@ -59,6 +59,7 @@ const SUMMARY: VizSummary = {
   ignoredFiles: [],
   coveredFiles: [],
   coverageGaps: [],
+  emptyModules: [],
   conflicts: [],
   featureEdges: [],
   featureModuleEdges: [],

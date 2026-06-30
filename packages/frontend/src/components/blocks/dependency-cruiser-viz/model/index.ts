@@ -22,6 +22,7 @@ export {
 export { featureFiles, featureFileSets, featureFocus } from './features';
 export {
   featureModuleGraph,
+  moduleFamily,
   type FeatureModuleGraph,
   type FeatureModuleGraphEdge,
 } from './module-graph';

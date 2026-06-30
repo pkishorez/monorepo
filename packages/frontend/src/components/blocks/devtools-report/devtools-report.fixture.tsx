@@ -28,6 +28,7 @@ const cleanSummary: VizSummary = {
   ],
   moduleCoverage: [],
   coverageGaps: [],
+  emptyModules: [],
   conflicts: [],
   breaches: [],
   featureEdges: [],
@@ -48,6 +49,7 @@ const dirtySummary: VizSummary = {
     },
   ],
   coverageGaps: ['src/services/email.ts'],
+  emptyModules: [],
   conflicts: [],
 };
 
