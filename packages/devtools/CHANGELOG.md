@@ -1,5 +1,20 @@
 # @kishorez/devtools
 
+## 0.0.3
+
+### Patch Changes
+
+- fix: apply CORS headers to every response, not just the preflight
+
+  The CORS middleware was passed to `HttpRouter.serve`'s `middleware` option,
+  which runs around response sending — its header changes never reached real
+  responses, so actual requests came back without `Access-Control-Allow-Origin`
+  even though preflights were answered. CORS is now a global router middleware
+  that wraps each route handler before the response is sent, stamping
+  `Access-Control-Allow-Origin`, the allowed methods, and
+  `Access-Control-Allow-Private-Network: true` onto every response and the 204
+  preflight.
+
 ## 0.0.2
 
 ### Patch Changes

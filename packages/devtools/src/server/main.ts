@@ -4,8 +4,8 @@ import { createServer } from 'node:http';
 import { Config, Effect, Layer, References } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 import {
-  HttpMiddleware,
   HttpRouter,
+  HttpServerRequest,
   HttpServerResponse,
 } from 'effect/unstable/http';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
@@ -80,23 +80,50 @@ const makeIndexRouteLive = ({
 const RoutesLive = Layer.mergeAll(RpcRouteLive, LotelApiLive);
 
 /**
- * Stamp `Access-Control-Allow-Private-Network: true` onto every response.
- * The hosted frontend is served over HTTPS from a public origin, so requests
- * to this loopback server trigger Chrome's Private Network Access preflight,
- * which {@link HttpMiddleware.cors} does not satisfy on its own. Wrapping the
- * cors'd app means the header lands on both the 204 preflight and real
- * responses; browsers ignore it where it isn't needed.
+ * Cross-origin headers applied to every response. The hosted frontend is served
+ * over HTTPS from a public origin, so it both needs standard CORS headers and
+ * triggers Chrome's Private Network Access preflight when reaching this loopback
+ * server.
  */
-const allowPrivateNetwork = <E, R>(
+const CORS_HEADERS: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
+  'access-control-allow-private-network': 'true',
+};
+
+/**
+ * Self-contained CORS middleware, registered as global router middleware so it
+ * wraps each route handler *before* the response is sent. The `middleware`
+ * option on {@link HttpRouter.serve} runs around response sending, so changes it
+ * makes to real responses are discarded — only the preflight (which it replaces
+ * wholesale) survived, leaving actual responses without
+ * `Access-Control-Allow-Origin`. This sets the headers on both the 204 preflight
+ * and every actual response.
+ */
+const corsMiddleware = <E, R>(
   app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
 ) =>
-  Effect.map(app, (response) =>
-    HttpServerResponse.setHeader(
-      response,
-      'access-control-allow-private-network',
-      'true',
-    ),
+  Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
+    request.method === 'OPTIONS'
+      ? Effect.succeed(
+          HttpServerResponse.setHeaders(
+            HttpServerResponse.empty({ status: 204 }),
+            {
+              ...CORS_HEADERS,
+              'access-control-allow-headers':
+                request.headers['access-control-request-headers'] ?? '*',
+            },
+          ),
+        )
+      : Effect.map(app, (response) =>
+          HttpServerResponse.setHeaders(response, CORS_HEADERS),
+        ),
   );
+
+/** Global CORS middleware layer; applies to every registered route. */
+const CorsMiddlewareLive = HttpRouter.middleware(corsMiddleware, {
+  global: true,
+});
 
 const makeServerLive = ({
   port,
@@ -109,19 +136,14 @@ const makeServerLive = ({
   serverUrl: string;
   openUrl: string;
 }) =>
+  // The frontend is served from a different origin, so CORS is applied to every
+  // route (the `/rpc` and `/v1/*` surfaces) via the global middleware layer.
   HttpRouter.serve(
-    Layer.mergeAll(RoutesLive, makeIndexRouteLive({ serverUrl, openUrl })),
-    {
-      // The frontend is served from a different origin, so allow cross-origin calls
-      // to both the `/rpc` and `/v1/*` surfaces.
-      middleware: (app) =>
-        allowPrivateNetwork(
-          HttpMiddleware.cors({
-            allowedOrigins: ['*'],
-            allowedMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-          })(app),
-        ),
-    },
+    Layer.mergeAll(
+      RoutesLive,
+      makeIndexRouteLive({ serverUrl, openUrl }),
+      CorsMiddlewareLive,
+    ),
   ).pipe(
     Layer.provide(makeDbLayer({ dbPath: db })),
     Layer.provide(NodeHttpServer.layer(createServer, { host: HOST, port })),
