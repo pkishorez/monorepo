@@ -1,5 +1,11 @@
 # depcruise-viz
 
+## 0.0.2
+
+### Patch Changes
+
+- [#12](https://github.com/pkishorez/monorepo/pull/12) [`36870e3`](https://github.com/pkishorez/monorepo/commit/36870e3b0cb689461a2a44968259cf06ad7efa79) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Add @tanstack/intent agent skills (author-architecture-config, enforce-boundaries, programmatic-analysis) and publish them with the package.
+
 ## 0.0.1
 
 ### Patch Changes
