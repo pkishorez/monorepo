@@ -29,15 +29,13 @@ const CONFIG: VisualizationConfig = {
       path: 'src/routes/home',
       layer: 'routes',
       name: 'home',
-      visibility: 'public',
-      feature: 'home',
+      barrel: false,
     },
     {
       path: 'src/services/auth',
       layer: 'services',
       name: 'auth',
-      visibility: 'shared',
-      feature: 'auth',
+      barrel: false,
     },
   ],
 };
@@ -54,16 +52,15 @@ const SUMMARY: VizSummary = {
     },
   ],
   moduleCoverage: [],
-  breaches: [],
   layerOrphanFiles: [],
   ignoredFiles: [],
   coveredFiles: [],
   coverageGaps: [],
   emptyModules: [],
   conflicts: [],
-  featureEdges: [],
-  featureModuleEdges: [],
   moduleEdges: [],
+  featureGraphs: [],
+  closureViolations: [],
 };
 
 describe('computeLayerLayout characterization', () => {

@@ -30,25 +30,36 @@ const config = toVisualizationConfig({
       layer('c', ['src/c']),
     ]),
   ],
-  features: [feature('orders', {})],
+  features: [
+    feature('orders', {
+      root: 'entry',
+      modules: ['entry', 'entry2', 'midX', 'midY', 'leaf'],
+    }),
+  ],
   modules: [
-    module('src/a/entry', { feature: 'orders' }),
-    module('src/a/entry2', { feature: 'orders' }),
-    module('src/b/midX', { feature: 'orders' }),
-    module('src/b/midY', { feature: 'orders' }),
-    module('src/c/leaf', { feature: 'orders' }),
+    module('src/a/entry'),
+    module('src/a/entry2'),
+    module('src/b/midX'),
+    module('src/b/midY'),
+    module('src/c/leaf'),
   ],
 });
 
 const cov = (l: string, m: string): VizSummary['moduleCoverage'][number] => ({
   module: m,
   layer: l,
-  feature: 'orders',
-  visibility: 'private',
   files: [`src/${l}/${m}.ts`],
 });
 
-function summaryWith(moduleEdges: VizSummary['moduleEdges']): VizSummary {
+function summaryWith(
+  moduleEdges: VizSummary['moduleEdges'],
+  featureGraphEdges: Array<{
+    from: string;
+    to: string;
+    kind: 'legal' | 'breach';
+  }> = [],
+): VizSummary {
+  const nodeKeys = ['a::entry', 'a::entry2', 'b::midX', 'b::midY', 'c::leaf'];
   return {
     ignoredFiles: [],
     violations: [],
@@ -64,10 +75,16 @@ function summaryWith(moduleEdges: VizSummary['moduleEdges']): VizSummary {
     coverageGaps: [],
     emptyModules: [],
     conflicts: [],
-    breaches: [],
-    featureEdges: [],
-    featureModuleEdges: [],
     moduleEdges,
+    featureGraphs: [
+      {
+        feature: 'orders',
+        root: 'a::entry',
+        nodes: nodeKeys,
+        edges: featureGraphEdges,
+      },
+    ],
+    closureViolations: [],
   };
 }
 
@@ -85,14 +102,20 @@ const edge = (
   kind,
 });
 
+const fgEdge = (
+  from: string,
+  to: string,
+  kind: 'legal' | 'breach' = 'legal',
+) => ({ from, to, kind });
+
 describe('computeFeatureGraphLayout layer swimlanes', () => {
   it('puts each layer in its own column, in declared order', () => {
-    const summary = summaryWith([
-      edge('a', 'entry', 'b', 'midX'),
-      edge('b', 'midX', 'c', 'leaf'),
-    ]);
+    const summary = summaryWith(
+      [edge('a', 'entry', 'b', 'midX'), edge('b', 'midX', 'c', 'leaf')],
+      [fgEdge('a::entry', 'b::midX'), fgEdge('b::midX', 'c::leaf')],
+    );
     const graph = featureModuleGraph(config, summary, 'orders');
-    const { nodes } = computeFeatureGraphLayout(graph, new Set(), LAYER_ORDER);
+    const { nodes } = computeFeatureGraphLayout(graph, LAYER_ORDER);
     const xOf = (key: string) => nodes.find((n) => n.id === key)!.position.x;
 
     expect(xOf('a::entry')).toBe(0);
@@ -101,13 +124,12 @@ describe('computeFeatureGraphLayout layer swimlanes', () => {
   });
 
   it('columns follow the layer, not import role — a deep source sits right', () => {
-    // `leaf` (layer c) imports `entry` (layer a). In a swimlane it stays in its
-    // layer's column even though it is the source, so the import reads right →
-    // left, surfacing that a deep layer reaches back up. All three layers are
-    // present (every module is owned by the feature), so columns are 0/1/2.
-    const summary = summaryWith([edge('c', 'leaf', 'a', 'entry')]);
+    const summary = summaryWith(
+      [edge('c', 'leaf', 'a', 'entry')],
+      [fgEdge('c::leaf', 'a::entry')],
+    );
     const graph = featureModuleGraph(config, summary, 'orders');
-    const { nodes } = computeFeatureGraphLayout(graph, new Set(), LAYER_ORDER);
+    const { nodes } = computeFeatureGraphLayout(graph, LAYER_ORDER);
     const xOf = (key: string) => nodes.find((n) => n.id === key)!.position.x;
 
     expect(xOf('a::entry')).toBe(0);
@@ -115,14 +137,28 @@ describe('computeFeatureGraphLayout layer swimlanes', () => {
   });
 
   it('densifies over present layers, skipping absent ones', () => {
-    // A graph touching only layers a and c (no b node) collapses them to
-    // adjacent columns 0 and 1 — no empty gap for the skipped layer.
-    const onlyAC = {
-      ...summaryWith([edge('a', 'entry', 'c', 'leaf')]),
+    const onlyAC: VizSummary = {
+      ignoredFiles: [],
+      violations: [],
+      layerOrphanFiles: [],
+      coveredFiles: [],
       moduleCoverage: [cov('a', 'entry'), cov('c', 'leaf')],
+      coverageGaps: [],
+      emptyModules: [],
+      conflicts: [],
+      moduleEdges: [edge('a', 'entry', 'c', 'leaf')],
+      featureGraphs: [
+        {
+          feature: 'orders',
+          root: 'a::entry',
+          nodes: ['a::entry', 'c::leaf'],
+          edges: [fgEdge('a::entry', 'c::leaf')],
+        },
+      ],
+      closureViolations: [],
     };
     const graph = featureModuleGraph(config, onlyAC, 'orders');
-    const { nodes } = computeFeatureGraphLayout(graph, new Set(), LAYER_ORDER);
+    const { nodes } = computeFeatureGraphLayout(graph, LAYER_ORDER);
     const xOf = (key: string) => nodes.find((n) => n.id === key)!.position.x;
 
     expect(xOf('a::entry')).toBe(0);
@@ -130,21 +166,22 @@ describe('computeFeatureGraphLayout layer swimlanes', () => {
   });
 
   it('marks a legal cycle with kind "cycle" and keeps it in one column', () => {
-    // midX ↔ midY (same layer b) import each other. The swimlane keeps both in
-    // column 1; the two circular edges are flagged so they render distinctly
-    // instead of hiding as innocuous same-column lines.
-    const summary = summaryWith([
-      edge('a', 'entry', 'b', 'midX'),
-      edge('b', 'midX', 'b', 'midY'),
-      edge('b', 'midY', 'b', 'midX'),
-      edge('b', 'midY', 'c', 'leaf'),
-    ]);
-    const graph = featureModuleGraph(config, summary, 'orders');
-    const { nodes, edges } = computeFeatureGraphLayout(
-      graph,
-      new Set(),
-      LAYER_ORDER,
+    const summary = summaryWith(
+      [
+        edge('a', 'entry', 'b', 'midX'),
+        edge('b', 'midX', 'b', 'midY'),
+        edge('b', 'midY', 'b', 'midX'),
+        edge('b', 'midY', 'c', 'leaf'),
+      ],
+      [
+        fgEdge('a::entry', 'b::midX'),
+        fgEdge('b::midX', 'b::midY'),
+        fgEdge('b::midY', 'b::midX'),
+        fgEdge('b::midY', 'c::leaf'),
+      ],
     );
+    const graph = featureModuleGraph(config, summary, 'orders');
+    const { nodes, edges } = computeFeatureGraphLayout(graph, LAYER_ORDER);
     const xOf = (key: string) => nodes.find((n) => n.id === key)!.position.x;
     const kindOf = (from: string, to: string) =>
       (
@@ -163,17 +200,12 @@ describe('computeFeatureGraphLayout layer swimlanes', () => {
   });
 
   it('depth mode packs a deep-layer source into column 0', () => {
-    // `leaf` (layer c) is a source — nothing imports it — so in depth mode it
-    // sits in column 0 even though its layer is last, and `entry` (which it
-    // imports) sits one column right. The opposite of layer mode.
-    const summary = summaryWith([edge('c', 'leaf', 'a', 'entry')]);
-    const graph = featureModuleGraph(config, summary, 'orders');
-    const { nodes } = computeFeatureGraphLayout(
-      graph,
-      new Set(),
-      LAYER_ORDER,
-      'depth',
+    const summary = summaryWith(
+      [edge('c', 'leaf', 'a', 'entry')],
+      [fgEdge('c::leaf', 'a::entry')],
     );
+    const graph = featureModuleGraph(config, summary, 'orders');
+    const { nodes } = computeFeatureGraphLayout(graph, LAYER_ORDER, 'depth');
     const xOf = (key: string) => nodes.find((n) => n.id === key)!.position.x;
 
     expect(xOf('c::leaf')).toBe(0);
@@ -181,15 +213,12 @@ describe('computeFeatureGraphLayout layer swimlanes', () => {
   });
 
   it('reorders a column so children line up under their parents', () => {
-    // entry (row 0) → midY, entry2 (row 1) → midX. The barycenter sweep should
-    // flip the second column's declared order so each child sits under its
-    // parent: midY above midX.
-    const summary = summaryWith([
-      edge('a', 'entry', 'b', 'midY'),
-      edge('a', 'entry2', 'b', 'midX'),
-    ]);
+    const summary = summaryWith(
+      [edge('a', 'entry', 'b', 'midY'), edge('a', 'entry2', 'b', 'midX')],
+      [fgEdge('a::entry', 'b::midY'), fgEdge('a::entry2', 'b::midX')],
+    );
     const graph = featureModuleGraph(config, summary, 'orders');
-    const { nodes } = computeFeatureGraphLayout(graph, new Set(), LAYER_ORDER);
+    const { nodes } = computeFeatureGraphLayout(graph, LAYER_ORDER);
     const yOf = (key: string) => nodes.find((n) => n.id === key)!.position.y;
 
     expect(yOf('b::midY')).toBeLessThan(yOf('b::midX'));
@@ -202,12 +231,17 @@ describe('computeFeatureGraphLayout family clustering', () => {
     rules: [
       layersTopDown('app', [layer('a', ['src/a']), layer('b', ['src/b'])]),
     ],
-    features: [feature('orders', {})],
+    features: [
+      feature('orders', {
+        root: 'entry',
+        modules: ['entry', 'cart', 'cart/multi', 'other'],
+      }),
+    ],
     modules: [
-      module('src/a/entry', { feature: 'orders' }),
-      module('src/b/cart', { feature: 'orders' }),
-      module('src/b/cart/multi', { feature: 'orders' }),
-      module('src/b/other', { feature: 'orders' }),
+      module('src/a/entry'),
+      module('src/b/cart'),
+      module('src/b/cart/multi'),
+      module('src/b/other'),
     ],
   });
   const nestedCov = (
@@ -216,8 +250,6 @@ describe('computeFeatureGraphLayout family clustering', () => {
   ): VizSummary['moduleCoverage'][number] => ({
     module: m,
     layer: l,
-    feature: 'orders',
-    visibility: 'private',
     files: [`src/${l}/${m}.ts`],
   });
 
@@ -236,16 +268,25 @@ describe('computeFeatureGraphLayout family clustering', () => {
       coverageGaps: [],
       emptyModules: [],
       conflicts: [],
-      breaches: [],
-      featureEdges: [],
-      featureModuleEdges: [],
       moduleEdges: [
         edge('a', 'entry', 'b', 'cart'),
         edge('a', 'entry', 'b', 'other'),
       ],
+      featureGraphs: [
+        {
+          feature: 'orders',
+          root: 'a::entry',
+          nodes: ['a::entry', 'b::cart', 'b::cart/multi', 'b::other'],
+          edges: [
+            fgEdge('a::entry', 'b::cart'),
+            fgEdge('a::entry', 'b::other'),
+          ],
+        },
+      ],
+      closureViolations: [],
     };
     const graph = featureModuleGraph(nestedConfig, summary, 'orders');
-    const { nodes } = computeFeatureGraphLayout(graph, new Set(), ['a', 'b']);
+    const { nodes } = computeFeatureGraphLayout(graph, ['a', 'b']);
     const yOf = (key: string) => nodes.find((n) => n.id === key)!.position.y;
 
     // `cart` and `cart/multi` are one family — adjacent and tight.

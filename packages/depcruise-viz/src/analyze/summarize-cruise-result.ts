@@ -1,7 +1,6 @@
 import type { ICruiseResult } from 'dependency-cruiser';
 
-import type { Visibility, VisualizationConfig, VizSummary } from '../types.js';
-import { assertGroupIsolation } from './detect-cross-group-edges.js';
+import type { VisualizationConfig, VizSummary } from '../types.js';
 import { detectLayerConflicts } from './detect-layer-conflicts.js';
 
 type CruiseModule = ICruiseResult['modules'][number];
@@ -15,17 +14,13 @@ type ModuleEntry = {
   path: string;
   name: string;
   layer: string;
-  feature: string | null;
-  visibility: Visibility;
-  sharedWith: string[];
+  barrel: boolean;
 };
 
 export function summarizeCruiseResult(
   cruiseResult: ICruiseResult,
   visualization: VisualizationConfig,
 ): VizSummary {
-  assertGroupIsolation(cruiseResult, visualization);
-
   const layerPatterns = getLayerPatterns(visualization);
   const ignorePatterns = (visualization.ignore ?? []).map(pathToRegExp);
   const rootDir = visualization.rootDir;
@@ -65,9 +60,6 @@ export function summarizeCruiseResult(
 
   const moduleCoverage = buildModuleCoverage({ moduleEntries, modules });
 
-  // Declared modules that own no files — every file beneath their path belongs
-  // to a more-specific nested module, so the declaration is redundant and would
-  // otherwise render as an edge-less phantom node in the visualization.
   const coveredByName = new Map(
     moduleCoverage.map((m) => [`${m.layer}\0${m.module}`, m.files.length]),
   );
@@ -86,12 +78,24 @@ export function summarizeCruiseResult(
     )
     .sort((a, b) => a.localeCompare(b));
 
-  const { breaches, featureEdges, featureModuleEdges, moduleEdges } = enforce({
+  const moduleEdges = buildModuleEdges({
     moduleEntries,
     modules,
     moduleBySource,
     rootDir,
     ignorePatterns,
+  });
+
+  const featureGraphs = buildFeatureGraphs({
+    visualization,
+    moduleEdges,
+    moduleEntries,
+  });
+  const closureViolations = buildClosureViolations({
+    visualization,
+    moduleEdges,
+    moduleEntries,
+    featureGraphs,
   });
 
   return {
@@ -103,14 +107,168 @@ export function summarizeCruiseResult(
     coverageGaps,
     emptyModules,
     conflicts: detectLayerConflicts(visualization),
-    breaches,
-    featureEdges,
-    featureModuleEdges,
     moduleEdges,
+    featureGraphs,
+    closureViolations,
   };
 }
 
-function enforce({
+/** Build per-feature derived graphs: nodes = declared members, edges = real moduleEdges
+ * restricted to the member set.  Barrel out-edges that leave the member set are dropped. */
+function buildFeatureGraphs({
+  visualization,
+  moduleEdges,
+}: {
+  visualization: VisualizationConfig;
+  moduleEdges: VizSummary['moduleEdges'];
+  moduleEntries: ModuleEntry[];
+}): VizSummary['featureGraphs'] {
+  const features = visualization.features ?? [];
+  if (features.length === 0) return [];
+
+  // Feature membership references bare module names, but the graph the frontend
+  // renders is keyed by `layer::name`. Resolve each module name to its layer so
+  // nodes/root/edges are emitted as `layer::name` keys.
+  const layerByName = new Map(
+    (visualization.modules ?? []).map((m) => [m.name, m.layer]),
+  );
+  const keyOf = (name: string): string =>
+    `${layerByName.get(name) ?? ''}::${name}`;
+
+  return features.map((feat) => {
+    const memberSet = new Set(feat.modules);
+    const edges: VizSummary['featureGraphs'][number]['edges'] = [];
+
+    for (const edge of moduleEdges) {
+      // Both endpoints must be declared members of this feature
+      if (!memberSet.has(edge.fromModule) || !memberSet.has(edge.toModule))
+        continue;
+      // Barrel out-edges to non-members are dropped — but here both are members, so include
+      edges.push({
+        from: keyOf(edge.fromModule),
+        to: keyOf(edge.toModule),
+        kind: edge.kind,
+      });
+    }
+
+    return {
+      feature: feat.name,
+      root: keyOf(feat.root),
+      nodes: feat.modules.map(keyOf),
+      edges,
+    };
+  });
+}
+
+/** Compute closure violations:
+ *  - closure-escape: non-barrel module exclusive to one feature has a real out-edge
+ *    leaving that feature's member set.
+ *  - unclaimed-edge: non-barrel-origin real edge not claimed by any feature.
+ *  - multi-root / no-root: feature member set has ≠1 node with no in-member inbound edge.
+ */
+function buildClosureViolations({
+  visualization,
+  moduleEdges,
+  moduleEntries,
+  featureGraphs,
+}: {
+  visualization: VisualizationConfig;
+  moduleEdges: VizSummary['moduleEdges'];
+  moduleEntries: ModuleEntry[];
+  featureGraphs: VizSummary['featureGraphs'];
+}): VizSummary['closureViolations'] {
+  const features = visualization.features ?? [];
+  const violations: VizSummary['closureViolations'] = [];
+
+  const barrelByName = new Map(moduleEntries.map((e) => [e.name, e.barrel]));
+
+  // Count how many features each module belongs to
+  const featureCountByModule = new Map<string, number>();
+  for (const feat of features) {
+    for (const mod of feat.modules) {
+      featureCountByModule.set(mod, (featureCountByModule.get(mod) ?? 0) + 1);
+    }
+  }
+
+  // ── closure-escape ────────────────────────────────────────────────────────
+  // A non-barrel module exclusive to exactly one feature has a real out-edge
+  // whose target is NOT a member of that feature.
+  for (const feat of features) {
+    const memberSet = new Set(feat.modules);
+    for (const edge of moduleEdges) {
+      if (!memberSet.has(edge.fromModule)) continue;
+      if (barrelByName.get(edge.fromModule)) continue; // barrel: exempt
+      const count = featureCountByModule.get(edge.fromModule) ?? 0;
+      if (count !== 1) continue; // shared module: relaxed
+      if (!memberSet.has(edge.toModule)) {
+        violations.push({
+          reason: 'closure-escape',
+          feature: feat.name,
+          fromModule: edge.fromModule,
+          toModule: edge.toModule,
+          detail: `Module "${edge.fromModule}" (exclusive to feature "${feat.name}") imports "${edge.toModule}" which is not a member of that feature.`,
+        });
+      }
+    }
+  }
+
+  // ── unclaimed-edge ────────────────────────────────────────────────────────
+  // A non-barrel-origin real edge not present in ANY feature's derived edges.
+  // An edge is claimed if some feature declares both of its endpoints as members.
+  // Computed in bare-name space (matching `moduleEdges`), independent of the
+  // `layer::name`-keyed `featureGraphs` output.
+  const claimedEdgeKeys = new Set<string>();
+  for (const feat of features) {
+    const memberSet = new Set(feat.modules);
+    for (const edge of moduleEdges) {
+      if (memberSet.has(edge.fromModule) && memberSet.has(edge.toModule)) {
+        claimedEdgeKeys.add(`${edge.fromModule}\0${edge.toModule}`);
+      }
+    }
+  }
+  for (const edge of moduleEdges) {
+    if (barrelByName.get(edge.fromModule)) continue; // barrel origin: exempt
+    const key = `${edge.fromModule}\0${edge.toModule}`;
+    if (!claimedEdgeKeys.has(key)) {
+      violations.push({
+        reason: 'unclaimed-edge',
+        fromModule: edge.fromModule,
+        toModule: edge.toModule,
+        detail: `Edge "${edge.fromModule}" → "${edge.toModule}" is not claimed by any feature.`,
+      });
+    }
+  }
+
+  // ── multi-root / no-root ──────────────────────────────────────────────────
+  // A root is a member node with no inbound edges from OTHER members (barrel roots
+  // are allowed to be roots even if they have inbound member edges).
+  for (const fg of featureGraphs) {
+    const hasInbound = new Set<string>();
+    for (const e of fg.edges) {
+      hasInbound.add(e.to);
+    }
+    // Candidate roots: members with no inbound edge from another member
+    const roots = fg.nodes.filter((n) => !hasInbound.has(n));
+    if (roots.length === 0) {
+      violations.push({
+        reason: 'no-root',
+        feature: fg.feature,
+        detail: `Feature "${fg.feature}" has no root node (cycle in member set?).`,
+      });
+    } else if (roots.length > 1) {
+      violations.push({
+        reason: 'multi-root',
+        feature: fg.feature,
+        detail: `Feature "${fg.feature}" has multiple root nodes: ${roots.join(', ')}.`,
+      });
+    }
+  }
+
+  return violations;
+}
+
+/** Build cross-module import edges (Task 4 will classify legal vs breach). */
+function buildModuleEdges({
   moduleEntries,
   modules,
   moduleBySource,
@@ -122,34 +280,12 @@ function enforce({
   moduleBySource: Map<string, CruiseModule>;
   rootDir: string;
   ignorePatterns: RegExp[];
-}): {
-  breaches: VizSummary['breaches'];
-  featureEdges: VizSummary['featureEdges'];
-  featureModuleEdges: VizSummary['featureModuleEdges'];
-  moduleEdges: VizSummary['moduleEdges'];
-} {
-  const breaches: VizSummary['breaches'] = [];
-  const seenBreach = new Set<string>();
-
-  /** key `from\0to` -> set of `via` module names. */
-  const edges = new Map<string, Set<string>>();
-
-  /** key `feature\0layer\0module\0relation` -> record. */
-  const featureModuleMap = new Map<
-    string,
-    VizSummary['featureModuleEdges'][number]
-  >();
-
-  /** key `fromLayer\0fromModule\0toLayer\0toModule\0kind` -> module→module edge. */
+}): VizSummary['moduleEdges'] {
   const moduleEdgeMap = new Map<string, VizSummary['moduleEdges'][number]>();
 
   for (const mod of modules) {
     const fromEntry = findModule(mod.source, moduleEntries);
     if (!fromEntry) continue;
-    // The set of features this module participates in: its owning feature, or
-    // every feature it is shared with. `null` marks ownerless infra (the
-    // wiring), which may reach shared/public targets but no feature's privates.
-    const fromAudience = audienceOf(fromEntry);
 
     for (const dep of mod.dependencies) {
       if (dep.couldNotResolve || dep.coreModule) continue;
@@ -165,180 +301,26 @@ function enforce({
       const toEntry = findModule(target, moduleEntries);
       if (!toEntry || toEntry.path === fromEntry.path) continue;
 
-      if (fromAudience === null) {
-        // Infra wiring: shared/public targets are fine; a feature's private
-        // internals are not.
-        if (toEntry.visibility === 'public' || toEntry.feature === null) {
-          continue;
-        }
-        recordBreach(breaches, seenBreach, {
-          fromEntry,
-          fromFeature: null,
-          toEntry,
-          fromFile: mod.source,
-          toFile: target,
-          reason: 'infra-to-owned',
+      const key = `${fromEntry.layer}\0${fromEntry.name}\0${toEntry.layer}\0${toEntry.name}`;
+      if (!moduleEdgeMap.has(key)) {
+        moduleEdgeMap.set(key, {
+          fromLayer: fromEntry.layer,
+          fromModule: fromEntry.name,
+          toLayer: toEntry.layer,
+          toModule: toEntry.name,
+          kind: 'legal',
         });
-        addModuleEdge(moduleEdgeMap, fromEntry, toEntry, 'breach');
-        continue;
-      }
-
-      // A consumer may only reach a target every one of its features is
-      // permitted to use; any feature outside the target's audience breaches.
-      for (const f of fromAudience) {
-        if (permits(toEntry, f)) {
-          recordLegalEdges(f, toEntry, edges, featureModuleMap);
-          addModuleEdge(moduleEdgeMap, fromEntry, toEntry, 'legal');
-          continue;
-        }
-        recordBreach(breaches, seenBreach, {
-          fromEntry,
-          fromFeature: f,
-          toEntry,
-          fromFile: mod.source,
-          toFile: target,
-          reason:
-            toEntry.visibility === 'shared'
-              ? 'not-in-shared-with'
-              : 'private-cross-feature',
-        });
-        addModuleEdge(moduleEdgeMap, fromEntry, toEntry, 'breach');
       }
     }
   }
 
-  const featureEdges: VizSummary['featureEdges'] = [...edges.entries()]
-    .map(([key, via]) => {
-      const [from, to] = key.split('\0');
-      return {
-        from: from!,
-        to: to!,
-        via: [...via].sort((a, b) => a.localeCompare(b)),
-      };
-    })
-    .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
-
-  breaches.sort(
-    (a, b) =>
-      a.fromFile.localeCompare(b.fromFile) || a.toFile.localeCompare(b.toFile),
-  );
-
-  const featureModuleEdges: VizSummary['featureModuleEdges'] = [
-    ...featureModuleMap.values(),
-  ].sort(
-    (a, b) =>
-      a.feature.localeCompare(b.feature) ||
-      a.layer.localeCompare(b.layer) ||
-      a.module.localeCompare(b.module) ||
-      a.relation.localeCompare(b.relation),
-  );
-
-  const moduleEdges: VizSummary['moduleEdges'] = [
-    ...moduleEdgeMap.values(),
-  ].sort(
+  return [...moduleEdgeMap.values()].sort(
     (a, b) =>
       a.fromLayer.localeCompare(b.fromLayer) ||
       a.fromModule.localeCompare(b.fromModule) ||
       a.toLayer.localeCompare(b.toLayer) ||
-      a.toModule.localeCompare(b.toModule) ||
-      a.kind.localeCompare(b.kind),
+      a.toModule.localeCompare(b.toModule),
   );
-
-  return { breaches, featureEdges, featureModuleEdges, moduleEdges };
-}
-
-/** Record a deduped module→module import edge (`legal` or `breach`). */
-function addModuleEdge(
-  moduleEdges: Map<string, VizSummary['moduleEdges'][number]>,
-  fromEntry: ModuleEntry,
-  toEntry: ModuleEntry,
-  kind: 'legal' | 'breach',
-): void {
-  const key = `${fromEntry.layer}\0${fromEntry.name}\0${toEntry.layer}\0${toEntry.name}\0${kind}`;
-  if (moduleEdges.has(key)) return;
-  moduleEdges.set(key, {
-    fromLayer: fromEntry.layer,
-    fromModule: fromEntry.name,
-    toLayer: toEntry.layer,
-    toModule: toEntry.name,
-    kind,
-  });
-}
-
-/**
- * The features a module participates in as a consumer: its owning feature when
- * private, the features it is shared with when shared, or `null` for ownerless
- * infra (public modules with no feature). Public-but-feature-owned modules
- * still carry their owning feature so their imports are attributed correctly.
- */
-function audienceOf(entry: ModuleEntry): Set<string> | null {
-  if (entry.feature !== null) return new Set([entry.feature]);
-  if (entry.sharedWith.length > 0) return new Set(entry.sharedWith);
-  return null;
-}
-
-/** Whether feature `f` is allowed to import `toEntry`. */
-function permits(toEntry: ModuleEntry, f: string): boolean {
-  return (
-    toEntry.visibility === 'public' ||
-    toEntry.feature === f ||
-    (toEntry.visibility === 'shared' && toEntry.sharedWith.includes(f))
-  );
-}
-
-function recordLegalEdges(
-  f: string,
-  toEntry: ModuleEntry,
-  edges: Map<string, Set<string>>,
-  moduleEdges: Map<string, VizSummary['featureModuleEdges'][number]>,
-): void {
-  if (toEntry.feature !== null && toEntry.feature !== f) {
-    const key = `${f}\0${toEntry.feature}`;
-    const via = edges.get(key) ?? new Set<string>();
-    via.add(toEntry.name);
-    edges.set(key, via);
-  }
-  if (toEntry.visibility === 'shared' || toEntry.visibility === 'public') {
-    const relation = toEntry.feature === f ? 'owns' : 'consumes';
-    const key = `${f}\0${toEntry.layer}\0${toEntry.name}\0${relation}`;
-    if (!moduleEdges.has(key)) {
-      moduleEdges.set(key, {
-        feature: f,
-        module: toEntry.name,
-        layer: toEntry.layer,
-        visibility: toEntry.visibility,
-        relation,
-      });
-    }
-  }
-}
-
-function recordBreach(
-  breaches: VizSummary['breaches'],
-  seenBreach: Set<string>,
-  b: {
-    fromEntry: ModuleEntry;
-    fromFeature: string | null;
-    toEntry: ModuleEntry;
-    fromFile: string;
-    toFile: string;
-    reason: VizSummary['breaches'][number]['reason'];
-  },
-): void {
-  const breachKey = `${b.fromFile}\0${b.toFile}\0${b.fromFeature ?? ''}`;
-  if (seenBreach.has(breachKey)) return;
-  seenBreach.add(breachKey);
-
-  breaches.push({
-    fromModule: b.fromEntry.name,
-    fromFeature: b.fromFeature,
-    toModule: b.toEntry.name,
-    toFeature: b.toEntry.feature,
-    toVisibility: b.toEntry.visibility,
-    fromFile: b.fromFile,
-    toFile: b.toFile,
-    reason: b.reason,
-  });
 }
 
 function getLayerPatterns(visualization: VisualizationConfig): LayerPattern[] {
@@ -366,9 +348,7 @@ function getModuleEntries(visualization: VisualizationConfig): ModuleEntry[] {
     path: m.path,
     name: m.name,
     layer: m.layer,
-    feature: m.feature ?? null,
-    visibility: m.visibility,
-    sharedWith: m.sharedWith ?? [],
+    barrel: m.barrel,
   }));
 }
 
@@ -411,21 +391,11 @@ function buildModuleCoverage({
       filesByModule.get(entry.path)!.push(source);
     }
   }
-  return moduleEntries.map((entry) => {
-    const out: VizSummary['moduleCoverage'][number] = {
-      module: entry.name,
-      layer: entry.layer,
-      visibility: entry.visibility,
-      files: filesByModule.get(entry.path)!,
-    };
-    if (entry.feature !== null) {
-      out.feature = entry.feature;
-    }
-    if (entry.sharedWith.length > 0) {
-      out.sharedWith = entry.sharedWith;
-    }
-    return out;
-  });
+  return moduleEntries.map((entry) => ({
+    module: entry.name,
+    layer: entry.layer,
+    files: filesByModule.get(entry.path)!,
+  }));
 }
 
 function summarizeLayerViolations(

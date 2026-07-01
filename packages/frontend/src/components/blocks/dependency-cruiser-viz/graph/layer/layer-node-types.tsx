@@ -5,23 +5,9 @@ import { cn } from '#lib/utils';
 
 import {
   LAYER_NODE_WIDTH,
-  type GroupRegionNodeData,
   type LayerNodeData,
   type StackHeaderNodeData,
 } from './layer-layout';
-
-function GroupRegionNode({ data }: NodeProps<Node<GroupRegionNodeData>>) {
-  return (
-    <div
-      style={{ width: data.width, height: data.height, pointerEvents: 'none' }}
-      className="relative rounded-xl border border-dashed border-muted-foreground/40 bg-muted/20"
-    >
-      <span className="absolute left-3 top-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
-        {data.label}
-      </span>
-    </div>
-  );
-}
 
 function StackHeaderNode({ data }: NodeProps<Node<StackHeaderNodeData>>) {
   return (
@@ -121,5 +107,4 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
 export const layerNodeTypes = {
   layer: LayerNode,
   stackHeader: StackHeaderNode,
-  groupRegion: GroupRegionNode,
 };

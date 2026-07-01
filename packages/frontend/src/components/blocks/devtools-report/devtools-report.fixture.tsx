@@ -30,10 +30,9 @@ const cleanSummary: VizSummary = {
   coverageGaps: [],
   emptyModules: [],
   conflicts: [],
-  breaches: [],
-  featureEdges: [],
-  featureModuleEdges: [],
   moduleEdges: [],
+  featureGraphs: [],
+  closureViolations: [],
 };
 
 const dirtySummary: VizSummary = {

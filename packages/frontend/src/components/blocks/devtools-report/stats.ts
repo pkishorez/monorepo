@@ -15,7 +15,7 @@ export interface DepcruiseStats {
 export function depcruiseStats(data: DepcruiseVizData): DepcruiseStats {
   const summary = data.summary;
   const violations = summary?.violations.length ?? 0;
-  const breaches = summary?.breaches.length ?? 0;
+  const breaches = summary?.closureViolations.length ?? 0;
 
   return {
     layers: summary?.coveredFiles.length ?? 0,

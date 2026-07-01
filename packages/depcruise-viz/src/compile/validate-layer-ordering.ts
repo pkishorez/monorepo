@@ -1,24 +1,15 @@
-import { DEFAULT_GROUP, type Rule } from '../types.js';
+import type { Rule } from '../types.js';
 
-/**
- * A layer's identity is `(group, name)`: the same name in a different group is a
- * distinct layer. The ordering graph is keyed on this composite identity, while
- * the human-readable cycle error shows the bare layer name.
- */
 type NodeId = string;
 
 export function validateLayerOrdering(rules: readonly Rule[]): void {
   const adjacency = new Map<NodeId, Set<NodeId>>();
   const edgeStacks = new Map<string, string[]>();
-  const displayName = new Map<NodeId, string>();
 
   for (const rule of rules) {
-    const group = rule.config.group ?? DEFAULT_GROUP;
     for (let i = 0; i < rule.layers.length - 1; i++) {
-      const from = nodeId(group, rule.layers[i]!.name);
-      const to = nodeId(group, rule.layers[i + 1]!.name);
-      displayName.set(from, rule.layers[i]!.name);
-      displayName.set(to, rule.layers[i + 1]!.name);
+      const from = rule.layers[i]!.name;
+      const to = rule.layers[i + 1]!.name;
 
       let targets = adjacency.get(from);
       if (!targets) {
@@ -63,7 +54,7 @@ export function validateLayerOrdering(rules: readonly Rule[]): void {
   for (const node of adjacency.keys()) {
     const cycle = visit(node);
     if (cycle) {
-      throw new Error(formatCycleError(cycle, edgeStacks, displayName));
+      throw new Error(formatCycleError(cycle, edgeStacks));
     }
   }
 }
@@ -71,22 +62,16 @@ export function validateLayerOrdering(rules: readonly Rule[]): void {
 function formatCycleError(
   cycle: NodeId[],
   edgeStacks: Map<string, string[]>,
-  displayName: Map<NodeId, string>,
 ): string {
-  const label = (node: NodeId): string => displayName.get(node) ?? node;
   const edges: string[] = [];
   for (let i = 0; i < cycle.length - 1; i++) {
     const from = cycle[i]!;
     const to = cycle[i + 1]!;
     const stacks = edgeStacks.get(edgeKey(from, to)) ?? [];
-    edges.push(`${label(from)} -> ${label(to)} (${stacks.join(', ')})`);
+    edges.push(`${from} -> ${to} (${stacks.join(', ')})`);
   }
 
-  return `Layer ordering cycle detected: ${cycle.map(label).join(' -> ')}. Conflicting edges: ${edges.join('; ')}`;
-}
-
-function nodeId(group: string, name: string): NodeId {
-  return `${group}\0${name}`;
+  return `Layer ordering cycle detected: ${cycle.join(' -> ')}. Conflicting edges: ${edges.join('; ')}`;
 }
 
 function edgeKey(from: NodeId, to: NodeId): string {

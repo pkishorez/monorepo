@@ -116,11 +116,9 @@ export function getViolations({
  * mutually exclusive axes (the active tab supplies at most one), so they're
  * never combined here.
  *
- * - With a feature/module selection, returns its two tiers — `owned` (strong)
- *   and `consumed` (subtle) — alongside their union as `all` (used for folder
- *   containment / dimming).
- * - With only a layer selected, that layer's files become `owned` and
- *   `consumed` is null.
+ * - With a feature/module selection, returns the member files as `owned`
+ *   alongside their union as `all` (used for folder containment / dimming).
+ * - With only a layer selected, that layer's files become `owned`.
  * - With nothing selected, every field is null (no highlight).
  */
 export function getHighlightedFiles({
@@ -130,28 +128,23 @@ export function getHighlightedFiles({
 }: {
   summary: VizSummary;
   selectedLayer: string | null;
-  featureFileSets: { owned: Set<string>; consumed: Set<string> } | null;
+  featureFileSets: { members: Set<string> } | null;
 }): {
   all: Set<string> | null;
   owned: Set<string> | null;
-  consumed: Set<string> | null;
 } {
   if (featureFileSets) {
-    const { owned, consumed } = featureFileSets;
-    if (owned.size === 0 && consumed.size === 0) {
-      return { all: null, owned: null, consumed: null };
+    const { members } = featureFileSets;
+    if (members.size === 0) {
+      return { all: null, owned: null };
     }
-    return {
-      all: new Set([...owned, ...consumed]),
-      owned,
-      consumed,
-    };
+    return { all: members, owned: members };
   }
-  if (!selectedLayer) return { all: null, owned: null, consumed: null };
+  if (!selectedLayer) return { all: null, owned: null };
   const entry = summary.coveredFiles.find((c) => c.layer === selectedLayer);
-  if (!entry) return { all: null, owned: null, consumed: null };
+  if (!entry) return { all: null, owned: null };
   const owned = new Set(entry.files);
-  return { all: owned, owned, consumed: null };
+  return { all: owned, owned };
 }
 
 /**

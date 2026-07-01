@@ -6,8 +6,10 @@ import { moduleFamily, type ModuleNode } from '../../model';
 
 export type ModuleGraphNodeData = {
   module: ModuleNode;
-  /** Owned by the feature (strong fill) vs consumed (dashed/borrowed). */
-  isOwned: boolean;
+  /** Named by ≥2 features (emergent sharing). */
+  isShared: boolean;
+  /** Re-export fan-out point; exempt from closure enforcement. */
+  barrel: boolean;
 };
 
 export type ModuleEdgeData = {
@@ -48,13 +50,12 @@ export type ColumnMode = 'layer' | 'depth';
  *
  * Within a column, modules are ordered vertically by a barycenter sweep, and a
  * parent and its nested sub-modules cluster tight. Cycle edges are marked so
- * they render distinctly rather than hiding the problem. Owned modules carry
- * the strong highlight, consumed ones the dashed/borrowed style; breach edges
- * read red/dashed, cycle edges amber, legal edges slate.
+ * they render distinctly rather than hiding the problem. Shared modules carry
+ * an amber tint; barrel modules render with a dashed border. Breach edges read
+ * red/dashed, cycle edges amber, legal edges slate.
  */
 export function computeFeatureGraphLayout(
   graph: FeatureModuleGraph,
-  ownedKeys: ReadonlySet<string>,
   layerOrder: readonly string[],
   columnMode: ColumnMode = 'layer',
 ): { nodes: Node<ModuleGraphNodeData>[]; edges: Edge[] } {
@@ -102,7 +103,7 @@ export function computeFeatureGraphLayout(
     id: m.key,
     type: 'module',
     position: positionByKey.get(m.key) ?? { x: 0, y: 0 },
-    data: { module: m, isOwned: ownedKeys.has(m.key) },
+    data: { module: m, isShared: m.isShared, barrel: m.barrel },
     draggable: false,
   }));
 

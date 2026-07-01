@@ -12,13 +12,6 @@ export type Layer = {
 
 export type LayerStackConfig = {
   description?: string;
-  /**
-   * The group this stack belongs to. Stacks sharing a group render inside one
-   * labeled region and form an isolated unit: layer identity is namespaced per
-   * group, so the same layer name in another group is a distinct layer.
-   * Absent means the implicit default group (shared by all ungrouped stacks).
-   */
-  group?: string;
 };
 
 export type LayerStack = {
@@ -28,23 +21,23 @@ export type LayerStack = {
   readonly config: LayerStackConfig;
 };
 
-export type Visibility = 'private' | 'shared' | 'public';
-
+/** A declared module: a folder in exactly one layer. `barrel` marks re-export
+ * fan-out points that are exempt from closure/coverage enforcement. */
 export type ModuleDecl = {
   readonly path: string;
-  readonly feature?: string;
-  readonly visibility: Visibility;
-  readonly sharedWith?: readonly string[];
+  readonly barrel: boolean;
 };
 
-export type FeatureConfig = {
-  description?: string;
-};
-
+/** A declared feature: a rooted DAG of module references spanning layers from
+ * a single root downward. Membership is declarative, not inferred. */
 export type Feature = {
   readonly kind: 'feature';
   readonly name: string;
-  readonly config: FeatureConfig;
+  /** Module name that is the single root (entry point) of this feature. */
+  readonly root: string;
+  /** All module names belonging to this feature, including `root`. */
+  readonly modules: readonly string[];
+  readonly config: { description?: string };
 };
 
 export type Rule = LayerStack;
@@ -63,7 +56,6 @@ export type VisualizationConfig = {
   stacks: Array<{
     name: string;
     description?: string;
-    group?: string;
     layers: Array<{
       name: string;
       paths: string[];
@@ -74,20 +66,16 @@ export type VisualizationConfig = {
   features?: Array<{
     name: string;
     description?: string;
+    root: string;
+    modules: string[];
   }>;
   modules?: Array<{
     path: string;
     name: string;
     layer: string;
-    group?: string;
-    feature?: string;
-    visibility: Visibility;
-    sharedWith?: string[];
+    barrel: boolean;
   }>;
 };
-
-/** The implicit group every ungrouped stack belongs to. */
-export const DEFAULT_GROUP = '';
 
 /** A layer-ordering violation: `fromFile` (in layer `from`) imports `toFile`
  * (in layer `to`) against the stack's top-down ordering. */
@@ -100,47 +88,14 @@ export type LayerViolation = {
   severity: string;
 };
 
-/** Files covered by a declared module, with its resolved tier/owner. */
+/** Files covered by a declared module. */
 export type ModuleCoverage = {
   module: string;
   layer: string;
-  feature?: string;
-  visibility: Visibility;
-  sharedWith?: string[];
   files: string[];
 };
 
-export type BreachReason =
-  | 'private-cross-feature'
-  | 'not-in-shared-with'
-  | 'infra-to-owned';
-
-/** A feature/visibility boundary breach: an import that crosses module
- * ownership in a way the declared visibility does not permit. */
-export type Breach = {
-  fromModule: string;
-  fromFeature: string | null;
-  toModule: string;
-  toFeature: string | null;
-  toVisibility: Visibility;
-  fromFile: string;
-  toFile: string;
-  reason: BreachReason;
-};
-
-export type FeatureEdge = { from: string; to: string; via: string[] };
-
-export type FeatureModuleEdge = {
-  feature: string;
-  module: string;
-  layer: string;
-  visibility: 'shared' | 'public';
-  relation: 'owns' | 'consumes';
-};
-
-/** A resolved import between two distinct modules, used to draw the per-feature
- * module-connection graph. `kind` distinguishes a permitted import from one
- * that breaches module visibility. */
+/** A resolved import between two distinct modules. */
 export type ModuleEdge = {
   fromLayer: string;
   fromModule: string;
@@ -158,6 +113,22 @@ export type LayerConflict = {
   pathB: string;
 };
 
+/** A feature-closure violation produced by lint/analysis. */
+export type FeatureClosureViolation = {
+  reason:
+    | 'unclaimed-edge'
+    | 'closure-escape'
+    | 'multi-root'
+    | 'no-root'
+    | 'uncovered-file';
+  feature?: string;
+  fromModule?: string;
+  toModule?: string;
+  fromFile?: string;
+  toFile?: string;
+  detail: string;
+};
+
 export type VizSummary = {
   violations: LayerViolation[];
   layerOrphanFiles: string[];
@@ -172,10 +143,18 @@ export type VizSummary = {
    * declaration whose files are all owned by a more-specific nested module. */
   emptyModules: Array<{ path: string; layer: string; name: string }>;
   conflicts: LayerConflict[];
-  breaches: Breach[];
-  featureEdges: FeatureEdge[];
-  featureModuleEdges: FeatureModuleEdge[];
   moduleEdges: ModuleEdge[];
+  /** Per-feature derived graph: nodes and edges restricted to that feature's
+   * declared member set. Populated by analysis (Task 4). */
+  featureGraphs: Array<{
+    feature: string;
+    root: string;
+    nodes: string[];
+    edges: Array<{ from: string; to: string; kind: 'legal' | 'breach' }>;
+  }>;
+  /** Closure violations detected across all features. Populated by analysis
+   * (Task 4). */
+  closureViolations: FeatureClosureViolation[];
 };
 
 export type DependencyCruiserConfig = IFlattenedRuleSet;

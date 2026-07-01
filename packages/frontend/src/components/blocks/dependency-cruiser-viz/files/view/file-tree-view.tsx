@@ -6,9 +6,8 @@ import {
   type TreeViewElement,
 } from '#components/ui/file-tree';
 import { cn } from '#lib/utils';
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
-import { VISIBILITY_COLOR } from '../../model';
 import type { FileStatus, FileTreeNode } from '../model/file-tree-model';
 import { StatusIcon } from './status-icon';
 
@@ -20,12 +19,10 @@ type FileTreeViewProps = {
   expansionSignal: string;
   /** True while expandedItems is a transient focus to snap to (and revert from). */
   expansionFocused: boolean;
-  /** Union of owned ∪ consumed — drives containment and dimming. */
+  /** Drives containment and dimming. */
   highlightedFiles: Set<string> | null;
-  /** Files the feature/layer OWNS — strong primary highlight. */
+  /** Files the feature/layer member modules cover — strong primary highlight. */
   ownedFiles: Set<string> | null;
-  /** Files the feature CONSUMES (borrows) — subtle highlight + marker. */
-  consumedFiles: Set<string> | null;
   /** Coverage-gap files: in a layer but no declared module. */
   coverageGapFiles: Set<string>;
   configuredPaths: Set<string>;
@@ -33,11 +30,6 @@ type FileTreeViewProps = {
   hoveredGraphFiles: Set<string> | null;
   /** Full folder path of the canvas-hovered module, for transient highlight. */
   hoveredModulePath: string | null;
-  /**
-   * Show the per-module visibility dot (private/shared/public). Scoped to the
-   * Features tab, where visibility tiers are the active axis.
-   */
-  showVisibility: boolean;
 };
 
 export function FileTreeView({
@@ -48,13 +40,11 @@ export function FileTreeView({
   expansionFocused,
   highlightedFiles,
   ownedFiles,
-  consumedFiles,
   coverageGapFiles,
   configuredPaths,
   sortOrder,
   hoveredGraphFiles,
   hoveredModulePath,
-  showVisibility,
 }: FileTreeViewProps) {
   // Coverage of each folder's leaf files against the active highlight, used to
   // dim untouched branches and to mark folders as fully / partially covered.
@@ -74,14 +64,12 @@ export function FileTreeView({
         nodes: tree,
         highlightedFiles,
         ownedFiles,
-        consumedFiles,
         coverageGapFiles,
         configuredPaths,
         sortOrder,
         hoveredGraphFiles,
         hoveredModulePath,
         folderCoverage,
-        showVisibility,
       })}
     </Tree>
   );
@@ -120,47 +108,26 @@ function computeFolderCoverage(
   return { covered, total };
 }
 
-/**
- * A declared module is signalled by tinting its ICON (folder icon, or a file's
- * status icon) with the visibility-tier color — the same palette as the
- * Features canvas. The color is passed as a CSS variable so the inline HSL can
- * drive a Tailwind arbitrary `[&_svg]` rule; the descendant selector outranks a
- * status icon's own color (so the icon recolors while its SHAPE still reads as
- * the coverage status). Absence of a tint marks a plain (non-module) node. The
- * tint is Features-tab only. Layers keep their own sky icon (handled upstream).
- */
-const VISIBILITY_ICON = '[&_svg]:text-[var(--viz-visibility)]';
-
-function visibilityVar(
-  visibility: NonNullable<FileTreeNode['visibility']>,
-): CSSProperties {
-  return { '--viz-visibility': VISIBILITY_COLOR[visibility] } as CSSProperties;
-}
-
 function renderNodes({
   nodes,
   highlightedFiles,
   ownedFiles,
-  consumedFiles,
   coverageGapFiles,
   configuredPaths,
   sortOrder,
   hoveredGraphFiles,
   hoveredModulePath,
   folderCoverage,
-  showVisibility,
 }: {
   nodes: FileTreeNode[];
   highlightedFiles: Set<string> | null;
   ownedFiles: Set<string> | null;
-  consumedFiles: Set<string> | null;
   coverageGapFiles: Set<string>;
   configuredPaths: Set<string>;
   sortOrder: Map<string, number>;
   hoveredGraphFiles: Set<string> | null;
   hoveredModulePath: string | null;
   folderCoverage: Map<string, FolderCoverage>;
-  showVisibility: boolean;
 }): ReactNode {
   const sorted = [...nodes].sort((a, b) => {
     const orderA = sortOrder.get(a.id);
@@ -180,9 +147,6 @@ function renderNodes({
       const isIntermediate = !isLayer && !isModule;
       const isHoveredModuleFolder =
         hoveredModulePath != null && node.id === hoveredModulePath;
-      // A module folder tints its icon by visibility tier (Features tab only).
-      // Layers keep their own sky icon, so only true modules tint.
-      const tintIcon = showVisibility && isModule && node.visibility != null;
 
       // While a highlight is active, fold the folder's leaf coverage into the
       // row: fully-covered folders carry the same primary fill as owned files,
@@ -206,15 +170,10 @@ function renderNodes({
           key={node.id}
           value={node.id}
           element={node.name}
-          style={tintIcon ? visibilityVar(node.visibility!) : undefined}
           className={cn(
             isConfigured && 'font-semibold',
-            // Layers read sky — the one structural accent. Modules and plain
-            // grouping folders share the same neutral text; a folder is marked
-            // as a module by its tinted ICON (visibility tier), not by dimming.
             isLayer && 'text-sky-600 dark:text-sky-400',
             (isModule || isIntermediate) && 'text-foreground/80',
-            tintIcon && VISIBILITY_ICON,
             // A fully-covered folder mirrors the owned-file fill; a partial one
             // gets a fainter wash so the boundary is still legible.
             isFullyCovered && 'rounded-md bg-primary/10 text-primary',
@@ -230,45 +189,33 @@ function renderNodes({
                 nodes: node.children,
                 highlightedFiles,
                 ownedFiles,
-                consumedFiles,
                 coverageGapFiles,
                 configuredPaths,
                 sortOrder,
                 hoveredGraphFiles,
                 hoveredModulePath,
                 folderCoverage,
-                showVisibility,
               })
             : null}
         </Folder>
       );
     }
 
-    // Owned wins over consumed if a file somehow appears in both tiers.
-    const isOwned = ownedFiles?.has(node.id) ?? false;
-    const isConsumed = !isOwned && (consumedFiles?.has(node.id) ?? false);
+    const isMember = ownedFiles?.has(node.id) ?? false;
     const isGap = coverageGapFiles.has(node.id);
     const isGraphHovered = hoveredGraphFiles?.has(node.id);
     // A file outside the active highlight dims, matching its folder ancestors.
     const isDimmed = highlightedFiles != null && !highlightedFiles.has(node.id);
-    // A single-file module tints its status icon by visibility (Features tab),
-    // mirroring module folders. The icon SHAPE still reads as coverage status.
-    const tintIcon =
-      showVisibility && node.nodeKind === 'module' && node.visibility != null;
 
     return (
       <File
         key={node.id}
         value={node.id}
         fileIcon={<StatusIcon status={node.status} />}
-        style={tintIcon ? visibilityVar(node.visibility!) : undefined}
         className={cn(
-          isOwned && 'rounded-md bg-primary/10 text-primary',
-          isConsumed &&
-            'rounded-md bg-sky-500/5 text-sky-700 underline decoration-sky-500/50 decoration-dashed underline-offset-2 dark:text-sky-300',
+          isMember && 'rounded-md bg-primary/10 text-primary',
           // Ignored files, and files outside the active highlight, dim.
           (node.status === 'ignored' || isDimmed) && 'opacity-40',
-          tintIcon && VISIBILITY_ICON,
           isGraphHovered && 'rounded-md bg-primary/20 ring-1 ring-primary/30',
         )}
       >

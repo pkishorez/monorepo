@@ -1,7 +1,6 @@
 import {
   featureFileSets,
   moduleFiles,
-  moduleVisibilityByPath,
   type VisualizationConfig,
   type VizSummary,
 } from '../../model';
@@ -62,28 +61,24 @@ export function getFileTreeViewModel({
     computeFileStatuses(summary, coverageMode),
     layerPaths,
     modulePaths,
-    moduleVisibilityByPath(config),
   );
   const configuredPaths = getConfiguredPaths(config);
   const layerOrder = getLayerPathOrder(config);
 
-  // A feature reaches two tiers of files: the modules it OWNS (its own vertical
-  // slice — strong highlight) and the shared modules it CONSUMES (subtle, marked
-  // as borrowed). See model.featureFileSets. Highlighting is the ONLY
+  // A feature highlights its declared member files. Highlighting is the ONLY
   // thing a feature changes; the tree's structure, order, and expansion are
   // always identical so it never remounts or reshuffles.
   const featureSets = selectedFeature
     ? featureFileSets(summary, selectedFeature)
     : null;
 
-  // Module selection highlights that module's files as a single tier-colored
-  // set; there's no owned/consumed split. It may stand alone OR layer on top of
-  // a selected feature (co-selection).
+  // Module selection highlights that module's files. It may stand alone OR
+  // layer on top of a selected feature (co-selection).
   const moduleSets = selectedModule
     ? (() => {
         const files = moduleFiles(summary).get(selectedModule);
         if (!files || files.length === 0) return null;
-        return { owned: new Set(files), consumed: new Set<string>() };
+        return { members: new Set(files) };
       })()
     : null;
 
@@ -103,7 +98,7 @@ export function getFileTreeViewModel({
   const focusScope = getHighlightedFiles({
     summary,
     selectedLayer,
-    featureFileSets: focusScopeSets,
+    featureFileSets: focusScopeSets ?? null,
   });
 
   // In the Features tab the tree itself colors module coverage (gaps render as
@@ -159,7 +154,7 @@ export function getFileTreeViewModel({
     // The active (selected or hovered) layer — violation rows not touching it
     // are dimmed rather than filtered out, so the list never resizes.
     activeLayer: selectedLayer,
-    breaches: summary.breaches,
+    closureViolations: summary.closureViolations,
     conflicts: summary.conflicts,
     tree,
     // Stable across feature selection so the tree never remounts and its
@@ -168,7 +163,6 @@ export function getFileTreeViewModel({
     highlightedFiles: highlight.all,
     focusScopeFiles: focusScope.all,
     ownedFiles: highlight.owned,
-    consumedFiles: highlight.consumed,
     coverageGapFiles,
     coverageGapsByLayer: isFeatureCoverage
       ? []

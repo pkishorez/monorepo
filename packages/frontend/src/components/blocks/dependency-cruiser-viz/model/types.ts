@@ -1,9 +1,8 @@
 export type {
-  Breach,
   DepcruiseVizData,
+  FeatureClosureViolation,
   LayerConflict,
   ModuleEdge,
-  Visibility,
   VisualizationConfig,
   VizSummary,
 } from 'depcruise-viz';

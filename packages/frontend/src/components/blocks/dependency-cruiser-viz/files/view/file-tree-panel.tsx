@@ -56,7 +56,7 @@ export function FileTreePanel({
   const isLayers = canvasMode === 'layers';
   const hasIssues = isLayers
     ? view.violations.length > 0 || view.conflicts.length > 0
-    : view.breaches.length > 0;
+    : view.closureViolations.length > 0;
 
   // Local, session-scoped view filters layered on top of the (feature- and
   // expansion-independent) tree model. Both default to showing everything.
@@ -131,13 +131,11 @@ export function FileTreePanel({
       expansionFocused={view.expansionFocused || isPruned}
       highlightedFiles={view.highlightedFiles}
       ownedFiles={view.ownedFiles}
-      consumedFiles={view.consumedFiles}
       coverageGapFiles={view.coverageGapFiles}
       configuredPaths={view.configuredPaths}
       sortOrder={view.sortOrder}
       hoveredGraphFiles={view.hoveredGraphFiles}
       hoveredModulePath={view.hoveredModulePath}
-      showVisibility={canvasMode === 'features'}
     />
   );
 
@@ -239,7 +237,7 @@ export function FileTreePanel({
                     <ConflictList conflicts={view.conflicts} />
                   </>
                 ) : (
-                  <BreachList breaches={view.breaches} />
+                  <BreachList violations={view.closureViolations} />
                 )}
               </div>
             </ResizablePanel>

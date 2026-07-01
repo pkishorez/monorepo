@@ -1,16 +1,16 @@
 ---
 name: enforce-boundaries
 description: >
-  Run depcruise-viz lint to enforce a depcruise.config.ts, wire it into CI and a
-  lint:depcruise package script, and interpret its output — layer violations vs
-  visibility breaches vs coverage warnings, exit codes, overlapping-layer
-  conflicts, and layer-ordering cycles. Load when adding depcruise-viz to CI,
-  reading lint output, driving uncovered files to zero, or diagnosing
-  "Layer ordering cycle detected".
+  Run depcruise-viz lint to enforce a depcruise.config.ts, wire it into CI and
+  a lint:depcruise package script, and interpret its output — layer violations,
+  closure violations (unclaimed-edge / closure-escape / multi-root), coverage
+  warnings, exit codes, and layer-ordering cycles. Load when adding
+  depcruise-viz to CI, reading lint output, driving uncovered files or edges to
+  zero, or diagnosing "Layer ordering cycle detected".
 metadata:
   type: lifecycle
   library: depcruise-viz
-  library_version: '0.0.1'
+  library_version: '0.0.4'
 sources:
   - 'pkishorez/monorepo:packages/depcruise-viz/src/cli/run.ts'
   - 'pkishorez/monorepo:packages/depcruise-viz/src/compile/validate-layer-ordering.ts'
@@ -21,9 +21,9 @@ sources:
 # depcruise-viz — Enforcing boundaries in CI
 
 `depcruise-viz lint` reads `depcruise.config.ts` from the current directory,
-prints layer/module coverage to stdout, and writes any violations and breaches
-to stderr. It exits non-zero only when violations or breaches are found, so it
-drops into CI directly.
+prints layer/module/feature coverage to stdout, and writes any violations to
+stderr. It exits non-zero only when violations are found, so it drops into CI
+directly.
 
 ## Setup
 
@@ -46,26 +46,58 @@ The config must live at the package root being cruised; `lint` resolves
 
 ## Core Patterns
 
-### Read the three output classes
+### Read the two output classes
 
-- **Violations** (stderr, red) — layer-ordering breaks: a lower layer imports an
-  upper one. Fix by reversing the import direction.
-- **Breaches** (stderr, red) — visibility crossings into another feature's/group's
-  private (or not-shared-with) internals. Fix by importing the public/shared
-  surface instead.
-- **Coverage warnings** (stdout, yellow) — files outside every layer or module,
-  and overlapping layer patterns. These never fail the lint.
+- **Violations** (stderr, red) — two kinds:
+  - _Layer violations_ — a lower layer imports an upper one. Fix by reversing
+    the import direction.
+  - _Closure violations_ — the feature-tree lint contract is broken. Three
+    subtypes: `unclaimed-edge` (a real module→module edge is not claimed by any
+    feature), `closure-escape` (a non-barrel module exclusive to one feature has
+    a real out-edge to a module outside that feature), `multi-root` (a feature
+    has more than one module with no declared in-edges). Fix by adding the
+    offending module to the feature's member list, flagging the source as a
+    barrel, or splitting the feature.
+- **Coverage warnings** (stdout, yellow) — files outside every layer or module.
+  These never fail the lint.
+
+### TDD loop: iterate against the tool
+
+1. Run `pnpm lint:depcruise`.
+2. Read the feature summary: `✓ feature (root: X, N module(s), M edge(s))`.
+3. For each `unclaimed-edge` violation: the edge source module needs the target
+   added to its feature, OR the source should be declared `barrel: true` if it
+   legitimately fans out to many downstream modules.
+4. For each `closure-escape`: the escaping out-edge's target module must be
+   added to the feature, or the source flagged as a barrel.
+5. Re-run. Repeat until exit 0.
+
+```text
+Features: 3 declared.
+  ✓ authoring (root: authoring, 2 module(s), 1 edge(s))
+  ✓ compile   (root: compile,   2 module(s), 1 edge(s))
+  ✓ analyze   (root: analyze,   2 module(s), 1 edge(s))
+No violations found.
+```
+
+### Identify shared modules from the lint output
+
+A module named by ≥2 features is shared. Lint does not error on sharing — it
+simply relaxes closure at that module (each feature traces only its own member
+set's edges). If `lint:depcruise` reports unclaimed edges, check whether the
+target module needs to be added to every feature that reaches it (making it
+shared), or only to one.
 
 ### Drive uncovered files to zero
 
 A green lint can still report uncovered files. Treat every
 `N file(s) not covered by any layer/module` warning as a to-do and add
-layers/modules until coverage reports zero.
+layers/modules until coverage reaches zero. Alternatively, add the file to
+`ignore` if it is a package-entry barrel with no domain logic.
 
 ```text
-Layers: 3 layer(s) cover 24/24 file(s).
-Modules: 3 module(s) cover 24/24 layer-covered file(s).
-No violations or boundary breaches found.
+Layers: 3 layer(s) cover 17/17 file(s).
+Modules: 6 module(s) cover 17/17 layer-covered file(s).
 ```
 
 ### Keep a shared layer's ordering consistent
@@ -87,13 +119,55 @@ Wrong:
 Correct:
 
 ```bash
-# add layers/modules until "0 file(s) not covered"; warnings are a to-do list
+# add modules (or ignore entries) until "0 file(s) not covered"
 ```
 
-Coverage gaps print as yellow warnings and never set a non-zero exit, so a green
-lint can hide unmodeled files.
+Coverage gaps print as yellow warnings and never set a non-zero exit, so a
+green lint can hide unmodeled files.
 
-Source: src/cli/run.ts:24-86; README Gotchas; maintainer interview
+Source: src/cli/run.ts; README Gotchas; maintainer interview
+
+### HIGH Confusing layer violations with closure violations
+
+Wrong:
+
+```typescript
+// "fix" a closure-escape by reordering layers (wrong lever)
+```
+
+Correct:
+
+```typescript
+// layer violation  -> fix import direction
+// closure-escape   -> add module to feature, or flag source as barrel
+// unclaimed-edge   -> add target to every feature that imports it
+```
+
+They have different root causes and different fixes.
+
+Source: src/cli/run.ts; src/types.ts
+
+### HIGH Adding visibility / sharedWith to fix a closure violation
+
+Wrong:
+
+```typescript
+module('src/util', { feature: 'authoring', sharedWith: ['compile'] });
+// sharedWith no longer exists — throws at config load
+```
+
+Correct:
+
+```typescript
+module('src/util');
+feature('authoring', { root: 'authoring', modules: ['authoring', 'util'] });
+feature('compile', { root: 'compile', modules: ['compile', 'util'] });
+// util is now shared: named by two features
+```
+
+Sharing is emergent — name the module in every feature that reaches it.
+
+Source: ADR 0001; CONTEXT.md
 
 ### MEDIUM Overlapping layer path patterns
 
@@ -112,9 +186,9 @@ layer('cli', ['src/cli']);
 ```
 
 When two layers' paths overlap, a file matches both and is silently attributed
-to the first-declared layer; this is reported only as a warning.
+to the first-declared layer; reported only as a warning.
 
-Source: src/cli/run.ts:70-83; src/types.ts:153
+Source: src/cli/run.ts; src/types.ts
 
 ### MEDIUM Layer-ordering cycle across stacks
 
@@ -122,7 +196,7 @@ Wrong:
 
 ```typescript
 layersTopDown('a', [x, y]); // x -> y
-layersTopDown('b', [y, x]); // y -> x  => cycle x -> y -> x
+layersTopDown('b', [y, x]); // y -> x  => cycle
 ```
 
 Correct:
@@ -131,29 +205,7 @@ Correct:
 // keep a single consistent ordering wherever a layer name is shared
 ```
 
-Edges from every stack are merged; an inconsistent shared ordering throws
-`Layer ordering cycle detected` before any cruising happens.
-
-Source: src/compile/validate-layer-ordering.ts:52-57
-
-### MEDIUM Confusing violations with breaches
-
-Wrong:
-
-```typescript
-// "fix" a visibility breach by reordering layers (wrong lever)
-```
-
-Correct:
-
-```typescript
-// violation -> fix import direction; breach -> import the public/shared surface
-```
-
-Violations are layer-ordering breaks; breaches are visibility crossings — they
-have different fixes.
-
-Source: src/cli/run.ts:106-130; src/types.ts:92-129
+Source: src/compile/validate-layer-ordering.ts
 
 ### HIGH Generating against the wrong version surface
 
@@ -169,18 +221,13 @@ Correct:
 # check the installed depcruise-viz package.json (version) before relying on output
 ```
 
-There are no maintained doc files — `package.json` is the source of truth,
-refreshed each release.
-
-Source: maintainer interview; package.json
+Source: package.json
 
 ### HIGH Tension: Zero-uncovered goal vs incremental adoption
 
 Targeting zero uncovered files conflicts with dropping the tool into a large
-existing codebase gradually. Agents either declare lint "passing" while files
-stay unmodeled, or try to model everything at once and stall. Model the highest-
-value boundaries first, then close coverage incrementally.
+existing codebase gradually. Model the highest-value boundaries first, then
+close coverage incrementally. Add `ignore` entries for pure package-entry
+re-exports that carry no domain logic.
 
-See also: author-architecture-config/SKILL.md § Common Mistakes
-
-See also: author-architecture-config/SKILL.md — every violation/breach maps back to a layer-ordering or visibility decision in the config.
+See also: author-architecture-config/SKILL.md — every closure violation maps back to a feature-tree or barrel decision in the config.
