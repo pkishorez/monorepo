@@ -1,5 +1,11 @@
 # @monorepo/frontend
 
+## 0.0.3
+
+### Patch Changes
+
+- Improve ui. Fix edge logic.
+
 ## 0.0.2
 
 ### Patch Changes
