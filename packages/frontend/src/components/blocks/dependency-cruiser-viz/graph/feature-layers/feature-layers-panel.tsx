@@ -49,7 +49,7 @@ import {
 import { ModuleChips } from './module-chips';
 import { FeatureGraphPanel } from './feature-graph-panel';
 import { FeatureRulesDialog } from './feature-rules-dialog';
-import type { ColumnMode } from './feature-graph-layout';
+import type { ColumnMode, EdgeMode } from './feature-graph-layout';
 
 type FeatureLayersPanelProps = {
   config: VisualizationConfig;
@@ -87,6 +87,7 @@ function FeatureLayersPanelInner({
   const [rulesOpen, setRulesOpen] = useState(false);
   const [featureView, setFeatureView] = useState<'graph' | 'grid'>('graph');
   const [columnMode, setColumnMode] = useState<ColumnMode>('layer');
+  const [edgeMode, setEdgeMode] = useState<EdgeMode>('reduced');
   useEffect(() => {
     if (!selectedFeature) setFeatureView('graph');
   }, [selectedFeature]);
@@ -335,6 +336,36 @@ function FeatureLayersPanelInner({
             ))}
           </div>
         )}
+        {showGraph && (
+          <div className="flex shrink-0 rounded-md border border-border bg-background/80 p-0.5">
+            {(
+              [
+                ['reduced', 'Simplify'],
+                ['all', 'All edges'],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setEdgeMode(mode)}
+                aria-pressed={edgeMode === mode}
+                title={
+                  mode === 'reduced'
+                    ? 'Hide edges implied by a longer import path'
+                    : 'Draw every direct import edge'
+                }
+                className={cn(
+                  'rounded px-2 py-0.5 text-[11px] font-medium transition-colors',
+                  edgeMode === mode
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {selectedFeature && (
           <button
             type="button"
@@ -375,6 +406,7 @@ function FeatureLayersPanelInner({
             graph={featureGraph}
             layerOrder={layerOrder}
             columnMode={columnMode}
+            edgeMode={edgeMode}
             selectedModule={selectedModule}
             onSelectModule={onSelectModule}
             onHoverModule={setHoveredModule}

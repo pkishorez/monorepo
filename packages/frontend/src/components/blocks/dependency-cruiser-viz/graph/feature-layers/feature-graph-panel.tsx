@@ -29,10 +29,12 @@ import {
   BREACH_EDGE_COLOR,
   type ColumnMode,
   computeFeatureGraphLayout,
-  CYCLE_EDGE_COLOR,
+  type EdgeMode,
+  type LayerBandNodeData,
   LEGAL_EDGE_COLOR,
   MODULE_NODE_WIDTH,
   type ModuleGraphNodeData,
+  PEER_EDGE_COLOR,
 } from './feature-graph-layout';
 
 const ACTIVE_EDGE_COLOR = 'var(--primary)';
@@ -48,6 +50,8 @@ type FeatureGraphPanelProps = {
   layerOrder: readonly string[];
   /** Column-assignment rule: layer swimlanes or compact import-depth. */
   columnMode: ColumnMode;
+  /** Whether to transitively reduce legal edges ('reduced') or draw them all. */
+  edgeMode: EdgeMode;
   selectedModule: string | null;
   onSelectModule: (key: string | null) => void;
   onHoverModule?: (key: string | null) => void;
@@ -82,6 +86,7 @@ function FeatureGraphPanelInner({
   graph,
   layerOrder,
   columnMode,
+  edgeMode,
   selectedModule,
   onSelectModule,
   onHoverModule,
@@ -104,9 +109,9 @@ function FeatureGraphPanelInner({
 
   // Stable across hovers — only recomputed when the graph itself changes, so
   // React Flow keeps the same node/edge instances and never re-measures.
-  const { nodes, edges } = useMemo(
-    () => computeFeatureGraphLayout(graph, layerOrder, columnMode),
-    [graph, layerOrder, columnMode],
+  const { nodes, edges, hiddenCount } = useMemo(
+    () => computeFeatureGraphLayout(graph, layerOrder, columnMode, edgeMode),
+    [graph, layerOrder, columnMode, edgeMode],
   );
 
   // A pin from one feature's graph is meaningless in another — drop it when the
@@ -145,10 +150,8 @@ function FeatureGraphPanelInner({
       edges.map((e) => {
         const kind = (e.data as { kind?: string } | undefined)?.kind;
         const isBreach = kind === 'breach';
-        const isCycle = kind === 'cycle';
-        // Breach + cycle both read as "against the flow" — keep their own colour
-        // and dashes even when highlighted, rather than turning primary.
-        const flagged = isBreach || isCycle;
+        // A breach reads as "against the flow" — keep its own colour and dashes
+        // even when highlighted, rather than turning primary.
         const incident = chainMode
           ? // Whole chain: light every edge whose endpoints are both in it.
             connectedKeys != null &&
@@ -158,10 +161,10 @@ function FeatureGraphPanelInner({
             (e.source === activeKey || e.target === activeKey);
         const baseColor = isBreach
           ? BREACH_EDGE_COLOR
-          : isCycle
-            ? CYCLE_EDGE_COLOR
+          : kind === 'peer'
+            ? PEER_EDGE_COLOR
             : LEGAL_EDGE_COLOR;
-        const stroke = incident && !flagged ? ACTIVE_EDGE_COLOR : baseColor;
+        const stroke = incident && !isBreach ? ACTIVE_EDGE_COLOR : baseColor;
         const opacity = !activeKey
           ? IDLE_EDGE_OPACITY
           : incident
@@ -169,11 +172,11 @@ function FeatureGraphPanelInner({
             : FADED_EDGE_OPACITY;
         return {
           ...e,
-          animated: flagged && (incident || !activeKey),
+          animated: isBreach && (incident || !activeKey),
           style: {
             ...e.style,
             stroke,
-            strokeWidth: incident ? (flagged ? 2.5 : 2) : flagged ? 2 : 1.5,
+            strokeWidth: incident ? (isBreach ? 2.5 : 2) : isBreach ? 2 : 1.5,
             opacity,
             transition: 'opacity 150ms, stroke 150ms',
           },
@@ -185,6 +188,7 @@ function FeatureGraphPanelInner({
 
   const handleNodeClick = useCallback(
     (_: MouseEvent, node: Node) => {
+      if (node.type !== 'module') return;
       onSelectModule(node.id === selectedModule ? null : node.id);
     },
     [onSelectModule, selectedModule],
@@ -194,6 +198,7 @@ function FeatureGraphPanelInner({
   // node (or the pane) clears it.
   const handleNodeContextMenu = useCallback((event: MouseEvent, node: Node) => {
     event.preventDefault();
+    if (node.type !== 'module') return;
     setPinnedNode((prev) => (prev === node.id ? null : node.id));
   }, []);
   const handlePaneContextMenu = useCallback(
@@ -206,6 +211,7 @@ function FeatureGraphPanelInner({
 
   const handleNodeMouseEnter = useCallback(
     (_: MouseEvent, node: Node) => {
+      if (node.type !== 'module') return;
       setHoveredNode(node.id);
       onHoverModule?.(node.id);
     },
@@ -228,10 +234,15 @@ function FeatureGraphPanelInner({
     <div
       ref={containerRef}
       className={cn(
-        'h-full w-full transition-opacity duration-150',
+        'relative h-full w-full transition-opacity duration-150',
         fitted ? 'opacity-100' : 'opacity-0',
       )}
     >
+      {hiddenCount > 0 && (
+        <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-md border border-border bg-background/80 px-2 py-0.5 text-[10px] text-muted-foreground backdrop-blur">
+          {hiddenCount} {hiddenCount === 1 ? 'edge' : 'edges'} hidden
+        </div>
+      )}
       <GraphFocusContext.Provider value={focus}>
         <ReactFlow
           nodes={nodes}
@@ -357,4 +368,22 @@ function ModuleGraphNode({ id, data }: NodeProps<Node<ModuleGraphNodeData>>) {
   );
 }
 
-const moduleGraphNodeTypes = { module: ModuleGraphNode };
+/**
+ * The highlighted swimlane region behind one layer's modules. Non-interactive
+ * and painted underneath (via a low zIndex from the layout), with the layer
+ * name labelled at the top-left.
+ */
+function LayerBandNode({ data }: NodeProps<Node<LayerBandNodeData>>) {
+  return (
+    <div className="relative h-full w-full rounded-xl border border-border/60 bg-muted/20">
+      <span className="absolute left-3 top-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+        {data.layer}
+      </span>
+    </div>
+  );
+}
+
+const moduleGraphNodeTypes = {
+  module: ModuleGraphNode,
+  'layer-band': LayerBandNode,
+};

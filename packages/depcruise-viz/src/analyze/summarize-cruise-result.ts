@@ -136,19 +136,21 @@ function buildFeatureGraphs({
     `${layerByName.get(name) ?? ''}::${name}`;
 
   return features.map((feat) => {
-    const memberSet = new Set(feat.modules);
+    // Members as `layer::name` keys. Membership and edge keys are compared on
+    // these — NOT on bare names. A bare name (e.g. `cart`) can exist in several
+    // layers, so a bare-name test would admit an edge from `orchestrators::cart`
+    // into a feature that only owns `domain::cart`, and re-deriving the layer
+    // from the name would then mislabel it. Each moduleEdge already carries its
+    // true `fromLayer`/`toLayer`, so key off those.
+    const memberKeys = new Set(feat.modules.map(keyOf));
     const edges: VizSummary['featureGraphs'][number]['edges'] = [];
 
     for (const edge of moduleEdges) {
-      // Both endpoints must be declared members of this feature
-      if (!memberSet.has(edge.fromModule) || !memberSet.has(edge.toModule))
-        continue;
-      // Barrel out-edges to non-members are dropped — but here both are members, so include
-      edges.push({
-        from: keyOf(edge.fromModule),
-        to: keyOf(edge.toModule),
-        kind: edge.kind,
-      });
+      const fromKey = `${edge.fromLayer}::${edge.fromModule}`;
+      const toKey = `${edge.toLayer}::${edge.toModule}`;
+      // Both endpoints must be declared members of this feature.
+      if (!memberKeys.has(fromKey) || !memberKeys.has(toKey)) continue;
+      edges.push({ from: fromKey, to: toKey, kind: edge.kind });
     }
 
     return {

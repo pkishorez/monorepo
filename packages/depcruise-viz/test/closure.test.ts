@@ -255,3 +255,81 @@ describe('multi-root violation', () => {
     expect(violations[0]!.feature).toBe('C');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Case — duplicate module name across layers must not mis-attribute edges
+// Two modules named `cart` (orchestrators + domain). A real edge
+// orchestrators::cart → services::svc must NOT be pulled into a feature that
+// owns domain::cart, nor relabeled as domain::cart → services::svc.
+// ---------------------------------------------------------------------------
+describe('duplicate module name across layers', () => {
+  const cruiseResult = makeCruiseResult([
+    // real: orchestrators/cart imports the service (upper → lower)
+    {
+      source: 'src/orchestrators/cart/index.ts',
+      deps: ['src/services/svc/index.ts'],
+    },
+    // real: domain/cart imports a domain sibling
+    {
+      source: 'src/domain/cart/index.ts',
+      deps: ['src/domain/order/index.ts'],
+    },
+    { source: 'src/services/svc/index.ts', deps: [] },
+    { source: 'src/domain/order/index.ts', deps: [] },
+  ]);
+
+  const viz: VisualizationConfig = {
+    rootDir: 'src',
+    stacks: [
+      {
+        name: 'app',
+        layers: [
+          { name: 'orchestrators', paths: ['src/orchestrators'] },
+          { name: 'services', paths: ['src/services'] },
+          { name: 'domain', paths: ['src/domain'] },
+        ],
+        allowedImports: [],
+      },
+    ],
+    modules: [
+      // orchestrators::cart declared BEFORE domain::cart, so a name→layer map
+      // would resolve `cart` to domain (last wins) — the mis-attribution trap.
+      {
+        path: 'src/orchestrators/cart',
+        name: 'cart',
+        layer: 'orchestrators',
+        barrel: true,
+      },
+      {
+        path: 'src/services/svc',
+        name: 'svc',
+        layer: 'services',
+        barrel: false,
+      },
+      { path: 'src/domain/cart', name: 'cart', layer: 'domain', barrel: false },
+      {
+        path: 'src/domain/order',
+        name: 'order',
+        layer: 'domain',
+        barrel: false,
+      },
+    ],
+    features: [{ name: 'F', root: 'cart', modules: ['cart', 'svc', 'order'] }],
+  };
+
+  const summary = summarizeCruiseResult(cruiseResult, viz);
+  const fg = summary.featureGraphs.find((f) => f.feature === 'F')!;
+  const edgeSet = new Set(fg.edges.map((e) => `${e.from}→${e.to}`));
+
+  test('does not fabricate a domain::cart → services::svc edge', () => {
+    expect(edgeSet.has('domain::cart→services::svc')).toBe(false);
+  });
+
+  test('keeps the genuine domain::cart → domain::order edge', () => {
+    expect(edgeSet.has('domain::cart→domain::order')).toBe(true);
+  });
+
+  test("the orchestrators::cart node's edge is excluded (not a member)", () => {
+    expect(edgeSet).toEqual(new Set(['domain::cart→domain::order']));
+  });
+});

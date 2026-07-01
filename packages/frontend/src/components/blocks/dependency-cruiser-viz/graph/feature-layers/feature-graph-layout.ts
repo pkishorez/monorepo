@@ -13,26 +13,67 @@ export type ModuleGraphNodeData = {
 };
 
 export type ModuleEdgeData = {
-  kind: 'legal' | 'breach' | 'cycle';
+  kind: 'legal' | 'breach' | 'peer';
+};
+
+/** Background swimlane band drawn behind one layer's internal sub-columns. */
+export type LayerBandNodeData = {
+  layer: string;
 };
 
 export const MODULE_NODE_WIDTH = 180;
 export const MODULE_NODE_HEIGHT = 52;
 export const LEGAL_EDGE_COLOR = '#94a3b8';
 export const BREACH_EDGE_COLOR = '#ef4444';
-/** Cycle (legal-but-circular) imports — amber, distinct from slate/red. */
-export const CYCLE_EDGE_COLOR = '#f59e0b';
+/**
+ * Same-layer (intra-column) legal imports — indigo, dotted. Distinct from the
+ * slate cross-layer flow so a peer import routed over the column is never read
+ * as a backward, flow-violating edge.
+ */
+export const PEER_EDGE_COLOR = '#818cf8';
 /** Horizontal gap between layer columns. */
 export const COL_GAP = 140;
 /** Vertical gap between modules stacked within a column. */
 export const ROW_GAP = 60;
 /** Tight gap between a parent module and its nested sub-modules (one cluster). */
 export const FAMILY_ROW_GAP = 10;
+/** Horizontal gap between internal depth sub-columns *within* one layer band. */
+export const SUB_COL_GAP = 100;
+/** Extra horizontal gap at a boundary between two layer bands. */
+export const LAYER_GAP = 220;
+/** Padding of a swimlane band around its modules (top leaves room for a label). */
+export const BAND_PAD_X = 26;
+export const BAND_PAD_TOP = 40;
+export const BAND_PAD_BOTTOM = 26;
 
 const COL_PITCH = MODULE_NODE_WIDTH + COL_GAP;
+const SUB_COL_PITCH = MODULE_NODE_WIDTH + SUB_COL_GAP;
+
+/** A layer's swimlane band, in graph coordinates (before band padding). */
+type LayerBand = { layer: string; x: number; width: number };
+
+/**
+ * How nodes map to columns for one layout mode: the per-node column, the total
+ * column count, each column's x position, and the swimlane bands to draw
+ * behind them (empty in compact mode).
+ */
+type ColumnPlan = {
+  colOf: (m: ModuleNode) => number;
+  colCount: number;
+  colX: number[];
+  bands: LayerBand[];
+};
 
 /** Which rule assigns a node to a column. */
 export type ColumnMode = 'layer' | 'depth';
+
+/**
+ * Which legal edges to draw. `'reduced'` (default) hides edges implied by a
+ * longer legal path — the transitive reduction — collapsing the hairball to its
+ * dependency spine; `'all'` draws every real import edge. Breach edges and edges
+ * inside a cycle are always drawn either way.
+ */
+export type EdgeMode = 'reduced' | 'all';
 
 /**
  * Lay a feature's module graph left → right in columns, either way reading as
@@ -40,46 +81,49 @@ export type ColumnMode = 'layer' | 'depth';
  *
  * - `'layer'` (swimlanes): each column is one architecture layer in
  *   `layerOrder` (handlers → orchestrators → … → infrastructure), dense over
- *   the layers present. A breach or same-layer cycle visibly swims *against*
- *   the current. Cycle-proof by construction — a cycle sits in one column.
+ *   the layers present. A breach visibly swims *against* the current.
  * - `'depth'` (compact): each node sits one column past the deepest module that
  *   imports it (longest legal-import chain), so sources pack into column 0 and
- *   the graph is as narrow as the dependencies allow. Legal cycles are
- *   condensed (every node of a cycle shares a column) so they cannot inflate
- *   the span.
+ *   the graph is as narrow as the dependencies allow. Cyclic imports are
+ *   condensed (every node of a strongly-connected component shares a column) so
+ *   they cannot inflate the span — but they are not flagged visually; real
+ *   cycles are the lint's job, not the graph's.
  *
  * Within a column, modules are ordered vertically by a barycenter sweep, and a
- * parent and its nested sub-modules cluster tight. Cycle edges are marked so
- * they render distinctly rather than hiding the problem. Shared modules carry
- * an amber tint; barrel modules render with a dashed border. Breach edges read
- * red/dashed, cycle edges amber, legal edges slate.
+ * parent and its nested sub-modules cluster tight. Shared modules carry an amber
+ * tint; barrel modules render with a dashed border. Breach edges read red/
+ * dashed, same-layer peer edges indigo/dotted, legal edges slate.
  */
 export function computeFeatureGraphLayout(
   graph: FeatureModuleGraph,
   layerOrder: readonly string[],
   columnMode: ColumnMode = 'layer',
-): { nodes: Node<ModuleGraphNodeData>[]; edges: Edge[] } {
-  const colOf =
+  edgeMode: EdgeMode = 'reduced',
+): {
+  nodes: Node[];
+  edges: Edge[];
+  /** Legal edges hidden as redundant/family-internal (0 in 'all' + no families). */
+  hiddenCount: number;
+} {
+  const plan =
     columnMode === 'depth'
-      ? depthColumnOf(graph)
-      : layerColumnOf(graph, layerOrder);
+      ? uniformDepthColumns(graph)
+      : layerBandColumns(graph, layerOrder);
+  const colOf = plan.colOf;
 
   // Group nodes into columns, keeping graph order as the initial within-column
   // order. `columns` is dense and 0-indexed by column number.
-  const maxCol = graph.nodes.reduce((mx, m) => Math.max(mx, colOf(m)), 0);
-  const columns: ModuleNode[][] = Array.from({ length: maxCol + 1 }, () => []);
+  const columns: ModuleNode[][] = Array.from(
+    { length: plan.colCount },
+    () => [],
+  );
   for (const m of graph.nodes) columns[colOf(m)]!.push(m);
 
   orderColumnsByBarycenter(columns, graph.edges);
 
   // Keep a parent and its nested sub-modules adjacent within the column so they
-  // read as one clustered unit (they carry no edges between them).
+  // read as one clustered unit (their internal edges are dropped as noise).
   const clustered = columns.map(clusterColumnByFamily);
-
-  // Edges that close a legal cycle: both endpoints in the same strongly-
-  // connected component (over legal edges) of size > 1. Marked so they render
-  // distinctly instead of silently collapsing into the layer column.
-  const cycleEdges = cycleEdgeKeys(graph);
 
   // Per-column vertical offsets: members of one family sit a tight gap apart,
   // separate families a full gap apart. Center every column on a shared midline
@@ -93,13 +137,13 @@ export function computeFeatureGraphLayout(
     const top = (tallest - height) / 2;
     col.forEach((m, rowIndex) => {
       positionByKey.set(m.key, {
-        x: colIndex * COL_PITCH,
+        x: plan.colX[colIndex]!,
         y: top + offsets[rowIndex]!,
       });
     });
   });
 
-  const nodes: Node<ModuleGraphNodeData>[] = graph.nodes.map((m) => ({
+  const moduleNodes: Node<ModuleGraphNodeData>[] = graph.nodes.map((m) => ({
     id: m.key,
     type: 'module',
     position: positionByKey.get(m.key) ?? { x: 0, y: 0 },
@@ -107,20 +151,77 @@ export function computeFeatureGraphLayout(
     draggable: false,
   }));
 
-  const edges: Edge[] = graph.edges.map((e, i) => {
-    const kind: ModuleEdgeData['kind'] =
-      e.kind === 'breach'
-        ? 'breach'
-        : cycleEdges.has(`${e.from}\0${e.to}`)
-          ? 'cycle'
-          : 'legal';
+  // Highlighted swimlane bands sit behind the modules so a layer reads as one
+  // region even though its members spread across internal depth sub-columns.
+  const bandNodes: Node<LayerBandNodeData>[] = plan.bands.map((b) => ({
+    id: `band::${b.layer}`,
+    type: 'layer-band',
+    position: { x: b.x - BAND_PAD_X, y: -BAND_PAD_TOP },
+    data: { layer: b.layer },
+    style: {
+      width: b.width + BAND_PAD_X * 2,
+      height: tallest + BAND_PAD_TOP + BAND_PAD_BOTTOM,
+    },
+    draggable: false,
+    selectable: false,
+    focusable: false,
+    zIndex: -1,
+  }));
+
+  const nodes: Node[] = [...bandNodes, ...moduleNodes];
+
+  // Column assignment and the barycenter sweep above always run over the FULL
+  // legal edge set, so hiding edges never degrades the layout. Only the rendered
+  // edges are filtered/classified here.
+  const nodeByKey = new Map(graph.nodes.map((n) => [n.key, n]));
+  const familyOf = (key: string): string => {
+    const n = nodeByKey.get(key);
+    return n ? moduleFamily(n.layer, n.name) : key;
+  };
+  const sameLayer = (a: string, b: string): boolean => {
+    const na = nodeByKey.get(a);
+    const nb = nodeByKey.get(b);
+    return na != null && nb != null && na.layer === nb.layer;
+  };
+  // Cycles are a lint concern, not a visual one (they are mostly barrel-within-
+  // a-layer artifacts), so they are NOT flagged here — an edge is just breach,
+  // same-layer peer, or plain legal.
+  const kindOf = (
+    e: FeatureModuleGraph['edges'][number],
+  ): ModuleEdgeData['kind'] =>
+    e.kind === 'breach' ? 'breach' : sameLayer(e.from, e.to) ? 'peer' : 'legal';
+
+  const redundant =
+    edgeMode === 'reduced' ? redundantLegalEdgeKeys(graph) : null;
+  const visibleGraphEdges = graph.edges.filter((e) => {
+    const key = `${e.from}\0${e.to}`;
+    // Transitive reduction: drop legal edges implied by a longer legal path.
+    if (redundant && redundant.has(key)) return false;
+    const kind = kindOf(e);
+    // Family-internal (parent → nested child) legal/peer edges are implied by
+    // the cluster that already draws the family together — drop them as noise.
+    if (
+      (kind === 'legal' || kind === 'peer') &&
+      familyOf(e.from) === familyOf(e.to)
+    ) {
+      return false;
+    }
+    return true;
+  });
+  const hiddenCount = graph.edges.length - visibleGraphEdges.length;
+
+  const edges: Edge[] = visibleGraphEdges.map((e, i) => {
+    const kind = kindOf(e);
+    // A breach "swims against the current" — animated, dashed, bold.
     const isBreach = kind === 'breach';
-    const isCycle = kind === 'cycle';
     const color = isBreach
       ? BREACH_EDGE_COLOR
-      : isCycle
-        ? CYCLE_EDGE_COLOR
+      : kind === 'peer'
+        ? PEER_EDGE_COLOR
         : LEGAL_EDGE_COLOR;
+    // Peer (same-layer) edges read as dotted indigo so an in-band hop is never
+    // mistaken for cross-layer flow.
+    const dash = isBreach ? '6 3' : kind === 'peer' ? '1 4' : undefined;
     return {
       id: `${e.from}->${e.to}:${kind}:${i}`,
       source: e.from,
@@ -132,7 +233,7 @@ export function computeFeatureGraphLayout(
       interactionWidth: 0,
       selectable: false,
       focusable: false,
-      animated: isBreach || isCycle,
+      animated: isBreach,
       data: { kind },
       markerEnd: {
         type: MarkerType.ArrowClosed,
@@ -142,13 +243,69 @@ export function computeFeatureGraphLayout(
       },
       style: {
         stroke: color,
-        strokeWidth: isBreach || isCycle ? 2 : 1.5,
-        ...(isBreach || isCycle ? { strokeDasharray: '6 3' } : {}),
+        strokeWidth: isBreach ? 2 : kind === 'peer' ? 1.25 : 1.5,
+        ...(dash ? { strokeDasharray: dash } : {}),
       },
     };
   });
 
-  return { nodes, edges };
+  return { nodes, edges, hiddenCount };
+}
+
+/**
+ * Keys (`from\0to`) of legal edges that are redundant under transitive
+ * reduction: their endpoints are already connected by a longer legal path, so
+ * the direct edge adds no reachability. Strongly-connected components are
+ * condensed first (Tarjan) and only cross-component edges are candidates — an
+ * intra-cycle edge is never dropped (that would erase a real circular import).
+ * An edge `u→v` is redundant iff, over the condensation DAG, `v`'s component is
+ * still reachable from `u`'s component without traversing the direct edge.
+ */
+function redundantLegalEdgeKeys(graph: FeatureModuleGraph): Set<string> {
+  const present = new Set(graph.nodes.map((n) => n.key));
+  const legal = graph.edges.filter(
+    (e) => e.kind === 'legal' && present.has(e.from) && present.has(e.to),
+  );
+  const sccOf = stronglyConnectedComponents(graph.nodes, legal);
+
+  // Condensation adjacency over cross-component legal edges (deduped).
+  const successors = new Map<number, Set<number>>();
+  for (const e of legal) {
+    const from = sccOf.get(e.from)!;
+    const to = sccOf.get(e.to)!;
+    if (from === to) continue;
+    (successors.get(from) ?? successors.set(from, new Set()).get(from)!).add(
+      to,
+    );
+  }
+
+  // Is `target` reachable from `from` over the condensation WITHOUT using the
+  // direct `from→target` edge? BFS that skips only that one edge.
+  const reachableWithoutDirect = (from: number, target: number): boolean => {
+    const queue: number[] = [from];
+    const seen = new Set<number>([from]);
+    while (queue.length > 0) {
+      const comp = queue.shift()!;
+      for (const next of successors.get(comp) ?? []) {
+        if (comp === from && next === target) continue; // skip the direct edge
+        if (next === target) return true;
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+    }
+    return false;
+  };
+
+  const keys = new Set<string>();
+  for (const e of legal) {
+    const from = sccOf.get(e.from)!;
+    const to = sccOf.get(e.to)!;
+    if (from === to) continue; // intra-cycle edge — always kept
+    if (reachableWithoutDirect(from, to)) keys.add(`${e.from}\0${e.to}`);
+  }
+  return keys;
 }
 
 /**
@@ -202,38 +359,16 @@ function columnLayout(col: ModuleNode[]): {
 }
 
 /**
- * Assign each node a column = its layer's position in `layerOrder`, densified
- * over the layers actually present so a skipped layer leaves no empty column.
- * A node whose layer is absent from `layerOrder` is pushed to the far right
- * (after every known layer), keeping it visible without disturbing the bands.
+ * Longest-path rank of each node over a DAG of the given edges, with strongly-
+ * connected components condensed first (every node of a cycle shares one rank,
+ * over the acyclic condensation). A source (no inbound edge) ranks 0; each edge
+ * pushes its target at least one rank to the right.
  */
-function layerColumnOf(
-  graph: FeatureModuleGraph,
-  layerOrder: readonly string[],
-): (m: ModuleNode) => number {
-  const orderIndex = new Map(layerOrder.map((name, i) => [name, i]));
-  const rankOf = (layer: string) => orderIndex.get(layer) ?? layerOrder.length;
-
-  const presentLayers = [...new Set(graph.nodes.map((n) => n.layer))].sort(
-    (a, b) => rankOf(a) - rankOf(b),
-  );
-  const columnByLayer = new Map(presentLayers.map((layer, i) => [layer, i]));
-  return (m) => columnByLayer.get(m.layer) ?? 0;
-}
-
-/**
- * Assign each node a column = longest chain of legal imports reaching it, so
- * sources pack into column 0 and the graph is as narrow as the dependencies
- * allow. Legal cycles are collapsed first (every node of a strongly-connected
- * component shares one column and the longest path runs over the acyclic
- * condensation), so a cycle settles in place instead of inflating the span.
- */
-function depthColumnOf(graph: FeatureModuleGraph): (m: ModuleNode) => number {
-  const present = new Set(graph.nodes.map((n) => n.key));
-  const legal = graph.edges.filter(
-    (e) => e.kind === 'legal' && present.has(e.from) && present.has(e.to),
-  );
-  const sccOf = stronglyConnectedComponents(graph.nodes, legal);
+function condensedLongestPath(
+  nodes: ModuleNode[],
+  edges: FeatureModuleGraph['edges'],
+): Map<string, number> {
+  const sccOf = stronglyConnectedComponents(nodes, edges);
 
   const successors = new Map<number, Set<number>>();
   const indegree = new Map<number, number>();
@@ -243,7 +378,7 @@ function depthColumnOf(graph: FeatureModuleGraph): (m: ModuleNode) => number {
       indegree.set(comp, 0);
     }
   }
-  for (const e of legal) {
+  for (const e of edges) {
     const from = sccOf.get(e.from)!;
     const to = sccOf.get(e.to)!;
     if (from === to || successors.get(from)!.has(to)) continue;
@@ -265,35 +400,109 @@ function depthColumnOf(graph: FeatureModuleGraph): (m: ModuleNode) => number {
     }
   }
 
-  return (m) => compRank.get(sccOf.get(m.key)!) ?? 0;
+  const rank = new Map<string, number>();
+  for (const n of nodes) rank.set(n.key, compRank.get(sccOf.get(n.key)!) ?? 0);
+  return rank;
 }
 
 /**
- * Keys (`from\0to`) of legal edges that close a cycle: both endpoints fall in
- * the same strongly-connected component (over legal edges) of size > 1. These
- * are the edges to flag — the layer-swimlane layout would otherwise draw them
- * as innocuous same-column lines, hiding the circular dependency.
+ * Compact mode: one column per import-depth over the whole legal graph, so
+ * sources pack into column 0 and the graph is as narrow as the dependencies
+ * allow. No swimlane bands.
  */
-function cycleEdgeKeys(graph: FeatureModuleGraph): Set<string> {
+function uniformDepthColumns(graph: FeatureModuleGraph): ColumnPlan {
   const present = new Set(graph.nodes.map((n) => n.key));
   const legal = graph.edges.filter(
     (e) => e.kind === 'legal' && present.has(e.from) && present.has(e.to),
   );
-  const sccOf = stronglyConnectedComponents(graph.nodes, legal);
+  const rank = condensedLongestPath(graph.nodes, legal);
+  const colOf = (m: ModuleNode) => rank.get(m.key) ?? 0;
+  const colCount = graph.nodes.reduce((mx, m) => Math.max(mx, colOf(m)), 0) + 1;
+  const colX = Array.from({ length: colCount }, (_, i) => i * COL_PITCH);
+  return { colOf, colCount, colX, bands: [] };
+}
 
-  const sccSize = new Map<number, number>();
-  for (const comp of sccOf.values()) {
-    sccSize.set(comp, (sccSize.get(comp) ?? 0) + 1);
+/**
+ * Internal depth of each node *within its own layer*: the longest chain of
+ * same-layer, cross-family legal imports reaching it. Family-internal edges are
+ * excluded so a parent and its nested children keep the same sub-column (and
+ * cluster together), and same-layer cycles are condensed to one sub-column.
+ */
+function intraLayerSubDepth(graph: FeatureModuleGraph): Map<string, number> {
+  const nodeByKey = new Map(graph.nodes.map((n) => [n.key, n]));
+  const present = new Set(graph.nodes.map((n) => n.key));
+  const intraLayer = graph.edges.filter((e) => {
+    if (e.kind !== 'legal') return false;
+    if (!present.has(e.from) || !present.has(e.to)) return false;
+    const a = nodeByKey.get(e.from);
+    const b = nodeByKey.get(e.to);
+    if (!a || !b || a.layer !== b.layer) return false;
+    return moduleFamily(a.layer, a.name) !== moduleFamily(b.layer, b.name);
+  });
+  return condensedLongestPath(graph.nodes, intraLayer);
+}
+
+/**
+ * Layers mode: each layer is a highlighted swimlane band, and within a band its
+ * modules spread left → right by internal import depth so intra-layer edges also
+ * flow forward (a clear intra-layer root sits in the band's first sub-column).
+ * Bands are laid out in `layerOrder`, densified over present layers; only real
+ * breaches ever swim backward across a band.
+ */
+function layerBandColumns(
+  graph: FeatureModuleGraph,
+  layerOrder: readonly string[],
+): ColumnPlan {
+  const orderIndex = new Map(layerOrder.map((name, i) => [name, i]));
+  const rankOf = (layer: string) => orderIndex.get(layer) ?? layerOrder.length;
+  const presentLayers = [...new Set(graph.nodes.map((n) => n.layer))].sort(
+    (a, b) => rankOf(a) - rankOf(b),
+  );
+  const layerRank = new Map(presentLayers.map((layer, i) => [layer, i]));
+
+  const subDepth = intraLayerSubDepth(graph);
+  const maxSubByLayer = new Map<number, number>();
+  for (const n of graph.nodes) {
+    const lr = layerRank.get(n.layer) ?? 0;
+    const sd = subDepth.get(n.key) ?? 0;
+    maxSubByLayer.set(lr, Math.max(maxSubByLayer.get(lr) ?? 0, sd));
   }
 
-  const keys = new Set<string>();
-  for (const e of legal) {
-    const comp = sccOf.get(e.from)!;
-    if (comp === sccOf.get(e.to) && (sccSize.get(comp) ?? 0) > 1) {
-      keys.add(`${e.from}\0${e.to}`);
+  // Each layer contributes (maxSub + 1) contiguous global columns.
+  const layerColStart = new Map<number, number>();
+  let running = 0;
+  for (let lr = 0; lr < presentLayers.length; lr++) {
+    layerColStart.set(lr, running);
+    running += (maxSubByLayer.get(lr) ?? 0) + 1;
+  }
+  const colCount = Math.max(1, running);
+
+  const colOf = (m: ModuleNode) => {
+    const lr = layerRank.get(m.layer) ?? 0;
+    return (layerColStart.get(lr) ?? 0) + (subDepth.get(m.key) ?? 0);
+  };
+
+  // x per column: a wide LAYER_GAP at each band boundary, a tight SUB_COL_GAP
+  // between a layer's internal sub-columns.
+  const firstColOfLayer = new Set(layerColStart.values());
+  const colX: number[] = [];
+  let x = 0;
+  for (let c = 0; c < colCount; c++) {
+    if (c > 0) {
+      x += firstColOfLayer.has(c) ? COL_PITCH + LAYER_GAP : SUB_COL_PITCH;
     }
+    colX.push(x);
   }
-  return keys;
+
+  const bands: LayerBand[] = presentLayers.map((layer, lr) => {
+    const start = layerColStart.get(lr)!;
+    const end = start + (maxSubByLayer.get(lr) ?? 0);
+    const left = colX[start]!;
+    const right = colX[end]! + MODULE_NODE_WIDTH;
+    return { layer, x: left, width: right - left };
+  });
+
+  return { colOf, colCount, colX, bands };
 }
 
 /**
