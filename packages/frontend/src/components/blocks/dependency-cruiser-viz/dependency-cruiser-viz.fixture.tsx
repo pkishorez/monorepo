@@ -43,8 +43,8 @@ const fullConfigWithFeatures = toVisualizationConfig({
   rules: [backend, frontend],
   features: [
     feature('auth', {
-      root: 'auth',
-      modules: ['auth', 'auth', 'types', 'logger'],
+      root: 'server::auth',
+      modules: ['server::auth', 'services::auth', 'types', 'logger'],
       description: 'Authentication & session management',
     }),
     feature('orders', {

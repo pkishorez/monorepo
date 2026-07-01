@@ -107,8 +107,16 @@ describe('featureGraphs edge restriction', () => {
       { path: 'src/z1', name: 'z1' },
     ],
     features: [
-      { name: 'A', root: 'x', modules: ['x', 'y', 'z'] },
-      { name: 'B', root: 'x1', modules: ['x1', 'y', 'z1'] },
+      {
+        name: 'A',
+        root: 'feat::x',
+        modules: ['feat::x', 'feat::y', 'feat::z'],
+      },
+      {
+        name: 'B',
+        root: 'feat::x1',
+        modules: ['feat::x1', 'feat::y', 'feat::z1'],
+      },
     ],
   });
 
@@ -164,8 +172,16 @@ describe('unclaimed-edge violation', () => {
       { path: 'src/w', name: 'w' },
     ],
     features: [
-      { name: 'A', root: 'x', modules: ['x', 'y', 'z'] },
-      { name: 'B', root: 'x1', modules: ['x1', 'y', 'z1'] },
+      {
+        name: 'A',
+        root: 'feat::x',
+        modules: ['feat::x', 'feat::y', 'feat::z'],
+      },
+      {
+        name: 'B',
+        root: 'feat::x1',
+        modules: ['feat::x1', 'feat::y', 'feat::z1'],
+      },
     ],
   });
 
@@ -200,7 +216,13 @@ describe('barrel exemption', () => {
       { path: 'src/z', name: 'z' },
       { path: 'src/y2', name: 'y2' },
     ],
-    features: [{ name: 'A', root: 'x', modules: ['x', 'y', 'z'] }],
+    features: [
+      {
+        name: 'A',
+        root: 'feat::x',
+        modules: ['feat::x', 'feat::y', 'feat::z'],
+      },
+    ],
   });
 
   const summary = summarizeCruiseResult(cruiseResult, viz);
@@ -242,7 +264,7 @@ describe('multi-root violation', () => {
       { path: 'src/a', name: 'a' },
       { path: 'src/b', name: 'b' },
     ],
-    features: [{ name: 'C', root: 'a', modules: ['a', 'b'] }],
+    features: [{ name: 'C', root: 'feat::a', modules: ['feat::a', 'feat::b'] }],
   });
 
   const summary = summarizeCruiseResult(cruiseResult, viz);
@@ -314,7 +336,13 @@ describe('duplicate module name across layers', () => {
         barrel: false,
       },
     ],
-    features: [{ name: 'F', root: 'cart', modules: ['cart', 'svc', 'order'] }],
+    features: [
+      {
+        name: 'F',
+        root: 'domain::cart',
+        modules: ['domain::cart', 'services::svc', 'domain::order'],
+      },
+    ],
   };
 
   const summary = summarizeCruiseResult(cruiseResult, viz);
@@ -331,5 +359,90 @@ describe('duplicate module name across layers', () => {
 
   test("the orchestrators::cart node's edge is excluded (not a member)", () => {
     expect(edgeSet).toEqual(new Set(['domain::cart→domain::order']));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Case — qualified membership connects a barrel-mediated cone
+// A controller reaches orchestrators ONLY through a DI barrel. Declaring the
+// barrel as an explicit `layer::name` member keeps both the controller→barrel
+// and barrel→orchestrator edges, so the cone is connected to the root.
+// ---------------------------------------------------------------------------
+describe('qualified membership connects a barrel-mediated cone', () => {
+  const cruiseResult = makeCruiseResult([
+    {
+      source: 'src/handlers/ctrl/index.ts',
+      deps: ['src/orchestrators/cart/index.ts'],
+    },
+    {
+      source: 'src/orchestrators/cart/index.ts',
+      deps: ['src/orchestrators/cart/create/index.ts'],
+    },
+    { source: 'src/orchestrators/cart/create/index.ts', deps: [] },
+  ]);
+
+  const viz: VisualizationConfig = {
+    rootDir: 'src',
+    stacks: [
+      {
+        name: 'app',
+        layers: [
+          { name: 'handlers', paths: ['src/handlers'] },
+          { name: 'orchestrators', paths: ['src/orchestrators'] },
+        ],
+        allowedImports: [],
+      },
+    ],
+    modules: [
+      {
+        path: 'src/handlers/ctrl',
+        name: 'ctrl',
+        layer: 'handlers',
+        barrel: true,
+      },
+      {
+        path: 'src/orchestrators/cart',
+        name: 'cart',
+        layer: 'orchestrators',
+        barrel: true,
+      },
+      {
+        path: 'src/orchestrators/cart/create',
+        name: 'cart/create',
+        layer: 'orchestrators',
+        barrel: false,
+      },
+    ],
+    features: [
+      {
+        name: 'G',
+        root: 'handlers::ctrl',
+        modules: [
+          'handlers::ctrl',
+          'orchestrators::cart',
+          'orchestrators::cart/create',
+        ],
+      },
+    ],
+  };
+
+  const summary = summarizeCruiseResult(cruiseResult, viz);
+  const fg = summary.featureGraphs.find((f) => f.feature === 'G')!;
+  const edgeSet = new Set(fg.edges.map((e) => `${e.from}→${e.to}`));
+
+  test('root connects through the barrel to the orchestrator', () => {
+    expect(edgeSet).toEqual(
+      new Set([
+        'handlers::ctrl→orchestrators::cart',
+        'orchestrators::cart→orchestrators::cart/create',
+      ]),
+    );
+  });
+
+  test('no multi-root/no-root violation (cone is connected)', () => {
+    const rootIssues = summary.closureViolations.filter(
+      (v) => v.reason === 'multi-root' || v.reason === 'no-root',
+    );
+    expect(rootIssues).toHaveLength(0);
   });
 });

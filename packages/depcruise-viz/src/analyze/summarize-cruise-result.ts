@@ -89,7 +89,6 @@ export function summarizeCruiseResult(
   const featureGraphs = buildFeatureGraphs({
     visualization,
     moduleEdges,
-    moduleEntries,
   });
   const closureViolations = buildClosureViolations({
     visualization,
@@ -121,28 +120,16 @@ function buildFeatureGraphs({
 }: {
   visualization: VisualizationConfig;
   moduleEdges: VizSummary['moduleEdges'];
-  moduleEntries: ModuleEntry[];
 }): VizSummary['featureGraphs'] {
   const features = visualization.features ?? [];
   if (features.length === 0) return [];
 
-  // Feature membership references bare module names, but the graph the frontend
-  // renders is keyed by `layer::name`. Resolve each module name to its layer so
-  // nodes/root/edges are emitted as `layer::name` keys.
-  const layerByName = new Map(
-    (visualization.modules ?? []).map((m) => [m.name, m.layer]),
-  );
-  const keyOf = (name: string): string =>
-    `${layerByName.get(name) ?? ''}::${name}`;
-
   return features.map((feat) => {
-    // Members as `layer::name` keys. Membership and edge keys are compared on
-    // these — NOT on bare names. A bare name (e.g. `cart`) can exist in several
-    // layers, so a bare-name test would admit an edge from `orchestrators::cart`
-    // into a feature that only owns `domain::cart`, and re-deriving the layer
-    // from the name would then mislabel it. Each moduleEdge already carries its
-    // true `fromLayer`/`toLayer`, so key off those.
-    const memberKeys = new Set(feat.modules.map(keyOf));
+    // Membership is already resolved to `layer::name` keys at compile time, so
+    // nodes/root/edges compare directly on those keys. Each moduleEdge carries
+    // its true `fromLayer`/`toLayer`, so an edge is keyed off those — a bare
+    // name (e.g. `cart`) that exists in several layers can never be confused.
+    const memberKeys = new Set(feat.modules);
     const edges: VizSummary['featureGraphs'][number]['edges'] = [];
 
     for (const edge of moduleEdges) {
@@ -155,8 +142,8 @@ function buildFeatureGraphs({
 
     return {
       feature: feat.name,
-      root: keyOf(feat.root),
-      nodes: feat.modules.map(keyOf),
+      root: feat.root,
+      nodes: [...feat.modules],
       edges,
     };
   });
@@ -182,13 +169,23 @@ function buildClosureViolations({
   const features = visualization.features ?? [];
   const violations: VizSummary['closureViolations'] = [];
 
-  const barrelByName = new Map(moduleEntries.map((e) => [e.name, e.barrel]));
+  // Membership and barrel exemption are keyed by `layer::name` — matching the
+  // resolved feature members — so a name that exists in two layers (e.g. a
+  // `cart` barrel in orchestrators and a `cart` model in domain) is never
+  // conflated. Each moduleEdge endpoint is projected to the same key space.
+  const barrelByKey = new Map(
+    moduleEntries.map((e) => [`${e.layer}::${e.name}`, e.barrel]),
+  );
+  const edgeFromKey = (e: VizSummary['moduleEdges'][number]): string =>
+    `${e.fromLayer}::${e.fromModule}`;
+  const edgeToKey = (e: VizSummary['moduleEdges'][number]): string =>
+    `${e.toLayer}::${e.toModule}`;
 
-  // Count how many features each module belongs to
+  // Count how many features each module (by key) belongs to
   const featureCountByModule = new Map<string, number>();
   for (const feat of features) {
-    for (const mod of feat.modules) {
-      featureCountByModule.set(mod, (featureCountByModule.get(mod) ?? 0) + 1);
+    for (const key of feat.modules) {
+      featureCountByModule.set(key, (featureCountByModule.get(key) ?? 0) + 1);
     }
   }
 
@@ -198,17 +195,19 @@ function buildClosureViolations({
   for (const feat of features) {
     const memberSet = new Set(feat.modules);
     for (const edge of moduleEdges) {
-      if (!memberSet.has(edge.fromModule)) continue;
-      if (barrelByName.get(edge.fromModule)) continue; // barrel: exempt
-      const count = featureCountByModule.get(edge.fromModule) ?? 0;
+      const fromKey = edgeFromKey(edge);
+      if (!memberSet.has(fromKey)) continue;
+      if (barrelByKey.get(fromKey)) continue; // barrel: exempt
+      const count = featureCountByModule.get(fromKey) ?? 0;
       if (count !== 1) continue; // shared module: relaxed
-      if (!memberSet.has(edge.toModule)) {
+      const toKey = edgeToKey(edge);
+      if (!memberSet.has(toKey)) {
         violations.push({
           reason: 'closure-escape',
           feature: feat.name,
           fromModule: edge.fromModule,
           toModule: edge.toModule,
-          detail: `Module "${edge.fromModule}" (exclusive to feature "${feat.name}") imports "${edge.toModule}" which is not a member of that feature.`,
+          detail: `Module "${fromKey}" (exclusive to feature "${feat.name}") imports "${toKey}" which is not a member of that feature.`,
         });
       }
     }
@@ -217,26 +216,27 @@ function buildClosureViolations({
   // ── unclaimed-edge ────────────────────────────────────────────────────────
   // A non-barrel-origin real edge not present in ANY feature's derived edges.
   // An edge is claimed if some feature declares both of its endpoints as members.
-  // Computed in bare-name space (matching `moduleEdges`), independent of the
-  // `layer::name`-keyed `featureGraphs` output.
   const claimedEdgeKeys = new Set<string>();
   for (const feat of features) {
     const memberSet = new Set(feat.modules);
     for (const edge of moduleEdges) {
-      if (memberSet.has(edge.fromModule) && memberSet.has(edge.toModule)) {
-        claimedEdgeKeys.add(`${edge.fromModule}\0${edge.toModule}`);
+      const fromKey = edgeFromKey(edge);
+      const toKey = edgeToKey(edge);
+      if (memberSet.has(fromKey) && memberSet.has(toKey)) {
+        claimedEdgeKeys.add(`${fromKey}\0${toKey}`);
       }
     }
   }
   for (const edge of moduleEdges) {
-    if (barrelByName.get(edge.fromModule)) continue; // barrel origin: exempt
-    const key = `${edge.fromModule}\0${edge.toModule}`;
-    if (!claimedEdgeKeys.has(key)) {
+    const fromKey = edgeFromKey(edge);
+    if (barrelByKey.get(fromKey)) continue; // barrel origin: exempt
+    const toKey = edgeToKey(edge);
+    if (!claimedEdgeKeys.has(`${fromKey}\0${toKey}`)) {
       violations.push({
         reason: 'unclaimed-edge',
         fromModule: edge.fromModule,
         toModule: edge.toModule,
-        detail: `Edge "${edge.fromModule}" → "${edge.toModule}" is not claimed by any feature.`,
+        detail: `Edge "${fromKey}" → "${toKey}" is not claimed by any feature.`,
       });
     }
   }

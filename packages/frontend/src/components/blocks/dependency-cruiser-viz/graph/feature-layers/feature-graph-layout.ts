@@ -174,9 +174,10 @@ export function computeFeatureGraphLayout(
   // legal edge set, so hiding edges never degrades the layout. Only the rendered
   // edges are filtered/classified here.
   const nodeByKey = new Map(graph.nodes.map((n) => [n.key, n]));
-  const familyOf = (key: string): string => {
-    const n = nodeByKey.get(key);
-    return n ? moduleFamily(n.layer, n.name) : key;
+  const structuralNesting = (from: string, to: string): boolean => {
+    const a = nodeByKey.get(from);
+    const b = nodeByKey.get(to);
+    return a != null && b != null && isStructuralNesting(a, b);
   };
   const sameLayer = (a: string, b: string): boolean => {
     const na = nodeByKey.get(a);
@@ -198,11 +199,12 @@ export function computeFeatureGraphLayout(
     // Transitive reduction: drop legal edges implied by a longer legal path.
     if (redundant && redundant.has(key)) return false;
     const kind = kindOf(e);
-    // Family-internal (parent → nested child) legal/peer edges are implied by
-    // the cluster that already draws the family together — drop them as noise.
+    // Structural parent→child nesting (under a non-barrel) is implied by the
+    // cluster that already draws the family together — drop it as noise. Sibling
+    // edges and barrel fan-out are real wiring and kept.
     if (
       (kind === 'legal' || kind === 'peer') &&
-      familyOf(e.from) === familyOf(e.to)
+      structuralNesting(e.from, e.to)
     ) {
       return false;
     }
@@ -423,10 +425,30 @@ function uniformDepthColumns(graph: FeatureModuleGraph): ColumnPlan {
 }
 
 /**
+ * A structural parent→child nesting edge: same layer and one module's name is a
+ * path-prefix of the other (e.g. `otel` → `otel/internal`), where the parent is
+ * NOT a barrel. This is the implicit containment a family cluster already
+ * conveys, so it is excluded from both edge rendering and intra-layer depth —
+ * nested children keep their parent's sub-column and cluster with it. Sibling
+ * edges (neither name prefixes the other) and barrel fan-out are real wiring:
+ * they are drawn AND push sub-depth so they flow forward within the band.
+ */
+function isStructuralNesting(a: ModuleNode, b: ModuleNode): boolean {
+  if (a.layer !== b.layer) return false;
+  const parent = b.name.startsWith(a.name + '/')
+    ? a
+    : a.name.startsWith(b.name + '/')
+      ? b
+      : null;
+  return parent != null && !parent.barrel;
+}
+
+/**
  * Internal depth of each node *within its own layer*: the longest chain of
- * same-layer, cross-family legal imports reaching it. Family-internal edges are
- * excluded so a parent and its nested children keep the same sub-column (and
- * cluster together), and same-layer cycles are condensed to one sub-column.
+ * same-layer legal imports reaching it, excluding only {@link isStructuralNesting}
+ * edges so a non-barrel parent and its nested children keep one sub-column.
+ * Sibling and barrel-fan-out edges DO advance the depth, so intra-layer wiring
+ * spreads left → right; same-layer cycles are condensed to one sub-column.
  */
 function intraLayerSubDepth(graph: FeatureModuleGraph): Map<string, number> {
   const nodeByKey = new Map(graph.nodes.map((n) => [n.key, n]));
@@ -437,7 +459,7 @@ function intraLayerSubDepth(graph: FeatureModuleGraph): Map<string, number> {
     const a = nodeByKey.get(e.from);
     const b = nodeByKey.get(e.to);
     if (!a || !b || a.layer !== b.layer) return false;
-    return moduleFamily(a.layer, a.name) !== moduleFamily(b.layer, b.name);
+    return !isStructuralNesting(a, b);
   });
   return condensedLongestPath(graph.nodes, intraLayer);
 }

@@ -25,7 +25,11 @@ const config = toVisualizationConfig({
   ],
   features: [
     feature('auth', { root: 'auth', modules: ['auth'] }),
-    feature('orders', { root: 'order', modules: ['order'] }),
+    // `order` exists in both services and domain — qualify to disambiguate.
+    feature('orders', {
+      root: 'services::order',
+      modules: ['services::order'],
+    }),
     // 'types' is shared: named by both 'shared' and 'orders' features below
     feature('shared', { root: 'types', modules: ['types', 'logger'] }),
   ],

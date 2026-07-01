@@ -411,6 +411,9 @@ importers:
       effect:
         specifier: 4.0.0-beta.78
         version: 4.0.0-beta.78
+      env-paths:
+        specifier: 2.2.1
+        version: 2.2.1
       jiti:
         specifier: 2.7.0
         version: 2.7.0
