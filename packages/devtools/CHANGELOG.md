@@ -1,5 +1,15 @@
 # @kishorez/devtools
 
+## 0.0.6
+
+### Patch Changes
+
+- Improve ui. Fix edge logic.
+
+- Updated dependencies []:
+  - depcruise-viz@0.0.6
+  - std-toolkit@0.0.1
+
 ## 0.0.5
 
 ### Patch Changes
