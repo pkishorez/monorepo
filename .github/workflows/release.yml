@@ -27,7 +27,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Pin to 24.18.0 (matches local): 24.17.0's CVE-2026-48931 fix
+          # (response queue poisoning guard) broke node-fetch@2 with false
+          # ERR_STREAM_PREMATURE_CLOSE errors, which crashed changesets'
+          # get-github-info GraphQL calls. 24.18.0 (nodejs/node#64004) fixes it.
+          node-version: 24.18.0
           cache: pnpm
 
       - name: Setup Bun
