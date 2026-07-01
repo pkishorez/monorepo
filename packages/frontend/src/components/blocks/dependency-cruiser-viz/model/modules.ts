@@ -52,11 +52,12 @@ export function allModules(
   const byKey = new Map<string, ModuleNode>();
   const files = moduleFiles(summary);
 
-  // Count how many features declare each module name to determine sharing.
-  const featureCountByName = new Map<string, number>();
+  // Count how many features declare each module (by `layer::name` key) to
+  // determine sharing. Feature members are resolved keys, matching module keys.
+  const featureCountByKey = new Map<string, number>();
   for (const f of config.features ?? []) {
-    for (const mName of f.modules) {
-      featureCountByName.set(mName, (featureCountByName.get(mName) ?? 0) + 1);
+    for (const key of f.modules) {
+      featureCountByKey.set(key, (featureCountByKey.get(key) ?? 0) + 1);
     }
   }
 
@@ -80,7 +81,7 @@ export function allModules(
   const record = (layer: string, name: string, barrel: boolean): void => {
     const key = moduleKey(layer, name);
     if (byKey.has(key)) return;
-    const isShared = (featureCountByName.get(name) ?? 0) >= 2;
+    const isShared = (featureCountByKey.get(key) ?? 0) >= 2;
     const breachCount = violationCountByName.get(name) ?? 0;
     byKey.set(key, {
       key,

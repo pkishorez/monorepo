@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { exec } from 'node:child_process';
 import { createServer } from 'node:http';
+import path from 'node:path';
+import envPaths from 'env-paths';
 import { Config, Effect, Layer, References } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 import {
@@ -14,13 +16,23 @@ import {
   NodeRuntime,
   NodeServices,
 } from '@effect/platform-node';
-import { DEFAULT_DB_PATH, LotelApiLive, makeDbLayer } from '@kishorez/lotel';
+import { LotelApiLive, makeDbLayer } from '@kishorez/lotel';
 import { DevtoolsRpc } from '../rpc/index.js';
 import { DevtoolsHandlersLive } from './handlers.js';
 
 // The server always binds to loopback; only the port and db path are configurable.
 const HOST = '127.0.0.1';
 const APP_URL = process.env.DEVTOOLS_APP_URL ?? 'https://kishore.app/devtools';
+
+/**
+ * Default telemetry database location: a stable, OS-appropriate user data
+ * directory (via `env-paths`), so telemetry survives across runs and is
+ * independent of the directory devtools happens to be launched from.
+ */
+const DEFAULT_DB_PATH = path.join(
+  envPaths('devtools', { suffix: '' }).data,
+  'lotel.sqlite',
+);
 
 /** Best-effort, silent open of the DevTools frontend in the default browser. */
 const openInBrowser = (url: string) => {
@@ -163,17 +175,23 @@ const db = Flag.string('db').pipe(
   Flag.withDefault(DEFAULT_DB_PATH),
 );
 
+const open = Flag.boolean('open').pipe(
+  Flag.withDescription('Open the DevTools frontend in your default browser'),
+  Flag.withDefault(false),
+);
+
 const command = Command.make(
   'devtools',
-  { port, db },
-  Effect.fn(function* ({ port, db }) {
+  { port, db, open },
+  Effect.fn(function* ({ port, db, open }) {
     const serverUrl = `http://localhost:${port}`;
     const openUrl = `${APP_URL}?url=${encodeURIComponent(serverUrl)}`;
 
     yield* Effect.gen(function* () {
       console.log(`devtools running on ${serverUrl}`);
+      console.log(`lotel storage: ${path.resolve(db)}`);
       console.log(`open: ${openUrl}`);
-      openInBrowser(openUrl);
+      if (open) openInBrowser(openUrl);
       yield* Effect.never;
     }).pipe(Effect.provide(makeServerLive({ port, db, serverUrl, openUrl })));
   }),

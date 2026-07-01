@@ -33,9 +33,12 @@ export type ModuleDecl = {
 export type Feature = {
   readonly kind: 'feature';
   readonly name: string;
-  /** Module name that is the single root (entry point) of this feature. */
+  /** The single root (entry point) of this feature, as a bare module name or a
+   * qualified `layer::name` reference. Must appear verbatim in `modules`. */
   readonly root: string;
-  /** All module names belonging to this feature, including `root`. */
+  /** All modules belonging to this feature, including `root`. Each is a bare
+   * module name (allowed only when unique across layers) or a qualified
+   * `layer::name` reference; resolved to `layer::name` keys at compile time. */
   readonly modules: readonly string[];
   readonly config: { description?: string };
 };
@@ -66,7 +69,9 @@ export type VisualizationConfig = {
   features?: Array<{
     name: string;
     description?: string;
+    /** Resolved `layer::name` key of the feature root. */
     root: string;
+    /** Resolved `layer::name` keys of the feature's members, including `root`. */
     modules: string[];
   }>;
   modules?: Array<{

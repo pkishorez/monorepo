@@ -51,29 +51,22 @@ export function toVisualizationConfig(
   }
 
   if (config.features && config.features.length > 0) {
-    const declaredModuleNames = new Set(
-      (result.modules ?? []).map((m) => m.name),
-    );
+    const resolveMember = makeMemberResolver(result.modules ?? []);
     result.features = config.features.map((f) => {
       if (f.modules.length === 0) {
         throw new Error(`Feature "${f.name}" has no members`);
       }
-      for (const memberName of f.modules) {
-        if (!declaredModuleNames.has(memberName)) {
-          throw new Error(
-            `Feature "${f.name}": member "${memberName}" is not a declared module name`,
-          );
-        }
-      }
-      if (!declaredModuleNames.has(f.root)) {
+      const modules = f.modules.map((m) => resolveMember(f.name, m));
+      const root = resolveMember(f.name, f.root);
+      if (!modules.includes(root)) {
         throw new Error(
-          `Feature "${f.name}": root "${f.root}" is not a declared module name`,
+          `Feature "${f.name}": root "${f.root}" must be present in modules`,
         );
       }
       const entry: NonNullable<VisualizationConfig['features']>[number] = {
         name: f.name,
-        root: f.root,
-        modules: [...f.modules],
+        root,
+        modules,
       };
       if (f.config.description !== undefined) {
         entry.description = f.config.description;
@@ -83,6 +76,52 @@ export function toVisualizationConfig(
   }
 
   return result;
+}
+
+/**
+ * Builds a resolver that turns a feature member reference into its canonical
+ * `layer::name` key. A reference is either qualified (`layer::name`, matched
+ * exactly) or a bare name (resolved to the single declared module of that name).
+ * A bare name that collides across layers is rejected — the author must qualify
+ * it — so membership is never silently mis-attributed to the wrong layer.
+ */
+function makeMemberResolver(
+  modules: NonNullable<VisualizationConfig['modules']>,
+): (featureName: string, ref: string) => string {
+  const keyOf = (m: { layer: string; name: string }): string =>
+    `${m.layer}::${m.name}`;
+  const keySet = new Set(modules.map(keyOf));
+  const keysByName = new Map<string, string[]>();
+  for (const m of modules) {
+    const list = keysByName.get(m.name);
+    if (list) list.push(keyOf(m));
+    else keysByName.set(m.name, [keyOf(m)]);
+  }
+
+  return (featureName, ref) => {
+    if (ref.includes('::')) {
+      if (!keySet.has(ref)) {
+        throw new Error(
+          `Feature "${featureName}": member "${ref}" is not a declared module`,
+        );
+      }
+      return ref;
+    }
+    const matches = keysByName.get(ref);
+    if (!matches || matches.length === 0) {
+      throw new Error(
+        `Feature "${featureName}": member "${ref}" is not a declared module name`,
+      );
+    }
+    if (matches.length > 1) {
+      throw new Error(
+        `Feature "${featureName}": member "${ref}" is ambiguous across layers (${matches.join(
+          ', ',
+        )}); qualify it as "layer::name"`,
+      );
+    }
+    return matches[0]!;
+  };
 }
 
 type LayerLookup = { name: string; paths: string[] };

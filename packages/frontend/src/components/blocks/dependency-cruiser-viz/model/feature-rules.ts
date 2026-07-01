@@ -25,8 +25,8 @@ function byLayerThenName(
 
 /**
  * Build the {@link FeatureRules} for `feature` from the authored config.
- * Members are `config.modules` whose name appears in the feature's declared
- * `modules` list. Sorted by layer then name for stable serialization.
+ * Members are `config.modules` whose `layer::name` key appears in the feature's
+ * resolved `modules` list. Sorted by layer then name for stable serialization.
  */
 export function featureRules(
   config: VisualizationConfig,
@@ -34,9 +34,9 @@ export function featureRules(
 ): FeatureRules {
   const decl = config.features?.find((f) => f.name === feature);
 
-  const memberNames = new Set(decl?.modules ?? []);
+  const memberKeys = new Set(decl?.modules ?? []);
   const modules = (config.modules ?? [])
-    .filter((m) => memberNames.has(m.name))
+    .filter((m) => memberKeys.has(`${m.layer}::${m.name}`))
     .map((m) => ({
       name: m.name,
       layer: m.layer,

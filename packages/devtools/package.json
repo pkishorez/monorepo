@@ -41,6 +41,7 @@
     "depcruise-viz": "workspace:*",
     "dependency-cruiser": "17.4.3",
     "effect": "4.0.0-beta.78",
+    "env-paths": "2.2.1",
     "jiti": "2.7.0",
     "std-toolkit": "workspace:*",
     "typescript": "6.0.3"

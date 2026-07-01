@@ -84,8 +84,50 @@ test('feature compiles to VisualizationConfig.features with correct root and mod
   const viz = toVisualizationConfig(cfg);
   expect(viz.features).toHaveLength(1);
   const f = viz.features![0]!;
-  expect(f.root).toBe('a.controller');
-  expect(f.modules).toEqual(['a.controller', 'svc']);
+  // Bare names resolve to their `layer::name` keys.
+  expect(f.root).toBe('handlers::a.controller');
+  expect(f.modules).toEqual(['handlers::a.controller', 'services::svc']);
+});
+
+test('qualified layer::name members resolve to that exact module', () => {
+  const cfg = makeConfig({
+    modules: [module('src/handlers/a.controller'), module('src/services/svc')],
+    features: [
+      feature('f', {
+        root: 'handlers::a.controller',
+        modules: ['handlers::a.controller', 'services::svc'],
+      }),
+    ],
+  });
+  const viz = toVisualizationConfig(cfg);
+  expect(viz.features![0]!.modules).toEqual([
+    'handlers::a.controller',
+    'services::svc',
+  ]);
+});
+
+test('a bare member colliding across layers throws (must qualify)', () => {
+  const handlers = layer('handlers', ['src/handlers']);
+  const services = layer('services', ['src/services']);
+  const cfg = {
+    rootDir: '.',
+    rules: [layersTopDown('app', [handlers, services])],
+    modules: [module('src/handlers/dup'), module('src/services/dup')],
+    features: [feature('f', { root: 'dup', modules: ['dup'] })],
+  };
+  expect(() => toVisualizationConfig(cfg)).toThrow(/ambiguous across layers/);
+});
+
+test('a qualified member that names no module throws', () => {
+  const cfg = makeConfig({
+    modules: [module('src/handlers/a')],
+    features: [
+      feature('f', { root: 'handlers::a', modules: ['handlers::a', 'x::a'] }),
+    ],
+  });
+  expect(() => toVisualizationConfig(cfg)).toThrow(
+    /member "x::a" is not a declared module/,
+  );
 });
 
 test('feature description passes through', () => {

@@ -5,7 +5,6 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
-  type Edge,
   type Node,
   type NodeProps,
 } from '@xyflow/react';
@@ -123,19 +122,28 @@ function FeatureGraphPanelInner({
   // the highlight when nothing is selected or pinned.
   const sticky = pinnedNode ?? selectedModule;
   const activeKey = sticky ?? hoveredNode;
-  // The pinned node traces its full connected chain; a plain selection or hover
-  // lights only direct neighbours.
+  // Right-click pins the full connected chain (both directions). A left-click
+  // selection lights the downstream cone — every module the node transitively
+  // imports — so selecting the root reveals the whole feature it pulls in. A
+  // bare hover stays light, lighting only the node's direct neighbours.
   const chainMode = pinnedNode != null;
+  const coneMode = pinnedNode == null && selectedModule != null;
+  const setMode = chainMode || coneMode;
+  // Reachability walks the FULL feature graph, not the rendered `edges`: the
+  // layout hides family-internal edges (e.g. a `cart` barrel → its `cart/*`
+  // children), so a walk over the visible edges would stop at the barrel and
+  // leave its whole cone dark.
   const connectedKeys = useMemo(() => {
     if (!activeKey) return null;
-    if (chainMode) return collectConnectedChain(activeKey, edges);
+    if (chainMode) return collectConnectedChain(activeKey, graph.edges);
+    if (coneMode) return collectDownstream(activeKey, graph.edges);
     const keys = new Set<string>([activeKey]);
-    for (const e of edges) {
-      if (e.source === activeKey) keys.add(e.target);
-      if (e.target === activeKey) keys.add(e.source);
+    for (const e of graph.edges) {
+      if (e.from === activeKey) keys.add(e.to);
+      if (e.to === activeKey) keys.add(e.from);
     }
     return keys;
-  }, [activeKey, edges, chainMode]);
+  }, [activeKey, graph.edges, chainMode, coneMode]);
 
   const focus = useMemo<GraphFocus>(
     () => ({ selectedModule, activeKey, connectedKeys }),
@@ -152,8 +160,8 @@ function FeatureGraphPanelInner({
         const isBreach = kind === 'breach';
         // A breach reads as "against the flow" — keep its own colour and dashes
         // even when highlighted, rather than turning primary.
-        const incident = chainMode
-          ? // Whole chain: light every edge whose endpoints are both in it.
+        const incident = setMode
+          ? // Chain or cone: light every edge whose endpoints are both in it.
             connectedKeys != null &&
             connectedKeys.has(e.source) &&
             connectedKeys.has(e.target)
@@ -183,7 +191,7 @@ function FeatureGraphPanelInner({
           zIndex: incident ? 1 : 0,
         };
       }),
-    [edges, activeKey, chainMode, connectedKeys],
+    [edges, activeKey, setMode, connectedKeys],
   );
 
   const handleNodeClick = useCallback(
@@ -278,7 +286,10 @@ function FeatureGraphPanelInner({
  * (follow edges backward). Direction matters — an undirected walk would engulf
  * the whole graph whenever it is connected.
  */
-function collectConnectedChain(start: string, edges: Edge[]): Set<string> {
+function collectConnectedChain(
+  start: string,
+  edges: FeatureModuleGraph['edges'],
+): Set<string> {
   const downstream = new Map<string, string[]>();
   const upstream = new Map<string, string[]>();
   const link = (map: Map<string, string[]>, a: string, b: string) => {
@@ -287,8 +298,8 @@ function collectConnectedChain(start: string, edges: Edge[]): Set<string> {
     else map.set(a, [b]);
   };
   for (const e of edges) {
-    link(downstream, e.source, e.target);
-    link(upstream, e.target, e.source);
+    link(downstream, e.from, e.to);
+    link(upstream, e.to, e.from);
   }
 
   const reach = (adjacency: Map<string, string[]>, seen: Set<string>) => {
@@ -307,6 +318,35 @@ function collectConnectedChain(start: string, edges: Edge[]): Set<string> {
   const seen = new Set<string>([start]);
   reach(downstream, seen);
   reach(upstream, seen);
+  return seen;
+}
+
+/**
+ * The downstream cone of `start`: `start` plus every node it transitively
+ * imports (follow edges forward only). Selecting a node reveals everything it
+ * pulls in — for the root, the whole feature.
+ */
+function collectDownstream(
+  start: string,
+  edges: FeatureModuleGraph['edges'],
+): Set<string> {
+  const downstream = new Map<string, string[]>();
+  for (const e of edges) {
+    const list = downstream.get(e.from);
+    if (list) list.push(e.to);
+    else downstream.set(e.from, [e.to]);
+  }
+  const seen = new Set<string>([start]);
+  const queue = [start];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    for (const next of downstream.get(node) ?? []) {
+      if (!seen.has(next)) {
+        seen.add(next);
+        queue.push(next);
+      }
+    }
+  }
   return seen;
 }
 
