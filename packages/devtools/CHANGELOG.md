@@ -1,5 +1,15 @@
 # @kishorez/devtools
 
+## 0.0.7
+
+### Patch Changes
+
+- [`5b9a4ab`](https://github.com/pkishorez/monorepo/commit/5b9a4abf8a6250e7005d1b5df7abed584e59624d) Thanks [@pkishorez](https://github.com/pkishorez)! - Improve ui. For devtools, only open when --open flag is present.
+
+- Updated dependencies [[`5b9a4ab`](https://github.com/pkishorez/monorepo/commit/5b9a4abf8a6250e7005d1b5df7abed584e59624d)]:
+  - depcruise-viz@0.0.7
+  - std-toolkit@0.0.1
+
 ## 0.0.6
 
 ### Patch Changes
