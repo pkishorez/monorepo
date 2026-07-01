@@ -3,13 +3,13 @@ import { featureFocus } from '../../model';
 import type { ModuleNode } from '../../model';
 import { buildLayerGrid, type LayerGrid } from '../../model/layer-model';
 
-export type FilterChipId = 'shared-unowned' | 'breached' | 'public-surface';
+export type FilterChipId = 'shared' | 'breached';
 
 export type FeatureChip = {
   kind: 'feature';
   id: string;
   label: string;
-  ownedCount: number;
+  memberCount: number;
 };
 
 export type FilterChip = {
@@ -28,7 +28,7 @@ export type FeatureLayersModel = {
 
 /**
  * Derives the chip bar contents from config + summary.
- * Feature chips are ordered by owned-module-count descending.
+ * Feature chips are ordered by member-module-count descending.
  */
 export function buildFeatureLayersModel(
   config: VisualizationConfig,
@@ -42,16 +42,15 @@ export function buildFeatureLayersModel(
       kind: 'feature',
       id: f.name,
       label: f.name,
-      ownedCount: focus.owned.size,
+      memberCount: focus.members.size,
     };
   });
 
-  featureChips.sort((a, b) => b.ownedCount - a.ownedCount);
+  featureChips.sort((a, b) => b.memberCount - a.memberCount);
 
   const filterChips: FilterChip[] = [
-    { kind: 'filter', id: 'shared-unowned', label: 'Shared / Unowned' },
+    { kind: 'filter', id: 'shared', label: 'Shared' },
     { kind: 'filter', id: 'breached', label: 'Breached' },
-    { kind: 'filter', id: 'public-surface', label: 'Public surface' },
   ];
 
   return { layerGrid, featureChips, filterChips };
@@ -66,10 +65,8 @@ export function filterChipModules(
 ): Set<string> {
   const keys = new Set<string>();
   for (const m of allModuleNodes) {
-    if (chipId === 'shared-unowned' && m.feature === null) keys.add(m.key);
+    if (chipId === 'shared' && m.isShared) keys.add(m.key);
     else if (chipId === 'breached' && m.isBreached) keys.add(m.key);
-    else if (chipId === 'public-surface' && m.visibility === 'public')
-      keys.add(m.key);
   }
   return keys;
 }

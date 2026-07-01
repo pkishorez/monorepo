@@ -1,25 +1,19 @@
 export type {
-  Breach,
   DepcruiseVizData,
+  FeatureClosureViolation,
   LayerConflict,
   ModuleEdge,
-  Visibility,
   VisualizationConfig,
   VizSummary,
 } from './types';
+export { allModules, moduleFiles, moduleKey, type ModuleNode } from './modules';
 export {
-  VISIBILITY_COLOR,
-  fileVisibility,
-  moduleVisibilityByPath,
-} from './visibility';
-export {
-  allModules,
-  moduleFiles,
-  moduleKey,
-  resolveBreachModule,
-  type ModuleNode,
-} from './modules';
-export { featureFiles, featureFileSets, featureFocus } from './features';
+  featureFiles,
+  featureFileSets,
+  featureFocus,
+  type FeatureFocus,
+} from './features';
+export { featureRules, type FeatureRules } from './feature-rules';
 export {
   featureModuleGraph,
   moduleFamily,

@@ -1,6 +1,6 @@
 import type { TreeViewElement } from '#components/ui/file-tree';
 
-import type { Breach, LayerConflict, Visibility } from '../../model';
+import type { FeatureClosureViolation, LayerConflict } from '../../model';
 
 export type FileStatus = 'covered' | 'orphan' | 'ignored';
 
@@ -15,12 +15,6 @@ export type NodeKind = 'layer' | 'module' | 'other';
 export type FileTreeNode = TreeViewElement & {
   status?: FileStatus;
   nodeKind?: NodeKind;
-  /**
-   * Visibility tier of the declared module a node IS (its id matches a module
-   * path) — module folders and single-file modules. Undefined for intermediate
-   * folders and non-module files. Drives the Features-tab visibility dot.
-   */
-  visibility?: Visibility;
   children?: FileTreeNode[];
 };
 
@@ -50,8 +44,8 @@ export type FileTreeViewModel = {
   violations: ViolationItem[];
   /** Active (selected/hovered) layer; dims violation rows not touching it. */
   activeLayer: string | null;
-  /** Feature/visibility boundary breaches (static list, shown in the sidebar). */
-  breaches: Breach[];
+  /** Feature closure violations (static list, shown in the sidebar). */
+  closureViolations: FeatureClosureViolation[];
   /** Overlapping layer-pattern conflicts (static list, shown in the sidebar). */
   conflicts: LayerConflict[];
   tree: FileTreeNode[];
@@ -71,17 +65,10 @@ export type FileTreeViewModel = {
    */
   focusScopeFiles: Set<string> | null;
   /**
-   * Files of modules the selected feature OWNS (its own vertical slice), or a
-   * selected layer's files. Rendered with the STRONG/primary highlight. Null
-   * when nothing is selected.
+   * Files of the selected feature's member modules, or a selected layer's files.
+   * Rendered with the primary highlight. Null when nothing is selected.
    */
   ownedFiles: Set<string> | null;
-  /**
-   * Files of the shared/public modules the selected feature CONSUMES (borrows).
-   * Rendered with the SUBTLE/secondary highlight plus a "borrowed" marker. Null
-   * when no feature is selected (a bare layer selection has no consumed tier).
-   */
-  consumedFiles: Set<string> | null;
   /**
    * Files inside a declared layer but in no declared module (coverage gaps),
    * shown distinctly so they can be promoted into a module.

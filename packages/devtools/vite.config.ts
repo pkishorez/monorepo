@@ -9,8 +9,5 @@ export default defineConfig({
     platform: 'node',
     dts: false,
     publint: false,
-    deps: {
-      alwaysBundle: [/depcruise-viz/, /@kishorez\/lotel/, /std-toolkit/],
-    },
   },
 });

@@ -1,5 +1,16 @@
 # @kishorez/devtools
 
+## 0.0.5
+
+### Patch Changes
+
+- Rebuild the feature model so selecting any feature renders a single-rooted, top-down cone derived from the real import graph, instead of an inferred pile of disconnected roots.
+
+- Updated dependencies []:
+  - depcruise-viz@0.0.5
+  - @kishorez/lotel@0.0.1
+  - std-toolkit@0.0.1
+
 ## 0.0.4
 
 ### Patch Changes

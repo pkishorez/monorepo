@@ -1,5 +1,4 @@
-import { featureFocus } from './features';
-import { allModules, moduleKey, type ModuleNode } from './modules';
+import { allModules, type ModuleNode } from './modules';
 import type { VisualizationConfig, VizSummary } from './types';
 
 /** An import between two of a feature's modules, by `layer::name` key. */
@@ -10,54 +9,39 @@ export type FeatureModuleGraphEdge = {
 };
 
 /**
- * The module-connection graph for a single feature: its owned ∪ consumed
- * modules as nodes, and the real module→module imports between them
- * (`summary.moduleEdges`) as edges. Edges touching a module outside the
- * feature's set are dropped, so the graph stays scoped to the feature.
- *
- * Every real import is kept (no transitive reduction): the layer-swimlane
- * layout already reads cleanly, and showing each hop is what makes the graph
- * usable as the feature's end-to-end import map. The one exception is edges
- * between a module and a sub-module nested under it (e.g. `cart` ↔
- * `cart/multi-reservation` in the same layer): that is folder containment, not
- * a dependency worth drawing, so it is suppressed and the pair is clustered
- * together in the layout instead.
+ * The module-connection graph for a single feature: its declared member modules
+ * as nodes, and the edges from `summary.featureGraphs` for that feature. Edges
+ * are pre-scoped by the backend to the feature's member set and barrel-filtered —
+ * the frontend consumes them directly without re-inference.
  */
 export type FeatureModuleGraph = {
   nodes: ModuleNode[];
   edges: FeatureModuleGraphEdge[];
 };
 
+/**
+ * Returns the feature's graph from `summary.featureGraphs`, mapping node keys
+ * to full `ModuleNode` objects. Falls back to empty when the feature is not
+ * found or summary is absent.
+ */
 export function featureModuleGraph(
   config: VisualizationConfig,
   summary: VizSummary | undefined,
   feature: string,
 ): FeatureModuleGraph {
-  const focus = featureFocus(summary, feature);
-  const keys = new Set([...focus.owned, ...focus.consumed]);
-  const nodes = allModules(config, summary).filter((m) => keys.has(m.key));
+  const fg = summary?.featureGraphs.find((g) => g.feature === feature);
+  if (!fg || !summary) return { nodes: [], edges: [] };
 
-  if (!summary) return { nodes, edges: [] };
-
-  const seen = new Set<string>();
-  const edges: FeatureModuleGraphEdge[] = [];
-  for (const e of summary.moduleEdges) {
-    const from = moduleKey(e.fromLayer, e.fromModule);
-    const to = moduleKey(e.toLayer, e.toModule);
-    if (!keys.has(from) || !keys.has(to) || from === to) continue;
-    // Containment, not dependency: a module and its own nested sub-module share
-    // a family and must not be wired together.
-    if (
-      moduleFamily(e.fromLayer, e.fromModule) ===
-      moduleFamily(e.toLayer, e.toModule)
-    ) {
-      continue;
-    }
-    const id = `${from}\0${to}\0${e.kind}`;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    edges.push({ from, to, kind: e.kind });
-  }
+  const nodeMap = new Map(allModules(config, summary).map((m) => [m.key, m]));
+  const nodes = fg.nodes.flatMap((key) => {
+    const m = nodeMap.get(key);
+    return m ? [m] : [];
+  });
+  const edges: FeatureModuleGraphEdge[] = fg.edges.map((e) => ({
+    from: e.from,
+    to: e.to,
+    kind: e.kind,
+  }));
 
   return { nodes, edges };
 }

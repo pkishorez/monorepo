@@ -1,6 +1,5 @@
 import {
   feature,
-  group,
   layer,
   layersTopDown,
   module,
@@ -44,33 +43,37 @@ const fullConfigWithFeatures = toVisualizationConfig({
   rules: [backend, frontend],
   features: [
     feature('auth', {
+      root: 'auth',
+      modules: ['auth', 'auth', 'types', 'logger'],
       description: 'Authentication & session management',
     }),
-    feature('orders', { description: 'Order processing pipeline' }),
+    feature('orders', {
+      root: 'pipeline',
+      modules: ['pipeline', 'workflow', 'order', 'types'],
+      description: 'Order processing pipeline',
+    }),
     feature('shared', {
+      root: 'types',
+      modules: ['types', 'logger', 'user'],
       description: 'Shared utilities and cross-cutting concerns',
     }),
-    feature('dashboard', { description: 'Observability dashboard routes' }),
+    feature('dashboard', {
+      root: 'otel',
+      modules: ['otel', 'otel/internal'],
+      description: 'Observability dashboard routes',
+    }),
   ],
   modules: [
-    module('src/server/auth', { feature: 'auth' }),
-    module('src/services/auth', { feature: 'auth' }),
-    module('src/orchestrator/pipeline', { feature: 'orders' }),
-    module('src/orchestrator/workflow', { feature: 'orders' }),
-    module('src/domain/order', { feature: 'orders' }),
-    // A shared module owned by `shared`, consumed by both other features.
-    module('src/domain/types', {
-      feature: 'shared',
-      sharedWith: ['auth', 'orders'],
-    }),
-    // A public utility importable by everyone (axis-3 public cluster).
-    module('src/domain/logger', { feature: 'shared', visibility: 'public' }),
-    // A private module of `shared` that `auth` illegally reaches into.
-    module('src/domain/user', { feature: 'shared' }),
-    // Nested modules: `otel` is a declared module whose path is a prefix of the
-    // deeper declared module `otel/internal` (exercises Change 2).
-    module('src/routes/otel', { feature: 'dashboard' }),
-    module('src/routes/otel/internal', { feature: 'dashboard' }),
+    module('src/server/auth'),
+    module('src/services/auth'),
+    module('src/orchestrator/pipeline'),
+    module('src/orchestrator/workflow'),
+    module('src/domain/order'),
+    module('src/domain/types'),
+    module('src/domain/logger', { barrel: true }),
+    module('src/domain/user'),
+    module('src/routes/otel'),
+    module('src/routes/otel/internal'),
   ],
 });
 
@@ -145,10 +148,9 @@ const fullSummary: VizSummary = {
   coverageGaps: [],
   emptyModules: [],
   conflicts: [],
-  breaches: [],
-  featureEdges: [],
-  featureModuleEdges: [],
   moduleEdges: [],
+  featureGraphs: [],
+  closureViolations: [],
 };
 
 const fullSummaryWithFeatures: VizSummary = {
@@ -157,80 +159,56 @@ const fullSummaryWithFeatures: VizSummary = {
     {
       module: 'auth',
       layer: 'server',
-      feature: 'auth',
-      visibility: 'private',
       files: ['src/server/handler.ts'],
     },
     {
       module: 'auth',
       layer: 'services',
-      feature: 'auth',
-      visibility: 'private',
       files: ['src/services/auth.ts'],
     },
     {
       module: 'pipeline',
       layer: 'orchestrator',
-      feature: 'orders',
-      visibility: 'private',
       files: ['src/orchestrator/pipeline.ts'],
     },
     {
       module: 'workflow',
       layer: 'orchestrator',
-      feature: 'orders',
-      visibility: 'private',
       files: ['src/orchestrator/workflow.ts'],
     },
     {
       module: 'order',
       layer: 'domain',
-      feature: 'orders',
-      visibility: 'private',
       files: ['src/domain/order.ts'],
     },
     {
       module: 'types',
       layer: 'domain',
-      feature: 'shared',
-      visibility: 'shared',
-      sharedWith: ['auth', 'orders'],
       files: ['src/domain/types.ts'],
     },
     {
       module: 'logger',
       layer: 'domain',
-      feature: 'shared',
-      visibility: 'public',
       files: ['src/domain/logger.ts'],
     },
     {
       module: 'user',
       layer: 'domain',
-      feature: 'shared',
-      visibility: 'private',
       files: ['src/domain/user.ts'],
     },
     {
       module: 'otel',
       layer: 'routes',
-      feature: 'dashboard',
-      visibility: 'private',
       files: ['src/routes/otel/panel.tsx'],
     },
     {
       module: 'otel/internal',
       layer: 'routes',
-      feature: 'dashboard',
-      visibility: 'private',
       files: ['src/routes/otel/internal/trace-store.ts'],
     },
   ],
-  // `src/server/middleware.ts` sits in the server layer but no module owns it.
   coverageGaps: ['src/server/middleware.ts'],
   emptyModules: [],
-  // `otel` (a routes sub-layer) overlaps the `routes` layer path, so files
-  // under it match both — demoing the Conflicts section.
   conflicts: [
     {
       layerA: 'otel',
@@ -239,78 +217,8 @@ const fullSummaryWithFeatures: VizSummary = {
       pathB: 'src/routes',
     },
   ],
-  breaches: [
-    {
-      fromModule: 'auth',
-      fromFeature: 'auth',
-      toModule: 'user',
-      toFeature: 'shared',
-      toVisibility: 'private',
-      fromFile: 'src/services/auth.ts',
-      toFile: 'src/domain/user.ts',
-      reason: 'private-cross-feature',
-    },
-    // `dashboard` illegally reaches into a private `orders` module.
-    {
-      fromModule: 'otel',
-      fromFeature: 'dashboard',
-      toModule: 'pipeline',
-      toFeature: 'orders',
-      toVisibility: 'private',
-      fromFile: 'src/routes/otel/panel.tsx',
-      toFile: 'src/orchestrator/pipeline.ts',
-      reason: 'private-cross-feature',
-    },
-  ],
-  featureEdges: [
-    // auth and orders both legally consume the shared `types` module.
-    { from: 'auth', to: 'shared', via: ['types'] },
-    { from: 'orders', to: 'shared', via: ['types'] },
-    // dashboard legally consumes the shared `types` module too.
-    { from: 'dashboard', to: 'shared', via: ['types'] },
-  ],
-  featureModuleEdges: [
-    // `shared` OWNS the axis-3 shared `types` and public `logger` modules.
-    {
-      feature: 'shared',
-      module: 'types',
-      layer: 'domain',
-      visibility: 'shared',
-      relation: 'owns',
-    },
-    {
-      feature: 'shared',
-      module: 'logger',
-      layer: 'domain',
-      visibility: 'public',
-      relation: 'owns',
-    },
-    // `auth` and `orders` CONSUME the shared `types` (cross-feature borrow).
-    {
-      feature: 'auth',
-      module: 'types',
-      layer: 'domain',
-      visibility: 'shared',
-      relation: 'consumes',
-    },
-    {
-      feature: 'orders',
-      module: 'types',
-      layer: 'domain',
-      visibility: 'shared',
-      relation: 'consumes',
-    },
-    // `auth` CONSUMES the public `logger` util.
-    {
-      feature: 'auth',
-      module: 'logger',
-      layer: 'domain',
-      visibility: 'public',
-      relation: 'consumes',
-    },
-  ],
   moduleEdges: [
-    // auth's internal slice + its borrows.
+    // auth's internal slice.
     {
       fromLayer: 'server',
       fromModule: 'auth',
@@ -332,7 +240,7 @@ const fullSummaryWithFeatures: VizSummary = {
       toModule: 'logger',
       kind: 'legal',
     },
-    // orders' internal slice + its borrow.
+    // orders' internal slice.
     {
       fromLayer: 'orchestrator',
       fromModule: 'pipeline',
@@ -355,11 +263,80 @@ const fullSummaryWithFeatures: VizSummary = {
       kind: 'legal',
     },
   ],
+  featureGraphs: [
+    {
+      feature: 'auth',
+      root: 'server::auth',
+      nodes: [
+        'server::auth',
+        'services::auth',
+        'domain::types',
+        'domain::logger',
+      ],
+      edges: [
+        { from: 'server::auth', to: 'services::auth', kind: 'legal' },
+        { from: 'services::auth', to: 'domain::types', kind: 'legal' },
+        { from: 'server::auth', to: 'domain::logger', kind: 'legal' },
+      ],
+    },
+    {
+      feature: 'orders',
+      root: 'orchestrator::pipeline',
+      nodes: [
+        'orchestrator::pipeline',
+        'orchestrator::workflow',
+        'domain::order',
+        'domain::types',
+      ],
+      edges: [
+        {
+          from: 'orchestrator::pipeline',
+          to: 'orchestrator::workflow',
+          kind: 'legal',
+        },
+        { from: 'orchestrator::workflow', to: 'domain::order', kind: 'legal' },
+        { from: 'domain::order', to: 'domain::types', kind: 'legal' },
+      ],
+    },
+    {
+      feature: 'shared',
+      root: 'domain::types',
+      nodes: ['domain::types', 'domain::logger', 'domain::user'],
+      edges: [],
+    },
+    {
+      feature: 'dashboard',
+      root: 'routes::otel',
+      nodes: ['routes::otel', 'routes::otel/internal'],
+      edges: [
+        { from: 'routes::otel', to: 'orchestrator::pipeline', kind: 'breach' },
+      ],
+    },
+  ],
+  closureViolations: [
+    {
+      reason: 'closure-escape',
+      feature: 'auth',
+      fromModule: 'services::auth',
+      toModule: 'domain::user',
+      fromFile: 'src/services/auth.ts',
+      toFile: 'src/domain/user.ts',
+      detail: 'auth imports domain::user which is not a declared member',
+    },
+    {
+      reason: 'closure-escape',
+      feature: 'dashboard',
+      fromModule: 'routes::otel',
+      toModule: 'orchestrator::pipeline',
+      fromFile: 'src/routes/otel/panel.tsx',
+      toFile: 'src/orchestrator/pipeline.ts',
+      detail:
+        'dashboard imports orchestrator::pipeline which is not a declared member',
+    },
+  ],
 };
 
-// Grouped config: a `db` group with two independent stacks (the sub-project
-// family case) and an `api` group, plus an ungrouped stack. The layer name
-// `internal` appears in two different groups and must NOT merge.
+// Grouped config: multiple independent stacks.
 const dynamodbStack = layersTopDown('dynamodb', [
   layer('dynamodb-barrel', ['src/db/dynamodb/index.ts']),
   layer('services', ['src/db/dynamodb/services']),
@@ -383,11 +360,7 @@ const ungroupedStack = layersTopDown('scripts', [
 
 const groupedConfig = toVisualizationConfig({
   rootDir: 'src',
-  rules: [
-    ...group('db', [dynamodbStack, sqliteStack]),
-    ...group('api', [apiStack]),
-    ungroupedStack,
-  ],
+  rules: [dynamodbStack, sqliteStack, apiStack, ungroupedStack],
 });
 
 const fullHeight = (node: React.ReactNode) => (

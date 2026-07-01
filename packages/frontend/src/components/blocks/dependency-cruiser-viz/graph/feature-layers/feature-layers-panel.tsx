@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
+import { FileJson, SlidersHorizontal } from 'lucide-react';
 
 import { cn } from '#lib/utils';
 import {
@@ -28,9 +28,8 @@ import {
   allModules,
   featureFocus,
   featureModuleGraph,
+  featureRules,
   moduleKey,
-  VISIBILITY_COLOR,
-  type Visibility,
   type VisualizationConfig,
   type VizSummary,
 } from '../../model';
@@ -49,6 +48,7 @@ import {
 } from './feature-layers-model';
 import { ModuleChips } from './module-chips';
 import { FeatureGraphPanel } from './feature-graph-panel';
+import { FeatureRulesDialog } from './feature-rules-dialog';
 import type { ColumnMode } from './feature-graph-layout';
 
 type FeatureLayersPanelProps = {
@@ -63,8 +63,8 @@ type FeatureLayersPanelProps = {
 
 /**
  * Cross-cutting Features tab: feature chips above a zoomable canvas of layer
- * cards (left → right in dependency order). Selecting a feature lights up the
- * slice of modules it owns/consumes across the cards.
+ * cards (left → right in dependency order). Selecting a feature shows only that
+ * feature's member cone in the graph view, or highlights members in the grid.
  */
 export function FeatureLayersPanel(props: FeatureLayersPanelProps) {
   return (
@@ -84,19 +84,13 @@ function FeatureLayersPanelInner({
 }: FeatureLayersPanelProps) {
   const [hoveredChip, setHoveredChip] = useState<string | null>(null);
   const [hoveredModule, setHoveredModule] = useState<string | null>(null);
-  // When a feature is selected the canvas defaults to its module-connection
-  // graph; 'grid' falls back to the layer-grid highlight view. Reset to 'graph'
-  // whenever the feature clears so the next feature opens in graph mode.
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [featureView, setFeatureView] = useState<'graph' | 'grid'>('graph');
-  // Column-assignment rule for the graph: 'layer' bands modules by architecture
-  // layer; 'depth' packs each node just past whatever imports it.
   const [columnMode, setColumnMode] = useState<ColumnMode>('layer');
   useEffect(() => {
     if (!selectedFeature) setFeatureView('graph');
   }, [selectedFeature]);
   const containerRef = useRef<HTMLDivElement>(null);
-  // The grid container is unmounted in graph mode; re-attach the resize observer
-  // whenever it comes back (feature cleared or 'grid' view selected).
   const fitted = useFitViewOnResize(containerRef, [
     selectedFeature,
     featureView,
@@ -119,77 +113,40 @@ function FeatureLayersPanelInner({
   const activeChipId = hoveredChip ?? selectedFeature;
 
   const chipHighlight = useMemo(() => {
-    if (!activeChipId) {
-      return {
-        ownedModules: null,
-        consumedModules: null,
-        highlightedModules: null,
-      } as {
-        ownedModules: Set<string> | null;
-        consumedModules: Set<string> | null;
-        highlightedModules: Set<string> | null;
-      };
-    }
+    if (!activeChipId) return null as Set<string> | null;
 
     const chip =
       model.featureChips.find((c) => c.id === activeChipId) ??
       model.filterChips.find((c) => c.id === activeChipId);
 
-    if (!chip)
-      return {
-        ownedModules: null,
-        consumedModules: null,
-        highlightedModules: null,
-      };
+    if (!chip) return null;
 
     if (chip.kind === 'feature') {
       const focus = featureFocus(summary, chip.id);
-      const highlighted = new Set([...focus.owned, ...focus.consumed]);
-      return {
-        ownedModules: focus.owned,
-        consumedModules: focus.consumed,
-        highlightedModules: highlighted,
-      };
+      return focus.members.size > 0 ? focus.members : null;
     }
 
-    // Filter chip — all in owned, none in consumed
-    const keys = filterChipModules(chip.id as FilterChipId, modules);
-    return {
-      ownedModules: keys,
-      consumedModules: null,
-      highlightedModules: keys,
-    };
+    // Filter chip
+    return filterChipModules(chip.id as FilterChipId, modules);
   }, [activeChipId, model, summary, modules]);
 
   // With no feature/filter chip active, the selected and hovered modules both
-  // stay lit (everything else dims) — so hovering elsewhere never suppresses the
-  // selection. Only the selected module gets the strong "owned" fill; the
-  // hovered one reads via its distinct hover style.
-  const { ownedModules, consumedModules, highlightedModules } = useMemo(() => {
+  // stay lit (everything else dims).
+  const highlightedModules = useMemo(() => {
     if (activeChipId) return chipHighlight;
     const lit = new Set<string>();
     if (selectedModule) lit.add(selectedModule);
     if (hoveredModule) lit.add(hoveredModule);
-    if (lit.size === 0) return chipHighlight;
-    return {
-      ownedModules: selectedModule ? new Set([selectedModule]) : null,
-      consumedModules: null,
-      highlightedModules: lit,
-    };
+    return lit.size > 0 ? lit : null;
   }, [activeChipId, hoveredModule, selectedModule, chipHighlight]);
 
-  // For module-click: which chips own/consume the selected module?
+  // For module-click: which chips mention the selected module?
   const moduleHighlightedChips = useMemo<Set<string>>(() => {
     if (!selectedModule || activeChipId) return new Set();
     const touched = new Set<string>();
     for (const fc of model.featureChips) {
       const focus = featureFocus(summary, fc.id);
-      if (
-        focus.owned.has(selectedModule) ||
-        focus.consumed.has(selectedModule)
-      ) {
-        touched.add(fc.id);
-      }
+      if (focus.members.has(selectedModule)) touched.add(fc.id);
     }
     for (const fc of model.filterChips) {
       const keys = filterChipModules(fc.id as FilterChipId, modules);
@@ -198,9 +155,6 @@ function FeatureLayersPanelInner({
     return touched;
   }, [selectedModule, activeChipId, model, summary, modules]);
 
-  // The grid is a single React Flow node. Selection/hover highlighting flows
-  // through context rather than node.data so it never recreates the node — which
-  // would make React Flow re-measure and visibly flicker on every mouse move.
   const nodes = useMemo<Node<LayerGridNodeData>[]>(
     () => [
       {
@@ -216,7 +170,7 @@ function FeatureLayersPanelInner({
   );
 
   // While a feature is selected, a module may only be selected if it belongs to
-  // that feature (owned ∪ consumed). With no feature, selection is unrestricted.
+  // that feature. With no feature, selection is unrestricted.
   const guardedSelectModule = useCallback(
     (key: string | null) => {
       if (key !== null && selectedFeature && !highlightedModules?.has(key)) {
@@ -230,23 +184,14 @@ function FeatureLayersPanelInner({
   const interaction = useMemo<ModuleInteraction>(
     () => ({
       highlightedModules,
-      ownedModules,
-      consumedModules,
       selectedModule,
       onSelectModule: guardedSelectModule,
       onHoverModule: setHoveredModule,
     }),
-    [
-      highlightedModules,
-      ownedModules,
-      consumedModules,
-      selectedModule,
-      guardedSelectModule,
-    ],
+    [highlightedModules, selectedModule, guardedSelectModule],
   );
 
-  // The selected feature's module-connection graph (nodes = owned ∪ consumed,
-  // edges = real imports between them) and the keys it owns (for node styling).
+  // The selected feature's module-connection graph.
   const featureGraph = useMemo(
     () =>
       selectedFeature
@@ -254,14 +199,13 @@ function FeatureLayersPanelInner({
         : null,
     [config, summary, selectedFeature],
   );
-  const ownedKeys = useMemo(
-    () =>
-      selectedFeature ? featureFocus(summary, selectedFeature).owned : null,
-    [summary, selectedFeature],
+
+  const rules = useMemo(
+    () => (selectedFeature ? featureRules(config, selectedFeature) : null),
+    [config, selectedFeature],
   );
 
-  // Architecture layers in declared order, deduped across stacks — the swimlane
-  // column order for the feature graph.
+  // Architecture layers in declared order — swimlane column order for the graph.
   const layerOrder = useMemo(() => {
     const seen = new Set<string>();
     const order: string[] = [];
@@ -315,8 +259,8 @@ function FeatureLayersPanelInner({
                 )}
               >
                 {chip.label}
-                {chip.ownedCount > 0 && (
-                  <span className="ml-1 opacity-60">{chip.ownedCount}</span>
+                {chip.memberCount > 0 && (
+                  <span className="ml-1 opacity-60">{chip.memberCount}</span>
                 )}
               </button>
             );
@@ -392,6 +336,17 @@ function FeatureLayersPanelInner({
           </div>
         )}
         {selectedFeature && (
+          <button
+            type="button"
+            onClick={() => setRulesOpen(true)}
+            title="Show the rules configured for this feature"
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background/80 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <FileJson className="h-3 w-3" aria-hidden />
+            Rules
+          </button>
+        )}
+        {selectedFeature && (
           <div className="flex shrink-0 rounded-md border border-border bg-background/80 p-0.5">
             {(['graph', 'grid'] as const).map((v) => (
               <button
@@ -413,13 +368,11 @@ function FeatureLayersPanelInner({
         )}
       </div>
 
-      {/* Canvas: a feature's module-connection graph by default, or the layer
-          grid (Grid view / no feature selected). */}
-      {showGraph && featureGraph && ownedKeys ? (
+      {/* Canvas: a feature's module-connection graph by default, or the layer grid. */}
+      {showGraph && featureGraph ? (
         <div className="min-h-0 flex-1">
           <FeatureGraphPanel
             graph={featureGraph}
-            ownedKeys={ownedKeys}
             layerOrder={layerOrder}
             columnMode={columnMode}
             selectedModule={selectedModule}
@@ -446,8 +399,6 @@ function FeatureLayersPanelInner({
               nodesConnectable={false}
               zoomOnDoubleClick={false}
               onPaneClick={handleClearSelection}
-              // Also enables pointer events on the node: react-flow sets
-              // `pointer-events: none` on nodes with no interactivity at all.
               onNodeClick={handleClearSelection}
               proOptions={{ hideAttribution: true }}
             >
@@ -457,22 +408,17 @@ function FeatureLayersPanelInner({
         </div>
       )}
 
-      {/* Footer: reading hint + tier legend */}
-      <div className="flex shrink-0 items-center justify-between border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
+      {/* Footer */}
+      <div className="flex shrink-0 items-center border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
         <span>imports flow left → right</span>
-        <div className="flex items-center gap-3">
-          {(['public', 'shared', 'private'] as Visibility[]).map((tier) => (
-            <span key={tier} className="flex items-center gap-1">
-              <span
-                aria-hidden
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: VISIBILITY_COLOR[tier] }}
-              />
-              {tier}
-            </span>
-          ))}
-        </div>
       </div>
+
+      <FeatureRulesDialog
+        open={rulesOpen}
+        onOpenChange={setRulesOpen}
+        feature={selectedFeature}
+        rules={rules}
+      />
     </div>
   );
 }
@@ -493,8 +439,6 @@ type LayerGridNodeData = {
  *  recreating the React Flow node (and the flicker that causes) on every event. */
 type ModuleInteraction = {
   highlightedModules: Set<string> | null;
-  ownedModules: Set<string> | null;
-  consumedModules: Set<string> | null;
   selectedModule: string | null;
   onSelectModule: (key: string | null) => void;
   onHoverModule: (key: string | null) => void;
@@ -505,37 +449,17 @@ const ModuleInteractionContext = createContext<ModuleInteraction | null>(null);
 function LayerGridNode({ data }: NodeProps<Node<LayerGridNodeData>>) {
   const interaction = useContext(ModuleInteractionContext);
   if (!interaction) return null;
-  const hasGroups = data.grid.groupBands.length > 0;
-  // When groups exist, a leading column holds the group band labels; stack
-  // labels and cards shift right by one.
-  const groupCol = hasGroups ? 1 : 0;
-  const stackCol = groupCol + 1;
-  const cardColBase = stackCol + 1;
   return (
     <div
       className="grid gap-3"
       style={{
-        gridTemplateColumns: `${hasGroups ? 'max-content ' : ''}max-content repeat(${data.grid.columnCount}, 15rem)`,
+        gridTemplateColumns: `max-content repeat(${data.grid.columnCount}, 15rem)`,
       }}
     >
-      {data.grid.groupBands.map((band) => (
-        <div
-          key={band.group}
-          style={{
-            gridColumn: groupCol,
-            gridRow: `${band.rowStart + 1} / span ${band.rowSpan}`,
-          }}
-          className="flex items-center justify-center rounded-md bg-muted/30 px-1"
-        >
-          <span className="rotate-180 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70 [writing-mode:vertical-rl]">
-            {band.group}
-          </span>
-        </div>
-      ))}
       {data.grid.stackRows.map((stack, row) => (
         <div
           key={stack}
-          style={{ gridColumn: stackCol, gridRow: row + 1 }}
+          style={{ gridColumn: 1, gridRow: row + 1 }}
           className="flex items-center"
         >
           <span className="rotate-180 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 [writing-mode:vertical-rl]">
@@ -547,7 +471,7 @@ function LayerGridNode({ data }: NodeProps<Node<LayerGridNodeData>>) {
         <div
           key={card.key}
           style={{
-            gridColumn: card.column + cardColBase,
+            gridColumn: card.column + 2,
             gridRow: `${card.rowStart + 1} / span ${card.rowSpan}`,
           }}
         >
@@ -555,8 +479,6 @@ function LayerGridNode({ data }: NodeProps<Node<LayerGridNodeData>>) {
             card={card}
             declaredKeys={data.declaredKeys}
             highlightedModules={interaction.highlightedModules}
-            ownedModules={interaction.ownedModules}
-            consumedModules={interaction.consumedModules}
             selectedModule={interaction.selectedModule}
             onSelectModule={interaction.onSelectModule}
             onHoverModule={interaction.onHoverModule}
@@ -573,8 +495,6 @@ type LayerCardProps = {
   card: LayerGridCard;
   declaredKeys: ReadonlySet<string>;
   highlightedModules: Set<string> | null;
-  ownedModules: Set<string> | null;
-  consumedModules: Set<string> | null;
   selectedModule: string | null;
   onSelectModule: (key: string | null) => void;
   onHoverModule: (key: string | null) => void;
@@ -584,8 +504,6 @@ function LayerCard({
   card,
   declaredKeys,
   highlightedModules,
-  ownedModules,
-  consumedModules,
   selectedModule,
   onSelectModule,
   onHoverModule,
@@ -624,8 +542,6 @@ function LayerCard({
         <ModuleChips
           groups={groups}
           highlightedModules={highlightedModules}
-          ownedModules={ownedModules}
-          consumedModules={consumedModules}
           selectedModule={selectedModule}
           onSelectModule={onSelectModule}
           onHoverModule={onHoverModule}

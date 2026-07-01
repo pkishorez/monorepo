@@ -20,68 +20,59 @@ const config = toVisualizationConfig({
       layer('c', ['src/c']),
     ]),
   ],
-  features: [feature('orders', {})],
+  features: [
+    feature('orders', {
+      root: 'entry',
+      modules: ['entry', 'mid', 'mid/sub', 'leaf'],
+    }),
+  ],
   modules: [
-    module('src/a/entry', { feature: 'orders' }),
-    module('src/b/mid', { feature: 'orders' }),
-    module('src/b/mid/sub', { feature: 'orders' }),
-    module('src/c/leaf', { feature: 'orders' }),
+    module('src/a/entry'),
+    module('src/b/mid'),
+    module('src/b/mid/sub'),
+    module('src/c/leaf'),
   ],
 });
 
-function summaryWith(moduleEdges: VizSummary['moduleEdges']): VizSummary {
-  const cov = (l: string, m: string): VizSummary['moduleCoverage'][number] => ({
-    module: m,
-    layer: l,
-    feature: 'orders',
-    visibility: 'private',
-    files: [`src/${l}/${m}.ts`],
-  });
+function summaryWith(
+  nodes: string[],
+  edges: VizSummary['featureGraphs'][number]['edges'],
+): VizSummary {
   return {
     ignoredFiles: [],
     violations: [],
     layerOrphanFiles: [],
     coveredFiles: [],
     moduleCoverage: [
-      cov('a', 'entry'),
-      cov('b', 'mid'),
-      cov('b', 'mid/sub'),
-      cov('c', 'leaf'),
+      { module: 'entry', layer: 'a', files: ['src/a/entry.ts'] },
+      { module: 'mid', layer: 'b', files: ['src/b/mid.ts'] },
+      { module: 'mid/sub', layer: 'b', files: ['src/b/mid/sub.ts'] },
+      { module: 'leaf', layer: 'c', files: ['src/c/leaf.ts'] },
     ],
     coverageGaps: [],
     emptyModules: [],
     conflicts: [],
-    breaches: [],
-    featureEdges: [],
-    featureModuleEdges: [],
-    moduleEdges,
+    moduleEdges: [],
+    featureGraphs: [{ feature: 'orders', root: 'a::entry', nodes, edges }],
+    closureViolations: [],
   };
 }
 
-const edge = (
-  fromLayer: string,
-  fromModule: string,
-  toLayer: string,
-  toModule: string,
-  kind: 'legal' | 'breach' = 'legal',
-): VizSummary['moduleEdges'][number] => ({
-  fromLayer,
-  fromModule,
-  toLayer,
-  toModule,
-  kind,
-});
-
-describe('featureModuleGraph edges', () => {
-  it('keeps every real import, including ones implied by a longer path', () => {
-    // No transitive reduction: the direct entry → leaf edge is kept alongside
-    // the entry → mid → leaf path, so the graph shows the full import map.
-    const summary = summaryWith([
-      edge('a', 'entry', 'b', 'mid'),
-      edge('b', 'mid', 'c', 'leaf'),
-      edge('a', 'entry', 'c', 'leaf'),
-    ]);
-    const { edges } = featureModuleGraph(config, summary, 'orders');
+describe('featureModuleGraph', () => {
+  it('returns nodes for every key listed in featureGraphs', () => {
+    const summary = summaryWith(
+      ['a::entry', 'b::mid', 'b::mid/sub', 'c::leaf'],
+      [
+        { from: 'a::entry', to: 'b::mid', kind: 'legal' },
+        { from: 'b::mid', to: 'c::leaf', kind: 'legal' },
+        { from: 'a::entry', to: 'c::leaf', kind: 'legal' },
+      ],
+    );
+    const { nodes, edges } = featureModuleGraph(config, summary, 'orders');
+    const keys = nodes.map((n) => n.key);
+    expect(keys).toContain('a::entry');
+    expect(keys).toContain('b::mid');
+    expect(keys).toContain('c::leaf');
     const pairs = edges.map((e) => `${e.from}->${e.to}`);
     expect(pairs).toContain('a::entry->b::mid');
     expect(pairs).toContain('b::mid->c::leaf');
@@ -89,27 +80,22 @@ describe('featureModuleGraph edges', () => {
   });
 
   it('keeps a breach edge', () => {
-    const summary = summaryWith([
-      edge('a', 'entry', 'b', 'mid'),
-      edge('a', 'entry', 'c', 'leaf', 'breach'),
-    ]);
+    const summary = summaryWith(
+      ['a::entry', 'b::mid', 'c::leaf'],
+      [
+        { from: 'a::entry', to: 'b::mid', kind: 'legal' },
+        { from: 'a::entry', to: 'c::leaf', kind: 'breach' },
+      ],
+    );
     const { edges } = featureModuleGraph(config, summary, 'orders');
     const breach = edges.find((e) => e.kind === 'breach');
     expect(breach).toEqual({ from: 'a::entry', to: 'c::leaf', kind: 'breach' });
   });
 
-  it('suppresses edges between a module and its nested sub-module', () => {
-    // `mid` and `mid/sub` are the same containment family — folder nesting, not
-    // a dependency. Both directions are dropped; cross-family edges stay.
-    const summary = summaryWith([
-      edge('b', 'mid', 'b', 'mid/sub'),
-      edge('b', 'mid/sub', 'b', 'mid'),
-      edge('b', 'mid/sub', 'c', 'leaf'),
-    ]);
-    const { edges } = featureModuleGraph(config, summary, 'orders');
-    const pairs = edges.map((e) => `${e.from}->${e.to}`);
-    expect(pairs).not.toContain('b::mid->b::mid/sub');
-    expect(pairs).not.toContain('b::mid/sub->b::mid');
-    expect(pairs).toContain('b::mid/sub->c::leaf');
+  it('returns empty graph for unknown feature', () => {
+    const summary = summaryWith(['a::entry'], []);
+    const { nodes, edges } = featureModuleGraph(config, summary, 'nonexistent');
+    expect(nodes).toHaveLength(0);
+    expect(edges).toHaveLength(0);
   });
 });

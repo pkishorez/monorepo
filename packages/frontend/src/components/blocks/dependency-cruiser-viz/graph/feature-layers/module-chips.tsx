@@ -2,7 +2,6 @@ import { useState } from 'react';
 
 import { cn } from '#lib/utils';
 
-import { VISIBILITY_COLOR } from '../../model';
 import {
   chipKeys,
   type ChipGroup,
@@ -18,10 +17,8 @@ const INDENT_PER_DEPTH = 14;
 const INDENT_BASE = 8;
 
 type HighlightState = {
-  /** Union of owned ∪ consumed — null means nothing selected (rest state). */
+  /** Highlighted modules — null means nothing selected (rest state). */
   highlightedModules: Set<string> | null;
-  ownedModules: Set<string> | null;
-  consumedModules: Set<string> | null;
   selectedModule: string | null;
 };
 
@@ -39,15 +36,12 @@ type ModuleChipsProps = HighlightState &
 /**
  * A layer card's body: folder groups rendered as a full-width vertical list, one
  * module per row. Rows indent by containment depth so the module hierarchy is
- * scannable. Rows are neutral at rest (visibility tier shown as a leading dot);
- * the color budget is spent on feature selection — owned fills primary, consumed
- * gets a dashed outline, the rest dims.
+ * scannable. Rows are neutral at rest; the color budget is spent on feature
+ * selection — highlighted modules fill primary, the rest dims.
  */
 export function ModuleChips({
   groups,
   highlightedModules,
-  ownedModules,
-  consumedModules,
   selectedModule,
   onSelectModule,
   onHoverModule,
@@ -59,8 +53,6 @@ export function ModuleChips({
           key={group.folder ?? ''}
           group={group}
           highlightedModules={highlightedModules}
-          ownedModules={ownedModules}
-          consumedModules={consumedModules}
           selectedModule={selectedModule}
           onSelectModule={onSelectModule}
           onHoverModule={onHoverModule}
@@ -194,8 +186,6 @@ function LeafRow({
   depth,
   rowDimmed,
   highlightedModules,
-  ownedModules,
-  consumedModules,
   selectedModule,
   onSelectModule,
   onHoverModule,
@@ -207,8 +197,7 @@ function LeafRow({
     rowDimmed: boolean;
   }) {
   const key = chip.module.key;
-  const isOwned = ownedModules?.has(key) ?? false;
-  const isConsumed = !isOwned && (consumedModules?.has(key) ?? false);
+  const isHighlighted = highlightedModules?.has(key) ?? false;
   const isDimmed =
     rowDimmed && highlightedModules !== null && !highlightedModules.has(key);
   const isSelected = selectedModule === key;
@@ -219,10 +208,8 @@ function LeafRow({
     <button
       type="button"
       title={`${chip.module.layer} / ${chip.module.name || '(layer root)'}${
-        chip.module.feature ? ` — ${chip.module.feature}` : ''
-      } · ${chip.module.visibility}${
         isBreached
-          ? ` · ${breachCount} breach${breachCount === 1 ? '' : 'es'}`
+          ? ` · ${breachCount} violation${breachCount === 1 ? '' : 's'}`
           : ''
       }`}
       onClick={(event) => {
@@ -234,23 +221,14 @@ function LeafRow({
       style={{ paddingLeft: INDENT_BASE + depth * INDENT_PER_DEPTH }}
       className={cn(
         'nodrag nopan relative flex w-full items-center gap-1.5 rounded-md border border-transparent py-1.5 pr-2 text-left text-xs transition-colors',
-        // Hover reads as a neutral muted fill; selection (below) owns the
-        // primary tint + ring, so the two never look alike.
         'text-foreground/80 hover:border-border hover:bg-muted',
-        isOwned &&
+        isHighlighted &&
           'border-primary/60 bg-primary/15 text-primary hover:bg-primary/25',
-        isConsumed &&
-          'border-dashed border-sky-500/60 bg-sky-500/10 text-sky-700 hover:bg-sky-500/15 dark:text-sky-300',
         isBreached && 'ring-2 ring-inset ring-destructive/50',
         isDimmed && 'opacity-35 hover:opacity-100',
         isSelected && 'ring-2 ring-inset ring-primary',
       )}
     >
-      <span
-        aria-hidden
-        className="h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: VISIBILITY_COLOR[chip.module.visibility] }}
-      />
       <span className="truncate">{chip.label}</span>
       {isBreached && (
         <span className="ml-auto flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground">

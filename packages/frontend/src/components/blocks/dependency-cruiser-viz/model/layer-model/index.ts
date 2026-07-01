@@ -8,22 +8,16 @@ export {
   type ModuleChip,
 } from './layer-cards';
 
-/**
- * A layer's identity, scoped by its group so the same name in two groups stays
- * distinct. Equals the bare name for the implicit default group (''), keeping
- * ungrouped configs byte-identical to before.
- */
-export function scopedLayer(group: string | undefined, name: string): string {
-  return group ? `${group}::${name}` : name;
+/** A layer's identity key, equal to its bare name. */
+export function scopedLayer(_group: string | undefined, name: string): string {
+  return name;
 }
 
 export type LayerSection = {
-  /** Group-scoped identity (matches the canvas node id). */
+  /** Layer identity key (matches the canvas node id). */
   key: string;
   /** Bare display name. */
   layer: string;
-  /** Owning group, or '' for the default group. */
-  group: string;
   paths: readonly string[];
   modules: ModuleNode[];
 };
@@ -37,20 +31,7 @@ export type LayerModel = {
   slots: LayerSlot[];
 };
 
-type StackLike = VisualizationConfig['stacks'][number];
-
-/** Stacks reordered so same-group stacks are contiguous (group order = first
- *  appearance). Stable, so ungrouped configs keep their original order. */
-export function orderStacksByGroup(stacks: readonly StackLike[]): StackLike[] {
-  const groupOrder: string[] = [];
-  for (const s of stacks) {
-    const g = s.group ?? '';
-    if (!groupOrder.includes(g)) groupOrder.push(g);
-  }
-  return groupOrder.flatMap((g) => stacks.filter((s) => (s.group ?? '') === g));
-}
-
-type LayerMeta = { name: string; group: string; paths: string[] };
+type LayerMeta = { name: string; paths: string[] };
 
 /**
  * Builds a render-agnostic layer model: an ordered list of slots (columns),
@@ -66,7 +47,7 @@ export function buildLayerModel(
   const modulesByLayer = groupModulesByLayer(config, summary);
   const layerMeta = mergeLayerMeta(config);
 
-  // Group scoped keys by level; within a level maintain stack-order (stable)
+  // Collect keys by level; within a level maintain stack-order (stable)
   const byLevel = new Map<number, string[]>();
   for (const [key, level] of levels) {
     const list = byLevel.get(level);
@@ -86,7 +67,6 @@ export function buildLayerModel(
       return {
         key,
         layer: meta?.name ?? key,
-        group: meta?.group ?? '',
         paths: meta?.paths ?? [],
         modules: modulesByLayer.get(key) ?? [],
       };
@@ -98,12 +78,10 @@ export function buildLayerModel(
 }
 
 export type LayerGridCard = {
-  /** Group-scoped identity (matches the canvas node id). */
+  /** Layer identity key (matches the canvas node id). */
   key: string;
   /** Bare display name. */
   layer: string;
-  /** Owning group, or '' for the default group. */
-  group: string;
   paths: readonly string[];
   modules: ModuleNode[];
   /** Dependency level — the 0-based grid column. */
@@ -116,27 +94,17 @@ export type LayerGridCard = {
   stacks: string[];
 };
 
-export type LayerGroupBand = {
-  group: string;
-  rowStart: number;
-  rowSpan: number;
-};
-
 export type LayerGrid = {
-  /** Stack names, grouped contiguously — one grid row band each. */
+  /** Stack names — one grid row band each. */
   stackRows: string[];
-  /** Group of each stack row, parallel to {@link stackRows} ('' = default). */
-  rowGroups: string[];
-  /** Contiguous bands for non-default groups. */
-  groupBands: LayerGroupBand[];
   columnCount: number;
   cards: LayerGridCard[];
 };
 
 /**
- * Builds the stack-aware grid for the Features tab: one row band per stack
- * (grouped contiguously), columns by dependency level. A layer shared within a
- * group yields a single card spanning those stacks' rows.
+ * Builds the stack-aware grid for the Features tab: one row band per stack,
+ * columns by dependency level. A layer shared across stacks yields a single
+ * card spanning those stacks' rows.
  */
 export function buildLayerGrid(
   config: VisualizationConfig,
@@ -146,15 +114,12 @@ export function buildLayerGrid(
   const modulesByLayer = groupModulesByLayer(config, summary);
   const layerMeta = mergeLayerMeta(config);
 
-  const ordered = orderStacksByGroup(config.stacks);
-  const stackRows = ordered.map((s) => s.name);
-  const rowGroups = ordered.map((s) => s.group ?? '');
+  const stackRows = config.stacks.map((s) => s.name);
 
   const rowsByLayer = new Map<string, number[]>();
-  ordered.forEach((stack, row) => {
-    const group = stack.group ?? '';
+  config.stacks.forEach((stack, row) => {
     for (const layer of stack.layers) {
-      const key = scopedLayer(group, layer.name);
+      const key = scopedLayer(undefined, layer.name);
       const rows = rowsByLayer.get(key);
       if (rows) rows.push(row);
       else rowsByLayer.set(key, [row]);
@@ -168,7 +133,6 @@ export function buildLayerGrid(
       return {
         key,
         layer: meta?.name ?? key,
-        group: meta?.group ?? '',
         paths: meta?.paths ?? [],
         modules: modulesByLayer.get(key) ?? [],
         column: levels.get(key) ?? 0,
@@ -183,18 +147,7 @@ export function buildLayerGrid(
 
   const columnCount = cards.reduce((max, c) => Math.max(max, c.column + 1), 0);
 
-  const groupBands: LayerGroupBand[] = [];
-  rowGroups.forEach((group, row) => {
-    if (group === '') return;
-    const last = groupBands[groupBands.length - 1];
-    if (last && last.group === group && last.rowStart + last.rowSpan === row) {
-      last.rowSpan += 1;
-    } else {
-      groupBands.push({ group, rowStart: row, rowSpan: 1 });
-    }
-  });
-
-  return { stackRows, rowGroups, groupBands, columnCount, cards };
+  return { stackRows, columnCount, cards };
 }
 
 function groupModulesByLayer(
@@ -203,7 +156,7 @@ function groupModulesByLayer(
 ): Map<string, ModuleNode[]> {
   const byLayer = new Map<string, ModuleNode[]>();
   for (const m of allModules(config, summary)) {
-    const key = scopedLayer(m.group, m.layer);
+    const key = scopedLayer(undefined, m.layer);
     const list = byLayer.get(key);
     if (list) list.push(m);
     else byLayer.set(key, [m]);
@@ -211,21 +164,19 @@ function groupModulesByLayer(
   return byLayer;
 }
 
-/** Layer meta (bare name, group, paths) keyed by scoped identity, merged across
- *  the stacks that declare the layer. */
+/** Layer meta (bare name, paths) keyed by layer name, merged across stacks. */
 function mergeLayerMeta(config: VisualizationConfig): Map<string, LayerMeta> {
   const meta = new Map<string, LayerMeta>();
   for (const stack of config.stacks) {
-    const group = stack.group ?? '';
     for (const layer of stack.layers) {
-      const key = scopedLayer(group, layer.name);
+      const key = scopedLayer(undefined, layer.name);
       const entry = meta.get(key);
       if (entry) {
         for (const p of layer.paths) {
           if (!entry.paths.includes(p)) entry.paths.push(p);
         }
       } else {
-        meta.set(key, { name: layer.name, group, paths: [...layer.paths] });
+        meta.set(key, { name: layer.name, paths: [...layer.paths] });
       }
     }
   }
@@ -238,8 +189,7 @@ function computeLevels(
   const predecessors = new Map<string, Set<string>>();
 
   for (const stack of stacks) {
-    const group = stack.group ?? '';
-    const keys = stack.layers.map((l) => scopedLayer(group, l.name));
+    const keys = stack.layers.map((l) => scopedLayer(undefined, l.name));
     for (const key of keys) {
       if (!predecessors.has(key)) predecessors.set(key, new Set());
     }

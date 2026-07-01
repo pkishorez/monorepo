@@ -2,90 +2,62 @@ import { moduleFiles, moduleKey } from './modules';
 import type { VizSummary } from './types';
 
 export type FeatureFocus = {
-  /** `layer::name` keys of modules owned by the selected feature. */
-  owned: Set<string>;
-  /** `layer::name` keys of shared/public modules the feature legally consumes. */
-  consumed: Set<string>;
+  /** `layer::name` keys of modules declared as members of the selected feature. */
+  members: Set<string>;
 };
 
 /**
- * For a selected feature F, the modules to light up on the canvas / tree:
- * - owned: `moduleCoverage` where `feature === F`
- * - consumed: shared/public modules F actually imports, taken straight from
- *   `featureModuleEdges` with `relation === 'consumes'`. This is the real
- *   import graph, so a public (ownerless) module only lights up for the
- *   features that genuinely depend on it — never for every feature.
+ * For a selected feature, the set of module keys declared as its members.
+ * Sourced from `summary.featureGraphs` (which contains the backend-derived node
+ * list for each feature) so the frontend never re-infers membership.
  */
 export function featureFocus(
   summary: VizSummary | undefined,
   feature: string,
 ): FeatureFocus {
-  const owned = new Set<string>();
-  const consumed = new Set<string>();
-  if (!summary) return { owned, consumed };
-
-  for (const m of summary.moduleCoverage) {
-    if (m.feature === feature) owned.add(moduleKey(m.layer, m.module));
-  }
-
-  for (const e of summary.featureModuleEdges) {
-    if (e.feature === feature && e.relation === 'consumes') {
-      consumed.add(moduleKey(e.layer, e.module));
-    }
-  }
-
-  return { owned, consumed };
+  const members = new Set<string>();
+  if (!summary) return { members };
+  const fg = summary.featureGraphs.find((g) => g.feature === feature);
+  if (fg) for (const n of fg.nodes) members.add(n);
+  return { members };
 }
 
 /**
- * Files reached by a feature: the union of files of its owned modules and the
- * shared modules it consumes. Returns null when the feature owns/consumes
- * nothing (so callers can treat it as "no highlight").
+ * Files reached by a feature: all files of its declared member modules.
+ * Returns null when the feature has no members (so callers can treat it as "no
+ * highlight").
  */
 export function featureFiles(
   summary: VizSummary | undefined,
   feature: string,
 ): Set<string> | null {
   if (!summary) return null;
-  const focus = featureFocus(summary, feature);
-  const keys = new Set([...focus.owned, ...focus.consumed]);
-  if (keys.size === 0) return null;
+  const { members } = featureFocus(summary, feature);
+  if (members.size === 0) return null;
   const byKey = moduleFiles(summary);
   const files = new Set<string>();
-  for (const key of keys) {
+  for (const key of members) {
     for (const f of byKey.get(key) ?? []) files.add(f);
   }
   return files.size > 0 ? files : null;
 }
 
 /**
- * Like {@link featureFiles} but split into the two tiers a feature reaches:
- * - `owned`: files of the modules the feature owns (its own vertical slice).
- * - `consumed`: files of the shared/public modules it legally borrows.
- *
- * A file owned by the feature takes precedence: if the same file surfaces in
- * both sets (a module appears as owned and consumed) it is kept in `owned` and
- * dropped from `consumed`. Returns null when the feature reaches no files, so
- * callers can treat it as "no highlight" exactly like {@link featureFiles}.
+ * Files reached by a feature, returned as `{ members }` (a single set — no
+ * owned/consumed split in the new model). Returns null when the feature has no
+ * member files.
  */
 export function featureFileSets(
   summary: VizSummary | undefined,
   feature: string,
-): { owned: Set<string>; consumed: Set<string> } | null {
+): { members: Set<string> } | null {
   if (!summary) return null;
-  const focus = featureFocus(summary, feature);
-  if (focus.owned.size === 0 && focus.consumed.size === 0) return null;
+  const { members: memberKeys } = featureFocus(summary, feature);
+  if (memberKeys.size === 0) return null;
   const byKey = moduleFiles(summary);
-  const owned = new Set<string>();
-  for (const key of focus.owned) {
-    for (const f of byKey.get(key) ?? []) owned.add(f);
+  const members = new Set<string>();
+  for (const key of memberKeys) {
+    for (const f of byKey.get(key) ?? []) members.add(f);
   }
-  const consumed = new Set<string>();
-  for (const key of focus.consumed) {
-    for (const f of byKey.get(key) ?? []) {
-      if (!owned.has(f)) consumed.add(f);
-    }
-  }
-  if (owned.size === 0 && consumed.size === 0) return null;
-  return { owned, consumed };
+  return members.size > 0 ? { members } : null;
 }

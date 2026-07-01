@@ -1,4 +1,4 @@
-import type { Visibility, VizSummary } from '../../model';
+import type { VizSummary } from '../../model';
 import type { FileStatus, FileTreeNode } from './file-tree-types';
 
 /** Which coverage axis the tree classifies files against. */
@@ -46,7 +46,6 @@ export function buildFileTree(
   fileStatuses: Map<string, FileStatus>,
   layerPaths: Set<string>,
   modulePaths: Set<string>,
-  moduleVisibility: Map<string, Visibility>,
 ): FileTreeNode[] {
   const root: FileTreeNode[] = [];
   const sorted = [...fileStatuses.entries()].sort(([a], [b]) =>
@@ -70,13 +69,12 @@ export function buildFileTree(
           type: isFile ? 'file' : 'folder',
           status: isFile ? status : undefined,
           // A node IS a module when its own path is declared — true for module
-          // folders and single-file modules alike, so both surface the dot.
+          // folders and single-file modules alike.
           nodeKind: layerPaths.has(id)
             ? 'layer'
             : modulePaths.has(id)
               ? 'module'
               : 'other',
-          visibility: moduleVisibility.get(id),
           children: isFile ? undefined : [],
         };
         current.push(existing);

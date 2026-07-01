@@ -38,9 +38,6 @@ export function toVisualizationConfig(
     if (rule.config.description !== undefined) {
       stack.description = rule.config.description;
     }
-    if (rule.config.group !== undefined) {
-      stack.group = rule.config.group;
-    }
     stacks.push(stack);
   }
 
@@ -49,12 +46,34 @@ export function toVisualizationConfig(
     result.ignore = config.ignore;
   }
 
-  const featureNames = new Set((config.features ?? []).map((f) => f.name));
+  if (config.modules && config.modules.length > 0) {
+    result.modules = resolveModules(config);
+  }
 
   if (config.features && config.features.length > 0) {
+    const declaredModuleNames = new Set(
+      (result.modules ?? []).map((m) => m.name),
+    );
     result.features = config.features.map((f) => {
+      if (f.modules.length === 0) {
+        throw new Error(`Feature "${f.name}" has no members`);
+      }
+      for (const memberName of f.modules) {
+        if (!declaredModuleNames.has(memberName)) {
+          throw new Error(
+            `Feature "${f.name}": member "${memberName}" is not a declared module name`,
+          );
+        }
+      }
+      if (!declaredModuleNames.has(f.root)) {
+        throw new Error(
+          `Feature "${f.name}": root "${f.root}" is not a declared module name`,
+        );
+      }
       const entry: NonNullable<VisualizationConfig['features']>[number] = {
         name: f.name,
+        root: f.root,
+        modules: [...f.modules],
       };
       if (f.config.description !== undefined) {
         entry.description = f.config.description;
@@ -63,27 +82,18 @@ export function toVisualizationConfig(
     });
   }
 
-  if (config.modules && config.modules.length > 0) {
-    result.modules = resolveModules(config, featureNames);
-  }
-
   return result;
 }
 
-type LayerLookup = { name: string; group?: string; paths: string[] };
+type LayerLookup = { name: string; paths: string[] };
 
 function resolveModules(
   config: ProjectConfig,
-  featureNames: Set<string>,
 ): NonNullable<VisualizationConfig['modules']> {
   const layers: LayerLookup[] = [];
   for (const rule of config.rules) {
     for (const l of rule.layers) {
-      const lookup: LayerLookup = { name: l.name, paths: [...l.paths] };
-      if (rule.config.group !== undefined) {
-        lookup.group = rule.config.group;
-      }
-      layers.push(lookup);
+      layers.push({ name: l.name, paths: [...l.paths] });
     }
   }
 
@@ -108,35 +118,12 @@ function resolveModules(
       (p) => mod.path === p || mod.path.startsWith(p + '/'),
     )!;
 
-    if (mod.feature !== undefined && !featureNames.has(mod.feature)) {
-      throw new Error(
-        `Module "${mod.path}" references unknown feature "${mod.feature}"`,
-      );
-    }
-    for (const name of mod.sharedWith ?? []) {
-      if (!featureNames.has(name)) {
-        throw new Error(
-          `Module "${mod.path}" sharedWith references unknown feature "${name}"`,
-        );
-      }
-    }
-
-    const entry: NonNullable<VisualizationConfig['modules']>[number] = {
+    resolved.push({
       path: mod.path,
       name: deriveModuleName(mod.path, layerPath),
       layer: owningLayer.name,
-      visibility: mod.visibility,
-    };
-    if (owningLayer.group !== undefined) {
-      entry.group = owningLayer.group;
-    }
-    if (mod.feature !== undefined) {
-      entry.feature = mod.feature;
-    }
-    if (mod.sharedWith !== undefined) {
-      entry.sharedWith = [...mod.sharedWith];
-    }
-    resolved.push(entry);
+      barrel: mod.barrel,
+    });
   }
 
   return resolved;

@@ -2,11 +2,7 @@ import type { Edge, Node } from '@xyflow/react';
 import { MarkerType } from '@xyflow/react';
 
 import type { VisualizationConfig, VizSummary } from '../../model';
-import {
-  buildLayerModel,
-  orderStacksByGroup,
-  scopedLayer,
-} from '../../model/layer-model';
+import { buildLayerModel, scopedLayer } from '../../model/layer-model';
 
 export type HandleOffset = {
   stackName: string;
@@ -35,20 +31,12 @@ export type StackHeaderNodeData = {
   isDimmed: boolean;
 };
 
-export type GroupRegionNodeData = {
-  label: string;
-  width: number;
-  height: number;
-};
-
 export const LAYER_NODE_WIDTH = 160;
 const NODE_HEIGHT = 40;
 const HEADER_HEIGHT = 30;
 const HEADER_GAP = 16;
 const ROW_GAP = 60;
 const COL_GAP = 140;
-const GROUP_PAD = 24;
-const GROUP_LABEL_HEIGHT = 22;
 const EDGE_COLOR = '#94a3b8';
 const VIOLATION_EDGE_COLOR = '#ef4444';
 
@@ -82,20 +70,16 @@ export function computeLayerLayout(
   // Derive slot/section/ordering from the shared layer model
   const layerModel = buildLayerModel(config, summary);
 
-  const orderedStacks = orderStacksByGroup(config.stacks);
-
-  // Scoped-key → stacks / meta. Keying by scoped identity keeps same-named
-  // layers in different groups distinct (one node id each).
+  // Layer key → stacks / meta.
   const layerToStacks = new Map<string, string[]>();
   const layerMeta = new Map<
     string,
-    { name: string; group: string; description?: string; paths: string[] }
+    { name: string; description?: string; paths: string[] }
   >();
 
-  for (const stack of orderedStacks) {
-    const group = stack.group ?? '';
+  for (const stack of config.stacks) {
     for (const layer of stack.layers) {
-      const key = scopedLayer(group, layer.name);
+      const key = scopedLayer(undefined, layer.name);
       const existing = layerToStacks.get(key);
       if (existing) existing.push(stack.name);
       else layerToStacks.set(key, [stack.name]);
@@ -111,7 +95,6 @@ export function computeLayerLayout(
       } else {
         layerMeta.set(key, {
           name: layer.name,
-          group,
           description: layer.description,
           paths: [...layer.paths],
         });
@@ -124,11 +107,10 @@ export function computeLayerLayout(
     if (stacks.length > 1) shared.add(key);
   }
 
-  const stackColumns = orderedStacks.map((s) => ({
+  const stackColumns = config.stacks.map((s) => ({
     name: s.name,
-    group: s.group ?? '',
     description: s.description,
-    layers: s.layers.map((l) => scopedLayer(s.group ?? '', l.name)),
+    layers: s.layers.map((l) => scopedLayer(undefined, l.name)),
   }));
 
   const stackCenterX = new Map<string, number>();
@@ -136,7 +118,7 @@ export function computeLayerLayout(
     stackCenterX.set(stackColumns[i]!.name, i * (LAYER_NODE_WIDTH + COL_GAP));
   }
 
-  // Per-layer level from layerModel slot index, keyed by scoped identity.
+  // Per-layer level from layerModel slot index, keyed by layer identity.
   const levelByLayer = new Map<string, number>();
   for (const slot of layerModel.slots) {
     for (const section of slot.sections) {
@@ -149,11 +131,10 @@ export function computeLayerLayout(
   const nodeWidths = new Map<string, number>();
   const handleOffsetsMap = new Map<string, HandleOffset[]>();
 
-  for (const stack of orderedStacks) {
+  for (const stack of config.stacks) {
     const cx = stackCenterX.get(stack.name)!;
-    const group = stack.group ?? '';
     for (const layer of stack.layers) {
-      const key = scopedLayer(group, layer.name);
+      const key = scopedLayer(undefined, layer.name);
       if (!shared.has(key) && !positions.has(key)) {
         positions.set(key, {
           x: cx,
@@ -195,11 +176,10 @@ export function computeLayerLayout(
   };
   const hierarchyEdges: PerStackEdge[] = [];
 
-  for (const stack of orderedStacks) {
-    const group = stack.group ?? '';
+  for (const stack of config.stacks) {
     for (let i = 0; i < stack.layers.length - 1; i++) {
-      const fromKey = scopedLayer(group, stack.layers[i]!.name);
-      const toKey = scopedLayer(group, stack.layers[i + 1]!.name);
+      const fromKey = scopedLayer(undefined, stack.layers[i]!.name);
+      const toKey = scopedLayer(undefined, stack.layers[i + 1]!.name);
       hierarchyEdges.push({
         stackName: stack.name,
         from: fromKey,
@@ -225,24 +205,6 @@ export function computeLayerLayout(
   const hasSelection = activeLayers.size > 0;
 
   const nodes: Node[] = [];
-
-  // Group regions first so they render behind headers/layers.
-  for (const band of groupRegions(orderedStacks, stackCenterX, positions)) {
-    nodes.push({
-      id: `group-${band.group}`,
-      type: 'groupRegion',
-      position: { x: band.x, y: band.y },
-      width: band.width,
-      height: band.height,
-      selectable: false,
-      draggable: false,
-      data: {
-        label: band.group,
-        width: band.width,
-        height: band.height,
-      } satisfies GroupRegionNodeData,
-    });
-  }
 
   for (const col of stackColumns) {
     const cx = stackCenterX.get(col.name)!;
@@ -350,8 +312,7 @@ export function computeLayerLayout(
   return { nodes, edges };
 }
 
-/** Resolve a bare layer name to a scoped position key (identity for the default
- *  group; otherwise the first matching scoped key). */
+/** Resolve a bare layer name to a position key. */
 function resolveKey(
   bareName: string,
   positions: Map<string, { x: number; y: number }>,
@@ -362,55 +323,4 @@ function resolveKey(
     if (meta.name === bareName && positions.has(key)) return key;
   }
   return undefined;
-}
-
-type GroupRegion = {
-  group: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-/** One enclosing rect per non-default group, spanning its stack columns and all
- *  their layer rows, with a label slot above the stack headers. */
-function groupRegions(
-  orderedStacks: ReturnType<typeof orderStacksByGroup>,
-  stackCenterX: Map<string, number>,
-  positions: Map<string, { x: number; y: number }>,
-): GroupRegion[] {
-  const byGroup = new Map<string, ReturnType<typeof orderStacksByGroup>>();
-  for (const s of orderedStacks) {
-    const g = s.group ?? '';
-    if (g === '') continue;
-    const list = byGroup.get(g);
-    if (list) list.push(s);
-    else byGroup.set(g, [s]);
-  }
-
-  const regions: GroupRegion[] = [];
-  for (const [group, stacks] of byGroup) {
-    const xs = stacks.map((s) => stackCenterX.get(s.name)!);
-    const left = Math.min(...xs) - GROUP_PAD;
-    const right = Math.max(...xs) + LAYER_NODE_WIDTH + GROUP_PAD;
-
-    let bottom = HEADER_HEIGHT;
-    for (const s of stacks) {
-      const g = s.group ?? '';
-      for (const layer of s.layers) {
-        const pos = positions.get(scopedLayer(g, layer.name));
-        if (pos) bottom = Math.max(bottom, pos.y + NODE_HEIGHT);
-      }
-    }
-
-    const top = -(GROUP_LABEL_HEIGHT + GROUP_PAD);
-    regions.push({
-      group,
-      x: left,
-      y: top,
-      width: right - left,
-      height: bottom + GROUP_PAD - top,
-    });
-  }
-  return regions;
 }
