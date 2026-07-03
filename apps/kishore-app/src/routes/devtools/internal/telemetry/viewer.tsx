@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { inArray, max, useLiveQuery } from '@tanstack/react-db';
 import {
   groupByTrace,
@@ -18,24 +18,30 @@ import {
   FilterControls,
   FilterPills,
   GroupByControl,
-  ServiceFilter,
   StatusFilter,
 } from './filter-bar';
 import { GroupedList } from './grouped-list';
-import { ServiceGlossary } from './service-glossary';
+import { AllServicesStats } from './all-services-stats';
+import { ServiceRail } from './service-rail';
 import {
   applyFilters,
   computeServiceInsights,
   discoverAttributeKeys,
   discoverAttributeValues,
-  discoverServiceOptions,
+  formatServiceName,
   SERVICE_ATTR_KEY,
 } from './filters';
 import { useLotelStore } from './store';
 
 const PAGE_SIZE = 20;
 
-export function Viewer({ collections }: { collections: TelemetryCollections }) {
+export function Viewer({
+  collections,
+  onClear,
+}: {
+  collections: TelemetryCollections;
+  onClear: () => void;
+}) {
   const { data: traceItems } = useLiveQuery(collections.traces);
   const { data: logItems } = useLiveQuery(collections.logs);
 
@@ -53,6 +59,10 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
   const setDockSettings = useLotelStore((s) => s.setDock);
   const columnWidths = useLotelStore((s) => s.columnWidths);
   const setColumnWidth = useLotelStore((s) => s.setColumnWidth);
+  const railCollapsed = useLotelStore((s) => s.railCollapsed);
+  const setRailCollapsed = useLotelStore((s) => s.setRailCollapsed);
+  const railWidth = useLotelStore((s) => s.railWidth);
+  const setRailWidth = useLotelStore((s) => s.setRailWidth);
 
   const attributeKeys = useMemo(() => discoverAttributeKeys(spans), [spans]);
   const getAttributeValues = useCallback(
@@ -71,6 +81,15 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
   // spliced in live. Everything at/below the line is the eligible set we page.
   const [pivot, setPivot] = useState(() => Date.now());
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Changing the filter context (selecting a different service, adding/removing
+  // filters, etc.) rebuilds the eligible set, so re-freeze the line at "now":
+  // everything currently matching shows immediately, and only traces that
+  // arrive afterwards are buffered behind the "n more traces" banner.
+  useEffect(() => {
+    setPivot(Date.now());
+    setVisibleCount(PAGE_SIZE);
+  }, [filters]);
 
   const frozenIds = useMemo(
     () => filtered.filter((t) => t.startTime <= pivot).map((t) => t.traceId),
@@ -130,11 +149,6 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
     return applyFilters(allTraces, spans, withoutService).visible;
   }, [allTraces, spans, filters]);
 
-  const serviceOptions = useMemo(
-    () => discoverServiceOptions(allTraces, tracesWithoutServiceFilter),
-    [allTraces, tracesWithoutServiceFilter],
-  );
-
   const serviceInsights = useMemo(
     () => computeServiceInsights(tracesWithoutServiceFilter),
     [tracesWithoutServiceFilter],
@@ -144,20 +158,25 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
     filters.attributeFilters.find((f) => f.key === SERVICE_ATTR_KEY)?.value ??
     null;
 
-  const selectService = useCallback(
+  // Single-select toggle: re-selecting the active service clears it, returning
+  // to the all-services overview.
+  const toggleService = useCallback(
     (name: string) => {
       const withoutService = filters.attributeFilters.filter(
         (f) => f.key !== SERVICE_ATTR_KEY,
       );
       setFilters({
         ...filters,
-        attributeFilters: [
-          ...withoutService,
-          { id: crypto.randomUUID(), key: SERVICE_ATTR_KEY, value: name },
-        ],
+        attributeFilters:
+          name === selectedService
+            ? withoutService
+            : [
+                ...withoutService,
+                { id: crypto.randomUUID(), key: SERVICE_ATTR_KEY, value: name },
+              ],
       });
     },
-    [filters, setFilters],
+    [filters, setFilters, selectedService],
   );
 
   const selectedTrace = useMemo<TraceGroup | null>(
@@ -215,112 +234,137 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
   );
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-border/40 bg-background px-6 pt-3 pb-2 max-w-7xl mx-auto w-full">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex shrink-0 items-center gap-1.5">
-            <ServiceFilter
-              filters={filters}
-              onFiltersChange={setFilters}
-              options={serviceOptions}
-            />
-            <FilterControls
-              filters={filters}
-              onFiltersChange={setFilters}
-              attributeKeys={attributeKeys}
-              getAttributeValues={getAttributeValues}
-            />
-          </div>
-          {selectedService !== null && (
-            <div className="flex shrink-0 items-center gap-3">
-              <StatusFilter filters={filters} onFiltersChange={setFilters} />
-              <GroupByControl
-                value={traceListSettings.groupBy}
-                onChange={(next) =>
-                  setTraceListSettings({
-                    ...traceListSettings,
-                    groupBy: next,
-                  })
-                }
-                attributeKeys={attributeKeys}
-              />
-              {hiddenBySinceNow > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  ↑ {hiddenBySinceNow} hidden
-                </span>
-              )}
-              <span className="text-xs text-muted-foreground">
-                {filtered.length} trace{filtered.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-          )}
-        </div>
-        {(filters.attributeFilters.some((f) => f.key !== SERVICE_ATTR_KEY) ||
-          filters.sinceNow !== null) && (
-          <div className="mt-2">
-            <FilterPills filters={filters} onFiltersChange={setFilters} />
-          </div>
-        )}
-      </div>
+    <div className="relative flex h-full">
+      <ServiceRail
+        insights={serviceInsights}
+        selectedService={selectedService}
+        onSelectService={toggleService}
+        collapsed={railCollapsed}
+        onToggleCollapsed={setRailCollapsed}
+        width={railWidth}
+        onWidthChange={setRailWidth}
+        onClear={onClear}
+      />
 
-      <div
-        className={cn(
-          'min-h-0 flex-1 overflow-auto px-6 py-4 max-w-7xl mx-auto w-full',
-          scrollbarStyles,
-        )}
-      >
+      <div className="flex min-w-0 flex-1 flex-col">
         {selectedService === null ? (
-          <ServiceGlossary
-            insights={serviceInsights}
-            onSelectService={selectService}
-          />
-        ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center rounded-lg border border-border p-10 text-sm text-muted-foreground">
-            No traces
+          <div className={cn('min-h-0 flex-1 overflow-auto', scrollbarStyles)}>
+            <AllServicesStats
+              insights={serviceInsights}
+              onSelectService={toggleService}
+            />
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            <GroupedList
-              traces={shownTraces}
-              spans={spans}
-              settings={traceListSettings}
-              columnWidths={columnWidths}
-              newCount={bufferedCount}
-              onRevealNew={revealNew}
-              onColumnWidthChange={setColumnWidth}
-              onSettingsChange={setTraceListSettings}
-              onSelectTrace={handleSelectTrace}
-            />
-            {hasMore && (
-              <button
-                type="button"
-                onClick={showMore}
-                className="self-center rounded-md border border-border px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-              >
-                Show more
-              </button>
+          <>
+            <div className="shrink-0 border-b border-border/40 bg-background px-6 pt-3 pb-2">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 shrink items-center gap-3">
+                  <span className="truncate font-mono text-sm font-medium text-foreground">
+                    {formatServiceName(selectedService)}
+                  </span>
+                  <FilterControls
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    attributeKeys={attributeKeys}
+                    getAttributeValues={getAttributeValues}
+                  />
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <StatusFilter
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                  />
+                  <GroupByControl
+                    value={traceListSettings.groupBy}
+                    onChange={(next) =>
+                      setTraceListSettings({
+                        ...traceListSettings,
+                        groupBy: next,
+                      })
+                    }
+                    attributeKeys={attributeKeys}
+                  />
+                  {hiddenBySinceNow > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      ↑ {hiddenBySinceNow} hidden
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {filtered.length} trace{filtered.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+              {(filters.attributeFilters.some(
+                (f) => f.key !== SERVICE_ATTR_KEY,
+              ) ||
+                filters.sinceNow !== null) && (
+                <div className="mt-2">
+                  <FilterPills filters={filters} onFiltersChange={setFilters} />
+                </div>
+              )}
+            </div>
+
+            <div
+              className={cn(
+                'min-h-0 flex-1 overflow-auto px-6 py-4',
+                scrollbarStyles,
+              )}
+            >
+              {filtered.length === 0 ? (
+                <div className="flex items-center justify-center rounded-lg border border-border p-10 text-sm text-muted-foreground">
+                  No traces
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <GroupedList
+                    traces={shownTraces}
+                    spans={spans}
+                    settings={traceListSettings}
+                    columnWidths={columnWidths}
+                    newCount={bufferedCount}
+                    onRevealNew={revealNew}
+                    onColumnWidthChange={setColumnWidth}
+                    onSettingsChange={setTraceListSettings}
+                    onSelectTrace={handleSelectTrace}
+                  />
+                  {hasMore && (
+                    <button
+                      type="button"
+                      onClick={showMore}
+                      className="self-center rounded-md border border-border px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                    >
+                      Show more
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {dockVisible && selectedTrace && (
+              <>
+                <div
+                  className="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/20"
+                  onMouseDown={onDividerMouseDown}
+                />
+                <div
+                  style={{ height: dockSettings.height }}
+                  className="shrink-0"
+                >
+                  <TraceDock
+                    key={selectedTrace.traceId}
+                    trace={selectedTrace}
+                    settings={dockSettings}
+                    onSettingsChange={setDockSettings}
+                    onClose={() =>
+                      setDockSettings({ ...dockSettings, open: false })
+                    }
+                  />
+                </div>
+              </>
             )}
-          </div>
+          </>
         )}
       </div>
-
-      {dockVisible && selectedTrace && (
-        <>
-          <div
-            className="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/20"
-            onMouseDown={onDividerMouseDown}
-          />
-          <div style={{ height: dockSettings.height }} className="shrink-0">
-            <TraceDock
-              key={selectedTrace.traceId}
-              trace={selectedTrace}
-              settings={dockSettings}
-              onSettingsChange={setDockSettings}
-              onClose={() => setDockSettings({ ...dockSettings, open: false })}
-            />
-          </div>
-        </>
-      )}
     </div>
   );
 }

@@ -29,7 +29,6 @@ import {
   GROUP_BY_TRACE_NAME,
   NO_ROOT_SERVICE,
   SERVICE_ATTR_KEY,
-  type ServiceOption,
 } from './filters';
 import type { AttributeFilter, Filters, TraceStatusFilter } from './store';
 
@@ -118,125 +117,6 @@ export function FilterPills({ filters, onFiltersChange }: PillsProps) {
           ts={filters.sinceNow}
           onRemove={() => onFiltersChange({ ...filters, sinceNow: null })}
         />
-      )}
-    </div>
-  );
-}
-
-interface ServiceFilterProps {
-  filters: Filters;
-  onFiltersChange: (next: Filters) => void;
-  options: ServiceOption[];
-}
-
-export function ServiceFilter({
-  filters,
-  onFiltersChange,
-  options,
-}: ServiceFilterProps) {
-  const [open, setOpen] = useState(false);
-
-  const selected =
-    filters.attributeFilters.find((f) => f.key === SERVICE_ATTR_KEY)?.value ??
-    null;
-
-  function setService(name: string | null) {
-    const withoutService = filters.attributeFilters.filter(
-      (f) => f.key !== SERVICE_ATTR_KEY,
-    );
-    onFiltersChange({
-      ...filters,
-      attributeFilters:
-        name === null
-          ? withoutService
-          : [
-              ...withoutService,
-              { id: crypto.randomUUID(), key: SERVICE_ATTR_KEY, value: name },
-            ],
-    });
-  }
-
-  const selectedColor =
-    selected && selected !== NO_ROOT_SERVICE ? serviceColor(selected) : null;
-
-  return (
-    <div className="flex items-center">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              variant="outline"
-              size="xs"
-              className={cn('gap-1.5', selected && 'rounded-r-none')}
-            >
-              {selectedColor ? (
-                <span
-                  className={cn('size-1.5 rounded-full', selectedColor.dot)}
-                />
-              ) : (
-                <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-              )}
-              <span className="font-mono">
-                {selected ? formatServiceName(selected) : 'No service selected'}
-              </span>
-              <ChevronDownIcon className="size-3 opacity-60" />
-            </Button>
-          }
-        />
-        <PopoverContent align="start" className="w-64 p-0">
-          <Command shouldFilter>
-            <CommandInput placeholder="Search services..." autoFocus />
-            <CommandList>
-              <CommandEmpty>No services.</CommandEmpty>
-              <CommandGroup>
-                {options.map((o) => {
-                  const isNoRoot = o.name === NO_ROOT_SERVICE;
-                  const c = isNoRoot ? null : serviceColor(o.name);
-                  const disabled = o.count === 0;
-                  return (
-                    <CommandItem
-                      key={o.name}
-                      value={o.name}
-                      disabled={disabled}
-                      onSelect={() => {
-                        if (disabled) return;
-                        setService(o.name);
-                        setOpen(false);
-                      }}
-                    >
-                      <span
-                        className={cn(
-                          'size-1.5 rounded-full',
-                          c ? c.dot : 'bg-muted-foreground/40',
-                        )}
-                      />
-                      <span className="flex-1 truncate font-mono text-xs">
-                        {formatServiceName(o.name)}
-                      </span>
-                      <span className="tabular-nums text-[10px] text-muted-foreground">
-                        {o.count}
-                      </span>
-                      {selected === o.name && (
-                        <CheckIcon className="size-3.5 text-muted-foreground" />
-                      )}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-      {selected && (
-        <Button
-          variant="outline"
-          size="xs"
-          onClick={() => setService(null)}
-          aria-label="Clear service filter"
-          className="-ml-px gap-0 rounded-l-none border-l-0 px-1.5"
-        >
-          <XIcon className="size-3" />
-        </Button>
       )}
     </div>
   );

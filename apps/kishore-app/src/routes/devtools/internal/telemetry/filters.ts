@@ -17,6 +17,21 @@ export function formatServiceName(name: string): string {
   return name === NO_ROOT_SERVICE ? NO_ROOT_LABEL : name;
 }
 
+/** Human-readable "time since" a wall-clock timestamp (ms). */
+export function formatRelativeTime(ts: number): string {
+  if (!Number.isFinite(ts)) return '—';
+  const diff = Date.now() - ts;
+  if (diff < 0) return 'now';
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+}
+
 export function discoverAttributeKeys(spans: OtelSpan[]): string[] {
   const keys = new Set<string>();
   for (const span of spans) {
@@ -26,8 +41,6 @@ export function discoverAttributeKeys(spans: OtelSpan[]): string[] {
     .filter((k) => k !== SERVICE_ATTR_KEY)
     .sort();
 }
-
-export type ServiceOption = { name: string; count: number };
 
 export type ServiceInsight = {
   name: string;
@@ -89,36 +102,6 @@ export function computeServiceInsights(traces: TraceGroup[]): ServiceInsight[] {
   }
 
   return insights.sort((a, b) => b.traceCount - a.traceCount);
-}
-
-/**
- * Discover all service names that ever existed in the data, with the count of
- * traces that match the *given* (non-service) filter set.
- */
-export function discoverServiceOptions(
-  allTraces: TraceGroup[],
-  filteredTraces: TraceGroup[],
-): ServiceOption[] {
-  const allNames = new Set<string>();
-  for (const t of allTraces) {
-    const svc = effectiveService(t);
-    if (svc) allNames.add(svc);
-  }
-
-  const counts = new Map<string, number>();
-  for (const t of filteredTraces) {
-    const svc = effectiveService(t);
-    if (svc) counts.set(svc, (counts.get(svc) ?? 0) + 1);
-  }
-
-  return Array.from(allNames)
-    .map((name) => ({ name, count: counts.get(name) ?? 0 }))
-    .sort((a, b) => {
-      if (a.name === NO_ROOT_SERVICE) return 1;
-      if (b.name === NO_ROOT_SERVICE) return -1;
-      if (b.count !== a.count) return b.count - a.count;
-      return a.name.localeCompare(b.name);
-    });
 }
 
 export function discoverAttributeValues(

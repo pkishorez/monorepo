@@ -42,6 +42,10 @@ type State = {
   dock: DockSettings;
   palette: PaletteSettings;
   columnWidths: ColumnWidths;
+  /** Whether the service navigation rail is collapsed to a thin strip. */
+  railCollapsed: boolean;
+  /** Width (px) of the expanded service navigation rail. */
+  railWidth: number;
 };
 
 type Actions = {
@@ -50,6 +54,8 @@ type Actions = {
   setDock: (next: DockSettings) => void;
   setPalette: (next: PaletteSettings) => void;
   setColumnWidth: (name: string, width: number) => void;
+  setRailCollapsed: (next: boolean) => void;
+  setRailWidth: (next: number) => void;
 };
 
 const INITIAL: State = {
@@ -69,6 +75,8 @@ const INITIAL: State = {
   },
   palette: { open: false },
   columnWidths: {},
+  railCollapsed: false,
+  railWidth: 256,
 };
 
 export const useLotelStore = create<State & Actions>()(
@@ -83,6 +91,8 @@ export const useLotelStore = create<State & Actions>()(
         set((s) => ({
           columnWidths: { ...s.columnWidths, [name]: width },
         })),
+      setRailCollapsed: (railCollapsed) => set({ railCollapsed }),
+      setRailWidth: (railWidth) => set({ railWidth }),
     }),
     {
       name: 'lotel:data',
@@ -93,6 +103,8 @@ export const useLotelStore = create<State & Actions>()(
         dock: s.dock,
         palette: s.palette,
         columnWidths: s.columnWidths,
+        railCollapsed: s.railCollapsed,
+        railWidth: s.railWidth,
       }),
     },
   ),
