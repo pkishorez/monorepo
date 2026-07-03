@@ -1,5 +1,4 @@
 /* Add sources for other packages we are using. */
-@source '../node_modules/@monorepo/trace-viewer';
 @source '../node_modules/@monorepo/frontend';
 @source '../**/*.ts';
 @source '../**/*.tsx';

@@ -22,48 +22,30 @@ const components = layer('components', ['src/components'], {
   description: 'Shared presentational components',
 });
 
-const services = layer('services', ['src/services'], {
-  description: 'Runtime services (rollup bundling, app runtime)',
-});
-
 const lib = layer('lib', ['src/lib'], {
   description: 'Framework-agnostic helpers',
 });
 
-const blog = feature('blog', { description: 'Blog index and per-slug posts' });
-const otel = feature('otel', { description: 'OpenTelemetry trace viewer' });
-const devtools = feature('devtools', {
-  description: 'DevTools workbench (dependency graph)',
-});
-const dev = feature('dev', { description: 'Internal dev/playground routes' });
-
 export default {
   rootDir: 'src',
   ignore: ['src/styles.css', 'src/routeTree.gen.ts', 'src/types.d.ts'],
-  rules: [
-    layersTopDown('app', [
-      server,
-      entrypoints,
-      routes,
-      components,
-      services,
-      lib,
-    ]),
-  ],
-  features: [blog, otel, devtools, dev],
-  modules: [
-    module('src/routes/blog', { feature: 'blog' }),
-    module('src/routes/otel', { feature: 'otel' }),
-    module('src/routes/otel/internal', { feature: 'otel' }),
-    module('src/routes/dev', { feature: 'dev' }),
-    module('src/routes/dev/components', { feature: 'dev' }),
-    module('src/routes/devtools', { feature: 'devtools' }),
-    module('src/routes/devtools/internal', { feature: 'devtools' }),
-    module('src/components/blog', { feature: 'blog' }),
-    module('src/components/code-block', {
-      visibility: 'shared',
-      sharedWith: ['blog'],
+  rules: [layersTopDown('app', [server, entrypoints, routes, components, lib])],
+  features: [
+    feature('devtools', {
+      root: 'devtools',
+      modules: ['devtools', 'devtools/internal'],
+      description: 'DevTools workbench (OTel traces and dependency graphs)',
     }),
-    module('src/services/rollup'),
+    feature('dev', {
+      root: 'dev',
+      modules: ['dev', 'dev/components'],
+      description: 'Internal dev/playground routes',
+    }),
+  ],
+  modules: [
+    module('src/routes/devtools'),
+    module('src/routes/devtools/internal'),
+    module('src/routes/dev'),
+    module('src/routes/dev/components'),
   ],
 } satisfies ProjectConfig;

@@ -19,8 +19,10 @@ import {
   NetworkIcon,
   RotateCwIcon,
   ServerIcon,
+  SunIcon,
 } from '@monorepo/frontend/lucide';
 import { cn } from '@monorepo/frontend/utils';
+import { useTheme } from '@/components/theme';
 import { CommandHint } from './command-hint';
 import { useServerHealth } from './health';
 import { type DevtoolsTool, isValidBaseUrl, useDevtoolsStore } from './store';
@@ -58,6 +60,7 @@ export function DevtoolsHeader({
       <div className="flex shrink-0 items-center gap-1">
         {actions}
         <ConnectionButton />
+        <ThemeToggleButton />
       </div>
     </header>
   );
@@ -95,6 +98,24 @@ export function ToolSwitch() {
         </button>
       ))}
     </div>
+  );
+}
+
+/** Light/dark theme toggle shown alongside the header actions. */
+export function ThemeToggleButton() {
+  const toggleTheme = useTheme((s) => s.toggleTheme);
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      title="Toggle theme"
+      aria-label="Toggle theme"
+      onClick={toggleTheme}
+      className="shrink-0 text-muted-foreground hover:text-foreground"
+    >
+      <SunIcon className="size-4" />
+    </Button>
   );
 }
 
