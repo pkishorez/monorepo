@@ -3,12 +3,6 @@
   "version": "0.0.8",
   "private": false,
   "repository": "pkishorez/monorepo",
-  "files": [
-    "LICENCE",
-    "README.md",
-    "dist/",
-    "src/"
-  ],
   "type": "module",
   "exports": {
     ".": {
@@ -17,6 +11,12 @@
       "default": "./dist/index.js"
     }
   },
+  "files": [
+    "LICENCE",
+    "README.md",
+    "dist/",
+    "src/"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -25,7 +25,7 @@
     "lint:tsc": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/react": "19.2.16",
+    "@types/react": "19.2.17",
     "effect": "4.0.0-beta.78",
     "typescript": "6.0.3"
   },

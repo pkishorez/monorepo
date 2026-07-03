@@ -3,11 +3,12 @@
   "version": "0.0.21",
   "description": "A zero-config, opinionated monorepo management tool.",
   "keywords": [],
+  "repository": "pkishorez/monorepo",
   "license": "MIT",
   "author": {
     "name": "Kishore"
   },
-  "repository": "pkishorez/monorepo",
+  "type": "module",
   "bin": {
     "monoverse": "dist/cli.js"
   },
@@ -15,7 +16,6 @@
     "dist/",
     "README.md"
   ],
-  "type": "module",
   "scripts": {
     "build:ondemand": "bun build.ts",
     "fmt": "vp fmt",
@@ -28,13 +28,13 @@
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.78",
-    "@opentui/core": "0.3.1",
-    "@opentui/react": "0.3.1",
+    "@opentui/core": "0.4.2",
+    "@opentui/react": "0.4.2",
     "effect": "4.0.0-beta.78",
     "js-yaml": "4.2.0",
     "react": "19.2.7",
-    "semver": "7.8.1",
-    "sort-package-json": "3.7.0",
+    "semver": "7.8.5",
+    "sort-package-json": "4.0.0",
     "tinyglobby": "0.2.17",
     "use-effect-ts": "workspace:*"
   },
@@ -42,10 +42,10 @@
     "@tsconfig/node22": "22.0.5",
     "@types/bun": "1.3.14",
     "@types/js-yaml": "4.0.9",
-    "@types/node": "25.9.1",
-    "@types/react": "19.2.16",
+    "@types/node": "26.1.0",
+    "@types/react": "19.2.17",
     "@types/semver": "7.7.1",
     "nodemon": "3.1.14",
-    "vitest": "4.1.5"
+    "vitest": "4.1.9"
   }
 }
