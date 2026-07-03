@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef } from 'react';
-import { useLiveQuery } from '@tanstack/react-db';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { inArray, max, useLiveQuery } from '@tanstack/react-db';
 import {
   groupByTrace,
   TraceDock,
@@ -19,6 +19,7 @@ import {
   FilterPills,
   GroupByControl,
   ServiceFilter,
+  StatusFilter,
 } from './filter-bar';
 import { GroupedList } from './grouped-list';
 import { ServiceGlossary } from './service-glossary';
@@ -31,6 +32,8 @@ import {
   SERVICE_ATTR_KEY,
 } from './filters';
 import { useLotelStore } from './store';
+
+const PAGE_SIZE = 20;
 
 export function Viewer({ collections }: { collections: TelemetryCollections }) {
   const { data: traceItems } = useLiveQuery(collections.traces);
@@ -48,6 +51,8 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
   const setTraceListSettings = useLotelStore((s) => s.setTraceList);
   const dockSettings = useLotelStore((s) => s.dock);
   const setDockSettings = useLotelStore((s) => s.setDock);
+  const columnWidths = useLotelStore((s) => s.columnWidths);
+  const setColumnWidth = useLotelStore((s) => s.setColumnWidth);
 
   const attributeKeys = useMemo(() => discoverAttributeKeys(spans), [spans]);
   const getAttributeValues = useCallback(
@@ -55,10 +60,65 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
     [spans],
   );
 
-  const { visible: traces, hiddenBySinceNow } = useMemo(
+  const { visible: filtered, hiddenBySinceNow } = useMemo(
     () => applyFilters(allTraces, spans, filters),
     [allTraces, spans, filters],
   );
+
+  // A stable "freeze line" keeps streaming traces from shoving the list around:
+  // traces that first appear after `pivot` (wall-clock ms, captured when the
+  // view was last flushed) are held behind a click-to-reveal banner rather than
+  // spliced in live. Everything at/below the line is the eligible set we page.
+  const [pivot, setPivot] = useState(() => Date.now());
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const frozenIds = useMemo(
+    () => filtered.filter((t) => t.startTime <= pivot).map((t) => t.traceId),
+    [filtered, pivot],
+  );
+  const bufferedCount = useMemo(
+    () => filtered.filter((t) => t.startTime > pivot).length,
+    [filtered, pivot],
+  );
+
+  // Sort + limit happen inside TanStack DB: group the frozen traces' spans by
+  // traceId, rank by newest ingested span (monotonic ULID `id`), and take the
+  // visible window. Filtering stays client-side (cross-span predicates over the
+  // nested resource kvlist), so we feed the eligible ids in via `inArray`.
+  const { data: windowRows } = useLiveQuery(
+    (q) =>
+      q
+        .from({ s: collections.traces })
+        .where(({ s }) => inArray(s.record.traceId, frozenIds))
+        .groupBy(({ s }) => s.record.traceId)
+        .select(({ s }) => ({ traceId: s.record.traceId, rank: max(s.id) }))
+        .orderBy(({ s }) => max(s.id), 'desc')
+        .limit(visibleCount),
+    [frozenIds, visibleCount],
+  );
+
+  const tracesById = useMemo(() => {
+    const map = new Map<string, TraceGroup>();
+    for (const t of allTraces) map.set(t.traceId, t);
+    return map;
+  }, [allTraces]);
+
+  const shownTraces = useMemo(
+    () =>
+      windowRows
+        .map((r) => (r.traceId ? tracesById.get(r.traceId) : undefined))
+        .filter((t): t is TraceGroup => t != null),
+    [windowRows, tracesById],
+  );
+
+  const hasMore = frozenIds.length > visibleCount;
+
+  const revealNew = useCallback(() => {
+    setPivot(Date.now());
+    setVisibleCount(PAGE_SIZE);
+  }, []);
+
+  const showMore = useCallback(() => setVisibleCount((c) => c + PAGE_SIZE), []);
 
   const tracesWithoutServiceFilter = useMemo(() => {
     const withoutService = {
@@ -173,6 +233,7 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
           </div>
           {selectedService !== null && (
             <div className="flex shrink-0 items-center gap-3">
+              <StatusFilter filters={filters} onFiltersChange={setFilters} />
               <GroupByControl
                 value={traceListSettings.groupBy}
                 onChange={(next) =>
@@ -189,7 +250,7 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
                 </span>
               )}
               <span className="text-xs text-muted-foreground">
-                {traces.length} trace{traces.length !== 1 ? 's' : ''}
+                {filtered.length} trace{filtered.length !== 1 ? 's' : ''}
               </span>
             </div>
           )}
@@ -213,18 +274,33 @@ export function Viewer({ collections }: { collections: TelemetryCollections }) {
             insights={serviceInsights}
             onSelectService={selectService}
           />
-        ) : traces.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center rounded-lg border border-border p-10 text-sm text-muted-foreground">
             No traces
           </div>
         ) : (
-          <GroupedList
-            traces={traces}
-            spans={spans}
-            settings={traceListSettings}
-            onSettingsChange={setTraceListSettings}
-            onSelectTrace={handleSelectTrace}
-          />
+          <div className="flex flex-col gap-3">
+            <GroupedList
+              traces={shownTraces}
+              spans={spans}
+              settings={traceListSettings}
+              columnWidths={columnWidths}
+              newCount={bufferedCount}
+              onRevealNew={revealNew}
+              onColumnWidthChange={setColumnWidth}
+              onSettingsChange={setTraceListSettings}
+              onSelectTrace={handleSelectTrace}
+            />
+            {hasMore && (
+              <button
+                type="button"
+                onClick={showMore}
+                className="self-center rounded-md border border-border px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              >
+                Show more
+              </button>
+            )}
+          </div>
         )}
       </div>
 

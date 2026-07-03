@@ -1,10 +1,22 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
-import type { OtelSpan } from '../trace-model';
+import type { OtelSpan, SpanNode } from '../trace-model';
 import { collectSpans, type TraceGroup } from '../trace-model';
+import { useElementWidth } from '../use-element-width';
 import { GanttHeader } from './gantt-header';
 import { GanttRow } from './gantt-row';
+
+function findNode(nodes: SpanNode[], spanId: string): SpanNode | null {
+  for (const node of nodes) {
+    if (node.span.spanId === spanId) return node;
+    const found = findNode(node.children, spanId);
+    if (found) return found;
+  }
+  return null;
+}
 import {
+  BAR_COL_INSET,
+  BAR_MIN_WIDTH_PX,
   buildGanttRows,
   MAX_NAME_COL_WIDTH,
   MIN_NAME_COL_WIDTH,
@@ -26,6 +38,59 @@ export function Gantt({
   nameColWidth = NAME_COL_WIDTH,
   onNameColWidthChange,
 }: GanttProps) {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  // Double-click / "first level" toggles just the clicked span — collapse hides
+  // its direct children, expand shows them.
+  const toggleCollapse = useCallback((spanId: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(spanId)) next.delete(spanId);
+      else next.add(spanId);
+      return next;
+    });
+  }, []);
+
+  // Expand a span by a single level: reveal its direct children but keep every
+  // child that has children of its own collapsed.
+  const expandFirstLevel = useCallback(
+    (spanId: string) => {
+      const node = findNode(trace.roots, spanId);
+      if (!node) return;
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        next.delete(spanId);
+        for (const child of node.children) {
+          if (child.children.length > 0) next.add(child.span.spanId);
+        }
+        return next;
+      });
+    },
+    [trace.roots],
+  );
+
+  // Recursively expand a span and every descendant back open.
+  const expandSubtree = useCallback(
+    (spanId: string) => {
+      const node = findNode(trace.roots, spanId);
+      if (!node) return;
+      const ids: string[] = [];
+      const walk = (n: SpanNode) => {
+        ids.push(n.span.spanId);
+        n.children.forEach(walk);
+      };
+      walk(node);
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        for (const id of ids) next.delete(id);
+        return next;
+      });
+    },
+    [trace.roots],
+  );
+
   const widthRef = useRef(nameColWidth);
   widthRef.current = nameColWidth;
 
@@ -69,16 +134,22 @@ export function Gantt({
   }, [trace]);
 
   const rows = useMemo(
-    () => buildGanttRows(trace.roots, traceStart, traceEnd),
-    [trace.roots, traceStart, traceEnd],
+    () => buildGanttRows(trace.roots, traceStart, traceEnd, collapsed),
+    [trace.roots, traceStart, traceEnd, collapsed],
   );
+
+  // Pixel width of the bar column (minus its inset margins) lets each row tell
+  // whether its bar is being held open by the pixel minimum.
+  const [barColRef, barColWidth] = useElementWidth<HTMLDivElement>();
+  const barAreaPx = Math.max(0, barColWidth - BAR_COL_INSET * 2);
+  const minWidthPct = barAreaPx > 0 ? BAR_MIN_WIDTH_PX / barAreaPx : 0;
 
   return (
     <div className="flex flex-col">
       {/* Sticky header — name col placeholder + time axis */}
       <div className="sticky top-0 z-10 flex shrink-0 items-stretch border-b border-border bg-popover">
         <div
-          className="relative shrink-0 border-r border-border/30 px-3 py-2"
+          className="relative flex shrink-0 items-center border-r border-border/30 px-3 py-2"
           style={{ width: `${nameColWidth}px` }}
         >
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
@@ -91,7 +162,7 @@ export function Gantt({
             />
           )}
         </div>
-        <div className="flex-1">
+        <div ref={barColRef} className="flex-1">
           <GanttHeader traceStart={traceStart} traceEnd={traceEnd} />
         </div>
       </div>
@@ -102,7 +173,11 @@ export function Gantt({
           key={row.span.spanId}
           row={row}
           selected={selectedSpanId === row.span.spanId}
+          minWidthPct={minWidthPct}
           onClick={() => onSpanClick(row.span)}
+          onToggleCollapse={() => toggleCollapse(row.span.spanId)}
+          onExpandFirstLevel={() => expandFirstLevel(row.span.spanId)}
+          onExpandSubtree={() => expandSubtree(row.span.spanId)}
           nameColWidth={nameColWidth}
         />
       ))}

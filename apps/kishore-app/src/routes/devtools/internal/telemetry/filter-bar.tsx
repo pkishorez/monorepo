@@ -31,7 +31,7 @@ import {
   SERVICE_ATTR_KEY,
   type ServiceOption,
 } from './filters';
-import type { AttributeFilter, Filters } from './store';
+import type { AttributeFilter, Filters, TraceStatusFilter } from './store';
 
 interface ControlsProps {
   filters: Filters;
@@ -464,6 +464,41 @@ function AddFilterPicker({
         </Command>
       </PopoverContent>
     </Popover>
+  );
+}
+
+const STATUS_OPTIONS: { value: TraceStatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'error', label: 'Errors' },
+  { value: 'running', label: 'Running' },
+];
+
+interface StatusFilterProps {
+  filters: Filters;
+  onFiltersChange: (next: Filters) => void;
+}
+
+/** Segmented quick-filter over trace status. */
+export function StatusFilter({ filters, onFiltersChange }: StatusFilterProps) {
+  const active = filters.status ?? 'all';
+  return (
+    <div className="flex items-center rounded-md border border-border p-0.5">
+      {STATUS_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onFiltersChange({ ...filters, status: opt.value })}
+          className={cn(
+            'rounded-[5px] px-2 py-0.5 text-xs font-medium transition-colors',
+            active === opt.value
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
   );
 }
 

@@ -52,14 +52,20 @@ const makeDatabase = (options: DbOptions) =>
       }),
   );
 
-type PrimaryCursor = { sk: { '>': string | null } };
+type PrimaryCursor = {
+  sk:
+    | { '>': string | null }
+    | { '>=': string | null }
+    | { '<': string | null }
+    | { '<=': string | null };
+};
 
 interface EntityService<T extends object> {
   insert(value: T): Effect.Effect<EntityType<T>, SqliteDBError, SqliteDB>;
   query(
     key: 'primary',
     params: PrimaryCursor,
-    options?: { limit?: number },
+    options?: { limit?: number | undefined },
   ): Effect.Effect<{ items: EntityType<T>[] }, SqliteDBError, SqliteDB>;
 }
 

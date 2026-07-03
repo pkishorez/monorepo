@@ -1,4 +1,4 @@
-export { TraceList } from './trace-list';
+export { TraceList, NewTracesRow, type TraceColumnKey } from './trace-list';
 export { TraceDock } from './trace-dock';
 export { serviceColor } from './service-color';
 export { groupByTrace, type TraceGroup } from './trace-model';

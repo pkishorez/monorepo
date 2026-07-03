@@ -1,45 +1,135 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { SearchIcon } from 'lucide-react';
+import { ArrowUpIcon, SearchIcon } from 'lucide-react';
 
 import { Button } from '#components/ui/button';
 import { Kbd } from '#components/ui/kbd';
 
 import { GanttHeader } from '../gantt/gantt-header';
+import { BAR_COL_INSET, BAR_MIN_WIDTH_PX } from '../gantt/layout';
+import { useElementWidth } from '../use-element-width';
 import type { TraceGroup } from '../trace-model';
 import {
-  LIST_NAME_COL_WIDTH,
-  LIST_SPANS_COL_WIDTH,
+  type TraceColumn,
+  type TraceColumnKey,
+  TRACE_COLUMNS,
   TraceRow,
+  resolveColumnWidths,
 } from './trace-row';
 
 interface TraceListProps {
   traces: TraceGroup[];
   selectedTraceId?: string | null;
   showHeader?: boolean;
+  columnWidths?: Partial<Record<string, number>>;
+  onColumnWidthChange?: (key: TraceColumnKey, width: number) => void;
   onSelectTrace: (trace: TraceGroup) => void;
   onOpenSearch?: () => void;
+  /** Count of newer traces held behind the freeze line, shown as a top row. */
+  newCount?: number;
+  onRevealNew?: () => void;
+}
+
+/**
+ * Full-width table row announcing buffered newer traces. Lives inside the
+ * table (under the header) so revealing them never shifts surrounding layout.
+ */
+export function NewTracesRow({
+  count,
+  onClick,
+}: {
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-center gap-1.5 border-b border-border/50 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+    >
+      <ArrowUpIcon className="size-3" />
+      {count} new trace{count !== 1 ? 's' : ''} available
+    </button>
+  );
+}
+
+function ColumnResizeHandle({
+  column,
+  width,
+  onResize,
+}: {
+  column: TraceColumn;
+  width: number;
+  onResize: (key: TraceColumnKey, width: number) => void;
+}) {
+  const widthRef = useRef(width);
+  widthRef.current = width;
+
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startW = widthRef.current;
+
+      function onMouseMove(ev: MouseEvent) {
+        const next = Math.min(
+          column.max,
+          Math.max(column.min, startW + ev.clientX - startX),
+        );
+        onResize(column.key, next);
+      }
+
+      function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    },
+    [column, onResize],
+  );
+
+  return (
+    <div
+      className="absolute inset-y-0 right-0 z-20 w-1 translate-x-1/2 cursor-col-resize bg-transparent transition-colors hover:bg-primary/20"
+      onMouseDown={onMouseDown}
+    />
+  );
 }
 
 export function TraceList({
   traces,
   selectedTraceId,
   showHeader = true,
+  columnWidths,
+  onColumnWidthChange,
   onSelectTrace,
   onOpenSearch,
+  newCount = 0,
+  onRevealNew,
 }: TraceListProps) {
+  const widths = useMemo(
+    () => resolveColumnWidths(columnWidths),
+    [columnWidths],
+  );
   const hasRunning = useMemo(
     () => traces.some((t) => t.endTime === null),
     [traces],
   );
 
+  const [barColRef, barColWidth] = useElementWidth<HTMLDivElement>();
+  const barAreaPx = Math.max(0, barColWidth - BAR_COL_INSET * 2);
+  const minWidthPct = barAreaPx > 0 ? BAR_MIN_WIDTH_PX / barAreaPx : 0;
+
   const [now, setNow] = useState(() => Date.now());
 
+  // Tick every second so the relative "time ago" column stays current (and the
+  // running-bar animates). Cheap enough for a devtools list.
   useEffect(() => {
-    if (!hasRunning) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [hasRunning]);
+  }, []);
 
   const { globalStart, globalEnd } = useMemo(() => {
     if (traces.length === 0) return { globalStart: null, globalEnd: null };
@@ -86,23 +176,28 @@ export function TraceList({
       ) : (
         <div className="overflow-hidden rounded-lg border border-border">
           <div className="flex items-stretch border-b border-border bg-muted/30">
-            <div
-              className="shrink-0 border-r border-border/30 px-3 py-1.5"
-              style={{ width: `${LIST_NAME_COL_WIDTH}px` }}
-            >
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Name
-              </span>
-            </div>
-            <div
-              className="flex shrink-0 items-center justify-end border-r border-border/30 px-3"
-              style={{ width: `${LIST_SPANS_COL_WIDTH}px` }}
-            >
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Spans
-              </span>
-            </div>
-            <div className="flex-1">
+            {TRACE_COLUMNS.map((col) => (
+              <div
+                key={col.key}
+                className="relative flex shrink-0 items-center border-r border-border/30 px-3 py-1.5"
+                style={{
+                  width: `${widths[col.key]}px`,
+                  justifyContent: col.align === 'end' ? 'flex-end' : undefined,
+                }}
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {col.label}
+                </span>
+                {onColumnWidthChange && (
+                  <ColumnResizeHandle
+                    column={col}
+                    width={widths[col.key]}
+                    onResize={onColumnWidthChange}
+                  />
+                )}
+              </div>
+            ))}
+            <div ref={barColRef} className="flex-1">
               {globalStart !== null && globalEnd !== null ? (
                 <GanttHeader
                   traceStart={globalStart}
@@ -114,6 +209,9 @@ export function TraceList({
               )}
             </div>
           </div>
+          {newCount > 0 && onRevealNew && (
+            <NewTracesRow count={newCount} onClick={onRevealNew} />
+          )}
           {traces.map((trace, i) => (
             <div
               key={trace.traceId}
@@ -126,6 +224,8 @@ export function TraceList({
                 globalStart={globalStart}
                 globalEnd={globalEnd}
                 now={now}
+                widths={widths}
+                minWidthPct={minWidthPct}
                 isSelected={selectedTraceId === trace.traceId}
                 onSelect={() => onSelectTrace(trace)}
               />

@@ -22,6 +22,7 @@ import {
 } from '@monorepo/frontend/lucide';
 import { cn } from '@monorepo/frontend/utils';
 import { CommandHint } from './command-hint';
+import { useServerHealth } from './health';
 import { type DevtoolsTool, isValidBaseUrl, useDevtoolsStore } from './store';
 import { useActiveTool } from './use-active-tool';
 
@@ -107,6 +108,8 @@ export function ConnectionButton() {
   const open = useDevtoolsStore((s) => s.connectionOpen);
   const setOpen = useDevtoolsStore((s) => s.setConnectionOpen);
 
+  const health = useServerHealth(devUrl);
+
   const [draft, setDraft] = useState(devUrl);
 
   // Re-seed the draft from the current URL whenever the dialog opens (it can be
@@ -125,17 +128,43 @@ export function ConnectionButton() {
     setOpen(false);
   };
 
+  const status = !devUrl
+    ? {
+        dot: 'bg-muted-foreground',
+        title: 'No connection configured',
+      }
+    : health === 'online'
+      ? {
+          dot: 'bg-emerald-500',
+          title: `Connected: ${devUrl}`,
+        }
+      : health === 'offline'
+        ? {
+            dot: 'bg-destructive',
+            title: `Can't reach ${devUrl}`,
+          }
+        : {
+            dot: 'animate-pulse bg-amber-500',
+            title: `Connecting to ${devUrl}…`,
+          };
+
   return (
     <>
       <Button
         variant="ghost"
         size="icon"
-        title={devUrl ? `Connection: ${devUrl}` : 'No connection configured'}
+        title={status.title}
         aria-label="Configure connection"
         onClick={() => setOpen(true)}
-        className="shrink-0 text-muted-foreground hover:text-foreground"
+        className="relative shrink-0 text-muted-foreground hover:text-foreground"
       >
         <ServerIcon className="size-4" />
+        <span
+          className={cn(
+            'absolute right-1 top-1 size-2 rounded-full ring-2 ring-background',
+            status.dot,
+          )}
+        />
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

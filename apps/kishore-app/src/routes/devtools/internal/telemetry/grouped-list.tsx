@@ -1,17 +1,23 @@
 import { ChevronRightIcon } from '@monorepo/frontend/lucide';
 import {
+  NewTracesRow,
   type OtelSpan,
+  type TraceColumnKey,
   TraceList,
   type TraceGroup,
 } from '@monorepo/frontend/components/blocks/otel-trace-viewer';
 import { cn } from '@monorepo/frontend/lib/utils';
-import type { TraceListSettings } from './store';
+import type { ColumnWidths, TraceListSettings } from './store';
 import { groupTracesBy } from './filters';
 
 interface GroupedListProps {
   traces: TraceGroup[];
   spans: OtelSpan[];
   settings: TraceListSettings;
+  columnWidths: ColumnWidths;
+  newCount: number;
+  onRevealNew: () => void;
+  onColumnWidthChange: (key: TraceColumnKey, width: number) => void;
   onSettingsChange: (next: TraceListSettings) => void;
   onSelectTrace: (trace: TraceGroup) => void;
 }
@@ -20,6 +26,10 @@ export function GroupedList({
   traces,
   spans,
   settings,
+  columnWidths,
+  newCount,
+  onRevealNew,
+  onColumnWidthChange,
   onSettingsChange,
   onSelectTrace,
 }: GroupedListProps) {
@@ -29,6 +39,10 @@ export function GroupedList({
         traces={traces}
         selectedTraceId={settings.selectedTraceId}
         showHeader={false}
+        columnWidths={columnWidths}
+        newCount={newCount}
+        onRevealNew={onRevealNew}
+        onColumnWidthChange={onColumnWidthChange}
         onSelectTrace={onSelectTrace}
       />
     );
@@ -48,6 +62,11 @@ export function GroupedList({
 
   return (
     <div className="flex flex-col gap-2">
+      {newCount > 0 && (
+        <div className="overflow-hidden rounded-lg border border-border">
+          <NewTracesRow count={newCount} onClick={onRevealNew} />
+        </div>
+      )}
       {groups.map((g) => {
         const expanded = settings.expandedGroups[g.name] === true;
         return (
@@ -83,6 +102,8 @@ export function GroupedList({
                   traces={g.traces}
                   selectedTraceId={settings.selectedTraceId}
                   showHeader={false}
+                  columnWidths={columnWidths}
+                  onColumnWidthChange={onColumnWidthChange}
                   onSelectTrace={onSelectTrace}
                 />
               </div>

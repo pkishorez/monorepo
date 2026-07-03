@@ -73,17 +73,17 @@ export const LotelHandlersLive = HttpApiBuilder.group(
         }),
       )
       .handle('queryTraces', ({ query: { cursor } }) =>
-        queryTraces(cursor).pipe(
+        queryTraces({ '>': cursor ?? null }).pipe(
           Effect.mapError(InternalError.fromSqlite('queryTraces')),
         ),
       )
       .handle('queryLogs', ({ query: { cursor } }) =>
-        queryLogs(cursor).pipe(
+        queryLogs({ '>': cursor ?? null }).pipe(
           Effect.mapError(InternalError.fromSqlite('queryLogs')),
         ),
       )
       .handle('queryMetrics', ({ query: { cursor } }) =>
-        queryMetrics(cursor).pipe(
+        queryMetrics({ '>': cursor ?? null }).pipe(
           Effect.mapError(InternalError.fromSqlite('queryMetrics')),
         ),
       )

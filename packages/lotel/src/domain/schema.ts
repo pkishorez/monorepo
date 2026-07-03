@@ -26,3 +26,15 @@ export const MetricRecordSchema = EntityESchema.make('MetricRecord', 'id', {
 export type StoredTraceRecordValue = typeof TraceRecordSchema.Type;
 export type StoredLogRecordValue = typeof LogRecordSchema.Type;
 export type StoredMetricRecordValue = typeof MetricRecordSchema.Type;
+
+/**
+ * A sort-key bound over a record's monotonic id. The operator encodes the scan
+ * direction: `>`/`>=` page oldest-to-newest (the live tail), `<`/`<=` page
+ * newest-to-oldest (the new-to-old backfill); a `null` value drops the bound and
+ * scans the whole set in the operator's direction.
+ */
+export type TelemetryQuery =
+  | { '>': string | null }
+  | { '>=': string | null }
+  | { '<': string | null }
+  | { '<=': string | null };

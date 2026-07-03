@@ -78,7 +78,7 @@ describe('lotel telemetry storage', () => {
     expect(firstPage.items[0]!.value.context.scope?.name).toBe('test-scope');
 
     const cursor = firstPage.items[0]!.value.id;
-    const secondPage = await runWithDb(db, queryTraces(cursor));
+    const secondPage = await runWithDb(db, queryTraces({ '>': cursor }));
     expect(secondPage.items.map((item) => item.value.record.spanId)).toEqual([
       'span-2',
     ]);
