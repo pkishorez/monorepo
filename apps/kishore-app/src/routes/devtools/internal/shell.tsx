@@ -25,7 +25,6 @@ import { makeDevtoolsRuntime, type DevtoolsRuntime } from './runtime';
 import { isValidBaseUrl, useDevtoolsStore } from './store';
 import { routeApi, useActiveTool } from './use-active-tool';
 import { buildTelemetryCollections } from './telemetry/collections';
-import { Header as TelemetryHeader } from './telemetry/header';
 import { Viewer } from './telemetry/viewer';
 
 /** The DevTools workbench: tool-first, sharing one DevTools URL / runtime. */
@@ -119,12 +118,13 @@ function TelemetryPane({
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
-      <DevtoolsHeader
-        onHome={() => navigate({ to: '/' })}
-        actions={<TelemetryHeader onClear={handleClear} />}
-      />
+      <DevtoolsHeader onHome={() => navigate({ to: '/' })} />
       <div className="min-h-0 flex-1">
-        <Viewer key={resetKey} collections={collections} />
+        <Viewer
+          key={resetKey}
+          collections={collections}
+          onClear={handleClear}
+        />
       </div>
     </div>
   );
