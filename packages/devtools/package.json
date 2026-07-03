@@ -10,10 +10,15 @@
     "effect",
     "rpc"
   ],
-  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./rpc": "./src/rpc/index.ts",
+    "./report": "./src/report/index.ts"
   },
   "bin": {
     "devtools": "dist/server/main.mjs"
@@ -24,11 +29,6 @@
     "README.md",
     "LICENSE"
   ],
-  "type": "module",
-  "exports": {
-    "./rpc": "./src/rpc/index.ts",
-    "./report": "./src/report/index.ts"
-  },
   "scripts": {
     "build": "vp pack",
     "build:watch": "vp pack --watch",
@@ -39,15 +39,15 @@
     "@effect/platform-node": "4.0.0-beta.78",
     "@kishorez/lotel": "workspace:*",
     "depcruise-viz": "workspace:*",
-    "dependency-cruiser": "17.4.3",
+    "dependency-cruiser": "18.0.0",
     "effect": "4.0.0-beta.78",
-    "env-paths": "2.2.1",
+    "env-paths": "4.0.0",
     "jiti": "2.7.0",
     "std-toolkit": "workspace:*",
     "typescript": "6.0.3"
   },
   "devDependencies": {
-    "@types/node": "25.9.1",
-    "tsx": "4.22.4"
+    "@types/node": "26.1.0",
+    "tsx": "4.23.0"
   }
 }

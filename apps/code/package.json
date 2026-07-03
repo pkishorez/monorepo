@@ -14,8 +14,8 @@
     "@effect/platform-browser": "4.0.0-beta.78",
     "@effect/platform-node": "4.0.0-beta.78",
     "@monorepo/frontend": "workspace:*",
-    "@tanstack/react-db": "0.1.86",
-    "@tanstack/react-router": "1.170.3",
+    "@tanstack/react-db": "0.1.92",
+    "@tanstack/react-router": "1.170.17",
     "@xstate/react": "6.1.0",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/addon-serialize": "0.14.0",
@@ -28,18 +28,18 @@
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "std-toolkit": "workspace:*",
-    "tailwindcss": "4.3.0",
-    "xstate": "5.32.0"
+    "tailwindcss": "4.3.2",
+    "xstate": "5.32.4"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "4.3.0",
-    "@tanstack/router-plugin": "1.168.5",
-    "@types/node": "25.9.1",
-    "@types/react": "19.2.16",
+    "@tailwindcss/vite": "4.3.2",
+    "@tanstack/router-plugin": "1.168.19",
+    "@types/node": "26.1.0",
+    "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.2",
-    "tsx": "4.22.4",
+    "@vitejs/plugin-react": "6.0.3",
+    "tsx": "4.23.0",
     "typescript": "6.0.3",
-    "vite": "8.0.13"
+    "vite": "8.1.3"
   }
 }
