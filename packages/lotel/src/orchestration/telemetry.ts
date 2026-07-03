@@ -7,6 +7,7 @@ import {
   type StoredLogRecordValue,
   type StoredMetricRecordValue,
   type StoredTraceRecordValue,
+  type TelemetryQuery,
 } from '../domain/index.js';
 import { monotonicUlid } from './ulid.js';
 
@@ -140,28 +141,28 @@ export const ingestMetrics = (request: ExportMetricsServiceRequest) =>
     return records.length;
   });
 
-export const queryTraces = (cursor?: string) =>
+export const queryTraces = (
+  sk: TelemetryQuery = { '>': null },
+  limit?: number,
+) =>
   Effect.gen(function* () {
     const { traceRecord } = yield* Db;
-    return yield* traceRecord.query('primary', {
-      sk: { '>': cursor ?? null },
-    });
+    return yield* traceRecord.query('primary', { sk }, { limit });
   });
 
-export const queryLogs = (cursor?: string) =>
+export const queryLogs = (sk: TelemetryQuery = { '>': null }, limit?: number) =>
   Effect.gen(function* () {
     const { logRecord } = yield* Db;
-    return yield* logRecord.query('primary', {
-      sk: { '>': cursor ?? null },
-    });
+    return yield* logRecord.query('primary', { sk }, { limit });
   });
 
-export const queryMetrics = (cursor?: string) =>
+export const queryMetrics = (
+  sk: TelemetryQuery = { '>': null },
+  limit?: number,
+) =>
   Effect.gen(function* () {
     const { metricRecord } = yield* Db;
-    return yield* metricRecord.query('primary', {
-      sk: { '>': cursor ?? null },
-    });
+    return yield* metricRecord.query('primary', { sk }, { limit });
   });
 
 export const clearTelemetry = Effect.gen(function* () {

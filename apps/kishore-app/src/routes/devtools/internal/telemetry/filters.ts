@@ -162,6 +162,7 @@ export function applyFilters(
   }
 
   const serviceValues = filtersByKey.get(SERVICE_ATTR_KEY);
+  const statusFilter = filters.status ?? 'all';
 
   let hiddenBySinceNow = 0;
   const visible: TraceGroup[] = [];
@@ -171,6 +172,9 @@ export function applyFilters(
       const svc = effectiveService(trace);
       if (svc === null || !serviceValues.includes(svc)) continue;
     }
+
+    if (statusFilter === 'error' && trace.status !== 'error') continue;
+    if (statusFilter === 'running' && trace.status !== 'running') continue;
 
     const traceSpans = spansByTrace.get(trace.traceId) ?? [];
 

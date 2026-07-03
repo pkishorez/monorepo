@@ -16,9 +16,8 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@monorepo/frontend/components/ui/empty';
-import { ServerIcon, WifiOffIcon } from '@monorepo/frontend/lucide';
+import { ServerIcon } from '@monorepo/frontend/lucide';
 import { CommandHint } from './command-hint';
-import { useServerHealth } from './health';
 import { DevtoolsHeader, ProjectSwitcher, ReloadButton } from './header';
 import { ProjectManager } from './project-manager';
 import { clearTelemetry, useDepcruise } from './queries';
@@ -52,46 +51,14 @@ export function DevtoolsShell() {
     });
   }, [urlParam, navigate]);
 
-  const health = useServerHealth(devUrl);
   const runtime = useMemo(() => makeDevtoolsRuntime(devUrl), [devUrl]);
 
   if (!isValidBaseUrl(devUrl)) return <NotConnected />;
 
-  return (
-    <>
-      {health === 'offline' ? <OfflineBanner /> : null}
-      {activeTool === 'otel' ? (
-        <TelemetryPane devUrl={devUrl} runtime={runtime} />
-      ) : (
-        <DependenciesPane runtime={runtime} />
-      )}
-    </>
-  );
-}
-
-/** Floating prompt shown when the configured server can't be reached. */
-function OfflineBanner() {
-  const devUrl = useDevtoolsStore((s) => s.devUrl);
-  const setConnectionOpen = useDevtoolsStore((s) => s.setConnectionOpen);
-
-  return (
-    <div className="fixed inset-x-0 top-2 z-50 flex justify-center px-4">
-      <div className="flex items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm shadow-sm backdrop-blur">
-        <WifiOffIcon className="size-4 shrink-0 text-destructive" />
-        <span className="min-w-0">
-          Can't reach <span className="font-mono">{devUrl}</span>. Is the
-          DevTools server running?
-        </span>
-        <Button
-          size="sm"
-          variant="outline"
-          className="shrink-0"
-          onClick={() => setConnectionOpen(true)}
-        >
-          Configure
-        </Button>
-      </div>
-    </div>
+  return activeTool === 'otel' ? (
+    <TelemetryPane devUrl={devUrl} runtime={runtime} />
+  ) : (
+    <DependenciesPane runtime={runtime} />
   );
 }
 

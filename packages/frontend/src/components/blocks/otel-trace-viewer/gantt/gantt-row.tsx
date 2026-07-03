@@ -1,10 +1,19 @@
+import { ChevronRightIcon } from 'lucide-react';
+
 import { cn } from '#lib/utils';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '#components/ui/context-menu';
 
 import { STATUS_BG, STATUS_RING, StatusDot } from '../status';
 import { formatSpanName, isLog } from '../trace-model';
 import {
   BAR_COL_INSET,
   BAR_HEIGHT_PX,
+  BAR_MIN_WIDTH_PX,
   INDENT_PX,
   NAME_COL_WIDTH,
   ROW_HEIGHT_PX,
@@ -14,20 +23,46 @@ import {
 interface GanttRowProps {
   row: GanttRowData;
   selected: boolean;
+  minWidthPct?: number;
   onClick: () => void;
+  onToggleCollapse: () => void;
+  onExpandFirstLevel: () => void;
+  onExpandSubtree: () => void;
   nameColWidth?: number;
 }
 
 export function GanttRow({
   row,
   selected,
+  minWidthPct = 0,
   onClick,
+  onToggleCollapse,
+  onExpandFirstLevel,
+  onExpandSubtree,
   nameColWidth = NAME_COL_WIDTH,
 }: GanttRowProps) {
-  const { span, depth, startPct, widthPct } = row;
+  const {
+    span,
+    depth,
+    startPct,
+    widthPct,
+    hasChildren,
+    collapsed,
+    hiddenCount,
+  } = row;
   const logCount = span.events.filter(isLog).length;
+  // The bar is only as wide as its pixel minimum — dim it so a clamped sliver
+  // reads as "too short to scale" rather than a real duration.
+  const atMinWidth = minWidthPct > 0 && widthPct < minWidthPct;
+  // Keep that minimum-width bar fully inside the column instead of letting it
+  // overflow the right edge (which clips it back down to a sliver).
+  const effWidthPct = Math.max(widthPct, minWidthPct);
+  const leftPct =
+    minWidthPct > 0
+      ? Math.min(startPct, Math.max(0, 1 - effWidthPct))
+      : startPct;
 
-  return (
+  const rowButton = (
     <button
       onClick={onClick}
       aria-current={selected ? 'true' : undefined}
@@ -53,6 +88,36 @@ export function GanttRow({
           paddingRight: '12px',
         }}
       >
+        {/* Fixed-width disclosure slot — always reserved so toggling never
+            shifts the row. A clickable toggle for parents, empty for leaves. */}
+        {hasChildren ? (
+          <span
+            role="button"
+            tabIndex={-1}
+            aria-label={collapsed ? 'Expand span' : 'Collapse span'}
+            title={collapsed ? 'Expand' : 'Collapse'}
+            onClick={(e) => {
+              // Toggle without selecting the span / opening the detail panel.
+              e.stopPropagation();
+              onToggleCollapse();
+            }}
+            style={{ width: `${ROW_HEIGHT_PX}px` }}
+            className="flex shrink-0 cursor-pointer items-center justify-center self-stretch text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronRightIcon
+              className={cn(
+                'size-3.5 transition-transform',
+                collapsed ? 'text-foreground' : 'rotate-90',
+              )}
+            />
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            style={{ width: `${ROW_HEIGHT_PX}px` }}
+            className="shrink-0 self-stretch"
+          />
+        )}
         <StatusDot status={span.status} />
         <span
           className={cn(
@@ -63,6 +128,11 @@ export function GanttRow({
         >
           {formatSpanName(span.name, span.attributes)}
         </span>
+        {collapsed && hiddenCount > 0 && (
+          <span className="ml-1 shrink-0 rounded-sm bg-muted px-1 text-[10px] font-medium tabular-nums text-muted-foreground">
+            +{hiddenCount} more span{hiddenCount === 1 ? '' : 's'}
+          </span>
+        )}
         {logCount > 0 && (
           <span className="ml-1 shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
             {logCount} {logCount === 1 ? 'log' : 'logs'}
@@ -97,14 +167,35 @@ export function GanttRow({
                 ),
             )}
             style={{
-              left: `${(startPct * 100).toFixed(4)}%`,
+              left: `${(leftPct * 100).toFixed(4)}%`,
               width: `${(widthPct * 100).toFixed(4)}%`,
-              minWidth: '4px',
+              minWidth: `${BAR_MIN_WIDTH_PX}px`,
               height: `${BAR_HEIGHT_PX}px`,
+              opacity: atMinWidth ? 0.6 : undefined,
             }}
           />
         </div>
       </div>
     </button>
+  );
+
+  // Leaf spans have nothing to collapse — skip the menu entirely.
+  if (!hasChildren) return rowButton;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={rowButton} />
+      <ContextMenuContent>
+        <ContextMenuItem onClick={onExpandFirstLevel}>
+          Expand first level
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onExpandSubtree}>
+          Expand recursively
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onToggleCollapse}>
+          {collapsed ? 'Expand' : 'Collapse'}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

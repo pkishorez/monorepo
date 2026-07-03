@@ -5,6 +5,7 @@ export {
   type StoredLogRecordValue,
   type StoredMetricRecordValue,
   type StoredTraceRecordValue,
+  type TelemetryQuery,
 } from './schema.js';
 export type {
   ExportLogsServiceRequest,

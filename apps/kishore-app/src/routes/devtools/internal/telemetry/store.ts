@@ -3,9 +3,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type AttributeFilter = { id: string; key: string; value: string };
 
+export type TraceStatusFilter = 'all' | 'error' | 'running';
+
 export type Filters = {
   attributeFilters: AttributeFilter[];
   sinceNow: number | null;
+  status: TraceStatusFilter;
 };
 
 export type TraceListSettings = {
@@ -27,11 +30,18 @@ export type PaletteSettings = {
   open: boolean;
 };
 
+/**
+ * Trace-list column widths keyed by column name so the preference is shared
+ * across every trace-list view (grouped or flat) and survives reloads.
+ */
+export type ColumnWidths = Record<string, number>;
+
 type State = {
   filters: Filters;
   traceList: TraceListSettings;
   dock: DockSettings;
   palette: PaletteSettings;
+  columnWidths: ColumnWidths;
 };
 
 type Actions = {
@@ -39,10 +49,11 @@ type Actions = {
   setTraceList: (next: TraceListSettings) => void;
   setDock: (next: DockSettings) => void;
   setPalette: (next: PaletteSettings) => void;
+  setColumnWidth: (name: string, width: number) => void;
 };
 
 const INITIAL: State = {
-  filters: { attributeFilters: [], sinceNow: null },
+  filters: { attributeFilters: [], sinceNow: null, status: 'all' },
   traceList: {
     groupBy: null,
     expandedGroups: {},
@@ -57,6 +68,7 @@ const INITIAL: State = {
     selectedSpanId: null,
   },
   palette: { open: false },
+  columnWidths: {},
 };
 
 export const useLotelStore = create<State & Actions>()(
@@ -67,6 +79,10 @@ export const useLotelStore = create<State & Actions>()(
       setTraceList: (traceList) => set({ traceList }),
       setDock: (dock) => set({ dock }),
       setPalette: (palette) => set({ palette }),
+      setColumnWidth: (name, width) =>
+        set((s) => ({
+          columnWidths: { ...s.columnWidths, [name]: width },
+        })),
     }),
     {
       name: 'lotel:data',
@@ -76,6 +92,7 @@ export const useLotelStore = create<State & Actions>()(
         traceList: s.traceList,
         dock: s.dock,
         palette: s.palette,
+        columnWidths: s.columnWidths,
       }),
     },
   ),

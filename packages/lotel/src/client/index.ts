@@ -6,4 +6,5 @@ export {
   type StoredLogRecordValue,
   type StoredMetricRecordValue,
   type StoredTraceRecordValue,
+  type TelemetryQuery,
 } from '../domain/index.js';

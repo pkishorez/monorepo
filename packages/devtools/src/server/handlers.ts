@@ -29,12 +29,12 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
       }
       return yield* assembleDepcruise(dir);
     }),
-  QueryTraces: ({ cursor }) =>
-    queryTraces(cursor).pipe(Effect.mapError(toRpcError)),
-  QueryLogs: ({ cursor }) =>
-    queryLogs(cursor).pipe(Effect.mapError(toRpcError)),
-  QueryMetrics: ({ cursor }) =>
-    queryMetrics(cursor).pipe(Effect.mapError(toRpcError)),
+  QueryTraces: ({ sk, limit }) =>
+    queryTraces(sk, limit).pipe(Effect.mapError(toRpcError)),
+  QueryLogs: ({ sk, limit }) =>
+    queryLogs(sk, limit).pipe(Effect.mapError(toRpcError)),
+  QueryMetrics: ({ sk, limit }) =>
+    queryMetrics(sk, limit).pipe(Effect.mapError(toRpcError)),
   ClearTelemetry: () =>
     clearTelemetry.pipe(
       Effect.map((deleted) => ({ deleted })),

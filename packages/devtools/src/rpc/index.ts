@@ -25,7 +25,19 @@ const RunDepcruiseSuccess = Schema.Union([
   }),
 ]);
 
-const CursorPayload = { cursor: Schema.optional(Schema.String) };
+/**
+ * A sort-key bound over the monotonic record id. The operator encodes the scan
+ * direction: `>`/`>=` page oldest-to-newest (live tail), `<`/`<=` page
+ * newest-to-oldest (new-to-old backfill); a `null` value scans the whole set.
+ */
+const SkBound = Schema.Union([
+  Schema.Struct({ '>': Schema.NullOr(Schema.String) }),
+  Schema.Struct({ '>=': Schema.NullOr(Schema.String) }),
+  Schema.Struct({ '<': Schema.NullOr(Schema.String) }),
+  Schema.Struct({ '<=': Schema.NullOr(Schema.String) }),
+]);
+
+const QueryPayload = { sk: SkBound, limit: Schema.optional(Schema.Number) };
 
 const TraceListSuccess = Schema.Struct({
   items: Schema.Array(EntitySchema(TraceRecordSchema)),
@@ -51,17 +63,17 @@ export const DevtoolsRpc = RpcGroup.make(
     error: DevtoolsRpcError,
   }),
   Rpc.make('QueryTraces', {
-    payload: CursorPayload,
+    payload: QueryPayload,
     success: TraceListSuccess,
     error: DevtoolsRpcError,
   }),
   Rpc.make('QueryLogs', {
-    payload: CursorPayload,
+    payload: QueryPayload,
     success: LogListSuccess,
     error: DevtoolsRpcError,
   }),
   Rpc.make('QueryMetrics', {
-    payload: CursorPayload,
+    payload: QueryPayload,
     success: MetricListSuccess,
     error: DevtoolsRpcError,
   }),
