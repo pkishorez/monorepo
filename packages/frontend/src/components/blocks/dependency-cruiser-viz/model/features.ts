@@ -1,4 +1,4 @@
-import { moduleFiles, moduleKey } from './modules';
+import { moduleFiles } from './modules';
 import type { VizSummary } from './types';
 
 export type FeatureFocus = {

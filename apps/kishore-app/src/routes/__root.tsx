@@ -1,11 +1,15 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
+import {
+  HeadContent,
+  Link,
+  Scripts,
+  createRootRoute,
+} from '@tanstack/react-router';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { TanStackDevtools } from '@tanstack/react-devtools';
 
 import appCss from '../styles.css?url';
 import { paintTheme } from '@/components/theme';
 import { InlineScript } from '@/lib/inline-script';
-import { DevTools } from '@/components/devtools';
 
 export const Route = createRootRoute({
   head: () => ({
@@ -21,7 +25,25 @@ export const Route = createRootRoute({
   }),
 
   shellComponent: RootDocument,
+  notFoundComponent: NotFound,
 });
+
+function NotFound() {
+  return (
+    <div className="max-w-2xl mx-auto min-h-dvh flex items-center p-6">
+      <div className="space-y-3">
+        <h1 className="text-4xl font-semibold tracking-tight">404</h1>
+        <p className="text-muted-foreground">This page doesn't exist.</p>
+        <Link
+          to="/"
+          className="inline-block underline underline-offset-4 decoration-muted-foreground/40 hover:decoration-foreground transition-colors"
+        >
+          Back home
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
@@ -53,7 +75,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           ]}
         />
         <Scripts />
-        <DevTools />
       </body>
     </html>
   );

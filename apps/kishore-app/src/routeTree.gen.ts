@@ -12,15 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DevtoolsIndexRouteImport } from './routes/devtools/index'
 import { Route as DevIndexRouteImport } from './routes/dev/index'
-import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as DevUiRouteImport } from './routes/dev/ui'
 import { Route as DevFormsRouteImport } from './routes/dev/forms'
-import { Route as BlogSlugRouteImport } from './routes/blog/_slug'
-import { Route as BlogSlugFiberPart4IndexRouteImport } from './routes/blog/_slug/fiber-part-4/index'
-import { Route as BlogSlugFiberPart3IndexRouteImport } from './routes/blog/_slug/fiber-part-3/index'
-import { Route as BlogSlugFiberPart2IndexRouteImport } from './routes/blog/_slug/fiber-part-2/index'
-import { Route as BlogSlugFiberPart1IndexRouteImport } from './routes/blog/_slug/fiber-part-1/index'
-import { Route as BlogSlugEffectAllIndexRouteImport } from './routes/blog/_slug/effect-all/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,11 +30,6 @@ const DevIndexRoute = DevIndexRouteImport.update({
   path: '/dev/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlogIndexRoute = BlogIndexRouteImport.update({
-  id: '/blog/',
-  path: '/blog/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DevUiRoute = DevUiRouteImport.update({
   id: '/dev/ui',
   path: '/dev/ui',
@@ -52,129 +40,41 @@ const DevFormsRoute = DevFormsRouteImport.update({
   path: '/dev/forms',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlogSlugRoute = BlogSlugRouteImport.update({
-  id: '/blog/_slug',
-  path: '/blog',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlogSlugFiberPart4IndexRoute = BlogSlugFiberPart4IndexRouteImport.update({
-  id: '/fiber-part-4/',
-  path: '/fiber-part-4/',
-  getParentRoute: () => BlogSlugRoute,
-} as any)
-const BlogSlugFiberPart3IndexRoute = BlogSlugFiberPart3IndexRouteImport.update({
-  id: '/fiber-part-3/',
-  path: '/fiber-part-3/',
-  getParentRoute: () => BlogSlugRoute,
-} as any)
-const BlogSlugFiberPart2IndexRoute = BlogSlugFiberPart2IndexRouteImport.update({
-  id: '/fiber-part-2/',
-  path: '/fiber-part-2/',
-  getParentRoute: () => BlogSlugRoute,
-} as any)
-const BlogSlugFiberPart1IndexRoute = BlogSlugFiberPart1IndexRouteImport.update({
-  id: '/fiber-part-1/',
-  path: '/fiber-part-1/',
-  getParentRoute: () => BlogSlugRoute,
-} as any)
-const BlogSlugEffectAllIndexRoute = BlogSlugEffectAllIndexRouteImport.update({
-  id: '/effect-all/',
-  path: '/effect-all/',
-  getParentRoute: () => BlogSlugRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/blog': typeof BlogSlugRouteWithChildren
   '/dev/forms': typeof DevFormsRoute
   '/dev/ui': typeof DevUiRoute
-  '/blog/': typeof BlogIndexRoute
   '/dev/': typeof DevIndexRoute
   '/devtools/': typeof DevtoolsIndexRoute
-  '/blog/effect-all/': typeof BlogSlugEffectAllIndexRoute
-  '/blog/fiber-part-1/': typeof BlogSlugFiberPart1IndexRoute
-  '/blog/fiber-part-2/': typeof BlogSlugFiberPart2IndexRoute
-  '/blog/fiber-part-3/': typeof BlogSlugFiberPart3IndexRoute
-  '/blog/fiber-part-4/': typeof BlogSlugFiberPart4IndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/blog': typeof BlogIndexRoute
   '/dev/forms': typeof DevFormsRoute
   '/dev/ui': typeof DevUiRoute
   '/dev': typeof DevIndexRoute
   '/devtools': typeof DevtoolsIndexRoute
-  '/blog/effect-all': typeof BlogSlugEffectAllIndexRoute
-  '/blog/fiber-part-1': typeof BlogSlugFiberPart1IndexRoute
-  '/blog/fiber-part-2': typeof BlogSlugFiberPart2IndexRoute
-  '/blog/fiber-part-3': typeof BlogSlugFiberPart3IndexRoute
-  '/blog/fiber-part-4': typeof BlogSlugFiberPart4IndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/blog/_slug': typeof BlogSlugRouteWithChildren
   '/dev/forms': typeof DevFormsRoute
   '/dev/ui': typeof DevUiRoute
-  '/blog/': typeof BlogIndexRoute
   '/dev/': typeof DevIndexRoute
   '/devtools/': typeof DevtoolsIndexRoute
-  '/blog/_slug/effect-all/': typeof BlogSlugEffectAllIndexRoute
-  '/blog/_slug/fiber-part-1/': typeof BlogSlugFiberPart1IndexRoute
-  '/blog/_slug/fiber-part-2/': typeof BlogSlugFiberPart2IndexRoute
-  '/blog/_slug/fiber-part-3/': typeof BlogSlugFiberPart3IndexRoute
-  '/blog/_slug/fiber-part-4/': typeof BlogSlugFiberPart4IndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/blog'
-    | '/dev/forms'
-    | '/dev/ui'
-    | '/blog/'
-    | '/dev/'
-    | '/devtools/'
-    | '/blog/effect-all/'
-    | '/blog/fiber-part-1/'
-    | '/blog/fiber-part-2/'
-    | '/blog/fiber-part-3/'
-    | '/blog/fiber-part-4/'
+  fullPaths: '/' | '/dev/forms' | '/dev/ui' | '/dev/' | '/devtools/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/blog'
-    | '/dev/forms'
-    | '/dev/ui'
-    | '/dev'
-    | '/devtools'
-    | '/blog/effect-all'
-    | '/blog/fiber-part-1'
-    | '/blog/fiber-part-2'
-    | '/blog/fiber-part-3'
-    | '/blog/fiber-part-4'
-  id:
-    | '__root__'
-    | '/'
-    | '/blog/_slug'
-    | '/dev/forms'
-    | '/dev/ui'
-    | '/blog/'
-    | '/dev/'
-    | '/devtools/'
-    | '/blog/_slug/effect-all/'
-    | '/blog/_slug/fiber-part-1/'
-    | '/blog/_slug/fiber-part-2/'
-    | '/blog/_slug/fiber-part-3/'
-    | '/blog/_slug/fiber-part-4/'
+  to: '/' | '/dev/forms' | '/dev/ui' | '/dev' | '/devtools'
+  id: '__root__' | '/' | '/dev/forms' | '/dev/ui' | '/dev/' | '/devtools/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BlogSlugRoute: typeof BlogSlugRouteWithChildren
   DevFormsRoute: typeof DevFormsRoute
   DevUiRoute: typeof DevUiRoute
-  BlogIndexRoute: typeof BlogIndexRoute
   DevIndexRoute: typeof DevIndexRoute
   DevtoolsIndexRoute: typeof DevtoolsIndexRoute
 }
@@ -202,13 +102,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blog/': {
-      id: '/blog/'
-      path: '/blog'
-      fullPath: '/blog/'
-      preLoaderRoute: typeof BlogIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dev/ui': {
       id: '/dev/ui'
       path: '/dev/ui'
@@ -223,77 +116,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevFormsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blog/_slug': {
-      id: '/blog/_slug'
-      path: '/blog'
-      fullPath: '/blog'
-      preLoaderRoute: typeof BlogSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blog/_slug/fiber-part-4/': {
-      id: '/blog/_slug/fiber-part-4/'
-      path: '/fiber-part-4'
-      fullPath: '/blog/fiber-part-4/'
-      preLoaderRoute: typeof BlogSlugFiberPart4IndexRouteImport
-      parentRoute: typeof BlogSlugRoute
-    }
-    '/blog/_slug/fiber-part-3/': {
-      id: '/blog/_slug/fiber-part-3/'
-      path: '/fiber-part-3'
-      fullPath: '/blog/fiber-part-3/'
-      preLoaderRoute: typeof BlogSlugFiberPart3IndexRouteImport
-      parentRoute: typeof BlogSlugRoute
-    }
-    '/blog/_slug/fiber-part-2/': {
-      id: '/blog/_slug/fiber-part-2/'
-      path: '/fiber-part-2'
-      fullPath: '/blog/fiber-part-2/'
-      preLoaderRoute: typeof BlogSlugFiberPart2IndexRouteImport
-      parentRoute: typeof BlogSlugRoute
-    }
-    '/blog/_slug/fiber-part-1/': {
-      id: '/blog/_slug/fiber-part-1/'
-      path: '/fiber-part-1'
-      fullPath: '/blog/fiber-part-1/'
-      preLoaderRoute: typeof BlogSlugFiberPart1IndexRouteImport
-      parentRoute: typeof BlogSlugRoute
-    }
-    '/blog/_slug/effect-all/': {
-      id: '/blog/_slug/effect-all/'
-      path: '/effect-all'
-      fullPath: '/blog/effect-all/'
-      preLoaderRoute: typeof BlogSlugEffectAllIndexRouteImport
-      parentRoute: typeof BlogSlugRoute
-    }
   }
 }
 
-interface BlogSlugRouteChildren {
-  BlogSlugEffectAllIndexRoute: typeof BlogSlugEffectAllIndexRoute
-  BlogSlugFiberPart1IndexRoute: typeof BlogSlugFiberPart1IndexRoute
-  BlogSlugFiberPart2IndexRoute: typeof BlogSlugFiberPart2IndexRoute
-  BlogSlugFiberPart3IndexRoute: typeof BlogSlugFiberPart3IndexRoute
-  BlogSlugFiberPart4IndexRoute: typeof BlogSlugFiberPart4IndexRoute
-}
-
-const BlogSlugRouteChildren: BlogSlugRouteChildren = {
-  BlogSlugEffectAllIndexRoute: BlogSlugEffectAllIndexRoute,
-  BlogSlugFiberPart1IndexRoute: BlogSlugFiberPart1IndexRoute,
-  BlogSlugFiberPart2IndexRoute: BlogSlugFiberPart2IndexRoute,
-  BlogSlugFiberPart3IndexRoute: BlogSlugFiberPart3IndexRoute,
-  BlogSlugFiberPart4IndexRoute: BlogSlugFiberPart4IndexRoute,
-}
-
-const BlogSlugRouteWithChildren = BlogSlugRoute._addFileChildren(
-  BlogSlugRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BlogSlugRoute: BlogSlugRouteWithChildren,
   DevFormsRoute: DevFormsRoute,
   DevUiRoute: DevUiRoute,
-  BlogIndexRoute: BlogIndexRoute,
   DevIndexRoute: DevIndexRoute,
   DevtoolsIndexRoute: DevtoolsIndexRoute,
 }

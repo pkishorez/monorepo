@@ -23,8 +23,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "content-collections": ["./.content-collections/generated"]
+      "@/*": ["./src/*"]
     }
   }
 }
