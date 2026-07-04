@@ -1,5 +1,13 @@
 {
   "title": "std-toolkit",
   "root": true,
-  "pages": ["index", "eschema", "core", "tanstack-sync", "dynamodb", "sqlite"]
+  "pages": [
+    "index",
+    "what",
+    "eschema",
+    "core",
+    "tanstack-sync",
+    "dynamodb",
+    "sqlite"
+  ]
 }

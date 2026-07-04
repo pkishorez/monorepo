@@ -1,0 +1,31 @@
+---
+title: The entity model
+description: The Entity and Entity Meta vocabulary every other component speaks.
+---
+
+## Entity
+
+The canonical record shape across the toolkit is `{ value, meta }`: `value` is the domain data, `meta` is the Entity Meta block. This is the server/wire form of a record. `EntitySchema` models a keyed entity row; `SingleEntitySchema` models the singleton form — one record with no id field, carrying a reduced meta (`_v`, `_e`, `_u`).
+
+## Entity Meta
+
+| Field | Name                    | Meaning                                                                  |
+| ----- | ----------------------- | ------------------------------------------------------------------------ |
+| `_e`  | type tag                | Which entity type this is                                                |
+| `_v`  | schema version          | The [eschema](/docs/std-toolkit/eschema) version stamped on the `value`   |
+| `_u`  | update key              | ISO timestamp string; higher lexicographic value is the more recent write |
+| `_d`  | deletion flag           | `true` marks the entity a tombstone                                       |
+| `_s`  | server observation time | Optional, epoch ms — when the server recorded the entity                  |
+| `_c`  | client receipt time     | Optional, epoch ms — when the client received it                          |
+
+core defines each field and its base meaning; how a field is *interpreted* belongs to the consuming context. tanstack-sync reads `_u` for convergence and `_s`/`_c` for cadence; the db adapters persist all of it untouched.
+
+`MetaSchema` is the structural guard shared by every table shape — an incoming object either is an entity envelope or it is rejected.
+
+## Broadcaster
+
+The pub/sub primitive for distributing entity change events: emit, subscribe, unsubscribe. It is the transport contexts use to propagate confirmed entities — for example feeding server broadcasts into a [tanstack-sync registry](/docs/std-toolkit/tanstack-sync/how/quickstart).
+
+## StdToolkitError
+
+The base error type all toolkit operations extend, so failures from any subpath can be caught and discriminated uniformly.

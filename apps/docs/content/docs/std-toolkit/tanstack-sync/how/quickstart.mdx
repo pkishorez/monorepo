@@ -1,0 +1,111 @@
+---
+title: Quickstart
+description: Instance → collections → registry → component, in four steps.
+---
+
+## Step 1 — Create the instance
+
+Everything starts with one call. `createStdSync` accepts shared defaults that every collection built from this instance inherits.
+
+```ts
+const std = createStdSync({
+  options: { gcTime: 5000 },
+  offlineStorage: idbStorage({ name: 'app-sync', version: 1 }),
+});
+```
+
+Behind the instance is a single tracker that remembers every collection created from it. Entity identity is `schema.name`; a second collection with the same `schema.name` is a configuration error. `createStdSync` returns exactly three things: `sync`, `singleItemSync`, and `registry`.
+
+## Step 2 — Create collections
+
+### Mirror an entire entity set (global strategy)
+
+```ts
+const tasks = createCollection(
+  std.sync({
+    schema: TaskSchema,
+    strategy: syncStrategy.oldToNew({
+      fetch: ({ cursor }) => client.queryTasks({ cursor }),
+    }),
+    onInsert: (item) => client.createTask(item),
+    onUpdate: ({ id, updates }) => client.updateTask(id, updates),
+    onDelete: (id) => client.deleteTask(id),
+  }),
+);
+```
+
+`onDelete` returns the server-confirmed tombstone envelope (`_d: true`). The projection removes the visible row, but the Source of Truth retains the tombstone so older envelopes cannot resurrect deleted data.
+
+### Mirror one slice at a time (partitions map)
+
+A partition is activated the first time a matching `loadSubset` filter appears on the collection. The partition value is captured by the factory closure — the strategy itself stays partition-blind and only ever sees `{ cursor }`.
+
+```ts
+const tasks = createCollection(
+  std.sync({
+    schema: TaskSchema,
+    partitions: {
+      orgId: (orgId) =>
+        syncStrategy.oldToNew({
+          fetch: ({ cursor }) => client.queryTasksByOrg(orgId, { cursor }),
+        }),
+    },
+    onUpdate: ({ id, updates }) => client.updateTask(id, updates),
+  }),
+);
+```
+
+A partition is a sync-lifecycle boundary, not a retention boundary: when it unloads, its strategy stops, but rows already projected stay in the collection. A collection may declare `strategy`, `partitions`, or both — convergence dedupes any overlap.
+
+### Exactly one record
+
+```ts
+const settings = createCollection(
+  std.singleItemSync({
+    schema: SettingsSchema,
+    strategy: singleItemSyncStrategy.getOnce({
+      get: () => client.getSettings(),
+    }),
+    onUpdate: ({ updates }) => client.saveSettings(updates),
+  }),
+);
+
+const { data: theSettings } = useLiveQuery(settings); // Settings | undefined, not Settings[]
+```
+
+## Step 3 — Wire the registry
+
+The same instance that created the collections routes inbound broadcasts to them.
+
+```ts
+const registry = std.registry();
+socket.onMessage((msg) =>
+  registry.process({ values: msg.values, persist: true }),
+);
+```
+
+`process` requires an explicit `persist` flag, reads the `_e` type tag on each entity, and routes into the matching collection. Unknown `_e` is silently ignored — the bus may carry types this instance does not own. `persist: true` writes server truth through the Source of Truth and projects it; `persist: false` projects only to mounted collections. Neither path advances Sync State.
+
+## Step 4 — Use in a component
+
+```ts
+const { data } = useLiveQuery(() => tasks);
+
+// Manual write as server truth (SoT + projection)
+tasks.utils.writeUpsert(updatedEntity);
+
+// Optimistic update with server round-trip
+tasks.utils.pacedUpdate(id, { status: 'done' });
+```
+
+`utils` is engine-owned and uniform across every collection — a flat map of functions:
+
+```ts
+utils.schema();
+utils.writeUpsert(entityOrEntities); // Effect<void, WriteError>
+utils.pacedUpdate(key, changes);
+utils.pendingCount(key);
+utils.subscribePending(listener);
+```
+
+Strategies are self-driving (a pull strategy loops until it drains); manual paging is not part of the public surface.

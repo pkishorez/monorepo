@@ -1,0 +1,9 @@
+{
+  "pages": [
+    "index",
+    "std-toolkit",
+    "use-effect-ts",
+    "depcruise-viz",
+    "devtools"
+  ]
+}

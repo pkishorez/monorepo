@@ -1,0 +1,50 @@
+---
+title: What
+description: What std-toolkit is — the components, how they stack, and where to start.
+---
+
+`std-toolkit` is a single-table design toolkit: database-agnostic sync over single-table item collections, with schema evolution, DynamoDB and SQLite adapters, and TanStack DB integration. Each concern lives behind its own subpath so you install only the peers you use.
+
+## The components
+
+The toolkit is a small stack. Every layer speaks the same **Entity** vocabulary defined in core, and each layer can be used on its own.
+
+| Component                                                      | Role                                                                                  |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [`std-toolkit/core`](/docs/std-toolkit/core)                   | The shared spine: the Entity model (`value` + meta), `Broadcaster`, base error         |
+| [`std-toolkit/eschema`](/docs/std-toolkit/eschema)             | Versioned, self-migrating schemas built on Effect Schema; ships the `eschema` CLI      |
+| [`std-toolkit/dynamodb`](/docs/std-toolkit/dynamodb)           | DynamoDB table/entity services, type-safe expression builders, marshall utilities      |
+| [`std-toolkit/sqlite`](/docs/std-toolkit/sqlite)               | The same single-table services over SQLite, with adapters for Node, Bun, and Durable Objects |
+| [`std-toolkit/tanstack-sync`](/docs/std-toolkit/tanstack-sync) | The sync engine: mirrors item collections into TanStack DB, with offline storage and paced writes |
+
+How they relate:
+
+- **core** defines what an entity *is* — every other component references its vocabulary rather than redefining it.
+- **eschema** gives the entity's `value` a versioned shape; core's `_v` meta field is an eschema version.
+- **dynamodb** and **sqlite** are two implementations of one storage kernel — the same partition-key / sort-key / item-collection topology, so swapping the database never renegotiates meaning.
+- **tanstack-sync** consumes entities from the wire and keeps browser collections converged with server truth.
+
+## Install
+
+```sh
+npm install std-toolkit
+npm install effect                     # required by all subpaths
+npm install @tanstack/react-db react   # required by tanstack-sync
+```
+
+Requires Node ≥ 24.
+
+## Bin
+
+```sh
+npx eschema          # schema evolution CLI (see std-toolkit/eschema)
+```
+
+## Where to start
+
+- Modeling data that will live a long time? Start with [eschema — Why](/docs/std-toolkit/eschema).
+- Building the server side? [dynamodb](/docs/std-toolkit/dynamodb) or [sqlite](/docs/std-toolkit/sqlite).
+- Wiring a live frontend? [tanstack-sync](/docs/std-toolkit/tanstack-sync).
+- Curious what holds it together? [core](/docs/std-toolkit/core).
+
+Each package's docs follow the same shape: **Why** (the story), **What** (the surface), **How** (usage in detail).

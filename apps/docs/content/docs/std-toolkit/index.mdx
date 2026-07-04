@@ -1,32 +1,60 @@
 ---
-title: std-toolkit
-description: Single-table design toolkit — database-agnostic sync over single-table item collections.
+title: Why
+description: Why std-toolkit exists — single-table item collections, synced to the frontend.
 ---
 
-`std-toolkit` is a single-table design toolkit: database-agnostic sync over single-table item collections, with schema evolution, DynamoDB and SQLite adapters, and TanStack DB integration. Each concern lives behind its own subpath so you install only the peers you use.
+## The itch
 
-## Install
+DynamoDB's single-table design is one of the great tricks of backend modeling: instead of one table per entity, you store *every* entity type in one table. A **partition key** decides where a row lives, a **sort key** orders rows within that partition, and the set of rows sharing one partition key — the **item collection** — becomes the natural unit of access. One query, one partition, everything you need.
 
-```sh
-npm install std-toolkit
-npm install effect                     # required by all subpaths
-npm install @tanstack/react-db react   # required by tanstack-sync
-```
+Meanwhile, on the frontend, TanStack DB solved a different problem: keeping a live, queryable collection of records in the browser, with optimistic writes and reactive queries.
 
-Requires Node ≥ 24.
+Put the two side by side and an idea falls out: **an item collection on the server is exactly the thing a frontend collection wants to mirror.** Both are sorted sets of items with a stable identity. If the server models everything as single-table item collections, syncing to the client stops being a per-endpoint, per-feature chore — it becomes one generic mechanism.
 
-## Subpaths
+That is std-toolkit: **database-agnostic sync over single-table item collections.** Thanks to DynamoDB for the data model and TanStack DB for the client runtime — std-toolkit is the bridge between them.
 
-| Subpath                                                        | Description                                                                          |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`std-toolkit/eschema`](/docs/std-toolkit/eschema)             | Versioned, self-migrating schemas built on Effect Schema; includes the `eschema` CLI |
-| [`std-toolkit/core`](/docs/std-toolkit/core)                   | Shared primitives: `EntitySchema`, `MetaSchema`, `Broadcaster`, `StdToolkitError`    |
-| [`std-toolkit/tanstack-sync`](/docs/std-toolkit/tanstack-sync) | TanStack DB sync engine with paced writes and IndexedDB offline storage              |
-| [`std-toolkit/dynamodb`](/docs/std-toolkit/dynamodb)           | DynamoDB table/entity services, expression builders, marshall utilities              |
-| [`std-toolkit/sqlite`](/docs/std-toolkit/sqlite)               | SQLite table/entity services with runtime adapters for multiple environments         |
+## The picture
 
-## Bin
+<div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', margin: '1.5rem 0' }}>
+  <div style={{ flex: '1 1 220px', border: '1px solid var(--color-border)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+    <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.5rem', opacity: 0.7 }}>ONE TABLE (server)</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ borderLeft: '3px solid var(--chart-1)', paddingLeft: '0.5rem' }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--chart-1)' }}>pk = org#acme</div>
+        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>task#001 · task#002 · task#003</div>
+      </div>
+      <div style={{ borderLeft: '3px solid var(--chart-2)', paddingLeft: '0.5rem' }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--chart-2)' }}>pk = user#kay</div>
+        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>profile · settings</div>
+      </div>
+      <div style={{ borderLeft: '3px solid var(--chart-4)', paddingLeft: '0.5rem' }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--chart-4)' }}>pk = org#globex</div>
+        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>task#010 · task#011</div>
+      </div>
+    </div>
+  </div>
+  <div style={{ textAlign: 'center', fontSize: '0.75rem', opacity: 0.8 }}>
+    sync<br />⟶
+  </div>
+  <div style={{ flex: '1 1 220px', border: '1px solid var(--color-border)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+    <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.5rem', opacity: 0.7 }}>TANSTACK DB (browser)</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ border: '1px solid var(--chart-1)', borderRadius: '0.375rem', padding: '0.375rem 0.5rem', fontSize: '0.8rem', color: 'var(--chart-1)' }}>tasks collection (acme partition)</div>
+      <div style={{ border: '1px solid var(--chart-2)', borderRadius: '0.375rem', padding: '0.375rem 0.5rem', fontSize: '0.8rem', color: 'var(--chart-2)' }}>settings collection</div>
+      <div style={{ border: '1px dashed var(--chart-4)', borderRadius: '0.375rem', padding: '0.375rem 0.5rem', fontSize: '0.8rem', color: 'var(--chart-4)', opacity: 0.7 }}>globex partition (loaded on demand)</div>
+    </div>
+  </div>
+</div>
 
-```sh
-npx eschema          # schema evolution CLI (see std-toolkit/eschema)
-```
+Each item collection on the left has a stable identity (its partition key) and a stable order (its sort key). That is *all* the sync engine needs — it does not care whether the table is DynamoDB, SQLite, or anything else that can hand back sorted items.
+
+## Why "database-agnostic" matters
+
+The sync layer only ever asks for sorted items out of an item collection. So the same application model runs against:
+
+- **DynamoDB** in production — the pattern's birthplace.
+- **SQLite** in tests, local dev, Bun, or a Cloudflare Durable Object — same topology, same vocabulary, zero mocking.
+
+One more problem hides inside this design: single-table stores are schemaless, and long-lived synced data *will* change shape. std-toolkit answers that with [evolving schemas](/docs/std-toolkit/eschema) — versioned schemas that migrate old data forward on read.
+
+Ready for the component map? Head to [What is std-toolkit](/docs/std-toolkit/what).

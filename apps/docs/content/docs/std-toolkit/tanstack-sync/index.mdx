@@ -1,68 +1,22 @@
 ---
-title: tanstack-sync
-description: TanStack DB sync engine with paced writes and IndexedDB offline storage.
+title: Why
+description: An item collection that follows you into the browser.
 ---
 
-`std-toolkit/tanstack-sync` provides TanStack DB sync helpers for Effect-based server APIs. Keyed collections use `sync`; singleton collections use `singleItemSync`. An optional Offline Storage adapter persists the engine-owned Source of Truth and Sync State, backing convergence and tombstone retention rather than acting as a hydration-only cache.
+## The story
 
-## Install
+Every app that shows server data in a UI ends up rebuilding the same machine: fetch a list, cache it, page it, patch it optimistically, reconcile the server's answer, survive a reload, don't resurrect things the user deleted. Usually that machine is rebuilt per feature — one for tasks, one for settings, one for notifications — each with its own subtle bugs.
 
-```sh
-npm install std-toolkit effect @tanstack/react-db react
-```
+The single-table model makes a better deal possible. If the server's unit of data is the [item collection](/docs/std-toolkit) — a sorted set of entities with a stable identity — then "show server data in the UI" has one general answer: **mirror the item collection into a TanStack DB collection, and keep the mirror converged.**
 
-```typescript
-import {
-  createStdSync,
-  syncStrategy,
-  singleItemSyncStrategy,
-  paceStrategy,
-} from 'std-toolkit/tanstack-sync';
-import { idbStorage } from 'std-toolkit/tanstack-sync/offline-storage/idb';
+That is what `std-toolkit/tanstack-sync` does. You declare a collection with a schema and a **strategy** (how to pull items: old-to-new, paged, on demand), and the engine owns everything else:
 
-const std = createStdSync({
-  offlineStorage: idbStorage({ name: 'app-sync', version: 1 }),
-});
-```
+- a **Source of Truth** per collection — server-confirmed entities only, atomically written, with tombstones retained so deleted data cannot come back;
+- an ephemeral **collection projection** — the TanStack DB rows your components query live;
+- durable **Sync State** — the strategy's cursor, so sync resumes where it left off after a reload.
 
-## Keyed sync
+Server-side partitions map naturally onto frontend life: a partition's strategy starts the first time a component queries for that slice (`loadSubset`) and stops when the last one leaves — while the rows it already delivered stay put. Optimistic writes go through paced mutation handlers; server broadcasts route through a registry by entity type tag. Offline storage (IndexedDB) is the live backend for truth and state, not a hydration-only cache.
 
-Mirror a whole entity set with a strategy, and optionally load partitions on demand:
+One machine, written once, converged by construction — for every entity in your table.
 
-```typescript
-const tasksCollection = createCollection(
-  std.sync({
-    schema: TaskSchema,
-    strategy: syncStrategy.oldToNew({
-      fetch: ({ cursor }) => api.getTasks({ cursor }),
-    }),
-    updatePacing: paceStrategy.coalesce({ wait: 50 }),
-    onInsert: (task) => api.createTask(task),
-    onUpdate: ({ id, updates }) => api.updateTask(id, updates),
-    onDelete: (id) => api.deleteTask(id),
-  }),
-);
-```
-
-## Single item sync
-
-Use `singleItemSync` for exactly one record, such as app settings or a profile.
-
-```typescript
-const settingsCollection = createCollection(
-  std.singleItemSync({
-    schema: SettingsSchema,
-    strategy: singleItemSyncStrategy.getOnce({ get: () => api.getSettings() }),
-    onUpdate: ({ updates }) => api.saveSettings(updates),
-  }),
-);
-```
-
-## Offline storage and the registry
-
-Root storage is inherited by collections that omit `offlineStorage`; a collection can opt out with `offlineStorage: false` for collection-local memory. The `std.registry()` routes broadcast envelopes to collections created by the same `createStdSync` instance — `persist: true` writes server truth through Source of Truth, `persist: false` only projects to mounted collections.
-
-## Related
-
-- [core](/docs/std-toolkit/core) — the `Broadcaster` and entity schemas behind sync.
-- [std-toolkit overview](/docs/std-toolkit) — all subpaths.
+Next: [What is tanstack-sync](/docs/std-toolkit/tanstack-sync/what).

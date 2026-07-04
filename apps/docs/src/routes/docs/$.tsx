@@ -13,6 +13,7 @@ import { baseOptions } from '@/lib/layout.shared';
 import { useFumadocsLoader } from 'fumadocs-core/source/client';
 import { Suspense } from 'react';
 import { useMDXComponents } from '@/components/mdx';
+import { StatusBadge } from '@/components/status-badge';
 
 export const Route = createFileRoute('/docs/$')({
   component: Page,
@@ -63,7 +64,29 @@ function Page() {
   const { path, pageTree } = useFumadocsLoader(Route.useLoaderData());
 
   return (
-    <DocsLayout {...baseOptions()} tree={pageTree}>
+    <DocsLayout
+      {...baseOptions()}
+      tree={pageTree}
+      sidebar={{
+        tabs: {
+          transform: (option) => ({
+            ...option,
+            title: (
+              <span className="flex items-center gap-1.5">
+                {option.title}
+                <StatusBadge
+                  status={
+                    option.url.startsWith('/docs/std-toolkit')
+                      ? 'alpha'
+                      : 'soon'
+                  }
+                />
+              </span>
+            ),
+          }),
+        },
+      }}
+    >
       <Suspense>{clientLoader.useContent(path)}</Suspense>
     </DocsLayout>
   );

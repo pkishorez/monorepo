@@ -1,62 +1,41 @@
 ---
-title: eschema
-description: Versioned, self-migrating schemas built on Effect Schema.
+title: Why
+description: Schemas freeze data; eschema lets it evolve.
 ---
 
-`std-toolkit/eschema` provides versioned, self-migrating schemas built on Effect Schema. A schema is a chain of versions `v1 … latest`, and data written at any past version is automatically folded forward to the current shape on decode. It also ships the `eschema` CLI for schema evolution.
+## The story
 
-## Install
+Schemaless stores like DynamoDB make writing easy: any shape goes in. The cost shows up later, when nothing tells you what shape comes *out*. So you add a schema — and safety returns, but a new problem arrives with it: **evolution**. A schema pins your data's structure in place. The day you need to add a field, rename one, or change a type, you face the migration problem: millions of rows written in the old shape, and a schema that only understands the new one.
 
-```sh
-npm install std-toolkit effect
-```
+The classic answers are all painful. Migrate the whole table in one pass (downtime, risk). Handle every historical shape at every read site (branching code that grows forever). Or give up and make every field optional (safety quietly leaves again).
 
-```ts
-import {
-  ESchema,
-  EntityESchema,
-  SingleEntityESchema,
-  ValueESchema,
-  toSchema,
-} from 'std-toolkit/eschema';
-```
+eschema takes a different path: **encode the evolutions inside the schema itself.** A schema is not a snapshot — it is a chain of versions, `v1 … latest`, where each step carries a small pure migration from the previous shape. Old data is never rewritten in place; it is **folded forward on read**.
 
-## Encode and decode
+## The picture
 
-- **encode** always writes the latest version and stamps `_v`.
-- **decode** reads `_v` and folds forward through each migration to the latest shape.
-- Data with no `_v` decodes as `v1`, making adoption over existing data non-breaking.
+<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '1.5rem 0', fontSize: '0.85rem' }}>
+  <div style={{ border: '1px solid var(--chart-1)', color: 'var(--chart-1)', borderRadius: '0.375rem', padding: '0.5rem 0.75rem' }}>
+    <strong>v1</strong> · <code>{'{ name }'}</code>
+    <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>row written in 2024</div>
+  </div>
+  <span style={{ opacity: 0.7 }}>⟶ migrate ⟶</span>
+  <div style={{ border: '1px solid var(--chart-2)', color: 'var(--chart-2)', borderRadius: '0.375rem', padding: '0.5rem 0.75rem' }}>
+    <strong>v2</strong> · <code>{'{ name, email }'}</code>
+  </div>
+  <span style={{ opacity: 0.7 }}>⟶ migrate ⟶</span>
+  <div style={{ border: '2px solid var(--chart-4)', color: 'var(--chart-4)', borderRadius: '0.375rem', padding: '0.5rem 0.75rem' }}>
+    <strong>v3 (latest)</strong> · <code>{'{ name, email, role }'}</code>
+    <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>what your code sees</div>
+  </div>
+</div>
 
-## Choosing a construct
+Decode reads the `_v` stamp on each row, finds that version in the chain, and applies each migration in order until the value reaches the latest shape. Encode always writes the latest version. Old versions are only ever read, never written.
 
-| You're versioning                      | Use                   |
-| -------------------------------------- | --------------------- |
-| An object with named fields            | `ESchema`             |
-| A single value (enum / scalar / union) | `ValueESchema`        |
-| A named singleton object               | `SingleEntityESchema` |
-| A keyed entity (name + per-row id)     | `EntityESchema`       |
+## Why this wins
 
-## Quick example
+- **No migration scripts, no downtime.** Rows migrate lazily, one at a time, at the moment they are read.
+- **No shape-branching at read sites.** Your application code sees exactly one shape: the latest.
+- **Adoption is non-breaking.** Data with no `_v` stamp decodes as `v1`, so wrapping an existing table's shape as v1 is a pure no-op — evolutions come later.
+- **Each migration is small.** One pure function per version step, from exactly the previous shape to the next. The chain composes; you never write "handle any old version" code.
 
-```ts
-import { ESchema } from 'std-toolkit/eschema';
-import { Schema } from 'effect';
-
-const User = ESchema.make({ name: Schema.String })
-  .evolve('v2', { email: Schema.NullOr(Schema.String) }, (prev) => ({
-    ...prev,
-    email: null,
-  }))
-  .build();
-```
-
-## The eschema CLI
-
-```sh
-npx eschema     # schema evolution CLI
-```
-
-## Related
-
-- [core](/docs/std-toolkit/core) — the shared primitives eschema builds on.
-- [std-toolkit overview](/docs/std-toolkit) — all subpaths.
+Next: [What is eschema](/docs/std-toolkit/eschema/what).

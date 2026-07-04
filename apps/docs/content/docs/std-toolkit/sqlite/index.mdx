@@ -1,36 +1,18 @@
 ---
-title: sqlite
-description: SQLite table/entity services with runtime adapters for multiple environments.
+title: Why
+description: The same single-table model, wherever SQLite runs.
 ---
 
-`std-toolkit/sqlite` provides SQLite table and entity services built on Effect, with runtime adapters for multiple environments. Each adapter is a separate subpath so you install only the binding you use. RPC helpers live under `std-toolkit/sqlite/rpc`.
+## The story
 
-## Install
+"Database-agnostic" is an easy claim and a hard property. The proof is a second database that runs the *same* model — not a lookalike API over a different mental model, but the same topology: one table, partition key, sort key, item collections, range queries within a partition.
 
-```sh
-npm install std-toolkit effect
-```
+`std-toolkit/sqlite` is that proof. It mirrors the DynamoDB adapter's topology over SQLite — the two share one storage kernel, so `SQLiteEntity` is `DynamoEntity` with a different engine underneath, and application code written against the entity services does not care which one it got. That buys you things DynamoDB alone cannot:
 
-```ts
-import { SQLiteTable, SQLiteEntity, SqliteDB } from 'std-toolkit/sqlite';
-```
+- **Tests without mocks.** Run the real storage layer in-memory or on disk; your test exercises the same single-table semantics as production.
+- **Local dev with zero cloud.** No LocalStack, no credentials.
+- **Runtimes DynamoDB can't reach.** SQLite runs in Node, Bun, and Cloudflare Durable Objects — each wired in through its own adapter subpath, so a Durable Object can hold a real item collection at the edge.
 
-## Services
+Because the sync layer only ever asks for sorted items out of an item collection, everything above this adapter — [eschema](/docs/std-toolkit/eschema) validation, [tanstack-sync](/docs/std-toolkit/tanstack-sync) mirroring — works identically over SQLite and DynamoDB. That is the toolkit's central bet, made concrete.
 
-`SQLiteTable`, `SQLiteEntity`, `SQLiteSingleEntity` are Effect services for table operations, and `EntityRegistry` registers all entities in a table. `SqliteDB` is the database abstraction layer, with `SqliteDBError` for database failures.
-
-## Adapters
-
-Each adapter subpath wires an environment-specific SQLite binding into `SqliteDB`. Install only the adapter you use:
-
-```ts
-import { ... } from 'std-toolkit/sqlite/adapters/better-sqlite3'; // Node.js (sync)
-import { ... } from 'std-toolkit/sqlite/adapters/node';           // Node.js (async)
-import { ... } from 'std-toolkit/sqlite/adapters/bun';            // Bun runtime
-import { ... } from 'std-toolkit/sqlite/adapters/do';             // Cloudflare Durable Objects
-```
-
-## Related
-
-- [dynamodb](/docs/std-toolkit/dynamodb) — the DynamoDB counterpart of these services.
-- [std-toolkit overview](/docs/std-toolkit) — all subpaths.
+Next: [What is sqlite](/docs/std-toolkit/sqlite/what).

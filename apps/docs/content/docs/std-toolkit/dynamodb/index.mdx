@@ -1,37 +1,18 @@
 ---
-title: dynamodb
-description: DynamoDB table/entity services, expression builders, and marshall utilities.
+title: Why
+description: Single-table design without hand-rolled expressions.
 ---
 
-`std-toolkit/dynamodb` provides DynamoDB table and entity services, type-safe expression builders, and marshall utilities, all built on Effect. RPC helpers live under `std-toolkit/dynamodb/rpc`.
+## The story
 
-## Install
+DynamoDB is where the single-table pattern was born, and it is still the pattern's natural production home: predictable latency at any scale, item collections as the physical unit of locality. But the raw SDK experience fights the pattern. Condition, filter, and update expressions are stringly-typed mini-languages (`"SET #s = :s"`, attribute-name maps, value maps) where a typo compiles fine and fails at runtime. Marshalling to and from attribute values is boilerplate. And "many entity types in one table" is a convention in your head, not something the client knows about.
 
-```sh
-npm install std-toolkit effect
-```
+`std-toolkit/dynamodb` makes the pattern first-class:
 
-```ts
-import {
-  DynamoTable,
-  DynamoEntity,
-  createDynamoDB,
-} from 'std-toolkit/dynamodb';
-```
+- **Entity services** (`DynamoEntity`, `DynamoSingleEntity`) give each entity type a typed CRUD surface over the shared table, and an `EntityRegistry` routes operations to the right entity by its type — the "many types, one table" convention becomes a checked structure.
+- **Expression builders** (`exprCondition`, `exprFilter`, `exprUpdate`) replace expression strings with type-safe builders, so a misspelled attribute is a compile error, not a 4xx.
+- **Everything is an Effect service**, so table access composes with the rest of your Effect program — layers, errors, and testability included.
 
-## Services
+Every entity persisted here is a core [Entity](/docs/std-toolkit/core) whose value is validated by an [eschema](/docs/std-toolkit/eschema) schema — which is what lets [tanstack-sync](/docs/std-toolkit/tanstack-sync) mirror these item collections without knowing DynamoDB exists.
 
-`DynamoTable`, `DynamoEntity`, `DynamoSingleEntity` are Effect services for table operations, and `EntityRegistry` is the registry of all entities in a table. The client is constructed with `createDynamoDB` / `DynamoDB` / `dynamoDBLayer`.
-
-## Expression builders
-
-`exprCondition`, `exprFilter`, `exprUpdate`, and `buildExpr` build type-safe condition, filter, and update expressions, with `opAdd` and `opIfNotExists` as update operation helpers.
-
-## Marshall
-
-`marshall` and `unmarshall` convert to and from DynamoDB attribute values. Errors and connection types include `DynamodbError`, `DynamoConnection`, `MigrationOptions`, and `MigrationReport`.
-
-## Related
-
-- [sqlite](/docs/std-toolkit/sqlite) — the SQLite counterpart of these services.
-- [std-toolkit overview](/docs/std-toolkit) — all subpaths.
+Next: [What is dynamodb](/docs/std-toolkit/dynamodb/what).

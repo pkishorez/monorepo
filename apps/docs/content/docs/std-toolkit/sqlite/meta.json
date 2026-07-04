@@ -1,3 +1,4 @@
 {
-  "title": "sqlite"
+  "title": "sqlite",
+  "pages": ["index", "what", "how"]
 }

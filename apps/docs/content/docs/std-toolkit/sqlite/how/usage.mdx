@@ -1,0 +1,31 @@
+---
+title: Usage and adapters
+description: Services, the SqliteDB abstraction, and the per-runtime adapter subpaths.
+---
+
+## Services
+
+- `SQLiteTable` — operations over the physical single table, mirroring the shared topology (partition key, sort key, item collections, range queries within a partition).
+- `SQLiteEntity` — the per-entity CRUD surface for keyed entities; `SQLiteSingleEntity` for singletons.
+- `EntityRegistry` — coordinates all entity types stored in the one table.
+
+As with the DynamoDB adapter, every persisted record is a core Entity (`{ value, meta }`) whose `value` is validated by the entity's eschema schema.
+
+## SqliteDB
+
+`SqliteDB` is the database abstraction layer the services run on; `SqliteDBError` is its failure type. Environment bindings are supplied by adapters rather than baked in.
+
+## Adapters
+
+Each adapter subpath exports a driver that wires an environment-specific SQLite binding into `SqliteDB`. Install only the adapter you use — each is a separate subpath to avoid bundling unused bindings:
+
+```ts
+import { ... } from 'std-toolkit/sqlite/adapters/better-sqlite3'; // Node.js (sync)
+import { ... } from 'std-toolkit/sqlite/adapters/node';           // Node.js (async)
+import { ... } from 'std-toolkit/sqlite/adapters/bun';            // Bun runtime
+import { ... } from 'std-toolkit/sqlite/adapters/do';             // Cloudflare Durable Objects
+```
+
+## RPC
+
+RPC helpers for exposing table operations over the wire live under `std-toolkit/sqlite/rpc`.

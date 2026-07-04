@@ -20,7 +20,9 @@ export default defineConfig({
       pages: [
         { path: '/api/search' },
         { path: '/api/source' },
+        { path: '/api/blog' },
         { path: '/docs' },
+        { path: '/blog' },
       ],
     }),
     react(),

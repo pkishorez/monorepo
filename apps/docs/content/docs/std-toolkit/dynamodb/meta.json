@@ -1,3 +1,4 @@
 {
-  "title": "dynamodb"
+  "title": "dynamodb",
+  "pages": ["index", "what", "how"]
 }

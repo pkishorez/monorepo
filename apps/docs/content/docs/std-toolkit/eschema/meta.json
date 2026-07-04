@@ -1,3 +1,4 @@
 {
-  "title": "eschema"
+  "title": "eschema",
+  "pages": ["index", "what", "how"]
 }
