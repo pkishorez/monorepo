@@ -1,0 +1,64 @@
+---
+title: What
+description: Versioned, self-migrating schemas built on Effect Schema, plus the eschema CLI.
+---
+
+`std-toolkit/eschema` provides versioned, self-migrating schemas built on Effect Schema. A schema is a chain of versions `v1 … latest`; data written at any past version is automatically folded forward to the current shape on decode. It also ships the `eschema` CLI for schema evolution.
+
+## Install
+
+```sh
+npm install std-toolkit effect
+```
+
+```ts
+import {
+  ESchema,
+  EntityESchema,
+  SingleEntityESchema,
+  ValueESchema,
+  toSchema,
+} from 'std-toolkit/eschema';
+```
+
+## The model in three rules
+
+- **encode** always writes the latest version and stamps `_v`.
+- **decode** reads `_v` and folds forward through each migration to the latest shape.
+- Data with no `_v` decodes as `v1`, making adoption over existing data non-breaking.
+
+Everything returns an `Effect` — stay inside `Effect.gen`/`yield*`, and reserve `Effect.runSync` for tests and scripts.
+
+## Choosing a construct
+
+| You're versioning                      | Use                   |
+| -------------------------------------- | --------------------- |
+| An object with named fields            | `ESchema`             |
+| A single value (enum / scalar / union) | `ValueESchema`        |
+| A named singleton object               | `SingleEntityESchema` |
+| A keyed entity (name + per-row id)     | `EntityESchema`       |
+
+`ESchema` evolves by **delta** (add/remove/replace fields). `ValueESchema` replaces the whole value schema each version; on the wire its value travels in a `{ _v, value }` envelope.
+
+## Quick example
+
+```ts
+import { ESchema } from 'std-toolkit/eschema';
+import { Schema } from 'effect';
+
+const User = ESchema.make({ name: Schema.String })
+  .evolve('v2', { email: Schema.NullOr(Schema.String) }, (prev) => ({
+    ...prev,
+    email: null,
+  }))
+  .build();
+```
+
+## Next
+
+- [How: defining and evolving schemas](/docs/std-toolkit/eschema/how/usage) — deltas, composition, best practices.
+- [How: the eschema CLI](/docs/std-toolkit/eschema/how/cli) — create, lint, approve.
+
+## Related
+
+- [core](/docs/std-toolkit/core) — the shared primitives eschema builds on; core's `_v` meta field is an eschema version.

@@ -1,0 +1,20 @@
+---
+title: The eschema CLI
+description: Scaffold, lint, and approve schema evolutions from the command line.
+---
+
+The package ships an `eschema` binary for working with evolving schemas as first-class artifacts:
+
+```sh
+npx eschema --help
+```
+
+## Commands
+
+| Command           | What it does                                                                 |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `eschema create`  | Scaffold a new evolving schema                                                |
+| `eschema lint`    | Check schemas against the evolution rules (frozen v1, one-step migrations, …) |
+| `eschema approve` | Approve a schema evolution, locking it in                                     |
+
+The lint/approve pair exists because evolution mistakes are silent until old data hits a read path: linting catches rule violations at build time, and approval makes changing a shipped version an explicit, reviewed act rather than an accidental edit.

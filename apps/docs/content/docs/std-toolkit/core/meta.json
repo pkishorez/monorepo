@@ -1,3 +1,4 @@
 {
-  "title": "core"
+  "title": "core",
+  "pages": ["index", "what", "how"]
 }

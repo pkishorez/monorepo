@@ -1,3 +1,4 @@
 {
-  "title": "tanstack-sync"
+  "title": "tanstack-sync",
+  "pages": ["index", "what", "how"]
 }

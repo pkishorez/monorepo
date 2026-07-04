@@ -10,18 +10,31 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as ApiSourceRouteImport } from './routes/api/source'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as ApiBlogRouteImport } from './routes/api/blog'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSplatRoute = DocsSplatRouteImport.update({
   id: '/docs/$',
   path: '/docs/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSourceRoute = ApiSourceRouteImport.update({
@@ -34,39 +47,78 @@ const ApiSearchRoute = ApiSearchRouteImport.update({
   path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBlogRoute = ApiBlogRouteImport.update({
+  id: '/api/blog',
+  path: '/api/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/blog': typeof ApiBlogRoute
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/docs/$': typeof DocsSplatRoute
+  '/blog/': typeof BlogIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/blog': typeof ApiBlogRoute
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/docs/$': typeof DocsSplatRoute
+  '/blog': typeof BlogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/blog': typeof ApiBlogRoute
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/docs/$': typeof DocsSplatRoute
+  '/blog/': typeof BlogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/search' | '/api/source' | '/docs/$'
+  fullPaths:
+    | '/'
+    | '/api/blog'
+    | '/api/search'
+    | '/api/source'
+    | '/blog/$slug'
+    | '/docs/$'
+    | '/blog/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/search' | '/api/source' | '/docs/$'
-  id: '__root__' | '/' | '/api/search' | '/api/source' | '/docs/$'
+  to:
+    | '/'
+    | '/api/blog'
+    | '/api/search'
+    | '/api/source'
+    | '/blog/$slug'
+    | '/docs/$'
+    | '/blog'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/blog'
+    | '/api/search'
+    | '/api/source'
+    | '/blog/$slug'
+    | '/docs/$'
+    | '/blog/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiBlogRoute: typeof ApiBlogRoute
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSourceRoute: typeof ApiSourceRoute
+  BlogSlugRoute: typeof BlogSlugRoute
   DocsSplatRoute: typeof DocsSplatRoute
+  BlogIndexRoute: typeof BlogIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -78,11 +130,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/$': {
       id: '/docs/$'
       path: '/docs/$'
       fullPath: '/docs/$'
       preLoaderRoute: typeof DocsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/source': {
@@ -99,14 +165,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/blog': {
+      id: '/api/blog'
+      path: '/api/blog'
+      fullPath: '/api/blog'
+      preLoaderRoute: typeof ApiBlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiBlogRoute: ApiBlogRoute,
   ApiSearchRoute: ApiSearchRoute,
   ApiSourceRoute: ApiSourceRoute,
+  BlogSlugRoute: BlogSlugRoute,
   DocsSplatRoute: DocsSplatRoute,
+  BlogIndexRoute: BlogIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

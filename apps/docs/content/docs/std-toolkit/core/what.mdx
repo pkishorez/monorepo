@@ -1,0 +1,40 @@
+---
+title: What
+description: The shared primitives — entity schemas, meta schema, broadcaster, base error.
+---
+
+`std-toolkit/core` holds the shared primitives used across the other std-toolkit modules: the entity and meta schemas that describe table rows, a broadcaster for change events, and the toolkit's base error type.
+
+## Install
+
+```sh
+npm install std-toolkit effect
+```
+
+```ts
+import {
+  EntitySchema,
+  MetaSchema,
+  Broadcaster,
+  StdToolkitError,
+} from 'std-toolkit/core';
+```
+
+## Exports
+
+| Export                            | Description                                        |
+| --------------------------------- | -------------------------------------------------- |
+| `EntitySchema`                    | Effect Schema for a keyed entity row               |
+| `SingleEntitySchema`              | Effect Schema for a singleton entity row           |
+| `MetaSchema`                      | Structural guard schema shared by all table shapes |
+| `EntityType` / `SingleEntityType` | Type aliases for entity shapes                     |
+| `Broadcaster`                     | Pub/sub primitive for distributing change events   |
+| `StdToolkitError`                 | Base error type for the toolkit                    |
+
+## Next
+
+- [How: the entity model](/docs/std-toolkit/core/how/usage) — every meta field and what owns its meaning.
+
+## Related
+
+- [eschema](/docs/std-toolkit/eschema) — versioned schemas layered on these primitives.

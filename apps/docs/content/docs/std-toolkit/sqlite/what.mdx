@@ -1,0 +1,32 @@
+---
+title: What
+description: SQLite table/entity services with runtime adapters for multiple environments.
+---
+
+`std-toolkit/sqlite` provides SQLite table and entity services built on Effect, with runtime adapters for multiple environments. Each adapter is a separate subpath so you install only the binding you use. RPC helpers live under `std-toolkit/sqlite/rpc`.
+
+## Install
+
+```sh
+npm install std-toolkit effect
+```
+
+```ts
+import { SQLiteTable, SQLiteEntity, SqliteDB } from 'std-toolkit/sqlite';
+```
+
+## Surface
+
+| Group    | Exports                                                                |
+| -------- | ---------------------------------------------------------------------- |
+| Services | `SQLiteTable`, `SQLiteEntity`, `SQLiteSingleEntity`, `EntityRegistry`   |
+| Database | `SqliteDB` (abstraction layer), `SqliteDBError`                         |
+| Adapters | `better-sqlite3`, `node`, `bun`, `do` — one subpath each                |
+
+## Next
+
+- [How: usage and adapters](/docs/std-toolkit/sqlite/how/usage) — picking an adapter and wiring `SqliteDB`.
+
+## Related
+
+- [dynamodb](/docs/std-toolkit/dynamodb) — the DynamoDB counterpart; same single-table topology, same vocabulary.

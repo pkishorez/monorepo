@@ -1,0 +1,47 @@
+---
+title: What
+description: The sync engine's public surface — createStdSync, strategies, registry.
+---
+
+`std-toolkit/tanstack-sync` provides TanStack DB sync for Effect-based server APIs. The public surface is deliberately tiny — a handful of values, zero exported types; all config and result types flow through inference.
+
+## Install
+
+```sh
+npm install std-toolkit effect @tanstack/react-db react
+```
+
+```ts
+import {
+  createStdSync,
+  syncStrategy,
+  singleItemSyncStrategy,
+  paceStrategy,
+} from 'std-toolkit/tanstack-sync';
+import { idbStorage } from 'std-toolkit/tanstack-sync/offline-storage/idb';
+```
+
+## The pieces
+
+| Export                   | Role                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `createStdSync`          | Creates an instance; returns exactly `sync`, `singleItemSync`, and `registry`              |
+| `syncStrategy`           | Strategies for keyed collections (e.g. `oldToNew`) — how items are pulled                  |
+| `singleItemSyncStrategy` | Strategies for singleton collections (e.g. `getOnce`)                                      |
+| `paceStrategy`           | Pacing for optimistic updates (e.g. `coalesce`); `coalesceStrategy` lives under `/paced`   |
+| `idbStorage`             | IndexedDB offline-storage adapter (`/offline-storage/idb`)                                 |
+
+- **`sync`** — the one keyed-collection method. A collection declares an optional **global strategy** (mirrors the whole set) and/or a **partitions map** (`field → (value) => Strategy`, each activated on demand by a matching `loadSubset`). Both coexist over one shared Source of Truth.
+- **`singleItemSync`** — exactly one record (settings, a profile): no id, no cursor, no paging; `useLiveQuery` surfaces `data` as the single row.
+- **`registry`** — routes inbound broadcast envelopes to the collections created by the same instance, keyed by the entity type tag `_e`.
+
+One instance, one tracker: each entity type may be owned by exactly one collection per instance, and collections from a different `createStdSync()` are invisible to this instance's registry.
+
+## Next
+
+- [How: quickstart](/docs/std-toolkit/tanstack-sync/how/quickstart) — instance → collections → registry → component.
+- [How: storage and lifecycle](/docs/std-toolkit/tanstack-sync/how/storage-and-lifecycle) — the three storage layers, partition lifecycle, and the invariants.
+
+## Related
+
+- [core](/docs/std-toolkit/core) — the entity envelope and `Broadcaster` behind sync.

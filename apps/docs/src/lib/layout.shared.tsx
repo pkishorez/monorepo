@@ -20,6 +20,10 @@ export function baseOptions(): BaseLayoutProps {
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
     links: [
       {
+        text: 'Blog',
+        url: '/blog',
+      },
+      {
         type: 'icon',
         text: 'kishore.app',
         url: 'https://kishore.app/',

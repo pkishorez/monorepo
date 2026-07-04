@@ -1,43 +1,19 @@
 ---
-title: core
-description: Shared primitives used across the other std-toolkit modules.
+title: Why
+description: Every adapter speaks the same envelope.
 ---
 
-`std-toolkit/core` holds the shared primitives used across the other std-toolkit modules: the entity and meta schemas that describe table rows, a broadcaster for change events, and the toolkit's base error type.
+## The story
 
-## Install
+A toolkit whose parts can be mixed and matched has a hidden requirement: the parts must already agree on what a record *is* before they ever meet. If the DynamoDB adapter, the SQLite adapter, and the sync engine each invented their own notion of a row — its identity, its version, its deletion state, its recency — then "database-agnostic" would mean writing translation code at every seam.
 
-```sh
-npm install std-toolkit effect
-```
+core removes the negotiation. It defines the **Entity** — `{ value, meta }` — once, and every other component speaks that vocabulary instead of redefining it:
 
-```ts
-import {
-  EntitySchema,
-  MetaSchema,
-  Broadcaster,
-  StdToolkitError,
-} from 'std-toolkit/core';
-```
+- the **value** is your domain data, shaped by an [eschema](/docs/std-toolkit/eschema) schema;
+- the **meta** block carries the system's shared facts: which entity type this is (`_e`), which schema version the value was written at (`_v`), which write is more recent (`_u`), and whether it is a tombstone (`_d`).
 
-## Exports
+Because these fields mean the same thing everywhere, the interesting behaviors compose for free. The sync engine can decide which of two writes wins by comparing `_u` — without knowing which database produced them. A tombstone written through DynamoDB is still a tombstone when it reaches a browser collection. Swap SQLite in for DynamoDB and nothing about the envelope changes.
 
-| Export                            | Description                                        |
-| --------------------------------- | -------------------------------------------------- |
-| `EntitySchema`                    | Effect Schema for a keyed entity row               |
-| `SingleEntitySchema`              | Effect Schema for a singleton entity row           |
-| `MetaSchema`                      | Structural guard schema shared by all table shapes |
-| `EntityType` / `SingleEntityType` | Type aliases for entity shapes                     |
-| `Broadcaster`                     | Pub/sub primitive for distributing change events   |
-| `StdToolkitError`                 | Base error type for the toolkit                    |
+core defines the fields and their base meaning; how a field is *interpreted* (convergence, cadence) belongs to the consuming context. That split is what keeps the toolkit's parts independent yet interoperable.
 
-## Core concepts
-
-- **Entity schemas** — `EntitySchema` and `SingleEntitySchema` model keyed and singleton rows respectively.
-- **Meta schema** — `MetaSchema` is the structural guard shared by every table shape.
-- **Broadcaster** — a pub/sub primitive for distributing change events across the toolkit.
-
-## Related
-
-- [eschema](/docs/std-toolkit/eschema) — versioned schemas layered on these primitives.
-- [std-toolkit overview](/docs/std-toolkit) — all subpaths.
+Next: [What is core](/docs/std-toolkit/core/what).

@@ -1,4 +1,15 @@
-import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import {
+  defineCollections,
+  defineConfig,
+  defineDocs,
+  frontmatterSchema,
+} from 'fumadocs-mdx/config';
+
+export const blog = defineCollections({
+  type: 'doc',
+  dir: 'content/blog',
+  schema: frontmatterSchema,
+});
 
 export const docs = defineDocs({
   dir: 'content/docs',
