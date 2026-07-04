@@ -8,25 +8,30 @@ description: Instance → collections → registry → component, in four steps.
 Everything starts with one call. `createStdSync` accepts shared defaults that every collection built from this instance inherits.
 
 ```ts
+import { createStdSync, syncStrategy } from 'std-toolkit/tanstack-sync';
+import { idbStorage } from 'std-toolkit/tanstack-sync/offline-storage/idb';
+
 const std = createStdSync({
-  options: { gcTime: 5000 },
-  offlineStorage: idbStorage({ name: 'app-sync', version: 1 }),
+  offlineStorage: idbStorage({ name: 'app-sync' }),
 });
 ```
 
-Behind the instance is a single tracker that remembers every collection created from it. Entity identity is `schema.name`; a second collection with the same `schema.name` is a configuration error. `createStdSync` returns exactly three things: `sync`, `singleItemSync`, and `registry`.
+Behind the instance is a single tracker that remembers every collection created from it. Entity identity is `schema.name`; a second collection with the same `schema.name` is a configuration error. The instance exposes `sync`, `singleItemSync`, `registry`, the `collection`/`singleItemCollection` conveniences, and an `inspector`.
 
 ## Step 2 — Create collections
 
-### Mirror an entire entity set (global strategy)
+A collection's sync source is one `sync` entry: a **strategy** (how to converge — see [sync strategies](/docs/std-toolkit/tanstack-sync/guide/strategies)) plus a **`forwardFetch`** (the old→new page source the strategy and the cadence repair loop consume).
+
+### Mirror an entire entity set (total sync)
 
 ```ts
 const tasks = createCollection(
   std.sync({
     schema: TaskSchema,
-    strategy: syncStrategy.oldToNew({
-      fetch: ({ cursor }) => client.queryTasks({ cursor }),
-    }),
+    sync: {
+      strategy: syncStrategy.oldToNew(),
+      forwardFetch: ({ cursor }) => client.queryTasks({ cursor }),
+    },
     onInsert: (item) => client.createTask(item),
     onUpdate: ({ id, updates }) => client.updateTask(id, updates),
     onDelete: (id) => client.deleteTask(id),
@@ -44,18 +49,21 @@ A partition is activated the first time a matching `loadSubset` filter appears o
 const tasks = createCollection(
   std.sync({
     schema: TaskSchema,
-    partitions: {
-      orgId: (orgId) =>
-        syncStrategy.oldToNew({
-          fetch: ({ cursor }) => client.queryTasksByOrg(orgId, { cursor }),
+    sync: {
+      partitions: {
+        orgId: (orgId) => ({
+          strategy: syncStrategy.oldToNew(),
+          forwardFetch: ({ cursor }) =>
+            client.queryTasksByOrg(orgId, { cursor }),
         }),
+      },
     },
     onUpdate: ({ id, updates }) => client.updateTask(id, updates),
   }),
 );
 ```
 
-A partition is a sync-lifecycle boundary, not a retention boundary: when it unloads, its strategy stops, but rows already projected stay in the collection. A collection may declare `strategy`, `partitions`, or both — convergence dedupes any overlap.
+A partition is a sync-lifecycle boundary, not a retention boundary: when it unloads, its strategy stops, but rows already projected stay in the collection. Omit `sync` entirely for a storage-only collection fed solely by `writeUpsert`/the registry.
 
 ### Exactly one record
 
@@ -109,3 +117,5 @@ utils.subscribePending(listener);
 ```
 
 Strategies are self-driving (a pull strategy loops until it drains); manual paging is not part of the public surface.
+
+Next: [sync strategies](/docs/std-toolkit/tanstack-sync/guide/strategies) — which direction to sync in and why.

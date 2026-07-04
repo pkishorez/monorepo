@@ -1,0 +1,111 @@
+---
+title: The constructs
+description: ESchema, ValueESchema, SingleEntityESchema, EntityESchema, and toSchema — each with examples.
+---
+
+eschema ships four constructs plus one bridge. They all share the same model — a version chain folded forward on decode — and differ only in *what* they version.
+
+| You're versioning                      | Use                   |
+| -------------------------------------- | --------------------- |
+| An object with named fields            | `ESchema`             |
+| A single value (enum / scalar / union) | `ValueESchema`        |
+| A named singleton object               | `SingleEntityESchema` |
+| A keyed entity (name + per-row id)     | `EntityESchema`       |
+
+Everything returns an `Effect` — stay inside `Effect.gen`/`yield*`, and reserve `Effect.runSync` for tests and scripts.
+
+## ESchema — delta evolution
+
+The workhorse: version an object with named fields, evolving by **delta** against the previous version.
+
+```ts
+import { ESchema } from 'std-toolkit/eschema';
+import { Schema } from 'effect';
+
+const User = ESchema.make({ name: Schema.String })
+  .evolve('v2', { email: Schema.NullOr(Schema.String) }, (prev) => ({
+    ...prev,
+    email: null,
+  }))
+  .build();
+```
+
+The delta says what changed:
+
+- `{ field: Schema.X }` — add or replace `field`
+- `{ field: null }` — remove `field`
+
+The migration is `(prev) => next`: pure, total, and handling **only** the previous version. Versions advance one step at a time (`v1 → v2 → v3`); you cannot skip. Because `prev` is typed as the previous version, TypeScript catches a migration that drops or mistypes a field.
+
+Renaming a field is one evolve step — remove the old key, add the new one, copy the value:
+
+```ts
+const User = ESchema.make({ name: Schema.String })
+  .evolve(
+    'v2',
+    { name: null, fullName: Schema.String },
+    (prev) => ({ fullName: prev.name }),
+  )
+  .build();
+```
+
+Schemas are immutable after `.build()` — declare every version first.
+
+## ValueESchema — whole-value replacement
+
+For a single value (enum, scalar, union) there are no fields to delta, so `ValueESchema` replaces the **whole value schema** each version; the migration receives and returns the decoded value itself.
+
+```ts
+import { ValueESchema } from 'std-toolkit/eschema';
+import { Schema } from 'effect';
+
+const Status = ValueESchema.make(Schema.Literal('open', 'closed'))
+  .evolve(
+    'v2',
+    Schema.Literal('open', 'in-progress', 'closed'),
+    (prev) => prev, // old values are still valid members
+  )
+  .build();
+```
+
+On the wire the value travels in a `{ _v, value }` envelope, since a bare scalar has nowhere to carry its version stamp.
+
+## SingleEntityESchema and EntityESchema
+
+The entity-flavored constructs, for values that live inside the [core Entity envelope](/docs/std-toolkit/core):
+
+- **`SingleEntityESchema`** — a *named singleton*: exactly one record of this type exists (settings, a profile). The schema's name becomes the entity type (`_e`).
+- **`EntityESchema`** — a *keyed entity*: a name plus a per-row id (tasks, comments). Same evolution model, plus identity.
+
+Both evolve exactly like `ESchema` — deltas and one-step migrations — and are what the database adapters and [tanstack-sync](/docs/std-toolkit/tanstack-sync) consume: sync collections are declared with an entity eschema, so shape evolution and syncing share one definition.
+
+## toSchema — the bridge
+
+`toSchema` collapses any evolving schema into a native Effect Schema, usable anywhere — including inside another eschema or a `Schema.Array`:
+
+```ts
+const Ticket = ESchema.make({
+  title: Schema.String,
+  status: toSchema(Status), // a ValueESchema
+  addresses: Schema.Array(toSchema(Address)), // an array of ESchema
+}).build();
+```
+
+Each nested schema folds forward through **its own** chain, independently of the parent, and carries its own `_v`. Array elements may sit at different versions and each migrates on its own.
+
+### Non-isolation — the composition gotcha
+
+A nested schema's decode behaviour is **not local**. Because a child folds forward through its own chain, evolving a child changes what its parent decodes to even though the parent's `_v` is unchanged. The "no-op until you evolve past v1" guarantee is a **whole-tree** statement. When you evolve a schema, audit every parent that embeds it, not just the schema you changed.
+
+## Best practices
+
+1. **`Schema.NullOr`, not `Schema.optional`.** Model "no value" as `null`, not an absent key — migrations are total functions, and an optional field forces every migration to branch on `undefined`. When adding a field, make it `NullOr` and default it to `null` in the migration.
+2. **v1 is frozen.** Unstamped legacy data decodes as v1, so editing v1's fields after data exists silently breaks every old row. Only move forward with `.evolve`.
+3. **Migrations are pure and one-step.** No IO, clock, or randomness — they run on any read.
+4. **v1 must mirror real historical data.** If unstamped data doesn't match v1, decode fails loudly rather than guessing — that's intended.
+5. **No `_`-prefixed field names.** Reserved for library metadata; rejected at the type level.
+6. **Don't read `.fields` / `.schema` at module-load time.** Build schemas at module scope; compute derived values lazily inside functions.
+7. **Change a field's stored type** with a `Schema.transform` as the field schema.
+8. **Type extraction:** `ESchemaType<typeof S>` (decoded), `ESchemaEncoded<typeof S>` (encoded — the value envelope for a `ValueESchema`).
+
+A runnable guided tour lives in the repo at `std-toolkit/src/eschema/tutorial/`. Want to see decoding in action first? Try the [playground](/docs/std-toolkit/eschema/guide/playground).
