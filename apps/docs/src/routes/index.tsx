@@ -1,48 +1,28 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@monorepo/frontend/components/ui/card';
-import { Button } from '@monorepo/frontend/components/ui/button';
-import {
-  ArrowRight,
-  Boxes,
-  Database,
-  Network,
-  Zap,
-} from '@monorepo/frontend/lucide';
+import { appName } from '@/lib/shared';
 import { baseOptions } from '@/lib/layout.shared';
 
 const packages = [
   {
     name: 'std-toolkit',
-    description:
-      'Database-agnostic sync over single-table item collections, with schema evolution and adapters.',
+    description: 'Database-agnostic sync over single-table item collections.',
     slug: 'std-toolkit',
-    icon: Database,
   },
   {
     name: 'use-effect-ts',
     description: 'React hooks for Effect.TS.',
     slug: 'use-effect-ts',
-    icon: Zap,
   },
   {
     name: 'depcruise-viz',
-    description:
-      'Author your layered architecture as typed config, then enforce its boundaries.',
+    description: 'Typed layered-architecture config, enforced.',
     slug: 'depcruise-viz',
-    icon: Network,
   },
   {
     name: 'devtools',
-    description:
-      'A local devtools RPC server for inspecting a project’s dependency graph.',
+    description: 'Local telemetry and dependency-graph viewer.',
     slug: 'devtools',
-    icon: Boxes,
   },
 ] as const;
 
@@ -51,44 +31,40 @@ export const Route = createFileRoute('/')({
 });
 
 function Home() {
+  const options = baseOptions();
   return (
-    <HomeLayout {...baseOptions()}>
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-12 px-4 py-16">
-        <section className="flex flex-col items-center gap-6 text-center">
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-5xl">
-            Single-table design toolkit
-          </h1>
-          <p className="max-w-2xl text-lg text-muted-foreground text-balance">
-            Database-agnostic sync over single-table item collections. Sync only
-            needs sorted items — so it works over any database.
+    <HomeLayout {...options} nav={{ ...options.nav, title: null }}>
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 px-6 py-16">
+        <section className="space-y-1">
+          <div className="flex items-center gap-3">
+            <img
+              src="/favicon.svg"
+              alt=""
+              width={36}
+              height={36}
+              className="size-9 rounded-lg"
+            />
+            <h1 className="text-4xl font-semibold tracking-tight">{appName}</h1>
+          </div>
+          <p className="text-lg text-muted-foreground">
+            Everything I build, in one monorepo.
           </p>
-          <Button
-            render={<Link to="/docs/$" params={{ _splat: 'std-toolkit' }} />}
-            size="lg"
-            data-icon="inline-end"
-          >
-            Get started
-            <ArrowRight />
-          </Button>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2">
+        <section className="flex flex-col gap-2">
           {packages.map((pkg) => (
             <Link
               key={pkg.name}
               to="/docs/$"
               params={{ _splat: pkg.slug }}
-              className="group/link"
+              className="group -mx-3 block rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
             >
-              <Card className="h-full transition-colors group-hover/link:ring-foreground/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <pkg.icon className="size-4 text-muted-foreground" />
-                    {pkg.name}
-                  </CardTitle>
-                  <CardDescription>{pkg.description}</CardDescription>
-                </CardHeader>
-              </Card>
+              <span className="underline decoration-muted-foreground/40 underline-offset-4 transition-colors group-hover:decoration-foreground">
+                {pkg.name}
+              </span>
+              <p className="mt-1 text-sm text-muted-foreground transition-colors group-hover:text-foreground/70">
+                {pkg.description}
+              </p>
             </Link>
           ))}
         </section>

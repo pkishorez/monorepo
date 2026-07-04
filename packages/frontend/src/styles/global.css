@@ -8,3 +8,9 @@
 @import './typography.css';
 @import './theme.css';
 @import './shiki.css';
+
+@layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+}

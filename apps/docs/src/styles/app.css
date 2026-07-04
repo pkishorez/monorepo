@@ -13,10 +13,6 @@
    components rendered inside MDX are generated. */
 @source '../../../../packages/frontend/src';
 
-@theme {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-}
-
 /* Single theme source of truth: map every fumadocs colour variable onto the
    frontend design tokens. The frontend tokens are redefined under `.dark` /
    `[data-theme='dark']`, so `var(--token)` re-resolves per theme; both blocks
@@ -56,6 +52,13 @@
 @layer base {
   body {
     font-family: var(--font-sans);
+    font-size: 14px;
+
+    @media (min-width: 768px) {
+      & {
+        font-size: 16px;
+      }
+    }
   }
 }
 
