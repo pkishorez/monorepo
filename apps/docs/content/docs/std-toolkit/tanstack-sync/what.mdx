@@ -26,7 +26,7 @@ import { idbStorage } from 'std-toolkit/tanstack-sync/offline-storage/idb';
 | Export                   | Role                                                                                     |
 | ------------------------ | ----------------------------------------------------------------------------------------- |
 | `createStdSync`          | Creates an instance; returns exactly `sync`, `singleItemSync`, and `registry`              |
-| `syncStrategy`           | Strategies for keyed collections (e.g. `oldToNew`) — how items are pulled                  |
+| `syncStrategy`           | Strategies for keyed collections (`oldToNew`, `newToOld`, `bidirectional`) — how items are pulled |
 | `singleItemSyncStrategy` | Strategies for singleton collections (e.g. `getOnce`)                                      |
 | `paceStrategy`           | Pacing for optimistic updates (e.g. `coalesce`); `coalesceStrategy` lives under `/paced`   |
 | `idbStorage`             | IndexedDB offline-storage adapter (`/offline-storage/idb`)                                 |
@@ -39,8 +39,9 @@ One instance, one tracker: each entity type may be owned by exactly one collecti
 
 ## Next
 
-- [How: quickstart](/docs/std-toolkit/tanstack-sync/how/quickstart) — instance → collections → registry → component.
-- [How: storage and lifecycle](/docs/std-toolkit/tanstack-sync/how/storage-and-lifecycle) — the three storage layers, partition lifecycle, and the invariants.
+- [Guide: quickstart](/docs/std-toolkit/tanstack-sync/guide/quickstart) — instance → collections → registry → component.
+- [Guide: sync strategies](/docs/std-toolkit/tanstack-sync/guide/strategies) — `oldToNew`, `newToOld`, `bidirectional`, `getOnce`, `coalesce`, and how they interplay.
+- [Guide: offline sync and storage](/docs/std-toolkit/tanstack-sync/guide/storage-and-lifecycle) — the three storage layers, storage backends, partition lifecycle, and the invariants.
 
 ## Related
 

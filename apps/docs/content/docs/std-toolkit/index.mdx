@@ -1,19 +1,34 @@
 ---
 title: Why
-description: Why std-toolkit exists — single-table item collections, synced to the frontend.
+description: Why std-toolkit exists — single-table item collections, synced end to end.
 ---
 
-## The itch
+## Single-table design
 
-DynamoDB's single-table design is one of the great tricks of backend modeling: instead of one table per entity, you store *every* entity type in one table. A **partition key** decides where a row lives, a **sort key** orders rows within that partition, and the set of rows sharing one partition key — the **item collection** — becomes the natural unit of access. One query, one partition, everything you need.
+Picture one table. Not one table per entity — *one* table for everything: tasks, users, settings, orgs, all of it as rows side by side.
+
+How do you tell the records apart? Two mechanisms, working together:
+
+- **By entity.** Every record carries its entity type, so a task row and a profile row can share a table without ever being confused for one another.
+- **By partition.** Every record also carries a **partition key** that decides where it lives, and a **sort key** that orders records within that partition. Records that share a partition key sit physically together, in sort-key order.
+
+That second group — all the records behind one partition key — has a name: an **item collection**. It is the natural unit of access in this design. "Everything about org `acme`" is not a join across five tables; it is one item collection, read in one query.
+
+This is single-table design, and it is one of the great tricks of backend data modeling.
+
+## Why DynamoDB makes it awesome
+
+DynamoDB is where this design was born, and DynamoDB rewards it extravagantly: **any operation inside a single partition is guaranteed single-digit-millisecond latency** — at any scale, whether the table holds a thousand rows or ten billion. The partition is the unit of locality; keep your access patterns inside it and the database simply cannot be slow.
+
+Model your domain as item collections and every hot path in your application becomes one predictable, fast partition read.
+
+## The inspiration
 
 Meanwhile, on the frontend, TanStack DB solved a different problem: keeping a live, queryable collection of records in the browser, with optimistic writes and reactive queries.
 
-Put the two side by side and an idea falls out: **an item collection on the server is exactly the thing a frontend collection wants to mirror.** Both are sorted sets of items with a stable identity. If the server models everything as single-table item collections, syncing to the client stops being a per-endpoint, per-feature chore — it becomes one generic mechanism.
+Put the two side by side and an idea falls out: **an item collection on the server is exactly the thing a frontend collection wants to mirror.** Both are sorted sets of items with a stable identity.
 
-That is std-toolkit: **database-agnostic sync over single-table item collections.** Thanks to DynamoDB for the data model and TanStack DB for the client runtime — std-toolkit is the bridge between them.
-
-## The picture
+That is the inspiration for std-toolkit: an **end-to-end sync engine between DynamoDB and TanStack DB.** On the server, your data lives as single-table item collections. On the client, a `sync` abstraction mirrors one item collection into a TanStack DB collection and keeps it converged — with local (offline) storage so the mirror survives a reload.
 
 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', margin: '1.5rem 0' }}>
   <div style={{ flex: '1 1 220px', border: '1px solid var(--color-border)', borderRadius: '0.5rem', padding: '0.75rem' }}>
@@ -46,15 +61,18 @@ That is std-toolkit: **database-agnostic sync over single-table item collections
   </div>
 </div>
 
-Each item collection on the left has a stable identity (its partition key) and a stable order (its sort key). That is *all* the sync engine needs — it does not care whether the table is DynamoDB, SQLite, or anything else that can hand back sorted items.
+If the server models everything as item collections, syncing to the client stops being a per-endpoint, per-feature chore — it becomes one generic mechanism.
 
-## Why "database-agnostic" matters
+## Why stop at DynamoDB?
 
-The sync layer only ever asks for sorted items out of an item collection. So the same application model runs against:
+This is all great — but why should only DynamoDB users reap these benefits?
 
-- **DynamoDB** in production — the pattern's birthplace.
-- **SQLite** in tests, local dev, Bun, or a Cloudflare Durable Object — same topology, same vocabulary, zero mocking.
+It turns out the principle is generic. All the sync engine ever asks of the database is: *give me the sorted items of one item collection.* Any store that can hand back sorted rows behind a key can play the part — including SQL databases. std-toolkit ships a SQLite adapter that speaks the exact same partition-key / sort-key / item-collection topology.
 
-One more problem hides inside this design: single-table stores are schemaless, and long-lived synced data *will* change shape. std-toolkit answers that with [evolving schemas](/docs/std-toolkit/eschema) — versioned schemas that migrate old data forward on read.
+Yes, you give up the power of SQL: no ad-hoc joins, no arbitrary queries against your synced data. But the disciplined single-table approach buys things SQL cannot give you here — the same data model in production DynamoDB and in tests, local dev, Bun, or a Cloudflare Durable Object, with zero mocking; access patterns designed up front instead of discovered in a slow-query log; and one sync mechanism that works unchanged over any backend.
+
+That is std-toolkit in one line: **database-agnostic sync over single-table item collections.**
+
+One more problem hides inside this design: single-table stores are schemaless, and long-lived synced data *will* change shape. std-toolkit answers that with [evolving schemas](/docs/std-toolkit/eschema).
 
 Ready for the component map? Head to [What is std-toolkit](/docs/std-toolkit/what).

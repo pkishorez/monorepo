@@ -74,13 +74,7 @@ function Page() {
             title: (
               <span className="flex items-center gap-1.5">
                 {option.title}
-                <StatusBadge
-                  status={
-                    option.url.startsWith('/docs/std-toolkit')
-                      ? 'alpha'
-                      : 'soon'
-                  }
-                />
+                <StatusBadge status="alpha" />
               </span>
             ),
           }),

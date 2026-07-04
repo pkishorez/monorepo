@@ -11,24 +11,6 @@ const packages = [
     slug: 'std-toolkit',
     status: 'alpha',
   },
-  {
-    name: 'use-effect-ts',
-    description: 'React hooks for Effect.TS.',
-    slug: 'use-effect-ts',
-    status: 'soon',
-  },
-  {
-    name: 'depcruise-viz',
-    description: 'Typed layered-architecture config, enforced.',
-    slug: 'depcruise-viz',
-    status: 'soon',
-  },
-  {
-    name: 'devtools',
-    description: 'Local telemetry and dependency-graph viewer.',
-    slug: 'devtools',
-    status: 'soon',
-  },
 ] as const;
 
 export const Route = createFileRoute('/')({

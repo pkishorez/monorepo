@@ -1,17 +1,27 @@
 ---
 title: Why
-description: Schemas freeze data; eschema lets it evolve.
+description: Schemas are point-in-time; persisted data is not.
 ---
 
-## The story
+## Persistence changes everything
 
-Schemaless stores like DynamoDB make writing easy: any shape goes in. The cost shows up later, when nothing tells you what shape comes *out*. So you add a schema — and safety returns, but a new problem arrives with it: **evolution**. A schema pins your data's structure in place. The day you need to add a field, rename one, or change a type, you face the migration problem: millions of rows written in the old shape, and a schema that only understands the new one.
+Persist some data — a file, a database row, a record in any store — and that data needs a schema. Without one, nothing tells you what shape comes back out. So you add a schema, and safety returns.
 
-The classic answers are all painful. Migrate the whole table in one pass (downtime, risk). Handle every historical shape at every read site (branching code that grows forever). Or give up and make every field optional (safety quietly leaves again).
+But requirements change, and sooner or later the schema is modified. What happens then depends entirely on *where* the old shape lives.
 
-eschema takes a different path: **encode the evolutions inside the schema itself.** A schema is not a snapshot — it is a chain of versions, `v1 … latest`, where each step carries a small pure migration from the previous shape. Old data is never rewritten in place; it is **folded forward on read**.
+## Point-in-time structures are fine
 
-## The picture
+For API payloads, the structure is **point in time**: a request comes in, a response goes out, and nothing is kept. Change the structure and the end consumers simply adapt — regenerate a client, update a caller — and everything keeps working. There is no history to worry about, because there is no history at all.
+
+## Persisted structures are not
+
+Persisted data is different: every row ever written is history, frozen in the shape the schema had on the day it was written. Ship a breaking change to that schema and the data already on disk is fundamentally out of step — the new schema can no longer read it. There is no going back in time to rewrite what was persisted, and shuttling millions of rows back and forth between shapes with migration scripts is tedious, risky, and often needs downtime.
+
+So: a schema is a great abstraction for a **point-in-time** definition of data. For data that must outlive changing requirements, a schema alone is the wrong abstraction.
+
+## Enter the evolving schema
+
+That is where the evolving schema comes in. An **eschema** defines not only the shape of the data, but **how that shape evolves over time**: a chain of versions `v1 … latest`, where each step carries a small pure migration from the previous shape. Old data is never rewritten in place — it is **folded forward on read**.
 
 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '1.5rem 0', fontSize: '0.85rem' }}>
   <div style={{ border: '1px solid var(--chart-1)', color: 'var(--chart-1)', borderRadius: '0.375rem', padding: '0.5rem 0.75rem' }}>
@@ -31,11 +41,14 @@ eschema takes a different path: **encode the evolutions inside the schema itself
 
 Decode reads the `_v` stamp on each row, finds that version in the chain, and applies each migration in order until the value reaches the latest shape. Encode always writes the latest version. Old versions are only ever read, never written.
 
-## Why this wins
+## Three scenarios
 
-- **No migration scripts, no downtime.** Rows migrate lazily, one at a time, at the moment they are read.
-- **No shape-branching at read sites.** Your application code sees exactly one shape: the latest.
-- **Adoption is non-breaking.** Data with no `_v` stamp decodes as `v1`, so wrapping an existing table's shape as v1 is a pure no-op — evolutions come later.
-- **Each migration is small.** One pure function per version step, from exactly the previous shape to the next. The chain composes; you never write "handle any old version" code.
+**A field is added.** Requirements say users now have an email. With a plain schema, every existing row is suddenly invalid. With an eschema, you add one `.evolve('v2', …)` step whose migration defaults the new field — old rows decode as v1, fold forward, and arrive with `email: null`. No script touched the table.
+
+**A field is renamed.** `name` should really be `fullName`. One evolve step removes the old key, adds the new one, and the migration copies the value across. Rows written years apart all decode to the same latest shape.
+
+**Old, unstamped data.** Data written before eschema existed carries no `_v` at all. It decodes as `v1` — so wrapping an existing store's current shape as v1 is a pure no-op, and evolutions can start from there. Adoption is non-breaking by design.
+
+In every scenario the payoff is the same: **no migration scripts, no downtime, no shape-branching at read sites.** Your application code sees exactly one shape — the latest — and each migration is one small pure function from exactly the previous version to the next.
 
 Next: [What is eschema](/docs/std-toolkit/eschema/what).

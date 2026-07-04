@@ -1,7 +1,11 @@
 ---
-title: Storage and lifecycle
-description: The three storage layers, the partition lifecycle, and the key invariants.
+title: Offline sync and storage
+description: How offline sync works — the three storage layers, the storage backends, the partition lifecycle, and the key invariants.
 ---
+
+## How offline sync works
+
+Offline sync is not a bolt-on cache: when configured, Offline Storage is the **live backend** for the engine's durable layers. Server truth and sync cursors are written to it as they change, so closing the tab loses nothing — the next mount projects the stored truth into the collection immediately (before any network call), and each strategy resumes from its persisted cursor instead of re-syncing from scratch.
 
 ## Three storage layers
 
@@ -29,9 +33,25 @@ Sync State (per collection + partition)
   - never advanced by registry, mutation results, or manual persisted writes
 ```
 
-Offline Storage is the **live backend** for SoT and Sync State when configured, not a hydration-only copy. Persisted writes made while a collection is unmounted remain the state that later mounts and strategies observe. Root storage is inherited by collections that omit `offlineStorage`; a collection opts out with `offlineStorage: false`.
+Persisted writes made while a collection is unmounted remain the state that later mounts and strategies observe. **On mount:** the engine projects current SoT into the collection before the strategy lifecycle starts. **On page reload:** the projection clears; SoT and Sync State survive only when the configured storage backend is durable.
 
-**On mount:** the engine projects current SoT into the collection before the strategy lifecycle starts. **On page reload:** the projection clears; SoT and Sync State survive only when the configured Offline Storage adapter is durable.
+## Storage backends
+
+**IndexedDB** — the durable browser backend, for real offline persistence:
+
+```ts
+import { idbStorage } from 'std-toolkit/tanstack-sync/offline-storage/idb';
+
+const std = createStdSync({
+  offlineStorage: idbStorage({ name: 'app-sync' }),
+});
+```
+
+`idbStorage` is safe to construct during SSR/module evaluation — it only touches `indexedDB` when a storage operation actually runs in the browser. Bump `version` when you need a clean break from previously stored data.
+
+**Memory** — when no durable storage is configured, the engine falls back to an in-memory storage with the same interface. Everything behaves identically within a session (unmounted writes, resume-on-remount), but a page reload starts fresh. This is the default; you don't import it.
+
+**Inheritance and opt-out** — root storage passed to `createStdSync` is inherited by every collection that omits `offlineStorage`; a collection overrides with its own storage, or opts out entirely with `offlineStorage: false`.
 
 ## Data flow on strategy sync
 
@@ -52,7 +72,7 @@ loadSubset(options)
   -> find a partitions-map field eq partitionValue; derive partitionKey
   -> increment that partition's refcount
   -> 0 -> 1: start the partition's strategy runtime
-  -> no match: covered by the global strategy if present, else console.error
+  -> no match: covered by the total sync entry if present, else console.error
 
 unloadSubset(options)
   -> decrement refcount
@@ -63,14 +83,14 @@ collection cleanup
   -> keep SoT and Sync State in the engine closure
 ```
 
-The global `strategy` runs under the reserved `__total__` partition key, started unconditionally at sync start. `singleItemSync` uses collection-level lifecycle only.
+The total sync entry runs under the reserved `__total__` partition key, started unconditionally at sync start. `singleItemSync` uses collection-level lifecycle only.
 
 ## Key invariants
 
 1. **One instance, one tracker, one registry.** Collections from different instances are invisible to each other's registries.
 2. **Entity ownership is disjoint.** An instance may register a `schema.name` only once.
 3. **Entity identity is `schema.name`.** Every accepted envelope must have `meta._e === schema.name`; mismatches are rejected, not routed.
-4. **Global and per-partition strategies coexist** in one collection, one engine, one Source of Truth.
+4. **Total and per-partition sync entries coexist** in one collection, one engine, one Source of Truth.
 5. **The engine owns SoT storage; strategies own Sync State meaning.**
 6. **Sync State is advanced only by strategy sync.** Registry writes, mutation results, and manual persisted writes never advance it.
 7. **Server-truth writes are atomic.** A batch succeeds whole or fails through `WriteError`.
