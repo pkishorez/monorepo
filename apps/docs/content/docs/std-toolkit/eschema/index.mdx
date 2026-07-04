@@ -1,0 +1,62 @@
+---
+title: eschema
+description: Versioned, self-migrating schemas built on Effect Schema.
+---
+
+`std-toolkit/eschema` provides versioned, self-migrating schemas built on Effect Schema. A schema is a chain of versions `v1 … latest`, and data written at any past version is automatically folded forward to the current shape on decode. It also ships the `eschema` CLI for schema evolution.
+
+## Install
+
+```sh
+npm install std-toolkit effect
+```
+
+```ts
+import {
+  ESchema,
+  EntityESchema,
+  SingleEntityESchema,
+  ValueESchema,
+  toSchema,
+} from 'std-toolkit/eschema';
+```
+
+## Encode and decode
+
+- **encode** always writes the latest version and stamps `_v`.
+- **decode** reads `_v` and folds forward through each migration to the latest shape.
+- Data with no `_v` decodes as `v1`, making adoption over existing data non-breaking.
+
+## Choosing a construct
+
+| You're versioning                      | Use                   |
+| -------------------------------------- | --------------------- |
+| An object with named fields            | `ESchema`             |
+| A single value (enum / scalar / union) | `ValueESchema`        |
+| A named singleton object               | `SingleEntityESchema` |
+| A keyed entity (name + per-row id)     | `EntityESchema`       |
+
+## Quick example
+
+```ts
+import { ESchema } from 'std-toolkit/eschema';
+import { Schema } from 'effect';
+
+const User = ESchema.make({ name: Schema.String })
+  .evolve('v2', { email: Schema.NullOr(Schema.String) }, (prev) => ({
+    ...prev,
+    email: null,
+  }))
+  .build();
+```
+
+## The eschema CLI
+
+```sh
+npx eschema     # schema evolution CLI
+```
+
+## Related
+
+- [core](/docs/std-toolkit/core) — the shared primitives eschema builds on.
+- [std-toolkit overview](/docs/std-toolkit) — all subpaths.

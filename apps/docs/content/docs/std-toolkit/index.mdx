@@ -1,0 +1,32 @@
+---
+title: std-toolkit
+description: Single-table design toolkit — database-agnostic sync over single-table item collections.
+---
+
+`std-toolkit` is a single-table design toolkit: database-agnostic sync over single-table item collections, with schema evolution, DynamoDB and SQLite adapters, and TanStack DB integration. Each concern lives behind its own subpath so you install only the peers you use.
+
+## Install
+
+```sh
+npm install std-toolkit
+npm install effect                     # required by all subpaths
+npm install @tanstack/react-db react   # required by tanstack-sync
+```
+
+Requires Node ≥ 24.
+
+## Subpaths
+
+| Subpath                                                        | Description                                                                          |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`std-toolkit/eschema`](/docs/std-toolkit/eschema)             | Versioned, self-migrating schemas built on Effect Schema; includes the `eschema` CLI |
+| [`std-toolkit/core`](/docs/std-toolkit/core)                   | Shared primitives: `EntitySchema`, `MetaSchema`, `Broadcaster`, `StdToolkitError`    |
+| [`std-toolkit/tanstack-sync`](/docs/std-toolkit/tanstack-sync) | TanStack DB sync engine with paced writes and IndexedDB offline storage              |
+| [`std-toolkit/dynamodb`](/docs/std-toolkit/dynamodb)           | DynamoDB table/entity services, expression builders, marshall utilities              |
+| [`std-toolkit/sqlite`](/docs/std-toolkit/sqlite)               | SQLite table/entity services with runtime adapters for multiple environments         |
+
+## Bin
+
+```sh
+npx eschema          # schema evolution CLI (see std-toolkit/eschema)
+```
