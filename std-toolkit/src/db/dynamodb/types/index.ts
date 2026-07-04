@@ -11,21 +11,6 @@ export type {
 export type { TransactItem, TransactItemBase } from './transaction.js';
 
 export type {
-  MigrationState,
-  MigrationInspectionState,
-  MigrationInspection,
-  MigrationReport,
-  MigrationFailure,
-  MigrationDriftReport,
-  MigrationItemReport,
-  MigrationIssueReport,
-  MigrationEntityReport,
-  MigrationSegmentReport,
-  MigrationProgressEstimate,
-  MigrationOptions,
-} from './migration.js';
-
-export type {
   Operator,
   KeyOp,
   SkParam,

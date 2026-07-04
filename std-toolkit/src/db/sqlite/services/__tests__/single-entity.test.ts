@@ -130,7 +130,7 @@ describe('SQLiteSingleEntity', () => {
           update: { value: 'y' },
         }).pipe(Effect.flip);
 
-        expect(error.error._tag).toBe('UpdateFailed');
+        expect(error.error._tag).toBe('NoItemToUpdate');
       }).pipe(Effect.provide(layer)),
     );
   });

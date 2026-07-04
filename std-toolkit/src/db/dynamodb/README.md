@@ -6,7 +6,6 @@ DynamoDB table and entity services, expression builders, and marshall utilities 
 
 ```ts
 import { DynamoTable, DynamoEntity, createDynamoDB } from 'std-toolkit/dynamodb';
-import { ... } from 'std-toolkit/dynamodb/rpc';   // RPC helpers
 // wildcard — import internal paths directly (advanced use)
 import '...' from 'std-toolkit/dynamodb/*';
 ```
@@ -33,4 +32,4 @@ import '...' from 'std-toolkit/dynamodb/*';
 
 **Types / Errors**
 
-- `DynamodbError`, `DynamoConnection`, `MigrationOptions`, `MigrationReport`
+- `DynamodbError`, `DynamoConnection`

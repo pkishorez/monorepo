@@ -33,7 +33,7 @@ Conversion between JS values and DynamoDB `AttributeValue` format.
 _Avoid_: serialize/deserialize (reserve those for eschema encode/decode).
 
 **Auto-migration**:
-On read, stale items are folded to the latest eschema [[eschema]] **version** automatically. A migration run produces a **MigrationReport** (scanned / migrated / failed counts) with a **MigrationState** (`initial` | `running` | `completed` | `completed-with-failures`).
+On read, stale items are folded to the latest eschema [[eschema]] **version** automatically; on update, a stale item is rewritten in canonical latest-version form before the update retries.
 
 **DynamodbError**:
 The unified adapter error (`GetItemFailed`, `PutItemFailed`, `ConditionCheckFailed`, …), extending core's [[core]] **StdToolkitError**.

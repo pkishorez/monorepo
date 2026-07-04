@@ -238,7 +238,23 @@ export class SQLiteEntity<
 
       const { item, meta } = yield* this.#prepareInsert(fullValue);
 
-      yield* this.#table.putItem(item);
+      yield* this.#table.putItem(item).pipe(
+        Effect.catch((error) =>
+          Effect.gen({ self: this }, function* () {
+            const existing = yield* this.get(fullValue).pipe(
+              Effect.catch(() => Effect.succeed(null)),
+            );
+            return yield* Effect.fail(
+              existing
+                ? SqliteDBError.itemAlreadyExists(
+                    (yield* SqliteDB).tableName,
+                    error,
+                  )
+                : error,
+            );
+          }),
+        ),
+      );
 
       yield* this.#broadcast({ value: fullValue, meta });
 
@@ -263,10 +279,7 @@ export class SQLiteEntity<
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(
-          SqliteDBError.updateFailed(
-            (yield* SqliteDB).tableName,
-            'Item not found',
-          ),
+          SqliteDBError.noItemToUpdate((yield* SqliteDB).tableName),
         );
       }
 
@@ -326,10 +339,7 @@ export class SQLiteEntity<
       const existing = yield* this.get(keyValue);
       if (!existing) {
         return yield* Effect.fail(
-          SqliteDBError.deleteFailed(
-            (yield* SqliteDB).tableName,
-            'Item not found',
-          ),
+          SqliteDBError.noItemToDelete((yield* SqliteDB).tableName),
         );
       }
 

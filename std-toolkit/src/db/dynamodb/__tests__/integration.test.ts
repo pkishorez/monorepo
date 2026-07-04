@@ -1117,10 +1117,6 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
               | undefined;
             expect(address?.street).toBe('2 Oak Ave');
             expect(address?._v).toBe('v2');
-
-            // Migration inspection should see the item as valid (no data-drift)
-            const inspection = yield* ProfileEntity.inspectMigration(raw.Item!);
-            expect(inspection.state).toEqual({ type: 'valid' });
           }),
       );
     });
