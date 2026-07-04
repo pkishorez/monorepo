@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@monorepo/frontend/styles/font-inter.css';
+@import '@monorepo/frontend/styles/theme.css';
+@import '@monorepo/frontend/styles/shiki.css';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
+
+/* Scan @monorepo/frontend source so utility classes used by frontend
+   components rendered inside MDX are generated. */
+@source '../../../../packages/frontend/src';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Single theme source of truth: map every fumadocs colour variable onto the
+   frontend design tokens. The frontend tokens are redefined under `.dark` /
+   `[data-theme='dark']`, so `var(--token)` re-resolves per theme; both blocks
+   assign the same tokens, the dark block only exists to out-specify the
+   `.dark` overrides shipped in fumadocs' preset. */
+:root,
+.dark,
+[data-theme='dark'] {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
+  --color-fd-ring: var(--ring);
+  --color-fd-overlay: color-mix(in oklab, var(--background) 60%, transparent);
+}
+
+/* Keep the dark sidebar on the frontend palette (neutral.css otherwise swaps
+   these for flat greys via `.dark #nd-sidebar`). */
+.dark #nd-sidebar,
+[data-theme='dark'] #nd-sidebar {
+  --color-fd-muted: var(--muted);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-muted-foreground: var(--muted-foreground);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}

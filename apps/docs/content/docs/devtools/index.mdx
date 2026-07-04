@@ -1,0 +1,43 @@
+---
+title: devtools
+description: A local devtools UI combining telemetry inspection with dependency-graph visualization.
+---
+
+`@kishorez/devtools` is a local devtools UI that combines a viewer for `lotel` telemetry with [`depcruise-viz`](/docs/depcruise-viz) dependency-graph visualization, so you can inspect a project's runtime telemetry and its layered architecture in one place. It runs a local RPC server that drives dependency-cruiser analysis against a project directory.
+
+## Install
+
+Run it on demand with `npx`, or install it globally:
+
+```bash
+npx @kishorez/devtools
+```
+
+```bash
+npm i -g @kishorez/devtools
+devtools
+```
+
+The server listens on `http://127.0.0.1:14400/rpc` and exposes an NDJSON RPC endpoint (with CORS enabled).
+
+## Core concepts
+
+- **Telemetry viewer** — inspect telemetry emitted by your app in a local UI.
+- **Dependency-graph visualization** — render the layers and feature graph produced by [`depcruise-viz`](/docs/depcruise-viz).
+- **Local RPC server** — a single NDJSON endpoint that runs dependency-cruiser analysis against a target directory.
+
+## Configuration
+
+| Variable        | Default     | Description        |
+| --------------- | ----------- | ------------------ |
+| `DEVTOOLS_HOST` | `127.0.0.1` | Host to bind to.   |
+| `DEVTOOLS_PORT` | `14400`     | Port to listen on. |
+
+## Library exports
+
+- `@kishorez/devtools/rpc` — the RPC group definition and shared types.
+- `@kishorez/devtools/report` — programmatic report generation for a directory.
+
+## Related
+
+- [depcruise-viz](/docs/depcruise-viz) — the engine behind the dependency-graph visualization.

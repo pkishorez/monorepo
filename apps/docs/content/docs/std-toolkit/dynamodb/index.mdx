@@ -1,0 +1,37 @@
+---
+title: dynamodb
+description: DynamoDB table/entity services, expression builders, and marshall utilities.
+---
+
+`std-toolkit/dynamodb` provides DynamoDB table and entity services, type-safe expression builders, and marshall utilities, all built on Effect. RPC helpers live under `std-toolkit/dynamodb/rpc`.
+
+## Install
+
+```sh
+npm install std-toolkit effect
+```
+
+```ts
+import {
+  DynamoTable,
+  DynamoEntity,
+  createDynamoDB,
+} from 'std-toolkit/dynamodb';
+```
+
+## Services
+
+`DynamoTable`, `DynamoEntity`, `DynamoSingleEntity` are Effect services for table operations, and `EntityRegistry` is the registry of all entities in a table. The client is constructed with `createDynamoDB` / `DynamoDB` / `dynamoDBLayer`.
+
+## Expression builders
+
+`exprCondition`, `exprFilter`, `exprUpdate`, and `buildExpr` build type-safe condition, filter, and update expressions, with `opAdd` and `opIfNotExists` as update operation helpers.
+
+## Marshall
+
+`marshall` and `unmarshall` convert to and from DynamoDB attribute values. Errors and connection types include `DynamodbError`, `DynamoConnection`, `MigrationOptions`, and `MigrationReport`.
+
+## Related
+
+- [sqlite](/docs/std-toolkit/sqlite) — the SQLite counterpart of these services.
+- [std-toolkit overview](/docs/std-toolkit) — all subpaths.

@@ -1,0 +1,77 @@
+---
+title: depcruise-viz
+description: Author your layered architecture as a typed config, then enforce its boundaries.
+---
+
+`depcruise-viz` lets you author your project's layered architecture as a typed config, then enforce its boundaries — built on [dependency-cruiser](https://github.com/sverweij/dependency-cruiser). You describe layers and feature trees in a `depcruise.config.ts`; `depcruise-viz` compiles that into dependency-cruiser rules, cruises the codebase, and reports layer violations and feature-closure violations. The same compiled model also produces a config for rendering the dependency graph.
+
+## Install
+
+```bash
+npm install depcruise-viz
+```
+
+Requires a TypeScript project with ESM support; a `tsconfig.json` at the package root is picked up automatically.
+
+## Getting started
+
+Create a `depcruise.config.ts` at your package root that exports a `ProjectConfig`, declaring layers, modules, and features:
+
+```typescript
+import {
+  feature,
+  layer,
+  layersTopDown,
+  module,
+  type ProjectConfig,
+} from 'depcruise-viz';
+
+const cli = layer('cli', ['src/cli'], {
+  description: 'CLI entry, command wiring',
+});
+const core = layer('core', ['src/authoring', 'src/compile'], {
+  description: 'Pure DSL and analysis',
+});
+const types = layer('types', ['src/types.ts'], {
+  description: 'Shared type foundation',
+});
+
+export default {
+  rootDir: 'src',
+  rules: [layersTopDown('my-project', [cli, core, types])],
+  features: [
+    feature('authoring', {
+      root: 'authoring',
+      modules: ['authoring', 'types.ts'],
+    }),
+  ],
+  modules: [
+    module('src/authoring'),
+    module('src/types.ts'),
+    module('src/cli', { barrel: true }),
+  ],
+} satisfies ProjectConfig;
+```
+
+Then run `npx depcruise-viz lint`, which exits non-zero on any layer or feature-closure violation.
+
+## Core concepts
+
+- **Stack and layers** — a stack is one top-down layering built with `layersTopDown`; an upper layer may import those below it, never above. Each `layer` is a named band of path patterns.
+- **Modules and features** — a `module` is a named unit of code in exactly one layer; a `feature` is a rooted tree of module names. A module named by two or more features is automatically **shared**.
+- **Feature closure** — the lint contract that every real import edge is claimed by a feature, with closure relaxing at shared modules and at `barrel`-flagged fan-out points.
+
+## Programmatic use
+
+The `./node` entry cruises a package and returns the compiled config plus a violations/coverage summary:
+
+```typescript
+import { cruiseProject } from 'depcruise-viz/node';
+
+const result = await cruiseProject(process.cwd());
+console.log(result.summary.violations);
+```
+
+## Related
+
+- [devtools](/docs/devtools) — a local UI that visualizes the dependency graph depcruise-viz produces.
