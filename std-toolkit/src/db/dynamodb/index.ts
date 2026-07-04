@@ -20,9 +20,6 @@ export type { DynamoConnection } from './types/index.js';
 // Errors
 export { DynamodbError } from './errors.js';
 
-// Migration
-export type { MigrationOptions, MigrationReport } from './types/migration.js';
-
 // Expression builders
 export {
   exprCondition,

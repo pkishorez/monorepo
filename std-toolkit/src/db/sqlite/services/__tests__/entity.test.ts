@@ -160,6 +160,26 @@ describe('SQLite Single Table Design', () => {
         expect(row!.sk).toBe('post-1');
       }).pipe(Effect.provide(layer)),
     );
+
+    itEffect('fails with ItemAlreadyExists on duplicate primary key', () =>
+      Effect.gen(function* () {
+        yield* userEntity.insert({
+          userId: 'user-dup',
+          email: 'dup@example.com',
+          name: 'Dup User',
+        });
+
+        const error = yield* userEntity
+          .insert({
+            userId: 'user-dup',
+            email: 'dup2@example.com',
+            name: 'Dup User 2',
+          })
+          .pipe(Effect.flip);
+
+        expect(error.error._tag).toBe('ItemAlreadyExists');
+      }).pipe(Effect.provide(layer)),
+    );
   });
 
   describe('get by pk+sk', () => {
@@ -227,7 +247,7 @@ describe('SQLite Single Table Design', () => {
         const error = yield* userEntity
           .update({ userId: 'non-existent' }, { name: 'X' })
           .pipe(Effect.flip);
-        expect(error.error._tag).toBe('UpdateFailed');
+        expect(error.error._tag).toBe('NoItemToUpdate');
       }).pipe(Effect.provide(layer)),
     );
 
@@ -283,7 +303,7 @@ describe('SQLite Single Table Design', () => {
         const error = yield* userEntity
           .delete({ userId: 'non-existent-delete' })
           .pipe(Effect.flip);
-        expect(error.error._tag).toBe('DeleteFailed');
+        expect(error.error._tag).toBe('NoItemToDelete');
       }).pipe(Effect.provide(layer)),
     );
   });

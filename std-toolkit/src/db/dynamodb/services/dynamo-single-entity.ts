@@ -8,7 +8,6 @@ import type { DynamoDB } from './dynamo-client.js';
 import { DynamodbError } from '../errors.js';
 import {
   deriveIndexKeyValue,
-  sameValue,
   isConditionalCheckFailed,
 } from '../internal/index.js';
 import { buildExpr, type UpdateExprResult } from '../expr/build-expr.js';
@@ -24,7 +23,6 @@ import {
   type AnyOperation,
 } from '../expr/update.js';
 import type { TransactItem } from '../types/index.js';
-import type { MigrationInspection } from '../types/migration.js';
 
 /**
  * Schema for single entity metadata stored with each item.
@@ -55,19 +53,6 @@ export interface SingleEntityType<T> {
   /** Metadata about the entity item */
   meta: SingleMetaType;
 }
-
-type SingleEntityCanonicalMigrationIntent = {
-  item: Record<string, unknown>;
-};
-
-const migrationRowsMatch = (
-  stored: Record<string, unknown>,
-  canonical: Record<string, unknown>,
-): boolean => {
-  const { _u: _s, ...storedStable } = stored;
-  const { _u: _c, ...canonicalStable } = canonical;
-  return sameValue(storedStable, canonicalStable);
-};
 
 /**
  * A simplified DynamoDB entity for single-record use cases (e.g., app config, feature flags, counters).
@@ -137,114 +122,8 @@ export class DynamoSingleEntity<
     return this.#eschema.name;
   }
 
-  inspectMigration(
-    rawItem: Record<string, unknown>,
-  ): Effect.Effect<MigrationInspection, never> {
-    return this.#canonicalMigrationIntent(rawItem).pipe(
-      Effect.map(({ item }): MigrationInspection => {
-        const storedKey = {
-          pk: rawItem[this.#table.primary.pk],
-          sk: rawItem[this.#table.primary.sk],
-        };
-        const canonicalKey = {
-          pk: item[this.#table.primary.pk],
-          sk: item[this.#table.primary.sk],
-        };
-
-        if (
-          storedKey.pk !== canonicalKey.pk ||
-          storedKey.sk !== canonicalKey.sk
-        ) {
-          return {
-            entity: this.#eschema.name,
-            state: { type: 'primaryKeyChanged' },
-            reasons: ['primaryKeyChanged'],
-          };
-        }
-
-        if (!migrationRowsMatch(rawItem, item)) {
-          return {
-            entity: this.#eschema.name,
-            state: { type: 'stale', data: true, indexes: false },
-            reasons: ['staleData'],
-          };
-        }
-
-        return {
-          entity: this.#eschema.name,
-          state: { type: 'valid' },
-          reasons: [],
-        };
-      }),
-      Effect.catch((err): Effect.Effect<MigrationInspection, never> => {
-        const causeMessage =
-          err instanceof Error
-            ? err.message
-            : err &&
-                typeof err === 'object' &&
-                'cause' in err &&
-                err.cause instanceof Error
-              ? err.cause.message
-              : undefined;
-        return Effect.succeed({
-          entity: this.#eschema.name,
-          state: { type: 'corrupt' },
-          reasons: ['corrupt', ...(causeMessage ? [causeMessage] : [])],
-        });
-      }),
-    );
-  }
-
-  migrationWriteIntent(
-    rawItem: Record<string, unknown>,
-  ): Effect.Effect<SingleEntityCanonicalMigrationIntent | undefined, never> {
-    return this.#canonicalMigrationIntent(
-      rawItem,
-      new Date().toISOString(),
-    ).pipe(
-      Effect.map(
-        ({ item }): SingleEntityCanonicalMigrationIntent | undefined => {
-          const storedPk = rawItem[this.#table.primary.pk];
-          const storedSk = rawItem[this.#table.primary.sk];
-          const canonicalPk = item[this.#table.primary.pk];
-          const canonicalSk = item[this.#table.primary.sk];
-          if (storedPk !== canonicalPk || storedSk !== canonicalSk)
-            return undefined;
-          if (migrationRowsMatch(rawItem, item)) return undefined;
-          return { item };
-        },
-      ),
-      Effect.catch(() => Effect.succeed(undefined)),
-    );
-  }
-
   #derivePrimaryKey(): string {
     return deriveIndexKeyValue(this.#eschema.name, [], {}, true);
-  }
-
-  #canonicalMigrationIntent(
-    rawItem: Record<string, unknown>,
-    updateTimestamp?: string,
-  ): Effect.Effect<SingleEntityCanonicalMigrationIntent, unknown> {
-    return Effect.gen({ self: this }, function* () {
-      if (typeof rawItem._u !== 'string') {
-        return yield* Effect.fail('missingUpdateTimestamp');
-      }
-
-      const value = yield* this.#eschema.decode(rawItem);
-      const encoded = yield* this.#eschema.encode(value as any);
-
-      const item = {
-        ...encoded,
-        _e: this.#eschema.name,
-        _v: this.#eschema.latestVersion,
-        _u: updateTimestamp ?? rawItem._u,
-        [this.#table.primary.pk]: this.#derivePrimaryKey(),
-        [this.#table.primary.sk]: this.#derivePrimaryKey(),
-      };
-
-      return { item };
-    });
   }
 
   /**

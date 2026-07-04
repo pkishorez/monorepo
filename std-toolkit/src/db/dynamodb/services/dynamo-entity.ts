@@ -7,7 +7,6 @@ import { DynamodbError } from '../errors.js';
 import type {
   IndexDefinition,
   IndexPkValue,
-  MigrationInspection,
   TransactItem,
   SkParam,
   CustomSkParam,
@@ -19,10 +18,8 @@ import type {
 import { extractKeyOp, getKeyOpScanDirection } from '../types/index.js';
 import {
   deriveIndexKeyValue,
-  sameValue,
   isConditionalCheckFailed,
   extractConditionFailureItem,
-  extractTableKey,
 } from '../internal/index.js';
 import {
   buildExpr,
@@ -65,22 +62,6 @@ type MetaType = typeof metaSchema.Type;
  * Meta fields that can be used in index derivations.
  */
 type DerivableMetaFields = '_u';
-
-type RegularEntityMigrationInspection = Extract<
-  MigrationInspection,
-  { reasons: string[] }
->;
-
-type MigrationWriteIntent = {
-  type: 'put';
-  item: Record<string, unknown>;
-};
-
-type InternalMigrationInspection = {
-  inspection: RegularEntityMigrationInspection;
-  decodedValue?: ESchemaType<any>;
-  writeIntent?: MigrationWriteIntent;
-};
 
 /**
  * Extracts root attribute keys from a (possibly nested) array of update operations.
@@ -313,129 +294,6 @@ export class DynamoEntity<
    */
   get name(): TSchema['name'] {
     return this.#eschema.name;
-  }
-
-  inspectMigration(
-    rawItem: Record<string, unknown>,
-  ): Effect.Effect<RegularEntityMigrationInspection, DynamodbError> {
-    return this.#inspectMigrationWithWriteIntent(rawItem).pipe(
-      Effect.map(({ inspection }) => inspection),
-    );
-  }
-
-  migrationWriteIntent(
-    rawItem: Record<string, unknown>,
-  ): Effect.Effect<MigrationWriteIntent | undefined, DynamodbError> {
-    return Effect.gen({ self: this }, function* () {
-      const internal = yield* this.#inspectMigrationWithWriteIntent(rawItem);
-      if (
-        typeof internal.inspection.state !== 'object' ||
-        internal.inspection.state.type !== 'stale' ||
-        !internal.decodedValue
-      ) {
-        return undefined;
-      }
-
-      const canonical = yield* this.#canonicalizeDecodedValue(
-        internal.decodedValue as ESchemaType<TSchema>,
-        rawItem,
-        new Date().toISOString(),
-      );
-      return { type: 'put' as const, item: canonical.item };
-    });
-  }
-
-  #inspectMigrationWithWriteIntent(
-    rawItem: Record<string, unknown>,
-  ): Effect.Effect<InternalMigrationInspection, DynamodbError> {
-    return Effect.gen({ self: this }, function* () {
-      const storedKey = extractTableKey(rawItem, this.#table.primary);
-      if (rawItem._e !== this.#eschema.name) {
-        return {
-          inspection: {
-            entity: this.#eschema.name,
-            state: { type: 'ignored' },
-            ...(storedKey ? { storedKey } : {}),
-            reasons: ['entity-mismatch'],
-          },
-        };
-      }
-      if (typeof rawItem._u !== 'string') {
-        return {
-          inspection: {
-            entity: this.#eschema.name,
-            state: { type: 'corrupt' },
-            ...(storedKey ? { storedKey } : {}),
-            reasons: ['missing-_u'],
-          },
-        };
-      }
-
-      const decoded = yield* this.#eschema.decode(rawItem).pipe(Effect.result);
-      if (decoded._tag === 'Failure') {
-        const decodeError = decoded.failure;
-        const causeMessage =
-          decodeError.cause instanceof Error
-            ? decodeError.cause.message
-            : undefined;
-        return {
-          inspection: {
-            entity: this.#eschema.name,
-            state: { type: 'corrupt' },
-            ...(storedKey ? { storedKey } : {}),
-            reasons: ['decode-failed', ...(causeMessage ? [causeMessage] : [])],
-          },
-        };
-      }
-      const value = decoded.success;
-      const canonical = yield* this.#canonicalizeDecodedValue(
-        value as ESchemaType<TSchema>,
-        rawItem,
-      );
-      if (storedKey && !sameValue(storedKey, canonical.key)) {
-        return {
-          inspection: {
-            entity: this.#eschema.name,
-            state: { type: 'primaryKeyChanged' },
-            storedKey,
-            canonicalKey: canonical.key,
-            reasons: ['primary-key-changed'],
-          },
-        };
-      }
-
-      const dataDrift = !sameValue(
-        this.#semanticItem(rawItem),
-        canonical.semanticItem,
-      );
-      const indexDrift = !sameValue(
-        this.#secondaryIndexAttributes(rawItem),
-        canonical.indexAttributes,
-      );
-      const reasons = [
-        ...(dataDrift ? ['data-drift'] : []),
-        ...(indexDrift ? ['index-drift'] : []),
-      ];
-
-      const inspection: RegularEntityMigrationInspection = {
-        entity: this.#eschema.name,
-        state:
-          dataDrift || indexDrift
-            ? { type: 'stale', data: dataDrift, indexes: indexDrift }
-            : { type: 'valid' },
-        ...(storedKey ? { storedKey } : {}),
-        canonicalKey: canonical.key,
-        reasons,
-      };
-
-      return {
-        inspection,
-        decodedValue: value as ESchemaType<TSchema>,
-        ...(dataDrift || indexDrift
-          ? { writeIntent: { type: 'put', item: canonical.item } as const }
-          : {}),
-      };
-    });
   }
 
   /**
@@ -1182,23 +1040,6 @@ export class DynamoEntity<
       semantic[key] = value;
     }
     return semantic;
-  }
-
-  #secondaryIndexAttributes(
-    item: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const attributes: Record<string, unknown> = {};
-    for (const index of Object.values(
-      this.#table.secondaryIndexMap,
-    ) as IndexDefinition[]) {
-      if (typeof item[index.pk] !== 'undefined') {
-        attributes[index.pk] = item[index.pk];
-      }
-      if (typeof item[index.sk] !== 'undefined') {
-        attributes[index.sk] = item[index.sk];
-      }
-    }
-    return attributes;
   }
 
   #canonicalizeDecodedValue(

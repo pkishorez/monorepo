@@ -14,5 +14,3 @@ export {
   extractConditionFailureItem,
   extractTableKey,
 } from './utils.js';
-
-export { createMigrationReportAccumulator } from './migration-report.js';

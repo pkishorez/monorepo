@@ -6,7 +6,6 @@ SQLite table and entity services built on Effect, with runtime adapters for mult
 
 ```ts
 import { SQLiteTable, SQLiteEntity, SqliteDB } from 'std-toolkit/sqlite';
-import { ... } from 'std-toolkit/sqlite/rpc';                     // RPC helpers
 import { ... } from 'std-toolkit/sqlite/adapters/better-sqlite3'; // Node.js (sync)
 import { ... } from 'std-toolkit/sqlite/adapters/node';           // Node.js (async)
 import { ... } from 'std-toolkit/sqlite/adapters/bun';            // Bun runtime

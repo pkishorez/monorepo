@@ -35,10 +35,6 @@
       "types": "./dist/db/dynamodb/index.d.ts",
       "default": "./dist/db/dynamodb/index.js"
     },
-    "./dynamodb/rpc": {
-      "types": "./dist/db/dynamodb/rpc/index.d.ts",
-      "default": "./dist/db/dynamodb/rpc/index.js"
-    },
     "./dynamodb/*": {
       "types": "./dist/db/dynamodb/*",
       "import": "./dist/db/dynamodb/*"
@@ -46,10 +42,6 @@
     "./sqlite": {
       "types": "./dist/db/sqlite/index.d.ts",
       "default": "./dist/db/sqlite/index.js"
-    },
-    "./sqlite/rpc": {
-      "types": "./dist/db/sqlite/rpc/index.d.ts",
-      "default": "./dist/db/sqlite/rpc/index.js"
     },
     "./sqlite/adapters/do": {
       "types": "./dist/db/sqlite/sql/adapters/do.d.ts",

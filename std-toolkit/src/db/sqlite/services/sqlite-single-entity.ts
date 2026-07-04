@@ -231,9 +231,7 @@ export class SQLiteSingleEntity<
       const existing = yield* this.get();
 
       if (existing.meta._u === '') {
-        return yield* Effect.fail(
-          SqliteDBError.updateFailed(db.tableName, 'Item not found'),
-        );
+        return yield* Effect.fail(SqliteDBError.noItemToUpdate(db.tableName));
       }
 
       const fullValue = {
