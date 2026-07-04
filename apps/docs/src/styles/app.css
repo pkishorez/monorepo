@@ -40,6 +40,35 @@
   --color-fd-overlay: color-mix(in oklab, var(--background) 60%, transparent);
 }
 
+/* Fumadocs' default hover/active treatments (accent at 50% opacity, primary
+   at 10%) are near-invisible on the neutral frontend palette. Keep the
+   frontend tokens but make the states unmistakable: hover gets a solid accent
+   surface, the active page an inverted primary pill (shadcn-style). */
+#nd-sidebar a[data-active='true'],
+#nd-sidebar a[data-active='true']:hover {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 500;
+}
+
+#nd-sidebar a[data-active='false']:hover,
+#nd-sidebar button[data-state]:hover {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+#nd-nav a[data-active='true'],
+#nd-subnav a[data-active='true'] {
+  background-color: var(--accent);
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+#nd-nav a[data-active='false']:hover,
+#nd-subnav a[data-active='false']:hover {
+  color: var(--foreground);
+}
+
 /* Keep the dark sidebar on the frontend palette (neutral.css otherwise swaps
    these for flat greys via `.dark #nd-sidebar`). */
 .dark #nd-sidebar,
