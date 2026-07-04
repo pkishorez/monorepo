@@ -22,6 +22,7 @@ export function baseOptions(): BaseLayoutProps {
       {
         text: 'Blog',
         url: '/blog',
+        on: 'nav',
       },
       {
         type: 'icon',

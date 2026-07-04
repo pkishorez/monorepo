@@ -2,12 +2,16 @@
   "title": "std-toolkit",
   "root": true,
   "pages": [
+    "---Overview---",
     "index",
     "what",
-    "eschema",
+    "---Foundations---",
     "core",
-    "tanstack-sync",
+    "eschema",
+    "---Database adapters---",
     "dynamodb",
-    "sqlite"
+    "sqlite",
+    "---Frontend sync---",
+    "tanstack-sync"
   ]
 }
