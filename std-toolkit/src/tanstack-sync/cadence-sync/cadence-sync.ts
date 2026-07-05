@@ -1,5 +1,5 @@
 import { Clock, Effect, Latch } from 'effect';
-import type { EntityType } from '../../core/index.js';
+import { uTime, type EntityType } from '../../core/index.js';
 import type { CollectionItem } from '../types.js';
 import type { WriteError } from '../source-of-truth/write-error.js';
 
@@ -59,9 +59,17 @@ export type CadenceSyncDeps<T, E> = {
   config: CadenceConfig;
 };
 
-const isSuspect = <T>(meta: EntityType<T>['meta'], window: number): boolean => {
+// `_u` is format-agnostic (ULID or ISO timestamp); `uTime` resolves either.
+// A row whose `_u` fits neither format is a protocol violation — surfaced via
+// `scanSuspects` so the repair loop fails instead of guessing.
+const isSuspect = <T>(
+  meta: EntityType<T>['meta'],
+  window: number,
+): boolean | 'invalid-u' => {
   if (meta._s == null) return false;
-  return meta._s - Date.parse(meta._u) < window;
+  const uMs = uTime(meta._u);
+  if (uMs == null) return 'invalid-u';
+  return meta._s - uMs < window;
 };
 
 const msUntilReady = <T>(
@@ -70,7 +78,7 @@ const msUntilReady = <T>(
   readiness: number,
 ): number => {
   const skew = meta._c != null && meta._s != null ? meta._c - meta._s : 0;
-  const elapsed = nowMs - skew - Date.parse(meta._u);
+  const elapsed = nowMs - skew - (uTime(meta._u) ?? 0);
   return Math.max(0, readiness - elapsed);
 };
 
@@ -86,6 +94,7 @@ type SuspectScan<T> = {
   oldest: EntityType<T> | undefined;
   suspectCount: number;
   scanned: number;
+  invalidU: string | undefined;
 };
 
 // Single pass over the partition's rows: count suspects and keep the one with
@@ -104,7 +113,16 @@ const scanSuspects = <T>(
     if (meta == null || !inPartition(row as Record<string, unknown>, partition))
       continue;
     scanned += 1;
-    if (!isSuspect<T>(meta, window)) continue;
+    const suspect = isSuspect<T>(meta, window);
+    if (suspect === 'invalid-u') {
+      return {
+        oldest: undefined,
+        suspectCount,
+        scanned,
+        invalidU: meta._u,
+      };
+    }
+    if (!suspect) continue;
     suspectCount += 1;
     if (oldestRow === undefined || meta._u < oldestU) {
       oldestRow = row;
@@ -115,6 +133,7 @@ const scanSuspects = <T>(
     oldest: oldestRow ? toEntity(oldestRow) : undefined,
     suspectCount,
     scanned,
+    invalidU: undefined,
   };
 };
 
@@ -187,7 +206,15 @@ export const runCadenceSync = <T, E>(
           oldest: suspect,
           suspectCount,
           scanned,
+          invalidU,
         } = scanSuspects(collection, config.window, partition);
+
+        if (invalidU !== undefined) {
+          return yield* Effect.fail({
+            _tag: 'Invalid',
+            reason: `cadence sync stopped: _u is neither a ULID nor an ISO timestamp: ${JSON.stringify(invalidU)}`,
+          } as WriteError);
+        }
 
         if (!suspect) {
           yield* dbg('idle', { scanned, suspectCount: 0 });

@@ -23,13 +23,13 @@ import { idbStorage } from 'std-toolkit/tanstack-sync/offline-storage/idb';
 
 ## The pieces
 
-| Export                   | Role                                                                                     |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| `createStdSync`          | Creates an instance; returns exactly `sync`, `singleItemSync`, and `registry`              |
+| Export                   | Role                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `createStdSync`          | Creates an instance; returns exactly `sync`, `singleItemSync`, and `registry`                     |
 | `syncStrategy`           | Strategies for keyed collections (`oldToNew`, `newToOld`, `bidirectional`) — how items are pulled |
-| `singleItemSyncStrategy` | Strategies for singleton collections (e.g. `getOnce`)                                      |
-| `paceStrategy`           | Pacing for optimistic updates (e.g. `coalesce`); `coalesceStrategy` lives under `/paced`   |
-| `idbStorage`             | IndexedDB offline-storage adapter (`/offline-storage/idb`)                                 |
+| `singleItemSyncStrategy` | Strategies for singleton collections (e.g. `getOnce`)                                             |
+| `paceStrategy`           | Pacing for optimistic updates (e.g. `coalesce`); `coalesceStrategy` lives under `/paced`          |
+| `idbStorage`             | IndexedDB offline-storage adapter (`/offline-storage/idb`)                                        |
 
 - **`sync`** — the one keyed-collection method. A collection declares an optional **global strategy** (mirrors the whole set) and/or a **partitions map** (`field → (value) => Strategy`, each activated on demand by a matching `loadSubset`). Both coexist over one shared Source of Truth.
 - **`singleItemSync`** — exactly one record (settings, a profile): no id, no cursor, no paging; `useLiveQuery` surfaces `data` as the single row.

@@ -3,7 +3,7 @@ title: The constructs
 description: ESchema, ValueESchema, SingleEntityESchema, EntityESchema, and toSchema — each with examples.
 ---
 
-eschema ships four constructs plus one bridge. They all share the same model — a version chain folded forward on decode — and differ only in *what* they version.
+eschema ships four constructs plus one bridge. They all share the same model — a version chain folded forward on decode — and differ only in _what_ they version.
 
 | You're versioning                      | Use                   |
 | -------------------------------------- | --------------------- |
@@ -41,11 +41,9 @@ Renaming a field is one evolve step — remove the old key, add the new one, cop
 
 ```ts
 const User = ESchema.make({ name: Schema.String })
-  .evolve(
-    'v2',
-    { name: null, fullName: Schema.String },
-    (prev) => ({ fullName: prev.name }),
-  )
+  .evolve('v2', { name: null, fullName: Schema.String }, (prev) => ({
+    fullName: prev.name,
+  }))
   .build();
 ```
 
@@ -74,8 +72,8 @@ On the wire the value travels in a `{ _v, value }` envelope, since a bare scalar
 
 The entity-flavored constructs, for values that live inside the [core Entity envelope](/docs/std-toolkit/core):
 
-- **`SingleEntityESchema`** — a *named singleton*: exactly one record of this type exists (settings, a profile). The schema's name becomes the entity type (`_e`).
-- **`EntityESchema`** — a *keyed entity*: a name plus a per-row id (tasks, comments). Same evolution model, plus identity.
+- **`SingleEntityESchema`** — a _named singleton_: exactly one record of this type exists (settings, a profile). The schema's name becomes the entity type (`_e`).
+- **`EntityESchema`** — a _keyed entity_: a name plus a per-row id (tasks, comments). Same evolution model, plus identity.
 
 Both evolve exactly like `ESchema` — deltas and one-step migrations — and are what the database adapters and [tanstack-sync](/docs/std-toolkit/tanstack-sync) consume: sync collections are declared with an entity eschema, so shape evolution and syncing share one definition.
 

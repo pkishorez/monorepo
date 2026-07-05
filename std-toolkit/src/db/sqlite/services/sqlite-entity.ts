@@ -24,7 +24,7 @@ import {
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
 } from '../internal/utils.js';
-import { Broadcaster } from '../../../core/index.js';
+import { Broadcaster, nextUlid } from '../../../core/index.js';
 import type { Prettify } from '../../../eschema/index.js';
 
 /**
@@ -715,23 +715,24 @@ export class SQLiteEntity<
     SqliteDBError,
     SqliteDB
   > {
-    return Effect.flatMap(SqliteDB, (db) =>
-      this.#eschema
+    return Effect.gen({ self: this }, function* () {
+      const db = yield* SqliteDB;
+      const encoded = yield* this.#eschema
         .encode(value as Record<string, unknown>)
         .pipe(
           Effect.mapError((e) => SqliteDBError.insertFailed(db.tableName, e)),
-        ),
-    ).pipe(
-      Effect.map((encoded) => ({
+        );
+
+      return {
         encoded,
         meta: {
           _e: this.#eschema.name,
           _v: encoded._v as string,
-          _u: new Date().toISOString(),
+          _u: yield* nextUlid,
           _d: deleted,
         },
-      })),
-    );
+      };
+    });
   }
 
   #parseRow(

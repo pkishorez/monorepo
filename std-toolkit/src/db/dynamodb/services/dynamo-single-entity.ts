@@ -5,6 +5,7 @@ import type {
 import { Effect, Schema } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
+import { nextUlid } from '../../../core/index.js';
 import { DynamodbError } from '../errors.js';
 import {
   deriveIndexKeyValue,
@@ -33,7 +34,7 @@ const singleMetaSchema = Schema.Struct({
   _e: Schema.String,
   /** Schema version */
   _v: Schema.String,
-  /** ISO timestamp that changes on every write */
+  /** Monotonic ULID that changes on every write */
   _u: Schema.String,
 });
 
@@ -197,7 +198,7 @@ export class DynamoSingleEntity<
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
-      const _u = new Date().toISOString();
+      const _u = yield* nextUlid;
 
       const meta: SingleMetaType = {
         _e: this.#eschema.name,
@@ -247,10 +248,11 @@ export class DynamoSingleEntity<
   > {
     const { update: updates, condition } = params;
     return Effect.gen({ self: this }, function* () {
+      const _u = yield* nextUlid;
       const { pk, sk, exprResult } =
         typeof updates === 'function'
-          ? this.#prepareUpdateExpr(updates, condition)
-          : this.#prepareUpdate(updates, condition);
+          ? this.#prepareUpdateExpr(updates, _u, condition)
+          : this.#prepareUpdate(updates, _u, condition);
 
       const result = yield* this.#table
         .updateItem({ pk, sk }, { ReturnValues: 'ALL_NEW', ...exprResult })
@@ -307,10 +309,11 @@ export class DynamoSingleEntity<
     return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get();
 
+      const _u = yield* nextUlid;
       const { pk, sk, exprResult } =
         typeof updates === 'function'
-          ? this.#prepareUpdateExpr(updates, condition)
-          : this.#prepareUpdate(updates, condition);
+          ? this.#prepareUpdateExpr(updates, _u, condition)
+          : this.#prepareUpdate(updates, _u, condition);
 
       const mergedValue =
         typeof updates === 'function'
@@ -359,12 +362,11 @@ export class DynamoSingleEntity<
 
   #prepareUpdate(
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
+    _u: string,
     condition?: ConditionInput<ESchemaType<TSchema>>,
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
     const pk = this.#derivePrimaryKey();
     const sk = this.#derivePrimaryKey();
-
-    const _u = new Date().toISOString();
 
     const builtCondition = this.#buildUpdateCondition(condition);
 
@@ -383,13 +385,13 @@ export class DynamoSingleEntity<
 
   #prepareUpdateExpr(
     builder: (ops: UpdateOps<any>) => AnyOperation<any>[],
+    _u: string,
     condition?: ConditionInput<ESchemaType<TSchema>>,
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
     const pk = this.#derivePrimaryKey();
     const sk = this.#derivePrimaryKey();
 
     const userOps = exprUpdate<any>(builder);
-    const _u = new Date().toISOString();
 
     const builtCondition = this.#buildUpdateCondition(condition);
 

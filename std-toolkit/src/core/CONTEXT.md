@@ -13,7 +13,7 @@ The system metadata block attached to every entity. Fields:
 
 - `_e` — **type tag**: which entity type this is.
 - `_v` — **schema version**: the eschema [[eschema]] **version** stamped on the `value`.
-- `_u` — **update key**: an ISO timestamp string; higher lexicographic value is the more recent write.
+- `_u` — **update key**: a monotonic ULID string (built-in adapters) or an ISO-8601 timestamp (backends that can't adopt ULIDs); higher lexicographic value is the more recent write, so a deployment must use one format uniformly. `uTime` extracts the millisecond time from either.
 - `_d` — **deletion flag**: `true` marks the entity a tombstone.
 - `_s` — **server observation time** (optional, epoch ms): when the server recorded the entity.
 - `_c` — **client receipt time** (optional, epoch ms): when the client received it.
