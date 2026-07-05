@@ -2,7 +2,7 @@ import type { AnyEntityESchema, ESchemaType } from '../../../eschema/index.js';
 import { Effect, Option, Schema, Stream, Struct } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
-import { Broadcaster } from '../../../core/index.js';
+import { Broadcaster, nextUlid } from '../../../core/index.js';
 import { DynamodbError } from '../errors.js';
 import type {
   IndexDefinition,
@@ -47,7 +47,7 @@ const metaSchema = Schema.Struct({
   _e: Schema.String,
   /** Schema version */
   _v: Schema.String,
-  /** ISO timestamp that changes on every write */
+  /** Monotonic ULID that changes on every write */
   _u: Schema.String,
   /** Soft delete flag */
   _d: Schema.Boolean,
@@ -1120,7 +1120,7 @@ export class DynamoEntity<
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
-      const _u = new Date().toISOString();
+      const _u = yield* nextUlid;
 
       const meta: MetaType = {
         _e: this.#eschema.name,
@@ -1206,7 +1206,7 @@ export class DynamoEntity<
       const canonical = yield* this.#canonicalizeDecodedValue(
         decoded as ESchemaType<TSchema>,
         rawItem,
-        typeof rawItem._u === 'string' ? rawItem._u : new Date().toISOString(),
+        typeof rawItem._u === 'string' ? rawItem._u : yield* nextUlid,
       ).pipe(Effect.mapError((e) => DynamodbError.itemMigrationFailed(e)));
 
       const oldVersion = rawItem._v;
@@ -1281,7 +1281,7 @@ export class DynamoEntity<
         >
       ).pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
 
-      const _u = new Date().toISOString();
+      const _u = yield* nextUlid;
       const updatesWithMeta = { ...encodedUpdates, _u };
       const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
 
@@ -1335,7 +1335,7 @@ export class DynamoEntity<
         }
       }
 
-      const _u = new Date().toISOString();
+      const _u = yield* nextUlid;
       const indexMap = this.#deriveSecondaryIndexes({ _u });
 
       const meta: MetaType = {

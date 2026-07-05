@@ -99,7 +99,8 @@
     "aws4fetch": "1.0.20",
     "idb": "8.0.3",
     "kleur": "4.1.5",
-    "type-fest": "5.7.0"
+    "type-fest": "5.7.0",
+    "ulidx": "^2.4.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260703.1",

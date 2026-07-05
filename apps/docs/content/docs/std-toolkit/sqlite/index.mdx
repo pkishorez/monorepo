@@ -5,7 +5,7 @@ description: The same single-table model, wherever SQLite runs.
 
 ## The story
 
-"Database-agnostic" is an easy claim and a hard property. The proof is a second database that runs the *same* model — not a lookalike API over a different mental model, but the same topology: one table, partition key, sort key, item collections, range queries within a partition.
+"Database-agnostic" is an easy claim and a hard property. The proof is a second database that runs the _same_ model — not a lookalike API over a different mental model, but the same topology: one table, partition key, sort key, item collections, range queries within a partition.
 
 `std-toolkit/sqlite` is that proof. It mirrors the DynamoDB adapter's topology over SQLite — the two share one storage kernel, so `SQLiteEntity` is `DynamoEntity` with a different engine underneath, and application code written against the entity services does not care which one it got. That buys you things DynamoDB alone cannot:
 

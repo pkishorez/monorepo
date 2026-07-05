@@ -10,7 +10,7 @@ import {
   SqliteDBError,
   TransactionPendingBroadcasts,
 } from '../sql/db.js';
-import { Broadcaster } from '../../../core/index.js';
+import { Broadcaster, nextUlid } from '../../../core/index.js';
 import { deriveIndexKeyValue, type RawRow } from '../internal/utils.js';
 
 /**
@@ -22,7 +22,7 @@ const singleMetaSchema = Schema.Struct({
   _e: Schema.String,
   /** Schema version */
   _v: Schema.String,
-  /** ISO timestamp that changes on every write */
+  /** Monotonic ULID that changes on every write */
   _u: Schema.String,
 });
 
@@ -173,7 +173,7 @@ export class SQLiteSingleEntity<
           Effect.mapError((e) => SqliteDBError.insertFailed(db.tableName, e)),
         );
 
-      const _u = new Date().toISOString();
+      const _u = yield* nextUlid;
 
       const meta: SingleMetaType = {
         _e: this.#eschema.name,
@@ -245,7 +245,7 @@ export class SQLiteSingleEntity<
           Effect.mapError((e) => SqliteDBError.updateFailed(db.tableName, e)),
         );
 
-      const _u = new Date().toISOString();
+      const _u = yield* nextUlid;
 
       const meta: SingleMetaType = {
         _e: this.#eschema.name,

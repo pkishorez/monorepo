@@ -239,7 +239,7 @@ The cursor handed to the user's fetch closure is **opaque** (the boundary entity
 
 A drift-repair loop that runs **in parallel** with a partition's Sync Strategy, forked under the same partition scope. It does not pull new history; it re-confirms recently-delivered rows so the strategy's covered ranges do not silently drift.
 
-Each pass scans the partition's projected rows (narrowed to `field = value`) for **suspects** — rows delivered so close to their own `_u` that sibling records at the same `_u` may still have been in flight (`_s − Date.parse(_u) < window`). Once the oldest suspect has aged past `readiness` (adjusting for the `_c − _s` clock skew), it re-fetches from the suspect's predecessor anchor and writes the result through `writeServerTruth`.
+Each pass scans the partition's projected rows (narrowed to `field = value`) for **suspects** — rows delivered so close to their own `_u` that sibling records at the same `_u` may still have been in flight (`_s − uTime(_u) < window`). Once the oldest suspect has aged past `readiness` (adjusting for the `_c − _s` clock skew), it re-fetches from the suspect's predecessor anchor and writes the result through `writeServerTruth`.
 
 Cadence Sync **only writes Source of Truth**; it never reads or advances Sync State — it owns no cursor and claims no forward progress. It is optional per partition (`cadence?: CadenceConfig | false`) and inherits a `defaultCadence` from `createStdSync`. Config is `{ window, readiness, pollDelay, debug? }`.
 

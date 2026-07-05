@@ -5,7 +5,7 @@ description: Every adapter speaks the same envelope.
 
 ## The story
 
-A toolkit whose parts can be mixed and matched has a hidden requirement: the parts must already agree on what a record *is* before they ever meet. If the DynamoDB adapter, the SQLite adapter, and the sync engine each invented their own notion of a row — its identity, its version, its deletion state, its recency — then "database-agnostic" would mean writing translation code at every seam.
+A toolkit whose parts can be mixed and matched has a hidden requirement: the parts must already agree on what a record _is_ before they ever meet. If the DynamoDB adapter, the SQLite adapter, and the sync engine each invented their own notion of a row — its identity, its version, its deletion state, its recency — then "database-agnostic" would mean writing translation code at every seam.
 
 core removes the negotiation. It defines the **Entity** — `{ value, meta }` — once, and every other component speaks that vocabulary instead of redefining it:
 
@@ -14,6 +14,6 @@ core removes the negotiation. It defines the **Entity** — `{ value, meta }` �
 
 Because these fields mean the same thing everywhere, the interesting behaviors compose for free. The sync engine can decide which of two writes wins by comparing `_u` — without knowing which database produced them. A tombstone written through DynamoDB is still a tombstone when it reaches a browser collection. Swap SQLite in for DynamoDB and nothing about the envelope changes.
 
-core defines the fields and their base meaning; how a field is *interpreted* (convergence, cadence) belongs to the consuming context. That split is what keeps the toolkit's parts independent yet interoperable.
+core defines the fields and their base meaning; how a field is _interpreted_ (convergence, cadence) belongs to the consuming context. That split is what keeps the toolkit's parts independent yet interoperable.
 
 Next: [What is core](/docs/std-toolkit/core/what).

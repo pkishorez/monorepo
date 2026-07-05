@@ -7,7 +7,7 @@ description: Schemas are point-in-time; persisted data is not.
 
 Persist some data — a file, a database row, a record in any store — and that data needs a schema. Without one, nothing tells you what shape comes back out. So you add a schema, and safety returns.
 
-But requirements change, and sooner or later the schema is modified. What happens then depends entirely on *where* the old shape lives.
+But requirements change, and sooner or later the schema is modified. What happens then depends entirely on _where_ the old shape lives.
 
 ## Point-in-time structures are fine
 
@@ -23,17 +23,47 @@ So: a schema is a great abstraction for a **point-in-time** definition of data. 
 
 That is where the evolving schema comes in. An **eschema** defines not only the shape of the data, but **how that shape evolves over time**: a chain of versions `v1 … latest`, where each step carries a small pure migration from the previous shape. Old data is never rewritten in place — it is **folded forward on read**.
 
-<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '1.5rem 0', fontSize: '0.85rem' }}>
-  <div style={{ border: '1px solid var(--chart-1)', color: 'var(--chart-1)', borderRadius: '0.375rem', padding: '0.5rem 0.75rem' }}>
+<div
+  style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    flexWrap: 'wrap',
+    margin: '1.5rem 0',
+    fontSize: '0.85rem',
+  }}
+>
+  <div
+    style={{
+      border: '1px solid var(--chart-1)',
+      color: 'var(--chart-1)',
+      borderRadius: '0.375rem',
+      padding: '0.5rem 0.75rem',
+    }}
+  >
     <strong>v1</strong> · <code>{'{ name }'}</code>
     <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>row written in 2024</div>
   </div>
   <span style={{ opacity: 0.7 }}>⟶ migrate ⟶</span>
-  <div style={{ border: '1px solid var(--chart-2)', color: 'var(--chart-2)', borderRadius: '0.375rem', padding: '0.5rem 0.75rem' }}>
+  <div
+    style={{
+      border: '1px solid var(--chart-2)',
+      color: 'var(--chart-2)',
+      borderRadius: '0.375rem',
+      padding: '0.5rem 0.75rem',
+    }}
+  >
     <strong>v2</strong> · <code>{'{ name, email }'}</code>
   </div>
   <span style={{ opacity: 0.7 }}>⟶ migrate ⟶</span>
-  <div style={{ border: '2px solid var(--chart-4)', color: 'var(--chart-4)', borderRadius: '0.375rem', padding: '0.5rem 0.75rem' }}>
+  <div
+    style={{
+      border: '2px solid var(--chart-4)',
+      color: 'var(--chart-4)',
+      borderRadius: '0.375rem',
+      padding: '0.5rem 0.75rem',
+    }}
+  >
     <strong>v3 (latest)</strong> · <code>{'{ name, email, role }'}</code>
     <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>what your code sees</div>
   </div>

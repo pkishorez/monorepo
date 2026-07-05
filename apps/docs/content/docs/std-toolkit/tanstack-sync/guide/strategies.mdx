@@ -3,7 +3,7 @@ title: Sync strategies
 description: oldToNew, newToOld, bidirectional, getOnce, and coalesce — what each is for and how they interplay.
 ---
 
-A strategy answers one question: **in what order should the mirror converge on server truth?** Different UIs need different answers — a task list wants complete history, a chat wants the newest messages *now* — so the strategy is pluggable per collection (and per partition).
+A strategy answers one question: **in what order should the mirror converge on server truth?** Different UIs need different answers — a task list wants complete history, a chat wants the newest messages _now_ — so the strategy is pluggable per collection (and per partition).
 
 Every partitioned strategy runs against the same engine contract: it reads its own persisted **Sync State** (typically a cursor), fetches, writes batches through `writeServerTruth`, and advances its state. That is why a strategy survives page reloads and partition unloads — it resumes exactly where its cursor says it stopped.
 
@@ -30,7 +30,7 @@ strategy: syncStrategy.oldToNew({
 
 ## `syncStrategy.newToOld` — newest first
 
-For history that is deep but where the UI needs the *recent* end immediately — a message channel, an activity feed. Two sources, two jobs:
+For history that is deep but where the UI needs the _recent_ end immediately — a message channel, an activity feed. Two sources, two jobs:
 
 ```ts
 sync: {
@@ -44,7 +44,7 @@ sync: {
 },
 ```
 
-The backfill descends into history while the live tail keeps the top fresh — the user sees today's messages instantly and yesterday's fill in behind them. Internally the strategy tracks *slices* (contiguous synced ranges) so an interrupted backfill resumes without gaps or re-fetching.
+The backfill descends into history while the live tail keeps the top fresh — the user sees today's messages instantly and yesterday's fill in behind them. Internally the strategy tracks _slices_ (contiguous synced ranges) so an interrupted backfill resumes without gaps or re-fetching.
 
 **Use it when** recency is what the user came for and full history is a background concern.
 
@@ -62,7 +62,7 @@ sync: {
 },
 ```
 
-**Use it when** you want newest-first UX *and* the fastest possible path to a complete mirror — the backlog closes in roughly half the time because both ends work simultaneously.
+**Use it when** you want newest-first UX _and_ the fastest possible path to a complete mirror — the backlog closes in roughly half the time because both ends work simultaneously.
 
 ## `singleItemSyncStrategy.getOnce` — one record, one fetch
 
@@ -78,7 +78,7 @@ strategy: singleItemSyncStrategy.getOnce({
 
 ## `paceStrategy.coalesce` — pacing writes, not reads
 
-Not a sync strategy but its outbound sibling: `updatePacing` controls how optimistic edits travel *to* the server. `paceStrategy.coalesce` merges rapid successive updates to the same key into one request, so a drag-resize or a fast typist doesn't produce a request storm:
+Not a sync strategy but its outbound sibling: `updatePacing` controls how optimistic edits travel _to_ the server. `paceStrategy.coalesce` merges rapid successive updates to the same key into one request, so a drag-resize or a fast typist doesn't produce a request storm:
 
 ```ts
 std.sync({

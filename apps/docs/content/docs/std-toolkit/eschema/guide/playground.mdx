@@ -11,11 +11,10 @@ const User = ESchema.make({ name: Schema.String })
     ...prev,
     email: null,
   }))
-  .evolve(
-    'v3',
-    { name: null, fullName: Schema.String },
-    (prev) => ({ fullName: prev.name, email: prev.email }),
-  )
+  .evolve('v3', { name: null, fullName: Schema.String }, (prev) => ({
+    fullName: prev.name,
+    email: prev.email,
+  }))
   .build();
 ```
 

@@ -1,13 +1,16 @@
 import { Effect, Fiber, Schedule, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import type { EntityType } from '../../../core/index.js';
+import { ulid } from 'ulidx';
+import { uTime, type EntityType } from '../../../core/index.js';
 import type { CollectionItem } from '../../types.js';
 import type { WriteError } from '../../source-of-truth/write-error.js';
 import { runCadenceSync } from '../cadence-sync.js';
 import type { CadenceConfig, SyncCollection } from '../cadence-sync.js';
 
 type Item = { id: string; p?: string };
+
+const uAt = (ms: number) => ulid(ms);
 
 const makeEntity = (
   u: string,
@@ -111,11 +114,11 @@ const runWithTestClock = <A>(
 describe('runCadenceSync', () => {
   it('repairs a suspect that is already past readiness, passing predecessor as anchor', async () => {
     const nowMs = 100_000;
-    const uStr = new Date(nowMs - 20_000).toISOString();
-    // _s - Date.parse(_u) = 1_000ms < cadence(5_000) → suspect
-    const suspect = makeEntity(uStr, { _s: Date.parse(uStr) + 1_000 });
+    const uStr = uAt(nowMs - 20_000);
+    // _s - uTime(_u) = 1_000ms < cadence(5_000) → suspect
+    const suspect = makeEntity(uStr, { _s: uTime(uStr)! + 1_000 });
 
-    const predecessorU = new Date(nowMs - 30_000).toISOString();
+    const predecessorU = uAt(nowMs - 30_000);
     const predecessor = makeEntity(predecessorU);
 
     const fetchResults = [makeEntity(uStr, { _s: nowMs, _c: nowMs })];
@@ -153,8 +156,8 @@ describe('runCadenceSync', () => {
 
   it('does not repair a suspect not yet past readiness; repairs after clock advances', async () => {
     const baseMs = 0;
-    const uStr = new Date(baseMs).toISOString();
-    // _s - Date.parse(_u) = 1_000ms < cadence → suspect; _u at epoch
+    const uStr = uAt(baseMs);
+    // _s - uTime(_u) = 1_000ms < cadence → suspect; _u at epoch
     const suspect = makeEntity(uStr, { _s: 1_000 });
     const fetchResults = [makeEntity(uStr, { _s: 15_000, _c: 15_000 })];
 
@@ -196,7 +199,7 @@ describe('runCadenceSync', () => {
     const fetchFrom = vi.fn(() => Effect.succeed([] as EntityType<Item>[]));
     const collection = makeFakeCollection({
       subscriberCount: 1,
-      entities: [makeEntity(new Date(100_000).toISOString())],
+      entities: [makeEntity(uAt(100_000))],
     });
     const writeServerTruth = writeFor(collection);
 
@@ -221,11 +224,11 @@ describe('runCadenceSync', () => {
 
   it('never treats a record with _s − _u >= cadence as a suspect', async () => {
     const fetchFrom = vi.fn(() => Effect.succeed([] as EntityType<Item>[]));
-    const uStr = new Date(100_000 - 20_000).toISOString();
+    const uStr = uAt(100_000 - 20_000);
     // _s - _u = 20_000ms >= cadence(5_000) → settled, not a suspect
     const collection = makeFakeCollection({
       subscriberCount: 1,
-      entities: [makeEntity(uStr, { _s: Date.parse(uStr) + 20_000 })],
+      entities: [makeEntity(uStr, { _s: uTime(uStr)! + 20_000 })],
     });
     const writeServerTruth = writeFor(collection);
 
@@ -249,7 +252,7 @@ describe('runCadenceSync', () => {
 
   it('applies clock skew: _c − _s = 30_000 delays readiness by 30_000ms', async () => {
     const baseMs = 0;
-    const uStr = new Date(baseMs).toISOString();
+    const uStr = uAt(baseMs);
     // _s - _u = 1_000ms < cadence → suspect; _c - _s = 30_000ms skew
     const suspect = makeEntity(uStr, { _s: 1_000, _c: 31_000 });
     const fetchResults = [makeEntity(uStr, { _s: 50_000, _c: 80_000 })];
@@ -292,8 +295,8 @@ describe('runCadenceSync', () => {
 
   it('does not scan when subscriberCount is 0, resumes when opened', async () => {
     const nowMs = 100_000;
-    const uStr = new Date(nowMs - 20_000).toISOString();
-    const suspect = makeEntity(uStr, { _s: Date.parse(uStr) + 1_000 });
+    const uStr = uAt(nowMs - 20_000);
+    const suspect = makeEntity(uStr, { _s: uTime(uStr)! + 1_000 });
     const fetchResults = [makeEntity(uStr, { _s: nowMs })];
 
     const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
@@ -333,8 +336,8 @@ describe('runCadenceSync', () => {
 
   it('uses a null anchor when the suspect has no predecessor', async () => {
     const nowMs = 100_000;
-    const uStr = new Date(nowMs - 20_000).toISOString();
-    const suspect = makeEntity(uStr, { _s: Date.parse(uStr) + 1_000 });
+    const uStr = uAt(nowMs - 20_000);
+    const suspect = makeEntity(uStr, { _s: uTime(uStr)! + 1_000 });
     const fetchResults = [makeEntity(uStr, { _s: nowMs })];
 
     const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
@@ -367,8 +370,8 @@ describe('runCadenceSync', () => {
 
   it('releases the subscriber listener before retrying a failed attempt', async () => {
     const nowMs = 100_000;
-    const uStr = new Date(nowMs - 20_000).toISOString();
-    const suspect = makeEntity(uStr, { _s: Date.parse(uStr) + 1_000 });
+    const uStr = uAt(nowMs - 20_000);
+    const suspect = makeEntity(uStr, { _s: uTime(uStr)! + 1_000 });
     const fetchResults = [makeEntity(uStr, { _s: nowMs })];
 
     const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
@@ -413,16 +416,84 @@ describe('runCadenceSync', () => {
     );
   });
 
+  it('supports ISO-timestamp _u values for non-ULID backends', async () => {
+    const nowMs = 100_000;
+    const uStr = new Date(nowMs - 20_000).toISOString();
+    const suspect = makeEntity(uStr, { _s: Date.parse(uStr) + 1_000 });
+    const fetchResults = [makeEntity(uStr, { _s: nowMs, _c: nowMs })];
+
+    const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
+      Effect.succeed(fetchResults),
+    );
+    const collection = makeFakeCollection({
+      subscriberCount: 1,
+      entities: [suspect],
+    });
+    const writeServerTruth = writeFor(collection);
+
+    await runWithTestClock(
+      Effect.gen(function* () {
+        const fiber = yield* fork(
+          runCadenceSync({
+            collection,
+            fetchFrom,
+            writeServerTruth,
+            config: defaultConfig,
+          }),
+        );
+
+        yield* Fiber.interrupt(fiber);
+      }),
+      nowMs,
+    );
+
+    expect(fetchFrom).toHaveBeenCalledOnce();
+    expect(writeServerTruth).toHaveBeenCalledOnce();
+  });
+
+  it('fails with a WriteError when _u is neither a ULID nor an ISO timestamp', async () => {
+    const nowMs = 100_000;
+    const suspect = makeEntity('not-a-valid-u', { _s: nowMs });
+
+    const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
+      Effect.succeed([] as EntityType<Item>[]),
+    );
+    const collection = makeFakeCollection({
+      subscriberCount: 1,
+      entities: [suspect],
+    });
+    const writeServerTruth = writeFor(collection);
+
+    const exit = await runWithTestClock(
+      Effect.gen(function* () {
+        const fiber = yield* fork(
+          runCadenceSync({
+            collection,
+            fetchFrom,
+            writeServerTruth,
+            config: defaultConfig,
+          }),
+        );
+
+        return yield* Fiber.await(fiber);
+      }),
+      nowMs,
+    );
+
+    expect(exit._tag).toBe('Failure');
+    expect(fetchFrom).not.toHaveBeenCalled();
+  });
+
   it('anchors on the same-partition predecessor and ignores other partitions', async () => {
     const nowMs = 100_000;
-    const suspectU = new Date(nowMs - 20_000).toISOString();
-    const predecessorU = new Date(nowMs - 30_000).toISOString();
-    const otherU = new Date(nowMs - 25_000).toISOString();
+    const suspectU = uAt(nowMs - 20_000);
+    const predecessorU = uAt(nowMs - 30_000);
+    const otherU = uAt(nowMs - 25_000);
 
     const suspect = makeEntity(suspectU, {
       id: 'a-suspect',
       p: 'A',
-      _s: Date.parse(suspectU) + 1_000,
+      _s: uTime(suspectU)! + 1_000,
     });
     const samePartitionPredecessor = makeEntity(predecessorU, {
       id: 'a-pred',
