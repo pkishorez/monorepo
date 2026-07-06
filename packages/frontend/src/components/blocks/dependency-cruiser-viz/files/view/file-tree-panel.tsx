@@ -1,7 +1,4 @@
-import { Boxes, Eye, EyeOff, Focus } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-
-import { cn } from '#lib/utils';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   ResizableHandle,
@@ -17,66 +14,41 @@ import {
 } from '#components/ui/dialog';
 import { ScrollArea } from '#components/ui/scroll-area';
 
-import type { VisualizationConfig } from '../../model';
 import type { FileTreeViewModel } from '../model/file-tree-model';
 import { CoverageStats } from './coverage-stats';
 import {
   collectAllFolderIds,
-  filterTree,
+  filterByStatus,
   FileTreeView,
 } from './file-tree-view';
 import { ViolationList } from './violation-list';
-import { BreachList } from './breach-list';
 import { ConflictList } from './conflict-list';
+import { ModuleOverlapList } from './module-overlap-list';
+import { ModuleViolationList } from './module-violation-list';
 import type { FileStatus, ViolationItem } from '../model/file-tree-types';
-
-type FeatureEntry = NonNullable<VisualizationConfig['features']>[number];
 
 type FileTreePanelProps = {
   view: FileTreeViewModel;
-  features?: VisualizationConfig['features'];
-  canvasMode: 'layers' | 'features';
+  canvasMode: 'layers' | 'modules';
   selectedViolation: ViolationItem | null;
-  onSelectFeature: (feature: string | null) => void;
   onSelectViolation: (violation: ViolationItem | null) => void;
 };
 
 export function FileTreePanel({
   view,
-  features,
   canvasMode,
   selectedViolation,
-  onSelectFeature,
   onSelectViolation,
 }: FileTreePanelProps) {
-  const hasFeatures = (features ?? []).length > 0;
-  // Issues are surfaced alongside the canvas where they're actionable:
-  // the Layers tab owns the layer axis (violations + path conflicts), the
-  // Features tab owns the feature/visibility axis (breaches).
+  // Issues are surfaced alongside the canvas where they're actionable: the
+  // Layers tab owns the layer axis (violations + path conflicts).
   const isLayers = canvasMode === 'layers';
+  // The Layers tab owns the layer axis (violations + path conflicts); the
+  // Modules tab owns module hygiene (rule violations + overlapping/nested
+  // declarations).
   const hasIssues = isLayers
     ? view.violations.length > 0 || view.conflicts.length > 0
-    : view.closureViolations.length > 0;
-
-  // Local, session-scoped view filters layered on top of the (feature- and
-  // expansion-independent) tree model. Both default to showing everything.
-  const [hideNonModules, setHideNonModules] = useState(false);
-  const [hideIgnored, setHideIgnored] = useState(false);
-
-  // Focus mode: when a feature/module/layer is highlighting the tree, this
-  // prunes everything that isn't highlighted so only the focus remains.
-  // Focus prunes to the feature's full scope (not the narrower module highlight
-  // when a module is co-selected), so focusing keeps the whole feature visible.
-  const focusScope = view.focusScopeFiles ?? view.highlightedFiles;
-  const isHighlighting = focusScope != null;
-  const [showOnlyHighlighted, setShowOnlyHighlighted] = useState(false);
-  // The toggle is only meaningful while something is highlighting; reset it
-  // once the highlight clears so it doesn't silently apply on the next select.
-  useEffect(() => {
-    if (!isHighlighting) setShowOnlyHighlighted(false);
-  }, [isHighlighting]);
-  const highlightFilter =
-    showOnlyHighlighted && isHighlighting ? focusScope : null;
+    : view.moduleOverlaps.length > 0 || view.moduleViolations.length > 0;
 
   // Clicking a coverage stat focuses the tree on just that status; clicking the
   // same stat again clears it. Reset when switching tabs so a filter never
@@ -85,35 +57,19 @@ export function FileTreePanel({
   useEffect(() => setStatusFilter(null), [canvasMode]);
 
   const tree = useMemo(
-    () =>
-      filterTree(view.tree, {
-        hideNonModules,
-        hideIgnored,
-        statusFilter,
-        highlightFilter,
-        modulePaths: view.modulePaths,
-        layerPaths: view.layerPaths,
-      }),
-    [
-      view.tree,
-      view.modulePaths,
-      view.layerPaths,
-      hideNonModules,
-      hideIgnored,
-      statusFilter,
-      highlightFilter,
-    ],
+    () => (statusFilter ? filterByStatus(view.tree, statusFilter) : view.tree),
+    [view.tree, statusFilter],
   );
 
-  // When a status or highlight filter is active, fully expand the (pruned) tree
-  // so every matching file is visible; otherwise defer to the model's intent.
-  const isPruned = statusFilter !== null || highlightFilter !== null;
+  // When a status filter is active, fully expand the (pruned) tree so every
+  // matching file is visible; otherwise defer to the model's intent.
+  const isPruned = statusFilter !== null;
   const expandedItems = useMemo(
     () => (isPruned ? collectAllFolderIds(tree) : view.expandedItems),
     [isPruned, tree, view.expandedItems],
   );
   const expansionSignal = isPruned
-    ? `filter:${statusFilter ?? 'highlight'}`
+    ? `filter:${statusFilter}`
     : view.expansionSignal;
 
   const showGaps = view.coverageGapsByLayer.length > 0;
@@ -131,8 +87,12 @@ export function FileTreePanel({
       expansionFocused={view.expansionFocused || isPruned}
       highlightedFiles={view.highlightedFiles}
       ownedFiles={view.ownedFiles}
+      highlightedModuleFiles={view.highlightedModuleFiles}
       coverageGapFiles={view.coverageGapFiles}
       configuredPaths={view.configuredPaths}
+      modulePaths={view.modulePaths}
+      ruleCountByPath={view.ruleCountByPath}
+      layerPaths={view.layerPaths}
       sortOrder={view.sortOrder}
       hoveredGraphFiles={view.hoveredGraphFiles}
       hoveredModulePath={view.hoveredModulePath}
@@ -142,49 +102,7 @@ export function FileTreePanel({
   return (
     <div className="flex h-full flex-col border-l border-border bg-background">
       <div className="flex flex-col gap-2 border-b border-border px-4 py-4">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">{view.title}</h3>
-          <div className="flex shrink-0 items-center gap-1">
-            {isHighlighting && (
-              <ToolbarToggle
-                active={showOnlyHighlighted}
-                onToggle={() => setShowOnlyHighlighted((v) => !v)}
-                label="focus"
-                title={
-                  showOnlyHighlighted
-                    ? 'Show the full tree'
-                    : 'Show only highlighted files'
-                }
-              >
-                <Focus className="size-3.5" />
-              </ToolbarToggle>
-            )}
-            <ToolbarToggle
-              active={hideNonModules}
-              onToggle={() => setHideNonModules((v) => !v)}
-              label="modules only"
-              title={
-                hideNonModules
-                  ? 'Show all folders and files'
-                  : 'Show only layers and modules'
-              }
-            >
-              <Boxes className="size-3.5" />
-            </ToolbarToggle>
-            <ToolbarToggle
-              active={!hideIgnored}
-              onToggle={() => setHideIgnored((v) => !v)}
-              label="ignored"
-              title={hideIgnored ? 'Show ignored files' : 'Hide ignored files'}
-            >
-              {hideIgnored ? (
-                <EyeOff className="size-3.5" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-            </ToolbarToggle>
-          </div>
-        </div>
+        <h3 className="text-sm font-semibold">{view.title}</h3>
         <CoverageStats
           stats={view.stats}
           activeStatus={statusFilter}
@@ -193,29 +111,6 @@ export function FileTreePanel({
           }
         />
       </div>
-
-      {hasFeatures && (
-        <div className="border-b border-border px-4 py-3">
-          <div className="flex flex-wrap gap-1.5">
-            {isLayers ? (
-              // The Layers tab is the architecture axis — no feature pills, just
-              // a single entry naming the view.
-              <span className="rounded-md border border-primary bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                architecture
-              </span>
-            ) : (
-              features!.map((f) => (
-                <FeaturePill
-                  key={f.name}
-                  feature={f}
-                  isSelected={view.selectedFeature === f.name}
-                  onSelect={onSelectFeature}
-                />
-              ))
-            )}
-          </div>
-        </div>
-      )}
 
       {hasIssues ? (
         <div className="min-h-0 flex-1">
@@ -237,7 +132,10 @@ export function FileTreePanel({
                     <ConflictList conflicts={view.conflicts} />
                   </>
                 ) : (
-                  <BreachList violations={view.closureViolations} />
+                  <>
+                    <ModuleViolationList violations={view.moduleViolations} />
+                    <ModuleOverlapList overlaps={view.moduleOverlaps} />
+                  </>
                 )}
               </div>
             </ResizablePanel>
@@ -301,62 +199,5 @@ function CoverageGapSummary({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function ToolbarToggle({
-  active,
-  onToggle,
-  label,
-  title,
-  children,
-}: {
-  active: boolean;
-  onToggle: () => void;
-  label: string;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      title={title}
-      aria-pressed={active}
-      className={cn(
-        'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors',
-        active
-          ? 'border-primary bg-primary/10 text-primary'
-          : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground',
-      )}
-    >
-      {children}
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function FeaturePill({
-  feature,
-  isSelected,
-  onSelect,
-}: {
-  feature: FeatureEntry;
-  isSelected: boolean;
-  onSelect: (feature: string | null) => void;
-}) {
-  return (
-    <button
-      onClick={() => onSelect(isSelected ? null : feature.name)}
-      title={feature.description}
-      className={cn(
-        'relative rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-        isSelected
-          ? 'border-primary bg-primary/10 text-primary'
-          : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground',
-      )}
-    >
-      {feature.name}
-    </button>
   );
 }

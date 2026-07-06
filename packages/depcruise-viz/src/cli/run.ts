@@ -16,35 +16,6 @@ const green = paint(process.stdout, '32');
 const red = paint(process.stderr, '31');
 
 /**
- * Prints a one-line summary per declared feature: node count, edge count, and
- * whether analysis detected any closure violations for that feature. Called
- * after `reportCoverage` so it follows the layer/module block on stdout.
- */
-function reportFeatureSummary(summary: VizSummary): void {
-  if (summary.featureGraphs.length === 0) return;
-
-  const lines: string[] = [];
-  lines.push(`Features: ${summary.featureGraphs.length} declared.`);
-
-  const violationsByFeature = new Map<string, number>();
-  for (const cv of summary.closureViolations) {
-    const key = cv.feature ?? '(no feature)';
-    violationsByFeature.set(key, (violationsByFeature.get(key) ?? 0) + 1);
-  }
-
-  for (const fg of summary.featureGraphs) {
-    const vCount = violationsByFeature.get(fg.feature) ?? 0;
-    const status =
-      vCount > 0 ? red(`  ✗ ${fg.feature}`) : green(`  ✓ ${fg.feature}`);
-    lines.push(
-      `${status} (root: ${fg.root}, ${fg.nodes.length} module(s), ${fg.edges.length} edge(s)${vCount > 0 ? `, ${vCount} violation(s)` : ''})`,
-    );
-  }
-
-  process.stdout.write(lines.join('\n') + '\n');
-}
-
-/**
  * Prints the layer/module coverage status to stdout: how many files were
  * scanned, how many each of the declared layers and modules cover, and a
  * yellow warning listing every file that no layer (or no module) accounts
@@ -122,20 +93,49 @@ function reportCoverage(summary: VizSummary): void {
     }
   }
 
+  if (summary.moduleViolations.length > 0) {
+    lines.push(
+      red(
+        `  violation: ${summary.moduleViolations.length} module rule breach(es):`,
+      ),
+    );
+    for (const v of summary.moduleViolations) {
+      lines.push(
+        red(`    - [${v.rule}] ${v.module}: ${v.fromFile} -> ${v.toFile}`),
+      );
+    }
+  }
+
+  if (summary.moduleOverlaps.length > 0) {
+    lines.push(
+      red(
+        `  violation: ${summary.moduleOverlaps.length} overlapping module declaration(s) — modules must be exhaustive and mutually exclusive, no nesting:`,
+      ),
+    );
+    for (const o of summary.moduleOverlaps) {
+      lines.push(red(`    - ${o.innerPath} nests inside ${o.outerPath}`));
+    }
+  }
+
   process.stdout.write(lines.join('\n') + '\n');
 }
 
 /**
  * Pure pass/fail predicate over a `VizSummary`. Returns `true` iff there are
- * no layer violations and no feature closure violations — identical to what
- * `lint()` uses to set the exit code, but side-effect-free for unit testing.
+ * no layer violations, no overlapping module declarations, and no module
+ * rule breaches — identical to
+ * what `lint()` uses to set the exit code, but side-effect-free for unit
+ * testing.
  */
 export function lintPasses(summary: {
   violations: VizSummary['violations'];
-  closureViolations: VizSummary['closureViolations'];
+  moduleOverlaps: VizSummary['moduleOverlaps'];
+  moduleViolations: VizSummary['moduleViolations'];
 }): boolean {
   return (
-    summary.violations.length === 0 && summary.closureViolations.length === 0
+    summary.violations.length === 0 &&
+    summary.moduleOverlaps.length === 0 &&
+    summary.moduleViolations.length === 0
   );
 }
 
@@ -148,10 +148,9 @@ export function lintPasses(summary: {
  */
 async function lint(): Promise<boolean> {
   const output = await cruiseProject(process.cwd());
-  const { violations, closureViolations } = output.summary;
+  const { violations } = output.summary;
 
   reportCoverage(output.summary);
-  reportFeatureSummary(output.summary);
 
   if (lintPasses(output.summary)) {
     process.stdout.write(green('No violations found.\n'));
@@ -169,34 +168,11 @@ async function lint(): Promise<boolean> {
     }
   }
 
-  if (closureViolations.length > 0) {
-    process.stderr.write(
-      red(`Found ${closureViolations.length} feature closure violation(s):`) +
-        '\n\n',
-    );
-
-    // Group by feature (violations with no feature go under '(global)')
-    const grouped = new Map<string, typeof closureViolations>();
-    for (const cv of closureViolations) {
-      const key = cv.feature ?? '(global)';
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key)!.push(cv);
-    }
-
-    for (const [feature, cvs] of grouped) {
-      process.stderr.write(red(`  [${feature}]`) + '\n');
-      for (const cv of cvs) {
-        process.stderr.write(red(`    ${cv.reason}: ${cv.detail}`) + '\n');
-      }
-      process.stderr.write('\n');
-    }
-  }
-
-  process.stderr.write(
-    red(
-      `Lint failed: ${violations.length} violation(s), ${closureViolations.length} closure violation(s).`,
-    ) + '\n',
-  );
+  const failCount =
+    violations.length +
+    output.summary.moduleOverlaps.length +
+    output.summary.moduleViolations.length;
+  process.stderr.write(red(`Lint failed: ${failCount} violation(s).`) + '\n');
 
   return false;
 }

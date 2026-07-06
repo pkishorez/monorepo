@@ -1,5 +1,5 @@
 import {
-  featureFileSets,
+  describeRules,
   moduleFiles,
   type VisualizationConfig,
   type VizSummary,
@@ -37,8 +37,10 @@ type FileTreeViewModelInput = {
   config: VisualizationConfig;
   summary: VizSummary;
   selectedLayer: string | null;
-  selectedFeature: string | null;
+  /** Module owning the graph (right-click) — primary emphasis. */
   selectedModule?: string | null;
+  /** Module the tree points at (left-click) — secondary emphasis. */
+  highlightedModule?: string | null;
   /** Which coverage axis to color the tree by — follows the active canvas tab. */
   coverageMode: CoverageMode;
   hoveredGraphFiles?: Set<string> | null;
@@ -49,8 +51,8 @@ export function getFileTreeViewModel({
   config,
   summary,
   selectedLayer,
-  selectedFeature,
   selectedModule,
+  highlightedModule,
   coverageMode,
   hoveredGraphFiles,
   hoveredModulePath,
@@ -65,64 +67,52 @@ export function getFileTreeViewModel({
   const configuredPaths = getConfiguredPaths(config);
   const layerOrder = getLayerPathOrder(config);
 
-  // A feature highlights its declared member files. Highlighting is the ONLY
-  // thing a feature changes; the tree's structure, order, and expansion are
-  // always identical so it never remounts or reshuffles.
-  const featureSets = selectedFeature
-    ? featureFileSets(summary, selectedFeature)
-    : null;
-
-  // Module selection highlights that module's files. It may stand alone OR
-  // layer on top of a selected feature (co-selection).
-  const moduleSets = selectedModule
-    ? (() => {
-        const files = moduleFiles(summary).get(selectedModule);
-        if (!files || files.length === 0) return null;
-        return { members: new Set(files) };
-      })()
-    : null;
-
-  // Styling (color + dimming) narrows to the module when one is co-selected on
-  // top of a feature; otherwise it follows whichever single axis is active.
-  const stylingSets =
-    featureSets && moduleSets ? moduleSets : (featureSets ?? moduleSets);
-  // The "focus" toggle prunes to the broader feature scope so co-selecting a
-  // module never collapses the focused tree to that one module.
-  const focusScopeSets = featureSets ?? moduleSets;
+  // Module selection/highlight emphasizes those modules' files. Emphasis is
+  // the ONLY thing it changes; the tree's structure and order are always
+  // identical so it never remounts or reshuffles.
+  const filesByModule = moduleFiles(summary);
+  const resolveModuleSet = (key: string | null | undefined) => {
+    if (!key) return null;
+    const files = filesByModule.get(key);
+    return files && files.length > 0 ? new Set(files) : null;
+  };
+  const selectedSet = resolveModuleSet(selectedModule);
+  const highlightedSet = resolveModuleSet(highlightedModule);
 
   const highlight = getHighlightedFiles({
     summary,
     selectedLayer,
-    featureFileSets: stylingSets,
-  });
-  const focusScope = getHighlightedFiles({
-    summary,
-    selectedLayer,
-    featureFileSets: focusScopeSets ?? null,
+    selectedModuleFiles: selectedSet,
+    highlightedModuleFiles: highlightedSet,
   });
 
-  // In the Features tab the tree itself colors module coverage (gaps render as
+  // In the Modules tab the tree itself colors module coverage (gaps render as
   // orphan/uncovered), so the secondary "not in any module" marker + dialog are
   // redundant — suppress them. They remain the module hint on the Layers tab.
-  const isFeatureCoverage = coverageMode === 'features';
-  const coverageGapFiles = isFeatureCoverage
+  const isModuleCoverage = coverageMode === 'modules';
+  const coverageGapFiles = isModuleCoverage
     ? new Set<string>()
     : getCoverageGapFiles(summary);
 
-  // Selecting a module or layer focuses the tree on that subtree: fully expand
-  // it and collapse everything else. The module key is `layer::name`, resolved
-  // to its declared folder path; a layer name resolves to its (possibly many)
-  // folder paths. Hover never drives expansion — only an explicit selection.
-  const selectedModulePath = selectedModule
-    ? modulePathByKey(config).get(selectedModule)
-    : undefined;
+  // Selecting/highlighting a module (or selecting a layer) focuses the tree on
+  // those subtrees: fully expand them and collapse everything else. The module
+  // key is `layer::name`, resolved to its declared folder path; a layer name
+  // resolves to its (possibly many) folder paths. Hover never drives expansion.
+  const pathByKey = modulePathByKey(config);
+  const modulePathTargets = [selectedModule, highlightedModule].flatMap(
+    (key) => {
+      const path = key ? pathByKey.get(key) : undefined;
+      return path ? [path] : [];
+    },
+  );
   const selectedLayerPaths = selectedLayer
     ? layerPathsByName(config).get(selectedLayer)
     : undefined;
 
-  const expansionTargets = selectedModulePath
-    ? [selectedModulePath]
-    : (selectedLayerPaths ?? []);
+  const expansionTargets =
+    modulePathTargets.length > 0
+      ? modulePathTargets
+      : (selectedLayerPaths ?? []);
 
   const expandedItems =
     expansionTargets.length > 0
@@ -135,43 +125,42 @@ export function getFileTreeViewModel({
         ]
       : collectModuleCollapsedIds(tree, layerPaths, modulePaths);
 
-  const expansionSignal = selectedModule ?? selectedLayer ?? 'default';
+  const expansionSignal =
+    selectedModule || highlightedModule
+      ? `${selectedModule ?? ''}|${highlightedModule ?? ''}`
+      : (selectedLayer ?? 'default');
 
   return {
-    title: selectedFeature
-      ? `Feature: ${selectedFeature}`
-      : isFeatureCoverage
-        ? 'Module Coverage'
-        : 'File Coverage',
-    selectedFeature,
+    title: isModuleCoverage ? 'Module Coverage' : 'File Coverage',
     stats: getCoverageStats({
       summary,
       selectedLayer,
-      selectedFeature,
       coverageMode,
     }),
-    violations: getViolations({ summary, selectedFeature }),
+    violations: getViolations({ summary }),
     // The active (selected or hovered) layer — violation rows not touching it
     // are dimmed rather than filtered out, so the list never resizes.
     activeLayer: selectedLayer,
-    closureViolations: summary.closureViolations,
     conflicts: summary.conflicts,
+    moduleOverlaps: summary.moduleOverlaps,
+    moduleViolations: summary.moduleViolations,
     tree,
-    // Stable across feature selection so the tree never remounts and its
-    // expansion state is preserved; restyling alone reflects the feature.
+    // Stable across selection so the tree never remounts and its expansion
+    // state is preserved; restyling alone reflects the selection.
     treeKey: 'tree',
     highlightedFiles: highlight.all,
-    focusScopeFiles: focusScope.all,
     ownedFiles: highlight.owned,
+    highlightedModuleFiles: highlight.secondary,
     coverageGapFiles,
-    coverageGapsByLayer: isFeatureCoverage
+    coverageGapsByLayer: isModuleCoverage
       ? []
       : getCoverageGapsByLayer(summary),
     configuredPaths,
     modulePaths,
+    ruleCountByPath: ruleCountByPath(config),
     layerPaths,
-    // Tree order is ALWAYS the stable layer order, independent of feature
-    // selection — selecting a feature must never reorder the tree.
+    // Tree order is ALWAYS the stable layer order, independent of selection —
+    // selecting a module must never reorder the tree.
     sortOrder: layerOrder,
     // With nothing selected, open every ancestor down to (and including the row
     // for) each module, leaving the module folder collapsed. With a module or
@@ -182,6 +171,16 @@ export function getFileTreeViewModel({
     hoveredGraphFiles: hoveredGraphFiles ?? null,
     hoveredModulePath: hoveredModulePath ?? null,
   };
+}
+
+/** Number of declared rules per module path, for the row badge. */
+function ruleCountByPath(config: VisualizationConfig): Map<string, number> {
+  const byPath = new Map<string, number>();
+  for (const m of config.modules ?? []) {
+    const count = describeRules(m.rules).length;
+    if (count > 0) byPath.set(m.path, count);
+  }
+  return byPath;
 }
 
 /** Map each module's `layer::name` key to its declared folder path (= node id). */

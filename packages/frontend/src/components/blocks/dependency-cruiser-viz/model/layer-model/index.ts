@@ -2,10 +2,11 @@ import type { VisualizationConfig, VizSummary } from '../types';
 import { allModules, type ModuleNode } from '../modules';
 
 export {
-  buildLayerCardGroups,
-  chipKeys,
-  type ChipGroup,
-  type ModuleChip,
+  buildModuleTree,
+  moduleTreeKeys,
+  type ModuleFolderNode,
+  type ModuleLeafNode,
+  type ModuleTreeNode,
 } from './layer-cards';
 
 /** A layer's identity key, equal to its bare name. */
@@ -189,12 +190,14 @@ function computeLevels(
   const predecessors = new Map<string, Set<string>>();
 
   for (const stack of stacks) {
-    const keys = stack.layers.map((l) => scopedLayer(undefined, l.name));
-    for (const key of keys) {
+    for (const layer of stack.layers) {
+      const key = scopedLayer(undefined, layer.name);
       if (!predecessors.has(key)) predecessors.set(key, new Set());
     }
-    for (let i = 1; i < keys.length; i++) {
-      predecessors.get(keys[i]!)!.add(keys[i - 1]!);
+    for (const edge of stack.edges) {
+      predecessors
+        .get(scopedLayer(undefined, edge.to))!
+        .add(scopedLayer(undefined, edge.from));
     }
   }
 

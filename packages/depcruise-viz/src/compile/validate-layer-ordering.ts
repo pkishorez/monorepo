@@ -7,9 +7,9 @@ export function validateLayerOrdering(rules: readonly Rule[]): void {
   const edgeStacks = new Map<string, string[]>();
 
   for (const rule of rules) {
-    for (let i = 0; i < rule.layers.length - 1; i++) {
-      const from = rule.layers[i]!.name;
-      const to = rule.layers[i + 1]!.name;
+    for (const e of rule.edges) {
+      const from = e.from.name;
+      const to = e.to.name;
 
       let targets = adjacency.get(from);
       if (!targets) {

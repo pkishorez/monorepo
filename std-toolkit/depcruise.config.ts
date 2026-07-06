@@ -1,68 +1,26 @@
 import {
-  feature,
-  group,
+  edge,
   layer,
-  layersTopDown,
+  layerGraph,
   module,
   type ProjectConfig,
 } from 'depcruise-viz';
 
 // ---------------------------------------------------------------------------
-// Cross-folder features — one per internal folder (former package).
+// One layer graph per internal folder (former package); the shared
+// `core-barrel` / `eschema-barrel` layers merge by name across graphs.
 //
-// DAG encoded via barrel visibility / sharedWith:
+// Cross-folder DAG:
 //   eschema  ← core, dynamodb, sqlite, tanstack-sync  (leaf — imports nothing)
 //   core     ← dynamodb, sqlite, tanstack-sync
-//   dynamodb, sqlite, tanstack-sync  ← nobody  (leaves toward consumers)
-//   dynamodb / sqlite / tanstack-sync  ✗ each other
+//   dynamodb / sqlite / tanstack-sync — siblings, forbidden from each other
+//
+// core-barrel reaches eschema-barrel (via core-impl), so any layer with a
+// path to core-barrel may also import eschema — no direct eschema edges
+// needed from the consumer folders.
 // ---------------------------------------------------------------------------
 
-const eschemaFeature = feature('eschema', {
-  description: 'Schema primitives — DAG leaf, no internal dependencies',
-});
-const coreFeature = feature('core', {
-  description: 'Core broadcaster, schema, and error primitives',
-});
-const dynamodbFeature = feature('dynamodb', {
-  description: 'DynamoDB service and expression layer',
-});
-const sqliteFeature = feature('sqlite', {
-  description: 'SQLite service layer',
-});
-const tanstackSyncFeature = feature('tanstack-sync', {
-  description: 'TanStack Query sync strategies and offline storage',
-});
-
-// ---------------------------------------------------------------------------
-// Intra-folder layers — rebased from the two preserved per-package configs.
-// ---------------------------------------------------------------------------
-
-// --- dynamodb (src/services → src/db/dynamodb/services, etc.) ---
-const dynamodbBarrel = layer('dynamodb-barrel', ['src/db/dynamodb/index.ts'], {
-  description: 'Public barrel',
-});
-const dynamodbServices = layer(
-  'services',
-  ['src/db/dynamodb/services', 'src/db/dynamodb/rpc'],
-  { description: 'Entity/command surface and RPC handlers' },
-);
-const dynamodbExpr = layer('expr', ['src/db/dynamodb/expr'], {
-  description: 'Expression builders',
-});
-const dynamodbInternal = layer('internal', ['src/db/dynamodb/internal'], {
-  description: 'Internal DynamoDB implementation details',
-});
-const dynamodbGenerated = layer('generated', ['src/db/dynamodb/generated'], {
-  description: 'Generated code',
-});
-const dynamodbTypes = layer('types', ['src/db/dynamodb/types'], {
-  description: 'DynamoDB type definitions',
-});
-const dynamodbErrors = layer('errors', ['src/db/dynamodb/errors.ts'], {
-  description: 'DynamoDB error types',
-});
-
-// --- eschema: barrel over implementation (non-overlapping paths; tests are orphans/warnings) ---
+// --- eschema: barrel over implementation ---
 const eschemaBarrel = layer('eschema-barrel', ['src/eschema/index.ts'], {
   description: 'Public barrel',
 });
@@ -84,183 +42,267 @@ const coreBarrel = layer('core-barrel', ['src/core/index.ts'], {
 });
 const coreImpl = layer(
   'core-impl',
-  ['src/core/broadcaster.ts', 'src/core/error.ts', 'src/core/schema.ts'],
+  [
+    'src/core/broadcaster.ts',
+    'src/core/error.ts',
+    'src/core/schema.ts',
+    'src/core/ulid.ts',
+  ],
   { description: 'Internal implementation' },
 );
 
-// --- sqlite: barrel over implementation ---
+// --- dynamodb ---
+const dynamodbBarrel = layer('dynamodb-barrel', ['src/db/dynamodb/index.ts'], {
+  description: 'Public barrel',
+});
+const dynamodbServices = layer(
+  'dynamodb-services',
+  ['src/db/dynamodb/services'],
+  { description: 'Entity/command surface' },
+);
+const dynamodbExpr = layer('dynamodb-expr', ['src/db/dynamodb/expr'], {
+  description: 'Expression builders',
+});
+const dynamodbInternal = layer(
+  'dynamodb-internal',
+  ['src/db/dynamodb/internal'],
+  { description: 'Internal DynamoDB implementation details' },
+);
+const dynamodbGenerated = layer(
+  'dynamodb-generated',
+  ['src/db/dynamodb/generated'],
+  { description: 'Generated code' },
+);
+const dynamodbTypes = layer('dynamodb-types', ['src/db/dynamodb/types'], {
+  description: 'DynamoDB type definitions',
+});
+const dynamodbErrors = layer('dynamodb-errors', ['src/db/dynamodb/errors.ts'], {
+  description: 'DynamoDB error types',
+});
+
+// --- sqlite ---
 const sqliteBarrel = layer('sqlite-barrel', ['src/db/sqlite/index.ts'], {
   description: 'Public barrel',
 });
-const sqliteImpl = layer(
-  'sqlite-impl',
-  [
-    'src/db/sqlite/internal',
-    'src/db/sqlite/rpc',
-    'src/db/sqlite/services',
-    'src/db/sqlite/sql',
-  ],
-  { description: 'Internal implementation' },
-);
+const sqliteServices = layer('sqlite-services', ['src/db/sqlite/services'], {
+  description: 'Entity/command surface',
+});
+const sqliteSql = layer('sqlite-sql', ['src/db/sqlite/sql'], {
+  description: 'SQL builders and driver adapters',
+});
+const sqliteInternal = layer('sqlite-internal', ['src/db/sqlite/internal'], {
+  description: 'Internal SQLite implementation details',
+});
+const sqliteErrors = layer('sqlite-errors', ['src/db/sqlite/errors.ts'], {
+  description: 'SQLite error types',
+});
 
-// --- tanstack-sync (src/... → src/tanstack-sync/...) ---
+// --- tanstack-sync ---
 const syncEntrypoint = layer(
-  'entrypoint',
+  'sync-entrypoint',
   ['src/tanstack-sync/index.ts', 'src/tanstack-sync/create-std-sync.ts'],
   { description: 'Public API entrypoints' },
 );
-const syncSync = layer(
-  'sync',
-  [
-    'src/tanstack-sync/partitioned',
-    'src/tanstack-sync/single-item',
-    'src/tanstack-sync/cadence-sync',
-  ],
-  { description: 'Sync strategy implementations' },
+const syncPartitioned = layer(
+  'sync-partitioned',
+  ['src/tanstack-sync/partitioned'],
+  { description: 'Partitioned collection sync and shared strategy runtime' },
 );
+const syncSingleItem = layer(
+  'sync-single-item',
+  ['src/tanstack-sync/single-item'],
+  { description: 'Single-item sync, built on the partitioned runtime' },
+);
+const syncCadence = layer('sync-cadence', ['src/tanstack-sync/cadence-sync'], {
+  description: 'Cadence scheduling shared by both strategies',
+});
 const syncProjection = layer(
-  'projection',
+  'sync-projection',
   ['src/tanstack-sync/collection-projection'],
   { description: 'Collection view / projector' },
 );
-const syncInspector = layer('inspector', ['src/tanstack-sync/inspector'], {
+const syncInspector = layer('sync-inspector', ['src/tanstack-sync/inspector'], {
   description: 'Devtools inspector collections and row types',
 });
-const syncPaced = layer('paced', ['src/tanstack-sync/paced'], {
+const syncPaced = layer('sync-paced', ['src/tanstack-sync/paced'], {
   description: 'Pacing and coalescing infrastructure',
 });
-const syncRegistry = layer('registry', ['src/tanstack-sync/registry'], {
+const syncRegistry = layer('sync-registry', ['src/tanstack-sync/registry'], {
   description: 'Tracker and registry',
 });
 const syncSourceOfTruth = layer(
-  'source-of-truth',
+  'sync-source-of-truth',
   ['src/tanstack-sync/source-of-truth'],
   { description: 'Convergence engine and write-error types' },
 );
 const syncOfflineStorage = layer(
-  'offline-storage',
+  'sync-offline-storage',
   ['src/tanstack-sync/offline-storage'],
   { description: 'Internal grouped key-value storage and public adapters' },
 );
 const syncUtil = layer(
-  'util',
+  'sync-util',
   ['src/tanstack-sync/util', 'src/tanstack-sync/types.ts'],
   { description: 'Shared types and utility helpers' },
 );
 
-// ---------------------------------------------------------------------------
-// Stacks — one per intra-folder layering. Grouped below by src bounded context
-// (per CONTEXT-MAP.md): core, eschema, db (dynamodb + sqlite), tanstack-sync.
-// ---------------------------------------------------------------------------
-
-const eschemaStructure = layersTopDown('eschema-structure', [
-  eschemaBarrel,
-  eschemaImpl,
-]);
-const coreStructure = layersTopDown('core-structure', [coreBarrel, coreImpl]);
-const sqliteStructure = layersTopDown('sqlite-structure', [
-  sqliteBarrel,
-  sqliteImpl,
-]);
-const dynamodbArchitecture = layersTopDown('dynamodb-architecture', [
-  dynamodbBarrel,
-  dynamodbServices,
-  dynamodbExpr,
-  dynamodbInternal,
-  dynamodbGenerated,
-  dynamodbTypes,
-  dynamodbErrors,
-]);
-const tanstackSyncArchitecture = layersTopDown('tanstack-sync-architecture', [
-  syncEntrypoint,
-  syncSync,
-  syncProjection,
-  syncInspector,
-  syncPaced,
-  syncRegistry,
-  syncSourceOfTruth,
-  syncOfflineStorage,
-  syncUtil,
-]);
-
 export default {
   rootDir: 'src',
+  // ignore entries are literal path prefixes, not globs
   ignore: [
-    '**/__tests__/**',
-    'src/*/play.ts',
-    'src/eschema/tutorial/**',
-    'src/eschema/cli/**',
+    'src/core/__tests__',
+    'src/db/dynamodb/__tests__',
+    'src/db/dynamodb/expr/__tests__',
+    'src/db/dynamodb/play',
+    'src/db/sqlite/services/__tests__',
+    'src/db/sqlite/sql/adapters/__tests__',
+    'src/db/sqlite/play.ts',
+    'src/eschema/__tests__',
+    'src/eschema/cli',
+    'src/eschema/play.ts',
+    'src/eschema/tutorial',
+    'src/tanstack-sync/__tests__',
+    'src/tanstack-sync/cadence-sync/__tests__',
+    'src/tanstack-sync/offline-storage/__tests__',
+    'src/tanstack-sync/partitioned/__tests__',
+    'src/tanstack-sync/partitioned/strategies/bidirectional/__tests__',
+    'src/tanstack-sync/partitioned/strategies/new-to-old/__tests__',
+    'src/tanstack-sync/source-of-truth/__tests__',
   ],
   rules: [
-    ...group('core', [coreStructure]),
-    ...group('eschema', [eschemaStructure]),
-    ...group('db', [dynamodbArchitecture, sqliteStructure]),
-    ...group('tanstack-sync', [tanstackSyncArchitecture]),
-  ],
-  features: [
-    eschemaFeature,
-    coreFeature,
-    dynamodbFeature,
-    sqliteFeature,
-    tanstackSyncFeature,
+    layerGraph('eschema', [edge(eschemaBarrel, eschemaImpl)]),
+
+    layerGraph('core', [
+      edge(coreBarrel, coreImpl),
+      edge(coreImpl, eschemaBarrel),
+    ]),
+
+    // Edges mirror the measured imports 1:1 — no chain-only shortcuts.
+    // Sibling pairs (no edge, forbidden both ways): expr ✗ generated,
+    // internal ✗ generated, types ✗ errors, expr ✗ errors.
+    layerGraph('dynamodb', [
+      edge(dynamodbBarrel, [
+        dynamodbServices,
+        dynamodbExpr,
+        dynamodbInternal,
+        dynamodbTypes,
+        dynamodbErrors,
+      ]),
+      edge(dynamodbServices, [
+        dynamodbExpr,
+        dynamodbInternal,
+        dynamodbGenerated,
+        dynamodbTypes,
+        dynamodbErrors,
+        coreBarrel,
+      ]),
+      edge(dynamodbExpr, [dynamodbInternal, dynamodbTypes]),
+      edge(dynamodbInternal, [dynamodbTypes, dynamodbErrors]),
+      edge(dynamodbGenerated, dynamodbErrors),
+      edge(dynamodbTypes, coreBarrel),
+    ]),
+
+    // Siblings: internal ✗ sql, internal ✗ errors, services ✗ errors —
+    // only sql may touch the error types.
+    layerGraph('sqlite', [
+      edge(sqliteBarrel, [sqliteServices, sqliteSql, sqliteErrors]),
+      edge(sqliteServices, [sqliteInternal, sqliteSql, coreBarrel]),
+      edge(sqliteInternal, coreBarrel),
+      edge(sqliteSql, [sqliteErrors, coreBarrel]),
+    ]),
+
+    // single-item builds on the partitioned runtime (tracker, sync-state,
+    // strategy interface); both lean on cadence-sync, which imports neither.
+    // projection/inspector/paced/registry are siblings of one another;
+    // projection + registry converge on the source-of-truth engine, which
+    // persists via offline-storage.
+    layerGraph('tanstack-sync', [
+      edge(syncEntrypoint, [
+        syncSingleItem,
+        syncPartitioned,
+        syncCadence,
+        syncInspector,
+        syncOfflineStorage,
+        syncPaced,
+        syncRegistry,
+        syncUtil,
+        coreBarrel,
+      ]),
+      edge(syncSingleItem, [
+        syncPartitioned,
+        syncProjection,
+        syncInspector,
+        syncPaced,
+        syncRegistry,
+        syncSourceOfTruth,
+        syncOfflineStorage,
+        syncUtil,
+        coreBarrel,
+      ]),
+      edge(syncPartitioned, [
+        syncCadence,
+        syncProjection,
+        syncInspector,
+        syncPaced,
+        syncRegistry,
+        syncSourceOfTruth,
+        syncOfflineStorage,
+        syncUtil,
+        coreBarrel,
+      ]),
+      edge(syncCadence, [syncSourceOfTruth, syncUtil, coreBarrel]),
+      edge(syncProjection, [syncSourceOfTruth, syncUtil, coreBarrel]),
+      edge(syncRegistry, [syncSourceOfTruth, coreBarrel]),
+      edge(syncInspector, syncOfflineStorage),
+      edge(syncSourceOfTruth, [syncOfflineStorage, coreBarrel]),
+      edge(syncUtil, coreBarrel),
+    ]),
   ],
   modules: [
-    // eschema barrel — accessible to all other folders
-    module('src/eschema/index.ts', {
-      feature: 'eschema',
-      sharedWith: ['core', 'dynamodb', 'sqlite', 'tanstack-sync'],
-    }),
-    // eschema internals — private to eschema; consumers must go through the barrel
-    module('src/eschema/eschema.ts', { feature: 'eschema' }),
-    module('src/eschema/internal', { feature: 'eschema' }),
-    module('src/eschema/schema.ts', { feature: 'eschema' }),
-    module('src/eschema/types.ts', { feature: 'eschema' }),
-    module('src/eschema/utils.ts', { feature: 'eschema' }),
+    // eschema
+    module('src/eschema/index.ts'),
+    module('src/eschema/eschema.ts'),
+    module('src/eschema/internal'),
+    module('src/eschema/schema.ts'),
+    module('src/eschema/types.ts'),
+    module('src/eschema/utils.ts'),
 
-    // core barrel — accessible to the three consumer folders
-    module('src/core/index.ts', {
-      feature: 'core',
-      sharedWith: ['dynamodb', 'sqlite', 'tanstack-sync'],
-    }),
-    // core internals — private to core; consumers must go through the barrel
-    module('src/core/broadcaster.ts', { feature: 'core' }),
-    module('src/core/error.ts', { feature: 'core' }),
-    module('src/core/schema.ts', { feature: 'core' }),
+    // core
+    module('src/core/index.ts'),
+    module('src/core/broadcaster.ts'),
+    module('src/core/error.ts'),
+    module('src/core/schema.ts'),
+    module('src/core/ulid.ts'),
 
-    // dynamodb — not consumed by any sibling folder
-    module('src/db/dynamodb/index.ts', { feature: 'dynamodb' }),
-    module('src/db/dynamodb/services', { feature: 'dynamodb' }),
-    module('src/db/dynamodb/rpc', { feature: 'dynamodb' }),
-    module('src/db/dynamodb/expr', { feature: 'dynamodb' }),
-    module('src/db/dynamodb/internal', { feature: 'dynamodb' }),
-    module('src/db/dynamodb/generated', { feature: 'dynamodb' }),
-    module('src/db/dynamodb/types', { feature: 'dynamodb' }),
-    module('src/db/dynamodb/errors.ts', { feature: 'dynamodb' }),
+    // dynamodb
+    module('src/db/dynamodb/index.ts'),
+    module('src/db/dynamodb/services'),
+    module('src/db/dynamodb/expr'),
+    module('src/db/dynamodb/internal'),
+    module('src/db/dynamodb/generated'),
+    module('src/db/dynamodb/types'),
+    module('src/db/dynamodb/errors.ts'),
 
-    // sqlite — not consumed by any sibling folder
-    module('src/db/sqlite/index.ts', { feature: 'sqlite' }),
-    module('src/db/sqlite/internal', { feature: 'sqlite' }),
-    module('src/db/sqlite/rpc', { feature: 'sqlite' }),
-    module('src/db/sqlite/services', { feature: 'sqlite' }),
-    module('src/db/sqlite/sql', { feature: 'sqlite' }),
+    // sqlite
+    module('src/db/sqlite/index.ts'),
+    module('src/db/sqlite/errors.ts'),
+    module('src/db/sqlite/internal'),
+    module('src/db/sqlite/services'),
+    module('src/db/sqlite/sql'),
 
-    // tanstack-sync — not consumed by any sibling folder
-    module('src/tanstack-sync/index.ts', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/create-std-sync.ts', {
-      feature: 'tanstack-sync',
-    }),
-    module('src/tanstack-sync/types.ts', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/partitioned', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/single-item', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/cadence-sync', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/collection-projection', {
-      feature: 'tanstack-sync',
-    }),
-    module('src/tanstack-sync/inspector', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/paced', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/registry', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/source-of-truth', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/offline-storage', { feature: 'tanstack-sync' }),
-    module('src/tanstack-sync/util', { feature: 'tanstack-sync' }),
+    // tanstack-sync
+    module('src/tanstack-sync/index.ts'),
+    module('src/tanstack-sync/create-std-sync.ts'),
+    module('src/tanstack-sync/types.ts'),
+    module('src/tanstack-sync/partitioned'),
+    module('src/tanstack-sync/single-item'),
+    module('src/tanstack-sync/cadence-sync'),
+    module('src/tanstack-sync/collection-projection'),
+    module('src/tanstack-sync/inspector'),
+    module('src/tanstack-sync/paced'),
+    module('src/tanstack-sync/registry'),
+    module('src/tanstack-sync/source-of-truth'),
+    module('src/tanstack-sync/offline-storage'),
+    module('src/tanstack-sync/util'),
   ],
 } satisfies ProjectConfig;

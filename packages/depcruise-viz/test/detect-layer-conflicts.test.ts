@@ -8,7 +8,7 @@ function viz(
 ): VisualizationConfig {
   return {
     rootDir: 'src',
-    stacks: [{ name: 's', layers, allowedImports: [] }],
+    stacks: [{ name: 's', layers, edges: [], allowedImports: [] }],
   };
 }
 
@@ -57,11 +57,13 @@ describe('detectLayerConflicts', () => {
         {
           name: 's1',
           layers: [{ name: 'domain', paths: ['src/domain'] }],
+          edges: [],
           allowedImports: [],
         },
         {
           name: 's2',
           layers: [{ name: 'domain', paths: ['src/domain'] }],
+          edges: [],
           allowedImports: [],
         },
       ],

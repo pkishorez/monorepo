@@ -1,20 +1,21 @@
 import {
+  edge,
   layer,
-  layersTopDown,
+  layerGraph,
   toVisualizationConfig,
   type VizSummary,
 } from 'depcruise-viz';
 import { DevtoolsReport } from './devtools-report';
 
+const routes = layer('routes', ['src/routes'], {
+  description: 'Page-level UI',
+});
+const services = layer('services', ['src/services']);
+const domain = layer('domain', ['src/domain']);
+
 const depcruiseConfig = toVisualizationConfig({
   rootDir: 'src',
-  rules: [
-    layersTopDown('app', [
-      layer('routes', ['src/routes'], { description: 'Page-level UI' }),
-      layer('services', ['src/services']),
-      layer('domain', ['src/domain']),
-    ]),
-  ],
+  rules: [layerGraph('app', [edge(routes, services), edge(services, domain)])],
 });
 
 const cleanSummary: VizSummary = {
@@ -30,9 +31,9 @@ const cleanSummary: VizSummary = {
   coverageGaps: [],
   emptyModules: [],
   conflicts: [],
+  moduleOverlaps: [],
   moduleEdges: [],
-  featureGraphs: [],
-  closureViolations: [],
+  moduleViolations: [],
 };
 
 const dirtySummary: VizSummary = {

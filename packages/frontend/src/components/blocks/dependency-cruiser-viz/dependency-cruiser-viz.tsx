@@ -26,10 +26,11 @@ export function DependencyCruiserViz({
       <ResizablePanelGroup orientation="horizontal">
         <GraphPanel
           view={viz.graph}
-          onSelectFeature={viz.actions.selectFeature}
+          onHighlightModule={viz.actions.highlightModule}
           onSelectModule={viz.actions.selectModule}
           onSelectLayer={viz.actions.selectLayer}
           onHoverLayer={viz.actions.hoverLayer}
+          onHoverGraphModule={viz.actions.hoverGraphModule}
           onSetCanvasMode={viz.actions.setCanvasMode}
         />
         {viz.files && (
@@ -38,10 +39,8 @@ export function DependencyCruiserViz({
             <ResizablePanel defaultSize={30} minSize={15}>
               <FileTreePanel
                 view={viz.files}
-                features={config.features}
                 canvasMode={viz.graph.canvasMode}
                 selectedViolation={viz.graph.selectedViolation}
-                onSelectFeature={viz.actions.selectFeature}
                 onSelectViolation={viz.actions.selectViolation}
               />
             </ResizablePanel>

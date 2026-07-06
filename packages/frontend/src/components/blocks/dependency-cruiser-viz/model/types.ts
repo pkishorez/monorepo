@@ -1,8 +1,10 @@
 export type {
   DepcruiseVizData,
-  FeatureClosureViolation,
   LayerConflict,
   ModuleEdge,
+  ModuleOverlap,
+  ModuleRules,
+  ModuleViolation,
   VisualizationConfig,
   VizSummary,
 } from 'depcruise-viz';

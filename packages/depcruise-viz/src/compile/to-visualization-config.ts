@@ -1,4 +1,10 @@
-import type { ProjectConfig, VisualizationConfig } from '../types.js';
+import type {
+  ModuleDecl,
+  ProjectConfig,
+  Rule,
+  VisualizationConfig,
+} from '../types.js';
+import { reachableLayers } from './reachability.js';
 import { validateLayerOrdering } from './validate-layer-ordering.js';
 
 export function toVisualizationConfig(
@@ -11,13 +17,14 @@ export function toVisualizationConfig(
 
   for (const rule of rules) {
     const { layers } = rule;
+    const closure = reachableLayers(rule);
     const allowedImports: Array<{ from: string; to: string }> = [];
 
-    for (let i = 0; i < layers.length; i++) {
-      const upper = layers[i]!;
-      for (let j = i + 1; j < layers.length; j++) {
-        const lower = layers[j]!;
-        allowedImports.push({ from: upper.name, to: lower.name });
+    for (const from of layers) {
+      for (const to of layers) {
+        if (closure.get(from.name)!.has(to.name)) {
+          allowedImports.push({ from: from.name, to: to.name });
+        }
       }
     }
 
@@ -33,6 +40,7 @@ export function toVisualizationConfig(
         }
         return entry;
       }),
+      edges: reduceEdges(rule, closure),
       allowedImports,
     };
     if (rule.config.description !== undefined) {
@@ -50,78 +58,26 @@ export function toVisualizationConfig(
     result.modules = resolveModules(config);
   }
 
-  if (config.features && config.features.length > 0) {
-    const resolveMember = makeMemberResolver(result.modules ?? []);
-    result.features = config.features.map((f) => {
-      if (f.modules.length === 0) {
-        throw new Error(`Feature "${f.name}" has no members`);
-      }
-      const modules = f.modules.map((m) => resolveMember(f.name, m));
-      const root = resolveMember(f.name, f.root);
-      if (!modules.includes(root)) {
-        throw new Error(
-          `Feature "${f.name}": root "${f.root}" must be present in modules`,
-        );
-      }
-      const entry: NonNullable<VisualizationConfig['features']>[number] = {
-        name: f.name,
-        root,
-        modules,
-      };
-      if (f.config.description !== undefined) {
-        entry.description = f.config.description;
-      }
-      return entry;
-    });
-  }
-
   return result;
 }
 
 /**
- * Builds a resolver that turns a feature member reference into its canonical
- * `layer::name` key. A reference is either qualified (`layer::name`, matched
- * exactly) or a bare name (resolved to the single declared module of that name).
- * A bare name that collides across layers is rejected — the author must qualify
- * it — so membership is never silently mis-attributed to the wrong layer.
+ * Transitive reduction of the authored edges: an edge u→v is dropped when v
+ * is also reachable from u through some intermediate layer, so the
+ * visualization draws only the minimal DAG.
  */
-function makeMemberResolver(
-  modules: NonNullable<VisualizationConfig['modules']>,
-): (featureName: string, ref: string) => string {
-  const keyOf = (m: { layer: string; name: string }): string =>
-    `${m.layer}::${m.name}`;
-  const keySet = new Set(modules.map(keyOf));
-  const keysByName = new Map<string, string[]>();
-  for (const m of modules) {
-    const list = keysByName.get(m.name);
-    if (list) list.push(keyOf(m));
-    else keysByName.set(m.name, [keyOf(m)]);
-  }
-
-  return (featureName, ref) => {
-    if (ref.includes('::')) {
-      if (!keySet.has(ref)) {
-        throw new Error(
-          `Feature "${featureName}": member "${ref}" is not a declared module`,
-        );
-      }
-      return ref;
-    }
-    const matches = keysByName.get(ref);
-    if (!matches || matches.length === 0) {
-      throw new Error(
-        `Feature "${featureName}": member "${ref}" is not a declared module name`,
-      );
-    }
-    if (matches.length > 1) {
-      throw new Error(
-        `Feature "${featureName}": member "${ref}" is ambiguous across layers (${matches.join(
-          ', ',
-        )}); qualify it as "layer::name"`,
-      );
-    }
-    return matches[0]!;
-  };
+function reduceEdges(
+  rule: Rule,
+  closure: Map<string, Set<string>>,
+): Array<{ from: string; to: string }> {
+  return rule.edges
+    .filter(
+      (e) =>
+        ![...closure.get(e.from.name)!].some(
+          (mid) => mid !== e.to.name && closure.get(mid)!.has(e.to.name),
+        ),
+    )
+    .map((e) => ({ from: e.from.name, to: e.to.name }));
 }
 
 type LayerLookup = { name: string; paths: string[] };
@@ -138,12 +94,14 @@ function resolveModules(
 
   const seenPaths = new Set<string>();
   const resolved: NonNullable<VisualizationConfig['modules']> = [];
+  const declaredPaths = new Set((config.modules ?? []).map((m) => m.path));
 
   for (const mod of config.modules ?? []) {
     if (seenPaths.has(mod.path)) {
       throw new Error(`Duplicate module path "${mod.path}"`);
     }
     seenPaths.add(mod.path);
+    validateRuleRefs(mod, declaredPaths);
 
     const owning = layers.filter((l) =>
       l.paths.some((p) => mod.path === p || mod.path.startsWith(p + '/')),
@@ -159,13 +117,31 @@ function resolveModules(
 
     resolved.push({
       path: mod.path,
-      name: deriveModuleName(mod.path, layerPath),
+      name: mod.name ?? deriveModuleName(mod.path, layerPath),
       layer: owningLayer.name,
-      barrel: mod.barrel,
+      opaque: mod.opaque,
+      ...(mod.rules === undefined ? {} : { rules: mod.rules }),
     });
   }
 
   return resolved;
+}
+
+/** Every path in `onlyImports` / `onlyImportedBy` must name a declared
+ * module, so a typo fails the compile instead of silently tightening the
+ * rule. */
+function validateRuleRefs(mod: ModuleDecl, declaredPaths: Set<string>): void {
+  const refs = [
+    ...(mod.rules?.onlyImports ?? []),
+    ...(mod.rules?.onlyImportedBy ?? []),
+  ];
+  for (const ref of refs) {
+    if (!declaredPaths.has(ref)) {
+      throw new Error(
+        `Module "${mod.path}": rule references "${ref}", which is not a declared module path`,
+      );
+    }
+  }
 }
 
 /**
@@ -175,7 +151,9 @@ function resolveModules(
  * `src/services/order-items` as one of its paths and a module is declared
  * there), the tail would be empty; fall back to the path's basename so every
  * module surfaces under its own name instead of collapsing into a single
- * anonymous "(layer root)" node shared by all such modules.
+ * anonymous "(layer root)" node shared by all such modules. File modules keep
+ * their extension (`src/types.ts` → `types.ts`) so a file module reads as a
+ * file, not a folder.
  */
 function deriveModuleName(modulePath: string, layerPath: string): string {
   if (modulePath === layerPath) {
