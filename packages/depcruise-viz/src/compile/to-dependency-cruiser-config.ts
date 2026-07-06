@@ -11,7 +11,7 @@ function pathToPattern(p: string): string {
 }
 
 export function toDependencyCruiserConfig(
-  rules: Rule[],
+  rules: readonly Rule[] = [],
 ): DependencyCruiserConfig {
   validateLayerOrdering(rules);
 

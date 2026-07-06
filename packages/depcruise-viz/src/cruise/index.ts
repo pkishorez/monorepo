@@ -82,6 +82,7 @@ export async function cruiseProject(
 
   return {
     dependencyCruiserConfig,
+    cruiseResult,
     config,
     summary,
   } satisfies DepcruiseVizResult;

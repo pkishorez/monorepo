@@ -10,7 +10,8 @@ import { validateLayerOrdering } from './validate-layer-ordering.js';
 export function toVisualizationConfig(
   config: ProjectConfig,
 ): VisualizationConfig {
-  const { rules, rootDir } = config;
+  const { rootDir } = config;
+  const rules = config.rules ?? [];
   validateLayerOrdering(rules);
 
   const stacks: VisualizationConfig['stacks'] = [];
@@ -86,7 +87,7 @@ function resolveModules(
   config: ProjectConfig,
 ): NonNullable<VisualizationConfig['modules']> {
   const layers: LayerLookup[] = [];
-  for (const rule of config.rules) {
+  for (const rule of config.rules ?? []) {
     for (const l of rule.layers) {
       layers.push({ name: l.name, paths: [...l.paths] });
     }
