@@ -25,6 +25,40 @@ const RunDepcruiseSuccess = Schema.Union([
   }),
 ]);
 
+/** The `RunDepcruise` terminal payload (discriminated availability union). */
+export type RunDepcruiseResult = typeof RunDepcruiseSuccess.Type;
+
+export const DepcruisePhase = Schema.Literals([
+  'load-config',
+  'compile-config',
+  'cruise',
+  'summarize',
+]);
+
+/**
+ * Events streamed by `RunDepcruise`: `Progress` on each server-side phase
+ * transition, `Heartbeat` roughly every second while the cruise runs, and a
+ * terminal `Result` carrying the payload, after which the stream ends.
+ */
+export const DepcruiseEvent = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.Literal('Progress'),
+    phase: DepcruisePhase,
+    message: Schema.String,
+    elapsedMs: Schema.Number,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Heartbeat'),
+    elapsedMs: Schema.Number,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Result'),
+    result: RunDepcruiseSuccess,
+  }),
+]);
+
+export type DepcruiseEvent = typeof DepcruiseEvent.Type;
+
 /**
  * A sort-key bound over the monotonic record id. The operator encodes the scan
  * direction: `>`/`>=` page oldest-to-newest (live tail), `<`/`<=` page
@@ -59,8 +93,9 @@ const ClearSuccess = Schema.Struct({ deleted: Schema.Number });
 export const DevtoolsRpc = RpcGroup.make(
   Rpc.make('RunDepcruise', {
     payload: { path: Schema.String },
-    success: RunDepcruiseSuccess,
+    success: DepcruiseEvent,
     error: DevtoolsRpcError,
+    stream: true,
   }),
   Rpc.make('QueryTraces', {
     payload: QueryPayload,

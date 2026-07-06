@@ -12,18 +12,29 @@ import {
 import { loadConfig } from '../cli/load-config.js';
 import type { DepcruiseVizResult } from '../types.js';
 
+/** Coarse progress phases emitted while {@link cruiseProject} runs. */
+export type DepcruisePhase =
+  | 'load-config'
+  | 'compile-config'
+  | 'cruise'
+  | 'summarize';
+
 /**
  * Cruises the package rooted at `baseDir`. Loads the project's
  * `depcruise.config.ts` from `<baseDir>/depcruise.config.ts` and resolves the
  * project's `rootDir` and `tsconfig.json` relative to `baseDir` (never the
  * current working directory), so it works against an arbitrary package path.
+ * `onPhase` is invoked right before each phase starts.
  */
 export async function cruiseProject(
   baseDir: string,
+  onPhase?: (phase: DepcruisePhase) => void,
 ): Promise<DepcruiseVizResult> {
+  onPhase?.('load-config');
   const projectConfig = await loadConfig(
     resolve(baseDir, 'depcruise.config.ts'),
   );
+  onPhase?.('compile-config');
   const dependencyCruiserConfig = toDependencyCruiserConfig(
     projectConfig.rules,
   );
@@ -56,6 +67,7 @@ export async function cruiseProject(
   const previousCwd = process.cwd();
   let result: Awaited<ReturnType<typeof cruise>>;
   try {
+    onPhase?.('cruise');
     process.chdir(baseDir);
     result = await cruise([projectConfig.rootDir], cruiseOptions, {
       bustTheCache: true,
@@ -65,6 +77,7 @@ export async function cruiseProject(
   }
 
   const cruiseResult = result.output as ICruiseResult;
+  onPhase?.('summarize');
   const summary = summarizeCruiseResult(cruiseResult, config);
 
   return {

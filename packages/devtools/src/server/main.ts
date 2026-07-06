@@ -18,6 +18,7 @@ import {
 } from '@effect/platform-node';
 import { LotelApiLive, makeDbLayer } from '@kishorez/lotel';
 import { DevtoolsRpc } from '../rpc/index.js';
+import { DEPCRUISE_DIR_ENV, runDepcruiseWorker } from './depcruise.js';
 import { DevtoolsHandlersLive } from './handlers.js';
 
 // The server always binds to loopback; only the port and db path are configurable.
@@ -197,10 +198,18 @@ const command = Command.make(
   }),
 ).pipe(Command.withDescription('Local devtools RPC + telemetry server'));
 
-command.pipe(
-  Command.run({ version: '0.0.0' }),
-  Effect.provide(NodeServices.layer),
-  // The CLI is consumed only by the frontend: silence all Effect logging.
-  Effect.provideService(References.MinimumLogLevel, 'None'),
-  NodeRuntime.runMain,
-);
+// This entry doubles as the depcruise cruise child: the bundler emits a single
+// file, so the server forks `process.argv[1]` with the env var set and this
+// guard routes the child into the cruise body instead of booting a second CLI.
+const depcruiseDir = process.env[DEPCRUISE_DIR_ENV];
+if (depcruiseDir) {
+  runDepcruiseWorker(depcruiseDir);
+} else {
+  command.pipe(
+    Command.run({ version: '0.0.0' }),
+    Effect.provide(NodeServices.layer),
+    // The CLI is consumed only by the frontend: silence all Effect logging.
+    Effect.provideService(References.MinimumLogLevel, 'None'),
+    NodeRuntime.runMain,
+  );
+}

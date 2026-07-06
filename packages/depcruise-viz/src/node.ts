@@ -1,1 +1,1 @@
-export { cruiseProject } from './cruise/index.js';
+export { cruiseProject, type DepcruisePhase } from './cruise/index.js';
