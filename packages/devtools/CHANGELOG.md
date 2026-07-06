@@ -1,5 +1,15 @@
 # @kishorez/devtools
 
+## 0.0.8
+
+### Patch Changes
+
+- [`a95b573`](https://github.com/pkishorez/monorepo/commit/a95b57378f567b3d990e68127ea55e5a4967853e) Thanks [@pkishorez](https://github.com/pkishorez)! - Big rewrite! Now, layers are more like a graph. Not stacks. No more features. Just modules. Added ability to configure rules at module level. And complete overhaul of the frontend viz!
+
+- Updated dependencies [[`a95b573`](https://github.com/pkishorez/monorepo/commit/a95b57378f567b3d990e68127ea55e5a4967853e)]:
+  - depcruise-viz@0.0.8
+  - std-toolkit@0.0.1
+
 ## 0.0.7
 
 ### Patch Changes

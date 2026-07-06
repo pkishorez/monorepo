@@ -1,6 +1,6 @@
 {
   "name": "@kishorez/devtools",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "private": false,
   "description": "Local devtools RPC server for inspecting a project's dependency graph",
   "keywords": [
