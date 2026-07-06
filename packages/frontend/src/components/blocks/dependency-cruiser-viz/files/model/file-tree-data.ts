@@ -138,54 +138,13 @@ function collectTargetIds(
 }
 
 /**
- * Expand folders down to — but not into — the layer/module boundary, so the
- * tree opens collapsed at each layer or module with its contents hidden until
- * the user drills in.
- *
- * Only the path leading to a boundary is auto-opened: a boundary folder (layer
- * or module) is left collapsed (visible, contents hidden) unless it contains a
- * deeper boundary, in which case it expands so the deeper one stays reachable.
- * A non-boundary folder with no boundary descendant is also left collapsed.
+ * Expansion ids for opening the tree collapsed at the second level: only the
+ * outermost folder(s) are expanded, so their immediate children render visible
+ * but collapsed. Given `src/a/…` and `src/b/…`, `src` opens while `a` and `b`
+ * stay closed until the user drills in.
  */
-export function collectModuleCollapsedIds(
-  nodes: FileTreeNode[],
-  layerPaths: Set<string>,
-  modulePaths: Set<string>,
-): string[] {
-  const ids = new Set<string>();
-  for (const node of nodes) {
-    collectBoundaryAncestorIds(node, layerPaths, modulePaths, ids);
-  }
-  return [...ids];
-}
-
-/**
- * Returns true if `node` is, or contains, a declared layer or module. As a side
- * effect, adds every folder that leads to a deeper boundary to `ids` (so only
- * the DEEPEST boundary — one with no boundary descendant — renders collapsed).
- */
-function collectBoundaryAncestorIds(
-  node: FileTreeNode,
-  layerPaths: Set<string>,
-  modulePaths: Set<string>,
-  ids: Set<string>,
-): boolean {
-  if (node.type !== 'folder') return false;
-
-  const isBoundary = layerPaths.has(node.id) || modulePaths.has(node.id);
-  let hasBoundaryDescendant = false;
-  for (const child of node.children ?? []) {
-    if (collectBoundaryAncestorIds(child, layerPaths, modulePaths, ids)) {
-      hasBoundaryDescendant = true;
-    }
-  }
-
-  // Expand any folder that contains a deeper boundary — even one that is itself
-  // a layer or module — so the deeper boundary stays reachable. Only the
-  // deepest boundary (no boundary descendant) is left collapsed.
-  if (hasBoundaryDescendant) ids.add(node.id);
-
-  return isBoundary || hasBoundaryDescendant;
+export function collectTopLevelExpandedIds(nodes: FileTreeNode[]): string[] {
+  return nodes.filter((node) => node.type === 'folder').map((node) => node.id);
 }
 
 function propagateFolderStatus(nodes: FileTreeNode[]): FileStatus | undefined {

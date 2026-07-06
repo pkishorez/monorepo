@@ -7,7 +7,7 @@ import {
 import {
   buildFileTree,
   collectExpandedForTarget,
-  collectModuleCollapsedIds,
+  collectTopLevelExpandedIds,
   computeFileStatuses,
   type CoverageMode,
 } from './file-tree-data';
@@ -123,7 +123,7 @@ export function getFileTreeViewModel({
             ),
           ),
         ]
-      : collectModuleCollapsedIds(tree, layerPaths, modulePaths);
+      : collectTopLevelExpandedIds(tree);
 
   const expansionSignal =
     selectedModule || highlightedModule
