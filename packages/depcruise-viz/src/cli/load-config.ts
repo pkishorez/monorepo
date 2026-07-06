@@ -20,20 +20,15 @@ export async function loadConfig(configPath: string): Promise<ProjectConfig> {
 
   const exported = mod.default;
 
-  if (
-    !exported ||
-    typeof exported !== 'object' ||
-    !('rootDir' in exported) ||
-    !('rules' in exported)
-  ) {
+  if (!exported || typeof exported !== 'object' || !('rootDir' in exported)) {
     throw new Error(
-      `Config at "${configPath}" must export a ProjectConfig: { rootDir: string; rules: Rule[] }`,
+      `Config at "${configPath}" must export a ProjectConfig: { rootDir: string; rules?: Rule[] }`,
     );
   }
 
   const config = exported as ProjectConfig;
 
-  for (const rule of config.rules) {
+  for (const rule of config.rules ?? []) {
     if (rule?.kind !== 'layer-graph') {
       throw new Error(
         `Config at "${configPath}" contains an invalid rule. Each rule must be created with layerGraph()`,

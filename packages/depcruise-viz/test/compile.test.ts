@@ -220,3 +220,11 @@ test('module rule referencing an undeclared module path throws', () => {
     /references "src\/handlers\/nope", which is not a declared module path/,
   );
 });
+
+test('minimal config without rules compiles', () => {
+  expect(toDependencyCruiserConfig()).toEqual({ forbidden: [] });
+  expect(toVisualizationConfig({ rootDir: 'src' })).toEqual({
+    rootDir: 'src',
+    stacks: [],
+  });
+});

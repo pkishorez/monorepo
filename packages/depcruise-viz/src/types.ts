@@ -1,4 +1,4 @@
-import type { IFlattenedRuleSet } from 'dependency-cruiser';
+import type { ICruiseResult, IFlattenedRuleSet } from 'dependency-cruiser';
 
 export type LayerConfig = {
   description?: string;
@@ -62,7 +62,7 @@ export type Rule = LayerGraph;
 export type ProjectConfig = {
   rootDir: string;
   ignore?: string[];
-  rules: Rule[];
+  rules?: Rule[];
   modules?: ModuleDecl[];
 };
 
@@ -182,6 +182,7 @@ export type DepcruiseVizData = {
 
 export type DepcruiseVizResult = {
   dependencyCruiserConfig: DependencyCruiserConfig;
+  cruiseResult: ICruiseResult;
   config: VisualizationConfig;
   summary: VizSummary;
 };
