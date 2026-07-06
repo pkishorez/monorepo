@@ -1,5 +1,15 @@
 # @kishorez/devtools
 
+## 0.0.9
+
+### Patch Changes
+
+- [`b6c8daf`](https://github.com/pkishorez/monorepo/commit/b6c8daf6814a806303062deafeb290fe830c30e7) Thanks [@pkishorez](https://github.com/pkishorez)! - Improve speed, by spawning a sub process for cruise. Add 2 more sub commands for depcruise-lint. Improve ui.
+
+- Updated dependencies [[`b6c8daf`](https://github.com/pkishorez/monorepo/commit/b6c8daf6814a806303062deafeb290fe830c30e7)]:
+  - depcruise-viz@0.0.9
+  - std-toolkit@0.0.1
+
 ## 0.0.8
 
 ### Patch Changes
