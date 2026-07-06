@@ -167,6 +167,55 @@ describe('computeLayerLayout diamond', () => {
     expect(unrelated.style!.stroke).not.toBe(outgoing.style!.stroke);
   });
 
+  it('keeps direct neighbors of the hovered layer undimmed with a direction', () => {
+    const { nodes } = computeLayerLayout(
+      DIAMOND_CONFIG,
+      undefined,
+      null,
+      null,
+      'b',
+    );
+    const dataById = new Map(
+      nodes
+        .filter((n) => n.type === 'layer')
+        .map((n) => [
+          n.id,
+          n.data as {
+            isDimmed: boolean;
+            connectedDirection: string | null;
+          },
+        ]),
+    );
+    expect(dataById.get('b')).toMatchObject({
+      isDimmed: false,
+      connectedDirection: null,
+    });
+    expect(dataById.get('a')).toMatchObject({
+      isDimmed: false,
+      connectedDirection: 'incoming',
+    });
+    expect(dataById.get('d')).toMatchObject({
+      isDimmed: false,
+      connectedDirection: 'outgoing',
+    });
+    expect(dataById.get('c')).toMatchObject({
+      isDimmed: true,
+      connectedDirection: null,
+    });
+  });
+
+  it('marks a neighbor connected in both directions as both', () => {
+    const { nodes } = computeLayerLayout(DIAMOND_CONFIG, undefined, null, {
+      from: 'a',
+      to: 'd',
+    });
+    const b = nodes.find((n) => n.id === 'b')!.data as {
+      isDimmed: boolean;
+      connectedDirection: string | null;
+    };
+    expect(b).toMatchObject({ isDimmed: false, connectedDirection: 'both' });
+  });
+
   it('marks only the root as entry', () => {
     const { nodes } = computeLayerLayout(DIAMOND_CONFIG);
     const entries = nodes

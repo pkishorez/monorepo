@@ -10,7 +10,14 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { useCallback, useEffect, useMemo } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { ArrowLeft } from 'lucide-react';
 
 import { cn } from '#lib/utils';
@@ -81,11 +88,14 @@ function ModuleFocusPanelInner({
   onToggleTransitive,
 }: ModuleFocusPanelProps) {
   const { fitView } = useReactFlow();
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
-  // Hover previews a node in the file tree, but only while the highlight
-  // still equals the selection — an explicit highlight elsewhere wins.
+  // Hover always dims the graph down to the hovered node's direct
+  // neighborhood; the file-tree preview stays gated — only while the
+  // highlight still equals the selection (an explicit highlight wins).
   const handleHoverModule = useCallback(
     (key: string | null) => {
+      setHoveredKey(key);
       if (!onHoverGraphModule) return;
       if (key && highlightedModule !== selectedModule) return;
       onHoverGraphModule(key ? (hoverByKey.get(key) ?? null) : null);
@@ -102,6 +112,19 @@ function ModuleFocusPanelInner({
       }),
     [selectedModule, summary, transitive],
   );
+
+  const hoverNeighborhood = useMemo(() => {
+    if (!hoveredKey) return null;
+    const nodeKeys = new Set([hoveredKey]);
+    const edgeIds = new Set<string>();
+    for (const e of graph.edges) {
+      if (e.from !== hoveredKey && e.to !== hoveredKey) continue;
+      edgeIds.add(e.id);
+      nodeKeys.add(e.from);
+      nodeKeys.add(e.to);
+    }
+    return { nodeKeys, edgeIds };
+  }, [graph, hoveredKey]);
 
   const nodes = useMemo<Node<FocusNodeData>[]>(
     () =>
@@ -141,6 +164,7 @@ function ModuleFocusPanelInner({
             : e.direction === 'incoming'
               ? INCOMING_EDGE_COLOR
               : OUTGOING_EDGE_COLOR;
+        const isIncident = hoverNeighborhood?.edgeIds.has(e.id) ?? false;
         return {
           id: e.id,
           source: e.from,
@@ -157,13 +181,17 @@ function ModuleFocusPanelInner({
           },
           style: {
             stroke: color,
-            strokeWidth: 1.5,
-            opacity: e.opacity,
+            strokeWidth: isIncident ? 2 : 1.5,
+            opacity: isIncident
+              ? 1
+              : hoverNeighborhood
+                ? e.opacity * 0.25
+                : e.opacity,
             ...(e.kind === 'breach' ? { strokeDasharray: '6 3' } : {}),
           },
         };
       }),
-    [graph],
+    [graph, hoverNeighborhood],
   );
 
   // Refit only when the graph re-centers on another module; toggling
@@ -240,25 +268,27 @@ function ModuleFocusPanelInner({
       <ModuleRulesStrip rules={rulesByKey.get(selectedModule)} />
 
       <div className="min-h-0 flex-1">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={focusNodeTypes}
-          fitView
-          fitViewOptions={FIT_VIEW_OPTIONS}
-          minZoom={0.1}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          zoomOnDoubleClick={false}
-          onPaneClick={() => onSelectModule(null)}
-          onPaneContextMenu={(event) => {
-            event.preventDefault();
-            onToggleTransitive();
-          }}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background color="var(--border)" gap={20} />
-        </ReactFlow>
+        <FocusHoverContext.Provider value={hoverNeighborhood}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={focusNodeTypes}
+            fitView
+            fitViewOptions={FIT_VIEW_OPTIONS}
+            minZoom={0.1}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            zoomOnDoubleClick={false}
+            onPaneClick={() => onSelectModule(null)}
+            onPaneContextMenu={(event) => {
+              event.preventDefault();
+              onToggleTransitive();
+            }}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background color="var(--border)" gap={20} />
+          </ReactFlow>
+        </FocusHoverContext.Provider>
       </div>
     </div>
   );
@@ -285,6 +315,15 @@ function ModuleRulesStrip({ rules }: { rules: ModuleRules | undefined }) {
   );
 }
 
+/** Hover neighborhood lives in context, not node.data — recreating React Flow
+ *  nodes on every hover causes flicker and swallows clicks. */
+type FocusHoverNeighborhood = {
+  nodeKeys: ReadonlySet<string>;
+  edgeIds: ReadonlySet<string>;
+};
+
+const FocusHoverContext = createContext<FocusHoverNeighborhood | null>(null);
+
 type FocusNodeData = {
   node: FocusNode;
   isOpaque: boolean;
@@ -306,10 +345,16 @@ function FocusModuleNode({ data }: NodeProps<Node<FocusNodeData>>) {
     onHighlightModule,
     onHoverModule,
   } = data;
+  const hoverNeighborhood = useContext(FocusHoverContext);
+  const isHoverDimmed =
+    hoverNeighborhood !== null && !hoverNeighborhood.nodeKeys.has(node.key);
   const isCenter = node.direction === 'center';
 
   return (
-    <div style={{ opacity: node.opacity }}>
+    <div
+      className="transition-opacity"
+      style={{ opacity: node.opacity * (isHoverDimmed ? 0.3 : 1) }}
+    >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
       <button
         type="button"
