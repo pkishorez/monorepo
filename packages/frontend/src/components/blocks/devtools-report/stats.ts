@@ -6,8 +6,6 @@ export interface DepcruiseStats {
   readonly modules: number;
   readonly violations: number;
   readonly coverageGaps: number;
-  /** No layer violations. */
-  readonly clean: boolean;
 }
 
 /** Summarise a {@link DepcruiseVizData} payload's architecture health. */
@@ -20,6 +18,5 @@ export function depcruiseStats(data: DepcruiseVizData): DepcruiseStats {
     modules: summary?.moduleCoverage.length ?? 0,
     violations,
     coverageGaps: summary?.coverageGaps.length ?? 0,
-    clean: violations === 0,
   };
 }
