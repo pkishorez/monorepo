@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { cn } from '#lib/utils';
 
-import { ROLE_TITLE, ROLE_WASH } from '../../model';
+import { ROLE_WASH } from '../../model';
 import {
   moduleTreeKeys,
   type ModuleFolderNode,
@@ -199,17 +199,6 @@ function LeafRow({
   return (
     <button
       type="button"
-      title={`${module.layer} / ${module.name || '(layer root)'}${
-        isOpaqueModule ? ' · opaque' : ''
-      }${
-        module.ruleCount > 0
-          ? ` · ${module.ruleCount} rule${module.ruleCount === 1 ? '' : 's'}`
-          : ''
-      }${role !== 'normal' ? ` · ${ROLE_TITLE[role]}` : ''}${
-        isBreached
-          ? ` · ${breachCount} violation${breachCount === 1 ? '' : 's'}`
-          : ''
-      } — click to highlight · right-click to select`}
       onClick={(event) => {
         event.stopPropagation();
         onHighlightModule(key);
