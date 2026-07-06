@@ -3,6 +3,11 @@ import { MarkerType } from '@xyflow/react';
 
 import type { VisualizationConfig, VizSummary } from '../../model';
 import { buildLayerModel, scopedLayer } from '../../model/layer-model';
+import {
+  INCOMING_EDGE_COLOR,
+  LEGAL_EDGE_COLOR,
+  OUTGOING_EDGE_COLOR,
+} from '../edge-colors';
 
 export type HandleOffset = {
   stackName: string;
@@ -37,7 +42,8 @@ const HEADER_HEIGHT = 30;
 const HEADER_GAP = 16;
 const ROW_GAP = 60;
 const COL_GAP = 140;
-const EDGE_COLOR = '#94a3b8';
+const SIBLING_GAP = 40;
+const EDGE_COLOR = LEGAL_EDGE_COLOR;
 const VIOLATION_EDGE_COLOR = '#ef4444';
 
 export type SelectedViolation = { from: string; to: string };
@@ -113,17 +119,43 @@ export function computeLayerLayout(
     layers: s.layers.map((l) => scopedLayer(undefined, l.name)),
   }));
 
-  const stackCenterX = new Map<string, number>();
-  for (let i = 0; i < stackColumns.length; i++) {
-    stackCenterX.set(stackColumns[i]!.name, i * (LAYER_NODE_WIDTH + COL_GAP));
-  }
-
   // Per-layer level from layerModel slot index, keyed by layer identity.
   const levelByLayer = new Map<string, number>();
   for (const slot of layerModel.slots) {
     for (const section of slot.sections) {
       levelByLayer.set(section.key, slot.index);
     }
+  }
+
+  // Non-shared layers of one stack that land on the same level are siblings;
+  // they spread horizontally around the stack's center column.
+  const siblingGroups = new Map<string, Map<number, string[]>>();
+  for (const stack of config.stacks) {
+    const byLevel = new Map<number, string[]>();
+    siblingGroups.set(stack.name, byLevel);
+    for (const layer of stack.layers) {
+      const key = scopedLayer(undefined, layer.name);
+      if (shared.has(key)) continue;
+      const level = levelByLayer.get(key)!;
+      const group = byLevel.get(level);
+      if (group) group.push(key);
+      else byLevel.set(level, [key]);
+    }
+  }
+
+  // Columns are spaced cumulatively so a stack wide with siblings does not
+  // overlap its neighbor.
+  const stackCenterX = new Map<string, number>();
+  let nextX = 0;
+  for (const stack of config.stacks) {
+    const maxSiblings = Math.max(
+      1,
+      ...[...siblingGroups.get(stack.name)!.values()].map((g) => g.length),
+    );
+    const stackWidth =
+      maxSiblings * LAYER_NODE_WIDTH + (maxSiblings - 1) * SIBLING_GAP;
+    stackCenterX.set(stack.name, nextX + (stackWidth - LAYER_NODE_WIDTH) / 2);
+    nextX += stackWidth + COL_GAP;
   }
 
   const yOffset = HEADER_HEIGHT + HEADER_GAP;
@@ -133,14 +165,17 @@ export function computeLayerLayout(
 
   for (const stack of config.stacks) {
     const cx = stackCenterX.get(stack.name)!;
-    for (const layer of stack.layers) {
-      const key = scopedLayer(undefined, layer.name);
-      if (!shared.has(key) && !positions.has(key)) {
-        positions.set(key, {
-          x: cx,
-          y: yOffset + levelByLayer.get(key)! * (NODE_HEIGHT + ROW_GAP),
-        });
-      }
+    for (const [level, keys] of siblingGroups.get(stack.name)!) {
+      keys.forEach((key, i) => {
+        if (!positions.has(key)) {
+          positions.set(key, {
+            x:
+              cx +
+              (i - (keys.length - 1) / 2) * (LAYER_NODE_WIDTH + SIBLING_GAP),
+            y: yOffset + level * (NODE_HEIGHT + ROW_GAP),
+          });
+        }
+      });
     }
   }
 
@@ -177,9 +212,9 @@ export function computeLayerLayout(
   const hierarchyEdges: PerStackEdge[] = [];
 
   for (const stack of config.stacks) {
-    for (let i = 0; i < stack.layers.length - 1; i++) {
-      const fromKey = scopedLayer(undefined, stack.layers[i]!.name);
-      const toKey = scopedLayer(undefined, stack.layers[i + 1]!.name);
+    for (const edge of stack.edges) {
+      const fromKey = scopedLayer(undefined, edge.from);
+      const toKey = scopedLayer(undefined, edge.to);
       hierarchyEdges.push({
         stackName: stack.name,
         from: fromKey,
@@ -261,23 +296,34 @@ export function computeLayerLayout(
 
   const edges: Edge[] = hierarchyEdges.map((e) => {
     const edgeId = `${e.stackName}:${e.from}->${e.to}`;
+    const fromName = layerMeta.get(e.from)?.name ?? e.from;
+    const toName = layerMeta.get(e.to)?.name ?? e.to;
+    // An edge leaving an active layer is outgoing; one arriving is incoming.
+    const isOutgoing = activeLayers.has(fromName);
+    const isIncoming = activeLayers.has(toName);
+    const color = isOutgoing
+      ? OUTGOING_EDGE_COLOR
+      : isIncoming
+        ? INCOMING_EDGE_COLOR
+        : EDGE_COLOR;
+    const isHighlighted = isOutgoing || isIncoming;
     return {
       id: edgeId,
       source: e.from,
       target: e.to,
       sourceHandle: e.sourceHandle,
       targetHandle: e.targetHandle,
-      type: 'smoothstep',
+      type: 'default',
       markerEnd: {
         type: MarkerType.ArrowClosed,
         width: 14,
         height: 14,
-        color: EDGE_COLOR,
+        color,
       },
       style: {
-        stroke: EDGE_COLOR,
-        strokeWidth: 1.5,
-        opacity: hasSelection ? dimmedOpacity : 1,
+        stroke: color,
+        strokeWidth: isHighlighted ? 2 : 1.5,
+        opacity: hasSelection && !isHighlighted ? dimmedOpacity : 1,
       },
     };
   });
@@ -292,7 +338,7 @@ export function computeLayerLayout(
         target: to,
         sourceHandle: 'violation-source',
         targetHandle: 'violation-target',
-        type: 'smoothstep',
+        type: 'default',
         animated: true,
         markerEnd: {
           type: MarkerType.ArrowClosed,

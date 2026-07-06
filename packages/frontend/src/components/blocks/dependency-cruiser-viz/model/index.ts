@@ -1,22 +1,19 @@
 export type {
   DepcruiseVizData,
-  FeatureClosureViolation,
   LayerConflict,
   ModuleEdge,
+  ModuleOverlap,
+  ModuleRules,
+  ModuleViolation,
   VisualizationConfig,
   VizSummary,
 } from './types';
-export { allModules, moduleFiles, moduleKey, type ModuleNode } from './modules';
 export {
-  featureFiles,
-  featureFileSets,
-  featureFocus,
-  type FeatureFocus,
-} from './features';
-export { featureRules, type FeatureRules } from './feature-rules';
-export {
-  featureModuleGraph,
-  moduleFamily,
-  type FeatureModuleGraph,
-  type FeatureModuleGraphEdge,
-} from './module-graph';
+  allModules,
+  describeRules,
+  moduleFiles,
+  moduleKey,
+  type ModuleNode,
+  type ModuleRole,
+} from './modules';
+export { ROLE_SWATCH, ROLE_TITLE, ROLE_WASH } from './role-color';

@@ -2,15 +2,15 @@ import type { VizSummary } from '../../model';
 import type { FileStatus, FileTreeNode } from './file-tree-types';
 
 /** Which coverage axis the tree classifies files against. */
-export type CoverageMode = 'layers' | 'features';
+export type CoverageMode = 'layers' | 'modules';
 
 /**
  * Classify every scanned file as covered / orphan / ignored against the active
  * coverage axis:
  * - `layers`: covered = inside a declared layer; orphan = matches no layer.
- * - `features`: covered = claimed by a declared module; orphan = everything else
+ * - `modules`: covered = claimed by a declared module; orphan = everything else
  *   that isn't ignored (layer files in no module — the coverage gaps — plus files
- *   in no layer at all). This makes the Features tab a true module-coverage tree.
+ *   in no layer at all). This makes the Modules tab a true module-coverage tree.
  *
  * `ignored` always wins (ignored files never count toward either axis).
  */
@@ -20,7 +20,7 @@ export function computeFileStatuses(
 ): Map<string, FileStatus> {
   const statuses = new Map<string, FileStatus>();
 
-  if (mode === 'features') {
+  if (mode === 'modules') {
     const moduleCovered = new Set<string>();
     for (const m of summary.moduleCoverage) {
       for (const f of m.files) moduleCovered.add(f);

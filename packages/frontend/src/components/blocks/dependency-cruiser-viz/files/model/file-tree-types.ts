@@ -1,6 +1,10 @@
 import type { TreeViewElement } from '#components/ui/file-tree';
 
-import type { FeatureClosureViolation, LayerConflict } from '../../model';
+import type {
+  LayerConflict,
+  ModuleOverlap,
+  ModuleViolation,
+} from '../../model';
 
 export type FileStatus = 'covered' | 'orphan' | 'ignored';
 
@@ -39,36 +43,36 @@ export type CoverageStatItem = {
 
 export type FileTreeViewModel = {
   title: string;
-  selectedFeature: string | null;
   stats: CoverageStatItem[];
   violations: ViolationItem[];
   /** Active (selected/hovered) layer; dims violation rows not touching it. */
   activeLayer: string | null;
-  /** Feature closure violations (static list, shown in the sidebar). */
-  closureViolations: FeatureClosureViolation[];
   /** Overlapping layer-pattern conflicts (static list, shown in the sidebar). */
   conflicts: LayerConflict[];
+  /** Hierarchical (nested) module declarations — shown as violations on the
+   * Modules tab, where modules must be exhaustive and mutually exclusive. */
+  moduleOverlaps: ModuleOverlap[];
+  /** Cross-module imports breaking a declared module rule — shown as
+   * violations on the Modules tab. */
+  moduleViolations: ModuleViolation[];
   tree: FileTreeNode[];
   treeKey: string;
   /**
-   * Union of {@link ownedFiles} and {@link consumedFiles} — the full set a
-   * feature (or layer) reaches. Drives folder containment and row dimming so a
-   * file outside the selection is faded regardless of tier.
+   * The full set a selected module (or layer) reaches. Drives folder
+   * containment and row dimming so a file outside the selection is faded.
    */
   highlightedFiles: Set<string> | null;
   /**
-   * The set the file-tree "focus" toggle prunes to. Normally equal to
-   * {@link highlightedFiles}, but when a module is co-selected on top of a
-   * feature it stays the FEATURE's full reach — so focusing keeps the whole
-   * feature visible while {@link highlightedFiles}/{@link ownedFiles} narrow to
-   * the selected module. Null when nothing is highlighting.
-   */
-  focusScopeFiles: Set<string> | null;
-  /**
-   * Files of the selected feature's member modules, or a selected layer's files.
-   * Rendered with the primary highlight. Null when nothing is selected.
+   * Files of the selected module (the one owning the graph), or a selected
+   * layer's files. Rendered with the primary emphasis. Null when nothing is
+   * selected.
    */
   ownedFiles: Set<string> | null;
+  /**
+   * Files of the highlighted module (left-click pointer). Rendered with a
+   * secondary emphasis, distinguishable from {@link ownedFiles}.
+   */
+  highlightedModuleFiles: Set<string> | null;
   /**
    * Files inside a declared layer but in no declared module (coverage gaps),
    * shown distinctly so they can be promoted into a module.
@@ -79,6 +83,8 @@ export type FileTreeViewModel = {
   configuredPaths: Set<string>;
   /** Module folder ids — used for color-coding and collapse-to-module. */
   modulePaths: Set<string>;
+  /** Rules configured per module path — shown as a count beside the row. */
+  ruleCountByPath: Map<string, number>;
   /** Layer folder ids — used for color-coding. */
   layerPaths: Set<string>;
   sortOrder: Map<string, number>;

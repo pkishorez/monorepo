@@ -1,7 +1,7 @@
 import {
-  feature,
+  edge,
   layer,
-  layersTopDown,
+  layerGraph,
   module,
   type ProjectConfig,
 } from 'depcruise-viz';
@@ -20,40 +20,18 @@ const types = layer('types', ['src/types.ts'], {
   description: 'Shared type foundation',
 });
 
-// types.ts is shared: named by all three features (emergent — no marker on the module).
-// The module name is "types.ts" because the module is declared at the layer's own path
-// (src/types.ts == layer path), so the name falls back to the basename.
-const authoring = feature('authoring', {
-  root: 'authoring',
-  modules: ['authoring', 'types.ts'],
-  description: 'Public config DSL builders',
-});
-const compile = feature('compile', {
-  root: 'compile',
-  modules: ['compile', 'types.ts'],
-  description:
-    'Config → dependency-cruiser/visualization config + ordering validation',
-});
-const analyze = feature('analyze', {
-  root: 'analyze',
-  modules: ['analyze', 'types.ts'],
-  description: 'Post-cruise result summarisation',
-});
-
 export default {
   rootDir: 'src',
   // src/index.ts and src/node.ts are package-entry re-export barrels; not domain modules.
   ignore: ['src/index.ts', 'src/node.ts'],
-  rules: [layersTopDown('depcruise-viz', [cli, core, types])],
-  features: [authoring, compile, analyze],
+  rules: [layerGraph('depcruise-viz', [edge(cli, core), edge(core, types)])],
   modules: [
     module('src/authoring'),
     module('src/compile'),
     module('src/analyze'),
-    // types is shared by all three features — emergent sharing, no marker needed.
     module('src/types.ts'),
-    // cli and cruise are wiring barrels: their out-edges are exempt from closure.
-    module('src/cli', { barrel: true }),
-    module('src/cruise', { barrel: true }),
+    // cli and cruise are wiring: treated as opaque leaves.
+    module('src/cli', { opaque: true }),
+    module('src/cruise', { opaque: true }),
   ],
 } satisfies ProjectConfig;

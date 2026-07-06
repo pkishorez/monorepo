@@ -2,17 +2,16 @@ import { describe, expect, test } from 'vitest';
 
 import { lintPasses } from '../src/cli/run.js';
 
-const empty = { violations: [], closureViolations: [] };
-
 describe('lintPasses', () => {
-  test('returns true when both arrays are empty', () => {
-    expect(lintPasses(empty)).toBe(true);
+  test('returns true when there are no violations', () => {
+    expect(
+      lintPasses({ violations: [], moduleOverlaps: [], moduleViolations: [] }),
+    ).toBe(true);
   });
 
   test('returns false when layer violations exist', () => {
     expect(
       lintPasses({
-        ...empty,
         violations: [
           {
             from: 'ui',
@@ -23,42 +22,45 @@ describe('lintPasses', () => {
             severity: 'error',
           },
         ],
+        moduleOverlaps: [],
+        moduleViolations: [],
       }),
     ).toBe(false);
   });
 
-  test('returns false when closure violations exist', () => {
+  test('returns false when module declarations overlap', () => {
     expect(
       lintPasses({
-        ...empty,
-        closureViolations: [
+        violations: [],
+        moduleOverlaps: [
           {
-            reason: 'unclaimed-edge',
-            feature: 'A',
-            fromModule: 'x',
-            toModule: 'w',
-            detail: 'x → w not claimed by any feature',
+            outerPath: 'src/routes/dev',
+            outerLayer: 'routes',
+            outerName: 'dev',
+            innerPath: 'src/routes/dev/components',
+            innerLayer: 'routes',
+            innerName: 'dev/components',
           },
         ],
+        moduleViolations: [],
       }),
     ).toBe(false);
   });
 
-  test('returns false when both violation types exist', () => {
+  test('returns false when module rules are violated', () => {
     expect(
       lintPasses({
-        violations: [
+        violations: [],
+        moduleOverlaps: [],
+        moduleViolations: [
           {
+            module: 'db',
+            rule: 'root',
             from: 'ui',
-            to: 'data',
-            fromFile: 'a.ts',
-            toFile: 'b.ts',
-            rule: 'r',
-            severity: 'error',
+            to: 'db',
+            fromFile: 'src/ui/index.ts',
+            toFile: 'src/db/index.ts',
           },
-        ],
-        closureViolations: [
-          { reason: 'multi-root', feature: 'B', detail: 'multiple roots' },
         ],
       }),
     ).toBe(false);

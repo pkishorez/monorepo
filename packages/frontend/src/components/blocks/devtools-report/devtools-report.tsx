@@ -131,7 +131,7 @@ function DepcruiseTabBadge({ stats }: { stats: DepcruiseStats }) {
   if (stats.clean) {
     return <StatusCount tone="ok" icon={CheckIcon} />;
   }
-  const issues = stats.violations + stats.breaches;
+  const issues = stats.violations;
   return (
     <StatusCount tone="danger" icon={TriangleAlertIcon}>
       {issues}

@@ -1,7 +1,7 @@
 import {
-  feature,
+  edge,
   layer,
-  layersTopDown,
+  layerGraph,
   module,
   toVisualizationConfig,
   type VizSummary,
@@ -9,7 +9,13 @@ import {
 
 import { DependencyCruiserViz } from './dependency-cruiser-viz';
 
-const backend = layersTopDown('backend', [
+const chain = (name: string, layers: ReturnType<typeof layer>[]) =>
+  layerGraph(
+    name,
+    layers.slice(1).map((l, i) => edge(layers[i]!, l)),
+  );
+
+const backend = chain('backend', [
   layer('server', ['src/server'], {
     description: 'HTTP handlers & entry point',
   }),
@@ -18,19 +24,14 @@ const backend = layersTopDown('backend', [
   layer('domain', ['src/domain']),
 ]);
 
-const frontend = layersTopDown('frontend', [
+const frontend = chain('frontend', [
   layer('routes', ['src/routes'], { description: 'Page-level UI components' }),
   layer('domain', ['src/domain']),
 ]);
 
 const simpleConfig = toVisualizationConfig({
   rootDir: 'src',
-  rules: [
-    layersTopDown('app', [
-      layer('ui', ['src/ui']),
-      layer('core', ['src/core']),
-    ]),
-  ],
+  rules: [chain('app', [layer('ui', ['src/ui']), layer('core', ['src/core'])])],
 });
 
 const fullConfig = toVisualizationConfig({
@@ -38,41 +39,21 @@ const fullConfig = toVisualizationConfig({
   rules: [backend, frontend],
 });
 
-const fullConfigWithFeatures = toVisualizationConfig({
+const fullConfigWithModules = toVisualizationConfig({
   rootDir: 'src',
   rules: [backend, frontend],
-  features: [
-    feature('auth', {
-      root: 'server::auth',
-      modules: ['server::auth', 'services::auth', 'types', 'logger'],
-      description: 'Authentication & session management',
-    }),
-    feature('orders', {
-      root: 'pipeline',
-      modules: ['pipeline', 'workflow', 'order', 'types'],
-      description: 'Order processing pipeline',
-    }),
-    feature('shared', {
-      root: 'types',
-      modules: ['types', 'logger', 'user'],
-      description: 'Shared utilities and cross-cutting concerns',
-    }),
-    feature('dashboard', {
-      root: 'otel',
-      modules: ['otel', 'otel/internal'],
-      description: 'Observability dashboard routes',
-    }),
-  ],
   modules: [
     module('src/server/auth'),
     module('src/services/auth'),
     module('src/orchestrator/pipeline'),
     module('src/orchestrator/workflow'),
     module('src/domain/order'),
-    module('src/domain/types'),
-    module('src/domain/logger', { barrel: true }),
+    module('src/domain/types', { rules: { root: true } }),
+    module('src/domain/logger', { opaque: true }),
     module('src/domain/user'),
-    module('src/routes/otel'),
+    module('src/routes/otel', {
+      rules: { onlyImports: ['src/routes/otel/internal'] },
+    }),
     module('src/routes/otel/internal'),
   ],
 });
@@ -148,12 +129,12 @@ const fullSummary: VizSummary = {
   coverageGaps: [],
   emptyModules: [],
   conflicts: [],
+  moduleOverlaps: [],
   moduleEdges: [],
-  featureGraphs: [],
-  closureViolations: [],
+  moduleViolations: [],
 };
 
-const fullSummaryWithFeatures: VizSummary = {
+const fullSummaryWithModules: VizSummary = {
   ...fullSummary,
   moduleCoverage: [
     {
@@ -217,8 +198,19 @@ const fullSummaryWithFeatures: VizSummary = {
       pathB: 'src/routes',
     },
   ],
+  moduleOverlaps: [
+    {
+      outerPath: 'src/routes/otel',
+      outerLayer: 'routes',
+      outerName: 'otel',
+      innerPath: 'src/routes/otel/internal',
+      innerLayer: 'routes',
+      innerName: 'otel/internal',
+    },
+  ],
+  // Enough edges to exercise the focus view: `types` has consumers two hops
+  // up (pipeline → workflow → order → types) and `auth` chains across layers.
   moduleEdges: [
-    // auth's internal slice.
     {
       fromLayer: 'server',
       fromModule: 'auth',
@@ -231,6 +223,13 @@ const fullSummaryWithFeatures: VizSummary = {
       fromModule: 'auth',
       toLayer: 'domain',
       toModule: 'types',
+      kind: 'breach',
+    },
+    {
+      fromLayer: 'services',
+      fromModule: 'auth',
+      toLayer: 'domain',
+      toModule: 'user',
       kind: 'legal',
     },
     {
@@ -240,7 +239,6 @@ const fullSummaryWithFeatures: VizSummary = {
       toModule: 'logger',
       kind: 'legal',
     },
-    // orders' internal slice.
     {
       fromLayer: 'orchestrator',
       fromModule: 'pipeline',
@@ -260,100 +258,69 @@ const fullSummaryWithFeatures: VizSummary = {
       fromModule: 'order',
       toLayer: 'domain',
       toModule: 'types',
+      kind: 'breach',
+    },
+    {
+      fromLayer: 'routes',
+      fromModule: 'otel',
+      toLayer: 'orchestrator',
+      toModule: 'pipeline',
+      kind: 'breach',
+    },
+    {
+      fromLayer: 'routes',
+      fromModule: 'otel',
+      toLayer: 'routes',
+      toModule: 'otel/internal',
       kind: 'legal',
     },
   ],
-  featureGraphs: [
+  moduleViolations: [
     {
-      feature: 'auth',
-      root: 'server::auth',
-      nodes: [
-        'server::auth',
-        'services::auth',
-        'domain::types',
-        'domain::logger',
-      ],
-      edges: [
-        { from: 'server::auth', to: 'services::auth', kind: 'legal' },
-        { from: 'services::auth', to: 'domain::types', kind: 'legal' },
-        { from: 'server::auth', to: 'domain::logger', kind: 'legal' },
-      ],
-    },
-    {
-      feature: 'orders',
-      root: 'orchestrator::pipeline',
-      nodes: [
-        'orchestrator::pipeline',
-        'orchestrator::workflow',
-        'domain::order',
-        'domain::types',
-      ],
-      edges: [
-        {
-          from: 'orchestrator::pipeline',
-          to: 'orchestrator::workflow',
-          kind: 'legal',
-        },
-        { from: 'orchestrator::workflow', to: 'domain::order', kind: 'legal' },
-        { from: 'domain::order', to: 'domain::types', kind: 'legal' },
-      ],
-    },
-    {
-      feature: 'shared',
-      root: 'domain::types',
-      nodes: ['domain::types', 'domain::logger', 'domain::user'],
-      edges: [],
-    },
-    {
-      feature: 'dashboard',
-      root: 'routes::otel',
-      nodes: ['routes::otel', 'routes::otel/internal'],
-      edges: [
-        { from: 'routes::otel', to: 'orchestrator::pipeline', kind: 'breach' },
-      ],
-    },
-  ],
-  closureViolations: [
-    {
-      reason: 'closure-escape',
-      feature: 'auth',
-      fromModule: 'services::auth',
-      toModule: 'domain::user',
+      module: 'types',
+      rule: 'root',
+      from: 'auth',
+      to: 'types',
       fromFile: 'src/services/auth.ts',
-      toFile: 'src/domain/user.ts',
-      detail: 'auth imports domain::user which is not a declared member',
+      toFile: 'src/domain/types.ts',
     },
     {
-      reason: 'closure-escape',
-      feature: 'dashboard',
-      fromModule: 'routes::otel',
-      toModule: 'orchestrator::pipeline',
+      module: 'types',
+      rule: 'root',
+      from: 'order',
+      to: 'types',
+      fromFile: 'src/domain/order.ts',
+      toFile: 'src/domain/types.ts',
+    },
+    {
+      module: 'otel',
+      rule: 'onlyImports',
+      from: 'otel',
+      to: 'pipeline',
       fromFile: 'src/routes/otel/panel.tsx',
       toFile: 'src/orchestrator/pipeline.ts',
-      detail:
-        'dashboard imports orchestrator::pipeline which is not a declared member',
     },
   ],
 };
 
 // Grouped config: multiple independent stacks.
-const dynamodbStack = layersTopDown('dynamodb', [
+const dynamodbStack = chain('dynamodb', [
   layer('dynamodb-barrel', ['src/db/dynamodb/index.ts']),
   layer('services', ['src/db/dynamodb/services']),
   layer('internal', ['src/db/dynamodb/internal']),
 ]);
 
-const sqliteStack = layersTopDown('sqlite', [
+const sqliteStack = chain('sqlite', [
   layer('sqlite-barrel', ['src/db/sqlite/index.ts']),
   layer('sqlite-impl', ['src/db/sqlite/impl']),
 ]);
 
-const apiStack = layersTopDown('api', [
+const apiStack = chain('api', [
   layer('routes', ['src/api/routes']),
   layer('internal', ['src/api/internal']),
 ]);
 
-const ungroupedStack = layersTopDown('scripts', [
+const ungroupedStack = chain('scripts', [
   layer('cli', ['src/scripts/cli']),
   layer('lib', ['src/scripts/lib']),
 ]);
@@ -362,6 +329,26 @@ const groupedConfig = toVisualizationConfig({
   rootDir: 'src',
   rules: [dynamodbStack, sqliteStack, apiStack, ungroupedStack],
 });
+
+// Diamond: server → {entrypoints, routes} → components → lib.
+const diamondConfig = (() => {
+  const server = layer('server', ['src/server']);
+  const entrypoints = layer('entrypoints', ['src/entrypoints']);
+  const routes = layer('routes', ['src/routes']);
+  const components = layer('components', ['src/components']);
+  const lib = layer('lib', ['src/lib']);
+  return toVisualizationConfig({
+    rootDir: 'src',
+    rules: [
+      layerGraph('frontend', [
+        edge(server, [entrypoints, routes]),
+        edge(entrypoints, components),
+        edge(routes, components),
+        edge(components, lib),
+      ]),
+    ],
+  });
+})();
 
 const fullHeight = (node: React.ReactNode) => (
   <div className="h-svh">{node}</div>
@@ -375,11 +362,12 @@ export default {
   full: fullHeight(
     <DependencyCruiserViz config={fullConfig} summary={fullSummary} />,
   ),
-  'with-features': fullHeight(
+  'with-modules': fullHeight(
     <DependencyCruiserViz
-      config={fullConfigWithFeatures}
-      summary={fullSummaryWithFeatures}
+      config={fullConfigWithModules}
+      summary={fullSummaryWithModules}
     />,
   ),
   grouped: fullHeight(<DependencyCruiserViz config={groupedConfig} />),
+  diamond: fullHeight(<DependencyCruiserViz config={diamondConfig} />),
 };

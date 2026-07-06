@@ -10,47 +10,60 @@ export type Layer = {
   readonly config: LayerConfig;
 };
 
-export type LayerStackConfig = {
+export type LayerGraphConfig = {
   description?: string;
 };
 
-export type LayerStack = {
-  readonly kind: 'layer-stack';
+/** A directed allowed-dependency edge between two layers. */
+export type LayerEdge = {
+  readonly from: Layer;
+  readonly to: Layer;
+};
+
+/** A DAG of layers. An import from layer A to layer B is allowed iff a
+ * directed path A -> ... -> B exists; every other ordered pair is forbidden,
+ * so layers with no path between them are mutually independent siblings. */
+export type LayerGraph = {
+  readonly kind: 'layer-graph';
   readonly name: string;
   readonly layers: readonly Layer[];
-  readonly config: LayerStackConfig;
+  readonly edges: readonly LayerEdge[];
+  readonly config: LayerGraphConfig;
 };
 
-/** A declared module: a folder in exactly one layer. `barrel` marks re-export
- * fan-out points that are exempt from closure/coverage enforcement. */
+/** Enforced constraints on a module's edges in the declared-module graph.
+ * `root` (no module may import this) is sugar for `onlyImportedBy: []`;
+ * `leaf` (this module may import no module) is sugar for `onlyImports: []`.
+ * Set entries reference other declared modules by path. Imports of files
+ * outside every declared module (and node_modules) are out of scope. */
+export type ModuleRules = {
+  readonly root?: true;
+  readonly leaf?: true;
+  readonly onlyImports?: readonly string[];
+  readonly onlyImportedBy?: readonly string[];
+};
+
+export type ModuleRuleName = keyof ModuleRules;
+
+/** A declared module: a single folder or file in exactly one layer. `name`
+ * overrides the path-derived display name. `opaque` marks the module as a
+ * barrel: its files still count for coverage and layer checks, but its
+ * outgoing module edges are not analyzed. `rules` are enforced constraints
+ * checked against the module graph. */
 export type ModuleDecl = {
   readonly path: string;
-  readonly barrel: boolean;
+  readonly name?: string;
+  readonly opaque: boolean;
+  readonly rules?: ModuleRules;
 };
 
-/** A declared feature: a rooted DAG of module references spanning layers from
- * a single root downward. Membership is declarative, not inferred. */
-export type Feature = {
-  readonly kind: 'feature';
-  readonly name: string;
-  /** The single root (entry point) of this feature, as a bare module name or a
-   * qualified `layer::name` reference. Must appear verbatim in `modules`. */
-  readonly root: string;
-  /** All modules belonging to this feature, including `root`. Each is a bare
-   * module name (allowed only when unique across layers) or a qualified
-   * `layer::name` reference; resolved to `layer::name` keys at compile time. */
-  readonly modules: readonly string[];
-  readonly config: { description?: string };
-};
-
-export type Rule = LayerStack;
+export type Rule = LayerGraph;
 
 export type ProjectConfig = {
   rootDir: string;
   ignore?: string[];
   rules: Rule[];
   modules?: ModuleDecl[];
-  features?: Feature[];
 };
 
 export type VisualizationConfig = {
@@ -64,26 +77,21 @@ export type VisualizationConfig = {
       paths: string[];
       description?: string;
     }>;
+    /** Transitive reduction of the authored DAG — the minimal edge set. */
+    edges: Array<{ from: string; to: string }>;
     allowedImports: Array<{ from: string; to: string }>;
-  }>;
-  features?: Array<{
-    name: string;
-    description?: string;
-    /** Resolved `layer::name` key of the feature root. */
-    root: string;
-    /** Resolved `layer::name` keys of the feature's members, including `root`. */
-    modules: string[];
   }>;
   modules?: Array<{
     path: string;
     name: string;
     layer: string;
-    barrel: boolean;
+    opaque: boolean;
+    rules?: ModuleRules;
   }>;
 };
 
 /** A layer-ordering violation: `fromFile` (in layer `from`) imports `toFile`
- * (in layer `to`) against the stack's top-down ordering. */
+ * (in layer `to`) with no allowing path in the layer graph. */
 export type LayerViolation = {
   from: string;
   to: string;
@@ -91,6 +99,18 @@ export type LayerViolation = {
   toFile: string;
   rule: string;
   severity: string;
+};
+
+/** A module-rule violation: `fromFile` (in module `from`) imports `toFile`
+ * (in module `to`) against the rule declared on `module`. One violation per
+ * offending file-level edge. */
+export type ModuleViolation = {
+  module: string;
+  rule: ModuleRuleName;
+  from: string;
+  to: string;
+  fromFile: string;
+  toFile: string;
 };
 
 /** Files covered by a declared module. */
@@ -118,22 +138,6 @@ export type LayerConflict = {
   pathB: string;
 };
 
-/** A feature-closure violation produced by lint/analysis. */
-export type FeatureClosureViolation = {
-  reason:
-    | 'unclaimed-edge'
-    | 'closure-escape'
-    | 'multi-root'
-    | 'no-root'
-    | 'uncovered-file';
-  feature?: string;
-  fromModule?: string;
-  toModule?: string;
-  fromFile?: string;
-  toFile?: string;
-  detail: string;
-};
-
 export type VizSummary = {
   violations: LayerViolation[];
   layerOrphanFiles: string[];
@@ -148,18 +152,25 @@ export type VizSummary = {
    * declaration whose files are all owned by a more-specific nested module. */
   emptyModules: Array<{ path: string; layer: string; name: string }>;
   conflicts: LayerConflict[];
+  /** Declared modules whose paths nest inside one another. Modules must be
+   * exhaustive and mutually exclusive, so a hierarchical declaration (e.g.
+   * `dev` and `dev/components`) is a violation: files under the inner module
+   * would be silently split away from the outer one. */
+  moduleOverlaps: ModuleOverlap[];
   moduleEdges: ModuleEdge[];
-  /** Per-feature derived graph: nodes and edges restricted to that feature's
-   * declared member set. Populated by analysis (Task 4). */
-  featureGraphs: Array<{
-    feature: string;
-    root: string;
-    nodes: string[];
-    edges: Array<{ from: string; to: string; kind: 'legal' | 'breach' }>;
-  }>;
-  /** Closure violations detected across all features. Populated by analysis
-   * (Task 4). */
-  closureViolations: FeatureClosureViolation[];
+  /** Cross-module imports that break a declared module rule. */
+  moduleViolations: ModuleViolation[];
+};
+
+/** Two declared modules where `outer`'s path contains `inner`'s, making their
+ * file sets overlap. */
+export type ModuleOverlap = {
+  outerPath: string;
+  outerLayer: string;
+  outerName: string;
+  innerPath: string;
+  innerLayer: string;
+  innerName: string;
 };
 
 export type DependencyCruiserConfig = IFlattenedRuleSet;

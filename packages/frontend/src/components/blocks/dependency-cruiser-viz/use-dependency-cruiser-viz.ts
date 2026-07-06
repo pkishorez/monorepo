@@ -4,20 +4,24 @@ import { getFileTreeViewModel, type FileTreeViewModel } from './files';
 import type { ViolationItem } from './files/model/file-tree-types';
 import type { VisualizationConfig, VizSummary } from './model';
 
-export type CanvasMode = 'layers' | 'features';
+export type CanvasMode = 'layers' | 'modules';
 
 export type DependencyCruiserVizGraphView = {
   config: VisualizationConfig;
   summary?: VizSummary;
   selectedLayer: string | null;
   hoveredLayer: string | null;
-  selectedFeature: string | null;
+  /** Module owning the graph (right-click); null renders the layer grid. */
   selectedModule: string | null;
+  /** Module the file tree points at (left-click); independent of selection. */
+  highlightedModule: string | null;
   selectedViolation: ViolationItem | null;
   canvasMode: CanvasMode;
 };
 
 export type GraphHover = {
+  /** Module key (`layer::name`) of the hovered module. */
+  key: string;
   /** Full folder path of the hovered module (e.g. `src/routes/otel/internal`). */
   modulePath: string;
   /** Full file paths belonging to the hovered module. */
@@ -27,7 +31,7 @@ export type GraphHover = {
 export type DependencyCruiserVizActions = {
   selectLayer: (layer: string | null) => void;
   hoverLayer: (layer: string | null) => void;
-  selectFeature: (feature: string | null) => void;
+  highlightModule: (key: string | null) => void;
   selectModule: (key: string | null) => void;
   selectViolation: (violation: ViolationItem | null) => void;
   hoverGraphModule: (hover: GraphHover | null) => void;
@@ -37,8 +41,8 @@ export type DependencyCruiserVizActions = {
 type State = {
   selectedLayer: string | null;
   hoveredLayer: string | null;
-  selectedFeature: string | null;
   selectedModule: string | null;
+  highlightedModule: string | null;
   selectedViolation: ViolationItem | null;
   hoveredModule: GraphHover | null;
   canvasMode: CanvasMode;
@@ -47,7 +51,7 @@ type State = {
 type Action =
   | { type: 'select-layer'; layer: string | null }
   | { type: 'hover-layer'; layer: string | null }
-  | { type: 'select-feature'; feature: string | null }
+  | { type: 'highlight-module'; key: string | null }
   | { type: 'select-module'; key: string | null }
   | { type: 'select-violation'; violation: ViolationItem | null }
   | { type: 'hover-graph-module'; hover: GraphHover | null }
@@ -56,8 +60,8 @@ type Action =
 const initialState: State = {
   selectedLayer: null,
   hoveredLayer: null,
-  selectedFeature: null,
   selectedModule: null,
+  highlightedModule: null,
   selectedViolation: null,
   hoveredModule: null,
   canvasMode: 'layers',
@@ -75,25 +79,32 @@ export function useDependencyCruiserViz({
   actions: DependencyCruiserVizActions;
 } {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const activeLayer = state.selectedLayer ?? state.hoveredLayer;
+
+  // Hover is a preview gesture: it only applies while nothing is selected.
+  // With a selection (or violation) active, hovering other nodes is inert.
+  const hoveredLayer =
+    state.selectedLayer === null && state.selectedViolation === null
+      ? state.hoveredLayer
+      : null;
+  const activeLayer = state.selectedLayer ?? hoveredLayer;
 
   const graph = useMemo(
     () => ({
       config,
       summary,
       selectedLayer: state.selectedLayer,
-      hoveredLayer: state.hoveredLayer,
-      selectedFeature: state.selectedFeature,
+      hoveredLayer,
       selectedModule: state.selectedModule,
+      highlightedModule: state.highlightedModule,
       selectedViolation: state.selectedViolation,
       canvasMode: state.canvasMode,
     }),
     [
       config,
       state.selectedLayer,
-      state.hoveredLayer,
-      state.selectedFeature,
+      hoveredLayer,
       state.selectedModule,
+      state.highlightedModule,
       state.selectedViolation,
       state.canvasMode,
       summary,
@@ -105,10 +116,10 @@ export function useDependencyCruiserViz({
     [state.hoveredModule],
   );
 
-  // Layer and feature coverage are fully independent axes: the Layers tab only
-  // ever highlights by layer, the Features tab only by feature/module. Neither
-  // selection bleeds into the other tab's file coverage.
-  const isFeatures = state.canvasMode === 'features';
+  // Layer and module coverage are fully independent axes: the Layers tab only
+  // ever highlights by layer, the Modules tab only by module. Neither selection
+  // bleeds into the other tab's file coverage.
+  const isModules = state.canvasMode === 'modules';
 
   const files = useMemo(
     () =>
@@ -116,10 +127,16 @@ export function useDependencyCruiserViz({
         ? getFileTreeViewModel({
             config,
             summary,
-            selectedLayer: isFeatures ? null : activeLayer,
-            selectedFeature: isFeatures ? state.selectedFeature : null,
-            selectedModule: isFeatures ? state.selectedModule : null,
-            coverageMode: isFeatures ? 'features' : 'layers',
+            selectedLayer: isModules ? null : activeLayer,
+            selectedModule: isModules ? state.selectedModule : null,
+            // A hover preview collapses the tree exactly like a click
+            // highlight. The graph panels gate hover behind explicit choices
+            // (grid: none made; focus: highlight still equals selection), so
+            // when a preview exists it is the intended tree pointer.
+            highlightedModule: isModules
+              ? (state.hoveredModule?.key ?? state.highlightedModule)
+              : null,
+            coverageMode: isModules ? 'modules' : 'layers',
             hoveredGraphFiles: hoveredGraphFilesSet,
             hoveredModulePath: state.hoveredModule?.modulePath ?? null,
           })
@@ -127,9 +144,9 @@ export function useDependencyCruiserViz({
     [
       activeLayer,
       config,
-      isFeatures,
-      state.selectedFeature,
+      isModules,
       state.selectedModule,
+      state.highlightedModule,
       hoveredGraphFilesSet,
       state.hoveredModule,
       summary,
@@ -140,7 +157,7 @@ export function useDependencyCruiserViz({
     () => ({
       selectLayer: (layer) => dispatch({ type: 'select-layer', layer }),
       hoverLayer: (layer) => dispatch({ type: 'hover-layer', layer }),
-      selectFeature: (feature) => dispatch({ type: 'select-feature', feature }),
+      highlightModule: (key) => dispatch({ type: 'highlight-module', key }),
       selectModule: (key) => dispatch({ type: 'select-module', key }),
       selectViolation: (violation) =>
         dispatch({ type: 'select-violation', violation }),
@@ -160,24 +177,28 @@ function reducer(state: State, action: Action): State {
       return { ...state, selectedLayer: action.layer, selectedViolation: null };
     case 'hover-layer':
       return { ...state, hoveredLayer: action.layer };
-    case 'select-feature':
+    case 'highlight-module':
+      // Left-click: point the file tree at a module without touching which
+      // module owns the graph. Re-clicking the same module clears it.
       return {
         ...state,
-        selectedFeature: action.feature,
-        selectedModule: null,
+        highlightedModule:
+          state.highlightedModule === action.key ? null : action.key,
         selectedViolation: null,
-        canvasMode: 'features',
+        hoveredModule: null,
+        canvasMode: 'modules',
       };
     case 'select-module':
-      // Module selection layers on top of any selected feature (co-selection):
-      // the feature stays selected so the tree keeps its feature focus while the
-      // highlight narrows to this module. Membership (module ∈ feature) is
-      // enforced at the call sites, not here.
+      // Right-click: the module takes over the graph (radial focus view) and
+      // pulls the highlight (file-tree pointer) along with it. Clearing the
+      // selection (back to the grid) leaves the highlight where it was.
       return {
         ...state,
-        selectedModule: state.selectedModule === action.key ? null : action.key,
+        selectedModule: action.key,
+        highlightedModule: action.key ?? state.highlightedModule,
         selectedViolation: null,
-        canvasMode: 'features',
+        hoveredModule: null,
+        canvasMode: 'modules',
       };
     case 'select-violation': {
       const isSame =
@@ -187,8 +208,8 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         selectedLayer: null,
-        selectedFeature: null,
         selectedModule: null,
+        highlightedModule: null,
         selectedViolation: isSame ? null : action.violation,
         canvasMode: 'layers',
       };
@@ -196,7 +217,11 @@ function reducer(state: State, action: Action): State {
     case 'hover-graph-module':
       return { ...state, hoveredModule: action.hover };
     case 'set-canvas-mode':
-      return { ...state, canvasMode: action.mode };
+      return {
+        ...state,
+        canvasMode: action.mode,
+        selectedModule: action.mode === 'modules' ? state.selectedModule : null,
+      };
   }
 }
 

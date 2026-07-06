@@ -1,6 +1,7 @@
 import type { IRegularForbiddenRuleType } from 'dependency-cruiser';
 
 import type { DependencyCruiserConfig, Rule } from '../types.js';
+import { reachableLayers } from './reachability.js';
 import { validateLayerOrdering } from './validate-layer-ordering.js';
 
 function pathToPattern(p: string): string {
@@ -18,18 +19,18 @@ export function toDependencyCruiserConfig(
 
   for (const rule of rules) {
     const { layers } = rule;
+    const closure = reachableLayers(rule);
 
-    for (let upper = 0; upper < layers.length; upper++) {
-      const upperLayer = layers[upper]!;
+    for (const fromLayer of layers) {
+      for (const toLayer of layers) {
+        if (fromLayer === toLayer) continue;
+        if (closure.get(fromLayer.name)!.has(toLayer.name)) continue;
 
-      for (let lower = upper + 1; lower < layers.length; lower++) {
-        const lowerLayer = layers[lower]!;
-
-        for (const fromPath of lowerLayer.paths) {
-          for (const toPath of upperLayer.paths) {
+        for (const fromPath of fromLayer.paths) {
+          for (const toPath of toLayer.paths) {
             forbidden.push({
-              name: `${rule.name}: ${lowerLayer.name} cannot import ${upperLayer.name}`,
-              comment: `Layer "${lowerLayer.name}" is below "${upperLayer.name}" in stack "${rule.name}"`,
+              name: `${rule.name}: ${fromLayer.name} cannot import ${toLayer.name}`,
+              comment: `No path from "${fromLayer.name}" to "${toLayer.name}" in graph "${rule.name}"`,
               severity: 'error',
               from: { path: pathToPattern(fromPath) },
               to: { path: pathToPattern(toPath) },

@@ -5,27 +5,30 @@ import { ResizablePanel } from '#components/ui/resizable';
 import type {
   CanvasMode,
   DependencyCruiserVizGraphView,
+  GraphHover,
 } from '../use-dependency-cruiser-viz';
-import { FeatureLayersPanel } from './feature-layers';
+import { ModulesPanel } from './modules';
 import { LayerGraphPanel } from './layer';
 
 type GraphPanelProps = {
   view: DependencyCruiserVizGraphView;
-  /** Toggles the shared `selectedFeature` state from the feature graph. */
-  onSelectFeature: (feature: string | null) => void;
-  /** Toggles the shared `selectedModule` state from the feature graph. */
+  /** Toggles the shared `highlightedModule` state from the modules canvas. */
+  onHighlightModule: (key: string | null) => void;
+  /** Selects a module for the radial view (null returns to the grid). */
   onSelectModule: (key: string | null) => void;
   /** Toggles the shared `selectedLayer` state from the layer graph. */
   onSelectLayer?: (layer: string | null) => void;
   /** Sets the hovered layer for the layer graph. */
   onHoverLayer?: (layer: string | null) => void;
+  /** Previews a hovered module's files in the file tree. */
+  onHoverGraphModule?: (hover: GraphHover | null) => void;
   /** Manual override for the canvas tab. */
   onSetCanvasMode: (mode: CanvasMode) => void;
 };
 
 const TAB_LABELS: Record<CanvasMode, string> = {
   layers: 'Layers',
-  features: 'Features',
+  modules: 'Modules',
 };
 
 function ViewModeToggle({
@@ -35,7 +38,7 @@ function ViewModeToggle({
   mode: CanvasMode;
   onChange: (mode: CanvasMode) => void;
 }) {
-  const tabs: CanvasMode[] = ['layers', 'features'];
+  const tabs: CanvasMode[] = ['layers', 'modules'];
   return (
     <div className="absolute left-3 top-3 z-10 flex rounded-md border border-border bg-background/80 p-0.5 shadow-sm backdrop-blur">
       {tabs.map((m) => (
@@ -60,29 +63,31 @@ function ViewModeToggle({
 
 export function GraphPanel({
   view,
-  onSelectFeature,
+  onHighlightModule,
   onSelectModule,
   onSelectLayer,
   onHoverLayer,
+  onHoverGraphModule,
   onSetCanvasMode,
 }: GraphPanelProps) {
-  const hasFeatures = (view.config.features ?? []).length > 0;
+  const hasModules = (view.config.modules ?? []).length > 0;
 
   return (
     <ResizablePanel defaultSize={view.summary ? 70 : 100} minSize={40}>
       <div className="relative h-full w-full">
-        {hasFeatures && (
+        {hasModules && (
           <ViewModeToggle mode={view.canvasMode} onChange={onSetCanvasMode} />
         )}
-        {view.canvasMode === 'features' && hasFeatures ? (
+        {view.canvasMode === 'modules' && hasModules ? (
           <div className="h-full w-full pt-10">
-            <FeatureLayersPanel
+            <ModulesPanel
               config={view.config}
               summary={view.summary}
-              selectedFeature={view.selectedFeature}
               selectedModule={view.selectedModule}
-              onSelectFeature={onSelectFeature}
+              highlightedModule={view.highlightedModule}
               onSelectModule={onSelectModule}
+              onHighlightModule={onHighlightModule}
+              onHoverGraphModule={onHoverGraphModule}
             />
           </div>
         ) : (

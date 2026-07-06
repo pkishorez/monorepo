@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { buildLayerCardGroups, chipKeys } from './layer-cards';
+import { buildModuleTree, moduleTreeKeys } from './layer-cards';
 import type { ModuleNode } from '../modules';
 
 const mod = (
@@ -10,92 +10,102 @@ const mod = (
   key: `routes::${name}`,
   layer: 'routes',
   name,
-  barrel: false,
-  isShared: false,
+  opaque: false,
+  ruleCount: 0,
+  role: 'normal',
   fileCount: 0,
   breachCount: 0,
   isBreached: false,
   ...overrides,
 });
 
-describe('buildLayerCardGroups', () => {
-  it('nests a module under the module whose name prefixes it', () => {
-    const groups = buildLayerCardGroups(
-      [mod('otel'), mod('otel/internal')],
-      new Set(['routes::otel', 'routes::otel/internal']),
-    );
-
-    expect(groups).toHaveLength(1);
-    const [group] = groups;
-    expect(group!.folder).toBeNull();
-    expect(group!.chips).toHaveLength(1);
-    expect(group!.chips[0]!.label).toBe('otel');
-    expect(group!.chips[0]!.children.map((c) => c.label)).toEqual(['internal']);
-  });
-
-  it('nests under the deepest prefixing module', () => {
-    const groups = buildLayerCardGroups(
-      [mod('a'), mod('a/b'), mod('a/b/c')],
+describe('buildModuleTree', () => {
+  it('places top-level (no folder) modules as leaf nodes at the root', () => {
+    const tree = buildModuleTree(
+      [mod('index.tsx'), mod('__root.tsx')],
       new Set(),
     );
-
-    const a = groups[0]!.chips[0]!;
-    expect(a.children.map((c) => c.label)).toEqual(['b']);
-    expect(a.children[0]!.children.map((c) => c.label)).toEqual(['c']);
+    expect(tree.map((n) => n.kind)).toEqual(['module', 'module']);
+    expect(tree.map((n) => (n.kind === 'module' ? n.label : ''))).toEqual([
+      '__root.tsx',
+      'index.tsx',
+    ]);
   });
 
-  it('groups root modules by parent folder with relative labels', () => {
-    const groups = buildLayerCardGroups(
-      [mod('blocks/viz'), mod('blocks/hello'), mod('form')],
+  it('groups modules under a folder placeholder by their path', () => {
+    const tree = buildModuleTree(
+      [mod('dev/components'), mod('dev/forms.tsx'), mod('dev/ui.tsx')],
       new Set(),
     );
-
-    expect(groups.map((g) => g.folder)).toEqual([null, 'blocks']);
-    expect(groups[0]!.chips.map((c) => c.label)).toEqual(['form']);
-    expect(groups[1]!.chips.map((c) => c.label)).toEqual(['hello', 'viz']);
+    expect(tree).toHaveLength(1);
+    const folder = tree[0]!;
+    expect(folder.kind).toBe('folder');
+    if (folder.kind !== 'folder') return;
+    expect(folder.label).toBe('dev');
+    expect(
+      folder.children.map((c) => (c.kind === 'module' ? c.label : '')),
+    ).toEqual(['components', 'forms.tsx', 'ui.tsx']);
   });
 
-  it('does not treat folder prefixes as containment without a module', () => {
-    // No `blocks` module exists, so blocks/viz stays a root chip in a group.
-    const groups = buildLayerCardGroups([mod('blocks/viz')], new Set());
-    expect(groups[0]!.folder).toBe('blocks');
-    expect(groups[0]!.chips[0]!.children).toEqual([]);
-  });
-
-  it('orders declared chips before discovered ones within a group', () => {
-    const groups = buildLayerCardGroups(
-      [mod('alpha'), mod('beta'), mod('gamma')],
-      new Set(['routes::gamma']),
+  it('collapses a single-subfolder chain into one a/b node', () => {
+    const tree = buildModuleTree(
+      [mod('a/b/c'), mod('a/b/file.tsx')],
+      new Set(),
     );
+    expect(tree).toHaveLength(1);
+    const folder = tree[0]!;
+    expect(folder.kind).toBe('folder');
+    if (folder.kind !== 'folder') return;
+    expect(folder.label).toBe('a/b');
+    expect(
+      folder.children.map((c) => (c.kind === 'module' ? c.label : '')),
+    ).toEqual(['c', 'file.tsx']);
+  });
 
-    expect(groups[0]!.chips.map((c) => c.label)).toEqual([
-      'gamma',
-      'alpha',
-      'beta',
+  it('does not collapse a folder that also holds a subfolder', () => {
+    const tree = buildModuleTree(
+      [mod('b/c'), mod('b/file.tsx'), mod('b/d/hello.tsx')],
+      new Set(),
+    );
+    const b = tree[0]!;
+    expect(b.kind).toBe('folder');
+    if (b.kind !== 'folder') return;
+    expect(b.label).toBe('b');
+    // modules first (c, file.tsx), then the subfolder d/
+    expect(b.children.map((c) => c.kind)).toEqual([
+      'module',
+      'module',
+      'folder',
     ]);
-    expect(groups[0]!.chips.map((c) => c.declared)).toEqual([
-      true,
-      false,
-      false,
-    ]);
+    const d = b.children[2]!;
+    expect(d.kind === 'folder' && d.label).toBe('d');
+  });
+
+  it('orders modules before folders, declared modules first', () => {
+    const tree = buildModuleTree(
+      [mod('beta'), mod('alpha'), mod('sub/x')],
+      new Set(['routes::beta']),
+    );
+    expect(
+      tree.map((n) => (n.kind === 'module' ? n.label : `${n.label}/`)),
+    ).toEqual(['beta', 'alpha', 'sub/']);
   });
 
   it('labels a module whose path equals the layer path as (layer root)', () => {
-    const groups = buildLayerCardGroups([mod('')], new Set());
-    expect(groups[0]!.chips[0]!.label).toBe('(layer root)');
+    const tree = buildModuleTree([mod('')], new Set());
+    expect(tree[0]!.kind === 'module' && tree[0]!.label).toBe('(layer root)');
   });
 });
 
-describe('chipKeys', () => {
-  it('returns the chip key and all descendant keys', () => {
-    const groups = buildLayerCardGroups(
-      [mod('a'), mod('a/b'), mod('a/b/c')],
+describe('moduleTreeKeys', () => {
+  it('returns every module key beneath a folder', () => {
+    const tree = buildModuleTree(
+      [mod('a/b/c'), mod('a/b/file.tsx')],
       new Set(),
     );
-    expect(chipKeys(groups[0]!.chips[0]!)).toEqual([
-      'routes::a',
-      'routes::a/b',
+    expect(moduleTreeKeys(tree[0]!).sort()).toEqual([
       'routes::a/b/c',
+      'routes::a/b/file.tsx',
     ]);
   });
 });

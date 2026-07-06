@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { feature, layer, layersTopDown, module } from '../src/index.js';
+import { edge, layer, layerGraph, module } from '../src/index.js';
 import {
   toDependencyCruiserConfig,
   toVisualizationConfig,
@@ -10,21 +10,19 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Minimal ProjectConfig with one stack: handlers → services */
+/** Minimal ProjectConfig with one graph: handlers → services */
 function makeConfig(
   overrides: {
     modules?: ReturnType<typeof module>[];
-    features?: ReturnType<typeof feature>[];
   } = {},
 ) {
   const handlers = layer('handlers', ['src/handlers']);
   const services = layer('services', ['src/services']);
-  const stack = layersTopDown('app', [handlers, services]);
+  const graph = layerGraph('app', [edge(handlers, services)]);
   return {
     rootDir: '.',
-    rules: [stack],
+    rules: [graph],
     ...(overrides.modules !== undefined && { modules: overrides.modules }),
-    ...(overrides.features !== undefined && { features: overrides.features }),
   };
 }
 
@@ -32,14 +30,14 @@ function makeConfig(
 // toVisualizationConfig — modules
 // ---------------------------------------------------------------------------
 
-test('module barrel:true passes through to VisualizationConfig', () => {
+test('module opaque:true passes through to VisualizationConfig', () => {
   const cfg = makeConfig({
-    modules: [module('src/handlers/x', { barrel: true })],
+    modules: [module('src/handlers/x', { opaque: true })],
   });
   const viz = toVisualizationConfig(cfg);
   const m = viz.modules?.find((m) => m.name === 'x');
   expect(m).toBeDefined();
-  expect(m!.barrel).toBe(true);
+  expect(m!.opaque).toBe(true);
   expect(m!.layer).toBe('handlers');
 });
 
@@ -51,7 +49,35 @@ test('module name is derived from path tail below layer path', () => {
   const m = viz.modules?.find((m) => m.name === 'order-items');
   expect(m).toBeDefined();
   expect(m!.layer).toBe('handlers');
-  expect(m!.barrel).toBe(false);
+  expect(m!.opaque).toBe(false);
+});
+
+test('explicit module name overrides the derived name', () => {
+  const cfg = makeConfig({
+    modules: [module('src/handlers/order-items', { name: 'orders' })],
+  });
+  const viz = toVisualizationConfig(cfg);
+  expect(viz.modules?.map((m) => m.name)).toEqual(['orders']);
+});
+
+test('file module keeps its extension in the derived name', () => {
+  const cfg = makeConfig({
+    modules: [module('src/handlers/logger.ts')],
+  });
+  const viz = toVisualizationConfig(cfg);
+  expect(viz.modules?.map((m) => m.name)).toEqual(['logger.ts']);
+});
+
+test('file module declared at exactly the layer path keeps the extension', () => {
+  const handlers = layer('handlers', ['src/handlers']);
+  const types = layer('types', ['src/types.ts']);
+  const cfg = {
+    rootDir: '.',
+    rules: [layerGraph('app', [edge(handlers, types)])],
+    modules: [module('src/types.ts')],
+  };
+  const viz = toVisualizationConfig(cfg);
+  expect(viz.modules?.map((m) => m.name)).toEqual(['types.ts']);
 });
 
 test('module path not under any layer throws', () => {
@@ -71,121 +97,14 @@ test('duplicate module path throws', () => {
 });
 
 // ---------------------------------------------------------------------------
-// toVisualizationConfig — features
-// ---------------------------------------------------------------------------
-
-test('feature compiles to VisualizationConfig.features with correct root and modules', () => {
-  const cfg = makeConfig({
-    modules: [module('src/handlers/a.controller'), module('src/services/svc')],
-    features: [
-      feature('f', { root: 'a.controller', modules: ['a.controller', 'svc'] }),
-    ],
-  });
-  const viz = toVisualizationConfig(cfg);
-  expect(viz.features).toHaveLength(1);
-  const f = viz.features![0]!;
-  // Bare names resolve to their `layer::name` keys.
-  expect(f.root).toBe('handlers::a.controller');
-  expect(f.modules).toEqual(['handlers::a.controller', 'services::svc']);
-});
-
-test('qualified layer::name members resolve to that exact module', () => {
-  const cfg = makeConfig({
-    modules: [module('src/handlers/a.controller'), module('src/services/svc')],
-    features: [
-      feature('f', {
-        root: 'handlers::a.controller',
-        modules: ['handlers::a.controller', 'services::svc'],
-      }),
-    ],
-  });
-  const viz = toVisualizationConfig(cfg);
-  expect(viz.features![0]!.modules).toEqual([
-    'handlers::a.controller',
-    'services::svc',
-  ]);
-});
-
-test('a bare member colliding across layers throws (must qualify)', () => {
-  const handlers = layer('handlers', ['src/handlers']);
-  const services = layer('services', ['src/services']);
-  const cfg = {
-    rootDir: '.',
-    rules: [layersTopDown('app', [handlers, services])],
-    modules: [module('src/handlers/dup'), module('src/services/dup')],
-    features: [feature('f', { root: 'dup', modules: ['dup'] })],
-  };
-  expect(() => toVisualizationConfig(cfg)).toThrow(/ambiguous across layers/);
-});
-
-test('a qualified member that names no module throws', () => {
-  const cfg = makeConfig({
-    modules: [module('src/handlers/a')],
-    features: [
-      feature('f', { root: 'handlers::a', modules: ['handlers::a', 'x::a'] }),
-    ],
-  });
-  expect(() => toVisualizationConfig(cfg)).toThrow(
-    /member "x::a" is not a declared module/,
-  );
-});
-
-test('feature description passes through', () => {
-  const cfg = makeConfig({
-    modules: [module('src/handlers/a')],
-    features: [
-      feature('f', { root: 'a', modules: ['a'], description: 'My feature' }),
-    ],
-  });
-  const viz = toVisualizationConfig(cfg);
-  expect(viz.features![0]!.description).toBe('My feature');
-});
-
-test('feature root not a declared module name throws', () => {
-  const cfg = makeConfig({
-    modules: [module('src/handlers/a')],
-    features: [feature('f', { root: 'z', modules: ['a', 'z'] })],
-  });
-  expect(() => toVisualizationConfig(cfg)).toThrow(
-    /is not a declared module name/,
-  );
-});
-
-test('feature member not a declared module name throws', () => {
-  const cfg = makeConfig({
-    modules: [module('src/handlers/a')],
-    features: [feature('f', { root: 'a', modules: ['a', 'missing'] })],
-  });
-  expect(() => toVisualizationConfig(cfg)).toThrow(
-    /member "missing" is not a declared module name/,
-  );
-});
-
-test('feature with no members throws', () => {
-  // feature() itself validates root-in-modules, so craft raw object
-  const rawFeature = {
-    kind: 'feature' as const,
-    name: 'f',
-    root: 'a',
-    modules: [] as string[],
-    config: {},
-  };
-  const cfg = makeConfig({
-    modules: [module('src/handlers/a')],
-    features: [rawFeature],
-  });
-  expect(() => toVisualizationConfig(cfg)).toThrow(/has no members/);
-});
-
-// ---------------------------------------------------------------------------
 // toDependencyCruiserConfig — layer-ordering rules only
 // ---------------------------------------------------------------------------
 
 test('toDependencyCruiserConfig emits only layer-ordering forbidden rules', () => {
   const handlers = layer('handlers', ['src/handlers']);
   const services = layer('services', ['src/services']);
-  const stack = layersTopDown('app', [handlers, services]);
-  const { forbidden } = toDependencyCruiserConfig([stack]);
+  const graph = layerGraph('app', [edge(handlers, services)]);
+  const { forbidden } = toDependencyCruiserConfig([graph]);
   expect(forbidden).toBeDefined();
   // All rule names must reference layer ordering — none should mention visibility/shared/private/breach
   for (const rule of forbidden!) {
@@ -200,4 +119,104 @@ test('toDependencyCruiserConfig emits only layer-ordering forbidden rules', () =
     );
   });
   expect(blocksUpwardImport).toBe(true);
+});
+
+// ---------------------------------------------------------------------------
+// layerGraph — reachability semantics (diamond: server → {entrypoints, routes} → components → lib)
+// ---------------------------------------------------------------------------
+
+function makeDiamond() {
+  const server = layer('server', ['src/server']);
+  const entrypoints = layer('entrypoints', ['src/entrypoints']);
+  const routes = layer('routes', ['src/routes']);
+  const components = layer('components', ['src/components']);
+  const lib = layer('lib', ['src/lib']);
+  return layerGraph('frontend', [
+    edge(server, entrypoints),
+    edge(server, routes),
+    edge(entrypoints, components),
+    edge(routes, components),
+    edge(components, lib),
+  ]);
+}
+
+test('allowedImports is the transitive closure of the graph', () => {
+  const viz = toVisualizationConfig({ rootDir: '.', rules: [makeDiamond()] });
+  const allowed = new Set(
+    viz.stacks[0]!.allowedImports.map((p) => `${p.from}->${p.to}`),
+  );
+  expect(allowed.has('server->lib')).toBe(true);
+  expect(allowed.has('entrypoints->components')).toBe(true);
+  expect(allowed.has('routes->lib')).toBe(true);
+  expect(allowed.has('entrypoints->routes')).toBe(false);
+  expect(allowed.has('routes->entrypoints')).toBe(false);
+  expect(allowed.has('lib->server')).toBe(false);
+});
+
+test('edges carries the direct DAG edges without closure pairs', () => {
+  const viz = toVisualizationConfig({ rootDir: '.', rules: [makeDiamond()] });
+  const edges = viz.stacks[0]!.edges.map((e) => `${e.from}->${e.to}`);
+  expect(edges).toEqual([
+    'server->entrypoints',
+    'server->routes',
+    'entrypoints->components',
+    'routes->components',
+    'components->lib',
+  ]);
+});
+
+test('edges drops redundant transitive authored edges', () => {
+  const a = layer('a', ['src/a']);
+  const b = layer('b', ['src/b']);
+  const c = layer('c', ['src/c']);
+  const graph = layerGraph('app', [edge(a, b), edge(b, c), edge(a, c)]);
+  const viz = toVisualizationConfig({ rootDir: '.', rules: [graph] });
+  expect(viz.stacks[0]!.edges).toEqual([
+    { from: 'a', to: 'b' },
+    { from: 'b', to: 'c' },
+  ]);
+});
+
+test('siblings are forbidden in both directions', () => {
+  const { forbidden } = toDependencyCruiserConfig([makeDiamond()]);
+  const names = forbidden!.map((r) => r.name);
+  expect(names).toContain('frontend: entrypoints cannot import routes');
+  expect(names).toContain('frontend: routes cannot import entrypoints');
+  expect(names).toContain('frontend: lib cannot import server');
+  expect(names).not.toContain('frontend: server cannot import lib');
+});
+
+test('graph cycle throws at compile time', () => {
+  const a = layer('a', ['src/a']);
+  const b = layer('b', ['src/b']);
+  const c = layer('c', ['src/c']);
+  const cyclic = layerGraph('app', [edge(a, b), edge(b, c), edge(c, a)]);
+  expect(() =>
+    toVisualizationConfig({ rootDir: '.', rules: [cyclic] }),
+  ).toThrow(/cycle/i);
+});
+
+test('module rules pass through to VisualizationConfig', () => {
+  const cfg = makeConfig({
+    modules: [
+      module('src/handlers/x', { rules: { onlyImports: ['src/handlers/y'] } }),
+      module('src/handlers/y'),
+    ],
+  });
+  const viz = toVisualizationConfig(cfg);
+  const m = viz.modules?.find((m) => m.name === 'x');
+  expect(m!.rules).toEqual({ onlyImports: ['src/handlers/y'] });
+});
+
+test('module rule referencing an undeclared module path throws', () => {
+  const cfg = makeConfig({
+    modules: [
+      module('src/handlers/x', {
+        rules: { onlyImports: ['src/handlers/nope'] },
+      }),
+    ],
+  });
+  expect(() => toVisualizationConfig(cfg)).toThrow(
+    /references "src\/handlers\/nope", which is not a declared module path/,
+  );
 });

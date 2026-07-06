@@ -24,9 +24,21 @@ const statusIcons: Record<
   },
 };
 
-export function StatusIcon({ status }: { status?: FileStatus }) {
-  if (!status) return <FileIcon className="size-4 text-muted-foreground" />;
+export function StatusIcon({
+  status,
+  accentClassName,
+}: {
+  status?: FileStatus;
+  /** Overrides the status color — used to tint a single-file module's icon. */
+  accentClassName?: string;
+}) {
+  if (!status)
+    return (
+      <FileIcon
+        className={cn('size-4', accentClassName ?? 'text-muted-foreground')}
+      />
+    );
   const cfg = statusIcons[status];
   const Icon = cfg.icon;
-  return <Icon className={cn('size-4', cfg.className)} />;
+  return <Icon className={cn('size-4', accentClassName ?? cfg.className)} />;
 }

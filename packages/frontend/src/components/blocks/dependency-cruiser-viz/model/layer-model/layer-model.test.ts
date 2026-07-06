@@ -8,6 +8,10 @@ const SIMPLE_CONFIG: VisualizationConfig = {
     {
       name: 'web',
       allowedImports: [],
+      edges: [
+        { from: 'routes', to: 'services' },
+        { from: 'services', to: 'data' },
+      ],
       layers: [
         { name: 'routes', paths: ['src/routes'] },
         { name: 'services', paths: ['src/services'] },
@@ -24,6 +28,10 @@ const PARALLEL_CONFIG: VisualizationConfig = {
     {
       name: 'web',
       allowedImports: [],
+      edges: [
+        { from: 'routes', to: 'shared' },
+        { from: 'shared', to: 'data' },
+      ],
       layers: [
         { name: 'routes', paths: ['src/routes'] },
         { name: 'shared', paths: ['src/shared'] },
@@ -33,6 +41,10 @@ const PARALLEL_CONFIG: VisualizationConfig = {
     {
       name: 'api',
       allowedImports: [],
+      edges: [
+        { from: 'controllers', to: 'shared' },
+        { from: 'shared', to: 'db' },
+      ],
       layers: [
         { name: 'controllers', paths: ['src/controllers'] },
         { name: 'shared', paths: ['src/shared'] },
@@ -43,7 +55,39 @@ const PARALLEL_CONFIG: VisualizationConfig = {
   modules: [],
 };
 
+const DIAMOND_CONFIG: VisualizationConfig = {
+  rootDir: '.',
+  stacks: [
+    {
+      name: 'app',
+      allowedImports: [],
+      edges: [
+        { from: 'a', to: 'b' },
+        { from: 'a', to: 'c' },
+        { from: 'b', to: 'd' },
+        { from: 'c', to: 'd' },
+      ],
+      layers: [
+        { name: 'a', paths: ['src/a'] },
+        { name: 'b', paths: ['src/b'] },
+        { name: 'c', paths: ['src/c'] },
+        { name: 'd', paths: ['src/d'] },
+      ],
+    },
+  ],
+  modules: [],
+};
+
 describe('buildLayerModel', () => {
+  it('places diamond siblings in the same slot and the join one level below', () => {
+    const model = buildLayerModel(DIAMOND_CONFIG);
+    expect(model.slots.map((s) => s.sections.map((sec) => sec.layer))).toEqual([
+      ['a'],
+      ['b', 'c'],
+      ['d'],
+    ]);
+  });
+
   it('returns one slot per layer for a single stack', () => {
     const model = buildLayerModel(SIMPLE_CONFIG);
     expect(model.slots).toHaveLength(3);
@@ -97,19 +141,19 @@ describe('buildLayerModel', () => {
           path: 'src/routes/home',
           layer: 'routes',
           name: 'home',
-          barrel: false,
+          opaque: false,
         },
         {
           path: 'src/routes/about',
           layer: 'routes',
           name: 'about',
-          barrel: false,
+          opaque: false,
         },
         {
           path: 'src/services/auth',
           layer: 'services',
           name: 'auth',
-          barrel: false,
+          opaque: false,
         },
       ],
     };

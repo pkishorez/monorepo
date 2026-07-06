@@ -1,6 +1,11 @@
 import type { ICruiseResult } from 'dependency-cruiser';
 
-import type { VisualizationConfig, VizSummary } from '../types.js';
+import type {
+  ModuleRules,
+  ModuleViolation,
+  VisualizationConfig,
+  VizSummary,
+} from '../types.js';
 import { detectLayerConflicts } from './detect-layer-conflicts.js';
 
 type CruiseModule = ICruiseResult['modules'][number];
@@ -14,7 +19,8 @@ type ModuleEntry = {
   path: string;
   name: string;
   layer: string;
-  barrel: boolean;
+  opaque: boolean;
+  rules?: ModuleRules;
 };
 
 export function summarizeCruiseResult(
@@ -78,7 +84,7 @@ export function summarizeCruiseResult(
     )
     .sort((a, b) => a.localeCompare(b));
 
-  const moduleEdges = buildModuleEdges({
+  const { moduleViolations, breachedPairs } = summarizeModuleViolations({
     moduleEntries,
     modules,
     moduleBySource,
@@ -86,15 +92,13 @@ export function summarizeCruiseResult(
     ignorePatterns,
   });
 
-  const featureGraphs = buildFeatureGraphs({
-    visualization,
-    moduleEdges,
-  });
-  const closureViolations = buildClosureViolations({
-    visualization,
-    moduleEdges,
+  const moduleEdges = buildModuleEdges({
     moduleEntries,
-    featureGraphs,
+    modules,
+    moduleBySource,
+    rootDir,
+    ignorePatterns,
+    breachedPairs,
   });
 
   return {
@@ -106,171 +110,82 @@ export function summarizeCruiseResult(
     coverageGaps,
     emptyModules,
     conflicts: detectLayerConflicts(visualization),
+    moduleOverlaps: detectModuleOverlaps(moduleEntries),
     moduleEdges,
-    featureGraphs,
-    closureViolations,
+    moduleViolations,
   };
 }
 
-/** Build per-feature derived graphs: nodes = declared members, edges = real moduleEdges
- * restricted to the member set.  Barrel out-edges that leave the member set are dropped. */
-function buildFeatureGraphs({
-  visualization,
-  moduleEdges,
-}: {
-  visualization: VisualizationConfig;
-  moduleEdges: VizSummary['moduleEdges'];
-}): VizSummary['featureGraphs'] {
-  const features = visualization.features ?? [];
-  if (features.length === 0) return [];
-
-  return features.map((feat) => {
-    // Membership is already resolved to `layer::name` keys at compile time, so
-    // nodes/root/edges compare directly on those keys. Each moduleEdge carries
-    // its true `fromLayer`/`toLayer`, so an edge is keyed off those — a bare
-    // name (e.g. `cart`) that exists in several layers can never be confused.
-    const memberKeys = new Set(feat.modules);
-    const edges: VizSummary['featureGraphs'][number]['edges'] = [];
-
-    for (const edge of moduleEdges) {
-      const fromKey = `${edge.fromLayer}::${edge.fromModule}`;
-      const toKey = `${edge.toLayer}::${edge.toModule}`;
-      // Both endpoints must be declared members of this feature.
-      if (!memberKeys.has(fromKey) || !memberKeys.has(toKey)) continue;
-      edges.push({ from: fromKey, to: toKey, kind: edge.kind });
-    }
-
-    return {
-      feature: feat.name,
-      root: feat.root,
-      nodes: [...feat.modules],
-      edges,
-    };
-  });
-}
-
-/** Compute closure violations:
- *  - closure-escape: non-barrel module exclusive to one feature has a real out-edge
- *    leaving that feature's member set.
- *  - unclaimed-edge: non-barrel-origin real edge not claimed by any feature.
- *  - multi-root / no-root: feature member set has ≠1 node with no in-member inbound edge.
+/**
+ * Declared modules whose paths nest inside one another. Modules must partition
+ * the file set — a hierarchical declaration (an outer module whose path is an
+ * ancestor of an inner one) is reported so it can be surfaced as a violation.
  */
-function buildClosureViolations({
-  visualization,
-  moduleEdges,
-  moduleEntries,
-  featureGraphs,
-}: {
-  visualization: VisualizationConfig;
-  moduleEdges: VizSummary['moduleEdges'];
-  moduleEntries: ModuleEntry[];
-  featureGraphs: VizSummary['featureGraphs'];
-}): VizSummary['closureViolations'] {
-  const features = visualization.features ?? [];
-  const violations: VizSummary['closureViolations'] = [];
-
-  // Membership and barrel exemption are keyed by `layer::name` — matching the
-  // resolved feature members — so a name that exists in two layers (e.g. a
-  // `cart` barrel in orchestrators and a `cart` model in domain) is never
-  // conflated. Each moduleEdge endpoint is projected to the same key space.
-  const barrelByKey = new Map(
-    moduleEntries.map((e) => [`${e.layer}::${e.name}`, e.barrel]),
-  );
-  const edgeFromKey = (e: VizSummary['moduleEdges'][number]): string =>
-    `${e.fromLayer}::${e.fromModule}`;
-  const edgeToKey = (e: VizSummary['moduleEdges'][number]): string =>
-    `${e.toLayer}::${e.toModule}`;
-
-  // Count how many features each module (by key) belongs to
-  const featureCountByModule = new Map<string, number>();
-  for (const feat of features) {
-    for (const key of feat.modules) {
-      featureCountByModule.set(key, (featureCountByModule.get(key) ?? 0) + 1);
-    }
-  }
-
-  // ── closure-escape ────────────────────────────────────────────────────────
-  // A non-barrel module exclusive to exactly one feature has a real out-edge
-  // whose target is NOT a member of that feature.
-  for (const feat of features) {
-    const memberSet = new Set(feat.modules);
-    for (const edge of moduleEdges) {
-      const fromKey = edgeFromKey(edge);
-      if (!memberSet.has(fromKey)) continue;
-      if (barrelByKey.get(fromKey)) continue; // barrel: exempt
-      const count = featureCountByModule.get(fromKey) ?? 0;
-      if (count !== 1) continue; // shared module: relaxed
-      const toKey = edgeToKey(edge);
-      if (!memberSet.has(toKey)) {
-        violations.push({
-          reason: 'closure-escape',
-          feature: feat.name,
-          fromModule: edge.fromModule,
-          toModule: edge.toModule,
-          detail: `Module "${fromKey}" (exclusive to feature "${feat.name}") imports "${toKey}" which is not a member of that feature.`,
+function detectModuleOverlaps(
+  moduleEntries: ModuleEntry[],
+): VizSummary['moduleOverlaps'] {
+  const overlaps: VizSummary['moduleOverlaps'] = [];
+  for (const outer of moduleEntries) {
+    for (const inner of moduleEntries) {
+      if (outer === inner) continue;
+      if (inner.path.startsWith(outer.path + '/')) {
+        overlaps.push({
+          outerPath: outer.path,
+          outerLayer: outer.layer,
+          outerName: outer.name,
+          innerPath: inner.path,
+          innerLayer: inner.layer,
+          innerName: inner.name,
         });
       }
     }
   }
-
-  // ── unclaimed-edge ────────────────────────────────────────────────────────
-  // A non-barrel-origin real edge not present in ANY feature's derived edges.
-  // An edge is claimed if some feature declares both of its endpoints as members.
-  const claimedEdgeKeys = new Set<string>();
-  for (const feat of features) {
-    const memberSet = new Set(feat.modules);
-    for (const edge of moduleEdges) {
-      const fromKey = edgeFromKey(edge);
-      const toKey = edgeToKey(edge);
-      if (memberSet.has(fromKey) && memberSet.has(toKey)) {
-        claimedEdgeKeys.add(`${fromKey}\0${toKey}`);
-      }
-    }
-  }
-  for (const edge of moduleEdges) {
-    const fromKey = edgeFromKey(edge);
-    if (barrelByKey.get(fromKey)) continue; // barrel origin: exempt
-    const toKey = edgeToKey(edge);
-    if (!claimedEdgeKeys.has(`${fromKey}\0${toKey}`)) {
-      violations.push({
-        reason: 'unclaimed-edge',
-        fromModule: edge.fromModule,
-        toModule: edge.toModule,
-        detail: `Edge "${fromKey}" → "${toKey}" is not claimed by any feature.`,
-      });
-    }
-  }
-
-  // ── multi-root / no-root ──────────────────────────────────────────────────
-  // A root is a member node with no inbound edges from OTHER members (barrel roots
-  // are allowed to be roots even if they have inbound member edges).
-  for (const fg of featureGraphs) {
-    const hasInbound = new Set<string>();
-    for (const e of fg.edges) {
-      hasInbound.add(e.to);
-    }
-    // Candidate roots: members with no inbound edge from another member
-    const roots = fg.nodes.filter((n) => !hasInbound.has(n));
-    if (roots.length === 0) {
-      violations.push({
-        reason: 'no-root',
-        feature: fg.feature,
-        detail: `Feature "${fg.feature}" has no root node (cycle in member set?).`,
-      });
-    } else if (roots.length > 1) {
-      violations.push({
-        reason: 'multi-root',
-        feature: fg.feature,
-        detail: `Feature "${fg.feature}" has multiple root nodes: ${roots.join(', ')}.`,
-      });
-    }
-  }
-
-  return violations;
+  return overlaps.sort(
+    (a, b) =>
+      a.outerPath.localeCompare(b.outerPath) ||
+      a.innerPath.localeCompare(b.innerPath),
+  );
 }
 
-/** Build cross-module import edges (Task 4 will classify legal vs breach). */
-function buildModuleEdges({
+/** The allowed-set checks a module's rules normalize to: `leaf` is
+ * `onlyImports: []`, `root` is `onlyImportedBy: []`. The original rule name
+ * is kept for violation attribution. */
+function normalizeRules(entry: ModuleEntry): {
+  imports?: { rule: ModuleViolation['rule']; allowed: Set<string> };
+  importedBy?: { rule: ModuleViolation['rule']; allowed: Set<string> };
+} {
+  const rules = entry.rules;
+  if (!rules) return {};
+  return {
+    ...(rules.leaf
+      ? { imports: { rule: 'leaf' as const, allowed: new Set<string>() } }
+      : rules.onlyImports !== undefined
+        ? {
+            imports: {
+              rule: 'onlyImports' as const,
+              allowed: new Set(rules.onlyImports),
+            },
+          }
+        : {}),
+    ...(rules.root
+      ? { importedBy: { rule: 'root' as const, allowed: new Set<string>() } }
+      : rules.onlyImportedBy !== undefined
+        ? {
+            importedBy: {
+              rule: 'onlyImportedBy' as const,
+              allowed: new Set(rules.onlyImportedBy),
+            },
+          }
+        : {}),
+  };
+}
+
+/** Check every cross-module import against the declared module rules. Runs
+ * over the raw cruise modules — not the opaque-filtered `moduleEdges` — so an
+ * opaque module's outgoing edges are still visible to its own `leaf` rule.
+ * Also returns the set of breached module pairs (path-keyed) so
+ * `buildModuleEdges` can mark those edges as breaches. */
+function summarizeModuleViolations({
   moduleEntries,
   modules,
   moduleBySource,
@@ -282,8 +197,12 @@ function buildModuleEdges({
   moduleBySource: Map<string, CruiseModule>;
   rootDir: string;
   ignorePatterns: RegExp[];
-}): VizSummary['moduleEdges'] {
-  const moduleEdgeMap = new Map<string, VizSummary['moduleEdges'][number]>();
+}): { moduleViolations: ModuleViolation[]; breachedPairs: Set<string> } {
+  const normalized = new Map(
+    moduleEntries.map((entry) => [entry.path, normalizeRules(entry)]),
+  );
+  const moduleViolations: ModuleViolation[] = [];
+  const breachedPairs = new Set<string>();
 
   for (const mod of modules) {
     const fromEntry = findModule(mod.source, moduleEntries);
@@ -303,15 +222,98 @@ function buildModuleEdges({
       const toEntry = findModule(target, moduleEntries);
       if (!toEntry || toEntry.path === fromEntry.path) continue;
 
+      const imports = normalized.get(fromEntry.path)?.imports;
+      if (imports && !imports.allowed.has(toEntry.path)) {
+        moduleViolations.push({
+          module: fromEntry.name,
+          rule: imports.rule,
+          from: fromEntry.name,
+          to: toEntry.name,
+          fromFile: mod.source,
+          toFile: target,
+        });
+        breachedPairs.add(`${fromEntry.path}\0${toEntry.path}`);
+      }
+
+      const importedBy = normalized.get(toEntry.path)?.importedBy;
+      if (importedBy && !importedBy.allowed.has(fromEntry.path)) {
+        moduleViolations.push({
+          module: toEntry.name,
+          rule: importedBy.rule,
+          from: fromEntry.name,
+          to: toEntry.name,
+          fromFile: mod.source,
+          toFile: target,
+        });
+        breachedPairs.add(`${fromEntry.path}\0${toEntry.path}`);
+      }
+    }
+  }
+
+  moduleViolations.sort(
+    (a, b) =>
+      a.module.localeCompare(b.module) ||
+      a.rule.localeCompare(b.rule) ||
+      a.fromFile.localeCompare(b.fromFile) ||
+      a.toFile.localeCompare(b.toFile),
+  );
+
+  return { moduleViolations, breachedPairs };
+}
+
+/** Build cross-module import edges. Opaque modules are barrels: their
+ * outgoing edges are dropped, incoming edges kept. Edges carrying at least
+ * one module-rule violation get kind 'breach'. */
+function buildModuleEdges({
+  moduleEntries,
+  modules,
+  moduleBySource,
+  rootDir,
+  ignorePatterns,
+  breachedPairs,
+}: {
+  moduleEntries: ModuleEntry[];
+  modules: CruiseModule[];
+  moduleBySource: Map<string, CruiseModule>;
+  rootDir: string;
+  ignorePatterns: RegExp[];
+  breachedPairs: Set<string>;
+}): VizSummary['moduleEdges'] {
+  const moduleEdgeMap = new Map<string, VizSummary['moduleEdges'][number]>();
+
+  for (const mod of modules) {
+    const fromEntry = findModule(mod.source, moduleEntries);
+    if (!fromEntry || fromEntry.opaque) continue;
+
+    for (const dep of mod.dependencies) {
+      if (dep.couldNotResolve || dep.coreModule) continue;
+      const target = dep.resolved;
+      if (
+        !target ||
+        !isProjectPath(target, rootDir) ||
+        isIgnored(target, ignorePatterns) ||
+        !moduleBySource.has(target)
+      ) {
+        continue;
+      }
+      const toEntry = findModule(target, moduleEntries);
+      if (!toEntry || toEntry.path === fromEntry.path) continue;
+
       const key = `${fromEntry.layer}\0${fromEntry.name}\0${toEntry.layer}\0${toEntry.name}`;
-      if (!moduleEdgeMap.has(key)) {
+      const kind = breachedPairs.has(`${fromEntry.path}\0${toEntry.path}`)
+        ? ('breach' as const)
+        : ('legal' as const);
+      const existing = moduleEdgeMap.get(key);
+      if (!existing) {
         moduleEdgeMap.set(key, {
           fromLayer: fromEntry.layer,
           fromModule: fromEntry.name,
           toLayer: toEntry.layer,
           toModule: toEntry.name,
-          kind: 'legal',
+          kind,
         });
+      } else if (kind === 'breach') {
+        existing.kind = 'breach';
       }
     }
   }
@@ -350,7 +352,8 @@ function getModuleEntries(visualization: VisualizationConfig): ModuleEntry[] {
     path: m.path,
     name: m.name,
     layer: m.layer,
-    barrel: m.barrel,
+    opaque: m.opaque,
+    ...(m.rules === undefined ? {} : { rules: m.rules }),
   }));
 }
 

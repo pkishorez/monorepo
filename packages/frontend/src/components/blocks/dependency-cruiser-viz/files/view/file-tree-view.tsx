@@ -11,6 +11,21 @@ import type { ReactNode } from 'react';
 import type { FileStatus, FileTreeNode } from '../model/file-tree-model';
 import { StatusIcon } from './status-icon';
 
+/**
+ * The file tree uses exactly two accent colors: sky for layer boundaries and
+ * amber for declared modules (folders and single-file modules alike). To keep
+ * it quiet, the module accent colors only the *icon* while a layer colors the
+ * *text* — so a folder that is both a layer and a module reads as an amber icon
+ * with sky text. Roles (root/leaf/dead) are a canvas concern, absent here.
+ */
+const MODULE_ACCENT = 'text-amber-600 dark:text-amber-400';
+const LAYER_ACCENT = 'text-sky-600 dark:text-sky-400';
+
+/** Secondary (highlighted-module) emphasis — amber, vs the primary fill of the
+ * selected module — so both can show at once and stay distinguishable. */
+const SECONDARY_FILL = 'bg-amber-500/15 text-amber-600 dark:text-amber-400';
+const SECONDARY_FILL_FAINT = 'bg-amber-500/5';
+
 type FileTreeViewProps = {
   tree: FileTreeNode[];
   treeKey: string;
@@ -19,13 +34,21 @@ type FileTreeViewProps = {
   expansionSignal: string;
   /** True while expandedItems is a transient focus to snap to (and revert from). */
   expansionFocused: boolean;
-  /** Drives containment and dimming. */
+  /** Drives containment and dimming (union of every active emphasis). */
   highlightedFiles: Set<string> | null;
-  /** Files the feature/layer member modules cover — strong primary highlight. */
+  /** Files of the selected module (or layer) — strong primary emphasis. */
   ownedFiles: Set<string> | null;
+  /** Files of the highlighted module — secondary (amber) emphasis. */
+  highlightedModuleFiles: Set<string> | null;
   /** Coverage-gap files: in a layer but no declared module. */
   coverageGapFiles: Set<string>;
   configuredPaths: Set<string>;
+  /** Declared module folder/file ids — get the amber icon accent. */
+  modulePaths: Set<string>;
+  /** Rules configured per module path — shown as a count beside the row. */
+  ruleCountByPath: Map<string, number>;
+  /** Declared layer folder ids — get the sky text accent. */
+  layerPaths: Set<string>;
   sortOrder: Map<string, number>;
   hoveredGraphFiles: Set<string> | null;
   /** Full folder path of the canvas-hovered module, for transient highlight. */
@@ -40,16 +63,26 @@ export function FileTreeView({
   expansionFocused,
   highlightedFiles,
   ownedFiles,
+  highlightedModuleFiles,
   coverageGapFiles,
   configuredPaths,
+  modulePaths,
+  ruleCountByPath,
+  layerPaths,
   sortOrder,
   hoveredGraphFiles,
   hoveredModulePath,
 }: FileTreeViewProps) {
-  // Coverage of each folder's leaf files against the active highlight, used to
-  // dim untouched branches and to mark folders as fully / partially covered.
+  // Coverage of each folder's leaf files against the active emphasis sets, used
+  // to dim untouched branches and to mark folders as fully / partially covered.
   const folderCoverage = new Map<string, FolderCoverage>();
-  computeFolderCoverage(tree, highlightedFiles, folderCoverage);
+  computeFolderCoverage(
+    tree,
+    highlightedFiles,
+    ownedFiles,
+    highlightedModuleFiles,
+    folderCoverage,
+  );
 
   return (
     <Tree
@@ -64,8 +97,12 @@ export function FileTreeView({
         nodes: tree,
         highlightedFiles,
         ownedFiles,
+        highlightedModuleFiles,
         coverageGapFiles,
         configuredPaths,
+        modulePaths,
+        ruleCountByPath,
+        layerPaths,
         sortOrder,
         hoveredGraphFiles,
         hoveredModulePath,
@@ -75,45 +112,61 @@ export function FileTreeView({
   );
 }
 
-/** Covered vs total leaf-file counts for a folder's subtree. */
-type FolderCoverage = { covered: number; total: number };
+/** Covered vs total leaf-file counts for a folder's subtree, per emphasis set. */
+type FolderCoverage = {
+  covered: number;
+  owned: number;
+  secondary: number;
+  total: number;
+};
 
 /**
  * Walk the tree once, recording for each folder how many of its leaf files fall
- * within `highlightedFiles`. Folders with zero covered leaves are dimmed;
- * folders whose every leaf is covered get the full-row highlight.
+ * within each emphasis set. Folders with zero covered leaves are dimmed;
+ * folders whose every leaf is covered get that set's full-row emphasis.
  */
 function computeFolderCoverage(
   nodes: FileTreeNode[],
   highlightedFiles: Set<string> | null,
+  ownedFiles: Set<string> | null,
+  highlightedModuleFiles: Set<string> | null,
   out: Map<string, FolderCoverage>,
 ): FolderCoverage {
-  let covered = 0;
-  let total = 0;
+  const sum: FolderCoverage = { covered: 0, owned: 0, secondary: 0, total: 0 };
   for (const node of nodes) {
     if (node.type === 'file') {
-      total += 1;
-      if (highlightedFiles?.has(node.id)) covered += 1;
+      sum.total += 1;
+      if (highlightedFiles?.has(node.id)) sum.covered += 1;
+      if (ownedFiles?.has(node.id)) sum.owned += 1;
+      if (highlightedModuleFiles?.has(node.id)) sum.secondary += 1;
       continue;
     }
-    const childCoverage = computeFolderCoverage(
+    const child = computeFolderCoverage(
       node.children ?? [],
       highlightedFiles,
+      ownedFiles,
+      highlightedModuleFiles,
       out,
     );
-    out.set(node.id, childCoverage);
-    covered += childCoverage.covered;
-    total += childCoverage.total;
+    out.set(node.id, child);
+    sum.covered += child.covered;
+    sum.owned += child.owned;
+    sum.secondary += child.secondary;
+    sum.total += child.total;
   }
-  return { covered, total };
+  return sum;
 }
 
 function renderNodes({
   nodes,
   highlightedFiles,
   ownedFiles,
+  highlightedModuleFiles,
   coverageGapFiles,
   configuredPaths,
+  modulePaths,
+  ruleCountByPath,
+  layerPaths,
   sortOrder,
   hoveredGraphFiles,
   hoveredModulePath,
@@ -122,8 +175,12 @@ function renderNodes({
   nodes: FileTreeNode[];
   highlightedFiles: Set<string> | null;
   ownedFiles: Set<string> | null;
+  highlightedModuleFiles: Set<string> | null;
   coverageGapFiles: Set<string>;
   configuredPaths: Set<string>;
+  modulePaths: Set<string>;
+  ruleCountByPath: Map<string, number>;
+  layerPaths: Set<string>;
   sortOrder: Map<string, number>;
   hoveredGraphFiles: Set<string> | null;
   hoveredModulePath: string | null;
@@ -141,44 +198,64 @@ function renderNodes({
   return sorted.map((node) => {
     if (node.type === 'folder') {
       const isConfigured = configuredPaths.has(node.id);
-      const isLayer = node.nodeKind === 'layer';
-      const isModule = node.nodeKind === 'module';
-      // An intermediate folder is any non-module, non-layer grouping folder.
-      const isIntermediate = !isLayer && !isModule;
+      // Detected independently: a folder can be BOTH a layer and a module.
+      const isLayer = layerPaths.has(node.id);
+      const isModule = modulePaths.has(node.id);
       const isHoveredModuleFolder =
         hoveredModulePath != null && node.id === hoveredModulePath;
 
-      // While a highlight is active, fold the folder's leaf coverage into the
-      // row: fully-covered folders carry the same primary fill as owned files,
+      // While an emphasis is active, fold the folder's leaf coverage into the
+      // row: a folder fully covered by the selected module carries the primary
+      // fill, one fully covered by the highlighted module the amber fill,
       // partially-covered ones a subtler tint, and untouched branches dim.
       const coverage = folderCoverage.get(node.id);
-      const isFullyCovered =
-        highlightedFiles != null &&
+      const hasEmphasis = highlightedFiles != null;
+      const isFullyOwned =
+        hasEmphasis &&
         coverage != null &&
         coverage.total > 0 &&
-        coverage.covered === coverage.total;
+        coverage.owned === coverage.total;
+      const isFullySecondary =
+        hasEmphasis &&
+        !isFullyOwned &&
+        coverage != null &&
+        coverage.total > 0 &&
+        coverage.secondary === coverage.total;
       const isPartiallyCovered =
-        highlightedFiles != null &&
+        hasEmphasis &&
+        !isFullyOwned &&
+        !isFullySecondary &&
         coverage != null &&
         coverage.covered > 0 &&
         coverage.covered < coverage.total;
-      const isDimmed =
-        highlightedFiles != null && (coverage?.covered ?? 0) === 0;
+      const isDimmed = hasEmphasis && (coverage?.covered ?? 0) === 0;
+      const partialLeansSecondary =
+        isPartiallyCovered &&
+        coverage != null &&
+        coverage.secondary >= coverage.owned;
 
       return (
         <Folder
           key={node.id}
           value={node.id}
           element={node.name}
+          // A module tints only its icon (quiet); a layer tints its text. Both
+          // at once → amber icon + sky text. Neither → full-strength default.
+          iconClassName={isModule ? MODULE_ACCENT : undefined}
+          suffix={<RuleCountBadge count={ruleCountByPath.get(node.id)} />}
           className={cn(
             isConfigured && 'font-semibold',
-            isLayer && 'text-sky-600 dark:text-sky-400',
-            (isModule || isIntermediate) && 'text-foreground/80',
-            // A fully-covered folder mirrors the owned-file fill; a partial one
+            isLayer && LAYER_ACCENT,
+            // A fully-covered folder mirrors its set's file fill; a partial one
             // gets a fainter wash so the boundary is still legible.
-            isFullyCovered && 'rounded-md bg-primary/10 text-primary',
-            isPartiallyCovered && 'rounded-md bg-primary/5',
-            // Ignored entries, and branches outside the active highlight, dim.
+            isFullyOwned && 'rounded-md bg-primary/10 text-primary',
+            isFullySecondary && cn('rounded-md', SECONDARY_FILL),
+            isPartiallyCovered &&
+              cn(
+                'rounded-md',
+                partialLeansSecondary ? SECONDARY_FILL_FAINT : 'bg-primary/5',
+              ),
+            // Ignored entries, and branches outside the active emphasis, dim.
             (node.status === 'ignored' || isDimmed) && 'opacity-40',
             isHoveredModuleFolder &&
               'rounded-md text-primary ring-1 ring-primary/40',
@@ -189,8 +266,12 @@ function renderNodes({
                 nodes: node.children,
                 highlightedFiles,
                 ownedFiles,
+                highlightedModuleFiles,
                 coverageGapFiles,
                 configuredPaths,
+                modulePaths,
+                ruleCountByPath,
+                layerPaths,
                 sortOrder,
                 hoveredGraphFiles,
                 hoveredModulePath,
@@ -202,24 +283,35 @@ function renderNodes({
     }
 
     const isMember = ownedFiles?.has(node.id) ?? false;
+    const isSecondary =
+      !isMember && (highlightedModuleFiles?.has(node.id) ?? false);
     const isGap = coverageGapFiles.has(node.id);
     const isGraphHovered = hoveredGraphFiles?.has(node.id);
-    // A file outside the active highlight dims, matching its folder ancestors.
+    // A single-file module tints only its icon amber, matching module folders.
+    const isModuleFile = modulePaths.has(node.id);
+    // A file outside the active emphasis dims, matching its folder ancestors.
     const isDimmed = highlightedFiles != null && !highlightedFiles.has(node.id);
 
     return (
       <File
         key={node.id}
         value={node.id}
-        fileIcon={<StatusIcon status={node.status} />}
+        fileIcon={
+          <StatusIcon
+            status={node.status}
+            accentClassName={isModuleFile ? MODULE_ACCENT : undefined}
+          />
+        }
         className={cn(
           isMember && 'rounded-md bg-primary/10 text-primary',
-          // Ignored files, and files outside the active highlight, dim.
+          isSecondary && cn('rounded-md', SECONDARY_FILL),
+          // Ignored files, and files outside the active emphasis, dim.
           (node.status === 'ignored' || isDimmed) && 'opacity-40',
           isGraphHovered && 'rounded-md bg-primary/20 ring-1 ring-primary/30',
         )}
       >
         <span className="min-w-0 flex-1 truncate text-left">{node.name}</span>
+        <RuleCountBadge count={ruleCountByPath.get(node.id)} />
         {!highlightedFiles && isGap ? (
           <span title="not in any module" className="shrink-0">
             <XIcon
@@ -233,26 +325,18 @@ function renderNodes({
   });
 }
 
-export type TreeFilterOptions = {
-  /** Hide intermediate (non-layer, non-module) folders and all files. */
-  hideNonModules: boolean;
-  /** Hide files with an `ignored` status. */
-  hideIgnored: boolean;
-  /**
-   * When set, show ONLY files with this coverage status (plus the folders that
-   * lead to them). Takes precedence over the toggles above — it's a focused
-   * "show me just the present / not-covered / ignored files" view.
-   */
-  statusFilter?: FileStatus | null;
-  /**
-   * When set, show ONLY the highlighted files (plus the folders leading to
-   * them). Used to focus the tree on the currently selected feature/module/
-   * layer, hiding everything that isn't part of the highlight.
-   */
-  highlightFilter?: Set<string> | null;
-  modulePaths: Set<string>;
-  layerPaths: Set<string>;
-};
+/** Count of rules configured on a declared module, beside its row. */
+function RuleCountBadge({ count }: { count: number | undefined }) {
+  if (!count) return null;
+  return (
+    <span
+      title={`${count} rule${count === 1 ? '' : 's'} configured`}
+      className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full border border-border bg-muted px-1 text-[9px] font-semibold tabular-nums text-muted-foreground"
+    >
+      {count}
+    </span>
+  );
+}
 
 /** Collect every folder id in a tree — used to fully expand a filtered view. */
 export function collectAllFolderIds(nodes: FileTreeNode[]): string[] {
@@ -267,7 +351,7 @@ export function collectAllFolderIds(nodes: FileTreeNode[]): string[] {
 }
 
 /** Keep only files matching `status` and the ancestor folders leading to them. */
-function filterByStatus(
+export function filterByStatus(
   nodes: FileTreeNode[],
   status: FileStatus,
 ): FileTreeNode[] {
@@ -281,70 +365,6 @@ function filterByStatus(
       ? filterByStatus(node.children, status)
       : undefined;
     if ((children?.length ?? 0) > 0) result.push({ ...node, children });
-  }
-  return result;
-}
-
-/** Keep only files in `highlighted` and the ancestor folders leading to them. */
-function filterByHighlight(
-  nodes: FileTreeNode[],
-  highlighted: Set<string>,
-): FileTreeNode[] {
-  const result: FileTreeNode[] = [];
-  for (const node of nodes) {
-    if (node.type === 'file') {
-      if (highlighted.has(node.id)) result.push(node);
-      continue;
-    }
-    const children = node.children
-      ? filterByHighlight(node.children, highlighted)
-      : undefined;
-    if ((children?.length ?? 0) > 0) result.push({ ...node, children });
-  }
-  return result;
-}
-
-/**
- * Apply session-scoped view filters to a copy of the tree. Returns a new node
- * array; the underlying model is never mutated. Filtering is feature- and
- * expansion-independent — pruned ids simply no longer appear.
- *
- * - `hideIgnored`: drops file nodes whose status is `ignored`.
- * - `hideNonModules`: keeps only layer folders, module folders, and the
- *   ancestor folders needed to reach a module; drops intermediate folders with
- *   no module descendant and all individual files.
- */
-export function filterTree(
-  nodes: FileTreeNode[],
-  options: TreeFilterOptions,
-): FileTreeNode[] {
-  if (options.highlightFilter)
-    return filterByHighlight(nodes, options.highlightFilter);
-  if (options.statusFilter) return filterByStatus(nodes, options.statusFilter);
-
-  const result: FileTreeNode[] = [];
-  for (const node of nodes) {
-    if (node.type === 'file') {
-      if (options.hideIgnored && node.status === 'ignored') continue;
-      if (options.hideNonModules) continue;
-      result.push(node);
-      continue;
-    }
-
-    const children = node.children
-      ? filterTree(node.children, options)
-      : undefined;
-
-    if (options.hideNonModules) {
-      const isLayer = options.layerPaths.has(node.id);
-      const isModule = options.modulePaths.has(node.id);
-      const hasKeptChild = (children?.length ?? 0) > 0;
-      // Keep modules (collapsed, no need for kept children), layers and any
-      // ancestor that still leads to a kept module folder.
-      if (!isModule && !isLayer && !hasKeptChild) continue;
-    }
-
-    result.push({ ...node, children });
   }
   return result;
 }

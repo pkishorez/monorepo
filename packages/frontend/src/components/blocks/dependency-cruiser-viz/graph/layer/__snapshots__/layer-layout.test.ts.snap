@@ -6,7 +6,7 @@ exports[`computeLayerLayout characterization > matches snapshot with selectedLay
     {
       "id": "web:routes->services",
       "markerEnd": {
-        "color": "#94a3b8",
+        "color": "#f59e0b",
         "height": 14,
         "type": "arrowclosed",
         "width": 14,
@@ -14,13 +14,13 @@ exports[`computeLayerLayout characterization > matches snapshot with selectedLay
       "source": "routes",
       "sourceHandle": undefined,
       "style": {
-        "opacity": 0.15,
-        "stroke": "#94a3b8",
-        "strokeWidth": 1.5,
+        "opacity": 1,
+        "stroke": "#f59e0b",
+        "strokeWidth": 2,
       },
       "target": "services",
       "targetHandle": "top-web",
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "web:services->data",
@@ -39,7 +39,7 @@ exports[`computeLayerLayout characterization > matches snapshot with selectedLay
       },
       "target": "data",
       "targetHandle": undefined,
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "api:controllers->services",
@@ -58,7 +58,7 @@ exports[`computeLayerLayout characterization > matches snapshot with selectedLay
       },
       "target": "services",
       "targetHandle": "top-api",
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "api:services->db",
@@ -77,7 +77,7 @@ exports[`computeLayerLayout characterization > matches snapshot with selectedLay
       },
       "target": "db",
       "targetHandle": undefined,
-      "type": "smoothstep",
+      "type": "default",
     },
   ],
   "nodes": [
@@ -276,7 +276,7 @@ exports[`computeLayerLayout characterization > matches snapshot with summary 1`]
       },
       "target": "services",
       "targetHandle": "top-web",
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "web:services->data",
@@ -295,7 +295,7 @@ exports[`computeLayerLayout characterization > matches snapshot with summary 1`]
       },
       "target": "data",
       "targetHandle": undefined,
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "api:controllers->services",
@@ -314,7 +314,7 @@ exports[`computeLayerLayout characterization > matches snapshot with summary 1`]
       },
       "target": "services",
       "targetHandle": "top-api",
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "api:services->db",
@@ -333,7 +333,7 @@ exports[`computeLayerLayout characterization > matches snapshot with summary 1`]
       },
       "target": "db",
       "targetHandle": undefined,
-      "type": "smoothstep",
+      "type": "default",
     },
   ],
   "nodes": [
@@ -532,7 +532,7 @@ exports[`computeLayerLayout characterization > matches snapshot without summary 
       },
       "target": "services",
       "targetHandle": "top-web",
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "web:services->data",
@@ -551,7 +551,7 @@ exports[`computeLayerLayout characterization > matches snapshot without summary 
       },
       "target": "data",
       "targetHandle": undefined,
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "api:controllers->services",
@@ -570,7 +570,7 @@ exports[`computeLayerLayout characterization > matches snapshot without summary 
       },
       "target": "services",
       "targetHandle": "top-api",
-      "type": "smoothstep",
+      "type": "default",
     },
     {
       "id": "api:services->db",
@@ -589,7 +589,7 @@ exports[`computeLayerLayout characterization > matches snapshot without summary 
       },
       "target": "db",
       "targetHandle": undefined,
-      "type": "smoothstep",
+      "type": "default",
     },
   ],
   "nodes": [

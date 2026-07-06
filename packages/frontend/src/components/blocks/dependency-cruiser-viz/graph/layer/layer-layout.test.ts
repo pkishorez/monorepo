@@ -8,6 +8,10 @@ const CONFIG: VisualizationConfig = {
     {
       name: 'web',
       allowedImports: [],
+      edges: [
+        { from: 'routes', to: 'services' },
+        { from: 'services', to: 'data' },
+      ],
       layers: [
         { name: 'routes', paths: ['src/routes'] },
         { name: 'services', paths: ['src/services'] },
@@ -17,6 +21,10 @@ const CONFIG: VisualizationConfig = {
     {
       name: 'api',
       allowedImports: [],
+      edges: [
+        { from: 'controllers', to: 'services' },
+        { from: 'services', to: 'db' },
+      ],
       layers: [
         { name: 'controllers', paths: ['src/controllers'] },
         { name: 'services', paths: ['src/services'] },
@@ -29,13 +37,13 @@ const CONFIG: VisualizationConfig = {
       path: 'src/routes/home',
       layer: 'routes',
       name: 'home',
-      barrel: false,
+      opaque: false,
     },
     {
       path: 'src/services/auth',
       layer: 'services',
       name: 'auth',
-      barrel: false,
+      opaque: false,
     },
   ],
 };
@@ -58,9 +66,9 @@ const SUMMARY: VizSummary = {
   coverageGaps: [],
   emptyModules: [],
   conflicts: [],
+  moduleOverlaps: [],
   moduleEdges: [],
-  featureGraphs: [],
-  closureViolations: [],
+  moduleViolations: [],
 };
 
 describe('computeLayerLayout characterization', () => {
@@ -97,5 +105,75 @@ describe('computeLayerLayout characterization', () => {
   it('draws no violation edges without a selected violation', () => {
     const result = computeLayerLayout(CONFIG, SUMMARY);
     expect(result.edges.some((e) => e.id.startsWith('violation:'))).toBe(false);
+  });
+});
+
+const DIAMOND_CONFIG: VisualizationConfig = {
+  rootDir: '.',
+  stacks: [
+    {
+      name: 'app',
+      allowedImports: [],
+      edges: [
+        { from: 'a', to: 'b' },
+        { from: 'a', to: 'c' },
+        { from: 'b', to: 'd' },
+        { from: 'c', to: 'd' },
+      ],
+      layers: [
+        { name: 'a', paths: ['src/a'] },
+        { name: 'b', paths: ['src/b'] },
+        { name: 'c', paths: ['src/c'] },
+        { name: 'd', paths: ['src/d'] },
+      ],
+    },
+  ],
+  modules: [],
+};
+
+describe('computeLayerLayout diamond', () => {
+  it('draws exactly the direct DAG edges', () => {
+    const { edges } = computeLayerLayout(DIAMOND_CONFIG);
+    const pairs = edges.map((e) => `${e.source}->${e.target}`).sort();
+    expect(pairs).toEqual(['a->b', 'a->c', 'b->d', 'c->d']);
+  });
+
+  it('places siblings side by side without overlap', () => {
+    const { nodes } = computeLayerLayout(DIAMOND_CONFIG);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const b = byId.get('b')!;
+    const c = byId.get('c')!;
+    expect(b.position.y).toBe(c.position.y);
+    expect(Math.abs(b.position.x - c.position.x)).toBeGreaterThanOrEqual(
+      b.width!,
+    );
+    const a = byId.get('a')!;
+    const d = byId.get('d')!;
+    expect(a.position.y).toBeLessThan(b.position.y);
+    expect(d.position.y).toBeGreaterThan(b.position.y);
+  });
+
+  it('colors outgoing and incoming edges of the selected layer distinctly', () => {
+    const { edges } = computeLayerLayout(DIAMOND_CONFIG, undefined, 'b');
+    const byPair = new Map(edges.map((e) => [`${e.source}->${e.target}`, e]));
+    const incoming = byPair.get('a->b')!;
+    const outgoing = byPair.get('b->d')!;
+    const unrelated = byPair.get('a->c')!;
+    expect(incoming.style!.stroke).not.toBe(outgoing.style!.stroke);
+    expect(incoming.style!.opacity).toBe(1);
+    expect(outgoing.style!.opacity).toBe(1);
+    expect(unrelated.style!.opacity).toBeLessThan(1);
+    expect(unrelated.style!.stroke).not.toBe(incoming.style!.stroke);
+    expect(unrelated.style!.stroke).not.toBe(outgoing.style!.stroke);
+  });
+
+  it('marks only the root as entry', () => {
+    const { nodes } = computeLayerLayout(DIAMOND_CONFIG);
+    const entries = nodes
+      .filter(
+        (n) => n.type === 'layer' && (n.data as { isEntry: boolean }).isEntry,
+      )
+      .map((n) => n.id);
+    expect(entries).toEqual(['a']);
   });
 });

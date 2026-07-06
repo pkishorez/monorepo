@@ -417,6 +417,8 @@ type FolderProps = {
   isSelect?: boolean
   /** Rendered after the (truncating) label, e.g. a status dot or badge. */
   suffix?: React.ReactNode
+  /** Extra classes for the leading folder icon only (e.g. an accent color). */
+  iconClassName?: string
 } & AccordionPrimitive.Item.Props
 
 const Folder = forwardRef<
@@ -431,6 +433,7 @@ const Folder = forwardRef<
       isSelectable = true,
       isSelect: _isSelect,
       suffix,
+      iconClassName,
       children,
       ...props
     },
@@ -474,7 +477,7 @@ const Folder = forwardRef<
               handleExpandRecursive(value)
             }}
           >
-            <span className="shrink-0">
+            <span className={cn("shrink-0", iconClassName)}>
               {expandedItems?.includes(value)
                 ? (openIcon ?? <FolderOpenIcon className="size-4" />)
                 : (closeIcon ?? <FolderIcon className="size-4" />)}

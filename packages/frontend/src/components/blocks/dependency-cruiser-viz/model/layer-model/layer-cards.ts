@@ -1,104 +1,111 @@
 import type { ModuleNode } from '../modules';
 
 /**
- * A module rendered as a chip. `children` are modules whose name nests under
- * this module's name (true module containment, e.g. `otel` ⊃ `otel/internal`)
- * — never folder structure.
+ * A module rendered as a leaf row. `label` is the module's basename (its last
+ * path segment, extension included for file modules).
  */
-export type ModuleChip = {
-  module: ModuleNode;
-  /** Display label: name relative to the folder group or parent module. */
+export type ModuleLeafNode = {
+  kind: 'module';
   label: string;
+  module: ModuleNode;
   /** Declared in `config.modules` (vs discovered from coverage). */
   declared: boolean;
-  children: ModuleChip[];
 };
 
 /**
- * Top-level modules of a layer clustered by their parent folder (the dirname
- * of the layer-relative module name). `folder` is null for layer-root modules.
+ * A folder placeholder: display-only structure grouping the modules beneath it.
+ * `label` may span multiple segments when a single-child folder chain is
+ * collapsed (`a/b` when `a` holds only `b`).
  */
-export type ChipGroup = {
-  folder: string | null;
-  chips: ModuleChip[];
+export type ModuleFolderNode = {
+  kind: 'folder';
+  label: string;
+  children: ModuleTreeNode[];
+};
+
+export type ModuleTreeNode = ModuleLeafNode | ModuleFolderNode;
+
+type FolderBuild = {
+  label: string;
+  folders: Map<string, FolderBuild>;
+  modules: ModuleLeafNode[];
 };
 
 /**
- * Turns a layer's flat module list into render-ready chip groups:
- * containment forest (module name prefix ⇒ child chip), roots clustered by
- * parent folder. Within a group declared chips precede discovered ones (each
- * alphabetical) so an overflow cap can always keep declared modules visible.
+ * Turns a layer's flat module list into a folder tree: each module sits under
+ * the folder chain of its path, folders are display-only placeholders, and a
+ * single-child folder chain collapses into one `a/b` row. Within a folder,
+ * modules come first (declared before discovered, each alphabetical), then
+ * subfolders (alphabetical).
  */
-export function buildLayerCardGroups(
+export function buildModuleTree(
   modules: ModuleNode[],
   declaredKeys: ReadonlySet<string>,
-): ChipGroup[] {
-  const sorted = [...modules].sort((a, b) => a.name.localeCompare(b.name));
+): ModuleTreeNode[] {
+  const root: FolderBuild = { label: '', folders: new Map(), modules: [] };
 
-  const roots: ModuleChip[] = [];
-  const placed: Array<{ name: string; chip: ModuleChip }> = [];
-
-  for (const mod of sorted) {
-    const chip: ModuleChip = {
+  for (const mod of modules) {
+    const leaf: ModuleLeafNode = {
+      kind: 'module',
+      label: mod.name === '' ? '(layer root)' : basename(mod.name),
       module: mod,
-      label: mod.name === '' ? '(layer root)' : mod.name,
       declared: declaredKeys.has(mod.key),
-      children: [],
     };
-
-    let parent: { name: string; chip: ModuleChip } | null = null;
-    for (const candidate of placed) {
-      if (
-        candidate.name !== '' &&
-        mod.name.startsWith(candidate.name + '/') &&
-        (!parent || candidate.name.length > parent.name.length)
-      ) {
-        parent = candidate;
+    const folderSegments =
+      mod.name === '' ? [] : mod.name.split('/').slice(0, -1);
+    let cursor = root;
+    for (const segment of folderSegments) {
+      let next = cursor.folders.get(segment);
+      if (!next) {
+        next = { label: segment, folders: new Map(), modules: [] };
+        cursor.folders.set(segment, next);
       }
+      cursor = next;
     }
-
-    if (parent) {
-      chip.label = mod.name.slice(parent.name.length + 1);
-      parent.chip.children.push(chip);
-    } else {
-      roots.push(chip);
-    }
-    placed.push({ name: mod.name, chip });
+    cursor.modules.push(leaf);
   }
 
-  const groups = new Map<string | null, ModuleChip[]>();
-  for (const chip of roots) {
-    const slash = chip.module.name.lastIndexOf('/');
-    const folder = slash === -1 ? null : chip.module.name.slice(0, slash);
-    if (folder !== null) chip.label = chip.module.name.slice(slash + 1);
-    const list = groups.get(folder);
-    if (list) list.push(chip);
-    else groups.set(folder, [chip]);
+  return toNodes(root);
+}
+
+function toNodes(build: FolderBuild): ModuleTreeNode[] {
+  const modules = [...build.modules].sort(declaredFirst);
+  const folders = [...build.folders.values()]
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .map(compressFolder);
+  return [...modules, ...folders];
+}
+
+/** Collapse a chain of single-subfolder folders (`a` → `a/b`) into one node. */
+function compressFolder(build: FolderBuild): ModuleFolderNode {
+  let label = build.label;
+  let cursor = build;
+  while (cursor.modules.length === 0 && cursor.folders.size === 1) {
+    const [only] = cursor.folders.values();
+    label = `${label}/${only!.label}`;
+    cursor = only!;
   }
+  return { kind: 'folder', label, children: toNodes(cursor) };
+}
 
-  const declaredFirst = (a: ModuleChip, b: ModuleChip): number =>
-    a.declared === b.declared
-      ? a.label.localeCompare(b.label)
-      : a.declared
-        ? -1
-        : 1;
+function declaredFirst(a: ModuleLeafNode, b: ModuleLeafNode): number {
+  return a.declared === b.declared
+    ? a.label.localeCompare(b.label)
+    : a.declared
+      ? -1
+      : 1;
+}
 
-  const result: ChipGroup[] = [...groups.entries()].map(([folder, chips]) => ({
-    folder,
-    chips: chips.sort(declaredFirst),
-  }));
-
-  return result.sort((a, b) => {
-    if (a.folder === null) return b.folder === null ? 0 : -1;
-    if (b.folder === null) return 1;
-    return a.folder.localeCompare(b.folder);
-  });
+function basename(name: string): string {
+  return name.slice(name.lastIndexOf('/') + 1);
 }
 
 /**
- * Module keys of a chip and all its descendants — used to decide whether a
- * parent chip or collapsed overflow contains a highlighted module.
+ * Module keys of a node and all its descendants — used to decide whether a
+ * folder or collapsed overflow contains a highlighted module.
  */
-export function chipKeys(chip: ModuleChip): string[] {
-  return [chip.module.key, ...chip.children.flatMap(chipKeys)];
+export function moduleTreeKeys(node: ModuleTreeNode): string[] {
+  return node.kind === 'module'
+    ? [node.module.key]
+    : node.children.flatMap(moduleTreeKeys);
 }
