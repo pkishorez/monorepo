@@ -1,20 +1,20 @@
 ---
 name: author-architecture-config
 description: >
-  Write a depcruise-viz depcruise.config.ts: declare layers with layer(),
-  compose top-down stacks with layersTopDown(), and model feature trees with
-  feature(root, modules) and module(path, { barrel? }). Load when authoring or
-  editing a depcruise.config.ts, choosing layer/stack/feature/module
-  granularity, or resolving "must have at least 2 layers", "duplicate layer
-  name", "not a declared module name", or closure-violation errors.
+  Write a depcruise-viz depcruise.config.ts: sort files into layer()s, wire the
+  allowed import directions with layerGraph() + edge() (a DAG — siblings are
+  independent, reachability is transitive), and name the units inside as
+  module()s with optional opaque and rules. Load when authoring or editing a
+  depcruise.config.ts, choosing layer/module granularity, deciding edges, or
+  resolving "Layer ordering cycle detected", self-edge, or module-rule
+  contradiction errors.
 metadata:
   type: core
   library: depcruise-viz
-  library_version: '0.0.4'
+  library_version: '0.0.8'
 sources:
   - 'pkishorez/monorepo:packages/depcruise-viz/src/authoring/layer.ts'
-  - 'pkishorez/monorepo:packages/depcruise-viz/src/authoring/layers-top-down.ts'
-  - 'pkishorez/monorepo:packages/depcruise-viz/src/authoring/feature.ts'
+  - 'pkishorez/monorepo:packages/depcruise-viz/src/authoring/layer-graph.ts'
   - 'pkishorez/monorepo:packages/depcruise-viz/src/authoring/module.ts'
   - 'pkishorez/monorepo:packages/depcruise-viz/src/types.ts'
   - 'pkishorez/monorepo:packages/depcruise-viz/CONTEXT.md'
@@ -23,19 +23,44 @@ sources:
 
 # depcruise-viz — Authoring the architecture config
 
-A `depcruise.config.ts` describes a project's layered architecture as typed
-data. depcruise-viz compiles it into dependency-cruiser rules to enforce layer
-ordering and feature-tree closure.
+## The idea
 
-Vocabulary: a **layer** is a named band of path patterns. A **stack** is one
-top-down ordering of layers (upper may import lower, never above). A **module**
-is a named unit of code living in exactly one layer — it carries only
-`(name, layer, path)` plus an optional `barrel` flag; no owner, no visibility.
-A **feature** is a declared rooted tree: an explicit `root` module name plus a
-list of member module names, one tree per user-facing entry point. A **shared
-module** is one named by ≥2 features — sharing is emergent, not configured.
-A **barrel** is a module flagged `barrel: true`; its out-edges are exempt from
-closure and coverage.
+Every package has an _implicit_ architecture: some files belong at the bottom
+(shared types, helpers), some in the middle (domain logic), some at the top
+(entry points, wiring), and imports are supposed to flow one way. But nothing
+stops a helper from reaching up into a route and quietly tangling the graph.
+
+A `depcruise.config.ts` writes that intended architecture down as typed data, so
+`depcruise-viz` can check the real import graph against it. You describe two
+things:
+
+- **Layers** — you sort files into named bands, then draw a **layer graph**: a
+  DAG whose edges say who may import whom. Anything the graph doesn't allow is a
+  violation.
+- **Modules** — you name the meaningful units inside those layers, so coverage
+  and finer per-module rules have something to attach to.
+
+The job is done when every file is accounted for and the real imports break none
+of your rules: **total coverage, zero violations**.
+
+## Vocabulary
+
+- **Layer** — a named band of path patterns (`layer(name, paths)`). The name is
+  identity; reusing a name merges the layers into one spanning node.
+- **Layer graph** — a DAG built with `layerGraph(name, [edge(a, b), …])`, where
+  `edge(a, b)` means "a may import b". **Reachability is transitive**: A may
+  import B iff a directed path A→…→B exists. Layers with no path between them are
+  **siblings** — independent, forbidden to import each other in either direction.
+  A plain top-down stack is just a chain of edges.
+- **Module** — one unit of code (`module(path, …)`) living in exactly one layer.
+  Its name is derived from the path tail below the layer root (or the basename
+  incl. extension when the path equals the layer path). Modules are mutually
+  exclusive — never nested.
+- **Opaque module** — `module(path, { opaque: true })`: a wiring/barrel point
+  (CLI entry, DI container). Its files still count for coverage, but what it
+  imports is left unanalyzed.
+- **Module rules** — `module(path, { rules })`: enforced constraints on a
+  module's edges (`root` / `leaf` / `onlyImports` / `onlyImportedBy`). Opt-in.
 
 ## Setup
 
@@ -44,9 +69,9 @@ Create `depcruise.config.ts` at the package root and default-export a
 
 ```typescript
 import {
-  feature,
+  edge,
   layer,
-  layersTopDown,
+  layerGraph,
   module,
   type ProjectConfig,
 } from 'depcruise-viz';
@@ -60,265 +85,200 @@ const types = layer('types', ['src/types.ts'], { description: 'Shared types' });
 export default {
   rootDir: 'src',
   ignore: ['src/index.ts'],
-  rules: [layersTopDown('app', [cli, core, types])],
-  features: [
-    feature('authoring', {
-      root: 'authoring',
-      modules: ['authoring', 'types.ts'],
-      description: 'Config DSL builders',
-    }),
-  ],
+  rules: [layerGraph('app', [edge(cli, [core, types]), edge(core, types)])],
   modules: [
     module('src/authoring'),
-    module('src/types.ts'),
-    module('src/cli', { barrel: true }),
+    module('src/types.ts', { rules: { leaf: true } }),
+    module('src/cli', { opaque: true }),
   ],
 } satisfies ProjectConfig;
 ```
 
+If you're starting from scratch, begin with just `{ rootDir: 'src' }` — that
+empty map is enough to run `depcruise-viz deps`/`files`/`lint` — then grow it.
+
 ## Core Patterns
 
-### Compose a top-down stack
+### Learn the shape with `deps` before you write
 
-`layersTopDown(name, layers)` orders layers top→bottom: the first may import
-any below it; the last imports nothing. Needs at least two layers.
+Don't guess the layering. For each folder under `src/`, run
+`depcruise-viz deps <path>` and read its edges: who imports it tells you how
+_low_ it belongs; what it imports tells you how _high_. The `insights` block also
+gives an entry-point/barrel verdict (a hint at `opaque`) and a _draft_ set of
+suggested module rules. Band the folders from what you learn, then draw the
+sparsest edge set that honestly reflects intent.
 
-```typescript
-const stack = layersTopDown('app', [cli, core, types]);
-```
+### Draw the layer graph
 
-### Declare a module
-
-`module(path, { barrel? })` registers a folder (or file) as a named unit in
-exactly one layer. The **module name** is derived from the path: the path tail
-below the layer's root path. When the module path equals the layer path (e.g. a
-single-file layer like `src/types.ts`), the name falls back to the basename
-(`types.ts`). Use that exact string in feature `root` and `modules` arrays.
-
-```typescript
-module('src/authoring'); // name: "authoring"
-module('src/types.ts'); // name: "types.ts"  (basename fallback)
-module('src/cli', { barrel: true }); // name: "cli", exempt from closure
-```
-
-A **barrel** (`barrel: true`) is a re-export or fan-out point whose out-edges
-are exempt from closure and coverage — use it for wiring layers (CLI entry,
-index re-exports, DI containers) that legitimately reach many downstream modules
-without belonging to a single feature.
-
-### Declare a feature tree
-
-`feature(name, { root, modules, description? })` declares a vertical slice. The
-`root` is the entry module name (must be in `modules`). `modules` is the full
-member list — every module this feature's import cone spans, down to shared
-leaves. Edges are **derived** from the real import graph restricted to the
-member set; you don't declare edges explicitly.
+`layerGraph(name, [edges])` is a DAG, not just a top-down stack. `edge(a, b)`
+means "a may import b"; `edge(a, [b, c])` fans out to one edge per target.
+Reachability is transitive, so you never write skip edges (`edge(a, c)` is
+redundant when `edge(a, b)` + `edge(b, c)` exist).
 
 ```typescript
-feature('authoring', {
-  root: 'authoring',
-  modules: ['authoring', 'types.ts'],
-  description: 'Public config DSL builders',
-});
-```
+// A stack is a chain:
+layerGraph('app', [edge(cli, core), edge(core, types)]);
 
-### One feature per user-facing entry point
-
-A feature is an end-to-end vertical slice from one entry point. Model **what
-the user is actually doing**, one feature per real entry point, not one per
-handler family. When the same journey spans tiers, namespace it per tier
-(`:frontend`, `:backend`).
-
-### Shared modules are emergent
-
-A module named in ≥2 feature trees is automatically shared — no marker, no
-`sharedWith`. Identify which modules are shared by reading the real import graph
-(run `pnpm lint:depcruise` and note unclaimed edges; add the module to every
-feature that reaches it). The closure rule relaxes at shared modules: each
-referencing feature accounts only for the edges to its own declared members.
-
-```typescript
-// types.ts is shared: named by authoring, compile, and analyze.
-feature('authoring', { root: 'authoring', modules: ['authoring', 'types.ts'] });
-feature('compile', { root: 'compile', modules: ['compile', 'types.ts'] });
-feature('analyze', { root: 'analyze', modules: ['analyze', 'types.ts'] });
-module('src/types.ts'); // no marker — the fact that three features name it IS the sharing
-```
-
-### TDD loop for a config
-
-1. Declare modules (all folders/files you want to track).
-2. Declare features with `root` + `modules` (start with just the root).
-3. Run `pnpm lint:depcruise`.
-4. For each unclaimed-edge violation, add the target module to every feature
-   that reaches it, or flag the source module as `barrel: true`.
-5. Repeat until exit 0.
-
-### Worked example: depcruise-viz dogfooding itself
-
-```typescript
-const cli = layer('cli', ['src/cli', 'src/cruise'], {
-  description: 'CLI entry, wiring, cruise orchestration',
-});
-const core = layer('core', ['src/authoring', 'src/compile', 'src/analyze'], {
-  description: 'Pure DSL, compilation, analysis',
-});
-const types = layer('types', ['src/types.ts'], { description: 'Shared types' });
-
-export default {
-  rootDir: 'src',
-  ignore: ['src/index.ts', 'src/node.ts'],
-  rules: [layersTopDown('depcruise-viz', [cli, core, types])],
-  features: [
-    feature('authoring', {
-      root: 'authoring',
-      modules: ['authoring', 'types.ts'],
-    }),
-    feature('compile', { root: 'compile', modules: ['compile', 'types.ts'] }),
-    feature('analyze', { root: 'analyze', modules: ['analyze', 'types.ts'] }),
-  ],
-  modules: [
-    module('src/authoring'),
-    module('src/compile'),
-    module('src/analyze'),
-    module('src/types.ts'), // shared by all three features
-    module('src/cli', { barrel: true }), // wiring barrel — CLI entry
-    module('src/cruise', { barrel: true }), // wiring barrel — cruise orchestration
-  ],
-};
-```
-
-`types.ts` is shared (named by three features). `cli` and `cruise` are barrels
-whose cross-cutting imports are exempt from closure.
-
-## Common Mistakes
-
-### HIGH Module name wrong in feature tree
-
-Wrong:
-
-```typescript
-module('src/types.ts');
-feature('authoring', { root: 'authoring', modules: ['authoring', 'types'] });
-// Error: member "types" is not a declared module name
-```
-
-Correct:
-
-```typescript
-module('src/types.ts');
-feature('authoring', { root: 'authoring', modules: ['authoring', 'types.ts'] });
-// "types.ts" is the basename fallback when module path == layer path
-```
-
-When a module is declared at its layer's own path, the name is the **basename**
-(including extension). Use that exact string in `root` and `modules`.
-
-Source: src/compile/to-visualization-config.ts — `deriveModuleName`
-
-### HIGH Stack built with fewer than two layers
-
-Wrong:
-
-```typescript
-layersTopDown('app', [core]); // throws: Stack "app" must have at least 2 layers
-```
-
-Correct:
-
-```typescript
-layersTopDown('app', [cli, core, types]);
-```
-
-Source: src/authoring/layers-top-down.ts
-
-### HIGH Reusing a layer name within the same stack
-
-Wrong:
-
-```typescript
-layersTopDown('app', [
-  layer('internal', ['src/a']),
-  layer('internal', ['src/b']), // merges into one layer
+// A diamond — a shape a flat stack can't express — uses siblings:
+layerGraph('web', [
+  edge(server, [entrypoints, routes]), // entrypoints & routes are siblings
+  edge(entrypoints, components),
+  edge(routes, components),
+  edge(components, lib),
 ]);
 ```
 
+Siblings are the default: no edge between two layers = independent, forbidden
+both ways. Add an edge only where a dependency is architecturally legitimate.
+
+### Declare a module
+
+`module(path, { name?, opaque?, rules? })` registers a folder or file as a named
+unit in exactly one layer. The name is derived from the path tail below the
+layer root; when the module path equals the layer path (a single-file layer like
+`src/types.ts`), the name falls back to the basename incl. extension. Modules
+must be mutually exclusive — never nest one path inside another.
+
+```typescript
+module('src/authoring'); // name: "authoring"
+module('src/types.ts'); // name: "types.ts" (basename fallback)
+module('src/cli', { opaque: true }); // wiring barrel — out-edges unanalyzed
+```
+
+### Add rules only when intent is clear
+
+`rules: { root?, leaf?, onlyImports?, onlyImportedBy? }` enforce a module's
+edges: `root` = nobody may import it; `leaf` = it may import no module;
+`onlyImports` / `onlyImportedBy` = allow-lists naming other declared modules **by
+path**. Rules run against the raw import graph, so they bite even on an `opaque`
+module. They encode intent only the owner knows — prefer the user declares them,
+and never add or loosen one just to silence a violation.
+
+```typescript
+module('src/types.ts', { rules: { leaf: true } }); // pure types import nothing
+module('src/components/charts', {
+  rules: { onlyImportedBy: ['src/routes/devtools'] }, // reachable only from there
+});
+```
+
+### The fix loop
+
+1. Start with modules for the folders/files you want to track.
+2. Run `pnpm lint:depcruise` (the gate) and `depcruise-viz files` (inventory).
+3. Add layers/modules for orphaned + module-gap files; reverse violating imports
+   (or, rarely, add a deliberate edge); un-nest overlapping modules.
+4. Repeat until `files` shows full coverage and `lint` prints
+   `No violations found.`
+
+## Common Mistakes
+
+### HIGH Using retired functions — feature / group / layersTopDown / visibility
+
+Wrong:
+
+```typescript
+import { feature, group, layersTopDown } from 'depcruise-viz'; // not exported
+module('src/util', { sharedWith: ['compile'], visibility: 'public' }); // no such options
+module('src/cli', { barrel: true }); // renamed
+```
+
 Correct:
 
 ```typescript
-layer('a/internal', ['src/a']);
-layer('b/internal', ['src/b']);
+import { edge, layer, layerGraph, module } from 'depcruise-viz';
+layerGraph('app', [edge(cli, core), edge(core, types)]); // was layersTopDown
+module('src/cli', { opaque: true }); // was barrel: true
 ```
 
-Layer identity is `name`; reusing a name merges the layers into a single
-spanning node.
+`feature`, `group`, `sharedWith`, `visibility`, `barrel`, and `layersTopDown`
+are all retired. Model dependency direction with `layerGraph` + `edge`, and use
+`opaque` / `rules` on modules. There is no feature tree and no visibility system.
+
+Source: src/authoring/index.ts (exports); src/types.ts
+
+### HIGH Reusing a layer name
+
+Wrong:
+
+```typescript
+layer('internal', ['src/a']);
+layer('internal', ['src/b']); // merges into one spanning layer
+```
+
+Correct:
+
+```typescript
+layer('a-internal', ['src/a']);
+layer('b-internal', ['src/b']);
+```
+
+Layer identity is the name; reusing it merges the paths into a single node.
 
 Source: src/authoring/layer.ts; CONTEXT.md
 
-### HIGH Adding visibility or sharedWith — those fields no longer exist
+### MEDIUM Self-edge or redundant skip edge
 
 Wrong:
 
 ```typescript
-module('src/util', { feature: 'authoring', sharedWith: ['compile'] });
-module('src/types', { visibility: 'public' });
+edge(core, core); // throws: self-edge
+layerGraph('app', [edge(cli, core), edge(core, types), edge(cli, types)]);
+// edge(cli, types) is redundant — cli already reaches types transitively
 ```
 
 Correct:
 
 ```typescript
-// Declare the module; name it in every feature that reaches it.
-module('src/util');
-feature('authoring', { root: 'authoring', modules: ['authoring', 'util'] });
-feature('compile', { root: 'compile', modules: ['compile', 'util'] });
+layerGraph('app', [edge(cli, core), edge(core, types)]);
 ```
 
-Sharing is emergent — no marker on the module, no `sharedWith`, no `visibility`.
+Source: src/authoring/layer-graph.ts
 
-Source: ADR 0001; CONTEXT.md
-
-### HIGH Feature modeled as a code folder, not a user entry point
+### MEDIUM Module-rule contradiction
 
 Wrong:
 
 ```typescript
-feature('utils', { root: 'utils', modules: ['utils'] }); // a directory, not a journey
+module('src/types.ts', { rules: { root: true, onlyImportedBy: ['src/cli'] } });
+// throws: "root" contradicts "onlyImportedBy"
 ```
 
 Correct:
 
 ```typescript
-feature('checkout:frontend', { root: 'checkout-page', modules: [...] });
-feature('checkout:backend',  { root: 'cart-handler',  modules: [...] });
+module('src/types.ts', { rules: { leaf: true } });
+// root = onlyImportedBy: []; leaf = onlyImports: []; don't combine with the long form
 ```
 
-Features describe user-facing entry points. A folder-shaped feature produces
-boundaries that don't match real ownership.
+Source: src/authoring/module.ts (validateRules)
+
+### MEDIUM Coarse module that mixes concerns
+
+Wrong:
+
+```typescript
+module('src', {}); // the whole tree as one module — enforces nothing
+```
+
+Correct:
+
+```typescript
+module('src/authoring');
+module('src/compile');
+```
+
+Match module granularity to real, self-contained responsibility units. One giant
+module barely enforces anything; trivially small ones are just churn.
 
 Source: maintainer interview; CONTEXT.md
 
 ### HIGH Generating against the wrong version surface
 
-Wrong:
-
-```typescript
-// using an export or option shape that does not exist in the installed version
-```
-
-Correct:
-
-```typescript
-// check the installed depcruise-viz package.json (version + exports) first
-```
-
-There are no maintained doc files — `package.json` is the source of truth.
+There are no maintained doc files — the installed `package.json` (version +
+exports) is the source of truth, refreshed each release. Check it before
+authoring so you don't reach for a retired symbol or option shape.
 
 Source: package.json
 
-### HIGH Tension: Granularity vs maintenance overhead
-
-Fine-grained modules and per-entry-point features give sharper closure but more
-config to keep in sync. Don't over-coarsen (one big module = weak enforcement)
-or over-nest trivially. Match module granularity to real responsibility units.
-
-See also: enforce-boundaries/SKILL.md — after authoring, run lint to verify closure holds and all edges are claimed.
+See also: enforce-boundaries/SKILL.md — after authoring, run lint to verify the
+boundaries hold and coverage reaches zero uncovered files.

@@ -1,5 +1,4 @@
-import { CheckIcon, NetworkIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { NetworkIcon, XIcon } from 'lucide-react';
 import { Button } from '#components/ui/button';
 import {
   Empty,
@@ -21,8 +20,8 @@ import { depcruiseStats, type DepcruiseStats } from './stats';
  * that is not configured is dropped entirely rather than shown as an error.
  *
  * The wrapper is deliberately thin: the embedded tool already summarises
- * itself, so the only chrome added here is a tab bar whose trigger carries a
- * single concise health badge (architecture issues) for at-a-glance status.
+ * itself, so the only chrome added here is a tab bar whose trigger carries an
+ * at-a-glance health icon.
  * Renders an empty state when the tool is not available.
  *
  * Pass `onClose` to surface a close button on the right of the top nav (e.g.
@@ -52,9 +51,8 @@ export function DevtoolsReport({
         <TabsList className="gap-1 rounded-lg border border-border/60 bg-muted p-1">
           {depcruise && dStats && (
             <TabsTrigger value="depcruise" className={tabTrigger}>
-              <NetworkIcon className="size-3.5 opacity-70" />
+              <DepcruiseTabIcon stats={dStats} />
               DepCruise
-              <DepcruiseTabBadge stats={dStats} />
             </TabsTrigger>
           )}
         </TabsList>
@@ -93,49 +91,20 @@ const tabTrigger = cn(
   'dark:data-active:border-border dark:data-active:bg-background',
 );
 
-const countTone = {
-  danger: 'text-red-600 dark:text-red-400',
-  warn: 'text-amber-600 dark:text-amber-400',
+const healthTone = {
+  error: 'text-red-600 dark:text-red-400',
+  warning: 'text-amber-600 dark:text-amber-400',
   ok: 'text-emerald-600 dark:text-emerald-400',
-  muted: 'text-muted-foreground',
 } as const;
 
-/**
- * Compact inline status: a tone-coloured icon + count tucked after the label,
- * light enough to sit inside a segmented pill without competing with it.
- */
-function StatusCount({
-  tone,
-  icon: Icon,
-  children,
-}: {
-  tone: keyof typeof countTone;
-  icon?: typeof CheckIcon;
-  children?: ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        'flex items-center gap-0.5 text-xs font-medium tabular-nums',
-        countTone[tone],
-      )}
-    >
-      {Icon && <Icon className="size-3.5" />}
-      {children}
-    </span>
-  );
-}
+function DepcruiseTabIcon({ stats }: { stats: DepcruiseStats }) {
+  const tone =
+    stats.violations > 0 ? 'error' : stats.coverageGaps > 0 ? 'warning' : 'ok';
 
-/** Single health count for the DepCruise tab: clean, or the issue count. */
-function DepcruiseTabBadge({ stats }: { stats: DepcruiseStats }) {
-  if (stats.clean) {
-    return <StatusCount tone="ok" icon={CheckIcon} />;
-  }
-  const issues = stats.violations;
   return (
-    <StatusCount tone="danger" icon={TriangleAlertIcon}>
-      {issues}
-    </StatusCount>
+    <NetworkIcon
+      className={cn('size-3.5 transition-colors', healthTone[tone])}
+    />
   );
 }
 

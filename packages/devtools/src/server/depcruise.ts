@@ -30,19 +30,33 @@ const PHASE_MESSAGES: Record<DepcruisePhase, string> = {
  * off the server's event loop.
  */
 export const runDepcruiseWorker = (dir: string) => {
-  const post = (message: WorkerMessage) => process.send?.(message);
+  // `process.send` is asynchronous: it writes to the IPC pipe and returns
+  // before the payload is flushed. A large result (bigger than the OS pipe
+  // buffer) is still draining when a synchronous `process.exit` would tear the
+  // process down, dropping the message. Exit only from the send callback so the
+  // parent is guaranteed to receive it.
+  const post = (message: WorkerMessage, onFlushed?: () => void) => {
+    if (process.send) {
+      process.send(message, undefined, undefined, onFlushed);
+    } else {
+      onFlushed?.();
+    }
+  };
 
   void cruiseProject(dir, (phase) => post({ type: 'phase', phase }))
     .then(({ config, summary }) => {
-      post({ type: 'result', data: { config, summary } });
-      process.exit(0);
+      post({ type: 'result', data: { config, summary } }, () =>
+        process.exit(0),
+      );
     })
     .catch((cause: unknown) => {
-      post({
-        type: 'error',
-        message: cause instanceof Error ? cause.message : String(cause),
-      });
-      process.exit(1);
+      post(
+        {
+          type: 'error',
+          message: cause instanceof Error ? cause.message : String(cause),
+        },
+        () => process.exit(1),
+      );
     });
 };
 
@@ -69,6 +83,7 @@ export const runDepcruiseStream = (
         const child = fork(process.argv[1] as string, [], {
           env: { ...process.env, [DEPCRUISE_DIR_ENV]: dir },
         });
+        let settled = false;
         const heartbeat = setInterval(() => {
           Queue.offerUnsafe(queue, {
             _tag: 'Heartbeat',
@@ -87,6 +102,7 @@ export const runDepcruiseStream = (
               });
               break;
             case 'result':
+              settled = true;
               Queue.offerUnsafe(queue, {
                 _tag: 'Result',
                 result: { available: true, data: message.data },
@@ -94,13 +110,25 @@ export const runDepcruiseStream = (
               Queue.endUnsafe(queue);
               break;
             case 'error':
+              settled = true;
               fail(message.message);
               break;
           }
         });
-        child.on('error', (cause: Error) => fail(cause.message));
+        child.on('error', (cause: Error) => {
+          settled = true;
+          fail(cause.message);
+        });
+        // A child that exits without ever sending `result`/`error` — even with
+        // code 0 — would otherwise leave the stream hanging forever on the last
+        // phase it reported. Fail instead of stalling.
         child.on('exit', (code) => {
-          if (code !== 0) fail(`depcruise worker exited with code ${code}`);
+          if (settled) return;
+          fail(
+            code === 0
+              ? 'depcruise worker exited without a result'
+              : `depcruise worker exited with code ${code}`,
+          );
         });
 
         return { child, heartbeat };
