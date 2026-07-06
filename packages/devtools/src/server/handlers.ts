@@ -1,14 +1,15 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 import {
   clearTelemetry,
   queryLogs,
   queryMetrics,
   queryTraces,
 } from '@kishorez/lotel';
-import { assembleDepcruise, resolvePath } from '../report/assemble.js';
+import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
+import { runDepcruiseStream } from './depcruise.js';
 
 const toRpcError = (cause: unknown): DevtoolsRpcError =>
   cause instanceof DevtoolsRpcError
@@ -21,14 +22,15 @@ const toRpcError = (cause: unknown): DevtoolsRpcError =>
  * which is provided by the server entrypoint.
  */
 export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
-  RunDepcruise: ({ path: input }) =>
-    Effect.gen(function* () {
-      const dir = resolvePath(input);
-      if (!existsSync(path.join(dir, 'depcruise.config.ts'))) {
-        return { available: false as const };
-      }
-      return yield* assembleDepcruise(dir);
-    }),
+  RunDepcruise: ({ path: input }) => {
+    const dir = resolvePath(input);
+    return existsSync(path.join(dir, 'depcruise.config.ts'))
+      ? runDepcruiseStream(dir)
+      : Stream.make({
+          _tag: 'Result' as const,
+          result: { available: false as const },
+        });
+  },
   QueryTraces: ({ sk, limit }) =>
     queryTraces(sk, limit).pipe(Effect.mapError(toRpcError)),
   QueryLogs: ({ sk, limit }) =>
