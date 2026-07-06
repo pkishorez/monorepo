@@ -3,6 +3,7 @@ import { Fragment } from 'react';
 
 import { cn } from '#lib/utils';
 
+import { INCOMING_EDGE_COLOR, OUTGOING_EDGE_COLOR } from '../edge-colors';
 import {
   LAYER_NODE_WIDTH,
   type LayerNodeData,
@@ -22,6 +23,11 @@ function StackHeaderNode({ data }: NodeProps<Node<StackHeaderNodeData>>) {
     </div>
   );
 }
+
+const CONNECTED_RING_COLOR = {
+  incoming: `${INCOMING_EDGE_COLOR}66`,
+  outgoing: `${OUTGOING_EDGE_COLOR}66`,
+} as const;
 
 function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
   return (
@@ -77,7 +83,13 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
         className="!opacity-0"
       />
       <div
-        style={{ width: data.nodeWidth ?? LAYER_NODE_WIDTH }}
+        style={{
+          width: data.nodeWidth ?? LAYER_NODE_WIDTH,
+          ...(data.connectedDirection &&
+            data.connectedDirection !== 'both' && {
+              boxShadow: `0 0 0 1.5px ${CONNECTED_RING_COLOR[data.connectedDirection]}`,
+            }),
+        }}
         className={cn(
           'rounded-lg px-5 py-2 text-center text-[13px] font-semibold whitespace-nowrap transition-shadow',
           data.isEntry
@@ -87,6 +99,7 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
             ? 'border-2 border-dashed border-muted-foreground'
             : 'border border-border',
           data.violationCount > 0 && 'ring-2 ring-destructive/50',
+          data.connectedDirection === 'both' && 'ring-1 ring-border',
           data.isHovered &&
             !data.isSelected &&
             'ring-2 ring-primary/40 ring-offset-1 ring-offset-background',

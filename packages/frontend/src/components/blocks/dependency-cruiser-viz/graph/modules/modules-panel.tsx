@@ -99,6 +99,22 @@ export function ModulesPanel(props: ModulesPanelProps) {
     return map;
   }, [props.config, props.summary]);
 
+  const neighborsByKey = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    const add = (a: string, b: string) => {
+      const set = map.get(a);
+      if (set) set.add(b);
+      else map.set(a, new Set([b]));
+    };
+    for (const e of props.summary?.moduleEdges ?? []) {
+      const from = moduleKey(e.fromLayer, e.fromModule);
+      const to = moduleKey(e.toLayer, e.toModule);
+      add(from, to);
+      add(to, from);
+    }
+    return map;
+  }, [props.summary]);
+
   // The all-modules grid stays mounted while a module is focused so its zoom/pan
   // survives the round-trip; the focus view floats above it as a blurred,
   // translucent overlay rather than replacing (and remounting) the grid.
@@ -109,6 +125,7 @@ export function ModulesPanel(props: ModulesPanelProps) {
           {...props}
           opaqueKeys={opaqueKeys}
           hoverByKey={hoverByKey}
+          neighborsByKey={neighborsByKey}
         />
       </ReactFlowProvider>
       {props.selectedModule && (
@@ -143,9 +160,11 @@ function ModulesGrid({
   onHoverGraphModule,
   opaqueKeys,
   hoverByKey,
+  neighborsByKey,
 }: ModulesPanelProps & {
   opaqueKeys: ReadonlySet<string>;
   hoverByKey: ReadonlyMap<string, GraphHover>;
+  neighborsByKey: ReadonlyMap<string, ReadonlySet<string>>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fitted = useFitViewOnResize(containerRef, []);
@@ -161,21 +180,32 @@ function ModulesGrid({
     [config],
   );
 
-  // Only explicit choices dim the rest of the grid; hover never does.
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const effectiveHover =
+    highlightedModule || selectedModule ? null : hoveredKey;
+
+  // Explicit choices dim the rest of the grid; while nothing is chosen, hover
+  // lights the hovered module and its direct neighbors instead.
   const litModules = useMemo(() => {
     const lit = new Set<string>();
     if (highlightedModule) lit.add(highlightedModule);
     if (selectedModule) lit.add(selectedModule);
-    return lit.size > 0 ? lit : null;
-  }, [highlightedModule, selectedModule]);
+    if (lit.size > 0) return lit;
+    if (effectiveHover) {
+      lit.add(effectiveHover);
+      for (const n of neighborsByKey.get(effectiveHover) ?? []) lit.add(n);
+      return lit;
+    }
+    return null;
+  }, [highlightedModule, selectedModule, effectiveHover, neighborsByKey]);
 
   // Hover previews the module in the file tree, but only while no module is
   // highlighted or selected — an explicit choice makes hover inert.
   const handleHoverModule = useCallback(
     (key: string | null) => {
-      if (!onHoverGraphModule) return;
       if (key && (highlightedModule || selectedModule)) return;
-      onHoverGraphModule(key ? (hoverByKey.get(key) ?? null) : null);
+      setHoveredKey(key);
+      onHoverGraphModule?.(key ? (hoverByKey.get(key) ?? null) : null);
     },
     [onHoverGraphModule, highlightedModule, selectedModule, hoverByKey],
   );

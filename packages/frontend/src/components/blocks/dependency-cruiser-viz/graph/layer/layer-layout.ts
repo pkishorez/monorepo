@@ -9,6 +9,8 @@ import {
   OUTGOING_EDGE_COLOR,
 } from '../edge-colors';
 
+export type ConnectedDirection = 'incoming' | 'outgoing' | 'both';
+
 export type HandleOffset = {
   stackName: string;
   offsetPct: number;
@@ -25,6 +27,7 @@ export type LayerNodeData = {
   isSelected: boolean;
   isHovered: boolean;
   isDimmed: boolean;
+  connectedDirection: ConnectedDirection | null;
   nodeWidth?: number;
   handleOffsets?: HandleOffset[];
 };
@@ -239,6 +242,24 @@ export function computeLayerLayout(
   if (hoveredLayer) activeLayers.add(hoveredLayer);
   const hasSelection = activeLayers.size > 0;
 
+  // Direct neighbors of the active layers, tagged by the direction of the
+  // edge that connects them (matching the edge palette).
+  const connectedDirection = new Map<string, ConnectedDirection>();
+  const markConnected = (bareName: string, direction: ConnectedDirection) => {
+    if (activeLayers.has(bareName)) return;
+    const existing = connectedDirection.get(bareName);
+    connectedDirection.set(
+      bareName,
+      existing && existing !== direction ? 'both' : direction,
+    );
+  };
+  for (const e of hierarchyEdges) {
+    const fromName = layerMeta.get(e.from)?.name ?? e.from;
+    const toName = layerMeta.get(e.to)?.name ?? e.to;
+    if (activeLayers.has(fromName)) markConnected(toName, 'outgoing');
+    if (activeLayers.has(toName)) markConnected(fromName, 'incoming');
+  }
+
   const nodes: Node[] = [];
 
   for (const col of stackColumns) {
@@ -266,7 +287,10 @@ export function computeLayerLayout(
     const meta = layerMeta.get(key);
     const bareName = meta?.name ?? key;
     const isLayerSelected = selectedLayers.has(bareName);
-    const isDimmed = hasSelection && !activeLayers.has(bareName);
+    const isDimmed =
+      hasSelection &&
+      !activeLayers.has(bareName) &&
+      !connectedDirection.has(bareName);
 
     const width = nodeWidths.get(key) ?? LAYER_NODE_WIDTH;
     nodes.push({
@@ -286,6 +310,7 @@ export function computeLayerLayout(
         isSelected: isLayerSelected,
         isHovered: bareName === hoveredLayer,
         isDimmed,
+        connectedDirection: connectedDirection.get(bareName) ?? null,
         nodeWidth: nodeWidths.get(key),
         handleOffsets: handleOffsetsMap.get(key),
       } satisfies LayerNodeData,
