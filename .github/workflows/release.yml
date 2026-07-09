@@ -37,7 +37,10 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - run: npm install -g npm@latest
+      # Pin npm: npm@latest (12.0.0) ships a broken libnpmpublish that can't
+      # resolve its own `sigstore` module, which breaks provenance publishing
+      # (NPM_CONFIG_PROVENANCE). 11.16.0 is the last known-good release.
+      - run: npm install -g npm@11.16.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
