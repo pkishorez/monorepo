@@ -1,5 +1,15 @@
 # @kishorez/devtools
 
+## 0.0.10
+
+### Patch Changes
+
+- Stop cruise from following imports into `node_modules`. The programmatic `cruise()` API applies no default `doNotFollow`, so on large apps it traversed and parsed the entire transitive `node_modules` graph — making `files`/`lint`/`deps` extremely slow (~10× on a Next.js app). Now bounded to the package's own source, matching the analysis scope. Output is unchanged.
+
+- Updated dependencies []:
+  - depcruise-viz@0.0.10
+  - std-toolkit@0.0.1
+
 ## 0.0.9
 
 ### Patch Changes
