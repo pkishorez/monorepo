@@ -48,6 +48,12 @@ export async function cruiseProject(
     // cwd, so paths line up with the config's `rootDir`-relative layer/module
     // patterns when cruising an arbitrary package path (e.g. from DevTools).
     baseDir,
+    // The programmatic `cruise()` API — unlike the CLI — applies no default
+    // `doNotFollow`, so without these it would traverse and parse the entire
+    // transitive `node_modules` graph (crippling on large apps). node_modules
+    // is out of scope for the analysis anyway.
+    doNotFollow: { path: 'node_modules' },
+    exclude: { path: 'node_modules' },
   };
 
   const tsConfigPath = resolve(baseDir, 'tsconfig.json');
