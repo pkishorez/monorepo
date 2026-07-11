@@ -1,5 +1,6 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
-import { appName, gitConfig } from './shared';
+import { Newspaper } from 'lucide-react';
+import { appName } from './shared';
 
 export function baseOptions(): BaseLayoutProps {
   return {
@@ -17,27 +18,12 @@ export function baseOptions(): BaseLayoutProps {
         </>
       ),
     },
-    githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
     links: [
       {
         text: 'Blog',
         url: '/blog',
         on: 'nav',
-      },
-      {
-        type: 'icon',
-        text: 'kishore.app',
-        url: 'https://kishore.app/',
-        external: true,
-        icon: (
-          <img
-            src="/favicon.svg"
-            alt="kishore.app"
-            width={16}
-            height={16}
-            className="size-4 rounded"
-          />
-        ),
+        icon: <Newspaper />,
       },
     ],
   };
