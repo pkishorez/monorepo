@@ -1,0 +1,172 @@
+---
+title: Database adapters
+description: The single-table storage model both adapters implement — one table, an entity registry, typed CRUD, and item-collection queries. Taught once.
+---
+
+You know the shape of the problem by now: your chat app runs against DynamoDB in production, and against SQLite at the edge, on device, or in tests. Two databases usually means two data layers — two sets of table definitions, two query dialects, two piles of glue, drifting apart one bugfix at a time.
+
+std-toolkit refuses the fork. Both adapters implement **one storage model** — the single-table, item-collection model from the [crash course](/docs/std-toolkit/dynamodb-crash-course) — with the same builder API, the same key derivation, the same query surface, and the same [entity envelope](/docs/std-toolkit/core) on every read and write. SQLite mirrors DynamoDB's topology down to the vocabulary. So this page teaches the model once, engine-agnostically; the adapter sections only cover what's genuinely specific to each engine.
+
+## One physical table
+
+Everything goes in one table. Messages, channels, memberships — every entity type your chat app defines shares a single physical table whose columns are generic: a partition key attribute, a sort key attribute, and whatever your entities carry.
+
+Rows are distinguished by key structure, not by which table they live in. All rows sharing a partition key value form an [item collection](/docs/std-toolkit/item-collections), sorted by sort key — and the item collection is the unit everything else on this page queries, paginates, and syncs.
+
+The structure that names which attributes serve as pk and sk for an index is an `IndexDefinition`. You declare it once when you define the table (each adapter's setup page shows the concrete syntax), and the toolkit never asks you to think about raw attribute names again.
+
+## EntityRegistry routes entity types
+
+If one table holds every entity type, something has to route a `Message` operation to message rows and a `Channel` operation to channel rows. That's the `EntityRegistry`:
+
+```ts
+import { EntityRegistry } from 'std-toolkit/dynamodb'; // or 'std-toolkit/sqlite'
+
+const registry = EntityRegistry.make(table)
+  .register(messages)          // a Message entity service
+  .register(channels)          // a Channel entity service
+  .registerSingle(settings)    // a WorkspaceSettings singleton service
+  .build();
+
+const sent = yield* registry.entity('Message').insert({
+  id: yield* nextUlid,
+  channelId: 'C-general',
+  authorId: 'U-ada',
+  body: 'shipping it',
+});
+```
+
+`registry.entity('Message')` is fully typed — the registry knows every registered entity by the name on its eschema, so a typo is a compile error, not a runtime surprise. `registry.singleEntity(...)` does the same for singletons, and `registry.entityNames` enumerates everything registered.
+
+The registry is also where cross-entity writes live: both adapters let you write across entity types atomically through the registry — DynamoDB with transaction items built by the entity services, SQLite with a transaction wrapper. The mechanics differ enough that each adapter's section covers its own.
+
+## Per-entity services: typed CRUD
+
+Registered into the registry are per-entity services — `DynamoEntity` / `SQLiteEntity` for keyed entities, `DynamoSingleEntity` / `SQLiteSingleEntity` for singletons. You build one from a table plus an [eschema](/docs/std-toolkit/eschema):
+
+```ts
+import { DynamoEntity } from 'std-toolkit/dynamodb'; // SQLiteEntity is symmetric
+
+const messages = DynamoEntity.make(table)
+  .eschema(Message)
+  .primary({ pk: ['channelId'] })
+  .build();
+```
+
+Read that middle line carefully, because it's the whole data model of the chat app: *messages are partitioned by channel*. The sort key isn't something you choose — it's always the eschema's id field, so a message's `id` (a ULID, minted with [`nextUlid`](/docs/std-toolkit/core/meta)) sorts each channel's messages chronologically. One channel, one item collection, in timeline order, by construction.
+
+The service then gives you CRUD in envelope terms — every operation returns `EntityType<Message>`, with meta stamped for you:
+
+```ts
+const entity = yield* messages.insert({
+  id: yield* nextUlid,
+  channelId: 'C-general',
+  authorId: 'U-ada',
+  body: 'shipping it',
+});
+// entity.meta._u is freshly stamped; entity.meta._d is false
+
+const fetched = yield* messages.get({
+  channelId: 'C-general',
+  id: entity.value.id,
+});
+
+const edited = yield* messages.update(
+  { channelId: 'C-general', id: entity.value.id },
+  { update: { body: 'shipping it, for real this time' } },
+);
+
+const removed = yield* messages.delete({
+  channelId: 'C-general',
+  id: entity.value.id,
+});
+// a soft delete: the row stays, meta._d flips to true, meta._u is re-stamped
+```
+
+Three behaviors are identical across engines and worth internalizing:
+
+- **Inserts refuse to overwrite.** `insert` fails if a row with the same key exists — updates are explicit.
+- **Every write re-stamps `_u`.** Including deletes. That's the [convergence rule's](/docs/std-toolkit/core/meta) raw material.
+- **Deletes are tombstones.** `delete` sets `_d: true` and leaves the row in the item collection so sync consumers can observe it. Hard deletion requires literally typing `forceDelete: 'I know what I am doing'`.
+
+Reads run the eschema's migrations transparently: a v1 message row decodes, folds forward, and comes back to you in the latest shape.
+
+## Key derivation: entity fields → pk/sk
+
+You never write a pk or sk string by hand. The service derives both from the fields you declared:
+
+- **pk** = the entity name, then each pk field's value, joined with `#`. Declaring `pk: ['channelId']` on `Message` makes the partition key `Message#C-general`. Declaring no pk fields at all makes it just `Message` — the whole entity type as one item collection.
+- **sk** = the id field's value, unprefixed: `01JGB4Y8K3T5R9W2N7Q0XVZDCM`.
+
+The entity-name prefix is what keeps types from colliding inside the shared table: `Message#C-general` and `Channel#...` can never overlap, which is exactly how single-table design distinguishes rows by key structure. Note one departure from classic DynamoDB single-table design: because the prefix pins each item collection to one entity type, collections in std-toolkit are **homogeneous** — you'll never interleave channels and messages under one pk.
+
+Secondary indexes work the same way — you name entity fields, the adapter derives the key attributes, with `_u` as the default sort key so any secondary index is a change timeline for free. The mechanics (and DynamoDB's GSI mapping in particular) are covered in each adapter's indexes page.
+
+## Queries: range operators over an item collection
+
+A query addresses one item collection (a pk) and slices it with a range operator on sk:
+
+```ts
+// the 50 most recent messages in #general
+const { items } = yield* messages.query(
+  'primary',
+  { pk: { channelId: 'C-general' }, sk: { '<': null } },
+  { limit: 50 },
+);
+```
+
+The sk parameter is one operator applied to a cursor: `>`, `>=`, `<`, `<=`, or `beginsWith`. Two conventions do a lot of quiet work here:
+
+- **`null` means "no bound"** — the operator alone picks the direction. `{ '<': null }` reads the collection newest-first from the end; `{ '>': null }` oldest-first from the start.
+- **The operator picks the scan direction.** `>` and `>=` scan ascending, `<` and `<=` descending — so "latest 50" and "next page after this cursor" are the same call shape with different operators.
+
+Because message ids are ULIDs, these range operators *are* your timeline features. Infinite scroll upward through history:
+
+```ts
+// the page before the oldest message currently rendered
+const { items: olderPage } = yield* messages.query(
+  'primary',
+  { pk: { channelId: 'C-general' }, sk: { '<': oldestRenderedMessageId } },
+  { limit: 50 },
+);
+```
+
+And when you want *everything* — an export, a backfill, a first sync — `queryStream` drains the collection as an Effect `Stream` of batches, feeding each page's last sort key back in as the next cursor so you never touch pagination:
+
+```ts
+import { Stream } from 'effect';
+
+yield* messages
+  .queryStream('primary', {
+    pk: { channelId: 'C-general' },
+    sk: { '>': null },
+  })
+  .pipe(Stream.runForEach((batch) => archive(batch)));
+```
+
+Both adapters also expose `subscribe`, which replays an item collection after a `_u` cursor through the [`Broadcaster`](/docs/std-toolkit/core) and then marks the connection live — the primitive real-time catch-up is built from.
+
+## QueryResult and pagination
+
+One layer down, the raw table query returns a `QueryResult`: the matched `Items`, plus adapter-specific pagination state — DynamoDB includes a `LastEvaluatedKey` when a page was cut short; SQLite has no such marker because it never truncates a page the way DynamoDB's 1 MB limit does.
+
+Here's the part worth appreciating: at the entity level you rarely touch any of that, because in this model **the sort key is the page token**. A page of results ends at some sk; the next page is `{ '<': lastSk }` (or `{ '>': lastSk }` going forward). There's no opaque continuation blob to thread through your API, no cursor that expires — a message id you rendered an hour ago is still a valid place to resume from. `queryStream` is nothing more than this loop, packaged.
+
+That's also why sync needs so little from the database: "everything after my cursor" is a plain range query any engine with sorted items can answer.
+
+## Pick your engine
+
+The model above is the whole shared contract. What remains is genuinely engine-specific — connecting, table setup, index mechanics, and each engine's extras.
+
+<Cards>
+  <Card
+    title="DynamoDB"
+    href="/docs/std-toolkit/dynamodb"
+    description="Setup, GSI mapping, condition and update expressions, transactions."
+  />
+  <Card
+    title="SQLite"
+    href="/docs/std-toolkit/sqlite"
+    description="Runtimes and adapters (Node, Bun, better-sqlite3, Durable Objects), and where it diverges from DynamoDB."
+  />
+</Cards>

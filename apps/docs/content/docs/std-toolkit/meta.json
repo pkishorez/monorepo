@@ -2,16 +2,17 @@
   "title": "std-toolkit",
   "root": true,
   "pages": [
-    "---Overview---",
+    "---Start here---",
     "index",
-    "what",
-    "---Foundations---",
-    "core",
+    "dynamodb-crash-course",
+    "item-collections",
+    "how-it-fits",
+    "---The toolkit---",
     "eschema",
-    "---Database adapters---",
+    "core",
+    "database-adapters",
     "dynamodb",
     "sqlite",
-    "---Frontend sync---",
     "tanstack-sync"
   ]
 }

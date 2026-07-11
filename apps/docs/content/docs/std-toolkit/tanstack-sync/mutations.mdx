@@ -1,0 +1,135 @@
+---
+title: Mutations
+description: Optimistic writes that reconcile with server truth — handlers, paced updates, pending counts, and the broadcast registry.
+---
+
+Optimistic UI is easy to demo and hard to make truthful. The demo version applies the change locally and fires a request. The truthful version has to answer the follow-ups: what replaces the optimistic copy when the server answers? What if a broadcast of your own write arrives first? What if the user changes the same thing eleven times in two seconds — eleven requests? tanstack-sync's answer to all of them is the same loop you already know from the read side: *everything confirmed converges through the Source of Truth*, and mutations are just one more way entities enter it.
+
+## The handler loop
+
+You met `onInsert` in the quickstart. All three handlers follow one flow:
+
+```ts title="client/collections.ts"
+export const messagesCollection = createCollection(
+  std.sync({
+    schema: Message,
+    sync: { /* … */ },
+    onInsert: (message) => api.sendMessage(message),
+    onUpdate: ({ id, updates }) => api.editMessage(id, updates),
+    onDelete: (id) => api.deleteMessage(id),
+  }),
+);
+```
+
+When a component calls `messagesCollection.insert(…)`, TanStack DB applies the change optimistically and owns the rollback story. The engine extracts the payload — for `onUpdate`, the entity's id plus the partial `updates`, with the id itself excluded from the updatable fields — and runs your Effect. Your Effect calls the server. The server answers with the *confirmed entity*: real `_u`, full meta. The engine flushes it through `writeServerTruth`, where it converges over the optimistic copy like any other delivery.
+
+That last step is what makes the race questions boring. Your own write echoed back by a socket? Same `_u` as the mutation result — no-op. A concurrent edit from someone else? Higher `_u` wins, deterministically. There's no special "mutation reconciliation" code path to audit, because there's no special path at all.
+
+Two details worth pinning. `onDelete` doesn't return `void` — it returns the **tombstone entity** (`_d: true`) the server minted, because a deletion is a write that must converge and be [retained](/docs/std-toolkit/tanstack-sync/truth-and-state) like any other. And no handler ever touches Sync State: a mutation moves data, not drain progress.
+
+## The utils surface
+
+Every synced collection exposes a small, engine-owned `collection.utils`. You might expect strategy-specific helpers here — there are none, deliberately: a partitioned collection can run different strategies per partition, so no strategy-shaped util could be type-safe. What's there is generic:
+
+### `utils.schema()`
+
+Returns the collection's eschema — handy for generic components that need the entity name or id field without importing the schema module.
+
+### `utils.writeUpsert(entityOrEntities)`
+
+The manual door into server truth:
+
+```ts
+yield* messagesCollection.utils.writeUpsert(response.messages);
+```
+
+Takes one entity or an array, returns `Effect.Effect<void, WriteError>`, and writes through the full convergence pipeline — validation, `_u` comparison, tombstone handling, projection. Reach for it when confirmed entities arrive outside any strategy or handler: an RPC response that happens to include fresh messages, a server-rendered payload, a migration script. It's also how a [storage-only collection](/docs/std-toolkit/tanstack-sync/collections#three-shapes-of-sync) gets fed at all.
+
+### `utils.pacedUpdate(key, changes)` — and pace strategies
+
+Now the eleven-clicks problem. A user pounds the 👍 reaction on a message, or drags a slider bound to a channel setting. Each change should render *instantly*; the server should not see all eleven.
+
+```ts
+messagesCollection.utils.pacedUpdate(message.messageId, {
+  reactions: { ...message.reactions, '👍': count + 1 },
+});
+```
+
+`pacedUpdate` applies the change to the collection row immediately (optimistic), but hands the *commit* — your `onUpdate` Effect, called with the merged changes — to a **pace strategy** that decides when to fire. Pacing is per key: message A's gate never delays message B's. This is a different axis from sync strategies entirely — a sync strategy paces how truth flows *down*; a pace strategy paces how your writes flow *up*.
+
+You pick the pacer per collection via `updatePacing`, from the `paceStrategy` kit:
+
+```ts
+std.sync({
+  schema: Message,
+  onUpdate: ({ id, updates }) => api.editMessage(id, updates),
+  updatePacing: paceStrategy.coalesce({ wait: 250 }),
+  // or: paceStrategy.debounce({ wait: 300 })
+  //     paceStrategy.throttle({ wait: 300 })
+  //     paceStrategy.queue()
+});
+```
+
+`debounce`, `throttle`, and `queue` re-expose TanStack DB's built-in pacers. `coalesce` is std-sync's own, and it's the default when you configure nothing — because for sync mutations it has the property the others lack: it's paced by *request completion*, not by a clock.
+
+**Coalesce, precisely.** The first `pacedUpdate` for a key fires immediately — leading edge, zero added latency. While that request is in flight, every further update for the key merges into one pending backlog. The moment the in-flight request succeeds, the merged backlog fires as a single request (after the optional `wait` cooldown, measured from completion — never delaying the leading edge), repeating until quiet. Eleven clicks become two requests: the first click, then one merged commit. On failure, the gate clears but the backlog is *retained* — the next user action fires it leading-edge, so no edits are silently dropped. The pacer itself never retries or backs off; retry policy stays in your Effect, where it belongs.
+
+If you want the raw primitive — for any `createPacedMutations`, entirely outside std-sync — it lives on its own subpath:
+
+```ts
+import { coalesceStrategy } from 'std-toolkit/tanstack-sync/paced';
+
+const strategy = coalesceStrategy({ wait: 250 });
+```
+
+### `utils.pendingCount(key)` / `utils.subscribePending(listener)`
+
+The in-flight bookkeeping, exposed. `pendingCount(key)` reports how many mutations for that key are currently awaiting the server (0 for any untouched key); `subscribePending` notifies on every change and returns an unsubscribe. Together they're exactly the shape `useSyncExternalStore` wants:
+
+```tsx title="client/use-pending.ts"
+const usePending = (id: string) =>
+  useSyncExternalStore(
+    messagesCollection.utils.subscribePending,
+    () => messagesCollection.utils.pendingCount(id),
+  );
+
+// …in the message row:
+const sending = usePending(message.messageId) > 0;
+```
+
+Pending state is mutation bookkeeping only — independent of sync, cleared the moment the server settles.
+
+<Callout title="Single-item collections: same surface, no keys">
+A `singleItemSync` collection has one record, so its utils drop the key: `pacedUpdate(changes)`, `pendingCount()`, and only `onUpdate` exists (a singleton has no insert or delete). Its manual write door is `utils.writeServerTruth(entities)`. Everything else — pacing, pending, convergence — behaves identically through a single gate.
+</Callout>
+
+## The registry — writes arriving sideways
+
+Mutations cover *this client's* writes. The registry covers everyone else's: entities arriving over whatever transport you run — a WebSocket from the server, a `BroadcastChannel` from the next tab over.
+
+```ts
+const registry = std.registry();
+
+socket.onMessage((msg) => {
+  registry.process({ values: msg.values, persist: true });
+});
+```
+
+`process` demands exactly `{ values: Entity[], persist: boolean }` (it throws on anything else — a malformed broadcast should fail loudly at the door, not corrupt quietly inside). It groups the entities by their `_e` tag and routes each group to the collection that owns that entity type — [disjoint ownership](/docs/std-toolkit/tanstack-sync/collections#entity-ownership--one-type-one-home) guarantees at most one destination, and tags no collection owns are silently ignored, so a client can safely receive a firehose it only partially cares about.
+
+The `persist` flag is the trust decision, made explicit on every message:
+
+- **`persist: true`** — treat this as server truth: write to the Source of Truth (full convergence) *and* project to the collection. Right for entities the server confirmed — its own broadcasts.
+- **`persist: false`** — project to the mounted collection only; the Source of Truth never hears about it. Right for previews and ephemera: another tab's optimistic state, a "user is typing" projection — things you want on screen but must not survive as truth.
+
+Neither mode touches Sync State — a broadcast is data, not drain progress, same rule as every other write path.
+
+That's the full write story: handlers for real mutations, `writeUpsert` for confirmed strays, `pacedUpdate` for high-frequency edits, the registry for everything arriving sideways — all converging through one rule. What's left is making all of it survive a tab close.
+
+<Cards>
+  <Card
+    title="Offline"
+    href="/docs/std-toolkit/tanstack-sync/offline"
+    description="IndexedDB-backed truth and state, storage failure surfacing, and the sync inspector."
+  />
+</Cards>

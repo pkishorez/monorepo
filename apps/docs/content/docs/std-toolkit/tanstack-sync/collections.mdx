@@ -1,0 +1,109 @@
+---
+title: Collections
+description: How entities become rows, why each entity type has exactly one home, and what a sync partition actually is.
+---
+
+The quickstart handed you a working collection without explaining what the engine built. Now the questions a careful reader is already asking: what shape do rows actually have in the collection? What happens if two collections claim the same entity type? And what exactly starts and stops when a channel opens and closes? This page answers all three — they're the ground the rest of the section stands on.
+
+## Entity in, Item out
+
+Everything on the wire is the [Entity envelope](/docs/std-toolkit/core/meta): `{ value, meta }`. But a TanStack DB collection wants flat rows you can query by field. So the engine translates at the boundary — value fields hoisted to the top level, meta tucked under `_meta`:
+
+```ts
+// Entity — the wire and Source-of-Truth form
+{ value: { messageId, channelId, authorId, body, reactions },
+  meta: { _e: 'Message', _v: 'v2', _u: '01J2…', _d: false } }
+
+// Item — the collection row your live queries see
+{ messageId, channelId, authorId, body, reactions,
+  _meta: { _e: 'Message', _v: 'v2', _u: '01J2…', _d: false } }
+```
+
+That's the `CollectionItem<T>` shape. Your queries filter on domain fields directly — `eq(message.channelId, channelId)` — and the sync bookkeeping stays available under `_meta` when you need it (rendering a "sending…" state off `_u`, say, or debugging a convergence surprise).
+
+On reads, TanStack DB adds two *virtual* props: `$synced` (has the server confirmed this row?) and `$origin` (where the row came from). They're computed per read, never persisted, and typed as optional — useful for dimming an optimistic message until its confirmed twin converges in. You never write them, and they're not part of your domain model.
+
+One more thing you never write: `_meta` itself. Collection mutations take bare domain values; every meta field is stamped by the server and delivered back. If you find yourself constructing a `_meta` by hand, you're on the wrong side of the boundary.
+
+## Entity ownership — one type, one home
+
+Within one `createStdSync()` instance, an entity type belongs to *exactly one* collection, and identity is the schema's name. Register two collections for `'Message'` and the tracker throws at construction time — not a warning, a configuration error:
+
+```ts
+const std = createStdSync();
+
+const a = std.sync({ schema: Message /* … */ });
+const b = std.sync({ schema: Message /* … */ });
+// Error: A collection for schema "Message" is already registered.
+```
+
+Why so strict? Because ownership is what makes the rest of the engine simple. The [registry](/docs/std-toolkit/tanstack-sync/mutations) routes broadcast entities by their `_e` tag — disjoint ownership means every tag has at most one destination, so routing is a map lookup, not a policy. And the Source of Truth enforces the same rule inward: an incoming entity whose `meta._e` doesn't match the collection's schema name is rejected as a `WrongEntity` write error rather than silently stored somewhere it doesn't belong.
+
+## Partitions — sync lifecycle windows
+
+Here's the vocabulary moment this section keeps promising.
+
+<Callout title="'Partition' does not mean what it meant three pages ago">
+In the storage layers, a partition is a physical slice of the table — an item collection behind one partition key, like `#general`'s messages. In tanstack-sync, a partition is a **sync lifecycle window**: "`#general` is on screen, so its messages are being actively mirrored." Same word, two bounded contexts, on purpose — opening the chat channel (sync partition) is what drains the channel's item collection (storage partition). The toolkit's `CONTEXT-MAP.md` documents the collision; these docs always say which sense is in play.
+</Callout>
+
+A partition is scoped to one `partitionField = value` pair — `channelId = "general"`. Its lifecycle is driven entirely by TanStack DB's subset machinery: when a live query filters on a partition field with `eq`, the collection's `loadSubset` fires; when that query unmounts, `unloadSubset` fires. The engine refcounts matching subsets:
+
+- **Refcount 0 → 1**: the partition activates. Your factory from the `partitions` map runs with the typed partition value, and the returned strategy starts inside a fresh scope — along with its [cadence repair loop](/docs/std-toolkit/tanstack-sync/strategies#cadence-sync--the-drift-repair-loop), if configured.
+- **1 → higher and back**: nothing. Three components watching `#general` is still one partition, one strategy, one drain.
+- **Refcount 1 → 0**: the partition deactivates. The engine closes the partition's scope, which interrupts the strategy, its subscriptions, and its cadence loop.
+
+Two consequences worth saying out loud. First, sync work tracks the UI *for free* — you never write "start syncing this channel" imperatively; rendering a filtered query is the instruction. Second, a partition is **not** a retention boundary. Unloading `#general` stops its sync work, but the messages already projected stay in the collection — switch back and they're on screen instantly while the strategy resumes filling gaps. Rows loaded by inactive partitions linger deliberately.
+
+<Callout type="warn" title="Partitioned collections run on-demand">
+When a `partitions` map is configured, the engine sets the collection to on-demand sync mode so TanStack DB actually calls `loadSubset` with each query's filter. A query that doesn't filter on any partition field can't be matched to a partition — if there's also no global strategy to cover it, the engine logs an error and that query simply isn't served by sync.
+</Callout>
+
+## Three shapes of `sync`
+
+The `sync` field on a keyed collection takes three forms, and choosing is mostly answering "how big is the whole set?":
+
+```ts
+// 1. Total: one strategy mirrors the entire set — the "global partition".
+//    Right-sized for small, always-relevant sets, like the channel list itself.
+std.sync({
+  schema: Channel,
+  sync: {
+    strategy: syncStrategy.oldToNew(),
+    forwardFetch: ({ cursor }) => channelsAfter(cursor),
+  },
+});
+
+// 2. Partitioned: per-value windows, activated on demand. Messages.
+std.sync({
+  schema: Message,
+  sync: {
+    partitions: {
+      channelId: (channelId) => ({
+        strategy: syncStrategy.oldToNew(),
+        forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+      }),
+    },
+  },
+});
+
+// 3. Storage-only: omit `sync` entirely. The collection is fed purely by
+//    writeUpsert and the registry — a landing pad for broadcast traffic.
+std.sync({ schema: Draft });
+```
+
+A total strategy runs as one implicit partition over the whole set: it starts when the collection's sync starts and stops at cleanup, no refcounting involved. And the forms compose — a collection can declare a global strategy *and* a partitions map in one engine over one shared Source of Truth, with the runtime routing each live query to the matching partition or falling back to the global. Convergence dedupes any overlap between them, which is why sharing the store is safe.
+
+`singleItemSync` collections are the degenerate case: one record, no id field, no partitions — the whole collection is its own lifecycle window, start-on-sync, stop-on-cleanup.
+
+## What the collection is — and isn't
+
+Keep the roles straight and the next page will feel inevitable. The TanStack collection is a *projection*: the in-memory, on-screen view of one entity type, rebuilt from engine state whenever sync starts. It is not where truth lives. Truth lives in the engine's Source of Truth — which can be written while the collection isn't even mounted — and the strategy's progress lives in a separate store again. Those two stores, and the wall between them, are next.
+
+<Cards>
+  <Card
+    title="Truth and state"
+    href="/docs/std-toolkit/tanstack-sync/truth-and-state"
+    description="The Source of Truth, the convergence rule, and why strategy state is kept fully detached."
+  />
+</Cards>

@@ -1,0 +1,164 @@
+---
+title: Expressions
+description: exprCondition, exprFilter, exprUpdate, and buildExpr — DynamoDB's three expression mini-languages replaced with typed builders, plus marshall and unmarshall.
+---
+
+You've written expressions like `SET #b = :b` and `attribute_not_exists(#pk)` if you've spent any time with raw DynamoDB — three separate string mini-languages (conditions, filters, updates), each with its own grammar, each requiring you to alias every attribute name through `ExpressionAttributeNames` and every value through `ExpressionAttributeValues`, because DynamoDB reserves half the words you'd naturally use. Misspell a field and you find out at runtime. Rename a field in your schema and no compiler tells you which expressions just broke.
+
+That's exactly the kind of boundary where a TypeScript codebase deserves types. So the adapter gives each mini-language a typed builder — `exprCondition`, `exprFilter`, `exprUpdate` — where every attribute path and value is checked against your entity's shape, and one compiler — `buildExpr` — that turns them into the wire format. The entity operations from the previous pages use these internally; this page shows you the builders directly, because their callback forms are how you express anything conditional or arithmetic.
+
+## Conditions: `exprCondition`
+
+A condition is a predicate DynamoDB evaluates *against the current item, atomically, at write time*. It's how you make writes safe without read-modify-write races. The builder hands you a small vocabulary:
+
+| Builder op                  | Compiles to                          |
+| --------------------------- | ------------------------------------ |
+| `cond(path, op, value)`     | comparison: `=`, `<>`, `<`, `<=`, `>`, `>=` |
+| `and(...)`, `or(...)`       | logical combinators                  |
+| `attributeExists(path)`     | `attribute_exists(...)`              |
+| `attributeNotExists(path)`  | `attribute_not_exists(...)`          |
+| `ref(path)`                 | compare a field *to another field*   |
+
+Entity operations accept conditions directly, and the callback shorthand keeps it terse. The canonical chat-app example — only the author may edit a message:
+
+```ts
+yield* messages.update(
+  { channelId: 'C-general', messageId },
+  {
+    update: { body: 'fixed the typo' },
+    condition: ($) => $.cond('authorId', '=', currentUserId),
+  },
+);
+```
+
+If someone else tries, the write fails atomically with `ConditionCheckFailed` — no fetch-then-check window for a concurrent edit to slip through. Conditions compose the way you'd hope:
+
+```ts
+condition: ($) =>
+  $.and(
+    $.cond('authorId', '=', currentUserId),
+    $.cond('_d', '=', false), // can't edit a deleted message
+  ),
+```
+
+You can also build one standalone with `exprCondition<T>(builder)` and pass it around — the `condition:` slot accepts either the callback or a pre-built operation.
+
+Two conditions you get without asking. First, `insert` always bakes in `attribute_not_exists` on the primary key — that's why inserts refuse to overwrite, surfacing as `ItemAlreadyExists`. Second, every `update` asserts the stored row is on the eschema's latest version (`_v = latest`); when it isn't, the adapter transparently migrates the row forward and retries — the auto-migration behavior described in [Database adapters](/docs/std-toolkit/database-adapters), implemented as nothing more than a condition.
+
+## Filters: `exprFilter`
+
+A filter is the same builder pointed at a different slot — it narrows *query results* after the key condition selects them. `exprFilter` is literally an alias of `exprCondition`; the separate name exists so intent reads correctly at call sites.
+
+Filters plug in at the table level, where you're one step below entities (note the raw pk string — this is the layer where you'd otherwise be hand-deriving keys anyway):
+
+```ts
+import { exprFilter } from 'std-toolkit/dynamodb';
+import type { ESchemaType } from 'std-toolkit/eschema';
+
+type MessageRow = ESchemaType<typeof Message>;
+
+// Ada's messages within #general, without a dedicated index
+const { Items } = yield* table.query(
+  { pk: 'Message#C-general', sk: { '>': null } },
+  { filter: exprFilter<MessageRow>(($) => $.cond('authorId', '=', 'U-ada')) },
+);
+```
+
+Be honest with yourself about what a filter costs: DynamoDB applies it *after* reading the rows, so you pay read capacity for everything the key condition matched, filtered or not. A filter is right for occasional narrowing of a small collection. If "messages by author" is a hot path, it deserves a [semantic index](/docs/std-toolkit/dynamodb/indexes) — which is exactly why the entity query API pushes you toward indexes and leaves filters at the table layer.
+
+## Updates: `exprUpdate`, `opAdd`, `opIfNotExists`
+
+You've been using `exprUpdate` all along — the callback form of `update` *is* the update builder:
+
+```ts
+update: ($) => [$.set('body', 'fixed the typo')],
+```
+
+`$.set` alone is just a partial update with extra steps. The builder earns its place with the two operator helpers, both exported top-level and mirrored on `$` so callbacks need no imports.
+
+**`opAdd` — atomic arithmetic.** When a message lands in a channel, bump the channel's counter without reading it first:
+
+```ts
+yield* channels.update(
+  { channelId: 'C-general' },
+  { update: ($) => [$.set('messageCount', $.opAdd('messageCount', 1))] },
+);
+```
+
+This compiles to `SET messageCount = messageCount + 1` evaluated server-side — two clients sending simultaneously both count, with no lost-update race. Negative values decrement.
+
+**`opIfNotExists` — write only when absent.** The task the chat app needs it for: reactions. `Message` v2 added `reactions: Record<string, number>`, and the first person to react with `rocket` has to *create* that map key:
+
+```ts
+yield* messages.update(
+  { channelId: 'C-general', messageId },
+  {
+    update: ($) => [
+      $.set('reactions.rocket', $.opIfNotExists('reactions.rocket', 1)),
+    ],
+  },
+);
+```
+
+Note the dot path — the builders accept typed nested paths (`reactions.rocket`, `items[0].id`), and the compiler aliases each segment separately.
+
+You might be wondering: why not `opAdd` straight onto `reactions.rocket`? Because DynamoDB's `a = a + 1` fails when `a` doesn't exist, and the builder doesn't nest `opAdd` inside `opIfNotExists`. So the honest pattern is: `opIfNotExists(path, 1)` for a possibly-first reaction (creates the counter, leaves an existing one untouched), `opAdd(path, 1)` once you know the key exists — or model must-increment counters as always-present fields like `messageCount`, which is why the channel counter is a top-level number. In eschema-managed rows every declared field is written on insert, so genuinely-absent attributes only occur *inside* maps like `reactions` — that's the one place `opIfNotExists` typically matters here.
+
+The callback also offers `$.append` / `$.prepend` for list attributes (compiling to `list_append`), same typed-path treatment.
+
+**One guardrail:** the expression builder refuses to update any field that feeds an [index derivation](/docs/std-toolkit/dynamodb/indexes), failing with a clear `UpdateItemFailed` message. The reason: derived key attributes are computed from *values the adapter can see*, and an expression like `opAdd` produces its result inside DynamoDB — the adapter never learns the new value, so it couldn't recompute `GSI1PK`. Plain partial updates carry the new value, so they re-derive keys fine. If a field is a derivation dependency, update it with the partial form.
+
+## `buildExpr`: down to the wire
+
+Everything above compiles through `buildExpr`, which is exported for the times you talk to `DynamoTable` or the raw client directly. It accepts three input shapes — a standalone `{ condition }`, an `{ update, condition? }` pair, or a `{ keyCondition, filter? }` query — and returns the exact fields DynamoDB's API wants:
+
+```ts
+import { buildExpr, exprUpdate, exprCondition, opAdd } from 'std-toolkit/dynamodb';
+
+type ChannelRow = ESchemaType<typeof Channel>;
+
+const expr = buildExpr({
+  update: exprUpdate<ChannelRow>(($) => [
+    $.set('messageCount', opAdd('messageCount', 1)),
+  ]),
+  condition: exprCondition<ChannelRow>(($) => $.attributeExists('name')),
+});
+// {
+//   UpdateExpression: 'SET #u_attr_1 = #u_attr_2 + :u_value_3',
+//   ConditionExpression: 'attribute_exists(#cf_attr_1)',
+//   ExpressionAttributeNames: { '#u_attr_1': 'messageCount', ... },
+//   ExpressionAttributeValues: { ':u_value_3': { N: '1' } },
+// }
+```
+
+Every attribute aliased, every value already marshalled, name collisions impossible by construction (each builder generates its own prefixed placeholders). This is the entire mini-language problem from the [section intro](/docs/std-toolkit/dynamodb), solved once. The result spreads straight into `table.updateItem(key, { ...expr })` or a raw client call.
+
+## `marshall` / `unmarshall`
+
+The last stringly-typed layer is the `AttributeValue` format itself. Everything in the adapter converts automatically, but both directions are exported for when DynamoDB data reaches you through a side door:
+
+```ts
+import { marshall, unmarshall } from 'std-toolkit/dynamodb';
+
+marshall({ body: 'shipping it', reactions: { rocket: 2 }, _d: false });
+// {
+//   body: { S: 'shipping it' },
+//   reactions: { M: { rocket: { N: '2' } } },
+//   _d: { BOOL: false },
+// }
+
+unmarshall(record.dynamodb!.NewImage); // e.g. a DynamoDB Streams event
+// { body: 'shipping it', reactions: { rocket: 2 }, _d: false }
+```
+
+The Streams case is the common one: stream records arrive marshalled, and `unmarshall` plus your eschema's `decode` turns them back into typed entities. Strings, numbers, booleans, null, arrays, and nested objects round-trip; the string/number/binary *set* types (`SS`/`NS`/`BS`) unmarshall to plain arrays.
+
+That's the full expression surface. One thing left in the adapter: writes that span more than one entity.
+
+<Cards>
+  <Card
+    title="Transactions"
+    href="/docs/std-toolkit/dynamodb/transactions"
+    description="Atomic multi-entity writes through the registry, batch writes, and the error taxonomy."
+  />
+</Cards>

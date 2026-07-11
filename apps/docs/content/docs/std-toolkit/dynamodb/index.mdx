@@ -1,18 +1,79 @@
 ---
-title: Why
-description: Single-table design without hand-rolled expressions.
+title: DynamoDB
+description: Why the DynamoDB adapter exists — single-table design without hand-derived key strings, expression mini-languages, or the AWS SDK.
 ---
 
-## The story
+You know what DynamoDB is good at by now. The [crash course](/docs/std-toolkit/dynamodb-crash-course) made the case: partitions as the unit of distribution, sort keys as a query language, item collections as the primitive that makes sync cheap. DynamoDB is where that model comes from, and it's std-toolkit's production backend.
 
-DynamoDB is where the single-table pattern was born, and it is still the pattern's natural production home: predictable latency at any scale, item collections as the physical unit of locality. But the raw SDK experience fights the pattern. Condition, filter, and update expressions are stringly-typed mini-languages (`"SET #s = :s"`, attribute-name maps, value maps) where a typo compiles fine and fails at runtime. Marshalling to and from attribute values is boilerplate. And "many entity types in one table" is a convention in your head, not something the client knows about.
+But if you've ever used DynamoDB's raw API, you also know why so many teams bounce off it. Here is what updating one chat message — "fix the typo, but only if I'm the author" — actually looks like on the wire:
 
-`std-toolkit/dynamodb` makes the pattern first-class:
+```json title="UpdateItem, raw"
+{
+  "TableName": "chat-app-prod",
+  "Key": {
+    "pk": { "S": "Message#C-general" },
+    "sk": { "S": "01JGB4Y8K3T5R9W2N7Q0XVZDCM" }
+  },
+  "UpdateExpression": "SET #body = :body, #u = :u",
+  "ConditionExpression": "#author = :author",
+  "ExpressionAttributeNames": {
+    "#body": "body",
+    "#u": "_u",
+    "#author": "authorId"
+  },
+  "ExpressionAttributeValues": {
+    ":body": { "S": "fixed the typo" },
+    ":u": { "S": "01JGB4YAQ8M2XV0F7T3KDWZRHN" },
+    ":author": { "S": "U-ada" }
+  }
+}
+```
 
-- **Entity services** (`DynamoEntity`, `DynamoSingleEntity`) give each entity type a typed CRUD surface over the shared table, and an `EntityRegistry` routes operations to the right entity by its type — the "many types, one table" convention becomes a checked structure.
-- **Expression builders** (`exprCondition`, `exprFilter`, `exprUpdate`) replace expression strings with type-safe builders, so a misspelled attribute is a compile error, not a 4xx.
-- **Everything is an Effect service**, so table access composes with the rest of your Effect program — layers, errors, and testability included.
+Count the languages in that one request. There's a key-derivation convention (`Message#C-general` — a string you concatenated yourself, and must concatenate identically in every code path forever). There's the update expression mini-language (`SET #body = :body`). There's the condition expression mini-language. There are two placeholder maps aliasing every attribute name and value. And every value is wrapped in DynamoDB's marshalled format (`{ "S": ... }`, `{ "N": "42" }` — yes, numbers travel as strings). All of it stringly typed, none of it checked by your compiler, all of it sitting at the exact boundary where your data leaves TypeScript.
 
-Every entity persisted here is a core [Entity](/docs/std-toolkit/core) whose value is validated by an [eschema](/docs/std-toolkit/eschema) schema — which is what lets [tanstack-sync](/docs/std-toolkit/tanstack-sync) mirror these item collections without knowing DynamoDB exists.
+This is the real reason single-table design has a reputation for being expert-only. The *model* is simple — you learned it in ten minutes. The *ergonomics* are hostile, so teams either hide DynamoDB behind a pile of hand-rolled helpers that slowly drift, or retreat to tools that paper over the model entirely and give up what made it worth using.
 
-Next: [What is dynamodb](/docs/std-toolkit/dynamodb/what).
+## The same update, in std-toolkit
+
+```ts
+yield* messages.update(
+  { channelId: 'C-general', messageId },
+  {
+    update: { body: 'fixed the typo' },
+    condition: ($) => $.cond('authorId', '=', 'U-ada'),
+  },
+);
+```
+
+Everything the raw version made you do by hand still happened — the key strings were derived from `channelId` and `messageId`, the update and condition expressions were compiled, every attribute was aliased, every value was marshalled, and `_u` was re-stamped for [sync](/docs/std-toolkit/core/meta). You just never saw any of it, and every field name and value in that call was type-checked against the `Message` [eschema](/docs/std-toolkit/eschema).
+
+That's the adapter's whole thesis: **keep DynamoDB's model, delete DynamoDB's ergonomics.** This is not an abstraction that re-imagines DynamoDB as something relational — item collections, single-table layout, GSIs, and conditional writes are all still here, first-class and visible. What's gone is the string manipulation.
+
+One more thing worth saying up front: the adapter talks to DynamoDB's HTTP API directly through [aws4fetch](https://github.com/mhart/aws4fetch), a tiny request-signing library. There is no AWS SDK in the dependency tree — which matters when this code runs at the edge, in workers, or anywhere cold-start weight is real.
+
+## What this section covers
+
+This section assumes you've read [Database adapters](/docs/std-toolkit/database-adapters) — the shared storage model (one table, entity services, key derivation, item-collection queries) is taught there and works identically here. These pages cover only what's genuinely DynamoDB:
+
+<Cards>
+  <Card
+    title="Setup"
+    href="/docs/std-toolkit/dynamodb/setup"
+    description="DynamoTable, DynamoConnection, and dynamoDBLayer — wiring the chat app's table as an Effect Layer, with no AWS SDK."
+  />
+  <Card
+    title="Indexes"
+    href="/docs/std-toolkit/dynamodb/indexes"
+    description="GSIs and LSIs as typed key derivations, timeline sort keys, and the eventual-consistency caveats you must respect."
+  />
+  <Card
+    title="Expressions"
+    href="/docs/std-toolkit/dynamodb/expressions"
+    description="exprCondition, exprFilter, exprUpdate, and buildExpr — the typed replacements for the mini-languages above."
+  />
+  <Card
+    title="Transactions"
+    href="/docs/std-toolkit/dynamodb/transactions"
+    description="Atomic multi-entity writes through the EntityRegistry, batch writes, and the DynamodbError taxonomy."
+  />
+</Cards>

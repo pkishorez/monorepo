@@ -1,5 +1,4 @@
 {
   "title": "dynamodb",
-  "pages": ["index", "what", "guide"],
-  "defaultOpen": true
+  "pages": ["index", "setup", "indexes", "expressions", "transactions"]
 }

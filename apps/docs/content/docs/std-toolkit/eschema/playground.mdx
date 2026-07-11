@@ -1,0 +1,41 @@
+---
+title: Playground
+description: Step through fold-forward decoding on real rows — legacy data, mid-chain rows, and the write path that always stamps the latest version.
+---
+
+You know the drill with a relational database: change the schema, write a migration, run it against every row before the new code ships. Item stores don't give you that lever. A message written three schema versions ago sits in the same item collection as one written this morning, and nothing ever forces the old row through your new shape — until the moment your code reads it.
+
+That moment is exactly where eschema does its work. Every row carries a `_v` stamp, and `decode` folds the row forward through each migration between its stamped version and the latest one — on read, one row at a time, no downtime, no backfill job.
+
+Reading that sentence is one thing; watching it happen is another. The playground below simulates this exact schema — a chat `Message` that has evolved three times since launch:
+
+```ts title="message-schema.ts"
+import { Schema } from 'effect';
+import { ESchema } from 'std-toolkit/eschema';
+
+export const Message = ESchema.make({
+  channelId: Schema.String,
+  author: Schema.String,
+  body: Schema.String,
+})
+  .evolve('v2', { reactions: Schema.Array(Schema.String) }, (prev) => ({
+    ...prev,
+    reactions: [],
+  }))
+  .evolve(
+    'v3',
+    { author: null, authorId: Schema.String },
+    ({ author, ...rest }) => ({ ...rest, authorId: author }),
+  )
+  .evolve('v4', { editedAt: Schema.NullOr(Schema.String) }, (prev) => ({
+    ...prev,
+    editedAt: null,
+  }))
+  .build();
+```
+
+Each `.evolve` call is one version: a delta describing how the fields change (`null` drops a field, which is how `author` becomes `authorId`) and a migration that moves old data into the new shape. Pick a scenario and press play — pay particular attention to the legacy row with no `_v` stamp at all, because that's the trick that lets eschema adopt data that existed before it did.
+
+<ESchemaPlayground />
+
+If the fold felt intuitive here, the rest is mechanics: how `make` and `evolve` build the chain, what the migration functions may and may not do, and how the same idea extends to named entities. That story starts in [Defining schemas](/docs/std-toolkit/eschema/defining-schemas).

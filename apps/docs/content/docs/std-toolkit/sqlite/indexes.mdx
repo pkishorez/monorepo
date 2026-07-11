@@ -1,0 +1,101 @@
+---
+title: Indexes
+description: Secondary indexes with the same declaration surface as GSIs — but strongly consistent, because they're plain SQL indexes on the same row.
+---
+
+The primary key buys you one access path: messages by channel, in timeline order. But your chat app needs a second one the moment someone opens a profile — "everything Ada has posted, across every channel." On DynamoDB you solved this with a [GSI](/docs/std-toolkit/dynamodb-crash-course): a re-keyed copy of the data, maintained asynchronously, eventually consistent. The SQLite adapter gives you the *same declaration surface* — you could diff the code against the DynamoDB version and find nothing — but underneath sits something much simpler, and the simplicity is a straight upgrade: a plain SQL index that is never behind your writes.
+
+## Declaring an index: two layers, same as DynamoDB
+
+The declaration is split the same way the shared model splits it everywhere: the *table* owns generic index slots, the *entity* gives a slot meaning.
+
+```ts title="table.ts"
+const table = SQLiteTable.make()
+  .primary('pk', 'sk')
+  .index('IDX1', 'IDX1PK', 'IDX1SK')
+  .build();
+```
+
+`IDX1` is a slot — a named pair of key columns with no semantics attached. Semantics arrive when an entity maps onto it:
+
+```ts title="entities.ts"
+const messages = SQLiteEntity.make(table)
+  .eschema(Message)
+  .primary({ pk: ['channelId'] })
+  .index('IDX1', 'byAuthor', { pk: ['authorId'] })
+  .build();
+```
+
+Read the `.index(...)` line as: "messages use the table's `IDX1` slot under the semantic name `byAuthor`, partitioned by `authorId`." No sort key is named, so it defaults to `_u` — the write-ordered ULID from the [envelope](/docs/std-toolkit/core/meta) — making `byAuthor` a recency timeline of Ada's messages for free. Name explicit fields (`sk: ['someField']`) when you want a different order.
+
+This is character-for-character the surface the [DynamoDB adapter](/docs/std-toolkit/dynamodb/indexes) uses. Swap `SQLiteTable`/`SQLiteEntity` for their Dynamo counterparts and neither declaration changes — which is what lets one entity definition file back both engines.
+
+## What setup() builds from it
+
+On DynamoDB the slot becomes a GSI in the table's provisioning schema. Here, `registry.setup()` translates it into ordinary SQL, idempotently:
+
+1. Two nullable `TEXT` columns, `IDX1PK` and `IDX1SK`, added to the shared table (skipped if already present — you can add a slot to a live table and re-run setup).
+2. One SQL index, `idx_chat_data_IDX1`, over `(IDX1PK, IDX1SK)`.
+
+Then every `insert`, `update`, and `delete` derives the index key values and writes them as part of the row itself. After Ada posts in `#general`, her row reads:
+
+| pk                | sk (messageId) | IDX1PK                 | IDX1SK (`_u`)  |
+| ----------------- | -------------- | ---------------------- | -------------- |
+| `Message#C-general` | `01JGB4Y8K3…` | `Message#byAuthor#U-ada` | `01JGB4Y8K4…` |
+
+Note the derived partition value: `Message#byAuthor#U-ada`, prefixed with the entity name *and* the semantic index name. That namespacing is why multiple entity types can share the `IDX1` slot without their index rows ever colliding — a `Channel` entity mapping something onto `IDX1` lands under `Channel#…`, a disjoint key space in the same columns.
+
+## Querying it
+
+The query shape is the one you already know, with the semantic name where `'primary'` would go:
+
+```ts
+// Ada's most recent messages, across all channels
+const { items } = yield* messages.query(
+  'byAuthor',
+  { pk: { authorId: 'U-ada' }, sk: { '<': null } },
+  { limit: 20 },
+);
+```
+
+For a `_u`-sorted index the sk cursor is a `_u` value — page onward with `{ '<': lastSeenU }`. For an index with custom sk fields, the cursor is an object of those fields instead, and the adapter derives the string for you. `queryStream` drains an index the same way it drains the primary. One capability is deliberately restricted: `subscribe` only accepts `'primary'` or `_u`-sorted indexes — it replays a *change* timeline, which is only meaningful when the sort key is the update key, and the type system enforces that rather than letting a custom-sorted index silently misbehave.
+
+## Strongly consistent — and what that buys you
+
+Here's where the two engines part ways, in your favor. A GSI is physically a second table: DynamoDB copies your item into it *asynchronously*, so a query against a GSI can miss a write you just made. Every GSI consumer eventually writes the retry loop, or the "don't read your own writes through the index" comment.
+
+On SQLite there is no second table. The index key values are columns *of the same row*, written by the same `INSERT` or `UPDATE` statement, covered by a plain SQL index. There is no propagation, so there is no propagation delay:
+
+```ts
+yield* messages.insert({
+  messageId: yield* nextUlid,
+  channelId: 'C-general',
+  authorId: 'U-ada',
+  body: 'just posted',
+});
+
+const { items } = yield* messages.query('byAuthor', {
+  pk: { authorId: 'U-ada' },
+  sk: { '<': null },
+});
+// items[0] is the message inserted one line ago. Always. No retry, no window.
+```
+
+Practically, versus GSIs:
+
+- **Read-your-writes holds through indexes.** Insert then immediately query by author — the row is there. Tests assert directly; UI code never renders a stale profile page because the index hadn't caught up.
+- **Inside a transaction, indexes participate.** Index columns are part of the row write, so `registry.transaction` covers them — a rolled-back message never flickers into `byAuthor`. GSI updates sit outside DynamoDB's transactional guarantees entirely.
+- **No projection decisions.** A GSI makes you choose which attributes to copy into it (`KEYS_ONLY`, `INCLUDE`, `ALL`), trading storage for read completeness. Here a query through the index reads the full row — every index behaves like `ALL`, at no extra storage cost.
+- **No separate throughput or billing.** The cost of an index is SQLite maintaining one B-tree synchronously per write — real, but local and small, and you'd pay it for any indexed column in any SQL schema.
+
+Two behaviors carry over from GSIs unchanged, so your mental model doesn't fork. Indexes are **sparse**: the derived columns are only written when every field they depend on is present on the value, so items missing a field simply don't appear in that index. And index keys **follow updates**: because derivation reruns on every write, an update that changes `authorId` (or the `_u` re-stamp on any write) moves the row within the index automatically — you never maintain index columns by hand.
+
+The natural follow-up question — "if it's this much nicer, what did SQLite give up?" — is exactly what the next page answers.
+
+<Cards>
+  <Card
+    title="Differences from DynamoDB"
+    href="/docs/std-toolkit/sqlite/differences-from-dynamodb"
+    description="The full, honest diff — consistency, query surface, writes, transactions — and when to reach for which."
+  />
+</Cards>

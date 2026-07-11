@@ -1,18 +1,176 @@
 ---
-title: Why
-description: The same single-table model, wherever SQLite runs.
+title: sqlite
+description: The same item-collection topology on SQLite — in unit tests, local dev, Bun, and Cloudflare Durable Objects, with no mocks.
 ---
 
-## The story
+You know the storage model by now: one table, entity services, item collections, range queries over a sort key. You learned it in [DynamoDB's vocabulary](/docs/std-toolkit/database-adapters), and DynamoDB is where it was born.
 
-"Database-agnostic" is an easy claim and a hard property. The proof is a second database that runs the _same_ model — not a lookalike API over a different mental model, but the same topology: one table, partition key, sort key, item collections, range queries within a partition.
+But think about where your chat app's code actually runs. Unit tests, where spinning up DynamoDB Local for every suite is a tax you pay forever. Local dev, where you want a database that's a file you can delete. A Cloudflare Durable Object, where DynamoDB isn't even an option. The usual answers are bad in different ways: mock the data layer and your tests stop testing the data layer, or write a second data layer for the second database and watch the two drift apart one bugfix at a time.
 
-`std-toolkit/sqlite` is that proof. It mirrors the DynamoDB adapter's topology over SQLite — the two share one storage kernel, so `SQLiteEntity` is `DynamoEntity` with a different engine underneath, and application code written against the entity services does not care which one it got. That buys you things DynamoDB alone cannot:
+std-toolkit's answer is to make the *model* portable instead. The `std-toolkit/sqlite` subpath is the same single-table topology — same builders, same key derivation, same [entity envelope](/docs/std-toolkit/core) — implemented over SQLite. Your app code doesn't change; the physics underneath it does. And because SQLite runs anywhere a file (or a Durable Object) does, the "database-agnostic" claim stops being a slogan and becomes something you can verify in a test suite.
 
-- **Tests without mocks.** Run the real storage layer in-memory or on disk; your test exercises the same single-table semantics as production.
-- **Local dev with zero cloud.** No LocalStack, no credentials.
-- **Runtimes DynamoDB can't reach.** SQLite runs in Node, Bun, and Cloudflare Durable Objects — each wired in through its own adapter subpath, so a Durable Object can hold a real item collection at the edge.
+This page walks the chat app onto SQLite, top to bottom. Everything semantic — what `insert` returns, how keys derive, how queries paginate — is the [shared model](/docs/std-toolkit/database-adapters) and holds here verbatim; what follows is the SQLite-flavored surface.
 
-Because the sync layer only ever asks for sorted items out of an item collection, everything above this adapter — [eschema](/docs/std-toolkit/eschema) validation, [tanstack-sync](/docs/std-toolkit/tanstack-sync) mirroring — works identically over SQLite and DynamoDB. That is the toolkit's central bet, made concrete.
+## The table: `SQLiteTable`
 
-Next: [What is sqlite](/docs/std-toolkit/sqlite/what).
+```ts title="table.ts"
+import { SQLiteTable } from 'std-toolkit/sqlite';
+
+export const table = SQLiteTable.make()
+  .primary('pk', 'sk')
+  .index('IDX1', 'IDX1PK', 'IDX1SK')
+  .build();
+```
+
+Same builder shape as the DynamoDB adapter: a primary key pair and generic secondary index slots. The table definition is pure topology — column names, nothing else. Notably absent: a table name and a connection. Both are supplied by the runtime layer (next page), which means one topology can back many physical tables — a fresh in-memory table per test, say.
+
+Physically, `setup()` (below) turns this into one SQLite table: `pk` and `sk` as a composite primary key, a `_data` column holding the encoded entity as JSON, the meta columns `_e`, `_v`, `_u`, `_d` from the [envelope](/docs/std-toolkit/core/meta), and a nullable column pair per index slot. All rows sharing a `pk` value, ordered by `sk`, form an item collection — the exact structure the whole toolkit is built on, now answered by a `WHERE pk = ? AND sk > ? ORDER BY sk` that SQLite serves off its primary index.
+
+## Entities: `SQLiteEntity`
+
+```ts title="entities.ts"
+import { SQLiteEntity } from 'std-toolkit/sqlite';
+import { Channel, Message } from './schemas.js';
+import { table } from './table.js';
+
+export const messages = SQLiteEntity.make(table)
+  .eschema(Message)
+  .primary({ pk: ['channelId'] })
+  .index('IDX1', 'byAuthor', { pk: ['authorId'] })
+  .build();
+
+export const channels = SQLiteEntity.make(table)
+  .eschema(Channel)
+  .primary()
+  .build();
+```
+
+Read it the way you read the DynamoDB version, because it *is* the DynamoDB version: messages are partitioned by channel (`pk` derives to `Message#C-general`, `sk` is the message's ULID id), and channels — `primary()` with no fields — all live in one collection under `pk = "Channel"`. The `byAuthor` index maps onto the table's `IDX1` slot with `_u` as its default sort key; the [indexes page](/docs/std-toolkit/sqlite/indexes) unpacks that machinery.
+
+The service surface is the shared one: `insert` refuses to overwrite, `update` re-stamps `_u`, `delete` writes a tombstone, `query` slices an item collection with a range operator, `queryStream` drains it, `subscribe` replays it after a `_u` cursor. One round trip to make it concrete:
+
+```ts
+import { Effect } from 'effect';
+import { nextUlid } from 'std-toolkit/core';
+
+const program = Effect.gen(function* () {
+  const sent = yield* messages.insert({
+    messageId: yield* nextUlid,
+    channelId: 'C-general',
+    authorId: 'U-ada',
+    body: 'works on SQLite too',
+  });
+
+  const { items: latest } = yield* messages.query(
+    'primary',
+    { pk: { channelId: 'C-general' }, sk: { '<': null } },
+    { limit: 50 },
+  );
+});
+```
+
+If this looks like the code from the shared-model page with nothing changed — that's the point. Reads still fold old rows forward through the eschema's migrations; a v1 message stored last year decodes to the current shape here just as it would on DynamoDB.
+
+## Singletons: `SQLiteSingleEntity`
+
+Some state has a name but no id — there's exactly one of it. `SQLiteSingleEntity` stores one row per database, keyed by the entity's name alone:
+
+```ts title="settings.ts"
+import { SQLiteSingleEntity } from 'std-toolkit/sqlite';
+import { WorkspaceSettings } from './schemas.js';
+import { table } from './table.js';
+
+export const settings = SQLiteSingleEntity.make(table)
+  .eschema(WorkspaceSettings)
+  .default({ maintenanceMode: false, motd: null });
+```
+
+Two things are different from a keyed entity, both deliberate. First, the builder ends at `.default(...)` — no `.build()` — because the default value *is* the last required piece: `get()` never returns null, it returns the default (with a synthetic empty `_u`) until something has been written. Second, the surface is just `get`, `put`, and `update` — no delete, no query, no tombstones, because "one row that always exists" has no use for any of them. `put` upserts unconditionally; `update` merges a partial into the current value and fails with `NoItemToUpdate` if nothing was ever written (the default isn't a row).
+
+One row *per database* is a real constraint to notice — and in the Durable Object deployment on the [next page](/docs/std-toolkit/sqlite/runtimes), where each channel gets its own database, it quietly becomes "one per channel", which is usually what you wanted anyway.
+
+When a repository boundary needs an explicit return type, the SQLite barrel exports both envelope shapes:
+
+```ts
+import type { EntityType, SingleEntityType } from 'std-toolkit/sqlite';
+import type { ESchemaType } from 'std-toolkit/eschema';
+
+type MessageValue = ESchemaType<typeof Message>;
+type SettingsValue = ESchemaType<typeof WorkspaceSettings>;
+
+export type StoredMessage = EntityType<MessageValue>;
+export type StoredSettings = SingleEntityType<SettingsValue>;
+```
+
+`EntityType<T>` is the keyed `{ value, meta }` result with `_e`, `_v`, `_u`, and `_d`; `SingleEntityType<T>` is the singleton result without tombstone metadata. Calls on `SQLiteEntity` and `SQLiteSingleEntity` infer these automatically, so name them only when the envelope itself crosses one of your module boundaries.
+
+## The registry: `EntityRegistry`
+
+Same role as on DynamoDB — one object that knows every entity type sharing the table:
+
+```ts title="registry.ts"
+import { EntityRegistry } from 'std-toolkit/sqlite';
+import { channels, messages } from './entities.js';
+import { settings } from './settings.js';
+import { table } from './table.js';
+
+export const registry = EntityRegistry.make(table)
+  .register(messages)
+  .register(channels)
+  .registerSingle(settings)
+  .build();
+```
+
+`registry.entity('Message')` and `registry.singleEntity('WorkspaceSettings')` are fully typed lookups, `registry.entityNames` enumerates everything, `registry.table` hands back the underlying table. Two members deserve more than a sentence.
+
+**`setup()` provisions at runtime.** On DynamoDB, creating the table is a deploy-time step outside your program. On SQLite the database is a file you already own, so the toolkit just does it:
+
+```ts
+yield* registry.setup();
+```
+
+This creates the table with all meta and index columns, adds any index columns missing from an existing table, and creates the SQL indexes — every step a no-op if it already happened. Idempotent setup on boot is what makes "fresh in-memory database per test" a three-line fixture instead of an infrastructure project.
+
+**`transaction()` wraps an arbitrary Effect.** Because SQLite has real interactive transactions, the registry can offer something DynamoDB structurally can't: run *any* Effect — reads, writes, your own logic, across any registered entity — inside `BEGIN … COMMIT`, rolling back if it fails:
+
+```ts
+yield* registry.transaction(
+  Effect.gen(function* () {
+    const channel = yield* channels.insert({
+      channelId: 'C-standup',
+      name: 'standup',
+      topic: 'daily sync',
+    });
+    yield* messages.insert({
+      messageId: yield* nextUlid,
+      channelId: channel.value.channelId,
+      authorId: 'U-ada',
+      body: 'welcome to #standup',
+    });
+  }),
+);
+```
+
+Either the channel and its first message both exist, or neither does. Broadcasts from writes inside the transaction are buffered and only emitted after commit — subscribers never observe a write that later rolled back. Nesting is refused with a `NestedTransactionNotSupported` error rather than silently misbehaving. How this compares to DynamoDB's `transact(items)` is on the [differences page](/docs/std-toolkit/sqlite/differences-from-dynamodb).
+
+## The seam underneath: `SqliteDB` and `SqliteDBError`
+
+You may have noticed nothing above opened a database connection. Every operation on this page returns an Effect that *requires* a `SqliteDB` service — the narrow SQL interface all of this compiles down to — and fails with `SqliteDBError`, a tagged error naming exactly what went wrong (`ItemAlreadyExists`, `NoItemToUpdate`, `CreateTableFailed`, …) and on which table. Providing `SqliteDB` for your runtime — better-sqlite3, Node's built-in driver, Bun, or a Durable Object — is a one-line layer, and it's the whole subject of the next page.
+
+<Cards>
+  <Card
+    title="Runtimes"
+    href="/docs/std-toolkit/sqlite/runtimes"
+    description="The SqliteDB service and the four adapter layers: better-sqlite3, node:sqlite, bun:sqlite, Durable Objects."
+  />
+  <Card
+    title="Indexes"
+    href="/docs/std-toolkit/sqlite/indexes"
+    description="Secondary indexes with the GSI declaration surface — but strongly consistent."
+  />
+  <Card
+    title="Differences from DynamoDB"
+    href="/docs/std-toolkit/sqlite/differences-from-dynamodb"
+    description="The honest diff list, and when to reach for which engine."
+  />
+</Cards>

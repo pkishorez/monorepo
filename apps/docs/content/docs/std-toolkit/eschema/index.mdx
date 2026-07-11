@@ -1,84 +1,104 @@
 ---
-title: Why
-description: Schemas are point-in-time; persisted data is not.
+title: eschema
+description: Versioned, self-migrating schemas — encode the latest shape, decode any historical one.
 ---
 
-## Persistence changes everything
+You already validate data at the boundary. A schema library sits at the edge of your app, rejects malformed input, and hands you typed values — that problem is solved, and you've solved it many times.
 
-Persist some data — a file, a database row, a record in any store — and that data needs a schema. Without one, nothing tells you what shape comes back out. So you add a schema, and safety returns.
+Here's the problem that isn't solved: **your code is a point in time, but your data is forever.**
 
-But requirements change, and sooner or later the schema is modified. What happens then depends entirely on _where_ the old shape lives.
+Take the chat app. Version one of a message is honest and small:
 
-## Point-in-time structures are fine
+```ts
+{ channelId: 'general', authorId: 'alice', body: 'ship it' }
+```
 
-For API payloads, the structure is **point in time**: a request comes in, a response goes out, and nothing is kept. Change the structure and the end consumers simply adapt — regenerate a client, update a caller — and everything keeps working. There is no history to worry about, because there is no history at all.
+Six months later, product wants reactions. Your *code* changes in one deploy — but the million messages already sitting in the database were written by the old code, and redeploying your app does not rewrite rows. The moment `reactions` becomes part of the message shape, every one of those old rows is invalid under your new schema.
 
-## Persisted structures are not
+You know the usual ways out, and none of them feel great:
 
-Persisted data is different: every row ever written is history, frozen in the shape the schema had on the day it was written. Ship a breaking change to that schema and the data already on disk is fundamentally out of step — the new schema can no longer read it. There is no going back in time to rewrite what was persisted, and shuttling millions of rows back and forth between shapes with migration scripts is tedious, risky, and often needs downtime.
+- **The big-bang backfill.** Write a migration script, run it over every message in production, hope it finishes, hope it's right, coordinate it with the deploy. Now do that for every schema change, forever, on every database your data lives in.
+- **Optional-field soup.** Make `reactions` optional. And the next field. And the one after that. Two years in, your "schema" is a pile of `?`s, and every reader everywhere branches on which fields happen to exist.
+- **Hand-rolled version checks.** Store a `version` column and `if`/`else` your way through history at every read site. It works — it's also exactly the kind of mechanical, error-prone bookkeeping a library should own.
 
-So: a schema is a great abstraction for a **point-in-time** definition of data. For data that must outlive changing requirements, a schema alone is the wrong abstraction.
+## eschema's answer
 
-## Enter the evolving schema
+An eschema is a schema that knows its own history. It's a chain of versions — `v1`, `v2`, … latest — where each step records *what changed* and *how to fill the gap* for older data. Two rules run the whole show:
 
-That is where the evolving schema comes in. An **eschema** defines not only the shape of the data, but **how that shape evolves over time**: a chain of versions `v1 … latest`, where each step carries a small pure migration from the previous shape. Old data is never rewritten in place — it is **folded forward on read**.
+- **`encode` always writes the latest version** — and stamps a `_v` field recording it. There is no way to write an old shape; old shapes exist only to be read.
+- **`decode` reads `_v` and folds forward.** A row stamped `v1` is validated against the v1 shape, then migrated v1 → v2 → … → latest, one small step at a time. Your code only ever sees the current shape.
 
-<div
-  style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-    flexWrap: 'wrap',
-    margin: '1.5rem 0',
-    fontSize: '0.85rem',
-  }}
->
-  <div
-    style={{
-      border: '1px solid var(--chart-1)',
-      color: 'var(--chart-1)',
-      borderRadius: '0.375rem',
-      padding: '0.5rem 0.75rem',
-    }}
-  >
-    <strong>v1</strong> · <code>{'{ name }'}</code>
-    <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>row written in 2024</div>
-  </div>
-  <span style={{ opacity: 0.7 }}>⟶ migrate ⟶</span>
-  <div
-    style={{
-      border: '1px solid var(--chart-2)',
-      color: 'var(--chart-2)',
-      borderRadius: '0.375rem',
-      padding: '0.5rem 0.75rem',
-    }}
-  >
-    <strong>v2</strong> · <code>{'{ name, email }'}</code>
-  </div>
-  <span style={{ opacity: 0.7 }}>⟶ migrate ⟶</span>
-  <div
-    style={{
-      border: '2px solid var(--chart-4)',
-      color: 'var(--chart-4)',
-      borderRadius: '0.375rem',
-      padding: '0.5rem 0.75rem',
-    }}
-  >
-    <strong>v3 (latest)</strong> · <code>{'{ name, email, role }'}</code>
-    <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>what your code sees</div>
-  </div>
-</div>
+Here's the message schema, before and after reactions ship:
 
-Decode reads the `_v` stamp on each row, finds that version in the chain, and applies each migration in order until the value reaches the latest shape. Encode always writes the latest version. Old versions are only ever read, never written.
+```ts title="message-schema.ts"
+import { Schema } from 'effect';
+import { EntityESchema } from 'std-toolkit/eschema';
 
-## Three scenarios
+export const Message = EntityESchema.make('Message', 'messageId', {
+  channelId: Schema.String,
+  authorId: Schema.String,
+  body: Schema.String,
+})
+  .evolve(
+    'v2',
+    { reactions: Schema.Record(Schema.String, Schema.Number) },
+    (prev) => ({ ...prev, reactions: {} }),
+  )
+  .build();
+```
 
-**A field is added.** Requirements say users now have an email. With a plain schema, every existing row is suddenly invalid. With an eschema, you add one `.evolve('v2', …)` step whose migration defaults the new field — old rows decode as v1, fold forward, and arrive with `email: null`. No script touched the table.
+And here's what the two rules buy you:
 
-**A field is renamed.** `name` should really be `fullName`. One evolve step removes the old key, adds the new one, and the migration copies the value across. Rows written years apart all decode to the same latest shape.
+```ts
+Effect.gen(function* () {
+  // A row written last year, before reactions existed.
+  const oldRow = {
+    _v: 'v1',
+    messageId: 'msg-1',
+    channelId: 'general',
+    authorId: 'alice',
+    body: 'ship it',
+  };
 
-**Old, unstamped data.** Data written before eschema existed carries no `_v` at all. It decodes as `v1` — so wrapping an existing store's current shape as v1 is a pure no-op, and evolutions can start from there. Adoption is non-breaking by design.
+  const message = yield* Message.decode(oldRow);
+  // => { messageId: 'msg-1', channelId: 'general', authorId: 'alice',
+  //      body: 'ship it', reactions: {} }
+  // The migration ran on read. The database row is untouched.
 
-In every scenario the payoff is the same: **no migration scripts, no downtime, no shape-branching at read sites.** Your application code sees exactly one shape — the latest — and each migration is one small pure function from exactly the previous version to the next.
+  const encoded = yield* Message.encode(message);
+  // => { ..., reactions: {}, _v: 'v2' } — always the latest version.
+});
+```
 
-Next: [What is eschema](/docs/std-toolkit/eschema/what).
+No backfill script ran. No reader branches on versions. The migration is written once, next to the schema change it belongs to, and it runs lazily on every read of an old row.
+
+## The adoption question you're already asking
+
+"Fine for new projects — but my database is full of rows with no `_v` at all." That case is designed in: **a row with no `_v` decodes as v1.** Wrap your existing schema as the v1 of an eschema and nothing changes — on a single-version schema, stamped and unstamped rows decode identically. The rule only starts paying off later, when you evolve past v1 and your legacy rows fold forward like everything else. Adopting eschema over existing data is a non-breaking change.
+
+## Why this sits under everything else
+
+This isn't a convenience feature bolted onto the toolkit — it's a load-bearing wall. Every persisted [Entity](/docs/std-toolkit/core) in std-toolkit carries `_v` in its [metadata](/docs/std-toolkit/core/meta), and that `_v` is an eschema version. The [database adapters](/docs/std-toolkit/database-adapters) store what eschemas encode; the sync engine ships rows of mixed vintages to browsers running the newest code and trusts decode to reconcile them. A sync engine that moves rows written across months of schema changes only works if schema evolution is solved first. This section is where we solve it.
+
+<Cards>
+  <Card
+    title="Defining schemas"
+    href="/docs/std-toolkit/eschema/defining-schemas"
+    description="The builder chain — make, evolve, build — and the exact semantics of encode and decode."
+  />
+  <Card
+    title="Constructs"
+    href="/docs/std-toolkit/eschema/constructs"
+    description="ESchema, ValueESchema, SingleEntityESchema, EntityESchema — and how to nest them."
+  />
+  <Card
+    title="Playground"
+    href="/docs/std-toolkit/eschema/playground"
+    description="Watch a row fold forward through a version chain, interactively."
+  />
+  <Card
+    title="Q&A"
+    href="/docs/std-toolkit/eschema/qa"
+    description="What happens if… — the failure modes, answered from source."
+  />
+</Cards>

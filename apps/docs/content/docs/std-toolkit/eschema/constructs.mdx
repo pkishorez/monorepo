@@ -1,0 +1,196 @@
+---
+title: Constructs
+description: ESchema, ValueESchema, SingleEntityESchema, EntityESchema — and toSchema for nesting them anywhere.
+---
+
+Everything on the [previous page](/docs/std-toolkit/eschema/defining-schemas) versioned an anonymous bag of fields. That's enough for validation, but the rest of the toolkit needs to *store* these things — and storage wants to know more: what is this entity called? Which field identifies a row? And what if the thing you're versioning isn't an object at all, but a single value like an enum?
+
+That's why eschema ships four constructs. They share the same `make → evolve → build` chain and the same encode/decode semantics; they differ only in what identity they carry. Picking one is a one-row lookup:
+
+| You're versioning                        | Use                   |
+| ---------------------------------------- | --------------------- |
+| An object with named fields, no identity | `ESchema`             |
+| A single value (enum / scalar / union)   | `ValueESchema`        |
+| A named singleton object                 | `SingleEntityESchema` |
+| A keyed entity (name + per-row id)       | `EntityESchema`       |
+
+## `EntityESchema` — the workhorse
+
+Start with the construct you'll use most. A message is a keyed entity: there are many of them, each identified by an id, and the database needs to tag rows with what they are. `EntityESchema.make` takes a **name**, an **id field name**, and the fields:
+
+```ts title="message-schema.ts"
+import { Schema } from 'effect';
+import { EntityESchema } from 'std-toolkit/eschema';
+
+export const Message = EntityESchema.make('Message', 'messageId', {
+  channelId: Schema.String,
+  authorId: Schema.String,
+  body: Schema.String,
+})
+  .evolve(
+    'v2',
+    { reactions: Schema.Record(Schema.String, Schema.Number) },
+    (prev) => ({ ...prev, reactions: {} }),
+  )
+  .build();
+
+Message.name;    // 'Message'
+Message.idField; // 'messageId'
+```
+
+Two things the toolkit does with that identity: the name becomes the entity type tag (`_e`) in [Entity metadata](/docs/std-toolkit/core/meta), and the id field feeds [key derivation](/docs/std-toolkit/database-adapters) in the database adapters.
+
+Notice what's *not* in the field map: `messageId`. The id field is added for you, as a plain string schema, and declaring it yourself is a type error — it's reserved, and it survives every evolution automatically. Your deltas describe domain fields; identity is eschema's bookkeeping.
+
+## `SingleEntityESchema` — named, but singular
+
+Some things have a name but no id, because there's exactly one of them per scope. Channel settings are the chat app's example — each channel has one settings object, keyed by where it's stored rather than by an id field:
+
+```ts title="channel-settings-schema.ts"
+import { Schema } from 'effect';
+import { SingleEntityESchema } from 'std-toolkit/eschema';
+
+export const ChannelSettings = SingleEntityESchema.make('ChannelSettings', {
+  isPrivate: Schema.Boolean,
+  slowModeSeconds: Schema.Number,
+})
+  .evolve(
+    'v2',
+    { retentionDays: Schema.NullOr(Schema.Number) },
+    (prev) => ({ ...prev, retentionDays: null }),
+  )
+  .build();
+```
+
+Same builder, same folding, `name` but no `idField`.
+
+## `ESchema` — just the shape
+
+The plain `ESchema` from the previous page carries no identity at all. Reach for it when the versioned thing never stands alone in storage — a nested fragment of a larger entity, a config blob, a payload inside something else:
+
+```ts
+import { ESchema } from 'std-toolkit/eschema';
+
+const Attachment = ESchema.make({
+  url: Schema.String,
+  mimeType: Schema.String,
+}).build();
+```
+
+An attachment never lives in a table by itself — it rides inside a message. Which raises the question `toSchema` answers below.
+
+## `ValueESchema` — versioning a single value
+
+Not everything is an object. The kind of a message — text, image — is one value, and it evolves too: one day you ship system messages ("alice joined the channel") and the enum grows. `ValueESchema` versions whole values:
+
+```ts title="message-kind-schema.ts"
+import { Schema } from 'effect';
+import { ValueESchema } from 'std-toolkit/eschema';
+
+export const MessageKind = ValueESchema.make(
+  Schema.Literals(['text', 'image']),
+)
+  .evolve(
+    'v2',
+    Schema.Literals(['text', 'image', 'system']),
+    (kind) => kind, // old kinds are still valid
+  )
+  .build();
+```
+
+Two differences from the object constructs. First, `evolve` replaces the *whole* value schema each version — there's no delta, and the migration receives and returns the value itself. Second, a bare string like `'text'` has nowhere to hang a `_v`, so encode wraps it in a **value envelope**:
+
+```ts
+yield* MessageKind.encode('system');
+// => { _v: 'v2', value: 'system' }
+
+yield* MessageKind.decode({ _v: 'v1', value: 'text' }); // => 'text'
+yield* MessageKind.decode('text');                       // => 'text'
+```
+
+That last line is the adoption rule again: a bare, un-enveloped value decodes as earliest-version data — pre-eschema values keep working. (How eschema decides "is this an envelope?" has one sharp edge if your *value itself* is an object with a `_v` key — see [best practices](/docs/std-toolkit/eschema/best-practices#envelope-shaped-values).)
+
+## `toSchema` — the bridge into plain Effect Schema
+
+The four constructs answer "what am I versioning?". `toSchema` answers "how do I put an eschema where an Effect Schema is expected?" — which is exactly what nesting needs. It converts any eschema (object- or value-shaped) into a native `Schema.Codec` whose decode and encode delegate to the eschema's own chain:
+
+```ts title="message-schema.ts"
+import { Schema } from 'effect';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
+
+export const Message = EntityESchema.make('Message', 'messageId', {
+  channelId: Schema.String,
+  body: Schema.String,
+  kind: toSchema(MessageKind, { name: 'MessageKind' }),
+  attachments: Schema.Array(toSchema(Attachment, { name: 'Attachment' })),
+}).build();
+```
+
+Encode that and every level stamps its own version:
+
+```ts
+{
+  _v: 'v1',                                     // Message's version
+  messageId: 'msg-1',
+  channelId: 'general',
+  body: 'check this out',
+  kind: { _v: 'v2', value: 'image' },            // MessageKind's version
+  attachments: [
+    { _v: 'v1', url: '…', mimeType: 'image/png' } // each Attachment's version
+  ],
+}
+```
+
+Each nested value decodes through its **own** chain, independently of the parent — two attachments in one array can even be stamped at different versions and both fold forward correctly. That independence is powerful and has one consequence you must respect: evolving a nested schema changes what its parents decode to, even though the parents' versions never moved. [Best practices](/docs/std-toolkit/eschema/best-practices#nesting-is-not-isolated) covers how to live with that.
+
+One requirement: `toSchema` needs a name for the resulting schema (it drives the identifier in generated JSON Schema / OpenAPI docs). Named constructs bring their own; an anonymous `ESchema` or `ValueESchema` must be given one via `{ name: '…' }`, or `toSchema` throws at build time.
+
+## The small supporting exports
+
+Three more names round out the barrel, all small:
+
+- **`id`** — a helper for annotated string-id schemas: `id('ChannelId')` is `Schema.String` carrying the identifier annotation, so reference fields like `channelId: id('ChannelId')` read as ids in generated descriptors instead of anonymous strings.
+- **`metaSchema`** — the minimal version-stamp schema, `Schema.Struct({ _v: Schema.String })`. It's what decode itself uses to sniff a row's version; it's exported so your own tooling can do the same — `yield* Schema.decodeUnknownEffect(metaSchema)(rawRow)` tells you which version a raw message row was written at, without knowing anything else about its shape.
+- **`ESchemaError`** — the tagged error every decode/encode failure surfaces as. The [Q&A page](/docs/std-toolkit/eschema/qa#what-does-eschemaerror-carry-and-when-is-it-raised) dissects it.
+
+You also get type extractors — `ESchemaType<typeof Message>` for the decoded shape, `ESchemaEncoded<typeof Message>` for the persisted one — so downstream code names types without re-deriving them.
+
+## The public type toolkit
+
+Most code only needs those two extractors. Generic schema infrastructure needs the rest of the exported types, and the useful way to learn them is by the boundary they describe.
+
+The `Any*` aliases constrain what a helper accepts. `AnyESchema` accepts any object-shaped eschema; `AnyValueESchema` accepts the value-envelope flavor; `AnySingleEntityESchema` requires a name; and `AnyEntityESchema` requires both a name and an id field. `AnyEvolvingSchema` is their union when your helper can handle every construct:
+
+```ts
+import type {
+  AnyEntityESchema,
+  ESchemaIdField,
+  ESchemaName,
+  ESchemaType,
+} from 'std-toolkit/eschema';
+
+const describeMessageCollection = <S extends AnyEntityESchema>(schema: S) => {
+  type Name = ESchemaName<S>;
+  type IdField = ESchemaIdField<S>;
+  type Message = ESchemaType<S>;
+
+  return {
+    name: schema.name as Name,
+    idField: schema.idField as IdField,
+    decode: (row: unknown) => schema.decode(row),
+  };
+};
+```
+
+`ESchemaName<S>` extracts `'Message'`; `ESchemaIdField<S>` extracts `'messageId'`; `ESchemaType<S>` extracts the current decoded value; and `ESchemaEncoded<S>` extracts the latest persisted shape, including `_v`. The wider `AnySingleEntityESchema` covers named singleton helpers, while `AnyEvolvingSchema` is the right constraint for tools that only call `encode`, `decode`, or `getDescriptor` and do not care about identity.
+
+The remaining aliases name the pieces underneath those constructs:
+
+- `StructFieldsSchema` is an object field map such as `{ channelId: Schema.String, body: Schema.String }`; `ValueSchema` is any Effect `Schema.Codec` accepted by `ValueESchema`.
+- `ValueEnvelopeEncoded<V, S>` is the persisted `{ _v: V, value: ... }` shape for a value schema.
+- `ESchemaDescriptor` is the JSON Schema-shaped result of `getDescriptor()`, including `properties` and optional `$defs`.
+- `Prettify<T>` flattens intersections in inferred output so a message type displays as ordinary fields instead of nested mapped types.
+
+These are compile-time vocabulary, not another runtime API. In application code, start with `ESchemaType` and `ESchemaEncoded`; reach for `AnyESchema`, `AnySingleEntityESchema`, `AnyEntityESchema`, `AnyValueESchema`, or `AnyEvolvingSchema` only when you are writing reusable tooling over the corresponding construct family.
+
+That's the full construct family. Before you evolve anything in production, read the [best practices](/docs/std-toolkit/eschema/best-practices) — they're short, and every one of them exists because of a specific way this can bite.

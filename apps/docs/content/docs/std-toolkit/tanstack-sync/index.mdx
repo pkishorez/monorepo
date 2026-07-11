@@ -1,22 +1,55 @@
 ---
-title: Why
-description: An item collection that follows you into the browser.
+title: tanstack-sync
+description: The item collection follows the user into the browser — a sync engine that asks nothing of your server but sorted items.
 ---
 
-## The story
+You know TanStack DB. Collections, live queries, optimistic mutations — a genuinely good in-browser database, and the rendering half of a local-first app solved. What it deliberately doesn't solve is the other half: how does a collection stay *truthfully* in sync with a server?
 
-Every app that shows server data in a UI ends up rebuilding the same machine: fetch a list, cache it, page it, patch it optimistically, reconcile the server's answer, survive a reload, don't resurrect things the user deleted. Usually that machine is rebuilt per feature — one for tasks, one for settings, one for notifications — each with its own subtle bugs.
+Truthfully is the hard word. Take the chat app. A user opens `#general`, and the messages have to load. They close the laptop for an hour, reopen it, and the gap has to fill — without refetching the whole channel. A message arrives over a socket at the same moment a catch-up fetch returns the same message: one copy must win, deterministically. Someone deletes a message; a stale copy of it is still in flight and must not resurrect it. The tab reloads mid-backfill and has to resume where it left off, not start over. Every one of these is table stakes, and every one of them is a place where "fetch on mount and invalidate on change" quietly returns the wrong data.
 
-The single-table model makes a better deal possible. If the server's unit of data is the [item collection](/docs/std-toolkit) — a sorted set of entities with a stable identity — then "show server data in the UI" has one general answer: **mirror the item collection into a TanStack DB collection, and keep the mirror converged.**
+The existing answers ask a lot. Sync engines that solve this properly typically do it by owning your database's replication stream — a specific database, a sidecar process, an operational commitment you make before you've written a feature. Hand-rolled fetch-plus-cache-invalidation asks less up front and then makes *you* the sync engine, one edge case at a time.
 
-That is what `std-toolkit/tanstack-sync` does. You declare a collection with a schema and a **strategy** (how to pull items: old-to-new, paged, on demand), and the engine owns everything else:
+## Sync item collections, not databases
 
-- a **Source of Truth** per collection — server-confirmed entities only, atomically written, with tombstones retained so deleted data cannot come back;
-- an ephemeral **collection projection** — the TanStack DB rows your components query live;
-- durable **Sync State** — the strategy's cursor, so sync resumes where it left off after a reload.
+std-toolkit's position is that the whole problem got easier the moment you organized data into [item collections](/docs/std-toolkit/item-collections) — sorted, single-entity-type, behind one partition key. Because then the server needs to answer exactly one kind of question:
 
-Server-side partitions map naturally onto frontend life: a partition's strategy starts the first time a component queries for that slice (`loadSubset`) and stops when the last one leaves — while the rows it already delivered stay put. Optimistic writes go through paced mutation handlers; server broadcasts route through a registry by entity type tag. Offline storage (IndexedDB) is the live backend for truth and state, not a hydration-only cache.
+> "Give me this collection's items, in order, relative to this cursor."
 
-One machine, written once, converged by construction — for every entity in your table.
+That's it. No replication log, no change feed, no per-client state on the server. Any backend that can answer a sorted-range query — which is any backend you'd actually use — can sit under this engine. The cursor lives on the client, so resume-after-anything is the default, not a feature.
 
-Next: [What is tanstack-sync](/docs/std-toolkit/tanstack-sync/what).
+On top of that one question, tanstack-sync builds the machinery that makes the answers trustworthy:
+
+- **A [Source of Truth](/docs/std-toolkit/tanstack-sync/truth-and-state)** per collection — the engine-owned record of server-confirmed state, converged by the [one-line rule](/docs/std-toolkit/core/meta) you already know: higher `_u` wins, stale copies are no-ops, tombstones are retained so deletions stick. Duplicate delivery, racing sources, out-of-order arrival — all absorbed by a string comparison.
+- **[Sync strategies](/docs/std-toolkit/tanstack-sync/strategies)** — pluggable answers to "in what order do we drain the collection?" Oldest-first for a full replay, newest-first so the chat UI is useful immediately while history backfills, or both ends at once. Each strategy persists its own cursor state and resumes across crashes and reloads.
+- **[Partitions](/docs/std-toolkit/tanstack-sync/collections)** as sync lifecycle windows — opening `#general` in the UI is what starts syncing `#general`'s messages; closing it everywhere is what stops. The engine refcounts, so sync work tracks what's actually on screen.
+- **[Mutations](/docs/std-toolkit/tanstack-sync/mutations)** that close the loop — optimistic writes go up, the server-confirmed entity comes back, and it converges over the optimistic copy like any other delivery. Plus pacing, so a slider drag doesn't become two hundred requests.
+- **[Offline storage](/docs/std-toolkit/tanstack-sync/offline)** — plug in IndexedDB and both the Source of Truth and every strategy's cursor state become durable. Reload the tab and the collection rebuilds from disk while sync resumes from where it stopped, not from zero.
+
+One honest caveat before you dig in: you'll meet the word *partition* again in this section, and it does **not** mean a storage partition. In storage, a partition is an item collection — `#general`'s messages in the table. Here, a partition is a sync lifecycle window — "`#general` is open and being mirrored." The [collections page](/docs/std-toolkit/tanstack-sync/collections) pins the vocabulary down properly.
+
+## Where to start
+
+If you want to see the whole path run before trusting any of the claims above, start with the quickstart. If you're here to audit the model, go straight to truth-and-state and strategies — that's where the engine earns or loses your trust.
+
+<Cards>
+  <Card
+    title="Quickstart"
+    href="/docs/std-toolkit/tanstack-sync/quickstart"
+    description="From createStdSync to a live channel view — the full minimal path."
+  />
+  <Card
+    title="Collections"
+    href="/docs/std-toolkit/tanstack-sync/collections"
+    description="How entities become rows, who owns what, and what a sync partition really is."
+  />
+  <Card
+    title="Truth and state"
+    href="/docs/std-toolkit/tanstack-sync/truth-and-state"
+    description="The Source of Truth, the convergence rule, and the strategy state kept fully apart from it."
+  />
+  <Card
+    title="Sync strategies"
+    href="/docs/std-toolkit/tanstack-sync/strategies"
+    description="oldToNew, newToOld, bidirectional — watch each one drain a channel, live."
+  />
+</Cards>

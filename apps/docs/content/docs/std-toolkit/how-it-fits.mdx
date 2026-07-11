@@ -1,0 +1,214 @@
+---
+title: How it all fits together
+description: One chat message's full journey — validated by an eschema, wrapped in the Entity envelope, stored in an item collection, drained by a sync strategy, converged on screen.
+---
+
+You have the primitive: the sorted, single-entity-type [item collection](/docs/std-toolkit/item-collections). What you don't have yet is a feel for how the toolkit's layers hand work to each other. Reading four package references won't give you that — each one is honest about its own layer and silent about the whole.
+
+So before any reference material, one continuous walk. Priya types "anyone seen the logs?" into the `#general` channel and hits enter. Tomas, in another browser, sees it appear. Here is every layer that message touches, in order, and exactly what each one contributes.
+
+<div className="fd-steps">
+
+<div className="fd-step">
+
+## The value gets a schema
+
+A message is domain data first: who wrote it, where, what it says. In std-toolkit that shape is declared as an **eschema** — a schema that knows its own version history:
+
+```ts title="schemas/message.ts"
+import { EntityESchema } from 'std-toolkit/eschema';
+import { Schema } from 'effect';
+
+export const Message = EntityESchema.make('Message', 'messageId', {
+  channelId: Schema.String,
+  authorId: Schema.String,
+  body: Schema.String,
+})
+  .evolve(
+    'v2',
+    { reactions: Schema.Record({ key: Schema.String, value: Schema.Number }) },
+    (prev) => ({ ...prev, reactions: {} }),
+  )
+  .build();
+```
+
+Two things happened here. `make('Message', 'messageId', …)` named the entity type and its id field — both will matter downstream. And `.evolve('v2', …)` records history: this app shipped messages *without* reactions first, added them later, and the schema carries both facts. Encoding always writes the latest shape and stamps the version; decoding reads a row's stamped version and folds it forward through each migration. A message written in the v1 era decodes today with `reactions: {}`, automatically, at read time — no backfill job, no nullable-field shame. Rows written before versioning existed decode as v1.
+
+Priya's message validates against v2, the current shape. That's the [eschema](/docs/std-toolkit/eschema) layer's whole contribution: *this value is well-formed, and it always will be, no matter when it was written.*
+
+</div>
+
+<div className="fd-step">
+
+## The value gets an envelope
+
+A bare value isn't enough to sync. Which schema version is it? What entity type? Has it been deleted? Which of two copies is newer? Rather than scatter those answers across layers, std-toolkit answers them once, in **core**: every entity, everywhere in the toolkit, is the same envelope.
+
+```ts
+type Entity = {
+  value: Message; // the domain data, validated by the eschema
+  meta: {
+    _v: string; // schema version the row was written at
+    _e: string; // entity type tag — 'message'
+    _d: boolean; // tombstone: deleted, but not forgotten
+    _u: string; // monotonic ULID update key
+    _s?: number; // server observation timestamp
+    _c?: number; // client observation timestamp
+  };
+};
+```
+
+The field to stare at is `_u`. Every write mints a fresh monotonic ULID, so `_u` values are globally ordered: **higher lexical value = more recent write**. That one property turns "which copy wins?" — the question every sync system lives or dies on — into a string comparison. Keep it in mind; it pays off in step five.
+
+Users never author `meta`. The layers below stamp it.
+
+</div>
+
+<div className="fd-step">
+
+## The envelope enters an item collection
+
+On the server, the DynamoDB adapter maps the schema onto the table's keys — and this is the crash-course vocabulary becoming code:
+
+```ts title="server/entities.ts"
+import { DynamoTable, DynamoEntity } from 'std-toolkit/dynamodb';
+import { Message } from '../schemas/message.js';
+
+const table = DynamoTable.make().primary('pk', 'sk').build();
+
+export const messages = DynamoEntity.make(table)
+  .eschema(Message)
+  .primary({ pk: ['channelId'] })
+  .build();
+```
+
+`primary({ pk: ['channelId'] })` says: partition messages by channel. The sort key isn't even asked for — it's always the eschema's id field, `messageId`. Handle Priya's send inside your server's Effect runtime (the DynamoDB client arrives as a Layer):
+
+```ts title="server/send-message.ts"
+import { Effect } from 'effect';
+import { nextUlid } from 'std-toolkit/core';
+import { messages } from './entities.js';
+
+export const sendMessage = (input: {
+  channelId: string;
+  authorId: string;
+  body: string;
+}) =>
+  Effect.gen(function* () {
+    return yield* messages.insert({
+      messageId: nextUlid(),
+      ...input,
+      reactions: {},
+    });
+  });
+```
+
+`insert` encodes the value at v2, stamps the full meta (`_v: 'v2'`, `_e: 'Message'`, `_d: false`, a fresh `_u`), derives `pk` from the entity name plus `channelId`, sets `sk` to the `messageId` ULID, and writes. It returns the complete server-confirmed envelope.
+
+Physically, Priya's message just landed in `#general`'s item collection, positioned after every earlier message — because a ULID id means insertion order *is* sort order. The collection's tail is, permanently, "what happened most recently". Every claim from the crash course is now load-bearing.
+
+</div>
+
+<div className="fd-step">
+
+## The envelope travels the wire
+
+The envelope crosses to browsers exactly as stored — `{ value, meta }`, nothing reshaped. Two paths carry it:
+
+- **Pull.** A client asks the server for a channel's messages after a cursor; the server answers with a Query over the item collection. This is the sorted-items question from the previous page, verbatim.
+- **Push.** After a successful write, the adapter hands the envelope to core's `Broadcaster` service — you provide the transport (a socket, a pub/sub topic) and it fans the envelope out to connected clients.
+
+Either way, the envelope arrives self-describing: `_e` says what it is, `_v` says how to decode it, `_u` says how fresh it is. No side-channel protocol needed.
+
+</div>
+
+<div className="fd-step">
+
+## A sync strategy drains it into the browser
+
+Tomas's browser runs the [tanstack-sync](/docs/std-toolkit/tanstack-sync) engine. One instance, one collection per entity type:
+
+```ts title="client/collections.ts"
+import { createStdSync, syncStrategy } from 'std-toolkit/tanstack-sync';
+import { createCollection } from '@tanstack/react-db';
+import { Message } from '../schemas/message.js';
+
+const std = createStdSync();
+
+export const messagesCollection = createCollection(
+  std.sync({
+    schema: Message,
+    sync: {
+      partitions: {
+        channelId: (channelId) => ({
+          strategy: syncStrategy.oldToNew(),
+          forwardFetch: ({ cursor }) => api.messagesAfter(channelId, cursor),
+        }),
+      },
+    },
+    onInsert: (message) => api.sendMessage(message),
+  }),
+);
+
+const registry = std.registry();
+socket.onMessage((msg) => registry.process({ values: msg.values, persist: true }));
+```
+
+When Tomas opens `#general`, his live query filters on `channelId` — and that's the trigger. The engine sees the filter, activates a sync **partition** for that channel, and starts the `oldToNew` strategy: read the saved cursor, call `forwardFetch` for the next batch, write it down, advance the cursor, repeat until the channel is drained. Close the channel and the strategy stops; reopen it — even after a reload, with offline storage configured — and it resumes from the persisted cursor instead of refetching history.
+
+<Callout title="'Partition', second meaning">
+Here's the vocabulary collision flagged earlier. In storage, a partition is an item collection — `#general`'s messages on the server. In tanstack-sync, a partition is a *sync lifecycle window* — "`#general` is open and being mirrored". They rhyme deliberately: opening a chat channel activates the sync partition that drains the storage partition of the same name.
+</Callout>
+
+Every envelope the engine accepts — drained by the strategy, pushed through the registry, or returned by a mutation — lands in the collection's **Source of Truth**, the engine-owned record of server-confirmed state. And here `_u` pays off: for each message, the incoming copy wins only if its `_u` is greater than the stored one. That single comparison is the whole convergence rule. Duplicate delivery? Same `_u`, no-op. Pull and push race each other? Larger `_u` wins, order of arrival irrelevant. Deletions? A tombstone (`_d: true`) converges like any write, removing the message from view while staying in the Source of Truth so a stale envelope can never resurrect it.
+
+</div>
+
+<div className="fd-step">
+
+## React renders it
+
+The last hop is the shortest — the collection is a TanStack DB collection, so it's a live query away:
+
+```tsx title="client/channel-view.tsx"
+const { data: channelMessages } = useLiveQuery((q) =>
+  q
+    .from({ message: messagesCollection })
+    .where(({ message }) => eq(message.channelId, channelId)),
+);
+```
+
+Priya's message converges into the Source of Truth, projects into the collection, and Tomas's component re-renders. And when Tomas replies, the same machinery runs backwards: the collection insert applies optimistically (his message renders immediately), `onInsert` sends it to the server, and the returned server-confirmed envelope — real `_u`, real meta — converges over the optimistic copy. If the broadcast of his own message also arrives via the socket, convergence shrugs: same `_u`, no-op.
+
+</div>
+
+</div>
+
+## The shape of the whole thing
+
+Notice what each layer *didn't* do. The eschema never touched the network. The envelope never cared which database it sat in. The adapter never knew a browser exists. The sync strategy never learned what a channel is — it saw a cursor and a sorted stream of envelopes. Every handoff is the same small shape: **validated values, wrapped in one envelope, living in sorted item collections, converged by `_u`.**
+
+That's the entire architecture. Everything from here is depth, not new shape — pick the layer you're most skeptical about:
+
+<Cards>
+  <Card
+    title="eschema"
+    href="/docs/std-toolkit/eschema"
+    description="Versioned, self-migrating schemas — and the CLI that keeps evolutions honest."
+  />
+  <Card
+    title="core"
+    href="/docs/std-toolkit/core"
+    description="The Entity envelope, meta fields, ULIDs, and the Broadcaster service."
+  />
+  <Card
+    title="Database adapters"
+    href="/docs/std-toolkit/database-adapters"
+    description="DynamoDB and SQLite services that turn schemas into item collections."
+  />
+  <Card
+    title="tanstack-sync"
+    href="/docs/std-toolkit/tanstack-sync"
+    description="Strategies, the Source of Truth, offline storage, and paced writes in the browser."
+  />
+</Cards>

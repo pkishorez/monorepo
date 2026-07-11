@@ -1,5 +1,12 @@
 {
   "title": "eschema",
-  "pages": ["index", "what", "guide"],
-  "defaultOpen": true
+  "pages": [
+    "index",
+    "defining-schemas",
+    "constructs",
+    "best-practices",
+    "qa",
+    "cli",
+    "playground"
+  ]
 }

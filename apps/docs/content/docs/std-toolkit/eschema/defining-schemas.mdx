@@ -1,0 +1,141 @@
+---
+title: Defining schemas
+description: The make → evolve → build chain, encode/decode semantics, and migrations as total functions.
+---
+
+You've seen [why schemas must version](/docs/std-toolkit/eschema). Now the question is what it actually feels like to define one — because if declaring a version chain is more ceremony than the `if`/`else` soup it replaces, you won't use it. The whole API is three builder calls: `make` starts the chain, `evolve` adds a version, `build` freezes it.
+
+## `make` — version one, implicitly
+
+`ESchema.make` takes a map of named fields, each an ordinary Effect Schema. There's no version argument — the first version is always `v1`:
+
+```ts title="message-schema.ts"
+import { Schema } from 'effect';
+import { ESchema } from 'std-toolkit/eschema';
+
+const Message = ESchema.make({
+  channelId: Schema.String,
+  authorId: Schema.String,
+  body: Schema.String,
+}).build();
+```
+
+Any Effect Schema works as a field — including transformations where the stored type differs from the in-memory type (a string on the wire, a number in your code). One restriction: field names starting with `_` are rejected at the type level. That prefix belongs to the library — `_v` lives there.
+
+(This page uses the anonymous `ESchema` to keep the focus on versioning. In the real chat app you'd reach for `EntityESchema.make('Message', 'messageId', {...})`, which adds a name and an id field — the [constructs page](/docs/std-toolkit/eschema/constructs) covers the differences. Everything below applies to all of them identically.)
+
+## `evolve` — describe the change, not the world
+
+When reactions ship, you don't rewrite the field map. You append a version:
+
+```ts title="message-schema.ts"
+const Message = ESchema.make({
+  channelId: Schema.String,
+  authorId: Schema.String,
+  body: Schema.String,
+})
+  .evolve(
+    'v2',
+    { reactions: Schema.Record(Schema.String, Schema.Number) },
+    (prev) => ({ ...prev, reactions: {} }),
+  )
+  .build();
+```
+
+`evolve` takes three things:
+
+- **The version name.** It must be exactly the next step — `v1` can only evolve to `'v2'`, `v2` to `'v3'`. Try to skip to `'v5'` and TypeScript rejects it. Version history is a chain, not a set.
+- **A delta, not a full shape.** You list only the fields that changed. New fields get a schema; a field you're removing gets `null`; eschema merges the delta onto the previous version's field map for you.
+- **A migration** — a function `(prev) => next`. It receives a value in the *previous* version's decoded shape and returns the new one. Old rows had no reactions, so the migration supplies the empty record.
+
+The migration's `prev` parameter is typed as the previous version's shape, and its return type is checked against the new one — forget to supply `reactions` and it won't compile. Each migration only handles one step; eschema chains them, so a v1 row reaching a v4 schema runs v1→v2, v2→v3, v3→v4 in order. You never write a "handle any old version" function.
+
+### Removing and renaming fields
+
+Deletion is `null` in the delta. Rename doesn't exist as a primitive — it's a removal plus an addition, with the migration carrying the value across. Say early messages stored `authorName`, and you're moving to `authorId`:
+
+```ts
+const Message = ESchema.make({
+  channelId: Schema.String,
+  authorName: Schema.String,
+  body: Schema.String,
+})
+  .evolve(
+    'v2',
+    { authorName: null, authorId: Schema.String },
+    (prev) => ({
+      channelId: prev.channelId,
+      body: prev.body,
+      authorId: lookupUserId(prev.authorName), // pure lookup, e.g. a static map
+    }),
+  )
+  .build();
+```
+
+The migration returns the next shape *without* the removed field — the types hold you to it.
+
+## `build` — freeze the chain
+
+`build` returns the finished eschema. It's immutable: there is no way to append a version to a built schema, so every version is declared in one place, in order, before anything uses it. Define schemas at module scope and export the built value.
+
+## What encode and decode actually do
+
+**`encode`** takes a value in the latest decoded shape and produces the persisted form: field transformations applied, `_v` stamped with the latest version. Two things worth internalizing:
+
+- You can never encode an old version. Migrations run only on read; the write path has exactly one shape.
+- If the input happens to carry a stale `_v` (say you round-tripped a decoded-then-modified value), encode ignores it and stamps the latest — there's a test pinning that.
+
+**`decode`** takes an unknown value and returns the latest decoded shape, in four steps: read `_v` (missing → treat as `v1`), fail if the version isn't in the chain, validate against *that* version's schema, then fold forward through each migration. Both operations return `Effect`s that fail with a typed [`ESchemaError`](/docs/std-toolkit/eschema/qa#what-does-eschemaerror-carry-and-when-is-it-raised) — no thrown surprises:
+
+```ts
+Effect.gen(function* () {
+  const encoded = yield* Message.encode({
+    channelId: 'general',
+    authorId: 'alice',
+    body: 'ship it',
+    reactions: { '🚀': 2 },
+  });
+  // => { channelId, authorId, body, reactions, _v: 'v2' }
+
+  const decoded = yield* Message.decode(encoded);
+  // => back to the in-memory shape, no _v
+});
+```
+
+One convenience on the same surface: `makePartial` attaches the latest `_v` to a partial value — `Message.makePartial({ body: 'edited' })` gives `{ body: 'edited', _v: 'v2' }` — which the sync layer uses for partial updates.
+
+## Migrations are total functions
+
+A migration must succeed for *every* value of the previous version — no throwing, no "shouldn't happen" branches. This is less scary than it sounds, because eschema has already validated the row against the previous version's schema before your migration runs: `prev` is never malformed, it's exactly the old shape. Your job is only to answer "what does an old row mean in the new world?" — and for every old row, there must be an answer.
+
+That's also why migrations must be pure. They run lazily, on read, possibly years after you wrote them, possibly millions of times — no IO, no clock, no randomness, or the same row decodes differently on different days. The [best-practices page](/docs/std-toolkit/eschema/best-practices) turns this into concrete habits (hint: `Schema.NullOr` is your friend).
+
+## `fromType` — the escape hatch for external types
+
+Sometimes a field's type comes from outside your control — a payload from a third-party SDK, a shape you only have as a TypeScript type. `fromType<T>()` produces a schema that passes the value through unvalidated but keeps the static type:
+
+```ts
+import { fromType } from 'std-toolkit/eschema';
+import type { GiphyEmbed } from '@some/giphy-sdk';
+
+const Message = ESchema.make({
+  channelId: Schema.String,
+  body: Schema.String,
+  embed: Schema.NullOr(fromType<GiphyEmbed>()),
+}).build();
+```
+
+Be honest with yourself about the trade: no runtime validation happens on that field. It's for shapes you trust structurally but can't or won't model — not a shortcut around writing schemas.
+
+## It's a Standard Schema too
+
+Every eschema implements the [Standard Schema V1](https://github.com/standard-schema/standard-schema) interface, so it plugs into anything that accepts one — form libraries, RPC layers, validators:
+
+```ts
+const result = Message['~standard'].validate(rowFromSomewhere);
+// { value: {...decoded} }  or  { issues: [{ message: '...' }] }
+```
+
+`validate` runs the full decode path synchronously — version sniffing, migration folding and all — so a v1 row handed to a Standard Schema consumer comes out in the latest shape, exactly like calling `decode` yourself.
+
+Next: the same builder pattern comes in four flavors depending on whether the thing you're versioning has a name, an id, or is a single value — [constructs](/docs/std-toolkit/eschema/constructs). Or see the chain run interactively in the [playground](/docs/std-toolkit/eschema/playground).
