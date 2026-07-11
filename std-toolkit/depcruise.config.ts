@@ -11,9 +11,9 @@ import {
 // `core-barrel` / `eschema-barrel` layers merge by name across graphs.
 //
 // Cross-folder DAG:
-//   eschema  ← core, dynamodb, sqlite, tanstack-sync  (leaf — imports nothing)
-//   core     ← dynamodb, sqlite, tanstack-sync
-//   dynamodb / sqlite / tanstack-sync — siblings, forbidden from each other
+//   eschema  ← core, dynamodb, idb, sqlite, tanstack-sync  (leaf — imports nothing)
+//   core     ← dynamodb, idb, sqlite, tanstack-sync
+//   dynamodb / idb / sqlite / tanstack-sync — siblings, forbidden from each other
 //
 // core-barrel reaches eschema-barrel (via core-impl), so any layer with a
 // path to core-barrel may also import eschema — no direct eschema edges
@@ -78,6 +78,33 @@ const dynamodbTypes = layer('dynamodb-types', ['src/db/dynamodb/types'], {
 });
 const dynamodbErrors = layer('dynamodb-errors', ['src/db/dynamodb/errors.ts'], {
   description: 'DynamoDB error types',
+});
+
+// --- idb ---
+const idbBarrel = layer('idb-barrel', ['src/db/idb/index.ts'], {
+  description: 'Public barrel',
+});
+const idbServices = layer(
+  'idb-services',
+  [
+    'src/db/idb/entity-registry.ts',
+    'src/db/idb/idb-entity.ts',
+    'src/db/idb/idb-single-entity.ts',
+    'src/db/idb/idb-table.ts',
+  ],
+  { description: 'Entity and table surface' },
+);
+const idbBrowser = layer('idb-browser', ['src/db/idb/layer.ts'], {
+  description: 'Browser IndexedDB implementation and layer wiring',
+});
+const idbDb = layer('idb-db', ['src/db/idb/db.ts'], {
+  description: 'Low-level database contract and operation types',
+});
+const idbInternal = layer('idb-internal', ['src/db/idb/internal'], {
+  description: 'Internal IndexedDB implementation details',
+});
+const idbErrors = layer('idb-errors', ['src/db/idb/errors.ts'], {
+  description: 'IndexedDB error types',
 });
 
 // --- sqlite ---
@@ -151,9 +178,11 @@ export default {
   // ignore entries are literal path prefixes, not globs
   ignore: [
     'src/core/__tests__',
+    'src/db/__tests__',
     'src/db/dynamodb/__tests__',
     'src/db/dynamodb/expr/__tests__',
     'src/db/dynamodb/play',
+    'src/db/idb/__tests__',
     'src/db/sqlite/services/__tests__',
     'src/db/sqlite/sql/adapters/__tests__',
     'src/db/sqlite/play.ts',
@@ -200,6 +229,17 @@ export default {
       edge(dynamodbInternal, [dynamodbTypes, dynamodbErrors]),
       edge(dynamodbGenerated, dynamodbErrors),
       edge(dynamodbTypes, coreBarrel),
+    ]),
+
+    // browser and services are siblings; both depend on the low-level DB
+    // contract, while only services use key derivation internals.
+    layerGraph('idb', [
+      edge(idbBarrel, [idbServices, idbBrowser]),
+      edge(idbServices, [idbDb, idbInternal, coreBarrel]),
+      edge(idbBrowser, idbDb),
+      edge(idbDb, idbErrors),
+      edge(idbInternal, coreBarrel),
+      edge(idbErrors, coreBarrel),
     ]),
 
     // Siblings: internal ✗ sql, internal ✗ errors, services ✗ errors —
@@ -282,6 +322,17 @@ export default {
     module('src/db/dynamodb/generated'),
     module('src/db/dynamodb/types'),
     module('src/db/dynamodb/errors.ts'),
+
+    // idb
+    module('src/db/idb/index.ts'),
+    module('src/db/idb/entity-registry.ts'),
+    module('src/db/idb/idb-entity.ts'),
+    module('src/db/idb/idb-single-entity.ts'),
+    module('src/db/idb/idb-table.ts'),
+    module('src/db/idb/layer.ts'),
+    module('src/db/idb/db.ts'),
+    module('src/db/idb/internal'),
+    module('src/db/idb/errors.ts'),
 
     // sqlite
     module('src/db/sqlite/index.ts'),
