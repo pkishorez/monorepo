@@ -1,5 +1,4 @@
 {
   "title": "sqlite",
-  "pages": ["index", "what", "guide"],
-  "defaultOpen": true
+  "pages": ["index", "runtimes", "indexes", "differences-from-dynamodb"]
 }

@@ -1,195 +1,81 @@
 ---
-title: Why
-description: Why std-toolkit exists — single-table item collections, synced end to end.
+title: What is std-toolkit?
+description: Database-agnostic sync over single-table item collections — the one idea, and why it works where replication-based sync engines can't follow.
 ---
 
-## Single-table design
+You already know the experience you're after. You're building a chat app: someone opens a channel and the messages are just *there* — live queries against local data, optimistic sends that feel instant, updates from other people streaming in, everything surviving a page reload. You've seen apps that work this way, and you've probably scoped out what it would take to build one.
 
-Picture one table. Not one table per entity — _one_ table for everything: tasks, users, settings, orgs, all of it as rows side by side.
+And that's where it gets uncomfortable, because every road to that experience asks you to give something up:
 
-How do you tell the records apart? Two mechanisms, working together:
+- **Sync engines that own your database.** The most polished ones work by tapping the database's replication stream — they sit on the write-ahead log or a change-data-capture feed and fan changes out to clients. Beautiful, until your data lives somewhere that doesn't expose a replication stream in the shape they need, or somewhere you don't fully control. The engine doesn't adapt to your database; your database choice is dictated by the engine.
+- **Whole-database replication to the client.** Ship the database — or a large slice of it — into the browser and query it locally. Now you've adopted a specific storage engine on both ends, you're syncing far more than any one screen needs, and partial replication becomes its own research project.
+- **Hand-rolled fetch + cache invalidation.** The default. You write the endpoints, the paging, the cache keys, the invalidation rules, the reconnect logic, the "wait, why is this message duplicated" fix, the "wait, why did this deleted message come back" fix. Every feature adds another edge case, and none of it composes.
 
-- **By entity.** Every record carries its entity type, so a task row and a profile row can share a table without ever being confused for one another.
-- **By partition.** Every record also carries a **partition key** that decides where it lives, and a **sort key** that orders records within that partition. Records that share a partition key sit physically together, in sort-key order.
+So the hard question: what is the *smallest* thing a sync engine could demand from a database and still deliver that experience?
 
-That second group — all the records behind one partition key — has a name: an **item collection**. It is the natural unit of access in this design. "Everything about org `acme`" is not a join across five tables; it is one item collection, read in one query.
+## The one idea
 
-This is single-table design, and it is one of the great tricks of backend data modeling.
+std-toolkit's answer: **sorted items**. That's the entire ask.
 
-## Why DynamoDB makes it awesome
+Take your chat app. Give every message a partition key (the channel it belongs to) and a sort key (a time-ordered ULID). All the messages in one channel now form one **item collection** — a set of items behind one partition key, sorted by the sort key. To sync that collection, an engine only ever needs to ask one question:
 
-DynamoDB is where this design was born, and DynamoDB rewards it extravagantly: **any operation inside a single partition is guaranteed single-digit-millisecond latency** — at any scale, whether the table holds a thousand rows or ten billion. The partition is the unit of locality; keep your access patterns inside it and the database simply cannot be slow.
+> "Give me the items in this collection, in order, after this point."
 
-Model your domain as item collections and every hot path in your application becomes one predictable, fast partition read.
+Any database that can answer that question can be synced. DynamoDB answers it natively — it's literally what a Query does. SQLite answers it with `WHERE pk = ? AND sk > ? ORDER BY sk`. No replication stream, no change feed, no storage engine embedded in the browser. That's why std-toolkit runs over DynamoDB, where replication-stream-based engines can't follow you, and over SQLite with the same code — and why nothing about it is married to either.
 
-## The inspiration
+Everything in the toolkit is built outward from this primitive:
 
-Meanwhile, on the frontend, TanStack DB solved a different problem: keeping a live, queryable collection of records in the browser, with optimistic writes and reactive queries.
+- Schemas version themselves, because rows written last year live in the same sorted collection as rows written today.
+- The database adapters exist to derive keys and maintain item collections, not to be ORMs.
+- The sync engine's entire persistent state per collection is, essentially, a cursor into a sorted list.
 
-Put the two side by side and an idea falls out: **an item collection on the server is exactly the thing a frontend collection wants to mirror.** Both are sorted sets of items with a stable identity.
+The mental model comes from DynamoDB's single-table design — with one deliberate twist (collections hold a single entity type) that we'll defend honestly when you get to [item collections](/docs/std-toolkit/item-collections).
 
-That is the inspiration for std-toolkit: an **end-to-end sync engine between DynamoDB and TanStack DB.** On the server, your data lives as single-table item collections. On the client, a `sync` abstraction mirrors one item collection into a TanStack DB collection and keeps it converged — with local (offline) storage so the mirror survives a reload.
+## One thing to know before the code starts
 
-<div
-  style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    flexWrap: 'wrap',
-    margin: '1.5rem 0',
-  }}
->
-  <div
-    style={{
-      flex: '1 1 220px',
-      border: '1px solid var(--color-border)',
-      borderRadius: '0.5rem',
-      padding: '0.75rem',
-    }}
-  >
-    <div
-      style={{
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        marginBottom: '0.5rem',
-        opacity: 0.7,
-      }}
-    >
-      ONE TABLE (server)
-    </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <div
-        style={{
-          borderLeft: '3px solid var(--chart-1)',
-          paddingLeft: '0.5rem',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            color: 'var(--chart-1)',
-          }}
-        >
-          pk = org#acme
-        </div>
-        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-          task#001 · task#002 · task#003
-        </div>
-      </div>
-      <div
-        style={{
-          borderLeft: '3px solid var(--chart-2)',
-          paddingLeft: '0.5rem',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            color: 'var(--chart-2)',
-          }}
-        >
-          pk = user#kay
-        </div>
-        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-          profile · settings
-        </div>
-      </div>
-      <div
-        style={{
-          borderLeft: '3px solid var(--chart-4)',
-          paddingLeft: '0.5rem',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            color: 'var(--chart-4)',
-          }}
-        >
-          pk = org#globex
-        </div>
-        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-          task#010 · task#011
-        </div>
-      </div>
-    </div>
-  </div>
-  <div style={{ textAlign: 'center', fontSize: '0.75rem', opacity: 0.8 }}>
-    sync
-    <br />⟶
-  </div>
-  <div
-    style={{
-      flex: '1 1 220px',
-      border: '1px solid var(--color-border)',
-      borderRadius: '0.5rem',
-      padding: '0.75rem',
-    }}
-  >
-    <div
-      style={{
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        marginBottom: '0.5rem',
-        opacity: 0.7,
-      }}
-    >
-      TANSTACK DB (browser)
-    </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <div
-        style={{
-          border: '1px solid var(--chart-1)',
-          borderRadius: '0.375rem',
-          padding: '0.375rem 0.5rem',
-          fontSize: '0.8rem',
-          color: 'var(--chart-1)',
-        }}
-      >
-        tasks collection (acme partition)
-      </div>
-      <div
-        style={{
-          border: '1px solid var(--chart-2)',
-          borderRadius: '0.375rem',
-          padding: '0.375rem 0.5rem',
-          fontSize: '0.8rem',
-          color: 'var(--chart-2)',
-        }}
-      >
-        settings collection
-      </div>
-      <div
-        style={{
-          border: '1px dashed var(--chart-4)',
-          borderRadius: '0.375rem',
-          padding: '0.375rem 0.5rem',
-          fontSize: '0.8rem',
-          color: 'var(--chart-4)',
-          opacity: 0.7,
-        }}
-      >
-        globex partition (loaded on demand)
-      </div>
-    </div>
-  </div>
-</div>
+std-toolkit is an [Effect](https://effect.website)-native toolkit, end to end. Errors are typed, dependencies are Layers, and every operation is an `Effect`. The docs assume you're fluent — code samples use `Effect.gen`, `yield*`, and services without re-explanation. If you're evaluating std-toolkit, you're almost certainly evaluating Effect too; that's a package deal, and we'd rather say so on page one.
 
-If the server models everything as item collections, syncing to the client stops being a per-endpoint, per-feature chore — it becomes one generic mechanism.
+Here's the destination, so you know where this is all heading — the browser side of the chat app, where opening a channel activates sync for exactly that channel's item collection:
 
-## Why stop at DynamoDB?
+```ts title="collections.ts"
+const messages = createCollection(
+  std.sync({
+    schema: Message,
+    sync: {
+      partitions: {
+        channelId: (channelId) => ({
+          strategy: syncStrategy.oldToNew(),
+          forwardFetch: ({ cursor }) => api.messagesAfter(channelId, cursor),
+        }),
+      },
+    },
+    onInsert: (message) => api.sendMessage(message),
+  }),
+);
+```
 
-This is all great — but why should only DynamoDB users reap these benefits?
+One config: which collection, how to page through it, what to do on a write. The engine handles cursors, convergence, deduplication, tombstones, offline storage, and reconnect — because the primitive underneath is simple enough that it *can*.
 
-It turns out the principle is generic. All the sync engine ever asks of the database is: _give me the sorted items of one item collection._ Any store that can hand back sorted rows behind a key can play the part — including SQL databases. std-toolkit ships a SQLite adapter that speaks the exact same partition-key / sort-key / item-collection topology.
+## The map
 
-Yes, you give up the power of SQL: no ad-hoc joins, no arbitrary queries against your synced data. But the disciplined single-table approach buys things SQL cannot give you here — the same data model in production DynamoDB and in tests, local dev, Bun, or a Cloudflare Durable Object, with zero mocking; access patterns designed up front instead of discovered in a slow-query log; and one sync mechanism that works unchanged over any backend.
+The toolkit is a small stack of subpaths, each one layer of the same story:
 
-That is std-toolkit in one line: **database-agnostic sync over single-table item collections.**
+1. **[eschema](/docs/std-toolkit/eschema)** — versioned, self-migrating schemas. Your message schema will change; the rows already written won't. An eschema always encodes the latest version and folds old rows forward on decode.
+2. **[core](/docs/std-toolkit/core)** — the Entity envelope. Every layer speaks `{ value, meta }`, where `meta` carries the schema version, entity type, tombstone flag, and the update key that makes convergence a one-line comparison.
+3. **[Database adapters](/docs/std-toolkit/database-adapters)** — [DynamoDB](/docs/std-toolkit/dynamodb) and [SQLite](/docs/std-toolkit/sqlite) services that put entities into item collections and query them back, with type-safe key derivation.
+4. **[tanstack-sync](/docs/std-toolkit/tanstack-sync)** — the browser end: TanStack DB collections fed by sync strategies that drain item collections through cursors, with offline storage and paced optimistic writes.
 
-One more problem hides inside this design: single-table stores are schemaless, and long-lived synced data _will_ change shape. std-toolkit answers that with [evolving schemas](/docs/std-toolkit/eschema).
+But don't jump ahead yet. The next three pages are the spine everything else hangs on: a [ten-minute DynamoDB crash course](/docs/std-toolkit/dynamodb-crash-course) for the vocabulary, [item collections](/docs/std-toolkit/item-collections) for the core primitive and the design argument behind it, and [how it all fits](/docs/std-toolkit/how-it-fits) for one message's full journey from keyboard to screen.
 
-Ready for the component map? Head to [What is std-toolkit](/docs/std-toolkit/what).
+<Cards>
+  <Card
+    title="A DynamoDB crash course"
+    href="/docs/std-toolkit/dynamodb-crash-course"
+    description="Partition keys, sort keys, and item collections in ten minutes — even if you never plan to touch DynamoDB."
+  />
+  <Card
+    title="Item collections"
+    href="/docs/std-toolkit/item-collections"
+    description="The one primitive everything builds on, and why collections hold a single entity type."
+  />
+</Cards>

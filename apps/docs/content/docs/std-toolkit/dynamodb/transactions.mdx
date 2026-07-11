@@ -1,0 +1,138 @@
+---
+title: Transactions
+description: Atomic multi-entity writes through the EntityRegistry, batch writes with unprocessed-item handling, and the DynamodbError taxonomy.
+---
+
+Sending a chat message, done properly, is two writes: insert the `Message`, and bump the `Channel`'s `messageCount`. Run them as two calls and there's a window — a crash, a throttle, a deploy — where one lands and the other doesn't. Now the channel list says 41 messages and the channel contains 42, forever.
+
+You know the database answer: a transaction. DynamoDB has one — `TransactWriteItems`, up to 100 items, all-or-nothing. And in raw form it's the [section intro's](/docs/std-toolkit/dynamodb) pain at maximum: an array of hand-assembled put/update requests, each with its own key strings, expressions, and marshalled values, with nothing checking that the items you're combining even belong to the same table.
+
+The adapter's answer has two halves you've already met separately: **entities produce transaction items**, and the **`EntityRegistry` executes them** — typed end to end.
+
+## The registry is the transaction surface
+
+The [shared model](/docs/std-toolkit/database-adapters) introduced `EntityRegistry` as the router that knows every entity in the table. Here's the chat app's, including the singleton:
+
+```ts title="registry.ts"
+import { EntityRegistry } from 'std-toolkit/dynamodb';
+import { table } from './table';
+import { messages, channels, settings } from './entities';
+
+export const registry = EntityRegistry.make(table)
+  .register(messages)
+  .register(channels)
+  .registerSingle(settings)
+  .build();
+```
+
+Beyond routing (`registry.entity('Message')`, `registry.singleEntity('WorkspaceSettings')`, `registry.entityNames`, and `registry.table` for the underlying table), registration does the load-bearing work for transactions: the registry's `transact` only accepts items produced by *registered* entities. That's not a runtime check — it's in the types.
+
+## `insertOp` and `updateOp`: writes as values
+
+Every mutating operation on an entity has an `Op` twin that, instead of executing, returns a **transaction item** — the write, packaged as a value:
+
+```ts title="send-message.ts"
+import { Effect } from 'effect';
+import { nextUlid } from 'std-toolkit/core';
+import { messages, channels } from './entities';
+import { registry } from './registry';
+
+export const sendMessage = (channelId: string, authorId: string, body: string) =>
+  Effect.gen(function* () {
+    const messageOp = yield* messages.insertOp({
+      messageId: yield* nextUlid,
+      channelId,
+      authorId,
+      body,
+      reactions: {},
+    });
+
+    const channelOp = yield* channels.updateOp(
+      { channelId },
+      { update: ($) => [$.set('messageCount', $.opAdd('messageCount', 1))] },
+    );
+
+    yield* registry.transact([messageOp, channelOp]);
+  });
+```
+
+Either both writes commit or neither does. The `Op` variants take the same arguments as their direct twins — `insertOp` accepts a `condition`, `updateOp` takes the same update-or-builder-callback shape — so everything from the [expressions page](/docs/std-toolkit/dynamodb/expressions) carries over unchanged, including the baked-in duplicate guard on inserts and the version assertion on updates. `DynamoSingleEntity` has an `updateOp` too, so a workspace-settings change can ride in the same transaction as the entity writes it relates to.
+
+Two behaviors worth knowing before you build on this:
+
+- **Each item remembers its entity and its outcome.** A `TransactItem` carries the entity name it came from and a `broadcast` payload — the full entity as it will exist after commit. When the transaction succeeds, `transact` pushes each payload through the [`Broadcaster`](/docs/std-toolkit/core) (when one is provided) so live subscribers hear about all the writes, and returns the array of committed entities to you.
+- **`updateOp` pre-reads.** To build a complete broadcast payload it fetches the current row first (and fails with `NoItemToUpdate` if there isn't one) — so budget one read per `updateOp`, and know that a plain-partial `updateOp` merges your changes over that snapshot for the broadcast.
+
+And the typed part: `transact` accepts only `TransactItem<'Message' | 'Channel' | 'WorkspaceSettings'>` — the names of what you registered. Build an op from some other table's entity and hand it to this registry, and the compiler rejects it. A whole class of "transaction quietly aimed at the wrong table" bugs becomes unrepresentable.
+
+## Batch writes: `batchInsert` and `unprocessedIndexes`
+
+Transactions are for correctness; batches are for throughput. Importing a channel's message history from your previous system shouldn't be ten thousand round trips, and DynamoDB's `BatchWriteItem` exists for exactly this — with two sharp edges the adapter handles for you and one it hands back honestly.
+
+The entity-level API is `batchInsert`:
+
+```ts
+const { written, unprocessedIndexes } = yield* messages.batchInsert(importedMessages);
+```
+
+Edge one, handled: DynamoDB caps a batch at 25 items, so the underlying `table.batchWrite` chunks any number of items into 25-item requests automatically.
+
+Edge two, handed back: DynamoDB may *partially* process a batch — under throttling it accepts some items and returns the rest as unprocessed, and that's not an error, it's the API working as documented. Code that ignores this loses data on the busiest day of the year. So the result splits: `written` holds the entities that landed, `unprocessedIndexes` holds the *positions in your input array* that didn't. Retrying is a loop over what remains:
+
+```ts
+export const importHistory = (rows: MessageInsert[]) =>
+  Effect.gen(function* () {
+    let pending = rows;
+    while (pending.length > 0) {
+      const { unprocessedIndexes } = yield* messages.batchInsert(pending);
+      pending = unprocessedIndexes.map((i) => pending[i]!);
+      // in production, put a backoff between rounds — unprocessed items
+      // usually mean throttling, and hammering makes throttling worse
+    }
+  });
+```
+
+One honesty note, because it changes when you reach for this: `BatchWriteItem` does not support condition expressions, so unlike `insert`, a batch write **replaces** an existing row with the same key instead of failing. `batchInsert` is for bulk-loading rows you know are new — imports, backfills, fixtures — not for concurrent application writes.
+
+## `DynamodbError`
+
+Every operation in this section — and the whole adapter — fails with exactly one error type in the Effect error channel: `DynamodbError`. It's a tagged error wrapping a discriminated union, so one `catchTag` gets you in, and `error._tag` tells you precisely what happened:
+
+| Family | Tags |
+| --- | --- |
+| Semantic — your logic can react | `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, `ConditionCheckFailed` |
+| Auto-migration | `ItemVersionMismatch` (stale row, `autoMigrate: false`), `ItemMigrationFailed` (concurrent write during migration) |
+| Operation wrappers — what failed, with cause | `GetItemFailed`, `PutItemFailed`, `UpdateItemFailed`, `DeleteItemFailed`, `QueryFailed`, `ScanFailed`, `DescribeFailed`, `TransactionFailed`, `BatchWriteFailed` |
+| AWS transport — status + request id attached | `ThrottlingException`, `ServiceUnavailable`, `RequestTimeout`, `AccessDeniedException`, `UnauthorizedException`, `ValidationException`, `InvalidSignatureException`, `UnknownAwsError` |
+
+The semantic tags are the ones your application logic branches on. The chat app's retried-delivery case — a client resends a message it already delivered — is a one-liner, because inserts carry ids the client minted:
+
+```ts
+yield* messages.insert(draft).pipe(
+  Effect.catchIf(
+    (e) => e.error._tag === 'ItemAlreadyExists',
+    () => Effect.void, // duplicate delivery — the message is already there
+  ),
+);
+```
+
+The transport tags are your retry candidates: `ThrottlingException`, `ServiceUnavailable`, and `RequestTimeout` are transient by definition and safe to retry with backoff, while `AccessDeniedException` or `ValidationException` will fail identically forever — match on `error._tag` to retry only the former. Each transport error carries `meta` with the HTTP status code and the AWS request id, which is what AWS support asks for first.
+
+And when an error escapes to a log, `DynamodbError`'s `message` getter renders a human-readable summary — the AWS error name, message, status, and request id — instead of an opaque wrapper name. Small thing; you'll appreciate it at 2 a.m.
+
+---
+
+That completes the DynamoDB adapter: topology and layers, derived indexes, typed expressions, and atomic writes. The same storage model runs on SQLite — same builders, same queries — and the sync engine sits on top of both.
+
+<Cards>
+  <Card
+    title="SQLite"
+    href="/docs/std-toolkit/sqlite"
+    description="The same model on embedded SQLite — runtimes, adapters, and where it diverges from DynamoDB."
+  />
+  <Card
+    title="tanstack-sync"
+    href="/docs/std-toolkit/tanstack-sync"
+    description="What all of this was for — database-agnostic sync over item collections."
+  />
+</Cards>
