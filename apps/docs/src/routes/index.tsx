@@ -10,7 +10,8 @@ import { ExternalLink, GitFork } from 'lucide-react';
 const packages = [
   {
     name: 'std-toolkit',
-    description: 'Database-agnostic sync over single-table item collections.',
+    description:
+      'Single-table design toolkit. A single table is all you need for a sync engine.',
     slug: 'std-toolkit',
     status: 'alpha',
   },

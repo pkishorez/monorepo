@@ -1,81 +1,187 @@
 ---
 title: What is std-toolkit?
-description: Database-agnostic sync over single-table item collections — the one idea, and why it works where replication-based sync engines can't follow.
+description: "Single-table design toolkit. A single table is all you need for a sync engine."
 ---
 
-You already know the experience you're after. You're building a chat app: someone opens a channel and the messages are just *there* — live queries against local data, optimistic sends that feel instant, updates from other people streaming in, everything surviving a page reload. You've seen apps that work this way, and you've probably scoped out what it would take to build one.
+**std** stands for **single-table design**.
 
-And that's where it gets uncomfortable, because every road to that experience asks you to give something up:
+Modern apps want data to feel local.
 
-- **Sync engines that own your database.** The most polished ones work by tapping the database's replication stream — they sit on the write-ahead log or a change-data-capture feed and fan changes out to clients. Beautiful, until your data lives somewhere that doesn't expose a replication stream in the shape they need, or somewhere you don't fully control. The engine doesn't adapt to your database; your database choice is dictated by the engine.
-- **Whole-database replication to the client.** Ship the database — or a large slice of it — into the browser and query it locally. Now you've adopted a specific storage engine on both ends, you're syncing far more than any one screen needs, and partial replication becomes its own research project.
-- **Hand-rolled fetch + cache invalidation.** The default. You write the endpoints, the paging, the cache keys, the invalidation rules, the reconnect logic, the "wait, why is this message duplicated" fix, the "wait, why did this deleted message come back" fix. Every feature adds another edge case, and none of it composes.
+A screen should open with data already there. Changes should appear immediately. The app should keep working offline and catch up when it reconnects.
 
-So the hard question: what is the *smallest* thing a sync engine could demand from a database and still deliver that experience?
+The difficult part is not storing data. It is keeping the right data on every client correct and up to date.
 
-## The one idea
+## The usual sync problem
 
-std-toolkit's answer: **sorted items**. That's the entire ask.
+Application data is spread across tables and connected by relationships. A channel screen, for example, may need a channel, its messages, and its members.
 
-Take your chat app. Give every message a partition key (the channel it belongs to) and a sort key (a time-ordered ULID). All the messages in one channel now form one **item collection** — a set of items behind one partition key, sorted by the sort key. To sync that collection, an engine only ever needs to ask one question:
+Most sync engines discover changes by watching the database's replication log. That gives them a stream of rows, but now the engine must understand the database, its tables, and how those rows relate to what each client needs.
 
-> "Give me the items in this collection, in order, after this point."
+<div className="not-prose my-8 grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
+  <div className="rounded-lg border bg-fd-card p-4">
+    <div className="font-medium">Database</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">Tables, joins, and relationships</div>
+  </div>
+  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">→</div>
+  <div className="rounded-lg border bg-fd-card p-4">
+    <div className="font-medium">Replication log</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">Database-specific row changes</div>
+  </div>
+  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">→</div>
+  <div className="rounded-lg border bg-fd-card p-4">
+    <div className="font-medium">Sync engine</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">Reconstructs what each client needs</div>
+  </div>
+</div>
 
-Any database that can answer that question can be synced. DynamoDB answers it natively — it's literally what a Query does. SQLite answers it with `WHERE pk = ? AND sk > ? ORDER BY sk`. No replication stream, no change feed, no storage engine embedded in the browser. That's why std-toolkit runs over DynamoDB, where replication-stream-based engines can't follow you, and over SQLite with the same code — and why nothing about it is married to either.
+This works, but it couples sync to the database's internals. Change the database and the sync engine may no longer work. Use a database without the expected replication stream and it cannot start.
 
-Everything in the toolkit is built outward from this primitive:
+std-toolkit begins with a smaller question:
 
-- Schemas version themselves, because rows written last year live in the same sorted collection as rows written today.
-- The database adapters exist to derive keys and maintain item collections, not to be ORMs.
-- The sync engine's entire persistent state per collection is, essentially, a cursor into a sorted list.
+> What is the least a sync engine needs from a database?
 
-The mental model comes from DynamoDB's single-table design — with one deliberate twist (collections hold a single entity type) that we'll defend honestly when you get to [item collections](/docs/std-toolkit/item-collections).
+The answer is not tables, joins, or a replication log.
 
-## One thing to know before the code starts
+It needs **items that can be read in order**.
 
-std-toolkit is an [Effect](https://effect.website)-native toolkit, end to end. Errors are typed, dependencies are Layers, and every operation is an `Effect`. The docs assume you're fluent — code samples use `Effect.gen`, `yield*`, and services without re-explanation. If you're evaluating std-toolkit, you're almost certainly evaluating Effect too; that's a package deal, and we'd rather say so on page one.
+## The idea comes from DynamoDB
 
-Here's the destination, so you know where this is all heading — the browser side of the chat app, where opening a channel activates sync for exactly that channel's item collection:
+This is not a new storage model. std-toolkit is directly inspired by **DynamoDB single-table design**.
 
-```ts title="collections.ts"
-const messages = createCollection(
-  std.sync({
-    schema: Message,
-    sync: {
-      partitions: {
-        channelId: (channelId) => ({
-          strategy: syncStrategy.oldToNew(),
-          forwardFetch: ({ cursor }) => api.messagesAfter(channelId, cursor),
-        }),
-      },
-    },
-    onInsert: (message) => api.sendMessage(message),
-  }),
-);
+DynamoDB stores items in one table using two keys:
+
+- a **partition key** groups related items;
+- a **sort key** orders the items inside that group.
+
+DynamoDB calls the items behind one partition key an **item collection**. A Query selects one collection and reads a sorted range from it.
+
+That is the important insight std-toolkit borrows: one physical table can contain many independently addressable, ordered collections.
+
+std-toolkit takes that DynamoDB model and treats it as a portable database contract. DynamoDB implements it natively. SQLite can implement the same shape with a table and composite indexes. The sync layer only sees item collections, so it does not need to understand which database produced them.
+
+## The small primitives
+
+std-toolkit builds the whole model from four primitives.
+
+### Entity
+
+An entity is a typed piece of application data: a `Channel`, `Message`, or `Member`.
+
+Each entity defines its own shape, identity, and schema history. Different entities remain different even though they share one physical table.
+
+### Item collection
+
+An item collection is a group of one entity type, in a stable order.
+
+For a chat app, useful collections include:
+
+```text
+Channel
+Message#general
+Message#random
+Member#general
+Member#random
 ```
 
-One config: which collection, how to page through it, what to do on a write. The engine handles cursors, convergence, deduplication, tombstones, offline storage, and reconnect — because the primitive underneath is simple enough that it *can*.
+`Message#general` contains only messages from `#general`. `Member#general` contains only its members.
 
-## The map
+The partition key chooses the collection. The sort key orders its items. Together, those two keys turn one physical table into many small collections.
 
-The toolkit is a small stack of subpaths, each one layer of the same story:
+### Cursor
 
-1. **[eschema](/docs/std-toolkit/eschema)** — versioned, self-migrating schemas. Your message schema will change; the rows already written won't. An eschema always encodes the latest version and folds old rows forward on decode.
-2. **[core](/docs/std-toolkit/core)** — the Entity envelope. Every layer speaks `{ value, meta }`, where `meta` carries the schema version, entity type, tombstone flag, and the update key that makes convergence a one-line comparison.
-3. **[Database adapters](/docs/std-toolkit/database-adapters)** — [DynamoDB](/docs/std-toolkit/dynamodb) and [SQLite](/docs/std-toolkit/sqlite) services that put entities into item collections and query them back, with type-safe key derivation.
-4. **[tanstack-sync](/docs/std-toolkit/tanstack-sync)** — the browser end: TanStack DB collections fed by sync strategies that drain item collections through cursors, with offline storage and paced optimistic writes.
+A cursor is a client's position in a collection.
 
-But don't jump ahead yet. The next three pages are the spine everything else hangs on: a [ten-minute DynamoDB crash course](/docs/std-toolkit/dynamodb-crash-course) for the vocabulary, [item collections](/docs/std-toolkit/item-collections) for the core primitive and the design argument behind it, and [how it all fits](/docs/std-toolkit/how-it-fits) for one message's full journey from keyboard to screen.
+Once a collection is ordered, sync becomes a range query:
 
-<Cards>
-  <Card
-    title="A DynamoDB crash course"
-    href="/docs/std-toolkit/dynamodb-crash-course"
-    description="Partition keys, sort keys, and item collections in ten minutes — even if you never plan to touch DynamoDB."
-  />
-  <Card
-    title="Item collections"
-    href="/docs/std-toolkit/item-collections"
-    description="The one primitive everything builds on, and why collections hold a single entity type."
-  />
-</Cards>
+> Give me the next items in `Message#general` after this cursor.
+
+The client persists the cursor and can resume after a reload, a lost connection, or a week offline. The server does not need to remember where every client stopped.
+
+### Transaction
+
+A transaction applies operations to several items as one unit.
+
+The items do not need to belong to the same entity. Creating a channel, its owner membership, and its settings can be one transaction: either every write succeeds or none does.
+
+## TanStack DB puts the collections back together
+
+Suppose a user opens `#general`.
+
+The client needs three pieces of data, so it syncs three collections:
+
+<div className="not-prose my-8 grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
+  <div className="rounded-lg border bg-fd-card p-4">
+    <div className="font-medium">DynamoDB's model</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">One table with ordered item collections</div>
+  </div>
+  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">→</div>
+  <div className="rounded-lg border bg-fd-card p-4">
+    <div className="font-medium">std-toolkit</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">Moves typed collections through cursors</div>
+  </div>
+  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">→</div>
+  <div className="rounded-lg border bg-fd-card p-4">
+    <div className="font-medium">TanStack DB</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">Local collections, joins, and live views</div>
+  </div>
+</div>
+
+The server does not join entities before sending them. Each query returns one predictable, typed collection.
+
+On the client, std-toolkit stands on **TanStack DB**. TanStack DB provides the typed local collections, reactive live queries, client-side joins, and optimistic mutations that make local-first screens practical.
+
+std-toolkit's [`tanstack-sync`](/docs/std-toolkit/tanstack-sync) package connects the two sides. It drains server item collections into TanStack DB collections, keeps their sync progress, and converges newer writes over older ones.
+
+The channel screen can now join its local channel, message, and member collections. A different screen can combine the same collections differently without changing the server's storage model or sync protocol.
+
+This is the key shift: **the server stores and syncs entities; the client composes them into screens.**
+
+## What about relationships?
+
+A relational database can enforce that every message points to an existing channel with a foreign key. A single-table item model cannot express that relationship to the database.
+
+The application owns it instead.
+
+For example, sending a message can be one transaction that first checks the channel exists and then writes the message. The transaction guarantees that the check and the write succeed together.
+
+But a transaction does not invent that rule. Another code path could still write a message without checking the channel unless the application consistently enforces the invariant.
+
+So the boundary is precise:
+
+- **transactions provide atomicity** — all related item operations succeed or none do;
+- **application code provides structural integrity** — it decides which entities may relate and keeps those rules true.
+
+That is the tradeoff. std-toolkit gives up database-enforced joins, foreign keys, and cascades. In return, every backend only needs to implement the same small item-collection operations.
+
+## Why this is enough for sync
+
+A sync engine does not need to understand the entire database. It only needs to move changes for the collections a client cares about.
+
+std-toolkit gives every write an ordered update key. Inserts, edits, and tombstones can therefore be read as an ordered timeline. The client keeps the newer copy of an entity and ignores older or duplicate deliveries.
+
+From those rules, the rest follows:
+
+- initial sync starts at the beginning of a collection;
+- pagination continues from a cursor;
+- reconnect resumes from the saved cursor;
+- live delivery feeds the same local collections;
+- duplicate and out-of-order deliveries converge safely;
+- the client syncs only the collections its current views need.
+
+DynamoDB can answer these ordered queries directly. SQLite can answer them with a composite index. Neither database needs to expose a replication log to std-toolkit.
+
+## Standing on the shoulders of giants
+
+std-toolkit exists because two larger ideas fit together remarkably well.
+
+**DynamoDB** provides the server-side inspiration: one table, partition keys, sort keys, item collections, and ordered range queries.
+
+**TanStack DB** provides the client-side foundation: typed local collections, reactive queries, joins, and optimistic state.
+
+std-toolkit is the bridge between them. It turns DynamoDB's item-collection model into a database-agnostic sync contract, then feeds those collections into TanStack DB on the client.
+
+That is the whole insight:
+
+> **One table holds the entities. Item collections make them syncable. The client turns them back into an application.**
+
+[Next: learn how DynamoDB turns one table into ordered item collections.](/docs/std-toolkit/dynamodb-crash-course)

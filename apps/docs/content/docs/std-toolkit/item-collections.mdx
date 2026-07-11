@@ -1,36 +1,125 @@
 ---
-title: Item collections
-description: Why a sorted, single-entity-type item collection is everything a sync engine needs — and why std-toolkit breaks with classic single-table design to get it.
+title: Item Collections
+description: The small, sorted, typed unit that std-toolkit queries, paginates, and syncs.
 ---
 
-You now speak DynamoDB: partition key, sort key, and the [item collection](/docs/std-toolkit/dynamodb-crash-course) — all items behind one partition key value, in sort-key order. DynamoDB treats the item collection as one concept among several. std-toolkit strips everything else away and keeps *only* this one. Every part of the toolkit — the schema layer, both database adapters, the sync engine — is built against the same primitive:
+The [DynamoDB crash course](/docs/std-toolkit/dynamodb-crash-course) gave us one useful picture: a table is divided by partition keys, and a sort key gives every item inside a partition a stable position.
 
-> **An item collection: a sorted set of items behind one partition key, all of the same entity type.**
+All the items behind one partition-key value form an **item collection**.
 
-In the chat app: one channel's messages. `pk = channel id`, `sk = message ulid`, every item a message. That last clause — *all of the same entity type* — is where std-toolkit deliberately breaks with classic DynamoDB modeling, and we'll defend that honestly in a moment. First, the payoff.
+std-toolkit takes that DynamoDB concept and makes it the boundary for querying and sync. The backing store may be DynamoDB or SQLite; the rest of the toolkit only needs to see small, ordered collections.
 
-## All a sync engine needs
+## The table is the home, not the working set
 
-Think about what it takes to mirror one channel's messages into a browser, correctly, forever. You need initial load, catch-up after being offline, live updates, and you need it all to be resumable — a browser tab can die at any moment.
+One application table can contain many collections:
 
-Now notice what the item collection gives you for free. The collection is *sorted*, and the sort key is a stable cursor into it. So the entire protocol collapses to one question, asked repeatedly:
-
-> "Give me the items in this collection, in order, after this cursor."
-
-- **Initial load?** Ask with an empty cursor, keep asking until the answers run dry.
-- **Catch-up?** Ask with the last cursor you saw.
-- **Resume after a crash?** Persist the cursor; ask again from there.
-- **Live updates?** New messages get new, larger sort keys — they show up after your cursor by construction.
-
-No server-side session, no change feed, no replication log, no per-client bookkeeping on the server at all. The sync state is a cursor, and the cursor belongs to the client.
-
-And here's why std-toolkit calls itself database-agnostic: that question is answerable by almost anything. DynamoDB answers it natively:
-
-```
-Query  pk = "channel#general", sk > "01HZX3GA91..."
+```text
+application table
+├── Channel
+├── Message#general
+├── Message#random
+├── Member#general
+└── Member#random
 ```
 
-SQLite answers it with one indexed query:
+The table is where all entity types live. A collection is the slice the application works with right now.
+
+Opening `#general` does not mean reading every message in the table. It means addressing `Message#general`. Opening its member list means addressing `Member#general` separately.
+
+One table is therefore not one download. It is a home for many independently readable pieces.
+
+## A useful collection is addressable
+
+The partition key names the collection precisely. A query for `Message#general` does not search other channels to discover which messages belong there.
+
+The grouping is chosen from the way the application reads. Because a chat screen needs one channel's messages together, the channel id becomes part of the message partition key.
+
+This keeps each request focused on the data needed by one feature or view.
+
+## A useful collection is ordered
+
+The sort key gives every item a stable position inside its collection.
+
+That makes pagination a continuation instead of a search. Read a page, remember the last sort key, and ask for the items after it.
+
+```text
+server:  A  B  C  D  E  F
+client:  A  B  C
+cursor:        C
+next:             D  E  F
+```
+
+If the browser closes after `C`, it persists `C`. When it returns, it continues from there. The server does not need to keep a sync session for that browser because the client carries its own progress.
+
+The cursor is small, requests can be repeated safely, and recovery does not require comparing whole database snapshots.
+
+## Creation order and change order are different
+
+A primary collection is often ordered by entity id. With ULID ids, `Message#general` naturally reads in creation order.
+
+That order is ideal for chat history. It can show the oldest messages, the newest messages, or the next page after a visible message.
+
+But an edit does not change a message's id. A client that only continues after the latest message id would never revisit an older message that was edited.
+
+std-toolkit gives every write a fresh `_u` update key. A secondary index can order the same collection by `_u`, so inserts, edits, and tombstones all move through one change timeline.
+
+```text
+same message
+├── messageId  → its place in chat history
+└── _u         → its place in change history
+```
+
+The primary order answers “where was this created?” The change order answers “what changed since I was here?” A complete sync model needs to understand both jobs.
+
+## std-toolkit keeps collections typed
+
+Classic DynamoDB single-table design often mixes several entity types behind one partition key:
+
+```text
+Channel#general
+├── META
+├── MESSAGE#01J...A1
+└── MEMBER#user-a
+```
+
+One Query can then return a channel, its messages, and its members together. This can be a useful DynamoDB pattern, but it produces a heterogeneous result.
+
+std-toolkit makes a different tradeoff. It includes the entity type in the partition key and keeps each collection homogeneous:
+
+```text
+Channel
+└── general
+
+Message#general
+└── 01J...A1
+
+Member#general
+└── user-a
+```
+
+Now a message query returns `Message[]`, not `(Channel | Message | Member)[]`. Every item is decoded by the same eschema, uses the same identity rule, and follows the same migration and convergence rules.
+
+The sync engine receives data in the shape the client ultimately needs: one typed collection at a time.
+
+## Relationships remain explicit
+
+A channel screen still needs channels, messages, and members. std-toolkit reads those typed collections independently and lets application code or TanStack DB combine them.
+
+That costs additional queries, but the queries can run concurrently. In return, relationships remain visible in types and code instead of being hidden inside key prefixes.
+
+This separation only applies to reads. A transaction can still write a channel, its owner membership, and its settings atomically, even though they belong to different entity types and collections.
+
+The model is: **reads stay typed; related writes can stay atomic.**
+
+## The collection becomes a database contract
+
+Once the application is expressed as item collections, std-toolkit needs very little from a database:
+
+1. select a collection by partition key;
+2. return its items in sort-key order;
+3. continue before or after a cursor.
+
+DynamoDB provides that shape directly with Query. SQLite can provide the same shape with a composite index:
 
 ```sql
 SELECT * FROM items
@@ -39,68 +128,22 @@ ORDER BY sk
 LIMIT ?;
 ```
 
-Any store that can return sorted items after a key can sit under std-toolkit's sync engine. The engines that need to own your database's replication stream demand something rare; this demands something nearly every database already does.
+The implementation is different, but the question is identical:
 
-## The heresy: one entity type per collection
+> Give me the next items in this collection after this cursor.
 
-If you've read anything about DynamoDB single-table design, you know its signature move: *mix entity types in one partition*. The classic pattern puts a channel and its messages in the same item collection, discriminated by sort-key prefixes:
+That is why item collections are enough to make the sync layer database-agnostic. The sync engine does not need tables, joins, or a database-specific replication log. It needs a named group, a stable order, and a position it can resume from.
 
-| pk                | sk               | ...                              |
-| ----------------- | ---------------- | -------------------------------- |
-| `channel#general` | `META`           | `{ name: "general", topic: … }`  |
-| `channel#general` | `MSG#01HZX3F8B2` | `{ body: "morning all", … }`     |
-| `channel#general` | `MSG#01HZX3GA91` | `{ body: "anyone seen…", … }`    |
+## The mental model so far
 
-One Query now returns the channel *and* its messages — a "join" with a single round trip. It's genuinely elegant, it's the technique the whole single-table literature is built around, and std-toolkit doesn't do it. In std-toolkit, item collections are homogeneous: a collection of messages is messages, all the way down.
+DynamoDB gave us one table with direct, ordered access paths. std-toolkit narrows those paths into typed item collections. Cursors turn their order into resumable progress, and a change-order index makes edits and deletions visible as well as inserts.
 
-You should be suspicious of a toolkit that names itself after single-table design and then drops the pattern's most famous trick. Here are the three honest reasons.
-
-**1. Typing a heterogeneous Query result is a mess.** That mixed Query returns `(Channel | Message)[]` — except the type system doesn't know that. Each row must be routed to the right schema by inspecting its key string, every consumer narrows the union by hand, and validation can't run against one schema for the whole result. In a TypeScript codebase, the exact place you most want precise types — the data crossing your database boundary — is where this pattern makes them weakest.
-
-**2. The relationships are conventions, nothing more.** Nothing in the table declares that `MSG#` rows belong to the `META` row. The relationship lives in key-string prefixes and in your team's heads. There's no schema to enforce it, no type to represent it, and no principled answer for how deep it goes (do reactions nest under messages under channels?). Heterogeneous partitions make relationships *implicit* exactly where you'd want them explicit.
-
-**3. The sync engine deals with one entity type at a time — and this is the decisive one.** Walk the browser end backwards: the thing you render from is a typed collection of messages. Convergence compares update keys per message; tombstones delete messages; schema migrations fold old message rows forward through *the message schema*. Every one of those mechanisms is defined per entity type, and every synced envelope is tagged with its type so the engine can reject strays. If the wire carried heterogeneous partitions, the very first thing the sync engine would have to do is split them back apart by type. The mixed collection would exist only to be un-mixed. So std-toolkit un-mixes it at the source: the partition key *includes the entity type*, and each type gets its own item collections.
-
-<Callout title="Transactions are not the thing being given up">
-Cross-entity *queries* are excluded; cross-entity *transactions* are not. The `EntityRegistry` coordinates every entity type in a table and exposes a typed `transact` that accepts operations from any of them — creating a channel and its first message atomically is one call. What you can't do is *read* two entity types in one query. Writes coordinate; reads stay homogeneous.
-</Callout>
-
-## Recomposition: the join moves to the client
-
-So how do you render a channel screen, which needs the channel *and* its recent messages? You ask two questions and join in code — and because the queries are independent, you ask them concurrently:
-
-```ts title="channel-page.ts"
-const channelPage = (channelId: string) =>
-  Effect.gen(function* () {
-    const channels = registry.entity('channel');
-    const messages = registry.entity('message');
-
-    const [channel, recent] = yield* Effect.all(
-      [
-        channels.get({ channelId }),
-        messages.query(
-          'primary',
-          { pk: { channelId }, sk: { '<=': null } },
-          { limit: 50 },
-        ),
-      ],
-      { concurrency: 'unbounded' },
-    );
-
-    return { channel, messages: recent.items };
-  });
-```
-
-Two Queries instead of one. Each hits exactly one item collection, each result decodes against exactly one schema, and the shape of the join is visible in your code instead of encoded in key prefixes. Yes, it's one more round trip than the classic pattern — round trips you fire in parallel, against a database where single-collection Queries are the cheap, fast case by design. That's the trade, stated plainly: std-toolkit pays a concurrent round trip to buy precise types, explicit relationships, and a sync engine that's even possible.
-
-One vocabulary warning before you move on: when you reach the sync engine, you'll meet the word *partition* again — there it means a sync lifecycle window (an open channel being actively mirrored), not a storage slice. Same word, two contexts; the docs always make clear which one is in play.
-
-You now hold the primitive. Next, watch it carry a real message the whole way — from a keystroke, through a schema, into an item collection, and back out onto another person's screen.
+We now have the storage and movement primitives. The last step is to follow a real message through every layer and see how those primitives become an application.
 
 <Cards>
   <Card
     title="How it all fits together"
     href="/docs/std-toolkit/how-it-fits"
-    description="One message's journey through every layer of std-toolkit, end to end."
+    description="Follow one message from a browser, into its item collection, and onto another user's screen."
   />
 </Cards>
