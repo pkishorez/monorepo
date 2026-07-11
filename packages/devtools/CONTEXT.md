@@ -65,7 +65,8 @@ One process, two HTTP surfaces:
 
 - **`/rpc`** — the frontend surface (Effect RPC). The `/devtools` route consumes
   only this. Carries `RunDepcruise` plus telemetry read procedures
-  (`QueryTraces` / `QueryLogs` / `QueryMetrics` / `ClearTelemetry`).
+  (`QueryTraces` / `GetTrace` / `QueryLogs` / `QueryMetrics` /
+  `ClearTelemetry`).
 - **`/v1/*`** — OTLP ingestion (HTTP), for external apps. lotel's existing
   ingest group, mounted as-is.
 

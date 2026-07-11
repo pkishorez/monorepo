@@ -15,6 +15,13 @@ export class DevtoolsRpcError extends Schema.TaggedErrorClass<DevtoolsRpcError>(
   message: Schema.String,
 }) {}
 
+/** A trace lookup failed because no stored spans have the requested trace id. */
+export class TraceNotFound extends Schema.TaggedErrorClass<TraceNotFound>(
+  'TraceNotFound',
+)('TraceNotFound', {
+  traceId: Schema.String,
+}) {}
+
 const DepcruiseData = Schema.Any as unknown as Schema.Codec<DepcruiseVizData>;
 
 const RunDepcruiseSuccess = Schema.Union([
@@ -76,6 +83,15 @@ const QueryPayload = { sk: SkBound, limit: Schema.optional(Schema.Number) };
 const TraceListSuccess = Schema.Struct({
   items: Schema.Array(EntitySchema(TraceRecordSchema)),
 });
+const TraceSuccess = Schema.Struct({
+  traceId: Schema.String,
+  spans: Schema.Array(
+    TraceRecordSchema.schema as unknown as Schema.Codec<
+      typeof TraceRecordSchema.Type,
+      typeof TraceRecordSchema.Type
+    >,
+  ),
+});
 const LogListSuccess = Schema.Struct({
   items: Schema.Array(EntitySchema(LogRecordSchema)),
 });
@@ -101,6 +117,11 @@ export const DevtoolsRpc = RpcGroup.make(
     payload: QueryPayload,
     success: TraceListSuccess,
     error: DevtoolsRpcError,
+  }),
+  Rpc.make('GetTrace', {
+    payload: { traceId: Schema.String },
+    success: TraceSuccess,
+    error: Schema.Union([TraceNotFound, DevtoolsRpcError]),
   }),
   Rpc.make('QueryLogs', {
     payload: QueryPayload,
