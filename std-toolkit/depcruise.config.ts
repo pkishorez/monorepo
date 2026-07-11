@@ -293,7 +293,7 @@ export default {
       edge(syncCadence, [syncSourceOfTruth, syncUtil, coreBarrel]),
       edge(syncProjection, [syncSourceOfTruth, syncUtil, coreBarrel]),
       edge(syncRegistry, [syncSourceOfTruth, coreBarrel]),
-      edge(syncInspector, syncOfflineStorage),
+      edge(syncInspector, [syncOfflineStorage, syncUtil]),
       edge(syncSourceOfTruth, [syncOfflineStorage, coreBarrel]),
       edge(syncUtil, coreBarrel),
     ]),
