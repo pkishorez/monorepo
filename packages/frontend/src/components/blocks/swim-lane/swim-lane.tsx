@@ -1,15 +1,15 @@
-import { useId, useState } from 'react';
-import { Button } from '@monorepo/frontend/components/ui/button';
-import { Minus, Plus, RotateCcw } from '@monorepo/frontend/lucide';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
+import { useEffect, useId, useState } from 'react';
+import { Button } from '#components/ui/button';
+import { Minus, Plus, RotateCcw } from '#lib/lucide';
+import { scrollbarStyles } from '#lib/scrollStyles';
 
-interface SwimLaneActor {
+export interface SwimLaneActor {
   id: string;
   label: string;
   detail?: string;
 }
 
-interface SwimLaneMessage {
+export interface SwimLaneMessage {
   from: string;
   to: string;
   label: string;
@@ -18,15 +18,15 @@ interface SwimLaneMessage {
   kind?: 'call' | 'return';
 }
 
-interface SwimLaneProps {
+export interface SwimLaneProps {
   actors: SwimLaneActor[];
   messages: SwimLaneMessage[];
   label: string;
   title: string;
 }
 
-const highlightColor = 'var(--color-fd-primary)';
-const neutralColor = 'var(--color-fd-muted-foreground)';
+const highlightColor = 'var(--color-primary)';
+const neutralColor = 'var(--color-foreground)';
 
 const laneGap = 252;
 const actorWidth = 220;
@@ -39,13 +39,15 @@ const levelGap = 76;
 const minZoom = 0.75;
 const maxZoom = 2;
 const zoomStep = 0.25;
-const defaultZoom = 1.25;
+const defaultZoom = 1.5;
 
 /** Renders a data-driven sequence diagram with evenly spaced actor lanes. */
 export function SwimLane({ actors, messages, label, title }: SwimLaneProps) {
   const markerId = useId().replaceAll(':', '');
-  const [activeActorId, setActiveActorId] = useState<string | null>(null);
+  const [hoveredActorId, setHoveredActorId] = useState<string | null>(null);
+  const [selectedActorId, setSelectedActorId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(defaultZoom);
+  const activeActorId = selectedActorId ?? hoveredActorId;
   const width = sidePadding * 2 + laneGap * (actors.length - 1);
   const maxLevel = Math.max(
     0,
@@ -56,11 +58,27 @@ export function SwimLane({ actors, messages, label, title }: SwimLaneProps) {
     actors.map((actor, index) => [actor.id, sidePadding + index * laneGap]),
   );
 
+  useEffect(() => {
+    if (selectedActorId === null) return;
+
+    const selectedActorKey = `${markerId}-${selectedActorId}`;
+    const clearSelection = (event: PointerEvent) => {
+      if (!(event.target instanceof Element)) return;
+      const actor = event.target.closest('[data-swim-lane-actor]');
+      if (actor?.getAttribute('data-swim-lane-actor') === selectedActorKey)
+        return;
+      setSelectedActorId(null);
+    };
+
+    document.addEventListener('pointerdown', clearSelection);
+    return () => document.removeEventListener('pointerdown', clearSelection);
+  }, [markerId, selectedActorId]);
+
   return (
-    <div className="not-prose my-8 overflow-hidden rounded-xl border bg-fd-card">
-      <div className="flex items-center justify-between gap-3 border-b bg-fd-muted/50 px-4 py-2">
-        <div className="font-medium text-fd-foreground">{title}</div>
-        <div className="flex items-center gap-1 rounded-lg border bg-fd-background p-1">
+    <div className="not-prose my-8 overflow-hidden rounded-xl border bg-card">
+      <div className="flex items-center justify-between gap-3 border-b bg-muted/50 px-4 py-2">
+        <div className="font-medium text-foreground">{title}</div>
+        <div className="flex items-center gap-1 rounded-lg border bg-background p-1">
           <Button
             type="button"
             variant="ghost"
@@ -134,14 +152,24 @@ export function SwimLane({ actors, messages, label, title }: SwimLaneProps) {
           {actors.map((actor, index) => {
             const x = sidePadding + index * laneGap;
             const isActive = actor.id === activeActorId;
+            const isSelected = actor.id === selectedActorId;
             const nodeColor = isActive ? highlightColor : neutralColor;
 
             return (
               <g key={actor.id}>
                 <g
-                  onMouseEnter={() => setActiveActorId(actor.id)}
-                  onMouseLeave={() => setActiveActorId(null)}
-                  style={{ cursor: 'default' }}
+                  data-swim-lane-actor={`${markerId}-${actor.id}`}
+                  onMouseEnter={() => {
+                    if (selectedActorId === null) setHoveredActorId(actor.id);
+                  }}
+                  onMouseLeave={() => {
+                    if (selectedActorId === null) setHoveredActorId(null);
+                  }}
+                  onClick={() => {
+                    setHoveredActorId(null);
+                    setSelectedActorId(actor.id);
+                  }}
+                  style={{ cursor: 'pointer' }}
                 >
                   <rect
                     x={x - actorWidth / 2}
@@ -149,8 +177,9 @@ export function SwimLane({ actors, messages, label, title }: SwimLaneProps) {
                     width={actorWidth}
                     height={actorHeight}
                     rx="9"
+                    strokeWidth={isSelected ? 2 : 1}
                     style={{
-                      fill: `color-mix(in oklab, ${nodeColor} ${isActive ? 18 : 8}%, var(--color-fd-card))`,
+                      fill: `color-mix(in oklab, ${nodeColor} ${isSelected ? 28 : isActive ? 18 : 8}%, var(--color-card))`,
                       stroke: nodeColor,
                     }}
                   />
@@ -181,7 +210,10 @@ export function SwimLane({ actors, messages, label, title }: SwimLaneProps) {
                   x2={x}
                   y2={height - 18}
                   strokeDasharray="5 5"
-                  style={{ stroke: 'var(--color-fd-border)' }}
+                  strokeWidth={isSelected ? 2 : isActive ? 1.5 : 1}
+                  style={{
+                    stroke: isActive ? highlightColor : 'var(--color-border)',
+                  }}
                 />
               </g>
             );

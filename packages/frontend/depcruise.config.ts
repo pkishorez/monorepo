@@ -24,6 +24,7 @@ export default {
   rules: [layerGraph('frontend', [edge(composites, ui), edge(ui, foundation)])],
   modules: [
     module('src/components/blocks/json'),
+    module('src/components/blocks/swim-lane'),
     module('src/components/blocks/tanstack-sync-devtools'),
     module('src/components/blocks/dependency-cruiser-viz'),
     module('src/components/blocks/dependency-cruiser-viz/files'),
