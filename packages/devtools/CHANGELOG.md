@@ -1,5 +1,11 @@
 # @kishorez/devtools
 
+## 0.1.0
+
+### Minor Changes
+
+- [`af81ae2`](https://github.com/pkishorez/monorepo/commit/af81ae2e04d54436d122e49f46d1ca3832e9b12b) Thanks [@pkishorez](https://github.com/pkishorez)! - Add a `GetTrace` RPC procedure and a `devtools get-trace <trace-id>` CLI subcommand that print every stored span for a trace as pretty JSON.
+
 ## 0.0.10
 
 ### Patch Changes
