@@ -1,0 +1,140 @@
+---
+title: The meta fields
+description: What _v, _e, _d, _u, _s, and _c carry — and the one-line convergence rule that makes sync possible.
+---
+
+You know where distributed state goes wrong. Two writes race and the loser silently wins. A client comes back from a tunnel with stale rows and no way to tell. A column changes shape between deploys and half your data predates the change. The classic response is a pile of bespoke bookkeeping columns — `updated_at`, `is_deleted`, `schema_version` — each one interpreted slightly differently by each consumer, each one a little folklore.
+
+std-toolkit's answer is to fix six fields, give each one exactly one meaning, stamp them automatically, and interpret them identically in every layer. This is the `meta` block of the [entity envelope](/docs/std-toolkit/core), and it's small enough to memorize:
+
+```ts
+import { MetaSchema } from 'std-toolkit/core';
+
+// MetaSchema is an Effect Schema.Struct:
+{
+  _v: Schema.String,             // eschema version that wrote the row
+  _e: Schema.String,             // entity type tag
+  _d: Schema.Boolean,            // tombstone flag
+  _u: Schema.String,             // monotonic update key
+  _s: Schema.optional(Schema.Number),  // server observation time (ms)
+  _c: Schema.optional(Schema.Number),  // client observation time (ms)
+}
+```
+
+Let's take them one at a time — starting with the boring ones and ending with the one that carries the whole sync story.
+
+## `_v` — which schema version wrote this row
+
+Your `Message` schema will change. Messages gain reactions in v2; you are not going to rewrite every row in the table the day you deploy.
+
+`_v` records which [eschema](/docs/std-toolkit/eschema) version encoded the row. On write, `encode` always produces the latest shape and stamps `_v` with the latest version. On read, `decode` looks at `_v` and folds the data forward through each migration until it reaches the current shape. A row with no `_v` at all — say, data that predates std-toolkit — decodes as the schema's first version and migrates forward from there.
+
+The consequence worth pausing on: a v1 message written a year ago and a v2 message written this morning coexist in the same item collection, and every reader sees both as v2. No migration scripts, no downtime, no "run this backfill before deploying".
+
+## `_e` — which entity type this is
+
+std-toolkit stores every entity type in [one physical table](/docs/std-toolkit/database-adapters). A `Message` row and a `Channel` row are neighbors distinguished by key structure — and by `_e`, the entity tag, which carries the eschema's name (`'Message'`, `'Channel'`).
+
+`_e` is what lets a generic consumer handle a mixed stream safely: the sync engine checks `_e` against the collection's schema before accepting an entity, and a `Broadcaster` implementation uses it to route writes to the connections subscribed to that entity type.
+
+## `_d` — the tombstone
+
+Here's a question that breaks naive sync designs: how does a client learn that a message was deleted?
+
+If you physically remove the row, the answer is "it doesn't". A deleted row produces silence, and silence is indistinguishable from "nothing changed". The client that cached the message keeps it forever, confidently rendering a message that no longer exists.
+
+So `delete` in std-toolkit is a **soft delete** by default: it sets `_d: true` and leaves the row in place. Crucially, the delete is just another write — the row gets a fresh `_u`, so it surfaces in any "what changed since my cursor?" query exactly like an edit would. Consumers see the tombstone, drop the message from their local state, and converge.
+
+Hard deletion exists for administrative cleanup, but the adapters make you type `forceDelete: 'I know what I am doing'` to get it — because a hard delete bypasses every downstream consumer that relies on tombstones, and the failure mode is silent, permanent staleness on every client that ever cached the row.
+
+## `_u` — the update key
+
+This is the field the whole toolkit pivots on.
+
+`_u` is a [ULID](https://github.com/ulid/spec) — 26 characters, lexicographically sortable, with a millisecond timestamp in the high bits — regenerated on **every** write. Insert, update, soft delete: each one stamps a fresh `_u`, drawn from a monotonic generator, so a row's `_u` history is strictly ascending and two writes in the same millisecond still order correctly.
+
+That buys you two things.
+
+**A total order per row.** Given two versions of the same message — one from your local cache, one just off the wire — you can always say which is newer by comparing strings. This is the **convergence rule**, and it is genuinely one line:
+
+> Accept an incoming entity iff there is no current entity, or the incoming `_u` is lexicographically greater. Otherwise skip.
+
+Higher `_u` wins. That's it. No vector clocks, no server-assigned sequence numbers, no database-specific change feed. And it's what makes database-agnostic sync possible: any consumer holding any subset of updates, delivered in any order, any number of times, converges to the same state by keeping the max-`_u` version of each row. Replays are harmless no-ops. The sync engine's [Source of Truth](/docs/std-toolkit/tanstack-sync) is built directly on this rule.
+
+**A timeline.** Because ULIDs sort by creation time, `_u` doubles as a sort key. The adapters use it as the default sort key for secondary indexes, which turns "give me everything that changed in this channel since my cursor" into a plain range query — `sk > lastSeenU` — over an item collection. Sync needs nothing more from the database than that.
+
+## `_s` and `_c` — observation times
+
+The last two fields are optional, and unlike the others, the database adapters never write them. They belong to the delivery path.
+
+- **`_s`** is stamped by your server when it observes and ships the entity to a client — a server-settle marker on the delivery.
+- **`_c`** is stamped by the client's Source of Truth the moment a batch arrives, one timestamp per delivery.
+
+They exist for one consumer: **cadence sync**, the repair strategy that re-checks rows which may have been delivered before the backend finished settling. It compares `_s` against the write time embedded in `_u` — a delivery that happened suspiciously soon after the write is a candidate for re-fetching — and uses `_c − _s` to estimate clock skew between client and server, so those judgments survive a client whose clock is wrong. If you never use cadence sync, you can leave both fields unset and the rest of the toolkit won't notice.
+
+One subtlety worth knowing: when a delivery arrives that is *stale* by `_u` (so the convergence rule says skip), a present `_s` is still reconciled onto the stored row's meta. The value never regresses; the delivery bookkeeping stays current.
+
+## The ULID toolkit
+
+Three exports back the `_u` machinery, and you'll reach for them whenever you build custom infrastructure around entities.
+
+### `Ulid`
+
+The generator itself, as an Effect `Context.Reference`. The default is a module-scoped monotonic factory — same-millisecond calls produce strictly ascending IDs, even on runtimes that freeze the clock during synchronous execution (Cloudflare Workers, notably). Because it's a service, you can swap it out for determinism in tests:
+
+```ts
+import { Effect } from 'effect';
+import { Ulid } from 'std-toolkit/core';
+
+const ids = ['01JGB4Y8K30000000000000001', '01JGB4Y8K30000000000000002'];
+let i = 0;
+
+const deterministic = program.pipe(
+  Effect.provideService(Ulid, () => ids[i++]!),
+);
+```
+
+### `nextUlid`
+
+The everyday accessor: an Effect that yields a fresh ULID from whatever `Ulid` generator is in context. This is what the adapters call to stamp `_u` on each write, and what you'd use to mint message ids in the chat app — giving each message a sort-key-ready, creation-time-ordered id:
+
+```ts
+import { Effect } from 'effect';
+import { nextUlid } from 'std-toolkit/core';
+
+const draftMessage = (channelId: string, authorId: string, body: string) =>
+  Effect.gen(function* () {
+    const id = yield* nextUlid;
+    return { messageId: id, channelId, authorId, body };
+  });
+```
+
+### `uTime`
+
+Extracts the millisecond timestamp from a `_u` value — and it's deliberately format-agnostic. A ULID yields its embedded time; an ISO-8601 string yields its parse time (for backends that stamp `_u` with timestamps instead of ULIDs); anything else yields `null`, which downstream consumers treat as a protocol violation rather than guessing.
+
+```ts
+import { uTime } from 'std-toolkit/core';
+
+uTime('01JGB4Y8K3T5R9W2N7Q0XVZDCM'); // ms embedded in the ULID
+uTime('2026-01-01T00:00:00.000Z');   // ms from parsing the ISO string
+uTime('not-an-update-key');          // null
+```
+
+## `MetaSchema`
+
+Finally, the meta block itself is a public Effect Schema — `MetaSchema` — so you can validate meta at any boundary the toolkit doesn't already cover:
+
+```ts
+import { Schema } from 'effect';
+import { MetaSchema } from 'std-toolkit/core';
+
+const requireMeta = (raw: unknown) =>
+  Schema.decodeUnknownEffect(MetaSchema)(raw);
+```
+
+This is the same schema `EntitySchema` attaches next to your value, and the same structural check the sync engine runs on every incoming entity. Note that singletons carry a narrower meta (`_v`, `_e`, `_u` only — no tombstone, no observation times); `SingleEntitySchema` handles that variant for you.
+
+---
+
+That's the entire bookkeeping surface of std-toolkit: six fields, one convergence rule. Next, see how envelopes become rows in [the shared storage model](/docs/std-toolkit/database-adapters).

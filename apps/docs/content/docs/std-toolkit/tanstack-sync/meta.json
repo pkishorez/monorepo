@@ -1,5 +1,12 @@
 {
   "title": "tanstack-sync",
-  "pages": ["index", "what", "guide"],
-  "defaultOpen": true
+  "pages": [
+    "index",
+    "quickstart",
+    "collections",
+    "truth-and-state",
+    "strategies",
+    "mutations",
+    "offline"
+  ]
 }

@@ -1,19 +1,190 @@
 ---
-title: Why
-description: Every adapter speaks the same envelope.
+title: The entity envelope
+description: Why every layer of std-toolkit speaks { value, meta }, and the shared primitives that come with it.
 ---
 
-## The story
+You already have domain types. A `Message` has an id, a channel, an author, a body — you wrote that type on day one, and it's fine.
 
-A toolkit whose parts can be mixed and matched has a hidden requirement: the parts must already agree on what a record _is_ before they ever meet. If the DynamoDB adapter, the SQLite adapter, and the sync engine each invented their own notion of a row — its identity, its version, its deletion state, its recency — then "database-agnostic" would mean writing translation code at every seam.
+But in std-toolkit, a message doesn't pass through one system. It passes through five: an [eschema](/docs/std-toolkit/eschema) that validates and migrates it, a DynamoDB adapter that stores it in production, a SQLite adapter that stores it at the edge or on device, a sync engine that reconciles it across clients, and a broadcaster that fans it out to open connections. Each of those layers needs to answer questions your domain type can't: which schema version wrote this row? Has it been deleted? Which of two competing writes is newer?
 
-core removes the negotiation. It defines the **Entity** — `{ value, meta }` — once, and every other component speaks that vocabulary instead of redefining it:
+If every layer answered those questions its own way — an `updatedAt` column here, a `deleted` flag there, a version field with slightly different semantics in a third place — you'd be writing translation glue at every boundary. So std-toolkit does the boring, load-bearing thing instead: it fixes **one shape** that every layer speaks, and never deviates from it.
 
-- the **value** is your domain data, shaped by an [eschema](/docs/std-toolkit/eschema) schema;
-- the **meta** block carries the system's shared facts: which entity type this is (`_e`), which schema version the value was written at (`_v`), which write is more recent (`_u`), and whether it is a tombstone (`_d`).
+```ts
+{
+  value: /* your domain data, validated by an eschema */,
+  meta:  /* the toolkit's bookkeeping: _v, _e, _d, _u, _s, _c */
+}
+```
 
-Because these fields mean the same thing everywhere, the interesting behaviors compose for free. The sync engine can decide which of two writes wins by comparing `_u` — without knowing which database produced them. A tombstone written through DynamoDB is still a tombstone when it reaches a browser collection. Swap SQLite in for DynamoDB and nothing about the envelope changes.
+That's the entity envelope. Everything on this page lives in `std-toolkit/core`, and everything else in the toolkit is built on top of it.
 
-core defines the fields and their base meaning; how a field is _interpreted_ (convergence, cadence) belongs to the consuming context. That split is what keeps the toolkit's parts independent yet interoperable.
+## EntityType
 
-Next: [What is core](/docs/std-toolkit/core/what).
+`EntityType<T>` is the envelope as a TypeScript type: your value, plus a meta block.
+
+```ts
+import type { EntityType } from 'std-toolkit/core';
+
+type Message = {
+  messageId: string;
+  channelId: string;
+  authorId: string;
+  body: string;
+};
+
+type MessageEntity = EntityType<Message>;
+```
+
+Every read you make through a database adapter, every batch a sync strategy hands you, every write the broadcaster fans out — they all have this shape. Here's a message as it comes back from a query:
+
+```ts
+{
+  value: {
+    messageId: '01JGB4Y8K3T5R9W2N7Q0XVZDCM',
+    channelId: 'C-general',
+    authorId: 'U-ada',
+    body: 'shipping it',
+  },
+  meta: {
+    _v: 'v2',                            // eschema version that wrote the row
+    _e: 'Message',                       // entity type tag
+    _d: false,                           // tombstone flag
+    _u: '01JGB4Y8K4H6S1P3M8R2TWXEFN',    // monotonic update key
+  },
+}
+```
+
+The meta fields each carry one precise meaning — `_u` in particular is what makes database-agnostic sync possible. They get their own page: [The meta fields](/docs/std-toolkit/core/meta).
+
+## SingleEntityType
+
+Not everything is a collection. Your chat app has exactly one workspace settings record — no id, no siblings, nothing to sort. For those, `SingleEntityType<T>` is the singleton envelope:
+
+```ts
+import type { SingleEntityType } from 'std-toolkit/core';
+
+type WorkspaceSettings = {
+  workspaceName: string;
+  defaultChannelId: string;
+};
+
+type SettingsEntity = SingleEntityType<WorkspaceSettings>;
+```
+
+A singleton's meta is deliberately narrower: just `_v`, `_e`, and `_u`. There's no `_d`, because a singleton is never deleted — only overwritten. And no `_s`/`_c`, because those exist for cadence-based sync over collections.
+
+## EntitySchema and SingleEntitySchema
+
+Types describe the envelope; sometimes you need to *validate* one. Entities cross process boundaries constantly — a server pushes a batch over a WebSocket, a client writes it into its Source of Truth — and at each boundary the payload is `unknown` until proven otherwise.
+
+`EntitySchema` takes an eschema and returns an Effect `Schema` for the full envelope: `value` checked against the eschema's current shape, `meta` checked against `MetaSchema`.
+
+```ts
+import { Effect, Schema } from 'effect';
+import { EntityESchema } from 'std-toolkit/eschema';
+import { EntitySchema } from 'std-toolkit/core';
+
+const Message = EntityESchema.make('Message', 'messageId', {
+  channelId: Schema.String,
+  authorId: Schema.String,
+  body: Schema.String,
+}).build();
+
+const MessageEnvelope = EntitySchema(Message);
+
+const handleIncoming = (payload: unknown) =>
+  Effect.gen(function* () {
+    const entity = yield* Schema.decodeUnknownEffect(MessageEnvelope)(payload);
+    // entity.value is a validated Message, entity.meta is a validated meta block
+    return entity;
+  });
+```
+
+`SingleEntitySchema` is the same idea for singletons — it wraps a `SingleEntityESchema` and attaches the narrower singleton meta:
+
+```ts
+import { SingleEntityESchema } from 'std-toolkit/eschema';
+import { SingleEntitySchema } from 'std-toolkit/core';
+
+const WorkspaceSettings = SingleEntityESchema.make('WorkspaceSettings', {
+  workspaceName: Schema.String,
+  defaultChannelId: Schema.String,
+}).build();
+
+const SettingsEnvelope = SingleEntitySchema(WorkspaceSettings);
+```
+
+You might be wondering why validation here doesn't run the eschema's migrations. Deliberate: `EntitySchema` checks the envelope against the *current* shape, which is what you want at a live wire boundary where both ends run the same deploy. Migration — folding an old `_v` forward — is the eschema's own `decode`, and the database adapters run it for you on every read.
+
+## Broadcaster
+
+Here's a problem the envelope alone doesn't solve. A message lands in the database on your server. Three people have that channel open. How do their clients find out?
+
+You could poll. You could bolt change-capture onto your database and pray your provider supports it. Or you could notice that the toolkit already sees every write — every insert, update, and delete goes through an entity service — and let it tell you.
+
+`Broadcaster` is that seam. It's an Effect service *you* implement, with four operations:
+
+```ts
+import { Broadcaster } from 'std-toolkit/core';
+import { Layer } from 'effect';
+
+const BroadcasterLive = Layer.succeed(Broadcaster, {
+  broadcast: (entity) => {
+    // one confirmed write — fan it out to every connection
+    // subscribed to entity.meta._e
+  },
+  emit: (entities) => {
+    // a catch-up batch for the current connection (replay after a cursor)
+  },
+  subscribe: (entity) => {
+    // the current connection is caught up on this entity type
+  },
+  unsubscribe: (entity) => {
+    // stop delivering this entity type to the current connection
+  },
+});
+```
+
+The contract from the toolkit's side: after every successful write, the database adapters call `broadcast` with the full envelope — the same `{ value, meta }` the writer got back, tombstones included. When a client asks to catch up from a cursor, the adapter replays history in batches through `emit`, then calls `subscribe` to signal "you're live now". What those callbacks *do* — WebSockets, server-sent events, a Durable Object fan-out — is entirely your infrastructure's business.
+
+And it's optional. The adapters look the service up with `Effect.serviceOption`; if you never provide a `Broadcaster`, writes proceed silently and nothing breaks. You add real-time delivery by providing a Layer, not by rewriting your data layer.
+
+## StdToolkitError
+
+Failures cross the same boundaries entities do, so they get the same treatment: a schema-backed, tagged shape.
+
+```ts
+import { Effect } from 'effect';
+import { StdToolkitError } from 'std-toolkit/core';
+
+const requireMember = (channelId: string, userId: string) =>
+  Effect.gen(function* () {
+    const member = yield* membershipOf(channelId, userId);
+    if (!member) {
+      return yield* new StdToolkitError({
+        message: `user ${userId} is not a member of ${channelId}`,
+        code: 'NOT_A_MEMBER',
+      });
+    }
+    return member;
+  });
+```
+
+`StdToolkitError` is a `Schema.TaggedErrorClass` carrying a `message` and an optional `code`. Because it's schema-backed it serializes cleanly across RPC boundaries, and because it's tagged you catch it precisely with `Effect.catchTag('StdToolkitError', ...)`. The adapters define their own richer error types for storage-level failures — this one is the shared, generic error for toolkit-flavored application code.
+
+## Where next
+
+The envelope's `meta` block is doing more work than this page lets on — `_u` alone is the reason sync needs nothing from your database but sorted items.
+
+<Cards>
+  <Card
+    title="The meta fields"
+    href="/docs/std-toolkit/core/meta"
+    description="_v, _e, _d, _u, _s, _c — and the one-line convergence rule."
+  />
+  <Card
+    title="Database adapters"
+    href="/docs/std-toolkit/database-adapters"
+    description="How envelopes become rows: one table, typed entity services, item-collection queries."
+  />
+</Cards>

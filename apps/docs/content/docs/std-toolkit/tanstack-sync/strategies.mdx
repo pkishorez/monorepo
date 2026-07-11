@@ -1,0 +1,156 @@
+---
+title: Sync strategies
+description: oldToNew, newToOld, and bidirectional — three orders to drain a channel, one recovery policy, and the invariant that makes "covered" mean covered.
+---
+
+You know how to page through an API. The hard part was never the fetch loop — it's everything around it: which end of a hundred-thousand-message channel do you drain first so the UI is useful *now*? What happens when the loop crashes mid-drain? And when your saved state says "this range is covered," why should anyone believe it after a week offline?
+
+A **sync strategy** is tanstack-sync's answer, packaged: a policy for the order of the drain, with its progress persisted in [Sync State](/docs/std-toolkit/tanstack-sync/truth-and-state) and its writes funneled through the Source of Truth. Three partitioned strategies ship, and the fastest way to understand them is to watch them. Pick a strategy, press play, and keep an eye on the Sync State readout — it's the exact structure the engine persists:
+
+<SyncStrategyVisualizer />
+
+Now the same material in prose, with the details the animation can only gesture at.
+
+## The contract: strategies are partition-blind
+
+A strategy is a name, a state spec, and one method:
+
+```ts
+type PartitionedStrategy<TItem, TState> = {
+  name: string;
+  state: { schema: Schema.Codec<TState, unknown>; empty: TState };
+  run: (ctx: StrategyContext<TItem, TState>) => Effect.Effect<void, WriteError, Scope.Scope>;
+};
+```
+
+Notice what `run`'s context carries: `writeServerTruth`, `getState`/`setState` (already routed to this partition's slot), `forwardFetch`, and a `scope` for subscriptions and fibers. Notice what it *doesn't* carry: a partition value. The strategy has no idea channels exist. When you write
+
+```ts
+partitions: {
+  channelId: (channelId) => ({
+    strategy: syncStrategy.oldToNew(),
+    forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+  }),
+},
+```
+
+the channel lives only in your closure. The engine calls your factory when the partition activates, and the strategy just asks its context for "the next batch after this cursor" — whoever answers, answers. This is why one strategy implementation serves every partition of every collection, and why your fetch closures are the single place partition knowledge exists.
+
+Each factory returns a `PartitionEntry`: the strategy, a mandatory `forwardFetch` (the old→new pull source — even `newToOld` declares one, because the [cadence loop](#cadence-sync--the-drift-repair-loop) and `bidirectional`'s ascending frontier reuse it), and an optional `cadence` policy.
+
+## `syncStrategy.oldToNew` — the honest replay
+
+The simplest possible policy: read the saved cursor, fetch forward, write the batch, advance the cursor to the batch's newest entity, repeat. Batches must arrive in ascending `_u` order — the cursor is literally the last element.
+
+```ts
+strategy: syncStrategy.oldToNew(),
+forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+```
+
+In poll mode (no config), an empty batch means the drain is done and `run` completes — history replayed, nothing left to do until something else (a broadcast, a cadence pass) delivers more. If you want the strategy itself to stay live, hand it a stream instead:
+
+```ts
+strategy: syncStrategy.oldToNew({
+  stream: ({ cursor }) => subscribeMessagesAfter(channelId, cursor),
+}),
+```
+
+The stream flavor drains batch-by-batch exactly the same way, but an open stream keeps the strategy alive — history first, then live arrivals through the same cursor-advancing loop.
+
+`oldToNew`'s Sync State is one resume cursor. Its weakness is equally simple: with a big backlog, the newest messages — the ones a chat UI actually wants — render *last*, behind a full replay. That limitation is the reason the next two strategies exist.
+
+## `syncStrategy.newToOld` — newest first, history in the background
+
+`newToOld` runs two activities concurrently under the partition scope, fed by two streams you supply:
+
+```ts
+strategy: syncStrategy.newToOld({
+  subscribeOlder: ({ cursor }) => olderMessagesStream(channelId, cursor),
+  subscribeNewer: ({ cursor }) => liveMessagesStream(channelId, cursor),
+}),
+forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+```
+
+`subscribeOlder` is the **backfill**: a finite stream descending toward the channel's oldest message, completing when it gets there (given a cursor, it resumes from and including it). `subscribeNewer` is the **live tail**: anchored at a cursor, it catches up anything missed and then stays open.
+
+The choreography is where the correctness lives, and the visualizer renders it faithfully. On a cold start the backfill begins at the top (`cursor: null` — the newest page is just the first backfill batch; there's no separate "get latest" call). The live tail *waits* for that first batch, then anchors at its top — so the seam between tail and backfill is exact, no gap and no reliance on wall clocks. Each subsequent backfill batch anchors its covered range to the *previous batch's floor*, so coverage grows as **one contiguous slice**, extending downward with every backfill batch and upward with every tail batch. When the backfill stream completes having seen data, the strategy commits `reachedOldest: true` as its own separate step.
+
+The Sync State is exactly what you saw in the readout:
+
+```ts
+{ slices: [{ low: Cursor, high: Cursor }], reachedOldest: boolean }
+```
+
+where each cursor is a boundary *entity*, per the [cursor rules](/docs/std-toolkit/tanstack-sync/truth-and-state#cursors-are-entities-not-strings). On a warm resume the backfill continues from the covered slice's low; if the state already says `reachedOldest` with a single slice, the backfill is skipped entirely and only the live tail runs — anchored at the covered top, catching up what happened while you were gone. One honest edge: an empty channel completes its backfill without seeing a record, and `reachedOldest` deliberately stays `false` — there's no floor to anchor a claim to yet.
+
+## `syncStrategy.bidirectional` — close the gap from both ends
+
+`newToOld` makes the *newest* messages instant, but a user jumping to a channel's beginning still waits for the backfill to grind all the way down. `bidirectional` anchors both ends immediately and fills toward the middle:
+
+```ts
+strategy: syncStrategy.bidirectional({
+  fetchOlder: ({ cursor }) => messagesBefore(channelId, cursor),
+  subscribeNewer: ({ cursor }) => liveMessagesStream(channelId, cursor),
+}),
+forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+```
+
+Here the entry's `forwardFetch` is load-bearing: it *is* the ascending frontier. Both pulls read `{ cursor: null }` as their natural extreme — newest page for `fetchOlder`, oldest page for `forwardFetch` — and an empty batch as "frontier finished."
+
+A cold start seeds both ends concurrently: one `fetchOlder({ cursor: null })` for the newest page, one `forwardFetch({ cursor: null })` for the oldest. That yields two disjoint covered slices with one gap between them — the two-frontier picture in the visualizer. Then three fibers run under the scope: a **downward frontier** pulling older from the top slice's low, an **upward frontier** pulling newer from the bottom slice's high, and the **live tail** streaming above the fresh top. Every batch reconciles into the shared slice list — insert the range, merge anything overlapping or touching — and both pulls re-read that list each iteration, so whichever frontier closes the gap, the other notices the collapse to a single slice on its next loop and exits cleanly. The live tail alone stays open.
+
+Sync State is the slice list, nothing more: `{ slices: Slice[] }`. No `reachedOldest` — the upward frontier anchors the true floor on page one of every cold session, so the flag would always be true and carry no information. A warm resume with persisted slices doesn't re-seed at all: the live tail anchors at the covered top and the frontiers resume from the stored boundaries, precisely so ranges already sitting in offline storage aren't refetched.
+
+## Why "covered" stays covered: the upward-migration invariant
+
+Both slice-tracking strategies rest on one property of [`_u`](/docs/std-toolkit/core/meta): it's a global monotonic update key, so *editing* a record moves it strictly upward — above every existing `_u`, into live-tail territory. A record can never migrate *down* into a historical interval.
+
+Sit with what that buys. A `_u` interval, once drained, is **permanently complete**. It can shed records — an edit jumps a message to the top, where the tail re-delivers it and convergence dedupes by id — but it can never gain one it didn't already contain. That's why a slice boundary snapshotted last Tuesday is still trustworthy today, why `reachedOldest` can be true *forever* once proven, and why resuming from persisted slices after a week offline is sound rather than optimistic. No re-verification pass, no checksums — the write model itself guarantees history is append-only in `_u` space.
+
+## When strategies fail: the recovery policy
+
+A strategy does not defend itself. It lets `WriteError` — a failed Source-of-Truth write, a storage fault — surface out of `run`, uncaught. The *engine* owns recovery, and applies one policy to every strategy: log the error, tear down the current run, and restart `run` from the top on a fixed 2-second spaced schedule. Because a restart re-reads Sync State, and every built-in strategy writes truth before advancing state, the restart resumes from the last committed position — a mid-drain crash costs at most one refetched batch, which convergence absorbs as no-ops.
+
+Two boundaries keep the model crisp. *Completion is not teardown*: an `oldToNew` poll that drains simply ends, and the partition stays active — its cadence loop keeps running, broadcasts keep landing. *Teardown is only the scope closing*: when the partition's refcount hits zero, the engine closes the scope, which interrupts the strategy, its streams, and the retry loop together. A strategy needing cleanup registers a finalizer on the scope; the engine never knows what's being torn down.
+
+## The single-item family
+
+`singleItemSync` collections have their own strategy kit, `singleItemSyncStrategy`, structurally identical (same context, same error channel, same recovery policy) but kept as a distinct type so the keyed and singleton worlds never cross. One strategy ships today:
+
+```ts
+strategy: singleItemSyncStrategy.getOnce({
+  get: () => fetchChannelSettings(),
+}),
+```
+
+`getOnce` fetches the record once when the collection's sync starts, writes it through `writeServerTruth`, and completes. It keeps no Sync State — there's nothing to resume. Polling and subscription flavors are planned for the same kit; until then, a singleton that must stay live can be fed through the [registry](/docs/std-toolkit/tanstack-sync/mutations) like any other collection.
+
+## Cadence sync — the drift-repair loop
+
+One failure mode remains that no drain order fixes. Two messages are written in the same instant; the server's answer to your fetch includes one but not the other, because the second was still settling when the query ran. Your strategy honestly marks the range covered — and the invariant says covered ranges never gain records, *provided writes settle in `_u` order*. Near the live edge, for a brief window, that assumption can wobble.
+
+**Cadence sync** is the paid-for answer: a repair loop that runs alongside the partition's strategy, in the same scope, configured by `CadenceConfig`:
+
+```ts
+partitions: {
+  channelId: (channelId) => ({
+    strategy: syncStrategy.newToOld({ /* … */ }),
+    forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+    cadence: { window: 30_000, readiness: 5_000, pollDelay: 10_000 },
+  }),
+},
+```
+
+Each pass scans the partition's projected rows for **suspects** — rows delivered so soon after their own `_u` was minted (`_s − uTime(_u) < window`) that same-instant siblings might still have been in flight. It waits until the oldest suspect has aged past `readiness` (correcting for client–server clock skew via `_c − _s`), then re-fetches through the entry's `forwardFetch` from the suspect's predecessor and writes the results down. If nothing was missed, every result is a convergence no-op; if something was, it lands now. When a scan finds no suspects at all, the loop sleeps `pollDelay` before scanning again. An optional `debug: true` makes the loop narrate each step to the console.
+
+The discipline that keeps cadence safe to run everywhere: it **only writes the Source of Truth**. It owns no cursor, never touches Sync State, and claims no forward progress — it re-confirms, nothing else. It also politely idles while the collection has no subscribers, and you set it once for a whole instance with `createStdSync({ cadence: { … } })` — each partition inherits the default, overrides it with its own config, or opts out with `cadence: false`.
+
+Strategies pull truth down; next is the other direction — your user's writes going up, and what paces them.
+
+<Cards>
+  <Card
+    title="Mutations"
+    href="/docs/std-toolkit/tanstack-sync/mutations"
+    description="Optimistic handlers, paced updates, pending counts, and the broadcast registry."
+  />
+</Cards>

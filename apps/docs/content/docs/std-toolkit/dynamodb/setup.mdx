@@ -1,0 +1,194 @@
+---
+title: Setup
+description: DynamoTable topology, entity services, and dynamoDBLayer — binding the chat app's table to a real DynamoDB endpoint as an Effect Layer.
+---
+
+You know the [shared storage model](/docs/std-toolkit/database-adapters): one table, entity services built from eschemas, keys derived from fields. What's left is making it talk to an actual DynamoDB — and this is where most DynamoDB codebases get messy. The official client stack is enormous, connection config leaks into every module that touches data, and the table name gets baked into definitions so deeply that pointing the same code at a local instance for tests becomes a project.
+
+The adapter splits the problem into two halves that never touch: your **table and entities are pure topology** — no table name, no region, no credentials anywhere in them — and a single **Effect Layer binds that topology to a physical table** at the edge of your program. Swap the layer, and identical code runs against production, staging, a local container, or a test table.
+
+## The table is pure topology
+
+`DynamoTable` describes key structure and nothing else — which attributes are the primary partition and sort key, and which secondary indexes exist:
+
+```ts title="table.ts"
+import { DynamoTable } from 'std-toolkit/dynamodb';
+
+export const table = DynamoTable.make()
+  .primary('pk', 'sk')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .build();
+```
+
+The attribute names are deliberately generic. In single-table design the physical attributes carry no domain meaning — `pk` holds `Message#C-general` in one row and `Channel` in another — so naming them `pk` and `sk` is honest. The `.gsi(...)` call declares a physical global secondary index we'll put to work on the [indexes page](/docs/std-toolkit/dynamodb/indexes); ignore it for now.
+
+Notice what `make()` does *not* ask for: a table name. That's the topology/connection split doing its job.
+
+## Entities: the chat app's schemas, bound to the table
+
+The entity services work exactly as taught in [Database adapters](/docs/std-toolkit/database-adapters) — here's the chat app's full set, built from the [eschemas](/docs/std-toolkit/eschema) you've seen throughout these docs:
+
+```ts title="entities.ts"
+import { DynamoEntity, DynamoSingleEntity } from 'std-toolkit/dynamodb';
+import { table } from './table';
+import { Message, Channel, WorkspaceSettings } from './schemas';
+
+export const messages = DynamoEntity.make(table)
+  .eschema(Message)
+  .primary({ pk: ['channelId'] })
+  .build();
+
+export const channels = DynamoEntity.make(table)
+  .eschema(Channel)
+  .primary()
+  .build();
+
+export const settings = DynamoSingleEntity.make(table)
+  .eschema(WorkspaceSettings)
+  .default({ allowGuestAccess: false, defaultChannelId: 'C-general' });
+```
+
+`messages` partitions by channel — one channel, one item collection. `channels` declares no pk fields, so its partition key is just the entity name `Channel`: every channel in the workspace lives in a single item collection, sorted by `channelId`.
+
+`DynamoSingleEntity` is the third shape: an entity with a name but no id, for things that exist exactly once — workspace settings, feature flags, counters. It's built from a `SingleEntityESchema` and requires a **default value**, which buys you a guarantee the keyed entities can't offer: `get` never returns null.
+
+```ts
+const current = yield* settings.get();
+// always a value — the default (with synthetic meta) if nothing is stored yet
+
+yield* settings.put({ allowGuestAccess: true, defaultChannelId: 'C-general' });
+yield* settings.update({ update: { allowGuestAccess: false } });
+```
+
+Its surface is deliberately smaller than `DynamoEntity`: `put` is an unconditional upsert, `update` fails with `NoItemToUpdate` if nothing was ever written, and `delete` is a hard delete after which `get` serves the default again. There's no soft-delete tombstone (`_d`) here — a singleton isn't part of any synced item collection, so nothing downstream needs to observe its deletion.
+
+The adapter also exports the result shapes as `EntityType<T>` and `SingleEntityType<T>`. You rarely annotate a direct call because TypeScript infers it, but they are useful at a boundary you own — for example, the return type of the chat app's repository:
+
+```ts
+import type { EntityType, SingleEntityType } from 'std-toolkit/dynamodb';
+import type { ESchemaType } from 'std-toolkit/eschema';
+
+type MessageValue = ESchemaType<typeof Message>;
+type SettingsValue = ESchemaType<typeof WorkspaceSettings>;
+
+export type StoredMessage = EntityType<MessageValue>;
+export type StoredSettings = SingleEntityType<SettingsValue>;
+```
+
+Both are `{ value, meta }` envelopes. `EntityType` carries keyed-entity meta (`_e`, `_v`, `_u`, `_d`); `SingleEntityType` carries the singleton subset (`_e`, `_v`, `_u`). These are the DynamoDB adapter's concrete read shapes, while the similarly named core exports describe the cross-toolkit envelope contract.
+
+## `DynamoConnection` and `dynamoDBLayer`: binding to a physical table
+
+Everything above is inert until something provides the `DynamoDB` service — the Effect service every table and entity operation requires from context. You'll see it in every signature: operations return `Effect.Effect<..., DynamodbError, DynamoDB>`. The service carries exactly two things: an authenticated client, and the physical table name it targets.
+
+`dynamoDBLayer` builds that service's Layer from a `DynamoConnection`:
+
+```ts title="dynamo-live.ts"
+import { dynamoDBLayer, type DynamoConnection } from 'std-toolkit/dynamodb';
+
+const connection: DynamoConnection = {
+  tableName: 'chat-app-prod',
+  region: 'eu-west-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    // sessionToken: '...' — optional, for temporary credentials
+  },
+};
+
+export const DynamoLive = dynamoDBLayer(connection);
+```
+
+A `DynamoConnection` is the complete answer to "which table, and how do I reach it": `tableName`, `credentials`, an optional `region` (defaults to `us-east-1`), and an optional `endpoint`. That last field is how local development works — point it at a local DynamoDB container and nothing else changes:
+
+```ts title="dynamo-local.ts"
+export const DynamoLocal = dynamoDBLayer({
+  tableName: 'chat-app-local',
+  region: 'us-east-1',
+  credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
+  endpoint: 'http://localhost:8000',
+});
+```
+
+Now run a program by providing whichever layer fits the environment:
+
+```ts title="main.ts"
+import { Effect } from 'effect';
+import { nextUlid } from 'std-toolkit/core';
+import { messages } from './entities';
+import { DynamoLive } from './dynamo-live';
+
+const program = Effect.gen(function* () {
+  const sent = yield* messages.insert({
+    messageId: yield* nextUlid,
+    channelId: 'C-general',
+    authorId: 'U-ada',
+    body: 'we are live',
+    reactions: {},
+  });
+  return sent;
+});
+
+await Effect.runPromise(program.pipe(Effect.provide(DynamoLive)));
+```
+
+You might be wondering why the table name lives on the connection rather than the table definition, since "the table" sounds like where a name belongs. It's deliberate: the definition describes a *shape* that many physical tables share. Your production table, your staging table, and the throwaway table each test suite creates all have the same topology — so the shape is written once and the name arrives with the environment, exactly like a database URL.
+
+## `createDynamoDB`: the client underneath
+
+`dynamoDBLayer` builds its client with `createDynamoDB`, which is also exported directly. This is the lowest layer of the adapter: a `DynamoDBClient` whose methods (`getItem`, `putItem`, `query`, `transactWriteItems`, `createTable`, ...) are Effect-wrapped calls to DynamoDB's HTTP API, signed by [aws4fetch](https://github.com/mhart/aws4fetch). No AWS SDK — the entire client is signed `fetch` requests with a 30-second timeout and AWS error responses mapped onto [`DynamodbError`](/docs/std-toolkit/dynamodb/transactions#dynamodberror).
+
+Day to day you never touch it; the entity services are the API. Where you *will* meet it is table administration, because provisioning sits outside any bound table. `createDynamoDB` takes a connection *without* a table name — the client is table-agnostic, and admin calls name their target explicitly. Pair it with `table.getTableSchema()`, which turns your topology into a ready-made `CreateTable` input (key schema, attribute definitions, GSIs and LSIs, pay-per-request billing):
+
+```ts title="provision.ts"
+import { Effect } from 'effect';
+import { createDynamoDB } from 'std-toolkit/dynamodb';
+import { table } from './table';
+
+const client = createDynamoDB({
+  region: 'us-east-1',
+  credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
+  endpoint: 'http://localhost:8000',
+});
+
+await Effect.runPromise(
+  client.createTable({ TableName: 'chat-app-local', ...table.getTableSchema() }),
+);
+```
+
+That's the whole local-dev bootstrap: one script creates a table whose shape is guaranteed to match your code, because it *is* your code.
+
+## `describe()` and `TableDescription`
+
+For health checks and dashboards, `table.describe()` asks DynamoDB about the bound table and returns a `TableDescription` — a plain summary of the physical state:
+
+```ts
+const info = yield* table.describe();
+// {
+//   tableName: 'chat-app-prod',
+//   tableStatus: 'ACTIVE',
+//   estimatedItemCount: 1_284_112,
+//   tableSizeBytes: 512_449_820,
+//   indexes: [{ indexName: 'GSI1', indexStatus: 'ACTIVE', ... }],
+// }
+```
+
+The `indexes` array covers both GSIs and LSIs, each with its own status and estimated size — useful for verifying a freshly added GSI has finished backfilling before you route queries at it. (The counts are DynamoDB's estimates, refreshed roughly every six hours; don't build features on them.)
+
+If you ever need the raw service — say, for an admin endpoint that issues a call the table doesn't wrap — it's an ordinary Effect service:
+
+```ts
+import { DynamoDB } from 'std-toolkit/dynamodb';
+
+const { client, tableName } = yield* DynamoDB;
+```
+
+That's the full wiring: topology in code, connection in a layer, provisioning from the same definition. Next: the part of the adapter that earns its keep on every write — secondary indexes as typed derivations.
+
+<Cards>
+  <Card
+    title="Indexes"
+    href="/docs/std-toolkit/dynamodb/indexes"
+    description="GSIs and LSIs without hand-maintained key attributes — plus the consistency caveats."
+  />
+</Cards>

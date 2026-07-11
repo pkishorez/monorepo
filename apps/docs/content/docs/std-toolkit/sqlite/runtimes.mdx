@@ -1,0 +1,145 @@
+---
+title: Runtimes
+description: One SqliteDB service, four adapter layers — better-sqlite3, node:sqlite, bun:sqlite, and Cloudflare Durable Objects — over the same table format.
+---
+
+You've seen that the SQLite adapter speaks the same model as DynamoDB. Now the practical question: *which* SQLite? Your chat app's tests run under vitest on Node, the server might be Node or Bun, and the per-channel edge deployment lives inside a Cloudflare Durable Object. Each of those runtimes ships its own SQLite binding with its own API — `better-sqlite3`'s prepared statements, Node's built-in `node:sqlite`, `bun:sqlite`, and the Durable Object's `SqlStorage.exec`. Normally that difference leaks straight into your data layer, and "runs everywhere" quietly becomes four slightly different data layers.
+
+std-toolkit pins the difference behind one seam: `SqliteDB`.
+
+## The `SqliteDB` service
+
+`SqliteDB` is an Effect service — the only thing the entire SQLite adapter knows how to talk to. Its interface is deliberately small: a bound `tableName`, DDL (`createTable`, `addColumn`, `createIndex`), row operations (`insert`, `update`, `delete`, `deleteAll`, `get`, `query`), and transaction control (`begin`, `commit`, `rollback`). `SQLiteTable`, `SQLiteEntity`, and `EntityRegistry` are all written against this interface and nothing else — which is why every operation you met on the previous page returns an `Effect<…, SqliteDBError, SqliteDB>`.
+
+A runtime adapter is nothing more than a `Layer` that implements this interface over a concrete driver. Two design choices are worth noticing before the wiring examples, because they shape how you use it:
+
+- **You open the connection; the layer wraps it.** Every adapter is a function taking an already-open database handle. std-toolkit never constructs a connection and never imports a driver at runtime — it has zero SQLite dependencies of its own. Connection lifecycle (open, close, WAL mode, whatever your ops story is) stays in your hands.
+- **The physical table name binds here, not in the topology.** `betterSqlite3Layer(db, 'chat_data')` is where `'chat_data'` enters the picture. The same `SQLiteTable` definition can be provided with different layers pointing at different tables — or different databases entirely — which is exactly what per-test isolation wants.
+
+## Why four separate subpaths
+
+The four adapters live at `std-toolkit/sqlite/adapters/better-sqlite3`, `/node`, `/bun`, and `/do` — not in the main `std-toolkit/sqlite` barrel. That's not organizational tidiness; it's a bundling necessity. Each adapter references its runtime's binding: `bun:sqlite` doesn't exist on Node, `node:sqlite` doesn't exist in a Worker, and a Durable Object has neither. If the adapters were re-exported from the main barrel, importing `std-toolkit/sqlite` anywhere would drag every runtime's binding into your module graph and break the ones your runtime can't resolve. As subpath exports, only the adapter you actually import enters the graph — the main barrel stays runtime-neutral.
+
+## better-sqlite3 — tests and Node servers
+
+The workhorse for test suites and Node processes where you're happy to take a dependency. An in-memory database plus this layer is the entire fixture for testing your chat app's data layer against a real database:
+
+```ts title="message-service.test.ts"
+import Database from 'better-sqlite3';
+import { Effect } from 'effect';
+import { betterSqlite3Layer } from 'std-toolkit/sqlite/adapters/better-sqlite3';
+import { registry } from './registry.js';
+
+const db = new Database(':memory:');
+const layer = betterSqlite3Layer(db, 'chat_data');
+
+await Effect.runPromise(
+  Effect.gen(function* () {
+    yield* registry.setup();
+    // ...insert messages, query channels, assert — against real SQL
+  }).pipe(Effect.provide(layer)),
+);
+
+db.close();
+```
+
+No DynamoDB Local container, no mocks, no eventual-consistency retries in assertions. Every test gets its own `:memory:` database in microseconds.
+
+## node:sqlite — zero dependencies
+
+Recent Node versions ship a SQLite driver in the standard library. If you'd rather not add `better-sqlite3` to your tree, this adapter costs you nothing:
+
+```ts title="server.ts"
+import { DatabaseSync } from 'node:sqlite';
+import { nodeSqliteLayer } from 'std-toolkit/sqlite/adapters/node';
+
+const db = new DatabaseSync('./chat.db');
+const layer = nodeSqliteLayer(db, 'chat_data');
+```
+
+Same interface, same behavior — just a different driver underneath.
+
+## bun:sqlite — Bun's built-in
+
+Bun also ships SQLite natively, and it's fast:
+
+```ts title="server.ts"
+import { Database } from 'bun:sqlite';
+import { bunSqliteLayer } from 'std-toolkit/sqlite/adapters/bun';
+
+const db = new Database('./chat.db');
+const layer = bunSqliteLayer(db, 'chat_data');
+```
+
+One detail that matters more than it looks: the on-disk format is interchangeable across adapters. std-toolkit's compatibility tests seed a database file through `better-sqlite3` and read it back through `bun:sqlite` — same file, same rows, no export step. A database your Node test suite wrote is a database your Bun server can serve.
+
+## Durable Objects — one database per channel
+
+The adapter that makes the edge story real. A Cloudflare Durable Object with SQLite storage hands you `ctx.storage.sql`, and `durableObjectSqliteLayer` turns it into a `SqliteDB`:
+
+```ts title="channel-object.ts"
+import { DurableObject } from 'cloudflare:workers';
+import { Effect } from 'effect';
+import { durableObjectSqliteLayer } from 'std-toolkit/sqlite/adapters/do';
+import { registry } from './registry.js';
+
+export class ChannelObject extends DurableObject {
+  #layer = durableObjectSqliteLayer(this.ctx.storage.sql, 'chat_data');
+
+  async fetch(_request: Request): Promise<Response> {
+    const latest = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* registry.setup();
+        const messages = registry.entity('Message');
+        return yield* messages.query(
+          'primary',
+          { pk: { channelId: 'C-general' }, sk: { '<': null } },
+          { limit: 50 },
+        );
+      }).pipe(Effect.provide(this.#layer)),
+    );
+
+    return Response.json(latest.items);
+  }
+}
+```
+
+Now notice what the topology does here. A Durable Object is a globally unique, single-threaded instance with its own private database — so "one Durable Object per channel" gives every channel's item collection its *own* SQLite database, colocated with the code that serves it. The partition-per-channel design you chose for DynamoDB scaling reasons turns out to be exactly the sharding unit Durable Objects want. Even `SQLiteSingleEntity`'s one-row-per-database constraint flips into a feature: a `ChannelSettings` singleton inside a per-channel object is naturally one settings row per channel.
+
+And `registry.setup()` being idempotent runtime DDL is what makes this deployable at all — there's no migration console for ten thousand Durable Object databases. Each object provisions its own table on first touch.
+
+## Failure is always `SqliteDBError`
+
+Whichever adapter you pick, driver exceptions never escape raw. Each layer catches its runtime's throws and maps them into `SqliteDBError`, a tagged error whose `error` field says precisely what failed and where: `CreateTableFailed`, `AddColumnFailed`, `CreateIndexFailed`, `InsertFailed`, `UpdateFailed`, `DeleteFailed`, `GetFailed`, `QueryFailed`, `BeginFailed`, `CommitFailed`, `RollbackFailed` — plus the semantic ones raised above the driver: `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, and `NestedTransactionNotSupported`. Row-level variants carry the table name.
+
+Because it's one tagged error type across all four runtimes, handling is uniform Effect code:
+
+```ts
+const sendMessage = (body: string) =>
+  messages
+    .insert({
+      messageId: id,
+      channelId: 'C-general',
+      authorId: 'U-ada',
+      body,
+    })
+    .pipe(
+      Effect.catchTag('SqliteDBError', (e) =>
+        e.error._tag === 'ItemAlreadyExists'
+          ? Effect.succeed(null) // duplicate send — already stored
+          : Effect.fail(e),
+      ),
+    );
+```
+
+The same recovery logic runs unchanged in a vitest suite, a Bun server, and a Durable Object — which is the whole promise of this page in one sentence.
+
+Next: the second access path. Secondary indexes on SQLite look exactly like the GSI declarations you know — and behave better.
+
+<Cards>
+  <Card
+    title="Indexes"
+    href="/docs/std-toolkit/sqlite/indexes"
+    description="The GSI declaration surface, minus the eventual consistency."
+  />
+</Cards>

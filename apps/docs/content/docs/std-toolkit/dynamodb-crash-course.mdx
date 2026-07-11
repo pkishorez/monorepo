@@ -1,0 +1,98 @@
+---
+title: A DynamoDB crash course
+description: Partition keys, sort keys, item collections, and indexes — the ten minutes of DynamoDB that std-toolkit's entire mental model is built on.
+---
+
+You might be planning to never touch DynamoDB. Maybe you filed it away years ago as "that AWS key-value thing with the hostile API" and moved on. Fair. But std-toolkit's entire vocabulary — partition key, sort key, item collection — comes from DynamoDB's data model, and that vocabulary applies even when you run std-toolkit over SQLite. Ten minutes here and every page after this one clicks.
+
+We'll teach exactly the ideas std-toolkit borrows, nothing more. And we'll do it with the app we use everywhere in these docs: a chat app, where channels contain messages.
+
+## One table, two keys
+
+A relational database asks you to design tables around what your data *is*. DynamoDB asks you to design one table around how your data is *accessed*. Every item in that table gets two keys:
+
+- a **partition key (pk)** — *which group does this item belong to?*
+- a **sort key (sk)** — *where does it sit, in order, within that group?*
+
+For chat messages, the natural choice falls out of how a chat app reads data. You never ask for "all messages"; you ask for "the messages in *this channel*". So:
+
+- `pk = channel id` — the channel a message belongs to
+- `sk = message ulid` — a ULID, a time-ordered unique id whose lexical order is chronological order
+
+The table ends up looking like this:
+
+| pk (channel)      | sk (message ulid)            | body                    |
+| ----------------- | ---------------------------- | ----------------------- |
+| `channel#general` | `01HZX3F8B2...`              | "morning all"           |
+| `channel#general` | `01HZX3GA91...`              | "anyone seen the logs?" |
+| `channel#general` | `01HZX3H2KQ...`              | "on it"                 |
+| `channel#random`  | `01HZX2Z1P4...`              | "lunch?"                |
+| `channel#random`  | `01HZX30D77...`              | "always"                |
+
+The partition key does more than group rows. DynamoDB hashes it to decide *which physical machine* stores the item, which is how one table scales horizontally to any size: `channel#general` and `channel#random` can live on different servers, and neither knows the other exists. A busy channel never slows down a quiet one. This is the first idea worth keeping: **the partition is the unit of distribution**. Work that stays inside one partition is cheap and fast no matter how big the table gets.
+
+## The sort key is where queries come from
+
+Within one partition, items are physically stored in sort-key order. That single fact gives you a surprisingly complete query language. A DynamoDB **Query** always targets one partition key value, then optionally narrows by a range condition on the sort key:
+
+| You want                        | Sort key condition                        |
+| ------------------------------- | ----------------------------------------- |
+| The latest 50 messages          | no condition, read descending, limit 50   |
+| Everything after your cursor    | `sk > <last ulid you saw>`                |
+| Everything before a point       | `sk < <ulid>`                             |
+| One day of history              | `sk between <ulid at 00:00> and <ulid at 24:00>` |
+| Items whose key starts with...  | `beginsWith(<prefix>)`                    |
+
+Notice what "everything after your cursor" is: it's incremental catch-up. You saw messages up to `01HZX3GA91...`, you ask for `sk > 01HZX3GA91...`, you get exactly what you missed, in order. No timestamps to compare, no "updated_at" races, no diffing. Hold that thought — it's the seed of std-toolkit's entire sync story.
+
+## The item collection
+
+There's a name for what a Query returns: all the items sharing one partition key value, in sort-key order, are called an **item collection**. The item collection is the unit of DynamoDB — the thing a Query reads, the thing that lives together on one machine, the thing your access patterns are designed around.
+
+It's also the single most important term in these docs. std-toolkit takes the item collection, makes it the only primitive it relies on, and builds everything else — adapters, schema evolution, sync — on top of it. The [next page](/docs/std-toolkit/item-collections) is devoted entirely to it.
+
+## Query vs Scan
+
+DynamoDB has exactly two read operations over a table:
+
+- **Query** — give me one item collection (or a sorted slice of it). Touches one partition. Fast, cheap, bounded.
+- **Scan** — walk the entire table, every partition, page by page. Cost proportional to the size of *everything*.
+
+A Scan is almost always a design smell. It means you're asking a question your keys weren't designed to answer. In the chat app, "messages in this channel" is a Query; "every message containing the word 'deploy' across all channels" would be a Scan — and the fix isn't a faster Scan, it's modeling that access pattern with keys (or accepting it belongs in a search index, not here). The discipline DynamoDB forces — *know your access patterns, encode them in keys* — is a discipline std-toolkit keeps.
+
+## When one sort order isn't enough: GSIs and LSIs
+
+So far every question we can ask is shaped like "messages in this channel, in time order". But real apps have more than one access pattern. What about "every message this *user* has sent, across all channels"? The base table can't answer that with a Query — `authorId` isn't in either key.
+
+DynamoDB's answer is a **global secondary index (GSI)**: a second (pk, sk) projection of the same items. You declare, say, `gsi1pk = author id` and `gsi1sk = message ulid`, and DynamoDB maintains a second copy of the data organized by those keys:
+
+| gsi1pk (author) | gsi1sk (message ulid) | body                    |
+| --------------- | --------------------- | ----------------------- |
+| `user#priya`    | `01HZX2Z1P4...`       | "lunch?"                |
+| `user#priya`    | `01HZX3GA91...`       | "anyone seen the logs?" |
+| `user#tomas`    | `01HZX30D77...`       | "always"                |
+
+Same items, different item collections: now `user#priya`'s messages are one sorted collection you can Query directly. Two things to know about GSIs:
+
+1. **They're a full re-partitioning.** The GSI's partition key can be any attribute, so the same physical rows get regrouped into entirely new item collections.
+2. **They're eventually consistent.** DynamoDB propagates writes to a GSI asynchronously. A message you just wrote might take a moment to appear in the author index. Usually milliseconds — but the contract is "eventually", and code reading a GSI has to be comfortable with that.
+
+There's also a **local secondary index (LSI)**: same partition key as the base table, *alternate sort key*. In the chat app, an LSI could keep each channel's messages ordered by `editedAt` instead of creation time — same item collections, different order within them. LSIs must be declared when the table is created (GSIs can be added later), and because they share the base table's partitions, they support strongly consistent reads where GSIs don't.
+
+The distinction to keep: **GSI = new grouping, new order, eventual consistency. LSI = same grouping, new order, declared up front.**
+
+## What we're deliberately skipping
+
+<Callout title="Not covered, on purpose">
+Real DynamoDB has capacity units and billing modes, DynamoDB Streams, the transactions API, single-item size limits, and a small industry of cost-optimization folklore. None of it is needed to understand std-toolkit, so none of it appears in these docs. If you run the DynamoDB adapter in production you'll meet AWS's own documentation soon enough; here, DynamoDB is a mental model first and a supported backend second.
+</Callout>
+
+That's the whole crash course: a table is many independent item collections; a Query reads one of them in sorted order; a sort-key cursor gives you incremental catch-up; secondary indexes give the same items new groupings and orderings. Now let's take the item collection and put it under the microscope — because std-toolkit does one thing with it that classic DynamoDB modeling would call heresy.
+
+<Cards>
+  <Card
+    title="Item collections"
+    href="/docs/std-toolkit/item-collections"
+    description="The core primitive — and why std-toolkit keeps one entity type per collection when classic single-table design mixes them."
+  />
+</Cards>

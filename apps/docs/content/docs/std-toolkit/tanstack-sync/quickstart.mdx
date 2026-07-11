@@ -1,0 +1,179 @@
+---
+title: Quickstart
+description: From createStdSync to a live channel view — schema, fetch closure, collection, component, broadcast.
+---
+
+You've seen the claims; now run the path. This page takes the chat app from an eschema to a React component rendering `#general`'s messages, live, with every piece named. It's deliberately minimal — no offline storage, no pacing, no exotic strategy — because each of those is one line to add later, and the shape you build here doesn't change.
+
+## The pieces you already have
+
+The [Message eschema](/docs/std-toolkit/eschema/constructs) is shared between server and client — same file, both bundles:
+
+```ts title="schemas/message.ts"
+import { Schema } from 'effect';
+import { EntityESchema } from 'std-toolkit/eschema';
+
+export const Message = EntityESchema.make('Message', 'messageId', {
+  channelId: Schema.String,
+  authorId: Schema.String,
+  body: Schema.String,
+})
+  .evolve(
+    'v2',
+    { reactions: Schema.Record(Schema.String, Schema.Number) },
+    (prev) => ({ ...prev, reactions: {} }),
+  )
+  .build();
+```
+
+And on the server, a [database adapter](/docs/std-toolkit/database-adapters) already stores messages as item collections — one channel, one sorted collection. The sync engine never talks to that adapter directly. It talks to *you*, through one function type.
+
+## `ForwardFetch` — the whole server contract
+
+Everything the engine asks of your backend fits in this signature:
+
+```ts
+type ForwardFetch<T> = (ctx: {
+  cursor: EntityType<T> | null;
+}) => Effect.Effect<EntityType<T>[]>;
+```
+
+Given a cursor — a whole entity, not a bare key — return the next batch of entities *newer* than it, in ascending `_u` order. A `null` cursor means "start from the oldest." An empty array means "you've caught up." That's the entire protocol: your endpoint is a sorted-range query over one item collection, dressed as an HTTP handler.
+
+```ts title="client/api.ts"
+import { Effect } from 'effect';
+import type { EntityType } from 'std-toolkit/core';
+import type { ESchemaType } from 'std-toolkit/eschema';
+import type { Message } from '../schemas/message.js';
+
+type MessageValue = ESchemaType<typeof Message>;
+
+export const messagesAfter = (
+  channelId: string,
+  cursor: EntityType<MessageValue> | null,
+): Effect.Effect<EntityType<MessageValue>[]> =>
+  Effect.promise(() =>
+    fetch(`/api/channels/${channelId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ after: cursor?.meta._u ?? null }),
+    }).then((res) => res.json()),
+  );
+```
+
+Notice who interprets the cursor: you do. The engine hands the boundary entity back and your closure decides what "after" means — here, "rows with `_u` greater than this one's." The strategy never peeks inside beyond ordering.
+
+## `createStdSync` — one instance, three doors
+
+```ts title="client/std.ts"
+import { createStdSync } from 'std-toolkit/tanstack-sync';
+
+export const std = createStdSync();
+```
+
+One call per app (or per feature scope). The returned instance exposes `sync` for keyed collections, `singleItemSync` for singletons, and `registry` for routing broadcast traffic — plus `collection`/`singleItemCollection` conveniences and an `inspector` you'll meet [later](/docs/std-toolkit/tanstack-sync/offline). Everything created through one instance shares a tracker, which is how the registry knows where each entity type lives.
+
+## A keyed collection, partitioned by channel
+
+```ts title="client/collections.ts"
+import { createCollection } from '@tanstack/react-db';
+import { syncStrategy } from 'std-toolkit/tanstack-sync';
+import { Message } from '../schemas/message.js';
+import { messagesAfter } from './api.js';
+import { std } from './std.js';
+
+export const messagesCollection = createCollection(
+  std.sync({
+    schema: Message,
+    sync: {
+      partitions: {
+        channelId: (channelId) => ({
+          strategy: syncStrategy.oldToNew(),
+          forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+        }),
+      },
+    },
+    onInsert: (message) => sendMessage(message),
+  }),
+);
+```
+
+Read the `sync` field slowly, because it encodes the engine's core move. `partitions.channelId` declares: this collection is sliced by the `channelId` field, and here is a *factory* — given a channel's value, it returns a `{ strategy, forwardFetch }` pair for that channel. The factory runs when a channel first comes on screen, the partition value is captured by your closure, and the strategy itself stays blissfully unaware of channels. (`std.collection(...)` wraps the `createCollection` call for you if you prefer one step.)
+
+`onInsert` is the write path: your Effect calls the server, the server answers with the confirmed entity — real `_u`, full meta — and the engine converges it into place. More on that in [mutations](/docs/std-toolkit/tanstack-sync/mutations).
+
+## The component — a live query is the trigger
+
+```tsx title="client/channel-view.tsx"
+import { eq, useLiveQuery } from '@tanstack/react-db';
+import { messagesCollection } from './collections.js';
+
+export const ChannelView = ({ channelId }: { channelId: string }) => {
+  const { data: channelMessages } = useLiveQuery(
+    (q) =>
+      q
+        .from({ message: messagesCollection })
+        .where(({ message }) => eq(message.channelId, channelId)),
+    [channelId],
+  );
+
+  return (
+    <ul>
+      {channelMessages.map((message) => (
+        <li key={message.messageId}>{message.body}</li>
+      ))}
+    </ul>
+  );
+};
+```
+
+Nothing here says "start syncing" — and that's the point. Mounting this component registers a live query filtered on `channelId`; the engine sees the filter, matches it to the `partitions` map, and activates the sync partition for that channel: your factory runs, `oldToNew` starts draining `messagesAfter` batch by batch, and each batch converges into the collection and re-renders the list. Unmount the last query for the channel and the sync work stops. The query *is* the lifecycle.
+
+## Live updates — the registry
+
+Draining covers history. For messages arriving right now, wire whatever transport you have — a WebSocket, an SSE stream, a BroadcastChannel from another tab — into the registry:
+
+```ts title="client/socket.ts"
+import { std } from './std.js';
+
+const registry = std.registry();
+
+socket.onMessage((msg) => {
+  registry.process({ values: msg.values, persist: true });
+});
+```
+
+`process` routes each entity by its `_e` tag to the collection that owns that entity type — no manual dispatch table. And if a broadcast delivers a message the drain also fetched, convergence makes the duplicate a no-op. The transport stays yours; only the message shape (`{ values, persist }`) belongs to the engine.
+
+## A singleton, for completeness
+
+Not everything is a keyed set. Each channel has one settings object — a [SingleEntityESchema](/docs/std-toolkit/eschema/constructs) — and `singleItemSync` holds exactly one record with its own, simpler strategy family:
+
+```ts title="client/settings-collection.ts"
+import { createCollection } from '@tanstack/react-db';
+import { singleItemSyncStrategy } from 'std-toolkit/tanstack-sync';
+import { ChannelSettings } from '../schemas/channel-settings.js';
+import { std } from './std.js';
+
+export const settingsCollection = createCollection(
+  std.singleItemSync({
+    schema: ChannelSettings,
+    strategy: singleItemSyncStrategy.getOnce({
+      get: () => fetchChannelSettings(),
+    }),
+  }),
+);
+```
+
+`getOnce` fetches the record once when the collection's sync starts and writes it through the same convergence machinery. No partitions, no cursors — a singleton doesn't need them.
+
+## What you just built
+
+An eschema shared across the wire, one fetch closure per channel, a collection that starts and stops sync based on what's rendered, and a broadcast router that keeps it live. Reload-resumability and offline durability are each one config field away — but before adding features, it's worth understanding what the engine actually made for you. That's next.
+
+<Cards>
+  <Card
+    title="Collections"
+    href="/docs/std-toolkit/tanstack-sync/collections"
+    description="Entity to Item, entity ownership, and the sync partition lifecycle in full."
+  />
+</Cards>
