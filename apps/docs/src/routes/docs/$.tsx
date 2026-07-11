@@ -49,10 +49,16 @@ const getSourceData = createIsomorphicFn()
 const clientLoader = browserCollections.docs.createClientLoader({
   component({ toc, frontmatter, default: MDX }) {
     return (
-      <DocsPage toc={toc}>
-        <DocsTitle>{frontmatter.title}</DocsTitle>
-        <DocsDescription>{frontmatter.description}</DocsDescription>
-        <DocsBody>
+      <DocsPage
+        toc={toc}
+        className="docs-page"
+        tableOfContent={{ style: 'clerk' }}
+      >
+        <DocsTitle className="docs-title">{frontmatter.title}</DocsTitle>
+        <DocsDescription className="docs-description">
+          {frontmatter.description}
+        </DocsDescription>
+        <DocsBody className="docs-body">
           <MDX components={useMDXComponents()} />
         </DocsBody>
       </DocsPage>

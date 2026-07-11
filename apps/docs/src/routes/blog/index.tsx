@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import { baseOptions } from '@/lib/layout.shared';
 import { getBlogData } from '@/lib/blog-data';
+import { HomeHeader } from '@/components/home-header';
 
 export const Route = createFileRoute('/blog/')({
   component: BlogIndex,
@@ -12,7 +13,7 @@ function BlogIndex() {
   const { posts } = Route.useLoaderData();
 
   return (
-    <HomeLayout {...baseOptions()}>
+    <HomeLayout {...baseOptions()} slots={{ header: HomeHeader }}>
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-10 px-6 py-16">
         <section className="space-y-1">
           <h1 className="text-4xl font-semibold tracking-tight">Blog</h1>

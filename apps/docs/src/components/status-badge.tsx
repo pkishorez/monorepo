@@ -1,6 +1,5 @@
 const styles = {
-  alpha:
-    'border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10',
+  alpha: 'border-primary/30 bg-primary/10 text-primary',
   soon: 'border-border text-muted-foreground bg-muted/50',
 } as const;
 

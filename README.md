@@ -1,31 +1,106 @@
-# Monorepo
+# Kishore's monorepo
 
-A collection of all my open source work.
+A collection of open-source TypeScript projects focused on Effect, monorepo
+architecture, local developer tooling, data modeling and sync, and React.
 
-<pre>
-├── packages/
-│   ├── ✅ <a href="./packages/monoverse">monoverse</a>
-│   └── 🚧 <a href="./packages/use-effect-ts">use-effect-ts</a>
-└── std-toolkit/
-    ├── 🚧 <a href="./std-toolkit/eschema">eschema</a>
-    └── 🚧 <a href="./std-toolkit/db-sqlite">db-sqlite</a>
-</pre>
+The packages are developed together in a pnpm workspace and share the same
+build, lint, test, formatting, and release infrastructure. Package documentation
+is available at [docs.kishore.app](https://docs.kishore.app).
 
-## [monoverse](./packages/monoverse)
+## What's included
 
-A zero-config, opinionated monorepo management tool.
+### Applications
 
-[npm](https://www.npmjs.com/package/monoverse)
+| Workspace                  | Purpose                                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [`apps/docs`](./apps/docs) | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers. |
 
-## [use-effect-ts](./packages/use-effect-ts)
+### Packages
 
-React hooks for Effect.TS.
+| Workspace                                            | Package                                                                  | Purpose                                                                                                                                               |
+| ---------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`packages/depcruise-viz`](./packages/depcruise-viz) | [`depcruise-viz`](https://www.npmjs.com/package/depcruise-viz)           | Defines TypeScript architecture as layer graphs and modules, enforces dependency boundaries with dependency-cruiser, and produces visualization data. |
+| [`packages/devtools`](./packages/devtools)           | [`@kishorez/devtools`](https://www.npmjs.com/package/@kishorez/devtools) | Local DevTools server for inspecting dependency graphs and OpenTelemetry traces, logs, and metrics.                                                   |
+| [`packages/frontend`](./packages/frontend)           | `@monorepo/frontend` (private)                                           | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository.                                 |
+| [`packages/lotel`](./packages/lotel)                 | [`@kishorez/lotel`](https://www.npmjs.com/package/@kishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development.                             |
+| [`packages/monoverse`](./packages/monoverse)         | [`monoverse`](https://www.npmjs.com/package/monoverse)                   | Zero-config CLI for exploring, formatting, linting, and managing dependencies across pnpm, npm, Yarn, and Bun workspaces.                             |
+| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts)           | React hooks for running and consuming Effect programs.                                                                                                |
 
-[npm](https://www.npmjs.com/package/use-effect-ts)
+### Single-table design toolkit
 
-## [std-toolkit](./std-toolkit)
+[`std-toolkit`](./std-toolkit) ([npm](https://www.npmjs.com/package/std-toolkit))
+is a published package containing a set of composable modules for
+database-agnostic single-table design:
 
-Single Table Design (STD) packages built with Effect.
+| Entry point                 | Purpose                                                                                         |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `std-toolkit/core`          | Shared entity, metadata, broadcasting, and error primitives.                                    |
+| `std-toolkit/eschema`       | Versioned, self-migrating schemas built on Effect Schema, including the `eschema` CLI.          |
+| `std-toolkit/dynamodb`      | DynamoDB table and entity services, expression builders, and marshalling utilities.             |
+| `std-toolkit/sqlite`        | SQLite services with adapters for Node.js, Bun, better-sqlite3, and Cloudflare Durable Objects. |
+| `std-toolkit/tanstack-sync` | TanStack DB synchronization with paced writes and IndexedDB offline storage.                    |
 
-- **[eschema](./std-toolkit/eschema)** - Evolving schema with built-in versioning and migrations.
-- **[db-sqlite](./std-toolkit/db-sqlite)** - SQLite adapter with support for `better-sqlite3` and Cloudflare Durable Objects. More adapters coming soon.
+See the [std-toolkit README](./std-toolkit/README.md) for installation and
+entry-point documentation.
+
+### Reference source
+
+[`repos/effect-smol`](./repos/effect-smol) is a vendored, read-only copy of
+Effect's `effect-smol` repository. It is kept as a source of idiomatic Effect
+patterns and is not a workspace dependency.
+
+## Toolchain
+
+- TypeScript and Effect
+- pnpm workspaces
+- Vite+ for repository-wide tasks
+- Vitest for tests
+- Changesets for package versioning and npm releases
+- Bun for building and developing `monoverse`
+
+## Getting started
+
+The release workflow uses Node.js 24, pnpm 10, and Bun. Bun is only required
+when working on `monoverse`.
+
+```bash
+corepack enable
+pnpm install
+```
+
+Run a task across all workspaces that define it:
+
+```bash
+pnpm build
+pnpm lint
+pnpm test
+pnpm fmt
+```
+
+The generic build intentionally excludes `monoverse`, which is built with Bun:
+
+```bash
+pnpm --filter monoverse build:ondemand
+```
+
+To work on one project, filter by its workspace name:
+
+```bash
+pnpm --filter docs dev
+pnpm --filter std-toolkit test
+pnpm --filter depcruise-viz lint
+```
+
+Other useful repository commands:
+
+| Command                | Purpose                                                           |
+| ---------------------- | ----------------------------------------------------------------- |
+| `pnpm dev`             | Start the development tasks exposed by the workspaces.            |
+| `pnpm clean`           | Remove generated `dist` directories and installed `node_modules`. |
+| `pnpm changeset`       | Describe a publishable package change.                            |
+| `pnpm version`         | Apply pending changesets and update package versions.             |
+| `pnpm release`         | Publish versioned packages to npm.                                |
+| `pnpm subtrees:update` | Refresh vendored git subtrees such as `repos/effect-smol`.        |
+
+Releases from `main` are managed by Changesets through the GitHub Actions
+release workflow.

@@ -4,6 +4,7 @@ import browserCollections from 'collections/browser';
 import { Suspense } from 'react';
 import { baseOptions } from '@/lib/layout.shared';
 import { getBlogData } from '@/lib/blog-data';
+import { HomeHeader } from '@/components/home-header';
 import { useMDXComponents } from '@/components/mdx';
 
 export const Route = createFileRoute('/blog/$slug')({
@@ -36,7 +37,7 @@ function Page() {
   const { post } = Route.useLoaderData();
 
   return (
-    <HomeLayout {...baseOptions()}>
+    <HomeLayout {...baseOptions()} slots={{ header: HomeHeader }}>
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
         <Link
           to="/blog"
