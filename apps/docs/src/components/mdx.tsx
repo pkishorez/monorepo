@@ -4,6 +4,7 @@ import { Button } from '@monorepo/frontend/components/ui/button';
 import { StatusBadge } from './status-badge';
 import { ESchemaPlayground } from './eschema-playground';
 import { SyncStrategyVisualizer } from './sync-strategy-visualizer';
+import { SwimLane } from './swim-lane';
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
@@ -12,6 +13,7 @@ export function getMDXComponents(components?: MDXComponents) {
     StatusBadge,
     ESchemaPlayground,
     SyncStrategyVisualizer,
+    SwimLane,
     ...components,
   } satisfies MDXComponents;
 }
