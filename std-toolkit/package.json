@@ -6,6 +6,7 @@
   "keywords": [
     "dynamodb",
     "effect",
+    "indexeddb",
     "schema",
     "single table design",
     "sqlite",
@@ -38,6 +39,14 @@
     "./dynamodb/*": {
       "types": "./dist/db/dynamodb/*",
       "import": "./dist/db/dynamodb/*"
+    },
+    "./idb": {
+      "types": "./dist/db/idb/index.d.ts",
+      "default": "./dist/db/idb/index.js"
+    },
+    "./idb/*": {
+      "types": "./dist/db/idb/*",
+      "import": "./dist/db/idb/*"
     },
     "./sqlite": {
       "types": "./dist/db/sqlite/index.d.ts",
