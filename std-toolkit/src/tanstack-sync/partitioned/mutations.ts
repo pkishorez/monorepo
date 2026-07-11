@@ -170,15 +170,10 @@ export const buildMutationHandlers = <S extends AnyEntityESchema>(args: {
               optimistic: (next) => optimistic(key, next),
               commit: async (merged) => {
                 const updates = stripMetaPartial<TItem>(merged);
-                pending.increment(key);
-                try {
-                  const result = await Effect.runPromise(
-                    onUpdate(buildUpdatePayload(key, updates)),
-                  );
-                  await flush(result);
-                } finally {
-                  pending.decrement(key);
-                }
+                await runMutation(
+                  key,
+                  onUpdate(buildUpdatePayload(key, updates)),
+                );
               },
             });
             mutate.set(key, paced);

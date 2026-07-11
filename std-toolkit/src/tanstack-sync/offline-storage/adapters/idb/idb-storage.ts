@@ -60,9 +60,12 @@ export const idbStorage = (options: IdbStorageOptions): OfflineStorage => {
     getAll: <T>() =>
       Effect.tryPromise({
         try: async () => {
-          const entries = (await (
-            await db()
-          ).getAllFromIndex(ENTRY_STORE, GROUP_INDEX, group)) as StoredEntry[];
+          const database = await db();
+          const entries = (await database.getAllFromIndex(
+            ENTRY_STORE,
+            GROUP_INDEX,
+            group,
+          )) as StoredEntry[];
           return entries.map((entry) => ({
             key: entry.key,
             value: entry.value as T,

@@ -16,6 +16,48 @@ export type StoredEntry = {
 };
 
 const connections = new Map<string, IDBPDatabase>();
+const pendingConnections = new Map<string, Promise<IDBPDatabase>>();
+
+const openDatabase = (name: string): Promise<IDBPDatabase> => {
+  const existing = connections.get(name);
+  if (existing) return Promise.resolve(existing);
+
+  const pending = pendingConnections.get(name);
+  if (pending) return pending;
+
+  let opened: IDBPDatabase | undefined;
+  const opening = openDB(name, DB_SCHEMA_VERSION, {
+    upgrade(database) {
+      const entries = database.createObjectStore(ENTRY_STORE, {
+        keyPath: ['group', 'key'],
+      });
+      entries.createIndex(GROUP_INDEX, 'group');
+      database.createObjectStore(METADATA_STORE);
+    },
+    blocking() {
+      opened?.close();
+      connections.delete(name);
+      pendingConnections.delete(name);
+    },
+    terminated() {
+      connections.delete(name);
+      pendingConnections.delete(name);
+    },
+  })
+    .then((database) => {
+      opened = database;
+      pendingConnections.delete(name);
+      connections.set(name, database);
+      return database;
+    })
+    .catch((error) => {
+      pendingConnections.delete(name);
+      throw error;
+    });
+
+  pendingConnections.set(name, opening);
+  return opening;
+};
 
 export const acquireDatabase = async (
   name: string,
@@ -24,19 +66,7 @@ export const acquireDatabase = async (
   if (!globalThis.indexedDB) {
     throw new Error('IndexedDB is not available');
   }
-  let db = connections.get(name);
-  if (!db) {
-    db = await openDB(name, DB_SCHEMA_VERSION, {
-      upgrade(database) {
-        const entries = database.createObjectStore(ENTRY_STORE, {
-          keyPath: ['group', 'key'],
-        });
-        entries.createIndex(GROUP_INDEX, 'group');
-        database.createObjectStore(METADATA_STORE);
-      },
-    });
-    connections.set(name, db);
-  }
+  const db = await openDatabase(name);
 
   const tx = db.transaction([ENTRY_STORE, METADATA_STORE], 'readwrite');
   const storedVersion = await tx
