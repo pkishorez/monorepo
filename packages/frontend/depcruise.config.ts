@@ -23,6 +23,8 @@ export default {
   ignore: ['src/css.d.ts', 'src/cosmos.decorator.tsx', 'src/styles'],
   rules: [layerGraph('frontend', [edge(composites, ui), edge(ui, foundation)])],
   modules: [
+    module('src/components/blocks/json'),
+    module('src/components/blocks/tanstack-sync-devtools'),
     module('src/components/blocks/dependency-cruiser-viz'),
     module('src/components/blocks/dependency-cruiser-viz/files'),
     module('src/components/blocks/dependency-cruiser-viz/graph'),
