@@ -1,0 +1,25 @@
+# docs worktree config (nested — run `workmux add` from apps/docs/).
+# The worktree is the whole monorepo, but panes open in apps/docs/ since this
+# is where the config lives. Inherits agent / merge_strategy / status_icons
+# from the global ~/.config/workmux/config.yaml.
+
+# Columns: nvim | claude | codex | (pnpm i / pnpm dev)
+panes:
+  - command: nvim
+  - command: claude
+    split: horizontal
+    focus: true
+  - command: codex
+    split: horizontal
+  - command: pnpm i && pnpm dev
+    split: horizontal
+
+files:
+  # No env files to copy for docs.
+  copy: []
+  # NEVER symlink node_modules in a pnpm workspace: workspace packages are
+  # linked with relative symlinks that resolve back to the main checkout, and a
+  # symlinked node_modules breaks a fresh install. The `pnpm i` pane gives each
+  # worktree a real, isolated node_modules (pnpm installs the whole workspace
+  # from any subdir).
+  symlink: []
