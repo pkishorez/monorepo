@@ -1,13 +1,14 @@
 import type {
   AnySingleEntityESchema,
   ESchemaType,
-} from '../../eschema/index.js';
+} from '../../../eschema/index.js';
 import { Effect, Option } from 'effect';
-import type { EntityType, SingleEntityType } from '../../core/index.js';
-import { Broadcaster, nextUlid } from '../../core/index.js';
+import type { EntityType, SingleEntityType } from '../../../core/index.js';
+import { Broadcaster, nextUlid } from '../../../core/index.js';
 import type { IdbTableInstance } from './idb-table.js';
+import type { IdbEntityOp } from './idb-entity.js';
 import { IdbDB, IdbDBError } from './db.js';
-import type { IdbRecord } from './db.js';
+import type { IdbRecord, IdbWriteOp } from './db.js';
 import { deriveIndexKeyValue } from './internal/utils.js';
 
 /**
@@ -30,7 +31,10 @@ export class IdbSingleEntity<
    *
    * @returns A builder to configure the entity schema
    */
-  static make<TTable extends IdbTableInstance>(table: TTable) {
+  static make<TTable extends IdbTableInstance>(
+    table: TTable,
+    onBuild?: (entity: IdbSingleEntity<any, any>) => void,
+  ) {
     return {
       /**
        * Configures the entity to use the given ESchema.
@@ -48,11 +52,13 @@ export class IdbSingleEntity<
            * @returns The configured IdbSingleEntity instance
            */
           default(defaultValue: Omit<ESchemaType<TS>, '_v'>) {
-            return new IdbSingleEntity<TTable, TS>(
+            const entity = new IdbSingleEntity<TTable, TS>(
               table,
               eschema,
               defaultValue as ESchemaType<TS>,
             );
+            onBuild?.(entity);
+            return entity;
           },
         };
       },
@@ -170,10 +176,12 @@ export class IdbSingleEntity<
         yield* this.#table.putItem(record);
       }
 
-      yield* this.#broadcast({
-        value: fullValue,
-        meta: { ...meta, _d: false },
-      });
+      yield* this.#broadcast([
+        {
+          value: fullValue,
+          meta: { ...meta, _d: false },
+        },
+      ]);
       return { value: fullValue, meta };
     });
   }
@@ -225,22 +233,95 @@ export class IdbSingleEntity<
         existing.meta._u,
       );
 
-      yield* this.#broadcast({
-        value: fullValue,
-        meta: { ...meta, _d: false },
-      });
+      yield* this.#broadcast([
+        {
+          value: fullValue,
+          meta: { ...meta, _d: false },
+        },
+      ]);
       return { value: fullValue, meta };
+    });
+  }
+
+  /** Writes the default value back — single entities are never deleted. */
+  reset(): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    IdbDBError,
+    IdbDB
+  > {
+    return this.put(this.#defaultValue);
+  }
+
+  /**
+   * Validates and encodes NOW (no write), pre-fetching the existing entity so
+   * the returned op embeds the optimistic `expectedU` check and complete
+   * broadcast data. Fails if the item doesn't exist (i.e., `_u === ""`).
+   *
+   * @param params - Object containing the update
+   * @returns A descriptor for update, plus its broadcast payload
+   */
+  updateOp(params: {
+    update: Partial<Omit<ESchemaType<TSchema>, '_v'>>;
+    lastWriteWins?: boolean;
+  }): Effect.Effect<IdbEntityOp, IdbDBError, IdbDB> {
+    return Effect.gen({ self: this }, function* () {
+      const db = yield* IdbDB;
+      const existing = yield* this.get();
+
+      if (existing.meta._u === '') {
+        return yield* Effect.fail(IdbDBError.noItemToUpdate(db.tableName));
+      }
+
+      const fullValue = {
+        ...existing.value,
+        ...params.update,
+      } as ESchemaType<TSchema>;
+
+      const encoded = yield* this.#eschema
+        .encode(fullValue as any)
+        .pipe(Effect.mapError((e) => IdbDBError.putFailed(db.tableName, e)));
+
+      const key = this.#deriveKey();
+
+      return {
+        entityName: this.#eschema.name,
+        operationKind: 'updateOp',
+        pk: key.pk,
+        sk: key.sk,
+        table: this.#table,
+        apply: (u) => ({
+          write: {
+            type: 'patch',
+            key,
+            values: {
+              _data: encoded,
+              _v: this.#eschema.latestVersion,
+              _u: u,
+            },
+            ...(params.lastWriteWins ? {} : { expectedU: existing.meta._u }),
+          } satisfies IdbWriteOp,
+          entity: {
+            value: fullValue,
+            meta: {
+              _e: this.#eschema.name,
+              _v: this.#eschema.latestVersion,
+              _u: u,
+              _d: false,
+            },
+          },
+        }),
+      };
     });
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+  #broadcast(entities: EntityType<ESchemaType<TSchema>>[]) {
     return Effect.gen(function* () {
       const service = yield* Effect.serviceOption(Broadcaster).pipe(
         Effect.map(Option.getOrNull),
       );
-      service?.broadcast(entity);
+      service?.broadcast(entities);
     });
   }
 

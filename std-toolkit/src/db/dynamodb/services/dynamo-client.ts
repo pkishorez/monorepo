@@ -192,6 +192,12 @@ export function createDynamoDB(
         errorMeta,
       );
       if (
+        simpleErrorName === 'TransactionCanceledException' &&
+        Array.isArray(errorData.CancellationReasons)
+      ) {
+        (error as any).cancellationReasons = errorData.CancellationReasons;
+      }
+      if (
         simpleErrorName === 'ConditionalCheckFailedException' &&
         errorData.Item
       ) {

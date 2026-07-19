@@ -2,10 +2,10 @@ import type {
   AnyEntityESchema,
   ESchemaType,
   Prettify,
-} from '../../eschema/index.js';
+} from '../../../eschema/index.js';
 import { Effect, Option, Schema, Stream } from 'effect';
-import type { EntityType } from '../../core/index.js';
-import { Broadcaster, MetaSchema, nextUlid } from '../../core/index.js';
+import type { EntityType } from '../../../core/index.js';
+import { Broadcaster, MetaSchema, nextUlid } from '../../../core/index.js';
 import type { IdbTableInstance, SortKeyCondition } from './idb-table.js';
 import { IdbDB, IdbDBError } from './db.js';
 import type { IdbRecord, IdbWriteOp } from './db.js';
@@ -19,7 +19,6 @@ import {
   type CustomStreamSkParam,
   type SimpleQueryOptions,
   type QueryStreamOptions,
-  type SubscribeOptions,
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
 } from './internal/utils.js';
@@ -35,16 +34,6 @@ type DerivableMetaFields = '_u';
 type IsTimelineSk<T extends readonly unknown[]> = T extends readonly ['_u']
   ? true
   : false;
-
-/**
- * Extracts only keys from a secondary derivation map where isTimelineSk is true.
- */
-type SubscribableSecondaryKeys<
-  T extends Record<string, StoredIndexDerivation>,
-> = {
-  [K in keyof T]: T[K]['isTimelineSk'] extends true ? K : never;
-}[keyof T] &
-  string;
 
 /**
  * Resolves the SK param type for a secondary index based on isTimelineSk.
@@ -85,14 +74,22 @@ type IndexKeyFields<T, K extends keyof T | DerivableMetaFields> = Pick<
 >;
 
 /**
- * A buffered write descriptor produced by `insertOp`/`updateOp`, consumed by
- * `EntityRegistry.transact` (a later task). `entity` is the broadcast
- * payload, flushed by the registry only after the underlying native
- * transaction commits.
+ * A deferred write produced by `insertOp`/`updateOp`, consumed by the table's
+ * `transact`. `apply` is pure — the transaction supplies the write cursor and
+ * gets back the concrete write plus the broadcast payload, flushed only after
+ * the underlying native transaction commits. `table` identifies where the op
+ * was built so `transact` can reject foreign ops.
  */
-export interface IdbEntityOp {
-  readonly write: IdbWriteOp;
-  readonly entity: EntityType<unknown>;
+export interface IdbEntityOp<T = unknown> {
+  readonly entityName: string;
+  readonly operationKind: 'insertOp' | 'updateOp' | 'deleteOp' | 'restoreOp';
+  readonly pk: string;
+  readonly sk: string;
+  readonly table: unknown;
+  readonly apply: (u: string) => {
+    write: IdbWriteOp;
+    entity: EntityType<T>;
+  };
 }
 
 /**
@@ -106,7 +103,7 @@ export interface IdbEntityOp {
 export class IdbEntity<
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyEntityESchema,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
 > {
   /**
    * Creates a new entity builder for the given table.
@@ -115,7 +112,10 @@ export class IdbEntity<
    * @param table - The IdbTable instance
    * @returns A builder to configure the entity schema
    */
-  static make<TTable extends IdbTableInstance>(table: TTable) {
+  static make<TTable extends IdbTableInstance>(
+    table: TTable,
+    onBuild?: (entity: IdbEntity<any, any, any>) => void,
+  ) {
     return {
       /**
        * Configures the entity to use the given ESchema.
@@ -134,12 +134,14 @@ export class IdbEntity<
            * @returns A builder to add secondary index mappings
            */
           primary<
-            const TPkKeys extends readonly (
-              | keyof ESchemaType<TS>
-              | DerivableMetaFields
-            )[] = [],
+            const TPkKeys extends readonly (keyof ESchemaType<TS>)[] = [],
           >(primaryDerivation?: { pk: TPkKeys }) {
             const pkKeys = primaryDerivation?.pk ?? ([] as unknown as TPkKeys);
+            if ((pkKeys as readonly PropertyKey[]).includes('_u')) {
+              throw new Error(
+                'Primary partition key derivation cannot include "_u"',
+              );
+            }
             // SK is always the idField from the ESchema
             const skKeys = [eschema.idField] as const;
             return new EntityIndexDerivations<
@@ -147,7 +149,7 @@ export class IdbEntity<
               TS,
               ExtractKeys<ESchemaType<TS>, TPkKeys>,
               {}
-            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {});
+            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {}, onBuild);
           },
         };
       },
@@ -228,10 +230,11 @@ export class IdbEntity<
     value: InsertInput<ESchemaType<TSchema>>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
     return Effect.gen({ self: this }, function* () {
-      const { write, entity } = yield* this.#buildInsertOp(value);
+      const op = yield* this.#buildInsertOp(value);
+      const { write, entity } = op.apply(yield* nextUlid);
       const db = yield* IdbDB;
       yield* db.transact([write]);
-      yield* this.#broadcast(entity);
+      yield* this.#broadcast([entity]);
       return entity;
     });
   }
@@ -252,10 +255,11 @@ export class IdbEntity<
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
     return Effect.gen({ self: this }, function* () {
-      const { write, entity } = yield* this.#buildUpdateOp(keyValue, updates);
+      const op = yield* this.#buildUpdateOp(keyValue, updates);
+      const { write, entity } = op.apply(yield* nextUlid);
       const db = yield* IdbDB;
       yield* db.transact([write]);
-      yield* this.#broadcast(entity);
+      yield* this.#broadcast([entity]);
       return entity;
     });
   }
@@ -291,7 +295,7 @@ export class IdbEntity<
       ]);
 
       const deletedEntity = { value: existing.value, meta };
-      yield* this.#broadcast(deletedEntity);
+      yield* this.#broadcast([deletedEntity]);
 
       return deletedEntity;
     });
@@ -329,7 +333,7 @@ export class IdbEntity<
       ]);
 
       const restoredEntity = { value: existing.value, meta };
-      yield* this.#broadcast(restoredEntity);
+      yield* this.#broadcast([restoredEntity]);
       return restoredEntity;
     });
   }
@@ -568,81 +572,6 @@ export class IdbEntity<
   }
 
   /**
-   * Subscribes to items from the primary index or a secondary index.
-   * Continuously fetches records until no more are available.
-   *
-   * @param opts.key - "primary" or secondary index name
-   * @param opts.pk - Partition key fields for the selected index
-   * @param opts.cursor - Primary key for the primary index, or `_u` for a secondary timeline index
-   * @param opts.limit - Optional batch size per query iteration
-   * @returns All items after the cursor
-   */
-  subscribe<
-    K extends 'primary' | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
-  >(
-    opts: SubscribeOptions<
-      K,
-      K extends 'primary'
-        ? [TPrimaryPkKeys] extends [never]
-          ? {}
-          : Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>
-        : K extends keyof TSecondaryDerivationMap
-          ? Pick<
-              ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]['pkDeps'][number] &
-                keyof ESchemaType<TSchema>
-            >
-          : never
-    >,
-  ): Effect.Effect<{ success: true }, IdbDBError, IdbDB> {
-    return Effect.gen({ self: this }, function* () {
-      const { key, pk, cursor, limit } = opts;
-      const service = yield* Effect.serviceOption(Broadcaster).pipe(
-        Effect.map(Option.getOrNull),
-      );
-
-      const queryOptions: SimpleQueryOptions = {};
-      if (limit !== undefined) {
-        queryOptions.limit = limit;
-      }
-
-      let currentCursor = cursor;
-
-      while (true) {
-        const result = yield* this.query(
-          key,
-          { pk, sk: { '>': currentCursor } } as any,
-          queryOptions,
-        );
-
-        service?.emit(result.items);
-
-        const lastItem = result.items[result.items.length - 1];
-        if (!lastItem) {
-          //Start subscribing from now!
-          service?.subscribe(this.#eschema.name);
-          return { success: true };
-        }
-        currentCursor =
-          key === 'primary'
-            ? ((lastItem.value as Record<string, unknown>)[
-                this.#eschema.idField
-              ] as string)
-            : lastItem.meta._u;
-      }
-    });
-  }
-
-  /**
-   * Removes all rows from the table.
-   */
-  dangerouslyRemoveAllRows(
-    _: 'i know what i am doing',
-  ): Effect.Effect<{ rowsDeleted: number }, IdbDBError, IdbDB> {
-    return this.#table.dangerouslyRemoveAllRows('i know what i am doing');
-  }
-
-  /**
    * Validates, encodes and derives keys NOW (no write), returning a pure
    * descriptor for `EntityRegistry.transact`. The `expectedU: null` write op
    * makes a duplicate insert fail with `conditionFailed`, same as `insert`.
@@ -652,7 +581,7 @@ export class IdbEntity<
    */
   insertOp(
     value: InsertInput<ESchemaType<TSchema>>,
-  ): Effect.Effect<IdbEntityOp, IdbDBError, IdbDB> {
+  ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
     return this.#buildInsertOp(value);
   }
 
@@ -669,43 +598,75 @@ export class IdbEntity<
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
-  ): Effect.Effect<IdbEntityOp, IdbDBError, IdbDB> {
-    return this.#buildUpdateOp(keyValue, updates);
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
+    return this.#buildUpdateOp(keyValue, updates, options);
+  }
+
+  deleteOp(
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
+    return this.#buildTombstoneOp(keyValue, true, options);
+  }
+
+  restoreOp(
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
+    return this.#buildTombstoneOp(keyValue, false, options);
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+  #broadcast(entities: EntityType<ESchemaType<TSchema>>[]) {
     return Effect.gen(function* () {
       const service = yield* Effect.serviceOption(Broadcaster).pipe(
         Effect.map(Option.getOrNull),
       );
-      service?.broadcast(entity);
+      service?.broadcast(entities);
     });
   }
 
   #buildInsertOp(
     value: InsertInput<ESchemaType<TSchema>>,
-  ): Effect.Effect<
-    { write: IdbWriteOp; entity: EntityType<ESchemaType<TSchema>> },
-    IdbDBError,
-    IdbDB
-  > {
+  ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
     return Effect.gen({ self: this }, function* () {
       const fullValue = {
         ...value,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const { record, meta } = yield* this.#encodeForWrite(
+      const { record, meta: preparedMeta } = yield* this.#encodeForWrite(
         fullValue,
         false,
         fullValue as Record<string, unknown>,
       );
 
       return {
-        write: { type: 'put', record, expectedU: null } satisfies IdbWriteOp,
-        entity: { value: fullValue, meta },
+        entityName: this.#eschema.name,
+        operationKind: 'insertOp',
+        pk: record.pk,
+        sk: record.sk,
+        table: this.#table,
+        apply: (u) => {
+          const valueWithMeta = { ...fullValue, _u: u };
+          return {
+            write: {
+              type: 'put',
+              record: {
+                ...record,
+                ...this.#derivePrimaryIndex(valueWithMeta),
+                _u: u,
+                ...this.#deriveSecondaryIndexes(valueWithMeta),
+              },
+              expectedU: null,
+            } satisfies IdbWriteOp,
+            entity: { value: fullValue, meta: { ...preparedMeta, _u: u } },
+          };
+        },
       };
     });
   }
@@ -713,11 +674,8 @@ export class IdbEntity<
   #buildUpdateOp(
     keyValue: Record<string, unknown>,
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
-  ): Effect.Effect<
-    { write: IdbWriteOp; entity: EntityType<ESchemaType<TSchema>> },
-    IdbDBError,
-    IdbDB
-  > {
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
     return Effect.gen({ self: this }, function* () {
       const existing = yield* this.get(
         keyValue as IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
@@ -728,29 +686,85 @@ export class IdbEntity<
         return yield* Effect.fail(IdbDBError.noItemToUpdate(db.tableName));
       }
 
-      if (existing.meta._d) {
-        const db = yield* IdbDB;
-        return yield* Effect.fail(IdbDBError.itemDeleted(db.tableName));
-      }
-
       const fullValue = {
         ...existing.value,
         ...updates,
       } as ESchemaType<TSchema>;
 
-      const { record, meta } = yield* this.#encodeForWrite(
+      const { record, meta: preparedMeta } = yield* this.#encodeForWrite(
         fullValue,
-        false,
+        existing.meta._d,
         keyValue,
       );
 
       return {
-        write: {
-          type: 'put',
-          record,
-          expectedU: existing.meta._u,
-        } satisfies IdbWriteOp,
-        entity: { value: fullValue, meta },
+        entityName: this.#eschema.name,
+        operationKind: 'updateOp',
+        pk: record.pk,
+        sk: record.sk,
+        table: this.#table,
+        apply: (u) => ({
+          write: {
+            type: 'put',
+            record: {
+              ...record,
+              _u: u,
+              ...this.#deriveSecondaryIndexes({ ...fullValue, _u: u }),
+            },
+            ...(options?.lastWriteWins ? {} : { expectedU: existing.meta._u }),
+          } satisfies IdbWriteOp,
+          entity: { value: fullValue, meta: { ...preparedMeta, _u: u } },
+        }),
+      };
+    });
+  }
+
+  #buildTombstoneOp(
+    keyValue: Record<string, unknown>,
+    deleted: boolean,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get(
+        keyValue as IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+          Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      );
+      if (!existing) {
+        const db = yield* IdbDB;
+        return yield* Effect.fail(
+          deleted
+            ? IdbDBError.noItemToDelete(db.tableName)
+            : IdbDBError.noItemToRestore(db.tableName),
+        );
+      }
+
+      const { record, meta: preparedMeta } = yield* this.#encodeForWrite(
+        existing.value,
+        deleted,
+        keyValue,
+      );
+
+      return {
+        entityName: this.#eschema.name,
+        operationKind: deleted ? 'deleteOp' : 'restoreOp',
+        pk: record.pk,
+        sk: record.sk,
+        table: this.#table,
+        apply: (u) => ({
+          write: {
+            type: 'put',
+            record: {
+              ...record,
+              _u: u,
+              ...this.#deriveSecondaryIndexes({ ...existing.value, _u: u }),
+            },
+            ...(options?.lastWriteWins ? {} : { expectedU: existing.meta._u }),
+          } satisfies IdbWriteOp,
+          entity: {
+            value: existing.value,
+            meta: { ...preparedMeta, _u: u },
+          },
+        }),
       };
     });
   }
@@ -931,10 +945,10 @@ export class IdbEntity<
 /**
  * Builder class for configuring entity index derivations.
  */
-class EntityIndexDerivations<
+export class EntityIndexDerivations<
   TTable extends IdbTableInstance,
   TSchema extends AnyEntityESchema,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
 > {
   #table: TTable;
@@ -944,6 +958,7 @@ class EntityIndexDerivations<
     sk: readonly (keyof ESchemaType<TSchema>)[];
   };
   #secondaryDerivations: TSecondaryDerivationMap;
+  #onBuild: ((entity: IdbEntity<any, any, any>) => void) | undefined;
 
   constructor(
     table: TTable,
@@ -953,11 +968,13 @@ class EntityIndexDerivations<
       sk: readonly (keyof ESchemaType<TSchema>)[];
     },
     definitions: TSecondaryDerivationMap,
+    onBuild?: (entity: IdbEntity<any, any, any>) => void,
   ) {
     this.#table = table;
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = definitions;
+    this.#onBuild = onBuild;
   }
 
   /**
@@ -1009,6 +1026,7 @@ class EntityIndexDerivations<
         ...this.#secondaryDerivations,
         [entityIndexName]: newDeriv,
       },
+      this.#onBuild,
     ) as EntityIndexDerivations<
       TTable,
       TSchema,
@@ -1036,11 +1054,12 @@ class EntityIndexDerivations<
       skDeps: this.#primaryDerivation.sk.map(String),
     };
 
-    return new IdbEntity<TSecondaryDerivationMap, TSchema, TPrimaryPkKeys>(
-      this.#table,
-      this.#eschema,
-      storedPrimary,
-      this.#secondaryDerivations,
-    );
+    const entity = new IdbEntity<
+      TSecondaryDerivationMap,
+      TSchema,
+      TPrimaryPkKeys
+    >(this.#table, this.#eschema, storedPrimary, this.#secondaryDerivations);
+    this.#onBuild?.(entity);
+    return entity;
   }
 }

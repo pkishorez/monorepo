@@ -23,12 +23,27 @@ _Avoid_: range key (within this context use **sort key**).
 **IndexDefinition**:
 The structure naming the pk and sk attributes/columns for an index.
 
-**EntityRegistry**:
-The manager coordinating multiple entity types stored in one single-table — routes operations to the right entity by its type.
-_Avoid_: EntityManager, store registry.
+**Table**:
+The single-table topology object. **Entity services** are defined from it and it coordinates cross-entity concerns (setup, transactions). Holds its entities internally; there is no name-based entity lookup — callers keep the references returned at definition time.
+_Avoid_: EntityRegistry (retired term — the Table absorbed its role), EntityManager, store registry.
 
 **Entity service**:
 The per-entity CRUD surface over the table — `DynamoEntity` / `SQLiteEntity` for keyed entities, `DynamoSingleEntity` / `SQLiteSingleEntity` for singletons. Each adapter names its own pair.
 
 **QueryResult**:
 The output of a query/scan over an **item collection** — the returned `Items`, plus adapter-specific pagination (e.g. DynamoDB's `LastEvaluatedKey`).
+
+**Get-and-update**:
+The portable read-modify-write on an **entity service** (`getAndUpdate` / `getAndUpdateOp`): read the current entity, derive a partial from it (plain partial or `current => partial` callback), and write back guarded on the `_u` that was read. The guarded, retrying counterpart to adapter-native update surfaces.
+_Avoid_: getUpdate, modify, RMW (spell out **get-and-update**).
+
+**Transact op**:
+A deferred write (insert, update, delete, or restore) produced by an **entity service** ahead of any transaction — `insertOp` / `updateOp` / `deleteOp` (tombstones via `_d: true`) / `restoreOp` (`_d: false`). Building an op validates, encodes, and captures the optimistic-concurrency expectation (`updateOp`, `deleteOp`, and `restoreOp` can drop it with `lastWriteWins: true`); it performs no write and has no executable form until **transact** supplies the write cursor — the op is a pure function of the `_u` assigned at commit time.
+
+**Reset (single entity)**:
+Single entities are never deleted — `reset()` writes the default value back as a real record, so `get` and broadcasts agree on the same `_u`.
+_Avoid_: delete (retired single-entity term).
+
+**Transact**:
+The **Table**'s atomic application of a batch of **transact ops** — all apply or none do. Change broadcasts fire only after a successful commit. This is the only transaction vocabulary in the kernel; adapters do not expose interactive (read-inside) transactions.
+_Avoid_: transaction(effect) (retired sqlite term), interactive transaction.

@@ -5,11 +5,8 @@ import type {
 import { Effect, Option, Schema } from 'effect';
 import type { EntityType } from '../../../core/index.js';
 import type { SQLiteTableInstance } from './sqlite-table.js';
-import {
-  SqliteDB,
-  SqliteDBError,
-  TransactionPendingBroadcasts,
-} from '../sql/db.js';
+import type { SqliteEntityOp, SqliteWriteOp } from './sqlite-entity.js';
+import { SqliteDB, SqliteDBError } from '../sql/db.js';
 import { Broadcaster, nextUlid } from '../../../core/index.js';
 import { deriveIndexKeyValue, type RawRow } from '../internal/utils.js';
 
@@ -61,7 +58,10 @@ export class SQLiteSingleEntity<
    *
    * @returns A builder to configure the entity schema
    */
-  static make<TTable extends SQLiteTableInstance>(table: TTable) {
+  static make<TTable extends SQLiteTableInstance>(
+    table: TTable,
+    onBuild?: (entity: SQLiteSingleEntity<any, any>) => void,
+  ) {
     return {
       /**
        * Configures the entity to use the given ESchema.
@@ -79,11 +79,13 @@ export class SQLiteSingleEntity<
            * @returns The configured SQLiteSingleEntity instance
            */
           default(defaultValue: Omit<ESchemaType<TS>, '_v'>) {
-            return new SQLiteSingleEntity<TTable, TS>(
+            const entity = new SQLiteSingleEntity<TTable, TS>(
               table,
               eschema,
               defaultValue as ESchemaType<TS>,
             );
+            onBuild?.(entity);
+            return entity;
           },
         };
       },
@@ -180,7 +182,6 @@ export class SQLiteSingleEntity<
         _v: this.#eschema.latestVersion,
         _u,
       };
-
       const { pk, sk } = this.#deriveKey();
 
       const existing = yield* this.#table.getItem({ pk, sk });
@@ -207,7 +208,7 @@ export class SQLiteSingleEntity<
       }
 
       const entity = { value: fullValue, meta: { ...meta, _d: false } };
-      yield* this.#broadcast(entity);
+      yield* this.#broadcast([entity]);
       return { value: fullValue, meta };
     });
   }
@@ -252,7 +253,6 @@ export class SQLiteSingleEntity<
         _v: this.#eschema.latestVersion,
         _u,
       };
-
       const { pk, sk } = this.#deriveKey();
 
       const updateValues: Record<string, unknown> = {
@@ -264,24 +264,93 @@ export class SQLiteSingleEntity<
       yield* this.#table.updateItem({ pk, sk }, updateValues);
 
       const entity = { value: fullValue, meta: { ...meta, _d: false } };
-      yield* this.#broadcast(entity);
+      yield* this.#broadcast([entity]);
       return { value: fullValue, meta };
+    });
+  }
+
+  /** Writes the default value back — single entities are never deleted. */
+  reset(): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    SqliteDBError,
+    SqliteDB
+  > {
+    return this.put(this.#defaultValue);
+  }
+
+  /**
+   * Validates and encodes NOW (no write), pre-fetching the existing entity so
+   * the returned op embeds the optimistic `expectedU` check. The final cursor
+   * and broadcast metadata are assigned when applied. Fails if the item
+   * doesn't exist (i.e., `_u === ""`).
+   *
+   * @param params - Object containing the update
+   * @returns A descriptor for update, plus its broadcast payload
+   */
+  updateOp(params: {
+    update: Partial<Omit<ESchemaType<TSchema>, '_v'>>;
+    lastWriteWins?: boolean;
+  }): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
+    return Effect.gen({ self: this }, function* () {
+      const db = yield* SqliteDB;
+      const existing = yield* this.get();
+
+      if (existing.meta._u === '') {
+        return yield* Effect.fail(SqliteDBError.noItemToUpdate(db.tableName));
+      }
+
+      const fullValue = {
+        ...existing.value,
+        ...params.update,
+      } as ESchemaType<TSchema>;
+
+      const encoded = yield* this.#eschema
+        .encode(fullValue as any)
+        .pipe(
+          Effect.mapError((e) => SqliteDBError.updateFailed(db.tableName, e)),
+        );
+
+      const { pk, sk } = this.#deriveKey();
+
+      return {
+        entityName: this.#eschema.name,
+        operationKind: 'updateOp',
+        pk,
+        sk,
+        table: this.#table,
+        apply: (u) => ({
+          write: {
+            type: 'update',
+            key: { pk, sk },
+            values: {
+              _data: JSON.stringify(encoded),
+              _v: this.#eschema.latestVersion,
+              _u: u,
+            },
+            ...(params.lastWriteWins ? {} : { expectedU: existing.meta._u }),
+          } satisfies SqliteWriteOp,
+          entity: {
+            value: fullValue,
+            meta: {
+              _e: this.#eschema.name,
+              _v: this.#eschema.latestVersion,
+              _u: u,
+              _d: false,
+            },
+          },
+        }),
+      };
     });
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
-    return Effect.gen({ self: this }, function* () {
-      const pending = yield* TransactionPendingBroadcasts;
-      if (Option.isSome(pending)) {
-        pending.value.push(entity);
-      } else {
-        const service = yield* Effect.serviceOption(Broadcaster).pipe(
-          Effect.map(Option.getOrNull),
-        );
-        service?.broadcast(entity);
-      }
+  #broadcast(entities: EntityType<ESchemaType<TSchema>>[]) {
+    return Effect.gen(function* () {
+      const service = yield* Effect.serviceOption(Broadcaster).pipe(
+        Effect.map(Option.getOrNull),
+      );
+      service?.broadcast(entities);
     });
   }
 

@@ -26,7 +26,7 @@ The singleton form of an **Entity** — one record with no id field. Carries a r
 _Avoid_: Singleton row, single record.
 
 **Broadcaster**:
-The pub/sub primitive for distributing entity change events (emit, subscribe, unsubscribe). The transport mechanism contexts use to propagate confirmed entities.
+The outbound hook for confirmed entity writes. Adapters call `broadcast` with the batch of written entities after every successful write — a single-element batch for one write, the full op list for transactions and bulk inserts. Whoever provides the layer decides where changes go. Optional — writes proceed without it.
 _Avoid_: EventBus, emitter, channel.
 
 **StdToolkitError**:

@@ -9,7 +9,7 @@ const itEffect = <A, E>(
   );
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
-import { DynamoTable, DynamoEntity, DynamodbError } from '../index.js';
+import { DynamoTable, DynamodbError } from '../index.js';
 import {
   createDynamoDB,
   dynamoDBLayer,
@@ -29,7 +29,10 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
+// Two table objects with identical topology pointing at the same physical
+// table — entity names are unique per table object, and V1/V2 share a name.
 const table = DynamoTable.make().primary('pk', 'sk').build();
+const tableV2 = DynamoTable.make().primary('pk', 'sk').build();
 
 const settingsSchemaV1 = EntityESchema.make('Settings', 'settingsId', {
   theme: Schema.String,
@@ -44,13 +47,13 @@ const settingsSchemaV2 = EntityESchema.make('Settings', 'settingsId', {
   }))
   .build();
 
-const SettingsV1 = DynamoEntity.make(table)
-  .eschema(settingsSchemaV1)
+const SettingsV1 = table
+  .entity(settingsSchemaV1)
   .primary({ pk: ['settingsId'] })
   .build();
 
-const SettingsV2 = DynamoEntity.make(table)
-  .eschema(settingsSchemaV2)
+const SettingsV2 = tableV2
+  .entity(settingsSchemaV2)
   .primary({ pk: ['settingsId'] })
   .build();
 

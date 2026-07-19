@@ -7,7 +7,7 @@ const itEffect = <A, E>(
   it(name, () =>
     Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
   );
-import { Effect, Schema, Stream } from 'effect';
+import { Effect, Exit, Schema, Stream } from 'effect';
 import {
   ESchema,
   EntityESchema,
@@ -16,9 +16,6 @@ import {
 } from '../../../eschema/index.js';
 import {
   DynamoTable,
-  DynamoEntity,
-  DynamoSingleEntity,
-  EntityRegistry,
   DynamodbError,
   exprUpdate,
   buildExpr,
@@ -64,8 +61,8 @@ const userSchema = EntityESchema.make('User', 'userId', {
 
 // Entity receives table instance directly
 // New API: SK is automatically the idField
-const UserEntity = DynamoEntity.make(table)
-  .eschema(userSchema)
+const UserEntity = table
+  .entity(userSchema)
   .primary({ pk: ['userId'] })
   .index('GSI1', 'byEmail', { pk: ['email'] })
   .index('GSI2', 'byStatus', { pk: ['status'] })
@@ -86,8 +83,8 @@ const orderSchema = EntityESchema.make('Order', 'orderId', {
 }).build();
 
 // SK is automatically the idField (orderId)
-const OrderEntity = DynamoEntity.make(table)
-  .eschema(orderSchema)
+const OrderEntity = table
+  .entity(orderSchema)
   .primary({ pk: ['userId'] })
   .build();
 
@@ -99,8 +96,8 @@ const productSchema = EntityESchema.make('Product', 'productId', {
 }).build();
 
 // Custom SK index: GSI1 sorts by name, GSI2 sorts by price (via _u default)
-const ProductEntity = DynamoEntity.make(table)
-  .eschema(productSchema)
+const ProductEntity = table
+  .entity(productSchema)
   .primary({ pk: ['category'] })
   .index('GSI1', 'byName', { pk: ['category'], sk: ['name'] })
   .index('GSI2', 'byCategoryDefault', { pk: ['category'] })
@@ -113,8 +110,8 @@ const gadgetSchema = EntityESchema.make('Gadget', 'gadgetId', {
   sub: Schema.String,
 }).build();
 
-const GadgetEntity = DynamoEntity.make(table)
-  .eschema(gadgetSchema)
+const GadgetEntity = table
+  .entity(gadgetSchema)
   .primary({ pk: ['brand'] })
   .index('GSI1', 'byNameSub', { pk: ['brand'], sk: ['name', 'sub'] })
   .build();
@@ -132,8 +129,8 @@ const profileSchema = EntityESchema.make('Profile', 'profileId', {
   address: toSchema(addressSchema, { name: 'Address' }),
 }).build();
 
-const ProfileEntity = DynamoEntity.make(table)
-  .eschema(profileSchema)
+const ProfileEntity = table
+  .entity(profileSchema)
   .primary({ pk: ['profileId'] })
   .index('GSI1', 'all', { pk: [] })
   .build();
@@ -841,86 +838,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
       );
     });
 
-    describe('transactions', () => {
-      itEffect('executes multiple operations atomically', () =>
-        Effect.gen(function* () {
-          const op1 = table.opPutItem({
-            pk: 'TXN#1',
-            sk: 'ITEM#A',
-            value: 'transaction item A',
-          });
-
-          const op2 = table.opPutItem({
-            pk: 'TXN#1',
-            sk: 'ITEM#B',
-            value: 'transaction item B',
-          });
-
-          yield* table.transact([op1, op2]);
-
-          // Verify both items exist
-          const item1 = yield* table.getItem({ pk: 'TXN#1', sk: 'ITEM#A' });
-          const item2 = yield* table.getItem({ pk: 'TXN#1', sk: 'ITEM#B' });
-
-          expect(item1.Item).not.toBeNull();
-          expect(item2.Item).not.toBeNull();
-          expect(item1.Item?.value).toBe('transaction item A');
-          expect(item2.Item?.value).toBe('transaction item B');
-        }),
-      );
-
-      itEffect('executes update operations in transaction', () =>
-        Effect.gen(function* () {
-          // Setup items
-          yield* table.putItem({
-            pk: 'TXN_UPDATE#1',
-            sk: 'ITEM#A',
-            count: 10,
-          });
-          yield* table.putItem({
-            pk: 'TXN_UPDATE#1',
-            sk: 'ITEM#B',
-            count: 20,
-          });
-
-          const update1 = exprUpdate<{ count: number }>(($) => [
-            $.set('count', opAdd('count', 5)),
-          ]);
-          const expr1 = buildExpr({ update: update1 });
-
-          const update2 = exprUpdate<{ count: number }>(($) => [
-            $.set('count', opAdd('count', -5)),
-          ]);
-          const expr2 = buildExpr({ update: update2 });
-
-          const op1 = table.opUpdateItem(
-            { pk: 'TXN_UPDATE#1', sk: 'ITEM#A' },
-            expr1,
-          );
-
-          const op2 = table.opUpdateItem(
-            { pk: 'TXN_UPDATE#1', sk: 'ITEM#B' },
-            expr2,
-          );
-
-          yield* table.transact([op1, op2]);
-
-          const item1 = yield* table.getItem({
-            pk: 'TXN_UPDATE#1',
-            sk: 'ITEM#A',
-          });
-          const item2 = yield* table.getItem({
-            pk: 'TXN_UPDATE#1',
-            sk: 'ITEM#B',
-          });
-
-          expect(item1.Item?.count).toBe(15);
-          expect(item2.Item?.count).toBe(15);
-        }),
-      );
-    });
-
-    describe('dangerouslyPurgeAllItems', () => {
+    describe('dangerouslyRemoveAllItems', () => {
       itEffect('deletes all items from the table', () =>
         Effect.gen(function* () {
           yield* table.putItem({ pk: 'PURGE#1', sk: 'A', value: '1' });
@@ -930,7 +848,10 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
           const before = yield* table.scan();
           expect(before.Items.length).toBeGreaterThanOrEqual(3);
 
-          yield* table.dangerouslyPurgeAllItems('I KNOW WHAT I AM DOING');
+          const { itemsDeleted } = yield* table.dangerouslyRemoveAllItems(
+            'I KNOW WHAT I AM DOING',
+          );
+          expect(itemsDeleted).toBeGreaterThanOrEqual(3);
 
           const after = yield* table.scan();
           expect(after.Items.length).toBe(0);
@@ -1205,6 +1126,68 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
               );
             }
           }),
+      );
+    });
+
+    describe('restore', () => {
+      itEffect('lifts the tombstone with a fresh _u', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-restore-1',
+            name: 'Restore Me',
+            email: 'restore@example.com',
+            status: 'active',
+            age: 30,
+          });
+
+          const deleted = yield* UserEntity.delete({
+            userId: 'entity-restore-1',
+          });
+          const restored = yield* UserEntity.restore({
+            userId: 'entity-restore-1',
+          });
+
+          expect(restored.meta._d).toBe(false);
+          expect(restored.meta._u > deleted.meta._u).toBe(true);
+
+          const after = yield* UserEntity.get({ userId: 'entity-restore-1' });
+          expect(after?.meta._d).toBe(false);
+          expect(after?.value.name).toBe('Restore Me');
+        }),
+      );
+
+      itEffect('is a no-op on a live entity', () =>
+        Effect.gen(function* () {
+          const inserted = yield* UserEntity.insert({
+            userId: 'entity-restore-2',
+            name: 'Already Live',
+            email: 'live@example.com',
+            status: 'active',
+            age: 30,
+          });
+
+          const restored = yield* UserEntity.restore({
+            userId: 'entity-restore-2',
+          });
+
+          expect(restored.meta._d).toBe(false);
+          expect(restored.meta._u).toBe(inserted.meta._u);
+        }),
+      );
+
+      itEffect('fails with NoItemToRestore when entity is missing', () =>
+        Effect.gen(function* () {
+          const result = yield* UserEntity.restore({
+            userId: 'entity-missing-restore',
+          }).pipe(Effect.result);
+
+          expect(result._tag).toBe('Failure');
+          if (result._tag === 'Failure') {
+            expect((result.failure as DynamodbError).error._tag).toBe(
+              'NoItemToRestore',
+            );
+          }
+        }),
       );
     });
 
@@ -1566,6 +1549,100 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
           expect(newUser).not.toBeNull();
           expect(existingUser?.value.status).toBe('verified');
         }),
+      );
+
+      itEffect('rolls back a stale updateOp on the captured _u', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'txn-stale-1',
+            name: 'Stale User',
+            email: 'stale@example.com',
+            status: 'pending',
+            age: 40,
+          });
+
+          const staleOp = yield* UserEntity.updateOp(
+            { userId: 'txn-stale-1' },
+            { update: { status: 'from-op' } },
+          );
+          yield* UserEntity.update(
+            { userId: 'txn-stale-1' },
+            { update: { status: 'concurrent' } },
+          );
+
+          const error = yield* table.transact([staleOp]).pipe(Effect.flip);
+          const after = yield* UserEntity.get({ userId: 'txn-stale-1' });
+
+          expect(error.error._tag).toBe('ConditionFailed');
+          if (error.error._tag === 'ConditionFailed') {
+            expect(error.error.failures).toContainEqual(
+              expect.objectContaining({
+                index: 0,
+                entityName: 'User',
+                operationKind: 'updateOp',
+                writeKind: 'update',
+                reasonCode: 'ConditionalCheckFailed',
+              }),
+            );
+          }
+          expect(after?.value.status).toBe('concurrent');
+        }),
+      );
+
+      itEffect(
+        'updateOp with lastWriteWins applies despite a concurrent write',
+        () =>
+          Effect.gen(function* () {
+            yield* UserEntity.insert({
+              userId: 'txn-lww-1',
+              name: 'LWW User',
+              email: 'lww@example.com',
+              status: 'pending',
+              age: 40,
+            });
+
+            const lwwOp = yield* UserEntity.updateOp(
+              { userId: 'txn-lww-1' },
+              { update: { status: 'from-op' }, lastWriteWins: true },
+            );
+            yield* UserEntity.update(
+              { userId: 'txn-lww-1' },
+              { update: { status: 'concurrent' } },
+            );
+
+            yield* table.transact([lwwOp]);
+            const after = yield* UserEntity.get({ userId: 'txn-lww-1' });
+
+            expect(after?.value.status).toBe('from-op');
+          }),
+      );
+
+      itEffect(
+        'deleteOp tombstones and restoreOp revives inside transact',
+        () =>
+          Effect.gen(function* () {
+            yield* UserEntity.insert({
+              userId: 'txn-tomb-1',
+              name: 'Tomb User',
+              email: 'tomb@example.com',
+              status: 'active',
+              age: 40,
+            });
+
+            const delOp = yield* UserEntity.deleteOp({ userId: 'txn-tomb-1' });
+            yield* table.transact([delOp]);
+            const afterDelete = yield* UserEntity.get({ userId: 'txn-tomb-1' });
+
+            const resOp = yield* UserEntity.restoreOp({ userId: 'txn-tomb-1' });
+            yield* table.transact([resOp]);
+            const afterRestore = yield* UserEntity.get({
+              userId: 'txn-tomb-1',
+            });
+
+            expect(afterDelete?.meta._d).toBe(true);
+            expect(afterRestore?.meta._d).toBe(false);
+            expect(afterRestore!.meta._u > afterDelete!.meta._u).toBe(true);
+          }),
       );
     });
 
@@ -2191,31 +2268,41 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
     );
   });
 
-  describe('EntityRegistry with single entities', () => {
+  describe('table transactions with single entities', () => {
     const settingsSchema = SingleEntityESchema.make('Settings', {
       darkMode: Schema.Boolean,
       language: Schema.String,
     }).build();
 
-    const Settings = DynamoSingleEntity.make(table)
-      .eschema(settingsSchema)
+    const Settings = table
+      .singleEntity(settingsSchema)
       .default({ darkMode: false, language: 'en' });
 
-    const registry = EntityRegistry.make(table)
-      .register(UserEntity)
-      .registerSingle(Settings)
-      .build();
-
-    it('provides access to single entity via singleEntity()', () => {
-      const s = registry.singleEntity('Settings');
-      expect(s.name).toBe('Settings');
+    it('rejects duplicate entity names on the same table', () => {
+      expect(() =>
+        table
+          .singleEntity(settingsSchema)
+          .default({ darkMode: false, language: 'en' }),
+      ).toThrow('Entity "Settings" is already defined on this table');
     });
 
-    it('includes single entity names in entityNames', () => {
-      const names = registry.entityNames;
-      expect(names).toContain('User');
-      expect(names).toContain('Settings');
-    });
+    itEffect('dies on ops produced by a different table instance', () =>
+      Effect.gen(function* () {
+        const otherTable = DynamoTable.make().primary('pk', 'sk').build();
+        const OtherSettings = otherTable
+          .singleEntity(settingsSchema)
+          .default({ darkMode: false, language: 'en' });
+
+        yield* Settings.put({ darkMode: false, language: 'en' });
+        const foreignOp = yield* OtherSettings.updateOp({
+          update: { darkMode: true },
+        });
+
+        const exit = yield* table.transact([foreignOp]).pipe(Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(String(exit)).toContain('different table instance');
+      }),
+    );
 
     itEffect(
       'executes transaction with both entity and single entity ops',
@@ -2235,7 +2322,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
             update: { darkMode: true },
           });
 
-          const entities = yield* registry.transact([insertOp, updateOp]);
+          const entities = yield* table.transact([insertOp, updateOp]);
 
           expect(entities).toHaveLength(2);
           expect(entities[0]?.value).toMatchObject({

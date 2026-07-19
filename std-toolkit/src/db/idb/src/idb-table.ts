@@ -1,6 +1,13 @@
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 import { IdbDB, IdbDBError } from './db.js';
 import type { IdbKey, IdbRangeSpec, IdbRecord } from './db.js';
+import type {
+  AnyEntityESchema,
+  AnySingleEntityESchema,
+} from '../../../eschema/index.js';
+import { Broadcaster, nextUlid, type EntityType } from '../../../core/index.js';
+import { IdbEntity, type IdbEntityOp } from './idb-entity.js';
+import { IdbSingleEntity } from './idb-single-entity.js';
 
 /**
  * Defines the structure of a primary or secondary index.
@@ -282,12 +289,127 @@ function createIdbTableInstance<
     },
 
     /**
-     * Deletes all rows from the table.
+     * Deletes all items from the table.
      */
-    dangerouslyRemoveAllRows(
-      _: 'i know what i am doing',
-    ): Effect.Effect<{ rowsDeleted: number }, IdbDBError, IdbDB> {
-      return IdbDB.pipe(Effect.flatMap((db) => db.clear()));
+    dangerouslyRemoveAllItems(
+      _: 'I KNOW WHAT I AM DOING',
+    ): Effect.Effect<{ itemsDeleted: number }, IdbDBError, IdbDB> {
+      return IdbDB.pipe(
+        Effect.flatMap((db) => db.clear()),
+        Effect.map(({ rowsDeleted }) => ({ itemsDeleted: rowsDeleted })),
+      );
+    },
+  };
+}
+
+/**
+ * Wraps the base table with entity definition and transaction capabilities.
+ * Entities built from the returned table register themselves into it; duplicate
+ * entity names fail at build time.
+ */
+function withEntityDefinitions<
+  TPrimaryIndex extends IndexDefinition,
+  TSecondaryIndexMap extends Record<string, IndexDefinition>,
+>(base: IdbTableInstance<TPrimaryIndex, TSecondaryIndexMap>) {
+  const entityNames = new Set<string>();
+  const register = (entity: { name: string }) => {
+    if (entityNames.has(entity.name)) {
+      throw new Error(
+        `Entity "${entity.name}" is already defined on this table`,
+      );
+    }
+    entityNames.add(entity.name);
+  };
+
+  return {
+    ...base,
+
+    /**
+     * Defines a keyed entity on this table from an ESchema.
+     * The entity is registered into the table when `.build()` is called.
+     *
+     * @param eschema - The entity's ESchema
+     * @returns A builder to configure the primary index derivation
+     */
+    entity<TS extends AnyEntityESchema>(eschema: TS) {
+      return IdbEntity.make(base, register).eschema(eschema);
+    },
+
+    /**
+     * Defines a singleton entity on this table from an ESchema.
+     * The entity is registered into the table when `.default()` is called.
+     *
+     * @param eschema - The single entity's ESchema
+     * @returns A builder to set the default value
+     */
+    singleEntity<TS extends AnySingleEntityESchema>(eschema: TS) {
+      return IdbSingleEntity.make(base, register).eschema(eschema);
+    },
+
+    /**
+     * Applies every op in ONE native IndexedDB read-write transaction, or
+     * none do — see the buffered-transactions ADR. Ops are built ahead of
+     * time via each entity's `insertOp`/`updateOp`, outside any transaction.
+     * Ops built against a different table are rejected as a defect.
+     *
+     * Broadcasts fire only after the underlying transaction commits, in op
+     * order; a failed transaction broadcasts nothing.
+     *
+     * @param ops - Pre-built op descriptors from this table's entities
+     * @returns The written entities, in op order
+     */
+    transact(
+      ops: ReadonlyArray<IdbEntityOp>,
+    ): Effect.Effect<EntityType<unknown>[], IdbDBError, IdbDB> {
+      return Effect.gen(function* () {
+        if (ops.length === 0) return [];
+
+        for (const op of ops) {
+          if (op.table !== base) {
+            return yield* Effect.die(
+              new Error(
+                `Transaction op for entity "${op.entityName}" was built against a different table`,
+              ),
+            );
+          }
+        }
+
+        const keyCounts = new Map<
+          string,
+          { count: number; pk: string; sk: string }
+        >();
+        for (const op of ops) {
+          const key = JSON.stringify([op.pk, op.sk]);
+          const existing = keyCounts.get(key);
+          keyCounts.set(key, {
+            count: (existing?.count ?? 0) + 1,
+            pk: op.pk,
+            sk: op.sk,
+          });
+        }
+        for (const { count, pk, sk } of keyCounts.values()) {
+          if (count > 1) {
+            return yield* Effect.die(
+              new Error(
+                `transact requires unique items; ${count} ops target pk=${pk} sk=${sk}`,
+              ),
+            );
+          }
+        }
+
+        const db = yield* IdbDB;
+        const applied = yield* Effect.forEach(ops, (op) =>
+          Effect.map(nextUlid, op.apply),
+        );
+        yield* db.transact(applied.map((a) => a.write));
+
+        const connectionService = yield* Effect.serviceOption(Broadcaster).pipe(
+          Effect.map(Option.getOrNull),
+        );
+        const entities = applied.map((a) => a.entity);
+        connectionService?.broadcast(entities);
+        return entities;
+      });
     },
   };
 }
@@ -348,9 +470,11 @@ class IdbTableBuilder<
   /**
    * Builds the final IdbTable instance with all configured indexes.
    *
-   * @returns The configured IdbTableInstance
+   * @returns The configured table with entity definition capabilities
    */
-  build(): IdbTableInstance<TPrimaryIndex, TSecondaryIndexMap> {
-    return createIdbTableInstance(this.#primary, this.#secondaryIndexMap);
+  build() {
+    return withEntityDefinitions(
+      createIdbTableInstance(this.#primary, this.#secondaryIndexMap),
+    );
   }
 }

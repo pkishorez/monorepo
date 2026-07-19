@@ -5,10 +5,9 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { SingleEntityESchema } from '../../../eschema/index.js';
 import { Effect, Layer, Schema } from 'effect';
-import { IdbDB } from '../db.js';
-import { idbLayer } from '../layer.js';
-import { IdbTable } from '../idb-table.js';
-import { IdbSingleEntity } from '../idb-single-entity.js';
+import { IdbDB } from '../src/db.js';
+import { idbLayer } from '../src/layer.js';
+import { IdbTable } from '../src/idb-table.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -28,8 +27,8 @@ const provided = <A, E>(
 const makeConfig = () => {
   const layer = idbLayer(uniqueDbName(), 'std_data');
   const table = IdbTable.make().primary('pk', 'sk').build();
-  const AppConfig = IdbSingleEntity.make(table)
-    .eschema(configSchema)
+  const AppConfig = table
+    .singleEntity(configSchema)
     .default({ theme: 'light', maxRetries: 3 });
   return { layer, table, AppConfig };
 };
@@ -174,6 +173,32 @@ describe('IdbSingleEntity', () => {
       expect(rejected).toMatchObject({
         reason: { code: 'conditionFailed' },
       });
+    });
+  });
+
+  describe('reset', () => {
+    itEffect('writes the default value back', () => {
+      const { layer, table, AppConfig } = makeConfig();
+
+      return provided(
+        layer,
+        Effect.gen(function* () {
+          yield* table.setup();
+          const written = yield* AppConfig.put({
+            theme: 'dark',
+            maxRetries: 9,
+          });
+
+          const reverted = yield* AppConfig.reset();
+          const after = yield* AppConfig.get();
+
+          expect(reverted.value.theme).toBe('light');
+          expect(reverted.meta._u > written.meta._u).toBe(true);
+          expect(after.value.theme).toBe('light');
+          expect(after.value.maxRetries).toBe(3);
+          expect(after.meta._u).toBe(reverted.meta._u);
+        }),
+      );
     });
   });
 });

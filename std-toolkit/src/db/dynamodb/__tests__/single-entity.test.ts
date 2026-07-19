@@ -9,7 +9,7 @@ const itEffect = <A, E>(
   );
 import { Effect, Schema } from 'effect';
 import { SingleEntityESchema } from '../../../eschema/index.js';
-import { DynamoTable, DynamoSingleEntity } from '../index.js';
+import { DynamoTable } from '../index.js';
 import {
   createDynamoDB,
   dynamoDBLayer,
@@ -36,8 +36,8 @@ const configSchema = SingleEntityESchema.make('AppConfig', {
   maxRetries: Schema.Number,
 }).build();
 
-const AppConfig = DynamoSingleEntity.make(table)
-  .eschema(configSchema)
+const AppConfig = table
+  .singleEntity(configSchema)
   .default({ theme: 'light', maxRetries: 3 });
 
 async function createTestTable() {
@@ -191,8 +191,8 @@ describe('DynamoSingleEntity', () => {
           value: Schema.String,
         }).build();
 
-        const EmptyConfig = DynamoSingleEntity.make(table)
-          .eschema(emptySchema)
+        const EmptyConfig = table
+          .singleEntity(emptySchema)
           .default({ value: 'x' });
 
         const error = yield* EmptyConfig.update({
@@ -204,37 +204,39 @@ describe('DynamoSingleEntity', () => {
     );
   });
 
-  describe('delete', () => {
-    itEffect('hard-deletes the record and get returns default', () =>
+  describe('reset', () => {
+    itEffect('writes the default value back and get returns it', () =>
       Effect.gen(function* () {
         yield* AppConfig.put({ theme: 'purple', maxRetries: 7 });
 
         const before = yield* AppConfig.get();
         expect(before.value.theme).toBe('purple');
 
-        yield* AppConfig.delete();
+        const reverted = yield* AppConfig.reset();
 
         const after = yield* AppConfig.get();
+        expect(reverted.meta._u > before.meta._u).toBe(true);
         expect(after.value.theme).toBe('light');
         expect(after.value.maxRetries).toBe(3);
-        expect(after.meta._u).toBe('');
+        expect(after.meta._u).toBe(reverted.meta._u);
       }),
     );
 
-    itEffect('is a no-op when item does not exist', () =>
+    itEffect('creates the default record when item does not exist', () =>
       Effect.gen(function* () {
-        const noopSchema = SingleEntityESchema.make('NoopDeleteConfig', {
+        const noopSchema = SingleEntityESchema.make('NoopResetConfig', {
           value: Schema.String,
         }).build();
 
-        const NoopConfig = DynamoSingleEntity.make(table)
-          .eschema(noopSchema)
+        const NoopConfig = table
+          .singleEntity(noopSchema)
           .default({ value: 'default' });
 
-        yield* NoopConfig.delete();
+        const reverted = yield* NoopConfig.reset();
 
         const result = yield* NoopConfig.get();
         expect(result.value.value).toBe('default');
+        expect(result.meta._u).toBe(reverted.meta._u);
       }),
     );
   });
@@ -242,19 +244,20 @@ describe('DynamoSingleEntity', () => {
   describe('updateOp', () => {
     itEffect('returns a TransactItem with plain object update', () =>
       Effect.gen(function* () {
-        yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+        const initial = yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
 
         const op = yield* AppConfig.updateOp({
           update: { theme: 'dark' },
         });
 
-        expect(op.kind).toBe('update');
+        const applied = op.apply('01TESTULID0000000000000000');
+        expect(applied.kind).toBe('update');
         expect(op.entityName).toBe('AppConfig');
-        expect(op.broadcast).toBeDefined();
-        expect(op.broadcast?.value).toMatchObject({
+        expect(applied.broadcast.value).toMatchObject({
           theme: 'dark',
           maxRetries: 3,
         });
+        expect(applied.broadcast.meta._u).not.toBe(initial.meta._u);
       }),
     );
 
@@ -266,9 +269,10 @@ describe('DynamoSingleEntity', () => {
           update: ($) => [$.set('maxRetries', $.opAdd('maxRetries', 10))],
         });
 
-        expect(op.kind).toBe('update');
+        const applied = op.apply('01TESTULID0000000000000000');
+        expect(applied.kind).toBe('update');
         expect(op.entityName).toBe('AppConfig');
-        expect(op.broadcast).toBeDefined();
+        expect(applied.broadcast).toBeDefined();
       }),
     );
 

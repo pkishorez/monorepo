@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
@@ -8,12 +8,9 @@ import {
   EntityESchema,
 } from '../../../../eschema/index.js';
 import { Effect, type Layer, Schema } from 'effect';
-import { betterSqlite3Layer } from '../../sql/adapters/better-sqlite3.js';
+import { nodeSqliteLayer } from '../../sql/adapters/node.js';
 import type { SqliteDB } from '../../sql/db.js';
 import { SQLiteTable } from '../sqlite-table.js';
-import { SQLiteEntity } from '../sqlite-entity.js';
-import { SQLiteSingleEntity } from '../sqlite-single-entity.js';
-import { EntityRegistry } from '../entity-registry.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -25,18 +22,18 @@ const configSchema = SingleEntityESchema.make('AppConfig', {
 // ─── Setup ──────────────────────────────────────────────────────────────────
 
 describe('SQLiteSingleEntity', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make().primary('pk', 'sk').build();
 
-  const AppConfig = SQLiteSingleEntity.make(table)
-    .eschema(configSchema)
+  const AppConfig = table
+    .singleEntity(configSchema)
     .default({ theme: 'light', maxRetries: 3 });
 
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'std_data');
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'std_data');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -122,8 +119,8 @@ describe('SQLiteSingleEntity', () => {
 
         yield* emptyTable.setup();
 
-        const EmptyConfig = SQLiteSingleEntity.make(emptyTable)
-          .eschema(emptySchema)
+        const EmptyConfig = emptyTable
+          .singleEntity(emptySchema)
           .default({ value: 'x' });
 
         const error = yield* EmptyConfig.update({
@@ -135,34 +132,48 @@ describe('SQLiteSingleEntity', () => {
     );
   });
 
-  // ─── registry ────────────────────────────────────────────────────────────
+  // ─── reset ───────────────────────────────────────────────────────────────
 
-  describe('registry', () => {
-    itEffect('registerSingle works', () =>
-      Effect.sync(() => {
-        const UserSchema = EntityESchema.make('User', 'userId', {
-          name: Schema.String,
-        }).build();
+  describe('reset', () => {
+    itEffect('writes the default value back', () =>
+      Effect.gen(function* () {
+        const written = yield* AppConfig.put({
+          theme: 'dark',
+          maxRetries: 9,
+        });
 
-        const userEntity = SQLiteEntity.make(table)
-          .eschema(UserSchema)
-          .primary()
-          .build();
+        const reverted = yield* AppConfig.reset();
+        const after = yield* AppConfig.get();
 
-        const registry = EntityRegistry.make(table)
-          .register(userEntity)
-          .registerSingle(AppConfig)
-          .build();
-
-        // singleEntity accessor works
-        const config = registry.singleEntity('AppConfig');
-        expect(config.name).toBe('AppConfig');
-
-        // entityNames includes both
-        const names = registry.entityNames;
-        expect(names).toContain('User');
-        expect(names).toContain('AppConfig');
+        expect(reverted.value.theme).toBe('light');
+        expect(reverted.meta._u > written.meta._u).toBe(true);
+        expect(after.value.theme).toBe('light');
+        expect(after.value.maxRetries).toBe(3);
+        expect(after.meta._u).toBe(reverted.meta._u);
       }).pipe(Effect.provide(layer)),
     );
+  });
+
+  // ─── registration ────────────────────────────────────────────────────────
+
+  describe('registration', () => {
+    it('keyed and single entities share the table namespace', () => {
+      const UserSchema = EntityESchema.make('User', 'userId', {
+        name: Schema.String,
+      }).build();
+
+      const userEntity = table.entity(UserSchema).primary().build();
+      expect(userEntity.name).toBe('User');
+      expect(AppConfig.name).toBe('AppConfig');
+    });
+
+    it('rejects duplicate single entity names on the same table', () => {
+      expect(() =>
+        table.singleEntity(configSchema).default({
+          theme: 'light',
+          maxRetries: 3,
+        }),
+      ).toThrow('Entity "AppConfig" is already defined on this table');
+    });
   });
 });

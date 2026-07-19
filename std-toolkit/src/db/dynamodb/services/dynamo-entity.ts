@@ -13,7 +13,6 @@ import type {
   StreamSkParam,
   SimpleQueryOptions,
   QueryStreamOptions,
-  SubscribeOptions,
 } from '../types/index.js';
 import { extractKeyOp, getKeyOpScanDirection } from '../types/index.js';
 import {
@@ -139,17 +138,6 @@ type IsTimelineSk<T extends readonly unknown[]> = T extends readonly ['_u']
   : false;
 
 /**
- * Extracts only keys from a secondary derivation map where isTimelineSk is true.
- * Used to restrict subscribe() to _u-SK indexes only.
- */
-type SubscribableSecondaryKeys<
-  T extends Record<string, StoredIndexDerivation>,
-> = {
-  [K in keyof T]: T[K]['isTimelineSk'] extends true ? K : never;
-}[keyof T] &
-  string;
-
-/**
  * Resolves the SK param type for a secondary index based on isTimelineSk.
  * - isTimelineSk = true → SkParam (string | null cursor)
  * - isTimelineSk = false → CustomSkParam (object | null)
@@ -191,7 +179,7 @@ export class DynamoEntity<
   TTable extends DynamoTable<any, any>,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyEntityESchema,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
 > {
   /**
    * Creates a new entity builder for the given table.
@@ -200,7 +188,10 @@ export class DynamoEntity<
    * @param table - The DynamoTable instance
    * @returns A builder to configure the entity schema
    */
-  static make<TTable extends DynamoTable<any, any>>(table: TTable) {
+  static make<TTable extends DynamoTable<any, any>>(
+    table: TTable,
+    onBuild?: (entity: DynamoEntity<any, any, any, any>) => void,
+  ) {
     return {
       /**
        * Configures the entity to use the given ESchema.
@@ -219,12 +210,14 @@ export class DynamoEntity<
            * @returns A builder to add secondary index mappings
            */
           primary<
-            const TPkKeys extends readonly (
-              | keyof ESchemaType<TS>
-              | DerivableMetaFields
-            )[] = [],
+            const TPkKeys extends readonly (keyof ESchemaType<TS>)[] = [],
           >(primaryDerivation?: { pk: TPkKeys }) {
             const pkKeys = primaryDerivation?.pk ?? ([] as unknown as TPkKeys);
+            if ((pkKeys as readonly PropertyKey[]).includes('_u')) {
+              throw new Error(
+                'Primary partition key derivation cannot include "_u"',
+              );
+            }
             // SK is always the idField from the ESchema
             const skKeys = [eschema.idField] as const;
             return new EntityIndexDerivations<
@@ -232,7 +225,7 @@ export class DynamoEntity<
               TS,
               ExtractKeys<ESchemaType<TS>, TPkKeys>,
               {}
-            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {});
+            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {}, onBuild);
           },
         };
       },
@@ -246,12 +239,12 @@ export class DynamoEntity<
   #derivationDeps: Set<string>;
   #indexAttrNames: Set<string>;
 
-  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+  #broadcast(entities: EntityType<ESchemaType<TSchema>>[]) {
     return Effect.gen({ self: this }, function* () {
       const service = yield* Effect.serviceOption(Broadcaster).pipe(
         Effect.map(Option.getOrNull),
       );
-      service?.broadcast(entity);
+      service?.broadcast(entities);
     });
   }
 
@@ -366,10 +359,11 @@ export class DynamoEntity<
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const { item, exprResult, meta, fullValue } = yield* this.#prepareInsert(
+      const { exprResult, fullValue, restamp } = yield* this.#prepareInsert(
         fullValueWithId,
         options?.condition,
       );
+      const { item, meta } = restamp(yield* nextUlid);
 
       yield* this.#table
         .putItem(item, { ReturnValues: 'ALL_OLD', ...exprResult })
@@ -382,7 +376,7 @@ export class DynamoEntity<
         );
 
       const entity = { value: fullValue, meta };
-      yield* this.#broadcast(entity);
+      yield* this.#broadcast([entity]);
       return entity;
     }).pipe(
       Effect.tapError((e) =>
@@ -408,12 +402,16 @@ export class DynamoEntity<
           _v: this.#eschema.latestVersion,
         } as unknown as ESchemaType<TSchema>;
         const prepared = yield* this.#prepareInsert(fullValue);
-        items.push(prepared.item);
-        entities.push({ value: prepared.fullValue, meta: prepared.meta });
+        const { item, meta } = prepared.restamp(yield* nextUlid);
+        items.push(item);
+        entities.push({ value: prepared.fullValue, meta });
       }
       const { unprocessedIndexes } = yield* this.#table.batchWrite(items);
       const failed = new Set(unprocessedIndexes);
       const written = entities.filter((_, i) => !failed.has(i));
+      if (written.length > 0) {
+        yield* this.#broadcast(written);
+      }
       return { written, unprocessedIndexes };
     }).pipe(
       Effect.tapError((e) =>
@@ -449,7 +447,7 @@ export class DynamoEntity<
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
     const { update: updates, condition, autoMigrate = true } = params;
     return Effect.gen({ self: this }, function* () {
-      const { pk, sk, exprResult } =
+      const { pk, sk, restamp } =
         typeof updates === 'function'
           ? yield* this.#prepareUpdateExpr(
               keyValue as Record<string, unknown>,
@@ -461,6 +459,7 @@ export class DynamoEntity<
               updates,
               condition,
             );
+      const { exprResult } = restamp(yield* nextUlid);
 
       const attemptUpdate = () =>
         this.#table.updateItem(
@@ -514,7 +513,7 @@ export class DynamoEntity<
         value: decodedValue as ESchemaType<TSchema>,
         meta: updatedMeta,
       };
-      yield* this.#broadcast(entity);
+      yield* this.#broadcast([entity]);
       return entity;
     }).pipe(
       Effect.tapError((e) =>
@@ -589,7 +588,7 @@ export class DynamoEntity<
           value: existing.value,
           meta: { ...existing.meta, _d: true },
         };
-        yield* this.#broadcast(deleted);
+        yield* this.#broadcast([deleted]);
         return deleted;
       }
 
@@ -601,6 +600,37 @@ export class DynamoEntity<
     }).pipe(
       Effect.tapError((e) =>
         Effect.logError(`[${this.#eschema.name}] delete failed`, { error: e }),
+      ),
+    );
+  }
+
+  /**
+   * Restores a soft-deleted entity with a fresh `_u` so sync consumers see it
+   * become live again.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @returns The restored entity
+   */
+  restore(
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get(keyValue);
+      if (!existing) {
+        return yield* Effect.fail(DynamodbError.noItemToRestore());
+      }
+
+      if (!existing.meta._d) return existing;
+
+      return yield* this.update(keyValue, {
+        update: { _d: false } as any,
+      });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] restore failed`, {
+          error: e,
+        }),
       ),
     );
   }
@@ -618,24 +648,33 @@ export class DynamoEntity<
     options?: {
       condition?: ConditionInput<ESchemaType<TSchema>>;
     },
-  ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError, DynamoDB> {
+  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
     return Effect.gen({ self: this }, function* () {
       const fullValueWithId = {
         ...value,
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const { item, exprResult, meta, fullValue } = yield* this.#prepareInsert(
+      const { exprResult, fullValue, restamp } = yield* this.#prepareInsert(
         fullValueWithId,
         options?.condition,
       );
+      const { pk, sk } = this.#derivePrimaryIndex(fullValueWithId);
 
-      const tableOp = this.#table.opPutItem(item, exprResult);
       return {
-        ...tableOp,
         entityName: this.#eschema.name,
-        broadcast: { value: fullValue, meta },
-      };
+        operationKind: 'insertOp',
+        pk,
+        sk,
+        table: this.#table,
+        apply: (u) => {
+          const { item, meta } = restamp(u);
+          return {
+            ...this.#table.opPutItem(item, exprResult),
+            broadcast: { value: fullValue, meta },
+          };
+        },
+      } satisfies TransactItem;
     });
   }
 
@@ -659,26 +698,32 @@ export class DynamoEntity<
             ops: UpdateOps<ESchemaType<TSchema>>,
           ) => AnyOperation<ESchemaType<TSchema>>[]);
       condition?: ConditionInput<ESchemaType<TSchema>>;
+      lastWriteWins?: boolean;
     },
-  ): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError, DynamoDB> {
+  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
     const { update: updates, condition } = params;
     return Effect.gen({ self: this }, function* () {
-      const existing = yield* this.get(keyValue);
+      const existing = yield* this.get(keyValue, { ConsistentRead: true });
       if (!existing) {
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
       }
 
-      const { pk, sk, exprResult, meta } =
+      const expectedU = params.lastWriteWins ? undefined : existing.meta._u;
+      const { pk, sk, restamp } =
         typeof updates === 'function'
           ? yield* this.#prepareUpdateExpr(
               keyValue as Record<string, unknown>,
               updates,
               condition,
+              expectedU,
+              existing.meta._d,
             )
           : yield* this.#prepareUpdate(
               keyValue as Record<string, unknown>,
               updates,
               condition,
+              expectedU,
+              existing.meta._d,
             );
 
       const mergedValue =
@@ -686,12 +731,77 @@ export class DynamoEntity<
           ? existing.value
           : ({ ...existing.value, ...updates } as ESchemaType<TSchema>);
 
-      const tableOp = this.#table.opUpdateItem({ pk, sk }, exprResult);
       return {
-        ...tableOp,
         entityName: this.#eschema.name,
-        broadcast: { value: mergedValue, meta },
-      };
+        operationKind: 'updateOp',
+        pk,
+        sk,
+        table: this.#table,
+        apply: (u) => {
+          const { exprResult, meta } = restamp(u);
+          return {
+            ...this.#table.opUpdateItem({ pk, sk }, exprResult),
+            broadcast: { value: mergedValue, meta },
+          };
+        },
+      } satisfies TransactItem;
+    });
+  }
+
+  deleteOp(
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
+    return this.#buildTombstoneOp(keyValue, true, options);
+  }
+
+  restoreOp(
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
+    return this.#buildTombstoneOp(keyValue, false, options);
+  }
+
+  #buildTombstoneOp(
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    deleted: boolean,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get(keyValue, { ConsistentRead: true });
+      if (!existing) {
+        return yield* Effect.fail(
+          deleted
+            ? DynamodbError.noItemToDelete()
+            : DynamodbError.noItemToRestore(),
+        );
+      }
+
+      const { pk, sk, restamp } = yield* this.#prepareUpdate(
+        keyValue as Record<string, unknown>,
+        { _d: deleted } as any,
+        undefined,
+        options?.lastWriteWins ? undefined : existing.meta._u,
+        existing.meta._d,
+      );
+
+      return {
+        entityName: this.#eschema.name,
+        operationKind: deleted ? 'deleteOp' : 'restoreOp',
+        pk,
+        sk,
+        table: this.#table,
+        apply: (u) => {
+          const { exprResult, meta } = restamp(u);
+          return {
+            ...this.#table.opUpdateItem({ pk, sk }, exprResult),
+            broadcast: { value: existing.value, meta },
+          };
+        },
+      } satisfies TransactItem;
     });
   }
 
@@ -897,66 +1007,6 @@ export class DynamoEntity<
     );
   }
 
-  /**
-   * Subscribes to items from the primary index or a _u-SK secondary index.
-   * Restricted to indexes where SK = _u (primary, default secondary).
-   *
-   * @param opts.key - "primary" or _u-SK secondary index name
-   * @param opts.pk - Partition key fields for the selected index
-   * @param opts.cursor - The `_u` cursor (string to continue from, null to start fresh)
-   * @param opts.limit - Optional batch size per query iteration
-   * @returns All items after the cursor
-   */
-  subscribe<
-    K extends 'primary' | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
-  >(
-    opts: SubscribeOptions<
-      K,
-      K extends 'primary'
-        ? [TPrimaryPkKeys] extends [never]
-          ? {}
-          : IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>
-        : K extends keyof TSecondaryDerivationMap
-          ? Pick<
-              ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]['pkDeps'][number] &
-                keyof ESchemaType<TSchema>
-            >
-          : never
-    >,
-  ): Effect.Effect<{ success: true }, DynamodbError, DynamoDB> {
-    return Effect.gen({ self: this }, function* () {
-      const { key, pk, cursor, limit } = opts;
-      const service = yield* Effect.serviceOption(Broadcaster).pipe(
-        Effect.map(Option.getOrNull),
-      );
-
-      const queryOptions: SimpleQueryOptions = {};
-      if (limit !== undefined) {
-        queryOptions.limit = limit;
-      }
-
-      let currentCursor = cursor;
-
-      while (true) {
-        const result = yield* this.query(
-          key,
-          { pk, sk: { '>': currentCursor } } as any,
-          queryOptions,
-        );
-
-        service?.emit(result.items);
-
-        const lastItem = result.items[result.items.length - 1];
-        if (!lastItem) {
-          service?.subscribe(this.#eschema.name);
-          return { success: true };
-        }
-        currentCursor = lastItem.meta._u;
-      }
-    });
-  }
-
   #resolveCustomSk(
     skValue: unknown,
     indexDerivation: StoredIndexDerivation,
@@ -1108,10 +1158,12 @@ export class DynamoEntity<
     condition?: ConditionInput<ESchemaType<TSchema>>,
   ): Effect.Effect<
     {
-      item: Record<string, unknown>;
       exprResult: ConditionExprResult;
-      meta: MetaType;
       fullValue: ESchemaType<TSchema>;
+      restamp: (u: string) => {
+        item: Record<string, unknown>;
+        meta: MetaType;
+      };
     },
     DynamodbError
   > {
@@ -1120,25 +1172,27 @@ export class DynamoEntity<
         .encode(fullValue as any)
         .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
-      const _u = yield* nextUlid;
+      const restamp = (_u: string) => {
+        const meta: MetaType = {
+          _e: this.#eschema.name,
+          _v: this.#eschema.latestVersion,
+          _u,
+          _d: false,
+        };
 
-      const meta: MetaType = {
-        _e: this.#eschema.name,
-        _v: this.#eschema.latestVersion,
-        _u,
-        _d: false,
-      };
+        const valueWithMeta = { ...fullValue, _u };
+        const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
+        const indexMap = this.#deriveSecondaryIndexes(valueWithMeta);
 
-      const valueWithMeta = { ...fullValue, _u };
-      const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
-      const indexMap = this.#deriveSecondaryIndexes(valueWithMeta);
+        const item = {
+          ...encoded,
+          ...meta,
+          [this.#table.primary.pk]: primaryIndex.pk,
+          [this.#table.primary.sk]: primaryIndex.sk,
+          ...indexMap,
+        };
 
-      const item = {
-        ...encoded,
-        ...meta,
-        [this.#table.primary.pk]: primaryIndex.pk,
-        [this.#table.primary.sk]: primaryIndex.sk,
-        ...indexMap,
+        return { item, meta };
       };
 
       const resolvedCondition = condition
@@ -1157,7 +1211,7 @@ export class DynamoEntity<
         ),
       });
 
-      return { item, exprResult, meta, fullValue };
+      return { exprResult, fullValue, restamp };
     });
   }
 
@@ -1237,12 +1291,16 @@ export class DynamoEntity<
 
   #buildUpdateCondition(
     userCondition?: ConditionInput<ESchemaType<TSchema>>,
+    expectedU?: string,
   ): ConditionOperation {
     const ops: ConditionOperation[] = [
       exprCondition(($) =>
         $.cond('_v' as any, '=', this.#eschema.latestVersion),
       ),
     ];
+    if (expectedU !== undefined) {
+      ops.push(exprCondition(($) => $.cond('_u' as any, '=', expectedU)));
+    }
     if (userCondition) ops.push(resolveCondition(userCondition));
     return exprCondition(($) => $.and(...ops));
   }
@@ -1251,8 +1309,14 @@ export class DynamoEntity<
     keyValue: Record<string, unknown>,
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
     condition?: ConditionInput<ESchemaType<TSchema>>,
+    expectedU?: string,
+    existingDeleted = false,
   ): Effect.Effect<
-    { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType },
+    {
+      pk: string;
+      sk: string;
+      restamp: (u: string) => { exprResult: UpdateExprResult; meta: MetaType };
+    },
     DynamodbError
   > {
     return Effect.gen({ self: this }, function* () {
@@ -1281,33 +1345,36 @@ export class DynamoEntity<
         >
       ).pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
 
-      const _u = yield* nextUlid;
-      const updatesWithMeta = { ...encodedUpdates, _u };
-      const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
+      const builtCondition = this.#buildUpdateCondition(condition, expectedU);
 
-      const meta: MetaType = {
-        _e: this.#eschema.name,
-        _v: this.#eschema.latestVersion,
-        _u,
-        _d: _d ?? false,
+      const restamp = (_u: string) => {
+        const updatesWithMeta = { ...encodedUpdates, _u };
+        const indexMap = this.#deriveSecondaryIndexes(updatesWithMeta);
+
+        const meta: MetaType = {
+          _e: this.#eschema.name,
+          _v: this.#eschema.latestVersion,
+          _u,
+          _d: _d ?? existingDeleted,
+        };
+
+        const update = exprUpdate<any>(($) => [
+          ...Object.entries({ ...encodedUpdates, ...indexMap }).map(
+            ([key, v]) => $.set(key, v),
+          ),
+          $.set('_u', _u),
+          ...(_d !== undefined ? [$.set('_d', _d)] : []),
+        ]);
+
+        const exprResult = buildExpr({
+          update,
+          condition: builtCondition,
+        });
+
+        return { exprResult, meta };
       };
 
-      const builtCondition = this.#buildUpdateCondition(condition);
-
-      const update = exprUpdate<any>(($) => [
-        ...Object.entries({ ...encodedUpdates, ...indexMap }).map(([key, v]) =>
-          $.set(key, v),
-        ),
-        $.set('_u', _u),
-        ...(_d !== undefined ? [$.set('_d', _d)] : []),
-      ]);
-
-      const exprResult = buildExpr({
-        update,
-        condition: builtCondition,
-      });
-
-      return { pk, sk, exprResult, meta };
+      return { pk, sk, restamp };
     });
   }
 
@@ -1315,8 +1382,14 @@ export class DynamoEntity<
     keyValue: Record<string, unknown>,
     builder: (ops: UpdateOps<any>) => AnyOperation<any>[],
     condition?: ConditionInput<ESchemaType<TSchema>>,
+    expectedU?: string,
+    existingDeleted = false,
   ): Effect.Effect<
-    { pk: string; sk: string; exprResult: UpdateExprResult; meta: MetaType },
+    {
+      pk: string;
+      sk: string;
+      restamp: (u: string) => { exprResult: UpdateExprResult; meta: MetaType };
+    },
     DynamodbError
   > {
     return Effect.gen({ self: this }, function* () {
@@ -1335,30 +1408,33 @@ export class DynamoEntity<
         }
       }
 
-      const _u = yield* nextUlid;
-      const indexMap = this.#deriveSecondaryIndexes({ _u });
+      const builtCondition = this.#buildUpdateCondition(condition, expectedU);
 
-      const meta: MetaType = {
-        _e: this.#eschema.name,
-        _v: this.#eschema.latestVersion,
-        _u,
-        _d: false,
+      const restamp = (_u: string) => {
+        const indexMap = this.#deriveSecondaryIndexes({ _u });
+
+        const meta: MetaType = {
+          _e: this.#eschema.name,
+          _v: this.#eschema.latestVersion,
+          _u,
+          _d: existingDeleted,
+        };
+
+        const update = exprUpdate<any>(($) => [
+          ...userOps,
+          ...Object.entries(indexMap).map(([key, v]) => $.set(key, v)),
+          $.set('_u', _u),
+        ]);
+
+        const exprResult = buildExpr({
+          update,
+          condition: builtCondition,
+        });
+
+        return { exprResult, meta };
       };
 
-      const builtCondition = this.#buildUpdateCondition(condition);
-
-      const update = exprUpdate<any>(($) => [
-        ...userOps,
-        ...Object.entries(indexMap).map(([key, v]) => $.set(key, v)),
-        $.set('_u', _u),
-      ]);
-
-      const exprResult = buildExpr({
-        update,
-        condition: builtCondition,
-      });
-
-      return { pk, sk, exprResult, meta };
+      return { pk, sk, restamp };
     });
   }
 }
@@ -1366,10 +1442,10 @@ export class DynamoEntity<
 /**
  * Builder class for configuring entity index derivations.
  */
-class EntityIndexDerivations<
+export class EntityIndexDerivations<
   TTable extends DynamoTable<any, any>,
   TSchema extends AnyEntityESchema,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
 > {
   #table: TTable;
@@ -1379,6 +1455,7 @@ class EntityIndexDerivations<
     sk: readonly (keyof ESchemaType<TSchema>)[];
   };
   #secondaryDerivations: TSecondaryDerivationMap;
+  #onBuild: ((entity: DynamoEntity<any, any, any, any>) => void) | undefined;
 
   constructor(
     table: TTable,
@@ -1388,11 +1465,13 @@ class EntityIndexDerivations<
       sk: readonly (keyof ESchemaType<TSchema>)[];
     },
     definitions: TSecondaryDerivationMap,
+    onBuild?: (entity: DynamoEntity<any, any, any, any>) => void,
   ) {
     this.#table = table;
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = definitions;
+    this.#onBuild = onBuild;
   }
 
   /**
@@ -1444,6 +1523,7 @@ class EntityIndexDerivations<
         ...this.#secondaryDerivations,
         [entityIndexName]: newDeriv,
       },
+      this.#onBuild,
     ) as EntityIndexDerivations<
       TTable,
       TSchema,
@@ -1471,11 +1551,13 @@ class EntityIndexDerivations<
       skDeps: this.#primaryDerivation.sk.map(String),
     };
 
-    return new DynamoEntity<
+    const entity = new DynamoEntity<
       TTable,
       TSecondaryDerivationMap,
       TSchema,
       TPrimaryPkKeys
     >(this.#table, this.#eschema, storedPrimary, this.#secondaryDerivations);
+    this.#onBuild?.(entity);
+    return entity;
   }
 }

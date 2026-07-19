@@ -1,4 +1,4 @@
-import { StdToolkitError } from '../../core/index.js';
+import { StdToolkitError } from '../../../core/index.js';
 
 /**
  * Discriminates {@link IdbDBError} failures. `conditionFailed` is the one
@@ -15,7 +15,6 @@ export type IdbDBErrorCode =
   | 'transactFailed'
   | 'conditionFailed'
   | 'noItemToUpdate'
-  | 'itemDeleted'
   | 'noItemToRestore'
   | 'noItemToDelete'
   | 'queryFailed';
@@ -89,14 +88,6 @@ export class IdbDBError extends StdToolkitError {
     return new IdbDBError({
       message: `No item to update on table "${tableName}"`,
       code: 'noItemToUpdate' satisfies IdbDBErrorCode,
-    });
-  }
-
-  /** The entity is a tombstone and must be restored before it can be updated. */
-  static itemDeleted(tableName: string) {
-    return new IdbDBError({
-      message: `Cannot update deleted item on table "${tableName}"; restore it first`,
-      code: 'itemDeleted' satisfies IdbDBErrorCode,
     });
   }
 

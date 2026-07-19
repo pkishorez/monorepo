@@ -41,12 +41,12 @@
       "import": "./dist/db/dynamodb/*"
     },
     "./idb": {
-      "types": "./dist/db/idb/index.d.ts",
-      "default": "./dist/db/idb/index.js"
+      "types": "./dist/db/idb/src/index.d.ts",
+      "default": "./dist/db/idb/src/index.js"
     },
     "./idb/*": {
-      "types": "./dist/db/idb/*",
-      "import": "./dist/db/idb/*"
+      "types": "./dist/db/idb/src/*",
+      "import": "./dist/db/idb/src/*"
     },
     "./sqlite": {
       "types": "./dist/db/sqlite/index.d.ts",

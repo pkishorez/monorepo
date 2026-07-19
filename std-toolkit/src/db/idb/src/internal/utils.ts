@@ -16,13 +16,6 @@ export interface QueryStreamOptions {
   batchSize?: number;
 }
 
-export interface SubscribeOptions<K, PK> {
-  key: K;
-  pk: PK;
-  cursor: string | null;
-  limit?: number;
-}
-
 /**
  * Derives an index key value from field dependencies and a value object.
  */

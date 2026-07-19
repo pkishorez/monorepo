@@ -9,7 +9,7 @@ const itEffect = <A, E>(
   );
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
-import { DynamoTable, DynamoEntity, DynamodbError } from '../index.js';
+import { DynamoTable, DynamodbError } from '../index.js';
 import {
   createDynamoDB,
   dynamoDBLayer,
@@ -37,8 +37,8 @@ const userSchema = EntityESchema.make('User', 'userId', {
 }).build();
 
 // New DynamoEntity API: SK is automatically the idField
-const UserEntity = DynamoEntity.make(table)
-  .eschema(userSchema)
+const UserEntity = table
+  .entity(userSchema)
   .primary({ pk: ['userId'] })
   .build();
 
@@ -217,8 +217,8 @@ describe('DynamoDB Error Handling', () => {
       fn: () => Effect.Effect<A, E, DynamoDB>,
     ) => it(name, () => Effect.runPromise(fn().pipe(Effect.provide(badLayer))));
 
-    const BadUserEntity = DynamoEntity.make(badTable)
-      .eschema(userSchema)
+    const BadUserEntity = badTable
+      .entity(userSchema)
       .primary({ pk: ['userId'] })
       .build();
 

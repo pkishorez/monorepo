@@ -2,10 +2,11 @@ import type {
   AnySingleEntityESchema,
   ESchemaType,
 } from '../../../eschema/index.js';
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
-import { nextUlid } from '../../../core/index.js';
+import type { EntityType } from '../../../core/index.js';
+import { Broadcaster, nextUlid } from '../../../core/index.js';
 import { DynamodbError } from '../errors.js';
 import {
   deriveIndexKeyValue,
@@ -73,7 +74,10 @@ export class DynamoSingleEntity<
    *
    * @returns A builder to configure the entity schema
    */
-  static make<TTable extends DynamoTable<any, any>>(table: TTable) {
+  static make<TTable extends DynamoTable<any, any>>(
+    table: TTable,
+    onBuild?: (entity: DynamoSingleEntity<any, any>) => void,
+  ) {
     return {
       /**
        * Configures the entity to use the given ESchema.
@@ -91,11 +95,13 @@ export class DynamoSingleEntity<
            * @returns The configured DynamoSingleEntity instance
            */
           default(defaultValue: Omit<ESchemaType<TS>, '_v'>) {
-            return new DynamoSingleEntity<TTable, TS>(
+            const entity = new DynamoSingleEntity<TTable, TS>(
               table,
               eschema,
               defaultValue as ESchemaType<TS>,
             );
+            onBuild?.(entity);
+            return entity;
           },
         };
       },
@@ -218,6 +224,12 @@ export class DynamoSingleEntity<
 
       yield* this.#table.putItem(item);
 
+      yield* this.#broadcast([
+        {
+          value: fullValue,
+          meta: { ...meta, _d: false },
+        },
+      ]);
       return { value: fullValue, meta };
     }).pipe(
       Effect.tapError((e) =>
@@ -279,6 +291,12 @@ export class DynamoSingleEntity<
         result.Attributes,
       );
 
+      yield* this.#broadcast([
+        {
+          value: decodedValue as ESchemaType<TSchema>,
+          meta: { ...updatedMeta, _d: false },
+        },
+      ]);
       return {
         value: decodedValue as ESchemaType<TSchema>,
         meta: updatedMeta,
@@ -304,58 +322,78 @@ export class DynamoSingleEntity<
           ops: UpdateOps<ESchemaType<TSchema>>,
         ) => AnyOperation<ESchemaType<TSchema>>[]);
     condition?: ConditionInput<ESchemaType<TSchema>>;
-  }): Effect.Effect<TransactItem<TSchema['name']>, DynamodbError, DynamoDB> {
+    lastWriteWins?: boolean;
+  }): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
     const { update: updates, condition } = params;
     return Effect.gen({ self: this }, function* () {
-      const existing = yield* this.get();
+      const existing = yield* this.get({ ConsistentRead: true });
 
-      const _u = yield* nextUlid;
-      const { pk, sk, exprResult } =
-        typeof updates === 'function'
-          ? this.#prepareUpdateExpr(updates, _u, condition)
-          : this.#prepareUpdate(updates, _u, condition);
+      if (existing.meta._u === '') {
+        return yield* Effect.fail(DynamodbError.noItemToUpdate());
+      }
+
+      const expectedU = params.lastWriteWins ? undefined : existing.meta._u;
 
       const mergedValue =
         typeof updates === 'function'
           ? existing.value
           : ({ ...existing.value, ...updates } as ESchemaType<TSchema>);
+      const pk = this.#derivePrimaryKey();
+      const sk = pk;
 
-      const tableOp = this.#table.opUpdateItem({ pk, sk }, exprResult);
       return {
-        ...tableOp,
         entityName: this.#eschema.name,
-        broadcast: {
-          value: mergedValue,
-          meta: { ...existing.meta, _d: false },
+        operationKind: 'updateOp',
+        pk,
+        sk,
+        table: this.#table,
+        apply: (u) => {
+          const { pk, sk, exprResult } =
+            typeof updates === 'function'
+              ? this.#prepareUpdateExpr(updates, u, condition, expectedU)
+              : this.#prepareUpdate(updates, u, condition, expectedU);
+          return {
+            ...this.#table.opUpdateItem({ pk, sk }, exprResult),
+            broadcast: {
+              value: mergedValue,
+              meta: { ...existing.meta, _u: u, _d: false },
+            },
+          };
         },
-      };
+      } satisfies TransactItem;
     });
   }
 
-  /**
-   * Hard-deletes the entity record from DynamoDB.
-   * Subsequent `get` calls will return the default value.
-   */
-  delete(): Effect.Effect<void, DynamodbError, DynamoDB> {
-    return Effect.gen({ self: this }, function* () {
-      const pk = this.#derivePrimaryKey();
-      const sk = this.#derivePrimaryKey();
-      yield* this.#table.deleteItem({ pk, sk });
-    }).pipe(
-      Effect.tapError((e) =>
-        Effect.logError(`[${this.#eschema.name}] delete failed`, { error: e }),
-      ),
-    );
+  /** Writes the default value back — single entities are never deleted. */
+  reset(): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > {
+    return this.put(this.#defaultValue);
+  }
+
+  #broadcast(entities: EntityType<ESchemaType<TSchema>>[]) {
+    return Effect.gen(function* () {
+      const service = yield* Effect.serviceOption(Broadcaster).pipe(
+        Effect.map(Option.getOrNull),
+      );
+      service?.broadcast(entities);
+    });
   }
 
   #buildUpdateCondition(
     userCondition?: ConditionInput<ESchemaType<TSchema>>,
+    expectedU?: string,
   ): ConditionOperation {
     const ops: ConditionOperation[] = [
       exprCondition(($) =>
         $.cond('_v' as any, '=', this.#eschema.latestVersion),
       ),
     ];
+    if (expectedU !== undefined) {
+      ops.push(exprCondition(($) => $.cond('_u' as any, '=', expectedU)));
+    }
     if (userCondition) ops.push(resolveCondition(userCondition));
     return exprCondition(($) => $.and(...ops));
   }
@@ -364,11 +402,12 @@ export class DynamoSingleEntity<
     updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
     _u: string,
     condition?: ConditionInput<ESchemaType<TSchema>>,
+    expectedU?: string,
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
     const pk = this.#derivePrimaryKey();
     const sk = this.#derivePrimaryKey();
 
-    const builtCondition = this.#buildUpdateCondition(condition);
+    const builtCondition = this.#buildUpdateCondition(condition, expectedU);
 
     const update = exprUpdate<any>(($) => [
       ...Object.entries(updates).map(([key, v]) => $.set(key, v)),
@@ -387,13 +426,14 @@ export class DynamoSingleEntity<
     builder: (ops: UpdateOps<any>) => AnyOperation<any>[],
     _u: string,
     condition?: ConditionInput<ESchemaType<TSchema>>,
+    expectedU?: string,
   ): { pk: string; sk: string; exprResult: UpdateExprResult } {
     const pk = this.#derivePrimaryKey();
     const sk = this.#derivePrimaryKey();
 
     const userOps = exprUpdate<any>(builder);
 
-    const builtCondition = this.#buildUpdateCondition(condition);
+    const builtCondition = this.#buildUpdateCondition(condition, expectedU);
 
     const update = exprUpdate<any>(($) => [...userOps, $.set('_u', _u)]);
 

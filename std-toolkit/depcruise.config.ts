@@ -81,29 +81,28 @@ const dynamodbErrors = layer('dynamodb-errors', ['src/db/dynamodb/errors.ts'], {
 });
 
 // --- idb ---
-const idbBarrel = layer('idb-barrel', ['src/db/idb/index.ts'], {
+const idbBarrel = layer('idb-barrel', ['src/db/idb/src/index.ts'], {
   description: 'Public barrel',
 });
 const idbServices = layer(
   'idb-services',
   [
-    'src/db/idb/entity-registry.ts',
-    'src/db/idb/idb-entity.ts',
-    'src/db/idb/idb-single-entity.ts',
-    'src/db/idb/idb-table.ts',
+    'src/db/idb/src/idb-entity.ts',
+    'src/db/idb/src/idb-single-entity.ts',
+    'src/db/idb/src/idb-table.ts',
   ],
   { description: 'Entity and table surface' },
 );
-const idbBrowser = layer('idb-browser', ['src/db/idb/layer.ts'], {
+const idbBrowser = layer('idb-browser', ['src/db/idb/src/layer.ts'], {
   description: 'Browser IndexedDB implementation and layer wiring',
 });
-const idbDb = layer('idb-db', ['src/db/idb/db.ts'], {
+const idbDb = layer('idb-db', ['src/db/idb/src/db.ts'], {
   description: 'Low-level database contract and operation types',
 });
-const idbInternal = layer('idb-internal', ['src/db/idb/internal'], {
+const idbInternal = layer('idb-internal', ['src/db/idb/src/internal'], {
   description: 'Internal IndexedDB implementation details',
 });
-const idbErrors = layer('idb-errors', ['src/db/idb/errors.ts'], {
+const idbErrors = layer('idb-errors', ['src/db/idb/src/errors.ts'], {
   description: 'IndexedDB error types',
 });
 
@@ -324,15 +323,14 @@ export default {
     module('src/db/dynamodb/errors.ts'),
 
     // idb
-    module('src/db/idb/index.ts'),
-    module('src/db/idb/entity-registry.ts'),
-    module('src/db/idb/idb-entity.ts'),
-    module('src/db/idb/idb-single-entity.ts'),
-    module('src/db/idb/idb-table.ts'),
-    module('src/db/idb/layer.ts'),
-    module('src/db/idb/db.ts'),
-    module('src/db/idb/internal'),
-    module('src/db/idb/errors.ts'),
+    module('src/db/idb/src/index.ts'),
+    module('src/db/idb/src/idb-entity.ts'),
+    module('src/db/idb/src/idb-single-entity.ts'),
+    module('src/db/idb/src/idb-table.ts'),
+    module('src/db/idb/src/layer.ts'),
+    module('src/db/idb/src/db.ts'),
+    module('src/db/idb/src/internal'),
+    module('src/db/idb/src/errors.ts'),
 
     // sqlite
     module('src/db/sqlite/index.ts'),

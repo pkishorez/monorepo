@@ -56,10 +56,11 @@ export type IdbWriteOp =
 
 /**
  * Low-level IndexedDB database service. One object store per logical table,
- * `keyPath: ['pk', 'sk']`. See `src/db/idb/CONTEXT.md` and the ADR at
- * `src/db/idb/docs/adr/0001-buffered-transactions-and-auto-versioning.md`
- * for why `setup` auto-versions and `transact` buffers ops into one native
- * IndexedDB transaction instead of exposing begin/commit/rollback.
+ * `keyPath: ['pk', 'sk']`. See `src/db/idb/CONTEXT.md`, the kernel ADR at
+ * `src/db/docs/adr/0001-buffered-transact-ops-only.md` for why `transact`
+ * buffers ops into one native IndexedDB transaction instead of exposing
+ * begin/commit/rollback, and `src/db/idb/docs/adr/0001-auto-versioned-setup.md`
+ * for why `setup` auto-versions.
  */
 export class IdbDB extends Context.Service<
   IdbDB,
