@@ -27,7 +27,7 @@
   "devDependencies": {
     "@types/react": "19.2.17",
     "effect": "4.0.0-beta.78",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "peerDependencies": {
     "effect": "4.0.0-beta.78",

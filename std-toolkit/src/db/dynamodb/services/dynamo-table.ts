@@ -139,8 +139,10 @@ export class DynamoTable<
    * @returns A builder to configure the primary index derivation
    */
   entity<TS extends AnyEntityESchema>(eschema: TS) {
-    const self: DynamoTable<TPrimaryIndex, TSecondaryIndexMap> = this;
-    return DynamoEntity.make(self, this.#registerEntity).eschema(eschema);
+    return DynamoEntity.make<DynamoTable<TPrimaryIndex, TSecondaryIndexMap>>(
+      this,
+      this.#registerEntity,
+    ).eschema(eschema);
   }
 
   /**
@@ -151,8 +153,9 @@ export class DynamoTable<
    * @returns A builder to set the default value
    */
   singleEntity<TS extends AnySingleEntityESchema>(eschema: TS) {
-    const self: DynamoTable<TPrimaryIndex, TSecondaryIndexMap> = this;
-    return DynamoSingleEntity.make(self, this.#registerEntity).eschema(eschema);
+    return DynamoSingleEntity.make<
+      DynamoTable<TPrimaryIndex, TSecondaryIndexMap>
+    >(this, this.#registerEntity).eschema(eschema);
   }
 
   /**
