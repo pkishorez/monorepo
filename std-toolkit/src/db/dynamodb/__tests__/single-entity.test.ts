@@ -291,4 +291,116 @@ describe('DynamoSingleEntity', () => {
       }),
     );
   });
+
+  describe('getAndUpdate', () => {
+    itEffect('applies a plain partial merge', () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+        const result = yield* AppConfig.getAndUpdate({ theme: 'dark' });
+
+        expect(result.value.theme).toBe('dark');
+        expect(result.value.maxRetries).toBe(3);
+      }),
+    );
+
+    itEffect('a callback derives the partial from the current value', () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+        const result = yield* AppConfig.getAndUpdate((current) => ({
+          maxRetries: current.maxRetries + 1,
+        }));
+
+        expect(result.value.maxRetries).toBe(4);
+      }),
+    );
+
+    itEffect('a callback returning null skips the write', () =>
+      Effect.gen(function* () {
+        const written = yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+        const skipped = yield* AppConfig.getAndUpdate(() => null);
+
+        expect(skipped.meta._u).toBe(written.meta._u);
+      }),
+    );
+
+    itEffect('treats the default as current before the first write', () =>
+      Effect.gen(function* () {
+        const emptySchema = SingleEntityESchema.make('GauEmptyConfig', {
+          value: Schema.String,
+        }).build();
+
+        const EmptyConfig = table
+          .singleEntity(emptySchema)
+          .default({ value: 'x' });
+
+        const updated = yield* EmptyConfig.getAndUpdate((current) => ({
+          value: `${current.value}y`,
+        }));
+        const after = yield* EmptyConfig.get();
+
+        expect(updated.value.value).toBe('xy');
+        expect(updated.meta._u).not.toBe('');
+        expect(after.value.value).toBe('xy');
+        expect(after.meta._u).toBe(updated.meta._u);
+      }),
+    );
+  });
+
+  describe('getAndUpdateOp', () => {
+    itEffect('fails with NoItemToUpdate before the first write', () =>
+      Effect.gen(function* () {
+        const emptySchema = SingleEntityESchema.make('GauOpEmptyConfig', {
+          value: Schema.String,
+        }).build();
+
+        const EmptyConfig = table
+          .singleEntity(emptySchema)
+          .default({ value: 'x' });
+
+        const error = yield* EmptyConfig.getAndUpdateOp({ value: 'y' }).pipe(
+          Effect.flip,
+        );
+
+        expect(error.error._tag).toBe('NoItemToUpdate');
+      }),
+    );
+
+    itEffect('applies through transact and rolls back when stale', () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: 'light', maxRetries: 1 });
+
+        const op = yield* AppConfig.getAndUpdateOp({ maxRetries: 5 });
+        yield* table.transact([op]);
+        const applied = yield* AppConfig.get();
+        expect(applied.value.maxRetries).toBe(5);
+
+        const staleOp = yield* AppConfig.getAndUpdateOp({ maxRetries: 9 });
+        yield* AppConfig.getAndUpdate({ maxRetries: 7 });
+        const error = yield* table.transact([staleOp]).pipe(Effect.flip);
+        expect(error.error._tag).toBe('ConditionFailed');
+
+        const after = yield* AppConfig.get();
+        expect(after.value.maxRetries).toBe(7);
+      }),
+    );
+
+    itEffect('with lastWriteWins clobbers a concurrent write', () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: 'light', maxRetries: 1 });
+
+        const lwwOp = yield* AppConfig.getAndUpdateOp(
+          { maxRetries: 99 },
+          { lastWriteWins: true },
+        );
+        yield* AppConfig.getAndUpdate({ maxRetries: 50 });
+        yield* table.transact([lwwOp]);
+
+        const after = yield* AppConfig.get();
+        expect(after.value.maxRetries).toBe(99);
+      }),
+    );
+  });
 });

@@ -1042,6 +1042,215 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
       );
     });
 
+    describe('getAndUpdate', () => {
+      itEffect('applies a plain partial with a fresh _u', () =>
+        Effect.gen(function* () {
+          const inserted = yield* UserEntity.insert({
+            userId: 'entity-gau-1',
+            name: 'Before',
+            email: 'gau@example.com',
+            status: 'active',
+            age: 30,
+          });
+
+          const updated = yield* UserEntity.getAndUpdate(
+            { userId: 'entity-gau-1' },
+            { name: 'After' },
+          );
+
+          expect(updated.value.name).toBe('After');
+          expect(updated.value.age).toBe(30);
+          expect(updated.meta._u > inserted.meta._u).toBe(true);
+
+          const fetched = yield* UserEntity.get({ userId: 'entity-gau-1' });
+          expect(fetched?.value.name).toBe('After');
+        }),
+      );
+
+      itEffect('a callback derives the partial from the current value', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-gau-cb',
+            name: 'CB',
+            email: 'gau-cb@example.com',
+            status: 'active',
+            age: 10,
+          });
+
+          const updated = yield* UserEntity.getAndUpdate(
+            { userId: 'entity-gau-cb' },
+            (current) => ({ age: current.age + 1 }),
+          );
+
+          expect(updated.value.age).toBe(11);
+        }),
+      );
+
+      itEffect('a callback returning null skips the write', () =>
+        Effect.gen(function* () {
+          const inserted = yield* UserEntity.insert({
+            userId: 'entity-gau-skip',
+            name: 'Skip',
+            email: 'gau-skip@example.com',
+            status: 'active',
+            age: 1,
+          });
+
+          const skipped = yield* UserEntity.getAndUpdate(
+            { userId: 'entity-gau-skip' },
+            () => null,
+          );
+
+          expect(skipped.meta._u).toBe(inserted.meta._u);
+        }),
+      );
+
+      itEffect('fails with NoItemToUpdate for a missing key', () =>
+        Effect.gen(function* () {
+          const result = yield* UserEntity.getAndUpdate(
+            { userId: 'entity-gau-missing' },
+            { name: 'X' },
+          ).pipe(Effect.flip);
+
+          expect(result.error._tag).toBe('NoItemToUpdate');
+        }),
+      );
+
+      itEffect('rejects changing the entity id', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-gau-id',
+            name: 'Before',
+            email: 'gau-id@example.com',
+            status: 'active',
+            age: 30,
+          });
+
+          const error = yield* UserEntity.getAndUpdate(
+            { userId: 'entity-gau-id' },
+            { userId: 'entity-gau-id-changed' },
+          ).pipe(Effect.flip);
+
+          expect(error.error._tag).toBe('IdUpdateNotSupported');
+          const original = yield* UserEntity.get({ userId: 'entity-gau-id' });
+          const moved = yield* UserEntity.get({
+            userId: 'entity-gau-id-changed',
+          });
+          expect(original).not.toBeNull();
+          expect(moved).toBeNull();
+        }),
+      );
+
+      itEffect('keeps the lookup key when a key-derived field changes', () =>
+        Effect.gen(function* () {
+          yield* OrderEntity.insert({
+            orderId: 'entity-gau-key',
+            userId: 'owner-before',
+            total: 10,
+            status: 'open',
+            items: [],
+          });
+
+          yield* OrderEntity.getAndUpdate(
+            { orderId: 'entity-gau-key', userId: 'owner-before' },
+            { userId: 'owner-after' },
+          );
+
+          const original = yield* OrderEntity.get({
+            orderId: 'entity-gau-key',
+            userId: 'owner-before',
+          });
+          const moved = yield* OrderEntity.get({
+            orderId: 'entity-gau-key',
+            userId: 'owner-after',
+          });
+          expect(original?.value.userId).toBe('owner-after');
+          expect(moved).toBeNull();
+        }),
+      );
+    });
+
+    describe('getAndUpdateOp', () => {
+      itEffect('applies through transact and rolls back when stale', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-gauop-1',
+            name: 'Op',
+            email: 'gauop@example.com',
+            status: 'active',
+            age: 1,
+          });
+
+          const op = yield* UserEntity.getAndUpdateOp(
+            { userId: 'entity-gauop-1' },
+            (current) => ({ age: current.age + 10 }),
+          );
+          yield* table.transact([op]);
+          const applied = yield* UserEntity.get({ userId: 'entity-gauop-1' });
+          expect(applied?.value.age).toBe(11);
+
+          const staleOp = yield* UserEntity.getAndUpdateOp(
+            { userId: 'entity-gauop-1' },
+            { age: 99 },
+          );
+          yield* UserEntity.getAndUpdate(
+            { userId: 'entity-gauop-1' },
+            { age: 50 },
+          );
+          const error = yield* table.transact([staleOp]).pipe(Effect.flip);
+          expect(error.error._tag).toBe('ConditionFailed');
+
+          const after = yield* UserEntity.get({ userId: 'entity-gauop-1' });
+          expect(after?.value.age).toBe(50);
+        }),
+      );
+
+      itEffect('with lastWriteWins applies despite a concurrent write', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-gauop-lww',
+            name: 'Lww',
+            email: 'gauop-lww@example.com',
+            status: 'active',
+            age: 1,
+          });
+
+          const lwwOp = yield* UserEntity.getAndUpdateOp(
+            { userId: 'entity-gauop-lww' },
+            { age: 99 },
+            { lastWriteWins: true },
+          );
+          yield* UserEntity.getAndUpdate(
+            { userId: 'entity-gauop-lww' },
+            { age: 50 },
+          );
+          yield* table.transact([lwwOp]);
+
+          const after = yield* UserEntity.get({ userId: 'entity-gauop-lww' });
+          expect(after?.value.age).toBe(99);
+        }),
+      );
+
+      itEffect('rejects changing the entity id', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-gauop-id',
+            name: 'Before',
+            email: 'gauop-id@example.com',
+            status: 'active',
+            age: 30,
+          });
+
+          const error = yield* UserEntity.getAndUpdateOp(
+            { userId: 'entity-gauop-id' },
+            { userId: 'entity-gauop-id-changed' },
+          ).pipe(Effect.flip);
+
+          expect(error.error._tag).toBe('IdUpdateNotSupported');
+        }),
+      );
+    });
+
     describe('delete', () => {
       itEffect('soft deletes an existing entity (sets _d: true)', () =>
         Effect.gen(function* () {

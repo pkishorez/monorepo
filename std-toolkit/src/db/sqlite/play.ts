@@ -121,7 +121,7 @@ const program = Effect.gen(function* () {
 
   // ─── Update ────────────────────────────────────────
   console.log('\n--- Update ---');
-  const updated = yield* userEntity.update(
+  const updated = yield* userEntity.getAndUpdate(
     { userId: user2.value.userId },
     { name: 'Bobby' },
   );

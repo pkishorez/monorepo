@@ -39,6 +39,7 @@ export type DynamodbErrorType =
   | { _tag: 'BatchWriteFailed'; cause: unknown }
   | { _tag: 'ItemAlreadyExists' }
   | { _tag: 'NoItemToUpdate' }
+  | { _tag: 'IdUpdateNotSupported'; idField: string }
   | {
       _tag: 'ConditionCheckFailed';
       message: string;
@@ -81,6 +82,8 @@ const describeError = (error: DynamodbErrorType): string => {
       return `${error._tag} ${formatMeta(error.meta)}`;
     case 'ConditionCheckFailed':
       return `${error._tag}: ${error.message}`;
+    case 'IdUpdateNotSupported':
+      return `${error._tag}: "${error.idField}" cannot be changed by an update`;
     case 'ConditionFailed':
       return `${error._tag}: ${error.failures
         .map(
@@ -207,6 +210,12 @@ export class DynamodbError extends Data.TaggedError('DynamodbError')<{
    */
   static noItemToUpdate() {
     return new DynamodbError({ error: { _tag: 'NoItemToUpdate' } });
+  }
+
+  static idUpdateNotSupported(idField: string) {
+    return new DynamodbError({
+      error: { _tag: 'IdUpdateNotSupported', idField },
+    });
   }
 
   /**

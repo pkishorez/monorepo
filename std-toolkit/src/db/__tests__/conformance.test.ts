@@ -13,8 +13,8 @@ import { idbLayer, IdbTable } from '../idb/src/index.js';
 // ─── Shared assertion surface ───────────────────────────────────────────────
 //
 // Both adapters expose `getItem`/`putItem`/`deleteItem`/`query`/`index().query`
-// at the table level, and `get`/`insert`/`update`/`delete`/`query` at the
-// entity level — but with adapter-specific generic constraints that don't
+// at the table level, and `get`/`insert`/`getAndUpdate`/`delete`/`query` at
+// the entity level — but with adapter-specific generic constraints that don't
 // unify structurally. Since this file only ever calls the shared surface,
 // the fixtures narrow to a minimal duck-typed interface and cast into it;
 // the real per-adapter types are still checked wherever `makeTable` /
@@ -80,9 +80,12 @@ interface ConformanceEntity {
   get(
     key: Record<string, unknown>,
   ): Effect.Effect<EntityResult | null, any, any>;
-  update(
+  getAndUpdate(
     key: Record<string, unknown>,
-    updates: Record<string, unknown>,
+    update:
+      | Record<string, unknown>
+      | ((current: Record<string, unknown>) => Record<string, unknown> | null),
+    config?: { retries?: number; lastWriteWins?: boolean },
   ): Effect.Effect<EntityResult, any, any>;
   delete(key: Record<string, unknown>): Effect.Effect<EntityResult, any, any>;
   restore(key: Record<string, unknown>): Effect.Effect<EntityResult, any, any>;
@@ -94,9 +97,11 @@ interface ConformanceEntity {
   insertOp(
     value: Record<string, unknown>,
   ): Effect.Effect<ConformanceOp, any, any>;
-  updateOp(
+  getAndUpdateOp(
     key: Record<string, unknown>,
-    updates: Record<string, unknown>,
+    update:
+      | Record<string, unknown>
+      | ((current: Record<string, unknown>) => Record<string, unknown>),
     options?: { lastWriteWins?: boolean },
   ): Effect.Effect<ConformanceOp, any, any>;
   deleteOp(
@@ -117,14 +122,19 @@ interface SingleResult {
 interface ConformanceSingleEntity {
   get(): Effect.Effect<SingleResult, any, any>;
   put(value: Record<string, unknown>): Effect.Effect<SingleResult, any, any>;
-  update(params: {
-    update: Record<string, unknown>;
-  }): Effect.Effect<SingleResult, any, any>;
+  getAndUpdate(
+    update:
+      | Record<string, unknown>
+      | ((current: Record<string, unknown>) => Record<string, unknown> | null),
+    config?: { retries?: number; lastWriteWins?: boolean },
+  ): Effect.Effect<SingleResult, any, any>;
   reset(): Effect.Effect<SingleResult, any, any>;
-  updateOp(params: {
-    update: Record<string, unknown>;
-    lastWriteWins?: boolean;
-  }): Effect.Effect<ConformanceOp, any, any>;
+  getAndUpdateOp(
+    update:
+      | Record<string, unknown>
+      | ((current: Record<string, unknown>) => Record<string, unknown>),
+    config?: { lastWriteWins?: boolean },
+  ): Effect.Effect<ConformanceOp, any, any>;
 }
 
 interface ConformanceAdapter {
@@ -526,7 +536,7 @@ describe.each(adapters)('conformance: $name', (adapter) => {
     });
   });
 
-  describe('entity: update', () => {
+  describe('entity: getAndUpdate', () => {
     it('changes the value and strictly increases _u lexicographically', async () => {
       const layer = adapter.makeLayer();
       const table = adapter.makeTable();
@@ -540,7 +550,7 @@ describe.each(adapters)('conformance: $name', (adapter) => {
             category: 'cat-1',
             value: 1,
           });
-          const updated = yield* entity.update(
+          const updated = yield* entity.getAndUpdate(
             { itemId: 'item-2', category: 'cat-1' },
             { value: 2 },
           );
@@ -551,6 +561,85 @@ describe.each(adapters)('conformance: $name', (adapter) => {
       expect(result.updated.value.value).toBe(2);
       expect(result.updated.value.category).toBe('cat-1');
       expect(result.updated.meta._u > result.inserted.meta._u).toBe(true);
+    });
+
+    it('a callback derives the partial from the current value', async () => {
+      const layer = adapter.makeLayer();
+      const table = adapter.makeTable();
+      const entity = adapter.makeItemEntity(table);
+      const result = await run(
+        layer,
+        Effect.gen(function* () {
+          yield* table.setup();
+          yield* entity.insert({
+            itemId: 'item-cb',
+            category: 'cat-1',
+            value: 10,
+          });
+          return yield* entity.getAndUpdate(
+            { itemId: 'item-cb', category: 'cat-1' },
+            (current) => ({ value: (current.value as number) + 1 }),
+          );
+        }),
+      );
+
+      expect(result.value.value).toBe(11);
+    });
+
+    it('a callback returning null skips the write — no _u bump, no broadcast', async () => {
+      const layer = adapter.makeLayer();
+      const table = adapter.makeTable();
+      const entity = adapter.makeItemEntity(table);
+      const broadcasts: EntityType<unknown>[] = [];
+      const broadcasterLayer = Layer.succeed(Broadcaster, {
+        broadcast: (values: EntityType<unknown>[]) => {
+          broadcasts.push(...values);
+        },
+      });
+      const result = await run(
+        Layer.merge(layer, broadcasterLayer),
+        Effect.gen(function* () {
+          yield* table.setup();
+          const inserted = yield* entity.insert({
+            itemId: 'item-skip',
+            category: 'cat-1',
+            value: 1,
+          });
+          const broadcastsBefore = broadcasts.length;
+          const skipped = yield* entity.getAndUpdate(
+            { itemId: 'item-skip', category: 'cat-1' },
+            () => null,
+          );
+          return { inserted, skipped, broadcastsBefore };
+        }),
+      );
+
+      expect(result.skipped.meta._u).toBe(result.inserted.meta._u);
+      expect(result.skipped.value.value).toBe(1);
+      expect(broadcasts).toHaveLength(result.broadcastsBefore);
+    });
+
+    it('fails with noItemToUpdate for a missing key', async () => {
+      const layer = adapter.makeLayer();
+      const table = adapter.makeTable();
+      const entity = adapter.makeItemEntity(table);
+      const error = await run(
+        layer,
+        table
+          .setup()
+          .pipe(
+            Effect.andThen(
+              entity
+                .getAndUpdate(
+                  { itemId: 'item-missing', category: 'cat-1' },
+                  { value: 2 },
+                )
+                .pipe(Effect.flip),
+            ),
+          ),
+      );
+
+      expect(adapter.isNoItemToUpdateError(error)).toBe(true);
     });
   });
 
@@ -739,11 +828,11 @@ describe.each(adapters)('conformance: $name', (adapter) => {
           });
 
           // The op captures expectedU now; a concurrent writer then bumps _u.
-          const staleOp = yield* entity.updateOp(
+          const staleOp = yield* entity.getAndUpdateOp(
             { itemId: 'tx-stale', category: 'cat-tx' },
             { value: 99 },
           );
-          yield* entity.update(
+          yield* entity.getAndUpdate(
             { itemId: 'tx-stale', category: 'cat-tx' },
             { value: 50 },
           );
@@ -905,7 +994,7 @@ describe.each(adapters)('conformance: $name', (adapter) => {
             itemId: 'tx-update-tombstone',
             category: 'cat-tombstone',
           });
-          const op = yield* entity.updateOp(
+          const op = yield* entity.getAndUpdateOp(
             {
               itemId: 'tx-update-tombstone',
               category: 'cat-tombstone',
@@ -946,7 +1035,7 @@ describe.each(adapters)('conformance: $name', (adapter) => {
             itemId: 'tx-del-stale',
             category: 'cat-dr',
           });
-          yield* entity.update(
+          yield* entity.getAndUpdate(
             { itemId: 'tx-del-stale', category: 'cat-dr' },
             { value: 50 },
           );
@@ -980,12 +1069,12 @@ describe.each(adapters)('conformance: $name', (adapter) => {
             value: 1,
           });
 
-          const lwwOp = yield* entity.updateOp(
+          const lwwOp = yield* entity.getAndUpdateOp(
             { itemId: 'tx-lww', category: 'cat-lww' },
             { value: 99 },
             { lastWriteWins: true },
           );
-          yield* entity.update(
+          yield* entity.getAndUpdate(
             { itemId: 'tx-lww', category: 'cat-lww' },
             { value: 50 },
           );
@@ -1019,7 +1108,7 @@ describe.each(adapters)('conformance: $name', (adapter) => {
             { itemId: 'tx-delete-lww', category: 'cat-delete-lww' },
             { lastWriteWins: true },
           );
-          yield* entity.update(
+          yield* entity.getAndUpdate(
             { itemId: 'tx-delete-lww', category: 'cat-delete-lww' },
             { value: 2 },
           );
@@ -1104,7 +1193,48 @@ describe.each(adapters)('conformance: $name', (adapter) => {
       expect(broadcasts.at(-1)?.meta._u).toBe(result.after.meta._u);
     });
 
-    it('updateOp fails before the first write', async () => {
+    it('getAndUpdate before the first write treats the default as current and persists', async () => {
+      const layer = adapter.makeLayer();
+      const table = adapter.makeTable();
+      const single = adapter.makeSingleEntity(table);
+      const result = await run(
+        layer,
+        Effect.gen(function* () {
+          yield* table.setup();
+          const updated = yield* single.getAndUpdate((current) => ({
+            count: (current.count as number) + 1,
+          }));
+          const after = yield* single.get();
+          return { updated, after };
+        }),
+      );
+
+      expect(result.updated.value).toEqual({ theme: 'light', count: 1 });
+      expect(result.updated.meta._u).not.toBe('');
+      expect(result.after.value).toEqual({ theme: 'light', count: 1 });
+      expect(result.after.meta._u).toBe(result.updated.meta._u);
+    });
+
+    it('getAndUpdate callback returning null skips the write', async () => {
+      const layer = adapter.makeLayer();
+      const table = adapter.makeTable();
+      const single = adapter.makeSingleEntity(table);
+      const result = await run(
+        layer,
+        Effect.gen(function* () {
+          yield* table.setup();
+          const skipped = yield* single.getAndUpdate(() => null);
+          const after = yield* single.get();
+          return { skipped, after };
+        }),
+      );
+
+      expect(result.skipped.value).toEqual(CONF_DEFAULT);
+      expect(result.skipped.meta._u).toBe('');
+      expect(result.after.meta._u).toBe('');
+    });
+
+    it('getAndUpdateOp fails before the first write', async () => {
       const layer = adapter.makeLayer();
       const table = adapter.makeTable();
       const single = adapter.makeSingleEntity(table);
@@ -1114,7 +1244,7 @@ describe.each(adapters)('conformance: $name', (adapter) => {
           .setup()
           .pipe(
             Effect.andThen(
-              single.updateOp({ update: { count: 1 } }).pipe(Effect.flip),
+              single.getAndUpdateOp({ count: 1 }).pipe(Effect.flip),
             ),
           ),
       );
@@ -1122,7 +1252,7 @@ describe.each(adapters)('conformance: $name', (adapter) => {
       expect(adapter.isNoItemToUpdateError(error)).toBe(true);
     });
 
-    it('updateOp applies through transact and rolls back when stale', async () => {
+    it('getAndUpdateOp applies through transact and rolls back when stale', async () => {
       const layer = adapter.makeLayer();
       const table = adapter.makeTable();
       const single = adapter.makeSingleEntity(table);
@@ -1133,12 +1263,12 @@ describe.each(adapters)('conformance: $name', (adapter) => {
           yield* table.setup();
           yield* single.put({ theme: 'dark', count: 1 });
 
-          const op = yield* single.updateOp({ update: { count: 5 } });
+          const op = yield* single.getAndUpdateOp({ count: 5 });
           yield* table.transact([op]);
           const applied = yield* single.get();
 
-          const staleOp = yield* single.updateOp({ update: { count: 9 } });
-          yield* single.update({ update: { count: 7 } });
+          const staleOp = yield* single.getAndUpdateOp({ count: 9 });
+          yield* single.getAndUpdate({ count: 7 });
           const error = yield* table.transact([staleOp]).pipe(Effect.flip);
           const after = yield* single.get();
 
@@ -1152,7 +1282,7 @@ describe.each(adapters)('conformance: $name', (adapter) => {
       expect(result.after.value.count).toBe(7);
     });
 
-    it('updateOp with lastWriteWins clobbers a concurrent write', async () => {
+    it('getAndUpdateOp with lastWriteWins clobbers a concurrent write', async () => {
       const layer = adapter.makeLayer();
       const table = adapter.makeTable();
       const single = adapter.makeSingleEntity(table);
@@ -1163,11 +1293,11 @@ describe.each(adapters)('conformance: $name', (adapter) => {
           yield* table.setup();
           yield* single.put({ theme: 'dark', count: 1 });
 
-          const lwwOp = yield* single.updateOp({
-            update: { count: 99 },
-            lastWriteWins: true,
-          });
-          yield* single.update({ update: { count: 50 } });
+          const lwwOp = yield* single.getAndUpdateOp(
+            { count: 99 },
+            { lastWriteWins: true },
+          );
+          yield* single.getAndUpdate({ count: 50 });
           yield* table.transact([lwwOp]);
           return yield* single.get();
         }),

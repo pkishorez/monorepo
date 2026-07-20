@@ -99,6 +99,28 @@ export interface EntityType<T> {
 type InsertInput<T> = Omit<T, '_v'>;
 
 /**
+ * Update input for `getAndUpdate`: a plain partial, or a callback deriving the
+ * partial from the current value. Returning `null` skips the write.
+ */
+type UpdateInput<T> =
+  | Partial<Omit<T, '_v'>>
+  | ((current: T) => Partial<Omit<T, '_v'>> | null);
+
+/**
+ * Update input for `getAndUpdateOp` — no `null` skip, since an op must always
+ * produce a write descriptor.
+ */
+type UpdateOpInput<T> =
+  | Partial<Omit<T, '_v'>>
+  | ((current: T) => Partial<Omit<T, '_v'>>);
+
+/** Config for `getAndUpdate`. `retries` counts retry attempts after the first try. */
+interface GetAndUpdateConfig {
+  retries?: number;
+  lastWriteWins?: boolean;
+}
+
+/**
  * Stored derivation info for a secondary index.
  */
 export interface StoredIndexDerivation {
@@ -742,6 +764,188 @@ export class DynamoEntity<
           return {
             ...this.#table.opUpdateItem({ pk, sk }, exprResult),
             broadcast: { value: mergedValue, meta },
+          };
+        },
+      } satisfies TransactItem;
+    });
+  }
+
+  /**
+   * The portable read-modify-write (see db ADR 0002): reads the current
+   * entity, derives a partial from it, and writes the full merged record back
+   * as a `PutItem` guarded on the `_u` that was read. On a concurrent-write
+   * conflict, re-reads and re-runs up to `retries` times (default 3) before
+   * failing with `conditionCheckFailed`. A callback returning `null` skips
+   * the write and resolves with the current entity. `lastWriteWins: true`
+   * drops the guard. Costs two round-trips where the native `update` costs
+   * one — prefer `update` for Dynamo-only latency-sensitive code.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Retry count and guard opt-out
+   * @returns The updated entity with new metadata
+   */
+  getAndUpdate(
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    update: UpdateInput<ESchemaType<TSchema>>,
+    config?: GetAndUpdateConfig,
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
+    return Effect.gen({ self: this }, function* () {
+      const retries = config?.retries ?? 3;
+      for (let attempt = 0; ; attempt++) {
+        const existing = yield* this.get(keyValue, { ConsistentRead: true });
+        if (!existing) {
+          return yield* Effect.fail(DynamodbError.noItemToUpdate());
+        }
+
+        const partial =
+          typeof update === 'function' ? update(existing.value) : update;
+        if (partial === null) return existing;
+
+        const fullValue = {
+          ...existing.value,
+          ...partial,
+        } as ESchemaType<TSchema>;
+
+        const idField = this.#eschema.idField;
+        if (!Object.is(fullValue[idField], existing.value[idField])) {
+          return yield* Effect.fail(
+            DynamodbError.idUpdateNotSupported(idField),
+          );
+        }
+
+        const _u = yield* nextUlid;
+        const canonical = yield* this.#canonicalizeDecodedValue(
+          fullValue,
+          { _d: existing.meta._d },
+          _u,
+        );
+        const originalKey = this.#derivePrimaryIndex({
+          ...keyValue,
+          _u,
+        });
+        const item = {
+          ...canonical.item,
+          [this.#table.primary.pk]: originalKey.pk,
+          [this.#table.primary.sk]: originalKey.sk,
+        };
+
+        const exprResult = config?.lastWriteWins
+          ? undefined
+          : buildExpr({
+              condition: exprCondition(($) =>
+                $.cond('_u' as any, '=', existing.meta._u),
+              ),
+            });
+
+        const conflicted = yield* this.#table.putItem(item, exprResult).pipe(
+          Effect.as(false),
+          Effect.catchIf(
+            (e): e is DynamodbError =>
+              e.error._tag === 'PutItemFailed' && isConditionalCheckFailed(e),
+            () => Effect.succeed(true),
+          ),
+        );
+        if (conflicted) {
+          if (attempt < retries) continue;
+          return yield* Effect.fail(DynamodbError.conditionCheckFailed());
+        }
+
+        const meta: MetaType = {
+          _e: this.#eschema.name,
+          _v: this.#eschema.latestVersion,
+          _u,
+          _d: existing.meta._d,
+        };
+        const entity = { value: fullValue, meta };
+        yield* this.#broadcast([entity]);
+        return entity;
+      }
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] getAndUpdate failed`, {
+          error: e,
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Op form of `getAndUpdate` for use in `transact`. Pre-fetches the current
+   * entity, resolves the update against it, and defers a full-record
+   * `PutItem` guarded on the `_u` that was read (unless `lastWriteWins`).
+   * Cannot retry — a conflict surfaces as the transaction's condition
+   * failure.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Guard opt-out
+   * @returns A transaction item for the write with broadcast data
+   */
+  getAndUpdateOp(
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    update: UpdateOpInput<ESchemaType<TSchema>>,
+    config?: { lastWriteWins?: boolean },
+  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get(keyValue, { ConsistentRead: true });
+      if (!existing) {
+        return yield* Effect.fail(DynamodbError.noItemToUpdate());
+      }
+
+      const fullValue = {
+        ...existing.value,
+        ...(typeof update === 'function' ? update(existing.value) : update),
+      } as ESchemaType<TSchema>;
+
+      const idField = this.#eschema.idField;
+      if (!Object.is(fullValue[idField], existing.value[idField])) {
+        return yield* Effect.fail(DynamodbError.idUpdateNotSupported(idField));
+      }
+
+      const encoded = yield* this.#eschema
+        .encode(fullValue as any)
+        .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+
+      const exprResult = config?.lastWriteWins
+        ? undefined
+        : buildExpr({
+            condition: exprCondition(($) =>
+              $.cond('_u' as any, '=', existing.meta._u),
+            ),
+          });
+
+      const { pk, sk } = this.#derivePrimaryIndex({
+        ...keyValue,
+        _u: existing.meta._u,
+      });
+
+      return {
+        entityName: this.#eschema.name,
+        operationKind: 'updateOp',
+        pk,
+        sk,
+        table: this.#table,
+        apply: (u) => {
+          const meta: MetaType = {
+            _e: this.#eschema.name,
+            _v: this.#eschema.latestVersion,
+            _u: u,
+            _d: existing.meta._d,
+          };
+          const valueWithMeta = { ...fullValue, _u: u };
+          const item = {
+            ...encoded,
+            ...meta,
+            [this.#table.primary.pk]: pk,
+            [this.#table.primary.sk]: sk,
+            ...this.#deriveSecondaryIndexes(valueWithMeta),
+          };
+          return {
+            ...this.#table.opPutItem(item, exprResult),
+            broadcast: { value: fullValue, meta },
           };
         },
       } satisfies TransactItem;

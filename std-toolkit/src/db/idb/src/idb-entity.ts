@@ -61,6 +61,28 @@ type ResolveStreamSkParam<
 type InsertInput<T> = Omit<T, '_v'>;
 
 /**
+ * Update input for `getAndUpdate`: a plain partial, or a callback deriving the
+ * partial from the current value. Returning `null` skips the write.
+ */
+type UpdateInput<T> =
+  | Partial<Omit<T, '_v'>>
+  | ((current: T) => Partial<Omit<T, '_v'>> | null);
+
+/**
+ * Update input for `getAndUpdateOp` — no `null` skip, since an op must always
+ * produce a write descriptor.
+ */
+type UpdateOpInput<T> =
+  | Partial<Omit<T, '_v'>>
+  | ((current: T) => Partial<Omit<T, '_v'>>);
+
+/** Config for `getAndUpdate`. `retries` counts retry attempts after the first try. */
+interface GetAndUpdateConfig {
+  retries?: number;
+  lastWriteWins?: boolean;
+}
+
+/**
  * Helper type to extract the key type from an array of keys.
  */
 type ExtractKeys<T, Keys extends readonly (keyof T)[]> = Keys[number];
@@ -74,7 +96,7 @@ type IndexKeyFields<T, K extends keyof T | DerivableMetaFields> = Pick<
 >;
 
 /**
- * A deferred write produced by `insertOp`/`updateOp`, consumed by the table's
+ * A deferred write produced by `insertOp`/`getAndUpdateOp`, consumed by the table's
  * `transact`. `apply` is pure — the transaction supplies the write cursor and
  * gets back the concrete write plus the broadcast payload, flushed only after
  * the underlying native transaction commits. `table` identifies where the op
@@ -240,27 +262,79 @@ export class IdbEntity<
   }
 
   /**
-   * Updates an existing entity by its primary key. Reads, auto-migrates and
-   * merges outside any transaction, then writes the full record back with
-   * `expectedU` set to the `_u` that was read — a concurrent writer surfaces
-   * as a `conditionFailed` (retryable).
+   * The portable read-modify-write: reads the current entity (auto-migrating
+   * on decode), derives a partial from it, and writes the full merged record
+   * back with `expectedU` set to the `_u` that was read. On a concurrent-write
+   * conflict, re-reads and re-runs up to `retries` times (default 3) before
+   * failing with `conditionFailed`. A callback returning `null` skips the
+   * write and resolves with the current entity. `lastWriteWins: true` drops
+   * the guard.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity with fields to update
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Retry count and guard opt-out
    * @returns The updated entity with new metadata
    */
-  update(
+  getAndUpdate(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
+    update: UpdateInput<ESchemaType<TSchema>>,
+    config?: GetAndUpdateConfig,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
     return Effect.gen({ self: this }, function* () {
-      const op = yield* this.#buildUpdateOp(keyValue, updates);
-      const { write, entity } = op.apply(yield* nextUlid);
-      const db = yield* IdbDB;
-      yield* db.transact([write]);
-      yield* this.#broadcast([entity]);
-      return entity;
+      const retries = config?.retries ?? 3;
+      for (let attempt = 0; ; attempt++) {
+        const existing = yield* this.get(keyValue);
+        if (!existing) {
+          const db = yield* IdbDB;
+          return yield* Effect.fail(IdbDBError.noItemToUpdate(db.tableName));
+        }
+
+        const partial =
+          typeof update === 'function' ? update(existing.value) : update;
+        if (partial === null) return existing;
+
+        const fullValue = {
+          ...existing.value,
+          ...partial,
+        } as ESchemaType<TSchema>;
+
+        const { record, meta } = yield* this.#encodeForWrite(
+          fullValue,
+          existing.meta._d,
+          keyValue as Record<string, unknown>,
+        );
+
+        const db = yield* IdbDB;
+        const conflicted = yield* db
+          .transact([
+            {
+              type: 'put',
+              record,
+              ...(config?.lastWriteWins ? {} : { expectedU: existing.meta._u }),
+            },
+          ])
+          .pipe(
+            Effect.as(false),
+            Effect.catchIf(
+              (e) => e.code === 'conditionFailed',
+              () => Effect.succeed(true),
+            ),
+          );
+        if (conflicted) {
+          if (attempt < retries) continue;
+          return yield* Effect.fail(
+            IdbDBError.conditionFailed(db.tableName, {
+              pk: record.pk,
+              sk: record.sk,
+            }),
+          );
+        }
+
+        const entity = { value: fullValue, meta };
+        yield* this.#broadcast([entity]);
+        return entity;
+      }
     });
   }
 
@@ -591,16 +665,16 @@ export class IdbEntity<
    * check and complete broadcast data.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity with fields to update
+   * @param update - Partial entity, or a callback deriving one from the current value
    * @returns A descriptor for update, plus its broadcast payload
    */
-  updateOp(
+  getAndUpdateOp(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
+    update: UpdateOpInput<ESchemaType<TSchema>>,
     options?: { lastWriteWins?: boolean },
   ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
-    return this.#buildUpdateOp(keyValue, updates, options);
+    return this.#buildUpdateOp(keyValue, update, options);
   }
 
   deleteOp(
@@ -673,7 +747,7 @@ export class IdbEntity<
 
   #buildUpdateOp(
     keyValue: Record<string, unknown>,
-    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
+    update: UpdateOpInput<ESchemaType<TSchema>>,
     options?: { lastWriteWins?: boolean },
   ): Effect.Effect<IdbEntityOp<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
     return Effect.gen({ self: this }, function* () {
@@ -688,7 +762,7 @@ export class IdbEntity<
 
       const fullValue = {
         ...existing.value,
-        ...updates,
+        ...(typeof update === 'function' ? update(existing.value) : update),
       } as ESchemaType<TSchema>;
 
       const { record, meta: preparedMeta } = yield* this.#encodeForWrite(

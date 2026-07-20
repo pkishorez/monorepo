@@ -20,7 +20,7 @@ import { ... } from 'std-toolkit/sqlite/adapters/do';             // Cloudflare 
 
 **Transactions**
 
-- `table.transact(ops)` takes op descriptors produced by `entity.insertOp(...)` / `entity.updateOp(...)` / `entity.deleteOp(...)` / `entity.restoreOp(...)` / `singleEntity.updateOp(...)` — which validate, migrate, and derive keys up front — and applies them all in one database transaction. Each op re-checks its condition inside the transaction (`insert`: row must not exist; `update`: stored `_u` must equal the op's `expectedU`, unless built with `lastWriteWins: true`); any violation rolls the whole batch back with `conditionFailed`. Ops from an entity of a different table are rejected at runtime. Broadcasts fire only after commit, in op order. See `src/db/docs/adr/0001-buffered-transact-ops-only.md` for why this is the only transaction model.
+- `table.transact(ops)` takes op descriptors produced by `entity.insertOp(...)` / `entity.getAndUpdateOp(...)` / `entity.deleteOp(...)` / `entity.restoreOp(...)` / `singleEntity.getAndUpdateOp(...)` — which validate, migrate, and derive keys up front — and applies them all in one database transaction. Each op re-checks its condition inside the transaction (`insert`: row must not exist; `update`: stored `_u` must equal the op's `expectedU`, unless built with `lastWriteWins: true`); any violation rolls the whole batch back with `conditionFailed`. Ops from an entity of a different table are rejected at runtime. Broadcasts fire only after commit, in op order. See `src/db/docs/adr/0001-buffered-transact-ops-only.md` for why this is the only transaction model.
 
 **Database**
 

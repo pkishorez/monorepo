@@ -38,7 +38,7 @@ The portable read-modify-write on an **entity service** (`getAndUpdate` / `getAn
 _Avoid_: getUpdate, modify, RMW (spell out **get-and-update**).
 
 **Transact op**:
-A deferred write (insert, update, delete, or restore) produced by an **entity service** ahead of any transaction — `insertOp` / `updateOp` / `deleteOp` (tombstones via `_d: true`) / `restoreOp` (`_d: false`). Building an op validates, encodes, and captures the optimistic-concurrency expectation (`updateOp`, `deleteOp`, and `restoreOp` can drop it with `lastWriteWins: true`); it performs no write and has no executable form until **transact** supplies the write cursor — the op is a pure function of the `_u` assigned at commit time.
+A deferred write (insert, update, delete, or restore) produced by an **entity service** ahead of any transaction — `insertOp` / `getAndUpdateOp` (DynamoDB also keeps a native `updateOp`) / `deleteOp` (tombstones via `_d: true`) / `restoreOp` (`_d: false`). Building an op validates, encodes, and captures the optimistic-concurrency expectation (the update/delete/restore ops can drop it with `lastWriteWins: true`); it performs no write and has no executable form until **transact** supplies the write cursor — the op is a pure function of the `_u` assigned at commit time.
 
 **Reset (single entity)**:
 Single entities are never deleted — `reset()` writes the default value back as a real record, so `get` and broadcasts agree on the same `_u`.

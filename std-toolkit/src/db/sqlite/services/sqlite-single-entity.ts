@@ -7,6 +7,7 @@ import type { EntityType } from '../../../core/index.js';
 import type { SQLiteTableInstance } from './sqlite-table.js';
 import type { SqliteEntityOp, SqliteWriteOp } from './sqlite-entity.js';
 import { SqliteDB, SqliteDBError } from '../sql/db.js';
+import * as Sql from '../sql/helpers/index.js';
 import { Broadcaster, nextUlid } from '../../../core/index.js';
 import { deriveIndexKeyValue, type RawRow } from '../internal/utils.js';
 
@@ -42,7 +43,7 @@ export interface SingleEntityType<T> {
 
 /**
  * A simplified SQLite entity for single-record use cases (e.g., app config, feature flags, counters).
- * Provides type-safe `get`, `put`, and `update` with a mandatory default value so `get` never returns null.
+ * Provides type-safe `get`, `put`, and `getAndUpdate` with a mandatory default value so `get` never returns null.
  *
  * PK and SK are both derived from the entity name only.
  *
@@ -214,58 +215,128 @@ export class SQLiteSingleEntity<
   }
 
   /**
-   * Updates the single entity with a plain object partial merge.
-   * Fails if the item doesn't exist (i.e., `_u === ""`).
+   * The portable read-modify-write: reads the current entity (the schema
+   * default when nothing is stored), derives a partial from it, and writes
+   * the merged record back guarded on the `_u` that was read — or on
+   * "record does not exist yet" when the read saw the default. Retries up to
+   * `retries` times (default 3) on conflict before failing with
+   * `conditionFailed`. A callback returning `null` skips the write.
+   * `lastWriteWins: true` drops the guard.
    *
-   * @param params - Object containing the update
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Retry count and guard opt-out
    * @returns The updated entity with new metadata
    */
-  update(params: {
-    update: Partial<Omit<ESchemaType<TSchema>, '_v'>>;
-  }): Effect.Effect<
+  getAndUpdate(
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          current: ESchemaType<TSchema>,
+        ) => Partial<Omit<ESchemaType<TSchema>, '_v'>> | null),
+    config?: { retries?: number; lastWriteWins?: boolean },
+  ): Effect.Effect<
     SingleEntityType<ESchemaType<TSchema>>,
     SqliteDBError,
     SqliteDB
   > {
     return Effect.gen({ self: this }, function* () {
       const db = yield* SqliteDB;
-      const existing = yield* this.get();
+      const retries = config?.retries ?? 3;
+      for (let attempt = 0; ; attempt++) {
+        const existing = yield* this.get();
 
-      if (existing.meta._u === '') {
-        return yield* Effect.fail(SqliteDBError.noItemToUpdate(db.tableName));
+        const partial =
+          typeof update === 'function' ? update(existing.value) : update;
+        if (partial === null) return existing;
+
+        const fullValue = {
+          ...existing.value,
+          ...partial,
+        } as ESchemaType<TSchema>;
+
+        const encoded = yield* this.#eschema
+          .encode(fullValue as any)
+          .pipe(
+            Effect.mapError((e) => SqliteDBError.updateFailed(db.tableName, e)),
+          );
+
+        const _u = yield* nextUlid;
+
+        const meta: SingleMetaType = {
+          _e: this.#eschema.name,
+          _v: this.#eschema.latestVersion,
+          _u,
+        };
+        const { pk, sk } = this.#deriveKey();
+
+        if (existing.meta._u === '') {
+          const inserted = yield* this.#table
+            .putItem({
+              pk,
+              sk,
+              _data: JSON.stringify(encoded),
+              _e: this.#eschema.name,
+              _v: this.#eschema.latestVersion,
+              _u,
+              _d: 0,
+            })
+            .pipe(
+              Effect.as(true),
+              Effect.catch((error) =>
+                this.#table.getItem({ pk, sk }).pipe(
+                  Effect.map(({ Item }) => Item !== null),
+                  Effect.catch(() => Effect.succeed(false)),
+                  Effect.flatMap((concurrentlyInserted) =>
+                    concurrentlyInserted
+                      ? Effect.succeed(false)
+                      : Effect.fail(error),
+                  ),
+                ),
+              ),
+            );
+          if (!inserted) {
+            if (attempt < retries) continue;
+            return yield* Effect.fail(
+              SqliteDBError.conditionFailed(db.tableName, { pk, sk }),
+            );
+          }
+        } else {
+          const updateValues: Record<string, unknown> = {
+            _data: JSON.stringify(encoded),
+            _v: this.#eschema.latestVersion,
+            _u,
+          };
+
+          if (config?.lastWriteWins) {
+            yield* this.#table.updateItem({ pk, sk }, updateValues);
+          } else {
+            const where = Sql.whereAnd(
+              Sql.wherePkSkExact(
+                this.#table.primary.pk,
+                this.#table.primary.sk,
+                pk,
+                sk,
+              ),
+              Sql.where('_u', '=', existing.meta._u),
+            );
+            const { rowsWritten } = yield* db.update(
+              db.tableName,
+              updateValues,
+              where,
+            );
+            if (rowsWritten === 0) {
+              if (attempt < retries) continue;
+              return yield* Effect.fail(
+                SqliteDBError.conditionFailed(db.tableName, { pk, sk }),
+              );
+            }
+          }
+        }
+
+        const entity = { value: fullValue, meta: { ...meta, _d: false } };
+        yield* this.#broadcast([entity]);
+        return { value: fullValue, meta };
       }
-
-      const fullValue = {
-        ...existing.value,
-        ...params.update,
-      } as ESchemaType<TSchema>;
-
-      const encoded = yield* this.#eschema
-        .encode(fullValue as any)
-        .pipe(
-          Effect.mapError((e) => SqliteDBError.updateFailed(db.tableName, e)),
-        );
-
-      const _u = yield* nextUlid;
-
-      const meta: SingleMetaType = {
-        _e: this.#eschema.name,
-        _v: this.#eschema.latestVersion,
-        _u,
-      };
-      const { pk, sk } = this.#deriveKey();
-
-      const updateValues: Record<string, unknown> = {
-        _data: JSON.stringify(encoded),
-        _v: this.#eschema.latestVersion,
-        _u,
-      };
-
-      yield* this.#table.updateItem({ pk, sk }, updateValues);
-
-      const entity = { value: fullValue, meta: { ...meta, _d: false } };
-      yield* this.#broadcast([entity]);
-      return { value: fullValue, meta };
     });
   }
 
@@ -284,13 +355,18 @@ export class SQLiteSingleEntity<
    * and broadcast metadata are assigned when applied. Fails if the item
    * doesn't exist (i.e., `_u === ""`).
    *
-   * @param params - Object containing the update
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Guard opt-out
    * @returns A descriptor for update, plus its broadcast payload
    */
-  updateOp(params: {
-    update: Partial<Omit<ESchemaType<TSchema>, '_v'>>;
-    lastWriteWins?: boolean;
-  }): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
+  getAndUpdateOp(
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          current: ESchemaType<TSchema>,
+        ) => Partial<Omit<ESchemaType<TSchema>, '_v'>>),
+    config?: { lastWriteWins?: boolean },
+  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
     return Effect.gen({ self: this }, function* () {
       const db = yield* SqliteDB;
       const existing = yield* this.get();
@@ -301,7 +377,7 @@ export class SQLiteSingleEntity<
 
       const fullValue = {
         ...existing.value,
-        ...params.update,
+        ...(typeof update === 'function' ? update(existing.value) : update),
       } as ESchemaType<TSchema>;
 
       const encoded = yield* this.#eschema
@@ -327,7 +403,7 @@ export class SQLiteSingleEntity<
               _v: this.#eschema.latestVersion,
               _u: u,
             },
-            ...(params.lastWriteWins ? {} : { expectedU: existing.meta._u }),
+            ...(config?.lastWriteWins ? {} : { expectedU: existing.meta._u }),
           } satisfies SqliteWriteOp,
           entity: {
             value: fullValue,

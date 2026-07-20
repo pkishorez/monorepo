@@ -95,21 +95,44 @@ describe('SQLiteSingleEntity', () => {
     );
   });
 
-  // ─── update ──────────────────────────────────────────────────────────────
+  // ─── getAndUpdate ────────────────────────────────────────────────────────
 
-  describe('update', () => {
+  describe('getAndUpdate', () => {
     itEffect('plain object patch', () =>
       Effect.gen(function* () {
         yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
 
-        const result = yield* AppConfig.update({ update: { theme: 'dark' } });
+        const result = yield* AppConfig.getAndUpdate({ theme: 'dark' });
 
         expect(result.value.theme).toBe('dark');
         expect(result.value.maxRetries).toBe(3);
       }).pipe(Effect.provide(layer)),
     );
 
-    itEffect('fails on non-existent item', () =>
+    itEffect('callback derives the partial from the current value', () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+        const result = yield* AppConfig.getAndUpdate((current) => ({
+          maxRetries: current.maxRetries + 1,
+        }));
+
+        expect(result.value.maxRetries).toBe(4);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    itEffect('callback returning null skips the write', () =>
+      Effect.gen(function* () {
+        const written = yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+        const skipped = yield* AppConfig.getAndUpdate(() => null);
+
+        expect(skipped.meta._u).toBe(written.meta._u);
+        expect(skipped.value.theme).toBe('light');
+      }).pipe(Effect.provide(layer)),
+    );
+
+    itEffect('treats the default as current before the first write', () =>
       Effect.gen(function* () {
         const emptySchema = SingleEntityESchema.make('EmptyConfig', {
           value: Schema.String,
@@ -123,13 +146,52 @@ describe('SQLiteSingleEntity', () => {
           .singleEntity(emptySchema)
           .default({ value: 'x' });
 
-        const error = yield* EmptyConfig.update({
-          update: { value: 'y' },
-        }).pipe(Effect.flip);
+        const updated = yield* EmptyConfig.getAndUpdate((current) => ({
+          value: `${current.value}y`,
+        }));
+        const after = yield* EmptyConfig.get();
 
-        expect(error.error._tag).toBe('NoItemToUpdate');
+        expect(updated.value.value).toBe('xy');
+        expect(updated.meta._u).not.toBe('');
+        expect(after.value.value).toBe('xy');
+        expect(after.meta._u).toBe(updated.meta._u);
       }).pipe(Effect.provide(layer)),
     );
+
+    itEffect('preserves a non-conflict initial insert failure', () => {
+      const triggerName = 'fail_insert_failure_config';
+      let updateCalls = 0;
+
+      return Effect.gen(function* () {
+        const failureSchema = SingleEntityESchema.make('InsertFailureConfig', {
+          value: Schema.String,
+        }).build();
+        const failureTable = SQLiteTable.make().primary('pk', 'sk').build();
+        const FailureConfig = failureTable
+          .singleEntity(failureSchema)
+          .default({ value: 'default' });
+
+        yield* failureTable.setup();
+        yield* Effect.sync(() =>
+          db.exec(
+            `CREATE TRIGGER ${triggerName} BEFORE INSERT ON std_data WHEN NEW.pk = 'InsertFailureConfig' BEGIN SELECT RAISE(FAIL, 'simulated insert failure'); END`,
+          ),
+        );
+
+        const error = yield* FailureConfig.getAndUpdate(() => {
+          updateCalls += 1;
+          return { value: 'updated' };
+        }).pipe(Effect.flip);
+
+        expect(error.error._tag).toBe('InsertFailed');
+        expect(updateCalls).toBe(1);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => db.exec(`DROP TRIGGER IF EXISTS ${triggerName}`)),
+        ),
+        Effect.provide(layer),
+      );
+    });
   });
 
   // ─── reset ───────────────────────────────────────────────────────────────

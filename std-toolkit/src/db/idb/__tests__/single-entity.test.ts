@@ -111,7 +111,7 @@ describe('IdbSingleEntity', () => {
     });
   });
 
-  describe('update', () => {
+  describe('getAndUpdate', () => {
     itEffect('plain object patch', () => {
       const { layer, table, AppConfig } = makeConfig();
 
@@ -121,7 +121,7 @@ describe('IdbSingleEntity', () => {
           yield* table.setup();
           yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
 
-          const result = yield* AppConfig.update({ update: { theme: 'dark' } });
+          const result = yield* AppConfig.getAndUpdate({ theme: 'dark' });
 
           expect(result.value.theme).toBe('dark');
           expect(result.value.maxRetries).toBe(3);
@@ -129,23 +129,62 @@ describe('IdbSingleEntity', () => {
       );
     });
 
-    itEffect('fails with noItemToUpdate on non-existent item', () => {
+    itEffect('callback derives the partial from the current value', () => {
       const { layer, table, AppConfig } = makeConfig();
 
       return provided(
         layer,
         Effect.gen(function* () {
           yield* table.setup();
-          const error = yield* AppConfig.update({
-            update: { theme: 'dark' },
-          }).pipe(Effect.flip);
+          yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
 
-          expect(error.code).toBe('noItemToUpdate');
+          const result = yield* AppConfig.getAndUpdate((current) => ({
+            maxRetries: current.maxRetries + 1,
+          }));
+
+          expect(result.value.maxRetries).toBe(4);
         }),
       );
     });
 
-    it('rejects one of two updates based on the same _u', async () => {
+    itEffect('treats the default as current before the first write', () => {
+      const { layer, table, AppConfig } = makeConfig();
+
+      return provided(
+        layer,
+        Effect.gen(function* () {
+          yield* table.setup();
+          const updated = yield* AppConfig.getAndUpdate({ theme: 'dark' });
+          const after = yield* AppConfig.get();
+
+          expect(updated.value.theme).toBe('dark');
+          expect(updated.value.maxRetries).toBe(3);
+          expect(updated.meta._u).not.toBe('');
+          expect(after.meta._u).toBe(updated.meta._u);
+        }),
+      );
+    });
+
+    itEffect('callback returning null skips the write', () => {
+      const { layer, table, AppConfig } = makeConfig();
+
+      return provided(
+        layer,
+        Effect.gen(function* () {
+          yield* table.setup();
+          const written = yield* AppConfig.put({
+            theme: 'light',
+            maxRetries: 3,
+          });
+          const skipped = yield* AppConfig.getAndUpdate(() => null);
+
+          expect(skipped.meta._u).toBe(written.meta._u);
+          expect(skipped.value.theme).toBe('light');
+        }),
+      );
+    });
+
+    it('with retries: 0, rejects one of two updates based on the same _u', async () => {
       const { layer, table, AppConfig } = makeConfig();
       await Effect.runPromise(
         provided(
@@ -159,10 +198,16 @@ describe('IdbSingleEntity', () => {
 
       const results = await Promise.allSettled([
         Effect.runPromise(
-          provided(layer, AppConfig.update({ update: { theme: 'first' } })),
+          provided(
+            layer,
+            AppConfig.getAndUpdate({ theme: 'first' }, { retries: 0 }),
+          ),
         ),
         Effect.runPromise(
-          provided(layer, AppConfig.update({ update: { theme: 'second' } })),
+          provided(
+            layer,
+            AppConfig.getAndUpdate({ theme: 'second' }, { retries: 0 }),
+          ),
         ),
       ]);
 
@@ -173,6 +218,41 @@ describe('IdbSingleEntity', () => {
       expect(rejected).toMatchObject({
         reason: { code: 'conditionFailed' },
       });
+    });
+
+    it('with default retries, both concurrent updates land', async () => {
+      const { layer, table, AppConfig } = makeConfig();
+      await Effect.runPromise(
+        provided(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            yield* AppConfig.put({ theme: 'light', maxRetries: 0 });
+          }),
+        ),
+      );
+
+      await Promise.all([
+        Effect.runPromise(
+          provided(
+            layer,
+            AppConfig.getAndUpdate((current) => ({
+              maxRetries: current.maxRetries + 1,
+            })),
+          ),
+        ),
+        Effect.runPromise(
+          provided(
+            layer,
+            AppConfig.getAndUpdate((current) => ({
+              maxRetries: current.maxRetries + 1,
+            })),
+          ),
+        ),
+      ]);
+
+      const after = await Effect.runPromise(provided(layer, AppConfig.get()));
+      expect(after.value.maxRetries).toBe(2);
     });
   });
 

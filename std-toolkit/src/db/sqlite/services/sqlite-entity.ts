@@ -60,6 +60,28 @@ type ResolveStreamSkParam<
 type InsertInput<T> = Omit<T, '_v'>;
 
 /**
+ * Update input for `getAndUpdate`: a plain partial, or a callback deriving the
+ * partial from the current value. Returning `null` skips the write.
+ */
+type UpdateInput<T> =
+  | Partial<Omit<T, '_v'>>
+  | ((current: T) => Partial<Omit<T, '_v'>> | null);
+
+/**
+ * Update input for `getAndUpdateOp` — no `null` skip, since an op must always
+ * produce a write descriptor.
+ */
+type UpdateOpInput<T> =
+  | Partial<Omit<T, '_v'>>
+  | ((current: T) => Partial<Omit<T, '_v'>>);
+
+/** Config for `getAndUpdate`. `retries` counts retry attempts after the first try. */
+interface GetAndUpdateConfig {
+  retries?: number;
+  lastWriteWins?: boolean;
+}
+
+/**
  * Represents an entity item with its value and metadata.
  *
  * @typeParam T - The entity value type
@@ -91,7 +113,7 @@ export type SqliteWriteOp =
     };
 
 /**
- * A deferred write produced by `insertOp`/`updateOp`, consumed by the table's
+ * A deferred write produced by `insertOp`/`getAndUpdateOp`, consumed by the table's
  * `transact`. `apply` is pure — the transaction supplies the write cursor and
  * gets back the concrete write plus the broadcast payload, flushed only after
  * the transaction commits. `table` identifies where the op was built so
@@ -291,64 +313,98 @@ export class SQLiteEntity<
   }
 
   /**
-   * Updates an existing entity by its primary key.
+   * The portable read-modify-write: reads the current entity, derives a
+   * partial from it, and writes the full merged record back guarded on the
+   * `_u` that was read. On a concurrent-write conflict, re-reads and re-runs
+   * up to `retries` times (default 3) before failing with `conditionFailed`.
+   * A callback returning `null` skips the write and resolves with the
+   * current entity. `lastWriteWins: true` drops the guard.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity with fields to update
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Retry count and guard opt-out
    * @returns The updated entity with new metadata
    */
-  update(
+  getAndUpdate(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
+    update: UpdateInput<ESchemaType<TSchema>>,
+    config?: GetAndUpdateConfig,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen({ self: this }, function* () {
-      // Get existing item
-      const existing = yield* this.get(keyValue);
-      if (!existing) {
-        return yield* Effect.fail(
-          SqliteDBError.noItemToUpdate((yield* SqliteDB).tableName),
+      const retries = config?.retries ?? 3;
+      for (let attempt = 0; ; attempt++) {
+        const existing = yield* this.get(keyValue);
+        if (!existing) {
+          return yield* Effect.fail(
+            SqliteDBError.noItemToUpdate((yield* SqliteDB).tableName),
+          );
+        }
+
+        const partial =
+          typeof update === 'function' ? update(existing.value) : update;
+        if (partial === null) return existing;
+
+        const fullValue = {
+          ...existing.value,
+          ...partial,
+        } as ESchemaType<TSchema>;
+
+        const { encoded, meta } = yield* this.#encode(
+          fullValue,
+          existing.meta._d,
         );
+
+        const pk = deriveIndexKeyValue(
+          this.#eschema.name,
+          this.#primaryDerivation.pkDeps,
+          keyValue as Record<string, unknown>,
+          true,
+        );
+        const sk = deriveIndexKeyValue(
+          this.#eschema.name,
+          this.#primaryDerivation.skDeps,
+          keyValue as Record<string, unknown>,
+          false,
+        );
+
+        const updateValues: Record<string, unknown> = {
+          _data: JSON.stringify(encoded),
+          _v: meta._v,
+          _u: meta._u,
+          ...this.#deriveSecondaryIndexes({ ...fullValue, _u: meta._u }),
+        };
+
+        if (config?.lastWriteWins) {
+          yield* this.#table.updateItem({ pk, sk }, updateValues);
+        } else {
+          const db = yield* SqliteDB;
+          const where = Sql.whereAnd(
+            Sql.wherePkSkExact(
+              this.#table.primary.pk,
+              this.#table.primary.sk,
+              pk,
+              sk,
+            ),
+            Sql.where('_u', '=', existing.meta._u),
+          );
+          const { rowsWritten } = yield* db.update(
+            db.tableName,
+            updateValues,
+            where,
+          );
+          if (rowsWritten === 0) {
+            if (attempt < retries) continue;
+            return yield* Effect.fail(
+              SqliteDBError.conditionFailed(db.tableName, { pk, sk }),
+            );
+          }
+        }
+
+        yield* this.#broadcast([{ value: fullValue, meta }]);
+
+        return { value: fullValue, meta };
       }
-
-      // Merge updates
-      const fullValue = {
-        ...existing.value,
-        ...updates,
-      } as ESchemaType<TSchema>;
-
-      const { encoded, meta } = yield* this.#encode(
-        fullValue,
-        existing.meta._d,
-      );
-
-      // Compute primary keys
-      const pk = deriveIndexKeyValue(
-        this.#eschema.name,
-        this.#primaryDerivation.pkDeps,
-        keyValue as Record<string, unknown>,
-        true,
-      );
-      const sk = deriveIndexKeyValue(
-        this.#eschema.name,
-        this.#primaryDerivation.skDeps,
-        keyValue as Record<string, unknown>,
-        false,
-      );
-
-      // Update the item
-      const updateValues: Record<string, unknown> = {
-        _data: JSON.stringify(encoded),
-        _v: meta._v,
-        _u: meta._u,
-        ...this.#deriveSecondaryIndexes({ ...fullValue, _u: meta._u }),
-      };
-
-      yield* this.#table.updateItem({ pk, sk }, updateValues);
-
-      yield* this.#broadcast([{ value: fullValue, meta }]);
-
-      return { value: fullValue, meta };
     });
   }
 
@@ -746,13 +802,13 @@ export class SQLiteEntity<
    * check and complete broadcast data.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity with fields to update
+   * @param update - Partial entity, or a callback deriving one from the current value
    * @returns A descriptor for update, plus its broadcast payload
    */
-  updateOp(
+  getAndUpdateOp(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
+    update: UpdateOpInput<ESchemaType<TSchema>>,
     options?: { lastWriteWins?: boolean },
   ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
     return Effect.gen({ self: this }, function* () {
@@ -765,7 +821,7 @@ export class SQLiteEntity<
 
       const fullValue = {
         ...existing.value,
-        ...updates,
+        ...(typeof update === 'function' ? update(existing.value) : update),
       } as ESchemaType<TSchema>;
 
       return yield* this.#buildWriteOp(

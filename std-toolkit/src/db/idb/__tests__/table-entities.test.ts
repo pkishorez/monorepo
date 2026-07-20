@@ -190,7 +190,7 @@ describe('IdbTable entities', () => {
 
             // Freeze the "read" phase: this op embeds expectedU = the _u
             // that is currently stored, into the not-yet-applied write.
-            const staleUpdateOp = yield* postEntity.updateOp(
+            const staleUpdateOp = yield* postEntity.getAndUpdateOp(
               { authorId: 'author-1', postId: 'post-stale' },
               { title: 'After' },
             );

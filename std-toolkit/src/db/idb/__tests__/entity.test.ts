@@ -149,7 +149,7 @@ describe('IdbEntity', () => {
               name: 'Before',
             });
 
-            const updated = yield* userEntity.update(
+            const updated = yield* userEntity.getAndUpdate(
               { userId: 'user-2' },
               { name: 'After' },
             );
@@ -172,7 +172,7 @@ describe('IdbEntity', () => {
         Effect.gen(function* () {
           yield* table.setup();
           const error = yield* userEntity
-            .update({ userId: 'nope' }, { name: 'X' })
+            .getAndUpdate({ userId: 'nope' }, { name: 'X' })
             .pipe(Effect.flip);
           expect(error.code).toBe('noItemToUpdate');
         }),
@@ -198,7 +198,7 @@ describe('IdbEntity', () => {
 
             // Freeze the "read" phase: this embeds expectedU = the _u we
             // just read into the returned (not-yet-applied) write op.
-            const op = yield* userEntity.updateOp(
+            const op = yield* userEntity.getAndUpdateOp(
               { userId: 'racey' },
               { name: 'From op' },
             );
@@ -286,7 +286,7 @@ describe('IdbEntity', () => {
           });
           yield* userEntity.delete({ userId: 'restore-1' });
 
-          const updated = yield* userEntity.update(
+          const updated = yield* userEntity.getAndUpdate(
             { userId: 'restore-1' },
             { name: 'After' },
           );
@@ -506,7 +506,7 @@ describe('IdbEntity', () => {
             name: 'Before',
           });
 
-          const op = yield* userEntity.updateOp(
+          const op = yield* userEntity.getAndUpdateOp(
             { userId: 'op-2' },
             { name: 'After' },
           );
@@ -539,7 +539,7 @@ describe('IdbEntity', () => {
           Effect.gen(function* () {
             yield* table.setup();
             const error = yield* userEntity
-              .updateOp({ userId: 'nope' }, { name: 'X' })
+              .getAndUpdateOp({ userId: 'nope' }, { name: 'X' })
               .pipe(Effect.flip);
             expect(error.code).toBe('noItemToUpdate');
           }),

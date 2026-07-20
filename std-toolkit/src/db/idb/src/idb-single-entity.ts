@@ -14,7 +14,7 @@ import { deriveIndexKeyValue } from './internal/utils.js';
 /**
  * A simplified IndexedDB entity for single-record use cases (e.g., app
  * config, feature flags, counters). Provides type-safe `get`, `put`, and
- * `update` with a mandatory default value so `get` never returns null.
+ * `getAndUpdate` with a mandatory default value so `get` never returns null.
  *
  * PK and SK are both derived from the entity name only. Mirrors
  * `SQLiteSingleEntity`'s surface.
@@ -187,59 +187,105 @@ export class IdbSingleEntity<
   }
 
   /**
-   * Updates the single entity with a plain object partial merge.
-   * Fails if the item doesn't exist (i.e., `_u === ""`).
+   * The portable read-modify-write: reads the current entity (the schema
+   * default when nothing is stored), derives a partial from it, and writes
+   * the merged record back guarded on the `_u` that was read — or on
+   * "record does not exist yet" when the read saw the default. Retries up to
+   * `retries` times (default 3) on conflict before failing with
+   * `conditionFailed`. A callback returning `null` skips the write.
+   * `lastWriteWins: true` drops the guard.
    *
-   * @param params - Object containing the update
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Retry count and guard opt-out
    * @returns The updated entity with new metadata
    */
-  update(params: {
-    update: Partial<Omit<ESchemaType<TSchema>, '_v'>>;
-  }): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
+  getAndUpdate(
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          current: ESchemaType<TSchema>,
+        ) => Partial<Omit<ESchemaType<TSchema>, '_v'>> | null),
+    config?: { retries?: number; lastWriteWins?: boolean },
+  ): Effect.Effect<SingleEntityType<ESchemaType<TSchema>>, IdbDBError, IdbDB> {
     return Effect.gen({ self: this }, function* () {
       const db = yield* IdbDB;
-      const existing = yield* this.get();
+      const retries = config?.retries ?? 3;
+      for (let attempt = 0; ; attempt++) {
+        const existing = yield* this.get();
 
-      if (existing.meta._u === '') {
-        return yield* Effect.fail(IdbDBError.noItemToUpdate(db.tableName));
-      }
+        const partial =
+          typeof update === 'function' ? update(existing.value) : update;
+        if (partial === null) return existing;
 
-      const fullValue = {
-        ...existing.value,
-        ...params.update,
-      } as ESchemaType<TSchema>;
+        const fullValue = {
+          ...existing.value,
+          ...partial,
+        } as ESchemaType<TSchema>;
 
-      const encoded = yield* this.#eschema
-        .encode(fullValue as any)
-        .pipe(Effect.mapError((e) => IdbDBError.putFailed(db.tableName, e)));
+        const encoded = yield* this.#eschema
+          .encode(fullValue as any)
+          .pipe(Effect.mapError((e) => IdbDBError.putFailed(db.tableName, e)));
 
-      const _u = yield* nextUlid;
+        const _u = yield* nextUlid;
 
-      const meta = {
-        _e: this.#eschema.name,
-        _v: this.#eschema.latestVersion,
-        _u,
-      };
-
-      const { pk, sk } = this.#deriveKey();
-
-      yield* this.#table.updateItem(
-        { pk, sk },
-        {
-          _data: encoded,
+        const meta = {
+          _e: this.#eschema.name,
           _v: this.#eschema.latestVersion,
           _u,
-        },
-        existing.meta._u,
-      );
+        };
 
-      yield* this.#broadcast([
-        {
-          value: fullValue,
-          meta: { ...meta, _d: false },
-        },
-      ]);
-      return { value: fullValue, meta };
+        const { pk, sk } = this.#deriveKey();
+
+        const write: IdbWriteOp =
+          existing.meta._u === ''
+            ? {
+                type: 'put',
+                record: {
+                  pk,
+                  sk,
+                  _data: encoded,
+                  _e: this.#eschema.name,
+                  _v: this.#eschema.latestVersion,
+                  _u,
+                  _d: false,
+                },
+                ...(config?.lastWriteWins ? {} : { expectedU: null }),
+              }
+            : {
+                type: 'patch',
+                key: { pk, sk },
+                values: {
+                  _data: encoded,
+                  _v: this.#eschema.latestVersion,
+                  _u,
+                },
+                ...(config?.lastWriteWins
+                  ? {}
+                  : { expectedU: existing.meta._u }),
+              };
+
+        const conflicted = yield* db.transact([write]).pipe(
+          Effect.as(false),
+          Effect.catchIf(
+            (e) => e.code === 'conditionFailed',
+            () => Effect.succeed(true),
+          ),
+        );
+        if (conflicted) {
+          if (attempt < retries) continue;
+          return yield* Effect.fail(
+            IdbDBError.conditionFailed(db.tableName, { pk, sk }),
+          );
+        }
+
+        yield* this.#broadcast([
+          {
+            value: fullValue,
+            meta: { ...meta, _d: false },
+          },
+        ]);
+        return { value: fullValue, meta };
+      }
     });
   }
 
@@ -257,13 +303,18 @@ export class IdbSingleEntity<
    * the returned op embeds the optimistic `expectedU` check and complete
    * broadcast data. Fails if the item doesn't exist (i.e., `_u === ""`).
    *
-   * @param params - Object containing the update
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Guard opt-out
    * @returns A descriptor for update, plus its broadcast payload
    */
-  updateOp(params: {
-    update: Partial<Omit<ESchemaType<TSchema>, '_v'>>;
-    lastWriteWins?: boolean;
-  }): Effect.Effect<IdbEntityOp, IdbDBError, IdbDB> {
+  getAndUpdateOp(
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          current: ESchemaType<TSchema>,
+        ) => Partial<Omit<ESchemaType<TSchema>, '_v'>>),
+    config?: { lastWriteWins?: boolean },
+  ): Effect.Effect<IdbEntityOp, IdbDBError, IdbDB> {
     return Effect.gen({ self: this }, function* () {
       const db = yield* IdbDB;
       const existing = yield* this.get();
@@ -274,7 +325,7 @@ export class IdbSingleEntity<
 
       const fullValue = {
         ...existing.value,
-        ...params.update,
+        ...(typeof update === 'function' ? update(existing.value) : update),
       } as ESchemaType<TSchema>;
 
       const encoded = yield* this.#eschema
@@ -298,7 +349,7 @@ export class IdbSingleEntity<
               _v: this.#eschema.latestVersion,
               _u: u,
             },
-            ...(params.lastWriteWins ? {} : { expectedU: existing.meta._u }),
+            ...(config?.lastWriteWins ? {} : { expectedU: existing.meta._u }),
           } satisfies IdbWriteOp,
           entity: {
             value: fullValue,

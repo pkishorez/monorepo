@@ -230,7 +230,7 @@ describe('SQLite Single Table Design', () => {
           name: 'Before',
         });
 
-        const updated = yield* userEntity.update(
+        const updated = yield* userEntity.getAndUpdate(
           { userId: inserted.value.userId },
           { name: 'After' },
         );
@@ -243,7 +243,7 @@ describe('SQLite Single Table Design', () => {
     itEffect('fails for non-existent entity', () =>
       Effect.gen(function* () {
         const error = yield* userEntity
-          .update({ userId: 'non-existent' }, { name: 'X' })
+          .getAndUpdate({ userId: 'non-existent' }, { name: 'X' })
           .pipe(Effect.flip);
         expect(error.error._tag).toBe('NoItemToUpdate');
       }).pipe(Effect.provide(layer)),
@@ -257,7 +257,7 @@ describe('SQLite Single Table Design', () => {
           name: 'Index User',
         });
 
-        yield* userEntity.update(
+        yield* userEntity.getAndUpdate(
           { userId: inserted.value.userId },
           { email: 'new@example.com' },
         );
@@ -1090,12 +1090,12 @@ describe('Transactions Advanced', () => {
     Effect.gen(function* () {
       yield* counterEntity.insert({ counterId: 'u1', count: 0 });
 
-      const staleOp = yield* counterEntity.updateOp(
+      const staleOp = yield* counterEntity.getAndUpdateOp(
         { counterId: 'u1' },
         { count: 1 },
       );
       // A concurrent writer bumps _u after the op captured expectedU.
-      yield* counterEntity.update({ counterId: 'u1' }, { count: 5 });
+      yield* counterEntity.getAndUpdate({ counterId: 'u1' }, { count: 5 });
 
       const error = yield* table.transact([staleOp]).pipe(Effect.flip);
       expect(error.error._tag).toBe('ConditionFailed');
@@ -1113,7 +1113,7 @@ describe('Transactions Advanced', () => {
         counterId: 'm2',
         count: 20,
       });
-      const updateM1Op = yield* counterEntity.updateOp(
+      const updateM1Op = yield* counterEntity.getAndUpdateOp(
         { counterId: 'm1' },
         { count: 15 },
       );
@@ -1392,7 +1392,10 @@ describe('Multiple Secondary Indexes', () => {
 
   itEffect('update reflects in all indexes', () =>
     Effect.gen(function* () {
-      yield* productEntity.update({ productId: 'p1' }, { category: 'phones' });
+      yield* productEntity.getAndUpdate(
+        { productId: 'p1' },
+        { category: 'phones' },
+      );
 
       // Should not find in old category
       const oldCategory = yield* productEntity.query('byCategory', {

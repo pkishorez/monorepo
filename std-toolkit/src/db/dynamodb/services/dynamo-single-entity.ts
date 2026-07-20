@@ -364,6 +364,183 @@ export class DynamoSingleEntity<
     });
   }
 
+  /**
+   * The portable read-modify-write (see db ADR 0002): reads the current
+   * entity (the schema default when nothing is stored), derives a partial
+   * from it, and writes the merged record back as a `PutItem` guarded on the
+   * `_u` that was read — or on "record does not exist yet" when the read saw
+   * the default. Retries up to `retries` times (default 3) on conflict
+   * before failing with `conditionCheckFailed`. A callback returning `null`
+   * skips the write. `lastWriteWins: true` drops the guard.
+   *
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Retry count and guard opt-out
+   * @returns The updated entity with new metadata
+   */
+  getAndUpdate(
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          current: ESchemaType<TSchema>,
+        ) => Partial<Omit<ESchemaType<TSchema>, '_v'>> | null),
+    config?: { retries?: number; lastWriteWins?: boolean },
+  ): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > {
+    return Effect.gen({ self: this }, function* () {
+      const retries = config?.retries ?? 3;
+      for (let attempt = 0; ; attempt++) {
+        const existing = yield* this.get({ ConsistentRead: true });
+
+        const partial =
+          typeof update === 'function' ? update(existing.value) : update;
+        if (partial === null) return existing;
+
+        const fullValue = {
+          ...existing.value,
+          ...partial,
+          _v: this.#eschema.latestVersion,
+        } as ESchemaType<TSchema>;
+
+        const encoded = yield* this.#eschema
+          .encode(fullValue as any)
+          .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+
+        const _u = yield* nextUlid;
+
+        const meta: SingleMetaType = {
+          _e: this.#eschema.name,
+          _v: this.#eschema.latestVersion,
+          _u,
+        };
+
+        const pk = this.#derivePrimaryKey();
+        const item = {
+          ...encoded,
+          ...meta,
+          [this.#table.primary.pk]: pk,
+          [this.#table.primary.sk]: pk,
+        };
+
+        const exprResult = config?.lastWriteWins
+          ? undefined
+          : buildExpr({
+              condition:
+                existing.meta._u === ''
+                  ? exprCondition(($) =>
+                      $.attributeNotExists(this.#table.primary.pk as any),
+                    )
+                  : exprCondition(($) =>
+                      $.cond('_u' as any, '=', existing.meta._u),
+                    ),
+            });
+
+        const conflicted = yield* this.#table.putItem(item, exprResult).pipe(
+          Effect.as(false),
+          Effect.catchIf(
+            (e): e is DynamodbError =>
+              e.error._tag === 'PutItemFailed' && isConditionalCheckFailed(e),
+            () => Effect.succeed(true),
+          ),
+        );
+        if (conflicted) {
+          if (attempt < retries) continue;
+          return yield* Effect.fail(DynamodbError.conditionCheckFailed());
+        }
+
+        yield* this.#broadcast([
+          {
+            value: fullValue,
+            meta: { ...meta, _d: false },
+          },
+        ]);
+        return { value: fullValue, meta };
+      }
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.logError(`[${this.#eschema.name}] getAndUpdate failed`, {
+          error: e,
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Op form of `getAndUpdate` for use in `transact`. Pre-fetches the current
+   * entity, resolves the update against it, and defers a full-record
+   * `PutItem` guarded on the `_u` that was read (unless `lastWriteWins`).
+   * Fails with `noItemToUpdate` before the first persisted write (i.e.,
+   * `_u === ""`); cannot retry — a conflict surfaces as the transaction's
+   * condition failure.
+   *
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Guard opt-out
+   * @returns A transaction item for the write with broadcast data
+   */
+  getAndUpdateOp(
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          current: ESchemaType<TSchema>,
+        ) => Partial<Omit<ESchemaType<TSchema>, '_v'>>),
+    config?: { lastWriteWins?: boolean },
+  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get({ ConsistentRead: true });
+
+      if (existing.meta._u === '') {
+        return yield* Effect.fail(DynamodbError.noItemToUpdate());
+      }
+
+      const fullValue = {
+        ...existing.value,
+        ...(typeof update === 'function' ? update(existing.value) : update),
+        _v: this.#eschema.latestVersion,
+      } as ESchemaType<TSchema>;
+
+      const encoded = yield* this.#eschema
+        .encode(fullValue as any)
+        .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+
+      const exprResult = config?.lastWriteWins
+        ? undefined
+        : buildExpr({
+            condition: exprCondition(($) =>
+              $.cond('_u' as any, '=', existing.meta._u),
+            ),
+          });
+
+      const pk = this.#derivePrimaryKey();
+
+      return {
+        entityName: this.#eschema.name,
+        operationKind: 'updateOp',
+        pk,
+        sk: pk,
+        table: this.#table,
+        apply: (u) => {
+          const meta: SingleMetaType = {
+            _e: this.#eschema.name,
+            _v: this.#eschema.latestVersion,
+            _u: u,
+          };
+          const item = {
+            ...encoded,
+            ...meta,
+            [this.#table.primary.pk]: pk,
+            [this.#table.primary.sk]: pk,
+          };
+          return {
+            ...this.#table.opPutItem(item, exprResult),
+            broadcast: { value: fullValue, meta: { ...meta, _d: false } },
+          };
+        },
+      } satisfies TransactItem;
+    });
+  }
+
   /** Writes the default value back — single entities are never deleted. */
   reset(): Effect.Effect<
     SingleEntityType<ESchemaType<TSchema>>,
