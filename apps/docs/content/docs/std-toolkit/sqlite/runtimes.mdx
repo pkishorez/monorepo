@@ -3,7 +3,7 @@ title: Runtimes
 description: One SqliteDB service, four adapter layers — better-sqlite3, node:sqlite, bun:sqlite, and Cloudflare Durable Objects — over the same table format.
 ---
 
-You've seen that the SQLite adapter speaks the same model as DynamoDB. Now the practical question: *which* SQLite? Your chat app's tests run under vitest on Node, the server might be Node or Bun, and the per-channel edge deployment lives inside a Cloudflare Durable Object. Each of those runtimes ships its own SQLite binding with its own API — `better-sqlite3`'s prepared statements, Node's built-in `node:sqlite`, `bun:sqlite`, and the Durable Object's `SqlStorage.exec`. Normally that difference leaks straight into your data layer, and "runs everywhere" quietly becomes four slightly different data layers.
+You've seen that the SQLite adapter speaks the same model as DynamoDB. Now the practical question: _which_ SQLite? Your chat app's tests run under vitest on Node, the server might be Node or Bun, and the per-channel edge deployment lives inside a Cloudflare Durable Object. Each of those runtimes ships its own SQLite binding with its own API — `better-sqlite3`'s prepared statements, Node's built-in `node:sqlite`, `bun:sqlite`, and the Durable Object's `SqlStorage.exec`. Normally that difference leaks straight into your data layer, and "runs everywhere" quietly becomes four slightly different data layers.
 
 std-toolkit pins the difference behind one seam: `SqliteDB`.
 
@@ -104,7 +104,7 @@ export class ChannelObject extends DurableObject {
 }
 ```
 
-Now notice what the topology does here. A Durable Object is a globally unique, single-threaded instance with its own private database — so "one Durable Object per channel" gives every channel's item collection its *own* SQLite database, colocated with the code that serves it. The partition-per-channel design you chose for DynamoDB scaling reasons turns out to be exactly the sharding unit Durable Objects want. Even `SQLiteSingleEntity`'s one-row-per-database constraint flips into a feature: a `ChannelSettings` singleton inside a per-channel object is naturally one settings row per channel.
+Now notice what the topology does here. A Durable Object is a globally unique, single-threaded instance with its own private database — so "one Durable Object per channel" gives every channel's item collection its _own_ SQLite database, colocated with the code that serves it. The partition-per-channel design you chose for DynamoDB scaling reasons turns out to be exactly the sharding unit Durable Objects want. Even `SQLiteSingleEntity`'s one-row-per-database constraint flips into a feature: a `ChannelSettings` singleton inside a per-channel object is naturally one settings row per channel.
 
 And `registry.setup()` being idempotent runtime DDL is what makes this deployable at all — there's no migration console for ten thousand Durable Object databases. Each object provisions its own table on first touch.
 

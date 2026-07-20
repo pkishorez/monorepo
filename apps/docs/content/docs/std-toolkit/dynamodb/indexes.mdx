@@ -3,11 +3,11 @@ title: Indexes
 description: GSIs and LSIs as typed key derivations — timeline sort keys, the subscribe restriction, eventual consistency, and the hard-delete ghost.
 ---
 
-The primary index answers the chat app's defining question: *messages in this channel, in order*. But you know from the [crash course](/docs/std-toolkit/dynamodb-crash-course) that real apps have more than one access pattern — "everything Ada has posted, across all channels" can't be a Query on a table partitioned by channel. DynamoDB's answer is the GSI, and you know that too.
+The primary index answers the chat app's defining question: _messages in this channel, in order_. But you know from the [crash course](/docs/std-toolkit/dynamodb-crash-course) that real apps have more than one access pattern — "everything Ada has posted, across all channels" can't be a Query on a table partitioned by channel. DynamoDB's answer is the GSI, and you know that too.
 
-Here's the part the crash course didn't dwell on: **who maintains the GSI's key attributes?** DynamoDB propagates *rows* to a GSI automatically, but the `GSI1PK` and `GSI1SK` attributes on each row are just attributes — *you* have to write them, correctly, on every insert and every update, in every code path, forever. In raw DynamoDB codebases this is where indexes quietly rot: someone adds an update path that forgets to recompute `GSI1PK`, and the author index starts lying.
+Here's the part the crash course didn't dwell on: **who maintains the GSI's key attributes?** DynamoDB propagates _rows_ to a GSI automatically, but the `GSI1PK` and `GSI1SK` attributes on each row are just attributes — _you_ have to write them, correctly, on every insert and every update, in every code path, forever. In raw DynamoDB codebases this is where indexes quietly rot: someone adds an update path that forgets to recompute `GSI1PK`, and the author index starts lying.
 
-std-toolkit's answer is the same move it made for primary keys: you declare *which entity fields* an index derives from, once, and the adapter computes the key attributes on every write. That declaration is an **index derivation**, and this page is about how they work — and the two DynamoDB realities (eventual consistency, hard deletes) no library can abstract away.
+std-toolkit's answer is the same move it made for primary keys: you declare _which entity fields_ an index derives from, once, and the adapter computes the key attributes on every write. That declaration is an **index derivation**, and this page is about how they work — and the two DynamoDB realities (eventual consistency, hard deletes) no library can abstract away.
 
 ## Physical indexes live on the table
 
@@ -29,7 +29,7 @@ Notice the names are infrastructure names — `GSI1`, not `byAuthor`. That's del
 
 ## Semantic indexes live on the entity
 
-A physical GSI is a slot; what it *means* is decided per entity. The entity builder maps a GSI to a named derivation:
+A physical GSI is a slot; what it _means_ is decided per entity. The entity builder maps a GSI to a named derivation:
 
 ```ts title="entities.ts"
 export const messages = DynamoEntity.make(table)
@@ -50,18 +50,20 @@ GSI1SK = 01JGB4YAQ8M2XV0F7T3KDWZRHN   (the row's _u)
 
 Two derivation rules worth internalizing:
 
-- **The pk is prefixed with `EntityName#indexName`**, then the declared fields' values, all joined with `#`. That prefix is what lets *multiple entities share one physical GSI* without colliding — the whole point of naming GSIs generically. `channels` can claim `GSI1` too (`Channel#byName#...` can never overlap `Message#byAuthor#...`), so one physical index serves as many semantic indexes as you have entities.
-- **The sk defaults to `_u`** — the monotonic update key from [Entity meta](/docs/std-toolkit/core/meta). If you don't say otherwise, every secondary index is a *timeline*: the item collection sorted by when each row was last written.
+- **The pk is prefixed with `EntityName#indexName`**, then the declared fields' values, all joined with `#`. That prefix is what lets _multiple entities share one physical GSI_ without colliding — the whole point of naming GSIs generically. `channels` can claim `GSI1` too (`Channel#byName#...` can never overlap `Message#byAuthor#...`), so one physical index serves as many semantic indexes as you have entities.
+- **The sk defaults to `_u`** — the monotonic update key from [Entity meta](/docs/std-toolkit/core/meta). If you don't say otherwise, every secondary index is a _timeline_: the item collection sorted by when each row was last written.
 
 Querying a semantic index looks exactly like querying the primary — same operators, same conventions — you just name the index and supply its pk fields:
 
 ```ts
 // the 50 most recently written messages by Ada, workspace-wide
-const { items } = yield* messages.query(
-  'byAuthor',
-  { pk: { authorId: 'U-ada' }, sk: { '<': null } },
-  { limit: 50 },
-);
+const { items } =
+  yield *
+  messages.query(
+    'byAuthor',
+    { pk: { authorId: 'U-ada' }, sk: { '<': null } },
+    { limit: 50 },
+  );
 ```
 
 For a timeline index the sk cursor is a `_u` value: `sk: { '>': lastSeenU }` reads everything Ada wrote since your cursor. `queryStream` works on secondary indexes the same way it does on the primary.
@@ -78,23 +80,27 @@ export const channels = DynamoEntity.make(table)
   .build();
 ```
 
-An empty `pk: []` derives the partition key from the prefix alone — `Channel#byName` — so *all* channels form one item collection, sorted alphabetically by name. (The same trick works with fields, e.g. `sk: ['name']` under `pk: ['teamId']` for per-team alphabetical lists.)
+An empty `pk: []` derives the partition key from the prefix alone — `Channel#byName` — so _all_ channels form one item collection, sorted alphabetically by name. (The same trick works with fields, e.g. `sk: ['name']` under `pk: ['teamId']` for per-team alphabetical lists.)
 
 Because the sort key is now made of entity fields, the query's sk parameter changes shape to match — objects of those fields rather than opaque cursor strings, checked by the compiler:
 
 ```ts
 // channel browser: everything starting at 'eng-'
-const { items } = yield* channels.query('byName', {
-  pk: {},
-  sk: { beginsWith: { name: 'eng-' } },
-});
+const { items } =
+  yield *
+  channels.query('byName', {
+    pk: {},
+    sk: { beginsWith: { name: 'eng-' } },
+  });
 
 // alphabetical paging: the next 25 after the last one rendered
-const { items: nextPage } = yield* channels.query(
-  'byName',
-  { pk: {}, sk: { '>': { name: lastRenderedName } } },
-  { limit: 25 },
-);
+const { items: nextPage } =
+  yield *
+  channels.query(
+    'byName',
+    { pk: {}, sk: { '>': { name: lastRenderedName } } },
+    { limit: 25 },
+  );
 ```
 
 Multi-field sort keys join their values with `#`, in declaration order — the classic DynamoDB composite-key pattern, minus the string concatenation.
@@ -104,14 +110,15 @@ Multi-field sort keys join their values with `#`, in declaration order — the c
 `subscribe` — the catch-up primitive from the [shared model](/docs/std-toolkit/database-adapters) — works on the primary index and on secondary indexes:
 
 ```ts
-yield* messages.subscribe({
-  key: 'byAuthor',
-  pk: { authorId: 'U-ada' },
-  cursor: lastSeenU, // or null to replay from the beginning
-});
+yield *
+  messages.subscribe({
+    key: 'byAuthor',
+    pk: { authorId: 'U-ada' },
+    cursor: lastSeenU, // or null to replay from the beginning
+  });
 ```
 
-But try `channels.subscribe({ key: 'byName', ... })` and the compiler rejects it. The restriction is type-level and principled: `subscribe` means "give me everything that *changed* after my cursor", and only a `_u`-sorted index can answer that. An index sorted by `name` is a fine *lookup* order but a meaningless *change* order — a channel renamed yesterday sorts by its name, not by yesterday. So the entity type tracks which of your indexes have `_u` sort keys (the derivation's `isTimelineSk` flag) and offers `subscribe` only on those. The primary index qualifies for a subtler reason: its sort key is the entity's ULID id, which orders by *creation* — enough for append-mostly collections like messages, and exactly the arrangement the [sync engine](/docs/std-toolkit/tanstack-sync) leans on.
+But try `channels.subscribe({ key: 'byName', ... })` and the compiler rejects it. The restriction is type-level and principled: `subscribe` means "give me everything that _changed_ after my cursor", and only a `_u`-sorted index can answer that. An index sorted by `name` is a fine _lookup_ order but a meaningless _change_ order — a channel renamed yesterday sorts by its name, not by yesterday. So the entity type tracks which of your indexes have `_u` sort keys (the derivation's `isTimelineSk` flag) and offers `subscribe` only on those. The primary index qualifies for a subtler reason: its sort key is the entity's ULID id, which orders by _creation_ — enough for append-mostly collections like messages, and exactly the arrangement the [sync engine](/docs/std-toolkit/tanstack-sync) leans on.
 
 If you're designing an index that sync or live queries will drain, keep the default `_u` sort key. Custom sort keys are for human-facing orderings.
 
@@ -121,18 +128,19 @@ This one no library can hide, so let's be explicit about the consequences. Dynam
 
 - Ada sends a message, and your handler immediately queries `byAuthor` to rebuild her activity feed — **the new message may not be there yet.** Don't read a GSI expecting to see your own write.
 - The primary index has no such problem, and reads on it can opt into strict consistency where it matters: `messages.get(key, { ConsistentRead: true })`. There is no such option for GSIs — DynamoDB doesn't offer it.
-- Design flows so GSI reads are *display* paths, not *decision* paths. Deciding "does this exist?" or "is this allowed?" belongs on the primary index (or in a [condition expression](/docs/std-toolkit/dynamodb/expressions), which always evaluates against the item itself).
+- Design flows so GSI reads are _display_ paths, not _decision_ paths. Deciding "does this exist?" or "is this allowed?" belongs on the primary index (or in a [condition expression](/docs/std-toolkit/dynamodb/expressions), which always evaluates against the item itself).
 
-LSIs, for completeness, share the base table's partitions and *can* serve strongly consistent reads — but they must be declared at table creation and share the partition's 10 GB item-collection size limit, which is why GSIs are the default choice here.
+LSIs, for completeness, share the base table's partitions and _can_ serve strongly consistent reads — but they must be declared at table creation and share the partition's 10 GB item-collection size limit, which is why GSIs are the default choice here.
 
 ## The hard-delete ghost
 
 <Callout type="warn" title="Hard deletes bypass index tombstones">
 The default `delete` is a soft delete, and it plays perfectly with indexes: setting `_d: true` is an ordinary write, so it re-stamps `_u` and updates every derived index — the tombstone appears at the *head* of every timeline index, and every consumer draining `byAuthor` learns about the deletion in order.
 
-`forceDelete: 'I know what I am doing'` physically removes the row — and with it, every trace from every index, without any tombstone ever being written. A consumer that discovers changes by querying a GSI never sees a delete event; it just stops seeing the row in *new* queries while anything it already cached lives on as a **ghost** — a message that no longer exists on the server but never disappears from the client. Sync engines built on tombstones (including [tanstack-sync](/docs/std-toolkit/tanstack-sync)) will silently miss the deletion.
+`forceDelete: 'I know what I am doing'` physically removes the row — and with it, every trace from every index, without any tombstone ever being written. A consumer that discovers changes by querying a GSI never sees a delete event; it just stops seeing the row in _new_ queries while anything it already cached lives on as a **ghost** — a message that no longer exists on the server but never disappears from the client. Sync engines built on tombstones (including [tanstack-sync](/docs/std-toolkit/tanstack-sync)) will silently miss the deletion.
 
 Reserve hard deletes for administrative cleanup, fixtures, and rows you're certain no index consumer or sync client depends on. When in doubt, tombstone.
+
 </Callout>
 
 One last derivation subtlety: when you update a field that feeds an index derivation (say, a channel's `name` under `byName`), use the **plain partial update** form — `update: { name: 'eng-platform' }` — and the adapter recomputes the affected key attributes in the same write. The expression-builder update form refuses to touch derivation dependencies outright; the [expressions page](/docs/std-toolkit/dynamodb/expressions) covers why.

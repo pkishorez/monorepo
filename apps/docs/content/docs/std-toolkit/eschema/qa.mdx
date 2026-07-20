@@ -3,11 +3,11 @@ title: Q&A
 description: What happens if… — the failure modes of evolving schemas, answered from source and tests.
 ---
 
-You've read the mechanics and the best practices, and if you're the kind of engineer we're writing for, you're now generating "okay, but what happens if…" scenarios faster than any tutorial covers them. Good — this page is that list. Every answer below is verified against the eschema source and its test suite, not against how we'd *like* it to behave. Examples use the chat app's `Message` schema: v1 is `{ channelId, authorId, body }`, v2 added `reactions`.
+You've read the mechanics and the best practices, and if you're the kind of engineer we're writing for, you're now generating "okay, but what happens if…" scenarios faster than any tutorial covers them. Good — this page is that list. Every answer below is verified against the eschema source and its test suite, not against how we'd _like_ it to behave. Examples use the chat app's `Message` schema: v1 is `{ channelId, authorId, body }`, v2 added `reactions`.
 
 ## What happens if I modify v1 after data exists?
 
-Nothing detects the edit — and that's the danger. There is no registry of historical shapes beyond your source code, so decode validates every `_v: 'v1'` row (and every unstamped legacy row, which counts as v1) against whatever your v1 fields say *now*. If you renamed `body` to `text` in v1, every old message fails at read time with a `Decode failed` error — loudly, in production, on rows that were fine yesterday. And if the edited v1 happens to still accept old rows, you get something worse: silent reinterpretation.
+Nothing detects the edit — and that's the danger. There is no registry of historical shapes beyond your source code, so decode validates every `_v: 'v1'` row (and every unstamped legacy row, which counts as v1) against whatever your v1 fields say _now_. If you renamed `body` to `text` in v1, every old message fails at read time with a `Decode failed` error — loudly, in production, on rows that were fine yesterday. And if the edited v1 happens to still accept old rows, you get something worse: silent reinterpretation.
 
 The library's contract is that shipped versions are frozen; the test suite pins the failure mode (an unstamped row that doesn't match v1 rejects rather than guessing another version). The [CLI](/docs/std-toolkit/eschema/cli) turns the contract into a CI failure by snapshotting each version's source and flagging any drift.
 
@@ -19,7 +19,7 @@ That's a deliberate refusal, not a gap: the v2 code has no idea what v3 means, a
 
 ## What if a row has no `_v` at all?
 
-It decodes as the *earliest* version — v1 — and folds forward through the whole chain. A pre-eschema message `{ id, channelId, authorId, body }` decodes against v1's fields, then the v2 migration adds `reactions: {}`, and your code sees a current-shape message. This is the rule that makes adoption over existing data non-breaking, and it's pinned by tests at every level: unstamped top-level rows, unstamped values nested inside stamped parents, even arrays mixing unstamped and stamped elements — each folds forward through its own chain independently.
+It decodes as the _earliest_ version — v1 — and folds forward through the whole chain. A pre-eschema message `{ id, channelId, authorId, body }` decodes against v1's fields, then the v2 migration adds `reactions: {}`, and your code sees a current-shape message. This is the rule that makes adoption over existing data non-breaking, and it's pinned by tests at every level: unstamped top-level rows, unstamped values nested inside stamped parents, even arrays mixing unstamped and stamped elements — each folds forward through its own chain independently.
 
 The contract you owe in return: your v1 must faithfully mirror what your legacy data actually looks like. An unstamped row that doesn't match v1 fails loudly — eschema never guesses a different version.
 
@@ -28,7 +28,7 @@ The contract you owe in return: your v1 must faithfully mirror what your legacy 
 No — not while any row stamped with it might still exist, and in practice you can't prove that negative. Deleting a version breaks two ways:
 
 - Rows stamped `_v: 'v2'` now hit a chain with no v2 entry: `Unknown schema version: v2`.
-- Rows stamped *earlier* than the deleted version break too, because folding runs through every intermediate step — v1 rows can't reach v3 without the v1→v2→v3 chain intact.
+- Rows stamped _earlier_ than the deleted version break too, because folding runs through every intermediate step — v1 rows can't reach v3 without the v1→v2→v3 chain intact.
 
 The version chain is append-only by design: `evolve` only accepts the next sequential version, so there's no renumbering around a gap. If you delete a `versions/vN.ts` file in a CLI-managed schema collection, `eschema lint` reports it as an un-approvable issue that must be fixed by restoring the file. The cost model is honest: a version is a few lines of schema plus a pure function, kept forever. That's cheap. Unreadable rows are not.
 
@@ -39,13 +39,13 @@ The compatibility is one-directional, and it's worth internalizing which directi
 - **New code reading old data: always fine.** That's the whole product — v1 rows fold forward to whatever the reader's latest is.
 - **Old code reading new data: fails.** The v2 service meeting a `_v: 'v3'` row gets `Unknown schema version: v3`.
 
-So during a rolling deploy, the moment one instance starts *writing* v3, every instance still *reading* at v2 can error on fresh rows. The rule that follows: **ship the schema change to all readers before anything writes it.** Deploy the new version chain everywhere (readers now understand v3 but nothing emits it yet, since encode only runs where new code writes), then let writers roll. In a monolith this is automatic; across services, the schema package must reach every consumer first. The same logic covers a mid-rollback window — anything already written at v3 will fail to decode on v2 code, which is a reason to keep migrations flowing forward rather than rolling schema versions back.
+So during a rolling deploy, the moment one instance starts _writing_ v3, every instance still _reading_ at v2 can error on fresh rows. The rule that follows: **ship the schema change to all readers before anything writes it.** Deploy the new version chain everywhere (readers now understand v3 but nothing emits it yet, since encode only runs where new code writes), then let writers roll. In a monolith this is automatic; across services, the schema package must reach every consumer first. The same logic covers a mid-rollback window — anything already written at v3 will fail to decode on v2 code, which is a reason to keep migrations flowing forward rather than rolling schema versions back.
 
 ## What if a migration references a field the previous version doesn't guarantee?
 
-It doesn't compile. The migration's `prev` parameter is typed as the previous version's decoded shape — reference `prev.reactions` in the v1→v2 migration that's *introducing* reactions, and TypeScript rejects it. Same for the output: the migration's return type is checked against the merged v2 shape, so forgetting to supply a new field is also a compile error.
+It doesn't compile. The migration's `prev` parameter is typed as the previous version's decoded shape — reference `prev.reactions` in the v1→v2 migration that's _introducing_ reactions, and TypeScript rejects it. Same for the output: the migration's return type is checked against the merged v2 shape, so forgetting to supply a new field is also a compile error.
 
-And the runtime backs the types up: before your migration runs, the row has already been validated against the previous version's schema. `prev` is never malformed, never partially decoded — if the row doesn't match the old shape, decode fails *before* your migration, with the schema issue attached. Inside a migration you can lean on the old shape completely.
+And the runtime backs the types up: before your migration runs, the row has already been validated against the previous version's schema. `prev` is never malformed, never partially decoded — if the row doesn't match the old shape, decode fails _before_ your migration, with the schema issue attached. Inside a migration you can lean on the old shape completely.
 
 ## What does `ESchemaError` carry and when is it raised?
 
@@ -54,7 +54,10 @@ It's a `Data.TaggedError('ESchemaError')` with three fields: a human-readable `m
 ```ts
 Message.decode(row).pipe(
   Effect.catchTag('ESchemaError', (err) =>
-    Effect.logError('undecodable message row', { message: err.message, cause: err.cause }),
+    Effect.logError('undecodable message row', {
+      message: err.message,
+      cause: err.cause,
+    }),
   ),
 );
 ```
@@ -77,7 +80,7 @@ No — `evolve`'s version parameter is typed as exactly the successor of the cur
 
 The semantics match, but envelope detection adds two edges the object constructs don't have, both pinned by tests:
 
-- `{ value: 'hello' }` **without** `_v` is *not* treated as an unstamped envelope. It's a bare legacy value like any other — so it's validated against v1's value schema as-is (and fails if v1 expects a plain string, since the input is an object).
+- `{ value: 'hello' }` **without** `_v` is _not_ treated as an unstamped envelope. It's a bare legacy value like any other — so it's validated against v1's value schema as-is (and fails if v1 expects a plain string, since the input is an object).
 - An object **with** a top-level `_v` is always read as an envelope — even if that `_v` is your own business field. `{ _v: 'business-version', value: … }` fails with `Unknown schema version: business-version`. If your domain value naturally carries a `_v` key, rename it or nest it a level deeper; see [best practices](/docs/std-toolkit/eschema/best-practices#envelope-shaped-values).
 
 ## A nested schema evolved but the parent didn't — what do stored parents decode to?

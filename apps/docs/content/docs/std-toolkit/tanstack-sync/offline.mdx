@@ -3,9 +3,9 @@ title: Offline
 description: IndexedDB as the live backend for truth and drain progress — plus the inspector that lets you see all of it.
 ---
 
-You've built offline support before, and it probably looked like hydration: serialize some cache to localStorage on an interval, read it back on boot, hope the snapshot wasn't mid-write when the tab died. The hard part was never storing data — it's that a *snapshot* of a sync system is a lie waiting to happen. The cache says one thing, the cursor says another, and the gap between them is invisible until a user asks where their message went.
+You've built offline support before, and it probably looked like hydration: serialize some cache to localStorage on an interval, read it back on boot, hope the snapshot wasn't mid-write when the tab died. The hard part was never storing data — it's that a _snapshot_ of a sync system is a lie waiting to happen. The cache says one thing, the cursor says another, and the gap between them is invisible until a user asks where their message went.
 
-tanstack-sync sidesteps the snapshot model entirely. Offline storage here is not a cache of the engine's state — it *is* where the engine keeps its state.
+tanstack-sync sidesteps the snapshot model entirely. Offline storage here is not a cache of the engine's state — it _is_ where the engine keeps its state.
 
 ## `idbStorage` — one line, durable engine
 
@@ -18,7 +18,7 @@ export const std = createStdSync({
 });
 ```
 
-With this in place, the two stores from [truth and state](/docs/std-toolkit/tanstack-sync/truth-and-state) live in IndexedDB as their primary backend. Every Source-of-Truth write — a strategy batch, a mutation result, a persisted broadcast — lands in IndexedDB *as it happens*, inside the same write path that can fail and surface. Every Sync State commit does the same. There is no flush interval, no serialize-on-unload, and therefore no moment where memory and disk disagree about what's true.
+With this in place, the two stores from [truth and state](/docs/std-toolkit/tanstack-sync/truth-and-state) live in IndexedDB as their primary backend. Every Source-of-Truth write — a strategy batch, a mutation result, a persisted broadcast — lands in IndexedDB _as it happens_, inside the same write path that can fail and surface. Every Sync State commit does the same. There is no flush interval, no serialize-on-unload, and therefore no moment where memory and disk disagree about what's true.
 
 When nothing is configured, the same interfaces run over an in-memory backend — identical semantics, gone on reload. Individual collections can override the instance default:
 
@@ -41,7 +41,10 @@ std.sync({
 Close the tab mid-backfill on a fifty-thousand-message channel. Reopen it. The collection projects straight from the persisted Source of Truth — messages on screen before any network round trip — and the partition's strategy reads its persisted [Sync State](/docs/std-toolkit/tanstack-sync/truth-and-state#sync-state) and resumes: `oldToNew` from its cursor, `newToOld` from its covered slices, no re-drain of what's already owned. The live tail catches up the gap since the tab died. Projection itself is rebuilt every boot — it's the one deliberately ephemeral layer, cheap to reconstruct from durable truth.
 
 <Callout type="warn" title="Durable storage is not an offline mutation queue">
-Offline storage makes engine state survive reloads and network loss. It does not, by itself, define mutation queuing, conflict policy, or network behavior — a mutation fired while offline still fails through your Effect's error channel, and what to do about it (queue, retry, surface) remains your call.
+  Offline storage makes engine state survive reloads and network loss. It does
+  not, by itself, define mutation queuing, conflict policy, or network behavior
+  — a mutation fired while offline still fails through your Effect's error
+  channel, and what to do about it (queue, retry, surface) remains your call.
 </Callout>
 
 ## The `OfflineStorage` contract
@@ -69,7 +72,7 @@ Durability adds a failure mode: the disk itself. A quota exceeded, a browser in 
 { _tag: 'Storage'; reason: string; cause?: unknown }
 ```
 
-The important word is *surfaces*. A Source-of-Truth write that can't persist **fails** — atomically, nothing partial — rather than succeeding in memory and silently diverging from disk. From a strategy, that `WriteError` triggers the standard [recovery policy](/docs/std-toolkit/tanstack-sync/strategies#when-strategies-fail-the-recovery-policy): log, restart on the 2-second schedule, resume from the last state that actually committed. From `utils.writeUpsert`, it's in your Effect's error channel to handle. Either way, memory and disk cannot quietly disagree — the failure is loud at the moment it happens.
+The important word is _surfaces_. A Source-of-Truth write that can't persist **fails** — atomically, nothing partial — rather than succeeding in memory and silently diverging from disk. From a strategy, that `WriteError` triggers the standard [recovery policy](/docs/std-toolkit/tanstack-sync/strategies#when-strategies-fail-the-recovery-policy): log, restart on the 2-second schedule, resume from the last state that actually committed. From `utils.writeUpsert`, it's in your Effect's error channel to handle. Either way, memory and disk cannot quietly disagree — the failure is loud at the moment it happens.
 
 ## The `SyncInspector` — seeing all of it
 

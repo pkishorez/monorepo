@@ -107,37 +107,34 @@ export const isMetricsRequest = (
 
 export const ingestTraces = (request: ExportTraceServiceRequest) =>
   Effect.gen(function* () {
-    const { registry, traceRecord } = yield* Db;
+    const { table, traceRecord } = yield* Db;
     const records = traceRecordsFromRequest(request);
-    yield* registry.transaction(
-      Effect.forEach(records, (record) => traceRecord.insert(record), {
-        discard: true,
-      }),
+    const ops = yield* Effect.forEach(records, (record) =>
+      traceRecord.insertOp(record),
     );
+    yield* table.transact(ops);
     return records.length;
   });
 
 export const ingestLogs = (request: ExportLogsServiceRequest) =>
   Effect.gen(function* () {
-    const { registry, logRecord } = yield* Db;
+    const { table, logRecord } = yield* Db;
     const records = logRecordsFromRequest(request);
-    yield* registry.transaction(
-      Effect.forEach(records, (record) => logRecord.insert(record), {
-        discard: true,
-      }),
+    const ops = yield* Effect.forEach(records, (record) =>
+      logRecord.insertOp(record),
     );
+    yield* table.transact(ops);
     return records.length;
   });
 
 export const ingestMetrics = (request: ExportMetricsServiceRequest) =>
   Effect.gen(function* () {
-    const { registry, metricRecord } = yield* Db;
+    const { table, metricRecord } = yield* Db;
     const records = metricRecordsFromRequest(request);
-    yield* registry.transaction(
-      Effect.forEach(records, (record) => metricRecord.insert(record), {
-        discard: true,
-      }),
+    const ops = yield* Effect.forEach(records, (record) =>
+      metricRecord.insertOp(record),
     );
+    yield* table.transact(ops);
     return records.length;
   });
 
@@ -167,8 +164,8 @@ export const queryMetrics = (
 
 export const clearTelemetry = Effect.gen(function* () {
   const { table } = yield* Db;
-  const { rowsDeleted } = yield* table.dangerouslyRemoveAllRows(
-    'i know what i am doing',
+  const { itemsDeleted } = yield* table.dangerouslyRemoveAllItems(
+    'I KNOW WHAT I AM DOING',
   );
-  return rowsDeleted;
+  return itemsDeleted;
 });

@@ -23,17 +23,19 @@ If one table holds every entity type, something has to route a `Message` operati
 import { EntityRegistry } from 'std-toolkit/dynamodb'; // or 'std-toolkit/sqlite'
 
 const registry = EntityRegistry.make(table)
-  .register(messages)          // a Message entity service
-  .register(channels)          // a Channel entity service
-  .registerSingle(settings)    // a WorkspaceSettings singleton service
+  .register(messages) // a Message entity service
+  .register(channels) // a Channel entity service
+  .registerSingle(settings) // a WorkspaceSettings singleton service
   .build();
 
-const sent = yield* registry.entity('Message').insert({
-  id: yield* nextUlid,
-  channelId: 'C-general',
-  authorId: 'U-ada',
-  body: 'shipping it',
-});
+const sent =
+  yield *
+  registry.entity('Message').insert({
+    id: yield * nextUlid,
+    channelId: 'C-general',
+    authorId: 'U-ada',
+    body: 'shipping it',
+  });
 ```
 
 `registry.entity('Message')` is fully typed — the registry knows every registered entity by the name on its eschema, so a typo is a compile error, not a runtime surprise. `registry.singleEntity(...)` does the same for singletons, and `registry.entityNames` enumerates everything registered.
@@ -53,33 +55,41 @@ const messages = DynamoEntity.make(table)
   .build();
 ```
 
-Read that middle line carefully, because it's the whole data model of the chat app: *messages are partitioned by channel*. The sort key isn't something you choose — it's always the eschema's id field, so a message's `id` (a ULID, minted with [`nextUlid`](/docs/std-toolkit/core/meta)) sorts each channel's messages chronologically. One channel, one item collection, in timeline order, by construction.
+Read that middle line carefully, because it's the whole data model of the chat app: _messages are partitioned by channel_. The sort key isn't something you choose — it's always the eschema's id field, so a message's `id` (a ULID, minted with [`nextUlid`](/docs/std-toolkit/core/meta)) sorts each channel's messages chronologically. One channel, one item collection, in timeline order, by construction.
 
 The service then gives you CRUD in envelope terms — every operation returns `EntityType<Message>`, with meta stamped for you:
 
 ```ts
-const entity = yield* messages.insert({
-  id: yield* nextUlid,
-  channelId: 'C-general',
-  authorId: 'U-ada',
-  body: 'shipping it',
-});
+const entity =
+  yield *
+  messages.insert({
+    id: yield * nextUlid,
+    channelId: 'C-general',
+    authorId: 'U-ada',
+    body: 'shipping it',
+  });
 // entity.meta._u is freshly stamped; entity.meta._d is false
 
-const fetched = yield* messages.get({
-  channelId: 'C-general',
-  id: entity.value.id,
-});
+const fetched =
+  yield *
+  messages.get({
+    channelId: 'C-general',
+    id: entity.value.id,
+  });
 
-const edited = yield* messages.update(
-  { channelId: 'C-general', id: entity.value.id },
-  { update: { body: 'shipping it, for real this time' } },
-);
+const edited =
+  yield *
+  messages.update(
+    { channelId: 'C-general', id: entity.value.id },
+    { update: { body: 'shipping it, for real this time' } },
+  );
 
-const removed = yield* messages.delete({
-  channelId: 'C-general',
-  id: entity.value.id,
-});
+const removed =
+  yield *
+  messages.delete({
+    channelId: 'C-general',
+    id: entity.value.id,
+  });
 // a soft delete: the row stays, meta._d flips to true, meta._u is re-stamped
 ```
 
@@ -108,11 +118,13 @@ A query addresses one item collection (a pk) and slices it with a range operator
 
 ```ts
 // the 50 most recent messages in #general
-const { items } = yield* messages.query(
-  'primary',
-  { pk: { channelId: 'C-general' }, sk: { '<': null } },
-  { limit: 50 },
-);
+const { items } =
+  yield *
+  messages.query(
+    'primary',
+    { pk: { channelId: 'C-general' }, sk: { '<': null } },
+    { limit: 50 },
+  );
 ```
 
 The sk parameter is one operator applied to a cursor: `>`, `>=`, `<`, `<=`, or `beginsWith`. Two conventions do a lot of quiet work here:
@@ -120,28 +132,31 @@ The sk parameter is one operator applied to a cursor: `>`, `>=`, `<`, `<=`, or `
 - **`null` means "no bound"** — the operator alone picks the direction. `{ '<': null }` reads the collection newest-first from the end; `{ '>': null }` oldest-first from the start.
 - **The operator picks the scan direction.** `>` and `>=` scan ascending, `<` and `<=` descending — so "latest 50" and "next page after this cursor" are the same call shape with different operators.
 
-Because message ids are ULIDs, these range operators *are* your timeline features. Infinite scroll upward through history:
+Because message ids are ULIDs, these range operators _are_ your timeline features. Infinite scroll upward through history:
 
 ```ts
 // the page before the oldest message currently rendered
-const { items: olderPage } = yield* messages.query(
-  'primary',
-  { pk: { channelId: 'C-general' }, sk: { '<': oldestRenderedMessageId } },
-  { limit: 50 },
-);
+const { items: olderPage } =
+  yield *
+  messages.query(
+    'primary',
+    { pk: { channelId: 'C-general' }, sk: { '<': oldestRenderedMessageId } },
+    { limit: 50 },
+  );
 ```
 
-And when you want *everything* — an export, a backfill, a first sync — `queryStream` drains the collection as an Effect `Stream` of batches, feeding each page's last sort key back in as the next cursor so you never touch pagination:
+And when you want _everything_ — an export, a backfill, a first sync — `queryStream` drains the collection as an Effect `Stream` of batches, feeding each page's last sort key back in as the next cursor so you never touch pagination:
 
 ```ts
 import { Stream } from 'effect';
 
-yield* messages
-  .queryStream('primary', {
-    pk: { channelId: 'C-general' },
-    sk: { '>': null },
-  })
-  .pipe(Stream.runForEach((batch) => archive(batch)));
+yield *
+  messages
+    .queryStream('primary', {
+      pk: { channelId: 'C-general' },
+      sk: { '>': null },
+    })
+    .pipe(Stream.runForEach((batch) => archive(batch)));
 ```
 
 Both adapters also expose `subscribe`, which replays an item collection after a `_u` cursor through the [`Broadcaster`](/docs/std-toolkit/core) and then marks the connection live — the primitive real-time catch-up is built from.
