@@ -143,6 +143,21 @@ describe('laymos layers layout', () => {
     ).toBe(true);
   });
 
+  it('keeps interactive nodes above every edge', () => {
+    const active = getActiveModel(model, { kind: 'layer', name: 'routes' });
+    const layout = computeLaymosFlowLayout(model, active);
+    const highestEdge = Math.max(
+      ...layout.edges.map((edge) => edge.zIndex ?? 0),
+    );
+    const interactiveNodes = layout.nodes.filter(
+      (node) => node.type === 'graphHeader' || node.type === 'layer',
+    );
+
+    expect(
+      interactiveNodes.every((node) => (node.zIndex ?? 0) > highestEdge),
+    ).toBe(true);
+  });
+
   it('focuses only selected edges incident to the hovered neighbor', () => {
     const active = getActiveModel(model, { kind: 'layer', name: 'routes' });
     const layout = computeLaymosFlowLayout(model, active, {
@@ -160,6 +175,19 @@ describe('laymos layers layout', () => {
     });
     expect(edges.get('observed:routes->controllers')?.style).toMatchObject({
       opacity: 0.12,
+    });
+    const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
+    expect(nodes.get('layer:routes')?.data).toMatchObject({
+      related: true,
+      dimmed: false,
+    });
+    expect(nodes.get('layer:ui')?.data).toMatchObject({
+      related: true,
+      dimmed: false,
+    });
+    expect(nodes.get('layer:domain')?.data).toMatchObject({
+      related: false,
+      dimmed: true,
     });
   });
 

@@ -29,3 +29,30 @@ export function expandTo(files: string[], path: string): string[] {
   }
   return result;
 }
+
+export function toggleSubtree(
+  files: string[],
+  expanded: string[],
+  path: string,
+): string[] {
+  const prefix = `${path}/`;
+  const outsideDescendants = expanded.filter(
+    (folder) => !folder.startsWith(prefix),
+  );
+  const descendants = folderPaths(files).filter((folder) =>
+    folder.startsWith(prefix),
+  );
+  if (descendants.length === 0) {
+    return expanded.includes(path)
+      ? outsideDescendants.filter((folder) => folder !== path)
+      : [...outsideDescendants, path];
+  }
+  if (!expanded.includes(path)) return [...outsideDescendants, path];
+
+  const isDeepExpanded = descendants.every((folder) =>
+    expanded.includes(folder),
+  );
+  return isDeepExpanded
+    ? outsideDescendants
+    : [...new Set([...outsideDescendants, ...descendants])];
+}

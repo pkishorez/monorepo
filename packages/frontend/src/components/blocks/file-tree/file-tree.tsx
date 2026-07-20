@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { cn } from '#lib/utils';
+import { toggleSubtree } from './expand';
 
 type TreeNode = {
   path: string;
@@ -146,6 +147,11 @@ export function FileTree({
           onClick={() => {
             if (isFolder) toggle(node.path);
             onPathClick?.(node.path);
+          }}
+          onContextMenu={(event) => {
+            if (!isFolder || isEmptyFolder) return;
+            event.preventDefault();
+            onExpandedChange(toggleSubtree(files, expanded, node.path));
           }}
           className={cn(
             'flex w-full min-w-0 select-none items-center gap-1.5 rounded-md py-0.5 pe-1 text-sm',

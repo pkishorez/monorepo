@@ -124,10 +124,10 @@ function GraphHeaderNode({ data }: NodeProps<Node<GraphHeaderNodeData>>) {
         aria-label={`${data.name} graph, ${data.fileCount} files, ${uncoveredFiles} uncovered, ${data.violationCount} layer errors`}
         {...events}
       >
-        <span className="text-xs font-bold uppercase tracking-wider">
+        <span className="pointer-events-none text-xs font-bold uppercase tracking-wider">
           {data.name}
         </span>
-        <span className="flex gap-1 text-[10px] tabular-nums text-muted-foreground">
+        <span className="pointer-events-none flex gap-1 text-[10px] tabular-nums text-muted-foreground">
           {data.fileCount} {data.fileCount === 1 ? 'file' : 'files'}
           {uncoveredFiles > 0 && (
             <>
@@ -177,7 +177,6 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
   );
   const highlighted =
     interaction.hovered || interaction.focused || interaction.selected;
-  const contextuallyHighlighted = data.related && !highlighted;
   return (
     <div
       className={cn(
@@ -200,15 +199,15 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
         type="button"
         className={cn(
           'nodrag nopan relative flex h-full w-full flex-col justify-center rounded-lg border border-border bg-card px-4 text-left text-card-foreground shadow-sm transition-all',
-          contextuallyHighlighted &&
-            'border-foreground/25 bg-muted/30 shadow-md',
           highlighted && 'border-primary ring-2 ring-primary/40 shadow-md',
         )}
         aria-label={`${data.name} layer, ${data.fileCount} files, ${coverage}% module coverage${data.violationCount > 0 ? `, ${data.violationCount} layer violations` : ''}`}
         {...events}
       >
-        <span className="truncate text-sm font-semibold">{data.name}</span>
-        <span className="flex gap-1 text-[10px] tabular-nums text-muted-foreground">
+        <span className="pointer-events-none truncate text-sm font-semibold">
+          {data.name}
+        </span>
+        <span className="pointer-events-none flex gap-1 text-[10px] tabular-nums text-muted-foreground">
           {data.fileCount} {data.fileCount === 1 ? 'file' : 'files'}
           {uncoveredFiles > 0 && (
             <>

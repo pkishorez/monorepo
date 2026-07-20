@@ -1,24 +1,20 @@
 import { useFixtureInput } from 'react-cosmos/client';
 import type { LaymosReport } from 'laymos/report';
 
-import { LaymosModules } from '../components/laymos-modules';
 import type { LaymosModuleSelection } from '../types';
 import {
   complexModulesFixtureReport,
   denseModulesFixtureReport,
   laymosModulesFixtureReport,
 } from './reports';
+import { LaymosModules } from '../components/laymos-modules';
 
 function Controlled({
   report = laymosModulesFixtureReport,
   initialSelected = null,
-  initialHovered = null,
-  initialFocused = null,
 }: {
-  report?: LaymosReport;
-  initialSelected?: LaymosModuleSelection | null;
-  initialHovered?: string | null;
-  initialFocused?: string | null;
+  readonly report?: LaymosReport;
+  readonly initialSelected?: LaymosModuleSelection | null;
 }) {
   const [selectedModule, setSelectedModule] =
     useFixtureInput<LaymosModuleSelection | null>(
@@ -27,11 +23,11 @@ function Controlled({
     );
   const [hoveredModule, setHoveredModule] = useFixtureInput<string | null>(
     'hovered module',
-    initialHovered,
+    null,
   );
   const [focusedModule, setFocusedModule] = useFixtureInput<string | null>(
     'focused module',
-    initialFocused,
+    null,
   );
   return (
     <div className="h-[920px] w-full min-w-[960px]">
@@ -43,7 +39,6 @@ function Controlled({
         onHoveredModuleChange={setHoveredModule}
         focusedModule={focusedModule}
         onFocusedModuleChange={setFocusedModule}
-        defaultMinimise
       />
     </div>
   );
@@ -51,45 +46,11 @@ function Controlled({
 
 export default {
   overview: <Controlled />,
-  'hover preview': <Controlled initialHovered="src/application/home" />,
   'direct selection': (
     <Controlled
       initialSelected={{ path: 'src/application/home', depth: 'direct' }}
     />
   ),
-  'transitive selection': (
-    <Controlled
-      initialSelected={{ path: 'src/application/home', depth: 'transitive' }}
-    />
-  ),
-  'transitive comparison': (
-    <Controlled
-      initialSelected={{ path: 'src/application/home', depth: 'transitive' }}
-      initialHovered="src/platform/log"
-    />
-  ),
-  'cycle comparison': (
-    <Controlled
-      initialSelected={{ path: 'src/application/home', depth: 'transitive' }}
-      initialHovered="src/domain/user"
-    />
-  ),
-  'dense architecture': (
-    <Controlled
-      report={denseModulesFixtureReport}
-      initialSelected={{
-        path: 'src/routes/capability-1',
-        depth: 'transitive',
-      }}
-    />
-  ),
-  'complex layer graphs': (
-    <Controlled
-      report={complexModulesFixtureReport}
-      initialSelected={{
-        path: 'src/routes/capability-1',
-        depth: 'transitive',
-      }}
-    />
-  ),
+  'dense architecture': <Controlled report={denseModulesFixtureReport} />,
+  'clustered architecture': <Controlled report={complexModulesFixtureReport} />,
 };

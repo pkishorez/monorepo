@@ -162,6 +162,29 @@ export function computeLaymosFlowLayout(
       ))
       ? hoveredLayer
       : undefined;
+  const edgeHighlightedLayers = new Set(active.relatedLayers);
+  if (edgeFocusLayer !== undefined) {
+    edgeHighlightedLayers.clear();
+    edgeHighlightedLayers.add(edgeFocusLayer);
+    for (const edge of model.displayConfiguredEdges) {
+      if (
+        configuredEdgeActive(active, edge.graph, edge.from, edge.to) &&
+        (edge.from === edgeFocusLayer || edge.to === edgeFocusLayer)
+      ) {
+        edgeHighlightedLayers.add(edge.from);
+        edgeHighlightedLayers.add(edge.to);
+      }
+    }
+    for (const edge of model.observedEdges) {
+      if (
+        active.visibleObservedEdges.has(edgeKey(edge.from, edge.to)) &&
+        (edge.from === edgeFocusLayer || edge.to === edgeFocusLayer)
+      ) {
+        edgeHighlightedLayers.add(edge.from);
+        edgeHighlightedLayers.add(edge.to);
+      }
+    }
+  }
   const lanes = computeLanes(model);
   const laneByName = new Map(lanes.map((lane) => [lane.name, lane]));
   const maxRank = Math.max(0, ...model.ranks.values());
@@ -202,6 +225,7 @@ export function computeLaymosFlowLayout(
       },
       width: HEADER_WIDTH,
       height: HEADER_HEIGHT,
+      zIndex: 4,
       selectable: false,
       focusable: false,
       draggable: false,
@@ -323,6 +347,7 @@ export function computeLaymosFlowLayout(
       position: { x: position.x, y: position.y },
       width: position.width,
       height: LAYER_HEIGHT,
+      zIndex: 4,
       selectable: false,
       focusable: false,
       draggable: false,
@@ -332,8 +357,8 @@ export function computeLaymosFlowLayout(
         moduleCoveredFiles: layer.moduleCoveredFiles,
         moduleTotalFiles: layer.moduleTotalFiles,
         violationCount,
-        related: Boolean(active.node && active.relatedLayers.has(layer.name)),
-        dimmed: Boolean(active.node && !active.relatedLayers.has(layer.name)),
+        related: Boolean(active.node && edgeHighlightedLayers.has(layer.name)),
+        dimmed: Boolean(active.node && !edgeHighlightedLayers.has(layer.name)),
         targetHandles,
       } satisfies LayerNodeData,
     });

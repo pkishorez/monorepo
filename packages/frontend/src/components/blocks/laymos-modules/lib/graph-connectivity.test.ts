@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { laymosModulesFixtureReport } from '../../laymos-modules/fixtures/reports';
+import { laymosModulesFixtureReport } from '../fixtures/reports';
+import { buildLaymosModulesModel, moduleEdgeKey } from './model';
 import {
-  buildLaymosModulesModel,
-  moduleEdgeKey,
-} from '../../laymos-modules/lib/model';
-import { canHoverModule, getModuleGraphActiveModel } from './connectivity';
+  canHoverModule,
+  getModuleGraphActiveModel,
+} from './graph-connectivity';
 
 const model = buildLaymosModulesModel(laymosModulesFixtureReport);
 

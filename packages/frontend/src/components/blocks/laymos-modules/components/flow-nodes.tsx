@@ -1,126 +1,123 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import { Boxes } from 'lucide-react';
+import { createContext, useContext } from 'react';
 
 import { cn } from '#lib/utils';
 
-import { useModuleInteractions } from '../context/interaction-context';
-import { moduleColors } from '../lib/colors';
-import type { ModuleLayerNodeData, ModuleNodeData } from '../lib/layout';
+import type { ModuleClusterNodeData, ModuleGraphNodeData } from '../lib/layout';
 
-function ModuleLayerNode({ data }: NodeProps<Node<ModuleLayerNodeData>>) {
-  const uncovered = Math.max(0, data.totalFiles - data.coveredFiles);
+interface ModuleGraphInteraction {
+  readonly focusedModule: string | null;
+  readonly onFocusedModuleChange: (path: string | null) => void;
+  readonly onExpandCluster: (clusterId: string) => void;
+}
+
+export const ModuleGraphInteractionContext =
+  createContext<ModuleGraphInteraction | null>(null);
+
+function NodeHandles() {
   return (
-    <section
-      className={cn(
-        'relative h-full w-full rounded-xl border border-border/80 bg-card/55 shadow-sm transition-opacity duration-150',
-        data.dimmed && 'opacity-20',
-      )}
-      aria-label={`${data.name} layer, ${data.moduleCount} modules, ${uncovered} unassigned files`}
-    >
+    <>
       <Handle
         id="target-top"
         type="target"
         position={Position.Top}
-        className="!opacity-0"
+        className="!size-1.5 !border-background !bg-muted-foreground/65"
       />
       <Handle
         id="source-bottom"
         type="source"
         position={Position.Bottom}
-        className="!opacity-0"
+        className="!size-1.5 !border-background !bg-muted-foreground/65"
       />
-      <header className="flex h-[68px] items-center justify-between gap-4 border-b border-border/60 px-5">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{data.name}</p>
-          <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
-            {data.graphs.join(' · ') || 'No graph'}
-          </p>
-        </div>
-        <div className="shrink-0 text-right text-[10px] tabular-nums text-muted-foreground">
-          <p>
-            {data.moduleCount} {data.moduleCount === 1 ? 'module' : 'modules'}
-          </p>
-          <p
-            style={
-              uncovered > 0 ? { color: moduleColors.coverageGap } : undefined
-            }
-          >
-            {data.coveredFiles}/{data.totalFiles} files
-            {uncovered > 0 ? ` · ${uncovered} unassigned` : ''}
-          </p>
-        </div>
-      </header>
-    </section>
+    </>
   );
 }
 
-function ModuleNode({ data }: NodeProps<Node<ModuleNodeData>>) {
-  const interaction = useModuleInteractions(data.path);
-  const handles = [
-    [Position.Top, 'top'],
-    [Position.Right, 'right'],
-    [Position.Bottom, 'bottom'],
-    [Position.Left, 'left'],
-  ] as const;
+function ModuleGraphNode({ data }: NodeProps<Node<ModuleGraphNodeData>>) {
+  const interaction = useContext(ModuleGraphInteractionContext);
   return (
     <div
       className={cn(
-        'relative h-full w-full transition-opacity duration-150',
+        'relative h-full w-full rounded-md border bg-background/95 shadow-sm transition-all hover:border-foreground/35 hover:shadow-md',
+        data.related ? 'border-border' : 'border-border/70',
+        data.selected && 'border-primary ring-2 ring-primary/35',
+        interaction?.focusedModule === data.path &&
+          'outline-2 outline-ring outline-offset-1',
+        data.muted && 'opacity-35',
         data.dimmed && 'opacity-15',
       )}
     >
-      {handles.flatMap(([position, side]) =>
-        (['target', 'source'] as const).map((type) => (
-          <Handle
-            key={`${type}-${side}`}
-            id={`${type}-${side}`}
-            type={type}
-            position={position}
-            className="!opacity-0"
-          />
-        )),
-      )}
+      <NodeHandles />
       <button
         type="button"
-        className={cn(
-          'nodrag nopan flex h-full w-full flex-col justify-center rounded-lg border border-border bg-background/95 px-3 text-left text-foreground shadow-sm transition-all',
-          data.fileCount === 0 && 'border-dashed text-muted-foreground',
-          data.related && !data.selected && 'border-foreground/25 bg-muted/30',
-          data.cyclic && 'ring-2 ring-violet-400/35',
-          (interaction.hovered || data.comparison) &&
-            'border-primary ring-2 ring-primary/30',
-          interaction.focused && 'outline-2 outline-ring outline-offset-2',
-          data.selected && 'border-primary ring-2 ring-primary/50 shadow-md',
-        )}
-        aria-label={`${data.label} module in ${data.layer}, ${data.fileCount} files${data.violationCount > 0 ? `, ${data.violationCount} violations` : ''}. Left click for direct connections, right click for transitive connections.`}
-        onFocus={interaction.onFocus}
-        onBlur={interaction.onBlur}
-        onKeyDown={interaction.onKeyDown}
+        className="nodrag nopan flex h-full w-full min-w-0 items-center gap-2 px-2 text-left"
+        onFocus={() => interaction?.onFocusedModuleChange(data.path)}
+        onBlur={() => interaction?.onFocusedModuleChange(null)}
+        title={`${data.path} · ${data.layer} · ${data.fileCount} files`}
+        aria-label={`${data.label} module in ${data.layer}. ${data.fileCount} files.`}
       >
-        <span className="truncate text-xs font-semibold">{data.label}</span>
-        <span className="flex gap-1 text-[10px] tabular-nums text-muted-foreground">
-          {data.fileCount} {data.fileCount === 1 ? 'file' : 'files'}
-          {data.violationCount > 0 && (
-            <>
-              <span aria-hidden>·</span>
-              <span className="text-destructive">
-                {data.violationCount}{' '}
-                {data.violationCount === 1 ? 'error' : 'errors'}
-              </span>
-            </>
-          )}
-          {data.cyclic && (
-            <>
-              <span aria-hidden>·</span>
-              <span style={{ color: moduleColors.cycle }}>cycle</span>
-            </>
-          )}
+        <span
+          className="size-2 shrink-0 rounded-full"
+          style={{
+            background: data.violationCount > 0 ? '#ef4444' : data.color,
+          }}
+          aria-hidden
+        />
+        <span className="min-w-0 flex-1 truncate font-mono text-[10px] font-medium">
+          {data.label}
+        </span>
+        <span className="max-w-12 shrink-0 truncate text-[8px] text-muted-foreground">
+          {data.layer}
+        </span>
+        {data.violationCount > 0 && (
+          <span className="shrink-0 text-[9px] font-semibold text-destructive">
+            {data.violationCount}
+          </span>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function ModuleClusterNode({ data }: NodeProps<Node<ModuleClusterNodeData>>) {
+  const interaction = useContext(ModuleGraphInteractionContext);
+  return (
+    <div
+      className={cn(
+        'relative h-full w-full rounded-lg border border-dashed bg-muted/80 shadow-sm transition-all hover:border-foreground/40 hover:bg-muted hover:shadow-md',
+        data.related && 'border-solid',
+        data.selected && 'border-primary ring-2 ring-primary/35',
+        data.muted && 'opacity-35',
+        data.dimmed && 'opacity-15',
+      )}
+    >
+      <NodeHandles />
+      <button
+        type="button"
+        className="nodrag nopan flex h-full w-full items-center gap-2 px-2.5 text-left"
+        onClick={(event) => {
+          event.stopPropagation();
+          interaction?.onExpandCluster(data.clusterId);
+        }}
+        title={`Expand ${data.modulePaths.length} ${data.layer} modules`}
+        aria-label={`Expand ${data.modulePaths.length} modules in ${data.layer}`}
+      >
+        <Boxes className="size-3.5 shrink-0" style={{ color: data.color }} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-mono text-[10px] font-semibold">
+            {data.label}
+          </span>
+          <span className="block truncate text-[8px] uppercase tracking-wide text-muted-foreground">
+            {data.modulePaths.length} modules · {data.edgeCount} internal edges
+          </span>
         </span>
       </button>
     </div>
   );
 }
 
-export const laymosModuleNodeTypes = {
-  'module-layer': ModuleLayerNode,
-  module: ModuleNode,
+export const moduleGraphNodeTypes = {
+  'module-graph': ModuleGraphNode,
+  'module-cluster': ModuleClusterNode,
 };

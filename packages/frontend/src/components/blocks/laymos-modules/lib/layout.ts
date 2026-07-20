@@ -1,3 +1,4 @@
+import { Graph, layout as runDagreLayout } from '@dagrejs/dagre';
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
 import type { ActiveModulesModel } from './connectivity';
@@ -6,465 +7,403 @@ import {
   moduleEdgeKey,
   type LaymosModulesModel,
   type ModuleSummary,
+  type ObservedModuleEdge,
 } from './model';
 
-export interface ModuleLayerNodeData extends Record<string, unknown> {
-  readonly name: string;
-  readonly graphs: readonly string[];
-  readonly moduleCount: number;
-  readonly totalFiles: number;
-  readonly coveredFiles: number;
-  readonly rank: number;
-  readonly dimmed: boolean;
-}
-
-export interface ModuleNodeData extends Record<string, unknown> {
+export interface ModuleGraphNodeData extends Record<string, unknown> {
   readonly path: string;
   readonly label: string;
   readonly layer: string;
   readonly fileCount: number;
   readonly violationCount: number;
   readonly selected: boolean;
-  readonly comparison: boolean;
+  readonly highlighted: boolean;
   readonly related: boolean;
   readonly dimmed: boolean;
-  readonly cyclic: boolean;
+  readonly muted: boolean;
+  readonly color: string;
 }
 
-export interface LaymosModulesFlowLayout {
+export interface ModuleClusterNodeData extends Record<string, unknown> {
+  readonly clusterId: string;
+  readonly label: string;
+  readonly layer: string;
+  readonly modulePaths: readonly string[];
+  readonly edgeCount: number;
+  readonly selected: boolean;
+  readonly highlighted: boolean;
+  readonly related: boolean;
+  readonly dimmed: boolean;
+  readonly muted: boolean;
+  readonly color: string;
+}
+
+export interface ModuleGraphLayout {
   readonly nodes: Node[];
   readonly edges: Edge[];
+  readonly collapsedClusterCount: number;
 }
 
-const MODULE_WIDTH = 168;
-const MODULE_HEIGHT = 62;
-const MODULE_GAP = 20;
-const MODULE_RANK_GAP = 58;
-const LAYER_PADDING = 24;
-const LAYER_HEADER_HEIGHT = 68;
-const LAYER_GAP = 36;
-const LAYER_RANK_GAP = 112;
-const MAX_RANK_WIDTH = 1160;
-
-interface PositionedModule {
+interface ModuleItem {
+  readonly kind: 'module';
+  readonly id: string;
   readonly module: ModuleSummary;
-  readonly x: number;
-  readonly y: number;
+  readonly modulePaths: readonly string[];
 }
 
-interface LayerBox {
-  readonly name: string;
-  readonly rank: number;
-  readonly width: number;
-  readonly height: number;
-  readonly modules: readonly PositionedModule[];
-  x: number;
-  y: number;
+interface ClusterItem {
+  readonly kind: 'cluster';
+  readonly id: string;
+  readonly label: string;
+  readonly layer: string;
+  readonly modules: readonly ModuleSummary[];
+  readonly modulePaths: readonly string[];
 }
 
-interface StrongComponent {
-  readonly members: readonly string[];
-  readonly rank: number;
+type DisplayItem = ModuleItem | ClusterItem;
+
+interface DisplayEdge {
+  readonly source: string;
+  readonly target: string;
+  readonly moduleEdges: readonly ObservedModuleEdge[];
 }
 
-function stronglyConnectedComponents(
-  paths: readonly string[],
-  successors: ReadonlyMap<string, ReadonlySet<string>>,
-): string[][] {
-  let nextIndex = 0;
-  const indices = new Map<string, number>();
-  const lowLinks = new Map<string, number>();
-  const stack: string[] = [];
-  const onStack = new Set<string>();
-  const components: string[][] = [];
+const MODULE_WIDTH = 156;
+const MODULE_HEIGHT = 34;
+const CLUSTER_WIDTH = 174;
+const CLUSTER_HEIGHT = 44;
+const CLUSTER_THRESHOLD = 10;
+const CLUSTER_GROUP_MINIMUM = 4;
 
-  const visit = (path: string): void => {
-    const index = nextIndex++;
-    indices.set(path, index);
-    lowLinks.set(path, index);
-    stack.push(path);
-    onStack.add(path);
-    for (const next of successors.get(path) ?? []) {
-      if (!paths.includes(next)) continue;
-      if (!indices.has(next)) {
-        visit(next);
-        lowLinks.set(path, Math.min(lowLinks.get(path)!, lowLinks.get(next)!));
-      } else if (onStack.has(next)) {
-        lowLinks.set(path, Math.min(lowLinks.get(path)!, indices.get(next)!));
-      }
-    }
-    if (lowLinks.get(path) !== indices.get(path)) return;
-    const component: string[] = [];
-    while (stack.length > 0) {
-      const member = stack.pop()!;
-      onStack.delete(member);
-      component.push(member);
-      if (member === path) break;
-    }
-    components.push(component.sort());
-  };
+const layerPalette = [
+  '#38bdf8',
+  '#a78bfa',
+  '#34d399',
+  '#fb7185',
+  '#fbbf24',
+  '#22d3ee',
+  '#c084fc',
+  '#a3e635',
+] as const;
 
-  for (const path of paths) if (!indices.has(path)) visit(path);
-  return components;
-}
-
-function rankedComponents(
-  paths: readonly string[],
-  successors: ReadonlyMap<string, ReadonlySet<string>>,
-): StrongComponent[] {
-  const components = stronglyConnectedComponents(paths, successors);
-  const componentByPath = new Map<string, number>();
-  components.forEach((members, index) => {
-    for (const member of members) componentByPath.set(member, index);
-  });
-  const predecessors = new Map<number, Set<number>>(
-    components.map((_, index) => [index, new Set()]),
-  );
-  for (const from of paths) {
-    for (const to of successors.get(from) ?? []) {
-      if (!componentByPath.has(to)) continue;
-      const fromComponent = componentByPath.get(from)!;
-      const toComponent = componentByPath.get(to)!;
-      if (fromComponent !== toComponent) {
-        predecessors.get(toComponent)!.add(fromComponent);
-      }
-    }
+function layerColor(layer: string): string {
+  let hash = 0;
+  for (const character of layer) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   }
-  const ranks = new Map<number, number>();
-  const rank = (component: number): number => {
-    const existing = ranks.get(component);
-    if (existing !== undefined) return existing;
-    const incoming = predecessors.get(component)!;
-    const value = incoming.size ? Math.max(...[...incoming].map(rank)) + 1 : 0;
-    ranks.set(component, value);
-    return value;
-  };
-  return components.map((members, index) => ({
-    members,
-    rank: rank(index),
-  }));
+  return layerPalette[hash % layerPalette.length]!;
 }
 
-function buildLayerBox(
+function clusterFamily(module: ModuleSummary): string {
+  const segments = module.label.split('/').filter(Boolean);
+  return segments.length > 1 ? segments[0]! : 'modules';
+}
+
+function clusterId(layer: string, family: string): string {
+  return `${layer}:${family}`;
+}
+
+function displayItems(
   model: LaymosModulesModel,
-  name: string,
-  rank: number,
-): LayerBox {
-  const layer = model.layers.get(name)!;
-  const components = rankedComponents(layer.modulePaths, model.successors);
-  const byRank = new Map<number, string[]>();
-  for (const component of components) {
-    const members = byRank.get(component.rank) ?? [];
-    members.push(...component.members);
-    byRank.set(component.rank, members);
-  }
-  if (byRank.size === 0) byRank.set(0, []);
-  const rows = [...byRank.entries()].sort((left, right) => left[0] - right[0]);
-  const widest = Math.max(1, ...rows.map(([, paths]) => paths.length));
-  const width =
-    LAYER_PADDING * 2 +
-    widest * MODULE_WIDTH +
-    Math.max(0, widest - 1) * MODULE_GAP;
-  const modules: PositionedModule[] = [];
-  rows.forEach(([, paths], rowIndex) => {
-    paths.sort((left, right) => left.localeCompare(right));
-    const rowWidth =
-      paths.length * MODULE_WIDTH + Math.max(0, paths.length - 1) * MODULE_GAP;
-    paths.forEach((path, index) => {
-      const module = model.modules.get(path);
-      if (!module) return;
-      modules.push({
-        module,
-        x: (width - rowWidth) / 2 + index * (MODULE_WIDTH + MODULE_GAP),
-        y:
-          LAYER_HEADER_HEIGHT +
-          LAYER_PADDING +
-          rowIndex * (MODULE_HEIGHT + MODULE_RANK_GAP),
-      });
-    });
-  });
-  const height =
-    LAYER_HEADER_HEIGHT +
-    LAYER_PADDING * 2 +
-    Math.max(1, rows.length) * MODULE_HEIGHT +
-    Math.max(0, rows.length - 1) * MODULE_RANK_GAP;
-  return { name, rank, width, height, modules, x: 0, y: 0 };
-}
+  expandedClusters: ReadonlySet<string>,
+): DisplayItem[] {
+  const items: DisplayItem[] = [];
+  for (const layer of model.layers.values()) {
+    const modules = layer.modulePaths
+      .flatMap((path) => {
+        const module = model.modules.get(path);
+        return module ? [module] : [];
+      })
+      .sort((left, right) => left.label.localeCompare(right.label));
+    if (modules.length <= CLUSTER_THRESHOLD) {
+      items.push(
+        ...modules.map(
+          (module): ModuleItem => ({
+            kind: 'module',
+            id: `module:${module.path}`,
+            module,
+            modulePaths: [module.path],
+          }),
+        ),
+      );
+      continue;
+    }
 
-function layerRanks(model: LaymosModulesModel): Map<string, number> {
-  const predecessors = new Map<string, Set<string>>(
-    [...model.layers.keys()].map((name) => [name, new Set()]),
-  );
-  for (const graph of model.report.architecture.graphs) {
-    for (const edge of graph.edges) predecessors.get(edge.to)?.add(edge.from);
-  }
-  const ranks = new Map<string, number>();
-  const rank = (name: string): number => {
-    const existing = ranks.get(name);
-    if (existing !== undefined) return existing;
-    const incoming = predecessors.get(name) ?? new Set();
-    const value = incoming.size ? Math.max(...[...incoming].map(rank)) + 1 : 0;
-    ranks.set(name, value);
-    return value;
-  };
-  for (const name of model.layers.keys()) rank(name);
-  return ranks;
-}
-
-function positionLayerBoxes(model: LaymosModulesModel): LayerBox[] {
-  const ranks = layerRanks(model);
-  const boxes = [...model.layers.keys()].map((name) =>
-    buildLayerBox(model, name, ranks.get(name) ?? 0),
-  );
-  const byRank = new Map<number, LayerBox[]>();
-  for (const box of boxes) {
-    const rankBoxes = byRank.get(box.rank) ?? [];
-    rankBoxes.push(box);
-    byRank.set(box.rank, rankBoxes);
-  }
-  let nextY = 0;
-  for (const [, rankBoxes] of [...byRank.entries()].sort(
-    (left, right) => left[0] - right[0],
-  )) {
-    rankBoxes.sort((left, right) => left.name.localeCompare(right.name));
-    let row: LayerBox[] = [];
-    let rowWidth = 0;
-    let rankHeight = 0;
-    const placeRow = (): void => {
-      if (row.length === 0) return;
-      const offset = (MAX_RANK_WIDTH - rowWidth) / 2;
-      let x = offset;
-      const rowHeight = Math.max(...row.map((box) => box.height));
-      for (const box of row) {
-        box.x = x;
-        box.y = nextY + rankHeight;
-        x += box.width + LAYER_GAP;
+    const families = new Map<string, ModuleSummary[]>();
+    for (const module of modules) {
+      const family = clusterFamily(module);
+      families.set(family, [...(families.get(family) ?? []), module]);
+    }
+    for (const [family, members] of families) {
+      const id = clusterId(layer.name, family);
+      if (members.length < CLUSTER_GROUP_MINIMUM || expandedClusters.has(id)) {
+        items.push(
+          ...members.map(
+            (module): ModuleItem => ({
+              kind: 'module',
+              id: `module:${module.path}`,
+              module,
+              modulePaths: [module.path],
+            }),
+          ),
+        );
+        continue;
       }
-      rankHeight += rowHeight + LAYER_GAP;
-      row = [];
-      rowWidth = 0;
+      items.push({
+        kind: 'cluster',
+        id: `cluster:${id}`,
+        label: family === 'modules' ? layer.name : family,
+        layer: layer.name,
+        modules: members,
+        modulePaths: members.map((module) => module.path),
+      });
+    }
+  }
+  return items;
+}
+
+function displayEdges(
+  model: LaymosModulesModel,
+  itemByModule: ReadonlyMap<string, DisplayItem>,
+): DisplayEdge[] {
+  const edges = new Map<string, ObservedModuleEdge[]>();
+  for (const edge of model.observedEdges) {
+    const source = itemByModule.get(edge.from)?.id;
+    const target = itemByModule.get(edge.to)?.id;
+    if (!source || !target || source === target) continue;
+    const key = moduleEdgeKey(source, target);
+    edges.set(key, [...(edges.get(key) ?? []), edge]);
+  }
+  return [...edges.entries()].map(([key, moduleEdges]) => {
+    const separator = key.indexOf('\0');
+    return {
+      source: key.slice(0, separator),
+      target: key.slice(separator + 1),
+      moduleEdges,
     };
-    for (const box of rankBoxes) {
-      const candidate = rowWidth + (row.length ? LAYER_GAP : 0) + box.width;
-      if (row.length && candidate > MAX_RANK_WIDTH) placeRow();
-      row.push(box);
-      rowWidth += (row.length > 1 ? LAYER_GAP : 0) + box.width;
-    }
-    placeRow();
-    nextY += rankHeight - LAYER_GAP + LAYER_RANK_GAP;
-  }
-  return boxes;
+  });
 }
 
-function uniqueLayerEdges(model: LaymosModulesModel) {
-  const pairs = new Map<string, { from: string; to: string }>();
-  for (const graph of model.report.architecture.graphs) {
-    for (const edge of graph.edges) {
-      pairs.set(moduleEdgeKey(edge.from, edge.to), edge);
-    }
-  }
-  return [...pairs.values()];
+function itemIsRelated(item: DisplayItem, active: ActiveModulesModel): boolean {
+  return (
+    !active.root ||
+    item.modulePaths.some((path) => active.visibleModules.has(path))
+  );
 }
 
-/** Converts stable compound geometry and active state into React Flow data. */
-export function computeLaymosModulesFlowLayout(
+function edgeIsVisible(edge: DisplayEdge, active: ActiveModulesModel): boolean {
+  return edge.moduleEdges.some((moduleEdge) =>
+    active.visibleEdgeKeys.has(moduleEdgeKey(moduleEdge.from, moduleEdge.to)),
+  );
+}
+
+function edgeIsFocused(edge: DisplayEdge, active: ActiveModulesModel): boolean {
+  return edge.moduleEdges.some((moduleEdge) =>
+    active.focusedEdgeKeys.has(moduleEdgeKey(moduleEdge.from, moduleEdge.to)),
+  );
+}
+
+function edgeTouchesModule(edge: DisplayEdge, modulePath: string): boolean {
+  return edge.moduleEdges.some(
+    (moduleEdge) =>
+      moduleEdge.from === modulePath || moduleEdge.to === modulePath,
+  );
+}
+
+function edgeColor(edge: DisplayEdge, active: ActiveModulesModel): string {
+  if (edge.moduleEdges.some((moduleEdge) => moduleEdge.violating)) {
+    return moduleColors.violation;
+  }
+  if (!active.root) return moduleColors.configured;
+  if (
+    edge.moduleEdges.some((moduleEdge) =>
+      active.outgoingDistances.has(moduleEdge.from),
+    )
+  ) {
+    return moduleColors.outgoing;
+  }
+  return moduleColors.incoming;
+}
+
+/** Builds a compact topology-first module DAG with optional population clusters. */
+export function computeModuleGraphLayout(
   model: LaymosModulesModel,
   active: ActiveModulesModel,
-): LaymosModulesFlowLayout {
-  const boxes = positionLayerBoxes(model);
-  const boxByName = new Map(boxes.map((box) => [box.name, box]));
-  const moduleCenters = new Map<string, { x: number; y: number }>();
-  for (const box of boxes) {
-    for (const positioned of box.modules) {
-      moduleCenters.set(positioned.module.path, {
-        x: box.x + positioned.x + MODULE_WIDTH / 2,
-        y: box.y + positioned.y + MODULE_HEIGHT / 2,
-      });
-    }
+  expandedClusters: ReadonlySet<string> = new Set(),
+): ModuleGraphLayout {
+  const items = displayItems(model, expandedClusters);
+  const itemByModule = new Map<string, DisplayItem>();
+  for (const item of items) {
+    for (const path of item.modulePaths) itemByModule.set(path, item);
   }
-  const nodes: Node[] = [];
-  for (const box of boxes) {
-    const layer = model.layers.get(box.name)!;
-    const related =
-      !active.root ||
-      box.modules.some(
-        ({ module }) =>
-          active.visibleModules.has(module.path) ||
-          active.comparison?.target === module.path,
-      );
-    nodes.push({
-      id: `layer:${box.name}`,
-      type: 'module-layer',
-      position: { x: box.x, y: box.y },
-      width: box.width,
-      height: box.height,
-      draggable: false,
-      selectable: false,
-      focusable: false,
-      zIndex: -1,
-      data: {
-        name: box.name,
-        graphs: layer.graphs,
-        moduleCount: layer.modulePaths.length,
-        totalFiles: layer.totalFiles,
-        coveredFiles: layer.coveredFiles,
-        rank: box.rank,
-        dimmed: !related,
-      } satisfies ModuleLayerNodeData,
+  const graphEdges = displayEdges(model, itemByModule);
+  const graph = new Graph()
+    .setGraph({
+      rankdir: 'TB',
+      ranker: 'network-simplex',
+      align: 'UL',
+      nodesep: 22,
+      edgesep: 10,
+      ranksep: 72,
+      marginx: 12,
+      marginy: 12,
+    })
+    .setDefaultEdgeLabel(() => ({}));
+  for (const item of items) {
+    graph.setNode(item.id, {
+      width: item.kind === 'cluster' ? CLUSTER_WIDTH : MODULE_WIDTH,
+      height: item.kind === 'cluster' ? CLUSTER_HEIGHT : MODULE_HEIGHT,
     });
-    for (const positioned of box.modules) {
-      const module = positioned.module;
-      const selected = active.root === module.path;
-      const comparison = active.comparison?.target === module.path;
-      const related = !active.root || active.visibleModules.has(module.path);
-      const incoming = active.incomingDistances.has(module.path);
-      const outgoing = active.outgoingDistances.has(module.path);
-      nodes.push({
-        id: `module:${module.path}`,
-        type: 'module',
-        parentId: `layer:${box.name}`,
-        extent: 'parent',
-        position: { x: positioned.x, y: positioned.y },
-        width: MODULE_WIDTH,
-        height: MODULE_HEIGHT,
-        draggable: false,
-        selectable: false,
-        focusable: false,
-        data: {
-          path: module.path,
-          label: module.label,
-          layer: module.layer,
-          fileCount: module.files.length,
-          violationCount: module.violationCount,
-          selected,
-          comparison,
-          related,
-          dimmed: Boolean(active.root && !related && !comparison),
-          cyclic:
-            !selected && incoming && outgoing && module.path !== active.root,
-        } satisfies ModuleNodeData,
-      });
+  }
+  for (const edge of graphEdges) {
+    graph.setEdge(edge.source, edge.target, {
+      weight: Math.max(1, edge.moduleEdges.length),
+    });
+  }
+  runDagreLayout(graph);
+
+  const edgeHighlightedItems = new Set<string>();
+  if (active.root) {
+    const hoveredPath = active.comparison?.target;
+    for (const edge of graphEdges) {
+      const visible = edgeIsVisible(edge, active);
+      const touchesHovered = Boolean(
+        hoveredPath && edgeTouchesModule(edge, hoveredPath),
+      );
+      const hoverActive = touchesHovered && visible;
+      const emphasized = hoveredPath
+        ? hoverActive || edgeIsFocused(edge, active)
+        : visible;
+      if (!emphasized) continue;
+      edgeHighlightedItems.add(edge.source);
+      edgeHighlightedItems.add(edge.target);
     }
   }
 
-  const edges: Edge[] = uniqueLayerEdges(model).flatMap((edge) => {
-    const source = boxByName.get(edge.from);
-    const target = boxByName.get(edge.to);
-    if (!source || !target) return [];
-    return [
-      {
-        id: `layer:${edge.from}->${edge.to}`,
-        source: `layer:${edge.from}`,
-        target: `layer:${edge.to}`,
-        type: 'smoothstep',
-        interactionWidth: 0,
-        className: 'pointer-events-none',
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 10,
-          height: 10,
-          color: moduleColors.configured,
+  const nodes = items.map((item): Node => {
+    const position = graph.node(item.id) as { x: number; y: number };
+    const related = itemIsRelated(item, active);
+    const hoveredPath = active.comparison?.target;
+    const highlighted =
+      edgeHighlightedItems.has(item.id) ||
+      Boolean(hoveredPath && item.modulePaths.includes(hoveredPath));
+    const selected = Boolean(
+      active.root && item.modulePaths.includes(active.root),
+    );
+    const muted = Boolean(hoveredPath && !highlighted && !selected);
+    if (item.kind === 'cluster') {
+      const internalEdges = model.observedEdges.filter(
+        (edge) =>
+          item.modulePaths.includes(edge.from) &&
+          item.modulePaths.includes(edge.to),
+      ).length;
+      return {
+        id: item.id,
+        type: 'module-cluster',
+        position: {
+          x: position.x - CLUSTER_WIDTH / 2,
+          y: position.y - CLUSTER_HEIGHT / 2,
         },
-        style: {
-          stroke: moduleColors.configured,
-          strokeWidth: 1,
-          strokeDasharray: '3 5',
-          opacity: 0.28,
-          pointerEvents: 'none',
-        },
-        zIndex: -2,
-      } satisfies Edge,
-    ];
+        width: CLUSTER_WIDTH,
+        height: CLUSTER_HEIGHT,
+        draggable: false,
+        selectable: true,
+        data: {
+          clusterId: item.id.slice('cluster:'.length),
+          label: item.label,
+          layer: item.layer,
+          modulePaths: item.modulePaths,
+          edgeCount: internalEdges,
+          selected,
+          highlighted,
+          related,
+          dimmed: Boolean(!hoveredPath && active.root && !related),
+          muted,
+          color: layerColor(item.layer),
+        } satisfies ModuleClusterNodeData,
+      };
+    }
+    const module = item.module;
+    return {
+      id: item.id,
+      type: 'module-graph',
+      position: {
+        x: position.x - MODULE_WIDTH / 2,
+        y: position.y - MODULE_HEIGHT / 2,
+      },
+      width: MODULE_WIDTH,
+      height: MODULE_HEIGHT,
+      draggable: false,
+      selectable: true,
+      data: {
+        path: module.path,
+        label: module.label,
+        layer: module.layer,
+        fileCount: module.files.length,
+        violationCount: module.violationCount,
+        selected,
+        highlighted,
+        related,
+        dimmed: Boolean(!hoveredPath && active.root && !related),
+        muted,
+        color: layerColor(module.layer),
+      } satisfies ModuleGraphNodeData,
+    };
   });
 
-  const filtering = active.focusedEdgeKeys.size > 0;
-  for (const edge of model.observedEdges) {
-    const key = moduleEdgeKey(edge.from, edge.to);
-    if (!active.visibleEdgeKeys.has(key)) continue;
-    const outgoingFrom = active.outgoingDistances.get(edge.from);
-    const outgoingTo = active.outgoingDistances.get(edge.to);
-    const direction =
-      outgoingFrom !== undefined && outgoingTo === outgoingFrom + 1
-        ? 'outgoing'
-        : 'incoming';
-    const focused = active.focusedEdgeKeys.has(key);
-    const reciprocal = model.observedEdgeByKey.has(
-      moduleEdgeKey(edge.to, edge.from),
+  const edges = graphEdges.map((edge): Edge => {
+    const visible = edgeIsVisible(edge, active);
+    const hoveredPath = active.comparison?.target;
+    const touchesHovered = Boolean(
+      hoveredPath && edgeTouchesModule(edge, hoveredPath),
     );
-    const sourceModule = model.modules.get(edge.from)!;
-    const targetModule = model.modules.get(edge.to)!;
-    const sourceCenter = moduleCenters.get(edge.from)!;
-    const targetCenter = moduleCenters.get(edge.to)!;
-    const crossLayer = sourceModule.layer !== targetModule.layer;
-    const useSideRoute = reciprocal || crossLayer;
-    const side = reciprocal
-      ? key.localeCompare(moduleEdgeKey(edge.to, edge.from)) < 0
-        ? 'right'
-        : 'left'
-      : (sourceCenter.x + targetCenter.x) / 2 >= MAX_RANK_WIDTH / 2
-        ? 'right'
-        : 'left';
-    const sourceHandle = useSideRoute
-      ? `source-${side}`
-      : targetCenter.y >= sourceCenter.y
-        ? 'source-bottom'
-        : 'source-top';
-    const targetHandle = useSideRoute
-      ? `target-${side}`
-      : targetCenter.y >= sourceCenter.y
-        ? 'target-top'
-        : 'target-bottom';
-    const color = edge.violating
-      ? moduleColors.violation
-      : direction === 'outgoing'
-        ? moduleColors.outgoing
-        : moduleColors.incoming;
-    edges.push({
-      id: `observed:${edge.from}->${edge.to}`,
-      source: `module:${edge.from}`,
-      target: `module:${edge.to}`,
-      sourceHandle,
-      targetHandle,
-      type: useSideRoute ? 'bezier' : 'smoothstep',
-      label:
-        focused ||
-        (active.depth === 'direct' &&
-          (edge.from === active.root || edge.to === active.root))
-          ? edge.violating
-            ? 'violating import'
-            : 'imports'
-          : undefined,
-      interactionWidth: 0,
-      className: 'pointer-events-none',
-      labelStyle: {
-        fill: 'white',
-        fontSize: 9,
-        fontWeight: 700,
-        opacity: filtering && !focused ? 0.1 : 1,
-        pointerEvents: 'none',
-      },
-      labelBgStyle: {
-        fill: color,
-        fillOpacity: filtering && !focused ? 0.1 : 0.9,
-        pointerEvents: 'none',
-      },
-      labelBgPadding: [5, 3],
-      labelBgBorderRadius: 8,
+    const hoverActive = touchesHovered && (!active.root || visible);
+    const focused = hoverActive || edgeIsFocused(edge, active);
+    const violating = edge.moduleEdges.some(
+      (moduleEdge) => moduleEdge.violating,
+    );
+    const color = edgeColor(edge, active);
+    return {
+      id: `edge:${edge.source}->${edge.target}`,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: 'source-bottom',
+      targetHandle: 'target-top',
       markerEnd: {
         type: MarkerType.ArrowClosed,
+        color,
         width: 12,
         height: 12,
-        color,
       },
+      interactionWidth: 14,
+      animated: violating && visible,
       style: {
         stroke: color,
-        strokeWidth: focused ? 2.75 : 2,
-        strokeDasharray: edge.violating ? '6 5' : undefined,
-        opacity: filtering && !focused ? 0.1 : 0.95,
-        pointerEvents: 'none',
+        strokeWidth: focused ? 2.6 : visible ? 2 : 1,
+        opacity: hoverActive
+          ? 1
+          : hoveredPath
+            ? visible
+              ? 0.38
+              : active.root
+                ? 0.06
+                : 0.38
+            : active.root
+              ? visible
+                ? 1
+                : 0.06
+              : 1,
+        ...(violating ? { strokeDasharray: '5 3' } : {}),
       },
-      zIndex: 2,
-    });
-  }
-  return { nodes, edges };
+      zIndex: visible || focused ? 2 : 0,
+      data: { moduleEdgeCount: edge.moduleEdges.length },
+    };
+  });
+
+  return {
+    nodes,
+    edges,
+    collapsedClusterCount: items.filter((item) => item.kind === 'cluster')
+      .length,
+  };
 }

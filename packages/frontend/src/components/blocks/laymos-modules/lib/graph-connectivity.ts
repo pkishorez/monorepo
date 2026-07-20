@@ -1,12 +1,6 @@
-import {
-  getActiveModulesModel,
-  type ActiveModulesModel,
-} from '../../laymos-modules/lib/connectivity';
-import {
-  moduleEdgeKey,
-  type LaymosModulesModel,
-} from '../../laymos-modules/lib/model';
-import type { LaymosModuleSelection } from '../../laymos-modules/types';
+import { getActiveModulesModel, type ActiveModulesModel } from './connectivity';
+import { moduleEdgeKey, type LaymosModulesModel } from './model';
+import type { LaymosModuleSelection } from '../types';
 
 /** Returns whether a module may participate in hover for the current scope. */
 export function canHoverModule(

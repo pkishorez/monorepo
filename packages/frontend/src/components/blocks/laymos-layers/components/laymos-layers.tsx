@@ -138,7 +138,7 @@ function LaymosLayersInner({
           proOptions={{ hideAttribution: true }}
         >
           <Background color="var(--border)" gap={20} />
-          <Panel position="top-right">
+          <Panel position="bottom-right">
             <ContextCard
               model={model}
               active={active}
