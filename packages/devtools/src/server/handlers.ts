@@ -11,6 +11,7 @@ import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 import { runDepcruiseStream } from './depcruise.js';
 import { getTrace } from './get-trace/index.js';
+import { runLaymosStream } from './laymos.js';
 
 const toRpcError = (cause: unknown): DevtoolsRpcError =>
   cause instanceof DevtoolsRpcError
@@ -27,6 +28,15 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
     const dir = resolvePath(input);
     return existsSync(path.join(dir, 'depcruise.config.ts'))
       ? runDepcruiseStream(dir)
+      : Stream.make({
+          _tag: 'Result' as const,
+          result: { available: false as const },
+        });
+  },
+  RunLaymos: ({ path: input }) => {
+    const dir = resolvePath(input);
+    return existsSync(path.join(dir, 'laymos.config.ts'))
+      ? runLaymosStream(dir)
       : Stream.make({
           _tag: 'Result' as const,
           result: { available: false as const },

@@ -1,1 +1,5 @@
-export type { DevtoolsReport, RunDepcruiseResult } from './types.js';
+export type {
+  DevtoolsReport,
+  RunDepcruiseResult,
+  RunLaymosResult,
+} from './types.js';

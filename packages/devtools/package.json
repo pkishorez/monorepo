@@ -8,6 +8,7 @@
     "dependency graph",
     "devtools",
     "effect",
+    "laymos",
     "rpc"
   ],
   "repository": {
@@ -43,6 +44,7 @@
     "effect": "catalog:",
     "env-paths": "catalog:",
     "jiti": "catalog:",
+    "laymos": "workspace:*",
     "std-toolkit": "workspace:*",
     "typescript": "catalog:typescript6"
   },

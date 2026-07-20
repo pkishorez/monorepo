@@ -51,6 +51,7 @@
     "embla-carousel-react": "catalog:",
     "gray-matter": "catalog:",
     "input-otp": "catalog:",
+    "laymos": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "next-themes": "catalog:",

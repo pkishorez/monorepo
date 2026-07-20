@@ -21,6 +21,7 @@ import { getTraceCommand } from '../cli/get-trace.js';
 import { DevtoolsRpc } from '../rpc/index.js';
 import { DEPCRUISE_DIR_ENV, runDepcruiseWorker } from './depcruise.js';
 import { DevtoolsHandlersLive } from './handlers.js';
+import { LAYMOS_DIR_ENV, runLaymosWorker } from './laymos.js';
 
 // The server always binds to loopback; only the port and db path are configurable.
 const HOST = '127.0.0.1';
@@ -202,11 +203,12 @@ const command = Command.make(
   Command.withSubcommands([getTraceCommand]),
 );
 
-// This entry doubles as the depcruise cruise child: the bundler emits a single
-// file, so the server forks `process.argv[1]` with the env var set and this
-// guard routes the child into the cruise body instead of booting a second CLI.
+// This entry doubles as each analyzer's child because the bundler emits one file.
 const depcruiseDir = process.env[DEPCRUISE_DIR_ENV];
-if (depcruiseDir) {
+const laymosDir = process.env[LAYMOS_DIR_ENV];
+if (laymosDir) {
+  runLaymosWorker(laymosDir);
+} else if (depcruiseDir) {
   runDepcruiseWorker(depcruiseDir);
 } else {
   command.pipe(

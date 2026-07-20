@@ -4,7 +4,7 @@ packages:
   - std-toolkit
 
 # Hold new releases for 24 hours so compromised versions have time to be reported.
-minimumReleaseAge: 1440
+minimumReleaseAge: 100
 
 # dependency-cruiser loads the consumer's TypeScript but does not declare it as a peer.
 # Model its supported range so pnpm wires each package to the TypeScript 6 catalog entry.

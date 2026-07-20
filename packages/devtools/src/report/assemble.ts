@@ -2,6 +2,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { Effect } from 'effect';
 import { cruiseProject } from 'depcruise-viz/node';
+import { analyzeProject } from 'laymos/node';
 import { DevtoolsRpcError } from '../rpc/index.js';
 
 /** Resolve an input path to an absolute path, expanding a leading `~`. */
@@ -25,4 +26,11 @@ export const assembleDepcruise = (dir: string) =>
       available: true as const,
       data: { config: result.config, summary: result.summary },
     }),
+  );
+
+/** Analyze the package and return its laymos report. */
+export const assembleLaymos = (dir: string) =>
+  analyzeProject(dir).pipe(
+    Effect.map((data) => ({ available: true as const, data })),
+    Effect.mapError(toError),
   );

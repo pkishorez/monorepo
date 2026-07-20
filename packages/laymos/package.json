@@ -16,6 +16,11 @@
       "import": "./dist/node.js",
       "default": "./dist/node.js"
     },
+    "./report": {
+      "types": "./dist/report/index.d.ts",
+      "import": "./dist/report/index.js",
+      "default": "./dist/report/index.js"
+    },
     "./story": {
       "types": "./dist/story/core/index.d.ts",
       "import": "./dist/story/core/index.js",
@@ -36,11 +41,13 @@
     "laymos": "dist/cli/index.js"
   },
   "scripts": {
-    "build:ignore": "tsc",
+    "build": "tsc",
     "build:watch": "tsc --watch",
+    "fmt": "vp fmt src test package.json tsconfig.json laymos.config.ts",
+    "lint": "vp check src test package.json tsconfig.json laymos.config.ts && tsc --noEmit",
     "lint:laymos": "jiti src/cli/index.ts lint",
     "poc": "node poc/compare-extractors.ts",
-    "test:ignore": "vitest run"
+    "test": "vitest run"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",

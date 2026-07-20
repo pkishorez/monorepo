@@ -17,10 +17,11 @@ URL**.
 ### Tool
 
 A self-contained capability surfaced under DevTools. Today: **Telemetry**
-(powered by lotel) and **Dependencies** (powered by depcruise-viz). Each tool
-keeps its core logic in its own package; DevTools mounts that logic and exposes
-it. The frontend is **tool-first**: a developer picks a Tool first, and each
-Tool owns its own inner navigation and data-fetching idiom.
+(powered by lotel) and **Dependencies** (powered by laymos and, during the
+migration, depcruise-viz). Each tool keeps its core logic in its own package;
+DevTools mounts that logic and exposes it. The frontend is **tool-first**: a
+developer picks a Tool first, and each Tool owns its own inner navigation and
+data-fetching idiom.
 
 ### Scope (of a Tool)
 
@@ -52,6 +53,12 @@ The Dependencies tool's **core logic** package: given a package path, runs the
 dependency-cruise analysis and produces ready-to-render visualization data.
 DevTools exposes this as an endpoint. Remains a separate package.
 
+### laymos
+
+The Dependencies tool's successor analysis engine: given a package path, runs
+the laymos analysis and produces one enforcement-and-visualization report.
+DevTools exposes it alongside depcruise-viz during the migration.
+
 ### Ingestion
 
 External apps push OpenTelemetry traces/logs/metrics into DevTools using
@@ -64,7 +71,7 @@ RPC cannot absorb.
 One process, two HTTP surfaces:
 
 - **`/rpc`** — the frontend surface (Effect RPC). The `/devtools` route consumes
-  only this. Carries `RunDepcruise` plus telemetry read procedures
+  only this. Carries `RunDepcruise`, `RunLaymos`, plus telemetry read procedures
   (`QueryTraces` / `GetTrace` / `QueryLogs` / `QueryMetrics` /
   `ClearTelemetry`).
 - **`/v1/*`** — OTLP ingestion (HTTP), for external apps. lotel's existing

@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type { DepcruiseVizData } from 'depcruise-viz';
+import type { LaymosReport } from 'laymos/report';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -35,6 +36,19 @@ const RunDepcruiseSuccess = Schema.Union([
 /** The `RunDepcruise` terminal payload (discriminated availability union). */
 export type RunDepcruiseResult = typeof RunDepcruiseSuccess.Type;
 
+const LaymosData = Schema.Any as unknown as Schema.Codec<LaymosReport>;
+
+const RunLaymosSuccess = Schema.Union([
+  Schema.Struct({ available: Schema.Literal(false) }),
+  Schema.Struct({
+    available: Schema.Literal(true),
+    data: LaymosData,
+  }),
+]);
+
+/** The `RunLaymos` terminal payload (discriminated availability union). */
+export type RunLaymosResult = typeof RunLaymosSuccess.Type;
+
 export const DepcruisePhase = Schema.Literals([
   'load-config',
   'compile-config',
@@ -65,6 +79,20 @@ export const DepcruiseEvent = Schema.Union([
 ]);
 
 export type DepcruiseEvent = typeof DepcruiseEvent.Type;
+
+/** Events streamed by `RunLaymos`: liveness heartbeats and one terminal result. */
+export const LaymosEvent = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.Literal('Heartbeat'),
+    elapsedMs: Schema.Number,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Result'),
+    result: RunLaymosSuccess,
+  }),
+]);
+
+export type LaymosEvent = typeof LaymosEvent.Type;
 
 /**
  * A sort-key bound over the monotonic record id. The operator encodes the scan
@@ -102,7 +130,7 @@ const ClearSuccess = Schema.Struct({ deleted: Schema.Number });
 
 /**
  * The DevTools umbrella RPC surface consumed by the `/devtools` route. Carries
- * the Dependencies procedure (`RunDepcruise`, path-driven) and the global
+ * the Dependencies procedures (`RunDepcruise` and `RunLaymos`, path-driven) and the global
  * Telemetry read procedures backed by lotel's orchestration. Telemetry
  * *ingestion* is served separately over OTLP/HTTP (see ADR 0001).
  */
@@ -110,6 +138,12 @@ export const DevtoolsRpc = RpcGroup.make(
   Rpc.make('RunDepcruise', {
     payload: { path: Schema.String },
     success: DepcruiseEvent,
+    error: DevtoolsRpcError,
+    stream: true,
+  }),
+  Rpc.make('RunLaymos', {
+    payload: { path: Schema.String },
+    success: LaymosEvent,
     error: DevtoolsRpcError,
     stream: true,
   }),

@@ -433,6 +433,9 @@ importers:
       jiti:
         specifier: 'catalog:'
         version: 2.7.0
+      laymos:
+        specifier: workspace:*
+        version: link:../laymos
       std-toolkit:
         specifier: workspace:*
         version: link:../../std-toolkit
@@ -515,6 +518,9 @@ importers:
       input-otp:
         specifier: 'catalog:'
         version: 1.4.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      laymos:
+        specifier: workspace:*
+        version: link:../laymos
       lucide-react:
         specifier: 'catalog:'
         version: 1.24.0(react@19.2.7)
@@ -766,6 +772,9 @@ importers:
       fake-indexeddb:
         specifier: 'catalog:'
         version: 6.2.5
+      laymos:
+        specifier: workspace:*
+        version: link:../packages/laymos
       react:
         specifier: 'catalog:'
         version: 19.2.7
