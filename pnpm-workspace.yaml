@@ -3,10 +3,34 @@ packages:
   - packages/*
   - std-toolkit
 
+# Hold new releases for 24 hours so compromised versions have time to be reported.
 minimumReleaseAge: 1440
 
-onlyBuiltDependencies:
-  - better-sqlite3
+# dependency-cruiser loads the consumer's TypeScript but does not declare it as a peer.
+# Model its supported range so pnpm wires each package to the TypeScript 6 catalog entry.
+packageExtensions:
+  dependency-cruiser@18:
+    peerDependencies:
+      typescript: '>=2.0.0 <7.0.0'
+
+peerDependencyRules:
+  allowedVersions:
+    # Upstream's peer range lags behind its working Vite version.
+    '@content-collections/vite>vite': '8'
+    # bun-ffi-structs works with the workspace's TypeScript 7 toolchain.
+    'bun-ffi-structs>typescript': '7'
+
+# pnpm 11 requires an explicit decision for every detected dependency build script.
+# Only better-sqlite3 needs its native install step; keep every other script denied.
+allowBuilds:
+  better-sqlite3: true
+  '@parcel/watcher': false
+  esbuild: false
+  msgpackr-extract: false
+  msw: false
+  sharp: false
+  workerd: false
+
 catalog:
   '@base-ui/react': 1.6.0
   '@changesets/changelog-github': 0.7.0
