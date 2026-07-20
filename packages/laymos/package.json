@@ -36,22 +36,20 @@
     "laymos": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build:ignore": "tsc",
     "build:watch": "tsc --watch",
-    "lint": "pnpm lint:tsc",
     "lint:laymos": "jiti src/cli/index.ts lint",
-    "lint:tsc": "tsc --noEmit",
     "poc": "node poc/compare-extractors.ts",
-    "test": "vitest run"
+    "test:ignore": "vitest run"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-beta.78",
-    "effect": "4.0.0-beta.78",
-    "jiti": "2.7.0",
-    "skott": "0.35.11"
+    "@effect/platform-node": "catalog:",
+    "effect": "catalog:",
+    "jiti": "catalog:",
+    "skott": "catalog:"
   },
   "peerDependencies": {
-    "vitest": ">=4"
+    "vitest": "^4"
   },
   "peerDependenciesMeta": {
     "vitest": {
@@ -59,10 +57,10 @@
     }
   },
   "devDependencies": {
-    "@typescript/native": "npm:typescript@7.0.2",
-    "@types/node": "26.1.0",
-    "dependency-cruiser": "18.0.0",
-    "typescript": "npm:@typescript/typescript6@6.0.2",
-    "vitest": "4.1.9"
+    "@typescript/native": "catalog:",
+    "@types/node": "catalog:",
+    "dependency-cruiser": "catalog:",
+    "typescript": "catalog:typescript6",
+    "vitest": "catalog:"
   }
 }

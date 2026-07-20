@@ -25,12 +25,12 @@
     "lint:tsc": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/react": "19.2.17",
-    "effect": "4.0.0-beta.78",
-    "typescript": "7.0.2"
+    "@types/react": "catalog:",
+    "effect": "catalog:",
+    "typescript": "catalog:"
   },
   "peerDependencies": {
-    "effect": "4.0.0-beta.78",
-    "react": ">=19.2.3"
+    "effect": "^4.0.0-beta.78",
+    "react": "^19.2.7"
   }
 }

@@ -13,24 +13,32 @@
     "dev": "vp run -r dev",
     "fmt": "vp fmt",
     "gh:version": "GITHUB_TOKEN=$(gh auth token --user pkishorez) pnpm changeset version",
-    "lint": "vp check && pnpm -r --no-sort --workspace-concurrency=4 lint",
+    "lint": "vp check && pnpm lint:syncpack && pnpm -r --no-sort --workspace-concurrency=4 lint",
+    "lint:syncpack": "syncpack lint",
+    "outdated": "pnpm outdated --recursive",
+    "pnpm:outdated": "pnpm outdated --recursive",
     "release": "pnpm changeset publish",
     "subtrees:update": "bash scripts/update-subtrees.sh",
+    "syncpack:fix": "syncpack fix",
+    "syncpack:outdated": "syncpack update --check --no-cache --target minor",
+    "syncpack:update": "syncpack update --interactive --target minor",
+    "syncpack:update:latest": "syncpack update --interactive --target latest",
     "test": "vp run -r test",
     "updates": "npx -y npm-check-updates -iws",
     "version": "changeset version"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "0.7.0",
-    "@changesets/cli": "2.31.0",
-    "del-cli": "7.0.0",
-    "typescript": "7.0.2",
-    "vite-plus": "0.2.5"
+    "@changesets/changelog-github": "catalog:",
+    "@changesets/cli": "catalog:",
+    "del-cli": "catalog:",
+    "syncpack": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
   },
   "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
   "pnpm": {
     "packageExtensions": {
-      "dependency-cruiser@18.0.0": {
+      "dependency-cruiser@18": {
         "peerDependencies": {
           "typescript": ">=2.0.0 <7.0.0"
         }

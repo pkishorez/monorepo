@@ -23,7 +23,6 @@ is available at [docs.kishore.app](https://docs.kishore.app).
 | [`packages/devtools`](./packages/devtools)           | [`@kishorez/devtools`](https://www.npmjs.com/package/@kishorez/devtools) | Local DevTools server for inspecting dependency graphs and OpenTelemetry traces, logs, and metrics.                                                   |
 | [`packages/frontend`](./packages/frontend)           | `@monorepo/frontend` (private)                                           | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository.                                 |
 | [`packages/lotel`](./packages/lotel)                 | [`@kishorez/lotel`](https://www.npmjs.com/package/@kishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development.                             |
-| [`packages/monoverse`](./packages/monoverse)         | [`monoverse`](https://www.npmjs.com/package/monoverse)                   | Zero-config CLI for exploring, formatting, linting, and managing dependencies across pnpm, npm, Yarn, and Bun workspaces.                             |
 | [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts)           | React hooks for running and consuming Effect programs.                                                                                                |
 
 ### Single-table design toolkit
@@ -56,12 +55,10 @@ patterns and is not a workspace dependency.
 - Vite+ for repository-wide tasks
 - Vitest for tests
 - Changesets for package versioning and npm releases
-- Bun for building and developing `monoverse`
 
 ## Getting started
 
-The release workflow uses Node.js 24, pnpm 10, and Bun. Bun is only required
-when working on `monoverse`.
+The release workflow uses Node.js 24 and pnpm 10.
 
 ```bash
 corepack enable
@@ -75,12 +72,6 @@ pnpm build
 pnpm lint
 pnpm test
 pnpm fmt
-```
-
-The generic build intentionally excludes `monoverse`, which is built with Bun:
-
-```bash
-pnpm --filter monoverse build:ondemand
 ```
 
 To work on one project, filter by its workspace name:

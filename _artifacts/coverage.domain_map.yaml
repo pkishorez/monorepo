@@ -13,7 +13,5 @@ coverage:
   ignored_packages:
     - name: packages/devtools
       reason: skills deferred — will scaffold later
-    - name: packages/monoverse
-      reason: skills deferred — will scaffold later
     - name: packages/use-effect-ts
       reason: skills deferred — will scaffold later
