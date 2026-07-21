@@ -63,4 +63,19 @@ describe('laymos modules model', () => {
       ),
     ).toBe(true);
   });
+
+  it('marks strongly connected modules with one cycle warning', () => {
+    expect(model.cycles).toEqual([
+      {
+        modulePaths: [
+          'src/application/home',
+          'src/domain/order',
+          'src/domain/user',
+        ],
+      },
+    ]);
+    expect(model.modules.get('src/application/home')?.warningCount).toBe(1);
+    expect(model.modules.get('src/domain/order')?.warningCount).toBe(1);
+    expect(model.modules.get('src/platform/log')?.warningCount).toBe(0);
+  });
 });

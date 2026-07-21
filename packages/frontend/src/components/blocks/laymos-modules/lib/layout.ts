@@ -16,6 +16,7 @@ export interface ModuleGraphNodeData extends Record<string, unknown> {
   readonly layer: string;
   readonly fileCount: number;
   readonly violationCount: number;
+  readonly warningCount: number;
   readonly selected: boolean;
   readonly highlighted: boolean;
   readonly related: boolean;
@@ -30,6 +31,8 @@ export interface ModuleClusterNodeData extends Record<string, unknown> {
   readonly layer: string;
   readonly modulePaths: readonly string[];
   readonly edgeCount: number;
+  readonly violationCount: number;
+  readonly warningCount: number;
   readonly selected: boolean;
   readonly highlighted: boolean;
   readonly related: boolean;
@@ -68,9 +71,9 @@ interface DisplayEdge {
   readonly moduleEdges: readonly ObservedModuleEdge[];
 }
 
-const MODULE_WIDTH = 156;
-const MODULE_HEIGHT = 34;
-const CLUSTER_WIDTH = 174;
+const MODULE_WIDTH = 180;
+const MODULE_HEIGHT = 36;
+const CLUSTER_WIDTH = 190;
 const CLUSTER_HEIGHT = 44;
 const CLUSTER_THRESHOLD = 10;
 const CLUSTER_GROUP_MINIMUM = 4;
@@ -314,6 +317,14 @@ export function computeModuleGraphLayout(
           layer: item.layer,
           modulePaths: item.modulePaths,
           edgeCount: internalEdges,
+          violationCount: item.modules.reduce(
+            (count, module) => count + module.violationCount,
+            0,
+          ),
+          warningCount: item.modules.reduce(
+            (count, module) => count + module.warningCount,
+            0,
+          ),
           selected,
           highlighted,
           related,
@@ -341,6 +352,7 @@ export function computeModuleGraphLayout(
         layer: module.layer,
         fileCount: module.files.length,
         violationCount: module.violationCount,
+        warningCount: module.warningCount,
         selected,
         highlighted,
         related,

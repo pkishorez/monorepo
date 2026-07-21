@@ -21,7 +21,7 @@ describe('computeModuleGraphLayout', () => {
     expect(layout.nodes.every((node) => node.parentId === undefined)).toBe(
       true,
     );
-    expect(layout.nodes.every((node) => node.width === 156)).toBe(true);
+    expect(layout.nodes.every((node) => node.width === 180)).toBe(true);
     expect(layout.edges).toHaveLength(model.observedEdges.length);
   });
 

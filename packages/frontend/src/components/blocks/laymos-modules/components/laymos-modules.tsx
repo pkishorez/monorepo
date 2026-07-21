@@ -24,6 +24,7 @@ import {
   moduleGraphNodeTypes,
   ModuleGraphInteractionContext,
 } from './flow-nodes';
+import { ContextCard } from './context-card';
 
 /** Renders Laymos modules as one compact, topology-first dependency DAG. */
 export function LaymosModules(props: LaymosModulesProps) {
@@ -42,6 +43,7 @@ function LaymosModulesInner({
   onHoveredModuleChange,
   focusedModule,
   onFocusedModuleChange,
+  defaultMinimise = false,
   className,
   ariaLabel = 'Laymos unified module dependency graph',
 }: LaymosModulesProps) {
@@ -206,6 +208,13 @@ function LaymosModulesInner({
               </div>
             </Panel>
           )}
+          <Panel position="bottom-right">
+            <ContextCard
+              model={model}
+              selectedModulePath={selectedModule?.path ?? null}
+              defaultMinimise={defaultMinimise}
+            />
+          </Panel>
           <Panel position="bottom-left">
             <div className="nodrag nopan flex items-center gap-4 rounded-md border border-border bg-background/95 px-3 py-2 text-[9px] text-muted-foreground shadow-sm backdrop-blur">
               <span>imports flow top ↓ bottom · layer is color only</span>

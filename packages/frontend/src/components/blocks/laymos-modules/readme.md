@@ -20,3 +20,8 @@ other selected edges become half-dimmed, and unrelated edges remain fully
 dimmed. Hover never adds an edge outside the selected set. The underlying
 selection is restored unchanged when the pointer leaves. While a selection is
 active, modules outside its highlighted node set do not respond to hover.
+
+Each node shows separate architecture error and warning counts. Module rule
+violations are errors; participation in an observed dependency cycle is a
+warning. Selecting a module opens a summary card with its description, counts,
+connections, configured rules, and cycle peers.

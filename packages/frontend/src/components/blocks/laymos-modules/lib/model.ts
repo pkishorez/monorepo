@@ -28,6 +28,12 @@ export interface ModuleSummary {
   readonly boundaryEdges: readonly ModuleBoundaryEdge[];
   readonly rules?: ReportModuleRules;
   readonly violationCount: number;
+  readonly warningCount: number;
+  readonly cycle?: ModuleCycle;
+}
+
+export interface ModuleCycle {
+  readonly modulePaths: readonly string[];
 }
 
 export interface ModuleLayerSummary {
@@ -47,6 +53,7 @@ export interface LaymosModulesModel {
   readonly observedEdgeByKey: ReadonlyMap<string, ObservedModuleEdge>;
   readonly successors: ReadonlyMap<string, ReadonlySet<string>>;
   readonly predecessors: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly cycles: readonly ModuleCycle[];
 }
 
 export function moduleEdgeKey(from: string, to: string): string {
@@ -95,6 +102,61 @@ function labelForModule(
   if (!owner) return modulePath;
   if (owner === modulePath) return modulePath.split('/').at(-1) ?? modulePath;
   return modulePath.slice(owner.length + 1);
+}
+
+function findModuleCycles(
+  modulePaths: readonly string[],
+  successors: ReadonlyMap<string, ReadonlySet<string>>,
+): readonly ModuleCycle[] {
+  let nextIndex = 0;
+  const indices = new Map<string, number>();
+  const lowLinks = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const cycles: ModuleCycle[] = [];
+
+  const visit = (path: string): void => {
+    const index = nextIndex;
+    nextIndex += 1;
+    indices.set(path, index);
+    lowLinks.set(path, index);
+    stack.push(path);
+    onStack.add(path);
+
+    for (const successor of successors.get(path) ?? []) {
+      if (!indices.has(successor)) {
+        visit(successor);
+        lowLinks.set(
+          path,
+          Math.min(lowLinks.get(path)!, lowLinks.get(successor)!),
+        );
+      } else if (onStack.has(successor)) {
+        lowLinks.set(
+          path,
+          Math.min(lowLinks.get(path)!, indices.get(successor)!),
+        );
+      }
+    }
+
+    if (lowLinks.get(path) !== indices.get(path)) return;
+    const component: string[] = [];
+    let member: string;
+    do {
+      member = stack.pop()!;
+      onStack.delete(member);
+      component.push(member);
+    } while (member !== path);
+    if (component.length > 1) {
+      cycles.push({ modulePaths: component.sort() });
+    }
+  };
+
+  for (const path of modulePaths) {
+    if (!indices.has(path)) visit(path);
+  }
+  return cycles.sort((left, right) =>
+    left.modulePaths[0]!.localeCompare(right.modulePaths[0]!),
+  );
 }
 
 /** Builds the private query model for the module visualization. */
@@ -192,6 +254,12 @@ export function buildLaymosModulesModel(
     successors.get(edge.from)?.add(edge.to);
     predecessors.get(edge.to)?.add(edge.from);
   }
+  const cycles = findModuleCycles(modulePaths, successors);
+  const cycleByModule = new Map(
+    cycles.flatMap((cycle) =>
+      cycle.modulePaths.map((path) => [path, cycle] as const),
+    ),
+  );
 
   const rulesByModule = new Map(
     report.architecture.moduleRules.map((rules) => [rules.module, rules]),
@@ -223,6 +291,10 @@ export function buildLaymosModulesModel(
       files: (filesByModule.get(path) ?? []).sort(),
       boundaryEdges: boundaryByModule.get(path) ?? [],
       violationCount: violationCountByModule.get(path) ?? 0,
+      warningCount: cycleByModule.has(path) ? 1 : 0,
+      ...(cycleByModule.get(path) !== undefined
+        ? { cycle: cycleByModule.get(path) }
+        : {}),
       ...(architectureModule.description !== undefined
         ? { description: architectureModule.description }
         : {}),
@@ -269,5 +341,6 @@ export function buildLaymosModulesModel(
     ),
     successors,
     predecessors,
+    cycles,
   };
 }

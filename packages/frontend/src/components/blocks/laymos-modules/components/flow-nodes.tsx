@@ -1,5 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { Boxes } from 'lucide-react';
+import { Boxes, CircleX, TriangleAlert } from 'lucide-react';
 import { createContext, useContext } from 'react';
 
 import { cn } from '#lib/utils';
@@ -14,6 +14,38 @@ interface ModuleGraphInteraction {
 
 export const ModuleGraphInteractionContext =
   createContext<ModuleGraphInteraction | null>(null);
+
+function StatusCounts({
+  violationCount,
+  warningCount,
+}: {
+  readonly violationCount: number;
+  readonly warningCount: number;
+}) {
+  if (violationCount === 0 && warningCount === 0) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-[9px] font-semibold tabular-nums">
+      {violationCount > 0 && (
+        <span
+          className="flex items-center gap-0.5 rounded bg-destructive/10 px-1 text-destructive"
+          title={`${violationCount} ${violationCount === 1 ? 'error' : 'errors'}`}
+        >
+          <CircleX className="size-2.5" aria-hidden />
+          {violationCount}
+        </span>
+      )}
+      {warningCount > 0 && (
+        <span
+          className="flex items-center gap-0.5 rounded bg-amber-500/10 px-1 text-amber-500"
+          title={`${warningCount} ${warningCount === 1 ? 'warning' : 'warnings'}`}
+        >
+          <TriangleAlert className="size-2.5" aria-hidden />
+          {warningCount}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function NodeHandles() {
   return (
@@ -54,8 +86,8 @@ function ModuleGraphNode({ data }: NodeProps<Node<ModuleGraphNodeData>>) {
         className="nodrag nopan flex h-full w-full min-w-0 items-center gap-2 px-2 text-left"
         onFocus={() => interaction?.onFocusedModuleChange(data.path)}
         onBlur={() => interaction?.onFocusedModuleChange(null)}
-        title={`${data.path} · ${data.layer} · ${data.fileCount} files`}
-        aria-label={`${data.label} module in ${data.layer}. ${data.fileCount} files.`}
+        title={`${data.path} · ${data.layer} · ${data.fileCount} files · ${data.violationCount} errors · ${data.warningCount} warnings`}
+        aria-label={`${data.label} module in ${data.layer}. ${data.fileCount} files. ${data.violationCount} errors. ${data.warningCount} warnings.`}
       >
         <span
           className="size-2 shrink-0 rounded-full"
@@ -70,11 +102,10 @@ function ModuleGraphNode({ data }: NodeProps<Node<ModuleGraphNodeData>>) {
         <span className="max-w-12 shrink-0 truncate text-[8px] text-muted-foreground">
           {data.layer}
         </span>
-        {data.violationCount > 0 && (
-          <span className="shrink-0 text-[9px] font-semibold text-destructive">
-            {data.violationCount}
-          </span>
-        )}
+        <StatusCounts
+          violationCount={data.violationCount}
+          warningCount={data.warningCount}
+        />
       </button>
     </div>
   );
@@ -112,6 +143,10 @@ function ModuleClusterNode({ data }: NodeProps<Node<ModuleClusterNodeData>>) {
             {data.modulePaths.length} modules · {data.edgeCount} internal edges
           </span>
         </span>
+        <StatusCounts
+          violationCount={data.violationCount}
+          warningCount={data.warningCount}
+        />
       </button>
     </div>
   );
