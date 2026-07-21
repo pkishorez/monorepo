@@ -28,14 +28,14 @@
     }
   },
   "bin": {
-    "laymos": "dist/cli/index.js"
+    "laymos": "dist/cli/cli.js"
   },
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit",
-    "lint:laymos": "jiti src/cli/index.ts lint",
+    "lint:laymos": "jiti src/cli/cli.ts lint",
     "test": "vitest run"
   },
   "dependencies": {

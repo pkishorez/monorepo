@@ -637,11 +637,18 @@ not expose any earlier in-memory results from that request.
 
 ### Outside a Scenario
 
-Block wrappers always execute their underlying code. Recording exists only
-while the Story runner has installed an active Scenario context. Without
-that context—including in production—the wrappers are strictly noop beyond
-executing the wrapped code: they emit no events, perform no serialization, and
-require no runtime configuration. Production logging and replay are outside v1.
+The production `laymos/story` entry has no recording capability. Its
+`functionBlock` returns the original function, `step` returns the original
+Effect, and `decision` performs only the declared branching. Attribute
+resolvers are not evaluated, and there is no recorder lookup, source-location
+capture, serialization, event emission, or runtime configuration.
+
+During Story execution, the runner uses Jiti to resolve `laymos/story` to a
+private `story-runtime` implementation throughout the loaded source graph.
+That runtime declares Stories and records Blocks while preserving the public
+surface's production semantics. `story-runtime` is deliberately absent from
+the package export map, so application code and TypeScript tooling cannot
+resolve it as a package subpath. Production logging and replay are outside v1.
 
 ---
 
@@ -677,6 +684,7 @@ src/
 ├─ story/
 │  ├─ core/      declaration model and recorder contract
 │  ├─ effect/    → "laymos/story"
+│  ├─ story-runtime/ private runner-only implementation
 │  ├─ runner/    owned Story runner: discovery, loading, execution
 │  └─ artifact/  Story recording and artifact data model
 ├─ index.ts    → "laymos"

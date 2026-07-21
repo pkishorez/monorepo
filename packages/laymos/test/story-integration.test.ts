@@ -61,6 +61,18 @@ describe('Story integration', () => {
     expect(existsSync(join(baseDir, '.laymos'))).toBe(false);
   });
 
+  it('records Blocks imported transitively from production modules', async () => {
+    const baseDir = await makeBaseDir();
+    const storyId = 'transitive.story.ts';
+    await writeFile(join(baseDir, 'workflow.ts'), transitiveWorkflowSource());
+    await writeFile(join(baseDir, storyId), transitiveStorySource());
+
+    const result = await Effect.runPromise(runStory(baseDir, storyId));
+
+    expect(result.status).toBe('passed');
+    expect(blockNames(result.artifact)).toEqual(['transitive execution']);
+  });
+
   it('runs Effect Scenarios and interrupts on timeout', async () => {
     const baseDir = await makeBaseDir();
     const storyId = 'access.story.ts';
@@ -226,7 +238,7 @@ describe('Story integration', () => {
 function checkoutStorySource(): string {
   return `
 import { Effect } from 'effect';
-import { decision, functionBlock, step, story } from '../../src/story/effect/index.ts';
+import { decision, functionBlock, step, story } from 'laymos/story';
 import { strict as assert } from 'node:assert';
 
 const checkout = functionBlock(
@@ -254,7 +266,7 @@ story('checkout', { description: 'Routes checkout by fraud outcome' })
 function effectStorySource(): string {
   return `
 import { Context, Effect, Layer } from 'effect';
-import { step, story } from '../../src/story/effect/index.ts';
+import { step, story } from 'laymos/story';
 
 const SharedValue = Context.Reference<number>('story/shared-value', {
   defaultValue: () => 0,
@@ -292,7 +304,7 @@ function lifecycleStorySource(): string {
   return `
 import { strict as assert } from 'node:assert';
 import { Effect } from 'effect';
-import { step, story } from '../../src/story/effect/index.ts';
+import { step, story } from 'laymos/story';
 
 story('lifecycle', { description: 'Separates operational phases from narrative' })
   .execute((prepared: 'expected-error' | 'cleanup-error') =>
@@ -316,7 +328,7 @@ story('lifecycle', { description: 'Separates operational phases from narrative' 
 function cleanupTimeoutStorySource(timeout = '30 millis'): string {
   return `
 import { Effect } from 'effect';
-import { story } from '../../src/story/effect/index.ts';
+import { story } from 'laymos/story';
 
 story('cleanup timeout', { description: 'Bounds cleanup within the Scenario deadline' })
   .execute(() => Effect.void)
@@ -333,6 +345,36 @@ story('cleanup timeout', { description: 'Bounds cleanup within the Scenario dead
           globalThis.__laymosCleanupStarted = true;
         }
       }).pipe(Effect.andThen(Effect.never))),
+  );
+`;
+}
+
+function transitiveWorkflowSource(): string {
+  return `
+import { Effect } from 'effect';
+import { functionBlock } from 'laymos/story';
+
+export const executeWorkflow = functionBlock(
+  'transitive execution',
+  { description: 'Runs a Block declared in a production workflow module.' },
+  () => Effect.succeed('done'),
+);
+`;
+}
+
+function transitiveStorySource(): string {
+  return `
+import { strict as assert } from 'node:assert';
+import { Effect } from 'effect';
+import { story } from 'laymos/story';
+import { executeWorkflow } from './workflow.js';
+
+story('transitive', { description: 'Exercises a production workflow import' })
+  .execute(() => executeWorkflow())
+  .scenario('runs', { description: 'Records the imported workflow Block' }, (scenario) =>
+    scenario
+      .prepare(() => Effect.void)
+      .verify((result) => Effect.sync(() => assert.equal(result, 'done'))),
   );
 `;
 }

@@ -8,6 +8,7 @@ const report = layer('report', ['src/report']);
 const tests = layer('tests', ['test']);
 
 const storyAdapters = layer('story-adapters', ['src/story/effect']);
+const storyRuntime = layer('story-runtime', ['src/story/story-runtime']);
 const storyRunner = layer('story-runner', ['src/story/runner']);
 const storyCore = layer('story-core', ['src/story/core', 'src/story/artifact']);
 
@@ -28,6 +29,7 @@ const emitModule = module('src/engine/4-emit');
 const storyArtifactModule = module('src/story/artifact');
 const storyCoreModule = module('src/story/core');
 const storyEffectModule = module('src/story/effect');
+const storyRuntimeModule = module('src/story/story-runtime');
 const storyRunnerModule = module('src/story/runner');
 
 export default defineConfig({
@@ -39,6 +41,7 @@ export default defineConfig({
       edge(engine, [configDsl, report]),
       edge(report, storyCore),
       edge(storyAdapters, storyCore),
+      edge(storyRuntime, storyCore),
       edge(storyRunner, storyCore),
       edge(tests, [
         nodeApi,
@@ -65,6 +68,7 @@ export default defineConfig({
     storyArtifactModule,
     storyCoreModule,
     storyEffectModule,
+    storyRuntimeModule,
     storyRunnerModule,
   ],
   moduleRules: [
@@ -100,6 +104,7 @@ export default defineConfig({
     rules(storyArtifactModule, { canImport: [storyCoreModule] }),
     rules(storyCoreModule, { canImport: [storyArtifactModule] }),
     rules(storyEffectModule, { canImport: [storyCoreModule] }),
+    rules(storyRuntimeModule, { canImport: [storyCoreModule] }),
     rules(storyRunnerModule, {
       canImport: [storyCoreModule, storyArtifactModule],
     }),

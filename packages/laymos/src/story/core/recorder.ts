@@ -62,6 +62,7 @@ export function captureLocation(): SourceLocation {
     if (
       line.includes('/story/core/') ||
       line.includes('/story/effect/') ||
+      line.includes('/story/story-runtime/') ||
       line.includes('/story/runner/') ||
       line.includes('node:internal')
     ) {

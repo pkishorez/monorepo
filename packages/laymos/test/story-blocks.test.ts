@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
@@ -6,6 +8,8 @@ import {
   step as effectStep,
   story as effectStory,
 } from '../src/story/effect/index.js';
+import { CurrentRecorder } from '../src/story/core/recorder.js';
+import type { StoryRecorder } from '../src/story/core/recorder.js';
 
 describe('Story Blocks', () => {
   it('runs yieldable Effect Decision builders', async () => {
@@ -57,6 +61,52 @@ describe('Story Blocks', () => {
     );
 
     await expect(Effect.runPromise(add(2, 3))).resolves.toBe(5);
+  });
+
+  it('keeps production Blocks inert when a recorder service is present', async () => {
+    let recorderCalls = 0;
+    let attributeCalls = 0;
+    const recorder: StoryRecorder = {
+      declareArm: () => {
+        recorderCalls += 1;
+      },
+      start: () => {
+        recorderCalls += 1;
+        return undefined;
+      },
+      finish: () => {
+        recorderCalls += 1;
+      },
+    };
+    const body = (value: number) => Effect.succeed(value + 1);
+    const block = effectFunctionBlock(
+      'increment',
+      {
+        description: 'Adds one to the supplied number.',
+        attributes: (value) => {
+          attributeCalls += 1;
+          return { value };
+        },
+      },
+      body,
+    );
+
+    expect(block).toBe(body);
+    await expect(
+      Effect.runPromise(
+        block(1).pipe(Effect.provideService(CurrentRecorder, recorder)),
+      ),
+    ).resolves.toBe(2);
+    expect(recorderCalls).toBe(0);
+    expect(attributeCalls).toBe(0);
+  });
+
+  it('does not expose the private Story runtime as a package subpath', () => {
+    const resolvePackage = createRequire(import.meta.url).resolve;
+
+    expect(() => resolvePackage('laymos/story/story-runtime')).toThrow(
+      expect.objectContaining({ code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' }),
+    );
   });
 
   it('rejects empty narrative descriptions at runtime', () => {
