@@ -7,6 +7,7 @@ import {
   queryMetrics,
   queryTraces,
 } from '@kishorez/lotel';
+import { discoverStoryIds, runAllStories, runStory } from 'laymos/node';
 import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 import { runDepcruiseStream } from './depcruise.js';
@@ -17,6 +18,9 @@ const toRpcError = (cause: unknown): DevtoolsRpcError =>
   cause instanceof DevtoolsRpcError
     ? cause
     : new DevtoolsRpcError({ message: String(cause) });
+
+const laymosOperation = <A, E, R>(operation: Effect.Effect<A, E, R>) =>
+  operation.pipe(Effect.mapError(toRpcError));
 
 /**
  * Live handlers for the {@link DevtoolsRpc} group. The telemetry read
@@ -42,6 +46,12 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
           result: { available: false as const },
         });
   },
+  RunAllStories: ({ path: input }) =>
+    laymosOperation(runAllStories(resolvePath(input))),
+  RunStory: ({ path: input, storyId }) =>
+    laymosOperation(runStory(resolvePath(input), storyId)),
+  DiscoverStoryIds: ({ path: input }) =>
+    laymosOperation(discoverStoryIds(resolvePath(input))),
   QueryTraces: ({ sk, limit }) =>
     queryTraces(sk, limit).pipe(Effect.mapError(toRpcError)),
   GetTrace: ({ traceId }) =>

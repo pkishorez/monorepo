@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -19,14 +18,13 @@ afterEach(async () => {
 });
 
 describe('extractFileGraph', () => {
-  it('analyzes tracked and untracked non-ignored Git source files only', async () => {
+  it('analyzes configured source files and directories only', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'laymos-extract-'));
     temporaryDirectories.push(directory);
-    execFileSync('git', ['init', '--quiet'], { cwd: directory });
-    await writeFile(join(directory, '.gitignore'), 'ignored.ts\n');
+    await writeFile(join(directory, '.gitignore'), 'b.ts\n');
     await writeFile(
       join(directory, 'a.ts'),
-      "import type { B } from './b.js';\nexport type A = B;\n",
+      "import type { B } from './b.js';\nimport './ignored.js';\nexport type A = B;\n",
     );
     await writeFile(join(directory, 'b.ts'), 'export interface B {}\n');
     await writeFile(
@@ -40,7 +38,9 @@ describe('extractFileGraph', () => {
       "import type { B } from '../b.js';\nexport type Example = B;\n",
     );
 
-    const fileGraph = await Effect.runPromise(extractFileGraph(directory));
+    const fileGraph = await Effect.runPromise(
+      extractFileGraph(directory, ['a.ts', 'b.ts', 'docs']),
+    );
 
     expect(Object.keys(fileGraph.files)).toEqual([
       'a.ts',
@@ -54,7 +54,6 @@ describe('extractFileGraph', () => {
   it('keeps explicitly ignored files in the inventory without traversing them', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'laymos-extract-'));
     temporaryDirectories.push(directory);
-    execFileSync('git', ['init', '--quiet'], { cwd: directory });
     await mkdir(join(directory, 'generated'));
     await writeFile(
       join(directory, 'app.ts'),
@@ -66,7 +65,7 @@ describe('extractFileGraph', () => {
     );
 
     const fileGraph = await Effect.runPromise(
-      extractFileGraph(directory, ['generated']),
+      extractFileGraph(directory, ['.'], ['generated']),
     );
 
     expect(fileGraph.files).toEqual({

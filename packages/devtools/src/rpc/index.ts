@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type { DepcruiseVizData } from 'depcruise-viz';
+import type { AllStoriesRunResult, StoryRunResult } from 'laymos/node';
 import type { LaymosReport } from 'laymos/report';
 import {
   LogRecordSchema,
@@ -94,6 +95,11 @@ export const LaymosEvent = Schema.Union([
 
 export type LaymosEvent = typeof LaymosEvent.Type;
 
+const AllStoriesRunData =
+  Schema.Any as unknown as Schema.Codec<AllStoriesRunResult>;
+const StoryRunData = Schema.Any as unknown as Schema.Codec<StoryRunResult>;
+const StoryIdsData = Schema.Array(Schema.String);
+
 /**
  * A sort-key bound over the monotonic record id. The operator encodes the scan
  * direction: `>`/`>=` page oldest-to-newest (live tail), `<`/`<=` page
@@ -146,6 +152,21 @@ export const DevtoolsRpc = RpcGroup.make(
     success: LaymosEvent,
     error: DevtoolsRpcError,
     stream: true,
+  }),
+  Rpc.make('RunAllStories', {
+    payload: { path: Schema.String },
+    success: AllStoriesRunData,
+    error: DevtoolsRpcError,
+  }),
+  Rpc.make('RunStory', {
+    payload: { path: Schema.String, storyId: Schema.String },
+    success: StoryRunData,
+    error: DevtoolsRpcError,
+  }),
+  Rpc.make('DiscoverStoryIds', {
+    payload: { path: Schema.String },
+    success: StoryIdsData,
+    error: DevtoolsRpcError,
   }),
   Rpc.make('QueryTraces', {
     payload: QueryPayload,

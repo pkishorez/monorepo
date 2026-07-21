@@ -7,6 +7,11 @@ state, merged. Definitions only; no implementation detail.
 
 ### Static pillars
 
+**Source root**:
+A configured project-relative file or folder that defines the complete static
+analysis universe. Only supported source files beneath source roots participate
+in rules or coverage; Git state has no bearing on membership.
+
 **Layer**:
 A named, disjoint set of folders or files — one band of the architecture.
 Paths are plain prefixes, never patterns; nesting resolves by longest prefix,
@@ -63,30 +68,129 @@ violate both a layer and a module rule — both are reported.
 ### Stories
 
 **Story**:
-A set of test paths whose union of traces forms one flow graph. One story per
-file — hard convention; the file is the isolation and parallelism unit.
+A named executable narrative for one feature or use case. Every Scenario runs
+the same Story execution after arranging different conditions; their
+observations converge into the Story's unified account. A Story describes only
+the explicitly marked Blocks it observes and makes no claim that the
+surrounding code or use case is complete. Its purpose is to explain how the
+observed implementation logic works, not to claim that the logic has been
+proven. It has a required description. Its identity is the project-relative
+path of its Story file; its display name need not be unique.
+_Avoid_: coverage suite, specification
 
-**Path**:
-One test covering one route through a story's flow. Recording is on only
-inside a path body — setup is untraced.
+**Scenario**:
+One concrete set of conditions prepared for the same Story execution. Its
+preparation, verification, and optional cleanup are operational boundaries,
+not part of the Story's narrated execution. It directly owns the Block Visits
+observed during its run. It has no generated or author-supplied identifier — it
+is identified by its declaration position within the Story — and it has a
+required description. Every runnable Scenario explicitly verifies either a
+successful value or a typed error; only a skipped Scenario has no verification.
+Scenarios form a flat list declared synchronously and directly within a Story;
+the Story runner executes them sequentially in declaration order, each at most
+once per generation. Execution nesting is represented by Block Visits instead.
+_Avoid_: path, test case
+
+**Scenario outcome**:
+The final runner-owned state of a Scenario: succeeded, failed, interrupted, or
+skipped. Success means the Story execution produced the kind of result the
+Scenario intentionally verifies: either a value or a typed error. Defects and
+interruption cannot be accepted as expected results. A skipped Scenario remains
+part of the Story but has no Block Visits. A cleanup failure fails the Scenario;
+when several operational phases fail, each failure remains distinguishable.
+
+**Scenario preparation**:
+The operational phase that establishes one Scenario's conditions and produces
+one explicit value for the Story execution. It is outside the narrated
+execution.
+
+**Story execution**:
+The single operation every runnable Scenario invokes exactly once. It accepts
+that Scenario's prepared value and explicitly produces either a success value
+or a typed error. It is the only phase recorded as narrative.
+
+**Story environment**:
+The fixed set of service implementations under which every Scenario prepares,
+executes, verifies, and cleans up. Scenarios vary explicit prepared values and
+service state, not the Story's dependency graph.
+
+**Scenario verification**:
+The operational phase that intentionally checks either the Story execution's
+success value or its typed error. Every runnable Scenario has exactly one such
+expectation. Verification is outside the narrated execution.
+
+**Scenario cleanup**:
+An optional operational phase that releases or restores what Scenario
+preparation established. It runs whenever preparation produced a value and is
+outside the narrated execution. Its failure affects Scenario success without
+replacing a failure from an earlier phase.
 
 **Block**:
-A named unit of runtime narrative. Exactly three kinds: `storyFn` (function
-boundary), `step` (inline), `decision` (condition with declared arms).
+A marked unit of runtime narrative with a short name and a required, non-empty
+explanation of what it does and why. Its identity is generated rather than
+supplied by the author, and is not expected to remain stable across story
+generations. Every block may contain nested block visits. Which primitive
+marked it is not part of the narrative; only decisions are a distinct kind,
+because they declare arms.
+
+**Block visit**:
+One occurrence of a block during a scenario. Repeated and recursive execution
+creates distinct visits to the same block, preserving each occurrence and its
+place in the narrative. A visit records when it began and how long it ran —
+timing is Scenario evidence, never Block identity. A visit has no identity of
+its own; it is identified by its position in the scenario's Execution Path.
+_Avoid_: block instance, block visit ID (retired)
+
+**Execution path**:
+The recursive structure that directly holds a Scenario's Block Visits. Array
+order is sequential, parallel branches are explicit, and nesting expresses
+containment; a Block Visit carries only its facts, never these relationships.
+Parallelism is always genuine: a parallel item holds at least two non-empty
+branches, never zero or one.
+
+**Visit outcome**:
+The completion state of a block visit: succeeded, failed, or interrupted.
+Values and errors are not captured unless the author provides safe narrative
+attributes. Interruption is used only for cancellation without failure.
+
+**Attributes**:
+Author-supplied, JSON-serialized details attached to one block visit. They are
+Scenario evidence, never Block identity or unified Story content. Invalid JSON
+data fails Scenario recording rather than being silently discarded.
 
 **Arm**:
-One declared outcome of a decision. The taken arm is recorded; a declared but
-never-taken arm shows in the graph as a coverage gap. What's behind an
-unvisited arm is invisible — accepted.
-
-**Trace**:
-The recorded serial sequence of block events for one path invocation.
+One structural output of a decision, not itself a block or block visit. A
+literal-keyed Arm is selected by that literal; an Otherwise Arm catches every
+unhandled literal. Every Arm has a required, non-empty description of what the
+choice means and may have a distinct narrative name.
+The selected arm is recorded on the decision visit and routes to that visit's
+child execution path; a declared but never-taken arm is shown as unobserved.
+What's behind an unobserved arm is invisible, without implying that the story
+is incomplete. A decision visit always has a selected arm, including when that
+arm later fails or is interrupted.
 
 **Artifact**:
-The one JSON per story that merges all its paths: flow graph, visited and
-unvisited arms, per-path attributes. The map that production breadcrumbs are
-later replayed against.
+The generated record of one story's Block definitions, Scenarios, Block Visits,
+and Execution Paths returned by an explicit run. It records when it was
+generated and is never persisted by Laymos.
+_Avoid_: report (that is the aggregate of several artifacts)
 
-**Mode**:
-A block's runtime behavior: `noop` (production default), `log`, `emit`, or
-`trace` (test-time only, set by the vitest integration).
+**Report**:
+The fully assembled in-memory aggregate of every story's Artifact — the value
+visualization consumes. Assembled, never stored.
+_Avoid_: artifact (that is the generated record of one story)
+
+**Story runner**:
+The laymos-owned executor behind story generation: it discovers Story files,
+runs each Scenario's preparation, the shared Story execution, and verification
+sequentially against real integrations, performs cleanup when declared, and
+produces Artifacts. Stories are not tests and no test framework is involved.
+_Avoid_: test runner
+
+**Scenario recorder**:
+The internal context installed by the Story runner only around the shared Story
+execution. Blocks record only while this context is active. During Scenario
+preparation and verification, and outside a Story run, they only execute their
+wrapped code. Evidence the recorder cannot place unambiguously — overlapping
+visits with no spanning Block — fails the Scenario rather than being recorded
+best-effort.

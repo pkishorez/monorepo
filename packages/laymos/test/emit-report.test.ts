@@ -11,6 +11,7 @@ const domain = layer('domain', ['src/domain']);
 
 const resolved: ResolvedProject = {
   config: {
+    sourceRoots: ['src'],
     graphs: [layerGraph('application', [edge(app, domain)])],
   },
   fileGraph: {
@@ -52,8 +53,9 @@ describe('emitReport', () => {
   it('emits one normalized, serializable domain report', () => {
     const report = Effect.runSync(emitReport(resolved, evaluation));
     expect(report).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       architecture: {
+        sourceRoots: ['src'],
         layers: {
           app: { paths: ['src/app'] },
           domain: { paths: ['src/domain'] },

@@ -3,9 +3,10 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { analyzeProjectPromise } from '../src/node.js';
+import { analyzeProject } from '../src/node.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -38,28 +39,25 @@ describe('analyzeProject', () => {
 const domain = { kind: 'layer', name: 'domain', paths: ['src/domain'] } as const;
 const future = { kind: 'layer', name: 'future', paths: ['src/future'] } as const;
 export default {
+  sourceRoots: ['src', 'missing-root'],
   graphs: [{
     kind: 'layer-graph',
     name: 'application',
     layers: [app, domain, future],
     edges: [{ from: app, to: domain }, { from: app, to: future }],
   }],
-  ignore: ['laymos.config.ts'],
 };
 `,
     );
 
-    const report = await analyzeProjectPromise(directory);
+    const report = await Effect.runPromise(analyzeProject(directory));
 
     expect(report.coverage.layers).toEqual({
       totalFiles: 2,
       coveredFiles: 2,
       uncovered: [],
     });
-    expect(report.files['laymos.config.ts']).toEqual({
-      kind: 'ignored',
-      imports: [],
-    });
+    expect(report.architecture.sourceRoots).toEqual(['src', 'missing-root']);
     expect(report.violations).toEqual([
       {
         kind: 'layer',
@@ -68,6 +66,10 @@ export default {
       },
     ]);
     expect(report.warnings).toEqual([
+      {
+        kind: 'missing-source-root',
+        path: 'missing-root',
+      },
       {
         kind: 'missing-layer-path',
         layer: 'future',

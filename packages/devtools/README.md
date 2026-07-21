@@ -48,6 +48,6 @@ connection failure is written to stderr and exits with a nonzero status.
 ## Library exports
 
 - `@kishorez/devtools/rpc` — the RPC group definition and shared types,
-  including the streamed `RunDepcruise` and `RunLaymos` procedures and the
-  programmatic `GetTrace` procedure.
+  including dependency analysis, Laymos Story discovery and execution, and
+  telemetry procedures.
 - `@kishorez/devtools/report` — programmatic report generation for a directory.

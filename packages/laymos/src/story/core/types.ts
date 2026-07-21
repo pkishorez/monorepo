@@ -1,21 +1,25 @@
-import type { LogLine } from '../artifact/index.js';
+export type DecisionValue = string | number | boolean;
 
-export type AttrValue = string | number | boolean;
+export type Attributes = Readonly<Record<string, unknown>>;
 
-export type Attrs = Readonly<Record<string, AttrValue>>;
+export type AttributesInput<Args extends readonly unknown[]> =
+  | Attributes
+  | ((...args: Args) => Attributes);
 
-export interface BlockMeta {
-  readonly description?: string;
-  readonly attrs?: Attrs;
+export interface BlockMeta<Args extends readonly unknown[] = readonly []> {
+  readonly description: string;
+  readonly attributes?: AttributesInput<Args>;
 }
 
-export interface StoryFnMeta<Args extends readonly unknown[]> {
-  readonly description?: string;
-  readonly attrs?: Attrs | ((...args: Args) => Attrs);
+export interface ArmMeta {
+  readonly name?: string;
+  readonly description: string;
 }
 
-export type StoryMode =
-  | 'noop'
-  | 'trace'
-  | 'log'
-  | { readonly emit: (line: LogLine) => void };
+export interface StoryMeta {
+  readonly description: string;
+}
+
+export interface ScenarioMeta {
+  readonly description: string;
+}

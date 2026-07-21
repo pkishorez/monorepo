@@ -32,6 +32,7 @@ export interface ModuleRules {
 }
 
 export interface LaymosConfig {
+  readonly sourceRoots: readonly string[];
   readonly graphs: readonly LayerGraph[];
   readonly modules?: readonly ModuleDef[];
   readonly moduleRules?: readonly ModuleRules[];

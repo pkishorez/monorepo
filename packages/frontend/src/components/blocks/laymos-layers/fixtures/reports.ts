@@ -1,8 +1,9 @@
 import type { LaymosReport } from 'laymos/report';
 
 export const laymosLayersFixtureReport: LaymosReport = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   architecture: {
+    sourceRoots: ['src'],
     layers: {
       routes: {
         paths: ['src/routes'],
@@ -172,8 +173,9 @@ function buildFixtureReport(spec: FixtureSpec): LaymosReport {
   }
   const uncoveredLayers = new Set(spec.uncoveredLayers ?? []);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     architecture: {
+      sourceRoots: ['src'],
       layers: Object.fromEntries(
         spec.layers.map((layer) => [
           layer,

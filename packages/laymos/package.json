@@ -22,19 +22,9 @@
       "default": "./dist/report/index.js"
     },
     "./story": {
-      "types": "./dist/story/core/index.d.ts",
-      "import": "./dist/story/core/index.js",
-      "default": "./dist/story/core/index.js"
-    },
-    "./story/effect": {
       "types": "./dist/story/effect/index.d.ts",
       "import": "./dist/story/effect/index.js",
       "default": "./dist/story/effect/index.js"
-    },
-    "./vitest": {
-      "types": "./dist/vitest/index.d.ts",
-      "import": "./dist/vitest/index.js",
-      "default": "./dist/vitest/index.js"
     }
   },
   "bin": {
@@ -43,8 +33,8 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "fmt": "vp fmt src test package.json tsconfig.json laymos.config.ts",
-    "lint": "vp check src test package.json tsconfig.json laymos.config.ts && tsc --noEmit",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit",
     "lint:laymos": "jiti src/cli/index.ts lint",
     "poc": "node poc/compare-extractors.ts",
     "test": "vitest run"
@@ -54,14 +44,6 @@
     "effect": "catalog:",
     "jiti": "catalog:",
     "skott": "catalog:"
-  },
-  "peerDependencies": {
-    "vitest": "^4"
-  },
-  "peerDependenciesMeta": {
-    "vitest": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@typescript/native": "catalog:",

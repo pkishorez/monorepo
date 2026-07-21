@@ -19,6 +19,7 @@ describe('static engine', () => {
     const domain = layer('domain', ['src/domain']);
     const data = layer('data', ['src/data']);
     const config = defineConfig({
+      sourceRoots: ['.'],
       graphs: [
         layerGraph('application', [edge(app, domain), edge(domain, data)]),
       ],
@@ -50,6 +51,7 @@ describe('static engine', () => {
     const provider = module('src/provider');
     const other = module('src/other');
     const config = defineConfig({
+      sourceRoots: ['.'],
       graphs: [
         layerGraph('application', [edge(layerDef, layer('sink', ['sink']))]),
       ],
@@ -81,6 +83,7 @@ describe('static engine', () => {
     const consumer = module('src/consumer');
     const provider = module('src/provider');
     const config = defineConfig({
+      sourceRoots: ['.'],
       graphs: [layerGraph('application', [edge(providerLayer, consumerLayer)])],
       modules: [consumer, provider],
       moduleRules: [rules(consumer, { canImport: [] })],
@@ -107,6 +110,7 @@ describe('static engine', () => {
     const consumer = module('src/consumer');
     const provider = module('src/provider');
     const config = defineConfig({
+      sourceRoots: ['.'],
       graphs: [layerGraph('application', [edge(providerLayer, consumerLayer)])],
       modules: [consumer, provider],
       moduleRules: [rules(consumer, { canImport: [provider] })],
@@ -129,6 +133,7 @@ describe('static engine', () => {
   it('keeps explicit ignores auditable but removes their edges and coverage', () => {
     const app = layer('app', ['src']);
     const config = defineConfig({
+      sourceRoots: ['.'],
       graphs: [layerGraph('application', [edge(app, layer('sink', ['sink']))])],
       ignore: ['./src/generated'],
     });

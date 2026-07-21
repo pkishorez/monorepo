@@ -13,8 +13,25 @@ import { emitReport } from './engine/4-emit/index.js';
 import { ConfigLoadError } from './engine/errors.js';
 import type { LaymosError } from './engine/errors.js';
 import type { AnalysisWarning, LaymosReport } from './report/index.js';
+import type { StoryArtifact, StoryId } from './report/stories.js';
+import {
+  StoryRunnerError,
+  discoverStoryIds as discoverStoryFileIds,
+  executeStories,
+} from './story/runner/index.js';
+import type {
+  StoryFailure,
+  StoriesRunResult,
+  StoryRunOptions,
+} from './story/runner/index.js';
 
 export { ConfigLoadError, ExtractError } from './engine/errors.js';
+export { StoryRunnerError } from './story/runner/index.js';
+export type {
+  StoriesRunResult,
+  StoryFailure,
+  StoryRunOptions,
+} from './story/runner/index.js';
 
 /** load config → extract → resolve → evaluate → emit; violations are data, config errors fail. */
 export function analyzeProject(
@@ -23,15 +40,72 @@ export function analyzeProject(
   return Effect.gen(function* () {
     const config = yield* loadConfig(baseDir);
     const warnings = findMissingPathWarnings(baseDir, config);
-    const fileGraph = yield* extractFileGraph(baseDir, config.ignore ?? []);
+    const fileGraph = yield* extractFileGraph(
+      baseDir,
+      config.sourceRoots,
+      config.ignore ?? [],
+    );
     const resolved = yield* resolveProject(config, fileGraph);
     const evaluation = yield* evaluateRules(resolved);
     return yield* emitReport(resolved, evaluation, warnings);
   });
 }
 
-export function analyzeProjectPromise(baseDir: string): Promise<LaymosReport> {
-  return Effect.runPromise(analyzeProject(baseDir));
+export interface StoryRunResult {
+  readonly status: 'passed' | 'failed';
+  readonly artifact: StoryArtifact;
+  readonly failures: readonly StoryFailure[];
+}
+
+export type AllStoriesRunResult = StoriesRunResult;
+
+export function discoverStoryIds(
+  baseDir: string,
+): Effect.Effect<readonly StoryId[], StoryRunnerError> {
+  return discoverStoryFileIds(baseDir);
+}
+
+export function runStory(
+  baseDir: string,
+  storyId: string,
+  options?: StoryRunOptions,
+): Effect.Effect<StoryRunResult, StoryRunnerError> {
+  return executeStories(baseDir, [storyId], options).pipe(
+    Effect.flatMap((result) => {
+      const artifact = result.report.stories[storyId];
+      if (artifact === undefined) {
+        const cause = new Error(`Story "${storyId}" did not run`);
+        return Effect.fail(
+          new StoryRunnerError({
+            operation: 'execute',
+            message: cause.message,
+            cause,
+          }),
+        );
+      }
+      return Effect.succeed({
+        status: result.status,
+        artifact,
+        failures: result.failures,
+      });
+    }),
+  );
+}
+
+export function runAllStories(
+  baseDir: string,
+  options?: StoryRunOptions,
+): Effect.Effect<AllStoriesRunResult, StoryRunnerError> {
+  return executeStories(baseDir, [], options);
+}
+
+/** Runs the given Story files (all of them when empty) and returns fresh evidence. */
+export function runStories(
+  baseDir: string,
+  storyIds: readonly string[],
+  options?: StoryRunOptions,
+): Effect.Effect<StoriesRunResult, StoryRunnerError> {
+  return executeStories(baseDir, storyIds, options);
 }
 
 function loadConfig(
@@ -68,6 +142,7 @@ function isLaymosConfig(value: unknown): value is LaymosConfig {
   return (
     Array.isArray(config.graphs) &&
     config.graphs.every((graph) => graph?.kind === 'layer-graph') &&
+    Array.isArray(config.sourceRoots) &&
     (config.modules === undefined || Array.isArray(config.modules)) &&
     (config.moduleRules === undefined || Array.isArray(config.moduleRules)) &&
     (config.ignore === undefined || Array.isArray(config.ignore))
@@ -79,6 +154,11 @@ function findMissingPathWarnings(
   config: LaymosConfig,
 ): AnalysisWarning[] {
   const warnings: AnalysisWarning[] = [];
+  for (const path of config.sourceRoots) {
+    if (!existsSync(resolve(baseDir, path))) {
+      warnings.push({ kind: 'missing-source-root', path });
+    }
+  }
   const layers = new Set(config.graphs.flatMap((graph) => [...graph.layers]));
   for (const layer of layers) {
     for (const path of layer.paths) {

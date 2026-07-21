@@ -4,11 +4,13 @@ import { normalizeConfigPath, pathContains } from './path.js';
 export function defineConfig(config: LaymosConfig): LaymosConfig {
   const normalizedConfig: LaymosConfig = {
     ...config,
+    sourceRoots: config.sourceRoots.map(normalizeConfigPath),
     ...(config.ignore !== undefined
       ? { ignore: config.ignore.map(normalizeConfigPath) }
       : {}),
   };
   const issues = [
+    ...sourceRootIssues(normalizedConfig),
     ...duplicateGraphNames(normalizedConfig),
     ...duplicateLayerNames(normalizedConfig),
     ...duplicateLayerPaths(normalizedConfig),
@@ -23,6 +25,36 @@ export function defineConfig(config: LaymosConfig): LaymosConfig {
     );
   }
   return normalizedConfig;
+}
+
+function sourceRootIssues(config: LaymosConfig): string[] {
+  const issues: string[] = [];
+  for (let index = 0; index < config.sourceRoots.length; index++) {
+    const root = config.sourceRoots[index]!;
+    for (let otherIndex = 0; otherIndex < index; otherIndex++) {
+      const other = config.sourceRoots[otherIndex]!;
+      if (root === other) {
+        issues.push(`Source root "${root}" is declared more than once`);
+      } else if (pathContains(root, other) || pathContains(other, root)) {
+        issues.push(`Source roots "${other}" and "${root}" overlap`);
+      }
+    }
+  }
+  if (config.sourceRoots.length === 0) {
+    issues.push('At least one source root is required');
+  }
+
+  const configuredPaths = [
+    ...layerPathEntries(config).map(([path]) => ['Layer', path] as const),
+    ...(config.modules ?? []).map(({ path }) => ['Module', path] as const),
+    ...(config.ignore ?? []).map((path) => ['Ignored', path] as const),
+  ];
+  for (const [kind, path] of configuredPaths) {
+    if (!config.sourceRoots.some((root) => pathContains(root, path))) {
+      issues.push(`${kind} path "${path}" is not inside any source root`);
+    }
+  }
+  return issues;
 }
 
 function duplicateGraphNames(config: LaymosConfig): string[] {

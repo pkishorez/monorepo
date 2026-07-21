@@ -7,10 +7,8 @@ const configDsl = layer('config-dsl', ['src/config', 'src/index.ts']);
 const report = layer('report', ['src/report']);
 const tests = layer('tests', ['test']);
 
-const storyAdapters = layer('story-adapters', [
-  'src/story/effect',
-  'src/vitest',
-]);
+const storyAdapters = layer('story-adapters', ['src/story/effect']);
+const storyRunner = layer('story-runner', ['src/story/runner']);
 const storyCore = layer('story-core', ['src/story/core', 'src/story/artifact']);
 
 const cliModule = module('src/cli');
@@ -30,17 +28,27 @@ const emitModule = module('src/engine/4-emit');
 const storyArtifactModule = module('src/story/artifact');
 const storyCoreModule = module('src/story/core');
 const storyEffectModule = module('src/story/effect');
-const vitestModule = module('src/vitest');
+const storyRunnerModule = module('src/story/runner');
 
 export default defineConfig({
+  sourceRoots: ['src', 'test'],
   graphs: [
     layerGraph('tooling', [
       edge(cli, nodeApi),
-      edge(nodeApi, [engine, configDsl, report]),
+      edge(nodeApi, [engine, configDsl, report, storyRunner, storyCore]),
       edge(engine, [configDsl, report]),
-      edge(tests, [nodeApi, engine, configDsl, report]),
+      edge(report, storyCore),
+      edge(storyAdapters, storyCore),
+      edge(storyRunner, storyCore),
+      edge(tests, [
+        nodeApi,
+        engine,
+        configDsl,
+        report,
+        storyAdapters,
+        storyCore,
+      ]),
     ]),
-    layerGraph('stories', [edge(storyAdapters, storyCore)]),
   ],
   modules: [
     cliModule,
@@ -57,7 +65,7 @@ export default defineConfig({
     storyArtifactModule,
     storyCoreModule,
     storyEffectModule,
-    vitestModule,
+    storyRunnerModule,
   ],
   moduleRules: [
     rules(configEntryModule, { canImport: [configModule] }),
@@ -92,7 +100,8 @@ export default defineConfig({
     rules(storyArtifactModule, { canImport: [storyCoreModule] }),
     rules(storyCoreModule, { canImport: [storyArtifactModule] }),
     rules(storyEffectModule, { canImport: [storyCoreModule] }),
-    rules(vitestModule, { canImport: [storyArtifactModule] }),
+    rules(storyRunnerModule, {
+      canImport: [storyCoreModule, storyArtifactModule],
+    }),
   ],
-  ignore: ['laymos.config.ts', 'poc', 'repos'],
 });

@@ -147,11 +147,8 @@ const syncUtil = layer(
 );
 
 export default defineConfig({
+  sourceRoots: ['src'],
   ignore: [
-    'depcruise.config.ts',
-    'laymos.config.ts',
-    'vite.config.ts',
-    'scripts',
     'src/core/__tests__',
     'src/db/__tests__',
     'src/db/dynamodb/__tests__',

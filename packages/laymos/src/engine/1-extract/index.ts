@@ -1,5 +1,5 @@
-import { execFile } from 'node:child_process';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { readdir, stat } from 'node:fs/promises';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { Effect } from 'effect';
 import skott from 'skott';
@@ -16,39 +16,61 @@ export interface FileGraph {
   readonly files: Readonly<Record<string, FileNode>>;
 }
 
-/** Extracts Git-visible source files with skott and type-only tracking enabled. */
+/** Extracts configured source roots with skott and type-only tracking enabled. */
 export function extractFileGraph(
   baseDir: string,
+  sourceRoots: readonly string[],
   ignoredPaths: readonly string[] = [],
 ): Effect.Effect<FileGraph, ExtractError> {
   return Effect.tryPromise({
     try: async () => {
-      const inventoryFiles = await listGitSourceFiles(baseDir);
+      const inventoryFiles = await listSourceFiles(baseDir, sourceRoots);
       const eligibleFiles = inventoryFiles.filter(
         (path) => !ignoredPaths.some((ignored) => pathContains(ignored, path)),
       );
       const eligible = new Set(eligibleFiles);
-      const rootStructure = await runSkott(baseDir, ignoredPaths);
       const imports = new Map<string, Set<string>>(
         inventoryFiles.map((path) => [path, new Set()]),
       );
-      const extracted = collectExtractedGraph({
-        baseDir,
-        eligible,
-        graph: rootStructure.graph,
-        imports,
-      });
+      const extracted = new Set<string>();
+
+      for (const sourceRoot of sourceRoots) {
+        const absolute = resolve(baseDir, sourceRoot);
+        const sourceRootStat = await statOrUndefined(absolute);
+        if (sourceRootStat === undefined) continue;
+        if (sourceRootStat.isFile() && !eligible.has(sourceRoot)) continue;
+        if (!sourceRootStat.isFile() && !sourceRootStat.isDirectory()) continue;
+        const structure = sourceRootStat.isFile()
+          ? await runSkott({ baseDir, ignoredPaths, entrypoint: absolute })
+          : await runSkott({ baseDir, ignoredPaths, cwd: absolute });
+        const resolutionBase = sourceRootStat.isFile()
+          ? dirname(absolute)
+          : absolute;
+        for (const path of collectExtractedGraph({
+          baseDir,
+          eligible,
+          graph: structure.graph,
+          imports,
+          resolutionBase,
+        })) {
+          extracted.add(path);
+        }
+      }
 
       for (const path of eligibleFiles) {
         if (extracted.has(path)) continue;
         const entrypoint = resolve(baseDir, path);
-        const structure = await runSkott(baseDir, ignoredPaths, entrypoint);
+        const structure = await runSkott({
+          baseDir,
+          ignoredPaths,
+          entrypoint,
+        });
         collectExtractedGraph({
           baseDir,
           eligible,
           graph: structure.graph,
           imports,
-          entrypoint,
+          resolutionBase: dirname(entrypoint),
         });
       }
 
@@ -65,21 +87,24 @@ export function extractFileGraph(
   });
 }
 
-async function runSkott(
-  baseDir: string,
-  ignoredPaths: readonly string[],
-  entrypoint?: string,
-) {
+async function runSkott({
+  baseDir,
+  ignoredPaths,
+  entrypoint,
+  cwd,
+}: {
+  readonly baseDir: string;
+  readonly ignoredPaths: readonly string[];
+  readonly entrypoint?: string;
+  readonly cwd?: string;
+}) {
   const { getStructure } = await skott({
-    ...(entrypoint === undefined ? { cwd: baseDir } : { entrypoint }),
+    ...(entrypoint === undefined ? { cwd: cwd ?? baseDir } : { entrypoint }),
     ignorePatterns: ignoredPaths.flatMap((path) => {
       const absolute = toPosixPath(resolve(baseDir, path));
       return [absolute, `${absolute}/**`];
     }),
-    tsConfigPath:
-      entrypoint === undefined
-        ? 'tsconfig.json'
-        : resolve(baseDir, 'tsconfig.json'),
+    tsConfigPath: resolve(baseDir, 'tsconfig.json'),
     dependencyTracking: {
       builtin: false,
       thirdParty: false,
@@ -96,7 +121,7 @@ function collectExtractedGraph({
   eligible,
   graph,
   imports,
-  entrypoint,
+  resolutionBase,
 }: {
   baseDir: string;
   eligible: ReadonlySet<string>;
@@ -107,15 +132,15 @@ function collectExtractedGraph({
     >
   >;
   imports: Map<string, Set<string>>;
-  entrypoint?: string;
+  resolutionBase?: string;
 }): Set<string> {
   const extracted = new Set<string>();
   for (const node of Object.values(graph)) {
-    const from = findEligiblePath(baseDir, node.id, eligible, entrypoint);
+    const from = findEligiblePath(baseDir, node.id, eligible, resolutionBase);
     if (from === undefined) continue;
     extracted.add(from);
     for (const adjacent of node.adjacentTo) {
-      const to = findEligiblePath(baseDir, adjacent, eligible, entrypoint);
+      const to = findEligiblePath(baseDir, adjacent, eligible, resolutionBase);
       if (to !== undefined) imports.get(from)!.add(to);
     }
   }
@@ -124,35 +149,47 @@ function collectExtractedGraph({
 
 const sourceExtensions = ['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx'];
 
-function listGitSourceFiles(baseDir: string): Promise<string[]> {
-  return new Promise((resolveFiles, reject) => {
-    execFile(
-      'git',
-      [
-        '-C',
-        baseDir,
-        'ls-files',
-        '--cached',
-        '--others',
-        '--exclude-standard',
-        '-z',
-      ],
-      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-      (error, stdout) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolveFiles(
-          stdout
-            .split('\0')
-            .filter(isSupportedSourceFile)
-            .map(toPosixPath)
-            .sort(),
-        );
-      },
-    );
-  });
+async function listSourceFiles(
+  baseDir: string,
+  sourceRoots: readonly string[],
+): Promise<string[]> {
+  const files = new Set<string>();
+  for (const sourceRoot of sourceRoots) {
+    const absolute = resolve(baseDir, sourceRoot);
+    const sourceRootStat = await statOrUndefined(absolute);
+    if (sourceRootStat?.isFile()) {
+      if (isSupportedSourceFile(sourceRoot)) files.add(sourceRoot);
+      continue;
+    }
+    if (!sourceRootStat?.isDirectory()) continue;
+    const entries = await readdir(absolute, {
+      recursive: true,
+      withFileTypes: true,
+    });
+    for (const entry of entries) {
+      if (!entry.isFile() || !isSupportedSourceFile(entry.name)) continue;
+      files.add(
+        toPosixPath(relative(baseDir, join(entry.parentPath, entry.name))),
+      );
+    }
+  }
+  return [...files].sort();
+}
+
+async function statOrUndefined(path: string) {
+  try {
+    return await stat(path);
+  } catch (cause) {
+    if (
+      typeof cause === 'object' &&
+      cause !== null &&
+      'code' in cause &&
+      cause.code === 'ENOENT'
+    ) {
+      return undefined;
+    }
+    throw cause;
+  }
 }
 
 function isSupportedSourceFile(path: string): boolean {
@@ -167,13 +204,15 @@ function findEligiblePath(
   baseDir: string,
   path: string,
   eligible: ReadonlySet<string>,
-  entrypoint?: string,
+  resolutionBase?: string,
 ): string | undefined {
   const absoluteCandidates = isAbsolute(path)
     ? [path]
     : [
         resolve(process.cwd(), path),
-        ...(entrypoint === undefined ? [] : [resolve(entrypoint, '..', path)]),
+        ...(resolutionBase === undefined
+          ? []
+          : [resolve(resolutionBase, path)]),
       ];
   return absoluteCandidates
     .map((candidate) => toPosixPath(relative(baseDir, candidate)))

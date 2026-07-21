@@ -14,6 +14,7 @@ describe('config', () => {
     const app = layer('app', ['./src//app/']);
     const appModule = module('./src/app/feature/../billing/');
     const config = defineConfig({
+      sourceRoots: ['src', 'generated', 'cache'],
       graphs: [
         layerGraph('application', [edge(app, layer('core', ['src/core']))]),
       ],
@@ -23,7 +24,25 @@ describe('config', () => {
 
     expect(app.paths).toEqual(['src/app']);
     expect(appModule.path).toBe('src/app/billing');
+    expect(config.sourceRoots).toEqual(['src', 'generated', 'cache']);
     expect(config.ignore).toEqual(['generated', 'cache']);
+  });
+
+  it('requires non-overlapping source roots containing every configured path', () => {
+    const app = layer('app', ['src/app']);
+    const graph = layerGraph('application', [
+      edge(app, layer('core', ['src/core'])),
+    ]);
+
+    expect(() => defineConfig({ sourceRoots: [], graphs: [graph] })).toThrow(
+      'At least one source root is required',
+    );
+    expect(() =>
+      defineConfig({ sourceRoots: ['src', 'src/app'], graphs: [graph] }),
+    ).toThrow('overlap');
+    expect(() =>
+      defineConfig({ sourceRoots: ['other'], graphs: [graph] }),
+    ).toThrow('Layer path "src/app" is not inside any source root');
   });
 
   it.each(['/src', '../src', 'src/**'])('rejects invalid path %s', (path) => {
@@ -37,6 +56,7 @@ describe('config', () => {
 
     expect(() =>
       defineConfig({
+        sourceRoots: ['src', 'sink'],
         graphs: [
           layerGraph('application', [edge(app, layer('sink', ['sink']))]),
         ],
@@ -52,6 +72,7 @@ describe('config', () => {
 
     expect(() =>
       defineConfig({
+        sourceRoots: ['src', 'sink'],
         graphs: [
           layerGraph('application', [edge(app, layer('sink', ['sink']))]),
         ],
