@@ -31,7 +31,7 @@ export function LaymosStories({
   className,
   ariaLabel = 'Laymos stories',
 }: LaymosStoriesProps) {
-  const [view, setView] = useState<StoryView>('narrative');
+  const [view, setView] = useState<StoryView>('graph');
   const entries = useMemo(
     () => buildStoryEntries(storyIds, report.stories),
     [report, storyIds],

@@ -10,7 +10,6 @@ import {
   type Edge,
   type Node,
 } from '@xyflow/react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import {
   useEffect,
   useId,
@@ -31,7 +30,6 @@ import {
   buildProgressiveStoryGraph,
   collapseStoryGraph,
   type ProgressiveStoryGraphModel,
-  type StoryBlockGraphNode,
 } from '../lib/model';
 import { progressiveNodeTypes, type ProgressiveNodeData } from './flow-nodes';
 
@@ -43,83 +41,6 @@ function relatedNodeIds(model: ProgressiveStoryGraphModel, nodeId: string) {
     if (edge.target === nodeId) result.add(edge.source);
   }
   return result;
-}
-
-function NodeDisclosure({
-  node,
-  children,
-  incomingCount,
-  outgoingCount,
-  minimised,
-  onMinimisedChange,
-}: {
-  readonly node: StoryBlockGraphNode;
-  readonly children: readonly StoryBlockGraphNode[];
-  readonly incomingCount: number;
-  readonly outgoingCount: number;
-  readonly minimised: boolean;
-  readonly onMinimisedChange: (minimised: boolean) => void;
-}) {
-  if (minimised) {
-    return (
-      <button
-        type="button"
-        className="nodrag nopan nowheel flex items-center gap-1.5 rounded-md border border-border bg-background/95 px-2.5 py-2 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground"
-        onClick={() => onMinimisedChange(false)}
-        aria-label={`Show details for ${node.block.name}`}
-        aria-expanded={false}
-      >
-        <ChevronDown className="size-3.5" aria-hidden />
-        Details
-      </button>
-    );
-  }
-
-  return (
-    <aside
-      role="button"
-      tabIndex={0}
-      className="nodrag nopan nowheel relative w-64 rounded-md border border-border bg-background/95 p-3 pr-9 text-left shadow-md backdrop-blur transition-colors hover:border-primary/40"
-      onClick={() => onMinimisedChange(true)}
-      onKeyDown={(event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        onMinimisedChange(true);
-      }}
-      aria-label={`Hide details for ${node.block.name}`}
-      aria-expanded={true}
-    >
-      <ChevronUp
-        className="absolute right-3 top-3 size-3.5 text-muted-foreground"
-        aria-hidden
-      />
-      <p className="text-[11px] font-semibold">{node.block.name}</p>
-      {node.block.description && (
-        <p className="mt-1 text-[9px] leading-3 text-muted-foreground">
-          {node.block.description}
-        </p>
-      )}
-      <dl className="mt-2 grid grid-cols-3 gap-2 border-t border-border pt-2">
-        {[
-          ['Incoming', incomingCount],
-          ['Outgoing', outgoingCount],
-          ['Contains', children.length],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-[8px] uppercase tracking-wide text-muted-foreground">
-              {label}
-            </dt>
-            <dd className="text-xs font-semibold tabular-nums">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {children.length > 0 && (
-        <p className="mt-2 line-clamp-2 border-t border-border pt-2 text-[9px] text-muted-foreground">
-          Runs inside: {children.map((child) => child.block.name).join(', ')}
-        </p>
-      )}
-    </aside>
-  );
 }
 
 function ProgressiveCanvasInner({
@@ -138,26 +59,26 @@ function ProgressiveCanvasInner({
   const { getZoom, setCenter } = useReactFlow();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [detailsMinimised, setDetailsMinimised] = useState(false);
   const [centerSelected, setCenterSelected] = useState(false);
+  const [showDescriptionPopover, setShowDescriptionPopover] = useState(true);
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
-  useEffect(() => setCollapsedNodeIds(new Set()), [model]);
+  useEffect(() => {
+    setCollapsedNodeIds(new Set());
+    setSelectedNodeId(null);
+    setHoveredNodeId(null);
+  }, [model]);
   const collapsedView = useMemo(
     () => collapseStoryGraph(model, collapsedNodeIds),
     [collapsedNodeIds, model],
   );
   const visibleModel = collapsedView.model;
   const baseLayout = useMemo(
-    () => layoutStoryGraph(visibleModel, true),
+    () => layoutStoryGraph(visibleModel, { compact: true }),
     [visibleModel],
   );
   const fitted = useTopAnchoredViewport(containerRef, baseLayout.nodes);
-  const nodeById = useMemo(
-    () => new Map(visibleModel.nodes.map((node) => [node.id, node])),
-    [visibleModel.nodes],
-  );
   const activeNodeId = selectedNodeId ?? hoveredNodeId;
   const activeRelated = useMemo(
     () =>
@@ -185,6 +106,7 @@ function ProgressiveCanvasInner({
       baseLayout.nodes.map((node) => ({
         ...node,
         type: 'progressive-block',
+        zIndex: selectedNodeId === node.id ? 10 : node.zIndex,
         data: {
           graphNode: node.data.graphNode,
           selected: selectedNodeId === node.id,
@@ -196,6 +118,7 @@ function ProgressiveCanvasInner({
             !hoverRelated.has(node.id) &&
             node.id !== selectedNodeId,
           hiddenNodeCount: collapsedView.hiddenCountByNode.get(node.id) ?? 0,
+          showDescriptionPopover,
         },
       })),
     [
@@ -207,6 +130,7 @@ function ProgressiveCanvasInner({
       hoverWithinSelection,
       collapsedView.hiddenCountByNode,
       selectedNodeId,
+      showDescriptionPopover,
     ],
   );
   const edges = useMemo<Edge[]>(
@@ -243,29 +167,6 @@ function ProgressiveCanvasInner({
       }),
     [activeNodeId, baseLayout.edges, hoverWithinSelection],
   );
-  const disclosedCandidate = selectedNodeId
-    ? nodeById.get(selectedNodeId)
-    : hoveredNodeId
-      ? nodeById.get(hoveredNodeId)
-      : undefined;
-  const disclosedNode =
-    disclosedCandidate?.kind === 'block' ? disclosedCandidate : undefined;
-  const disclosedChildren = disclosedNode
-    ? (visibleModel.childrenByNode[disclosedNode.id] ?? []).flatMap((id) => {
-        const child = nodeById.get(id);
-        return child?.kind === 'block' ? [child] : [];
-      })
-    : [];
-  const disclosedConnections = disclosedNode
-    ? visibleModel.edges.reduce(
-        (counts, edge) => ({
-          incoming: counts.incoming + Number(edge.target === disclosedNode.id),
-          outgoing: counts.outgoing + Number(edge.source === disclosedNode.id),
-        }),
-        { incoming: 0, outgoing: 0 },
-      )
-    : { incoming: 0, outgoing: 0 };
-
   if (model.nodes.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -350,37 +251,36 @@ function ProgressiveCanvasInner({
             </p>
           </div>
         </Panel>
-        {disclosedNode && (
-          <Panel position="top-right">
-            <NodeDisclosure
-              node={disclosedNode}
-              children={disclosedChildren}
-              incomingCount={disclosedConnections.incoming}
-              outgoingCount={disclosedConnections.outgoing}
-              minimised={detailsMinimised}
-              onMinimisedChange={setDetailsMinimised}
-            />
-          </Panel>
-        )}
+        <Panel position="top-right">
+          <div className="nodrag nopan grid gap-2 rounded-md border border-border bg-background/95 px-2.5 py-2 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+            <label className="flex cursor-pointer items-center justify-between gap-4">
+              Description popover
+              <Switch
+                size="sm"
+                checked={showDescriptionPopover}
+                onCheckedChange={setShowDescriptionPopover}
+                aria-label="Show description popovers"
+              />
+            </label>
+            <label
+              htmlFor={centerSelectedId}
+              className="flex cursor-pointer items-center justify-between gap-4"
+            >
+              Center selected
+              <Switch
+                id={centerSelectedId}
+                size="sm"
+                checked={centerSelected}
+                onCheckedChange={setCenterSelected}
+                aria-label="Center selected nodes"
+              />
+            </label>
+          </div>
+        </Panel>
         <Panel position="bottom-left">
           <p className="nodrag nopan rounded bg-background/90 px-2 py-1 text-[9px] text-muted-foreground shadow-sm">
             click to focus · hover connections · right-click to collapse
           </p>
-        </Panel>
-        <Panel position="bottom-right">
-          <label
-            htmlFor={centerSelectedId}
-            className="nodrag nopan flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-2 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur"
-          >
-            Center selected
-            <Switch
-              id={centerSelectedId}
-              size="sm"
-              checked={centerSelected}
-              onCheckedChange={setCenterSelected}
-              aria-label="Center selected nodes"
-            />
-          </label>
         </Panel>
       </ReactFlow>
     </div>

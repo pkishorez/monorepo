@@ -1,5 +1,13 @@
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import {
+  Handle,
+  NodeToolbar,
+  Position,
+  type Node,
+  type NodeProps,
+} from '@xyflow/react';
 import { Box, ChevronsDownUp, GitBranch } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { cn } from '#lib/utils';
 
@@ -13,6 +21,38 @@ export interface ProgressiveNodeData extends Record<string, unknown> {
   readonly dimmed: boolean;
   readonly muted: boolean;
   readonly hiddenNodeCount: number;
+  readonly showDescriptionPopover: boolean;
+}
+
+function DescriptionPopover({
+  title,
+  description,
+  visible,
+}: {
+  readonly title: string;
+  readonly description?: string;
+  readonly visible: boolean;
+}) {
+  if (!description) return null;
+  return (
+    <NodeToolbar
+      isVisible={visible}
+      position={Position.Right}
+      align="center"
+      offset={12}
+      className="nodrag nopan nowheel"
+    >
+      <aside className="relative max-h-80 w-80 overflow-y-auto rounded-lg border border-border bg-popover p-4 text-left text-popover-foreground shadow-xl">
+        <span className="absolute -left-1.5 top-1/2 size-3 -translate-y-1/2 rotate-45 border-b border-l border-border bg-popover" />
+        <p className="text-xs font-semibold">{title}</p>
+        <div className="mt-2 text-[11px] leading-5 text-muted-foreground [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p:not(:first-child)]:mt-2 [&_pre]:mt-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_strong]:font-semibold [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-5">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {description}
+          </ReactMarkdown>
+        </div>
+      </aside>
+    </NodeToolbar>
+  );
 }
 
 const kindIcon = {
@@ -40,13 +80,15 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
     dimmed,
     muted,
     hiddenNodeCount,
+    showDescriptionPopover,
   } = data;
   const collapsed = hiddenNodeCount > 0;
   if (graphNode.kind === 'arm') {
+    const description = graphNode.arm.description;
     return (
       <div
         className={cn(
-          'relative flex h-full w-full items-center justify-center rounded-full border border-amber-500/35 bg-amber-500/[0.07] px-3 text-[9px] font-medium text-amber-700 transition-all duration-150 dark:text-amber-300',
+          'relative flex h-full w-full items-center justify-center rounded-full border border-amber-500/35 bg-amber-500/[0.07] px-3 text-center text-[9px] font-medium text-amber-700 transition-all duration-150 dark:text-amber-300',
           graphNode.active &&
             'cursor-pointer hover:border-primary/45 hover:shadow-md',
           related && graphNode.active && 'border-primary/55 bg-primary/[0.04]',
@@ -66,6 +108,11 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
         aria-disabled={!graphNode.active}
         title={collapsed ? 'Collapsed — right-click to expand' : undefined}
       >
+        <DescriptionPopover
+          title={graphNode.arm.name}
+          description={description}
+          visible={selected && showDescriptionPopover}
+        />
         {collapsed && (
           <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full border border-primary/50 bg-background text-primary shadow-sm">
             <ChevronsDownUp className="size-2.5" aria-hidden />
@@ -95,10 +142,11 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
   }
   const Icon = kindIcon[graphNode.block.kind];
   const colors = kindStyle[graphNode.block.kind];
+  const description = graphNode.block.description;
   return (
     <div
       className={cn(
-        'relative flex h-full w-full items-center gap-2.5 rounded-md border px-3 shadow-sm transition-all duration-150',
+        'relative flex h-full w-full items-start gap-2.5 rounded-md border px-3 py-3 shadow-sm transition-all duration-150',
         'hover:border-primary/45 hover:shadow-md',
         colors.node,
         related && 'border-primary/55 bg-primary/[0.04]',
@@ -112,6 +160,11 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
       )}
       title={collapsed ? 'Collapsed — right-click to expand' : undefined}
     >
+      <DescriptionPopover
+        title={graphNode.block.name}
+        description={description}
+        visible={selected && showDescriptionPopover}
+      />
       {collapsed && (
         <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full border border-primary/50 bg-background text-primary shadow-sm">
           <ChevronsDownUp className="size-3" aria-hidden />
@@ -124,7 +177,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
       />
       <span
         className={cn(
-          'flex size-7 shrink-0 items-center justify-center rounded',
+          'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded',
           colors.icon,
         )}
       >

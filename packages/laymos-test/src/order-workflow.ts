@@ -37,7 +37,7 @@ const authorizePayment = functionBlock(
       'Contact payment provider',
       {
         description:
-          'Sends the authorization request and waits for the provider response used by checkout routing.',
+          'Sends the authorization request to the **payment provider** and waits for the network response.\n\n- Validates the returned authorization details\n- Preserves context for checkout routing\n- Explains why the order can continue, pause for review, or stop without capturing funds',
       },
       Effect.sleep(1),
     ),
@@ -97,7 +97,7 @@ export const checkout = functionBlock(
             {
               name: 'Review order',
               description:
-                'Automated checks could not make a final decision, so a human must review the order before payment capture.',
+                'Automated checks could not make a final decision with sufficient confidence. Checkout pauses `payment capture`, records the uncertain signals, and sends the order to a **human reviewer** with the full decision context.',
             },
             () =>
               step(

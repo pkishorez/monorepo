@@ -7,6 +7,11 @@ const NODE_WIDTH = 248;
 const NODE_HEIGHT = 104;
 const RANK_GAP = 76;
 const NODE_GAP = 30;
+const COMPACT_NODE_WIDTH = 264;
+
+export interface StoryGraphLayoutOptions {
+  readonly compact?: boolean;
+}
 
 export interface StoryFlowNodeData extends Record<string, unknown> {
   readonly graphNode: StoryGraphNode;
@@ -43,9 +48,10 @@ function toFlowEdge(edge: StoryGraphEdge): Edge {
 /** Lays out the folded Story graph without implying a canonical Scenario. */
 export function layoutStoryGraph(
   model: StoryGraphModel,
-  compact = false,
+  options: StoryGraphLayoutOptions = {},
 ): StoryFlowLayout {
-  const nodeWidth = compact ? 220 : NODE_WIDTH;
+  const { compact = false } = options;
+  const nodeWidth = compact ? COMPACT_NODE_WIDTH : NODE_WIDTH;
   const dimensions = new Map(
     model.nodes.map((node) => [
       node.id,
