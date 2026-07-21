@@ -2,10 +2,9 @@
   "name": "@kishorez/devtools",
   "version": "0.1.0",
   "private": false,
-  "description": "Local devtools RPC server for inspecting a project's dependency graph",
+  "description": "Local devtools RPC server for inspecting project architecture and telemetry",
   "keywords": [
-    "depcruise",
-    "dependency graph",
+    "architecture",
     "devtools",
     "effect",
     "laymos",
@@ -39,8 +38,6 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@kishorez/lotel": "workspace:*",
-    "depcruise-viz": "workspace:*",
-    "dependency-cruiser": "catalog:",
     "effect": "catalog:",
     "env-paths": "catalog:",
     "jiti": "catalog:",

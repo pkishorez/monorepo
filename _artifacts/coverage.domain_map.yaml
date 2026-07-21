@@ -4,8 +4,8 @@
 # ignores from `_artifacts/*domain_map.yaml` / `*skill_tree.yaml` files, so it
 # is named with the `domain_map.yaml` suffix; it declares no skills.
 #
-# Public workspace packages with package-local skills/ (depcruise-viz,
-# std-toolkit) are covered automatically. Packages listed below are public but
+# Public workspace packages with package-local skills/ (std-toolkit) are
+# covered automatically. Packages listed below are public but
 # intentionally deferred — remove an entry once its skills are scaffolded.
 # Private workspace packages are skipped by `intent stale` automatically.
 

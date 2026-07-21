@@ -4,7 +4,7 @@
 
 DevTools is the single backend process for all local dev tooling. We deliberately
 run **two surfaces on one HTTP server**: an Effect **RPC** surface at `/rpc` that
-the `/devtools` route is the sole consumer of (depcruise + telemetry reads), and
+the `/devtools` route is the sole consumer of (Laymos + telemetry reads), and
 a plain **OTLP/HTTP** surface at `/v1/*` for telemetry ingestion. We mount
 lotel's ingest group for `/v1/*` and call lotel's orchestration + storage from
 the RPC read handlers; lotel keeps its logic but no longer runs its own process.

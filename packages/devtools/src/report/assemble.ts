@@ -1,7 +1,6 @@
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { Effect } from 'effect';
-import { cruiseProject } from 'depcruise-viz/node';
 import { analyzeProject } from 'laymos/node';
 import { DevtoolsRpcError } from '../rpc/index.js';
 
@@ -17,16 +16,6 @@ export const toError = (cause: unknown): DevtoolsRpcError =>
   cause instanceof DevtoolsRpcError
     ? cause
     : new DevtoolsRpcError({ message: String(cause) });
-
-/** Cruise the package and return the visualization data payload. */
-export const assembleDepcruise = (dir: string) =>
-  Effect.map(
-    Effect.tryPromise({ try: () => cruiseProject(dir), catch: toError }),
-    (result) => ({
-      available: true as const,
-      data: { config: result.config, summary: result.summary },
-    }),
-  );
 
 /** Analyze the package and return its laymos report. */
 export const assembleLaymos = (dir: string) =>

@@ -17,13 +17,13 @@ is available at [docs.kishore.app](https://docs.kishore.app).
 
 ### Packages
 
-| Workspace                                            | Package                                                                  | Purpose                                                                                                                                               |
-| ---------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`packages/depcruise-viz`](./packages/depcruise-viz) | [`depcruise-viz`](https://www.npmjs.com/package/depcruise-viz)           | Defines TypeScript architecture as layer graphs and modules, enforces dependency boundaries with dependency-cruiser, and produces visualization data. |
-| [`packages/devtools`](./packages/devtools)           | [`@kishorez/devtools`](https://www.npmjs.com/package/@kishorez/devtools) | Local DevTools server for inspecting dependency graphs and OpenTelemetry traces, logs, and metrics.                                                   |
-| [`packages/frontend`](./packages/frontend)           | `@monorepo/frontend` (private)                                           | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository.                                 |
-| [`packages/lotel`](./packages/lotel)                 | [`@kishorez/lotel`](https://www.npmjs.com/package/@kishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development.                             |
-| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts)           | React hooks for running and consuming Effect programs.                                                                                                |
+| Workspace                                            | Package                                                                  | Purpose                                                                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| [`packages/devtools`](./packages/devtools)           | [`@kishorez/devtools`](https://www.npmjs.com/package/@kishorez/devtools) | Local DevTools server for inspecting dependency graphs and OpenTelemetry traces, logs, and metrics.                       |
+| [`packages/frontend`](./packages/frontend)           | `@monorepo/frontend` (private)                                           | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository.     |
+| [`packages/laymos`](./packages/laymos)               | `laymos` (private)                                                       | Declares, enforces, and visualizes TypeScript architecture as layers, modules, and stories.                               |
+| [`packages/lotel`](./packages/lotel)                 | [`@kishorez/lotel`](https://www.npmjs.com/package/@kishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development. |
+| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts)           | React hooks for running and consuming Effect programs.                                                                    |
 
 ### Single-table design toolkit
 
@@ -79,7 +79,7 @@ To work on one project, filter by its workspace name:
 ```bash
 pnpm --filter docs dev
 pnpm --filter std-toolkit test
-pnpm --filter depcruise-viz lint
+pnpm --filter laymos lint
 ```
 
 Other useful repository commands:

@@ -17,8 +17,8 @@ URL**.
 ### Tool
 
 A self-contained capability surfaced under DevTools. Today: **Telemetry**
-(powered by lotel) and **Dependencies** (powered by laymos and, during the
-migration, depcruise-viz). Each tool keeps its core logic in its own package;
+(powered by lotel) and **Dependencies** (powered by laymos). Each tool keeps
+its core logic in its own package;
 DevTools mounts that logic and exposes it. The frontend is **tool-first**: a
 developer picks a Tool first, and each Tool owns its own inner navigation and
 data-fetching idiom.
@@ -47,17 +47,11 @@ The Telemetry tool's **core logic** package: the HTTP API _contract_
 storage. lotel no longer runs a standalone server or CLI — DevTools is the
 process that serves it. Remains a separate, independently-testable package.
 
-### depcruise-viz
-
-The Dependencies tool's **core logic** package: given a package path, runs the
-dependency-cruise analysis and produces ready-to-render visualization data.
-DevTools exposes this as an endpoint. Remains a separate package.
-
 ### laymos
 
-The Dependencies tool's successor analysis engine: given a package path, runs
-the laymos analysis and produces one enforcement-and-visualization report.
-DevTools exposes it alongside depcruise-viz during the migration.
+The Dependencies tool's analysis engine: given a package path, runs the laymos
+analysis and produces one enforcement-and-visualization report. DevTools
+exposes it as an endpoint.
 
 ### Ingestion
 
@@ -89,7 +83,7 @@ One process, two HTTP surfaces:
   standalone process.
 - DevTools is **published** and must not carry lotel/std-toolkit as runtime
   deps. They are **bundled at build** (`vp pack` `alwaysBundle`, kept in
-  devDependencies — same pattern as depcruise-viz), so the published artifact is
+  devDependencies), so the published artifact is
   self-contained. Storage uses Node's built-in `node:sqlite`, so there is no
   native dependency to ship.
 - Frontend is **tool-first**, shares **one devtools RPC client + one

@@ -1,9 +1,9 @@
 # docs
 
-Documentation site for the monorepo's public packages (`std-toolkit`, `use-effect-ts`,
-`depcruise-viz`, `@kishorez/devtools`), built with Fumadocs on TanStack Start and deployed
-as a fully static site to [docs.kishore.app](https://docs.kishore.app) via Cloudflare
-Workers static assets.
+Documentation site for the monorepo, currently covering `std-toolkit`. It is
+built with Fumadocs on TanStack Start and deployed as a fully static site to
+[docs.kishore.app](https://docs.kishore.app) via Cloudflare Workers static
+assets.
 
 ## Local development
 

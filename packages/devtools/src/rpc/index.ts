@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type { DepcruiseVizData } from 'depcruise-viz';
 import type { AllStoriesRunResult, StoryRunResult } from 'laymos/node';
 import type { LaymosReport } from 'laymos/report';
 import {
@@ -24,19 +23,6 @@ export class TraceNotFound extends Schema.TaggedErrorClass<TraceNotFound>(
   traceId: Schema.String,
 }) {}
 
-const DepcruiseData = Schema.Any as unknown as Schema.Codec<DepcruiseVizData>;
-
-const RunDepcruiseSuccess = Schema.Union([
-  Schema.Struct({ available: Schema.Literal(false) }),
-  Schema.Struct({
-    available: Schema.Literal(true),
-    data: DepcruiseData,
-  }),
-]);
-
-/** The `RunDepcruise` terminal payload (discriminated availability union). */
-export type RunDepcruiseResult = typeof RunDepcruiseSuccess.Type;
-
 const LaymosData = Schema.Any as unknown as Schema.Codec<LaymosReport>;
 
 const RunLaymosSuccess = Schema.Union([
@@ -49,37 +35,6 @@ const RunLaymosSuccess = Schema.Union([
 
 /** The `RunLaymos` terminal payload (discriminated availability union). */
 export type RunLaymosResult = typeof RunLaymosSuccess.Type;
-
-export const DepcruisePhase = Schema.Literals([
-  'load-config',
-  'compile-config',
-  'cruise',
-  'summarize',
-]);
-
-/**
- * Events streamed by `RunDepcruise`: `Progress` on each server-side phase
- * transition, `Heartbeat` roughly every second while the cruise runs, and a
- * terminal `Result` carrying the payload, after which the stream ends.
- */
-export const DepcruiseEvent = Schema.Union([
-  Schema.Struct({
-    _tag: Schema.Literal('Progress'),
-    phase: DepcruisePhase,
-    message: Schema.String,
-    elapsedMs: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Heartbeat'),
-    elapsedMs: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Result'),
-    result: RunDepcruiseSuccess,
-  }),
-]);
-
-export type DepcruiseEvent = typeof DepcruiseEvent.Type;
 
 /** Events streamed by `RunLaymos`: liveness heartbeats and one terminal result. */
 export const LaymosEvent = Schema.Union([
@@ -136,17 +91,11 @@ const ClearSuccess = Schema.Struct({ deleted: Schema.Number });
 
 /**
  * The DevTools umbrella RPC surface consumed by the `/devtools` route. Carries
- * the Dependencies procedures (`RunDepcruise` and `RunLaymos`, path-driven) and the global
+ * the Dependencies procedure (`RunLaymos`, path-driven) and the global
  * Telemetry read procedures backed by lotel's orchestration. Telemetry
  * *ingestion* is served separately over OTLP/HTTP (see ADR 0001).
  */
 export const DevtoolsRpc = RpcGroup.make(
-  Rpc.make('RunDepcruise', {
-    payload: { path: Schema.String },
-    success: DepcruiseEvent,
-    error: DevtoolsRpcError,
-    stream: true,
-  }),
   Rpc.make('RunLaymos', {
     payload: { path: Schema.String },
     success: LaymosEvent,

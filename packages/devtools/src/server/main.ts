@@ -19,7 +19,6 @@ import {
 import { LotelApiLive, makeDbLayer } from '@kishorez/lotel';
 import { getTraceCommand } from '../cli/get-trace.js';
 import { DevtoolsRpc } from '../rpc/index.js';
-import { DEPCRUISE_DIR_ENV, runDepcruiseWorker } from './depcruise.js';
 import { DevtoolsHandlersLive } from './handlers.js';
 import { LAYMOS_DIR_ENV, runLaymosWorker } from './laymos.js';
 
@@ -204,12 +203,9 @@ const command = Command.make(
 );
 
 // This entry doubles as each analyzer's child because the bundler emits one file.
-const depcruiseDir = process.env[DEPCRUISE_DIR_ENV];
 const laymosDir = process.env[LAYMOS_DIR_ENV];
 if (laymosDir) {
   runLaymosWorker(laymosDir);
-} else if (depcruiseDir) {
-  runDepcruiseWorker(depcruiseDir);
 } else {
   command.pipe(
     Command.run({ version: '0.0.0' }),

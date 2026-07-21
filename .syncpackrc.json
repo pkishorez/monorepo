@@ -21,7 +21,6 @@
         "@kishorez/devtools",
         "@kishorez/lotel",
         "@monorepo/frontend",
-        "depcruise-viz",
         "laymos",
         "std-toolkit",
         "use-effect-ts"
@@ -35,7 +34,6 @@
         "@kishorez/devtools",
         "@kishorez/lotel",
         "@monorepo/frontend",
-        "depcruise-viz",
         "laymos",
         "std-toolkit",
         "use-effect-ts"
@@ -74,7 +72,6 @@
         "@kishorez/devtools",
         "@kishorez/lotel",
         "@monorepo/frontend",
-        "depcruise-viz",
         "laymos",
         "std-toolkit",
         "use-effect-ts"

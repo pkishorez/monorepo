@@ -36,7 +36,6 @@
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit",
     "lint:laymos": "jiti src/cli/index.ts lint",
-    "poc": "node poc/compare-extractors.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -48,7 +47,6 @@
   "devDependencies": {
     "@typescript/native": "catalog:",
     "@types/node": "catalog:",
-    "dependency-cruiser": "catalog:",
     "typescript": "catalog:typescript6",
     "vitest": "catalog:"
   }

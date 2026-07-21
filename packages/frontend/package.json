@@ -24,10 +24,9 @@
   "scripts": {
     "addcomp": "./scripts/addcomp.sh",
     "cosmos-export": "cosmos-export",
-    "depcruise": "depcruise-viz",
     "dev": "cosmos",
     "lint": "vp check && tsc --noEmit",
-    "lint:depcruise": "depcruise-viz lint"
+    "lint:laymos": "laymos lint"
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
@@ -47,7 +46,6 @@
     "clsx": "catalog:",
     "cmdk": "catalog:",
     "date-fns": "catalog:",
-    "depcruise-viz": "workspace:*",
     "embla-carousel-react": "catalog:",
     "gray-matter": "catalog:",
     "input-otp": "catalog:",

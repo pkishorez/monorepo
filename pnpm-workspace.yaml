@@ -6,13 +6,6 @@ packages:
 # Hold new releases for 24 hours so compromised versions have time to be reported.
 minimumReleaseAge: 100
 
-# dependency-cruiser loads the consumer's TypeScript but does not declare it as a peer.
-# Model its supported range so pnpm wires each package to the TypeScript 6 catalog entry.
-packageExtensions:
-  dependency-cruiser@18:
-    peerDependencies:
-      typescript: '>=2.0.0 <7.0.0'
-
 peerDependencyRules:
   allowedVersions:
     # Upstream's peer range lags behind its working Vite version.
@@ -75,7 +68,6 @@ catalog:
   cmdk: 1.1.1
   date-fns: 4.4.0
   del-cli: 7.0.0
-  dependency-cruiser: 18.1.0
   effect: 4.0.0-beta.98
   embla-carousel-react: 8.6.0
   env-paths: 4.0.0
