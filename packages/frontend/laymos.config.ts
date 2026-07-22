@@ -24,7 +24,6 @@ export default defineConfig({
     module('src/components/blocks/json'),
     module('src/components/blocks/laymos-layers'),
     module('src/components/blocks/laymos-modules'),
-    module('src/components/blocks/laymos-modules-view2'),
     module('src/components/blocks/laymos-stories'),
     module('src/components/blocks/otel-trace-viewer'),
     module('src/components/blocks/sequence'),

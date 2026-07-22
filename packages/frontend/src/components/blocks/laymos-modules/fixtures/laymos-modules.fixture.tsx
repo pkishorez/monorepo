@@ -2,24 +2,23 @@ import { useFixtureInput } from 'react-cosmos/client';
 import type { LaymosReport } from 'laymos/report';
 
 import type { LaymosModuleSelection } from '../types';
-import {
-  complexModulesFixtureReport,
-  denseModulesFixtureReport,
-  laymosModulesFixtureReport,
-} from './reports';
 import { LaymosModules } from '../components/laymos-modules';
+import {
+  denseModuleArchitectureReport,
+  moduleArchitectureReport,
+} from './reports';
 
-function Controlled({
-  report = laymosModulesFixtureReport,
-  initialSelected = null,
+function ControlledModules({
+  report = moduleArchitectureReport,
+  initialSelection = null,
 }: {
   readonly report?: LaymosReport;
-  readonly initialSelected?: LaymosModuleSelection | null;
+  readonly initialSelection?: LaymosModuleSelection | null;
 }) {
   const [selectedModule, setSelectedModule] =
     useFixtureInput<LaymosModuleSelection | null>(
       'selected module',
-      initialSelected,
+      initialSelection,
     );
   const [hoveredModule, setHoveredModule] = useFixtureInput<string | null>(
     'hovered module',
@@ -45,12 +44,18 @@ function Controlled({
 }
 
 export default {
-  overview: <Controlled />,
+  orientation: <ControlledModules />,
   'direct selection': (
-    <Controlled
-      initialSelected={{ path: 'src/application/home', depth: 'direct' }}
+    <ControlledModules
+      initialSelection={{ path: 'src/application/orders', depth: 'direct' }}
     />
   ),
-  'dense architecture': <Controlled report={denseModulesFixtureReport} />,
-  'clustered architecture': <Controlled report={complexModulesFixtureReport} />,
+  'transitive selection': (
+    <ControlledModules
+      initialSelection={{ path: 'src/ui/orders', depth: 'transitive' }}
+    />
+  ),
+  'dense architecture': (
+    <ControlledModules report={denseModuleArchitectureReport} />
+  ),
 };

@@ -1,23 +1,26 @@
 import { useReactFlow } from '@xyflow/react';
 import { useEffect, useState, type RefObject } from 'react';
 
-const FIT_VIEW_OPTIONS = { padding: 0.16 } as const;
-
-/** Keeps fixed module geometry fitted when its host or topology changes. */
-export function useFitViewOnResize(
+/** Fits stable module geometry when its host or expansion state changes. */
+export function useModuleGraphFit(
   ref: RefObject<HTMLElement | null>,
-  topology: unknown,
-) {
+  geometryKey: string,
+  fitEnabled = true,
+): boolean {
   const { fitView } = useReactFlow();
-  const [fitted, setFitted] = useState(false);
+  const [fitted, setFitted] = useState(!fitEnabled);
   useEffect(() => {
+    if (!fitEnabled) {
+      setFitted(true);
+      return;
+    }
     const element = ref.current;
     if (!element) return;
     let frame = 0;
-    const fit = () => {
+    const fit = (): void => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        void fitView(FIT_VIEW_OPTIONS);
+        void fitView({ padding: 0.16 });
         setFitted(true);
       });
     };
@@ -28,6 +31,6 @@ export function useFitViewOnResize(
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [fitView, ref, topology]);
+  }, [fitEnabled, fitView, geometryKey, ref]);
   return fitted;
 }

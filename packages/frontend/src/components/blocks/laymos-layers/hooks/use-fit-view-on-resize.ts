@@ -7,10 +7,15 @@ const FIT_VIEW_OPTIONS = { padding: 0.2 } as const;
 export function useFitViewOnResize(
   ref: RefObject<HTMLElement | null>,
   topology: unknown,
+  fitEnabled = true,
 ) {
   const { fitView } = useReactFlow();
-  const [fitted, setFitted] = useState(false);
+  const [fitted, setFitted] = useState(!fitEnabled);
   useEffect(() => {
+    if (!fitEnabled) {
+      setFitted(true);
+      return;
+    }
     const element = ref.current;
     if (!element) return;
     let frame = 0;
@@ -28,6 +33,6 @@ export function useFitViewOnResize(
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [fitView, ref, topology]);
+  }, [fitEnabled, fitView, ref, topology]);
   return fitted;
 }
