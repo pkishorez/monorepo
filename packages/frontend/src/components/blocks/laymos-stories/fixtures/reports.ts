@@ -1,10 +1,10 @@
 import type {
   ExecutionItem,
-  LaymosStoriesReport,
+  StoriesRun,
   StoryCatalog,
   ScenarioOutcome,
   StoryArm,
-  StoryArtifact,
+  StoryRun,
   StoryBlock,
   StoryBlockVisitOutcome,
   StoryScenario,
@@ -96,8 +96,8 @@ const finalizeScenario = (
   };
 };
 
-const artifact = (draft: DraftArtifact): StoryArtifact => ({
-  schemaVersion: 3,
+const artifact = (draft: DraftArtifact): StoryRun => ({
+  schemaVersion: 4,
   generatedAt,
   name: draft.name,
   description: draft.description,
@@ -120,7 +120,7 @@ const selected = (value: string): StorySelectedArm => ({
 
 const blocks = {
   checkout: {
-    kind: 'block',
+    kind: 'step',
     name: 'Place checkout order',
     description:
       'Coordinates validation, reservation, payment, and completion.',
@@ -134,7 +134,7 @@ const blocks = {
     arms: literalArms('available', 'unavailable'),
   },
   reserve: {
-    kind: 'block',
+    kind: 'step',
     name: 'Reserve inventory',
     description: 'Holds the requested stock for this checkout.',
     location: location('src/inventory/reserve.ts', 14, 5),
@@ -148,7 +148,7 @@ const blocks = {
     arms: literalArms('approved', 'declined'),
   },
   capture: {
-    kind: 'block',
+    kind: 'step',
     name: 'Capture payment',
     description: 'Captures the authorized amount from the customer.',
     location: location('src/payments/capture.ts', 20, 7),
@@ -161,19 +161,19 @@ const blocks = {
     arms: literalArms('accepted', 'rejected'),
   },
   reject: {
-    kind: 'block',
+    kind: 'step',
     name: 'Reject checkout',
     description: 'Stops checkout and records the customer-facing reason.',
     location: location('src/checkout/reject.ts', 11, 3),
   },
   analytics: {
-    kind: 'block',
+    kind: 'step',
     name: 'Record checkout analytics',
     description: 'Records product analytics independently of payment capture.',
     location: location('src/analytics/checkout.ts', 9, 4),
   },
   complete: {
-    kind: 'block',
+    kind: 'step',
     name: 'Complete order',
     description: 'Persists the completed order and publishes confirmation.',
     location: location('src/checkout/complete.ts', 37, 6),
@@ -328,7 +328,7 @@ const refundStory = artifact({
   description: 'Returns captured funds for an eligible completed order.',
   blocks: {
     refund: {
-      kind: 'block',
+      kind: 'step',
       name: 'Refund order',
       description: 'Coordinates refund eligibility and payment reversal.',
       location: location('src/refunds/refund-order.ts', 16, 8),
@@ -374,7 +374,7 @@ function triageSubtree(path: string, depth: number): DraftItem[] {
   if (depth === TREE_DEPTH) {
     const blockId = `resolve-${path}`;
     triageBlocks[blockId] = {
-      kind: 'block',
+      kind: 'step',
       name: `Resolve ${path}`,
       description: `Applies the resolution playbook for routing outcome ${path}.`,
       location: location('src/triage/resolve.ts', 10 + depth, 3),
@@ -429,15 +429,15 @@ export const storiesFixtureReport = {
     [refundStoryId]: refundStory,
     [triageStoryId]: triageStory,
   },
-} satisfies LaymosStoriesReport;
+} satisfies StoriesRun;
 
 export const singleStoryFixtureReport = {
   stories: { [checkoutStoryId]: checkoutStory },
-} satisfies LaymosStoriesReport;
+} satisfies StoriesRun;
 
 export const emptyStoriesFixtureReport = {
   stories: {},
-} satisfies LaymosStoriesReport;
+} satisfies StoriesRun;
 
 export const storiesFixtureCatalog = {
   groups: [

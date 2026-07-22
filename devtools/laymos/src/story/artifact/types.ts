@@ -1,5 +1,6 @@
 export type StoryId = string;
 export type BlockId = string;
+export type StoryVisibility = 'primary' | 'detail';
 
 export interface StorySourceLocation {
   readonly file: string;
@@ -11,6 +12,7 @@ interface StoryBlockBase {
   readonly name: string;
   readonly description: string;
   readonly location: StorySourceLocation;
+  readonly visibility?: StoryVisibility;
 }
 
 export type StoryDecisionValue = string | number | boolean;
@@ -21,15 +23,17 @@ export type StoryArm =
       readonly value: StoryDecisionValue;
       readonly name: string;
       readonly description: string;
+      readonly visibility?: StoryVisibility;
     }
   | {
       readonly kind: 'otherwise';
       readonly name: string;
       readonly description: string;
+      readonly visibility?: StoryVisibility;
     };
 
 export type StoryBlock =
-  | (StoryBlockBase & { readonly kind: 'block' })
+  | (StoryBlockBase & { readonly kind: 'flow' | 'step' })
   | (StoryBlockBase & {
       readonly kind: 'decision';
       readonly arms: readonly StoryArm[];
@@ -83,11 +87,69 @@ export interface StoryScenario {
   readonly failures: readonly StoryScenarioFailure[];
 }
 
-export interface StoryArtifact {
-  readonly schemaVersion: 3;
+export interface StoryRun {
+  readonly schemaVersion: 4;
   readonly generatedAt: number;
   readonly name: string;
   readonly description: string;
   readonly blocks: Readonly<Record<BlockId, StoryBlock>>;
   readonly scenarios: readonly StoryScenario[];
 }
+
+export interface StoryTraceOptions {
+  readonly concurrency?: number | 'unbounded' | 'inherit';
+  readonly discard?: boolean;
+  readonly mode?: 'default' | 'result';
+}
+
+export type StoryTracePath = readonly StoryTraceItem[];
+
+export type StoryTraceItem =
+  | {
+      readonly kind: 'flow';
+      readonly blockId: BlockId;
+      readonly children: StoryTracePath;
+    }
+  | { readonly kind: 'flow-reference'; readonly blockId: BlockId }
+  | { readonly kind: 'step'; readonly blockId: BlockId }
+  | {
+      readonly kind: 'decision';
+      readonly blockId: BlockId;
+      readonly selector: StoryTracePath;
+      readonly arms: readonly {
+        readonly arm: StoryArm;
+        readonly children: StoryTracePath;
+      }[];
+    }
+  | {
+      readonly kind: 'all';
+      readonly options: StoryTraceOptions;
+      readonly branches: readonly StoryTracePath[];
+    }
+  | {
+      readonly kind: 'for-each';
+      readonly options: StoryTraceOptions;
+      readonly body: StoryTracePath;
+    }
+  | {
+      readonly kind: 'omission';
+      readonly location: StorySourceLocation;
+      readonly label?: string;
+    };
+
+export interface StoryTrace {
+  readonly status: 'valid';
+  readonly generatedAt: number;
+  readonly blocks: Readonly<Record<BlockId, StoryBlock>>;
+  readonly execution: StoryTracePath;
+  readonly definitions: Readonly<Record<BlockId, StoryTracePath>>;
+}
+
+export interface StoryTraceFailure {
+  readonly status: 'invalid';
+  readonly message: string;
+  readonly execution: StoryTracePath;
+  readonly blocks: Readonly<Record<BlockId, StoryBlock>>;
+}
+
+export type StoryTraceResult = StoryTrace | StoryTraceFailure;

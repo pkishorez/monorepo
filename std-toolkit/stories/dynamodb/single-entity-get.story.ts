@@ -1,24 +1,24 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
 import { dynamodbSingleEntityStories } from './support/story-groups.js';
 
 import { makeDynamoStoryHarness } from './support/dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('single-entity-get');
-const getSettings = functionBlock(
-  'Get application settings',
+const getSettings = flow(
+  'Get single entity',
   {
     description:
-      'Reads the one settings record through the public singleton get flow.',
+      'Reads the singleton record or returns its configured default before the first write.',
   },
   (_input: {}) => harness.settings.get(),
 );
 
 dynamodbSingleEntityStories
-  .story('Get', {
+  .story('Get single entity', {
     description:
       'Shows default and persisted paths for reading one logical singleton.',
   })

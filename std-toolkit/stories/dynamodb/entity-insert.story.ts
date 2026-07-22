@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -15,17 +15,17 @@ import {
 const harness = makeDynamoStoryHarness('entity-insert');
 type Input = Parameters<typeof harness.users.insert>[0];
 
-const insertUser = functionBlock(
-  'Insert a user',
+const insertUser = flow(
+  'Insert entity',
   {
     description:
-      'Inserts one user through the public entity service and returns its DynamoDB metadata.',
+      'Inserts one keyed entity and returns its persisted value and DynamoDB metadata.',
   },
   (input: Input) => harness.users.insert(input),
 );
 
 dynamodbEntityStories
-  .story('Insert an entity', {
+  .story('Insert entity', {
     description:
       'Shows every feasible outcome of inserting one keyed DynamoDB entity.',
   })

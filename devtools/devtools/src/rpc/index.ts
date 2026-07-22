@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type { StoryRunResult } from 'laymos/node';
-import type { LaymosReport, StoryCatalog } from 'laymos/report';
+import type { LaymosReport, StoryCollection } from 'laymos/report';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -51,7 +51,8 @@ export const LaymosEvent = Schema.Union([
 export type LaymosEvent = typeof LaymosEvent.Type;
 
 const StoryRunData = Schema.Any as unknown as Schema.Codec<StoryRunResult>;
-const StoryCatalogData = Schema.Any as unknown as Schema.Codec<StoryCatalog>;
+const StoryCollectionData =
+  Schema.Any as unknown as Schema.Codec<StoryCollection>;
 
 /** Incremental progress and results emitted while running every Story. */
 export const StoriesEvent = Schema.Union([
@@ -146,9 +147,9 @@ export const DevtoolsRpc = RpcGroup.make(
     error: DevtoolsRpcError,
     stream: true,
   }),
-  Rpc.make('DiscoverStories', {
+  Rpc.make('GetStories', {
     payload: { path: Schema.String },
-    success: StoryCatalogData,
+    success: StoryCollectionData,
     error: DevtoolsRpcError,
   }),
   Rpc.make('QueryTraces', {

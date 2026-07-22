@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   discoverStories,
+  getStories,
   runAllStories,
   runStory,
   runStoryGroup,
@@ -21,6 +22,9 @@ afterEach(async () => {
   delete (
     globalThis as typeof globalThis & { __laymosDiscoveryLoaded?: unknown }
   ).__laymosDiscoveryLoaded;
+  delete (
+    globalThis as typeof globalThis & { __laymosDiscoveryLoads?: unknown }
+  ).__laymosDiscoveryLoads;
   delete (globalThis as typeof globalThis & { __laymosStoryExecuted?: unknown })
     .__laymosStoryExecuted;
   await Promise.all(
@@ -37,16 +41,57 @@ async function makeBaseDir(): Promise<string> {
 }
 
 describe('Story integration', () => {
+  it('generates a structural Story Trace without running Step bodies or Scenarios', async () => {
+    const baseDir = await makeBaseDir();
+    const storyId = 'checkout.story.ts';
+    await writeFile(join(baseDir, storyId), checkoutStorySource());
+
+    const collection = await Effect.runPromise(getStories(baseDir));
+    const trace = collection.traces[storyId];
+
+    expect(trace?.status).toBe('valid');
+    if (trace?.status !== 'valid') return;
+    expect(JSON.stringify(trace.execution)).toContain('decision');
+    expect(Object.values(trace.blocks).map(({ name }) => name)).toContain(
+      'charge card',
+    );
+    expect(Object.values(trace.blocks).map(({ kind }) => kind)).toContain(
+      'flow',
+    );
+    expect(collection.catalog.stories).toHaveLength(1);
+  });
+
+  it('loads each Story module once while building traces', async () => {
+    const baseDir = await makeBaseDir();
+    await writeFile(
+      join(baseDir, 'single-load.story.ts'),
+      `
+import { Effect } from 'effect';
+import { story } from 'laymos/story';
+globalThis.__laymosDiscoveryLoads = (globalThis.__laymosDiscoveryLoads ?? 0) + 1;
+story('Single load', { description: 'Loads once during discovery' })
+  .execute(() => Effect.void);
+`,
+    );
+
+    await Effect.runPromise(getStories(baseDir));
+
+    expect(
+      (globalThis as typeof globalThis & { __laymosDiscoveryLoads?: number })
+        .__laymosDiscoveryLoads,
+    ).toBe(1);
+  });
+
   it('returns Effect Scenarios and timing without writing generated state', async () => {
     const baseDir = await makeBaseDir();
     const storyId = 'checkout.story.ts';
     await writeFile(join(baseDir, storyId), checkoutStorySource());
 
     const result = await Effect.runPromise(runStory(baseDir, storyId));
-    const artifact = result.artifact;
+    const artifact = result.run;
 
     expect(result.status).toBe('passed');
-    expect(artifact.schemaVersion).toBe(3);
+    expect(artifact.schemaVersion).toBe(4);
     expect(artifact.scenarios).toHaveLength(2);
     expect(artifact.scenarios.map((scenario) => scenario.outcome)).toEqual([
       'succeeded',
@@ -80,7 +125,7 @@ describe('Story integration', () => {
     const result = await Effect.runPromise(runStory(baseDir, storyId));
 
     expect(result.status).toBe('passed');
-    expect(blockNames(result.artifact)).toEqual(['transitive execution']);
+    expect(blockNames(result.run)).toEqual(['transitive execution']);
   });
 
   it('runs Effect Scenarios and interrupts on timeout', async () => {
@@ -91,10 +136,12 @@ describe('Story integration', () => {
     const result = await Effect.runPromise(runStory(baseDir, storyId));
 
     expect(result.status).toBe('failed');
-    expect(
-      result.artifact.scenarios.map((scenario) => scenario.outcome),
-    ).toEqual(['succeeded', 'interrupted', 'skipped']);
-    const interrupted = result.artifact.scenarios[1];
+    expect(result.run.scenarios.map((scenario) => scenario.outcome)).toEqual([
+      'succeeded',
+      'interrupted',
+      'skipped',
+    ]);
+    const interrupted = result.run.scenarios[1];
     expect(interrupted?.durationMillis).toBeLessThan(5_000);
     expect(interrupted?.failures).toEqual([
       {
@@ -116,7 +163,7 @@ describe('Story integration', () => {
     const result = await Effect.runPromise(runStory(baseDir, storyId));
 
     expect(cleanupState.__laymosCleanupStarted).toBe(true);
-    expect(result.artifact.scenarios[0]).toMatchObject({
+    expect(result.run.scenarios[0]).toMatchObject({
       outcome: 'interrupted',
       failures: [
         {
@@ -125,7 +172,7 @@ describe('Story integration', () => {
         },
       ],
     });
-    expect(result.artifact.scenarios[0]?.durationMillis).toBeLessThan(5_000);
+    expect(result.run.scenarios[0]?.durationMillis).toBeLessThan(5_000);
   });
 
   it('lets Effect interruption cancel cleanup', async () => {
@@ -165,15 +212,15 @@ describe('Story integration', () => {
     const result = await Effect.runPromise(runStory(baseDir, storyId));
 
     expect(result.status).toBe('failed');
-    expect(result.artifact.scenarios.map(({ outcome }) => outcome)).toEqual([
+    expect(result.run.scenarios.map(({ outcome }) => outcome)).toEqual([
       'succeeded',
       'failed',
     ]);
-    expect(result.artifact.scenarios[0]?.failures).toEqual([]);
-    expect(result.artifact.scenarios[1]?.failures).toEqual([
+    expect(result.run.scenarios[0]?.failures).toEqual([]);
+    expect(result.run.scenarios[1]?.failures).toEqual([
       { phase: 'cleanup', message: 'cleanup failed' },
     ]);
-    expect(blockNames(result.artifact)).toEqual(['shared execution']);
+    expect(blockNames(result.run)).toEqual(['shared execution']);
   });
 
   it('declares nothing and runs nothing outside a generation', async () => {
@@ -204,7 +251,7 @@ describe('Story integration', () => {
 
     expect(result).toEqual({
       status: 'passed',
-      report: { stories: {} },
+      runs: { stories: {} },
       failures: [],
     });
     expect(existsSync(join(baseDir, '.laymos'))).toBe(false);
@@ -299,7 +346,7 @@ storyGroup('Commerce', { description: 'Purchase behavior' })
 
     const result = await Effect.runPromise(runStoryGroup(baseDir, ['Shared']));
 
-    expect(Object.keys(result.report.stories)).toEqual([
+    expect(Object.keys(result.runs.stories)).toEqual([
       'first.story.ts',
       'second.story.ts',
     ]);
@@ -360,18 +407,17 @@ story('Standalone', { description: 'A standalone Story' })
 function checkoutStorySource(): string {
   return `
 import { Effect } from 'effect';
-import { decision, functionBlock, step, story } from 'laymos/story';
+import { decision, flow, step, story } from 'laymos/story';
 import { strict as assert } from 'node:assert';
 
-const checkout = functionBlock(
+const checkout = flow(
   'checkout',
   { description: 'Routes a prepared checkout to its payment or rejection outcome.', attributes: (outcome) => ({ outcome }) },
-  (outcome) => step('prepare order', { description: 'Evaluates the prepared order before taking its terminal action.' },
-    decision('fraud gate', { description: 'Chooses whether the fraud outcome permits payment.' }, outcome)
-      .when('approved', { description: 'Allows payment because fraud checks approved the order.' }, () => step('charge card', { description: 'Charges the approved order to complete payment.' }, Effect.succeed('paid')))
-      .when('rejected', { description: 'Stops payment because fraud checks rejected the order.' }, () => step('reject order', { description: 'Records the rejected checkout without charging the customer.' }, Effect.succeed('stopped')))
+  (outcome) =>
+    decision('fraud gate', { description: 'Chooses whether the fraud outcome permits payment.' }, () => Effect.succeed(outcome))
+      .when('approved', { description: 'Allows payment because fraud checks approved the order.' }, () => step('charge card', { description: 'Charges the approved order to complete payment.' }, () => Effect.succeed('paid')))
+      .when('rejected', { description: 'Stops payment because fraud checks rejected the order.' }, () => step('reject order', { description: 'Records the rejected checkout without charging the customer.' }, () => Effect.succeed('stopped')))
       .exhaustive(),
-  ),
 );
 
 story('checkout', { description: 'Routes checkout by fraud outcome' })
@@ -398,8 +444,8 @@ story('access', { description: 'Grants and audits access' })
   .provide(Layer.succeed(SharedValue, 42))
   .execute((hang: boolean) => Effect.gen(function* () {
     yield* SharedValue;
-    if (hang) return yield* step('call dead service', { description: 'Waits for an unavailable dependency to demonstrate execution interruption.' }, Effect.sleep('5 seconds'));
-    return yield* step('issue session', { description: 'Completes the successful access path by issuing an authenticated session.' }, Effect.void);
+    if (hang) return yield* step('call dead service', { description: 'Waits for an unavailable dependency to demonstrate execution interruption.' }, () => Effect.sleep('5 seconds'));
+    return yield* step('issue session', { description: 'Completes the successful access path by issuing an authenticated session.' }, () => Effect.void);
   }))
   .scenario('grants access', { description: 'Issues a session' }, (scenario) =>
     scenario
@@ -430,13 +476,13 @@ import { step, story } from 'laymos/story';
 
 story('lifecycle', { description: 'Separates operational phases from narrative' })
   .execute((prepared: 'expected-error' | 'cleanup-error') =>
-    step('shared execution', { description: 'Produces the execution result selected by the prepared lifecycle condition.' }, prepared === 'expected-error' ? Effect.fail(new Error('expected')) : Effect.succeed('done')),
+    step('shared execution', { description: 'Produces the execution result selected by the prepared lifecycle condition.' }, () => prepared === 'expected-error' ? Effect.fail(new Error('expected')) : Effect.succeed('done')),
   )
   .scenario('expected error', { description: 'Accepts an intentional execution error' }, (scenario) =>
     scenario
-      .prepare(() => step('unrecorded preparation', { description: 'Prepares the expected-error condition outside narrated execution.' }, Effect.succeed('expected-error' as const)))
-      .verifyError((error) => step('unrecorded verification', { description: 'Verifies the intentional execution error outside narrated execution.' }, Effect.sync(() => assert.equal(error.message, 'expected'))))
-      .cleanup(() => step('unrecorded cleanup', { description: 'Releases lifecycle resources outside narrated execution.' }, Effect.void)),
+      .prepare(() => step('unrecorded preparation', { description: 'Prepares the expected-error condition outside narrated execution.' }, () => Effect.succeed('expected-error' as const)))
+      .verifyError((error) => step('unrecorded verification', { description: 'Verifies the intentional execution error outside narrated execution.' }, () => Effect.sync(() => assert.equal(error.message, 'expected'))))
+      .cleanup(() => step('unrecorded cleanup', { description: 'Releases lifecycle resources outside narrated execution.' }, () => Effect.void)),
   )
   .scenario('cleanup failure', { description: 'Preserves a cleanup failure separately' }, (scenario) =>
     scenario
@@ -474,9 +520,9 @@ story('cleanup timeout', { description: 'Bounds cleanup within the Scenario dead
 function transitiveWorkflowSource(): string {
   return `
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
-export const executeWorkflow = functionBlock(
+export const executeWorkflow = flow(
   'transitive execution',
   { description: 'Runs a Block declared in a production workflow module.' },
   () => Effect.succeed('done'),

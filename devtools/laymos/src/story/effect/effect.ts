@@ -148,9 +148,12 @@ export interface DecisionBuilder<Remaining extends DecisionValue, A, E, R> {
 }
 
 interface DecisionState {
-  readonly input: DecisionValue;
-  matched: boolean;
-  selected: AnyEffect;
+  readonly selector: () => AnyEffect;
+  readonly arms: Array<{
+    readonly kind: 'literal' | 'otherwise';
+    readonly value?: DecisionValue;
+    readonly body: (value: DecisionValue) => AnyEffect;
+  }>;
 }
 
 class DecisionBuilderImpl {
@@ -165,10 +168,7 @@ class DecisionBuilderImpl {
       meta.description,
       `Decision Arm "${meta.name ?? value}"`,
     );
-    if (!this.state.matched && Object.is(this.state.input, value)) {
-      this.state.matched = true;
-      this.state.selected = body(value);
-    }
+    this.state.arms.push({ kind: 'literal', value, body });
     return this;
   }
 
@@ -180,55 +180,117 @@ class DecisionBuilderImpl {
       meta.description,
       `Decision Arm "${meta.name ?? 'Otherwise'}"`,
     );
-    if (!this.state.matched) {
-      this.state.matched = true;
-      this.state.selected = body(this.state.input);
-    }
-    return this.state.selected;
+    this.state.arms.push({ kind: 'otherwise', body });
+    return this.run();
   }
 
   exhaustive(): AnyEffect {
-    return this.state.selected;
+    return this.run();
   }
 
   [Symbol.iterator](): Effect.EffectIterator<AnyEffect> {
-    return this.state.selected[Symbol.iterator]();
+    return this.run()[Symbol.iterator]();
+  }
+
+  private run(): AnyEffect {
+    const state = this.state;
+    return Effect.gen(function* () {
+      const input = yield* Effect.suspend(state.selector);
+      const selected =
+        state.arms.find(
+          (arm) => arm.kind === 'literal' && Object.is(arm.value, input),
+        ) ?? state.arms.find((arm) => arm.kind === 'otherwise');
+      return selected === undefined ? undefined : yield* selected.body(input);
+    });
   }
 }
 
-/** Marks a reusable Effect-returning function boundary as a Story Block. */
-export function functionBlock<Args extends readonly unknown[], A, E, R>(
+/** Marks a reusable, traversable Effect-returning function boundary. */
+export function flow<Args extends readonly unknown[], A, E, R>(
   name: string,
   meta: BlockMeta<Args>,
   fn: (...args: Args) => Effect.Effect<A, E, R>,
-): (...args: Args) => Effect.Effect<A, E, R> {
-  requireDescription(meta.description, `Block "${name}"`);
-  return fn;
+): (...args: Args) => Effect.Effect<A, E, R>;
+export function flow<A, E, R>(
+  name: string,
+  meta: BlockMeta,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function flow<Args extends readonly unknown[], A, E, R>(
+  name: string,
+  meta: BlockMeta<Args>,
+  input: Effect.Effect<A, E, R> | ((...args: Args) => Effect.Effect<A, E, R>),
+): Effect.Effect<A, E, R> | ((...args: Args) => Effect.Effect<A, E, R>) {
+  requireDescription(meta.description, `Flow "${name}"`);
+  return typeof input === 'function' ? input : input;
 }
 
-/** Wraps an Effect in an inline Story Block. */
+/** Marks one opaque operation. */
+export function step<A, E, R>(
+  name: string,
+  meta: BlockMeta,
+  effect: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+
 export function step<A, E, R>(
   name: string,
   meta: BlockMeta,
   effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function step<A, E, R>(
+  name: string,
+  meta: BlockMeta,
+  effect: Effect.Effect<A, E, R> | (() => Effect.Effect<A, E, R>),
 ): Effect.Effect<A, E, R> {
-  requireDescription(meta.description, `Block "${name}"`);
-  return effect;
+  requireDescription(meta.description, `Step "${name}"`);
+  return Effect.suspend(() =>
+    typeof effect === 'function' ? effect() : effect,
+  );
 }
 
-/** Builds an eager, literal-keyed Effect Decision. */
+/** Builds a lazy, literal-keyed Effect Decision. */
+export function decision<const Input extends DecisionValue, E, R>(
+  name: string,
+  meta: BlockMeta<[Input]>,
+  selector: () => Effect.Effect<Input, E, R>,
+): DecisionBuilder<Input, never, E, R>;
 export function decision<const Input extends DecisionValue>(
   name: string,
   meta: BlockMeta<[Input]>,
-  input: Input,
-): DecisionBuilder<Input, never, never, never> {
+  selector: Input,
+): DecisionBuilder<Input, never, never, never>;
+export function decision<const Input extends DecisionValue, E, R>(
+  name: string,
+  meta: BlockMeta<[Input]>,
+  selector: Input | (() => Effect.Effect<Input, E, R>),
+): DecisionBuilder<Input, never, E, R> {
   requireDescription(meta.description, `Decision "${name}"`);
   return new DecisionBuilderImpl({
-    input,
-    matched: false,
-    selected: Effect.void,
-  }) as unknown as DecisionBuilder<Input, never, never, never>;
+    selector:
+      typeof selector === 'function'
+        ? selector
+        : () => Effect.succeed(selector),
+    arms: [],
+  }) as unknown as DecisionBuilder<Input, never, E, R>;
 }
+
+export function omit<A, E, R>(
+  body: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function omit<A, E, R>(
+  label: string,
+  body: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function omit<A, E, R>(
+  labelOrBody: string | (() => Effect.Effect<A, E, R>),
+  body?: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> {
+  const operation = typeof labelOrBody === 'function' ? labelOrBody : body!;
+  return Effect.suspend(operation);
+}
+
+export const all: typeof Effect.all = Effect.all;
+export const forEach: typeof Effect.forEach = Effect.forEach;
 
 function requireDescription(description: string, subject: string): void {
   if (description.trim().length === 0) {

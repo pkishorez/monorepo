@@ -1,6 +1,11 @@
 import { Context } from 'effect';
 
-import type { Attributes, AttributesInput, DecisionValue } from './types.js';
+import type {
+  Attributes,
+  AttributesInput,
+  DecisionValue,
+  Visibility,
+} from './types.js';
 
 export interface SourceLocation {
   readonly file: string;
@@ -11,7 +16,8 @@ export interface SourceLocation {
 export interface BlockDeclaration {
   readonly name: string;
   readonly description: string;
-  readonly kind: 'block' | 'decision';
+  readonly kind: 'flow' | 'step' | 'decision';
+  readonly visibility: Visibility;
   readonly location: SourceLocation;
 }
 
@@ -21,11 +27,13 @@ export type ArmDeclaration =
       readonly value: DecisionValue;
       readonly name: string;
       readonly description: string;
+      readonly visibility: Visibility;
     }
   | {
       readonly kind: 'otherwise';
       readonly name: string;
       readonly description: string;
+      readonly visibility: Visibility;
     };
 
 export type SelectedArm =

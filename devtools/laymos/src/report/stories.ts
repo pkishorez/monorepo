@@ -1,4 +1,8 @@
-import type { StoryArtifact, StoryId } from '../story/artifact/types.js';
+import type {
+  StoryRun,
+  StoryId,
+  StoryTraceResult,
+} from '../story/artifact/types.js';
 
 export type {
   BlockId,
@@ -6,7 +10,7 @@ export type {
   ExecutionPath,
   ScenarioOutcome,
   StoryArm,
-  StoryArtifact,
+  StoryRun,
   StoryBlock,
   StoryBlockVisitOutcome,
   StoryDecisionValue,
@@ -16,10 +20,17 @@ export type {
   StoryScenarioFailurePhase,
   StorySelectedArm,
   StorySourceLocation,
+  StoryTrace,
+  StoryTraceFailure,
+  StoryTraceItem,
+  StoryTraceOptions,
+  StoryTracePath,
+  StoryTraceResult,
+  StoryVisibility,
 } from '../story/artifact/types.js';
 
-export interface LaymosStoriesReport {
-  readonly stories: Readonly<Record<StoryId, StoryArtifact>>;
+export interface StoriesRun {
+  readonly stories: Readonly<Record<StoryId, StoryRun>>;
 }
 
 export type StoryGroupPath = readonly string[];
@@ -40,4 +51,9 @@ export interface StoryCatalogStory {
 export interface StoryCatalog {
   readonly groups: readonly StoryCatalogGroup[];
   readonly stories: readonly StoryCatalogStory[];
+}
+
+export interface StoryCollection {
+  readonly catalog: StoryCatalog;
+  readonly traces: Readonly<Record<StoryId, StoryTraceResult>>;
 }

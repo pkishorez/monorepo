@@ -209,7 +209,7 @@ export class DynamoTable<
       queryOptions.ScanIndexForward = options.ScanIndexForward;
 
     return step(
-      'Query DynamoDB index',
+      'Fetch matching indexed items',
       {
         description:
           'Compiles the key and filter expressions, queries one table index, and decodes its page.',
@@ -255,7 +255,7 @@ export class DynamoTable<
       scanOptions.ConsistentRead = options.ConsistentRead;
 
     return step(
-      'Scan DynamoDB index',
+      'Scan the selected index',
       {
         description:
           'Scans one table index and decodes the returned page and continuation key.',
@@ -285,7 +285,7 @@ export class DynamoTable<
     key: IndexDefinition,
   ): Effect.Effect<void, DynamodbError, DynamoDB> {
     return step(
-      'Delete DynamoDB item',
+      'Remove the stored item',
       {
         description:
           'Physically removes one item identified by the table primary key.',
@@ -307,7 +307,7 @@ export class DynamoTable<
 
   describe(): Effect.Effect<TableDescription, DynamodbError, DynamoDB> {
     return step(
-      'Describe DynamoDB table',
+      'Read the table description',
       {
         description:
           'Reads the physical table status, size estimates, and secondary-index metadata.',
@@ -358,7 +358,7 @@ export class DynamoTable<
     DynamoDB
   > {
     return step(
-      'Get DynamoDB item',
+      'Fetch the stored item',
       {
         description:
           'Reads one item by its exact primary key and decodes its DynamoDB attributes.',
@@ -403,7 +403,7 @@ export class DynamoTable<
     DynamoDB
   > {
     return step(
-      'Put DynamoDB item',
+      'Write the stored item',
       {
         description:
           'Marshalls and writes one complete item, applying its optional condition expression.',
@@ -449,7 +449,7 @@ export class DynamoTable<
     DynamoDB
   > {
     return step(
-      'Update DynamoDB item',
+      'Apply the stored update',
       {
         description:
           'Applies a compiled update expression to one item and decodes the requested returned attributes.',
@@ -626,7 +626,7 @@ export class DynamoTable<
     items: TransactItem[],
   ): Effect.Effect<EntityType<unknown>[], DynamodbError, DynamoDB> {
     return step(
-      'Commit DynamoDB transaction',
+      'Commit every operation atomically',
       {
         description:
           'Validates deferred entity operations, stamps their commit cursors, and submits one atomic write.',
@@ -705,7 +705,7 @@ export class DynamoTable<
     items: Record<string, unknown>[],
   ): Effect.Effect<{ unprocessedIndexes: number[] }, DynamodbError, DynamoDB> {
     return step(
-      'Batch write DynamoDB items',
+      'Write each batch',
       {
         description:
           'Splits raw items into DynamoDB batches of twenty-five and reports any unprocessed inputs.',
@@ -753,7 +753,7 @@ export class DynamoTable<
     _: 'I KNOW WHAT I AM DOING',
   ): Effect.Effect<{ itemsDeleted: number }, DynamodbError, DynamoDB> {
     return step(
-      'Remove every DynamoDB item',
+      'Remove every stored item',
       {
         description:
           'Scans every page and physically deletes all items from the isolated table.',

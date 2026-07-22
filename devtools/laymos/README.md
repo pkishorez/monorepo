@@ -234,17 +234,20 @@ Layers and modules are static intent. Stories capture **runtime behavior at the 
 
 Not coverage tooling (istanbul knows _which lines_ ran, not _what they meant_). Not XState (we don't make the flowchart be the code — code stays code, the flowchart is derived; annotate what exists, no rewrite).
 
-### The primitives — exactly three
+### Story structure
 
-- **`functionBlock(name, meta, fn)`** — a named function-boundary block that may contribute to any number of Stories. Its metadata must describe what the boundary means in the narrative.
-- **`step(name, meta, fn)`** — a named inline block whose metadata must describe the action's narrative purpose.
-- **`decision(name, meta, value)`** — a statement-first, expression-capable condition over a string, number, or boolean literal union. Each chained `when(literal, armMeta, fn)` declares one Arm and eagerly executes the matching branch. Decision and Arm metadata must describe the choice and consequence.
+- **`flow(name, meta, fn)`** marks a reusable function whose nested Story Blocks are traversed.
+- **`step(name, meta, thunk)`** marks one opaque operation. Trace Mode records it without calling the thunk.
+- **`decision(name, meta, selector)`** records the selector structure and traverses every lazily declared Arm.
+- **`omit(label?, thunk)`** records an omission marker without tracing its body.
+- **`all`** and **`forEach`** mirror their Effect counterparts and retain their options in the trace.
+
+Every visible primitive and Decision Arm supports `visibility: 'primary' |
+'detail'`; the default is `primary`.
 
 ```ts
-decision(
-  'fraud gate',
-  { description: 'Reject high-risk orders' },
-  score > 0.7 ? 'rejected' : 'approved',
+decision('fraud gate', { description: 'Reject high-risk orders' }, () =>
+  riskOutcome(order),
 )
   .when(
     'approved',
@@ -468,8 +471,8 @@ path; a Parallel item owns an array of branch paths.
 type StoryId = string;
 type BlockId = string;
 
-interface StoryArtifact {
-  readonly schemaVersion: 3;
+interface StoryRun {
+  readonly schemaVersion: 4;
   readonly generatedAt: number;
   readonly name: string;
   readonly description: string;
@@ -592,6 +595,7 @@ Arm rules above; consumers may trust these invariants.
 
 ```ts
 discoverStories(baseDir): Effect<StoryCatalog, StoryDiscoveryError>
+getStories(baseDir): Effect<StoryCollection, StoryDiscoveryError>
 runStory(baseDir, storyId): Effect<StoryRunResult, StoryRunnerError>
 runStoryGroup(baseDir, groupPath): Effect<StoriesRunResult, StoryDiscoveryError | StoryRunnerError>
 runStories(baseDir, storyIds): Effect<StoriesRunResult, StoryRunnerError>
@@ -603,13 +607,13 @@ Execution results carry fresh evidence and diagnostics:
 ```ts
 interface StoryRunResult {
   readonly status: 'passed' | 'failed';
-  readonly artifact: StoryArtifact;
+  readonly run: StoryRun;
   readonly failures: readonly StoryFailure[];
 }
 
 interface StoriesRunResult {
   readonly status: 'passed' | 'failed';
-  readonly report: LaymosStoriesReport;
+  readonly runs: StoriesRun;
   readonly failures: readonly StoryFailure[];
 }
 ```
@@ -658,9 +662,9 @@ not expose any earlier in-memory results from that request.
 
 ### Outside a Scenario
 
-The production `laymos/story` entry has no recording capability. Its
-`functionBlock` returns the original function, `step` returns the original
-Effect, and `decision` performs only the declared branching. Attribute
+The production `laymos/story` entry has no recording capability. Its `flow`
+executes the wrapped function, `step` executes its thunk, and `decision`
+performs only the selected branching. Attribute
 resolvers are not evaluated, and there is no recorder lookup, source-location
 capture, serialization, event emission, or runtime configuration.
 

@@ -72,11 +72,12 @@ export class StoryBlockRegistry {
       name: block.name,
       description: block.description,
       location,
+      visibility: block.visibility,
     };
     const storyBlock: StoryBlock =
       block.kind === 'decision'
         ? { ...common, kind: 'decision', arms: [] }
-        : { ...common, kind: 'block' };
+        : { ...common, kind: block.kind };
     this.blocks.set(id, { block: storyBlock, arms: new Map() });
     return id;
   }
@@ -203,7 +204,7 @@ export class ScenarioRecorder implements StoryRecorder {
   }
 }
 
-export type { ExecutionItem, ExecutionPath, StoryArtifact } from './types.js';
+export type { ExecutionItem, ExecutionPath, StoryRun } from './types.js';
 
 export function roundMillis(value: number): number {
   return Math.round(value * 1000) / 1000;

@@ -10,12 +10,14 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import type { StoryTrace } from 'laymos/report';
 
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
 
 import {
   buildStoryCatalogTree,
+  storyRunFromTrace,
   storyGroupKey,
   type StoryCatalogTree,
   type StoryEntry,
@@ -30,8 +32,8 @@ type StoryView = 'narrative' | 'graph';
 
 /** Renders controlled Story navigation with progressively disclosed views. */
 export function LaymosStories({
-  catalog,
-  report,
+  collection,
+  runs,
   storyStates = {},
   runState,
   selection,
@@ -39,15 +41,37 @@ export function LaymosStories({
   onRunStory,
   onRunGroup,
   onRunAll,
+  sidebarExpansion = 'single',
   className,
   ariaLabel = 'Laymos stories',
 }: LaymosStoriesProps) {
   const [view, setView] = useState<StoryView>('graph');
   const tree = useMemo(
-    () => buildStoryCatalogTree(catalog, report.stories),
-    [catalog, report],
+    () => buildStoryCatalogTree(collection.catalog, runs.stories),
+    [collection, runs],
   );
   const entries = tree.stories;
+  const displayedStoryStates = useMemo<
+    NonNullable<LaymosStoriesProps['storyStates']>
+  >(() => {
+    const next = { ...storyStates };
+    for (const { storyId } of entries) {
+      const execution = storyStates[storyId];
+      const trace = collection.traces[storyId];
+      if (execution?.status === 'loading' || execution?.status === 'error') {
+        continue;
+      }
+      if (trace?.status === 'invalid') {
+        next[storyId] = { status: 'error', message: trace.message };
+      } else if (execution?.status === 'success' && trace === undefined) {
+        next[storyId] = {
+          status: 'error',
+          message: 'No structural trace was returned for this Story.',
+        };
+      }
+    }
+    return next;
+  }, [collection.traces, entries, storyStates]);
 
   const selectedEntry =
     selection?.kind === 'story' || selection?.kind === 'scenario'
@@ -64,8 +88,22 @@ export function LaymosStories({
         )
       : undefined;
   const selectedExecution = selectedEntry
-    ? storyStates[selectedEntry.storyId]
+    ? displayedStoryStates[selectedEntry.storyId]
     : undefined;
+  const selectedTrace = selectedEntry
+    ? collection.traces[selectedEntry.storyId]
+    : undefined;
+  const tracedStory = useMemo(
+    () =>
+      selectedEntry && selectedTrace?.status === 'valid'
+        ? storyRunFromTrace(
+            selectedTrace,
+            selectedEntry.name,
+            selectedEntry.description,
+          )
+        : undefined,
+    [selectedEntry, selectedTrace],
+  );
   const selectedStoryRunning = selectedExecution
     ? selectedExecution.status === 'loading'
     : runState?.kind === 'all' ||
@@ -103,11 +141,12 @@ export function LaymosStories({
     >
       <StoryNavigator
         tree={tree}
-        storyStates={storyStates}
+        storyStates={displayedStoryStates}
         selection={selection}
         onSelectionChange={onSelectionChange}
         onRunAll={onRunAll}
         runState={runState}
+        expansionMode={sidebarExpansion}
       />
       <main className="min-w-0 flex-1">
         {entries.length === 0 && (
@@ -118,7 +157,7 @@ export function LaymosStories({
         {entries.length > 0 && !selection && (
           <CatalogOverview
             tree={tree}
-            storyStates={storyStates}
+            storyStates={displayedStoryStates}
             runState={runState}
             onSelectionChange={onSelectionChange}
             onRunStory={onRunStory}
@@ -127,41 +166,44 @@ export function LaymosStories({
         {selection?.kind === 'group' && selectedGroup && (
           <GroupOverview
             group={selectedGroup}
-            storyStates={storyStates}
+            storyStates={displayedStoryStates}
             running={runState !== null}
             onSelectionChange={onSelectionChange}
             onRunStory={onRunStory}
             onRunGroup={onRunGroup}
           />
         )}
-        {selection?.kind === 'story' &&
-          selectedEntry &&
-          !selectedEntry.artifact && (
-            <UnexecutedStory
-              storyId={selectedEntry.storyId}
-              name={selectedEntry.name}
-              description={selectedEntry.description}
-              running={selectedStoryRunning}
-              execution={storyStates[selectedEntry.storyId]}
-              onRun={onRunStory}
-            />
-          )}
-        {selection?.kind === 'story' && selectedEntry?.artifact && (
+        {selection?.kind === 'story' && selectedEntry && tracedStory && (
           <ExecutedStory
             storyId={selectedEntry.storyId}
-            generatedAt={selectedEntry.artifact.generatedAt}
+            generatedAt={tracedStory.generatedAt}
             running={selectedStoryRunning}
-            execution={storyStates[selectedEntry.storyId]}
+            execution={displayedStoryStates[selectedEntry.storyId]}
             onRun={onRunStory}
             view={view}
             onViewChange={setView}
           >
             {view === 'narrative' ? (
-              <StoryNarrative story={selectedEntry.artifact} />
+              <StoryNarrative story={tracedStory} />
             ) : (
-              <StoryCanvas story={selectedEntry.artifact} />
+              <TraceCanvas
+                key={selectedEntry.storyId}
+                trace={selectedTrace as StoryTrace}
+                name={selectedEntry.name}
+                description={selectedEntry.description}
+              />
             )}
           </ExecutedStory>
+        )}
+        {selection?.kind === 'story' && selectedEntry && !tracedStory && (
+          <TraceFailure
+            name={selectedEntry.name}
+            message={
+              selectedTrace?.status === 'invalid'
+                ? selectedTrace.message
+                : 'No structural trace was returned for this Story.'
+            }
+          />
         )}
         {selection?.kind === 'scenario' &&
           selectedEntry &&
@@ -171,7 +213,7 @@ export function LaymosStories({
               storyId={selectedEntry.storyId}
               generatedAt={selectedEntry.artifact.generatedAt}
               running={selectedStoryRunning}
-              execution={storyStates[selectedEntry.storyId]}
+              execution={displayedStoryStates[selectedEntry.storyId]}
               onRun={onRunStory}
               view={view}
               onViewChange={setView}
@@ -199,6 +241,74 @@ export function LaymosStories({
           )}
       </main>
     </section>
+  );
+}
+
+function TraceFailure({ name, message }: { name: string; message: string }) {
+  return (
+    <div className="flex h-full items-center justify-center p-10">
+      <div className="max-w-lg rounded-lg border border-destructive/30 bg-destructive/5 p-6">
+        <h2 className="font-semibold">Could not trace {name}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function TraceCanvas({
+  trace,
+  name,
+  description,
+}: {
+  trace: StoryTrace;
+  name: string;
+  description: string;
+}) {
+  const [definitionId, setDefinitionId] = useState<string | null>(null);
+  const definitions = Object.entries(trace.definitions);
+  const selectedDefinition = definitionId
+    ? trace.definitions[definitionId]
+    : undefined;
+  const visibleTrace = selectedDefinition
+    ? { ...trace, execution: selectedDefinition }
+    : trace;
+  const story = storyRunFromTrace(
+    visibleTrace,
+    definitionId ? (trace.blocks[definitionId]?.name ?? definitionId) : name,
+    definitionId
+      ? (trace.blocks[definitionId]?.description ?? description)
+      : description,
+  );
+  return (
+    <div className="flex h-full min-h-0">
+      {definitions.length > 0 && (
+        <aside className="w-52 shrink-0 overflow-y-auto border-r border-border p-3">
+          <p className="mb-2 text-xs font-semibold">Definitions</p>
+          <Button
+            variant={definitionId === null ? 'secondary' : 'ghost'}
+            size="sm"
+            className="mb-1 w-full justify-start"
+            onClick={() => setDefinitionId(null)}
+          >
+            Story
+          </Button>
+          {definitions.map(([blockId]) => (
+            <Button
+              key={blockId}
+              variant={definitionId === blockId ? 'secondary' : 'ghost'}
+              size="sm"
+              className="mb-1 w-full justify-start"
+              onClick={() => setDefinitionId(blockId)}
+            >
+              {trace.blocks[blockId]?.name ?? blockId}
+            </Button>
+          ))}
+        </aside>
+      )}
+      <div className="min-w-0 flex-1">
+        <StoryCanvas story={story} />
+      </div>
+    </div>
   );
 }
 
@@ -561,58 +671,6 @@ function findGroup(
     if (nested !== undefined) return nested;
   }
   return undefined;
-}
-
-function UnexecutedStory({
-  storyId,
-  name,
-  description,
-  running,
-  execution,
-  onRun,
-}: {
-  readonly storyId: string;
-  readonly name: string;
-  readonly description: string;
-  readonly running: boolean;
-  readonly execution?: LaymosStoryExecutionState;
-  readonly onRun?: (storyId: string) => void;
-}) {
-  return (
-    <div className="flex h-full items-center justify-center p-10 text-center">
-      <div className="max-w-md">
-        <p className="font-mono text-xs text-muted-foreground">{storyId}</p>
-        <h2 className="mt-3 text-xl font-semibold">
-          {execution?.status === 'error' ? `${name} failed` : name}
-        </h2>
-        <p
-          className={cn(
-            'mt-2 whitespace-pre-line text-sm',
-            execution?.status === 'error'
-              ? 'text-destructive'
-              : 'text-muted-foreground',
-          )}
-        >
-          {execution?.status === 'error' ? execution.message : description}
-        </p>
-        {onRun && (
-          <Button
-            type="button"
-            className="mt-5"
-            disabled={running}
-            onClick={() => onRun(storyId)}
-          >
-            {running ? (
-              <LoaderCircle className="animate-spin" aria-hidden />
-            ) : (
-              <Play aria-hidden />
-            )}
-            {running ? 'Running…' : 'Run Story'}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function ExecutedStory({

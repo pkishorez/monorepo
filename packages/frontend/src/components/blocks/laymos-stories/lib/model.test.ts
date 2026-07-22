@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { StoryArtifact } from 'laymos/report';
+import type { StoryArm, StoryRun, StoryTrace } from 'laymos/report';
 
 import {
   checkoutStory,
@@ -12,6 +12,7 @@ import {
   buildProgressiveStoryGraph,
   buildStoryCatalogTree,
   collapseStoryGraph,
+  storyRunFromTrace,
 } from './model';
 
 describe('buildStoryCatalogTree', () => {
@@ -129,7 +130,7 @@ describe('buildProgressiveStoryGraph', () => {
           ],
         },
       ],
-    } satisfies StoryArtifact;
+    } satisfies StoryRun;
 
     const model = buildProgressiveStoryGraph(contextualStory);
 
@@ -220,7 +221,7 @@ describe('buildProgressiveStoryGraph', () => {
           ],
         },
       ],
-    } satisfies StoryArtifact;
+    } satisfies StoryRun;
 
     const model = buildProgressiveStoryGraph(repeatedStory);
 
@@ -232,6 +233,144 @@ describe('buildProgressiveStoryGraph', () => {
     );
     expect(model.edges).not.toContainEqual(
       expect.objectContaining({ source: 'request', target: 'operation' }),
+    );
+  });
+});
+
+describe('storyRunFromTrace', () => {
+  const location = { file: 'story.ts', line: 1, column: 1 };
+  const arms: readonly StoryArm[] = [
+    {
+      kind: 'literal',
+      value: true,
+      name: 'yes',
+      description: 'The positive branch.',
+    },
+    {
+      kind: 'otherwise',
+      name: 'no',
+      description: 'The negative branch.',
+    },
+  ];
+
+  it('keeps sequential decision projection bounded while covering every arm', () => {
+    const decisionCount = 20;
+    const blocks = Object.fromEntries(
+      Array.from({ length: decisionCount }, (_, index) => [
+        `decision-${index}`,
+        {
+          kind: 'decision' as const,
+          name: `Decision ${index}`,
+          description: 'A binary decision.',
+          location,
+          arms,
+        },
+      ]),
+    );
+    const trace = {
+      status: 'valid',
+      generatedAt: 0,
+      blocks,
+      execution: Array.from({ length: decisionCount }, (_, index) => ({
+        kind: 'decision' as const,
+        blockId: `decision-${index}`,
+        selector: [],
+        arms: arms.map((arm) => ({ arm, children: [] })),
+      })),
+      definitions: {},
+    } satisfies StoryTrace;
+
+    const story = storyRunFromTrace(trace, 'Decisions', 'Many decisions');
+    const model = buildProgressiveStoryGraph(story);
+
+    expect(story.scenarios).toHaveLength(2);
+    expect(model.nodes.filter((node) => node.kind === 'block')).toHaveLength(
+      decisionCount,
+    );
+    expect(model.nodes.filter((node) => node.kind === 'arm')).toHaveLength(
+      decisionCount * arms.length,
+    );
+    expect(
+      model.nodes
+        .filter((node) => node.kind === 'arm')
+        .every((node) => node.active),
+    ).toBe(true);
+    for (let index = 0; index < decisionCount - 1; index += 1) {
+      for (const arm of arms) {
+        expect(model.edges).toContainEqual(
+          expect.objectContaining({
+            source: `decision-${index}::arm:${
+              arm.kind === 'otherwise' ? 'otherwise' : 'literal:boolean:true'
+            }`,
+            target: `decision-${index + 1}`,
+          }),
+        );
+      }
+    }
+  });
+
+  it('preserves concurrent branches without multiplying their alternatives', () => {
+    const decisionBlock = (name: string) => ({
+      kind: 'decision' as const,
+      name,
+      description: 'A binary decision.',
+      location,
+      arms,
+    });
+    const trace = {
+      status: 'valid',
+      generatedAt: 0,
+      blocks: {
+        start: { kind: 'step', name: 'Start', description: '', location },
+        left: decisionBlock('Left'),
+        right: decisionBlock('Right'),
+        finish: { kind: 'step', name: 'Finish', description: '', location },
+      },
+      execution: [
+        { kind: 'step', blockId: 'start' },
+        {
+          kind: 'all',
+          options: { concurrency: 'unbounded' },
+          branches: ['left', 'right'].map((blockId) => [
+            {
+              kind: 'decision' as const,
+              blockId,
+              selector: [],
+              arms: arms.map((arm) => ({ arm, children: [] })),
+            },
+          ]),
+        },
+        { kind: 'step', blockId: 'finish' },
+      ],
+      definitions: {},
+    } satisfies StoryTrace;
+
+    const story = storyRunFromTrace(trace, 'Parallel', 'Parallel decisions');
+    const model = buildProgressiveStoryGraph(story);
+
+    expect(story.scenarios).toHaveLength(2);
+    expect(story.scenarios[0]?.execution[1]).toHaveProperty('parallel');
+    expect(model.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'start', target: 'left' }),
+        expect.objectContaining({ source: 'start', target: 'right' }),
+        expect.objectContaining({
+          source: 'left::arm:literal:boolean:true',
+          target: 'finish',
+        }),
+        expect.objectContaining({
+          source: 'left::arm:otherwise',
+          target: 'finish',
+        }),
+        expect.objectContaining({
+          source: 'right::arm:literal:boolean:true',
+          target: 'finish',
+        }),
+        expect.objectContaining({
+          source: 'right::arm:otherwise',
+          target: 'finish',
+        }),
+      ]),
     );
   });
 });

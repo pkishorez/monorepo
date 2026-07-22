@@ -3,7 +3,7 @@ import type {
   ESchemaType,
 } from '../../../eschema/index.js';
 import { Effect, Option, Schema } from 'effect';
-import { decision, step } from 'laymos/story';
+import { decision, flow, step } from 'laymos/story';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
 import type { EntityType } from '../../../core/index.js';
@@ -155,7 +155,7 @@ export class DynamoSingleEntity<
       const { Item } = yield* this.#table.getItem({ pk, sk }, options);
 
       yield* decision(
-        'Resolve DynamoDB singleton read',
+        'Was a value already stored?',
         {
           description:
             'Distinguishes stored singleton state from the schema default used before the first write.',
@@ -166,6 +166,7 @@ export class DynamoSingleEntity<
         .when(
           'stored',
           {
+            name: 'A stored value exists',
             description:
               'Decodes the singleton value and metadata stored in DynamoDB.',
           },
@@ -174,6 +175,7 @@ export class DynamoSingleEntity<
         .when(
           'default',
           {
+            name: 'Use the configured default',
             description:
               'Returns the configured default with synthetic pre-write metadata.',
           },
@@ -192,19 +194,25 @@ export class DynamoSingleEntity<
         };
       }
 
-      const value = yield* this.#eschema
-        .decode(Item)
-        .pipe(Effect.mapError((e) => DynamodbError.getItemFailed(e)));
-
-      const meta = Schema.decodeUnknownSync(singleMetaSchema)(Item);
-
-      return {
-        value: value as ESchemaType<TSchema>,
-        meta,
-      };
+      return yield* step(
+        'Decode the stored value',
+        {
+          description:
+            'Decodes the stored singleton schema value and separates its metadata.',
+          visibility: 'detail',
+        },
+        () =>
+          this.#eschema.decode(Item).pipe(
+            Effect.mapError((e) => DynamodbError.getItemFailed(e)),
+            Effect.map((value) => ({
+              value: value as ESchemaType<TSchema>,
+              meta: Schema.decodeUnknownSync(singleMetaSchema)(Item),
+            })),
+          ),
+      );
     }).pipe((effect) =>
-      step(
-        'Get DynamoDB singleton',
+      flow(
+        'Look up the current single entity',
         {
           description:
             'Reads the singleton record and falls back to its configured default when no row exists.',
@@ -234,9 +242,18 @@ export class DynamoSingleEntity<
         _v: this.#eschema.latestVersion,
       } as unknown as ESchemaType<TSchema>;
 
-      const encoded = yield* this.#eschema
-        .encode(fullValue as any)
-        .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+      const encoded = yield* step(
+        'Encode the complete value',
+        {
+          description:
+            'Validates and encodes the complete singleton value for storage.',
+          visibility: 'detail',
+        },
+        () =>
+          this.#eschema
+            .encode(fullValue as any)
+            .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e))),
+      );
 
       const _u = yield* nextUlid;
 
@@ -266,8 +283,8 @@ export class DynamoSingleEntity<
       ]);
       return { value: fullValue, meta };
     }).pipe((effect) =>
-      step(
-        'Put DynamoDB singleton',
+      flow(
+        'Write the complete value',
         {
           description:
             'Encodes and unconditionally writes the complete singleton value with fresh metadata.',
@@ -301,7 +318,7 @@ export class DynamoSingleEntity<
     const { update: updates, condition } = params;
     return Effect.gen({ self: this }, function* () {
       yield* decision(
-        'Choose DynamoDB singleton update form',
+        'How should the update be expressed?',
         {
           description:
             'Selects whether to compile a partial singleton value or a native update-expression callback.',
@@ -312,6 +329,7 @@ export class DynamoSingleEntity<
         .when(
           'expression',
           {
+            name: 'Use update expressions',
             description:
               'Compiles the caller callback into DynamoDB update operations.',
           },
@@ -320,6 +338,7 @@ export class DynamoSingleEntity<
         .when(
           'partial',
           {
+            name: 'Use changed fields',
             description:
               'Encodes the supplied singleton fields into DynamoDB set operations.',
           },
@@ -350,12 +369,23 @@ export class DynamoSingleEntity<
         return yield* Effect.fail(DynamodbError.noItemToUpdate());
       }
 
-      const decodedValue = yield* this.#eschema
-        .decode(result.Attributes)
-        .pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
-
-      const updatedMeta = Schema.decodeUnknownSync(singleMetaSchema)(
-        result.Attributes,
+      const { decodedValue, updatedMeta } = yield* step(
+        'Decode the updated value',
+        {
+          description:
+            'Decodes the returned singleton value and its freshly written metadata.',
+          visibility: 'detail',
+        },
+        () =>
+          this.#eschema.decode(result.Attributes).pipe(
+            Effect.mapError((e) => DynamodbError.updateItemFailed(e)),
+            Effect.map((decodedValue) => ({
+              decodedValue,
+              updatedMeta: Schema.decodeUnknownSync(singleMetaSchema)(
+                result.Attributes,
+              ),
+            })),
+          ),
       );
 
       yield* this.#broadcast([
@@ -369,8 +399,8 @@ export class DynamoSingleEntity<
         meta: updatedMeta,
       };
     }).pipe((effect) =>
-      step(
-        'Update DynamoDB singleton',
+      flow(
+        'Apply the single-entity update',
         {
           description:
             'Applies a guarded native update and decodes the singleton state returned by DynamoDB.',
@@ -435,7 +465,7 @@ export class DynamoSingleEntity<
         },
       } satisfies TransactItem;
     }).pipe((effect) =>
-      step(
+      flow(
         'Build DynamoDB singleton update operation',
         {
           description:
@@ -481,7 +511,7 @@ export class DynamoSingleEntity<
           typeof update === 'function' ? update(existing.value) : update;
 
         yield* decision(
-          'Choose DynamoDB singleton read-modify-write outcome',
+          'Should the derived change be written?',
           {
             description:
               'Selects whether the derived singleton update skips persistence or writes merged state.',
@@ -492,6 +522,7 @@ export class DynamoSingleEntity<
           .when(
             'skip',
             {
+              name: 'Keep the current value',
               description:
                 'Returns current singleton state because the callback requested no write.',
             },
@@ -500,6 +531,7 @@ export class DynamoSingleEntity<
           .when(
             'write',
             {
+              name: 'Write the replacement',
               description:
                 'Merges and conditionally writes the derived singleton state.',
             },
@@ -515,9 +547,18 @@ export class DynamoSingleEntity<
           _v: this.#eschema.latestVersion,
         } as ESchemaType<TSchema>;
 
-        const encoded = yield* this.#eschema
-          .encode(fullValue as any)
-          .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+        const encoded = yield* step(
+          'Encode the optimistic replacement',
+          {
+            description:
+              'Validates and encodes the merged singleton value before its guarded write.',
+            visibility: 'detail',
+          },
+          () =>
+            this.#eschema
+              .encode(fullValue as any)
+              .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e))),
+        );
 
         const _u = yield* nextUlid;
 
@@ -558,7 +599,7 @@ export class DynamoSingleEntity<
         );
 
         yield* decision(
-          'Resolve DynamoDB singleton write conflict',
+          'Did the guarded write succeed?',
           {
             description:
               'Distinguishes a successful optimistic write from a retryable or exhausted conflict.',
@@ -568,12 +609,16 @@ export class DynamoSingleEntity<
         )
           .when(
             'written',
-            { description: 'Continues with the successfully stored value.' },
+            {
+              name: 'The write succeeded',
+              description: 'Continues with the successfully stored value.',
+            },
             () => Effect.void,
           )
           .when(
             'retry',
             {
+              name: 'Read again and retry',
               description:
                 'Re-reads singleton state and derives the update again after a concurrent write.',
             },
@@ -582,6 +627,7 @@ export class DynamoSingleEntity<
           .when(
             'exhausted',
             {
+              name: 'The retry limit was reached',
               description:
                 'Fails after the configured number of optimistic retries is exhausted.',
             },
@@ -603,8 +649,8 @@ export class DynamoSingleEntity<
         return { value: fullValue, meta };
       }
     }).pipe((effect) =>
-      step(
-        'Get and update DynamoDB singleton',
+      flow(
+        'Read, derive, and write the replacement',
         {
           description:
             'Reads singleton state, derives a replacement, and retries its optimistic write after concurrent changes.',
@@ -648,9 +694,18 @@ export class DynamoSingleEntity<
         _v: this.#eschema.latestVersion,
       } as ESchemaType<TSchema>;
 
-      const encoded = yield* this.#eschema
-        .encode(fullValue as any)
-        .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+      const encoded = yield* step(
+        'Encode deferred DynamoDB singleton replacement',
+        {
+          description:
+            'Validates and encodes the derived singleton value for its transactional put.',
+          visibility: 'detail',
+        },
+        () =>
+          this.#eschema
+            .encode(fullValue as any)
+            .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e))),
+      );
 
       const exprResult = config?.lastWriteWins
         ? undefined
@@ -687,7 +742,7 @@ export class DynamoSingleEntity<
         },
       } satisfies TransactItem;
     }).pipe((effect) =>
-      step(
+      flow(
         'Build DynamoDB singleton get-and-update operation',
         {
           description:
@@ -705,8 +760,8 @@ export class DynamoSingleEntity<
     DynamodbError,
     DynamoDB
   > {
-    return step(
-      'Reset DynamoDB singleton',
+    return flow(
+      'Restore the configured default',
       {
         description:
           'Writes the configured default value back as the singleton current state.',

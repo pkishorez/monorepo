@@ -1,6 +1,9 @@
 export {
+  all,
   decision,
-  functionBlock,
+  flow,
+  forEach,
+  omit,
   step,
   story,
   storyGroup,

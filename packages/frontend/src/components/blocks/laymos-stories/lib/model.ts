@@ -3,7 +3,7 @@ import type {
   ExecutionItem,
   ExecutionPath,
   StoryArm,
-  StoryArtifact,
+  StoryRun,
   StoryBlock,
   StoryCatalog,
   StoryCatalogGroup,
@@ -11,6 +11,8 @@ import type {
   StoryId,
   StoryScenario,
   StorySelectedArm,
+  StoryTrace,
+  StoryTraceItem,
 } from 'laymos/report';
 
 export type VisitItem = Extract<ExecutionItem, { readonly blockId: BlockId }>;
@@ -62,7 +64,7 @@ export interface StoryEntry {
   readonly name: string;
   readonly description: string;
   readonly groupPath: StoryGroupPath;
-  readonly artifact?: StoryArtifact;
+  readonly artifact?: StoryRun;
   readonly scenarios: readonly ScenarioEntry[];
 }
 
@@ -178,7 +180,7 @@ function progressiveItemSpan(
   item: ExecutionItem,
   address: string,
   parentBlockId: BlockId | undefined,
-  story: StoryArtifact,
+  story: StoryRun,
   nodeId: NodeIdFor,
   preserveVisits: boolean,
   nodes: Map<string, StoryGraphNode>,
@@ -272,7 +274,7 @@ function progressivePathSpan(
   path: ExecutionPath,
   prefix: string,
   parentBlockId: BlockId | undefined,
-  story: StoryArtifact,
+  story: StoryRun,
   nodeId: NodeIdFor,
   preserveVisits: boolean,
   nodes: Map<string, StoryGraphNode>,
@@ -298,7 +300,7 @@ function progressivePathSpan(
 }
 
 function progressiveModel(
-  story: StoryArtifact,
+  story: StoryRun,
   scenarios: readonly StoryScenario[],
   nodeId: NodeIdFor,
   preserveVisits: boolean,
@@ -384,7 +386,7 @@ function blockParentContexts(
 
 /** Flattens Story containment while separating shared Blocks by direct caller. */
 export function buildProgressiveStoryGraph(
-  story: StoryArtifact,
+  story: StoryRun,
 ): ProgressiveStoryGraphModel {
   const parentContexts = blockParentContexts(story.scenarios);
   return withoutCycleEdges(
@@ -402,7 +404,7 @@ export function buildProgressiveStoryGraph(
 
 /** Flattens one Scenario into execution flow while preserving every Visit. */
 export function buildProgressiveScenarioGraph(
-  story: StoryArtifact,
+  story: StoryRun,
   scenario: StoryScenario,
 ): ProgressiveStoryGraphModel {
   const model = progressiveModel(story, [scenario], (address) => address, true);
@@ -415,6 +417,130 @@ export function buildProgressiveScenarioGraph(
         ? { ...node, expectedFailure: true }
         : node,
     ),
+  };
+}
+
+/** Adapts a structural trace to the existing graph renderer without Scenario evidence. */
+export function storyRunFromTrace(
+  trace: StoryTrace,
+  name: string,
+  description: string,
+): StoryRun {
+  const blocks = { ...trace.blocks };
+  const omissionId = (item: Extract<StoryTraceItem, { kind: 'omission' }>) =>
+    `omission:${item.location.file}:${item.location.line}:${item.location.column}`;
+  const visit = (
+    blockId: string,
+    children: ExecutionPath = [],
+    selectedArm?: StorySelectedArm,
+  ): ExecutionItem => ({
+    blockId,
+    outcome: 'succeeded',
+    startOffsetMillis: 0,
+    durationMillis: 0,
+    ...(selectedArm === undefined ? {} : { selectedArm }),
+    children,
+  });
+  const combineAlternatives = <A, B, C>(
+    left: readonly A[],
+    right: readonly B[],
+    combine: (left: A, right: B) => C,
+  ): C[] => {
+    if (left.length === 0 || right.length === 0) return [];
+    const count = Math.max(left.length, right.length);
+    return Array.from({ length: count }, (_, index) =>
+      combine(left[index % left.length]!, right[index % right.length]!),
+    );
+  };
+  const append = (
+    prefixes: readonly ExecutionPath[],
+    suffixes: readonly ExecutionPath[],
+  ): ExecutionPath[] =>
+    combineAlternatives(prefixes, suffixes, (prefix, suffix) => [
+      ...prefix,
+      ...suffix,
+    ]);
+  const expandPath = (path: readonly StoryTraceItem[]): ExecutionPath[] => {
+    let paths: ExecutionPath[] = [[]];
+    for (const item of path) paths = append(paths, expandItem(item));
+    return paths;
+  };
+  const expandItem = (item: StoryTraceItem): ExecutionPath[] => {
+    if (item.kind === 'step' || item.kind === 'flow-reference') {
+      return [[visit(item.blockId)]];
+    }
+    if (item.kind === 'flow') {
+      return expandPath(item.children).map((children) => [
+        visit(item.blockId, children),
+      ]);
+    }
+    if (item.kind === 'omission') {
+      const blockId = omissionId(item);
+      blocks[blockId] = {
+        kind: 'step',
+        name: item.label ?? 'Omitted operation',
+        description: 'Trace Mode deliberately does not explore this operation.',
+        visibility: 'detail',
+        location: item.location,
+      };
+      return [[visit(blockId)]];
+    }
+    if (item.kind === 'decision') {
+      const selectors = expandPath(item.selector);
+      const arms = item.arms.flatMap(({ arm, children }) =>
+        expandPath(children).map((armChildren) => ({ arm, armChildren })),
+      );
+      return combineAlternatives(
+        selectors,
+        arms,
+        (selector, { arm, armChildren }) => [
+          ...selector,
+          visit(
+            item.blockId,
+            armChildren,
+            arm.kind === 'otherwise'
+              ? { kind: 'otherwise' }
+              : { kind: 'literal', value: arm.value },
+          ),
+        ],
+      );
+    }
+    if (item.kind === 'for-each') return expandPath(item.body);
+    const branchChoices = item.branches.map(expandPath);
+    let combinations: ExecutionPath[][] = [[]];
+    for (const choices of branchChoices) {
+      combinations = combineAlternatives(
+        combinations,
+        choices,
+        (combination, choice) => [...combination, choice],
+      );
+    }
+    const concurrent =
+      item.options.concurrency === 'unbounded' ||
+      item.options.concurrency === 'inherit' ||
+      (typeof item.options.concurrency === 'number' &&
+        item.options.concurrency > 1);
+    return combinations.map((branches): ExecutionPath => {
+      if (!concurrent) return branches.flat();
+      if (branches.length === 1) return branches[0] ?? [];
+      return [{ parallel: branches }];
+    });
+  };
+  const executions = expandPath(trace.execution);
+  return {
+    schemaVersion: 4,
+    generatedAt: trace.generatedAt,
+    name,
+    description,
+    blocks,
+    scenarios: executions.map((execution, index) => ({
+      name: `Trace path ${index + 1}`,
+      description: 'One structural route through the Story Trace.',
+      location: { file: '<trace>', line: 0, column: 0 },
+      outcome: 'succeeded',
+      execution,
+      failures: [],
+    })),
   };
 }
 
@@ -520,7 +646,7 @@ export function collapseStoryGraph(
 /** Produces stable navigation entries; Scenario order is declaration order. */
 export function buildStoryEntries(
   catalog: StoryCatalog,
-  stories: Readonly<Record<StoryId, StoryArtifact>>,
+  stories: Readonly<Record<StoryId, StoryRun>>,
 ): StoryEntry[] {
   return catalog.stories
     .map((catalogStory) => {
@@ -549,7 +675,7 @@ export function buildStoryEntries(
 /** Builds the alphabetized Group hierarchy used by both catalog surfaces. */
 export function buildStoryCatalogTree(
   catalog: StoryCatalog,
-  artifacts: Readonly<Record<StoryId, StoryArtifact>>,
+  artifacts: Readonly<Record<StoryId, StoryRun>>,
 ): StoryCatalogTree {
   const stories = buildStoryEntries(catalog, artifacts);
   const storyById = new Map(stories.map((story) => [story.storyId, story]));

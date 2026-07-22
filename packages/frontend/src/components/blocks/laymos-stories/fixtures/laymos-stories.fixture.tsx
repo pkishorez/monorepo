@@ -1,5 +1,5 @@
 import { useFixtureInput } from 'react-cosmos/client';
-import type { LaymosStoriesReport, StoryCatalog } from 'laymos/report';
+import type { StoriesRun, StoryCatalog, StoryCollection } from 'laymos/report';
 
 import { LaymosStories } from '../components/laymos-stories';
 import type { LaymosStoriesRunState, LaymosStoriesSelection } from '../types';
@@ -19,7 +19,7 @@ function Controlled({
   runState = null,
   initialSelection = null,
 }: {
-  readonly report?: LaymosStoriesReport;
+  readonly report?: StoriesRun;
   readonly catalog?: StoryCatalog;
   readonly runState?: LaymosStoriesRunState;
   readonly initialSelection?: LaymosStoriesSelection;
@@ -28,11 +28,37 @@ function Controlled({
     'selection',
     initialSelection,
   );
+  const fixtureRuns: StoriesRun = storiesFixtureReport;
+  const collection: StoryCollection = {
+    catalog,
+    traces: Object.fromEntries(
+      catalog.stories.flatMap(({ storyId }) => {
+        const story = fixtureRuns.stories[storyId];
+        return story
+          ? [
+              [
+                storyId,
+                {
+                  status: 'valid' as const,
+                  generatedAt: story.generatedAt,
+                  blocks: story.blocks,
+                  execution: Object.keys(story.blocks).map((blockId) => ({
+                    kind: 'step' as const,
+                    blockId,
+                  })),
+                  definitions: {},
+                },
+              ] as const,
+            ]
+          : [];
+      }),
+    ),
+  };
   return (
     <div className="h-[880px] w-full min-w-[1040px] p-4">
       <LaymosStories
-        catalog={catalog}
-        report={report}
+        collection={collection}
+        runs={report}
         runState={runState}
         selection={selection}
         onSelectionChange={setSelection}

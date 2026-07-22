@@ -13,12 +13,13 @@ import {
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type MouseEvent,
 } from 'react';
-import type { StoryArtifact, StoryScenario } from 'laymos/report';
+import type { StoryRun, StoryScenario } from 'laymos/report';
 
 import { Switch } from '#components/ui/switch';
 import { cn } from '#lib/utils';
@@ -31,6 +32,7 @@ import {
   collapseStoryGraph,
   type ProgressiveStoryGraphModel,
 } from '../lib/model';
+import { viewportWithPreservedAnchor } from '../lib/viewport';
 import { progressiveNodeTypes, type ProgressiveNodeData } from './flow-nodes';
 
 function relatedNodeIds(model: ProgressiveStoryGraphModel, nodeId: string) {
@@ -48,15 +50,24 @@ function ProgressiveCanvasInner({
   title,
   description,
   emptyMessage,
+  showDetails,
+  onShowDetailsChange,
 }: {
   readonly model: ProgressiveStoryGraphModel;
   readonly title: string;
   readonly description: string;
   readonly emptyMessage: string;
+  readonly showDetails?: boolean;
+  readonly onShowDetailsChange?: (show: boolean) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const centerSelectedId = useId();
-  const { getZoom, setCenter } = useReactFlow();
+  const { flowToScreenPosition, getViewport, getZoom, setCenter, setViewport } =
+    useReactFlow();
+  const pendingViewportAnchor = useRef<{
+    readonly nodeId: string;
+    readonly screenPosition: { readonly x: number; readonly y: number };
+  } | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [centerSelected, setCenterSelected] = useState(false);
@@ -78,7 +89,25 @@ function ProgressiveCanvasInner({
     () => layoutStoryGraph(visibleModel, { compact: true }),
     [visibleModel],
   );
-  const fitted = useTopAnchoredViewport(containerRef, baseLayout.nodes);
+  const fitted = useTopAnchoredViewport(containerRef, baseLayout.nodes, model);
+  useLayoutEffect(() => {
+    const anchor = pendingViewportAnchor.current;
+    if (anchor === null) return;
+    pendingViewportAnchor.current = null;
+    const node = baseLayout.nodes.find(({ id }) => id === anchor.nodeId);
+    if (node === undefined) return;
+    const nextScreenPosition = flowToScreenPosition({
+      x: node.position.x + (node.width ?? 0) / 2,
+      y: node.position.y + (node.height ?? 0) / 2,
+    });
+    void setViewport(
+      viewportWithPreservedAnchor(
+        getViewport(),
+        anchor.screenPosition,
+        nextScreenPosition,
+      ),
+    );
+  }, [baseLayout.nodes, flowToScreenPosition, getViewport, setViewport]);
   const activeNodeId = selectedNodeId ?? hoveredNodeId;
   const activeRelated = useMemo(
     () =>
@@ -230,6 +259,13 @@ function ProgressiveCanvasInner({
             new Set([node.id]),
           ).hiddenCountByNode.get(node.id);
           if (!expanding && !hiddenCount) return;
+          pendingViewportAnchor.current = {
+            nodeId: node.id,
+            screenPosition: flowToScreenPosition({
+              x: node.position.x + (node.width ?? 0) / 2,
+              y: node.position.y + (node.height ?? 0) / 2,
+            }),
+          };
           setSelectedNodeId(null);
           setHoveredNodeId(null);
           setCollapsedNodeIds((current) => {
@@ -253,6 +289,17 @@ function ProgressiveCanvasInner({
         </Panel>
         <Panel position="top-right">
           <div className="nodrag nopan grid gap-2 rounded-md border border-border bg-background/95 px-2.5 py-2 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+            {onShowDetailsChange && (
+              <label className="flex cursor-pointer items-center justify-between gap-4">
+                Show details
+                <Switch
+                  size="sm"
+                  checked={showDetails}
+                  onCheckedChange={onShowDetailsChange}
+                  aria-label="Show detail blocks"
+                />
+              </label>
+            )}
             <label className="flex cursor-pointer items-center justify-between gap-4">
               Description popover
               <Switch
@@ -287,8 +334,16 @@ function ProgressiveCanvasInner({
   );
 }
 
-export function StoryCanvas({ story }: { readonly story: StoryArtifact }) {
-  const model = useMemo(() => buildProgressiveStoryGraph(story), [story]);
+export function StoryCanvas({ story }: { readonly story: StoryRun }) {
+  const [showDetails, setShowDetails] = useState(true);
+  const visibleStory = useMemo(
+    () => (showDetails ? story : primaryStory(story)),
+    [showDetails, story],
+  );
+  const model = useMemo(
+    () => buildProgressiveStoryGraph(visibleStory),
+    [visibleStory],
+  );
   return (
     <ReactFlowProvider>
       <ProgressiveCanvasInner
@@ -296,16 +351,59 @@ export function StoryCanvas({ story }: { readonly story: StoryArtifact }) {
         title={story.name}
         description={story.description}
         emptyMessage="No observed blocks in this story"
+        showDetails={showDetails}
+        onShowDetailsChange={setShowDetails}
       />
     </ReactFlowProvider>
   );
+}
+
+export function primaryStory(story: StoryRun): StoryRun {
+  const blocks = Object.fromEntries(
+    Object.entries(story.blocks).flatMap(([blockId, block]) => {
+      if (block.visibility === 'detail') return [];
+      return [
+        [
+          blockId,
+          block.kind === 'decision'
+            ? {
+                ...block,
+                arms: block.arms.filter((arm) => arm.visibility !== 'detail'),
+              }
+            : block,
+        ],
+      ];
+    }),
+  );
+  const filterPath = (path: StoryScenario['execution']) =>
+    path.flatMap((item): StoryScenario['execution'] => {
+      if ('parallel' in item) {
+        const parallel = item.parallel
+          .map(filterPath)
+          .filter((branch) => branch.length > 0);
+        return parallel.length === 0 ? [] : [{ parallel }];
+      }
+      if (story.blocks[item.blockId]?.visibility === 'detail') {
+        return filterPath(item.children);
+      }
+      if (!(item.blockId in blocks)) return [];
+      return [{ ...item, children: filterPath(item.children) }];
+    });
+  return {
+    ...story,
+    blocks,
+    scenarios: story.scenarios.map((scenario) => ({
+      ...scenario,
+      execution: filterPath(scenario.execution),
+    })),
+  };
 }
 
 export function ScenarioCanvas({
   story,
   scenario,
 }: {
-  readonly story: StoryArtifact;
+  readonly story: StoryRun;
   readonly scenario: StoryScenario;
 }) {
   const model = useMemo(

@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -17,11 +17,10 @@ type Input = {
 };
 const key = { organizationId: 'org-1', userId: 'target' };
 
-const deleteUser = functionBlock(
-  'Delete a user',
+const deleteUser = flow(
+  'Delete entity',
   {
-    description:
-      'Deletes one keyed user through the public entity deletion flow.',
+    description: 'Deletes one keyed entity through the public deletion method.',
     attributes: (input: Input) => ({
       mode: input.options?.forceDelete ? 'physical' : 'tombstone',
     }),
@@ -30,7 +29,7 @@ const deleteUser = functionBlock(
 );
 
 dynamodbEntityStories
-  .story('Delete an entity', {
+  .story('Delete entity', {
     description:
       'Shows the soft, physical, and missing-item paths of deleting one entity.',
   })

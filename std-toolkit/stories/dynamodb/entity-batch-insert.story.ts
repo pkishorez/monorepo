@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -13,11 +13,11 @@ import {
 const harness = makeDynamoStoryHarness('entity-batch-insert');
 type Input = Parameters<typeof harness.users.batchInsert>[0];
 
-const batchInsertUsers = functionBlock(
-  'Batch insert users',
+const batchInsertUsers = flow(
+  'Batch insert entities',
   {
     description:
-      'Writes one supplied collection through the public entity batch-insert flow.',
+      'Prepares and writes a collection through the public entity batch-insert method.',
     attributes: (input: Input) => ({ items: input.length }),
   },
   (input: Input) => harness.users.batchInsert(input),

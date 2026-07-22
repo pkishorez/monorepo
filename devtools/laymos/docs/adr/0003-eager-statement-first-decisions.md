@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0007
+---
+
 # Eager, statement-first decisions
 
 Laymos decisions use a fluent builder, but unlike a conventional terminal

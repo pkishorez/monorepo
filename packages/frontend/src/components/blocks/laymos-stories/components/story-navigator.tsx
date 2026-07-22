@@ -9,7 +9,7 @@ import {
   Play,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
@@ -20,10 +20,16 @@ import type {
   StoryGroupEntry,
 } from '../lib/model';
 import { storyGroupKey } from '../lib/model';
+import {
+  initialSidebarExpandedGroups,
+  sidebarExpandedGroups,
+  sidebarGroupAncestry,
+} from '../lib/sidebar-expansion';
 import type {
   LaymosStoriesProps,
   LaymosStoriesRunState,
   LaymosStoriesSelection,
+  LaymosStoriesSidebarExpansion,
 } from '../types';
 
 const scenarioIcon = {
@@ -40,6 +46,7 @@ export function StoryNavigator({
   onSelectionChange,
   onRunAll,
   runState,
+  expansionMode,
 }: {
   readonly tree: StoryCatalogTree;
   readonly storyStates: NonNullable<LaymosStoriesProps['storyStates']>;
@@ -47,8 +54,14 @@ export function StoryNavigator({
   readonly onSelectionChange: (selection: LaymosStoriesSelection) => void;
   readonly onRunAll?: () => void;
   readonly runState: LaymosStoriesRunState;
+  readonly expansionMode: LaymosStoriesSidebarExpansion;
 }) {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() =>
+    selection === null ? initialSidebarExpandedGroups(tree.groups) : new Set(),
+  );
+  const [collapsedStoryId, setCollapsedStoryId] = useState<string | null>(null);
+  const selectionSyncKey = JSON.stringify([expansionMode, selection]);
+  const lastSelectionSyncKey = useRef(selectionSyncKey);
   const running = runState !== null;
   const loadedCount = tree.stories.filter(({ storyId, artifact }) => {
     const execution = storyStates[storyId];
@@ -60,6 +73,9 @@ export function StoryNavigator({
   }).length;
 
   useEffect(() => {
+    if (lastSelectionSyncKey.current === selectionSyncKey) return;
+    lastSelectionSyncKey.current = selectionSyncKey;
+    setCollapsedStoryId(null);
     const groupPath =
       selection?.kind === 'group'
         ? selection.groupPath
@@ -67,24 +83,50 @@ export function StoryNavigator({
           ? tree.stories.find(({ storyId }) => storyId === selection.storyId)
               ?.groupPath
           : undefined;
-    if (groupPath === undefined) return;
-    setExpanded((current) => {
-      const next = new Set(current);
-      for (let length = 1; length <= groupPath.length; length++) {
-        next.add(storyGroupKey(groupPath.slice(0, length)));
-      }
-      return next;
-    });
-  }, [selection, tree.stories]);
+    if (groupPath === undefined) {
+      setExpanded(new Set());
+      return;
+    }
+    const group =
+      selection?.kind === 'group'
+        ? findGroup(tree.groups, groupPath)
+        : undefined;
+    setExpanded(
+      group
+        ? sidebarExpandedGroups(group, expansionMode === 'recursive')
+        : sidebarGroupAncestry(groupPath),
+    );
+  }, [expansionMode, selection, selectionSyncKey, tree.groups, tree.stories]);
 
   const toggleGroup = (group: StoryGroupEntry): void => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      const key = storyGroupKey(group.path);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setExpanded((current) =>
+      current.has(storyGroupKey(group.path))
+        ? sidebarGroupAncestry(group.path, false)
+        : sidebarExpandedGroups(group, expansionMode === 'recursive'),
+    );
+  };
+
+  const selectGroup = (group: StoryGroupEntry): void => {
+    const selected =
+      selection?.kind === 'group' &&
+      storyGroupKey(selection.groupPath) === storyGroupKey(group.path);
+    if (selected) {
+      toggleGroup(group);
+      return;
+    }
+    onSelectionChange({ kind: 'group', groupPath: group.path });
+  };
+
+  const selectStory = (entry: StoryEntry): void => {
+    const selected =
+      selection?.kind === 'story' && selection.storyId === entry.storyId;
+    if (selected) {
+      setCollapsedStoryId((current) =>
+        current === entry.storyId ? null : entry.storyId,
+      );
+      return;
+    }
+    onSelectionChange({ kind: 'story', storyId: entry.storyId });
   };
 
   return (
@@ -95,7 +137,11 @@ export function StoryNavigator({
           'w-full border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted',
           selection === null && 'bg-muted/80',
         )}
-        onClick={() => onSelectionChange(null)}
+        onClick={() => {
+          setExpanded(new Set());
+          setCollapsedStoryId(null);
+          onSelectionChange(null);
+        }}
         aria-current={selection === null ? 'page' : undefined}
       >
         <span className="flex items-center gap-2">
@@ -115,6 +161,10 @@ export function StoryNavigator({
             expanded={expanded}
             storyStates={storyStates}
             selection={selection}
+            expansionMode={expansionMode}
+            collapsedStoryId={collapsedStoryId}
+            onSelectGroup={selectGroup}
+            onSelectStory={selectStory}
             onSelectionChange={onSelectionChange}
             onToggle={toggleGroup}
           />
@@ -131,6 +181,9 @@ export function StoryNavigator({
                 depth={0}
                 storyStates={storyStates}
                 selection={selection}
+                expansionMode={expansionMode}
+                collapsedStoryId={collapsedStoryId}
+                onSelect={selectStory}
                 onSelectionChange={onSelectionChange}
               />
             ))}
@@ -144,6 +197,9 @@ export function StoryNavigator({
               depth={0}
               storyStates={storyStates}
               selection={selection}
+              expansionMode={expansionMode}
+              collapsedStoryId={collapsedStoryId}
+              onSelect={selectStory}
               onSelectionChange={onSelectionChange}
             />
           ))}
@@ -176,6 +232,10 @@ function GroupRow({
   expanded,
   storyStates,
   selection,
+  expansionMode,
+  collapsedStoryId,
+  onSelectGroup,
+  onSelectStory,
   onSelectionChange,
   onToggle,
 }: {
@@ -184,6 +244,10 @@ function GroupRow({
   readonly expanded: ReadonlySet<string>;
   readonly storyStates: NonNullable<LaymosStoriesProps['storyStates']>;
   readonly selection: LaymosStoriesSelection;
+  readonly expansionMode: LaymosStoriesSidebarExpansion;
+  readonly collapsedStoryId: string | null;
+  readonly onSelectGroup: (group: StoryGroupEntry) => void;
+  readonly onSelectStory: (entry: StoryEntry) => void;
   readonly onSelectionChange: (selection: LaymosStoriesSelection) => void;
   readonly onToggle: (group: StoryGroupEntry) => void;
 }) {
@@ -215,9 +279,7 @@ function GroupRow({
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pr-2 text-left"
-          onClick={() =>
-            onSelectionChange({ kind: 'group', groupPath: group.path })
-          }
+          onClick={() => onSelectGroup(group)}
         >
           <Folder className="size-3.5 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 flex-1 truncate text-xs font-semibold">
@@ -238,6 +300,10 @@ function GroupRow({
               expanded={expanded}
               storyStates={storyStates}
               selection={selection}
+              expansionMode={expansionMode}
+              collapsedStoryId={collapsedStoryId}
+              onSelectGroup={onSelectGroup}
+              onSelectStory={onSelectStory}
               onSelectionChange={onSelectionChange}
               onToggle={onToggle}
             />
@@ -249,6 +315,9 @@ function GroupRow({
               depth={depth + 1}
               storyStates={storyStates}
               selection={selection}
+              expansionMode={expansionMode}
+              collapsedStoryId={collapsedStoryId}
+              onSelect={onSelectStory}
               onSelectionChange={onSelectionChange}
             />
           ))}
@@ -263,17 +332,32 @@ function StoryRow({
   depth,
   storyStates,
   selection,
+  expansionMode,
+  collapsedStoryId,
+  onSelect,
   onSelectionChange,
 }: {
   readonly entry: StoryEntry;
   readonly depth: number;
   readonly storyStates: NonNullable<LaymosStoriesProps['storyStates']>;
   readonly selection: LaymosStoriesSelection;
+  readonly expansionMode: LaymosStoriesSidebarExpansion;
+  readonly collapsedStoryId: string | null;
+  readonly onSelect: (entry: StoryEntry) => void;
   readonly onSelectionChange: (selection: LaymosStoriesSelection) => void;
 }) {
   const execution = storyStates[entry.storyId];
   const selected =
     selection?.kind === 'story' && selection.storyId === entry.storyId;
+  const open =
+    collapsedStoryId !== entry.storyId &&
+    (selection?.kind === 'story' || selection?.kind === 'scenario') &&
+    selection.storyId === entry.storyId
+      ? true
+      : expansionMode === 'recursive' &&
+        selection?.kind === 'group' &&
+        storyGroupKey(entry.groupPath.slice(0, selection.groupPath.length)) ===
+          storyGroupKey(selection.groupPath);
   return (
     <div style={{ paddingLeft: `${depth * 12 + 12}px` }}>
       <button
@@ -282,11 +366,19 @@ function StoryRow({
           'w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-muted',
           selected && 'bg-primary/10 text-primary',
         )}
-        onClick={() =>
-          onSelectionChange({ kind: 'story', storyId: entry.storyId })
-        }
+        onClick={() => onSelect(entry)}
+        aria-expanded={entry.scenarios.length > 0 ? open : undefined}
       >
         <span className="flex items-center gap-1.5">
+          {entry.scenarios.length > 0 && (
+            <ChevronRight
+              className={cn(
+                'size-3 shrink-0 transition-transform',
+                open && 'rotate-90',
+              )}
+              aria-hidden
+            />
+          )}
           {execution?.status === 'loading' ? (
             <LoaderCircle
               className="size-3 animate-spin text-primary"
@@ -300,15 +392,21 @@ function StoryRow({
           ) : execution?.status === 'error' ? (
             <XCircle className="size-3 text-destructive" aria-hidden />
           ) : null}
-          <span className="block min-w-0 truncate text-xs font-semibold">
+          <span className="block min-w-0 flex-1 truncate text-xs font-semibold">
             {entry.name}
+          </span>
+          <span
+            className="text-[9px] text-muted-foreground"
+            aria-label={`${entry.scenarios.length} scenarios`}
+          >
+            {entry.scenarios.length}
           </span>
         </span>
         <span className="block truncate font-mono text-[9px] text-muted-foreground">
           {entry.storyId}
         </span>
       </button>
-      {entry.artifact && (
+      {entry.artifact && open && (
         <div className="ml-3 border-l border-border pl-2">
           {entry.scenarios.map(({ scenarioIndex, scenario }) => {
             const scenarioSelected =
@@ -351,4 +449,16 @@ function StoryRow({
       )}
     </div>
   );
+}
+
+function findGroup(
+  groups: readonly StoryGroupEntry[],
+  path: readonly string[],
+): StoryGroupEntry | undefined {
+  for (const group of groups) {
+    if (storyGroupKey(group.path) === storyGroupKey(path)) return group;
+    const nested = findGroup(group.groups, path);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
 }

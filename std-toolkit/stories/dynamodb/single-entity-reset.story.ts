@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
 import { dynamodbSingleEntityStories } from './support/story-groups.js';
 
@@ -11,8 +11,8 @@ import {
 } from './support/dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('single-entity-reset');
-const resetSettings = functionBlock(
-  'Reset application settings',
+const resetSettings = flow(
+  'Reset single entity',
   {
     description:
       'Writes the configured default through the public singleton reset flow.',
@@ -21,7 +21,7 @@ const resetSettings = functionBlock(
 );
 
 dynamodbSingleEntityStories
-  .story('Reset', {
+  .story('Reset single entity', {
     description:
       'Shows resetting persisted singleton state to its configured default.',
   })

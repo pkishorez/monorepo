@@ -14,12 +14,14 @@ import { ConfigLoadError } from './engine/errors.js';
 import type { LaymosError } from './engine/errors.js';
 import type { AnalysisWarning, LaymosReport } from './report/index.js';
 import type {
-  StoryArtifact,
+  StoryRun,
   StoryCatalog,
+  StoryCollection,
   StoryGroupPath,
 } from './report/stories.js';
 import {
   discoverStories as discoverStoryCatalog,
+  getStories as getStoryCollection,
   StoryDiscoveryError,
   StoryRunnerError,
   executeStories,
@@ -59,7 +61,7 @@ export function analyzeProject(
 
 export interface StoryRunResult {
   readonly status: 'passed' | 'failed';
-  readonly artifact: StoryArtifact;
+  readonly run: StoryRun;
   readonly failures: readonly StoryFailure[];
 }
 
@@ -71,6 +73,12 @@ export function discoverStories(
   return discoverStoryCatalog(baseDir);
 }
 
+export function getStories(
+  baseDir: string,
+): Effect.Effect<StoryCollection, StoryDiscoveryError> {
+  return getStoryCollection(baseDir);
+}
+
 export function runStory(
   baseDir: string,
   storyId: string,
@@ -78,8 +86,8 @@ export function runStory(
 ): Effect.Effect<StoryRunResult, StoryRunnerError> {
   return executeStories(baseDir, [storyId], options).pipe(
     Effect.flatMap((result) => {
-      const artifact = result.report.stories[storyId];
-      if (artifact === undefined) {
+      const run = result.runs.stories[storyId];
+      if (run === undefined) {
         const cause = new Error(`Story "${storyId}" did not run`);
         return Effect.fail(
           new StoryRunnerError({
@@ -91,7 +99,7 @@ export function runStory(
       }
       return Effect.succeed({
         status: result.status,
-        artifact,
+        run,
         failures: result.failures,
       });
     }),
