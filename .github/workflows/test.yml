@@ -1,23 +1,10 @@
-name: std-toolkit
+name: Monorepo Tests
 
 on:
   pull_request:
-    paths:
-      - '.github/workflows/std-toolkit.yml'
-      - 'std-toolkit/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
   push:
     branches:
       - main
-      - feat/laymos
-    paths:
-      - '.github/workflows/std-toolkit.yml'
-      - 'std-toolkit/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
   workflow_dispatch: {}
 
 concurrency:
@@ -51,11 +38,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build workspace dependencies
-        run: pnpm --filter 'std-toolkit^...' build
+      - name: Build
+        run: pnpm build
 
       - name: Wait for DynamoDB Local
         run: timeout 30s bash -c 'until curl --silent --output /dev/null http://localhost:8090; do sleep 1; done'
 
-      - name: Test std-toolkit
-        run: pnpm --filter std-toolkit test
+      - name: Test
+        run: pnpm test
