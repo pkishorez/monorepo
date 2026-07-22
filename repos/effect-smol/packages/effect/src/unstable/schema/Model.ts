@@ -185,8 +185,16 @@ export const fields: <A extends VariantSchema.Struct<any>>(self: A) => A[typeof 
 export const Override: <A>(value: A) => A & Brand<"Override"> = VariantSchema.Override
 
 /**
- * Variant field type for a database-generated column that is present in select,
- * update, and read JSON variants but omitted from insert variants.
+ * Variant field type for a database-generated column that is present in read
+ * variants only.
+ *
+ * **Details**
+ *
+ * The field is included in `select` and `json`, and omitted from `insert`,
+ * `update`, `jsonCreate`, and `jsonUpdate`.
+ *
+ * @see {@link Field} for generated columns that need a custom variant set, such
+ * as primary keys used in update payloads.
  *
  * @category generated
  * @since 4.0.0
@@ -199,7 +207,16 @@ export interface GeneratedByDb<S extends Schema.Top> extends
 {}
 
 /**
- * A field that represents a database-generated column available for reads only.
+ * Creates a variant field for a database-generated column available in read
+ * variants only.
+ *
+ * **Details**
+ *
+ * The field is included in `select` and `json`, and omitted from `insert`,
+ * `update`, `jsonCreate`, and `jsonUpdate`.
+ *
+ * @see {@link Field} for generated columns that need a custom variant set, such
+ * as primary keys used in update payloads.
  *
  * @category generated
  * @since 4.0.0
@@ -281,7 +298,7 @@ export const Sensitive = <S extends Schema.Top>(schema: S): Sensitive<S> =>
  * @category optional
  * @since 4.0.0
  */
-export interface optionalOption<S extends Schema.Top>
+export interface optionalOption<S extends Schema.Constraint>
   extends Schema.decodeTo<Schema.Option<Schema.toType<S>>, Schema.optionalKey<Schema.NullOr<S>>>
 {}
 
@@ -292,7 +309,7 @@ export interface optionalOption<S extends Schema.Top>
  * @category optional
  * @since 4.0.0
  */
-export const optionalOption = <S extends Schema.Top>(schema: S): optionalOption<S> =>
+export const optionalOption = <S extends Schema.Constraint>(schema: S): optionalOption<S> =>
   Schema.optionalKey(Schema.NullOr(schema)).pipe(
     Schema.decodeTo(
       Schema.Option(Schema.toType(schema)),
