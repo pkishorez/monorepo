@@ -51,9 +51,9 @@ import * as Tool from "./Tool.ts"
  * @since 4.0.0
  */
 export function toCodecOpenAI<T, E, RD, RE>(
-  schema: Schema.Codec<T, E, RD, RE>
+  schema: Schema.ConstraintCodec<T, E, RD, RE>
 ): {
-  codec: Schema.Codec<T, unknown, RD, RE>
+  codec: Schema.ConstraintCodec<T, unknown, RD, RE>
   jsonSchema: JsonSchema.JsonSchema
 } {
   const to = schema.ast
@@ -291,8 +291,8 @@ function recurOpenAI(ast: SchemaAST.AST): SchemaAST.AST {
     case "Suspend": {
       const cached = cache.get(ast)
       if (cached) return cached
-      const { annotations, filters } = get(ast)
-      const out = new SchemaAST.Suspend(() => recurOpenAI(ast.thunk()), annotations, filters)
+      const { annotations } = get(ast)
+      const out = new SchemaAST.Suspend(() => recurOpenAI(ast.thunk()), annotations)
       cache.set(ast, out)
       return out
     }
