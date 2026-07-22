@@ -45,11 +45,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # Re-link workspace bins now that their dist/ exists;
-      # the initial install ran before any build, so those bins were skipped.
-      - name: Link workspace bins
-        run: pnpm install --frozen-lockfile
-
       - name: Lint
         run: pnpm lint
 

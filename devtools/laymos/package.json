@@ -32,9 +32,10 @@
     }
   },
   "bin": {
-    "laymos": "dist/cli/cli.js"
+    "laymos": "bin/laymos.mjs"
   },
   "files": [
+    "bin",
     "dist",
     "README.md",
     "LICENSE"
