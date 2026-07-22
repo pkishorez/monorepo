@@ -5,7 +5,8 @@ export {
   forEach,
   omit,
   step,
+  terminal,
   story,
   storyGroup,
 } from './effect.js';
-export type { Attributes } from './effect.js';
+export type { Attributes, TerminalCompletion, TerminalMeta } from './effect.js';

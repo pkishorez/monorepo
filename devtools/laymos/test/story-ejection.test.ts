@@ -16,7 +16,11 @@ const temporaryDirectories: string[] = [];
 const fixtureRoot = join(import.meta.dirname, 'fixtures', 'story-ejection');
 const beforeFixtureDirectory = join(fixtureRoot, 'before');
 const afterFixtureDirectory = join(fixtureRoot, 'after');
+const invalidFixtureDirectory = join(fixtureRoot, 'invalid');
 const fixtureNames = readdirSync(beforeFixtureDirectory).sort();
+const invalidFixtureNames = readdirSync(invalidFixtureDirectory)
+  .filter((name) => name.endsWith('.ts'))
+  .sort();
 
 afterEach(async () => {
   await Promise.all(
@@ -42,38 +46,25 @@ describe('Story ejection transformer', () => {
     expect(transformStorySource(output, fixtureName)).toBe(output);
   });
 
-  it('rejects escaped bindings, re-exports, dynamic imports, and incomplete Decisions', () => {
-    expect(() =>
-      transformStorySource(
-        `import { flow } from 'laymos/story'; const escaped = flow;`,
-        'escaped.ts',
-      ),
-    ).toThrow('escapes a direct call');
-    expect(() =>
-      transformStorySource(
-        `export { flow as narrate } from 'laymos/story';`,
-        're-export.ts',
-      ),
-    ).toThrow('re-exports are not supported');
-    expect(() =>
-      transformStorySource(
-        `const story = import('laymos/story');`,
-        'dynamic.ts',
-      ),
-    ).toThrow('dynamic imports are not supported');
-    expect(() =>
-      transformStorySource(
-        `import { decision } from 'laymos/story'; const value = decision('Choice', {}, input).when('a', {}, () => effect);`,
-        'incomplete.ts',
-      ),
-    ).toThrow('Decision chains must end');
-    expect(() =>
-      transformStorySource(
-        `import { decision } from 'laymos/story'; const value = decision('Choice', {}, input).when(key, {}, () => effect).exhaustive();`,
-        'dynamic-key.ts',
-      ),
-    ).toThrow('keys must be string, finite number, or boolean literals');
-  });
+  it.each(invalidFixtureNames)(
+    'rejects invalid fixture %s',
+    async (fixtureName) => {
+      const [source, expectedMessage] = await Promise.all([
+        readFile(join(invalidFixtureDirectory, fixtureName), 'utf8'),
+        readFile(
+          join(
+            invalidFixtureDirectory,
+            fixtureName.replace(/\.ts$/, '.error.txt'),
+          ),
+          'utf8',
+        ),
+      ]);
+
+      expect(() => transformStorySource(source, fixtureName)).toThrow(
+        expectedMessage.trim(),
+      );
+    },
+  );
 
   it('recognizes every Laymos Story extension without matching Storybook', () => {
     const source = `import { story } from 'laymos/story';`;

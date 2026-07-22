@@ -58,6 +58,7 @@ interface LaymosStoriesProps {
   readonly onRunGroup?: (groupPath: StoryGroupPath) => void;
   readonly onRunAll?: () => void;
   readonly sidebarExpansion?: 'single' | 'recursive';
+  readonly showNavigator?: boolean;
   readonly className?: string;
   readonly ariaLabel?: string;
 }
@@ -76,6 +77,8 @@ collapsed. Scenario lists are collapsed by default; selecting a Story opens
 only that Story's Scenarios and shows their count on its row. Selecting the
 same open Group or Story again collapses it. Set
 `sidebarExpansion="recursive"` to open the selected Group's complete subtree.
+The navigator is included by default. Set `showNavigator={false}` when a parent
+composition supplies its own navigation surface.
 Stories and their Scenarios are nested beneath each Group:
 
 ```text
@@ -139,12 +142,30 @@ disclosed tree:
 - runtime evidence never competes with the implementation explanation.
 
 The Graph view preserves the spatial node-and-edge projection described below.
+Every Flow is inlined as a scoped background. The outermost Flow is transparent;
+nested Flows use an intentionally faint neutral tint so their boundaries remain
+visible in either color scheme without competing with their contents. All
+operation nodes remain above every scope background during hover and selection.
+Scopes containing only one visible operation are omitted. Right-clicking a Flow
+background delegates collapse to its entry operation, so collapse and expansion
+always use ordinary node behavior. A scope disappears while its entry is the only
+visible operation.
+
+Expanded Flow backgrounds do not participate in execution edges. An edge enters
+the first executable node inside a called Flow directly, and that node receives
+a neutral start outline. Nested Flow-only prefixes are skipped until the first
+executable node is reached. Collapse remains attached to executable nodes; Flow
+wrappers disappear when only the collapsed entry remains visible.
+
+The `showFunctionScopes` canvas preference removes every Flow wrapper, title,
+and start marker. The remaining graph is a plain executable control flow; edges
+through atomic Flow calls are joined to their next executable node.
+Canvas controls start minimized and expand only from the top-right controls
+button.
 
 For each non-skipped Scenario, the block flattens its Execution Path into one
-execution flow — a parent Block flows into its first contained children, and a
-contained sequence flows onward to whatever ran next — replaces each Block
-Visit with its Block ID and direct caller, and unions the result with every
-other Scenario:
+scoped execution graph, replaces each Block Visit with its Block ID and direct
+caller, and unions the result with every other Scenario:
 
 - identical Blocks under the same direct caller merge;
 - shared Blocks called by different parents remain separate contextual nodes;
@@ -154,18 +175,19 @@ other Scenario:
 - failed and interrupted Scenarios contribute identically to successful ones;
 - divergence is evidence, never a warning or violation.
 
-Containment is not drawn as persistent edges or nested boxes. Hovering a Block
-previews its incident edges and discloses its directly contained children;
+Containment is shown through nested Flow backgrounds. Hovering a Block previews
+its incident edges;
 clicking a Block keeps its connections active and dims every unrelated node and
 edge. Hovering a connected Block within that selection temporarily emphasizes
 the shared edge. A shared Block observed under several parents keeps every
 observed disclosure relationship.
 
-Edges have three visual states: default edges provide quiet graph context,
-highlighted edges identify the active connection, and dimmed edges sit outside
-the active scope. When a connected Block is hovered inside a selection, the
-selected Block's other edges return to default while the shared edge is
-highlighted; edges outside the selection remain dimmed.
+Edges have three visual states: neutral gray edges provide quiet graph context,
+blue highlighted edges identify the active connection, and dimmed edges sit
+outside the active scope. The final edge into a Terminal adopts its completion
+color. When a connected Block is hovered inside a selection, the selected
+Block's other edges return to default while the shared edge is highlighted;
+edges outside the selection remain dimmed.
 
 The details card avoids repeating Decision Arms already shown on the node. It
 adds incoming, outgoing, and contained-Block counts plus the contained names,
@@ -173,6 +195,14 @@ and the entire card toggles between its expanded and minimized states.
 
 A Decision shows one chip per declared Arm. Observed Arms are highlighted and
 unobserved Arms render muted, without implying incomplete coverage.
+
+A Terminal closes only its local sequential branch. It uses one strong endpoint
+card and no outgoing handle: emerald for success, rose for a documented error,
+and slate when completion is unspecified. The icon and endpoint shape carry the
+meaning without a repeated status badge; a documented error name appears as
+secondary content. Narrative rows stop their rail with the same colored
+end-cap. Runtime mismatch and Scenario failure styling remains separate and
+uses destructive red.
 
 ## Scenario view
 
@@ -183,7 +213,7 @@ Graph. It preserves every Visit rather than folding by Block identity:
 - repeated and recursive Blocks remain duplicated;
 - array order provides sequential flow;
 - parallel branches render as fork/join flow;
-- containment is disclosed on hover, not drawn as nesting;
+- Flow containment uses the same inline scoped backgrounds as Story Graph;
 - the selected Decision Arm is visible; a Decision Visit without one ended
   before choosing and renders as such;
 - failed and interrupted partial execution remains visible.

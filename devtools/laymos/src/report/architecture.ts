@@ -108,7 +108,6 @@ export type AnalysisWarning =
     };
 
 export interface LaymosReport {
-  readonly schemaVersion: 2;
   readonly architecture: ReportArchitecture;
   readonly files: Readonly<Record<string, ReportFile>>;
   readonly violations: readonly Violation[];

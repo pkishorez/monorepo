@@ -24,4 +24,6 @@ active, modules outside its highlighted node set do not respond to hover.
 Each node shows separate architecture error and warning counts. Module rule
 violations are errors; participation in an observed dependency cycle is a
 warning. Selecting a module opens a summary card with its description, counts,
-connections, configured rules, and cycle peers.
+connections, configured rules, and cycle peers. The card starts minimized;
+clicking anywhere on the expanded card minimizes it again. Set
+`defaultMinimise={false}` to start with it expanded.

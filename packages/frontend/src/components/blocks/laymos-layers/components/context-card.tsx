@@ -246,20 +246,21 @@ export function ContextCard({
     <aside className="nodrag nopan nowheel pointer-events-auto relative w-72 space-y-3 rounded-lg border border-border bg-background/95 p-3 pr-9 text-foreground shadow-md backdrop-blur">
       <button
         type="button"
-        className="absolute right-2 top-2 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="absolute inset-0 z-10 cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         onClick={() => setMinimised(true)}
         aria-label="Hide architecture summary"
-      >
-        <ChevronUp className="size-3.5" />
-      </button>
-      {graph ? (
-        <GraphDetails graph={graph} model={model} active={active} />
-      ) : layer ? (
-        <LayerDetails layer={layer} model={model} />
-      ) : (
-        <Overview model={model} />
-      )}
-      <EdgeLegend model={model} />
+      />
+      <ChevronUp className="pointer-events-none absolute right-3 top-3 size-3.5 text-muted-foreground" />
+      <div className="pointer-events-none contents">
+        {graph ? (
+          <GraphDetails graph={graph} model={model} active={active} />
+        ) : layer ? (
+          <LayerDetails layer={layer} model={model} />
+        ) : (
+          <Overview model={model} />
+        )}
+        <EdgeLegend model={model} />
+      </div>
     </aside>
   );
 }

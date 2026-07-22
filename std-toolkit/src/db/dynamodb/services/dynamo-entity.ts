@@ -1,6 +1,12 @@
 import type { AnyEntityESchema, ESchemaType } from '../../../eschema/index.js';
 import { Effect, Option, Schema, Stream, Struct } from 'effect';
-import { decision, flow, forEach as storyForEach, step } from 'laymos/story';
+import {
+  decision,
+  flow,
+  forEach as storyForEach,
+  step,
+  terminal,
+} from 'laymos/story';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
 import { Broadcaster, nextUlid } from '../../../core/index.js';
@@ -367,7 +373,16 @@ export class DynamoEntity<
             name: 'No entity was found',
             description: 'Returns null because DynamoDB has no matching item.',
           },
-          () => Effect.void,
+          () =>
+            terminal(
+              'Return no entity',
+              {
+                description:
+                  'Completes this lookup branch with no matching entity.',
+                completion: { kind: 'success' },
+              },
+              Effect.void,
+            ),
         )
         .exhaustive();
 
@@ -1058,7 +1073,16 @@ export class DynamoEntity<
               description:
                 'Returns the current entity because the callback requested no write.',
             },
-            () => Effect.void,
+            () =>
+              terminal(
+                'Return the unchanged entity',
+                {
+                  description:
+                    'Completes this update branch without writing because the derived change is empty.',
+                  completion: { kind: 'success' },
+                },
+                Effect.void,
+              ),
           )
           .when(
             'write',
@@ -1146,7 +1170,16 @@ export class DynamoEntity<
               name: 'The write succeeded',
               description: 'Continues with the successfully stored entity.',
             },
-            () => Effect.void,
+            () =>
+              terminal(
+                'Return the updated entity',
+                {
+                  description:
+                    'Completes this update branch with the successfully stored entity.',
+                  completion: { kind: 'success' },
+                },
+                Effect.void,
+              ),
           )
           .when(
             'retry',
@@ -1155,7 +1188,15 @@ export class DynamoEntity<
               description:
                 'Re-reads entity state and derives the update again after a concurrent write.',
             },
-            () => Effect.void,
+            () =>
+              step(
+                'Restart the update attempt',
+                {
+                  description:
+                    'Continues the enclosing flow by reading the latest entity state.',
+                },
+                Effect.void,
+              ),
           )
           .when(
             'exhausted',
@@ -1164,14 +1205,23 @@ export class DynamoEntity<
               description:
                 'Fails after the configured number of optimistic retries is exhausted.',
             },
-            () => Effect.void,
+            () =>
+              terminal(
+                'Fail the guarded update',
+                {
+                  description:
+                    'Completes this update branch because every optimistic write attempt conflicted.',
+                  completion: {
+                    kind: 'error',
+                    error: 'ConditionCheckFailed',
+                  },
+                },
+                Effect.fail(DynamodbError.conditionCheckFailed()),
+              ),
           )
           .exhaustive();
 
-        if (conflicted) {
-          if (attempt < retries) continue;
-          return yield* Effect.fail(DynamodbError.conditionCheckFailed());
-        }
+        if (conflicted) continue;
 
         const meta: MetaType = {
           _e: this.#eschema.name,

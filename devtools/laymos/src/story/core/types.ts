@@ -14,6 +14,14 @@ export interface BlockMeta<Args extends readonly unknown[] = readonly []> {
   readonly visibility?: Visibility;
 }
 
+export type TerminalCompletion =
+  | { readonly kind: 'success' }
+  | { readonly kind: 'error'; readonly error?: string };
+
+export interface TerminalMeta extends BlockMeta {
+  readonly completion?: TerminalCompletion;
+}
+
 export interface ArmMeta {
   readonly name?: string;
   readonly description: string;

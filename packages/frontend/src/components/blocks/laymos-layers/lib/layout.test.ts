@@ -113,6 +113,41 @@ describe('laymos layers layout', () => {
     ).toMatchObject({ related: false, dimmed: true });
   });
 
+  it('shows only defined connections when observed connections are hidden', () => {
+    const active = getActiveModel(model, { kind: 'layer', name: 'routes' });
+    const layout = computeLaymosFlowLayout(model, active, null, null, false);
+
+    expect(layout.edges.some((edge) => edge.id.startsWith('observed:'))).toBe(
+      false,
+    );
+    expect(
+      layout.edges.find(
+        (edge) => edge.source === 'layer:routes' && edge.target === 'layer:ui',
+      ),
+    ).toMatchObject({
+      label: undefined,
+      style: {
+        stroke: 'var(--primary)',
+        strokeWidth: 2.25,
+        opacity: 0.95,
+      },
+    });
+    expect(
+      layout.nodes.find((node) => node.id === 'layer:controllers')?.data,
+    ).toMatchObject({ related: false, dimmed: true });
+  });
+
+  it('marks entry and sink layers for distinct node styling', () => {
+    const layout = computeLaymosFlowLayout(model, getActiveModel(model, null));
+
+    expect(
+      layout.nodes.find((node) => node.id === 'layer:routes')?.data,
+    ).toMatchObject({ isRoot: true, isSink: false, graphCount: 1 });
+    expect(
+      layout.nodes.find((node) => node.id === 'layer:domain')?.data,
+    ).toMatchObject({ isRoot: false, isSink: true, graphCount: 2 });
+  });
+
   it('uses the nearest directional handles', () => {
     const active = getActiveModel(model, { kind: 'layer', name: 'routes' });
     const layout = computeLaymosFlowLayout(model, active);

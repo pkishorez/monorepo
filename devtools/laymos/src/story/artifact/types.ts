@@ -17,6 +17,10 @@ interface StoryBlockBase {
 
 export type StoryDecisionValue = string | number | boolean;
 
+export type StoryTerminalCompletion =
+  | { readonly kind: 'success' }
+  | { readonly kind: 'error'; readonly error?: string };
+
 export type StoryArm =
   | {
       readonly kind: 'literal';
@@ -34,6 +38,10 @@ export type StoryArm =
 
 export type StoryBlock =
   | (StoryBlockBase & { readonly kind: 'flow' | 'step' })
+  | (StoryBlockBase & {
+      readonly kind: 'terminal';
+      readonly completion?: StoryTerminalCompletion;
+    })
   | (StoryBlockBase & {
       readonly kind: 'decision';
       readonly arms: readonly StoryArm[];
@@ -72,6 +80,7 @@ export type ExecutionItem =
       readonly durationMillis: number;
       readonly selectedArm?: StorySelectedArm;
       readonly attributes?: Readonly<Record<string, unknown>>;
+      readonly terminalMismatch?: boolean;
       readonly children: ExecutionPath;
     }
   | { readonly parallel: readonly ExecutionPath[] };
@@ -88,7 +97,6 @@ export interface StoryScenario {
 }
 
 export interface StoryRun {
-  readonly schemaVersion: 4;
   readonly generatedAt: number;
   readonly name: string;
   readonly description: string;
@@ -112,6 +120,7 @@ export type StoryTraceItem =
     }
   | { readonly kind: 'flow-reference'; readonly blockId: BlockId }
   | { readonly kind: 'step'; readonly blockId: BlockId }
+  | { readonly kind: 'terminal'; readonly blockId: BlockId }
   | {
       readonly kind: 'decision';
       readonly blockId: BlockId;

@@ -26,6 +26,7 @@ export type {
   StoryTraceOptions,
   StoryTracePath,
   StoryTraceResult,
+  StoryTerminalCompletion,
   StoryVisibility,
 } from '../story/artifact/types.js';
 

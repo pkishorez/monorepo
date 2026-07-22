@@ -53,7 +53,6 @@ describe('emitReport', () => {
   it('emits one normalized, serializable domain report', () => {
     const report = Effect.runSync(emitReport(resolved, evaluation));
     expect(report).toEqual({
-      schemaVersion: 2,
       architecture: {
         sourceRoots: ['src'],
         layers: {

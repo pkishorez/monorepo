@@ -3,7 +3,7 @@ import type {
   ESchemaType,
 } from '../../../eschema/index.js';
 import { Effect, Option, Schema } from 'effect';
-import { decision, flow, step } from 'laymos/story';
+import { decision, flow, step, terminal } from 'laymos/story';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
 import type { EntityType } from '../../../core/index.js';
@@ -179,7 +179,16 @@ export class DynamoSingleEntity<
             description:
               'Returns the configured default with synthetic pre-write metadata.',
           },
-          () => Effect.void,
+          () =>
+            terminal(
+              'Return the configured default',
+              {
+                description:
+                  'Completes this lookup branch with default singleton state.',
+                completion: { kind: 'success' },
+              },
+              Effect.void,
+            ),
         )
         .exhaustive();
 
@@ -526,7 +535,16 @@ export class DynamoSingleEntity<
               description:
                 'Returns current singleton state because the callback requested no write.',
             },
-            () => Effect.void,
+            () =>
+              terminal(
+                'Return the unchanged value',
+                {
+                  description:
+                    'Completes this update branch without writing because the derived change is empty.',
+                  completion: { kind: 'success' },
+                },
+                Effect.void,
+              ),
           )
           .when(
             'write',
@@ -613,7 +631,16 @@ export class DynamoSingleEntity<
               name: 'The write succeeded',
               description: 'Continues with the successfully stored value.',
             },
-            () => Effect.void,
+            () =>
+              terminal(
+                'Return the updated value',
+                {
+                  description:
+                    'Completes this update branch with the successfully stored singleton.',
+                  completion: { kind: 'success' },
+                },
+                Effect.void,
+              ),
           )
           .when(
             'retry',
@@ -622,7 +649,15 @@ export class DynamoSingleEntity<
               description:
                 'Re-reads singleton state and derives the update again after a concurrent write.',
             },
-            () => Effect.void,
+            () =>
+              step(
+                'Restart the update attempt',
+                {
+                  description:
+                    'Continues the enclosing flow by reading the latest singleton state.',
+                },
+                Effect.void,
+              ),
           )
           .when(
             'exhausted',
@@ -631,14 +666,23 @@ export class DynamoSingleEntity<
               description:
                 'Fails after the configured number of optimistic retries is exhausted.',
             },
-            () => Effect.void,
+            () =>
+              terminal(
+                'Fail the guarded update',
+                {
+                  description:
+                    'Completes this update branch because every optimistic write attempt conflicted.',
+                  completion: {
+                    kind: 'error',
+                    error: 'ConditionCheckFailed',
+                  },
+                },
+                Effect.fail(DynamodbError.conditionCheckFailed()),
+              ),
           )
           .exhaustive();
 
-        if (conflicted) {
-          if (attempt < retries) continue;
-          return yield* Effect.fail(DynamodbError.conditionCheckFailed());
-        }
+        if (conflicted) continue;
 
         yield* this.#broadcast([
           {

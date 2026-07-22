@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect, Schema } from 'effect';
-import { decision, flow } from 'laymos/story';
+import { decision, flow, terminal } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -79,10 +79,21 @@ const updateUser = flow<[Input], any, any, any>(
           description: 'Updates an entity already using the current schema.',
         },
         () =>
-          harness.users.update(
-            key,
-            (input as Extract<Input, { kind: 'standard' }>).params,
-          ),
+          Effect.gen(function* () {
+            const result = yield* harness.users.update(
+              key,
+              (input as Extract<Input, { kind: 'standard' }>).params,
+            );
+            return yield* terminal(
+              'Finish the current-schema update',
+              {
+                description:
+                  'Ends this branch with the update operation selected for current-schema data.',
+                completion: { kind: 'success' },
+              },
+              Effect.succeed(result),
+            );
+          }),
       )
       .when(
         'evolving',
@@ -91,10 +102,21 @@ const updateUser = flow<[Input], any, any, any>(
           description: 'Updates stale entity data through an evolved schema.',
         },
         () =>
-          currentProfiles.update(
-            { profileId: 'target' },
-            (input as Extract<Input, { kind: 'evolving' }>).params,
-          ),
+          Effect.gen(function* () {
+            const result = yield* currentProfiles.update(
+              { profileId: 'target' },
+              (input as Extract<Input, { kind: 'evolving' }>).params,
+            );
+            return yield* terminal(
+              'Finish the evolving-schema update',
+              {
+                description:
+                  'Ends this branch with the update operation selected for stale schema data.',
+                completion: { kind: 'success' },
+              },
+              Effect.succeed(result),
+            );
+          }),
       )
       .exhaustive(),
 );

@@ -91,7 +91,6 @@ story('Single load', { description: 'Loads once during discovery' })
     const artifact = result.run;
 
     expect(result.status).toBe('passed');
-    expect(artifact.schemaVersion).toBe(4);
     expect(artifact.scenarios).toHaveLength(2);
     expect(artifact.scenarios.map((scenario) => scenario.outcome)).toEqual([
       'succeeded',
@@ -126,6 +125,55 @@ story('Single load', { description: 'Loads once during discovery' })
 
     expect(result.status).toBe('passed');
     expect(blockNames(result.run)).toEqual(['transitive execution']);
+  });
+
+  it('traces local Terminals and validates completed Scenario evidence', async () => {
+    const baseDir = await makeBaseDir();
+    const storyId = 'terminals.story.ts';
+    await writeFile(join(baseDir, storyId), terminalStorySource());
+
+    const collection = await Effect.runPromise(getStories(baseDir));
+    const trace = collection.traces[storyId];
+    expect(trace?.status).toBe('valid');
+    if (trace?.status !== 'valid') return;
+    expect(Object.values(trace.blocks)).toContainEqual(
+      expect.objectContaining({
+        kind: 'terminal',
+        name: 'trace terminal',
+      }),
+    );
+    expect(JSON.stringify(trace.execution)).toContain('terminal');
+
+    const result = await Effect.runPromise(runStory(baseDir, storyId));
+
+    expect(result.run.scenarios.map(({ outcome }) => outcome)).toEqual([
+      'succeeded',
+      'failed',
+      'succeeded',
+      'failed',
+      'succeeded',
+    ]);
+    expect(result.run.scenarios[1]?.failures).toEqual([
+      {
+        phase: 'execution',
+        message:
+          'Terminal "finish root branch" was followed by Block "after decision" in the same sequential branch',
+      },
+    ]);
+    expect(JSON.stringify(result.run.scenarios[1]?.execution)).toContain(
+      '"terminalMismatch":true',
+    );
+    expect(result.run.scenarios[3]?.failures).toEqual([
+      {
+        phase: 'execution',
+        message:
+          'Terminal "mislabel failure" declares success completion but its Visit was failed',
+      },
+    ]);
+    expect(JSON.stringify(result.run.scenarios[3]?.execution)).toContain(
+      '"terminalMismatch":true',
+    );
+    expect(result.run.scenarios[4]?.failures).toEqual([]);
   });
 
   it('runs Effect Scenarios and interrupts on timeout', async () => {
@@ -427,6 +475,103 @@ story('checkout', { description: 'Routes checkout by fraud outcome' })
   )
   .scenario('rejected', { description: 'Stops a rejected order' }, (scenario) =>
     scenario.prepare(() => Effect.succeed('rejected' as const)).verify((result) => Effect.sync(() => assert.equal(result, 'stopped'))),
+  );
+`;
+}
+
+function terminalStorySource(): string {
+  return `
+import { strict as assert } from 'node:assert';
+import { Effect } from 'effect';
+import { all, flow, step, story, terminal } from 'laymos/story';
+
+const nested = flow(
+  'nested lookup',
+  { description: 'Contains a local successful Terminal.' },
+  () => terminal(
+    'finish nested flow',
+    {
+      description: 'Ends only the nested lookup branch.',
+      completion: { kind: 'success' },
+    },
+    Effect.succeed('nested' as const),
+  ),
+);
+
+const execute = (mode: 'nested' | 'root-mismatch' | 'error' | 'completion-mismatch' | 'parallel') => {
+  if (mode === 'nested') {
+    return nested().pipe(
+      Effect.andThen(step('after decision', { description: 'Continues after the nested Flow.' }, Effect.void)),
+      Effect.as('nested' as const),
+    );
+  }
+  if (mode === 'root-mismatch') {
+    return terminal(
+      'finish root branch',
+      { description: 'Claims this root branch ends.', completion: { kind: 'success' } },
+      Effect.succeed('root-mismatch' as const),
+    ).pipe(
+      Effect.andThen(step('after decision', { description: 'Incorrectly continues the root branch.' }, Effect.void)),
+      Effect.as('root-mismatch' as const),
+    );
+  }
+  if (mode === 'error') {
+    return terminal(
+      'reject request',
+      {
+        description: 'Rejects the request at this root branch.',
+        completion: { kind: 'error', error: 'RequestRejected' },
+      },
+      Effect.fail(new Error('rejected')),
+    );
+  }
+  if (mode === 'completion-mismatch') {
+    return terminal(
+      'mislabel failure',
+      { description: 'Incorrectly documents a successful ending.', completion: { kind: 'success' } },
+      Effect.fail(new Error('mislabeled')),
+    );
+  }
+  if (mode === 'parallel') {
+    return all([
+      terminal(
+        'finish parallel branch',
+        { description: 'Ends one parallel branch.', completion: { kind: 'success' } },
+        Effect.succeed('terminal'),
+      ),
+      step(
+        'parallel sibling',
+        { description: 'Runs independently beside the Terminal branch.' },
+        Effect.succeed('sibling'),
+      ),
+    ]).pipe(
+      Effect.andThen(step('after decision', { description: 'Continues after parallel branches.' }, Effect.void)),
+      Effect.as('parallel' as const),
+    );
+  }
+  return terminal(
+    'trace terminal',
+    { description: 'Makes the structural trace expose Terminal narration.' },
+    Effect.succeed('trace' as const),
+  );
+};
+
+story('Terminal routes', { description: 'Exercises local Terminal documentation.' })
+  .execute(execute)
+  .scenario('nested Flow', { description: 'Allows the nested Flow caller to continue.' }, (scenario) =>
+    scenario.prepare(() => Effect.succeed('nested' as const)).verify((value) => Effect.sync(() => assert.equal(value, 'nested'))),
+  )
+  .scenario('root continuation mismatch', { description: 'Detects continuation after a root Terminal.' }, (scenario) =>
+    scenario.prepare(() => Effect.succeed('root-mismatch' as const)).verify((value) => Effect.sync(() => assert.equal(value, 'root-mismatch'))),
+  )
+  .scenario('matching error', { description: 'Accepts the documented error completion.' }, (scenario) =>
+    scenario.prepare(() => Effect.succeed('error' as const)).verifyError((error) => Effect.sync(() => assert.equal(error.message, 'rejected'))),
+  )
+  .scenario('completion mismatch', { description: 'Detects a failed Visit declared successful.' }, (scenario) =>
+    scenario.prepare(() => Effect.succeed('completion-mismatch' as const)).verifyError((error) => Effect.sync(() => assert.equal(error.message, 'mislabeled'))),
+  )
+  .scenario('parallel sibling', { description: 'Allows siblings and the outer branch to continue.' }, (scenario) =>
+    scenario.prepare(() => Effect.succeed('parallel' as const)).verify((value) => Effect.sync(() => assert.equal(value, 'parallel'))),
   );
 `;
 }

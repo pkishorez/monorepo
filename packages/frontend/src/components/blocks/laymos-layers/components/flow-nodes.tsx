@@ -69,6 +69,9 @@ export type GraphHeaderNodeData = {
 
 export type LayerNodeData = {
   name: string;
+  isRoot: boolean;
+  isSink: boolean;
+  graphCount: number;
   fileCount: number;
   moduleCoveredFiles: number;
   moduleTotalFiles: number;
@@ -177,6 +180,7 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
   );
   const highlighted =
     interaction.hovered || interaction.focused || interaction.selected;
+  const shared = data.graphCount > 1;
   return (
     <div
       className={cn(
@@ -198,17 +202,57 @@ function LayerNode({ data }: NodeProps<Node<LayerNodeData>>) {
       <button
         type="button"
         className={cn(
-          'nodrag nopan relative flex h-full w-full flex-col justify-center rounded-lg border border-border bg-card px-4 text-left text-card-foreground shadow-sm transition-all',
+          'nodrag nopan relative flex h-full w-full flex-col justify-center overflow-hidden rounded-lg border border-border bg-card px-4 text-left text-card-foreground shadow-sm transition-all',
+          data.isRoot &&
+            'border-sky-500/35 bg-sky-500/[0.04] dark:border-sky-400/30 dark:bg-sky-400/[0.07]',
+          data.isSink &&
+            'border-emerald-500/35 bg-emerald-500/[0.04] dark:border-emerald-400/30 dark:bg-emerald-400/[0.07]',
           highlighted && 'border-primary ring-2 ring-primary/40 shadow-md',
         )}
-        aria-label={`${data.name} layer, ${data.fileCount} files, ${coverage}% module coverage${data.violationCount > 0 ? `, ${data.violationCount} layer violations` : ''}`}
+        aria-label={`${data.name} layer${data.isRoot ? ', root layer' : ''}${data.isSink ? ', sink layer' : ''}${shared ? `, shared across ${data.graphCount} graphs` : ''}, ${data.fileCount} files, ${coverage}% module coverage${data.violationCount > 0 ? `, ${data.violationCount} layer violations` : ''}`}
         {...events}
       >
-        <span className="pointer-events-none truncate text-sm font-semibold">
-          {data.name}
+        {shared && (
+          <span
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in oklab, var(--foreground) 8%, transparent) 7px 8px)',
+            }}
+            aria-hidden
+          />
+        )}
+        <span className="pointer-events-none flex items-center justify-between gap-2">
+          <span className="truncate text-sm font-semibold">{data.name}</span>
+          <span className="flex shrink-0 gap-1">
+            {data.isRoot && (
+              <span className="rounded-full border border-sky-500/30 bg-sky-500/[0.06] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-700 dark:border-sky-400/25 dark:bg-sky-400/10 dark:text-sky-300">
+                Root
+              </span>
+            )}
+            {data.isSink && (
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/[0.06] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300">
+                Sink
+              </span>
+            )}
+          </span>
         </span>
-        <span className="pointer-events-none flex gap-1 text-[10px] tabular-nums text-muted-foreground">
+        <span
+          className={cn(
+            'pointer-events-none flex gap-1 text-[10px] tabular-nums text-muted-foreground',
+            data.isRoot && 'text-sky-700/80 dark:text-sky-200/70',
+            data.isSink && 'text-emerald-700/80 dark:text-emerald-200/70',
+          )}
+        >
           {data.fileCount} {data.fileCount === 1 ? 'file' : 'files'}
+          {shared && (
+            <>
+              <span aria-hidden>·</span>
+              <span>
+                {data.graphCount} {data.graphCount === 1 ? 'graph' : 'graphs'}
+              </span>
+            </>
+          )}
           {uncoveredFiles > 0 && (
             <>
               <span aria-hidden>·</span>

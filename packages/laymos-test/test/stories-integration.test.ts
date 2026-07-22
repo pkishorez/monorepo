@@ -21,7 +21,6 @@ describe('Laymos Stories consumer integration', () => {
       failureStoryId,
     ]);
     for (const artifact of Object.values(generation.runs.stories)) {
-      expect(artifact.schemaVersion).toBe(4);
       expect(artifact.generatedAt).toBeTypeOf('number');
     }
     expect(existsSync(join(baseDir, '.laymos'))).toBe(false);

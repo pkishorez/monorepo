@@ -13,7 +13,232 @@ import {
   buildStoryCatalogTree,
   collapseStoryGraph,
   storyRunFromTrace,
+  withoutFlowNodes,
 } from './model';
+import { layoutStoryGraph } from './layout';
+
+const nestedFlowStory = {
+  generatedAt: 0,
+  name: 'Nested calls',
+  description: 'Separates each Flow into its own graph.',
+  blocks: {
+    rootFlow: {
+      kind: 'flow',
+      name: 'Root flow',
+      description: 'Coordinates the operation.',
+      location: { file: 'story.ts', line: 1, column: 1 },
+      visibility: 'primary',
+    },
+    first: {
+      kind: 'step',
+      name: 'First step',
+      description: '',
+      location: { file: 'story.ts', line: 2, column: 1 },
+      visibility: 'primary',
+    },
+    nestedFlow: {
+      kind: 'flow',
+      name: 'Nested flow',
+      description: 'Performs nested work.',
+      location: { file: 'story.ts', line: 3, column: 1 },
+      visibility: 'primary',
+    },
+    inside: {
+      kind: 'step',
+      name: 'Inside nested flow',
+      description: '',
+      location: { file: 'story.ts', line: 4, column: 1 },
+      visibility: 'primary',
+    },
+    after: {
+      kind: 'step',
+      name: 'After nested flow',
+      description: '',
+      location: { file: 'story.ts', line: 5, column: 1 },
+      visibility: 'primary',
+    },
+  },
+  scenarios: [
+    {
+      name: 'Nested scenario',
+      description: '',
+      location: { file: 'story.ts', line: 6, column: 1 },
+      outcome: 'succeeded',
+      failures: [],
+      execution: [
+        {
+          blockId: 'rootFlow',
+          outcome: 'succeeded',
+          startOffsetMillis: 0,
+          durationMillis: 5,
+          children: [
+            {
+              blockId: 'first',
+              outcome: 'succeeded',
+              startOffsetMillis: 1,
+              durationMillis: 1,
+              children: [],
+            },
+            {
+              blockId: 'nestedFlow',
+              outcome: 'succeeded',
+              startOffsetMillis: 2,
+              durationMillis: 2,
+              children: [
+                {
+                  blockId: 'inside',
+                  outcome: 'succeeded',
+                  startOffsetMillis: 2,
+                  durationMillis: 1,
+                  children: [],
+                },
+              ],
+            },
+            {
+              blockId: 'after',
+              outcome: 'succeeded',
+              startOffsetMillis: 4,
+              durationMillis: 1,
+              children: [],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+} satisfies StoryRun;
+
+describe('inline Flow scopes', () => {
+  it('inlines every Flow in Story and Scenario graphs', () => {
+    const storyModel = buildProgressiveStoryGraph(nestedFlowStory);
+    const scenario = nestedFlowStory.scenarios[0]!;
+    const scenarioModel = buildProgressiveScenarioGraph(
+      nestedFlowStory,
+      scenario,
+    );
+
+    expect(storyModel.nodes.map((node) => node.id)).toEqual([
+      'rootFlow',
+      'first',
+      'nestedFlow',
+      'inside',
+      'after',
+    ]);
+    expect(storyModel.childrenByNode).toMatchObject({
+      rootFlow: ['first', 'nestedFlow', 'after'],
+      nestedFlow: ['inside'],
+    });
+    expect(storyModel.nodes.find(({ id }) => id === 'first')).toMatchObject({
+      startsFlows: [{ id: 'rootFlow', name: 'Root flow' }],
+    });
+    expect(storyModel.nodes.find(({ id }) => id === 'inside')).toMatchObject({
+      startsFlows: [{ id: 'nestedFlow', name: 'Nested flow' }],
+    });
+    expect(storyModel.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'first', target: 'inside' }),
+        expect.objectContaining({ source: 'inside', target: 'after' }),
+      ]),
+    );
+    expect(
+      storyModel.edges.some(
+        ({ source, target }) =>
+          source === 'rootFlow' ||
+          target === 'rootFlow' ||
+          source === 'nestedFlow' ||
+          target === 'nestedFlow',
+      ),
+    ).toBe(false);
+    expect(scenarioModel.nodes.map((node) => node.id)).toEqual([
+      '0',
+      '0.0',
+      '0.1',
+      '0.1.0',
+      '0.2',
+    ]);
+  });
+
+  it('keeps operations above useful Flow backgrounds and omits one-node scopes', () => {
+    const model = buildProgressiveStoryGraph(nestedFlowStory);
+    const layout = layoutStoryGraph(model, {
+      compact: true,
+    });
+    expect(layout.nodes.find(({ id }) => id === 'rootFlow')).toMatchObject({
+      data: { inline: true, scopeDepth: 0 },
+      zIndex: -100,
+    });
+    expect(layout.nodes.find(({ id }) => id === 'nestedFlow')).toBeUndefined();
+    expect(
+      layout.nodes
+        .filter(({ id }) => id === 'first' || id === 'inside' || id === 'after')
+        .every(({ zIndex }) => (zIndex ?? 0) > -100),
+    ).toBe(true);
+    expect(
+      layout.edges.some(
+        ({ source, target }) =>
+          source === 'nestedFlow' || target === 'nestedFlow',
+      ),
+    ).toBe(false);
+  });
+
+  it('removes Flow wrappers when their entry node is collapsed', () => {
+    const model = buildProgressiveStoryGraph(nestedFlowStory);
+    const collapsed = collapseStoryGraph(model, new Set(['first']));
+    const layout = layoutStoryGraph(collapsed.model, { compact: true });
+
+    expect(collapsed.hiddenCountByNode.get('first')).toBe(2);
+    expect(layout.nodes.find(({ id }) => id === 'inside')).toBeUndefined();
+    expect(layout.nodes.find(({ id }) => id === 'rootFlow')).toBeUndefined();
+    expect(layout.nodes.find(({ id }) => id === 'nestedFlow')).toBeUndefined();
+    expect(layout.nodes.map(({ id }) => id)).toEqual(['first']);
+  });
+
+  it('can remove every Flow wrapper for a control-flow-only view', () => {
+    const model = withoutFlowNodes(buildProgressiveStoryGraph(nestedFlowStory));
+
+    expect(model.nodes.map(({ id }) => id)).toEqual([
+      'first',
+      'inside',
+      'after',
+    ]);
+    expect(model.nodes).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ startsFlows: expect.anything() }),
+      ]),
+    );
+    expect(model.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'first', target: 'inside' }),
+        expect.objectContaining({ source: 'inside', target: 'after' }),
+      ]),
+    );
+
+    const source = buildProgressiveStoryGraph(nestedFlowStory);
+    const atomicCall = withoutFlowNodes({
+      nodes: source.nodes.filter(({ id }) =>
+        ['first', 'nestedFlow', 'after'].includes(id),
+      ),
+      edges: [
+        {
+          id: 'first->nestedFlow',
+          source: 'first',
+          target: 'nestedFlow',
+          inactive: false,
+        },
+        {
+          id: 'nestedFlow->after',
+          source: 'nestedFlow',
+          target: 'after',
+          inactive: false,
+        },
+      ],
+      childrenByNode: {},
+    });
+    expect(atomicCall.edges).toEqual([
+      expect.objectContaining({ source: 'first', target: 'after' }),
+    ]);
+  });
+});
 
 describe('buildStoryCatalogTree', () => {
   it('organizes Groups before their direct Stories and preserves descendants', () => {
@@ -370,6 +595,149 @@ describe('storyRunFromTrace', () => {
           source: 'right::arm:otherwise',
           target: 'finish',
         }),
+      ]),
+    );
+  });
+
+  it('closes a Terminal Decision Arm without closing its siblings', () => {
+    const trace = {
+      status: 'valid',
+      generatedAt: 0,
+      blocks: {
+        choice: {
+          kind: 'decision',
+          name: 'Choice',
+          description: 'Chooses whether to stop.',
+          location,
+          arms,
+        },
+        stop: {
+          kind: 'terminal',
+          name: 'Stop',
+          description: 'Ends this Arm.',
+          location,
+          completion: { kind: 'error', error: 'Stopped' },
+        },
+        proceed: {
+          kind: 'step',
+          name: 'Proceed',
+          description: 'Keeps this Arm open.',
+          location,
+        },
+        finish: {
+          kind: 'step',
+          name: 'Finish',
+          description: 'Shared continuation.',
+          location,
+        },
+      },
+      execution: [
+        {
+          kind: 'decision',
+          blockId: 'choice',
+          selector: [],
+          arms: [
+            {
+              arm: arms[0]!,
+              children: [{ kind: 'terminal', blockId: 'stop' }],
+            },
+            { arm: arms[1]!, children: [{ kind: 'step', blockId: 'proceed' }] },
+          ],
+        },
+        { kind: 'step', blockId: 'finish' },
+      ],
+      definitions: {},
+    } satisfies StoryTrace;
+
+    const model = buildProgressiveStoryGraph(
+      storyRunFromTrace(trace, 'Terminal choice', 'Terminal choice'),
+    );
+
+    expect(model.edges).not.toContainEqual(
+      expect.objectContaining({ source: 'stop', target: 'finish' }),
+    );
+    expect(model.edges).toContainEqual(
+      expect.objectContaining({ source: 'proceed', target: 'finish' }),
+    );
+  });
+
+  it('keeps Flow callers and parallel siblings open after local Terminals', () => {
+    const trace = {
+      status: 'valid',
+      generatedAt: 0,
+      blocks: {
+        nested: {
+          kind: 'flow',
+          name: 'Nested',
+          description: 'Owns one Terminal.',
+          location,
+        },
+        nestedEnd: {
+          kind: 'terminal',
+          name: 'Nested end',
+          description: 'Ends the nested Flow.',
+          location,
+          completion: { kind: 'success' },
+        },
+        parallelEnd: {
+          kind: 'terminal',
+          name: 'Parallel end',
+          description: 'Ends one parallel branch.',
+          location,
+        },
+        afterNested: {
+          kind: 'step',
+          name: 'After nested',
+          description: 'Continues after the nested Flow.',
+          location,
+        },
+        sibling: {
+          kind: 'step',
+          name: 'Sibling',
+          description: 'Keeps its parallel branch open.',
+          location,
+        },
+        finish: {
+          kind: 'step',
+          name: 'Finish',
+          description: 'Continues the outer branch.',
+          location,
+        },
+      },
+      execution: [
+        {
+          kind: 'flow',
+          blockId: 'nested',
+          children: [{ kind: 'terminal', blockId: 'nestedEnd' }],
+        },
+        { kind: 'step', blockId: 'afterNested' },
+        {
+          kind: 'all',
+          options: { concurrency: 'unbounded' },
+          branches: [
+            [{ kind: 'terminal', blockId: 'parallelEnd' }],
+            [{ kind: 'step', blockId: 'sibling' }],
+          ],
+        },
+        { kind: 'step', blockId: 'finish' },
+      ],
+      definitions: {},
+    } satisfies StoryTrace;
+
+    const model = buildProgressiveStoryGraph(
+      storyRunFromTrace(trace, 'Local Terminals', 'Local Terminals'),
+    );
+
+    expect(model.edges).toContainEqual(
+      expect.objectContaining({ source: 'nestedEnd', target: 'afterNested' }),
+    );
+    expect(model.edges).toContainEqual(
+      expect.objectContaining({ source: 'sibling', target: 'finish' }),
+    );
+    expect(model.edges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'nestedEnd', target: 'finish' }),
+        expect.objectContaining({ source: 'parallelEnd', target: 'finish' }),
       ]),
     );
   });

@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
+import { flow, terminal } from 'laymos/story';
 
 import { dynamodbSingleEntityStories } from './support/story-groups.js';
 
@@ -17,7 +17,18 @@ const resetSettings = flow(
     description:
       'Writes the configured default through the public singleton reset flow.',
   },
-  (_input: {}) => harness.settings.reset(),
+  (_input: {}) =>
+    Effect.gen(function* () {
+      const result = yield* harness.settings.reset();
+      return yield* terminal(
+        'Return the reset singleton',
+        {
+          description: 'Completes this reset flow with the configured default.',
+          completion: { kind: 'success' },
+        },
+        Effect.succeed(result),
+      );
+    }),
 );
 
 dynamodbSingleEntityStories

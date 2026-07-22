@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
+import { flow, terminal } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -20,7 +20,19 @@ const batchInsertUsers = flow(
       'Prepares and writes a collection through the public entity batch-insert method.',
     attributes: (input: Input) => ({ items: input.length }),
   },
-  (input: Input) => harness.users.batchInsert(input),
+  (input: Input) =>
+    Effect.gen(function* () {
+      const result = yield* harness.users.batchInsert(input);
+      return yield* terminal(
+        'Return the batch result',
+        {
+          description:
+            'Completes this batch-insert flow with its write report.',
+          completion: { kind: 'success' },
+        },
+        Effect.succeed(result),
+      );
+    }),
 );
 
 dynamodbEntityStories

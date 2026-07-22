@@ -23,7 +23,11 @@ import {
   type StoryEntry,
   type StoryGroupEntry,
 } from '../lib/model';
-import type { LaymosStoriesProps, LaymosStoryExecutionState } from '../types';
+import type {
+  LaymosStoriesProps,
+  LaymosStoryCanvasPreferences,
+  LaymosStoryExecutionState,
+} from '../types';
 import { StoryNavigator } from './story-navigator';
 import { ScenarioCanvas, StoryCanvas } from './story-canvas';
 import { ScenarioNarrative, StoryNarrative } from './story-narrative';
@@ -41,11 +45,27 @@ export function LaymosStories({
   onRunStory,
   onRunGroup,
   onRunAll,
+  canvasPreferences,
+  onCanvasPreferencesChange,
   sidebarExpansion = 'single',
+  showNavigator = true,
   className,
   ariaLabel = 'Laymos stories',
 }: LaymosStoriesProps) {
   const [view, setView] = useState<StoryView>('graph');
+  const [localCanvasPreferences, setLocalCanvasPreferences] =
+    useState<LaymosStoryCanvasPreferences>({
+      showDetails: true,
+      showFunctionScopes: true,
+      showDescriptionPopover: true,
+      centerSelected: false,
+    });
+  const effectiveCanvasPreferences =
+    canvasPreferences ?? localCanvasPreferences;
+  const setCanvasPreferences = (preferences: LaymosStoryCanvasPreferences) => {
+    setLocalCanvasPreferences(preferences);
+    onCanvasPreferencesChange?.(preferences);
+  };
   const tree = useMemo(
     () => buildStoryCatalogTree(collection.catalog, runs.stories),
     [collection, runs],
@@ -139,15 +159,17 @@ export function LaymosStories({
       )}
       aria-label={ariaLabel}
     >
-      <StoryNavigator
-        tree={tree}
-        storyStates={displayedStoryStates}
-        selection={selection}
-        onSelectionChange={onSelectionChange}
-        onRunAll={onRunAll}
-        runState={runState}
-        expansionMode={sidebarExpansion}
-      />
+      {showNavigator && (
+        <StoryNavigator
+          tree={tree}
+          storyStates={displayedStoryStates}
+          selection={selection}
+          onSelectionChange={onSelectionChange}
+          onRunAll={onRunAll}
+          runState={runState}
+          expansionMode={sidebarExpansion}
+        />
+      )}
       <main className="min-w-0 flex-1">
         {entries.length === 0 && (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -191,6 +213,8 @@ export function LaymosStories({
                 trace={selectedTrace as StoryTrace}
                 name={selectedEntry.name}
                 description={selectedEntry.description}
+                preferences={effectiveCanvasPreferences}
+                onPreferencesChange={setCanvasPreferences}
               />
             )}
           </ExecutedStory>
@@ -227,6 +251,8 @@ export function LaymosStories({
                 <ScenarioCanvas
                   story={selectedEntry.artifact}
                   scenario={selectedScenario.scenario}
+                  preferences={effectiveCanvasPreferences}
+                  onPreferencesChange={setCanvasPreferences}
                 />
               )}
             </ExecutedStory>
@@ -259,10 +285,14 @@ function TraceCanvas({
   trace,
   name,
   description,
+  preferences,
+  onPreferencesChange,
 }: {
   trace: StoryTrace;
   name: string;
   description: string;
+  preferences: LaymosStoryCanvasPreferences;
+  onPreferencesChange: (preferences: LaymosStoryCanvasPreferences) => void;
 }) {
   const [definitionId, setDefinitionId] = useState<string | null>(null);
   const definitions = Object.entries(trace.definitions);
@@ -306,7 +336,11 @@ function TraceCanvas({
         </aside>
       )}
       <div className="min-w-0 flex-1">
-        <StoryCanvas story={story} />
+        <StoryCanvas
+          story={story}
+          preferences={preferences}
+          onPreferencesChange={onPreferencesChange}
+        />
       </div>
     </div>
   );

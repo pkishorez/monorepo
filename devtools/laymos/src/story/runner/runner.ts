@@ -287,7 +287,6 @@ function runDeclaredStory(
         );
       }
       return {
-        schemaVersion: 4,
         generatedAt: Date.now(),
         name: declaration.name,
         description: declaration.description,
@@ -440,6 +439,9 @@ function runEffectLifecycle(
           runEffectPhase(() => execution.execute(prepared)).pipe(Effect.exit),
         () => Effect.sync(() => recorder.deactivate()),
       );
+      for (const message of recorder.terminalMismatches()) {
+        yield* addFailure(progress, { phase: 'execution', message });
+      }
       if (
         Exit.isFailure(executionExit) &&
         Cause.hasInterruptsOnly(executionExit.cause)

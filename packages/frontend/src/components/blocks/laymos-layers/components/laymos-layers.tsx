@@ -7,8 +7,9 @@ import {
   ReactFlowProvider,
   type Node,
 } from '@xyflow/react';
-import { useCallback, useMemo, useRef, type MouseEvent } from 'react';
+import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 
+import { Switch } from '#components/ui/switch';
 import { cn } from '#lib/utils';
 
 import { InteractionProvider } from '../context/interaction-context';
@@ -36,11 +37,12 @@ function LaymosLayersInner({
   onHoveredNodeChange,
   focusedNode,
   onFocusedNodeChange,
-  defaultMinimise = false,
+  defaultMinimise = true,
   className,
   ariaLabel = 'Laymos layer architecture',
 }: LaymosLayersProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showObservedConnections, setShowObservedConnections] = useState(true);
   const model = useMemo(() => buildLaymosLayersModel(report), [report]);
   const activeNode = selectedNode ?? hoveredNode ?? focusedNode;
   const active = useMemo(
@@ -54,8 +56,9 @@ function LaymosLayersInner({
         active,
         selectedNode ? hoveredNode : null,
         hoveredNode?.kind === 'graph' ? hoveredNode.name : null,
+        showObservedConnections,
       ),
-    [active, hoveredNode, model, selectedNode],
+    [active, hoveredNode, model, selectedNode, showObservedConnections],
   );
   const fitted = useFitViewOnResize(containerRef, report.architecture);
 
@@ -138,6 +141,17 @@ function LaymosLayersInner({
           proOptions={{ hideAttribution: true }}
         >
           <Background color="var(--border)" gap={20} />
+          <Panel position="top-right">
+            <label className="nodrag nopan flex cursor-pointer items-center justify-between gap-4 rounded-md border border-border bg-background/95 px-2.5 py-2 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+              Observed connections
+              <Switch
+                size="sm"
+                checked={showObservedConnections}
+                onCheckedChange={setShowObservedConnections}
+                aria-label="Show observed connections"
+              />
+            </label>
+          </Panel>
           <Panel position="bottom-right">
             <ContextCard
               model={model}

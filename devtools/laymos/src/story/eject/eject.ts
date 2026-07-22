@@ -13,9 +13,17 @@ const ejectableNames = new Set([
   'forEach',
   'omit',
   'step',
+  'terminal',
 ]);
 
-type StoryExport = 'all' | 'decision' | 'flow' | 'forEach' | 'omit' | 'step';
+type StoryExport =
+  | 'all'
+  | 'decision'
+  | 'flow'
+  | 'forEach'
+  | 'omit'
+  | 'step'
+  | 'terminal';
 
 interface ImportBinding {
   readonly exported: StoryExport;
@@ -462,7 +470,7 @@ function renderSimpleCall(
     requireArity(target, args, 3);
     return renderNode(args[2]!, analysis);
   }
-  if (target === 'step') {
+  if (target === 'step' || target === 'terminal') {
     requireArity(target, args, 3);
     const operation = args[2]!;
     const rendered = renderNode(operation, analysis);

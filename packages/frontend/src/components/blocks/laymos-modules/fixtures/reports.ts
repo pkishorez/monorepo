@@ -1,7 +1,6 @@
 import type { LaymosReport } from 'laymos/report';
 
 export const laymosModulesFixtureReport: LaymosReport = {
-  schemaVersion: 2,
   architecture: {
     sourceRoots: ['src'],
     layers: {
@@ -152,7 +151,6 @@ function buildDenseReport(): LaymosReport {
     }
   }
   return {
-    schemaVersion: 2,
     architecture: {
       sourceRoots: ['src'],
       layers: Object.fromEntries(
@@ -240,7 +238,6 @@ function buildComplexReport(): LaymosReport {
     }
   }
   return {
-    schemaVersion: 2,
     architecture: {
       sourceRoots: ['src'],
       layers: Object.fromEntries(

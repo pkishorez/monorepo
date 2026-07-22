@@ -82,6 +82,12 @@ export class TraceRecorder {
     return traceValue;
   }
 
+  terminal(context: TraceContext, block: BlockDeclaration): unknown {
+    const blockId = this.declare(block);
+    context.path.push({ kind: 'terminal', blockId });
+    return traceValue;
+  }
+
   omission(
     context: TraceContext,
     location: SourceLocation,

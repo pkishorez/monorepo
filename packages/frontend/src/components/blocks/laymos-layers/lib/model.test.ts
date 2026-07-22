@@ -21,6 +21,17 @@ describe('laymos layers model', () => {
     ).toBe(false);
   });
 
+  it('identifies entry and sink layers from the configured union', () => {
+    expect(model.layers.get('routes')).toMatchObject({
+      isRoot: true,
+      isSink: false,
+    });
+    expect(model.layers.get('domain')).toMatchObject({
+      isRoot: false,
+      isSink: true,
+    });
+  });
+
   it('aggregates exact observed layer pairs and omits intra-layer imports', () => {
     expect(hasObservedEdge(model, 'routes', 'domain')).toBe(true);
     expect(hasObservedEdge(model, 'domain', 'domain')).toBe(false);
