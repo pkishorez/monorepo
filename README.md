@@ -49,12 +49,6 @@ database-agnostic single-table design:
 See the [std-toolkit README](./std-toolkit/README.md) for installation and
 entry-point documentation.
 
-### Reference source
-
-[`repos/effect-smol`](./repos/effect-smol) is a vendored, read-only copy of
-Effect's `effect-smol` repository. It is kept as a source of idiomatic Effect
-patterns and is not a workspace dependency.
-
 ## Toolchain
 
 - TypeScript and Effect
@@ -91,14 +85,13 @@ pnpm --filter laymos lint
 
 Other useful repository commands:
 
-| Command                | Purpose                                                           |
-| ---------------------- | ----------------------------------------------------------------- |
-| `pnpm dev`             | Start the development tasks exposed by the workspaces.            |
-| `pnpm clean`           | Remove generated `dist` directories and installed `node_modules`. |
-| `pnpm changeset`       | Describe a publishable package change.                            |
-| `pnpm version`         | Apply pending changesets and update package versions.             |
-| `pnpm release`         | Publish versioned packages to npm.                                |
-| `pnpm subtrees:update` | Refresh vendored git subtrees such as `repos/effect-smol`.        |
+| Command          | Purpose                                                           |
+| ---------------- | ----------------------------------------------------------------- |
+| `pnpm dev`       | Start the development tasks exposed by the workspaces.            |
+| `pnpm clean`     | Remove generated `dist` directories and installed `node_modules`. |
+| `pnpm changeset` | Describe a publishable package change.                            |
+| `pnpm version`   | Apply pending changesets and update package versions.             |
+| `pnpm release`   | Publish versioned packages to npm.                                |
 
 Releases from `main` are managed by Changesets through the GitHub Actions
 release workflow.

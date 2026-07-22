@@ -17,7 +17,6 @@
     "outdated": "pnpm outdated --recursive",
     "pnpm:outdated": "pnpm outdated --recursive",
     "release": "pnpm changeset publish",
-    "subtrees:update": "bash scripts/update-subtrees.sh",
     "syncpack:fix": "syncpack fix",
     "syncpack:outdated": "syncpack update --check --no-cache --target minor",
     "syncpack:update": "syncpack update --interactive --target minor",

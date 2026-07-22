@@ -29,7 +29,6 @@ Required background reading for every task: `src/db/CONTEXT.md` (shared kernel v
 - Tests: vitest, colocated in `__tests__/` folders, files `*.test.ts` (config: `vite.config.ts`, include `src/**/__tests__/**/*.test.ts`). Effect tests use the local helper `const itEffect = (name, fn) => it(name, () => Effect.runPromise(fn()))` — see `src/db/sqlite/services/__tests__/entity.test.ts:4-5`.
 - IndexedDB in tests: `import 'fake-indexeddb/auto';` at the top of each test file (`fake-indexeddb` v6.2.5 is a devDependency). fake-indexeddb state persists for the process — every test must use a unique database name (e.g. a per-test counter or suffix) to stay isolated.
 - The `idb` npm package (v8.0.3, already a dependency) is the IndexedDB wrapper — use `openDB` from it, never raw `indexedDB` request callbacks.
-- `repos/effect-smol` is read-only reference material — never edit or import from it.
 - Do not run `pnpm sqlite:play` or any `play` script — those are for the human to run.
 
 ---
