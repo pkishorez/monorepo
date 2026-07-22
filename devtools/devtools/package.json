@@ -1,6 +1,6 @@
 {
   "name": "@pkishorez/devtools",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": false,
   "description": "Local devtools RPC server for inspecting project architecture and telemetry",
   "keywords": [

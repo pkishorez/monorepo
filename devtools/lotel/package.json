@@ -1,6 +1,6 @@
 {
   "name": "@pkishorez/lotel",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": false,
   "description": "Local OpenTelemetry server for development",
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "laymos",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": false,
   "description": "Layers. Modules. Stories. Declare your architecture once; get enforcement and the diagram for free.",
   "repository": {
