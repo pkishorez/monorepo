@@ -46,7 +46,7 @@ const Message = ESchema.make({
 
 - **The version name.** It must be exactly the next step — `v1` can only evolve to `'v2'`, `v2` to `'v3'`. Try to skip to `'v5'` and TypeScript rejects it. Version history is a chain, not a set.
 - **A delta, not a full shape.** You list only the fields that changed. New fields get a schema; a field you're removing gets `null`; eschema merges the delta onto the previous version's field map for you.
-- **A migration** — a function `(prev) => next`. It receives a value in the *previous* version's decoded shape and returns the new one. Old rows had no reactions, so the migration supplies the empty record.
+- **A migration** — a function `(prev) => next`. It receives a value in the _previous_ version's decoded shape and returns the new one. Old rows had no reactions, so the migration supplies the empty record.
 
 The migration's `prev` parameter is typed as the previous version's shape, and its return type is checked against the new one — forget to supply `reactions` and it won't compile. Each migration only handles one step; eschema chains them, so a v1 row reaching a v4 schema runs v1→v2, v2→v3, v3→v4 in order. You never write a "handle any old version" function.
 
@@ -60,19 +60,15 @@ const Message = ESchema.make({
   authorName: Schema.String,
   body: Schema.String,
 })
-  .evolve(
-    'v2',
-    { authorName: null, authorId: Schema.String },
-    (prev) => ({
-      channelId: prev.channelId,
-      body: prev.body,
-      authorId: lookupUserId(prev.authorName), // pure lookup, e.g. a static map
-    }),
-  )
+  .evolve('v2', { authorName: null, authorId: Schema.String }, (prev) => ({
+    channelId: prev.channelId,
+    body: prev.body,
+    authorId: lookupUserId(prev.authorName), // pure lookup, e.g. a static map
+  }))
   .build();
 ```
 
-The migration returns the next shape *without* the removed field — the types hold you to it.
+The migration returns the next shape _without_ the removed field — the types hold you to it.
 
 ## `build` — freeze the chain
 
@@ -85,7 +81,7 @@ The migration returns the next shape *without* the removed field — the types h
 - You can never encode an old version. Migrations run only on read; the write path has exactly one shape.
 - If the input happens to carry a stale `_v` (say you round-tripped a decoded-then-modified value), encode ignores it and stamps the latest — there's a test pinning that.
 
-**`decode`** takes an unknown value and returns the latest decoded shape, in four steps: read `_v` (missing → treat as `v1`), fail if the version isn't in the chain, validate against *that* version's schema, then fold forward through each migration. Both operations return `Effect`s that fail with a typed [`ESchemaError`](/docs/std-toolkit/eschema/qa#what-does-eschemaerror-carry-and-when-is-it-raised) — no thrown surprises:
+**`decode`** takes an unknown value and returns the latest decoded shape, in four steps: read `_v` (missing → treat as `v1`), fail if the version isn't in the chain, validate against _that_ version's schema, then fold forward through each migration. Both operations return `Effect`s that fail with a typed [`ESchemaError`](/docs/std-toolkit/eschema/qa#what-does-eschemaerror-carry-and-when-is-it-raised) — no thrown surprises:
 
 ```ts
 Effect.gen(function* () {
@@ -106,7 +102,7 @@ One convenience on the same surface: `makePartial` attaches the latest `_v` to a
 
 ## Migrations are total functions
 
-A migration must succeed for *every* value of the previous version — no throwing, no "shouldn't happen" branches. This is less scary than it sounds, because eschema has already validated the row against the previous version's schema before your migration runs: `prev` is never malformed, it's exactly the old shape. Your job is only to answer "what does an old row mean in the new world?" — and for every old row, there must be an answer.
+A migration must succeed for _every_ value of the previous version — no throwing, no "shouldn't happen" branches. This is less scary than it sounds, because eschema has already validated the row against the previous version's schema before your migration runs: `prev` is never malformed, it's exactly the old shape. Your job is only to answer "what does an old row mean in the new world?" — and for every old row, there must be an answer.
 
 That's also why migrations must be pure. They run lazily, on read, possibly years after you wrote them, possibly millions of times — no IO, no clock, no randomness, or the same row decodes differently on different days. The [best-practices page](/docs/std-toolkit/eschema/best-practices) turns this into concrete habits (hint: `Schema.NullOr` is your friend).
 

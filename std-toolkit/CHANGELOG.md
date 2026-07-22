@@ -1,5 +1,20 @@
 # std-toolkit
 
+## 0.0.2
+
+### Patch Changes
+
+- [`6d15b71`](https://github.com/pkishorez/monorepo/commit/6d15b71455a81ce4bd542f6d288eb9dfa4d04d71) Thanks [@pkishorez](https://github.com/pkishorez)! - Executable architecture Stories for the DynamoDB toolkit: DynamoDB services are now instrumented with Laymos stories (`laymos` is a new runtime dependency), and executable stories document the toolkit end to end.
+
+  Cleanups in this release:
+
+  - Removed from the public surface: `DynamoEntity`, `DynamoSingleEntity`, `SQLiteEntity`, `SQLiteSingleEntity`, and `EntityRegistry` value exports (the `EntityType` / `SingleEntityType` types remain). Use `DynamoTable` / `SQLiteTable` and the entity APIs built on them instead.
+  - `./idb` subpath now resolves to the restructured `dist/db/idb/src/` layout; deep `./idb/*` import paths changed accordingly.
+  - Peer ranges: `effect` loosened to `^4.0.0-beta.78`, `react` widened to `^18 || ^19`, `@tanstack/react-db` stays `>=0.1.64`.
+
+- Updated dependencies [[`6d15b71`](https://github.com/pkishorez/monorepo/commit/6d15b71455a81ce4bd542f6d288eb9dfa4d04d71)]:
+  - laymos@0.0.1
+
 ## 0.0.1
 
 ### Patch Changes

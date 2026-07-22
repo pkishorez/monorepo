@@ -7,7 +7,7 @@ You know the storage model by now: one table, entity services, item collections,
 
 But think about where your chat app's code actually runs. Unit tests, where spinning up DynamoDB Local for every suite is a tax you pay forever. Local dev, where you want a database that's a file you can delete. A Cloudflare Durable Object, where DynamoDB isn't even an option. The usual answers are bad in different ways: mock the data layer and your tests stop testing the data layer, or write a second data layer for the second database and watch the two drift apart one bugfix at a time.
 
-std-toolkit's answer is to make the *model* portable instead. The `std-toolkit/sqlite` subpath is the same single-table topology — same builders, same key derivation, same [entity envelope](/docs/std-toolkit/core) — implemented over SQLite. Your app code doesn't change; the physics underneath it does. And because SQLite runs anywhere a file (or a Durable Object) does, the "database-agnostic" claim stops being a slogan and becomes something you can verify in a test suite.
+std-toolkit's answer is to make the _model_ portable instead. The `std-toolkit/sqlite` subpath is the same single-table topology — same builders, same key derivation, same [entity envelope](/docs/std-toolkit/core) — implemented over SQLite. Your app code doesn't change; the physics underneath it does. And because SQLite runs anywhere a file (or a Durable Object) does, the "database-agnostic" claim stops being a slogan and becomes something you can verify in a test suite.
 
 This page walks the chat app onto SQLite, top to bottom. Everything semantic — what `insert` returns, how keys derive, how queries paginate — is the [shared model](/docs/std-toolkit/database-adapters) and holds here verbatim; what follows is the SQLite-flavored surface.
 
@@ -45,7 +45,7 @@ export const channels = SQLiteEntity.make(table)
   .build();
 ```
 
-Read it the way you read the DynamoDB version, because it *is* the DynamoDB version: messages are partitioned by channel (`pk` derives to `Message#C-general`, `sk` is the message's ULID id), and channels — `primary()` with no fields — all live in one collection under `pk = "Channel"`. The `byAuthor` index maps onto the table's `IDX1` slot with `_u` as its default sort key; the [indexes page](/docs/std-toolkit/sqlite/indexes) unpacks that machinery.
+Read it the way you read the DynamoDB version, because it _is_ the DynamoDB version: messages are partitioned by channel (`pk` derives to `Message#C-general`, `sk` is the message's ULID id), and channels — `primary()` with no fields — all live in one collection under `pk = "Channel"`. The `byAuthor` index maps onto the table's `IDX1` slot with `_u` as its default sort key; the [indexes page](/docs/std-toolkit/sqlite/indexes) unpacks that machinery.
 
 The service surface is the shared one: `insert` refuses to overwrite, `update` re-stamps `_u`, `delete` writes a tombstone, `query` slices an item collection with a range operator, `queryStream` drains it, `subscribe` replays it after a `_u` cursor. One round trip to make it concrete:
 
@@ -85,9 +85,9 @@ export const settings = SQLiteSingleEntity.make(table)
   .default({ maintenanceMode: false, motd: null });
 ```
 
-Two things are different from a keyed entity, both deliberate. First, the builder ends at `.default(...)` — no `.build()` — because the default value *is* the last required piece: `get()` never returns null, it returns the default (with a synthetic empty `_u`) until something has been written. Second, the surface is just `get`, `put`, and `update` — no delete, no query, no tombstones, because "one row that always exists" has no use for any of them. `put` upserts unconditionally; `update` merges a partial into the current value and fails with `NoItemToUpdate` if nothing was ever written (the default isn't a row).
+Two things are different from a keyed entity, both deliberate. First, the builder ends at `.default(...)` — no `.build()` — because the default value _is_ the last required piece: `get()` never returns null, it returns the default (with a synthetic empty `_u`) until something has been written. Second, the surface is just `get`, `put`, and `update` — no delete, no query, no tombstones, because "one row that always exists" has no use for any of them. `put` upserts unconditionally; `update` merges a partial into the current value and fails with `NoItemToUpdate` if nothing was ever written (the default isn't a row).
 
-One row *per database* is a real constraint to notice — and in the Durable Object deployment on the [next page](/docs/std-toolkit/sqlite/runtimes), where each channel gets its own database, it quietly becomes "one per channel", which is usually what you wanted anyway.
+One row _per database_ is a real constraint to notice — and in the Durable Object deployment on the [next page](/docs/std-toolkit/sqlite/runtimes), where each channel gets its own database, it quietly becomes "one per channel", which is usually what you wanted anyway.
 
 When a repository boundary needs an explicit return type, the SQLite barrel exports both envelope shapes:
 
@@ -126,36 +126,37 @@ export const registry = EntityRegistry.make(table)
 **`setup()` provisions at runtime.** On DynamoDB, creating the table is a deploy-time step outside your program. On SQLite the database is a file you already own, so the toolkit just does it:
 
 ```ts
-yield* registry.setup();
+yield * registry.setup();
 ```
 
 This creates the table with all meta and index columns, adds any index columns missing from an existing table, and creates the SQL indexes — every step a no-op if it already happened. Idempotent setup on boot is what makes "fresh in-memory database per test" a three-line fixture instead of an infrastructure project.
 
-**`transaction()` wraps an arbitrary Effect.** Because SQLite has real interactive transactions, the registry can offer something DynamoDB structurally can't: run *any* Effect — reads, writes, your own logic, across any registered entity — inside `BEGIN … COMMIT`, rolling back if it fails:
+**`transaction()` wraps an arbitrary Effect.** Because SQLite has real interactive transactions, the registry can offer something DynamoDB structurally can't: run _any_ Effect — reads, writes, your own logic, across any registered entity — inside `BEGIN … COMMIT`, rolling back if it fails:
 
 ```ts
-yield* registry.transaction(
-  Effect.gen(function* () {
-    const channel = yield* channels.insert({
-      channelId: 'C-standup',
-      name: 'standup',
-      topic: 'daily sync',
-    });
-    yield* messages.insert({
-      messageId: yield* nextUlid,
-      channelId: channel.value.channelId,
-      authorId: 'U-ada',
-      body: 'welcome to #standup',
-    });
-  }),
-);
+yield *
+  registry.transaction(
+    Effect.gen(function* () {
+      const channel = yield* channels.insert({
+        channelId: 'C-standup',
+        name: 'standup',
+        topic: 'daily sync',
+      });
+      yield* messages.insert({
+        messageId: yield* nextUlid,
+        channelId: channel.value.channelId,
+        authorId: 'U-ada',
+        body: 'welcome to #standup',
+      });
+    }),
+  );
 ```
 
 Either the channel and its first message both exist, or neither does. Broadcasts from writes inside the transaction are buffered and only emitted after commit — subscribers never observe a write that later rolled back. Nesting is refused with a `NestedTransactionNotSupported` error rather than silently misbehaving. How this compares to DynamoDB's `transact(items)` is on the [differences page](/docs/std-toolkit/sqlite/differences-from-dynamodb).
 
 ## The seam underneath: `SqliteDB` and `SqliteDBError`
 
-You may have noticed nothing above opened a database connection. Every operation on this page returns an Effect that *requires* a `SqliteDB` service — the narrow SQL interface all of this compiles down to — and fails with `SqliteDBError`, a tagged error naming exactly what went wrong (`ItemAlreadyExists`, `NoItemToUpdate`, `CreateTableFailed`, …) and on which table. Providing `SqliteDB` for your runtime — better-sqlite3, Node's built-in driver, Bun, or a Durable Object — is a one-line layer, and it's the whole subject of the next page.
+You may have noticed nothing above opened a database connection. Every operation on this page returns an Effect that _requires_ a `SqliteDB` service — the narrow SQL interface all of this compiles down to — and fails with `SqliteDBError`, a tagged error naming exactly what went wrong (`ItemAlreadyExists`, `NoItemToUpdate`, `CreateTableFailed`, …) and on which table. Providing `SqliteDB` for your runtime — better-sqlite3, Node's built-in driver, Bun, or a Durable Object — is a one-line layer, and it's the whole subject of the next page.
 
 <Cards>
   <Card

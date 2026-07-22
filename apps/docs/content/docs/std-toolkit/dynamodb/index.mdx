@@ -31,18 +31,19 @@ But if you've ever used DynamoDB's raw API, you also know why so many teams boun
 
 Count the languages in that one request. There's a key-derivation convention (`Message#C-general` — a string you concatenated yourself, and must concatenate identically in every code path forever). There's the update expression mini-language (`SET #body = :body`). There's the condition expression mini-language. There are two placeholder maps aliasing every attribute name and value. And every value is wrapped in DynamoDB's marshalled format (`{ "S": ... }`, `{ "N": "42" }` — yes, numbers travel as strings). All of it stringly typed, none of it checked by your compiler, all of it sitting at the exact boundary where your data leaves TypeScript.
 
-This is the real reason single-table design has a reputation for being expert-only. The *model* is simple — you learned it in ten minutes. The *ergonomics* are hostile, so teams either hide DynamoDB behind a pile of hand-rolled helpers that slowly drift, or retreat to tools that paper over the model entirely and give up what made it worth using.
+This is the real reason single-table design has a reputation for being expert-only. The _model_ is simple — you learned it in ten minutes. The _ergonomics_ are hostile, so teams either hide DynamoDB behind a pile of hand-rolled helpers that slowly drift, or retreat to tools that paper over the model entirely and give up what made it worth using.
 
 ## The same update, in std-toolkit
 
 ```ts
-yield* messages.update(
-  { channelId: 'C-general', messageId },
-  {
-    update: { body: 'fixed the typo' },
-    condition: ($) => $.cond('authorId', '=', 'U-ada'),
-  },
-);
+yield *
+  messages.update(
+    { channelId: 'C-general', messageId },
+    {
+      update: { body: 'fixed the typo' },
+      condition: ($) => $.cond('authorId', '=', 'U-ada'),
+    },
+  );
 ```
 
 Everything the raw version made you do by hand still happened — the key strings were derived from `channelId` and `messageId`, the update and condition expressions were compiled, every attribute was aliased, every value was marshalled, and `_u` was re-stamped for [sync](/docs/std-toolkit/core/meta). You just never saw any of it, and every field name and value in that call was type-checked against the `Message` [eschema](/docs/std-toolkit/eschema).

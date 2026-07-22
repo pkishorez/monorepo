@@ -5,11 +5,16 @@ const itEffect = <A, E>(
   fn: () => Effect.Effect<A, E, DynamoDB>,
 ) =>
   it(name, () =>
-    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+    Effect.runPromise(
+      fn().pipe(
+        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provideService(References.MinimumLogLevel, 'None'),
+      ),
+    ),
   );
-import { Effect, Schema, Stream } from 'effect';
+import { Effect, References, Schema, Stream } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
-import { DynamoTable, DynamoEntity } from '../index.js';
+import { DynamoTable } from '../index.js';
 import {
   createDynamoDB,
   dynamoDBLayer,
@@ -46,8 +51,8 @@ const orderSchema = EntityESchema.make('Order', 'orderId', {
 
 // SK is automatically the idField (orderId) for primary index
 // SK is automatically _u for secondary indexes
-const OrderEntity = DynamoEntity.make(table)
-  .eschema(orderSchema)
+const OrderEntity = table
+  .entity(orderSchema)
   .primary({ pk: ['userId'] })
   .index('GSI1', 'byStatus', { pk: ['status'] })
   .build();
@@ -250,45 +255,6 @@ describe('Simplified API Tests', () => {
 
         // Should find all pending orders (3 total - user-001 has 2, user-002 has 1)
         expect(result.items.length).toBe(3);
-      }),
-    );
-  });
-
-  describe('subscribe(opts) - Subscription Query', () => {
-    itEffect(
-      'succeeds with cursor from previous query on secondary index',
-      () =>
-        Effect.gen(function* () {
-          const all = yield* OrderEntity.query('byStatus', {
-            pk: { status: 'pending' },
-            sk: { '>=': null },
-          });
-
-          expect(all.items.length).toBe(3);
-
-          const cursor = all.items[0]!.meta._u;
-
-          const result = yield* OrderEntity.subscribe({
-            key: 'byStatus',
-            pk: { status: 'pending' },
-            cursor,
-            limit: 10,
-          });
-
-          expect(result.success).toBe(true);
-        }),
-    );
-
-    itEffect('succeeds with null cursor on secondary index', () =>
-      Effect.gen(function* () {
-        const result = yield* OrderEntity.subscribe({
-          key: 'byStatus',
-          pk: { status: 'pending' },
-          cursor: null,
-          limit: 10,
-        });
-
-        expect(result.success).toBe(true);
       }),
     );
   });

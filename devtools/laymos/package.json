@@ -1,0 +1,68 @@
+{
+  "name": "laymos",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Layers. Modules. Stories. Declare your architecture once; get enforcement and the diagram for free.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "default": "./dist/node.js"
+    },
+    "./report": {
+      "types": "./dist/report/index.d.ts",
+      "import": "./dist/report/index.js",
+      "default": "./dist/report/index.js"
+    },
+    "./story": {
+      "types": "./dist/story/effect/index.d.ts",
+      "import": "./dist/story/effect/index.js",
+      "default": "./dist/story/effect/index.js"
+    }
+  },
+  "bin": {
+    "laymos": "dist/cli/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit",
+    "lint:laymos": "jiti src/cli/cli.ts lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "jiti": "catalog:",
+    "skott": "catalog:"
+  },
+  "devDependencies": {
+    "@typescript/native": "catalog:",
+    "@types/node": "catalog:",
+    "effect": "catalog:",
+    "typescript": "catalog:typescript6",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.0-beta.78"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

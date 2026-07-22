@@ -75,7 +75,7 @@ A singleton's meta is deliberately narrower: just `_v`, `_e`, and `_u`. There's 
 
 ## EntitySchema and SingleEntitySchema
 
-Types describe the envelope; sometimes you need to *validate* one. Entities cross process boundaries constantly — a server pushes a batch over a WebSocket, a client writes it into its Source of Truth — and at each boundary the payload is `unknown` until proven otherwise.
+Types describe the envelope; sometimes you need to _validate_ one. Entities cross process boundaries constantly — a server pushes a batch over a WebSocket, a client writes it into its Source of Truth — and at each boundary the payload is `unknown` until proven otherwise.
 
 `EntitySchema` takes an eschema and returns an Effect `Schema` for the full envelope: `value` checked against the eschema's current shape, `meta` checked against `MetaSchema`.
 
@@ -114,7 +114,7 @@ const WorkspaceSettings = SingleEntityESchema.make('WorkspaceSettings', {
 const SettingsEnvelope = SingleEntitySchema(WorkspaceSettings);
 ```
 
-You might be wondering why validation here doesn't run the eschema's migrations. Deliberate: `EntitySchema` checks the envelope against the *current* shape, which is what you want at a live wire boundary where both ends run the same deploy. Migration — folding an old `_v` forward — is the eschema's own `decode`, and the database adapters run it for you on every read.
+You might be wondering why validation here doesn't run the eschema's migrations. Deliberate: `EntitySchema` checks the envelope against the _current_ shape, which is what you want at a live wire boundary where both ends run the same deploy. Migration — folding an old `_v` forward — is the eschema's own `decode`, and the database adapters run it for you on every read.
 
 ## Broadcaster
 
@@ -122,7 +122,7 @@ Here's a problem the envelope alone doesn't solve. A message lands in the databa
 
 You could poll. You could bolt change-capture onto your database and pray your provider supports it. Or you could notice that the toolkit already sees every write — every insert, update, and delete goes through an entity service — and let it tell you.
 
-`Broadcaster` is that seam. It's an Effect service *you* implement, with four operations:
+`Broadcaster` is that seam. It's an Effect service _you_ implement, with four operations:
 
 ```ts
 import { Broadcaster } from 'std-toolkit/core';
@@ -145,7 +145,7 @@ const BroadcasterLive = Layer.succeed(Broadcaster, {
 });
 ```
 
-The contract from the toolkit's side: after every successful write, the database adapters call `broadcast` with the full envelope — the same `{ value, meta }` the writer got back, tombstones included. When a client asks to catch up from a cursor, the adapter replays history in batches through `emit`, then calls `subscribe` to signal "you're live now". What those callbacks *do* — WebSockets, server-sent events, a Durable Object fan-out — is entirely your infrastructure's business.
+The contract from the toolkit's side: after every successful write, the database adapters call `broadcast` with the full envelope — the same `{ value, meta }` the writer got back, tombstones included. When a client asks to catch up from a cursor, the adapter replays history in batches through `emit`, then calls `subscribe` to signal "you're live now". What those callbacks _do_ — WebSockets, server-sent events, a Durable Object fan-out — is entirely your infrastructure's business.
 
 And it's optional. The adapters look the service up with `Effect.serviceOption`; if you never provide a `Broadcaster`, writes proceed silently and nothing breaks. You add real-time delivery by providing a Layer, not by rewriting your data layer.
 

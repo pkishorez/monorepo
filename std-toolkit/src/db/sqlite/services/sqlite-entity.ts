@@ -1,11 +1,7 @@
 import type { AnyEntityESchema, ESchemaType } from '../../../eschema/index.js';
 import { Effect, Option, Schema, Stream } from 'effect';
 import type { SQLiteTableInstance, SortKeyCondition } from './sqlite-table.js';
-import {
-  SqliteDB,
-  SqliteDBError,
-  TransactionPendingBroadcasts,
-} from '../sql/db.js';
+import { SqliteDB, SqliteDBError } from '../sql/db.js';
 import * as Sql from '../sql/helpers/index.js';
 import {
   deriveIndexKeyValue,
@@ -20,7 +16,6 @@ import {
   type CustomStreamSkParam,
   type SimpleQueryOptions,
   type QueryStreamOptions,
-  type SubscribeOptions,
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
 } from '../internal/utils.js';
@@ -38,16 +33,6 @@ type DerivableMetaFields = '_u';
 type IsTimelineSk<T extends readonly unknown[]> = T extends readonly ['_u']
   ? true
   : false;
-
-/**
- * Extracts only keys from a secondary derivation map where isTimelineSk is true.
- */
-type SubscribableSecondaryKeys<
-  T extends Record<string, StoredIndexDerivation>,
-> = {
-  [K in keyof T]: T[K]['isTimelineSk'] extends true ? K : never;
-}[keyof T] &
-  string;
 
 /**
  * Resolves the SK param type for a secondary index based on isTimelineSk.
@@ -75,6 +60,28 @@ type ResolveStreamSkParam<
 type InsertInput<T> = Omit<T, '_v'>;
 
 /**
+ * Update input for `getAndUpdate`: a plain partial, or a callback deriving the
+ * partial from the current value. Returning `null` skips the write.
+ */
+type UpdateInput<T> =
+  | Partial<Omit<T, '_v'>>
+  | ((current: T) => Partial<Omit<T, '_v'>> | null);
+
+/**
+ * Update input for `getAndUpdateOp` — no `null` skip, since an op must always
+ * produce a write descriptor.
+ */
+type UpdateOpInput<T> =
+  | Partial<Omit<T, '_v'>>
+  | ((current: T) => Partial<Omit<T, '_v'>>);
+
+/** Config for `getAndUpdate`. `retries` counts retry attempts after the first try. */
+interface GetAndUpdateConfig {
+  retries?: number;
+  lastWriteWins?: boolean;
+}
+
+/**
  * Represents an entity item with its value and metadata.
  *
  * @typeParam T - The entity value type
@@ -84,6 +91,44 @@ export interface EntityType<T> {
   value: T;
   /** Metadata about the entity item */
   meta: RowMeta;
+}
+
+/**
+ * A single write inside `transact`. `insert` fails if the row already exists;
+ * `update` fails unless the stored row's `_u` still equals `expectedU`
+ * (optimistic concurrency; omitted for `lastWriteWins` ops). Either failure
+ * aborts the whole transaction.
+ */
+export type SqliteWriteOp =
+  | {
+      type: 'insert';
+      key: { pk: string; sk: string };
+      values: Record<string, unknown>;
+    }
+  | {
+      type: 'update';
+      key: { pk: string; sk: string };
+      values: Record<string, unknown>;
+      expectedU?: string;
+    };
+
+/**
+ * A deferred write produced by `insertOp`/`getAndUpdateOp`, consumed by the table's
+ * `transact`. `apply` is pure — the transaction supplies the write cursor and
+ * gets back the concrete write plus the broadcast payload, flushed only after
+ * the transaction commits. `table` identifies where the op was built so
+ * `transact` can reject foreign ops.
+ */
+export interface SqliteEntityOp {
+  readonly entityName: string;
+  readonly operationKind: 'insertOp' | 'updateOp' | 'deleteOp' | 'restoreOp';
+  readonly pk: string;
+  readonly sk: string;
+  readonly table: unknown;
+  readonly apply: (u: string) => {
+    write: SqliteWriteOp;
+    entity: EntityType<unknown>;
+  };
 }
 
 /**
@@ -106,7 +151,7 @@ type IndexKeyFields<T, K extends keyof T | DerivableMetaFields> = Pick<
 export class SQLiteEntity<
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
   TSchema extends AnyEntityESchema,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
 > {
   /**
    * Creates a new entity builder for the given table.
@@ -115,7 +160,10 @@ export class SQLiteEntity<
    * @param table - The SQLiteTable instance
    * @returns A builder to configure the entity schema
    */
-  static make<TTable extends SQLiteTableInstance>(table: TTable) {
+  static make<TTable extends SQLiteTableInstance>(
+    table: TTable,
+    onBuild?: (entity: SQLiteEntity<any, any, any>) => void,
+  ) {
     return {
       /**
        * Configures the entity to use the given ESchema.
@@ -134,12 +182,14 @@ export class SQLiteEntity<
            * @returns A builder to add secondary index mappings
            */
           primary<
-            const TPkKeys extends readonly (
-              | keyof ESchemaType<TS>
-              | DerivableMetaFields
-            )[] = [],
+            const TPkKeys extends readonly (keyof ESchemaType<TS>)[] = [],
           >(primaryDerivation?: { pk: TPkKeys }) {
             const pkKeys = primaryDerivation?.pk ?? ([] as unknown as TPkKeys);
+            if ((pkKeys as readonly PropertyKey[]).includes('_u')) {
+              throw new Error(
+                'Primary partition key derivation cannot include "_u"',
+              );
+            }
             // SK is always the idField from the ESchema
             const skKeys = [eschema.idField] as const;
             return new EntityIndexDerivations<
@@ -147,7 +197,7 @@ export class SQLiteEntity<
               TS,
               ExtractKeys<ESchemaType<TS>, TPkKeys>,
               {}
-            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {});
+            >(table, eschema, { pk: pkKeys, sk: skKeys } as any, {}, onBuild);
           },
         };
       },
@@ -256,71 +306,105 @@ export class SQLiteEntity<
         ),
       );
 
-      yield* this.#broadcast({ value: fullValue, meta });
+      yield* this.#broadcast([{ value: fullValue, meta }]);
 
       return { value: fullValue, meta };
     });
   }
 
   /**
-   * Updates an existing entity by its primary key.
+   * The portable read-modify-write: reads the current entity, derives a
+   * partial from it, and writes the full merged record back guarded on the
+   * `_u` that was read. On a concurrent-write conflict, re-reads and re-runs
+   * up to `retries` times (default 3) before failing with `conditionFailed`.
+   * A callback returning `null` skips the write and resolves with the
+   * current entity. `lastWriteWins: true` drops the guard.
    *
    * @param keyValue - Object containing the primary key field values
-   * @param updates - Partial entity with fields to update
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @param config - Retry count and guard opt-out
    * @returns The updated entity with new metadata
    */
-  update(
+  getAndUpdate(
     keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    updates: Partial<Omit<ESchemaType<TSchema>, '_v'>>,
+    update: UpdateInput<ESchemaType<TSchema>>,
+    config?: GetAndUpdateConfig,
   ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
     return Effect.gen({ self: this }, function* () {
-      // Get existing item
-      const existing = yield* this.get(keyValue);
-      if (!existing) {
-        return yield* Effect.fail(
-          SqliteDBError.noItemToUpdate((yield* SqliteDB).tableName),
+      const retries = config?.retries ?? 3;
+      for (let attempt = 0; ; attempt++) {
+        const existing = yield* this.get(keyValue);
+        if (!existing) {
+          return yield* Effect.fail(
+            SqliteDBError.noItemToUpdate((yield* SqliteDB).tableName),
+          );
+        }
+
+        const partial =
+          typeof update === 'function' ? update(existing.value) : update;
+        if (partial === null) return existing;
+
+        const fullValue = {
+          ...existing.value,
+          ...partial,
+        } as ESchemaType<TSchema>;
+
+        const { encoded, meta } = yield* this.#encode(
+          fullValue,
+          existing.meta._d,
         );
+
+        const pk = deriveIndexKeyValue(
+          this.#eschema.name,
+          this.#primaryDerivation.pkDeps,
+          keyValue as Record<string, unknown>,
+          true,
+        );
+        const sk = deriveIndexKeyValue(
+          this.#eschema.name,
+          this.#primaryDerivation.skDeps,
+          keyValue as Record<string, unknown>,
+          false,
+        );
+
+        const updateValues: Record<string, unknown> = {
+          _data: JSON.stringify(encoded),
+          _v: meta._v,
+          _u: meta._u,
+          ...this.#deriveSecondaryIndexes({ ...fullValue, _u: meta._u }),
+        };
+
+        if (config?.lastWriteWins) {
+          yield* this.#table.updateItem({ pk, sk }, updateValues);
+        } else {
+          const db = yield* SqliteDB;
+          const where = Sql.whereAnd(
+            Sql.wherePkSkExact(
+              this.#table.primary.pk,
+              this.#table.primary.sk,
+              pk,
+              sk,
+            ),
+            Sql.where('_u', '=', existing.meta._u),
+          );
+          const { rowsWritten } = yield* db.update(
+            db.tableName,
+            updateValues,
+            where,
+          );
+          if (rowsWritten === 0) {
+            if (attempt < retries) continue;
+            return yield* Effect.fail(
+              SqliteDBError.conditionFailed(db.tableName, { pk, sk }),
+            );
+          }
+        }
+
+        yield* this.#broadcast([{ value: fullValue, meta }]);
+
+        return { value: fullValue, meta };
       }
-
-      // Merge updates
-      const fullValue = {
-        ...existing.value,
-        ...updates,
-      } as ESchemaType<TSchema>;
-
-      const { encoded, meta } = yield* this.#encode(
-        fullValue,
-        existing.meta._d,
-      );
-
-      // Compute primary keys
-      const pk = deriveIndexKeyValue(
-        this.#eschema.name,
-        this.#primaryDerivation.pkDeps,
-        keyValue as Record<string, unknown>,
-        true,
-      );
-      const sk = deriveIndexKeyValue(
-        this.#eschema.name,
-        this.#primaryDerivation.skDeps,
-        keyValue as Record<string, unknown>,
-        false,
-      );
-
-      // Update the item
-      const updateValues: Record<string, unknown> = {
-        _data: JSON.stringify(encoded),
-        _v: meta._v,
-        _u: meta._u,
-        ...this.#deriveSecondaryIndexes({ ...fullValue, _u: meta._u }),
-      };
-
-      yield* this.#table.updateItem({ pk, sk }, updateValues);
-
-      yield* this.#broadcast({ value: fullValue, meta });
-
-      return { value: fullValue, meta };
     });
   }
 
@@ -375,9 +459,80 @@ export class SQLiteEntity<
         meta,
       };
 
-      yield* this.#broadcast(deletedEntity);
+      yield* this.#broadcast([deletedEntity]);
 
       return deletedEntity;
+    });
+  }
+
+  /**
+   * Restores a soft-deleted entity with a fresh `_u` so sync consumers see it
+   * become live again.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @returns The restored entity
+   */
+  restore(
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, SqliteDBError, SqliteDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get(keyValue);
+      if (!existing) {
+        return yield* Effect.fail(
+          SqliteDBError.noItemToRestore((yield* SqliteDB).tableName),
+        );
+      }
+
+      if (!existing.meta._d) return existing;
+
+      const pk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.pkDeps,
+        keyValue as Record<string, unknown>,
+        true,
+      );
+      const sk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.skDeps,
+        keyValue as Record<string, unknown>,
+        false,
+      );
+
+      const { encoded, meta } = yield* this.#encode(existing.value, false);
+
+      const updateValues: Record<string, unknown> = {
+        _data: JSON.stringify(encoded),
+        _v: meta._v,
+        _u: meta._u,
+        _d: 0,
+        ...this.#deriveSecondaryIndexes({ ...existing.value, _u: meta._u }),
+      };
+
+      const db = yield* SqliteDB;
+      const where = Sql.whereAnd(
+        Sql.wherePkSkExact(
+          this.#table.primary.pk,
+          this.#table.primary.sk,
+          pk,
+          sk,
+        ),
+        Sql.where('_u', '=', existing.meta._u),
+      );
+      const { rowsWritten } = yield* db.update(
+        db.tableName,
+        updateValues,
+        where,
+      );
+      if (rowsWritten === 0) {
+        return yield* Effect.fail(
+          SqliteDBError.conditionFailed(db.tableName, { pk, sk }),
+        );
+      }
+
+      const restoredEntity = { value: existing.value, meta };
+      yield* this.#broadcast([restoredEntity]);
+      return restoredEntity;
     });
   }
 
@@ -593,88 +748,196 @@ export class SQLiteEntity<
   }
 
   /**
-   * Subscribes to items from the primary index or a secondary index.
-   * Continuously fetches records until no more are available.
+   * Validates, encodes and derives stable keys NOW (no write), returning a
+   * descriptor for the table's `transact`. The final cursor and cursor-derived
+   * indexes are assigned when applied. Applying the op fails with
+   * `conditionFailed` if the row already exists.
    *
-   * @param opts.key - "primary" or secondary index name
-   * @param opts.pk - Partition key fields for the selected index
-   * @param opts.cursor - The `_u` cursor (string to continue from, null to start fresh)
-   * @param opts.limit - Optional batch size per query iteration
-   * @returns All items after the cursor
+   * @param value - The entity value to insert
+   * @returns A descriptor for insert, plus its broadcast payload
    */
-  subscribe<
-    K extends 'primary' | SubscribableSecondaryKeys<TSecondaryDerivationMap>,
-  >(
-    opts: SubscribeOptions<
-      K,
-      K extends 'primary'
-        ? [TPrimaryPkKeys] extends [never]
-          ? {}
-          : Prettify<IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys>>
-        : K extends keyof TSecondaryDerivationMap
-          ? Pick<
-              ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]['pkDeps'][number] &
-                keyof ESchemaType<TSchema>
-            >
-          : never
-    >,
-  ): Effect.Effect<{ success: true }, SqliteDBError, SqliteDB> {
+  insertOp(
+    value: InsertInput<ESchemaType<TSchema>>,
+  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
     return Effect.gen({ self: this }, function* () {
-      const { key, pk, cursor, limit } = opts;
-      const service = yield* Effect.serviceOption(Broadcaster).pipe(
-        Effect.map(Option.getOrNull),
-      );
+      const fullValue = {
+        ...value,
+        _v: this.#eschema.latestVersion,
+      } as unknown as ESchemaType<TSchema>;
 
-      const queryOptions: SimpleQueryOptions = {};
-      if (limit !== undefined) {
-        queryOptions.limit = limit;
-      }
+      const { item, meta: preparedMeta } =
+        yield* this.#prepareInsert(fullValue);
 
-      let currentCursor = cursor;
-
-      while (true) {
-        const result = yield* this.query(
-          key,
-          { pk, sk: { '>': currentCursor } } as any,
-          queryOptions,
-        );
-
-        service?.emit(result.items);
-
-        const lastItem = result.items[result.items.length - 1];
-        if (!lastItem) {
-          //Start subscribing from now!
-          service?.subscribe(this.#eschema.name);
-          return { success: true };
-        }
-        currentCursor = lastItem.meta._u;
-      }
+      return {
+        entityName: this.#eschema.name,
+        operationKind: 'insertOp',
+        pk: item.pk as string,
+        sk: item.sk as string,
+        table: this.#table,
+        apply: (u) => {
+          const valueWithMeta = { ...fullValue, _u: u };
+          const primaryIndex = this.#derivePrimaryIndex(valueWithMeta);
+          return {
+            write: {
+              type: 'insert',
+              key: { pk: primaryIndex.pk, sk: primaryIndex.sk },
+              values: {
+                ...item,
+                pk: primaryIndex.pk,
+                sk: primaryIndex.sk,
+                _u: u,
+                ...this.#deriveSecondaryIndexes(valueWithMeta),
+              },
+            } satisfies SqliteWriteOp,
+            entity: { value: fullValue, meta: { ...preparedMeta, _u: u } },
+          };
+        },
+      };
     });
   }
 
   /**
-   * Removes all rows from the table.
+   * Validates, encodes and derives keys NOW (no write), pre-fetching the
+   * existing entity so the returned op embeds the optimistic `expectedU`
+   * check and complete broadcast data.
+   *
+   * @param keyValue - Object containing the primary key field values
+   * @param update - Partial entity, or a callback deriving one from the current value
+   * @returns A descriptor for update, plus its broadcast payload
    */
-  dangerouslyRemoveAllRows(
-    _: 'i know what i am doing',
-  ): Effect.Effect<{ rowsDeleted: number }, SqliteDBError, SqliteDB> {
-    return this.#table.dangerouslyRemoveAllRows('i know what i am doing');
+  getAndUpdateOp(
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    update: UpdateOpInput<ESchemaType<TSchema>>,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get(keyValue);
+      if (!existing) {
+        return yield* Effect.fail(
+          SqliteDBError.noItemToUpdate((yield* SqliteDB).tableName),
+        );
+      }
+
+      const fullValue = {
+        ...existing.value,
+        ...(typeof update === 'function' ? update(existing.value) : update),
+      } as ESchemaType<TSchema>;
+
+      return yield* this.#buildWriteOp(
+        keyValue as Record<string, unknown>,
+        fullValue,
+        existing.meta._d,
+        options?.lastWriteWins ? undefined : existing.meta._u,
+      );
+    });
+  }
+
+  deleteOp(
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get(keyValue);
+      if (!existing) {
+        return yield* Effect.fail(
+          SqliteDBError.noItemToDelete((yield* SqliteDB).tableName),
+        );
+      }
+
+      return yield* this.#buildWriteOp(
+        keyValue as Record<string, unknown>,
+        existing.value,
+        true,
+        options?.lastWriteWins ? undefined : existing.meta._u,
+        'deleteOp',
+      );
+    });
+  }
+
+  restoreOp(
+    keyValue: IndexKeyFields<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    options?: { lastWriteWins?: boolean },
+  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get(keyValue);
+      if (!existing) {
+        return yield* Effect.fail(
+          SqliteDBError.noItemToRestore((yield* SqliteDB).tableName),
+        );
+      }
+
+      return yield* this.#buildWriteOp(
+        keyValue as Record<string, unknown>,
+        existing.value,
+        false,
+        options?.lastWriteWins ? undefined : existing.meta._u,
+        'restoreOp',
+      );
+    });
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  #broadcast(entity: EntityType<ESchemaType<TSchema>>) {
+  #buildWriteOp(
+    keyValue: Record<string, unknown>,
+    fullValue: ESchemaType<TSchema>,
+    deleted: boolean,
+    expectedU: string | undefined,
+    operationKind: SqliteEntityOp['operationKind'] = 'updateOp',
+  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB> {
     return Effect.gen({ self: this }, function* () {
-      const pending = yield* TransactionPendingBroadcasts;
-      if (Option.isSome(pending)) {
-        pending.value.push(entity);
-      } else {
-        const service = yield* Effect.serviceOption(Broadcaster).pipe(
-          Effect.map(Option.getOrNull),
-        );
-        service?.broadcast(entity);
-      }
+      const { encoded, meta: encodedMeta } = yield* this.#encode(
+        fullValue,
+        deleted,
+      );
+
+      const pk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.pkDeps,
+        keyValue,
+        true,
+      );
+      const sk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#primaryDerivation.skDeps,
+        keyValue,
+        false,
+      );
+
+      return {
+        entityName: this.#eschema.name,
+        operationKind,
+        pk,
+        sk,
+        table: this.#table,
+        apply: (u) => ({
+          write: {
+            type: 'update',
+            key: { pk, sk },
+            values: {
+              _data: JSON.stringify(encoded),
+              _v: encodedMeta._v,
+              _u: u,
+              _d: deleted ? 1 : 0,
+              ...this.#deriveSecondaryIndexes({ ...fullValue, _u: u }),
+            },
+            ...(expectedU !== undefined && { expectedU }),
+          } satisfies SqliteWriteOp,
+          entity: { value: fullValue, meta: { ...encodedMeta, _u: u } },
+        }),
+      };
+    });
+  }
+
+  #broadcast(entities: EntityType<ESchemaType<TSchema>>[]) {
+    return Effect.gen(function* () {
+      const service = yield* Effect.serviceOption(Broadcaster).pipe(
+        Effect.map(Option.getOrNull),
+      );
+      service?.broadcast(entities);
     });
   }
 
@@ -850,10 +1113,10 @@ export class SQLiteEntity<
 /**
  * Builder class for configuring entity index derivations.
  */
-class EntityIndexDerivations<
+export class EntityIndexDerivations<
   TTable extends SQLiteTableInstance,
   TSchema extends AnyEntityESchema,
-  TPrimaryPkKeys extends keyof ESchemaType<TSchema> | DerivableMetaFields,
+  TPrimaryPkKeys extends keyof ESchemaType<TSchema>,
   TSecondaryDerivationMap extends Record<string, StoredIndexDerivation>,
 > {
   #table: TTable;
@@ -863,6 +1126,7 @@ class EntityIndexDerivations<
     sk: readonly (keyof ESchemaType<TSchema>)[];
   };
   #secondaryDerivations: TSecondaryDerivationMap;
+  #onBuild: ((entity: SQLiteEntity<any, any, any>) => void) | undefined;
 
   constructor(
     table: TTable,
@@ -872,11 +1136,13 @@ class EntityIndexDerivations<
       sk: readonly (keyof ESchemaType<TSchema>)[];
     },
     definitions: TSecondaryDerivationMap,
+    onBuild?: (entity: SQLiteEntity<any, any, any>) => void,
   ) {
     this.#table = table;
     this.#eschema = eschema;
     this.#primaryDerivation = primaryDerivation;
     this.#secondaryDerivations = definitions;
+    this.#onBuild = onBuild;
   }
 
   /**
@@ -928,6 +1194,7 @@ class EntityIndexDerivations<
         ...this.#secondaryDerivations,
         [entityIndexName]: newDeriv,
       },
+      this.#onBuild,
     ) as EntityIndexDerivations<
       TTable,
       TSchema,
@@ -955,11 +1222,12 @@ class EntityIndexDerivations<
       skDeps: this.#primaryDerivation.sk.map(String),
     };
 
-    return new SQLiteEntity<TSecondaryDerivationMap, TSchema, TPrimaryPkKeys>(
-      this.#table,
-      this.#eschema,
-      storedPrimary,
-      this.#secondaryDerivations,
-    );
+    const entity = new SQLiteEntity<
+      TSecondaryDerivationMap,
+      TSchema,
+      TPrimaryPkKeys
+    >(this.#table, this.#eschema, storedPrimary, this.#secondaryDerivations);
+    this.#onBuild?.(entity);
+    return entity;
   }
 }

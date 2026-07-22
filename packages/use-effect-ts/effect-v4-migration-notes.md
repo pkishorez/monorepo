@@ -12,7 +12,7 @@ API renames in the `Scope`/`Fiber` modules — no logic or public-shape changes.
   cascades from `extend` being untyped; they cleared once `provide` was used.
 - **`Scope.CloseableScope` → `Scope.Closeable`** (`use-component-scope`).
   Structurally identical, so the public hook signatures stay compatible for
-  `monoverse`.
+  downstream consumers.
 - **`Fiber.interrupt` now returns `Effect<void>`, not `Effect<Exit>`**
   (`use-component-lifecycle`). The teardown needed the exit to close the scope,
   so it now interrupts then `yield* Fiber.await(fiber)` to obtain the `Exit`

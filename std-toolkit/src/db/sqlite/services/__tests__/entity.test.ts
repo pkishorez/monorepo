@@ -1,15 +1,13 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { EntityESchema } from '../../../../eschema/index.js';
 import { Effect, Layer, Schema } from 'effect';
-import { betterSqlite3Layer } from '../../sql/adapters/better-sqlite3.js';
+import { nodeSqliteLayer } from '../../sql/adapters/node.js';
 import { SqliteDB } from '../../sql/db.js';
 import { SQLiteTable } from '../sqlite-table.js';
-import { SQLiteEntity } from '../sqlite-entity.js';
-import { EntityRegistry } from '../entity-registry.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -33,7 +31,7 @@ const CommentSchema = EntityESchema.make('Comment', 'commentId', {
 // ─── Single Table Design ─────────────────────────────────────────────────────
 
 describe('SQLite Single Table Design', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   // Create shared table with indexes
@@ -45,28 +43,28 @@ describe('SQLite Single Table Design', () => {
 
   // Create entities with derivations
   // SK is automatic: uses idField for primary, _u for secondary
-  const userEntity = SQLiteEntity.make(table)
-    .eschema(UserSchema)
+  const userEntity = table
+    .entity(UserSchema)
     .primary() // pk: entity name only, sk: userId (from idField)
     .index('IDX1', 'byEmail', { pk: ['email'] }) // sk: _u
     .build();
 
-  const postEntity = SQLiteEntity.make(table)
-    .eschema(PostSchema)
+  const postEntity = table
+    .entity(PostSchema)
     .primary({ pk: ['authorId'] }) // sk: postId (from idField)
     .index('IDX1', 'byAuthor', { pk: ['authorId'] }) // sk: _u
     .build();
 
-  // Create registry
-  const registry = EntityRegistry.make(table)
-    .register(userEntity)
-    .register(postEntity)
-    .build();
+  it('rejects _u in primary partition key derivation', () => {
+    expect(() =>
+      (table.entity(UserSchema) as any).primary({ pk: ['_u'] }),
+    ).toThrow('Primary partition key derivation cannot include "_u"');
+  });
 
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'std_data');
-    await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'std_data');
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
   afterAll(() => db.close());
@@ -232,7 +230,7 @@ describe('SQLite Single Table Design', () => {
           name: 'Before',
         });
 
-        const updated = yield* userEntity.update(
+        const updated = yield* userEntity.getAndUpdate(
           { userId: inserted.value.userId },
           { name: 'After' },
         );
@@ -245,7 +243,7 @@ describe('SQLite Single Table Design', () => {
     itEffect('fails for non-existent entity', () =>
       Effect.gen(function* () {
         const error = yield* userEntity
-          .update({ userId: 'non-existent' }, { name: 'X' })
+          .getAndUpdate({ userId: 'non-existent' }, { name: 'X' })
           .pipe(Effect.flip);
         expect(error.error._tag).toBe('NoItemToUpdate');
       }).pipe(Effect.provide(layer)),
@@ -259,7 +257,7 @@ describe('SQLite Single Table Design', () => {
           name: 'Index User',
         });
 
-        yield* userEntity.update(
+        yield* userEntity.getAndUpdate(
           { userId: inserted.value.userId },
           { email: 'new@example.com' },
         );
@@ -424,40 +422,30 @@ describe('SQLite Single Table Design', () => {
     );
   });
 
-  describe('registry', () => {
-    it('provides access to entities by name', () => {
-      const user = registry.entity('User');
-      expect(user).toBe(userEntity);
-
-      const post = registry.entity('Post');
-      expect(post).toBe(postEntity);
-    });
-
-    it('lists entity names', () => {
-      const names = registry.entityNames;
-      expect(names).toContain('User');
-      expect(names).toContain('Post');
+  describe('entity registration', () => {
+    it('rejects duplicate entity names on the same table', () => {
+      expect(() => table.entity(UserSchema).primary().build()).toThrow(
+        'Entity "User" is already defined on this table',
+      );
     });
   });
 
-  describe('transactions', () => {
-    itEffect('commits on success', () =>
+  describe('transact', () => {
+    itEffect('commits all ops on success', () =>
       Effect.gen(function* () {
-        yield* registry.transaction(
-          Effect.gen(function* () {
-            yield* userEntity.insert({
-              userId: 'tx-user-1',
-              email: 'tx1@example.com',
-              name: 'Tx1',
-            });
-            yield* postEntity.insert({
-              authorId: 'tx-author',
-              postId: 'tx-post-1',
-              title: 'Tx Post',
-              content: 'Content',
-            });
-          }),
-        );
+        const userOp = yield* userEntity.insertOp({
+          userId: 'tx-user-1',
+          email: 'tx1@example.com',
+          name: 'Tx1',
+        });
+        const postOp = yield* postEntity.insertOp({
+          authorId: 'tx-author',
+          postId: 'tx-post-1',
+          title: 'Tx Post',
+          content: 'Content',
+        });
+
+        yield* table.transact([userOp, postOp]);
 
         const user = yield* userEntity.get({ userId: 'tx-user-1' });
         const post = yield* postEntity.get({
@@ -470,25 +458,63 @@ describe('SQLite Single Table Design', () => {
       }).pipe(Effect.provide(layer)),
     );
 
-    itEffect('rolls back on failure', () =>
+    itEffect('stamps transaction cursors when writes are applied', () =>
       Effect.gen(function* () {
-        const result = yield* registry
-          .transaction(
-            Effect.gen(function* () {
-              yield* userEntity.insert({
-                userId: 'tx-rollback-user',
-                email: 'rollback@example.com',
-                name: 'Rollback',
-              });
-              return yield* Effect.fail(new Error('Rollback'));
-            }),
-          )
-          .pipe(Effect.result);
+        const delayedOp = yield* userEntity.insertOp({
+          userId: 'tx-delayed',
+          email: 'tx-order@example.com',
+          name: 'Delayed',
+        });
+        const intervening = yield* userEntity.insert({
+          userId: 'tx-intervening',
+          email: 'tx-order@example.com',
+          name: 'Intervening',
+        });
 
-        expect(result._tag).toBe('Failure');
+        const [written] = yield* table.transact([delayedOp]);
 
-        const user = yield* userEntity.get({ userId: 'tx-rollback-user' });
-        expect(user).toBeNull();
+        expect(written!.meta._u > intervening.meta._u).toBe(true);
+
+        const result = yield* userEntity.query('byEmail', {
+          pk: { email: 'tx-order@example.com' },
+          sk: { '>': intervening.meta._u },
+        });
+        expect(result.items.map((item) => item.value.userId)).toEqual([
+          'tx-delayed',
+        ]);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    itEffect('rolls back every op when one fails its condition', () =>
+      Effect.gen(function* () {
+        yield* userEntity.insert({
+          userId: 'tx-dup-user',
+          email: 'txdup@example.com',
+          name: 'Dup',
+        });
+
+        const freshPostOp = yield* postEntity.insertOp({
+          authorId: 'tx-author-2',
+          postId: 'tx-post-2',
+          title: 'Should not persist',
+          content: 'Content',
+        });
+        const dupUserOp = yield* userEntity.insertOp({
+          userId: 'tx-dup-user',
+          email: 'other@example.com',
+          name: 'Other',
+        });
+
+        const error = yield* table
+          .transact([freshPostOp, dupUserOp])
+          .pipe(Effect.flip);
+        expect(error.error._tag).toBe('ConditionFailed');
+
+        const post = yield* postEntity.get({
+          authorId: 'tx-author-2',
+          postId: 'tx-post-2',
+        });
+        expect(post).toBeNull();
       }).pipe(Effect.provide(layer)),
     );
   });
@@ -529,7 +555,7 @@ describe('SQLite Single Table Design', () => {
 // ─── Query Operators Exhaustive Tests ────────────────────────────────────────
 
 describe('Query Operators', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make()
@@ -542,15 +568,15 @@ describe('Query Operators', () => {
     value: Schema.Number,
   }).build();
 
-  const itemEntity = SQLiteEntity.make(table)
-    .eschema(ItemSchema)
+  const itemEntity = table
+    .entity(ItemSchema)
     .primary({ pk: ['category'] }) // sk: itemId (from idField)
     .index('IDX1', 'byCategory', { pk: ['category'] }) // sk: _u
     .build();
 
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'query_ops');
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'query_ops');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     // Insert test data with sequential item IDs
@@ -814,7 +840,7 @@ describe('Query Operators', () => {
 // Composite sort keys are no longer supported in the simplified API.
 
 describe('Primary Index with IdField', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make()
@@ -822,15 +848,15 @@ describe('Primary Index with IdField', () => {
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .build();
 
-  const commentEntity = SQLiteEntity.make(table)
-    .eschema(CommentSchema)
+  const commentEntity = table
+    .entity(CommentSchema)
     .primary({ pk: ['postId'] }) // sk: commentId (from idField)
     .index('IDX1', 'byPost', { pk: ['postId'] }) // sk: _u
     .build();
 
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'composite_sk');
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'composite_sk');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     // Insert comments
@@ -934,145 +960,22 @@ describe('Primary Index with IdField', () => {
   );
 });
 
-// ─── Subscribe Tests ─────────────────────────────────────────────────────────
-
-describe('Subscribe', () => {
-  let db: Database.Database;
-  let layer: Layer.Layer<SqliteDB>;
-
-  const table = SQLiteTable.make()
-    .primary('pk', 'sk')
-    .index('IDX1', 'IDX1PK', 'IDX1SK')
-    .index('IDX2', 'IDX2PK', 'IDX2SK')
-    .build();
-
-  const EventSchema = EntityESchema.make('Event', 'eventId', {
-    streamId: Schema.String,
-    data: Schema.String,
-  }).build();
-
-  const eventEntity = SQLiteEntity.make(table)
-    .eschema(EventSchema)
-    .primary({ pk: ['streamId'] }) // sk: eventId (from idField)
-    .index('IDX1', 'byStream', { pk: ['streamId'] }) // sk: _u
-    .build();
-
-  beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'subscribe_test');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* eventEntity.insert({
-          streamId: 'stream-1',
-          eventId: '001',
-          data: 'a',
-        });
-        yield* eventEntity.insert({
-          streamId: 'stream-1',
-          eventId: '002',
-          data: 'b',
-        });
-        yield* eventEntity.insert({
-          streamId: 'stream-1',
-          eventId: '003',
-          data: 'c',
-        });
-        yield* eventEntity.insert({
-          streamId: 'stream-1',
-          eventId: '004',
-          data: 'd',
-        });
-        yield* eventEntity.insert({
-          streamId: 'stream-1',
-          eventId: '005',
-          data: 'e',
-        });
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  afterAll(() => db.close());
-
-  itEffect('subscribe with cursor null fetches all items from beginning', () =>
-    Effect.gen(function* () {
-      const result = yield* eventEntity.subscribe({
-        key: 'byStream',
-        pk: { streamId: 'stream-1' },
-        cursor: null,
-      });
-
-      expect(result.success).toBe(true);
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('subscribe with cursor continues from that point', () =>
-    Effect.gen(function* () {
-      // First get items to obtain a cursor
-      const items = yield* eventEntity.query('byStream', {
-        pk: { streamId: 'stream-1' },
-        sk: { '>=': null },
-      });
-
-      const cursor = items.items[1]!.meta._u;
-
-      const result = yield* eventEntity.subscribe({
-        key: 'byStream',
-        pk: { streamId: 'stream-1' },
-        cursor,
-      });
-
-      expect(result.success).toBe(true);
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('subscribe with limit batches queries', () =>
-    Effect.gen(function* () {
-      const result = yield* eventEntity.subscribe({
-        key: 'byStream',
-        pk: { streamId: 'stream-1' },
-        cursor: null,
-        limit: 2,
-      });
-
-      expect(result.success).toBe(true);
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('subscribe on secondary index uses _u', () =>
-    Effect.gen(function* () {
-      // Secondary index sk is _u, so we need to pass _u value
-      // Since _u is auto-generated, we can only test that it returns items
-      const result = yield* eventEntity.query('byStream', {
-        pk: { streamId: 'stream-1' },
-        sk: { '>=': null },
-      });
-
-      expect(result.items.length).toBe(5);
-    }).pipe(Effect.provide(layer)),
-  );
-});
-
 describe('SQLiteEntity hardDelete', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make().primary('pk', 'sk').build();
 
-  const userEntity = SQLiteEntity.make(table)
-    .eschema(UserSchema)
-    .primary()
-    .build();
+  const userEntity = table.entity(UserSchema).primary().build();
 
-  const postEntity = SQLiteEntity.make(table)
-    .eschema(PostSchema)
+  const postEntity = table
+    .entity(PostSchema)
     .primary({ pk: ['authorId'] })
     .build();
 
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'hard_delete_test');
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'hard_delete_test');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -1116,7 +1019,7 @@ describe('SQLiteEntity hardDelete', () => {
 // ─── Transaction Tests ───────────────────────────────────────────────────────
 
 describe('Transactions Advanced', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make().primary('pk', 'sk').build();
@@ -1125,30 +1028,26 @@ describe('Transactions Advanced', () => {
     count: Schema.Number,
   }).build();
 
-  const counterEntity = SQLiteEntity.make(table)
-    .eschema(CounterSchema)
+  const counterEntity = table
+    .entity(CounterSchema)
     .primary() // pk: Counter (entity name), sk: counterId (from idField)
     .build();
 
-  const registry = EntityRegistry.make(table).register(counterEntity).build();
-
   beforeEach(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'tx_test');
-    await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'tx_test');
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
   afterAll(() => db.close());
 
-  itEffect('transaction commits multiple operations atomically', () =>
+  itEffect('transact commits multiple insert ops atomically', () =>
     Effect.gen(function* () {
-      yield* registry.transaction(
-        Effect.gen(function* () {
-          yield* counterEntity.insert({ counterId: 'c1', count: 0 });
-          yield* counterEntity.insert({ counterId: 'c2', count: 0 });
-          yield* counterEntity.insert({ counterId: 'c3', count: 0 });
-        }),
-      );
+      const c1Op = yield* counterEntity.insertOp({ counterId: 'c1', count: 0 });
+      const c2Op = yield* counterEntity.insertOp({ counterId: 'c2', count: 0 });
+      const c3Op = yield* counterEntity.insertOp({ counterId: 'c3', count: 0 });
+
+      yield* table.transact([c1Op, c2Op, c3Op]);
 
       const c1 = yield* counterEntity.get({ counterId: 'c1' });
       const c2 = yield* counterEntity.get({ counterId: 'c2' });
@@ -1160,89 +1059,71 @@ describe('Transactions Advanced', () => {
     }).pipe(Effect.provide(layer)),
   );
 
-  itEffect('transaction rolls back all operations on failure', () =>
+  itEffect('transact rolls back all ops on a failed condition', () =>
     Effect.gen(function* () {
-      const result = yield* registry
-        .transaction(
-          Effect.gen(function* () {
-            yield* counterEntity.insert({ counterId: 'r1', count: 1 });
-            yield* counterEntity.insert({ counterId: 'r2', count: 2 });
-            yield* Effect.fail(new Error('Intentional failure'));
-            yield* counterEntity.insert({ counterId: 'r3', count: 3 });
-          }),
-        )
-        .pipe(Effect.result);
+      yield* counterEntity.insert({ counterId: 'dup', count: 0 });
 
-      expect(result._tag).toBe('Failure');
+      const r1Op = yield* counterEntity.insertOp({ counterId: 'r1', count: 1 });
+      const r2Op = yield* counterEntity.insertOp({ counterId: 'r2', count: 2 });
+      const dupOp = yield* counterEntity.insertOp({
+        counterId: 'dup',
+        count: 9,
+      });
+
+      const error = yield* table
+        .transact([r1Op, r2Op, dupOp])
+        .pipe(Effect.flip);
+      expect(error.error._tag).toBe('ConditionFailed');
 
       // All should be rolled back
       const r1 = yield* counterEntity.get({ counterId: 'r1' });
       const r2 = yield* counterEntity.get({ counterId: 'r2' });
-      const r3 = yield* counterEntity.get({ counterId: 'r3' });
+      const dup = yield* counterEntity.get({ counterId: 'dup' });
 
       expect(r1).toBeNull();
       expect(r2).toBeNull();
-      expect(r3).toBeNull();
+      expect(dup!.value.count).toBe(0);
     }).pipe(Effect.provide(layer)),
   );
 
-  itEffect('transaction with update operations', () =>
+  itEffect('transact update op fails when the read is stale', () =>
     Effect.gen(function* () {
-      const inserted = yield* counterEntity.insert({
-        counterId: 'u1',
-        count: 0,
-      });
+      yield* counterEntity.insert({ counterId: 'u1', count: 0 });
 
-      yield* registry.transaction(
-        Effect.gen(function* () {
-          const current = yield* counterEntity.get({
-            counterId: inserted.value.counterId,
-          });
-          yield* counterEntity.update(
-            { counterId: inserted.value.counterId },
-            { count: current!.value.count + 1 },
-          );
-          yield* counterEntity.update(
-            { counterId: inserted.value.counterId },
-            { count: current!.value.count + 2 },
-          );
-        }),
+      const staleOp = yield* counterEntity.getAndUpdateOp(
+        { counterId: 'u1' },
+        { count: 1 },
       );
+      // A concurrent writer bumps _u after the op captured expectedU.
+      yield* counterEntity.getAndUpdate({ counterId: 'u1' }, { count: 5 });
 
-      const result = yield* counterEntity.get({
-        counterId: inserted.value.counterId,
-      });
-      expect(result!.value.count).toBe(2);
+      const error = yield* table.transact([staleOp]).pipe(Effect.flip);
+      expect(error.error._tag).toBe('ConditionFailed');
+
+      const result = yield* counterEntity.get({ counterId: 'u1' });
+      expect(result!.value.count).toBe(5);
     }).pipe(Effect.provide(layer)),
   );
 
-  itEffect('transaction with mixed insert/update/delete', () =>
+  itEffect('transact with mixed insert and update ops', () =>
     Effect.gen(function* () {
-      const m1Inserted = yield* counterEntity.insert({
-        counterId: 'm1',
-        count: 10,
-      });
+      yield* counterEntity.insert({ counterId: 'm1', count: 10 });
 
-      yield* registry.transaction(
-        Effect.gen(function* () {
-          yield* counterEntity.insert({ counterId: 'm2', count: 20 });
-          yield* counterEntity.update(
-            { counterId: m1Inserted.value.counterId },
-            { count: 15 },
-          );
-          yield* counterEntity.delete({
-            counterId: m1Inserted.value.counterId,
-          });
-        }),
+      const insertM2Op = yield* counterEntity.insertOp({
+        counterId: 'm2',
+        count: 20,
+      });
+      const updateM1Op = yield* counterEntity.getAndUpdateOp(
+        { counterId: 'm1' },
+        { count: 15 },
       );
 
-      const m1 = yield* counterEntity.get({
-        counterId: m1Inserted.value.counterId,
-      });
+      yield* table.transact([insertM2Op, updateM1Op]);
+
+      const m1 = yield* counterEntity.get({ counterId: 'm1' });
       const m2 = yield* counterEntity.get({ counterId: 'm2' });
 
-      expect(m1).not.toBeNull();
-      expect(m1!.meta._d).toBe(true); // soft deleted
+      expect(m1!.value.count).toBe(15);
       expect(m2).not.toBeNull();
       expect(m2!.value.count).toBe(20);
     }).pipe(Effect.provide(layer)),
@@ -1252,7 +1133,7 @@ describe('Transactions Advanced', () => {
 // ─── Edge Cases ──────────────────────────────────────────────────────────────
 
 describe('SQLite Entity Edge Cases', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make().primary('pk', 'sk').build();
@@ -1261,14 +1142,14 @@ describe('SQLite Entity Edge Cases', () => {
     value: Schema.Number,
   }).build();
 
-  const simpleEntity = SQLiteEntity.make(table)
-    .eschema(SimpleSchema)
+  const simpleEntity = table
+    .entity(SimpleSchema)
     .primary() // pk: Simple (entity name), sk: simpleId (from idField)
     .build();
 
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'edge_data');
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'edge_data');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -1373,15 +1254,15 @@ describe('SQLite Entity Edge Cases', () => {
     }).pipe(Effect.provide(layer)),
   );
 
-  itEffect('dangerouslyRemoveAllRows clears all data', () =>
+  itEffect('dangerouslyRemoveAllItems clears all data', () =>
     Effect.gen(function* () {
       yield* simpleEntity.insert({ simpleId: 'clear-1', value: 1 });
       yield* simpleEntity.insert({ simpleId: 'clear-2', value: 2 });
 
-      const { rowsDeleted } = yield* simpleEntity.dangerouslyRemoveAllRows(
-        'i know what i am doing',
+      const { itemsDeleted } = yield* table.dangerouslyRemoveAllItems(
+        'I KNOW WHAT I AM DOING',
       );
-      expect(rowsDeleted).toBeGreaterThan(0);
+      expect(itemsDeleted).toBeGreaterThan(0);
 
       // With pk being just entity name, pk is optional
       const result = yield* simpleEntity.query('primary', {
@@ -1395,7 +1276,7 @@ describe('SQLite Entity Edge Cases', () => {
 // ─── Multiple Secondary Indexes ──────────────────────────────────────────────
 
 describe('Multiple Secondary Indexes', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make()
@@ -1411,16 +1292,16 @@ describe('Multiple Secondary Indexes', () => {
     name: Schema.String,
   }).build();
 
-  const productEntity = SQLiteEntity.make(table)
-    .eschema(ProductSchema)
+  const productEntity = table
+    .entity(ProductSchema)
     .primary() // pk: Product (entity name), sk: productId (from idField)
     .index('IDX1', 'byCategory', { pk: ['category'] }) // sk: _u
     .index('IDX2', 'byBrand', { pk: ['brand'] }) // sk: _u
     .build();
 
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'multi_idx');
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'multi_idx');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     await Effect.runPromise(
@@ -1511,7 +1392,10 @@ describe('Multiple Secondary Indexes', () => {
 
   itEffect('update reflects in all indexes', () =>
     Effect.gen(function* () {
-      yield* productEntity.update({ productId: 'p1' }, { category: 'phones' });
+      yield* productEntity.getAndUpdate(
+        { productId: 'p1' },
+        { category: 'phones' },
+      );
 
       // Should not find in old category
       const oldCategory = yield* productEntity.query('byCategory', {
@@ -1543,7 +1427,7 @@ describe('Multiple Secondary Indexes', () => {
 // ─── Cross-Entity Index Isolation ────────────────────────────────────────────
 
 describe('Cross-Entity Index Isolation', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make()
@@ -1564,29 +1448,24 @@ describe('Cross-Entity Index Isolation', () => {
     text: Schema.String,
   }).build();
 
-  const sessionEntity = SQLiteEntity.make(table)
-    .eschema(SessionSchema)
+  const sessionEntity = table
+    .entity(SessionSchema)
     .primary()
     .index('IDX1', 'byStatus', { pk: ['status'] })
     .index('IDX2', 'byUpdatedAt', { pk: [] })
     .build();
 
-  const messageEntity = SQLiteEntity.make(table)
-    .eschema(MessageSchema)
+  const messageEntity = table
+    .entity(MessageSchema)
     .primary({ pk: ['sessionId'] })
     .index('IDX1', 'bySession', { pk: ['sessionId'] })
     .index('IDX2', 'byUpdatedAt', { pk: [] })
     .build();
 
-  const registry = EntityRegistry.make(table)
-    .register(sessionEntity)
-    .register(messageEntity)
-    .build();
-
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'isolation_test');
-    await Effect.runPromise(registry.setup().pipe(Effect.provide(layer)));
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'isolation_test');
+    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
     await Effect.runPromise(
       Effect.gen(function* () {

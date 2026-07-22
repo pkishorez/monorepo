@@ -4,11 +4,6 @@ export {
   type TableDescription,
 } from './dynamo-table.js';
 
-export { DynamoEntity, type EntityType } from './dynamo-entity.js';
+export { type EntityType } from './dynamo-entity.js';
 
-export {
-  DynamoSingleEntity,
-  type SingleEntityType,
-} from './dynamo-single-entity.js';
-
-export { EntityRegistry } from './entity-registry.js';
+export { type SingleEntityType } from './dynamo-single-entity.js';

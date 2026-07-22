@@ -1,0 +1,118 @@
+{
+  "$schema": "./node_modules/syncpack/schema.json",
+  "strict": true,
+  "versionGroups": [
+    {
+      "label": "Unversioned workspace roots",
+      "dependencyTypes": ["local"],
+      "packages": ["public-monorepo", "docs"],
+      "isIgnored": true
+    },
+    {
+      "label": "std-toolkit supports React 18 and 19 peers",
+      "dependencies": ["react"],
+      "dependencyTypes": ["peer"],
+      "packages": ["std-toolkit"],
+      "policy": "semverRangeOnly"
+    },
+    {
+      "label": "std-toolkit supports a broad @tanstack/react-db peer range",
+      "dependencies": ["@tanstack/react-db"],
+      "dependencyTypes": ["peer"],
+      "packages": ["std-toolkit"],
+      "policy": "semverRangeOnly"
+    },
+    {
+      "label": "Internal peerDependencies use workspace:^",
+      "dependencies": [
+        "@pkishorez/devtools",
+        "laymos",
+        "@pkishorez/lotel",
+        "@monorepo/frontend",
+        "std-toolkit",
+        "use-effect-ts"
+      ],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "workspace:^"
+    },
+    {
+      "label": "Internal dependencies and devDependencies use workspace:*",
+      "dependencies": [
+        "@pkishorez/devtools",
+        "laymos",
+        "@pkishorez/lotel",
+        "@monorepo/frontend",
+        "std-toolkit",
+        "use-effect-ts"
+      ],
+      "dependencyTypes": ["prod", "dev"],
+      "pinVersion": "workspace:*"
+    },
+    {
+      "label": "External dependencies use the default catalog",
+      "dependencyTypes": ["prod", "dev"],
+      "policy": "catalog"
+    },
+    {
+      "label": "Synchronize remaining dependencies",
+      "dependencyTypes": [
+        "local",
+        "overrides",
+        "peer",
+        "pnpmOverrides",
+        "resolutions"
+      ],
+      "preferVersion": "highestSemver"
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "std-toolkit supports React 18 and 19 peers",
+      "dependencies": ["react"],
+      "dependencyTypes": ["peer"],
+      "packages": ["std-toolkit"],
+      "isIgnored": true
+    },
+    {
+      "label": "std-toolkit supports a broad @tanstack/react-db peer range",
+      "dependencies": ["@tanstack/react-db"],
+      "dependencyTypes": ["peer"],
+      "packages": ["std-toolkit"],
+      "isIgnored": true
+    },
+    {
+      "label": "Internal workspace protocols are enforced by version groups",
+      "dependencies": [
+        "@pkishorez/devtools",
+        "laymos",
+        "@pkishorez/lotel",
+        "@monorepo/frontend",
+        "std-toolkit",
+        "use-effect-ts"
+      ],
+      "dependencyTypes": ["prod", "dev", "peer"],
+      "isIgnored": true
+    },
+    {
+      "label": "Peer dependencies use caret ranges",
+      "dependencyTypes": ["peer"],
+      "range": "^"
+    },
+    {
+      "label": "Registry dependencies use exact versions",
+      "range": ""
+    }
+  ],
+  "updateGroups": [
+    {
+      "label": "Aliased TypeScript 6 catalog updates are manual",
+      "dependencyTypes": ["pnpmCatalog:typescript6"],
+      "isIgnored": true
+    },
+    {
+      "label": "Peer dependency updates are intentional",
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    }
+  ]
+}

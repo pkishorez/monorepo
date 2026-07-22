@@ -17,10 +17,11 @@ export type SqliteDBErrorType =
   | { _tag: 'ItemAlreadyExists'; table: string; cause: unknown }
   | { _tag: 'NoItemToUpdate'; table: string }
   | { _tag: 'NoItemToDelete'; table: string }
+  | { _tag: 'NoItemToRestore'; table: string }
   | { _tag: 'BeginFailed'; cause: unknown }
   | { _tag: 'CommitFailed'; cause: unknown }
   | { _tag: 'RollbackFailed'; cause: unknown }
-  | { _tag: 'NestedTransactionNotSupported' };
+  | { _tag: 'ConditionFailed'; table: string; key: { pk: string; sk: string } };
 
 export class SqliteDBError extends Data.TaggedError('SqliteDBError')<{
   error: SqliteDBErrorType;
@@ -77,6 +78,10 @@ export class SqliteDBError extends Data.TaggedError('SqliteDBError')<{
     return new SqliteDBError({ error: { _tag: 'NoItemToDelete', table } });
   }
 
+  static noItemToRestore(table: string) {
+    return new SqliteDBError({ error: { _tag: 'NoItemToRestore', table } });
+  }
+
   static beginFailed(cause: unknown) {
     return new SqliteDBError({ error: { _tag: 'BeginFailed', cause } });
   }
@@ -89,9 +94,9 @@ export class SqliteDBError extends Data.TaggedError('SqliteDBError')<{
     return new SqliteDBError({ error: { _tag: 'RollbackFailed', cause } });
   }
 
-  static nestedTransactionNotSupported() {
+  static conditionFailed(table: string, key: { pk: string; sk: string }) {
     return new SqliteDBError({
-      error: { _tag: 'NestedTransactionNotSupported' },
+      error: { _tag: 'ConditionFailed', table, key },
     });
   }
 }

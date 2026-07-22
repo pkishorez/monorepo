@@ -3,11 +3,11 @@ title: Indexes
 description: Secondary indexes with the same declaration surface as GSIs — but strongly consistent, because they're plain SQL indexes on the same row.
 ---
 
-The primary key buys you one access path: messages by channel, in timeline order. But your chat app needs a second one the moment someone opens a profile — "everything Ada has posted, across every channel." On DynamoDB you solved this with a [GSI](/docs/std-toolkit/dynamodb-crash-course): a re-keyed copy of the data, maintained asynchronously, eventually consistent. The SQLite adapter gives you the *same declaration surface* — you could diff the code against the DynamoDB version and find nothing — but underneath sits something much simpler, and the simplicity is a straight upgrade: a plain SQL index that is never behind your writes.
+The primary key buys you one access path: messages by channel, in timeline order. But your chat app needs a second one the moment someone opens a profile — "everything Ada has posted, across every channel." On DynamoDB you solved this with a [GSI](/docs/std-toolkit/dynamodb-crash-course): a re-keyed copy of the data, maintained asynchronously, eventually consistent. The SQLite adapter gives you the _same declaration surface_ — you could diff the code against the DynamoDB version and find nothing — but underneath sits something much simpler, and the simplicity is a straight upgrade: a plain SQL index that is never behind your writes.
 
 ## Declaring an index: two layers, same as DynamoDB
 
-The declaration is split the same way the shared model splits it everywhere: the *table* owns generic index slots, the *entity* gives a slot meaning.
+The declaration is split the same way the shared model splits it everywhere: the _table_ owns generic index slots, the _entity_ gives a slot meaning.
 
 ```ts title="table.ts"
 const table = SQLiteTable.make()
@@ -39,11 +39,11 @@ On DynamoDB the slot becomes a GSI in the table's provisioning schema. Here, `re
 
 Then every `insert`, `update`, and `delete` derives the index key values and writes them as part of the row itself. After Ada posts in `#general`, her row reads:
 
-| pk                | sk (messageId) | IDX1PK                 | IDX1SK (`_u`)  |
-| ----------------- | -------------- | ---------------------- | -------------- |
-| `Message#C-general` | `01JGB4Y8K3…` | `Message#byAuthor#U-ada` | `01JGB4Y8K4…` |
+| pk                  | sk (messageId) | IDX1PK                   | IDX1SK (`_u`) |
+| ------------------- | -------------- | ------------------------ | ------------- |
+| `Message#C-general` | `01JGB4Y8K3…`  | `Message#byAuthor#U-ada` | `01JGB4Y8K4…` |
 
-Note the derived partition value: `Message#byAuthor#U-ada`, prefixed with the entity name *and* the semantic index name. That namespacing is why multiple entity types can share the `IDX1` slot without their index rows ever colliding — a `Channel` entity mapping something onto `IDX1` lands under `Channel#…`, a disjoint key space in the same columns.
+Note the derived partition value: `Message#byAuthor#U-ada`, prefixed with the entity name _and_ the semantic index name. That namespacing is why multiple entity types can share the `IDX1` slot without their index rows ever colliding — a `Channel` entity mapping something onto `IDX1` lands under `Channel#…`, a disjoint key space in the same columns.
 
 ## Querying it
 
@@ -51,33 +51,38 @@ The query shape is the one you already know, with the semantic name where `'prim
 
 ```ts
 // Ada's most recent messages, across all channels
-const { items } = yield* messages.query(
-  'byAuthor',
-  { pk: { authorId: 'U-ada' }, sk: { '<': null } },
-  { limit: 20 },
-);
+const { items } =
+  yield *
+  messages.query(
+    'byAuthor',
+    { pk: { authorId: 'U-ada' }, sk: { '<': null } },
+    { limit: 20 },
+  );
 ```
 
-For a `_u`-sorted index the sk cursor is a `_u` value — page onward with `{ '<': lastSeenU }`. For an index with custom sk fields, the cursor is an object of those fields instead, and the adapter derives the string for you. `queryStream` drains an index the same way it drains the primary. One capability is deliberately restricted: `subscribe` only accepts `'primary'` or `_u`-sorted indexes — it replays a *change* timeline, which is only meaningful when the sort key is the update key, and the type system enforces that rather than letting a custom-sorted index silently misbehave.
+For a `_u`-sorted index the sk cursor is a `_u` value — page onward with `{ '<': lastSeenU }`. For an index with custom sk fields, the cursor is an object of those fields instead, and the adapter derives the string for you. `queryStream` drains an index the same way it drains the primary. One capability is deliberately restricted: `subscribe` only accepts `'primary'` or `_u`-sorted indexes — it replays a _change_ timeline, which is only meaningful when the sort key is the update key, and the type system enforces that rather than letting a custom-sorted index silently misbehave.
 
 ## Strongly consistent — and what that buys you
 
-Here's where the two engines part ways, in your favor. A GSI is physically a second table: DynamoDB copies your item into it *asynchronously*, so a query against a GSI can miss a write you just made. Every GSI consumer eventually writes the retry loop, or the "don't read your own writes through the index" comment.
+Here's where the two engines part ways, in your favor. A GSI is physically a second table: DynamoDB copies your item into it _asynchronously_, so a query against a GSI can miss a write you just made. Every GSI consumer eventually writes the retry loop, or the "don't read your own writes through the index" comment.
 
-On SQLite there is no second table. The index key values are columns *of the same row*, written by the same `INSERT` or `UPDATE` statement, covered by a plain SQL index. There is no propagation, so there is no propagation delay:
+On SQLite there is no second table. The index key values are columns _of the same row_, written by the same `INSERT` or `UPDATE` statement, covered by a plain SQL index. There is no propagation, so there is no propagation delay:
 
 ```ts
-yield* messages.insert({
-  messageId: yield* nextUlid,
-  channelId: 'C-general',
-  authorId: 'U-ada',
-  body: 'just posted',
-});
+yield *
+  messages.insert({
+    messageId: yield * nextUlid,
+    channelId: 'C-general',
+    authorId: 'U-ada',
+    body: 'just posted',
+  });
 
-const { items } = yield* messages.query('byAuthor', {
-  pk: { authorId: 'U-ada' },
-  sk: { '<': null },
-});
+const { items } =
+  yield *
+  messages.query('byAuthor', {
+    pk: { authorId: 'U-ada' },
+    sk: { '<': null },
+  });
 // items[0] is the message inserted one line ago. Always. No retry, no window.
 ```
 

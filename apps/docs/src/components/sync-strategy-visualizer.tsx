@@ -174,9 +174,7 @@ const canStep = (sim: Sim): boolean => {
   switch (sim.strategy) {
     case 'oldToNew':
       if (!sim.caughtUp) return true;
-      return sim.items.some(
-        (it) => sim.cursorU === null || it.u > sim.cursorU,
-      );
+      return sim.items.some((it) => sim.cursorU === null || it.u > sim.cursorU);
     case 'newToOld':
       if (sim.tailStarted && sim.pendingTail.length > 0) return true;
       if (!sim.streamDone) return true;
@@ -264,7 +262,10 @@ const stepOldToNew = (sim: OldToNewSim): OldToNewSim => {
   return {
     ...sim,
     steps: sim.steps + 1,
-    drained: addDrained(sim.drained, batch.map((it) => it.u)),
+    drained: addDrained(
+      sim.drained,
+      batch.map((it) => it.u),
+    ),
     lastBatch: batch.map((it) => it.u),
     cursorU: newest.u,
     narr,
@@ -367,7 +368,10 @@ const stepBidirectional = (sim: BidirectionalSim): BidirectionalSim => {
     return {
       ...sim,
       steps: sim.steps + 1,
-      drained: addDrained(sim.drained, batch.map((it) => it.u)),
+      drained: addDrained(
+        sim.drained,
+        batch.map((it) => it.u),
+      ),
       lastBatch: batch.map((it) => it.u),
       slices,
       converged,
@@ -389,7 +393,10 @@ const stepBidirectional = (sim: BidirectionalSim): BidirectionalSim => {
   return {
     ...sim,
     steps: sim.steps + 1,
-    drained: addDrained(sim.drained, batch.map((it) => it.u)),
+    drained: addDrained(
+      sim.drained,
+      batch.map((it) => it.u),
+    ),
     lastBatch: batch.map((it) => it.u),
     slices,
     converged,
@@ -444,7 +451,9 @@ const arriveSim = (sim: Sim): Sim => {
         items: [...sim.items, item],
         lastBatch: [],
         narr,
-        pendingTail: sim.started ? [...sim.pendingTail, item.u] : sim.pendingTail,
+        pendingTail: sim.started
+          ? [...sim.pendingTail, item.u]
+          : sim.pendingTail,
       };
   }
 };
@@ -454,7 +463,11 @@ const isCovered = (sim: Sim, u: string): boolean =>
     ? sim.cursorU !== null && u <= sim.cursorU
     : sim.slices.some((s) => s.lowU <= u && u <= s.highU);
 
-const isSliceEdge = (sim: Sim, u: string, index: number): [boolean, boolean] => {
+const isSliceEdge = (
+  sim: Sim,
+  u: string,
+  index: number,
+): [boolean, boolean] => {
   if (sim.strategy === 'oldToNew') {
     return [index === 0, u === sim.cursorU];
   }
@@ -488,7 +501,8 @@ const markersOf = (sim: Sim): Map<string, string> => {
 
 const stateLines = (sim: Sim): string[] => {
   const sliceLines = (slices: SliceU[], trailingComma: boolean): string[] => {
-    if (slices.length === 0) return [`  "slices": []${trailingComma ? ',' : ''}`];
+    if (slices.length === 0)
+      return [`  "slices": []${trailingComma ? ',' : ''}`];
     return [
       '  "slices": [',
       ...slices.map(
@@ -564,7 +578,8 @@ function Timeline({ sim }: { sim: Sim }) {
   const drainedSet = new Set(sim.drained);
   const lastBatchSet = new Set(sim.lastBatch);
   const markers = markersOf(sim);
-  const cell = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border font-mono text-[10px]';
+  const cell =
+    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border font-mono text-[10px]';
 
   return (
     <div className="overflow-x-auto">
@@ -702,7 +717,8 @@ export function SyncStrategyVisualizer(props: {
           <Timeline sim={sim} />
           <p className="mt-1.5 text-[10px] leading-4 text-fd-muted-foreground">
             server = every message in the partition · truth = drained into the
-            Source of Truth · state bar = the _u ranges Sync State says are covered
+            Source of Truth · state bar = the _u ranges Sync State says are
+            covered
             {strategy === 'oldToNew'
               ? ' · ▲ cursor'
               : strategy === 'newToOld'

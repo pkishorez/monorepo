@@ -3,11 +3,11 @@ title: tanstack-sync
 description: The item collection follows the user into the browser — a sync engine that asks nothing of your server but sorted items.
 ---
 
-You know TanStack DB. Collections, live queries, optimistic mutations — a genuinely good in-browser database, and the rendering half of a local-first app solved. What it deliberately doesn't solve is the other half: how does a collection stay *truthfully* in sync with a server?
+You know TanStack DB. Collections, live queries, optimistic mutations — a genuinely good in-browser database, and the rendering half of a local-first app solved. What it deliberately doesn't solve is the other half: how does a collection stay _truthfully_ in sync with a server?
 
 Truthfully is the hard word. Take the chat app. A user opens `#general`, and the messages have to load. They close the laptop for an hour, reopen it, and the gap has to fill — without refetching the whole channel. A message arrives over a socket at the same moment a catch-up fetch returns the same message: one copy must win, deterministically. Someone deletes a message; a stale copy of it is still in flight and must not resurrect it. The tab reloads mid-backfill and has to resume where it left off, not start over. Every one of these is table stakes, and every one of them is a place where "fetch on mount and invalidate on change" quietly returns the wrong data.
 
-The existing answers ask a lot. Sync engines that solve this properly typically do it by owning your database's replication stream — a specific database, a sidecar process, an operational commitment you make before you've written a feature. Hand-rolled fetch-plus-cache-invalidation asks less up front and then makes *you* the sync engine, one edge case at a time.
+The existing answers ask a lot. Sync engines that solve this properly typically do it by owning your database's replication stream — a specific database, a sidecar process, an operational commitment you make before you've written a feature. Hand-rolled fetch-plus-cache-invalidation asks less up front and then makes _you_ the sync engine, one edge case at a time.
 
 ## Sync item collections, not databases
 
@@ -25,7 +25,7 @@ On top of that one question, tanstack-sync builds the machinery that makes the a
 - **[Mutations](/docs/std-toolkit/tanstack-sync/mutations)** that close the loop — optimistic writes go up, the server-confirmed entity comes back, and it converges over the optimistic copy like any other delivery. Plus pacing, so a slider drag doesn't become two hundred requests.
 - **[Offline storage](/docs/std-toolkit/tanstack-sync/offline)** — plug in IndexedDB and both the Source of Truth and every strategy's cursor state become durable. Reload the tab and the collection rebuilds from disk while sync resumes from where it stopped, not from zero.
 
-One honest caveat before you dig in: you'll meet the word *partition* again in this section, and it does **not** mean a storage partition. In storage, a partition is an item collection — `#general`'s messages in the table. Here, a partition is a sync lifecycle window — "`#general` is open and being mirrored." The [collections page](/docs/std-toolkit/tanstack-sync/collections) pins the vocabulary down properly.
+One honest caveat before you dig in: you'll meet the word _partition_ again in this section, and it does **not** mean a storage partition. In storage, a partition is an item collection — `#general`'s messages in the table. Here, a partition is a sync lifecycle window — "`#general` is open and being mirrored." The [collections page](/docs/std-toolkit/tanstack-sync/collections) pins the vocabulary down properly.
 
 ## Where to start
 

@@ -139,13 +139,15 @@ sk = <messageId>
 User1's new message is validated and inserted:
 
 ```ts title="send-message.ts"
-const sent = yield* messages.insert({
-  messageId: yield* nextUlid,
-  channelId: 'general',
-  authorId: 'user1',
-  body: 'Seen the logs?',
-  reactions: {},
-});
+const sent =
+  yield *
+  messages.insert({
+    messageId: yield * nextUlid,
+    channelId: 'general',
+    authorId: 'user1',
+    body: 'Seen the logs?',
+    reactions: {},
+  });
 ```
 
 The adapter turns the access pattern into a concrete address:
@@ -244,13 +246,13 @@ The path is symmetrical. Local interaction becomes a typed value, the value rece
 
 Each layer solves one problem and hands a small, stable shape to the next.
 
-| Layer | What it contributes |
-| --- | --- |
-| **eschema** | Current shape, identity, validation, and migrations |
-| **core** | Entity metadata, tombstones, and convergence by `_u` |
-| **database adapter** | Keys, typed operations, and one-table storage |
-| **item collection** | A bounded group with a stable, resumable order |
-| **tanstack-sync** | Cursors, local truth, offline recovery, and mutations |
+| Layer                  | What it contributes                                   |
+| ---------------------- | ----------------------------------------------------- |
+| **eschema**            | Current shape, identity, validation, and migrations   |
+| **core**               | Entity metadata, tombstones, and convergence by `_u`  |
+| **database adapter**   | Keys, typed operations, and one-table storage         |
+| **item collection**    | A bounded group with a stable, resumable order        |
+| **tanstack-sync**      | Cursors, local truth, offline recovery, and mutations |
 | **TanStack DB and UI** | Local joins, live queries, and optimistic interaction |
 
 DynamoDB supplied the organizing idea: design direct access paths as ordered collections. std-toolkit made those collections typed and portable across databases. Cursors made them resumable. Entity envelopes made concurrent delivery converge. TanStack DB recomposed them into a local-first application.

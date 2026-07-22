@@ -1,6 +1,6 @@
 ---
 title: DynamoDB crash course
-description: "The small part of DynamoDB you need to understand std-toolkit: one table, two keys, item collections, and indexes."
+description: 'The small part of DynamoDB you need to understand std-toolkit: one table, two keys, item collections, and indexes.'
 ---
 
 DynamoDB can feel unfamiliar if you come from a relational database. There are no joins, and you do not begin by making a table for every kind of data.
@@ -17,13 +17,13 @@ In a relational database, channels, messages, and members would usually live in 
 
 That does not make the table one giant unordered bucket. Every item has keys that place it into a small, ordered group.
 
-| pk | sk | entity | body |
-| --- | --- | --- | --- |
-| `Message#general` | `01J...A1` | Message | `Morning!` |
+| pk                | sk         | entity  | body             |
+| ----------------- | ---------- | ------- | ---------------- |
+| `Message#general` | `01J...A1` | Message | `Morning!`       |
 | `Message#general` | `01J...A2` | Message | `Seen the logs?` |
-| `Message#random` | `01J...B1` | Message | `Lunch?` |
-| `Channel` | `general` | Channel | — |
-| `Channel` | `random` | Channel | — |
+| `Message#random`  | `01J...B1` | Message | `Lunch?`         |
+| `Channel`         | `general`  | Channel | —                |
+| `Channel`         | `random`   | Channel | —                |
 
 The rows share a table, but their keys give them structure. The table is only the physical home. The keys describe how the application reaches the data inside it.
 

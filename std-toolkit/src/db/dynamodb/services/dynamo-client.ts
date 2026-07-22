@@ -1,6 +1,7 @@
 import { AwsClient } from 'aws4fetch';
 import { Context, Layer } from 'effect';
 import * as Effect from 'effect/Effect';
+import { functionBlock } from 'laymos/story';
 import { DynamodbError, type AwsErrorMeta } from '../errors.js';
 import { unmarshall } from '../internal/marshall.js';
 import type { MarshalledOutput } from '../types/index.js';
@@ -90,117 +91,134 @@ export function createDynamoDB(
     credentials: connection.credentials,
   });
 
-  const makeRequest = (methodName: string, input: unknown) =>
-    Effect.gen(function* () {
-      const client = yield* Effect.promise(() => clientPromise);
-      const action = methodName.charAt(0).toUpperCase() + methodName.slice(1);
-      const body = JSON.stringify(input || {});
+  const makeRequest = functionBlock(
+    'Send DynamoDB request',
+    {
+      description:
+        'Signs and sends one DynamoDB API request, then maps its response into the adapter error model.',
+      attributes: (methodName: string, _input: unknown) => ({
+        operation: methodName,
+      }),
+    },
+    (methodName: string, input: unknown) =>
+      Effect.gen(function* () {
+        const client = yield* Effect.promise(() => clientPromise);
+        const action = methodName.charAt(0).toUpperCase() + methodName.slice(1);
+        const body = JSON.stringify(input || {});
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/x-amz-json-1.0',
-        'X-Amz-Target': `DynamoDB_20120810.${action}`,
-        'Content-Length': body.length.toString(),
-      };
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/x-amz-json-1.0',
+          'X-Amz-Target': `DynamoDB_20120810.${action}`,
+          'Content-Length': body.length.toString(),
+        };
 
-      yield* Effect.logDebug('DynamoDB Request', {
-        action,
-        endpoint,
-        headers,
-        input,
-      });
-
-      const response = yield* Effect.promise(() =>
-        client.fetch(endpoint, {
-          method: 'POST',
+        yield* Effect.logDebug('DynamoDB Request', {
+          action,
+          endpoint,
           headers,
-          body,
-        }),
-      ).pipe(Effect.timeout('30 seconds'));
+          input,
+        });
 
-      const responseText = yield* Effect.promise(() => response.text());
-      const statusCode = response.status;
+        const response = yield* Effect.promise(() =>
+          client.fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body,
+          }),
+        ).pipe(Effect.timeout('30 seconds'));
 
-      yield* Effect.logDebug('DynamoDB Response', {
-        action,
-        statusCode,
-        responseText,
-      });
+        const responseText = yield* Effect.promise(() => response.text());
+        const statusCode = response.status;
 
-      if (statusCode >= 200 && statusCode < 300) {
-        if (!responseText) return {};
-        return JSON.parse(responseText);
-      }
+        yield* Effect.logDebug('DynamoDB Response', {
+          action,
+          statusCode,
+          responseText,
+        });
 
-      let errorData: Record<string, unknown> = {};
-      try {
-        errorData = JSON.parse(responseText);
-      } catch {}
+        if (statusCode >= 200 && statusCode < 300) {
+          if (!responseText) return {};
+          return JSON.parse(responseText);
+        }
 
-      let errorType = 'UnknownError';
-      let errorMessage = 'Unknown error';
+        let errorData: Record<string, unknown> = {};
+        try {
+          errorData = JSON.parse(responseText);
+        } catch {}
 
-      if (errorData && typeof errorData === 'object') {
-        errorType =
-          (errorData.__type as string) ||
-          (errorData.code as string) ||
-          'UnknownError';
-        errorMessage =
-          (errorData.Message as string) ||
-          (errorData.message as string) ||
-          'Unknown error';
-      }
+        let errorType = 'UnknownError';
+        let errorMessage = 'Unknown error';
 
-      const requestId =
-        response.headers.get('x-amzn-requestid') ||
-        response.headers.get('x-amz-request-id') ||
-        undefined;
+        if (errorData && typeof errorData === 'object') {
+          errorType =
+            (errorData.__type as string) ||
+            (errorData.code as string) ||
+            'UnknownError';
+          errorMessage =
+            (errorData.Message as string) ||
+            (errorData.message as string) ||
+            'Unknown error';
+        }
 
-      const errorMeta: AwsErrorMeta = requestId
-        ? { statusCode, requestId }
-        : { statusCode };
+        const requestId =
+          response.headers.get('x-amzn-requestid') ||
+          response.headers.get('x-amz-request-id') ||
+          undefined;
 
-      const simpleErrorName = extractErrorName(errorType);
+        const errorMeta: AwsErrorMeta = requestId
+          ? { statusCode, requestId }
+          : { statusCode };
 
-      const errorMap: Record<string, (meta: AwsErrorMeta) => DynamodbError> = {
-        ThrottlingException: DynamodbError.throttling,
-        TooManyRequestsException: DynamodbError.throttling,
-        ProvisionedThroughputExceededException: DynamodbError.throttling,
-        RequestLimitExceeded: DynamodbError.throttling,
-        ServiceUnavailable: DynamodbError.serviceUnavailable,
-        InternalServerError: DynamodbError.serviceUnavailable,
-        RequestTimeout: DynamodbError.requestTimeout,
-        AccessDeniedException: DynamodbError.accessDenied,
-        UnauthorizedException: DynamodbError.unauthorized,
-        UnrecognizedClientException: DynamodbError.unauthorized,
-        ValidationException: DynamodbError.validationException,
-      };
+        const simpleErrorName = extractErrorName(errorType);
 
-      const errorFactory = errorMap[simpleErrorName];
-      if (errorFactory) {
-        return yield* Effect.fail(errorFactory(errorMeta));
-      }
+        const errorMap: Record<string, (meta: AwsErrorMeta) => DynamodbError> =
+          {
+            ThrottlingException: DynamodbError.throttling,
+            TooManyRequestsException: DynamodbError.throttling,
+            ProvisionedThroughputExceededException: DynamodbError.throttling,
+            RequestLimitExceeded: DynamodbError.throttling,
+            ServiceUnavailable: DynamodbError.serviceUnavailable,
+            InternalServerError: DynamodbError.serviceUnavailable,
+            RequestTimeout: DynamodbError.requestTimeout,
+            AccessDeniedException: DynamodbError.accessDenied,
+            UnauthorizedException: DynamodbError.unauthorized,
+            UnrecognizedClientException: DynamodbError.unauthorized,
+            ValidationException: DynamodbError.validationException,
+          };
 
-      if (simpleErrorName === 'InvalidSignatureException') {
-        return yield* Effect.fail(
-          DynamodbError.invalidSignature(errorMessage, errorMeta),
+        const errorFactory = errorMap[simpleErrorName];
+        if (errorFactory) {
+          return yield* Effect.fail(errorFactory(errorMeta));
+        }
+
+        if (simpleErrorName === 'InvalidSignatureException') {
+          return yield* Effect.fail(
+            DynamodbError.invalidSignature(errorMessage, errorMeta),
+          );
+        }
+
+        const error = DynamodbError.unknownAwsError(
+          simpleErrorName,
+          errorMessage,
+          errorMeta,
         );
-      }
-
-      const error = DynamodbError.unknownAwsError(
-        simpleErrorName,
-        errorMessage,
-        errorMeta,
-      );
-      if (
-        simpleErrorName === 'ConditionalCheckFailedException' &&
-        errorData.Item
-      ) {
-        (error as any).conditionFailureItem = unmarshall(
-          errorData.Item as MarshalledOutput,
-        );
-      }
-      return yield* Effect.fail(error);
-    });
+        if (
+          simpleErrorName === 'TransactionCanceledException' &&
+          Array.isArray(errorData.CancellationReasons)
+        ) {
+          (error as any).cancellationReasons = errorData.CancellationReasons;
+        }
+        if (
+          simpleErrorName === 'ConditionalCheckFailedException' &&
+          errorData.Item
+        ) {
+          (error as any).conditionFailureItem = unmarshall(
+            errorData.Item as MarshalledOutput,
+          );
+        }
+        return yield* Effect.fail(error);
+      }),
+  );
 
   return {
     getItem: (input) => makeRequest('getItem', input),

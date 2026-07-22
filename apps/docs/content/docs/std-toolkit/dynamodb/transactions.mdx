@@ -25,7 +25,7 @@ export const registry = EntityRegistry.make(table)
   .build();
 ```
 
-Beyond routing (`registry.entity('Message')`, `registry.singleEntity('WorkspaceSettings')`, `registry.entityNames`, and `registry.table` for the underlying table), registration does the load-bearing work for transactions: the registry's `transact` only accepts items produced by *registered* entities. That's not a runtime check — it's in the types.
+Beyond routing (`registry.entity('Message')`, `registry.singleEntity('WorkspaceSettings')`, `registry.entityNames`, and `registry.table` for the underlying table), registration does the load-bearing work for transactions: the registry's `transact` only accepts items produced by _registered_ entities. That's not a runtime check — it's in the types.
 
 ## `insertOp` and `updateOp`: writes as values
 
@@ -37,7 +37,11 @@ import { nextUlid } from 'std-toolkit/core';
 import { messages, channels } from './entities';
 import { registry } from './registry';
 
-export const sendMessage = (channelId: string, authorId: string, body: string) =>
+export const sendMessage = (
+  channelId: string,
+  authorId: string,
+  body: string,
+) =>
   Effect.gen(function* () {
     const messageOp = yield* messages.insertOp({
       messageId: yield* nextUlid,
@@ -72,12 +76,13 @@ Transactions are for correctness; batches are for throughput. Importing a channe
 The entity-level API is `batchInsert`:
 
 ```ts
-const { written, unprocessedIndexes } = yield* messages.batchInsert(importedMessages);
+const { written, unprocessedIndexes } =
+  yield * messages.batchInsert(importedMessages);
 ```
 
 Edge one, handled: DynamoDB caps a batch at 25 items, so the underlying `table.batchWrite` chunks any number of items into 25-item requests automatically.
 
-Edge two, handed back: DynamoDB may *partially* process a batch — under throttling it accepts some items and returns the rest as unprocessed, and that's not an error, it's the API working as documented. Code that ignores this loses data on the busiest day of the year. So the result splits: `written` holds the entities that landed, `unprocessedIndexes` holds the *positions in your input array* that didn't. Retrying is a loop over what remains:
+Edge two, handed back: DynamoDB may _partially_ process a batch — under throttling it accepts some items and returns the rest as unprocessed, and that's not an error, it's the API working as documented. Code that ignores this loses data on the busiest day of the year. So the result splits: `written` holds the entities that landed, `unprocessedIndexes` holds the _positions in your input array_ that didn't. Retrying is a loop over what remains:
 
 ```ts
 export const importHistory = (rows: MessageInsert[]) =>
@@ -98,22 +103,23 @@ One honesty note, because it changes when you reach for this: `BatchWriteItem` d
 
 Every operation in this section — and the whole adapter — fails with exactly one error type in the Effect error channel: `DynamodbError`. It's a tagged error wrapping a discriminated union, so one `catchTag` gets you in, and `error._tag` tells you precisely what happened:
 
-| Family | Tags |
-| --- | --- |
-| Semantic — your logic can react | `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, `ConditionCheckFailed` |
-| Auto-migration | `ItemVersionMismatch` (stale row, `autoMigrate: false`), `ItemMigrationFailed` (concurrent write during migration) |
-| Operation wrappers — what failed, with cause | `GetItemFailed`, `PutItemFailed`, `UpdateItemFailed`, `DeleteItemFailed`, `QueryFailed`, `ScanFailed`, `DescribeFailed`, `TransactionFailed`, `BatchWriteFailed` |
+| Family                                       | Tags                                                                                                                                                                                   |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Semantic — your logic can react              | `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, `ConditionCheckFailed`                                                                                                        |
+| Auto-migration                               | `ItemVersionMismatch` (stale row, `autoMigrate: false`), `ItemMigrationFailed` (concurrent write during migration)                                                                     |
+| Operation wrappers — what failed, with cause | `GetItemFailed`, `PutItemFailed`, `UpdateItemFailed`, `DeleteItemFailed`, `QueryFailed`, `ScanFailed`, `DescribeFailed`, `TransactionFailed`, `BatchWriteFailed`                       |
 | AWS transport — status + request id attached | `ThrottlingException`, `ServiceUnavailable`, `RequestTimeout`, `AccessDeniedException`, `UnauthorizedException`, `ValidationException`, `InvalidSignatureException`, `UnknownAwsError` |
 
 The semantic tags are the ones your application logic branches on. The chat app's retried-delivery case — a client resends a message it already delivered — is a one-liner, because inserts carry ids the client minted:
 
 ```ts
-yield* messages.insert(draft).pipe(
-  Effect.catchIf(
-    (e) => e.error._tag === 'ItemAlreadyExists',
-    () => Effect.void, // duplicate delivery — the message is already there
-  ),
-);
+yield *
+  messages.insert(draft).pipe(
+    Effect.catchIf(
+      (e) => e.error._tag === 'ItemAlreadyExists',
+      () => Effect.void, // duplicate delivery — the message is already there
+    ),
+  );
 ```
 
 The transport tags are your retry candidates: `ThrottlingException`, `ServiceUnavailable`, and `RequestTimeout` are transient by definition and safe to retry with backoff, while `AccessDeniedException` or `ValidationException` will fail identically forever — match on `error._tag` to retry only the former. Each transport error carries `meta` with the HTTP status code and the AWS request id, which is what AWS support asks for first.

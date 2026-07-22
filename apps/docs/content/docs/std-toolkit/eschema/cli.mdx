@@ -60,7 +60,7 @@ export { schema as messageSchema };
 export type Message = ESchemaType<typeof schema>;
 ```
 
-Note the split: version files export *builders* (no `.build()`), and `schema.ts` is the single place the chain gets built. Your first move is replacing the placeholder fields in `v1.ts` — and typically swapping `ESchema.make` for `EntityESchema.make('Message', 'messageId', {...})` when the schema is a keyed entity. `create` refuses to run if the target folder already exists with content, and the schema path must be a relative path with no `..` segments.
+Note the split: version files export _builders_ (no `.build()`), and `schema.ts` is the single place the chain gets built. Your first move is replacing the placeholder fields in `v1.ts` — and typically swapping `ESchema.make` for `EntityESchema.make('Message', 'messageId', {...})` when the schema is a keyed entity. `create` refuses to run if the target folder already exists with content, and the schema path must be a relative path with no `..` segments.
 
 When you later evolve the schema, you follow the same shape by hand: add `versions/v2.ts` exporting `v2 = v1.evolve('v2', ...)`, and point `schema.ts` at `v2.build()`.
 
@@ -74,7 +74,7 @@ Lint analyzes every schema in the collection and prints a report — each versio
 
 - **`approved`** — the version file matches its snapshot and the snapshot's hash matches the manifest. All quiet.
 - **`new`** — a version file with no snapshot yet. Expected state right after you add `v2.ts`; fixed by `approve`.
-- **`modified`** — a version file *differs from its approved snapshot*. This is the drift the whole system exists to catch: someone edited a shipped version.
+- **`modified`** — a version file _differs from its approved snapshot_. This is the drift the whole system exists to catch: someone edited a shipped version.
 - **`missing-file`** — the snapshot file was deleted; restore it from git or re-approve.
 - **`hash-mismatch`** — the snapshot itself was edited by hand. Snapshots are `approve`'s output, not source files; restore from git.
 
@@ -98,7 +98,7 @@ The guardrails mirror the best practices:
 
 - A **new** version is always approvable — appending is the normal, encouraged operation.
 - A **modified latest** version is approvable — you're still shaping the version you're currently working on; until it ships, it isn't history yet.
-- A **modified non-latest** version is *blocked* unless you pass `--force`. Old versions are frozen; `--force` exists for the rare deliberate correction (a typo in a comment, a rename that provably doesn't change semantics) and should be as loud in review as the flag sounds.
+- A **modified non-latest** version is _blocked_ unless you pass `--force`. Old versions are frozen; `--force` exists for the rare deliberate correction (a typo in a comment, a rename that provably doesn't change semantics) and should be as loud in review as the flag sounds.
 - A deleted version file is never approvable — the report tells you how to fix it manually, because [deleting versions breaks decoding](/docs/std-toolkit/eschema/qa#can-i-ever-delete-a-version).
 
 ## The loop, end to end

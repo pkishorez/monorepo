@@ -1,13 +1,8 @@
-import { Context, Effect, Option } from 'effect';
+import { Context, Effect } from 'effect';
 import type { Where } from './helpers/index.js';
-import type { EntityType } from '../../../core/index.js';
 import { SqliteDBError } from '../errors.js';
 
 export { SqliteDBError, type SqliteDBErrorType } from '../errors.js';
-
-export const TransactionPendingBroadcasts = Context.Reference<
-  Option.Option<Array<EntityType<unknown>>>
->('TransactionPendingBroadcasts', { defaultValue: () => Option.none() });
 
 export class SqliteDB extends Context.Service<
   SqliteDB,
