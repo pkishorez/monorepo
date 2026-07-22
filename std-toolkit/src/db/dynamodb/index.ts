@@ -1,9 +1,6 @@
 // Services
 export {
   DynamoTable,
-  DynamoEntity,
-  DynamoSingleEntity,
-  EntityRegistry,
   type EntityType,
   type SingleEntityType,
   type TableDescription,

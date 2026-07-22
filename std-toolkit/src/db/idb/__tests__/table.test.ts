@@ -1,10 +1,10 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect } from 'vitest';
 import { Effect, Layer } from 'effect';
-import { IdbDB } from '../db.js';
-import type { IdbRecord } from '../db.js';
-import { idbLayer } from '../layer.js';
-import { IdbTable } from '../idb-table.js';
+import { IdbDB } from '../src/db.js';
+import type { IdbRecord } from '../src/db.js';
+import { idbLayer } from '../src/layer.js';
+import { IdbTable } from '../src/idb-table.js';
 
 let dbCounter = 0;
 const uniqueDbName = () => `idb-table-test-${++dbCounter}`;
@@ -319,20 +319,22 @@ describe('IdbTable', () => {
       expect(result).toEqual({ Item: null });
     });
 
-    it('dangerouslyRemoveAllRows empties the table and reports the count', async () => {
+    it('dangerouslyRemoveAllItems empties the table and reports the count', async () => {
       const layer = idbLayer(uniqueDbName(), 'std_data');
       const result = await runWith(
         layer,
         seedCollection().pipe(
           Effect.andThen(
             Effect.all({
-              removed: table.dangerouslyRemoveAllRows('i know what i am doing'),
+              removed: table.dangerouslyRemoveAllItems(
+                'I KNOW WHAT I AM DOING',
+              ),
               after: table.query({ pk: 'USER#1' }),
             }),
           ),
         ),
       );
-      expect(result.removed).toEqual({ rowsDeleted: collectionSks.length });
+      expect(result.removed).toEqual({ itemsDeleted: collectionSks.length });
       expect(result.after.Items).toEqual([]);
     });
   });

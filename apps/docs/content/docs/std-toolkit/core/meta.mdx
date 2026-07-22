@@ -72,7 +72,7 @@ The last two fields are optional, and unlike the others, the database adapters n
 
 They exist for one consumer: **cadence sync**, the repair strategy that re-checks rows which may have been delivered before the backend finished settling. It compares `_s` against the write time embedded in `_u` — a delivery that happened suspiciously soon after the write is a candidate for re-fetching — and uses `_c − _s` to estimate clock skew between client and server, so those judgments survive a client whose clock is wrong. If you never use cadence sync, you can leave both fields unset and the rest of the toolkit won't notice.
 
-One subtlety worth knowing: when a delivery arrives that is *stale* by `_u` (so the convergence rule says skip), a present `_s` is still reconciled onto the stored row's meta. The value never regresses; the delivery bookkeeping stays current.
+One subtlety worth knowing: when a delivery arrives that is _stale_ by `_u` (so the convergence rule says skip), a present `_s` is still reconciled onto the stored row's meta. The value never regresses; the delivery bookkeeping stays current.
 
 ## The ULID toolkit
 
@@ -117,8 +117,8 @@ Extracts the millisecond timestamp from a `_u` value — and it's deliberately f
 import { uTime } from 'std-toolkit/core';
 
 uTime('01JGB4Y8K3T5R9W2N7Q0XVZDCM'); // ms embedded in the ULID
-uTime('2026-01-01T00:00:00.000Z');   // ms from parsing the ISO string
-uTime('not-an-update-key');          // null
+uTime('2026-01-01T00:00:00.000Z'); // ms from parsing the ISO string
+uTime('not-an-update-key'); // null
 ```
 
 ## `MetaSchema`

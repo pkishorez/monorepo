@@ -3,7 +3,7 @@ title: Differences from DynamoDB
 description: The honest diff between the two adapters — consistency, setup, query surface, writes, transactions, deletes — and when to reach for which.
 ---
 
-Three pages of "it's the same model" should have raised your skeptic's eyebrow. Two databases with this little in common — a managed, distributed key-value store and an embedded SQL file — cannot be *identical* behind one API, and a toolkit that claimed they were would be hiding something. So here is the full diff, verified against the adapters' source, organized by what you'd actually hit. The summary up front: the shared contract — entity services, key derivation, envelopes, range queries, sk-as-cursor pagination, tombstone deletes, `subscribe` — genuinely is identical. The differences live at the edges, and each one is a database being honest about its own physics.
+Three pages of "it's the same model" should have raised your skeptic's eyebrow. Two databases with this little in common — a managed, distributed key-value store and an embedded SQL file — cannot be _identical_ behind one API, and a toolkit that claimed they were would be hiding something. So here is the full diff, verified against the adapters' source, organized by what you'd actually hit. The summary up front: the shared contract — entity services, key derivation, envelopes, range queries, sk-as-cursor pagination, tombstone deletes, `subscribe` — genuinely is identical. The differences live at the edges, and each one is a database being honest about its own physics.
 
 ## Consistency
 
@@ -29,15 +29,16 @@ Small, honest deltas in what a query can say:
 
 ## Writes: expressions vs read-merge-write
 
-The largest API divergence. DynamoDB has no interactive transactions, so it compensates with *server-side* expressions — and the adapter surfaces them: `update` there accepts either a plain partial or an expression-builder callback (`set`, `opAdd`, …), plus an optional condition expression that makes the write atomic-or-rejected at the database (the [expressions page](/docs/std-toolkit/dynamodb/expressions) covers this machinery).
+The largest API divergence. DynamoDB has no interactive transactions, so it compensates with _server-side_ expressions — and the adapter surfaces them: `update` there accepts either a plain partial or an expression-builder callback (`set`, `opAdd`, …), plus an optional condition expression that makes the write atomic-or-rejected at the database (the [expressions page](/docs/std-toolkit/dynamodb/expressions) covers this machinery).
 
 The SQLite `update` takes a plain partial, full stop:
 
 ```ts
-yield* messages.update(
-  { channelId: 'C-general', messageId },
-  { body: 'edited on sqlite' },
-);
+yield *
+  messages.update(
+    { channelId: 'C-general', messageId },
+    { body: 'edited on sqlite' },
+  );
 ```
 
 Under the hood it reads the row, merges, re-encodes, and writes. No expression builders, no condition parameter — if you need "read, decide, write" to be atomic, you don't encode the decision into an expression; you wrap the whole thing in a transaction (next section), which is strictly more expressive.
@@ -50,30 +51,35 @@ Here each adapter plays to its engine, and the shapes are opposites:
 
 **DynamoDB — declare the writes, then commit.** Entities build operation descriptions (`insertOp`, `updateOp`), and `registry.transact(items)` submits the batch all-or-nothing. Write-only: you cannot read, branch, or compute inside — the transaction is data, not code.
 
-**SQLite — run code inside the transaction.** `registry.transaction(effect)` wraps *any* Effect in `BEGIN … COMMIT`, rolling back on failure:
+**SQLite — run code inside the transaction.** `registry.transaction(effect)` wraps _any_ Effect in `BEGIN … COMMIT`, rolling back on failure:
 
 ```ts
-yield* registry.transaction(
-  Effect.gen(function* () {
-    const channel = yield* channels.get({ channelId: 'C-standup' });
-    if (channel === null) {
-      yield* channels.insert({ channelId: 'C-standup', name: 'standup', topic: '' });
-    }
-    yield* messages.insert({
-      messageId: yield* nextUlid,
-      channelId: 'C-standup',
-      authorId: 'U-ada',
-      body: 'kicking off',
-    });
-  }),
-);
+yield *
+  registry.transaction(
+    Effect.gen(function* () {
+      const channel = yield* channels.get({ channelId: 'C-standup' });
+      if (channel === null) {
+        yield* channels.insert({
+          channelId: 'C-standup',
+          name: 'standup',
+          topic: '',
+        });
+      }
+      yield* messages.insert({
+        messageId: yield* nextUlid,
+        channelId: 'C-standup',
+        authorId: 'U-ada',
+        body: 'kicking off',
+      });
+    }),
+  );
 ```
 
 Reads, conditionals, and writes across any registered entity, atomically — the read-check-insert above is impossible to express in a DynamoDB transact batch without conditions. Two rules, both enforced with errors rather than surprises: no nesting (`NestedTransactionNotSupported`), and [broadcasts](/docs/std-toolkit/core) from inside are buffered until commit so subscribers never observe a rolled-back write.
 
 ## Deletes and destructive escape hatches
 
-`delete` is a tombstone on both engines — `_d` flips, `_u` re-stamps, the row stays for sync consumers. The *hard*-delete escape hatches differ in shape:
+`delete` is a tombstone on both engines — `_d` flips, `_u` re-stamps, the row stays for sync consumers. The _hard_-delete escape hatches differ in shape:
 
 - **DynamoDB** puts it on `delete` itself: `delete(key, { forceDelete: 'I know what I am doing' })` physically removes one item.
 - **SQLite** separates it: `entity.hardDelete(where?)` physically removes that entity's rows, optionally filtered by a SQL `where` — a bulk administrative tool rather than a per-item flag. And for test fixtures, both the table and each entity expose `dangerouslyRemoveAllRows('i know what i am doing')`, which truncates the physical table.
@@ -88,13 +94,13 @@ Same ergonomics, different vocabularies: every SQLite operation fails with `Sqli
 
 Not a rivalry — a deployment decision per environment, over one codebase:
 
-| Situation | Reach for |
-| --- | --- |
-| Unit and integration tests | SQLite, `:memory:`, per-test databases — real SQL, zero infrastructure, no eventual-consistency flake |
-| Local development | SQLite — the database is a file you can inspect and delete |
-| Per-partition data at the edge | SQLite in a Durable Object — [one database per channel](/docs/std-toolkit/sqlite/runtimes) is the topology's natural home |
-| Single-server apps, embedded, small deployments | SQLite — transactions and strong consistency with no managed service |
-| Shared multi-tenant store at scale, serverless fleets | DynamoDB — horizontal scale and managed durability are what you're paying for |
-| Server-side conditional writes without a transaction | DynamoDB — condition and update expressions |
+| Situation                                             | Reach for                                                                                                                 |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Unit and integration tests                            | SQLite, `:memory:`, per-test databases — real SQL, zero infrastructure, no eventual-consistency flake                     |
+| Local development                                     | SQLite — the database is a file you can inspect and delete                                                                |
+| Per-partition data at the edge                        | SQLite in a Durable Object — [one database per channel](/docs/std-toolkit/sqlite/runtimes) is the topology's natural home |
+| Single-server apps, embedded, small deployments       | SQLite — transactions and strong consistency with no managed service                                                      |
+| Shared multi-tenant store at scale, serverless fleets | DynamoDB — horizontal scale and managed durability are what you're paying for                                             |
+| Server-side conditional writes without a transaction  | DynamoDB — condition and update expressions                                                                               |
 
 And the reason this table can exist at all: the layer above doesn't care. The [sync engine](/docs/std-toolkit/tanstack-sync) asks one question — sorted items after a cursor — and both adapters answer it identically. Test the whole sync path against SQLite in CI, run DynamoDB in production, and change nothing in between.

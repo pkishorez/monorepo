@@ -17,7 +17,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 - **core** is the shared kernel for the whole toolkit. eschema, db (dynamodb/sqlite), and tanstack-sync all speak its **Entity** / **Entity Meta** vocabulary.
 - **eschema → core**: core's `_v` field is an eschema **version**; core's `EntitySchema` wraps an eschema schema.
 - **db → core, eschema**: the adapters persist core **Entities** whose `value` is validated by an eschema schema.
-- **db (dynamodb ↔ sqlite ↔ idb)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, `EntityRegistry` — is defined once in [db](./src/db/CONTEXT.md); sqlite and idb mirror dynamodb's topology and each child context records only its divergences.
+- **db (dynamodb ↔ sqlite ↔ idb)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table** — is defined once in [db](./src/db/CONTEXT.md); sqlite and idb mirror dynamodb's topology and each child context records only its divergences.
 - **tanstack-sync → core**: consumes core **Entities** from the wire; interprets `_u` for convergence and `_s`/`_c` for cadence.
 
 ## Term collisions (same word, different context)

@@ -3,7 +3,6 @@ import { Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
 import {
   DynamoTable,
-  DynamoEntity,
   exprCondition,
   exprUpdate,
   buildExpr,
@@ -129,12 +128,12 @@ describe('std-toolkit/dynamodb', () => {
     });
   });
 
-  describe('DynamoEntity', () => {
-    // Create a table instance for testing entities
-    const table = DynamoTable.make()
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .build();
+  describe('table entities', () => {
+    const makeTable = () =>
+      DynamoTable.make()
+        .primary('pk', 'sk')
+        .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+        .build();
 
     // New ESchema API: idField is second parameter
     const userSchema = EntityESchema.make('User', 'userId', {
@@ -144,23 +143,43 @@ describe('std-toolkit/dynamodb', () => {
 
     it('creates entity builder', () => {
       // New API: SK is automatically the idField
-      const entity = DynamoEntity.make(table)
-        .eschema(userSchema)
+      const entity = makeTable()
+        .entity(userSchema)
         .primary({ pk: ['userId'] })
         .build();
 
       expect(entity).toBeDefined();
     });
 
+    it('rejects _u in primary partition key derivation', () => {
+      expect(() =>
+        (makeTable().entity(userSchema) as any).primary({ pk: ['_u'] }),
+      ).toThrow('Primary partition key derivation cannot include "_u"');
+    });
+
     it('creates entity with secondary index', () => {
       // New API: SK is automatically _u for secondary indexes
-      const entity = DynamoEntity.make(table)
-        .eschema(userSchema)
+      const entity = makeTable()
+        .entity(userSchema)
         .primary({ pk: ['userId'] })
         .index('GSI1', 'byEmail', { pk: ['email'] })
         .build();
 
       expect(entity).toBeDefined();
+    });
+
+    it('rejects duplicate entity names on the same table', () => {
+      const table = makeTable();
+      table
+        .entity(userSchema)
+        .primary({ pk: ['userId'] })
+        .build();
+      expect(() =>
+        table
+          .entity(userSchema)
+          .primary({ pk: ['userId'] })
+          .build(),
+      ).toThrow('Entity "User" is already defined on this table');
     });
   });
 });

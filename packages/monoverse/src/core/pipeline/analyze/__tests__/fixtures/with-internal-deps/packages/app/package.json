@@ -1,8 +1,0 @@
-{
-  "name": "@repo/app",
-  "version": "1.0.0",
-  "dependencies": {
-    "@repo/lib": "workspace:*",
-    "react": "^18.0.0"
-  }
-}

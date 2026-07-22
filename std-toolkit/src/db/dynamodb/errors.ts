@@ -10,6 +10,15 @@ export interface AwsErrorMeta {
   readonly requestId?: string;
 }
 
+export interface TransactionFailureContext {
+  readonly index: number;
+  readonly entityName: string;
+  readonly operationKind: 'insertOp' | 'updateOp' | 'deleteOp' | 'restoreOp';
+  readonly writeKind: 'put' | 'update';
+  readonly reasonCode: string;
+  readonly message?: string;
+}
+
 /**
  * Discriminated union of all possible DynamoDB error types.
  * Each error has a _tag field for pattern matching.
@@ -23,9 +32,14 @@ export type DynamodbErrorType =
   | { _tag: 'ScanFailed'; cause: unknown }
   | { _tag: 'DescribeFailed'; cause: unknown }
   | { _tag: 'TransactionFailed'; cause: unknown }
+  | {
+      _tag: 'ConditionFailed';
+      failures: ReadonlyArray<TransactionFailureContext>;
+    }
   | { _tag: 'BatchWriteFailed'; cause: unknown }
   | { _tag: 'ItemAlreadyExists' }
   | { _tag: 'NoItemToUpdate' }
+  | { _tag: 'IdUpdateNotSupported'; idField: string }
   | {
       _tag: 'ConditionCheckFailed';
       message: string;
@@ -33,6 +47,7 @@ export type DynamodbErrorType =
   | { _tag: 'ItemVersionMismatch' }
   | { _tag: 'ItemMigrationFailed'; cause: unknown }
   | { _tag: 'NoItemToDelete' }
+  | { _tag: 'NoItemToRestore' }
   | { _tag: 'ThrottlingException'; meta: AwsErrorMeta }
   | { _tag: 'ServiceUnavailable'; meta: AwsErrorMeta }
   | { _tag: 'RequestTimeout'; meta: AwsErrorMeta }
@@ -67,6 +82,15 @@ const describeError = (error: DynamodbErrorType): string => {
       return `${error._tag} ${formatMeta(error.meta)}`;
     case 'ConditionCheckFailed':
       return `${error._tag}: ${error.message}`;
+    case 'IdUpdateNotSupported':
+      return `${error._tag}: "${error.idField}" cannot be changed by an update`;
+    case 'ConditionFailed':
+      return `${error._tag}: ${error.failures
+        .map(
+          (failure) =>
+            `op ${failure.index} ${failure.entityName}.${failure.operationKind} (${failure.writeKind}): ${failure.reasonCode}${failure.message ? `: ${failure.message}` : ''}`,
+        )
+        .join('; ')}`;
     case 'GetItemFailed':
     case 'PutItemFailed':
     case 'UpdateItemFailed':
@@ -166,6 +190,10 @@ export class DynamodbError extends Data.TaggedError('DynamodbError')<{
     return new DynamodbError({ error: { _tag: 'TransactionFailed', cause } });
   }
 
+  static conditionFailed(failures: ReadonlyArray<TransactionFailureContext>) {
+    return new DynamodbError({ error: { _tag: 'ConditionFailed', failures } });
+  }
+
   static batchWriteFailed(cause: unknown) {
     return new DynamodbError({ error: { _tag: 'BatchWriteFailed', cause } });
   }
@@ -182,6 +210,12 @@ export class DynamodbError extends Data.TaggedError('DynamodbError')<{
    */
   static noItemToUpdate() {
     return new DynamodbError({ error: { _tag: 'NoItemToUpdate' } });
+  }
+
+  static idUpdateNotSupported(idField: string) {
+    return new DynamodbError({
+      error: { _tag: 'IdUpdateNotSupported', idField },
+    });
   }
 
   /**
@@ -221,6 +255,13 @@ export class DynamodbError extends Data.TaggedError('DynamodbError')<{
    */
   static noItemToDelete() {
     return new DynamodbError({ error: { _tag: 'NoItemToDelete' } });
+  }
+
+  /**
+   * Creates an error when attempting to restore an item that doesn't exist.
+   */
+  static noItemToRestore() {
+    return new DynamodbError({ error: { _tag: 'NoItemToRestore' } });
   }
 
   /**

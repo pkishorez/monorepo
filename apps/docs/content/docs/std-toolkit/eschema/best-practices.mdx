@@ -13,7 +13,7 @@ The discipline: a version, once deployed, is history. Want a different shape? Th
 
 ## Migrations must be total — and pure
 
-A migration is `(prev) => next` for *every possible* `prev`. Not "every prev I expect" — every value the previous version's schema admits. eschema validates the row against the old schema before your migration runs, so `prev` is never malformed; but within that shape, no throwing, no `undefined` returns, no "this can't happen" branches. If an old row exists for which you have no answer, your schema change isn't ready.
+A migration is `(prev) => next` for _every possible_ `prev`. Not "every prev I expect" — every value the previous version's schema admits. eschema validates the row against the old schema before your migration runs, so `prev` is never malformed; but within that shape, no throwing, no `undefined` returns, no "this can't happen" branches. If an old row exists for which you have no answer, your schema change isn't ready.
 
 Purity is the other half. Migrations run lazily, on read, at any time, any number of times — the same v1 row might migrate today on one server and next year on another. Anything nondeterministic (clock, randomness, IO, network) means the same stored bytes decode to different values on different days, which quietly breaks every layer above that assumes decode is a function.
 
@@ -33,7 +33,7 @@ Purity is the other half. Migrations run lazily, on read, at any time, any numbe
 
 ## Prefer `Schema.NullOr` over optional fields
 
-When adding a field, model "no value" as `null`, not as an absent key. Optional fields poison migrations: if `editedAt` may or may not exist, every future migration touching it branches on `undefined`, and the encoded shape becomes unstable — sometimes the key is there, sometimes not. With `NullOr` the field is *always present* with a definite value: migrations stay total by construction, and the wire shape is predictable.
+When adding a field, model "no value" as `null`, not as an absent key. Optional fields poison migrations: if `editedAt` may or may not exist, every future migration touching it branches on `undefined`, and the encoded shape becomes unstable — sometimes the key is there, sometimes not. With `NullOr` the field is _always present_ with a definite value: migrations stay total by construction, and the wire shape is predictable.
 
 ```ts
 const Message = EntityESchema.make('Message', 'messageId', {
@@ -55,29 +55,29 @@ The version names enforce half of this for you — `evolve` only accepts the nex
 
 ## Nesting is not isolated
 
-The one genuinely surprising rule, and it follows directly from how [`toSchema`](/docs/std-toolkit/eschema/constructs#toschema--the-bridge-into-plain-effect-schema) works: every nested eschema decodes through its **own** chain. So when you evolve a nested schema, every parent embedding it starts decoding to a different shape — *without any parent version changing*.
+The one genuinely surprising rule, and it follows directly from how [`toSchema`](/docs/std-toolkit/eschema/constructs#toschema--the-bridge-into-plain-effect-schema) works: every nested eschema decodes through its **own** chain. So when you evolve a nested schema, every parent embedding it starts decoding to a different shape — _without any parent version changing_.
 
 Concretely: `Message` embeds `Attachment`, both at v1. You evolve `Attachment` to v2, adding `sizeBytes`. Every stored message — still stamped `_v: 'v1'`, byte-for-byte unchanged — now decodes with `sizeBytes` inside its attachments. That's the intended behavior (nested values migrate independently; it's what makes composition work at all), but it means the "nothing changes until I evolve" guarantee is a statement about the whole nesting tree, not one schema. **When you evolve a child, audit every parent that embeds it** — their decoded types just changed, and so did what their consumers see.
 
 ## Underscore-prefixed field names are reserved
 
-`_v` and the rest of the `_` namespace belong to the library. The type system rejects `_`-prefixed keys in `make` and `evolve` deltas, so this one can't get past the compiler — it's listed here so the error message doesn't surprise you. (Values *inside* a `ValueESchema` envelope are exempt: the envelope isolates them, so `{ _source: 'import', name: 'Alice' }` is a fine enveloped value.)
+`_v` and the rest of the `_` namespace belong to the library. The type system rejects `_`-prefixed keys in `make` and `evolve` deltas, so this one can't get past the compiler — it's listed here so the error message doesn't surprise you. (Values _inside_ a `ValueESchema` envelope are exempt: the envelope isolates them, so `{ _source: 'import', name: 'Alice' }` is a fine enveloped value.)
 
 ## Envelope-shaped values
 
-A `ValueESchema` decides "is this input an envelope or a bare legacy value?" by one signal: does the object have a `_v` key? That heuristic has a corner: if your *domain value itself* is an object with a top-level `_v` field, eschema will read your business data as a version stamp and fail with `Unknown schema version`. If a value you're versioning naturally carries a `_v`-like field, rename it in the value schema or wrap it one level deeper — don't fight the envelope.
+A `ValueESchema` decides "is this input an envelope or a bare legacy value?" by one signal: does the object have a `_v` key? That heuristic has a corner: if your _domain value itself_ is an object with a top-level `_v` field, eschema will read your business data as a version stamp and fail with `Unknown schema version`. If a value you're versioning naturally carries a `_v`-like field, rename it in the value schema or wrap it one level deeper — don't fight the envelope.
 
 ## Schemas are immutable after `build` — and mildly lazy before use
 
 Two mechanical facts that shape where schema code lives:
 
-- `build()` returns a frozen instance. There's no appending versions later, so declare the entire chain in one place — the schema file *is* the changelog.
+- `build()` returns a frozen instance. There's no appending versions later, so declare the entire chain in one place — the schema file _is_ the changelog.
 - Reading `.fields` or `.schema` during module initialization can race the schema's own setup and throws a descriptive error. Build schemas at module scope, but compute derived things inside functions, not in top-level expressions.
 
 ## The checklist
 
 - Never modify a shipped version; only `.evolve`. Let [the CLI](/docs/std-toolkit/eschema/cli) enforce it in CI.
-- Migrations: total, pure, one step, no IO — backfill *meaning*, not timestamps.
+- Migrations: total, pure, one step, no IO — backfill _meaning_, not timestamps.
 - New fields are `Schema.NullOr(...)` defaulting to `null`, not optional keys.
 - Evolving a nested schema? Audit every parent that embeds it.
 - Keep `_`-prefixed keys out of field maps, and top-level `_v` out of `ValueESchema` values.

@@ -84,23 +84,6 @@ export interface QueryStreamOptions {
 }
 
 /**
- * Options for subscribe operations.
- *
- * @typeParam K - The key name type ("primary" or index name)
- * @typeParam PK - The partition key value type for the selected index
- */
-export interface SubscribeOptions<K, PK> {
-  /** The index to subscribe to ("primary" or index name) */
-  key: K;
-  /** The partition key value for the selected index */
-  pk: PK;
-  /** The cursor (_u) to start from. null = start from beginning, string = continue from that point */
-  cursor: string | null;
-  /** Maximum number of items to return per query batch */
-  limit?: number;
-}
-
-/**
  * Extracts the operator and value from a KeyOp, SkParam, or CustomSkParam.
  *
  * @param op - The KeyOp/SkParam/CustomSkParam to extract from

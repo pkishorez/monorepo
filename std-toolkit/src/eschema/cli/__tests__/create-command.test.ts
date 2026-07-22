@@ -9,12 +9,14 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NodeServices } from '@effect/platform-node';
-import { Effect } from 'effect';
+import { Console, Effect } from 'effect';
 import { Command } from 'effect/unstable/cli';
 import { describe, expect, it } from 'vitest';
 import { createCommand } from '../create/index.js';
 import { renderLintReport } from '../lint/index.js';
 import { analyzeSnapshots } from '../shared/schema-snapshots/index.js';
+
+const quietConsole = { ...console, log() {} } satisfies Console.Console;
 
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'eschema-create-'));
@@ -25,7 +27,11 @@ async function runCreate(root: string, schemaPath: string) {
     '--root',
     root,
     schemaPath,
-  ]).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
+  ]).pipe(
+    Effect.provide(NodeServices.layer),
+    Effect.provideService(Console.Console, quietConsole),
+    Effect.runPromise,
+  );
 }
 
 async function analyze(root: string) {

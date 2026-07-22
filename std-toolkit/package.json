@@ -1,6 +1,6 @@
 {
   "name": "std-toolkit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": false,
   "description": "Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, DynamoDB/SQLite adapters, and TanStack DB integration",
   "keywords": [
@@ -41,12 +41,12 @@
       "import": "./dist/db/dynamodb/*"
     },
     "./idb": {
-      "types": "./dist/db/idb/index.d.ts",
-      "default": "./dist/db/idb/index.js"
+      "types": "./dist/db/idb/src/index.d.ts",
+      "default": "./dist/db/idb/src/index.js"
     },
     "./idb/*": {
-      "types": "./dist/db/idb/*",
-      "import": "./dist/db/idb/*"
+      "types": "./dist/db/idb/src/*",
+      "import": "./dist/db/idb/src/*"
     },
     "./sqlite": {
       "types": "./dist/db/sqlite/index.d.ts",
@@ -95,44 +95,46 @@
     "build:watch": "tsc --watch",
     "dynamodb:generate": "bun scripts/dynamodb/generate.ts",
     "fmt": "vp fmt",
-    "lint": "vp check && pnpm lint:tsc",
-    "lint:depcruise": "depcruise-viz lint",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:stories && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "lint:stories": "tsc -p tsconfig.stories.json",
     "lint:tsc": "tsc --noEmit",
     "sqlite:play": "bun src/db/sqlite/play.ts",
+    "stories": "laymos stories",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-beta.78",
-    "@standard-schema/spec": "1.1.0",
-    "aws4fetch": "1.0.20",
-    "idb": "8.0.3",
-    "kleur": "4.1.5",
-    "type-fest": "5.7.0",
-    "ulidx": "^2.4.1"
+    "@effect/platform-node": "catalog:",
+    "@standard-schema/spec": "catalog:",
+    "aws4fetch": "catalog:",
+    "idb": "catalog:",
+    "kleur": "catalog:",
+    "laymos": "workspace:*",
+    "type-fest": "catalog:",
+    "ulidx": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260703.1",
-    "@tanstack/query-db-collection": "1.0.46",
-    "@tanstack/react-db": "0.1.92",
-    "@tsconfig/node22": "22.0.5",
-    "@types/better-sqlite3": "7.6.13",
-    "@types/bun": "1.3.14",
-    "@types/node": "26.1.0",
-    "@types/react": "19.2.17",
-    "better-sqlite3": "12.11.1",
-    "depcruise-viz": "workspace:*",
-    "effect": "4.0.0-beta.78",
-    "fake-indexeddb": "6.2.5",
-    "react": "19.2.7",
-    "typescript": "6.0.3",
-    "vite-plus": "0.2.2",
-    "vitest": "4.1.9"
+    "@cloudflare/workers-types": "catalog:",
+    "@tanstack/query-db-collection": "catalog:",
+    "@tanstack/react-db": "catalog:",
+    "@tsconfig/node22": "catalog:",
+    "@types/better-sqlite3": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "better-sqlite3": "catalog:",
+    "effect": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "@tanstack/react-db": ">=0.1.64",
-    "effect": "4.0.0-beta.78",
-    "react": ">=18"
+    "effect": "^4.0.0-beta.78",
+    "react": "^18 || ^19"
   },
   "peerDependenciesMeta": {
     "@tanstack/react-db": {

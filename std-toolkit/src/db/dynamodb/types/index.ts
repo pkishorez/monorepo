@@ -8,7 +8,7 @@ export type {
   IndexSkValue,
 } from './derivation.js';
 
-export type { TransactItem, TransactItemBase } from './transaction.js';
+export type { TransactItem, TransactWrite } from './transaction.js';
 
 export type {
   Operator,
@@ -18,7 +18,6 @@ export type {
   StreamSkParam,
   SimpleQueryOptions,
   QueryStreamOptions,
-  SubscribeOptions,
 } from './simplified.js';
 
 export { extractKeyOp, getKeyOpScanDirection } from './simplified.js';

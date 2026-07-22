@@ -5,7 +5,7 @@ DynamoDB table and entity services, expression builders, and marshall utilities 
 ## Subpaths
 
 ```ts
-import { DynamoTable, DynamoEntity, createDynamoDB } from 'std-toolkit/dynamodb';
+import { DynamoTable, createDynamoDB } from 'std-toolkit/dynamodb';
 // wildcard — import internal paths directly (advanced use)
 import '...' from 'std-toolkit/dynamodb/*';
 ```
@@ -14,8 +14,7 @@ import '...' from 'std-toolkit/dynamodb/*';
 
 **Services**
 
-- `DynamoTable`, `DynamoEntity`, `DynamoSingleEntity` — Effect services for table operations
-- `EntityRegistry` — registry of all entities in a table
+- `DynamoTable` — the single-table topology; entities are defined from it via `table.entity(eschema)` / `table.singleEntity(eschema)` and it coordinates `transact()`
 
 **Client**
 

@@ -22,7 +22,7 @@ export const table = DynamoTable.make()
 
 The attribute names are deliberately generic. In single-table design the physical attributes carry no domain meaning — `pk` holds `Message#C-general` in one row and `Channel` in another — so naming them `pk` and `sk` is honest. The `.gsi(...)` call declares a physical global secondary index we'll put to work on the [indexes page](/docs/std-toolkit/dynamodb/indexes); ignore it for now.
 
-Notice what `make()` does *not* ask for: a table name. That's the topology/connection split doing its job.
+Notice what `make()` does _not_ ask for: a table name. That's the topology/connection split doing its job.
 
 ## Entities: the chat app's schemas, bound to the table
 
@@ -53,11 +53,11 @@ export const settings = DynamoSingleEntity.make(table)
 `DynamoSingleEntity` is the third shape: an entity with a name but no id, for things that exist exactly once — workspace settings, feature flags, counters. It's built from a `SingleEntityESchema` and requires a **default value**, which buys you a guarantee the keyed entities can't offer: `get` never returns null.
 
 ```ts
-const current = yield* settings.get();
+const current = yield * settings.get();
 // always a value — the default (with synthetic meta) if nothing is stored yet
 
-yield* settings.put({ allowGuestAccess: true, defaultChannelId: 'C-general' });
-yield* settings.update({ update: { allowGuestAccess: false } });
+yield * settings.put({ allowGuestAccess: true, defaultChannelId: 'C-general' });
+yield * settings.update({ update: { allowGuestAccess: false } });
 ```
 
 Its surface is deliberately smaller than `DynamoEntity`: `put` is an unconditional upsert, `update` fails with `NoItemToUpdate` if nothing was ever written, and `delete` is a hard delete after which `get` serves the default again. There's no soft-delete tombstone (`_d`) here — a singleton isn't part of any synced item collection, so nothing downstream needs to observe its deletion.
@@ -132,13 +132,13 @@ const program = Effect.gen(function* () {
 await Effect.runPromise(program.pipe(Effect.provide(DynamoLive)));
 ```
 
-You might be wondering why the table name lives on the connection rather than the table definition, since "the table" sounds like where a name belongs. It's deliberate: the definition describes a *shape* that many physical tables share. Your production table, your staging table, and the throwaway table each test suite creates all have the same topology — so the shape is written once and the name arrives with the environment, exactly like a database URL.
+You might be wondering why the table name lives on the connection rather than the table definition, since "the table" sounds like where a name belongs. It's deliberate: the definition describes a _shape_ that many physical tables share. Your production table, your staging table, and the throwaway table each test suite creates all have the same topology — so the shape is written once and the name arrives with the environment, exactly like a database URL.
 
 ## `createDynamoDB`: the client underneath
 
 `dynamoDBLayer` builds its client with `createDynamoDB`, which is also exported directly. This is the lowest layer of the adapter: a `DynamoDBClient` whose methods (`getItem`, `putItem`, `query`, `transactWriteItems`, `createTable`, ...) are Effect-wrapped calls to DynamoDB's HTTP API, signed by [aws4fetch](https://github.com/mhart/aws4fetch). No AWS SDK — the entire client is signed `fetch` requests with a 30-second timeout and AWS error responses mapped onto [`DynamodbError`](/docs/std-toolkit/dynamodb/transactions#dynamodberror).
 
-Day to day you never touch it; the entity services are the API. Where you *will* meet it is table administration, because provisioning sits outside any bound table. `createDynamoDB` takes a connection *without* a table name — the client is table-agnostic, and admin calls name their target explicitly. Pair it with `table.getTableSchema()`, which turns your topology into a ready-made `CreateTable` input (key schema, attribute definitions, GSIs and LSIs, pay-per-request billing):
+Day to day you never touch it; the entity services are the API. Where you _will_ meet it is table administration, because provisioning sits outside any bound table. `createDynamoDB` takes a connection _without_ a table name — the client is table-agnostic, and admin calls name their target explicitly. Pair it with `table.getTableSchema()`, which turns your topology into a ready-made `CreateTable` input (key schema, attribute definitions, GSIs and LSIs, pay-per-request billing):
 
 ```ts title="provision.ts"
 import { Effect } from 'effect';
@@ -152,18 +152,21 @@ const client = createDynamoDB({
 });
 
 await Effect.runPromise(
-  client.createTable({ TableName: 'chat-app-local', ...table.getTableSchema() }),
+  client.createTable({
+    TableName: 'chat-app-local',
+    ...table.getTableSchema(),
+  }),
 );
 ```
 
-That's the whole local-dev bootstrap: one script creates a table whose shape is guaranteed to match your code, because it *is* your code.
+That's the whole local-dev bootstrap: one script creates a table whose shape is guaranteed to match your code, because it _is_ your code.
 
 ## `describe()` and `TableDescription`
 
 For health checks and dashboards, `table.describe()` asks DynamoDB about the bound table and returns a `TableDescription` — a plain summary of the physical state:
 
 ```ts
-const info = yield* table.describe();
+const info = yield * table.describe();
 // {
 //   tableName: 'chat-app-prod',
 //   tableStatus: 'ACTIVE',
@@ -180,7 +183,7 @@ If you ever need the raw service — say, for an admin endpoint that issues a ca
 ```ts
 import { DynamoDB } from 'std-toolkit/dynamodb';
 
-const { client, tableName } = yield* DynamoDB;
+const { client, tableName } = yield * DynamoDB;
 ```
 
 That's the full wiring: topology in code, connection in a layer, provisioning from the same definition. Next: the part of the adapter that earns its keep on every write — secondary indexes as typed derivations.

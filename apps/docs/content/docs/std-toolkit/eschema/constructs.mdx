@@ -3,7 +3,7 @@ title: Constructs
 description: ESchema, ValueESchema, SingleEntityESchema, EntityESchema — and toSchema for nesting them anywhere.
 ---
 
-Everything on the [previous page](/docs/std-toolkit/eschema/defining-schemas) versioned an anonymous bag of fields. That's enough for validation, but the rest of the toolkit needs to *store* these things — and storage wants to know more: what is this entity called? Which field identifies a row? And what if the thing you're versioning isn't an object at all, but a single value like an enum?
+Everything on the [previous page](/docs/std-toolkit/eschema/defining-schemas) versioned an anonymous bag of fields. That's enough for validation, but the rest of the toolkit needs to _store_ these things — and storage wants to know more: what is this entity called? Which field identifies a row? And what if the thing you're versioning isn't an object at all, but a single value like an enum?
 
 That's why eschema ships four constructs. They share the same `make → evolve → build` chain and the same encode/decode semantics; they differ only in what identity they carry. Picking one is a one-row lookup:
 
@@ -34,13 +34,13 @@ export const Message = EntityESchema.make('Message', 'messageId', {
   )
   .build();
 
-Message.name;    // 'Message'
+Message.name; // 'Message'
 Message.idField; // 'messageId'
 ```
 
 Two things the toolkit does with that identity: the name becomes the entity type tag (`_e`) in [Entity metadata](/docs/std-toolkit/core/meta), and the id field feeds [key derivation](/docs/std-toolkit/database-adapters) in the database adapters.
 
-Notice what's *not* in the field map: `messageId`. The id field is added for you, as a plain string schema, and declaring it yourself is a type error — it's reserved, and it survives every evolution automatically. Your deltas describe domain fields; identity is eschema's bookkeeping.
+Notice what's _not_ in the field map: `messageId`. The id field is added for you, as a plain string schema, and declaring it yourself is a type error — it's reserved, and it survives every evolution automatically. Your deltas describe domain fields; identity is eschema's bookkeeping.
 
 ## `SingleEntityESchema` — named, but singular
 
@@ -54,11 +54,10 @@ export const ChannelSettings = SingleEntityESchema.make('ChannelSettings', {
   isPrivate: Schema.Boolean,
   slowModeSeconds: Schema.Number,
 })
-  .evolve(
-    'v2',
-    { retentionDays: Schema.NullOr(Schema.Number) },
-    (prev) => ({ ...prev, retentionDays: null }),
-  )
+  .evolve('v2', { retentionDays: Schema.NullOr(Schema.Number) }, (prev) => ({
+    ...prev,
+    retentionDays: null,
+  }))
   .build();
 ```
 
@@ -87,9 +86,7 @@ Not everything is an object. The kind of a message — text, image — is one va
 import { Schema } from 'effect';
 import { ValueESchema } from 'std-toolkit/eschema';
 
-export const MessageKind = ValueESchema.make(
-  Schema.Literals(['text', 'image']),
-)
+export const MessageKind = ValueESchema.make(Schema.Literals(['text', 'image']))
   .evolve(
     'v2',
     Schema.Literals(['text', 'image', 'system']),
@@ -98,17 +95,17 @@ export const MessageKind = ValueESchema.make(
   .build();
 ```
 
-Two differences from the object constructs. First, `evolve` replaces the *whole* value schema each version — there's no delta, and the migration receives and returns the value itself. Second, a bare string like `'text'` has nowhere to hang a `_v`, so encode wraps it in a **value envelope**:
+Two differences from the object constructs. First, `evolve` replaces the _whole_ value schema each version — there's no delta, and the migration receives and returns the value itself. Second, a bare string like `'text'` has nowhere to hang a `_v`, so encode wraps it in a **value envelope**:
 
 ```ts
-yield* MessageKind.encode('system');
+yield * MessageKind.encode('system');
 // => { _v: 'v2', value: 'system' }
 
-yield* MessageKind.decode({ _v: 'v1', value: 'text' }); // => 'text'
-yield* MessageKind.decode('text');                       // => 'text'
+yield * MessageKind.decode({ _v: 'v1', value: 'text' }); // => 'text'
+yield * MessageKind.decode('text'); // => 'text'
 ```
 
-That last line is the adoption rule again: a bare, un-enveloped value decodes as earliest-version data — pre-eschema values keep working. (How eschema decides "is this an envelope?" has one sharp edge if your *value itself* is an object with a `_v` key — see [best practices](/docs/std-toolkit/eschema/best-practices#envelope-shaped-values).)
+That last line is the adoption rule again: a bare, un-enveloped value decodes as earliest-version data — pre-eschema values keep working. (How eschema decides "is this an envelope?" has one sharp edge if your _value itself_ is an object with a `_v` key — see [best practices](/docs/std-toolkit/eschema/best-practices#envelope-shaped-values).)
 
 ## `toSchema` — the bridge into plain Effect Schema
 

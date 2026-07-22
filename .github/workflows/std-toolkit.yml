@@ -1,0 +1,61 @@
+name: std-toolkit
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/std-toolkit.yml'
+      - 'std-toolkit/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  push:
+    branches:
+      - main
+      - feat/laymos
+    paths:
+      - '.github/workflows/std-toolkit.yml'
+      - 'std-toolkit/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8090:8000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter 'std-toolkit^...' build
+
+      - name: Wait for DynamoDB Local
+        run: timeout 30s bash -c 'until curl --silent --output /dev/null http://localhost:8090; do sleep 1; done'
+
+      - name: Test std-toolkit
+        run: pnpm --filter std-toolkit test

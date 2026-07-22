@@ -2,31 +2,28 @@ import type { MarshalledOutput } from './aws.js';
 import type { EntityType } from '../../../core/index.js';
 
 /**
- * Base type for table-level transaction operations without entity name.
+ * A concrete, executable transaction write in marshalled DynamoDB form.
  */
-export type TransactItemBase =
+export type TransactWrite =
   | { kind: 'put'; options: PutOptions }
   | { kind: 'update'; options: UpdateOptions };
 
 /**
- * Full type for entity-level transaction operations with entity name for type-safe transactions.
- * Includes optional broadcast data for emitting changes after successful transaction.
- *
- * @typeParam TEntityName - String literal type for the entity name
+ * An entity-level transaction op: a deferred write, concretized by the
+ * transaction's write cursor. `table` carries the producing table reference
+ * for runtime provenance checks; `apply` is pure — the op has no executable
+ * form until `transact` supplies the ULID.
  */
-export type TransactItem<TEntityName extends string = string> =
-  | {
-      kind: 'put';
-      entityName: TEntityName;
-      options: PutOptions;
-      broadcast?: EntityType<unknown>;
-    }
-  | {
-      kind: 'update';
-      entityName: TEntityName;
-      options: UpdateOptions;
-      broadcast?: EntityType<unknown>;
-    };
+export interface TransactItem {
+  readonly entityName: string;
+  readonly operationKind: 'insertOp' | 'updateOp' | 'deleteOp' | 'restoreOp';
+  readonly pk: string;
+  readonly sk: string;
+  readonly table: unknown;
+  readonly apply: (
+    u: string,
+  ) => TransactWrite & { broadcast: EntityType<unknown> };
+}
 
 /**
  * Options for a DynamoDB Put operation in a transaction.

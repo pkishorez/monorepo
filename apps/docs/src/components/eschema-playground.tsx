@@ -251,9 +251,7 @@ function JsonPanel({
             <span className="whitespace-pre pl-2">
               <span
                 className={
-                  line.key === '_v' && !isStamp
-                    ? 'text-fd-primary'
-                    : undefined
+                  line.key === '_v' && !isStamp ? 'text-fd-primary' : undefined
                 }
               >
                 &quot;{line.key}&quot;
@@ -523,8 +521,8 @@ function EncodeView() {
       <p className="text-xs leading-5 text-fd-muted-foreground">
         Encode never walks the chain backwards. It validates against the latest
         fields and stamps <code className="font-mono">_v</code> with the latest
-        version — even if the row it came from was read as v1 a millisecond
-        ago. History only matters on read.
+        version — even if the row it came from was read as v1 a millisecond ago.
+        History only matters on read.
       </p>
     </div>
   );

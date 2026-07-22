@@ -1,6 +1,6 @@
 # db/dynamodb — Ubiquitous Language
 
-The DynamoDB adapter. Inherits the single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, `EntityRegistry`, **Entity service** — from [[db]]. This glossary defines only the DynamoDB-specific vocabulary. See the root `CONTEXT-MAP.md`.
+The DynamoDB adapter. Inherits the single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table**, **Entity service** — from [[db]]. This glossary defines only the DynamoDB-specific vocabulary. See the root `CONTEXT-MAP.md`.
 
 ## Language
 

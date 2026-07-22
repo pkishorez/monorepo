@@ -1,0 +1,98 @@
+import { Effect } from 'effect';
+
+import type { LaymosConfig } from '../../config/types.js';
+import type {
+  AnalysisWarning,
+  LaymosReport,
+  ReportArchitecture,
+  ReportFile,
+  ReportLayer,
+  ReportModule,
+} from '../../report/index.js';
+import type { ResolvedProject } from '../2-resolve/index.js';
+import type { Evaluation } from '../3-evaluate/index.js';
+
+function emitArchitecture(config: LaymosConfig): ReportArchitecture {
+  const layers: Record<string, ReportLayer> = {};
+  for (const graph of config.graphs) {
+    for (const layer of graph.layers) {
+      layers[layer.name] = {
+        paths: layer.paths,
+        ...(layer.description !== undefined
+          ? { description: layer.description }
+          : {}),
+      };
+    }
+  }
+
+  const modules: Record<string, ReportModule> = {};
+  for (const module of config.modules ?? []) {
+    modules[module.path] =
+      module.description !== undefined
+        ? { description: module.description }
+        : {};
+  }
+
+  return {
+    sourceRoots: config.sourceRoots,
+    layers,
+    graphs: config.graphs.map((graph) => ({
+      name: graph.name,
+      layers: graph.layers.map((layer) => layer.name),
+      edges: graph.edges.map((edge) => ({
+        from: edge.from.name,
+        to: edge.to.name,
+      })),
+      ...(graph.description !== undefined
+        ? { description: graph.description }
+        : {}),
+    })),
+    modules,
+    moduleRules: (config.moduleRules ?? []).map((rules) => ({
+      module: rules.module.path,
+      ...(rules.canImport !== undefined
+        ? { canImport: rules.canImport.map((module) => module.path) }
+        : {}),
+      ...(rules.canImportedBy !== undefined
+        ? {
+            canImportedBy: rules.canImportedBy.map((module) => module.path),
+          }
+        : {}),
+    })),
+    ignoredPaths: config.ignore ?? [],
+  };
+}
+
+function emitFiles(resolved: ResolvedProject): Record<string, ReportFile> {
+  const files: Record<string, ReportFile> = {};
+  for (const [path, file] of Object.entries(resolved.files)) {
+    const imports = resolved.fileGraph.files[path]?.imports ?? [];
+    if (file.kind === 'covered') {
+      files[path] = {
+        kind: 'covered',
+        layer: file.layer,
+        ...(file.module !== undefined ? { module: file.module } : {}),
+        imports,
+      };
+      continue;
+    }
+    files[path] = { kind: file.kind, imports };
+  }
+  return files;
+}
+
+/** Emits the canonical, serializable result of Laymos analysis. */
+export function emitReport(
+  resolved: ResolvedProject,
+  evaluation: Evaluation,
+  warnings: readonly AnalysisWarning[] = [],
+): Effect.Effect<LaymosReport> {
+  return Effect.succeed({
+    schemaVersion: 2,
+    architecture: emitArchitecture(resolved.config),
+    files: emitFiles(resolved),
+    violations: evaluation.violations,
+    coverage: evaluation.coverage,
+    warnings,
+  });
+}

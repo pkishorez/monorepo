@@ -1,6 +1,6 @@
 ---
 title: What is std-toolkit?
-description: "Single-table design toolkit. A single table is all you need for a sync engine."
+description: 'Single-table design toolkit. A single table is all you need for a sync engine.'
 ---
 
 **std** stands for **single-table design**.
@@ -20,17 +20,27 @@ Most sync engines discover changes by watching the database's replication log. T
 <div className="not-prose my-8 grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
   <div className="rounded-lg border bg-fd-card p-4">
     <div className="font-medium">Database</div>
-    <div className="mt-1 text-sm text-fd-muted-foreground">Tables, joins, and relationships</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">
+      Tables, joins, and relationships
+    </div>
   </div>
-  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">→</div>
+  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">
+    →
+  </div>
   <div className="rounded-lg border bg-fd-card p-4">
     <div className="font-medium">Replication log</div>
-    <div className="mt-1 text-sm text-fd-muted-foreground">Database-specific row changes</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">
+      Database-specific row changes
+    </div>
   </div>
-  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">→</div>
+  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">
+    →
+  </div>
   <div className="rounded-lg border bg-fd-card p-4">
     <div className="font-medium">Sync engine</div>
-    <div className="mt-1 text-sm text-fd-muted-foreground">Reconstructs what each client needs</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">
+      Reconstructs what each client needs
+    </div>
   </div>
 </div>
 
@@ -112,17 +122,27 @@ The client needs three pieces of data, so it syncs three collections:
 <div className="not-prose my-8 grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
   <div className="rounded-lg border bg-fd-card p-4">
     <div className="font-medium">DynamoDB's model</div>
-    <div className="mt-1 text-sm text-fd-muted-foreground">One table with ordered item collections</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">
+      One table with ordered item collections
+    </div>
   </div>
-  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">→</div>
+  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">
+    →
+  </div>
   <div className="rounded-lg border bg-fd-card p-4">
     <div className="font-medium">std-toolkit</div>
-    <div className="mt-1 text-sm text-fd-muted-foreground">Moves typed collections through cursors</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">
+      Moves typed collections through cursors
+    </div>
   </div>
-  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">→</div>
+  <div className="hidden text-fd-muted-foreground sm:block" aria-hidden="true">
+    →
+  </div>
   <div className="rounded-lg border bg-fd-card p-4">
     <div className="font-medium">TanStack DB</div>
-    <div className="mt-1 text-sm text-fd-muted-foreground">Local collections, joins, and live views</div>
+    <div className="mt-1 text-sm text-fd-muted-foreground">
+      Local collections, joins, and live views
+    </div>
   </div>
 </div>
 

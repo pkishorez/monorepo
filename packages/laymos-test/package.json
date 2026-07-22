@@ -1,0 +1,24 @@
+{
+  "name": "laymos-test",
+  "version": "0.0.0",
+  "private": true,
+  "description": "End-to-end stress tests for Laymos Stories",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "pnpm run test:stories && pnpm run test:integration",
+    "test:integration": "vitest run",
+    "test:stories": "laymos stories"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "laymos": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:typescript6",
+    "vitest": "catalog:"
+  }
+}

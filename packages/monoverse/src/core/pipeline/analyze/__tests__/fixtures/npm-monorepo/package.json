@@ -1,6 +1,0 @@
-{
-  "name": "npm-monorepo",
-  "workspaces": {
-    "packages": ["libs/*"]
-  }
-}

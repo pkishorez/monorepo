@@ -13,7 +13,7 @@ Take the chat app. Version one of a message is honest and small:
 { channelId: 'general', authorId: 'alice', body: 'ship it' }
 ```
 
-Six months later, product wants reactions. Your *code* changes in one deploy — but the million messages already sitting in the database were written by the old code, and redeploying your app does not rewrite rows. The moment `reactions` becomes part of the message shape, every one of those old rows is invalid under your new schema.
+Six months later, product wants reactions. Your _code_ changes in one deploy — but the million messages already sitting in the database were written by the old code, and redeploying your app does not rewrite rows. The moment `reactions` becomes part of the message shape, every one of those old rows is invalid under your new schema.
 
 You know the usual ways out, and none of them feel great:
 
@@ -23,7 +23,7 @@ You know the usual ways out, and none of them feel great:
 
 ## eschema's answer
 
-An eschema is a schema that knows its own history. It's a chain of versions — `v1`, `v2`, … latest — where each step records *what changed* and *how to fill the gap* for older data. Two rules run the whole show:
+An eschema is a schema that knows its own history. It's a chain of versions — `v1`, `v2`, … latest — where each step records _what changed_ and _how to fill the gap_ for older data. Two rules run the whole show:
 
 - **`encode` always writes the latest version** — and stamps a `_v` field recording it. There is no way to write an old shape; old shapes exist only to be read.
 - **`decode` reads `_v` and folds forward.** A row stamped `v1` is validated against the v1 shape, then migrated v1 → v2 → … → latest, one small step at a time. Your code only ever sees the current shape.

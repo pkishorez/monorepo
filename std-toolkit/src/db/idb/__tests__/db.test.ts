@@ -2,9 +2,9 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, vi } from 'vitest';
 import { Effect, Layer } from 'effect';
 import { openDB } from 'idb';
-import { IdbDB } from '../db.js';
-import { idbLayer } from '../layer.js';
-import type { IdbRecord } from '../db.js';
+import { IdbDB } from '../src/db.js';
+import { idbLayer } from '../src/layer.js';
+import type { IdbRecord } from '../src/db.js';
 
 let dbCounter = 0;
 const uniqueDbName = () => `idb-db-test-${++dbCounter}`;

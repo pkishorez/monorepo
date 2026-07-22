@@ -5,11 +5,16 @@ const itEffect = <A, E>(
   fn: () => Effect.Effect<A, E, DynamoDB>,
 ) =>
   it(name, () =>
-    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+    Effect.runPromise(
+      fn().pipe(
+        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provideService(References.MinimumLogLevel, 'None'),
+      ),
+    ),
   );
-import { Effect, Schema } from 'effect';
+import { Effect, References, Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
-import { DynamoTable, DynamoEntity } from '../index.js';
+import { DynamoTable } from '../index.js';
 import {
   createDynamoDB,
   dynamoDBLayer,
@@ -44,8 +49,8 @@ const playerSchema = EntityESchema.make('Player', 'playerId', {
   history: Schema.Array(Schema.Struct({ action: Schema.String })),
 }).build();
 
-const PlayerEntity = DynamoEntity.make(table)
-  .eschema(playerSchema)
+const PlayerEntity = table
+  .entity(playerSchema)
   .primary({ pk: ['teamId'] })
   .index('GSI1', 'byName', { pk: ['name'] })
   .build();

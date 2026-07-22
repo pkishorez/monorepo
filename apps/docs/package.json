@@ -11,30 +11,30 @@
     "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "5.2.8",
-    "@fontsource-variable/jetbrains-mono": "5.2.8",
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource-variable/jetbrains-mono": "catalog:",
     "@monorepo/frontend": "workspace:*",
-    "@tanstack/react-router": "1.170.16",
-    "@tanstack/react-router-devtools": "1.167.0",
-    "@tanstack/react-start": "1.168.26",
-    "fumadocs-core": "16.10.7",
-    "fumadocs-mdx": "15.0.13",
-    "fumadocs-ui": "16.10.7",
-    "lucide-react": "1.23.0",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-router-devtools": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "fumadocs-core": "catalog:",
+    "fumadocs-mdx": "catalog:",
+    "fumadocs-ui": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "4.3.2",
-    "@types/mdx": "2.0.14",
-    "@types/node": "26.1.0",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.3",
-    "nitro": "3.0.260610-beta",
-    "tailwindcss": "4.3.2",
-    "typescript": "6.0.3",
-    "vite": "8.1.3",
-    "wrangler": "^4.107.0"
+    "@tailwindcss/vite": "catalog:",
+    "@types/mdx": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "nitro": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "wrangler": "catalog:"
   }
 }

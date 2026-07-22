@@ -14,17 +14,17 @@ Each collection owns one **Source of Truth (SoT)**: the engine's record of serve
 - Manual writes via `utils.writeUpsert`.
 - Broadcasts processed with `persist: true`.
 
-And every path that *doesn't* carry server confirmation stays out: optimistic mutation state before the server answers, `persist: false` broadcasts, anything you merely rendered. The SoT never contains a guess.
+And every path that _doesn't_ carry server confirmation stays out: optimistic mutation state before the server answers, `persist: false` broadcasts, anything you merely rendered. The SoT never contains a guess.
 
-Writes are atomic per batch. Before anything lands, every entity in the batch is validated — structurally sound envelope, `meta._e` matching the collection's schema (`WrongEntity` otherwise), an id present (`MissingId` otherwise). One bad entity fails the whole batch through a `WriteError`; nothing partial is ever stored. Note what is *not* validated: the domain fields. SoT stores server truth verbatim — the [eschema](/docs/std-toolkit/eschema) already validated the value at the real boundary, and re-judging the server here would only create a second opinion.
+Writes are atomic per batch. Before anything lands, every entity in the batch is validated — structurally sound envelope, `meta._e` matching the collection's schema (`WrongEntity` otherwise), an id present (`MissingId` otherwise). One bad entity fails the whole batch through a `WriteError`; nothing partial is ever stored. Note what is _not_ validated: the domain fields. SoT stores server truth verbatim — the [eschema](/docs/std-toolkit/eschema) already validated the value at the real boundary, and re-judging the server here would only create a second opinion.
 
 ### The convergence rule
 
 Accepting a batch still leaves the real question: an entity for id `01J2…` arrives, and a different copy is already stored. Who wins? The rule — the same one from [core's meta page](/docs/std-toolkit/core/meta), applied here mechanically:
 
 - **Newer `_u` wins.** The incoming copy replaces the stored one.
-- **Older or equal `_u` is a successful no-op.** Not an error — a skip. Duplicate delivery and out-of-order arrival are *expected traffic*, not exceptions.
-- **A newer `_d: true` tombstone wins like any write** — and then does two jobs: it removes the row from the visible collection, and it *stays* in the SoT. That retention is the point. If the tombstone were deleted along with the row, a stale pre-delete copy arriving later would look brand new and resurrect the message. Against the retained tombstone, it's just an older `_u` — skipped.
+- **Older or equal `_u` is a successful no-op.** Not an error — a skip. Duplicate delivery and out-of-order arrival are _expected traffic_, not exceptions.
+- **A newer `_d: true` tombstone wins like any write** — and then does two jobs: it removes the row from the visible collection, and it _stays_ in the SoT. That retention is the point. If the tombstone were deleted along with the row, a stale pre-delete copy arriving later would look brand new and resurrect the message. Against the retained tombstone, it's just an older `_u` — skipped.
 
 One refinement for the observant: a skipped entity's `_s` (server observation timestamp) is still reconciled onto the stored row's meta when present. The value never regresses, but delivery bookkeeping stays current — the cadence repair loop depends on it.
 
@@ -38,11 +38,11 @@ The SoT is deliberately independent of the TanStack collection's lifecycle. It c
 
 Now the second store. A strategy draining `#general` needs to remember where it is — a cursor, a set of covered ranges — or every reload becomes a full refetch. That memory is **Sync State**: one serializable slot per strategy, per partition.
 
-The engine owns the mechanics — storage, routing to the right partition's slot, persistence. The strategy owns the *meaning*: the engine never interprets the value inside. `oldToNew` keeps a resume cursor; `newToOld` keeps covered `_u` slices plus a `reachedOldest` flag; a one-shot strategy keeps nothing at all. Only strategy-owned sync work advances it — mutation results, registry traffic, and manual writes never touch Sync State, no matter how much data they move.
+The engine owns the mechanics — storage, routing to the right partition's slot, persistence. The strategy owns the _meaning_: the engine never interprets the value inside. `oldToNew` keeps a resume cursor; `newToOld` keeps covered `_u` slices plus a `reachedOldest` flag; a one-shot strategy keeps nothing at all. Only strategy-owned sync work advances it — mutation results, registry traffic, and manual writes never touch Sync State, no matter how much data they move.
 
 ### Cursors are entities, not strings
 
-A cursor in Sync State is the *boundary entity itself* — the full `{ value, meta }` envelope at the edge of covered territory, not a bare `_u` string. The strategy treats it as opaque except for reading `_u` to order and compare boundaries. What "fetch older than this cursor" means — which index to hit, how to tie-break — is entirely your fetch closure's business. That's why `ForwardFetch` hands you the whole entity: your endpoint might page by `_u`, by the id ULID, or by something smarter, and the engine doesn't need to know.
+A cursor in Sync State is the _boundary entity itself_ — the full `{ value, meta }` envelope at the edge of covered territory, not a bare `_u` string. The strategy treats it as opaque except for reading `_u` to order and compare boundaries. What "fetch older than this cursor" means — which index to hit, how to tie-break — is entirely your fetch closure's business. That's why `ForwardFetch` hands you the whole entity: your endpoint might page by `_u`, by the id ULID, or by something smarter, and the engine doesn't need to know.
 
 ### Validation on read — self-healing by reset
 
@@ -58,7 +58,7 @@ On read, three checks run in order — wrapper shape present, stored strategy na
 
 Here is the design decision this page exists to defend: **SoT and Sync State are fully detached.** The engine never derives a cursor from the SoT ("just resume from the max `_u` we have") and never derives truth from a cursor. Tempting as that max-`_u` shortcut looks, it would fuse the stores: clearing one would silently mean something about the other, a convergence skip would move a cursor, and every strategy would be forced into one notion of progress. Detached, each store has exactly one writer, one meaning, and one failure mode — reset the Sync State and you re-drain into an intact SoT, where every refetched entity converges as a harmless no-op; clear the SoT and strategies still know their coverage.
 
-The ordering discipline that makes detachment safe is the strategy contract's one hard rule, and you can see it in every built-in strategy: write the batch to the SoT *first*, advance Sync State *second*. If a crash lands between the two, the state under-claims — the overlap is refetched next run and convergence shrugs. The reverse order would over-claim: state pointing past entities that never landed, a silent gap no retry heals. First truth, then the claim about it. Never the other way around.
+The ordering discipline that makes detachment safe is the strategy contract's one hard rule, and you can see it in every built-in strategy: write the batch to the SoT _first_, advance Sync State _second_. If a crash lands between the two, the state under-claims — the overlap is refetched next run and convergence shrugs. The reverse order would over-claim: state pointing past entities that never landed, a silent gap no retry heals. First truth, then the claim about it. Never the other way around.
 
 With both stores understood, the strategies themselves stop being magic — they're just policies for which end of the collection to drain first, writing through one store and remembering in the other.
 

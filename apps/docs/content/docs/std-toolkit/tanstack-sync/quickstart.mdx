@@ -26,7 +26,7 @@ export const Message = EntityESchema.make('Message', 'messageId', {
   .build();
 ```
 
-And on the server, a [database adapter](/docs/std-toolkit/database-adapters) already stores messages as item collections — one channel, one sorted collection. The sync engine never talks to that adapter directly. It talks to *you*, through one function type.
+And on the server, a [database adapter](/docs/std-toolkit/database-adapters) already stores messages as item collections — one channel, one sorted collection. The sync engine never talks to that adapter directly. It talks to _you_, through one function type.
 
 ## `ForwardFetch` — the whole server contract
 
@@ -38,7 +38,7 @@ type ForwardFetch<T> = (ctx: {
 }) => Effect.Effect<EntityType<T>[]>;
 ```
 
-Given a cursor — a whole entity, not a bare key — return the next batch of entities *newer* than it, in ascending `_u` order. A `null` cursor means "start from the oldest." An empty array means "you've caught up." That's the entire protocol: your endpoint is a sorted-range query over one item collection, dressed as an HTTP handler.
+Given a cursor — a whole entity, not a bare key — return the next batch of entities _newer_ than it, in ascending `_u` order. A `null` cursor means "start from the oldest." An empty array means "you've caught up." That's the entire protocol: your endpoint is a sorted-range query over one item collection, dressed as an HTTP handler.
 
 ```ts title="client/api.ts"
 import { Effect } from 'effect';
@@ -97,7 +97,7 @@ export const messagesCollection = createCollection(
 );
 ```
 
-Read the `sync` field slowly, because it encodes the engine's core move. `partitions.channelId` declares: this collection is sliced by the `channelId` field, and here is a *factory* — given a channel's value, it returns a `{ strategy, forwardFetch }` pair for that channel. The factory runs when a channel first comes on screen, the partition value is captured by your closure, and the strategy itself stays blissfully unaware of channels. (`std.collection(...)` wraps the `createCollection` call for you if you prefer one step.)
+Read the `sync` field slowly, because it encodes the engine's core move. `partitions.channelId` declares: this collection is sliced by the `channelId` field, and here is a _factory_ — given a channel's value, it returns a `{ strategy, forwardFetch }` pair for that channel. The factory runs when a channel first comes on screen, the partition value is captured by your closure, and the strategy itself stays blissfully unaware of channels. (`std.collection(...)` wraps the `createCollection` call for you if you prefer one step.)
 
 `onInsert` is the write path: your Effect calls the server, the server answers with the confirmed entity — real `_u`, full meta — and the engine converges it into place. More on that in [mutations](/docs/std-toolkit/tanstack-sync/mutations).
 
@@ -126,7 +126,7 @@ export const ChannelView = ({ channelId }: { channelId: string }) => {
 };
 ```
 
-Nothing here says "start syncing" — and that's the point. Mounting this component registers a live query filtered on `channelId`; the engine sees the filter, matches it to the `partitions` map, and activates the sync partition for that channel: your factory runs, `oldToNew` starts draining `messagesAfter` batch by batch, and each batch converges into the collection and re-renders the list. Unmount the last query for the channel and the sync work stops. The query *is* the lifecycle.
+Nothing here says "start syncing" — and that's the point. Mounting this component registers a live query filtered on `channelId`; the engine sees the filter, matches it to the `partitions` map, and activates the sync partition for that channel: your factory runs, `oldToNew` starts draining `messagesAfter` batch by batch, and each batch converges into the collection and re-renders the list. Unmount the last query for the channel and the sync work stops. The query _is_ the lifecycle.
 
 ## Live updates — the registry
 

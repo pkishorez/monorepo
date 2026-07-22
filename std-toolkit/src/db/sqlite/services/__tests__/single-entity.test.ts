@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
@@ -8,12 +8,9 @@ import {
   EntityESchema,
 } from '../../../../eschema/index.js';
 import { Effect, type Layer, Schema } from 'effect';
-import { betterSqlite3Layer } from '../../sql/adapters/better-sqlite3.js';
+import { nodeSqliteLayer } from '../../sql/adapters/node.js';
 import type { SqliteDB } from '../../sql/db.js';
 import { SQLiteTable } from '../sqlite-table.js';
-import { SQLiteEntity } from '../sqlite-entity.js';
-import { SQLiteSingleEntity } from '../sqlite-single-entity.js';
-import { EntityRegistry } from '../entity-registry.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -25,18 +22,18 @@ const configSchema = SingleEntityESchema.make('AppConfig', {
 // ─── Setup ──────────────────────────────────────────────────────────────────
 
 describe('SQLiteSingleEntity', () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
   let layer: Layer.Layer<SqliteDB>;
 
   const table = SQLiteTable.make().primary('pk', 'sk').build();
 
-  const AppConfig = SQLiteSingleEntity.make(table)
-    .eschema(configSchema)
+  const AppConfig = table
+    .singleEntity(configSchema)
     .default({ theme: 'light', maxRetries: 3 });
 
   beforeAll(async () => {
-    db = new Database(':memory:');
-    layer = betterSqlite3Layer(db, 'std_data');
+    db = new DatabaseSync(':memory:');
+    layer = nodeSqliteLayer(db, 'std_data');
     await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
   });
 
@@ -98,21 +95,44 @@ describe('SQLiteSingleEntity', () => {
     );
   });
 
-  // ─── update ──────────────────────────────────────────────────────────────
+  // ─── getAndUpdate ────────────────────────────────────────────────────────
 
-  describe('update', () => {
+  describe('getAndUpdate', () => {
     itEffect('plain object patch', () =>
       Effect.gen(function* () {
         yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
 
-        const result = yield* AppConfig.update({ update: { theme: 'dark' } });
+        const result = yield* AppConfig.getAndUpdate({ theme: 'dark' });
 
         expect(result.value.theme).toBe('dark');
         expect(result.value.maxRetries).toBe(3);
       }).pipe(Effect.provide(layer)),
     );
 
-    itEffect('fails on non-existent item', () =>
+    itEffect('callback derives the partial from the current value', () =>
+      Effect.gen(function* () {
+        yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+        const result = yield* AppConfig.getAndUpdate((current) => ({
+          maxRetries: current.maxRetries + 1,
+        }));
+
+        expect(result.value.maxRetries).toBe(4);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    itEffect('callback returning null skips the write', () =>
+      Effect.gen(function* () {
+        const written = yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+        const skipped = yield* AppConfig.getAndUpdate(() => null);
+
+        expect(skipped.meta._u).toBe(written.meta._u);
+        expect(skipped.value.theme).toBe('light');
+      }).pipe(Effect.provide(layer)),
+    );
+
+    itEffect('treats the default as current before the first write', () =>
       Effect.gen(function* () {
         const emptySchema = SingleEntityESchema.make('EmptyConfig', {
           value: Schema.String,
@@ -122,47 +142,100 @@ describe('SQLiteSingleEntity', () => {
 
         yield* emptyTable.setup();
 
-        const EmptyConfig = SQLiteSingleEntity.make(emptyTable)
-          .eschema(emptySchema)
+        const EmptyConfig = emptyTable
+          .singleEntity(emptySchema)
           .default({ value: 'x' });
 
-        const error = yield* EmptyConfig.update({
-          update: { value: 'y' },
+        const updated = yield* EmptyConfig.getAndUpdate((current) => ({
+          value: `${current.value}y`,
+        }));
+        const after = yield* EmptyConfig.get();
+
+        expect(updated.value.value).toBe('xy');
+        expect(updated.meta._u).not.toBe('');
+        expect(after.value.value).toBe('xy');
+        expect(after.meta._u).toBe(updated.meta._u);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    itEffect('preserves a non-conflict initial insert failure', () => {
+      const triggerName = 'fail_insert_failure_config';
+      let updateCalls = 0;
+
+      return Effect.gen(function* () {
+        const failureSchema = SingleEntityESchema.make('InsertFailureConfig', {
+          value: Schema.String,
+        }).build();
+        const failureTable = SQLiteTable.make().primary('pk', 'sk').build();
+        const FailureConfig = failureTable
+          .singleEntity(failureSchema)
+          .default({ value: 'default' });
+
+        yield* failureTable.setup();
+        yield* Effect.sync(() =>
+          db.exec(
+            `CREATE TRIGGER ${triggerName} BEFORE INSERT ON std_data WHEN NEW.pk = 'InsertFailureConfig' BEGIN SELECT RAISE(FAIL, 'simulated insert failure'); END`,
+          ),
+        );
+
+        const error = yield* FailureConfig.getAndUpdate(() => {
+          updateCalls += 1;
+          return { value: 'updated' };
         }).pipe(Effect.flip);
 
-        expect(error.error._tag).toBe('NoItemToUpdate');
+        expect(error.error._tag).toBe('InsertFailed');
+        expect(updateCalls).toBe(1);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => db.exec(`DROP TRIGGER IF EXISTS ${triggerName}`)),
+        ),
+        Effect.provide(layer),
+      );
+    });
+  });
+
+  // ─── reset ───────────────────────────────────────────────────────────────
+
+  describe('reset', () => {
+    itEffect('writes the default value back', () =>
+      Effect.gen(function* () {
+        const written = yield* AppConfig.put({
+          theme: 'dark',
+          maxRetries: 9,
+        });
+
+        const reverted = yield* AppConfig.reset();
+        const after = yield* AppConfig.get();
+
+        expect(reverted.value.theme).toBe('light');
+        expect(reverted.meta._u > written.meta._u).toBe(true);
+        expect(after.value.theme).toBe('light');
+        expect(after.value.maxRetries).toBe(3);
+        expect(after.meta._u).toBe(reverted.meta._u);
       }).pipe(Effect.provide(layer)),
     );
   });
 
-  // ─── registry ────────────────────────────────────────────────────────────
+  // ─── registration ────────────────────────────────────────────────────────
 
-  describe('registry', () => {
-    itEffect('registerSingle works', () =>
-      Effect.sync(() => {
-        const UserSchema = EntityESchema.make('User', 'userId', {
-          name: Schema.String,
-        }).build();
+  describe('registration', () => {
+    it('keyed and single entities share the table namespace', () => {
+      const UserSchema = EntityESchema.make('User', 'userId', {
+        name: Schema.String,
+      }).build();
 
-        const userEntity = SQLiteEntity.make(table)
-          .eschema(UserSchema)
-          .primary()
-          .build();
+      const userEntity = table.entity(UserSchema).primary().build();
+      expect(userEntity.name).toBe('User');
+      expect(AppConfig.name).toBe('AppConfig');
+    });
 
-        const registry = EntityRegistry.make(table)
-          .register(userEntity)
-          .registerSingle(AppConfig)
-          .build();
-
-        // singleEntity accessor works
-        const config = registry.singleEntity('AppConfig');
-        expect(config.name).toBe('AppConfig');
-
-        // entityNames includes both
-        const names = registry.entityNames;
-        expect(names).toContain('User');
-        expect(names).toContain('AppConfig');
-      }).pipe(Effect.provide(layer)),
-    );
+    it('rejects duplicate single entity names on the same table', () => {
+      expect(() =>
+        table.singleEntity(configSchema).default({
+          theme: 'light',
+          maxRetries: 3,
+        }),
+      ).toThrow('Entity "AppConfig" is already defined on this table');
+    });
   });
 });

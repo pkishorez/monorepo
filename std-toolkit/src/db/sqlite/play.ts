@@ -3,8 +3,6 @@ import { EntityESchema } from '../../eschema/index.js';
 import { Effect, Schema } from 'effect';
 import { betterSqlite3Layer } from './sql/adapters/better-sqlite3.js';
 import { SQLiteTable } from './services/sqlite-table.js';
-import { SQLiteEntity } from './services/sqlite-entity.js';
-import { EntityRegistry } from './services/entity-registry.js';
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -36,30 +34,25 @@ const table = SQLiteTable.make()
   .build();
 
 // User entity: pk = "User", sk = userId
-const userEntity = SQLiteEntity.make(table)
-  .eschema(UserSchema)
+const userEntity = table
+  .entity(UserSchema)
   .primary() // pk: entity name only, sk: userId (idField)
   .index('IDX1', 'byEmail', { pk: ['email'] }) // sk: _u
   .index('IDX2', 'byStatus', { pk: ['status'] }) // sk: _u
   .build();
 
 // Post entity: pk = "Post#authorId", sk = postId
-const postEntity = SQLiteEntity.make(table)
-  .eschema(PostSchema)
+const postEntity = table
+  .entity(PostSchema)
   .primary({ pk: ['authorId'] }) // sk: postId (idField)
   .index('IDX2', 'byAuthor', { pk: ['authorId'] }) // sk: _u
-  .build();
-
-const registry = EntityRegistry.make(table)
-  .register(userEntity)
-  .register(postEntity)
   .build();
 
 // ─── Program ─────────────────────────────────────────────────────────────────
 
 const program = Effect.gen(function* () {
-  yield* registry.setup();
-  yield* table.dangerouslyRemoveAllRows('i know what i am doing');
+  yield* table.setup();
+  yield* table.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING');
 
   console.log('=== SQLiteEntity Playground ===\n');
 
@@ -128,7 +121,7 @@ const program = Effect.gen(function* () {
 
   // ─── Update ────────────────────────────────────────
   console.log('\n--- Update ---');
-  const updated = yield* userEntity.update(
+  const updated = yield* userEntity.getAndUpdate(
     { userId: user2.value.userId },
     { name: 'Bobby' },
   );
