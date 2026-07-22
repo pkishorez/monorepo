@@ -23,6 +23,7 @@ interface MutableVisit {
   durationMillis: number;
   readonly selectedArm?: SelectedArm;
   readonly attributes?: Readonly<Record<string, unknown>>;
+  terminalMismatch?: boolean;
   readonly children: MutableExecutionItem[];
 }
 
@@ -37,9 +38,12 @@ interface Container {
 }
 
 interface VisitToken {
+  readonly block: BlockDeclaration;
   readonly visit: MutableVisit;
   readonly container: Container;
   readonly children: Container;
+  readonly parent: VisitToken | undefined;
+  readonly branch: unknown;
 }
 
 const closedVisitToken = Symbol('closed-story-visit');
@@ -62,7 +66,8 @@ export class StoryBlockRegistry {
       if (
         existing.block.name !== block.name ||
         existing.block.kind !== block.kind ||
-        existing.block.description !== block.description
+        existing.block.description !== block.description ||
+        !sameCompletion(existing.block, block)
       ) {
         throw new Error(`Conflicting Story Block declarations at ${id}`);
       }
@@ -77,7 +82,15 @@ export class StoryBlockRegistry {
     const storyBlock: StoryBlock =
       block.kind === 'decision'
         ? { ...common, kind: 'decision', arms: [] }
-        : { ...common, kind: block.kind };
+        : block.kind === 'terminal'
+          ? {
+              ...common,
+              kind: 'terminal',
+              ...(block.completion === undefined
+                ? {}
+                : { completion: block.completion }),
+            }
+          : { ...common, kind: block.kind };
     this.blocks.set(id, { block: storyBlock, arms: new Map() });
     return id;
   }
@@ -122,6 +135,11 @@ export class ScenarioRecorder implements StoryRecorder {
   private readonly anchor = performance.now();
   private closed = false;
   private active = false;
+  private readonly closedBranches = new Map<
+    VisitToken | typeof rootStoryScope,
+    Map<unknown, VisitToken[]>
+  >();
+  private readonly mismatches: string[] = [];
 
   constructor(private readonly blocks: StoryBlockRegistry) {}
 
@@ -135,11 +153,21 @@ export class ScenarioRecorder implements StoryRecorder {
     selectedArm: SelectedArm | undefined,
     attributes: Attributes | undefined,
     parent: unknown,
+    branch: unknown,
   ): VisitToken {
     if (this.closed || !this.active)
       return closedVisitToken as unknown as VisitToken;
     const parentToken = isVisitToken(parent) ? parent : undefined;
     const container = parentToken?.children ?? this.root;
+    const scope = nearestFlow(parentToken) ?? rootStoryScope;
+    const closed = this.closedBranches.get(scope)?.get(branch) ?? [];
+    for (const terminal of closed) {
+      terminal.visit.terminalMismatch = true;
+      this.mismatches.push(
+        `Terminal "${terminal.block.name}" was followed by Block "${block.name}" in the same sequential branch`,
+      );
+    }
+    this.closedBranches.get(scope)?.delete(branch);
     const visit: MutableVisit = {
       blockId: this.blocks.declare(block),
       outcome: 'succeeded',
@@ -152,9 +180,12 @@ export class ScenarioRecorder implements StoryRecorder {
       children: [],
     };
     const token: VisitToken = {
+      block,
       visit,
       container,
       children: makeContainer(visit.children),
+      parent: parentToken,
+      branch,
     };
     appendVisit(container, token);
     return token;
@@ -170,6 +201,15 @@ export class ScenarioRecorder implements StoryRecorder {
     );
     token.container.active.delete(token);
     if (token.container.active.size === 0) token.container.parallel = undefined;
+    if (token.block.kind === 'terminal') {
+      this.validateTerminalCompletion(token, outcome);
+      const scope = nearestFlow(token.parent) ?? rootStoryScope;
+      const branches = this.closedBranches.get(scope) ?? new Map();
+      const terminals = branches.get(token.branch) ?? [];
+      terminals.push(token);
+      branches.set(token.branch, terminals);
+      this.closedBranches.set(scope, branches);
+    }
   }
 
   close(): void {
@@ -191,6 +231,10 @@ export class ScenarioRecorder implements StoryRecorder {
     return normalizePath(this.root.items);
   }
 
+  terminalMismatches(): readonly string[] {
+    return this.mismatches;
+  }
+
   private interrupt(token: VisitToken): void {
     token.visit.outcome = 'interrupted';
     token.visit.durationMillis = roundMillis(
@@ -201,6 +245,24 @@ export class ScenarioRecorder implements StoryRecorder {
 
   private offset(): number {
     return roundMillis(performance.now() - this.anchor);
+  }
+
+  private validateTerminalCompletion(
+    token: VisitToken,
+    outcome: StoryBlockVisitOutcome,
+  ): void {
+    const block = token.block;
+    const completion = block.completion;
+    if (completion === undefined) return;
+    const matches =
+      completion.kind === 'success'
+        ? outcome === 'succeeded'
+        : outcome === 'failed';
+    if (matches) return;
+    token.visit.terminalMismatch = true;
+    this.mismatches.push(
+      `Terminal "${block.name}" declares ${completion.kind} completion but its Visit was ${outcome}`,
+    );
   }
 }
 
@@ -257,6 +319,9 @@ function normalizePath(items: readonly MutableExecutionItem[]): ExecutionPath {
         ? {}
         : { selectedArm: item.selectedArm }),
       ...(item.attributes === undefined ? {} : { attributes: item.attributes }),
+      ...(item.terminalMismatch === undefined
+        ? {}
+        : { terminalMismatch: item.terminalMismatch }),
       children: normalizePath(item.children),
     });
   }
@@ -321,5 +386,28 @@ function isVisitToken(value: unknown): value is VisitToken {
     'visit' in value &&
     'container' in value &&
     'children' in value
+  );
+}
+
+const rootStoryScope = Symbol('root-story-scope');
+
+function nearestFlow(token: VisitToken | undefined): VisitToken | undefined {
+  let current = token;
+  while (current !== undefined) {
+    if (current.block.kind === 'flow') return current;
+    current = current.parent;
+  }
+  return undefined;
+}
+
+function sameCompletion(left: StoryBlock, right: BlockDeclaration): boolean {
+  const leftCompletion = left.kind === 'terminal' ? left.completion : undefined;
+  const rightCompletion =
+    right.kind === 'terminal' ? right.completion : undefined;
+  return (
+    leftCompletion?.kind === rightCompletion?.kind &&
+    (leftCompletion?.kind !== 'error' ||
+      (rightCompletion?.kind === 'error' &&
+        leftCompletion.error === rightCompletion.error))
   );
 }

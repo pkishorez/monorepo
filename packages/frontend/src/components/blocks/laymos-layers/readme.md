@@ -36,6 +36,11 @@ exists, hover only indicates that another graph or layer can be selected.
 | Graph active | Selected graph emphasized                           | Internal edges and incident violations | Dimmed        |
 | Layer active | Direct configured and observed neighbors emphasized | Exact incident edges and counts        | Dimmed        |
 
+The top-right **Observed connections** switch hides runtime import evidence for
+a quieter, rules-only view. Active configured paths use the theme's
+high-contrast primary color in this mode. Observed connections are shown by
+default.
+
 Edges are passive evidence. Only graph headers and layer nodes are hoverable,
 focusable, and selectable. `Tab` traverses those buttons, `Enter` or `Space`
 selects, and `Escape` clears selection.
@@ -45,10 +50,13 @@ selects, and `Escape` clears selection.
 Layer nodes permanently show their name, file count, understated uncovered-file
 text when needed, and incident layer-violation count. Shared layers use the same
 surface as every other layer; their lane-spanning geometry communicates the
-relationship. A fixed contextual card shows descriptions, paths, precise
-coverage, connection totals, and the legend. It is expanded by default and can
-be collapsed. Set `defaultMinimise` when an embedding should
-start with it collapsed.
+relationship. Root and sink layers use subtle blue and green tinted surfaces,
+full borders, and quiet role labels. Layers shared across graphs add a diagonal
+hatch over that surface and show their graph count, so shared styling composes
+with either role. A fixed contextual card shows descriptions, paths, precise
+coverage, connection totals, and the legend. Clicking anywhere on it collapses
+the card. It starts collapsed by default; set `defaultMinimise={false}` when an
+embedding should start with it expanded.
 
 Graph order follows the report. Vertical ranks come from the union DAG so a
 shared sink has one stable position across graph lanes. Nodes are fixed; the

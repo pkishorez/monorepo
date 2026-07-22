@@ -238,6 +238,7 @@ Not coverage tooling (istanbul knows _which lines_ ran, not _what they meant_). 
 
 - **`flow(name, meta, fn)`** marks a reusable function whose nested Story Blocks are traversed.
 - **`step(name, meta, thunk)`** marks one opaque operation. Trace Mode records it without calling the thunk.
+- **`terminal(name, meta, operation)`** marks one opaque operation as the documented end of its local sequential branch.
 - **`decision(name, meta, selector)`** records the selector structure and traverses every lazily declared Arm.
 - **`omit(label?, thunk)`** records an omission marker without tracing its body.
 - **`all`** and **`forEach`** mirror their Effect counterparts and retain their options in the trace.
@@ -273,6 +274,16 @@ fallback Arm, narrows its callback to the remaining union, and returns the
 selected result. A non-exhaustive chain with no matching Arm does nothing, like
 an `if` statement without an `else`. Literal Arms default their narrative name
 to the textual form of their literal; the fallback defaults to `Otherwise`.
+
+A Terminal executes exactly like a Step and never changes application control
+flow. Its optional `completion` is `{ kind: 'success' }` or
+`{ kind: 'error', error?: string }`; the error name is documentation rather
+than captured runtime data. Trace Mode closes only that sequential branch in
+the nearest containing Flow, or in Story execution when no Flow contains it.
+Parallel siblings and the Flow's caller remain open. After execution, a
+Scenario fails when evidence continues on the same branch or its Terminal Visit
+contradicts the declared completion, while retaining the complete Execution
+Path.
 
 `laymos/story` provides `yield*`-able Effect builders. Arm callbacks return
 Effects; the matching Effect is selected eagerly and runs when the builder is
@@ -454,11 +465,9 @@ A generation run records all Scenarios of a Story into **one JSON artifact per S
 
 The artifact preserves blocks separately from their visits. A block is the
 shared, source-identified narrative unit; a block visit is one occurrence in
-one scenario. The artifact knows two block kinds: `block` and `decision`.
-`functionBlock` and `step` both record as `block` — which primitive marked a
-block is recording mechanics, not narrative, exactly as the plain and Effect
-variants record identically. Only `decision` is distinct, because it owns
-declared Arms. A visit has no identifier of its own: its identity is its
+one scenario. The artifact preserves the `flow`, `step`, `decision`, and
+`terminal` Block kinds. Decisions own declared Arms, while Terminals own
+optional completion documentation. A visit has no identifier of its own: its identity is its
 position in the Scenario's execution path, and its value contains facts only —
 Block ID, outcome, selected Arm when applicable, and optional attributes. It
 does not encode parentage, ordering, or next relationships.
@@ -472,7 +481,6 @@ type StoryId = string;
 type BlockId = string;
 
 interface StoryRun {
-  readonly schemaVersion: 4;
   readonly generatedAt: number;
   readonly name: string;
   readonly description: string;
@@ -499,10 +507,19 @@ type SelectedArm =
 
 type Block =
   | {
-      readonly kind: 'block';
+      readonly kind: 'flow' | 'step';
       readonly name: string;
       readonly description: string;
       readonly location: StorySourceLocation;
+    }
+  | {
+      readonly kind: 'terminal';
+      readonly name: string;
+      readonly description: string;
+      readonly location: StorySourceLocation;
+      readonly completion?:
+        | { readonly kind: 'success' }
+        | { readonly kind: 'error'; readonly error?: string };
     }
   | {
       readonly kind: 'decision';
@@ -668,6 +685,10 @@ project and deletes discovered Laymos Story files. `--dry-run` performs the
 same preflight and reports planned changes without writing. Storybook's plural
 `*.stories.*` files and Story support files are left alone.
 
+Terminal narration ejects with Step-equivalent semantics: its name,
+description, and completion are removed while its direct or thunked Effect
+operation is preserved.
+
 Ejection recognizes direct named imports, aliases, and namespace imports from
 `laymos/story`. It aborts before writing when an imported Block escapes a direct
 call, a Decision builder does not end in `otherwise` or `exhaustive`, or the
@@ -677,8 +698,8 @@ type checker, or test suite afterward.
 ### Outside a Scenario
 
 The production `laymos/story` entry has no recording capability. Its `flow`
-executes the wrapped function, `step` executes its thunk, and `decision`
-performs only the selected branching. Attribute
+executes the wrapped function, `step` and `terminal` execute their operations,
+and `decision` performs only the selected branching. Attribute
 resolvers are not evaluated, and there is no recorder lookup, source-location
 capture, serialization, event emission, or runtime configuration.
 

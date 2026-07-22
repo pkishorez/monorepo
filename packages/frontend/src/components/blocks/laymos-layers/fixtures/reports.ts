@@ -1,7 +1,6 @@
 import type { LaymosReport } from 'laymos/report';
 
 export const laymosLayersFixtureReport: LaymosReport = {
-  schemaVersion: 2,
   architecture: {
     sourceRoots: ['src'],
     layers: {
@@ -173,7 +172,6 @@ function buildFixtureReport(spec: FixtureSpec): LaymosReport {
   }
   const uncoveredLayers = new Set(spec.uncoveredLayers ?? []);
   return {
-    schemaVersion: 2,
     architecture: {
       sourceRoots: ['src'],
       layers: Object.fromEntries(

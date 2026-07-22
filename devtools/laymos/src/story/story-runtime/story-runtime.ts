@@ -14,6 +14,7 @@ import {
 import {
   captureLocation,
   CurrentRecorder,
+  CurrentStoryBranch,
   resolveAttributes,
 } from '../core/recorder.js';
 import type {
@@ -28,6 +29,7 @@ import type {
   DecisionValue,
   StoryGroupMeta,
   StoryMeta,
+  TerminalMeta,
 } from '../core/types.js';
 
 export interface ScenarioMeta {
@@ -421,6 +423,40 @@ export function step<A, E, R>(
   });
 }
 
+/** Marks one opaque operation as the end of its local Story branch. */
+export function terminal<A, E, R>(
+  name: string,
+  meta: TerminalMeta,
+  effect: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function terminal<A, E, R>(
+  name: string,
+  meta: TerminalMeta,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function terminal<A, E, R>(
+  name: string,
+  meta: TerminalMeta,
+  effect: Effect.Effect<A, E, R> | (() => Effect.Effect<A, E, R>),
+): Effect.Effect<A, E, R> {
+  requireTerminalCompletion(meta);
+  const block: BlockDeclaration = {
+    ...makeBlock(name, meta, 'terminal'),
+    ...(meta.completion === undefined ? {} : { completion: meta.completion }),
+  };
+  const operation = () => (typeof effect === 'function' ? effect() : effect);
+  return Effect.gen(function* () {
+    const trace = yield* CurrentTrace;
+    if (trace !== undefined) return trace.recorder.terminal(trace, block) as A;
+    return yield* wrapEffect(
+      block,
+      undefined,
+      () => resolveAttributes(meta.attributes, []),
+      operation,
+    );
+  });
+}
+
 /** Builds a lazy, literal-keyed Effect Decision. */
 export function decision<const Input extends DecisionValue, E, R>(
   name: string,
@@ -479,7 +515,13 @@ export const all = ((
 ) =>
   Effect.gen(function* () {
     const trace = yield* CurrentTrace;
-    if (trace === undefined) return yield* Effect.all(arg as any, options);
+    if (trace === undefined) {
+      const recorder = yield* CurrentRecorder;
+      return yield* Effect.all(
+        recorder === undefined ? (arg as any) : branchEffects(arg),
+        options,
+      );
+    }
     const effects =
       Symbol.iterator in Object(arg)
         ? [...(arg as Iterable<AnyEffect>)]
@@ -495,7 +537,24 @@ const storyForEach = (...args: readonly unknown[]): unknown => {
   const [, body, options] = args;
   return Effect.gen(function* () {
     const trace = yield* CurrentTrace;
-    if (trace === undefined) return yield* (Effect.forEach as any)(...args);
+    if (trace === undefined) {
+      const recorder = yield* CurrentRecorder;
+      if (recorder === undefined)
+        return yield* (Effect.forEach as any)(...args);
+      const [self, iteratee, runtimeOptions] = args as [
+        Iterable<unknown>,
+        (value: unknown, index: number) => AnyEffect,
+        unknown,
+      ];
+      return yield* (Effect.forEach as any)(
+        self,
+        (value: unknown, index: number) =>
+          Effect.suspend(() => iteratee(value, index)).pipe(
+            Effect.provideService(CurrentStoryBranch, {}),
+          ),
+        runtimeOptions,
+      );
+    }
     return yield* trace.recorder.forEach(
       trace,
       (body as (value: unknown, index: number) => AnyEffect)(
@@ -509,6 +568,18 @@ const storyForEach = (...args: readonly unknown[]): unknown => {
 
 export const forEach = storyForEach as typeof Effect.forEach;
 
+function branchEffects(
+  effects: Iterable<AnyEffect> | Record<string, AnyEffect>,
+): Iterable<AnyEffect> | Record<string, AnyEffect> {
+  const branch = (effect: AnyEffect) =>
+    effect.pipe(Effect.provideService(CurrentStoryBranch, {}));
+  return Symbol.iterator in Object(effects)
+    ? [...(effects as Iterable<AnyEffect>)].map(branch)
+    : Object.fromEntries(
+        Object.entries(effects).map(([key, effect]) => [key, branch(effect)]),
+      );
+}
+
 function wrapEffect<A, E, R>(
   block: BlockDeclaration,
   selectedArm: SelectedArm | undefined,
@@ -521,7 +592,14 @@ function wrapEffect<A, E, R>(
     if (recorder === undefined) return yield* Effect.suspend(effect);
     for (const arm of arms) recorder.declareArm(block, arm);
     const parent = yield* CurrentVisit;
-    const token = recorder.start(block, selectedArm, attributes(), parent);
+    const branch = yield* CurrentStoryBranch;
+    const token = recorder.start(
+      block,
+      selectedArm,
+      attributes(),
+      parent,
+      branch,
+    );
     return yield* Effect.suspend(effect).pipe(
       Effect.onExit((exit) =>
         Effect.sync(() => {
@@ -567,3 +645,19 @@ function requireDecisionArmValue(value: DecisionValue): void {
     throw new TypeError('Decision Arm numeric values must be finite');
   }
 }
+
+function requireTerminalCompletion(meta: TerminalMeta): void {
+  if (
+    meta.completion?.kind === 'error' &&
+    meta.completion.error !== undefined &&
+    meta.completion.error.trim().length === 0
+  ) {
+    throw new TypeError('Terminal error name must not be empty');
+  }
+}
+
+export type {
+  Attributes,
+  TerminalCompletion,
+  TerminalMeta,
+} from '../core/types.js';

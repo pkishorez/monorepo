@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
+import { flow, terminal } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -21,7 +21,18 @@ const insertUser = flow(
     description:
       'Inserts one keyed entity and returns its persisted value and DynamoDB metadata.',
   },
-  (input: Input) => harness.users.insert(input),
+  (input: Input) =>
+    Effect.gen(function* () {
+      const result = yield* harness.users.insert(input);
+      return yield* terminal(
+        'Return the inserted entity',
+        {
+          description: 'Completes this insert flow with the persisted entity.',
+          completion: { kind: 'success' },
+        },
+        Effect.succeed(result),
+      );
+    }),
 );
 
 dynamodbEntityStories

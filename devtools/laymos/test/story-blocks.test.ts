@@ -7,6 +7,7 @@ import {
   flow as effectFlow,
   step as effectStep,
   story as effectStory,
+  terminal as effectTerminal,
 } from '../src/story/effect/index.js';
 import { CurrentRecorder } from '../src/story/core/recorder.js';
 import type { StoryRecorder } from '../src/story/core/recorder.js';
@@ -107,6 +108,26 @@ describe('Story Blocks', () => {
     await expect(Effect.runPromise(add(2, 3))).resolves.toBe(5);
   });
 
+  it('executes Terminal bodies with Step-equivalent laziness', async () => {
+    let executions = 0;
+    const operation = effectTerminal(
+      'finish lookup',
+      {
+        description: 'Returns the final lookup value for this branch.',
+        completion: { kind: 'success' },
+      },
+      () =>
+        Effect.sync(() => {
+          executions += 1;
+          return 'found';
+        }),
+    );
+
+    expect(executions).toBe(0);
+    await expect(Effect.runPromise(operation)).resolves.toBe('found');
+    expect(executions).toBe(1);
+  });
+
   it('keeps production Blocks inert when a recorder service is present', async () => {
     let recorderCalls = 0;
     let attributeCalls = 0;
@@ -160,6 +181,19 @@ describe('Story Blocks', () => {
     expect(() =>
       effectStep('empty step', { description: '' }, () => Effect.void),
     ).toThrow('Step "empty step" description must not be empty');
+    expect(() =>
+      effectTerminal('empty terminal', { description: '' }, Effect.void),
+    ).toThrow('Terminal "empty terminal" description must not be empty');
+    expect(() =>
+      effectTerminal(
+        'unnamed error',
+        {
+          description: 'Documents an invalid error name.',
+          completion: { kind: 'error', error: ' ' },
+        },
+        Effect.void,
+      ),
+    ).toThrow('Terminal error name must not be empty');
     expect(() =>
       effectDecision('empty decision', { description: '\n' }, () =>
         Effect.succeed(true),

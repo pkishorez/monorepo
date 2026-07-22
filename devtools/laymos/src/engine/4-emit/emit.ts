@@ -88,7 +88,6 @@ export function emitReport(
   warnings: readonly AnalysisWarning[] = [],
 ): Effect.Effect<LaymosReport> {
   return Effect.succeed({
-    schemaVersion: 2,
     architecture: emitArchitecture(resolved.config),
     files: emitFiles(resolved),
     violations: evaluation.violations,

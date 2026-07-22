@@ -23,6 +23,13 @@ export type LaymosStoriesRunState =
 
 export type LaymosStoriesSidebarExpansion = 'single' | 'recursive';
 
+export interface LaymosStoryCanvasPreferences {
+  readonly showDetails: boolean;
+  readonly showFunctionScopes: boolean;
+  readonly showDescriptionPopover: boolean;
+  readonly centerSelected: boolean;
+}
+
 export type LaymosStoryExecutionState =
   | { readonly status: 'loading' }
   | { readonly status: 'success' }
@@ -40,7 +47,12 @@ export interface LaymosStoriesProps {
   readonly onRunStory?: (storyId: StoryId) => void;
   readonly onRunGroup?: (groupPath: StoryGroupPath) => void;
   readonly onRunAll?: () => void;
+  readonly canvasPreferences?: LaymosStoryCanvasPreferences;
+  readonly onCanvasPreferencesChange?: (
+    preferences: LaymosStoryCanvasPreferences,
+  ) => void;
   readonly sidebarExpansion?: LaymosStoriesSidebarExpansion;
+  readonly showNavigator?: boolean;
   readonly className?: string;
   readonly ariaLabel?: string;
 }

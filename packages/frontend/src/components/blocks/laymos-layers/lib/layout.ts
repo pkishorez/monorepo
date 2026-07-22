@@ -143,6 +143,7 @@ export function computeLaymosFlowLayout(
   active: ActiveModel,
   hoveredWithinSelection: LaymosNode | null = null,
   hoveredGraph: string | null = null,
+  showObservedConnections = true,
 ): LaymosFlowLayout {
   const hoveredLayer =
     hoveredWithinSelection?.kind === 'layer'
@@ -155,14 +156,30 @@ export function computeLaymosFlowLayout(
         configuredEdgeActive(active, edge.graph, edge.from, edge.to) &&
         (edge.from === hoveredLayer || edge.to === hoveredLayer),
     ) ||
-      model.observedEdges.some(
-        (edge) =>
-          active.visibleObservedEdges.has(edgeKey(edge.from, edge.to)) &&
-          (edge.from === hoveredLayer || edge.to === hoveredLayer),
-      ))
+      (showObservedConnections &&
+        model.observedEdges.some(
+          (edge) =>
+            active.visibleObservedEdges.has(edgeKey(edge.from, edge.to)) &&
+            (edge.from === hoveredLayer || edge.to === hoveredLayer),
+        )))
       ? hoveredLayer
       : undefined;
-  const edgeHighlightedLayers = new Set(active.relatedLayers);
+  const edgeHighlightedLayers = new Set(
+    showObservedConnections
+      ? active.relatedLayers
+      : active.node?.kind === 'graph'
+        ? (model.graphByName.get(active.node.name)?.layers ?? [])
+        : active.node
+          ? [
+              active.node.name,
+              ...model.displayConfiguredEdges.flatMap((edge) =>
+                edge.from === active.node?.name || edge.to === active.node?.name
+                  ? [edge.from, edge.to]
+                  : [],
+              ),
+            ]
+          : [],
+  );
   if (edgeFocusLayer !== undefined) {
     edgeHighlightedLayers.clear();
     edgeHighlightedLayers.add(edgeFocusLayer);
@@ -175,13 +192,15 @@ export function computeLaymosFlowLayout(
         edgeHighlightedLayers.add(edge.to);
       }
     }
-    for (const edge of model.observedEdges) {
-      if (
-        active.visibleObservedEdges.has(edgeKey(edge.from, edge.to)) &&
-        (edge.from === edgeFocusLayer || edge.to === edgeFocusLayer)
-      ) {
-        edgeHighlightedLayers.add(edge.from);
-        edgeHighlightedLayers.add(edge.to);
+    if (showObservedConnections) {
+      for (const edge of model.observedEdges) {
+        if (
+          active.visibleObservedEdges.has(edgeKey(edge.from, edge.to)) &&
+          (edge.from === edgeFocusLayer || edge.to === edgeFocusLayer)
+        ) {
+          edgeHighlightedLayers.add(edge.from);
+          edgeHighlightedLayers.add(edge.to);
+        }
       }
     }
   }
@@ -353,6 +372,9 @@ export function computeLaymosFlowLayout(
       draggable: false,
       data: {
         name: layer.name,
+        isRoot: layer.isRoot,
+        isSink: layer.isSink,
+        graphCount: layer.graphs.length,
         fileCount: layer.fileCount,
         moduleCoveredFiles: layer.moduleCoveredFiles,
         moduleTotalFiles: layer.moduleTotalFiles,
@@ -417,9 +439,10 @@ export function computeLaymosFlowLayout(
   edges.push(
     ...[...configuredByPair.values()].map((edge): Edge => {
       const key = edgeKey(edge.from, edge.to);
-      const observed = active.visibleObservedEdges.has(key)
-        ? model.observedEdgeByKey.get(key)
-        : undefined;
+      const observed =
+        showObservedConnections && active.visibleObservedEdges.has(key)
+          ? model.observedEdgeByKey.get(key)
+          : undefined;
       if (observed) mergedObservedKeys.add(key);
       const highlighted = edge.graphs.some((graph) =>
         configuredEdgeActive(active, graph, edge.from, edge.to),
@@ -449,7 +472,9 @@ export function computeLaymosFlowLayout(
             ? layerColors.observedOutgoing
             : observed
               ? layerColors.observed
-              : layerColors.configured;
+              : !showObservedConnections && active.node && highlighted
+                ? layerColors.configuredActive
+                : layerColors.configured;
       const importCount = observed?.fileEdges.length;
       return {
         id: `configured:${edge.graphs.join('+')}:${edge.from}->${edge.to}`,
@@ -489,17 +514,21 @@ export function computeLaymosFlowLayout(
             ? 2.75
             : observed
               ? 2
-              : highlighted && active.node
-                ? 1.5
-                : 1.15,
+              : !showObservedConnections && highlighted && active.node
+                ? 2.25
+                : highlighted && active.node
+                  ? 1.5
+                  : 1.15,
           strokeDasharray: observed?.violating ? '6 5' : undefined,
           opacity: hoverDimmed
             ? 0.12
             : observed
               ? 0.9
-              : highlighted
-                ? 0.65
-                : 0.08,
+              : !showObservedConnections && highlighted && active.node
+                ? 0.95
+                : highlighted
+                  ? 0.65
+                  : 0.08,
           pointerEvents: 'none',
         },
         zIndex: 1,
@@ -507,76 +536,80 @@ export function computeLaymosFlowLayout(
     }),
   );
 
-  for (const edge of model.observedEdges) {
-    const key = edgeKey(edge.from, edge.to);
-    if (!active.visibleObservedEdges.has(key) || mergedObservedKeys.has(key)) {
-      continue;
-    }
-    const layerActive = active.node?.kind === 'layer';
-    const hoverMatches =
-      edgeFocusLayer === undefined ||
-      edge.from === edgeFocusLayer ||
-      edge.to === edgeFocusLayer;
-    const hoverDimmed = edgeFocusLayer !== undefined && !hoverMatches;
-    const color = edge.violating
-      ? layerColors.violation
-      : layerActive && edge.to === active.node?.name
-        ? layerColors.observedIncoming
-        : layerActive && edge.from === active.node?.name
-          ? layerColors.observedOutgoing
-          : layerColors.observed;
-    const sourceGraph = model.layers
-      .get(edge.from)
-      ?.graphs.find((graph) =>
-        model.layers.get(edge.to)?.graphs.includes(graph),
+  if (showObservedConnections)
+    for (const edge of model.observedEdges) {
+      const key = edgeKey(edge.from, edge.to);
+      if (
+        !active.visibleObservedEdges.has(key) ||
+        mergedObservedKeys.has(key)
+      ) {
+        continue;
+      }
+      const layerActive = active.node?.kind === 'layer';
+      const hoverMatches =
+        edgeFocusLayer === undefined ||
+        edge.from === edgeFocusLayer ||
+        edge.to === edgeFocusLayer;
+      const hoverDimmed = edgeFocusLayer !== undefined && !hoverMatches;
+      const color = edge.violating
+        ? layerColors.violation
+        : layerActive && edge.to === active.node?.name
+          ? layerColors.observedIncoming
+          : layerActive && edge.from === active.node?.name
+            ? layerColors.observedOutgoing
+            : layerColors.observed;
+      const sourceGraph = model.layers
+        .get(edge.from)
+        ?.graphs.find((graph) =>
+          model.layers.get(edge.to)?.graphs.includes(graph),
+        );
+      const handles = connectionHandles(
+        model,
+        positions,
+        edge.from,
+        edge.to,
+        sourceGraph,
       );
-    const handles = connectionHandles(
-      model,
-      positions,
-      edge.from,
-      edge.to,
-      sourceGraph,
-    );
-    const importCount = edge.fileEdges.length;
-    edges.push({
-      id: `observed:${edge.from}->${edge.to}`,
-      source: `layer:${edge.from}`,
-      target: `layer:${edge.to}`,
-      ...handles,
-      type: 'smoothstep',
-      label: layerActive ? `${importCount}` : undefined,
-      interactionWidth: 0,
-      className: 'pointer-events-none',
-      labelStyle: {
-        fill: 'white',
-        fontSize: 9,
-        fontWeight: 700,
-        opacity: hoverDimmed ? 0.25 : 1,
-        pointerEvents: 'none',
-      },
-      labelBgStyle: {
-        fill: color,
-        fillOpacity: hoverDimmed ? 0.2 : 0.82,
-        pointerEvents: 'none',
-      },
-      labelBgPadding: [5, 3],
-      labelBgBorderRadius: 8,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: 12,
-        height: 12,
-        color,
-      },
-      style: {
-        stroke: color,
-        strokeWidth: hoverMatches && edgeFocusLayer !== undefined ? 2.75 : 2,
-        strokeDasharray: edge.violating ? '6 5' : undefined,
-        opacity: hoverDimmed ? 0.12 : 1,
-        pointerEvents: 'none',
-      },
-      zIndex: 3,
-    });
-  }
+      const importCount = edge.fileEdges.length;
+      edges.push({
+        id: `observed:${edge.from}->${edge.to}`,
+        source: `layer:${edge.from}`,
+        target: `layer:${edge.to}`,
+        ...handles,
+        type: 'smoothstep',
+        label: layerActive ? `${importCount}` : undefined,
+        interactionWidth: 0,
+        className: 'pointer-events-none',
+        labelStyle: {
+          fill: 'white',
+          fontSize: 9,
+          fontWeight: 700,
+          opacity: hoverDimmed ? 0.25 : 1,
+          pointerEvents: 'none',
+        },
+        labelBgStyle: {
+          fill: color,
+          fillOpacity: hoverDimmed ? 0.2 : 0.82,
+          pointerEvents: 'none',
+        },
+        labelBgPadding: [5, 3],
+        labelBgBorderRadius: 8,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 12,
+          height: 12,
+          color,
+        },
+        style: {
+          stroke: color,
+          strokeWidth: hoverMatches && edgeFocusLayer !== undefined ? 2.75 : 2,
+          strokeDasharray: edge.violating ? '6 5' : undefined,
+          opacity: hoverDimmed ? 0.12 : 1,
+          pointerEvents: 'none',
+        },
+        zIndex: 3,
+      });
+    }
 
   return { nodes, edges };
 }

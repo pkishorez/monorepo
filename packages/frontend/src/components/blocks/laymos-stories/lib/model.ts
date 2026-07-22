@@ -25,6 +25,11 @@ export interface StoryBlockGraphNode {
   readonly visit?: VisitItem;
   readonly observedArms?: readonly string[];
   readonly expectedFailure?: boolean;
+  readonly isFlowScope?: boolean;
+  readonly startsFlows?: readonly {
+    readonly id: string;
+    readonly name: string;
+  }[];
 }
 
 export interface StoryArmGraphNode {
@@ -91,9 +96,14 @@ export interface ScenarioEntry {
 interface PathSpan {
   readonly entries: ReadonlySet<string>;
   readonly exits: ReadonlySet<string>;
+  readonly terminalExits: ReadonlySet<string>;
 }
 
-const emptySpan: PathSpan = { entries: new Set(), exits: new Set() };
+const emptySpan: PathSpan = {
+  entries: new Set(),
+  exits: new Set(),
+  terminalExits: new Set(),
+};
 
 /** Derives a Visit's identity from its structural position in the path. */
 export const visitAddress = (prefix: string, index: number): string =>
@@ -152,21 +162,26 @@ function combineSequential(
 ): PathSpan {
   let entries: ReadonlySet<string> = new Set();
   let exits: ReadonlySet<string> = new Set();
+  const terminalExits = new Set<string>();
   for (const span of spans) {
     if (span.entries.size === 0) continue;
+    for (const terminalExit of span.terminalExits) {
+      terminalExits.add(terminalExit);
+    }
     if (entries.size === 0) entries = span.entries;
     for (const source of exits) {
       for (const target of span.entries) addEdge(edges, source, target);
     }
     exits = span.exits;
   }
-  return { entries, exits };
+  return { entries, exits, terminalExits };
 }
 
 function parallelSpan(spans: readonly PathSpan[]): PathSpan {
   return {
     entries: new Set(spans.flatMap((span) => [...span.entries])),
     exits: new Set(spans.flatMap((span) => [...span.exits])),
+    terminalExits: new Set(spans.flatMap((span) => [...span.terminalExits])),
   };
 }
 
@@ -176,11 +191,19 @@ type NodeIdFor = (
   parentBlockId: BlockId | undefined,
 ) => string;
 
+interface ProgressivePathInput {
+  readonly scenario: StoryScenario;
+  readonly path: ExecutionPath;
+  readonly prefix: string;
+  readonly parentBlockId?: BlockId;
+}
+
 function progressiveItemSpan(
   item: ExecutionItem,
   address: string,
   parentBlockId: BlockId | undefined,
   story: StoryRun,
+  scenario: StoryScenario,
   nodeId: NodeIdFor,
   preserveVisits: boolean,
   nodes: Map<string, StoryGraphNode>,
@@ -195,6 +218,7 @@ function progressiveItemSpan(
           visitAddress(address, branchIndex),
           parentBlockId,
           story,
+          scenario,
           nodeId,
           preserveVisits,
           nodes,
@@ -220,6 +244,12 @@ function progressiveItemSpan(
     block,
     ...(preserveVisits ? { visit: item } : {}),
     observedArms: [...observedArms],
+    ...(previous?.kind === 'block' && previous.startsFlows
+      ? { startsFlows: previous.startsFlows }
+      : {}),
+    ...(previous?.kind === 'block' && previous.isFlowScope
+      ? { isFlowScope: true }
+      : {}),
   });
 
   const selectedArmKey = item.selectedArm && armKey(item.selectedArm);
@@ -253,20 +283,60 @@ function progressiveItemSpan(
     address,
     item.blockId,
     story,
+    scenario,
     nodeId,
     preserveVisits,
     nodes,
     edges,
     childrenByNode,
   );
-  const childSource = selectedArmNodeId ?? id;
-  for (const target of childSpan.entries) addEdge(edges, childSource, target);
+  if (block.kind === 'flow') {
+    if (childSpan.entries.size > 0) {
+      const flowNode = nodes.get(id);
+      if (flowNode?.kind === 'block') {
+        nodes.set(id, { ...flowNode, isFlowScope: true });
+      }
+    }
+    for (const target of childSpan.entries) {
+      const startNode = nodes.get(target);
+      if (startNode?.kind !== 'block') continue;
+      const startsFlows = new Map(
+        (startNode.startsFlows ?? []).map((flow) => [flow.id, flow]),
+      );
+      startsFlows.set(id, { id, name: block.name });
+      nodes.set(target, {
+        ...startNode,
+        startsFlows: [...startsFlows.values()],
+      });
+    }
+  } else {
+    const childSource = selectedArmNodeId ?? id;
+    for (const target of childSpan.entries) {
+      addEdge(edges, childSource, target);
+    }
+  }
+  if (block.kind === 'terminal') {
+    return {
+      entries: new Set([id]),
+      exits: new Set(),
+      terminalExits: new Set([id]),
+    };
+  }
+  if (block.kind === 'flow' && childSpan.entries.size > 0) {
+    return {
+      entries: childSpan.entries,
+      exits:
+        childSpan.exits.size > 0 ? childSpan.exits : childSpan.terminalExits,
+      terminalExits: new Set(),
+    };
+  }
   return {
     entries: new Set([id]),
     exits:
-      childSpan.exits.size > 0
+      childSpan.entries.size > 0
         ? childSpan.exits
         : new Set([selectedArmNodeId ?? id]),
+    terminalExits: childSpan.terminalExits,
   };
 }
 
@@ -275,6 +345,7 @@ function progressivePathSpan(
   prefix: string,
   parentBlockId: BlockId | undefined,
   story: StoryRun,
+  scenario: StoryScenario,
   nodeId: NodeIdFor,
   preserveVisits: boolean,
   nodes: Map<string, StoryGraphNode>,
@@ -288,6 +359,7 @@ function progressivePathSpan(
         visitAddress(prefix, index),
         parentBlockId,
         story,
+        scenario,
         nodeId,
         preserveVisits,
         nodes,
@@ -301,20 +373,22 @@ function progressivePathSpan(
 
 function progressiveModel(
   story: StoryRun,
-  scenarios: readonly StoryScenario[],
+  inputs: readonly ProgressivePathInput[],
   nodeId: NodeIdFor,
   preserveVisits: boolean,
 ): ProgressiveStoryGraphModel {
   const nodes = new Map<string, StoryGraphNode>();
   const edges = new Map<string, StoryGraphEdge>();
   const childrenByNode = new Map<string, Set<string>>();
-  for (const scenario of scenarios) {
+  for (const input of inputs) {
+    const { scenario } = input;
     if (scenario.outcome === 'skipped') continue;
     progressivePathSpan(
-      scenario.execution,
-      '',
-      undefined,
+      input.path,
+      input.prefix,
+      input.parentBlockId,
       story,
+      scenario,
       nodeId,
       preserveVisits,
       nodes,
@@ -330,6 +404,15 @@ function progressiveModel(
     ),
   };
 }
+
+const rootInputs = (
+  scenarios: readonly StoryScenario[],
+): ProgressivePathInput[] =>
+  scenarios.map((scenario) => ({
+    scenario,
+    path: scenario.execution,
+    prefix: '',
+  }));
 
 function withoutCycleEdges(
   model: ProgressiveStoryGraphModel,
@@ -392,7 +475,7 @@ export function buildProgressiveStoryGraph(
   return withoutCycleEdges(
     progressiveModel(
       story,
-      story.scenarios,
+      rootInputs(story.scenarios),
       (_address, item, parentBlockId) =>
         (parentContexts.get(item.blockId)?.size ?? 0) > 1
           ? `${item.blockId}@${parentBlockId ?? 'root'}`
@@ -407,7 +490,12 @@ export function buildProgressiveScenarioGraph(
   story: StoryRun,
   scenario: StoryScenario,
 ): ProgressiveStoryGraphModel {
-  const model = progressiveModel(story, [scenario], (address) => address, true);
+  const model = progressiveModel(
+    story,
+    rootInputs([scenario]),
+    (address) => address,
+    true,
+  );
   return {
     ...model,
     nodes: model.nodes.map((node) =>
@@ -417,6 +505,77 @@ export function buildProgressiveScenarioGraph(
         ? { ...node, expectedFailure: true }
         : node,
     ),
+  };
+}
+
+/** Removes Flow calls while preserving the executable control-flow edges. */
+export function withoutFlowNodes(
+  model: ProgressiveStoryGraphModel,
+): ProgressiveStoryGraphModel {
+  const flowNodeIds = new Set(
+    model.nodes.flatMap((node) =>
+      node.kind === 'block' && node.block.kind === 'flow' ? [node.id] : [],
+    ),
+  );
+  const outgoing = new Map<string, StoryGraphEdge[]>();
+  for (const edge of model.edges) {
+    const edges = outgoing.get(edge.source) ?? [];
+    edges.push(edge);
+    outgoing.set(edge.source, edges);
+  }
+  const targetsAfterFlows = (
+    nodeId: string,
+    seen = new Set<string>(),
+  ): {
+    readonly nodeId: string;
+    readonly inactive: boolean;
+    readonly summary: boolean;
+  }[] => {
+    if (!flowNodeIds.has(nodeId)) {
+      return [{ nodeId, inactive: false, summary: false }];
+    }
+    if (seen.has(nodeId)) return [];
+    const nextSeen = new Set(seen).add(nodeId);
+    return (outgoing.get(nodeId) ?? []).flatMap((edge) =>
+      targetsAfterFlows(edge.target, nextSeen).map((target) => ({
+        nodeId: target.nodeId,
+        inactive: edge.inactive || target.inactive,
+        summary: edge.summary === true || target.summary,
+      })),
+    );
+  };
+  const edges = new Map<string, StoryGraphEdge>();
+  for (const edge of model.edges) {
+    if (flowNodeIds.has(edge.source)) continue;
+    for (const target of targetsAfterFlows(edge.target)) {
+      if (edge.source === target.nodeId) continue;
+      const id = `${edge.source}->${target.nodeId}`;
+      const previous = edges.get(id);
+      edges.set(id, {
+        id,
+        source: edge.source,
+        target: target.nodeId,
+        inactive:
+          previous?.inactive === false
+            ? false
+            : edge.inactive || target.inactive,
+        ...(edge.summary === true ||
+        target.summary ||
+        previous?.summary === true
+          ? { summary: true }
+          : {}),
+      });
+    }
+  }
+  return {
+    nodes: model.nodes.flatMap((node): StoryGraphNode[] => {
+      if (flowNodeIds.has(node.id)) return [];
+      if (node.kind !== 'block' || !node.startsFlows) return [node];
+      const { startsFlows: _startsFlows, ...controlFlowNode } = node;
+      return [controlFlowNode];
+    }),
+    edges: [...edges.values()],
+    childrenByNode: {},
   };
 }
 
@@ -466,7 +625,11 @@ export function storyRunFromTrace(
     return paths;
   };
   const expandItem = (item: StoryTraceItem): ExecutionPath[] => {
-    if (item.kind === 'step' || item.kind === 'flow-reference') {
+    if (
+      item.kind === 'step' ||
+      item.kind === 'terminal' ||
+      item.kind === 'flow-reference'
+    ) {
       return [[visit(item.blockId)]];
     }
     if (item.kind === 'flow') {
@@ -528,7 +691,6 @@ export function storyRunFromTrace(
   };
   const executions = expandPath(trace.execution);
   return {
-    schemaVersion: 4,
     generatedAt: trace.generatedAt,
     name,
     description,
@@ -585,6 +747,26 @@ function descendantNodeIds(
   return descendants;
 }
 
+function containedNodeIds(
+  model: ProgressiveStoryGraphModel,
+  nodeId: string,
+): Set<string> {
+  const descendants = new Set<string>();
+  const pending = [...(model.childrenByNode[nodeId] ?? [])];
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    if (descendants.has(current)) continue;
+    descendants.add(current);
+    pending.push(...(model.childrenByNode[current] ?? []));
+    for (const node of model.nodes) {
+      if (node.kind === 'arm' && node.decisionId === current) {
+        descendants.add(node.id);
+      }
+    }
+  }
+  return descendants;
+}
+
 /** Hides downstream nodes while retaining collapsed roots and their counts. */
 export function collapseStoryGraph(
   model: ProgressiveStoryGraphModel,
@@ -595,7 +777,14 @@ export function collapseStoryGraph(
   const collapsedRegions = new Map<string, ReadonlySet<string>>();
   for (const nodeId of collapsedNodeIds) {
     if (hiddenNodeIds.has(nodeId)) continue;
-    const descendants = descendantNodeIds(model, nodeId);
+    const node = model.nodes.find((candidate) => candidate.id === nodeId);
+    const inlineFlow =
+      node?.kind === 'block' &&
+      node.block.kind === 'flow' &&
+      (model.childrenByNode[nodeId]?.length ?? 0) > 0;
+    const descendants = inlineFlow
+      ? containedNodeIds(model, nodeId)
+      : descendantNodeIds(model, nodeId);
     if (descendants.size === 0) continue;
     hiddenCountByNode.set(nodeId, descendants.size);
     collapsedRegions.set(nodeId, descendants);
@@ -613,17 +802,30 @@ export function collapseStoryGraph(
   for (const [nodeId, region] of collapsedRegions) {
     if (!visibleNodeIds.has(nodeId)) continue;
     for (const edge of model.edges) {
-      if (!region.has(edge.source) || !visibleNodeIds.has(edge.target))
-        continue;
-      const id = `${nodeId}->${edge.target}::collapsed`;
-      if (visibleEdges.some((visibleEdge) => visibleEdge.id === id)) continue;
-      visibleEdges.push({
-        id,
-        source: nodeId,
-        target: edge.target,
-        inactive: edge.inactive,
-        summary: true,
-      });
+      if (visibleNodeIds.has(edge.source) && region.has(edge.target)) {
+        const id = `${edge.source}->${nodeId}::collapsed`;
+        if (!visibleEdges.some((visibleEdge) => visibleEdge.id === id)) {
+          visibleEdges.push({
+            id,
+            source: edge.source,
+            target: nodeId,
+            inactive: edge.inactive,
+            summary: true,
+          });
+        }
+      }
+      if (region.has(edge.source) && visibleNodeIds.has(edge.target)) {
+        const id = `${nodeId}->${edge.target}::collapsed`;
+        if (!visibleEdges.some((visibleEdge) => visibleEdge.id === id)) {
+          visibleEdges.push({
+            id,
+            source: nodeId,
+            target: edge.target,
+            inactive: edge.inactive,
+            summary: true,
+          });
+        }
+      }
     }
   }
   return {

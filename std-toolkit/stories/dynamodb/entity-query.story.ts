@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { decision, flow } from 'laymos/story';
+import { decision, flow, terminal } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -54,14 +54,27 @@ const queryOrders = flow<[Input], any, any, any>(
         },
         () => {
           const primary = input as Extract<Input, { kind: 'primary' }>;
-          return harness.orders.query(
-            'primary',
-            {
-              pk: { userId: 'owner' },
-              sk: primary.sk,
-            },
-            primary.limit === undefined ? undefined : { limit: primary.limit },
-          );
+          return Effect.gen(function* () {
+            const result = yield* harness.orders.query(
+              'primary',
+              {
+                pk: { userId: 'owner' },
+                sk: primary.sk,
+              },
+              primary.limit === undefined
+                ? undefined
+                : { limit: primary.limit },
+            );
+            return yield* terminal(
+              'Return primary-index results',
+              {
+                description:
+                  'Completes this query branch with the matching primary-index page.',
+                completion: { kind: 'success' },
+              },
+              Effect.succeed(result),
+            );
+          });
         },
       )
       .when(
@@ -72,9 +85,20 @@ const queryOrders = flow<[Input], any, any, any>(
         },
         () => {
           const secondary = input as Extract<Input, { kind: 'secondary' }>;
-          return harness.users.query('byStatus', {
-            pk: { status: secondary.status },
-            sk: { beginsWith: { email: secondary.emailPrefix } },
+          return Effect.gen(function* () {
+            const result = yield* harness.users.query('byStatus', {
+              pk: { status: secondary.status },
+              sk: { beginsWith: { email: secondary.emailPrefix } },
+            });
+            return yield* terminal(
+              'Return secondary-index results',
+              {
+                description:
+                  'Completes this query branch with the matching secondary-index page.',
+                completion: { kind: 'success' },
+              },
+              Effect.succeed(result),
+            );
           });
         },
       )

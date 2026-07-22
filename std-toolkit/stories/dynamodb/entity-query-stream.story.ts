@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect, Stream } from 'effect';
-import { flow, step } from 'laymos/story';
+import { flow, step, terminal } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -21,21 +21,32 @@ const streamOrders = flow(
     attributes: (input: Input) => ({ batchSize: input.batchSize }),
   },
   (input: Input) =>
-    step(
-      'Collect streamed entities',
-      {
-        description:
-          'Consumes the third-party Stream runtime until entity pagination completes.',
-      },
-      () =>
-        harness.orders
-          .queryStream(
-            'primary',
-            { pk: { userId: 'owner' }, sk: { '>': null } },
-            { batchSize: input.batchSize },
-          )
-          .pipe(Stream.runCollect),
-    ),
+    Effect.gen(function* () {
+      const result = yield* step(
+        'Collect streamed entities',
+        {
+          description:
+            'Consumes the third-party Stream runtime until entity pagination completes.',
+        },
+        () =>
+          harness.orders
+            .queryStream(
+              'primary',
+              { pk: { userId: 'owner' }, sk: { '>': null } },
+              { batchSize: input.batchSize },
+            )
+            .pipe(Stream.runCollect),
+      );
+      return yield* terminal(
+        'Return all streamed pages',
+        {
+          description:
+            'Completes this stream flow after every page is collected.',
+          completion: { kind: 'success' },
+        },
+        Effect.succeed(result),
+      );
+    }),
 );
 
 const seedOrders = Effect.all([

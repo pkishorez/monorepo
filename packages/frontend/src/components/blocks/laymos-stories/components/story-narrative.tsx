@@ -1,10 +1,13 @@
 import {
   Ban,
+  CircleCheck,
   CheckCircle2,
   ChevronRight,
   CircleDashed,
+  CircleStop,
   GitBranch,
   GitMerge,
+  OctagonX,
   RotateCcw,
   XCircle,
 } from 'lucide-react';
@@ -402,18 +405,51 @@ function BlockRow({
   const key = `block:${entry.node.id}`;
   const open = expanded.has(key);
   const decision = entry.arms.length > 0;
+  const terminal =
+    entry.node.block.kind === 'terminal'
+      ? entry.node.block.completion?.kind === 'success'
+        ? {
+            Icon: CircleCheck,
+            icon: 'border-emerald-500 bg-emerald-500 text-white',
+            cap: 'bg-emerald-500',
+          }
+        : entry.node.block.completion?.kind === 'error'
+          ? {
+              Icon: OctagonX,
+              icon: 'border-rose-500 bg-rose-500 text-white',
+              cap: 'bg-rose-500',
+            }
+          : {
+              Icon: CircleStop,
+              icon: 'border-slate-500 bg-slate-500 text-white',
+              cap: 'bg-slate-500',
+            }
+      : undefined;
   const expandable =
     Boolean(entry.node.block.description) || item.branches.length > 0;
   const OutcomeIcon = entry.node.visit
-    ? {
-        succeeded: CheckCircle2,
-        failed: XCircle,
-        interrupted: Ban,
-      }[entry.node.visit.outcome]
+    ? entry.node.visit.terminalMismatch
+      ? XCircle
+      : {
+          succeeded: CheckCircle2,
+          failed: XCircle,
+          interrupted: Ban,
+        }[entry.node.visit.outcome]
     : undefined;
 
   return (
     <div className="relative py-0.5">
+      {terminal && (
+        <>
+          <span className="absolute bottom-0 left-2.5 top-7 z-[2] w-1 bg-background" />
+          <span
+            className={cn(
+              'absolute left-1.5 top-7 z-[3] h-0.5 w-3 rounded-full',
+              terminal.cap,
+            )}
+          />
+        </>
+      )}
       <button
         type="button"
         className={cn(
@@ -426,12 +462,16 @@ function BlockRow({
         <span
           className={cn(
             'relative z-10 flex size-6 items-center justify-center rounded-full border bg-background shadow-[0_0_0_4px_var(--background)] transition-colors',
-            decision
-              ? 'border-primary/35 text-primary'
-              : 'rounded-full border-border text-muted-foreground group-hover:border-primary/40',
+            terminal
+              ? terminal.icon
+              : decision
+                ? 'border-primary/35 text-primary'
+                : 'rounded-full border-border text-muted-foreground group-hover:border-primary/40',
           )}
         >
-          {decision ? (
+          {terminal ? (
+            <terminal.Icon className="size-3" aria-hidden />
+          ) : decision ? (
             <GitBranch className="size-3" aria-hidden />
           ) : expandable ? (
             <ChevronRight
@@ -454,7 +494,9 @@ function BlockRow({
               <OutcomeIcon
                 className={cn(
                   'size-3.5',
+                  entry.node.visit?.terminalMismatch && 'text-destructive',
                   entry.node.visit?.outcome === 'succeeded' &&
+                    !entry.node.visit?.terminalMismatch &&
                     'text-emerald-600 dark:text-emerald-400',
                   entry.node.visit?.outcome === 'failed' &&
                     !entry.node.expectedFailure &&
@@ -467,11 +509,20 @@ function BlockRow({
                 aria-label={
                   entry.node.expectedFailure
                     ? 'expected failure'
-                    : entry.node.visit?.outcome
+                    : entry.node.visit?.terminalMismatch
+                      ? 'terminal mismatch'
+                      : entry.node.visit?.outcome
                 }
               />
             )}
           </span>
+          {entry.node.block.kind === 'terminal' &&
+            entry.node.block.completion?.kind === 'error' &&
+            entry.node.block.completion.error !== undefined && (
+              <span className="mt-0.5 block text-[10px] text-rose-700 dark:text-rose-300">
+                {entry.node.block.completion.error}
+              </span>
+            )}
           {open && entry.node.block.description && (
             <span className="mt-1 block max-w-2xl text-xs leading-5 text-muted-foreground">
               {entry.node.block.description}

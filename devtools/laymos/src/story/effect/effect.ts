@@ -7,6 +7,7 @@ import type {
   DecisionValue,
   StoryGroupMeta,
   StoryMeta,
+  TerminalMeta,
 } from '../core/types.js';
 
 export interface ScenarioMeta {
@@ -254,6 +255,29 @@ export function step<A, E, R>(
   );
 }
 
+/** Marks one opaque operation as the end of its local Story branch. */
+export function terminal<A, E, R>(
+  name: string,
+  meta: TerminalMeta,
+  effect: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function terminal<A, E, R>(
+  name: string,
+  meta: TerminalMeta,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function terminal<A, E, R>(
+  name: string,
+  meta: TerminalMeta,
+  effect: Effect.Effect<A, E, R> | (() => Effect.Effect<A, E, R>),
+): Effect.Effect<A, E, R> {
+  requireDescription(meta.description, `Terminal "${name}"`);
+  requireTerminalCompletion(meta);
+  return Effect.suspend(() =>
+    typeof effect === 'function' ? effect() : effect,
+  );
+}
+
 /** Builds a lazy, literal-keyed Effect Decision. */
 export function decision<const Input extends DecisionValue, E, R>(
   name: string,
@@ -319,4 +343,18 @@ function requireDecisionArmValue(value: DecisionValue): void {
   }
 }
 
-export type { Attributes } from '../core/types.js';
+function requireTerminalCompletion(meta: TerminalMeta): void {
+  if (
+    meta.completion?.kind === 'error' &&
+    meta.completion.error !== undefined &&
+    meta.completion.error.trim().length === 0
+  ) {
+    throw new TypeError('Terminal error name must not be empty');
+  }
+}
+
+export type {
+  Attributes,
+  TerminalCompletion,
+  TerminalMeta,
+} from '../core/types.js';

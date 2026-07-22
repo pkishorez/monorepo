@@ -3,6 +3,7 @@ export type {
   LaymosStoriesProps,
   LaymosStoriesRunState,
   LaymosStoriesSidebarExpansion,
+  LaymosStoryCanvasPreferences,
   LaymosStoryExecutionState,
   LaymosStoriesSelection,
 } from './types';

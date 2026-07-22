@@ -16,6 +16,8 @@ export interface ObservedLayerEdge {
 
 export interface LayerSummary {
   readonly name: string;
+  readonly isRoot: boolean;
+  readonly isSink: boolean;
   readonly description?: string;
   readonly paths: readonly string[];
   readonly graphs: readonly string[];
@@ -194,6 +196,8 @@ export function buildLaymosLayersModel(
     const coverage = moduleCoverage.get(name);
     layers.set(name, {
       name,
+      isRoot: (predecessors.get(name)?.size ?? 0) === 0,
+      isSink: (successors.get(name)?.size ?? 0) === 0,
       paths: layer.paths,
       graphs: graphMemberships.get(name) ?? [],
       fileCount: fileCount.get(name) ?? 0,

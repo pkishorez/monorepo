@@ -4,6 +4,7 @@ import type {
   Attributes,
   AttributesInput,
   DecisionValue,
+  TerminalCompletion,
   Visibility,
 } from './types.js';
 
@@ -16,9 +17,10 @@ export interface SourceLocation {
 export interface BlockDeclaration {
   readonly name: string;
   readonly description: string;
-  readonly kind: 'flow' | 'step' | 'decision';
+  readonly kind: 'flow' | 'step' | 'decision' | 'terminal';
   readonly visibility: Visibility;
   readonly location: SourceLocation;
+  readonly completion?: TerminalCompletion;
 }
 
 export type ArmDeclaration =
@@ -47,6 +49,7 @@ export interface StoryRecorder {
     selectedArm: SelectedArm | undefined,
     attributes: Attributes | undefined,
     parent: unknown,
+    branch: unknown,
   ): unknown;
   finish(token: unknown, outcome: 'succeeded' | 'failed' | 'interrupted'): void;
 }
@@ -54,6 +57,13 @@ export interface StoryRecorder {
 export const CurrentRecorder = Context.Reference<StoryRecorder | undefined>(
   'laymos/story/current-recorder',
   { defaultValue: () => undefined },
+);
+
+export const rootStoryBranch = Symbol('laymos/story/root-branch');
+
+export const CurrentStoryBranch = Context.Reference<unknown>(
+  'laymos/story/current-branch',
+  { defaultValue: () => rootStoryBranch },
 );
 
 export function resolveAttributes<Args extends readonly unknown[]>(

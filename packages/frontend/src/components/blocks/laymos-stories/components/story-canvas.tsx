@@ -20,6 +20,7 @@ import {
   type MouseEvent,
 } from 'react';
 import type { StoryRun, StoryScenario } from 'laymos/report';
+import { ChevronUp, SlidersHorizontal } from 'lucide-react';
 
 import { Switch } from '#components/ui/switch';
 import { cn } from '#lib/utils';
@@ -30,13 +31,30 @@ import {
   buildProgressiveScenarioGraph,
   buildProgressiveStoryGraph,
   collapseStoryGraph,
+  withoutFlowNodes,
   type ProgressiveStoryGraphModel,
 } from '../lib/model';
 import { viewportWithPreservedAnchor } from '../lib/viewport';
+import type { LaymosStoryCanvasPreferences } from '../types';
 import { progressiveNodeTypes, type ProgressiveNodeData } from './flow-nodes';
 
 function relatedNodeIds(model: ProgressiveStoryGraphModel, nodeId: string) {
   const result = new Set([nodeId]);
+  const node = model.nodes.find(({ id }) => id === nodeId);
+  if (node?.kind === 'block' && node.block.kind === 'flow') {
+    const pending = [...(model.childrenByNode[nodeId] ?? [])];
+    while (pending.length > 0) {
+      const childId = pending.pop()!;
+      if (result.has(childId)) continue;
+      result.add(childId);
+      pending.push(...(model.childrenByNode[childId] ?? []));
+      for (const candidate of model.nodes) {
+        if (candidate.kind === 'arm' && candidate.decisionId === childId) {
+          result.add(candidate.id);
+        }
+      }
+    }
+  }
   for (const edge of model.edges) {
     if (edge.inactive) continue;
     if (edge.source === nodeId) result.add(edge.target);
@@ -47,18 +65,26 @@ function relatedNodeIds(model: ProgressiveStoryGraphModel, nodeId: string) {
 
 function ProgressiveCanvasInner({
   model,
-  title,
-  description,
   emptyMessage,
   showDetails,
   onShowDetailsChange,
+  showFunctionScopes,
+  onShowFunctionScopesChange,
+  showDescriptionPopover,
+  onShowDescriptionPopoverChange,
+  centerSelected,
+  onCenterSelectedChange,
 }: {
   readonly model: ProgressiveStoryGraphModel;
-  readonly title: string;
-  readonly description: string;
   readonly emptyMessage: string;
   readonly showDetails?: boolean;
   readonly onShowDetailsChange?: (show: boolean) => void;
+  readonly showFunctionScopes: boolean;
+  readonly onShowFunctionScopesChange: (show: boolean) => void;
+  readonly showDescriptionPopover: boolean;
+  readonly onShowDescriptionPopoverChange: (show: boolean) => void;
+  readonly centerSelected: boolean;
+  readonly onCenterSelectedChange: (center: boolean) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const centerSelectedId = useId();
@@ -70,8 +96,7 @@ function ProgressiveCanvasInner({
   } | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [centerSelected, setCenterSelected] = useState(false);
-  const [showDescriptionPopover, setShowDescriptionPopover] = useState(true);
+  const [controlsExpanded, setControlsExpanded] = useState(false);
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -84,7 +109,17 @@ function ProgressiveCanvasInner({
     () => collapseStoryGraph(model, collapsedNodeIds),
     [collapsedNodeIds, model],
   );
-  const visibleModel = collapsedView.model;
+  const visibleModel = useMemo(
+    () =>
+      showFunctionScopes
+        ? collapsedView.model
+        : withoutFlowNodes(collapsedView.model),
+    [collapsedView.model, showFunctionScopes],
+  );
+  const graphNodeById = useMemo(
+    () => new Map(visibleModel.nodes.map((node) => [node.id, node])),
+    [visibleModel.nodes],
+  );
   const baseLayout = useMemo(
     () => layoutStoryGraph(visibleModel, { compact: true }),
     [visibleModel],
@@ -135,7 +170,12 @@ function ProgressiveCanvasInner({
       baseLayout.nodes.map((node) => ({
         ...node,
         type: 'progressive-block',
-        zIndex: selectedNodeId === node.id ? 10 : node.zIndex,
+        zIndex:
+          node.data.inline === true
+            ? node.zIndex
+            : selectedNodeId === node.id
+              ? 20
+              : node.zIndex,
         data: {
           graphNode: node.data.graphNode,
           selected: selectedNodeId === node.id,
@@ -148,6 +188,8 @@ function ProgressiveCanvasInner({
             node.id !== selectedNodeId,
           hiddenNodeCount: collapsedView.hiddenCountByNode.get(node.id) ?? 0,
           showDescriptionPopover,
+          inline: node.data.inline,
+          scopeDepth: node.data.scopeDepth,
         },
       })),
     [
@@ -169,7 +211,8 @@ function ProgressiveCanvasInner({
         const inActiveScope =
           !inactive &&
           activeNodeId !== null &&
-          (edge.source === activeNodeId || edge.target === activeNodeId);
+          activeRelated.has(edge.source) &&
+          activeRelated.has(edge.target);
         const hoverRefiningSelection = hoverWithinSelection !== null;
         const touchesHoveredNode =
           hoverWithinSelection !== null &&
@@ -178,23 +221,43 @@ function ProgressiveCanvasInner({
         const highlighted =
           inActiveScope && (!hoverRefiningSelection || touchesHoveredNode);
         const dimmed = inactive || (activeNodeId !== null && !inActiveScope);
+        const target = graphNodeById.get(edge.target);
+        const terminalColor =
+          target?.kind === 'block' && target.block.kind === 'terminal'
+            ? target.block.completion?.kind === 'success'
+              ? '#10b981'
+              : target.block.completion?.kind === 'error'
+                ? '#f43f5e'
+                : '#64748b'
+            : undefined;
+        const color = inactive
+          ? 'var(--muted-foreground)'
+          : (terminalColor ??
+            (highlighted ? 'var(--primary)' : 'var(--muted-foreground)'));
         return {
           ...edge,
           markerEnd: {
             type: MarkerType.ArrowClosed,
             width: highlighted ? 16 : 13,
             height: highlighted ? 16 : 13,
-            color: inactive ? 'var(--muted-foreground)' : 'var(--primary)',
+            color,
           },
           style: {
             ...edge.style,
+            stroke: color,
             opacity: inactive ? 0.12 : dimmed ? 0.06 : highlighted ? 1 : 0.5,
             strokeWidth: highlighted ? 3 : dimmed ? 1 : 1.5,
           },
           zIndex: highlighted ? 3 : dimmed ? 0 : 1,
         };
       }),
-    [activeNodeId, baseLayout.edges, hoverWithinSelection],
+    [
+      activeNodeId,
+      activeRelated,
+      baseLayout.edges,
+      graphNodeById,
+      hoverWithinSelection,
+    ],
   );
   if (model.nodes.length === 0) {
     return (
@@ -253,25 +316,42 @@ function ProgressiveCanvasInner({
           event.preventDefault();
           const graphNode = node.data.graphNode;
           if (graphNode.kind === 'arm' && !graphNode.active) return;
-          const expanding = collapsedNodeIds.has(node.id);
+          const flowStartNodeId =
+            graphNode.kind === 'block' && graphNode.block.kind === 'flow'
+              ? model.nodes.find(
+                  (candidate) =>
+                    candidate.kind === 'block' &&
+                    candidate.startsFlows?.some((flow) => flow.id === node.id),
+                )?.id
+              : undefined;
+          const collapseNodeId = flowStartNodeId ?? node.id;
+          const expanding = collapsedNodeIds.has(collapseNodeId);
           const hiddenCount = collapseStoryGraph(
             model,
-            new Set([node.id]),
-          ).hiddenCountByNode.get(node.id);
+            new Set([collapseNodeId]),
+          ).hiddenCountByNode.get(collapseNodeId);
           if (!expanding && !hiddenCount) return;
+          const flowStartNode =
+            flowStartNodeId === undefined
+              ? undefined
+              : baseLayout.nodes.find(
+                  (candidate) => candidate.id === flowStartNodeId,
+                );
+          const anchorNode =
+            !expanding && flowStartNode !== undefined ? flowStartNode : node;
           pendingViewportAnchor.current = {
-            nodeId: node.id,
+            nodeId: collapseNodeId,
             screenPosition: flowToScreenPosition({
-              x: node.position.x + (node.width ?? 0) / 2,
-              y: node.position.y + (node.height ?? 0) / 2,
+              x: anchorNode.position.x + (anchorNode.width ?? 0) / 2,
+              y: anchorNode.position.y + (anchorNode.height ?? 0) / 2,
             }),
           };
           setSelectedNodeId(null);
           setHoveredNodeId(null);
           setCollapsedNodeIds((current) => {
             const next = new Set(current);
-            if (expanding) next.delete(node.id);
-            else next.add(node.id);
+            if (expanding) next.delete(collapseNodeId);
+            else next.add(collapseNodeId);
             return next;
           });
         }}
@@ -279,50 +359,75 @@ function ProgressiveCanvasInner({
         proOptions={{ hideAttribution: true }}
       >
         <Background color="var(--border)" gap={24} />
-        <Panel position="top-left">
-          <div className="nodrag nopan max-w-sm rounded-md border border-border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
-            <p className="text-xs font-semibold">{title}</p>
-            <p className="mt-0.5 line-clamp-1 text-[9px] text-muted-foreground">
-              {description}
-            </p>
-          </div>
-        </Panel>
         <Panel position="top-right">
-          <div className="nodrag nopan grid gap-2 rounded-md border border-border bg-background/95 px-2.5 py-2 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
-            {onShowDetailsChange && (
+          {controlsExpanded ? (
+            <div className="nodrag nopan grid gap-2 rounded-md border border-border bg-background/95 px-2.5 py-2 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+              <div className="flex items-center justify-between gap-4 text-foreground">
+                <span>Graph controls</span>
+                <button
+                  type="button"
+                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => setControlsExpanded(false)}
+                  aria-label="Minimize graph controls"
+                  title="Minimize controls"
+                >
+                  <ChevronUp className="size-3" aria-hidden />
+                </button>
+              </div>
+              {onShowDetailsChange && (
+                <label className="flex cursor-pointer items-center justify-between gap-4">
+                  Show details
+                  <Switch
+                    size="sm"
+                    checked={showDetails}
+                    onCheckedChange={onShowDetailsChange}
+                    aria-label="Show detail blocks"
+                  />
+                </label>
+              )}
               <label className="flex cursor-pointer items-center justify-between gap-4">
-                Show details
+                Show function scopes
                 <Switch
                   size="sm"
-                  checked={showDetails}
-                  onCheckedChange={onShowDetailsChange}
-                  aria-label="Show detail blocks"
+                  checked={showFunctionScopes}
+                  onCheckedChange={onShowFunctionScopesChange}
+                  aria-label="Show function scopes"
                 />
               </label>
-            )}
-            <label className="flex cursor-pointer items-center justify-between gap-4">
-              Description popover
-              <Switch
-                size="sm"
-                checked={showDescriptionPopover}
-                onCheckedChange={setShowDescriptionPopover}
-                aria-label="Show description popovers"
-              />
-            </label>
-            <label
-              htmlFor={centerSelectedId}
-              className="flex cursor-pointer items-center justify-between gap-4"
+              <label className="flex cursor-pointer items-center justify-between gap-4">
+                Description popover
+                <Switch
+                  size="sm"
+                  checked={showDescriptionPopover}
+                  onCheckedChange={onShowDescriptionPopoverChange}
+                  aria-label="Show description popovers"
+                />
+              </label>
+              <label
+                htmlFor={centerSelectedId}
+                className="flex cursor-pointer items-center justify-between gap-4"
+              >
+                Center selected
+                <Switch
+                  id={centerSelectedId}
+                  size="sm"
+                  checked={centerSelected}
+                  onCheckedChange={onCenterSelectedChange}
+                  aria-label="Center selected nodes"
+                />
+              </label>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="nodrag nopan flex size-8 items-center justify-center rounded-md border border-border bg-background/95 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-muted hover:text-foreground"
+              onClick={() => setControlsExpanded(true)}
+              aria-label="Expand graph controls"
+              title="Graph controls"
             >
-              Center selected
-              <Switch
-                id={centerSelectedId}
-                size="sm"
-                checked={centerSelected}
-                onCheckedChange={setCenterSelected}
-                aria-label="Center selected nodes"
-              />
-            </label>
-          </div>
+              <SlidersHorizontal className="size-3.5" aria-hidden />
+            </button>
+          )}
         </Panel>
         <Panel position="bottom-left">
           <p className="nodrag nopan rounded bg-background/90 px-2 py-1 text-[9px] text-muted-foreground shadow-sm">
@@ -334,8 +439,23 @@ function ProgressiveCanvasInner({
   );
 }
 
-export function StoryCanvas({ story }: { readonly story: StoryRun }) {
-  const [showDetails, setShowDetails] = useState(true);
+export function StoryCanvas({
+  story,
+  preferences,
+  onPreferencesChange,
+}: {
+  readonly story: StoryRun;
+  readonly preferences: LaymosStoryCanvasPreferences;
+  readonly onPreferencesChange: (
+    preferences: LaymosStoryCanvasPreferences,
+  ) => void;
+}) {
+  const {
+    showDetails,
+    showFunctionScopes = true,
+    showDescriptionPopover,
+    centerSelected,
+  } = preferences;
   const visibleStory = useMemo(
     () => (showDetails ? story : primaryStory(story)),
     [showDetails, story],
@@ -348,11 +468,23 @@ export function StoryCanvas({ story }: { readonly story: StoryRun }) {
     <ReactFlowProvider>
       <ProgressiveCanvasInner
         model={model}
-        title={story.name}
-        description={story.description}
         emptyMessage="No observed blocks in this story"
         showDetails={showDetails}
-        onShowDetailsChange={setShowDetails}
+        onShowDetailsChange={(show) =>
+          onPreferencesChange({ ...preferences, showDetails: show })
+        }
+        showFunctionScopes={showFunctionScopes}
+        onShowFunctionScopesChange={(show) =>
+          onPreferencesChange({ ...preferences, showFunctionScopes: show })
+        }
+        showDescriptionPopover={showDescriptionPopover}
+        onShowDescriptionPopoverChange={(show) =>
+          onPreferencesChange({ ...preferences, showDescriptionPopover: show })
+        }
+        centerSelected={centerSelected}
+        onCenterSelectedChange={(center) =>
+          onPreferencesChange({ ...preferences, centerSelected: center })
+        }
       />
     </ReactFlowProvider>
   );
@@ -361,7 +493,7 @@ export function StoryCanvas({ story }: { readonly story: StoryRun }) {
 export function primaryStory(story: StoryRun): StoryRun {
   const blocks = Object.fromEntries(
     Object.entries(story.blocks).flatMap(([blockId, block]) => {
-      if (block.visibility === 'detail') return [];
+      if (block.visibility === 'detail' && block.kind !== 'flow') return [];
       return [
         [
           blockId,
@@ -383,7 +515,8 @@ export function primaryStory(story: StoryRun): StoryRun {
           .filter((branch) => branch.length > 0);
         return parallel.length === 0 ? [] : [{ parallel }];
       }
-      if (story.blocks[item.blockId]?.visibility === 'detail') {
+      const block = story.blocks[item.blockId];
+      if (block?.visibility === 'detail' && block.kind !== 'flow') {
         return filterPath(item.children);
       }
       if (!(item.blockId in blocks)) return [];
@@ -402,9 +535,15 @@ export function primaryStory(story: StoryRun): StoryRun {
 export function ScenarioCanvas({
   story,
   scenario,
+  preferences,
+  onPreferencesChange,
 }: {
   readonly story: StoryRun;
   readonly scenario: StoryScenario;
+  readonly preferences: LaymosStoryCanvasPreferences;
+  readonly onPreferencesChange: (
+    preferences: LaymosStoryCanvasPreferences,
+  ) => void;
 }) {
   const model = useMemo(
     () => buildProgressiveScenarioGraph(story, scenario),
@@ -414,12 +553,22 @@ export function ScenarioCanvas({
     <ReactFlowProvider>
       <ProgressiveCanvasInner
         model={model}
-        title={scenario.name}
-        description={scenario.description}
         emptyMessage={
           scenario.outcome === 'skipped'
             ? 'This scenario was skipped'
             : 'No blocks were observed in this scenario'
+        }
+        showFunctionScopes={preferences.showFunctionScopes ?? true}
+        onShowFunctionScopesChange={(show) =>
+          onPreferencesChange({ ...preferences, showFunctionScopes: show })
+        }
+        showDescriptionPopover={preferences.showDescriptionPopover}
+        onShowDescriptionPopoverChange={(show) =>
+          onPreferencesChange({ ...preferences, showDescriptionPopover: show })
+        }
+        centerSelected={preferences.centerSelected}
+        onCenterSelectedChange={(center) =>
+          onPreferencesChange({ ...preferences, centerSelected: center })
         }
       />
     </ReactFlowProvider>

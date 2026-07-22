@@ -6,7 +6,6 @@ import { primaryStory } from './story-canvas';
 const location = { file: 'story.ts', line: 1, column: 1 };
 
 const story = {
-  schemaVersion: 4,
   generatedAt: 0,
   name: 'Primary descendants',
   description: 'Keeps primary work nested beneath hidden details.',
@@ -96,12 +95,24 @@ describe('primaryStory', () => {
   it('promotes primary descendants through hidden flows and decisions', () => {
     const primary = primaryStory(story);
 
-    expect(Object.keys(primary.blocks)).toEqual(['first', 'second']);
+    expect(Object.keys(primary.blocks)).toEqual([
+      'hiddenFlow',
+      'first',
+      'second',
+    ]);
     expect(primary.scenarios[0]?.execution).toEqual([
       {
-        parallel: [
-          [expect.objectContaining({ blockId: 'first' })],
-          [expect.objectContaining({ blockId: 'second' })],
+        blockId: 'hiddenFlow',
+        outcome: 'succeeded',
+        startOffsetMillis: 0,
+        durationMillis: 1,
+        children: [
+          {
+            parallel: [
+              [expect.objectContaining({ blockId: 'first' })],
+              [expect.objectContaining({ blockId: 'second' })],
+            ],
+          },
         ],
       },
     ]);

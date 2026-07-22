@@ -97,7 +97,6 @@ const finalizeScenario = (
 };
 
 const artifact = (draft: DraftArtifact): StoryRun => ({
-  schemaVersion: 4,
   generatedAt,
   name: draft.name,
   description: draft.description,

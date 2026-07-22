@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
+import { flow, terminal } from 'laymos/story';
 
 import { dynamodbSingleEntityStories } from './support/story-groups.js';
 
@@ -18,7 +18,18 @@ const updateSettings = flow(
     description:
       'Updates stored singleton state through the public single-entity update method.',
   },
-  (input: Input) => harness.settings.update(input),
+  (input: Input) =>
+    Effect.gen(function* () {
+      const result = yield* harness.settings.update(input);
+      return yield* terminal(
+        'Return the updated singleton',
+        {
+          description: 'Completes this update flow with the changed singleton.',
+          completion: { kind: 'success' },
+        },
+        Effect.succeed(result),
+      );
+    }),
 );
 
 dynamodbSingleEntityStories

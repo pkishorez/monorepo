@@ -184,7 +184,7 @@ replacing a failure from an earlier phase.
 A marked unit of narrative with a short name and a required, non-empty
 explanation of what it does and why. Its identity is generated rather than
 supplied by the author, and is not expected to remain stable across story
-generations. A Block is a Flow, Step, or Decision.
+generations. A Block is a Flow, Step, Decision, or Terminal.
 
 **Flow**:
 A reusable narrated operation whose internal Flows, Steps, and Decisions are
@@ -205,6 +205,25 @@ _Avoid_: duplicated Flow, expanded call
 **Step**:
 An indivisible narrated operation. A Step has no nested narrative.
 _Avoid_: leaf block
+
+**Terminal**:
+An indivisible narrated declaration that one branch of its nearest containing
+Flow ends at this Block, or its Story execution branch when no Flow contains
+it. It documents local intent rather than affecting execution or making any
+claim about the scope's caller, and may describe successful or erroneous
+completion.
+_Avoid_: terminal Step, final Step
+
+**Terminal completion**:
+The optional declared manner in which a Terminal ends its Flow branch: success,
+or error with an optional error name. It is structural documentation, not a
+runtime Visit outcome.
+
+**Terminal mismatch**:
+Scenario evidence that continues within the same sequential branch after a
+Terminal, or whose Visit outcome contradicts its declared Terminal completion.
+It fails that Scenario; parallel siblings and a containing Flow's caller are
+unaffected, and an error name is not runtime-validated.
 
 **Decision**:
 A narrated choice between declared Arms. Trace Mode explores every Arm;

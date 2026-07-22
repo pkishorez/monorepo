@@ -43,7 +43,7 @@ function LaymosModulesInner({
   onHoveredModuleChange,
   focusedModule,
   onFocusedModuleChange,
-  defaultMinimise = false,
+  defaultMinimise = true,
   className,
   ariaLabel = 'Laymos unified module dependency graph',
 }: LaymosModulesProps) {
