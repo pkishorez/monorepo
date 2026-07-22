@@ -632,7 +632,8 @@ The CLI mirrors group execution with
 combined with explicit Story file arguments.
 
 The execution APIs run the owned Story runner with `baseDir` as the target
-project's root. The runner discovers `*.story.ts` files itself, loads them
+project's root. The runner discovers singular `*.story.*` JavaScript and
+TypeScript files itself, loads them
 through jiti, and executes Scenarios sequentially in a single Node process.
 There is no test framework, configuration file, or worker pool in the story
 path.
@@ -659,6 +660,19 @@ test result and Scenario outcomes retain the detail.
 
 An invalid Story definition is also a rejecting failure; rejected requests do
 not expose any earlier in-memory results from that request.
+
+### Story ejection
+
+`laymos stories eject` removes Story Block instrumentation from the current
+project and deletes discovered Laymos Story files. `--dry-run` performs the
+same preflight and reports planned changes without writing. Storybook's plural
+`*.stories.*` files and Story support files are left alone.
+
+Ejection recognizes direct named imports, aliases, and namespace imports from
+`laymos/story`. It aborts before writing when an imported Block escapes a direct
+call, a Decision builder does not end in `otherwise` or `exhaustive`, or the
+source uses re-exports or dynamic imports. Ejection does not run a formatter,
+type checker, or test suite afterward.
 
 ### Outside a Scenario
 

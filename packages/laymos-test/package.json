@@ -5,9 +5,9 @@
   "description": "End-to-end stress tests for Laymos Stories",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "lint": "vp check && tsc",
     "test": "pnpm run test:stories && pnpm run test:integration",
     "test:integration": "vitest run",
     "test:stories": "laymos stories"

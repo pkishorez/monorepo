@@ -164,6 +164,7 @@ class DecisionBuilderImpl {
     meta: ArmMeta,
     body: (value: DecisionValue) => AnyEffect,
   ): DecisionBuilderImpl {
+    requireDecisionArmValue(value);
     requireDescription(
       meta.description,
       `Decision Arm "${meta.name ?? value}"`,
@@ -181,26 +182,31 @@ class DecisionBuilderImpl {
       `Decision Arm "${meta.name ?? 'Otherwise'}"`,
     );
     this.state.arms.push({ kind: 'otherwise', body });
-    return this.run();
+    return this.run(false);
   }
 
   exhaustive(): AnyEffect {
-    return this.run();
+    return this.run(true);
   }
 
   [Symbol.iterator](): Effect.EffectIterator<AnyEffect> {
-    return this.run()[Symbol.iterator]();
+    return this.run(false)[Symbol.iterator]();
   }
 
-  private run(): AnyEffect {
+  private run(exhaustive: boolean): AnyEffect {
     const state = this.state;
     return Effect.gen(function* () {
       const input = yield* Effect.suspend(state.selector);
       const selected =
         state.arms.find(
-          (arm) => arm.kind === 'literal' && Object.is(arm.value, input),
+          (arm) => arm.kind === 'literal' && arm.value === input,
         ) ?? state.arms.find((arm) => arm.kind === 'otherwise');
-      return selected === undefined ? undefined : yield* selected.body(input);
+      if (selected !== undefined) return yield* selected.body(input);
+      return exhaustive
+        ? yield* Effect.die(
+            new Error(`Unexpected decision value: ${String(input)}`),
+          )
+        : undefined;
     });
   }
 }
@@ -304,6 +310,12 @@ function requirePathSegment(name: string, subject: string): void {
   }
   if (name.includes('/')) {
     throw new TypeError(`${subject} name "${name}" must not contain "/"`);
+  }
+}
+
+function requireDecisionArmValue(value: DecisionValue): void {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new TypeError('Decision Arm numeric values must be finite');
   }
 }
 

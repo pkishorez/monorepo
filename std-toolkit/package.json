@@ -91,14 +91,13 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
-    "build:watch": "tsc --watch",
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
     "dynamodb:generate": "bun scripts/dynamodb/generate.ts",
     "fmt": "vp fmt",
-    "lint": "vp check && pnpm lint:tsc && pnpm lint:stories && pnpm lint:laymos",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
-    "lint:stories": "tsc -p tsconfig.stories.json",
-    "lint:tsc": "tsc --noEmit",
+    "lint:tsc": "tsc",
     "sqlite:play": "bun src/db/sqlite/play.ts",
     "stories": "laymos stories",
     "test": "vitest run",
