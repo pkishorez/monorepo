@@ -1,158 +1,253 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { Boxes, CircleX, TriangleAlert } from 'lucide-react';
-import { createContext, useContext } from 'react';
 
 import { cn } from '#lib/utils';
 
-import type { ModuleClusterNodeData, ModuleGraphNodeData } from '../lib/layout';
+import { useModuleGraphInteraction } from '../context/interaction-context';
+import type {
+  GraphHeaderNodeData,
+  GraphLaneNodeData,
+  LayerContainerNodeData,
+  ModuleTileNodeData,
+} from '../lib/layout';
 
-interface ModuleGraphInteraction {
-  readonly focusedModule: string | null;
-  readonly onFocusedModuleChange: (path: string | null) => void;
-  readonly onExpandCluster: (clusterId: string) => void;
-}
-
-export const ModuleGraphInteractionContext =
-  createContext<ModuleGraphInteraction | null>(null);
-
-function StatusCounts({
-  violationCount,
-  warningCount,
-}: {
-  readonly violationCount: number;
-  readonly warningCount: number;
-}) {
-  if (violationCount === 0 && warningCount === 0) return null;
+function GraphLaneNode({ data }: NodeProps<Node<GraphLaneNodeData>>) {
   return (
-    <span className="flex shrink-0 items-center gap-1 text-[9px] font-semibold tabular-nums">
-      {violationCount > 0 && (
-        <span
-          className="flex items-center gap-0.5 rounded bg-destructive/10 px-1 text-destructive"
-          title={`${violationCount} ${violationCount === 1 ? 'error' : 'errors'}`}
-        >
-          <CircleX className="size-2.5" aria-hidden />
-          {violationCount}
-        </span>
+    <div
+      className={cn(
+        'h-full w-full rounded-xl border border-transparent bg-transparent transition-opacity',
+        data.dimmed && 'opacity-35',
       )}
-      {warningCount > 0 && (
-        <span
-          className="flex items-center gap-0.5 rounded bg-amber-500/10 px-1 text-amber-500"
-          title={`${warningCount} ${warningCount === 1 ? 'warning' : 'warnings'}`}
-        >
-          <TriangleAlert className="size-2.5" aria-hidden />
-          {warningCount}
-        </span>
-      )}
-    </span>
+      aria-hidden
+    />
   );
 }
 
-function NodeHandles() {
+function GraphHeaderNode({ data }: NodeProps<Node<GraphHeaderNodeData>>) {
+  const uncovered = Math.max(0, data.totalFiles - data.coveredFiles);
+  return (
+    <div className={cn('relative h-full w-full', data.dimmed && 'opacity-30')}>
+      <Handle
+        id="source-bottom"
+        type="source"
+        position={Position.Bottom}
+        className="!pointer-events-none !opacity-0"
+      />
+      <div
+        className="pointer-events-auto flex h-full w-full items-center rounded-md border border-border/75 bg-background/80 px-3 text-left text-muted-foreground shadow-sm"
+        title={
+          data.sharedLayerCount > 0
+            ? `Right-click to ${data.expanded ? 'minimise' : 'maximise'}. Also affects ${data.sharedLayerCount} shared ${data.sharedLayerCount === 1 ? 'layer' : 'layers'}.`
+            : `Right-click to ${data.expanded ? 'minimise' : 'maximise'}.`
+        }
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-bold uppercase tracking-wider">
+            {data.name}
+          </span>
+          <span className="block truncate text-[9px] tabular-nums text-muted-foreground">
+            {data.layerCount} layers · {data.moduleCount} modules
+            {uncovered > 0 ? ` · ${uncovered} uncovered` : ''}
+            {data.violationCount > 0 ? ` · ${data.violationCount} errors` : ''}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function LayerHandles() {
   return (
     <>
       <Handle
         id="target-top"
         type="target"
         position={Position.Top}
-        className="!size-1.5 !border-background !bg-muted-foreground/65"
+        className="!pointer-events-none !opacity-0"
       />
       <Handle
         id="source-bottom"
         type="source"
         position={Position.Bottom}
-        className="!size-1.5 !border-background !bg-muted-foreground/65"
+        className="!pointer-events-none !opacity-0"
       />
     </>
   );
 }
 
-function ModuleGraphNode({ data }: NodeProps<Node<ModuleGraphNodeData>>) {
-  const interaction = useContext(ModuleGraphInteractionContext);
+function LayerContainerNode({ data }: NodeProps<Node<LayerContainerNodeData>>) {
+  const shared = data.graphCount > 1;
+  return (
+    <section
+      className={cn(
+        'relative w-full overflow-hidden rounded-lg border border-border/70 bg-muted/[0.08] text-foreground shadow-sm transition-all',
+        data.expanded ? 'h-full' : 'h-[66px]',
+        data.containsSelected && 'border-primary ring-2 ring-primary/40',
+        data.related && !data.containsSelected && 'border-primary/40',
+        data.dimmed && 'opacity-35',
+      )}
+    >
+      <LayerHandles />
+      {shared && (
+        <span
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in oklab, var(--foreground) 5%, transparent) 8px 9px)',
+          }}
+          aria-hidden
+        />
+      )}
+      <div
+        className={cn(
+          'pointer-events-auto relative z-10 flex h-[66px] w-full items-center bg-background/25 px-4 text-left',
+          data.expanded && 'border-b border-border/50',
+        )}
+        title={`Right-click to ${data.expanded ? 'minimise' : 'maximise'} ${data.name}`}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-semibold">{data.name}</span>
+          </span>
+          <span className="flex flex-wrap gap-x-1 text-[10px] tabular-nums text-muted-foreground">
+            <span>{data.moduleCount} modules</span>
+            <span aria-hidden>·</span>
+            <span>{data.fileCount} files</span>
+            {shared && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{data.graphCount} graphs</span>
+              </>
+            )}
+            {data.violationCount > 0 && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="text-destructive">
+                  {data.violationCount} errors
+                </span>
+              </>
+            )}
+            {data.hiddenConnectionCount > 0 && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="font-medium text-primary">
+                  {data.hiddenConnectionCount} connected inside
+                </span>
+              </>
+            )}
+          </span>
+        </span>
+      </div>
+      {data.expanded && data.moduleCount === 0 && (
+        <p className="relative z-10 px-4 py-4 text-xs text-muted-foreground">
+          No modules configured
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ModuleHandles() {
+  return (
+    <>
+      <Handle
+        id="target-top"
+        type="target"
+        position={Position.Top}
+        className="!pointer-events-none !opacity-0"
+      />
+      <Handle
+        id="source-bottom"
+        type="source"
+        position={Position.Bottom}
+        className="!pointer-events-none !opacity-0"
+      />
+    </>
+  );
+}
+
+function ModuleTileNode({ data }: NodeProps<Node<ModuleTileNodeData>>) {
+  const interaction = useModuleGraphInteraction();
   return (
     <div
       className={cn(
-        'relative h-full w-full rounded-md border bg-background/95 shadow-sm transition-all hover:border-foreground/35 hover:shadow-md',
-        data.related ? 'border-border' : 'border-border/70',
-        data.selected && 'border-primary ring-2 ring-primary/35',
-        interaction?.focusedModule === data.path &&
-          'outline-2 outline-ring outline-offset-1',
-        data.muted && 'opacity-35',
+        'relative h-full w-full transition-opacity',
         data.dimmed && 'opacity-15',
       )}
     >
-      <NodeHandles />
+      <ModuleHandles />
       <button
         type="button"
-        className="nodrag nopan flex h-full w-full min-w-0 items-center gap-2 px-2 text-left"
-        onFocus={() => interaction?.onFocusedModuleChange(data.path)}
-        onBlur={() => interaction?.onFocusedModuleChange(null)}
-        title={`${data.path} · ${data.layer} · ${data.fileCount} files · ${data.violationCount} errors · ${data.warningCount} warnings`}
-        aria-label={`${data.label} module in ${data.layer}. ${data.fileCount} files. ${data.violationCount} errors. ${data.warningCount} warnings.`}
+        className={cn(
+          'pointer-events-auto flex h-full w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/65 px-2.5 text-left shadow-sm transition-all focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2',
+          !data.quiet && 'hover:border-primary/50 hover:bg-muted/45',
+          data.related && 'border-primary/35 bg-primary/[0.04]',
+          data.isRoot &&
+            'border-sky-500/35 bg-sky-500/[0.05] dark:border-sky-400/30 dark:bg-sky-400/[0.08]',
+          data.isSink &&
+            'border-emerald-500/35 bg-emerald-500/[0.05] dark:border-emerald-400/30 dark:bg-emerald-400/[0.08]',
+          data.selected &&
+            'border-primary bg-primary/10 ring-2 ring-primary/40',
+        )}
+        title={`${data.path}${data.isRoot ? ' · Root module' : ''}${data.isSink ? ' · Sink module' : ''}${data.description ? ` — ${data.description}` : ''}`}
+        aria-label={`${data.label} module in ${data.layer}${data.isRoot ? ', root module' : ''}${data.isSink ? ', sink module' : ''}, ${data.fileCount} files${data.violationCount > 0 ? `, ${data.violationCount} violations` : ''}`}
+        onMouseEnter={() => interaction.onHoveredModuleChange(data.path)}
+        onMouseLeave={() => interaction.onHoveredModuleChange(null)}
+        onClick={(event) => {
+          event.stopPropagation();
+          interaction.onSelectedModuleChange(
+            interaction.selectedModule?.path === data.path &&
+              interaction.selectedModule.depth === 'direct'
+              ? null
+              : { path: data.path, depth: 'direct' },
+          );
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          interaction.onSelectedModuleChange({
+            path: data.path,
+            depth: 'transitive',
+          });
+        }}
+        onFocus={() => interaction.onFocusedModuleChange(data.path)}
+        onBlur={() => interaction.onFocusedModuleChange(null)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            interaction.onSelectedModuleChange(null);
+            return;
+          }
+          if (
+            event.key === 'ContextMenu' ||
+            (event.shiftKey && event.key === 'F10')
+          ) {
+            event.preventDefault();
+            interaction.onSelectedModuleChange({
+              path: data.path,
+              depth: 'transitive',
+            });
+          }
+        }}
       >
         <span
-          className="size-2 shrink-0 rounded-full"
-          style={{
-            background: data.violationCount > 0 ? '#ef4444' : data.color,
-          }}
+          className={cn(
+            'size-1.5 shrink-0 rounded-full bg-muted-foreground/40',
+            data.isRoot && 'bg-sky-500',
+            data.isSink && 'bg-emerald-500',
+            data.violationCount > 0 && 'bg-destructive',
+          )}
           aria-hidden
         />
         <span className="min-w-0 flex-1 truncate font-mono text-[10px] font-medium">
           {data.label}
         </span>
-        <span className="max-w-12 shrink-0 truncate text-[8px] text-muted-foreground">
-          {data.layer}
-        </span>
-        <StatusCounts
-          violationCount={data.violationCount}
-          warningCount={data.warningCount}
-        />
-      </button>
-    </div>
-  );
-}
-
-function ModuleClusterNode({ data }: NodeProps<Node<ModuleClusterNodeData>>) {
-  const interaction = useContext(ModuleGraphInteractionContext);
-  return (
-    <div
-      className={cn(
-        'relative h-full w-full rounded-lg border border-dashed bg-muted/80 shadow-sm transition-all hover:border-foreground/40 hover:bg-muted hover:shadow-md',
-        data.related && 'border-solid',
-        data.selected && 'border-primary ring-2 ring-primary/35',
-        data.muted && 'opacity-35',
-        data.dimmed && 'opacity-15',
-      )}
-    >
-      <NodeHandles />
-      <button
-        type="button"
-        className="nodrag nopan flex h-full w-full items-center gap-2 px-2.5 text-left"
-        onClick={(event) => {
-          event.stopPropagation();
-          interaction?.onExpandCluster(data.clusterId);
-        }}
-        title={`Expand ${data.modulePaths.length} ${data.layer} modules`}
-        aria-label={`Expand ${data.modulePaths.length} modules in ${data.layer}`}
-      >
-        <Boxes className="size-3.5 shrink-0" style={{ color: data.color }} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-mono text-[10px] font-semibold">
-            {data.label}
-          </span>
-          <span className="block truncate text-[8px] uppercase tracking-wide text-muted-foreground">
-            {data.modulePaths.length} modules · {data.edgeCount} internal edges
-          </span>
-        </span>
-        <StatusCounts
-          violationCount={data.violationCount}
-          warningCount={data.warningCount}
-        />
       </button>
     </div>
   );
 }
 
 export const moduleGraphNodeTypes = {
-  'module-graph': ModuleGraphNode,
-  'module-cluster': ModuleClusterNode,
+  'module-graph-lane': GraphLaneNode,
+  'module-graph-header': GraphHeaderNode,
+  'module-layer-container': LayerContainerNode,
+  'module-tile': ModuleTileNode,
 };

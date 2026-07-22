@@ -7,26 +7,30 @@ import {
   ReactFlowProvider,
   type Node,
 } from '@xyflow/react';
-import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 
+import { Switch } from '#components/ui/switch';
 import { cn } from '#lib/utils';
 
-import { useFitViewOnResize } from '../hooks/use-fit-view-on-resize';
-import { moduleColors } from '../lib/colors';
-import {
-  canHoverModule,
-  getModuleGraphActiveModel,
-} from '../lib/graph-connectivity';
-import { computeModuleGraphLayout } from '../lib/layout';
-import { buildLaymosModulesModel } from '../lib/model';
+import { ModuleGraphInteractionProvider } from '../context/interaction-context';
+import { useModuleGraphFit } from '../hooks/use-module-graph-fit';
+import { moduleGraphColors } from '../lib/colors';
+import { computeModuleGraphLayout, type ModuleLayoutMode } from '../lib/layout';
+import { buildModuleGraphModel } from '../lib/model';
+import { getModuleGraphSelection } from '../lib/selection';
 import type { LaymosModulesProps } from '../types';
-import {
-  moduleGraphNodeTypes,
-  ModuleGraphInteractionContext,
-} from './flow-nodes';
-import { ContextCard } from './context-card';
+import { ModuleContextCard } from './context-card';
+import { moduleGraphNodeTypes } from './flow-nodes';
 
-/** Renders Laymos modules as one compact, topology-first dependency DAG. */
+/** Renders modules as expandable layer containers inside architecture lanes. */
 export function LaymosModules(props: LaymosModulesProps) {
   return (
     <ReactFlowProvider>
@@ -43,69 +47,131 @@ function LaymosModulesInner({
   onHoveredModuleChange,
   focusedModule,
   onFocusedModuleChange,
-  defaultMinimise = true,
+  defaultMinimise = false,
+  initialViewport,
+  onViewportChange,
   className,
-  ariaLabel = 'Laymos unified module dependency graph',
+  ariaLabel = 'Laymos module architecture',
 }: LaymosModulesProps) {
+  const flowId = `laymos-modules-${useId()}`;
   const containerRef = useRef<HTMLDivElement>(null);
-  const [expandedClusters, setExpandedClusters] = useState<ReadonlySet<string>>(
-    new Set(),
+  const model = useMemo(() => buildModuleGraphModel(report), [report]);
+  const [showWithinLayerConnections, setShowWithinLayerConnections] =
+    useState(true);
+  const [moduleLayout, setModuleLayout] = useState<ModuleLayoutMode>('pack');
+  const connectionScope = showWithinLayerConnections ? 'all' : 'cross-layer';
+  const [expandedLayers, setExpandedLayers] = useState<ReadonlySet<string>>(
+    () => new Set(model.layers.keys()),
   );
-  const model = useMemo(() => buildLaymosModulesModel(report), [report]);
-  const selectionActive = useMemo(
-    () => getModuleGraphActiveModel(model, selectedModule, null),
-    [model, selectedModule],
+  useEffect(() => {
+    setExpandedLayers(new Set(model.layers.keys()));
+  }, [model]);
+
+  const selectionWithoutHover = useMemo(
+    () => getModuleGraphSelection(model, selectedModule, null, connectionScope),
+    [connectionScope, model, selectedModule],
   );
-  const eligibleHoveredModule =
-    hoveredModule &&
-    canHoverModule(selectionActive, selectedModule, hoveredModule)
-      ? hoveredModule
+  const requestedPreview = hoveredModule ?? focusedModule;
+  const previewModule =
+    requestedPreview &&
+    (!selectedModule ||
+      moduleLayout === 'tree' ||
+      selectionWithoutHover.visibleModules.has(requestedPreview))
+      ? requestedPreview
       : null;
-  const active = useMemo(
+  const selection = useMemo(
     () =>
-      getModuleGraphActiveModel(model, selectedModule, eligibleHoveredModule),
-    [eligibleHoveredModule, model, selectedModule],
+      getModuleGraphSelection(
+        model,
+        selectedModule,
+        previewModule,
+        connectionScope,
+      ),
+    [connectionScope, model, previewModule, selectedModule],
+  );
+  const visualSelection = useMemo(
+    () => (moduleLayout === 'tree' ? selectionWithoutHover : selection),
+    [moduleLayout, selection, selectionWithoutHover],
+  );
+  const contextSelection = useMemo(
+    () =>
+      moduleLayout === 'tree' && previewModule
+        ? ({ path: previewModule, depth: 'direct' } as const)
+        : selectedModule,
+    [moduleLayout, previewModule, selectedModule],
+  );
+  const contextSelectionModel = useMemo(
+    () =>
+      moduleLayout === 'tree'
+        ? getModuleGraphSelection(
+            model,
+            contextSelection,
+            null,
+            connectionScope,
+          )
+        : selection,
+    [connectionScope, contextSelection, model, moduleLayout, selection],
   );
   const layout = useMemo(
-    () => computeModuleGraphLayout(model, active, expandedClusters),
-    [active, expandedClusters, model],
+    () =>
+      computeModuleGraphLayout(
+        model,
+        visualSelection,
+        expandedLayers,
+        moduleLayout,
+      ),
+    [expandedLayers, model, moduleLayout, visualSelection],
   );
-  const fitted = useFitViewOnResize(containerRef, report.architecture);
+  const geometryKey = useMemo(
+    () =>
+      `${[...model.layers.keys()].sort().join('\0')}\0${model.modules.size}\0${moduleLayout}`,
+    [model, moduleLayout],
+  );
+  const fitted = useModuleGraphFit(
+    containerRef,
+    geometryKey,
+    initialViewport === undefined,
+  );
 
+  const toggleLayer = useCallback((name: string) => {
+    setExpandedLayers((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+  const toggleGraph = useCallback((layerNames: readonly string[]) => {
+    setExpandedLayers((current) => {
+      const next = new Set(current);
+      const collapse = layerNames.some((name) => current.has(name));
+      for (const name of layerNames) {
+        if (collapse) next.delete(name);
+        else next.add(name);
+      }
+      return next;
+    });
+  }, []);
   const modulePath = useCallback((node: Node): string | null => {
-    return node.type === 'module-graph'
+    return node.type === 'module-tile'
       ? (node.data as { path: string }).path
       : null;
   }, []);
-  const onNodeClick = useCallback(
-    (_event: MouseEvent, node: Node) => {
-      const path = modulePath(node);
-      if (!path) return;
-      onSelectedModuleChange(
-        selectedModule?.path === path && selectedModule.depth === 'direct'
-          ? null
-          : { path, depth: 'direct' },
-      );
-    },
-    [modulePath, onSelectedModuleChange, selectedModule],
-  );
   const onNodeContextMenu = useCallback(
     (event: MouseEvent, node: Node) => {
-      const path = modulePath(node);
-      if (!path) return;
+      if (modulePath(node)) return;
       event.preventDefault();
-      onSelectedModuleChange({ path, depth: 'transitive' });
+      if (node.type === 'module-layer-container') {
+        toggleLayer((node.data as { name: string }).name);
+        return;
+      }
+      if (node.type === 'module-graph-header') {
+        toggleGraph(
+          (node.data as { layerNames: readonly string[] }).layerNames,
+        );
+      }
     },
-    [modulePath, onSelectedModuleChange],
-  );
-  const interaction = useMemo(
-    () => ({
-      focusedModule,
-      onFocusedModuleChange,
-      onExpandCluster: (clusterId: string) =>
-        setExpandedClusters((current) => new Set([...current, clusterId])),
-    }),
-    [focusedModule, onFocusedModuleChange],
+    [modulePath, toggleGraph, toggleLayer],
   );
 
   if (model.modules.size === 0) {
@@ -122,122 +188,164 @@ function LaymosModulesInner({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        'h-full w-full transition-opacity duration-150',
-        fitted ? 'opacity-100' : 'opacity-0',
-        className,
-      )}
-      aria-label={ariaLabel}
+    <ModuleGraphInteractionProvider
+      selectedModule={selectedModule}
+      onSelectedModuleChange={onSelectedModuleChange}
+      onHoveredModuleChange={onHoveredModuleChange}
+      onFocusedModuleChange={onFocusedModuleChange}
     >
-      <ModuleGraphInteractionContext.Provider value={interaction}>
+      <div
+        ref={containerRef}
+        className={cn(
+          'h-full w-full transition-opacity duration-150',
+          fitted ? 'opacity-100' : 'opacity-0',
+          className,
+        )}
+        aria-label={ariaLabel}
+      >
         <ReactFlow
+          id={flowId}
           nodes={layout.nodes}
           edges={layout.edges}
           nodeTypes={moduleGraphNodeTypes}
-          fitView
+          defaultViewport={initialViewport}
+          fitView={initialViewport === undefined}
           fitViewOptions={{ padding: 0.16 }}
           minZoom={0.08}
           nodesDraggable={false}
           nodesConnectable={false}
-          elementsSelectable
+          elementsSelectable={false}
+          zIndexMode="manual"
+          paneClickDistance={6}
           zoomOnDoubleClick={false}
-          onNodeClick={onNodeClick}
           onNodeContextMenu={onNodeContextMenu}
-          onNodeMouseEnter={(_event, node) => {
-            const path = modulePath(node);
-            if (path && canHoverModule(selectionActive, selectedModule, path)) {
-              onHoveredModuleChange(path);
-            }
-          }}
-          onNodeMouseLeave={(_event, node) => {
-            if (modulePath(node) === hoveredModule) onHoveredModuleChange(null);
-          }}
           onPaneClick={() => onSelectedModuleChange(null)}
+          onMoveEnd={(_event, viewport) => onViewportChange?.(viewport)}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="var(--border)" gap={22} />
-          <Panel position="top-left">
-            <div className="nodrag nopan flex items-center gap-3 rounded-md border border-border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
-              <div>
-                <p className="text-[10px] font-semibold">
-                  Unified module graph
-                </p>
-                <p className="text-[9px] text-muted-foreground">
-                  {model.modules.size} modules · {model.observedEdges.length}{' '}
-                  imports
-                  {layout.collapsedClusterCount > 0
-                    ? ` · ${layout.collapsedClusterCount} clusters`
-                    : ''}
-                </p>
+          <Background color="var(--border)" gap={20} />
+          <Panel position="top-right">
+            <div className="nodrag nopan w-56 rounded-md border border-border bg-background/95 p-2.5 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+              <div className="flex items-center justify-between gap-3">
+                <span>Module layout</span>
+                <div
+                  className="flex rounded-md bg-muted p-0.5"
+                  role="group"
+                  aria-label="Module layout"
+                >
+                  {(['pack', 'tree'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={cn(
+                        'rounded px-2 py-1 capitalize transition-colors',
+                        moduleLayout === mode
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'hover:text-foreground',
+                      )}
+                      onClick={() => setModuleLayout(mode)}
+                      aria-pressed={moduleLayout === mode}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {expandedClusters.size > 0 && (
+              <label className="mt-2 flex cursor-pointer items-center justify-between gap-4 border-t border-border/60 pt-2">
+                Within-layer connections
+                <Switch
+                  size="sm"
+                  checked={showWithinLayerConnections}
+                  onCheckedChange={setShowWithinLayerConnections}
+                  aria-label="Show connections between modules in the same layer"
+                />
+              </label>
+            </div>
+          </Panel>
+          {selectedModule && moduleLayout === 'pack' && (
+            <Panel position="top-left">
+              <div className="nodrag nopan flex items-center gap-3 rounded-md border border-border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
+                <div className="min-w-0">
+                  <p className="max-w-52 truncate font-mono text-[10px] font-medium">
+                    {model.modules.get(selectedModule.path)?.label ??
+                      selectedModule.path}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground">
+                    {selection.incomingCount} incoming ·{' '}
+                    {selection.outgoingCount} outgoing
+                  </p>
+                </div>
+                <div className="grid shrink-0 grid-cols-2 rounded-md border border-border bg-muted/35 p-0.5">
+                  {(['direct', 'transitive'] as const).map((depth) => (
+                    <button
+                      key={depth}
+                      type="button"
+                      className={cn(
+                        'rounded px-2 py-1 text-[10px] font-medium capitalize text-muted-foreground',
+                        selectedModule.depth === depth &&
+                          'bg-background text-foreground shadow-sm',
+                      )}
+                      onClick={() =>
+                        onSelectedModuleChange({
+                          path: selectedModule.path,
+                          depth,
+                        })
+                      }
+                      aria-pressed={selectedModule.depth === depth}
+                    >
+                      {depth}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   className="rounded px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                  onClick={() => setExpandedClusters(new Set())}
+                  onClick={() => onSelectedModuleChange(null)}
                 >
-                  Recluster
+                  Clear
                 </button>
-              )}
-            </div>
-          </Panel>
-          {selectedModule && (
-            <Panel position="top-right">
-              <div className="nodrag nopan flex items-center gap-2 rounded-md border border-border bg-background/95 p-1 shadow-sm backdrop-blur">
-                {(['direct', 'transitive'] as const).map((depth) => (
-                  <button
-                    key={depth}
-                    type="button"
-                    className={cn(
-                      'rounded px-2 py-1 text-[10px] font-medium capitalize text-muted-foreground',
-                      selectedModule.depth === depth &&
-                        'bg-muted text-foreground',
-                    )}
-                    onClick={() =>
-                      onSelectedModuleChange({
-                        path: selectedModule.path,
-                        depth,
-                      })
-                    }
-                  >
-                    {depth}
-                  </button>
-                ))}
               </div>
             </Panel>
           )}
-          <Panel position="bottom-right">
-            <ContextCard
-              model={model}
-              selectedModulePath={selectedModule?.path ?? null}
-              defaultMinimise={defaultMinimise}
-            />
-          </Panel>
           <Panel position="bottom-left">
-            <div className="nodrag nopan flex items-center gap-4 rounded-md border border-border bg-background/95 px-3 py-2 text-[9px] text-muted-foreground shadow-sm backdrop-blur">
-              <span>imports flow top ↓ bottom · layer is color only</span>
-              <span>left-click neighbors · right-click transitive</span>
-              <span>click clusters to expand</span>
+            <div className="nodrag nopan flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border bg-background/95 px-3 py-2 text-[9px] text-muted-foreground shadow-sm backdrop-blur">
+              <span>click direct · right-click transitive</span>
+              <span>right-click graph or layer to minimise</span>
+              <span className="flex items-center gap-1">
+                <span className="size-1.5 rounded-full bg-sky-500" />
+                root
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                sink
+              </span>
               <span className="flex items-center gap-1">
                 <span
                   className="h-0.5 w-4"
-                  style={{ background: moduleColors.outgoing }}
+                  style={{ background: moduleGraphColors.outgoing }}
                 />
                 imports
               </span>
               <span className="flex items-center gap-1">
                 <span
                   className="h-0.5 w-4"
-                  style={{ background: moduleColors.incoming }}
+                  style={{ background: moduleGraphColors.incoming }}
                 />
                 consumed by
               </span>
             </div>
           </Panel>
+          <Panel position="bottom-right">
+            <ModuleContextCard
+              model={model}
+              selection={contextSelection}
+              selectionModel={contextSelectionModel}
+              previewModule={moduleLayout === 'tree' ? null : previewModule}
+              defaultMinimise={defaultMinimise}
+            />
+          </Panel>
         </ReactFlow>
-      </ModuleGraphInteractionContext.Provider>
-    </div>
+      </div>
+    </ModuleGraphInteractionProvider>
   );
 }

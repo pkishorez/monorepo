@@ -1,4 +1,5 @@
 import type { LaymosReport } from 'laymos/report';
+import type { Viewport } from '@xyflow/react';
 
 export interface LaymosModuleSelection {
   readonly path: string;
@@ -16,6 +17,8 @@ export interface LaymosModulesProps {
   readonly focusedModule: string | null;
   readonly onFocusedModuleChange: (path: string | null) => void;
   readonly defaultMinimise?: boolean;
+  readonly initialViewport?: Viewport | undefined;
+  readonly onViewportChange?: (viewport: Viewport) => void;
   readonly className?: string;
   readonly ariaLabel?: string;
 }

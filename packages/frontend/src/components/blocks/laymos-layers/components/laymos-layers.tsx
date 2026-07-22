@@ -7,7 +7,14 @@ import {
   ReactFlowProvider,
   type Node,
 } from '@xyflow/react';
-import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 
 import { Switch } from '#components/ui/switch';
 import { cn } from '#lib/utils';
@@ -38,9 +45,12 @@ function LaymosLayersInner({
   focusedNode,
   onFocusedNodeChange,
   defaultMinimise = true,
+  initialViewport,
+  onViewportChange,
   className,
   ariaLabel = 'Laymos layer architecture',
 }: LaymosLayersProps) {
+  const flowId = `laymos-layers-${useId()}`;
   const containerRef = useRef<HTMLDivElement>(null);
   const [showObservedConnections, setShowObservedConnections] = useState(true);
   const model = useMemo(() => buildLaymosLayersModel(report), [report]);
@@ -60,7 +70,11 @@ function LaymosLayersInner({
       ),
     [active, hoveredNode, model, selectedNode, showObservedConnections],
   );
-  const fitted = useFitViewOnResize(containerRef, report.architecture);
+  const fitted = useFitViewOnResize(
+    containerRef,
+    report.architecture,
+    initialViewport === undefined,
+  );
 
   const toLaymosNode = useCallback((node: Node): LaymosNode | null => {
     if (node.type === 'graphHeader') {
@@ -123,10 +137,12 @@ function LaymosLayersInner({
         aria-label={ariaLabel}
       >
         <ReactFlow
+          id={flowId}
           nodes={layout.nodes}
           edges={layout.edges}
           nodeTypes={laymosNodeTypes}
-          fitView
+          defaultViewport={initialViewport}
+          fitView={initialViewport === undefined}
           fitViewOptions={{ padding: 0.2 }}
           nodesDraggable={false}
           nodesConnectable={false}
@@ -138,6 +154,7 @@ function LaymosLayersInner({
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={() => onHoveredNodeChange(null)}
           onPaneClick={() => onSelectedNodeChange(null)}
+          onMoveEnd={(_event, viewport) => onViewportChange?.(viewport)}
           proOptions={{ hideAttribution: true }}
         >
           <Background color="var(--border)" gap={20} />

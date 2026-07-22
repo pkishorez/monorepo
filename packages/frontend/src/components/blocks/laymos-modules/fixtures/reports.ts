@@ -1,90 +1,87 @@
 import type { LaymosReport } from 'laymos/report';
 
-export const laymosModulesFixtureReport: LaymosReport = {
+export const moduleArchitectureReport: LaymosReport = {
   architecture: {
     sourceRoots: ['src'],
     layers: {
+      ui: { paths: ['src/ui'], description: 'User-facing entry points' },
       application: {
         paths: ['src/application'],
-        description: 'Application entry points',
+        description: 'Application workflows',
       },
-      domain: {
-        paths: ['src/domain'],
-        description: 'Business capabilities',
-      },
-      platform: {
-        paths: ['src/platform'],
-        description: 'Infrastructure adapters',
-      },
+      jobs: { paths: ['src/jobs'], description: 'Background entry points' },
+      domain: { paths: ['src/domain'], description: 'Shared business model' },
     },
     graphs: [
       {
-        name: 'application',
-        layers: ['application', 'domain', 'platform'],
+        name: 'web',
+        description: 'Interactive application',
+        layers: ['ui', 'application', 'domain'],
         edges: [
+          { from: 'ui', to: 'application' },
           { from: 'application', to: 'domain' },
-          { from: 'domain', to: 'platform' },
         ],
+      },
+      {
+        name: 'workers',
+        description: 'Background processing',
+        layers: ['jobs', 'domain'],
+        edges: [{ from: 'jobs', to: 'domain' }],
       },
     ],
     modules: {
-      'src/application/admin': { description: 'Administration workflows' },
-      'src/application/home': { description: 'Home experience' },
-      'src/application/empty': { description: 'Reserved capability' },
-      'src/domain/order': { description: 'Order domain' },
-      'src/domain/user': { description: 'User domain' },
-      'src/platform/log': { description: 'Logging adapter' },
+      'src/ui/orders': { description: 'Order screens' },
+      'src/ui/accounts': { description: 'Account screens' },
+      'src/application/orders': { description: 'Order workflows' },
+      'src/application/accounts': { description: 'Account workflows' },
+      'src/jobs/reconcile': { description: 'Account reconciliation' },
+      'src/domain/orders': { description: 'Order business rules' },
+      'src/domain/accounts': { description: 'Account business rules' },
     },
-    moduleRules: [
-      {
-        module: 'src/domain/order',
-        canImport: ['src/domain/user'],
-      },
-      {
-        module: 'src/application/home',
-        canImportedBy: ['src/application/admin'],
-      },
-    ],
+    moduleRules: [],
     ignoredPaths: [],
   },
   files: {
-    'src/application/admin/index.ts': {
+    'src/ui/orders/index.ts': {
+      kind: 'covered',
+      layer: 'ui',
+      module: 'src/ui/orders',
+      imports: ['src/application/orders/index.ts'],
+    },
+    'src/ui/accounts/index.ts': {
+      kind: 'covered',
+      layer: 'ui',
+      module: 'src/ui/accounts',
+      imports: ['src/application/accounts/index.ts'],
+    },
+    'src/application/orders/index.ts': {
       kind: 'covered',
       layer: 'application',
-      module: 'src/application/admin',
-      imports: ['src/application/home/index.ts'],
+      module: 'src/application/orders',
+      imports: ['src/domain/orders/index.ts', 'src/domain/accounts/index.ts'],
     },
-    'src/application/home/index.ts': {
+    'src/application/accounts/index.ts': {
       kind: 'covered',
       layer: 'application',
-      module: 'src/application/home',
-      imports: [
-        'src/domain/order/index.ts',
-        'src/domain/user/index.ts',
-        'src/application/shared.ts',
-      ],
+      module: 'src/application/accounts',
+      imports: ['src/domain/accounts/index.ts'],
     },
-    'src/application/shared.ts': {
+    'src/jobs/reconcile/index.ts': {
       kind: 'covered',
-      layer: 'application',
-      imports: ['src/application/home/index.ts'],
+      layer: 'jobs',
+      module: 'src/jobs/reconcile',
+      imports: ['src/domain/accounts/index.ts'],
     },
-    'src/domain/order/index.ts': {
+    'src/domain/orders/index.ts': {
       kind: 'covered',
       layer: 'domain',
-      module: 'src/domain/order',
-      imports: ['src/domain/user/index.ts', 'src/platform/log/index.ts'],
+      module: 'src/domain/orders',
+      imports: ['src/domain/accounts/index.ts'],
     },
-    'src/domain/user/index.ts': {
+    'src/domain/accounts/index.ts': {
       kind: 'covered',
       layer: 'domain',
-      module: 'src/domain/user',
-      imports: ['src/platform/log/index.ts', 'src/application/home/index.ts'],
-    },
-    'src/platform/log/index.ts': {
-      kind: 'covered',
-      layer: 'platform',
-      module: 'src/platform/log',
+      module: 'src/domain/accounts',
       imports: [],
     },
   },
@@ -93,60 +90,53 @@ export const laymosModulesFixtureReport: LaymosReport = {
       kind: 'module',
       rule: 'canImport',
       from: {
-        module: 'src/domain/order',
-        layer: 'domain',
-        file: 'src/domain/order/index.ts',
+        module: 'src/application/orders',
+        layer: 'application',
+        file: 'src/application/orders/index.ts',
       },
       to: {
-        module: 'src/platform/log',
-        layer: 'platform',
-        file: 'src/platform/log/index.ts',
+        module: 'src/domain/accounts',
+        layer: 'domain',
+        file: 'src/domain/accounts/index.ts',
       },
     },
   ],
   coverage: {
-    layers: { totalFiles: 6, coveredFiles: 6, uncovered: [] },
+    layers: { totalFiles: 7, coveredFiles: 7, uncovered: [] },
     modules: [
+      { layer: 'ui', totalFiles: 2, coveredFiles: 2, uncovered: [] },
       {
         layer: 'application',
-        totalFiles: 3,
+        totalFiles: 2,
         coveredFiles: 2,
-        uncovered: ['src/application/shared.ts'],
+        uncovered: [],
       },
+      { layer: 'jobs', totalFiles: 1, coveredFiles: 1, uncovered: [] },
       { layer: 'domain', totalFiles: 2, coveredFiles: 2, uncovered: [] },
-      { layer: 'platform', totalFiles: 1, coveredFiles: 1, uncovered: [] },
     ],
   },
   warnings: [],
 };
 
-function buildDenseReport(): LaymosReport {
-  const layerNames = ['routes', 'application', 'domain', 'platform'];
-  const modulesPerLayer = 8;
-  const architectureModules: Record<string, { description: string }> = {};
+function buildDenseModuleReport(): LaymosReport {
+  const layers = ['entry', 'application', 'domain', 'platform'];
+  const modules: Record<string, { description: string }> = {};
   const files: Record<string, LaymosReport['files'][string]> = {};
-  for (let layerIndex = 0; layerIndex < layerNames.length; layerIndex += 1) {
-    const layer = layerNames[layerIndex]!;
-    for (let index = 0; index < modulesPerLayer; index += 1) {
-      const modulePath = `src/${layer}/capability-${index + 1}`;
-      const filePath = `${modulePath}/index.ts`;
-      architectureModules[modulePath] = {
-        description: `${layer} capability ${index + 1}`,
-      };
-      const imports: string[] = [];
-      if (index + 1 < modulesPerLayer) {
-        imports.push(`src/${layer}/capability-${index + 2}/index.ts`);
-      }
-      if (layerIndex + 1 < layerNames.length && index % 2 === 0) {
-        imports.push(
-          `src/${layerNames[layerIndex + 1]}/capability-${index + 1}/index.ts`,
-        );
-      }
-      files[filePath] = {
+  for (let layerIndex = 0; layerIndex < layers.length; layerIndex += 1) {
+    const layer = layers[layerIndex]!;
+    for (let moduleIndex = 0; moduleIndex < 14; moduleIndex += 1) {
+      const path = `src/${layer}/capability-${moduleIndex + 1}`;
+      const file = `${path}/index.ts`;
+      modules[path] = { description: `${layer} capability` };
+      const nextLayer = layers[layerIndex + 1];
+      files[file] = {
         kind: 'covered',
         layer,
-        module: modulePath,
-        imports,
+        module: path,
+        imports:
+          nextLayer && moduleIndex % 2 === 0
+            ? [`src/${nextLayer}/capability-${moduleIndex + 1}/index.ts`]
+            : [],
       };
     }
   }
@@ -154,30 +144,30 @@ function buildDenseReport(): LaymosReport {
     architecture: {
       sourceRoots: ['src'],
       layers: Object.fromEntries(
-        layerNames.map((name) => [name, { paths: [`src/${name}`] }]),
+        layers.map((layer) => [layer, { paths: [`src/${layer}`] }]),
       ),
       graphs: [
         {
-          name: 'dense-application',
-          layers: layerNames,
-          edges: layerNames.slice(0, -1).map((from, index) => ({
+          name: 'dense',
+          layers,
+          edges: layers.slice(0, -1).map((from, index) => ({
             from,
-            to: layerNames[index + 1]!,
+            to: layers[index + 1]!,
           })),
         },
       ],
-      modules: architectureModules,
+      modules,
       moduleRules: [],
       ignoredPaths: [],
     },
     files,
     violations: [],
     coverage: {
-      layers: { totalFiles: 32, coveredFiles: 32, uncovered: [] },
-      modules: layerNames.map((layer) => ({
+      layers: { totalFiles: 56, coveredFiles: 56, uncovered: [] },
+      modules: layers.map((layer) => ({
         layer,
-        totalFiles: modulesPerLayer,
-        coveredFiles: modulesPerLayer,
+        totalFiles: 14,
+        coveredFiles: 14,
         uncovered: [],
       })),
     },
@@ -185,137 +175,4 @@ function buildDenseReport(): LaymosReport {
   };
 }
 
-export const denseModulesFixtureReport = buildDenseReport();
-
-function buildComplexReport(): LaymosReport {
-  const layerCounts = {
-    routes: 8,
-    ui: 8,
-    controllers: 8,
-    services: 8,
-    jobs: 8,
-    workflows: 8,
-    domain: 12,
-  } as const;
-  const downstream = new Map([
-    ['routes', 'ui'],
-    ['ui', 'domain'],
-    ['controllers', 'services'],
-    ['services', 'domain'],
-    ['jobs', 'workflows'],
-    ['workflows', 'domain'],
-  ]);
-  const architectureModules: Record<string, { description: string }> = {};
-  const files: Record<string, LaymosReport['files'][string]> = {};
-  for (const [layer, count] of Object.entries(layerCounts)) {
-    for (let index = 0; index < count; index += 1) {
-      const number = index + 1;
-      const modulePath = `src/${layer}/capability-${number}`;
-      const filePath = `${modulePath}/index.ts`;
-      architectureModules[modulePath] = {
-        description: `${layer} capability ${number}`,
-      };
-      const imports: string[] = [];
-      const half = Math.ceil(count / 2);
-      if (index < half) {
-        imports.push(
-          `src/${layer}/capability-${Math.min(count, index + half + 1)}/index.ts`,
-        );
-      }
-      const nextLayer = downstream.get(layer);
-      if (nextLayer) {
-        const nextCount = layerCounts[nextLayer as keyof typeof layerCounts];
-        imports.push(
-          `src/${nextLayer}/capability-${(index % nextCount) + 1}/index.ts`,
-        );
-      }
-      files[filePath] = {
-        kind: 'covered',
-        layer,
-        module: modulePath,
-        imports,
-      };
-    }
-  }
-  return {
-    architecture: {
-      sourceRoots: ['src'],
-      layers: Object.fromEntries(
-        Object.keys(layerCounts).map((name) => [
-          name,
-          {
-            paths: [`src/${name}`],
-            description: `${name} architecture layer`,
-          },
-        ]),
-      ),
-      graphs: [
-        {
-          name: 'web',
-          description: 'Browser application',
-          layers: ['routes', 'ui', 'domain'],
-          edges: [
-            { from: 'routes', to: 'ui' },
-            { from: 'ui', to: 'domain' },
-          ],
-        },
-        {
-          name: 'api',
-          description: 'HTTP application',
-          layers: ['controllers', 'services', 'domain'],
-          edges: [
-            { from: 'controllers', to: 'services' },
-            { from: 'services', to: 'domain' },
-          ],
-        },
-        {
-          name: 'workers',
-          description: 'Background processing',
-          layers: ['jobs', 'workflows', 'domain'],
-          edges: [
-            { from: 'jobs', to: 'workflows' },
-            { from: 'workflows', to: 'domain' },
-          ],
-        },
-      ],
-      modules: architectureModules,
-      moduleRules: [
-        { module: 'src/ui/capability-1', canImport: [] },
-        {
-          module: 'src/domain/capability-1',
-          canImport: ['src/domain/capability-7'],
-        },
-      ],
-      ignoredPaths: [],
-    },
-    files,
-    violations: [
-      {
-        kind: 'module',
-        rule: 'canImport',
-        from: {
-          module: 'src/ui/capability-1',
-          layer: 'ui',
-          file: 'src/ui/capability-1/index.ts',
-        },
-        to: {
-          module: 'src/ui/capability-5',
-          layer: 'ui',
-          file: 'src/ui/capability-5/index.ts',
-        },
-      },
-    ],
-    coverage: {
-      layers: { totalFiles: 60, coveredFiles: 60, uncovered: [] },
-      modules: Object.entries(layerCounts).map(([layer, totalFiles]) => ({
-        layer,
-        totalFiles,
-        coveredFiles: totalFiles,
-        uncovered: [],
-      })),
-    },
-    warnings: [],
-  };
-}
-
-export const complexModulesFixtureReport = buildComplexReport();
+export const denseModuleArchitectureReport = buildDenseModuleReport();

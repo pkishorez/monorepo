@@ -1,29 +1,29 @@
-# Laymos Modules
+# Laymos modules
 
-`LaymosModules` is a topology-first view of the observed module graph.
-Modules share one dependency DAG: layers do not create columns, ranks, or
-containers and appear only as compact node metadata.
+`LaymosModules` presents the configured architecture as graph lanes containing
+expandable layer containers. Each expanded layer holds a stable, rounded module
+packing whose width responds to module count. Shared layers remain one
+container spanning their graph lanes. Root modules use a blue tint; sink
+modules use a green tint.
 
-The graph uses small module nodes and connection-aware, top-down Dagre placement
-to keep the whole architecture legible without consuming excessive horizontal
-space. A layer with more than ten modules collapses
-large path families into aggregate nodes. Aggregate edges preserve every
-cross-cluster import and the cluster can be expanded in place to inspect its
-modules and internal connections.
+Module imports are hidden until a module is selected. Left-click discloses its
+direct incoming and outgoing imports; right-click discloses the complete
+bidirectional transitive neighborhood. Hovering a related module focuses its
+incident edges and updates the compact context card.
 
-Left-click reveals a module's immediate incoming and outgoing connections.
-Right-click reveals its transitive ancestors and descendants. Hover and
-controlled selection use the same interaction contract as the other Laymos
-module views. Hover acts as a temporary spotlight: the selected root and hovered
-module remain prominent, selected edges touching the hovered module stay active,
-other selected edges become half-dimmed, and unrelated edges remain fully
-dimmed. Hover never adds an edge outside the selected set. The underlying
-selection is restored unchanged when the pointer leaves. While a selection is
-active, modules outside its highlighted node set do not respond to hover.
+Right-clicking a graph or layer minimises its contents without changing the
+canvas layout, zoom, or selection. Left-click is reserved for module selection,
+so dragging can begin anywhere on the graph. Connections into minimised layers
+are aggregated at the layer boundary.
 
-Each node shows separate architecture error and warning counts. Module rule
-violations are errors; participation in an observed dependency cycle is a
-warning. Selecting a module opens a summary card with its description, counts,
-connections, configured rules, and cycle peers. The card starts minimized;
-clicking anywhere on the expanded card minimizes it again. Set
-`defaultMinimise={false}` to start with it expanded.
+The top-right **Within-layer connections** switch chooses whether traversal and
+edge disclosure include imports between modules in the same layer or only
+imports that cross layer boundaries.
+
+The adjacent layout control defaults to **Pack** for compact orientation.
+**Tree** ranks each layer's modules top-to-bottom by their intra-layer imports
+without showing module edges by default. Selecting a module discloses its
+neighborhood as it does in Pack. A tree level with too many siblings becomes a
+compact rounded mini-pack rather than forcing the entire layer to grow in one
+direction. Tree positions and node styling remain static during selection and
+hover; hover changes only the context card.

@@ -1,81 +1,84 @@
 import { describe, expect, it } from 'vitest';
+import type { LaymosReport } from 'laymos/report';
 
-import { laymosModulesFixtureReport } from '../fixtures/reports';
-import { buildLaymosModulesModel, moduleEdgeKey } from './model';
+import { moduleArchitectureReport } from '../fixtures/reports';
+import { buildModuleGraphModel } from './model';
 
-const model = buildLaymosModulesModel(laymosModulesFixtureReport);
+describe('module graph model', () => {
+  it('builds modules, observed imports, and shared layer membership', () => {
+    const model = buildModuleGraphModel(moduleArchitectureReport);
 
-describe('laymos modules model', () => {
-  it('assigns declared and empty modules to layers with relative labels', () => {
-    expect(model.modules.get('src/application/home')).toMatchObject({
-      layer: 'application',
-      label: 'home',
-      files: ['src/application/home/index.ts'],
-    });
-    expect(model.modules.get('src/application/empty')).toMatchObject({
-      layer: 'application',
-      label: 'empty',
-      files: [],
-    });
+    expect(model.modules).toHaveLength(7);
+    expect(model.edges).toHaveLength(7);
+    expect(model.layers.get('domain')?.graphs).toEqual(['web', 'workers']);
+    expect(model.layers.get('domain')?.modulePaths).toEqual([
+      'src/domain/accounts',
+      'src/domain/orders',
+    ]);
   });
 
-  it('aggregates exact observed imports and marks violating pairs', () => {
-    expect(
-      model.observedEdgeByKey.get(
-        moduleEdgeKey('src/domain/order', 'src/platform/log'),
-      ),
-    ).toMatchObject({
-      violating: true,
-      fileEdges: [
+  it('uses the shortest unique suffix for module labels', () => {
+    const model = buildModuleGraphModel(moduleArchitectureReport);
+
+    expect(model.modules.get('src/ui/orders')?.label).toBe('ui/orders');
+    expect(model.modules.get('src/domain/orders')?.label).toBe('domain/orders');
+  });
+
+  it('marks both ends of a violating module import', () => {
+    const model = buildModuleGraphModel(moduleArchitectureReport);
+
+    expect(model.modules.get('src/application/orders')?.violationCount).toBe(1);
+    expect(model.modules.get('src/domain/accounts')?.violationCount).toBe(1);
+  });
+
+  it('counts every violating file import between the same modules', () => {
+    const report: LaymosReport = {
+      ...moduleArchitectureReport,
+      files: {
+        ...moduleArchitectureReport.files,
+        'src/application/orders/submit.ts': {
+          kind: 'covered',
+          layer: 'application',
+          module: 'src/application/orders',
+          imports: ['src/domain/accounts/index.ts'],
+        },
+      },
+      violations: [
+        ...moduleArchitectureReport.violations,
         {
-          from: 'src/domain/order/index.ts',
-          to: 'src/platform/log/index.ts',
-          violating: true,
+          kind: 'module',
+          rule: 'canImport',
+          from: {
+            module: 'src/application/orders',
+            layer: 'application',
+            file: 'src/application/orders/submit.ts',
+          },
+          to: {
+            module: 'src/domain/accounts',
+            layer: 'domain',
+            file: 'src/domain/accounts/index.ts',
+          },
         },
       ],
+    };
+    const model = buildModuleGraphModel(report);
+
+    expect(model.modules.get('src/application/orders')?.violationCount).toBe(2);
+    expect(model.modules.get('src/domain/accounts')?.violationCount).toBe(2);
+    expect(model.layers.get('application')?.violationCount).toBe(2);
+    expect(model.layers.get('domain')?.violationCount).toBe(2);
+  });
+
+  it('classifies module roots and sinks from observed directionality', () => {
+    const model = buildModuleGraphModel(moduleArchitectureReport);
+
+    expect(model.modules.get('src/ui/orders')).toMatchObject({
+      isRoot: true,
+      isSink: false,
     });
-  });
-
-  it('keeps unassigned files as boundary evidence instead of modules', () => {
-    expect(model.modules.has('src/application/shared.ts')).toBe(false);
-    expect(model.modules.get('src/application/home')?.boundaryEdges).toEqual([
-      {
-        direction: 'outgoing',
-        from: 'src/application/home/index.ts',
-        to: 'src/application/shared.ts',
-      },
-      {
-        direction: 'incoming',
-        from: 'src/application/shared.ts',
-        to: 'src/application/home/index.ts',
-      },
-    ]);
-  });
-
-  it('retains configured permissions separately from observed edges', () => {
-    expect(model.modules.get('src/domain/order')?.rules).toEqual({
-      module: 'src/domain/order',
-      canImport: ['src/domain/user'],
+    expect(model.modules.get('src/domain/accounts')).toMatchObject({
+      isRoot: false,
+      isSink: true,
     });
-    expect(
-      model.observedEdgeByKey.has(
-        moduleEdgeKey('src/application/admin', 'src/application/home'),
-      ),
-    ).toBe(true);
-  });
-
-  it('marks strongly connected modules with one cycle warning', () => {
-    expect(model.cycles).toEqual([
-      {
-        modulePaths: [
-          'src/application/home',
-          'src/domain/order',
-          'src/domain/user',
-        ],
-      },
-    ]);
-    expect(model.modules.get('src/application/home')?.warningCount).toBe(1);
-    expect(model.modules.get('src/domain/order')?.warningCount).toBe(1);
-    expect(model.modules.get('src/platform/log')?.warningCount).toBe(0);
   });
 });
