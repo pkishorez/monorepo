@@ -12,7 +12,6 @@
     "clean": "del-cli '**/node_modules' '**/dist'",
     "dev": "vp run -r dev",
     "fmt": "vp fmt",
-    "gh:version": "GITHUB_TOKEN=$(gh auth token --user pkishorez) pnpm changeset version",
     "lint": "vp check && pnpm lint:syncpack && pnpm -r --no-sort --workspace-concurrency=4 lint",
     "lint:syncpack": "syncpack lint",
     "outdated": "pnpm outdated --recursive",

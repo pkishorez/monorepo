@@ -1,4 +1,4 @@
-# @kishorez/devtools
+# @pkishorez/devtools
 
 A local DevTools server for inspecting dependency graphs and OpenTelemetry data.
 
@@ -7,13 +7,13 @@ A local DevTools server for inspecting dependency graphs and OpenTelemetry data.
 Start the server with `npx`:
 
 ```bash
-npx @kishorez/devtools
+npx @pkishorez/devtools
 ```
 
 Or install it globally and run the `devtools` command:
 
 ```bash
-npm i -g @kishorez/devtools
+npm i -g @pkishorez/devtools
 devtools
 ```
 
@@ -47,7 +47,7 @@ connection failure is written to stderr and exits with a nonzero status.
 
 ## Library exports
 
-- `@kishorez/devtools/rpc` — the RPC group definition and shared types,
+- `@pkishorez/devtools/rpc` — the RPC group definition and shared types,
   including dependency analysis, Laymos Story discovery and execution, and
   telemetry procedures.
-- `@kishorez/devtools/report` — programmatic report generation for a directory.
+- `@pkishorez/devtools/report` — programmatic report generation for a directory.

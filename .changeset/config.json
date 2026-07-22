@@ -5,7 +5,7 @@
     { "repo": "pkishorez/monorepo" }
   ],
   "commit": false,
-  "fixed": [],
+  "fixed": [["@pkishorez/devtools", "laymos", "@pkishorez/lotel"]],
   "linked": [],
   "access": "public",
   "baseBranch": "main",

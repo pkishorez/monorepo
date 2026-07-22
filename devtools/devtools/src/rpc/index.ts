@@ -6,7 +6,7 @@ import {
   LogRecordSchema,
   MetricRecordSchema,
   TraceRecordSchema,
-} from '@kishorez/lotel/client';
+} from '@pkishorez/lotel/client';
 import { EntitySchema } from 'std-toolkit/core';
 
 /** A genuine fs/exec failure while assembling a payload (not "not configured"). */

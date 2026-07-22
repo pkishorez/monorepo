@@ -1,6 +1,6 @@
 {
-  "name": "@kishorez/devtools",
-  "version": "0.0.1",
+  "name": "@pkishorez/devtools",
+  "version": "0.0.0",
   "private": false,
   "description": "Local devtools RPC server for inspecting project architecture and telemetry",
   "keywords": [
@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@kishorez/lotel": "workspace:*",
+    "@pkishorez/lotel": "workspace:*",
     "effect": "catalog:",
     "env-paths": "catalog:",
     "jiti": "catalog:",
@@ -49,5 +49,8 @@
     "@typescript/native": "catalog:",
     "@types/node": "catalog:",
     "tsx": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

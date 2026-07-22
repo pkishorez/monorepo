@@ -132,7 +132,7 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@tanstack/react-db": "^0.1.92",
+    "@tanstack/react-db": ">=0.1.64",
     "effect": "^4.0.0-beta.78",
     "react": "^18 || ^19"
   },

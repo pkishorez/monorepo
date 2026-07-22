@@ -76,7 +76,7 @@ One process, two HTTP surfaces:
   one listening process; tool packages provide mountable logic, not servers.
 - The **frontend transport stays RPC**. The existing `./rpc` (`DevtoolsRpc`)
   export is extended with telemetry read procedures; the route never imports
-  `@kishorez/lotel/client`. Ingestion stays HTTP/OTLP on the same server.
+  `@pkishorez/lotel/client`. Ingestion stays HTTP/OTLP on the same server.
 - lotel is cut **shallow**: DevTools mounts lotel's ingest group for `/v1/*` and
   calls lotel's orchestration + storage for the RPC read procedures. lotel keeps
   its api group + handlers + orchestration + storage, only shedding its

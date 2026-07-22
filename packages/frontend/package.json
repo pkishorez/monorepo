@@ -69,7 +69,7 @@
     "vaul": "catalog:"
   },
   "devDependencies": {
-    "@kishorez/lotel": "workspace:*",
+    "@pkishorez/lotel": "workspace:*",
     "@tailwindcss/typography": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

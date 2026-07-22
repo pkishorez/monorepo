@@ -371,12 +371,12 @@ importers:
         specifier: 'catalog:'
         version: 4.111.0(@cloudflare/workers-types@5.20260717.1)
 
-  packages/devtools:
+  devtools/devtools:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.11.1(supports-color@10.2.2))
-      '@kishorez/lotel':
+      '@pkishorez/lotel':
         specifier: workspace:*
         version: link:../lotel
       effect:
@@ -407,6 +407,62 @@ importers:
       tsx:
         specifier: 'catalog:'
         version: 4.23.1
+
+  devtools/laymos:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.11.1(supports-color@10.2.2))
+      jiti:
+        specifier: 'catalog:'
+        version: 2.7.0
+      skott:
+        specifier: 'catalog:'
+        version: 0.35.11(supports-color@10.2.2)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.1
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98
+      typescript:
+        specifier: catalog:typescript6
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(@vitest/browser-preview@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.1.1)(@typescript/typescript6@6.0.2))(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  devtools/lotel:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.11.1(supports-color@10.2.2))
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98
+      std-toolkit:
+        specifier: workspace:*
+        version: link:../../std-toolkit
+    devDependencies:
+      '@tsconfig/node22':
+        specifier: 'catalog:'
+        version: 22.0.5
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.1
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.1
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(@vitest/browser-preview@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.1.1)(typescript@7.0.2))(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
 
   packages/frontend:
     dependencies:
@@ -472,7 +528,7 @@ importers:
         version: 1.4.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       laymos:
         specifier: workspace:*
-        version: link:../laymos
+        version: link:../../devtools/laymos
       lucide-react:
         specifier: 'catalog:'
         version: 1.24.0(react@19.2.7)
@@ -531,9 +587,9 @@ importers:
         specifier: 'catalog:'
         version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
     devDependencies:
-      '@kishorez/lotel':
+      '@pkishorez/lotel':
         specifier: workspace:*
-        version: link:../lotel
+        version: link:../../devtools/lotel
       '@tailwindcss/typography':
         specifier: 'catalog:'
         version: 0.5.20(tailwindcss@4.3.3)
@@ -589,34 +645,6 @@ importers:
         specifier: 'catalog:'
         version: 5.0.14(@types/react@19.2.17)(immer@11.1.8)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))
 
-  packages/laymos:
-    dependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.11.1(supports-color@10.2.2))
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-beta.98
-      jiti:
-        specifier: 'catalog:'
-        version: 2.7.0
-      skott:
-        specifier: 'catalog:'
-        version: 0.35.11(supports-color@10.2.2)
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.1.1
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: catalog:typescript6
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(@vitest/browser-preview@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.1.1)(@typescript/typescript6@6.0.2))(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
-
   packages/laymos-test:
     dependencies:
       effect:
@@ -624,7 +652,7 @@ importers:
         version: 4.0.0-beta.98
       laymos:
         specifier: workspace:*
-        version: link:../laymos
+        version: link:../../devtools/laymos
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -635,34 +663,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(@vitest/browser-preview@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.1.1)(@typescript/typescript6@6.0.2))(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
-
-  packages/lotel:
-    dependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.11.1(supports-color@10.2.2))
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-beta.98
-      std-toolkit:
-        specifier: workspace:*
-        version: link:../../std-toolkit
-    devDependencies:
-      '@tsconfig/node22':
-        specifier: 'catalog:'
-        version: 22.0.5
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.1.1
-      tsx:
-        specifier: 'catalog:'
-        version: 4.23.1
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(@vitest/browser-preview@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.1.1)(typescript@7.0.2))(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
 
   packages/use-effect-ts:
     dependencies:
@@ -699,7 +699,7 @@ importers:
         version: 4.1.5
       laymos:
         specifier: workspace:*
-        version: link:../packages/laymos
+        version: link:../devtools/laymos
       type-fest:
         specifier: 'catalog:'
         version: 5.8.0
@@ -9009,7 +9009,7 @@ snapshots:
       detect-libc: 2.1.2
       is-glob: 4.0.3
       node-addon-api: 7.1.1
-      picomatch: 4.0.4
+      picomatch: 4.0.5
     optionalDependencies:
       '@parcel/watcher-android-arm64': 2.5.6
       '@parcel/watcher-darwin-arm64': 2.5.6
@@ -14619,7 +14619,7 @@ snapshots:
   unplugin@3.3.0(esbuild@0.28.1)(rolldown@1.1.5)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)):
     dependencies:
       '@jridgewell/remapping': 2.3.5
-      picomatch: 4.0.4
+      picomatch: 4.0.5
       webpack-virtual-modules: 0.6.2
     optionalDependencies:
       esbuild: 0.28.1
@@ -14805,7 +14805,7 @@ snapshots:
       magic-string: 0.30.21
       obug: 2.1.1
       pathe: 2.0.3
-      picomatch: 4.0.4
+      picomatch: 4.0.5
       std-env: 4.1.0
       tinybench: 2.9.0
       tinyexec: 1.2.4
@@ -14835,7 +14835,7 @@ snapshots:
       magic-string: 0.30.21
       obug: 2.1.1
       pathe: 2.0.3
-      picomatch: 4.0.4
+      picomatch: 4.0.5
       std-env: 4.1.0
       tinybench: 2.9.0
       tinyexec: 1.2.4

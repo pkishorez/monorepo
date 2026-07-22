@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { queryTraces } from '@kishorez/lotel';
+import { queryTraces } from '@pkishorez/lotel';
 import { TraceNotFound } from '../../rpc/index.js';
 
 /** Converts an OTLP nanosecond timestamp to a sortable integer when possible. */

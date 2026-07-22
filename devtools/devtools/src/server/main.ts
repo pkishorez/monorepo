@@ -16,7 +16,7 @@ import {
   NodeRuntime,
   NodeServices,
 } from '@effect/platform-node';
-import { LotelApiLive, makeDbLayer } from '@kishorez/lotel';
+import { LotelApiLive, makeDbLayer } from '@pkishorez/lotel';
 import { getTraceCommand } from '../cli/get-trace.js';
 import { DevtoolsRpc } from '../rpc/index.js';
 import { DevtoolsHandlersLive } from './handlers.js';

@@ -15,15 +15,22 @@ is available at [docs.kishore.app](https://docs.kishore.app).
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | [`apps/docs`](./apps/docs) | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers. |
 
+### Developer tools
+
+These packages share a fixed Changesets version and are released together.
+
+| Workspace                                  | Package                                                                    | Purpose                                                                                                                   |
+| ------------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [`devtools/devtools`](./devtools/devtools) | [`@pkishorez/devtools`](https://www.npmjs.com/package/@pkishorez/devtools) | Local DevTools server for inspecting dependency graphs and OpenTelemetry traces, logs, and metrics.                       |
+| [`devtools/laymos`](./devtools/laymos)     | [`laymos`](https://www.npmjs.com/package/laymos)                           | Declares, enforces, and visualizes TypeScript architecture as layers, modules, and stories.                               |
+| [`devtools/lotel`](./devtools/lotel)       | [`@pkishorez/lotel`](https://www.npmjs.com/package/@pkishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development. |
+
 ### Packages
 
-| Workspace                                            | Package                                                                  | Purpose                                                                                                                   |
-| ---------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| [`packages/devtools`](./packages/devtools)           | [`@kishorez/devtools`](https://www.npmjs.com/package/@kishorez/devtools) | Local DevTools server for inspecting dependency graphs and OpenTelemetry traces, logs, and metrics.                       |
-| [`packages/frontend`](./packages/frontend)           | `@monorepo/frontend` (private)                                           | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository.     |
-| [`packages/laymos`](./packages/laymos)               | `laymos` (private)                                                       | Declares, enforces, and visualizes TypeScript architecture as layers, modules, and stories.                               |
-| [`packages/lotel`](./packages/lotel)                 | [`@kishorez/lotel`](https://www.npmjs.com/package/@kishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development. |
-| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts)           | React hooks for running and consuming Effect programs.                                                                    |
+| Workspace                                            | Package                                                        | Purpose                                                                                                               |
+| ---------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [`packages/frontend`](./packages/frontend)           | `@monorepo/frontend` (private)                                 | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository. |
+| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts) | React hooks for running and consuming Effect programs.                                                                |
 
 ### Single-table design toolkit
 

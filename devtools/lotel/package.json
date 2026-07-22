@@ -1,8 +1,12 @@
 {
-  "name": "@kishorez/lotel",
-  "version": "0.0.1",
+  "name": "@pkishorez/lotel",
+  "version": "0.0.0",
   "private": false,
   "description": "Local OpenTelemetry server for development",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -47,5 +51,8 @@
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

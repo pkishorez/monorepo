@@ -6,7 +6,7 @@ import {
   queryLogs,
   queryMetrics,
   queryTraces,
-} from '@kishorez/lotel';
+} from '@pkishorez/lotel';
 import { discoverStories, runStory } from 'laymos/node';
 import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';

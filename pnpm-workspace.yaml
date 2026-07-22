@@ -1,10 +1,11 @@
 packages:
   - apps/*
+  - devtools/*
   - packages/*
   - std-toolkit
 
-# Hold new releases for 24 hours so compromised versions have time to be reported.
-minimumReleaseAge: 100
+# Hold new releases for 24 hours (in minutes) so compromised versions have time to be reported.
+minimumReleaseAge: 1440
 
 peerDependencyRules:
   allowedVersions:
