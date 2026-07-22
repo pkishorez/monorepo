@@ -4,7 +4,7 @@ import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   decision as effectDecision,
-  functionBlock as effectFunctionBlock,
+  flow as effectFlow,
   step as effectStep,
   story as effectStory,
 } from '../src/story/effect/index.js';
@@ -21,7 +21,7 @@ describe('Story Blocks', () => {
           description:
             'Routes checkout to payment or rejection according to the fraud result.',
         },
-        selected,
+        () => Effect.succeed(selected),
       )
         .when(
           'approved',
@@ -46,7 +46,7 @@ describe('Story Blocks', () => {
   });
 
   it('executes Effect Blocks', async () => {
-    const add = effectFunctionBlock(
+    const add = effectFlow(
       'add',
       { description: 'Adds the two supplied numbers and returns their sum.' },
       (left: number, right: number) =>
@@ -56,7 +56,7 @@ describe('Story Blocks', () => {
             description:
               'Performs the arithmetic operation that produces the returned sum.',
           },
-          Effect.succeed(left + right),
+          () => Effect.succeed(left + right),
         ),
     );
 
@@ -79,7 +79,7 @@ describe('Story Blocks', () => {
       },
     };
     const body = (value: number) => Effect.succeed(value + 1);
-    const block = effectFunctionBlock(
+    const block = effectFlow(
       'increment',
       {
         description: 'Adds one to the supplied number.',
@@ -111,23 +111,21 @@ describe('Story Blocks', () => {
 
   it('rejects empty narrative descriptions at runtime', () => {
     expect(() =>
-      effectFunctionBlock(
-        'empty block',
-        { description: ' ' },
-        () => Effect.void,
+      effectFlow('empty block', { description: ' ' }, () => Effect.void),
+    ).toThrow('Flow "empty block" description must not be empty');
+    expect(() =>
+      effectStep('empty step', { description: '' }, () => Effect.void),
+    ).toThrow('Step "empty step" description must not be empty');
+    expect(() =>
+      effectDecision('empty decision', { description: '\n' }, () =>
+        Effect.succeed(true),
       ),
-    ).toThrow('Block "empty block" description must not be empty');
-    expect(() =>
-      effectStep('empty step', { description: '' }, Effect.void),
-    ).toThrow('Block "empty step" description must not be empty');
-    expect(() =>
-      effectDecision('empty decision', { description: '\n' }, true),
     ).toThrow('Decision "empty decision" description must not be empty');
     expect(() =>
       effectDecision(
         'valid decision',
         { description: 'Explains the choice.' },
-        true,
+        () => Effect.succeed(true),
       ).when(true, { description: '\t' }, () => Effect.void),
     ).toThrow('Decision Arm "true" description must not be empty');
     expect(() => effectStory('empty story', { description: ' ' })).toThrow(

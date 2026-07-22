@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
 import { dynamodbSingleEntityStories } from './support/story-groups.js';
 
@@ -12,17 +12,17 @@ import {
 
 const harness = makeDynamoStoryHarness('single-entity-update');
 type Input = Parameters<typeof harness.settings.update>[0];
-const updateSettings = functionBlock(
-  'Update application settings',
+const updateSettings = flow(
+  'Update single entity',
   {
     description:
-      'Updates the stored settings record through the public singleton update flow.',
+      'Updates stored singleton state through the public single-entity update method.',
   },
   (input: Input) => harness.settings.update(input),
 );
 
 dynamodbSingleEntityStories
-  .story('Update', {
+  .story('Update single entity', {
     description:
       'Shows successful and missing-record paths for one singleton update.',
   })

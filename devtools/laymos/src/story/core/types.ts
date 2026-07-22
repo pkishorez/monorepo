@@ -1,5 +1,7 @@
 export type DecisionValue = string | number | boolean;
 
+export type Visibility = 'primary' | 'detail';
+
 export type Attributes = Readonly<Record<string, unknown>>;
 
 export type AttributesInput<Args extends readonly unknown[]> =
@@ -9,11 +11,13 @@ export type AttributesInput<Args extends readonly unknown[]> =
 export interface BlockMeta<Args extends readonly unknown[] = readonly []> {
   readonly description: string;
   readonly attributes?: AttributesInput<Args>;
+  readonly visibility?: Visibility;
 }
 
 export interface ArmMeta {
   readonly name?: string;
   readonly description: string;
+  readonly visibility?: Visibility;
 }
 
 export interface StoryMeta {

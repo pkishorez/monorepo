@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
 import { dynamodbSingleEntityStories } from './support/story-groups.js';
 
@@ -12,17 +12,17 @@ import {
 
 const harness = makeDynamoStoryHarness('single-entity-put');
 type Input = Parameters<typeof harness.settings.put>[0];
-const putSettings = functionBlock(
-  'Put application settings',
+const putSettings = flow(
+  'Put single entity',
   {
     description:
-      'Writes one complete settings value through the public singleton put flow.',
+      'Writes one complete value through the public single-entity put method.',
   },
   (input: Input) => harness.settings.put(input),
 );
 
 dynamodbSingleEntityStories
-  .story('Put', {
+  .story('Put single entity', {
     description:
       'Shows the unconditional write path for one logical singleton.',
   })

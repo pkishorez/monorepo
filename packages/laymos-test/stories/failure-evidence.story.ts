@@ -14,7 +14,7 @@ story('Failure evidence', {
         description:
           'Reads the environment-controlled failure signal before the Scenario verifies the observed value.',
       },
-      Effect.sync(() => process.env['LAYMOS_TEST_FORCE_FAILURE']),
+      () => Effect.sync(() => process.env['LAYMOS_TEST_FORCE_FAILURE']),
     ),
   )
   .scenario(

@@ -16,15 +16,19 @@ import {
 import { createJiti } from 'jiti';
 
 import {
+  CurrentTrace,
   ScenarioRecorder,
   StoryBlockRegistry,
+  TraceRecorder,
   roundMillis,
+  traceValue,
 } from '../artifact/index.js';
 import type {
-  StoryArtifact,
+  StoryRun,
   StoryScenario,
   StoryScenarioFailure,
   StoryScenarioFailurePhase,
+  StoryTraceResult,
 } from '../artifact/types.js';
 import { collectDeclaredStories } from '../core/declare.js';
 import type {
@@ -37,6 +41,7 @@ import type {
   StoryCatalog,
   StoryCatalogGroup,
   StoryCatalogStory,
+  StoryCollection,
 } from '../../report/stories.js';
 
 export interface StoryRunOptions {
@@ -52,8 +57,8 @@ export interface StoryFailure {
 
 export interface StoriesRunResult {
   readonly status: 'passed' | 'failed';
-  readonly report: {
-    readonly stories: Readonly<Record<string, StoryArtifact>>;
+  readonly runs: {
+    readonly stories: Readonly<Record<string, StoryRun>>;
   };
   readonly failures: readonly StoryFailure[];
 }
@@ -96,6 +101,88 @@ export function executeStories(
   }).pipe(Effect.mapError((cause) => storyRunnerError('execute', cause)));
 }
 
+export function getStories(
+  baseDir: string,
+): Effect.Effect<StoryCollection, StoryDiscoveryError> {
+  return Effect.gen(function* () {
+    enableSourceMaps();
+    const { catalog, declarations } = yield* discoverStoryDeclarations(baseDir);
+    const traces: Record<string, StoryTraceResult> = {};
+    for (const { storyId, declaration } of declarations) {
+      const traced = yield* traceDeclaredStory(baseDir, declaration).pipe(
+        Effect.exit,
+      );
+      if (Exit.isFailure(traced)) {
+        traces[storyId] = {
+          status: 'invalid',
+          message: describeFailure(Cause.squash(traced.cause)),
+          blocks: {},
+          execution: [],
+        };
+      } else {
+        traces[storyId] = traced.value;
+      }
+    }
+    return { catalog, traces };
+  }).pipe(
+    Effect.mapError((cause) =>
+      cause instanceof StoryDiscoveryError
+        ? cause
+        : new StoryDiscoveryError({
+            message: 'Story tracing failed',
+            issues: [{ message: describeFailure(cause) }],
+          }),
+    ),
+  );
+}
+
+function traceDeclaredStory(
+  baseDir: string,
+  declaration: StoryDeclaration,
+): Effect.Effect<StoryTraceResult> {
+  if (declaration.execution === undefined) {
+    return Effect.succeed({
+      status: 'invalid',
+      message: `Story "${declaration.name}" must declare one execution`,
+      blocks: {},
+      execution: [],
+    });
+  }
+  const blocks = new StoryBlockRegistry(baseDir);
+  const recorder = new TraceRecorder(blocks);
+  const context = { recorder, path: recorder.root };
+  return Effect.suspend(
+    () =>
+      declaration.execution!.execute(traceValue) as Effect.Effect<
+        unknown,
+        unknown,
+        never
+      >,
+  ).pipe(
+    Effect.provideService(CurrentTrace, context),
+    Effect.exit,
+    Effect.map((exit) => {
+      const structure = recorder.finish();
+      const common = {
+        blocks: blocks.toRecord(),
+        execution: structure.execution,
+      };
+      return Exit.isSuccess(exit)
+        ? {
+            status: 'valid' as const,
+            generatedAt: Date.now(),
+            ...common,
+            definitions: structure.definitions,
+          }
+        : {
+            status: 'invalid' as const,
+            message: describeFailure(Cause.squash(exit.cause)),
+            ...common,
+          };
+    }),
+  );
+}
+
 function runStoriesGeneration(
   baseDir: string,
   filters: readonly string[],
@@ -117,29 +204,48 @@ function runStoriesGeneration(
       }
     });
 
-    const failures: StoryFailure[] = [];
-    const stories: Record<string, StoryArtifact> = {};
+    const declarations: Array<{
+      readonly storyId: string;
+      readonly declaration: StoryDeclaration;
+    }> = [];
     for (const storyId of files) {
-      const declarations = yield* fromPromise(() =>
+      const collected = yield* fromPromise(() =>
         collectDeclaredStories(() => loadStoryModule(baseDir, storyId)),
       );
-      if (declarations.length !== 1) {
+      if (collected.length !== 1) {
         return yield* Effect.fail(
           new Error(`Story file "${storyId}" must declare exactly one Story`),
         );
       }
-      stories[storyId] = yield* runDeclaredStory(
+      declarations.push({ storyId, declaration: collected[0]! });
+    }
+    for (const { storyId, declaration } of declarations) {
+      const trace = yield* traceDeclaredStory(baseDir, declaration);
+      if (trace.status === 'invalid') {
+        return yield* Effect.fail(
+          new Error(
+            `Story "${storyId}" has an invalid trace: ${trace.message}`,
+          ),
+        );
+      }
+    }
+
+    const failures: StoryFailure[] = [];
+    const stories: Record<string, StoryRun> = {};
+    for (const { storyId, declaration } of declarations) {
+      const run = yield* runDeclaredStory(
         baseDir,
         storyId,
-        declarations[0]!,
+        declaration,
         options,
         failures,
       );
+      stories[storyId] = run;
     }
 
     return {
       status: failures.length === 0 ? 'passed' : 'failed',
-      report: { stories },
+      runs: { stories },
       failures,
     };
   });
@@ -151,7 +257,7 @@ function runDeclaredStory(
   declaration: StoryDeclaration,
   options: StoryRunOptions | undefined,
   failures: StoryFailure[],
-): Effect.Effect<StoryArtifact, unknown> {
+): Effect.Effect<StoryRun, unknown> {
   return Effect.scoped(
     Effect.gen(function* () {
       if (declaration.execution === undefined) {
@@ -181,7 +287,7 @@ function runDeclaredStory(
         );
       }
       return {
-        schemaVersion: 3,
+        schemaVersion: 4,
         generatedAt: Date.now(),
         name: declaration.name,
         description: declaration.description,
@@ -527,8 +633,24 @@ async function loadStoryModule(
 export function discoverStories(
   baseDir: string,
 ): Effect.Effect<StoryCatalog, StoryDiscoveryError> {
+  return discoverStoryDeclarations(baseDir).pipe(
+    Effect.map(({ catalog }) => catalog),
+  );
+}
+
+interface StoryDiscovery {
+  readonly catalog: StoryCatalog;
+  readonly declarations: readonly {
+    readonly storyId: string;
+    readonly declaration: StoryDeclaration;
+  }[];
+}
+
+function discoverStoryDeclarations(
+  baseDir: string,
+): Effect.Effect<StoryDiscovery, StoryDiscoveryError> {
   return Effect.tryPromise({
-    try: () => buildStoryCatalog(baseDir),
+    try: () => buildStoryDiscovery(baseDir),
     catch: (cause) =>
       cause instanceof StoryDiscoveryError
         ? cause
@@ -536,7 +658,7 @@ export function discoverStories(
   });
 }
 
-async function buildStoryCatalog(baseDir: string): Promise<StoryCatalog> {
+async function buildStoryDiscovery(baseDir: string): Promise<StoryDiscovery> {
   const { storyIds, issues } = await discoverStoryFileIds(baseDir);
   const declarations: Array<{
     readonly storyId: string;
@@ -563,7 +685,7 @@ async function buildStoryCatalog(baseDir: string): Promise<StoryCatalog> {
 
   const catalog = validateStoryCatalog(declarations, issues);
   if (issues.length > 0) throw discoveryError(issues);
-  return catalog;
+  return { catalog, declarations };
 }
 
 async function discoverStoryFileIds(baseDir: string): Promise<{

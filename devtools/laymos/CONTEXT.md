@@ -71,13 +71,13 @@ violate both a layer and a module rule — both are reported.
 A named executable narrative for one feature or use case. Its unified account
 is discovered in Trace Mode and includes every declared Decision Arm; Scenarios
 separately record the concrete routes they execute under arranged conditions.
-A Story describes only the explicitly marked Blocks it observes and makes no claim that the
-surrounding code or use case is complete. Its purpose is to explain how the
-observed implementation logic works, not to claim that the logic has been
-proven. It has a required description. Its identity is the project-relative
-path of its Story file. Its leaf name is unique among Stories in the same
-Story Group, or among Standalone Stories, but may repeat in different Story
-Groups.
+A Story describes only its explicitly marked Blocks and Omissions and makes no
+claim that the surrounding code or use case is complete. Its purpose is to
+explain how the observed implementation logic works, not to claim that the
+logic has been proven. It has a required description. Its identity is the
+project-relative path of its Story file. Its leaf name is unique among Stories
+in the same Story Group, or among Standalone Stories, but may repeat in
+different Story Groups.
 A Story belongs to at most one Story Group; without one, it is a Standalone
 Story.
 _Avoid_: coverage suite, specification
@@ -87,6 +87,12 @@ The side-effect-free exploration of a Story's narrated flow. It follows every
 declared Decision Arm to reveal the unified Story independently of concrete
 Scenario observations.
 _Avoid_: no-op mode, dry run
+
+**Story Trace**:
+The purely structural account produced by Trace Mode. It contains narrated
+structure and Omissions, never timings, outcomes, failures, runtime attributes,
+or other Scenario evidence. A failed trace may retain an explicitly incomplete
+account for diagnosis but is never a valid Story Trace.
 
 **Standalone Story**:
 A Story that belongs to no Story Group and sits directly in the Story
@@ -114,6 +120,10 @@ _Avoid_: folder, category
 The discoverable collection of Story identities, names, descriptions, and
 Story Group hierarchy available before any Story executes.
 _Avoid_: Report, Artifact
+
+**Story collection**:
+The Story Catalog together with the current trace status of every Story. A
+trace failure belongs to its Story and does not hide other valid Stories.
 
 **Scenario**:
 One concrete set of conditions prepared for the same Story execution. Its
@@ -144,7 +154,8 @@ execution.
 **Story execution**:
 The single operation every runnable Scenario invokes exactly once. It accepts
 that Scenario's prepared value and explicitly produces either a success value
-or a typed error. It is the only phase recorded as narrative.
+or a typed error. Scenario evidence is recorded only during this phase; Trace
+Mode separately explores the same narrative structure without real values.
 
 **Story environment**:
 The fixed set of service implementations under which every Scenario prepares,
@@ -163,12 +174,47 @@ outside the narrated execution. Its failure affects Scenario success without
 replacing a failure from an earlier phase.
 
 **Block**:
-A marked unit of runtime narrative with a short name and a required, non-empty
+A marked unit of narrative with a short name and a required, non-empty
 explanation of what it does and why. Its identity is generated rather than
 supplied by the author, and is not expected to remain stable across story
-generations. Every block may contain nested block visits. Which primitive
-marked it is not part of the narrative; only decisions are a distinct kind,
-because they declare arms.
+generations. A Block is a Flow, Step, or Decision.
+
+**Flow**:
+A reusable narrated operation whose internal Flows, Steps, and Decisions are
+part of the Story. A Flow preserves its call boundary while allowing the
+narrative beneath that boundary to be explored.
+_Avoid_: function block, function step
+
+**Shared Flow**:
+A Flow with nested narrative that is called more than once in the same Story.
+Its internal narrative is presented once and reached from each call through a
+Flow Reference. A repeated Flow without nested narrative is not a Shared Flow.
+
+**Flow Reference**:
+One call to a Shared Flow in its surrounding narrative. It preserves where the
+call occurs while directing the reader to the Shared Flow's internal narrative.
+_Avoid_: duplicated Flow, expanded call
+
+**Step**:
+An indivisible narrated operation. A Step has no nested narrative.
+_Avoid_: leaf block
+
+**Decision**:
+A narrated choice between declared Arms. Trace Mode explores every Arm;
+Scenario execution records only the selected Arm.
+_Avoid_: conditional block
+
+**Visibility**:
+The narrative prominence of a Flow, Step, Decision, or Arm. Primary content is
+shown by default; Detail content remains available when a reader asks for a
+more complete view. Visibility inherits through nesting: content cannot be more
+visible than its containing Flow, Decision, or Arm.
+
+**Omission**:
+A source-located marker showing where Trace Mode deliberately stopped without
+describing or exploring the underlying operation. It may have a short label
+but requires no description.
+_Avoid_: ignored Block, hidden Block
 
 **Block visit**:
 One occurrence of a block during a scenario. Repeated and recursive execution
@@ -199,33 +245,43 @@ data fails Scenario recording rather than being silently discarded.
 One structural output of a decision, not itself a block or block visit. A
 literal-keyed Arm is selected by that literal; an Otherwise Arm catches every
 unhandled literal. Every Arm has a required, non-empty description of what the
-choice means and may have a distinct narrative name.
-The selected arm is recorded on the decision visit and routes to that visit's
-child execution path; a declared but never-taken arm is shown as unobserved.
-What's behind an unobserved arm is invisible, without implying that the story
-is incomplete. A decision visit always has a selected arm, including when that
-arm later fails or is interrupted.
+choice means, may have a distinct narrative name, and has Visibility. Trace Mode
+explores every Arm body; a Scenario records only its selected Arm and concrete
+child Execution Path. A Decision Visit always has a selected Arm, including
+when that Arm later fails or is interrupted.
 
-**Artifact**:
-The generated record of one story's Block definitions, Scenarios, Block Visits,
-and Execution Paths returned by an explicit run. It records when it was
-generated and is never persisted by Laymos.
-_Avoid_: report (that is the aggregate of several artifacts)
+**Story run**:
+The runtime evidence produced by executing every selected Scenario of one
+Story. It contains Scenario outcomes, failures, Block Visits, and Execution
+Paths, but never defines the Story's unified structure.
+_Avoid_: Story Artifact
+
+**Stories run**:
+The aggregate runtime evidence produced by running Scenarios from multiple
+Stories.
+_Avoid_: Report, Artifacts
 
 **Report**:
-The fully assembled in-memory aggregate of every story's Artifact — the value
-visualization consumes. Assembled, never stored.
-_Avoid_: artifact (that is the generated record of one story)
+The broader assembled Laymos output consumed by visualization. Story
+Collections and Story Runs remain distinct parts of it.
+_Avoid_: Artifact
 
 **Story runner**:
-The laymos-owned executor behind story generation: it discovers Story files,
-runs each Scenario's preparation, the shared Story execution, and verification
+The laymos-owned executor of Scenario evidence. It requires a valid Story Trace,
+runs each Scenario's preparation, Story execution, and verification
 sequentially against real integrations, performs cleanup when declared, and
-produces Artifacts. Stories are not tests and no test framework is involved.
+produces Story Runs. Stories are not tests and no test framework is involved.
 _Avoid_: test runner
 
+**Trace mismatch**:
+A Scenario route that cannot be projected onto its valid Story Trace. It means
+runtime evidence reached narrative structure that Trace Mode did not discover.
+Laymos does not yet enforce this because raw JavaScript conditionals are outside
+the current structural model. Static source analysis may make mismatch
+validation reliable later.
+
 **Scenario recorder**:
-The internal context installed by the Story runner only around the shared Story
+The internal context installed by the Story runner only around the Story
 execution. Blocks record only while this context is active. During Scenario
 preparation and verification, and outside a Story run, they only execute their
 wrapped code. Evidence the recorder cannot place unambiguously — overlapping

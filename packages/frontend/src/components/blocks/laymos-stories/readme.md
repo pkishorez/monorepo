@@ -1,9 +1,9 @@
 # Laymos Stories
 
 `LaymosStories` presents the implementation narrative for generated Laymos
-Stories. It is an opinionated, controlled visualization block backed by one
-`LaymosStoriesReport` from `laymos/report`; it is not a graph toolkit or an
-artifact loader.
+Stories. It is an opinionated, controlled visualization block backed by a
+`StoryCollection` and `StoriesRun` from `laymos/report`; it is not a graph
+toolkit or an artifact loader.
 
 The default presentation is an expandable story outline. Shared Blocks appear
 once, linear work follows one quiet vertical rail, and Decisions disclose
@@ -45,8 +45,8 @@ type LaymosStoriesSelection =
   | null;
 
 interface LaymosStoriesProps {
-  readonly catalog: StoryCatalog;
-  readonly report: LaymosStoriesReport;
+  readonly collection: StoryCollection;
+  readonly runs: StoriesRun;
   readonly runState:
     | { readonly kind: 'group'; readonly groupPath: StoryGroupPath }
     | { readonly kind: 'story'; readonly storyId: StoryId }
@@ -57,6 +57,7 @@ interface LaymosStoriesProps {
   readonly onRunStory?: (storyId: StoryId) => void;
   readonly onRunGroup?: (groupPath: StoryGroupPath) => void;
   readonly onRunAll?: () => void;
+  readonly sidebarExpansion?: 'single' | 'recursive';
   readonly className?: string;
   readonly ariaLabel?: string;
 }
@@ -67,8 +68,15 @@ artifacts returned by focused runs. A complete run replaces the entire report.
 `LaymosStories` performs no fetching or filesystem access: it receives the
 catalog, caller-held report, active run state, and execution callbacks.
 
-The navigator starts Groups collapsed, expands the selected Story's ancestry,
-and nests Stories and their Scenarios beneath each Group:
+On initial load, the navigator opens every top-level Group, then follows the
+first Group branch until its first Stories are visible. After that it keeps
+only the active branch open.
+Selecting a Group reveals its immediate children while nested Groups remain
+collapsed. Scenario lists are collapsed by default; selecting a Story opens
+only that Story's Scenarios and shows their count on its row. Selecting the
+same open Group or Story again collapses it. Set
+`sidebarExpansion="recursive"` to open the selected Group's complete subtree.
+Stories and their Scenarios are nested beneath each Group:
 
 ```text
 Commerce

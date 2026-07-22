@@ -62,12 +62,17 @@ function DescriptionPopover({
 }
 
 const kindIcon = {
-  block: Box,
+  flow: Box,
+  step: Box,
   decision: GitBranch,
 } as const;
 
 const kindStyle = {
-  block: {
+  flow: {
+    node: 'border-violet-500/35 bg-background',
+    icon: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  },
+  step: {
     node: 'border-blue-500/35 bg-background',
     icon: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   },
@@ -105,7 +110,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
             graphNode.active &&
             'border-primary bg-primary/[0.07] shadow-lg ring-[3px] ring-primary/35',
           collapsed &&
-            'rounded-md border-dashed border-primary/70 bg-muted/40 shadow-inner ring-1 ring-primary/15',
+            'cursor-context-menu rounded-md border-primary/45 bg-primary/[0.04] shadow-md',
           !graphNode.active &&
             'cursor-default border-dashed border-muted-foreground/35 bg-muted/20 text-muted-foreground opacity-35',
           muted && !selected && 'opacity-40',
@@ -119,11 +124,6 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
           description={description}
           visible={selected && showDescriptionPopover}
         />
-        {collapsed && (
-          <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full border border-primary/50 bg-background text-primary shadow-sm">
-            <ChevronsDownUp className="size-2.5" aria-hidden />
-          </span>
-        )}
         <Handle
           type="target"
           position={Position.Top}
@@ -132,9 +132,9 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
         <span className="flex min-w-0 flex-col items-center leading-none">
           <span className="max-w-full truncate">{graphNode.arm.name}</span>
           {hiddenNodeCount > 0 && (
-            <span className="mt-1 text-[7px] font-semibold uppercase tracking-wide text-primary">
-              Collapsed · {hiddenNodeCount}{' '}
-              {hiddenNodeCount === 1 ? 'node' : 'nodes'} underneath
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[7px] font-semibold text-primary">
+              <ChevronsDownUp className="size-2" aria-hidden />
+              {hiddenNodeCount} hidden
             </span>
           )}
         </span>
@@ -184,7 +184,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
         selected &&
           'border-primary bg-primary/[0.07] shadow-lg ring-[3px] ring-primary/35',
         collapsed &&
-          'border-dashed border-primary/70 bg-muted/40 shadow-inner ring-1 ring-primary/15',
+          'cursor-context-menu border-primary/45 bg-primary/[0.04] shadow-md',
         outcome === 'failed' &&
           !graphNode.expectedFailure &&
           'border-destructive/70 bg-destructive/[0.04] shadow-destructive/10',
@@ -201,11 +201,6 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
         description={description}
         visible={selected && showDescriptionPopover}
       />
-      {collapsed && (
-        <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full border border-primary/50 bg-background text-primary shadow-sm">
-          <ChevronsDownUp className="size-3" aria-hidden />
-        </span>
-      )}
       <Handle
         type="target"
         position={Position.Top}
@@ -238,9 +233,9 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
           )}
         </span>
         {hiddenNodeCount > 0 && (
-          <span className="mt-1 block text-[8px] font-semibold uppercase tracking-wide text-primary">
-            Collapsed · {hiddenNodeCount}{' '}
-            {hiddenNodeCount === 1 ? 'node' : 'nodes'} underneath
+          <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[8px] font-semibold text-primary">
+            <ChevronsDownUp className="size-2.5" aria-hidden />
+            {hiddenNodeCount} hidden
           </span>
         )}
       </span>

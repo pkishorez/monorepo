@@ -9,7 +9,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { StoryArtifact, StoryScenario } from 'laymos/report';
+import type { StoryRun, StoryScenario } from 'laymos/report';
 
 import { cn } from '#lib/utils';
 
@@ -245,7 +245,7 @@ function initialExpansion(
   return keys;
 }
 
-export function StoryNarrative({ story }: { readonly story: StoryArtifact }) {
+export function StoryNarrative({ story }: { readonly story: StoryRun }) {
   const model = useMemo(() => buildProgressiveStoryGraph(story), [story]);
   return (
     <NarrativeDocument
@@ -262,7 +262,7 @@ export function ScenarioNarrative({
   story,
   scenario,
 }: {
-  readonly story: StoryArtifact;
+  readonly story: StoryRun;
   readonly scenario: StoryScenario;
 }) {
   const model = useMemo(

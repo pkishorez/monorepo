@@ -1,7 +1,7 @@
 import { AwsClient } from 'aws4fetch';
 import { Context, Layer } from 'effect';
 import * as Effect from 'effect/Effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 import { DynamodbError, type AwsErrorMeta } from '../errors.js';
 import { unmarshall } from '../internal/marshall.js';
 import type { MarshalledOutput } from '../types/index.js';
@@ -91,7 +91,7 @@ export function createDynamoDB(
     credentials: connection.credentials,
   });
 
-  const makeRequest = functionBlock(
+  const makeRequest = flow(
     'Send DynamoDB request',
     {
       description:

@@ -15,22 +15,22 @@ describe('Laymos Stories consumer integration', () => {
   it('returns every artifact through a complete programmatic run', async () => {
     const generation = await Effect.runPromise(runAllStories(baseDir));
     expect(generation.status).toBe('passed');
-    expect(Object.keys(generation.report.stories).sort()).toEqual([
+    expect(Object.keys(generation.runs.stories).sort()).toEqual([
       accessStoryId,
       checkoutStoryId,
       failureStoryId,
     ]);
-    for (const artifact of Object.values(generation.report.stories)) {
-      expect(artifact.schemaVersion).toBe(3);
+    for (const artifact of Object.values(generation.runs.stories)) {
+      expect(artifact.schemaVersion).toBe(4);
       expect(artifact.generatedAt).toBeTypeOf('number');
     }
     expect(existsSync(join(baseDir, '.laymos'))).toBe(false);
   });
 
   it('records Decisions, attributes, skipped Scenarios, and parallel paths', async () => {
-    const report = (await Effect.runPromise(runAllStories(baseDir))).report;
-    const checkout = report.stories[checkoutStoryId]!;
-    const access = report.stories[accessStoryId]!;
+    const runs = (await Effect.runPromise(runAllStories(baseDir))).runs;
+    const checkout = runs.stories[checkoutStoryId]!;
+    const access = runs.stories[accessStoryId]!;
 
     expect(checkout.scenarios.map(({ outcome }) => outcome)).toEqual([
       'succeeded',
@@ -81,9 +81,9 @@ describe('Laymos Stories consumer integration', () => {
     const complete = await Effect.runPromise(runAllStories(baseDir));
 
     expect(focused.status).toBe('passed');
-    expect(focused.artifact.name).toBe('Checkout routing');
+    expect(focused.run.name).toBe('Checkout routing');
     expect(complete.status).toBe('passed');
-    expect(Object.keys(complete.report.stories)).toHaveLength(3);
+    expect(Object.keys(complete.runs.stories)).toHaveLength(3);
     expect(existsSync(join(baseDir, '.laymos'))).toBe(false);
   });
 
@@ -93,7 +93,7 @@ describe('Laymos Stories consumer integration', () => {
       const result = await Effect.runPromise(runStory(baseDir, failureStoryId));
 
       expect(result.status).toBe('failed');
-      expect(result.artifact.scenarios[0]).toMatchObject({
+      expect(result.run.scenarios[0]).toMatchObject({
         outcome: 'failed',
         execution: [{ outcome: 'succeeded' }],
       });

@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect, Stream } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow, step } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -13,20 +13,29 @@ import {
 const harness = makeDynamoStoryHarness('entity-query-stream');
 type Input = { readonly batchSize: number };
 
-const streamOrders = functionBlock(
-  'Stream orders',
+const streamOrders = flow(
+  'Stream entity query',
   {
-    description: 'Consumes every page from one public entity query stream.',
+    description:
+      'Consumes every page produced by the public entity query-stream method.',
     attributes: (input: Input) => ({ batchSize: input.batchSize }),
   },
   (input: Input) =>
-    harness.orders
-      .queryStream(
-        'primary',
-        { pk: { userId: 'owner' }, sk: { '>': null } },
-        { batchSize: input.batchSize },
-      )
-      .pipe(Stream.runCollect),
+    step(
+      'Collect streamed entities',
+      {
+        description:
+          'Consumes the third-party Stream runtime until entity pagination completes.',
+      },
+      () =>
+        harness.orders
+          .queryStream(
+            'primary',
+            { pk: { userId: 'owner' }, sk: { '>': null } },
+            { batchSize: input.batchSize },
+          )
+          .pipe(Stream.runCollect),
+    ),
 );
 
 const seedOrders = Effect.all([
@@ -36,7 +45,7 @@ const seedOrders = Effect.all([
 ]);
 
 dynamodbEntityStories
-  .story('Stream an entity query', {
+  .story('Stream entity query', {
     description: 'Shows pagination through one entity stream until exhaustion.',
   })
   .provide(harness.layer)

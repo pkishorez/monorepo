@@ -7,7 +7,7 @@ import type { LaymosReport, Violation } from '../report/index.js';
 import type {
   ExecutionPath,
   StoryArm,
-  StoryArtifact,
+  StoryRun,
   StorySelectedArm,
 } from '../report/stories.js';
 
@@ -127,7 +127,7 @@ function storyRunOptions(timeout: Option.Option<string>): StoryRunOptions {
 }
 
 function reportStoriesRun(result: StoriesRunResult): void {
-  const stories = Object.entries(result.report.stories);
+  const stories = Object.entries(result.runs.stories);
   process.stdout.write(
     `${stories.length} ${stories.length === 1 ? 'Story' : 'Stories'} executed.\n`,
   );
@@ -149,7 +149,7 @@ function reportStoriesRun(result: StoriesRunResult): void {
   process.stderr.write(red('Some Scenarios failed or were interrupted.\n'));
 }
 
-function reportStory(storyId: string, artifact: StoryArtifact): void {
+function reportStory(storyId: string, artifact: StoryRun): void {
   const passed = artifact.scenarios.every(
     ({ outcome }) => outcome === 'succeeded' || outcome === 'skipped',
   );
@@ -176,7 +176,7 @@ function reportStory(storyId: string, artifact: StoryArtifact): void {
 }
 
 function reportUnsuccessfulPaths(
-  artifact: StoryArtifact,
+  artifact: StoryRun,
   execution: ExecutionPath,
   parents: readonly string[] = [],
 ): void {
@@ -198,7 +198,7 @@ function reportUnsuccessfulPaths(
   }
 }
 
-function reportDecisionGaps(artifact: StoryArtifact): void {
+function reportDecisionGaps(artifact: StoryRun): void {
   for (const [blockId, block] of Object.entries(artifact.blocks)) {
     if (block.kind !== 'decision') continue;
     const observed = new Set<string>();

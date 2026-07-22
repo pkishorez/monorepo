@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { decision, functionBlock, step } from 'laymos/story';
+import { all, decision, flow, step } from 'laymos/story';
 
 export interface AccessInput {
   readonly actorId: string;
@@ -8,7 +8,7 @@ export interface AccessInput {
 
 export type AccessResult = 'granted' | 'verification-required' | 'blocked';
 
-const loadPolicy = functionBlock(
+const loadPolicy = flow(
   'Load access policy',
   {
     description:
@@ -22,11 +22,11 @@ const loadPolicy = functionBlock(
           'Reads the actor-specific policy from persistent storage before evaluating the request.',
         attributes: { actorId },
       },
-      Effect.sleep(1),
+      () => Effect.sleep(1),
     ),
 );
 
-const writeAuditEntry = functionBlock(
+const writeAuditEntry = flow(
   'Write audit entry',
   {
     description:
@@ -39,11 +39,11 @@ const writeAuditEntry = functionBlock(
         description:
           'Writes the access-attempt event to the audit trail for later security review.',
       },
-      Effect.sleep(1),
+      () => Effect.sleep(1),
     ),
 );
 
-export const authorizeAccess = functionBlock(
+export const authorizeAccess = flow(
   'Authorize access',
   {
     description:
@@ -55,7 +55,7 @@ export const authorizeAccess = functionBlock(
   },
   (input: AccessInput): Effect.Effect<AccessResult> =>
     Effect.gen(function* () {
-      yield* Effect.all([loadPolicy(input.actorId), writeAuditEntry()], {
+      yield* all([loadPolicy(input.actorId), writeAuditEntry()], {
         concurrency: 'unbounded',
       });
 
@@ -65,7 +65,7 @@ export const authorizeAccess = functionBlock(
           description:
             'Routes the request to grant, additional verification, or denial according to the actor policy.',
         },
-        input.policy,
+        () => Effect.succeed(input.policy),
       )
         .when(
           'allow',
@@ -81,7 +81,7 @@ export const authorizeAccess = functionBlock(
                 description:
                   'Creates the authenticated session that lets the actor continue into the protected system.',
               },
-              Effect.succeed('granted' as const),
+              () => Effect.succeed('granted' as const),
             ),
         )
         .when(
@@ -98,7 +98,7 @@ export const authorizeAccess = functionBlock(
                 description:
                   'Returns a verification requirement instead of issuing a session or rejecting the actor outright.',
               },
-              Effect.succeed('verification-required' as const),
+              () => Effect.succeed('verification-required' as const),
             ),
         )
         .when(
@@ -115,7 +115,7 @@ export const authorizeAccess = functionBlock(
                 description:
                   'Terminates the authorization flow with a blocked result and leaves the actor unauthenticated.',
               },
-              Effect.succeed('blocked' as const),
+              () => Effect.succeed('blocked' as const),
             ),
         )
         .exhaustive();

@@ -1,6 +1,6 @@
 import type {
-  LaymosStoriesReport,
-  StoryCatalog,
+  StoriesRun,
+  StoryCollection,
   StoryGroupPath,
   StoryId,
 } from 'laymos/report';
@@ -21,14 +21,16 @@ export type LaymosStoriesRunState =
   | { readonly kind: 'all' }
   | null;
 
+export type LaymosStoriesSidebarExpansion = 'single' | 'recursive';
+
 export type LaymosStoryExecutionState =
   | { readonly status: 'loading' }
   | { readonly status: 'success' }
   | { readonly status: 'error'; readonly message: string };
 
 export interface LaymosStoriesProps {
-  readonly catalog: StoryCatalog;
-  readonly report: LaymosStoriesReport;
+  readonly collection: StoryCollection;
+  readonly runs: StoriesRun;
   readonly storyStates?: Readonly<
     Partial<Record<StoryId, LaymosStoryExecutionState>>
   >;
@@ -38,6 +40,7 @@ export interface LaymosStoriesProps {
   readonly onRunStory?: (storyId: StoryId) => void;
   readonly onRunGroup?: (groupPath: StoryGroupPath) => void;
   readonly onRunAll?: () => void;
+  readonly sidebarExpansion?: LaymosStoriesSidebarExpansion;
   readonly className?: string;
   readonly ariaLabel?: string;
 }

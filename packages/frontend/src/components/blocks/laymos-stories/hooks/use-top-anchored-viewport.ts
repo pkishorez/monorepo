@@ -1,5 +1,5 @@
 import { useReactFlow, type Node } from '@xyflow/react';
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1;
@@ -15,9 +15,12 @@ const PADDING_TOP = 72;
 export function useTopAnchoredViewport(
   ref: RefObject<HTMLElement | null>,
   nodes: readonly Node[],
+  fitKey: unknown,
 ) {
   const { setViewport, getNodesBounds } = useReactFlow();
   const [fitted, setFitted] = useState(false);
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
@@ -28,7 +31,7 @@ export function useTopAnchoredViewport(
       frame = requestAnimationFrame(() => {
         const width = element.clientWidth;
         const height = element.clientHeight;
-        const bounds = getNodesBounds(nodes as Node[]);
+        const bounds = getNodesBounds(nodesRef.current as Node[]);
         if (width > 0 && height > 0 && bounds.width > 0 && bounds.height > 0) {
           const fitZoom = Math.min(
             (width - PADDING * 2) / bounds.width,
@@ -55,6 +58,6 @@ export function useTopAnchoredViewport(
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [getNodesBounds, nodes, ref, setViewport]);
+  }, [fitKey, getNodesBounds, ref, setViewport]);
   return fitted;
 }

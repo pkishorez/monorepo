@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { functionBlock } from 'laymos/story';
+import { flow } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -12,8 +12,8 @@ import {
 
 const harness = makeDynamoStoryHarness('entity-read');
 
-const readUser = functionBlock(
-  'Read a user',
+const readUser = flow(
+  'Get entity',
   {
     description:
       'Reads a keyed entity through the public service with an optional strongly consistent read.',
@@ -30,7 +30,7 @@ const readUser = functionBlock(
 );
 
 dynamodbEntityStories
-  .story('Read an entity', {
+  .story('Get entity', {
     description:
       'Shows the observable results of reading present and absent keyed entities.',
   })

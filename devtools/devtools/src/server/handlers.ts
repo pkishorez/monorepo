@@ -7,7 +7,7 @@ import {
   queryMetrics,
   queryTraces,
 } from '@pkishorez/lotel';
-import { discoverStories, runStory } from 'laymos/node';
+import { getStories, runStory } from 'laymos/node';
 import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 import { getTrace } from './get-trace/index.js';
@@ -42,8 +42,8 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
     laymosOperation(runStory(resolvePath(input), storyId)),
   RunStoryGroup: ({ path: input, groupPath }) =>
     runStoriesStream(resolvePath(input), groupPath),
-  DiscoverStories: ({ path: input }) =>
-    laymosOperation(discoverStories(resolvePath(input))),
+  GetStories: ({ path: input }) =>
+    laymosOperation(getStories(resolvePath(input))),
   QueryTraces: ({ sk, limit }) =>
     queryTraces(sk, limit).pipe(Effect.mapError(toRpcError)),
   GetTrace: ({ traceId }) =>

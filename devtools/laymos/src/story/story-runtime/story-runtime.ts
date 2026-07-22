@@ -1,6 +1,8 @@
 import { Cause, Context, Effect, Exit } from 'effect';
 import type { Duration, Layer } from 'effect';
 
+import { CurrentTrace, traceValue } from '../artifact/trace.js';
+
 import {
   addScenario,
   declareStoryGroup,
@@ -249,11 +251,12 @@ const CurrentVisit = Context.Reference<unknown | undefined>(
 
 interface DecisionState {
   readonly block: BlockDeclaration;
-  readonly input: DecisionValue;
+  readonly selector: () => AnyEffect;
   readonly attributes: BlockMeta<[DecisionValue]>['attributes'];
-  readonly arms: ArmDeclaration[];
-  matched: boolean;
-  selected: AnyEffect;
+  readonly arms: Array<{
+    readonly declaration: ArmDeclaration;
+    readonly body: (value: DecisionValue) => AnyEffect;
+  }>;
 }
 
 class DecisionBuilderImpl {
@@ -273,18 +276,9 @@ class DecisionBuilderImpl {
       value,
       name: meta.name ?? String(value),
       description: meta.description,
+      visibility: meta.visibility ?? 'primary',
     };
-    this.state.arms.push(arm);
-    if (!this.state.matched && Object.is(this.state.input, value)) {
-      this.state.matched = true;
-      this.state.selected = wrapEffect(
-        this.state.block,
-        { kind: 'literal', value },
-        () => resolveAttributes(this.state.attributes, [this.state.input]),
-        body(value),
-        this.state.arms,
-      );
-    }
+    this.state.arms.push({ declaration: arm, body });
     return this;
   }
 
@@ -300,52 +294,103 @@ class DecisionBuilderImpl {
       kind: 'otherwise',
       name: meta.name ?? 'Otherwise',
       description: meta.description,
+      visibility: meta.visibility ?? 'primary',
     };
-    this.state.arms.push(arm);
-    if (!this.state.matched) {
-      this.state.matched = true;
-      this.state.selected = wrapEffect(
-        this.state.block,
-        { kind: 'otherwise' },
-        () => resolveAttributes(this.state.attributes, [this.state.input]),
-        body(this.state.input),
-        this.state.arms,
-      );
-    }
-    return this.state.selected;
+    this.state.arms.push({ declaration: arm, body });
+    return this.run();
   }
 
   exhaustive(): AnyEffect {
-    return this.state.selected;
+    return this.run();
   }
 
   [Symbol.iterator](): Effect.EffectIterator<AnyEffect> {
-    return this.state.selected[Symbol.iterator]();
+    return this.run()[Symbol.iterator]();
+  }
+
+  private run(): AnyEffect {
+    const state = this.state;
+    return Effect.gen(function* () {
+      const trace = yield* CurrentTrace;
+      if (trace !== undefined) {
+        return yield* trace.recorder.decision(
+          trace,
+          state.block,
+          Effect.suspend(state.selector),
+          state.arms.map((arm) => ({
+            declaration: arm.declaration,
+            body: () => arm.body(traceValue as DecisionValue),
+          })),
+        );
+      }
+      const input = yield* Effect.suspend(state.selector);
+      const selected =
+        state.arms.find(
+          ({ declaration }) =>
+            declaration.kind === 'literal' &&
+            Object.is(declaration.value, input),
+        ) ??
+        state.arms.find(({ declaration }) => declaration.kind === 'otherwise');
+      if (selected === undefined) return undefined;
+      const selectedArm: SelectedArm =
+        selected.declaration.kind === 'otherwise'
+          ? { kind: 'otherwise' }
+          : { kind: 'literal', value: selected.declaration.value };
+      return yield* wrapEffect(
+        state.block,
+        selectedArm,
+        () => resolveAttributes(state.attributes, [input]),
+        () => selected.body(input),
+        state.arms.map(({ declaration }) => declaration),
+      );
+    });
   }
 }
 
 /** Marks a reusable Effect-returning function boundary as a Story Block. */
-export function functionBlock<Args extends readonly unknown[], A, E, R>(
+export function flow<Args extends readonly unknown[], A, E, R>(
   name: string,
   meta: BlockMeta<Args>,
   fn: (...args: Args) => Effect.Effect<A, E, R>,
 ): (...args: Args) => Effect.Effect<A, E, R>;
-export function functionBlock<Args extends readonly unknown[], A, E, R>(
+export function flow<A, E, R>(
+  name: string,
+  meta: BlockMeta,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function flow<Args extends readonly unknown[], A, E, R>(
   name: string,
   meta: BlockMeta<Args>,
-  fn: (...args: Args) => Effect.Effect<A, E, R>,
-): (...args: Args) => Effect.Effect<A, E, R> {
-  const block = makeBlock(name, meta, 'block');
-  return (...args) =>
-    wrapEffect(
-      block,
-      undefined,
-      () => resolveAttributes(meta.attributes, args),
-      fn(...args),
-    );
+  input: Effect.Effect<A, E, R> | ((...args: Args) => Effect.Effect<A, E, R>),
+): Effect.Effect<A, E, R> | ((...args: Args) => Effect.Effect<A, E, R>) {
+  const block = makeBlock(name, meta, 'flow');
+  const run = (args: Args, effect: Effect.Effect<A, E, R>) =>
+    Effect.gen(function* () {
+      const trace = yield* CurrentTrace;
+      if (trace !== undefined)
+        return yield* trace.recorder.flow(trace, block, effect);
+      return yield* wrapEffect(
+        block,
+        undefined,
+        () => resolveAttributes(meta.attributes, args),
+        () => effect,
+      );
+    }) as Effect.Effect<A, E, R>;
+  return typeof input === 'function'
+    ? (...args: Args) =>
+        run(
+          args,
+          Effect.suspend(() => input(...args)),
+        )
+    : run([] as unknown as Args, input);
 }
 
 /** Wraps an Effect in an inline Story Block. */
+export function step<A, E, R>(
+  name: string,
+  meta: BlockMeta,
+  effect: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
 export function step<A, E, R>(
   name: string,
   meta: BlockMeta,
@@ -354,51 +399,124 @@ export function step<A, E, R>(
 export function step<A, E, R>(
   name: string,
   meta: BlockMeta,
-  effect: Effect.Effect<A, E, R>,
+  effect: Effect.Effect<A, E, R> | (() => Effect.Effect<A, E, R>),
 ): Effect.Effect<A, E, R> {
-  return wrapEffect(
-    makeBlock(name, meta, 'block'),
-    undefined,
-    () => resolveAttributes(meta.attributes, []),
-    effect,
-  );
+  const block = makeBlock(name, meta, 'step');
+  const operation = () => (typeof effect === 'function' ? effect() : effect);
+  return Effect.gen(function* () {
+    const trace = yield* CurrentTrace;
+    if (trace !== undefined) return trace.recorder.step(trace, block) as A;
+    return yield* wrapEffect(
+      block,
+      undefined,
+      () => resolveAttributes(meta.attributes, []),
+      operation,
+    );
+  });
 }
 
-/** Builds an eager, literal-keyed Effect Decision. */
+/** Builds a lazy, literal-keyed Effect Decision. */
+export function decision<const Input extends DecisionValue, E, R>(
+  name: string,
+  meta: BlockMeta<[Input]>,
+  selector: () => Effect.Effect<Input, E, R>,
+): DecisionBuilder<Input, never, E, R>;
 export function decision<const Input extends DecisionValue>(
   name: string,
   meta: BlockMeta<[Input]>,
-  input: Input,
+  selector: Input,
 ): DecisionBuilder<Input, never, never, never>;
-export function decision<const Input extends DecisionValue>(
+export function decision<const Input extends DecisionValue, E, R>(
   name: string,
   meta: BlockMeta<[Input]>,
-  input: Input,
-): DecisionBuilder<Input, never, never, never> {
+  selector: Input | (() => Effect.Effect<Input, E, R>),
+): DecisionBuilder<Input, never, E, R> {
   return new DecisionBuilderImpl({
     block: makeBlock(name, meta, 'decision'),
-    input,
+    selector:
+      typeof selector === 'function'
+        ? selector
+        : () => Effect.succeed(selector),
     attributes: meta.attributes as BlockMeta<[DecisionValue]>['attributes'],
     arms: [],
-    matched: false,
-    selected: Effect.void,
-  }) as unknown as DecisionBuilder<Input, never, never, never>;
+  }) as unknown as DecisionBuilder<Input, never, E, R>;
 }
+
+export function omit<A, E, R>(
+  body: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function omit<A, E, R>(
+  label: string,
+  body: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R>;
+export function omit<A, E, R>(
+  labelOrBody: string | (() => Effect.Effect<A, E, R>),
+  body?: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> {
+  const location = captureLocation();
+  const label = typeof labelOrBody === 'string' ? labelOrBody : undefined;
+  const operation = typeof labelOrBody === 'function' ? labelOrBody : body!;
+  return Effect.gen(function* () {
+    const trace = yield* CurrentTrace;
+    if (trace !== undefined) {
+      return trace.recorder.omission(trace, location, label) as A;
+    }
+    return yield* Effect.suspend(operation).pipe(
+      Effect.provideService(CurrentRecorder, undefined),
+    );
+  });
+}
+
+export const all = ((
+  arg: Iterable<AnyEffect> | Record<string, AnyEffect>,
+  options?: any,
+) =>
+  Effect.gen(function* () {
+    const trace = yield* CurrentTrace;
+    if (trace === undefined) return yield* Effect.all(arg as any, options);
+    const effects =
+      Symbol.iterator in Object(arg)
+        ? [...(arg as Iterable<AnyEffect>)]
+        : Object.values(arg);
+    return yield* trace.recorder.all(trace, effects, options ?? {});
+  })) as typeof Effect.all;
+
+const storyForEach = (...args: readonly unknown[]): unknown => {
+  if (typeof args[0] === 'function' && typeof args[1] !== 'function') {
+    const [body, options] = args;
+    return (self: Iterable<unknown>) => storyForEach(self, body, options);
+  }
+  const [, body, options] = args;
+  return Effect.gen(function* () {
+    const trace = yield* CurrentTrace;
+    if (trace === undefined) return yield* (Effect.forEach as any)(...args);
+    return yield* trace.recorder.forEach(
+      trace,
+      (body as (value: unknown, index: number) => AnyEffect)(
+        traceValue,
+        traceValue as number,
+      ),
+      (options as any) ?? {},
+    );
+  });
+};
+
+export const forEach = storyForEach as typeof Effect.forEach;
 
 function wrapEffect<A, E, R>(
   block: BlockDeclaration,
   selectedArm: SelectedArm | undefined,
   attributes: () => Attributes | undefined,
-  effect: Effect.Effect<A, E, R>,
+  effect: () => Effect.Effect<A, E, R>,
   arms: readonly ArmDeclaration[] = [],
 ): Effect.Effect<A, E, R> {
   return Effect.gen(function* () {
     const recorder = yield* CurrentRecorder;
-    if (recorder === undefined) return yield* effect;
+    if (recorder === undefined) return yield* Effect.suspend(effect);
     for (const arm of arms) recorder.declareArm(block, arm);
     const parent = yield* CurrentVisit;
     const token = recorder.start(block, selectedArm, attributes(), parent);
-    return yield* effect.pipe(
+    return yield* Effect.suspend(effect).pipe(
       Effect.onExit((exit) =>
         Effect.sync(() => {
           const outcome = Exit.isSuccess(exit)
@@ -428,6 +546,7 @@ function makeBlock(
     kind,
     location: captureLocation(),
     description: meta.description,
+    visibility: meta.visibility ?? 'primary',
   };
 }
 
