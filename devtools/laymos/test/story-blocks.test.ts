@@ -45,6 +45,50 @@ describe('Story Blocks', () => {
     await expect(Effect.runPromise(program)).resolves.toBe('stopped');
   });
 
+  it('uses strict Decision equality and defects on impossible exhaustive values', async () => {
+    const signedZero = effectDecision(
+      'signed zero',
+      { description: 'Treats signed zero as the same narrative choice.' },
+      -0 as 0,
+    )
+      .when(0, { description: 'Handles zero regardless of its sign.' }, () =>
+        Effect.succeed('zero'),
+      )
+      .exhaustive();
+    await expect(Effect.runPromise(signedZero)).resolves.toBe('zero');
+
+    const impossible = effectDecision(
+      'unsafe input',
+      { description: 'Rejects values outside the declared choices.' },
+      'missing' as 'handled',
+    )
+      .when(
+        'handled',
+        { description: 'Handles the only declared value.' },
+        () => Effect.void,
+      )
+      .exhaustive();
+    await expect(Effect.runPromise(impossible)).rejects.toThrow(
+      'Unexpected decision value: missing',
+    );
+  });
+
+  it('rejects non-finite numeric Decision Arms', () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        effectDecision(
+          'numeric choice',
+          { description: 'Uses stable numeric narrative choices.' },
+          value,
+        ).when(
+          value,
+          { description: 'Would handle the numeric value.' },
+          () => Effect.void,
+        ),
+      ).toThrow('Decision Arm numeric values must be finite');
+    }
+  });
+
   it('executes Effect Blocks', async () => {
     const add = effectFlow(
       'add',

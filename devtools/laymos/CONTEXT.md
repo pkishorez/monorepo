@@ -67,6 +67,13 @@ violate both a layer and a module rule — both are reported.
 
 ### Stories
 
+**Story ejection**:
+The atomic, one-way retirement of Stories from an entire project. It removes
+Story Block narration from application code and deletes Laymos Story files;
+other story-named files and Story support files remain untouched. Partial
+ejection is not supported.
+_Avoid_: unstory
+
 **Story**:
 A named executable narrative for one feature or use case. Its unified account
 is discovered in Trace Mode and includes every declared Decision Arm; Scenarios
@@ -201,7 +208,9 @@ _Avoid_: leaf block
 
 **Decision**:
 A narrated choice between declared Arms. Trace Mode explores every Arm;
-Scenario execution records only the selected Arm.
+Scenario execution records only the selected Arm. An exhaustive Decision that
+receives a value matching no Arm is defective rather than succeeding with an
+undefined value.
 _Avoid_: conditional block
 
 **Visibility**:
@@ -243,12 +252,13 @@ data fails Scenario recording rather than being silently discarded.
 
 **Arm**:
 One structural output of a decision, not itself a block or block visit. A
-literal-keyed Arm is selected by that literal; an Otherwise Arm catches every
-unhandled literal. Every Arm has a required, non-empty description of what the
-choice means, may have a distinct narrative name, and has Visibility. Trace Mode
-explores every Arm body; a Scenario records only its selected Arm and concrete
-child Execution Path. A Decision Visit always has a selected Arm, including
-when that Arm later fails or is interrupted.
+literal-keyed Arm is selected by ordinary strict equality; its key is a string,
+boolean, or finite number, with `0` and `-0` denoting the same choice. An
+Otherwise Arm catches every unhandled literal. Every Arm has a required,
+non-empty description of what the choice means, may have a distinct narrative
+name, and has Visibility. Trace Mode explores every Arm body; a Scenario records
+only its selected Arm and concrete child Execution Path. A Decision Visit always
+has a selected Arm, including when that Arm later fails or is interrupted.
 
 **Story run**:
 The runtime evidence produced by executing every selected Scenario of one

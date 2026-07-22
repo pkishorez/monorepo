@@ -1,4 +1,4 @@
-import { Duration, Effect, Option } from 'effect';
+import { Duration, Effect, FileSystem, Option, Path } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 
 import { analyzeProject, runStories, runStoryGroup } from '../node.js';
@@ -10,6 +10,7 @@ import type {
   StoryRun,
   StorySelectedArm,
 } from '../report/stories.js';
+import { ejectStories } from '../story/eject/index.js';
 
 class CliExit {
   readonly _tag = 'CliExit';
@@ -97,6 +98,33 @@ function stories(
       ),
     );
   });
+}
+
+function eject(
+  dryRun: boolean,
+): Effect.Effect<void, CliExit, FileSystem.FileSystem | Path.Path> {
+  return ejectStories(process.cwd(), { dryRun }).pipe(
+    Effect.tap((result) =>
+      Effect.sync(() => {
+        const prefix = result.dryRun ? 'Would rewrite' : 'Rewrote';
+        const deletePrefix = result.dryRun ? 'Would delete' : 'Deleted';
+        for (const file of result.changed) {
+          process.stdout.write(`${prefix} ${file}\n`);
+        }
+        for (const file of result.deleted) {
+          process.stdout.write(`${deletePrefix} ${file}\n`);
+        }
+        if (result.changed.length === 0 && result.deleted.length === 0) {
+          process.stdout.write('No Laymos Stories found to eject.\n');
+        }
+      }),
+    ),
+    Effect.catch((error) =>
+      Effect.sync(() => {
+        process.stderr.write(red(`Error: ${errorMessage(error)}\n`));
+      }).pipe(Effect.andThen(Effect.fail(new CliExit()))),
+    ),
+  );
 }
 
 function groupPath(input: string): readonly string[] {
@@ -345,6 +373,22 @@ const lintCommand = Command.make('lint', {}, lint).pipe(
   ),
 );
 
+const ejectCommand = Command.make(
+  'eject',
+  {
+    dryRun: Flag.boolean('dry-run').pipe(
+      Flag.withDescription(
+        'Preview rewritten and deleted files without changing them.',
+      ),
+    ),
+  },
+  ({ dryRun }) => eject(dryRun),
+).pipe(
+  Command.withDescription(
+    'Remove Story instrumentation and delete Laymos Story files across the current project.',
+  ),
+);
+
 const storiesCommand = Command.make(
   'stories',
   {
@@ -367,6 +411,7 @@ const storiesCommand = Command.make(
   Command.withDescription(
     'Run Story files or one --group subtree (all Stories by default) and print fresh execution evidence.',
   ),
+  Command.withSubcommands([ejectCommand]),
 );
 
 export const command = Command.make('laymos', {}, () => Effect.void).pipe(

@@ -289,7 +289,7 @@ function sameArm(left: StoryArm, right: ArmDeclaration): boolean {
     left.name === right.name &&
     left.description === right.description &&
     (left.kind === 'otherwise' ||
-      (right.kind === 'literal' && Object.is(left.value, right.value)))
+      (right.kind === 'literal' && left.value === right.value))
   );
 }
 

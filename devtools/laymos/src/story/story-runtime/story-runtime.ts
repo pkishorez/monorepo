@@ -267,6 +267,7 @@ class DecisionBuilderImpl {
     meta: ArmMeta,
     body: (value: DecisionValue) => AnyEffect,
   ): DecisionBuilderImpl {
+    requireDecisionArmValue(value);
     requireDescription(
       meta.description,
       `Decision Arm "${meta.name ?? value}"`,
@@ -297,18 +298,18 @@ class DecisionBuilderImpl {
       visibility: meta.visibility ?? 'primary',
     };
     this.state.arms.push({ declaration: arm, body });
-    return this.run();
+    return this.run(false);
   }
 
   exhaustive(): AnyEffect {
-    return this.run();
+    return this.run(true);
   }
 
   [Symbol.iterator](): Effect.EffectIterator<AnyEffect> {
-    return this.run()[Symbol.iterator]();
+    return this.run(false)[Symbol.iterator]();
   }
 
-  private run(): AnyEffect {
+  private run(exhaustive: boolean): AnyEffect {
     const state = this.state;
     return Effect.gen(function* () {
       const trace = yield* CurrentTrace;
@@ -327,11 +328,16 @@ class DecisionBuilderImpl {
       const selected =
         state.arms.find(
           ({ declaration }) =>
-            declaration.kind === 'literal' &&
-            Object.is(declaration.value, input),
+            declaration.kind === 'literal' && declaration.value === input,
         ) ??
         state.arms.find(({ declaration }) => declaration.kind === 'otherwise');
-      if (selected === undefined) return undefined;
+      if (selected === undefined) {
+        return exhaustive
+          ? yield* Effect.die(
+              new Error(`Unexpected decision value: ${String(input)}`),
+            )
+          : undefined;
+      }
       const selectedArm: SelectedArm =
         selected.declaration.kind === 'otherwise'
           ? { kind: 'otherwise' }
@@ -553,5 +559,11 @@ function makeBlock(
 function requireDescription(description: string, subject: string): void {
   if (description.trim().length === 0) {
     throw new TypeError(`${subject} description must not be empty`);
+  }
+}
+
+function requireDecisionArmValue(value: DecisionValue): void {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new TypeError('Decision Arm numeric values must be finite');
   }
 }

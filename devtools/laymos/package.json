@@ -41,14 +41,15 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
-    "build:watch": "tsc --watch",
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc --noEmit",
+    "lint": "vp check && tsc",
     "lint:laymos": "jiti src/cli/cli.ts lint",
     "test": "vitest run"
   },
   "dependencies": {
+    "@ast-grep/napi": "catalog:",
     "@effect/platform-node": "catalog:",
     "jiti": "catalog:",
     "skott": "catalog:"
