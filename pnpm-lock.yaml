@@ -697,6 +697,9 @@ importers:
       kleur:
         specifier: 'catalog:'
         version: 4.1.5
+      laymos:
+        specifier: workspace:*
+        version: link:../packages/laymos
       type-fest:
         specifier: 'catalog:'
         version: 5.8.0
@@ -737,9 +740,6 @@ importers:
       fake-indexeddb:
         specifier: 'catalog:'
         version: 6.2.5
-      laymos:
-        specifier: workspace:*
-        version: link:../packages/laymos
       react:
         specifier: 'catalog:'
         version: 19.2.7

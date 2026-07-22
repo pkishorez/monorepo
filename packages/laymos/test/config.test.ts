@@ -66,6 +66,22 @@ describe('config', () => {
     ).toThrow(/must reuse module "src\/missing" from config\.modules/);
   });
 
+  it('allows a non-sink layer to connect multiple graphs', () => {
+    const feature = layer('feature', ['src/feature']);
+    const core = layer('core', ['src/core']);
+    const foundation = layer('foundation', ['src/foundation']);
+
+    expect(() =>
+      defineConfig({
+        sourceRoots: ['src'],
+        graphs: [
+          layerGraph('feature', [edge(feature, core)]),
+          layerGraph('core', [edge(core, foundation)]),
+        ],
+      }),
+    ).not.toThrow();
+  });
+
   it('rejects multiple rule declarations for one module', () => {
     const app = layer('app', ['src']);
     const feature = module('src/feature');

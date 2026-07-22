@@ -5,6 +5,7 @@ import type {
   ArmMeta,
   BlockMeta,
   DecisionValue,
+  StoryGroupMeta,
   StoryMeta,
 } from '../core/types.js';
 
@@ -66,6 +67,11 @@ export interface EffectStoryBuilder<R> {
   ): EffectStory<Prepared, Output, Error, R>;
 }
 
+export interface EffectStoryGroup {
+  group(name: string, meta: StoryGroupMeta): EffectStoryGroup;
+  story(name: string, meta: StoryMeta): EffectStoryBuilder<never>;
+}
+
 const inertStory: EffectStory<unknown, unknown, unknown, unknown> = {
   scenario(_name, meta) {
     requireDescription(meta.description, `Scenario "${_name}"`);
@@ -91,9 +97,29 @@ export function story(
   name: string,
   meta: StoryMeta,
 ): EffectStoryBuilder<never> {
+  requirePathSegment(name, 'Story');
   requireDescription(meta.description, `Story "${name}"`);
   return inertStoryBuilder as unknown as EffectStoryBuilder<never>;
 }
+
+/** Declares a reusable Story Group. */
+export function storyGroup(
+  name: string,
+  meta: StoryGroupMeta,
+): EffectStoryGroup {
+  requirePathSegment(name, 'Story Group');
+  requireDescription(meta.description, `Story Group "${name}"`);
+  return inertStoryGroup;
+}
+
+const inertStoryGroup: EffectStoryGroup = {
+  group(name, meta) {
+    requirePathSegment(name, 'Story Group');
+    requireDescription(meta.description, `Story Group "${name}"`);
+    return inertStoryGroup;
+  },
+  story,
+};
 
 type AnyEffect = Effect.Effect<any, any, any>;
 type Success<T> = T extends Effect.Effect<infer A, any, any> ? A : never;
@@ -207,6 +233,15 @@ export function decision<const Input extends DecisionValue>(
 function requireDescription(description: string, subject: string): void {
   if (description.trim().length === 0) {
     throw new TypeError(`${subject} description must not be empty`);
+  }
+}
+
+function requirePathSegment(name: string, subject: string): void {
+  if (name.trim().length === 0) {
+    throw new TypeError(`${subject} name must not be empty`);
+  }
+  if (name.includes('/')) {
+    throw new TypeError(`${subject} name "${name}" must not contain "/"`);
   }
 }
 

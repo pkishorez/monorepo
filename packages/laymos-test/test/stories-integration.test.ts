@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 
-import { discoverStoryIds, runAllStories, runStory } from 'laymos/node';
+import { discoverStories, runAllStories, runStory } from 'laymos/node';
 
 const baseDir = join(import.meta.dirname, '..');
 const checkoutStoryId = 'stories/checkout.story.ts';
@@ -71,9 +71,12 @@ describe('Laymos Stories consumer integration', () => {
   });
 
   it('supports discovery, focused, and complete programmatic generation', async () => {
-    await expect(Effect.runPromise(discoverStoryIds(baseDir))).resolves.toEqual(
-      [accessStoryId, checkoutStoryId, failureStoryId],
-    );
+    const catalog = await Effect.runPromise(discoverStories(baseDir));
+    expect(catalog.stories.map(({ storyId }) => storyId)).toEqual([
+      accessStoryId,
+      checkoutStoryId,
+      failureStoryId,
+    ]);
     const focused = await Effect.runPromise(runStory(baseDir, checkoutStoryId));
     const complete = await Effect.runPromise(runAllStories(baseDir));
 

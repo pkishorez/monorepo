@@ -1,1 +1,7 @@
-export { decision, functionBlock, step, story } from './story-runtime.js';
+export {
+  decision,
+  functionBlock,
+  step,
+  story,
+  storyGroup,
+} from './story-runtime.js';

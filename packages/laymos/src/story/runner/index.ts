@@ -1,9 +1,11 @@
 export {
-  discoverStoryIds,
+  discoverStories,
   executeStories,
+  StoryDiscoveryError,
   StoryRunnerError,
 } from './runner.js';
 export type {
+  StoryDiscoveryIssue,
   StoriesRunResult,
   StoryFailure,
   StoryRunOptions,

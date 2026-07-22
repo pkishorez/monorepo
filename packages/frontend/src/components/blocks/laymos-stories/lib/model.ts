@@ -5,6 +5,9 @@ import type {
   StoryArm,
   StoryArtifact,
   StoryBlock,
+  StoryCatalog,
+  StoryCatalogGroup,
+  StoryGroupPath,
   StoryId,
   StoryScenario,
   StorySelectedArm,
@@ -19,6 +22,7 @@ export interface StoryBlockGraphNode {
   readonly block: StoryBlock;
   readonly visit?: VisitItem;
   readonly observedArms?: readonly string[];
+  readonly expectedFailure?: boolean;
 }
 
 export interface StoryArmGraphNode {
@@ -55,8 +59,26 @@ export interface CollapsedStoryGraph {
 
 export interface StoryEntry {
   readonly storyId: StoryId;
-  readonly story?: StoryArtifact;
+  readonly name: string;
+  readonly description: string;
+  readonly groupPath: StoryGroupPath;
+  readonly artifact?: StoryArtifact;
   readonly scenarios: readonly ScenarioEntry[];
+}
+
+export interface StoryGroupEntry {
+  readonly path: StoryGroupPath;
+  readonly name: string;
+  readonly description: string;
+  readonly groups: readonly StoryGroupEntry[];
+  readonly stories: readonly StoryEntry[];
+  readonly descendantStoryIds: readonly StoryId[];
+}
+
+export interface StoryCatalogTree {
+  readonly groups: readonly StoryGroupEntry[];
+  readonly standaloneStories: readonly StoryEntry[];
+  readonly stories: readonly StoryEntry[];
 }
 
 export interface ScenarioEntry {
@@ -146,11 +168,16 @@ function parallelSpan(spans: readonly PathSpan[]): PathSpan {
   };
 }
 
-type NodeIdFor = (address: string, item: VisitItem) => string;
+type NodeIdFor = (
+  address: string,
+  item: VisitItem,
+  parentBlockId: BlockId | undefined,
+) => string;
 
 function progressiveItemSpan(
   item: ExecutionItem,
   address: string,
+  parentBlockId: BlockId | undefined,
   story: StoryArtifact,
   nodeId: NodeIdFor,
   preserveVisits: boolean,
@@ -164,6 +191,7 @@ function progressiveItemSpan(
         progressivePathSpan(
           branch,
           visitAddress(address, branchIndex),
+          parentBlockId,
           story,
           nodeId,
           preserveVisits,
@@ -177,7 +205,7 @@ function progressiveItemSpan(
 
   const block = story.blocks[item.blockId];
   if (!block) return emptySpan;
-  const id = nodeId(address, item);
+  const id = nodeId(address, item, parentBlockId);
   const previous = nodes.get(id);
   const observedArms = new Set(
     previous?.kind === 'block' ? previous.observedArms : [],
@@ -212,7 +240,7 @@ function progressiveItemSpan(
   }
 
   const childIds = directVisits(item.children, address).map((child) =>
-    nodeId(child.address, child.item),
+    nodeId(child.address, child.item, item.blockId),
   );
   const children = childrenByNode.get(id) ?? new Set<string>();
   for (const childId of childIds) children.add(childId);
@@ -221,6 +249,7 @@ function progressiveItemSpan(
   const childSpan = progressivePathSpan(
     item.children,
     address,
+    item.blockId,
     story,
     nodeId,
     preserveVisits,
@@ -242,6 +271,7 @@ function progressiveItemSpan(
 function progressivePathSpan(
   path: ExecutionPath,
   prefix: string,
+  parentBlockId: BlockId | undefined,
   story: StoryArtifact,
   nodeId: NodeIdFor,
   preserveVisits: boolean,
@@ -254,6 +284,7 @@ function progressivePathSpan(
       progressiveItemSpan(
         item,
         visitAddress(prefix, index),
+        parentBlockId,
         story,
         nodeId,
         preserveVisits,
@@ -280,6 +311,7 @@ function progressiveModel(
     progressivePathSpan(
       scenario.execution,
       '',
+      undefined,
       story,
       nodeId,
       preserveVisits,
@@ -297,15 +329,74 @@ function progressiveModel(
   };
 }
 
-/** Flattens Story containment into execution flow while folding by Block ID. */
+function withoutCycleEdges(
+  model: ProgressiveStoryGraphModel,
+): ProgressiveStoryGraphModel {
+  const outgoing = new Map<string, Set<string>>();
+  const edges: StoryGraphEdge[] = [];
+
+  const reaches = (start: string, target: string): boolean => {
+    const pending = [start];
+    const visited = new Set<string>();
+    while (pending.length > 0) {
+      const current = pending.pop()!;
+      if (current === target) return true;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      pending.push(...(outgoing.get(current) ?? []));
+    }
+    return false;
+  };
+
+  for (const edge of model.edges) {
+    if (edge.source === edge.target || reaches(edge.target, edge.source))
+      continue;
+    edges.push(edge);
+    const targets = outgoing.get(edge.source) ?? new Set<string>();
+    targets.add(edge.target);
+    outgoing.set(edge.source, targets);
+  }
+
+  return { ...model, edges };
+}
+
+function blockParentContexts(
+  scenarios: readonly StoryScenario[],
+): ReadonlyMap<BlockId, ReadonlySet<string>> {
+  const contexts = new Map<BlockId, Set<string>>();
+  const visitPath = (path: ExecutionPath, parentBlockId?: BlockId): void => {
+    for (const item of path) {
+      if ('parallel' in item) {
+        for (const branch of item.parallel) visitPath(branch, parentBlockId);
+        continue;
+      }
+      const parents = contexts.get(item.blockId) ?? new Set<string>();
+      parents.add(parentBlockId ?? 'root');
+      contexts.set(item.blockId, parents);
+      visitPath(item.children, item.blockId);
+    }
+  };
+  for (const scenario of scenarios) {
+    if (scenario.outcome !== 'skipped') visitPath(scenario.execution);
+  }
+  return contexts;
+}
+
+/** Flattens Story containment while separating shared Blocks by direct caller. */
 export function buildProgressiveStoryGraph(
   story: StoryArtifact,
 ): ProgressiveStoryGraphModel {
-  return progressiveModel(
-    story,
-    story.scenarios,
-    (_address, item) => item.blockId,
-    false,
+  const parentContexts = blockParentContexts(story.scenarios);
+  return withoutCycleEdges(
+    progressiveModel(
+      story,
+      story.scenarios,
+      (_address, item, parentBlockId) =>
+        (parentContexts.get(item.blockId)?.size ?? 0) > 1
+          ? `${item.blockId}@${parentBlockId ?? 'root'}`
+          : item.blockId,
+      false,
+    ),
   );
 }
 
@@ -314,7 +405,17 @@ export function buildProgressiveScenarioGraph(
   story: StoryArtifact,
   scenario: StoryScenario,
 ): ProgressiveStoryGraphModel {
-  return progressiveModel(story, [scenario], (address) => address, true);
+  const model = progressiveModel(story, [scenario], (address) => address, true);
+  return {
+    ...model,
+    nodes: model.nodes.map((node) =>
+      node.kind === 'block' &&
+      node.visit?.outcome === 'failed' &&
+      scenario.outcome === 'succeeded'
+        ? { ...node, expectedFailure: true }
+        : node,
+    ),
+  };
 }
 
 function descendantNodeIds(
@@ -418,17 +519,20 @@ export function collapseStoryGraph(
 
 /** Produces stable navigation entries; Scenario order is declaration order. */
 export function buildStoryEntries(
-  storyIds: readonly StoryId[],
+  catalog: StoryCatalog,
   stories: Readonly<Record<StoryId, StoryArtifact>>,
 ): StoryEntry[] {
-  return [...storyIds]
-    .map((storyId) => {
-      const story = stories[storyId];
+  return catalog.stories
+    .map((catalogStory) => {
+      const artifact = stories[catalogStory.storyId];
       return {
-        storyId,
-        story,
+        storyId: catalogStory.storyId,
+        name: catalogStory.name,
+        description: catalogStory.description,
+        groupPath: catalogStory.groupPath,
+        artifact,
         scenarios:
-          story?.scenarios.map((scenario, scenarioIndex) => ({
+          artifact?.scenarios.map((scenario, scenarioIndex) => ({
             scenarioIndex,
             scenario,
           })) ?? [],
@@ -436,8 +540,77 @@ export function buildStoryEntries(
     })
     .sort(
       (left, right) =>
-        (left.story?.name ?? left.storyId).localeCompare(
-          right.story?.name ?? right.storyId,
-        ) || left.storyId.localeCompare(right.storyId),
+        comparePaths(left.groupPath, right.groupPath) ||
+        left.name.localeCompare(right.name) ||
+        left.storyId.localeCompare(right.storyId),
     );
+}
+
+/** Builds the alphabetized Group hierarchy used by both catalog surfaces. */
+export function buildStoryCatalogTree(
+  catalog: StoryCatalog,
+  artifacts: Readonly<Record<StoryId, StoryArtifact>>,
+): StoryCatalogTree {
+  const stories = buildStoryEntries(catalog, artifacts);
+  const storyById = new Map(stories.map((story) => [story.storyId, story]));
+
+  const buildGroup = (group: StoryCatalogGroup): StoryGroupEntry => {
+    const groups = catalog.groups
+      .filter(({ path }) => isDirectChild(path, group.path))
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .map(buildGroup);
+    const directStories = catalog.stories
+      .filter(({ groupPath }) => samePath(groupPath, group.path))
+      .map(({ storyId }) => storyById.get(storyId)!)
+      .sort((left, right) => left.name.localeCompare(right.name));
+    return {
+      path: group.path,
+      name: group.name,
+      description: group.description,
+      groups,
+      stories: directStories,
+      descendantStoryIds: [
+        ...directStories.map(({ storyId }) => storyId),
+        ...groups.flatMap(({ descendantStoryIds }) => descendantStoryIds),
+      ],
+    };
+  };
+
+  const groups = catalog.groups
+    .filter(({ path }) => path.length === 1)
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map(buildGroup);
+  const standaloneStories = catalog.stories
+    .filter(({ groupPath }) => groupPath.length === 0)
+    .map(({ storyId }) => storyById.get(storyId)!)
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  return { groups, standaloneStories, stories };
+}
+
+export const storyGroupKey = pathKey;
+
+function pathKey(path: StoryGroupPath): string {
+  return JSON.stringify(path);
+}
+
+function samePath(left: StoryGroupPath, right: StoryGroupPath): boolean {
+  return (
+    left.length === right.length &&
+    left.every((segment, index) => segment === right[index])
+  );
+}
+
+function isDirectChild(path: StoryGroupPath, parent: StoryGroupPath): boolean {
+  return (
+    path.length === parent.length + 1 && samePath(path.slice(0, -1), parent)
+  );
+}
+
+function comparePaths(left: StoryGroupPath, right: StoryGroupPath): number {
+  for (let index = 0; index < Math.min(left.length, right.length); index++) {
+    const compared = left[index]!.localeCompare(right[index]!);
+    if (compared !== 0) return compared;
+  }
+  return left.length - right.length;
 }

@@ -1,7 +1,7 @@
 import { Duration, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 
-import { analyzeProject, runStories } from '../node.js';
+import { analyzeProject, runStories, runStoryGroup } from '../node.js';
 import type { StoriesRunResult, StoryRunOptions } from '../node.js';
 import type { LaymosReport, Violation } from '../report/index.js';
 import type {
@@ -57,16 +57,30 @@ function lint(): Effect.Effect<void, CliExit> {
 function stories(
   files: readonly string[],
   timeout: Option.Option<string>,
+  group: Option.Option<string>,
 ): Effect.Effect<void, CliExit> {
   return Effect.suspend(() => {
     let options: StoryRunOptions;
+    let selectedGroupPath: readonly string[] | undefined;
     try {
       options = storyRunOptions(timeout);
+      selectedGroupPath = Option.isSome(group)
+        ? groupPath(group.value)
+        : undefined;
     } catch (error) {
       process.stderr.write(red(`Error: ${errorMessage(error)}\n`));
       return Effect.fail(new CliExit());
     }
-    return runStories(process.cwd(), files, options).pipe(
+    if (Option.isSome(group) && files.length > 0) {
+      process.stderr.write(
+        red('Error: --group cannot be combined with Story file arguments\n'),
+      );
+      return Effect.fail(new CliExit());
+    }
+    const run = selectedGroupPath
+      ? runStoryGroup(process.cwd(), selectedGroupPath, options)
+      : runStories(process.cwd(), files, options);
+    return run.pipe(
       Effect.flatMap((result) =>
         Effect.suspend(() => {
           reportStoriesRun(result);
@@ -83,6 +97,16 @@ function stories(
       ),
     );
   });
+}
+
+function groupPath(input: string): readonly string[] {
+  const path = input.split('/').map((segment) => segment.trim());
+  if (path.length === 0 || path.some((segment) => segment.length === 0)) {
+    throw new Error(
+      `Invalid --group "${input}"; use a path such as "DynamoDB / Entities"`,
+    );
+  }
+  return path;
 }
 
 function storyRunOptions(timeout: Option.Option<string>): StoryRunOptions {
@@ -331,11 +355,17 @@ const storiesCommand = Command.make(
         'Default Scenario timeout for this run, e.g. "90 seconds".',
       ),
     ),
+    group: Flag.string('group').pipe(
+      Flag.optional,
+      Flag.withDescription(
+        'Run one Story Group subtree, e.g. "DynamoDB / Entities".',
+      ),
+    ),
   },
-  ({ stories: files, timeout }) => stories(files, timeout),
+  ({ stories: files, timeout, group }) => stories(files, timeout, group),
 ).pipe(
   Command.withDescription(
-    'Run Story files (all of them by default) and print fresh execution evidence.',
+    'Run Story files or one --group subtree (all Stories by default) and print fresh execution evidence.',
   ),
 );
 
@@ -343,4 +373,4 @@ export const command = Command.make('laymos', {}, () => Effect.void).pipe(
   Command.withSubcommands([lintCommand, storiesCommand]),
 );
 
-export const cli = Command.run(command, { version: '0.0.0' });
+export const cli = command.pipe(Command.run({ version: '0.0.0' }));

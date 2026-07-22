@@ -7,11 +7,12 @@ import {
   queryMetrics,
   queryTraces,
 } from '@kishorez/lotel';
-import { discoverStoryIds, runAllStories, runStory } from 'laymos/node';
+import { discoverStories, runStory } from 'laymos/node';
 import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 import { getTrace } from './get-trace/index.js';
 import { runLaymosStream } from './laymos.js';
+import { runStoriesStream } from './stories.js';
 
 const toRpcError = (cause: unknown): DevtoolsRpcError =>
   cause instanceof DevtoolsRpcError
@@ -36,12 +37,13 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
           result: { available: false as const },
         });
   },
-  RunAllStories: ({ path: input }) =>
-    laymosOperation(runAllStories(resolvePath(input))),
+  RunAllStories: ({ path: input }) => runStoriesStream(resolvePath(input)),
   RunStory: ({ path: input, storyId }) =>
     laymosOperation(runStory(resolvePath(input), storyId)),
-  DiscoverStoryIds: ({ path: input }) =>
-    laymosOperation(discoverStoryIds(resolvePath(input))),
+  RunStoryGroup: ({ path: input, groupPath }) =>
+    runStoriesStream(resolvePath(input), groupPath),
+  DiscoverStories: ({ path: input }) =>
+    laymosOperation(discoverStories(resolvePath(input))),
   QueryTraces: ({ sk, limit }) =>
     queryTraces(sk, limit).pipe(Effect.mapError(toRpcError)),
   GetTrace: ({ traceId }) =>

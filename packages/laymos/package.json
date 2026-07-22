@@ -1,9 +1,13 @@
 {
   "name": "laymos",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
   "description": "Layers. Modules. Stories. Declare your architecture once; get enforcement and the diagram for free.",
-  "repository": "pkishorez/monorepo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo"
+  },
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
@@ -30,6 +34,11 @@
   "bin": {
     "laymos": "dist/cli/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",

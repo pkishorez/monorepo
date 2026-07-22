@@ -15,7 +15,6 @@ export function defineConfig(config: LaymosConfig): LaymosConfig {
     ...duplicateLayerNames(normalizedConfig),
     ...duplicateLayerPaths(normalizedConfig),
     ...duplicateIgnoredPaths(normalizedConfig),
-    ...nonSinkSharedLayers(normalizedConfig),
     ...unionCycles(normalizedConfig),
     ...moduleIssues(normalizedConfig),
   ];
@@ -204,31 +203,6 @@ function moduleIssues(config: LaymosConfig): string[] {
     }
   }
 
-  return issues;
-}
-
-function nonSinkSharedLayers(config: LaymosConfig): string[] {
-  const memberships = new Map<string, string[]>();
-  const outgoing = new Set<string>();
-  for (const graph of config.graphs) {
-    for (const layer of graph.layers) {
-      memberships.set(layer.name, [
-        ...(memberships.get(layer.name) ?? []),
-        graph.name,
-      ]);
-    }
-    for (const edge of graph.edges) {
-      outgoing.add(edge.from.name);
-    }
-  }
-  const issues: string[] = [];
-  for (const [layer, graphs] of memberships) {
-    if (graphs.length > 1 && outgoing.has(layer)) {
-      issues.push(
-        `Layer "${layer}" appears in graphs ${graphs.map((g) => `"${g}"`).join(', ')} but has outgoing edges — a layer in multiple graphs must be a sink`,
-      );
-    }
-  }
   return issues;
 }
 

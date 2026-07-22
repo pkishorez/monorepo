@@ -10,5 +10,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@monorepo/frontend"]
+  "ignore": ["@monorepo/frontend", "laymos-test"]
 }

@@ -456,11 +456,19 @@ function BlockRow({
                   'size-3.5',
                   entry.node.visit?.outcome === 'succeeded' &&
                     'text-emerald-600 dark:text-emerald-400',
-                  entry.node.visit?.outcome === 'failed' && 'text-destructive',
+                  entry.node.visit?.outcome === 'failed' &&
+                    !entry.node.expectedFailure &&
+                    'text-destructive',
+                  entry.node.expectedFailure &&
+                    'text-amber-600 dark:text-amber-400',
                   entry.node.visit?.outcome === 'interrupted' &&
                     'text-amber-600 dark:text-amber-400',
                 )}
-                aria-label={entry.node.visit?.outcome}
+                aria-label={
+                  entry.node.expectedFailure
+                    ? 'expected failure'
+                    : entry.node.visit?.outcome
+                }
               />
             )}
           </span>

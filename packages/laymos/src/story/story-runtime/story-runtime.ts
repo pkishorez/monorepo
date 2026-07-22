@@ -3,9 +3,11 @@ import type { Duration, Layer } from 'effect';
 
 import {
   addScenario,
+  declareStoryGroup,
   declareStory,
   type MutableStoryDeclaration,
   type ScenarioExpectation,
+  type StoryGroupDeclaration,
 } from '../core/declare.js';
 import {
   captureLocation,
@@ -22,6 +24,7 @@ import type {
   Attributes,
   BlockMeta,
   DecisionValue,
+  StoryGroupMeta,
   StoryMeta,
 } from '../core/types.js';
 
@@ -83,12 +86,41 @@ export interface EffectStoryBuilder<R> {
   ): EffectStory<Prepared, Output, Error, R>;
 }
 
+export interface EffectStoryGroup {
+  group(name: string, meta: StoryGroupMeta): EffectStoryGroup;
+  story(name: string, meta: StoryMeta): EffectStoryBuilder<never>;
+}
+
 /** Declares the single Story owned by a Story file. */
 export function story(
   name: string,
   meta: StoryMeta,
 ): EffectStoryBuilder<never> {
   return new EffectStoryBuilderImpl(declareStory(name, meta));
+}
+
+/** Declares a reusable Story Group. */
+export function storyGroup(
+  name: string,
+  meta: StoryGroupMeta,
+): EffectStoryGroup {
+  return new EffectStoryGroupImpl(declareStoryGroup(name, meta));
+}
+
+class EffectStoryGroupImpl implements EffectStoryGroup {
+  constructor(private readonly declaration: StoryGroupDeclaration) {}
+
+  group(name: string, meta: StoryGroupMeta): EffectStoryGroup {
+    return new EffectStoryGroupImpl(
+      declareStoryGroup(name, meta, this.declaration),
+    );
+  }
+
+  story(name: string, meta: StoryMeta): EffectStoryBuilder<never> {
+    return new EffectStoryBuilderImpl(
+      declareStory(name, meta, this.declaration),
+    );
+  }
 }
 
 class EffectStoryBuilderImpl implements EffectStoryBuilder<any> {

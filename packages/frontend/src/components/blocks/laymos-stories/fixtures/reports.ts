@@ -1,6 +1,7 @@
 import type {
   ExecutionItem,
   LaymosStoriesReport,
+  StoryCatalog,
   ScenarioOutcome,
   StoryArm,
   StoryArtifact,
@@ -437,3 +438,48 @@ export const singleStoryFixtureReport = {
 export const emptyStoriesFixtureReport = {
   stories: {},
 } satisfies LaymosStoriesReport;
+
+export const storiesFixtureCatalog = {
+  groups: [
+    {
+      path: ['Commerce'],
+      name: 'Commerce',
+      description: 'Customer purchase and refund behavior.',
+    },
+    {
+      path: ['Commerce', 'Orders'],
+      name: 'Orders',
+      description: 'Checkout and post-purchase order behavior.',
+    },
+    {
+      path: ['Support'],
+      name: 'Support',
+      description: 'Support intake and escalation behavior.',
+    },
+  ],
+  stories: [
+    {
+      storyId: checkoutStoryId,
+      name: checkoutStory.name,
+      description: checkoutStory.description,
+      groupPath: ['Commerce', 'Orders'],
+    },
+    {
+      storyId: refundStoryId,
+      name: refundStory.name,
+      description: refundStory.description,
+      groupPath: ['Commerce', 'Orders'],
+    },
+    {
+      storyId: triageStoryId,
+      name: triageStory.name,
+      description: triageStory.description,
+      groupPath: ['Support'],
+    },
+  ],
+} satisfies StoryCatalog;
+
+export const emptyStoriesFixtureCatalog = {
+  groups: [],
+  stories: [],
+} satisfies StoryCatalog;

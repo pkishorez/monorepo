@@ -5,7 +5,13 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { Box, ChevronsDownUp, GitBranch } from 'lucide-react';
+import {
+  Box,
+  ChevronsDownUp,
+  CircleDashed,
+  GitBranch,
+  XCircle,
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -143,6 +149,30 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
   const Icon = kindIcon[graphNode.block.kind];
   const colors = kindStyle[graphNode.block.kind];
   const description = graphNode.block.description;
+  const outcome = graphNode.visit?.outcome;
+  const status =
+    outcome === 'failed' && graphNode.expectedFailure
+      ? {
+          Icon: XCircle,
+          label: 'Expected failure',
+          className:
+            'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+        }
+      : outcome === 'failed'
+        ? {
+            Icon: XCircle,
+            label: 'Failed',
+            className:
+              'border-destructive/35 bg-destructive/10 text-destructive',
+          }
+        : outcome === 'interrupted'
+          ? {
+              Icon: CircleDashed,
+              label: 'Interrupted',
+              className:
+                'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+            }
+          : undefined;
   return (
     <div
       className={cn(
@@ -155,6 +185,12 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
           'border-primary bg-primary/[0.07] shadow-lg ring-[3px] ring-primary/35',
         collapsed &&
           'border-dashed border-primary/70 bg-muted/40 shadow-inner ring-1 ring-primary/15',
+        outcome === 'failed' &&
+          !graphNode.expectedFailure &&
+          'border-destructive/70 bg-destructive/[0.04] shadow-destructive/10',
+        ((outcome === 'failed' && graphNode.expectedFailure) ||
+          outcome === 'interrupted') &&
+          'border-amber-500/60 bg-amber-500/[0.04]',
         muted && !selected && 'opacity-40',
         dimmed && 'opacity-15',
       )}
@@ -184,8 +220,22 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
         <Icon className="size-3.5" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[11px] font-medium">
-          {graphNode.block.name}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
+            {graphNode.block.name}
+          </span>
+          {status && (
+            <span
+              className={cn(
+                'flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-wide',
+                status.className,
+              )}
+              aria-label={status.label}
+            >
+              <status.Icon className="size-2.5" aria-hidden />
+              {status.label}
+            </span>
+          )}
         </span>
         {hiddenNodeCount > 0 && (
           <span className="mt-1 block text-[8px] font-semibold uppercase tracking-wide text-primary">

@@ -20,6 +20,10 @@ export interface StoryMeta {
   readonly description: string;
 }
 
+export interface StoryGroupMeta {
+  readonly description: string;
+}
+
 export interface ScenarioMeta {
   readonly description: string;
 }

@@ -45,6 +45,27 @@ describe('static engine', () => {
     ]);
   });
 
+  it('evaluates reachability across focused graphs', () => {
+    const feature = layer('feature', ['src/feature']);
+    const core = layer('core', ['src/core']);
+    const foundation = layer('foundation', ['src/foundation']);
+    const config = defineConfig({
+      sourceRoots: ['src'],
+      graphs: [
+        layerGraph('feature', [edge(feature, core)]),
+        layerGraph('core', [edge(core, foundation)]),
+      ],
+    });
+    const fileGraph = graph({
+      'src/feature/index.ts': ['src/foundation/index.ts'],
+      'src/foundation/index.ts': [],
+    });
+
+    const resolved = Effect.runSync(resolveProject(config, fileGraph));
+
+    expect(Effect.runSync(evaluateRules(resolved)).violations).toEqual([]);
+  });
+
   it('reports both denying module rules for one import', () => {
     const layerDef = layer('app', ['src']);
     const consumer = module('src/consumer');

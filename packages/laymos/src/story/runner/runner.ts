@@ -27,8 +27,17 @@ import type {
   StoryScenarioFailurePhase,
 } from '../artifact/types.js';
 import { collectDeclaredStories } from '../core/declare.js';
-import type { ScenarioDeclaration, StoryDeclaration } from '../core/declare.js';
+import type {
+  ScenarioDeclaration,
+  StoryDeclaration,
+  StoryGroupDeclaration,
+} from '../core/declare.js';
 import { CurrentRecorder } from '../core/recorder.js';
+import type {
+  StoryCatalog,
+  StoryCatalogGroup,
+  StoryCatalogStory,
+} from '../../report/stories.js';
 
 export interface StoryRunOptions {
   readonly timeout?: Duration.Input;
@@ -53,6 +62,18 @@ export class StoryRunnerError extends Data.TaggedError('StoryRunnerError')<{
   readonly operation: 'discover' | 'execute';
   readonly message: string;
   readonly cause: unknown;
+}> {}
+
+export interface StoryDiscoveryIssue {
+  readonly storyId?: string;
+  readonly message: string;
+}
+
+export class StoryDiscoveryError extends Data.TaggedError(
+  'StoryDiscoveryError',
+)<{
+  readonly message: string;
+  readonly issues: readonly StoryDiscoveryIssue[];
 }> {}
 
 const storyFilePattern = /\.story\.[cm]?[jt]sx?$/;
@@ -84,7 +105,9 @@ function runStoriesGeneration(
     const files =
       filters.length > 0
         ? [...filters].sort()
-        : yield* discoverStoryIds(baseDir);
+        : yield* discoverStories(baseDir).pipe(
+            Effect.map(({ stories }) => stories.map(({ storyId }) => storyId)),
+          );
     yield* attempt(() => {
       for (const storyId of files) {
         validateStoryFile(storyId);
@@ -501,36 +524,211 @@ async function loadStoryModule(
   await jiti.import(path);
 }
 
-export function discoverStoryIds(
+export function discoverStories(
   baseDir: string,
-): Effect.Effect<string[], StoryRunnerError> {
+): Effect.Effect<StoryCatalog, StoryDiscoveryError> {
   return Effect.tryPromise({
-    try: async () => {
-      const files: string[] = [];
-      const directories = [baseDir];
-      while (directories.length > 0) {
-        const directory = directories.pop()!;
-        const entries = await readdir(directory, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isDirectory()) {
-            if (skippedSegments.has(entry.name) || entry.name.startsWith('.')) {
-              continue;
-            }
-            directories.push(join(directory, entry.name));
-            continue;
-          }
-          if (!entry.isFile() || !storyFilePattern.test(entry.name)) continue;
-          const id = relative(baseDir, join(directory, entry.name))
-            .split(sep)
-            .join('/');
-          files.push(id);
-        }
+    try: () => buildStoryCatalog(baseDir),
+    catch: (cause) =>
+      cause instanceof StoryDiscoveryError
+        ? cause
+        : discoveryError([{ message: errorMessage(cause) }]),
+  });
+}
+
+async function buildStoryCatalog(baseDir: string): Promise<StoryCatalog> {
+  const { storyIds, issues } = await discoverStoryFileIds(baseDir);
+  const declarations: Array<{
+    readonly storyId: string;
+    readonly declaration: StoryDeclaration;
+  }> = [];
+
+  for (const storyId of storyIds) {
+    try {
+      const found = await collectDeclaredStories(() =>
+        loadStoryModule(baseDir, storyId),
+      );
+      if (found.length !== 1) {
+        issues.push({
+          storyId,
+          message: `must declare exactly one Story; found ${found.length}`,
+        });
+        continue;
       }
-      files.sort();
-      for (const storyId of files) validateStoryFile(storyId);
-      return files;
-    },
-    catch: (cause) => storyRunnerError('discover', cause),
+      declarations.push({ storyId, declaration: found[0]! });
+    } catch (cause) {
+      issues.push({ storyId, message: errorMessage(cause) });
+    }
+  }
+
+  const catalog = validateStoryCatalog(declarations, issues);
+  if (issues.length > 0) throw discoveryError(issues);
+  return catalog;
+}
+
+async function discoverStoryFileIds(baseDir: string): Promise<{
+  readonly storyIds: string[];
+  readonly issues: StoryDiscoveryIssue[];
+}> {
+  const storyIds: string[] = [];
+  const issues: StoryDiscoveryIssue[] = [];
+  const directories = [baseDir];
+  while (directories.length > 0) {
+    const directory = directories.pop()!;
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (skippedSegments.has(entry.name) || entry.name.startsWith('.')) {
+          continue;
+        }
+        directories.push(join(directory, entry.name));
+        continue;
+      }
+      if (!entry.isFile() || !storyFilePattern.test(entry.name)) continue;
+      const storyId = relative(baseDir, join(directory, entry.name))
+        .split(sep)
+        .join('/');
+      storyIds.push(storyId);
+      try {
+        validateStoryFile(storyId);
+      } catch (cause) {
+        issues.push({ storyId, message: errorMessage(cause) });
+      }
+    }
+  }
+  storyIds.sort();
+  return { storyIds, issues };
+}
+
+function validateStoryCatalog(
+  declarations: readonly {
+    readonly storyId: string;
+    readonly declaration: StoryDeclaration;
+  }[],
+  issues: StoryDiscoveryIssue[],
+): StoryCatalog {
+  const groups = new Map<
+    string,
+    StoryCatalogGroup & { readonly storyId: string }
+  >();
+  const stories: StoryCatalogStory[] = [];
+  const destinations = new Map<
+    string,
+    Map<string, { readonly kind: 'Group' | 'Story'; readonly storyId: string }>
+  >();
+
+  const registerDestination = (
+    parentPath: readonly string[],
+    name: string,
+    kind: 'Group' | 'Story',
+    storyId: string,
+  ): void => {
+    const siblings = destinations.get(pathKey(parentPath)) ?? new Map();
+    destinations.set(pathKey(parentPath), siblings);
+    const existing = siblings.get(name);
+    if (existing === undefined) {
+      siblings.set(name, { kind, storyId });
+      return;
+    }
+    if (kind === 'Group' && existing.kind === 'Group') return;
+    issues.push({
+      storyId,
+      message: `${kind} "${displayPath([...parentPath, name])}" conflicts with ${existing.kind} declared by "${existing.storyId}"`,
+    });
+  };
+
+  for (const { storyId, declaration } of declarations) {
+    const lineage = storyGroupLineage(declaration.group, storyId, issues);
+    const groupPath: string[] = [];
+    for (const group of lineage) {
+      const parentPath = [...groupPath];
+      groupPath.push(group.name);
+      const key = pathKey(groupPath);
+      const existing = groups.get(key);
+      if (existing === undefined) {
+        groups.set(key, {
+          path: [...groupPath],
+          name: group.name,
+          description: group.description,
+          storyId,
+        });
+      } else if (existing.description !== group.description) {
+        issues.push({
+          storyId,
+          message: `Story Group "${displayPath(groupPath)}" conflicts with metadata declared by "${existing.storyId}"`,
+        });
+      }
+      registerDestination(parentPath, group.name, 'Group', storyId);
+    }
+    registerDestination(groupPath, declaration.name, 'Story', storyId);
+    stories.push({
+      storyId,
+      name: declaration.name,
+      description: declaration.description,
+      groupPath,
+    });
+  }
+
+  return {
+    groups: [...groups.values()]
+      .map(({ storyId: _storyId, ...group }) => group)
+      .sort((left, right) => comparePaths(left.path, right.path)),
+    stories: stories.sort(
+      (left, right) =>
+        comparePaths(left.groupPath, right.groupPath) ||
+        left.name.localeCompare(right.name) ||
+        left.storyId.localeCompare(right.storyId),
+    ),
+  };
+}
+
+function storyGroupLineage(
+  leaf: StoryGroupDeclaration | undefined,
+  storyId: string,
+  issues: StoryDiscoveryIssue[],
+): StoryGroupDeclaration[] {
+  const reversed: StoryGroupDeclaration[] = [];
+  const seen = new Set<StoryGroupDeclaration>();
+  let current = leaf;
+  while (current !== undefined) {
+    if (seen.has(current)) {
+      issues.push({
+        storyId,
+        message: 'Story Group ancestry contains a cycle',
+      });
+      return [];
+    }
+    seen.add(current);
+    reversed.push(current);
+    current = current.parent;
+  }
+  return reversed.reverse();
+}
+
+const pathKey = (path: readonly string[]): string => JSON.stringify(path);
+const displayPath = (path: readonly string[]): string => path.join(' / ');
+
+function comparePaths(
+  left: readonly string[],
+  right: readonly string[],
+): number {
+  for (let index = 0; index < Math.min(left.length, right.length); index++) {
+    const compared = left[index]!.localeCompare(right[index]!);
+    if (compared !== 0) return compared;
+  }
+  return left.length - right.length;
+}
+
+function discoveryError(
+  issues: readonly StoryDiscoveryIssue[],
+): StoryDiscoveryError {
+  const details = issues.map(
+    ({ storyId, message }) =>
+      `- ${storyId === undefined ? message : `${storyId}: ${message}`}`,
+  );
+  return new StoryDiscoveryError({
+    message: `Story catalog is invalid:\n${details.join('\n')}`,
+    issues,
   });
 }
 
@@ -552,6 +750,10 @@ function describeFailure(failure: unknown): string {
   if (failure instanceof Error) return failure.message;
   if (typeof failure === 'string') return failure;
   return String(failure);
+}
+
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 function enableSourceMaps(): void {

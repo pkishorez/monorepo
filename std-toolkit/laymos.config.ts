@@ -171,12 +171,12 @@ export default defineConfig({
     'src/tanstack-sync/source-of-truth/__tests__',
   ],
   graphs: [
-    layerGraph('std-toolkit', [
-      edge(eschemaBarrel, eschemaImpl),
-
+    layerGraph('eschema', [edge(eschemaBarrel, eschemaImpl)]),
+    layerGraph('core', [
       edge(coreBarrel, coreImpl),
       edge(coreImpl, eschemaBarrel),
-
+    ]),
+    layerGraph('dynamodb', [
       edge(dynamodbBarrel, [
         dynamodbServices,
         dynamodbExpr,
@@ -196,19 +196,22 @@ export default defineConfig({
       edge(dynamodbInternal, [dynamodbTypes, dynamodbErrors]),
       edge(dynamodbGenerated, dynamodbErrors),
       edge(dynamodbTypes, coreBarrel),
-
+    ]),
+    layerGraph('idb', [
       edge(idbBarrel, [idbServices, idbBrowser]),
       edge(idbServices, [idbDb, idbInternal, coreBarrel]),
       edge(idbBrowser, idbDb),
       edge(idbDb, idbErrors),
       edge(idbInternal, coreBarrel),
       edge(idbErrors, coreBarrel),
-
+    ]),
+    layerGraph('sqlite', [
       edge(sqliteBarrel, [sqliteServices, sqliteSql, sqliteErrors]),
       edge(sqliteServices, [sqliteInternal, sqliteSql, coreBarrel]),
       edge(sqliteInternal, coreBarrel),
       edge(sqliteSql, [sqliteErrors, coreBarrel]),
-
+    ]),
+    layerGraph('tanstack-sync', [
       edge(syncEntrypoint, [
         syncSingleItem,
         syncPartitioned,

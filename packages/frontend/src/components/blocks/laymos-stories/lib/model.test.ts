@@ -1,11 +1,40 @@
 import { describe, expect, it } from 'vitest';
+import type { StoryArtifact } from 'laymos/report';
 
-import { checkoutStory, happyScenarioIndex } from '../fixtures/reports';
+import {
+  checkoutStory,
+  happyScenarioIndex,
+  storiesFixtureCatalog,
+  storiesFixtureReport,
+} from '../fixtures/reports';
 import {
   buildProgressiveScenarioGraph,
   buildProgressiveStoryGraph,
+  buildStoryCatalogTree,
   collapseStoryGraph,
 } from './model';
+
+describe('buildStoryCatalogTree', () => {
+  it('organizes Groups before their direct Stories and preserves descendants', () => {
+    const tree = buildStoryCatalogTree(
+      storiesFixtureCatalog,
+      storiesFixtureReport.stories,
+    );
+
+    expect(tree.groups.map(({ name }) => name)).toEqual([
+      'Commerce',
+      'Support',
+    ]);
+    expect(tree.groups[0]?.groups[0]).toMatchObject({
+      name: 'Orders',
+      descendantStoryIds: [
+        'test/stories/checkout.story.ts',
+        'test/stories/refund.story.ts',
+      ],
+    });
+    expect(tree.standaloneStories).toEqual([]);
+  });
+});
 
 describe('buildProgressiveStoryGraph', () => {
   it('folds visits by block identity and preserves observed decision arms', () => {
@@ -45,6 +74,79 @@ describe('buildProgressiveStoryGraph', () => {
     );
   });
 
+  it('keeps a shared block separate under different direct callers', () => {
+    const scenario = checkoutStory.scenarios[happyScenarioIndex]!;
+    const contextualStory = {
+      ...checkoutStory,
+      blocks: {
+        root: checkoutStory.blocks.checkout!,
+        read: checkoutStory.blocks.inventory!,
+        write: checkoutStory.blocks.payment!,
+        request: checkoutStory.blocks.capture!,
+      },
+      scenarios: [
+        {
+          ...scenario,
+          execution: [
+            {
+              blockId: 'root',
+              outcome: 'succeeded',
+              startOffsetMillis: 0,
+              durationMillis: 10,
+              children: [
+                {
+                  blockId: 'read',
+                  outcome: 'succeeded',
+                  startOffsetMillis: 1,
+                  durationMillis: 3,
+                  children: [
+                    {
+                      blockId: 'request',
+                      outcome: 'succeeded',
+                      startOffsetMillis: 2,
+                      durationMillis: 1,
+                      children: [],
+                    },
+                  ],
+                },
+                {
+                  blockId: 'write',
+                  outcome: 'succeeded',
+                  startOffsetMillis: 5,
+                  durationMillis: 3,
+                  children: [
+                    {
+                      blockId: 'request',
+                      outcome: 'succeeded',
+                      startOffsetMillis: 6,
+                      durationMillis: 1,
+                      children: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } satisfies StoryArtifact;
+
+    const model = buildProgressiveStoryGraph(contextualStory);
+
+    expect(
+      model.nodes
+        .filter((node) => node.kind === 'block' && node.blockId === 'request')
+        .map((node) => node.id),
+    ).toEqual(['request@read', 'request@write']);
+    expect(model.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'read', target: 'request@read' }),
+        expect.objectContaining({ source: 'request@read', target: 'write' }),
+        expect.objectContaining({ source: 'write', target: 'request@write' }),
+      ]),
+    );
+  });
+
   it('shows declared arms that no scenario covered as inactive', () => {
     const model = buildProgressiveStoryGraph(checkoutStory);
 
@@ -63,9 +165,102 @@ describe('buildProgressiveStoryGraph', () => {
       }),
     );
   });
+
+  it('drops folded edges that would turn repeated visits into cycles', () => {
+    const scenario = checkoutStory.scenarios[happyScenarioIndex]!;
+    const repeatedStory = {
+      ...checkoutStory,
+      blocks: {
+        root: checkoutStory.blocks.checkout!,
+        operation: checkoutStory.blocks.reserve!,
+        request: checkoutStory.blocks.capture!,
+      },
+      scenarios: [
+        {
+          ...scenario,
+          execution: [
+            {
+              blockId: 'root',
+              outcome: 'succeeded',
+              startOffsetMillis: 0,
+              durationMillis: 10,
+              children: [
+                {
+                  blockId: 'operation',
+                  outcome: 'succeeded',
+                  startOffsetMillis: 1,
+                  durationMillis: 3,
+                  children: [
+                    {
+                      blockId: 'request',
+                      outcome: 'succeeded',
+                      startOffsetMillis: 2,
+                      durationMillis: 1,
+                      children: [],
+                    },
+                  ],
+                },
+                {
+                  blockId: 'operation',
+                  outcome: 'succeeded',
+                  startOffsetMillis: 5,
+                  durationMillis: 3,
+                  children: [
+                    {
+                      blockId: 'request',
+                      outcome: 'succeeded',
+                      startOffsetMillis: 6,
+                      durationMillis: 1,
+                      children: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } satisfies StoryArtifact;
+
+    const model = buildProgressiveStoryGraph(repeatedStory);
+
+    expect(model.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'root', target: 'operation' }),
+        expect.objectContaining({ source: 'operation', target: 'request' }),
+      ]),
+    );
+    expect(model.edges).not.toContainEqual(
+      expect.objectContaining({ source: 'request', target: 'operation' }),
+    );
+  });
 });
 
 describe('buildProgressiveScenarioGraph', () => {
+  it('marks a failed visit as expected when its scenario succeeds', () => {
+    const failedScenario = checkoutStory.scenarios[2]!;
+    const scenario = { ...failedScenario, outcome: 'succeeded' as const };
+    const model = buildProgressiveScenarioGraph(checkoutStory, scenario);
+
+    expect(model.nodes.find((node) => node.id === '0.2')).toMatchObject({
+      kind: 'block',
+      expectedFailure: true,
+      visit: { outcome: 'failed' },
+    });
+  });
+
+  it('keeps failed visits as errors when their scenario fails', () => {
+    const scenario = checkoutStory.scenarios[2]!;
+    const model = buildProgressiveScenarioGraph(checkoutStory, scenario);
+    const payment = model.nodes.find((node) => node.id === '0.2');
+
+    expect(payment).toMatchObject({
+      kind: 'block',
+      visit: { outcome: 'failed' },
+    });
+    expect(payment).not.toHaveProperty('expectedFailure');
+  });
+
   it('keeps every visit under its structural address', () => {
     const scenario = checkoutStory.scenarios[happyScenarioIndex]!;
     const model = buildProgressiveScenarioGraph(checkoutStory, scenario);

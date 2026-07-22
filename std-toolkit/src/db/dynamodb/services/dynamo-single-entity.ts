@@ -3,6 +3,7 @@ import type {
   ESchemaType,
 } from '../../../eschema/index.js';
 import { Effect, Option, Schema } from 'effect';
+import { decision, step } from 'laymos/story';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
 import type { EntityType } from '../../../core/index.js';
@@ -153,6 +154,33 @@ export class DynamoSingleEntity<
 
       const { Item } = yield* this.#table.getItem({ pk, sk }, options);
 
+      yield* decision(
+        'Resolve DynamoDB singleton read',
+        {
+          description:
+            'Distinguishes stored singleton state from the schema default used before the first write.',
+          attributes: { entity: this.#eschema.name },
+        },
+        Item ? 'stored' : 'default',
+      )
+        .when(
+          'stored',
+          {
+            description:
+              'Decodes the singleton value and metadata stored in DynamoDB.',
+          },
+          () => Effect.void,
+        )
+        .when(
+          'default',
+          {
+            description:
+              'Returns the configured default with synthetic pre-write metadata.',
+          },
+          () => Effect.void,
+        )
+        .exhaustive();
+
       if (!Item) {
         return {
           value: this.#defaultValue,
@@ -174,9 +202,15 @@ export class DynamoSingleEntity<
         value: value as ESchemaType<TSchema>,
         meta,
       };
-    }).pipe(
-      Effect.tapError((e) =>
-        Effect.logError(`[${this.#eschema.name}] get failed`, { error: e }),
+    }).pipe((effect) =>
+      step(
+        'Get DynamoDB singleton',
+        {
+          description:
+            'Reads the singleton record and falls back to its configured default when no row exists.',
+          attributes: { entity: this.#eschema.name },
+        },
+        effect,
       ),
     );
   }
@@ -231,9 +265,15 @@ export class DynamoSingleEntity<
         },
       ]);
       return { value: fullValue, meta };
-    }).pipe(
-      Effect.tapError((e) =>
-        Effect.logError(`[${this.#eschema.name}] put failed`, { error: e }),
+    }).pipe((effect) =>
+      step(
+        'Put DynamoDB singleton',
+        {
+          description:
+            'Encodes and unconditionally writes the complete singleton value with fresh metadata.',
+          attributes: { entity: this.#eschema.name },
+        },
+        effect,
       ),
     );
   }
@@ -260,6 +300,33 @@ export class DynamoSingleEntity<
   > {
     const { update: updates, condition } = params;
     return Effect.gen({ self: this }, function* () {
+      yield* decision(
+        'Choose DynamoDB singleton update form',
+        {
+          description:
+            'Selects whether to compile a partial singleton value or a native update-expression callback.',
+          attributes: { entity: this.#eschema.name },
+        },
+        typeof updates === 'function' ? 'expression' : 'partial',
+      )
+        .when(
+          'expression',
+          {
+            description:
+              'Compiles the caller callback into DynamoDB update operations.',
+          },
+          () => Effect.void,
+        )
+        .when(
+          'partial',
+          {
+            description:
+              'Encodes the supplied singleton fields into DynamoDB set operations.',
+          },
+          () => Effect.void,
+        )
+        .exhaustive();
+
       const _u = yield* nextUlid;
       const { pk, sk, exprResult } =
         typeof updates === 'function'
@@ -301,9 +368,15 @@ export class DynamoSingleEntity<
         value: decodedValue as ESchemaType<TSchema>,
         meta: updatedMeta,
       };
-    }).pipe(
-      Effect.tapError((e) =>
-        Effect.logError(`[${this.#eschema.name}] update failed`, { error: e }),
+    }).pipe((effect) =>
+      step(
+        'Update DynamoDB singleton',
+        {
+          description:
+            'Applies a guarded native update and decodes the singleton state returned by DynamoDB.',
+          attributes: { entity: this.#eschema.name },
+        },
+        effect,
       ),
     );
   }
@@ -361,7 +434,17 @@ export class DynamoSingleEntity<
           };
         },
       } satisfies TransactItem;
-    });
+    }).pipe((effect) =>
+      step(
+        'Build DynamoDB singleton update operation',
+        {
+          description:
+            'Reads singleton state and builds a deferred optimistic update for a later transaction.',
+          attributes: { entity: this.#eschema.name },
+        },
+        effect,
+      ),
+    );
   }
 
   /**
@@ -396,6 +479,34 @@ export class DynamoSingleEntity<
 
         const partial =
           typeof update === 'function' ? update(existing.value) : update;
+
+        yield* decision(
+          'Choose DynamoDB singleton read-modify-write outcome',
+          {
+            description:
+              'Selects whether the derived singleton update skips persistence or writes merged state.',
+            attributes: { entity: this.#eschema.name, attempt },
+          },
+          partial === null ? 'skip' : 'write',
+        )
+          .when(
+            'skip',
+            {
+              description:
+                'Returns current singleton state because the callback requested no write.',
+            },
+            () => Effect.void,
+          )
+          .when(
+            'write',
+            {
+              description:
+                'Merges and conditionally writes the derived singleton state.',
+            },
+            () => Effect.void,
+          )
+          .exhaustive();
+
         if (partial === null) return existing;
 
         const fullValue = {
@@ -445,6 +556,39 @@ export class DynamoSingleEntity<
             () => Effect.succeed(true),
           ),
         );
+
+        yield* decision(
+          'Resolve DynamoDB singleton write conflict',
+          {
+            description:
+              'Distinguishes a successful optimistic write from a retryable or exhausted conflict.',
+            attributes: { entity: this.#eschema.name, attempt },
+          },
+          !conflicted ? 'written' : attempt < retries ? 'retry' : 'exhausted',
+        )
+          .when(
+            'written',
+            { description: 'Continues with the successfully stored value.' },
+            () => Effect.void,
+          )
+          .when(
+            'retry',
+            {
+              description:
+                'Re-reads singleton state and derives the update again after a concurrent write.',
+            },
+            () => Effect.void,
+          )
+          .when(
+            'exhausted',
+            {
+              description:
+                'Fails after the configured number of optimistic retries is exhausted.',
+            },
+            () => Effect.void,
+          )
+          .exhaustive();
+
         if (conflicted) {
           if (attempt < retries) continue;
           return yield* Effect.fail(DynamodbError.conditionCheckFailed());
@@ -458,11 +602,15 @@ export class DynamoSingleEntity<
         ]);
         return { value: fullValue, meta };
       }
-    }).pipe(
-      Effect.tapError((e) =>
-        Effect.logError(`[${this.#eschema.name}] getAndUpdate failed`, {
-          error: e,
-        }),
+    }).pipe((effect) =>
+      step(
+        'Get and update DynamoDB singleton',
+        {
+          description:
+            'Reads singleton state, derives a replacement, and retries its optimistic write after concurrent changes.',
+          attributes: { entity: this.#eschema.name },
+        },
+        effect,
       ),
     );
   }
@@ -538,7 +686,17 @@ export class DynamoSingleEntity<
           };
         },
       } satisfies TransactItem;
-    });
+    }).pipe((effect) =>
+      step(
+        'Build DynamoDB singleton get-and-update operation',
+        {
+          description:
+            'Reads singleton state and builds a deferred full-record optimistic write for a later transaction.',
+          attributes: { entity: this.#eschema.name },
+        },
+        effect,
+      ),
+    );
   }
 
   /** Writes the default value back — single entities are never deleted. */
@@ -547,7 +705,15 @@ export class DynamoSingleEntity<
     DynamodbError,
     DynamoDB
   > {
-    return this.put(this.#defaultValue);
+    return step(
+      'Reset DynamoDB singleton',
+      {
+        description:
+          'Writes the configured default value back as the singleton current state.',
+        attributes: { entity: this.#eschema.name },
+      },
+      this.put(this.#defaultValue),
+    );
   }
 
   #broadcast(entities: EntityType<ESchemaType<TSchema>>[]) {

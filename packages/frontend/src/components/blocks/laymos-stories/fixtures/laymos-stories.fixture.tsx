@@ -1,24 +1,26 @@
 import { useFixtureInput } from 'react-cosmos/client';
-import type { LaymosStoriesReport } from 'laymos/report';
+import type { LaymosStoriesReport, StoryCatalog } from 'laymos/report';
 
 import { LaymosStories } from '../components/laymos-stories';
 import type { LaymosStoriesRunState, LaymosStoriesSelection } from '../types';
 import {
   checkoutStoryId,
+  emptyStoriesFixtureCatalog,
   emptyStoriesFixtureReport,
   singleStoryFixtureReport,
   storiesFixtureReport,
+  storiesFixtureCatalog,
   triageStoryId,
 } from './reports';
 
 function Controlled({
   report = storiesFixtureReport,
-  storyIds = Object.keys(report.stories),
+  catalog = storiesFixtureCatalog,
   runState = null,
   initialSelection = null,
 }: {
   readonly report?: LaymosStoriesReport;
-  readonly storyIds?: readonly string[];
+  readonly catalog?: StoryCatalog;
   readonly runState?: LaymosStoriesRunState;
   readonly initialSelection?: LaymosStoriesSelection;
 }) {
@@ -29,12 +31,13 @@ function Controlled({
   return (
     <div className="h-[880px] w-full min-w-[1040px] p-4">
       <LaymosStories
-        storyIds={storyIds}
+        catalog={catalog}
         report={report}
         runState={runState}
         selection={selection}
         onSelectionChange={setSelection}
         onRunStory={() => undefined}
+        onRunGroup={() => undefined}
         onRunAll={() => undefined}
       />
     </div>
@@ -43,23 +46,15 @@ function Controlled({
 
 export default {
   'no story files': (
-    <Controlled storyIds={[]} report={emptyStoriesFixtureReport} />
-  ),
-  'not run': (
     <Controlled
-      storyIds={Object.keys(storiesFixtureReport.stories)}
+      catalog={emptyStoriesFixtureCatalog}
       report={emptyStoriesFixtureReport}
     />
   ),
-  'partially run': (
-    <Controlled
-      storyIds={Object.keys(storiesFixtureReport.stories)}
-      report={singleStoryFixtureReport}
-    />
-  ),
+  'not run': <Controlled report={emptyStoriesFixtureReport} />,
+  'partially run': <Controlled report={singleStoryFixtureReport} />,
   'running story': (
     <Controlled
-      storyIds={Object.keys(storiesFixtureReport.stories)}
       report={emptyStoriesFixtureReport}
       runState={{ kind: 'story', storyId: checkoutStoryId }}
       initialSelection={{ kind: 'story', storyId: checkoutStoryId }}
@@ -67,7 +62,6 @@ export default {
   ),
   'refreshing story': (
     <Controlled
-      storyIds={Object.keys(storiesFixtureReport.stories)}
       report={storiesFixtureReport}
       runState={{ kind: 'story', storyId: checkoutStoryId }}
       initialSelection={{ kind: 'story', storyId: checkoutStoryId }}

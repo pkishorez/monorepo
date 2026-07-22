@@ -5,7 +5,12 @@ import { join } from 'node:path';
 import { Cause, Effect, Exit } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { discoverStoryIds, runAllStories, runStory } from '../src/node.js';
+import {
+  discoverStories,
+  runAllStories,
+  runStory,
+  runStoryGroup,
+} from '../src/node.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -13,6 +18,11 @@ afterEach(async () => {
   delete (
     globalThis as typeof globalThis & { __laymosCleanupStarted?: unknown }
   ).__laymosCleanupStarted;
+  delete (
+    globalThis as typeof globalThis & { __laymosDiscoveryLoaded?: unknown }
+  ).__laymosDiscoveryLoaded;
+  delete (globalThis as typeof globalThis & { __laymosStoryExecuted?: unknown })
+    .__laymosStoryExecuted;
   await Promise.all(
     temporaryDirectories
       .splice(0)
@@ -200,25 +210,99 @@ describe('Story integration', () => {
     expect(existsSync(join(baseDir, '.laymos'))).toBe(false);
   });
 
-  it('discovers Story IDs without loading their modules', async () => {
+  it('discovers a described Story catalog without executing Stories', async () => {
     const baseDir = await makeBaseDir();
     await writeFile(
       join(baseDir, 'side-effect.story.ts'),
-      `globalThis.__laymosDiscoveryLoaded = true;`,
+      `
+import { Effect } from 'effect';
+import { storyGroup } from 'laymos/story';
+globalThis.__laymosDiscoveryLoaded = true;
+storyGroup('Commerce', { description: 'Purchase behavior' })
+  .group('Checkout', { description: 'Checkout behavior' })
+  .story('Pay', { description: 'Pays for a checkout' })
+  .execute(() => Effect.sync(() => { globalThis.__laymosStoryExecuted = true; }));
+`,
     );
 
-    await expect(Effect.runPromise(discoverStoryIds(baseDir))).resolves.toEqual(
-      ['side-effect.story.ts'],
-    );
+    await expect(Effect.runPromise(discoverStories(baseDir))).resolves.toEqual({
+      groups: [
+        {
+          path: ['Commerce'],
+          name: 'Commerce',
+          description: 'Purchase behavior',
+        },
+        {
+          path: ['Commerce', 'Checkout'],
+          name: 'Checkout',
+          description: 'Checkout behavior',
+        },
+      ],
+      stories: [
+        {
+          storyId: 'side-effect.story.ts',
+          name: 'Pay',
+          description: 'Pays for a checkout',
+          groupPath: ['Commerce', 'Checkout'],
+        },
+      ],
+    });
     expect(
       (globalThis as typeof globalThis & { __laymosDiscoveryLoaded?: boolean })
         .__laymosDiscoveryLoaded,
+    ).toBe(true);
+    expect(
+      (globalThis as typeof globalThis & { __laymosStoryExecuted?: boolean })
+        .__laymosStoryExecuted,
     ).toBeUndefined();
 
     await writeFile(join(baseDir, 'InvalidName.story.ts'), '');
-    await expect(Effect.runPromise(discoverStoryIds(baseDir))).rejects.toThrow(
+    await expect(Effect.runPromise(discoverStories(baseDir))).rejects.toThrow(
       'kebab-case',
     );
+  });
+
+  it('aggregates catalog conflicts across Story files', async () => {
+    const baseDir = await makeBaseDir();
+    await writeFile(
+      join(baseDir, 'first.story.ts'),
+      groupedStorySource('First description'),
+    );
+    await writeFile(
+      join(baseDir, 'second.story.ts'),
+      groupedStorySource('Conflicting description'),
+    );
+
+    const exit = await Effect.runPromiseExit(discoverStories(baseDir));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit)) {
+      const message = Cause.pretty(exit.cause);
+      expect(message).toContain('conflicts with metadata');
+      expect(message).toContain('conflicts with Story');
+    }
+  });
+
+  it('runs every descendant Story in a Group and excludes Standalone Stories', async () => {
+    const baseDir = await makeBaseDir();
+    await writeFile(
+      join(baseDir, 'first.story.ts'),
+      groupedStorySource('Shared description', 'First'),
+    );
+    await writeFile(
+      join(baseDir, 'second.story.ts'),
+      groupedStorySource('Shared description', 'Second', true),
+    );
+    await writeFile(
+      join(baseDir, 'standalone.story.ts'),
+      standaloneStorySource(),
+    );
+
+    const result = await Effect.runPromise(runStoryGroup(baseDir, ['Shared']));
+
+    expect(Object.keys(result.report.stories)).toEqual([
+      'first.story.ts',
+      'second.story.ts',
+    ]);
   });
 
   it('does not discover Stories in skipped directories', async () => {
@@ -227,13 +311,51 @@ describe('Story integration', () => {
       await mkdir(join(baseDir, directory));
       await writeFile(join(baseDir, directory, 'ignored.story.ts'), '');
     }
-    await writeFile(join(baseDir, 'included.story.ts'), '');
-
-    await expect(Effect.runPromise(discoverStoryIds(baseDir))).resolves.toEqual(
-      ['included.story.ts'],
+    await writeFile(
+      join(baseDir, 'included.story.ts'),
+      standaloneStorySource(),
     );
+
+    await expect(Effect.runPromise(discoverStories(baseDir))).resolves.toEqual({
+      groups: [],
+      stories: [
+        {
+          storyId: 'included.story.ts',
+          name: 'Standalone',
+          description: 'A standalone Story',
+          groupPath: [],
+        },
+      ],
+    });
   });
 });
+
+function groupedStorySource(
+  groupDescription: string,
+  storyName = 'Duplicate',
+  nested = false,
+): string {
+  const target = nested
+    ? `.group('Nested', { description: 'Nested behavior' })`
+    : '';
+  return `
+import { Effect } from 'effect';
+import { storyGroup } from 'laymos/story';
+storyGroup('Shared', { description: '${groupDescription}' })
+  ${target}
+  .story('${storyName}', { description: 'Grouped behavior' })
+  .execute(() => Effect.void);
+`;
+}
+
+function standaloneStorySource(): string {
+  return `
+import { Effect } from 'effect';
+import { story } from 'laymos/story';
+story('Standalone', { description: 'A standalone Story' })
+  .execute(() => Effect.void);
+`;
+}
 
 function checkoutStorySource(): string {
   return `

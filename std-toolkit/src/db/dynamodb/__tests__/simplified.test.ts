@@ -5,9 +5,14 @@ const itEffect = <A, E>(
   fn: () => Effect.Effect<A, E, DynamoDB>,
 ) =>
   it(name, () =>
-    Effect.runPromise(fn().pipe(Effect.provide(dynamoDBLayer(localConfig)))),
+    Effect.runPromise(
+      fn().pipe(
+        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provideService(References.MinimumLogLevel, 'None'),
+      ),
+    ),
   );
-import { Effect, Schema, Stream } from 'effect';
+import { Effect, References, Schema, Stream } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
 import { DynamoTable } from '../index.js';
 import {

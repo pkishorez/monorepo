@@ -13,10 +13,15 @@ import { emitReport } from './engine/4-emit/index.js';
 import { ConfigLoadError } from './engine/errors.js';
 import type { LaymosError } from './engine/errors.js';
 import type { AnalysisWarning, LaymosReport } from './report/index.js';
-import type { StoryArtifact, StoryId } from './report/stories.js';
+import type {
+  StoryArtifact,
+  StoryCatalog,
+  StoryGroupPath,
+} from './report/stories.js';
 import {
+  discoverStories as discoverStoryCatalog,
+  StoryDiscoveryError,
   StoryRunnerError,
-  discoverStoryIds as discoverStoryFileIds,
   executeStories,
 } from './story/runner/index.js';
 import type {
@@ -26,8 +31,9 @@ import type {
 } from './story/runner/index.js';
 
 export { ConfigLoadError, ExtractError } from './engine/errors.js';
-export { StoryRunnerError } from './story/runner/index.js';
+export { StoryDiscoveryError, StoryRunnerError } from './story/runner/index.js';
 export type {
+  StoryDiscoveryIssue,
   StoriesRunResult,
   StoryFailure,
   StoryRunOptions,
@@ -59,10 +65,10 @@ export interface StoryRunResult {
 
 export type AllStoriesRunResult = StoriesRunResult;
 
-export function discoverStoryIds(
+export function discoverStories(
   baseDir: string,
-): Effect.Effect<readonly StoryId[], StoryRunnerError> {
-  return discoverStoryFileIds(baseDir);
+): Effect.Effect<StoryCatalog, StoryDiscoveryError> {
+  return discoverStoryCatalog(baseDir);
 }
 
 export function runStory(
@@ -99,6 +105,38 @@ export function runAllStories(
   return executeStories(baseDir, [], options);
 }
 
+export function runStoryGroup(
+  baseDir: string,
+  groupPath: StoryGroupPath,
+  options?: StoryRunOptions,
+): Effect.Effect<StoriesRunResult, StoryDiscoveryError | StoryRunnerError> {
+  return discoverStories(baseDir).pipe(
+    Effect.flatMap((catalog) => {
+      const groupExists = catalog.groups.some(({ path }) =>
+        samePath(path, groupPath),
+      );
+      if (!groupExists) {
+        const cause = new Error(
+          `Story Group "${groupPath.join(' / ')}" was not found`,
+        );
+        return Effect.fail(
+          new StoryRunnerError({
+            operation: 'execute',
+            message: cause.message,
+            cause,
+          }),
+        );
+      }
+      const storyIds = catalog.stories
+        .filter(({ groupPath: storyGroupPath }) =>
+          startsWithPath(storyGroupPath, groupPath),
+        )
+        .map(({ storyId }) => storyId);
+      return executeStories(baseDir, storyIds, options);
+    }),
+  );
+}
+
 /** Runs the given Story files (all of them when empty) and returns fresh evidence. */
 export function runStories(
   baseDir: string,
@@ -106,6 +144,20 @@ export function runStories(
   options?: StoryRunOptions,
 ): Effect.Effect<StoriesRunResult, StoryRunnerError> {
   return executeStories(baseDir, storyIds, options);
+}
+
+function samePath(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((segment, index) => segment === right[index])
+  );
+}
+
+function startsWithPath(
+  path: readonly string[],
+  prefix: readonly string[],
+): boolean {
+  return prefix.every((segment, index) => path[index] === segment);
 }
 
 function loadConfig(

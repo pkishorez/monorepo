@@ -54,12 +54,9 @@ _Why DAG, not tree:_ a "domain" layer importable by many parents means multiple 
 A project can define **multiple layer graphs** — e.g. one for frontend, one for backend.
 
 - A layer **may appear in more than one graph**. There is no special "shared layer" kind — just layers, sometimes used in multiple graphs.
-- **If a layer appears in more than one graph, it must be a sink** — it declares no outgoing edges.
 - The **union of all graphs must be acyclic.** A→B in one graph and B→A in another is a config error. So is any longer cycle formed across graphs.
 - Rules are generated from the **union**. Graphs are how you organize and communicate; the union is what's enforced.
-- Reachability **never tunnels across graphs.** The sink rule guarantees this structurally: a multi-graph layer has no outgoing edges, so nothing can route through it.
-
-_Why the sink rule:_ without it, a layer used in two graphs becomes a tunnel — frontend code could legally reach backend internals through a shared layer, and neither graph would show the path. Making shared usage sink-only kills the problem with one sentence instead of a permission system.
+- Reachability follows that union, including paths whose edges are organized into different graphs. Each graph remains a focused view; together they declare the complete architecture.
 
 ### Scale
 
@@ -148,7 +145,7 @@ outside the inventory. Git tracking and `.gitignore` never affect analysis.
 
 ### The check contract
 
-- **Config errors** (overlapping layers, union cycles, non-sink multi-graph layers, module straddling) → hard fail.
+- **Config errors** (overlapping layers, union cycles, module straddling) → hard fail.
 - **Rule violations** (layer or module) → fail. Lint errors.
 - **Coverage** → warning. Never fails CI.
 
@@ -343,9 +340,10 @@ the surrounding code or use case.
 - A discovered Story file that declares zero Stories or more than one Story is
   an invalid definition. It cannot produce a per-Story artifact and causes the
   execution API to reject rather than returning a test-failure result.
-- The Story ID is that file's project-relative path. Story display names need
-  not be unique; consumers can use relative paths to disambiguate them. Moving
-  the file intentionally creates a new Story identity on the next generation.
+- The Story ID is that file's project-relative path. A Story leaf name is
+  unique among siblings, while the same leaf name may appear in different
+  Story Groups. Moving the file intentionally creates a new execution identity
+  on the next generation.
 - Each Scenario prepares one explicit value for the shared Story execution and
   verifies either its success value or typed error. Preparation, verification,
   and optional cleanup are operational phases outside the narrative.
@@ -368,11 +366,19 @@ the surrounding code or use case.
 ```ts
 // checkout.story.ts
 import { Effect } from 'effect';
-import { story } from 'laymos/story';
+import { storyGroup } from 'laymos/story';
 
-story('checkout', {
-  description: 'Places an order after inventory and payment approval',
-})
+const commerce = storyGroup('Commerce', {
+  description: 'Customer purchase behavior',
+});
+const checkout = commerce.group('Checkout', {
+  description: 'Order placement and payment behavior',
+});
+
+checkout
+  .story('Place an order', {
+    description: 'Places an order after inventory and payment approval',
+  })
   .provide(AppLive)
   .execute((prepared: CheckoutWorld) => checkout(prepared.orderId))
   .scenario(
@@ -398,6 +404,12 @@ story('checkout', {
         .verifyError((error, prepared) => verifyRejection(error, prepared)),
   );
 ```
+
+Story Groups are reusable declaration values and normally live in a shared
+file. Root Groups use `storyGroup()`, nested Groups use `.group()`, and grouped
+Stories use `.story()`. Direct `story()` creates a Standalone Story. Group and
+Story names are non-empty path segments and cannot contain `/`; sibling Groups
+and Stories share one namespace. Every Group has a required description.
 
 `laymos/story` is the only authoring surface. One optional
 Story-level Layer provides the fixed environment used by all lifecycle phases;
@@ -579,8 +591,9 @@ Arm rules above; consumers may trust these invariants.
 `laymos/node` exposes discovery and fresh execution:
 
 ```ts
-discoverStoryIds(baseDir): Effect<readonly StoryId[], StoryRunnerError>
+discoverStories(baseDir): Effect<StoryCatalog, StoryDiscoveryError>
 runStory(baseDir, storyId): Effect<StoryRunResult, StoryRunnerError>
+runStoryGroup(baseDir, groupPath): Effect<StoriesRunResult, StoryDiscoveryError | StoryRunnerError>
 runStories(baseDir, storyIds): Effect<StoriesRunResult, StoryRunnerError>
 runAllStories(baseDir): Effect<AllStoriesRunResult, StoryRunnerError>
 ```
@@ -601,10 +614,18 @@ interface StoriesRunResult {
 }
 ```
 
-`discoverStoryIds` performs filesystem discovery only. It does not import Story
-modules or execute Scenarios. `runStory` executes one project-relative Story
-file; `runStories` executes the requested files; `runAllStories` discovers and
-executes all of them. Display names are never accepted as identifiers.
+`discoverStories` imports every Story module to collect names, descriptions,
+and Group ancestry, but it never prepares or executes a Scenario. Story files
+and their shared imports must therefore remain declaration-only at module
+scope. Discovery validates the complete catalog atomically and reports every
+invalid file, conflicting Group declaration, and sibling-name collision
+together. `runStoryGroup` performs fresh discovery and executes every Story in
+the selected subtree. `runStory` and `runStories` continue to use file-based
+Story IDs.
+
+The CLI mirrors group execution with
+`laymos stories --group "DynamoDB / Entities"`. A Group selection cannot be
+combined with explicit Story file arguments.
 
 The execution APIs run the owned Story runner with `baseDir` as the target
 project's root. The runner discovers `*.story.ts` files itself, loads them

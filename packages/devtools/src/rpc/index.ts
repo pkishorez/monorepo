@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type { AllStoriesRunResult, StoryRunResult } from 'laymos/node';
-import type { LaymosReport } from 'laymos/report';
+import type { StoryRunResult } from 'laymos/node';
+import type { LaymosReport, StoryCatalog } from 'laymos/report';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -50,10 +50,37 @@ export const LaymosEvent = Schema.Union([
 
 export type LaymosEvent = typeof LaymosEvent.Type;
 
-const AllStoriesRunData =
-  Schema.Any as unknown as Schema.Codec<AllStoriesRunResult>;
 const StoryRunData = Schema.Any as unknown as Schema.Codec<StoryRunResult>;
-const StoryIdsData = Schema.Array(Schema.String);
+const StoryCatalogData = Schema.Any as unknown as Schema.Codec<StoryCatalog>;
+
+/** Incremental progress and results emitted while running every Story. */
+export const StoriesEvent = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.Literal('Heartbeat'),
+    elapsedMs: Schema.Number,
+    storyId: Schema.optional(Schema.String),
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('StoryStarted'),
+    storyId: Schema.String,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('StoryResult'),
+    storyId: Schema.String,
+    result: StoryRunData,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('StoryError'),
+    storyId: Schema.String,
+    message: Schema.String,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Result'),
+    status: Schema.Literals(['passed', 'failed']),
+  }),
+]);
+
+export type StoriesEvent = typeof StoriesEvent.Type;
 
 /**
  * A sort-key bound over the monotonic record id. The operator encodes the scan
@@ -104,17 +131,24 @@ export const DevtoolsRpc = RpcGroup.make(
   }),
   Rpc.make('RunAllStories', {
     payload: { path: Schema.String },
-    success: AllStoriesRunData,
+    success: StoriesEvent,
     error: DevtoolsRpcError,
+    stream: true,
   }),
   Rpc.make('RunStory', {
     payload: { path: Schema.String, storyId: Schema.String },
     success: StoryRunData,
     error: DevtoolsRpcError,
   }),
-  Rpc.make('DiscoverStoryIds', {
+  Rpc.make('RunStoryGroup', {
+    payload: { path: Schema.String, groupPath: Schema.Array(Schema.String) },
+    success: StoriesEvent,
+    error: DevtoolsRpcError,
+    stream: true,
+  }),
+  Rpc.make('DiscoverStories', {
     payload: { path: Schema.String },
-    success: StoryIdsData,
+    success: StoryCatalogData,
     error: DevtoolsRpcError,
   }),
   Rpc.make('QueryTraces', {

@@ -31,12 +31,12 @@ _Avoid_: stack (the predecessor's term — retired)
 
 **Union**:
 The merge of all layer graphs' edges — the single graph rules are generated
-from. Must be acyclic. Graphs are for communication; the union is what's
-enforced.
+from. Must be acyclic. Graphs are focused views for communication; the union
+is what's enforced, including reachability across graph boundaries.
 
 **Sink layer**:
-A layer that declares no outgoing edges. Any layer appearing in more than one
-graph must be a sink — this is what stops cross-graph tunneling.
+A layer that declares no outgoing edges. Layers may appear in multiple graphs
+whether or not they are sinks.
 _Avoid_: shared layer (there is no special kind — just a layer used in
 multiple graphs)
 
@@ -68,15 +68,52 @@ violate both a layer and a module rule — both are reported.
 ### Stories
 
 **Story**:
-A named executable narrative for one feature or use case. Every Scenario runs
-the same Story execution after arranging different conditions; their
-observations converge into the Story's unified account. A Story describes only
-the explicitly marked Blocks it observes and makes no claim that the
+A named executable narrative for one feature or use case. Its unified account
+is discovered in Trace Mode and includes every declared Decision Arm; Scenarios
+separately record the concrete routes they execute under arranged conditions.
+A Story describes only the explicitly marked Blocks it observes and makes no claim that the
 surrounding code or use case is complete. Its purpose is to explain how the
 observed implementation logic works, not to claim that the logic has been
 proven. It has a required description. Its identity is the project-relative
-path of its Story file; its display name need not be unique.
+path of its Story file. Its leaf name is unique among Stories in the same
+Story Group, or among Standalone Stories, but may repeat in different Story
+Groups.
+A Story belongs to at most one Story Group; without one, it is a Standalone
+Story.
 _Avoid_: coverage suite, specification
+
+**Trace Mode**:
+The side-effect-free exploration of a Story's narrated flow. It follows every
+declared Decision Arm to reveal the unified Story independently of concrete
+Scenario observations.
+_Avoid_: no-op mode, dry run
+
+**Standalone Story**:
+A Story that belongs to no Story Group and sits directly in the Story
+collection.
+_Avoid_: root Story, global Story, ungrouped Story
+
+**Story path**:
+The authored hierarchical position of a Story. It consists of its ancestor
+Story Group names followed by the Story's leaf name and is independent of the
+Story file's location. A Standalone Story's path contains only its leaf name.
+Every level has one shared namespace for child Story Groups and Stories, so
+each Story path identifies one visible destination. Segment names are non-empty
+and cannot contain `/`, which is reserved for displaying the path.
+_Avoid_: Story ID, file path
+
+**Story group**:
+A named collection of Stories with a required description that may belong to
+one parent Story Group, forming a hierarchy. Story membership is exclusive
+rather than tag-like; a Story Group is not itself a Story. Its identity is its
+full path of Story Group names. Declarations of the same identity must agree on
+metadata.
+_Avoid_: folder, category
+
+**Story catalog**:
+The discoverable collection of Story identities, names, descriptions, and
+Story Group hierarchy available before any Story executes.
+_Avoid_: Report, Artifact
 
 **Scenario**:
 One concrete set of conditions prepared for the same Story execution. Its

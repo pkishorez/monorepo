@@ -1,6 +1,6 @@
 import { captureLocation } from './recorder.js';
 import type { SourceLocation } from './recorder.js';
-import type { StoryMeta } from './types.js';
+import type { StoryGroupMeta, StoryMeta } from './types.js';
 
 export type ScenarioExpectation =
   | {
@@ -39,13 +39,21 @@ export interface StoryExecution {
 export interface StoryDeclaration {
   readonly name: string;
   readonly description: string;
+  readonly group?: StoryGroupDeclaration;
   readonly scenarios: readonly ScenarioDeclaration[];
   readonly execution: StoryExecution | undefined;
+}
+
+export interface StoryGroupDeclaration {
+  readonly name: string;
+  readonly description: string;
+  readonly parent?: StoryGroupDeclaration;
 }
 
 export interface MutableStoryDeclaration {
   readonly name: string;
   readonly description: string;
+  readonly group?: StoryGroupDeclaration;
   readonly scenarios: ScenarioDeclaration[];
   execution: StoryExecution | undefined;
 }
@@ -64,16 +72,33 @@ const collectorHost = globalThis as CollectorHost;
 export function declareStory(
   name: string,
   meta: StoryMeta,
+  group?: StoryGroupDeclaration,
 ): MutableStoryDeclaration {
+  requirePathSegment(name, 'Story');
   requireDescription(meta.description, `Story "${name}"`);
   const declaration: MutableStoryDeclaration = {
     name,
     description: meta.description,
+    ...(group === undefined ? {} : { group }),
     scenarios: [],
     execution: undefined,
   };
   collectorHost[collectorKey]?.(declaration);
   return declaration;
+}
+
+export function declareStoryGroup(
+  name: string,
+  meta: StoryGroupMeta,
+  parent?: StoryGroupDeclaration,
+): StoryGroupDeclaration {
+  requirePathSegment(name, 'Story Group');
+  requireDescription(meta.description, `Story Group "${name}"`);
+  return {
+    name,
+    description: meta.description,
+    ...(parent === undefined ? {} : { parent }),
+  };
 }
 
 /** Adds a Scenario to a mutable Story declaration. */
@@ -93,6 +118,15 @@ export function addScenario(
 function requireDescription(description: string, subject: string): void {
   if (description.trim().length === 0) {
     throw new TypeError(`${subject} description must not be empty`);
+  }
+}
+
+function requirePathSegment(name: string, subject: string): void {
+  if (name.trim().length === 0) {
+    throw new TypeError(`${subject} name must not be empty`);
+  }
+  if (name.includes('/')) {
+    throw new TypeError(`${subject} name "${name}" must not contain "/"`);
   }
 }
 
