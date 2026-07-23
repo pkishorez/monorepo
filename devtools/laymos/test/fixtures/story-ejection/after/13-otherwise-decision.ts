@@ -1,11 +1,7 @@
-import { Effect } from 'effect';
+import { Effect, Match } from 'effect';
 
 
-export const result = Effect.flatMap(Effect.suspend(() => Effect.succeed(route)), (decisionValue) => {
-  switch (decisionValue) {
-    case 'ok':
-      return ((value) => Effect.succeed(value))(decisionValue);
-    default:
-      return ((value) => Effect.fail(value))(decisionValue);
-  }
-});
+export const result = Match.value(route).pipe(
+  Match.when('ok', () => Effect.succeed('ok')),
+  Match.orElse(() => Effect.fail(route)),
+);

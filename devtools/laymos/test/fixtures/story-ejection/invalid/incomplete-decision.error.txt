@@ -1,1 +1,1 @@
-Decision chains must end
+Decision pipes must end with exactly one orElse(...) or exhaustive endpoint

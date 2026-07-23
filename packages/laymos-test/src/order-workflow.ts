@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { all, decision, flow, step } from 'laymos/story';
+import { all, decision, exhaustive, flow, step, when } from 'laymos/story';
 
 export interface CheckoutInput {
   readonly orderId: string;
@@ -43,6 +43,84 @@ const authorizePayment = flow(
     ),
 );
 
+const prepareCheckout = flow(
+  'Prepare checkout',
+  {
+    description:
+      'Runs the independent inventory and payment prerequisites concurrently before the order can be routed.',
+  },
+  (input: CheckoutInput): Effect.Effect<CheckoutResult> =>
+    Effect.gen(function* () {
+      yield* all([reserveInventory(input.orderId), authorizePayment()], {
+        concurrency: 'unbounded',
+      });
+
+      return yield* decision(
+        'Route checkout',
+        {
+          description:
+            'Chooses whether checkout captures payment, requests manual review, or declines the order from the prepared route.',
+          attributes: (route) => ({ route }),
+        },
+        input.route,
+      ).pipe(
+        when(
+          'approved',
+          {
+            name: 'Charge order',
+            description:
+              'The order passed its checks, so checkout may capture the authorized payment and complete automatically.',
+          },
+          () =>
+            step(
+              'Capture payment',
+              {
+                description:
+                  'Captures the previously authorized funds and records the order as charged.',
+              },
+              () => Effect.succeed('charged' as const),
+            ),
+        ),
+        when(
+          'review',
+          {
+            name: 'Review order',
+            description:
+              'Automated checks could not make a final decision with sufficient confidence. Checkout pauses `payment capture`, records the uncertain signals, and sends the order to a **human reviewer** with the full decision context.',
+          },
+          () =>
+            step(
+              'Queue manual review',
+              {
+                description:
+                  'Places the order in the operations queue and leaves payment uncaptured until a reviewer decides.',
+              },
+              () => Effect.succeed('queued' as const),
+            ),
+        ),
+        when(
+          'rejected',
+          {
+            name: 'Decline order',
+            description:
+              'The rejected route means checkout must decline the order without capturing payment.',
+          },
+          () =>
+            step(
+              'Record rejection',
+              {
+                description:
+                  'Records the rejected route so the order remains stopped and its terminal outcome is explainable.',
+                attributes: { route: input.route },
+              },
+              () => Effect.succeed('declined' as const),
+            ),
+        ),
+        exhaustive,
+      );
+    }),
+);
+
 export const checkout = flow(
   'Checkout order',
   {
@@ -54,78 +132,5 @@ export const checkout = flow(
     }),
   },
   (input: CheckoutInput): Effect.Effect<CheckoutResult> =>
-    flow(
-      'Prepare checkout',
-      {
-        description:
-          'Runs the independent inventory and payment prerequisites concurrently before the order can be routed.',
-      },
-      () =>
-        Effect.gen(function* () {
-          yield* all([reserveInventory(input.orderId), authorizePayment()], {
-            concurrency: 'unbounded',
-          });
-
-          return yield* decision(
-            'Route checkout',
-            {
-              description:
-                'Chooses whether checkout captures payment, requests manual review, or declines the order from the prepared route.',
-              attributes: (route) => ({ route }),
-            },
-            () => Effect.succeed(input.route),
-          )
-            .when(
-              'approved',
-              {
-                name: 'Charge order',
-                description:
-                  'The order passed its checks, so checkout may capture the authorized payment and complete automatically.',
-              },
-              () =>
-                step(
-                  'Capture payment',
-                  {
-                    description:
-                      'Captures the previously authorized funds and records the order as charged.',
-                  },
-                  () => Effect.succeed('charged' as const),
-                ),
-            )
-            .when(
-              'review',
-              {
-                name: 'Review order',
-                description:
-                  'Automated checks could not make a final decision with sufficient confidence. Checkout pauses `payment capture`, records the uncertain signals, and sends the order to a **human reviewer** with the full decision context.',
-              },
-              () =>
-                step(
-                  'Queue manual review',
-                  {
-                    description:
-                      'Places the order in the operations queue and leaves payment uncaptured until a reviewer decides.',
-                  },
-                  () => Effect.succeed('queued' as const),
-                ),
-            )
-            .otherwise(
-              {
-                name: 'Decline order',
-                description:
-                  'Any route not handled as approval or review represents an order that checkout must decline.',
-              },
-              (route) =>
-                step(
-                  'Record rejection',
-                  {
-                    description:
-                      'Records the rejected route so the order remains stopped and its terminal outcome is explainable.',
-                    attributes: { route },
-                  },
-                  () => Effect.succeed('declined' as const),
-                ),
-            );
-        }),
-    )(),
+    prepareCheckout(input),
 );

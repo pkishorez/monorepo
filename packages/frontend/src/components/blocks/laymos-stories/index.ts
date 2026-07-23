@@ -7,3 +7,4 @@ export type {
   LaymosStoryExecutionState,
   LaymosStoriesSelection,
 } from './types';
+export type { StoryGraphNode } from './lib/model';

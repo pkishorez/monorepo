@@ -1,4 +1,4 @@
 import * as Fx from 'effect/Effect';
 
 
-export const result = Fx.suspend(() => Fx.void);
+export const result = Fx.void;

@@ -1,10 +1,11 @@
 import { Effect } from 'effect';
-import { decision } from 'laymos/story';
+import { decision, orElse, when } from 'laymos/story';
 
 export const result = decision(
   'Route',
   { description: 'Chooses a route.' },
-  () => Effect.succeed(route),
-)
-  .when('ok', { description: 'Succeeds.' }, (value) => Effect.succeed(value))
-  .otherwise({ description: 'Fails.' }, (value) => Effect.fail(value));
+  route,
+).pipe(
+  when('ok', { description: 'Succeeds.' }, () => Effect.succeed('ok')),
+  orElse({ description: 'Fails.' }, () => Effect.fail(route)),
+);

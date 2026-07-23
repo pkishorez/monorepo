@@ -1,7 +1,5 @@
-import { decision } from 'laymos/story';
+import { decision, when } from 'laymos/story';
 
-export const value = decision('Choice', {}, input).when(
-  'a',
-  {},
-  () => effect,
+export const value = decision('Choice', {}, input).pipe(
+  when('a', {}, () => effect),
 );

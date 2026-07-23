@@ -4,15 +4,24 @@ import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   decision as effectDecision,
+  exhaustive as effectExhaustive,
   flow as effectFlow,
   step as effectStep,
   story as effectStory,
   terminal as effectTerminal,
+  when as effectWhen,
 } from '../src/story/effect/index.js';
+import { step as runtimeStep } from '../src/story/story-runtime/index.js';
+import { traceValue } from '../src/story/artifact/trace.js';
 import { CurrentRecorder } from '../src/story/core/recorder.js';
 import type { StoryRecorder } from '../src/story/core/recorder.js';
 
 describe('Story Blocks', () => {
+  it('models traced collections as empty', () => {
+    expect((traceValue as { readonly length: number }).length).toBe(0);
+    expect([...(traceValue as Iterable<unknown>)]).toEqual([]);
+  });
+
   it('runs yieldable Effect Decision builders', async () => {
     const program = Effect.gen(function* () {
       const selected = 'rejected' as 'approved' | 'rejected';
@@ -22,25 +31,26 @@ describe('Story Blocks', () => {
           description:
             'Routes checkout to payment or rejection according to the fraud result.',
         },
-        () => Effect.succeed(selected),
-      )
-        .when(
+        selected,
+      ).pipe(
+        effectWhen(
           'approved',
           {
             description:
               'Continues to payment because the fraud result approved the order.',
           },
           () => Effect.succeed('paid' as const),
-        )
-        .when(
+        ),
+        effectWhen(
           'rejected',
           {
             description:
               'Stops checkout because the fraud result rejected the order.',
           },
           () => Effect.succeed('stopped' as const),
-        )
-        .exhaustive();
+        ),
+        effectExhaustive,
+      );
     });
 
     await expect(Effect.runPromise(program)).resolves.toBe('stopped');
@@ -49,26 +59,34 @@ describe('Story Blocks', () => {
   it('uses strict Decision equality and defects on impossible exhaustive values', async () => {
     const signedZero = effectDecision(
       'signed zero',
-      { description: 'Treats signed zero as the same narrative choice.' },
+      {
+        description: 'Treats signed zero as the same narrative choice.',
+      },
       -0 as 0,
-    )
-      .when(0, { description: 'Handles zero regardless of its sign.' }, () =>
-        Effect.succeed('zero'),
-      )
-      .exhaustive();
+    ).pipe(
+      effectWhen(
+        0,
+        { description: 'Handles zero regardless of its sign.' },
+        () => Effect.succeed('zero'),
+      ),
+      effectExhaustive,
+    );
     await expect(Effect.runPromise(signedZero)).resolves.toBe('zero');
 
     const impossible = effectDecision(
       'unsafe input',
-      { description: 'Rejects values outside the declared choices.' },
+      {
+        description: 'Rejects values outside the declared choices.',
+      },
       'missing' as 'handled',
-    )
-      .when(
+    ).pipe(
+      effectWhen(
         'handled',
         { description: 'Handles the only declared value.' },
         () => Effect.void,
-      )
-      .exhaustive();
+      ),
+      effectExhaustive,
+    );
     await expect(Effect.runPromise(impossible)).rejects.toThrow(
       'Unexpected decision value: missing',
     );
@@ -79,12 +97,16 @@ describe('Story Blocks', () => {
       expect(() =>
         effectDecision(
           'numeric choice',
-          { description: 'Uses stable numeric narrative choices.' },
-          value,
-        ).when(
-          value,
-          { description: 'Would handle the numeric value.' },
-          () => Effect.void,
+          {
+            description: 'Uses stable numeric narrative choices.',
+          },
+          0 as number,
+        ).pipe(
+          effectWhen(
+            value,
+            { description: 'Would handle the numeric value.' },
+            () => Effect.void,
+          ),
         ),
       ).toThrow('Decision Arm numeric values must be finite');
     }
@@ -126,6 +148,36 @@ describe('Story Blocks', () => {
     expect(executions).toBe(0);
     await expect(Effect.runPromise(operation)).resolves.toBe('found');
     expect(executions).toBe(1);
+  });
+
+  it('records synchronous Block construction failures', async () => {
+    const events: string[] = [];
+    const recorder: StoryRecorder = {
+      declareArm: () => undefined,
+      start: () => {
+        events.push('started');
+        return undefined;
+      },
+      finish: (_token, outcome) => {
+        events.push(outcome);
+      },
+    };
+    const operation = runtimeStep<never, never, never>(
+      'fail during construction',
+      {
+        description:
+          'Throws while constructing the Effect for this narrated operation.',
+      },
+      () => {
+        events.push('constructed');
+        throw new Error('construction failed');
+      },
+    ).pipe(Effect.provideService(CurrentRecorder, recorder));
+
+    await expect(Effect.runPromise(operation)).rejects.toThrow(
+      'construction failed',
+    );
+    expect(events).toEqual(['started', 'constructed', 'failed']);
   });
 
   it('keeps production Blocks inert when a recorder service is present', async () => {
@@ -182,7 +234,11 @@ describe('Story Blocks', () => {
       effectStep('empty step', { description: '' }, () => Effect.void),
     ).toThrow('Step "empty step" description must not be empty');
     expect(() =>
-      effectTerminal('empty terminal', { description: '' }, Effect.void),
+      effectTerminal(
+        'empty terminal',
+        { description: '', completion: { kind: 'success' } },
+        () => Effect.void,
+      ),
     ).toThrow('Terminal "empty terminal" description must not be empty');
     expect(() =>
       effectTerminal(
@@ -191,20 +247,20 @@ describe('Story Blocks', () => {
           description: 'Documents an invalid error name.',
           completion: { kind: 'error', error: ' ' },
         },
-        Effect.void,
+        () => Effect.void,
       ),
     ).toThrow('Terminal error name must not be empty');
     expect(() =>
-      effectDecision('empty decision', { description: '\n' }, () =>
-        Effect.succeed(true),
-      ),
+      effectDecision('empty decision', { description: '\n' }, true),
     ).toThrow('Decision "empty decision" description must not be empty');
     expect(() =>
       effectDecision(
         'valid decision',
-        { description: 'Explains the choice.' },
-        () => Effect.succeed(true),
-      ).when(true, { description: '\t' }, () => Effect.void),
+        {
+          description: 'Explains the choice.',
+        },
+        true,
+      ).pipe(effectWhen(true, { description: '\t' }, () => Effect.void)),
     ).toThrow('Decision Arm "true" description must not be empty');
     expect(() => effectStory('empty story', { description: ' ' })).toThrow(
       'Story "empty story" description must not be empty',

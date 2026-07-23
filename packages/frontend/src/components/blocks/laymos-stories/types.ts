@@ -4,6 +4,8 @@ import type {
   StoryGroupPath,
   StoryId,
 } from 'laymos/report';
+import type { ReactNode } from 'react';
+import type { StoryGraphNode } from './lib/model';
 
 export type LaymosStoriesSelection =
   | { readonly kind: 'group'; readonly groupPath: StoryGroupPath }
@@ -44,6 +46,18 @@ export interface LaymosStoriesProps {
   readonly runState: LaymosStoriesRunState;
   readonly selection: LaymosStoriesSelection;
   readonly onSelectionChange: (selection: LaymosStoriesSelection) => void;
+  readonly selectedNodeId?: string | null;
+  readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
+  readonly onNodeClick?: (
+    node: StoryGraphNode,
+    context: { readonly modified: boolean },
+  ) => void;
+  readonly onGraphNodesChange?: (nodes: readonly StoryGraphNode[]) => void;
+  readonly centerNodeRequest?: {
+    readonly nodeId: string;
+    readonly requestId: number;
+  } | null;
+  readonly renderNodeActions?: (node: StoryGraphNode) => ReactNode;
   readonly onRunStory?: (storyId: StoryId) => void;
   readonly onRunGroup?: (groupPath: StoryGroupPath) => void;
   readonly onRunAll?: () => void;

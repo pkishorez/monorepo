@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 
-import { Effect, Layer, Schema } from 'effect';
+import { Cause, Effect, Layer, Schema } from 'effect';
 
 import {
   EntityESchema,
@@ -116,8 +116,12 @@ export function makeDynamoStoryHarness(slug: string) {
       BillingMode: 'PAY_PER_REQUEST',
     })
     .pipe(
-      Effect.catchCause(() =>
-        Effect.fail(new Error(`DynamoDB Local is required at ${endpoint}`)),
+      Effect.catchCause((cause) =>
+        Effect.fail(
+          new Error(
+            `DynamoDB Local is required at ${endpoint}: ${Cause.pretty(cause)}`,
+          ),
+        ),
       ),
     );
 

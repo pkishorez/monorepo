@@ -238,56 +238,184 @@ Not coverage tooling (istanbul knows _which lines_ ran, not _what they meant_). 
 
 - **`flow(name, meta, fn)`** marks a reusable function whose nested Story Blocks are traversed.
 - **`step(name, meta, thunk)`** marks one opaque operation. Trace Mode records it without calling the thunk.
-- **`terminal(name, meta, operation)`** marks one opaque operation as the documented end of its local sequential branch.
-- **`decision(name, meta, selector)`** records the selector structure and traverses every lazily declared Arm.
-- **`omit(label?, thunk)`** records an omission marker without tracing its body.
+- **`terminal(name, meta, thunk)`** marks one opaque operation as the documented end of its local sequential branch.
+- **`decision(name, meta, value)`** starts a narrated matcher for an already-computed value.
+- **`when(pattern, meta, thunk)`**, **`orElse(meta, thunk)`**, and **`exhaustive`** mirror their Effect Match counterparts while declaring Decision Arms.
+- **`omit({ reason }, thunk)`** records a justified omission without tracing its body.
 - **`all`** and **`forEach`** mirror their Effect counterparts and retain their options in the trace.
+
+`all` and `forEach` create Concurrency Scopes rather than Story Blocks. A scope
+shows its concurrency settings and contains the Block paths executed by its
+branches or representative iteration. It contributes execution structure but
+does not own narrated source. Concurrent
+work should begin with a Flow or another Block so its path is unambiguous.
+Ejection changes only these operators to `Effect.all` and `Effect.forEach` and
+preserves their arguments and options verbatim.
+
+A Flow wraps a function and must be assigned directly to a named variable,
+export, or property. The wrapped function is the Flow's structurally owned
+source range. A Flow cannot wrap an Effect, escape as an unbound value, or be
+invoked directly from its declaration. These restrictions keep Story Block
+ownership unambiguous and let ejection replace the Flow declaration with the
+wrapped function verbatim.
+
+Public Effect-returning service methods should be Flow-valued class fields.
+Pure methods and private helpers remain ordinary code unless they carry
+independently useful narrative. A Story should not add an outer Flow that only
+renames and calls an already narrated service Flow.
 
 Every visible primitive and Decision Arm supports `visibility: 'primary' |
 'detail'`; the default is `primary`.
 
 ```ts
-decision('fraud gate', { description: 'Reject high-risk orders' }, () =>
-  riskOutcome(order),
-)
-  .when(
-    'approved',
-    { name: 'Accept order', description: 'Continue to payment' },
-    () => processPayment(order),
-  )
-  .when(
-    'rejected',
-    {
-      name: 'Reject order',
-      description: 'Stop checkout before any payment is captured',
-    },
-    () => rejectOrder(order),
-  )
-  .exhaustive();
+const checkout = flow(
+  'Checkout',
+  { description: 'Completes an approved order' },
+  (order: Order, riskOutcome: 'approved' | 'rejected') =>
+    Effect.gen(function* () {
+      return yield* decision(
+        'Fraud gate',
+        { description: 'Rejects high-risk orders' },
+        riskOutcome,
+      ).pipe(
+        when(
+          'approved',
+          { name: 'Accept order', description: 'Continue to payment' },
+          () => processPayment(order),
+        ),
+        when(
+          'rejected',
+          {
+            name: 'Reject order',
+            description: 'Stop checkout before payment is captured',
+          },
+          () => rejectOrder(order),
+        ),
+        exhaustive,
+      );
+    }),
+);
 ```
 
-Each `when` removes its literal from the remaining input union and narrows its
-callback to that literal. `exhaustive()` is optional when the chain's result is
-ignored; when present, it is callable only after the union is fully handled and
-returns the selected branch's result. `otherwise(armMeta, fn)` declares one
-fallback Arm, narrows its callback to the remaining union, and returns the
-selected result. A non-exhaustive chain with no matching Arm does nothing, like
-an `if` statement without an `else`. Literal Arms default their narrative name
-to the textual form of their literal; the fallback defaults to `Otherwise`.
+Decision syntax has a one-to-one correspondence with Effect Match:
+`decision` maps to `Match.value`, `when` to `Match.when`, `orElse` to
+`Match.orElse`, and `exhaustive` to `Match.exhaustive`. Ejection performs those
+local substitutions and removes narrative metadata; it never synthesizes
+branching code. A Decision accepts an already-computed value rather than an
+Effect-returning selector. Effectful selection must be completed explicitly
+before matching.
+
+Match determines pattern narrowing, fallback behavior, and exhaustiveness. A
+Decision has two valid expression forms. An assigned Decision derives one value
+from its Arms and then rejoins the containing Flow. A returned Decision owns
+the remaining execution through its Arms. A Decision result may never be
+discarded. An Arm callback cannot return from its containing function.
+
+Story intent and executable behavior should remain one complete expression.
+Story-significant branching belongs in a Decision; implementation-detail
+branching belongs inside an opaque Step. Native `if`, `switch`, ternary, or
+Match branching directly inside a narrated Flow or Arm is discouraged because
+Trace Mode cannot observe it. Story lint rejects only locally provable misuse,
+including a discarded Decision and direct native branching outside an opaque
+Step or Omission; it does not attempt speculative data-flow enforcement.
+
+Laymos Decisions support only JSON-stable literal patterns: strings, finite
+numbers, booleans, and `null`. `undefined`, object patterns, and predicates are
+invalid because Trace Mode and serialized Story artifacts cannot preserve them
+as exact Arm values. Arm callbacks receive no matched-value argument, so a
+fallback requires no fabricated value during tracing. A tagged union therefore
+matches on its discriminant rather than on the whole object. Ejection preserves
+these patterns as ordinary `Match.when` patterns.
+
+Every Decision has one explicit endpoint. A finite primitive literal union must
+enumerate every alternative and end with `exhaustive`; `orElse` is invalid once
+the finite input is fully handled. An open primitive input such as `string`
+must end with `orElse`. A partial matcher with neither endpoint is invalid.
+
+An Arm may declare either an exhaustive `errors` list for intentional typed
+failures that may escape, or `completion` for one required success or named
+error ending. It cannot declare both. Only an Arm of a returned Decision may
+declare completion. Scenario execution checks completion against the observed
+success or failure. Exact error names in `errors` remain explicit
+`verifyError` assertions. Both forms are displayed as Story documentation.
 
 A Terminal executes exactly like a Step and never changes application control
-flow. Its optional `completion` is `{ kind: 'success' }` or
-`{ kind: 'error', error?: string }`; the error name is documentation rather
-than captured runtime data. Trace Mode closes only that sequential branch in
-the nearest containing Flow, or in Story execution when no Flow contains it.
+flow. Its required `completion` is `{ kind: 'success' }` or
+`{ kind: 'error', error: string }`; the non-empty error name documents the
+domain outcome rather than captured runtime data. Trace Mode closes only that
+sequential branch in the nearest containing Flow, or in Story execution when no
+Flow contains it.
 Parallel siblings and the Flow's caller remain open. After execution, a
 Scenario fails when evidence continues on the same branch or its Terminal Visit
 contradicts the declared completion, while retaining the complete Execution
-Path.
+Path. An operation without a declared completion is a Step rather than a
+Terminal.
 
-`laymos/story` provides `yield*`-able Effect builders. Arm callbacks return
-Effects; the matching Effect is selected eagerly and runs when the builder is
-yielded. `exhaustive()` remains an optional type-level proof (ADR-0002).
+New reports always contain Terminal completion. The exported report type keeps
+it optional only so Devtools can read artifacts generated before this contract.
+
+Step and Terminal operations have one authored shape: a thunk returning an
+Effect. The thunk lets Trace Mode record an opaque Block without constructing
+its operation. It is a tracing boundary, not an instruction to add runtime
+deferral to the application. The thunk must only construct and return an Effect;
+required runtime laziness belongs inside that Effect. Story ejection removes the
+Block and its thunk so `step(name, meta, () => operation)` becomes `operation`,
+not `Effect.suspend(() => operation)`.
+
+Every erasable thunk is a concise arrow whose body is one Effect expression.
+Function references, function expressions, and block-bodied callbacks are
+invalid. Decision Arm callbacks are zero-argument concise arrows and follow the
+same single-expression rule. The matched value remains available from the
+surrounding scope. Multi-step work must be expressed within the returned Effect
+or extracted to a Flow.
+
+Step, Terminal, and Omission operations are opaque boundaries and may not
+execute another Story construct, directly or indirectly. Trace Mode does not
+execute their operations, so nested Story activity could not be represented
+consistently. A Scenario that observes a nested Block or Omission beneath one
+of these boundaries fails with guidance to extract the operation to a Flow.
+
+Application source has three mutually exclusive Story classifications. Source
+owned by a Block is narrated. Source
+inside an Omission is explicitly omitted and reported separately. All remaining
+source within the current Story's Traversal scope is unnarrated. Story traversal
+narration describes authored narration only; it is not runtime or test coverage.
+
+Every Omission requires a non-empty `reason`. The reason is visible in Story
+and source diagnostics but disappears with the Omission wrapper during
+ejection. Unlabeled and positional-string Omission forms are invalid.
+
+Narration is computed exclusively from the ejected source projection. Laymos
+imports, metadata, descriptions, thunks, and wrapper syntax are absent from the
+measurement. Preserved application expressions retain provenance to their
+owning Block or Omission. For each Story, its Traversal scope is the union of
+named application function bodies containing Blocks or Omissions reached by
+that Story. Anonymous implementation callbacks are not separate scopes, and a
+called helper with no reached Story construct remains outside the denominator.
+
+Every non-empty ejected line in that scope is counted once. A mixed line is
+narrated when any narrated source intersects it, otherwise omitted when any
+Omission intersects it, and otherwise unnarrated. `laymos lint` reports the
+three line counts and percentages independently for each Story. The percentages
+are diagnostic rather than a threshold or quality gate. `laymos lint stories`
+runs only Story validation and this narration diagnostic; invalid Story traces
+fail Story lint.
+
+Ejection compatibility is an always-on Story authoring invariant. One shared
+validator rejects unsupported syntax during `laymos lint`, Story preflight, and
+ejection preflight. Scenario execution additionally rejects behavioral
+violations that static analysis cannot prove, including indirect Story activity
+beneath an opaque operation. Invalid forms fail when authored rather than being
+deferred until ejection.
+
+This contract replaces the legacy Story authoring forms atomically. There is
+no deprecated compatibility mode: public types, both runtimes, instrumented
+application code, fixtures, and ejection transforms migrate together. Legacy
+syntax fails with a targeted migration diagnostic.
+
+`laymos/story` provides `yield*`-able Effect builders. Decision matching and
+type narrowing follow Effect Match, while Trace Mode traverses every declared
+Arm without evaluating the supplied value or Arm operations.
 
 Active execution context propagates across Effect fibers. Sequential visits
 append to the active execution path; visits that overlap while unfinished
@@ -300,10 +428,9 @@ locations and the fix: wrap each concurrent branch in a block. Ambiguous
 structure is never recorded best-effort; an artifact that finalizes is correct,
 not approximate.
 
-Every block callback also establishes a parent scope. `functionBlock`, `step`, and
-the selected arm of `decision` may therefore contain visits recursively at any
-depth. A `step` can be either a leaf action or a meaningful narrative grouping;
-there is no separate grouping block.
+Flow and Decision Arm callbacks establish parent scopes for nested narrative.
+Step and Terminal remain indivisible leaves, and Omission deliberately stops
+traversal.
 
 Each block carries a required, non-empty static **description** and optional
 per-invocation **attributes** — each scenario stamps its own attribute values
@@ -316,7 +443,7 @@ identity or folding. Arguments, return values, and errors are never captured
 automatically.
 The public type is `Readonly<Record<string, unknown>>`. The `attributes` field
 accepts either a record or a resolver: function arguments are supplied to a
-`functionBlock` resolver, the selected literal to a `decision` resolver, and no
+`flow` resolver, the selected literal to a `decision` resolver, and no
 arguments to a `step` resolver. Laymos JSON-serializes the supplied record and
 stores the resulting JSON data rather than retaining a live object reference.
 In recording mode, serialization failure throws a dedicated error containing
@@ -325,17 +452,20 @@ that serialize follow native `JSON.stringify` semantics. When
 no Scenario recorder is active, block wrappers do not evaluate or serialize
 attribute resolvers.
 
-_Why declared arms:_ runtime-only tracing can't know an un-run branch exists. Declaring arms gives the tracer the decision's known outcomes. **Accepted limitation:** blocks _inside_ a never-taken arm, or in never-loaded files, are invisible. The arm is shown as unobserved without implying that the story is incomplete. No static analysis for stories — stories are runtime, period.
+_Why declared arms:_ runtime-only tracing cannot discover an unselected native
+Match handler. Laymos's Match-shaped operators declare every Arm before the
+matcher runs, allowing Trace Mode to traverse each zero-argument handler
+without evaluating the supplied value. Code outside declared handlers remains
+outside the Decision narrative. No static analysis invents Story structure.
 
 The Decision Block definition owns every declared Arm. A literal Arm has its
-literal structural key; the Otherwise Arm has a reserved internal key. Both
-have a required narrative description and may have a distinct narrative name.
+literal structural key; the `orElse` Arm has a reserved internal key. Both have
+a required narrative description and may have a distinct narrative name.
 Each Decision Visit stores
 its `selectedArm`, including when the selected Arm later fails, and its generic
 `children` execution path contains everything observed within that Arm. The
 Execution Path needs no Decision-specific item type. Every Decision Visit has
-a selected Arm; computing the input value happens before the Decision, just as
-an `if` condition is evaluated before its body.
+a selected Arm; the input value is computed before the Decision.
 
 _Why explicit wrappers despite invasiveness:_ comment directives orphan on refactor; there's no free lunch, only choosing who pays. Bounded by guidance: **wrap functions, not if-statements.** `decision` is the only blessed intra-function construct. If a team finds that intolerable, stories aren't for them — opt-in per flow, like modules.
 
@@ -374,6 +504,11 @@ the surrounding code or use case.
   a successful Scenario through `verifyError`; defects and interruptions never
   can. Phase failures remain distinguishable. Skipped Scenarios contain no
   visits.
+- Each Story Run reports Scenario node coverage as the union of distinct Blocks
+  visited by all executed Scenarios divided by the complete Block catalog from
+  Trace Mode. Repeated Visits count once, skipped Scenarios contribute nothing,
+  and Decision Arm observation remains a separate diagnostic. The CLI names
+  unvisited Blocks and qualifies each unvisited Arm with its Decision name.
 - Story, Scenario, Block, Decision, and Arm descriptions are required and must
   not be empty. Attributes and custom Arm names remain optional.
 
@@ -466,11 +601,12 @@ A generation run records all Scenarios of a Story into **one JSON artifact per S
 The artifact preserves blocks separately from their visits. A block is the
 shared, source-identified narrative unit; a block visit is one occurrence in
 one scenario. The artifact preserves the `flow`, `step`, `decision`, and
-`terminal` Block kinds. Decisions own declared Arms, while Terminals own
-optional completion documentation. A visit has no identifier of its own: its identity is its
-position in the Scenario's execution path, and its value contains facts only —
-Block ID, outcome, selected Arm when applicable, and optional attributes. It
-does not encode parentage, ordering, or next relationships.
+`terminal` Block kinds. Decisions own declared Arms and their outcome
+documentation, while Terminals own required completion documentation. A visit
+has no identifier of its own: its identity is its position in the Scenario's
+execution path, and its value contains facts only — Block ID, outcome, selected
+Arm when applicable, and optional attributes. It does not encode parentage,
+ordering, or next relationships.
 
 The Scenario owns one recursive execution path. The path is an array, so array
 order means sequence. A Visit item carries its facts and owns a nested child
@@ -491,18 +627,29 @@ interface StoryRun {
 type Arm =
   | {
       readonly kind: 'literal';
-      readonly value: string | number | boolean;
+      readonly value: string | number | boolean | null;
       readonly name: string;
       readonly description: string;
+      readonly errors?: readonly string[];
+      readonly completion?: Completion;
     }
   | {
       readonly kind: 'otherwise';
       readonly name: string;
       readonly description: string;
+      readonly errors?: readonly string[];
+      readonly completion?: Completion;
     };
 
+type Completion =
+  | { readonly kind: 'success' }
+  | { readonly kind: 'error'; readonly error: string };
+
 type SelectedArm =
-  | { readonly kind: 'literal'; readonly value: string | number | boolean }
+  | {
+      readonly kind: 'literal';
+      readonly value: string | number | boolean | null;
+    }
   | { readonly kind: 'otherwise' };
 
 type Block =
@@ -517,12 +664,11 @@ type Block =
       readonly name: string;
       readonly description: string;
       readonly location: StorySourceLocation;
-      readonly completion?:
-        | { readonly kind: 'success' }
-        | { readonly kind: 'error'; readonly error?: string };
+      readonly completion?: Completion;
     }
   | {
       readonly kind: 'decision';
+      readonly role?: 'value' | 'control-flow';
       readonly name: string;
       readonly description: string;
       readonly location: StorySourceLocation;
@@ -686,20 +832,32 @@ same preflight and reports planned changes without writing. Storybook's plural
 `*.stories.*` files and Story support files are left alone.
 
 Terminal narration ejects with Step-equivalent semantics: its name,
-description, and completion are removed while its direct or thunked Effect
-operation is preserved.
+description, completion, and tracing thunk are removed while the returned
+Effect expression is preserved.
 
 Ejection recognizes direct named imports, aliases, and namespace imports from
-`laymos/story`. It aborts before writing when an imported Block escapes a direct
-call, a Decision builder does not end in `otherwise` or `exhaustive`, or the
-source uses re-exports or dynamic imports. Ejection does not run a formatter,
-type checker, or test suite afterward.
+`laymos/story`. Before changing files it validates every authored shape, parses
+every transformed file, proves that no ejectable Story imports or calls remain,
+and verifies that a second transformation makes no changes. Any failure aborts
+the project-wide operation before its transactional write and Story-file
+deletion phase. Re-exports and dynamic imports remain invalid.
+
+Ejection is formatter-independent. Its transformations are limited to exact
+unwrapping and local substitutions to native Effect and Match constructs. It
+removes obsolete imports and wrapper-created whitespace itself, and its golden
+outputs must already satisfy the repository formatter. It never reformats
+unrelated authored code or requires a consumer formatting tool.
+
+Ejection does not run a consumer formatter, type checker, or test suite. Those
+commands remain project-owned verification after the internally verified
+transaction completes.
 
 ### Outside a Scenario
 
 The production `laymos/story` entry has no recording capability. Its `flow`
-executes the wrapped function, `step` and `terminal` execute their operations,
-and `decision` performs only the selected branching. Attribute
+returns the wrapped function, `step`, `terminal`, and `omit` return the Effect
+constructed by their thunk, and Decision operators preserve Effect Match
+semantics. They add no `Effect.suspend` boundary. Attribute
 resolvers are not evaluated, and there is no recorder lookup, source-location
 capture, serialization, event emission, or runtime configuration.
 

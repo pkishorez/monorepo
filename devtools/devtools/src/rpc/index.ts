@@ -54,6 +54,35 @@ const StoryRunData = Schema.Any as unknown as Schema.Codec<StoryRunResult>;
 const StoryCollectionData =
   Schema.Any as unknown as Schema.Codec<StoryCollection>;
 
+const LaymosBootstrapData = Schema.Struct({
+  architecture: LaymosData,
+  stories: StoryCollectionData,
+  files: Schema.Array(Schema.String),
+});
+
+const LaymosBootstrapSuccess = Schema.Union([
+  Schema.Struct({ available: Schema.Literal(false) }),
+  Schema.Struct({
+    available: Schema.Literal(true),
+    data: LaymosBootstrapData,
+  }),
+]);
+
+export type LaymosBootstrapResult = typeof LaymosBootstrapSuccess.Type;
+
+export const LaymosBootstrapEvent = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.Literal('Heartbeat'),
+    elapsedMs: Schema.Number,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Result'),
+    result: LaymosBootstrapSuccess,
+  }),
+]);
+
+export type LaymosBootstrapEvent = typeof LaymosBootstrapEvent.Type;
+
 /** Incremental progress and results emitted while running every Story. */
 export const StoriesEvent = Schema.Union([
   Schema.Struct({
@@ -117,6 +146,31 @@ const MetricListSuccess = Schema.Struct({
 });
 const ClearSuccess = Schema.Struct({ deleted: Schema.Number });
 
+const StorySourceAnchorData = Schema.Struct({
+  id: Schema.String,
+  line: Schema.Number,
+  column: Schema.Number,
+  classification: Schema.optional(Schema.Literals(['narrated', 'omitted'])),
+  reason: Schema.optional(Schema.String),
+});
+
+const StorySourceProjectionData = Schema.Struct({
+  content: Schema.String,
+  ranges: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      classification: Schema.Literals(['narrated', 'omitted', 'unnarrated']),
+      reason: Schema.optional(Schema.String),
+      start: Schema.Number,
+      end: Schema.Number,
+      startLine: Schema.Number,
+      startColumn: Schema.Number,
+      endLine: Schema.Number,
+      endColumn: Schema.Number,
+    }),
+  ),
+});
+
 /**
  * The DevTools umbrella RPC surface consumed by the `/devtools` route. Carries
  * the Dependencies procedure (`RunLaymos`, path-driven) and the global
@@ -124,6 +178,12 @@ const ClearSuccess = Schema.Struct({ deleted: Schema.Number });
  * *ingestion* is served separately over OTLP/HTTP (see ADR 0001).
  */
 export const DevtoolsRpc = RpcGroup.make(
+  Rpc.make('BootstrapLaymosProject', {
+    payload: { path: Schema.String },
+    success: LaymosBootstrapEvent,
+    error: DevtoolsRpcError,
+    stream: true,
+  }),
   Rpc.make('RunLaymos', {
     payload: { path: Schema.String },
     success: LaymosEvent,
@@ -150,6 +210,28 @@ export const DevtoolsRpc = RpcGroup.make(
   Rpc.make('GetStories', {
     payload: { path: Schema.String },
     success: StoryCollectionData,
+    error: DevtoolsRpcError,
+  }),
+  Rpc.make('ReadProjectFile', {
+    payload: { path: Schema.String, filePath: Schema.String },
+    success: Schema.Struct({
+      filePath: Schema.String,
+      content: Schema.String,
+    }),
+    error: DevtoolsRpcError,
+  }),
+  Rpc.make('ReadStorySource', {
+    payload: {
+      path: Schema.String,
+      filePath: Schema.String,
+      anchors: Schema.Array(StorySourceAnchorData),
+    },
+    success: Schema.Struct({
+      filePath: Schema.String,
+      source: Schema.String,
+      ejected: StorySourceProjectionData,
+      clean: StorySourceProjectionData,
+    }),
     error: DevtoolsRpcError,
   }),
   Rpc.make('QueryTraces', {

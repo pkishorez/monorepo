@@ -1,5 +1,12 @@
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { Cause, Effect, Exit } from 'effect';
@@ -14,6 +21,11 @@ import {
 } from '../src/node.js';
 
 const temporaryDirectories: string[] = [];
+const integrationFixtureRoot = join(
+  import.meta.dirname,
+  'fixtures',
+  'story-integration',
+);
 
 afterEach(async () => {
   delete (
@@ -58,7 +70,42 @@ describe('Story integration', () => {
     expect(Object.values(trace.blocks).map(({ kind }) => kind)).toContain(
       'flow',
     );
+    expect(
+      Object.values(trace.blocks).some(
+        ({ location }) =>
+          location.endLine !== undefined && location.endLine > location.line,
+      ),
+    ).toBe(true);
     expect(collection.catalog.stories).toHaveLength(1);
+  });
+
+  it('captures each piped Decision Arm at its authored location', async () => {
+    const baseDir = await makeBaseDir();
+    const storyId = 'arm-locations.story.ts';
+    await copyFile(
+      join(integrationFixtureRoot, storyId),
+      join(baseDir, storyId),
+    );
+
+    const collection = await Effect.runPromise(getStories(baseDir));
+    const trace = collection.traces[storyId];
+    expect(trace?.status).toBe('valid');
+    if (trace?.status !== 'valid') return;
+    const decision = Object.values(trace.blocks).find(
+      (block) => block.kind === 'decision',
+    );
+    expect(decision?.kind).toBe('decision');
+    if (decision?.kind !== 'decision') return;
+    const actual = decision.arms.map(({ location }) =>
+      location ? `${location.file}:${location.line}` : null,
+    );
+    const expected = JSON.parse(
+      await readFile(
+        join(integrationFixtureRoot, 'arm-locations.expected.json'),
+        'utf8',
+      ),
+    );
+    expect(actual).toEqual(expected);
   });
 
   it('loads each Story module once while building traces', async () => {
@@ -107,11 +154,18 @@ story('Single load', { description: 'Loads once during discovery' })
         expect(visit.durationMillis).toBeTypeOf('number');
       }
     }
-    expect(
-      Object.values(artifact.blocks).some(
-        (block) => block.kind === 'decision' && block.arms.length === 2,
-      ),
-    ).toBe(true);
+    const decision = Object.values(artifact.blocks).find(
+      (block) => block.kind === 'decision' && block.arms.length === 2,
+    );
+    expect(decision).toBeDefined();
+    if (decision?.kind === 'decision') {
+      for (const arm of decision.arms) {
+        expect(arm.location).toMatchObject({ file: storyId });
+        expect(arm.location?.endLine).toBeGreaterThanOrEqual(
+          arm.location?.line ?? 0,
+        );
+      }
+    }
     expect(existsSync(join(baseDir, '.laymos'))).toBe(false);
   });
 
@@ -174,6 +228,37 @@ story('Single load', { description: 'Loads once during discovery' })
       '"terminalMismatch":true',
     );
     expect(result.run.scenarios[4]?.failures).toEqual([]);
+    expect(result.run.scenarioNodeCoverage).toMatchObject({
+      visited: expect.any(Number),
+      total: expect.any(Number),
+      percentage: expect.any(Number),
+    });
+    expect(result.run.scenarioNodeCoverage?.visited).toBeLessThan(
+      result.run.scenarioNodeCoverage?.total ?? 0,
+    );
+  });
+
+  it('validates Decision Arm completion against Scenario evidence', async () => {
+    const baseDir = await makeBaseDir();
+    const storyId = 'arm-completion.story.ts';
+    await writeFile(join(baseDir, storyId), armCompletionStorySource());
+
+    const result = await Effect.runPromise(runStory(baseDir, storyId));
+
+    expect(result.run.scenarios.map(({ outcome }) => outcome)).toEqual([
+      'succeeded',
+      'failed',
+    ]);
+    expect(result.run.scenarios[1]?.failures).toEqual([
+      {
+        phase: 'execution',
+        message:
+          'Arm "Mislabeled path" on Decision "Complete route" declares success completion but its Visit was failed',
+      },
+    ]);
+    expect(JSON.stringify(result.run.scenarios[1]?.execution)).toContain(
+      '"terminalMismatch":true',
+    );
   });
 
   it('runs Effect Scenarios and interrupts on timeout', async () => {
@@ -455,17 +540,18 @@ story('Standalone', { description: 'A standalone Story' })
 function checkoutStorySource(): string {
   return `
 import { Effect } from 'effect';
-import { decision, flow, step, story } from 'laymos/story';
+import { decision, exhaustive, flow, step, story, when } from 'laymos/story';
 import { strict as assert } from 'node:assert';
 
 const checkout = flow(
   'checkout',
   { description: 'Routes a prepared checkout to its payment or rejection outcome.', attributes: (outcome) => ({ outcome }) },
   (outcome) =>
-    decision('fraud gate', { description: 'Chooses whether the fraud outcome permits payment.' }, () => Effect.succeed(outcome))
-      .when('approved', { description: 'Allows payment because fraud checks approved the order.' }, () => step('charge card', { description: 'Charges the approved order to complete payment.' }, () => Effect.succeed('paid')))
-      .when('rejected', { description: 'Stops payment because fraud checks rejected the order.' }, () => step('reject order', { description: 'Records the rejected checkout without charging the customer.' }, () => Effect.succeed('stopped')))
-      .exhaustive(),
+    decision('fraud gate', { description: 'Chooses whether the fraud outcome permits payment.' }, outcome).pipe(
+      when('approved', { description: 'Allows payment because fraud checks approved the order.' }, () => step('charge card', { description: 'Charges the approved order to complete payment.' }, () => Effect.succeed('paid'))),
+      when('rejected', { description: 'Stops payment because fraud checks rejected the order.' }, () => step('reject order', { description: 'Records the rejected checkout without charging the customer.' }, () => Effect.succeed('stopped'))),
+      exhaustive,
+    ),
 );
 
 story('checkout', { description: 'Routes checkout by fraud outcome' })
@@ -494,14 +580,14 @@ const nested = flow(
       description: 'Ends only the nested lookup branch.',
       completion: { kind: 'success' },
     },
-    Effect.succeed('nested' as const),
+    () => Effect.succeed('nested' as const),
   ),
 );
 
 const execute = (mode: 'nested' | 'root-mismatch' | 'error' | 'completion-mismatch' | 'parallel') => {
   if (mode === 'nested') {
     return nested().pipe(
-      Effect.andThen(step('after decision', { description: 'Continues after the nested Flow.' }, Effect.void)),
+      Effect.andThen(step('after decision', { description: 'Continues after the nested Flow.' }, () => Effect.void)),
       Effect.as('nested' as const),
     );
   }
@@ -509,9 +595,9 @@ const execute = (mode: 'nested' | 'root-mismatch' | 'error' | 'completion-mismat
     return terminal(
       'finish root branch',
       { description: 'Claims this root branch ends.', completion: { kind: 'success' } },
-      Effect.succeed('root-mismatch' as const),
+      () => Effect.succeed('root-mismatch' as const),
     ).pipe(
-      Effect.andThen(step('after decision', { description: 'Incorrectly continues the root branch.' }, Effect.void)),
+      Effect.andThen(step('after decision', { description: 'Incorrectly continues the root branch.' }, () => Effect.void)),
       Effect.as('root-mismatch' as const),
     );
   }
@@ -522,14 +608,14 @@ const execute = (mode: 'nested' | 'root-mismatch' | 'error' | 'completion-mismat
         description: 'Rejects the request at this root branch.',
         completion: { kind: 'error', error: 'RequestRejected' },
       },
-      Effect.fail(new Error('rejected')),
+      () => Effect.fail(new Error('rejected')),
     );
   }
   if (mode === 'completion-mismatch') {
     return terminal(
       'mislabel failure',
       { description: 'Incorrectly documents a successful ending.', completion: { kind: 'success' } },
-      Effect.fail(new Error('mislabeled')),
+      () => Effect.fail(new Error('mislabeled')),
     );
   }
   if (mode === 'parallel') {
@@ -537,22 +623,22 @@ const execute = (mode: 'nested' | 'root-mismatch' | 'error' | 'completion-mismat
       terminal(
         'finish parallel branch',
         { description: 'Ends one parallel branch.', completion: { kind: 'success' } },
-        Effect.succeed('terminal'),
+        () => Effect.succeed('terminal'),
       ),
       step(
         'parallel sibling',
         { description: 'Runs independently beside the Terminal branch.' },
-        Effect.succeed('sibling'),
+        () => Effect.succeed('sibling'),
       ),
     ]).pipe(
-      Effect.andThen(step('after decision', { description: 'Continues after parallel branches.' }, Effect.void)),
+      Effect.andThen(step('after decision', { description: 'Continues after parallel branches.' }, () => Effect.void)),
       Effect.as('parallel' as const),
     );
   }
   return terminal(
     'trace terminal',
-    { description: 'Makes the structural trace expose Terminal narration.' },
-    Effect.succeed('trace' as const),
+    { description: 'Makes the structural trace expose Terminal narration.', completion: { kind: 'success' } },
+    () => Effect.succeed('trace' as const),
   );
 };
 
@@ -572,6 +658,54 @@ story('Terminal routes', { description: 'Exercises local Terminal documentation.
   )
   .scenario('parallel sibling', { description: 'Allows siblings and the outer branch to continue.' }, (scenario) =>
     scenario.prepare(() => Effect.succeed('parallel' as const)).verify((value) => Effect.sync(() => assert.equal(value, 'parallel'))),
+  );
+`;
+}
+
+function armCompletionStorySource(): string {
+  return `
+import { strict as assert } from 'node:assert';
+import { Effect } from 'effect';
+import { decision, exhaustive, story, when } from 'laymos/story';
+
+const execute = (mode: 'success' | 'mismatch') =>
+  decision(
+    'Complete route',
+    { description: 'Completes through the selected Arm.' },
+    mode,
+  ).pipe(
+    when(
+      'success',
+      {
+        name: 'Successful path',
+        description: 'Completes successfully.',
+        completion: { kind: 'success' },
+      },
+      () => Effect.succeed('done' as const),
+    ),
+    when(
+      'mismatch',
+      {
+        name: 'Mislabeled path',
+        description: 'Incorrectly claims successful completion.',
+        completion: { kind: 'success' },
+      },
+      () => Effect.fail(new Error('failed')),
+    ),
+    exhaustive,
+  );
+
+story('Arm completion', { description: 'Validates Arm completion evidence.' })
+  .execute(execute)
+  .scenario('matching completion', { description: 'Matches successful completion.' }, (scenario) =>
+    scenario
+      .prepare(() => Effect.succeed('success' as const))
+      .verify((value) => Effect.sync(() => assert.equal(value, 'done'))),
+  )
+  .scenario('mismatched completion', { description: 'Finds a mislabeled failed Arm.' }, (scenario) =>
+    scenario
+      .prepare(() => Effect.succeed('mismatch' as const))
+      .verifyError((error) => Effect.sync(() => assert.equal(error.message, 'failed'))),
   );
 `;
 }

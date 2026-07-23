@@ -51,8 +51,8 @@ describe('Laymos Stories consumer integration', () => {
       kind: 'decision',
       arms: [
         { kind: 'literal', value: 'approved', name: 'Charge order' },
+        { kind: 'literal', value: 'rejected', name: 'Decline order' },
         { kind: 'literal', value: 'review', name: 'Review order' },
-        { kind: 'otherwise', name: 'Decline order' },
       ],
     });
 

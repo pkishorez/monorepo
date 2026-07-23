@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type ReactNode,
 } from 'react';
 import type { StoryRun, StoryScenario } from 'laymos/report';
 import { ChevronUp, SlidersHorizontal } from 'lucide-react';
@@ -31,6 +32,7 @@ import {
   buildProgressiveScenarioGraph,
   buildProgressiveStoryGraph,
   collapseStoryGraph,
+  compactValueDecisions,
   withoutFlowNodes,
   type ProgressiveStoryGraphModel,
 } from '../lib/model';
@@ -74,6 +76,12 @@ function ProgressiveCanvasInner({
   onShowDescriptionPopoverChange,
   centerSelected,
   onCenterSelectedChange,
+  selectedNodeId: controlledSelectedNodeId,
+  onSelectedNodeIdChange,
+  onNodeClick,
+  onGraphNodesChange,
+  centerNodeRequest,
+  renderNodeActions,
 }: {
   readonly model: ProgressiveStoryGraphModel;
   readonly emptyMessage: string;
@@ -85,6 +93,22 @@ function ProgressiveCanvasInner({
   readonly onShowDescriptionPopoverChange: (show: boolean) => void;
   readonly centerSelected: boolean;
   readonly onCenterSelectedChange: (center: boolean) => void;
+  readonly selectedNodeId?: string | null;
+  readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
+  readonly onNodeClick?: (
+    node: ProgressiveStoryGraphModel['nodes'][number],
+    context: { readonly modified: boolean },
+  ) => void;
+  readonly onGraphNodesChange?: (
+    nodes: readonly ProgressiveStoryGraphModel['nodes'][number][],
+  ) => void;
+  readonly centerNodeRequest?: {
+    readonly nodeId: string;
+    readonly requestId: number;
+  } | null;
+  readonly renderNodeActions?: (
+    node: ProgressiveStoryGraphModel['nodes'][number],
+  ) => ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const centerSelectedId = useId();
@@ -94,20 +118,32 @@ function ProgressiveCanvasInner({
     readonly nodeId: string;
     readonly screenPosition: { readonly x: number; readonly y: number };
   } | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [localSelectedNodeId, setLocalSelectedNodeId] = useState<string | null>(
+    null,
+  );
+  const selectedNodeId =
+    controlledSelectedNodeId === undefined
+      ? localSelectedNodeId
+      : controlledSelectedNodeId;
+  const setSelectedNodeId = (nodeId: string | null) => {
+    setLocalSelectedNodeId(nodeId);
+    onSelectedNodeIdChange?.(nodeId);
+  };
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [controlsExpanded, setControlsExpanded] = useState(false);
+  const compactModel = useMemo(() => compactValueDecisions(model), [model]);
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
   useEffect(() => {
     setCollapsedNodeIds(new Set());
-    setSelectedNodeId(null);
     setHoveredNodeId(null);
+    if (controlledSelectedNodeId === undefined && selectedNodeId !== null)
+      setSelectedNodeId(null);
   }, [model]);
   const collapsedView = useMemo(
-    () => collapseStoryGraph(model, collapsedNodeIds),
-    [collapsedNodeIds, model],
+    () => collapseStoryGraph(compactModel, collapsedNodeIds),
+    [collapsedNodeIds, compactModel],
   );
   const visibleModel = useMemo(
     () =>
@@ -116,6 +152,9 @@ function ProgressiveCanvasInner({
         : withoutFlowNodes(collapsedView.model),
     [collapsedView.model, showFunctionScopes],
   );
+  useEffect(() => {
+    onGraphNodesChange?.(visibleModel.nodes);
+  }, [onGraphNodesChange, visibleModel.nodes]);
   const graphNodeById = useMemo(
     () => new Map(visibleModel.nodes.map((node) => [node.id, node])),
     [visibleModel.nodes],
@@ -124,6 +163,23 @@ function ProgressiveCanvasInner({
     () => layoutStoryGraph(visibleModel, { compact: true }),
     [visibleModel],
   );
+  useEffect(() => {
+    if (!centerNodeRequest) return;
+    const node = baseLayout.nodes.find(
+      (candidate) => candidate.id === centerNodeRequest.nodeId,
+    );
+    if (!node) return;
+    void setCenter(
+      node.position.x + (node.width ?? 0) / 2,
+      node.position.y + (node.height ?? 0) / 2,
+      {
+        zoom: getZoom(),
+        duration: 240,
+        ease: (progress) =>
+          progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2,
+      },
+    );
+  }, [baseLayout.nodes, centerNodeRequest, getZoom, setCenter]);
   const fitted = useTopAnchoredViewport(containerRef, baseLayout.nodes, model);
   useLayoutEffect(() => {
     const anchor = pendingViewportAnchor.current;
@@ -190,6 +246,10 @@ function ProgressiveCanvasInner({
           showDescriptionPopover,
           inline: node.data.inline,
           scopeDepth: node.data.scopeDepth,
+          actions:
+            selectedNodeId === node.id
+              ? renderNodeActions?.(node.data.graphNode)
+              : undefined,
         },
       })),
     [
@@ -202,6 +262,7 @@ function ProgressiveCanvasInner({
       collapsedView.hiddenCountByNode,
       selectedNodeId,
       showDescriptionPopover,
+      renderNodeActions,
     ],
   );
   const edges = useMemo<Edge[]>(
@@ -287,8 +348,10 @@ function ProgressiveCanvasInner({
         onNodeClick={(_event: MouseEvent, node: Node<ProgressiveNodeData>) => {
           if (node.data.graphNode.kind === 'arm' && !node.data.graphNode.active)
             return;
-          const selecting = selectedNodeId !== node.id;
+          const modified = _event.metaKey || _event.ctrlKey;
+          const selecting = modified || selectedNodeId !== node.id;
           setSelectedNodeId(selecting ? node.id : null);
+          onNodeClick?.(node.data.graphNode, { modified });
           if (!selecting || !centerSelected) return;
           void setCenter(
             node.position.x + (node.width ?? 0) / 2,
@@ -443,12 +506,32 @@ export function StoryCanvas({
   story,
   preferences,
   onPreferencesChange,
+  selectedNodeId,
+  onSelectedNodeIdChange,
+  onNodeClick,
+  onGraphNodesChange,
+  centerNodeRequest,
+  renderNodeActions,
 }: {
   readonly story: StoryRun;
   readonly preferences: LaymosStoryCanvasPreferences;
   readonly onPreferencesChange: (
     preferences: LaymosStoryCanvasPreferences,
   ) => void;
+  readonly selectedNodeId?: string | null;
+  readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
+  readonly onNodeClick?: Parameters<
+    typeof ProgressiveCanvasInner
+  >[0]['onNodeClick'];
+  readonly onGraphNodesChange?: Parameters<
+    typeof ProgressiveCanvasInner
+  >[0]['onGraphNodesChange'];
+  readonly centerNodeRequest?: Parameters<
+    typeof ProgressiveCanvasInner
+  >[0]['centerNodeRequest'];
+  readonly renderNodeActions?: Parameters<
+    typeof ProgressiveCanvasInner
+  >[0]['renderNodeActions'];
 }) {
   const {
     showDetails,
@@ -485,6 +568,12 @@ export function StoryCanvas({
         onCenterSelectedChange={(center) =>
           onPreferencesChange({ ...preferences, centerSelected: center })
         }
+        selectedNodeId={selectedNodeId}
+        onSelectedNodeIdChange={onSelectedNodeIdChange}
+        onNodeClick={onNodeClick}
+        onGraphNodesChange={onGraphNodesChange}
+        centerNodeRequest={centerNodeRequest}
+        renderNodeActions={renderNodeActions}
       />
     </ReactFlowProvider>
   );
@@ -537,6 +626,12 @@ export function ScenarioCanvas({
   scenario,
   preferences,
   onPreferencesChange,
+  selectedNodeId,
+  onSelectedNodeIdChange,
+  onNodeClick,
+  onGraphNodesChange,
+  centerNodeRequest,
+  renderNodeActions,
 }: {
   readonly story: StoryRun;
   readonly scenario: StoryScenario;
@@ -544,6 +639,20 @@ export function ScenarioCanvas({
   readonly onPreferencesChange: (
     preferences: LaymosStoryCanvasPreferences,
   ) => void;
+  readonly selectedNodeId?: string | null;
+  readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
+  readonly onNodeClick?: Parameters<
+    typeof ProgressiveCanvasInner
+  >[0]['onNodeClick'];
+  readonly onGraphNodesChange?: Parameters<
+    typeof ProgressiveCanvasInner
+  >[0]['onGraphNodesChange'];
+  readonly centerNodeRequest?: Parameters<
+    typeof ProgressiveCanvasInner
+  >[0]['centerNodeRequest'];
+  readonly renderNodeActions?: Parameters<
+    typeof ProgressiveCanvasInner
+  >[0]['renderNodeActions'];
 }) {
   const model = useMemo(
     () => buildProgressiveScenarioGraph(story, scenario),
@@ -570,6 +679,12 @@ export function ScenarioCanvas({
         onCenterSelectedChange={(center) =>
           onPreferencesChange({ ...preferences, centerSelected: center })
         }
+        selectedNodeId={selectedNodeId}
+        onSelectedNodeIdChange={onSelectedNodeIdChange}
+        onNodeClick={onNodeClick}
+        onGraphNodesChange={onGraphNodesChange}
+        centerNodeRequest={centerNodeRequest}
+        renderNodeActions={renderNodeActions}
       />
     </ReactFlowProvider>
   );

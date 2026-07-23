@@ -34,12 +34,21 @@ import type {
 
 export { ConfigLoadError, ExtractError } from './engine/errors.js';
 export { StoryDiscoveryError, StoryRunnerError } from './story/runner/index.js';
+export { projectStorySource } from './story/eject/index.js';
 export type {
   StoryDiscoveryIssue,
   StoriesRunResult,
   StoryFailure,
   StoryRunOptions,
 } from './story/runner/index.js';
+export type {
+  StorySourceAnchor,
+  StorySourceClassification,
+  StorySourceProjection,
+  StorySourceProjectionRange,
+  StorySourceProvenance,
+  StorySourceProjections,
+} from './story/eject/index.js';
 
 /** load config → extract → resolve → evaluate → emit; violations are data, config errors fail. */
 export function analyzeProject(

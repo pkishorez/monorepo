@@ -1,5 +1,6 @@
-import { realpathSync } from 'node:fs';
-import { relative, sep } from 'node:path';
+import { readFileSync, realpathSync } from 'node:fs';
+import { relative, resolve, sep } from 'node:path';
+import { Lang, parse } from '@ast-grep/napi';
 
 import type {
   ExecutionItem,
@@ -7,11 +8,13 @@ import type {
   StoryArm,
   StoryBlock,
   StoryBlockVisitOutcome,
+  StoryTerminalCompletion,
 } from './types.js';
 import type {
   ArmDeclaration,
   BlockDeclaration,
   SelectedArm,
+  SourceLocation,
   StoryRecorder,
 } from '../core/recorder.js';
 import type { Attributes } from '../core/types.js';
@@ -39,6 +42,7 @@ interface Container {
 
 interface VisitToken {
   readonly block: BlockDeclaration;
+  readonly arm: ArmDeclaration | undefined;
   readonly visit: MutableVisit;
   readonly container: Container;
   readonly children: Container;
@@ -86,9 +90,7 @@ export class StoryBlockRegistry {
           ? {
               ...common,
               kind: 'terminal',
-              ...(block.completion === undefined
-                ? {}
-                : { completion: block.completion }),
+              completion: requireTerminalCompletion(block),
             }
           : { ...common, kind: block.kind };
     this.blocks.set(id, { block: storyBlock, arms: new Map() });
@@ -108,7 +110,10 @@ export class StoryBlockRegistry {
         `Conflicting metadata for Arm "${arm.name}" on Decision "${block.name}"`,
       );
     }
-    registered.arms.set(key, arm);
+    registered.arms.set(key, {
+      ...arm,
+      location: normalizeLocation(this.baseDir, arm),
+    });
   }
 
   toRecord(): Readonly<Record<string, StoryBlock>> {
@@ -128,6 +133,15 @@ export class StoryBlockRegistry {
         ]),
     );
   }
+}
+
+function requireTerminalCompletion(
+  block: BlockDeclaration,
+): StoryTerminalCompletion {
+  if (block.completion === undefined) {
+    throw new Error(`Terminal "${block.name}" must declare completion`);
+  }
+  return block.completion;
 }
 
 export class ScenarioRecorder implements StoryRecorder {
@@ -151,6 +165,7 @@ export class ScenarioRecorder implements StoryRecorder {
   start(
     block: BlockDeclaration,
     selectedArm: SelectedArm | undefined,
+    selectedArmDeclaration: ArmDeclaration | undefined,
     attributes: Attributes | undefined,
     parent: unknown,
     branch: unknown,
@@ -163,8 +178,12 @@ export class ScenarioRecorder implements StoryRecorder {
     const closed = this.closedBranches.get(scope)?.get(branch) ?? [];
     for (const terminal of closed) {
       terminal.visit.terminalMismatch = true;
+      const subject =
+        terminal.arm === undefined
+          ? `Terminal "${terminal.block.name}"`
+          : `Arm "${terminal.arm.name}" on Decision "${terminal.block.name}"`;
       this.mismatches.push(
-        `Terminal "${terminal.block.name}" was followed by Block "${block.name}" in the same sequential branch`,
+        `${subject} was followed by Block "${block.name}" in the same sequential branch`,
       );
     }
     this.closedBranches.get(scope)?.delete(branch);
@@ -181,6 +200,7 @@ export class ScenarioRecorder implements StoryRecorder {
     };
     const token: VisitToken = {
       block,
+      arm: selectedArmDeclaration,
       visit,
       container,
       children: makeContainer(visit.children),
@@ -201,8 +221,11 @@ export class ScenarioRecorder implements StoryRecorder {
     );
     token.container.active.delete(token);
     if (token.container.active.size === 0) token.container.parallel = undefined;
-    if (token.block.kind === 'terminal') {
-      this.validateTerminalCompletion(token, outcome);
+    if (
+      token.block.kind === 'terminal' ||
+      token.arm?.completion !== undefined
+    ) {
+      this.validateCompletion(token, outcome);
       const scope = nearestFlow(token.parent) ?? rootStoryScope;
       const branches = this.closedBranches.get(scope) ?? new Map();
       const terminals = branches.get(token.branch) ?? [];
@@ -247,12 +270,13 @@ export class ScenarioRecorder implements StoryRecorder {
     return roundMillis(performance.now() - this.anchor);
   }
 
-  private validateTerminalCompletion(
+  private validateCompletion(
     token: VisitToken,
     outcome: StoryBlockVisitOutcome,
   ): void {
-    const block = token.block;
-    const completion = block.completion;
+    const completion =
+      token.arm?.completion ??
+      (token.block.kind === 'terminal' ? token.block.completion : undefined);
     if (completion === undefined) return;
     const matches =
       completion.kind === 'success'
@@ -260,8 +284,12 @@ export class ScenarioRecorder implements StoryRecorder {
         : outcome === 'failed';
     if (matches) return;
     token.visit.terminalMismatch = true;
+    const subject =
+      token.arm === undefined
+        ? `Terminal "${token.block.name}"`
+        : `Arm "${token.arm.name}" on Decision "${token.block.name}"`;
     this.mismatches.push(
-      `Terminal "${block.name}" declares ${completion.kind} completion but its Visit was ${outcome}`,
+      `${subject} declares ${completion.kind} completion but its Visit was ${outcome}`,
     );
   }
 }
@@ -330,16 +358,80 @@ function normalizePath(items: readonly MutableExecutionItem[]): ExecutionPath {
 
 function normalizeLocation(
   baseDir: string,
-  block: BlockDeclaration,
-): { readonly file: string; readonly line: number; readonly column: number } {
-  const file = block.location.file.startsWith('/')
-    ? relative(realpathSync(baseDir), realpathSync(block.location.file))
-    : block.location.file;
+  source: { readonly location: SourceLocation },
+): {
+  readonly file: string;
+  readonly line: number;
+  readonly endLine: number;
+  readonly column: number;
+} {
+  const root = realpathSync(baseDir);
+  const isAbsolute = source.location.file.startsWith('/');
+  const absoluteFile = isAbsolute
+    ? realpathSync(source.location.file)
+    : resolve(root, source.location.file);
+  const file = isAbsolute ? relative(root, absoluteFile) : source.location.file;
   return {
     file: file.split(sep).join('/'),
-    line: block.location.line,
-    column: block.location.column,
+    line: source.location.line,
+    endLine: sourceEndLine(
+      absoluteFile,
+      source.location.line,
+      source.location.column,
+    ),
+    column: source.location.column,
   };
+}
+
+const sourceCallRanges = new Map<
+  string,
+  readonly {
+    readonly startLine: number;
+    readonly startColumn: number;
+    readonly endLine: number;
+    readonly endColumn: number;
+    readonly size: number;
+  }[]
+>();
+
+function sourceEndLine(file: string, line: number, column: number): number {
+  try {
+    let ranges = sourceCallRanges.get(file);
+    if (ranges === undefined) {
+      const source = readFileSync(file, 'utf8');
+      const language = /\.(?:tsx|jsx)$/.test(file) ? Lang.Tsx : Lang.TypeScript;
+      ranges = parse(language, source)
+        .root()
+        .findAll({ rule: { kind: 'call_expression' as never } })
+        .map((node) => {
+          const range = node.range();
+          return {
+            startLine: range.start.line + 1,
+            startColumn: range.start.column + 1,
+            endLine: range.end.line + 1,
+            endColumn: range.end.column + 1,
+            size: range.end.index - range.start.index,
+          };
+        });
+      sourceCallRanges.set(file, ranges);
+    }
+    return (
+      ranges
+        .filter(
+          (range) =>
+            range.startLine < line ||
+            (range.startLine === line && range.startColumn <= column),
+        )
+        .filter(
+          (range) =>
+            range.endLine > line ||
+            (range.endLine === line && range.endColumn >= column),
+        )
+        .sort((left, right) => left.size - right.size)[0]?.endLine ?? line
+    );
+  } catch {
+    return line;
+  }
 }
 
 function armKey(arm: ArmDeclaration | StoryArm): string {
@@ -353,6 +445,8 @@ function sameArm(left: StoryArm, right: ArmDeclaration): boolean {
     left.kind === right.kind &&
     left.name === right.name &&
     left.description === right.description &&
+    JSON.stringify(left.errors) === JSON.stringify(right.errors) &&
+    JSON.stringify(left.completion) === JSON.stringify(right.completion) &&
     (left.kind === 'otherwise' ||
       (right.kind === 'literal' && left.value === right.value))
   );

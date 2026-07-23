@@ -1,0 +1,1 @@
+flow must be assigned directly to a named variable or property and cannot be invoked immediately

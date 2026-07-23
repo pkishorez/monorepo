@@ -1,7 +1,6 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -17,24 +16,13 @@ type Input = {
 };
 const key = { organizationId: 'org-1', userId: 'target' };
 
-const deleteUser = flow(
-  'Delete entity',
-  {
-    description: 'Deletes one keyed entity through the public deletion method.',
-    attributes: (input: Input) => ({
-      mode: input.options?.forceDelete ? 'physical' : 'tombstone',
-    }),
-  },
-  (input: Input) => harness.users.delete(key, input.options),
-);
-
 dynamodbEntityStories
   .story('Delete entity', {
     description:
       'Shows the soft, physical, and missing-item paths of deleting one entity.',
   })
   .provide(harness.layer)
-  .execute(deleteUser)
+  .execute((input: Input) => harness.users.delete(key, input.options))
   .scenario(
     'soft delete keeps a readable tombstone',
     {

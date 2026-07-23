@@ -1,5 +1,5 @@
-import { Option, Effect } from 'effect';
+import { Option } from 'effect';
 
 
 export const fallback = Option.none();
-export const result = Effect.suspend(() => operation);
+export const result = operation;

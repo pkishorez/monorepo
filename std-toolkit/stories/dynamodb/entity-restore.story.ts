@@ -1,7 +1,6 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -15,22 +14,13 @@ const harness = makeDynamoStoryHarness('entity-restore');
 const key = { organizationId: 'org-1', userId: 'target' };
 type Input = { readonly beforeCursor?: string };
 
-const restoreUser = flow(
-  'Restore entity',
-  {
-    description:
-      'Restores one keyed entity through the public restoration method.',
-  },
-  (_input: Input) => harness.users.restore(key),
-);
-
 dynamodbEntityStories
   .story('Restore entity', {
     description:
       'Shows the tombstone, already-live, and missing-item paths of restoring one entity.',
   })
   .provide(harness.layer)
-  .execute(restoreUser)
+  .execute((_input: Input) => harness.users.restore(key))
   .scenario(
     'restore makes a tombstone live with a newer cursor',
     { description: 'Restores a prepared tombstone and stamps a fresh cursor.' },

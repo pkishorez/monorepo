@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { decision, flow, terminal } from 'laymos/story';
+import { decision, exhaustive, flow, terminal, when } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -27,6 +27,9 @@ type Input =
       readonly emailPrefix: string;
     };
 
+const queryOptions = (limit: number | undefined) =>
+  limit === undefined ? undefined : { limit };
+
 const queryOrders = flow<[Input], any, any, any>(
   'Query entities',
   {
@@ -44,26 +47,24 @@ const queryOrders = flow<[Input], any, any, any>(
         description:
           'Routes the Story through primary or secondary entity indexing.',
       },
-      () => Effect.succeed(input.kind),
-    )
-      .when(
+      input.kind,
+    ).pipe(
+      when(
         'primary',
         {
           name: 'Use the primary index',
           description: 'Queries entities through their primary partition.',
         },
-        () => {
-          const primary = input as Extract<Input, { kind: 'primary' }>;
-          return Effect.gen(function* () {
+        () =>
+          Effect.gen(function* () {
+            const primary = input as Extract<Input, { kind: 'primary' }>;
             const result = yield* harness.orders.query(
               'primary',
               {
                 pk: { userId: 'owner' },
                 sk: primary.sk,
               },
-              primary.limit === undefined
-                ? undefined
-                : { limit: primary.limit },
+              queryOptions(primary.limit),
             );
             return yield* terminal(
               'Return primary-index results',
@@ -72,20 +73,19 @@ const queryOrders = flow<[Input], any, any, any>(
                   'Completes this query branch with the matching primary-index page.',
                 completion: { kind: 'success' },
               },
-              Effect.succeed(result),
+              () => Effect.succeed(result),
             );
-          });
-        },
-      )
-      .when(
+          }),
+      ),
+      when(
         'secondary',
         {
           name: 'Use a secondary index',
           description: 'Queries entities through a configured secondary index.',
         },
-        () => {
-          const secondary = input as Extract<Input, { kind: 'secondary' }>;
-          return Effect.gen(function* () {
+        () =>
+          Effect.gen(function* () {
+            const secondary = input as Extract<Input, { kind: 'secondary' }>;
             const result = yield* harness.users.query('byStatus', {
               pk: { status: secondary.status },
               sk: { beginsWith: { email: secondary.emailPrefix } },
@@ -97,12 +97,12 @@ const queryOrders = flow<[Input], any, any, any>(
                   'Completes this query branch with the matching secondary-index page.',
                 completion: { kind: 'success' },
               },
-              Effect.succeed(result),
+              () => Effect.succeed(result),
             );
-          });
-        },
-      )
-      .exhaustive(),
+          }),
+      ),
+      exhaustive,
+    ),
 );
 
 const seedOrders = Effect.all([

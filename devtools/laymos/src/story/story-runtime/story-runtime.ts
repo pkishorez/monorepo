@@ -1,4 +1,4 @@
-import { Cause, Context, Effect, Exit } from 'effect';
+import { Cause, Context, Effect, Exit, Pipeable } from 'effect';
 import type { Duration, Layer } from 'effect';
 
 import { CurrentTrace, traceValue } from '../artifact/trace.js';
@@ -16,6 +16,7 @@ import {
   CurrentRecorder,
   CurrentStoryBranch,
   resolveAttributes,
+  type SourceLocation,
 } from '../core/recorder.js';
 import type {
   ArmDeclaration,
@@ -27,6 +28,7 @@ import type {
   Attributes,
   BlockMeta,
   DecisionValue,
+  OmissionMeta,
   StoryGroupMeta,
   StoryMeta,
   TerminalMeta,
@@ -225,25 +227,23 @@ type Success<T> = T extends Effect.Effect<infer A, any, any> ? A : never;
 type Error<T> = T extends Effect.Effect<any, infer E, any> ? E : never;
 type Services<T> = T extends Effect.Effect<any, any, infer R> ? R : never;
 
-export interface DecisionBuilder<Remaining extends DecisionValue, A, E, R> {
-  when<Key extends Remaining, Next extends AnyEffect>(
-    value: Key,
-    meta: ArmMeta,
-    body: (value: Key) => Next,
-  ): DecisionBuilder<
-    Exclude<Remaining, Key>,
-    A | Success<Next>,
-    E | Error<Next>,
-    R | Services<Next>
-  >;
-  otherwise<Next extends AnyEffect>(
-    meta: ArmMeta,
-    body: (value: Remaining) => Next,
-  ): Effect.Effect<A | Success<Next>, E | Error<Next>, R | Services<Next>>;
-  readonly exhaustive: [Remaining] extends [never]
-    ? () => Effect.Effect<A, E, R>
-    : never;
-  [Symbol.iterator](): Effect.EffectIterator<Effect.Effect<A, E, R>>;
+declare const DecisionMatcherTypeId: unique symbol;
+
+export interface DecisionMatcher<
+  Input extends DecisionValue,
+  Remaining extends DecisionValue,
+  A,
+  E,
+  R,
+>
+  extends Pipeable.Pipeable {
+  readonly [DecisionMatcherTypeId]: {
+    readonly input: Input;
+    readonly remaining: Remaining;
+    readonly success: A;
+    readonly error: E;
+    readonly services: R;
+  };
 }
 
 const CurrentVisit = Context.Reference<unknown | undefined>(
@@ -251,24 +251,39 @@ const CurrentVisit = Context.Reference<unknown | undefined>(
   { defaultValue: () => undefined },
 );
 
+interface OpaqueOperation {
+  readonly kind: 'Step' | 'Terminal' | 'Omission';
+  readonly name: string;
+}
+
+const CurrentOpaqueOperation = Context.Reference<OpaqueOperation | undefined>(
+  'laymos/story/current-opaque-operation',
+  { defaultValue: () => undefined },
+);
+
 interface DecisionState {
   readonly block: BlockDeclaration;
-  readonly selector: () => AnyEffect;
+  readonly value: DecisionValue;
   readonly attributes: BlockMeta<[DecisionValue]>['attributes'];
   readonly arms: Array<{
     readonly declaration: ArmDeclaration;
-    readonly body: (value: DecisionValue) => AnyEffect;
+    readonly body: () => AnyEffect;
   }>;
 }
 
-class DecisionBuilderImpl {
+class DecisionMatcherImpl {
   constructor(private readonly state: DecisionState) {}
 
-  when(
+  pipe(): unknown {
+    return Pipeable.pipeArguments(this, arguments);
+  }
+
+  addWhen(
     value: DecisionValue,
     meta: ArmMeta,
-    body: (value: DecisionValue) => AnyEffect,
-  ): DecisionBuilderImpl {
+    body: () => AnyEffect,
+    location: SourceLocation,
+  ): DecisionMatcherImpl {
     requireDecisionArmValue(value);
     requireDescription(
       meta.description,
@@ -280,15 +295,18 @@ class DecisionBuilderImpl {
       name: meta.name ?? String(value),
       description: meta.description,
       visibility: meta.visibility ?? 'primary',
+      location,
+      ...armOutcome(meta),
     };
     this.state.arms.push({ declaration: arm, body });
     return this;
   }
 
-  otherwise(
+  addOrElse(
     meta: ArmMeta,
-    body: (value: DecisionValue) => AnyEffect,
-  ): AnyEffect {
+    body: () => AnyEffect,
+    location: SourceLocation,
+  ): DecisionMatcherImpl {
     requireDescription(
       meta.description,
       `Decision Arm "${meta.name ?? 'Otherwise'}"`,
@@ -298,35 +316,29 @@ class DecisionBuilderImpl {
       name: meta.name ?? 'Otherwise',
       description: meta.description,
       visibility: meta.visibility ?? 'primary',
+      location,
+      ...armOutcome(meta),
     };
     this.state.arms.push({ declaration: arm, body });
-    return this.run(false);
+    return this;
   }
 
-  exhaustive(): AnyEffect {
-    return this.run(true);
-  }
-
-  [Symbol.iterator](): Effect.EffectIterator<AnyEffect> {
-    return this.run(false)[Symbol.iterator]();
-  }
-
-  private run(exhaustive: boolean): AnyEffect {
+  run(exhaustive: boolean): AnyEffect {
     const state = this.state;
     return Effect.gen(function* () {
+      yield* rejectOpaqueNesting(`Decision "${state.block.name}"`);
       const trace = yield* CurrentTrace;
       if (trace !== undefined) {
         return yield* trace.recorder.decision(
           trace,
           state.block,
-          Effect.suspend(state.selector),
           state.arms.map((arm) => ({
             declaration: arm.declaration,
-            body: () => arm.body(traceValue as DecisionValue),
+            body: arm.body,
           })),
         );
       }
-      const input = yield* Effect.suspend(state.selector);
+      const input = state.value;
       const selected =
         state.arms.find(
           ({ declaration }) =>
@@ -348,7 +360,7 @@ class DecisionBuilderImpl {
         state.block,
         selectedArm,
         () => resolveAttributes(state.attributes, [input]),
-        () => selected.body(input),
+        selected.body,
         state.arms.map(({ declaration }) => declaration),
       );
     });
@@ -361,36 +373,26 @@ export function flow<Args extends readonly unknown[], A, E, R>(
   meta: BlockMeta<Args>,
   fn: (...args: Args) => Effect.Effect<A, E, R>,
 ): (...args: Args) => Effect.Effect<A, E, R>;
-export function flow<A, E, R>(
-  name: string,
-  meta: BlockMeta,
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R>;
 export function flow<Args extends readonly unknown[], A, E, R>(
   name: string,
   meta: BlockMeta<Args>,
-  input: Effect.Effect<A, E, R> | ((...args: Args) => Effect.Effect<A, E, R>),
-): Effect.Effect<A, E, R> | ((...args: Args) => Effect.Effect<A, E, R>) {
+  input: (...args: Args) => Effect.Effect<A, E, R>,
+): (...args: Args) => Effect.Effect<A, E, R> {
   const block = makeBlock(name, meta, 'flow');
-  const run = (args: Args, effect: Effect.Effect<A, E, R>) =>
+  const run = (args: Args) =>
     Effect.gen(function* () {
+      yield* rejectOpaqueNesting(`Flow "${name}"`);
       const trace = yield* CurrentTrace;
       if (trace !== undefined)
-        return yield* trace.recorder.flow(trace, block, effect);
+        return yield* trace.recorder.flow(trace, block, input(...args));
       return yield* wrapEffect(
         block,
         undefined,
         () => resolveAttributes(meta.attributes, args),
-        () => effect,
+        () => input(...args),
       );
     }) as Effect.Effect<A, E, R>;
-  return typeof input === 'function'
-    ? (...args: Args) =>
-        run(
-          args,
-          Effect.suspend(() => input(...args)),
-        )
-    : run([] as unknown as Args, input);
+  return (...args: Args) => run(args);
 }
 
 /** Wraps an Effect in an inline Story Block. */
@@ -402,23 +404,20 @@ export function step<A, E, R>(
 export function step<A, E, R>(
   name: string,
   meta: BlockMeta,
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R>;
-export function step<A, E, R>(
-  name: string,
-  meta: BlockMeta,
-  effect: Effect.Effect<A, E, R> | (() => Effect.Effect<A, E, R>),
+  effect: () => Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> {
   const block = makeBlock(name, meta, 'step');
-  const operation = () => (typeof effect === 'function' ? effect() : effect);
   return Effect.gen(function* () {
+    yield* rejectOpaqueNesting(`Step "${name}"`);
     const trace = yield* CurrentTrace;
     if (trace !== undefined) return trace.recorder.step(trace, block) as A;
     return yield* wrapEffect(
       block,
       undefined,
       () => resolveAttributes(meta.attributes, []),
-      operation,
+      effect,
+      [],
+      { kind: 'Step', name },
     );
   });
 }
@@ -432,79 +431,104 @@ export function terminal<A, E, R>(
 export function terminal<A, E, R>(
   name: string,
   meta: TerminalMeta,
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R>;
-export function terminal<A, E, R>(
-  name: string,
-  meta: TerminalMeta,
-  effect: Effect.Effect<A, E, R> | (() => Effect.Effect<A, E, R>),
+  effect: () => Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> {
   requireTerminalCompletion(meta);
   const block: BlockDeclaration = {
     ...makeBlock(name, meta, 'terminal'),
-    ...(meta.completion === undefined ? {} : { completion: meta.completion }),
+    completion: meta.completion,
   };
-  const operation = () => (typeof effect === 'function' ? effect() : effect);
   return Effect.gen(function* () {
+    yield* rejectOpaqueNesting(`Terminal "${name}"`);
     const trace = yield* CurrentTrace;
     if (trace !== undefined) return trace.recorder.terminal(trace, block) as A;
     return yield* wrapEffect(
       block,
       undefined,
       () => resolveAttributes(meta.attributes, []),
-      operation,
+      effect,
+      [],
+      { kind: 'Terminal', name },
     );
   });
 }
 
-/** Builds a lazy, literal-keyed Effect Decision. */
-export function decision<const Input extends DecisionValue, E, R>(
-  name: string,
-  meta: BlockMeta<[Input]>,
-  selector: () => Effect.Effect<Input, E, R>,
-): DecisionBuilder<Input, never, E, R>;
+/** Starts a narrated matcher for an already-computed value. */
 export function decision<const Input extends DecisionValue>(
   name: string,
   meta: BlockMeta<[Input]>,
-  selector: Input,
-): DecisionBuilder<Input, never, never, never>;
-export function decision<const Input extends DecisionValue, E, R>(
-  name: string,
-  meta: BlockMeta<[Input]>,
-  selector: Input | (() => Effect.Effect<Input, E, R>),
-): DecisionBuilder<Input, never, E, R> {
-  return new DecisionBuilderImpl({
+  value: Input,
+): DecisionMatcher<Input, Input, never, never, never> {
+  if (value !== traceValue) requireDecisionArmValue(value);
+  return new DecisionMatcherImpl({
     block: makeBlock(name, meta, 'decision'),
-    selector:
-      typeof selector === 'function'
-        ? selector
-        : () => Effect.succeed(selector),
+    value,
     attributes: meta.attributes as BlockMeta<[DecisionValue]>['attributes'],
     arms: [],
-  }) as unknown as DecisionBuilder<Input, never, E, R>;
+  }) as unknown as DecisionMatcher<Input, Input, never, never, never>;
 }
 
-export function omit<A, E, R>(
-  body: () => Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R>;
-export function omit<A, E, R>(
-  label: string,
-  body: () => Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R>;
-export function omit<A, E, R>(
-  labelOrBody: string | (() => Effect.Effect<A, E, R>),
-  body?: () => Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R> {
+export function when<
+  const Pattern extends DecisionValue,
+  Next extends AnyEffect,
+>(
+  pattern: Pattern,
+  meta: ArmMeta,
+  body: () => Next,
+): <Input extends DecisionValue, Remaining extends DecisionValue, A, E, R>(
+  matcher: DecisionMatcher<Input, Remaining, A, E, R> &
+    (Pattern extends Remaining ? unknown : never),
+) => DecisionMatcher<
+  Input,
+  Exclude<Remaining, Pattern>,
+  A | Success<Next>,
+  E | Error<Next>,
+  R | Services<Next>
+> {
   const location = captureLocation();
-  const label = typeof labelOrBody === 'string' ? labelOrBody : undefined;
-  const operation = typeof labelOrBody === 'function' ? labelOrBody : body!;
+  return ((matcher: DecisionMatcherImpl) =>
+    matcher.addWhen(pattern, meta, body, location)) as never;
+}
+
+type HasOpenRemainder<Remaining extends DecisionValue> =
+  string extends Remaining ? true : number extends Remaining ? true : false;
+
+export function orElse<Next extends AnyEffect>(
+  meta: ArmMeta,
+  body: () => Next,
+): <Input extends DecisionValue, Remaining extends DecisionValue, A, E, R>(
+  matcher: HasOpenRemainder<Remaining> extends true
+    ? DecisionMatcher<Input, Remaining, A, E, R>
+    : never,
+) => Effect.Effect<A | Success<Next>, E | Error<Next>, R | Services<Next>> {
+  const location = captureLocation();
+  return ((matcher: DecisionMatcherImpl) =>
+    matcher.addOrElse(meta, body, location).run(false)) as never;
+}
+
+export const exhaustive = <Input extends DecisionValue, A, E, R>(
+  matcher: DecisionMatcher<Input, never, A, E, R>,
+): Effect.Effect<A, E, R> =>
+  (matcher as unknown as DecisionMatcherImpl).run(true);
+
+export function omit<A, E, R>(
+  meta: OmissionMeta,
+  body: () => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> {
+  requireReason(meta.reason);
+  const location = captureLocation();
   return Effect.gen(function* () {
+    yield* rejectOpaqueNesting('Omission');
     const trace = yield* CurrentTrace;
     if (trace !== undefined) {
-      return trace.recorder.omission(trace, location, label) as A;
+      return trace.recorder.omission(trace, location, meta.reason) as A;
     }
-    return yield* Effect.suspend(operation).pipe(
+    return yield* body().pipe(
       Effect.provideService(CurrentRecorder, undefined),
+      Effect.provideService(CurrentOpaqueOperation, {
+        kind: 'Omission',
+        name: meta.reason,
+      }),
     );
   });
 }
@@ -514,6 +538,7 @@ export const all = ((
   options?: any,
 ) =>
   Effect.gen(function* () {
+    yield* rejectOpaqueNesting('Concurrency scope');
     const trace = yield* CurrentTrace;
     if (trace === undefined) {
       const recorder = yield* CurrentRecorder;
@@ -536,6 +561,7 @@ const storyForEach = (...args: readonly unknown[]): unknown => {
   }
   const [, body, options] = args;
   return Effect.gen(function* () {
+    yield* rejectOpaqueNesting('Concurrency scope');
     const trace = yield* CurrentTrace;
     if (trace === undefined) {
       const recorder = yield* CurrentRecorder;
@@ -586,21 +612,34 @@ function wrapEffect<A, E, R>(
   attributes: () => Attributes | undefined,
   effect: () => Effect.Effect<A, E, R>,
   arms: readonly ArmDeclaration[] = [],
+  opaqueOperation?: OpaqueOperation,
 ): Effect.Effect<A, E, R> {
   return Effect.gen(function* () {
     const recorder = yield* CurrentRecorder;
-    if (recorder === undefined) return yield* Effect.suspend(effect);
+    const operation = Effect.suspend(effect);
+    const run =
+      opaqueOperation === undefined
+        ? operation
+        : operation.pipe(
+            Effect.provideService(CurrentOpaqueOperation, opaqueOperation),
+          );
+    if (recorder === undefined) return yield* run;
     for (const arm of arms) recorder.declareArm(block, arm);
     const parent = yield* CurrentVisit;
     const branch = yield* CurrentStoryBranch;
     const token = recorder.start(
       block,
       selectedArm,
+      arms.find((arm) =>
+        selectedArm?.kind === 'otherwise'
+          ? arm.kind === 'otherwise'
+          : arm.kind === 'literal' && arm.value === selectedArm?.value,
+      ),
       attributes(),
       parent,
       branch,
     );
-    return yield* Effect.suspend(effect).pipe(
+    return yield* run.pipe(
       Effect.onExit((exit) =>
         Effect.sync(() => {
           const outcome = Exit.isSuccess(exit)
@@ -647,17 +686,74 @@ function requireDecisionArmValue(value: DecisionValue): void {
 }
 
 function requireTerminalCompletion(meta: TerminalMeta): void {
+  if (meta.completion === undefined) {
+    throw new TypeError('Terminal completion is required');
+  }
   if (
-    meta.completion?.kind === 'error' &&
-    meta.completion.error !== undefined &&
-    meta.completion.error.trim().length === 0
+    meta.completion.kind === 'error' &&
+    (typeof meta.completion.error !== 'string' ||
+      meta.completion.error.trim().length === 0)
   ) {
     throw new TypeError('Terminal error name must not be empty');
   }
 }
 
+function armOutcome(
+  meta: ArmMeta,
+): Pick<ArmDeclaration, 'errors' | 'completion'> {
+  if (meta.errors !== undefined && meta.completion !== undefined) {
+    throw new TypeError(
+      'Decision Arm cannot declare both errors and completion',
+    );
+  }
+  if (meta.errors !== undefined) {
+    if (
+      meta.errors.length === 0 ||
+      new Set(meta.errors).size !== meta.errors.length ||
+      meta.errors.some(
+        (error) => typeof error !== 'string' || error.trim().length === 0,
+      )
+    ) {
+      throw new TypeError(
+        'Decision Arm errors must be unique, non-empty names',
+      );
+    }
+    return { errors: meta.errors };
+  }
+  if (meta.completion !== undefined) {
+    if (
+      meta.completion.kind === 'error' &&
+      (typeof meta.completion.error !== 'string' ||
+        meta.completion.error.trim().length === 0)
+    ) {
+      throw new TypeError('Decision Arm error completion must name an error');
+    }
+    return { completion: meta.completion };
+  }
+  return {};
+}
+
+function requireReason(reason: string): void {
+  if (typeof reason !== 'string' || reason.trim().length === 0) {
+    throw new TypeError('Omission reason must not be empty');
+  }
+}
+
+function rejectOpaqueNesting(subject: string): Effect.Effect<void> {
+  return Effect.gen(function* () {
+    const opaque = yield* CurrentOpaqueOperation;
+    if (opaque === undefined) return;
+    return yield* Effect.die(
+      new Error(
+        `${subject} cannot execute inside opaque ${opaque.kind} "${opaque.name}"; extract the nested Story activity to a Flow`,
+      ),
+    );
+  });
+}
+
 export type {
   Attributes,
+  OmissionMeta,
   TerminalCompletion,
   TerminalMeta,
 } from '../core/types.js';
