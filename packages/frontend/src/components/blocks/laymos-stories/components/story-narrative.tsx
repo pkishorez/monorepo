@@ -61,6 +61,8 @@ interface OutlineBranch {
   readonly name: string;
   readonly description?: string;
   readonly active?: boolean;
+  readonly errors?: readonly string[];
+  readonly completion?: StoryArmGraphNode['arm']['completion'];
   readonly items: readonly OutlineItem[];
 }
 
@@ -180,6 +182,15 @@ function buildOutline(graph: NarrativeGraph): readonly OutlineItem[] {
     const nextAncestors = new Set(ancestors).add(node.id);
 
     if (entry.arms.length > 0) {
+      const valueDecision =
+        entry.node.block.kind === 'decision' &&
+        entry.node.block.role === 'value';
+      const merge = valueDecision
+        ? commonMerge(
+            entry.arms.flatMap((arm) => arm.targets),
+            nextAncestors,
+          )
+        : undefined;
       return [
         {
           kind: 'block',
@@ -190,11 +201,18 @@ function buildOutline(graph: NarrativeGraph): readonly OutlineItem[] {
             name: arm.node.arm.name,
             description: arm.node.arm.description,
             active: arm.node.active,
+            ...(arm.node.arm.errors === undefined
+              ? {}
+              : { errors: arm.node.arm.errors }),
+            ...(arm.node.arm.completion === undefined
+              ? {}
+              : { completion: arm.node.arm.completion }),
             items: arm.targets.flatMap((target) =>
-              visit(target, nextAncestors, stopAt),
+              visit(target, nextAncestors, merge?.id ?? stopAt),
             ),
           })),
         },
+        ...(merge === undefined ? [] : visit(merge, nextAncestors, stopAt)),
       ];
     }
 
@@ -620,6 +638,25 @@ function BranchRow({
           {branch.description && (
             <span className="mt-1 block max-w-2xl text-[11px] leading-4 text-muted-foreground">
               {branch.description}
+            </span>
+          )}
+          {branch.errors && (
+            <span className="mt-1 block text-[10px] text-amber-700 dark:text-amber-300">
+              May fail with {branch.errors.join(', ')}
+            </span>
+          )}
+          {branch.completion && (
+            <span
+              className={cn(
+                'mt-1 block text-[10px]',
+                branch.completion.kind === 'error'
+                  ? 'text-rose-700 dark:text-rose-300'
+                  : 'text-emerald-700 dark:text-emerald-300',
+              )}
+            >
+              {branch.completion.kind === 'success'
+                ? 'Completes successfully'
+                : `Completes with ${branch.completion.error}`}
             </span>
           )}
           {!hasContents && scenario && branch.active === false && (

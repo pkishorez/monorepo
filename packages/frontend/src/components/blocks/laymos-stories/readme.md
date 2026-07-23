@@ -129,6 +129,9 @@ disclosed tree:
 - a Block row expands its description and a Decision expands its declared Arms;
 - every Arm expands independently, so readers may inspect and compare several
   routes without one selection replacing another;
+- an assigned Decision remains one node with one outgoing path; its Arms and
+  their nested narrative expand inside that node;
+- a returned Decision exposes its Arms as separate control-flow branches;
 - nested Decisions remain inside their parent Arm and increase indentation;
 - converged and cyclic flow becomes a compact reference to the canonical Block
   instead of duplicating its entire subtree;
@@ -194,7 +197,10 @@ adds incoming, outgoing, and contained-Block counts plus the contained names,
 and the entire card toggles between its expanded and minimized states.
 
 A Decision shows one chip per declared Arm. Observed Arms are highlighted and
-unobserved Arms render muted, without implying incomplete coverage.
+unobserved Arms render muted, without implying incomplete coverage. Assigned
+Decisions keep one incoming and one outgoing edge while their expanded Arms
+disclose how the selected value is derived. Returned Decisions connect each Arm
+to the execution it owns.
 
 A Terminal closes only its local sequential branch. It uses one strong endpoint
 card and no outgoing handle: emerald for success, rose for a documented error,

@@ -42,6 +42,12 @@ export function LaymosStories({
   runState,
   selection,
   onSelectionChange,
+  selectedNodeId,
+  onSelectedNodeIdChange,
+  onNodeClick,
+  onGraphNodesChange,
+  centerNodeRequest,
+  renderNodeActions,
   onRunStory,
   onRunGroup,
   onRunAll,
@@ -215,6 +221,12 @@ export function LaymosStories({
                 description={selectedEntry.description}
                 preferences={effectiveCanvasPreferences}
                 onPreferencesChange={setCanvasPreferences}
+                selectedNodeId={selectedNodeId}
+                onSelectedNodeIdChange={onSelectedNodeIdChange}
+                onNodeClick={onNodeClick}
+                onGraphNodesChange={onGraphNodesChange}
+                centerNodeRequest={centerNodeRequest}
+                renderNodeActions={renderNodeActions}
               />
             )}
           </ExecutedStory>
@@ -253,6 +265,12 @@ export function LaymosStories({
                   scenario={selectedScenario.scenario}
                   preferences={effectiveCanvasPreferences}
                   onPreferencesChange={setCanvasPreferences}
+                  selectedNodeId={selectedNodeId}
+                  onSelectedNodeIdChange={onSelectedNodeIdChange}
+                  onNodeClick={onNodeClick}
+                  onGraphNodesChange={onGraphNodesChange}
+                  centerNodeRequest={centerNodeRequest}
+                  renderNodeActions={renderNodeActions}
                 />
               )}
             </ExecutedStory>
@@ -287,27 +305,44 @@ function TraceCanvas({
   description,
   preferences,
   onPreferencesChange,
+  selectedNodeId,
+  onSelectedNodeIdChange,
+  onNodeClick,
+  onGraphNodesChange,
+  centerNodeRequest,
+  renderNodeActions,
 }: {
   trace: StoryTrace;
   name: string;
   description: string;
   preferences: LaymosStoryCanvasPreferences;
   onPreferencesChange: (preferences: LaymosStoryCanvasPreferences) => void;
+  selectedNodeId?: LaymosStoriesProps['selectedNodeId'];
+  onSelectedNodeIdChange?: LaymosStoriesProps['onSelectedNodeIdChange'];
+  onNodeClick?: LaymosStoriesProps['onNodeClick'];
+  onGraphNodesChange?: LaymosStoriesProps['onGraphNodesChange'];
+  centerNodeRequest?: LaymosStoriesProps['centerNodeRequest'];
+  renderNodeActions?: LaymosStoriesProps['renderNodeActions'];
 }) {
   const [definitionId, setDefinitionId] = useState<string | null>(null);
   const definitions = Object.entries(trace.definitions);
   const selectedDefinition = definitionId
     ? trace.definitions[definitionId]
     : undefined;
-  const visibleTrace = selectedDefinition
-    ? { ...trace, execution: selectedDefinition }
-    : trace;
-  const story = storyRunFromTrace(
-    visibleTrace,
-    definitionId ? (trace.blocks[definitionId]?.name ?? definitionId) : name,
-    definitionId
-      ? (trace.blocks[definitionId]?.description ?? description)
-      : description,
+  const story = useMemo(
+    () =>
+      storyRunFromTrace(
+        selectedDefinition
+          ? { ...trace, execution: selectedDefinition }
+          : trace,
+        definitionId
+          ? (trace.blocks[definitionId]?.name ?? definitionId)
+          : name,
+        definitionId
+          ? (trace.blocks[definitionId]?.description ?? description)
+          : description,
+      ),
+    [definitionId, description, name, selectedDefinition, trace],
   );
   return (
     <div className="flex h-full min-h-0">
@@ -340,6 +375,12 @@ function TraceCanvas({
           story={story}
           preferences={preferences}
           onPreferencesChange={onPreferencesChange}
+          selectedNodeId={selectedNodeId}
+          onSelectedNodeIdChange={onSelectedNodeIdChange}
+          onNodeClick={onNodeClick}
+          onGraphNodesChange={onGraphNodesChange}
+          centerNodeRequest={centerNodeRequest}
+          renderNodeActions={renderNodeActions}
         />
       </div>
     </div>

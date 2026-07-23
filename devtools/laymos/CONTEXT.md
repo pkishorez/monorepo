@@ -74,8 +74,16 @@ other story-named files and Story support files remain untouched. Partial
 ejection is not supported.
 _Avoid_: unstory
 
+**Story source projection**:
+A read-only view of application source with its Story narration retired. Its
+ejected form is identical to Story ejection output; its clean form retains only
+the source context relevant to selected Story elements.
+_Avoid_: preview
+
 **Story**:
-A named executable narrative for one feature or use case. Its unified account
+A named executable narrative for one independently explainable intended
+behavior. A broader flow that combines several independently meaningful
+behaviors is a composition of Stories, not itself a Story. Its unified account
 is discovered in Trace Mode and includes every declared Decision Arm; Scenarios
 separately record the concrete routes they execute under arranged conditions.
 A Story describes only its explicitly marked Blocks and Omissions and makes no
@@ -88,6 +96,14 @@ different Story Groups.
 A Story belongs to at most one Story Group; without one, it is a Standalone
 Story.
 _Avoid_: coverage suite, specification
+
+**Story coverage**:
+The degree to which a package's inferred inventory of intended behaviors is
+accounted for by Stories, Scenarios, explicit compositions, or reasoned
+omissions. It is a reviewable documentation judgment, not proof of runtime or
+code coverage. The inventory is a temporary authoring aid; Stories are the
+durable account.
+_Avoid_: code coverage, test coverage, coverage manifest
 
 **Trace Mode**:
 The side-effect-free exploration of a Story's narrated flow. It follows every
@@ -138,7 +154,9 @@ preparation, verification, and optional cleanup are operational boundaries,
 not part of the Story's narrated execution. It directly owns the Block Visits
 observed during its run. It has no generated or author-supplied identifier — it
 is identified by its declaration position within the Story — and it has a
-required description. Every runnable Scenario explicitly verifies either a
+required description. A Scenario varies conditions, a selected Decision route,
+or an expected success or typed error; an independently explainable intended
+behavior belongs in a separate Story. Every runnable Scenario explicitly verifies either a
 successful value or a typed error; only a skipped Scenario has no verification.
 Scenarios form a flat list declared synchronously and directly within a Story;
 the Story runner executes them sequentially in declaration order, each at most
@@ -186,6 +204,33 @@ explanation of what it does and why. Its identity is generated rather than
 supplied by the author, and is not expected to remain stable across story
 generations. A Block is a Flow, Step, Decision, or Terminal.
 
+**Story traversal narration**:
+The per-Story source diagnostic that classifies the non-empty application lines
+within its Traversal scope as narrated, omitted, or unnarrated. It reports each
+classification as a line count and percentage without claiming that code
+executed or behavior was proven.
+_Avoid_: code coverage, test coverage
+
+**Traversal scope**:
+The union of application function bodies that contain a Block or Omission
+reached by one Story. A called helper with no reached Story construct is outside
+the scope.
+
+**Omitted code**:
+Application source deliberately enclosed by an Omission. It is accounted for
+separately and counts as neither narrated nor unnarrated.
+
+**Unnarrated code**:
+Source within a Traversal scope that is structurally owned by neither a Story
+Block nor an Omission. It is the unaccounted remainder after narrated and
+omitted lines are removed.
+_Avoid_: uncovered code
+
+**Concurrency scope**:
+A non-narrative structural container showing concurrent execution settings and
+the Block paths beneath them. It contributes execution shape but is not itself
+a Block and does not own narrated lines.
+
 **Flow**:
 A reusable narrated operation whose internal Flows, Steps, and Decisions are
 part of the Story. A Flow preserves its call boundary while allowing the
@@ -215,9 +260,10 @@ completion.
 _Avoid_: terminal Step, final Step
 
 **Terminal completion**:
-The optional declared manner in which a Terminal ends its Flow branch: success,
-or error with an optional error name. It is structural documentation, not a
-runtime Visit outcome.
+The required declared manner in which a Terminal ends its Flow branch: success,
+or error with a required domain error name. It is structural documentation,
+not a runtime Visit outcome. An ending without declared completion is a Step
+rather than a Terminal.
 
 **Terminal mismatch**:
 Scenario evidence that continues within the same sequential branch after a
@@ -226,10 +272,13 @@ It fails that Scenario; parallel siblings and a containing Flow's caller are
 unaffected, and an error name is not runtime-validated.
 
 **Decision**:
-A narrated choice between declared Arms. Trace Mode explores every Arm;
-Scenario execution records only the selected Arm. An exhaustive Decision that
-receives a value matching no Arm is defective rather than succeeding with an
-undefined value.
+A narrated choice between declared Arms. When its result is assigned, its Arms
+derive one value and the containing Flow continues; it is presented as one
+choice whose internal Arms can be expanded. When it is returned, each Arm owns
+the remaining execution of that branch. A Decision result cannot be discarded.
+Trace Mode explores every Arm; Scenario execution records only the selected
+Arm. An exhaustive Decision that receives a value matching no Arm is defective
+rather than succeeding with an undefined value.
 _Avoid_: conditional block
 
 **Visibility**:
@@ -240,8 +289,8 @@ visible than its containing Flow, Decision, or Arm.
 
 **Omission**:
 A source-located marker showing where Trace Mode deliberately stopped without
-describing or exploring the underlying operation. It may have a short label
-but requires no description.
+describing or exploring the underlying operation. It requires a non-empty
+reason so the exclusion remains reviewable.
 _Avoid_: ignored Block, hidden Block
 
 **Block visit**:
@@ -251,6 +300,13 @@ place in the narrative. A visit records when it began and how long it ran —
 timing is Scenario evidence, never Block identity. A visit has no identity of
 its own; it is identified by its position in the scenario's Execution Path.
 _Avoid_: block instance, block visit ID (retired)
+
+**Scenario node coverage**:
+The fraction of a Story's traced Blocks visited by the union of its executed
+Scenarios. A Block counts once regardless of repeated visits or Visit outcome;
+a skipped Scenario contributes no visits. Decision Arm observation is reported
+separately.
+_Avoid_: test coverage
 
 **Execution path**:
 The recursive structure that directly holds a Scenario's Block Visits. Array
@@ -270,19 +326,25 @@ Scenario evidence, never Block identity or unified Story content. Invalid JSON
 data fails Scenario recording rather than being silently discarded.
 
 **Arm**:
-One structural output of a decision, not itself a block or block visit. A
+One structural alternative of a Decision, not itself a Block or Block Visit. A
 literal-keyed Arm is selected by ordinary strict equality; its key is a string,
 boolean, or finite number, with `0` and `-0` denoting the same choice. An
 Otherwise Arm catches every unhandled literal. Every Arm has a required,
 non-empty description of what the choice means, may have a distinct narrative
-name, and has Visibility. Trace Mode explores every Arm body; a Scenario records
-only its selected Arm and concrete child Execution Path. A Decision Visit always
-has a selected Arm, including when that Arm later fails or is interrupted.
+name, and has Visibility. Its declared errors exhaustively name its intentional
+typed failures. An Arm of a returned Decision may declare successful or named
+error completion for its branch; an Arm of an assigned Decision cannot declare
+completion because it must produce a value and rejoin the containing Flow.
+Errors describe possible escaping failures, while completion describes one
+required ending, so an Arm cannot declare both.
+Trace Mode explores every Arm body; a Scenario records only its selected Arm
+and concrete child Execution Path. A Decision Visit always has a selected Arm,
+including when that Arm later fails or is interrupted.
 
 **Story run**:
 The runtime evidence produced by executing every selected Scenario of one
-Story. It contains Scenario outcomes, failures, Block Visits, and Execution
-Paths, but never defines the Story's unified structure.
+Story. It contains the traced Block catalog, Scenario outcomes, failures, Block
+Visits, Execution Paths, and Scenario node coverage.
 _Avoid_: Story Artifact
 
 **Stories run**:

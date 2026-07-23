@@ -30,12 +30,18 @@ export type ArmDeclaration =
       readonly name: string;
       readonly description: string;
       readonly visibility: Visibility;
+      readonly location: SourceLocation;
+      readonly errors?: readonly string[];
+      readonly completion?: TerminalCompletion;
     }
   | {
       readonly kind: 'otherwise';
       readonly name: string;
       readonly description: string;
       readonly visibility: Visibility;
+      readonly location: SourceLocation;
+      readonly errors?: readonly string[];
+      readonly completion?: TerminalCompletion;
     };
 
 export type SelectedArm =
@@ -47,6 +53,7 @@ export interface StoryRecorder {
   start(
     block: BlockDeclaration,
     selectedArm: SelectedArm | undefined,
+    selectedArmDeclaration: ArmDeclaration | undefined,
     attributes: Attributes | undefined,
     parent: unknown,
     branch: unknown,

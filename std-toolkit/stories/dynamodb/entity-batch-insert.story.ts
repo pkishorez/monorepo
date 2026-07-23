@@ -30,7 +30,7 @@ const batchInsertUsers = flow(
             'Completes this batch-insert flow with its write report.',
           completion: { kind: 'success' },
         },
-        Effect.succeed(result),
+        () => Effect.succeed(result),
       );
     }),
 );

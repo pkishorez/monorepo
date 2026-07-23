@@ -2,10 +2,11 @@ import type { AnyEntityESchema, ESchemaType } from '../../../eschema/index.js';
 import { Effect, Option, Schema, Stream, Struct } from 'effect';
 import {
   decision,
+  exhaustive,
   flow,
   forEach as storyForEach,
   step,
-  terminal,
+  when,
 } from 'laymos/story';
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
@@ -325,97 +326,81 @@ export class DynamoEntity<
    * @param options - Optional read options
    * @returns The entity if found, or null
    */
-  get(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    options?: { ConsistentRead?: boolean },
-  ): Effect.Effect<
-    EntityType<ESchemaType<TSchema>> | null,
-    DynamodbError,
-    DynamoDB
-  > {
-    return Effect.gen({ self: this }, function* () {
-      const pk = deriveIndexKeyValue(
-        this.#eschema.name,
-        this.#primaryDerivation.pkDeps,
-        keyValue as Record<string, unknown>,
-        true,
-      );
-      const sk = deriveIndexKeyValue(
-        this.#eschema.name,
-        this.#primaryDerivation.skDeps,
-        keyValue as Record<string, unknown>,
-        false,
-      );
+  get = flow(
+    'Get entity',
+    { description: 'Reads and decodes one entity by its primary key.' },
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      options?: { ConsistentRead?: boolean },
+    ): Effect.Effect<
+      EntityType<ESchemaType<TSchema>> | null,
+      DynamodbError,
+      DynamoDB
+    > => {
+      return Effect.gen({ self: this }, function* () {
+        const pk = deriveIndexKeyValue(
+          this.#eschema.name,
+          this.#primaryDerivation.pkDeps,
+          keyValue as Record<string, unknown>,
+          true,
+        );
+        const sk = deriveIndexKeyValue(
+          this.#eschema.name,
+          this.#primaryDerivation.skDeps,
+          keyValue as Record<string, unknown>,
+          false,
+        );
 
-      const { Item } = yield* this.#table.getItem({ pk, sk }, options);
+        const { Item } = yield* this.#table.getItem({ pk, sk }, options);
 
-      yield* decision(
-        'Was the entity found?',
-        {
-          description:
-            'Distinguishes a stored entity from a missing primary-key lookup.',
-          attributes: { entity: this.#eschema.name },
-        },
-        Item ? 'found' : 'missing',
-      )
-        .when(
-          'found',
+        return yield* decision(
+          'Was the entity found?',
           {
-            name: 'The entity was found',
-            description: 'Decodes the stored item and its adapter metadata.',
+            description:
+              'Distinguishes a stored entity from a missing primary-key lookup.',
+            attributes: { entity: this.#eschema.name },
           },
-          () => Effect.void,
-        )
-        .when(
-          'missing',
-          {
-            name: 'No entity was found',
-            description: 'Returns null because DynamoDB has no matching item.',
-          },
-          () =>
-            terminal(
-              'Return no entity',
-              {
-                description:
-                  'Completes this lookup branch with no matching entity.',
-                completion: { kind: 'success' },
-              },
-              Effect.void,
-            ),
-        )
-        .exhaustive();
-
-      if (!Item) return null;
-
-      return yield* step(
-        'Decode its stored value',
-        {
-          description:
-            'Decodes the stored schema value and separates its entity metadata.',
-          visibility: 'detail',
-        },
-        () =>
-          this.#eschema.decode(Item).pipe(
-            Effect.mapError((e) => DynamodbError.getItemFailed(e)),
-            Effect.map((value) => ({
-              value: value as ESchemaType<TSchema>,
-              meta: Schema.decodeUnknownSync(metaSchema)(Item),
-            })),
+          Boolean(Item),
+        ).pipe(
+          when(
+            true,
+            {
+              name: 'The entity was found',
+              description: 'Decodes the stored item and its adapter metadata.',
+            },
+            () =>
+              step(
+                'Decode its stored value',
+                {
+                  description:
+                    'Decodes the stored schema value and separates its entity metadata.',
+                  visibility: 'detail',
+                },
+                () =>
+                  this.#eschema.decode(Item!).pipe(
+                    Effect.mapError((e) => DynamodbError.getItemFailed(e)),
+                    Effect.map((value) => ({
+                      value: value as ESchemaType<TSchema>,
+                      meta: Schema.decodeUnknownSync(metaSchema)(Item),
+                    })),
+                  ),
+              ),
           ),
-      );
-    }).pipe((effect) =>
-      flow(
-        'Look up the current entity',
-        {
-          description:
-            'Derives the entity primary key, reads its item, and decodes the stored value and metadata.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
+          when(
+            false,
+            {
+              name: 'No entity was found',
+              description:
+                'Returns null because DynamoDB has no matching item.',
+            },
+            () => Effect.succeed(null),
+          ),
+          exhaustive,
+        );
+      });
+    },
+  );
 
   /**
    * Inserts a new entity. Fails if an item with the same key already exists.
@@ -424,111 +409,114 @@ export class DynamoEntity<
    * @param options - Insert options including condition
    * @returns The inserted entity with metadata
    */
-  insert(
-    value: InsertInput<ESchemaType<TSchema>>,
-    options?: {
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-    },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
-    return Effect.gen({ self: this }, function* () {
-      const fullValueWithId = {
-        ...value,
-        _v: this.#eschema.latestVersion,
-      } as unknown as ESchemaType<TSchema>;
+  insert = flow(
+    'Insert entity',
+    { description: 'Validates and stores one new keyed entity.' },
+    (
+      value: InsertInput<ESchemaType<TSchema>>,
+      options?: {
+        condition?: ConditionInput<ESchemaType<TSchema>>;
+      },
+    ): Effect.Effect<
+      EntityType<ESchemaType<TSchema>>,
+      DynamodbError,
+      DynamoDB
+    > => {
+      return Effect.gen({ self: this }, function* () {
+        const fullValueWithId = {
+          ...value,
+          _v: this.#eschema.latestVersion,
+        } as unknown as ESchemaType<TSchema>;
 
-      const { exprResult, fullValue, restamp } = yield* step(
-        'Validate and prepare the new entity',
-        {
-          description:
-            'Encodes the entity, derives every index key, and builds the duplicate guard.',
-          visibility: 'detail',
-        },
-        () => this.#prepareInsert(fullValueWithId, options?.condition),
-      );
-      const { item, meta } = restamp(yield* nextUlid);
-
-      yield* this.#table
-        .putItem(item, { ReturnValues: 'ALL_OLD', ...exprResult })
-        .pipe(
-          Effect.catchIf(
-            (e): e is DynamodbError =>
-              e.error._tag === 'PutItemFailed' && isConditionalCheckFailed(e),
-            () => Effect.fail(DynamodbError.itemAlreadyExists()),
-          ),
-        );
-
-      const entity = { value: fullValue, meta };
-      yield* this.#broadcast([entity]);
-      return entity;
-    }).pipe((effect) =>
-      flow(
-        'Guard and write the new entity',
-        {
-          description:
-            'Validates and encodes a new entity, guards against duplicate identity, and stamps write metadata.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
-
-  batchInsert(values: InsertInput<ESchemaType<TSchema>>[]): Effect.Effect<
-    {
-      written: EntityType<ESchemaType<TSchema>>[];
-      unprocessedIndexes: number[];
-    },
-    DynamodbError,
-    DynamoDB
-  > {
-    return Effect.gen({ self: this }, function* () {
-      const prepared = yield* storyForEach(values, (value) =>
-        step(
-          'Prepare each entity in the batch',
+        const { exprResult, fullValue, restamp } = yield* step(
+          'Validate and prepare the new entity',
           {
             description:
-              'Encodes one input, derives its indexes, and stamps its write metadata.',
+              'Encodes the entity, derives every index key, and builds the duplicate guard.',
+            visibility: 'detail',
+          },
+          () => this.#prepareInsert(fullValueWithId, options?.condition),
+        );
+        const { item, meta } = restamp(yield* nextUlid);
+
+        yield* this.#table
+          .putItem(item, { ReturnValues: 'ALL_OLD', ...exprResult })
+          .pipe(
+            Effect.catchIf(
+              (e): e is DynamodbError =>
+                e.error._tag === 'PutItemFailed' && isConditionalCheckFailed(e),
+              () => Effect.fail(DynamodbError.itemAlreadyExists()),
+            ),
+          );
+
+        const entity = { value: fullValue, meta };
+        yield* this.#broadcast([entity]);
+        return entity;
+      });
+    },
+  );
+
+  batchInsert = flow(
+    'Batch insert entities',
+    {
+      description:
+        'Validates and stores keyed entities in DynamoDB-sized batches.',
+    },
+    (
+      values: InsertInput<ESchemaType<TSchema>>[],
+    ): Effect.Effect<
+      {
+        written: EntityType<ESchemaType<TSchema>>[];
+        unprocessedIndexes: number[];
+      },
+      DynamodbError,
+      DynamoDB
+    > => {
+      return Effect.gen({ self: this }, function* () {
+        const prepared = yield* storyForEach(values, (value) =>
+          step(
+            'Prepare each entity in the batch',
+            {
+              description:
+                'Encodes one input, derives its indexes, and stamps its write metadata.',
+              visibility: 'detail',
+            },
+            () =>
+              Effect.gen({ self: this }, function* () {
+                const fullValue = {
+                  ...value,
+                  _v: this.#eschema.latestVersion,
+                } as unknown as ESchemaType<TSchema>;
+                const item = yield* this.#prepareInsert(fullValue);
+                const stamped = item.restamp(yield* nextUlid);
+                return {
+                  item: stamped.item,
+                  entity: { value: item.fullValue, meta: stamped.meta },
+                };
+              }),
+          ),
+        );
+        const items = prepared.map(({ item }) => item);
+        const entities = prepared.map(({ entity }) => entity);
+        const { unprocessedIndexes } = yield* this.#table.batchWrite(items);
+        const failed = new Set(unprocessedIndexes);
+        const written = entities.filter((_, i) => !failed.has(i));
+        yield* step(
+          'Broadcast the written batch',
+          {
+            description:
+              'Publishes the successfully written entities when the batch produced any.',
             visibility: 'detail',
           },
           () =>
-            Effect.gen({ self: this }, function* () {
-              const fullValue = {
-                ...value,
-                _v: this.#eschema.latestVersion,
-              } as unknown as ESchemaType<TSchema>;
-              const item = yield* this.#prepareInsert(fullValue);
-              const stamped = item.restamp(yield* nextUlid);
-              return {
-                item: stamped.item,
-                entity: { value: item.fullValue, meta: stamped.meta },
-              };
-            }),
-        ),
-      );
-      const items = prepared.map(({ item }) => item);
-      const entities = prepared.map(({ entity }) => entity);
-      const { unprocessedIndexes } = yield* this.#table.batchWrite(items);
-      const failed = new Set(unprocessedIndexes);
-      const written = entities.filter((_, i) => !failed.has(i));
-      if (written.length > 0) {
-        yield* this.#broadcast(written);
-      }
-      return { written, unprocessedIndexes };
-    }).pipe((effect) =>
-      flow(
-        'Prepare and write the entity batch',
-        {
-          description:
-            'Prepares every entity, writes them in DynamoDB-sized batches, and returns processed and unprocessed inputs.',
-          attributes: {
-            entity: this.#eschema.name,
-            items: values.length,
-          },
-        },
-        effect,
-      ),
-    );
-  }
+            Effect.suspend(() =>
+              written.length > 0 ? this.#broadcast(written) : Effect.void,
+            ),
+        );
+        return { written, unprocessedIndexes };
+      });
+    },
+  );
 
   /**
    * Updates an existing entity by its primary key.
@@ -540,149 +528,208 @@ export class DynamoEntity<
    * @param params.condition - Optional condition expression
    * @returns The updated entity with new metadata
    */
-  update(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    params: {
-      update:
-        | Partial<Omit<ESchemaType<TSchema>, '_v'>>
-        | ((
-            ops: UpdateOps<ESchemaType<TSchema>>,
-          ) => AnyOperation<ESchemaType<TSchema>>[]);
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-      autoMigrate?: boolean;
+  update = flow(
+    'Update entity',
+    {
+      description:
+        'Applies a partial or native expression update to one keyed entity.',
     },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
-    const { update: updates, condition, autoMigrate = true } = params;
-    return Effect.gen({ self: this }, function* () {
-      yield* decision(
-        'How should the update be expressed?',
-        {
-          description:
-            'Selects whether to compile a partial value or a native update-expression callback.',
-          attributes: { entity: this.#eschema.name },
-        },
-        typeof updates === 'function' ? 'expression' : 'partial',
-      )
-        .when(
-          'expression',
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      params: {
+        update:
+          | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+          | ((
+              ops: UpdateOps<ESchemaType<TSchema>>,
+            ) => AnyOperation<ESchemaType<TSchema>>[]);
+        condition?: ConditionInput<ESchemaType<TSchema>>;
+        autoMigrate?: boolean;
+      },
+    ): Effect.Effect<
+      EntityType<ESchemaType<TSchema>>,
+      DynamodbError,
+      DynamoDB
+    > => {
+      const { update: updates, condition, autoMigrate = true } = params;
+      return Effect.gen({ self: this }, function* () {
+        const { pk, sk, restamp } = yield* decision(
+          'How should the update be expressed?',
           {
-            name: 'Use update expressions',
             description:
-              'Compiles the caller callback into DynamoDB update operations.',
+              'Selects whether to compile a partial value or a native update-expression callback.',
+            attributes: { entity: this.#eschema.name },
           },
-          () => Effect.void,
-        )
-        .when(
-          'partial',
-          {
-            name: 'Use changed fields',
-            description:
-              'Encodes the supplied fields into DynamoDB set operations.',
-          },
-          () => Effect.void,
-        )
-        .exhaustive();
-
-      const { pk, sk, restamp } = yield* step(
-        'Prepare the guarded update',
-        {
-          description:
-            'Derives keys and compiles the selected partial or expression update with its guards.',
-          visibility: 'detail',
-        },
-        () =>
-          typeof updates === 'function'
-            ? this.#prepareUpdateExpr(
-                keyValue as Record<string, unknown>,
-                updates,
-                condition,
-              )
-            : this.#prepareUpdate(
-                keyValue as Record<string, unknown>,
-                updates,
-                condition,
+          typeof updates === 'function' ? 'expression' : 'partial',
+        ).pipe(
+          when(
+            'expression',
+            {
+              name: 'Use update expressions',
+              description:
+                'Compiles the caller callback into DynamoDB update operations.',
+            },
+            () =>
+              step(
+                'Compile update expressions',
+                {
+                  description:
+                    'Compiles the caller callback into DynamoDB update operations.',
+                },
+                () =>
+                  this.#prepareUpdateExpr(
+                    keyValue as Record<string, unknown>,
+                    updates as any,
+                    condition,
+                  ),
               ),
-      );
-      const { exprResult } = restamp(yield* nextUlid);
-
-      const attemptUpdate = () =>
-        this.#table.updateItem(
-          { pk, sk },
-          {
-            ReturnValues: 'ALL_NEW',
-            ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
-            ...exprResult,
-          },
-        );
-
-      const result = yield* attemptUpdate().pipe(
-        Effect.catchIf(
-          (e): e is DynamodbError =>
-            e.error._tag === 'UpdateItemFailed' && isConditionalCheckFailed(e),
-          (e) => this.#handleConditionFailure(e, autoMigrate, condition),
-        ),
-        Effect.andThen((resultOrRetry) => {
-          if ('_retry' in resultOrRetry) {
-            return attemptUpdate().pipe(
-              Effect.mapError((retryErr): DynamodbError => {
-                if (
-                  retryErr.error._tag === 'UpdateItemFailed' &&
-                  isConditionalCheckFailed(retryErr)
-                ) {
-                  return condition
-                    ? DynamodbError.conditionCheckFailed()
-                    : DynamodbError.noItemToUpdate();
-                }
-                return retryErr;
-              }),
-            );
-          }
-          return Effect.succeed(resultOrRetry);
-        }),
-      );
-
-      if (!result.Attributes) {
-        return yield* Effect.fail(DynamodbError.noItemToUpdate());
-      }
-
-      const { decodedValue, updatedMeta } = yield* step(
-        'Decode the updated value',
-        {
-          description:
-            'Decodes the returned schema value and its freshly written metadata.',
-          visibility: 'detail',
-        },
-        () =>
-          this.#eschema.decode(result.Attributes).pipe(
-            Effect.mapError((e) => DynamodbError.updateItemFailed(e)),
-            Effect.map((decodedValue) => ({
-              decodedValue,
-              updatedMeta: Schema.decodeUnknownSync(metaSchema)(
-                result.Attributes,
-              ),
-            })),
           ),
-      );
+          when(
+            'partial',
+            {
+              name: 'Use changed fields',
+              description:
+                'Encodes the supplied fields into DynamoDB set operations.',
+            },
+            () =>
+              step(
+                'Encode changed fields',
+                {
+                  description:
+                    'Encodes the supplied entity fields into DynamoDB update operations.',
+                },
+                () =>
+                  this.#prepareUpdate(
+                    keyValue as Record<string, unknown>,
+                    updates as any,
+                    condition,
+                  ),
+              ),
+          ),
+          exhaustive,
+        );
+        const { exprResult } = restamp(yield* nextUlid);
 
-      const entity = {
-        value: decodedValue as ESchemaType<TSchema>,
-        meta: updatedMeta,
-      };
-      yield* this.#broadcast([entity]);
-      return entity;
-    }).pipe((effect) =>
-      flow(
-        'Apply the entity update',
-        {
-          description:
-            'Builds a guarded native update, migrates stale data when enabled, and decodes the new entity state.',
-          attributes: { entity: this.#eschema.name, autoMigrate },
-        },
-        effect,
-      ),
-    );
-  }
+        const attemptUpdate = flow(
+          'Apply the guarded update',
+          {
+            description:
+              'Writes the compiled entity update with its schema and caller guards.',
+            visibility: 'detail',
+          },
+          () =>
+            this.#table.updateItem(
+              { pk, sk },
+              {
+                ReturnValues: 'ALL_NEW',
+                ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+                ...exprResult,
+              },
+            ),
+        );
+        const resultOrRetry = yield* attemptUpdate().pipe(
+          Effect.catchIf(
+            (e): e is DynamodbError =>
+              e.error._tag === 'UpdateItemFailed' &&
+              isConditionalCheckFailed(e),
+            (e) => this.#handleConditionFailure(e, autoMigrate, condition),
+          ),
+        );
+        const completedResult = resultOrRetry as {
+          Attributes: Record<string, unknown> | null;
+        };
+        const result = yield* decision(
+          'Should the guarded update be retried?',
+          {
+            description:
+              'Retries once after automatic migration or continues with the completed update.',
+            attributes: { entity: this.#eschema.name },
+          },
+          '_retry' in resultOrRetry,
+        ).pipe(
+          when(
+            true,
+            {
+              name: 'Retry after migration',
+              description:
+                'Repeats the guarded update after migrating stale stored data.',
+            },
+            () =>
+              attemptUpdate().pipe(
+                Effect.mapError((error) =>
+                  this.#mapRetryUpdateError(error, condition !== undefined),
+                ),
+              ),
+          ),
+          when(
+            false,
+            {
+              name: 'Continue with the result',
+              description:
+                'Uses the result from the first guarded update attempt.',
+            },
+            () => Effect.succeed(completedResult),
+          ),
+          exhaustive,
+        );
+        return yield* decision(
+          'Did DynamoDB return the updated entity?',
+          {
+            description:
+              'Returns the decoded update or fails when no stored entity was updated.',
+            attributes: { entity: this.#eschema.name },
+          },
+          result.Attributes ? 'updated' : 'missing',
+        ).pipe(
+          when(
+            'updated',
+            {
+              name: 'Return the updated entity',
+              description:
+                'Decodes, broadcasts, and returns the freshly updated entity.',
+            },
+            () =>
+              Effect.gen({ self: this }, function* () {
+                const { decodedValue, updatedMeta } = yield* step(
+                  'Decode the updated value',
+                  {
+                    description:
+                      'Decodes the returned schema value and its freshly written metadata.',
+                    visibility: 'detail',
+                  },
+                  () =>
+                    this.#eschema.decode(result.Attributes!).pipe(
+                      Effect.mapError((e) => DynamodbError.updateItemFailed(e)),
+                      Effect.map((decodedValue) => ({
+                        decodedValue,
+                        updatedMeta: Schema.decodeUnknownSync(metaSchema)(
+                          result.Attributes,
+                        ),
+                      })),
+                    ),
+                );
+                const entity = {
+                  value: decodedValue as ESchemaType<TSchema>,
+                  meta: updatedMeta,
+                };
+                yield* this.#broadcast([entity]);
+                return entity;
+              }),
+          ),
+          when(
+            'missing',
+            {
+              name: 'No entity was updated',
+              description: 'Fails because no stored entity matched the update.',
+              completion: { kind: 'error', error: 'NoItemToUpdate' },
+            },
+            () => Effect.fail(DynamodbError.noItemToUpdate()),
+          ),
+          exhaustive,
+        );
+      });
+    },
+  );
 
   /**
    * Deletes an entity. Defaults to a soft delete by setting the `_d` flag to
@@ -717,102 +764,95 @@ export class DynamoEntity<
    * @param options.forceDelete - Acknowledgement string that opts into hard delete
    * @returns The deleted entity (with `_d: true` for both soft and hard delete)
    */
-  delete(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    options?: {
-      forceDelete?: 'I know what I am doing';
+  delete = flow(
+    'Delete entity',
+    {
+      description:
+        'Soft-deletes an entity or physically removes it after explicit acknowledgement.',
     },
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
-    return Effect.gen({ self: this }, function* () {
-      const existing = yield* this.get(keyValue);
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      options?: {
+        forceDelete?: 'I know what I am doing';
+      },
+    ): Effect.Effect<
+      EntityType<ESchemaType<TSchema>>,
+      DynamodbError,
+      DynamoDB
+    > => {
+      return Effect.gen({ self: this }, function* () {
+        const existing = yield* this.get(keyValue);
 
-      yield* decision(
-        'How should it be deleted?',
-        {
-          description:
-            'Routes a missing item to an error and an existing item to soft or physical deletion.',
-          attributes: { entity: this.#eschema.name },
-        },
-        !existing
-          ? 'missing'
-          : options?.forceDelete === 'I know what I am doing'
-            ? 'physical'
-            : 'tombstone',
-      )
-        .when(
-          'missing',
+        return yield* decision(
+          'How should it be deleted?',
           {
-            name: 'The entity is missing',
-            description: 'Fails because there is no entity to delete.',
-          },
-          () => Effect.void,
-        )
-        .when(
-          'physical',
-          {
-            name: 'Remove it permanently',
             description:
-              'Physically removes the row after the explicit safety acknowledgement.',
+              'Routes a missing item to an error and an existing item to soft or physical deletion.',
+            attributes: { entity: this.#eschema.name },
           },
-          () => Effect.void,
-        )
-        .when(
-          'tombstone',
-          {
-            name: 'Keep a tombstone',
-            description:
-              'Keeps the row and marks it deleted so downstream readers can reconcile it.',
-          },
-          () => Effect.void,
-        )
-        .exhaustive();
-
-      if (!existing) {
-        return yield* Effect.fail(DynamodbError.noItemToDelete());
-      }
-
-      if (options?.forceDelete === 'I know what I am doing') {
-        const pk = deriveIndexKeyValue(
-          this.#eschema.name,
-          this.#primaryDerivation.pkDeps,
-          keyValue as Record<string, unknown>,
-          true,
+          !existing
+            ? 'missing'
+            : options?.forceDelete === 'I know what I am doing'
+              ? 'physical'
+              : 'tombstone',
+        ).pipe(
+          when(
+            'missing',
+            {
+              name: 'The entity is missing',
+              description: 'Fails because there is no entity to delete.',
+              completion: { kind: 'error', error: 'NoItemToDelete' },
+            },
+            () => Effect.fail(DynamodbError.noItemToDelete()),
+          ),
+          when(
+            'physical',
+            {
+              name: 'Remove it permanently',
+              description:
+                'Physically removes the row after the explicit safety acknowledgement.',
+            },
+            () =>
+              Effect.gen({ self: this }, function* () {
+                const pk = deriveIndexKeyValue(
+                  this.#eschema.name,
+                  this.#primaryDerivation.pkDeps,
+                  keyValue as Record<string, unknown>,
+                  true,
+                );
+                const sk = deriveIndexKeyValue(
+                  this.#eschema.name,
+                  this.#primaryDerivation.skDeps,
+                  keyValue as Record<string, unknown>,
+                  false,
+                );
+                yield* this.#table.deleteItem({ pk, sk });
+                const deleted = {
+                  value: existing!.value,
+                  meta: { ...existing!.meta, _d: true as const },
+                };
+                yield* this.#broadcast([deleted]);
+                return deleted;
+              }),
+          ),
+          when(
+            'tombstone',
+            {
+              name: 'Keep a tombstone',
+              description:
+                'Keeps the row and marks it deleted so downstream readers can reconcile it.',
+            },
+            () =>
+              this.update(keyValue, {
+                update: { _d: true } as any,
+              }),
+          ),
+          exhaustive,
         );
-        const sk = deriveIndexKeyValue(
-          this.#eschema.name,
-          this.#primaryDerivation.skDeps,
-          keyValue as Record<string, unknown>,
-          false,
-        );
-
-        yield* this.#table.deleteItem({ pk, sk });
-
-        const deleted = {
-          value: existing.value,
-          meta: { ...existing.meta, _d: true },
-        };
-        yield* this.#broadcast([deleted]);
-        return deleted;
-      }
-
-      const result = yield* this.update(keyValue, {
-        update: { _d: true } as any,
       });
-
-      return result;
-    }).pipe((effect) =>
-      flow(
-        'Choose and apply the deletion',
-        {
-          description:
-            'Reads the current entity and applies either the default tombstone write or an acknowledged physical delete.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
+    },
+  );
 
   /**
    * Restores a soft-deleted entity with a fresh `_u` so sync consumers see it
@@ -821,71 +861,64 @@ export class DynamoEntity<
    * @param keyValue - Object containing the primary key field values
    * @returns The restored entity
    */
-  restore(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
-    return Effect.gen({ self: this }, function* () {
-      const existing = yield* this.get(keyValue);
+  restore = flow(
+    'Restore entity',
+    { description: 'Restores one soft-deleted entity to live state.' },
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    ): Effect.Effect<
+      EntityType<ESchemaType<TSchema>>,
+      DynamodbError,
+      DynamoDB
+    > => {
+      return Effect.gen({ self: this }, function* () {
+        const existing = yield* this.get(keyValue);
 
-      yield* decision(
-        'Does the entity need restoration?',
-        {
-          description:
-            'Distinguishes a missing entity, an already-live entity, and a tombstone that needs restoring.',
-          attributes: { entity: this.#eschema.name },
-        },
-        !existing ? 'missing' : existing.meta._d ? 'tombstone' : 'live',
-      )
-        .when(
-          'missing',
+        return yield* decision(
+          'Does the entity need restoration?',
           {
-            name: 'The entity is missing',
-            description: 'Fails because there is no entity to restore.',
-          },
-          () => Effect.void,
-        )
-        .when(
-          'live',
-          {
-            name: 'It is already live',
             description:
-              'Returns the existing entity because it is already live.',
+              'Distinguishes a missing entity, an already-live entity, and a tombstone that needs restoring.',
+            attributes: { entity: this.#eschema.name },
           },
-          () => Effect.void,
-        )
-        .when(
-          'tombstone',
-          {
-            name: 'Restore the tombstone',
-            description:
-              'Clears the deletion marker and stamps a new update cursor.',
-          },
-          () => Effect.void,
-        )
-        .exhaustive();
-
-      if (!existing) {
-        return yield* Effect.fail(DynamodbError.noItemToRestore());
-      }
-
-      if (!existing.meta._d) return existing;
-
-      return yield* this.update(keyValue, {
-        update: { _d: false } as any,
+          !existing ? 'missing' : existing.meta._d ? 'tombstone' : 'live',
+        ).pipe(
+          when(
+            'missing',
+            {
+              name: 'The entity is missing',
+              description: 'Fails because there is no entity to restore.',
+              completion: { kind: 'error', error: 'NoItemToRestore' },
+            },
+            () => Effect.fail(DynamodbError.noItemToRestore()),
+          ),
+          when(
+            'live',
+            {
+              name: 'It is already live',
+              description:
+                'Returns the existing entity because it is already live.',
+            },
+            () => Effect.succeed(existing!),
+          ),
+          when(
+            'tombstone',
+            {
+              name: 'Restore the tombstone',
+              description:
+                'Clears the deletion marker and stamps a new update cursor.',
+            },
+            () =>
+              this.update(keyValue, {
+                update: { _d: false } as any,
+              }),
+          ),
+          exhaustive,
+        );
       });
-    }).pipe((effect) =>
-      flow(
-        'Restore the entity if needed',
-        {
-          description:
-            'Reads an entity tombstone and makes it live again with a fresh update cursor.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
+    },
+  );
 
   /**
    * Creates an insert operation for use in a transaction.
@@ -895,55 +928,52 @@ export class DynamoEntity<
    * @param options - Insert options including condition
    * @returns A transaction item for insert with broadcast data
    */
-  insertOp(
-    value: InsertInput<ESchemaType<TSchema>>,
-    options?: {
-      condition?: ConditionInput<ESchemaType<TSchema>>;
+  insertOp = flow(
+    'Build entity insert operation',
+    {
+      description:
+        'Builds a deferred entity insert for an atomic table transaction.',
     },
-  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
-    return Effect.gen({ self: this }, function* () {
-      const fullValueWithId = {
-        ...value,
-        _v: this.#eschema.latestVersion,
-      } as unknown as ESchemaType<TSchema>;
+    (
+      value: InsertInput<ESchemaType<TSchema>>,
+      options?: {
+        condition?: ConditionInput<ESchemaType<TSchema>>;
+      },
+    ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> => {
+      return Effect.gen({ self: this }, function* () {
+        const fullValueWithId = {
+          ...value,
+          _v: this.#eschema.latestVersion,
+        } as unknown as ESchemaType<TSchema>;
 
-      const { exprResult, fullValue, restamp } = yield* step(
-        'Prepare deferred DynamoDB entity insert',
-        {
-          description:
-            'Encodes the entity, derives its keys, and compiles the deferred duplicate guard.',
-          visibility: 'detail',
-        },
-        () => this.#prepareInsert(fullValueWithId, options?.condition),
-      );
-      const { pk, sk } = this.#derivePrimaryIndex(fullValueWithId);
+        const { exprResult, fullValue, restamp } = yield* step(
+          'Prepare deferred DynamoDB entity insert',
+          {
+            description:
+              'Encodes the entity, derives its keys, and compiles the deferred duplicate guard.',
+            visibility: 'detail',
+          },
+          () => this.#prepareInsert(fullValueWithId, options?.condition),
+        );
+        const { pk, sk } = this.#derivePrimaryIndex(fullValueWithId);
 
-      return {
-        entityName: this.#eschema.name,
-        operationKind: 'insertOp',
-        pk,
-        sk,
-        table: this.#table,
-        apply: (u) => {
-          const { item, meta } = restamp(u);
-          return {
-            ...this.#table.opPutItem(item, exprResult),
-            broadcast: { value: fullValue, meta },
-          };
-        },
-      } satisfies TransactItem;
-    }).pipe((effect) =>
-      flow(
-        'Build DynamoDB insert operation',
-        {
-          description:
-            'Validates and encodes an entity into a deferred insert for a later atomic transaction.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
+        return {
+          entityName: this.#eschema.name,
+          operationKind: 'insertOp',
+          pk,
+          sk,
+          table: this.#table,
+          apply: (u) => {
+            const { item, meta } = restamp(u);
+            return {
+              ...this.#table.opPutItem(item, exprResult),
+              broadcast: { value: fullValue, meta },
+            };
+          },
+        } satisfies TransactItem;
+      });
+    },
+  );
 
   /**
    * Creates an update operation for use in a transaction.
@@ -955,75 +985,113 @@ export class DynamoEntity<
    * @param params.condition - Optional condition expression
    * @returns A transaction item for update with broadcast data
    */
-  updateOp(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    params: {
-      update:
-        | Partial<Omit<ESchemaType<TSchema>, '_v'>>
-        | ((
-            ops: UpdateOps<ESchemaType<TSchema>>,
-          ) => AnyOperation<ESchemaType<TSchema>>[]);
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-      lastWriteWins?: boolean;
+  updateOp = flow(
+    'Build entity update operation',
+    {
+      description:
+        'Reads one entity and builds its deferred transactional update.',
     },
-  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
-    const { update: updates, condition } = params;
-    return Effect.gen({ self: this }, function* () {
-      const existing = yield* this.get(keyValue, { ConsistentRead: true });
-      if (!existing) {
-        return yield* Effect.fail(DynamodbError.noItemToUpdate());
-      }
-
-      const expectedU = params.lastWriteWins ? undefined : existing.meta._u;
-      const { pk, sk, restamp } =
-        typeof updates === 'function'
-          ? yield* this.#prepareUpdateExpr(
-              keyValue as Record<string, unknown>,
-              updates,
-              condition,
-              expectedU,
-              existing.meta._d,
-            )
-          : yield* this.#prepareUpdate(
-              keyValue as Record<string, unknown>,
-              updates,
-              condition,
-              expectedU,
-              existing.meta._d,
-            );
-
-      const mergedValue =
-        typeof updates === 'function'
-          ? existing.value
-          : ({ ...existing.value, ...updates } as ESchemaType<TSchema>);
-
-      return {
-        entityName: this.#eschema.name,
-        operationKind: 'updateOp',
-        pk,
-        sk,
-        table: this.#table,
-        apply: (u) => {
-          const { exprResult, meta } = restamp(u);
-          return {
-            ...this.#table.opUpdateItem({ pk, sk }, exprResult),
-            broadcast: { value: mergedValue, meta },
-          };
-        },
-      } satisfies TransactItem;
-    }).pipe((effect) =>
-      flow(
-        'Build DynamoDB update operation',
-        {
-          description:
-            'Reads current state and builds a deferred optimistic update for a later atomic transaction.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      params: {
+        update:
+          | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+          | ((
+              ops: UpdateOps<ESchemaType<TSchema>>,
+            ) => AnyOperation<ESchemaType<TSchema>>[]);
+        condition?: ConditionInput<ESchemaType<TSchema>>;
+        lastWriteWins?: boolean;
+      },
+    ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> => {
+      const { update: updates, condition } = params;
+      return Effect.gen({ self: this }, function* () {
+        const existing = yield* this.get(keyValue, { ConsistentRead: true });
+        return yield* decision(
+          'Was an entity available for the update operation?',
+          {
+            description:
+              'Builds the deferred update only when the entity already exists.',
+            attributes: { entity: this.#eschema.name },
+          },
+          existing ? 'found' : 'missing',
+        ).pipe(
+          when(
+            'missing',
+            {
+              name: 'No entity was found',
+              description:
+                'Fails because no stored entity can produce an update operation.',
+              completion: { kind: 'error', error: 'NoItemToUpdate' },
+            },
+            () => Effect.fail(DynamodbError.noItemToUpdate()),
+          ),
+          when(
+            'found',
+            {
+              name: 'Build the update operation',
+              description:
+                'Compiles the guarded update and its deferred broadcast value.',
+            },
+            () =>
+              step(
+                'Prepare the deferred update',
+                {
+                  description:
+                    'Compiles keys, update expressions, guards, and broadcast data for the transaction.',
+                  visibility: 'detail',
+                },
+                () =>
+                  Effect.gen({ self: this }, function* () {
+                    const current = existing!;
+                    const expectedU = params.lastWriteWins
+                      ? undefined
+                      : current.meta._u;
+                    const { pk, sk, restamp } =
+                      typeof updates === 'function'
+                        ? yield* this.#prepareUpdateExpr(
+                            keyValue as Record<string, unknown>,
+                            updates,
+                            condition,
+                            expectedU,
+                            current.meta._d,
+                          )
+                        : yield* this.#prepareUpdate(
+                            keyValue as Record<string, unknown>,
+                            updates,
+                            condition,
+                            expectedU,
+                            current.meta._d,
+                          );
+                    const mergedValue =
+                      typeof updates === 'function'
+                        ? current.value
+                        : ({
+                            ...current.value,
+                            ...updates,
+                          } as ESchemaType<TSchema>);
+                    return {
+                      entityName: this.#eschema.name,
+                      operationKind: 'updateOp',
+                      pk,
+                      sk,
+                      table: this.#table,
+                      apply: (u) => {
+                        const { exprResult, meta } = restamp(u);
+                        return {
+                          ...this.#table.opUpdateItem({ pk, sk }, exprResult),
+                          broadcast: { value: mergedValue, meta },
+                        };
+                      },
+                    } satisfies TransactItem;
+                  }),
+              ),
+          ),
+          exhaustive,
+        );
+      });
+    },
+  );
 
   /**
    * The portable read-modify-write (see db ADR 0002): reads the current
@@ -1040,211 +1108,269 @@ export class DynamoEntity<
    * @param config - Retry count and guard opt-out
    * @returns The updated entity with new metadata
    */
-  getAndUpdate(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    update: UpdateInput<ESchemaType<TSchema>>,
-    config?: GetAndUpdateConfig,
-  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamodbError, DynamoDB> {
-    return Effect.gen({ self: this }, function* () {
+  getAndUpdate = flow(
+    'Get and update entity',
+    {
+      description:
+        'Reads, derives, and conditionally writes a guarded entity replacement.',
+    },
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      update: UpdateInput<ESchemaType<TSchema>>,
+      config?: GetAndUpdateConfig,
+    ): Effect.Effect<
+      EntityType<ESchemaType<TSchema>>,
+      DynamodbError,
+      DynamoDB
+    > => {
       const retries = config?.retries ?? 3;
-      for (let attempt = 0; ; attempt++) {
-        const existing = yield* this.get(keyValue, { ConsistentRead: true });
-        if (!existing) {
-          return yield* Effect.fail(DynamodbError.noItemToUpdate());
-        }
-
-        const partial =
-          typeof update === 'function' ? update(existing.value) : update;
-
-        yield* decision(
-          'Should the derived change be written?',
-          {
-            description:
-              'Selects whether the derived update skips persistence or writes a merged entity.',
-            attributes: { entity: this.#eschema.name, attempt },
-          },
-          partial === null ? 'skip' : 'write',
-        )
-          .when(
-            'skip',
-            {
-              name: 'Keep the current entity',
-              description:
-                'Returns the current entity because the callback requested no write.',
-            },
-            () =>
-              terminal(
-                'Return the unchanged entity',
-                {
-                  description:
-                    'Completes this update branch without writing because the derived change is empty.',
-                  completion: { kind: 'success' },
-                },
-                Effect.void,
-              ),
-          )
-          .when(
-            'write',
-            {
-              name: 'Write the replacement',
-              description:
-                'Merges and conditionally writes the derived entity state.',
-            },
-            () => Effect.void,
-          )
-          .exhaustive();
-
-        if (partial === null) return existing;
-
-        const { fullValue, item, _u } = yield* step(
-          'Prepare the optimistic replacement',
-          {
-            description:
-              'Merges the derived update, preserves entity identity, encodes canonical indexes, and stamps the next cursor.',
-            visibility: 'detail',
-          },
-          () =>
-            Effect.gen({ self: this }, function* () {
-              const fullValue = {
-                ...existing.value,
-                ...partial,
-              } as ESchemaType<TSchema>;
-              const idField = this.#eschema.idField;
-              if (!Object.is(fullValue[idField], existing.value[idField])) {
-                return yield* Effect.fail(
-                  DynamodbError.idUpdateNotSupported(idField),
-                );
-              }
-              const _u = yield* nextUlid;
-              const canonical = yield* this.#canonicalizeDecodedValue(
-                fullValue,
-                { _d: existing.meta._d },
-                _u,
-              );
-              const originalKey = this.#derivePrimaryIndex({
-                ...keyValue,
-                _u,
-              });
-              return {
-                fullValue,
-                _u,
-                item: {
-                  ...canonical.item,
-                  [this.#table.primary.pk]: originalKey.pk,
-                  [this.#table.primary.sk]: originalKey.sk,
-                },
-              };
-            }),
-        );
-
-        const exprResult = config?.lastWriteWins
-          ? undefined
-          : buildExpr({
-              condition: exprCondition(($) =>
-                $.cond('_u' as any, '=', existing.meta._u),
-              ),
-            });
-
-        const conflicted = yield* this.#table.putItem(item, exprResult).pipe(
-          Effect.as(false),
-          Effect.catchIf(
-            (e): e is DynamodbError =>
-              e.error._tag === 'PutItemFailed' && isConditionalCheckFailed(e),
-            () => Effect.succeed(true),
-          ),
-        );
-
-        yield* decision(
-          'Did the guarded write succeed?',
-          {
-            description:
-              'Distinguishes a successful optimistic write from a retryable or exhausted conflict.',
-            attributes: { entity: this.#eschema.name, attempt },
-          },
-          !conflicted ? 'written' : attempt < retries ? 'retry' : 'exhausted',
-        )
-          .when(
-            'written',
-            {
-              name: 'The write succeeded',
-              description: 'Continues with the successfully stored entity.',
-            },
-            () =>
-              terminal(
-                'Return the updated entity',
-                {
-                  description:
-                    'Completes this update branch with the successfully stored entity.',
-                  completion: { kind: 'success' },
-                },
-                Effect.void,
-              ),
-          )
-          .when(
-            'retry',
-            {
-              name: 'Read again and retry',
-              description:
-                'Re-reads entity state and derives the update again after a concurrent write.',
-            },
-            () =>
-              step(
-                'Restart the update attempt',
-                {
-                  description:
-                    'Continues the enclosing flow by reading the latest entity state.',
-                },
-                Effect.void,
-              ),
-          )
-          .when(
-            'exhausted',
-            {
-              name: 'The retry limit was reached',
-              description:
-                'Fails after the configured number of optimistic retries is exhausted.',
-            },
-            () =>
-              terminal(
-                'Fail the guarded update',
-                {
-                  description:
-                    'Completes this update branch because every optimistic write attempt conflicted.',
-                  completion: {
-                    kind: 'error',
-                    error: 'ConditionCheckFailed',
-                  },
-                },
-                Effect.fail(DynamodbError.conditionCheckFailed()),
-              ),
-          )
-          .exhaustive();
-
-        if (conflicted) continue;
-
-        const meta: MetaType = {
-          _e: this.#eschema.name,
-          _v: this.#eschema.latestVersion,
-          _u,
-          _d: existing.meta._d,
-        };
-        const entity = { value: fullValue, meta };
-        yield* this.#broadcast([entity]);
-        return entity;
-      }
-    }).pipe((effect) =>
-      flow(
-        'Read, derive, and write the replacement',
+      const attemptUpdate = flow(
+        'Attempt entity replacement',
         {
           description:
-            'Reads current state, derives a replacement, and retries its optimistic write when a concurrent change wins.',
-          attributes: { entity: this.#eschema.name },
+            'Reads current entity state and attempts one guarded replacement.',
+          attributes: (attempt: number) => ({
+            entity: this.#eschema.name,
+            attempt,
+          }),
         },
-        effect,
-      ),
-    );
-  }
+        (
+          attempt: number,
+        ): Effect.Effect<
+          EntityType<ESchemaType<TSchema>>,
+          DynamodbError,
+          DynamoDB
+        > =>
+          Effect.gen({ self: this }, function* () {
+            const existing = yield* this.get(keyValue, {
+              ConsistentRead: true,
+            });
+            return yield* decision(
+              'Was an entity available to update?',
+              {
+                description:
+                  'Routes a missing entity to failure before deriving an update.',
+                attributes: { entity: this.#eschema.name, attempt },
+              },
+              existing ? 'found' : 'missing',
+            ).pipe(
+              when(
+                'missing',
+                {
+                  name: 'No entity was found',
+                  description: 'Fails because no stored entity can be updated.',
+                  completion: {
+                    kind: 'error',
+                    error: 'NoItemToUpdate',
+                  },
+                },
+                () => Effect.fail(DynamodbError.noItemToUpdate()),
+              ),
+              when(
+                'found',
+                {
+                  name: 'Derive the replacement',
+                  description:
+                    'Derives the requested change from current entity state.',
+                },
+                () =>
+                  Effect.gen({ self: this }, function* () {
+                    const current = existing!;
+                    const partial = this.#resolveUpdateInput(
+                      update,
+                      current.value,
+                    );
+                    return yield* decision(
+                      'Should the derived change be written?',
+                      {
+                        description:
+                          'Selects whether the derived update skips persistence or writes a merged entity.',
+                        attributes: {
+                          entity: this.#eschema.name,
+                          attempt,
+                        },
+                      },
+                      partial === null ? 'skip' : 'write',
+                    ).pipe(
+                      when(
+                        'skip',
+                        {
+                          name: 'Keep the current entity',
+                          description:
+                            'Returns the current entity because the callback requested no write.',
+                        },
+                        () => Effect.succeed(current),
+                      ),
+                      when(
+                        'write',
+                        {
+                          name: 'Write the replacement',
+                          description:
+                            'Merges and conditionally writes the derived entity state.',
+                        },
+                        () =>
+                          Effect.gen({ self: this }, function* () {
+                            const { fullValue, item, _u } = yield* step(
+                              'Prepare the optimistic replacement',
+                              {
+                                description:
+                                  'Merges the derived update, preserves entity identity, encodes canonical indexes, and stamps the next cursor.',
+                                visibility: 'detail',
+                              },
+                              () =>
+                                Effect.gen({ self: this }, function* () {
+                                  const fullValue = {
+                                    ...current.value,
+                                    ...partial!,
+                                  } as ESchemaType<TSchema>;
+                                  const idField = this.#eschema.idField;
+                                  if (
+                                    !Object.is(
+                                      fullValue[idField],
+                                      current.value[idField],
+                                    )
+                                  ) {
+                                    return yield* Effect.fail(
+                                      DynamodbError.idUpdateNotSupported(
+                                        idField,
+                                      ),
+                                    );
+                                  }
+                                  const _u = yield* nextUlid;
+                                  const canonical =
+                                    yield* this.#canonicalizeDecodedValue(
+                                      fullValue,
+                                      { _d: current.meta._d },
+                                      _u,
+                                    );
+                                  const originalKey = this.#derivePrimaryIndex({
+                                    ...keyValue,
+                                    _u,
+                                  });
+                                  return {
+                                    fullValue,
+                                    _u,
+                                    item: {
+                                      ...canonical.item,
+                                      [this.#table.primary.pk]: originalKey.pk,
+                                      [this.#table.primary.sk]: originalKey.sk,
+                                    },
+                                  };
+                                }),
+                            );
+                            const exprResult = yield* step(
+                              'Prepare the entity write guard',
+                              {
+                                description:
+                                  'Builds the optimistic condition for the current entity cursor.',
+                                visibility: 'detail',
+                              },
+                              () =>
+                                Effect.sync(() =>
+                                  config?.lastWriteWins
+                                    ? undefined
+                                    : buildExpr({
+                                        condition: exprCondition(($) =>
+                                          $.cond(
+                                            '_u' as any,
+                                            '=',
+                                            current.meta._u,
+                                          ),
+                                        ),
+                                      }),
+                                ),
+                            );
+                            const conflicted = yield* this.#table
+                              .putItem(item, exprResult)
+                              .pipe(
+                                Effect.as(false),
+                                Effect.catchIf(
+                                  (e): e is DynamodbError =>
+                                    e.error._tag === 'PutItemFailed' &&
+                                    isConditionalCheckFailed(e),
+                                  () => Effect.succeed(true),
+                                ),
+                              );
+                            return yield* decision(
+                              'Did the guarded write succeed?',
+                              {
+                                description:
+                                  'Distinguishes a successful optimistic write from a retryable or exhausted conflict.',
+                                attributes: {
+                                  entity: this.#eschema.name,
+                                  attempt,
+                                },
+                              },
+                              !conflicted
+                                ? 'written'
+                                : attempt < retries
+                                  ? 'retry'
+                                  : 'exhausted',
+                            ).pipe(
+                              when(
+                                'written',
+                                {
+                                  name: 'The write succeeded',
+                                  description:
+                                    'Broadcasts and returns the successfully stored entity.',
+                                },
+                                () =>
+                                  Effect.gen({ self: this }, function* () {
+                                    const meta: MetaType = {
+                                      _e: this.#eschema.name,
+                                      _v: this.#eschema.latestVersion,
+                                      _u,
+                                      _d: current.meta._d,
+                                    };
+                                    const entity = {
+                                      value: fullValue,
+                                      meta,
+                                    };
+                                    yield* this.#broadcast([entity]);
+                                    return entity;
+                                  }),
+                              ),
+                              when(
+                                'retry',
+                                {
+                                  name: 'Read again and retry',
+                                  description:
+                                    'Re-reads entity state and derives the update again after a concurrent write.',
+                                },
+                                () => attemptUpdate(attempt + 1),
+                              ),
+                              when(
+                                'exhausted',
+                                {
+                                  name: 'The retry limit was reached',
+                                  description:
+                                    'Fails after the configured number of optimistic retries is exhausted.',
+                                  completion: {
+                                    kind: 'error',
+                                    error: 'ConditionCheckFailed',
+                                  },
+                                },
+                                () =>
+                                  Effect.fail(
+                                    DynamodbError.conditionCheckFailed(),
+                                  ),
+                              ),
+                              exhaustive,
+                            );
+                          }),
+                      ),
+                      exhaustive,
+                    );
+                  }),
+              ),
+              exhaustive,
+            );
+          }),
+      );
+      return attemptUpdate(0);
+    },
+  );
 
   /**
    * Op form of `getAndUpdate` for use in `transact`. Pre-fetches the current
@@ -1258,134 +1384,144 @@ export class DynamoEntity<
    * @param config - Guard opt-out
    * @returns A transaction item for the write with broadcast data
    */
-  getAndUpdateOp(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    update: UpdateOpInput<ESchemaType<TSchema>>,
-    config?: { lastWriteWins?: boolean },
-  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
-    return Effect.gen({ self: this }, function* () {
-      const existing = yield* this.get(keyValue, { ConsistentRead: true });
-      if (!existing) {
-        return yield* Effect.fail(DynamodbError.noItemToUpdate());
-      }
-
-      const { fullValue, encoded } = yield* step(
-        'Prepare deferred DynamoDB entity replacement',
-        {
-          description:
-            'Derives the replacement, preserves identity, and encodes it for a transactional put.',
-          visibility: 'detail',
-        },
-        () =>
-          Effect.gen({ self: this }, function* () {
-            const fullValue = {
-              ...existing.value,
-              ...(typeof update === 'function'
-                ? update(existing.value)
-                : update),
-            } as ESchemaType<TSchema>;
-            const idField = this.#eschema.idField;
-            if (!Object.is(fullValue[idField], existing.value[idField])) {
-              return yield* Effect.fail(
-                DynamodbError.idUpdateNotSupported(idField),
-              );
-            }
-            const encoded = yield* this.#eschema
-              .encode(fullValue as any)
-              .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
-            return { fullValue, encoded };
-          }),
-      );
-
-      const exprResult = config?.lastWriteWins
-        ? undefined
-        : buildExpr({
-            condition: exprCondition(($) =>
-              $.cond('_u' as any, '=', existing.meta._u),
-            ),
-          });
-
-      const { pk, sk } = this.#derivePrimaryIndex({
-        ...keyValue,
-        _u: existing.meta._u,
+  getAndUpdateOp = flow(
+    'Build portable entity update operation',
+    {
+      description:
+        'Reads one entity and builds its deferred guarded replacement.',
+    },
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      update: UpdateOpInput<ESchemaType<TSchema>>,
+      config?: { lastWriteWins?: boolean },
+    ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> => {
+      return Effect.gen({ self: this }, function* () {
+        const existing = yield* this.get(keyValue, { ConsistentRead: true });
+        return yield* decision(
+          'Was an entity available for replacement?',
+          {
+            description:
+              'Builds the deferred replacement only when the entity already exists.',
+            attributes: { entity: this.#eschema.name },
+          },
+          existing ? 'found' : 'missing',
+        ).pipe(
+          when(
+            'missing',
+            {
+              name: 'No entity was found',
+              description:
+                'Fails because no stored entity can produce a guarded replacement.',
+              completion: { kind: 'error', error: 'NoItemToUpdate' },
+            },
+            () => Effect.fail(DynamodbError.noItemToUpdate()),
+          ),
+          when(
+            'found',
+            {
+              name: 'Build the replacement operation',
+              description:
+                'Encodes the replacement and builds its guarded transactional put.',
+            },
+            () =>
+              step(
+                'Prepare deferred DynamoDB entity replacement',
+                {
+                  description:
+                    'Derives, validates, encodes, guards, and packages the entity replacement.',
+                  visibility: 'detail',
+                },
+                () =>
+                  Effect.gen({ self: this }, function* () {
+                    const current = existing!;
+                    const fullValue = {
+                      ...current.value,
+                      ...(typeof update === 'function'
+                        ? update(current.value)
+                        : update),
+                    } as ESchemaType<TSchema>;
+                    const idField = this.#eschema.idField;
+                    if (
+                      !Object.is(fullValue[idField], current.value[idField])
+                    ) {
+                      return yield* Effect.fail(
+                        DynamodbError.idUpdateNotSupported(idField),
+                      );
+                    }
+                    const encoded = yield* this.#eschema
+                      .encode(fullValue as any)
+                      .pipe(
+                        Effect.mapError((e) => DynamodbError.putItemFailed(e)),
+                      );
+                    const exprResult = config?.lastWriteWins
+                      ? undefined
+                      : buildExpr({
+                          condition: exprCondition(($) =>
+                            $.cond('_u' as any, '=', current.meta._u),
+                          ),
+                        });
+                    const { pk, sk } = this.#derivePrimaryIndex({
+                      ...keyValue,
+                      _u: current.meta._u,
+                    });
+                    return {
+                      entityName: this.#eschema.name,
+                      operationKind: 'updateOp',
+                      pk,
+                      sk,
+                      table: this.#table,
+                      apply: (u) => {
+                        const meta: MetaType = {
+                          _e: this.#eschema.name,
+                          _v: this.#eschema.latestVersion,
+                          _u: u,
+                          _d: current.meta._d,
+                        };
+                        const valueWithMeta = { ...fullValue, _u: u };
+                        const item = {
+                          ...encoded,
+                          ...meta,
+                          [this.#table.primary.pk]: pk,
+                          [this.#table.primary.sk]: sk,
+                          ...this.#deriveSecondaryIndexes(valueWithMeta),
+                        };
+                        return {
+                          ...this.#table.opPutItem(item, exprResult),
+                          broadcast: { value: fullValue, meta },
+                        };
+                      },
+                    } satisfies TransactItem;
+                  }),
+              ),
+          ),
+          exhaustive,
+        );
       });
+    },
+  );
 
-      return {
-        entityName: this.#eschema.name,
-        operationKind: 'updateOp',
-        pk,
-        sk,
-        table: this.#table,
-        apply: (u) => {
-          const meta: MetaType = {
-            _e: this.#eschema.name,
-            _v: this.#eschema.latestVersion,
-            _u: u,
-            _d: existing.meta._d,
-          };
-          const valueWithMeta = { ...fullValue, _u: u };
-          const item = {
-            ...encoded,
-            ...meta,
-            [this.#table.primary.pk]: pk,
-            [this.#table.primary.sk]: sk,
-            ...this.#deriveSecondaryIndexes(valueWithMeta),
-          };
-          return {
-            ...this.#table.opPutItem(item, exprResult),
-            broadcast: { value: fullValue, meta },
-          };
-        },
-      } satisfies TransactItem;
-    }).pipe((effect) =>
-      flow(
-        'Build DynamoDB get-and-update operation',
-        {
-          description:
-            'Reads current state and builds a deferred full-record optimistic write for a later transaction.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
+  deleteOp = flow(
+    'Build entity delete operation',
+    { description: 'Builds a deferred entity tombstone write.' },
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      options?: { lastWriteWins?: boolean },
+    ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> =>
+      this.#buildTombstoneOp(keyValue, true, options),
+  );
 
-  deleteOp(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    options?: { lastWriteWins?: boolean },
-  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
-    return this.#buildTombstoneOp(keyValue, true, options).pipe((effect) =>
-      flow(
-        'Build DynamoDB delete operation',
-        {
-          description:
-            'Reads current state and builds a deferred tombstone update for a later transaction.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
-
-  restoreOp(
-    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
-      Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    options?: { lastWriteWins?: boolean },
-  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> {
-    return this.#buildTombstoneOp(keyValue, false, options).pipe((effect) =>
-      flow(
-        'Build DynamoDB restore operation',
-        {
-          description:
-            'Reads current state and builds a deferred tombstone-clearing update for a later transaction.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
-  }
+  restoreOp = flow(
+    'Build entity restore operation',
+    { description: 'Builds a deferred entity restoration write.' },
+    (
+      keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+        Pick<ESchemaType<TSchema>, TSchema['idField']>,
+      options?: { lastWriteWins?: boolean },
+    ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> =>
+      this.#buildTombstoneOp(keyValue, false, options),
+  );
 
   #buildTombstoneOp(
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
@@ -1438,183 +1574,212 @@ export class DynamoEntity<
    * @param options - Query options including limit
    * @returns Array of matching entities with metadata
    */
-  query<K extends 'primary' | (keyof TSecondaryDerivationMap & string)>(
-    key: K,
-    params: K extends 'primary'
-      ? [TPrimaryPkKeys] extends [never]
-        ? { pk?: {}; sk: SkParam }
-        : {
-            pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
-            sk: SkParam;
-          }
-      : K extends keyof TSecondaryDerivationMap
-        ? {
-            pk: Pick<
-              ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]['pkDeps'][number] &
-                keyof ESchemaType<TSchema>
-            >;
-            sk: ResolveSkParam<
-              ESchemaType<TSchema>,
-              TSecondaryDerivationMap[K]
-            >;
-          }
-        : never,
-    options?: SimpleQueryOptions,
-  ): Effect.Effect<
-    { items: EntityType<ESchemaType<TSchema>>[] },
-    DynamodbError,
-    DynamoDB
-  > {
-    return Effect.gen({ self: this }, function* () {
-      const { operator, skValue, scanForward } = yield* step(
-        'Interpret the requested query bounds',
-        {
-          description:
-            'Resolves the sort-key operator, cursor value, and scan direction requested by the caller.',
-          visibility: 'detail',
-        },
-        () =>
-          Effect.sync(() => {
-            const { operator, value: skValue } = extractKeyOp(
-              params.sk as SkParam,
-            );
-            return {
-              operator,
-              skValue,
-              scanForward: getKeyOpScanDirection(operator),
-            };
-          }),
-      );
-
-      yield* decision(
-        'Which index should be queried?',
-        {
-          description:
-            'Routes the entity query through its primary index or a configured secondary index.',
-          attributes: { entity: this.#eschema.name, index: String(key) },
-        },
-        key === 'primary' ? 'primary' : 'secondary',
-      )
-        .when(
-          'primary',
-          {
-            name: 'Use the primary index',
-            description:
-              'Derives the entity primary partition and queries the table primary index.',
-          },
-          () => Effect.void,
-        )
-        .when(
-          'secondary',
-          {
-            name: 'Use a secondary index',
-            description:
-              'Resolves the named entity index and queries its physical DynamoDB index.',
-          },
-          () => Effect.void,
-        )
-        .exhaustive();
-
-      if (key === 'primary') {
-        // Primary index query
-        const derivedPk = deriveIndexKeyValue(
-          this.#eschema.name,
-          this.#primaryDerivation.pkDeps,
-          (params.pk ?? {}) as Record<string, unknown>,
-          true,
-        );
-
-        const skCondition: SortKeyparameter | undefined =
-          skValue !== null
-            ? operator === 'beginsWith'
-              ? { beginsWith: skValue as string }
-              : ({ [operator]: skValue } as SortKeyparameter)
-            : undefined;
-
-        const queryOptions: { Limit?: number; ScanIndexForward?: boolean } = {
-          ScanIndexForward: scanForward,
-        };
-        if (options?.limit !== undefined) {
-          queryOptions.Limit = options.limit;
-        }
-
-        const { Items } = yield* this.#table.query(
-          { pk: derivedPk, sk: skCondition },
-          queryOptions,
-        );
-
-        const items = yield* step(
-          'Decode the primary-index results',
+  query = flow(
+    'Query entities',
+    {
+      description:
+        'Queries decoded entities through their primary or configured secondary index.',
+    },
+    <K extends 'primary' | (keyof TSecondaryDerivationMap & string)>(
+      key: K,
+      params: K extends 'primary'
+        ? [TPrimaryPkKeys] extends [never]
+          ? { pk?: {}; sk: SkParam }
+          : {
+              pk: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys>;
+              sk: SkParam;
+            }
+        : K extends keyof TSecondaryDerivationMap
+          ? {
+              pk: Pick<
+                ESchemaType<TSchema>,
+                TSecondaryDerivationMap[K]['pkDeps'][number] &
+                  keyof ESchemaType<TSchema>
+              >;
+              sk: ResolveSkParam<
+                ESchemaType<TSchema>,
+                TSecondaryDerivationMap[K]
+              >;
+            }
+          : never,
+      options?: SimpleQueryOptions,
+    ): Effect.Effect<
+      { items: EntityType<ESchemaType<TSchema>>[] },
+      DynamodbError,
+      DynamoDB
+    > =>
+      Effect.gen({ self: this }, function* () {
+        const { operator, skValue, scanForward } = yield* step(
+          'Resolve the query bounds',
           {
             description:
-              'Decodes every item returned by the primary-index query.',
+              'Resolves the requested sort-key operator, value, and scan direction.',
             visibility: 'detail',
           },
-          () => this.#decodeItems(Items),
-        );
-        return { items };
-      } else {
-        // Secondary index query
-        const indexDerivation = this.#secondaryDerivations[key];
-
-        if (!indexDerivation) {
-          return yield* Effect.fail(
-            DynamodbError.queryFailed(`Index ${String(key)} not found`),
-          );
-        }
-
-        const derivedPk = deriveIndexKeyValue(
-          `${this.#eschema.name}#${indexDerivation.entityIndexName}`,
-          indexDerivation.pkDeps,
-          params.pk as Record<string, unknown>,
-          true,
+          () =>
+            Effect.sync(() => {
+              const { operator, value: skValue } = extractKeyOp(
+                params.sk as SkParam,
+              );
+              return {
+                operator,
+                skValue,
+                scanForward: getKeyOpScanDirection(operator),
+              };
+            }),
         );
 
-        const resolvedSkValue = this.#resolveCustomSk(skValue, indexDerivation);
-
-        const skCondition: SortKeyparameter | undefined =
-          resolvedSkValue !== null
-            ? operator === 'beginsWith'
-              ? { beginsWith: resolvedSkValue }
-              : ({ [operator]: resolvedSkValue } as SortKeyparameter)
-            : undefined;
-
-        const gsiQueryOptions: { Limit?: number; ScanIndexForward?: boolean } =
-          {
-            ScanIndexForward: scanForward,
-          };
-        if (options?.limit !== undefined) {
-          gsiQueryOptions.Limit = options.limit;
-        }
-
-        const { Items } = yield* this.#table
-          .index(indexDerivation.gsiName as any)
-          .query({ pk: derivedPk, sk: skCondition }, gsiQueryOptions);
-
-        const items = yield* step(
-          'Decode the secondary-index results',
+        return yield* decision(
+          'Which entity index should be queried?',
           {
             description:
-              'Decodes every item returned by the secondary-index query.',
-            visibility: 'detail',
+              'Routes the query through the primary table index or one configured secondary index.',
+            attributes: { entity: this.#eschema.name },
           },
-          () => this.#decodeItems(Items),
+          key === 'primary',
+        ).pipe(
+          when(
+            true,
+            {
+              name: 'Query the primary index',
+              description:
+                'Derives and queries the entity primary-index partition.',
+            },
+            () =>
+              Effect.gen({ self: this }, function* () {
+                const prepared = yield* step(
+                  'Prepare the primary-index query',
+                  {
+                    description:
+                      'Derives the primary partition, sort-key condition, and query options.',
+                    visibility: 'detail',
+                  },
+                  () =>
+                    Effect.sync(() => {
+                      const derivedPk = deriveIndexKeyValue(
+                        this.#eschema.name,
+                        this.#primaryDerivation.pkDeps,
+                        (params.pk ?? {}) as Record<string, unknown>,
+                        true,
+                      );
+                      const skCondition: SortKeyparameter | undefined =
+                        skValue !== null
+                          ? operator === 'beginsWith'
+                            ? { beginsWith: skValue as string }
+                            : ({
+                                [operator]: skValue,
+                              } as SortKeyparameter)
+                          : undefined;
+                      const queryOptions: {
+                        Limit?: number;
+                        ScanIndexForward?: boolean;
+                      } = { ScanIndexForward: scanForward };
+                      if (options?.limit !== undefined) {
+                        queryOptions.Limit = options.limit;
+                      }
+                      return { derivedPk, skCondition, queryOptions };
+                    }),
+                );
+                const { Items } = yield* this.#table.query(
+                  { pk: prepared.derivedPk, sk: prepared.skCondition },
+                  prepared.queryOptions,
+                );
+                return yield* step(
+                  'Decode primary-index results',
+                  {
+                    description:
+                      'Decodes the stored primary-index items into entities.',
+                    visibility: 'detail',
+                  },
+                  () =>
+                    this.#decodeItems(Items).pipe(
+                      Effect.map((items) => ({ items })),
+                    ),
+                );
+              }),
+          ),
+          when(
+            false,
+            {
+              name: 'Query a secondary index',
+              description:
+                'Derives and queries one configured entity secondary index.',
+            },
+            () =>
+              Effect.gen({ self: this }, function* () {
+                const prepared = yield* step(
+                  'Prepare the secondary-index query',
+                  {
+                    description:
+                      'Resolves the secondary index and derives its partition, sort-key condition, and options.',
+                    visibility: 'detail',
+                  },
+                  () =>
+                    Effect.gen({ self: this }, function* () {
+                      const indexDerivation = this.#secondaryDerivations[key];
+                      if (!indexDerivation) {
+                        return yield* Effect.fail(
+                          DynamodbError.queryFailed(
+                            `Index ${String(key)} not found`,
+                          ),
+                        );
+                      }
+                      const derivedPk = deriveIndexKeyValue(
+                        `${this.#eschema.name}#${indexDerivation.entityIndexName}`,
+                        indexDerivation.pkDeps,
+                        params.pk as Record<string, unknown>,
+                        true,
+                      );
+                      const resolvedSkValue = this.#resolveCustomSk(
+                        skValue,
+                        indexDerivation,
+                      );
+                      const skCondition: SortKeyparameter | undefined =
+                        resolvedSkValue !== null
+                          ? operator === 'beginsWith'
+                            ? { beginsWith: resolvedSkValue }
+                            : ({
+                                [operator]: resolvedSkValue,
+                              } as SortKeyparameter)
+                          : undefined;
+                      const queryOptions: {
+                        Limit?: number;
+                        ScanIndexForward?: boolean;
+                      } = { ScanIndexForward: scanForward };
+                      if (options?.limit !== undefined) {
+                        queryOptions.Limit = options.limit;
+                      }
+                      return {
+                        indexDerivation,
+                        derivedPk,
+                        skCondition,
+                        queryOptions,
+                      };
+                    }),
+                );
+                const { Items } = yield* this.#table.queryIndex(
+                  prepared.indexDerivation.gsiName as any,
+                  { pk: prepared.derivedPk, sk: prepared.skCondition },
+                  prepared.queryOptions,
+                );
+                return yield* step(
+                  'Decode secondary-index results',
+                  {
+                    description:
+                      'Decodes the stored secondary-index items into entities.',
+                    visibility: 'detail',
+                  },
+                  () =>
+                    this.#decodeItems(Items).pipe(
+                      Effect.map((items) => ({ items })),
+                    ),
+                );
+              }),
+          ),
+          exhaustive,
         );
-        return { items };
-      }
-    }).pipe((effect) =>
-      flow(
-        'Select an index and fetch matching entities',
-        {
-          description:
-            'Derives the requested entity index keys, reads one page, and decodes matching entities.',
-          attributes: { entity: this.#eschema.name, index: String(key) },
-        },
-        effect,
-      ),
-    );
-  }
+      }),
+  );
 
   /**
    * Streams all entities from an index until exhaustion.
@@ -1666,51 +1831,36 @@ export class DynamoEntity<
       ? this.#resolveCustomSk(initialSkValue, indexDerivation!)
       : (initialSkValue as string | null);
 
-    return Stream.paginate(initialCursor, (cursor) =>
-      step(
-        'Read DynamoDB entity stream page',
-        {
-          description:
-            'Queries and decodes one stream page, then derives the cursor for the next page.',
-          attributes: {
-            entity: this.#eschema.name,
-            index: String(key),
-            batchSize,
-          },
-        },
-        Effect.gen({ self: this }, function* () {
-          const skParam = { [operator]: cursor } as SkParam;
+    const readPage = (cursor: string | null) =>
+      Effect.gen({ self: this }, function* () {
+        const skParam = { [operator]: cursor } as SkParam;
 
-          const result = yield* this.query(
-            key,
-            { pk: params.pk, sk: skParam } as any,
-            { limit: batchSize },
-          );
-          const items = result.items;
-          const chunk = [items];
+        const result = yield* this.query(
+          key,
+          { pk: params.pk, sk: skParam } as any,
+          { limit: batchSize },
+        );
+        const items = result.items;
+        const chunk = [items];
 
-          if (items.length === 0 || items.length < batchSize) {
-            return [chunk, Option.none<string | null>()] as const;
-          }
+        if (items.length === 0 || items.length < batchSize) {
+          return [chunk, Option.none<string | null>()] as const;
+        }
 
-          const lastItem = items[items.length - 1]!;
-          let nextCursor: string | null;
-          if (key === 'primary') {
-            nextCursor = (lastItem.value as Record<string, unknown>)[
-              this.#eschema.idField
-            ] as string;
-          } else if (isCustomSk) {
-            nextCursor = this.#resolveCustomSk(
-              lastItem.value,
-              indexDerivation!,
-            );
-          } else {
-            nextCursor = lastItem.meta._u;
-          }
-          return [chunk, Option.some(nextCursor)] as const;
-        }),
-      ),
-    );
+        const lastItem = items[items.length - 1]!;
+        let nextCursor: string | null;
+        if (key === 'primary') {
+          nextCursor = (lastItem.value as Record<string, unknown>)[
+            this.#eschema.idField
+          ] as string;
+        } else if (isCustomSk) {
+          nextCursor = this.#resolveCustomSk(lastItem.value, indexDerivation!);
+        } else {
+          nextCursor = lastItem.meta._u;
+        }
+        return [chunk, Option.some(nextCursor)] as const;
+      });
+    return Stream.paginate(initialCursor, readPage);
   }
 
   #resolveCustomSk(
@@ -1948,34 +2098,30 @@ export class DynamoEntity<
         attributes: { entity: this.#eschema.name },
       },
       outcome,
-    )
-      .when(
+    ).pipe(
+      when(
         'missing',
         { description: 'Reports that the target item does not exist.' },
         () => Effect.fail(DynamodbError.noItemToUpdate()),
-      )
-      .when(
+      ),
+      when(
         'current',
         {
           description:
             'Reports the caller condition or missing-item guard that rejected the current schema version.',
         },
         () =>
-          Effect.fail(
-            userCondition
-              ? DynamodbError.conditionCheckFailed()
-              : DynamodbError.noItemToUpdate(),
-          ),
-      )
-      .when(
+          Effect.fail(this.#currentConditionError(userCondition !== undefined)),
+      ),
+      when(
         'stale',
         {
           description:
             'Reports a schema-version mismatch because automatic migration is disabled.',
         },
         () => Effect.fail(DynamodbError.itemVersionMismatch()),
-      )
-      .when(
+      ),
+      when(
         'migrate',
         {
           description:
@@ -1985,8 +2131,9 @@ export class DynamoEntity<
           this.#ensureLatestVersion(existingItem!).pipe(
             Effect.map(() => ({ _retry: true as const, Attributes: null })),
           ),
-      )
-      .exhaustive();
+      ),
+      exhaustive,
+    );
   }
 
   #ensureLatestVersion(
@@ -2026,17 +2173,7 @@ export class DynamoEntity<
               ),
           ),
         );
-    }).pipe((effect) =>
-      flow(
-        'Migrate DynamoDB entity item',
-        {
-          description:
-            'Decodes a stale item, rebuilds its canonical keys and metadata, and conditionally stores the latest schema version.',
-          attributes: { entity: this.#eschema.name },
-        },
-        effect,
-      ),
-    );
+    });
   }
 
   #buildUpdateCondition(
@@ -2053,6 +2190,32 @@ export class DynamoEntity<
     }
     if (userCondition) ops.push(resolveCondition(userCondition));
     return exprCondition(($) => $.and(...ops));
+  }
+
+  #resolveUpdateInput(
+    update: UpdateInput<ESchemaType<TSchema>>,
+    current: ESchemaType<TSchema>,
+  ) {
+    return typeof update === 'function' ? update(current) : update;
+  }
+
+  #currentConditionError(hasUserCondition: boolean): DynamodbError {
+    return hasUserCondition
+      ? DynamodbError.conditionCheckFailed()
+      : DynamodbError.noItemToUpdate();
+  }
+
+  #mapRetryUpdateError(
+    error: DynamodbError,
+    hasUserCondition: boolean,
+  ): DynamodbError {
+    if (
+      error.error._tag === 'UpdateItemFailed' &&
+      isConditionalCheckFailed(error)
+    ) {
+      return this.#currentConditionError(hasUserCondition);
+    }
+    return error;
   }
 
   #prepareUpdate(

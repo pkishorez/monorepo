@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
+import { flow, terminal } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -23,10 +23,21 @@ const readUser = flow(
     }) => input,
   },
   (input: { readonly userId: string; readonly consistent: boolean }) =>
-    harness.users.get(
-      { organizationId: 'org-1', userId: input.userId },
-      { ConsistentRead: input.consistent },
-    ),
+    Effect.gen(function* () {
+      const result = yield* harness.users.get(
+        { organizationId: 'org-1', userId: input.userId },
+        { ConsistentRead: input.consistent },
+      );
+      return yield* terminal(
+        'Return the lookup result',
+        {
+          description:
+            'Completes the entity lookup with the decoded value or no match.',
+          completion: { kind: 'success' },
+        },
+        () => Effect.succeed(result),
+      );
+    }),
 );
 
 dynamodbEntityStories

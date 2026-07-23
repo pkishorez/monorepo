@@ -27,7 +27,7 @@ const putSettings = flow(
           description: 'Completes this put flow with the persisted singleton.',
           completion: { kind: 'success' },
         },
-        Effect.succeed(result),
+        () => Effect.succeed(result),
       );
     }),
 );

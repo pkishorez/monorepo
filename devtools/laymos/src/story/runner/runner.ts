@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readdir } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { basename, join, relative, resolve, sep } from 'node:path';
 
 import {
@@ -24,6 +24,7 @@ import {
   traceValue,
 } from '../artifact/index.js';
 import type {
+  StoryBlock,
   StoryRun,
   StoryScenario,
   StoryScenarioFailure,
@@ -43,6 +44,10 @@ import type {
   StoryCatalogStory,
   StoryCollection,
 } from '../../report/stories.js';
+import {
+  storyDecisionSourceRoles,
+  validateStoryAuthoringSource,
+} from '../eject/index.js';
 
 export interface StoryRunOptions {
   readonly timeout?: Duration.Input;
@@ -180,7 +185,46 @@ function traceDeclaredStory(
             ...common,
           };
     }),
+    Effect.flatMap((result) =>
+      fromPromise(async () => ({
+        ...result,
+        blocks: await annotateDecisionRoles(baseDir, result.blocks),
+      })).pipe(Effect.orDie),
+    ),
   );
+}
+
+async function annotateDecisionRoles(
+  baseDir: string,
+  blocks: Readonly<Record<string, StoryBlock>>,
+): Promise<Readonly<Record<string, StoryBlock>>> {
+  const rolesByFile = new Map<
+    string,
+    ReturnType<typeof storyDecisionSourceRoles>
+  >();
+  const entries = await Promise.all(
+    Object.entries(blocks).map(async ([id, block]) => {
+      if (block.kind !== 'decision') return [id, block] as const;
+      let roles = rolesByFile.get(block.location.file);
+      if (roles === undefined) {
+        const source = await readFile(
+          resolve(baseDir, block.location.file),
+          'utf8',
+        );
+        roles = storyDecisionSourceRoles(source, block.location.file);
+        rolesByFile.set(block.location.file, roles);
+      }
+      const role = roles
+        .filter(({ line }) => line === block.location.line)
+        .sort(
+          (left, right) =>
+            Math.abs(left.column - block.location.column) -
+            Math.abs(right.column - block.location.column),
+        )[0]?.role;
+      return [id, role === undefined ? block : { ...block, role }] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
 }
 
 function runStoriesGeneration(
@@ -189,6 +233,9 @@ function runStoriesGeneration(
   options: StoryRunOptions | undefined,
 ): Effect.Effect<StoriesRunResult, unknown> {
   return Effect.gen(function* () {
+    if (filters.length > 0) {
+      yield* fromPromise(() => assertProjectStoryAuthoring(baseDir));
+    }
     const files =
       filters.length > 0
         ? [...filters].sort()
@@ -219,6 +266,10 @@ function runStoriesGeneration(
       }
       declarations.push({ storyId, declaration: collected[0]! });
     }
+    const traces = new Map<
+      string,
+      Extract<StoryTraceResult, { readonly status: 'valid' }>
+    >();
     for (const { storyId, declaration } of declarations) {
       const trace = yield* traceDeclaredStory(baseDir, declaration);
       if (trace.status === 'invalid') {
@@ -228,6 +279,7 @@ function runStoriesGeneration(
           ),
         );
       }
+      traces.set(storyId, trace);
     }
 
     const failures: StoryFailure[] = [];
@@ -237,6 +289,7 @@ function runStoriesGeneration(
         baseDir,
         storyId,
         declaration,
+        traces.get(storyId)!,
         options,
         failures,
       );
@@ -255,6 +308,7 @@ function runDeclaredStory(
   baseDir: string,
   storyId: string,
   declaration: StoryDeclaration,
+  trace: Extract<StoryTraceResult, { readonly status: 'valid' }>,
   options: StoryRunOptions | undefined,
   failures: StoryFailure[],
 ): Effect.Effect<StoryRun, unknown> {
@@ -286,15 +340,42 @@ function runDeclaredStory(
           ),
         );
       }
+      const allBlocks = { ...blocks.toRecord(), ...trace.blocks };
       return {
         generatedAt: Date.now(),
         name: declaration.name,
         description: declaration.description,
-        blocks: blocks.toRecord(),
+        blocks: allBlocks,
         scenarios,
+        scenarioNodeCoverage: scenarioNodeCoverage(allBlocks, scenarios),
       };
     }),
   );
+}
+
+function scenarioNodeCoverage(
+  blocks: StoryRun['blocks'],
+  scenarios: readonly StoryScenario[],
+): NonNullable<StoryRun['scenarioNodeCoverage']> {
+  const visited = new Set<string>();
+  const collect = (path: StoryScenario['execution']): void => {
+    for (const item of path) {
+      if ('parallel' in item) {
+        for (const branch of item.parallel) collect(branch);
+      } else {
+        visited.add(item.blockId);
+        collect(item.children);
+      }
+    }
+  };
+  for (const scenario of scenarios) collect(scenario.execution);
+  const total = Object.keys(blocks).length;
+  return {
+    visited: visited.size,
+    total,
+    percentage:
+      total === 0 ? 0 : Math.round((visited.size / total) * 1000) / 10,
+  };
 }
 
 function runScenario(
@@ -661,6 +742,7 @@ function discoverStoryDeclarations(
 }
 
 async function buildStoryDiscovery(baseDir: string): Promise<StoryDiscovery> {
+  await assertProjectStoryAuthoring(baseDir);
   const { storyIds, issues } = await discoverStoryFileIds(baseDir);
   const declarations: Array<{
     readonly storyId: string;
@@ -690,6 +772,35 @@ async function buildStoryDiscovery(baseDir: string): Promise<StoryDiscovery> {
   return { catalog, declarations };
 }
 
+async function assertProjectStoryAuthoring(baseDir: string): Promise<void> {
+  const issues: string[] = [];
+  const directories = [baseDir];
+  const sourcePattern = /\.(?:[cm]?[jt]sx?)$/;
+  while (directories.length > 0) {
+    const directory = directories.pop()!;
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (shouldSkipDirectory(directory, entry.name)) {
+          continue;
+        }
+        directories.push(join(directory, entry.name));
+        continue;
+      }
+      if (!entry.isFile() || !sourcePattern.test(entry.name)) continue;
+      const absolute = join(directory, entry.name);
+      const relativePath = relative(baseDir, absolute).split(sep).join('/');
+      const source = await readFile(absolute, 'utf8');
+      issues.push(...validateStoryAuthoringSource(source, relativePath));
+    }
+  }
+  if (issues.length > 0) {
+    throw new Error(
+      `Story authoring validation failed:\n${issues.map((issue) => `- ${issue}`).join('\n')}`,
+    );
+  }
+}
+
 async function discoverStoryFileIds(baseDir: string): Promise<{
   readonly storyIds: string[];
   readonly issues: StoryDiscoveryIssue[];
@@ -702,7 +813,7 @@ async function discoverStoryFileIds(baseDir: string): Promise<{
     const entries = await readdir(directory, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (skippedSegments.has(entry.name) || entry.name.startsWith('.')) {
+        if (shouldSkipDirectory(directory, entry.name)) {
           continue;
         }
         directories.push(join(directory, entry.name));
@@ -722,6 +833,15 @@ async function discoverStoryFileIds(baseDir: string): Promise<{
   }
   storyIds.sort();
   return { storyIds, issues };
+}
+
+function shouldSkipDirectory(parent: string, name: string): boolean {
+  return (
+    skippedSegments.has(name) ||
+    name === '__fixtures__' ||
+    (name === 'fixtures' && basename(parent) === 'test') ||
+    name.startsWith('.')
+  );
 }
 
 function validateStoryCatalog(

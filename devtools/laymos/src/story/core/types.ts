@@ -1,4 +1,4 @@
-export type DecisionValue = string | number | boolean;
+export type DecisionValue = string | number | boolean | null;
 
 export type Visibility = 'primary' | 'detail';
 
@@ -16,17 +16,33 @@ export interface BlockMeta<Args extends readonly unknown[] = readonly []> {
 
 export type TerminalCompletion =
   | { readonly kind: 'success' }
-  | { readonly kind: 'error'; readonly error?: string };
+  | { readonly kind: 'error'; readonly error: string };
 
 export interface TerminalMeta extends BlockMeta {
-  readonly completion?: TerminalCompletion;
+  readonly completion: TerminalCompletion;
 }
 
-export interface ArmMeta {
+export interface OmissionMeta {
+  readonly reason: string;
+}
+
+interface ArmMetaBase {
   readonly name?: string;
   readonly description: string;
   readonly visibility?: Visibility;
 }
+
+export type ArmMeta = ArmMetaBase &
+  (
+    | {
+        readonly errors?: readonly string[];
+        readonly completion?: never;
+      }
+    | {
+        readonly errors?: never;
+        readonly completion?: TerminalCompletion;
+      }
+  );
 
 export interface StoryMeta {
   readonly description: string;

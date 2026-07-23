@@ -16,7 +16,7 @@ import {
   Play,
   XCircle,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -35,6 +35,28 @@ export interface ProgressiveNodeData extends Record<string, unknown> {
   readonly showDescriptionPopover: boolean;
   readonly inline: boolean;
   readonly scopeDepth: number;
+  readonly actions?: ReactNode;
+}
+
+function NodeActions({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children?: ReactNode;
+}) {
+  if (children === undefined) return null;
+  return (
+    <NodeToolbar
+      isVisible={visible}
+      position={Position.Bottom}
+      align="center"
+      offset={10}
+      className="nodrag nopan nowheel"
+    >
+      {children}
+    </NodeToolbar>
+  );
 }
 
 function DescriptionPopover({
@@ -146,10 +168,23 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
     showDescriptionPopover,
     inline,
     scopeDepth,
+    actions,
   } = data;
   const collapsed = hiddenNodeCount > 0;
   if (graphNode.kind === 'arm') {
-    const description = graphNode.arm.description;
+    const description = [
+      graphNode.arm.description,
+      graphNode.arm.errors === undefined
+        ? undefined
+        : `May fail with ${graphNode.arm.errors.join(', ')}.`,
+      graphNode.arm.completion?.kind === 'success'
+        ? 'Completes successfully.'
+        : graphNode.arm.completion?.kind === 'error'
+          ? `Completes with ${graphNode.arm.completion.error}.`
+          : undefined,
+    ]
+      .filter((value) => value !== undefined)
+      .join(' ');
     return (
       <div
         className={cn(
@@ -178,6 +213,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
           description={description}
           visible={selected && showDescriptionPopover}
         />
+        <NodeActions visible={selected}>{actions}</NodeActions>
         <Handle
           type="target"
           position={Position.Top}
@@ -217,6 +253,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
           description={graphNode.block.description}
           visible={selected && showDescriptionPopover}
         />
+        <NodeActions visible={selected}>{actions}</NodeActions>
         <span className="absolute left-3 top-2 flex max-w-[calc(100%-1.5rem)] items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
           <Box className="size-3 shrink-0" aria-hidden />
           <span className="truncate">{graphNode.block.name}</span>
@@ -300,6 +337,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
         description={description}
         visible={selected && showDescriptionPopover}
       />
+      <NodeActions visible={selected}>{actions}</NodeActions>
       {startsFlows.length > 0 && (
         <span
           className="absolute -left-2 -top-2 flex size-4 items-center justify-center rounded-full border border-foreground/25 bg-background text-foreground"

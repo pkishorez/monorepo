@@ -1,7 +1,12 @@
 import { Duration, Effect, FileSystem, Option, Path } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 
-import { analyzeProject, runStories, runStoryGroup } from '../node.js';
+import {
+  analyzeProject,
+  getStories,
+  runStories,
+  runStoryGroup,
+} from '../node.js';
 import type { StoriesRunResult, StoryRunOptions } from '../node.js';
 import type { LaymosReport, Violation } from '../report/index.js';
 import type {
@@ -10,7 +15,15 @@ import type {
   StoryRun,
   StorySelectedArm,
 } from '../report/stories.js';
-import { ejectStories } from '../story/eject/index.js';
+import {
+  ejectStories,
+  planStoryEjection,
+  validateProjectStoryAuthoring,
+} from '../story/eject/index.js';
+import {
+  projectStoryCoverage,
+  type StoryCoverageReport,
+} from '../story/coverage/index.js';
 
 class CliExit {
   readonly _tag = 'CliExit';
@@ -31,17 +44,33 @@ export function lintPasses(report: Pick<LaymosReport, 'violations'>): boolean {
   return report.violations.length === 0;
 }
 
-function lint(): Effect.Effect<void, CliExit> {
-  return analyzeProject(process.cwd()).pipe(
-    Effect.flatMap((report) =>
+type StoryLintResult =
+  | { readonly _tag: 'NoStories' }
+  | { readonly _tag: 'Coverage'; readonly report: StoryCoverageReport }
+  | { readonly _tag: 'Unavailable'; readonly message: string };
+
+function lint(): Effect.Effect<
+  void,
+  CliExit,
+  FileSystem.FileSystem | Path.Path
+> {
+  return validateProjectStoryAuthoring(process.cwd()).pipe(
+    Effect.andThen(
+      Effect.all({
+        report: analyzeProject(process.cwd()),
+        stories: inspectStories(),
+      }),
+    ),
+    Effect.flatMap(({ report, stories }) =>
       Effect.suspend(() => {
         reportCoverage(report);
+        reportStoryLint(stories, false);
         reportWarnings(report);
-        if (lintPasses(report)) {
+        if (lintPasses(report) && storyLintPasses(stories)) {
           process.stdout.write(green('No violations found.\n'));
           return Effect.void;
         }
-        reportViolations(report.violations);
+        if (!lintPasses(report)) reportViolations(report.violations);
         return Effect.fail(new CliExit());
       }),
     ),
@@ -52,6 +81,67 @@ function lint(): Effect.Effect<void, CliExit> {
             process.stderr.write(red(`Error: ${errorMessage(error)}\n`));
           }).pipe(Effect.andThen(Effect.fail(new CliExit()))),
     ),
+  );
+}
+
+function lintStories(): Effect.Effect<
+  void,
+  CliExit,
+  FileSystem.FileSystem | Path.Path
+> {
+  return validateProjectStoryAuthoring(process.cwd()).pipe(
+    Effect.andThen(inspectStories()),
+    Effect.flatMap((result) =>
+      Effect.suspend(() => {
+        reportStoryLint(result, true);
+        return storyLintPasses(result)
+          ? Effect.void
+          : Effect.fail(new CliExit());
+      }),
+    ),
+    Effect.catch((error) =>
+      error instanceof CliExit
+        ? Effect.fail(error)
+        : Effect.sync(() => {
+            process.stderr.write(red(`Error: ${errorMessage(error)}\n`));
+          }).pipe(Effect.andThen(Effect.fail(new CliExit()))),
+    ),
+  );
+}
+
+function inspectStories(): Effect.Effect<
+  StoryLintResult,
+  never,
+  FileSystem.FileSystem | Path.Path
+> {
+  return getStories(process.cwd()).pipe(
+    Effect.flatMap((stories) => {
+      if (stories.catalog.stories.length === 0) {
+        return Effect.succeed<StoryLintResult>({ _tag: 'NoStories' });
+      }
+      return planStoryEjection(process.cwd()).pipe(
+        Effect.flatMap((ejection) =>
+          Effect.try({
+            try: () => projectStoryCoverage(process.cwd(), stories, ejection),
+            catch: (error) => error,
+          }),
+        ),
+        Effect.map((report): StoryLintResult => ({ _tag: 'Coverage', report })),
+      );
+    }),
+    Effect.catch((error) =>
+      Effect.succeed<StoryLintResult>({
+        _tag: 'Unavailable',
+        message: errorMessage(error),
+      }),
+    ),
+  );
+}
+
+function storyLintPasses(result: StoryLintResult): boolean {
+  return (
+    result._tag === 'NoStories' ||
+    (result._tag === 'Coverage' && result.report.invalidStories.length === 0)
   );
 }
 
@@ -159,8 +249,8 @@ function reportStoriesRun(result: StoriesRunResult): void {
   process.stdout.write(
     `${stories.length} ${stories.length === 1 ? 'Story' : 'Stories'} executed.\n`,
   );
-  for (const [storyId, artifact] of stories) {
-    reportStory(storyId, artifact);
+  for (const [, artifact] of stories) {
+    reportStory(artifact);
   }
   for (const failure of result.failures) {
     const scope =
@@ -177,12 +267,12 @@ function reportStoriesRun(result: StoriesRunResult): void {
   process.stderr.write(red('Some Scenarios failed or were interrupted.\n'));
 }
 
-function reportStory(storyId: string, artifact: StoryRun): void {
+function reportStory(artifact: StoryRun): void {
   const passed = artifact.scenarios.every(
     ({ outcome }) => outcome === 'succeeded' || outcome === 'skipped',
   );
   process.stdout.write(
-    `\n${passed ? green('✓') : red('×')} ${artifact.name} ${paintMuted(`(${storyId})`)}\n`,
+    `\n${passed ? green('✓') : red('×')} ${artifact.name}\n`,
   );
   for (const scenario of artifact.scenarios) {
     const icon =
@@ -193,58 +283,119 @@ function reportStory(storyId: string, artifact: StoryRun): void {
           : scenario.outcome === 'interrupted'
             ? yellow('!')
             : red('×');
-    const timing =
-      scenario.durationMillis === undefined
-        ? ''
-        : paintMuted(` ${scenario.durationMillis}ms`);
-    process.stdout.write(`  ${icon} ${scenario.name}${timing}\n`);
-    reportUnsuccessfulPaths(artifact, scenario.execution);
+    process.stdout.write(`  ${icon} ${scenario.name}\n`);
   }
-  reportDecisionGaps(artifact);
+  reportRuntimeCoverage(artifact);
 }
 
-function reportUnsuccessfulPaths(
-  artifact: StoryRun,
-  execution: ExecutionPath,
-  parents: readonly string[] = [],
-): void {
-  for (const item of execution) {
-    if ('parallel' in item) {
-      for (const branch of item.parallel) {
-        reportUnsuccessfulPaths(artifact, branch, parents);
-      }
-      continue;
-    }
-    const name = artifact.blocks[item.blockId]?.name ?? item.blockId;
-    const path = [...parents, name];
-    if (item.outcome !== 'succeeded') {
-      process.stdout.write(
-        `    ${yellow(item.outcome)}: ${path.join(' › ')}\n`,
-      );
-    }
-    reportUnsuccessfulPaths(artifact, item.children, path);
+function reportRuntimeCoverage(artifact: StoryRun): void {
+  const blockCoverage = scenarioNodeCoverage(artifact);
+  const armCoverage = decisionArmCoverage(artifact);
+  const parts = [
+    `${blockCoverage.visited}/${blockCoverage.total} Blocks (${formatPercentage(blockCoverage.percentage)})`,
+  ];
+  if (armCoverage.total > 0) {
+    parts.push(`${armCoverage.visited}/${armCoverage.total} Decision Arms`);
+  }
+  process.stdout.write(`  Coverage: ${parts.join(' · ')}\n`);
+
+  const unvisitedBlocks = unvisitedBlockNames(artifact);
+  if (unvisitedBlocks.length > 0) {
+    process.stdout.write(
+      `  Unvisited ${unvisitedBlocks.length === 1 ? 'Block' : 'Blocks'}: ${unvisitedBlocks.join('; ')}\n`,
+    );
+  }
+
+  const unvisitedArms = unvisitedDecisionArmNames(artifact);
+  if (unvisitedArms.length > 0) {
+    process.stdout.write(
+      `  Unvisited Decision ${unvisitedArms.length === 1 ? 'Arm' : 'Arms'}: ${unvisitedArms.join('; ')}\n`,
+    );
   }
 }
 
-function reportDecisionGaps(artifact: StoryRun): void {
+function unvisitedBlockNames(artifact: StoryRun): readonly string[] {
+  const visited = visitedBlockIds(artifact);
+  return Object.entries(artifact.blocks)
+    .filter(([blockId]) => !visited.has(blockId))
+    .map(([, block]) => block.name);
+}
+
+function unvisitedDecisionArmNames(artifact: StoryRun): readonly string[] {
+  const names: string[] = [];
   for (const [blockId, block] of Object.entries(artifact.blocks)) {
     if (block.kind !== 'decision') continue;
     const observed = new Set<string>();
     for (const scenario of artifact.scenarios) {
       collectSelectedArms(scenario.execution, blockId, observed);
     }
-    const missing = block.arms.filter(
-      (arm) => !observed.has(selectedArmKey(arm)),
-    );
-    if (missing.length === 0) continue;
-    const location = `${block.location.file}:${block.location.line}:${block.location.column}`;
-    process.stdout.write(
-      `  ${paintMuted('decision')} ${block.name}: ${block.arms.length - missing.length}/${block.arms.length} arms observed ${paintMuted(`(${location})`)}\n`,
-    );
-    process.stdout.write(
-      `    unobserved: ${missing.map((arm) => arm.name).join(', ')}\n`,
-    );
+    for (const arm of block.arms) {
+      if (!observed.has(selectedArmKey(arm))) {
+        names.push(`${block.name} › ${arm.name}`);
+      }
+    }
   }
+  return names;
+}
+
+function scenarioNodeCoverage(
+  artifact: StoryRun,
+): NonNullable<StoryRun['scenarioNodeCoverage']> {
+  if (artifact.scenarioNodeCoverage !== undefined) {
+    return artifact.scenarioNodeCoverage;
+  }
+  const visited = visitedBlockIds(artifact);
+  const total = Object.keys(artifact.blocks).length;
+  const percentage = total === 0 ? 0 : (visited.size / total) * 100;
+  return { visited: visited.size, total, percentage };
+}
+
+function visitedBlockIds(artifact: StoryRun): ReadonlySet<string> {
+  const visited = new Set<string>();
+  for (const scenario of artifact.scenarios) {
+    collectVisitedBlocks(scenario.execution, visited);
+  }
+  return visited;
+}
+
+function collectVisitedBlocks(
+  execution: ExecutionPath,
+  visited: Set<string>,
+): void {
+  for (const item of execution) {
+    if ('parallel' in item) {
+      for (const branch of item.parallel) {
+        collectVisitedBlocks(branch, visited);
+      }
+      continue;
+    }
+    visited.add(item.blockId);
+    collectVisitedBlocks(item.children, visited);
+  }
+}
+
+function decisionArmCoverage(artifact: StoryRun): {
+  readonly visited: number;
+  readonly total: number;
+} {
+  let visited = 0;
+  let total = 0;
+  for (const [blockId, block] of Object.entries(artifact.blocks)) {
+    if (block.kind !== 'decision') continue;
+    const observed = new Set<string>();
+    for (const scenario of artifact.scenarios) {
+      collectSelectedArms(scenario.execution, blockId, observed);
+    }
+    total += block.arms.length;
+    visited += block.arms.filter((arm) =>
+      observed.has(selectedArmKey(arm)),
+    ).length;
+  }
+  return { visited, total };
+}
+
+function formatPercentage(percentage: number): string {
+  return `${Number(percentage.toFixed(1))}%`;
 }
 
 function collectSelectedArms(
@@ -313,6 +464,60 @@ function reportCoverage(report: LaymosReport): void {
   }
 }
 
+function reportStoryLint(result: StoryLintResult, explicit: boolean): void {
+  if (result._tag === 'NoStories') {
+    if (explicit) process.stdout.write('No Stories found.\n');
+    return;
+  }
+  if (result._tag === 'Unavailable') {
+    process.stderr.write(red(`Story lint unavailable: ${result.message}\n`));
+    return;
+  }
+  reportStoryCoverage(result.report);
+  if (result.report.invalidStories.length === 0 && explicit) {
+    process.stdout.write(green('Story lint passed.\n'));
+  }
+}
+
+function reportStoryCoverage(report: StoryCoverageReport): void {
+  process.stdout.write('\nStory traversal narration\n');
+  process.stdout.write(
+    `  ${report.stories.length} of ${report.storyCount} Stories traced.\n`,
+  );
+  for (const story of report.stories) {
+    process.stdout.write(
+      `\n  ${story.name} ${paintMuted(`(${story.storyId})`)}\n`,
+    );
+    if (story.totalLines === 0) {
+      process.stdout.write(
+        '    No instrumented application functions were traversed.\n',
+      );
+      continue;
+    }
+    process.stdout.write(
+      `    Traversal: ${story.functions} ${story.functions === 1 ? 'function' : 'functions'} across ${story.files} ${story.files === 1 ? 'file' : 'files'}, ${story.totalLines} non-empty lines.\n`,
+    );
+    process.stdout.write(
+      `    Narrated: ${story.narrated.lines} lines (${story.narrated.percentage.toFixed(1)}%).\n`,
+    );
+    process.stdout.write(
+      `    Omitted: ${story.omitted.lines} lines (${story.omitted.percentage.toFixed(1)}%).\n`,
+    );
+    process.stdout.write(
+      yellow(
+        `    Unnarrated: ${story.unnarrated.lines} lines (${story.unnarrated.percentage.toFixed(1)}%).\n`,
+      ),
+    );
+  }
+  if (report.invalidStories.length === 0) return;
+  process.stderr.write(
+    red(`\n  ${report.invalidStories.length} invalid Stories:\n`),
+  );
+  for (const invalid of report.invalidStories) {
+    process.stderr.write(red(`    - ${invalid.storyId}: ${invalid.message}\n`));
+  }
+}
+
 function reportWarnings(report: LaymosReport): void {
   for (const warning of report.warnings) {
     const detail =
@@ -367,10 +572,17 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const lintStoriesCommand = Command.make('stories', {}, lintStories).pipe(
+  Command.withDescription(
+    'Validate Story authoring and traces, then report Story Block coverage.',
+  ),
+);
+
 const lintCommand = Command.make('lint', {}, lint).pipe(
   Command.withDescription(
-    'Check the project against its declared architecture. Coverage gaps are warnings only.',
+    'Lint architecture and Stories. Coverage gaps are warnings only.',
   ),
+  Command.withSubcommands([lintStoriesCommand]),
 );
 
 const ejectCommand = Command.make(

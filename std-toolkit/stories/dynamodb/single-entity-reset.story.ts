@@ -26,7 +26,7 @@ const resetSettings = flow(
           description: 'Completes this reset flow with the configured default.',
           completion: { kind: 'success' },
         },
-        Effect.succeed(result),
+        () => Effect.succeed(result),
       );
     }),
 );

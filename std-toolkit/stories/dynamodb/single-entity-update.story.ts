@@ -27,7 +27,7 @@ const updateSettings = flow(
           description: 'Completes this update flow with the changed singleton.',
           completion: { kind: 'success' },
         },
-        Effect.succeed(result),
+        () => Effect.succeed(result),
       );
     }),
 );

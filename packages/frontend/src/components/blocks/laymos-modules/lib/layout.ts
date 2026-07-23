@@ -167,10 +167,13 @@ function layoutModuleTree(
   }
   dagre.layout(graph);
 
-  const levels = Map.groupBy(layer?.modulePaths ?? [], (path) => {
+  const levels = new Map<number, string[]>();
+  for (const path of layer?.modulePaths ?? []) {
     const position = graph.node(path) as { y: number };
-    return position.y;
-  });
+    const paths = levels.get(position.y) ?? [];
+    paths.push(path);
+    levels.set(position.y, paths);
+  }
   const levelDrafts = [...levels.entries()]
     .sort(([left], [right]) => left - right)
     .map(([, paths]) => {

@@ -9,7 +9,11 @@ const tests = layer('tests', ['test']);
 
 const storyAdapters = layer('story-adapters', ['src/story/effect']);
 const storyRuntime = layer('story-runtime', ['src/story/story-runtime']);
-const storyRunner = layer('story-runner', ['src/story/runner']);
+const storyTooling = layer('story-tooling', [
+  'src/story/coverage',
+  'src/story/eject',
+  'src/story/runner',
+]);
 const storyCore = layer('story-core', ['src/story/core', 'src/story/artifact']);
 
 const cliModule = module('src/cli');
@@ -30,6 +34,8 @@ const storyArtifactModule = module('src/story/artifact');
 const storyCoreModule = module('src/story/core');
 const storyEffectModule = module('src/story/effect');
 const storyRuntimeModule = module('src/story/story-runtime');
+const storyCoverageModule = module('src/story/coverage');
+const storyEjectModule = module('src/story/eject');
 const storyRunnerModule = module('src/story/runner');
 
 export default defineConfig({
@@ -37,18 +43,19 @@ export default defineConfig({
   graphs: [
     layerGraph('tooling', [
       edge(cli, nodeApi),
-      edge(nodeApi, [engine, configDsl, report, storyRunner, storyCore]),
+      edge(nodeApi, [engine, configDsl, report, storyTooling, storyCore]),
       edge(engine, [configDsl, report]),
       edge(report, storyCore),
       edge(storyAdapters, storyCore),
       edge(storyRuntime, storyCore),
-      edge(storyRunner, storyCore),
+      edge(storyTooling, [report, storyCore]),
       edge(tests, [
         nodeApi,
         engine,
         configDsl,
         report,
         storyAdapters,
+        storyTooling,
         storyCore,
       ]),
     ]),
@@ -69,6 +76,8 @@ export default defineConfig({
     storyCoreModule,
     storyEffectModule,
     storyRuntimeModule,
+    storyCoverageModule,
+    storyEjectModule,
     storyRunnerModule,
   ],
   moduleRules: [
@@ -102,11 +111,22 @@ export default defineConfig({
       canImport: [configModule, reportModule, resolveModule, evaluateModule],
     }),
     rules(storyArtifactModule, { canImport: [storyCoreModule] }),
-    rules(storyCoreModule, { canImport: [storyArtifactModule] }),
+    rules(storyCoreModule, { canImport: [] }),
     rules(storyEffectModule, { canImport: [storyCoreModule] }),
-    rules(storyRuntimeModule, { canImport: [storyCoreModule] }),
-    rules(storyRunnerModule, {
+    rules(storyRuntimeModule, {
       canImport: [storyCoreModule, storyArtifactModule],
+    }),
+    rules(storyCoverageModule, {
+      canImport: [reportModule, storyEjectModule],
+    }),
+    rules(storyEjectModule, { canImport: [] }),
+    rules(storyRunnerModule, {
+      canImport: [
+        storyCoreModule,
+        storyArtifactModule,
+        reportModule,
+        storyEjectModule,
+      ],
     }),
   ],
 });

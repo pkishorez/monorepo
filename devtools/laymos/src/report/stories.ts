@@ -16,6 +16,7 @@ export type {
   StoryDecisionValue,
   StoryId,
   StoryScenario,
+  StoryScenarioNodeCoverage,
   StoryScenarioFailure,
   StoryScenarioFailurePhase,
   StorySelectedArm,

@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
+import { flow, terminal } from 'laymos/story';
 
 import { dynamodbSingleEntityStories } from './support/story-groups.js';
 
@@ -14,7 +14,19 @@ const getSettings = flow(
     description:
       'Reads the singleton record or returns its configured default before the first write.',
   },
-  (_input: {}) => harness.settings.get(),
+  (_input: {}) =>
+    Effect.gen(function* () {
+      const result = yield* harness.settings.get();
+      return yield* terminal(
+        'Return the singleton state',
+        {
+          description:
+            'Completes the lookup with stored state or its configured default.',
+          completion: { kind: 'success' },
+        },
+        () => Effect.succeed(result),
+      );
+    }),
 );
 
 dynamodbSingleEntityStories

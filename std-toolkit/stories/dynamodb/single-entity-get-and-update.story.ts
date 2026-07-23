@@ -1,7 +1,6 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow } from 'laymos/story';
 
 import { dynamodbSingleEntityStories } from './support/story-groups.js';
 
@@ -15,14 +14,6 @@ type Input = {
   readonly update: Parameters<typeof harness.settings.getAndUpdate>[0];
   readonly beforeCursor?: string;
 };
-const getAndUpdateSettings = flow(
-  'Get and update single entity',
-  {
-    description:
-      'Runs one optimistic read-modify-write through the public single-entity method.',
-  },
-  (input: Input) => harness.settings.getAndUpdate(input.update),
-);
 
 dynamodbSingleEntityStories
   .story('Get and update single entity', {
@@ -30,7 +21,7 @@ dynamodbSingleEntityStories
       'Shows write and intentional no-op paths for singleton read-modify-write.',
   })
   .provide(harness.layer)
-  .execute(getAndUpdateSettings)
+  .execute((input: Input) => harness.settings.getAndUpdate(input.update))
   .scenario(
     'derived update treats the default as current state',
     { description: 'Creates the first stored record from the default.' },

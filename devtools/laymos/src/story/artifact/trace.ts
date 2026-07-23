@@ -32,6 +32,7 @@ export const traceValue: unknown = new Proxy(traceValueTarget, {
   construct: () => traceValue as object,
   get: (_target, property) => {
     if (property === 'then') return undefined;
+    if (property === 'length') return 0;
     if (property === Symbol.toPrimitive) return () => 0;
     if (property === Symbol.iterator) return () => [][Symbol.iterator]();
     return traceValue;
@@ -91,12 +92,12 @@ export class TraceRecorder {
   omission(
     context: TraceContext,
     location: SourceLocation,
-    label?: string,
+    reason: string,
   ): unknown {
     context.path.push({
       kind: 'omission',
       location,
-      ...(label === undefined ? {} : { label }),
+      reason,
     });
     return traceValue;
   }
@@ -104,7 +105,6 @@ export class TraceRecorder {
   decision(
     context: TraceContext,
     block: BlockDeclaration,
-    selector: Effect.Effect<unknown, unknown, unknown>,
     arms: readonly {
       readonly declaration: ArmDeclaration;
       readonly body: () => Effect.Effect<unknown, unknown, unknown>;
@@ -112,25 +112,17 @@ export class TraceRecorder {
   ): Effect.Effect<unknown, unknown, unknown> {
     const blockId = this.declare(block);
     for (const arm of arms) this.blocks.declareArm(block, arm.declaration);
-    const selectorPath: MutableTracePath = [];
     const tracedArms: Array<{ arm: StoryArm; children: MutableTracePath }> = [];
     context.path.push({
       kind: 'decision',
       blockId,
-      selector: selectorPath,
       arms: tracedArms,
     });
     return Effect.gen({ self: this }, function* () {
-      yield* selector.pipe(
-        Effect.provideService(CurrentTrace, {
-          recorder: this,
-          path: selectorPath,
-        }),
-      );
       for (const arm of arms) {
         const children: MutableTracePath = [];
         tracedArms.push({ arm: arm.declaration, children });
-        yield* Effect.suspend(arm.body).pipe(
+        yield* arm.body().pipe(
           Effect.catch(() => Effect.void),
           Effect.provideService(CurrentTrace, {
             recorder: this,
@@ -201,7 +193,6 @@ export class TraceRecorder {
         if (item.kind === 'decision') {
           return {
             ...item,
-            selector: normalize(item.selector),
             arms: item.arms.map((arm) => ({
               ...arm,
               children: normalize(arm.children),
@@ -228,7 +219,6 @@ function visit(
     body(item);
     if (item.kind === 'flow') visit(item.children, body);
     else if (item.kind === 'decision') {
-      visit(item.selector, body);
       for (const arm of item.arms) visit(arm.children, body);
     } else if (item.kind === 'all') {
       for (const branch of item.branches) visit(branch, body);

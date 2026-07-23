@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect, Schema } from 'effect';
-import { decision, flow, terminal } from 'laymos/story';
+import { decision, exhaustive, flow, terminal, when } from 'laymos/story';
 
 import { dynamodbEntityStories } from './support/story-groups.js';
 
@@ -70,9 +70,9 @@ const updateUser = flow<[Input], any, any, any>(
         description:
           'Routes the update through a current or evolving entity schema.',
       },
-      () => Effect.succeed(input.kind),
-    )
-      .when(
+      input.kind,
+    ).pipe(
+      when(
         'standard',
         {
           name: 'Use the current schema',
@@ -91,11 +91,11 @@ const updateUser = flow<[Input], any, any, any>(
                   'Ends this branch with the update operation selected for current-schema data.',
                 completion: { kind: 'success' },
               },
-              Effect.succeed(result),
+              () => Effect.succeed(result),
             );
           }),
-      )
-      .when(
+      ),
+      when(
         'evolving',
         {
           name: 'Evolve the stored schema',
@@ -114,11 +114,12 @@ const updateUser = flow<[Input], any, any, any>(
                   'Ends this branch with the update operation selected for stale schema data.',
                 completion: { kind: 'success' },
               },
-              Effect.succeed(result),
+              () => Effect.succeed(result),
             );
           }),
-      )
-      .exhaustive(),
+      ),
+      exhaustive,
+    ),
 );
 
 dynamodbEntityStories

@@ -12,6 +12,7 @@ import {
   buildProgressiveStoryGraph,
   buildStoryCatalogTree,
   collapseStoryGraph,
+  compactValueDecisions,
   storyRunFromTrace,
   withoutFlowNodes,
 } from './model';
@@ -236,6 +237,104 @@ describe('inline Flow scopes', () => {
     });
     expect(atomicCall.edges).toEqual([
       expect.objectContaining({ source: 'first', target: 'after' }),
+    ]);
+  });
+});
+
+describe('compact value Decisions', () => {
+  it('renders one Decision node and keeps a shared active continuation', () => {
+    const location = { file: 'story.ts', line: 1, column: 1 };
+    const model = {
+      nodes: [
+        {
+          kind: 'block',
+          id: 'choice',
+          blockId: 'choice',
+          block: {
+            kind: 'decision',
+            role: 'value',
+            name: 'Choose value',
+            description: 'Calculates one value.',
+            location,
+            arms: [],
+          },
+        },
+        {
+          kind: 'arm',
+          id: 'active-arm',
+          decisionId: 'choice',
+          arm: {
+            kind: 'literal',
+            value: true,
+            name: 'Active',
+            description: 'Uses the active value.',
+            location,
+          },
+          active: true,
+        },
+        {
+          kind: 'arm',
+          id: 'inactive-arm',
+          decisionId: 'choice',
+          arm: {
+            kind: 'otherwise',
+            name: 'Inactive',
+            description: 'Uses the other value.',
+            location,
+          },
+          active: false,
+        },
+        {
+          kind: 'block',
+          id: 'next',
+          blockId: 'next',
+          block: {
+            kind: 'step',
+            name: 'Continue',
+            description: 'Uses the selected value.',
+            location,
+          },
+        },
+      ],
+      edges: [
+        {
+          id: 'choice->active-arm',
+          source: 'choice',
+          target: 'active-arm',
+          inactive: false,
+        },
+        {
+          id: 'choice->inactive-arm',
+          source: 'choice',
+          target: 'inactive-arm',
+          inactive: true,
+        },
+        {
+          id: 'active-arm->next',
+          source: 'active-arm',
+          target: 'next',
+          inactive: false,
+        },
+        {
+          id: 'inactive-arm->next',
+          source: 'inactive-arm',
+          target: 'next',
+          inactive: true,
+        },
+      ],
+      childrenByNode: {},
+    } as const;
+
+    const compact = compactValueDecisions(model);
+
+    expect(compact.nodes.map(({ id }) => id)).toEqual(['choice', 'next']);
+    expect(compact.edges).toEqual([
+      {
+        id: 'choice->next',
+        source: 'choice',
+        target: 'next',
+        inactive: false,
+      },
     ]);
   });
 });

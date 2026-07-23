@@ -5,6 +5,7 @@ export type StoryVisibility = 'primary' | 'detail';
 export interface StorySourceLocation {
   readonly file: string;
   readonly line: number;
+  readonly endLine?: number;
   readonly column: number;
 }
 
@@ -15,11 +16,13 @@ interface StoryBlockBase {
   readonly visibility?: StoryVisibility;
 }
 
-export type StoryDecisionValue = string | number | boolean;
+export type StoryDecisionRole = 'value' | 'control-flow';
+
+export type StoryDecisionValue = string | number | boolean | null;
 
 export type StoryTerminalCompletion =
   | { readonly kind: 'success' }
-  | { readonly kind: 'error'; readonly error?: string };
+  | { readonly kind: 'error'; readonly error: string };
 
 export type StoryArm =
   | {
@@ -28,12 +31,18 @@ export type StoryArm =
       readonly name: string;
       readonly description: string;
       readonly visibility?: StoryVisibility;
+      readonly location?: StorySourceLocation;
+      readonly errors?: readonly string[];
+      readonly completion?: StoryTerminalCompletion;
     }
   | {
       readonly kind: 'otherwise';
       readonly name: string;
       readonly description: string;
       readonly visibility?: StoryVisibility;
+      readonly location?: StorySourceLocation;
+      readonly errors?: readonly string[];
+      readonly completion?: StoryTerminalCompletion;
     };
 
 export type StoryBlock =
@@ -44,6 +53,7 @@ export type StoryBlock =
     })
   | (StoryBlockBase & {
       readonly kind: 'decision';
+      readonly role?: StoryDecisionRole;
       readonly arms: readonly StoryArm[];
     });
 
@@ -102,6 +112,13 @@ export interface StoryRun {
   readonly description: string;
   readonly blocks: Readonly<Record<BlockId, StoryBlock>>;
   readonly scenarios: readonly StoryScenario[];
+  readonly scenarioNodeCoverage?: StoryScenarioNodeCoverage;
+}
+
+export interface StoryScenarioNodeCoverage {
+  readonly visited: number;
+  readonly total: number;
+  readonly percentage: number;
 }
 
 export interface StoryTraceOptions {
@@ -124,7 +141,7 @@ export type StoryTraceItem =
   | {
       readonly kind: 'decision';
       readonly blockId: BlockId;
-      readonly selector: StoryTracePath;
+      readonly selector?: StoryTracePath;
       readonly arms: readonly {
         readonly arm: StoryArm;
         readonly children: StoryTracePath;
@@ -143,7 +160,7 @@ export type StoryTraceItem =
   | {
       readonly kind: 'omission';
       readonly location: StorySourceLocation;
-      readonly label?: string;
+      readonly reason: string;
     };
 
 export interface StoryTrace {

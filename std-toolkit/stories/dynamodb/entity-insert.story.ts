@@ -30,7 +30,7 @@ const insertUser = flow(
           description: 'Completes this insert flow with the persisted entity.',
           completion: { kind: 'success' },
         },
-        Effect.succeed(result),
+        () => Effect.succeed(result),
       );
     }),
 );

@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { all, decision, flow, step } from 'laymos/story';
+import { all, decision, exhaustive, flow, step, when } from 'laymos/story';
 
 export interface AccessInput {
   readonly actorId: string;
@@ -65,9 +65,9 @@ export const authorizeAccess = flow(
           description:
             'Routes the request to grant, additional verification, or denial according to the actor policy.',
         },
-        () => Effect.succeed(input.policy),
-      )
-        .when(
+        input.policy,
+      ).pipe(
+        when(
           'allow',
           {
             name: 'Grant access',
@@ -83,8 +83,8 @@ export const authorizeAccess = flow(
               },
               () => Effect.succeed('granted' as const),
             ),
-        )
-        .when(
+        ),
+        when(
           'challenge',
           {
             name: 'Verify identity',
@@ -100,8 +100,8 @@ export const authorizeAccess = flow(
               },
               () => Effect.succeed('verification-required' as const),
             ),
-        )
-        .when(
+        ),
+        when(
           'deny',
           {
             name: 'Deny access',
@@ -117,7 +117,8 @@ export const authorizeAccess = flow(
               },
               () => Effect.succeed('blocked' as const),
             ),
-        )
-        .exhaustive();
+        ),
+        exhaustive,
+      );
     }),
 );

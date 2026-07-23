@@ -64,6 +64,52 @@ export interface CollapsedStoryGraph {
   readonly hiddenCountByNode: ReadonlyMap<string, number>;
 }
 
+/** Keeps value Decisions atomic in Graph view while preserving their children. */
+export function compactValueDecisions(
+  model: ProgressiveStoryGraphModel,
+): ProgressiveStoryGraphModel {
+  const valueDecisions = new Set(
+    model.nodes
+      .filter(
+        (node): node is StoryBlockGraphNode =>
+          node.kind === 'block' &&
+          node.block.kind === 'decision' &&
+          node.block.role === 'value',
+      )
+      .map((node) => node.id),
+  );
+  if (valueDecisions.size === 0) return model;
+  const hiddenArms = new Map(
+    model.nodes
+      .filter(
+        (node): node is StoryArmGraphNode =>
+          node.kind === 'arm' && valueDecisions.has(node.decisionId),
+      )
+      .map((node) => [node.id, node]),
+  );
+  const edges = new Map<string, StoryGraphEdge>();
+  for (const edge of model.edges) {
+    if (hiddenArms.has(edge.target)) continue;
+    const arm = hiddenArms.get(edge.source);
+    const source = arm?.decisionId ?? edge.source;
+    const id = `${source}->${edge.target}`;
+    const previous = edges.get(id);
+    const inactive = (arm !== undefined && !arm.active) || edge.inactive;
+    edges.set(id, {
+      ...edge,
+      id,
+      source,
+      inactive:
+        previous === undefined ? inactive : previous.inactive && inactive,
+    });
+  }
+  return {
+    nodes: model.nodes.filter((node) => !hiddenArms.has(node.id)),
+    edges: [...edges.values()],
+    childrenByNode: model.childrenByNode,
+  };
+}
+
 export interface StoryEntry {
   readonly storyId: StoryId;
   readonly name: string;
@@ -641,32 +687,26 @@ export function storyRunFromTrace(
       const blockId = omissionId(item);
       blocks[blockId] = {
         kind: 'step',
-        name: item.label ?? 'Omitted operation',
-        description: 'Trace Mode deliberately does not explore this operation.',
+        name: 'Omitted operation',
+        description: item.reason,
         visibility: 'detail',
         location: item.location,
       };
       return [[visit(blockId)]];
     }
     if (item.kind === 'decision') {
-      const selectors = expandPath(item.selector);
       const arms = item.arms.flatMap(({ arm, children }) =>
         expandPath(children).map((armChildren) => ({ arm, armChildren })),
       );
-      return combineAlternatives(
-        selectors,
-        arms,
-        (selector, { arm, armChildren }) => [
-          ...selector,
-          visit(
-            item.blockId,
-            armChildren,
-            arm.kind === 'otherwise'
-              ? { kind: 'otherwise' }
-              : { kind: 'literal', value: arm.value },
-          ),
-        ],
-      );
+      return arms.map(({ arm, armChildren }) => [
+        visit(
+          item.blockId,
+          armChildren,
+          arm.kind === 'otherwise'
+            ? { kind: 'otherwise' }
+            : { kind: 'literal', value: arm.value },
+        ),
+      ]);
     }
     if (item.kind === 'for-each') return expandPath(item.body);
     const branchChoices = item.branches.map(expandPath);
