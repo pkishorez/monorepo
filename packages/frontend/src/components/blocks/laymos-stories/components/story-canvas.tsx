@@ -29,18 +29,26 @@ import { cn } from '#lib/utils';
 import { useTopAnchoredViewport } from '../hooks/use-top-anchored-viewport';
 import { layoutStoryGraph } from '../lib/layout';
 import {
+  applyStoryExecutionCoverage,
   buildProgressiveScenarioGraph,
   buildProgressiveStoryGraph,
+  buildStoryExecutionCoverage,
   collapseStoryGraph,
   compactValueDecisions,
+  storyNodeExecutionCoverage,
   withoutFlowNodes,
   type ProgressiveStoryGraphModel,
+  type StoryExecutionCoverage,
 } from '../lib/model';
 import { viewportWithPreservedAnchor } from '../lib/viewport';
 import type { LaymosStoryCanvasPreferences } from '../types';
 import { progressiveNodeTypes, type ProgressiveNodeData } from './flow-nodes';
 
-function relatedNodeIds(model: ProgressiveStoryGraphModel, nodeId: string) {
+export function relatedNodeIds(
+  model: ProgressiveStoryGraphModel,
+  nodeId: string,
+  includeOwningDecisions = false,
+) {
   const result = new Set([nodeId]);
   const node = model.nodes.find(({ id }) => id === nodeId);
   if (node?.kind === 'block' && node.block.kind === 'flow') {
@@ -62,7 +70,82 @@ function relatedNodeIds(model: ProgressiveStoryGraphModel, nodeId: string) {
     if (edge.source === nodeId) result.add(edge.target);
     if (edge.target === nodeId) result.add(edge.source);
   }
+  if (includeOwningDecisions) {
+    for (const candidate of model.nodes) {
+      if (candidate.kind === 'arm' && result.has(candidate.id)) {
+        result.add(candidate.decisionId);
+      }
+    }
+  }
   return result;
+}
+
+export function executionCoverageStatus(
+  coverage: StoryExecutionCoverage,
+): 'covered' | 'partial' | 'uncovered' | 'empty' {
+  const covered = coverage.blocks.covered + coverage.arms.covered;
+  const total = coverage.blocks.total + coverage.arms.total;
+  if (total === 0) return 'empty';
+  if (covered === total) return 'covered';
+  if (covered === 0) return 'uncovered';
+  return 'partial';
+}
+
+function ExecutionCoverageSummary({
+  coverage,
+}: {
+  readonly coverage?: StoryExecutionCoverage;
+}) {
+  if (!coverage) {
+    return (
+      <div className="nodrag nopan rounded-lg border border-border/60 bg-background/90 px-3 py-2 text-[10px] text-muted-foreground shadow-sm backdrop-blur">
+        <p className="font-semibold text-foreground">Execution coverage</p>
+        <p className="mt-1">Run Story to measure coverage.</p>
+      </div>
+    );
+  }
+
+  const status = executionCoverageStatus(coverage);
+  const presentation = {
+    covered: {
+      label: 'All covered',
+      tone: 'bg-emerald-500',
+      text: 'text-emerald-700 dark:text-emerald-300',
+    },
+    partial: {
+      label: 'Partial coverage',
+      tone: 'bg-amber-400',
+      text: 'text-amber-700 dark:text-amber-300',
+    },
+    uncovered: {
+      label: 'None covered',
+      tone: 'bg-rose-500',
+      text: 'text-rose-700 dark:text-rose-300',
+    },
+    empty: {
+      label: 'Nothing to cover',
+      tone: 'bg-muted-foreground',
+      text: 'text-muted-foreground',
+    },
+  }[status];
+
+  return (
+    <div className="nodrag nopan rounded-lg border border-border/60 bg-background/90 px-3 py-2 text-[10px] text-muted-foreground shadow-sm backdrop-blur">
+      <p
+        className={`flex items-center gap-1.5 font-semibold ${presentation.text}`}
+      >
+        <span
+          className={`size-1.5 rounded-full ${presentation.tone}`}
+          aria-hidden
+        />
+        {presentation.label}
+      </p>
+      <p className="mt-1 tabular-nums">
+        Blocks {coverage.blocks.covered}/{coverage.blocks.total} · Arms{' '}
+        {coverage.arms.covered}/{coverage.arms.total}
+      </p>
+    </div>
+  );
 }
 
 function ProgressiveCanvasInner({
@@ -70,12 +153,16 @@ function ProgressiveCanvasInner({
   emptyMessage,
   showDetails,
   onShowDetailsChange,
-  showFunctionScopes,
-  onShowFunctionScopesChange,
   showDescriptionPopover,
   onShowDescriptionPopoverChange,
   centerSelected,
   onCenterSelectedChange,
+  showExecutionCoverage,
+  onShowExecutionCoverageChange,
+  openCodeOnSelect,
+  onOpenCodeOnSelectChange,
+  executionCoverage,
+  executionCoverageSummary,
   selectedNodeId: controlledSelectedNodeId,
   onSelectedNodeIdChange,
   onHoveredNodeIdChange,
@@ -88,12 +175,16 @@ function ProgressiveCanvasInner({
   readonly emptyMessage: string;
   readonly showDetails?: boolean;
   readonly onShowDetailsChange?: (show: boolean) => void;
-  readonly showFunctionScopes: boolean;
-  readonly onShowFunctionScopesChange: (show: boolean) => void;
   readonly showDescriptionPopover: boolean;
   readonly onShowDescriptionPopoverChange: (show: boolean) => void;
   readonly centerSelected: boolean;
   readonly onCenterSelectedChange: (center: boolean) => void;
+  readonly showExecutionCoverage?: boolean;
+  readonly onShowExecutionCoverageChange?: (show: boolean) => void;
+  readonly openCodeOnSelect: boolean;
+  readonly onOpenCodeOnSelectChange?: (open: boolean) => void;
+  readonly executionCoverage?: StoryExecutionCoverage;
+  readonly executionCoverageSummary?: StoryExecutionCoverage;
   readonly selectedNodeId?: string | null;
   readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
   readonly onHoveredNodeIdChange?: (nodeId: string | null) => void;
@@ -137,7 +228,17 @@ function ProgressiveCanvasInner({
     onHoveredNodeIdChange?.(nodeId);
   };
   const [controlsExpanded, setControlsExpanded] = useState(false);
-  const compactModel = useMemo(() => compactValueDecisions(model), [model]);
+  const coverageModel = useMemo(
+    () =>
+      showExecutionCoverage && executionCoverage
+        ? applyStoryExecutionCoverage(model, executionCoverage)
+        : model,
+    [executionCoverage, model, showExecutionCoverage],
+  );
+  const compactModel = useMemo(
+    () => compactValueDecisions(coverageModel),
+    [coverageModel],
+  );
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -152,11 +253,8 @@ function ProgressiveCanvasInner({
     [collapsedNodeIds, compactModel],
   );
   const visibleModel = useMemo(
-    () =>
-      showFunctionScopes
-        ? collapsedView.model
-        : withoutFlowNodes(collapsedView.model),
-    [collapsedView.model, showFunctionScopes],
+    () => withoutFlowNodes(collapsedView.model),
+    [collapsedView.model],
   );
   useEffect(() => {
     onGraphNodesChange?.(visibleModel.nodes);
@@ -209,9 +307,9 @@ function ProgressiveCanvasInner({
   const activeRelated = useMemo(
     () =>
       activeNodeId
-        ? relatedNodeIds(visibleModel, activeNodeId)
+        ? relatedNodeIds(visibleModel, activeNodeId, selectedNodeId === null)
         : new Set<string>(),
-    [activeNodeId, visibleModel],
+    [activeNodeId, selectedNodeId, visibleModel],
   );
   const hoverWithinSelection =
     selectedNodeId && hoveredNodeId && activeRelated.has(hoveredNodeId)
@@ -223,7 +321,7 @@ function ProgressiveCanvasInner({
   const hoverRelated = useMemo(
     () =>
       hoverWithinSelection
-        ? relatedNodeIds(visibleModel, hoverWithinSelection)
+        ? relatedNodeIds(visibleModel, hoverWithinSelection, true)
         : new Set<string>(),
     [hoverWithinSelection, visibleModel],
   );
@@ -249,6 +347,25 @@ function ProgressiveCanvasInner({
             !hoverRelated.has(node.id) &&
             node.id !== selectedNodeId,
           hiddenNodeCount: collapsedView.hiddenCountByNode.get(node.id) ?? 0,
+          coverage:
+            showExecutionCoverage && executionCoverage
+              ? storyNodeExecutionCoverage(
+                  executionCoverage,
+                  node.id,
+                  new Set([
+                    ...(collapsedView.hiddenNodeIdsByNode.get(node.id) ?? []),
+                    ...model.nodes.flatMap((candidate) =>
+                      node.data.graphNode.kind === 'block' &&
+                      node.data.graphNode.block.kind === 'decision' &&
+                      node.data.graphNode.block.role === 'value' &&
+                      candidate.kind === 'arm' &&
+                      candidate.decisionId === node.id
+                        ? [candidate.id]
+                        : [],
+                    ),
+                  ]),
+                )
+              : undefined,
           showDescriptionPopover,
           inline: node.data.inline,
           scopeDepth: node.data.scopeDepth,
@@ -266,15 +383,23 @@ function ProgressiveCanvasInner({
       hoverRelated,
       hoverWithinSelection,
       collapsedView.hiddenCountByNode,
+      collapsedView.hiddenNodeIdsByNode,
+      executionCoverage,
+      model.nodes,
       selectedNodeId,
       showDescriptionPopover,
       renderNodeActions,
+      showExecutionCoverage,
     ],
   );
   const edges = useMemo<Edge[]>(
     () =>
       baseLayout.edges.map((edge) => {
         const inactive = edge.data?.inactive === true;
+        const uncovered =
+          showExecutionCoverage &&
+          executionCoverage !== undefined &&
+          edge.data?.executionCovered !== true;
         const inActiveScope =
           !inactive &&
           activeNodeId !== null &&
@@ -287,7 +412,8 @@ function ProgressiveCanvasInner({
             edge.target === hoverWithinSelection);
         const highlighted =
           inActiveScope && (!hoverRefiningSelection || touchesHoveredNode);
-        const dimmed = inactive || (activeNodeId !== null && !inActiveScope);
+        const dimmed =
+          inactive || uncovered || (activeNodeId !== null && !inActiveScope);
         const target = graphNodeById.get(edge.target);
         const terminalColor =
           target?.kind === 'block' && target.block.kind === 'terminal'
@@ -297,10 +423,16 @@ function ProgressiveCanvasInner({
                 ? '#f43f5e'
                 : '#64748b'
             : undefined;
-        const color = inactive
-          ? 'var(--muted-foreground)'
-          : (terminalColor ??
-            (highlighted ? 'var(--primary)' : 'var(--muted-foreground)'));
+        const color = uncovered
+          ? '#f43f5e'
+          : showExecutionCoverage && executionCoverage
+            ? highlighted
+              ? 'var(--primary)'
+              : '#10b981'
+            : inactive
+              ? 'var(--muted-foreground)'
+              : (terminalColor ??
+                (highlighted ? 'var(--primary)' : 'var(--muted-foreground)'));
         return {
           ...edge,
           markerEnd: {
@@ -312,8 +444,16 @@ function ProgressiveCanvasInner({
           style: {
             ...edge.style,
             stroke: color,
-            opacity: inactive ? 0.12 : dimmed ? 0.06 : highlighted ? 1 : 0.5,
+            opacity:
+              inactive || uncovered
+                ? 0.12
+                : dimmed
+                  ? 0.06
+                  : highlighted
+                    ? 1
+                    : 0.5,
             strokeWidth: highlighted ? 3 : dimmed ? 1 : 1.5,
+            strokeDasharray: uncovered ? '4 5' : edge.style?.strokeDasharray,
           },
           zIndex: highlighted ? 3 : dimmed ? 0 : 1,
         };
@@ -324,6 +464,8 @@ function ProgressiveCanvasInner({
       baseLayout.edges,
       graphNodeById,
       hoverWithinSelection,
+      executionCoverage,
+      showExecutionCoverage,
     ],
   );
   if (model.nodes.length === 0) {
@@ -429,75 +571,100 @@ function ProgressiveCanvasInner({
       >
         <Background color="var(--border)" gap={24} />
         <Panel position="top-right">
-          {controlsExpanded ? (
-            <div className="nodrag nopan grid gap-2 rounded-md border border-border bg-background/95 px-2.5 py-2 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
-              <div className="flex items-center justify-between gap-4 text-foreground">
-                <span>Graph controls</span>
-                <button
-                  type="button"
-                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  onClick={() => setControlsExpanded(false)}
-                  aria-label="Minimize graph controls"
-                  title="Minimize controls"
-                >
-                  <ChevronUp className="size-3" aria-hidden />
-                </button>
+          <div className="grid justify-items-end gap-2">
+            {controlsExpanded ? (
+              <div className="nodrag nopan w-60 overflow-hidden rounded-xl border border-border/80 bg-background/95 p-2 shadow-xl backdrop-blur">
+                <div className="flex items-center justify-between gap-4 px-2 py-1.5 text-xs font-semibold text-foreground">
+                  <span className="flex items-center gap-2">
+                    <SlidersHorizontal className="size-3.5" aria-hidden />
+                    Graph controls
+                  </span>
+                  <button
+                    type="button"
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    onClick={() => setControlsExpanded(false)}
+                    aria-label="Minimize graph controls"
+                    title="Minimize controls"
+                  >
+                    <ChevronUp className="size-3" aria-hidden />
+                  </button>
+                </div>
+                <div className="mt-1 grid gap-0.5 border-t border-border/60 pt-1">
+                  {onShowDetailsChange && (
+                    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-2 py-2 text-xs text-foreground transition-colors hover:bg-muted/60">
+                      Show details
+                      <Switch
+                        size="sm"
+                        checked={showDetails}
+                        onCheckedChange={onShowDetailsChange}
+                        aria-label="Show detail blocks"
+                      />
+                    </label>
+                  )}
+                  {onShowExecutionCoverageChange && (
+                    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-2 py-2 text-xs text-foreground transition-colors hover:bg-muted/60">
+                      Show execution coverage
+                      <Switch
+                        size="sm"
+                        checked={showExecutionCoverage}
+                        onCheckedChange={onShowExecutionCoverageChange}
+                        aria-label="Show execution coverage"
+                      />
+                    </label>
+                  )}
+                  <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-2 py-2 text-xs text-foreground transition-colors hover:bg-muted/60">
+                    Show descriptions
+                    <Switch
+                      size="sm"
+                      checked={showDescriptionPopover}
+                      onCheckedChange={onShowDescriptionPopoverChange}
+                      aria-label="Show description popovers"
+                    />
+                  </label>
+                  {onOpenCodeOnSelectChange && (
+                    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-2 py-2 text-xs text-foreground transition-colors hover:bg-muted/60">
+                      Open code on select
+                      <Switch
+                        size="sm"
+                        checked={openCodeOnSelect}
+                        onCheckedChange={onOpenCodeOnSelectChange}
+                        aria-label="Open code when selecting nodes"
+                      />
+                    </label>
+                  )}
+                  <label
+                    htmlFor={centerSelectedId}
+                    className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-2 py-2 text-xs text-foreground transition-colors hover:bg-muted/60"
+                  >
+                    Center selected
+                    <Switch
+                      id={centerSelectedId}
+                      size="sm"
+                      checked={centerSelected}
+                      onCheckedChange={onCenterSelectedChange}
+                      aria-label="Center selected nodes"
+                    />
+                  </label>
+                </div>
               </div>
-              {onShowDetailsChange && (
-                <label className="flex cursor-pointer items-center justify-between gap-4">
-                  Show details
-                  <Switch
-                    size="sm"
-                    checked={showDetails}
-                    onCheckedChange={onShowDetailsChange}
-                    aria-label="Show detail blocks"
-                  />
-                </label>
-              )}
-              <label className="flex cursor-pointer items-center justify-between gap-4">
-                Show function scopes
-                <Switch
-                  size="sm"
-                  checked={showFunctionScopes}
-                  onCheckedChange={onShowFunctionScopesChange}
-                  aria-label="Show function scopes"
-                />
-              </label>
-              <label className="flex cursor-pointer items-center justify-between gap-4">
-                Description popover
-                <Switch
-                  size="sm"
-                  checked={showDescriptionPopover}
-                  onCheckedChange={onShowDescriptionPopoverChange}
-                  aria-label="Show description popovers"
-                />
-              </label>
-              <label
-                htmlFor={centerSelectedId}
-                className="flex cursor-pointer items-center justify-between gap-4"
+            ) : (
+              <button
+                type="button"
+                className="nodrag nopan flex size-8 items-center justify-center rounded-md border border-border bg-background/95 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setControlsExpanded(true)}
+                aria-label="Expand graph controls"
+                title="Graph controls"
               >
-                Center selected
-                <Switch
-                  id={centerSelectedId}
-                  size="sm"
-                  checked={centerSelected}
-                  onCheckedChange={onCenterSelectedChange}
-                  aria-label="Center selected nodes"
-                />
-              </label>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="nodrag nopan flex size-8 items-center justify-center rounded-md border border-border bg-background/95 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-muted hover:text-foreground"
-              onClick={() => setControlsExpanded(true)}
-              aria-label="Expand graph controls"
-              title="Graph controls"
-            >
-              <SlidersHorizontal className="size-3.5" aria-hidden />
-            </button>
-          )}
+                <SlidersHorizontal className="size-3.5" aria-hidden />
+              </button>
+            )}
+          </div>
         </Panel>
+        {showExecutionCoverage && (
+          <Panel position="top-left" className="!left-3 !top-14 !m-0">
+            <ExecutionCoverageSummary coverage={executionCoverageSummary} />
+          </Panel>
+        )}
         <Panel position="bottom-left">
           <p className="nodrag nopan rounded bg-background/90 px-2 py-1 text-[9px] text-muted-foreground shadow-sm">
             click to focus · hover connections · right-click to collapse
@@ -510,6 +677,7 @@ function ProgressiveCanvasInner({
 
 export function StoryCanvas({
   story,
+  run,
   preferences,
   onPreferencesChange,
   selectedNodeId,
@@ -517,10 +685,13 @@ export function StoryCanvas({
   onHoveredNodeIdChange,
   onNodeClick,
   onGraphNodesChange,
+  openCodeOnSelect,
+  onOpenCodeOnSelectChange,
   centerNodeRequest,
   renderNodeActions,
 }: {
   readonly story: StoryRun;
+  readonly run?: StoryRun;
   readonly preferences: LaymosStoryCanvasPreferences;
   readonly onPreferencesChange: (
     preferences: LaymosStoryCanvasPreferences,
@@ -534,6 +705,8 @@ export function StoryCanvas({
   readonly onGraphNodesChange?: Parameters<
     typeof ProgressiveCanvasInner
   >[0]['onGraphNodesChange'];
+  readonly openCodeOnSelect: boolean;
+  readonly onOpenCodeOnSelectChange?: (open: boolean) => void;
   readonly centerNodeRequest?: Parameters<
     typeof ProgressiveCanvasInner
   >[0]['centerNodeRequest'];
@@ -543,9 +716,9 @@ export function StoryCanvas({
 }) {
   const {
     showDetails,
-    showFunctionScopes = true,
     showDescriptionPopover,
     centerSelected,
+    showExecutionCoverage = false,
   } = preferences;
   const visibleStory = useMemo(
     () => (showDetails ? story : primaryStory(story)),
@@ -554,6 +727,21 @@ export function StoryCanvas({
   const model = useMemo(
     () => buildProgressiveStoryGraph(visibleStory),
     [visibleStory],
+  );
+  const visibleRun = useMemo(
+    () => (run && !showDetails ? primaryStory(run) : run),
+    [run, showDetails],
+  );
+  const executionCoverage = useMemo(
+    () =>
+      visibleRun
+        ? buildStoryExecutionCoverage(visibleStory, visibleRun)
+        : undefined,
+    [visibleRun, visibleStory],
+  );
+  const executionCoverageSummary = useMemo(
+    () => (run ? buildStoryExecutionCoverage(story, run) : undefined),
+    [run, story],
   );
   return (
     <ReactFlowProvider>
@@ -564,10 +752,6 @@ export function StoryCanvas({
         onShowDetailsChange={(show) =>
           onPreferencesChange({ ...preferences, showDetails: show })
         }
-        showFunctionScopes={showFunctionScopes}
-        onShowFunctionScopesChange={(show) =>
-          onPreferencesChange({ ...preferences, showFunctionScopes: show })
-        }
         showDescriptionPopover={showDescriptionPopover}
         onShowDescriptionPopoverChange={(show) =>
           onPreferencesChange({ ...preferences, showDescriptionPopover: show })
@@ -576,6 +760,14 @@ export function StoryCanvas({
         onCenterSelectedChange={(center) =>
           onPreferencesChange({ ...preferences, centerSelected: center })
         }
+        showExecutionCoverage={showExecutionCoverage}
+        onShowExecutionCoverageChange={(show) =>
+          onPreferencesChange({ ...preferences, showExecutionCoverage: show })
+        }
+        openCodeOnSelect={openCodeOnSelect}
+        onOpenCodeOnSelectChange={onOpenCodeOnSelectChange}
+        executionCoverage={executionCoverage}
+        executionCoverageSummary={executionCoverageSummary}
         selectedNodeId={selectedNodeId}
         onSelectedNodeIdChange={onSelectedNodeIdChange}
         onHoveredNodeIdChange={onHoveredNodeIdChange}
@@ -640,6 +832,8 @@ export function ScenarioCanvas({
   onHoveredNodeIdChange,
   onNodeClick,
   onGraphNodesChange,
+  openCodeOnSelect,
+  onOpenCodeOnSelectChange,
   centerNodeRequest,
   renderNodeActions,
 }: {
@@ -658,6 +852,8 @@ export function ScenarioCanvas({
   readonly onGraphNodesChange?: Parameters<
     typeof ProgressiveCanvasInner
   >[0]['onGraphNodesChange'];
+  readonly openCodeOnSelect: boolean;
+  readonly onOpenCodeOnSelectChange?: (open: boolean) => void;
   readonly centerNodeRequest?: Parameters<
     typeof ProgressiveCanvasInner
   >[0]['centerNodeRequest'];
@@ -678,10 +874,6 @@ export function ScenarioCanvas({
             ? 'This scenario was skipped'
             : 'No blocks were observed in this scenario'
         }
-        showFunctionScopes={preferences.showFunctionScopes ?? true}
-        onShowFunctionScopesChange={(show) =>
-          onPreferencesChange({ ...preferences, showFunctionScopes: show })
-        }
         showDescriptionPopover={preferences.showDescriptionPopover}
         onShowDescriptionPopoverChange={(show) =>
           onPreferencesChange({ ...preferences, showDescriptionPopover: show })
@@ -690,6 +882,8 @@ export function ScenarioCanvas({
         onCenterSelectedChange={(center) =>
           onPreferencesChange({ ...preferences, centerSelected: center })
         }
+        openCodeOnSelect={openCodeOnSelect}
+        onOpenCodeOnSelectChange={onOpenCodeOnSelectChange}
         selectedNodeId={selectedNodeId}
         onSelectedNodeIdChange={onSelectedNodeIdChange}
         onHoveredNodeIdChange={onHoveredNodeIdChange}

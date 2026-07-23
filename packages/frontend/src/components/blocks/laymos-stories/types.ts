@@ -1,9 +1,4 @@
-import type {
-  ProjectReference,
-  StoriesRun,
-  StoryCollection,
-  StoryPath,
-} from 'laymos/report';
+import type { StoriesRun, StoryCollection, StoryPath } from 'laymos/report';
 import type { ReactNode } from 'react';
 import type { StoryGraphNode } from './lib/model';
 
@@ -27,9 +22,9 @@ export type LaymosStoriesRunState =
 
 export interface LaymosStoryCanvasPreferences {
   readonly showDetails: boolean;
-  readonly showFunctionScopes: boolean;
   readonly showDescriptionPopover: boolean;
   readonly centerSelected: boolean;
+  readonly showExecutionCoverage: boolean;
 }
 
 export type LaymosStoryExecutionState =
@@ -54,6 +49,8 @@ export interface LaymosStoriesProps {
     context: { readonly modified: boolean },
   ) => void;
   readonly onGraphNodesChange?: (nodes: readonly StoryGraphNode[]) => void;
+  readonly openCodeOnSelect?: boolean;
+  readonly onOpenCodeOnSelectChange?: (open: boolean) => void;
   readonly centerNodeRequest?: {
     readonly nodeId: string;
     readonly requestId: number;
@@ -62,7 +59,6 @@ export interface LaymosStoriesProps {
   readonly onRunModule?: (modulePath: string) => void;
   readonly onRunStory?: (storyPath: StoryPath) => void;
   readonly onRunAll?: () => void;
-  readonly onProjectReferenceClick?: (reference: ProjectReference) => void;
   readonly defaultStoryView?: 'narrative' | 'graph';
   readonly graphOnly?: boolean;
   readonly canvasPreferences?: LaymosStoryCanvasPreferences;

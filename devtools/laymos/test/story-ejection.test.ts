@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -11,20 +11,11 @@ import {
   isLaymosStoryFile,
   projectStorySource,
   storyDecisionSourceRoles,
-  transformStorySource,
   validateStoryAuthoringSource,
-} from '../src/story/eject/index.js';
+} from '../src/stories/inspect-story-source/index.js';
+import { runStories } from '../src/entrypoints/node/index.js';
 
 const temporaryDirectories: string[] = [];
-const fixtureRoot = join(import.meta.dirname, 'fixtures', 'story-ejection');
-const beforeFixtureDirectory = join(fixtureRoot, 'before');
-const afterFixtureDirectory = join(fixtureRoot, 'after');
-const invalidFixtureDirectory = join(fixtureRoot, 'invalid');
-const fixtureNames = readdirSync(beforeFixtureDirectory).sort();
-const invalidFixtureNames = readdirSync(invalidFixtureDirectory)
-  .filter((name) => name.endsWith('.ts'))
-  .sort();
-
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories
@@ -34,41 +25,6 @@ afterEach(async () => {
 });
 
 describe('Story ejection transformer', () => {
-  it('has one expected output for every input fixture', () => {
-    expect(readdirSync(afterFixtureDirectory).sort()).toEqual(fixtureNames);
-  });
-
-  it.each(fixtureNames)('transforms %s', async (fixtureName) => {
-    const [before, after] = await Promise.all([
-      readFile(join(beforeFixtureDirectory, fixtureName), 'utf8'),
-      readFile(join(afterFixtureDirectory, fixtureName), 'utf8'),
-    ]);
-    const output = transformStorySource(before, fixtureName);
-
-    expect(output).toBe(after);
-    expect(transformStorySource(output, fixtureName)).toBe(output);
-  });
-
-  it.each(invalidFixtureNames)(
-    'rejects invalid fixture %s',
-    async (fixtureName) => {
-      const [source, expectedMessage] = await Promise.all([
-        readFile(join(invalidFixtureDirectory, fixtureName), 'utf8'),
-        readFile(
-          join(
-            invalidFixtureDirectory,
-            fixtureName.replace(/\.ts$/, '.error.txt'),
-          ),
-          'utf8',
-        ),
-      ]);
-
-      expect(() => transformStorySource(source, fixtureName)).toThrow(
-        expectedMessage.trim(),
-      );
-    },
-  );
-
   it('projects blocks and decision arms into ejected and clean ranges', () => {
     const source = `import { Effect } from 'effect';
 import { decision, exhaustive, orElse, step, when } from 'laymos/story';
@@ -237,10 +193,10 @@ function projectionText(
 }
 
 describe('Story ejection workflow', () => {
-  it('previews without writing, then rewrites source and deletes the complete Story surface', async () => {
+  it('previews and rewrites production source without changing the Laymos surface', async () => {
     const baseDir = await makeBaseDir();
     await mkdir(join(baseDir, 'src'));
-    await mkdir(join(baseDir, 'stories'));
+    await mkdir(join(baseDir, 'laymos'));
     await writeFile(
       join(baseDir, 'laymos.config.ts'),
       `const app = {
@@ -262,7 +218,7 @@ describe('Story ejection workflow', () => {
         project: {
           kind: 'project-narrative',
           name: 'Project',
-          blocks: [{ kind: 'markdown', content: '# Project narrative' }],
+          content: { kind: 'markdown', content: '# Project narrative' },
         },
       };`,
     );
@@ -271,34 +227,44 @@ describe('Story ejection workflow', () => {
       `import { Effect } from 'effect'; import { step } from 'laymos/story'; export const work = step('Work', { description: 'Works.' }, () => Effect.void);`,
     );
     await writeFile(
-      join(baseDir, 'stories', 'work.story.ts'),
-      `import { story } from 'laymos/story'; story('Work', { description: 'Works.' });`,
+      join(baseDir, 'laymos', 'work.story.ts'),
+      `import { Effect } from 'effect';
+import { story } from 'laymos/story';
+import { work } from '../src/work.js';
+story('Work', { description: 'Works.' })
+  .execute(() => work)
+  .scenario('still works', { description: 'Runs after ejection.' }, (scenario) =>
+    scenario.prepare(() => Effect.void).verify(() => Effect.void),
+  );`,
     );
     await writeFile(
-      join(baseDir, 'stories', 'work.stories.tsx'),
+      join(baseDir, 'laymos', 'work.stories.tsx'),
       `import { story } from 'laymos/story'; export default {};`,
     );
     await writeFile(
-      join(baseDir, 'stories', 'support.ts'),
+      join(baseDir, 'laymos', 'support.ts'),
       `export const support = 'Work';`,
     );
 
     const preview = await runEjection(baseDir, true);
     expect(preview.changed).toEqual(['src/work.ts']);
-    expect(preview.deleted).toEqual(['stories']);
-    expect(existsSync(join(baseDir, 'stories', 'work.story.ts'))).toBe(true);
-    expect(existsSync(join(baseDir, 'stories', 'support.ts'))).toBe(true);
+    expect(existsSync(join(baseDir, 'laymos', 'work.story.ts'))).toBe(true);
+    expect(existsSync(join(baseDir, 'laymos', 'support.ts'))).toBe(true);
     expect(await readFile(join(baseDir, 'src', 'work.ts'), 'utf8')).toContain(
       "from 'laymos/story'",
     );
 
     const result = await runEjection(baseDir, false);
     expect(result.changed).toEqual(['src/work.ts']);
-    expect(result.deleted).toEqual(['stories']);
     expect(await readFile(join(baseDir, 'src', 'work.ts'), 'utf8')).toContain(
       'export const work = Effect.void',
     );
-    expect(existsSync(join(baseDir, 'stories'))).toBe(false);
+    expect(existsSync(join(baseDir, 'laymos'))).toBe(true);
+    const stories = await Effect.runPromise(
+      runStories({ projectDir: baseDir }),
+    );
+    expect(stories.status).toBe('passed');
+    expect(stories.runs.stories['laymos/work']?.scenarios).toHaveLength(1);
     expect(await readFile(join(baseDir, 'laymos.config.ts'), 'utf8')).toContain(
       '# Project narrative',
     );
@@ -326,8 +292,8 @@ describe('Story ejection workflow', () => {
         modules: [{ kind: 'module', path: '.', description: 'Application' }],
       };`,
     );
-    await mkdir(join(baseDir, 'stories'));
-    await writeFile(join(baseDir, 'stories', 'support.ts'), 'export {};\n');
+    await mkdir(join(baseDir, 'laymos'));
+    await writeFile(join(baseDir, 'laymos', 'support.ts'), 'export {};\n');
     await writeFile(
       join(baseDir, 'valid.ts'),
       `import { Effect } from 'effect'; import { step } from 'laymos/story'; export const work = step('Work', { description: 'Works.' }, () => Effect.void);`,
@@ -342,7 +308,7 @@ describe('Story ejection workflow', () => {
       'preflight failed',
     );
     expect(await readFile(join(baseDir, 'valid.ts'), 'utf8')).toBe(original);
-    expect(existsSync(join(baseDir, 'stories', 'support.ts'))).toBe(true);
+    expect(existsSync(join(baseDir, 'laymos', 'support.ts'))).toBe(true);
   });
 });
 

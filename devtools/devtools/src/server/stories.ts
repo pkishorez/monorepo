@@ -1,5 +1,5 @@
 import { Effect, Ref, Stream } from 'effect';
-import { discoverStories, runStory } from 'laymos/node';
+import { discoverStories, runStories } from 'laymos/node';
 import { DevtoolsRpcError, type StoriesEvent } from '../rpc/index.js';
 
 const errorMessage = (cause: unknown): string =>
@@ -13,7 +13,7 @@ export const runStoriesStream = (
   const startedAt = Date.now();
   const events = Stream.unwrap(
     Effect.gen(function* () {
-      const catalog = yield* discoverStories(dir);
+      const catalog = yield* discoverStories({ projectDir: dir });
       const module =
         modulePath === undefined
           ? undefined
@@ -41,7 +41,10 @@ export const runStoriesStream = (
             ),
           ),
           Stream.fromEffect(
-            runStory(dir, storyPath).pipe(
+            runStories({
+              projectDir: dir,
+              selectors: [{ _tag: 'Story', storyPath }],
+            }).pipe(
               Effect.matchEffect({
                 onFailure: (cause): Effect.Effect<StoriesEvent> =>
                   Ref.set(failed, true).pipe(
@@ -51,17 +54,33 @@ export const runStoriesStream = (
                       message: errorMessage(cause),
                     }),
                   ),
-                onSuccess: (result): Effect.Effect<StoriesEvent> =>
-                  (result.status === 'failed'
-                    ? Ref.set(failed, true)
-                    : Effect.void
+                onSuccess: (result): Effect.Effect<StoriesEvent> => {
+                  const run = result.runs.stories[storyPath];
+                  if (run === undefined) {
+                    return Ref.set(failed, true).pipe(
+                      Effect.as({
+                        _tag: 'StoryError' as const,
+                        storyPath,
+                        message: `Story "${storyPath}" did not run`,
+                      }),
+                    );
+                  }
+                  return (
+                    result.status === 'failed'
+                      ? Ref.set(failed, true)
+                      : Effect.void
                   ).pipe(
                     Effect.as({
                       _tag: 'StoryResult' as const,
                       storyPath,
-                      result,
+                      result: {
+                        status: result.status,
+                        run,
+                        failures: result.failures,
+                      },
                     }),
-                  ),
+                  );
+                },
               }),
             ),
           ),

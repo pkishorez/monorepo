@@ -10,11 +10,11 @@ import {
   story as effectStory,
   terminal as effectTerminal,
   when as effectWhen,
-} from '../src/story/effect/index.js';
-import { step as runtimeStep } from '../src/story/story-runtime/index.js';
-import { traceValue } from '../src/story/artifact/trace.js';
-import { CurrentRecorder } from '../src/story/core/recorder.js';
-import type { StoryRecorder } from '../src/story/core/recorder.js';
+} from '../src/stories/authoring/index.js';
+import { step as runtimeStep } from '../src/stories/runtime/index.js';
+import { traceValue } from '../src/stories/runtime/trace.js';
+import { CurrentRecorder } from '../src/stories/runtime/recorder.js';
+import type { StoryRecorder } from '../src/stories/runtime/recorder.js';
 
 describe('Story Blocks', () => {
   it('models traced collections as empty', () => {
@@ -180,7 +180,7 @@ describe('Story Blocks', () => {
     expect(events).toEqual(['started', 'constructed', 'failed']);
   });
 
-  it('keeps production Blocks inert when a recorder service is present', async () => {
+  it('records production Blocks when a recorder service is present', async () => {
     let recorderCalls = 0;
     let attributeCalls = 0;
     const recorder: StoryRecorder = {
@@ -208,14 +208,14 @@ describe('Story Blocks', () => {
       body,
     );
 
-    expect(block).toBe(body);
+    expect(block).not.toBe(body);
     await expect(
       Effect.runPromise(
         block(1).pipe(Effect.provideService(CurrentRecorder, recorder)),
       ),
     ).resolves.toBe(2);
-    expect(recorderCalls).toBe(0);
-    expect(attributeCalls).toBe(0);
+    expect(recorderCalls).toBe(2);
+    expect(attributeCalls).toBe(1);
   });
 
   it('does not expose the private Story runtime as a package subpath', () => {

@@ -22,7 +22,7 @@ import remarkGfm from 'remark-gfm';
 
 import { cn } from '#lib/utils';
 
-import type { StoryGraphNode } from '../lib/model';
+import type { StoryGraphNode, StoryNodeExecutionCoverage } from '../lib/model';
 
 export interface ProgressiveNodeData extends Record<string, unknown> {
   readonly graphNode: StoryGraphNode;
@@ -32,10 +32,47 @@ export interface ProgressiveNodeData extends Record<string, unknown> {
   readonly dimmed: boolean;
   readonly muted: boolean;
   readonly hiddenNodeCount: number;
+  readonly coverage?: StoryNodeExecutionCoverage;
   readonly showDescriptionPopover: boolean;
   readonly inline: boolean;
   readonly scopeDepth: number;
   readonly actions?: ReactNode;
+}
+
+function CoverageMarker({
+  coverage,
+}: {
+  readonly coverage?: StoryNodeExecutionCoverage;
+}) {
+  if (!coverage) return null;
+  const hiddenUncovered =
+    coverage.hiddenUncoveredBlocks + coverage.hiddenUncoveredArms;
+  const label =
+    coverage.status === 'covered'
+      ? 'Covered by Story execution'
+      : coverage.status === 'partial'
+        ? `Covered with ${hiddenUncovered} uncovered hidden ${hiddenUncovered === 1 ? 'node' : 'nodes'}`
+        : 'Not covered by Story execution';
+  const Icon =
+    coverage.status === 'covered'
+      ? CircleCheck
+      : coverage.status === 'partial'
+        ? CircleDashed
+        : XCircle;
+  return (
+    <span
+      className={cn(
+        'absolute -right-2 -top-2 z-10 flex size-4 items-center justify-center rounded-full bg-background shadow-sm',
+        coverage.status === 'covered' && 'bg-emerald-500 text-white',
+        coverage.status === 'partial' && 'bg-amber-400 text-amber-950',
+        coverage.status === 'uncovered' && 'bg-rose-500 text-white',
+      )}
+      title={label}
+    >
+      <Icon className="size-3" aria-hidden />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
 }
 
 function NodeActions({
@@ -165,6 +202,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
     dimmed,
     muted,
     hiddenNodeCount,
+    coverage,
     showDescriptionPopover,
     inline,
     scopeDepth,
@@ -208,6 +246,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
         aria-disabled={!graphNode.active}
         title={collapsed ? 'Collapsed — right-click to expand' : undefined}
       >
+        <CoverageMarker coverage={coverage} />
         <DescriptionPopover
           title={graphNode.arm.name}
           description={description}
@@ -227,6 +266,14 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
               {hiddenNodeCount} hidden
             </span>
           )}
+          {coverage &&
+            coverage.hiddenUncoveredBlocks + coverage.hiddenUncoveredArms >
+              0 && (
+              <span className="mt-1 text-[7px] font-semibold text-muted-foreground">
+                {coverage.hiddenUncoveredBlocks + coverage.hiddenUncoveredArms}{' '}
+                uncovered
+              </span>
+            )}
         </span>
         <Handle
           type="source"
@@ -248,6 +295,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
           selected && 'border-foreground/40',
         )}
       >
+        <CoverageMarker coverage={coverage} />
         <DescriptionPopover
           title={graphNode.block.name}
           description={graphNode.block.description}
@@ -332,6 +380,7 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
       )}
       title={collapsed ? 'Collapsed — right-click to expand' : undefined}
     >
+      <CoverageMarker coverage={coverage} />
       <DescriptionPopover
         title={graphNode.block.name}
         description={description}
@@ -394,6 +443,13 @@ function ProgressiveBlockNode({ data }: NodeProps<Node<ProgressiveNodeData>>) {
             {hiddenNodeCount} hidden
           </span>
         )}
+        {coverage &&
+          coverage.hiddenUncoveredBlocks + coverage.hiddenUncoveredArms > 0 && (
+            <span className="mt-1 inline-flex rounded-full border border-border bg-muted/30 px-1.5 py-0.5 text-[8px] font-semibold text-muted-foreground">
+              {coverage.hiddenUncoveredBlocks + coverage.hiddenUncoveredArms}{' '}
+              uncovered
+            </span>
+          )}
       </span>
       <Handle
         type="source"

@@ -48,6 +48,7 @@ export interface StoryGraphEdge {
   readonly target: string;
   readonly inactive: boolean;
   readonly summary?: boolean;
+  readonly executionCovered?: boolean;
 }
 
 export interface StoryGraphModel {
@@ -62,6 +63,26 @@ export interface ProgressiveStoryGraphModel extends StoryGraphModel {
 export interface CollapsedStoryGraph {
   readonly model: ProgressiveStoryGraphModel;
   readonly hiddenCountByNode: ReadonlyMap<string, number>;
+  readonly hiddenNodeIdsByNode: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+export interface StoryExecutionCoverageCount {
+  readonly covered: number;
+  readonly total: number;
+}
+
+export interface StoryExecutionCoverage {
+  readonly coveredNodeIds: ReadonlySet<string>;
+  readonly observedEdgeIds: ReadonlySet<string>;
+  readonly targetKinds: ReadonlyMap<string, 'block' | 'arm'>;
+  readonly blocks: StoryExecutionCoverageCount;
+  readonly arms: StoryExecutionCoverageCount;
+}
+
+export interface StoryNodeExecutionCoverage {
+  readonly status: 'covered' | 'partial' | 'uncovered';
+  readonly hiddenUncoveredBlocks: number;
+  readonly hiddenUncoveredArms: number;
 }
 
 /** Keeps value Decisions atomic in Graph view while preserving their children. */
@@ -101,6 +122,14 @@ export function compactValueDecisions(
       source,
       inactive:
         previous === undefined ? inactive : previous.inactive && inactive,
+      ...(edge.executionCovered !== undefined ||
+      previous?.executionCovered !== undefined
+        ? {
+            executionCovered:
+              edge.executionCovered === true ||
+              previous?.executionCovered === true,
+          }
+        : {}),
     });
   }
   return {
@@ -367,11 +396,25 @@ function progressiveItemSpan(
     };
   }
   if (block.kind === 'flow' && childSpan.entries.size > 0) {
+    const resumableTerminalExits = new Set(
+      [...childSpan.terminalExits].filter((terminalId) => {
+        const terminal = nodes.get(terminalId);
+        return (
+          terminal?.kind === 'block' &&
+          terminal.block.kind === 'terminal' &&
+          terminal.block.completion?.kind === 'success'
+        );
+      }),
+    );
+    const failedTerminalExits = new Set(
+      [...childSpan.terminalExits].filter(
+        (terminalId) => !resumableTerminalExits.has(terminalId),
+      ),
+    );
     return {
       entries: childSpan.entries,
-      exits:
-        childSpan.exits.size > 0 ? childSpan.exits : childSpan.terminalExits,
-      terminalExits: new Set(),
+      exits: new Set([...childSpan.exits, ...resumableTerminalExits]),
+      terminalExits: failedTerminalExits,
     };
   }
   return {
@@ -529,6 +572,98 @@ export function buildProgressiveStoryGraph(
   );
 }
 
+/** Compares one canonical Story graph with the combined evidence from one run. */
+export function buildStoryExecutionCoverage(
+  canonicalStory: StoryRun,
+  run: StoryRun,
+): StoryExecutionCoverage {
+  const parentContexts = blockParentContexts(canonicalStory.scenarios);
+  const nodeId: NodeIdFor = (_address, item, parentBlockId) =>
+    (parentContexts.get(item.blockId)?.size ?? 0) > 1
+      ? `${item.blockId}@${parentBlockId ?? 'root'}`
+      : item.blockId;
+  const canonical = buildProgressiveStoryGraph(canonicalStory);
+  const observed = withoutCycleEdges(
+    progressiveModel(run, rootInputs(run.scenarios), nodeId, false),
+  );
+  const targetKinds = new Map<string, 'block' | 'arm'>();
+  for (const node of canonical.nodes) {
+    if (node.kind === 'arm') targetKinds.set(node.id, 'arm');
+    else if (!node.blockId.startsWith('omission:'))
+      targetKinds.set(node.id, 'block');
+  }
+  const coveredNodeIds = new Set(
+    observed.nodes.flatMap((node) => {
+      if (!targetKinds.has(node.id)) return [];
+      if (node.kind === 'arm' && !node.active) return [];
+      return [node.id];
+    }),
+  );
+  const canonicalEdgeIds = new Set(canonical.edges.map(({ id }) => id));
+  const observedEdgeIds = new Set(
+    observed.edges.flatMap((edge) =>
+      !edge.inactive && canonicalEdgeIds.has(edge.id) ? [edge.id] : [],
+    ),
+  );
+  const count = (kind: 'block' | 'arm'): StoryExecutionCoverageCount => {
+    const targets = [...targetKinds]
+      .filter(([, targetKind]) => targetKind === kind)
+      .map(([id]) => id);
+    return {
+      covered: targets.filter((id) => coveredNodeIds.has(id)).length,
+      total: targets.length,
+    };
+  };
+  return {
+    coveredNodeIds,
+    observedEdgeIds,
+    targetKinds,
+    blocks: count('block'),
+    arms: count('arm'),
+  };
+}
+
+/** Rolls hidden coverage gaps into the visible node that owns them. */
+export function storyNodeExecutionCoverage(
+  coverage: StoryExecutionCoverage,
+  nodeId: string,
+  hiddenNodeIds: ReadonlySet<string> = new Set(),
+): StoryNodeExecutionCoverage | undefined {
+  if (!coverage.targetKinds.has(nodeId)) return undefined;
+  let hiddenUncoveredBlocks = 0;
+  let hiddenUncoveredArms = 0;
+  for (const hiddenNodeId of hiddenNodeIds) {
+    if (coverage.coveredNodeIds.has(hiddenNodeId)) continue;
+    const kind = coverage.targetKinds.get(hiddenNodeId);
+    if (kind === 'block') hiddenUncoveredBlocks += 1;
+    if (kind === 'arm') hiddenUncoveredArms += 1;
+  }
+  const covered = coverage.coveredNodeIds.has(nodeId);
+  return {
+    status: !covered
+      ? 'uncovered'
+      : hiddenUncoveredBlocks + hiddenUncoveredArms > 0
+        ? 'partial'
+        : 'covered',
+    hiddenUncoveredBlocks,
+    hiddenUncoveredArms,
+  };
+}
+
+/** Adds edge evidence without mixing presentation state into coverage analysis. */
+export function applyStoryExecutionCoverage(
+  model: ProgressiveStoryGraphModel,
+  coverage: StoryExecutionCoverage,
+): ProgressiveStoryGraphModel {
+  return {
+    ...model,
+    edges: model.edges.map((edge) => ({
+      ...edge,
+      executionCovered: coverage.observedEdgeIds.has(edge.id),
+    })),
+  };
+}
+
 /** Flattens one Scenario into execution flow while preserving every Visit. */
 export function buildProgressiveScenarioGraph(
   story: StoryRun,
@@ -574,9 +709,17 @@ export function withoutFlowNodes(
     readonly nodeId: string;
     readonly inactive: boolean;
     readonly summary: boolean;
+    readonly executionCovered: boolean | undefined;
   }[] => {
     if (!flowNodeIds.has(nodeId)) {
-      return [{ nodeId, inactive: false, summary: false }];
+      return [
+        {
+          nodeId,
+          inactive: false,
+          summary: false,
+          executionCovered: true,
+        },
+      ];
     }
     if (seen.has(nodeId)) return [];
     const nextSeen = new Set(seen).add(nodeId);
@@ -585,6 +728,11 @@ export function withoutFlowNodes(
         nodeId: target.nodeId,
         inactive: edge.inactive || target.inactive,
         summary: edge.summary === true || target.summary,
+        executionCovered:
+          edge.executionCovered === undefined ||
+          target.executionCovered === undefined
+            ? undefined
+            : edge.executionCovered && target.executionCovered,
       })),
     );
   };
@@ -607,6 +755,16 @@ export function withoutFlowNodes(
         target.summary ||
         previous?.summary === true
           ? { summary: true }
+          : {}),
+        ...(edge.executionCovered !== undefined ||
+        target.executionCovered !== undefined ||
+        previous?.executionCovered !== undefined
+          ? {
+              executionCovered:
+                previous?.executionCovered === true ||
+                (edge.executionCovered === true &&
+                  target.executionCovered === true),
+            }
           : {}),
       });
     }
@@ -907,7 +1065,19 @@ export function collapseStoryGraph(
             target: nodeId,
             inactive: edge.inactive,
             summary: true,
+            ...(edge.executionCovered === undefined
+              ? {}
+              : { executionCovered: edge.executionCovered }),
           });
+        } else if (edge.executionCovered === true) {
+          const visibleEdge = visibleEdges.find(
+            (candidate) => candidate.id === id,
+          );
+          if (visibleEdge)
+            visibleEdges[visibleEdges.indexOf(visibleEdge)] = {
+              ...visibleEdge,
+              executionCovered: true,
+            };
         }
       }
       if (region.has(edge.source) && visibleNodeIds.has(edge.target)) {
@@ -919,7 +1089,19 @@ export function collapseStoryGraph(
             target: edge.target,
             inactive: edge.inactive,
             summary: true,
+            ...(edge.executionCovered === undefined
+              ? {}
+              : { executionCovered: edge.executionCovered }),
           });
+        } else if (edge.executionCovered === true) {
+          const visibleEdge = visibleEdges.find(
+            (candidate) => candidate.id === id,
+          );
+          if (visibleEdge)
+            visibleEdges[visibleEdges.indexOf(visibleEdge)] = {
+              ...visibleEdge,
+              executionCovered: true,
+            };
         }
       }
     }
@@ -938,6 +1120,7 @@ export function collapseStoryGraph(
       ),
     },
     hiddenCountByNode,
+    hiddenNodeIdsByNode: collapsedRegions,
   };
 }
 

@@ -9,9 +9,9 @@ import {
   module,
   rules,
 } from '../src/index.js';
-import type { FileGraph } from '../src/engine/1-extract/index.js';
-import { resolveProject } from '../src/engine/2-resolve/index.js';
-import { evaluateRules } from '../src/engine/3-evaluate/index.js';
+import type { FileGraph } from '../src/architecture/extract-dependencies/index.js';
+import { resolveProject } from '../src/architecture/resolve-architecture/index.js';
+import { validateRules } from '../src/architecture/validate-rules/index.js';
 
 describe('static engine', () => {
   it('resolves longest prefixes and evaluates transitive layer reachability', () => {
@@ -32,7 +32,7 @@ describe('static engine', () => {
     });
 
     const resolved = Effect.runSync(resolveProject(config, fileGraph));
-    const evaluation = Effect.runSync(evaluateRules(resolved));
+    const evaluation = Effect.runSync(validateRules(resolved));
 
     expect(resolved.files['src/data/model.ts']).toMatchObject({
       kind: 'covered',
@@ -73,7 +73,7 @@ describe('static engine', () => {
 
     const resolved = Effect.runSync(resolveProject(config, fileGraph));
 
-    expect(Effect.runSync(evaluateRules(resolved)).violations).toEqual([]);
+    expect(Effect.runSync(validateRules(resolved)).violations).toEqual([]);
   });
 
   it('reports both denying module rules for one import', () => {
@@ -106,7 +106,7 @@ describe('static engine', () => {
       ),
     );
 
-    expect(Effect.runSync(evaluateRules(resolved)).violations).toEqual([
+    expect(Effect.runSync(validateRules(resolved)).violations).toEqual([
       expect.objectContaining({ kind: 'module', rule: 'canImport' }),
       expect.objectContaining({ kind: 'module', rule: 'canImportedBy' }),
     ]);
@@ -141,7 +141,7 @@ describe('static engine', () => {
       ),
     );
 
-    expect(Effect.runSync(evaluateRules(resolved)).violations).toEqual([
+    expect(Effect.runSync(validateRules(resolved)).violations).toEqual([
       expect.objectContaining({ kind: 'layer' }),
       expect.objectContaining({ kind: 'module', rule: 'canImport' }),
     ]);
@@ -176,7 +176,7 @@ describe('static engine', () => {
       ),
     );
 
-    expect(Effect.runSync(evaluateRules(resolved)).violations).toEqual([
+    expect(Effect.runSync(validateRules(resolved)).violations).toEqual([
       expect.objectContaining({ kind: 'layer' }),
     ]);
   });
@@ -192,7 +192,7 @@ describe('static engine', () => {
           { description: 'Application architecture' },
         ),
       ],
-      ignore: ['./src/generated'],
+      ignore: ['src/generated'],
     });
     const resolved = Effect.runSync(
       resolveProject(
@@ -203,7 +203,7 @@ describe('static engine', () => {
         }),
       ),
     );
-    const evaluation = Effect.runSync(evaluateRules(resolved));
+    const evaluation = Effect.runSync(validateRules(resolved));
 
     expect(resolved.files['src/generated/client.ts']).toEqual({
       kind: 'ignored',
@@ -237,25 +237,25 @@ describe('static engine', () => {
           imports: [],
         },
       },
-      storyImports: [
+      laymosImports: [
         {
           from: 'src/account/index.ts',
-          to: 'src/account/stories/support.ts',
+          to: 'src/account/laymos/support.ts',
           module: 'src/account',
         },
       ],
     };
 
     const resolved = Effect.runSync(resolveProject(config, fileGraph));
-    const evaluation = Effect.runSync(evaluateRules(resolved));
+    const evaluation = Effect.runSync(validateRules(resolved));
 
     expect(evaluation.violations).toEqual([
       {
-        kind: 'story-import',
+        kind: 'laymos-import',
         from: { file: 'src/account/index.ts' },
         to: {
           module: 'src/account',
-          file: 'src/account/stories/support.ts',
+          file: 'src/account/laymos/support.ts',
         },
       },
     ]);
@@ -287,6 +287,6 @@ function graph(imports: Record<string, string[]>): FileGraph {
         { path, imports: dependencies },
       ]),
     ),
-    storyImports: [],
+    laymosImports: [],
   };
 }

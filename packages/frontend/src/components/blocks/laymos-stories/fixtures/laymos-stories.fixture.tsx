@@ -71,7 +71,6 @@ function Controlled({
         onRunStory={() => undefined}
         onRunModule={() => undefined}
         onRunAll={() => undefined}
-        onProjectReferenceClick={() => undefined}
       />
     </div>
   );

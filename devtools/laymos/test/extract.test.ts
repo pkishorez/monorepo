@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { extractFileGraph } from '../src/engine/1-extract/index.js';
+import { extractFileGraph } from '../src/architecture/extract-dependencies/index.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -77,22 +77,22 @@ describe('extractFileGraph', () => {
     });
   });
 
-  it('isolates Story surfaces and records only imports into them', async () => {
+  it('isolates Laymos surfaces and records only imports into them', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'laymos-extract-'));
     temporaryDirectories.push(directory);
-    await mkdir(join(directory, 'src', 'account', 'stories'), {
+    await mkdir(join(directory, 'src', 'account', 'laymos'), {
       recursive: true,
     });
     await writeFile(
       join(directory, 'src', 'account', 'index.ts'),
-      "import { fixture } from './stories/support.js';\nexport const account = fixture;\n",
+      "import { fixture } from './laymos/support.js';\nexport const account = fixture;\n",
     );
     await writeFile(
-      join(directory, 'src', 'account', 'stories', 'account.story.ts'),
+      join(directory, 'src', 'account', 'laymos', 'account.story.ts'),
       "import { account } from '../index.js';\nexport const story = account;\n",
     );
     await writeFile(
-      join(directory, 'src', 'account', 'stories', 'support.ts'),
+      join(directory, 'src', 'account', 'laymos', 'support.ts'),
       "import { story } from './account.story.js';\nexport const fixture = story;\n",
     );
 
@@ -105,7 +105,7 @@ describe('extractFileGraph', () => {
           {
             modulePath: 'src/account',
             moduleDescription: 'Account',
-            path: 'src/account/stories',
+            path: 'src/account/laymos',
           },
         ],
       ),
@@ -118,10 +118,10 @@ describe('extractFileGraph', () => {
           imports: [],
         },
       },
-      storyImports: [
+      laymosImports: [
         {
           from: 'src/account/index.ts',
-          to: 'src/account/stories/support.ts',
+          to: 'src/account/laymos/support.ts',
           module: 'src/account',
         },
       ],

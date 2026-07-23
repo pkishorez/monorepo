@@ -2,9 +2,9 @@ import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 
 import { edge, layer, layerGraph } from '../src/config/index.js';
-import type { ResolvedProject } from '../src/engine/2-resolve/index.js';
-import type { Evaluation } from '../src/engine/3-evaluate/index.js';
-import { emitReport } from '../src/engine/4-emit/index.js';
+import type { ResolvedProject } from '../src/architecture/resolve-architecture/index.js';
+import type { RuleValidation } from '../src/architecture/validate-rules/index.js';
+import { buildReport } from '../src/architecture/build-report/index.js';
 
 const app = layer('app', ['src/app'], { description: 'App' });
 const domain = layer('domain', ['src/domain'], { description: 'Domain' });
@@ -29,7 +29,7 @@ const resolved: ResolvedProject = {
         imports: [],
       },
     },
-    storyImports: [],
+    laymosImports: [],
   },
   files: {
     'src/app/index.ts': {
@@ -46,7 +46,7 @@ const resolved: ResolvedProject = {
   reachability: { app: ['domain'], domain: [] },
 };
 
-const evaluation: Evaluation = {
+const evaluation: RuleValidation = {
   violations: [],
   coverage: {
     layers: { totalFiles: 2, coveredFiles: 2, uncovered: [] },
@@ -54,9 +54,9 @@ const evaluation: Evaluation = {
   },
 };
 
-describe('emitReport', () => {
+describe('buildReport', () => {
   it('emits one normalized, serializable domain report', () => {
-    const report = Effect.runSync(emitReport(resolved, evaluation));
+    const report = Effect.runSync(buildReport(resolved, evaluation));
     expect(report).toEqual({
       architecture: {
         sourceRoots: ['src'],

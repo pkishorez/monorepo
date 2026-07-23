@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  ProjectMap,
-  ProjectReference,
   StoryArm,
   StoryCatalog,
   StoryRun,
   StoryTrace,
 } from 'laymos/report';
 
-import { layoutProjectMap } from '../components/project-narrative';
 import {
   checkoutStory,
   happyScenarioIndex,
@@ -19,10 +16,12 @@ import {
   buildProgressiveScenarioGraph,
   buildProgressiveStoryGraph,
   buildStoryCatalogTree,
+  buildStoryExecutionCoverage,
   collapseStoryGraph,
   compactValueDecisions,
   inlineTraceDefinitions,
   storyRunFromTrace,
+  storyNodeExecutionCoverage,
   withoutFlowNodes,
 } from './model';
 import { layoutStoryGraph } from './layout';
@@ -385,14 +384,14 @@ describe('buildStoryCatalogTree', () => {
           description: 'The later Module.',
           stories: [
             {
-              storyPath: 'src/zeta/stories/second',
+              storyPath: 'src/zeta/laymos/second',
               storyKey: 'second',
               modulePath: 'src/zeta',
               name: 'Shared name',
               description: 'Second Story.',
             },
             {
-              storyPath: 'src/zeta/stories/first',
+              storyPath: 'src/zeta/laymos/first',
               storyKey: 'first',
               modulePath: 'src/zeta',
               name: 'Shared name',
@@ -405,7 +404,7 @@ describe('buildStoryCatalogTree', () => {
           description: 'The earlier Module.',
           stories: [
             {
-              storyPath: 'src/alpha/stories/only',
+              storyPath: 'src/alpha/laymos/only',
               storyKey: 'only',
               modulePath: 'src/alpha',
               name: 'Only Story',
@@ -423,8 +422,8 @@ describe('buildStoryCatalogTree', () => {
       'src/zeta',
     ]);
     expect(tree.modules[1]?.stories.map(({ storyPath }) => storyPath)).toEqual([
-      'src/zeta/stories/first',
-      'src/zeta/stories/second',
+      'src/zeta/laymos/first',
+      'src/zeta/laymos/second',
     ]);
   });
 
@@ -441,41 +440,10 @@ describe('buildStoryCatalogTree', () => {
     expect(tree.modules[0]).toMatchObject({
       modulePath: 'src/orders',
       stories: [
-        { storyPath: 'src/orders/stories/checkout' },
-        { storyPath: 'src/orders/stories/refund' },
+        { storyPath: 'src/orders/laymos/checkout' },
+        { storyPath: 'src/orders/laymos/refund' },
       ],
     });
-  });
-});
-
-describe('Project Narrative references', () => {
-  it('preserves Graph, Layer, and Module references for optional activation', () => {
-    const references = [
-      { kind: 'layer-graph', name: 'Application' },
-      { kind: 'layer', name: 'Domain' },
-      { kind: 'module', path: 'src/orders' },
-    ] satisfies readonly ProjectReference[];
-    const map = {
-      kind: 'project-map',
-      root: {
-        kind: 'topic',
-        title: 'Orders',
-        description: 'Owns order behavior.',
-        references,
-        children: [],
-      },
-    } satisfies ProjectMap;
-    const activated: ProjectReference[] = [];
-    const model = layoutProjectMap(map, null, (reference) => {
-      activated.push(reference);
-    });
-
-    expect(model.nodes[0]?.data.topic.references).toBe(references);
-    model.nodes[0]?.data.onReferenceClick?.(references[2]);
-    expect(activated).toEqual([references[2]]);
-    expect(
-      layoutProjectMap(map, null).nodes[0]?.data.onReferenceClick,
-    ).toBeUndefined();
   });
 });
 
@@ -676,6 +644,150 @@ describe('buildProgressiveStoryGraph', () => {
     expect(model.edges).not.toContainEqual(
       expect.objectContaining({ source: 'request', target: 'operation' }),
     );
+  });
+});
+
+describe('buildStoryExecutionCoverage', () => {
+  const location = { file: 'story.ts', line: 1, column: 1 };
+  const yes = {
+    kind: 'literal' as const,
+    value: true,
+    name: 'yes',
+    description: 'Takes the positive route.',
+  };
+  const no = {
+    kind: 'otherwise' as const,
+    name: 'no',
+    description: 'Takes the fallback route.',
+  };
+  const blocks = {
+    root: {
+      kind: 'flow' as const,
+      name: 'Root',
+      description: 'Runs the operation.',
+      location,
+    },
+    read: {
+      kind: 'step' as const,
+      name: 'Read',
+      description: 'Reads state.',
+      location,
+    },
+    write: {
+      kind: 'step' as const,
+      name: 'Write',
+      description: 'Writes state.',
+      location,
+    },
+    request: {
+      kind: 'step' as const,
+      name: 'Request',
+      description: 'Sends a request.',
+      location,
+    },
+    route: {
+      kind: 'decision' as const,
+      name: 'Route',
+      description: 'Selects a route.',
+      location,
+      arms: [yes, no],
+    },
+  };
+  const visit = (
+    blockId: keyof typeof blocks,
+    children: StoryRun['scenarios'][number]['execution'] = [],
+    selectedArm?:
+      | { readonly kind: 'literal'; readonly value: true }
+      | {
+          readonly kind: 'otherwise';
+        },
+  ) => ({
+    blockId,
+    outcome: 'succeeded' as const,
+    startOffsetMillis: 0,
+    durationMillis: 1,
+    ...(selectedArm ? { selectedArm } : {}),
+    children,
+  });
+  const scenario = (
+    name: string,
+    execution: StoryRun['scenarios'][number]['execution'],
+    outcome: StoryRun['scenarios'][number]['outcome'] = 'succeeded',
+  ) => ({
+    name,
+    description: name,
+    location,
+    outcome,
+    execution,
+    failures: [],
+  });
+  const readPath = [
+    visit('root', [
+      visit('read', [visit('request')]),
+      visit('route', [], { kind: 'literal', value: true }),
+    ]),
+  ];
+  const writePath = [
+    visit('root', [
+      visit('write', [visit('request')]),
+      visit('route', [], { kind: 'otherwise' }),
+    ]),
+  ];
+  const canonical = {
+    generatedAt: 0,
+    name: 'Contextual coverage',
+    description: 'Covers contextual nodes.',
+    blocks,
+    scenarios: [
+      scenario('Read route', readPath),
+      scenario('Write route', writePath),
+    ],
+  } satisfies StoryRun;
+
+  it('keeps reused Blocks contextual and counts selected Arms from failed runs', () => {
+    const run = {
+      ...canonical,
+      scenarios: [
+        scenario('Read route', readPath, 'failed'),
+        scenario('Skipped write route', writePath, 'skipped'),
+      ],
+    } satisfies StoryRun;
+
+    const coverage = buildStoryExecutionCoverage(canonical, run);
+
+    expect(coverage.blocks).toEqual({ covered: 4, total: 6 });
+    expect(coverage.arms).toEqual({ covered: 1, total: 2 });
+    expect(coverage.coveredNodeIds).toContain('request@read');
+    expect(coverage.coveredNodeIds).not.toContain('request@write');
+    expect(coverage.coveredNodeIds).toContain(
+      'route::arm:literal:boolean:true',
+    );
+    expect(coverage.coveredNodeIds).not.toContain('route::arm:otherwise');
+    expect(coverage.observedEdgeIds).toContain('read->request@read');
+    expect(coverage.observedEdgeIds).not.toContain('write->request@write');
+  });
+
+  it('rolls hidden Block and Arm gaps into a partial collapsed node', () => {
+    const coverage = buildStoryExecutionCoverage(canonical, {
+      ...canonical,
+      scenarios: [scenario('Read route', readPath)],
+    });
+    const collapsed = collapseStoryGraph(
+      buildProgressiveStoryGraph(canonical),
+      new Set(['root']),
+    );
+
+    expect(
+      storyNodeExecutionCoverage(
+        coverage,
+        'root',
+        collapsed.hiddenNodeIdsByNode.get('root'),
+      ),
+    ).toEqual({
+      status: 'partial',
+      hiddenUncoveredBlocks: 2,
+      hiddenUncoveredArms: 1,
+    });
   });
 });
 
@@ -956,6 +1068,54 @@ describe('storyRunFromTrace', () => {
         expect.objectContaining({ source: 'nestedEnd', target: 'finish' }),
         expect.objectContaining({ source: 'parallelEnd', target: 'finish' }),
       ]),
+    );
+  });
+
+  it('does not continue a Flow caller after an error Terminal', () => {
+    const trace = {
+      status: 'valid',
+      generatedAt: 0,
+      blocks: {
+        nested: {
+          kind: 'flow',
+          name: 'Nested',
+          description: 'Owns one error Terminal.',
+          location,
+        },
+        nestedError: {
+          kind: 'terminal',
+          name: 'Nested error',
+          description: 'Fails the nested Flow.',
+          location,
+          completion: { kind: 'error', error: 'InvalidShape' },
+        },
+        afterNested: {
+          kind: 'step',
+          name: 'After nested',
+          description: 'Must not follow the failed Flow.',
+          location,
+        },
+      },
+      execution: [
+        {
+          kind: 'flow',
+          blockId: 'nested',
+          children: [{ kind: 'terminal', blockId: 'nestedError' }],
+        },
+        { kind: 'step', blockId: 'afterNested' },
+      ],
+      definitions: {},
+    } satisfies StoryTrace;
+
+    const model = buildProgressiveStoryGraph(
+      storyRunFromTrace(trace, 'Failed nested Flow', 'Failed nested Flow'),
+    );
+
+    expect(model.edges).not.toContainEqual(
+      expect.objectContaining({
+        source: 'nestedError',
+        target: 'afterNested',
+      }),
     );
   });
 });

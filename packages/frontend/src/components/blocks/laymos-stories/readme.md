@@ -65,7 +65,6 @@ interface LaymosStoriesProps {
   readonly onRunModule?: (modulePath: string) => void;
   readonly onRunStory?: (storyPath: StoryPath) => void;
   readonly onRunAll?: () => void;
-  readonly onProjectReferenceClick?: (reference: ProjectReference) => void;
   readonly showNavigator?: boolean;
   readonly className?: string;
   readonly ariaLabel?: string;
@@ -104,10 +103,7 @@ The wrapper owns operational errors and report replacement.
 
 When a Project Narrative is configured, **Project Narrative** is the default
 destination and **All stories** remains a separate catalog destination. Project
-Markdown and inline Project Maps are authored data from Laymos. Map topics render
-their Graph, Layer, and Module references. When `onProjectReferenceClick` is
-provided, activating a reference passes the exact `ProjectReference` to the
-host. The block performs no cross-block or host navigation itself.
+Markdown is authored data from Laymos and renders as one continuous document.
 
 Story and Scenario selections open **Documentation** first. Authored Markdown
 appears before the generated structural narrative; **Graph** retains the

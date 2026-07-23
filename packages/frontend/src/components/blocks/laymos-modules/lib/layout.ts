@@ -3,7 +3,10 @@ import dagre from '@dagrejs/dagre';
 
 import { moduleGraphColors } from './colors';
 import type { ModuleGraphModel } from './model';
-import type { ModuleGraphSelectionModel } from './selection';
+import {
+  getModuleVisualState,
+  type ModuleGraphSelectionModel,
+} from './selection';
 
 export interface GraphLaneNodeData extends Record<string, unknown> {
   readonly name: string;
@@ -521,6 +524,7 @@ export function computeModuleGraphLayout(
   selection: ModuleGraphSelectionModel,
   expandedLayers: ReadonlySet<string>,
   moduleLayout: ModuleLayoutMode = 'pack',
+  showLayerConnections = false,
 ): ModuleGraphLayout {
   const lanes = laneGeometries(model, moduleLayout);
   const geometry = layerGeometries(model, lanes, moduleLayout);
@@ -593,13 +597,11 @@ export function computeModuleGraphLayout(
 
   for (const position of geometry.layers) {
     const layer = model.layers.get(position.name)!;
-    const quietTree = moduleLayout === 'tree';
     const relatedModules = layer.modulePaths.filter((path) =>
       selection.visibleModules.has(path),
     );
-    const containsSelected =
-      !quietTree && layer.modulePaths.includes(selection.root ?? '');
-    const related = quietTree || !selection.root || relatedModules.length > 0;
+    const containsSelected = layer.modulePaths.includes(selection.root ?? '');
+    const related = !selection.root || relatedModules.length > 0;
     nodes.push({
       id: `layer:${layer.name}`,
       type: 'module-layer-container',
@@ -621,12 +623,12 @@ export function computeModuleGraphLayout(
         totalFiles: layer.totalFiles,
         violationCount: layer.violationCount,
         hiddenConnectionCount:
-          expandedLayers.has(layer.name) || quietTree
+          expandedLayers.has(layer.name) || moduleLayout === 'tree'
             ? 0
             : relatedModules.filter((path) => path !== selection.root).length,
         containsSelected,
         related,
-        dimmed: Boolean(!quietTree && selection.root && !related),
+        dimmed: Boolean(selection.root && !related),
         ...(layer.description !== undefined
           ? { description: layer.description }
           : {}),
@@ -643,8 +645,7 @@ export function computeModuleGraphLayout(
     const treeOffset = tree ? (position.width - tree.width) / 2 : 0;
     layer.modulePaths.forEach((path, index) => {
       const module = model.modules.get(path)!;
-      const relatedModule =
-        !selection.root || selection.visibleModules.has(path);
+      const visual = getModuleVisualState(selection, path);
       const modulePosition =
         tree?.positions.get(path) ?? packed?.placements[index];
       nodes.push({
@@ -670,10 +671,10 @@ export function computeModuleGraphLayout(
           layer: module.layer,
           fileCount: module.files.length,
           violationCount: module.violationCount,
-          selected: !quietTree && selection.root === path,
-          related: Boolean(!quietTree && selection.root && relatedModule),
-          dimmed: Boolean(!quietTree && selection.root && !relatedModule),
-          quiet: moduleLayout === 'tree',
+          selected: visual.selected,
+          related: visual.related,
+          dimmed: visual.dimmed,
+          quiet: false,
           ...(module.description !== undefined
             ? { description: module.description }
             : {}),
@@ -684,7 +685,7 @@ export function computeModuleGraphLayout(
 
   const edges: Edge[] = [];
   const configuredPairs = new Set<string>();
-  for (const graph of model.graphs) {
+  for (const graph of showLayerConnections ? model.graphs : []) {
     const targets = new Set(graph.edges.map((edge) => edge.to));
     for (const layer of graph.layers.filter((name) => !targets.has(name))) {
       if (!layerGeometry.has(layer)) continue;

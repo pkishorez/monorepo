@@ -17,6 +17,7 @@ export interface LaymosModulesProps {
   readonly focusedModule: string | null;
   readonly onFocusedModuleChange: (path: string | null) => void;
   readonly defaultMinimise?: boolean;
+  readonly defaultShowLayerConnections?: boolean;
   readonly initialViewport?: Viewport | undefined;
   readonly onViewportChange?: (viewport: Viewport) => void;
   readonly className?: string;

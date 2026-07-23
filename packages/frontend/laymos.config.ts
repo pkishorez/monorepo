@@ -37,6 +37,9 @@ export default defineConfig({
     module('src/components/blocks/laymos-stories', {
       description: 'Laymos Stories block',
     }),
+    module('src/components/blocks/laymos-tests', {
+      description: 'Laymos Tests block',
+    }),
     module('src/components/blocks/otel-trace-viewer', {
       description: 'OpenTelemetry trace viewer block',
     }),

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { analyzeProject } from '../src/node.js';
+import { analyzeProject } from '../src/entrypoints/node/index.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -51,7 +51,9 @@ export default {
 `,
     );
 
-    const report = await Effect.runPromise(analyzeProject(directory));
+    const report = await Effect.runPromise(
+      analyzeProject({ projectDir: directory }),
+    );
 
     expect(report.coverage.layers).toEqual({
       totalFiles: 2,
@@ -79,21 +81,21 @@ export default {
     ]);
   });
 
-  it('isolates Module Story surfaces from the static report', async () => {
+  it('isolates Module Laymos surfaces from the static report', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'laymos-project-'));
     temporaryDirectories.push(directory);
     execFileSync('git', ['init', '--quiet'], { cwd: directory });
-    await mkdir(join(directory, 'src/account/stories'), { recursive: true });
+    await mkdir(join(directory, 'src/account/laymos'), { recursive: true });
     await writeFile(
       join(directory, 'src/account/index.ts'),
-      "import { fixture } from './stories/support.js';\nexport const account = fixture;\n",
+      "import { fixture } from './laymos/support.js';\nexport const account = fixture;\n",
     );
     await writeFile(
-      join(directory, 'src/account/stories/account.story.ts'),
+      join(directory, 'src/account/laymos/account.story.ts'),
       "import { account } from '../index.js';\nexport const story = account;\n",
     );
     await writeFile(
-      join(directory, 'src/account/stories/support.ts'),
+      join(directory, 'src/account/laymos/support.ts'),
       'export const fixture = true;\n',
     );
     await writeFile(
@@ -117,7 +119,9 @@ export default {
 `,
     );
 
-    const report = await Effect.runPromise(analyzeProject(directory));
+    const report = await Effect.runPromise(
+      analyzeProject({ projectDir: directory }),
+    );
 
     expect(report.files).toEqual({
       'src/account/index.ts': {
@@ -129,11 +133,11 @@ export default {
     });
     expect(report.violations).toEqual([
       {
-        kind: 'story-import',
+        kind: 'laymos-import',
         from: { file: 'src/account/index.ts' },
         to: {
           module: 'src/account',
-          file: 'src/account/stories/support.ts',
+          file: 'src/account/laymos/support.ts',
         },
       },
     ]);

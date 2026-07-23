@@ -44,6 +44,7 @@ function toFlowEdge(edge: StoryGraphEdge): Edge {
     data: {
       inactive: edge.inactive,
       summary: edge.summary === true,
+      executionCovered: edge.executionCovered,
     },
     style: {
       stroke: 'var(--muted-foreground)',

@@ -1,11 +1,15 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type { StoryRunResult } from 'laymos/node';
 import type {
   LaymosReport,
+  StoryRun,
   StoryCollection,
   StoryCoverageReport,
+  ProjectNarrative,
+  TestCatalog,
+  TestsReport,
 } from 'laymos/report';
+import type { StoryFailure } from 'laymos/node';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -54,16 +58,50 @@ export const LaymosEvent = Schema.Union([
 
 export type LaymosEvent = typeof LaymosEvent.Type;
 
+interface StoryRunResult {
+  readonly status: 'passed' | 'failed';
+  readonly run: StoryRun;
+  readonly failures: readonly StoryFailure[];
+}
+
 const StoryRunData = Schema.Any as unknown as Schema.Codec<StoryRunResult>;
 const StoryCollectionData =
   Schema.Any as unknown as Schema.Codec<StoryCollection>;
 const StoryCoverageData =
   Schema.Any as unknown as Schema.Codec<StoryCoverageReport>;
+const TestCatalogData = Schema.Any as unknown as Schema.Codec<TestCatalog>;
+const TestsReportData = Schema.Any as unknown as Schema.Codec<TestsReport>;
+const ProjectNarrativeData =
+  Schema.Any as unknown as Schema.Codec<ProjectNarrative>;
+
+export interface LaymosModuleDocumentation {
+  readonly modulePath: string;
+  readonly description: string;
+  readonly documentation?: string;
+}
+
+export interface LaymosStoryDocumentation {
+  readonly storyPath: string;
+  readonly modulePath: string;
+  readonly name: string;
+  readonly description: string;
+  readonly documentation?: string;
+}
+
+export interface LaymosProjectDocumentation {
+  readonly modules: readonly LaymosModuleDocumentation[];
+  readonly stories: readonly LaymosStoryDocumentation[];
+}
+
+const LaymosProjectDocumentationData =
+  Schema.Any as unknown as Schema.Codec<LaymosProjectDocumentation>;
 
 const LaymosProjectData = Schema.Struct({
   architecture: LaymosData,
   stories: StoryCollectionData,
   storyCoverage: StoryCoverageData,
+  tests: TestCatalogData,
+  documentation: LaymosProjectDocumentationData,
   files: Schema.Array(Schema.String),
 });
 
@@ -81,6 +119,26 @@ export const OpenLaymosProjectEvent = Schema.Union([
   Schema.Struct({
     _tag: Schema.Literal('Heartbeat'),
     elapsedMs: Schema.Number,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Architecture'),
+    architecture: LaymosData,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Project'),
+    project: Schema.optional(ProjectNarrativeData),
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Stories'),
+    stories: StoryCollectionData,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('StoryCoverage'),
+    storyCoverage: StoryCoverageData,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Tests'),
+    tests: TestCatalogData,
   }),
   Schema.Struct({
     _tag: Schema.Literal('Result'),
@@ -207,6 +265,16 @@ export const DevtoolsRpc = RpcGroup.make(
     success: StoriesEvent,
     error: DevtoolsRpcError,
     stream: true,
+  }),
+  Rpc.make('RunAllTests', {
+    payload: { path: Schema.String },
+    success: TestsReportData,
+    error: DevtoolsRpcError,
+  }),
+  Rpc.make('RunTest', {
+    payload: { path: Schema.String, testPath: Schema.String },
+    success: TestsReportData,
+    error: DevtoolsRpcError,
   }),
   Rpc.make('ReadProjectFile', {
     payload: { path: Schema.String, filePath: Schema.String },

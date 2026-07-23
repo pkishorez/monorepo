@@ -2,7 +2,7 @@
   "name": "laymos",
   "version": "0.0.1",
   "private": false,
-  "description": "Layers. Modules. Stories. Declare your architecture once; get enforcement and the diagram for free.",
+  "description": "Layers. Modules. Stories. Tests. Understand architecture and behavior from one place.",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo"
@@ -16,19 +16,24 @@
       "default": "./dist/index.js"
     },
     "./node": {
-      "types": "./dist/node.d.ts",
-      "import": "./dist/node.js",
-      "default": "./dist/node.js"
+      "types": "./dist/entrypoints/node/index.d.ts",
+      "import": "./dist/entrypoints/node/index.js",
+      "default": "./dist/entrypoints/node/index.js"
     },
     "./report": {
-      "types": "./dist/report/index.d.ts",
-      "import": "./dist/report/index.js",
-      "default": "./dist/report/index.js"
+      "types": "./dist/entrypoints/report/index.d.ts",
+      "import": "./dist/entrypoints/report/index.js",
+      "default": "./dist/entrypoints/report/index.js"
     },
     "./story": {
-      "types": "./dist/story/effect/index.d.ts",
-      "import": "./dist/story/effect/index.js",
-      "default": "./dist/story/effect/index.js"
+      "types": "./dist/stories/authoring/index.d.ts",
+      "import": "./dist/stories/authoring/index.js",
+      "default": "./dist/stories/authoring/index.js"
+    },
+    "./test": {
+      "types": "./dist/tests/authoring/index.d.ts",
+      "import": "./dist/tests/authoring/index.js",
+      "default": "./dist/tests/authoring/index.js"
     }
   },
   "bin": {
@@ -44,8 +49,8 @@
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc",
-    "lint:laymos": "jiti src/cli/cli.ts lint",
+    "lint": "vp check && tsc && pnpm lint:laymos",
+    "lint:laymos": "jiti src/entrypoints/cli/cli.ts lint",
     "test": "vitest run"
   },
   "dependencies": {

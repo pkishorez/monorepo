@@ -153,9 +153,12 @@ outside the inventory. Git tracking and `.gitignore` never affect analysis.
 
 ### How checking actually works
 
-[skott](https://github.com/antoine-coulon/skott) is used as an **extractor only** — run with type-only tracking always on, producing the full file-level import graph (it resolves ESM/CJS/`import type`/TS path aliases). Laymos's own engine owns all semantics:
-
-**extract (skott) → resolve (files → layers/modules) → evaluate (rules) → emit (violations + viz data)**
+[skott](https://github.com/antoine-coulon/skott) is used as an
+**extractor only** — run with type-only tracking always on, producing the full
+file-level import graph (it resolves ESM/CJS/`import type`/TS path aliases).
+Laymos owns the surrounding semantics. Project analysis loads and validates the
+configuration, discovers Laymos surfaces, extracts dependencies with skott,
+resolves file ownership, validates architecture rules, and builds one report.
 
 _Why skott over dependency-cruiser_ (see ADR-0001): identical edge sets in a head-to-head POC, ~30% faster, far simpler graph API. _Why not transpile laymos config into an existing rule engine:_ our semantics (transitive reachability, sink layers, AND-gated module constraints) would compile into O(n²) regex pair-lists with foreign error messages and a transpiler to debug forever. Owning the engine means one evaluation produces both enforcement and visualization, with no drift between them.
 
@@ -175,10 +178,13 @@ Config speaks modules; violations point at files. That's not an inconsistency �
 
 One file: **`laymos.config.ts`**, typed default export built with reference builders — cross-references are values, not strings, so they autocomplete and survive renames. Cost accepted: laymos executes user code to read config.
 
-`defineConfig` validates everything decidable from the config alone and throws with all issues at once. Source roots must be non-empty and non-overlapping;
-every layer, module, and ignored path must fall within one. The loader
-additionally warns — never errors — on declared paths that don't exist on disk:
-declaring structure before its folder exists is legitimate intent-first design.
+`defineConfig` and the reference builders are pure and never throw. The loader
+normalizes paths and validates everything decidable from configuration,
+returning all semantic issues together as `ConfigValidationError`. Source roots
+must be non-empty and non-overlapping; every Layer, Module, and ignored path
+must fall within one. Analysis additionally warns — never errors — on declared
+paths that do not exist on disk: declaring structure before its folder exists
+is legitimate intent-first design.
 
 Every module used by a rule must also appear in `modules`, and each module may
 have at most one `rules(...)` entry. Rule references must reuse those declared
@@ -192,10 +198,8 @@ import {
   layerGraph,
   markdown,
   module,
-  projectMap,
   projectNarrative,
   rules,
-  topic,
 } from 'laymos';
 
 const ui = layer('ui', ['src/ui'], { description: 'User interface' });
@@ -216,21 +220,18 @@ const app = layerGraph('app', [edge(ui, [domain, data]), edge(domain, data)], {
   description: 'The application architecture',
 });
 
-const project = projectNarrative('Commerce', [
+const project = projectNarrative(
+  'Commerce',
   markdown`
     # Commerce
 
     Commerce turns customer intent into fulfilled orders.
+
+    ## Checkout
+
+    Checkout owns order placement and payment.
   `,
-  projectMap(
-    topic('Checkout', {
-      description: markdown`
-Owns order placement and payment.
-      `,
-      references: [app, domain, checkout],
-    }),
-  ),
-]);
+);
 
 export default defineConfig({
   sourceRoots: ['src'],
@@ -242,18 +243,17 @@ export default defineConfig({
 });
 ```
 
-Each folder Module may own an optional, flat `stories/` Story surface. Direct
-children named `<story-key>.story.ts` are executable Stories; other files are
-Story-only support material. Laymos discovers these surfaces from declared
-Modules, so there is no second set of configured discovery roots. Story
-surfaces are invisible to static architecture: they do not affect files,
-edges, violations, or Layer and Module coverage, and production code may not
-import them.
+Each folder Module may own an optional, flat `laymos/` surface. Direct children
+named `<story-key>.story.ts` are executable Stories, direct children named
+`<test-key>.test.ts` are executable Tests, and other files are shared support
+material. Laymos discovers these surfaces from declared Modules, so there is no
+second set of configured discovery roots. Laymos surfaces are invisible to
+static architecture: they do not affect files, edges, violations, or Layer and
+Module coverage, and production code may not import them.
 
-The optional `project` value is a Project Narrative: an authored sequence of
-Markdown and editorial Project Maps. Topics may reference the declared Layer
-Graph, Layers, and Modules with typed values. The narrative is not executable,
-does not participate in Story discovery, and remains after Story ejection.
+The optional `project` value is a Project Narrative: one named Markdown
+document that explains the project. The narrative is not executable, does not
+participate in Story discovery, and remains after Story ejection.
 
 Modules are declared and constrained in **two separate acts** (`module()` then `rules()`): mutually-referencing rules would otherwise hit the JS temporal dead zone between `const` bindings — and it mirrors the semantics, since declaring a module imposes nothing.
 
@@ -534,12 +534,12 @@ the surrounding code or use case.
 
 - **One story per `<story-name>.story.ts` file** — hard convention, not suggestion. The kebab-case file is the discovery unit; the declared Story name remains independent human-facing metadata. The name deliberately does not contain `.test`, so no test runner ever picks a Story up: stories are not tests.
 - **One owning Module** — every Story is a direct child of one folder Module's
-  flat `stories/` surface. Its Story Key is its kebab-case filename without
+  flat `laymos/` surface. Its Story Key is its kebab-case filename without
   `.story.ts`, unique only within that Module.
 - **One suffixless Story path** — the project-relative Story file path without
   `.story.ts`. For example, the `place-order` Story owned by
   `src/domain/checkout` has Story path
-  `src/domain/checkout/stories/place-order`.
+  `src/domain/checkout/laymos/place-order`.
 - **Rich Story context** — Story and Scenario metadata keep their required
   short `description` and may add `documentation: markdown\`...\`` for longer
   explanations, examples, tables, and highlighted code.
@@ -609,8 +609,8 @@ story('Place an order', {
   );
 ```
 
-Every Story is declared directly with `story()`. A Story surface may contain
-shared harnesses and other Story-only support files, but Story declarations
+Every Story is declared directly with `story()`. A Laymos surface may contain
+shared harnesses and other support files, but Story declarations
 remain flat direct children rather than nested categories.
 
 `laymos/story` is the only authoring surface. One optional
@@ -626,7 +626,7 @@ not tests, so laymos owns their execution end-to-end. There is no test
 framework anywhere in the story path.
 
 - **Discovery and identity are the runner's.** `laymos stories` discovers
-  each folder Module's direct `stories/*.story.ts` files, loads them through
+  each folder Module's direct `laymos/*.story.ts` files, loads them through
   jiti on Node, and derives the suffixless Story path from the imported file —
   no stack parsing for identity.
 - **Sequential, single-process.** Scenarios run in declaration order in one
@@ -808,26 +808,24 @@ Arm rules above; consumers may trust these invariants.
 
 ### Node APIs
 
-`laymos/node` exposes discovery and fresh execution:
+`laymos/node` exposes project-scoped operations. Every request is explicit and
+the returned Effects have no remaining service requirements:
 
 ```ts
-discoverStories(baseDir): Effect<StoryCatalog, StoryDiscoveryError>
-getStories(baseDir): Effect<StoryCollection, StoryDiscoveryError>
-runStory(baseDir, storyPath): Effect<StoryRunResult, StoryRunnerError>
-runModuleStories(baseDir, modulePath): Effect<StoriesRunResult, StoryRunnerError>
-runStories(baseDir, selectors): Effect<StoriesRunResult, StoryRunnerError>
-runAllStories(baseDir): Effect<AllStoriesRunResult, StoryRunnerError>
+analyzeProject({ projectDir }): Effect<LaymosReport, LaymosError>
+discoverStories({ projectDir }): Effect<StoryCatalog, StoryDiscoveryError>
+inspectStories({ projectDir }): Effect<StoryCollection, StoryDiscoveryError>
+runStories({ projectDir, selectors, timeout }): Effect<StoriesRunResult, StoryRunnerError>
+measureStoryCoverage({ projectDir, stories? }): Effect<StoryCoverageReport, StoryCoverageError>
+inspectStorySource({ source, fileName, anchors }): Effect<StorySourceProjections, StorySourceError>
+ejectStories({ projectDir, dryRun? }): Effect<StoryEjectionResult, StoryEjectionError>
+discoverTests({ projectDir }): Effect<TestCatalog, TestDiscoveryError>
+runTests({ projectDir, selectors, timeout }): Effect<TestsReport, TestRunnerError>
 ```
 
 Execution results carry fresh evidence and diagnostics:
 
 ```ts
-interface StoryRunResult {
-  readonly status: 'passed' | 'failed';
-  readonly run: StoryRun;
-  readonly failures: readonly StoryFailure[];
-}
-
 interface StoriesRunResult {
   readonly status: 'passed' | 'failed';
   readonly runs: StoriesRun;
@@ -837,23 +835,23 @@ interface StoriesRunResult {
 
 `discoverStories` returns a catalog of owning Modules and their Stories. It
 imports each Story module to collect authored metadata, but never prepares or
-executes a Scenario. Story files and shared Story-surface imports must therefore
+executes a Scenario. Story files and shared Laymos-surface imports must therefore
 remain declaration-only at module scope. Discovery validates the complete
 catalog atomically and reports every invalid file and Module-local Story Key
 collision together.
 
-`runStory` selects one suffixless Story path. `runModuleStories` selects one
-owning Module path. `runStories` accepts either kind of selector, and
-`runAllStories` executes the complete catalog. The CLI uses the same selectors:
+`runStories` accepts typed Story and Module selectors. An empty selector list
+executes the complete catalog. The CLI resolves its positional arguments into
+the same selector model:
 
 ```sh
 laymos stories src/domain/checkout
-laymos stories src/domain/checkout/stories/place-order
+laymos stories src/domain/checkout/laymos/place-order
 ```
 
 The execution APIs run the owned Story runner with `baseDir` as the target
 project's root. The runner discovers singular `*.story.*` JavaScript and
-TypeScript files from Module Story surfaces, loads them through jiti, and
+TypeScript files from Module Laymos surfaces, loads them through jiti, and
 executes Scenarios sequentially in a single Node process.
 There is no test framework, configuration file, or worker pool in the story
 path.
@@ -863,13 +861,13 @@ returned as reportable partial evidence with an `interrupted` Scenario outcome;
 the runner then continues with the remaining Scenarios. Each artifact records
 `generatedAt` so a caller can label the evidence it currently holds.
 
-`runAllStories` runs every discovered Story to completion and returns
+An unfiltered `runStories` request runs every discovered Story to completion and returns
 `status: 'failed'` when any Scenario failed or was interrupted. Skipped
 Scenarios do not make the aggregate result fail.
 
 Discovering no Story files is a valid complete generation and succeeds with a
-passed empty report. `runStory` fails with `StoryRunnerError` when its Story
-path does not resolve to an existing Story file.
+passed empty report. An unknown typed selector fails with `StoryRunnerError`
+before any Scenario executes.
 
 A failed or interrupted Scenario is reportable evidence, so a Scenario failure
 succeeds with `status: 'failed'` and a finalized result containing the Scenario's
@@ -881,14 +879,29 @@ test result and Scenario outcomes retain the detail.
 An invalid Story definition is also a rejecting failure; rejected requests do
 not expose any earlier in-memory results from that request.
 
+### Tests
+
+`laymos tests` discovers every Module-owned `laymos/*.test.ts` file and executes
+its named cases sequentially. A Test declares one function with
+`test(name, { description }).execute(function).cases(cases)`. Every Test Case
+declares whether it is `positive` or `negative` and has its own required name
+and description. Inputs, expected values, and actual values are strings,
+numbers, or booleans; an expectation may instead name an error. The report
+stores the Test and Test Case intent, names, and descriptions plus inputs,
+expected results, and actual results. Consumers derive pass or failure, diffs,
+and whether strings render as text, Markdown, or code.
+
+Tests are exclusive to the Laymos runner. They may execute synchronously,
+through a Promise, or through an Effect. A Test file declares exactly one Test,
+and its suffixless path or owning Module can select execution.
+
 ### Story ejection
 
-`laymos stories eject` removes Story Block instrumentation from the current
-project and deletes every owning Module's complete Story surface, including
-Story declarations and Story-only support files. Ejection is project-wide and
-does not support partial Module or Story selection. `--dry-run` performs the
-same preflight and reports planned changes without writing. Storybook's plural
-`*.stories.*` files outside those surfaces are left alone.
+`laymos eject` removes Story Block instrumentation from production code. It
+does not change or delete any Module-owned `laymos/` surface. Ejection is
+project-wide and does not support partial Module or Story selection.
+`--dry-run` performs the same preflight and reports planned rewrites without
+writing.
 
 Terminal narration ejects with Step-equivalent semantics: its name,
 description, completion, and tracing thunk are removed while the returned
@@ -898,8 +911,8 @@ Ejection recognizes direct named imports, aliases, and namespace imports from
 `laymos/story`. Before changing files it validates every authored shape, parses
 every transformed file, proves that no ejectable Story imports or calls remain,
 and verifies that a second transformation makes no changes. Any failure aborts
-the project-wide operation before its transactional rewrite and complete
-Story-surface deletion phase. Re-exports and dynamic imports remain invalid.
+the project-wide operation before its transactional rewrite. Re-exports and
+dynamic imports remain invalid.
 
 Ejection is formatter-independent. Its transformations are limited to exact
 unwrapping and local substitutions to native Effect and Match constructs. It
@@ -937,6 +950,7 @@ Every pillar has the same shape:
 
 - Layers/modules: config (intent) merged with the extracted import graph (reality) → violations + viz.
 - Stories: declared arms (shape) merged with recorded scenarios (reality) → observed flow graph.
+- Tests: declared inputs and expectations merged with actual results → derived comparisons.
 - Production, later: story graph (map) merged with logs (reality) → replay.
 
 One config. One engine. Enforcement and the diagram are the same artifact.
@@ -945,27 +959,25 @@ One config. One engine. Enforcement and the diagram are the same artifact.
 
 ## Package Layout
 
-One package, three subpaths — consumers only pay for what they import:
+One package, five subpaths — consumers only pay for what they import:
 
-| Subpath        | Contents                                              | Runs where               |
-| -------------- | ----------------------------------------------------- | ------------------------ |
-| `laymos`       | Config DSL + types                                    | Anywhere (browser-safe)  |
-| `laymos/node`  | analysis engine + Story discovery and fresh execution | Node, dev-time           |
-| `laymos/story` | Effect Story builder and blocks                       | Production (Effect apps) |
+| Subpath         | Contents                                               | Runs where               |
+| --------------- | ------------------------------------------------------ | ------------------------ |
+| `laymos`        | Config DSL + types                                     | Anywhere (browser-safe)  |
+| `laymos/node`   | project analysis, Story, Test, and ejection operations | Node, dev-time           |
+| `laymos/story`  | Effect Story builder and blocks                        | Production (Effect apps) |
+| `laymos/test`   | Test declaration builder                               | Laymos Test files        |
+| `laymos/report` | Serializable consumer contracts                        | Anywhere                 |
 
 ```
 src/
-├─ config/     builders: layer, edge, layerGraph, module, rules, defineConfig
-├─ engine/     extract (skott) → resolve → evaluate → emit, tagged errors
-├─ cli/        effect CLI: laymos lint, laymos stories
-├─ story/
-│  ├─ core/      declaration model and recorder contract
-│  ├─ effect/    → "laymos/story"
-│  ├─ story-runtime/ private runner-only implementation
-│  ├─ runner/    owned Story runner: discovery, loading, execution
-│  └─ artifact/  Story recording and artifact data model
-├─ index.ts    → "laymos"
-└─ node.ts     → "laymos/node"
+├─ architecture/ static dependency analysis
+├─ config/       architecture and project authoring
+├─ entrypoints/  CLI, Node, and report boundaries
+├─ markdown/     browser-safe Markdown values
+├─ report/       serializable consumer contracts
+├─ stories/      Story authoring, runtime, discovery, inspection, and execution
+└─ tests/        Test authoring, discovery, and execution
 ```
 
 ---

@@ -8,7 +8,7 @@ import {
   queryMetrics,
   queryTraces,
 } from '@pkishorez/lotel';
-import { projectStorySource, runStory } from 'laymos/node';
+import { inspectStorySource, runStories, runTests } from 'laymos/node';
 import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 import { getTrace } from './get-trace/index.js';
@@ -22,6 +22,23 @@ const toRpcError = (cause: unknown): DevtoolsRpcError =>
 
 const laymosOperation = <A, E, R>(operation: Effect.Effect<A, E, R>) =>
   operation.pipe(Effect.mapError(toRpcError));
+
+const runStory = (projectDir: string, storyPath: string) =>
+  runStories({
+    projectDir,
+    selectors: [{ _tag: 'Story', storyPath }],
+  }).pipe(
+    Effect.flatMap((result) => {
+      const run = result.runs.stories[storyPath];
+      return run === undefined
+        ? Effect.fail(new Error(`Story "${storyPath}" did not run`))
+        : Effect.succeed({
+            status: result.status,
+            run,
+            failures: result.failures,
+          });
+    }),
+  );
 
 const readProjectFile = (projectPath: string, filePath: string) =>
   Effect.tryPromise({
@@ -68,29 +85,40 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
     laymosOperation(runStory(resolvePath(input), storyPath)),
   RunModuleStories: ({ path: input, modulePath }) =>
     runStoriesStream(resolvePath(input), modulePath),
+  RunAllTests: ({ path: input }) =>
+    laymosOperation(runTests({ projectDir: resolvePath(input) })),
+  RunTest: ({ path: input, testPath }) =>
+    laymosOperation(
+      runTests({
+        projectDir: resolvePath(input),
+        selectors: [testPath],
+      }),
+    ),
   ReadProjectFile: ({ path: input, filePath }) =>
     readProjectFile(input, filePath),
   ReadStorySource: ({ path: input, filePath, anchors }) =>
     readProjectFile(input, filePath).pipe(
       Effect.flatMap(({ filePath: resolvedFilePath, content }) =>
-        Effect.try({
-          try: () => ({
+        inspectStorySource({
+          source: content,
+          fileName: resolvedFilePath,
+          anchors: anchors.map(
+            ({ id, line, column, classification, reason }) => ({
+              id,
+              line,
+              column,
+              ...(classification === undefined ? {} : { classification }),
+              ...(reason === undefined ? {} : { reason }),
+            }),
+          ),
+        }).pipe(
+          Effect.map((projection) => ({
             filePath: resolvedFilePath,
             source: content,
-            ...projectStorySource(
-              content,
-              resolvedFilePath,
-              anchors.map(({ id, line, column, classification, reason }) => ({
-                id,
-                line,
-                column,
-                ...(classification === undefined ? {} : { classification }),
-                ...(reason === undefined ? {} : { reason }),
-              })),
-            ),
-          }),
-          catch: toRpcError,
-        }),
+            ...projection,
+          })),
+          Effect.mapError(toRpcError),
+        ),
       ),
     ),
   QueryTraces: ({ sk, limit }) =>

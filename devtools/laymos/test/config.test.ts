@@ -7,11 +7,14 @@ import {
   layerGraph,
   markdown,
   module,
-  projectMap,
   projectNarrative,
   rules,
-  topic,
 } from '../src/index.js';
+import { validateConfig } from '../src/config/define-config.js';
+import type { LaymosConfig } from '../src/config/types.js';
+
+const issues = (config: LaymosConfig): string =>
+  validateConfig(config).issues.join('\n');
 
 describe('config', () => {
   it('normalizes project-relative plain paths', () => {
@@ -19,7 +22,7 @@ describe('config', () => {
     const appModule = module('./src/app/feature/../billing/', {
       description: 'Billing',
     });
-    const config = defineConfig({
+    const authored = defineConfig({
       sourceRoots: ['src', 'generated', 'cache'],
       graphs: [
         layerGraph(
@@ -32,8 +35,9 @@ describe('config', () => {
       ignore: ['./generated/', 'tmp/../cache'],
     });
 
-    expect(app.paths).toEqual(['src/app']);
-    expect(appModule.path).toBe('src/app/billing');
+    const config = validateConfig(authored).config;
+    expect(config.graphs[0]?.layers[0]?.paths).toEqual(['src/app']);
+    expect(config.modules?.[0]?.path).toBe('src/app/billing');
     expect(config.sourceRoots).toEqual(['src', 'generated', 'cache']);
     expect(config.ignore).toEqual(['generated', 'cache']);
   });
@@ -46,19 +50,37 @@ describe('config', () => {
       { description: 'Application architecture' },
     );
 
-    expect(() => defineConfig({ sourceRoots: [], graphs: [graph] })).toThrow(
-      'At least one source root is required',
-    );
-    expect(() =>
-      defineConfig({ sourceRoots: ['src', 'src/app'], graphs: [graph] }),
-    ).toThrow('overlap');
-    expect(() =>
-      defineConfig({ sourceRoots: ['other'], graphs: [graph] }),
-    ).toThrow('Layer path "src/app" is not inside any source root');
+    expect(
+      issues(defineConfig({ sourceRoots: [], graphs: [graph] })),
+    ).toContain('At least one source root is required');
+    expect(
+      issues(
+        defineConfig({
+          sourceRoots: ['src', 'src/app'],
+          graphs: [graph],
+        }),
+      ),
+    ).toContain('overlap');
+    expect(
+      issues(defineConfig({ sourceRoots: ['other'], graphs: [graph] })),
+    ).toContain('Layer path "src/app" is not inside any source root');
   });
 
   it.each(['/src', '../src', 'src/**'])('rejects invalid path %s', (path) => {
-    expect(() => layer('app', [path], { description: 'App' })).toThrow();
+    const app = layer('app', [path], { description: 'App' });
+    const sink = layer('sink', ['sink'], { description: 'Sink' });
+    expect(
+      issues(
+        defineConfig({
+          sourceRoots: ['.'],
+          graphs: [
+            layerGraph('application', [edge(app, sink)], {
+              description: 'Application architecture',
+            }),
+          ],
+        }),
+      ),
+    ).not.toBe('');
   });
 
   it('requires rules to reuse explicitly declared modules', () => {
@@ -66,20 +88,22 @@ describe('config', () => {
     const declared = module('src/declared', { description: 'Declared' });
     const missing = module('src/missing', { description: 'Missing' });
 
-    expect(() =>
-      defineConfig({
-        sourceRoots: ['src', 'sink'],
-        graphs: [
-          layerGraph(
-            'application',
-            [edge(app, layer('sink', ['sink'], { description: 'Sink' }))],
-            { description: 'Application architecture' },
-          ),
-        ],
-        modules: [declared],
-        moduleRules: [rules(declared, { canImport: [missing] })],
-      }),
-    ).toThrow(/must reuse module "src\/missing" from config\.modules/);
+    expect(
+      issues(
+        defineConfig({
+          sourceRoots: ['src', 'sink'],
+          graphs: [
+            layerGraph(
+              'application',
+              [edge(app, layer('sink', ['sink'], { description: 'Sink' }))],
+              { description: 'Application architecture' },
+            ),
+          ],
+          modules: [declared],
+          moduleRules: [rules(declared, { canImport: [missing] })],
+        }),
+      ),
+    ).toMatch(/must reuse module "src\/missing" from config\.modules/);
   });
 
   it('allows a non-sink layer to connect multiple graphs', () => {
@@ -91,42 +115,46 @@ describe('config', () => {
       description: 'Foundation',
     });
 
-    expect(() =>
-      defineConfig({
-        sourceRoots: ['src'],
-        graphs: [
-          layerGraph('feature', [edge(feature, core)], {
-            description: 'Feature architecture',
-          }),
-          layerGraph('core', [edge(core, foundation)], {
-            description: 'Core architecture',
-          }),
-        ],
-      }),
-    ).not.toThrow();
+    expect(
+      issues(
+        defineConfig({
+          sourceRoots: ['src'],
+          graphs: [
+            layerGraph('feature', [edge(feature, core)], {
+              description: 'Feature architecture',
+            }),
+            layerGraph('core', [edge(core, foundation)], {
+              description: 'Core architecture',
+            }),
+          ],
+        }),
+      ),
+    ).toBe('');
   });
 
   it('rejects multiple rule declarations for one module', () => {
     const app = layer('app', ['src'], { description: 'App' });
     const feature = module('src/feature', { description: 'Feature' });
 
-    expect(() =>
-      defineConfig({
-        sourceRoots: ['src', 'sink'],
-        graphs: [
-          layerGraph(
-            'application',
-            [edge(app, layer('sink', ['sink'], { description: 'Sink' }))],
-            { description: 'Application architecture' },
-          ),
-        ],
-        modules: [feature],
-        moduleRules: [
-          rules(feature, { canImport: [] }),
-          rules(feature, { canImportedBy: [] }),
-        ],
-      }),
-    ).toThrow(/more than one rules declaration/);
+    expect(
+      issues(
+        defineConfig({
+          sourceRoots: ['src', 'sink'],
+          graphs: [
+            layerGraph(
+              'application',
+              [edge(app, layer('sink', ['sink'], { description: 'Sink' }))],
+              { description: 'Application architecture' },
+            ),
+          ],
+          modules: [feature],
+          moduleRules: [
+            rules(feature, { canImport: [] }),
+            rules(feature, { canImportedBy: [] }),
+          ],
+        }),
+      ),
+    ).toMatch(/more than one rules declaration/);
   });
 
   it('reports every empty architecture description together', () => {
@@ -134,20 +162,15 @@ describe('config', () => {
     const sink = layer('sink', ['sink'], { description: '\n' });
     const feature = module('src/feature', { description: '\t' });
 
-    let error: unknown;
-    try {
+    const message = issues(
       defineConfig({
         sourceRoots: ['src', 'sink'],
         graphs: [
           layerGraph('application', [edge(app, sink)], { description: ' ' }),
         ],
         modules: [feature],
-      });
-    } catch (cause) {
-      error = cause;
-    }
-    expect(error).toBeInstanceOf(Error);
-    const message = (error as Error).message;
+      }),
+    );
     expect(message).toContain(
       'Layer Graph "application" description must not be empty',
     );
@@ -158,44 +181,24 @@ describe('config', () => {
     );
   });
 
-  it('validates Project Narrative references by declared identity', () => {
+  it('validates Project Narrative metadata and Markdown content', () => {
     const app = layer('app', ['src'], { description: 'Application' });
     const sink = layer('sink', ['sink'], { description: 'Sink' });
     const graph = layerGraph('application', [edge(app, sink)], {
       description: 'Application architecture',
     });
-    const feature = module('src/feature', { description: 'Feature' });
-    const recreatedGraph = layerGraph('application', [edge(app, sink)], {
-      description: 'Application architecture',
-    });
-    const recreatedApp = layer('app', ['src'], { description: 'Application' });
-    const recreatedFeature = module('src/feature', { description: 'Feature' });
 
-    let error: unknown;
-    try {
+    const message = issues(
       defineConfig({
         sourceRoots: ['src', 'sink'],
         graphs: [graph],
-        modules: [feature],
-        project: projectNarrative('Example', [
-          projectMap(
-            topic('Core', {
-              description: markdown`
-Core responsibility
-              `,
-              references: [recreatedGraph, recreatedApp, recreatedFeature],
-            }),
-          ),
-        ]),
-      });
-    } catch (cause) {
-      error = cause;
-    }
-    expect(error).toBeInstanceOf(Error);
-    const message = (error as Error).message;
-    expect(message).toContain('must reuse declared layer-graph "application"');
-    expect(message).toContain('must reuse declared layer "app"');
-    expect(message).toContain('must reuse declared module "src/feature"');
+        project: projectNarrative(' ', markdown``),
+      }),
+    );
+    expect(message).toContain('Project Narrative name must not be empty');
+    expect(message).toContain(
+      'Project Narrative Markdown content must not be empty',
+    );
   });
 
   it('serializes inline and imported Project Narratives identically', () => {
@@ -204,32 +207,19 @@ Core responsibility
     const graph = layerGraph('application', [edge(app, sink)], {
       description: 'Application architecture',
     });
-    const feature = module('src/feature', { description: 'Feature' });
-    const blocks = [
-      markdown`
+    const content = markdown`
 # Example
-      `,
-      projectMap(
-        topic('Core', {
-          description: markdown`
-Core responsibility
-          `,
-          references: [graph, app, feature],
-        }),
-      ),
-    ] as const;
-    const imported = projectNarrative('Example', blocks);
+    `;
+    const imported = projectNarrative('Example', content);
 
     const inline = defineConfig({
       sourceRoots: ['src', 'sink'],
       graphs: [graph],
-      modules: [feature],
-      project: projectNarrative('Example', blocks),
+      project: projectNarrative('Example', content),
     });
     const fromImport = defineConfig({
       sourceRoots: ['src', 'sink'],
       graphs: [graph],
-      modules: [feature],
       project: imported,
     });
 

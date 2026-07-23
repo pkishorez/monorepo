@@ -782,6 +782,14 @@ export class DynamoEntity<
       DynamoDB
     > => {
       return Effect.gen({ self: this }, function* () {
+        yield* step(
+          'Start deleting the entity',
+          {
+            description:
+              'Starts the delete flow before loading the current entity.',
+          },
+          () => Effect.void,
+        );
         const existing = yield* this.get(keyValue);
 
         return yield* decision(
@@ -844,8 +852,18 @@ export class DynamoEntity<
                 'Keeps the row and marks it deleted so downstream readers can reconcile it.',
             },
             () =>
-              this.update(keyValue, {
-                update: { _d: true } as any,
+              Effect.gen({ self: this }, function* () {
+                yield* step(
+                  'Write the deletion tombstone',
+                  {
+                    description:
+                      'Hands the soft delete to the guarded entity update path.',
+                  },
+                  () => Effect.void,
+                );
+                return yield* this.update(keyValue, {
+                  update: { _d: true } as any,
+                });
               }),
           ),
           exhaustive,

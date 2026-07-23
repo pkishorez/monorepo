@@ -4,16 +4,18 @@ import { join } from 'node:path';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 
-import { discoverStories, runAllStories, runStory } from 'laymos/node';
+import { discoverStories, runStories } from 'laymos/node';
 
 const baseDir = join(import.meta.dirname, '..');
-const checkoutStoryPath = 'src/stories/checkout';
-const accessStoryPath = 'src/stories/access-control';
-const failureStoryPath = 'src/stories/failure-evidence';
+const checkoutStoryPath = 'src/laymos/checkout';
+const accessStoryPath = 'src/laymos/access-control';
+const failureStoryPath = 'src/laymos/failure-evidence';
 
 describe('Laymos Stories consumer integration', () => {
   it('returns every artifact through a complete programmatic run', async () => {
-    const generation = await Effect.runPromise(runAllStories(baseDir));
+    const generation = await Effect.runPromise(
+      runStories({ projectDir: baseDir }),
+    );
     expect(generation.status).toBe('passed');
     expect(Object.keys(generation.runs.stories).sort()).toEqual([
       accessStoryPath,
@@ -27,7 +29,8 @@ describe('Laymos Stories consumer integration', () => {
   });
 
   it('records Decisions, attributes, skipped Scenarios, and parallel paths', async () => {
-    const runs = (await Effect.runPromise(runAllStories(baseDir))).runs;
+    const runs = (await Effect.runPromise(runStories({ projectDir: baseDir })))
+      .runs;
     const checkout = runs.stories[checkoutStoryPath]!;
     const access = runs.stories[accessStoryPath]!;
 
@@ -70,7 +73,9 @@ describe('Laymos Stories consumer integration', () => {
   });
 
   it('supports discovery, focused, and complete programmatic generation', async () => {
-    const catalog = await Effect.runPromise(discoverStories(baseDir));
+    const catalog = await Effect.runPromise(
+      discoverStories({ projectDir: baseDir }),
+    );
     expect(catalog.modules).toEqual([
       expect.objectContaining({
         modulePath: 'src',
@@ -82,12 +87,19 @@ describe('Laymos Stories consumer integration', () => {
       }),
     ]);
     const focused = await Effect.runPromise(
-      runStory(baseDir, checkoutStoryPath),
+      runStories({
+        projectDir: baseDir,
+        selectors: [{ _tag: 'Story', storyPath: checkoutStoryPath }],
+      }),
     );
-    const complete = await Effect.runPromise(runAllStories(baseDir));
+    const complete = await Effect.runPromise(
+      runStories({ projectDir: baseDir }),
+    );
 
     expect(focused.status).toBe('passed');
-    expect(focused.run.name).toBe('Checkout routing');
+    expect(focused.runs.stories[checkoutStoryPath]?.name).toBe(
+      'Checkout routing',
+    );
     expect(complete.status).toBe('passed');
     expect(Object.keys(complete.runs.stories)).toHaveLength(3);
     expect(existsSync(join(baseDir, '.laymos'))).toBe(false);
@@ -97,14 +109,19 @@ describe('Laymos Stories consumer integration', () => {
     process.env['LAYMOS_TEST_FORCE_FAILURE'] = '1';
     try {
       const result = await Effect.runPromise(
-        runStory(baseDir, failureStoryPath),
+        runStories({
+          projectDir: baseDir,
+          selectors: [{ _tag: 'Story', storyPath: failureStoryPath }],
+        }),
       );
 
       expect(result.status).toBe('failed');
-      expect(result.run.scenarios[0]).toMatchObject({
-        outcome: 'failed',
-        execution: [{ outcome: 'succeeded' }],
-      });
+      expect(result.runs.stories[failureStoryPath]?.scenarios[0]).toMatchObject(
+        {
+          outcome: 'failed',
+          execution: [{ outcome: 'succeeded' }],
+        },
+      );
     } finally {
       delete process.env['LAYMOS_TEST_FORCE_FAILURE'];
     }
