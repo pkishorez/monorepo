@@ -2,6 +2,9 @@ import { Lang, parse } from '@ast-grep/napi';
 import type { SgNode } from '@ast-grep/napi';
 import { Data, Effect, FileSystem, Path } from 'effect';
 
+import { loadConfig } from '../../config/load-config.js';
+import { findStorySurfaces } from '../core/story-surface.js';
+
 const storyModule = 'laymos/story';
 const storyFilePattern = /\.story\.[cm]?[jt]sx?$/;
 const sourceFileGlob = '**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}';
@@ -311,6 +314,11 @@ export function planStoryEjection(
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const config = yield* loadConfig(baseDir);
+    const storySurfaces = yield* Effect.promise(() =>
+      findStorySurfaces(baseDir, config.modules ?? []),
+    );
+    const deletions = storySurfaces.map(({ path }) => path).sort();
     const files = yield* fs.glob(sourceFileGlob, {
       root: baseDir,
       exclude: excludedSourceGlobs,
@@ -327,16 +335,14 @@ export function planStoryEjection(
     );
 
     const rewrites: StoryEjectionRewrite[] = [];
-    const deletions: string[] = [];
     const issues: string[] = [];
 
     for (const { relativePath, source } of analyzed) {
+      if (deletions.some((surface) => isWithinPath(relativePath, surface))) {
+        continue;
+      }
       if (!source.includes(storyModule)) continue;
       try {
-        if (isLaymosStoryFile(source, relativePath)) {
-          deletions.push(relativePath);
-          continue;
-        }
         const after = transformStorySource(source, relativePath);
         if (after !== source) {
           rewrites.push({ path: relativePath, before: source, after });
@@ -366,6 +372,10 @@ export function planStoryEjection(
   );
 }
 
+function isWithinPath(file: string, directory: string): boolean {
+  return file === directory || file.startsWith(`${directory}/`);
+}
+
 export function ejectStories(
   baseDir: string,
   options: { readonly dryRun?: boolean } = {},
@@ -387,24 +397,21 @@ export function ejectStories(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const written: StoryEjectionRewrite[] = [];
-    const removed: Array<{
-      readonly path: string;
-      readonly content: string;
-      readonly mode: number;
-    }> = [];
-    const deletionBackups = yield* Effect.forEach(
+    const removed: string[] = [];
+    const backupDirectory = yield* fs.makeTempDirectory({
+      directory: baseDir,
+      prefix: '.laymos-eject-backup-',
+    });
+    yield* Effect.forEach(
       plan.deletions,
-      (relativePath) => {
-        const target = path.join(baseDir, relativePath);
-        return Effect.all([fs.readFileString(target), fs.stat(target)]).pipe(
-          Effect.map(([content, info]) => ({
-            path: relativePath,
-            content,
-            mode: info.mode,
-          })),
-        );
-      },
-      { concurrency: 16 },
+      (relativePath) =>
+        copyDirectory(
+          fs,
+          path,
+          path.join(baseDir, relativePath),
+          path.join(backupDirectory, relativePath),
+        ),
+      { concurrency: 16, discard: true },
     );
 
     const writeAll = Effect.gen(function* () {
@@ -417,9 +424,9 @@ export function ejectStories(
         );
         written.push(rewrite);
       }
-      for (const backup of deletionBackups) {
-        yield* fs.remove(path.join(baseDir, backup.path));
-        removed.push(backup);
+      for (const relativePath of plan.deletions) {
+        yield* fs.remove(path.join(baseDir, relativePath), { recursive: true });
+        removed.push(relativePath);
       }
     });
 
@@ -428,7 +435,14 @@ export function ejectStories(
         Effect.all(
           [
             restoreRewrites(fs, path, baseDir, written),
-            restoreRemovedStories(fs, path, baseDir, removed),
+            restoreRemovedStorySurfaces(
+              fs,
+              path,
+              baseDir,
+              backupDirectory,
+              removed,
+            ),
+            fs.remove(backupDirectory, { recursive: true }).pipe(Effect.ignore),
           ],
           { discard: true },
         ).pipe(
@@ -442,6 +456,7 @@ export function ejectStories(
         ),
       ),
     );
+    yield* fs.remove(backupDirectory, { recursive: true });
 
     return {
       changed: plan.rewrites.map(({ path }) => path),
@@ -2035,44 +2050,48 @@ function restoreRewrites(
   );
 }
 
-function restoreRemovedStories(
+function restoreRemovedStorySurfaces(
   fs: FileSystem.FileSystem,
   path: Path.Path,
   baseDir: string,
-  removed: readonly {
-    readonly path: string;
-    readonly content: string;
-    readonly mode: number;
-  }[],
+  backupDirectory: string,
+  removed: readonly string[],
 ): Effect.Effect<void, never> {
   return Effect.forEach(
     [...removed].reverse(),
-    (backup) =>
-      writeNewFileAtomically(
+    (relativePath) =>
+      copyDirectory(
         fs,
         path,
-        path.join(baseDir, backup.path),
-        backup.content,
-        backup.mode,
+        path.join(backupDirectory, relativePath),
+        path.join(baseDir, relativePath),
       ).pipe(Effect.ignore),
     { discard: true },
   );
 }
 
-function writeNewFileAtomically(
+function copyDirectory(
   fs: FileSystem.FileSystem,
   path: Path.Path,
+  source: string,
   target: string,
-  content: string,
-  mode: number,
 ): Effect.Effect<void, unknown> {
   return Effect.gen(function* () {
-    const temporary = yield* fs.makeTempFile({
-      directory: path.dirname(target),
-      prefix: '.laymos-eject-',
-    });
-    yield* fs.writeFileString(temporary, content);
-    yield* fs.chmod(temporary, mode);
-    yield* fs.rename(temporary, target);
+    const sourceInfo = yield* fs.stat(source);
+    yield* fs.makeDirectory(target, { recursive: true });
+    yield* fs.chmod(target, sourceInfo.mode);
+    const entries = yield* fs.readDirectory(source);
+    for (const entry of entries) {
+      const sourceEntry = path.join(source, entry);
+      const targetEntry = path.join(target, entry);
+      const info = yield* fs.stat(sourceEntry);
+      if (info.type === 'Directory') {
+        yield* copyDirectory(fs, path, sourceEntry, targetEntry);
+        continue;
+      }
+      const content = yield* fs.readFile(sourceEntry);
+      yield* fs.writeFile(targetEntry, content);
+      yield* fs.chmod(targetEntry, info.mode);
+    }
   });
 }

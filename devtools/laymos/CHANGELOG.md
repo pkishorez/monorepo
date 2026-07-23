@@ -1,5 +1,18 @@
 # laymos
 
+## Unreleased
+
+### Changed
+
+- Stories are owned by folder Modules through flat `stories/` surfaces.
+  Discovery and execution use suffixless Story paths, Module execution replaces
+  Group execution, and ejection removes every complete Story surface.
+- The optional Project Narrative combines Markdown with typed Project Map
+  references to Layer Graphs, Layers, and Modules without becoming an
+  executable Story.
+- Story coverage is reported per Story as narrated, omitted, and unnarrated
+  percentages, with no Module, Layer, or Project rollup.
+
 ## 0.0.1
 
 ### Patch Changes

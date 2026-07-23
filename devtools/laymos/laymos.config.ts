@@ -1,64 +1,113 @@
 import { defineConfig, edge, layer, layerGraph, module, rules } from 'laymos';
 
-const cli = layer('cli', ['src/cli']);
-const nodeApi = layer('node-api', ['src/node.ts']);
-const engine = layer('engine', ['src/engine']);
-const configDsl = layer('config-dsl', ['src/config', 'src/index.ts']);
-const report = layer('report', ['src/report']);
-const tests = layer('tests', ['test']);
+const cli = layer('cli', ['src/cli'], { description: 'CLI commands' });
+const nodeApi = layer('node-api', ['src/node.ts'], {
+  description: 'Node.js API',
+});
+const engine = layer('engine', ['src/engine'], {
+  description: 'Static architecture analysis',
+});
+const configDsl = layer('config-dsl', ['src/config', 'src/index.ts'], {
+  description: 'Public architecture configuration',
+});
+const report = layer('report', ['src/report'], {
+  description: 'Serializable analysis reports',
+});
+const tests = layer('tests', ['test'], { description: 'Package tests' });
 
-const storyAdapters = layer('story-adapters', ['src/story/effect']);
-const storyRuntime = layer('story-runtime', ['src/story/story-runtime']);
-const storyTooling = layer('story-tooling', [
-  'src/story/coverage',
-  'src/story/eject',
-  'src/story/runner',
-]);
-const storyCore = layer('story-core', ['src/story/core', 'src/story/artifact']);
+const storyAdapters = layer('story-adapters', ['src/story/effect'], {
+  description: 'Effect Story authoring adapter',
+});
+const storyRuntime = layer('story-runtime', ['src/story/story-runtime'], {
+  description: 'Story runtime implementation',
+});
+const storyTooling = layer(
+  'story-tooling',
+  ['src/story/coverage', 'src/story/eject', 'src/story/runner'],
+  { description: 'Story inspection and maintenance tools' },
+);
+const storyCore = layer(
+  'story-core',
+  ['src/story/core', 'src/story/artifact'],
+  {
+    description: 'Shared Story domain',
+  },
+);
 
-const cliModule = module('src/cli');
-const nodeApiModule = module('src/node.ts');
+const cliModule = module('src/cli', { description: 'CLI commands' });
+const nodeApiModule = module('src/node.ts', { description: 'Node.js API' });
 
-const configModule = module('src/config');
-const configEntryModule = module('src/index.ts');
-const reportModule = module('src/report');
-const testsModule = module('test');
+const configModule = module('src/config', { description: 'Config DSL' });
+const configEntryModule = module('src/index.ts', {
+  description: 'Public package entrypoint',
+});
+const reportModule = module('src/report', { description: 'Report types' });
+const testsModule = module('test', { description: 'Package tests' });
 
-const engineErrorsModule = module('src/engine/errors.ts');
-const extractModule = module('src/engine/1-extract');
-const resolveModule = module('src/engine/2-resolve');
-const evaluateModule = module('src/engine/3-evaluate');
-const emitModule = module('src/engine/4-emit');
+const engineErrorsModule = module('src/engine/errors.ts', {
+  description: 'Engine errors',
+});
+const extractModule = module('src/engine/1-extract', {
+  description: 'Source extraction',
+});
+const resolveModule = module('src/engine/2-resolve', {
+  description: 'Architecture resolution',
+});
+const evaluateModule = module('src/engine/3-evaluate', {
+  description: 'Rule evaluation',
+});
+const emitModule = module('src/engine/4-emit', {
+  description: 'Report emission',
+});
 
-const storyArtifactModule = module('src/story/artifact');
-const storyCoreModule = module('src/story/core');
-const storyEffectModule = module('src/story/effect');
-const storyRuntimeModule = module('src/story/story-runtime');
-const storyCoverageModule = module('src/story/coverage');
-const storyEjectModule = module('src/story/eject');
-const storyRunnerModule = module('src/story/runner');
+const storyArtifactModule = module('src/story/artifact', {
+  description: 'Serializable Story artifacts',
+});
+const storyCoreModule = module('src/story/core', {
+  description: 'Story domain',
+});
+const storyEffectModule = module('src/story/effect', {
+  description: 'Effect Story authoring',
+});
+const storyRuntimeModule = module('src/story/story-runtime', {
+  description: 'Story runtime',
+});
+const storyCoverageModule = module('src/story/coverage', {
+  description: 'Story coverage',
+});
+const storyEjectModule = module('src/story/eject', {
+  description: 'Story ejection',
+});
+const storyRunnerModule = module('src/story/runner', {
+  description: 'Story discovery and execution',
+});
 
 export default defineConfig({
   sourceRoots: ['src', 'test'],
   graphs: [
-    layerGraph('tooling', [
-      edge(cli, nodeApi),
-      edge(nodeApi, [engine, configDsl, report, storyTooling, storyCore]),
-      edge(engine, [configDsl, report]),
-      edge(report, storyCore),
-      edge(storyAdapters, storyCore),
-      edge(storyRuntime, storyCore),
-      edge(storyTooling, [report, storyCore]),
-      edge(tests, [
-        nodeApi,
-        engine,
-        configDsl,
-        report,
-        storyAdapters,
-        storyTooling,
-        storyCore,
-      ]),
-    ]),
+    layerGraph(
+      'tooling',
+      [
+        edge(cli, nodeApi),
+        edge(nodeApi, [engine, configDsl, report, storyTooling, storyCore]),
+        edge(engine, [configDsl, report]),
+        edge(configDsl, storyCore),
+        edge(report, storyCore),
+        edge(storyAdapters, storyCore),
+        edge(storyRuntime, storyCore),
+        edge(storyTooling, [report, storyCore]),
+        edge(tests, [
+          nodeApi,
+          engine,
+          configDsl,
+          report,
+          storyAdapters,
+          storyTooling,
+          storyCore,
+        ]),
+      ],
+      { description: 'Laymos package architecture' },
+    ),
   ],
   modules: [
     cliModule,
@@ -81,8 +130,9 @@ export default defineConfig({
     storyRunnerModule,
   ],
   moduleRules: [
-    rules(configEntryModule, { canImport: [configModule] }),
+    rules(configEntryModule, { canImport: [configModule, storyCoreModule] }),
     rules(configModule, {
+      canImport: [storyCoreModule],
       canImportedBy: [
         configEntryModule,
         nodeApiModule,

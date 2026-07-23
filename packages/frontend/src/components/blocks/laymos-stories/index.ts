@@ -1,8 +1,9 @@
 export { LaymosStories } from './components/laymos-stories';
+export { ProjectNarrative } from './components/project-narrative';
+export { RichMarkdown } from './components/rich-markdown';
 export type {
   LaymosStoriesProps,
   LaymosStoriesRunState,
-  LaymosStoriesSidebarExpansion,
   LaymosStoryCanvasPreferences,
   LaymosStoryExecutionState,
   LaymosStoriesSelection,

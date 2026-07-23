@@ -1,16 +1,16 @@
 import { fork } from 'node:child_process';
 import { Cause, Effect, Queue, Stream } from 'effect';
-import { analyzeProject, getStories } from 'laymos/node';
-import type { LaymosReport, StoryCollection } from 'laymos/report';
-import {
-  DevtoolsRpcError,
-  type LaymosBootstrapEvent,
-  type LaymosEvent,
-} from '../rpc/index.js';
+import { NodeServices } from '@effect/platform-node';
+import { analyzeProject, getStories, getStoryCoverage } from 'laymos/node';
+import type {
+  LaymosReport,
+  StoryCollection,
+  StoryCoverageReport,
+} from 'laymos/report';
+import { DevtoolsRpcError, type OpenLaymosProjectEvent } from '../rpc/index.js';
 
 /** Selects the one-shot laymos worker mode in the bundled server entrypoint. */
 export const LAYMOS_DIR_ENV = 'DEVTOOLS_LAYMOS_DIR';
-export const LAYMOS_MODE_ENV = 'DEVTOOLS_LAYMOS_MODE';
 
 type WorkerMessage =
   | {
@@ -18,6 +18,7 @@ type WorkerMessage =
       architecture: LaymosReport;
       bootstrap?: {
         stories: StoryCollection;
+        storyCoverage: StoryCoverageReport;
         files: readonly string[];
       };
     }
@@ -36,10 +37,7 @@ const errorMessage = (cause: unknown): string => {
 };
 
 /** Run laymos once and send its report to the parent process. */
-export const runLaymosWorker = (
-  dir: string,
-  mode: 'architecture' | 'bootstrap',
-) => {
+export const runLaymosWorker = (dir: string) => {
   const post = (message: WorkerMessage, onFlushed?: () => void) => {
     if (process.send) {
       process.send(message, undefined, undefined, onFlushed);
@@ -48,22 +46,23 @@ export const runLaymosWorker = (
     }
   };
 
-  const operation =
-    mode === 'bootstrap'
-      ? Effect.all([analyzeProject(dir), getStories(dir)], {
-          concurrency: 'unbounded',
-        }).pipe(
-          Effect.map(([architecture, stories]) => ({
-            architecture,
-            bootstrap: {
-              stories,
-              files: projectFiles(architecture, stories),
-            },
-          })),
-        )
-      : analyzeProject(dir).pipe(
-          Effect.map((architecture) => ({ architecture })),
-        );
+  const operation = Effect.all([analyzeProject(dir), getStories(dir)], {
+    concurrency: 'unbounded',
+  }).pipe(
+    Effect.flatMap(([architecture, stories]) =>
+      getStoryCoverage(dir, stories).pipe(
+        Effect.map((storyCoverage) => ({
+          architecture,
+          bootstrap: {
+            stories,
+            storyCoverage,
+            files: projectFiles(architecture, stories),
+          },
+        })),
+      ),
+    ),
+    Effect.provide(NodeServices.layer),
+  );
 
   void Effect.runPromise(operation)
     .then((result) => {
@@ -82,80 +81,11 @@ export const runLaymosWorker = (
     });
 };
 
-/** Stream liveness heartbeats followed by the terminal laymos report. */
-export const runLaymosStream = (
+/** Open architecture and Story definitions as one coherent project model. */
+export const openLaymosProjectStream = (
   dir: string,
-): Stream.Stream<LaymosEvent, DevtoolsRpcError> =>
-  Stream.callback<LaymosEvent, DevtoolsRpcError>((queue) =>
-    Effect.acquireRelease(
-      Effect.sync(() => {
-        const startedAt = Date.now();
-        const elapsedMs = () => Date.now() - startedAt;
-        const fail = (message: string) =>
-          Queue.failCauseUnsafe(
-            queue,
-            Cause.fail(new DevtoolsRpcError({ message })),
-          );
-
-        const child = fork(process.argv[1] as string, [], {
-          env: {
-            ...process.env,
-            [LAYMOS_DIR_ENV]: dir,
-            [LAYMOS_MODE_ENV]: 'architecture',
-          },
-        });
-        let settled = false;
-        const heartbeat = setInterval(() => {
-          Queue.offerUnsafe(queue, {
-            _tag: 'Heartbeat',
-            elapsedMs: elapsedMs(),
-          });
-        }, 1000);
-
-        child.on('message', (message: WorkerMessage) => {
-          switch (message.type) {
-            case 'result':
-              settled = true;
-              Queue.offerUnsafe(queue, {
-                _tag: 'Result',
-                result: { available: true, data: message.architecture },
-              });
-              Queue.endUnsafe(queue);
-              break;
-            case 'error':
-              settled = true;
-              fail(message.message);
-              break;
-          }
-        });
-        child.on('error', (cause: Error) => {
-          settled = true;
-          fail(cause.message);
-        });
-        child.on('exit', (code) => {
-          if (settled) return;
-          fail(
-            code === 0
-              ? 'laymos worker exited without a result'
-              : `laymos worker exited with code ${code}`,
-          );
-        });
-
-        return { child, heartbeat };
-      }),
-      ({ child, heartbeat }) =>
-        Effect.sync(() => {
-          clearInterval(heartbeat);
-          child.kill();
-        }),
-    ),
-  );
-
-/** Bootstrap architecture and Story definitions as one coherent project model. */
-export const bootstrapLaymosProjectStream = (
-  dir: string,
-): Stream.Stream<LaymosBootstrapEvent, DevtoolsRpcError> =>
-  Stream.callback<LaymosBootstrapEvent, DevtoolsRpcError>((queue) =>
+): Stream.Stream<OpenLaymosProjectEvent, DevtoolsRpcError> =>
+  Stream.callback<OpenLaymosProjectEvent, DevtoolsRpcError>((queue) =>
     Effect.acquireRelease(
       Effect.sync(() => {
         const startedAt = Date.now();
@@ -168,7 +98,6 @@ export const bootstrapLaymosProjectStream = (
           env: {
             ...process.env,
             [LAYMOS_DIR_ENV]: dir,
-            [LAYMOS_MODE_ENV]: 'bootstrap',
           },
         });
         let settled = false;
@@ -197,6 +126,7 @@ export const bootstrapLaymosProjectStream = (
               data: {
                 architecture: message.architecture,
                 stories: message.bootstrap.stories,
+                storyCoverage: message.bootstrap.storyCoverage,
                 files: [...message.bootstrap.files],
               },
             },

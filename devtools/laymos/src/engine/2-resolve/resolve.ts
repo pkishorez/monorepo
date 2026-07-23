@@ -77,6 +77,7 @@ export function resolveProject(
         ],
       ),
     ),
+    storyImports: fileGraph.storyImports,
   };
 
   return Effect.succeed({

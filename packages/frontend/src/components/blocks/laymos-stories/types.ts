@@ -1,29 +1,29 @@
 import type {
+  ProjectReference,
   StoriesRun,
   StoryCollection,
-  StoryGroupPath,
-  StoryId,
+  StoryPath,
 } from 'laymos/report';
 import type { ReactNode } from 'react';
 import type { StoryGraphNode } from './lib/model';
 
 export type LaymosStoriesSelection =
-  | { readonly kind: 'group'; readonly groupPath: StoryGroupPath }
-  | { readonly kind: 'story'; readonly storyId: StoryId }
+  | { readonly kind: 'project-narrative' }
+  | { readonly kind: 'catalog' }
+  | { readonly kind: 'module'; readonly modulePath: string }
+  | { readonly kind: 'story'; readonly storyPath: StoryPath }
   | {
       readonly kind: 'scenario';
-      readonly storyId: StoryId;
+      readonly storyPath: StoryPath;
       readonly scenarioIndex: number;
     }
   | null;
 
 export type LaymosStoriesRunState =
-  | { readonly kind: 'group'; readonly groupPath: StoryGroupPath }
-  | { readonly kind: 'story'; readonly storyId: StoryId }
+  | { readonly kind: 'module'; readonly modulePath: string }
+  | { readonly kind: 'story'; readonly storyPath: StoryPath }
   | { readonly kind: 'all' }
   | null;
-
-export type LaymosStoriesSidebarExpansion = 'single' | 'recursive';
 
 export interface LaymosStoryCanvasPreferences {
   readonly showDetails: boolean;
@@ -41,13 +41,14 @@ export interface LaymosStoriesProps {
   readonly collection: StoryCollection;
   readonly runs: StoriesRun;
   readonly storyStates?: Readonly<
-    Partial<Record<StoryId, LaymosStoryExecutionState>>
+    Partial<Record<StoryPath, LaymosStoryExecutionState>>
   >;
   readonly runState: LaymosStoriesRunState;
   readonly selection: LaymosStoriesSelection;
   readonly onSelectionChange: (selection: LaymosStoriesSelection) => void;
   readonly selectedNodeId?: string | null;
   readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
+  readonly onHoveredNodeIdChange?: (nodeId: string | null) => void;
   readonly onNodeClick?: (
     node: StoryGraphNode,
     context: { readonly modified: boolean },
@@ -58,14 +59,16 @@ export interface LaymosStoriesProps {
     readonly requestId: number;
   } | null;
   readonly renderNodeActions?: (node: StoryGraphNode) => ReactNode;
-  readonly onRunStory?: (storyId: StoryId) => void;
-  readonly onRunGroup?: (groupPath: StoryGroupPath) => void;
+  readonly onRunModule?: (modulePath: string) => void;
+  readonly onRunStory?: (storyPath: StoryPath) => void;
   readonly onRunAll?: () => void;
+  readonly onProjectReferenceClick?: (reference: ProjectReference) => void;
+  readonly defaultStoryView?: 'narrative' | 'graph';
+  readonly graphOnly?: boolean;
   readonly canvasPreferences?: LaymosStoryCanvasPreferences;
   readonly onCanvasPreferencesChange?: (
     preferences: LaymosStoryCanvasPreferences,
   ) => void;
-  readonly sidebarExpansion?: LaymosStoriesSidebarExpansion;
   readonly showNavigator?: boolean;
   readonly className?: string;
   readonly ariaLabel?: string;

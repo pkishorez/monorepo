@@ -8,11 +8,11 @@ import {
   queryMetrics,
   queryTraces,
 } from '@pkishorez/lotel';
-import { getStories, projectStorySource, runStory } from 'laymos/node';
+import { projectStorySource, runStory } from 'laymos/node';
 import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 import { getTrace } from './get-trace/index.js';
-import { bootstrapLaymosProjectStream, runLaymosStream } from './laymos.js';
+import { openLaymosProjectStream } from './laymos.js';
 import { runStoriesStream } from './stories.js';
 
 const toRpcError = (cause: unknown): DevtoolsRpcError =>
@@ -54,31 +54,20 @@ const readProjectFile = (projectPath: string, filePath: string) =>
  * which is provided by the server entrypoint.
  */
 export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
-  BootstrapLaymosProject: ({ path: input }) => {
+  OpenLaymosProject: ({ path: input }) => {
     const dir = resolvePath(input);
     return existsSync(path.join(dir, 'laymos.config.ts'))
-      ? bootstrapLaymosProjectStream(dir)
-      : Stream.make({
-          _tag: 'Result' as const,
-          result: { available: false as const },
-        });
-  },
-  RunLaymos: ({ path: input }) => {
-    const dir = resolvePath(input);
-    return existsSync(path.join(dir, 'laymos.config.ts'))
-      ? runLaymosStream(dir)
+      ? openLaymosProjectStream(dir)
       : Stream.make({
           _tag: 'Result' as const,
           result: { available: false as const },
         });
   },
   RunAllStories: ({ path: input }) => runStoriesStream(resolvePath(input)),
-  RunStory: ({ path: input, storyId }) =>
-    laymosOperation(runStory(resolvePath(input), storyId)),
-  RunStoryGroup: ({ path: input, groupPath }) =>
-    runStoriesStream(resolvePath(input), groupPath),
-  GetStories: ({ path: input }) =>
-    laymosOperation(getStories(resolvePath(input))),
+  RunStory: ({ path: input, storyPath }) =>
+    laymosOperation(runStory(resolvePath(input), storyPath)),
+  RunModuleStories: ({ path: input, modulePath }) =>
+    runStoriesStream(resolvePath(input), modulePath),
   ReadProjectFile: ({ path: input, filePath }) =>
     readProjectFile(input, filePath),
   ReadStorySource: ({ path: input, filePath, anchors }) =>

@@ -15,6 +15,9 @@ import {
 } from 'effect';
 import { createJiti } from 'jiti';
 
+import { loadConfig } from '../../config/load-config.js';
+import type { LaymosConfig } from '../../config/types.js';
+import { serializeProjectNarrative } from '../core/project-narrative.js';
 import {
   CurrentTrace,
   ScenarioRecorder,
@@ -32,15 +35,13 @@ import type {
   StoryTraceResult,
 } from '../artifact/types.js';
 import { collectDeclaredStories } from '../core/declare.js';
-import type {
-  ScenarioDeclaration,
-  StoryDeclaration,
-  StoryGroupDeclaration,
-} from '../core/declare.js';
+import type { ScenarioDeclaration, StoryDeclaration } from '../core/declare.js';
+import { findStorySurfaces } from '../core/story-surface.js';
+import type { StorySurface } from '../core/story-surface.js';
 import { CurrentRecorder } from '../core/recorder.js';
 import type {
   StoryCatalog,
-  StoryCatalogGroup,
+  StoryCatalogModule,
   StoryCatalogStory,
   StoryCollection,
 } from '../../report/stories.js';
@@ -86,9 +87,8 @@ export class StoryDiscoveryError extends Data.TaggedError(
   readonly issues: readonly StoryDiscoveryIssue[];
 }> {}
 
-const storyFilePattern = /\.story\.[cm]?[jt]sx?$/;
-const validStoryFile = /^[a-z0-9]+(?:-[a-z0-9]+)*\.story\.(?:[cm]?[jt]sx?)$/;
-const skippedSegments = new Set(['node_modules', 'dist']);
+const storyFilePattern = /\.story\.ts$/;
+const validStoryFile = /^[a-z0-9]+(?:-[a-z0-9]+)*\.story\.ts$/;
 const defaultTimeout: Duration.Input = '60 seconds';
 const storyRuntimePath = resolve(
   import.meta.dirname,
@@ -111,12 +111,15 @@ export function getStories(
 ): Effect.Effect<StoryCollection, StoryDiscoveryError> {
   return Effect.gen(function* () {
     enableSourceMaps();
-    const { catalog, declarations } = yield* discoverStoryDeclarations(baseDir);
+    const { catalog, declarations, project, modulePaths } =
+      yield* discoverStoryDeclarations(baseDir);
     const traces: Record<string, StoryTraceResult> = {};
     for (const { storyId, declaration } of declarations) {
-      const traced = yield* traceDeclaredStory(baseDir, declaration).pipe(
-        Effect.exit,
-      );
+      const traced = yield* traceDeclaredStory(
+        baseDir,
+        declaration,
+        modulePaths,
+      ).pipe(Effect.exit);
       if (Exit.isFailure(traced)) {
         traces[storyId] = {
           status: 'invalid',
@@ -128,7 +131,11 @@ export function getStories(
         traces[storyId] = traced.value;
       }
     }
-    return { catalog, traces };
+    return {
+      catalog,
+      traces,
+      ...(project === undefined ? {} : { project }),
+    };
   }).pipe(
     Effect.mapError((cause) =>
       cause instanceof StoryDiscoveryError
@@ -144,6 +151,7 @@ export function getStories(
 function traceDeclaredStory(
   baseDir: string,
   declaration: StoryDeclaration,
+  modulePaths: readonly string[],
 ): Effect.Effect<StoryTraceResult> {
   if (declaration.execution === undefined) {
     return Effect.succeed({
@@ -153,7 +161,7 @@ function traceDeclaredStory(
       execution: [],
     });
   }
-  const blocks = new StoryBlockRegistry(baseDir);
+  const blocks = new StoryBlockRegistry(baseDir, modulePaths);
   const recorder = new TraceRecorder(blocks);
   const context = { recorder, path: recorder.root };
   return Effect.suspend(
@@ -233,22 +241,46 @@ function runStoriesGeneration(
   options: StoryRunOptions | undefined,
 ): Effect.Effect<StoriesRunResult, unknown> {
   return Effect.gen(function* () {
-    if (filters.length > 0) {
-      yield* fromPromise(() => assertProjectStoryAuthoring(baseDir));
+    const discovery = yield* discoverStoryDeclarations(baseDir);
+    const catalogStories = discovery.catalog.modules.flatMap(
+      ({ stories }) => stories,
+    );
+    const configuredStoryIds = new Set(
+      catalogStories.map(({ storyPath }) => storyPath),
+    );
+    const byModule = new Map(
+      discovery.modulePaths.map((modulePath) => [modulePath, [] as string[]]),
+    );
+    for (const module of discovery.catalog.modules) {
+      byModule.set(
+        module.modulePath,
+        module.stories.map(({ storyPath }) => storyPath),
+      );
     }
-    const files =
-      filters.length > 0
-        ? [...filters].sort()
-        : yield* discoverStories(baseDir).pipe(
-            Effect.map(({ stories }) => stories.map(({ storyId }) => storyId)),
-          );
-    yield* attempt(() => {
-      for (const storyId of files) {
+    const files = yield* attempt(() => {
+      const selected =
+        filters.length > 0
+          ? [
+              ...new Set(
+                filters.flatMap((selector) => {
+                  if (configuredStoryIds.has(selector)) return [selector];
+                  const moduleStories = byModule.get(selector);
+                  if (moduleStories !== undefined) return moduleStories;
+                  throw new Error(`Unknown Story selector: ${selector}`);
+                }),
+              ),
+            ].sort()
+          : catalogStories.map(({ storyPath }) => storyPath);
+      for (const storyId of selected) {
         validateStoryFile(storyId);
-        if (!existsSync(resolve(baseDir, storyId))) {
-          throw new Error(`Story file not found: ${storyId}`);
+        if (!configuredStoryIds.has(storyId)) {
+          throw new Error(`Story file is not configured: ${storyId}`);
+        }
+        if (!existsSync(resolve(baseDir, `${storyId}.story.ts`))) {
+          throw new Error(`Story file not found: ${storyId}.story.ts`);
         }
       }
+      return selected;
     });
 
     const declarations: Array<{
@@ -271,7 +303,11 @@ function runStoriesGeneration(
       Extract<StoryTraceResult, { readonly status: 'valid' }>
     >();
     for (const { storyId, declaration } of declarations) {
-      const trace = yield* traceDeclaredStory(baseDir, declaration);
+      const trace = yield* traceDeclaredStory(
+        baseDir,
+        declaration,
+        discovery.modulePaths,
+      );
       if (trace.status === 'invalid') {
         return yield* Effect.fail(
           new Error(
@@ -292,6 +328,7 @@ function runStoriesGeneration(
         traces.get(storyId)!,
         options,
         failures,
+        discovery.modulePaths,
       );
       stories[storyId] = run;
     }
@@ -311,6 +348,7 @@ function runDeclaredStory(
   trace: Extract<StoryTraceResult, { readonly status: 'valid' }>,
   options: StoryRunOptions | undefined,
   failures: StoryFailure[],
+  modulePaths: readonly string[],
 ): Effect.Effect<StoryRun, unknown> {
   return Effect.scoped(
     Effect.gen(function* () {
@@ -325,7 +363,7 @@ function runDeclaredStory(
           : yield* Layer.build(
               declaration.execution.layer as Layer.Layer<any, any, never>,
             );
-      const blocks = new StoryBlockRegistry(baseDir);
+      const blocks = new StoryBlockRegistry(baseDir, modulePaths);
       const scenarios: StoryScenario[] = [];
       for (const declared of declaration.scenarios) {
         scenarios.push(
@@ -345,6 +383,9 @@ function runDeclaredStory(
         generatedAt: Date.now(),
         name: declaration.name,
         description: declaration.description,
+        ...(declaration.documentation === undefined
+          ? {}
+          : { documentation: declaration.documentation }),
         blocks: allBlocks,
         scenarios,
         scenarioNodeCoverage: scenarioNodeCoverage(allBlocks, scenarios),
@@ -390,8 +431,11 @@ function runScenario(
   const base = {
     name: declared.name,
     description: declared.description,
+    ...(declared.documentation === undefined
+      ? {}
+      : { documentation: declared.documentation }),
     location: {
-      file: storyId,
+      file: `${storyId}.story.ts`,
       line: declared.location.line,
       column: declared.location.column,
     },
@@ -704,7 +748,7 @@ async function loadStoryModule(
   baseDir: string,
   storyId: string,
 ): Promise<void> {
-  const path = resolve(baseDir, storyId);
+  const path = resolve(baseDir, `${storyId}.story.ts`);
   const jiti = createJiti(import.meta.url, {
     alias: { 'laymos/story': storyRuntimePath },
     interopDefault: true,
@@ -727,29 +771,46 @@ interface StoryDiscovery {
     readonly storyId: string;
     readonly declaration: StoryDeclaration;
   }[];
+  readonly project?: import('../core/project-narrative.js').ProjectNarrative;
+  readonly modulePaths: readonly string[];
 }
 
 function discoverStoryDeclarations(
   baseDir: string,
 ): Effect.Effect<StoryDiscovery, StoryDiscoveryError> {
-  return Effect.tryPromise({
-    try: () => buildStoryDiscovery(baseDir),
-    catch: (cause) =>
+  return loadConfig(baseDir).pipe(
+    Effect.flatMap((config) =>
+      Effect.tryPromise({
+        try: () => buildStoryDiscovery(baseDir, config),
+        catch: (cause) =>
+          cause instanceof StoryDiscoveryError
+            ? cause
+            : discoveryError([{ message: errorMessage(cause) }]),
+      }),
+    ),
+    Effect.mapError((cause) =>
       cause instanceof StoryDiscoveryError
         ? cause
         : discoveryError([{ message: errorMessage(cause) }]),
-  });
+    ),
+  );
 }
 
-async function buildStoryDiscovery(baseDir: string): Promise<StoryDiscovery> {
-  await assertProjectStoryAuthoring(baseDir);
-  const { storyIds, issues } = await discoverStoryFileIds(baseDir);
+async function buildStoryDiscovery(
+  baseDir: string,
+  config: LaymosConfig,
+): Promise<StoryDiscovery> {
+  const surfaces = await findStorySurfaces(baseDir, config.modules ?? []);
+  const { stories, issues } = await discoverStoryFiles(baseDir, surfaces);
   const declarations: Array<{
     readonly storyId: string;
+    readonly storyKey: string;
+    readonly surface: StorySurface;
     readonly declaration: StoryDeclaration;
   }> = [];
 
-  for (const storyId of storyIds) {
+  for (const discovered of stories) {
+    const { storyId, storyKey, surface } = discovered;
     try {
       const found = await collectDeclaredStories(() =>
         loadStoryModule(baseDir, storyId),
@@ -761,206 +822,129 @@ async function buildStoryDiscovery(baseDir: string): Promise<StoryDiscovery> {
         });
         continue;
       }
-      declarations.push({ storyId, declaration: found[0]! });
+      declarations.push({
+        storyId,
+        storyKey,
+        surface,
+        declaration: found[0]!,
+      });
     } catch (cause) {
       issues.push({ storyId, message: errorMessage(cause) });
     }
   }
 
-  const catalog = validateStoryCatalog(declarations, issues);
+  const catalog = validateStoryCatalog(declarations);
   if (issues.length > 0) throw discoveryError(issues);
-  return { catalog, declarations };
+  return {
+    catalog,
+    declarations,
+    modulePaths: (config.modules ?? []).map(({ path }) => path),
+    ...(config.project === undefined
+      ? {}
+      : { project: serializeProjectNarrative(config.project) }),
+  };
 }
 
-async function assertProjectStoryAuthoring(baseDir: string): Promise<void> {
-  const issues: string[] = [];
-  const directories = [baseDir];
-  const sourcePattern = /\.(?:[cm]?[jt]sx?)$/;
-  while (directories.length > 0) {
-    const directory = directories.pop()!;
-    const entries = await readdir(directory, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        if (shouldSkipDirectory(directory, entry.name)) {
-          continue;
-        }
-        directories.push(join(directory, entry.name));
-        continue;
-      }
-      if (!entry.isFile() || !sourcePattern.test(entry.name)) continue;
-      const absolute = join(directory, entry.name);
-      const relativePath = relative(baseDir, absolute).split(sep).join('/');
-      const source = await readFile(absolute, 'utf8');
-      issues.push(...validateStoryAuthoringSource(source, relativePath));
-    }
-  }
-  if (issues.length > 0) {
-    throw new Error(
-      `Story authoring validation failed:\n${issues.map((issue) => `- ${issue}`).join('\n')}`,
-    );
-  }
-}
-
-async function discoverStoryFileIds(baseDir: string): Promise<{
-  readonly storyIds: string[];
+async function discoverStoryFiles(
+  baseDir: string,
+  surfaces: readonly StorySurface[],
+): Promise<{
+  readonly stories: {
+    readonly storyId: string;
+    readonly storyKey: string;
+    readonly surface: StorySurface;
+  }[];
   readonly issues: StoryDiscoveryIssue[];
 }> {
-  const storyIds: string[] = [];
+  const stories: {
+    readonly storyId: string;
+    readonly storyKey: string;
+    readonly surface: StorySurface;
+  }[] = [];
   const issues: StoryDiscoveryIssue[] = [];
-  const directories = [baseDir];
-  while (directories.length > 0) {
-    const directory = directories.pop()!;
+  for (const surface of surfaces) {
+    const directory = resolve(baseDir, surface.path);
     const entries = await readdir(directory, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (shouldSkipDirectory(directory, entry.name)) {
-          continue;
-        }
-        directories.push(join(directory, entry.name));
+        issues.push({
+          message: `Module "${surface.modulePath}" Story surface contains nested path "${surface.path}/${entry.name}"`,
+        });
         continue;
       }
-      if (!entry.isFile() || !storyFilePattern.test(entry.name)) continue;
-      const storyId = relative(baseDir, join(directory, entry.name))
+      if (!entry.isFile()) continue;
+      const filePath = relative(baseDir, join(directory, entry.name))
         .split(sep)
         .join('/');
-      storyIds.push(storyId);
+      if (/\.(?:[cm]?[jt]sx?)$/.test(entry.name)) {
+        const source = await readFile(join(directory, entry.name), 'utf8');
+        for (const message of validateStoryAuthoringSource(source, filePath)) {
+          issues.push({ message });
+        }
+      }
+      if (!storyFilePattern.test(entry.name)) continue;
       try {
-        validateStoryFile(storyId);
+        validateStoryFile(filePath);
+        stories.push({
+          storyId: filePath.slice(0, -'.story.ts'.length),
+          storyKey: entry.name.slice(0, -'.story.ts'.length),
+          surface,
+        });
       } catch (cause) {
-        issues.push({ storyId, message: errorMessage(cause) });
+        issues.push({ storyId: filePath, message: errorMessage(cause) });
       }
     }
   }
-  storyIds.sort();
-  return { storyIds, issues };
-}
-
-function shouldSkipDirectory(parent: string, name: string): boolean {
-  return (
-    skippedSegments.has(name) ||
-    name === '__fixtures__' ||
-    (name === 'fixtures' && basename(parent) === 'test') ||
-    name.startsWith('.')
-  );
+  stories.sort((left, right) => left.storyId.localeCompare(right.storyId));
+  return { stories, issues };
 }
 
 function validateStoryCatalog(
   declarations: readonly {
     readonly storyId: string;
+    readonly storyKey: string;
+    readonly surface: StorySurface;
     readonly declaration: StoryDeclaration;
   }[],
-  issues: StoryDiscoveryIssue[],
 ): StoryCatalog {
-  const groups = new Map<
-    string,
-    StoryCatalogGroup & { readonly storyId: string }
-  >();
-  const stories: StoryCatalogStory[] = [];
-  const destinations = new Map<
-    string,
-    Map<string, { readonly kind: 'Group' | 'Story'; readonly storyId: string }>
-  >();
-
-  const registerDestination = (
-    parentPath: readonly string[],
-    name: string,
-    kind: 'Group' | 'Story',
-    storyId: string,
-  ): void => {
-    const siblings = destinations.get(pathKey(parentPath)) ?? new Map();
-    destinations.set(pathKey(parentPath), siblings);
-    const existing = siblings.get(name);
-    if (existing === undefined) {
-      siblings.set(name, { kind, storyId });
-      return;
-    }
-    if (kind === 'Group' && existing.kind === 'Group') return;
-    issues.push({
-      storyId,
-      message: `${kind} "${displayPath([...parentPath, name])}" conflicts with ${existing.kind} declared by "${existing.storyId}"`,
-    });
-  };
-
-  for (const { storyId, declaration } of declarations) {
-    const lineage = storyGroupLineage(declaration.group, storyId, issues);
-    const groupPath: string[] = [];
-    for (const group of lineage) {
-      const parentPath = [...groupPath];
-      groupPath.push(group.name);
-      const key = pathKey(groupPath);
-      const existing = groups.get(key);
-      if (existing === undefined) {
-        groups.set(key, {
-          path: [...groupPath],
-          name: group.name,
-          description: group.description,
-          storyId,
-        });
-      } else if (existing.description !== group.description) {
-        issues.push({
-          storyId,
-          message: `Story Group "${displayPath(groupPath)}" conflicts with metadata declared by "${existing.storyId}"`,
-        });
-      }
-      registerDestination(parentPath, group.name, 'Group', storyId);
-    }
-    registerDestination(groupPath, declaration.name, 'Story', storyId);
+  const byModule = new Map<string, StoryCatalogStory[]>();
+  const descriptions = new Map<string, string>();
+  for (const { storyId, storyKey, surface, declaration } of declarations) {
+    const stories = byModule.get(surface.modulePath) ?? [];
+    byModule.set(surface.modulePath, stories);
+    descriptions.set(surface.modulePath, surface.moduleDescription);
     stories.push({
-      storyId,
+      storyPath: storyId,
+      storyKey,
+      modulePath: surface.modulePath,
       name: declaration.name,
       description: declaration.description,
-      groupPath,
+      ...(declaration.documentation === undefined
+        ? {}
+        : { documentation: declaration.documentation }),
+      ...(declaration.scenarios.length === 0
+        ? {}
+        : {
+            scenarios: declaration.scenarios.map((scenario) => ({
+              name: scenario.name,
+              description: scenario.description,
+              ...(scenario.documentation === undefined
+                ? {}
+                : { documentation: scenario.documentation }),
+            })),
+          }),
     });
   }
-
-  return {
-    groups: [...groups.values()]
-      .map(({ storyId: _storyId, ...group }) => group)
-      .sort((left, right) => comparePaths(left.path, right.path)),
-    stories: stories.sort(
-      (left, right) =>
-        comparePaths(left.groupPath, right.groupPath) ||
-        left.name.localeCompare(right.name) ||
-        left.storyId.localeCompare(right.storyId),
-    ),
-  };
-}
-
-function storyGroupLineage(
-  leaf: StoryGroupDeclaration | undefined,
-  storyId: string,
-  issues: StoryDiscoveryIssue[],
-): StoryGroupDeclaration[] {
-  const reversed: StoryGroupDeclaration[] = [];
-  const seen = new Set<StoryGroupDeclaration>();
-  let current = leaf;
-  while (current !== undefined) {
-    if (seen.has(current)) {
-      issues.push({
-        storyId,
-        message: 'Story Group ancestry contains a cycle',
-      });
-      return [];
-    }
-    seen.add(current);
-    reversed.push(current);
-    current = current.parent;
-  }
-  return reversed.reverse();
-}
-
-const pathKey = (path: readonly string[]): string => JSON.stringify(path);
-const displayPath = (path: readonly string[]): string => path.join(' / ');
-
-function comparePaths(
-  left: readonly string[],
-  right: readonly string[],
-): number {
-  for (let index = 0; index < Math.min(left.length, right.length); index++) {
-    const compared = left[index]!.localeCompare(right[index]!);
-    if (compared !== 0) return compared;
-  }
-  return left.length - right.length;
+  const modules: StoryCatalogModule[] = [...byModule]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([modulePath, stories]) => ({
+      modulePath,
+      description: descriptions.get(modulePath)!,
+      stories: stories.sort((left, right) =>
+        left.storyPath.localeCompare(right.storyPath),
+      ) as [StoryCatalogStory, ...StoryCatalogStory[]],
+    }));
+  return { modules };
 }
 
 function discoveryError(
@@ -977,9 +961,12 @@ function discoveryError(
 }
 
 function validateStoryFile(storyId: string): void {
-  if (!validStoryFile.test(basename(storyId))) {
+  const filePath = storyId.endsWith('.story.ts')
+    ? storyId
+    : `${storyId}.story.ts`;
+  if (!validStoryFile.test(basename(filePath))) {
     throw new Error(
-      `Story file "${storyId}" must use the kebab-case <story-name>.story.ts convention`,
+      `Story file "${filePath}" must use the kebab-case <story-name>.story.ts convention`,
     );
   }
 }

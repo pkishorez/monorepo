@@ -107,21 +107,37 @@ function paintSourceLine(line: HTMLElement, hovered = false) {
   if (depth === 0 && !focused) {
     line.style.backgroundColor = '';
     line.style.borderInlineStartColor = '';
+    line.style.boxShadow = '';
     return;
   }
   const fillAlpha = Math.min(
-    focused ? 0.14 : 0.12,
-    (focused ? 0.045 : 0.02) +
+    focused ? 0.22 : 0.12,
+    (focused ? 0.16 : 0.02) +
       Math.max(0, depth - 1) * 0.025 +
       (hovered ? 0.045 : 0),
   );
   const borderAlpha = Math.min(
-    0.85,
-    (focused ? 0.58 : 0.2) + Math.max(0, depth - 1) * 0.1 + (hovered ? 0.2 : 0),
+    1,
+    (focused ? 0.95 : 0.2) + Math.max(0, depth - 1) * 0.1 + (hovered ? 0.2 : 0),
   );
   const color = focused ? '251 191 36' : '56 189 248';
   line.style.backgroundColor = `rgb(${color} / ${fillAlpha})`;
   line.style.borderInlineStartColor = `rgb(${color} / ${borderAlpha})`;
+  line.style.boxShadow = focused
+    ? [
+        'inset 3px 0 rgb(251 191 36 / 0.95)',
+        'inset -1px 0 rgb(251 191 36 / 0.55)',
+        'inset 0 0 14px rgb(251 191 36 / 0.09)',
+        line.dataset.sourceFocusFirst === 'true'
+          ? 'inset 0 1px rgb(251 191 36 / 0.75)'
+          : '',
+        line.dataset.sourceFocusLast === 'true'
+          ? 'inset 0 -1px rgb(251 191 36 / 0.75)'
+          : '',
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : '';
 }
 
 export function SourceViewer({
@@ -137,6 +153,7 @@ export function SourceViewer({
   const viewportRef = useRef<HTMLDivElement>(null);
   const handledScrollRequestRef = useRef<number | undefined>(undefined);
   const hoveredSectionRef = useRef<string | null>(null);
+  const focusedLinesRef = useRef<readonly HTMLElement[]>([]);
   const [rendered, setRendered] = useState<{
     readonly content: string;
     readonly language: SourceLanguage;
@@ -188,11 +205,6 @@ export function SourceViewer({
     const lines = viewport?.querySelectorAll<HTMLElement>('[data-line]');
     lines?.forEach((line) => {
       const lineNumber = Number(line.dataset.line);
-      const focused =
-        range !== null &&
-        range !== undefined &&
-        lineNumber >= range.startLine &&
-        lineNumber <= range.endLine;
       const matchingRanges = new Set(
         sections.flatMap(({ range: sectionRange }) =>
           lineNumber >= sectionRange.startLine &&
@@ -204,12 +216,44 @@ export function SourceViewer({
       const depth = matchingRanges.size;
       const section = depth > 0;
       line.dataset.sourceDepth = String(depth);
-      line.dataset.sourceFocused = String(focused);
-      line.classList.toggle('source-line-focused', focused);
-      line.classList.toggle('source-line-section', section && !focused);
+      line.classList.toggle('source-line-section', section);
       line.classList.remove('source-line-section-hovered');
       paintSourceLine(line);
     });
+  }, [filePath, html, sections]);
+
+  useLayoutEffect(() => {
+    if (!html) return;
+    for (const line of focusedLinesRef.current) {
+      line.dataset.sourceFocused = 'false';
+      line.dataset.sourceFocusFirst = 'false';
+      line.dataset.sourceFocusLast = 'false';
+      line.classList.remove('source-line-focused');
+      paintSourceLine(line);
+    }
+    const viewport = viewportRef.current;
+    const focusedLines: HTMLElement[] = [];
+    if (range) {
+      for (
+        let lineNumber = range.startLine;
+        lineNumber <= range.endLine;
+        lineNumber++
+      ) {
+        const line = viewport?.querySelector<HTMLElement>(
+          `[data-line="${lineNumber}"]`,
+        );
+        if (!line) continue;
+        line.dataset.sourceFocused = 'true';
+        line.classList.add('source-line-focused');
+        focusedLines.push(line);
+      }
+    }
+    const firstFocusedLine = focusedLines[0];
+    const lastFocusedLine = focusedLines.at(-1);
+    if (firstFocusedLine) firstFocusedLine.dataset.sourceFocusFirst = 'true';
+    if (lastFocusedLine) lastFocusedLine.dataset.sourceFocusLast = 'true';
+    for (const line of focusedLines) paintSourceLine(line);
+    focusedLinesRef.current = focusedLines;
 
     if (
       !range ||
@@ -218,23 +262,27 @@ export function SourceViewer({
     ) {
       return;
     }
-    const firstFocusedLine = viewport?.querySelector<HTMLElement>(
-      `[data-line="${range.startLine}"]`,
-    );
-    if (!viewport || !firstFocusedLine) return;
+    if (!viewport || !firstFocusedLine || !lastFocusedLine) return;
+    const viewportBounds = viewport.getBoundingClientRect();
+    const firstBounds = firstFocusedLine.getBoundingClientRect();
+    const lastBounds = lastFocusedLine.getBoundingClientRect();
+    const selectionTop =
+      viewport.scrollTop + firstBounds.top - viewportBounds.top;
+    const selectionBottom =
+      viewport.scrollTop + lastBounds.bottom - viewportBounds.top;
+    const selectionHeight = selectionBottom - selectionTop;
+    const padding = 16;
+    const desiredTop =
+      selectionHeight <= viewport.clientHeight - padding * 2
+        ? selectionTop - (viewport.clientHeight - selectionHeight) / 2
+        : selectionTop - padding;
     const target = Math.max(
       0,
-      Math.min(
-        viewport.scrollHeight - viewport.clientHeight,
-        viewport.scrollTop +
-          firstFocusedLine.getBoundingClientRect().top -
-          viewport.getBoundingClientRect().top -
-          (viewport.clientHeight - firstFocusedLine.offsetHeight) / 2,
-      ),
+      Math.min(viewport.scrollHeight - viewport.clientHeight, desiredTop),
     );
     viewport.scrollTop = target;
     handledScrollRequestRef.current = scrollRequestId;
-  }, [filePath, html, range, scrollRequestId, sections]);
+  }, [filePath, html, range, scrollRequestId]);
 
   const sectionAtTarget = (target: EventTarget) => {
     if (!(target instanceof Element)) return undefined;

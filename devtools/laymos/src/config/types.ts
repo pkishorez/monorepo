@@ -2,7 +2,7 @@ export interface Layer {
   readonly kind: 'layer';
   readonly name: string;
   readonly paths: readonly string[];
-  readonly description?: string;
+  readonly description: string;
 }
 
 export interface LayerEdge {
@@ -15,13 +15,13 @@ export interface LayerGraph {
   readonly name: string;
   readonly layers: readonly Layer[];
   readonly edges: readonly LayerEdge[];
-  readonly description?: string;
+  readonly description: string;
 }
 
 export interface ModuleDef {
   readonly kind: 'module';
   readonly path: string;
-  readonly description?: string;
+  readonly description: string;
 }
 
 export interface ModuleRules {
@@ -37,4 +37,5 @@ export interface LaymosConfig {
   readonly modules?: readonly ModuleDef[];
   readonly moduleRules?: readonly ModuleRules[];
   readonly ignore?: readonly string[];
+  readonly project?: import('../story/core/project-narrative.js').ProjectNarrativeDef;
 }

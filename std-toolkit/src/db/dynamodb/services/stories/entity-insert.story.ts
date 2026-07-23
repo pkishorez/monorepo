@@ -1,50 +1,51 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow, terminal } from 'laymos/story';
-
-import { dynamodbEntityStories } from './support/story-groups.js';
+import { markdown, story } from 'laymos/story';
 
 import {
   assertDynamoError,
   assertNonEmptyCursor,
   makeDynamoStoryHarness,
   user,
-} from './support/dynamodb-story-harness.js';
+} from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('entity-insert');
 type Input = Parameters<typeof harness.users.insert>[0];
 
-const insertUser = flow(
-  'Insert entity',
-  {
-    description:
-      'Inserts one keyed entity and returns its persisted value and DynamoDB metadata.',
-  },
-  (input: Input) =>
-    Effect.gen(function* () {
-      const result = yield* harness.users.insert(input);
-      return yield* terminal(
-        'Return the inserted entity',
-        {
-          description: 'Completes this insert flow with the persisted entity.',
-          completion: { kind: 'success' },
-        },
-        () => Effect.succeed(result),
-      );
-    }),
-);
+story('Insert entity', {
+  description:
+    'Shows every feasible outcome of inserting one keyed DynamoDB entity.',
+  documentation: markdown`
+      ## Creating an entity once
 
-dynamodbEntityStories
-  .story('Insert entity', {
-    description:
-      'Shows every feasible outcome of inserting one keyed DynamoDB entity.',
-  })
+      Insert encodes a domain value and writes it under a condition that the
+      primary key does not already exist. This makes creation atomic even when
+      multiple writers race.
+
+      \`\`\`ts
+      const created = yield* users.insert({
+        organizationId: 'org-1',
+        userId: 'user-1',
+        name: 'Ada',
+      });
+      \`\`\`
+
+      A duplicate identity fails with \`ItemAlreadyExists\` instead of silently
+      replacing the stored entity.
+    `,
+})
   .provide(harness.layer)
-  .execute(insertUser)
+  .execute((input: Input) => harness.users.insert(input))
   .scenario(
     'insert returns the stored user with fresh metadata',
-    { description: 'Inserts a new identity into an empty table.' },
+    {
+      description: 'Inserts a new identity into an empty table.',
+      documentation: markdown`
+        The successful path verifies both the decoded value and fresh storage
+        metadata, including the entity discriminator and update cursor.
+      `,
+    },
     (scenario) =>
       scenario
         .prepare(() => harness.prepare(user('one')))
@@ -63,6 +64,10 @@ dynamodbEntityStories
     {
       description:
         'Prepares an existing identity, then attempts the one narrated insert.',
+      documentation: markdown`
+        The table already contains the requested identity. The conditional
+        write must fail as \`ItemAlreadyExists\` and preserve the original item.
+      `,
     },
     (scenario) =>
       scenario

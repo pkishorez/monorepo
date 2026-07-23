@@ -1,4 +1,4 @@
-export type StoryId = string;
+export type StoryPath = string;
 export type BlockId = string;
 export type StoryVisibility = 'primary' | 'detail';
 
@@ -14,6 +14,7 @@ interface StoryBlockBase {
   readonly description: string;
   readonly location: StorySourceLocation;
   readonly visibility?: StoryVisibility;
+  readonly modulePath?: string;
 }
 
 export type StoryDecisionRole = 'value' | 'control-flow';
@@ -98,6 +99,7 @@ export type ExecutionItem =
 export interface StoryScenario {
   readonly name: string;
   readonly description: string;
+  readonly documentation?: string;
   readonly location: StorySourceLocation;
   readonly outcome: ScenarioOutcome;
   readonly startedAt?: number;
@@ -110,6 +112,7 @@ export interface StoryRun {
   readonly generatedAt: number;
   readonly name: string;
   readonly description: string;
+  readonly documentation?: string;
   readonly blocks: Readonly<Record<BlockId, StoryBlock>>;
   readonly scenarios: readonly StoryScenario[];
   readonly scenarioNodeCoverage?: StoryScenarioNodeCoverage;

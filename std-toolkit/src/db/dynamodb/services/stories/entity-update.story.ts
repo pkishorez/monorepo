@@ -1,17 +1,17 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect, Schema } from 'effect';
-import { decision, exhaustive, flow, terminal, when } from 'laymos/story';
+import { story } from 'laymos/story';
 
-import { dynamodbEntityStories } from './support/story-groups.js';
+import { dynamodbStoryDocumentation } from './story-documentation.js';
 
-import { EntityESchema } from '../../src/eschema/index.js';
-import { DynamoTable, exprCondition } from '../../src/db/dynamodb/index.js';
+import { EntityESchema } from '../../../../eschema/index.js';
+import { DynamoTable, exprCondition } from '../../index.js';
 import {
   assertDynamoError,
   makeDynamoStoryHarness,
   user,
-} from './support/dynamodb-story-harness.js';
+} from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('entity-update');
 
@@ -51,84 +51,18 @@ type Input =
     };
 const key = { organizationId: 'org-1', userId: 'target' };
 
-const updateUser = flow<[Input], any, any, any>(
-  'Update entity',
-  {
-    description:
-      'Updates a keyed entity with either a partial value or DynamoDB expression while enforcing public guards.',
-    attributes: (input: Input) => ({
-      kind: input.kind,
-      form:
-        typeof input.params.update === 'function' ? 'expression' : 'partial',
-      conditional: input.params.condition !== undefined,
-    }),
-  },
-  (input: Input) =>
-    decision(
-      'Which schema state is being updated?',
-      {
-        description:
-          'Routes the update through a current or evolving entity schema.',
-      },
-      input.kind,
-    ).pipe(
-      when(
-        'standard',
-        {
-          name: 'Use the current schema',
-          description: 'Updates an entity already using the current schema.',
-        },
-        () =>
-          Effect.gen(function* () {
-            const result = yield* harness.users.update(
-              key,
-              (input as Extract<Input, { kind: 'standard' }>).params,
-            );
-            return yield* terminal(
-              'Finish the current-schema update',
-              {
-                description:
-                  'Ends this branch with the update operation selected for current-schema data.',
-                completion: { kind: 'success' },
-              },
-              () => Effect.succeed(result),
-            );
-          }),
-      ),
-      when(
-        'evolving',
-        {
-          name: 'Evolve the stored schema',
-          description: 'Updates stale entity data through an evolved schema.',
-        },
-        () =>
-          Effect.gen(function* () {
-            const result = yield* currentProfiles.update(
-              { profileId: 'target' },
-              (input as Extract<Input, { kind: 'evolving' }>).params,
-            );
-            return yield* terminal(
-              'Finish the evolving-schema update',
-              {
-                description:
-                  'Ends this branch with the update operation selected for stale schema data.',
-                completion: { kind: 'success' },
-              },
-              () => Effect.succeed(result),
-            );
-          }),
-      ),
-      exhaustive,
-    ),
-);
-
-dynamodbEntityStories
-  .story('Update entity', {
-    description:
-      'Shows partial and expression updates together with the guards that reject invalid writes.',
-  })
+story('Update entity', {
+  description:
+    'Shows partial and expression updates together with the guards that reject invalid writes.',
+  documentation: dynamodbStoryDocumentation.update,
+})
   .provide(harness.layer)
-  .execute(updateUser)
+  .execute(
+    (input: Input): Effect.Effect<any, any, any> =>
+      input.kind === 'standard'
+        ? harness.users.update(key, input.params)
+        : currentProfiles.update({ profileId: 'target' }, input.params),
+  )
   .scenario(
     'partial update changes requested fields and advances the cursor',
     {

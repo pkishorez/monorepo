@@ -76,4 +76,55 @@ describe('extractFileGraph', () => {
       },
     });
   });
+
+  it('isolates Story surfaces and records only imports into them', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'laymos-extract-'));
+    temporaryDirectories.push(directory);
+    await mkdir(join(directory, 'src', 'account', 'stories'), {
+      recursive: true,
+    });
+    await writeFile(
+      join(directory, 'src', 'account', 'index.ts'),
+      "import { fixture } from './stories/support.js';\nexport const account = fixture;\n",
+    );
+    await writeFile(
+      join(directory, 'src', 'account', 'stories', 'account.story.ts'),
+      "import { account } from '../index.js';\nexport const story = account;\n",
+    );
+    await writeFile(
+      join(directory, 'src', 'account', 'stories', 'support.ts'),
+      "import { story } from './account.story.js';\nexport const fixture = story;\n",
+    );
+
+    const fileGraph = await Effect.runPromise(
+      extractFileGraph(
+        directory,
+        ['src'],
+        [],
+        [
+          {
+            modulePath: 'src/account',
+            moduleDescription: 'Account',
+            path: 'src/account/stories',
+          },
+        ],
+      ),
+    );
+
+    expect(fileGraph).toEqual({
+      files: {
+        'src/account/index.ts': {
+          path: 'src/account/index.ts',
+          imports: [],
+        },
+      },
+      storyImports: [
+        {
+          from: 'src/account/index.ts',
+          to: 'src/account/stories/support.ts',
+          module: 'src/account',
+        },
+      ],
+    });
+  });
 });

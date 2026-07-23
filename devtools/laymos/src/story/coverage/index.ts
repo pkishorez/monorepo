@@ -1,6 +1,7 @@
 export { projectStoryCoverage } from './story-coverage.js';
 export type {
+  StoryCoverage,
+  StoryCoverageCount,
+  StoryCoverageRange,
   StoryCoverageReport,
-  StoryNarrationCount,
-  StoryTraversalCoverage,
 } from './story-coverage.js';

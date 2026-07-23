@@ -1,15 +1,15 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { decision, exhaustive, flow, terminal, when } from 'laymos/story';
+import { story } from 'laymos/story';
 
-import { dynamodbEntityStories } from './support/story-groups.js';
+import { dynamodbStoryDocumentation } from './story-documentation.js';
 
 import {
   makeDynamoStoryHarness,
   order,
   user,
-} from './support/dynamodb-story-harness.js';
+} from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('entity-query');
 type Input =
@@ -30,94 +30,34 @@ type Input =
 const queryOptions = (limit: number | undefined) =>
   limit === undefined ? undefined : { limit };
 
-const queryOrders = flow<[Input], any, any, any>(
-  'Query entities',
-  {
-    description:
-      'Queries entities through either their primary index or a configured secondary index.',
-    attributes: (input: Input) => ({
-      kind: input.kind,
-      limit: 'limit' in input ? input.limit : undefined,
-    }),
-  },
-  (input: Input) =>
-    decision(
-      'Which query path is requested?',
-      {
-        description:
-          'Routes the Story through primary or secondary entity indexing.',
-      },
-      input.kind,
-    ).pipe(
-      when(
-        'primary',
-        {
-          name: 'Use the primary index',
-          description: 'Queries entities through their primary partition.',
-        },
-        () =>
-          Effect.gen(function* () {
-            const primary = input as Extract<Input, { kind: 'primary' }>;
-            const result = yield* harness.orders.query(
-              'primary',
-              {
-                pk: { userId: 'owner' },
-                sk: primary.sk,
-              },
-              queryOptions(primary.limit),
-            );
-            return yield* terminal(
-              'Return primary-index results',
-              {
-                description:
-                  'Completes this query branch with the matching primary-index page.',
-                completion: { kind: 'success' },
-              },
-              () => Effect.succeed(result),
-            );
-          }),
-      ),
-      when(
-        'secondary',
-        {
-          name: 'Use a secondary index',
-          description: 'Queries entities through a configured secondary index.',
-        },
-        () =>
-          Effect.gen(function* () {
-            const secondary = input as Extract<Input, { kind: 'secondary' }>;
-            const result = yield* harness.users.query('byStatus', {
-              pk: { status: secondary.status },
-              sk: { beginsWith: { email: secondary.emailPrefix } },
-            });
-            return yield* terminal(
-              'Return secondary-index results',
-              {
-                description:
-                  'Completes this query branch with the matching secondary-index page.',
-                completion: { kind: 'success' },
-              },
-              () => Effect.succeed(result),
-            );
-          }),
-      ),
-      exhaustive,
-    ),
-);
-
 const seedOrders = Effect.all([
   harness.orders.insert(order('order-2025-12', { userId: 'owner' })),
   harness.orders.insert(order('order-2026-01', { userId: 'owner' })),
   harness.orders.insert(order('order-2026-02', { userId: 'owner' })),
 ]);
 
-dynamodbEntityStories
-  .story('Query entities', {
-    description:
-      'Shows primary and secondary index selection, ordering, sort-key bounds, and result limits.',
-  })
+story('Query entities', {
+  description:
+    'Shows primary and secondary index selection, ordering, sort-key bounds, and result limits.',
+  documentation: dynamodbStoryDocumentation.query,
+})
   .provide(harness.layer)
-  .execute(queryOrders)
+  .execute((input: Input): Effect.Effect<any, any, any> => {
+    if (input.kind === 'primary') {
+      return harness.orders.query(
+        'primary',
+        {
+          pk: { userId: 'owner' },
+          sk: input.sk,
+        },
+        queryOptions(input.limit),
+      );
+    }
+    return harness.users.query('byStatus', {
+      pk: { status: input.status },
+      sk: { beginsWith: { email: input.emailPrefix } },
+    });
+  })
   .scenario(
     'forward query returns ascending items',
     { description: 'Uses a null lower bound to read the partition forwards.' },

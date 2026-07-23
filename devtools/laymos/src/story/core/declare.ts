@@ -1,6 +1,6 @@
 import { captureLocation } from './recorder.js';
 import type { SourceLocation } from './recorder.js';
-import type { StoryGroupMeta, StoryMeta } from './types.js';
+import type { StoryMeta } from './types.js';
 
 export type ScenarioExpectation =
   | {
@@ -15,6 +15,7 @@ export type ScenarioExpectation =
 interface ScenarioDeclarationBase {
   readonly name: string;
   readonly description: string;
+  readonly documentation?: string;
   readonly mode: 'run' | 'skip';
   readonly location: SourceLocation;
 }
@@ -39,21 +40,15 @@ export interface StoryExecution {
 export interface StoryDeclaration {
   readonly name: string;
   readonly description: string;
-  readonly group?: StoryGroupDeclaration;
+  readonly documentation?: string;
   readonly scenarios: readonly ScenarioDeclaration[];
   readonly execution: StoryExecution | undefined;
-}
-
-export interface StoryGroupDeclaration {
-  readonly name: string;
-  readonly description: string;
-  readonly parent?: StoryGroupDeclaration;
 }
 
 export interface MutableStoryDeclaration {
   readonly name: string;
   readonly description: string;
-  readonly group?: StoryGroupDeclaration;
+  readonly documentation?: string;
   readonly scenarios: ScenarioDeclaration[];
   execution: StoryExecution | undefined;
 }
@@ -72,33 +67,20 @@ const collectorHost = globalThis as CollectorHost;
 export function declareStory(
   name: string,
   meta: StoryMeta,
-  group?: StoryGroupDeclaration,
 ): MutableStoryDeclaration {
   requirePathSegment(name, 'Story');
   requireDescription(meta.description, `Story "${name}"`);
   const declaration: MutableStoryDeclaration = {
     name,
     description: meta.description,
-    ...(group === undefined ? {} : { group }),
+    ...(meta.documentation === undefined
+      ? {}
+      : { documentation: meta.documentation.content }),
     scenarios: [],
     execution: undefined,
   };
   collectorHost[collectorKey]?.(declaration);
   return declaration;
-}
-
-export function declareStoryGroup(
-  name: string,
-  meta: StoryGroupMeta,
-  parent?: StoryGroupDeclaration,
-): StoryGroupDeclaration {
-  requirePathSegment(name, 'Story Group');
-  requireDescription(meta.description, `Story Group "${name}"`);
-  return {
-    name,
-    description: meta.description,
-    ...(parent === undefined ? {} : { parent }),
-  };
 }
 
 /** Adds a Scenario to a mutable Story declaration. */

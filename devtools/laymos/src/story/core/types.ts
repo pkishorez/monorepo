@@ -46,12 +46,10 @@ export type ArmMeta = ArmMetaBase &
 
 export interface StoryMeta {
   readonly description: string;
-}
-
-export interface StoryGroupMeta {
-  readonly description: string;
+  readonly documentation?: import('./project-narrative.js').MarkdownContent;
 }
 
 export interface ScenarioMeta {
   readonly description: string;
+  readonly documentation?: import('./project-narrative.js').MarkdownContent;
 }

@@ -5,11 +5,9 @@ import { CurrentTrace, traceValue } from '../artifact/trace.js';
 
 import {
   addScenario,
-  declareStoryGroup,
   declareStory,
   type MutableStoryDeclaration,
   type ScenarioExpectation,
-  type StoryGroupDeclaration,
 } from '../core/declare.js';
 import {
   captureLocation,
@@ -29,13 +27,13 @@ import type {
   BlockMeta,
   DecisionValue,
   OmissionMeta,
-  StoryGroupMeta,
   StoryMeta,
   TerminalMeta,
 } from '../core/types.js';
 
 export interface ScenarioMeta {
   readonly description: string;
+  readonly documentation?: import('../core/project-narrative.js').MarkdownContent;
   readonly timeout?: Duration.Input;
 }
 
@@ -92,41 +90,12 @@ export interface EffectStoryBuilder<R> {
   ): EffectStory<Prepared, Output, Error, R>;
 }
 
-export interface EffectStoryGroup {
-  group(name: string, meta: StoryGroupMeta): EffectStoryGroup;
-  story(name: string, meta: StoryMeta): EffectStoryBuilder<never>;
-}
-
 /** Declares the single Story owned by a Story file. */
 export function story(
   name: string,
   meta: StoryMeta,
 ): EffectStoryBuilder<never> {
   return new EffectStoryBuilderImpl(declareStory(name, meta));
-}
-
-/** Declares a reusable Story Group. */
-export function storyGroup(
-  name: string,
-  meta: StoryGroupMeta,
-): EffectStoryGroup {
-  return new EffectStoryGroupImpl(declareStoryGroup(name, meta));
-}
-
-class EffectStoryGroupImpl implements EffectStoryGroup {
-  constructor(private readonly declaration: StoryGroupDeclaration) {}
-
-  group(name: string, meta: StoryGroupMeta): EffectStoryGroup {
-    return new EffectStoryGroupImpl(
-      declareStoryGroup(name, meta, this.declaration),
-    );
-  }
-
-  story(name: string, meta: StoryMeta): EffectStoryBuilder<never> {
-    return new EffectStoryBuilderImpl(
-      declareStory(name, meta, this.declaration),
-    );
-  }
 }
 
 class EffectStoryBuilderImpl implements EffectStoryBuilder<any> {
@@ -167,6 +136,9 @@ class EffectStoryImpl implements EffectStory<any, any, any, any> {
     addScenario(this.declaration, {
       name,
       description: meta.description,
+      ...(meta.documentation === undefined
+        ? {}
+        : { documentation: meta.documentation.content }),
       mode: 'run',
       run: builder.build(meta.timeout),
     });
@@ -177,6 +149,9 @@ class EffectStoryImpl implements EffectStory<any, any, any, any> {
     addScenario(this.declaration, {
       name,
       description: meta.description,
+      ...(meta.documentation === undefined
+        ? {}
+        : { documentation: meta.documentation.content }),
       mode: 'skip',
     });
     return this;

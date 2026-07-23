@@ -185,23 +185,75 @@ have at most one `rules(...)` entry. Rule references must reuse those declared
 module values rather than recreating the same path.
 
 ```ts
-import { defineConfig, edge, layer, layerGraph, module, rules } from 'laymos';
+import {
+  defineConfig,
+  edge,
+  layer,
+  layerGraph,
+  markdown,
+  module,
+  projectMap,
+  projectNarrative,
+  rules,
+  topic,
+} from 'laymos';
 
-const ui = layer('ui', ['src/ui']);
-const domain = layer('domain', ['src/domain']);
-const data = layer('data', ['src/data']);
+const ui = layer('ui', ['src/ui'], { description: 'User interface' });
+const domain = layer('domain', ['src/domain'], {
+  description: 'Business behavior',
+});
+const data = layer('data', ['src/data'], {
+  description: 'Persistence adapters',
+});
 
-const billing = module('src/domain/billing');
-const checkout = module('src/domain/checkout');
+const billing = module('src/domain/billing', {
+  description: 'Billing policy',
+});
+const checkout = module('src/domain/checkout', {
+  description: 'Order placement',
+});
+const app = layerGraph('app', [edge(ui, [domain, data]), edge(domain, data)], {
+  description: 'The application architecture',
+});
+
+const project = projectNarrative('Commerce', [
+  markdown`
+    # Commerce
+
+    Commerce turns customer intent into fulfilled orders.
+  `,
+  projectMap(
+    topic('Checkout', {
+      description: markdown`
+Owns order placement and payment.
+      `,
+      references: [app, domain, checkout],
+    }),
+  ),
+]);
 
 export default defineConfig({
   sourceRoots: ['src'],
-  graphs: [layerGraph('app', [edge(ui, [domain, data]), edge(domain, data)])],
+  graphs: [app],
   modules: [billing, checkout],
   moduleRules: [rules(billing, { canImportedBy: [checkout] })],
   ignore: ['src/generated'],
+  project,
 });
 ```
+
+Each folder Module may own an optional, flat `stories/` Story surface. Direct
+children named `<story-key>.story.ts` are executable Stories; other files are
+Story-only support material. Laymos discovers these surfaces from declared
+Modules, so there is no second set of configured discovery roots. Story
+surfaces are invisible to static architecture: they do not affect files,
+edges, violations, or Layer and Module coverage, and production code may not
+import them.
+
+The optional `project` value is a Project Narrative: an authored sequence of
+Markdown and editorial Project Maps. Topics may reference the declared Layer
+Graph, Layers, and Modules with typed values. The narrative is not executable,
+does not participate in Story discovery, and remains after Story ejection.
 
 Modules are declared and constrained in **two separate acts** (`module()` then `rules()`): mutually-referencing rules would otherwise hit the JS temporal dead zone between `const` bindings — and it mirrors the semantics, since declaring a module imposes nothing.
 
@@ -481,13 +533,21 @@ describes only explicitly marked Blocks and makes no completeness claim about
 the surrounding code or use case.
 
 - **One story per `<story-name>.story.ts` file** — hard convention, not suggestion. The kebab-case file is the discovery unit; the declared Story name remains independent human-facing metadata. The name deliberately does not contain `.test`, so no test runner ever picks a Story up: stories are not tests.
+- **One owning Module** — every Story is a direct child of one folder Module's
+  flat `stories/` surface. Its Story Key is its kebab-case filename without
+  `.story.ts`, unique only within that Module.
+- **One suffixless Story path** — the project-relative Story file path without
+  `.story.ts`. For example, the `place-order` Story owned by
+  `src/domain/checkout` has Story path
+  `src/domain/checkout/stories/place-order`.
+- **Rich Story context** — Story and Scenario metadata keep their required
+  short `description` and may add `documentation: markdown\`...\`` for longer
+  explanations, examples, tables, and highlighted code.
 - A discovered Story file that declares zero Stories or more than one Story is
   an invalid definition. It cannot produce a per-Story artifact and causes the
   execution API to reject rather than returning a test-failure result.
-- The Story ID is that file's project-relative path. A Story leaf name is
-  unique among siblings, while the same leaf name may appear in different
-  Story Groups. Moving the file intentionally creates a new execution identity
-  on the next generation.
+- Story identity is its owning Module plus its Story Key. Moving a Story to a
+  different Module, or renaming its file, intentionally changes its Story path.
 - Each Scenario prepares one explicit value for the shared Story execution and
   verifies either its success value or typed error. Preparation, verification,
   and optional cleanup are operational phases outside the narrative.
@@ -505,29 +565,24 @@ the surrounding code or use case.
   can. Phase failures remain distinguishable. Skipped Scenarios contain no
   visits.
 - Each Story Run reports Scenario node coverage as the union of distinct Blocks
-  visited by all executed Scenarios divided by the complete Block catalog from
-  Trace Mode. Repeated Visits count once, skipped Scenarios contribute nothing,
-  and Decision Arm observation remains a separate diagnostic. The CLI names
-  unvisited Blocks and qualifies each unvisited Arm with its Decision name.
+  visited by all executed Scenarios divided by that Story's complete Block
+  catalog from Trace Mode. Repeated Visits count once, skipped Scenarios
+  contribute nothing, and Decision Arm observation remains a separate
+  diagnostic.
+- Story coverage is an authoring diagnostic for one Story. It reports exactly
+  the narrated, omitted, and unnarrated percentages of that Story's Traversal
+  Scope. There is no Module, Layer, or Project rollup.
 - Story, Scenario, Block, Decision, and Arm descriptions are required and must
   not be empty. Attributes and custom Arm names remain optional.
 
 ```ts
 // checkout.story.ts
 import { Effect } from 'effect';
-import { storyGroup } from 'laymos/story';
+import { story } from 'laymos/story';
 
-const commerce = storyGroup('Commerce', {
-  description: 'Customer purchase behavior',
-});
-const checkout = commerce.group('Checkout', {
-  description: 'Order placement and payment behavior',
-});
-
-checkout
-  .story('Place an order', {
-    description: 'Places an order after inventory and payment approval',
-  })
+story('Place an order', {
+  description: 'Places an order after inventory and payment approval',
+})
   .provide(AppLive)
   .execute((prepared: CheckoutWorld) => checkout(prepared.orderId))
   .scenario(
@@ -554,11 +609,9 @@ checkout
   );
 ```
 
-Story Groups are reusable declaration values and normally live in a shared
-file. Root Groups use `storyGroup()`, nested Groups use `.group()`, and grouped
-Stories use `.story()`. Direct `story()` creates a Standalone Story. Group and
-Story names are non-empty path segments and cannot contain `/`; sibling Groups
-and Stories share one namespace. Every Group has a required description.
+Every Story is declared directly with `story()`. A Story surface may contain
+shared harnesses and other Story-only support files, but Story declarations
+remain flat direct children rather than nested categories.
 
 `laymos/story` is the only authoring surface. One optional
 Story-level Layer provides the fixed environment used by all lifecycle phases;
@@ -573,8 +626,9 @@ not tests, so laymos owns their execution end-to-end. There is no test
 framework anywhere in the story path.
 
 - **Discovery and identity are the runner's.** `laymos stories` discovers
-  `*.story.ts` files, loads them through jiti on Node, and the Story ID is the
-  file the runner imported — no stack parsing for identity.
+  each folder Module's direct `stories/*.story.ts` files, loads them through
+  jiti on Node, and derives the suffixless Story path from the imported file —
+  no stack parsing for identity.
 - **Sequential, single-process.** Scenarios run in declaration order in one
   process. Module-level state is shared across Story files, exactly as it is
   in production; per-file worker isolation is deliberately absent.
@@ -613,7 +667,7 @@ order means sequence. A Visit item carries its facts and owns a nested child
 path; a Parallel item owns an array of branch paths.
 
 ```ts
-type StoryId = string;
+type StoryPath = string;
 type BlockId = string;
 
 interface StoryRun {
@@ -759,9 +813,9 @@ Arm rules above; consumers may trust these invariants.
 ```ts
 discoverStories(baseDir): Effect<StoryCatalog, StoryDiscoveryError>
 getStories(baseDir): Effect<StoryCollection, StoryDiscoveryError>
-runStory(baseDir, storyId): Effect<StoryRunResult, StoryRunnerError>
-runStoryGroup(baseDir, groupPath): Effect<StoriesRunResult, StoryDiscoveryError | StoryRunnerError>
-runStories(baseDir, storyIds): Effect<StoriesRunResult, StoryRunnerError>
+runStory(baseDir, storyPath): Effect<StoryRunResult, StoryRunnerError>
+runModuleStories(baseDir, modulePath): Effect<StoriesRunResult, StoryRunnerError>
+runStories(baseDir, selectors): Effect<StoriesRunResult, StoryRunnerError>
 runAllStories(baseDir): Effect<AllStoriesRunResult, StoryRunnerError>
 ```
 
@@ -781,23 +835,26 @@ interface StoriesRunResult {
 }
 ```
 
-`discoverStories` imports every Story module to collect names, descriptions,
-and Group ancestry, but it never prepares or executes a Scenario. Story files
-and their shared imports must therefore remain declaration-only at module
-scope. Discovery validates the complete catalog atomically and reports every
-invalid file, conflicting Group declaration, and sibling-name collision
-together. `runStoryGroup` performs fresh discovery and executes every Story in
-the selected subtree. `runStory` and `runStories` continue to use file-based
-Story IDs.
+`discoverStories` returns a catalog of owning Modules and their Stories. It
+imports each Story module to collect authored metadata, but never prepares or
+executes a Scenario. Story files and shared Story-surface imports must therefore
+remain declaration-only at module scope. Discovery validates the complete
+catalog atomically and reports every invalid file and Module-local Story Key
+collision together.
 
-The CLI mirrors group execution with
-`laymos stories --group "DynamoDB / Entities"`. A Group selection cannot be
-combined with explicit Story file arguments.
+`runStory` selects one suffixless Story path. `runModuleStories` selects one
+owning Module path. `runStories` accepts either kind of selector, and
+`runAllStories` executes the complete catalog. The CLI uses the same selectors:
+
+```sh
+laymos stories src/domain/checkout
+laymos stories src/domain/checkout/stories/place-order
+```
 
 The execution APIs run the owned Story runner with `baseDir` as the target
 project's root. The runner discovers singular `*.story.*` JavaScript and
-TypeScript files itself, loads them
-through jiti, and executes Scenarios sequentially in a single Node process.
+TypeScript files from Module Story surfaces, loads them through jiti, and
+executes Scenarios sequentially in a single Node process.
 There is no test framework, configuration file, or worker pool in the story
 path.
 
@@ -811,8 +868,8 @@ the runner then continues with the remaining Scenarios. Each artifact records
 Scenarios do not make the aggregate result fail.
 
 Discovering no Story files is a valid complete generation and succeeds with a
-passed empty report. `runStory` fails with `StoryRunnerError` when its Story ID
-does not resolve to an existing Story file.
+passed empty report. `runStory` fails with `StoryRunnerError` when its Story
+path does not resolve to an existing Story file.
 
 A failed or interrupted Scenario is reportable evidence, so a Scenario failure
 succeeds with `status: 'failed'` and a finalized result containing the Scenario's
@@ -827,9 +884,11 @@ not expose any earlier in-memory results from that request.
 ### Story ejection
 
 `laymos stories eject` removes Story Block instrumentation from the current
-project and deletes discovered Laymos Story files. `--dry-run` performs the
+project and deletes every owning Module's complete Story surface, including
+Story declarations and Story-only support files. Ejection is project-wide and
+does not support partial Module or Story selection. `--dry-run` performs the
 same preflight and reports planned changes without writing. Storybook's plural
-`*.stories.*` files and Story support files are left alone.
+`*.stories.*` files outside those surfaces are left alone.
 
 Terminal narration ejects with Step-equivalent semantics: its name,
 description, completion, and tracing thunk are removed while the returned
@@ -839,8 +898,8 @@ Ejection recognizes direct named imports, aliases, and namespace imports from
 `laymos/story`. Before changing files it validates every authored shape, parses
 every transformed file, proves that no ejectable Story imports or calls remain,
 and verifies that a second transformation makes no changes. Any failure aborts
-the project-wide operation before its transactional write and Story-file
-deletion phase. Re-exports and dynamic imports remain invalid.
+the project-wide operation before its transactional rewrite and complete
+Story-surface deletion phase. Re-exports and dynamic imports remain invalid.
 
 Ejection is formatter-independent. Its transformations are limited to exact
 unwrapping and local substitutions to native Effect and Match constructs. It

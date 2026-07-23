@@ -1,24 +1,31 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { Effect } from 'effect';
-import { createJiti } from 'jiti';
+import { Data, Effect, FileSystem, Path } from 'effect';
 
-import { defineConfig } from './config/define-config.js';
+import { loadConfig } from './config/load-config.js';
 import type { LaymosConfig } from './config/types.js';
 import { extractFileGraph } from './engine/1-extract/index.js';
 import { resolveProject } from './engine/2-resolve/index.js';
 import { evaluateRules } from './engine/3-evaluate/index.js';
 import { emitReport } from './engine/4-emit/index.js';
-import { ConfigLoadError } from './engine/errors.js';
 import type { LaymosError } from './engine/errors.js';
 import type { AnalysisWarning, LaymosReport } from './report/index.js';
 import type {
   StoryRun,
   StoryCatalog,
   StoryCollection,
-  StoryGroupPath,
+  StoryPath,
 } from './report/stories.js';
+import { findStorySurfaces } from './story/core/story-surface.js';
+import {
+  projectStoryCoverage,
+  type StoryCoverageReport,
+} from './story/coverage/index.js';
+import {
+  planStoryEjection,
+  type StoryEjectionError,
+} from './story/eject/index.js';
 import {
   discoverStories as discoverStoryCatalog,
   getStories as getStoryCollection,
@@ -50,6 +57,11 @@ export type {
   StorySourceProjections,
 } from './story/eject/index.js';
 
+export class StoryCoverageError extends Data.TaggedError('StoryCoverageError')<{
+  readonly message: string;
+  readonly cause: unknown;
+}> {}
+
 /** load config → extract → resolve → evaluate → emit; violations are data, config errors fail. */
 export function analyzeProject(
   baseDir: string,
@@ -57,10 +69,14 @@ export function analyzeProject(
   return Effect.gen(function* () {
     const config = yield* loadConfig(baseDir);
     const warnings = findMissingPathWarnings(baseDir, config);
+    const storySurfaces = yield* Effect.promise(() =>
+      findStorySurfaces(baseDir, config.modules ?? []),
+    );
     const fileGraph = yield* extractFileGraph(
       baseDir,
       config.sourceRoots,
       config.ignore ?? [],
+      storySurfaces,
     );
     const resolved = yield* resolveProject(config, fileGraph);
     const evaluation = yield* evaluateRules(resolved);
@@ -88,16 +104,46 @@ export function getStories(
   return getStoryCollection(baseDir);
 }
 
+/** Builds the authored narration report used by diagnostics and DevTools. */
+export function getStoryCoverage(
+  baseDir: string,
+  collection?: StoryCollection,
+): Effect.Effect<
+  StoryCoverageReport,
+  StoryDiscoveryError | StoryEjectionError | StoryCoverageError,
+  FileSystem.FileSystem | Path.Path
+> {
+  const stories = collection
+    ? Effect.succeed(collection)
+    : getStoryCollection(baseDir);
+  return stories.pipe(
+    Effect.flatMap((resolvedStories) =>
+      planStoryEjection(baseDir).pipe(
+        Effect.flatMap((ejection) =>
+          Effect.try({
+            try: () => projectStoryCoverage(baseDir, resolvedStories, ejection),
+            catch: (cause) =>
+              new StoryCoverageError({
+                message: cause instanceof Error ? cause.message : String(cause),
+                cause,
+              }),
+          }),
+        ),
+      ),
+    ),
+  );
+}
+
 export function runStory(
   baseDir: string,
-  storyId: string,
+  storyPath: StoryPath,
   options?: StoryRunOptions,
 ): Effect.Effect<StoryRunResult, StoryRunnerError> {
-  return executeStories(baseDir, [storyId], options).pipe(
+  return executeStories(baseDir, [storyPath], options).pipe(
     Effect.flatMap((result) => {
-      const run = result.runs.stories[storyId];
+      const run = result.runs.stories[storyPath];
       if (run === undefined) {
-        const cause = new Error(`Story "${storyId}" did not run`);
+        const cause = new Error(`Story "${storyPath}" did not run`);
         return Effect.fail(
           new StoryRunnerError({
             operation: 'execute',
@@ -122,100 +168,21 @@ export function runAllStories(
   return executeStories(baseDir, [], options);
 }
 
-export function runStoryGroup(
+export function runModuleStories(
   baseDir: string,
-  groupPath: StoryGroupPath,
+  modulePath: string,
   options?: StoryRunOptions,
-): Effect.Effect<StoriesRunResult, StoryDiscoveryError | StoryRunnerError> {
-  return discoverStories(baseDir).pipe(
-    Effect.flatMap((catalog) => {
-      const groupExists = catalog.groups.some(({ path }) =>
-        samePath(path, groupPath),
-      );
-      if (!groupExists) {
-        const cause = new Error(
-          `Story Group "${groupPath.join(' / ')}" was not found`,
-        );
-        return Effect.fail(
-          new StoryRunnerError({
-            operation: 'execute',
-            message: cause.message,
-            cause,
-          }),
-        );
-      }
-      const storyIds = catalog.stories
-        .filter(({ groupPath: storyGroupPath }) =>
-          startsWithPath(storyGroupPath, groupPath),
-        )
-        .map(({ storyId }) => storyId);
-      return executeStories(baseDir, storyIds, options);
-    }),
-  );
+): Effect.Effect<StoriesRunResult, StoryRunnerError> {
+  return executeStories(baseDir, [modulePath], options);
 }
 
 /** Runs the given Story files (all of them when empty) and returns fresh evidence. */
 export function runStories(
   baseDir: string,
-  storyIds: readonly string[],
+  selectors: readonly string[],
   options?: StoryRunOptions,
 ): Effect.Effect<StoriesRunResult, StoryRunnerError> {
-  return executeStories(baseDir, storyIds, options);
-}
-
-function samePath(left: readonly string[], right: readonly string[]): boolean {
-  return (
-    left.length === right.length &&
-    left.every((segment, index) => segment === right[index])
-  );
-}
-
-function startsWithPath(
-  path: readonly string[],
-  prefix: readonly string[],
-): boolean {
-  return prefix.every((segment, index) => path[index] === segment);
-}
-
-function loadConfig(
-  baseDir: string,
-): Effect.Effect<LaymosConfig, ConfigLoadError> {
-  const path = resolve(baseDir, 'laymos.config.ts');
-  return Effect.tryPromise({
-    try: async () => {
-      if (!existsSync(path)) {
-        throw new Error(`Config file not found: ${path}`);
-      }
-      const jiti = createJiti(import.meta.url, {
-        interopDefault: true,
-        moduleCache: false,
-      });
-      const imported = (await jiti.import(path)) as { default?: unknown };
-      const config = imported.default;
-      if (!isLaymosConfig(config)) {
-        throw new Error(
-          `Config at "${path}" must default-export a value created with defineConfig()`,
-        );
-      }
-      return defineConfig(config);
-    },
-    catch: (cause) => new ConfigLoadError({ path, cause }),
-  });
-}
-
-function isLaymosConfig(value: unknown): value is LaymosConfig {
-  if (typeof value !== 'object' || value === null || !('graphs' in value)) {
-    return false;
-  }
-  const config = value as Partial<LaymosConfig>;
-  return (
-    Array.isArray(config.graphs) &&
-    config.graphs.every((graph) => graph?.kind === 'layer-graph') &&
-    Array.isArray(config.sourceRoots) &&
-    (config.modules === undefined || Array.isArray(config.modules)) &&
-    (config.moduleRules === undefined || Array.isArray(config.moduleRules)) &&
-    (config.ignore === undefined || Array.isArray(config.ignore))
-  );
+  return executeStories(baseDir, selectors, options);
 }
 
 function findMissingPathWarnings(

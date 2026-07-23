@@ -30,3 +30,7 @@ period.
 - Decisions accept JSON-stable literal patterns and zero-argument Arm handlers.
 - Ejection is formatter-independent and internally verifies parsing, complete
   Story removal, and idempotence before its transactional write phase.
+
+ADR-0014 renames Story traversal narration to Story coverage and limits its
+default presentation to per-Story narrated, omitted, and unnarrated
+percentages.

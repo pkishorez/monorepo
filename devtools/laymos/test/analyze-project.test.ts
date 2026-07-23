@@ -35,14 +35,15 @@ describe('analyzeProject', () => {
     );
     await writeFile(
       join(directory, 'laymos.config.ts'),
-      `const app = { kind: 'layer', name: 'app', paths: ['src/app'] } as const;
-const domain = { kind: 'layer', name: 'domain', paths: ['src/domain'] } as const;
-const future = { kind: 'layer', name: 'future', paths: ['src/future'] } as const;
+      `const app = { kind: 'layer', name: 'app', paths: ['src/app'], description: 'App' } as const;
+const domain = { kind: 'layer', name: 'domain', paths: ['src/domain'], description: 'Domain' } as const;
+const future = { kind: 'layer', name: 'future', paths: ['src/future'], description: 'Future' } as const;
 export default {
   sourceRoots: ['src', 'missing-root'],
   graphs: [{
     kind: 'layer-graph',
     name: 'application',
+    description: 'Application architecture',
     layers: [app, domain, future],
     edges: [{ from: app, to: domain }, { from: app, to: future }],
   }],
@@ -76,5 +77,76 @@ export default {
         path: 'src/future',
       },
     ]);
+  });
+
+  it('isolates Module Story surfaces from the static report', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'laymos-project-'));
+    temporaryDirectories.push(directory);
+    execFileSync('git', ['init', '--quiet'], { cwd: directory });
+    await mkdir(join(directory, 'src/account/stories'), { recursive: true });
+    await writeFile(
+      join(directory, 'src/account/index.ts'),
+      "import { fixture } from './stories/support.js';\nexport const account = fixture;\n",
+    );
+    await writeFile(
+      join(directory, 'src/account/stories/account.story.ts'),
+      "import { account } from '../index.js';\nexport const story = account;\n",
+    );
+    await writeFile(
+      join(directory, 'src/account/stories/support.ts'),
+      'export const fixture = true;\n',
+    );
+    await writeFile(
+      join(directory, 'laymos.config.ts'),
+      `const app = { kind: 'layer', name: 'app', paths: ['src'], description: 'App' } as const;
+export default {
+  sourceRoots: ['src'],
+  graphs: [{
+    kind: 'layer-graph',
+    name: 'application',
+    description: 'Application architecture',
+    layers: [app],
+    edges: [],
+  }],
+  modules: [{
+    kind: 'module',
+    path: 'src/account',
+    description: 'Account',
+  }],
+};
+`,
+    );
+
+    const report = await Effect.runPromise(analyzeProject(directory));
+
+    expect(report.files).toEqual({
+      'src/account/index.ts': {
+        kind: 'covered',
+        layer: 'app',
+        module: 'src/account',
+        imports: [],
+      },
+    });
+    expect(report.violations).toEqual([
+      {
+        kind: 'story-import',
+        from: { file: 'src/account/index.ts' },
+        to: {
+          module: 'src/account',
+          file: 'src/account/stories/support.ts',
+        },
+      },
+    ]);
+    expect(report.coverage).toEqual({
+      layers: { totalFiles: 1, coveredFiles: 1, uncovered: [] },
+      modules: [
+        {
+          layer: 'app',
+          totalFiles: 1,
+          coveredFiles: 1,
+          uncovered: [],
+        },
+      ],
+    });
   });
 });

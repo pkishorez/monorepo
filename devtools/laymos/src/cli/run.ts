@@ -1,12 +1,7 @@
 import { Duration, Effect, FileSystem, Option, Path } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 
-import {
-  analyzeProject,
-  getStories,
-  runStories,
-  runStoryGroup,
-} from '../node.js';
+import { analyzeProject, getStories, runStories } from '../node.js';
 import type { StoriesRunResult, StoryRunOptions } from '../node.js';
 import type { LaymosReport, Violation } from '../report/index.js';
 import type {
@@ -49,11 +44,9 @@ type StoryLintResult =
   | { readonly _tag: 'Coverage'; readonly report: StoryCoverageReport }
   | { readonly _tag: 'Unavailable'; readonly message: string };
 
-function lint(): Effect.Effect<
-  void,
-  CliExit,
-  FileSystem.FileSystem | Path.Path
-> {
+function lint(
+  verbose: boolean,
+): Effect.Effect<void, CliExit, FileSystem.FileSystem | Path.Path> {
   return validateProjectStoryAuthoring(process.cwd()).pipe(
     Effect.andThen(
       Effect.all({
@@ -64,7 +57,7 @@ function lint(): Effect.Effect<
     Effect.flatMap(({ report, stories }) =>
       Effect.suspend(() => {
         reportCoverage(report);
-        reportStoryLint(stories, false);
+        reportStoryLint(stories, false, verbose);
         reportWarnings(report);
         if (lintPasses(report) && storyLintPasses(stories)) {
           process.stdout.write(green('No violations found.\n'));
@@ -84,16 +77,14 @@ function lint(): Effect.Effect<
   );
 }
 
-function lintStories(): Effect.Effect<
-  void,
-  CliExit,
-  FileSystem.FileSystem | Path.Path
-> {
+function lintStories(
+  verbose: boolean,
+): Effect.Effect<void, CliExit, FileSystem.FileSystem | Path.Path> {
   return validateProjectStoryAuthoring(process.cwd()).pipe(
     Effect.andThen(inspectStories()),
     Effect.flatMap((result) =>
       Effect.suspend(() => {
-        reportStoryLint(result, true);
+        reportStoryLint(result, true, verbose);
         return storyLintPasses(result)
           ? Effect.void
           : Effect.fail(new CliExit());
@@ -116,7 +107,9 @@ function inspectStories(): Effect.Effect<
 > {
   return getStories(process.cwd()).pipe(
     Effect.flatMap((stories) => {
-      if (stories.catalog.stories.length === 0) {
+      if (
+        stories.catalog.modules.every((module) => module.stories.length === 0)
+      ) {
         return Effect.succeed<StoryLintResult>({ _tag: 'NoStories' });
       }
       return planStoryEjection(process.cwd()).pipe(
@@ -146,32 +139,18 @@ function storyLintPasses(result: StoryLintResult): boolean {
 }
 
 function stories(
-  files: readonly string[],
+  selectors: readonly string[],
   timeout: Option.Option<string>,
-  group: Option.Option<string>,
 ): Effect.Effect<void, CliExit> {
   return Effect.suspend(() => {
     let options: StoryRunOptions;
-    let selectedGroupPath: readonly string[] | undefined;
     try {
       options = storyRunOptions(timeout);
-      selectedGroupPath = Option.isSome(group)
-        ? groupPath(group.value)
-        : undefined;
     } catch (error) {
       process.stderr.write(red(`Error: ${errorMessage(error)}\n`));
       return Effect.fail(new CliExit());
     }
-    if (Option.isSome(group) && files.length > 0) {
-      process.stderr.write(
-        red('Error: --group cannot be combined with Story file arguments\n'),
-      );
-      return Effect.fail(new CliExit());
-    }
-    const run = selectedGroupPath
-      ? runStoryGroup(process.cwd(), selectedGroupPath, options)
-      : runStories(process.cwd(), files, options);
-    return run.pipe(
+    return runStories(process.cwd(), selectors, options).pipe(
       Effect.flatMap((result) =>
         Effect.suspend(() => {
           reportStoriesRun(result);
@@ -215,16 +194,6 @@ function eject(
       }).pipe(Effect.andThen(Effect.fail(new CliExit()))),
     ),
   );
-}
-
-function groupPath(input: string): readonly string[] {
-  const path = input.split('/').map((segment) => segment.trim());
-  if (path.length === 0 || path.some((segment) => segment.length === 0)) {
-    throw new Error(
-      `Invalid --group "${input}"; use a path such as "DynamoDB / Entities"`,
-    );
-  }
-  return path;
 }
 
 function storyRunOptions(timeout: Option.Option<string>): StoryRunOptions {
@@ -464,7 +433,11 @@ function reportCoverage(report: LaymosReport): void {
   }
 }
 
-function reportStoryLint(result: StoryLintResult, explicit: boolean): void {
+function reportStoryLint(
+  result: StoryLintResult,
+  explicit: boolean,
+  verbose: boolean,
+): void {
   if (result._tag === 'NoStories') {
     if (explicit) process.stdout.write('No Stories found.\n');
     return;
@@ -473,48 +446,67 @@ function reportStoryLint(result: StoryLintResult, explicit: boolean): void {
     process.stderr.write(red(`Story lint unavailable: ${result.message}\n`));
     return;
   }
-  reportStoryCoverage(result.report);
+  reportStoryCoverage(result.report, verbose);
   if (result.report.invalidStories.length === 0 && explicit) {
     process.stdout.write(green('Story lint passed.\n'));
   }
 }
 
-function reportStoryCoverage(report: StoryCoverageReport): void {
-  process.stdout.write('\nStory traversal narration\n');
-  process.stdout.write(
-    `  ${report.stories.length} of ${report.storyCount} Stories traced.\n`,
-  );
+function reportStoryCoverage(
+  report: StoryCoverageReport,
+  verbose: boolean,
+): void {
+  process.stdout.write('\nStory coverage\n');
   for (const story of report.stories) {
     process.stdout.write(
-      `\n  ${story.name} ${paintMuted(`(${story.storyId})`)}\n`,
-    );
-    if (story.totalLines === 0) {
-      process.stdout.write(
-        '    No instrumented application functions were traversed.\n',
-      );
-      continue;
-    }
-    process.stdout.write(
-      `    Traversal: ${story.functions} ${story.functions === 1 ? 'function' : 'functions'} across ${story.files} ${story.files === 1 ? 'file' : 'files'}, ${story.totalLines} non-empty lines.\n`,
+      `\n  ${story.name} ${paintMuted(`(${story.storyPath})`)}\n`,
     );
     process.stdout.write(
-      `    Narrated: ${story.narrated.lines} lines (${story.narrated.percentage.toFixed(1)}%).\n`,
+      `    Narrated ${formatPercentage(story.narrated.percentage)} · Omitted ${formatPercentage(story.omitted.percentage)} · Unnarrated ${formatPercentage(story.unnarrated.percentage)}\n`,
+    );
+    if (!verbose) continue;
+    process.stdout.write(
+      `    Lines: ${story.totalLines} non-empty ejected · ${story.narrated.lines} narrated · ${story.omitted.lines} omitted · ${story.unnarrated.lines} unnarrated\n`,
     );
     process.stdout.write(
-      `    Omitted: ${story.omitted.lines} lines (${story.omitted.percentage.toFixed(1)}%).\n`,
+      `    Files: ${story.files.length === 0 ? 'none' : story.files.join(', ')}\n`,
     );
-    process.stdout.write(
-      yellow(
-        `    Unnarrated: ${story.unnarrated.lines} lines (${story.unnarrated.percentage.toFixed(1)}%).\n`,
-      ),
-    );
+    reportCoverageRanges('Functions', story.functions);
+    reportCoverageRanges('Omissions', story.omissions);
+    reportCoverageRanges('Unnarrated regions', story.unnarratedRegions);
   }
   if (report.invalidStories.length === 0) return;
   process.stderr.write(
     red(`\n  ${report.invalidStories.length} invalid Stories:\n`),
   );
   for (const invalid of report.invalidStories) {
-    process.stderr.write(red(`    - ${invalid.storyId}: ${invalid.message}\n`));
+    process.stderr.write(
+      red(`    - ${invalid.storyPath}: ${invalid.message}\n`),
+    );
+  }
+}
+
+function reportCoverageRanges(
+  label: string,
+  ranges: readonly {
+    readonly file: string;
+    readonly startLine: number;
+    readonly endLine: number;
+    readonly reason?: string;
+  }[],
+): void {
+  process.stdout.write(`    ${label}:\n`);
+  if (ranges.length === 0) {
+    process.stdout.write('      - none\n');
+    return;
+  }
+  for (const range of ranges) {
+    const lines =
+      range.startLine === range.endLine
+        ? `${range.startLine}`
+        : `${range.startLine}-${range.endLine}`;
+    const reason = range.reason === undefined ? '' : ` — ${range.reason}`;
+    process.stdout.write(`      - ${range.file}:${lines}${reason}\n`);
   }
 }
 
@@ -544,11 +536,15 @@ function reportViolations(violations: readonly Violation[]): void {
       process.stderr.write(
         red(`  - [layer] ${violation.from.layer} -> ${violation.to.layer}\n`),
       );
-    } else {
+    } else if (violation.kind === 'module') {
       process.stderr.write(
         red(
           `  - [${violation.rule}] ${violation.from.module} -> ${violation.to.module}\n`,
         ),
+      );
+    } else {
+      process.stderr.write(
+        red(`  - [story-import] -> ${violation.to.module}\n`),
       );
     }
     process.stderr.write(
@@ -572,13 +568,25 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-const lintStoriesCommand = Command.make('stories', {}, lintStories).pipe(
+const verboseFlag = Flag.boolean('verbose').pipe(
+  Flag.withDescription('Show Story coverage source details and line ranges.'),
+);
+
+const lintStoriesCommand = Command.make(
+  'stories',
+  { verbose: verboseFlag },
+  ({ verbose }) => lintStories(verbose),
+).pipe(
   Command.withDescription(
-    'Validate Story authoring and traces, then report Story Block coverage.',
+    'Validate Story authoring and traces, then report per-Story coverage.',
   ),
 );
 
-const lintCommand = Command.make('lint', {}, lint).pipe(
+const lintCommand = Command.make(
+  'lint',
+  { verbose: verboseFlag },
+  ({ verbose }) => lint(verbose),
+).pipe(
   Command.withDescription(
     'Lint architecture and Stories. Coverage gaps are warnings only.',
   ),
@@ -597,31 +605,25 @@ const ejectCommand = Command.make(
   ({ dryRun }) => eject(dryRun),
 ).pipe(
   Command.withDescription(
-    'Remove Story instrumentation and delete Laymos Story files across the current project.',
+    'Remove Story instrumentation and delete every Module Story surface across the current project.',
   ),
 );
 
 const storiesCommand = Command.make(
   'stories',
   {
-    stories: Argument.string('story').pipe(Argument.variadic()),
+    selectors: Argument.string('selector').pipe(Argument.variadic()),
     timeout: Flag.string('timeout').pipe(
       Flag.optional,
       Flag.withDescription(
         'Default Scenario timeout for this run, e.g. "90 seconds".',
       ),
     ),
-    group: Flag.string('group').pipe(
-      Flag.optional,
-      Flag.withDescription(
-        'Run one Story Group subtree, e.g. "DynamoDB / Entities".',
-      ),
-    ),
   },
-  ({ stories: files, timeout, group }) => stories(files, timeout, group),
+  ({ selectors, timeout }) => stories(selectors, timeout),
 ).pipe(
   Command.withDescription(
-    'Run Story files or one --group subtree (all Stories by default) and print fresh execution evidence.',
+    'Run Module paths or suffixless Story paths (all Stories by default) and print fresh execution evidence.',
   ),
   Command.withSubcommands([ejectCommand]),
 );

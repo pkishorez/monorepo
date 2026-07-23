@@ -1,7 +1,11 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type { StoryRunResult } from 'laymos/node';
-import type { LaymosReport, StoryCollection } from 'laymos/report';
+import type {
+  LaymosReport,
+  StoryCollection,
+  StoryCoverageReport,
+} from 'laymos/report';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -53,55 +57,58 @@ export type LaymosEvent = typeof LaymosEvent.Type;
 const StoryRunData = Schema.Any as unknown as Schema.Codec<StoryRunResult>;
 const StoryCollectionData =
   Schema.Any as unknown as Schema.Codec<StoryCollection>;
+const StoryCoverageData =
+  Schema.Any as unknown as Schema.Codec<StoryCoverageReport>;
 
-const LaymosBootstrapData = Schema.Struct({
+const LaymosProjectData = Schema.Struct({
   architecture: LaymosData,
   stories: StoryCollectionData,
+  storyCoverage: StoryCoverageData,
   files: Schema.Array(Schema.String),
 });
 
-const LaymosBootstrapSuccess = Schema.Union([
+const OpenLaymosProjectSuccess = Schema.Union([
   Schema.Struct({ available: Schema.Literal(false) }),
   Schema.Struct({
     available: Schema.Literal(true),
-    data: LaymosBootstrapData,
+    data: LaymosProjectData,
   }),
 ]);
 
-export type LaymosBootstrapResult = typeof LaymosBootstrapSuccess.Type;
+export type OpenLaymosProjectResult = typeof OpenLaymosProjectSuccess.Type;
 
-export const LaymosBootstrapEvent = Schema.Union([
+export const OpenLaymosProjectEvent = Schema.Union([
   Schema.Struct({
     _tag: Schema.Literal('Heartbeat'),
     elapsedMs: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('Result'),
-    result: LaymosBootstrapSuccess,
+    result: OpenLaymosProjectSuccess,
   }),
 ]);
 
-export type LaymosBootstrapEvent = typeof LaymosBootstrapEvent.Type;
+export type OpenLaymosProjectEvent = typeof OpenLaymosProjectEvent.Type;
 
 /** Incremental progress and results emitted while running every Story. */
 export const StoriesEvent = Schema.Union([
   Schema.Struct({
     _tag: Schema.Literal('Heartbeat'),
     elapsedMs: Schema.Number,
-    storyId: Schema.optional(Schema.String),
+    storyPath: Schema.optional(Schema.String),
   }),
   Schema.Struct({
     _tag: Schema.Literal('StoryStarted'),
-    storyId: Schema.String,
+    storyPath: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('StoryResult'),
-    storyId: Schema.String,
+    storyPath: Schema.String,
     result: StoryRunData,
   }),
   Schema.Struct({
     _tag: Schema.Literal('StoryError'),
-    storyId: Schema.String,
+    storyPath: Schema.String,
     message: Schema.String,
   }),
   Schema.Struct({
@@ -173,20 +180,14 @@ const StorySourceProjectionData = Schema.Struct({
 
 /**
  * The DevTools umbrella RPC surface consumed by the `/devtools` route. Carries
- * the Dependencies procedure (`RunLaymos`, path-driven) and the global
- * Telemetry read procedures backed by lotel's orchestration. Telemetry
+ * the project-centric Laymos procedures and the global Telemetry read
+ * procedures backed by lotel's orchestration. Telemetry
  * *ingestion* is served separately over OTLP/HTTP (see ADR 0001).
  */
 export const DevtoolsRpc = RpcGroup.make(
-  Rpc.make('BootstrapLaymosProject', {
+  Rpc.make('OpenLaymosProject', {
     payload: { path: Schema.String },
-    success: LaymosBootstrapEvent,
-    error: DevtoolsRpcError,
-    stream: true,
-  }),
-  Rpc.make('RunLaymos', {
-    payload: { path: Schema.String },
-    success: LaymosEvent,
+    success: OpenLaymosProjectEvent,
     error: DevtoolsRpcError,
     stream: true,
   }),
@@ -197,20 +198,15 @@ export const DevtoolsRpc = RpcGroup.make(
     stream: true,
   }),
   Rpc.make('RunStory', {
-    payload: { path: Schema.String, storyId: Schema.String },
+    payload: { path: Schema.String, storyPath: Schema.String },
     success: StoryRunData,
     error: DevtoolsRpcError,
   }),
-  Rpc.make('RunStoryGroup', {
-    payload: { path: Schema.String, groupPath: Schema.Array(Schema.String) },
+  Rpc.make('RunModuleStories', {
+    payload: { path: Schema.String, modulePath: Schema.String },
     success: StoriesEvent,
     error: DevtoolsRpcError,
     stream: true,
-  }),
-  Rpc.make('GetStories', {
-    payload: { path: Schema.String },
-    success: StoryCollectionData,
-    error: DevtoolsRpcError,
   }),
   Rpc.make('ReadProjectFile', {
     payload: { path: Schema.String, filePath: Schema.String },

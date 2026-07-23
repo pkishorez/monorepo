@@ -3,7 +3,7 @@ import { normalizeConfigPath } from './path.js';
 
 export function module(
   path: string,
-  options?: { description?: string },
+  options: { readonly description: string },
 ): ModuleDef {
   if (path.length === 0) {
     throw new Error('Module path must not be empty');
@@ -11,9 +11,7 @@ export function module(
   return {
     kind: 'module',
     path: normalizeConfigPath(path),
-    ...(options?.description !== undefined
-      ? { description: options.description }
-      : {}),
+    description: options.description,
   };
 }
 

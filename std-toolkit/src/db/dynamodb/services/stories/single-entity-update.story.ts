@@ -1,44 +1,25 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow, terminal } from 'laymos/story';
+import { story } from 'laymos/story';
 
-import { dynamodbSingleEntityStories } from './support/story-groups.js';
+import { dynamodbStoryDocumentation } from './story-documentation.js';
 
 import {
   assertDynamoError,
   makeDynamoStoryHarness,
-} from './support/dynamodb-story-harness.js';
+} from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('single-entity-update');
 type Input = Parameters<typeof harness.settings.update>[0];
-const updateSettings = flow(
-  'Update single entity',
-  {
-    description:
-      'Updates stored singleton state through the public single-entity update method.',
-  },
-  (input: Input) =>
-    Effect.gen(function* () {
-      const result = yield* harness.settings.update(input);
-      return yield* terminal(
-        'Return the updated singleton',
-        {
-          description: 'Completes this update flow with the changed singleton.',
-          completion: { kind: 'success' },
-        },
-        () => Effect.succeed(result),
-      );
-    }),
-);
 
-dynamodbSingleEntityStories
-  .story('Update single entity', {
-    description:
-      'Shows successful and missing-record paths for one singleton update.',
-  })
+story('Update single entity', {
+  description:
+    'Shows successful and missing-record paths for one singleton update.',
+  documentation: dynamodbStoryDocumentation.singleUpdate,
+})
   .provide(harness.layer)
-  .execute(updateSettings)
+  .execute((input: Input) => harness.settings.update(input))
   .scenario(
     'update changes an existing singleton',
     { description: 'Applies a partial update to prepared settings.' },

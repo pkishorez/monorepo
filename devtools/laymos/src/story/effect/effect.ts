@@ -6,7 +6,6 @@ import type {
   BlockMeta,
   DecisionValue,
   OmissionMeta,
-  StoryGroupMeta,
   StoryMeta,
   TerminalMeta,
 } from '../core/types.js';
@@ -14,6 +13,7 @@ import type { TerminalCompletion } from '../core/types.js';
 
 export interface ScenarioMeta {
   readonly description: string;
+  readonly documentation?: import('../core/project-narrative.js').MarkdownContent;
   readonly timeout?: Duration.Input;
 }
 
@@ -70,11 +70,6 @@ export interface EffectStoryBuilder<R> {
   ): EffectStory<Prepared, Output, Error, R>;
 }
 
-export interface EffectStoryGroup {
-  group(name: string, meta: StoryGroupMeta): EffectStoryGroup;
-  story(name: string, meta: StoryMeta): EffectStoryBuilder<never>;
-}
-
 const inertStory: EffectStory<unknown, unknown, unknown, unknown> = {
   scenario(_name, meta) {
     requireDescription(meta.description, `Scenario "${_name}"`);
@@ -104,25 +99,6 @@ export function story(
   requireDescription(meta.description, `Story "${name}"`);
   return inertStoryBuilder as unknown as EffectStoryBuilder<never>;
 }
-
-/** Declares a reusable Story Group. */
-export function storyGroup(
-  name: string,
-  meta: StoryGroupMeta,
-): EffectStoryGroup {
-  requirePathSegment(name, 'Story Group');
-  requireDescription(meta.description, `Story Group "${name}"`);
-  return inertStoryGroup;
-}
-
-const inertStoryGroup: EffectStoryGroup = {
-  group(name, meta) {
-    requirePathSegment(name, 'Story Group');
-    requireDescription(meta.description, `Story Group "${name}"`);
-    return inertStoryGroup;
-  },
-  story,
-};
 
 type AnyEffect = Effect.Effect<any, any, any>;
 type Success<T> = T extends Effect.Effect<infer A, any, any> ? A : never;

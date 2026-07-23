@@ -49,5 +49,9 @@ connection failure is written to stderr and exits with a nonzero status.
 
 - `@pkishorez/devtools/rpc` — the RPC group definition and shared types,
   including dependency analysis, Laymos Story discovery and execution, and
-  telemetry procedures.
+  telemetry procedures. `RunStory` accepts `{ path, storyPath }`,
+  `RunModuleStories` accepts `{ path, modulePath }`, and `RunAllStories`
+  accepts `{ path }`. Streamed Story events identify work with the same
+  suffixless `storyPath`; bootstrap data groups each Story under its owning
+  Module.
 - `@pkishorez/devtools/report` — programmatic report generation for a directory.

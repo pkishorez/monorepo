@@ -4,7 +4,7 @@ import { normalizeConfigPath } from './path.js';
 export function layer(
   name: string,
   paths: readonly string[],
-  options?: { description?: string },
+  options: { readonly description: string },
 ): Layer {
   if (name.length === 0) {
     throw new Error('Layer name must not be empty');
@@ -20,8 +20,6 @@ export function layer(
     kind: 'layer',
     name,
     paths: normalizedPaths,
-    ...(options?.description !== undefined
-      ? { description: options.description }
-      : {}),
+    description: options.description,
   };
 }

@@ -2,7 +2,6 @@ import type { LaymosModuleSelection } from '../types';
 import { moduleEdgeKey, type ModuleGraphModel } from './model';
 
 export type ConnectionDirection = 'incoming' | 'outgoing';
-export type ModuleConnectionScope = 'all' | 'cross-layer';
 
 export interface ModuleGraphSelectionModel {
   readonly root: string | null;
@@ -34,33 +33,11 @@ function traverse(
   return { nodes, distances };
 }
 
-function scopedAdjacency(
-  model: ModuleGraphModel,
-  scope: ModuleConnectionScope,
-  direction: ConnectionDirection,
-): ReadonlyMap<string, ReadonlySet<string>> {
-  if (scope === 'all') {
-    return direction === 'outgoing' ? model.successors : model.predecessors;
-  }
-  const adjacency = new Map(
-    [...model.modules.keys()].map((path) => [path, new Set<string>()]),
-  );
-  for (const edge of model.edges) {
-    const from = model.modules.get(edge.from)!;
-    const to = model.modules.get(edge.to)!;
-    if (from.layer === to.layer) continue;
-    if (direction === 'outgoing') adjacency.get(edge.from)?.add(edge.to);
-    else adjacency.get(edge.to)?.add(edge.from);
-  }
-  return adjacency;
-}
-
 /** Computes direct or complete bidirectional disclosure for one module. */
 export function getModuleGraphSelection(
   model: ModuleGraphModel,
   selection: LaymosModuleSelection | null,
   hoveredModule: string | null,
-  scope: ModuleConnectionScope = 'all',
 ): ModuleGraphSelectionModel {
   if (!selection || !model.modules.has(selection.path)) {
     return {
@@ -75,8 +52,8 @@ export function getModuleGraphSelection(
     };
   }
 
-  const outgoingAdjacency = scopedAdjacency(model, scope, 'outgoing');
-  const incomingAdjacency = scopedAdjacency(model, scope, 'incoming');
+  const outgoingAdjacency = model.successors;
+  const incomingAdjacency = model.predecessors;
   const outgoing = traverse(selection.path, outgoingAdjacency);
   const incoming = traverse(selection.path, incomingAdjacency);
   const visibleModules = new Set<string>([selection.path]);
@@ -84,12 +61,6 @@ export function getModuleGraphSelection(
   const directions = new Map<string, ConnectionDirection>();
 
   for (const edge of model.edges) {
-    if (
-      scope === 'cross-layer' &&
-      model.modules.get(edge.from)?.layer === model.modules.get(edge.to)?.layer
-    ) {
-      continue;
-    }
     const key = moduleEdgeKey(edge.from, edge.to);
     const outgoingEdge =
       selection.depth === 'direct'

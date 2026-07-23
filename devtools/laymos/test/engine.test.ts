@@ -15,13 +15,15 @@ import { evaluateRules } from '../src/engine/3-evaluate/index.js';
 
 describe('static engine', () => {
   it('resolves longest prefixes and evaluates transitive layer reachability', () => {
-    const app = layer('app', ['src']);
-    const domain = layer('domain', ['src/domain']);
-    const data = layer('data', ['src/data']);
+    const app = layer('app', ['src'], { description: 'App' });
+    const domain = layer('domain', ['src/domain'], { description: 'Domain' });
+    const data = layer('data', ['src/data'], { description: 'Data' });
     const config = defineConfig({
       sourceRoots: ['.'],
       graphs: [
-        layerGraph('application', [edge(app, domain), edge(domain, data)]),
+        layerGraph('application', [edge(app, domain), edge(domain, data)], {
+          description: 'Application architecture',
+        }),
       ],
     });
     const fileGraph = graph({
@@ -46,14 +48,22 @@ describe('static engine', () => {
   });
 
   it('evaluates reachability across focused graphs', () => {
-    const feature = layer('feature', ['src/feature']);
-    const core = layer('core', ['src/core']);
-    const foundation = layer('foundation', ['src/foundation']);
+    const feature = layer('feature', ['src/feature'], {
+      description: 'Feature',
+    });
+    const core = layer('core', ['src/core'], { description: 'Core' });
+    const foundation = layer('foundation', ['src/foundation'], {
+      description: 'Foundation',
+    });
     const config = defineConfig({
       sourceRoots: ['src'],
       graphs: [
-        layerGraph('feature', [edge(feature, core)]),
-        layerGraph('core', [edge(core, foundation)]),
+        layerGraph('feature', [edge(feature, core)], {
+          description: 'Feature architecture',
+        }),
+        layerGraph('core', [edge(core, foundation)], {
+          description: 'Core architecture',
+        }),
       ],
     });
     const fileGraph = graph({
@@ -67,14 +77,18 @@ describe('static engine', () => {
   });
 
   it('reports both denying module rules for one import', () => {
-    const layerDef = layer('app', ['src']);
-    const consumer = module('src/consumer');
-    const provider = module('src/provider');
-    const other = module('src/other');
+    const layerDef = layer('app', ['src'], { description: 'App' });
+    const consumer = module('src/consumer', { description: 'Consumer' });
+    const provider = module('src/provider', { description: 'Provider' });
+    const other = module('src/other', { description: 'Other' });
     const config = defineConfig({
       sourceRoots: ['.'],
       graphs: [
-        layerGraph('application', [edge(layerDef, layer('sink', ['sink']))]),
+        layerGraph(
+          'application',
+          [edge(layerDef, layer('sink', ['sink'], { description: 'Sink' }))],
+          { description: 'Application architecture' },
+        ),
       ],
       modules: [consumer, provider, other],
       moduleRules: [
@@ -99,13 +113,21 @@ describe('static engine', () => {
   });
 
   it('applies module restrictions across layers alongside layer restrictions', () => {
-    const consumerLayer = layer('consumer', ['src/consumer']);
-    const providerLayer = layer('provider', ['src/provider']);
-    const consumer = module('src/consumer');
-    const provider = module('src/provider');
+    const consumerLayer = layer('consumer', ['src/consumer'], {
+      description: 'Consumer',
+    });
+    const providerLayer = layer('provider', ['src/provider'], {
+      description: 'Provider',
+    });
+    const consumer = module('src/consumer', { description: 'Consumer' });
+    const provider = module('src/provider', { description: 'Provider' });
     const config = defineConfig({
       sourceRoots: ['.'],
-      graphs: [layerGraph('application', [edge(providerLayer, consumerLayer)])],
+      graphs: [
+        layerGraph('application', [edge(providerLayer, consumerLayer)], {
+          description: 'Application architecture',
+        }),
+      ],
       modules: [consumer, provider],
       moduleRules: [rules(consumer, { canImport: [] })],
     });
@@ -126,13 +148,21 @@ describe('static engine', () => {
   });
 
   it('does not let a cross-layer module allowance override the layer graph', () => {
-    const consumerLayer = layer('consumer', ['src/consumer']);
-    const providerLayer = layer('provider', ['src/provider']);
-    const consumer = module('src/consumer');
-    const provider = module('src/provider');
+    const consumerLayer = layer('consumer', ['src/consumer'], {
+      description: 'Consumer',
+    });
+    const providerLayer = layer('provider', ['src/provider'], {
+      description: 'Provider',
+    });
+    const consumer = module('src/consumer', { description: 'Consumer' });
+    const provider = module('src/provider', { description: 'Provider' });
     const config = defineConfig({
       sourceRoots: ['.'],
-      graphs: [layerGraph('application', [edge(providerLayer, consumerLayer)])],
+      graphs: [
+        layerGraph('application', [edge(providerLayer, consumerLayer)], {
+          description: 'Application architecture',
+        }),
+      ],
       modules: [consumer, provider],
       moduleRules: [rules(consumer, { canImport: [provider] })],
     });
@@ -152,10 +182,16 @@ describe('static engine', () => {
   });
 
   it('keeps explicit ignores auditable but removes their edges and coverage', () => {
-    const app = layer('app', ['src']);
+    const app = layer('app', ['src'], { description: 'App' });
     const config = defineConfig({
       sourceRoots: ['.'],
-      graphs: [layerGraph('application', [edge(app, layer('sink', ['sink']))])],
+      graphs: [
+        layerGraph(
+          'application',
+          [edge(app, layer('sink', ['sink'], { description: 'Sink' }))],
+          { description: 'Application architecture' },
+        ),
+      ],
       ignore: ['./src/generated'],
     });
     const resolved = Effect.runSync(
@@ -179,6 +215,68 @@ describe('static engine', () => {
       coveredFiles: 1,
     });
   });
+
+  it('reports Story imports without adding Story files to static coverage', () => {
+    const app = layer('app', ['src'], { description: 'App' });
+    const account = module('src/account', { description: 'Account' });
+    const config = defineConfig({
+      sourceRoots: ['src'],
+      graphs: [
+        layerGraph(
+          'application',
+          [edge(app, layer('sink', ['src/sink'], { description: 'Sink' }))],
+          { description: 'Application architecture' },
+        ),
+      ],
+      modules: [account],
+    });
+    const fileGraph: FileGraph = {
+      files: {
+        'src/account/index.ts': {
+          path: 'src/account/index.ts',
+          imports: [],
+        },
+      },
+      storyImports: [
+        {
+          from: 'src/account/index.ts',
+          to: 'src/account/stories/support.ts',
+          module: 'src/account',
+        },
+      ],
+    };
+
+    const resolved = Effect.runSync(resolveProject(config, fileGraph));
+    const evaluation = Effect.runSync(evaluateRules(resolved));
+
+    expect(evaluation.violations).toEqual([
+      {
+        kind: 'story-import',
+        from: { file: 'src/account/index.ts' },
+        to: {
+          module: 'src/account',
+          file: 'src/account/stories/support.ts',
+        },
+      },
+    ]);
+    expect(evaluation.coverage).toEqual({
+      layers: { totalFiles: 1, coveredFiles: 1, uncovered: [] },
+      modules: [
+        {
+          layer: 'app',
+          totalFiles: 1,
+          coveredFiles: 1,
+          uncovered: [],
+        },
+        {
+          layer: 'sink',
+          totalFiles: 0,
+          coveredFiles: 0,
+          uncovered: [],
+        },
+      ],
+    });
+  });
 });
 
 function graph(imports: Record<string, string[]>): FileGraph {
@@ -189,5 +287,6 @@ function graph(imports: Record<string, string[]>): FileGraph {
         { path, imports: dependencies },
       ]),
     ),
+    storyImports: [],
   };
 }

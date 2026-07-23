@@ -11,6 +11,6 @@
     "rootDir": ".",
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "stories/**/*", "test/**/*", "vitest*.ts"],
+  "include": ["src/**/*", "test/**/*", "vitest*.ts"],
   "exclude": ["dist", "node_modules"]
 }
