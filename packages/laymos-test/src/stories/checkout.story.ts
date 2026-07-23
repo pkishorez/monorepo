@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { Effect } from 'effect';
 import { story } from 'laymos/story';
 
-import { checkout, type CheckoutInput } from '../src/order-workflow.js';
+import { checkout, type CheckoutInput } from '../order-workflow.js';
 
 story('Checkout routing', {
   description:

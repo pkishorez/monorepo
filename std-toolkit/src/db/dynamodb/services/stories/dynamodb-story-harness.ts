@@ -5,14 +5,14 @@ import { Cause, Effect, Layer, Schema } from 'effect';
 import {
   EntityESchema,
   SingleEntityESchema,
-} from '../../../src/eschema/index.js';
+} from '../../../../eschema/index.js';
 import {
   createDynamoDB,
   DynamoDB,
   DynamoTable,
   dynamoDBLayer,
   type DynamodbError,
-} from '../../../src/db/dynamodb/index.js';
+} from '../../index.js';
 
 const endpoint = process.env.DYNAMODB_ENDPOINT ?? 'http://localhost:8090';
 

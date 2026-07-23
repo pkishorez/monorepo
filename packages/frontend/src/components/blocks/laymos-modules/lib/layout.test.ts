@@ -200,7 +200,7 @@ describe('module graph layout', () => {
     );
     const hidden = computeModuleGraphLayout(
       model,
-      getModuleGraphSelection(model, selected, null, 'cross-layer'),
+      getModuleGraphSelection(model, null, null),
       expanded,
       'tree',
     );

@@ -13,7 +13,8 @@ analysis universe. Only supported source files beneath source roots participate
 in rules or coverage; Git state has no bearing on membership.
 
 **Layer**:
-A named, disjoint set of folders or files — one band of the architecture.
+A named and described, disjoint set of folders or files — one band of the
+architecture. Its description states the intent of the architectural boundary.
 Paths are plain prefixes, never patterns; nesting resolves by longest prefix,
 so disjointness holds by construction.
 Explicit by definition: no implicit or "open" layers. A layer exists only
@@ -24,9 +25,10 @@ graph names.
 _Avoid_: band, tier
 
 **Layer graph**:
-A DAG of layers where an edge means "may import" and absence of an edge
-forbids. Reachability is transitive. A project may define several graphs; they
-organize and communicate.
+A named and described DAG of layers where an edge means "may import" and
+absence of an edge forbids. Its description states why the included Layers are
+presented together. Reachability is transitive. A project may define several
+graphs; they organize and communicate.
 _Avoid_: stack (the predecessor's term — retired)
 
 **Union**:
@@ -41,9 +43,17 @@ _Avoid_: shared layer (there is no special kind — just a layer used in
 multiple graphs)
 
 **Module**:
-A file or folder living in exactly one layer — the longest layer prefix
-containing its path; inferred, never declared. Strictly flat — no module
-inside another. Declaring one imposes nothing; constraints are opt-in.
+A described file or folder living in exactly one layer — the longest layer
+prefix containing its path. Its layer membership is inferred, never declared.
+Modules are strictly flat, with no Module inside another. Declaring one
+imposes nothing; constraints are opt-in.
+
+**Story surface**:
+The optional, flat collection of Stories and their shared support material
+owned by one folder Module. It is invisible to static architecture and may
+depend on application code, while application code may never depend on it.
+Only Story declarations enter the Story Catalog; file Modules have no Story
+surface.
 
 **Module rules**:
 Opt-in constraints on a module's edges: `canImport` disciplines it as a
@@ -67,11 +77,25 @@ violate both a layer and a module rule — both are reported.
 
 ### Stories
 
+**Project Narrative**:
+The optional, project-level human account of what the system is and how to
+explore it. It combines prose with editorial Project Maps and is not an
+executable Story.
+_Avoid_: Project Story
+
+**Project Map**:
+An editorial tree of Project Topics within a Project Narrative. It organizes a
+human tour through the architecture without declaring or changing
+architectural edges.
+
+**Project Topic**:
+A described responsibility in a Project Map. It may reference Layer Graphs,
+Layers, and Modules for navigation without declaring architecture.
+
 **Story ejection**:
 The atomic, one-way retirement of Stories from an entire project. It removes
-Story Block narration from application code and deletes Laymos Story files;
-other story-named files and Story support files remain untouched. Partial
-ejection is not supported.
+Story Block narration from application code and deletes every Module's complete
+Story surface. Partial ejection is not supported.
 _Avoid_: unstory
 
 **Story source projection**:
@@ -89,21 +113,35 @@ separately record the concrete routes they execute under arranged conditions.
 A Story describes only its explicitly marked Blocks and Omissions and makes no
 claim that the surrounding code or use case is complete. Its purpose is to
 explain how the observed implementation logic works, not to claim that the
-logic has been proven. It has a required description. Its identity is the
-project-relative path of its Story file. Its leaf name is unique among Stories
-in the same Story Group, or among Standalone Stories, but may repeat in
-different Story Groups.
-A Story belongs to at most one Story Group; without one, it is a Standalone
-Story.
+logic has been proven. It has a required description and a human-facing name.
+Its identity is its owning Module together with its Story Key. Every Story
+belongs to exactly one folder Module through that Module's Story surface; a
+Module may own any number of Stories, including none.
 _Avoid_: coverage suite, specification
 
+**Story Key**:
+The kebab-case, Module-local name that distinguishes one Story from the others
+in the same Story surface. It is independent of the Story's human-facing name.
+_Avoid_: Story file path, Story ID
+
+**Owning Module**:
+The one folder Module whose Story surface contains a Story.
+
+**Participating Module**:
+A Module containing at least one Block in a Story's complete structural trace.
+Participation does not imply Story ownership or Scenario observation.
+
+**Observed Module**:
+A Participating Module whose Block was visited by one Scenario.
+
 **Story coverage**:
-The degree to which a package's inferred inventory of intended behaviors is
-accounted for by Stories, Scenarios, explicit compositions, or reasoned
-omissions. It is a reviewable documentation judgment, not proof of runtime or
-code coverage. The inventory is a temporary authoring aid; Stories are the
-durable account.
-_Avoid_: code coverage, test coverage, coverage manifest
+The degree to which one Story's Traversal Scope is narrated by Blocks,
+deliberately excluded by Omissions, or left Unnarrated. It judges authored
+narration only and neither follows unmarked helper bodies nor claims that code
+executed or behavior was proven. It is reported only for an individual Story as
+three separate percentages that total one hundred; it is never rolled up to a
+Module, Layer, or Project score.
+_Avoid_: code coverage, test coverage, Story traversal narration
 
 **Trace Mode**:
 The side-effect-free exploration of a Story's narrated flow. It follows every
@@ -117,31 +155,9 @@ structure and Omissions, never timings, outcomes, failures, runtime attributes,
 or other Scenario evidence. A failed trace may retain an explicitly incomplete
 account for diagnosis but is never a valid Story Trace.
 
-**Standalone Story**:
-A Story that belongs to no Story Group and sits directly in the Story
-collection.
-_Avoid_: root Story, global Story, ungrouped Story
-
-**Story path**:
-The authored hierarchical position of a Story. It consists of its ancestor
-Story Group names followed by the Story's leaf name and is independent of the
-Story file's location. A Standalone Story's path contains only its leaf name.
-Every level has one shared namespace for child Story Groups and Stories, so
-each Story path identifies one visible destination. Segment names are non-empty
-and cannot contain `/`, which is reserved for displaying the path.
-_Avoid_: Story ID, file path
-
-**Story group**:
-A named collection of Stories with a required description that may belong to
-one parent Story Group, forming a hierarchy. Story membership is exclusive
-rather than tag-like; a Story Group is not itself a Story. Its identity is its
-full path of Story Group names. Declarations of the same identity must agree on
-metadata.
-_Avoid_: folder, category
-
 **Story catalog**:
-The discoverable collection of Story identities, names, descriptions, and
-Story Group hierarchy available before any Story executes.
+The discoverable collection of folder Modules with Story surfaces and the
+Stories each owns, available before any Story executes.
 _Avoid_: Report, Artifact
 
 **Story collection**:
@@ -203,13 +219,6 @@ A marked unit of narrative with a short name and a required, non-empty
 explanation of what it does and why. Its identity is generated rather than
 supplied by the author, and is not expected to remain stable across story
 generations. A Block is a Flow, Step, Decision, or Terminal.
-
-**Story traversal narration**:
-The per-Story source diagnostic that classifies the non-empty application lines
-within its Traversal scope as narrated, omitted, or unnarrated. It reports each
-classification as a line count and percentage without claiming that code
-executed or behavior was proven.
-_Avoid_: code coverage, test coverage
 
 **Traversal scope**:
 The union of application function bodies that contain a Block or Omission

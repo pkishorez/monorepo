@@ -6,13 +6,17 @@ import type { ResolvedProject } from '../src/engine/2-resolve/index.js';
 import type { Evaluation } from '../src/engine/3-evaluate/index.js';
 import { emitReport } from '../src/engine/4-emit/index.js';
 
-const app = layer('app', ['src/app']);
-const domain = layer('domain', ['src/domain']);
+const app = layer('app', ['src/app'], { description: 'App' });
+const domain = layer('domain', ['src/domain'], { description: 'Domain' });
 
 const resolved: ResolvedProject = {
   config: {
     sourceRoots: ['src'],
-    graphs: [layerGraph('application', [edge(app, domain)])],
+    graphs: [
+      layerGraph('application', [edge(app, domain)], {
+        description: 'Application architecture',
+      }),
+    ],
   },
   fileGraph: {
     files: {
@@ -25,6 +29,7 @@ const resolved: ResolvedProject = {
         imports: [],
       },
     },
+    storyImports: [],
   },
   files: {
     'src/app/index.ts': {
@@ -56,12 +61,13 @@ describe('emitReport', () => {
       architecture: {
         sourceRoots: ['src'],
         layers: {
-          app: { paths: ['src/app'] },
-          domain: { paths: ['src/domain'] },
+          app: { paths: ['src/app'], description: 'App' },
+          domain: { paths: ['src/domain'], description: 'Domain' },
         },
         graphs: [
           {
             name: 'application',
+            description: 'Application architecture',
             layers: ['app', 'domain'],
             edges: [{ from: 'app', to: 'domain' }],
           },

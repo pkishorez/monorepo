@@ -6,6 +6,7 @@ import type {
   LayerViolation,
   ModuleCoverage,
   ModuleViolation,
+  StoryImportViolation,
   Violation,
 } from '../../report/index.js';
 import type { ResolvedProject } from '../2-resolve/index.js';
@@ -16,6 +17,7 @@ export type {
   LayerViolation,
   ModuleCoverage,
   ModuleViolation,
+  StoryImportViolation,
   Violation,
 };
 
@@ -27,7 +29,13 @@ export interface Evaluation {
 export function evaluateRules(
   resolved: ResolvedProject,
 ): Effect.Effect<Evaluation> {
-  const violations: Violation[] = [];
+  const violations: Violation[] = resolved.fileGraph.storyImports.map(
+    (storyImport) => ({
+      kind: 'story-import',
+      from: { file: storyImport.from },
+      to: { module: storyImport.module, file: storyImport.to },
+    }),
+  );
   const rules = new Map(
     (resolved.config.moduleRules ?? []).map((rule) => [rule.module.path, rule]),
   );

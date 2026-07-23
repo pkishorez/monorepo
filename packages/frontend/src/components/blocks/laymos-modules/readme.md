@@ -6,21 +6,18 @@ packing whose width responds to module count. Shared layers remain one
 container spanning their graph lanes. Root modules use a blue tint; sink
 modules use a green tint.
 
-Module imports are hidden until a module is selected. Left-click discloses its
-direct incoming and outgoing imports; right-click discloses the complete
-bidirectional transitive neighborhood. Hovering a related module focuses its
-incident edges and updates the compact context card.
+Module imports are hidden until a module is selected. Left-click discloses all
+of its direct incoming and outgoing imports, including connections within the
+same layer; right-click discloses the complete bidirectional transitive
+neighborhood. Hovering a related module focuses its incident edges and updates
+the compact context card.
 
 Right-clicking a graph or layer minimises its contents without changing the
 canvas layout, zoom, or selection. Left-click is reserved for module selection,
 so dragging can begin anywhere on the graph. Connections into minimised layers
 are aggregated at the layer boundary.
 
-The top-right **Within-layer connections** switch chooses whether traversal and
-edge disclosure include imports between modules in the same layer or only
-imports that cross layer boundaries.
-
-The adjacent layout control defaults to **Pack** for compact orientation.
+The layout control defaults to **Pack** for compact orientation.
 **Tree** ranks each layer's modules top-to-bottom by their intra-layer imports
 without showing module edges by default. Selecting a module discloses its
 neighborhood as it does in Pack. A tree level with too many siblings becomes a

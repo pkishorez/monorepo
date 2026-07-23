@@ -1,14 +1,15 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
+import { story } from 'laymos/story';
 
-import { dynamodbEntityStories } from './support/story-groups.js';
+import { dynamodbStoryDocumentation } from './story-documentation.js';
 
 import {
   assertDynamoError,
   makeDynamoStoryHarness,
   user,
-} from './support/dynamodb-story-harness.js';
+} from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('entity-delete');
 type Input = {
@@ -16,11 +17,11 @@ type Input = {
 };
 const key = { organizationId: 'org-1', userId: 'target' };
 
-dynamodbEntityStories
-  .story('Delete entity', {
-    description:
-      'Shows the soft, physical, and missing-item paths of deleting one entity.',
-  })
+story('Delete entity', {
+  description:
+    'Shows the soft, physical, and missing-item paths of deleting one entity.',
+  documentation: dynamodbStoryDocumentation.delete,
+})
   .provide(harness.layer)
   .execute((input: Input) => harness.users.delete(key, input.options))
   .scenario(

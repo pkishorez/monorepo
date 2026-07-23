@@ -1,13 +1,14 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
+import { story } from 'laymos/story';
 
-import { dynamodbSingleEntityStories } from './support/story-groups.js';
+import { dynamodbStoryDocumentation } from './story-documentation.js';
 
 import {
   assertNonEmptyCursor,
   makeDynamoStoryHarness,
-} from './support/dynamodb-story-harness.js';
+} from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('single-entity-get-and-update');
 type Input = {
@@ -15,11 +16,11 @@ type Input = {
   readonly beforeCursor?: string;
 };
 
-dynamodbSingleEntityStories
-  .story('Get and update single entity', {
-    description:
-      'Shows write and intentional no-op paths for singleton read-modify-write.',
-  })
+story('Get and update single entity', {
+  description:
+    'Shows write and intentional no-op paths for singleton read-modify-write.',
+  documentation: dynamodbStoryDocumentation.singleGetAndUpdate,
+})
   .provide(harness.layer)
   .execute((input: Input) => harness.settings.getAndUpdate(input.update))
   .scenario(

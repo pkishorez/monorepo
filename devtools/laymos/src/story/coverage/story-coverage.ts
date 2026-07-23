@@ -17,35 +17,52 @@ import {
   type StorySourceProjectionRange,
 } from '../eject/index.js';
 
-export interface StoryNarrationCount {
+export interface StoryCoverageCount {
   readonly lines: number;
   readonly percentage: number;
 }
 
-export interface StoryTraversalCoverage {
-  readonly storyId: string;
+export interface StoryCoverageRange {
+  readonly file: string;
+  readonly startLine: number;
+  readonly endLine: number;
+  readonly reason?: string;
+}
+
+export interface StoryCoverage {
+  readonly storyPath: string;
   readonly name: string;
-  readonly files: number;
-  readonly functions: number;
+  readonly files: readonly string[];
+  readonly functions: readonly StoryCoverageRange[];
+  readonly omissions: readonly StoryCoverageRange[];
+  readonly unnarratedRegions: readonly StoryCoverageRange[];
   readonly totalLines: number;
-  readonly narrated: StoryNarrationCount;
-  readonly omitted: StoryNarrationCount;
-  readonly unnarrated: StoryNarrationCount;
+  readonly narrated: StoryCoverageCount;
+  readonly omitted: StoryCoverageCount;
+  readonly unnarrated: StoryCoverageCount;
 }
 
 export interface StoryCoverageReport {
-  readonly storyCount: number;
   readonly invalidStories: readonly {
-    readonly storyId: string;
+    readonly storyPath: string;
     readonly message: string;
   }[];
-  readonly stories: readonly StoryTraversalCoverage[];
+  readonly stories: readonly StoryCoverage[];
 }
 
 interface TraversalScope {
   readonly file: string;
   readonly start: number;
   readonly end: number;
+  readonly startLine: number;
+  readonly endLine: number;
+}
+
+interface ClassifiedLine {
+  readonly file: string;
+  readonly line: number;
+  readonly classification: StorySourceClassification;
+  readonly reason?: string;
 }
 
 const functionKinds = [
@@ -58,7 +75,7 @@ const functionKinds = [
 ] as const;
 
 const classificationRank: Readonly<Record<StorySourceClassification, number>> =
-  { unnarrated: 0, omitted: 1, narrated: 2 };
+  { unnarrated: 0, narrated: 1, omitted: 2 };
 
 /** Measures narration only within application functions traversed by each Story. */
 export function projectStoryCoverage(
@@ -70,23 +87,25 @@ export function projectStoryCoverage(
     ejection.rewrites.map((rewrite) => [rewrite.path, rewrite]),
   );
   const catalog = new Map(
-    stories.catalog.stories.map((story) => [story.storyId, story]),
+    stories.catalog.modules
+      .flatMap((module) => module.stories)
+      .map((story) => [story.storyPath, story]),
   );
-  const invalidStories: Array<{ storyId: string; message: string }> = [];
-  const coverage: StoryTraversalCoverage[] = [];
+  const invalidStories: Array<{ storyPath: string; message: string }> = [];
+  const coverage: StoryCoverage[] = [];
 
-  for (const [storyId, trace] of Object.entries(stories.traces).sort(
+  for (const [storyPath, trace] of Object.entries(stories.traces).sort(
     ([left], [right]) => left.localeCompare(right),
   )) {
     if (trace.status === 'invalid') {
-      invalidStories.push({ storyId, message: trace.message });
+      invalidStories.push({ storyPath, message: trace.message });
       continue;
     }
     coverage.push(
       projectTraceCoverage(
         baseDir,
-        storyId,
-        catalog.get(storyId)?.name ?? storyId,
+        storyPath,
+        catalog.get(storyPath)?.name ?? storyPath,
         trace,
         rewrites,
       ),
@@ -94,7 +113,6 @@ export function projectStoryCoverage(
   }
 
   return {
-    storyCount: stories.catalog.stories.length,
     invalidStories,
     stories: coverage,
   };
@@ -102,11 +120,11 @@ export function projectStoryCoverage(
 
 function projectTraceCoverage(
   baseDir: string,
-  storyId: string,
+  storyPath: string,
   name: string,
   trace: StoryTrace,
   rewrites: ReadonlyMap<string, StoryEjectionPlan['rewrites'][number]>,
-): StoryTraversalCoverage {
+): StoryCoverage {
   const anchorsByFile = new Map<string, Map<string, StorySourceAnchor>>();
   const blockIds = new Set<string>();
   const visitedDefinitions = new Set<string>();
@@ -140,7 +158,7 @@ function projectTraceCoverage(
     );
   }
 
-  const lineClassifications = new Map<string, StorySourceClassification>();
+  const lineClassifications = new Map<string, ClassifiedLine>();
   const scopes = new Map<string, TraversalScope>();
   const files = new Set<string>();
 
@@ -164,20 +182,44 @@ function projectTraceCoverage(
   }
 
   const counts = { narrated: 0, omitted: 0, unnarrated: 0 };
-  for (const classification of lineClassifications.values()) {
-    counts[classification] += 1;
+  for (const line of lineClassifications.values()) {
+    counts[line.classification] += 1;
   }
   const totalLines = counts.narrated + counts.omitted + counts.unnarrated;
+  const percentages = coveragePercentages(counts, totalLines);
+  const classifiedLines = [...lineClassifications.values()].sort(
+    (left, right) =>
+      left.file.localeCompare(right.file) || left.line - right.line,
+  );
 
   return {
-    storyId,
+    storyPath,
     name,
-    files: files.size,
-    functions: scopes.size,
+    files: [...files].sort(),
+    functions: [...scopes.values()].map(scopeRange),
+    omissions: lineRanges(
+      classifiedLines.filter(
+        ({ classification }) => classification === 'omitted',
+      ),
+    ),
+    unnarratedRegions: lineRanges(
+      classifiedLines.filter(
+        ({ classification }) => classification === 'unnarrated',
+      ),
+    ),
     totalLines,
-    narrated: narrationCount(counts.narrated, totalLines),
-    omitted: narrationCount(counts.omitted, totalLines),
-    unnarrated: narrationCount(counts.unnarrated, totalLines),
+    narrated: {
+      lines: counts.narrated,
+      percentage: percentages.narrated,
+    },
+    omitted: {
+      lines: counts.omitted,
+      percentage: percentages.omitted,
+    },
+    unnarrated: {
+      lines: counts.unnarrated,
+      percentage: percentages.unnarrated,
+    },
   };
 }
 
@@ -205,10 +247,14 @@ function traversalScopes(
       );
     }
     const bodyRange = body.range();
+    const start = sourcePosition(projection.content, bodyRange.start.index);
+    const end = sourcePosition(projection.content, bodyRange.end.index);
     const scope = {
       file,
       start: bodyRange.start.index,
       end: bodyRange.end.index,
+      startLine: start.line,
+      endLine: end.line,
     };
     scopes.set(`${scope.start}:${scope.end}`, scope);
   }
@@ -280,7 +326,7 @@ function classifyScopeLines(
   file: string,
   projection: StorySourceProjection,
   scopes: readonly TraversalScope[],
-  classifications: Map<string, StorySourceClassification>,
+  classifications: Map<string, ClassifiedLine>,
 ): void {
   const lines = sourceLines(projection.content);
   for (const scope of scopes) {
@@ -289,7 +335,7 @@ function classifyScopeLines(
       const start = Math.max(line.start, scope.start);
       const end = Math.min(line.end, scope.end);
       if (projection.content.slice(start, end).trim() === '') continue;
-      const classification = strongestClassification(
+      const strongest = strongestClassification(
         projection.ranges.filter(
           (range) => range.end > start && range.start < end,
         ),
@@ -298,9 +344,17 @@ function classifyScopeLines(
       const existing = classifications.get(key);
       if (
         existing === undefined ||
-        classificationRank[classification] > classificationRank[existing]
+        classificationRank[strongest.classification] >
+          classificationRank[existing.classification]
       ) {
-        classifications.set(key, classification);
+        classifications.set(key, {
+          file,
+          line: line.number,
+          classification: strongest.classification,
+          ...(strongest.reason === undefined
+            ? {}
+            : { reason: strongest.reason }),
+        });
       }
     }
   }
@@ -323,25 +377,75 @@ function sourceLines(source: string): readonly {
   return lines;
 }
 
+function sourcePosition(
+  source: string,
+  index: number,
+): { readonly line: number; readonly column: number } {
+  const lines = source.slice(0, index).split('\n');
+  return { line: lines.length, column: lines.at(-1)!.length + 1 };
+}
+
 function strongestClassification(
   ranges: readonly StorySourceProjectionRange[],
-): StorySourceClassification {
-  let strongest: StorySourceClassification = 'unnarrated';
+): Pick<StorySourceProjectionRange, 'classification' | 'reason'> {
+  let strongest: Pick<StorySourceProjectionRange, 'classification' | 'reason'> =
+    { classification: 'unnarrated' };
   for (const range of ranges) {
     if (
-      classificationRank[range.classification] > classificationRank[strongest]
+      classificationRank[range.classification] >
+      classificationRank[strongest.classification]
     ) {
-      strongest = range.classification;
+      strongest = range;
     }
   }
   return strongest;
 }
 
-function narrationCount(lines: number, total: number): StoryNarrationCount {
+function coveragePercentages(
+  counts: Readonly<Record<StorySourceClassification, number>>,
+  total: number,
+): Readonly<Record<StorySourceClassification, number>> {
+  if (total === 0) {
+    return { narrated: 0, omitted: 0, unnarrated: 0 };
+  }
+  const narrated = Math.round((counts.narrated / total) * 1000) / 10;
+  const omitted = Math.round((counts.omitted / total) * 1000) / 10;
   return {
-    lines,
-    percentage: total === 0 ? 0 : Math.round((lines / total) * 1000) / 10,
+    narrated,
+    omitted,
+    unnarrated: Math.round((100 - narrated - omitted) * 10) / 10,
   };
+}
+
+function scopeRange(scope: TraversalScope): StoryCoverageRange {
+  return {
+    file: scope.file,
+    startLine: scope.startLine,
+    endLine: scope.endLine,
+  };
+}
+
+function lineRanges(lines: readonly ClassifiedLine[]): StoryCoverageRange[] {
+  const ranges: StoryCoverageRange[] = [];
+  for (const line of lines) {
+    const previous = ranges.at(-1);
+    if (
+      previous !== undefined &&
+      previous.file === line.file &&
+      previous.endLine + 1 === line.line &&
+      previous.reason === line.reason
+    ) {
+      ranges[ranges.length - 1] = { ...previous, endLine: line.line };
+      continue;
+    }
+    ranges.push({
+      file: line.file,
+      startLine: line.line,
+      endLine: line.line,
+      ...(line.reason === undefined ? {} : { reason: line.reason }),
+    });
+  }
+  return ranges;
 }
 
 function collectTraceAnchors(

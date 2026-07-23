@@ -17,7 +17,6 @@ import {
   type MouseEvent,
 } from 'react';
 
-import { Switch } from '#components/ui/switch';
 import { cn } from '#lib/utils';
 
 import { ModuleGraphInteractionProvider } from '../context/interaction-context';
@@ -56,10 +55,7 @@ function LaymosModulesInner({
   const flowId = `laymos-modules-${useId()}`;
   const containerRef = useRef<HTMLDivElement>(null);
   const model = useMemo(() => buildModuleGraphModel(report), [report]);
-  const [showWithinLayerConnections, setShowWithinLayerConnections] =
-    useState(true);
   const [moduleLayout, setModuleLayout] = useState<ModuleLayoutMode>('pack');
-  const connectionScope = showWithinLayerConnections ? 'all' : 'cross-layer';
   const [expandedLayers, setExpandedLayers] = useState<ReadonlySet<string>>(
     () => new Set(model.layers.keys()),
   );
@@ -68,8 +64,8 @@ function LaymosModulesInner({
   }, [model]);
 
   const selectionWithoutHover = useMemo(
-    () => getModuleGraphSelection(model, selectedModule, null, connectionScope),
-    [connectionScope, model, selectedModule],
+    () => getModuleGraphSelection(model, selectedModule, null),
+    [model, selectedModule],
   );
   const requestedPreview = hoveredModule ?? focusedModule;
   const previewModule =
@@ -80,14 +76,8 @@ function LaymosModulesInner({
       ? requestedPreview
       : null;
   const selection = useMemo(
-    () =>
-      getModuleGraphSelection(
-        model,
-        selectedModule,
-        previewModule,
-        connectionScope,
-      ),
-    [connectionScope, model, previewModule, selectedModule],
+    () => getModuleGraphSelection(model, selectedModule, previewModule),
+    [model, previewModule, selectedModule],
   );
   const visualSelection = useMemo(
     () => (moduleLayout === 'tree' ? selectionWithoutHover : selection),
@@ -103,14 +93,9 @@ function LaymosModulesInner({
   const contextSelectionModel = useMemo(
     () =>
       moduleLayout === 'tree'
-        ? getModuleGraphSelection(
-            model,
-            contextSelection,
-            null,
-            connectionScope,
-          )
+        ? getModuleGraphSelection(model, contextSelection, null)
         : selection,
-    [connectionScope, contextSelection, model, moduleLayout, selection],
+    [contextSelection, model, moduleLayout, selection],
   );
   const layout = useMemo(
     () =>
@@ -251,15 +236,6 @@ function LaymosModulesInner({
                   ))}
                 </div>
               </div>
-              <label className="mt-2 flex cursor-pointer items-center justify-between gap-4 border-t border-border/60 pt-2">
-                Within-layer connections
-                <Switch
-                  size="sm"
-                  checked={showWithinLayerConnections}
-                  onCheckedChange={setShowWithinLayerConnections}
-                  aria-label="Show connections between modules in the same layer"
-                />
-              </label>
             </div>
           </Panel>
           {selectedModule && moduleLayout === 'pack' && (

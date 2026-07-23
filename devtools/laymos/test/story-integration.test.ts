@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { execFile } from 'node:child_process';
 import {
   copyFile,
   mkdir,
@@ -8,7 +9,9 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 
+import * as NodeServices from '@effect/platform-node/NodeServices';
 import { Cause, Effect, Exit } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -16,11 +19,15 @@ import {
   discoverStories,
   getStories,
   runAllStories,
+  runModuleStories,
   runStory,
-  runStoryGroup,
+  runStories,
 } from '../src/node.js';
+import { projectStoryCoverage } from '../src/story/coverage/index.js';
+import { planStoryEjection } from '../src/story/eject/index.js';
 
 const temporaryDirectories: string[] = [];
+const execFileAsync = promisify(execFile);
 const integrationFixtureRoot = join(
   import.meta.dirname,
   'fixtures',
@@ -49,17 +56,45 @@ afterEach(async () => {
 async function makeBaseDir(): Promise<string> {
   const baseDir = await mkdtemp(join(import.meta.dirname, 'tmp-story-'));
   temporaryDirectories.push(baseDir);
+  await writeFile(
+    join(baseDir, 'laymos.config.ts'),
+    `const app = {
+      kind: 'layer',
+      name: 'app',
+      paths: ['.'],
+      description: 'Application',
+    };
+    export default {
+      sourceRoots: ['.'],
+      graphs: [{
+        kind: 'layer-graph',
+        name: 'application',
+        description: 'Application architecture',
+        layers: [app],
+        edges: [],
+      }],
+      modules: [{
+        kind: 'module',
+        path: '.',
+        description: 'Application module',
+      }],
+    };`,
+  );
+  await mkdir(join(baseDir, 'stories'));
   return baseDir;
 }
 
 describe('Story integration', () => {
   it('generates a structural Story Trace without running Step bodies or Scenarios', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'checkout.story.ts';
-    await writeFile(join(baseDir, storyId), checkoutStorySource());
+    const storyPath = 'stories/checkout';
+    await writeFile(
+      join(baseDir, `${storyPath}.story.ts`),
+      checkoutStorySource(),
+    );
 
     const collection = await Effect.runPromise(getStories(baseDir));
-    const trace = collection.traces[storyId];
+    const trace = collection.traces[storyPath];
 
     expect(trace?.status).toBe('valid');
     if (trace?.status !== 'valid') return;
@@ -76,19 +111,19 @@ describe('Story integration', () => {
           location.endLine !== undefined && location.endLine > location.line,
       ),
     ).toBe(true);
-    expect(collection.catalog.stories).toHaveLength(1);
+    expect(collection.catalog.modules[0]?.stories).toHaveLength(1);
   });
 
   it('captures each piped Decision Arm at its authored location', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'arm-locations.story.ts';
+    const storyPath = 'stories/arm-locations';
     await copyFile(
-      join(integrationFixtureRoot, storyId),
-      join(baseDir, storyId),
+      join(integrationFixtureRoot, 'arm-locations.story.ts'),
+      join(baseDir, `${storyPath}.story.ts`),
     );
 
     const collection = await Effect.runPromise(getStories(baseDir));
-    const trace = collection.traces[storyId];
+    const trace = collection.traces[storyPath];
     expect(trace?.status).toBe('valid');
     if (trace?.status !== 'valid') return;
     const decision = Object.values(trace.blocks).find(
@@ -99,19 +134,21 @@ describe('Story integration', () => {
     const actual = decision.arms.map(({ location }) =>
       location ? `${location.file}:${location.line}` : null,
     );
-    const expected = JSON.parse(
-      await readFile(
-        join(integrationFixtureRoot, 'arm-locations.expected.json'),
-        'utf8',
-      ),
-    );
+    const expected = (
+      JSON.parse(
+        await readFile(
+          join(integrationFixtureRoot, 'arm-locations.expected.json'),
+          'utf8',
+        ),
+      ) as string[]
+    ).map((location) => `stories/${location}`);
     expect(actual).toEqual(expected);
   });
 
   it('loads each Story module once while building traces', async () => {
     const baseDir = await makeBaseDir();
     await writeFile(
-      join(baseDir, 'single-load.story.ts'),
+      join(baseDir, 'stories/single-load.story.ts'),
       `
 import { Effect } from 'effect';
 import { story } from 'laymos/story';
@@ -131,10 +168,13 @@ story('Single load', { description: 'Loads once during discovery' })
 
   it('returns Effect Scenarios and timing without writing generated state', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'checkout.story.ts';
-    await writeFile(join(baseDir, storyId), checkoutStorySource());
+    const storyPath = 'stories/checkout';
+    await writeFile(
+      join(baseDir, `${storyPath}.story.ts`),
+      checkoutStorySource(),
+    );
 
-    const result = await Effect.runPromise(runStory(baseDir, storyId));
+    const result = await Effect.runPromise(runStory(baseDir, storyPath));
     const artifact = result.run;
 
     expect(result.status).toBe('passed');
@@ -144,7 +184,7 @@ story('Single load', { description: 'Loads once during discovery' })
       'succeeded',
     ]);
     for (const scenario of artifact.scenarios) {
-      expect(scenario.location.file).toBe(storyId);
+      expect(scenario.location.file).toBe(`${storyPath}.story.ts`);
       expect(scenario.startedAt).toBeTypeOf('number');
       expect(scenario.durationMillis).toBeTypeOf('number');
       const visit = scenario.execution[0];
@@ -160,7 +200,7 @@ story('Single load', { description: 'Loads once during discovery' })
     expect(decision).toBeDefined();
     if (decision?.kind === 'decision') {
       for (const arm of decision.arms) {
-        expect(arm.location).toMatchObject({ file: storyId });
+        expect(arm.location).toMatchObject({ file: `${storyPath}.story.ts` });
         expect(arm.location?.endLine).toBeGreaterThanOrEqual(
           arm.location?.line ?? 0,
         );
@@ -171,11 +211,14 @@ story('Single load', { description: 'Loads once during discovery' })
 
   it('records Blocks imported transitively from production modules', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'transitive.story.ts';
+    const storyPath = 'stories/transitive';
     await writeFile(join(baseDir, 'workflow.ts'), transitiveWorkflowSource());
-    await writeFile(join(baseDir, storyId), transitiveStorySource());
+    await writeFile(
+      join(baseDir, `${storyPath}.story.ts`),
+      transitiveStorySource(),
+    );
 
-    const result = await Effect.runPromise(runStory(baseDir, storyId));
+    const result = await Effect.runPromise(runStory(baseDir, storyPath));
 
     expect(result.status).toBe('passed');
     expect(blockNames(result.run)).toEqual(['transitive execution']);
@@ -183,11 +226,14 @@ story('Single load', { description: 'Loads once during discovery' })
 
   it('traces local Terminals and validates completed Scenario evidence', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'terminals.story.ts';
-    await writeFile(join(baseDir, storyId), terminalStorySource());
+    const storyPath = 'stories/terminals';
+    await writeFile(
+      join(baseDir, `${storyPath}.story.ts`),
+      terminalStorySource(),
+    );
 
     const collection = await Effect.runPromise(getStories(baseDir));
-    const trace = collection.traces[storyId];
+    const trace = collection.traces[storyPath];
     expect(trace?.status).toBe('valid');
     if (trace?.status !== 'valid') return;
     expect(Object.values(trace.blocks)).toContainEqual(
@@ -198,7 +244,7 @@ story('Single load', { description: 'Loads once during discovery' })
     );
     expect(JSON.stringify(trace.execution)).toContain('terminal');
 
-    const result = await Effect.runPromise(runStory(baseDir, storyId));
+    const result = await Effect.runPromise(runStory(baseDir, storyPath));
 
     expect(result.run.scenarios.map(({ outcome }) => outcome)).toEqual([
       'succeeded',
@@ -240,10 +286,13 @@ story('Single load', { description: 'Loads once during discovery' })
 
   it('validates Decision Arm completion against Scenario evidence', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'arm-completion.story.ts';
-    await writeFile(join(baseDir, storyId), armCompletionStorySource());
+    const storyPath = 'stories/arm-completion';
+    await writeFile(
+      join(baseDir, `${storyPath}.story.ts`),
+      armCompletionStorySource(),
+    );
 
-    const result = await Effect.runPromise(runStory(baseDir, storyId));
+    const result = await Effect.runPromise(runStory(baseDir, storyPath));
 
     expect(result.run.scenarios.map(({ outcome }) => outcome)).toEqual([
       'succeeded',
@@ -263,10 +312,13 @@ story('Single load', { description: 'Loads once during discovery' })
 
   it('runs Effect Scenarios and interrupts on timeout', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'access.story.ts';
-    await writeFile(join(baseDir, storyId), effectStorySource());
+    const storyPath = 'stories/access';
+    await writeFile(
+      join(baseDir, `${storyPath}.story.ts`),
+      effectStorySource(),
+    );
 
-    const result = await Effect.runPromise(runStory(baseDir, storyId));
+    const result = await Effect.runPromise(runStory(baseDir, storyPath));
 
     expect(result.status).toBe('failed');
     expect(result.run.scenarios.map((scenario) => scenario.outcome)).toEqual([
@@ -286,14 +338,17 @@ story('Single load', { description: 'Loads once during discovery' })
 
   it('attempts cleanup without allowing it to outlive the Scenario timeout', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'cleanup-timeout.story.ts';
-    await writeFile(join(baseDir, storyId), cleanupTimeoutStorySource());
+    const storyPath = 'stories/cleanup-timeout';
+    await writeFile(
+      join(baseDir, `${storyPath}.story.ts`),
+      cleanupTimeoutStorySource(),
+    );
     const cleanupState = globalThis as typeof globalThis & {
       __laymosCleanupStarted?: boolean | (() => void);
     };
     cleanupState.__laymosCleanupStarted = false;
 
-    const result = await Effect.runPromise(runStory(baseDir, storyId));
+    const result = await Effect.runPromise(runStory(baseDir, storyPath));
 
     expect(cleanupState.__laymosCleanupStarted).toBe(true);
     expect(result.run.scenarios[0]).toMatchObject({
@@ -310,9 +365,9 @@ story('Single load', { description: 'Loads once during discovery' })
 
   it('lets Effect interruption cancel cleanup', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'cleanup-interruption.story.ts';
+    const storyPath = 'stories/cleanup-interruption';
     await writeFile(
-      join(baseDir, storyId),
+      join(baseDir, `${storyPath}.story.ts`),
       cleanupTimeoutStorySource('5 seconds'),
     );
     const cleanupStarted = new Promise<void>((resolve) => {
@@ -323,7 +378,7 @@ story('Single load', { description: 'Loads once during discovery' })
       ).__laymosCleanupStarted = resolve;
     });
     const abort = new AbortController();
-    const running = Effect.runPromiseExit(runStory(baseDir, storyId), {
+    const running = Effect.runPromiseExit(runStory(baseDir, storyPath), {
       signal: abort.signal,
     });
 
@@ -339,10 +394,13 @@ story('Single load', { description: 'Loads once during discovery' })
 
   it('records only shared execution and preserves lifecycle failures by phase', async () => {
     const baseDir = await makeBaseDir();
-    const storyId = 'lifecycle.story.ts';
-    await writeFile(join(baseDir, storyId), lifecycleStorySource());
+    const storyPath = 'stories/lifecycle';
+    await writeFile(
+      join(baseDir, `${storyPath}.story.ts`),
+      lifecycleStorySource(),
+    );
 
-    const result = await Effect.runPromise(runStory(baseDir, storyId));
+    const result = await Effect.runPromise(runStory(baseDir, storyPath));
 
     expect(result.status).toBe('failed');
     expect(result.run.scenarios.map(({ outcome }) => outcome)).toEqual([
@@ -393,37 +451,34 @@ story('Single load', { description: 'Loads once during discovery' })
   it('discovers a described Story catalog without executing Stories', async () => {
     const baseDir = await makeBaseDir();
     await writeFile(
-      join(baseDir, 'side-effect.story.ts'),
+      join(baseDir, 'stories/side-effect.story.ts'),
       `
 import { Effect } from 'effect';
-import { storyGroup } from 'laymos/story';
+import { story } from 'laymos/story';
 globalThis.__laymosDiscoveryLoaded = true;
-storyGroup('Commerce', { description: 'Purchase behavior' })
-  .group('Checkout', { description: 'Checkout behavior' })
-  .story('Pay', { description: 'Pays for a checkout' })
+story('Pay', { description: 'Pays for a checkout' })
   .execute(() => Effect.sync(() => { globalThis.__laymosStoryExecuted = true; }));
 `,
     );
+    await writeFile(
+      join(baseDir, 'stories/support.ts'),
+      `export const support = true;`,
+    );
 
     await expect(Effect.runPromise(discoverStories(baseDir))).resolves.toEqual({
-      groups: [
+      modules: [
         {
-          path: ['Commerce'],
-          name: 'Commerce',
-          description: 'Purchase behavior',
-        },
-        {
-          path: ['Commerce', 'Checkout'],
-          name: 'Checkout',
-          description: 'Checkout behavior',
-        },
-      ],
-      stories: [
-        {
-          storyId: 'side-effect.story.ts',
-          name: 'Pay',
-          description: 'Pays for a checkout',
-          groupPath: ['Commerce', 'Checkout'],
+          modulePath: '.',
+          description: 'Application module',
+          stories: [
+            {
+              storyPath: 'stories/side-effect',
+              storyKey: 'side-effect',
+              modulePath: '.',
+              name: 'Pay',
+              description: 'Pays for a checkout',
+            },
+          ],
         },
       ],
     });
@@ -436,103 +491,370 @@ storyGroup('Commerce', { description: 'Purchase behavior' })
         .__laymosStoryExecuted,
     ).toBeUndefined();
 
-    await writeFile(join(baseDir, 'InvalidName.story.ts'), '');
+    await writeFile(join(baseDir, 'stories/InvalidName.story.ts'), '');
     await expect(Effect.runPromise(discoverStories(baseDir))).rejects.toThrow(
       'kebab-case',
     );
   });
 
-  it('aggregates catalog conflicts across Story files', async () => {
+  it('assembles a configured Project Narrative with executable Stories', async () => {
     const baseDir = await makeBaseDir();
     await writeFile(
-      join(baseDir, 'first.story.ts'),
-      groupedStorySource('First description'),
+      join(baseDir, 'laymos.config.ts'),
+      `const app = {
+        kind: 'layer',
+        name: 'app',
+        paths: ['src'],
+        description: 'Application',
+      };
+      const sink = {
+        kind: 'layer',
+        name: 'sink',
+        paths: ['sink'],
+        description: 'Sink',
+      };
+      const graph = {
+        kind: 'layer-graph',
+        name: 'application',
+        description: 'Application architecture',
+        layers: [app, sink],
+        edges: [{ from: app, to: sink }],
+      };
+      const feature = {
+        kind: 'module',
+        path: 'src/feature',
+        description: 'Feature',
+      };
+      export default {
+        sourceRoots: ['.'],
+        graphs: [graph],
+        modules: [feature],
+        project: {
+          kind: 'project-narrative',
+          name: 'Example project',
+          blocks: [
+            { kind: 'markdown', content: '# Why this exists' },
+            {
+              kind: 'project-map',
+              root: {
+                kind: 'topic',
+                title: 'Core',
+                description: {
+                  kind: 'markdown',
+                  content: 'Owns the example responsibility.',
+                },
+                references: [graph, app, feature],
+                children: [],
+              },
+            },
+          ],
+        },
+      };`,
     );
+    await mkdir(join(baseDir, 'src/feature/stories'), { recursive: true });
     await writeFile(
-      join(baseDir, 'second.story.ts'),
-      groupedStorySource('Conflicting description'),
+      join(baseDir, 'src/feature/stories/example.story.ts'),
+      `
+import { Effect } from 'effect';
+import { story } from 'laymos/story';
+story('Example', { description: 'An executable example' }).execute(() => Effect.void);
+`,
     );
+    const valid = await Effect.runPromise(getStories(baseDir));
+    expect(valid.project?.name).toBe('Example project');
+    expect(valid.project?.blocks[1]).toEqual({
+      kind: 'project-map',
+      root: {
+        kind: 'topic',
+        title: 'Core',
+        description: 'Owns the example responsibility.',
+        references: [
+          { kind: 'layer-graph', name: 'application' },
+          { kind: 'layer', name: 'app' },
+          { kind: 'module', path: 'src/feature' },
+        ],
+        children: [],
+      },
+    });
+    expect(valid.catalog.modules[0]?.stories).toHaveLength(1);
 
-    const exit = await Effect.runPromiseExit(discoverStories(baseDir));
-    expect(Exit.isFailure(exit)).toBe(true);
-    if (Exit.isFailure(exit)) {
-      const message = Cause.pretty(exit.cause);
-      expect(message).toContain('conflicts with metadata');
-      expect(message).toContain('conflicts with Story');
-    }
+    await writeFile(
+      join(baseDir, 'laymos.config.ts'),
+      `export default {
+        sourceRoots: ['.'],
+        graphs: [],
+        project: {
+          kind: 'project-narrative',
+          name: ' ',
+          blocks: [],
+        },
+      };`,
+    );
+    const invalid = await Effect.runPromiseExit(getStories(baseDir));
+    expect(Exit.isFailure(invalid)).toBe(true);
   });
 
-  it('runs every descendant Story in a Group and excludes Standalone Stories', async () => {
+  it('permits duplicate human-facing Story names', async () => {
     const baseDir = await makeBaseDir();
     await writeFile(
-      join(baseDir, 'first.story.ts'),
-      groupedStorySource('Shared description', 'First'),
+      join(baseDir, 'stories/first.story.ts'),
+      directStorySource('Duplicate'),
     );
     await writeFile(
-      join(baseDir, 'second.story.ts'),
-      groupedStorySource('Shared description', 'Second', true),
-    );
-    await writeFile(
-      join(baseDir, 'standalone.story.ts'),
-      standaloneStorySource(),
+      join(baseDir, 'stories/second.story.ts'),
+      directStorySource('Duplicate'),
     );
 
-    const result = await Effect.runPromise(runStoryGroup(baseDir, ['Shared']));
-
-    expect(Object.keys(result.runs.stories)).toEqual([
-      'first.story.ts',
-      'second.story.ts',
+    const catalog = await Effect.runPromise(discoverStories(baseDir));
+    expect(catalog.modules[0]?.stories.map(({ name }) => name)).toEqual([
+      'Duplicate',
+      'Duplicate',
     ]);
   });
 
-  it('does not discover Stories in skipped directories', async () => {
+  it('expands Module and Story selectors and deduplicates Stories', async () => {
     const baseDir = await makeBaseDir();
-    for (const directory of ['node_modules', 'dist', '.hidden']) {
-      await mkdir(join(baseDir, directory));
-      await writeFile(join(baseDir, directory, 'ignored.story.ts'), '');
-    }
     await writeFile(
-      join(baseDir, 'included.story.ts'),
-      standaloneStorySource(),
+      join(baseDir, 'stories/first.story.ts'),
+      directStorySource('First'),
+    );
+    await writeFile(
+      join(baseDir, 'stories/second.story.ts'),
+      directStorySource('Second'),
+    );
+
+    const result = await Effect.runPromise(
+      runStories(baseDir, ['.', 'stories/first']),
+    );
+
+    expect(Object.keys(result.runs.stories)).toEqual([
+      'stories/first',
+      'stories/second',
+    ]);
+    await expect(
+      Effect.runPromise(runModuleStories(baseDir, 'unknown')),
+    ).rejects.toThrow('Unknown Story selector');
+  });
+
+  it('rejects nested directories in a Module Story surface', async () => {
+    const baseDir = await makeBaseDir();
+    await mkdir(join(baseDir, 'stories/nested'));
+
+    await expect(Effect.runPromise(discoverStories(baseDir))).rejects.toThrow(
+      'Module "." Story surface contains nested path "stories/nested"',
+    );
+  });
+
+  it('ignores file, missing, and folder Modules without Story surfaces', async () => {
+    const baseDir = await makeBaseDir();
+    await mkdir(join(baseDir, 'src/empty'), { recursive: true });
+    await writeFile(join(baseDir, 'src/file.ts'), '');
+    await writeFile(
+      join(baseDir, 'laymos.config.ts'),
+      moduleConfig([
+        ['src/file.ts', 'File'],
+        ['src/missing', 'Missing'],
+        ['src/empty', 'Empty'],
+      ]),
     );
 
     await expect(Effect.runPromise(discoverStories(baseDir))).resolves.toEqual({
-      groups: [],
-      stories: [
-        {
-          storyId: 'included.story.ts',
-          name: 'Standalone',
-          description: 'A standalone Story',
-          groupPath: [],
-        },
-      ],
+      modules: [],
     });
+    await expect(
+      Effect.runPromise(runModuleStories(baseDir, 'src/empty')),
+    ).resolves.toMatchObject({ status: 'passed', runs: { stories: {} } });
+  });
+
+  it('annotates Blocks inside configured Modules and permits outside Blocks', async () => {
+    const baseDir = await makeBaseDir();
+    await mkdir(join(baseDir, 'src/feature/stories'), { recursive: true });
+    await writeFile(
+      join(baseDir, 'laymos.config.ts'),
+      moduleConfig([['src/feature', 'Feature']]),
+    );
+    await writeFile(
+      join(baseDir, 'src/feature/workflow.ts'),
+      blockSource('inside module'),
+    );
+    await writeFile(
+      join(baseDir, 'src/outside.ts'),
+      blockSource('outside module'),
+    );
+    await writeFile(
+      join(baseDir, 'src/feature/stories/ownership.story.ts'),
+      ownershipStorySource(),
+    );
+
+    const result = await Effect.runPromise(
+      runStory(baseDir, 'src/feature/stories/ownership'),
+    );
+    const blocks = Object.values(result.run.blocks);
+    expect(
+      blocks.find(({ name }) => name === 'inside module')?.modulePath,
+    ).toBe('src/feature');
+    expect(
+      blocks.find(({ name }) => name === 'outside module')?.modulePath,
+    ).toBeUndefined();
+  });
+
+  it('reports Story-local coverage ranges without following unmarked helpers', async () => {
+    const baseDir = await makeBaseDir();
+    await writeFile(
+      join(baseDir, 'workflow.ts'),
+      `
+import { Effect } from 'effect';
+import { omit, step } from 'laymos/story';
+
+const unmarkedHelper = () => {
+  const helperOnly = 'outside traversal scope';
+  return Effect.succeed(helperOnly);
+};
+
+export function execute() {
+  return Effect.gen(function* () {
+    const value = yield* step(
+      'Load',
+      { description: 'Loads the narrated value.' },
+      () => Effect.succeed('loaded'),
+    );
+    yield* omit(
+      { reason: 'Telemetry is explained elsewhere.' },
+      () => Effect.log('telemetry'),
+    );
+    yield* unmarkedHelper();
+    return value;
+  });
+}
+`,
+    );
+    await writeFile(
+      join(baseDir, 'stories/coverage.story.ts'),
+      `
+import { story } from 'laymos/story';
+import { execute } from '../workflow.js';
+
+story('Coverage', { description: 'Explains coverage reporting.' })
+  .execute(() => execute());
+`,
+    );
+
+    const stories = await Effect.runPromise(getStories(baseDir));
+    const ejection = await Effect.runPromise(
+      planStoryEjection(baseDir).pipe(Effect.provide(NodeServices.layer)),
+    );
+    const report = projectStoryCoverage(baseDir, stories, ejection);
+    const coverage = report.stories[0]!;
+
+    expect(Object.keys(report).sort()).toEqual(['invalidStories', 'stories']);
+    expect(coverage.storyPath).toBe('stories/coverage');
+    expect(coverage.files).toEqual(['workflow.ts']);
+    expect(coverage.functions).toHaveLength(1);
+    expect(coverage.omissions).toEqual([
+      expect.objectContaining({
+        file: 'workflow.ts',
+        reason: 'Telemetry is explained elsewhere.',
+      }),
+    ]);
+    expect(coverage.unnarratedRegions.length).toBeGreaterThan(0);
+    expect(coverage.totalLines).toBe(
+      coverage.narrated.lines +
+        coverage.omitted.lines +
+        coverage.unnarrated.lines,
+    );
+    expect(
+      coverage.narrated.percentage +
+        coverage.omitted.percentage +
+        coverage.unnarrated.percentage,
+    ).toBe(100);
+
+    const defaultLint = await runCli(baseDir, ['lint', 'stories']);
+    expect(defaultLint.stdout).toMatch(
+      /Narrated \d+(?:\.\d+)?% · Omitted \d+(?:\.\d+)?% · Unnarrated \d+(?:\.\d+)?%/,
+    );
+    expect(defaultLint.stdout).not.toContain('Documentation:');
+    expect(defaultLint.stdout).not.toContain('Lines:');
+    expect(defaultLint.stdout).not.toContain('Story traversal narration');
+
+    const verboseLint = await runCli(baseDir, ['lint', 'stories', '--verbose']);
+    expect(verboseLint.stdout).toContain('Lines:');
+    expect(verboseLint.stdout).toContain('Files: workflow.ts');
+    expect(verboseLint.stdout).toContain('Functions:');
+    expect(verboseLint.stdout).toContain('Omissions:');
+    expect(verboseLint.stdout).toContain('Telemetry is explained elsewhere.');
+    expect(verboseLint.stdout).toContain('Unnarrated regions:');
   });
 });
 
-function groupedStorySource(
-  groupDescription: string,
-  storyName = 'Duplicate',
-  nested = false,
-): string {
-  const target = nested
-    ? `.group('Nested', { description: 'Nested behavior' })`
-    : '';
+function runCli(baseDir: string, arguments_: readonly string[]) {
+  return execFileAsync(
+    process.execPath,
+    [
+      join(
+        import.meta.dirname,
+        '..',
+        'node_modules',
+        'jiti',
+        'lib',
+        'jiti-cli.mjs',
+      ),
+      join(import.meta.dirname, '..', 'src', 'cli', 'cli.ts'),
+      ...arguments_,
+    ],
+    { cwd: baseDir },
+  );
+}
+
+function moduleConfig(modules: readonly (readonly [string, string])[]): string {
+  return `
+const app = {
+  kind: 'layer',
+  name: 'app',
+  paths: ['src'],
+  description: 'Application',
+};
+export default {
+  sourceRoots: ['src'],
+  graphs: [{
+    kind: 'layer-graph',
+    name: 'application',
+    description: 'Application architecture',
+    layers: [app],
+    edges: [],
+  }],
+  modules: [${modules
+    .map(
+      ([path, description]) =>
+        `{ kind: 'module', path: '${path}', description: '${description}' }`,
+    )
+    .join(',')}],
+};`;
+}
+
+function blockSource(name: string): string {
   return `
 import { Effect } from 'effect';
-import { storyGroup } from 'laymos/story';
-storyGroup('Shared', { description: '${groupDescription}' })
-  ${target}
-  .story('${storyName}', { description: 'Grouped behavior' })
-  .execute(() => Effect.void);
+import { step } from 'laymos/story';
+export const run = () => step('${name}', { description: '${name}' }, () => Effect.void);
 `;
 }
 
-function standaloneStorySource(): string {
+function ownershipStorySource(): string {
   return `
 import { Effect } from 'effect';
 import { story } from 'laymos/story';
-story('Standalone', { description: 'A standalone Story' })
+import { run as inside } from '../workflow.js';
+import { run as outside } from '../../outside.js';
+story('Ownership', { description: 'Shows Block ownership' })
+  .execute(() => Effect.all([inside(), outside()]));
+`;
+}
+
+function directStorySource(storyName: string): string {
+  return `
+import { Effect } from 'effect';
+import { story } from 'laymos/story';
+story('${storyName}', { description: 'Owned behavior' })
   .execute(() => Effect.void);
 `;
 }
@@ -814,7 +1136,7 @@ function transitiveStorySource(): string {
 import { strict as assert } from 'node:assert';
 import { Effect } from 'effect';
 import { story } from 'laymos/story';
-import { executeWorkflow } from './workflow.js';
+import { executeWorkflow } from '../workflow.js';
 
 story('transitive', { description: 'Exercises a production workflow import' })
   .execute(() => executeWorkflow())

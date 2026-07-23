@@ -1,14 +1,15 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
+import { story } from 'laymos/story';
 
-import { dynamodbEntityStories } from './support/story-groups.js';
+import { dynamodbStoryDocumentation } from './story-documentation.js';
 
 import {
   assertDynamoError,
   makeDynamoStoryHarness,
   user,
-} from './support/dynamodb-story-harness.js';
+} from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('entity-get-and-update');
 
@@ -18,11 +19,11 @@ type Input = {
 };
 const key = { organizationId: 'org-1', userId: 'target' };
 
-dynamodbEntityStories
-  .story('Get and update entity', {
-    description:
-      'Shows guarded read-modify-write behavior, including derived updates and intentional no-ops.',
-  })
+story('Get and update entity', {
+  description:
+    'Shows guarded read-modify-write behavior, including derived updates and intentional no-ops.',
+  documentation: dynamodbStoryDocumentation.getAndUpdate,
+})
   .provide(harness.layer)
   .execute((input: Input) => harness.users.getAndUpdate(key, input.update))
   .scenario(

@@ -1,5 +1,7 @@
 import { defineConfig, edge, layer, layerGraph, module } from 'laymos';
 
+import { createStdToolkitProjectNarrative } from './project-narrative.js';
+
 const eschemaBarrel = layer('eschema-barrel', ['src/eschema/index.ts'], {
   description: 'Public barrel',
 });
@@ -32,7 +34,7 @@ const coreImpl = layer(
 const dynamodbBarrel = layer('dynamodb-barrel', ['src/db/dynamodb/index.ts'], {
   description: 'Public barrel',
 });
-const dynamodbServices = layer(
+const dynamodbServicesLayer = layer(
   'dynamodb-services',
   ['src/db/dynamodb/services'],
   { description: 'Entity/command surface' },
@@ -146,6 +148,40 @@ const syncUtil = layer(
   { description: 'Shared types and utility helpers' },
 );
 
+const dynamodbGraph = layerGraph(
+  'dynamodb',
+  [
+    edge(dynamodbBarrel, [
+      dynamodbServicesLayer,
+      dynamodbExpr,
+      dynamodbInternal,
+      dynamodbTypes,
+      dynamodbErrors,
+    ]),
+    edge(dynamodbServicesLayer, [
+      dynamodbExpr,
+      dynamodbInternal,
+      dynamodbGenerated,
+      dynamodbTypes,
+      dynamodbErrors,
+      coreBarrel,
+    ]),
+    edge(dynamodbExpr, [dynamodbInternal, dynamodbTypes]),
+    edge(dynamodbInternal, [dynamodbTypes, dynamodbErrors]),
+    edge(dynamodbGenerated, dynamodbErrors),
+    edge(dynamodbTypes, coreBarrel),
+  ],
+  {
+    description:
+      'Typed DynamoDB services, expressions, generated metadata, and internal storage support',
+  },
+);
+
+const dynamodbServicesModule = module('src/db/dynamodb/services', {
+  description:
+    'Public entity, singleton, table, and client services for DynamoDB',
+});
+
 export default defineConfig({
   sourceRoots: ['src'],
   ignore: [
@@ -171,137 +207,231 @@ export default defineConfig({
     'src/tanstack-sync/source-of-truth/__tests__',
   ],
   graphs: [
-    layerGraph('eschema', [edge(eschemaBarrel, eschemaImpl)]),
-    layerGraph('core', [
-      edge(coreBarrel, coreImpl),
-      edge(coreImpl, eschemaBarrel),
-    ]),
-    layerGraph('dynamodb', [
-      edge(dynamodbBarrel, [
-        dynamodbServices,
-        dynamodbExpr,
-        dynamodbInternal,
-        dynamodbTypes,
-        dynamodbErrors,
-      ]),
-      edge(dynamodbServices, [
-        dynamodbExpr,
-        dynamodbInternal,
-        dynamodbGenerated,
-        dynamodbTypes,
-        dynamodbErrors,
-        coreBarrel,
-      ]),
-      edge(dynamodbExpr, [dynamodbInternal, dynamodbTypes]),
-      edge(dynamodbInternal, [dynamodbTypes, dynamodbErrors]),
-      edge(dynamodbGenerated, dynamodbErrors),
-      edge(dynamodbTypes, coreBarrel),
-    ]),
-    layerGraph('idb', [
-      edge(idbBarrel, [idbServices, idbBrowser]),
-      edge(idbServices, [idbDb, idbInternal, coreBarrel]),
-      edge(idbBrowser, idbDb),
-      edge(idbDb, idbErrors),
-      edge(idbInternal, coreBarrel),
-      edge(idbErrors, coreBarrel),
-    ]),
-    layerGraph('sqlite', [
-      edge(sqliteBarrel, [sqliteServices, sqliteSql, sqliteErrors]),
-      edge(sqliteServices, [sqliteInternal, sqliteSql, coreBarrel]),
-      edge(sqliteInternal, coreBarrel),
-      edge(sqliteSql, [sqliteErrors, coreBarrel]),
-    ]),
-    layerGraph('tanstack-sync', [
-      edge(syncEntrypoint, [
-        syncSingleItem,
-        syncPartitioned,
-        syncCadence,
-        syncInspector,
-        syncOfflineStorage,
-        syncPaced,
-        syncRegistry,
-        syncUtil,
-        coreBarrel,
-      ]),
-      edge(syncSingleItem, [
-        syncPartitioned,
-        syncProjection,
-        syncInspector,
-        syncPaced,
-        syncRegistry,
-        syncSourceOfTruth,
-        syncOfflineStorage,
-        syncUtil,
-        coreBarrel,
-      ]),
-      edge(syncPartitioned, [
-        syncCadence,
-        syncProjection,
-        syncInspector,
-        syncPaced,
-        syncRegistry,
-        syncSourceOfTruth,
-        syncOfflineStorage,
-        syncUtil,
-        coreBarrel,
-      ]),
-      edge(syncCadence, [syncSourceOfTruth, syncUtil, coreBarrel]),
-      edge(syncProjection, [syncSourceOfTruth, syncUtil, coreBarrel]),
-      edge(syncRegistry, [syncSourceOfTruth, coreBarrel]),
-      edge(syncInspector, [syncOfflineStorage, syncUtil]),
-      edge(syncSourceOfTruth, [syncOfflineStorage, coreBarrel]),
-      edge(syncUtil, coreBarrel),
-    ]),
+    layerGraph('eschema', [edge(eschemaBarrel, eschemaImpl)], {
+      description: 'Schema entrypoint and implementation',
+    }),
+    layerGraph(
+      'core',
+      [edge(coreBarrel, coreImpl), edge(coreImpl, eschemaBarrel)],
+      { description: 'Core utilities and their schema dependency' },
+    ),
+    dynamodbGraph,
+    layerGraph(
+      'idb',
+      [
+        edge(idbBarrel, [idbServices, idbBrowser]),
+        edge(idbServices, [idbDb, idbInternal, coreBarrel]),
+        edge(idbBrowser, idbDb),
+        edge(idbDb, idbErrors),
+        edge(idbInternal, coreBarrel),
+        edge(idbErrors, coreBarrel),
+      ],
+      {
+        description:
+          'IndexedDB services, browser wiring, and storage internals',
+      },
+    ),
+    layerGraph(
+      'sqlite',
+      [
+        edge(sqliteBarrel, [sqliteServices, sqliteSql, sqliteErrors]),
+        edge(sqliteServices, [sqliteInternal, sqliteSql, coreBarrel]),
+        edge(sqliteInternal, coreBarrel),
+        edge(sqliteSql, [sqliteErrors, coreBarrel]),
+      ],
+      {
+        description: 'SQLite services, SQL adapters, and storage internals',
+      },
+    ),
+    layerGraph(
+      'tanstack-sync',
+      [
+        edge(syncEntrypoint, [
+          syncSingleItem,
+          syncPartitioned,
+          syncCadence,
+          syncInspector,
+          syncOfflineStorage,
+          syncPaced,
+          syncRegistry,
+          syncUtil,
+          coreBarrel,
+        ]),
+        edge(syncSingleItem, [
+          syncPartitioned,
+          syncProjection,
+          syncInspector,
+          syncPaced,
+          syncRegistry,
+          syncSourceOfTruth,
+          syncOfflineStorage,
+          syncUtil,
+          coreBarrel,
+        ]),
+        edge(syncPartitioned, [
+          syncCadence,
+          syncProjection,
+          syncInspector,
+          syncPaced,
+          syncRegistry,
+          syncSourceOfTruth,
+          syncOfflineStorage,
+          syncUtil,
+          coreBarrel,
+        ]),
+        edge(syncCadence, [syncSourceOfTruth, syncUtil, coreBarrel]),
+        edge(syncProjection, [syncSourceOfTruth, syncUtil, coreBarrel]),
+        edge(syncRegistry, [syncSourceOfTruth, coreBarrel]),
+        edge(syncInspector, [syncOfflineStorage, syncUtil]),
+        edge(syncSourceOfTruth, [syncOfflineStorage, coreBarrel]),
+        edge(syncUtil, coreBarrel),
+      ],
+      {
+        description:
+          'TanStack sync entrypoints, strategies, convergence, and persistence',
+      },
+    ),
   ],
   modules: [
-    module('src/eschema/index.ts'),
-    module('src/eschema/eschema.ts'),
-    module('src/eschema/internal'),
-    module('src/eschema/schema.ts'),
-    module('src/eschema/types.ts'),
-    module('src/eschema/utils.ts'),
+    module('src/eschema/index.ts', {
+      description: 'Public schema API',
+    }),
+    module('src/eschema/eschema.ts', {
+      description: 'Entity schema construction and evolution',
+    }),
+    module('src/eschema/internal', {
+      description: 'Internal schema helpers',
+    }),
+    module('src/eschema/schema.ts', {
+      description: 'Schema declarations',
+    }),
+    module('src/eschema/types.ts', {
+      description: 'Schema type definitions',
+    }),
+    module('src/eschema/utils.ts', {
+      description: 'Schema utilities',
+    }),
 
-    module('src/core/index.ts'),
-    module('src/core/broadcaster.ts'),
-    module('src/core/error.ts'),
-    module('src/core/schema.ts'),
-    module('src/core/ulid.ts'),
+    module('src/core/index.ts', {
+      description: 'Public core API',
+    }),
+    module('src/core/broadcaster.ts', {
+      description: 'Change broadcasting',
+    }),
+    module('src/core/error.ts', {
+      description: 'Shared error definitions',
+    }),
+    module('src/core/schema.ts', {
+      description: 'Shared schema helpers',
+    }),
+    module('src/core/ulid.ts', {
+      description: 'Monotonic identifier generation',
+    }),
 
-    module('src/db/dynamodb/index.ts'),
-    module('src/db/dynamodb/services'),
-    module('src/db/dynamodb/expr'),
-    module('src/db/dynamodb/internal'),
-    module('src/db/dynamodb/generated'),
-    module('src/db/dynamodb/types'),
-    module('src/db/dynamodb/errors.ts'),
+    module('src/db/dynamodb/index.ts', {
+      description: 'Public DynamoDB API',
+    }),
+    dynamodbServicesModule,
+    module('src/db/dynamodb/expr', {
+      description: 'DynamoDB expression builders',
+    }),
+    module('src/db/dynamodb/internal', {
+      description: 'Internal DynamoDB implementation',
+    }),
+    module('src/db/dynamodb/generated', {
+      description: 'Generated DynamoDB metadata',
+    }),
+    module('src/db/dynamodb/types', {
+      description: 'DynamoDB type contracts',
+    }),
+    module('src/db/dynamodb/errors.ts', {
+      description: 'DynamoDB errors',
+    }),
 
-    module('src/db/idb/src/index.ts'),
-    module('src/db/idb/src/idb-entity.ts'),
-    module('src/db/idb/src/idb-single-entity.ts'),
-    module('src/db/idb/src/idb-table.ts'),
-    module('src/db/idb/src/layer.ts'),
-    module('src/db/idb/src/db.ts'),
-    module('src/db/idb/src/internal'),
-    module('src/db/idb/src/errors.ts'),
+    module('src/db/idb/src/index.ts', {
+      description: 'Public IndexedDB API',
+    }),
+    module('src/db/idb/src/idb-entity.ts', {
+      description: 'IndexedDB entity collections',
+    }),
+    module('src/db/idb/src/idb-single-entity.ts', {
+      description: 'IndexedDB singleton entities',
+    }),
+    module('src/db/idb/src/idb-table.ts', {
+      description: 'IndexedDB table services',
+    }),
+    module('src/db/idb/src/layer.ts', {
+      description: 'IndexedDB Effect layer',
+    }),
+    module('src/db/idb/src/db.ts', {
+      description: 'IndexedDB database contract',
+    }),
+    module('src/db/idb/src/internal', {
+      description: 'Internal IndexedDB implementation',
+    }),
+    module('src/db/idb/src/errors.ts', {
+      description: 'IndexedDB errors',
+    }),
 
-    module('src/db/sqlite/index.ts'),
-    module('src/db/sqlite/errors.ts'),
-    module('src/db/sqlite/internal'),
-    module('src/db/sqlite/services'),
-    module('src/db/sqlite/sql'),
+    module('src/db/sqlite/index.ts', {
+      description: 'Public SQLite API',
+    }),
+    module('src/db/sqlite/errors.ts', {
+      description: 'SQLite errors',
+    }),
+    module('src/db/sqlite/internal', {
+      description: 'Internal SQLite implementation',
+    }),
+    module('src/db/sqlite/services', {
+      description: 'SQLite entity and singleton services',
+    }),
+    module('src/db/sqlite/sql', {
+      description: 'SQL builders and adapters',
+    }),
 
-    module('src/tanstack-sync/index.ts'),
-    module('src/tanstack-sync/create-std-sync.ts'),
-    module('src/tanstack-sync/types.ts'),
-    module('src/tanstack-sync/partitioned'),
-    module('src/tanstack-sync/single-item'),
-    module('src/tanstack-sync/cadence-sync'),
-    module('src/tanstack-sync/collection-projection'),
-    module('src/tanstack-sync/inspector'),
-    module('src/tanstack-sync/paced'),
-    module('src/tanstack-sync/registry'),
-    module('src/tanstack-sync/source-of-truth'),
-    module('src/tanstack-sync/offline-storage'),
-    module('src/tanstack-sync/util'),
+    module('src/tanstack-sync/index.ts', {
+      description: 'Public TanStack sync API',
+    }),
+    module('src/tanstack-sync/create-std-sync.ts', {
+      description: 'TanStack sync construction',
+    }),
+    module('src/tanstack-sync/types.ts', {
+      description: 'Shared TanStack sync types',
+    }),
+    module('src/tanstack-sync/partitioned', {
+      description: 'Partitioned collection synchronization',
+    }),
+    module('src/tanstack-sync/single-item', {
+      description: 'Single-item synchronization',
+    }),
+    module('src/tanstack-sync/cadence-sync', {
+      description: 'Sync cadence scheduling',
+    }),
+    module('src/tanstack-sync/collection-projection', {
+      description: 'Synchronized collection projections',
+    }),
+    module('src/tanstack-sync/inspector', {
+      description: 'Sync inspection data',
+    }),
+    module('src/tanstack-sync/paced', {
+      description: 'Paced synchronization',
+    }),
+    module('src/tanstack-sync/registry', {
+      description: 'Sync tracker registry',
+    }),
+    module('src/tanstack-sync/source-of-truth', {
+      description: 'Source-of-truth convergence',
+    }),
+    module('src/tanstack-sync/offline-storage', {
+      description: 'Offline synchronization storage',
+    }),
+    module('src/tanstack-sync/util', {
+      description: 'Shared synchronization utilities',
+    }),
   ],
+  project: createStdToolkitProjectNarrative({
+    dynamodbGraph,
+    dynamodbServicesLayer,
+    dynamodbServicesModule,
+  }),
 });

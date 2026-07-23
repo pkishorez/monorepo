@@ -78,6 +78,7 @@ function ProgressiveCanvasInner({
   onCenterSelectedChange,
   selectedNodeId: controlledSelectedNodeId,
   onSelectedNodeIdChange,
+  onHoveredNodeIdChange,
   onNodeClick,
   onGraphNodesChange,
   centerNodeRequest,
@@ -95,6 +96,7 @@ function ProgressiveCanvasInner({
   readonly onCenterSelectedChange: (center: boolean) => void;
   readonly selectedNodeId?: string | null;
   readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
+  readonly onHoveredNodeIdChange?: (nodeId: string | null) => void;
   readonly onNodeClick?: (
     node: ProgressiveStoryGraphModel['nodes'][number],
     context: { readonly modified: boolean },
@@ -130,6 +132,10 @@ function ProgressiveCanvasInner({
     onSelectedNodeIdChange?.(nodeId);
   };
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const setHoveredNode = (nodeId: string | null) => {
+    setHoveredNodeId(nodeId);
+    onHoveredNodeIdChange?.(nodeId);
+  };
   const [controlsExpanded, setControlsExpanded] = useState(false);
   const compactModel = useMemo(() => compactValueDecisions(model), [model]);
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<ReadonlySet<string>>(
@@ -137,7 +143,7 @@ function ProgressiveCanvasInner({
   );
   useEffect(() => {
     setCollapsedNodeIds(new Set());
-    setHoveredNodeId(null);
+    setHoveredNode(null);
     if (controlledSelectedNodeId === undefined && selectedNodeId !== null)
       setSelectedNodeId(null);
   }, [model]);
@@ -369,9 +375,9 @@ function ProgressiveCanvasInner({
         ) => {
           if (node.data.graphNode.kind === 'arm' && !node.data.graphNode.active)
             return;
-          setHoveredNodeId(node.id);
+          setHoveredNode(node.id);
         }}
-        onNodeMouseLeave={() => setHoveredNodeId(null)}
+        onNodeMouseLeave={() => setHoveredNode(null)}
         onNodeContextMenu={(
           event: MouseEvent,
           node: Node<ProgressiveNodeData>,
@@ -508,6 +514,7 @@ export function StoryCanvas({
   onPreferencesChange,
   selectedNodeId,
   onSelectedNodeIdChange,
+  onHoveredNodeIdChange,
   onNodeClick,
   onGraphNodesChange,
   centerNodeRequest,
@@ -520,6 +527,7 @@ export function StoryCanvas({
   ) => void;
   readonly selectedNodeId?: string | null;
   readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
+  readonly onHoveredNodeIdChange?: (nodeId: string | null) => void;
   readonly onNodeClick?: Parameters<
     typeof ProgressiveCanvasInner
   >[0]['onNodeClick'];
@@ -570,6 +578,7 @@ export function StoryCanvas({
         }
         selectedNodeId={selectedNodeId}
         onSelectedNodeIdChange={onSelectedNodeIdChange}
+        onHoveredNodeIdChange={onHoveredNodeIdChange}
         onNodeClick={onNodeClick}
         onGraphNodesChange={onGraphNodesChange}
         centerNodeRequest={centerNodeRequest}
@@ -628,6 +637,7 @@ export function ScenarioCanvas({
   onPreferencesChange,
   selectedNodeId,
   onSelectedNodeIdChange,
+  onHoveredNodeIdChange,
   onNodeClick,
   onGraphNodesChange,
   centerNodeRequest,
@@ -641,6 +651,7 @@ export function ScenarioCanvas({
   ) => void;
   readonly selectedNodeId?: string | null;
   readonly onSelectedNodeIdChange?: (nodeId: string | null) => void;
+  readonly onHoveredNodeIdChange?: (nodeId: string | null) => void;
   readonly onNodeClick?: Parameters<
     typeof ProgressiveCanvasInner
   >[0]['onNodeClick'];
@@ -681,6 +692,7 @@ export function ScenarioCanvas({
         }
         selectedNodeId={selectedNodeId}
         onSelectedNodeIdChange={onSelectedNodeIdChange}
+        onHoveredNodeIdChange={onHoveredNodeIdChange}
         onNodeClick={onNodeClick}
         onGraphNodesChange={onGraphNodesChange}
         centerNodeRequest={centerNodeRequest}

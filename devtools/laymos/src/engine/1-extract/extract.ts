@@ -5,6 +5,7 @@ import { Effect } from 'effect';
 import skott from 'skott';
 
 import { pathContains } from '../../config/path.js';
+import type { StorySurface } from '../../story/core/story-surface.js';
 import { ExtractError } from '../errors.js';
 
 export interface FileNode {
@@ -14,6 +15,11 @@ export interface FileNode {
 
 export interface FileGraph {
   readonly files: Readonly<Record<string, FileNode>>;
+  readonly storyImports: readonly {
+    readonly from: string;
+    readonly to: string;
+    readonly module: string;
+  }[];
 }
 
 /** Extracts configured source roots with skott and type-only tracking enabled. */
@@ -21,17 +27,34 @@ export function extractFileGraph(
   baseDir: string,
   sourceRoots: readonly string[],
   ignoredPaths: readonly string[] = [],
+  storySurfaces: readonly StorySurface[] = [],
 ): Effect.Effect<FileGraph, ExtractError> {
   return Effect.tryPromise({
     try: async () => {
       const inventoryFiles = await listSourceFiles(baseDir, sourceRoots);
-      const eligibleFiles = inventoryFiles.filter(
+      const storySurfaceByFile = new Map(
+        inventoryFiles.flatMap((path) => {
+          const surface = storySurfaces.find((candidate) =>
+            pathContains(candidate.path, path),
+          );
+          return surface === undefined ? [] : [[path, surface] as const];
+        }),
+      );
+      const storyFiles = new Set(storySurfaceByFile.keys());
+      const architectureFiles = inventoryFiles.filter(
+        (path) => !storyFiles.has(path),
+      );
+      const eligibleFiles = architectureFiles.filter(
         (path) => !ignoredPaths.some((ignored) => pathContains(ignored, path)),
       );
       const eligible = new Set(eligibleFiles);
       const imports = new Map<string, Set<string>>(
-        inventoryFiles.map((path) => [path, new Set()]),
+        architectureFiles.map((path) => [path, new Set()]),
       );
+      const storyImports = new Map<
+        string,
+        { readonly from: string; readonly to: string; readonly module: string }
+      >();
       const extracted = new Set<string>();
 
       for (const sourceRoot of sourceRoots) {
@@ -52,6 +75,9 @@ export function extractFileGraph(
           graph: structure.graph,
           imports,
           resolutionBase,
+          storyImports,
+          storyFiles,
+          storySurfaceByFile,
         })) {
           extracted.add(path);
         }
@@ -71,15 +97,21 @@ export function extractFileGraph(
           graph: structure.graph,
           imports,
           resolutionBase: dirname(entrypoint),
+          storyImports,
+          storyFiles,
+          storySurfaceByFile,
         });
       }
 
       return {
         files: Object.fromEntries(
-          inventoryFiles.map((path) => [
+          architectureFiles.map((path) => [
             path,
             { path, imports: [...imports.get(path)!].sort() },
           ]),
+        ),
+        storyImports: [...storyImports.values()].sort(
+          (a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to),
         ),
       };
     },
@@ -122,6 +154,9 @@ function collectExtractedGraph({
   graph,
   imports,
   resolutionBase,
+  storyImports,
+  storyFiles,
+  storySurfaceByFile,
 }: {
   baseDir: string;
   eligible: ReadonlySet<string>;
@@ -133,6 +168,12 @@ function collectExtractedGraph({
   >;
   imports: Map<string, Set<string>>;
   resolutionBase?: string;
+  storyImports: Map<
+    string,
+    { readonly from: string; readonly to: string; readonly module: string }
+  >;
+  storyFiles: ReadonlySet<string>;
+  storySurfaceByFile: ReadonlyMap<string, StorySurface>;
 }): Set<string> {
   const extracted = new Set<string>();
   for (const node of Object.values(graph)) {
@@ -141,7 +182,23 @@ function collectExtractedGraph({
     extracted.add(from);
     for (const adjacent of node.adjacentTo) {
       const to = findEligiblePath(baseDir, adjacent, eligible, resolutionBase);
-      if (to !== undefined) imports.get(from)!.add(to);
+      if (to !== undefined) {
+        imports.get(from)!.add(to);
+        continue;
+      }
+      const storyFile = findEligiblePath(
+        baseDir,
+        adjacent,
+        storyFiles,
+        resolutionBase,
+      );
+      if (storyFile === undefined) continue;
+      const storySurface = storySurfaceByFile.get(storyFile)!;
+      storyImports.set(`${from}\0${storyFile}`, {
+        from,
+        to: storyFile,
+        module: storySurface.modulePath,
+      });
     }
   }
   return extracted;

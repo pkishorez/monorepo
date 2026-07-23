@@ -7,6 +7,7 @@ import {
   checkoutStoryId,
   emptyStoriesFixtureCatalog,
   emptyStoriesFixtureReport,
+  projectNarrativeFixture,
   singleStoryFixtureReport,
   storiesFixtureReport,
   storiesFixtureCatalog,
@@ -18,11 +19,13 @@ function Controlled({
   catalog = storiesFixtureCatalog,
   runState = null,
   initialSelection = null,
+  project,
 }: {
   readonly report?: StoriesRun;
   readonly catalog?: StoryCatalog;
   readonly runState?: LaymosStoriesRunState;
   readonly initialSelection?: LaymosStoriesSelection;
+  readonly project?: StoryCollection['project'];
 }) {
   const [selection, setSelection] = useFixtureInput<LaymosStoriesSelection>(
     'selection',
@@ -32,27 +35,30 @@ function Controlled({
   const collection: StoryCollection = {
     catalog,
     traces: Object.fromEntries(
-      catalog.stories.flatMap(({ storyId }) => {
-        const story = fixtureRuns.stories[storyId];
-        return story
-          ? [
-              [
-                storyId,
-                {
-                  status: 'valid' as const,
-                  generatedAt: story.generatedAt,
-                  blocks: story.blocks,
-                  execution: Object.keys(story.blocks).map((blockId) => ({
-                    kind: 'step' as const,
-                    blockId,
-                  })),
-                  definitions: {},
-                },
-              ] as const,
-            ]
-          : [];
-      }),
+      catalog.modules.flatMap(({ stories }) =>
+        stories.flatMap(({ storyPath }) => {
+          const story = fixtureRuns.stories[storyPath];
+          return story
+            ? [
+                [
+                  storyPath,
+                  {
+                    status: 'valid' as const,
+                    generatedAt: story.generatedAt,
+                    blocks: story.blocks,
+                    execution: Object.keys(story.blocks).map((blockId) => ({
+                      kind: 'step' as const,
+                      blockId,
+                    })),
+                    definitions: {},
+                  },
+                ] as const,
+              ]
+            : [];
+        }),
+      ),
     ),
+    ...(project ? { project } : {}),
   };
   return (
     <div className="h-[880px] w-full min-w-[1040px] p-4">
@@ -63,8 +69,9 @@ function Controlled({
         selection={selection}
         onSelectionChange={setSelection}
         onRunStory={() => undefined}
-        onRunGroup={() => undefined}
+        onRunModule={() => undefined}
         onRunAll={() => undefined}
+        onProjectReferenceClick={() => undefined}
       />
     </div>
   );
@@ -82,25 +89,26 @@ export default {
   'running story': (
     <Controlled
       report={emptyStoriesFixtureReport}
-      runState={{ kind: 'story', storyId: checkoutStoryId }}
-      initialSelection={{ kind: 'story', storyId: checkoutStoryId }}
+      runState={{ kind: 'story', storyPath: checkoutStoryId }}
+      initialSelection={{ kind: 'story', storyPath: checkoutStoryId }}
     />
   ),
   'refreshing story': (
     <Controlled
       report={storiesFixtureReport}
-      runState={{ kind: 'story', storyId: checkoutStoryId }}
-      initialSelection={{ kind: 'story', storyId: checkoutStoryId }}
+      runState={{ kind: 'story', storyPath: checkoutStoryId }}
+      initialSelection={{ kind: 'story', storyPath: checkoutStoryId }}
     />
   ),
   'running all': (
     <Controlled report={storiesFixtureReport} runState={{ kind: 'all' }} />
   ),
+  'project narrative': <Controlled project={projectNarrativeFixture} />,
   overview: <Controlled />,
   'unified flow': (
     <Controlled
       report={singleStoryFixtureReport}
-      initialSelection={{ kind: 'story', storyId: checkoutStoryId }}
+      initialSelection={{ kind: 'story', storyPath: checkoutStoryId }}
     />
   ),
   'parallel scenario flow': (
@@ -108,7 +116,7 @@ export default {
       report={singleStoryFixtureReport}
       initialSelection={{
         kind: 'scenario',
-        storyId: checkoutStoryId,
+        storyPath: checkoutStoryId,
         scenarioIndex: 0,
       }}
     />
@@ -118,19 +126,21 @@ export default {
       report={singleStoryFixtureReport}
       initialSelection={{
         kind: 'scenario',
-        storyId: checkoutStoryId,
+        storyPath: checkoutStoryId,
         scenarioIndex: 2,
       }}
     />
   ),
   'large decision tree story': (
-    <Controlled initialSelection={{ kind: 'story', storyId: triageStoryId }} />
+    <Controlled
+      initialSelection={{ kind: 'story', storyPath: triageStoryId }}
+    />
   ),
   'large decision tree scenario': (
     <Controlled
       initialSelection={{
         kind: 'scenario',
-        storyId: triageStoryId,
+        storyPath: triageStoryId,
         scenarioIndex: 0,
       }}
     />

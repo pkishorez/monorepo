@@ -12,9 +12,11 @@ The existing node graph remains available through the **Graph** view toggle.
 
 ## Data boundary
 
-The report contains Story artifacts keyed by Story ID. Each Story owns shared
-Block definitions and Scenarios. Each Scenario owns one recursive Execution
-Path that directly holds its Block Visits:
+The report contains Story artifacts keyed by project-relative, suffixless Story
+path. Every Story belongs to one owning folder Module through that Module's flat
+Story surface. Each Story owns shared Block definitions and Scenarios. Each
+Scenario owns one recursive Execution Path that directly holds its Block
+Visits:
 
 - array order means sequential execution;
 - `parallel` branches mean concurrent execution;
@@ -27,19 +29,25 @@ The block privately derives React Flow nodes, execution-flow edges, hover
 disclosure relationships, and layout. None of those view-model types cross the
 public API.
 
+Story coverage belongs only to one Story and reports its narrated, omitted, and
+unnarrated percentages. The block does not present a Module, Layer, or Project
+Story coverage rollup.
+
 ## Controlled navigation
 
-The block uses one persistent navigation hierarchy. Story and Scenario
-selections share a **Narrative / Graph** presentation toggle rather than using
-separate tabs.
+The navigator lists only folder Modules that own Stories. Stories and Scenarios
+are nested beneath their owning Module. Story and Scenario selections share a
+**Narrative / Graph** presentation toggle.
 
 ```ts
 type LaymosStoriesSelection =
-  | { readonly kind: 'group'; readonly groupPath: StoryGroupPath }
-  | { readonly kind: 'story'; readonly storyId: StoryId }
+  | { readonly kind: 'project-narrative' }
+  | { readonly kind: 'catalog' }
+  | { readonly kind: 'module'; readonly modulePath: string }
+  | { readonly kind: 'story'; readonly storyPath: StoryPath }
   | {
       readonly kind: 'scenario';
-      readonly storyId: StoryId;
+      readonly storyPath: StoryPath;
       readonly scenarioIndex: number;
     }
   | null;
@@ -48,16 +56,16 @@ interface LaymosStoriesProps {
   readonly collection: StoryCollection;
   readonly runs: StoriesRun;
   readonly runState:
-    | { readonly kind: 'group'; readonly groupPath: StoryGroupPath }
-    | { readonly kind: 'story'; readonly storyId: StoryId }
+    | { readonly kind: 'module'; readonly modulePath: string }
+    | { readonly kind: 'story'; readonly storyPath: StoryPath }
     | { readonly kind: 'all' }
     | null;
   readonly selection: LaymosStoriesSelection;
   readonly onSelectionChange: (selection: LaymosStoriesSelection) => void;
-  readonly onRunStory?: (storyId: StoryId) => void;
-  readonly onRunGroup?: (groupPath: StoryGroupPath) => void;
+  readonly onRunModule?: (modulePath: string) => void;
+  readonly onRunStory?: (storyPath: StoryPath) => void;
   readonly onRunAll?: () => void;
-  readonly sidebarExpansion?: 'single' | 'recursive';
+  readonly onProjectReferenceClick?: (reference: ProjectReference) => void;
   readonly showNavigator?: boolean;
   readonly className?: string;
   readonly ariaLabel?: string;
@@ -69,33 +77,23 @@ artifacts returned by focused runs. A complete run replaces the entire report.
 `LaymosStories` performs no fetching or filesystem access: it receives the
 catalog, caller-held report, active run state, and execution callbacks.
 
-On initial load, the navigator opens every top-level Group, then follows the
-first Group branch until its first Stories are visible. After that it keeps
-only the active branch open.
-Selecting a Group reveals its immediate children while nested Groups remain
-collapsed. Scenario lists are collapsed by default; selecting a Story opens
-only that Story's Scenarios and shows their count on its row. Selecting the
-same open Group or Story again collapses it. Set
-`sidebarExpansion="recursive"` to open the selected Group's complete subtree.
-The navigator is included by default. Set `showNavigator={false}` when a parent
-composition supplies its own navigation surface.
-Stories and their Scenarios are nested beneath each Group:
+Selecting a Story opens only that Story's Scenarios and shows their count on its
+row. Selecting the same open Story again collapses it. The navigator is included
+by default. Set `showNavigator={false}` when a parent composition supplies its
+own navigation surface.
 
 ```text
-Commerce
-└─ Checkout
-   ├─ Place an order
-   │  ├─ Happy path
-   │  └─ Fraud rejected
-   └─ Refund an order
+src/orders
+├─ Checkout
+│  ├─ Happy path
+│  └─ Fraud rejected
+└─ Refund
 ```
 
-Groups are selectable destinations with descriptions, immediate child Groups,
-direct Stories, descendant counts, execution summaries, and a **Run group**
-action covering their complete subtree. If the catalog has Groups, direct
-`story()` declarations appear in a distinct **Standalone stories** section. If
-it has no Groups, Stories retain the original flat presentation. Groups sort
-before Stories and siblings sort alphabetically.
+Modules are selectable destinations with their configured descriptions, owned
+Stories, execution summaries, and a **Run Module** action. Modules sort by path.
+Stories sort by display name and then Story path, so display names need not be
+unique.
 
 The **All stories** header returns to the collection overview. When `onRunAll`
 is supplied, a fixed sidebar footer exposes **Run all stories**. Overview rows
@@ -104,12 +102,26 @@ and Story views expose Play or Refresh when `onRunStory` is supplied. Any active
 visible during refresh and is replaced when the consumer supplies the result.
 The wrapper owns operational errors and report replacement.
 
+When a Project Narrative is configured, **Project Narrative** is the default
+destination and **All stories** remains a separate catalog destination. Project
+Markdown and inline Project Maps are authored data from Laymos. Map topics render
+their Graph, Layer, and Module references. When `onProjectReferenceClick` is
+provided, activating a reference passes the exact `ProjectReference` to the
+host. The block performs no cross-block or host navigation itself.
+
+Story and Scenario selections open **Documentation** first. Authored Markdown
+appears before the generated structural narrative; **Graph** retains the
+interactive execution view.
+
 An empty catalog presents **“No Story files found.”** Catalog Stories without
 report entries remain visible as **“Not run”** and can be selected or executed.
 This keeps “nothing discovered” distinct from “not executed yet.”
 
-- `null` selection shows the Story collection overview.
-- Selecting a Group shows its Group overview.
+- `null` selection shows the Project Narrative when present, otherwise the Story
+  collection overview.
+- Selecting Project Narrative or All Stories switches between the authored entry
+  point and complete catalog.
+- Selecting a Module shows its Module overview.
 - Selecting a Story shows its unified Story view and its Scenario list.
 - Selecting a Scenario replaces the canvas with that Scenario view.
 - Selecting the current Story returns to its unified view.

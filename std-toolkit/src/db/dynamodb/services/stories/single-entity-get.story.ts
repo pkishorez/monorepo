@@ -1,41 +1,21 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
-import { flow, terminal } from 'laymos/story';
+import { story } from 'laymos/story';
 
-import { dynamodbSingleEntityStories } from './support/story-groups.js';
+import { dynamodbStoryDocumentation } from './story-documentation.js';
 
-import { makeDynamoStoryHarness } from './support/dynamodb-story-harness.js';
+import { makeDynamoStoryHarness } from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('single-entity-get');
-const getSettings = flow(
-  'Get single entity',
-  {
-    description:
-      'Reads the singleton record or returns its configured default before the first write.',
-  },
-  (_input: {}) =>
-    Effect.gen(function* () {
-      const result = yield* harness.settings.get();
-      return yield* terminal(
-        'Return the singleton state',
-        {
-          description:
-            'Completes the lookup with stored state or its configured default.',
-          completion: { kind: 'success' },
-        },
-        () => Effect.succeed(result),
-      );
-    }),
-);
 
-dynamodbSingleEntityStories
-  .story('Get single entity', {
-    description:
-      'Shows default and persisted paths for reading one logical singleton.',
-  })
+story('Get single entity', {
+  description:
+    'Shows default and persisted paths for reading one logical singleton.',
+  documentation: dynamodbStoryDocumentation.singleGet,
+})
   .provide(harness.layer)
-  .execute(getSettings)
+  .execute((_input: {}) => harness.settings.get())
   .scenario(
     'get returns the schema default before the first write',
     { description: 'Reads synthetic default state and its sentinel cursor.' },

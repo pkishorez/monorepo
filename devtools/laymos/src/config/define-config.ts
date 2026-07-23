@@ -1,4 +1,5 @@
 import type { LaymosConfig, ModuleDef } from './types.js';
+import type { ProjectTopicDef } from '../story/core/project-narrative.js';
 import { normalizeConfigPath, pathContains } from './path.js';
 
 export function defineConfig(config: LaymosConfig): LaymosConfig {
@@ -16,7 +17,9 @@ export function defineConfig(config: LaymosConfig): LaymosConfig {
     ...duplicateLayerPaths(normalizedConfig),
     ...duplicateIgnoredPaths(normalizedConfig),
     ...unionCycles(normalizedConfig),
+    ...architectureIntentIssues(normalizedConfig),
     ...moduleIssues(normalizedConfig),
+    ...projectNarrativeIssues(normalizedConfig),
   ];
   if (issues.length > 0) {
     throw new Error(
@@ -24,6 +27,107 @@ export function defineConfig(config: LaymosConfig): LaymosConfig {
     );
   }
   return normalizedConfig;
+}
+
+function architectureIntentIssues(config: LaymosConfig): string[] {
+  const issues: string[] = [];
+  for (const graph of config.graphs) {
+    if (
+      typeof graph.description !== 'string' ||
+      graph.description.trim().length === 0
+    ) {
+      issues.push(`Layer Graph "${graph.name}" description must not be empty`);
+    }
+  }
+  const layers = new Set(config.graphs.flatMap((graph) => graph.layers));
+  for (const layer of layers) {
+    if (
+      typeof layer.description !== 'string' ||
+      layer.description.trim().length === 0
+    ) {
+      issues.push(`Layer "${layer.name}" description must not be empty`);
+    }
+  }
+  for (const moduleDef of config.modules ?? []) {
+    if (
+      typeof moduleDef.description !== 'string' ||
+      moduleDef.description.trim().length === 0
+    ) {
+      issues.push(`Module "${moduleDef.path}" description must not be empty`);
+    }
+  }
+  return issues;
+}
+
+function projectNarrativeIssues(config: LaymosConfig): string[] {
+  if (config.project === undefined) return [];
+  const project = config.project;
+  const issues: string[] = [];
+  if (project.kind !== 'project-narrative') {
+    issues.push('Project Narrative has an invalid kind');
+  }
+  if (project.name.trim().length === 0) {
+    issues.push('Project Narrative name must not be empty');
+  }
+
+  const graphs = new Set(config.graphs);
+  const layers = new Set(config.graphs.flatMap((graph) => graph.layers));
+  const modules = new Set(config.modules ?? []);
+  for (const block of project.blocks) {
+    if (block.kind === 'markdown') {
+      if (block.content.trim().length === 0) {
+        issues.push('Project Narrative Markdown blocks must not be empty');
+      }
+    } else if (block.kind === 'project-map') {
+      validateProjectTopic(block.root, graphs, layers, modules, [], issues);
+    } else {
+      issues.push('Project Narrative contains an unknown block');
+    }
+  }
+  return issues;
+}
+
+function validateProjectTopic(
+  topic: ProjectTopicDef,
+  graphs: ReadonlySet<LaymosConfig['graphs'][number]>,
+  layers: ReadonlySet<LaymosConfig['graphs'][number]['layers'][number]>,
+  modules: ReadonlySet<ModuleDef>,
+  ancestors: readonly string[],
+  issues: string[],
+): void {
+  const path = [...ancestors, topic.title];
+  const label = path.join(' / ');
+  if (topic.title.trim().length === 0) {
+    issues.push('Project Topic title must not be empty');
+  }
+  if (topic.description.content.trim().length === 0) {
+    issues.push(`Project Topic "${label}" description must not be empty`);
+  }
+  for (const reference of topic.references) {
+    const declared =
+      reference.kind === 'layer-graph'
+        ? graphs.has(reference)
+        : reference.kind === 'layer'
+          ? layers.has(reference)
+          : modules.has(reference);
+    if (!declared) {
+      const identity =
+        reference.kind === 'module' ? reference.path : reference.name;
+      issues.push(
+        `Project Topic "${label}" must reuse declared ${reference.kind} "${identity}"`,
+      );
+    }
+  }
+  const siblings = new Set<string>();
+  for (const child of topic.children) {
+    if (siblings.has(child.title)) {
+      issues.push(
+        `Project Topic "${label}" has duplicate child "${child.title}"`,
+      );
+    }
+    siblings.add(child.title);
+    validateProjectTopic(child, graphs, layers, modules, path, issues);
+  }
 }
 
 function sourceRootIssues(config: LaymosConfig): string[] {

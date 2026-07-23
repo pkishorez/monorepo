@@ -1,24 +1,25 @@
 import { strict as assert } from 'node:assert';
 
 import { Effect } from 'effect';
+import { story } from 'laymos/story';
 
-import { dynamodbEntityStories } from './support/story-groups.js';
+import { dynamodbStoryDocumentation } from './story-documentation.js';
 
 import {
   assertDynamoError,
   makeDynamoStoryHarness,
   user,
-} from './support/dynamodb-story-harness.js';
+} from './dynamodb-story-harness.js';
 
 const harness = makeDynamoStoryHarness('entity-restore');
 const key = { organizationId: 'org-1', userId: 'target' };
 type Input = { readonly beforeCursor?: string };
 
-dynamodbEntityStories
-  .story('Restore entity', {
-    description:
-      'Shows the tombstone, already-live, and missing-item paths of restoring one entity.',
-  })
+story('Restore entity', {
+  description:
+    'Shows the tombstone, already-live, and missing-item paths of restoring one entity.',
+  documentation: dynamodbStoryDocumentation.restore,
+})
   .provide(harness.layer)
   .execute((_input: Input) => harness.users.restore(key))
   .scenario(

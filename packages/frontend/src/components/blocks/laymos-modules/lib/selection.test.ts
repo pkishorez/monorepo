@@ -61,19 +61,18 @@ describe('module graph selection', () => {
     );
   });
 
-  it('can exclude connections between modules in the same layer', () => {
+  it('includes observed connections between modules in the same layer', () => {
     const active = getModuleGraphSelection(
       model,
       { path: 'src/domain/accounts', depth: 'direct' },
       null,
-      'cross-layer',
     );
 
-    expect(active.visibleEdges).toHaveLength(3);
+    expect(active.visibleEdges).toHaveLength(4);
     expect(
       active.visibleEdges.has(
         moduleEdgeKey('src/domain/orders', 'src/domain/accounts'),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

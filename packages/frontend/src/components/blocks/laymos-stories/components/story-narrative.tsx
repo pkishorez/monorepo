@@ -23,6 +23,7 @@ import {
   type StoryArmGraphNode,
   type StoryBlockGraphNode,
 } from '../lib/model';
+import { RichMarkdown } from './rich-markdown';
 
 interface NarrativeArm {
   readonly node: StoryArmGraphNode;
@@ -273,6 +274,7 @@ export function StoryNarrative({ story }: { readonly story: StoryRun }) {
       model={model}
       title={story.name}
       description={story.description}
+      documentation={story.documentation}
       emptyMessage="No narrated Blocks were observed in this Story."
       scenario={false}
     />
@@ -295,6 +297,7 @@ export function ScenarioNarrative({
       model={model}
       title={scenario.name}
       description={scenario.description}
+      documentation={scenario.documentation}
       emptyMessage={
         scenario.outcome === 'skipped'
           ? 'This Scenario is intentionally skipped.'
@@ -309,12 +312,14 @@ function NarrativeDocument({
   model,
   title,
   description,
+  documentation,
   emptyMessage,
   scenario,
 }: {
   readonly model: ProgressiveStoryGraphModel;
   readonly title: string;
   readonly description: string;
+  readonly documentation?: string;
   readonly emptyMessage: string;
   readonly scenario: boolean;
 }) {
@@ -348,6 +353,12 @@ function NarrativeDocument({
             </p>
           </div>
         </header>
+
+        {documentation !== undefined && (
+          <RichMarkdown className="mt-8 border-b border-border/60 pb-8">
+            {documentation}
+          </RichMarkdown>
+        )}
 
         {outline.length === 0 ? (
           <div className="py-20 text-center text-sm text-muted-foreground">

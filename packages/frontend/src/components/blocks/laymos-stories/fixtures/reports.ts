@@ -1,5 +1,6 @@
 import type {
   ExecutionItem,
+  ProjectNarrative,
   StoriesRun,
   StoryCatalog,
   ScenarioOutcome,
@@ -179,7 +180,7 @@ const blocks = {
   },
 } satisfies Readonly<Record<string, StoryBlock>>;
 
-export const checkoutStoryId = 'test/stories/checkout.story.ts';
+export const checkoutStoryId = 'src/orders/stories/checkout';
 export const happyScenarioIndex = 0;
 export const fraudScenarioIndex = 1;
 export const failedScenarioIndex = 2;
@@ -320,7 +321,7 @@ export const checkoutStory = artifact({
   ],
 });
 
-const refundStoryId = 'test/stories/refund.story.ts';
+const refundStoryId = 'src/orders/stories/refund';
 
 const refundStory = artifact({
   name: 'Refund',
@@ -364,7 +365,7 @@ const refundStory = artifact({
   ],
 });
 
-export const triageStoryId = 'test/stories/triage.story.ts';
+export const triageStoryId = 'src/support/stories/triage';
 
 const TREE_DEPTH = 5;
 const triageBlocks: Record<string, StoryBlock> = {};
@@ -439,46 +440,68 @@ export const emptyStoriesFixtureReport = {
 } satisfies StoriesRun;
 
 export const storiesFixtureCatalog = {
-  groups: [
+  modules: [
     {
-      path: ['Commerce'],
-      name: 'Commerce',
-      description: 'Customer purchase and refund behavior.',
-    },
-    {
-      path: ['Commerce', 'Orders'],
-      name: 'Orders',
+      modulePath: 'src/orders',
       description: 'Checkout and post-purchase order behavior.',
+      stories: [
+        {
+          storyPath: checkoutStoryId,
+          storyKey: 'checkout',
+          modulePath: 'src/orders',
+          name: checkoutStory.name,
+          description: checkoutStory.description,
+        },
+        {
+          storyPath: refundStoryId,
+          storyKey: 'refund',
+          modulePath: 'src/orders',
+          name: refundStory.name,
+          description: refundStory.description,
+        },
+      ],
     },
     {
-      path: ['Support'],
-      name: 'Support',
+      modulePath: 'src/support',
       description: 'Support intake and escalation behavior.',
-    },
-  ],
-  stories: [
-    {
-      storyId: checkoutStoryId,
-      name: checkoutStory.name,
-      description: checkoutStory.description,
-      groupPath: ['Commerce', 'Orders'],
-    },
-    {
-      storyId: refundStoryId,
-      name: refundStory.name,
-      description: refundStory.description,
-      groupPath: ['Commerce', 'Orders'],
-    },
-    {
-      storyId: triageStoryId,
-      name: triageStory.name,
-      description: triageStory.description,
-      groupPath: ['Support'],
+      stories: [
+        {
+          storyPath: triageStoryId,
+          storyKey: 'triage',
+          modulePath: 'src/support',
+          name: triageStory.name,
+          description: triageStory.description,
+        },
+      ],
     },
   ],
 } satisfies StoryCatalog;
 
+export const projectNarrativeFixture = {
+  kind: 'project-narrative',
+  name: 'Commerce',
+  blocks: [
+    {
+      kind: 'markdown',
+      content: 'Commerce is organized around order behavior.',
+    },
+    {
+      kind: 'project-map',
+      root: {
+        kind: 'topic',
+        title: 'Orders',
+        description: 'Places and manages customer orders.',
+        references: [
+          { kind: 'layer-graph', name: 'Application' },
+          { kind: 'layer', name: 'Domain' },
+          { kind: 'module', path: 'src/orders' },
+        ],
+        children: [],
+      },
+    },
+  ],
+} satisfies ProjectNarrative;
+
 export const emptyStoriesFixtureCatalog = {
-  groups: [],
-  stories: [],
+  modules: [],
 } satisfies StoryCatalog;

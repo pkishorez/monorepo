@@ -10,8 +10,9 @@ export {
   terminal,
   when,
   story,
-  storyGroup,
 } from './effect.js';
+export { markdown } from '../core/project-narrative.js';
+export type { MarkdownContent } from '../core/project-narrative.js';
 export type {
   Attributes,
   DecisionMatcher,

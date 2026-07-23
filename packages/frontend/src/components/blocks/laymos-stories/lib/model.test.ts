@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { StoryArm, StoryRun, StoryTrace } from 'laymos/report';
+import type {
+  ProjectMap,
+  ProjectReference,
+  StoryArm,
+  StoryCatalog,
+  StoryRun,
+  StoryTrace,
+} from 'laymos/report';
 
+import { layoutProjectMap } from '../components/project-narrative';
 import {
   checkoutStory,
   happyScenarioIndex,
@@ -13,10 +21,39 @@ import {
   buildStoryCatalogTree,
   collapseStoryGraph,
   compactValueDecisions,
+  inlineTraceDefinitions,
   storyRunFromTrace,
   withoutFlowNodes,
 } from './model';
 import { layoutStoryGraph } from './layout';
+
+describe('inlineTraceDefinitions', () => {
+  it('opens shared Flows in place and keeps recursive references finite', () => {
+    const trace = {
+      status: 'valid',
+      generatedAt: 0,
+      blocks: {},
+      execution: [{ kind: 'flow-reference', blockId: 'replace' }],
+      definitions: {
+        replace: [
+          { kind: 'step', blockId: 'find' },
+          { kind: 'flow-reference', blockId: 'replace' },
+        ],
+      },
+    } satisfies StoryTrace;
+
+    expect(inlineTraceDefinitions(trace).execution).toEqual([
+      {
+        kind: 'flow',
+        blockId: 'replace',
+        children: [
+          { kind: 'step', blockId: 'find' },
+          { kind: 'flow-reference', blockId: 'replace' },
+        ],
+      },
+    ]);
+  });
+});
 
 const nestedFlowStory = {
   generatedAt: 0,
@@ -340,24 +377,105 @@ describe('compact value Decisions', () => {
 });
 
 describe('buildStoryCatalogTree', () => {
-  it('organizes Groups before their direct Stories and preserves descendants', () => {
+  it('lists owning Modules and sorts Stories without requiring unique names', () => {
+    const catalog = {
+      modules: [
+        {
+          modulePath: 'src/zeta',
+          description: 'The later Module.',
+          stories: [
+            {
+              storyPath: 'src/zeta/stories/second',
+              storyKey: 'second',
+              modulePath: 'src/zeta',
+              name: 'Shared name',
+              description: 'Second Story.',
+            },
+            {
+              storyPath: 'src/zeta/stories/first',
+              storyKey: 'first',
+              modulePath: 'src/zeta',
+              name: 'Shared name',
+              description: 'First Story.',
+            },
+          ],
+        },
+        {
+          modulePath: 'src/alpha',
+          description: 'The earlier Module.',
+          stories: [
+            {
+              storyPath: 'src/alpha/stories/only',
+              storyKey: 'only',
+              modulePath: 'src/alpha',
+              name: 'Only Story',
+              description: 'Only Story.',
+            },
+          ],
+        },
+      ],
+    } satisfies StoryCatalog;
+
+    const tree = buildStoryCatalogTree(catalog, {});
+
+    expect(tree.modules.map(({ modulePath }) => modulePath)).toEqual([
+      'src/alpha',
+      'src/zeta',
+    ]);
+    expect(tree.modules[1]?.stories.map(({ storyPath }) => storyPath)).toEqual([
+      'src/zeta/stories/first',
+      'src/zeta/stories/second',
+    ]);
+  });
+
+  it('connects each Module to its owned Stories', () => {
     const tree = buildStoryCatalogTree(
       storiesFixtureCatalog,
       storiesFixtureReport.stories,
     );
 
-    expect(tree.groups.map(({ name }) => name)).toEqual([
-      'Commerce',
-      'Support',
+    expect(tree.modules.map(({ modulePath }) => modulePath)).toEqual([
+      'src/orders',
+      'src/support',
     ]);
-    expect(tree.groups[0]?.groups[0]).toMatchObject({
-      name: 'Orders',
-      descendantStoryIds: [
-        'test/stories/checkout.story.ts',
-        'test/stories/refund.story.ts',
+    expect(tree.modules[0]).toMatchObject({
+      modulePath: 'src/orders',
+      stories: [
+        { storyPath: 'src/orders/stories/checkout' },
+        { storyPath: 'src/orders/stories/refund' },
       ],
     });
-    expect(tree.standaloneStories).toEqual([]);
+  });
+});
+
+describe('Project Narrative references', () => {
+  it('preserves Graph, Layer, and Module references for optional activation', () => {
+    const references = [
+      { kind: 'layer-graph', name: 'Application' },
+      { kind: 'layer', name: 'Domain' },
+      { kind: 'module', path: 'src/orders' },
+    ] satisfies readonly ProjectReference[];
+    const map = {
+      kind: 'project-map',
+      root: {
+        kind: 'topic',
+        title: 'Orders',
+        description: 'Owns order behavior.',
+        references,
+        children: [],
+      },
+    } satisfies ProjectMap;
+    const activated: ProjectReference[] = [];
+    const model = layoutProjectMap(map, null, (reference) => {
+      activated.push(reference);
+    });
+
+    expect(model.nodes[0]?.data.topic.references).toBe(references);
+    model.nodes[0]?.data.onReferenceClick?.(references[2]);
+    expect(activated).toEqual([references[2]]);
+    expect(
+      layoutProjectMap(map, null).nodes[0]?.data.onReferenceClick,
+    ).toBeUndefined();
   });
 });
 

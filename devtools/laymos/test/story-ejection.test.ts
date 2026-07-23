@@ -237,10 +237,35 @@ function projectionText(
 }
 
 describe('Story ejection workflow', () => {
-  it('previews without writing, then rewrites source and deletes only Laymos Stories', async () => {
+  it('previews without writing, then rewrites source and deletes the complete Story surface', async () => {
     const baseDir = await makeBaseDir();
     await mkdir(join(baseDir, 'src'));
     await mkdir(join(baseDir, 'stories'));
+    await writeFile(
+      join(baseDir, 'laymos.config.ts'),
+      `const app = {
+        kind: 'layer',
+        name: 'app',
+        paths: ['.'],
+        description: 'Application',
+      };
+      export default {
+        sourceRoots: ['.'],
+        graphs: [{
+          kind: 'layer-graph',
+          name: 'application',
+          description: 'Application architecture',
+          layers: [app],
+          edges: [],
+        }],
+        modules: [{ kind: 'module', path: '.', description: 'Application' }],
+        project: {
+          kind: 'project-narrative',
+          name: 'Project',
+          blocks: [{ kind: 'markdown', content: '# Project narrative' }],
+        },
+      };`,
+    );
     await writeFile(
       join(baseDir, 'src', 'work.ts'),
       `import { Effect } from 'effect'; import { step } from 'laymos/story'; export const work = step('Work', { description: 'Works.' }, () => Effect.void);`,
@@ -255,30 +280,54 @@ describe('Story ejection workflow', () => {
     );
     await writeFile(
       join(baseDir, 'stories', 'support.ts'),
-      `import { storyGroup } from 'laymos/story'; export const group = storyGroup('Work', { description: 'Works.' });`,
+      `export const support = 'Work';`,
     );
 
     const preview = await runEjection(baseDir, true);
     expect(preview.changed).toEqual(['src/work.ts']);
-    expect(preview.deleted).toEqual(['stories/work.story.ts']);
+    expect(preview.deleted).toEqual(['stories']);
     expect(existsSync(join(baseDir, 'stories', 'work.story.ts'))).toBe(true);
+    expect(existsSync(join(baseDir, 'stories', 'support.ts'))).toBe(true);
     expect(await readFile(join(baseDir, 'src', 'work.ts'), 'utf8')).toContain(
       "from 'laymos/story'",
     );
 
     const result = await runEjection(baseDir, false);
     expect(result.changed).toEqual(['src/work.ts']);
-    expect(result.deleted).toEqual(['stories/work.story.ts']);
+    expect(result.deleted).toEqual(['stories']);
     expect(await readFile(join(baseDir, 'src', 'work.ts'), 'utf8')).toContain(
       'export const work = Effect.void',
     );
-    expect(existsSync(join(baseDir, 'stories', 'work.story.ts'))).toBe(false);
-    expect(existsSync(join(baseDir, 'stories', 'work.stories.tsx'))).toBe(true);
-    expect(existsSync(join(baseDir, 'stories', 'support.ts'))).toBe(true);
+    expect(existsSync(join(baseDir, 'stories'))).toBe(false);
+    expect(await readFile(join(baseDir, 'laymos.config.ts'), 'utf8')).toContain(
+      '# Project narrative',
+    );
   });
 
   it('changes nothing when any source file fails preflight', async () => {
     const baseDir = await makeBaseDir();
+    await writeFile(
+      join(baseDir, 'laymos.config.ts'),
+      `const app = {
+        kind: 'layer',
+        name: 'app',
+        paths: ['.'],
+        description: 'Application',
+      };
+      export default {
+        sourceRoots: ['.'],
+        graphs: [{
+          kind: 'layer-graph',
+          name: 'application',
+          description: 'Application architecture',
+          layers: [app],
+          edges: [],
+        }],
+        modules: [{ kind: 'module', path: '.', description: 'Application' }],
+      };`,
+    );
+    await mkdir(join(baseDir, 'stories'));
+    await writeFile(join(baseDir, 'stories', 'support.ts'), 'export {};\n');
     await writeFile(
       join(baseDir, 'valid.ts'),
       `import { Effect } from 'effect'; import { step } from 'laymos/story'; export const work = step('Work', { description: 'Works.' }, () => Effect.void);`,
@@ -293,6 +342,7 @@ describe('Story ejection workflow', () => {
       'preflight failed',
     );
     expect(await readFile(join(baseDir, 'valid.ts'), 'utf8')).toBe(original);
+    expect(existsSync(join(baseDir, 'stories', 'support.ts'))).toBe(true);
   });
 });
 

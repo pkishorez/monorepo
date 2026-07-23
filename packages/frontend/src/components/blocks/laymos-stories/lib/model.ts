@@ -6,13 +6,13 @@ import type {
   StoryRun,
   StoryBlock,
   StoryCatalog,
-  StoryCatalogGroup,
-  StoryGroupPath,
-  StoryId,
+  StoryCatalogModule,
+  StoryPath,
   StoryScenario,
   StorySelectedArm,
   StoryTrace,
   StoryTraceItem,
+  StoryTracePath,
 } from 'laymos/report';
 
 export type VisitItem = Extract<ExecutionItem, { readonly blockId: BlockId }>;
@@ -111,26 +111,24 @@ export function compactValueDecisions(
 }
 
 export interface StoryEntry {
-  readonly storyId: StoryId;
+  readonly storyPath: StoryPath;
+  readonly storyKey: string;
+  readonly modulePath: string;
   readonly name: string;
   readonly description: string;
-  readonly groupPath: StoryGroupPath;
+  readonly documentation?: string;
   readonly artifact?: StoryRun;
   readonly scenarios: readonly ScenarioEntry[];
 }
 
-export interface StoryGroupEntry {
-  readonly path: StoryGroupPath;
-  readonly name: string;
+export interface StoryModuleEntry {
+  readonly modulePath: string;
   readonly description: string;
-  readonly groups: readonly StoryGroupEntry[];
   readonly stories: readonly StoryEntry[];
-  readonly descendantStoryIds: readonly StoryId[];
 }
 
 export interface StoryCatalogTree {
-  readonly groups: readonly StoryGroupEntry[];
-  readonly standaloneStories: readonly StoryEntry[];
+  readonly modules: readonly StoryModuleEntry[];
   readonly stories: readonly StoryEntry[];
 }
 
@@ -630,6 +628,7 @@ export function storyRunFromTrace(
   trace: StoryTrace,
   name: string,
   description: string,
+  documentation?: string,
 ): StoryRun {
   const blocks = { ...trace.blocks };
   const omissionId = (item: Extract<StoryTraceItem, { kind: 'omission' }>) =>
@@ -734,6 +733,7 @@ export function storyRunFromTrace(
     generatedAt: trace.generatedAt,
     name,
     description,
+    ...(documentation === undefined ? {} : { documentation }),
     blocks,
     scenarios: executions.map((execution, index) => ({
       name: `Trace path ${index + 1}`,
@@ -744,6 +744,62 @@ export function storyRunFromTrace(
       failures: [],
     })),
   };
+}
+
+/** Expands shared Flow references for a complete graph while preserving recursive references. */
+export function inlineTraceDefinitions(trace: StoryTrace): StoryTrace {
+  const inlinePath = (
+    path: StoryTracePath,
+    activeDefinitions: ReadonlySet<BlockId>,
+  ): StoryTracePath =>
+    path.map((item): StoryTraceItem => {
+      if (item.kind === 'flow-reference') {
+        const definition = trace.definitions[item.blockId];
+        if (!definition || activeDefinitions.has(item.blockId)) return item;
+        const active = new Set(activeDefinitions);
+        active.add(item.blockId);
+        return {
+          kind: 'flow',
+          blockId: item.blockId,
+          children: inlinePath(definition, active),
+        };
+      }
+      if (item.kind === 'flow') {
+        return {
+          ...item,
+          children: inlinePath(item.children, activeDefinitions),
+        };
+      }
+      if (item.kind === 'decision') {
+        return {
+          ...item,
+          ...(item.selector
+            ? { selector: inlinePath(item.selector, activeDefinitions) }
+            : {}),
+          arms: item.arms.map((arm) => ({
+            ...arm,
+            children: inlinePath(arm.children, activeDefinitions),
+          })),
+        };
+      }
+      if (item.kind === 'all') {
+        return {
+          ...item,
+          branches: item.branches.map((branch) =>
+            inlinePath(branch, activeDefinitions),
+          ),
+        };
+      }
+      if (item.kind === 'for-each') {
+        return {
+          ...item,
+          body: inlinePath(item.body, activeDefinitions),
+        };
+      }
+      return item;
+    });
+
+  return { ...trace, execution: inlinePath(trace.execution, new Set()) };
 }
 
 function descendantNodeIds(
@@ -888,16 +944,21 @@ export function collapseStoryGraph(
 /** Produces stable navigation entries; Scenario order is declaration order. */
 export function buildStoryEntries(
   catalog: StoryCatalog,
-  stories: Readonly<Record<StoryId, StoryRun>>,
+  stories: Readonly<Record<StoryPath, StoryRun>>,
 ): StoryEntry[] {
-  return catalog.stories
+  return catalog.modules
+    .flatMap(({ stories: moduleStories }) => moduleStories)
     .map((catalogStory) => {
-      const artifact = stories[catalogStory.storyId];
+      const artifact = stories[catalogStory.storyPath];
       return {
-        storyId: catalogStory.storyId,
+        storyPath: catalogStory.storyPath,
+        storyKey: catalogStory.storyKey,
+        modulePath: catalogStory.modulePath,
         name: catalogStory.name,
         description: catalogStory.description,
-        groupPath: catalogStory.groupPath,
+        ...(catalogStory.documentation === undefined
+          ? {}
+          : { documentation: catalogStory.documentation }),
         artifact,
         scenarios:
           artifact?.scenarios.map((scenario, scenarioIndex) => ({
@@ -908,77 +969,33 @@ export function buildStoryEntries(
     })
     .sort(
       (left, right) =>
-        comparePaths(left.groupPath, right.groupPath) ||
+        left.modulePath.localeCompare(right.modulePath) ||
         left.name.localeCompare(right.name) ||
-        left.storyId.localeCompare(right.storyId),
+        left.storyPath.localeCompare(right.storyPath),
     );
 }
 
-/** Builds the alphabetized Group hierarchy used by both catalog surfaces. */
+/** Builds the alphabetized Module catalog used by both catalog surfaces. */
 export function buildStoryCatalogTree(
   catalog: StoryCatalog,
-  artifacts: Readonly<Record<StoryId, StoryRun>>,
+  artifacts: Readonly<Record<StoryPath, StoryRun>>,
 ): StoryCatalogTree {
   const stories = buildStoryEntries(catalog, artifacts);
-  const storyById = new Map(stories.map((story) => [story.storyId, story]));
-
-  const buildGroup = (group: StoryCatalogGroup): StoryGroupEntry => {
-    const groups = catalog.groups
-      .filter(({ path }) => isDirectChild(path, group.path))
-      .sort((left, right) => left.name.localeCompare(right.name))
-      .map(buildGroup);
-    const directStories = catalog.stories
-      .filter(({ groupPath }) => samePath(groupPath, group.path))
-      .map(({ storyId }) => storyById.get(storyId)!)
-      .sort((left, right) => left.name.localeCompare(right.name));
-    return {
-      path: group.path,
-      name: group.name,
-      description: group.description,
-      groups,
-      stories: directStories,
-      descendantStoryIds: [
-        ...directStories.map(({ storyId }) => storyId),
-        ...groups.flatMap(({ descendantStoryIds }) => descendantStoryIds),
-      ],
-    };
-  };
-
-  const groups = catalog.groups
-    .filter(({ path }) => path.length === 1)
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .map(buildGroup);
-  const standaloneStories = catalog.stories
-    .filter(({ groupPath }) => groupPath.length === 0)
-    .map(({ storyId }) => storyById.get(storyId)!)
-    .sort((left, right) => left.name.localeCompare(right.name));
-
-  return { groups, standaloneStories, stories };
-}
-
-export const storyGroupKey = pathKey;
-
-function pathKey(path: StoryGroupPath): string {
-  return JSON.stringify(path);
-}
-
-function samePath(left: StoryGroupPath, right: StoryGroupPath): boolean {
-  return (
-    left.length === right.length &&
-    left.every((segment, index) => segment === right[index])
-  );
-}
-
-function isDirectChild(path: StoryGroupPath, parent: StoryGroupPath): boolean {
-  return (
-    path.length === parent.length + 1 && samePath(path.slice(0, -1), parent)
-  );
-}
-
-function comparePaths(left: StoryGroupPath, right: StoryGroupPath): number {
-  for (let index = 0; index < Math.min(left.length, right.length); index++) {
-    const compared = left[index]!.localeCompare(right[index]!);
-    if (compared !== 0) return compared;
-  }
-  return left.length - right.length;
+  const storyByPath = new Map(stories.map((story) => [story.storyPath, story]));
+  const modules = [...catalog.modules]
+    .sort((left, right) => left.modulePath.localeCompare(right.modulePath))
+    .map(
+      (module: StoryCatalogModule): StoryModuleEntry => ({
+        modulePath: module.modulePath,
+        description: module.description,
+        stories: module.stories
+          .map(({ storyPath }) => storyByPath.get(storyPath)!)
+          .sort(
+            (left, right) =>
+              left.name.localeCompare(right.name) ||
+              left.storyPath.localeCompare(right.storyPath),
+          ),
+      }),
+    );
+  return { modules, stories };
 }

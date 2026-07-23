@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0014
+---
+
 # First-class hierarchical Story Groups
 
 Stories are organized by reusable, described Story Group values rather than by

@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { Effect } from 'effect';
 import { story } from 'laymos/story';
 
-import { authorizeAccess } from '../src/access-workflow.js';
+import { authorizeAccess } from '../access-workflow.js';
 
 type AccessScenario = {
   readonly actorId: string;

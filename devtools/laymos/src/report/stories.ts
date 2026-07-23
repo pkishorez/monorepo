@@ -1,8 +1,9 @@
 import type {
   StoryRun,
-  StoryId,
+  StoryPath,
   StoryTraceResult,
 } from '../story/artifact/types.js';
+import type { ProjectNarrative } from '../story/core/project-narrative.js';
 
 export type {
   BlockId,
@@ -14,7 +15,7 @@ export type {
   StoryBlock,
   StoryBlockVisitOutcome,
   StoryDecisionValue,
-  StoryId,
+  StoryPath,
   StoryScenario,
   StoryScenarioNodeCoverage,
   StoryScenarioFailure,
@@ -32,30 +33,43 @@ export type {
 } from '../story/artifact/types.js';
 
 export interface StoriesRun {
-  readonly stories: Readonly<Record<StoryId, StoryRun>>;
-}
-
-export type StoryGroupPath = readonly string[];
-
-export interface StoryCatalogGroup {
-  readonly path: StoryGroupPath;
-  readonly name: string;
-  readonly description: string;
+  readonly stories: Readonly<Record<StoryPath, StoryRun>>;
 }
 
 export interface StoryCatalogStory {
-  readonly storyId: StoryId;
+  readonly storyPath: StoryPath;
+  readonly storyKey: string;
+  readonly modulePath: string;
   readonly name: string;
   readonly description: string;
-  readonly groupPath: StoryGroupPath;
+  readonly documentation?: string;
+  readonly scenarios?: readonly {
+    readonly name: string;
+    readonly description: string;
+    readonly documentation?: string;
+  }[];
+}
+
+export interface StoryCatalogModule {
+  readonly modulePath: string;
+  readonly description: string;
+  readonly stories: readonly [StoryCatalogStory, ...StoryCatalogStory[]];
 }
 
 export interface StoryCatalog {
-  readonly groups: readonly StoryCatalogGroup[];
-  readonly stories: readonly StoryCatalogStory[];
+  readonly modules: readonly StoryCatalogModule[];
 }
 
 export interface StoryCollection {
   readonly catalog: StoryCatalog;
-  readonly traces: Readonly<Record<StoryId, StoryTraceResult>>;
+  readonly traces: Readonly<Record<StoryPath, StoryTraceResult>>;
+  readonly project?: ProjectNarrative;
 }
+
+export type {
+  ProjectMap,
+  ProjectNarrative,
+  ProjectNarrativeBlock,
+  ProjectReference,
+  ProjectTopic,
+} from '../story/core/project-narrative.js';

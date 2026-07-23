@@ -71,7 +71,13 @@ export interface ModuleViolation {
   };
 }
 
-export type Violation = LayerViolation | ModuleViolation;
+export interface StoryImportViolation {
+  readonly kind: 'story-import';
+  readonly from: { readonly file: string };
+  readonly to: { readonly module: string; readonly file: string };
+}
+
+export type Violation = LayerViolation | ModuleViolation | StoryImportViolation;
 
 export interface LayerCoverage {
   readonly totalFiles: number;

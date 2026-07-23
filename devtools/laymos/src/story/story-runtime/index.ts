@@ -10,8 +10,8 @@ export {
   terminal,
   when,
   story,
-  storyGroup,
 } from './story-runtime.js';
+export { markdown } from '../core/project-narrative.js';
 export type {
   Attributes,
   DecisionMatcher,

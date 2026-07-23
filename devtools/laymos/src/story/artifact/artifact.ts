@@ -60,7 +60,10 @@ interface RegisteredBlock {
 export class StoryBlockRegistry {
   private readonly blocks = new Map<string, RegisteredBlock>();
 
-  constructor(private readonly baseDir: string) {}
+  constructor(
+    private readonly baseDir: string,
+    private readonly modulePaths: readonly string[] = [],
+  ) {}
 
   declare(block: BlockDeclaration): string {
     const location = normalizeLocation(this.baseDir, block);
@@ -82,6 +85,7 @@ export class StoryBlockRegistry {
       description: block.description,
       location,
       visibility: block.visibility,
+      ...moduleOwnership(location.file, this.modulePaths),
     };
     const storyBlock: StoryBlock =
       block.kind === 'decision'
@@ -133,6 +137,18 @@ export class StoryBlockRegistry {
         ]),
     );
   }
+}
+
+function moduleOwnership(
+  file: string,
+  modulePaths: readonly string[],
+): { readonly modulePath?: string } {
+  const modulePath = modulePaths
+    .filter(
+      (path) => path === '.' || file === path || file.startsWith(`${path}/`),
+    )
+    .sort((left, right) => right.length - left.length)[0];
+  return modulePath === undefined ? {} : { modulePath };
 }
 
 function requireTerminalCompletion(

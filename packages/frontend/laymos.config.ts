@@ -16,22 +16,42 @@ export default defineConfig({
   sourceRoots: ['src'],
   ignore: ['src/css.d.ts', 'src/cosmos.decorator.tsx', 'src/styles'],
   graphs: [
-    layerGraph('frontend', [edge(composites, ui), edge(ui, foundation)]),
+    layerGraph('frontend', [edge(composites, ui), edge(ui, foundation)], {
+      description: 'Frontend component architecture',
+    }),
   ],
   modules: [
-    module('src/components/blocks/file-tree'),
-    module('src/components/blocks/hello.tsx'),
-    module('src/components/blocks/json'),
-    module('src/components/blocks/laymos-layers'),
-    module('src/components/blocks/laymos-modules'),
-    module('src/components/blocks/laymos-stories'),
-    module('src/components/blocks/otel-trace-viewer'),
-    module('src/components/blocks/sequence'),
-    module('src/components/blocks/swim-lane'),
-    module('src/components/blocks/tanstack-sync-devtools'),
-    module('src/components/ui'),
-    module('src/form'),
-    module('src/hooks'),
-    module('src/lib'),
+    module('src/components/blocks/file-tree', {
+      description: 'File tree block',
+    }),
+    module('src/components/blocks/hello.tsx', {
+      description: 'Hello block',
+    }),
+    module('src/components/blocks/json', { description: 'JSON block' }),
+    module('src/components/blocks/laymos-layers', {
+      description: 'Laymos Layers block',
+    }),
+    module('src/components/blocks/laymos-modules', {
+      description: 'Laymos Modules block',
+    }),
+    module('src/components/blocks/laymos-stories', {
+      description: 'Laymos Stories block',
+    }),
+    module('src/components/blocks/otel-trace-viewer', {
+      description: 'OpenTelemetry trace viewer block',
+    }),
+    module('src/components/blocks/sequence', {
+      description: 'Sequence block',
+    }),
+    module('src/components/blocks/swim-lane', {
+      description: 'Swim lane block',
+    }),
+    module('src/components/blocks/tanstack-sync-devtools', {
+      description: 'TanStack Sync Devtools block',
+    }),
+    module('src/components/ui', { description: 'UI primitives' }),
+    module('src/form', { description: 'Form kit' }),
+    module('src/hooks', { description: 'Shared hooks' }),
+    module('src/lib', { description: 'Shared helpers' }),
   ],
 });

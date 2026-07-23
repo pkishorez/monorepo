@@ -25,7 +25,7 @@ function singleEdge(from: Layer, to: Layer): LayerEdge {
 export function layerGraph(
   name: string,
   edges: ReadonlyArray<LayerEdge | LayerEdge[]>,
-  options?: { description?: string },
+  options: { readonly description: string },
 ): LayerGraph {
   if (name.length === 0) {
     throw new Error('Graph name must not be empty');
@@ -67,8 +67,6 @@ export function layerGraph(
     name,
     layers,
     edges: flatEdges,
-    ...(options?.description !== undefined
-      ? { description: options.description }
-      : {}),
+    description: options.description,
   };
 }

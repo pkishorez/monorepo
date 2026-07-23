@@ -5,48 +5,49 @@ import { DevtoolsRpcError, type StoriesEvent } from '../rpc/index.js';
 const errorMessage = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
-/** Run every Story sequentially while reporting liveness and per-Story state. */
+/** Run selected Stories sequentially while reporting liveness and per-Story state. */
 export const runStoriesStream = (
   dir: string,
-  groupPath?: readonly string[],
+  modulePath?: string,
 ): Stream.Stream<StoriesEvent, DevtoolsRpcError> => {
   const startedAt = Date.now();
   const events = Stream.unwrap(
     Effect.gen(function* () {
       const catalog = yield* discoverStories(dir);
-      if (
-        groupPath !== undefined &&
-        !catalog.groups.some(({ path }) => samePath(path, groupPath))
-      ) {
+      const module =
+        modulePath === undefined
+          ? undefined
+          : catalog.modules.find(
+              (catalogModule) => catalogModule.modulePath === modulePath,
+            );
+      if (modulePath !== undefined && module === undefined) {
         return yield* Effect.fail(
-          new Error(`Story Group "${groupPath.join(' / ')}" was not found`),
+          new Error(`Story Module "${modulePath}" was not found`),
         );
       }
-      const storyIds = catalog.stories
-        .filter(
-          ({ groupPath: storyGroupPath }) =>
-            groupPath === undefined ||
-            startsWithPath(storyGroupPath, groupPath),
-        )
-        .map(({ storyId }) => storyId);
+      const storyPaths = (
+        module === undefined
+          ? catalog.modules.flatMap(({ stories }) => stories)
+          : module.stories
+      ).map(({ storyPath }) => storyPath);
       const activeStory = yield* Ref.make<string | undefined>(undefined);
       const failed = yield* Ref.make(false);
 
-      const storyStreams = storyIds.map((storyId) =>
+      const storyStreams = storyPaths.map((storyPath) =>
         Stream.concat(
           Stream.fromEffect(
-            Ref.set(activeStory, storyId).pipe(
-              Effect.as({ _tag: 'StoryStarted' as const, storyId }),
+            Ref.set(activeStory, storyPath).pipe(
+              Effect.as({ _tag: 'StoryStarted' as const, storyPath }),
             ),
           ),
           Stream.fromEffect(
-            runStory(dir, storyId).pipe(
+            runStory(dir, storyPath).pipe(
               Effect.matchEffect({
                 onFailure: (cause): Effect.Effect<StoriesEvent> =>
                   Ref.set(failed, true).pipe(
                     Effect.as({
                       _tag: 'StoryError' as const,
-                      storyId,
+                      storyPath,
                       message: errorMessage(cause),
                     }),
                   ),
@@ -57,7 +58,7 @@ export const runStoriesStream = (
                   ).pipe(
                     Effect.as({
                       _tag: 'StoryResult' as const,
-                      storyId,
+                      storyPath,
                       result,
                     }),
                   ),
@@ -85,10 +86,10 @@ export const runStoriesStream = (
       const heartbeats = Stream.tick('1 second').pipe(
         Stream.mapEffect(() =>
           Ref.get(activeStory).pipe(
-            Effect.map((storyId) => ({
+            Effect.map((storyPath) => ({
               _tag: 'Heartbeat' as const,
               elapsedMs: Date.now() - startedAt,
-              ...(storyId === undefined ? {} : { storyId }),
+              ...(storyPath === undefined ? {} : { storyPath }),
             })),
           ),
         ),
@@ -104,17 +105,3 @@ export const runStoriesStream = (
 
   return events;
 };
-
-function samePath(left: readonly string[], right: readonly string[]): boolean {
-  return (
-    left.length === right.length &&
-    left.every((segment, index) => segment === right[index])
-  );
-}
-
-function startsWithPath(
-  path: readonly string[],
-  prefix: readonly string[],
-): boolean {
-  return prefix.every((segment, index) => path[index] === segment);
-}
