@@ -17,6 +17,7 @@ export interface ReportGraph {
 
 export interface ReportModule {
   readonly description?: string;
+  readonly documentation?: string;
 }
 
 export interface ReportModuleRules {
@@ -71,13 +72,16 @@ export interface ModuleViolation {
   };
 }
 
-export interface StoryImportViolation {
-  readonly kind: 'story-import';
+export interface LaymosImportViolation {
+  readonly kind: 'laymos-import';
   readonly from: { readonly file: string };
   readonly to: { readonly module: string; readonly file: string };
 }
 
-export type Violation = LayerViolation | ModuleViolation | StoryImportViolation;
+export type Violation =
+  | LayerViolation
+  | ModuleViolation
+  | LaymosImportViolation;
 
 export interface LayerCoverage {
   readonly totalFiles: number;

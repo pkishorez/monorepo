@@ -180,7 +180,7 @@ const blocks = {
   },
 } satisfies Readonly<Record<string, StoryBlock>>;
 
-export const checkoutStoryId = 'src/orders/stories/checkout';
+export const checkoutStoryId = 'src/orders/laymos/checkout';
 export const happyScenarioIndex = 0;
 export const fraudScenarioIndex = 1;
 export const failedScenarioIndex = 2;
@@ -321,7 +321,7 @@ export const checkoutStory = artifact({
   ],
 });
 
-const refundStoryId = 'src/orders/stories/refund';
+const refundStoryId = 'src/orders/laymos/refund';
 
 const refundStory = artifact({
   name: 'Refund',
@@ -365,7 +365,7 @@ const refundStory = artifact({
   ],
 });
 
-export const triageStoryId = 'src/support/stories/triage';
+export const triageStoryId = 'src/support/laymos/triage';
 
 const TREE_DEPTH = 5;
 const triageBlocks: Record<string, StoryBlock> = {};
@@ -480,26 +480,7 @@ export const storiesFixtureCatalog = {
 export const projectNarrativeFixture = {
   kind: 'project-narrative',
   name: 'Commerce',
-  blocks: [
-    {
-      kind: 'markdown',
-      content: 'Commerce is organized around order behavior.',
-    },
-    {
-      kind: 'project-map',
-      root: {
-        kind: 'topic',
-        title: 'Orders',
-        description: 'Places and manages customer orders.',
-        references: [
-          { kind: 'layer-graph', name: 'Application' },
-          { kind: 'layer', name: 'Domain' },
-          { kind: 'module', path: 'src/orders' },
-        ],
-        children: [],
-      },
-    },
-  ],
+  content: 'Commerce is organized around order behavior.',
 } satisfies ProjectNarrative;
 
 export const emptyStoriesFixtureCatalog = {

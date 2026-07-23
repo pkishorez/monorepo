@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded in part by ADR-0015
 ---
 
 # Own Stories through Modules and author one Project Narrative

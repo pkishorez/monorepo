@@ -429,9 +429,5 @@ export default defineConfig({
       description: 'Shared synchronization utilities',
     }),
   ],
-  project: createStdToolkitProjectNarrative({
-    dynamodbGraph,
-    dynamodbServicesLayer,
-    dynamodbServicesModule,
-  }),
+  project: createStdToolkitProjectNarrative(),
 });

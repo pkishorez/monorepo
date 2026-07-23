@@ -19,7 +19,7 @@ export const toError = (cause: unknown): DevtoolsRpcError =>
 
 /** Analyze the package and return its laymos report. */
 export const assembleLaymos = (dir: string) =>
-  analyzeProject(dir).pipe(
+  analyzeProject({ projectDir: dir }).pipe(
     Effect.map((data) => ({ available: true as const, data })),
     Effect.mapError(toError),
   );

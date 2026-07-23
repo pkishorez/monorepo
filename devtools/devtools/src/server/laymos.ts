@@ -1,24 +1,42 @@
 import { fork } from 'node:child_process';
 import { Cause, Effect, Queue, Stream } from 'effect';
-import { NodeServices } from '@effect/platform-node';
-import { analyzeProject, getStories, getStoryCoverage } from 'laymos/node';
+import {
+  analyzeProject,
+  discoverTests,
+  getProjectNarrative,
+  inspectStories,
+  measureStoryCoverage,
+} from 'laymos/node';
 import type {
   LaymosReport,
   StoryCollection,
   StoryCoverageReport,
+  ProjectNarrative,
+  TestCatalog,
 } from 'laymos/report';
-import { DevtoolsRpcError, type OpenLaymosProjectEvent } from '../rpc/index.js';
+import {
+  DevtoolsRpcError,
+  type LaymosProjectDocumentation,
+  type OpenLaymosProjectEvent,
+} from '../rpc/index.js';
 
 /** Selects the one-shot laymos worker mode in the bundled server entrypoint. */
 export const LAYMOS_DIR_ENV = 'DEVTOOLS_LAYMOS_DIR';
 
 type WorkerMessage =
+  | { type: 'project'; project?: ProjectNarrative }
+  | { type: 'architecture'; architecture: LaymosReport }
+  | { type: 'stories'; stories: StoryCollection }
+  | { type: 'storyCoverage'; storyCoverage: StoryCoverageReport }
+  | { type: 'tests'; tests: TestCatalog }
   | {
       type: 'result';
       architecture: LaymosReport;
       bootstrap?: {
         stories: StoryCollection;
         storyCoverage: StoryCoverageReport;
+        tests: TestCatalog;
+        documentation: LaymosProjectDocumentation;
         files: readonly string[];
       };
     }
@@ -46,22 +64,53 @@ export const runLaymosWorker = (dir: string) => {
     }
   };
 
-  const operation = Effect.all([analyzeProject(dir), getStories(dir)], {
-    concurrency: 'unbounded',
-  }).pipe(
-    Effect.flatMap(([architecture, stories]) =>
-      getStoryCoverage(dir, stories).pipe(
-        Effect.map((storyCoverage) => ({
-          architecture,
-          bootstrap: {
-            stories,
-            storyCoverage,
-            files: projectFiles(architecture, stories),
-          },
-        })),
+  const architectureEffect = analyzeProject({ projectDir: dir }).pipe(
+    Effect.tap((architecture) =>
+      Effect.sync(() => post({ type: 'architecture', architecture })),
+    ),
+  );
+  const projectEffect = getProjectNarrative({ projectDir: dir }).pipe(
+    Effect.tap((project) =>
+      Effect.sync(() =>
+        post({
+          type: 'project',
+          ...(project === undefined ? {} : { project }),
+        }),
       ),
     ),
-    Effect.provide(NodeServices.layer),
+  );
+  const storiesEffect = inspectStories({ projectDir: dir }).pipe(
+    Effect.tap((stories) =>
+      Effect.sync(() => post({ type: 'stories', stories })),
+    ),
+  );
+  const storiesWithCoverageEffect = storiesEffect.pipe(
+    Effect.flatMap((stories) =>
+      measureStoryCoverage({ projectDir: dir, stories }).pipe(
+        Effect.tap((storyCoverage) =>
+          Effect.sync(() => post({ type: 'storyCoverage', storyCoverage })),
+        ),
+        Effect.map((storyCoverage) => ({ stories, storyCoverage })),
+      ),
+    ),
+  );
+  const testsEffect = discoverTests({ projectDir: dir }).pipe(
+    Effect.tap((tests) => Effect.sync(() => post({ type: 'tests', tests }))),
+  );
+  const operation = Effect.all(
+    [projectEffect, architectureEffect, storiesWithCoverageEffect, testsEffect],
+    { concurrency: 'unbounded' },
+  ).pipe(
+    Effect.map(([, architecture, { stories, storyCoverage }, tests]) => ({
+      architecture,
+      bootstrap: {
+        stories,
+        storyCoverage,
+        tests,
+        documentation: projectDocumentation(architecture, stories),
+        files: projectFiles(architecture, stories),
+      },
+    })),
   );
 
   void Effect.runPromise(operation)
@@ -113,6 +162,43 @@ export const openLaymosProjectStream = (
             fail(message.message);
             return;
           }
+          if (message.type === 'architecture') {
+            Queue.offerUnsafe(queue, {
+              _tag: 'Architecture',
+              architecture: message.architecture,
+            });
+            return;
+          }
+          if (message.type === 'project') {
+            Queue.offerUnsafe(queue, {
+              _tag: 'Project',
+              ...(message.project === undefined
+                ? {}
+                : { project: message.project }),
+            });
+            return;
+          }
+          if (message.type === 'stories') {
+            Queue.offerUnsafe(queue, {
+              _tag: 'Stories',
+              stories: message.stories,
+            });
+            return;
+          }
+          if (message.type === 'storyCoverage') {
+            Queue.offerUnsafe(queue, {
+              _tag: 'StoryCoverage',
+              storyCoverage: message.storyCoverage,
+            });
+            return;
+          }
+          if (message.type === 'tests') {
+            Queue.offerUnsafe(queue, {
+              _tag: 'Tests',
+              tests: message.tests,
+            });
+            return;
+          }
           if (message.bootstrap === undefined) {
             settled = true;
             fail('laymos bootstrap worker exited without Story definitions');
@@ -127,6 +213,8 @@ export const openLaymosProjectStream = (
                 architecture: message.architecture,
                 stories: message.bootstrap.stories,
                 storyCoverage: message.bootstrap.storyCoverage,
+                tests: message.bootstrap.tests,
+                documentation: message.bootstrap.documentation,
                 files: [...message.bootstrap.files],
               },
             },
@@ -174,4 +262,34 @@ function projectFiles(
     }
   }
   return [...files].sort();
+}
+
+function projectDocumentation(
+  architecture: LaymosReport,
+  stories: StoryCollection,
+): LaymosProjectDocumentation {
+  return {
+    modules: Object.entries(architecture.architecture.modules)
+      .map(([modulePath, module]) => ({
+        modulePath,
+        description: module.description ?? '',
+        ...(module.documentation === undefined
+          ? {}
+          : { documentation: module.documentation }),
+      }))
+      .sort((left, right) => left.modulePath.localeCompare(right.modulePath)),
+    stories: stories.catalog.modules
+      .flatMap((module) =>
+        module.stories.map((story) => ({
+          storyPath: story.storyPath,
+          modulePath: story.modulePath,
+          name: story.name,
+          description: story.description,
+          ...(story.documentation === undefined
+            ? {}
+            : { documentation: story.documentation }),
+        })),
+      )
+      .sort((left, right) => left.storyPath.localeCompare(right.storyPath)),
+  };
 }

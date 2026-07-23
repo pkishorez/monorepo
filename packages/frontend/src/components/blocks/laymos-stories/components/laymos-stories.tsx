@@ -9,7 +9,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { StoryCollection, StoryTrace } from 'laymos/report';
+import type { StoryCollection, StoryRun, StoryTrace } from 'laymos/report';
 
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
@@ -47,12 +47,13 @@ export function LaymosStories({
   onHoveredNodeIdChange,
   onNodeClick,
   onGraphNodesChange,
+  openCodeOnSelect = false,
+  onOpenCodeOnSelectChange,
   centerNodeRequest,
   renderNodeActions,
   onRunStory,
   onRunModule,
   onRunAll,
-  onProjectReferenceClick,
   defaultStoryView = 'narrative',
   graphOnly = false,
   canvasPreferences,
@@ -65,9 +66,9 @@ export function LaymosStories({
   const [localCanvasPreferences, setLocalCanvasPreferences] =
     useState<LaymosStoryCanvasPreferences>({
       showDetails: true,
-      showFunctionScopes: true,
       showDescriptionPopover: true,
       centerSelected: false,
+      showExecutionCoverage: false,
     });
   const effectiveCanvasPreferences =
     canvasPreferences ?? localCanvasPreferences;
@@ -209,10 +210,7 @@ export function LaymosStories({
           )}
         {collection.project !== undefined &&
           (selection?.kind === 'project-narrative' || !selection) && (
-            <ProjectNarrative
-              project={collection.project}
-              onReferenceClick={onProjectReferenceClick}
-            />
+            <ProjectNarrative project={collection.project} />
           )}
         {entries.length > 0 &&
           (selection?.kind === 'catalog' ||
@@ -255,6 +253,7 @@ export function LaymosStories({
                 trace={selectedTrace as StoryTrace}
                 name={selectedEntry.name}
                 description={selectedEntry.description}
+                run={selectedEntry.artifact}
                 preferences={effectiveCanvasPreferences}
                 onPreferencesChange={setCanvasPreferences}
                 selectedNodeId={selectedNodeId}
@@ -262,6 +261,8 @@ export function LaymosStories({
                 onHoveredNodeIdChange={onHoveredNodeIdChange}
                 onNodeClick={onNodeClick}
                 onGraphNodesChange={onGraphNodesChange}
+                openCodeOnSelect={openCodeOnSelect}
+                onOpenCodeOnSelectChange={onOpenCodeOnSelectChange}
                 centerNodeRequest={centerNodeRequest}
                 renderNodeActions={renderNodeActions}
                 showDefinitions={!graphOnly}
@@ -310,6 +311,8 @@ export function LaymosStories({
                   onHoveredNodeIdChange={onHoveredNodeIdChange}
                   onNodeClick={onNodeClick}
                   onGraphNodesChange={onGraphNodesChange}
+                  openCodeOnSelect={openCodeOnSelect}
+                  onOpenCodeOnSelectChange={onOpenCodeOnSelectChange}
                   centerNodeRequest={centerNodeRequest}
                   renderNodeActions={renderNodeActions}
                 />
@@ -343,6 +346,7 @@ function TraceCanvas({
   trace,
   name,
   description,
+  run,
   preferences,
   onPreferencesChange,
   selectedNodeId,
@@ -350,6 +354,8 @@ function TraceCanvas({
   onHoveredNodeIdChange,
   onNodeClick,
   onGraphNodesChange,
+  openCodeOnSelect,
+  onOpenCodeOnSelectChange,
   centerNodeRequest,
   renderNodeActions,
   showDefinitions,
@@ -358,6 +364,7 @@ function TraceCanvas({
   trace: StoryTrace;
   name: string;
   description: string;
+  run?: StoryRun;
   preferences: LaymosStoryCanvasPreferences;
   onPreferencesChange: (preferences: LaymosStoryCanvasPreferences) => void;
   selectedNodeId?: LaymosStoriesProps['selectedNodeId'];
@@ -365,6 +372,8 @@ function TraceCanvas({
   onHoveredNodeIdChange?: LaymosStoriesProps['onHoveredNodeIdChange'];
   onNodeClick?: LaymosStoriesProps['onNodeClick'];
   onGraphNodesChange?: LaymosStoriesProps['onGraphNodesChange'];
+  openCodeOnSelect: boolean;
+  onOpenCodeOnSelectChange?: LaymosStoriesProps['onOpenCodeOnSelectChange'];
   centerNodeRequest?: LaymosStoriesProps['centerNodeRequest'];
   renderNodeActions?: LaymosStoriesProps['renderNodeActions'];
   showDefinitions: boolean;
@@ -423,6 +432,7 @@ function TraceCanvas({
       <div className="min-w-0 flex-1">
         <StoryCanvas
           story={story}
+          run={definitionId === null ? run : undefined}
           preferences={preferences}
           onPreferencesChange={onPreferencesChange}
           selectedNodeId={selectedNodeId}
@@ -430,6 +440,8 @@ function TraceCanvas({
           onHoveredNodeIdChange={onHoveredNodeIdChange}
           onNodeClick={onNodeClick}
           onGraphNodesChange={onGraphNodesChange}
+          openCodeOnSelect={openCodeOnSelect}
+          onOpenCodeOnSelectChange={onOpenCodeOnSelectChange}
           centerNodeRequest={centerNodeRequest}
           renderNodeActions={renderNodeActions}
         />

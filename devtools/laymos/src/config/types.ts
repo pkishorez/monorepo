@@ -22,6 +22,7 @@ export interface ModuleDef {
   readonly kind: 'module';
   readonly path: string;
   readonly description: string;
+  readonly documentation?: import('../markdown/index.js').MarkdownContent;
 }
 
 export interface ModuleRules {
@@ -37,5 +38,5 @@ export interface LaymosConfig {
   readonly modules?: readonly ModuleDef[];
   readonly moduleRules?: readonly ModuleRules[];
   readonly ignore?: readonly string[];
-  readonly project?: import('../story/core/project-narrative.js').ProjectNarrativeDef;
+  readonly project?: import('./project-narrative.js').ProjectNarrativeDef;
 }

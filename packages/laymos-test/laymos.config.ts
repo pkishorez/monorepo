@@ -17,7 +17,7 @@ export default defineConfig({
   ],
   modules: [
     module('src', {
-      description: 'Example workflows and their owned Story surface',
+      description: 'Example workflows and their owned Laymos surface',
     }),
   ],
 });

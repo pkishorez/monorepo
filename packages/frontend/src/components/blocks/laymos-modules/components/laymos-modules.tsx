@@ -17,6 +17,7 @@ import {
   type MouseEvent,
 } from 'react';
 
+import { Switch } from '#components/ui/switch';
 import { cn } from '#lib/utils';
 
 import { ModuleGraphInteractionProvider } from '../context/interaction-context';
@@ -47,6 +48,7 @@ function LaymosModulesInner({
   focusedModule,
   onFocusedModuleChange,
   defaultMinimise = false,
+  defaultShowLayerConnections = false,
   initialViewport,
   onViewportChange,
   className,
@@ -55,6 +57,9 @@ function LaymosModulesInner({
   const flowId = `laymos-modules-${useId()}`;
   const containerRef = useRef<HTMLDivElement>(null);
   const model = useMemo(() => buildModuleGraphModel(report), [report]);
+  const [showLayerConnections, setShowLayerConnections] = useState(
+    defaultShowLayerConnections,
+  );
   const [moduleLayout, setModuleLayout] = useState<ModuleLayoutMode>('pack');
   const [expandedLayers, setExpandedLayers] = useState<ReadonlySet<string>>(
     () => new Set(model.layers.keys()),
@@ -76,12 +81,8 @@ function LaymosModulesInner({
       ? requestedPreview
       : null;
   const selection = useMemo(
-    () => getModuleGraphSelection(model, selectedModule, previewModule),
-    [model, previewModule, selectedModule],
-  );
-  const visualSelection = useMemo(
-    () => (moduleLayout === 'tree' ? selectionWithoutHover : selection),
-    [moduleLayout, selection, selectionWithoutHover],
+    () => getModuleGraphSelection(model, selectedModule, requestedPreview),
+    [model, requestedPreview, selectedModule],
   );
   const contextSelection = useMemo(
     () =>
@@ -101,11 +102,12 @@ function LaymosModulesInner({
     () =>
       computeModuleGraphLayout(
         model,
-        visualSelection,
+        selection,
         expandedLayers,
         moduleLayout,
+        showLayerConnections,
       ),
-    [expandedLayers, model, moduleLayout, visualSelection],
+    [expandedLayers, model, moduleLayout, showLayerConnections, selection],
   );
   const geometryKey = useMemo(
     () =>
@@ -174,7 +176,10 @@ function LaymosModulesInner({
 
   return (
     <ModuleGraphInteractionProvider
+      selection={selection}
       selectedModule={selectedModule}
+      hoveredModule={hoveredModule}
+      focusedModule={focusedModule}
       onSelectedModuleChange={onSelectedModuleChange}
       onHoveredModuleChange={onHoveredModuleChange}
       onFocusedModuleChange={onFocusedModuleChange}
@@ -236,6 +241,15 @@ function LaymosModulesInner({
                   ))}
                 </div>
               </div>
+              <label className="mt-2 flex cursor-pointer items-center justify-between gap-4 border-t border-border/60 pt-2">
+                Layer connections
+                <Switch
+                  size="sm"
+                  checked={showLayerConnections}
+                  onCheckedChange={setShowLayerConnections}
+                  aria-label="Show layer connections"
+                />
+              </label>
             </div>
           </Panel>
           {selectedModule && moduleLayout === 'pack' && (

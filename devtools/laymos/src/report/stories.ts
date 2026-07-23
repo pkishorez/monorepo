@@ -2,8 +2,8 @@ import type {
   StoryRun,
   StoryPath,
   StoryTraceResult,
-} from '../story/artifact/types.js';
-import type { ProjectNarrative } from '../story/core/project-narrative.js';
+} from '../stories/runtime/artifact-types.js';
+import type { ProjectNarrative } from '../config/project-narrative.js';
 
 export type {
   BlockId,
@@ -30,7 +30,7 @@ export type {
   StoryTraceResult,
   StoryTerminalCompletion,
   StoryVisibility,
-} from '../story/artifact/types.js';
+} from '../stories/runtime/artifact-types.js';
 
 export interface StoriesRun {
   readonly stories: Readonly<Record<StoryPath, StoryRun>>;
@@ -66,10 +66,4 @@ export interface StoryCollection {
   readonly project?: ProjectNarrative;
 }
 
-export type {
-  ProjectMap,
-  ProjectNarrative,
-  ProjectNarrativeBlock,
-  ProjectReference,
-  ProjectTopic,
-} from '../story/core/project-narrative.js';
+export type { ProjectNarrative } from '../config/project-narrative.js';

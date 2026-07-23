@@ -4,12 +4,19 @@
 
 ### Changed
 
-- Stories are owned by folder Modules through flat `stories/` surfaces.
-  Discovery and execution use suffixless Story paths, Module execution replaces
-  Group execution, and ejection removes every complete Story surface.
-- The optional Project Narrative combines Markdown with typed Project Map
-  references to Layer Graphs, Layers, and Modules without becoming an
-  executable Story.
+- Stories and Tests are owned by folder Modules through flat `laymos/`
+  surfaces. Their `.story.ts` and `.test.ts` suffixes distinguish the two
+  executable concepts.
+- `laymos tests` executes named primitive input-and-expectation cases and
+  returns a presentation-neutral expected-versus-actual report.
+- Tests and their Test Cases carry required human-facing names and descriptions
+  for report and DevTools presentation.
+- Test Cases declare positive or negative intent so expected rejection and
+  failure paths are explicit in reports and DevTools.
+- Ejection rewrites production code atomically and leaves every `laymos/`
+  surface untouched.
+- The optional Project Narrative is one named Markdown document that remains
+  separate from executable Stories.
 - Story coverage is reported per Story as narrated, omitted, and unnarrated
   percentages, with no Module, Layer, or Project rollup.
 

@@ -1,16 +1,90 @@
-import type { LaymosConfig, ModuleDef } from './types.js';
-import type { ProjectTopicDef } from '../story/core/project-narrative.js';
+import type { Layer, LaymosConfig, ModuleDef, ModuleRules } from './types.js';
 import { normalizeConfigPath, pathContains } from './path.js';
 
 export function defineConfig(config: LaymosConfig): LaymosConfig {
+  return config;
+}
+
+export interface ConfigValidation {
+  readonly config: LaymosConfig;
+  readonly issues: readonly string[];
+}
+
+export function validateConfig(config: LaymosConfig): ConfigValidation {
+  const normalizationIssues: string[] = [];
+  const normalizePath = (subject: string, path: string): string => {
+    try {
+      return normalizeConfigPath(path);
+    } catch (cause) {
+      normalizationIssues.push(
+        `${subject}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+      return path;
+    }
+  };
+  const layers = new Map<Layer, Layer>();
+  const normalizeLayer = (layer: Layer): Layer => {
+    const existing = layers.get(layer);
+    if (existing !== undefined) return existing;
+    const normalized = {
+      ...layer,
+      paths: layer.paths.map((path) =>
+        normalizePath(`Layer "${layer.name}" path`, path),
+      ),
+    };
+    layers.set(layer, normalized);
+    return normalized;
+  };
+  const modules = new Map<ModuleDef, ModuleDef>();
+  const normalizeModule = (module: ModuleDef): ModuleDef => {
+    const existing = modules.get(module);
+    if (existing !== undefined) return existing;
+    const normalized = {
+      ...module,
+      path: normalizePath('Module path', module.path),
+    };
+    modules.set(module, normalized);
+    return normalized;
+  };
+  const normalizedModules = config.modules?.map(normalizeModule);
+  const normalizedRules = config.moduleRules?.map(
+    (rule): ModuleRules => ({
+      ...rule,
+      module: normalizeModule(rule.module),
+      ...(rule.canImport === undefined
+        ? {}
+        : { canImport: rule.canImport.map(normalizeModule) }),
+      ...(rule.canImportedBy === undefined
+        ? {}
+        : { canImportedBy: rule.canImportedBy.map(normalizeModule) }),
+    }),
+  );
   const normalizedConfig: LaymosConfig = {
     ...config,
-    sourceRoots: config.sourceRoots.map(normalizeConfigPath),
-    ...(config.ignore !== undefined
-      ? { ignore: config.ignore.map(normalizeConfigPath) }
-      : {}),
+    sourceRoots: config.sourceRoots.map((path) =>
+      normalizePath('Source root', path),
+    ),
+    graphs: config.graphs.map((graph) => ({
+      ...graph,
+      layers: graph.layers.map(normalizeLayer),
+      edges: graph.edges.map((edge) => ({
+        from: normalizeLayer(edge.from),
+        to: normalizeLayer(edge.to),
+      })),
+    })),
+    ...(normalizedModules === undefined ? {} : { modules: normalizedModules }),
+    ...(normalizedRules === undefined ? {} : { moduleRules: normalizedRules }),
+    ...(config.ignore === undefined
+      ? {}
+      : {
+          ignore: config.ignore.map((path) =>
+            normalizePath('Ignored path', path),
+          ),
+        }),
   };
   const issues = [
+    ...normalizationIssues,
+    ...builderIssues(normalizedConfig),
     ...sourceRootIssues(normalizedConfig),
     ...duplicateGraphNames(normalizedConfig),
     ...duplicateLayerNames(normalizedConfig),
@@ -21,12 +95,55 @@ export function defineConfig(config: LaymosConfig): LaymosConfig {
     ...moduleIssues(normalizedConfig),
     ...projectNarrativeIssues(normalizedConfig),
   ];
-  if (issues.length > 0) {
-    throw new Error(
-      `Invalid laymos config:\n${issues.map((issue) => `  - ${issue}`).join('\n')}`,
-    );
+  return { config: normalizedConfig, issues };
+}
+
+function builderIssues(config: LaymosConfig): string[] {
+  const issues: string[] = [];
+  for (const graph of config.graphs) {
+    if (graph.name.trim().length === 0) {
+      issues.push('Layer Graph name must not be empty');
+    }
+    const edges = new Set<string>();
+    for (const edge of graph.edges) {
+      if (edge.from === edge.to || edge.from.name === edge.to.name) {
+        issues.push(
+          `Layer Graph "${graph.name}" contains self-edge "${edge.from.name} -> ${edge.to.name}"`,
+        );
+      }
+      const key = `${edge.from.name}\0${edge.to.name}`;
+      if (edges.has(key)) {
+        issues.push(
+          `Layer Graph "${graph.name}" contains duplicate edge "${edge.from.name} -> ${edge.to.name}"`,
+        );
+      }
+      edges.add(key);
+    }
+    for (const layer of graph.layers) {
+      if (layer.name.trim().length === 0) {
+        issues.push('Layer name must not be empty');
+      }
+      if (layer.paths.length === 0) {
+        issues.push(`Layer "${layer.name}" must have at least 1 path`);
+      }
+      if (new Set(layer.paths).size !== layer.paths.length) {
+        issues.push(`Layer "${layer.name}" contains duplicate paths`);
+      }
+    }
   }
-  return normalizedConfig;
+  for (const module of config.modules ?? []) {
+    if (module.path.trim().length === 0) {
+      issues.push('Module path must not be empty');
+    }
+  }
+  for (const rule of config.moduleRules ?? []) {
+    if (rule.canImport === undefined && rule.canImportedBy === undefined) {
+      issues.push(
+        `Rules for module "${rule.module.path}" must declare canImport or canImportedBy`,
+      );
+    }
+  }
+  return issues;
 }
 
 function architectureIntentIssues(config: LaymosConfig): string[] {
@@ -70,64 +187,13 @@ function projectNarrativeIssues(config: LaymosConfig): string[] {
     issues.push('Project Narrative name must not be empty');
   }
 
-  const graphs = new Set(config.graphs);
-  const layers = new Set(config.graphs.flatMap((graph) => graph.layers));
-  const modules = new Set(config.modules ?? []);
-  for (const block of project.blocks) {
-    if (block.kind === 'markdown') {
-      if (block.content.trim().length === 0) {
-        issues.push('Project Narrative Markdown blocks must not be empty');
-      }
-    } else if (block.kind === 'project-map') {
-      validateProjectTopic(block.root, graphs, layers, modules, [], issues);
-    } else {
-      issues.push('Project Narrative contains an unknown block');
-    }
+  if (
+    project.content.kind !== 'markdown' ||
+    project.content.content.trim().length === 0
+  ) {
+    issues.push('Project Narrative Markdown content must not be empty');
   }
   return issues;
-}
-
-function validateProjectTopic(
-  topic: ProjectTopicDef,
-  graphs: ReadonlySet<LaymosConfig['graphs'][number]>,
-  layers: ReadonlySet<LaymosConfig['graphs'][number]['layers'][number]>,
-  modules: ReadonlySet<ModuleDef>,
-  ancestors: readonly string[],
-  issues: string[],
-): void {
-  const path = [...ancestors, topic.title];
-  const label = path.join(' / ');
-  if (topic.title.trim().length === 0) {
-    issues.push('Project Topic title must not be empty');
-  }
-  if (topic.description.content.trim().length === 0) {
-    issues.push(`Project Topic "${label}" description must not be empty`);
-  }
-  for (const reference of topic.references) {
-    const declared =
-      reference.kind === 'layer-graph'
-        ? graphs.has(reference)
-        : reference.kind === 'layer'
-          ? layers.has(reference)
-          : modules.has(reference);
-    if (!declared) {
-      const identity =
-        reference.kind === 'module' ? reference.path : reference.name;
-      issues.push(
-        `Project Topic "${label}" must reuse declared ${reference.kind} "${identity}"`,
-      );
-    }
-  }
-  const siblings = new Set<string>();
-  for (const child of topic.children) {
-    if (siblings.has(child.title)) {
-      issues.push(
-        `Project Topic "${label}" has duplicate child "${child.title}"`,
-      );
-    }
-    siblings.add(child.title);
-    validateProjectTopic(child, graphs, layers, modules, path, issues);
-  }
 }
 
 function sourceRootIssues(config: LaymosConfig): string[] {

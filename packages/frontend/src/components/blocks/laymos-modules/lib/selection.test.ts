@@ -59,6 +59,20 @@ describe('module graph selection', () => {
         moduleEdgeKey('src/domain/orders', 'src/domain/accounts'),
       ]),
     );
+    expect(active.focusedModules).toEqual(
+      new Set(['src/ui/orders', 'src/domain/orders']),
+    );
+  });
+
+  it('keeps only the selection focused when hovering an unrelated module', () => {
+    const active = getModuleGraphSelection(
+      model,
+      { path: 'src/ui/orders', depth: 'direct' },
+      'src/jobs/reconcile',
+    );
+
+    expect(active.focusedModules).toEqual(new Set(['src/ui/orders']));
+    expect(active.focusedEdges).toEqual(new Set());
   });
 
   it('includes observed connections between modules in the same layer', () => {

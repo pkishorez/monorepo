@@ -12,7 +12,7 @@ const model = buildModuleGraphModel(moduleArchitectureReport);
 const expanded = new Set(model.layers.keys());
 
 describe('module graph layout', () => {
-  it('starts as an expanded orientation view without observed module edges', () => {
+  it('starts without layer or observed module connections', () => {
     const layout = computeModuleGraphLayout(
       model,
       getModuleGraphSelection(model, null, null),
@@ -25,6 +25,37 @@ describe('module graph layout', () => {
     expect(layout.edges.some((edge) => edge.id.startsWith('observed:'))).toBe(
       false,
     );
+    expect(
+      layout.edges.some(
+        (edge) =>
+          edge.id.startsWith('configured:') ||
+          edge.id.startsWith('membership:'),
+      ),
+    ).toBe(false);
+  });
+
+  it('shows layer connections below layer nodes when enabled', () => {
+    const layout = computeModuleGraphLayout(
+      model,
+      getModuleGraphSelection(model, null, null),
+      expanded,
+      'pack',
+      true,
+    );
+    const layerConnections = layout.edges.filter(
+      (edge) =>
+        edge.id.startsWith('configured:') || edge.id.startsWith('membership:'),
+    );
+    const lowestLayerZIndex = Math.min(
+      ...layout.nodes
+        .filter((node) => node.type === 'module-layer-container')
+        .map((node) => node.zIndex ?? 0),
+    );
+
+    expect(layerConnections.length).toBeGreaterThan(0);
+    expect(
+      layerConnections.every((edge) => edge.zIndex! < lowestLayerZIndex),
+    ).toBe(true);
   });
 
   it('places configured modules in a fallback lane when graphs are absent', () => {
@@ -115,6 +146,30 @@ describe('module graph layout', () => {
     ).toBe(true);
   });
 
+  it('does not highlight an unrelated hovered module', () => {
+    const layout = computeModuleGraphLayout(
+      model,
+      getModuleGraphSelection(
+        model,
+        { path: 'src/ui/orders', depth: 'direct' },
+        'src/jobs/reconcile',
+      ),
+      expanded,
+    );
+
+    expect(
+      layout.nodes.find((node) => node.id === 'module:src/ui/orders')?.data,
+    ).toMatchObject({ selected: true, dimmed: false });
+    expect(
+      layout.nodes.find((node) => node.id === 'module:src/jobs/reconcile')
+        ?.data,
+    ).toMatchObject({ related: false, dimmed: true });
+    expect(
+      layout.nodes.find((node) => node.id === 'module:src/application/orders')
+        ?.data,
+    ).toMatchObject({ related: true, dimmed: true });
+  });
+
   it('keeps layer geometry stable when contents are minimised', () => {
     const active = getModuleGraphSelection(model, null, null);
     const expandedLayout = computeModuleGraphLayout(model, active, expanded);
@@ -190,11 +245,11 @@ describe('module graph layout', () => {
     );
   });
 
-  it('discloses selected tree edges without changing tree positions', () => {
+  it('applies selection and hover state in tree mode without moving nodes', () => {
     const selected = { path: 'src/domain/orders', depth: 'direct' } as const;
     const shown = computeModuleGraphLayout(
       model,
-      getModuleGraphSelection(model, selected, null),
+      getModuleGraphSelection(model, selected, 'src/application/orders'),
       expanded,
       'tree',
     );
@@ -211,14 +266,20 @@ describe('module graph layout', () => {
 
     expect(positions(hidden)).toEqual(positions(shown));
     expect(
-      shown.nodes
-        .filter((node) => node.type === 'module-tile')
-        .every(
-          (node) =>
-            !(node.data as { selected: boolean }).selected &&
-            !(node.data as { dimmed: boolean }).dimmed,
-        ),
-    ).toBe(true);
+      shown.nodes.find((node) => node.id === 'module:src/domain/orders')?.data,
+    ).toMatchObject({ selected: true, dimmed: false });
+    expect(
+      shown.nodes.find((node) => node.id === 'module:src/application/orders')
+        ?.data,
+    ).toMatchObject({ related: true, dimmed: false });
+    expect(
+      shown.nodes.find((node) => node.id === 'module:src/domain/accounts')
+        ?.data,
+    ).toMatchObject({ related: true, dimmed: true });
+    expect(
+      shown.nodes.find((node) => node.id === 'module:src/jobs/reconcile')?.data,
+    ).toMatchObject({ related: false, dimmed: true });
+    expect(shown.edges.some((edge) => edge.zIndex === 3)).toBe(true);
     expect(
       shown.edges.some(
         (edge) =>

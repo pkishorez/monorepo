@@ -1,7 +1,7 @@
 # CONTEXT — laymos
 
-Glossary for laymos: layers, modules, stories — declared intent and actual
-state, merged. Definitions only; no implementation detail.
+Glossary for laymos: layers, modules, stories, and tests — declared intent and
+actual state, merged. Definitions only; no implementation detail.
 
 ## Language
 
@@ -48,12 +48,11 @@ prefix containing its path. Its layer membership is inferred, never declared.
 Modules are strictly flat, with no Module inside another. Declaring one
 imposes nothing; constraints are opt-in.
 
-**Story surface**:
-The optional, flat collection of Stories and their shared support material
-owned by one folder Module. It is invisible to static architecture and may
-depend on application code, while application code may never depend on it.
-Only Story declarations enter the Story Catalog; file Modules have no Story
-surface.
+**Laymos surface**:
+The optional flat `laymos/` directory owned by one folder Module. It contains
+that Module's Stories, Tests, and their support material. It is invisible to
+static architecture and may depend on application code, while application code
+may never depend on it. File Modules have no Laymos surface.
 
 **Module rules**:
 Opt-in constraints on a module's edges: `canImport` disciplines it as a
@@ -79,23 +78,15 @@ violate both a layer and a module rule — both are reported.
 
 **Project Narrative**:
 The optional, project-level human account of what the system is and how to
-explore it. It combines prose with editorial Project Maps and is not an
-executable Story.
+explore it. It is one named Markdown document and is not an executable Story.
 _Avoid_: Project Story
 
-**Project Map**:
-An editorial tree of Project Topics within a Project Narrative. It organizes a
-human tour through the architecture without declaring or changing
-architectural edges.
-
-**Project Topic**:
-A described responsibility in a Project Map. It may reference Layer Graphs,
-Layers, and Modules for navigation without declaring architecture.
-
 **Story ejection**:
-The atomic, one-way retirement of Stories from an entire project. It removes
-Story Block narration from application code and deletes every Module's complete
-Story surface. Partial ejection is not supported.
+The project-wide removal of Story Block narration from application code. The
+complete rewrite is planned before any file changes and is applied atomically;
+every Module-owned Laymos surface remains untouched. Retained Stories still
+execute their Scenarios but lose the structural narration supplied by their
+production Blocks, while retained Tests are unaffected.
 _Avoid_: unstory
 
 **Story source projection**:
@@ -115,17 +106,17 @@ claim that the surrounding code or use case is complete. Its purpose is to
 explain how the observed implementation logic works, not to claim that the
 logic has been proven. It has a required description and a human-facing name.
 Its identity is its owning Module together with its Story Key. Every Story
-belongs to exactly one folder Module through that Module's Story surface; a
+belongs to exactly one folder Module through that Module's Laymos surface; a
 Module may own any number of Stories, including none.
 _Avoid_: coverage suite, specification
 
 **Story Key**:
 The kebab-case, Module-local name that distinguishes one Story from the others
-in the same Story surface. It is independent of the Story's human-facing name.
+in the same Laymos surface. It is independent of the Story's human-facing name.
 _Avoid_: Story file path, Story ID
 
 **Owning Module**:
-The one folder Module whose Story surface contains a Story.
+The one folder Module whose Laymos surface contains a Story.
 
 **Participating Module**:
 A Module containing at least one Block in a Story's complete structural trace.
@@ -156,7 +147,7 @@ or other Scenario evidence. A failed trace may retain an explicitly incomplete
 account for diagnosis but is never a valid Story Trace.
 
 **Story catalog**:
-The discoverable collection of folder Modules with Story surfaces and the
+The discoverable collection of folder Modules with Laymos surfaces and the
 Stories each owns, available before any Story executes.
 _Avoid_: Report, Artifact
 
@@ -213,6 +204,66 @@ An optional operational phase that releases or restores what Scenario
 preparation established. It runs whenever preparation produced a value and is
 outside the narrated execution. Its failure affects Scenario success without
 replacing a failure from an earlier phase.
+
+### Tests
+
+**Test**:
+A named executable examination of one functionality across concrete edge cases,
+recording expected and actual results for behavioral assurance. Unlike a Story,
+it stress-tests behavior rather than explaining an execution flow. Its identity
+is its owning Module together with its Test Key. Every Test belongs to exactly
+one folder Module through that Module's Laymos surface, and each Test file
+declares exactly one Test. A Test has a required human-facing name and
+description.
+_Avoid_: Test Story, Snapshot Story
+
+**Test Key**:
+The kebab-case, Module-local name that distinguishes one Test from the others
+in the same Laymos surface. It is independent of the Test's human-facing name.
+_Avoid_: Test file path, Test ID
+
+**Test Case**:
+One named, described concrete ordered list of input Test Values and one Test
+Expectation examined by a Test. Each Test Case explicitly declares positive or
+negative intent. A positive case proves accepted behavior; a negative case
+proves rejection, failure, or invalid-input behavior. Its name identifies the
+case and its required description explains the behavior or edge condition it
+proves. The input list is only an argument container, not itself a Test Value.
+Test Case execution records the actual value or error; whether the case passes
+is derived by comparing it with the Test Expectation.
+_Avoid_: Scenario
+
+**Test Expectation**:
+The result a Test Case should produce: either a Test Value or a named error. An
+expected error is an outcome, not another Value Type.
+
+**Test Report**:
+The presentation-neutral account of executed Tests and their Test Cases. For
+each Test Case it records positive or negative intent, the case name,
+description, inputs, expectation, and actual value or error. Pass or failure
+and any diff are derived rather than stored.
+
+**Test Value**:
+An input, expected result, or actual result restricted to a string, number, or
+boolean. Null, undefined, objects, and arrays are invalid authored values; an
+unsupported actual result fails its Test Case rather than becoming a Test
+Value.
+
+**Value Type**:
+The automatically inferred primitive type of a Test Value: string, number, or
+boolean.
+
+**Value Presentation**:
+The inferred or reader-selected rendering of a Test Value as plain text,
+Markdown, source code, or a primitive value. It is absent from Test definitions
+and Test Reports and does not affect comparison.
+
+**Test Case Suggestion**:
+An AI-proposed draft containing a case name, inputs, proposed expectation, and
+the reason the edge case matters. It becomes a Test Case only after author
+review; the current actual result is never adopted as its expectation.
+
+### Story structure
 
 **Block**:
 A marked unit of narrative with a short name and a required, non-empty
