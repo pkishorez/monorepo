@@ -5,8 +5,7 @@ import { Effect } from 'effect';
 
 import type { LaymosConfig } from '../../config/types.js';
 import type { AnalysisWarning, LaymosReport } from '../../report/index.js';
-import { findLaymosSurfaces } from '../../stories/discover-stories/laymos-surface.js';
-import { flow, step } from '../../stories/authoring/index.js';
+
 import { buildReport } from '../build-report/index.js';
 import type { LaymosError } from '../errors.js';
 import { extractFileGraph } from '../extract-dependencies/index.js';
@@ -19,70 +18,21 @@ export interface AnalyzeProjectRequest {
 }
 
 /** Analyzes one project's declared and actual static architecture. */
-export const analyzeProject = flow(
-  'Analyze project',
-  {
-    description:
-      'Coordinates the static journey from authored configuration to one architecture report.',
-    attributes: ({ projectDir }: AnalyzeProjectRequest) => ({ projectDir }),
-  },
-  ({
-    projectDir,
-  }: AnalyzeProjectRequest): Effect.Effect<LaymosReport, LaymosError> =>
-    Effect.gen(function* () {
-      const config = yield* loadConfig({ projectDir });
-      const warnings = findMissingPathWarnings(projectDir, config);
-      const laymosSurfaces = yield* step(
-        'Discover Laymos surfaces',
-        {
-          description:
-            'Finds Module-owned Laymos surfaces so analysis can separate Stories, Tests, and support code from production architecture.',
-        },
-        () =>
-          Effect.promise(() =>
-            findLaymosSurfaces(projectDir, config.modules ?? []),
-          ),
-      );
-      const fileGraph = yield* step(
-        'Extract project dependencies',
-        {
-          description:
-            'Walks the configured source roots and uses skott to build the internal file dependency graph.',
-        },
-        () =>
-          extractFileGraph(
-            projectDir,
-            config.sourceRoots,
-            config.ignore ?? [],
-            laymosSurfaces,
-          ),
-      );
-      const resolved = yield* step(
-        'Resolve declared architecture',
-        {
-          description:
-            'Assigns every extracted file and import to its declared Layer and Module ownership.',
-        },
-        () => resolveProject(config, fileGraph),
-      );
-      const validation = yield* step(
-        'Validate architecture rules',
-        {
-          description:
-            'Checks resolved imports against Layer reachability and Module constraints while keeping violations as data.',
-        },
-        () => validateRules(resolved),
-      );
-      return yield* step(
-        'Build architecture report',
-        {
-          description:
-            'Serializes declarations, files, violations, coverage, warnings, and documentation into the shared report.',
-        },
-        () => buildReport(resolved, validation, warnings),
-      );
-    }),
-);
+export const analyzeProject = ({
+  projectDir,
+}: AnalyzeProjectRequest): Effect.Effect<LaymosReport, LaymosError> =>
+  Effect.gen(function* () {
+    const config = yield* loadConfig({ projectDir });
+    const warnings = findMissingPathWarnings(projectDir, config);
+    const fileGraph = yield* extractFileGraph(
+      projectDir,
+      config.sourceRoots,
+      config.ignore ?? [],
+    );
+    const resolved = yield* resolveProject(config, fileGraph);
+    const validation = yield* validateRules(resolved);
+    return yield* buildReport(resolved, validation, warnings);
+  });
 
 function findMissingPathWarnings(
   projectDir: string,

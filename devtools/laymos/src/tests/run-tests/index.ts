@@ -1,7 +1,6 @@
 export {
-  discoverTests,
   executeTests,
-  TestDiscoveryError,
+  TestRunInProgress,
   TestRunnerError,
 } from './run-tests.js';
-export type { TestDiscoveryIssue, TestsRunOptions } from './run-tests.js';
+export type { TestsRunOptions } from './run-tests.js';

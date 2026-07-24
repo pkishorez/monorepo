@@ -4,9 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Effect } from 'effect';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach } from 'vitest';
 
 import { analyzeProject } from '../src/entrypoints/node/index.js';
+import { laymosDescribe, laymosTest } from '../src/tests/authoring/index.js';
+
+type AnalyzeScenario = 'complete pipeline' | 'exclude tests';
 
 const temporaryDirectories: string[] = [];
 
@@ -18,11 +21,95 @@ afterEach(async () => {
   );
 });
 
-describe('analyzeProject', () => {
-  it('loads config and runs the complete static pipeline', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'laymos-project-'));
-    temporaryDirectories.push(directory);
-    execFileSync('git', ['init', '--quiet'], { cwd: directory });
+laymosDescribe(
+  'Project analysis',
+  {
+    description:
+      'Runs configuration loading, extraction, resolution, validation, and reporting.',
+    documentation: `
+## Complete analysis
+
+Project analysis is the public composition root for the static architecture
+pipeline. It loads the target configuration, extracts production dependencies,
+resolves layers and modules, evaluates rules, and emits one report.
+
+Test files are deliberately excluded from that production architecture.
+`,
+  },
+  () => {
+    laymosTest(
+      'runs the complete static pipeline',
+      {
+        description:
+          'Reports coverage, violations, and missing configuration paths.',
+      },
+      async ({ expect }) => {
+        const actual = await analyzeScenario('complete pipeline');
+        expect(actual, 'matches the complete pipeline report').toBe(
+          json({
+            coverage: { totalFiles: 2, coveredFiles: 2, uncovered: [] },
+            sourceRoots: ['src', 'missing-root'],
+            violations: [
+              {
+                kind: 'layer',
+                from: { layer: 'domain', file: 'src/domain/index.ts' },
+                to: { layer: 'app', file: 'src/app/index.ts' },
+              },
+            ],
+            warnings: [
+              { kind: 'missing-source-root', path: 'missing-root' },
+              {
+                kind: 'missing-layer-path',
+                layer: 'future',
+                path: 'src/future',
+              },
+            ],
+          }),
+        );
+      },
+    );
+    laymosTest(
+      'excludes test files from the static report',
+      {
+        description:
+          'Keeps Vitest source out of files, coverage, and violations.',
+      },
+      async ({ expect }) => {
+        const actual = await analyzeScenario('exclude tests');
+        expect(actual, 'matches the report without test files').toBe(
+          json({
+            files: {
+              'src/account/index.ts': {
+                kind: 'covered',
+                layer: 'app',
+                module: 'src/account',
+                imports: [],
+              },
+            },
+            violations: [],
+            coverage: {
+              layers: { totalFiles: 1, coveredFiles: 1, uncovered: [] },
+              modules: [
+                {
+                  layer: 'app',
+                  totalFiles: 1,
+                  coveredFiles: 1,
+                  uncovered: [],
+                },
+              ],
+            },
+          }),
+        );
+      },
+    );
+  },
+);
+
+async function analyzeScenario(scenario: AnalyzeScenario): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), 'laymos-project-'));
+  temporaryDirectories.push(directory);
+  execFileSync('git', ['init', '--quiet'], { cwd: directory });
+  if (scenario === 'complete pipeline') {
     await mkdir(join(directory, 'src/app'), { recursive: true });
     await mkdir(join(directory, 'src/domain'), { recursive: true });
     await writeFile(
@@ -50,57 +137,29 @@ export default {
 };
 `,
     );
-
     const report = await Effect.runPromise(
       analyzeProject({ projectDir: directory }),
     );
-
-    expect(report.coverage.layers).toEqual({
-      totalFiles: 2,
-      coveredFiles: 2,
-      uncovered: [],
+    return json({
+      coverage: report.coverage.layers,
+      sourceRoots: report.architecture.sourceRoots,
+      violations: report.violations,
+      warnings: report.warnings,
     });
-    expect(report.architecture.sourceRoots).toEqual(['src', 'missing-root']);
-    expect(report.violations).toEqual([
-      {
-        kind: 'layer',
-        from: { layer: 'domain', file: 'src/domain/index.ts' },
-        to: { layer: 'app', file: 'src/app/index.ts' },
-      },
-    ]);
-    expect(report.warnings).toEqual([
-      {
-        kind: 'missing-source-root',
-        path: 'missing-root',
-      },
-      {
-        kind: 'missing-layer-path',
-        layer: 'future',
-        path: 'src/future',
-      },
-    ]);
-  });
+  }
 
-  it('isolates Module Laymos surfaces from the static report', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'laymos-project-'));
-    temporaryDirectories.push(directory);
-    execFileSync('git', ['init', '--quiet'], { cwd: directory });
-    await mkdir(join(directory, 'src/account/laymos'), { recursive: true });
-    await writeFile(
-      join(directory, 'src/account/index.ts'),
-      "import { fixture } from './laymos/support.js';\nexport const account = fixture;\n",
-    );
-    await writeFile(
-      join(directory, 'src/account/laymos/account.story.ts'),
-      "import { account } from '../index.js';\nexport const story = account;\n",
-    );
-    await writeFile(
-      join(directory, 'src/account/laymos/support.ts'),
-      'export const fixture = true;\n',
-    );
-    await writeFile(
-      join(directory, 'laymos.config.ts'),
-      `const app = { kind: 'layer', name: 'app', paths: ['src'], description: 'App' } as const;
+  await mkdir(join(directory, 'src/account'), { recursive: true });
+  await writeFile(
+    join(directory, 'src/account/index.ts'),
+    'export const account = true;\n',
+  );
+  await writeFile(
+    join(directory, 'src/account/account.test.ts'),
+    "import { account } from './index.js';\nexport const tested = account;\n",
+  );
+  await writeFile(
+    join(directory, 'laymos.config.ts'),
+    `const app = { kind: 'layer', name: 'app', paths: ['src'], description: 'App' } as const;
 export default {
   sourceRoots: ['src'],
   graphs: [{
@@ -117,40 +176,17 @@ export default {
   }],
 };
 `,
-    );
-
-    const report = await Effect.runPromise(
-      analyzeProject({ projectDir: directory }),
-    );
-
-    expect(report.files).toEqual({
-      'src/account/index.ts': {
-        kind: 'covered',
-        layer: 'app',
-        module: 'src/account',
-        imports: [],
-      },
-    });
-    expect(report.violations).toEqual([
-      {
-        kind: 'laymos-import',
-        from: { file: 'src/account/index.ts' },
-        to: {
-          module: 'src/account',
-          file: 'src/account/laymos/support.ts',
-        },
-      },
-    ]);
-    expect(report.coverage).toEqual({
-      layers: { totalFiles: 1, coveredFiles: 1, uncovered: [] },
-      modules: [
-        {
-          layer: 'app',
-          totalFiles: 1,
-          coveredFiles: 1,
-          uncovered: [],
-        },
-      ],
-    });
+  );
+  const report = await Effect.runPromise(
+    analyzeProject({ projectDir: directory }),
+  );
+  return json({
+    files: report.files,
+    violations: report.violations,
+    coverage: report.coverage,
   });
-});
+}
+
+function json(value: unknown): string {
+  return JSON.stringify(value, null, 2);
+}

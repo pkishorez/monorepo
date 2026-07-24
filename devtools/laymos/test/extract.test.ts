@@ -3,9 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Effect } from 'effect';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach } from 'vitest';
 
 import { extractFileGraph } from '../src/architecture/extract-dependencies/index.js';
+import { laymosDescribe, laymosTest } from '../src/tests/authoring/index.js';
+
+type ExtractScenario = 'configured roots' | 'ignored files' | 'test files';
 
 const temporaryDirectories: string[] = [];
 
@@ -17,10 +20,77 @@ afterEach(async () => {
   );
 });
 
-describe('extractFileGraph', () => {
-  it('analyzes configured source files and directories only', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'laymos-extract-'));
-    temporaryDirectories.push(directory);
+laymosDescribe(
+  'Dependency extraction',
+  {
+    description:
+      'Discovers production TypeScript files and their internal dependencies.',
+    documentation: `
+## Extraction boundary
+
+Only configured source files and directories enter architecture analysis.
+Explicitly ignored files stay in the inventory but are not traversed, while
+Vitest test and spec files never enter the production graph.
+`,
+  },
+  () => {
+    const cases = [
+      [
+        'analyzes only configured files and directories',
+        'configured roots',
+        {
+          files: {
+            'a.ts': { path: 'a.ts', imports: ['b.ts'] },
+            'b.ts': { path: 'b.ts', imports: [] },
+            'docs/example.ts': {
+              path: 'docs/example.ts',
+              imports: ['b.ts'],
+            },
+          },
+        },
+      ],
+      [
+        'keeps ignored files without traversing them',
+        'ignored files',
+        {
+          files: {
+            'app.ts': { path: 'app.ts', imports: [] },
+            'generated/invalid.ts': {
+              path: 'generated/invalid.ts',
+              imports: [],
+            },
+          },
+        },
+      ],
+      [
+        'excludes Vitest files from production analysis',
+        'test files',
+        {
+          files: {
+            'src/account/index.ts': {
+              path: 'src/account/index.ts',
+              imports: [],
+            },
+          },
+        },
+      ],
+    ] as const;
+
+    for (const [name, scenario, expected] of cases) {
+      laymosTest(name, { description: name }, async ({ expect }) => {
+        expect(
+          await extractScenario(scenario),
+          'extracts the expected production file graph',
+        ).toBe(json(expected));
+      });
+    }
+  },
+);
+
+async function extractScenario(scenario: ExtractScenario): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), 'laymos-extract-'));
+  temporaryDirectories.push(directory);
+  if (scenario === 'configured roots') {
     await writeFile(join(directory, '.gitignore'), 'b.ts\n');
     await writeFile(
       join(directory, 'a.ts'),
@@ -37,23 +107,13 @@ describe('extractFileGraph', () => {
       join(directory, 'docs', 'example.ts'),
       "import type { B } from '../b.js';\nexport type Example = B;\n",
     );
-
-    const fileGraph = await Effect.runPromise(
-      extractFileGraph(directory, ['a.ts', 'b.ts', 'docs']),
+    return json(
+      await Effect.runPromise(
+        extractFileGraph(directory, ['a.ts', 'b.ts', 'docs']),
+      ),
     );
-
-    expect(Object.keys(fileGraph.files)).toEqual([
-      'a.ts',
-      'b.ts',
-      'docs/example.ts',
-    ]);
-    expect(fileGraph.files['a.ts']?.imports).toEqual(['b.ts']);
-    expect(fileGraph.files['docs/example.ts']?.imports).toEqual(['b.ts']);
-  });
-
-  it('keeps explicitly ignored files in the inventory without traversing them', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'laymos-extract-'));
-    temporaryDirectories.push(directory);
+  }
+  if (scenario === 'ignored files') {
     await mkdir(join(directory, 'generated'));
     await writeFile(
       join(directory, 'app.ts'),
@@ -63,68 +123,29 @@ describe('extractFileGraph', () => {
       join(directory, 'generated', 'invalid.ts'),
       'this is not valid TypeScript }}}',
     );
-
-    const fileGraph = await Effect.runPromise(
-      extractFileGraph(directory, ['.'], ['generated']),
-    );
-
-    expect(fileGraph.files).toEqual({
-      'app.ts': { path: 'app.ts', imports: [] },
-      'generated/invalid.ts': {
-        path: 'generated/invalid.ts',
-        imports: [],
-      },
-    });
-  });
-
-  it('isolates Laymos surfaces and records only imports into them', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'laymos-extract-'));
-    temporaryDirectories.push(directory);
-    await mkdir(join(directory, 'src', 'account', 'laymos'), {
-      recursive: true,
-    });
-    await writeFile(
-      join(directory, 'src', 'account', 'index.ts'),
-      "import { fixture } from './laymos/support.js';\nexport const account = fixture;\n",
-    );
-    await writeFile(
-      join(directory, 'src', 'account', 'laymos', 'account.story.ts'),
-      "import { account } from '../index.js';\nexport const story = account;\n",
-    );
-    await writeFile(
-      join(directory, 'src', 'account', 'laymos', 'support.ts'),
-      "import { story } from './account.story.js';\nexport const fixture = story;\n",
-    );
-
-    const fileGraph = await Effect.runPromise(
-      extractFileGraph(
-        directory,
-        ['src'],
-        [],
-        [
-          {
-            modulePath: 'src/account',
-            moduleDescription: 'Account',
-            path: 'src/account/laymos',
-          },
-        ],
+    return json(
+      await Effect.runPromise(
+        extractFileGraph(directory, ['.'], ['generated']),
       ),
     );
+  }
 
-    expect(fileGraph).toEqual({
-      files: {
-        'src/account/index.ts': {
-          path: 'src/account/index.ts',
-          imports: [],
-        },
-      },
-      laymosImports: [
-        {
-          from: 'src/account/index.ts',
-          to: 'src/account/laymos/support.ts',
-          module: 'src/account',
-        },
-      ],
-    });
-  });
-});
+  await mkdir(join(directory, 'src', 'account'), { recursive: true });
+  await writeFile(
+    join(directory, 'src', 'account', 'index.ts'),
+    'export const account = true;\n',
+  );
+  await writeFile(
+    join(directory, 'src', 'account', 'account.test.ts'),
+    "import { account } from './index.js';\nexport const tested = account;\n",
+  );
+  await writeFile(
+    join(directory, 'src', 'account', 'account.spec.ts'),
+    "import { account } from './index.js';\nexport const specified = account;\n",
+  );
+  return json(await Effect.runPromise(extractFileGraph(directory, ['src'])));
+}
+
+function json(value: unknown): string {
+  return JSON.stringify(value, null, 2);
+}

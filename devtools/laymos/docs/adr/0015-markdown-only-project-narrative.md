@@ -9,12 +9,6 @@ Project Topics, architecture references, and reference navigation callbacks are
 removed from the configuration DSL, report model, and frontend.
 
 A continuous technical narrative is easier to author and read than a sequence
-of prose and editorial diagrams. Laymos already provides dedicated Layer,
-Module, and Story views from actual analysis data, so a second authored diagram
-on the project page duplicates those views and can drift from them.
-
-The Project Narrative remains separate from executable Stories and survives
-Story ejection.
-
-This supersedes only the Project Map and block-sequence decisions in ADR-0014.
-Module-owned Story surfaces remain unchanged.
+of prose and editorial diagrams. Laymos already provides dedicated Layer and
+Module views from actual analysis data, so a second authored diagram on the
+project page duplicates those views and can drift from them.

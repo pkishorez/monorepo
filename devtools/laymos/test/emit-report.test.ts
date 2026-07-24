@@ -1,10 +1,10 @@
 import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
 
-import { edge, layer, layerGraph } from '../src/config/index.js';
 import type { ResolvedProject } from '../src/architecture/resolve-architecture/index.js';
 import type { RuleValidation } from '../src/architecture/validate-rules/index.js';
 import { buildReport } from '../src/architecture/build-report/index.js';
+import { edge, layer, layerGraph } from '../src/config/index.js';
+import { laymosDescribe, laymosTest } from '../src/tests/authoring/index.js';
 
 const app = layer('app', ['src/app'], { description: 'App' });
 const domain = layer('domain', ['src/domain'], { description: 'Domain' });
@@ -29,7 +29,6 @@ const resolved: ResolvedProject = {
         imports: [],
       },
     },
-    laymosImports: [],
   },
   files: {
     'src/app/index.ts': {
@@ -54,43 +53,70 @@ const evaluation: RuleValidation = {
   },
 };
 
-describe('buildReport', () => {
-  it('emits one normalized, serializable domain report', () => {
-    const report = Effect.runSync(buildReport(resolved, evaluation));
-    expect(report).toEqual({
-      architecture: {
-        sourceRoots: ['src'],
-        layers: {
-          app: { paths: ['src/app'], description: 'App' },
-          domain: { paths: ['src/domain'], description: 'Domain' },
-        },
-        graphs: [
-          {
-            name: 'application',
-            description: 'Application architecture',
-            layers: ['app', 'domain'],
-            edges: [{ from: 'app', to: 'domain' }],
-          },
-        ],
-        modules: {},
-        moduleRules: [],
-        ignoredPaths: [],
+const expected = {
+  architecture: {
+    sourceRoots: ['src'],
+    layers: {
+      app: { paths: ['src/app'], description: 'App' },
+      domain: { paths: ['src/domain'], description: 'Domain' },
+    },
+    graphs: [
+      {
+        name: 'application',
+        layers: ['app', 'domain'],
+        edges: [{ from: 'app', to: 'domain' }],
+        description: 'Application architecture',
       },
-      files: {
-        'src/app/index.ts': {
-          kind: 'covered',
-          layer: 'app',
-          imports: ['src/domain/model.ts'],
-        },
-        'src/domain/model.ts': {
-          kind: 'covered',
-          layer: 'domain',
-          imports: [],
-        },
+    ],
+    modules: {},
+    moduleRules: [],
+    ignoredPaths: [],
+  },
+  files: {
+    'src/app/index.ts': {
+      kind: 'covered',
+      layer: 'app',
+      imports: ['src/domain/model.ts'],
+    },
+    'src/domain/model.ts': {
+      kind: 'covered',
+      layer: 'domain',
+      imports: [],
+    },
+  },
+  violations: [],
+  coverage: evaluation.coverage,
+  warnings: [],
+};
+
+laymosDescribe(
+  'Report construction',
+  {
+    description:
+      'Builds the serializable report consumed by DevTools from resolved analysis.',
+    documentation: `
+## Report boundary
+
+The report is the stable handoff between static analysis and every consumer.
+It removes internal paths and references while preserving architecture, files,
+violations, coverage, and warnings.
+`,
+  },
+  () => {
+    laymosTest(
+      'emits the normalized domain report',
+      {
+        description:
+          'Produces one serializable representation of the analysis.',
       },
-      violations: [],
-      coverage: evaluation.coverage,
-      warnings: [],
-    });
-  });
-});
+      ({ expect }) => {
+        const actual = JSON.stringify(
+          Effect.runSync(buildReport(resolved, evaluation)),
+        );
+        expect(actual, 'matches the normalized report').toBe(
+          JSON.stringify(expected),
+        );
+      },
+    );
+  },
+);

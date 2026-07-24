@@ -33,7 +33,8 @@
     "build": "vp pack",
     "build:watch": "vp pack --watch",
     "dev": "tsx src/server/main.ts",
-    "lint": "vp check && tsc --noEmit"
+    "lint": "vp check && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
@@ -48,7 +49,8 @@
   "devDependencies": {
     "@typescript/native": "catalog:",
     "@types/node": "catalog:",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "vitest": "catalog:"
   },
   "publishConfig": {
     "access": "public"

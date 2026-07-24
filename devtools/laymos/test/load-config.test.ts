@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Effect } from 'effect';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach } from 'vitest';
 
 import { loadConfig } from '../src/config/load-config/index.js';
+import { laymosDescribe, laymosTest } from '../src/tests/authoring/index.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -17,36 +18,73 @@ afterEach(async () => {
   );
 });
 
-describe('loadConfig', () => {
-  it.each([
-    `export default {
+laymosDescribe(
+  'Configuration loading',
+  {
+    description:
+      'Imports authored configuration and reports malformed nested values consistently.',
+    documentation: `
+## Loading contract
+
+Configuration is executed from the target project and then validated as one
+complete value. Invalid nested values fail with a stable public error rather
+than leaking loader or schema internals.
+`,
+  },
+  () => {
+    const cases = [
+      [
+        'rejects malformed layer graphs',
+        `export default {
   sourceRoots: ['src'],
   graphs: [{ kind: 'layer-graph' }],
 };`,
-    `export default {
+      ],
+      [
+        'rejects non-string source roots',
+        `export default {
   sourceRoots: [42],
   graphs: [],
 };`,
-    `export default {
+      ],
+      [
+        'rejects malformed module paths',
+        `export default {
   sourceRoots: ['src'],
   graphs: [],
   modules: [{ kind: 'module', path: 42, description: 'Invalid module' }],
 };`,
-  ])(
-    'returns ConfigValidationError for malformed nested values',
-    async (source) => {
-      const projectDir = await mkdtemp(join(tmpdir(), 'laymos-config-'));
-      temporaryDirectories.push(projectDir);
-      await writeFile(join(projectDir, 'laymos.config.ts'), source);
+      ],
+    ] as const;
 
-      await expect(
-        Effect.runPromise(loadConfig({ projectDir })),
-      ).rejects.toMatchObject({
-        _tag: 'ConfigValidationError',
-        issues: [
-          'Config must default-export a value created with defineConfig()',
-        ],
-      });
-    },
+    for (const [name, source] of cases) {
+      laymosTest(
+        name,
+        {
+          description:
+            'Returns the stable validation error for malformed configuration.',
+        },
+        async ({ expect }) => {
+          expect(
+            await loadInvalidConfig(source),
+            'reports the public configuration validation error',
+          ).toBe('ConfigValidationError');
+        },
+      );
+    }
+  },
+);
+
+async function loadInvalidConfig(source: string): Promise<string> {
+  const projectDir = await mkdtemp(join(tmpdir(), 'laymos-config-'));
+  temporaryDirectories.push(projectDir);
+  await writeFile(join(projectDir, 'laymos.config.ts'), source);
+  return Effect.runPromise(
+    loadConfig({ projectDir }).pipe(
+      Effect.match({
+        onFailure: (error) => error._tag,
+        onSuccess: () => 'loaded',
+      }),
+    ),
   );
-});
+}

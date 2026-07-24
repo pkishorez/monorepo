@@ -1,5 +1,4 @@
 import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
 
 import {
   defineConfig,
@@ -12,9 +11,102 @@ import {
 import type { FileGraph } from '../src/architecture/extract-dependencies/index.js';
 import { resolveProject } from '../src/architecture/resolve-architecture/index.js';
 import { validateRules } from '../src/architecture/validate-rules/index.js';
+import { laymosDescribe, laymosTest } from '../src/tests/authoring/index.js';
 
-describe('static engine', () => {
-  it('resolves longest prefixes and evaluates transitive layer reachability', () => {
+type EngineScenario =
+  | 'longest prefix'
+  | 'focused graph reachability'
+  | 'two denying rules'
+  | 'module and layer restrictions'
+  | 'module allowance cannot override layer'
+  | 'explicit ignore';
+
+laymosDescribe(
+  'Static architecture engine',
+  {
+    description:
+      'Shows how files resolve to layers and modules before rules are evaluated.',
+    documentation: `
+## Static analysis pipeline
+
+The engine resolves every production file against the configured architecture,
+computes graph reachability, and reports every rule that denies an import.
+
+Module permissions never override layer boundaries, and ignored files remain
+auditable without contributing edges or coverage.
+`,
+  },
+  () => {
+    const cases: readonly [
+      name: string,
+      scenario: EngineScenario,
+      expected: string,
+    ][] = [
+      [
+        'resolves longest prefixes and transitive reachability',
+        'longest prefix',
+        json({
+          resolved: {
+            kind: 'covered',
+            path: 'src/data/model.ts',
+            layer: 'data',
+          },
+          violations: [
+            {
+              kind: 'layer',
+              from: { layer: 'data', file: 'src/data/model.ts' },
+              to: { layer: 'app', file: 'src/app.ts' },
+            },
+          ],
+        }),
+      ],
+      [
+        'evaluates reachability across focused graphs',
+        'focused graph reachability',
+        json([]),
+      ],
+      [
+        'reports both denying module rules',
+        'two denying rules',
+        json(['module:canImport', 'module:canImportedBy']),
+      ],
+      [
+        'applies module and layer restrictions together',
+        'module and layer restrictions',
+        json(['layer', 'module:canImport']),
+      ],
+      [
+        'does not let module permission override a layer boundary',
+        'module allowance cannot override layer',
+        json(['layer']),
+      ],
+      [
+        'keeps ignored files auditable without edges or coverage',
+        'explicit ignore',
+        json({
+          ignored: {
+            kind: 'ignored',
+            path: 'src/generated/client.ts',
+          },
+          imports: [],
+          coverage: { totalFiles: 1, coveredFiles: 1 },
+        }),
+      ],
+    ];
+
+    for (const [name, scenario, expected] of cases) {
+      laymosTest(name, { description: name }, ({ expect }) => {
+        expect(
+          evaluateScenario(scenario),
+          'returns the expected architecture result',
+        ).toBe(expected);
+      });
+    }
+  },
+);
+
+function evaluateScenario(scenario: EngineScenario): string {
+  if (scenario === 'longest prefix') {
     const app = layer('app', ['src'], { description: 'App' });
     const domain = layer('domain', ['src/domain'], { description: 'Domain' });
     const data = layer('data', ['src/data'], { description: 'Data' });
@@ -26,28 +118,22 @@ describe('static engine', () => {
         }),
       ],
     });
-    const fileGraph = graph({
-      'src/app.ts': ['src/data/model.ts'],
-      'src/data/model.ts': ['src/app.ts'],
-    });
-
-    const resolved = Effect.runSync(resolveProject(config, fileGraph));
+    const resolved = Effect.runSync(
+      resolveProject(
+        config,
+        graph({
+          'src/app.ts': ['src/data/model.ts'],
+          'src/data/model.ts': ['src/app.ts'],
+        }),
+      ),
+    );
     const evaluation = Effect.runSync(validateRules(resolved));
-
-    expect(resolved.files['src/data/model.ts']).toMatchObject({
-      kind: 'covered',
-      layer: 'data',
+    return json({
+      resolved: resolved.files['src/data/model.ts'],
+      violations: evaluation.violations,
     });
-    expect(evaluation.violations).toEqual([
-      {
-        kind: 'layer',
-        from: { layer: 'data', file: 'src/data/model.ts' },
-        to: { layer: 'app', file: 'src/app.ts' },
-      },
-    ]);
-  });
-
-  it('evaluates reachability across focused graphs', () => {
+  }
+  if (scenario === 'focused graph reachability') {
     const feature = layer('feature', ['src/feature'], {
       description: 'Feature',
     });
@@ -55,148 +141,43 @@ describe('static engine', () => {
     const foundation = layer('foundation', ['src/foundation'], {
       description: 'Foundation',
     });
-    const config = defineConfig({
-      sourceRoots: ['src'],
-      graphs: [
-        layerGraph('feature', [edge(feature, core)], {
-          description: 'Feature architecture',
-        }),
-        layerGraph('core', [edge(core, foundation)], {
-          description: 'Core architecture',
-        }),
-      ],
-    });
-    const fileGraph = graph({
-      'src/feature/index.ts': ['src/foundation/index.ts'],
-      'src/foundation/index.ts': [],
-    });
-
-    const resolved = Effect.runSync(resolveProject(config, fileGraph));
-
-    expect(Effect.runSync(validateRules(resolved)).violations).toEqual([]);
-  });
-
-  it('reports both denying module rules for one import', () => {
-    const layerDef = layer('app', ['src'], { description: 'App' });
-    const consumer = module('src/consumer', { description: 'Consumer' });
-    const provider = module('src/provider', { description: 'Provider' });
-    const other = module('src/other', { description: 'Other' });
-    const config = defineConfig({
-      sourceRoots: ['.'],
-      graphs: [
-        layerGraph(
-          'application',
-          [edge(layerDef, layer('sink', ['sink'], { description: 'Sink' }))],
-          { description: 'Application architecture' },
-        ),
-      ],
-      modules: [consumer, provider, other],
-      moduleRules: [
-        rules(consumer, { canImport: [other] }),
-        rules(provider, { canImportedBy: [other] }),
-      ],
-    });
     const resolved = Effect.runSync(
       resolveProject(
-        config,
+        defineConfig({
+          sourceRoots: ['src'],
+          graphs: [
+            layerGraph('feature', [edge(feature, core)], {
+              description: 'Feature architecture',
+            }),
+            layerGraph('core', [edge(core, foundation)], {
+              description: 'Core architecture',
+            }),
+          ],
+        }),
         graph({
-          'src/consumer/index.ts': ['src/provider/index.ts'],
-          'src/provider/index.ts': [],
+          'src/feature/index.ts': ['src/foundation/index.ts'],
+          'src/foundation/index.ts': [],
         }),
       ),
     );
+    return json(Effect.runSync(validateRules(resolved)).violations);
+  }
 
-    expect(Effect.runSync(validateRules(resolved)).violations).toEqual([
-      expect.objectContaining({ kind: 'module', rule: 'canImport' }),
-      expect.objectContaining({ kind: 'module', rule: 'canImportedBy' }),
-    ]);
-  });
-
-  it('applies module restrictions across layers alongside layer restrictions', () => {
-    const consumerLayer = layer('consumer', ['src/consumer'], {
-      description: 'Consumer',
-    });
-    const providerLayer = layer('provider', ['src/provider'], {
-      description: 'Provider',
-    });
-    const consumer = module('src/consumer', { description: 'Consumer' });
-    const provider = module('src/provider', { description: 'Provider' });
-    const config = defineConfig({
-      sourceRoots: ['.'],
-      graphs: [
-        layerGraph('application', [edge(providerLayer, consumerLayer)], {
-          description: 'Application architecture',
-        }),
-      ],
-      modules: [consumer, provider],
-      moduleRules: [rules(consumer, { canImport: [] })],
-    });
-    const resolved = Effect.runSync(
-      resolveProject(
-        config,
-        graph({
-          'src/consumer/index.ts': ['src/provider/index.ts'],
-          'src/provider/index.ts': [],
-        }),
-      ),
-    );
-
-    expect(Effect.runSync(validateRules(resolved)).violations).toEqual([
-      expect.objectContaining({ kind: 'layer' }),
-      expect.objectContaining({ kind: 'module', rule: 'canImport' }),
-    ]);
-  });
-
-  it('does not let a cross-layer module allowance override the layer graph', () => {
-    const consumerLayer = layer('consumer', ['src/consumer'], {
-      description: 'Consumer',
-    });
-    const providerLayer = layer('provider', ['src/provider'], {
-      description: 'Provider',
-    });
-    const consumer = module('src/consumer', { description: 'Consumer' });
-    const provider = module('src/provider', { description: 'Provider' });
-    const config = defineConfig({
-      sourceRoots: ['.'],
-      graphs: [
-        layerGraph('application', [edge(providerLayer, consumerLayer)], {
-          description: 'Application architecture',
-        }),
-      ],
-      modules: [consumer, provider],
-      moduleRules: [rules(consumer, { canImport: [provider] })],
-    });
-    const resolved = Effect.runSync(
-      resolveProject(
-        config,
-        graph({
-          'src/consumer/index.ts': ['src/provider/index.ts'],
-          'src/provider/index.ts': [],
-        }),
-      ),
-    );
-
-    expect(Effect.runSync(validateRules(resolved)).violations).toEqual([
-      expect.objectContaining({ kind: 'layer' }),
-    ]);
-  });
-
-  it('keeps explicit ignores auditable but removes their edges and coverage', () => {
+  if (scenario === 'explicit ignore') {
     const app = layer('app', ['src'], { description: 'App' });
-    const config = defineConfig({
-      sourceRoots: ['.'],
-      graphs: [
-        layerGraph(
-          'application',
-          [edge(app, layer('sink', ['sink'], { description: 'Sink' }))],
-          { description: 'Application architecture' },
-        ),
-      ],
-      ignore: ['src/generated'],
-    });
     const resolved = Effect.runSync(
       resolveProject(
-        config,
+        defineConfig({
+          sourceRoots: ['.'],
+          graphs: [
+            layerGraph(
+              'application',
+              [edge(app, layer('sink', ['sink'], { description: 'Sink' }))],
+              { description: 'Application architecture' },
+            ),
+          ],
+          ignore: ['src/generated'],
+        }),
         graph({
           'src/app.ts': ['src/generated/client.ts'],
           'src/generated/client.ts': ['src/app.ts'],
@@ -204,80 +185,75 @@ describe('static engine', () => {
       ),
     );
     const evaluation = Effect.runSync(validateRules(resolved));
-
-    expect(resolved.files['src/generated/client.ts']).toEqual({
-      kind: 'ignored',
-      path: 'src/generated/client.ts',
-    });
-    expect(resolved.fileGraph.files['src/app.ts']?.imports).toEqual([]);
-    expect(evaluation.coverage.layers).toMatchObject({
-      totalFiles: 1,
-      coveredFiles: 1,
-    });
-  });
-
-  it('reports Story imports without adding Story files to static coverage', () => {
-    const app = layer('app', ['src'], { description: 'App' });
-    const account = module('src/account', { description: 'Account' });
-    const config = defineConfig({
-      sourceRoots: ['src'],
-      graphs: [
-        layerGraph(
-          'application',
-          [edge(app, layer('sink', ['src/sink'], { description: 'Sink' }))],
-          { description: 'Application architecture' },
-        ),
-      ],
-      modules: [account],
-    });
-    const fileGraph: FileGraph = {
-      files: {
-        'src/account/index.ts': {
-          path: 'src/account/index.ts',
-          imports: [],
-        },
+    return json({
+      ignored: resolved.files['src/generated/client.ts'],
+      imports: resolved.fileGraph.files['src/app.ts']?.imports,
+      coverage: {
+        totalFiles: evaluation.coverage.layers.totalFiles,
+        coveredFiles: evaluation.coverage.layers.coveredFiles,
       },
-      laymosImports: [
-        {
-          from: 'src/account/index.ts',
-          to: 'src/account/laymos/support.ts',
-          module: 'src/account',
-        },
-      ],
-    };
-
-    const resolved = Effect.runSync(resolveProject(config, fileGraph));
-    const evaluation = Effect.runSync(validateRules(resolved));
-
-    expect(evaluation.violations).toEqual([
-      {
-        kind: 'laymos-import',
-        from: { file: 'src/account/index.ts' },
-        to: {
-          module: 'src/account',
-          file: 'src/account/laymos/support.ts',
-        },
-      },
-    ]);
-    expect(evaluation.coverage).toEqual({
-      layers: { totalFiles: 1, coveredFiles: 1, uncovered: [] },
-      modules: [
-        {
-          layer: 'app',
-          totalFiles: 1,
-          coveredFiles: 1,
-          uncovered: [],
-        },
-        {
-          layer: 'sink',
-          totalFiles: 0,
-          coveredFiles: 0,
-          uncovered: [],
-        },
-      ],
     });
+  }
+
+  const consumerLayer = layer('consumer', ['src/consumer'], {
+    description: 'Consumer',
   });
-});
+  const providerLayer = layer('provider', ['src/provider'], {
+    description: 'Provider',
+  });
+  const consumer = module('src/consumer', { description: 'Consumer' });
+  const provider = module('src/provider', { description: 'Provider' });
+  const other = module('src/other', { description: 'Other' });
+  const twoDenyingRules = scenario === 'two denying rules';
+  const config = defineConfig({
+    sourceRoots: ['.'],
+    graphs: [
+      layerGraph(
+        'application',
+        twoDenyingRules
+          ? [
+              edge(
+                layer('app', ['src'], { description: 'App' }),
+                layer('sink', ['sink'], { description: 'Sink' }),
+              ),
+            ]
+          : [edge(providerLayer, consumerLayer)],
+        { description: 'Application architecture' },
+      ),
+    ],
+    modules: [consumer, provider, other],
+    moduleRules: twoDenyingRules
+      ? [
+          rules(consumer, { canImport: [other] }),
+          rules(provider, { canImportedBy: [other] }),
+        ]
+      : [
+          rules(consumer, {
+            canImport:
+              scenario === 'module allowance cannot override layer'
+                ? [provider]
+                : [],
+          }),
+        ],
+  });
+  const resolved = Effect.runSync(
+    resolveProject(
+      config,
+      graph({
+        'src/consumer/index.ts': ['src/provider/index.ts'],
+        'src/provider/index.ts': [],
+      }),
+    ),
+  );
+  const violations = Effect.runSync(validateRules(resolved)).violations;
+  return json(
+    violations.map((violation) =>
+      violation.kind === 'module'
+        ? `${violation.kind}:${violation.rule}`
+        : violation.kind,
+    ),
+  );
+}
 
 function graph(imports: Record<string, string[]>): FileGraph {
   return {
@@ -287,6 +263,9 @@ function graph(imports: Record<string, string[]>): FileGraph {
         { path, imports: dependencies },
       ]),
     ),
-    laymosImports: [],
   };
+}
+
+function json(value: unknown): string {
+  return JSON.stringify(value, null, 2);
 }

@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { vi } from 'vitest';
 import type { EntityType } from '../../../core/index.js';
 import type { SyncCollection } from '../../cadence-sync/cadence-sync.js';
 
@@ -94,112 +95,116 @@ const mountAndLoad = (
 
 const tick = () => new Promise((r) => setTimeout(r, 20));
 
-describe('cadence fork in buildPartitioned', () => {
-  it('forks runCadenceSync per partition when the entry carries cadence', async () => {
-    const runMock = vi.mocked(runCadenceSync);
-    runMock.mockReturnValue(Effect.never as any);
-    runMock.mockClear();
+describe('TanStack Sync', () => {
+  describe('Partitioned', () => {
+    describe('Cadence fork', () => {
+      it('forks runCadenceSync per partition when the entry carries cadence', async () => {
+        const runMock = vi.mocked(runCadenceSync);
+        runMock.mockReturnValue(Effect.never as any);
+        runMock.mockClear();
 
-    const built = buildPartitioned(makeTracker(), makeInspector(), {
-      schema: schema as any,
-      offlineStorage: makeOfflineStorage(),
-      partitions: { id: () => partitionEntry({ cadence }) },
-    });
+        const built = buildPartitioned(makeTracker(), makeInspector(), {
+          schema: schema as any,
+          offlineStorage: makeOfflineStorage(),
+          partitions: { id: () => partitionEntry({ cadence }) },
+        });
 
-    mountAndLoad(built);
-    await tick();
+        mountAndLoad(built);
+        await tick();
 
-    expect(runMock).toHaveBeenCalledOnce();
-    expect(runMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        config: cadence,
-        partition: { field: 'id', value: 'p1' },
-      }),
-    );
-  });
-
-  it('does NOT fork runCadenceSync when the entry has no cadence', async () => {
-    const runMock = vi.mocked(runCadenceSync);
-    runMock.mockClear();
-
-    const built = buildPartitioned(makeTracker(), makeInspector(), {
-      schema: schema as any,
-      offlineStorage: makeOfflineStorage(),
-      partitions: { id: () => partitionEntry() },
-    });
-
-    mountAndLoad(built);
-    await tick();
-
-    expect(runMock).not.toHaveBeenCalled();
-  });
-
-  it('does NOT fork when the entry sets cadence: false, even with a default', async () => {
-    const runMock = vi.mocked(runCadenceSync);
-    runMock.mockClear();
-
-    const built = buildPartitioned(makeTracker(), makeInspector(), {
-      schema: schema as any,
-      offlineStorage: makeOfflineStorage(),
-      defaultCadence: cadence,
-      partitions: { id: () => partitionEntry({ cadence: false }) },
-    });
-
-    mountAndLoad(built);
-    await tick();
-
-    expect(runMock).not.toHaveBeenCalled();
-  });
-
-  it('inherits the default cadence when the entry omits it', async () => {
-    const runMock = vi.mocked(runCadenceSync);
-    runMock.mockReturnValue(Effect.never as any);
-    runMock.mockClear();
-
-    const built = buildPartitioned(makeTracker(), makeInspector(), {
-      schema: schema as any,
-      offlineStorage: makeOfflineStorage(),
-      defaultCadence: cadence,
-      partitions: { id: () => partitionEntry() },
-    });
-
-    mountAndLoad(built);
-    await tick();
-
-    expect(runMock).toHaveBeenCalledOnce();
-    expect(runMock).toHaveBeenCalledWith(
-      expect.objectContaining({ config: cadence }),
-    );
-  });
-
-  it('closes the cadence scope when the partition deactivates', async () => {
-    const runMock = vi.mocked(runCadenceSync);
-    let scopeFinalizerRan = false;
-    runMock.mockReturnValue(
-      Effect.gen(function* () {
-        yield* Effect.addFinalizer(() =>
-          Effect.sync(() => {
-            scopeFinalizerRan = true;
+        expect(runMock).toHaveBeenCalledOnce();
+        expect(runMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            config: cadence,
+            partition: { field: 'id', value: 'p1' },
           }),
         );
-        yield* Effect.never;
-      }) as any,
-    );
-    runMock.mockClear();
+      });
 
-    const built = buildPartitioned(makeTracker(), makeInspector(), {
-      schema: schema as any,
-      offlineStorage: makeOfflineStorage(),
-      partitions: { id: () => partitionEntry({ cadence }) },
+      it('does NOT fork runCadenceSync when the entry has no cadence', async () => {
+        const runMock = vi.mocked(runCadenceSync);
+        runMock.mockClear();
+
+        const built = buildPartitioned(makeTracker(), makeInspector(), {
+          schema: schema as any,
+          offlineStorage: makeOfflineStorage(),
+          partitions: { id: () => partitionEntry() },
+        });
+
+        mountAndLoad(built);
+        await tick();
+
+        expect(runMock).not.toHaveBeenCalled();
+      });
+
+      it('does NOT fork when the entry sets cadence: false, even with a default', async () => {
+        const runMock = vi.mocked(runCadenceSync);
+        runMock.mockClear();
+
+        const built = buildPartitioned(makeTracker(), makeInspector(), {
+          schema: schema as any,
+          offlineStorage: makeOfflineStorage(),
+          defaultCadence: cadence,
+          partitions: { id: () => partitionEntry({ cadence: false }) },
+        });
+
+        mountAndLoad(built);
+        await tick();
+
+        expect(runMock).not.toHaveBeenCalled();
+      });
+
+      it('inherits the default cadence when the entry omits it', async () => {
+        const runMock = vi.mocked(runCadenceSync);
+        runMock.mockReturnValue(Effect.never as any);
+        runMock.mockClear();
+
+        const built = buildPartitioned(makeTracker(), makeInspector(), {
+          schema: schema as any,
+          offlineStorage: makeOfflineStorage(),
+          defaultCadence: cadence,
+          partitions: { id: () => partitionEntry() },
+        });
+
+        mountAndLoad(built);
+        await tick();
+
+        expect(runMock).toHaveBeenCalledOnce();
+        expect(runMock).toHaveBeenCalledWith(
+          expect.objectContaining({ config: cadence }),
+        );
+      });
+
+      it('closes the cadence scope when the partition deactivates', async () => {
+        const runMock = vi.mocked(runCadenceSync);
+        let scopeFinalizerRan = false;
+        runMock.mockReturnValue(
+          Effect.gen(function* () {
+            yield* Effect.addFinalizer(() =>
+              Effect.sync(() => {
+                scopeFinalizerRan = true;
+              }),
+            );
+            yield* Effect.never;
+          }) as any,
+        );
+        runMock.mockClear();
+
+        const built = buildPartitioned(makeTracker(), makeInspector(), {
+          schema: schema as any,
+          offlineStorage: makeOfflineStorage(),
+          partitions: { id: () => partitionEntry({ cadence }) },
+        });
+
+        const { result } = mountAndLoad(built);
+        await tick();
+        expect(runMock).toHaveBeenCalledOnce();
+
+        result.unloadSubset(loadSubsetOpts('p1'));
+        await tick();
+
+        expect(scopeFinalizerRan).toBe(true);
+      });
     });
-
-    const { result } = mountAndLoad(built);
-    await tick();
-    expect(runMock).toHaveBeenCalledOnce();
-
-    result.unloadSubset(loadSubsetOpts('p1'));
-    await tick();
-
-    expect(scopeFinalizerRan).toBe(true);
   });
 });

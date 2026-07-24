@@ -6,7 +6,6 @@ import type {
   LayerViolation,
   ModuleCoverage,
   ModuleViolation,
-  LaymosImportViolation,
   Violation,
 } from '../../report/index.js';
 import type { ResolvedProject } from '../resolve-architecture/index.js';
@@ -17,7 +16,6 @@ export type {
   LayerViolation,
   ModuleCoverage,
   ModuleViolation,
-  LaymosImportViolation,
   Violation,
 };
 
@@ -29,13 +27,7 @@ export interface RuleValidation {
 export function validateRules(
   resolved: ResolvedProject,
 ): Effect.Effect<RuleValidation> {
-  const violations: Violation[] = resolved.fileGraph.laymosImports.map(
-    (storyImport) => ({
-      kind: 'laymos-import',
-      from: { file: storyImport.from },
-      to: { module: storyImport.module, file: storyImport.to },
-    }),
-  );
+  const violations: Violation[] = [];
   const rules = new Map(
     (resolved.config.moduleRules ?? []).map((rule) => [rule.module.path, rule]),
   );

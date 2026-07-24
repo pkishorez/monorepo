@@ -30,1579 +30,1622 @@ const CommentSchema = EntityESchema.make('Comment', 'commentId', {
 
 // ─── Single Table Design ─────────────────────────────────────────────────────
 
-describe('SQLite Single Table Design', () => {
-  let db: DatabaseSync;
-  let layer: Layer.Layer<SqliteDB>;
+describe('SQLite', () => {
+  describe('Entity', () => {
+    describe('Operations', () => {
+      let db: DatabaseSync;
+      let layer: Layer.Layer<SqliteDB>;
 
-  // Create shared table with indexes
-  const table = SQLiteTable.make()
-    .primary('pk', 'sk')
-    .index('IDX1', 'IDX1PK', 'IDX1SK')
-    .index('IDX2', 'IDX2PK', 'IDX2SK')
-    .build();
+      // Create shared table with indexes
+      const table = SQLiteTable.make()
+        .primary('pk', 'sk')
+        .index('IDX1', 'IDX1PK', 'IDX1SK')
+        .index('IDX2', 'IDX2PK', 'IDX2SK')
+        .build();
 
-  // Create entities with derivations
-  // SK is automatic: uses idField for primary, _u for secondary
-  const userEntity = table
-    .entity(UserSchema)
-    .primary() // pk: entity name only, sk: userId (from idField)
-    .index('IDX1', 'byEmail', { pk: ['email'] }) // sk: _u
-    .build();
+      // Create entities with derivations
+      // SK is automatic: uses idField for primary, _u for secondary
+      const userEntity = table
+        .entity(UserSchema)
+        .primary() // pk: entity name only, sk: userId (from idField)
+        .index('IDX1', 'byEmail', { pk: ['email'] }) // sk: _u
+        .build();
 
-  const postEntity = table
-    .entity(PostSchema)
-    .primary({ pk: ['authorId'] }) // sk: postId (from idField)
-    .index('IDX1', 'byAuthor', { pk: ['authorId'] }) // sk: _u
-    .build();
+      const postEntity = table
+        .entity(PostSchema)
+        .primary({ pk: ['authorId'] }) // sk: postId (from idField)
+        .index('IDX1', 'byAuthor', { pk: ['authorId'] }) // sk: _u
+        .build();
 
-  it('rejects _u in primary partition key derivation', () => {
-    expect(() =>
-      (table.entity(UserSchema) as any).primary({ pk: ['_u'] }),
-    ).toThrow('Primary partition key derivation cannot include "_u"');
-  });
+      it('rejects _u in primary partition key derivation', () => {
+        expect(() =>
+          (table.entity(UserSchema) as any).primary({ pk: ['_u'] }),
+        ).toThrow('Primary partition key derivation cannot include "_u"');
+      });
 
-  beforeAll(async () => {
-    db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db, 'std_data');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-  });
+      beforeAll(async () => {
+        db = new DatabaseSync(':memory:');
+        layer = nodeSqliteLayer(db, 'std_data');
+        await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+      });
 
-  afterAll(() => db.close());
+      afterAll(() => db.close());
 
-  describe('setup', () => {
-    it('creates shared table', () => {
-      const tables = db
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='std_data'",
-        )
-        .all();
-      expect(tables).toHaveLength(1);
-    });
-
-    it('creates primary key columns', () => {
-      const columns = db.prepare('PRAGMA table_info(std_data)').all() as {
-        name: string;
-      }[];
-      const colNames = columns.map((c) => c.name);
-      expect(colNames).toContain('pk');
-      expect(colNames).toContain('sk');
-    });
-
-    it('creates secondary index columns', () => {
-      const columns = db.prepare('PRAGMA table_info(std_data)').all() as {
-        name: string;
-      }[];
-      const colNames = columns.map((c) => c.name);
-      expect(colNames).toContain('IDX1PK');
-      expect(colNames).toContain('IDX1SK');
-      expect(colNames).toContain('IDX2PK');
-      expect(colNames).toContain('IDX2SK');
-    });
-
-    it('creates secondary indexes', () => {
-      const indexes = db
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_std_data_%'",
-        )
-        .all();
-      expect(indexes.length).toBeGreaterThanOrEqual(2);
-    });
-  });
-
-  describe('insert with pk prefix', () => {
-    itEffect('inserts user with pk prefix User#', () =>
-      Effect.gen(function* () {
-        const result = yield* userEntity.insert({
-          userId: 'user-1',
-          email: 'test@example.com',
-          name: 'Test User',
+      describe('setup', () => {
+        it('creates shared table', () => {
+          const tables = db
+            .prepare(
+              "SELECT name FROM sqlite_master WHERE type='table' AND name='std_data'",
+            )
+            .all();
+          expect(tables).toHaveLength(1);
         });
 
-        expect(result.value).toEqual({
-          _v: 'v1',
-          userId: 'user-1',
-          email: 'test@example.com',
-          name: 'Test User',
-        });
-        expect(result.meta._e).toBe('User');
-        expect(result.meta._d).toBe(false);
-
-        // Verify the raw pk/sk in database - pk is just entity name (no pkDeps), sk is userId
-        const row = db
-          .prepare('SELECT pk, sk FROM std_data WHERE pk = ?')
-          .get('User') as { pk: string; sk: string } | undefined;
-        expect(row).toBeDefined();
-        expect(row!.pk).toBe('User');
-        expect(row!.sk).toBe('user-1');
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('inserts post with pk prefix Post#', () =>
-      Effect.gen(function* () {
-        const result = yield* postEntity.insert({
-          authorId: 'author-1',
-          postId: 'post-1',
-          title: 'First Post',
-          content: 'Hello World',
+        it('creates primary key columns', () => {
+          const columns = db.prepare('PRAGMA table_info(std_data)').all() as {
+            name: string;
+          }[];
+          const colNames = columns.map((c) => c.name);
+          expect(colNames).toContain('pk');
+          expect(colNames).toContain('sk');
         });
 
-        expect(result.value.authorId).toBe('author-1');
-        expect(result.meta._e).toBe('Post');
-
-        // Verify the raw pk/sk in database - pk has authorId, sk is postId
-        const row = db
-          .prepare('SELECT pk, sk FROM std_data WHERE pk = ?')
-          .get('Post#author-1') as { pk: string; sk: string } | undefined;
-        expect(row).toBeDefined();
-        expect(row!.pk).toBe('Post#author-1');
-        expect(row!.sk).toBe('post-1');
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('fails with ItemAlreadyExists on duplicate primary key', () =>
-      Effect.gen(function* () {
-        yield* userEntity.insert({
-          userId: 'user-dup',
-          email: 'dup@example.com',
-          name: 'Dup User',
+        it('creates secondary index columns', () => {
+          const columns = db.prepare('PRAGMA table_info(std_data)').all() as {
+            name: string;
+          }[];
+          const colNames = columns.map((c) => c.name);
+          expect(colNames).toContain('IDX1PK');
+          expect(colNames).toContain('IDX1SK');
+          expect(colNames).toContain('IDX2PK');
+          expect(colNames).toContain('IDX2SK');
         });
 
-        const error = yield* userEntity
-          .insert({
-            userId: 'user-dup',
-            email: 'dup2@example.com',
-            name: 'Dup User 2',
-          })
-          .pipe(Effect.flip);
-
-        expect(error.error._tag).toBe('ItemAlreadyExists');
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('get by pk+sk', () => {
-    itEffect('retrieves user by pk fields', () =>
-      Effect.gen(function* () {
-        const inserted = yield* userEntity.insert({
-          userId: 'user-get-1',
-          email: 'get@example.com',
-          name: 'Get User',
+        it('creates secondary indexes', () => {
+          const indexes = db
+            .prepare(
+              "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_std_data_%'",
+            )
+            .all();
+          expect(indexes.length).toBeGreaterThanOrEqual(2);
         });
+      });
 
-        const result = yield* userEntity.get({ userId: inserted.value.userId });
-        expect(result).not.toBeNull();
-        expect(result!.value.email).toBe('get@example.com');
-      }).pipe(Effect.provide(layer)),
-    );
+      describe('insert with pk prefix', () => {
+        itEffect('inserts user with pk prefix User#', () =>
+          Effect.gen(function* () {
+            const result = yield* userEntity.insert({
+              userId: 'user-1',
+              email: 'test@example.com',
+              name: 'Test User',
+            });
 
-    itEffect('retrieves post by composite pk fields', () =>
-      Effect.gen(function* () {
-        const inserted = yield* postEntity.insert({
-          authorId: 'author-get-1',
-          postId: 'post-get-1',
-          title: 'Get Test',
-          content: 'Content',
-        });
+            expect(result.value).toEqual({
+              _v: 'v1',
+              userId: 'user-1',
+              email: 'test@example.com',
+              name: 'Test User',
+            });
+            expect(result.meta._e).toBe('User');
+            expect(result.meta._d).toBe(false);
 
-        const result = yield* postEntity.get({
-          authorId: inserted.value.authorId,
-          postId: inserted.value.postId,
-        });
-        expect(result).not.toBeNull();
-        expect(result!.value.title).toBe('Get Test');
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('returns null for non-existent entity', () =>
-      Effect.gen(function* () {
-        const result = yield* userEntity.get({ userId: 'non-existent' });
-        expect(result).toBeNull();
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('update', () => {
-    itEffect('updates entity and preserves unchanged fields', () =>
-      Effect.gen(function* () {
-        const inserted = yield* userEntity.insert({
-          userId: 'user-update-1',
-          email: 'update@example.com',
-          name: 'Before',
-        });
-
-        const updated = yield* userEntity.getAndUpdate(
-          { userId: inserted.value.userId },
-          { name: 'After' },
+            // Verify the raw pk/sk in database - pk is just entity name (no pkDeps), sk is userId
+            const row = db
+              .prepare('SELECT pk, sk FROM std_data WHERE pk = ?')
+              .get('User') as { pk: string; sk: string } | undefined;
+            expect(row).toBeDefined();
+            expect(row!.pk).toBe('User');
+            expect(row!.sk).toBe('user-1');
+          }).pipe(Effect.provide(layer)),
         );
 
-        expect(updated.value.name).toBe('After');
-        expect(updated.value.email).toBe('update@example.com');
-      }).pipe(Effect.provide(layer)),
-    );
+        itEffect('inserts post with pk prefix Post#', () =>
+          Effect.gen(function* () {
+            const result = yield* postEntity.insert({
+              authorId: 'author-1',
+              postId: 'post-1',
+              title: 'First Post',
+              content: 'Hello World',
+            });
 
-    itEffect('fails for non-existent entity', () =>
-      Effect.gen(function* () {
-        const error = yield* userEntity
-          .getAndUpdate({ userId: 'non-existent' }, { name: 'X' })
-          .pipe(Effect.flip);
-        expect(error.error._tag).toBe('NoItemToUpdate');
-      }).pipe(Effect.provide(layer)),
-    );
+            expect(result.value.authorId).toBe('author-1');
+            expect(result.meta._e).toBe('Post');
 
-    itEffect('updates secondary index fields correctly', () =>
-      Effect.gen(function* () {
-        const inserted = yield* userEntity.insert({
-          userId: 'user-idx-update',
-          email: 'old@example.com',
-          name: 'Index User',
-        });
-
-        yield* userEntity.getAndUpdate(
-          { userId: inserted.value.userId },
-          { email: 'new@example.com' },
+            // Verify the raw pk/sk in database - pk has authorId, sk is postId
+            const row = db
+              .prepare('SELECT pk, sk FROM std_data WHERE pk = ?')
+              .get('Post#author-1') as { pk: string; sk: string } | undefined;
+            expect(row).toBeDefined();
+            expect(row!.pk).toBe('Post#author-1');
+            expect(row!.sk).toBe('post-1');
+          }).pipe(Effect.provide(layer)),
         );
 
-        // Should find by new email - sk is now _u
-        const byNew = yield* userEntity.query('byEmail', {
-          pk: { email: 'new@example.com' },
-          sk: { '>=': null },
+        itEffect('fails with ItemAlreadyExists on duplicate primary key', () =>
+          Effect.gen(function* () {
+            yield* userEntity.insert({
+              userId: 'user-dup',
+              email: 'dup@example.com',
+              name: 'Dup User',
+            });
+
+            const error = yield* userEntity
+              .insert({
+                userId: 'user-dup',
+                email: 'dup2@example.com',
+                name: 'Dup User 2',
+              })
+              .pipe(Effect.flip);
+
+            expect(error.error._tag).toBe('ItemAlreadyExists');
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('get by pk+sk', () => {
+        itEffect('retrieves user by pk fields', () =>
+          Effect.gen(function* () {
+            const inserted = yield* userEntity.insert({
+              userId: 'user-get-1',
+              email: 'get@example.com',
+              name: 'Get User',
+            });
+
+            const result = yield* userEntity.get({
+              userId: inserted.value.userId,
+            });
+            expect(result).not.toBeNull();
+            expect(result!.value.email).toBe('get@example.com');
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('retrieves post by composite pk fields', () =>
+          Effect.gen(function* () {
+            const inserted = yield* postEntity.insert({
+              authorId: 'author-get-1',
+              postId: 'post-get-1',
+              title: 'Get Test',
+              content: 'Content',
+            });
+
+            const result = yield* postEntity.get({
+              authorId: inserted.value.authorId,
+              postId: inserted.value.postId,
+            });
+            expect(result).not.toBeNull();
+            expect(result!.value.title).toBe('Get Test');
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('returns null for non-existent entity', () =>
+          Effect.gen(function* () {
+            const result = yield* userEntity.get({ userId: 'non-existent' });
+            expect(result).toBeNull();
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('update', () => {
+        itEffect('updates entity and preserves unchanged fields', () =>
+          Effect.gen(function* () {
+            const inserted = yield* userEntity.insert({
+              userId: 'user-update-1',
+              email: 'update@example.com',
+              name: 'Before',
+            });
+
+            const updated = yield* userEntity.getAndUpdate(
+              { userId: inserted.value.userId },
+              { name: 'After' },
+            );
+
+            expect(updated.value.name).toBe('After');
+            expect(updated.value.email).toBe('update@example.com');
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('fails for non-existent entity', () =>
+          Effect.gen(function* () {
+            const error = yield* userEntity
+              .getAndUpdate({ userId: 'non-existent' }, { name: 'X' })
+              .pipe(Effect.flip);
+            expect(error.error._tag).toBe('NoItemToUpdate');
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('updates secondary index fields correctly', () =>
+          Effect.gen(function* () {
+            const inserted = yield* userEntity.insert({
+              userId: 'user-idx-update',
+              email: 'old@example.com',
+              name: 'Index User',
+            });
+
+            yield* userEntity.getAndUpdate(
+              { userId: inserted.value.userId },
+              { email: 'new@example.com' },
+            );
+
+            // Should find by new email - sk is now _u
+            const byNew = yield* userEntity.query('byEmail', {
+              pk: { email: 'new@example.com' },
+              sk: { '>=': null },
+            });
+            expect(byNew.items).toHaveLength(1);
+            expect(byNew.items[0]!.value.userId).toBe('user-idx-update');
+
+            // Should not find by old email
+            const byOld = yield* userEntity.query('byEmail', {
+              pk: { email: 'old@example.com' },
+              sk: { '>=': null },
+            });
+            expect(byOld.items).toHaveLength(0);
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('delete (soft delete)', () => {
+        itEffect('marks entity as deleted', () =>
+          Effect.gen(function* () {
+            const inserted = yield* userEntity.insert({
+              userId: 'user-delete-1',
+              email: 'delete@example.com',
+              name: 'Delete Me',
+            });
+
+            const deleted = yield* userEntity.delete({
+              userId: inserted.value.userId,
+            });
+            expect(deleted.meta._d).toBe(true);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('fails for non-existent entity', () =>
+          Effect.gen(function* () {
+            const error = yield* userEntity
+              .delete({ userId: 'non-existent-delete' })
+              .pipe(Effect.flip);
+            expect(error.error._tag).toBe('NoItemToDelete');
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('query by primary key', () => {
+        beforeAll(async () => {
+          await Effect.runPromise(
+            Effect.gen(function* () {
+              // Insert multiple posts for the same author
+              yield* postEntity.insert({
+                authorId: 'query-author',
+                postId: 'post-a',
+                title: 'Post A',
+                content: 'A',
+              });
+              yield* postEntity.insert({
+                authorId: 'query-author',
+                postId: 'post-b',
+                title: 'Post B',
+                content: 'B',
+              });
+              yield* postEntity.insert({
+                authorId: 'query-author',
+                postId: 'post-c',
+                title: 'Post C',
+                content: 'C',
+              });
+            }).pipe(Effect.provide(layer)),
+          );
         });
-        expect(byNew.items).toHaveLength(1);
-        expect(byNew.items[0]!.value.userId).toBe('user-idx-update');
 
-        // Should not find by old email
-        const byOld = yield* userEntity.query('byEmail', {
-          pk: { email: 'old@example.com' },
-          sk: { '>=': null },
+        itEffect('queries all posts by author (partition query)', () =>
+          Effect.gen(function* () {
+            const result = yield* postEntity.query('primary', {
+              pk: { authorId: 'query-author' },
+              sk: { '>=': null },
+            });
+
+            const postIds = result.items.map((i) => i.value.postId);
+            expect(postIds).toContain('post-a');
+            expect(postIds).toContain('post-b');
+            expect(postIds).toContain('post-c');
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('queries posts with sk condition', () =>
+          Effect.gen(function* () {
+            const result = yield* postEntity.query('primary', {
+              pk: { authorId: 'query-author' },
+              sk: { '>=': 'post-b' },
+            });
+
+            const postIds = result.items.map((i) => i.value.postId);
+            expect(postIds).toContain('post-b');
+            expect(postIds).toContain('post-c');
+            expect(postIds).not.toContain('post-a');
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('queries with descending order', () =>
+          Effect.gen(function* () {
+            const result = yield* postEntity.query('primary', {
+              pk: { authorId: 'query-author' },
+              sk: { '<=': null },
+            });
+
+            const postIds = result.items.map((i) => i.value.postId);
+            // DESC order: c, b, a
+            expect(postIds[0]).toBe('post-c');
+            expect(postIds[postIds.length - 1]).toBe('post-a');
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('respects limit option', () =>
+          Effect.gen(function* () {
+            const result = yield* postEntity.query(
+              'primary',
+              {
+                pk: { authorId: 'query-author' },
+                sk: { '>=': null },
+              },
+              { limit: 2 },
+            );
+
+            expect(result.items).toHaveLength(2);
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('query by secondary index', () => {
+        beforeAll(async () => {
+          await Effect.runPromise(
+            Effect.gen(function* () {
+              yield* userEntity.insert({
+                userId: 'idx-user-1',
+                email: 'alpha@example.com',
+                name: 'Alpha',
+              });
+              yield* userEntity.insert({
+                userId: 'idx-user-2',
+                email: 'beta@example.com',
+                name: 'Beta',
+              });
+            }).pipe(Effect.provide(layer)),
+          );
         });
-        expect(byOld.items).toHaveLength(0);
-      }).pipe(Effect.provide(layer)),
-    );
-  });
 
-  describe('delete (soft delete)', () => {
-    itEffect('marks entity as deleted', () =>
-      Effect.gen(function* () {
-        const inserted = yield* userEntity.insert({
-          userId: 'user-delete-1',
-          email: 'delete@example.com',
-          name: 'Delete Me',
+        itEffect('queries user by email index', () =>
+          Effect.gen(function* () {
+            const result = yield* userEntity.query('byEmail', {
+              pk: { email: 'alpha@example.com' },
+              sk: { '>=': null },
+            });
+
+            expect(result.items).toHaveLength(1);
+            expect(result.items[0]!.value.name).toBe('Alpha');
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('entity registration', () => {
+        it('rejects duplicate entity names on the same table', () => {
+          expect(() => table.entity(UserSchema).primary().build()).toThrow(
+            'Entity "User" is already defined on this table',
+          );
         });
+      });
 
-        const deleted = yield* userEntity.delete({
-          userId: inserted.value.userId,
-        });
-        expect(deleted.meta._d).toBe(true);
-      }).pipe(Effect.provide(layer)),
-    );
+      describe('transact', () => {
+        itEffect('commits all ops on success', () =>
+          Effect.gen(function* () {
+            const userOp = yield* userEntity.insertOp({
+              userId: 'tx-user-1',
+              email: 'tx1@example.com',
+              name: 'Tx1',
+            });
+            const postOp = yield* postEntity.insertOp({
+              authorId: 'tx-author',
+              postId: 'tx-post-1',
+              title: 'Tx Post',
+              content: 'Content',
+            });
 
-    itEffect('fails for non-existent entity', () =>
-      Effect.gen(function* () {
-        const error = yield* userEntity
-          .delete({ userId: 'non-existent-delete' })
-          .pipe(Effect.flip);
-        expect(error.error._tag).toBe('NoItemToDelete');
-      }).pipe(Effect.provide(layer)),
-    );
-  });
+            yield* table.transact([userOp, postOp]);
 
-  describe('query by primary key', () => {
-    beforeAll(async () => {
-      await Effect.runPromise(
+            const user = yield* userEntity.get({ userId: 'tx-user-1' });
+            const post = yield* postEntity.get({
+              authorId: 'tx-author',
+              postId: 'tx-post-1',
+            });
+
+            expect(user).not.toBeNull();
+            expect(post).not.toBeNull();
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('stamps transaction cursors when writes are applied', () =>
+          Effect.gen(function* () {
+            const delayedOp = yield* userEntity.insertOp({
+              userId: 'tx-delayed',
+              email: 'tx-order@example.com',
+              name: 'Delayed',
+            });
+            const intervening = yield* userEntity.insert({
+              userId: 'tx-intervening',
+              email: 'tx-order@example.com',
+              name: 'Intervening',
+            });
+
+            const [written] = yield* table.transact([delayedOp]);
+
+            expect(written!.meta._u > intervening.meta._u).toBe(true);
+
+            const result = yield* userEntity.query('byEmail', {
+              pk: { email: 'tx-order@example.com' },
+              sk: { '>': intervening.meta._u },
+            });
+            expect(result.items.map((item) => item.value.userId)).toEqual([
+              'tx-delayed',
+            ]);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('rolls back every op when one fails its condition', () =>
+          Effect.gen(function* () {
+            yield* userEntity.insert({
+              userId: 'tx-dup-user',
+              email: 'txdup@example.com',
+              name: 'Dup',
+            });
+
+            const freshPostOp = yield* postEntity.insertOp({
+              authorId: 'tx-author-2',
+              postId: 'tx-post-2',
+              title: 'Should not persist',
+              content: 'Content',
+            });
+            const dupUserOp = yield* userEntity.insertOp({
+              userId: 'tx-dup-user',
+              email: 'other@example.com',
+              name: 'Other',
+            });
+
+            const error = yield* table
+              .transact([freshPostOp, dupUserOp])
+              .pipe(Effect.flip);
+            expect(error.error._tag).toBe('ConditionFailed');
+
+            const post = yield* postEntity.get({
+              authorId: 'tx-author-2',
+              postId: 'tx-post-2',
+            });
+            expect(post).toBeNull();
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('cross-entity in single table', () => {
+        itEffect('stores multiple entity types in same table', () =>
+          Effect.gen(function* () {
+            yield* userEntity.insert({
+              userId: 'cross-user',
+              email: 'cross@example.com',
+              name: 'Cross',
+            });
+            yield* postEntity.insert({
+              authorId: 'cross-author',
+              postId: 'cross-post',
+              title: 'Cross Post',
+              content: 'Content',
+            });
+
+            // Count all rows in table
+            const count = db
+              .prepare('SELECT COUNT(*) as count FROM std_data')
+              .get() as { count: number };
+            expect(count.count).toBeGreaterThan(1);
+
+            // Verify both entity types exist
+            const entities = db
+              .prepare('SELECT DISTINCT _e FROM std_data')
+              .all() as { _e: string }[];
+            const entityNames = entities.map((e) => e._e);
+            expect(entityNames).toContain('User');
+            expect(entityNames).toContain('Post');
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+    });
+
+    // ─── Query Operators Exhaustive Tests ────────────────────────────────────────
+
+    describe('Query Operators', () => {
+      let db: DatabaseSync;
+      let layer: Layer.Layer<SqliteDB>;
+
+      const table = SQLiteTable.make()
+        .primary('pk', 'sk')
+        .index('IDX1', 'IDX1PK', 'IDX1SK')
+        .build();
+
+      const ItemSchema = EntityESchema.make('Item', 'itemId', {
+        category: Schema.String,
+        value: Schema.Number,
+      }).build();
+
+      const itemEntity = table
+        .entity(ItemSchema)
+        .primary({ pk: ['category'] }) // sk: itemId (from idField)
+        .index('IDX1', 'byCategory', { pk: ['category'] }) // sk: _u
+        .build();
+
+      beforeAll(async () => {
+        db = new DatabaseSync(':memory:');
+        layer = nodeSqliteLayer(db, 'query_ops');
+        await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+        // Insert test data with sequential item IDs
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            yield* itemEntity.insert({
+              itemId: 'a',
+              category: 'cat-1',
+              value: 1,
+            });
+            yield* itemEntity.insert({
+              itemId: 'b',
+              category: 'cat-1',
+              value: 2,
+            });
+            yield* itemEntity.insert({
+              itemId: 'c',
+              category: 'cat-1',
+              value: 3,
+            });
+            yield* itemEntity.insert({
+              itemId: 'd',
+              category: 'cat-1',
+              value: 4,
+            });
+            yield* itemEntity.insert({
+              itemId: 'e',
+              category: 'cat-1',
+              value: 5,
+            });
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      afterAll(() => db.close());
+
+      describe('>= operator', () => {
+        itEffect('>= null returns all items in ascending order', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('primary', {
+              pk: { category: 'cat-1' },
+              sk: { '>=': null },
+            });
+
+            expect(result.items).toHaveLength(5);
+            const keys = result.items.map((i) => i.value.itemId);
+            expect(keys).toEqual(['a', 'b', 'c', 'd', 'e']);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect(
+          '>= specific value returns items from that point ascending',
+          () =>
+            Effect.gen(function* () {
+              const result = yield* itemEntity.query('primary', {
+                pk: { category: 'cat-1' },
+                sk: { '>=': 'c' },
+              });
+
+              const keys = result.items.map((i) => i.value.itemId);
+              expect(keys).toEqual(['c', 'd', 'e']);
+            }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('> operator', () => {
+        itEffect('> null returns all items in ascending order', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('primary', {
+              pk: { category: 'cat-1' },
+              sk: { '>': null },
+            });
+
+            expect(result.items).toHaveLength(5);
+            const keys = result.items.map((i) => i.value.itemId);
+            expect(keys).toEqual(['a', 'b', 'c', 'd', 'e']);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect(
+          '> specific value returns items after that point (exclusive)',
+          () =>
+            Effect.gen(function* () {
+              const result = yield* itemEntity.query('primary', {
+                pk: { category: 'cat-1' },
+                sk: { '>': 'c' },
+              });
+
+              const keys = result.items.map((i) => i.value.itemId);
+              expect(keys).toEqual(['d', 'e']);
+            }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('<= operator', () => {
+        itEffect('<= null returns all items in descending order', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('primary', {
+              pk: { category: 'cat-1' },
+              sk: { '<=': null },
+            });
+
+            expect(result.items).toHaveLength(5);
+            const keys = result.items.map((i) => i.value.itemId);
+            expect(keys).toEqual(['e', 'd', 'c', 'b', 'a']);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect(
+          '<= specific value returns items up to that point descending',
+          () =>
+            Effect.gen(function* () {
+              const result = yield* itemEntity.query('primary', {
+                pk: { category: 'cat-1' },
+                sk: { '<=': 'c' },
+              });
+
+              const keys = result.items.map((i) => i.value.itemId);
+              expect(keys).toEqual(['c', 'b', 'a']);
+            }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('< operator', () => {
+        itEffect('< null returns all items in descending order', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('primary', {
+              pk: { category: 'cat-1' },
+              sk: { '<': null },
+            });
+
+            expect(result.items).toHaveLength(5);
+            const keys = result.items.map((i) => i.value.itemId);
+            expect(keys).toEqual(['e', 'd', 'c', 'b', 'a']);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect(
+          '< specific value returns items before that point (exclusive)',
+          () =>
+            Effect.gen(function* () {
+              const result = yield* itemEntity.query('primary', {
+                pk: { category: 'cat-1' },
+                sk: { '<': 'c' },
+              });
+
+              const keys = result.items.map((i) => i.value.itemId);
+              expect(keys).toEqual(['b', 'a']);
+            }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('limit with operators', () => {
+        itEffect('>= null with limit returns first N ascending', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query(
+              'primary',
+              { pk: { category: 'cat-1' }, sk: { '>=': null } },
+              { limit: 2 },
+            );
+
+            const keys = result.items.map((i) => i.value.itemId);
+            expect(keys).toEqual(['a', 'b']);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('<= null with limit returns last N descending', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query(
+              'primary',
+              { pk: { category: 'cat-1' }, sk: { '<=': null } },
+              { limit: 2 },
+            );
+
+            const keys = result.items.map((i) => i.value.itemId);
+            expect(keys).toEqual(['e', 'd']);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('> specific value with limit', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query(
+              'primary',
+              { pk: { category: 'cat-1' }, sk: { '>': 'b' } },
+              { limit: 2 },
+            );
+
+            const keys = result.items.map((i) => i.value.itemId);
+            expect(keys).toEqual(['c', 'd']);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('< specific value with limit', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query(
+              'primary',
+              { pk: { category: 'cat-1' }, sk: { '<': 'd' } },
+              { limit: 2 },
+            );
+
+            const keys = result.items.map((i) => i.value.itemId);
+            expect(keys).toEqual(['c', 'b']);
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('secondary index operators', () => {
+        itEffect('secondary index >= null ascending', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('byCategory', {
+              pk: { category: 'cat-1' },
+              sk: { '>=': null },
+            });
+
+            // Secondary index uses _u for sk, so order is by insertion time
+            expect(result.items).toHaveLength(5);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('secondary index <= null descending', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('byCategory', {
+              pk: { category: 'cat-1' },
+              sk: { '<=': null },
+            });
+
+            // Secondary index uses _u for sk, so order is by insertion time (desc)
+            expect(result.items).toHaveLength(5);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('secondary index with limit', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query(
+              'byCategory',
+              { pk: { category: 'cat-1' }, sk: { '<=': null } },
+              { limit: 3 },
+            );
+
+            expect(result.items).toHaveLength(3);
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      describe('empty results', () => {
+        itEffect('returns empty array for non-existent partition', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('primary', {
+              pk: { category: 'non-existent' },
+              sk: { '>=': null },
+            });
+
+            expect(result.items).toHaveLength(0);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('> last item returns empty', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('primary', {
+              pk: { category: 'cat-1' },
+              sk: { '>': 'e' },
+            });
+
+            expect(result.items).toHaveLength(0);
+          }).pipe(Effect.provide(layer)),
+        );
+
+        itEffect('< first item returns empty', () =>
+          Effect.gen(function* () {
+            const result = yield* itemEntity.query('primary', {
+              pk: { category: 'cat-1' },
+              sk: { '<': 'a' },
+            });
+
+            expect(result.items).toHaveLength(0);
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+    });
+
+    // ─── Composite Sort Key Tests ────────────────────────────────────────────────
+    // Note: With the new simplified API, SK is always the idField for primary index.
+    // Composite sort keys are no longer supported in the simplified API.
+
+    describe('Primary Index with IdField', () => {
+      let db: DatabaseSync;
+      let layer: Layer.Layer<SqliteDB>;
+
+      const table = SQLiteTable.make()
+        .primary('pk', 'sk')
+        .index('IDX1', 'IDX1PK', 'IDX1SK')
+        .build();
+
+      const commentEntity = table
+        .entity(CommentSchema)
+        .primary({ pk: ['postId'] }) // sk: commentId (from idField)
+        .index('IDX1', 'byPost', { pk: ['postId'] }) // sk: _u
+        .build();
+
+      beforeAll(async () => {
+        db = new DatabaseSync(':memory:');
+        layer = nodeSqliteLayer(db, 'composite_sk');
+        await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+        // Insert comments
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            yield* commentEntity.insert({
+              postId: 'post-1',
+              timestamp: '2024-01-01T10:00:00Z',
+              commentId: 'c1',
+              text: 'First',
+            });
+            yield* commentEntity.insert({
+              postId: 'post-1',
+              timestamp: '2024-01-01T11:00:00Z',
+              commentId: 'c2',
+              text: 'Second',
+            });
+            yield* commentEntity.insert({
+              postId: 'post-1',
+              timestamp: '2024-01-01T11:00:00Z',
+              commentId: 'c3',
+              text: 'Third (same timestamp)',
+            });
+            yield* commentEntity.insert({
+              postId: 'post-1',
+              timestamp: '2024-01-01T12:00:00Z',
+              commentId: 'c4',
+              text: 'Fourth',
+            });
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      afterAll(() => db.close());
+
+      itEffect('queries with idField sk ascending', () =>
         Effect.gen(function* () {
-          // Insert multiple posts for the same author
-          yield* postEntity.insert({
-            authorId: 'query-author',
-            postId: 'post-a',
-            title: 'Post A',
-            content: 'A',
-          });
-          yield* postEntity.insert({
-            authorId: 'query-author',
-            postId: 'post-b',
-            title: 'Post B',
-            content: 'B',
-          });
-          yield* postEntity.insert({
-            authorId: 'query-author',
-            postId: 'post-c',
-            title: 'Post C',
-            content: 'C',
-          });
-        }).pipe(Effect.provide(layer)),
-      );
-    });
-
-    itEffect('queries all posts by author (partition query)', () =>
-      Effect.gen(function* () {
-        const result = yield* postEntity.query('primary', {
-          pk: { authorId: 'query-author' },
-          sk: { '>=': null },
-        });
-
-        const postIds = result.items.map((i) => i.value.postId);
-        expect(postIds).toContain('post-a');
-        expect(postIds).toContain('post-b');
-        expect(postIds).toContain('post-c');
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('queries posts with sk condition', () =>
-      Effect.gen(function* () {
-        const result = yield* postEntity.query('primary', {
-          pk: { authorId: 'query-author' },
-          sk: { '>=': 'post-b' },
-        });
-
-        const postIds = result.items.map((i) => i.value.postId);
-        expect(postIds).toContain('post-b');
-        expect(postIds).toContain('post-c');
-        expect(postIds).not.toContain('post-a');
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('queries with descending order', () =>
-      Effect.gen(function* () {
-        const result = yield* postEntity.query('primary', {
-          pk: { authorId: 'query-author' },
-          sk: { '<=': null },
-        });
-
-        const postIds = result.items.map((i) => i.value.postId);
-        // DESC order: c, b, a
-        expect(postIds[0]).toBe('post-c');
-        expect(postIds[postIds.length - 1]).toBe('post-a');
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('respects limit option', () =>
-      Effect.gen(function* () {
-        const result = yield* postEntity.query(
-          'primary',
-          {
-            pk: { authorId: 'query-author' },
+          const result = yield* commentEntity.query('primary', {
+            pk: { postId: 'post-1' },
             sk: { '>=': null },
-          },
-          { limit: 2 },
-        );
+          });
 
-        expect(result.items).toHaveLength(2);
-      }).pipe(Effect.provide(layer)),
-    );
-  });
+          expect(result.items).toHaveLength(4);
+          const ids = result.items.map((i) => i.value.commentId);
+          // Should be sorted by commentId (the idField)
+          expect(ids[0]).toBe('c1');
+          expect(ids[3]).toBe('c4');
+        }).pipe(Effect.provide(layer)),
+      );
 
-  describe('query by secondary index', () => {
-    beforeAll(async () => {
-      await Effect.runPromise(
+      itEffect('queries with idField sk descending', () =>
         Effect.gen(function* () {
-          yield* userEntity.insert({
-            userId: 'idx-user-1',
-            email: 'alpha@example.com',
-            name: 'Alpha',
+          const result = yield* commentEntity.query('primary', {
+            pk: { postId: 'post-1' },
+            sk: { '<=': null },
           });
-          yield* userEntity.insert({
-            userId: 'idx-user-2',
-            email: 'beta@example.com',
-            name: 'Beta',
+
+          const ids = result.items.map((i) => i.value.commentId);
+          expect(ids[0]).toBe('c4');
+          expect(ids[3]).toBe('c1');
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('queries with specific idField value', () =>
+        Effect.gen(function* () {
+          const result = yield* commentEntity.query('primary', {
+            pk: { postId: 'post-1' },
+            sk: { '>=': 'c2' },
           });
+
+          const ids = result.items.map((i) => i.value.commentId);
+          expect(ids).toContain('c2');
+          expect(ids).toContain('c3');
+          expect(ids).toContain('c4');
+          expect(ids).not.toContain('c1');
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('gets item by pk + idField', () =>
+        Effect.gen(function* () {
+          const result = yield* commentEntity.get({
+            postId: 'post-1',
+            commentId: 'c2',
+          });
+
+          expect(result).not.toBeNull();
+          expect(result!.value.text).toBe('Second');
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('secondary index queries by _u', () =>
+        Effect.gen(function* () {
+          const result = yield* commentEntity.query('byPost', {
+            pk: { postId: 'post-1' },
+            sk: { '>=': null },
+          });
+
+          // Secondary index sk is _u, so all items from post-1 are returned
+          expect(result.items.length).toBe(4);
         }).pipe(Effect.provide(layer)),
       );
     });
 
-    itEffect('queries user by email index', () =>
-      Effect.gen(function* () {
-        const result = yield* userEntity.query('byEmail', {
-          pk: { email: 'alpha@example.com' },
-          sk: { '>=': null },
-        });
+    describe('Hard delete', () => {
+      let db: DatabaseSync;
+      let layer: Layer.Layer<SqliteDB>;
 
-        expect(result.items).toHaveLength(1);
-        expect(result.items[0]!.value.name).toBe('Alpha');
-      }).pipe(Effect.provide(layer)),
-    );
-  });
+      const table = SQLiteTable.make().primary('pk', 'sk').build();
 
-  describe('entity registration', () => {
-    it('rejects duplicate entity names on the same table', () => {
-      expect(() => table.entity(UserSchema).primary().build()).toThrow(
-        'Entity "User" is already defined on this table',
+      const userEntity = table.entity(UserSchema).primary().build();
+
+      const postEntity = table
+        .entity(PostSchema)
+        .primary({ pk: ['authorId'] })
+        .build();
+
+      beforeAll(async () => {
+        db = new DatabaseSync(':memory:');
+        layer = nodeSqliteLayer(db, 'hard_delete_test');
+        await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+      });
+
+      afterAll(() => db.close());
+
+      itEffect('deletes only rows for the entity in a shared table', () =>
+        Effect.gen(function* () {
+          yield* userEntity.insert({
+            userId: 'user-hard-delete',
+            email: 'hard-delete@example.com',
+            name: 'Hard Delete',
+          });
+          yield* postEntity.insert({
+            authorId: 'author-hard-delete',
+            postId: 'post-hard-delete',
+            title: 'Preserved',
+            content: 'Still here',
+          });
+
+          const result = yield* userEntity.hardDelete();
+
+          expect(result.rowsDeleted).toBe(1);
+          expect(
+            db
+              .prepare(
+                'SELECT COUNT(*) as count FROM hard_delete_test WHERE _e = ?',
+              )
+              .get('User'),
+          ).toEqual({ count: 0 });
+          expect(
+            db
+              .prepare(
+                'SELECT COUNT(*) as count FROM hard_delete_test WHERE _e = ?',
+              )
+              .get('Post'),
+          ).toEqual({ count: 1 });
+        }).pipe(Effect.provide(layer)),
+      );
+    });
+
+    // ─── Transaction Tests ───────────────────────────────────────────────────────
+
+    describe('Transactions Advanced', () => {
+      let db: DatabaseSync;
+      let layer: Layer.Layer<SqliteDB>;
+
+      const table = SQLiteTable.make().primary('pk', 'sk').build();
+
+      const CounterSchema = EntityESchema.make('Counter', 'counterId', {
+        count: Schema.Number,
+      }).build();
+
+      const counterEntity = table
+        .entity(CounterSchema)
+        .primary() // pk: Counter (entity name), sk: counterId (from idField)
+        .build();
+
+      beforeEach(async () => {
+        db = new DatabaseSync(':memory:');
+        layer = nodeSqliteLayer(db, 'tx_test');
+        await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+      });
+
+      afterAll(() => db.close());
+
+      itEffect('transact commits multiple insert ops atomically', () =>
+        Effect.gen(function* () {
+          const c1Op = yield* counterEntity.insertOp({
+            counterId: 'c1',
+            count: 0,
+          });
+          const c2Op = yield* counterEntity.insertOp({
+            counterId: 'c2',
+            count: 0,
+          });
+          const c3Op = yield* counterEntity.insertOp({
+            counterId: 'c3',
+            count: 0,
+          });
+
+          yield* table.transact([c1Op, c2Op, c3Op]);
+
+          const c1 = yield* counterEntity.get({ counterId: 'c1' });
+          const c2 = yield* counterEntity.get({ counterId: 'c2' });
+          const c3 = yield* counterEntity.get({ counterId: 'c3' });
+
+          expect(c1).not.toBeNull();
+          expect(c2).not.toBeNull();
+          expect(c3).not.toBeNull();
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('transact rolls back all ops on a failed condition', () =>
+        Effect.gen(function* () {
+          yield* counterEntity.insert({ counterId: 'dup', count: 0 });
+
+          const r1Op = yield* counterEntity.insertOp({
+            counterId: 'r1',
+            count: 1,
+          });
+          const r2Op = yield* counterEntity.insertOp({
+            counterId: 'r2',
+            count: 2,
+          });
+          const dupOp = yield* counterEntity.insertOp({
+            counterId: 'dup',
+            count: 9,
+          });
+
+          const error = yield* table
+            .transact([r1Op, r2Op, dupOp])
+            .pipe(Effect.flip);
+          expect(error.error._tag).toBe('ConditionFailed');
+
+          // All should be rolled back
+          const r1 = yield* counterEntity.get({ counterId: 'r1' });
+          const r2 = yield* counterEntity.get({ counterId: 'r2' });
+          const dup = yield* counterEntity.get({ counterId: 'dup' });
+
+          expect(r1).toBeNull();
+          expect(r2).toBeNull();
+          expect(dup!.value.count).toBe(0);
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('transact update op fails when the read is stale', () =>
+        Effect.gen(function* () {
+          yield* counterEntity.insert({ counterId: 'u1', count: 0 });
+
+          const staleOp = yield* counterEntity.getAndUpdateOp(
+            { counterId: 'u1' },
+            { count: 1 },
+          );
+          // A concurrent writer bumps _u after the op captured expectedU.
+          yield* counterEntity.getAndUpdate({ counterId: 'u1' }, { count: 5 });
+
+          const error = yield* table.transact([staleOp]).pipe(Effect.flip);
+          expect(error.error._tag).toBe('ConditionFailed');
+
+          const result = yield* counterEntity.get({ counterId: 'u1' });
+          expect(result!.value.count).toBe(5);
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('transact with mixed insert and update ops', () =>
+        Effect.gen(function* () {
+          yield* counterEntity.insert({ counterId: 'm1', count: 10 });
+
+          const insertM2Op = yield* counterEntity.insertOp({
+            counterId: 'm2',
+            count: 20,
+          });
+          const updateM1Op = yield* counterEntity.getAndUpdateOp(
+            { counterId: 'm1' },
+            { count: 15 },
+          );
+
+          yield* table.transact([insertM2Op, updateM1Op]);
+
+          const m1 = yield* counterEntity.get({ counterId: 'm1' });
+          const m2 = yield* counterEntity.get({ counterId: 'm2' });
+
+          expect(m1!.value.count).toBe(15);
+          expect(m2).not.toBeNull();
+          expect(m2!.value.count).toBe(20);
+        }).pipe(Effect.provide(layer)),
+      );
+    });
+
+    // ─── Edge Cases ──────────────────────────────────────────────────────────────
+
+    describe('Edge cases', () => {
+      let db: DatabaseSync;
+      let layer: Layer.Layer<SqliteDB>;
+
+      const table = SQLiteTable.make().primary('pk', 'sk').build();
+
+      const SimpleSchema = EntityESchema.make('Simple', 'simpleId', {
+        value: Schema.Number,
+      }).build();
+
+      const simpleEntity = table
+        .entity(SimpleSchema)
+        .primary() // pk: Simple (entity name), sk: simpleId (from idField)
+        .build();
+
+      beforeAll(async () => {
+        db = new DatabaseSync(':memory:');
+        layer = nodeSqliteLayer(db, 'edge_data');
+        await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+      });
+
+      afterAll(() => db.close());
+
+      itEffect('handles special characters in keys', () =>
+        Effect.gen(function* () {
+          const inserted = yield* simpleEntity.insert({
+            simpleId: 'key#with#hashes',
+            value: 100,
+          });
+
+          const result = yield* simpleEntity.get({
+            simpleId: inserted.value.simpleId,
+          });
+          expect(result).not.toBeNull();
+          expect(result!.value.simpleId).toBe('key#with#hashes');
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('handles empty string values', () =>
+        Effect.gen(function* () {
+          const inserted = yield* simpleEntity.insert({
+            simpleId: '',
+            value: 0,
+          });
+
+          const result = yield* simpleEntity.get({
+            simpleId: inserted.value.simpleId,
+          });
+          expect(result).not.toBeNull();
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('handles unicode in keys and values', () =>
+        Effect.gen(function* () {
+          const inserted = yield* simpleEntity.insert({
+            simpleId: 'ключ-日本語-🎉',
+            value: 42,
+          });
+
+          const result = yield* simpleEntity.get({
+            simpleId: inserted.value.simpleId,
+          });
+          expect(result).not.toBeNull();
+          expect(result!.value.simpleId).toBe('ключ-日本語-🎉');
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('handles very long keys', () =>
+        Effect.gen(function* () {
+          const longId = 'x'.repeat(1000);
+          const inserted = yield* simpleEntity.insert({
+            simpleId: longId,
+            value: 999,
+          });
+
+          const result = yield* simpleEntity.get({
+            simpleId: inserted.value.simpleId,
+          });
+          expect(result).not.toBeNull();
+          expect(result!.value.simpleId).toBe(longId);
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('handles numeric edge values', () =>
+        Effect.gen(function* () {
+          const maxInserted = yield* simpleEntity.insert({
+            simpleId: 'max-int',
+            value: Number.MAX_SAFE_INTEGER,
+          });
+          const minInserted = yield* simpleEntity.insert({
+            simpleId: 'min-int',
+            value: Number.MIN_SAFE_INTEGER,
+          });
+          const zeroInserted = yield* simpleEntity.insert({
+            simpleId: 'zero',
+            value: 0,
+          });
+          const negInserted = yield* simpleEntity.insert({
+            simpleId: 'negative',
+            value: -123.456,
+          });
+
+          const max = yield* simpleEntity.get({
+            simpleId: maxInserted.value.simpleId,
+          });
+          const min = yield* simpleEntity.get({
+            simpleId: minInserted.value.simpleId,
+          });
+          const zero = yield* simpleEntity.get({
+            simpleId: zeroInserted.value.simpleId,
+          });
+          const neg = yield* simpleEntity.get({
+            simpleId: negInserted.value.simpleId,
+          });
+
+          expect(max!.value.value).toBe(Number.MAX_SAFE_INTEGER);
+          expect(min!.value.value).toBe(Number.MIN_SAFE_INTEGER);
+          expect(zero!.value.value).toBe(0);
+          expect(neg!.value.value).toBe(-123.456);
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('dangerouslyRemoveAllItems clears all data', () =>
+        Effect.gen(function* () {
+          yield* simpleEntity.insert({ simpleId: 'clear-1', value: 1 });
+          yield* simpleEntity.insert({ simpleId: 'clear-2', value: 2 });
+
+          const { itemsDeleted } = yield* table.dangerouslyRemoveAllItems(
+            'I KNOW WHAT I AM DOING',
+          );
+          expect(itemsDeleted).toBeGreaterThan(0);
+
+          // With pk being just entity name, pk is optional
+          const result = yield* simpleEntity.query('primary', {
+            sk: { '>=': null },
+          });
+          expect(result.items).toHaveLength(0);
+        }).pipe(Effect.provide(layer)),
+      );
+    });
+
+    // ─── Multiple Secondary Indexes ──────────────────────────────────────────────
+
+    describe('Multiple Secondary Indexes', () => {
+      let db: DatabaseSync;
+      let layer: Layer.Layer<SqliteDB>;
+
+      const table = SQLiteTable.make()
+        .primary('pk', 'sk')
+        .index('IDX1', 'IDX1PK', 'IDX1SK')
+        .index('IDX2', 'IDX2PK', 'IDX2SK')
+        .build();
+
+      const ProductSchema = EntityESchema.make('Product', 'productId', {
+        category: Schema.String,
+        brand: Schema.String,
+        price: Schema.Number,
+        name: Schema.String,
+      }).build();
+
+      const productEntity = table
+        .entity(ProductSchema)
+        .primary() // pk: Product (entity name), sk: productId (from idField)
+        .index('IDX1', 'byCategory', { pk: ['category'] }) // sk: _u
+        .index('IDX2', 'byBrand', { pk: ['brand'] }) // sk: _u
+        .build();
+
+      beforeAll(async () => {
+        db = new DatabaseSync(':memory:');
+        layer = nodeSqliteLayer(db, 'multi_idx');
+        await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            yield* productEntity.insert({
+              productId: 'p1',
+              category: 'electronics',
+              brand: 'apple',
+              price: 999,
+              name: 'iPhone',
+            });
+            yield* productEntity.insert({
+              productId: 'p2',
+              category: 'electronics',
+              brand: 'samsung',
+              price: 899,
+              name: 'Galaxy',
+            });
+            yield* productEntity.insert({
+              productId: 'p3',
+              category: 'clothing',
+              brand: 'nike',
+              price: 150,
+              name: 'Shoes',
+            });
+            yield* productEntity.insert({
+              productId: 'p4',
+              category: 'electronics',
+              brand: 'apple',
+              price: 1299,
+              name: 'MacBook',
+            });
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      afterAll(() => db.close());
+
+      itEffect('queries by first secondary index (category)', () =>
+        Effect.gen(function* () {
+          const result = yield* productEntity.query('byCategory', {
+            pk: { category: 'electronics' },
+            sk: { '>=': null },
+          });
+
+          expect(result.items).toHaveLength(3);
+          const names = result.items.map((i) => i.value.name);
+          expect(names).toContain('iPhone');
+          expect(names).toContain('Galaxy');
+          expect(names).toContain('MacBook');
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('queries by second secondary index (brand)', () =>
+        Effect.gen(function* () {
+          const result = yield* productEntity.query('byBrand', {
+            pk: { brand: 'apple' },
+            sk: { '>=': null },
+          });
+
+          expect(result.items).toHaveLength(2);
+          const names = result.items.map((i) => i.value.name);
+          expect(names).toContain('iPhone');
+          expect(names).toContain('MacBook');
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('both indexes return correct results independently', () =>
+        Effect.gen(function* () {
+          const byCategory = yield* productEntity.query('byCategory', {
+            pk: { category: 'clothing' },
+            sk: { '>=': null },
+          });
+
+          const byBrand = yield* productEntity.query('byBrand', {
+            pk: { brand: 'nike' },
+            sk: { '>=': null },
+          });
+
+          // Same product, different access patterns
+          expect(byCategory.items).toHaveLength(1);
+          expect(byBrand.items).toHaveLength(1);
+          expect(byCategory.items[0]!.value.productId).toBe(
+            byBrand.items[0]!.value.productId,
+          );
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('update reflects in all indexes', () =>
+        Effect.gen(function* () {
+          yield* productEntity.getAndUpdate(
+            { productId: 'p1' },
+            { category: 'phones' },
+          );
+
+          // Should not find in old category
+          const oldCategory = yield* productEntity.query('byCategory', {
+            pk: { category: 'electronics' },
+            sk: { '>=': null },
+          });
+          const oldIds = oldCategory.items.map((i) => i.value.productId);
+          expect(oldIds).not.toContain('p1');
+
+          // Should find in new category
+          const newCategory = yield* productEntity.query('byCategory', {
+            pk: { category: 'phones' },
+            sk: { '>=': null },
+          });
+          expect(newCategory.items).toHaveLength(1);
+          expect(newCategory.items[0]!.value.productId).toBe('p1');
+
+          // Brand index should still work
+          const byBrand = yield* productEntity.query('byBrand', {
+            pk: { brand: 'apple' },
+            sk: { '>=': null },
+          });
+          const brandIds = byBrand.items.map((i) => i.value.productId);
+          expect(brandIds).toContain('p1');
+        }).pipe(Effect.provide(layer)),
+      );
+    });
+
+    // ─── Cross-Entity Index Isolation ────────────────────────────────────────────
+
+    describe('Cross-Entity Index Isolation', () => {
+      let db: DatabaseSync;
+      let layer: Layer.Layer<SqliteDB>;
+
+      const table = SQLiteTable.make()
+        .primary('pk', 'sk')
+        .index('IDX1', 'IDX1PK', 'IDX1SK')
+        .index('IDX2', 'IDX2PK', 'IDX2SK')
+        .build();
+
+      // Two entities sharing the same entityIndexName with empty pk deps —
+      // this is the exact pattern that caused the "status is missing" decode error.
+      const SessionSchema = EntityESchema.make('Session', 'sessionId', {
+        status: Schema.Literals(['active', 'closed']),
+        path: Schema.String,
+      }).build();
+
+      const MessageSchema = EntityESchema.make('Message', 'messageId', {
+        sessionId: Schema.String,
+        text: Schema.String,
+      }).build();
+
+      const sessionEntity = table
+        .entity(SessionSchema)
+        .primary()
+        .index('IDX1', 'byStatus', { pk: ['status'] })
+        .index('IDX2', 'byUpdatedAt', { pk: [] })
+        .build();
+
+      const messageEntity = table
+        .entity(MessageSchema)
+        .primary({ pk: ['sessionId'] })
+        .index('IDX1', 'bySession', { pk: ['sessionId'] })
+        .index('IDX2', 'byUpdatedAt', { pk: [] })
+        .build();
+
+      beforeAll(async () => {
+        db = new DatabaseSync(':memory:');
+        layer = nodeSqliteLayer(db, 'isolation_test');
+        await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
+
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            yield* sessionEntity.insert({
+              sessionId: 's1',
+              status: 'active',
+              path: '/foo',
+            });
+            yield* messageEntity.insert({
+              messageId: 'm1',
+              sessionId: 's1',
+              text: 'hello',
+            });
+            yield* sessionEntity.insert({
+              sessionId: 's2',
+              status: 'closed',
+              path: '/bar',
+            });
+            yield* messageEntity.insert({
+              messageId: 'm2',
+              sessionId: 's1',
+              text: 'world',
+            });
+            yield* messageEntity.insert({
+              messageId: 'm3',
+              sessionId: 's2',
+              text: 'bye',
+            });
+          }).pipe(Effect.provide(layer)),
+        );
+      });
+
+      afterAll(() => db.close());
+
+      it('stores entity-scoped IDX2PK for sessions', () => {
+        const rows = db
+          .prepare("SELECT IDX2PK FROM isolation_test WHERE _e = 'Session'")
+          .all() as { IDX2PK: string }[];
+        expect(rows.length).toBeGreaterThan(0);
+        for (const row of rows) {
+          expect(row.IDX2PK).toBe('Session#byUpdatedAt');
+        }
+      });
+
+      it('stores entity-scoped IDX2PK for messages', () => {
+        const rows = db
+          .prepare("SELECT IDX2PK FROM isolation_test WHERE _e = 'Message'")
+          .all() as { IDX2PK: string }[];
+        expect(rows.length).toBeGreaterThan(0);
+        for (const row of rows) {
+          expect(row.IDX2PK).toBe('Message#byUpdatedAt');
+        }
+      });
+
+      it('IDX2PK partitions are distinct across entities', () => {
+        const pks = db
+          .prepare('SELECT DISTINCT IDX2PK FROM isolation_test')
+          .all() as { IDX2PK: string }[];
+        const pkValues = pks.map((r) => r.IDX2PK);
+        expect(pkValues).toContain('Session#byUpdatedAt');
+        expect(pkValues).toContain('Message#byUpdatedAt');
+        expect(pkValues).not.toContain('byUpdatedAt');
+      });
+
+      itEffect('querying sessions byUpdatedAt returns only sessions', () =>
+        Effect.gen(function* () {
+          const result = yield* sessionEntity.query('byUpdatedAt', {
+            pk: {},
+            sk: { '>=': null },
+          });
+
+          expect(result.items).toHaveLength(2);
+          for (const item of result.items) {
+            expect(item.meta._e).toBe('Session');
+            expect(item.value).toHaveProperty('status');
+            expect(item.value).toHaveProperty('path');
+          }
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('querying messages byUpdatedAt returns only messages', () =>
+        Effect.gen(function* () {
+          const result = yield* messageEntity.query('byUpdatedAt', {
+            pk: {},
+            sk: { '>=': null },
+          });
+
+          expect(result.items).toHaveLength(3);
+          for (const item of result.items) {
+            expect(item.meta._e).toBe('Message');
+            expect(item.value).toHaveProperty('text');
+            expect(item.value).toHaveProperty('sessionId');
+          }
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('cursor pagination on sessions never returns message rows', () =>
+        Effect.gen(function* () {
+          const first = yield* sessionEntity.query(
+            'byUpdatedAt',
+            { pk: {}, sk: { '>=': null } },
+            { limit: 1 },
+          );
+          expect(first.items).toHaveLength(1);
+          const cursor = first.items[0]!.meta._u;
+
+          const rest = yield* sessionEntity.query('byUpdatedAt', {
+            pk: {},
+            sk: { '>=': cursor },
+          });
+          // All returned rows must be sessions — messages must never appear
+          for (const item of rest.items) {
+            expect(item.meta._e).toBe('Session');
+            expect(item.value).toHaveProperty('status');
+          }
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect('adding more sessions does not affect message query count', () =>
+        Effect.gen(function* () {
+          yield* sessionEntity.insert({
+            sessionId: 's3',
+            status: 'active',
+            path: '/baz',
+          });
+
+          const sessions = yield* sessionEntity.query('byUpdatedAt', {
+            pk: {},
+            sk: { '>=': null },
+          });
+          const messages = yield* messageEntity.query('byUpdatedAt', {
+            pk: {},
+            sk: { '>=': null },
+          });
+
+          expect(sessions.items).toHaveLength(3);
+          expect(messages.items).toHaveLength(3);
+        }).pipe(Effect.provide(layer)),
       );
     });
   });
-
-  describe('transact', () => {
-    itEffect('commits all ops on success', () =>
-      Effect.gen(function* () {
-        const userOp = yield* userEntity.insertOp({
-          userId: 'tx-user-1',
-          email: 'tx1@example.com',
-          name: 'Tx1',
-        });
-        const postOp = yield* postEntity.insertOp({
-          authorId: 'tx-author',
-          postId: 'tx-post-1',
-          title: 'Tx Post',
-          content: 'Content',
-        });
-
-        yield* table.transact([userOp, postOp]);
-
-        const user = yield* userEntity.get({ userId: 'tx-user-1' });
-        const post = yield* postEntity.get({
-          authorId: 'tx-author',
-          postId: 'tx-post-1',
-        });
-
-        expect(user).not.toBeNull();
-        expect(post).not.toBeNull();
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('stamps transaction cursors when writes are applied', () =>
-      Effect.gen(function* () {
-        const delayedOp = yield* userEntity.insertOp({
-          userId: 'tx-delayed',
-          email: 'tx-order@example.com',
-          name: 'Delayed',
-        });
-        const intervening = yield* userEntity.insert({
-          userId: 'tx-intervening',
-          email: 'tx-order@example.com',
-          name: 'Intervening',
-        });
-
-        const [written] = yield* table.transact([delayedOp]);
-
-        expect(written!.meta._u > intervening.meta._u).toBe(true);
-
-        const result = yield* userEntity.query('byEmail', {
-          pk: { email: 'tx-order@example.com' },
-          sk: { '>': intervening.meta._u },
-        });
-        expect(result.items.map((item) => item.value.userId)).toEqual([
-          'tx-delayed',
-        ]);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('rolls back every op when one fails its condition', () =>
-      Effect.gen(function* () {
-        yield* userEntity.insert({
-          userId: 'tx-dup-user',
-          email: 'txdup@example.com',
-          name: 'Dup',
-        });
-
-        const freshPostOp = yield* postEntity.insertOp({
-          authorId: 'tx-author-2',
-          postId: 'tx-post-2',
-          title: 'Should not persist',
-          content: 'Content',
-        });
-        const dupUserOp = yield* userEntity.insertOp({
-          userId: 'tx-dup-user',
-          email: 'other@example.com',
-          name: 'Other',
-        });
-
-        const error = yield* table
-          .transact([freshPostOp, dupUserOp])
-          .pipe(Effect.flip);
-        expect(error.error._tag).toBe('ConditionFailed');
-
-        const post = yield* postEntity.get({
-          authorId: 'tx-author-2',
-          postId: 'tx-post-2',
-        });
-        expect(post).toBeNull();
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('cross-entity in single table', () => {
-    itEffect('stores multiple entity types in same table', () =>
-      Effect.gen(function* () {
-        yield* userEntity.insert({
-          userId: 'cross-user',
-          email: 'cross@example.com',
-          name: 'Cross',
-        });
-        yield* postEntity.insert({
-          authorId: 'cross-author',
-          postId: 'cross-post',
-          title: 'Cross Post',
-          content: 'Content',
-        });
-
-        // Count all rows in table
-        const count = db
-          .prepare('SELECT COUNT(*) as count FROM std_data')
-          .get() as { count: number };
-        expect(count.count).toBeGreaterThan(1);
-
-        // Verify both entity types exist
-        const entities = db
-          .prepare('SELECT DISTINCT _e FROM std_data')
-          .all() as { _e: string }[];
-        const entityNames = entities.map((e) => e._e);
-        expect(entityNames).toContain('User');
-        expect(entityNames).toContain('Post');
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-});
-
-// ─── Query Operators Exhaustive Tests ────────────────────────────────────────
-
-describe('Query Operators', () => {
-  let db: DatabaseSync;
-  let layer: Layer.Layer<SqliteDB>;
-
-  const table = SQLiteTable.make()
-    .primary('pk', 'sk')
-    .index('IDX1', 'IDX1PK', 'IDX1SK')
-    .build();
-
-  const ItemSchema = EntityESchema.make('Item', 'itemId', {
-    category: Schema.String,
-    value: Schema.Number,
-  }).build();
-
-  const itemEntity = table
-    .entity(ItemSchema)
-    .primary({ pk: ['category'] }) // sk: itemId (from idField)
-    .index('IDX1', 'byCategory', { pk: ['category'] }) // sk: _u
-    .build();
-
-  beforeAll(async () => {
-    db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db, 'query_ops');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-
-    // Insert test data with sequential item IDs
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* itemEntity.insert({ itemId: 'a', category: 'cat-1', value: 1 });
-        yield* itemEntity.insert({ itemId: 'b', category: 'cat-1', value: 2 });
-        yield* itemEntity.insert({ itemId: 'c', category: 'cat-1', value: 3 });
-        yield* itemEntity.insert({ itemId: 'd', category: 'cat-1', value: 4 });
-        yield* itemEntity.insert({ itemId: 'e', category: 'cat-1', value: 5 });
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  afterAll(() => db.close());
-
-  describe('>= operator', () => {
-    itEffect('>= null returns all items in ascending order', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('primary', {
-          pk: { category: 'cat-1' },
-          sk: { '>=': null },
-        });
-
-        expect(result.items).toHaveLength(5);
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['a', 'b', 'c', 'd', 'e']);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('>= specific value returns items from that point ascending', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('primary', {
-          pk: { category: 'cat-1' },
-          sk: { '>=': 'c' },
-        });
-
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['c', 'd', 'e']);
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('> operator', () => {
-    itEffect('> null returns all items in ascending order', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('primary', {
-          pk: { category: 'cat-1' },
-          sk: { '>': null },
-        });
-
-        expect(result.items).toHaveLength(5);
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['a', 'b', 'c', 'd', 'e']);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect(
-      '> specific value returns items after that point (exclusive)',
-      () =>
-        Effect.gen(function* () {
-          const result = yield* itemEntity.query('primary', {
-            pk: { category: 'cat-1' },
-            sk: { '>': 'c' },
-          });
-
-          const keys = result.items.map((i) => i.value.itemId);
-          expect(keys).toEqual(['d', 'e']);
-        }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('<= operator', () => {
-    itEffect('<= null returns all items in descending order', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('primary', {
-          pk: { category: 'cat-1' },
-          sk: { '<=': null },
-        });
-
-        expect(result.items).toHaveLength(5);
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['e', 'd', 'c', 'b', 'a']);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect(
-      '<= specific value returns items up to that point descending',
-      () =>
-        Effect.gen(function* () {
-          const result = yield* itemEntity.query('primary', {
-            pk: { category: 'cat-1' },
-            sk: { '<=': 'c' },
-          });
-
-          const keys = result.items.map((i) => i.value.itemId);
-          expect(keys).toEqual(['c', 'b', 'a']);
-        }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('< operator', () => {
-    itEffect('< null returns all items in descending order', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('primary', {
-          pk: { category: 'cat-1' },
-          sk: { '<': null },
-        });
-
-        expect(result.items).toHaveLength(5);
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['e', 'd', 'c', 'b', 'a']);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect(
-      '< specific value returns items before that point (exclusive)',
-      () =>
-        Effect.gen(function* () {
-          const result = yield* itemEntity.query('primary', {
-            pk: { category: 'cat-1' },
-            sk: { '<': 'c' },
-          });
-
-          const keys = result.items.map((i) => i.value.itemId);
-          expect(keys).toEqual(['b', 'a']);
-        }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('limit with operators', () => {
-    itEffect('>= null with limit returns first N ascending', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query(
-          'primary',
-          { pk: { category: 'cat-1' }, sk: { '>=': null } },
-          { limit: 2 },
-        );
-
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['a', 'b']);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('<= null with limit returns last N descending', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query(
-          'primary',
-          { pk: { category: 'cat-1' }, sk: { '<=': null } },
-          { limit: 2 },
-        );
-
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['e', 'd']);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('> specific value with limit', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query(
-          'primary',
-          { pk: { category: 'cat-1' }, sk: { '>': 'b' } },
-          { limit: 2 },
-        );
-
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['c', 'd']);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('< specific value with limit', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query(
-          'primary',
-          { pk: { category: 'cat-1' }, sk: { '<': 'd' } },
-          { limit: 2 },
-        );
-
-        const keys = result.items.map((i) => i.value.itemId);
-        expect(keys).toEqual(['c', 'b']);
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('secondary index operators', () => {
-    itEffect('secondary index >= null ascending', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('byCategory', {
-          pk: { category: 'cat-1' },
-          sk: { '>=': null },
-        });
-
-        // Secondary index uses _u for sk, so order is by insertion time
-        expect(result.items).toHaveLength(5);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('secondary index <= null descending', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('byCategory', {
-          pk: { category: 'cat-1' },
-          sk: { '<=': null },
-        });
-
-        // Secondary index uses _u for sk, so order is by insertion time (desc)
-        expect(result.items).toHaveLength(5);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('secondary index with limit', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query(
-          'byCategory',
-          { pk: { category: 'cat-1' }, sk: { '<=': null } },
-          { limit: 3 },
-        );
-
-        expect(result.items).toHaveLength(3);
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  describe('empty results', () => {
-    itEffect('returns empty array for non-existent partition', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('primary', {
-          pk: { category: 'non-existent' },
-          sk: { '>=': null },
-        });
-
-        expect(result.items).toHaveLength(0);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('> last item returns empty', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('primary', {
-          pk: { category: 'cat-1' },
-          sk: { '>': 'e' },
-        });
-
-        expect(result.items).toHaveLength(0);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    itEffect('< first item returns empty', () =>
-      Effect.gen(function* () {
-        const result = yield* itemEntity.query('primary', {
-          pk: { category: 'cat-1' },
-          sk: { '<': 'a' },
-        });
-
-        expect(result.items).toHaveLength(0);
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-});
-
-// ─── Composite Sort Key Tests ────────────────────────────────────────────────
-// Note: With the new simplified API, SK is always the idField for primary index.
-// Composite sort keys are no longer supported in the simplified API.
-
-describe('Primary Index with IdField', () => {
-  let db: DatabaseSync;
-  let layer: Layer.Layer<SqliteDB>;
-
-  const table = SQLiteTable.make()
-    .primary('pk', 'sk')
-    .index('IDX1', 'IDX1PK', 'IDX1SK')
-    .build();
-
-  const commentEntity = table
-    .entity(CommentSchema)
-    .primary({ pk: ['postId'] }) // sk: commentId (from idField)
-    .index('IDX1', 'byPost', { pk: ['postId'] }) // sk: _u
-    .build();
-
-  beforeAll(async () => {
-    db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db, 'composite_sk');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-
-    // Insert comments
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* commentEntity.insert({
-          postId: 'post-1',
-          timestamp: '2024-01-01T10:00:00Z',
-          commentId: 'c1',
-          text: 'First',
-        });
-        yield* commentEntity.insert({
-          postId: 'post-1',
-          timestamp: '2024-01-01T11:00:00Z',
-          commentId: 'c2',
-          text: 'Second',
-        });
-        yield* commentEntity.insert({
-          postId: 'post-1',
-          timestamp: '2024-01-01T11:00:00Z',
-          commentId: 'c3',
-          text: 'Third (same timestamp)',
-        });
-        yield* commentEntity.insert({
-          postId: 'post-1',
-          timestamp: '2024-01-01T12:00:00Z',
-          commentId: 'c4',
-          text: 'Fourth',
-        });
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  afterAll(() => db.close());
-
-  itEffect('queries with idField sk ascending', () =>
-    Effect.gen(function* () {
-      const result = yield* commentEntity.query('primary', {
-        pk: { postId: 'post-1' },
-        sk: { '>=': null },
-      });
-
-      expect(result.items).toHaveLength(4);
-      const ids = result.items.map((i) => i.value.commentId);
-      // Should be sorted by commentId (the idField)
-      expect(ids[0]).toBe('c1');
-      expect(ids[3]).toBe('c4');
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('queries with idField sk descending', () =>
-    Effect.gen(function* () {
-      const result = yield* commentEntity.query('primary', {
-        pk: { postId: 'post-1' },
-        sk: { '<=': null },
-      });
-
-      const ids = result.items.map((i) => i.value.commentId);
-      expect(ids[0]).toBe('c4');
-      expect(ids[3]).toBe('c1');
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('queries with specific idField value', () =>
-    Effect.gen(function* () {
-      const result = yield* commentEntity.query('primary', {
-        pk: { postId: 'post-1' },
-        sk: { '>=': 'c2' },
-      });
-
-      const ids = result.items.map((i) => i.value.commentId);
-      expect(ids).toContain('c2');
-      expect(ids).toContain('c3');
-      expect(ids).toContain('c4');
-      expect(ids).not.toContain('c1');
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('gets item by pk + idField', () =>
-    Effect.gen(function* () {
-      const result = yield* commentEntity.get({
-        postId: 'post-1',
-        commentId: 'c2',
-      });
-
-      expect(result).not.toBeNull();
-      expect(result!.value.text).toBe('Second');
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('secondary index queries by _u', () =>
-    Effect.gen(function* () {
-      const result = yield* commentEntity.query('byPost', {
-        pk: { postId: 'post-1' },
-        sk: { '>=': null },
-      });
-
-      // Secondary index sk is _u, so all items from post-1 are returned
-      expect(result.items.length).toBe(4);
-    }).pipe(Effect.provide(layer)),
-  );
-});
-
-describe('SQLiteEntity hardDelete', () => {
-  let db: DatabaseSync;
-  let layer: Layer.Layer<SqliteDB>;
-
-  const table = SQLiteTable.make().primary('pk', 'sk').build();
-
-  const userEntity = table.entity(UserSchema).primary().build();
-
-  const postEntity = table
-    .entity(PostSchema)
-    .primary({ pk: ['authorId'] })
-    .build();
-
-  beforeAll(async () => {
-    db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db, 'hard_delete_test');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-  });
-
-  afterAll(() => db.close());
-
-  itEffect('deletes only rows for the entity in a shared table', () =>
-    Effect.gen(function* () {
-      yield* userEntity.insert({
-        userId: 'user-hard-delete',
-        email: 'hard-delete@example.com',
-        name: 'Hard Delete',
-      });
-      yield* postEntity.insert({
-        authorId: 'author-hard-delete',
-        postId: 'post-hard-delete',
-        title: 'Preserved',
-        content: 'Still here',
-      });
-
-      const result = yield* userEntity.hardDelete();
-
-      expect(result.rowsDeleted).toBe(1);
-      expect(
-        db
-          .prepare(
-            'SELECT COUNT(*) as count FROM hard_delete_test WHERE _e = ?',
-          )
-          .get('User'),
-      ).toEqual({ count: 0 });
-      expect(
-        db
-          .prepare(
-            'SELECT COUNT(*) as count FROM hard_delete_test WHERE _e = ?',
-          )
-          .get('Post'),
-      ).toEqual({ count: 1 });
-    }).pipe(Effect.provide(layer)),
-  );
-});
-
-// ─── Transaction Tests ───────────────────────────────────────────────────────
-
-describe('Transactions Advanced', () => {
-  let db: DatabaseSync;
-  let layer: Layer.Layer<SqliteDB>;
-
-  const table = SQLiteTable.make().primary('pk', 'sk').build();
-
-  const CounterSchema = EntityESchema.make('Counter', 'counterId', {
-    count: Schema.Number,
-  }).build();
-
-  const counterEntity = table
-    .entity(CounterSchema)
-    .primary() // pk: Counter (entity name), sk: counterId (from idField)
-    .build();
-
-  beforeEach(async () => {
-    db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db, 'tx_test');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-  });
-
-  afterAll(() => db.close());
-
-  itEffect('transact commits multiple insert ops atomically', () =>
-    Effect.gen(function* () {
-      const c1Op = yield* counterEntity.insertOp({ counterId: 'c1', count: 0 });
-      const c2Op = yield* counterEntity.insertOp({ counterId: 'c2', count: 0 });
-      const c3Op = yield* counterEntity.insertOp({ counterId: 'c3', count: 0 });
-
-      yield* table.transact([c1Op, c2Op, c3Op]);
-
-      const c1 = yield* counterEntity.get({ counterId: 'c1' });
-      const c2 = yield* counterEntity.get({ counterId: 'c2' });
-      const c3 = yield* counterEntity.get({ counterId: 'c3' });
-
-      expect(c1).not.toBeNull();
-      expect(c2).not.toBeNull();
-      expect(c3).not.toBeNull();
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('transact rolls back all ops on a failed condition', () =>
-    Effect.gen(function* () {
-      yield* counterEntity.insert({ counterId: 'dup', count: 0 });
-
-      const r1Op = yield* counterEntity.insertOp({ counterId: 'r1', count: 1 });
-      const r2Op = yield* counterEntity.insertOp({ counterId: 'r2', count: 2 });
-      const dupOp = yield* counterEntity.insertOp({
-        counterId: 'dup',
-        count: 9,
-      });
-
-      const error = yield* table
-        .transact([r1Op, r2Op, dupOp])
-        .pipe(Effect.flip);
-      expect(error.error._tag).toBe('ConditionFailed');
-
-      // All should be rolled back
-      const r1 = yield* counterEntity.get({ counterId: 'r1' });
-      const r2 = yield* counterEntity.get({ counterId: 'r2' });
-      const dup = yield* counterEntity.get({ counterId: 'dup' });
-
-      expect(r1).toBeNull();
-      expect(r2).toBeNull();
-      expect(dup!.value.count).toBe(0);
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('transact update op fails when the read is stale', () =>
-    Effect.gen(function* () {
-      yield* counterEntity.insert({ counterId: 'u1', count: 0 });
-
-      const staleOp = yield* counterEntity.getAndUpdateOp(
-        { counterId: 'u1' },
-        { count: 1 },
-      );
-      // A concurrent writer bumps _u after the op captured expectedU.
-      yield* counterEntity.getAndUpdate({ counterId: 'u1' }, { count: 5 });
-
-      const error = yield* table.transact([staleOp]).pipe(Effect.flip);
-      expect(error.error._tag).toBe('ConditionFailed');
-
-      const result = yield* counterEntity.get({ counterId: 'u1' });
-      expect(result!.value.count).toBe(5);
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('transact with mixed insert and update ops', () =>
-    Effect.gen(function* () {
-      yield* counterEntity.insert({ counterId: 'm1', count: 10 });
-
-      const insertM2Op = yield* counterEntity.insertOp({
-        counterId: 'm2',
-        count: 20,
-      });
-      const updateM1Op = yield* counterEntity.getAndUpdateOp(
-        { counterId: 'm1' },
-        { count: 15 },
-      );
-
-      yield* table.transact([insertM2Op, updateM1Op]);
-
-      const m1 = yield* counterEntity.get({ counterId: 'm1' });
-      const m2 = yield* counterEntity.get({ counterId: 'm2' });
-
-      expect(m1!.value.count).toBe(15);
-      expect(m2).not.toBeNull();
-      expect(m2!.value.count).toBe(20);
-    }).pipe(Effect.provide(layer)),
-  );
-});
-
-// ─── Edge Cases ──────────────────────────────────────────────────────────────
-
-describe('SQLite Entity Edge Cases', () => {
-  let db: DatabaseSync;
-  let layer: Layer.Layer<SqliteDB>;
-
-  const table = SQLiteTable.make().primary('pk', 'sk').build();
-
-  const SimpleSchema = EntityESchema.make('Simple', 'simpleId', {
-    value: Schema.Number,
-  }).build();
-
-  const simpleEntity = table
-    .entity(SimpleSchema)
-    .primary() // pk: Simple (entity name), sk: simpleId (from idField)
-    .build();
-
-  beforeAll(async () => {
-    db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db, 'edge_data');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-  });
-
-  afterAll(() => db.close());
-
-  itEffect('handles special characters in keys', () =>
-    Effect.gen(function* () {
-      const inserted = yield* simpleEntity.insert({
-        simpleId: 'key#with#hashes',
-        value: 100,
-      });
-
-      const result = yield* simpleEntity.get({
-        simpleId: inserted.value.simpleId,
-      });
-      expect(result).not.toBeNull();
-      expect(result!.value.simpleId).toBe('key#with#hashes');
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('handles empty string values', () =>
-    Effect.gen(function* () {
-      const inserted = yield* simpleEntity.insert({
-        simpleId: '',
-        value: 0,
-      });
-
-      const result = yield* simpleEntity.get({
-        simpleId: inserted.value.simpleId,
-      });
-      expect(result).not.toBeNull();
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('handles unicode in keys and values', () =>
-    Effect.gen(function* () {
-      const inserted = yield* simpleEntity.insert({
-        simpleId: 'ключ-日本語-🎉',
-        value: 42,
-      });
-
-      const result = yield* simpleEntity.get({
-        simpleId: inserted.value.simpleId,
-      });
-      expect(result).not.toBeNull();
-      expect(result!.value.simpleId).toBe('ключ-日本語-🎉');
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('handles very long keys', () =>
-    Effect.gen(function* () {
-      const longId = 'x'.repeat(1000);
-      const inserted = yield* simpleEntity.insert({
-        simpleId: longId,
-        value: 999,
-      });
-
-      const result = yield* simpleEntity.get({
-        simpleId: inserted.value.simpleId,
-      });
-      expect(result).not.toBeNull();
-      expect(result!.value.simpleId).toBe(longId);
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('handles numeric edge values', () =>
-    Effect.gen(function* () {
-      const maxInserted = yield* simpleEntity.insert({
-        simpleId: 'max-int',
-        value: Number.MAX_SAFE_INTEGER,
-      });
-      const minInserted = yield* simpleEntity.insert({
-        simpleId: 'min-int',
-        value: Number.MIN_SAFE_INTEGER,
-      });
-      const zeroInserted = yield* simpleEntity.insert({
-        simpleId: 'zero',
-        value: 0,
-      });
-      const negInserted = yield* simpleEntity.insert({
-        simpleId: 'negative',
-        value: -123.456,
-      });
-
-      const max = yield* simpleEntity.get({
-        simpleId: maxInserted.value.simpleId,
-      });
-      const min = yield* simpleEntity.get({
-        simpleId: minInserted.value.simpleId,
-      });
-      const zero = yield* simpleEntity.get({
-        simpleId: zeroInserted.value.simpleId,
-      });
-      const neg = yield* simpleEntity.get({
-        simpleId: negInserted.value.simpleId,
-      });
-
-      expect(max!.value.value).toBe(Number.MAX_SAFE_INTEGER);
-      expect(min!.value.value).toBe(Number.MIN_SAFE_INTEGER);
-      expect(zero!.value.value).toBe(0);
-      expect(neg!.value.value).toBe(-123.456);
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('dangerouslyRemoveAllItems clears all data', () =>
-    Effect.gen(function* () {
-      yield* simpleEntity.insert({ simpleId: 'clear-1', value: 1 });
-      yield* simpleEntity.insert({ simpleId: 'clear-2', value: 2 });
-
-      const { itemsDeleted } = yield* table.dangerouslyRemoveAllItems(
-        'I KNOW WHAT I AM DOING',
-      );
-      expect(itemsDeleted).toBeGreaterThan(0);
-
-      // With pk being just entity name, pk is optional
-      const result = yield* simpleEntity.query('primary', {
-        sk: { '>=': null },
-      });
-      expect(result.items).toHaveLength(0);
-    }).pipe(Effect.provide(layer)),
-  );
-});
-
-// ─── Multiple Secondary Indexes ──────────────────────────────────────────────
-
-describe('Multiple Secondary Indexes', () => {
-  let db: DatabaseSync;
-  let layer: Layer.Layer<SqliteDB>;
-
-  const table = SQLiteTable.make()
-    .primary('pk', 'sk')
-    .index('IDX1', 'IDX1PK', 'IDX1SK')
-    .index('IDX2', 'IDX2PK', 'IDX2SK')
-    .build();
-
-  const ProductSchema = EntityESchema.make('Product', 'productId', {
-    category: Schema.String,
-    brand: Schema.String,
-    price: Schema.Number,
-    name: Schema.String,
-  }).build();
-
-  const productEntity = table
-    .entity(ProductSchema)
-    .primary() // pk: Product (entity name), sk: productId (from idField)
-    .index('IDX1', 'byCategory', { pk: ['category'] }) // sk: _u
-    .index('IDX2', 'byBrand', { pk: ['brand'] }) // sk: _u
-    .build();
-
-  beforeAll(async () => {
-    db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db, 'multi_idx');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* productEntity.insert({
-          productId: 'p1',
-          category: 'electronics',
-          brand: 'apple',
-          price: 999,
-          name: 'iPhone',
-        });
-        yield* productEntity.insert({
-          productId: 'p2',
-          category: 'electronics',
-          brand: 'samsung',
-          price: 899,
-          name: 'Galaxy',
-        });
-        yield* productEntity.insert({
-          productId: 'p3',
-          category: 'clothing',
-          brand: 'nike',
-          price: 150,
-          name: 'Shoes',
-        });
-        yield* productEntity.insert({
-          productId: 'p4',
-          category: 'electronics',
-          brand: 'apple',
-          price: 1299,
-          name: 'MacBook',
-        });
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  afterAll(() => db.close());
-
-  itEffect('queries by first secondary index (category)', () =>
-    Effect.gen(function* () {
-      const result = yield* productEntity.query('byCategory', {
-        pk: { category: 'electronics' },
-        sk: { '>=': null },
-      });
-
-      expect(result.items).toHaveLength(3);
-      const names = result.items.map((i) => i.value.name);
-      expect(names).toContain('iPhone');
-      expect(names).toContain('Galaxy');
-      expect(names).toContain('MacBook');
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('queries by second secondary index (brand)', () =>
-    Effect.gen(function* () {
-      const result = yield* productEntity.query('byBrand', {
-        pk: { brand: 'apple' },
-        sk: { '>=': null },
-      });
-
-      expect(result.items).toHaveLength(2);
-      const names = result.items.map((i) => i.value.name);
-      expect(names).toContain('iPhone');
-      expect(names).toContain('MacBook');
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('both indexes return correct results independently', () =>
-    Effect.gen(function* () {
-      const byCategory = yield* productEntity.query('byCategory', {
-        pk: { category: 'clothing' },
-        sk: { '>=': null },
-      });
-
-      const byBrand = yield* productEntity.query('byBrand', {
-        pk: { brand: 'nike' },
-        sk: { '>=': null },
-      });
-
-      // Same product, different access patterns
-      expect(byCategory.items).toHaveLength(1);
-      expect(byBrand.items).toHaveLength(1);
-      expect(byCategory.items[0]!.value.productId).toBe(
-        byBrand.items[0]!.value.productId,
-      );
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('update reflects in all indexes', () =>
-    Effect.gen(function* () {
-      yield* productEntity.getAndUpdate(
-        { productId: 'p1' },
-        { category: 'phones' },
-      );
-
-      // Should not find in old category
-      const oldCategory = yield* productEntity.query('byCategory', {
-        pk: { category: 'electronics' },
-        sk: { '>=': null },
-      });
-      const oldIds = oldCategory.items.map((i) => i.value.productId);
-      expect(oldIds).not.toContain('p1');
-
-      // Should find in new category
-      const newCategory = yield* productEntity.query('byCategory', {
-        pk: { category: 'phones' },
-        sk: { '>=': null },
-      });
-      expect(newCategory.items).toHaveLength(1);
-      expect(newCategory.items[0]!.value.productId).toBe('p1');
-
-      // Brand index should still work
-      const byBrand = yield* productEntity.query('byBrand', {
-        pk: { brand: 'apple' },
-        sk: { '>=': null },
-      });
-      const brandIds = byBrand.items.map((i) => i.value.productId);
-      expect(brandIds).toContain('p1');
-    }).pipe(Effect.provide(layer)),
-  );
-});
-
-// ─── Cross-Entity Index Isolation ────────────────────────────────────────────
-
-describe('Cross-Entity Index Isolation', () => {
-  let db: DatabaseSync;
-  let layer: Layer.Layer<SqliteDB>;
-
-  const table = SQLiteTable.make()
-    .primary('pk', 'sk')
-    .index('IDX1', 'IDX1PK', 'IDX1SK')
-    .index('IDX2', 'IDX2PK', 'IDX2SK')
-    .build();
-
-  // Two entities sharing the same entityIndexName with empty pk deps —
-  // this is the exact pattern that caused the "status is missing" decode error.
-  const SessionSchema = EntityESchema.make('Session', 'sessionId', {
-    status: Schema.Literals(['active', 'closed']),
-    path: Schema.String,
-  }).build();
-
-  const MessageSchema = EntityESchema.make('Message', 'messageId', {
-    sessionId: Schema.String,
-    text: Schema.String,
-  }).build();
-
-  const sessionEntity = table
-    .entity(SessionSchema)
-    .primary()
-    .index('IDX1', 'byStatus', { pk: ['status'] })
-    .index('IDX2', 'byUpdatedAt', { pk: [] })
-    .build();
-
-  const messageEntity = table
-    .entity(MessageSchema)
-    .primary({ pk: ['sessionId'] })
-    .index('IDX1', 'bySession', { pk: ['sessionId'] })
-    .index('IDX2', 'byUpdatedAt', { pk: [] })
-    .build();
-
-  beforeAll(async () => {
-    db = new DatabaseSync(':memory:');
-    layer = nodeSqliteLayer(db, 'isolation_test');
-    await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* sessionEntity.insert({
-          sessionId: 's1',
-          status: 'active',
-          path: '/foo',
-        });
-        yield* messageEntity.insert({
-          messageId: 'm1',
-          sessionId: 's1',
-          text: 'hello',
-        });
-        yield* sessionEntity.insert({
-          sessionId: 's2',
-          status: 'closed',
-          path: '/bar',
-        });
-        yield* messageEntity.insert({
-          messageId: 'm2',
-          sessionId: 's1',
-          text: 'world',
-        });
-        yield* messageEntity.insert({
-          messageId: 'm3',
-          sessionId: 's2',
-          text: 'bye',
-        });
-      }).pipe(Effect.provide(layer)),
-    );
-  });
-
-  afterAll(() => db.close());
-
-  it('stores entity-scoped IDX2PK for sessions', () => {
-    const rows = db
-      .prepare("SELECT IDX2PK FROM isolation_test WHERE _e = 'Session'")
-      .all() as { IDX2PK: string }[];
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) {
-      expect(row.IDX2PK).toBe('Session#byUpdatedAt');
-    }
-  });
-
-  it('stores entity-scoped IDX2PK for messages', () => {
-    const rows = db
-      .prepare("SELECT IDX2PK FROM isolation_test WHERE _e = 'Message'")
-      .all() as { IDX2PK: string }[];
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) {
-      expect(row.IDX2PK).toBe('Message#byUpdatedAt');
-    }
-  });
-
-  it('IDX2PK partitions are distinct across entities', () => {
-    const pks = db
-      .prepare('SELECT DISTINCT IDX2PK FROM isolation_test')
-      .all() as { IDX2PK: string }[];
-    const pkValues = pks.map((r) => r.IDX2PK);
-    expect(pkValues).toContain('Session#byUpdatedAt');
-    expect(pkValues).toContain('Message#byUpdatedAt');
-    expect(pkValues).not.toContain('byUpdatedAt');
-  });
-
-  itEffect('querying sessions byUpdatedAt returns only sessions', () =>
-    Effect.gen(function* () {
-      const result = yield* sessionEntity.query('byUpdatedAt', {
-        pk: {},
-        sk: { '>=': null },
-      });
-
-      expect(result.items).toHaveLength(2);
-      for (const item of result.items) {
-        expect(item.meta._e).toBe('Session');
-        expect(item.value).toHaveProperty('status');
-        expect(item.value).toHaveProperty('path');
-      }
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('querying messages byUpdatedAt returns only messages', () =>
-    Effect.gen(function* () {
-      const result = yield* messageEntity.query('byUpdatedAt', {
-        pk: {},
-        sk: { '>=': null },
-      });
-
-      expect(result.items).toHaveLength(3);
-      for (const item of result.items) {
-        expect(item.meta._e).toBe('Message');
-        expect(item.value).toHaveProperty('text');
-        expect(item.value).toHaveProperty('sessionId');
-      }
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('cursor pagination on sessions never returns message rows', () =>
-    Effect.gen(function* () {
-      const first = yield* sessionEntity.query(
-        'byUpdatedAt',
-        { pk: {}, sk: { '>=': null } },
-        { limit: 1 },
-      );
-      expect(first.items).toHaveLength(1);
-      const cursor = first.items[0]!.meta._u;
-
-      const rest = yield* sessionEntity.query('byUpdatedAt', {
-        pk: {},
-        sk: { '>=': cursor },
-      });
-      // All returned rows must be sessions — messages must never appear
-      for (const item of rest.items) {
-        expect(item.meta._e).toBe('Session');
-        expect(item.value).toHaveProperty('status');
-      }
-    }).pipe(Effect.provide(layer)),
-  );
-
-  itEffect('adding more sessions does not affect message query count', () =>
-    Effect.gen(function* () {
-      yield* sessionEntity.insert({
-        sessionId: 's3',
-        status: 'active',
-        path: '/baz',
-      });
-
-      const sessions = yield* sessionEntity.query('byUpdatedAt', {
-        pk: {},
-        sk: { '>=': null },
-      });
-      const messages = yield* messageEntity.query('byUpdatedAt', {
-        pk: {},
-        sk: { '>=': null },
-      });
-
-      expect(sessions.items).toHaveLength(3);
-      expect(messages.items).toHaveLength(3);
-    }).pipe(Effect.provide(layer)),
-  );
 });

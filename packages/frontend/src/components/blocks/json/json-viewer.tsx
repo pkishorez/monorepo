@@ -34,25 +34,27 @@ export function JsonViewer({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        {label && (
-          <span className="text-muted-foreground text-xs font-medium">
-            {label}
-          </span>
-        )}
+    <div className="overflow-hidden rounded-md border border-border">
+      <div className="flex min-h-8 items-center justify-between border-b px-2">
+        <span className="px-1 text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
         <Button
           type="button"
           variant="ghost"
           size="icon-xs"
           onClick={copy}
-          title="Copy to clipboard"
-          className="ml-auto"
+          title="Copy JSON"
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
         </Button>
       </div>
-      <JsonEditor value={json} readOnly maxHeight={maxHeight} />
+      <JsonEditor
+        value={json}
+        readOnly
+        maxHeight={maxHeight}
+        className="rounded-none border-0"
+      />
     </div>
   );
 }

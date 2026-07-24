@@ -1,7 +1,6 @@
-export { LaymosTests } from './laymos-tests';
+export { LaymosTestsWorkspace as LaymosTests } from './tests-workspace';
 export type {
-  LaymosTestCodeLanguage,
-  LaymosTestComparisonLayout,
   LaymosTestsProps,
-  LaymosTestStringView,
+  LaymosTestSelection,
+  LaymosTestSourceTarget,
 } from './types';

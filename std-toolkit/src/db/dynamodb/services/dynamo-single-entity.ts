@@ -2,8 +2,8 @@ import type {
   AnySingleEntityESchema,
   ESchemaType,
 } from '../../../eschema/index.js';
-import { Effect, Option, Schema } from 'effect';
-import { decision, exhaustive, flow, step, when } from 'laymos/story';
+import { Effect, Option, Schema, Match } from 'effect';
+
 import type { DynamoTable } from './dynamo-table.js';
 import type { DynamoDB } from './dynamo-client.js';
 import type { EntityType } from '../../../core/index.js';
@@ -144,81 +144,47 @@ export class DynamoSingleEntity<
    * @param options - Optional read options
    * @returns The entity, guaranteed non-null
    */
-  get = flow(
-    'Get singleton entity',
-    {
-      description:
-        'Reads the stored singleton or returns its configured default value.',
-    },
-    (options?: {
-      ConsistentRead?: boolean;
-    }): Effect.Effect<
-      SingleEntityType<ESchemaType<TSchema>>,
-      DynamodbError,
-      DynamoDB
-    > => {
-      return Effect.gen({ self: this }, function* () {
-        const pk = this.#derivePrimaryKey();
-        const sk = this.#derivePrimaryKey();
+  get = (options?: {
+    ConsistentRead?: boolean;
+  }): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > => {
+    return Effect.gen({ self: this }, function* () {
+      const pk = this.#derivePrimaryKey();
+      const sk = this.#derivePrimaryKey();
 
-        const { Item } = yield* this.#table.getItem({ pk, sk }, options);
+      const { Item } = yield* this.#table.getItem({ pk, sk }, options);
 
-        return yield* decision(
-          'Was a value already stored?',
-          {
-            description:
-              'Distinguishes stored singleton state from the schema default used before the first write.',
-            attributes: { entity: this.#eschema.name },
-          },
-          Boolean(Item),
-        ).pipe(
-          when(
-            true,
-            {
-              name: 'A stored value exists',
-              description:
-                'Decodes the singleton value and metadata stored in DynamoDB.',
-            },
-            () =>
-              step(
-                'Decode the stored value',
-                {
-                  description:
-                    'Decodes the stored singleton schema value and separates its metadata.',
-                  visibility: 'detail',
-                },
-                () =>
-                  this.#eschema.decode(Item!).pipe(
-                    Effect.mapError((e) => DynamodbError.getItemFailed(e)),
-                    Effect.map((value) => ({
-                      value: value as ESchemaType<TSchema>,
-                      meta: Schema.decodeUnknownSync(singleMetaSchema)(Item),
-                    })),
-                  ),
-              ),
+      return yield* Match.value(Boolean(Item)).pipe(
+        Match.when(true, () =>
+          this.#eschema.decode(Item!).pipe(
+            Effect.mapError((e) => DynamodbError.getItemFailed(e)),
+            Effect.map((value) => ({
+              value: value as ESchemaType<TSchema>,
+              meta: Schema.decodeUnknownSync(singleMetaSchema)(Item),
+            })),
           ),
-          when(
-            false,
-            {
-              name: 'Use the configured default',
-              description:
-                'Returns the configured default with synthetic pre-write metadata.',
+        ),
+        Match.when(false, () =>
+          Effect.succeed({
+            value: this.#defaultValue,
+            meta: {
+              _e: this.#eschema.name,
+              _v: this.#eschema.latestVersion,
+              _u: '',
             },
-            () =>
-              Effect.succeed({
-                value: this.#defaultValue,
-                meta: {
-                  _e: this.#eschema.name,
-                  _v: this.#eschema.latestVersion,
-                  _u: '',
-                },
-              }),
-          ),
-          exhaustive,
-        );
-      });
-    },
-  );
+          }),
+        ),
+        Match.exhaustive,
+      );
+    }).pipe(
+      Effect.withSpan('dynamodb.single-entity.get', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
+  };
 
   /**
    * Unconditionally writes the entity (upsert).
@@ -226,67 +192,56 @@ export class DynamoSingleEntity<
    * @param value - The entity value to write
    * @returns The written entity with metadata
    */
-  put = flow(
-    'Put singleton entity',
-    {
-      description: 'Validates and unconditionally stores the singleton value.',
-    },
-    (
-      value: Omit<ESchemaType<TSchema>, '_v'>,
-    ): Effect.Effect<
-      SingleEntityType<ESchemaType<TSchema>>,
-      DynamodbError,
-      DynamoDB
-    > => {
-      return Effect.gen({ self: this }, function* () {
-        const fullValue = {
-          ...value,
-          _v: this.#eschema.latestVersion,
-        } as unknown as ESchemaType<TSchema>;
+  put = (
+    value: Omit<ESchemaType<TSchema>, '_v'>,
+  ): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > => {
+    return Effect.gen({ self: this }, function* () {
+      const fullValue = {
+        ...value,
+        _v: this.#eschema.latestVersion,
+      } as unknown as ESchemaType<TSchema>;
 
-        const encoded = yield* step(
-          'Encode the complete value',
-          {
-            description:
-              'Validates and encodes the complete singleton value for storage.',
-            visibility: 'detail',
-          },
-          () =>
-            this.#eschema
-              .encode(fullValue as any)
-              .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e))),
-        );
+      const encoded = yield* this.#eschema
+        .encode(fullValue as any)
+        .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
 
-        const _u = yield* nextUlid;
+      const _u = yield* nextUlid;
 
-        const meta: SingleMetaType = {
-          _e: this.#eschema.name,
-          _v: this.#eschema.latestVersion,
-          _u,
-        };
+      const meta: SingleMetaType = {
+        _e: this.#eschema.name,
+        _v: this.#eschema.latestVersion,
+        _u,
+      };
 
-        const pk = this.#derivePrimaryKey();
-        const sk = this.#derivePrimaryKey();
+      const pk = this.#derivePrimaryKey();
+      const sk = this.#derivePrimaryKey();
 
-        const item = {
-          ...encoded,
-          ...meta,
-          [this.#table.primary.pk]: pk,
-          [this.#table.primary.sk]: sk,
-        };
+      const item = {
+        ...encoded,
+        ...meta,
+        [this.#table.primary.pk]: pk,
+        [this.#table.primary.sk]: sk,
+      };
 
-        yield* this.#table.putItem(item);
+      yield* this.#table.putItem(item);
 
-        yield* this.#broadcast([
-          {
-            value: fullValue,
-            meta: { ...meta, _d: false },
-          },
-        ]);
-        return { value: fullValue, meta };
-      });
-    },
-  );
+      yield* this.#broadcast([
+        {
+          value: fullValue,
+          meta: { ...meta, _d: false },
+        },
+      ]);
+      return { value: fullValue, meta };
+    }).pipe(
+      Effect.withSpan('dynamodb.single-entity.put', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
+  };
 
   /**
    * Updates the single entity.
@@ -296,134 +251,70 @@ export class DynamoSingleEntity<
    * @param params - Object containing the update and optional condition
    * @returns The updated entity with new metadata
    */
-  update = flow(
-    'Update singleton entity',
-    {
-      description:
-        'Applies a partial or expression update to the stored singleton.',
-    },
-    (params: {
-      update:
-        | Partial<Omit<ESchemaType<TSchema>, '_v'>>
-        | ((
-            ops: UpdateOps<ESchemaType<TSchema>>,
-          ) => AnyOperation<ESchemaType<TSchema>>[]);
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-    }): Effect.Effect<
-      SingleEntityType<ESchemaType<TSchema>>,
-      DynamodbError,
-      DynamoDB
-    > => {
-      const { update: updates, condition } = params;
-      return Effect.gen({ self: this }, function* () {
-        const _u = yield* nextUlid;
-        const { pk, sk, exprResult } = yield* decision(
-          'How should the update be expressed?',
-          {
-            description:
-              'Selects whether to compile a partial singleton value or a native update-expression callback.',
-            attributes: { entity: this.#eschema.name },
-          },
-          typeof updates === 'function' ? 'expression' : 'partial',
-        ).pipe(
-          when(
-            'expression',
-            {
-              name: 'Use update expressions',
-              description:
-                'Compiles the caller callback into DynamoDB update operations.',
-            },
-            () =>
-              Effect.sync(() =>
-                this.#prepareUpdateExpr(updates as any, _u, condition),
-              ),
+  update = (params: {
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          ops: UpdateOps<ESchemaType<TSchema>>,
+        ) => AnyOperation<ESchemaType<TSchema>>[]);
+    condition?: ConditionInput<ESchemaType<TSchema>>;
+  }): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > => {
+    const { update: updates, condition } = params;
+    return Effect.gen({ self: this }, function* () {
+      const _u = yield* nextUlid;
+      const { pk, sk, exprResult } = yield* Match.value(
+        typeof updates === 'function' ? 'expression' : 'partial',
+      ).pipe(
+        Match.when('expression', () =>
+          Effect.sync(() =>
+            this.#prepareUpdateExpr(updates as any, _u, condition),
           ),
-          when(
-            'partial',
-            {
-              name: 'Use changed fields',
-              description:
-                'Encodes the supplied singleton fields into DynamoDB set operations.',
-            },
-            () =>
-              Effect.sync(() =>
-                this.#prepareUpdate(updates as any, _u, condition),
-              ),
+        ),
+        Match.when('partial', () =>
+          Effect.sync(() => this.#prepareUpdate(updates as any, _u, condition)),
+        ),
+        Match.exhaustive,
+      );
+
+      const result = yield* this.#table
+        .updateItem({ pk, sk }, { ReturnValues: 'ALL_NEW', ...exprResult })
+        .pipe(
+          Effect.mapError(
+            (e): DynamodbError => this.#mapUpdateError(e, condition),
           ),
-          exhaustive,
         );
 
-        const result = yield* this.#table
-          .updateItem({ pk, sk }, { ReturnValues: 'ALL_NEW', ...exprResult })
-          .pipe(
-            Effect.mapError(
-              (e): DynamodbError => this.#mapUpdateError(e, condition),
-            ),
-          );
-
-        return yield* decision(
-          'Did DynamoDB return the updated singleton?',
-          {
-            description:
-              'Returns the decoded singleton update or fails when no stored value was updated.',
-            attributes: { entity: this.#eschema.name },
-          },
-          result.Attributes ? 'updated' : 'missing',
-        ).pipe(
-          when(
-            'updated',
-            {
-              name: 'Return the updated singleton',
-              description:
-                'Decodes, broadcasts, and returns the freshly updated singleton.',
-            },
-            () =>
-              Effect.gen({ self: this }, function* () {
-                const { decodedValue, updatedMeta } = yield* step(
-                  'Decode the updated value',
-                  {
-                    description:
-                      'Decodes the returned singleton value and its freshly written metadata.',
-                    visibility: 'detail',
-                  },
-                  () =>
-                    this.#eschema.decode(result.Attributes!).pipe(
-                      Effect.mapError((e) => DynamodbError.updateItemFailed(e)),
-                      Effect.map((decodedValue) => ({
-                        decodedValue,
-                        updatedMeta: Schema.decodeUnknownSync(singleMetaSchema)(
-                          result.Attributes,
-                        ),
-                      })),
-                    ),
-                );
-                yield* this.#broadcast([
-                  {
-                    value: decodedValue as ESchemaType<TSchema>,
-                    meta: { ...updatedMeta, _d: false },
-                  },
-                ]);
-                return {
-                  value: decodedValue as ESchemaType<TSchema>,
-                  meta: updatedMeta,
-                };
-              }),
-          ),
-          when(
-            'missing',
-            {
-              name: 'No singleton was updated',
-              description:
-                'Fails because no stored singleton matched the update.',
-              completion: { kind: 'error', error: 'NoItemToUpdate' },
-            },
-            () => Effect.fail(DynamodbError.noItemToUpdate()),
-          ),
-          exhaustive,
+      return yield* Effect.gen({ self: this }, function* () {
+        if (!result.Attributes) {
+          return yield* Effect.fail(DynamodbError.noItemToUpdate());
+        }
+        const decodedValue = yield* this.#eschema
+          .decode(result.Attributes)
+          .pipe(Effect.mapError((e) => DynamodbError.updateItemFailed(e)));
+        const updatedMeta = Schema.decodeUnknownSync(singleMetaSchema)(
+          result.Attributes,
         );
+        yield* this.#broadcast([
+          {
+            value: decodedValue as ESchemaType<TSchema>,
+            meta: { ...updatedMeta, _d: false },
+          },
+        ]);
+        return {
+          value: decodedValue as ESchemaType<TSchema>,
+          meta: updatedMeta,
+        };
       });
-    },
-  );
+    }).pipe(
+      Effect.withSpan('dynamodb.single-entity.update', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
+  };
 
   /**
    * Creates an update operation for use in a transaction.
@@ -432,112 +323,66 @@ export class DynamoSingleEntity<
    * @param params - Object containing the update and optional condition
    * @returns A transaction item for update with broadcast data
    */
-  updateOp = flow(
-    'Build singleton update operation',
-    {
-      description:
-        'Builds a deferred singleton update for an atomic table transaction.',
-    },
-    (params: {
-      update:
-        | Partial<Omit<ESchemaType<TSchema>, '_v'>>
-        | ((
-            ops: UpdateOps<ESchemaType<TSchema>>,
-          ) => AnyOperation<ESchemaType<TSchema>>[]);
-      condition?: ConditionInput<ESchemaType<TSchema>>;
-      lastWriteWins?: boolean;
-    }): Effect.Effect<TransactItem, DynamodbError, DynamoDB> => {
-      const { update: updates, condition } = params;
-      return Effect.gen({ self: this }, function* () {
-        const existing = yield* this.get({ ConsistentRead: true });
-        return yield* decision(
-          'Was a singleton available for the update operation?',
-          {
-            description:
-              'Builds the deferred update only when a singleton is already stored.',
-            attributes: { entity: this.#eschema.name },
-          },
-          existing.meta._u === '' ? 'missing' : 'stored',
-        ).pipe(
-          when(
-            'missing',
-            {
-              name: 'No singleton was stored',
-              description:
-                'Fails because the default value cannot produce a native update operation.',
-              completion: { kind: 'error', error: 'NoItemToUpdate' },
-            },
-            () => Effect.fail(DynamodbError.noItemToUpdate()),
-          ),
-          when(
-            'stored',
-            {
-              name: 'Build the update operation',
-              description:
-                'Compiles the guarded singleton update and its broadcast value.',
-            },
-            () =>
-              step(
-                'Prepare the deferred singleton update',
-                {
-                  description:
-                    'Compiles keys, update expressions, guards, and broadcast data for the transaction.',
-                  visibility: 'detail',
-                },
-                () =>
-                  Effect.sync(() => {
-                    const expectedU = params.lastWriteWins
-                      ? undefined
-                      : existing.meta._u;
-                    const mergedValue =
-                      typeof updates === 'function'
-                        ? existing.value
-                        : ({
-                            ...existing.value,
-                            ...updates,
-                          } as ESchemaType<TSchema>);
-                    const pk = this.#derivePrimaryKey();
-                    return {
-                      entityName: this.#eschema.name,
-                      operationKind: 'updateOp',
-                      pk,
-                      sk: pk,
-                      table: this.#table,
-                      apply: (u) => {
-                        const prepared =
-                          typeof updates === 'function'
-                            ? this.#prepareUpdateExpr(
-                                updates,
-                                u,
-                                condition,
-                                expectedU,
-                              )
-                            : this.#prepareUpdate(
-                                updates,
-                                u,
-                                condition,
-                                expectedU,
-                              );
-                        return {
-                          ...this.#table.opUpdateItem(
-                            { pk: prepared.pk, sk: prepared.sk },
-                            prepared.exprResult,
-                          ),
-                          broadcast: {
-                            value: mergedValue,
-                            meta: { ...existing.meta, _u: u, _d: false },
-                          },
-                        };
-                      },
-                    } satisfies TransactItem;
-                  }),
-              ),
-          ),
-          exhaustive,
-        );
-      });
-    },
-  );
+  updateOp = (params: {
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          ops: UpdateOps<ESchemaType<TSchema>>,
+        ) => AnyOperation<ESchemaType<TSchema>>[]);
+    condition?: ConditionInput<ESchemaType<TSchema>>;
+    lastWriteWins?: boolean;
+  }): Effect.Effect<TransactItem, DynamodbError, DynamoDB> => {
+    const { update: updates, condition } = params;
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get({ ConsistentRead: true });
+      return yield* Match.value(
+        existing.meta._u === '' ? 'missing' : 'stored',
+      ).pipe(
+        Match.when('missing', () =>
+          Effect.fail(DynamodbError.noItemToUpdate()),
+        ),
+        Match.when('stored', () =>
+          Effect.sync(() => {
+            const expectedU = params.lastWriteWins
+              ? undefined
+              : existing.meta._u;
+            const mergedValue =
+              typeof updates === 'function'
+                ? existing.value
+                : ({
+                    ...existing.value,
+                    ...updates,
+                  } as ESchemaType<TSchema>);
+            const pk = this.#derivePrimaryKey();
+            return {
+              entityName: this.#eschema.name,
+              operationKind: 'updateOp',
+              pk,
+              sk: pk,
+              table: this.#table,
+              apply: (u) => {
+                const prepared =
+                  typeof updates === 'function'
+                    ? this.#prepareUpdateExpr(updates, u, condition, expectedU)
+                    : this.#prepareUpdate(updates, u, condition, expectedU);
+                return {
+                  ...this.#table.opUpdateItem(
+                    { pk: prepared.pk, sk: prepared.sk },
+                    prepared.exprResult,
+                  ),
+                  broadcast: {
+                    value: mergedValue,
+                    meta: { ...existing.meta, _u: u, _d: false },
+                  },
+                };
+              },
+            } satisfies TransactItem;
+          }),
+        ),
+        Match.exhaustive,
+      );
+    });
+  };
 
   /**
    * The portable read-modify-write (see db ADR 0002): reads the current
@@ -552,212 +397,118 @@ export class DynamoSingleEntity<
    * @param config - Retry count and guard opt-out
    * @returns The updated entity with new metadata
    */
-  getAndUpdate = flow(
-    'Get and update singleton entity',
-    {
-      description:
-        'Reads, derives, and conditionally writes a guarded singleton replacement.',
-    },
-    (
-      update:
-        | Partial<Omit<ESchemaType<TSchema>, '_v'>>
-        | ((
-            current: ESchemaType<TSchema>,
-          ) => Partial<Omit<ESchemaType<TSchema>, '_v'>> | null),
-      config?: { retries?: number; lastWriteWins?: boolean },
+  getAndUpdate = (
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          current: ESchemaType<TSchema>,
+        ) => Partial<Omit<ESchemaType<TSchema>, '_v'>> | null),
+    config?: { retries?: number; lastWriteWins?: boolean },
+  ): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > => {
+    const retries = config?.retries ?? 3;
+    const attemptUpdate = (
+      attempt: number,
     ): Effect.Effect<
       SingleEntityType<ESchemaType<TSchema>>,
       DynamodbError,
       DynamoDB
-    > => {
-      const retries = config?.retries ?? 3;
-      const attemptUpdate = flow(
-        'Attempt singleton replacement',
-        {
-          description:
-            'Reads current singleton state and attempts one guarded replacement.',
-          attributes: (attempt: number) => ({
-            entity: this.#eschema.name,
-            attempt,
-          }),
-        },
-        (
-          attempt: number,
-        ): Effect.Effect<
-          SingleEntityType<ESchemaType<TSchema>>,
-          DynamodbError,
-          DynamoDB
-        > =>
-          Effect.gen({ self: this }, function* () {
-            const existing = yield* this.get({ ConsistentRead: true });
-            const partial = this.#resolveUpdateInput(update, existing.value);
+    > =>
+      Effect.gen({ self: this }, function* () {
+        const existing = yield* this.get({ ConsistentRead: true });
+        const partial = this.#resolveUpdateInput(update, existing.value);
 
-            return yield* decision(
-              'Should the derived change be written?',
-              {
-                description:
-                  'Selects whether the derived singleton update skips persistence or writes merged state.',
-                attributes: { entity: this.#eschema.name, attempt },
-              },
-              partial === null ? 'skip' : 'write',
-            ).pipe(
-              when(
-                'skip',
-                {
-                  name: 'Keep the current value',
-                  description:
-                    'Returns current singleton state because the callback requested no write.',
-                },
-                () => Effect.succeed(existing),
-              ),
-              when(
-                'write',
-                {
-                  name: 'Write the replacement',
-                  description:
-                    'Merges and conditionally writes the derived singleton state.',
-                },
-                () =>
-                  Effect.gen({ self: this }, function* () {
-                    const fullValue = {
-                      ...existing.value,
-                      ...partial!,
-                      _v: this.#eschema.latestVersion,
-                    } as ESchemaType<TSchema>;
-                    const encoded = yield* step(
-                      'Encode the optimistic replacement',
-                      {
-                        description:
-                          'Validates and encodes the merged singleton value before its guarded write.',
-                        visibility: 'detail',
-                      },
-                      () =>
-                        this.#eschema
-                          .encode(fullValue as any)
-                          .pipe(
-                            Effect.mapError((e) =>
-                              DynamodbError.putItemFailed(e),
+        return yield* Match.value(partial === null ? 'skip' : 'write').pipe(
+          Match.when('skip', () => Effect.succeed(existing)),
+          Match.when('write', () =>
+            Effect.gen({ self: this }, function* () {
+              const fullValue = {
+                ...existing.value,
+                ...partial!,
+                _v: this.#eschema.latestVersion,
+              } as ESchemaType<TSchema>;
+              const encoded = yield* this.#eschema
+                .encode(fullValue as any)
+                .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+              const _u = yield* nextUlid;
+              const meta: SingleMetaType = {
+                _e: this.#eschema.name,
+                _v: this.#eschema.latestVersion,
+                _u,
+              };
+              const pk = this.#derivePrimaryKey();
+              const item = {
+                ...encoded,
+                ...meta,
+                [this.#table.primary.pk]: pk,
+                [this.#table.primary.sk]: pk,
+              };
+              const exprResult = yield* Effect.sync(() =>
+                config?.lastWriteWins
+                  ? undefined
+                  : buildExpr({
+                      condition:
+                        existing.meta._u === ''
+                          ? exprCondition(($) =>
+                              $.attributeNotExists(
+                                this.#table.primary.pk as any,
+                              ),
+                            )
+                          : exprCondition(($) =>
+                              $.cond('_u' as any, '=', existing.meta._u),
                             ),
-                          ),
-                    );
-                    const _u = yield* nextUlid;
-                    const meta: SingleMetaType = {
-                      _e: this.#eschema.name,
-                      _v: this.#eschema.latestVersion,
-                      _u,
-                    };
-                    const pk = this.#derivePrimaryKey();
-                    const item = {
-                      ...encoded,
-                      ...meta,
-                      [this.#table.primary.pk]: pk,
-                      [this.#table.primary.sk]: pk,
-                    };
-                    const exprResult = yield* step(
-                      'Prepare the singleton write guard',
-                      {
-                        description:
-                          'Builds the optimistic condition for the current singleton cursor.',
-                        visibility: 'detail',
-                      },
-                      () =>
-                        Effect.sync(() =>
-                          config?.lastWriteWins
-                            ? undefined
-                            : buildExpr({
-                                condition:
-                                  existing.meta._u === ''
-                                    ? exprCondition(($) =>
-                                        $.attributeNotExists(
-                                          this.#table.primary.pk as any,
-                                        ),
-                                      )
-                                    : exprCondition(($) =>
-                                        $.cond(
-                                          '_u' as any,
-                                          '=',
-                                          existing.meta._u,
-                                        ),
-                                      ),
-                              }),
-                        ),
-                    );
-                    const conflicted = yield* this.#table
-                      .putItem(item, exprResult)
-                      .pipe(
-                        Effect.as(false),
-                        Effect.catchIf(
-                          (e): e is DynamodbError =>
-                            e.error._tag === 'PutItemFailed' &&
-                            isConditionalCheckFailed(e),
-                          () => Effect.succeed(true),
-                        ),
-                      );
+                    }),
+              );
+              const conflicted = yield* this.#table
+                .putItem(item, exprResult)
+                .pipe(
+                  Effect.as(false),
+                  Effect.catchIf(
+                    (e): e is DynamodbError =>
+                      e.error._tag === 'PutItemFailed' &&
+                      isConditionalCheckFailed(e),
+                    () => Effect.succeed(true),
+                  ),
+                );
 
-                    return yield* decision(
-                      'Did the guarded write succeed?',
+              return yield* Match.value(
+                !conflicted
+                  ? 'written'
+                  : attempt < retries
+                    ? 'retry'
+                    : 'exhausted',
+              ).pipe(
+                Match.when('written', () =>
+                  Effect.gen({ self: this }, function* () {
+                    yield* this.#broadcast([
                       {
-                        description:
-                          'Distinguishes a successful optimistic write from a retryable or exhausted conflict.',
-                        attributes: { entity: this.#eschema.name, attempt },
+                        value: fullValue,
+                        meta: { ...meta, _d: false },
                       },
-                      !conflicted
-                        ? 'written'
-                        : attempt < retries
-                          ? 'retry'
-                          : 'exhausted',
-                    ).pipe(
-                      when(
-                        'written',
-                        {
-                          name: 'The write succeeded',
-                          description:
-                            'Broadcasts and returns the successfully stored value.',
-                        },
-                        () =>
-                          Effect.gen({ self: this }, function* () {
-                            yield* this.#broadcast([
-                              {
-                                value: fullValue,
-                                meta: { ...meta, _d: false },
-                              },
-                            ]);
-                            return { value: fullValue, meta };
-                          }),
-                      ),
-                      when(
-                        'retry',
-                        {
-                          name: 'Read again and retry',
-                          description:
-                            'Re-reads singleton state and derives the update again after a concurrent write.',
-                        },
-                        () => attemptUpdate(attempt + 1),
-                      ),
-                      when(
-                        'exhausted',
-                        {
-                          name: 'The retry limit was reached',
-                          description:
-                            'Fails after the configured number of optimistic retries is exhausted.',
-                          completion: {
-                            kind: 'error',
-                            error: 'ConditionCheckFailed',
-                          },
-                        },
-                        () => Effect.fail(DynamodbError.conditionCheckFailed()),
-                      ),
-                      exhaustive,
-                    );
+                    ]);
+                    return { value: fullValue, meta };
                   }),
-              ),
-              exhaustive,
-            );
-          }),
-      );
-      return attemptUpdate(0);
-    },
-  );
+                ),
+                Match.when('retry', () => attemptUpdate(attempt + 1)),
+                Match.when('exhausted', () =>
+                  Effect.fail(DynamodbError.conditionCheckFailed()),
+                ),
+                Match.exhaustive,
+              );
+            }),
+          ),
+          Match.exhaustive,
+        );
+      });
+    return attemptUpdate(0).pipe(
+      Effect.withSpan('dynamodb.single-entity.get-and-update', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
+  };
 
   /**
    * Op form of `getAndUpdate` for use in `transact`. Pre-fetches the current
@@ -771,124 +522,87 @@ export class DynamoSingleEntity<
    * @param config - Guard opt-out
    * @returns A transaction item for the write with broadcast data
    */
-  getAndUpdateOp = flow(
-    'Build portable singleton update operation',
-    {
-      description:
-        'Reads singleton state and builds its deferred guarded replacement.',
-    },
-    (
-      update:
-        | Partial<Omit<ESchemaType<TSchema>, '_v'>>
-        | ((
-            current: ESchemaType<TSchema>,
-          ) => Partial<Omit<ESchemaType<TSchema>, '_v'>>),
-      config?: { lastWriteWins?: boolean },
-    ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> => {
-      return Effect.gen({ self: this }, function* () {
-        const existing = yield* this.get({ ConsistentRead: true });
-        return yield* decision(
-          'Was a singleton available for replacement?',
-          {
-            description:
-              'Builds the deferred replacement only when a singleton is already stored.',
-            attributes: { entity: this.#eschema.name },
-          },
-          existing.meta._u === '' ? 'missing' : 'stored',
-        ).pipe(
-          when(
-            'missing',
-            {
-              name: 'No singleton was stored',
-              description:
-                'Fails because the default value cannot produce a guarded replacement.',
-              completion: { kind: 'error', error: 'NoItemToUpdate' },
-            },
-            () => Effect.fail(DynamodbError.noItemToUpdate()),
-          ),
-          when(
-            'stored',
-            {
-              name: 'Build the replacement operation',
-              description:
-                'Encodes the replacement and builds its guarded transactional put.',
-            },
-            () =>
-              step(
-                'Prepare the deferred singleton replacement',
-                {
-                  description:
-                    'Derives, encodes, guards, and packages the singleton replacement.',
-                  visibility: 'detail',
-                },
-                () =>
-                  Effect.gen({ self: this }, function* () {
-                    const fullValue = {
-                      ...existing.value,
-                      ...(typeof update === 'function'
-                        ? update(existing.value)
-                        : update),
-                      _v: this.#eschema.latestVersion,
-                    } as ESchemaType<TSchema>;
-                    const encoded = yield* this.#eschema
-                      .encode(fullValue as any)
-                      .pipe(
-                        Effect.mapError((e) => DynamodbError.putItemFailed(e)),
-                      );
-                    const exprResult = config?.lastWriteWins
-                      ? undefined
-                      : buildExpr({
-                          condition: exprCondition(($) =>
-                            $.cond('_u' as any, '=', existing.meta._u),
-                          ),
-                        });
-                    const pk = this.#derivePrimaryKey();
-                    return {
-                      entityName: this.#eschema.name,
-                      operationKind: 'updateOp',
-                      pk,
-                      sk: pk,
-                      table: this.#table,
-                      apply: (u) => {
-                        const meta: SingleMetaType = {
-                          _e: this.#eschema.name,
-                          _v: this.#eschema.latestVersion,
-                          _u: u,
-                        };
-                        const item = {
-                          ...encoded,
-                          ...meta,
-                          [this.#table.primary.pk]: pk,
-                          [this.#table.primary.sk]: pk,
-                        };
-                        return {
-                          ...this.#table.opPutItem(item, exprResult),
-                          broadcast: {
-                            value: fullValue,
-                            meta: { ...meta, _d: false },
-                          },
-                        };
-                      },
-                    } satisfies TransactItem;
-                  }),
-              ),
-          ),
-          exhaustive,
-        );
-      });
-    },
-  );
+  getAndUpdateOp = (
+    update:
+      | Partial<Omit<ESchemaType<TSchema>, '_v'>>
+      | ((
+          current: ESchemaType<TSchema>,
+        ) => Partial<Omit<ESchemaType<TSchema>, '_v'>>),
+    config?: { lastWriteWins?: boolean },
+  ): Effect.Effect<TransactItem, DynamodbError, DynamoDB> => {
+    return Effect.gen({ self: this }, function* () {
+      const existing = yield* this.get({ ConsistentRead: true });
+      return yield* Match.value(
+        existing.meta._u === '' ? 'missing' : 'stored',
+      ).pipe(
+        Match.when('missing', () =>
+          Effect.fail(DynamodbError.noItemToUpdate()),
+        ),
+        Match.when('stored', () =>
+          Effect.gen({ self: this }, function* () {
+            const fullValue = {
+              ...existing.value,
+              ...(typeof update === 'function'
+                ? update(existing.value)
+                : update),
+              _v: this.#eschema.latestVersion,
+            } as ESchemaType<TSchema>;
+            const encoded = yield* this.#eschema
+              .encode(fullValue as any)
+              .pipe(Effect.mapError((e) => DynamodbError.putItemFailed(e)));
+            const exprResult = config?.lastWriteWins
+              ? undefined
+              : buildExpr({
+                  condition: exprCondition(($) =>
+                    $.cond('_u' as any, '=', existing.meta._u),
+                  ),
+                });
+            const pk = this.#derivePrimaryKey();
+            return {
+              entityName: this.#eschema.name,
+              operationKind: 'updateOp',
+              pk,
+              sk: pk,
+              table: this.#table,
+              apply: (u) => {
+                const meta: SingleMetaType = {
+                  _e: this.#eschema.name,
+                  _v: this.#eschema.latestVersion,
+                  _u: u,
+                };
+                const item = {
+                  ...encoded,
+                  ...meta,
+                  [this.#table.primary.pk]: pk,
+                  [this.#table.primary.sk]: pk,
+                };
+                return {
+                  ...this.#table.opPutItem(item, exprResult),
+                  broadcast: {
+                    value: fullValue,
+                    meta: { ...meta, _d: false },
+                  },
+                };
+              },
+            } satisfies TransactItem;
+          }),
+        ),
+        Match.exhaustive,
+      );
+    });
+  };
 
   /** Writes the default value back — single entities are never deleted. */
-  reset = flow(
-    'Reset singleton entity',
-    { description: 'Writes the configured default as the singleton value.' },
-    (): Effect.Effect<
-      SingleEntityType<ESchemaType<TSchema>>,
-      DynamodbError,
-      DynamoDB
-    > => this.put(this.#defaultValue),
-  );
+  reset = (): Effect.Effect<
+    SingleEntityType<ESchemaType<TSchema>>,
+    DynamodbError,
+    DynamoDB
+  > =>
+    this.put(this.#defaultValue).pipe(
+      Effect.withSpan('dynamodb.single-entity.reset', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
 
   #broadcast(entities: EntityType<ESchemaType<TSchema>>[]) {
     return Effect.gen(function* () {

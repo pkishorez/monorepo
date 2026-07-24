@@ -2,7 +2,7 @@
   "name": "laymos",
   "version": "0.0.1",
   "private": false,
-  "description": "Layers. Modules. Stories. Tests. Understand architecture and behavior from one place.",
+  "description": "Layers. Modules. Tests. Understand architecture and behavior from one place.",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo"
@@ -24,11 +24,6 @@
       "types": "./dist/entrypoints/report/index.d.ts",
       "import": "./dist/entrypoints/report/index.js",
       "default": "./dist/entrypoints/report/index.js"
-    },
-    "./story": {
-      "types": "./dist/stories/authoring/index.d.ts",
-      "import": "./dist/stories/authoring/index.js",
-      "default": "./dist/stories/authoring/index.js"
     },
     "./test": {
       "types": "./dist/tests/authoring/index.d.ts",
@@ -54,8 +49,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ast-grep/napi": "catalog:",
     "@effect/platform-node": "catalog:",
+    "@vitest/utils": "4.1.10",
     "jiti": "catalog:",
     "skott": "catalog:"
   },
@@ -67,7 +62,13 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "effect": "^4.0.0-beta.78"
+    "effect": "^4.0.0-beta.78",
+    "vitest": ">=4.1.10 <5"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

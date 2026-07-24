@@ -2,15 +2,13 @@
   "name": "laymos-test",
   "version": "0.0.0",
   "private": true,
-  "description": "End-to-end stress tests for Laymos Stories",
+  "description": "Consumer-level integration tests for Laymos test tooling",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "fmt": "vp fmt",
     "lint": "vp check && tsc",
-    "test": "pnpm run test:stories && pnpm run test:integration",
-    "test:integration": "vitest run",
-    "test:stories": "laymos stories"
+    "test": "vitest run"
   },
   "dependencies": {
     "effect": "catalog:",

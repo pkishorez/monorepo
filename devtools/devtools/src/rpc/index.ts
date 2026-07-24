@@ -2,14 +2,10 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type {
   LaymosReport,
-  StoryRun,
-  StoryCollection,
-  StoryCoverageReport,
   ProjectNarrative,
-  TestCatalog,
   TestsReport,
 } from 'laymos/report';
-import type { StoryFailure } from 'laymos/node';
+import { TestsReportSchema } from 'laymos/report';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -58,19 +54,8 @@ export const LaymosEvent = Schema.Union([
 
 export type LaymosEvent = typeof LaymosEvent.Type;
 
-interface StoryRunResult {
-  readonly status: 'passed' | 'failed';
-  readonly run: StoryRun;
-  readonly failures: readonly StoryFailure[];
-}
-
-const StoryRunData = Schema.Any as unknown as Schema.Codec<StoryRunResult>;
-const StoryCollectionData =
-  Schema.Any as unknown as Schema.Codec<StoryCollection>;
-const StoryCoverageData =
-  Schema.Any as unknown as Schema.Codec<StoryCoverageReport>;
-const TestCatalogData = Schema.Any as unknown as Schema.Codec<TestCatalog>;
-const TestsReportData = Schema.Any as unknown as Schema.Codec<TestsReport>;
+const TestsReportData =
+  TestsReportSchema as unknown as Schema.Codec<TestsReport>;
 const ProjectNarrativeData =
   Schema.Any as unknown as Schema.Codec<ProjectNarrative>;
 
@@ -80,17 +65,8 @@ export interface LaymosModuleDocumentation {
   readonly documentation?: string;
 }
 
-export interface LaymosStoryDocumentation {
-  readonly storyPath: string;
-  readonly modulePath: string;
-  readonly name: string;
-  readonly description: string;
-  readonly documentation?: string;
-}
-
 export interface LaymosProjectDocumentation {
   readonly modules: readonly LaymosModuleDocumentation[];
-  readonly stories: readonly LaymosStoryDocumentation[];
 }
 
 const LaymosProjectDocumentationData =
@@ -98,9 +74,6 @@ const LaymosProjectDocumentationData =
 
 const LaymosProjectData = Schema.Struct({
   architecture: LaymosData,
-  stories: StoryCollectionData,
-  storyCoverage: StoryCoverageData,
-  tests: TestCatalogData,
   documentation: LaymosProjectDocumentationData,
   files: Schema.Array(Schema.String),
 });
@@ -129,53 +102,12 @@ export const OpenLaymosProjectEvent = Schema.Union([
     project: Schema.optional(ProjectNarrativeData),
   }),
   Schema.Struct({
-    _tag: Schema.Literal('Stories'),
-    stories: StoryCollectionData,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('StoryCoverage'),
-    storyCoverage: StoryCoverageData,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Tests'),
-    tests: TestCatalogData,
-  }),
-  Schema.Struct({
     _tag: Schema.Literal('Result'),
     result: OpenLaymosProjectSuccess,
   }),
 ]);
 
 export type OpenLaymosProjectEvent = typeof OpenLaymosProjectEvent.Type;
-
-/** Incremental progress and results emitted while running every Story. */
-export const StoriesEvent = Schema.Union([
-  Schema.Struct({
-    _tag: Schema.Literal('Heartbeat'),
-    elapsedMs: Schema.Number,
-    storyPath: Schema.optional(Schema.String),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('StoryStarted'),
-    storyPath: Schema.String,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('StoryResult'),
-    storyPath: Schema.String,
-    result: StoryRunData,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('StoryError'),
-    storyPath: Schema.String,
-    message: Schema.String,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Result'),
-    status: Schema.Literals(['passed', 'failed']),
-  }),
-]);
-
-export type StoriesEvent = typeof StoriesEvent.Type;
 
 /**
  * A sort-key bound over the monotonic record id. The operator encodes the scan
@@ -211,31 +143,6 @@ const MetricListSuccess = Schema.Struct({
 });
 const ClearSuccess = Schema.Struct({ deleted: Schema.Number });
 
-const StorySourceAnchorData = Schema.Struct({
-  id: Schema.String,
-  line: Schema.Number,
-  column: Schema.Number,
-  classification: Schema.optional(Schema.Literals(['narrated', 'omitted'])),
-  reason: Schema.optional(Schema.String),
-});
-
-const StorySourceProjectionData = Schema.Struct({
-  content: Schema.String,
-  ranges: Schema.Array(
-    Schema.Struct({
-      id: Schema.String,
-      classification: Schema.Literals(['narrated', 'omitted', 'unnarrated']),
-      reason: Schema.optional(Schema.String),
-      start: Schema.Number,
-      end: Schema.Number,
-      startLine: Schema.Number,
-      startColumn: Schema.Number,
-      endLine: Schema.Number,
-      endColumn: Schema.Number,
-    }),
-  ),
-});
-
 /**
  * The DevTools umbrella RPC surface consumed by the `/devtools` route. Carries
  * the project-centric Laymos procedures and the global Telemetry read
@@ -249,52 +156,30 @@ export const DevtoolsRpc = RpcGroup.make(
     error: DevtoolsRpcError,
     stream: true,
   }),
-  Rpc.make('RunAllStories', {
-    payload: { path: Schema.String },
-    success: StoriesEvent,
-    error: DevtoolsRpcError,
-    stream: true,
-  }),
-  Rpc.make('RunStory', {
-    payload: { path: Schema.String, storyPath: Schema.String },
-    success: StoryRunData,
-    error: DevtoolsRpcError,
-  }),
-  Rpc.make('RunModuleStories', {
-    payload: { path: Schema.String, modulePath: Schema.String },
-    success: StoriesEvent,
-    error: DevtoolsRpcError,
-    stream: true,
-  }),
-  Rpc.make('RunAllTests', {
-    payload: { path: Schema.String },
-    success: TestsReportData,
-    error: DevtoolsRpcError,
-  }),
-  Rpc.make('RunTest', {
-    payload: { path: Schema.String, testPath: Schema.String },
+  Rpc.make('RunTests', {
+    payload: {
+      path: Schema.String,
+      files: Schema.optional(Schema.Array(Schema.String)),
+      testNamePattern: Schema.optional(Schema.String),
+    },
     success: TestsReportData,
     error: DevtoolsRpcError,
   }),
   Rpc.make('ReadProjectFile', {
-    payload: { path: Schema.String, filePath: Schema.String },
-    success: Schema.Struct({
-      filePath: Schema.String,
-      content: Schema.String,
-    }),
-    error: DevtoolsRpcError,
-  }),
-  Rpc.make('ReadStorySource', {
     payload: {
       path: Schema.String,
       filePath: Schema.String,
-      anchors: Schema.Array(StorySourceAnchorData),
+      testName: Schema.optional(Schema.String),
     },
     success: Schema.Struct({
       filePath: Schema.String,
-      source: Schema.String,
-      ejected: StorySourceProjectionData,
-      clean: StorySourceProjectionData,
+      content: Schema.String,
+      highlight: Schema.optional(
+        Schema.Struct({
+          startLine: Schema.Number,
+          endLine: Schema.Number,
+        }),
+      ),
     }),
     error: DevtoolsRpcError,
   }),

@@ -12,7 +12,7 @@ const itEffect = <A, E>(
       ),
     ),
   );
-import { Effect, Exit, References, Schema, Stream } from 'effect';
+import { Effect, References, Schema, Stream } from 'effect';
 import {
   ESchema,
   EntityESchema,
@@ -215,7 +215,7 @@ async function deleteTestTable() {
   }
 }
 
-describe('std-toolkit/dynamodb Integration Tests', () => {
+describe('DynamoDB', () => {
   beforeAll(async () => {
     await createTestTable();
   });
@@ -224,7 +224,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
     await deleteTestTable();
   });
 
-  describe('DynamoTable - Low-level Operations', () => {
+  describe('Table', () => {
     describe('putItem / getItem', () => {
       itEffect('puts and retrieves an item', () =>
         Effect.gen(function* () {
@@ -865,7 +865,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
     });
   });
 
-  describe('DynamoEntity - High-level Operations', () => {
+  describe('Entity', () => {
     describe('insert', () => {
       itEffect('inserts a new entity', () =>
         Effect.gen(function* () {
@@ -940,6 +940,8 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
     });
 
     describe('update', () => {
+      it.todo('rejects updates that change the entity ID field');
+
       itEffect('updates an existing entity', () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
@@ -1843,11 +1845,17 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
               age: 40,
             });
 
-            const delOp = yield* UserEntity.deleteOp({ userId: 'txn-tomb-1' });
+            const delOp = yield* UserEntity.deleteOp({
+              userId: 'txn-tomb-1',
+            });
             yield* table.transact([delOp]);
-            const afterDelete = yield* UserEntity.get({ userId: 'txn-tomb-1' });
+            const afterDelete = yield* UserEntity.get({
+              userId: 'txn-tomb-1',
+            });
 
-            const resOp = yield* UserEntity.restoreOp({ userId: 'txn-tomb-1' });
+            const resOp = yield* UserEntity.restoreOp({
+              userId: 'txn-tomb-1',
+            });
             yield* table.transact([resOp]);
             const afterRestore = yield* UserEntity.get({
               userId: 'txn-tomb-1',
@@ -1904,7 +1912,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
     });
   });
 
-  describe('Expression Module Integration', () => {
+  describe('Expressions', () => {
     describe('conditionExpr', () => {
       itEffect('filters with attributeExists', () =>
         Effect.gen(function* () {
@@ -2071,12 +2079,14 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
             priority: 'low',
           });
 
-          const condition = exprCondition<{ status: string; priority: string }>(
-            ($) =>
-              $.or(
-                $.cond('status', '=', 'active'),
-                $.cond('priority', '=', 'low'),
-              ),
+          const condition = exprCondition<{
+            status: string;
+            priority: string;
+          }>(($) =>
+            $.or(
+              $.cond('status', '=', 'active'),
+              $.cond('priority', '=', 'low'),
+            ),
           );
           const exprResult = buildExpr({ condition });
 
@@ -2342,7 +2352,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
     });
   });
 
-  describe('Edge Cases', () => {
+  describe('Edge cases', () => {
     itEffect('handles special characters in keys', () =>
       Effect.gen(function* () {
         yield* table.putItem({
@@ -2402,7 +2412,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
     );
   });
 
-  describe('custom SK indexes', () => {
+  describe('Custom sort-key indexes', () => {
     itEffect('queries with custom SK field', () =>
       Effect.gen(function* () {
         yield* ProductEntity.insert({
@@ -2482,7 +2492,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
     );
   });
 
-  describe('table transactions with single entities', () => {
+  describe('Table transactions with single entities', () => {
     const settingsSchema = SingleEntityESchema.make('Settings', {
       darkMode: Schema.Boolean,
       language: Schema.String,
@@ -2500,7 +2510,7 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
       ).toThrow('Entity "Settings" is already defined on this table');
     });
 
-    itEffect('dies on ops produced by a different table instance', () =>
+    itEffect('rejects ops produced by a different table instance', () =>
       Effect.gen(function* () {
         const otherTable = DynamoTable.make().primary('pk', 'sk').build();
         const OtherSettings = otherTable
@@ -2512,9 +2522,9 @@ describe('std-toolkit/dynamodb Integration Tests', () => {
           update: { darkMode: true },
         });
 
-        const exit = yield* table.transact([foreignOp]).pipe(Effect.exit);
-        expect(Exit.isFailure(exit)).toBe(true);
-        expect(String(exit)).toContain('different table instance');
+        const failure = yield* table.transact([foreignOp]).pipe(Effect.flip);
+        expect(failure._tag).toBe('DynamodbError');
+        expect(failure.error._tag).toBe('ForeignTransactionItem');
       }),
     );
 

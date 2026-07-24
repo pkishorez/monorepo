@@ -98,142 +98,148 @@ async function deleteTestTable() {
   } catch {}
 }
 
-describe('update auto-migrate', () => {
-  beforeAll(async () => {
-    await createTestTable();
-  });
+describe('DynamoDB', () => {
+  describe('Entity', () => {
+    describe('Update auto-migration', () => {
+      beforeAll(async () => {
+        await createTestTable();
+      });
 
-  afterAll(async () => {
-    await deleteTestTable();
-  });
+      afterAll(async () => {
+        await deleteTestTable();
+      });
 
-  describe('non-existent item', () => {
-    itEffect('throws NoItemToUpdate when item does not exist', () =>
-      Effect.gen(function* () {
-        const error = yield* SettingsV2.update(
-          { settingsId: 'does-not-exist' },
-          { update: { theme: 'dark' } },
-        ).pipe(Effect.flip);
+      describe('non-existent item', () => {
+        itEffect('throws NoItemToUpdate when item does not exist', () =>
+          Effect.gen(function* () {
+            const error = yield* SettingsV2.update(
+              { settingsId: 'does-not-exist' },
+              { update: { theme: 'dark' } },
+            ).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(DynamodbError);
-        expect(error.error._tag).toBe('NoItemToUpdate');
-      }),
-    );
-  });
+            expect(error).toBeInstanceOf(DynamodbError);
+            expect(error.error._tag).toBe('NoItemToUpdate');
+          }),
+        );
+      });
 
-  describe('latest version item', () => {
-    itEffect('updates successfully when item is on latest version', () =>
-      Effect.gen(function* () {
-        yield* SettingsV2.insert({
-          settingsId: 'latest-item',
-          theme: 'light',
-          fontSize: 16,
-        });
+      describe('latest version item', () => {
+        itEffect('updates successfully when item is on latest version', () =>
+          Effect.gen(function* () {
+            yield* SettingsV2.insert({
+              settingsId: 'latest-item',
+              theme: 'light',
+              fontSize: 16,
+            });
 
-        const result = yield* SettingsV2.update(
-          { settingsId: 'latest-item' },
-          { update: { theme: 'dark' } },
+            const result = yield* SettingsV2.update(
+              { settingsId: 'latest-item' },
+              { update: { theme: 'dark' } },
+            );
+
+            expect(result.value.theme).toBe('dark');
+            expect(result.value.fontSize).toBe(16);
+          }),
         );
 
-        expect(result.value.theme).toBe('dark');
-        expect(result.value.fontSize).toBe(16);
-      }),
-    );
+        itEffect(
+          'throws ConditionCheckFailed when user condition fails on latest item',
+          () =>
+            Effect.gen(function* () {
+              yield* SettingsV2.insert({
+                settingsId: 'condition-fail-item',
+                theme: 'light',
+                fontSize: 14,
+              });
 
-    itEffect(
-      'throws ConditionCheckFailed when user condition fails on latest item',
-      () =>
-        Effect.gen(function* () {
-          yield* SettingsV2.insert({
-            settingsId: 'condition-fail-item',
-            theme: 'light',
-            fontSize: 14,
-          });
+              const error = yield* SettingsV2.update(
+                { settingsId: 'condition-fail-item' },
+                {
+                  update: { theme: 'dark' },
+                  condition: ($) => $.cond('theme', '=', 'nonexistent'),
+                },
+              ).pipe(Effect.flip);
 
-          const error = yield* SettingsV2.update(
-            { settingsId: 'condition-fail-item' },
-            {
-              update: { theme: 'dark' },
-              condition: ($) => $.cond('theme', '=', 'nonexistent'),
-            },
-          ).pipe(Effect.flip);
+              expect(error).toBeInstanceOf(DynamodbError);
+              expect(error.error._tag).toBe('ConditionCheckFailed');
+            }),
+        );
+      });
 
-          expect(error).toBeInstanceOf(DynamodbError);
-          expect(error.error._tag).toBe('ConditionCheckFailed');
-        }),
-    );
-  });
+      describe('stale version item with autoMigrate (default)', () => {
+        itEffect('auto-migrates a v1 item to v2 and applies the update', () =>
+          Effect.gen(function* () {
+            // Insert a v1 item directly using the v1 entity
+            yield* SettingsV1.insert({
+              settingsId: 'stale-auto-migrate',
+              theme: 'light',
+            });
 
-  describe('stale version item with autoMigrate (default)', () => {
-    itEffect('auto-migrates a v1 item to v2 and applies the update', () =>
-      Effect.gen(function* () {
-        // Insert a v1 item directly using the v1 entity
-        yield* SettingsV1.insert({
-          settingsId: 'stale-auto-migrate',
-          theme: 'light',
-        });
+            // Now update using v2 entity — item is on v1, should auto-migrate
+            const result = yield* SettingsV2.update(
+              { settingsId: 'stale-auto-migrate' },
+              { update: { theme: 'dark' } },
+            );
 
-        // Now update using v2 entity — item is on v1, should auto-migrate
-        const result = yield* SettingsV2.update(
-          { settingsId: 'stale-auto-migrate' },
-          { update: { theme: 'dark' } },
+            expect(result.value.theme).toBe('dark');
+            expect(result.value.fontSize).toBe(14);
+            expect(result.meta._v).toBe('v2');
+          }),
         );
 
-        expect(result.value.theme).toBe('dark');
-        expect(result.value.fontSize).toBe(14);
-        expect(result.meta._v).toBe('v2');
-      }),
-    );
+        itEffect(
+          'auto-migrates a v1 item even when the user condition fails',
+          () =>
+            Effect.gen(function* () {
+              yield* SettingsV1.insert({
+                settingsId: 'stale-condition-fail',
+                theme: 'light',
+              });
 
-    itEffect('auto-migrates a v1 item even when the user condition fails', () =>
-      Effect.gen(function* () {
-        yield* SettingsV1.insert({
-          settingsId: 'stale-condition-fail',
-          theme: 'light',
-        });
+              const error = yield* SettingsV2.update(
+                { settingsId: 'stale-condition-fail' },
+                {
+                  update: { theme: 'dark' },
+                  condition: ($) => $.cond('theme', '=', 'nonexistent'),
+                },
+              ).pipe(Effect.flip);
 
-        const error = yield* SettingsV2.update(
-          { settingsId: 'stale-condition-fail' },
-          {
-            update: { theme: 'dark' },
-            condition: ($) => $.cond('theme', '=', 'nonexistent'),
-          },
-        ).pipe(Effect.flip);
+              expect(error).toBeInstanceOf(DynamodbError);
+              expect(error.error._tag).toBe('ConditionCheckFailed');
 
-        expect(error).toBeInstanceOf(DynamodbError);
-        expect(error.error._tag).toBe('ConditionCheckFailed');
+              const migrated = yield* SettingsV2.get({
+                settingsId: 'stale-condition-fail',
+              });
+              if (!migrated) throw new Error('Expected migrated item to exist');
 
-        const migrated = yield* SettingsV2.get({
-          settingsId: 'stale-condition-fail',
-        });
-        if (!migrated) throw new Error('Expected migrated item to exist');
+              expect(migrated.value.theme).toBe('light');
+              expect(migrated.value.fontSize).toBe(14);
+              expect(migrated.meta._v).toBe('v2');
+            }),
+        );
+      });
 
-        expect(migrated.value.theme).toBe('light');
-        expect(migrated.value.fontSize).toBe(14);
-        expect(migrated.meta._v).toBe('v2');
-      }),
-    );
-  });
+      describe('stale version item with autoMigrate: false', () => {
+        itEffect('throws ItemVersionMismatch when item is on old version', () =>
+          Effect.gen(function* () {
+            yield* SettingsV1.insert({
+              settingsId: 'stale-no-migrate',
+              theme: 'light',
+            });
 
-  describe('stale version item with autoMigrate: false', () => {
-    itEffect('throws ItemVersionMismatch when item is on old version', () =>
-      Effect.gen(function* () {
-        yield* SettingsV1.insert({
-          settingsId: 'stale-no-migrate',
-          theme: 'light',
-        });
+            const error = yield* SettingsV2.update(
+              { settingsId: 'stale-no-migrate' },
+              {
+                update: { theme: 'dark' },
+                autoMigrate: false,
+              },
+            ).pipe(Effect.flip);
 
-        const error = yield* SettingsV2.update(
-          { settingsId: 'stale-no-migrate' },
-          {
-            update: { theme: 'dark' },
-            autoMigrate: false,
-          },
-        ).pipe(Effect.flip);
-
-        expect(error).toBeInstanceOf(DynamodbError);
-        expect(error.error._tag).toBe('ItemVersionMismatch');
-      }),
-    );
+            expect(error).toBeInstanceOf(DynamodbError);
+            expect(error.error._tag).toBe('ItemVersionMismatch');
+          }),
+        );
+      });
+    });
   });
 });

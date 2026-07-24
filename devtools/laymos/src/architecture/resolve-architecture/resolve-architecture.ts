@@ -77,7 +77,6 @@ export function resolveProject(
         ],
       ),
     ),
-    laymosImports: fileGraph.laymosImports,
   };
 
   return Effect.succeed({

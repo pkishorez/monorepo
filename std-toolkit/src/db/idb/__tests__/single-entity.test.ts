@@ -33,252 +33,254 @@ const makeConfig = () => {
   return { layer, table, AppConfig };
 };
 
-describe('IdbSingleEntity', () => {
-  describe('get', () => {
-    itEffect('returns default when absent', () => {
-      const { layer, table, AppConfig } = makeConfig();
+describe('IDB', () => {
+  describe('Single entity', () => {
+    describe('get', () => {
+      itEffect('returns default when absent', () => {
+        const { layer, table, AppConfig } = makeConfig();
 
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          const result = yield* AppConfig.get();
+        return provided(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            const result = yield* AppConfig.get();
 
-          expect(result.value.theme).toBe('light');
-          expect(result.value.maxRetries).toBe(3);
-          expect(result.meta._u).toBe('');
-          expect(result.meta._e).toBe('AppConfig');
-        }),
-      );
+            expect(result.value.theme).toBe('light');
+            expect(result.value.maxRetries).toBe(3);
+            expect(result.meta._u).toBe('');
+            expect(result.meta._e).toBe('AppConfig');
+          }),
+        );
+      });
+
+      itEffect('returns stored item after put', () => {
+        const { layer, table, AppConfig } = makeConfig();
+
+        return provided(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            yield* AppConfig.put({ theme: 'dark', maxRetries: 5 });
+
+            const result = yield* AppConfig.get();
+
+            expect(result.value.theme).toBe('dark');
+            expect(result.value.maxRetries).toBe(5);
+            expect(result.meta._u).not.toBe('');
+            expect(result.meta._e).toBe('AppConfig');
+          }),
+        );
+      });
     });
 
-    itEffect('returns stored item after put', () => {
-      const { layer, table, AppConfig } = makeConfig();
+    describe('put', () => {
+      itEffect('writes unconditionally', () => {
+        const { layer, table, AppConfig } = makeConfig();
 
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          yield* AppConfig.put({ theme: 'dark', maxRetries: 5 });
+        return provided(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            const result = yield* AppConfig.put({
+              theme: 'blue',
+              maxRetries: 10,
+            });
 
-          const result = yield* AppConfig.get();
+            expect(result.value.theme).toBe('blue');
+            expect(result.value.maxRetries).toBe(10);
+            expect(result.meta._u).not.toBe('');
+          }),
+        );
+      });
 
-          expect(result.value.theme).toBe('dark');
-          expect(result.value.maxRetries).toBe(5);
-          expect(result.meta._u).not.toBe('');
-          expect(result.meta._e).toBe('AppConfig');
-        }),
-      );
-    });
-  });
+      itEffect('overwrites existing', () => {
+        const { layer, table, AppConfig } = makeConfig();
 
-  describe('put', () => {
-    itEffect('writes unconditionally', () => {
-      const { layer, table, AppConfig } = makeConfig();
+        return provided(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            yield* AppConfig.put({ theme: 'red', maxRetries: 1 });
+            yield* AppConfig.put({ theme: 'green', maxRetries: 99 });
 
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          const result = yield* AppConfig.put({
-            theme: 'blue',
-            maxRetries: 10,
-          });
+            const result = yield* AppConfig.get();
 
-          expect(result.value.theme).toBe('blue');
-          expect(result.value.maxRetries).toBe(10);
-          expect(result.meta._u).not.toBe('');
-        }),
-      );
-    });
-
-    itEffect('overwrites existing', () => {
-      const { layer, table, AppConfig } = makeConfig();
-
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          yield* AppConfig.put({ theme: 'red', maxRetries: 1 });
-          yield* AppConfig.put({ theme: 'green', maxRetries: 99 });
-
-          const result = yield* AppConfig.get();
-
-          expect(result.value.theme).toBe('green');
-          expect(result.value.maxRetries).toBe(99);
-        }),
-      );
-    });
-  });
-
-  describe('getAndUpdate', () => {
-    itEffect('plain object patch', () => {
-      const { layer, table, AppConfig } = makeConfig();
-
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
-
-          const result = yield* AppConfig.getAndUpdate({ theme: 'dark' });
-
-          expect(result.value.theme).toBe('dark');
-          expect(result.value.maxRetries).toBe(3);
-        }),
-      );
+            expect(result.value.theme).toBe('green');
+            expect(result.value.maxRetries).toBe(99);
+          }),
+        );
+      });
     });
 
-    itEffect('callback derives the partial from the current value', () => {
-      const { layer, table, AppConfig } = makeConfig();
+    describe('getAndUpdate', () => {
+      itEffect('plain object patch', () => {
+        const { layer, table, AppConfig } = makeConfig();
 
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
-
-          const result = yield* AppConfig.getAndUpdate((current) => ({
-            maxRetries: current.maxRetries + 1,
-          }));
-
-          expect(result.value.maxRetries).toBe(4);
-        }),
-      );
-    });
-
-    itEffect('treats the default as current before the first write', () => {
-      const { layer, table, AppConfig } = makeConfig();
-
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          const updated = yield* AppConfig.getAndUpdate({ theme: 'dark' });
-          const after = yield* AppConfig.get();
-
-          expect(updated.value.theme).toBe('dark');
-          expect(updated.value.maxRetries).toBe(3);
-          expect(updated.meta._u).not.toBe('');
-          expect(after.meta._u).toBe(updated.meta._u);
-        }),
-      );
-    });
-
-    itEffect('callback returning null skips the write', () => {
-      const { layer, table, AppConfig } = makeConfig();
-
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          const written = yield* AppConfig.put({
-            theme: 'light',
-            maxRetries: 3,
-          });
-          const skipped = yield* AppConfig.getAndUpdate(() => null);
-
-          expect(skipped.meta._u).toBe(written.meta._u);
-          expect(skipped.value.theme).toBe('light');
-        }),
-      );
-    });
-
-    it('with retries: 0, rejects one of two updates based on the same _u', async () => {
-      const { layer, table, AppConfig } = makeConfig();
-      await Effect.runPromise(
-        provided(
+        return provided(
           layer,
           Effect.gen(function* () {
             yield* table.setup();
             yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+            const result = yield* AppConfig.getAndUpdate({ theme: 'dark' });
+
+            expect(result.value.theme).toBe('dark');
+            expect(result.value.maxRetries).toBe(3);
           }),
-        ),
-      );
-
-      const results = await Promise.allSettled([
-        Effect.runPromise(
-          provided(
-            layer,
-            AppConfig.getAndUpdate({ theme: 'first' }, { retries: 0 }),
-          ),
-        ),
-        Effect.runPromise(
-          provided(
-            layer,
-            AppConfig.getAndUpdate({ theme: 'second' }, { retries: 0 }),
-          ),
-        ),
-      ]);
-
-      expect(
-        results.filter((result) => result.status === 'fulfilled'),
-      ).toHaveLength(1);
-      const rejected = results.find((result) => result.status === 'rejected');
-      expect(rejected).toMatchObject({
-        reason: { code: 'conditionFailed' },
+        );
       });
-    });
 
-    it('with default retries, both concurrent updates land', async () => {
-      const { layer, table, AppConfig } = makeConfig();
-      await Effect.runPromise(
-        provided(
+      itEffect('callback derives the partial from the current value', () => {
+        const { layer, table, AppConfig } = makeConfig();
+
+        return provided(
           layer,
           Effect.gen(function* () {
             yield* table.setup();
-            yield* AppConfig.put({ theme: 'light', maxRetries: 0 });
+            yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+
+            const result = yield* AppConfig.getAndUpdate((current) => ({
+              maxRetries: current.maxRetries + 1,
+            }));
+
+            expect(result.value.maxRetries).toBe(4);
           }),
-        ),
-      );
+        );
+      });
 
-      await Promise.all([
-        Effect.runPromise(
+      itEffect('treats the default as current before the first write', () => {
+        const { layer, table, AppConfig } = makeConfig();
+
+        return provided(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            const updated = yield* AppConfig.getAndUpdate({ theme: 'dark' });
+            const after = yield* AppConfig.get();
+
+            expect(updated.value.theme).toBe('dark');
+            expect(updated.value.maxRetries).toBe(3);
+            expect(updated.meta._u).not.toBe('');
+            expect(after.meta._u).toBe(updated.meta._u);
+          }),
+        );
+      });
+
+      itEffect('callback returning null skips the write', () => {
+        const { layer, table, AppConfig } = makeConfig();
+
+        return provided(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            const written = yield* AppConfig.put({
+              theme: 'light',
+              maxRetries: 3,
+            });
+            const skipped = yield* AppConfig.getAndUpdate(() => null);
+
+            expect(skipped.meta._u).toBe(written.meta._u);
+            expect(skipped.value.theme).toBe('light');
+          }),
+        );
+      });
+
+      it('with retries: 0, rejects one of two updates based on the same _u', async () => {
+        const { layer, table, AppConfig } = makeConfig();
+        await Effect.runPromise(
           provided(
             layer,
-            AppConfig.getAndUpdate((current) => ({
-              maxRetries: current.maxRetries + 1,
-            })),
+            Effect.gen(function* () {
+              yield* table.setup();
+              yield* AppConfig.put({ theme: 'light', maxRetries: 3 });
+            }),
           ),
-        ),
-        Effect.runPromise(
+        );
+
+        const results = await Promise.allSettled([
+          Effect.runPromise(
+            provided(
+              layer,
+              AppConfig.getAndUpdate({ theme: 'first' }, { retries: 0 }),
+            ),
+          ),
+          Effect.runPromise(
+            provided(
+              layer,
+              AppConfig.getAndUpdate({ theme: 'second' }, { retries: 0 }),
+            ),
+          ),
+        ]);
+
+        expect(
+          results.filter((result) => result.status === 'fulfilled'),
+        ).toHaveLength(1);
+        const rejected = results.find((result) => result.status === 'rejected');
+        expect(rejected).toMatchObject({
+          reason: { code: 'conditionFailed' },
+        });
+      });
+
+      it('with default retries, both concurrent updates land', async () => {
+        const { layer, table, AppConfig } = makeConfig();
+        await Effect.runPromise(
           provided(
             layer,
-            AppConfig.getAndUpdate((current) => ({
-              maxRetries: current.maxRetries + 1,
-            })),
+            Effect.gen(function* () {
+              yield* table.setup();
+              yield* AppConfig.put({ theme: 'light', maxRetries: 0 });
+            }),
           ),
-        ),
-      ]);
+        );
 
-      const after = await Effect.runPromise(provided(layer, AppConfig.get()));
-      expect(after.value.maxRetries).toBe(2);
+        await Promise.all([
+          Effect.runPromise(
+            provided(
+              layer,
+              AppConfig.getAndUpdate((current) => ({
+                maxRetries: current.maxRetries + 1,
+              })),
+            ),
+          ),
+          Effect.runPromise(
+            provided(
+              layer,
+              AppConfig.getAndUpdate((current) => ({
+                maxRetries: current.maxRetries + 1,
+              })),
+            ),
+          ),
+        ]);
+
+        const after = await Effect.runPromise(provided(layer, AppConfig.get()));
+        expect(after.value.maxRetries).toBe(2);
+      });
     });
-  });
 
-  describe('reset', () => {
-    itEffect('writes the default value back', () => {
-      const { layer, table, AppConfig } = makeConfig();
+    describe('reset', () => {
+      itEffect('writes the default value back', () => {
+        const { layer, table, AppConfig } = makeConfig();
 
-      return provided(
-        layer,
-        Effect.gen(function* () {
-          yield* table.setup();
-          const written = yield* AppConfig.put({
-            theme: 'dark',
-            maxRetries: 9,
-          });
+        return provided(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            const written = yield* AppConfig.put({
+              theme: 'dark',
+              maxRetries: 9,
+            });
 
-          const reverted = yield* AppConfig.reset();
-          const after = yield* AppConfig.get();
+            const reverted = yield* AppConfig.reset();
+            const after = yield* AppConfig.get();
 
-          expect(reverted.value.theme).toBe('light');
-          expect(reverted.meta._u > written.meta._u).toBe(true);
-          expect(after.value.theme).toBe('light');
-          expect(after.value.maxRetries).toBe(3);
-          expect(after.meta._u).toBe(reverted.meta._u);
-        }),
-      );
+            expect(reverted.value.theme).toBe('light');
+            expect(reverted.meta._u > written.meta._u).toBe(true);
+            expect(after.value.theme).toBe('light');
+            expect(after.value.maxRetries).toBe(3);
+            expect(after.meta._u).toBe(reverted.meta._u);
+          }),
+        );
+      });
     });
   });
 });

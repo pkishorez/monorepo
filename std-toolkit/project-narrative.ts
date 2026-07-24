@@ -33,12 +33,10 @@ export function createStdToolkitProjectNarrative(): ProjectNarrativeDef {
       keyed collection. Their smaller API preserves the same decoding,
       conditional-update, and reset guarantees.
 
-      ## How to read the Stories
+      ## Verification
 
-      Each Story begins with authored documentation and then shows the
-      structural narrative collected from production-shaped code. Scenarios
-      narrow that structure to concrete observable cases. Switch to **Graph**
-      when you want to inspect branching, terminals, and Scenario coverage.
+      Vitest suites cover the data model and adapters. Laymos can display those
+      completed results without requiring a separate test format or location.
     `,
   );
 }

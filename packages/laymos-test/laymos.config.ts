@@ -1,23 +1,23 @@
 import { defineConfig, edge, layer, layerGraph, module } from 'laymos';
 
 const workflows = layer('workflows', ['src'], {
-  description: 'Production workflows exercised by the end-to-end Stories',
+  description: 'Production workflows exercised by tests',
 });
 
 const tests = layer('tests', ['test'], {
-  description: 'Integration checks for Story discovery and execution',
+  description: 'Vitest integration checks',
 });
 
 export default defineConfig({
   sourceRoots: ['src', 'test'],
   graphs: [
     layerGraph('laymos-test', [edge(tests, workflows)], {
-      description: 'End-to-end Story execution against production workflows',
+      description: 'Tests exercising production workflows',
     }),
   ],
   modules: [
     module('src', {
-      description: 'Example workflows and their owned Laymos surface',
+      description: 'Example workflows',
     }),
   ],
 });

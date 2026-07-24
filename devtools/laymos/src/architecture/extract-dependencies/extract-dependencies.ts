@@ -1,12 +1,15 @@
 import { readdir, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import skott from 'skott';
 
 import { pathContains } from '../../config/path.js';
-import type { LaymosSurface } from '../../stories/discover-stories/laymos-surface.js';
 import { ExtractError } from '../errors.js';
+
+const MissingFileErrorSchema = Schema.Struct({
+  code: Schema.Literal('ENOENT'),
+});
 
 export interface FileNode {
   readonly path: string;
@@ -15,11 +18,6 @@ export interface FileNode {
 
 export interface FileGraph {
   readonly files: Readonly<Record<string, FileNode>>;
-  readonly laymosImports: readonly {
-    readonly from: string;
-    readonly to: string;
-    readonly module: string;
-  }[];
 }
 
 /** Extracts configured source roots with skott and type-only tracking enabled. */
@@ -27,23 +25,10 @@ export function extractFileGraph(
   baseDir: string,
   sourceRoots: readonly string[],
   ignoredPaths: readonly string[] = [],
-  laymosSurfaces: readonly LaymosSurface[] = [],
 ): Effect.Effect<FileGraph, ExtractError> {
   return Effect.tryPromise({
     try: async () => {
-      const inventoryFiles = await listSourceFiles(baseDir, sourceRoots);
-      const laymosSurfaceByFile = new Map(
-        inventoryFiles.flatMap((path) => {
-          const surface = laymosSurfaces.find((candidate) =>
-            pathContains(candidate.path, path),
-          );
-          return surface === undefined ? [] : [[path, surface] as const];
-        }),
-      );
-      const laymosFiles = new Set(laymosSurfaceByFile.keys());
-      const architectureFiles = inventoryFiles.filter(
-        (path) => !laymosFiles.has(path),
-      );
+      const architectureFiles = await listSourceFiles(baseDir, sourceRoots);
       const eligibleFiles = architectureFiles.filter(
         (path) => !ignoredPaths.some((ignored) => pathContains(ignored, path)),
       );
@@ -51,10 +36,6 @@ export function extractFileGraph(
       const imports = new Map<string, Set<string>>(
         architectureFiles.map((path) => [path, new Set()]),
       );
-      const laymosImports = new Map<
-        string,
-        { readonly from: string; readonly to: string; readonly module: string }
-      >();
       const extracted = new Set<string>();
 
       for (const sourceRoot of sourceRoots) {
@@ -75,9 +56,6 @@ export function extractFileGraph(
           graph: structure.graph,
           imports,
           resolutionBase,
-          laymosImports,
-          laymosFiles,
-          laymosSurfaceByFile,
         })) {
           extracted.add(path);
         }
@@ -97,9 +75,6 @@ export function extractFileGraph(
           graph: structure.graph,
           imports,
           resolutionBase: dirname(entrypoint),
-          laymosImports,
-          laymosFiles,
-          laymosSurfaceByFile,
         });
       }
 
@@ -109,9 +84,6 @@ export function extractFileGraph(
             path,
             { path, imports: [...imports.get(path)!].sort() },
           ]),
-        ),
-        laymosImports: [...laymosImports.values()].sort(
-          (a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to),
         ),
       };
     },
@@ -154,9 +126,6 @@ function collectExtractedGraph({
   graph,
   imports,
   resolutionBase,
-  laymosImports,
-  laymosFiles,
-  laymosSurfaceByFile,
 }: {
   baseDir: string;
   eligible: ReadonlySet<string>;
@@ -168,12 +137,6 @@ function collectExtractedGraph({
   >;
   imports: Map<string, Set<string>>;
   resolutionBase?: string;
-  laymosImports: Map<
-    string,
-    { readonly from: string; readonly to: string; readonly module: string }
-  >;
-  laymosFiles: ReadonlySet<string>;
-  laymosSurfaceByFile: ReadonlyMap<string, LaymosSurface>;
 }): Set<string> {
   const extracted = new Set<string>();
   for (const node of Object.values(graph)) {
@@ -184,21 +147,7 @@ function collectExtractedGraph({
       const to = findEligiblePath(baseDir, adjacent, eligible, resolutionBase);
       if (to !== undefined) {
         imports.get(from)!.add(to);
-        continue;
       }
-      const laymosFile = findEligiblePath(
-        baseDir,
-        adjacent,
-        laymosFiles,
-        resolutionBase,
-      );
-      if (laymosFile === undefined) continue;
-      const laymosSurface = laymosSurfaceByFile.get(laymosFile)!;
-      laymosImports.set(`${from}\0${laymosFile}`, {
-        from,
-        to: laymosFile,
-        module: laymosSurface.modulePath,
-      });
     }
   }
   return extracted;
@@ -237,12 +186,7 @@ async function statOrUndefined(path: string) {
   try {
     return await stat(path);
   } catch (cause) {
-    if (
-      typeof cause === 'object' &&
-      cause !== null &&
-      'code' in cause &&
-      cause.code === 'ENOENT'
-    ) {
+    if (Schema.is(MissingFileErrorSchema)(cause)) {
       return undefined;
     }
     throw cause;
@@ -253,6 +197,7 @@ function isSupportedSourceFile(path: string): boolean {
   return (
     sourceExtensions.some((extension) => path.endsWith(extension)) &&
     !path.endsWith('.d.ts') &&
+    !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path) &&
     !/\.min\.(?:[cm]?js|jsx)$/.test(path)
   );
 }

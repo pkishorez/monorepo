@@ -1,93 +1,74 @@
-import { useState } from 'react';
-import type { TestCatalog, TestPath, TestsReport } from 'laymos/report';
+import { useFixtureInput } from 'react-cosmos/client';
+import type { TestsReport } from 'laymos/report';
 
 import { LaymosTests } from '../laymos-tests';
+import {
+  comprehensiveReport,
+  emptyReport,
+  jsonDiffReport,
+  passingReport,
+} from './reports';
 
-const testPath = 'src/checkout/laymos/normalize-order';
-
-const catalog: TestCatalog = {
-  modules: [
-    {
-      modulePath: 'src/checkout',
-      description: 'Checkout',
-      tests: [
-        {
-          testPath,
-          testKey: 'normalize-order',
-          modulePath: 'src/checkout',
-          name: 'Normalize an order',
-          description:
-            'Checks how raw order values become stable application input.',
-          cases: [
-            {
-              kind: 'positive',
-              name: 'normalizes source code',
-              description: 'Formats compact source into stable TypeScript.',
-              inputs: ['const total=2+3'],
-              expected: {
-                kind: 'value',
-                value: 'const total = 2 + 3;',
-              },
-            },
-            {
-              kind: 'positive',
-              name: 'preserves Markdown',
-              description: 'Leaves already-normalized Markdown unchanged.',
-              inputs: ['# Checkout\n\n- paid'],
-              expected: {
-                kind: 'value',
-                value: '# Checkout\n\n- paid',
-              },
-            },
-            {
-              kind: 'negative',
-              name: 'rejects empty input',
-              description: 'Reports the named error for missing source.',
-              inputs: [''],
-              expected: { kind: 'error', name: 'EmptyOrder' },
-            },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-const report: TestsReport = {
-  tests: {
-    [testPath]: {
-      ...catalog.modules[0]!.tests[0],
-      cases: [
-        {
-          ...catalog.modules[0]!.tests[0].cases[0]!,
-          actual: { kind: 'value', value: 'const total = 2+3;' },
-        },
-        {
-          ...catalog.modules[0]!.tests[0].cases[1]!,
-          actual: { kind: 'value', value: '# Checkout\n\n- paid' },
-        },
-        {
-          ...catalog.modules[0]!.tests[0].cases[2]!,
-          actual: { kind: 'error', name: 'EmptyOrder' },
-        },
-      ],
-    },
-  },
-};
-
-export default function LaymosTestsFixture() {
-  const [selection, setSelection] = useState<TestPath | null>(testPath);
+function Controlled({
+  report,
+  initialSelectedModuleId = null,
+  running = false,
+}: {
+  readonly report?: TestsReport;
+  readonly initialSelectedModuleId?: string | null;
+  readonly running?: boolean;
+}) {
+  const [selectedModuleId, setSelectedModuleId] = useFixtureInput<
+    string | null
+  >('selected module', initialSelectedModuleId);
 
   return (
-    <div className="h-[720px] p-6">
+    <div className="h-[760px] min-w-[960px] p-6">
       <LaymosTests
-        catalog={catalog}
         report={report}
-        selectedTestPath={selection}
-        onSelectedTestPathChange={setSelection}
-        onRunAll={() => undefined}
-        onRunTest={() => undefined}
+        selectedModuleId={selectedModuleId}
+        onSelectedModuleIdChange={setSelectedModuleId}
+        onRunTests={() => undefined}
+        running={running}
       />
     </div>
   );
 }
+
+export default {
+  overview: (
+    <Controlled
+      report={comprehensiveReport}
+      initialSelectedModuleId="checkout-module"
+    />
+  ),
+  'laymos tests': (
+    <Controlled
+      report={comprehensiveReport}
+      initialSelectedModuleId="value-module"
+    />
+  ),
+  'json diff': <Controlled report={jsonDiffReport} />,
+  'suite documentation': (
+    <Controlled
+      report={comprehensiveReport}
+      initialSelectedModuleId="value-module"
+    />
+  ),
+  'tests with traces': (
+    <Controlled
+      report={comprehensiveReport}
+      initialSelectedModuleId="trace-module"
+    />
+  ),
+  'collection failure': (
+    <Controlled
+      report={comprehensiveReport}
+      initialSelectedModuleId="collection-error-module"
+    />
+  ),
+  'all passing': <Controlled report={passingReport} />,
+  'empty completed run': <Controlled report={emptyReport} />,
+  'not run': <Controlled />,
+  running: <Controlled running />,
+};

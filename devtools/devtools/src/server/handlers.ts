@@ -8,12 +8,12 @@ import {
   queryMetrics,
   queryTraces,
 } from '@pkishorez/lotel';
-import { inspectStorySource, runStories, runTests } from 'laymos/node';
+import { runTests } from 'laymos/node';
 import { resolvePath } from '../report/assemble.js';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 import { getTrace } from './get-trace/index.js';
 import { openLaymosProjectStream } from './laymos.js';
-import { runStoriesStream } from './stories.js';
+import { findTestSourceHighlight } from './test-source-highlight.js';
 
 const toRpcError = (cause: unknown): DevtoolsRpcError =>
   cause instanceof DevtoolsRpcError
@@ -23,24 +23,11 @@ const toRpcError = (cause: unknown): DevtoolsRpcError =>
 const laymosOperation = <A, E, R>(operation: Effect.Effect<A, E, R>) =>
   operation.pipe(Effect.mapError(toRpcError));
 
-const runStory = (projectDir: string, storyPath: string) =>
-  runStories({
-    projectDir,
-    selectors: [{ _tag: 'Story', storyPath }],
-  }).pipe(
-    Effect.flatMap((result) => {
-      const run = result.runs.stories[storyPath];
-      return run === undefined
-        ? Effect.fail(new Error(`Story "${storyPath}" did not run`))
-        : Effect.succeed({
-            status: result.status,
-            run,
-            failures: result.failures,
-          });
-    }),
-  );
-
-const readProjectFile = (projectPath: string, filePath: string) =>
+const readProjectFile = (
+  projectPath: string,
+  filePath: string,
+  testName?: string,
+) =>
   Effect.tryPromise({
     try: async () => {
       if (path.isAbsolute(filePath))
@@ -60,7 +47,15 @@ const readProjectFile = (projectPath: string, filePath: string) =>
       if (!info.isFile()) throw new Error('Path is not a regular file');
       const content = await readFile(file, 'utf8');
       if (content.includes('\0')) throw new Error('File is not text');
-      return { filePath: relative.split(path.sep).join('/'), content };
+      const highlight =
+        testName === undefined
+          ? undefined
+          : findTestSourceHighlight(relative, content, testName);
+      return {
+        filePath: relative.split(path.sep).join('/'),
+        content,
+        ...(highlight === undefined ? {} : { highlight }),
+      };
     },
     catch: toRpcError,
   });
@@ -80,47 +75,16 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
           result: { available: false as const },
         });
   },
-  RunAllStories: ({ path: input }) => runStoriesStream(resolvePath(input)),
-  RunStory: ({ path: input, storyPath }) =>
-    laymosOperation(runStory(resolvePath(input), storyPath)),
-  RunModuleStories: ({ path: input, modulePath }) =>
-    runStoriesStream(resolvePath(input), modulePath),
-  RunAllTests: ({ path: input }) =>
-    laymosOperation(runTests({ projectDir: resolvePath(input) })),
-  RunTest: ({ path: input, testPath }) =>
+  RunTests: ({ path: input, files, testNamePattern }) =>
     laymosOperation(
       runTests({
         projectDir: resolvePath(input),
-        selectors: [testPath],
+        ...(files === undefined ? {} : { files }),
+        ...(testNamePattern === undefined ? {} : { testNamePattern }),
       }),
     ),
-  ReadProjectFile: ({ path: input, filePath }) =>
-    readProjectFile(input, filePath),
-  ReadStorySource: ({ path: input, filePath, anchors }) =>
-    readProjectFile(input, filePath).pipe(
-      Effect.flatMap(({ filePath: resolvedFilePath, content }) =>
-        inspectStorySource({
-          source: content,
-          fileName: resolvedFilePath,
-          anchors: anchors.map(
-            ({ id, line, column, classification, reason }) => ({
-              id,
-              line,
-              column,
-              ...(classification === undefined ? {} : { classification }),
-              ...(reason === undefined ? {} : { reason }),
-            }),
-          ),
-        }).pipe(
-          Effect.map((projection) => ({
-            filePath: resolvedFilePath,
-            source: content,
-            ...projection,
-          })),
-          Effect.mapError(toRpcError),
-        ),
-      ),
-    ),
+  ReadProjectFile: ({ path: input, filePath, testName }) =>
+    readProjectFile(input, filePath, testName),
   QueryTraces: ({ sk, limit }) =>
     queryTraces(sk, limit).pipe(Effect.mapError(toRpcError)),
   GetTrace: ({ traceId }) =>

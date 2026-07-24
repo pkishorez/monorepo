@@ -9,7 +9,12 @@ import {
 } from '#components/ui/context-menu';
 
 import { STATUS_BG, STATUS_RING, StatusDot } from '../status';
-import { formatSpanName, isLog } from '../trace-model';
+import {
+  formatDuration,
+  formatSpanName,
+  isLog,
+  spanDuration,
+} from '../trace-model';
 import {
   BAR_COL_INSET,
   BAR_HEIGHT_PX,
@@ -29,6 +34,7 @@ interface GanttRowProps {
   onExpandFirstLevel: () => void;
   onExpandSubtree: () => void;
   nameColWidth?: number;
+  showLogs?: boolean;
 }
 
 export function GanttRow({
@@ -40,6 +46,7 @@ export function GanttRow({
   onExpandFirstLevel,
   onExpandSubtree,
   nameColWidth = NAME_COL_WIDTH,
+  showLogs = false,
 }: GanttRowProps) {
   const {
     span,
@@ -133,11 +140,14 @@ export function GanttRow({
             +{hiddenCount} more span{hiddenCount === 1 ? '' : 's'}
           </span>
         )}
-        {logCount > 0 && (
+        {!showLogs && logCount > 0 && (
           <span className="ml-1 shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
             {logCount} {logCount === 1 ? 'log' : 'logs'}
           </span>
         )}
+        <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+          {formatDuration(spanDuration(span))}
+        </span>
       </div>
 
       {/* Bar column outer — flex-1, clips overflow */}
