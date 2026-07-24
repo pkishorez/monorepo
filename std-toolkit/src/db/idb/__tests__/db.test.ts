@@ -1,9 +1,5 @@
 import 'fake-indexeddb/auto';
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { vi } from 'vitest';
 import { Effect, Layer } from 'effect';
 import { openDB } from 'idb';
@@ -30,7 +26,7 @@ const runWith = <A, E>(
   effect: Effect.Effect<A, E, IdbDB>,
 ) => Effect.runPromise(effect.pipe(Effect.provide(layer)));
 
-moreCoverageDomain('IDB', () => {
+describe('IDB', () => {
   describe('Database', () => {
     describe('put / get', () => {
       it('roundtrips a record with _data as a real object', async () => {

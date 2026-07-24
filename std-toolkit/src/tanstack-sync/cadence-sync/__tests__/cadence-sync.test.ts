@@ -1,10 +1,6 @@
 import { Effect, Fiber, Schedule, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { vi } from 'vitest';
 import { ulid } from 'ulidx';
 import { uTime, type EntityType } from '../../../core/index.js';
@@ -116,7 +112,7 @@ const runWithTestClock = <A>(
     }).pipe(Effect.provide(TestClock.layer())) as Effect.Effect<A, WriteError>,
   );
 
-moreCoverageDomain('TanStack Sync', () => {
+describe('TanStack Sync', () => {
   describe('Cadence', () => {
     describe('Run', () => {
       it('repairs a suspect that is already past readiness, passing predecessor as anchor', async () => {

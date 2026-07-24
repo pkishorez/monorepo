@@ -1,15 +1,11 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
 import { ESchema, EntityESchema, toSchema } from '../index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 
-moreCoverageDomain('ESchema', () => {
+describe('ESchema', () => {
   describe('Adoption', () => {
     describe('Plain to evolving schema', () => {
       describe('top-level adoption', () => {

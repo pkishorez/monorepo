@@ -1,8 +1,4 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import {
   offlineStorageGroupName,
   resolveCollectionOfflineStorage,
@@ -10,7 +6,7 @@ import {
 } from '../index.js';
 import { memoryOfflineStorage } from '../memory-offline-storage.js';
 
-moreCoverageDomain('TanStack Sync', () => {
+describe('TanStack Sync', () => {
   describe('Offline storage', () => {
     describe('API', () => {
       describe('Exports', () => {

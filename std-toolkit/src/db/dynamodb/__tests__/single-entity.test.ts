@@ -1,8 +1,4 @@
-import { describe, expect, beforeAll, afterAll } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect, beforeAll, afterAll } from 'vitest';
 
 const itEffect = <A, E>(
   name: string,
@@ -90,7 +86,7 @@ async function deleteTestTable() {
   }
 }
 
-moreCoverageDomain('DynamoDB', () => {
+describe('DynamoDB', () => {
   describe('Single entity', () => {
     beforeAll(async () => {
       await createTestTable();

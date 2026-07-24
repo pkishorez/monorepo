@@ -506,8 +506,8 @@ export function buildESchemaDefinitions(
 
   const referenceNames = new Map<string, string>();
   for (const { identity } of entries) {
-    referenceNames.set(`ESchema(${identity})`, identity);
-    referenceNames.set(`ValueESchema(${identity})`, identity);
+    referenceNames.set(`ESchema_${identity}`, identity);
+    referenceNames.set(`ValueESchema_${identity}`, identity);
   }
   return entries
     .map(({ eschema, identity, evolutions }) => ({

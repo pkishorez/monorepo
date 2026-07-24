@@ -1,12 +1,8 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 
 import { createStdSync } from '../create-std-sync.js';
 
-moreCoverageDomain('TanStack Sync', () => {
+describe('TanStack Sync', () => {
   describe('Registry', () => {
     describe('Behavior', () => {
       it.each([

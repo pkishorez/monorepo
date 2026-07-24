@@ -1,8 +1,4 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
 import {
   ESchema,
@@ -18,7 +14,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
 
 // ─── Multi-step evolution with field transformations ────────────────────────
 
-moreCoverageDomain('ESchema', () => {
+describe('ESchema', () => {
   describe('Evolution', () => {
     describe('multi-step evolution with transforms', () => {
       const schema = ESchema.make('Counter', {

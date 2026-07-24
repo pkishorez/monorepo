@@ -1,8 +1,4 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { buildExpr } from '../build-expr.js';
 import { exprCondition } from '../condition.js';
 import { exprUpdate } from '../update.js';
@@ -13,7 +9,7 @@ type TestEntity = { name: string; age: number; status: string };
 
 const index: IndexDefinition = { pk: 'PK', sk: 'SK' };
 
-moreCoverageDomain('DynamoDB', () => {
+describe('DynamoDB', () => {
   describe('Expressions', () => {
     describe('buildExpr', () => {
       describe('query mode (keyCondition + optional filter)', () => {

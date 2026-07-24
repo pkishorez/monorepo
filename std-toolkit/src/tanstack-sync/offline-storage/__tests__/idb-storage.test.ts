@@ -1,10 +1,6 @@
 import './setup.js';
 import { Effect } from 'effect';
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { idbStorage } from '../adapters/idb/index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
@@ -13,7 +9,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
 let dbCounter = 0;
 const dbName = () => `tanstack-sync-offline-storage-${++dbCounter}`;
 
-moreCoverageDomain('TanStack Sync', () => {
+describe('TanStack Sync', () => {
   describe('Offline storage', () => {
     describe('IDB', () => {
       describe('Behavior', () => {

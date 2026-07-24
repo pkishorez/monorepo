@@ -1,12 +1,8 @@
 import { Effect } from 'effect';
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { Ulid, nextUlid, uTime } from '../ulid.js';
 
-moreCoverageDomain('Core', () => {
+describe('Core', () => {
   describe('nextUlid', () => {
     it('produces strictly ascending ULIDs, even within the same millisecond', async () => {
       const ids = await Effect.runPromise(

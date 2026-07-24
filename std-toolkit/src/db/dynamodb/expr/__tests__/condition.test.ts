@@ -1,8 +1,4 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import {
   exprCondition,
   exprFilter,
@@ -17,7 +13,7 @@ type TestEntity = {
   user: { name: string; address: { city: string } };
 };
 
-moreCoverageDomain('DynamoDB', () => {
+describe('DynamoDB', () => {
   describe('Expressions', () => {
     describe('exprCondition builder', () => {
       it('creates cond with = operator', () => {

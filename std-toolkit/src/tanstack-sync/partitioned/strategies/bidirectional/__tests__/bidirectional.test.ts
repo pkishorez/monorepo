@@ -1,8 +1,4 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { Effect, Scope, Stream } from 'effect';
 import type { EntityType } from '../../../../../core/index.js';
 import { bidirectional } from '../bidirectional.js';
@@ -73,7 +69,7 @@ const drive = async (opts: {
   return { written, state };
 };
 
-moreCoverageDomain('TanStack Sync', () => {
+describe('TanStack Sync', () => {
   describe('Partitioned', () => {
     describe('Bidirectional', () => {
       describe('Behavior', () => {
