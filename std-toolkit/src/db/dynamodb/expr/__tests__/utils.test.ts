@@ -1,11 +1,7 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { AttributeMapBuilder } from '../utils.js';
 
-moreCoverageDomain('DynamoDB', () => {
+describe('DynamoDB', () => {
   describe('Expressions', () => {
     describe('AttributeMapBuilder', () => {
       describe('attr()', () => {

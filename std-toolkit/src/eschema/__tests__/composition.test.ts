@@ -1,13 +1,10 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
 import {
   ESchema,
   SingleEntityESchema,
   EntityESchema,
+  ValueESchema,
   toSchema,
 } from '../index.js';
 
@@ -30,7 +27,7 @@ const Order = EntityESchema.make('Order', 'orderId', {
   shippingAddress: toSchema(Address),
 }).build();
 
-moreCoverageDomain('ESchema', () => {
+describe('ESchema', () => {
   describe('Composition', () => {
     describe('toSchema', () => {
       describe('basic composition', () => {
@@ -348,6 +345,7 @@ moreCoverageDomain('ESchema', () => {
         const namedEntity = EntityESchema.make('Item', 'id', {
           z: Schema.Boolean,
         }).build();
+        const namedValue = ValueESchema.make('Status', Schema.String).build();
 
         // The identifier annotation is what JSON Schema generation uses as the
         // `$defs` key, so assert through that observable surface.
@@ -355,11 +353,15 @@ moreCoverageDomain('ESchema', () => {
           Object.keys(Schema.toJsonSchemaDocument(schema).definitions)[0];
 
         it("uses a plain eschema's own name", () => {
-          expect(idOf(toSchema(plainNamed))).toBe('ESchema(Order)');
+          expect(idOf(toSchema(plainNamed))).toBe('ESchema_Order');
         });
 
         it("uses an entity eschema's own name", () => {
-          expect(idOf(toSchema(namedEntity))).toBe('ESchema(Item)');
+          expect(idOf(toSchema(namedEntity))).toBe('ESchema_Item');
+        });
+
+        it("uses a value eschema's own name", () => {
+          expect(idOf(toSchema(namedValue))).toBe('ValueESchema_Status');
         });
 
         it('preserves the nested schema definition shape', () => {
@@ -372,7 +374,7 @@ moreCoverageDomain('ESchema', () => {
 
           const descriptor = Parent.getDescriptor();
 
-          expect(descriptor.$defs?.['ESchema(Child)']).toMatchObject({
+          expect(descriptor.$defs?.ESchema_Child).toMatchObject({
             type: 'object',
             properties: {
               value: { type: 'string' },

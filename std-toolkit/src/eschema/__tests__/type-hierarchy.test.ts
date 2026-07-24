@@ -1,8 +1,4 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { Schema } from 'effect';
 import {
   ESchema,
@@ -34,7 +30,7 @@ const entity = EntityESchema.make('User', 'id', {
   a: Schema.String,
 }).build();
 
-moreCoverageDomain('ESchema', () => {
+describe('ESchema', () => {
   describe('Types', () => {
     describe('type hierarchy — assignability', () => {
       it('ESchema is accepted where AnyESchema is expected', () => {

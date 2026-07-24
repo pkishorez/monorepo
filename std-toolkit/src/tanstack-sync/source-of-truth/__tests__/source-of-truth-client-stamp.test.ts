@@ -1,11 +1,7 @@
 import { Effect, Schema } from 'effect';
 import type { EntityType } from '../../../core/index.js';
 import { EntityESchema } from '../../../eschema/index.js';
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { memoryOfflineStorage } from '../../offline-storage/memory-offline-storage.js';
 import { makeSourceOfTruth } from '../source-of-truth.js';
 
@@ -27,7 +23,7 @@ const entity = (
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E>) =>
   it(name, () => Effect.runPromise(fn() as Effect.Effect<A, E, never>));
 
-moreCoverageDomain('TanStack Sync', () => {
+describe('TanStack Sync', () => {
   describe('Source of truth', () => {
     describe('Client stamp', () => {
       itEffect('stamps _c as a number on accepted entities', () =>

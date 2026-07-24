@@ -1,9 +1,5 @@
 import { Effect, Layer, Schema } from 'effect';
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { nextUlid } from '../../../core/index.js';
 import { EntityESchema } from '../../../eschema/index.js';
 import { unmarshall } from '../internal/marshall.js';
@@ -14,7 +10,7 @@ const ItemSchema = EntityESchema.make('Item', 'itemId', {
   category: Schema.String,
 }).build();
 
-moreCoverageDomain('DynamoDB', () => {
+describe('DynamoDB', () => {
   describe('Transactions', () => {
     describe('Cursors', () => {
       it('stamps transaction cursors immediately before submitting the write', async () => {

@@ -1,9 +1,5 @@
 import 'fake-indexeddb/auto';
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 import { Effect, Layer } from 'effect';
 import { IdbDB } from '../src/db.js';
 import type { IdbRecord } from '../src/db.js';
@@ -51,7 +47,7 @@ const seedCollection = () => seeded(collectionSks.map((sk) => makeRecord(sk)));
 const sksOf = (result: { Items: IdbRecord[] }) =>
   result.Items.map((item) => item.sk);
 
-moreCoverageDomain('IDB', () => {
+describe('IDB', () => {
   describe('Table', () => {
     describe('query operators', () => {
       it('with no sk condition returns the whole item collection ascending', async () => {

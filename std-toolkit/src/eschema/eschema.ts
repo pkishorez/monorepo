@@ -461,7 +461,7 @@ export function toSchema(
 ): any {
   const isValue = eschema instanceof ValueESchema;
   const name = eschema.name;
-  const identifier = isValue ? `ValueESchema(${name})` : `ESchema(${name})`;
+  const identifier = isValue ? `ValueESchema_${name}` : `ESchema_${name}`;
   const toIssue = (input: unknown, err: ESchemaError) =>
     new SchemaIssue.InvalidValue(Option.some(input), { message: err.message });
   const surrogate = Schema.declare<unknown>(

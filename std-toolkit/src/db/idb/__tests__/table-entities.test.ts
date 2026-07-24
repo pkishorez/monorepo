@@ -1,9 +1,5 @@
 import 'fake-indexeddb/auto';
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -67,7 +63,7 @@ const makeStubBroadcasterLayer = () => {
   return { layer, broadcasts };
 };
 
-moreCoverageDomain('IDB', () => {
+describe('IDB', () => {
   describe('Table', () => {
     describe('Entities', () => {
       describe('entity / singleEntity definition', () => {

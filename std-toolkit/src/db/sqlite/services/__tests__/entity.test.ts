@@ -1,9 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { describe, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../../laymos/more-coverage.js';
+import { it, describe, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -34,7 +30,7 @@ const CommentSchema = EntityESchema.make('Comment', 'commentId', {
 
 // ─── Single Table Design ─────────────────────────────────────────────────────
 
-moreCoverageDomain('SQLite', () => {
+describe('SQLite', () => {
   describe('Entity', () => {
     describe('Operations', () => {
       let db: DatabaseSync;

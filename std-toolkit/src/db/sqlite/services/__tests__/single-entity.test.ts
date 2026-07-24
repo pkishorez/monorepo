@@ -1,9 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { describe, expect, beforeAll, afterAll } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../../../laymos/more-coverage.js';
+import { it, describe, expect, beforeAll, afterAll } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -25,7 +21,7 @@ const configSchema = SingleEntityESchema.make('AppConfig', {
 
 // ─── Setup ──────────────────────────────────────────────────────────────────
 
-moreCoverageDomain('SQLite', () => {
+describe('SQLite', () => {
   describe('Single entity', () => {
     let db: DatabaseSync;
     let layer: Layer.Layer<SqliteDB>;

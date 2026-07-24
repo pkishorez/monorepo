@@ -1,8 +1,4 @@
-import { describe, expect } from 'vitest';
-import {
-  moreCoverageDomain,
-  moreCoverageTest as it,
-} from '../../../laymos/more-coverage.js';
+import { it, describe, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -11,7 +7,7 @@ import { ESchema, fromType } from '../index.js';
 import { ESchemaError } from '../utils.js';
 import { StringToNumber } from './fixtures.js';
 
-moreCoverageDomain('ESchema', () => {
+describe('ESchema', () => {
   describe('Plain schema', () => {
     describe('Make', () => {
       itEffect('creates a v1 schema and encodes with version', () =>
