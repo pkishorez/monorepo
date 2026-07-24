@@ -1,7 +1,4 @@
-import type {
-  AnySingleEntityESchema,
-  ESchemaType,
-} from '../../../eschema/index.js';
+import type { AnyUnkeyedESchema, ESchemaType } from '../../../eschema/index.js';
 import { Effect, Option, Schema, Match } from 'effect';
 
 import type { DynamoTable } from './dynamo-table.js';
@@ -76,7 +73,7 @@ export interface SingleEntityType<T> {
  */
 export class DynamoSingleEntity<
   TTable extends DynamoTable<any, any>,
-  TSchema extends AnySingleEntityESchema,
+  TSchema extends AnyUnkeyedESchema,
 > {
   /**
    * Creates a new single entity builder for the given table.
@@ -94,7 +91,7 @@ export class DynamoSingleEntity<
        * @param eschema - The ESchema instance
        * @returns A builder to set the default value
        */
-      eschema<TS extends AnySingleEntityESchema>(eschema: TS) {
+      eschema<TS extends AnyUnkeyedESchema>(eschema: TS) {
         return {
           /**
            * Sets the default value and constructs the instance.

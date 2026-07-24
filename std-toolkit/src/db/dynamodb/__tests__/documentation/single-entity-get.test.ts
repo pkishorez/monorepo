@@ -22,7 +22,7 @@ describe('DynamoDB', () => {
         description:
           'Get always returns usable singleton state, whether defaulted or persisted.',
         documentation: operationDocumentation(
-          'Use `get` to read the one value owned by a single-entity schema.',
+          'Use `get` to read the one value owned by a singleton table binding.',
           `const settings = yield* appSettings.get()`,
           'Before the first write, the configured default is returned with an absent cursor. Persisted state has a generated cursor.',
         ),

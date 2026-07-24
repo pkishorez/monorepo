@@ -24,7 +24,7 @@ const versionSchema = Schema.Struct({
 
 const definitionSchema = Schema.Struct({
   identity: Schema.String,
-  kind: Schema.Literals(['struct', 'value', 'entity', 'single-entity']),
+  kind: Schema.Literals(['struct', 'value', 'entity']),
   idField: Schema.NullOr(Schema.String),
   versions: Schema.Array(versionSchema),
 });

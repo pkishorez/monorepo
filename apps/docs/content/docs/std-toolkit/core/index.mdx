@@ -100,13 +100,13 @@ const handleIncoming = (payload: unknown) =>
   });
 ```
 
-`SingleEntitySchema` is the same idea for singletons — it wraps a `SingleEntityESchema` and attaches the narrower singleton meta:
+`SingleEntitySchema` is the same idea for singletons — it wraps an unkeyed `ESchema` and attaches the narrower singleton meta:
 
 ```ts
-import { SingleEntityESchema } from 'std-toolkit/eschema';
+import { ESchema } from 'std-toolkit/eschema';
 import { SingleEntitySchema } from 'std-toolkit/core';
 
-const WorkspaceSettings = SingleEntityESchema.make('WorkspaceSettings', {
+const WorkspaceSettings = ESchema.make('WorkspaceSettings', {
   workspaceName: Schema.String,
   defaultChannelId: Schema.String,
 }).build();

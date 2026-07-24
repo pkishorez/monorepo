@@ -3,10 +3,7 @@ import { it, describe, expect, beforeAll, afterAll } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
-import {
-  SingleEntityESchema,
-  EntityESchema,
-} from '../../../../eschema/index.js';
+import { ESchema, EntityESchema } from '../../../../eschema/index.js';
 import { Effect, type Layer, Schema } from 'effect';
 import { nodeSqliteLayer } from '../../sql/adapters/node.js';
 import type { SqliteDB } from '../../sql/db.js';
@@ -14,7 +11,7 @@ import { SQLiteTable } from '../sqlite-table.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
-const configSchema = SingleEntityESchema.make('AppConfig', {
+const configSchema = ESchema.make('AppConfig', {
   theme: Schema.String,
   maxRetries: Schema.Number,
 }).build();
@@ -141,7 +138,7 @@ describe('SQLite', () => {
 
       itEffect('treats the default as current before the first write', () =>
         Effect.gen(function* () {
-          const emptySchema = SingleEntityESchema.make('EmptyConfig', {
+          const emptySchema = ESchema.make('EmptyConfig', {
             value: Schema.String,
           }).build();
 
@@ -170,12 +167,9 @@ describe('SQLite', () => {
         let updateCalls = 0;
 
         return Effect.gen(function* () {
-          const failureSchema = SingleEntityESchema.make(
-            'InsertFailureConfig',
-            {
-              value: Schema.String,
-            },
-          ).build();
+          const failureSchema = ESchema.make('InsertFailureConfig', {
+            value: Schema.String,
+          }).build();
           const failureTable = SQLiteTable.make().primary('pk', 'sk').build();
           const FailureConfig = failureTable
             .singleEntity(failureSchema)

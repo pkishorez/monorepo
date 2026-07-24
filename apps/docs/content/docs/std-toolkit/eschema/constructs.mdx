@@ -1,18 +1,17 @@
 ---
 title: Constructs
-description: ESchema, ValueESchema, SingleEntityESchema, EntityESchema — and toSchema for nesting them anywhere.
+description: ESchema, ValueESchema, EntityESchema — and toSchema for nesting them anywhere.
 ---
 
-Everything on the [previous page](/docs/std-toolkit/eschema/defining-schemas) versioned an anonymous bag of fields. That's enough for validation, but the rest of the toolkit needs to _store_ these things — and storage wants to know more: what is this entity called? Which field identifies a row? And what if the thing you're versioning isn't an object at all, but a single value like an enum?
+Everything on the [previous page](/docs/std-toolkit/eschema/defining-schemas) versioned a named object. The other constructs answer two shape questions: does the object have a per-row identity, and is the versioned value an object at all?
 
-That's why eschema ships four constructs. They share the same `make → evolve → build` chain and the same encode/decode semantics; they differ only in what identity they carry. Picking one is a one-row lookup:
+Eschema ships three constructs. They share the same `make → evolve → build` chain and the same encode/decode semantics:
 
-| You're versioning                        | Use                   |
-| ---------------------------------------- | --------------------- |
-| An object with named fields, not stored alone | `ESchema`        |
-| A single value (enum / scalar / union)   | `ValueESchema`        |
-| A named singleton object                 | `SingleEntityESchema` |
-| A keyed entity (name + per-row id)       | `EntityESchema`       |
+| You're versioning                      | Use                   |
+| -------------------------------------- | --------------------- |
+| An unkeyed object                      | `ESchema`             |
+| A single value (enum / scalar / union) | `ValueESchema`        |
+| A keyed entity (name + per-row id)     | `EntityESchema`       |
 
 ## `EntityESchema` — the workhorse
 
@@ -42,15 +41,15 @@ Two things the toolkit does with that identity: the name becomes the entity type
 
 Notice what's _not_ in the field map: `messageId`. The id field is added for you, as a plain string schema, and declaring it yourself is a type error — it's reserved, and it survives every evolution automatically. Your deltas describe domain fields; identity is eschema's bookkeeping.
 
-## `SingleEntityESchema` — named, but singular
+## `ESchema` — an unkeyed object
 
-Some things have a name but no id, because there's exactly one of them per scope. Channel settings are the chat app's example — each channel has one settings object, keyed by where it's stored rather than by an id field:
+`ESchema` carries a stable name but no id field. That makes it useful for both nested objects and singleton records. Channel settings are a singleton when passed to `table.singleEntity()`:
 
 ```ts title="channel-settings-schema.ts"
 import { Schema } from 'effect';
-import { SingleEntityESchema } from 'std-toolkit/eschema';
+import { ESchema } from 'std-toolkit/eschema';
 
-export const ChannelSettings = SingleEntityESchema.make('ChannelSettings', {
+export const ChannelSettings = ESchema.make('ChannelSettings', {
   isPrivate: Schema.Boolean,
   slowModeSeconds: Schema.Number,
 })
@@ -61,11 +60,9 @@ export const ChannelSettings = SingleEntityESchema.make('ChannelSettings', {
   .build();
 ```
 
-Same builder, same folding, `name` but no `idField`.
+Same builder, same folding, `name` but no `idField`. The schema describes the value; the table binding supplies the singleton storage behavior and default.
 
-## `ESchema` — just the shape
-
-The plain `ESchema` from the previous page carries a name but no storage identity — no id field, no entity tag. Reach for it when the versioned thing never stands alone in storage — a nested fragment of a larger entity, a config blob, a payload inside something else:
+The same construct works for a nested fragment:
 
 ```ts
 import { ESchema } from 'std-toolkit/eschema';
@@ -76,7 +73,7 @@ const Attachment = ESchema.make('Attachment', {
 }).build();
 ```
 
-An attachment never lives in a table by itself — it rides inside a message. Which raises the question `toSchema` answers below.
+An attachment rides inside a message through `toSchema`; no second schema variant is needed.
 
 ## `ValueESchema` — versioning a single value
 
@@ -112,7 +109,7 @@ That last line is the adoption rule again: a bare, un-enveloped value decodes as
 
 ## `toSchema` — the bridge into plain Effect Schema
 
-The four constructs answer "what am I versioning?". `toSchema` answers "how do I put an eschema where an Effect Schema is expected?" — which is exactly what nesting needs. It converts any eschema (object- or value-shaped) into a native `Schema.Codec` whose decode and encode delegate to the eschema's own chain:
+The three constructs answer "what am I versioning?". `toSchema` answers "how do I put an eschema where an Effect Schema is expected?" — which is exactly what nesting needs. It converts any eschema (object- or value-shaped) into a native `Schema.Codec` whose decode and encode delegate to the eschema's own chain:
 
 ```ts title="message-schema.ts"
 import { Schema } from 'effect';
@@ -159,7 +156,7 @@ You also get type extractors — `ESchemaType<typeof Message>` for the decoded s
 
 Most code only needs those two extractors. Generic schema infrastructure needs the rest of the exported types, and the useful way to learn them is by the boundary they describe.
 
-The `Any*` aliases constrain what a helper accepts. `AnyESchema` accepts any object-shaped eschema; `AnyValueESchema` accepts the value-envelope flavor; `AnySingleEntityESchema` requires a name; and `AnyEntityESchema` requires both a name and an id field. `AnyEvolvingSchema` is their union when your helper can handle every construct:
+The `Any*` aliases constrain what a helper accepts. `AnyESchema` accepts any object-shaped eschema; `AnyValueESchema` accepts the value-envelope flavor; `AnyUnkeyedESchema` excludes schemas with an id field; and `AnyEntityESchema` requires both a name and an id field. `AnyEvolvingSchema` is their union when your helper can handle every construct:
 
 ```ts
 import type {
@@ -182,7 +179,7 @@ const describeMessageCollection = <S extends AnyEntityESchema>(schema: S) => {
 };
 ```
 
-`ESchemaName<S>` extracts `'Message'`; `ESchemaIdField<S>` extracts `'messageId'`; `ESchemaType<S>` extracts the current decoded value; and `ESchemaEncoded<S>` extracts the latest persisted shape, including `_v`. The wider `AnySingleEntityESchema` covers named singleton helpers, while `AnyEvolvingSchema` is the right constraint for tools that only call `encode`, `decode`, or `getDescriptor` and do not care about identity.
+`ESchemaName<S>` extracts `'Message'`; `ESchemaIdField<S>` extracts `'messageId'`; `ESchemaType<S>` extracts the current decoded value; and `ESchemaEncoded<S>` extracts the latest persisted shape, including `_v`. `AnyUnkeyedESchema` is useful for singleton helpers that must reject keyed entities, while `AnyEvolvingSchema` is the right constraint for tools that only call `encode`, `decode`, or `getDescriptor` and do not care about identity.
 
 The remaining aliases name the pieces underneath those constructs:
 
@@ -191,6 +188,6 @@ The remaining aliases name the pieces underneath those constructs:
 - `ESchemaDescriptor` is the JSON Schema-shaped result of `getDescriptor()`, including `properties` and optional `$defs`.
 - `Prettify<T>` flattens intersections in inferred output so a message type displays as ordinary fields instead of nested mapped types.
 
-These are compile-time vocabulary, not another runtime API. In application code, start with `ESchemaType` and `ESchemaEncoded`; reach for `AnyESchema`, `AnySingleEntityESchema`, `AnyEntityESchema`, `AnyValueESchema`, or `AnyEvolvingSchema` only when you are writing reusable tooling over the corresponding construct family.
+These are compile-time vocabulary, not another runtime API. In application code, start with `ESchemaType` and `ESchemaEncoded`; reach for `AnyESchema`, `AnyUnkeyedESchema`, `AnyEntityESchema`, `AnyValueESchema`, or `AnyEvolvingSchema` only when you are writing reusable tooling over the corresponding construct family.
 
 That's the full construct family. Before you evolve anything in production, read the [best practices](/docs/std-toolkit/eschema/best-practices) — they're short, and every one of them exists because of a specific way this can bite.

@@ -4,7 +4,7 @@ import { DynamoDB } from './dynamo-client.js';
 import { DynamodbError } from '../errors.js';
 import type {
   AnyEntityESchema,
-  AnySingleEntityESchema,
+  AnyUnkeyedESchema,
 } from '../../../eschema/index.js';
 import { Broadcaster, nextUlid, type EntityType } from '../../../core/index.js';
 import { DynamoEntity } from './dynamo-entity.js';
@@ -170,7 +170,7 @@ export class DynamoTable<
    * @param eschema - The single entity's ESchema
    * @returns A builder to set the default value
    */
-  singleEntity<TS extends AnySingleEntityESchema>(eschema: TS) {
+  singleEntity<TS extends AnyUnkeyedESchema>(eschema: TS) {
     return DynamoSingleEntity.make<
       DynamoTable<TPrimaryIndex, TSecondaryIndexMap>
     >(this, this.#entities.register).eschema(eschema);

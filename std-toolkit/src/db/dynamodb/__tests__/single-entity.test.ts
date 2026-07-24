@@ -13,7 +13,7 @@ const itEffect = <A, E>(
     ),
   );
 import { Effect, References, Schema } from 'effect';
-import { SingleEntityESchema } from '../../../eschema/index.js';
+import { ESchema } from '../../../eschema/index.js';
 import { DynamoTable } from '../index.js';
 import {
   createDynamoDB,
@@ -36,7 +36,7 @@ const localConfig = {
 
 const table = DynamoTable.make().primary('pk', 'sk').build();
 
-const configSchema = SingleEntityESchema.make('AppConfig', {
+const configSchema = ESchema.make('AppConfig', {
   theme: Schema.String,
   maxRetries: Schema.Number,
 }).build();
@@ -193,7 +193,7 @@ describe('DynamoDB', () => {
 
       itEffect('fails with NoItemToUpdate on non-existent item', () =>
         Effect.gen(function* () {
-          const emptySchema = SingleEntityESchema.make('EmptyConfig', {
+          const emptySchema = ESchema.make('EmptyConfig', {
             value: Schema.String,
           }).build();
 
@@ -230,7 +230,7 @@ describe('DynamoDB', () => {
 
       itEffect('creates the default record when item does not exist', () =>
         Effect.gen(function* () {
-          const noopSchema = SingleEntityESchema.make('NoopResetConfig', {
+          const noopSchema = ESchema.make('NoopResetConfig', {
             value: Schema.String,
           }).build();
 
@@ -340,7 +340,7 @@ describe('DynamoDB', () => {
 
       itEffect('treats the default as current before the first write', () =>
         Effect.gen(function* () {
-          const emptySchema = SingleEntityESchema.make('GauEmptyConfig', {
+          const emptySchema = ESchema.make('GauEmptyConfig', {
             value: Schema.String,
           }).build();
 
@@ -364,7 +364,7 @@ describe('DynamoDB', () => {
     describe('getAndUpdateOp', () => {
       itEffect('fails with NoItemToUpdate before the first write', () =>
         Effect.gen(function* () {
-          const emptySchema = SingleEntityESchema.make('GauOpEmptyConfig', {
+          const emptySchema = ESchema.make('GauOpEmptyConfig', {
             value: Schema.String,
           }).build();
 

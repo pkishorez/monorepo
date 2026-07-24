@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   ESchema,
   EntityESchema,
-  SingleEntityESchema,
   ValueESchema,
   toSchema,
 } from '../../eschema/index.js';
@@ -24,16 +23,13 @@ const customTransform = Schema.String.pipe(
 );
 
 describe('ESchema semantic snapshots', () => {
-  it('captures every version and all four variants', async () => {
+  it('captures every version and all three variants', async () => {
     const plain = ESchema.make('Payment', { amount: Schema.NumberFromString })
       .evolve('v2', { createdAt: Schema.Date }, (value) => ({
         ...value,
         createdAt: new Date(0),
       }))
       .build();
-    const single = SingleEntityESchema.make('Settings', {
-      enabled: Schema.Boolean,
-    }).build();
     const entity = EntityESchema.make('User', 'userId', {
       homepage: Schema.URLFromString,
     }).build();
@@ -43,7 +39,6 @@ describe('ESchema semantic snapshots', () => {
     ).build();
 
     expect(plain.snapshot().schemas[0]?.versions).toHaveLength(2);
-    expect(single.snapshot()).toMatchObject({ root: 'Settings' });
     expect(entity.snapshot().schemas[0]).toMatchObject({
       identity: 'User',
       kind: 'entity',

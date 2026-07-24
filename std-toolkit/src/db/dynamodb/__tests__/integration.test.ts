@@ -13,12 +13,7 @@ const itEffect = <A, E>(
     ),
   );
 import { Effect, References, Schema, Stream } from 'effect';
-import {
-  ESchema,
-  EntityESchema,
-  SingleEntityESchema,
-  toSchema,
-} from '../../../eschema/index.js';
+import { ESchema, EntityESchema, toSchema } from '../../../eschema/index.js';
 import {
   DynamoTable,
   DynamodbError,
@@ -2493,7 +2488,7 @@ describe('DynamoDB', () => {
   });
 
   describe('Table transactions with single entities', () => {
-    const settingsSchema = SingleEntityESchema.make('Settings', {
+    const settingsSchema = ESchema.make('Settings', {
       darkMode: Schema.Boolean,
       language: Schema.String,
     }).build();

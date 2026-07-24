@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { EntityESchema, SingleEntityESchema } from '../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { Snapshot } from '../../../snapshot/index.js';
 import { IdbTable } from '../src/index.js';
 
@@ -9,7 +9,7 @@ const userSchema = EntityESchema.make('User', 'userId', {
   teamId: Schema.String,
 }).build();
 
-const settingsSchema = SingleEntityESchema.make('Settings', {
+const settingsSchema = ESchema.make('Settings', {
   theme: Schema.String,
 }).build();
 

@@ -15,12 +15,7 @@ import type {
   ValueSchemaDecoded,
 } from '../types.js';
 import { mergeDelta } from '../schema.js';
-import {
-  ESchema,
-  SingleEntityESchema,
-  EntityESchema,
-  ValueESchema,
-} from '../eschema.js';
+import { ESchema, EntityESchema, ValueESchema } from '../eschema.js';
 
 function nextEvolutions(
   evolutions: Evolution[],
@@ -45,39 +40,6 @@ function nextValueEvolutions(
 }
 
 export class ESchemaBuilder<
-  TVersion extends string,
-  TLatest extends StructFieldsSchema,
-> {
-  constructor(
-    private name: string,
-    private evolutions: Evolution[],
-    readonly version: TVersion,
-  ) {}
-
-  evolve<V extends NextVersion<TVersion>, D extends DeltaSchema>(
-    version: V,
-    delta: D & ForbidUnderscorePrefix<D> & ForbidOptionalFields<D>,
-    migration: (
-      prev: StructFieldsDecoded<TLatest>,
-    ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
-  ) {
-    return new ESchemaBuilder<V, MergeSchemas<TLatest, D>>(
-      this.name,
-      nextEvolutions(this.evolutions, version, delta, migration),
-      version,
-    );
-  }
-
-  build() {
-    return new ESchema<TVersion, TLatest>(
-      this.name,
-      this.version,
-      this.evolutions,
-    );
-  }
-}
-
-export class SingleEntityESchemaBuilder<
   TName extends string,
   TVersion extends string,
   TLatest extends StructFieldsSchema,
@@ -95,7 +57,7 @@ export class SingleEntityESchemaBuilder<
       prev: StructFieldsDecoded<TLatest>,
     ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
   ) {
-    return new SingleEntityESchemaBuilder<TName, V, MergeSchemas<TLatest, D>>(
+    return new ESchemaBuilder<TName, V, MergeSchemas<TLatest, D>>(
       this.name,
       nextEvolutions(this.evolutions, version, delta, migration),
       version,
@@ -103,7 +65,7 @@ export class SingleEntityESchemaBuilder<
   }
 
   build() {
-    return new SingleEntityESchema<TName, TVersion, TLatest>(
+    return new ESchema<TVersion, TLatest, TName>(
       this.name,
       this.version,
       this.evolutions,

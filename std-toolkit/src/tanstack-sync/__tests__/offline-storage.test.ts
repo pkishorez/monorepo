@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { Effect, Schema } from 'effect';
 import type { EntityType } from '../../core/index.js';
-import { EntityESchema, SingleEntityESchema } from '../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../eschema/index.js';
 import { it, describe, expect } from 'vitest';
 import { vi } from 'vitest';
 import { createStdSync } from '../create-std-sync.js';
@@ -24,7 +24,7 @@ const todoSchema = EntityESchema.make('Todo', 'id', {
   title: Schema.String,
 }).build();
 
-const settingsSchema = SingleEntityESchema.make('Settings', {
+const settingsSchema = ESchema.make('Settings', {
   theme: Schema.String,
 }).build();
 
