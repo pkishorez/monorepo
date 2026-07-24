@@ -1,7 +1,4 @@
-import type {
-  AnySingleEntityESchema,
-  ESchemaType,
-} from '../../../eschema/index.js';
+import type { AnyUnkeyedESchema, ESchemaType } from '../../../eschema/index.js';
 import { Effect, Option } from 'effect';
 import type { EntityType, SingleEntityType } from '../../../core/index.js';
 import { Broadcaster, nextUlid } from '../../../core/index.js';
@@ -29,7 +26,7 @@ import {
  */
 export class IdbSingleEntity<
   TTable extends IdbTableInstance,
-  TSchema extends AnySingleEntityESchema,
+  TSchema extends AnyUnkeyedESchema,
 > {
   /**
    * Creates a new single entity builder for the given table.
@@ -47,7 +44,7 @@ export class IdbSingleEntity<
        * @param eschema - The ESchema instance
        * @returns A builder to set the default value
        */
-      eschema<TS extends AnySingleEntityESchema>(eschema: TS) {
+      eschema<TS extends AnyUnkeyedESchema>(eschema: TS) {
         return {
           /**
            * Sets the default value and constructs the instance.

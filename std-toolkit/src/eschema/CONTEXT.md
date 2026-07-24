@@ -12,8 +12,8 @@ _Avoid_: VersionedSchema, evolving schema.
 An **ESchema** for a keyed entity — has a `name` (the entity type tag) and an `idField`.
 _Avoid_: KeyedSchema.
 
-**SingleEntityESchema**:
-An **ESchema** for a singleton object — has a `name`, no id field.
+**single entity**:
+A storage role for an **ESchema** that has exactly one record. Selected with `table.singleEntity(eschema)`; the schema itself needs no separate variant or id field.
 
 **ValueESchema**:
 A versioned schema for a single value (scalar, enum, union) rather than a named-field object.

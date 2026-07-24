@@ -1,23 +1,11 @@
 import { Effect, Schema } from 'effect';
-import {
-  ESchema,
-  SingleEntityESchema,
-  EntityESchema,
-  type AnyESchema,
-} from './index.js';
+import { ESchema, EntityESchema, type AnyESchema } from './index.js';
 
 // ─── ESchema (named plain schema, not an entity) ────────────────────────────
 
 const AppConfig = ESchema.make('AppConfig', {
   theme: Schema.String,
   maxRetries: Schema.Number,
-}).build();
-
-// ─── SingleEntityESchema (named, no ID field) ───────────────────────────────
-
-const Settings = SingleEntityESchema.make('Settings', {
-  locale: Schema.String,
-  notifications: Schema.Boolean,
 }).build();
 
 // ─── EntityESchema (named + ID field) ────────────────────────────────────────
@@ -35,16 +23,15 @@ function processSchema(schema: AnyESchema) {
   return schema.getDescriptor();
 }
 
-// All three levels are assignable to AnyESchema
+// Both object schema variants are assignable to AnyESchema
 processSchema(AppConfig);
-processSchema(Settings);
 processSchema(User);
 
 // EntityESchema → AnyESchema works
 const _widened: AnyESchema = User;
 
-// SingleEntityESchema → AnyESchema works
-const _widened2: AnyESchema = Settings;
+// ESchema → AnyESchema works
+const _widened2: AnyESchema = AppConfig;
 
 // AnyESchema → EntityESchema does NOT work (uncomment to see type error):
 // const _narrowed: EntityESchema<any, any, any, any> = AppConfig;
@@ -55,13 +42,6 @@ async function main() {
     AppConfig.encode({ theme: 'dark', maxRetries: 3 }),
   );
   console.log('config:', config);
-
-  console.log('\n=== SingleEntityESchema ===');
-  console.log('name:', Settings.name);
-  const settings = await Effect.runPromise(
-    Settings.decode({ _v: 'v1', locale: 'en', notifications: true }),
-  );
-  console.log('settings:', settings);
 
   console.log('\n=== EntityESchema ===');
   console.log('name:', User.name, '| idField:', User.idField);

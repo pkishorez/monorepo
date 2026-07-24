@@ -1,9 +1,4 @@
-import type {
-  ESchema,
-  SingleEntityESchema,
-  EntityESchema,
-  ValueESchema,
-} from './eschema.js';
+import type { ESchema, EntityESchema, ValueESchema } from './eschema.js';
 import { JsonSchema, Schema } from 'effect';
 
 export type ESchemaDescriptor = JsonSchema.JsonSchema & {
@@ -137,16 +132,17 @@ export type ValueEvolution = {
 export type AnyESchema<
   V extends string = string,
   S extends StructFieldsSchema = any,
-> = ESchema<V, S>;
+  N extends string = string,
+> = ESchema<V, S, N>;
 
 /**
- * Matches any SingleEntityESchema.
+ * Matches an ESchema without an entity ID field.
  */
-export type AnySingleEntityESchema<
-  N extends string = string,
+export type AnyUnkeyedESchema<
   V extends string = string,
   S extends StructFieldsSchema = any,
-> = SingleEntityESchema<N, V, S>;
+  N extends string = string,
+> = AnyESchema<V, S, N> & { readonly idField?: never };
 
 /**
  * Matches any EntityESchema (has name + idField).
@@ -163,11 +159,7 @@ export type AnyValueESchema<
   S extends ValueSchema = any,
 > = ValueESchema<V, S>;
 
-export type AnyEvolvingSchema =
-  | AnyESchema
-  | AnySingleEntityESchema
-  | AnyEntityESchema
-  | AnyValueESchema;
+export type AnyEvolvingSchema = AnyESchema | AnyEntityESchema | AnyValueESchema;
 
 // ─── Type extractors ────────────────────────────────────────────────────────
 
@@ -178,14 +170,14 @@ export type AnyEvolvingSchema =
 export type ESchemaType<T extends AnyEvolvingSchema> =
   T extends ValueESchema<infer _V, infer TLatest>
     ? ValueSchemaDecoded<TLatest>
-    : T extends ESchema<infer _V, infer TLatest>
+    : T extends ESchema<infer _V, infer TLatest, infer _N>
       ? Prettify<StructFieldsDecoded<TLatest>>
       : never;
 
 export type ESchemaEncoded<T extends AnyEvolvingSchema> =
   T extends ValueESchema<infer V, infer TLatest>
     ? ValueEnvelopeEncoded<V, TLatest>
-    : T extends ESchema<infer V, infer TLatest>
+    : T extends ESchema<infer V, infer TLatest, infer _N>
       ? Prettify<StructFieldsEncoded<TLatest> & { readonly _v: V }>
       : never;
 

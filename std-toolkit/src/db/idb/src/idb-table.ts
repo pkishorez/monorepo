@@ -3,7 +3,7 @@ import { IdbDB, IdbDBError } from './db.js';
 import type { IdbKey, IdbRangeSpec, IdbRecord } from './db.js';
 import type {
   AnyEntityESchema,
-  AnySingleEntityESchema,
+  AnyUnkeyedESchema,
 } from '../../../eschema/index.js';
 import { Broadcaster, nextUlid, type EntityType } from '../../../core/index.js';
 import { IdbEntity, type IdbEntityOp } from './idb-entity.js';
@@ -356,7 +356,7 @@ function withEntityDefinitions<
      * @param eschema - The single entity's ESchema
      * @returns A builder to set the default value
      */
-    singleEntity<TS extends AnySingleEntityESchema>(eschema: TS) {
+    singleEntity<TS extends AnyUnkeyedESchema>(eschema: TS) {
       return IdbSingleEntity.make(base, register).eschema(eschema);
     },
 

@@ -1,7 +1,4 @@
-import type {
-  AnySingleEntityESchema,
-  ESchemaType,
-} from '../../../eschema/index.js';
+import type { AnyUnkeyedESchema, ESchemaType } from '../../../eschema/index.js';
 import { Effect, Option, Schema } from 'effect';
 import type { EntityType } from '../../../core/index.js';
 import type { SQLiteTableInstance } from './sqlite-table.js';
@@ -57,7 +54,7 @@ export interface SingleEntityType<T> {
  */
 export class SQLiteSingleEntity<
   TTable extends SQLiteTableInstance,
-  TSchema extends AnySingleEntityESchema,
+  TSchema extends AnyUnkeyedESchema,
 > {
   /**
    * Creates a new single entity builder for the given table.
@@ -75,7 +72,7 @@ export class SQLiteSingleEntity<
        * @param eschema - The ESchema instance
        * @returns A builder to set the default value
        */
-      eschema<TS extends AnySingleEntityESchema>(eschema: TS) {
+      eschema<TS extends AnyUnkeyedESchema>(eschema: TS) {
         return {
           /**
            * Sets the default value and constructs the instance.

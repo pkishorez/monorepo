@@ -1,10 +1,6 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import {
-  EntityESchema,
-  SingleEntityESchema,
-  toSchema,
-} from '../../../eschema/index.js';
+import { EntityESchema, ESchema, toSchema } from '../../../eschema/index.js';
 import { SnapshotIdentityConflict } from '../../../snapshot/index.js';
 import { DynamoTable } from '../index.js';
 
@@ -13,7 +9,7 @@ const userSchema = EntityESchema.make('User', 'userId', {
   teamId: Schema.String,
 }).build();
 
-const settingsSchema = SingleEntityESchema.make('Settings', {
+const settingsSchema = ESchema.make('Settings', {
   theme: Schema.String,
 }).build();
 

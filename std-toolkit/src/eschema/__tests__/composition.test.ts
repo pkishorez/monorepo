@@ -1,12 +1,6 @@
 import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
-import {
-  ESchema,
-  SingleEntityESchema,
-  EntityESchema,
-  ValueESchema,
-  toSchema,
-} from '../index.js';
+import { ESchema, EntityESchema, ValueESchema, toSchema } from '../index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -258,7 +252,7 @@ describe('ESchema', () => {
 
       describe('all three variants compose', () => {
         const plain = ESchema.make('Plain', { x: Schema.Number }).build();
-        const named = SingleEntityESchema.make('Config', {
+        const named = ESchema.make('Config', {
           y: Schema.String,
         }).build();
         const entity = EntityESchema.make('Item', 'id', {

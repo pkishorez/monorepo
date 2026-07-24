@@ -6,7 +6,7 @@ import type {
 } from '@tanstack/react-db';
 import { Duration, Effect, Exit, Fiber, Schedule, Scope } from 'effect';
 import type { EntityType, SingleEntityType } from '../../core/index.js';
-import type { AnySingleEntityESchema } from '../../eschema/index.js';
+import type { AnyUnkeyedESchema } from '../../eschema/index.js';
 import { makeCollectionProjector } from '../collection-projection/index.js';
 import { converge } from '../source-of-truth/index.js';
 import type { Accepted } from '../source-of-truth/index.js';
@@ -31,7 +31,7 @@ const SINGLE_STATE_KEY = '__single__';
 
 export type SingleItemResult<
   TItem extends object,
-  S extends AnySingleEntityESchema,
+  S extends AnyUnkeyedESchema,
 > = CollectionConfig<CollectionItem<TItem>, string> &
   SingleResult & {
     utils: {
@@ -83,7 +83,7 @@ const makeSingletonCell = <TItem>(group: OfflineStorageGroup) => {
   };
 };
 
-export const buildSingleItem = <S extends AnySingleEntityESchema>(
+export const buildSingleItem = <S extends AnyUnkeyedESchema>(
   tracker: Tracker,
   inspector: WritableSyncInspector,
   config: {

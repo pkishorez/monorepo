@@ -4,10 +4,7 @@ import { Effect, Schema } from 'effect';
 
 import type { TestValue } from 'laymos/report';
 
-import {
-  EntityESchema,
-  SingleEntityESchema,
-} from '../../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../../eschema/index.js';
 import { IdbTable, idbLayer } from '../../src/index.js';
 import { IdbDB } from '../../src/db.js';
 
@@ -18,7 +15,7 @@ const userSchema = EntityESchema.make('DocumentedUser', 'userId', {
   status: Schema.Literals(['active', 'inactive']),
 }).build();
 
-const settingsSchema = SingleEntityESchema.make('DocumentedSettings', {
+const settingsSchema = ESchema.make('DocumentedSettings', {
   theme: Schema.Literals(['light', 'dark']),
   retries: Schema.Number,
 }).build();

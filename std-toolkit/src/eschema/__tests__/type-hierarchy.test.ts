@@ -1,12 +1,11 @@
-import { it, describe, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Schema } from 'effect';
 import {
   ESchema,
-  SingleEntityESchema,
   EntityESchema,
   type AnyESchema,
-  type AnySingleEntityESchema,
   type AnyEntityESchema,
+  type AnyUnkeyedESchema,
   type ESchemaType,
 } from '../index.js';
 
@@ -14,7 +13,7 @@ function acceptsAnyESchema(schema: AnyESchema) {
   return schema.getDescriptor();
 }
 
-function acceptsSingleEntity(schema: AnySingleEntityESchema) {
+function acceptsUnkeyedESchema(schema: AnyUnkeyedESchema) {
   return schema.name;
 }
 
@@ -23,9 +22,6 @@ function acceptsEntity(schema: AnyEntityESchema) {
 }
 
 const base = ESchema.make('Base', { a: Schema.String }).build();
-const single = SingleEntityESchema.make('Config', {
-  a: Schema.String,
-}).build();
 const entity = EntityESchema.make('User', 'id', {
   a: Schema.String,
 }).build();
@@ -33,70 +29,45 @@ const entity = EntityESchema.make('User', 'id', {
 describe('ESchema', () => {
   describe('Types', () => {
     describe('type hierarchy — assignability', () => {
-      it('ESchema is accepted where AnyESchema is expected', () => {
-        const descriptor = acceptsAnyESchema(base);
-        expect(descriptor.type).toBe('object');
+      it('accepts ESchema as AnyESchema', () => {
+        expect(acceptsAnyESchema(base).type).toBe('object');
       });
 
-      it('SingleEntityESchema is accepted where AnyESchema is expected', () => {
-        const descriptor = acceptsAnyESchema(single);
-        expect(descriptor.type).toBe('object');
+      it('accepts EntityESchema as AnyESchema', () => {
+        expect(acceptsAnyESchema(entity).type).toBe('object');
       });
 
-      it('EntityESchema is accepted where AnyESchema is expected', () => {
-        const descriptor = acceptsAnyESchema(entity);
-        expect(descriptor.type).toBe('object');
+      it('accepts ESchema as AnyUnkeyedESchema', () => {
+        expect(acceptsUnkeyedESchema(base)).toBe('Base');
       });
 
-      it('EntityESchema is accepted where AnyEntityESchema is expected', () => {
-        const idField = acceptsEntity(entity);
-        expect(idField).toBe('id');
+      it('preserves the ESchema name as a literal type', () => {
+        const name: 'Base' = base.name;
+        expect(name).toBe('Base');
       });
 
-      it('SingleEntityESchema is accepted where AnySingleEntityESchema is expected', () => {
-        const name = acceptsSingleEntity(single);
-        expect(name).toBe('Config');
+      it('does not accept EntityESchema as AnyUnkeyedESchema', () => {
+        // @ts-expect-error — keyed entities cannot use singleton storage
+        acceptsUnkeyedESchema(entity);
       });
 
-      // Type-level: these should NOT compile (verified by @ts-expect-error)
-      it('ESchema is NOT assignable to AnySingleEntityESchema', () => {
-        // @ts-expect-error — base ESchema's __snapshotKind is not 'single-entity'
-        acceptsSingleEntity(base);
-      });
-
-      it('EntityESchema is NOT assignable to AnySingleEntityESchema', () => {
-        // @ts-expect-error — a keyed entity is not a singleton
-        acceptsSingleEntity(entity);
-      });
-
-      it('ESchema is NOT assignable to AnyEntityESchema', () => {
-        // @ts-expect-error — base ESchema has no `idField` property
+      it('does not accept ESchema as AnyEntityESchema', () => {
+        // @ts-expect-error — ESchema has no idField
         acceptsEntity(base);
-      });
-
-      it('SingleEntityESchema is NOT assignable to AnyEntityESchema', () => {
-        // @ts-expect-error — SingleEntityESchema has no `idField` property
-        acceptsEntity(single);
       });
     });
 
     describe('Type extraction', () => {
       it('extracts type from ESchema', () => {
         type T = ESchemaType<typeof base>;
-        const _check: T = { a: 'hello' };
-        expect(_check).toEqual({ a: 'hello' });
-      });
-
-      it('extracts type from SingleEntityESchema', () => {
-        type T = ESchemaType<typeof single>;
-        const _check: T = { a: 'hello' };
-        expect(_check).toEqual({ a: 'hello' });
+        const value: T = { a: 'hello' };
+        expect(value).toEqual({ a: 'hello' });
       });
 
       it('extracts type from EntityESchema', () => {
         type T = ESchemaType<typeof entity>;
-        const _check: T = { id: 'u1', a: 'hello' };
-        expect(_check).toEqual({ id: 'u1', a: 'hello' });
+        const value: T = { id: 'u1', a: 'hello' };
+        expect(value).toEqual({ id: 'u1', a: 'hello' });
       });
     });
   });

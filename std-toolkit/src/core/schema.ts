@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import type { AnyESchema, AnySingleEntityESchema } from '../eschema/index.js';
+import type { AnyESchema, AnyUnkeyedESchema } from '../eschema/index.js';
 
 export const MetaSchema = Schema.Struct({
   _v: Schema.String,
@@ -32,9 +32,7 @@ export const EntitySchema = <S extends AnyESchema>(eschema: S) =>
     meta: MetaSchema,
   });
 
-export const SingleEntitySchema = <S extends AnySingleEntityESchema>(
-  eschema: S,
-) =>
+export const SingleEntitySchema = <S extends AnyUnkeyedESchema>(eschema: S) =>
   Schema.Struct({
     value: eschema.schema as unknown as Schema.Codec<S['Type'], S['Type']>,
     meta: SingleEntityMetaSchema,

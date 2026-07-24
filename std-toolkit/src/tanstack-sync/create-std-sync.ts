@@ -1,10 +1,7 @@
 import { Effect } from 'effect';
 import { createCollection } from '@tanstack/react-db';
 import type { EntityType, SingleEntityType } from '../core/index.js';
-import type {
-  AnyEntityESchema,
-  AnySingleEntityESchema,
-} from '../eschema/index.js';
+import type { AnyEntityESchema, AnyUnkeyedESchema } from '../eschema/index.js';
 import { makeTracker } from './registry/tracker.js';
 import { buildRegistry } from './registry/index.js';
 import {
@@ -58,7 +55,7 @@ type SyncConfig<S extends AnyEntityESchema> = {
 };
 
 /** Config for the `singleItemSync` method (collection-level lifecycle, no partitions). */
-type SingleItemSyncConfig<S extends AnySingleEntityESchema> = {
+type SingleItemSyncConfig<S extends AnyUnkeyedESchema> = {
   schema: S;
   strategy: SingleItemStrategy<S['Type'], any>;
   options?: StdCollectionOptions;
@@ -127,7 +124,7 @@ export const createStdSync = (defaults?: {
     return { ...mergeOptions(options), ...built };
   };
 
-  const singleItemSync = <S extends AnySingleEntityESchema>(
+  const singleItemSync = <S extends AnyUnkeyedESchema>(
     config: SingleItemSyncConfig<S>,
   ) => {
     const { options, offlineStorage, ...rest } = config;
@@ -147,7 +144,7 @@ export const createStdSync = (defaults?: {
       inspector.attachCollection(config.schema.name, collection);
       return collection;
     },
-    singleItemCollection: <S extends AnySingleEntityESchema>(
+    singleItemCollection: <S extends AnyUnkeyedESchema>(
       config: SingleItemSyncConfig<S>,
     ) => {
       const collection = createCollection(singleItemSync(config));

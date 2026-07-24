@@ -32,7 +32,7 @@ export interface ESchemaVersion {
 
 export interface ESchemaDefinition {
   readonly identity: string;
-  readonly kind: 'struct' | 'value' | 'entity' | 'single-entity';
+  readonly kind: 'struct' | 'value' | 'entity';
   readonly idField: string | null;
   readonly versions: readonly ESchemaVersion[];
 }

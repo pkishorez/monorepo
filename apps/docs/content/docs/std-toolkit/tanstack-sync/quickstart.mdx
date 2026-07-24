@@ -146,7 +146,7 @@ socket.onMessage((msg) => {
 
 ## A singleton, for completeness
 
-Not everything is a keyed set. Each channel has one settings object — a [SingleEntityESchema](/docs/std-toolkit/eschema/constructs) — and `singleItemSync` holds exactly one record with its own, simpler strategy family:
+Not everything is a keyed set. Each channel has one settings object modeled by an [ESchema](/docs/std-toolkit/eschema/constructs), and `singleItemSync` binds it as exactly one record with its own, simpler strategy family:
 
 ```ts title="client/settings-collection.ts"
 import { createCollection } from '@tanstack/react-db';

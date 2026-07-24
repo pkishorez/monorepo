@@ -1,12 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Schema } from 'effect';
-import {
-  ESchema,
-  SingleEntityESchema,
-  EntityESchema,
-  ValueESchema,
-  toSchema,
-} from '../index.js';
+import { ESchema, EntityESchema, ValueESchema, toSchema } from '../index.js';
 
 const Child = ESchema.make('Child', { val: Schema.String }).build();
 
@@ -18,12 +12,10 @@ describe('optional and undefined are forbidden at the type level', () => {
     ESchema.make('A2', { x: Schema.optional(Schema.String) });
     // @ts-expect-error UndefinedOr is forbidden
     ESchema.make('A3', { x: Schema.UndefinedOr(Schema.String) });
-    // @ts-expect-error optional fields are forbidden in SingleEntityESchema
-    SingleEntityESchema.make('A4', { x: Schema.optional(Schema.String) });
     // @ts-expect-error optional fields are forbidden in EntityESchema
-    EntityESchema.make('A5', 'id', { x: Schema.optional(Schema.String) });
+    EntityESchema.make('A4', 'id', { x: Schema.optional(Schema.String) });
     // @ts-expect-error undefined-admitting value schema is forbidden
-    ValueESchema.make('A6', Schema.UndefinedOr(Schema.String));
+    ValueESchema.make('A5', Schema.UndefinedOr(Schema.String));
 
     ESchema.make('B1', { x: Schema.NullOr(Schema.String) }).build();
     const value = ValueESchema.make('B2', Schema.NullOr(Schema.String)).build();
@@ -31,10 +23,6 @@ describe('optional and undefined are forbidden at the type level', () => {
   });
 
   it('rejects empty names at type level and runtime', () => {
-    expect(() =>
-      // @ts-expect-error empty name is forbidden
-      ESchema.make('', { x: Schema.String }),
-    ).toThrow('Schema name must not be empty.');
     expect(() =>
       // @ts-expect-error empty name is forbidden
       ValueESchema.make('', Schema.String),
@@ -45,7 +33,7 @@ describe('optional and undefined are forbidden at the type level', () => {
     ).toThrow('Schema name must not be empty.');
     expect(() =>
       // @ts-expect-error empty name is forbidden
-      SingleEntityESchema.make('', { x: Schema.String }),
+      ESchema.make('', { x: Schema.String }),
     ).toThrow('Schema name must not be empty.');
   });
 

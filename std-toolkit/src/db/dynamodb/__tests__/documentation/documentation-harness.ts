@@ -2,10 +2,7 @@ import { Cause, Effect, References, Schema } from 'effect';
 
 import type { TestValue } from 'laymos/report';
 
-import {
-  EntityESchema,
-  SingleEntityESchema,
-} from '../../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../../eschema/index.js';
 import {
   createDynamoDB,
   DynamoDB,
@@ -30,7 +27,7 @@ const orderSchema = EntityESchema.make('DocumentedOrder', 'orderId', {
   total: Schema.Number,
 }).build();
 
-const settingsSchema = SingleEntityESchema.make('DocumentedSettings', {
+const settingsSchema = ESchema.make('DocumentedSettings', {
   theme: Schema.Literals(['light', 'dark']),
   retries: Schema.Number,
 }).build();

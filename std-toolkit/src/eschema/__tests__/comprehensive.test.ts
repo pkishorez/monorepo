@@ -2,7 +2,6 @@ import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
 import {
   ESchema,
-  SingleEntityESchema,
   EntityESchema,
   type ESchemaEncoded,
   type ESchemaType,
@@ -515,12 +514,12 @@ describe('ESchema', () => {
       });
     });
 
-    // ─── SingleEntityESchema evolution ─────────────────────────────────────────
+    // ─── ESchema evolution ─────────────────────────────────────────
 
     describe('Single entity', () => {
       itEffect('preserves name through evolutions', () =>
         Effect.gen(function* () {
-          const schema = SingleEntityESchema.make('Config', {
+          const schema = ESchema.make('Config', {
             theme: Schema.String,
           })
             .evolve('v2', { fontSize: Schema.Number }, (v) => ({
@@ -541,7 +540,7 @@ describe('ESchema', () => {
 
       itEffect('multi-step evolution with transforms', () =>
         Effect.gen(function* () {
-          const schema = SingleEntityESchema.make('Settings', {
+          const schema = ESchema.make('Settings', {
             maxRetries: StringToNumber,
           })
             .evolve('v2', { enabled: StringToBoolean }, (v) => ({
@@ -563,9 +562,9 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('field removal in SingleEntityESchema', () =>
+      itEffect('field removal in ESchema', () =>
         Effect.gen(function* () {
-          const schema = SingleEntityESchema.make('Prefs', {
+          const schema = ESchema.make('Prefs', {
             old: Schema.String,
             keep: Schema.String,
           })

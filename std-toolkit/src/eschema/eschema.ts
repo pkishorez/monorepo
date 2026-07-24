@@ -30,7 +30,6 @@ import { ESchemaError } from './utils.js';
 import { struct, metaSchema, INITIAL_VERSION } from './schema.js';
 import {
   ESchemaBuilder,
-  SingleEntityESchemaBuilder,
   EntityESchemaBuilder,
   ValueESchemaBuilder,
 } from './internal/builders.js';
@@ -60,9 +59,10 @@ function toDescriptor(schema: Schema.Top): ESchemaDescriptor {
 export class ESchema<
   TVersion extends string,
   TLatest extends StructFieldsSchema,
+  TName extends string = string,
 > implements StandardSchemaV1<unknown, Prettify<StructFieldsDecoded<TLatest>>> {
   constructor(
-    readonly name: string,
+    readonly name: TName,
     readonly latestVersion: TVersion,
     private evolutions: Evolution[] = [],
   ) {}
@@ -208,7 +208,7 @@ export namespace ESchema {
     schema: I & ForbidUnderscorePrefix<I> & ForbidOptionalFields<I>,
   ) {
     assertName(name);
-    return new ESchemaBuilder<'v1', I>(
+    return new ESchemaBuilder<N, 'v1', I>(
       name,
       [{ version: INITIAL_VERSION, schema, migration: null }],
       INITIAL_VERSION,
@@ -225,29 +225,6 @@ const ESchemaBase: new <
   latestVersion: TVersion,
   evolutions?: Evolution[],
 ) => ESchema<TVersion, TLatest> = ESchema;
-
-export class SingleEntityESchema<
-  TName extends string,
-  TVersion extends string,
-  TLatest extends StructFieldsSchema,
-> extends ESchemaBase<TVersion, TLatest> {
-  override readonly __snapshotKind = 'single-entity' as const;
-  declare readonly name: TName;
-}
-
-export namespace SingleEntityESchema {
-  export function make<N extends string, I extends StructFieldsSchema>(
-    name: N & ForbidEmptyName<N>,
-    schema: I & ForbidUnderscorePrefix<I> & ForbidOptionalFields<I>,
-  ) {
-    assertName(name);
-    return new SingleEntityESchemaBuilder<N, 'v1', I>(
-      name,
-      [{ version: INITIAL_VERSION, schema, migration: null }],
-      INITIAL_VERSION,
-    );
-  }
-}
 
 export class EntityESchema<
   TName extends string,

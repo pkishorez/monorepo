@@ -50,7 +50,7 @@ export const settings = DynamoSingleEntity.make(table)
 
 `messages` partitions by channel — one channel, one item collection. `channels` declares no pk fields, so its partition key is just the entity name `Channel`: every channel in the workspace lives in a single item collection, sorted by `channelId`.
 
-`DynamoSingleEntity` is the third shape: an entity with a name but no id, for things that exist exactly once — workspace settings, feature flags, counters. It's built from a `SingleEntityESchema` and requires a **default value**, which buys you a guarantee the keyed entities can't offer: `get` never returns null.
+`DynamoSingleEntity` is the singleton storage binding for things that exist exactly once — workspace settings, feature flags, counters. It accepts an ordinary `ESchema` and requires a **default value**, which buys you a guarantee the keyed entities can't offer: `get` never returns null.
 
 ```ts
 const current = yield * settings.get();

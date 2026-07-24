@@ -26,12 +26,12 @@ Everything returns an `Effect`. Stay inside `Effect.gen`/`yield*`; reserve
 
 ## Choosing the right construct
 
-| You're versioning…                     | Use                   |
-| -------------------------------------- | --------------------- |
-| An object with named fields            | `ESchema`             |
-| A single value (enum / scalar / union) | `ValueESchema`        |
-| A named singleton object               | `SingleEntityESchema` |
-| A keyed entity (name + per-row id)     | `EntityESchema`       |
+| You're versioning…                     | Use                                         |
+| -------------------------------------- | ------------------------------------------- |
+| An object with named fields            | `ESchema`                                   |
+| A single value (enum / scalar / union) | `ValueESchema`                              |
+| A singleton object                     | `ESchema` bound with `table.singleEntity()` |
+| A keyed entity (name + per-row id)     | `EntityESchema`                             |
 
 `ESchema` evolves by **delta** (add/remove/replace fields). `ValueESchema`
 replaces the **whole value schema** each version, and its migration receives and
@@ -41,7 +41,7 @@ _value envelope_).
 ## API shape
 
 ```ts
-const User = ESchema.make({ name: Schema.String })
+const User = ESchema.make('User', { name: Schema.String })
   .evolve('v2', { email: Schema.NullOr(Schema.String) }, (prev) => ({
     ...prev,
     email: null,
@@ -64,7 +64,7 @@ Embed one evolving schema inside another with `toSchema`, which yields a native
 Effect Schema usable anywhere — including inside `Schema.Array`:
 
 ```ts
-const Ticket = ESchema.make({
+const Ticket = ESchema.make('Ticket', {
   title: Schema.String,
   status: toSchema(Status), // a ValueESchema
   addresses: Schema.Array(toSchema(Address)), // an array of ESchema

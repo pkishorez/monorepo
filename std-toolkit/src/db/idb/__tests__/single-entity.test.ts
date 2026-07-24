@@ -3,7 +3,7 @@ import { it, describe, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
-import { SingleEntityESchema } from '../../../eschema/index.js';
+import { ESchema } from '../../../eschema/index.js';
 import { Effect, Layer, Schema } from 'effect';
 import { IdbDB } from '../src/db.js';
 import { idbLayer } from '../src/layer.js';
@@ -11,7 +11,7 @@ import { IdbTable } from '../src/idb-table.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
-const configSchema = SingleEntityESchema.make('AppConfig', {
+const configSchema = ESchema.make('AppConfig', {
   theme: Schema.String,
   maxRetries: Schema.Number,
 }).build();

@@ -3,7 +3,7 @@ import { it, describe, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
-import { EntityESchema, SingleEntityESchema } from '../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { Cause, Effect, Exit, Layer, Schema } from 'effect';
 import { Broadcaster } from '../../../core/index.js';
 import { IdbTable, IdbDB, idbLayer, type EntityType } from '../src/index.js';
@@ -20,7 +20,7 @@ const PostSchema = EntityESchema.make('Post', 'postId', {
   title: Schema.String,
 }).build();
 
-const configSchema = SingleEntityESchema.make('AppConfig', {
+const configSchema = ESchema.make('AppConfig', {
   theme: Schema.String,
 }).build();
 

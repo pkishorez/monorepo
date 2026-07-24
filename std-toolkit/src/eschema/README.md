@@ -6,7 +6,7 @@ is automatically folded forward to the current shape on decode.
 ## Subpaths
 
 ```ts
-import { ESchema, EntityESchema, SingleEntityESchema, ValueESchema, toSchema } from 'std-toolkit/eschema';
+import { ESchema, EntityESchema, ValueESchema, toSchema } from 'std-toolkit/eschema';
 // wildcard — import internal paths directly (advanced use)
 import '...` from 'std-toolkit/eschema/*';
 ```
@@ -21,12 +21,12 @@ A schema is a chain of versions `v1 … latest`.
 
 ## Choosing a construct
 
-| You're versioning                      | Use                   |
-| -------------------------------------- | --------------------- |
-| An object with named fields            | `ESchema`             |
-| A single value (enum / scalar / union) | `ValueESchema`        |
-| A named singleton object               | `SingleEntityESchema` |
-| A keyed entity (name + per-row id)     | `EntityESchema`       |
+| You're versioning                      | Use                                         |
+| -------------------------------------- | ------------------------------------------- |
+| An object with named fields            | `ESchema`                                   |
+| A single value (enum / scalar / union) | `ValueESchema`                              |
+| A singleton object                     | `ESchema` bound with `table.singleEntity()` |
+| A keyed entity (name + per-row id)     | `EntityESchema`                             |
 
 ## Quick example
 
@@ -92,6 +92,7 @@ only with `-u` or `--update`; commit the JSON file so Git retains its history.
 
 ## Key exports
 
-`ESchema`, `EntityESchema`, `SingleEntityESchema`, `ValueESchema`, `toSchema`, `fromType`,
-`id`, `metaSchema`, `ESchemaError` — and types `AnyESchema`, `ESchemaType`, `ESchemaEncoded`,
-`ESchemaDescriptor`, `ESchemaIdField`, `ESchemaName`, `StructFieldsSchema`.
+`ESchema`, `EntityESchema`, `ValueESchema`, `toSchema`, `fromType`, `id`,
+`metaSchema`, `ESchemaError` — and types `AnyESchema`, `AnyUnkeyedESchema`,
+`ESchemaType`, `ESchemaEncoded`, `ESchemaDescriptor`, `ESchemaIdField`,
+`ESchemaName`, `StructFieldsSchema`.

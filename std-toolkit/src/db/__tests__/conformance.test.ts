@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { DatabaseSync } from 'node:sqlite';
 import { it, describe, expect } from 'vitest';
 import { Cause, Effect, Exit, Layer, Schema } from 'effect';
-import { EntityESchema, SingleEntityESchema } from '../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../eschema/index.js';
 import { Broadcaster, type EntityType } from '../../core/index.js';
 
 import { nodeSqliteLayer } from '../sqlite/sql/adapters/node.js';
@@ -157,7 +157,7 @@ const ItemSchema = EntityESchema.make('Item', 'itemId', {
   value: Schema.Number,
 }).build();
 
-const ConfSchema = SingleEntityESchema.make('Conf', {
+const ConfSchema = ESchema.make('Conf', {
   theme: Schema.String,
   count: Schema.Number,
 }).build();

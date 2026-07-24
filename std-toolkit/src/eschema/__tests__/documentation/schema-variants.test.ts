@@ -2,12 +2,7 @@ import { Effect, Schema } from 'effect';
 import { laymosDescribe, laymosTest } from 'laymos/test';
 import { describe } from 'vitest';
 
-import {
-  ESchema,
-  EntityESchema,
-  SingleEntityESchema,
-  ValueESchema,
-} from '../../index.js';
+import { ESchema, EntityESchema, ValueESchema } from '../../index.js';
 import { capabilityDocumentation } from './documentation.js';
 
 describe('ESchema', () => {
@@ -15,25 +10,25 @@ describe('ESchema', () => {
     'Schema variants',
     {
       description:
-        'The four ESchema variants express whether data has an identity, a type name, or an object shape.',
+        'The three ESchema variants distinguish object, keyed entity, and value contracts.',
       documentation: capabilityDocumentation(
-        'All ESchema variants share versioned encoding, decoding, evolution, and a stable snapshot name. The variants exist because storage and composition need different facts. `ESchema` describes an object value. `EntityESchema` adds an identity field for keyed collections. `SingleEntityESchema` represents exactly one stored object. `ValueESchema` versions a scalar or other non-object value.',
-        'Choose the narrowest variant that states the domain truth. A user in a collection is an entity because many users are distinguished by `userId`. Application settings are a single entity because the name identifies the only record. An address nested inside another object needs no storage identity. A status string is a value schema because inventing an object wrapper would add no meaning.',
+        'All ESchema variants share versioned encoding, decoding, evolution, and a stable snapshot name. `ESchema` describes an unkeyed object value. `EntityESchema` adds an identity field for keyed collections. `ValueESchema` versions a scalar or other non-object value. Singleton storage is selected by passing an ordinary `ESchema` to `table.singleEntity()`.',
+        'Choose the narrowest schema shape that states the domain truth, then choose storage separately. A user in a collection is an entity because many users are distinguished by `userId`. An address and application settings are both unkeyed objects, even though settings may later be bound as a singleton. A status string is a value schema because inventing an object wrapper would add no meaning.',
         `
 const User = EntityESchema.make('User', 'userId', userFields).build()
-const Settings = SingleEntityESchema.make('Settings', settingsFields).build()
+const Settings = ESchema.make('Settings', settingsFields).build()
 const Address = ESchema.make('Address', addressFields).build()
 const Status = ValueESchema.make('Status', Schema.Literals(['active', 'inactive'])).build()
         `,
-        'The chosen variant affects descriptors and storage integration, not the migration rules. Every variant writes `_v` and exposes `name`; only an entity exposes `idField`; and a value schema stores its value inside a versioned envelope.',
+        'The chosen variant affects the value shape, not whether an unkeyed object is embedded or stored as a singleton. Every variant writes `_v` and exposes `name`; only an entity exposes `idField`; and a value schema stores its value inside a versioned envelope.',
       ),
     },
     () => {
       laymosTest(
-        'Versions an anonymous object without inventing storage identity.',
+        'Versions an unkeyed object without inventing entity identity.',
         {
           description:
-            'A postal address is meaningful as a reusable nested object, but it is not independently stored or addressed. Plain ESchema should version the fields without adding a name or id.',
+            'A postal address is meaningful as a reusable nested object, but it is not independently addressed. Plain ESchema should version the fields without adding an id.',
         },
         ({ expect, trace }) =>
           Effect.gen(function* () {
@@ -85,31 +80,6 @@ const Status = ValueESchema.make('Status', Schema.Literals(['active', 'inactive'
               encoded,
               'The encoded entity preserves its caller-supplied identity.',
             ).toEqual({ _v: 'v1', userId: 'user-1', name: 'Ada' });
-          }),
-      );
-
-      laymosTest(
-        'Names a singleton without requiring an identity field.',
-        {
-          description:
-            'Application settings have a storage type name, but there is exactly one settings record. A caller should not have to create a meaningless settings id.',
-        },
-        ({ expect, trace }) =>
-          Effect.gen(function* () {
-            const schema = SingleEntityESchema.make('Settings', {
-              theme: Schema.Literals(['light', 'dark']),
-            }).build();
-
-            const encoded = yield* trace(schema.encode({ theme: 'dark' }));
-
-            expect(
-              schema.name,
-              'The singleton exposes the stable name used by its storage record.',
-            ).toBe('Settings');
-            expect(
-              encoded,
-              'The singleton is versioned without a fabricated identity field.',
-            ).toEqual({ _v: 'v1', theme: 'dark' });
           }),
       );
 
