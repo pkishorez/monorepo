@@ -141,7 +141,14 @@ export const buildSingleItem = <S extends AnySingleEntityESchema>(
         const accepted = yield* cell.write(entity);
         project(accepted);
       }
-    });
+    }).pipe(
+      Effect.withSpan('tanstack-sync.write-server-truth', {
+        attributes: {
+          entity: schema.name,
+          entityCount: entities.length,
+        },
+      }),
+    );
 
   const projectOnly = (
     entities: EntityType<TItem>[],

@@ -573,7 +573,11 @@ function withEntityDefinitions<
         );
         connectionService?.broadcast(transaction);
         return transaction;
-      });
+      }).pipe(
+        Effect.withSpan('sqlite.table.transact', {
+          attributes: { operationCount: ops.length },
+        }),
+      );
     },
   };
 }

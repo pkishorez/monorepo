@@ -1,11 +1,15 @@
 import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 import { memoryOfflineStorage } from '../memory-offline-storage.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 
-describe('TanStack Sync', () => {
+moreCoverageDomain('TanStack Sync', () => {
   describe('Offline storage', () => {
     describe('Memory', () => {
       describe('Behavior', () => {

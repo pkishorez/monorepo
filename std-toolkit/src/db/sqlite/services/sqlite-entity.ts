@@ -268,7 +268,11 @@ export class SQLiteEntity<
       if (!Item) return null;
 
       return yield* this.#parseRow(Item);
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.entity.get', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -309,7 +313,11 @@ export class SQLiteEntity<
       yield* this.#broadcast([{ value: fullValue, meta }]);
 
       return { value: fullValue, meta };
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.entity.insert', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -405,7 +413,11 @@ export class SQLiteEntity<
 
         return { value: fullValue, meta };
       }
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.entity.get-and-update', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -462,7 +474,11 @@ export class SQLiteEntity<
       yield* this.#broadcast([deletedEntity]);
 
       return deletedEntity;
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.entity.delete', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -533,7 +549,11 @@ export class SQLiteEntity<
       const restoredEntity = { value: existing.value, meta };
       yield* this.#broadcast([restoredEntity]);
       return restoredEntity;
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.entity.restore', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -666,7 +686,14 @@ export class SQLiteEntity<
         const items = yield* this.#decodeItems(Items);
         return { items };
       }
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.entity.query', {
+        attributes: {
+          entity: this.#eschema.name,
+          index: String(key),
+        },
+      }),
+    );
   }
 
   /**
@@ -743,6 +770,14 @@ export class SQLiteEntity<
           nextCursor = lastItem.meta._u;
         }
         return [[items], Option.some(nextCursor)] as const;
+      }),
+    ).pipe(
+      Stream.withSpan('sqlite.entity.query-stream', {
+        attributes: {
+          entity: this.#eschema.name,
+          index: String(key),
+          batchSize,
+        },
       }),
     );
   }

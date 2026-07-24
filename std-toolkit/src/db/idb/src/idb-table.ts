@@ -409,7 +409,11 @@ function withEntityDefinitions<
         const entities = applied.map((a) => a.entity);
         connectionService?.broadcast(entities);
         return entities;
-      });
+      }).pipe(
+        Effect.withSpan('idb.table.transact', {
+          attributes: { operationCount: ops.length },
+        }),
+      );
     },
   };
 }

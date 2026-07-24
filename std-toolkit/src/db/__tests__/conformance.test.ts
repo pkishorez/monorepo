@@ -1,6 +1,10 @@
 import 'fake-indexeddb/auto';
 import { DatabaseSync } from 'node:sqlite';
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../laymos/more-coverage.js';
 import { Cause, Effect, Exit, Layer, Schema } from 'effect';
 import { EntityESchema, SingleEntityESchema } from '../../eschema/index.js';
 import { Broadcaster, type EntityType } from '../../core/index.js';
@@ -251,7 +255,7 @@ const run = <A, E>(layer: Layer.Layer<any>, effect: Effect.Effect<A, E, any>) =>
 
 const sksOf = (result: { Items: Row[] }) => result.Items.map((item) => item.sk);
 
-describe('Database conformance', () => {
+moreCoverageDomain('Database conformance', () => {
   describe.each(adapters)('conformance: $name', (adapter) => {
     describe('table: sort key operators', () => {
       const seedBasic = (table: ConformanceTable) =>

@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../../../laymos/more-coverage.js';
 import { Effect, Scope, Stream } from 'effect';
 import type { EntityType } from '../../../../../core/index.js';
 import { newToOld } from '../new-to-old.js';
@@ -73,7 +77,7 @@ const drive = async (opts: {
   return { written, olderCursors, state };
 };
 
-describe('TanStack Sync', () => {
+moreCoverageDomain('TanStack Sync', () => {
   describe('Partitioned', () => {
     describe('New to old', () => {
       describe('Behavior', () => {

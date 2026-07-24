@@ -1,9 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../laymos/more-coverage.js';
 import { Schema } from 'effect';
 import { EntityESchema } from '../index.js';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
-describe('ESchema', () => {
+moreCoverageDomain('ESchema', () => {
   describe('Standard Schema', () => {
     describe('V1 compatibility', () => {
       it('has ~standard property with correct structure', () => {

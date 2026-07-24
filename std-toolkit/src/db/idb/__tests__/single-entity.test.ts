@@ -1,5 +1,9 @@
 import 'fake-indexeddb/auto';
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -33,7 +37,7 @@ const makeConfig = () => {
   return { layer, table, AppConfig };
 };
 
-describe('IDB', () => {
+moreCoverageDomain('IDB', () => {
   describe('Single entity', () => {
     describe('get', () => {
       itEffect('returns default when absent', () => {

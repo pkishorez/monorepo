@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../laymos/more-coverage.js';
 import { Effect, Schema } from 'effect';
 import {
   ESchema,
@@ -16,7 +20,7 @@ import { StringToNumber } from './fixtures.js';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 
-describe('ESchema', () => {
+moreCoverageDomain('ESchema', () => {
   describe('Value', () => {
     describe('Make', () => {
       itEffect('encodes values with a value envelope', () =>

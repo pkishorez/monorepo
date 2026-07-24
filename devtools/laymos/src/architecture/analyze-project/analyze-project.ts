@@ -32,7 +32,7 @@ export const analyzeProject = ({
     const resolved = yield* resolveProject(config, fileGraph);
     const validation = yield* validateRules(resolved);
     return yield* buildReport(resolved, validation, warnings);
-  });
+  }).pipe(Effect.withSpan('project.analyze'));
 
 function findMissingPathWarnings(
   projectDir: string,

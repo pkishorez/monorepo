@@ -119,7 +119,11 @@ export class IdbSingleEntity<
       }
 
       return yield* this.#parseRow(Item);
-    });
+    }).pipe(
+      Effect.withSpan('idb.single-entity.get', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -183,7 +187,11 @@ export class IdbSingleEntity<
         },
       ]);
       return { value: fullValue, meta };
-    });
+    }).pipe(
+      Effect.withSpan('idb.single-entity.put', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -286,7 +294,11 @@ export class IdbSingleEntity<
         ]);
         return { value: fullValue, meta };
       }
-    });
+    }).pipe(
+      Effect.withSpan('idb.single-entity.get-and-update', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /** Writes the default value back — single entities are never deleted. */
@@ -295,7 +307,11 @@ export class IdbSingleEntity<
     IdbDBError,
     IdbDB
   > {
-    return this.put(this.#defaultValue);
+    return this.put(this.#defaultValue).pipe(
+      Effect.withSpan('idb.single-entity.reset', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**

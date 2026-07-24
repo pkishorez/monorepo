@@ -125,5 +125,5 @@ export function validateRules(
         };
       }),
     },
-  });
+  }).pipe(Effect.withSpan('architecture.validate'));
 }

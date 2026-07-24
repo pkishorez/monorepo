@@ -2,7 +2,11 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NodeServices } from '@effect/platform-node';
 import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 import { approveVersionSnapshot, runApprovalWith } from '../approve/index.js';
 import {
   analyzeSnapshots,
@@ -47,7 +51,7 @@ async function runApprove(
   return output.join('');
 }
 
-describe('ESchema', () => {
+moreCoverageDomain('ESchema', () => {
   describe('CLI', () => {
     describe('Approve', () => {
       it('approves a new latest version by creating its snapshot and manifest hash', async () => {

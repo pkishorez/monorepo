@@ -191,6 +191,7 @@ export default defineConfig({
     'src/db/dynamodb/expr/__tests__',
     'src/db/dynamodb/play',
     'src/db/idb/__tests__',
+    'src/db/sqlite/__tests__',
     'src/db/sqlite/services/__tests__',
     'src/db/sqlite/sql/adapters/__tests__',
     'src/db/sqlite/play.ts',

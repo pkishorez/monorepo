@@ -239,6 +239,12 @@ export const buildPartitioned = <S extends AnyEntityESchema>(
       Effect.tap((accepted) => Effect.sync(() => projector?.project(accepted))),
       Effect.tap(() => refreshInspectorCounts),
       Effect.asVoid,
+      Effect.withSpan('tanstack-sync.write-server-truth', {
+        attributes: {
+          entity: schema.name,
+          entityCount: entities.length,
+        },
+      }),
     );
 
   const projectOnly = (entities: EntityType<TItem>[]): Effect.Effect<void> =>

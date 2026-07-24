@@ -97,5 +97,5 @@ export function buildReport(
     violations: validation.violations,
     coverage: validation.coverage,
     warnings,
-  });
+  }).pipe(Effect.withSpan('report.build'));
 }
