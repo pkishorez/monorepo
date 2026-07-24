@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 
 import { marshall, unmarshall } from '../index.js';
 
-describe('DynamoDB', () => {
+moreCoverageDomain('DynamoDB', () => {
   describe('Marshalling', () => {
     it('roundtrips nested scalar, list, map, null, and undefined values', () => {
       const value = {

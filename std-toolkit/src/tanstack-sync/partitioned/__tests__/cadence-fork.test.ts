@@ -1,5 +1,9 @@
 import { Effect, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 import { vi } from 'vitest';
 import type { EntityType } from '../../../core/index.js';
 import type { SyncCollection } from '../../cadence-sync/cadence-sync.js';
@@ -95,7 +99,7 @@ const mountAndLoad = (
 
 const tick = () => new Promise((r) => setTimeout(r, 20));
 
-describe('TanStack Sync', () => {
+moreCoverageDomain('TanStack Sync', () => {
   describe('Partitioned', () => {
     describe('Cadence fork', () => {
       it('forks runCadenceSync per partition when the entry carries cadence', async () => {

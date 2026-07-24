@@ -1,7 +1,11 @@
 import { join } from 'node:path';
 import { NodeServices } from '@effect/platform-node';
 import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 import {
   analyzeSnapshots,
   formatUnifiedDiff,
@@ -20,7 +24,7 @@ function issueTags(report: SnapshotReport) {
   return report.issues.map((issue) => issue._tag);
 }
 
-describe('ESchema', () => {
+moreCoverageDomain('ESchema', () => {
   describe('CLI', () => {
     describe('Snapshot analyzer', () => {
       it('accepts an approved schema root with contiguous versions and matching snapshots', async () => {

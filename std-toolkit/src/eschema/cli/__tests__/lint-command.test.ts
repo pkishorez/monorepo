@@ -1,6 +1,10 @@
 import { NodeServices } from '@effect/platform-node';
 import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 import { renderLintReport } from '../lint/index.js';
 import { analyzeSnapshots } from '../shared/schema-snapshots/index.js';
 import { schemaSnapshotFixture } from './schema-snapshot-fixtures.js';
@@ -12,7 +16,7 @@ function analyze(root: string) {
   );
 }
 
-describe('ESchema', () => {
+moreCoverageDomain('ESchema', () => {
   describe('CLI', () => {
     describe('Lint', () => {
       it('renders clean schema roots with latest version, per-version status, and success', async () => {

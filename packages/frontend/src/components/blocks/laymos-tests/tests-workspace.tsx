@@ -148,7 +148,9 @@ export function LaymosTestsWorkspace({
     [groups, selection],
   );
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [pageStatusFilter, setPageStatusFilter] = useState<StatusFilter>('all');
+  const [navigationStatusFilter, setNavigationStatusFilter] =
+    useState<StatusFilter>('all');
   const [expandAll, setExpandAll] = useState(true);
   const expanded = useMemo(
     () =>
@@ -172,7 +174,8 @@ export function LaymosTestsWorkspace({
   useEffect(() => {
     if (previousReport.current === report) return;
     previousReport.current = report;
-    setStatusFilter('all');
+    setPageStatusFilter('all');
+    setNavigationStatusFilter('all');
   }, [report]);
 
   useEffect(() => {
@@ -217,8 +220,8 @@ export function LaymosTestsWorkspace({
             report={report}
             groups={groups}
             running={running}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
+            statusFilter={pageStatusFilter}
+            onStatusFilterChange={setPageStatusFilter}
             onRun={onRunTests}
             onSelect={choose}
             onRevealGroup={(authorship) =>
@@ -229,6 +232,8 @@ export function LaymosTestsWorkspace({
           <GroupOverview
             group={resolved.group}
             groups={groups}
+            statusFilter={pageStatusFilter}
+            onStatusFilterChange={setPageStatusFilter}
             onSelect={choose}
           />
         ) : resolved.kind === 'case' ? (
@@ -250,6 +255,8 @@ export function LaymosTestsWorkspace({
           <BranchOverview
             selection={resolved}
             groups={groups}
+            statusFilter={pageStatusFilter}
+            onStatusFilterChange={setPageStatusFilter}
             onSelect={choose}
           />
         )}
@@ -274,14 +281,14 @@ export function LaymosTestsWorkspace({
           groups={groups}
           selection={selection}
           query={query}
-          statusFilter={statusFilter}
+          statusFilter={navigationStatusFilter}
           expanded={expanded}
           expandAll={expandAll}
           running={running}
           width={navigationWidth}
           mobileOpen={mobileNavigationOpen}
           onQueryChange={setQuery}
-          onStatusFilterChange={setStatusFilter}
+          onStatusFilterChange={setNavigationStatusFilter}
           onExpandAllChange={setExpandAll}
           onSelect={choose}
           onRun={onRunTests}
@@ -431,45 +438,56 @@ function Navigation({
           aria-label="Tests"
           className={cn('min-h-0 flex-1 overflow-y-auto p-2', scrollbarStyles)}
         >
-          {groups.map((group) => {
-            const id = `group:${group.id}`;
-            const open =
-              expandedSet.has(id) || selection?.authorship === group.id;
-            const groupCases = group.modules.flatMap(moduleCases);
-            return (
-              <section key={group.id} className="mb-2">
-                <TreeRow
-                  expandable
-                  expanded={open}
-                  status={combinedStatus(
-                    groupCases.map(({ status }) => status),
+          {groups.length === 1 && groups[0] ? (
+            <SuiteFirstNavigation
+              group={groups[0]}
+              selection={selection}
+              query={normalizedQuery}
+              statusFilter={statusFilter}
+              expanded={expanded}
+              onSelect={onSelect}
+            />
+          ) : (
+            groups.map((group) => {
+              const id = `group:${group.id}`;
+              const open =
+                expandedSet.has(id) || selection?.authorship === group.id;
+              const groupCases = group.modules.flatMap(moduleCases);
+              return (
+                <section key={group.id} className="mb-2">
+                  <TreeRow
+                    expandable
+                    expanded={open}
+                    status={combinedStatus(
+                      groupCases.map(({ status }) => status),
+                    )}
+                    label={group.label}
+                    count={groupCases.length}
+                    active={
+                      selection?.kind === 'group' &&
+                      selection.authorship === group.id
+                    }
+                    depth={0}
+                    onClick={() =>
+                      onSelect({ kind: 'group', authorship: group.id })
+                    }
+                  />
+                  {open && (
+                    <div className="ml-2 border-l pl-1">
+                      <SuiteFirstNavigation
+                        group={group}
+                        selection={selection}
+                        query={normalizedQuery}
+                        statusFilter={statusFilter}
+                        expanded={expanded}
+                        onSelect={onSelect}
+                      />
+                    </div>
                   )}
-                  label={group.label}
-                  count={groupCases.length}
-                  active={
-                    selection?.kind === 'group' &&
-                    selection.authorship === group.id
-                  }
-                  depth={0}
-                  onClick={() =>
-                    onSelect({ kind: 'group', authorship: group.id })
-                  }
-                />
-                {open && (
-                  <div className="ml-2 border-l pl-1">
-                    <SuiteFirstNavigation
-                      group={group}
-                      selection={selection}
-                      query={normalizedQuery}
-                      statusFilter={statusFilter}
-                      expanded={expanded}
-                      onSelect={onSelect}
-                    />
-                  </div>
-                )}
-              </section>
-            );
-          })}
+                </section>
+              );
+            })
+          )}
         </nav>
       </div>
     </aside>
@@ -840,6 +858,9 @@ function RunDashboard({
     .filter(({ authorship }) => authorship === 'laymos')
     .sort((a, b) => b.testCase.duration - a.testCase.duration)
     .slice(0, 5);
+  const topLevelSuites =
+    groups.length === 1 && groups[0] ? createLogicalSuites(groups[0]) : [];
+  const hasBreakdown = groups.length > 1 || topLevelSuites.length > 0;
   return (
     <div className="w-full space-y-8 p-6 lg:p-10">
       <WorkspaceBreadcrumbs groups={groups} onSelect={() => undefined} />
@@ -940,30 +961,44 @@ function RunDashboard({
         </DashboardSection>
       )}
 
-      <div className={cn('grid gap-6', slowest.length > 0 && 'lg:grid-cols-2')}>
-        <DashboardSection title="Breakdown">
-          <div className="space-y-2">
-            {groups.map((group) => {
-              const groupCases = group.modules.flatMap(moduleCases);
-              return (
-                <button
-                  key={group.id}
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:bg-muted/30"
-                  onClick={() => onRevealGroup(group.id)}
-                >
-                  <span className="flex-1 text-sm font-medium">
-                    {group.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {countStatus(groupCases, 'passed')} passed ·{' '}
-                    {countStatus(groupCases, 'failed')} failed
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </DashboardSection>
+      <div
+        className={cn(
+          'grid gap-6',
+          hasBreakdown && slowest.length > 0 && 'lg:grid-cols-2',
+        )}
+      >
+        {hasBreakdown && (
+          <DashboardSection title="Breakdown">
+            <div className="space-y-2">
+              {groups.length > 1
+                ? groups.map((group) => {
+                    const groupCases = group.modules.flatMap(moduleCases);
+                    return (
+                      <BreakdownRow
+                        key={group.id}
+                        label={group.label}
+                        cases={groupCases}
+                        onClick={() => onRevealGroup(group.id)}
+                      />
+                    );
+                  })
+                : topLevelSuites.map((suite) => (
+                    <BreakdownRow
+                      key={suite.id}
+                      label={suite.name}
+                      cases={logicalSuiteCases(suite)}
+                      onClick={() =>
+                        onSelect({
+                          kind: 'suite',
+                          authorship: suite.authorship,
+                          suitePath: suite.path,
+                        })
+                      }
+                    />
+                  ))}
+            </div>
+          </DashboardSection>
+        )}
         {slowest.length > 0 && (
           <DashboardSection title="Slowest tests">
             <CompactCaseList cases={slowest} onSelect={onSelect} />
@@ -971,6 +1006,30 @@ function RunDashboard({
         )}
       </div>
     </div>
+  );
+}
+
+function BreakdownRow({
+  label,
+  cases,
+  onClick,
+}: {
+  readonly label: string;
+  readonly cases: readonly TestCaseReport[];
+  readonly onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:bg-muted/30"
+      onClick={onClick}
+    >
+      <span className="flex-1 text-sm font-medium">{label}</span>
+      <span className="text-xs text-muted-foreground">
+        {countStatus(cases, 'passed')} passed · {countStatus(cases, 'failed')}{' '}
+        failed
+      </span>
+    </button>
   );
 }
 
@@ -1031,6 +1090,7 @@ function buildBreadcrumbs(
   groups: readonly Group[],
   selection?: ResolvedSelection,
 ): BreadcrumbItem[] {
+  const onlyGroup = groups.length === 1 ? groups[0] : undefined;
   const groupOptions: BreadcrumbOption[] = groups.map((group) => ({
     label: group.label,
     description: `${group.modules.flatMap(moduleCases).length} tests`,
@@ -1041,18 +1101,23 @@ function buildBreadcrumbs(
     selection: { kind: 'group', authorship: group.id },
   }));
   const items: BreadcrumbItem[] = [
-    { label: 'All tests', options: groupOptions },
+    {
+      label: 'All tests',
+      options: onlyGroup ? breadcrumbGroupChildren(onlyGroup) : groupOptions,
+    },
   ];
   if (selection) {
     const authorship =
       selection.kind === 'group' ? selection.group.id : selection.authorship;
     const group = groups.find(({ id }) => id === authorship);
     if (!group) return items;
-    items.push({
-      label: authorship === 'laymos' ? 'laymos' : 'Vitest',
-      selection: { kind: 'group', authorship },
-      options: breadcrumbGroupChildren(group),
-    });
+    if (!onlyGroup) {
+      items.push({
+        label: authorship === 'laymos' ? 'laymos' : 'Vitest',
+        selection: { kind: 'group', authorship },
+        options: breadcrumbGroupChildren(group),
+      });
+    }
     if (selection.kind !== 'group') {
       if (selection.kind === 'module') {
         items.push({
@@ -1332,14 +1397,26 @@ function BreadcrumbCrumb({
 function GroupOverview({
   group,
   groups,
+  statusFilter,
+  onStatusFilterChange,
   onSelect,
 }: {
   readonly group: Group;
   readonly groups: readonly Group[];
+  readonly statusFilter: StatusFilter;
+  readonly onStatusFilterChange: (filter: StatusFilter) => void;
   readonly onSelect: (selection?: Selection) => void;
 }) {
   const cases = group.modules.flatMap(moduleCases);
   const suites = createLogicalSuites(group);
+  const visibleSuites = suites.filter((suite) =>
+    statusMatchesAny(logicalSuiteCases(suite), statusFilter),
+  );
+  const visibleDirectCases = group.modules.flatMap((module) =>
+    module.cases
+      .filter((testCase) => statusMatches(testCase.status, statusFilter))
+      .map((testCase) => ({ module, testCase })),
+  );
   return (
     <div className="w-full p-6 lg:p-10">
       <WorkspaceBreadcrumbs
@@ -1351,9 +1428,11 @@ function GroupOverview({
         title={group.label}
         status={combinedStatus(cases.map(({ status }) => status))}
         cases={cases}
+        statusFilter={statusFilter}
+        onStatusFilterChange={onStatusFilterChange}
       />
       <div className="mt-8 space-y-2">
-        {suites.map((suite) => (
+        {visibleSuites.map((suite) => (
           <BranchRow
             key={suite.id}
             label={suite.name}
@@ -1369,24 +1448,27 @@ function GroupOverview({
             }
           />
         ))}
-        {group.modules.flatMap((module) =>
-          module.cases.map((testCase) => (
-            <BranchRow
-              key={`${module.id}:${testCase.id}`}
-              label={testCase.name}
-              description={testCase.evidence?.description}
-              meta={formatDuration(testCase.duration)}
-              status={testCase.status}
-              onClick={() =>
-                onSelect({
-                  kind: 'case',
-                  authorship: group.id,
-                  moduleId: module.id,
-                  caseId: testCase.id,
-                })
-              }
-            />
-          )),
+        {visibleDirectCases.map(({ module, testCase }) => (
+          <BranchRow
+            key={`${module.id}:${testCase.id}`}
+            label={testCase.name}
+            description={testCase.evidence?.description}
+            meta={formatDuration(testCase.duration)}
+            status={testCase.status}
+            onClick={() =>
+              onSelect({
+                kind: 'case',
+                authorship: group.id,
+                moduleId: module.id,
+                caseId: testCase.id,
+              })
+            }
+          />
+        ))}
+        {visibleSuites.length === 0 && visibleDirectCases.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No matching tests.
+          </p>
         )}
       </div>
     </div>
@@ -1434,11 +1516,15 @@ function TestPageHeader({
   status,
   description,
   cases,
+  statusFilter,
+  onStatusFilterChange,
 }: {
   readonly title: string;
   readonly status: TestStatus;
   readonly description?: string;
   readonly cases: readonly TestCaseReport[];
+  readonly statusFilter: StatusFilter;
+  readonly onStatusFilterChange: (filter: StatusFilter) => void;
 }) {
   return (
     <header className="mt-4">
@@ -1455,7 +1541,11 @@ function TestPageHeader({
       >
         {description ?? 'No description'}
       </p>
-      <Summary cases={cases} />
+      <Summary
+        cases={cases}
+        statusFilter={statusFilter}
+        onStatusFilterChange={onStatusFilterChange}
+      />
     </header>
   );
 }
@@ -1463,6 +1553,8 @@ function TestPageHeader({
 function BranchOverview({
   selection,
   groups,
+  statusFilter,
+  onStatusFilterChange,
   onSelect,
 }: {
   readonly selection: Extract<
@@ -1470,6 +1562,8 @@ function BranchOverview({
     { readonly kind: 'module' | 'suite' }
   >;
   readonly groups: readonly Group[];
+  readonly statusFilter: StatusFilter;
+  readonly onStatusFilterChange: (filter: StatusFilter) => void;
   readonly onSelect: (selection?: Selection) => void;
 }) {
   const suite = selection.kind === 'suite' ? selection.suite : undefined;
@@ -1496,6 +1590,12 @@ function BranchOverview({
     : module
       ? moduleCases(module)
       : [];
+  const visibleCases = cases.filter(({ testCase }) =>
+    statusMatches(testCase.status, statusFilter),
+  );
+  const visibleSuites = suites.filter((child) =>
+    statusMatchesAny(logicalSuiteCases(child), statusFilter),
+  );
   return (
     <div className="w-full p-6 lg:p-10">
       <WorkspaceBreadcrumbs
@@ -1508,6 +1608,8 @@ function BranchOverview({
         status={suite?.status ?? module?.status ?? 'pending'}
         description={suite?.description}
         cases={allCases}
+        statusFilter={statusFilter}
+        onStatusFilterChange={onStatusFilterChange}
       />
       {suite?.documentation.map((documentation) => (
         <div key={documentation} className="mt-6">
@@ -1515,7 +1617,7 @@ function BranchOverview({
         </div>
       ))}
       <div className="mt-6 space-y-2">
-        {cases.map(({ module: caseModule, testCase }) => (
+        {visibleCases.map(({ module: caseModule, testCase }) => (
           <button
             key={`${caseModule.id}:${testCase.id}`}
             type="button"
@@ -1551,7 +1653,7 @@ function BranchOverview({
             <ChevronRight className="size-3.5 text-muted-foreground" />
           </button>
         ))}
-        {suites.map((child) => (
+        {visibleSuites.map((child) => (
           <button
             key={child.id}
             type="button"
@@ -1583,6 +1685,11 @@ function BranchOverview({
             <ChevronRight className="size-3.5 text-muted-foreground" />
           </button>
         ))}
+        {visibleCases.length === 0 && visibleSuites.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No matching tests.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1662,22 +1769,27 @@ function CaseDetail({
             <TabsList
               variant="line"
               aria-label="Test details"
-              className="h-8 w-full cursor-pointer justify-start border-b border-border/60 p-0"
-              onClick={() => {
-                if (!hasAssertions) return;
-                setDetailTab((current) =>
-                  current === 'assertions' ? 'code' : 'assertions',
-                );
-              }}
+              className="h-8 w-full justify-start border-b border-border/60 p-0"
             >
               <TabsTrigger
                 value="assertions"
                 disabled={!hasAssertions}
                 className="h-8 flex-none px-3 text-xs"
+                onClick={() => {
+                  if (detailTab === 'assertions') setDetailTab('code');
+                }}
               >
                 Assertions
               </TabsTrigger>
-              <TabsTrigger value="code" className="h-8 flex-none px-3 text-xs">
+              <TabsTrigger
+                value="code"
+                className="h-8 flex-none px-3 text-xs"
+                onClick={() => {
+                  if (detailTab === 'code' && hasAssertions) {
+                    setDetailTab('assertions');
+                  }
+                }}
+              >
                 Code
               </TabsTrigger>
             </TabsList>
@@ -2238,13 +2350,43 @@ function hasExpectedAndActual(
   return error.expected !== undefined && error.actual !== undefined;
 }
 
-function Summary({ cases }: { readonly cases: readonly TestCaseReport[] }) {
+function Summary({
+  cases,
+  statusFilter,
+  onStatusFilterChange,
+}: {
+  readonly cases: readonly TestCaseReport[];
+  readonly statusFilter: StatusFilter;
+  readonly onStatusFilterChange: (filter: StatusFilter) => void;
+}) {
+  const toggle = (filter: StatusFilter) =>
+    onStatusFilterChange(statusFilter === filter ? 'all' : filter);
   return (
     <div className="mt-5 flex w-fit max-w-full flex-wrap overflow-hidden rounded-md border bg-muted/10 text-xs">
-      <SummaryItem label="Tests" value={cases.length} />
-      <SummaryItem label="Passed" value={countStatus(cases, 'passed')} />
-      <SummaryItem label="Failed" value={countStatus(cases, 'failed')} />
-      <SummaryItem label="Skipped" value={countStatus(cases, 'skipped')} />
+      <SummaryItem
+        label="Tests"
+        value={cases.length}
+        active={statusFilter === 'all'}
+        onClick={() => onStatusFilterChange('all')}
+      />
+      <SummaryItem
+        label="Passed"
+        value={countStatus(cases, 'passed')}
+        active={statusFilter === 'passed'}
+        onClick={() => toggle('passed')}
+      />
+      <SummaryItem
+        label="Failed"
+        value={countStatus(cases, 'failed')}
+        active={statusFilter === 'failed'}
+        onClick={() => toggle('failed')}
+      />
+      <SummaryItem
+        label="Skipped"
+        value={countStatus(cases, 'skipped') + countStatus(cases, 'pending')}
+        active={statusFilter === 'skipped'}
+        onClick={() => toggle('skipped')}
+      />
       <SummaryItem
         label="Time"
         value={formatDuration(
@@ -2258,17 +2400,16 @@ function Summary({ cases }: { readonly cases: readonly TestCaseReport[] }) {
 function SummaryItem({
   label,
   value,
+  active = false,
+  onClick,
 }: {
   readonly label: string;
   readonly value: number | string;
+  readonly active?: boolean;
+  readonly onClick?: () => void;
 }) {
-  return (
-    <span
-      className={cn(
-        'border-r px-3 py-2 last:border-r-0',
-        value === 0 && 'opacity-40',
-      )}
-    >
+  const content = (
+    <>
       <span className="text-muted-foreground">{label}</span>{' '}
       <strong
         className={cn(
@@ -2279,7 +2420,20 @@ function SummaryItem({
       >
         {value}
       </strong>
-    </span>
+    </>
+  );
+  const className = cn(
+    'border-r px-3 py-2 last:border-r-0',
+    value === 0 && 'opacity-40',
+    onClick && 'hover:bg-muted/50',
+    active && 'bg-primary/10',
+  );
+  return onClick ? (
+    <button type="button" className={className} onClick={onClick}>
+      {content}
+    </button>
+  ) : (
+    <span className={className}>{content}</span>
   );
 }
 

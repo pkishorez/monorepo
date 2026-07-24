@@ -11,7 +11,11 @@ import { join } from 'node:path';
 import { NodeServices } from '@effect/platform-node';
 import { Console, Effect } from 'effect';
 import { Command } from 'effect/unstable/cli';
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 import { createCommand } from '../create/index.js';
 import { renderLintReport } from '../lint/index.js';
 import { analyzeSnapshots } from '../shared/schema-snapshots/index.js';
@@ -45,7 +49,7 @@ function readText(path: string) {
   return readFileSync(path, 'utf8');
 }
 
-describe('ESchema', () => {
+moreCoverageDomain('ESchema', () => {
   describe('CLI', () => {
     describe('Create', () => {
       it('creates a flat plain ESchema scaffold', async () => {

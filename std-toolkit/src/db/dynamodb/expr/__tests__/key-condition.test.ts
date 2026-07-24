@@ -1,11 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../../laymos/more-coverage.js';
 import { keyConditionExpr } from '../key-condition.js';
 import type { IndexDefinition } from '../../types/index.js';
 
 const pkSkIndex: IndexDefinition = { pk: 'PK', sk: 'SK' };
 const pkOnlyIndex = { pk: 'PK' } as IndexDefinition;
 
-describe('DynamoDB', () => {
+moreCoverageDomain('DynamoDB', () => {
   describe('Expressions', () => {
     describe('keyConditionExpr', () => {
       it('PK only (no SK) → pk = :val', () => {

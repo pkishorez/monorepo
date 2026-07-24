@@ -238,7 +238,11 @@ export class IdbEntity<
       if (!Item) return null;
 
       return yield* this.#parseRow(Item);
-    });
+    }).pipe(
+      Effect.withSpan('idb.entity.get', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -258,7 +262,11 @@ export class IdbEntity<
       yield* db.transact([write]);
       yield* this.#broadcast([entity]);
       return entity;
-    });
+    }).pipe(
+      Effect.withSpan('idb.entity.insert', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -335,7 +343,11 @@ export class IdbEntity<
         yield* this.#broadcast([entity]);
         return entity;
       }
-    });
+    }).pipe(
+      Effect.withSpan('idb.entity.get-and-update', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -372,7 +384,11 @@ export class IdbEntity<
       yield* this.#broadcast([deletedEntity]);
 
       return deletedEntity;
-    });
+    }).pipe(
+      Effect.withSpan('idb.entity.delete', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -409,7 +425,11 @@ export class IdbEntity<
       const restoredEntity = { value: existing.value, meta };
       yield* this.#broadcast([restoredEntity]);
       return restoredEntity;
-    });
+    }).pipe(
+      Effect.withSpan('idb.entity.restore', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -448,7 +468,11 @@ export class IdbEntity<
       yield* this.#table.hardDeleteItem({ pk, sk });
 
       return existing;
-    });
+    }).pipe(
+      Effect.withSpan('idb.entity.hard-delete', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -568,7 +592,14 @@ export class IdbEntity<
         const items = yield* this.#decodeItems(Items);
         return { items };
       }
-    });
+    }).pipe(
+      Effect.withSpan('idb.entity.query', {
+        attributes: {
+          entity: this.#eschema.name,
+          index: String(key),
+        },
+      }),
+    );
   }
 
   /**
@@ -641,6 +672,14 @@ export class IdbEntity<
           nextCursor = lastItem.meta._u;
         }
         return [[items], Option.some(nextCursor)] as const;
+      }),
+    ).pipe(
+      Stream.withSpan('idb.entity.query-stream', {
+        attributes: {
+          entity: this.#eschema.name,
+          index: String(key),
+          batchSize,
+        },
       }),
     );
   }

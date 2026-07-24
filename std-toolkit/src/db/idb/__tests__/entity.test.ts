@@ -1,5 +1,9 @@
 import 'fake-indexeddb/auto';
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -38,7 +42,7 @@ const provided = <A, E>(
   effect: Effect.Effect<A, E, IdbDB>,
 ) => effect.pipe(Effect.provide(layer));
 
-describe('IDB', () => {
+moreCoverageDomain('IDB', () => {
   describe('Entity', () => {
     it('rejects _u in primary partition key derivation', () => {
       const table = IdbTable.make().primary('pk', 'sk').build();

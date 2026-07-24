@@ -1,18 +1,15 @@
 import { DatabaseSync } from 'node:sqlite';
+import { describe, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
-  describe,
-  test,
-  expect,
-  beforeAll,
-  afterAll,
-  beforeEach,
-} from 'vitest';
+  moreCoverageDomain,
+  moreCoverageTest as test,
+} from '../../../../../../laymos/more-coverage.js';
 import { Effect } from 'effect';
 import { nodeSqliteLayer } from '../node.js';
 import { SqliteDB, SqliteDBError } from '../../db.js';
 import * as Sql from '../../helpers/index.js';
 
-describe('SQLite', () => {
+moreCoverageDomain('SQLite', () => {
   describe('Adapters', () => {
     describe('Node', () => {
       let db: DatabaseSync;

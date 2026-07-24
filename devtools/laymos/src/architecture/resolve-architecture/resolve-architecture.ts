@@ -84,7 +84,7 @@ export function resolveProject(
     fileGraph: visibleFileGraph,
     files,
     reachability: buildReachability(config),
-  });
+  }).pipe(Effect.withSpan('architecture.resolve'));
 }
 
 function buildReachability(

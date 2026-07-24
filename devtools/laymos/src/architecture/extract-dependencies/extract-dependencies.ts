@@ -88,7 +88,7 @@ export function extractFileGraph(
       };
     },
     catch: (cause) => new ExtractError({ baseDir, cause }),
-  });
+  }).pipe(Effect.withSpan('dependencies.extract'));
 }
 
 async function runSkott({

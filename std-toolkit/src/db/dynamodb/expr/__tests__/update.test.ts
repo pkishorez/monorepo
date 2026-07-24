@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../../laymos/more-coverage.js';
 import {
   exprUpdate,
   compileUpdateExpr,
@@ -13,7 +17,7 @@ type TestEntity = {
   user: { name: string };
 };
 
-describe('DynamoDB', () => {
+moreCoverageDomain('DynamoDB', () => {
   describe('Expressions', () => {
     describe('exprUpdate builder', () => {
       it('single set operation', () => {

@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../laymos/more-coverage.js';
 import { Effect, Schema } from 'effect';
 import {
   ESchema,
@@ -26,7 +30,7 @@ const Order = EntityESchema.make('Order', 'orderId', {
   shippingAddress: toSchema(Address, { name: 'Address' }),
 }).build();
 
-describe('ESchema', () => {
+moreCoverageDomain('ESchema', () => {
   describe('Composition', () => {
     describe('toSchema', () => {
       describe('basic composition', () => {

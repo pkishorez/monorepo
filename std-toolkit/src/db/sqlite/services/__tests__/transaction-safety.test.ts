@@ -1,5 +1,9 @@
 import { Deferred, Effect, Fiber, Layer, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../../laymos/more-coverage.js';
 import { EntityESchema } from '../../../../eschema/index.js';
 import { SqliteDB, SqliteDBError } from '../../sql/db.js';
 import { SQLiteTable } from '../sqlite-table.js';
@@ -26,7 +30,7 @@ const makeDbLayer = (overrides: Record<string, unknown>) =>
     ...overrides,
   } as any);
 
-describe('SQLite', () => {
+moreCoverageDomain('SQLite', () => {
   describe('Transactions', () => {
     describe('Safety', () => {
       it('fails restore when the row changed after it was read', async () => {

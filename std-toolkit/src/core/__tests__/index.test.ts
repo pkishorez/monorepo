@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../laymos/more-coverage.js';
 import { Schema } from 'effect';
 import { MetaSchema } from '../schema.js';
 
@@ -6,7 +10,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect } from 'effect';
 
-describe('Core', () => {
+moreCoverageDomain('Core', () => {
   describe('rpc', () => {
     itEffect('works with Effect', () =>
       Effect.gen(function* () {

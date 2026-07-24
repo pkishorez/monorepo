@@ -147,7 +147,11 @@ export class SQLiteSingleEntity<
       }
 
       return yield* this.#parseRow(Item);
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.single-entity.get', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -211,7 +215,11 @@ export class SQLiteSingleEntity<
       const entity = { value: fullValue, meta: { ...meta, _d: false } };
       yield* this.#broadcast([entity]);
       return { value: fullValue, meta };
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.single-entity.put', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**
@@ -337,7 +345,11 @@ export class SQLiteSingleEntity<
         yield* this.#broadcast([entity]);
         return { value: fullValue, meta };
       }
-    });
+    }).pipe(
+      Effect.withSpan('sqlite.single-entity.get-and-update', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /** Writes the default value back — single entities are never deleted. */
@@ -346,7 +358,11 @@ export class SQLiteSingleEntity<
     SqliteDBError,
     SqliteDB
   > {
-    return this.put(this.#defaultValue);
+    return this.put(this.#defaultValue).pipe(
+      Effect.withSpan('sqlite.single-entity.reset', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
   }
 
   /**

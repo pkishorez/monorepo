@@ -1,9 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../laymos/more-coverage.js';
 import { Schema } from 'effect';
 import { EntityESchema } from '../index.js';
 import { StringToNumber } from './fixtures.js';
 
-describe('ESchema', () => {
+moreCoverageDomain('ESchema', () => {
   describe('Descriptors', () => {
     describe('Get descriptor', () => {
       it('returns JSON Schema for encoded type including id field', () => {

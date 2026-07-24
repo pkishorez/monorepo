@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect } from 'vitest';
+import {
+  moreCoverageDomain,
+  moreCoverageTest as it,
+} from '../../../../laymos/more-coverage.js';
 import { Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
 import {
@@ -10,7 +14,7 @@ import {
   unmarshall,
 } from '../index.js';
 
-describe('DynamoDB', () => {
+moreCoverageDomain('DynamoDB', () => {
   describe('Public API', () => {
     describe('marshall/unmarshall', () => {
       it('marshalls primitive values', () => {

@@ -61,7 +61,7 @@ export const loadConfig = ({
       Match.when(true, () => importAndValidateConfig(located.path)),
       Match.exhaustive,
     );
-  });
+  }).pipe(Effect.withSpan('config.load'));
 };
 
 const importAndValidateConfig = (
