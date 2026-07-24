@@ -9,7 +9,7 @@ You've read the mechanics and the best practices, and if you're the kind of engi
 
 Nothing detects the edit — and that's the danger. There is no registry of historical shapes beyond your source code, so decode validates every `_v: 'v1'` row (and every unstamped legacy row, which counts as v1) against whatever your v1 fields say _now_. If you renamed `body` to `text` in v1, every old message fails at read time with a `Decode failed` error — loudly, in production, on rows that were fine yesterday. And if the edited v1 happens to still accept old rows, you get something worse: silent reinterpretation.
 
-The library's contract is that shipped versions are frozen; the test suite pins the failure mode (an unstamped row that doesn't match v1 rejects rather than guessing another version). The [CLI](/docs/std-toolkit/eschema/cli) turns the contract into a CI failure by snapshotting each version's source and flagging any drift.
+The library's contract is that shipped versions are frozen; the test suite pins the failure mode (an unstamped row that doesn't match v1 rejects rather than guessing another version). The [snapshot CLI](/docs/std-toolkit/eschema/cli) turns the contract into a CI failure by snapshotting the semantic contract and flagging any change to a shipped version.
 
 ## What if decode meets a `_v` the schema doesn't know?
 
@@ -30,7 +30,7 @@ No — not while any row stamped with it might still exist, and in practice you 
 - Rows stamped `_v: 'v2'` now hit a chain with no v2 entry: `Unknown schema version: v2`.
 - Rows stamped _earlier_ than the deleted version break too, because folding runs through every intermediate step — v1 rows can't reach v3 without the v1→v2→v3 chain intact.
 
-The version chain is append-only by design: `evolve` only accepts the next sequential version, so there's no renumbering around a gap. If you delete a `versions/vN.ts` file in a CLI-managed schema collection, `eschema lint` reports it as an un-approvable issue that must be fixed by restoring the file. The cost model is honest: a version is a few lines of schema plus a pure function, kept forever. That's cheap. Unreadable rows are not.
+The version chain is append-only by design: `evolve` only accepts the next sequential version, so there's no renumbering around a gap. Delete a version and the snapshot no longer matches its approved baseline — `std-toolkit snapshot` reports the removed version and fails until you restore it. The cost model is honest: a version is a few lines of schema plus a pure function, kept forever. That's cheap. Unreadable rows are not.
 
 ## What if two deployed services run different schema versions?
 

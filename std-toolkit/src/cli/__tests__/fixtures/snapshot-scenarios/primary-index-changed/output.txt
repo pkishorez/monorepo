@@ -1,0 +1,77 @@
+╭─ DATABASE CONTRACT CHANGED ────────────────────╮
+│ 2 breaking                                     │
+╰────────────────────────────────────────────────╯
+
+┌────────────┬──────────────────────────┬────────┬──────────────┐
+│ Status     │ Change                   │ Before │ After        │
+├────────────┼──────────────────────────┼────────┼──────────────┤
+│ ✕ BREAKING │ Changed primary index pk │ pk     │ partitionKey │
+│ ✕ BREAKING │ Changed primary index sk │ sk     │ sortKey      │
+└────────────┴──────────────────────────┴────────┴──────────────┘
+
+BREAKING
+
+  Changed primary index pk
+  /primaryIndex/pk
+
+  ┌────────┬──────────────┐
+  │        │ Value        │
+  ├────────┼──────────────┤
+  │ Before │ pk           │
+  │ After  │ partitionKey │
+  └────────┴──────────────┘
+
+  Changed primary index sk
+  /primaryIndex/sk
+
+  ┌────────┬─────────┐
+  │        │ Value   │
+  ├────────┼─────────┤
+  │ Before │ sk      │
+  │ After  │ sortKey │
+  └────────┴─────────┘
+
+╭─ DATABASE CONTRACT ────────────────────────────╮
+│ Table: dynamodb                                │
+╰────────────────────────────────────────────────╯
+
+PRIMARY INDEX
+
+┌───────────────┬──────────────┐
+│ Key           │ Attribute    │
+├───────────────┼──────────────┤
+│ Partition key │ partitionKey │
+│ Sort key      │ sortKey      │
+└───────────────┴──────────────┘
+
+SECONDARY INDEXES
+
+None
+
+ENTITIES
+
+┌──────┬───────┬────────┬──────────┬────────────┬────────────┐
+│ Name │ Kind  │ Schema │ Identity │ Primary PK │ Primary SK │
+├──────┼───────┼────────┼──────────┼────────────┼────────────┤
+│ User │ keyed │ User   │ id       │ email      │ id         │
+└──────┴───────┴────────┴──────────┴────────────┴────────────┘
+
+SCHEMAS
+
+User · entity · identity: id
+└─ v1
+   ├─ encoded
+   │  ├─ _v: "v1"
+   │  ├─ email: string
+   │  ├─ id: string
+   │  └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+   └─ decoded
+      ├─ email: string
+      ├─ id: string
+      └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+
+Snapshot was not updated.
+
+Review the changes, then approve them with:
+
+  std-toolkit snapshot -u

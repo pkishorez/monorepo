@@ -22,6 +22,11 @@ import {
   type StoredIndexDerivation,
   type StoredPrimaryDerivation,
 } from './internal/utils.js';
+import type { TableEntitySnapshotSource } from '../../../snapshot/index.js';
+import {
+  tableSnapshotSource,
+  keyedSnapshotSource,
+} from '../../../snapshot/internal/table-snapshot.js';
 
 /**
  * Meta fields that can be used in index derivations.
@@ -207,6 +212,15 @@ export class IdbEntity<
    */
   get idField(): TSchema['idField'] {
     return this.#eschema.idField;
+  }
+
+  [tableSnapshotSource](): TableEntitySnapshotSource {
+    return keyedSnapshotSource(
+      this.#eschema,
+      this.#primaryDerivation,
+      this.#secondaryDerivations,
+      (derivation) => derivation.indexName,
+    );
   }
 
   /**

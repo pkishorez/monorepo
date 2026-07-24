@@ -10,6 +10,11 @@ import type { IdbEntityOp } from './idb-entity.js';
 import { IdbDB, IdbDBError } from './db.js';
 import type { IdbRecord, IdbWriteOp } from './db.js';
 import { deriveIndexKeyValue } from './internal/utils.js';
+import type { TableEntitySnapshotSource } from '../../../snapshot/index.js';
+import {
+  tableSnapshotSource,
+  singletonSnapshotSource,
+} from '../../../snapshot/internal/table-snapshot.js';
 
 /**
  * A simplified IndexedDB entity for single-record use cases (e.g., app
@@ -84,6 +89,10 @@ export class IdbSingleEntity<
    */
   get name(): TSchema['name'] {
     return this.#eschema.name;
+  }
+
+  [tableSnapshotSource](): TableEntitySnapshotSource {
+    return singletonSnapshotSource(this.#eschema);
   }
 
   #deriveKey(): { pk: string; sk: string } {

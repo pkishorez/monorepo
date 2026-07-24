@@ -51,6 +51,7 @@ Effect.runPromise(
 **Services**
 
 - `IdbTable` — the single-table topology; entities are defined from it via `table.entity(eschema)` / `table.singleEntity(eschema)` and it coordinates `setup()` and `transact()`
+- `table.snapshot()` — synchronously captures the logical topology, registered entities, ESchema histories, and sparse index derivations without opening IndexedDB. See the [shared snapshot workflow](../../eschema/README.md#semantic-contract-snapshots).
 
 **Database**
 

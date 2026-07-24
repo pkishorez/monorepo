@@ -34,7 +34,7 @@ A schema is a chain of versions `v1 … latest`.
 import { ESchema } from 'std-toolkit/eschema';
 import { Schema } from 'effect';
 
-const User = ESchema.make({ name: Schema.String })
+const User = ESchema.make('User', { name: Schema.String })
   .evolve('v2', { email: Schema.NullOr(Schema.String) }, (prev) => ({
     ...prev,
     email: null,
@@ -44,10 +44,50 @@ const User = ESchema.make({ name: Schema.String })
 
 See the tutorial at `src/eschema/tutorial/` for a guided walkthrough.
 
-## Bin
+## Semantic contract snapshots
+
+Schemas produce canonical, JSON-safe descriptions of every encoded and decoded version. Use the shared snapshot API to inspect current limitations and compare the current contract with a stored baseline.
+
+```ts
+import { readFile } from 'node:fs/promises';
+import { Effect } from 'effect';
+import { Snapshot } from 'std-toolkit/snapshot';
+
+const current = User.snapshot();
+const stored = JSON.parse(await readFile('contracts/user.json', 'utf8'));
+const baseline = await Effect.runPromise(Snapshot.decode(stored));
+
+const diagnostics = Snapshot.inspect(current);
+const changes = Snapshot.diff(baseline, current);
+
+console.log(Snapshot.render(current));
+console.log(Snapshot.renderChanges(changes));
+```
+
+For a single committed baseline, create `std-toolkit.snapshot.ts` in the
+project root:
+
+```ts
+import { table } from './src/table.js';
+
+export default table.snapshot();
+```
+
+Approve the first contract, then verify it locally and in CI:
 
 ```sh
-npx eschema     # schema evolution CLI
+std-toolkit snapshot -u
+std-toolkit snapshot
+```
+
+The command loads the TypeScript entry through Jiti and keeps the approved
+contract in `std-toolkit.snapshot.json`. Drift exits with status 1 and prints
+breaking, backfill, unverifiable, and safe changes. The snapshot is updated
+only with `-u` or `--update`; commit the JSON file so Git retains its history.
+
+```yaml
+# GitHub Actions
+- run: pnpm std-toolkit snapshot
 ```
 
 ## Key exports

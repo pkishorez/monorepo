@@ -46,6 +46,42 @@ export type ValueEnvelopeEncoded<
   readonly value: ValueSchemaEncoded<TSchema>;
 };
 
+/**
+ * Type-level enforcement that a schema name is a non-empty string.
+ */
+export type ForbidEmptyName<N extends string> = N extends ''
+  ? { 'Schema name must not be empty.': never }
+  : unknown;
+
+/**
+ * Type-level enforcement that fields are never optional and never admit
+ * `undefined`. Absence must be modeled as `null` via `Schema.NullOr`.
+ */
+export type ForbidOptionalFields<T> = {
+  [K in keyof T]: T[K] extends { readonly '~type.optionality': 'optional' }
+    ? 'Optional fields are forbidden. Model absence with Schema.NullOr(...).'
+    : T[K] extends { readonly Type: infer A }
+      ? undefined extends A
+        ? '`undefined` is forbidden in field types. Model absence with Schema.NullOr(...).'
+        : T[K]
+      : T[K];
+};
+
+/**
+ * Type-level enforcement that a value schema never admits `undefined`.
+ */
+export type ForbidUndefinedValue<S extends ValueSchema> = S extends {
+  readonly '~type.optionality': 'optional';
+}
+  ? {
+      'Optional schemas are forbidden. Model absence with Schema.NullOr(...).': never;
+    }
+  : undefined extends ValueSchemaDecoded<S>
+    ? {
+        '`undefined` is forbidden in a ValueESchema. Model absence with Schema.NullOr(...).': never;
+      }
+    : unknown;
+
 export type ForbidUnderscorePrefix<T> = {
   [K in keyof T]: K extends `_${string}`
     ? 'Key with prefix _ is Forbidden.'
@@ -104,7 +140,7 @@ export type AnyESchema<
 > = ESchema<V, S>;
 
 /**
- * Matches any SingleEntityESchema or EntityESchema (has name).
+ * Matches any SingleEntityESchema.
  */
 export type AnySingleEntityESchema<
   N extends string = string,
@@ -162,7 +198,6 @@ export type ESchemaIdField<T extends AnyEntityESchema> =
     : never;
 
 /**
- * Extracts the name from a SingleEntityESchema or EntityESchema.
+ * Extracts the name from any named evolving schema.
  */
-export type ESchemaName<T extends AnySingleEntityESchema> =
-  T extends SingleEntityESchema<infer N, infer _V, infer _TLatest> ? N : never;
+export type ESchemaName<T extends { readonly name: string }> = T['name'];

@@ -13,10 +13,16 @@ const eschemaImpl = layer(
     'src/eschema/schema.ts',
     'src/eschema/types.ts',
     'src/eschema/utils.ts',
+    'src/snapshot/model.ts',
+    'src/snapshot/snapshot.ts',
+    'src/snapshot/internal',
   ],
-  { description: 'Internal implementation' },
+  { description: 'ESchema and semantic snapshot implementation' },
 );
 
+const snapshotBarrel = layer('snapshot-barrel', ['src/snapshot/index.ts'], {
+  description: 'Public barrel',
+});
 const coreBarrel = layer('core-barrel', ['src/core/index.ts'], {
   description: 'Public barrel',
 });
@@ -165,6 +171,7 @@ const dynamodbGraph = layerGraph(
       dynamodbTypes,
       dynamodbErrors,
       coreBarrel,
+      snapshotBarrel,
     ]),
     edge(dynamodbExpr, [dynamodbInternal, dynamodbTypes]),
     edge(dynamodbInternal, [dynamodbTypes, dynamodbErrors]),
@@ -196,9 +203,9 @@ export default defineConfig({
     'src/db/sqlite/sql/adapters/__tests__',
     'src/db/sqlite/play.ts',
     'src/eschema/__tests__',
-    'src/eschema/cli',
     'src/eschema/play.ts',
     'src/eschema/tutorial',
+    'src/snapshot/__tests__',
     'src/tanstack-sync/__tests__',
     'src/tanstack-sync/cadence-sync/__tests__',
     'src/tanstack-sync/offline-storage/__tests__',
@@ -208,9 +215,13 @@ export default defineConfig({
     'src/tanstack-sync/source-of-truth/__tests__',
   ],
   graphs: [
-    layerGraph('eschema', [edge(eschemaBarrel, eschemaImpl)], {
-      description: 'Schema entrypoint and implementation',
-    }),
+    layerGraph(
+      'eschema',
+      [edge(eschemaBarrel, eschemaImpl), edge(snapshotBarrel, eschemaImpl)],
+      {
+        description: 'Schema entrypoints and implementation',
+      },
+    ),
     layerGraph(
       'core',
       [edge(coreBarrel, coreImpl), edge(coreImpl, eschemaBarrel)],
@@ -221,7 +232,7 @@ export default defineConfig({
       'idb',
       [
         edge(idbBarrel, [idbServices, idbBrowser]),
-        edge(idbServices, [idbDb, idbInternal, coreBarrel]),
+        edge(idbServices, [idbDb, idbInternal, coreBarrel, snapshotBarrel]),
         edge(idbBrowser, idbDb),
         edge(idbDb, idbErrors),
         edge(idbInternal, coreBarrel),
@@ -236,7 +247,12 @@ export default defineConfig({
       'sqlite',
       [
         edge(sqliteBarrel, [sqliteServices, sqliteSql, sqliteErrors]),
-        edge(sqliteServices, [sqliteInternal, sqliteSql, coreBarrel]),
+        edge(sqliteServices, [
+          sqliteInternal,
+          sqliteSql,
+          coreBarrel,
+          snapshotBarrel,
+        ]),
         edge(sqliteInternal, coreBarrel),
         edge(sqliteSql, [sqliteErrors, coreBarrel]),
       ],

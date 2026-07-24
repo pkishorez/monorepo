@@ -17,7 +17,6 @@
   "exclude": [
     "dist",
     "node_modules",
-    "src/eschema/cli/__tests__/fixtures/**",
     "src/db/sqlite/sql/adapters/bun.ts",
     "src/db/sqlite/sql/adapters/__tests__/bun.bun.test.ts",
     "src/db/sqlite/sql/adapters/__tests__/compat.bun.test.ts",

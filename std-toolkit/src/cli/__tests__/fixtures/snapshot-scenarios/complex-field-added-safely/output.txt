@@ -1,0 +1,91 @@
+╭─ DATABASE CONTRACT CHANGED ────────────────────╮
+│ 1 safe                                         │
+╰────────────────────────────────────────────────╯
+
+┌────────┬────────────────────────────┬────────┬───────┐
+│ Status │ Change                     │ Before │ After │
+├────────┼────────────────────────────┼────────┼───────┤
+│ ✓ SAFE │ Added next version User v2 │ —      │ added │
+└────────┴────────────────────────────┴────────┴───────┘
+
+SAFE
+
+  Added next version User v2
+  /schemas/User/versions/v2
+
+  After
+    ┌─────────┬───────┐
+    │ Field   │ Value │
+    ├─────────┼───────┤
+    │ Version │ v2    │
+    └─────────┴───────┘
+
+    Encoded
+      _v: "v2"
+      email: string
+      id: string
+      preferences: { notifications: { email: boolean; push: boolean }; theme: "light" | "dark" | "system" }
+      profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+
+    Decoded
+      email: string
+      id: string
+      preferences: { notifications: { email: boolean; push: boolean }; theme: "light" | "dark" | "system" }
+      profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+
+╭─ DATABASE CONTRACT ────────────────────────────╮
+│ Table: dynamodb                                │
+╰────────────────────────────────────────────────╯
+
+PRIMARY INDEX
+
+┌───────────────┬───────────┐
+│ Key           │ Attribute │
+├───────────────┼───────────┤
+│ Partition key │ pk        │
+│ Sort key      │ sk        │
+└───────────────┴───────────┘
+
+SECONDARY INDEXES
+
+None
+
+ENTITIES
+
+┌──────┬───────┬────────┬──────────┬────────────┬────────────┐
+│ Name │ Kind  │ Schema │ Identity │ Primary PK │ Primary SK │
+├──────┼───────┼────────┼──────────┼────────────┼────────────┤
+│ User │ keyed │ User   │ id       │ email      │ id         │
+└──────┴───────┴────────┴──────────┴────────────┴────────────┘
+
+SCHEMAS
+
+User · entity · identity: id
+├─ v1
+│  ├─ encoded
+│  │  ├─ _v: "v1"
+│  │  ├─ email: string
+│  │  ├─ id: string
+│  │  └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+│  └─ decoded
+│     ├─ email: string
+│     ├─ id: string
+│     └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+└─ v2
+   ├─ encoded
+   │  ├─ _v: "v2"
+   │  ├─ email: string
+   │  ├─ id: string
+   │  ├─ preferences: { notifications: { email: boolean; push: boolean }; theme: "light" | "dark" | "system" }
+   │  └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+   └─ decoded
+      ├─ email: string
+      ├─ id: string
+      ├─ preferences: { notifications: { email: boolean; push: boolean }; theme: "light" | "dark" | "system" }
+      └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+
+Snapshot was not updated.
+
+Review the changes, then approve them with:
+
+  std-toolkit snapshot -u

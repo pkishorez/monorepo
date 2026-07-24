@@ -1,0 +1,44 @@
+No approved snapshot found: std-toolkit.snapshot.json
+
+╭─ DATABASE CONTRACT ────────────────────────────╮
+│ Table: dynamodb                                │
+╰────────────────────────────────────────────────╯
+
+PRIMARY INDEX
+
+┌───────────────┬───────────┐
+│ Key           │ Attribute │
+├───────────────┼───────────┤
+│ Partition key │ pk        │
+│ Sort key      │ sk        │
+└───────────────┴───────────┘
+
+SECONDARY INDEXES
+
+None
+
+ENTITIES
+
+┌──────┬───────┬────────┬──────────┬────────────┬────────────┐
+│ Name │ Kind  │ Schema │ Identity │ Primary PK │ Primary SK │
+├──────┼───────┼────────┼──────────┼────────────┼────────────┤
+│ User │ keyed │ User   │ id       │ email      │ id         │
+└──────┴───────┴────────┴──────────┴────────────┴────────────┘
+
+SCHEMAS
+
+User · entity · identity: id
+└─ v1
+   ├─ encoded
+   │  ├─ _v: "v1"
+   │  ├─ email: string
+   │  ├─ id: string
+   │  └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+   └─ decoded
+      ├─ email: string
+      ├─ id: string
+      └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+
+Create it with:
+
+  std-toolkit snapshot -u

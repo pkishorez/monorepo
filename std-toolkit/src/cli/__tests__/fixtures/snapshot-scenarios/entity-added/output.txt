@@ -1,0 +1,81 @@
+╭─ DATABASE CONTRACT CHANGED ────────────────────╮
+│ 2 safe                                         │
+╰────────────────────────────────────────────────╯
+
+┌────────┬────────────────────┬────────┬───────┐
+│ Status │ Change             │ Before │ After │
+├────────┼────────────────────┼────────┼───────┤
+│ ✓ SAFE │ Added entity User  │ —      │ added │
+│ ✓ SAFE │ Added ESchema User │ —      │ added │
+└────────┴────────────────────┴────────┴───────┘
+
+SAFE
+
+  Added entity User
+  /entities/User
+
+  After
+    ┌──────────┬───────┐
+    │ Field    │ Value │
+    ├──────────┼───────┤
+    │ Name     │ User  │
+    │ Kind     │ keyed │
+    │ Schema   │ User  │
+    │ Identity │ id    │
+    └──────────┴───────┘
+
+  Added ESchema User
+  /schemas/User
+
+  After
+    ┌──────────┬────────┐
+    │ Field    │ Value  │
+    ├──────────┼────────┤
+    │ Kind     │ entity │
+    │ Identity │ id     │
+    └──────────┴────────┘
+
+╭─ DATABASE CONTRACT ────────────────────────────╮
+│ Table: dynamodb                                │
+╰────────────────────────────────────────────────╯
+
+PRIMARY INDEX
+
+┌───────────────┬───────────┐
+│ Key           │ Attribute │
+├───────────────┼───────────┤
+│ Partition key │ pk        │
+│ Sort key      │ sk        │
+└───────────────┴───────────┘
+
+SECONDARY INDEXES
+
+None
+
+ENTITIES
+
+┌──────┬───────┬────────┬──────────┬────────────┬────────────┐
+│ Name │ Kind  │ Schema │ Identity │ Primary PK │ Primary SK │
+├──────┼───────┼────────┼──────────┼────────────┼────────────┤
+│ User │ keyed │ User   │ id       │ email      │ id         │
+└──────┴───────┴────────┴──────────┴────────────┴────────────┘
+
+SCHEMAS
+
+User · entity · identity: id
+└─ v1
+   ├─ encoded
+   │  ├─ _v: "v1"
+   │  ├─ email: string
+   │  ├─ id: string
+   │  └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+   └─ decoded
+      ├─ email: string
+      ├─ id: string
+      └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+
+Snapshot was not updated.
+
+Review the changes, then approve them with:
+
+  std-toolkit snapshot -u

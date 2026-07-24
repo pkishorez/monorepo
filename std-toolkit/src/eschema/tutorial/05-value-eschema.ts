@@ -19,7 +19,10 @@ import { Effect, Schema } from 'effect';
 import { ValueESchema } from '../index.js';
 
 // A status enum. v1 has two states; v2 adds 'review' in the middle.
-const Status = ValueESchema.make(Schema.Literals(['draft', 'published']))
+const Status = ValueESchema.make(
+  'Status',
+  Schema.Literals(['draft', 'published']),
+)
   .evolve(
     'v2',
     Schema.Literals(['draft', 'review', 'published']),
@@ -50,7 +53,7 @@ console.log('bare legacy value:', Effect.runSync(Status.decode('draft')));
 
 // Migrations can also TRANSFORM the value's type across versions. Here v1 is a
 // string and v2 is a number; the migration converts.
-const Quantity = ValueESchema.make(Schema.String)
+const Quantity = ValueESchema.make('Quantity', Schema.String)
   .evolve('v2', Schema.Number, (value) => Number(value))
   .build();
 

@@ -1,6 +1,6 @@
 ---
 title: Best practices
-description: Frozen versions, total migrations, NullOr over optional — the habits that keep evolving schemas safe as data ages.
+description: Frozen versions, total migrations, null over optional — the habits that keep evolving schemas safe as data ages.
 ---
 
 You know how this goes with any tool that touches persisted data: the API is easy, and the scars come from usage patterns nobody wrote down. This page writes them down. Every rule here exists because of a specific way eschema can bite, and each comes with the reason — none of them are style preferences.
@@ -9,7 +9,7 @@ You know how this goes with any tool that touches persisted data: the API is eas
 
 The single most important rule. Once data exists under a version, that version's fields must never change — and v1 doubly so, because **unstamped legacy rows decode as v1**. Edit v1's shape and you've silently redefined what every pre-eschema row means; if an old row no longer matches, decode fails loudly at read time, in production, long after the edit looked harmless in review.
 
-The discipline: a version, once deployed, is history. Want a different shape? That's what `.evolve` is for — append, never rewrite. This rule is important enough that the [eschema CLI](/docs/std-toolkit/eschema/cli) exists largely to enforce it mechanically: it snapshots each version's source and fails CI when a shipped version's file changes.
+The discipline: a version, once deployed, is history. Want a different shape? That's what `.evolve` is for — append, never rewrite. This rule is important enough that the [snapshot CLI](/docs/std-toolkit/eschema/cli) exists largely to enforce it mechanically: it snapshots the semantic contract of every version and fails CI when a shipped version changes.
 
 ## Migrations must be total — and pure
 
@@ -31,9 +31,11 @@ Purity is the other half. Migrations run lazily, on read, at any time, any numbe
 }))
 ```
 
-## Prefer `Schema.NullOr` over optional fields
+## `null`, not optional — enforced by the compiler
 
 When adding a field, model "no value" as `null`, not as an absent key. Optional fields poison migrations: if `editedAt` may or may not exist, every future migration touching it branches on `undefined`, and the encoded shape becomes unstable — sometimes the key is there, sometimes not. With `NullOr` the field is _always present_ with a definite value: migrations stay total by construction, and the wire shape is predictable.
+
+This one isn't just a habit anymore: `make` and `evolve` reject optional fields at the type level. `Schema.optional`, `Schema.optionalKey`, and any field whose type admits `undefined` (like `Schema.UndefinedOr`) fail to compile, pointing you at `Schema.NullOr`. The error is deliberate — a field either exists with a value or exists as `null`; there is no third state.
 
 ```ts
 const Message = EntityESchema.make('Message', 'messageId', {
@@ -76,9 +78,9 @@ Two mechanical facts that shape where schema code lives:
 
 ## The checklist
 
-- Never modify a shipped version; only `.evolve`. Let [the CLI](/docs/std-toolkit/eschema/cli) enforce it in CI.
+- Never modify a shipped version; only `.evolve`. Let [the snapshot CLI](/docs/std-toolkit/eschema/cli) enforce it in CI.
 - Migrations: total, pure, one step, no IO — backfill _meaning_, not timestamps.
-- New fields are `Schema.NullOr(...)` defaulting to `null`, not optional keys.
+- New fields are `Schema.NullOr(...)` defaulting to `null` — optional keys don't compile.
 - Evolving a nested schema? Audit every parent that embeds it.
 - Keep `_`-prefixed keys out of field maps, and top-level `_v` out of `ValueESchema` values.
 - Build whole chains at module scope; derive lazily.

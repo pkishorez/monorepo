@@ -21,6 +21,11 @@ import {
 } from '../internal/utils.js';
 import { Broadcaster, nextUlid } from '../../../core/index.js';
 import type { Prettify } from '../../../eschema/index.js';
+import type { TableEntitySnapshotSource } from '../../../snapshot/index.js';
+import {
+  tableSnapshotSource,
+  keyedSnapshotSource,
+} from '../../../snapshot/internal/table-snapshot.js';
 
 /**
  * Meta fields that can be used in index derivations.
@@ -233,6 +238,15 @@ export class SQLiteEntity<
    */
   get idField(): TSchema['idField'] {
     return this.#eschema.idField;
+  }
+
+  [tableSnapshotSource](): TableEntitySnapshotSource {
+    return keyedSnapshotSource(
+      this.#eschema,
+      this.#primaryDerivation,
+      this.#secondaryDerivations,
+      (derivation) => derivation.indexName,
+    );
   }
 
   /**

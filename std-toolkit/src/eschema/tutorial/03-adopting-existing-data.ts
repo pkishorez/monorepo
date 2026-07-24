@@ -26,7 +26,7 @@ const legacyRow = { name: 'Bob' };
 // --- Step 1: wrap the existing shape as v1, change nothing else ------------
 // On a single-version schema this is a pure no-op: stamped or unstamped, the
 // data decodes identically. Safe to ship on its own.
-const UserV1Only = ESchema.make({ name: Schema.String }).build();
+const UserV1Only = ESchema.make('User', { name: Schema.String }).build();
 console.log(
   'adopted, no evolution yet:',
   Effect.runSync(UserV1Only.decode(legacyRow)),
@@ -36,7 +36,7 @@ console.log(
 // --- Step 2: later, evolve past v1 ----------------------------------------
 // NOW the "unstamped = v1" rule earns its keep: the legacy row is treated as v1
 // and folds forward through the email migration.
-const User = ESchema.make({ name: Schema.String })
+const User = ESchema.make('User', { name: Schema.String })
   .evolve('v2', { email: Schema.String }, (prev) => ({
     ...prev,
     email: 'unknown@example.com',

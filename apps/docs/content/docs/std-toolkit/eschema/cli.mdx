@@ -1,108 +1,56 @@
 ---
-title: CLI
-description: Scaffold schemas and mechanically enforce frozen versions with eschema create, lint, and approve.
+title: Snapshots
+description: Mechanically enforce frozen versions with std-toolkit snapshot — a semantic contract baseline that fails CI when shipped history changes.
 ---
 
-The [best practices](/docs/std-toolkit/eschema/best-practices) lean on one rule above all others: **a shipped version never changes.** And you already know what happens to rules that live only in prose — someone "just tidies up" `v1.ts` during a refactor, review doesn't catch it because the diff looks cosmetic, and three weeks later old messages stop decoding. Rules that matter need to fail CI.
+The [best practices](/docs/std-toolkit/eschema/best-practices) lean on one rule above all others: **a shipped version never changes.** And you already know what happens to rules that live only in prose — someone "just tidies up" a schema during a refactor, review doesn't catch it because the diff looks cosmetic, and three weeks later old messages stop decoding. Rules that matter need to fail CI.
 
-That's the `eschema` CLI's job. It ships as a bin with `std-toolkit`, and it has exactly three subcommands: `create` scaffolds a new schema, `lint` verifies nothing shipped has drifted, `approve` records that a change was intentional. The mechanism underneath is snapshot testing, applied to schema source files.
+That's what `std-toolkit snapshot` is for. It ships as the `std-toolkit` bin, and it does one thing: compare your schemas' **semantic contract** against an approved baseline, and fail when shipped history changed.
 
-## The layout it manages
+Semantic is the operative word. The snapshot isn't a copy of your source files — it's the derived contract: for every schema, every version's encoded and decoded shape; for a table, additionally its indexes and registered entities. Rename a variable, reorder fields, reformat the file — the snapshot doesn't move. Change what `v1` actually accepts, and it does.
 
-The CLI operates on a **schema collection**: a directory tree where each schema lives in its own folder with one file per version:
+## Setup
 
-```txt
-src/schemas/
-  chat/
-    message/
-      schema.ts            # builds the latest version
-      versions/
-        v1.ts              # export const v1 = EntityESchema.make(...)
-        v2.ts              # export const v2 = v1.evolve('v2', ...)
-      __snapshots__/       # written by `approve` — never by hand
-        v1.ts.snap
-        v2.ts.snap
-      snapshots.json       # version → sha256 of its approved snapshot
-      index.ts
+Create a `std-toolkit.snapshot.ts` at your project root that default-exports the snapshot of the thing you want under contract. For a table-based app, that's the table — its snapshot includes every registered entity and all their schema versions:
+
+```ts title="std-toolkit.snapshot.ts"
+import { table } from './src/db/table.js';
+
+export default table.snapshot();
 ```
 
-The convention encodes the frozen-version rule in the filesystem: each version is its own file, so "modifying a shipped version" is a diff on a file that should never change, and "adding a version" is a new file. `versions/` must be contiguous from `v1`, each `vN.ts` must export a const named `vN`, and `schema.ts` must export `schema = vN.build()` for the latest `N` — lint checks all of it.
+For standalone schemas, export the schema's own snapshot — `export default Message.snapshot()`. Either way, nested schemas composed via `toSchema` are pulled in automatically; the contract covers the whole tree.
 
-## `eschema create` — scaffold a new schema
+## The command
 
 ```sh
-npx eschema create --root src/schemas chat/message
+std-toolkit snapshot        # verify against the approved baseline
+std-toolkit snapshot -u     # approve: write the current contract as the baseline
 ```
 
-This creates the `chat/message` folder under the collection root with three files ready to edit:
+The first run has no baseline, so it prints the rendered contract and asks you to approve it. `-u` writes `std-toolkit.snapshot.json` — that file is generated output, never edited by hand, and it goes into the same commit as the schema change. From then on, every plain run diffs the current contract against it: exit `0` when nothing changed, exit `1` when something did.
 
-```ts title="src/schemas/chat/message/versions/v1.ts"
-import { Schema } from 'effect';
-import { ESchema } from 'std-toolkit/eschema';
-
-export const v1 = ESchema.make({
-  name: Schema.String,
-});
-```
-
-```ts title="src/schemas/chat/message/schema.ts"
-import { v1 } from './versions/v1.js';
-
-export const schema = v1.build();
-```
-
-```ts title="src/schemas/chat/message/index.ts"
-import type { ESchemaType } from 'std-toolkit/eschema';
-import { schema } from './schema.js';
-
-export { schema as messageSchema };
-
-export type Message = ESchemaType<typeof schema>;
-```
-
-Note the split: version files export _builders_ (no `.build()`), and `schema.ts` is the single place the chain gets built. Your first move is replacing the placeholder fields in `v1.ts` — and typically swapping `ESchema.make` for `EntityESchema.make('Message', 'messageId', {...})` when the schema is a keyed entity. `create` refuses to run if the target folder already exists with content, and the schema path must be a relative path with no `..` segments.
-
-When you later evolve the schema, you follow the same shape by hand: add `versions/v2.ts` exporting `v2 = v1.evolve('v2', ...)`, and point `schema.ts` at `v2.build()`.
-
-## `eschema lint` — the CI gate
-
-```sh
-npx eschema lint --root src/schemas
-```
-
-Lint analyzes every schema in the collection and prints a report — each version tagged with a status — exiting `1` if anything needs attention:
-
-- **`approved`** — the version file matches its snapshot and the snapshot's hash matches the manifest. All quiet.
-- **`new`** — a version file with no snapshot yet. Expected state right after you add `v2.ts`; fixed by `approve`.
-- **`modified`** — a version file _differs from its approved snapshot_. This is the drift the whole system exists to catch: someone edited a shipped version.
-- **`missing-file`** — the snapshot file was deleted; restore it from git or re-approve.
-- **`hash-mismatch`** — the snapshot itself was edited by hand. Snapshots are `approve`'s output, not source files; restore from git.
-
-Beyond snapshots, lint validates the structure: contiguous versions starting at `v1`, a `vN` export in every version file, `schema.ts` building the latest version, a parseable `snapshots.json`, and no manifest entries pointing at deleted version files (deleting `versions/v2.ts` while `snapshots.json` still references it is reported with instructions — the CLI never quietly forgets a version). Run it in CI next to your type check:
+Run it in CI next to your type check:
 
 ```yaml title=".github/workflows/ci.yml"
-- run: npx eschema lint --root src/schemas
+- run: npx std-toolkit snapshot
 ```
 
 With that line, "never modify a shipped version" stops being a code-review hope and becomes a red ✗ on the pull request.
 
-## `eschema approve` — record intent
+## Reading the report
 
-```sh
-npx eschema approve --root src/schemas
-```
+Every detected change is classified by what it means for data already in storage:
 
-Approve is the interactive counterpart: it walks each `new` or `modified` version, shows you what changed, and asks. Approving writes the version file's current content to `__snapshots__/vN.ts.snap` and its sha256 into `snapshots.json` — those generated files go into the same commit as the schema change, which is what makes lint pass in CI.
+- **safe** — appending: a new version, a new entity, a newly composed schema. This is the normal, encouraged operation; approve and move on.
+- **requires-backfill** — the contract grew in a way existing rows don't satisfy yet, like a new secondary index. Nothing breaks, but the index is only as good as the data behind it.
+- **breaking** — shipped history changed: a version was modified or deleted, an entity or schema removed, an id field changed. This is the drift the whole system exists to catch. Approving one should be as loud in review as the word sounds.
+- **unverifiable** — the change involves behavior the snapshot cannot see inside, such as a custom transformation. The tool also prints warnings for these on every run: it can prove the shapes match, but not what the code does between them.
 
-The guardrails mirror the best practices:
-
-- A **new** version is always approvable — appending is the normal, encouraged operation.
-- A **modified latest** version is approvable — you're still shaping the version you're currently working on; until it ships, it isn't history yet.
-- A **modified non-latest** version is _blocked_ unless you pass `--force`. Old versions are frozen; `--force` exists for the rare deliberate correction (a typo in a comment, a rename that provably doesn't change semantics) and should be as loud in review as the flag sounds.
-- A deleted version file is never approvable — the report tells you how to fix it manually, because [deleting versions breaks decoding](/docs/std-toolkit/eschema/qa#can-i-ever-delete-a-version).
+A `-u` run records whatever the current contract is — the classifications exist to make sure a human looked first.
 
 ## The loop, end to end
 
-Day one: `eschema create --root src/schemas chat/message`, fill in v1's real fields, `eschema approve`, commit. Months later, reactions ship: add `versions/v2.ts` with the `evolve` step, update `schema.ts` to `v2.build()`, `eschema approve` (v2 shows as `new`), commit schema + snapshot together. In between, every PR runs `eschema lint` — and the one PR that touches `v1.ts` by accident gets stopped by a machine instead of a reviewer's tired eyes.
+Day one: write your schemas, point `std-toolkit.snapshot.ts` at them, `std-toolkit snapshot -u`, commit source and baseline together. Months later, reactions ship: add the `.evolve('v2', ...)` step, run `std-toolkit snapshot` — it reports a safe `version-added` — approve with `-u`, commit both. In between, every PR runs the plain command, and the one PR that accidentally edits `v1` gets stopped by a machine instead of a reviewer's tired eyes.
 
-That's the whole surface: three commands wrapping one idea. Version history is source code, and source code that must not change can be snapshot-tested like anything else.
+One file in, one file out, one command wrapping one idea: the version history is a contract, and contracts get diffed, not trusted.

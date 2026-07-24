@@ -126,7 +126,7 @@ const GadgetEntity = table
   .build();
 
 // Nested evolving ESchema for update encoding tests
-const addressSchema = ESchema.make({
+const addressSchema = ESchema.make('Address', {
   street: Schema.String,
   city: Schema.String,
 })
@@ -135,7 +135,7 @@ const addressSchema = ESchema.make({
 
 const profileSchema = EntityESchema.make('Profile', 'profileId', {
   name: Schema.String,
-  address: toSchema(addressSchema, { name: 'Address' }),
+  address: toSchema(addressSchema),
 }).build();
 
 const ProfileEntity = table

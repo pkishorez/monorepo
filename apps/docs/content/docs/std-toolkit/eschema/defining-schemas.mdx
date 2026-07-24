@@ -7,29 +7,29 @@ You've seen [why schemas must version](/docs/std-toolkit/eschema). Now the quest
 
 ## `make` — version one, implicitly
 
-`ESchema.make` takes a map of named fields, each an ordinary Effect Schema. There's no version argument — the first version is always `v1`:
+`ESchema.make` takes a name and a map of named fields, each an ordinary Effect Schema. There's no version argument — the first version is always `v1`:
 
 ```ts title="message-schema.ts"
 import { Schema } from 'effect';
 import { ESchema } from 'std-toolkit/eschema';
 
-const Message = ESchema.make({
+const Message = ESchema.make('Message', {
   channelId: Schema.String,
   authorId: Schema.String,
   body: Schema.String,
 }).build();
 ```
 
-Any Effect Schema works as a field — including transformations where the stored type differs from the in-memory type (a string on the wire, a number in your code). One restriction: field names starting with `_` are rejected at the type level. That prefix belongs to the library — `_v` lives there.
+Any Effect Schema works as a field — including transformations where the stored type differs from the in-memory type (a string on the wire, a number in your code). Two restrictions, both enforced at the type level: field names starting with `_` are rejected (that prefix belongs to the library — `_v` lives there), and optional fields are rejected outright. `Schema.optional`, `Schema.optionalKey`, and anything whose type admits `undefined` won't compile; absence is always `Schema.NullOr(...)` with an explicit `null`. The [best-practices page](/docs/std-toolkit/eschema/best-practices#null-not-optional--enforced-by-the-compiler) explains why this is a hard rule rather than a preference.
 
-(This page uses the anonymous `ESchema` to keep the focus on versioning. In the real chat app you'd reach for `EntityESchema.make('Message', 'messageId', {...})`, which adds a name and an id field — the [constructs page](/docs/std-toolkit/eschema/constructs) covers the differences. Everything below applies to all of them identically.)
+(This page uses the plain `ESchema` to keep the focus on versioning. In the real chat app you'd reach for `EntityESchema.make('Message', 'messageId', {...})`, which adds an id field and marks the schema as a storable entity — the [constructs page](/docs/std-toolkit/eschema/constructs) covers the differences. Everything below applies to all of them identically.)
 
 ## `evolve` — describe the change, not the world
 
 When reactions ship, you don't rewrite the field map. You append a version:
 
 ```ts title="message-schema.ts"
-const Message = ESchema.make({
+const Message = ESchema.make('Message', {
   channelId: Schema.String,
   authorId: Schema.String,
   body: Schema.String,
@@ -55,7 +55,7 @@ The migration's `prev` parameter is typed as the previous version's shape, and i
 Deletion is `null` in the delta. Rename doesn't exist as a primitive — it's a removal plus an addition, with the migration carrying the value across. Say early messages stored `authorName`, and you're moving to `authorId`:
 
 ```ts
-const Message = ESchema.make({
+const Message = ESchema.make('Message', {
   channelId: Schema.String,
   authorName: Schema.String,
   body: Schema.String,
@@ -114,7 +114,7 @@ Sometimes a field's type comes from outside your control — a payload from a th
 import { fromType } from 'std-toolkit/eschema';
 import type { GiphyEmbed } from '@some/giphy-sdk';
 
-const Message = ESchema.make({
+const Message = ESchema.make('Message', {
   channelId: Schema.String,
   body: Schema.String,
   embed: Schema.NullOr(fromType<GiphyEmbed>()),

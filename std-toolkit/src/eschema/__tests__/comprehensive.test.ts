@@ -21,7 +21,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
 moreCoverageDomain('ESchema', () => {
   describe('Evolution', () => {
     describe('multi-step evolution with transforms', () => {
-      const schema = ESchema.make({
+      const schema = ESchema.make('Counter', {
         count: StringToNumber,
       })
         .evolve('v2', { active: StringToBoolean }, (v) => ({
@@ -97,7 +97,7 @@ moreCoverageDomain('ESchema', () => {
     // ─── Evolution removes a transformed field ─────────────────────────────────
 
     describe('evolution removes transformed field', () => {
-      const schema = ESchema.make({
+      const schema = ESchema.make('Item', {
         count: StringToNumber,
         name: Schema.String,
       })
@@ -140,7 +140,7 @@ moreCoverageDomain('ESchema', () => {
         'migration computes new field from decoded transform value',
         () =>
           Effect.gen(function* () {
-            const schema = ESchema.make({
+            const schema = ESchema.make('Score', {
               score: StringToNumber,
             })
               .evolve('v2', { doubled: Schema.Number }, (v) => ({
@@ -157,7 +157,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('migration derives boolean from number transform', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({
+          const schema = ESchema.make('Counter', {
             count: StringToNumber,
           })
             .evolve('v2', { hasItems: Schema.Boolean }, (v) => ({
@@ -232,7 +232,7 @@ moreCoverageDomain('ESchema', () => {
     // ─── Cross-version roundtrip ───────────────────────────────────────────────
 
     describe('cross-version roundtrip', () => {
-      const schema = ESchema.make({
+      const schema = ESchema.make('Item', {
         count: StringToNumber,
         name: Schema.String,
       })
@@ -293,7 +293,9 @@ moreCoverageDomain('ESchema', () => {
 
     describe('edge cases', () => {
       describe('single-field schema', () => {
-        const schema = ESchema.make({ value: StringToNumber }).build();
+        const schema = ESchema.make('Value', {
+          value: StringToNumber,
+        }).build();
 
         itEffect('encode and decode single field', () =>
           Effect.gen(function* () {
@@ -307,7 +309,7 @@ moreCoverageDomain('ESchema', () => {
 
         itEffect('evolve single field schema', () =>
           Effect.gen(function* () {
-            const evolved = ESchema.make({ value: StringToNumber })
+            const evolved = ESchema.make('Value', { value: StringToNumber })
               .evolve('v2', { extra: Schema.String }, (v) => ({
                 ...v,
                 extra: 'added',
@@ -322,7 +324,7 @@ moreCoverageDomain('ESchema', () => {
       });
 
       describe('all fields are transforms', () => {
-        const schema = ESchema.make({
+        const schema = ESchema.make('Flags', {
           count: StringToNumber,
           active: StringToBoolean,
         }).build();
@@ -344,7 +346,7 @@ moreCoverageDomain('ESchema', () => {
       });
 
       describe('optional fields with transforms', () => {
-        const schema = ESchema.make({
+        const schema = ESchema.make('Player', {
           name: Schema.String,
           score: StringToNumber.pipe(
             Schema.withDecodingDefaultType(Effect.succeed(0)),
@@ -369,7 +371,7 @@ moreCoverageDomain('ESchema', () => {
       });
 
       describe('nullable fields', () => {
-        const schema = ESchema.make({
+        const schema = ESchema.make('Labeled', {
           name: Schema.String,
           label: Schema.NullOr(Schema.String),
         }).build();
@@ -406,7 +408,9 @@ moreCoverageDomain('ESchema', () => {
     describe('error cases', () => {
       itEffect('encode fails on wrong type for field', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ name: Schema.String }).build();
+          const schema = ESchema.make('User', {
+            name: Schema.String,
+          }).build();
           const result = yield* schema
             .encode({ name: 123 } as any)
             .pipe(Effect.flip);
@@ -416,7 +420,9 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('decode fails on malformed data', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ count: Schema.Number }).build();
+          const schema = ESchema.make('Counter', {
+            count: Schema.Number,
+          }).build();
           const result = yield* schema
             .decode({ _v: 'v1', count: 'not-a-number' })
             .pipe(Effect.flip);
@@ -426,7 +432,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('decode fails on unknown version', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ a: Schema.String }).build();
+          const schema = ESchema.make('Doc', { a: Schema.String }).build();
           const result = yield* schema
             .decode({ _v: 'v99', a: 'hello' })
             .pipe(Effect.flip);
@@ -436,7 +442,9 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('encode rejects transform type mismatch', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ count: StringToNumber }).build();
+          const schema = ESchema.make('Counter', {
+            count: StringToNumber,
+          }).build();
           const result = yield* schema
             .encode({ count: 'not-a-number' } as any)
             .pipe(Effect.flip);
@@ -449,7 +457,9 @@ moreCoverageDomain('ESchema', () => {
 
     describe('type-level correctness', () => {
       it('ESchemaEncoded extracts distinct type from ESchemaType with transforms', () => {
-        const schema = ESchema.make({ count: StringToNumber }).build();
+        const schema = ESchema.make('Counter', {
+          count: StringToNumber,
+        }).build();
 
         type Decoded = ESchemaType<typeof schema>;
         type Encoded = ESchemaEncoded<typeof schema>;
@@ -466,7 +476,7 @@ moreCoverageDomain('ESchema', () => {
       });
 
       it('ESchemaEncoded includes _v as version literal', () => {
-        const schema = ESchema.make({ a: Schema.String })
+        const schema = ESchema.make('Doc', { a: Schema.String })
           .evolve('v2', { b: Schema.Number }, (v) => ({ ...v, b: 0 }))
           .build();
 
@@ -481,7 +491,9 @@ moreCoverageDomain('ESchema', () => {
       });
 
       it('encode input accepts decoded type', () => {
-        const schema = ESchema.make({ count: StringToNumber }).build();
+        const schema = ESchema.make('Counter', {
+          count: StringToNumber,
+        }).build();
         const _valid = schema.encode({ count: 42 });
 
         // @ts-expect-error — encode input should NOT accept encoded form (string)
@@ -492,7 +504,7 @@ moreCoverageDomain('ESchema', () => {
       });
 
       it('schema.Encoded phantom type matches ESchemaEncoded', () => {
-        const schema = ESchema.make({
+        const schema = ESchema.make('Counter', {
           count: StringToNumber,
           name: Schema.String,
         }).build();
@@ -581,7 +593,7 @@ moreCoverageDomain('ESchema', () => {
         'adding transform field in v2: migration provides decoded value',
         () =>
           Effect.gen(function* () {
-            const schema = ESchema.make({
+            const schema = ESchema.make('Player', {
               name: Schema.String,
             })
               .evolve('v2', { score: StringToNumber }, (v) => ({
@@ -603,7 +615,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('replacing plain field with transform field', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({
+          const schema = ESchema.make('Value', {
             value: Schema.String,
           })
             .evolve('v2', { value: null, count: StringToNumber }, (v) => ({
@@ -622,7 +634,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('replacing transform field with plain field', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({
+          const schema = ESchema.make('Counter', {
             count: StringToNumber,
           })
             .evolve('v2', { count: null, label: Schema.String }, (v) => ({
@@ -641,7 +653,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('transform field unchanged across evolution', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({
+          const schema = ESchema.make('Counter', {
             count: StringToNumber,
           })
             .evolve('v2', { extra: Schema.String }, (v) => ({

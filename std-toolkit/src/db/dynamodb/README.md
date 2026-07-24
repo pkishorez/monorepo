@@ -26,6 +26,7 @@ import '...' from 'std-toolkit/dynamodb/*';
 **Services**
 
 - `DynamoTable` — the single-table topology; entities are defined from it via `table.entity(eschema)` / `table.singleEntity(eschema)` and it coordinates `transact()`
+- `table.snapshot()` — synchronously captures the table's logical topology, registered entities, ESchema histories, and index derivations without connecting to DynamoDB. See the [shared snapshot workflow](../../eschema/README.md#semantic-contract-snapshots).
 
 **Client**
 

@@ -13,7 +13,7 @@ Reading that sentence is one thing; watching it happen is another. The playgroun
 import { Schema } from 'effect';
 import { ESchema } from 'std-toolkit/eschema';
 
-export const Message = ESchema.make({
+export const Message = ESchema.make('Message', {
   channelId: Schema.String,
   author: Schema.String,
   body: Schema.String,

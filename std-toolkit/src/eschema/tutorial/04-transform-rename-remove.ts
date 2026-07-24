@@ -26,7 +26,7 @@ const StringToNumber = Schema.String.pipe(
   ),
 );
 
-const Counter = ESchema.make({ count: StringToNumber }).build();
+const Counter = ESchema.make('Counter', { count: StringToNumber }).build();
 console.log(
   'decode "42":',
   Effect.runSync(Counter.decode({ _v: 'v1', count: '42' })),
@@ -37,7 +37,7 @@ console.log('encode 42:', Effect.runSync(Counter.encode({ count: 42 })));
 
 // --- Remove a field: `null` in the delta ----------------------------------
 // v2 drops `nickname`. The migration returns the next shape WITHOUT it.
-const Account = ESchema.make({
+const Account = ESchema.make('Account', {
   id: Schema.String,
   nickname: Schema.String,
 })
@@ -53,7 +53,7 @@ console.log(
 // --- Rename a field: remove old + add new in one step ---------------------
 // There is no dedicated "rename" — express it as remove + add, and copy the
 // value across in the migration. Here `firstName`/`lastName` become `fullName`.
-const Person = ESchema.make({
+const Person = ESchema.make('Person', {
   firstName: Schema.String,
   lastName: Schema.String,
 })

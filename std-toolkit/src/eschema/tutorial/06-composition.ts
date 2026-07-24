@@ -18,21 +18,24 @@ import { Effect, Schema } from 'effect';
 import { ESchema, ValueESchema, toSchema } from '../index.js';
 
 // A nested object-shaped schema.
-const Address = ESchema.make({
+const Address = ESchema.make('Address', {
   street: Schema.String,
   city: Schema.String,
 }).build();
 
 // A nested value schema (lesson 5) — composes just as well.
-const Status = ValueESchema.make(Schema.Literals(['draft', 'published']))
+const Status = ValueESchema.make(
+  'Status',
+  Schema.Literals(['draft', 'published']),
+)
   .evolve('v2', Schema.Literals(['draft', 'review', 'published']), (v) => v)
   .build();
 
 // The parent embeds both children via `toSchema`, including an array of them.
-const Ticket = ESchema.make({
+const Ticket = ESchema.make('Ticket', {
   title: Schema.String,
-  status: toSchema(Status, { name: 'Status' }),
-  addresses: Schema.Array(toSchema(Address, { name: 'Address' })),
+  status: toSchema(Status),
+  addresses: Schema.Array(toSchema(Address)),
 }).build();
 
 Effect.runSync(

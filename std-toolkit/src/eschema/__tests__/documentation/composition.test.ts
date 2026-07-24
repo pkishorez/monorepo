@@ -5,7 +5,7 @@ import { describe } from 'vitest';
 import { ESchema, EntityESchema, toSchema } from '../../index.js';
 import { capabilityDocumentation } from './documentation.js';
 
-const addressSchema = ESchema.make({
+const addressSchema = ESchema.make('Address', {
   street: Schema.String,
   city: Schema.String,
 })
@@ -17,8 +17,8 @@ const addressSchema = ESchema.make({
 
 const orderSchema = EntityESchema.make('Order', 'orderId', {
   customer: Schema.String,
-  shippingAddress: toSchema(addressSchema, { name: 'Address' }),
-  previousAddresses: Schema.Array(toSchema(addressSchema, { name: 'Address' })),
+  shippingAddress: toSchema(addressSchema),
+  previousAddresses: Schema.Array(toSchema(addressSchema)),
 }).build();
 
 describe('ESchema', () => {
@@ -31,12 +31,12 @@ describe('ESchema', () => {
         'Use `toSchema` when an ESchema is a field inside another Effect Schema. The nested value keeps its own version marker and migration chain. This matters because an address, money value, or line item can evolve on its own schedule without forcing every parent schema to publish a matching version.',
         'Think of the encoded value as a tree with a small version boundary at every composed ESchema node. Decoding visits those boundaries independently. A parent may remain at v1 while a nested address moves from v1 to v2; arrays can even contain elements written at different nested versions. The decoded tree is still uniformly current.',
         `
-const Address = ESchema.make(addressFields)
+const Address = ESchema.make('Address', addressFields)
   .evolve('v2', currentAddressFields, migrateAddress)
   .build()
 
 const Order = EntityESchema.make('Order', 'orderId', {
-  shippingAddress: toSchema(Address, { name: 'Address' }),
+  shippingAddress: toSchema(Address),
 }).build()
         `,
         'Independent versioning is powerful but intentionally non-isolated: changing a nested schema changes the decoded parent output even when the parent version stays the same. Name composed schemas to make descriptors and failures readable. Unstamped nested data is adopted at that nested schema’s v1 boundary.',

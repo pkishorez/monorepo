@@ -1,0 +1,63 @@
+╭─ DATABASE CONTRACT CHANGED ────────────────────╮
+│ 2 breaking                                     │
+╰────────────────────────────────────────────────╯
+
+┌────────────┬──────────────────────┬─────────┬─────────┐
+│ Status     │ Change               │ Before  │ After   │
+├────────────┼──────────────────────┼─────────┼─────────┤
+│ ✕ BREAKING │ Removed entity User  │ changed │ removed │
+│ ✕ BREAKING │ Deleted ESchema User │ changed │ removed │
+└────────────┴──────────────────────┴─────────┴─────────┘
+
+BREAKING
+
+  Removed entity User
+  /entities/User
+
+  Before
+    ┌──────────┬───────┐
+    │ Field    │ Value │
+    ├──────────┼───────┤
+    │ Name     │ User  │
+    │ Kind     │ keyed │
+    │ Schema   │ User  │
+    │ Identity │ id    │
+    └──────────┴───────┘
+
+  Deleted ESchema User
+  /schemas/User
+
+  Before
+    ┌──────────┬────────┐
+    │ Field    │ Value  │
+    ├──────────┼────────┤
+    │ Kind     │ entity │
+    │ Identity │ id     │
+    └──────────┴────────┘
+
+╭─ DATABASE CONTRACT ────────────────────────────╮
+│ Table: dynamodb                                │
+╰────────────────────────────────────────────────╯
+
+PRIMARY INDEX
+
+┌───────────────┬───────────┐
+│ Key           │ Attribute │
+├───────────────┼───────────┤
+│ Partition key │ pk        │
+│ Sort key      │ sk        │
+└───────────────┴───────────┘
+
+SECONDARY INDEXES
+
+None
+
+ENTITIES
+
+None
+
+Snapshot was not updated.
+
+Review the changes, then approve them with:
+
+  std-toolkit snapshot -u
