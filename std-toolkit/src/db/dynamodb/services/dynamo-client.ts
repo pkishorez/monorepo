@@ -102,12 +102,7 @@ export function createDynamoDB(
         'Content-Length': body.length.toString(),
       };
 
-      yield* Effect.logDebug('DynamoDB Request', {
-        action,
-        endpoint,
-        headers,
-        input,
-      });
+      yield* Effect.logDebug('DynamoDB request', { action });
 
       const response = yield* Effect.promise(() =>
         client.fetch(endpoint, {
@@ -120,10 +115,9 @@ export function createDynamoDB(
       const responseText = yield* Effect.promise(() => response.text());
       const statusCode = response.status;
 
-      yield* Effect.logDebug('DynamoDB Response', {
+      yield* Effect.logDebug('DynamoDB response', {
         action,
         statusCode,
-        responseText,
       });
 
       if (statusCode >= 200 && statusCode < 300) {

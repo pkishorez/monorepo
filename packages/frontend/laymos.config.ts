@@ -34,9 +34,6 @@ export default defineConfig({
     module('src/components/blocks/laymos-modules', {
       description: 'Laymos Modules block',
     }),
-    module('src/components/blocks/laymos-stories', {
-      description: 'Laymos Stories block',
-    }),
     module('src/components/blocks/laymos-tests', {
       description: 'Laymos Tests block',
     }),

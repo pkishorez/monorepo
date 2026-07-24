@@ -1,5 +1,16 @@
 # std-toolkit/dynamodb
 
+## Local DynamoDB
+
+Run DynamoDB Local before integration tests that need it:
+
+```sh
+pnpm dynamodb:local
+```
+
+The integration tests use `http://localhost:8090` by default. Set
+`DYNAMODB_ENDPOINT` to use another endpoint.
+
 DynamoDB table and entity services, expression builders, and marshall utilities built on Effect.
 
 ## Subpaths

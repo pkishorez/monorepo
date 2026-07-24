@@ -52,29 +52,14 @@ const entrypoints = layer('entrypoints', ['src/entrypoints'], {
 const architecture = layer('architecture', ['src/architecture'], {
   description: 'Static project analysis pipeline',
 });
-const storyTooling = layer(
-  'story-tooling',
-  [
-    'src/stories/discover-stories',
-    'src/stories/inspect-story-source',
-    'src/stories/measure-story-coverage',
-    'src/stories/run-stories',
-  ],
-  { description: 'Story discovery, inspection, execution, and maintenance' },
-);
-const storyRuntime = layer(
-  'story-runtime',
-  ['src/stories/authoring', 'src/stories/runtime'],
-  { description: 'Story authoring language and recording runtime' },
-);
 const testTooling = layer('test-tooling', ['src/tests/run-tests'], {
-  description: 'Test discovery and execution',
+  description: 'Vitest execution and report mapping',
 });
 const testRuntime = layer('test-runtime', ['src/tests/authoring'], {
   description: 'Test authoring language',
 });
 const report = layer('report', ['src/report'], {
-  description: 'Serializable architecture, Story, and Test reports',
+  description: 'Serializable architecture and Test reports',
 });
 const config = layer('config', ['src/config', 'src/index.ts'], {
   description: 'Configuration model, validation, and loading',
@@ -108,7 +93,7 @@ const nodeEntrypoint = module('src/entrypoints/node', {
     failure:
       'Preserve the typed failure of the operation stage that could not complete.',
     dependencies:
-      'Coordinates architecture, Story, and Test modules and supplies the live Node services they require.',
+      'Coordinates architecture and Test modules and supplies their runtime dependencies.',
     place: 'It is the narrow public door to all fallible Laymos behavior.',
   }),
 });
@@ -118,11 +103,10 @@ const reportEntrypoint = module('src/entrypoints/report', {
     purpose:
       'Exports the serializable data contracts consumed by visual tools.',
     contract:
-      'Expose data-only architecture, Story, coverage, and Project Narrative types.',
+      'Expose data-only architecture, Test, coverage, and Project Narrative types.',
     failure: 'It performs no work and therefore has no runtime failure.',
     dependencies: 'Re-exports the internal report model.',
-    place:
-      'It keeps report consumers independent from analysis and Story execution code.',
+    place: 'It keeps report consumers independent from analysis code.',
   }),
 });
 const analyzeProject = module('src/architecture/analyze-project', {
@@ -131,13 +115,11 @@ const analyzeProject = module('src/architecture/analyze-project', {
     purpose:
       'Coordinates the complete static analysis journey for one project.',
     contract:
-      'Load configuration, locate Laymos surfaces, extract dependencies, resolve ownership, validate rules, and build one report.',
+      'Load configuration, extract dependencies, resolve ownership, validate rules, and build one report.',
     failure:
       'Return the typed configuration or extraction failure that stopped the journey; violations remain successful report data.',
-    dependencies:
-      'Composes every other architecture stage and Laymos surface discovery.',
-    place:
-      'It is the top-level architecture Story exposed through analyzeProject.',
+    dependencies: 'Composes every other architecture stage.',
+    place: 'It is the top-level operation exposed through analyzeProject.',
   }),
 });
 const architectureErrors = module('src/architecture/errors.ts', {
@@ -160,11 +142,10 @@ const extractDependencies = module('src/architecture/extract-dependencies', {
     purpose:
       'Walks configured source roots and asks skott for the imports between project files.',
     contract:
-      'Return a deterministic internal file graph while excluding ignored and Laymos-surface source.',
+      'Return a deterministic internal file graph while excluding ignored and test source.',
     failure:
       'Return ExtractError when source inventory or dependency extraction cannot complete.',
-    dependencies:
-      'Uses configuration paths, discovered Laymos surfaces, the file system, and skott.',
+    dependencies: 'Uses configuration paths, the file system, and skott.',
     place:
       'It converts the physical codebase into the factual input used by architecture resolution.',
   }),
@@ -238,13 +219,12 @@ const markdownModel = module('src/markdown', {
   description: 'Markdown value model',
   documentation: documentation({
     purpose:
-      'Defines the browser-safe Markdown value shared by configuration and Story documentation.',
+      'Defines the browser-safe Markdown value used by configuration documentation.',
     contract:
       'Dedent authored template content and return serializable Markdown data without executing it.',
     failure: 'Markdown authoring is a pure operation and never fails.',
     dependencies: 'Uses no other Laymos module.',
-    place:
-      'It prevents configuration and Story runtime from depending on each other merely to share documentation values.',
+    place: 'It keeps authored documentation serializable and browser-safe.',
   }),
 });
 const reportModel = module('src/report', {
@@ -253,126 +233,39 @@ const reportModel = module('src/report', {
     purpose:
       'Defines the stable data exchanged between Laymos and its visual consumers.',
     contract:
-      'Contain serializable values only, including architecture, Stories, Tests, coverage, and documentation.',
+      'Contain serializable values only, including architecture, Tests, coverage, and documentation.',
     failure: 'It performs no work and has no runtime failure.',
-    dependencies:
-      'References configuration narrative and Story artifact types as data contracts.',
+    dependencies: 'References configuration narrative and Effect Schemas.',
     place:
       'It separates what consumers can observe from how Laymos computes it.',
-  }),
-});
-const authoring = module('src/stories/authoring', {
-  description: 'Effect Story authoring language',
-  documentation: documentation({
-    purpose:
-      'Provides flow, step, decision, terminal, omit, and Story declaration functions.',
-    contract:
-      'Attach narration to Effects without changing their values, errors, or service requirements.',
-    failure:
-      'Narration preserves the authored Effect failure channel and introduces no expected failure of its own.',
-    dependencies: 'Uses the Story runtime recorder and configuration Markdown.',
-    place:
-      'It is the laymos/story boundary imported by application source and Laymos itself.',
-  }),
-});
-const runtime = module('src/stories/runtime', {
-  description: 'Story tracing and scenario recording runtime',
-  documentation: documentation({
-    purpose:
-      'Records structural traces and concrete Scenario visits from authored Story blocks.',
-    contract:
-      'Keep recording state scoped to the running Effect and emit serializable artifacts.',
-    failure:
-      'Invalid Story structure is returned to Story tooling; recorder misuse is a defect.',
-    dependencies:
-      'Uses Effect context, local Story declarations, and source locations.',
-    place: 'It is the shared mechanism beneath Story inspection and execution.',
-  }),
-});
-const discoverStories = module('src/stories/discover-stories', {
-  description: 'Laymos surface discovery',
-  documentation: documentation({
-    purpose:
-      'Finds the flat Laymos surface owned by each configured folder Module.',
-    contract:
-      'Return deterministic Laymos surfaces and keep file Modules surface-free.',
-    failure:
-      'File-system discovery problems are reported by the calling Story operation.',
-    dependencies: 'Uses configured Module paths and the file system.',
-    place:
-      'It is shared by Story and Test discovery and tells static analysis which source is Laymos-only.',
-  }),
-});
-const runStories = module('src/stories/run-stories', {
-  description: 'Story discovery, tracing, and execution',
-  documentation: documentation({
-    purpose:
-      'Builds the Story catalog, traces declarations, selects Stories, and executes their Scenarios.',
-    contract:
-      'Return complete Story evidence for selected Story or Module identities while preserving failed Scenario evidence as data.',
-    failure:
-      'Return typed discovery or runner errors for invalid source, selection, loading, tracing, or execution infrastructure.',
-    dependencies:
-      'Uses configuration loading, Laymos surface discovery, source inspection, runtime recording, and report contracts.',
-    place:
-      'It powers discoverStories, inspectStories, and runStories in the Node API.',
-  }),
-});
-const inspectStorySource = module('src/stories/inspect-story-source', {
-  description: 'Story authoring and source inspection',
-  documentation: documentation({
-    purpose:
-      'Validates Story syntax and projects instrumented source into clean or ejected forms.',
-    contract:
-      'Use AST structure to classify and transform only recognized Laymos Story authoring calls.',
-    failure:
-      'Return typed authoring, source, or ejection errors when syntax cannot be handled safely.',
-    dependencies:
-      'Uses AST-grep, configuration loading, Laymos surfaces, and Effect file-system services.',
-    place:
-      'It protects source integrity for linting, coverage, source inspection, and ejection.',
-  }),
-});
-const measureStoryCoverage = module('src/stories/measure-story-coverage', {
-  description: 'Story narration coverage',
-  documentation: documentation({
-    purpose:
-      'Measures narrated, omitted, and unnarrated lines within code traversed by each Story.',
-    contract:
-      'Return per-Story evidence and invalid Story details rather than one project-wide score.',
-    failure:
-      'Return a typed coverage failure when trace anchors cannot be projected safely.',
-    dependencies:
-      'Uses inspected Story traces, source projections, and ejection planning.',
-    place:
-      'It shows whether a Story completely explains the behavior it traverses.',
   }),
 });
 const testAuthoring = module('src/tests/authoring', {
   description: 'Test authoring language',
   documentation: documentation({
     purpose:
-      'Declares named functionality Tests with primitive input-and-expectation cases.',
+      'Registers metadata-enriched Value Test suites as ordinary Vitest tasks.',
     contract:
-      'Collect one Test declaration per file without storing presentation or comparison outcomes.',
+      'Keep every authored Case independently runnable by Vitest and record structured evidence.',
     failure:
       'Reject invalid names and values immediately while authoring a declaration.',
-    dependencies: 'Uses Effect only as an accepted execution return type.',
+    dependencies:
+      'Uses Vitest for registration and Effect as an accepted return type.',
     place: 'It is the laymos/test boundary imported by Test files.',
   }),
 });
 const runTests = module('src/tests/run-tests', {
-  description: 'Test discovery and execution',
+  description: 'Vitest execution adapter',
   documentation: documentation({
     purpose:
-      'Discovers Module-owned Tests and executes their cases sequentially.',
+      'Runs the selected project’s own Vitest installation and maps its result.',
     contract:
-      'Return a catalog before execution and presentation-neutral expected-versus-actual reports after execution.',
+      'Preserve Vitest projects, modules, suites, cases, statuses, timings, errors, and Laymos artifacts.',
     failure:
-      'Return typed discovery or runner errors for invalid definitions, selectors, loading, or execution infrastructure.',
+      'Return typed infrastructure errors while keeping test failures as report data.',
     dependencies:
-      'Uses configuration loading, Laymos surface discovery, Test authoring collection, and report contracts.',
-    place: 'It powers discoverTests and runTests in the Node API.',
+      'Loads the project-owned Vitest programmatic API and uses report Effect Schemas.',
+    place: 'It powers runTests in the Node API.',
   }),
 });
 
@@ -382,20 +275,12 @@ export default defineConfig({
     layerGraph(
       'laymos',
       [
-        edge(entrypoints, [
-          architecture,
-          storyTooling,
-          storyRuntime,
-          testTooling,
-          testRuntime,
-          report,
-        ]),
-        edge(architecture, [config, storyTooling, report]),
-        edge(storyTooling, [config, storyRuntime, report]),
-        edge(testTooling, [config, storyTooling, testRuntime, report]),
-        edge(report, [config, storyRuntime, testRuntime]),
-        edge(config, [storyRuntime, foundation]),
-        edge(storyRuntime, foundation),
+        edge(entrypoints, [architecture, testTooling, report]),
+        edge(architecture, [config, report]),
+        edge(testTooling, report),
+        edge(testRuntime, report),
+        edge(report, config),
+        edge(config, foundation),
       ],
       { description: 'Laymos package architecture' },
     ),
@@ -414,12 +299,6 @@ export default defineConfig({
     configEntrypoint,
     markdownModel,
     reportModel,
-    authoring,
-    runtime,
-    discoverStories,
-    runStories,
-    inspectStorySource,
-    measureStoryCoverage,
     testAuthoring,
     runTests,
   ],

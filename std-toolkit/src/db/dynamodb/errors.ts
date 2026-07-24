@@ -36,6 +36,12 @@ export type DynamodbErrorType =
       _tag: 'ConditionFailed';
       failures: ReadonlyArray<TransactionFailureContext>;
     }
+  | {
+      _tag: 'DuplicateTransactionTarget';
+      partitionKey: string;
+      sortKey: string;
+    }
+  | { _tag: 'ForeignTransactionItem'; entityName: string }
   | { _tag: 'BatchWriteFailed'; cause: unknown }
   | { _tag: 'ItemAlreadyExists' }
   | { _tag: 'NoItemToUpdate' }
@@ -91,6 +97,10 @@ const describeError = (error: DynamodbErrorType): string => {
             `op ${failure.index} ${failure.entityName}.${failure.operationKind} (${failure.writeKind}): ${failure.reasonCode}${failure.message ? `: ${failure.message}` : ''}`,
         )
         .join('; ')}`;
+    case 'DuplicateTransactionTarget':
+      return `${error._tag}: multiple operations target pk=${error.partitionKey} sk=${error.sortKey}`;
+    case 'ForeignTransactionItem':
+      return `${error._tag}: "${error.entityName}" belongs to another table`;
     case 'GetItemFailed':
     case 'PutItemFailed':
     case 'UpdateItemFailed':
@@ -192,6 +202,22 @@ export class DynamodbError extends Data.TaggedError('DynamodbError')<{
 
   static conditionFailed(failures: ReadonlyArray<TransactionFailureContext>) {
     return new DynamodbError({ error: { _tag: 'ConditionFailed', failures } });
+  }
+
+  static duplicateTransactionTarget(partitionKey: string, sortKey: string) {
+    return new DynamodbError({
+      error: {
+        _tag: 'DuplicateTransactionTarget',
+        partitionKey,
+        sortKey,
+      },
+    });
+  }
+
+  static foreignTransactionItem(entityName: string) {
+    return new DynamodbError({
+      error: { _tag: 'ForeignTransactionItem', entityName },
+    });
   }
 
   static batchWriteFailed(cause: unknown) {

@@ -26,102 +26,106 @@ const makeDbLayer = (overrides: Record<string, unknown>) =>
     ...overrides,
   } as any);
 
-describe('SQLite transaction safety', () => {
-  it('fails restore when the row changed after it was read', async () => {
-    const table = SQLiteTable.make().primary('pk', 'sk').build();
-    const entity = table.entity(ItemSchema).primary().build();
-    let updateWhere: { clause: string; params: unknown[] } | undefined;
-    const staleRow = {
-      pk: 'Item',
-      sk: 'item-1',
-      _data: JSON.stringify({ itemId: 'item-1', value: 1, _v: 'v1' }),
-      _e: 'Item',
-      _v: 'v1',
-      _u: 'old-u',
-      _d: 1,
-    };
+describe('SQLite', () => {
+  describe('Transactions', () => {
+    describe('Safety', () => {
+      it('fails restore when the row changed after it was read', async () => {
+        const table = SQLiteTable.make().primary('pk', 'sk').build();
+        const entity = table.entity(ItemSchema).primary().build();
+        let updateWhere: { clause: string; params: unknown[] } | undefined;
+        const staleRow = {
+          pk: 'Item',
+          sk: 'item-1',
+          _data: JSON.stringify({ itemId: 'item-1', value: 1, _v: 'v1' }),
+          _e: 'Item',
+          _v: 'v1',
+          _u: 'old-u',
+          _d: 1,
+        };
 
-    const error = await Effect.runPromise(
-      entity.restore({ itemId: 'item-1' }).pipe(
-        Effect.provide(
-          makeDbLayer({
-            query: () => Effect.succeed([staleRow]),
-            update: (
-              _table: string,
-              _values: unknown,
-              where: typeof updateWhere,
-            ) =>
-              Effect.sync(() => {
-                updateWhere = where;
-                return { rowsWritten: 0 };
+        const error = await Effect.runPromise(
+          entity.restore({ itemId: 'item-1' }).pipe(
+            Effect.provide(
+              makeDbLayer({
+                query: () => Effect.succeed([staleRow]),
+                update: (
+                  _table: string,
+                  _values: unknown,
+                  where: typeof updateWhere,
+                ) =>
+                  Effect.sync(() => {
+                    updateWhere = where;
+                    return { rowsWritten: 0 };
+                  }),
               }),
-          }),
-        ),
-        Effect.flip,
-      ),
-    );
-
-    expect(error.error._tag).toBe('ConditionFailed');
-    expect(updateWhere?.clause).toContain('_u = ?');
-    expect(updateWhere?.params).toContain('old-u');
-  });
-
-  it('preserves commit failures and attempts rollback cleanup', async () => {
-    const table = SQLiteTable.make().primary('pk', 'sk').build();
-    const entity = table.entity(ItemSchema).primary().build();
-    let rollbacks = 0;
-    const commitError = SqliteDBError.commitFailed('commit failed');
-
-    const error = await Effect.runPromise(
-      Effect.gen(function* () {
-        const op = yield* entity.insertOp({ itemId: 'item-1', value: 1 });
-        return yield* table.transact([op]);
-      }).pipe(
-        Effect.provide(
-          makeDbLayer({
-            commit: () => Effect.fail(commitError),
-            rollback: () =>
-              Effect.sync(() => {
-                rollbacks += 1;
-              }),
-          }),
-        ),
-        Effect.flip,
-      ),
-    );
-
-    expect(error).toBe(commitError);
-    expect(rollbacks).toBe(1);
-  });
-
-  it('rolls back when interrupted during a transaction write', async () => {
-    const table = SQLiteTable.make().primary('pk', 'sk').build();
-    const entity = table.entity(ItemSchema).primary().build();
-    let rollbacks = 0;
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const began = yield* Deferred.make<void>();
-        const op = yield* entity.insertOp({ itemId: 'item-1', value: 1 });
-        const fiber = yield* table.transact([op]).pipe(
-          Effect.provide(
-            makeDbLayer({
-              begin: () => Deferred.succeed(began, undefined),
-              insert: () => Effect.never,
-              rollback: () =>
-                Effect.sync(() => {
-                  rollbacks += 1;
-                }),
-            }),
+            ),
+            Effect.flip,
           ),
-          Effect.forkChild,
         );
 
-        yield* Deferred.await(began);
-        yield* Fiber.interrupt(fiber);
-      }).pipe(Effect.provide(makeDbLayer({}))),
-    );
+        expect(error.error._tag).toBe('ConditionFailed');
+        expect(updateWhere?.clause).toContain('_u = ?');
+        expect(updateWhere?.params).toContain('old-u');
+      });
 
-    expect(rollbacks).toBe(1);
+      it('preserves commit failures and attempts rollback cleanup', async () => {
+        const table = SQLiteTable.make().primary('pk', 'sk').build();
+        const entity = table.entity(ItemSchema).primary().build();
+        let rollbacks = 0;
+        const commitError = SqliteDBError.commitFailed('commit failed');
+
+        const error = await Effect.runPromise(
+          Effect.gen(function* () {
+            const op = yield* entity.insertOp({ itemId: 'item-1', value: 1 });
+            return yield* table.transact([op]);
+          }).pipe(
+            Effect.provide(
+              makeDbLayer({
+                commit: () => Effect.fail(commitError),
+                rollback: () =>
+                  Effect.sync(() => {
+                    rollbacks += 1;
+                  }),
+              }),
+            ),
+            Effect.flip,
+          ),
+        );
+
+        expect(error).toBe(commitError);
+        expect(rollbacks).toBe(1);
+      });
+
+      it('rolls back when interrupted during a transaction write', async () => {
+        const table = SQLiteTable.make().primary('pk', 'sk').build();
+        const entity = table.entity(ItemSchema).primary().build();
+        let rollbacks = 0;
+
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            const began = yield* Deferred.make<void>();
+            const op = yield* entity.insertOp({ itemId: 'item-1', value: 1 });
+            const fiber = yield* table.transact([op]).pipe(
+              Effect.provide(
+                makeDbLayer({
+                  begin: () => Deferred.succeed(began, undefined),
+                  insert: () => Effect.never,
+                  rollback: () =>
+                    Effect.sync(() => {
+                      rollbacks += 1;
+                    }),
+                }),
+              ),
+              Effect.forkChild,
+            );
+
+            yield* Deferred.await(began);
+            yield* Fiber.interrupt(fiber);
+          }).pipe(Effect.provide(makeDbLayer({}))),
+        );
+
+        expect(rollbacks).toBe(1);
+      });
+    });
   });
 });

@@ -110,132 +110,138 @@ async function deleteTestTable() {
   }
 }
 
-describe('Entity update with expression builder', () => {
-  beforeAll(async () => {
-    await createTestTable();
+describe('DynamoDB', () => {
+  describe('Entity', () => {
+    describe('Update expressions', () => {
+      beforeAll(async () => {
+        await createTestTable();
 
-    await Effect.runPromise(
-      PlayerEntity.insert({
-        teamId: 'team-1',
-        playerId: 'player-1',
-        name: 'Alice',
-        score: 100,
-        loginCount: 5,
-        tags: ['member'],
-        history: [{ action: 'joined' }],
-      }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
-    );
-  });
-
-  afterAll(async () => {
-    await deleteTestTable();
-  });
-
-  itEffect('opAdd increments a numeric field', () =>
-    Effect.gen(function* () {
-      const result = yield* PlayerEntity.update(
-        { teamId: 'team-1', playerId: 'player-1' },
-        { update: ($) => [$.set('score', $.opAdd('score', 10))] },
-      );
-      expect(result.value.score).toBe(110);
-    }),
-  );
-
-  itEffect('opIfNotExists sets value only if missing', () =>
-    Effect.gen(function* () {
-      const result = yield* PlayerEntity.update(
-        { teamId: 'team-1', playerId: 'player-1' },
-        {
-          update: ($) => [
-            $.set('loginCount', $.opIfNotExists('loginCount', 0)),
-          ],
-        },
-      );
-      expect(result.value.loginCount).toBe(5);
-    }),
-  );
-
-  itEffect('append adds items to end of list', () =>
-    Effect.gen(function* () {
-      const result = yield* PlayerEntity.update(
-        { teamId: 'team-1', playerId: 'player-1' },
-        { update: ($) => [$.append('tags', ['admin'])] },
-      );
-      expect(result.value.tags).toEqual(['member', 'admin']);
-    }),
-  );
-
-  itEffect('prepend adds items to beginning of list', () =>
-    Effect.gen(function* () {
-      const result = yield* PlayerEntity.update(
-        { teamId: 'team-1', playerId: 'player-1' },
-        { update: ($) => [$.prepend('history', [{ action: 'login' }])] },
-      );
-      expect(result.value.history[0]).toEqual({ action: 'login' });
-      expect(result.value.history[1]).toEqual({ action: 'joined' });
-    }),
-  );
-
-  itEffect('mixed operations in single update', () =>
-    Effect.gen(function* () {
-      const before = yield* PlayerEntity.get({
-        teamId: 'team-1',
-        playerId: 'player-1',
+        await Effect.runPromise(
+          PlayerEntity.insert({
+            teamId: 'team-1',
+            playerId: 'player-1',
+            name: 'Alice',
+            score: 100,
+            loginCount: 5,
+            tags: ['member'],
+            history: [{ action: 'joined' }],
+          }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
+        );
       });
 
-      const result = yield* PlayerEntity.update(
-        { teamId: 'team-1', playerId: 'player-1' },
-        {
-          update: ($) => [
-            $.set('score', $.opAdd('score', 5)),
-            $.append('tags', ['vip']),
-          ],
-        },
-      );
-
-      expect(result.value.score).toBe(before!.value.score + 5);
-      expect(result.value.tags).toContain('vip');
-    }),
-  );
-
-  itEffect('auto-injects _u on expression builder updates', () =>
-    Effect.gen(function* () {
-      const before = yield* PlayerEntity.get({
-        teamId: 'team-1',
-        playerId: 'player-1',
+      afterAll(async () => {
+        await deleteTestTable();
       });
 
-      const result = yield* PlayerEntity.update(
-        { teamId: 'team-1', playerId: 'player-1' },
-        { update: ($) => [$.set('score', $.opAdd('score', 1))] },
+      itEffect('opAdd increments a numeric field', () =>
+        Effect.gen(function* () {
+          const result = yield* PlayerEntity.update(
+            { teamId: 'team-1', playerId: 'player-1' },
+            { update: ($) => [$.set('score', $.opAdd('score', 10))] },
+          );
+          expect(result.value.score).toBe(110);
+        }),
       );
 
-      expect(result.meta._u).not.toBe(before!.meta._u);
-    }),
-  );
-
-  itEffect(
-    'throws when expression builder targets a derivation dep field',
-    () =>
-      Effect.gen(function* () {
-        const result = yield* PlayerEntity.update(
-          { teamId: 'team-1', playerId: 'player-1' },
-          { update: ($) => [$.set('name' as any, 'Bob' as any)] },
-        ).pipe(Effect.flip);
-
-        expect(result).toBeInstanceOf(DynamodbError);
-        expect(result.error._tag).toBe('UpdateItemFailed');
-        expect((result.error as any).cause).toMatch(/derivation dependency/);
-      }),
-  );
-
-  itEffect('plain partial update still works', () =>
-    Effect.gen(function* () {
-      const result = yield* PlayerEntity.update(
-        { teamId: 'team-1', playerId: 'player-1' },
-        { update: { score: 999 } },
+      itEffect('opIfNotExists sets value only if missing', () =>
+        Effect.gen(function* () {
+          const result = yield* PlayerEntity.update(
+            { teamId: 'team-1', playerId: 'player-1' },
+            {
+              update: ($) => [
+                $.set('loginCount', $.opIfNotExists('loginCount', 0)),
+              ],
+            },
+          );
+          expect(result.value.loginCount).toBe(5);
+        }),
       );
-      expect(result.value.score).toBe(999);
-    }),
-  );
+
+      itEffect('append adds items to end of list', () =>
+        Effect.gen(function* () {
+          const result = yield* PlayerEntity.update(
+            { teamId: 'team-1', playerId: 'player-1' },
+            { update: ($) => [$.append('tags', ['admin'])] },
+          );
+          expect(result.value.tags).toEqual(['member', 'admin']);
+        }),
+      );
+
+      itEffect('prepend adds items to beginning of list', () =>
+        Effect.gen(function* () {
+          const result = yield* PlayerEntity.update(
+            { teamId: 'team-1', playerId: 'player-1' },
+            { update: ($) => [$.prepend('history', [{ action: 'login' }])] },
+          );
+          expect(result.value.history[0]).toEqual({ action: 'login' });
+          expect(result.value.history[1]).toEqual({ action: 'joined' });
+        }),
+      );
+
+      itEffect('mixed operations in single update', () =>
+        Effect.gen(function* () {
+          const before = yield* PlayerEntity.get({
+            teamId: 'team-1',
+            playerId: 'player-1',
+          });
+
+          const result = yield* PlayerEntity.update(
+            { teamId: 'team-1', playerId: 'player-1' },
+            {
+              update: ($) => [
+                $.set('score', $.opAdd('score', 5)),
+                $.append('tags', ['vip']),
+              ],
+            },
+          );
+
+          expect(result.value.score).toBe(before!.value.score + 5);
+          expect(result.value.tags).toContain('vip');
+        }),
+      );
+
+      itEffect('auto-injects _u on expression builder updates', () =>
+        Effect.gen(function* () {
+          const before = yield* PlayerEntity.get({
+            teamId: 'team-1',
+            playerId: 'player-1',
+          });
+
+          const result = yield* PlayerEntity.update(
+            { teamId: 'team-1', playerId: 'player-1' },
+            { update: ($) => [$.set('score', $.opAdd('score', 1))] },
+          );
+
+          expect(result.meta._u).not.toBe(before!.meta._u);
+        }),
+      );
+
+      itEffect(
+        'throws when expression builder targets a derivation dep field',
+        () =>
+          Effect.gen(function* () {
+            const result = yield* PlayerEntity.update(
+              { teamId: 'team-1', playerId: 'player-1' },
+              { update: ($) => [$.set('name' as any, 'Bob' as any)] },
+            ).pipe(Effect.flip);
+
+            expect(result).toBeInstanceOf(DynamodbError);
+            expect(result.error._tag).toBe('UpdateItemFailed');
+            expect((result.error as any).cause).toMatch(
+              /derivation dependency/,
+            );
+          }),
+      );
+
+      itEffect('plain partial update still works', () =>
+        Effect.gen(function* () {
+          const result = yield* PlayerEntity.update(
+            { teamId: 'team-1', playerId: 'player-1' },
+            { update: { score: 999 } },
+          );
+          expect(result.value.score).toBe(999);
+        }),
+      );
+    });
+  });
 });

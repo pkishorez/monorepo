@@ -48,15 +48,8 @@ connection failure is written to stderr and exits with a nonzero status.
 ## Library exports
 
 - `@pkishorez/devtools/rpc` — the RPC group definition and shared types,
-  including dependency analysis, Laymos Story and Test discovery and execution,
-  and telemetry procedures. `RunStory` accepts `{ path, storyPath }`,
-  `RunModuleStories` accepts `{ path, modulePath }`, and `RunAllStories`
-  accepts `{ path }`. Streamed Story events identify work with the same
-  suffixless `storyPath`; bootstrap data groups each Story under its owning
-  Module. `RunTest` accepts `{ path, testPath }`, while `RunAllTests` accepts
-  `{ path }`; both return raw expected-versus-actual reports.
-  `OpenLaymosProject` includes the Test catalog and an additive `documentation`
-  index with sorted `modules` and `stories` entries. Each documentation entry
-  carries its identity, description, and optional Markdown for direct UI
-  rendering.
+  including dependency analysis, completed Vitest reporting, and telemetry
+  procedures. `RunTests` accepts `{ path, files?, testNamePattern? }` and
+  returns the native Vitest hierarchy plus optional Laymos evidence.
+  `OpenLaymosProject` includes architecture and sorted Module documentation.
 - `@pkishorez/devtools/report` — programmatic report generation for a directory.

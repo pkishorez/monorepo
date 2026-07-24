@@ -1,1 +1,0 @@
-when patterns must be strings, finite numbers, booleans, or null

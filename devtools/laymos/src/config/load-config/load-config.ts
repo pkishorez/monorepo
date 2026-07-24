@@ -1,17 +1,9 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { Data, Effect } from 'effect';
+import { Data, Effect, Match, Option, Schema } from 'effect';
 import { createJiti } from 'jiti';
 
-import {
-  decision,
-  exhaustive,
-  flow,
-  step,
-  terminal,
-  when,
-} from '../../stories/authoring/index.js';
 import { validateConfig } from '../define-config.js';
 import type {
   Layer,
@@ -21,6 +13,9 @@ import type {
   ModuleDef,
   ModuleRules,
 } from '../types.js';
+
+const ErrorMessageSchema = Schema.Struct({ message: Schema.String });
+const UnknownRecordSchema = Schema.Record(Schema.String, Schema.Unknown);
 
 export class ConfigNotFoundError extends Data.TaggedError(
   'ConfigNotFoundError',
@@ -51,248 +46,83 @@ export interface LoadConfigRequest {
 }
 
 /** Loads and validates the Laymos config at the project root. */
-export const loadConfig = flow(
-  'Load project configuration',
-  {
-    description:
-      'Locates, imports, normalizes, and semantically validates the Laymos configuration before project work begins.',
-    attributes: ({ projectDir }: LoadConfigRequest) => ({ projectDir }),
-  },
-  ({
-    projectDir,
-  }: LoadConfigRequest): Effect.Effect<LaymosConfig, LoadConfigError> => {
-    return Effect.gen(function* () {
-      const located = yield* step(
-        'Locate laymos.config.ts',
-        {
-          description:
-            'Resolves the expected project-root path and asks the file system whether the configuration exists.',
-        },
-        () =>
-          Effect.sync(() => {
-            const path = resolve(projectDir, 'laymos.config.ts');
-            return { path, exists: existsSync(path) };
-          }),
-      );
-      return yield* decision(
-        'Configuration file exists',
-        {
-          description:
-            'Chooses whether configuration loading can continue or must stop before module execution.',
-        },
-        located.exists,
-      ).pipe(
-        when(
-          false,
-          {
-            name: 'Missing',
-            description:
-              'Stop with the exact path because there is no configuration to interpret.',
-            completion: {
-              kind: 'error',
-              error: 'ConfigNotFoundError',
-            },
-          },
-          () =>
-            terminal(
-              'Configuration was not found',
-              {
-                description:
-                  'Returns a typed not-found failure naming the expected project-root file.',
-                completion: {
-                  kind: 'error',
-                  error: 'ConfigNotFoundError',
-                },
-              },
-              () =>
-                Effect.fail(new ConfigNotFoundError({ path: located.path })),
-            ),
-        ),
-        when(
-          true,
-          {
-            name: 'Found',
-            description:
-              'Import the authored TypeScript module and validate what it exports.',
-            errors: ['ConfigImportError', 'ConfigValidationError'],
-          },
-          () => importAndValidateConfig(located.path),
-        ),
-        exhaustive,
-      );
+export const loadConfig = ({
+  projectDir,
+}: LoadConfigRequest): Effect.Effect<LaymosConfig, LoadConfigError> => {
+  return Effect.gen(function* () {
+    const located = yield* Effect.sync(() => {
+      const path = resolve(projectDir, 'laymos.config.ts');
+      return { path, exists: existsSync(path) };
     });
-  },
-);
-
-const importAndValidateConfig = flow(
-  'Import and validate configuration',
-  {
-    description:
-      'Executes the TypeScript module, checks its data shape, and applies semantic configuration rules.',
-    attributes: (path: string) => ({ path }),
-  },
-  (path: string): Effect.Effect<LaymosConfig, LoadConfigError> =>
-    Effect.gen(function* () {
-      const config = yield* step(
-        'Execute configuration module with jiti',
-        {
-          description:
-            'Runs the TypeScript configuration without requiring a separate build and reads its default export.',
-        },
-        () =>
-          Effect.tryPromise({
-            try: async () => {
-              const jiti = createJiti(import.meta.url, {
-                interopDefault: true,
-                moduleCache: false,
-              });
-              const imported = (await jiti.import(path)) as {
-                default?: unknown;
-              };
-              return imported.default;
-            },
-            catch: (cause) =>
-              new ConfigImportError({
-                path,
-                message: cause instanceof Error ? cause.message : String(cause),
-              }),
-          }),
-      );
-      return yield* decision(
-        'Default export has the Laymos configuration shape',
-        {
-          description:
-            'Separates malformed module exports from configurations that can be normalized and checked.',
-        },
-        isLaymosConfig(config),
-      ).pipe(
-        when(
-          false,
-          {
-            name: 'Invalid shape',
-            description:
-              'Reject the export before semantic validation because required collections are absent or malformed.',
-            completion: {
-              kind: 'error',
-              error: 'ConfigValidationError',
-            },
-          },
-          () =>
-            terminal(
-              'Configuration export is invalid',
-              {
-                description:
-                  'Returns the stable validation issue used when the default export is not a Laymos configuration.',
-                completion: {
-                  kind: 'error',
-                  error: 'ConfigValidationError',
-                },
-              },
-              () =>
-                Effect.fail(
-                  new ConfigValidationError({
-                    path,
-                    issues: [
-                      'Config must default-export a value created with defineConfig()',
-                    ],
-                    message: `Invalid Laymos config at "${path}"`,
-                  }),
-                ),
-            ),
-        ),
-        when(
-          true,
-          {
-            name: 'Recognized shape',
-            description:
-              'Normalize paths and evaluate all semantic rules as one complete validation pass.',
-            errors: ['ConfigValidationError'],
-          },
-          () => validateConfigurationSemantics(path, config as LaymosConfig),
-        ),
-        exhaustive,
-      );
-    }),
-);
-
-const validateConfigurationSemantics = flow(
-  'Validate configuration semantics',
-  {
-    description:
-      'Normalizes authored paths and collects every configuration issue so the user can fix them together.',
-  },
-  (
-    path: string,
-    config: LaymosConfig,
-  ): Effect.Effect<LaymosConfig, ConfigValidationError> => {
-    const validation = validateConfig(config);
-    return decision(
-      'Semantic validation found issues',
-      {
-        description:
-          'Chooses between the normalized configuration and one typed failure containing every discovered issue.',
-        attributes: (hasIssues) => ({
-          hasIssues,
-          issues: validation.issues.length,
-        }),
-      },
-      validation.issues.length > 0,
-    ).pipe(
-      when(
-        true,
-        {
-          name: 'Issues found',
-          description:
-            'Reject the configuration with the complete ordered issue list.',
-          completion: {
-            kind: 'error',
-            error: 'ConfigValidationError',
-          },
-        },
-        () =>
-          terminal(
-            'Configuration has semantic issues',
-            {
-              description:
-                'Returns the normalized validation findings without hiding later issues behind the first one.',
-              completion: {
-                kind: 'error',
-                error: 'ConfigValidationError',
-              },
-            },
-            () =>
-              Effect.fail(
-                new ConfigValidationError({
-                  path,
-                  issues: validation.issues,
-                  message: `Invalid Laymos config at "${path}":\n${validation.issues.map((issue) => `- ${issue}`).join('\n')}`,
-                }),
-              ),
-          ),
+    return yield* Match.value(located.exists).pipe(
+      Match.when(false, () =>
+        Effect.fail(new ConfigNotFoundError({ path: located.path })),
       ),
-      when(
-        false,
-        {
-          name: 'Valid',
-          description:
-            'Expose the normalized configuration to the capability that requested it.',
-          completion: { kind: 'success' },
-        },
-        () =>
-          terminal(
-            'Configuration is ready',
-            {
-              description:
-                'Completes configuration loading with normalized paths and validated architectural intent.',
-              completion: { kind: 'success' },
-            },
-            () => Effect.succeed(validation.config),
-          ),
-      ),
-      exhaustive,
+      Match.when(true, () => importAndValidateConfig(located.path)),
+      Match.exhaustive,
     );
-  },
-);
+  });
+};
+
+const importAndValidateConfig = (
+  path: string,
+): Effect.Effect<LaymosConfig, LoadConfigError> =>
+  Effect.gen(function* () {
+    const config = yield* Effect.tryPromise({
+      try: async () => {
+        const jiti = createJiti(import.meta.url, {
+          interopDefault: true,
+          moduleCache: false,
+        });
+        const imported = (await jiti.import(path)) as {
+          default?: unknown;
+        };
+        return imported.default;
+      },
+      catch: (cause) =>
+        new ConfigImportError({
+          path,
+          message: errorMessage(cause),
+        }),
+    });
+    return yield* Match.value(isLaymosConfig(config)).pipe(
+      Match.when(false, () =>
+        Effect.fail(
+          new ConfigValidationError({
+            path,
+            issues: [
+              'Config must default-export a value created with defineConfig()',
+            ],
+            message: `Invalid Laymos config at "${path}"`,
+          }),
+        ),
+      ),
+      Match.when(true, () =>
+        validateConfigurationSemantics(path, config as LaymosConfig),
+      ),
+      Match.exhaustive,
+    );
+  });
+
+const validateConfigurationSemantics = (
+  path: string,
+  config: LaymosConfig,
+): Effect.Effect<LaymosConfig, ConfigValidationError> => {
+  const validation = validateConfig(config);
+  return Match.value(validation.issues.length > 0).pipe(
+    Match.when(true, () =>
+      Effect.fail(
+        new ConfigValidationError({
+          path,
+          issues: validation.issues,
+          message: `Invalid Laymos config at "${path}":\n${validation.issues.map((issue) => `- ${issue}`).join('\n')}`,
+        }),
+      ),
+    ),
+    Match.when(false, () => Effect.succeed(validation.config)),
+    Match.exhaustive,
+  );
+};
 
 function isLaymosConfig(value: unknown): value is LaymosConfig {
   if (!isRecord(value)) return false;
@@ -385,5 +215,10 @@ function isStringArray(value: unknown): value is readonly string[] {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return Schema.is(UnknownRecordSchema)(value);
+}
+
+function errorMessage(cause: unknown): string {
+  const decoded = Schema.decodeUnknownOption(ErrorMessageSchema)(cause);
+  return Option.isSome(decoded) ? decoded.value.message : String(cause);
 }

@@ -35,6 +35,11 @@ export interface SourceViewerProps {
   readonly sections?: readonly SourceViewerSection[];
   readonly onSectionClick?: (sectionId: string) => void;
   readonly scrollRequestId?: number;
+  readonly wrap?: boolean;
+  readonly lineOffset?: number;
+  readonly showHeader?: boolean;
+  readonly showLineNumbers?: boolean;
+  readonly autoHeight?: boolean;
   readonly actions?: ReactNode;
   readonly className?: string;
 }
@@ -111,28 +116,28 @@ function paintSourceLine(line: HTMLElement, hovered = false) {
     return;
   }
   const fillAlpha = Math.min(
-    focused ? 0.22 : 0.12,
-    (focused ? 0.16 : 0.02) +
+    focused ? 0.18 : 0.12,
+    (focused ? 0.12 : 0.02) +
       Math.max(0, depth - 1) * 0.025 +
       (hovered ? 0.045 : 0),
   );
   const borderAlpha = Math.min(
     1,
-    (focused ? 0.95 : 0.2) + Math.max(0, depth - 1) * 0.1 + (hovered ? 0.2 : 0),
+    (focused ? 0.85 : 0.2) + Math.max(0, depth - 1) * 0.1 + (hovered ? 0.2 : 0),
   );
-  const color = focused ? '251 191 36' : '56 189 248';
+  const color = focused ? '59 130 246' : '56 189 248';
   line.style.backgroundColor = `rgb(${color} / ${fillAlpha})`;
   line.style.borderInlineStartColor = `rgb(${color} / ${borderAlpha})`;
   line.style.boxShadow = focused
     ? [
-        'inset 3px 0 rgb(251 191 36 / 0.95)',
-        'inset -1px 0 rgb(251 191 36 / 0.55)',
-        'inset 0 0 14px rgb(251 191 36 / 0.09)',
+        'inset 3px 0 rgb(59 130 246 / 0.85)',
+        'inset -1px 0 rgb(59 130 246 / 0.35)',
+        'inset 0 0 14px rgb(59 130 246 / 0.06)',
         line.dataset.sourceFocusFirst === 'true'
-          ? 'inset 0 1px rgb(251 191 36 / 0.75)'
+          ? 'inset 0 1px rgb(59 130 246 / 0.55)'
           : '',
         line.dataset.sourceFocusLast === 'true'
-          ? 'inset 0 -1px rgb(251 191 36 / 0.75)'
+          ? 'inset 0 -1px rgb(59 130 246 / 0.55)'
           : '',
       ]
         .filter(Boolean)
@@ -147,6 +152,11 @@ export function SourceViewer({
   sections = [],
   onSectionClick,
   scrollRequestId,
+  wrap = false,
+  lineOffset = 0,
+  showHeader = true,
+  showLineNumbers = true,
+  autoHeight = false,
   actions,
   className,
 }: SourceViewerProps) {
@@ -157,6 +167,7 @@ export function SourceViewer({
   const [rendered, setRendered] = useState<{
     readonly content: string;
     readonly language: SourceLanguage;
+    readonly lineOffset: number;
     readonly html: string;
   } | null>(null);
   const language = useMemo(() => {
@@ -164,7 +175,9 @@ export function SourceViewer({
     return languageByExtension[extension] ?? 'text';
   }, [filePath]);
   const html =
-    rendered?.content === content && rendered.language === language
+    rendered?.content === content &&
+    rendered.language === language &&
+    rendered.lineOffset === lineOffset
       ? rendered.html
       : '';
 
@@ -183,7 +196,7 @@ export function SourceViewer({
                 this.addClassToHast(node, 'shiki-token');
               },
               line(node, line) {
-                node.properties['data-line'] = line;
+                node.properties['data-line'] = line + lineOffset;
                 this.addClassToHast(node, 'source-line');
               },
             },
@@ -191,12 +204,12 @@ export function SourceViewer({
         });
       })
       .then((next) => {
-        if (active) setRendered({ content, language, html: next });
+        if (active) setRendered({ content, language, lineOffset, html: next });
       });
     return () => {
       active = false;
     };
-  }, [content, language]);
+  }, [content, language, lineOffset]);
 
   useLayoutEffect(() => {
     if (!html) return;
@@ -222,6 +235,9 @@ export function SourceViewer({
     });
   }, [filePath, html, sections]);
 
+  // The highlighted HTML is injected into the DOM. Reapply focus after every
+  // render because settings changes can refresh those nodes without changing
+  // the source text or requested range.
   useLayoutEffect(() => {
     if (!html) return;
     for (const line of focusedLinesRef.current) {
@@ -280,9 +296,10 @@ export function SourceViewer({
       0,
       Math.min(viewport.scrollHeight - viewport.clientHeight, desiredTop),
     );
+    viewport.scrollLeft = 0;
     viewport.scrollTop = target;
     handledScrollRequestRef.current = scrollRequestId;
-  }, [filePath, html, range, scrollRequestId]);
+  });
 
   const sectionAtTarget = (target: EventTarget) => {
     if (!(target instanceof Element)) return undefined;
@@ -338,23 +355,41 @@ export function SourceViewer({
 
   return (
     <section
-      className={cn('flex h-full min-h-0 flex-col bg-background', className)}
+      className={cn(
+        'flex flex-col bg-background',
+        autoHeight ? 'h-auto' : 'h-full min-h-0',
+        className,
+      )}
       aria-label={`Source: ${filePath}`}
     >
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-3">
-        <span
-          className="min-w-0 flex-1 truncate font-mono text-xs"
-          title={filePath}
-        >
-          {filePath}
-        </span>
-        {actions}
-      </header>
+      {showHeader && (
+        <header className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-3">
+          <span
+            className="min-w-0 flex-1 truncate font-mono text-xs"
+            title={filePath}
+          >
+            {filePath}
+          </span>
+          {actions}
+        </header>
+      )}
       <div
         ref={viewportRef}
+        style={{ counterReset: `line ${lineOffset}` }}
         className={cn(
-          'source-viewer min-h-0 flex-1 overflow-x-auto overflow-y-scroll overscroll-contain bg-background font-mono text-[13px] [scrollbar-gutter:stable] [&_.shiki]:min-h-full [&_.shiki]:min-w-max [&_.shiki]:bg-transparent! [&_.shiki]:py-3 [&_code]:flex [&_code]:flex-col [&_code]:[counter-reset:line] [&_.source-line]:relative [&_.source-line]:box-border [&_.source-line]:block [&_.source-line]:min-h-[1.375rem] [&_.source-line]:border-s-2 [&_.source-line]:border-transparent [&_.source-line]:pe-6 [&_.source-line]:ps-14 [&_.source-line]:leading-[1.375rem] [&_.source-line]:transition-colors [&_.source-line]:duration-100 [&_.source-line]:[counter-increment:line] [&_.source-line]:before:absolute [&_.source-line]:before:start-0 [&_.source-line]:before:w-11 [&_.source-line]:before:pe-3 [&_.source-line]:before:text-end [&_.source-line]:before:text-[11px] [&_.source-line]:before:text-muted-foreground/35 [&_.source-line]:before:content-[counter(line)] [&_.source-line-section]:cursor-pointer [&_.source-line-focused]:cursor-pointer',
-          scrollbarStyles,
+          'source-viewer min-h-0 flex-1 bg-background font-mono text-[13px] [&_.shiki]:bg-transparent! [&_.shiki]:py-3 [&_code]:flex [&_code]:flex-col [&_.source-line]:relative [&_.source-line]:box-border [&_.source-line]:block [&_.source-line]:min-h-[1.375rem] [&_.source-line]:border-s-2 [&_.source-line]:border-transparent [&_.source-line]:pe-6 [&_.source-line]:leading-[1.375rem] [&_.source-line]:transition-colors [&_.source-line]:duration-100 [&_.source-line-section]:cursor-pointer [&_.source-line-focused]:cursor-pointer',
+          autoHeight
+            ? 'overflow-visible [&_.shiki]:min-h-0'
+            : cn(
+                'overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [&_.shiki]:min-h-full',
+                scrollbarStyles,
+              ),
+          showLineNumbers
+            ? '[&_.source-line]:ps-14 [&_.source-line]:[counter-increment:line] [&_.source-line]:before:absolute [&_.source-line]:before:start-0 [&_.source-line]:before:w-11 [&_.source-line]:before:pe-3 [&_.source-line]:before:text-end [&_.source-line]:before:text-[11px] [&_.source-line]:before:text-muted-foreground/35 [&_.source-line]:before:content-[counter(line)]'
+            : '[&_.source-line]:ps-4',
+          wrap
+            ? 'overflow-x-hidden [&_.shiki]:w-full [&_.shiki]:min-w-0 [&_code]:w-full [&_.source-line]:break-words [&_.source-line]:whitespace-pre-wrap'
+            : 'overflow-x-auto [&_.shiki]:min-w-max',
         )}
         onClick={(event) => handleSectionClick(event.target)}
         onPointerMove={(event) =>

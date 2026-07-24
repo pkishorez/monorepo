@@ -1,38 +1,36 @@
-import { readdir } from 'node:fs/promises';
-import { basename, join, relative, resolve, sep } from 'node:path';
+import { createRequire } from 'node:module';
+import { relative, resolve, sep } from 'node:path';
+import { Writable } from 'node:stream';
+import { pathToFileURL } from 'node:url';
 
-import { Cause, Data, Duration, Effect, Exit, Option } from 'effect';
-import { createJiti } from 'jiti';
-
-import { loadConfig } from '../../config/load-config/index.js';
+import { Data, Effect, Option, Schema } from 'effect';
 import type {
-  TestCatalog,
-  TestCatalogModule,
-  TestCatalogTest,
-  TestExpectation,
-  TestReport,
-  TestsReport,
-  TestValue,
-} from '../../report/tests.js';
-import { findLaymosSurfaces } from '../../stories/discover-stories/laymos-surface.js';
-import type { LaymosSurface } from '../../stories/discover-stories/laymos-surface.js';
+  TestCase,
+  TestModule,
+  TestRunResult,
+  TestSuite,
+  Vitest,
+  createVitest,
+} from 'vitest/node';
+
 import {
-  collectDeclaredTests,
-  type TestDeclaration,
-} from '../authoring/index.js';
+  LaymosTestEvidenceSchema,
+  type TestCaseReport,
+  type TestErrorReport,
+  type TestModuleReport,
+  type TestStatus,
+  type TestSuiteReport,
+  type TestsReport,
+} from '../../report/tests.js';
 
 export interface TestsRunOptions {
-  readonly timeout?: Duration.Input;
+  readonly files?: readonly string[];
+  readonly testNamePattern?: string | RegExp;
 }
 
-export interface TestDiscoveryIssue {
-  readonly testPath?: string;
+export class TestRunInProgress extends Data.TaggedError('TestRunInProgress')<{
+  readonly projectDir: string;
   readonly message: string;
-}
-
-export class TestDiscoveryError extends Data.TaggedError('TestDiscoveryError')<{
-  readonly message: string;
-  readonly issues: readonly TestDiscoveryIssue[];
 }> {}
 
 export class TestRunnerError extends Data.TaggedError('TestRunnerError')<{
@@ -40,338 +38,339 @@ export class TestRunnerError extends Data.TaggedError('TestRunnerError')<{
   readonly cause: unknown;
 }> {}
 
-interface DiscoveredTest {
-  readonly testPath: string;
-  readonly testKey: string;
-  readonly surface: LaymosSurface;
-  readonly declaration: TestDeclaration;
-}
-
-class TestTimeoutError extends Error {
-  override name = 'TestTimeoutError';
-}
-
-const testFilePattern = /\.test\.ts$/;
-const validTestFile = /^[a-z0-9]+(?:-[a-z0-9]+)*\.test\.ts$/;
-const testAuthoringPath = resolve(import.meta.dirname, '../authoring/index.js');
-
-export function discoverTests(
-  projectDir: string,
-): Effect.Effect<TestCatalog, TestDiscoveryError> {
-  return discoverTestDeclarationsEffect(projectDir).pipe(
-    Effect.map(({ catalog }) => catalog),
-  );
-}
+const activeProjects = new Set<string>();
+let activeRunCount = 0;
+let originalExitCode: number | string | null | undefined;
+const minimumVitestVersion = [4, 1, 10] as const;
+const silentOutput = new Writable({
+  write(_chunk, _encoding, callback) {
+    callback();
+  },
+});
+const PackageMetadataSchema = Schema.Struct({ version: Schema.String });
+const ErrorInputSchema = Schema.Struct({
+  name: Schema.optional(Schema.String),
+  message: Schema.String,
+  stack: Schema.optional(Schema.String),
+  expected: Schema.optional(Schema.String),
+  actual: Schema.optional(Schema.String),
+  diff: Schema.optional(Schema.String),
+});
+const LaymosTestArtifactSchema = Schema.Struct({
+  type: Schema.Literal('laymos:test-evidence'),
+  evidence: LaymosTestEvidenceSchema,
+});
+const LaymosTaskMetaSchema = Schema.Struct({
+  laymosTest: Schema.Struct({
+    description: Schema.String,
+    documentation: Schema.optional(Schema.String),
+  }),
+});
+const LaymosSuiteMetaSchema = Schema.Struct({
+  laymosSuite: Schema.Struct({
+    description: Schema.String,
+    documentation: Schema.optional(Schema.String),
+  }),
+});
 
 export function executeTests(
   projectDir: string,
-  selectors: readonly string[],
   options: TestsRunOptions = {},
-): Effect.Effect<TestsReport, TestRunnerError> {
-  return discoverTestDeclarationsEffect(projectDir).pipe(
-    Effect.mapError(
-      (cause) => new TestRunnerError({ message: cause.message, cause }),
-    ),
-    Effect.flatMap(({ declarations }) =>
-      Effect.tryPromise({
-        try: async () => {
-          const selected = selectTests(declarations, selectors);
-          const tests: Record<string, TestReport> = {};
-          for (const test of selected) {
-            const cases = [];
-            for (const testCase of test.declaration.cases) {
-              const actual = await executeCase(
-                test.declaration,
-                testCase.inputs,
-                options.timeout,
-              );
-              cases.push({
-                kind: testCase.kind,
-                name: testCase.name,
-                description: testCase.description,
-                inputs: testCase.inputs,
-                expected: testCase.expected,
-                actual,
-              });
-            }
-            tests[test.testPath] = {
-              testPath: test.testPath,
-              testKey: test.testKey,
-              modulePath: test.surface.modulePath,
-              name: test.declaration.name,
-              description: test.declaration.description,
-              cases,
-            };
-          }
-          return { tests };
-        },
-        catch: (cause) =>
-          cause instanceof TestRunnerError
-            ? cause
-            : new TestRunnerError({
-                message: errorMessage(cause),
-                cause,
-              }),
-      }),
-    ),
-  );
-}
-
-function discoverTestDeclarationsEffect(projectDir: string): Effect.Effect<
-  {
-    readonly catalog: TestCatalog;
-    readonly declarations: readonly DiscoveredTest[];
-  },
-  TestDiscoveryError
-> {
+): Effect.Effect<TestsReport, TestRunInProgress | TestRunnerError> {
+  const root = resolve(projectDir);
   return Effect.tryPromise({
-    try: () => discoverTestDeclarations(projectDir),
+    try: async () => {
+      if (activeProjects.has(root)) {
+        throw new TestRunInProgress({
+          projectDir: root,
+          message: `A Vitest run is already active for "${root}"`,
+        });
+      }
+      activeProjects.add(root);
+      enterVitestRun();
+      try {
+        return await runVitest(root, options);
+      } finally {
+        activeProjects.delete(root);
+        leaveVitestRun();
+      }
+    },
     catch: (cause) =>
-      cause instanceof TestDiscoveryError
+      cause instanceof TestRunInProgress || cause instanceof TestRunnerError
         ? cause
-        : discoveryError([{ message: errorMessage(cause) }]),
+        : new TestRunnerError({ message: errorMessage(cause), cause }),
   });
 }
 
-async function executeCase(
-  declaration: TestDeclaration,
-  inputs: readonly TestValue[],
-  timeout: Duration.Input | undefined,
-): Promise<TestExpectation> {
-  try {
-    const result = declaration.execute(...inputs);
-    if (Effect.isEffect(result)) {
-      const operation =
-        timeout === undefined
-          ? (result as Effect.Effect<unknown, unknown, never>)
-          : (result.pipe(Effect.timeout(timeout)) as Effect.Effect<
-              unknown,
-              unknown,
-              never
-            >);
-      const exit = await Effect.runPromiseExit(operation);
-      if (Exit.isFailure(exit)) {
-        const failure = Cause.findErrorOption(exit.cause);
-        return {
-          kind: 'error',
-          name:
-            Option.isSome(failure) && Cause.isTimeoutError(failure.value)
-              ? 'TestTimeoutError'
-              : errorName(
-                  Option.isSome(failure)
-                    ? failure.value
-                    : Cause.squash(exit.cause),
-                ),
-        };
-      }
-      return isTestValue(exit.value)
-        ? { kind: 'value', value: exit.value }
-        : { kind: 'error', name: 'UnsupportedTestValue' };
-    }
-    const value = await withTimeout(Promise.resolve(result), timeout);
-    return isTestValue(value)
-      ? { kind: 'value', value }
-      : { kind: 'error', name: 'UnsupportedTestValue' };
-  } catch (cause) {
-    return { kind: 'error', name: errorName(cause) };
-  }
-}
-
-async function withTimeout<A>(
-  promise: Promise<A>,
-  timeout: Duration.Input | undefined,
-): Promise<A> {
-  if (timeout === undefined) return promise;
-  const milliseconds = Duration.toMillis(timeout);
-  return new Promise<A>((resolvePromise, reject) => {
-    const timer = setTimeout(
-      () => reject(new TestTimeoutError()),
-      milliseconds,
-    );
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolvePromise(value);
-      },
-      (cause: unknown) => {
-        clearTimeout(timer);
-        reject(cause);
-      },
-    );
-  });
-}
-
-function selectTests(
-  declarations: readonly DiscoveredTest[],
-  selectors: readonly string[],
-): readonly DiscoveredTest[] {
-  if (selectors.length === 0) return declarations;
-  const selected = declarations.filter((test) =>
-    selectors.some(
-      (selector) =>
-        selector === test.testPath || selector === test.surface.modulePath,
-    ),
-  );
-  for (const selector of selectors) {
-    if (
-      !declarations.some(
-        (test) =>
-          selector === test.testPath || selector === test.surface.modulePath,
-      )
-    ) {
-      throw new TestRunnerError({
-        message: `Test or Module "${selector}" was not found`,
-        cause: selector,
-      });
-    }
-  }
-  return selected;
-}
-
-async function discoverTestDeclarations(projectDir: string): Promise<{
-  readonly catalog: TestCatalog;
-  readonly declarations: readonly DiscoveredTest[];
-}> {
-  try {
-    const config = await Effect.runPromise(loadConfig({ projectDir }));
-    const surfaces = await findLaymosSurfaces(projectDir, config.modules ?? []);
-    const issues: TestDiscoveryIssue[] = [];
-    const declarations: DiscoveredTest[] = [];
-    for (const surface of surfaces) {
-      const entries = await readdir(resolve(projectDir, surface.path), {
-        withFileTypes: true,
-      });
-      for (const entry of entries) {
-        if (!entry.isFile() || !testFilePattern.test(entry.name)) continue;
-        const testPath = relative(
-          projectDir,
-          join(projectDir, surface.path, entry.name),
-        )
-          .split(sep)
-          .join('/')
-          .slice(0, -'.test.ts'.length);
-        if (!validTestFile.test(basename(entry.name))) {
-          issues.push({
-            testPath,
-            message: `must use the kebab-case <test-name>.test.ts convention`,
-          });
-          continue;
-        }
-        try {
-          const found = await collectDeclaredTests(() =>
-            loadTestModule(projectDir, testPath),
-          );
-          if (found.length !== 1) {
-            issues.push({
-              testPath,
-              message: `must declare exactly one Test; found ${found.length}`,
-            });
-            continue;
-          }
-          declarations.push({
-            testPath,
-            testKey: entry.name.slice(0, -'.test.ts'.length),
-            surface,
-            declaration: found[0]!,
-          });
-        } catch (cause) {
-          issues.push({ testPath, message: errorMessage(cause) });
-        }
-      }
-    }
-    if (issues.length > 0) throw discoveryError(issues);
-    declarations.sort((left, right) =>
-      left.testPath.localeCompare(right.testPath),
-    );
-    return { catalog: buildCatalog(declarations), declarations };
-  } catch (cause) {
-    throw cause instanceof TestDiscoveryError
-      ? cause
-      : discoveryError([{ message: errorMessage(cause) }]);
-  }
-}
-
-async function loadTestModule(
+async function runVitest(
   projectDir: string,
-  testPath: string,
-): Promise<void> {
-  const jiti = createJiti(import.meta.url, {
-    alias: { 'laymos/test': testAuthoringPath },
-    interopDefault: true,
-    moduleCache: false,
-  });
-  await jiti.import(resolve(projectDir, `${testPath}.test.ts`));
+  options: TestsRunOptions,
+): Promise<TestsReport> {
+  const vitestNode = await loadProjectVitest(projectDir);
+  const startedAt = performance.now();
+  let vitest: Vitest | undefined;
+
+  try {
+    vitest = await vitestNode.createVitest(
+      'test',
+      {
+        root: projectDir,
+        watch: false,
+        changed: false,
+        passWithNoTests: true,
+        includeTaskLocation: true,
+        ...(options.testNamePattern === undefined
+          ? {}
+          : { testNamePattern: options.testNamePattern }),
+      },
+      {},
+      { stdout: silentOutput, stderr: silentOutput },
+    );
+    delete vitest.config.related;
+    const result = await vitest.start(options.files ? [...options.files] : []);
+    return mapRunResult(projectDir, result, performance.now() - startedAt);
+  } finally {
+    await vitest?.close();
+  }
 }
 
-function buildCatalog(declarations: readonly DiscoveredTest[]): TestCatalog {
-  const byModule = new Map<string, TestCatalogTest[]>();
-  const descriptions = new Map<string, string>();
-  for (const test of declarations) {
-    const tests = byModule.get(test.surface.modulePath) ?? [];
-    byModule.set(test.surface.modulePath, tests);
-    descriptions.set(test.surface.modulePath, test.surface.moduleDescription);
-    tests.push({
-      testPath: test.testPath,
-      testKey: test.testKey,
-      modulePath: test.surface.modulePath,
-      name: test.declaration.name,
-      description: test.declaration.description,
-      cases: test.declaration.cases.map((testCase) => ({
-        kind: testCase.kind,
-        name: testCase.name,
-        description: testCase.description,
-        inputs: testCase.inputs,
-        expected: testCase.expected,
-      })),
+function enterVitestRun(): void {
+  if (activeRunCount === 0) originalExitCode = process.exitCode;
+  activeRunCount += 1;
+}
+
+function leaveVitestRun(): void {
+  activeRunCount -= 1;
+  if (activeRunCount === 0) process.exitCode = originalExitCode;
+}
+
+async function loadProjectVitest(projectDir: string): Promise<{
+  readonly createVitest: typeof createVitest;
+}> {
+  const require = createRequire(resolve(projectDir, 'package.json'));
+  let entrypoint: string;
+  let packageJson: string;
+  try {
+    entrypoint = require.resolve('vitest/node');
+    packageJson = require.resolve('vitest/package.json');
+  } catch (cause) {
+    throw new TestRunnerError({
+      message: `Vitest is not installed in "${projectDir}"`,
+      cause,
     });
   }
-  const modules: TestCatalogModule[] = [...byModule]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([modulePath, tests]) => ({
-      modulePath,
-      description: descriptions.get(modulePath)!,
-      tests: tests.sort((left, right) =>
-        left.testPath.localeCompare(right.testPath),
-      ) as [TestCatalogTest, ...TestCatalogTest[]],
-    }));
-  return { modules };
+
+  const metadata = Schema.decodeUnknownOption(PackageMetadataSchema)(
+    require(packageJson),
+  );
+  if (
+    Option.isNone(metadata) ||
+    !isSupportedVitestVersion(metadata.value.version)
+  ) {
+    throw new TestRunnerError({
+      message: `Laymos requires Vitest >=4.1.10 <5`,
+      cause: Option.getOrUndefined(metadata)?.version,
+    });
+  }
+
+  return import(pathToFileURL(entrypoint).href) as Promise<{
+    readonly createVitest: typeof createVitest;
+  }>;
 }
 
-function discoveryError(
-  issues: readonly TestDiscoveryIssue[],
-): TestDiscoveryError {
-  return new TestDiscoveryError({
-    message: `Test catalog is invalid:\n${issues
-      .map(({ testPath, message }) =>
-        testPath === undefined ? `- ${message}` : `- ${testPath}: ${message}`,
-      )
-      .join('\n')}`,
-    issues,
-  });
-}
-
-function isTestValue(value: unknown): value is TestValue {
+function isSupportedVitestVersion(version: string): boolean {
+  const [major = 0, minor = 0, patch = 0] = version
+    .split('.', 3)
+    .map((part) => Number.parseInt(part, 10));
+  if (major !== 4) return false;
+  const [requiredMajor, requiredMinor, requiredPatch] = minimumVitestVersion;
   return (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
+    major > requiredMajor ||
+    (major === requiredMajor &&
+      (minor > requiredMinor ||
+        (minor === requiredMinor && patch >= requiredPatch)))
   );
 }
 
-function errorName(cause: unknown): string {
-  if (
-    typeof cause === 'object' &&
-    cause !== null &&
-    '_tag' in cause &&
-    typeof cause._tag === 'string'
-  ) {
-    return cause._tag;
+function mapRunResult(
+  projectDir: string,
+  result: TestRunResult,
+  duration: number,
+): TestsReport {
+  const modules = result.testModules.map((module) =>
+    mapModule(projectDir, module),
+  );
+  const unhandledErrors = result.unhandledErrors.map(mapError);
+  return {
+    status:
+      unhandledErrors.length === 0 &&
+      modules.every(({ status }) => status !== 'failed')
+        ? 'passed'
+        : 'failed',
+    duration,
+    modules,
+    unhandledErrors,
+  };
+}
+
+function mapModule(projectDir: string, module: TestModule): TestModuleReport {
+  const children = module.children.array();
+  const diagnostic = module.diagnostic();
+  return {
+    id: module.id,
+    name: module.relativeModuleId,
+    path: normalizePath(relative(projectDir, module.moduleId)),
+    projectName: module.project.name,
+    status: normalizeStatus(module.state()),
+    duration:
+      diagnostic.environmentSetupDuration +
+      diagnostic.prepareDuration +
+      diagnostic.collectDuration +
+      diagnostic.setupDuration +
+      diagnostic.duration,
+    suites: children
+      .filter((child): child is TestSuite => child.type === 'suite')
+      .map(mapSuite),
+    cases: children
+      .filter((child): child is TestCase => child.type === 'test')
+      .map(mapCase),
+    errors: module.errors().map(mapError),
+  };
+}
+
+function mapSuite(suite: TestSuite): TestSuiteReport {
+  const children = suite.children.array();
+  const suites = children
+    .filter((child): child is TestSuite => child.type === 'suite')
+    .map(mapSuite);
+  const cases = children
+    .filter((child): child is TestCase => child.type === 'test')
+    .map(mapCase);
+  return {
+    id: suite.id,
+    name: suite.name,
+    ...suiteMetadata(suite),
+    status: normalizeStatus(suite.state()),
+    suites,
+    cases,
+    errors: suite.errors().map(mapError),
+  };
+}
+
+function suiteMetadata(suite: TestSuite): {
+  readonly description?: string;
+  readonly documentation?: string;
+} {
+  const metadata = Schema.decodeUnknownOption(LaymosSuiteMetaSchema)(
+    suite.meta(),
+  );
+  if (Option.isNone(metadata)) return {};
+  return {
+    description: metadata.value.laymosSuite.description,
+    ...(metadata.value.laymosSuite.documentation === undefined
+      ? {}
+      : { documentation: metadata.value.laymosSuite.documentation }),
+  };
+}
+
+function mapCase(testCase: TestCase): TestCaseReport {
+  const result = testCase.result();
+  const diagnostic = testCase.diagnostic();
+  const metadata = Schema.decodeUnknownOption(LaymosTaskMetaSchema)(
+    testCase.meta(),
+  );
+  const evidence = evidenceProperty(testCase.artifacts(), metadata);
+  const authored = Option.isSome(metadata) || evidence.evidence !== undefined;
+  const assertionFailed =
+    evidence.evidence?.assertions.some(({ status }) => status === 'failed') ??
+    false;
+  const errors = (result.errors ?? [])
+    .map(mapError)
+    .filter(
+      ({ name }) => !assertionFailed || name !== 'LaymosAssertionFailures',
+    );
+  return {
+    id: testCase.id,
+    name: testCase.name,
+    fullName: testCase.fullName,
+    status: normalizeStatus(result.state),
+    duration: diagnostic?.duration ?? 0,
+    errors,
+    ...(testCase.location === undefined
+      ? {}
+      : {
+          location: {
+            line: testCase.location.line,
+            column: testCase.location.column,
+          },
+        }),
+    ...(authored ? { authoredBy: 'laymos' as const } : {}),
+    ...evidence,
+  };
+}
+
+function evidenceProperty(
+  artifacts: ReadonlyArray<{ readonly type: string }>,
+  metadata: Option.Option<{
+    readonly laymosTest: {
+      readonly description: string;
+      readonly documentation?: string | undefined;
+    };
+  }>,
+): { readonly evidence?: import('../../report/tests.js').LaymosTestEvidence } {
+  const artifact = artifacts
+    .map((artifact) =>
+      Schema.decodeUnknownOption(LaymosTestArtifactSchema)(artifact),
+    )
+    .reverse()
+    .find(Option.isSome);
+  if (artifact !== undefined) {
+    return { evidence: artifact.value.evidence };
   }
-  if (cause instanceof Error) return cause.name || 'Error';
-  return 'UnknownError';
+  if (Option.isSome(metadata)) {
+    return {
+      evidence: {
+        description: metadata.value.laymosTest.description,
+        ...(metadata.value.laymosTest.documentation === undefined
+          ? {}
+          : { documentation: metadata.value.laymosTest.documentation }),
+        assertions: [],
+      },
+    };
+  }
+  return {};
+}
+
+function normalizeStatus(status: TestStatus | 'queued'): TestStatus {
+  return status === 'queued' ? 'pending' : status;
+}
+
+export function mapError(error: unknown): TestErrorReport {
+  const decoded = Schema.decodeUnknownOption(ErrorInputSchema)(error);
+  if (Option.isSome(decoded)) {
+    return {
+      name: decoded.value.name ?? 'Error',
+      message: decoded.value.message,
+      ...(decoded.value.stack === undefined
+        ? {}
+        : { stack: decoded.value.stack }),
+      ...(decoded.value.expected === undefined
+        ? {}
+        : { expected: decoded.value.expected }),
+      ...(decoded.value.actual === undefined
+        ? {}
+        : { actual: decoded.value.actual }),
+      ...(decoded.value.diff === undefined ? {} : { diff: decoded.value.diff }),
+    };
+  }
+  return { name: 'Error', message: String(error) };
+}
+
+function normalizePath(path: string): string {
+  return path.split(sep).join('/');
 }
 
 function errorMessage(cause: unknown): string {
-  if (cause instanceof Error) return cause.message;
-  return String(cause);
+  const decoded = Schema.decodeUnknownOption(ErrorInputSchema)(cause);
+  return Option.isSome(decoded) ? decoded.value.message : String(cause);
 }

@@ -1,5 +1,9 @@
+import { Option, Schema } from 'effect';
+
 import type { Layer, LaymosConfig, ModuleDef, ModuleRules } from './types.js';
 import { normalizeConfigPath, pathContains } from './path.js';
+
+const ErrorMessageSchema = Schema.Struct({ message: Schema.String });
 
 export function defineConfig(config: LaymosConfig): LaymosConfig {
   return config;
@@ -16,8 +20,9 @@ export function validateConfig(config: LaymosConfig): ConfigValidation {
     try {
       return normalizeConfigPath(path);
     } catch (cause) {
+      const error = Schema.decodeUnknownOption(ErrorMessageSchema)(cause);
       normalizationIssues.push(
-        `${subject}: ${cause instanceof Error ? cause.message : String(cause)}`,
+        `${subject}: ${Option.isSome(error) ? error.value.message : String(cause)}`,
       );
       return path;
     }

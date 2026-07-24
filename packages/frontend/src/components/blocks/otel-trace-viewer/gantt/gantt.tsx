@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 
-import type { OtelSpan, SpanNode } from '../trace-model';
-import { collectSpans, type TraceGroup } from '../trace-model';
+import type { OtelEvent, OtelSpan, SpanNode } from '../trace-model';
+import { collectSpans, isLog, type TraceGroup } from '../trace-model';
 import { useElementWidth } from '../use-element-width';
 import { GanttHeader } from './gantt-header';
+import { GanttLogRow } from './gantt-log-row';
 import { GanttRow } from './gantt-row';
 
 function findNode(nodes: SpanNode[], spanId: string): SpanNode | null {
@@ -26,7 +27,10 @@ import {
 interface GanttProps {
   trace: TraceGroup;
   selectedSpanId: string | null;
+  selectedLog: OtelEvent | null;
   onSpanClick: (span: OtelSpan) => void;
+  onLogClick: (span: OtelSpan, event: OtelEvent) => void;
+  showLogs?: boolean;
   nameColWidth?: number;
   onNameColWidthChange?: (next: number) => void;
 }
@@ -34,7 +38,10 @@ interface GanttProps {
 export function Gantt({
   trace,
   selectedSpanId,
+  selectedLog,
   onSpanClick,
+  onLogClick,
+  showLogs = false,
   nameColWidth = NAME_COL_WIDTH,
   onNameColWidthChange,
 }: GanttProps) {
@@ -169,17 +176,37 @@ export function Gantt({
 
       {/* Span rows */}
       {rows.map((row) => (
-        <GanttRow
-          key={row.span.spanId}
-          row={row}
-          selected={selectedSpanId === row.span.spanId}
-          minWidthPct={minWidthPct}
-          onClick={() => onSpanClick(row.span)}
-          onToggleCollapse={() => toggleCollapse(row.span.spanId)}
-          onExpandFirstLevel={() => expandFirstLevel(row.span.spanId)}
-          onExpandSubtree={() => expandSubtree(row.span.spanId)}
-          nameColWidth={nameColWidth}
-        />
+        <Fragment key={row.span.spanId}>
+          <GanttRow
+            row={row}
+            selected={
+              selectedLog === null && selectedSpanId === row.span.spanId
+            }
+            minWidthPct={minWidthPct}
+            onClick={() => onSpanClick(row.span)}
+            onToggleCollapse={() => toggleCollapse(row.span.spanId)}
+            onExpandFirstLevel={() => expandFirstLevel(row.span.spanId)}
+            onExpandSubtree={() => expandSubtree(row.span.spanId)}
+            nameColWidth={nameColWidth}
+            showLogs={showLogs}
+          />
+          {showLogs &&
+            row.span.events
+              .filter(isLog)
+              .sort((a, b) => a.timestamp - b.timestamp)
+              .map((event, index) => (
+                <GanttLogRow
+                  key={`${event.timestamp}:${event.name}:${index}`}
+                  event={event}
+                  depth={row.depth}
+                  selected={selectedLog === event}
+                  traceStart={traceStart}
+                  traceEnd={traceEnd}
+                  nameColWidth={nameColWidth}
+                  onClick={() => onLogClick(row.span, event)}
+                />
+              ))}
+        </Fragment>
       ))}
     </div>
   );

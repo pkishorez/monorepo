@@ -65,8 +65,8 @@ RPC cannot absorb.
 One process, two HTTP surfaces:
 
 - **`/rpc`** — the frontend surface (Effect RPC). The `/devtools` route consumes
-  only this. Carries dependency analysis, Laymos Story discovery and execution, and
-  telemetry read procedures.
+  only this. Carries dependency analysis, project narratives, Vitest execution,
+  and telemetry read procedures.
 - **`/v1/*`** — OTLP ingestion (HTTP), for external apps. lotel's existing
   ingest group, mounted as-is.
 
