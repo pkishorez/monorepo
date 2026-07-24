@@ -25,7 +25,7 @@ moreCoverageDomain('ESchema', () => {
     describe('Make', () => {
       itEffect('encodes values with a value envelope', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make(Schema.Number).build();
+          const schema = ValueESchema.make('Count', Schema.Number).build();
 
           const encoded = yield* schema.encode(42);
 
@@ -35,7 +35,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('decodes value envelopes', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make(Schema.Number).build();
+          const schema = ValueESchema.make('Count', Schema.Number).build();
 
           const decoded = yield* schema.decode({ _v: 'v1', value: 42 });
 
@@ -45,7 +45,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('treats bare values as earliest-version data', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make(Schema.String)
+          const schema = ValueESchema.make('Count', Schema.String)
             .evolve('v2', Schema.Number, (value) => Number(value))
             .build();
 
@@ -57,7 +57,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('fails on unknown envelope version', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make(Schema.String).build();
+          const schema = ValueESchema.make('Label', Schema.String).build();
 
           const error = yield* Effect.flip(
             schema.decode({ _v: 'v99', value: 'hello' }),
@@ -70,7 +70,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('does not treat { value } as an unstamped envelope', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make(Schema.String).build();
+          const schema = ValueESchema.make('Label', Schema.String).build();
 
           const error = yield* Effect.flip(schema.decode({ value: 'hello' }));
 
@@ -81,6 +81,7 @@ moreCoverageDomain('ESchema', () => {
       itEffect('treats envelope-shaped objects as envelopes', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make(
+            'Envelope',
             Schema.Struct({
               _v: Schema.String,
               value: Schema.String,
@@ -100,6 +101,7 @@ moreCoverageDomain('ESchema', () => {
       itEffect('allows underscore-prefixed keys inside enveloped values', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make(
+            'Payload',
             Schema.Struct({
               _source: Schema.String,
               name: Schema.String,
@@ -125,6 +127,7 @@ moreCoverageDomain('ESchema', () => {
       itEffect('migrates through whole-value schema replacements', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make(
+            'Status',
             Schema.Literals(['draft', 'published']),
           )
             .evolve(
@@ -144,7 +147,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('migrations receive decoded transformed values', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make(StringToNumber)
+          const schema = ValueESchema.make('Count', StringToNumber)
             .evolve('v2', Schema.Number, (value) => value * 2)
             .build();
 
@@ -158,7 +161,7 @@ moreCoverageDomain('ESchema', () => {
     describe('Transforms', () => {
       itEffect('applies value transforms on encode and decode', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make(StringToNumber).build();
+          const schema = ValueESchema.make('Count', StringToNumber).build();
 
           const encoded = yield* schema.encode(42);
           const decoded = yield* schema.decode(encoded);
@@ -170,7 +173,10 @@ moreCoverageDomain('ESchema', () => {
     });
 
     describe('Composition', () => {
-      const Status = ValueESchema.make(Schema.Literals(['draft', 'published']))
+      const Status = ValueESchema.make(
+        'Status',
+        Schema.Literals(['draft', 'published']),
+      )
         .evolve(
           'v2',
           Schema.Literals(['draft', 'review', 'published']),
@@ -178,9 +184,9 @@ moreCoverageDomain('ESchema', () => {
         )
         .build();
 
-      const Ticket = ESchema.make({
+      const Ticket = ESchema.make('Ticket', {
         title: Schema.String,
-        status: toSchema(Status, { name: 'Status' }),
+        status: toSchema(Status),
       }).build();
 
       itEffect('encodes nested values as envelopes', () =>
@@ -231,7 +237,7 @@ moreCoverageDomain('ESchema', () => {
 
     describe('Views', () => {
       it('schema exposes the latest value schema', () => {
-        const schema = ValueESchema.make(Schema.String)
+        const schema = ValueESchema.make('Count', Schema.String)
           .evolve('v2', Schema.Number, (value) => Number(value))
           .build();
 
@@ -239,7 +245,7 @@ moreCoverageDomain('ESchema', () => {
       });
 
       it('getDescriptor describes the canonical envelope', () => {
-        const schema = ValueESchema.make(StringToNumber).build();
+        const schema = ValueESchema.make('Count', StringToNumber).build();
 
         const descriptor = schema.getDescriptor();
         const versionSchema = descriptor.properties._v as { enum?: string[] };
@@ -251,7 +257,7 @@ moreCoverageDomain('ESchema', () => {
       });
 
       it('Standard Schema validate follows the read path', () => {
-        const schema = ValueESchema.make(Schema.String).build();
+        const schema = ValueESchema.make('Label', Schema.String).build();
 
         expect(schema['~standard'].validate('draft')).toEqual({
           value: 'draft',
@@ -266,7 +272,7 @@ moreCoverageDomain('ESchema', () => {
 
     describe('Type extractors', () => {
       it('extracts decoded and encoded value types', () => {
-        const schema = ValueESchema.make(StringToNumber).build();
+        const schema = ValueESchema.make('Count', StringToNumber).build();
 
         type Decoded = ESchemaType<typeof schema>;
         type Encoded = ESchemaEncoded<typeof schema>;
@@ -283,8 +289,10 @@ moreCoverageDomain('ESchema', () => {
       });
 
       it('keeps value and object-shaped widening types separate', () => {
-        const objectSchema = ESchema.make({ name: Schema.String }).build();
-        const valueSchema = ValueESchema.make(Schema.String).build();
+        const objectSchema = ESchema.make('User', {
+          name: Schema.String,
+        }).build();
+        const valueSchema = ValueESchema.make('Label', Schema.String).build();
 
         function acceptsAnyESchema(schema: AnyESchema) {
           return schema.getDescriptor();

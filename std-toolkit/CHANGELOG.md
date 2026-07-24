@@ -1,5 +1,15 @@
 # std-toolkit
 
+## Unreleased
+
+### Breaking Changes
+
+- Removed the `eschema` package binary and the wildcard-importable `std-toolkit/eschema/cli` path. Semantic snapshots are now available through `std-toolkit/snapshot`, with `std-toolkit snapshot` providing single-file baseline verification and approval.
+- `ESchema.make` and `ValueESchema.make` now require a name as the first argument: `ESchema.make({ ... })` becomes `ESchema.make('Name', { ... })`, and `ValueESchema.make(schema)` becomes `ValueESchema.make('Name', schema)`. The name is the schema's snapshot identity, must be non-empty (enforced at type level and runtime), and must be unique across composed schemas.
+- `toSchema` no longer accepts a `ToSchemaOptions` second argument; the identifier is always derived from the schema's own name. Replace `toSchema(schema, { name: 'X' })` with `toSchema(schema)` and set the name in `make`.
+- Optional fields are now rejected at the type level. `Schema.optional`, `Schema.optionalKey`, and any field whose type admits `undefined` (e.g. `Schema.UndefinedOr`) no longer compile in `make` or `evolve`; model absence as `null` via `Schema.NullOr(...)`.
+- DynamoDB secondary indexes are now classified by how they are declared: `.gsi(...)` always produces a GlobalSecondaryIndex, even when its partition key matches the table's primary partition key (previously such an index was silently emitted as a LocalSecondaryIndex). Use `.lsi(...)` where a local index is intended; re-provisioned environments and table snapshots reflect the declared kind.
+
 ## 0.0.2
 
 ### Patch Changes

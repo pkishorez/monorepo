@@ -23,6 +23,11 @@ import {
 } from '../expr/key-condition.js';
 import { buildExpr } from '../expr/build-expr.js';
 import { type ConditionOperation } from '../expr/condition.js';
+import type { TableSnapshot } from '../../../snapshot/index.js';
+import {
+  createEntityRegistry,
+  createTableSnapshot,
+} from '../../../snapshot/internal/table-snapshot.js';
 
 interface CancellationReason {
   readonly Code?: string;
@@ -116,21 +121,33 @@ export class DynamoTable<
 > {
   readonly primary: TPrimaryIndex;
   readonly secondaryIndexMap: TSecondaryIndexMap;
-  #entityNames = new Set<string>();
+  #entities = createEntityRegistry();
 
   constructor(primary: TPrimaryIndex, secondaryIndexMap: TSecondaryIndexMap) {
     this.primary = primary;
     this.secondaryIndexMap = secondaryIndexMap;
   }
 
-  #registerEntity = (entity: { name: string }) => {
-    if (this.#entityNames.has(entity.name)) {
-      throw new Error(
-        `Entity "${entity.name}" is already defined on this table`,
-      );
-    }
-    this.#entityNames.add(entity.name);
-  };
+  #indexKind(index: IndexDefinition): 'gsi' | 'lsi' {
+    return index.kind ?? (index.pk === this.primary.pk ? 'lsi' : 'gsi');
+  }
+
+  /** Returns the normalized logical storage contract for this table. */
+  snapshot(): TableSnapshot {
+    return createTableSnapshot({
+      adapter: 'dynamodb',
+      primaryIndex: this.primary,
+      secondaryIndexes: Object.entries(this.secondaryIndexMap).map(
+        ([name, index]) => ({
+          name,
+          kind: this.#indexKind(index),
+          pk: index.pk,
+          sk: index.sk,
+        }),
+      ),
+      entities: this.#entities.snapshotSources(),
+    });
+  }
 
   /**
    * Defines a keyed entity on this table from an ESchema.
@@ -142,7 +159,7 @@ export class DynamoTable<
   entity<TS extends AnyEntityESchema>(eschema: TS) {
     return DynamoEntity.make<DynamoTable<TPrimaryIndex, TSecondaryIndexMap>>(
       this,
-      this.#registerEntity,
+      this.#entities.register,
     ).eschema(eschema);
   }
 
@@ -156,7 +173,7 @@ export class DynamoTable<
   singleEntity<TS extends AnySingleEntityESchema>(eschema: TS) {
     return DynamoSingleEntity.make<
       DynamoTable<TPrimaryIndex, TSecondaryIndexMap>
-    >(this, this.#registerEntity).eschema(eschema);
+    >(this, this.#entities.register).eschema(eschema);
   }
 
   /**
@@ -780,11 +797,16 @@ export class DynamoTable<
    */
   getTableSchema(): Omit<CreateTableInput, 'TableName'> {
     const allSecondaryKeys = Object.entries(this.secondaryIndexMap).map(
-      ([IndexName, { pk, sk }]) => ({ IndexName, pk, sk }),
+      ([IndexName, index]) => ({
+        IndexName,
+        pk: index.pk,
+        sk: index.sk,
+        kind: this.#indexKind(index),
+      }),
     );
 
     const globalSecondaryIndexes = allSecondaryKeys
-      .filter((v) => v.pk !== this.primary.pk)
+      .filter((v) => v.kind === 'gsi')
       .map(({ IndexName, pk, sk }) => ({
         IndexName,
         KeySchema: [
@@ -795,7 +817,7 @@ export class DynamoTable<
       }));
 
     const localSecondaryIndexes = allSecondaryKeys
-      .filter((v) => v.pk === this.primary.pk)
+      .filter((v) => v.kind === 'lsi')
       .map(({ IndexName, sk }) => ({
         IndexName,
         KeySchema: [
@@ -861,7 +883,7 @@ class DynamoTableBuilder<
         Record<IndexName, { pk: TPrimaryIndex['pk']; sk: Sk }>
     >(this.#primary, {
       ...this.#secondaryIndexMap,
-      [name]: { pk: this.#primary.pk, sk },
+      [name]: { pk: this.#primary.pk, sk, kind: 'lsi' },
     } as TSecondaryIndexMap &
       Record<IndexName, { pk: TPrimaryIndex['pk']; sk: Sk }>);
   }
@@ -888,7 +910,7 @@ class DynamoTableBuilder<
       TSecondaryIndexMap & Record<IndexName, { pk: Pk; sk: Sk }>
     >(this.#primary, {
       ...this.#secondaryIndexMap,
-      [name]: { pk, sk },
+      [name]: { pk, sk, kind: 'gsi' },
     } as TSecondaryIndexMap & Record<IndexName, { pk: Pk; sk: Sk }>);
   }
 

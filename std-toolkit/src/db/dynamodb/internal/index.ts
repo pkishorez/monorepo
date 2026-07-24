@@ -8,7 +8,6 @@ export {
 export {
   toDiscriminatedGeneric,
   fromDiscriminatedGeneric,
-  stableStringify,
   sameValue,
   isConditionalCheckFailed,
   extractConditionFailureItem,

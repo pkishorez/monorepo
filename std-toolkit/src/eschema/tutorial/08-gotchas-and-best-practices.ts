@@ -8,8 +8,10 @@
 import { Effect, Schema } from 'effect';
 import { ESchema } from '../index.js';
 
-// --- 1. Prefer `Schema.NullOr` over `Schema.optional` ---------------------
+// --- 1. `Schema.NullOr`, never `Schema.optional` (enforced) ----------------
 // For an evolvable field, model "no value" as `null`, not as an absent key.
+// This is enforced at the type level: `Schema.optional`, `Schema.optionalKey`,
+// and any field admitting `undefined` are rejected by `make` and `evolve`.
 //
 // Why: a migration is a TOTAL function `(prev) => next`. If a field is optional
 // it may or may not be present in `prev`, so every migration that touches it has
@@ -17,7 +19,7 @@ import { ESchema } from '../index.js';
 // key is there, sometimes not). With `NullOr` the field is ALWAYS present and
 // always has a definite value — migrations stay total and the wire shape is
 // predictable. Add a field as nullable, default it to `null` in the migration.
-const Profile = ESchema.make({ name: Schema.String })
+const Profile = ESchema.make('Profile', { name: Schema.String })
   .evolve('v2', { bio: Schema.NullOr(Schema.String) }, (prev) => ({
     ...prev,
     bio: null, // explicit absence, not a missing key
@@ -33,7 +35,7 @@ console.log(
 // --- 2. Field names starting with `_` are reserved ------------------------
 // `_v` (and any `_`-prefixed key) belongs to the library. The type system
 // rejects them at `make`/`evolve`; this would not compile:
-//   ESchema.make({ _internal: Schema.String })  // type error
+//   ESchema.make('Bad', { _internal: Schema.String })  // type error
 
 // --- 3. v1 is forever. Never edit it once data exists ---------------------
 // Unstamped legacy rows decode AS v1 (lesson 3). If you change v1's fields, you

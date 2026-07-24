@@ -2,6 +2,8 @@ import type {
   DeltaSchema,
   Evolution,
   ForbidIdField,
+  ForbidOptionalFields,
+  ForbidUndefinedValue,
   ForbidUnderscorePrefix,
   IdSchema,
   MergeSchemas,
@@ -47,25 +49,31 @@ export class ESchemaBuilder<
   TLatest extends StructFieldsSchema,
 > {
   constructor(
+    private name: string,
     private evolutions: Evolution[],
     readonly version: TVersion,
   ) {}
 
   evolve<V extends NextVersion<TVersion>, D extends DeltaSchema>(
     version: V,
-    delta: D & ForbidUnderscorePrefix<D>,
+    delta: D & ForbidUnderscorePrefix<D> & ForbidOptionalFields<D>,
     migration: (
       prev: StructFieldsDecoded<TLatest>,
     ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
   ) {
     return new ESchemaBuilder<V, MergeSchemas<TLatest, D>>(
+      this.name,
       nextEvolutions(this.evolutions, version, delta, migration),
       version,
     );
   }
 
   build() {
-    return new ESchema<TVersion, TLatest>(this.version, this.evolutions);
+    return new ESchema<TVersion, TLatest>(
+      this.name,
+      this.version,
+      this.evolutions,
+    );
   }
 }
 
@@ -82,7 +90,7 @@ export class SingleEntityESchemaBuilder<
 
   evolve<V extends NextVersion<TVersion>, D extends DeltaSchema>(
     version: V,
-    delta: D & ForbidUnderscorePrefix<D>,
+    delta: D & ForbidUnderscorePrefix<D> & ForbidOptionalFields<D>,
     migration: (
       prev: StructFieldsDecoded<TLatest>,
     ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
@@ -119,7 +127,10 @@ export class EntityESchemaBuilder<
 
   evolve<V extends NextVersion<TVersion>, D extends DeltaSchema>(
     version: V,
-    delta: D & ForbidUnderscorePrefix<D> & ForbidIdField<D, TIdField>,
+    delta: D &
+      ForbidUnderscorePrefix<D> &
+      ForbidIdField<D, TIdField> &
+      ForbidOptionalFields<D>,
     migration: (
       prev: StructFieldsDecoded<TLatest>,
     ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
@@ -155,22 +166,28 @@ export class ValueESchemaBuilder<
   TLatest extends ValueSchema,
 > {
   constructor(
+    private name: string,
     private evolutions: ValueEvolution[],
     readonly version: TVersion,
   ) {}
 
   evolve<V extends NextVersion<TVersion>, S extends ValueSchema>(
     version: V,
-    schema: S,
+    schema: S & ForbidUndefinedValue<S>,
     migration: (prev: ValueSchemaDecoded<TLatest>) => ValueSchemaDecoded<S>,
   ) {
     return new ValueESchemaBuilder<V, S>(
+      this.name,
       nextValueEvolutions(this.evolutions, version, schema, migration),
       version,
     );
   }
 
   build() {
-    return new ValueESchema<TVersion, TLatest>(this.version, this.evolutions);
+    return new ValueESchema<TVersion, TLatest>(
+      this.name,
+      this.version,
+      this.evolutions,
+    );
   }
 }

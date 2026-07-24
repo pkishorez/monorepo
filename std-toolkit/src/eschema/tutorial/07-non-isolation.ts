@@ -22,20 +22,20 @@ import { Effect, Schema } from 'effect';
 import { ESchema, toSchema } from '../index.js';
 
 // --- Version A of the world: child has only v1 ----------------------------
-const ChildV1 = ESchema.make({ value: Schema.String }).build();
-const ParentA = ESchema.make({
+const ChildV1 = ESchema.make('Child', { value: Schema.String }).build();
+const ParentA = ESchema.make('Parent', {
   name: Schema.String,
-  child: toSchema(ChildV1, { name: 'Child' }),
+  child: toSchema(ChildV1),
 }).build();
 
 // --- Version B of the world: the SAME child, now evolved to v2 ------------
 // The parent definition is byte-for-byte identical; only the child changed.
-const ChildV2 = ESchema.make({ value: Schema.String })
+const ChildV2 = ESchema.make('Child', { value: Schema.String })
   .evolve('v2', { tag: Schema.String }, (prev) => ({ ...prev, tag: 'default' }))
   .build();
-const ParentB = ESchema.make({
+const ParentB = ESchema.make('Parent', {
   name: Schema.String,
-  child: toSchema(ChildV2, { name: 'Child' }),
+  child: toSchema(ChildV2),
 }).build();
 
 // The exact same stored row, parent still stamped v1, child still stamped v1.

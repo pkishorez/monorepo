@@ -1,0 +1,83 @@
+╭─ DATABASE CONTRACT CHANGED ────────────────────╮
+│ 2 safe                                         │
+╰────────────────────────────────────────────────╯
+
+┌────────┬───────────────────────────────────┬─────────┬─────────┐
+│ Status │ Change                            │ Before  │ After   │
+├────────┼───────────────────────────────────┼─────────┼─────────┤
+│ ✓ SAFE │ Removed entity index User/byEmail │ changed │ removed │
+│ ✓ SAFE │ Removed secondary index GSI1      │ changed │ removed │
+└────────┴───────────────────────────────────┴─────────┴─────────┘
+
+SAFE
+
+  Removed entity index User/byEmail
+  /entities/User/secondaryDerivations/byEmail
+
+  Before
+    ┌────────────────┬─────────┐
+    │ Field          │ Value   │
+    ├────────────────┼─────────┤
+    │ Name           │ byEmail │
+    │ Physical index │ GSI1    │
+    │ Partition key  │ email   │
+    │ Sort key       │ id      │
+    └────────────────┴─────────┘
+
+  Removed secondary index GSI1
+  /secondaryIndexes/GSI1
+
+  Before
+    ┌───────────────┬────────┐
+    │ Field         │ Value  │
+    ├───────────────┼────────┤
+    │ Name          │ GSI1   │
+    │ Kind          │ gsi    │
+    │ Partition key │ gsi1pk │
+    │ Sort key      │ gsi1sk │
+    └───────────────┴────────┘
+
+╭─ DATABASE CONTRACT ────────────────────────────╮
+│ Table: dynamodb                                │
+╰────────────────────────────────────────────────╯
+
+PRIMARY INDEX
+
+┌───────────────┬───────────┐
+│ Key           │ Attribute │
+├───────────────┼───────────┤
+│ Partition key │ pk        │
+│ Sort key      │ sk        │
+└───────────────┴───────────┘
+
+SECONDARY INDEXES
+
+None
+
+ENTITIES
+
+┌──────┬───────┬────────┬──────────┬────────────┬────────────┐
+│ Name │ Kind  │ Schema │ Identity │ Primary PK │ Primary SK │
+├──────┼───────┼────────┼──────────┼────────────┼────────────┤
+│ User │ keyed │ User   │ id       │ email      │ id         │
+└──────┴───────┴────────┴──────────┴────────────┴────────────┘
+
+SCHEMAS
+
+User · entity · identity: id
+└─ v1
+   ├─ encoded
+   │  ├─ _v: "v1"
+   │  ├─ email: string
+   │  ├─ id: string
+   │  └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+   └─ decoded
+      ├─ email: string
+      ├─ id: string
+      └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+
+Snapshot was not updated.
+
+Review the changes, then approve them with:
+
+  std-toolkit snapshot -u

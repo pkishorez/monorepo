@@ -17,20 +17,28 @@ npm install @tanstack/react-db react   # required by tanstack-sync
 
 ## Subpaths
 
-| Subpath                                                    | Description                                                                          |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`std-toolkit/core`](src/core/README.md)                   | Shared primitives: `EntitySchema`, `MetaSchema`, `Broadcaster`, `StdToolkitError`    |
-| [`std-toolkit/eschema`](src/eschema/README.md)             | Versioned, self-migrating schemas built on Effect Schema; includes the `eschema` CLI |
-| [`std-toolkit/dynamodb`](src/db/dynamodb/README.md)        | DynamoDB table/entity services, expression builders, marshall utilities              |
-| [`std-toolkit/sqlite`](src/db/sqlite/README.md)            | SQLite table/entity services with runtime adapters for multiple environments         |
-| [`std-toolkit/tanstack-sync`](src/tanstack-sync/README.md) | TanStack DB sync engine with paced writes and IndexedDB offline storage              |
-
-## Bin
-
-```sh
-npx eschema          # schema evolution CLI (see std-toolkit/eschema)
-```
+| Subpath                                                                     | Description                                                                       |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [`std-toolkit/core`](src/core/README.md)                                    | Shared primitives: `EntitySchema`, `MetaSchema`, `Broadcaster`, `StdToolkitError` |
+| [`std-toolkit/eschema`](src/eschema/README.md)                              | Versioned, self-migrating schemas built on Effect Schema                          |
+| [`std-toolkit/snapshot`](src/eschema/README.md#semantic-contract-snapshots) | Semantic contract decoding, inspection, comparison, and rendering                 |
+| [`std-toolkit/dynamodb`](src/db/dynamodb/README.md)                         | DynamoDB table/entity services, expression builders, marshall utilities           |
+| [`std-toolkit/sqlite`](src/db/sqlite/README.md)                             | SQLite table/entity services with runtime adapters for multiple environments      |
+| [`std-toolkit/tanstack-sync`](src/tanstack-sync/README.md)                  | TanStack DB sync engine with paced writes and IndexedDB offline storage           |
 
 ## Requirements
 
 Node ≥ 24
+
+## Contract snapshots
+
+Default-export a schema or table snapshot from `std-toolkit.snapshot.ts`, then
+approve and verify the committed `std-toolkit.snapshot.json` baseline:
+
+```sh
+std-toolkit snapshot -u
+std-toolkit snapshot
+```
+
+The verification command exits with status 1 when the declared storage
+contract drifts, making the same command suitable for GitHub Actions.

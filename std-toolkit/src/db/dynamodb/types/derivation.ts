@@ -6,6 +6,8 @@ export interface IndexDefinition {
   pk: string;
   /** Sort key attribute name */
   sk: string;
+  /** Physical index type; set by the table builder, absent on the primary index */
+  kind?: 'gsi' | 'lsi';
 }
 
 /**

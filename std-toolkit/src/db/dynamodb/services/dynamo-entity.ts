@@ -38,6 +38,11 @@ import {
   type AnyOperation,
 } from '../expr/update.js';
 import type { SortKeyparameter } from '../expr/key-condition.js';
+import type { TableEntitySnapshotSource } from '../../../snapshot/index.js';
+import {
+  tableSnapshotSource,
+  keyedSnapshotSource,
+} from '../../../snapshot/internal/table-snapshot.js';
 
 /**
  * Schema for entity metadata stored with each item.
@@ -310,6 +315,15 @@ export class DynamoEntity<
    */
   get name(): TSchema['name'] {
     return this.#eschema.name;
+  }
+
+  [tableSnapshotSource](): TableEntitySnapshotSource {
+    return keyedSnapshotSource(
+      this.#eschema,
+      this.#primaryDerivation,
+      this.#secondaryDerivations,
+      (derivation) => derivation.gsiName,
+    );
   }
 
   /**

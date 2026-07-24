@@ -168,9 +168,6 @@ catalogs:
     jiti:
       specifier: 2.7.0
       version: 2.7.0
-    kleur:
-      specifier: 4.1.5
-      version: 4.1.5
     lucide-react:
       specifier: 1.24.0
       version: 1.24.0
@@ -688,9 +685,6 @@ importers:
 
   std-toolkit:
     dependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.11.1(supports-color@10.2.2))
       '@standard-schema/spec':
         specifier: 'catalog:'
         version: 1.1.0
@@ -700,9 +694,9 @@ importers:
       idb:
         specifier: 'catalog:'
         version: 8.0.3
-      kleur:
+      jiti:
         specifier: 'catalog:'
-        version: 4.1.5
+        version: 2.7.0
       type-fest:
         specifier: 'catalog:'
         version: 5.8.0
@@ -713,6 +707,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20260717.1
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.11.1(supports-color@10.2.2))
       '@tanstack/query-db-collection':
         specifier: 'catalog:'
         version: 1.1.0(@tanstack/query-core@5.101.2)(typescript@7.0.2)

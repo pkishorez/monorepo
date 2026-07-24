@@ -11,6 +11,9 @@ import type {
   IdSchema,
   ESchemaDescriptor,
   Evolution,
+  ForbidEmptyName,
+  ForbidOptionalFields,
+  ForbidUndefinedValue,
   ForbidUnderscorePrefix,
   ForbidIdField,
   Prettify,
@@ -31,6 +34,15 @@ import {
   EntityESchemaBuilder,
   ValueESchemaBuilder,
 } from './internal/builders.js';
+import { registerComposition } from '../snapshot/internal/composition-metadata.js';
+import { snapshotESchema } from '../snapshot/internal/eschema-snapshot.js';
+import type { ESchemaDefinition, ESchemaSnapshot } from '../snapshot/model.js';
+
+function assertName(name: string): void {
+  if (name === '') {
+    throw new Error('Schema name must not be empty.');
+  }
+}
 
 function hasVersionStamp(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && '_v' in value;
@@ -50,9 +62,25 @@ export class ESchema<
   TLatest extends StructFieldsSchema,
 > implements StandardSchemaV1<unknown, Prettify<StructFieldsDecoded<TLatest>>> {
   constructor(
+    readonly name: string,
     readonly latestVersion: TVersion,
     private evolutions: Evolution[] = [],
   ) {}
+
+  readonly __snapshotKind: ESchemaDefinition['kind'] = 'struct';
+
+  /** Returns a semantic snapshot of the complete ESchema history. */
+  snapshot(): ESchemaSnapshot {
+    return snapshotESchema(this, this.name);
+  }
+
+  /** @internal */
+  __snapshotEvolutions() {
+    return this.evolutions.map(({ version, schema }) => ({
+      version,
+      schema: struct(schema),
+    }));
+  }
 
   makePartial(value: Partial<StructFieldsDecoded<TLatest>>) {
     return { ...value, _v: this.latestVersion };
@@ -175,10 +203,13 @@ export class ESchema<
 }
 
 export namespace ESchema {
-  export function make<I extends StructFieldsSchema>(
-    schema: I & ForbidUnderscorePrefix<I>,
+  export function make<N extends string, I extends StructFieldsSchema>(
+    name: N & ForbidEmptyName<N>,
+    schema: I & ForbidUnderscorePrefix<I> & ForbidOptionalFields<I>,
   ) {
+    assertName(name);
     return new ESchemaBuilder<'v1', I>(
+      name,
       [{ version: INITIAL_VERSION, schema, migration: null }],
       INITIAL_VERSION,
     );
@@ -190,6 +221,7 @@ const ESchemaBase: new <
   TVersion extends string,
   TLatest extends StructFieldsSchema,
 >(
+  name: string,
   latestVersion: TVersion,
   evolutions?: Evolution[],
 ) => ESchema<TVersion, TLatest> = ESchema;
@@ -199,20 +231,16 @@ export class SingleEntityESchema<
   TVersion extends string,
   TLatest extends StructFieldsSchema,
 > extends ESchemaBase<TVersion, TLatest> {
-  constructor(
-    readonly name: TName,
-    latestVersion: TVersion,
-    evolutions: Evolution[] = [],
-  ) {
-    super(latestVersion, evolutions);
-  }
+  override readonly __snapshotKind = 'single-entity' as const;
+  declare readonly name: TName;
 }
 
 export namespace SingleEntityESchema {
   export function make<N extends string, I extends StructFieldsSchema>(
-    name: N,
-    schema: I & ForbidUnderscorePrefix<I>,
+    name: N & ForbidEmptyName<N>,
+    schema: I & ForbidUnderscorePrefix<I> & ForbidOptionalFields<I>,
   ) {
+    assertName(name);
     return new SingleEntityESchemaBuilder<N, 'v1', I>(
       name,
       [{ version: INITIAL_VERSION, schema, migration: null }],
@@ -227,13 +255,15 @@ export class EntityESchema<
   TVersion extends string,
   TLatest extends StructFieldsSchema,
 > extends ESchemaBase<TVersion, TLatest> {
+  override readonly __snapshotKind = 'entity' as const;
+  declare readonly name: TName;
   constructor(
-    readonly name: TName,
+    name: TName,
     readonly idField: TIdField,
     latestVersion: TVersion,
     evolutions: Evolution[] = [],
   ) {
-    super(latestVersion, evolutions);
+    super(name, latestVersion, evolutions);
   }
 }
 
@@ -243,10 +273,14 @@ export namespace EntityESchema {
     Id extends string,
     I extends StructFieldsSchema,
   >(
-    name: N,
+    name: N & ForbidEmptyName<N>,
     idField: Id,
-    schema: I & ForbidUnderscorePrefix<I> & ForbidIdField<I, Id>,
+    schema: I &
+      ForbidUnderscorePrefix<I> &
+      ForbidIdField<I, Id> &
+      ForbidOptionalFields<I>,
   ) {
+    assertName(name);
     const idSchema = Schema.String as IdSchema;
     const schemaWithId = { ...schema, [idField]: idSchema } as I &
       Record<Id, IdSchema>;
@@ -266,9 +300,22 @@ export class ValueESchema<
   TLatest extends ValueSchema,
 > implements StandardSchemaV1<unknown, ValueSchemaDecoded<TLatest>> {
   constructor(
+    readonly name: string,
     readonly latestVersion: TVersion,
     private evolutions: ValueEvolution[] = [],
   ) {}
+
+  readonly __snapshotKind = 'value' as const;
+
+  /** Returns a semantic snapshot of the complete ESchema history. */
+  snapshot(): ESchemaSnapshot {
+    return snapshotESchema(this, this.name);
+  }
+
+  /** @internal */
+  __snapshotEvolutions() {
+    return this.evolutions.map(({ version, schema }) => ({ version, schema }));
+  }
 
   Type = null as unknown as ValueSchemaDecoded<TLatest>;
   Encoded = null as unknown as ValueEnvelopeEncoded<TVersion, TLatest>;
@@ -382,33 +429,27 @@ export class ValueESchema<
 }
 
 export namespace ValueESchema {
-  export function make<S extends ValueSchema>(schema: S) {
+  export function make<N extends string, S extends ValueSchema>(
+    name: N & ForbidEmptyName<N>,
+    schema: S & ForbidUndefinedValue<S>,
+  ) {
+    assertName(name);
     return new ValueESchemaBuilder<'v1', S>(
+      name,
       [{ version: INITIAL_VERSION, schema, migration: null }],
       INITIAL_VERSION,
     );
   }
 }
 
-export interface ToSchemaOptions {
-  /**
-   * Identifier to use for the resulting schema (drives the OpenAPI / JSON
-   * Schema `$defs` key). Takes precedence over the eschema's own `name`. An
-   * explicit name is required whenever the eschema is anonymous.
-   */
-  readonly name?: string;
-}
-
 export function toSchema<V extends string, L extends StructFieldsSchema>(
   eschema: ESchema<V, L>,
-  options?: ToSchemaOptions,
 ): Schema.Codec<
   StructFieldsDecoded<L>,
   StructFieldsEncoded<L> & { readonly _v: string }
 >;
 export function toSchema<V extends string, L extends ValueSchema>(
   eschema: ValueESchema<V, L>,
-  options?: ToSchemaOptions,
 ): Schema.Codec<
   ValueSchemaDecoded<L>,
   { readonly _v: string; readonly value: ValueSchemaEncoded<L> }
@@ -417,18 +458,9 @@ export function toSchema(
   eschema:
     | ESchema<string, StructFieldsSchema>
     | ValueESchema<string, ValueSchema>,
-  options?: ToSchemaOptions,
 ): any {
   const isValue = eschema instanceof ValueESchema;
-  const name = options?.name ?? (eschema as { name?: string }).name;
-  if (name === undefined || name === '') {
-    const kind = isValue ? 'ValueESchema' : 'ESchema';
-    throw new Error(
-      `toSchema: cannot derive an identifier from an anonymous ${kind}. ` +
-        `Build it with a name (e.g. SingleEntityESchema.make / EntityESchema.make) ` +
-        `or pass one explicitly: toSchema(schema, { name: 'MyName' }).`,
-    );
-  }
+  const name = eschema.name;
   const identifier = isValue ? `ValueESchema(${name})` : `ESchema(${name})`;
   const toIssue = (input: unknown, err: ESchemaError) =>
     new SchemaIssue.InvalidValue(Option.some(input), { message: err.message });
@@ -441,8 +473,8 @@ export function toSchema(
           encode: SchemaGetter.passthrough({ strict: false }),
         }),
     },
-  );
-  return surrogate
+  ).annotate({ snapshotESchemaIdentity: name });
+  const composed = surrogate
     .pipe(
       Schema.decodeTo(Schema.Unknown, {
         decode: SchemaGetter.transformOrFail((input: unknown) =>
@@ -458,4 +490,12 @@ export function toSchema(
       }),
     )
     .annotate({ identifier });
+  const link = composed.ast.encoding?.[0];
+  if (link !== undefined && link.transformation._tag === 'Transformation') {
+    registerComposition(composed.ast, link.to, link.transformation, {
+      eschema,
+      identity: name,
+    });
+  }
+  return composed;
 }

@@ -8,6 +8,11 @@ import type {
 import { Broadcaster, nextUlid, type EntityType } from '../../../core/index.js';
 import { IdbEntity, type IdbEntityOp } from './idb-entity.js';
 import { IdbSingleEntity } from './idb-single-entity.js';
+import type { TableSnapshot } from '../../../snapshot/index.js';
+import {
+  createEntityRegistry,
+  createTableSnapshot,
+} from '../../../snapshot/internal/table-snapshot.js';
 
 /**
  * Defines the structure of a primary or secondary index.
@@ -311,18 +316,27 @@ function withEntityDefinitions<
   TPrimaryIndex extends IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition>,
 >(base: IdbTableInstance<TPrimaryIndex, TSecondaryIndexMap>) {
-  const entityNames = new Set<string>();
-  const register = (entity: { name: string }) => {
-    if (entityNames.has(entity.name)) {
-      throw new Error(
-        `Entity "${entity.name}" is already defined on this table`,
-      );
-    }
-    entityNames.add(entity.name);
-  };
+  const { register, snapshotSources } = createEntityRegistry();
 
   return {
     ...base,
+
+    /** Returns the normalized logical storage contract for this table. */
+    snapshot(): TableSnapshot {
+      return createTableSnapshot({
+        adapter: 'idb',
+        primaryIndex: base.primary,
+        secondaryIndexes: Object.entries(base.secondaryIndexMap).map(
+          ([name, index]) => ({
+            name,
+            kind: 'sparse',
+            pk: index.pk,
+            sk: index.sk,
+          }),
+        ),
+        entities: snapshotSources(),
+      });
+    },
 
     /**
      * Defines a keyed entity on this table from an ESchema.

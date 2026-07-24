@@ -17,15 +17,15 @@ describe('ESchema', () => {
       description:
         'The four ESchema variants express whether data has an identity, a type name, or an object shape.',
       documentation: capabilityDocumentation(
-        'All ESchema variants share versioned encoding, decoding, and evolution. The variants exist because storage and composition need different facts. `ESchema` describes an anonymous object value. `EntityESchema` adds a type name and an identity field for keyed collections. `SingleEntityESchema` adds a type name but no identity because exactly one value exists. `ValueESchema` versions a scalar or other non-object value.',
-        'Choose the narrowest variant that states the domain truth. A user in a collection is an entity because many users are distinguished by `userId`. Application settings are a single entity because the name identifies the only record. An address nested inside another object needs neither storage identity nor a global type name. A status string is a value schema because inventing an object wrapper would add no meaning.',
+        'All ESchema variants share versioned encoding, decoding, evolution, and a stable snapshot name. The variants exist because storage and composition need different facts. `ESchema` describes an object value. `EntityESchema` adds an identity field for keyed collections. `SingleEntityESchema` represents exactly one stored object. `ValueESchema` versions a scalar or other non-object value.',
+        'Choose the narrowest variant that states the domain truth. A user in a collection is an entity because many users are distinguished by `userId`. Application settings are a single entity because the name identifies the only record. An address nested inside another object needs no storage identity. A status string is a value schema because inventing an object wrapper would add no meaning.',
         `
 const User = EntityESchema.make('User', 'userId', userFields).build()
 const Settings = SingleEntityESchema.make('Settings', settingsFields).build()
-const Address = ESchema.make(addressFields).build()
-const Status = ValueESchema.make(Schema.Literals(['active', 'inactive'])).build()
+const Address = ESchema.make('Address', addressFields).build()
+const Status = ValueESchema.make('Status', Schema.Literals(['active', 'inactive'])).build()
         `,
-        'The chosen variant affects descriptors and storage integration, not the migration rules. Every variant writes `_v`; named variants expose `name`; only an entity exposes `idField`; and a value schema stores its value inside a versioned envelope.',
+        'The chosen variant affects descriptors and storage integration, not the migration rules. Every variant writes `_v` and exposes `name`; only an entity exposes `idField`; and a value schema stores its value inside a versioned envelope.',
       ),
     },
     () => {
@@ -37,7 +37,7 @@ const Status = ValueESchema.make(Schema.Literals(['active', 'inactive'])).build(
         },
         ({ expect, trace }) =>
           Effect.gen(function* () {
-            const addressSchema = ESchema.make({
+            const addressSchema = ESchema.make('Address', {
               street: Schema.String,
               city: Schema.String,
             }).build();
@@ -122,6 +122,7 @@ const Status = ValueESchema.make(Schema.Literals(['active', 'inactive'])).build(
         ({ expect, trace }) =>
           Effect.gen(function* () {
             const schema = ValueESchema.make(
+              'Density',
               Schema.Literals(['compact', 'comfortable']),
             ).build();
 
@@ -142,7 +143,10 @@ const Status = ValueESchema.make(Schema.Literals(['active', 'inactive'])).build(
         },
         ({ expect, trace }) =>
           Effect.gen(function* () {
-            const schema = ValueESchema.make(Schema.Boolean)
+            const schema = ValueESchema.make(
+              'FeaturePreference',
+              Schema.Boolean,
+            )
               .evolve(
                 'v2',
                 Schema.Literals(['enabled', 'disabled']),

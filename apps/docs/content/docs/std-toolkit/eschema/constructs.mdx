@@ -9,7 +9,7 @@ That's why eschema ships four constructs. They share the same `make → evolve �
 
 | You're versioning                        | Use                   |
 | ---------------------------------------- | --------------------- |
-| An object with named fields, no identity | `ESchema`             |
+| An object with named fields, not stored alone | `ESchema`        |
 | A single value (enum / scalar / union)   | `ValueESchema`        |
 | A named singleton object                 | `SingleEntityESchema` |
 | A keyed entity (name + per-row id)       | `EntityESchema`       |
@@ -65,12 +65,12 @@ Same builder, same folding, `name` but no `idField`.
 
 ## `ESchema` — just the shape
 
-The plain `ESchema` from the previous page carries no identity at all. Reach for it when the versioned thing never stands alone in storage — a nested fragment of a larger entity, a config blob, a payload inside something else:
+The plain `ESchema` from the previous page carries a name but no storage identity — no id field, no entity tag. Reach for it when the versioned thing never stands alone in storage — a nested fragment of a larger entity, a config blob, a payload inside something else:
 
 ```ts
 import { ESchema } from 'std-toolkit/eschema';
 
-const Attachment = ESchema.make({
+const Attachment = ESchema.make('Attachment', {
   url: Schema.String,
   mimeType: Schema.String,
 }).build();
@@ -86,7 +86,10 @@ Not everything is an object. The kind of a message — text, image — is one va
 import { Schema } from 'effect';
 import { ValueESchema } from 'std-toolkit/eschema';
 
-export const MessageKind = ValueESchema.make(Schema.Literals(['text', 'image']))
+export const MessageKind = ValueESchema.make(
+  'MessageKind',
+  Schema.Literals(['text', 'image']),
+)
   .evolve(
     'v2',
     Schema.Literals(['text', 'image', 'system']),
@@ -118,8 +121,8 @@ import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 export const Message = EntityESchema.make('Message', 'messageId', {
   channelId: Schema.String,
   body: Schema.String,
-  kind: toSchema(MessageKind, { name: 'MessageKind' }),
-  attachments: Schema.Array(toSchema(Attachment, { name: 'Attachment' })),
+  kind: toSchema(MessageKind),
+  attachments: Schema.Array(toSchema(Attachment)),
 }).build();
 ```
 
@@ -140,7 +143,7 @@ Encode that and every level stamps its own version:
 
 Each nested value decodes through its **own** chain, independently of the parent — two attachments in one array can even be stamped at different versions and both fold forward correctly. That independence is powerful and has one consequence you must respect: evolving a nested schema changes what its parents decode to, even though the parents' versions never moved. [Best practices](/docs/std-toolkit/eschema/best-practices#nesting-is-not-isolated) covers how to live with that.
 
-One requirement: `toSchema` needs a name for the resulting schema (it drives the identifier in generated JSON Schema / OpenAPI docs). Named constructs bring their own; an anonymous `ESchema` or `ValueESchema` must be given one via `{ name: '…' }`, or `toSchema` throws at build time.
+The schema's name — every construct requires one in `make` — does double duty here: it drives the identifier in generated JSON Schema / OpenAPI docs, and it is the schema's identity in [contract snapshots](/docs/std-toolkit/eschema/cli). Keep names unique across schemas you compose together; two different schemas sharing a name will collide at snapshot time.
 
 ## The small supporting exports
 

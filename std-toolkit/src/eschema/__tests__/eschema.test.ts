@@ -16,7 +16,9 @@ moreCoverageDomain('ESchema', () => {
     describe('Make', () => {
       itEffect('creates a v1 schema and encodes with version', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ name: Schema.String }).build();
+          const schema = ESchema.make('User', {
+            name: Schema.String,
+          }).build();
 
           const encoded = yield* schema.encode({ name: 'Alice' });
           expect(encoded).toEqual({ _v: 'v1', name: 'Alice' });
@@ -25,7 +27,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('decodes v1 data', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({
+          const schema = ESchema.make('Counter', {
             name: Schema.String,
             count: StringToNumber,
           }).build();
@@ -41,7 +43,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('defaults to latest version when _v is missing', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ a: Schema.String }).build();
+          const schema = ESchema.make('Doc', { a: Schema.String }).build();
 
           const decoded = yield* schema.decode({ a: 'hello' });
           expect(decoded).toEqual({ a: 'hello' });
@@ -50,7 +52,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('fails on unknown version', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ a: Schema.String }).build();
+          const schema = ESchema.make('Doc', { a: Schema.String }).build();
 
           const error = yield* Effect.flip(
             schema.decode({ _v: 'v99', a: 'hello' }),
@@ -64,7 +66,7 @@ moreCoverageDomain('ESchema', () => {
     describe('Evolve', () => {
       itEffect('migrates v1 → v2', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ a: Schema.String })
+          const schema = ESchema.make('Item', { a: Schema.String })
             .evolve('v2', { b: Schema.Number }, (v) => ({ ...v, b: 42 }))
             .build();
 
@@ -75,7 +77,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('chains v1 → v2 → v3', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({ a: Schema.String })
+          const schema = ESchema.make('Item', { a: Schema.String })
             .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: 'added' }))
             .evolve('v3', { c: Schema.Number }, (v) => ({ ...v, c: 0 }))
             .build();
@@ -98,7 +100,7 @@ moreCoverageDomain('ESchema', () => {
 
       itEffect('handles field removal', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({
+          const schema = ESchema.make('Item', {
             a: Schema.String,
             b: Schema.String,
           })
@@ -117,7 +119,7 @@ moreCoverageDomain('ESchema', () => {
 
     describe('Views', () => {
       it('fields returns the latest schema fields', () => {
-        const schema = ESchema.make({
+        const schema = ESchema.make('Pair', {
           a: Schema.String,
           b: Schema.Number,
         }).build();
@@ -125,12 +127,12 @@ moreCoverageDomain('ESchema', () => {
       });
 
       it('schema returns an Effect Schema.Struct', () => {
-        const schema = ESchema.make({ a: Schema.String }).build();
+        const schema = ESchema.make('Doc', { a: Schema.String }).build();
         expect(Object.keys(schema.schema.fields)).toEqual(['a']);
       });
 
       it('makePartial attaches version', () => {
-        const schema = ESchema.make({
+        const schema = ESchema.make('Pair', {
           a: Schema.String,
           b: Schema.Number,
         }).build();
@@ -142,7 +144,7 @@ moreCoverageDomain('ESchema', () => {
     describe('Roundtrip', () => {
       itEffect('encode → decode preserves data', () =>
         Effect.gen(function* () {
-          const schema = ESchema.make({
+          const schema = ESchema.make('Counter', {
             name: Schema.String,
             count: StringToNumber,
           }).build();
@@ -156,7 +158,7 @@ moreCoverageDomain('ESchema', () => {
 
     describe('Get descriptor', () => {
       it('returns JSON Schema with version literal', () => {
-        const schema = ESchema.make({ a: Schema.String }).build();
+        const schema = ESchema.make('Doc', { a: Schema.String }).build();
         const descriptor = schema.getDescriptor();
 
         expect(descriptor.type).toBe('object');

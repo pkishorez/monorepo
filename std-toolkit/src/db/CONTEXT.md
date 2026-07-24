@@ -27,6 +27,14 @@ The structure naming the pk and sk attributes/columns for an index.
 The single-table topology object. **Entity services** are defined from it and it coordinates cross-entity concerns (setup, transactions). Holds its entities internally; there is no name-based entity lookup — callers keep the references returned at definition time.
 _Avoid_: EntityRegistry (retired term — the Table absorbed its role), EntityManager, store registry.
 
+**Table snapshot**:
+A structured, serializable description of the complete logical storage contract: physical index topology, every registered entity's eschema history, and every entity's index derivations. It excludes runtime values such as singleton defaults and may be rendered as stable human-readable text.
+_Avoid_: Database dump, physical schema snapshot.
+
+**Snapshot change**:
+One difference between two **Table snapshots**, classified independently as `safe`, `requires-backfill`, `breaking`, or `unverifiable`. These mean no existing-data work, existing records must be rewritten, existing records may become unreadable or unreachable, or safety cannot be determined; a comparison has no single overall verdict.
+_Avoid_: Overall status, snapshot result.
+
 **Entity service**:
 The per-entity CRUD surface over the table — `DynamoEntity` / `SQLiteEntity` for keyed entities, `DynamoSingleEntity` / `SQLiteSingleEntity` for singletons. Each adapter names its own pair.
 

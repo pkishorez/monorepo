@@ -26,6 +26,11 @@ import {
   type AnyOperation,
 } from '../expr/update.js';
 import type { TransactItem } from '../types/index.js';
+import type { TableEntitySnapshotSource } from '../../../snapshot/index.js';
+import {
+  tableSnapshotSource,
+  singletonSnapshotSource,
+} from '../../../snapshot/internal/table-snapshot.js';
 
 /**
  * Schema for single entity metadata stored with each item.
@@ -131,6 +136,10 @@ export class DynamoSingleEntity<
    */
   get name(): TSchema['name'] {
     return this.#eschema.name;
+  }
+
+  [tableSnapshotSource](): TableEntitySnapshotSource {
+    return singletonSnapshotSource(this.#eschema);
   }
 
   #derivePrimaryKey(): string {

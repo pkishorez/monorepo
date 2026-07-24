@@ -17,7 +17,7 @@
 import { Effect, Schema } from 'effect';
 import { ESchema } from '../index.js';
 
-const User = ESchema.make({
+const User = ESchema.make('User', {
   name: Schema.String,
 })
   // v2 adds `email`. Old rows had no email, so the migration supplies one.

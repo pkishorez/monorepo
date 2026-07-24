@@ -17,6 +17,7 @@ import { ... } from 'std-toolkit/sqlite/adapters/do';             // Cloudflare 
 **Services**
 
 - `SQLiteTable` — the single-table topology; entities are defined from it via `table.entity(eschema)` / `table.singleEntity(eschema)` and it coordinates `setup()` and `transact()`
+- `table.snapshot()` — synchronously captures the table's logical topology, registered entities, ESchema histories, and index derivations without connecting to SQLite. See the [shared snapshot workflow](../../eschema/README.md#semantic-contract-snapshots).
 
 **Transactions**
 

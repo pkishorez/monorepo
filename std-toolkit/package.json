@@ -19,6 +19,9 @@
   },
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "std-toolkit": "bin/std-toolkit.mjs"
+  },
   "exports": {
     "./core": {
       "types": "./dist/core/index.d.ts",
@@ -31,6 +34,10 @@
     "./eschema/*": {
       "types": "./dist/eschema/*",
       "import": "./dist/eschema/*"
+    },
+    "./snapshot": {
+      "types": "./dist/snapshot/index.d.ts",
+      "default": "./dist/snapshot/index.js"
     },
     "./dynamodb": {
       "types": "./dist/db/dynamodb/index.d.ts",
@@ -81,10 +88,8 @@
       "default": "./dist/tanstack-sync/offline-storage/adapters/idb/index.js"
     }
   },
-  "bin": {
-    "eschema": "dist/eschema/cli/main.js"
-  },
   "files": [
+    "bin",
     "dist",
     "src",
     "README.md",
@@ -104,15 +109,15 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@effect/platform-node": "catalog:",
     "@standard-schema/spec": "catalog:",
     "aws4fetch": "catalog:",
     "idb": "catalog:",
-    "kleur": "catalog:",
+    "jiti": "catalog:",
     "type-fest": "catalog:",
     "ulidx": "catalog:"
   },
   "devDependencies": {
+    "@effect/platform-node": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@tanstack/query-db-collection": "catalog:",
     "@tanstack/react-db": "catalog:",

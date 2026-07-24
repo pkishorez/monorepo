@@ -6,9 +6,9 @@ import {
   type AnyESchema,
 } from './index.js';
 
-// ─── ESchema (pure schema, no identity) ─────────────────────────────────────
+// ─── ESchema (named plain schema, not an entity) ────────────────────────────
 
-const AppConfig = ESchema.make({
+const AppConfig = ESchema.make('AppConfig', {
   theme: Schema.String,
   maxRetries: Schema.Number,
 }).build();

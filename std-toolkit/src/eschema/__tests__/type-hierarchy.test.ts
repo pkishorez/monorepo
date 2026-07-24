@@ -26,7 +26,7 @@ function acceptsEntity(schema: AnyEntityESchema) {
   return schema.idField;
 }
 
-const base = ESchema.make({ a: Schema.String }).build();
+const base = ESchema.make('Base', { a: Schema.String }).build();
 const single = SingleEntityESchema.make('Config', {
   a: Schema.String,
 }).build();
@@ -52,11 +52,6 @@ moreCoverageDomain('ESchema', () => {
         expect(descriptor.type).toBe('object');
       });
 
-      it('EntityESchema is accepted where AnySingleEntityESchema is expected', () => {
-        const name = acceptsSingleEntity(entity);
-        expect(name).toBe('User');
-      });
-
       it('EntityESchema is accepted where AnyEntityESchema is expected', () => {
         const idField = acceptsEntity(entity);
         expect(idField).toBe('id');
@@ -69,8 +64,13 @@ moreCoverageDomain('ESchema', () => {
 
       // Type-level: these should NOT compile (verified by @ts-expect-error)
       it('ESchema is NOT assignable to AnySingleEntityESchema', () => {
-        // @ts-expect-error — base ESchema has no `name` property
+        // @ts-expect-error — base ESchema's __snapshotKind is not 'single-entity'
         acceptsSingleEntity(base);
+      });
+
+      it('EntityESchema is NOT assignable to AnySingleEntityESchema', () => {
+        // @ts-expect-error — a keyed entity is not a singleton
+        acceptsSingleEntity(entity);
       });
 
       it('ESchema is NOT assignable to AnyEntityESchema', () => {

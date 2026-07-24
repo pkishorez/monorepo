@@ -17,7 +17,7 @@ moreCoverageDomain('ESchema', () => {
           Effect.gen(function* () {
             // A schema that was a plain { name } struct before adoption,
             // then wrapped as an ESchema and evolved twice.
-            const User = ESchema.make({ name: Schema.String })
+            const User = ESchema.make('User', { name: Schema.String })
               .evolve(
                 'v2',
                 { name: Schema.String, email: Schema.String },
@@ -50,7 +50,7 @@ moreCoverageDomain('ESchema', () => {
 
         itEffect('unstamped that does not match v1 fails loudly', () =>
           Effect.gen(function* () {
-            const User = ESchema.make({ name: Schema.String })
+            const User = ESchema.make('User', { name: Schema.String })
               .evolve(
                 'v2',
                 { name: Schema.String, age: Schema.Number },
@@ -71,7 +71,9 @@ moreCoverageDomain('ESchema', () => {
           'no-op until evolved: unstamped == latest on a v1-only schema',
           () =>
             Effect.gen(function* () {
-              const User = ESchema.make({ name: Schema.String }).build();
+              const User = ESchema.make('User', {
+                name: Schema.String,
+              }).build();
 
               const decoded = yield* User.decode({ name: 'Bob' });
               expect(decoded).toEqual({ name: 'Bob' });
@@ -82,7 +84,7 @@ moreCoverageDomain('ESchema', () => {
       describe('adoption under composition', () => {
         // Address was a plain nested struct before being wrapped as an evolving
         // schema and evolved to add a `country` field.
-        const Address = ESchema.make({
+        const Address = ESchema.make('Address', {
           street: Schema.String,
           city: Schema.String,
         })
@@ -105,7 +107,7 @@ moreCoverageDomain('ESchema', () => {
               // later: old orders carry an unstamped nested address.
               const Order = EntityESchema.make('Order', 'id', {
                 customer: Schema.String,
-                shippingAddress: toSchema(Address, { name: 'Address' }),
+                shippingAddress: toSchema(Address),
               }).build();
 
               const decoded = yield* Order.decode({
@@ -134,7 +136,7 @@ moreCoverageDomain('ESchema', () => {
               // The parent itself is a single-version (v1) schema and was never
               // evolved, yet decoding folds the nested address to its latest shape.
               const Order = EntityESchema.make('Order', 'id', {
-                shippingAddress: toSchema(Address, { name: 'Address' }),
+                shippingAddress: toSchema(Address),
               }).build();
 
               const decoded = yield* Order.decode({
@@ -158,13 +160,13 @@ moreCoverageDomain('ESchema', () => {
             Effect.gen(function* () {
               const Order = EntityESchema.make('Order', 'id', {
                 customer: Schema.String,
-                shippingAddress: toSchema(Address, { name: 'Address' }),
+                shippingAddress: toSchema(Address),
               })
                 .evolve(
                   'v2',
                   {
                     customer: Schema.String,
-                    shippingAddress: toSchema(Address, { name: 'Address' }),
+                    shippingAddress: toSchema(Address),
                     priority: Schema.Boolean,
                   },
                   (p) => ({ ...p, priority: false }),
@@ -196,7 +198,7 @@ moreCoverageDomain('ESchema', () => {
           () =>
             Effect.gen(function* () {
               const Order = EntityESchema.make('Order', 'id', {
-                addresses: Schema.Array(toSchema(Address, { name: 'Address' })),
+                addresses: Schema.Array(toSchema(Address)),
               }).build();
 
               const decoded = yield* Order.decode({
@@ -220,7 +222,7 @@ moreCoverageDomain('ESchema', () => {
           () =>
             Effect.gen(function* () {
               const Order = EntityESchema.make('Order', 'id', {
-                shippingAddress: toSchema(Address, { name: 'Address' }),
+                shippingAddress: toSchema(Address),
               }).build();
 
               const error = yield* Effect.flip(

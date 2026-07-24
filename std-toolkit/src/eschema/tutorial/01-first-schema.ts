@@ -11,9 +11,10 @@
 import { Effect, Schema } from 'effect';
 import { ESchema } from '../index.js';
 
-// `make` takes a field map. `build` freezes it into a usable schema.
-// There is no version number to pass — the first version is always `v1`.
-const User = ESchema.make({
+// `make` takes a name and a field map. `build` freezes it into a usable schema.
+// The name is the schema's identity; there is no version number to pass — the
+// first version is always `v1`.
+const User = ESchema.make('User', {
   name: Schema.String,
   email: Schema.String,
 }).build();

@@ -1,0 +1,95 @@
+╭─ DATABASE CONTRACT CHANGED ────────────────────╮
+│ 2 requires-backfill                            │
+╰────────────────────────────────────────────────╯
+
+┌────────────┬─────────────────────────────────┬────────┬───────┐
+│ Status     │ Change                          │ Before │ After │
+├────────────┼─────────────────────────────────┼────────┼───────┤
+│ ◇ BACKFILL │ Added entity index User/byEmail │ —      │ added │
+│ ◇ BACKFILL │ Added secondary index GSI1      │ —      │ added │
+└────────────┴─────────────────────────────────┴────────┴───────┘
+
+BACKFILL
+
+  Added entity index User/byEmail
+  /entities/User/secondaryDerivations/byEmail
+
+  After
+    ┌────────────────┬─────────┐
+    │ Field          │ Value   │
+    ├────────────────┼─────────┤
+    │ Name           │ byEmail │
+    │ Physical index │ GSI1    │
+    │ Partition key  │ email   │
+    │ Sort key       │ id      │
+    └────────────────┴─────────┘
+
+  Added secondary index GSI1
+  /secondaryIndexes/GSI1
+
+  After
+    ┌───────────────┬────────┐
+    │ Field         │ Value  │
+    ├───────────────┼────────┤
+    │ Name          │ GSI1   │
+    │ Kind          │ gsi    │
+    │ Partition key │ gsi1pk │
+    │ Sort key      │ gsi1sk │
+    └───────────────┴────────┘
+
+╭─ DATABASE CONTRACT ────────────────────────────╮
+│ Table: dynamodb                                │
+╰────────────────────────────────────────────────╯
+
+PRIMARY INDEX
+
+┌───────────────┬───────────┐
+│ Key           │ Attribute │
+├───────────────┼───────────┤
+│ Partition key │ pk        │
+│ Sort key      │ sk        │
+└───────────────┴───────────┘
+
+SECONDARY INDEXES
+
+┌──────┬──────┬───────────────┬──────────┐
+│ Name │ Kind │ Partition key │ Sort key │
+├──────┼──────┼───────────────┼──────────┤
+│ GSI1 │ gsi  │ gsi1pk        │ gsi1sk   │
+└──────┴──────┴───────────────┴──────────┘
+
+ENTITIES
+
+┌──────┬───────┬────────┬──────────┬────────────┬────────────┐
+│ Name │ Kind  │ Schema │ Identity │ Primary PK │ Primary SK │
+├──────┼───────┼────────┼──────────┼────────────┼────────────┤
+│ User │ keyed │ User   │ id       │ email      │ id         │
+└──────┴───────┴────────┴──────────┴────────────┴────────────┘
+
+ENTITY INDEXES
+
+┌────────┬─────────┬──────────┬───────────┬───────────┐
+│ Entity │ Name    │ Physical │ PK source │ SK source │
+├────────┼─────────┼──────────┼───────────┼───────────┤
+│ User   │ byEmail │ GSI1     │ email     │ id        │
+└────────┴─────────┴──────────┴───────────┴───────────┘
+
+SCHEMAS
+
+User · entity · identity: id
+└─ v1
+   ├─ encoded
+   │  ├─ _v: "v1"
+   │  ├─ email: string
+   │  ├─ id: string
+   │  └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+   └─ decoded
+      ├─ email: string
+      ├─ id: string
+      └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
+
+Snapshot was not updated.
+
+Review the changes, then approve them with:
+
+  std-toolkit snapshot -u

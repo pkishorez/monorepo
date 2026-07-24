@@ -14,7 +14,7 @@ import {
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 
-const Address = ESchema.make({
+const Address = ESchema.make('Address', {
   street: Schema.String,
   city: Schema.String,
 }).build();
@@ -27,7 +27,7 @@ const LineItem = EntityESchema.make('LineItem', 'id', {
 const Order = EntityESchema.make('Order', 'orderId', {
   customer: Schema.String,
   items: Schema.Array(toSchema(LineItem)),
-  shippingAddress: toSchema(Address, { name: 'Address' }),
+  shippingAddress: toSchema(Address),
 }).build();
 
 moreCoverageDomain('ESchema', () => {
@@ -181,21 +181,17 @@ moreCoverageDomain('ESchema', () => {
       });
 
       describe('parent evolution with nested schemas', () => {
-        const Child = ESchema.make({
+        const Child = ESchema.make('Child', {
           value: Schema.String,
         }).build();
 
-        const Parent = ESchema.make({
+        const Parent = ESchema.make('Parent', {
           name: Schema.String,
         })
-          .evolve(
-            'v2',
-            { child: toSchema(Child, { name: 'Child' }) },
-            (prev) => ({
-              ...prev,
-              child: { value: 'default' },
-            }),
-          )
+          .evolve('v2', { child: toSchema(Child) }, (prev) => ({
+            ...prev,
+            child: { value: 'default' },
+          }))
           .build();
 
         itEffect('migrates parent and decodes nested in new field', () =>
@@ -229,16 +225,18 @@ moreCoverageDomain('ESchema', () => {
       });
 
       describe('deep nesting', () => {
-        const Leaf = ESchema.make({ value: Schema.String }).build();
-
-        const Branch = ESchema.make({
-          label: Schema.String,
-          leaf: toSchema(Leaf, { name: 'Leaf' }),
+        const Leaf = ESchema.make('Leaf', {
+          value: Schema.String,
         }).build();
 
-        const Root = ESchema.make({
+        const Branch = ESchema.make('Branch', {
+          label: Schema.String,
+          leaf: toSchema(Leaf),
+        }).build();
+
+        const Root = ESchema.make('Root', {
           title: Schema.String,
-          branch: toSchema(Branch, { name: 'Branch' }),
+          branch: toSchema(Branch),
         }).build();
 
         itEffect('encodes and decodes three levels deep', () =>
@@ -262,7 +260,7 @@ moreCoverageDomain('ESchema', () => {
       });
 
       describe('all three variants compose', () => {
-        const plain = ESchema.make({ x: Schema.Number }).build();
+        const plain = ESchema.make('Plain', { x: Schema.Number }).build();
         const named = SingleEntityESchema.make('Config', {
           y: Schema.String,
         }).build();
@@ -270,8 +268,8 @@ moreCoverageDomain('ESchema', () => {
           z: Schema.Boolean,
         }).build();
 
-        const Composite = ESchema.make({
-          p: toSchema(plain, { name: 'plain' }),
+        const Composite = ESchema.make('Composite', {
+          p: toSchema(plain),
           n: toSchema(named),
           e: toSchema(entity),
         }).build();
@@ -291,31 +289,38 @@ moreCoverageDomain('ESchema', () => {
         );
       });
 
-      describe('optional nested schema', () => {
-        const Child = ESchema.make({ val: Schema.String }).build();
+      describe('nullable nested schema', () => {
+        const Child = ESchema.make('Child', { val: Schema.String }).build();
 
-        const WithOptional = ESchema.make({
+        const WithNullable = ESchema.make('WithNullable', {
           name: Schema.String,
-          child: Schema.optionalKey(toSchema(Child, { name: 'Child' })),
+          child: Schema.NullOr(toSchema(Child)),
         }).build();
 
-        itEffect('roundtrips with optional present', () =>
+        itEffect('roundtrips with child present', () =>
           Effect.gen(function* () {
             const original = { name: 'a', child: { val: 'b' } };
-            const encoded = yield* WithOptional.encode(original);
-            const decoded = yield* WithOptional.decode(encoded);
+            const encoded = yield* WithNullable.encode(original);
+            const decoded = yield* WithNullable.decode(encoded);
             expect(decoded).toEqual(original);
           }),
         );
 
-        itEffect('roundtrips with optional absent', () =>
+        itEffect('roundtrips with child null', () =>
           Effect.gen(function* () {
-            const original = { name: 'a' };
-            const encoded = yield* WithOptional.encode(original);
-            const decoded = yield* WithOptional.decode(encoded);
+            const original = { name: 'a', child: null };
+            const encoded = yield* WithNullable.encode(original);
+            const decoded = yield* WithNullable.decode(encoded);
             expect(decoded).toEqual(original);
           }),
         );
+
+        itEffect('snapshot includes the nested definition', () => {
+          const snapshot = WithNullable.snapshot();
+          const identities = snapshot.schemas.map((d) => d.identity);
+          expect(identities).toContain('Child');
+          return Effect.void;
+        });
       });
 
       describe('nested decode error', () => {
@@ -337,7 +342,9 @@ moreCoverageDomain('ESchema', () => {
       });
 
       describe('toSchema identifier', () => {
-        const anonymous = ESchema.make({ x: Schema.Number }).build();
+        const plainNamed = ESchema.make('Order', {
+          x: Schema.Number,
+        }).build();
         const namedEntity = EntityESchema.make('Item', 'id', {
           z: Schema.Boolean,
         }).build();
@@ -347,30 +354,20 @@ moreCoverageDomain('ESchema', () => {
         const idOf = (schema: Schema.Codec<any, any>) =>
           Object.keys(Schema.toJsonSchemaDocument(schema).definitions)[0];
 
-        it('throws on an anonymous eschema with no explicit name', () => {
-          expect(() => toSchema(anonymous)).toThrow(/anonymous ESchema/);
+        it("uses a plain eschema's own name", () => {
+          expect(idOf(toSchema(plainNamed))).toBe('ESchema(Order)');
         });
 
-        it('uses an explicit name when provided', () => {
-          expect(idOf(toSchema(anonymous, { name: 'Order' }))).toBe(
-            'ESchema(Order)',
-          );
-        });
-
-        it("falls back to the eschema's own name", () => {
+        it("uses an entity eschema's own name", () => {
           expect(idOf(toSchema(namedEntity))).toBe('ESchema(Item)');
         });
 
-        it('lets an explicit name take precedence over the eschema name', () => {
-          expect(idOf(toSchema(namedEntity, { name: 'Override' }))).toBe(
-            'ESchema(Override)',
-          );
-        });
-
         it('preserves the nested schema definition shape', () => {
-          const Child = ESchema.make({ value: Schema.String }).build();
-          const Parent = ESchema.make({
-            child: toSchema(Child, { name: 'Child' }),
+          const Child = ESchema.make('Child', {
+            value: Schema.String,
+          }).build();
+          const Parent = ESchema.make('Parent', {
+            child: toSchema(Child),
           }).build();
 
           const descriptor = Parent.getDescriptor();
