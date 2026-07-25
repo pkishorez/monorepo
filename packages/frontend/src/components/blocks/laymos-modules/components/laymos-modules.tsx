@@ -68,16 +68,16 @@ function LaymosModulesInner({
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [autoExpandGroups, setAutoExpandGroups] = useState(false);
   useEffect(() => {
     setExpandedLayers(new Set(model.layers.keys()));
     setExpandedGroups(new Set());
-    setAutoExpandGroups(false);
   }, [model]);
   const allGroupNames = useMemo(() => [...model.groups.keys()], [model]);
-  const effectiveExpandedGroups = useMemo(
-    () => (autoExpandGroups ? new Set(allGroupNames) : expandedGroups),
-    [autoExpandGroups, allGroupNames, expandedGroups],
+  const allGroupsExpanded =
+    allGroupNames.length > 0 &&
+    allGroupNames.every((name) => expandedGroups.has(name));
+  const allGroupsCollapsed = allGroupNames.every(
+    (name) => !expandedGroups.has(name),
   );
 
   const selectionWithoutHover = useMemo(
@@ -118,10 +118,10 @@ function LaymosModulesInner({
         expandedLayers,
         moduleLayout,
         showLayerConnections,
-        effectiveExpandedGroups,
+        expandedGroups,
       ),
     [
-      effectiveExpandedGroups,
+      expandedGroups,
       expandedLayers,
       model,
       moduleLayout,
@@ -150,29 +150,20 @@ function LaymosModulesInner({
       return next;
     });
   }, []);
-  const toggleGroup = useCallback(
-    (name: string) => {
-      const base = new Set(autoExpandGroups ? allGroupNames : expandedGroups);
-      if (base.has(name)) base.delete(name);
-      else base.add(name);
-      setExpandedGroups(base);
-      setAutoExpandGroups(false);
-    },
-    [allGroupNames, autoExpandGroups, expandedGroups],
-  );
-  const setExpandAll = useCallback(
-    (checked: boolean) => {
-      if (checked) {
-        setAutoExpandGroups(true);
-        return;
-      }
-      // Leave the groups open so the reader can now collapse each one; the
-      // switch just hands control back from "all expanded" to manual.
-      setExpandedGroups(new Set(allGroupNames));
-      setAutoExpandGroups(false);
-    },
-    [allGroupNames],
-  );
+  const toggleGroup = useCallback((name: string) => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+  const expandAllGroups = useCallback(() => {
+    setExpandedGroups(new Set(allGroupNames));
+  }, [allGroupNames]);
+  const collapseAllGroups = useCallback(() => {
+    setExpandedGroups(new Set());
+  }, []);
   const toggleGraph = useCallback((layerNames: readonly string[]) => {
     setExpandedLayers((current) => {
       const next = new Set(current);
@@ -299,15 +290,31 @@ function LaymosModulesInner({
                 />
               </label>
               {model.groups.size > 0 && (
-                <label className="mt-2 flex cursor-pointer items-center justify-between gap-4 border-t border-border/60 pt-2">
-                  Expand all groups
-                  <Switch
-                    size="sm"
-                    checked={autoExpandGroups}
-                    onCheckedChange={setExpandAll}
-                    aria-label="Expand all groups"
-                  />
-                </label>
+                <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/60 pt-2">
+                  <span>Groups</span>
+                  <div
+                    className="flex rounded-md bg-muted p-0.5"
+                    role="group"
+                    aria-label="Group disclosure"
+                  >
+                    <button
+                      type="button"
+                      className="rounded px-2 py-1 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:text-muted-foreground/40 disabled:hover:text-muted-foreground/40"
+                      onClick={expandAllGroups}
+                      disabled={allGroupsExpanded}
+                    >
+                      Expand all
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded px-2 py-1 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:text-muted-foreground/40 disabled:hover:text-muted-foreground/40"
+                      onClick={collapseAllGroups}
+                      disabled={allGroupsCollapsed}
+                    >
+                      Collapse all
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </Panel>
