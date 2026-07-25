@@ -6,6 +6,7 @@ import { useModuleGraphInteraction } from '../context/interaction-context';
 import type {
   GraphHeaderNodeData,
   GraphLaneNodeData,
+  GroupContainerNodeData,
   GroupNodeData,
   LayerContainerNodeData,
   ModuleTileNodeData,
@@ -157,42 +158,6 @@ function GroupNode({ data }: NodeProps<Node<GroupNodeData>>) {
     ? `${data.name} — ${data.description}`
     : data.name;
 
-  if (data.expanded) {
-    return (
-      <div
-        className={cn(
-          'flex h-full w-full items-center gap-2 transition-opacity',
-          data.dimmed && 'opacity-30',
-        )}
-      >
-        <button
-          type="button"
-          className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2 border-b border-border/60 pb-1 text-left"
-          title={`${title} — click to collapse`}
-          aria-label={`Collapse ${data.name} group`}
-          aria-expanded
-          onClick={(event) => {
-            event.stopPropagation();
-            interaction.onToggleGroup(data.name);
-          }}
-        >
-          <span className="text-[9px] leading-none text-muted-foreground">
-            ▾
-          </span>
-          <span className="min-w-0 flex-1 truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            {data.name}
-          </span>
-          <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/70">
-            {data.moduleCount}
-            {data.violationCount > 0 ? (
-              <span className="text-destructive"> · {data.violationCount}</span>
-            ) : null}
-          </span>
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div
       className={cn(
@@ -238,6 +203,58 @@ function GroupNode({ data }: NodeProps<Node<GroupNodeData>>) {
         </span>
       </button>
     </div>
+  );
+}
+
+function GroupContainerNode({ data }: NodeProps<Node<GroupContainerNodeData>>) {
+  const interaction = useModuleGraphInteraction();
+  const title = data.description
+    ? `${data.name} — ${data.description}`
+    : data.name;
+
+  return (
+    <section
+      className={cn(
+        'relative h-full w-full rounded-lg border border-border/70 bg-muted/25 shadow-inner transition-opacity',
+        data.related && 'border-sky-500/50 bg-sky-500/[0.05]',
+        data.dimmed && 'opacity-30',
+      )}
+      aria-label={`${data.name} group`}
+    >
+      <header className="flex h-7 w-full items-center gap-2 px-2.5">
+        <span
+          className={cn(
+            'size-1.5 shrink-0 rounded-full bg-foreground/40',
+            data.violationCount > 0 && 'bg-destructive',
+          )}
+          aria-hidden
+        />
+        <span
+          className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+          title={title}
+        >
+          {data.name}
+        </span>
+        <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/70">
+          {data.moduleCount}
+          {data.violationCount > 0 ? (
+            <span className="text-destructive"> · {data.violationCount}</span>
+          ) : null}
+        </span>
+        <button
+          type="button"
+          className="pointer-events-auto flex size-4 shrink-0 items-center justify-center rounded border border-border bg-background/80 text-[9px] leading-none text-muted-foreground hover:border-foreground/70 hover:text-foreground focus-visible:outline-none"
+          title={`Minimise ${data.name}`}
+          aria-label={`Minimise ${data.name} group`}
+          onClick={(event) => {
+            event.stopPropagation();
+            interaction.onToggleGroup(data.name);
+          }}
+        >
+          –
+        </button>
+      </header>
+    </section>
   );
 }
 
@@ -365,6 +382,7 @@ export const moduleGraphNodeTypes = {
   'module-graph-lane': GraphLaneNode,
   'module-graph-header': GraphHeaderNode,
   'module-group': GroupNode,
+  'module-group-container': GroupContainerNode,
   'module-layer-container': LayerContainerNode,
   'module-tile': ModuleTileNode,
 };

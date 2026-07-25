@@ -49,7 +49,16 @@ export interface GroupNodeData extends Record<string, unknown> {
   readonly layer: string;
   readonly moduleCount: number;
   readonly violationCount: number;
-  readonly expanded: boolean;
+  readonly related: boolean;
+  readonly dimmed: boolean;
+}
+
+export interface GroupContainerNodeData extends Record<string, unknown> {
+  readonly name: string;
+  readonly description?: string;
+  readonly layer: string;
+  readonly moduleCount: number;
+  readonly violationCount: number;
   readonly related: boolean;
   readonly dimmed: boolean;
 }
@@ -110,9 +119,9 @@ const MODULE_GAP = 18;
 const MODULE_PADDING = 22;
 const TREE_INLINE_LEVEL_LIMIT = 5;
 const TREE_LEVEL_GAP = 54;
-const GROUP_HEADER_HEIGHT = 22;
-const GROUP_HEADER_GAP = 8;
-const GROUP_BAND_GAP = 16;
+const GROUP_CONTAINER_HEADER = 28;
+const GROUP_INNER_PADDING = 14;
+const GROUP_BLOCK_GAP = 18;
 
 function adaptiveModuleColumns(count: number): number {
   const columnStep = MODULE_WIDTH + MODULE_GAP;
@@ -410,41 +419,43 @@ function packRows(
   };
 }
 
-type GridCell =
-  | {
-      readonly kind: 'group';
-      readonly group: GroupSummary;
-      readonly x: number;
-      readonly y: number;
-    }
-  | {
-      readonly kind: 'module';
-      readonly path: string;
-      readonly x: number;
-      readonly y: number;
-    };
-
-interface GroupBand {
-  readonly group: GroupSummary;
-  readonly headerY: number;
-  readonly tiles: readonly {
-    readonly path: string;
-    readonly x: number;
-    readonly y: number;
-  }[];
+interface TilePlacement {
+  readonly path: string;
+  readonly x: number;
+  readonly y: number;
 }
 
-interface LayerGroupLayout {
-  readonly grid: readonly GridCell[];
-  readonly bands: readonly GroupBand[];
+interface CollapsedGroupPlacement {
+  readonly group: GroupSummary;
+  readonly x: number;
+  readonly y: number;
+}
+
+interface GroupContainer {
+  readonly group: GroupSummary;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
   readonly height: number;
 }
 
+interface LayerGroupLayout {
+  readonly tiles: readonly TilePlacement[];
+  readonly collapsedGroups: readonly CollapsedGroupPlacement[];
+  readonly containers: readonly GroupContainer[];
+  readonly height: number;
+}
+
+type LayerItem =
+  | { readonly kind: 'group'; readonly group: GroupSummary }
+  | { readonly kind: 'module'; readonly path: string };
+
 /**
- * Lays out a grouped layer as a grid of collapsed Group nodes and ungrouped
- * Module tiles, with each expanded Group stacked below as a labeled band of
- * its member tiles. Collapsed is the default, so a crowded layer reads as a
- * handful of Group nodes until a reader drills in.
+ * Lays a grouped layer out as an in-place flow. Collapsed Groups and ungrouped
+ * Modules pack into tile rows; an expanded Group opens where it sits as a
+ * nested container that holds its member tiles behind its own header. Collapsed
+ * is the default, so a crowded layer reads as a handful of Group nodes until a
+ * reader drills into one.
  */
 function layerGroupLayout(
   model: ModuleGraphModel,
@@ -461,60 +472,98 @@ function layerGroupLayout(
     ),
   );
   const ungrouped = layer.modulePaths.filter((path) => !grouped.has(path));
-  const collapsed = groups.filter((group) => !expandedGroups.has(group.name));
-  const expanded = groups.filter((group) => expandedGroups.has(group.name));
 
-  const gridItems: (
-    | { kind: 'group'; group: GroupSummary }
-    | { kind: 'module'; path: string }
-  )[] = [
-    ...collapsed.map((group) => ({ kind: 'group' as const, group })),
+  const items: LayerItem[] = [
+    ...groups.map((group) => ({ kind: 'group' as const, group })),
     ...ungrouped.map((path) => ({ kind: 'module' as const, path })),
   ];
 
-  let y = PACK_BASE;
-  let placedContent = false;
-  const grid: GridCell[] = [];
-  if (gridItems.length > 0) {
-    const { placements, rowsHeight } = packRows(gridItems.length, width, y);
-    gridItems.forEach((item, index) => {
-      const placement = placements[index]!;
-      grid.push(
-        item.kind === 'group'
-          ? { kind: 'group', group: item.group, x: placement.x, y: placement.y }
-          : { kind: 'module', path: item.path, x: placement.x, y: placement.y },
-      );
-    });
-    y += rowsHeight;
-    placedContent = true;
+  // Consecutive collapsed tiles share a packed row block; each expanded Group
+  // breaks the flow into its own full-width container block, in place.
+  type Block =
+    | { kind: 'tiles'; items: LayerItem[] }
+    | { kind: 'container'; group: GroupSummary };
+  const blocks: Block[] = [];
+  let run: LayerItem[] = [];
+  const flushRun = (): void => {
+    if (run.length > 0) {
+      blocks.push({ kind: 'tiles', items: run });
+      run = [];
+    }
+  };
+  for (const item of items) {
+    if (item.kind === 'group' && expandedGroups.has(item.group.name)) {
+      flushRun();
+      blocks.push({ kind: 'container', group: item.group });
+    } else {
+      run.push(item);
+    }
   }
+  flushRun();
 
-  const bands: GroupBand[] = [];
-  for (const group of expanded) {
-    const paths = group.modulePaths.filter((path) =>
-      layer.modulePaths.includes(path),
-    );
-    if (placedContent) y += GROUP_BAND_GAP;
-    const headerY = y;
-    y += GROUP_HEADER_HEIGHT + GROUP_HEADER_GAP;
-    const { placements, rowsHeight } = packRows(paths.length, width, y);
-    bands.push({
-      group,
-      headerY,
-      tiles: paths.map((path, index) => ({
-        path,
-        x: placements[index]!.x,
-        y: placements[index]!.y,
-      })),
-    });
-    y += rowsHeight;
-    placedContent = true;
+  const tiles: TilePlacement[] = [];
+  const collapsedGroups: CollapsedGroupPlacement[] = [];
+  const containers: GroupContainer[] = [];
+
+  let y = PACK_BASE;
+  let placed = false;
+  for (const block of blocks) {
+    if (placed) y += GROUP_BLOCK_GAP;
+    if (block.kind === 'tiles') {
+      const { placements, rowsHeight } = packRows(block.items.length, width, y);
+      block.items.forEach((item, index) => {
+        const placement = placements[index]!;
+        if (item.kind === 'group') {
+          collapsedGroups.push({
+            group: item.group,
+            x: placement.x,
+            y: placement.y,
+          });
+        } else {
+          tiles.push({ path: item.path, x: placement.x, y: placement.y });
+        }
+      });
+      y += rowsHeight;
+    } else {
+      const members = block.group.modulePaths.filter((path) =>
+        layer.modulePaths.includes(path),
+      );
+      const containerX = MODULE_PADDING;
+      const containerWidth = width - MODULE_PADDING * 2;
+      const innerWidth = Math.max(
+        MODULE_WIDTH,
+        containerWidth - GROUP_INNER_PADDING * 2,
+      );
+      const packing = roundedModulePacking(members.length, innerWidth);
+      const rowsHeight = packing.height - PACK_BASE - MODULE_PADDING;
+      const bodyTop = y + GROUP_CONTAINER_HEADER + GROUP_INNER_PADDING;
+      members.forEach((path, index) => {
+        const placement = packing.placements[index]!;
+        tiles.push({
+          path,
+          x: containerX + GROUP_INNER_PADDING + placement.x,
+          y: bodyTop + (placement.y - PACK_BASE),
+        });
+      });
+      const height =
+        GROUP_CONTAINER_HEADER + GROUP_INNER_PADDING * 2 + rowsHeight;
+      containers.push({
+        group: block.group,
+        x: containerX,
+        y,
+        width: containerWidth,
+        height,
+      });
+      y += height;
+    }
+    placed = true;
   }
 
   return {
-    grid,
-    bands,
-    height: placedContent ? y + MODULE_PADDING : PACK_BASE + MODULE_HEIGHT,
+    tiles,
+    collapsedGroups,
+    containers,
+    height: placed ? y + MODULE_PADDING : PACK_BASE + MODULE_HEIGHT,
   };
 }
 
@@ -809,18 +858,45 @@ export function computeModuleGraphLayout(
 
     const placementByPath = new Map<string, ModulePlacement>();
     if (groupLayout) {
-      for (const cell of groupLayout.grid) {
-        if (cell.kind === 'module') {
-          placementByPath.set(cell.path, { x: cell.x, y: cell.y });
-          continue;
-        }
-        const related = groupIsRelated(cell.group);
+      for (const tile of groupLayout.tiles) {
+        placementByPath.set(tile.path, { x: tile.x, y: tile.y });
+      }
+      for (const container of groupLayout.containers) {
+        const related = groupIsRelated(container.group);
         nodes.push({
-          id: `group:${cell.group.name}`,
+          id: `group-container:${container.group.name}`,
+          type: 'module-group-container',
+          parentId: `layer:${layer.name}`,
+          extent: 'parent',
+          position: { x: container.x, y: container.y },
+          width: container.width,
+          height: container.height,
+          draggable: false,
+          selectable: false,
+          focusable: true,
+          zIndex: 1,
+          style: { pointerEvents: 'none' },
+          data: {
+            name: container.group.name,
+            layer: layer.name,
+            moduleCount: container.group.modulePaths.length,
+            violationCount: container.group.violationCount,
+            related: Boolean(selection.root && related),
+            dimmed: Boolean(selection.root && !related),
+            ...(container.group.description !== undefined
+              ? { description: container.group.description }
+              : {}),
+          } satisfies GroupContainerNodeData,
+        });
+      }
+      for (const collapsed of groupLayout.collapsedGroups) {
+        const related = groupIsRelated(collapsed.group);
+        nodes.push({
+          id: `group:${collapsed.group.name}`,
           type: 'module-group',
           parentId: `layer:${layer.name}`,
           extent: 'parent',
-          position: { x: cell.x, y: cell.y },
+          position: { x: collapsed.x, y: collapsed.y },
           width: MODULE_WIDTH,
           height: MODULE_HEIGHT,
           draggable: false,
@@ -828,46 +904,14 @@ export function computeModuleGraphLayout(
           focusable: true,
           zIndex: 4,
           data: {
-            name: cell.group.name,
+            name: collapsed.group.name,
             layer: layer.name,
-            moduleCount: cell.group.modulePaths.length,
-            violationCount: cell.group.violationCount,
-            expanded: false,
+            moduleCount: collapsed.group.modulePaths.length,
+            violationCount: collapsed.group.violationCount,
             related: Boolean(selection.root && related),
             dimmed: Boolean(selection.root && !related),
-            ...(cell.group.description !== undefined
-              ? { description: cell.group.description }
-              : {}),
-          } satisfies GroupNodeData,
-        });
-      }
-      for (const band of groupLayout.bands) {
-        for (const tile of band.tiles) {
-          placementByPath.set(tile.path, { x: tile.x, y: tile.y });
-        }
-        const related = groupIsRelated(band.group);
-        nodes.push({
-          id: `group:${band.group.name}`,
-          type: 'module-group',
-          parentId: `layer:${layer.name}`,
-          extent: 'parent',
-          position: { x: MODULE_PADDING, y: band.headerY },
-          width: position.width - MODULE_PADDING * 2,
-          height: GROUP_HEADER_HEIGHT,
-          draggable: false,
-          selectable: false,
-          focusable: true,
-          zIndex: 3,
-          data: {
-            name: band.group.name,
-            layer: layer.name,
-            moduleCount: band.group.modulePaths.length,
-            violationCount: band.group.violationCount,
-            expanded: true,
-            related: Boolean(selection.root && related),
-            dimmed: Boolean(selection.root && !related),
-            ...(band.group.description !== undefined
-              ? { description: band.group.description }
+            ...(collapsed.group.description !== undefined
+              ? { description: collapsed.group.description }
               : {}),
           } satisfies GroupNodeData,
         });

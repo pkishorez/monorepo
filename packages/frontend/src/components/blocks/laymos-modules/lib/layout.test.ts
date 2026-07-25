@@ -340,7 +340,10 @@ describe('module graph layout', () => {
       'group:domain-accounts',
       'group:domain-ledger',
     ]);
-    expect(groupNodes.every((node) => node.data.expanded === false)).toBe(true);
+    // nothing is expanded, so no container nodes exist.
+    expect(
+      layout.nodes.some((node) => node.type === 'module-group-container'),
+    ).toBe(false);
 
     // domain is fully grouped, so no member tiles render while collapsed.
     expect(
@@ -357,7 +360,7 @@ describe('module graph layout', () => {
     ).toHaveLength(2);
   });
 
-  it('reveals member tiles when a group is expanded', () => {
+  it('opens an expanded group as an in-place container of member tiles', () => {
     const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
     const layout = computeModuleGraphLayout(
       groupedModel,
@@ -368,20 +371,24 @@ describe('module graph layout', () => {
       new Set(['domain-accounts']),
     );
 
+    // the expanded group becomes a container node, not a collapsed tile.
     expect(
-      layout.nodes.find((node) => node.id === 'group:domain-accounts')?.data
-        .expanded,
-    ).toBe(true);
+      layout.nodes.find((node) => node.id === 'group-container:domain-accounts')
+        ?.type,
+    ).toBe('module-group-container');
+    expect(
+      layout.nodes.some((node) => node.id === 'group:domain-accounts'),
+    ).toBe(false);
+    // its members render as tiles inside the container.
     expect(
       layout.nodes.filter(
         (node) => node.type === 'module-tile' && node.data.layer === 'domain',
       ),
     ).toHaveLength(7);
-    // the sibling group stays collapsed.
+    // the sibling group stays a collapsed node.
     expect(
-      layout.nodes.find((node) => node.id === 'group:domain-ledger')?.data
-        .expanded,
-    ).toBe(false);
+      layout.nodes.find((node) => node.id === 'group:domain-ledger')?.type,
+    ).toBe('module-group');
   });
 
   it('routes a selected edge into a collapsed group node', () => {

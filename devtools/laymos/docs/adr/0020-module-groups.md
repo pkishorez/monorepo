@@ -33,11 +33,12 @@ present and empty when unused. The Group's Layer is not stored; consumers infer
 it from the members, the way a Module's Layer is already inferred rather than
 declared. In the packed layout the frontend **collapses each Group to a single
 node by default** — a crowded Layer reads as a handful of Group nodes plus any
-ungrouped tiles — and a reader expands a Group to reveal its member tiles as a
-labeled band, the same progressive disclosure the Layer lanes already offer.
-Edges from a selected Module route into a collapsed Group node and fan out to
-the members once it is expanded. Configurations without Groups are unchanged in
-every surface.
+ungrouped tiles. A reader expands a Group in place: it opens where it sits as a
+**nested container** inside the Layer, holding its member tiles behind its own
+header with a minimise control, rather than relocating them to a separate
+section. Edges from a selected Module route into a collapsed Group node and fan
+out to the members once it is expanded. Configurations without Groups are
+unchanged in every surface.
 
 Considered and rejected: **nesting Modules inside Modules** — true hierarchy,
 but it breaks the flat-partition invariant that longest-prefix ownership,
