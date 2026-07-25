@@ -391,6 +391,25 @@ describe('module graph layout', () => {
     ).toBe('module-group');
   });
 
+  it('opens every group as a container when all are expanded', () => {
+    const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
+    const layout = computeModuleGraphLayout(
+      groupedModel,
+      getModuleGraphSelection(groupedModel, null, null),
+      new Set(groupedModel.layers.keys()),
+      'pack',
+      false,
+      new Set(groupedModel.groups.keys()),
+    );
+
+    expect(
+      layout.nodes.filter((node) => node.type === 'module-group-container'),
+    ).toHaveLength(5);
+    expect(layout.nodes.some((node) => node.type === 'module-group')).toBe(
+      false,
+    );
+  });
+
   it('routes a selected edge into a collapsed group node', () => {
     const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
     const layout = computeModuleGraphLayout(

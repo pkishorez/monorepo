@@ -68,10 +68,17 @@ function LaymosModulesInner({
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [autoExpandGroups, setAutoExpandGroups] = useState(false);
   useEffect(() => {
     setExpandedLayers(new Set(model.layers.keys()));
     setExpandedGroups(new Set());
+    setAutoExpandGroups(false);
   }, [model]);
+  const allGroupNames = useMemo(() => [...model.groups.keys()], [model]);
+  const effectiveExpandedGroups = useMemo(
+    () => (autoExpandGroups ? new Set(allGroupNames) : expandedGroups),
+    [autoExpandGroups, allGroupNames, expandedGroups],
+  );
 
   const selectionWithoutHover = useMemo(
     () => getModuleGraphSelection(model, selectedModule, null),
@@ -111,10 +118,10 @@ function LaymosModulesInner({
         expandedLayers,
         moduleLayout,
         showLayerConnections,
-        expandedGroups,
+        effectiveExpandedGroups,
       ),
     [
-      expandedGroups,
+      effectiveExpandedGroups,
       expandedLayers,
       model,
       moduleLayout,
@@ -143,14 +150,29 @@ function LaymosModulesInner({
       return next;
     });
   }, []);
-  const toggleGroup = useCallback((name: string) => {
-    setExpandedGroups((current) => {
-      const next = new Set(current);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }, []);
+  const toggleGroup = useCallback(
+    (name: string) => {
+      const base = new Set(autoExpandGroups ? allGroupNames : expandedGroups);
+      if (base.has(name)) base.delete(name);
+      else base.add(name);
+      setExpandedGroups(base);
+      setAutoExpandGroups(false);
+    },
+    [allGroupNames, autoExpandGroups, expandedGroups],
+  );
+  const setExpandAll = useCallback(
+    (checked: boolean) => {
+      if (checked) {
+        setAutoExpandGroups(true);
+        return;
+      }
+      // Leave the groups open so the reader can now collapse each one; the
+      // switch just hands control back from "all expanded" to manual.
+      setExpandedGroups(new Set(allGroupNames));
+      setAutoExpandGroups(false);
+    },
+    [allGroupNames],
+  );
   const toggleGraph = useCallback((layerNames: readonly string[]) => {
     setExpandedLayers((current) => {
       const next = new Set(current);
@@ -276,6 +298,17 @@ function LaymosModulesInner({
                   aria-label="Show layer connections"
                 />
               </label>
+              {model.groups.size > 0 && (
+                <label className="mt-2 flex cursor-pointer items-center justify-between gap-4 border-t border-border/60 pt-2">
+                  Expand all groups
+                  <Switch
+                    size="sm"
+                    checked={autoExpandGroups}
+                    onCheckedChange={setExpandAll}
+                    aria-label="Expand all groups"
+                  />
+                </label>
+              )}
             </div>
           </Panel>
           {selectedModule && moduleLayout === 'pack' && (
