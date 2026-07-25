@@ -36,7 +36,10 @@ node by default** — a crowded Layer reads as a handful of Group nodes plus any
 ungrouped tiles. A reader expands a Group in place: it opens where it sits as a
 **nested container** inside the Layer, holding its member tiles behind its own
 header with a minimise control, rather than relocating them to a separate
-section. Edges from a selected Module route into a collapsed Group node and fan
+section. Inside the container, members sort into seed, connective-core, and
+leaf bands by their Group-internal edges, so the in-between modules read apart
+from the Group's entry and exit points. Edges from a selected Module route into
+a collapsed Group node and fan
 out to the members once it is expanded. Configurations without Groups are
 unchanged in every surface.
 

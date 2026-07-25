@@ -59,6 +59,7 @@ export interface GroupContainerNodeData extends Record<string, unknown> {
   readonly layer: string;
   readonly moduleCount: number;
   readonly violationCount: number;
+  readonly bands: readonly { readonly label: string; readonly top: number }[];
   readonly related: boolean;
   readonly dimmed: boolean;
 }
@@ -122,6 +123,8 @@ const TREE_LEVEL_GAP = 54;
 const GROUP_CONTAINER_HEADER = 28;
 const GROUP_INNER_PADDING = 14;
 const GROUP_BLOCK_GAP = 18;
+const GROUP_BAND_LABEL = 15;
+const GROUP_BAND_GAP = 12;
 
 function adaptiveModuleColumns(count: number): number {
   const columnStep = MODULE_WIDTH + MODULE_GAP;
@@ -431,12 +434,52 @@ interface CollapsedGroupPlacement {
   readonly y: number;
 }
 
+interface GroupBandLabel {
+  readonly label: string;
+  readonly top: number;
+}
+
 interface GroupContainer {
   readonly group: GroupSummary;
   readonly x: number;
   readonly y: number;
   readonly width: number;
   readonly height: number;
+  readonly bands: readonly GroupBandLabel[];
+}
+
+/**
+ * Splits a Group's members into seeds, connective core, and leaves using only
+ * edges internal to the Group. A member nothing else in the Group imports is a
+ * seed; one that imports nothing else in the Group is a leaf; the rest are the
+ * in-between core. A member with no internal edges is treated as a seed.
+ */
+function classifyGroupMembers(
+  model: ModuleGraphModel,
+  members: readonly string[],
+): { seeds: string[]; core: string[]; leaves: string[] } {
+  const memberSet = new Set(members);
+  const inDegree = new Map(members.map((path) => [path, 0]));
+  const outDegree = new Map(members.map((path) => [path, 0]));
+  for (const edge of model.edges) {
+    if (
+      edge.from !== edge.to &&
+      memberSet.has(edge.from) &&
+      memberSet.has(edge.to)
+    ) {
+      outDegree.set(edge.from, (outDegree.get(edge.from) ?? 0) + 1);
+      inDegree.set(edge.to, (inDegree.get(edge.to) ?? 0) + 1);
+    }
+  }
+  const seeds: string[] = [];
+  const core: string[] = [];
+  const leaves: string[] = [];
+  for (const path of members) {
+    if ((inDegree.get(path) ?? 0) === 0) seeds.push(path);
+    else if ((outDegree.get(path) ?? 0) === 0) leaves.push(path);
+    else core.push(path);
+  }
+  return { seeds, core, leaves };
 }
 
 interface LayerGroupLayout {
@@ -528,33 +571,52 @@ function layerGroupLayout(
       const members = block.group.modulePaths.filter((path) =>
         layer.modulePaths.includes(path),
       );
+      const { seeds, core, leaves } = classifyGroupMembers(model, members);
+      const memberBands = [
+        { label: 'seeds', paths: seeds },
+        { label: 'core', paths: core },
+        { label: 'leaves', paths: leaves },
+      ].filter((band) => band.paths.length > 0);
+      const labelled = memberBands.length > 1;
+
       const containerX = MODULE_PADDING;
       const containerWidth = width - MODULE_PADDING * 2;
       const innerWidth = Math.max(
         MODULE_WIDTH,
         containerWidth - GROUP_INNER_PADDING * 2,
       );
-      const packing = roundedModulePacking(members.length, innerWidth);
-      const rowsHeight = packing.height - PACK_BASE - MODULE_PADDING;
-      const bodyTop = y + GROUP_CONTAINER_HEADER + GROUP_INNER_PADDING;
-      members.forEach((path, index) => {
-        const placement = packing.placements[index]!;
-        tiles.push({
-          path,
-          x: containerX + GROUP_INNER_PADDING + placement.x,
-          y: bodyTop + (placement.y - PACK_BASE),
+
+      const containerTop = y;
+      const bands: GroupBandLabel[] = [];
+      let bandY = containerTop + GROUP_CONTAINER_HEADER + GROUP_INNER_PADDING;
+      memberBands.forEach((band, index) => {
+        if (index > 0) bandY += GROUP_BAND_GAP;
+        if (labelled) {
+          bands.push({ label: band.label, top: bandY - containerTop });
+          bandY += GROUP_BAND_LABEL;
+        }
+        const packing = roundedModulePacking(band.paths.length, innerWidth);
+        band.paths.forEach((path, tileIndex) => {
+          const placement = packing.placements[tileIndex]!;
+          tiles.push({
+            path,
+            x: containerX + GROUP_INNER_PADDING + placement.x,
+            y: bandY + (placement.y - PACK_BASE),
+          });
         });
+        bandY += packing.height - PACK_BASE - MODULE_PADDING;
       });
-      const height =
-        GROUP_CONTAINER_HEADER + GROUP_INNER_PADDING * 2 + rowsHeight;
+
+      const height = bandY - containerTop + GROUP_INNER_PADDING;
       containers.push({
         group: block.group,
         x: containerX,
-        y,
+        y: containerTop,
         width: containerWidth,
         height,
+        bands,
       });
-      y += height;
+      y = containerTop + height;
     }
     placed = true;
   }
@@ -881,6 +943,7 @@ export function computeModuleGraphLayout(
             layer: layer.name,
             moduleCount: container.group.modulePaths.length,
             violationCount: container.group.violationCount,
+            bands: container.bands,
             related: Boolean(selection.root && related),
             dimmed: Boolean(selection.root && !related),
             ...(container.group.description !== undefined

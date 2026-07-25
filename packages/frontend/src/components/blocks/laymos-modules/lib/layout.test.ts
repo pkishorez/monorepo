@@ -391,6 +391,35 @@ describe('module graph layout', () => {
     ).toBe('module-group');
   });
 
+  it('sorts an expanded group into seed, core, and leaf bands', () => {
+    const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
+    const layout = computeModuleGraphLayout(
+      groupedModel,
+      getModuleGraphSelection(groupedModel, null, null),
+      new Set(groupedModel.layers.keys()),
+      'pack',
+      false,
+      new Set(['domain-accounts']),
+    );
+
+    const container = layout.nodes.find(
+      (node) => node.id === 'group-container:domain-accounts',
+    );
+    expect(
+      (container?.data as { bands: { label: string }[] }).bands.map(
+        (band) => band.label,
+      ),
+    ).toEqual(['seeds', 'core', 'leaves']);
+
+    // seed (cap-1) sits above core (cap-2), which sits above leaf (cap-3).
+    const tileY = (index: number): number =>
+      layout.nodes.find(
+        (node) => node.id === `module:src/domain/capability-${index}`,
+      )?.position.y ?? 0;
+    expect(tileY(1)).toBeLessThan(tileY(2));
+    expect(tileY(2)).toBeLessThan(tileY(3));
+  });
+
   it('opens every group as a container when all are expanded', () => {
     const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
     const layout = computeModuleGraphLayout(

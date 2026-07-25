@@ -254,6 +254,16 @@ function GroupContainerNode({ data }: NodeProps<Node<GroupContainerNodeData>>) {
           –
         </button>
       </header>
+      {data.bands.map((band) => (
+        <span
+          key={band.label}
+          className="pointer-events-none absolute inset-x-2.5 flex items-center gap-1.5 border-t border-border/50 pt-0.5 text-[8px] font-medium uppercase tracking-[0.14em] text-muted-foreground/60"
+          style={{ top: band.top }}
+          aria-hidden
+        >
+          {band.label}
+        </span>
+      ))}
     </section>
   );
 }

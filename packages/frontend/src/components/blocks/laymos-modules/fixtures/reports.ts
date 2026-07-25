@@ -194,12 +194,35 @@ function capabilityGroup(
  * A dense report whose crowded layers are chunked with Module Groups. The
  * `application` layer keeps an ungrouped tail (capabilities 13–14) so the
  * layout's grouped bands and bare tail are both exercised, while `entry` and
- * `platform` stay ungrouped to prove mixed layers render together.
+ * `platform` stay ungrouped to prove mixed layers render together. A few
+ * intra-group imports are added so expanded Groups split into seed, core, and
+ * leaf bands.
  */
 function buildGroupedModuleReport(): LaymosReport {
   const dense = buildDenseModuleReport();
+  const files: Record<string, LaymosReport['files'][string]> = {};
+  for (const [path, file] of Object.entries(dense.files)) {
+    files[path] = { ...file, imports: [...file.imports] };
+  }
+  const link = (layer: string, from: number, to: number): void => {
+    const fromPath = `src/${layer}/capability-${from}/index.ts`;
+    const toPath = `src/${layer}/capability-${to}/index.ts`;
+    const file = files[fromPath];
+    if (file?.kind === 'covered' && !file.imports.includes(toPath)) {
+      files[fromPath] = { ...file, imports: [...file.imports, toPath] };
+    }
+  };
+  // domain-accounts: 1 → 2 → 3 (seed → core → leaf); 4–7 stay seeds.
+  link('domain', 1, 2);
+  link('domain', 2, 3);
+  // application-orders: 1 → 2 → 3 → 4 (seed → core → core → leaf).
+  link('application', 1, 2);
+  link('application', 2, 3);
+  link('application', 3, 4);
+
   return {
     ...dense,
+    files,
     architecture: {
       ...dense.architecture,
       moduleGroups: {
