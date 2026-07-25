@@ -114,10 +114,16 @@ const RANK_GAP = 88;
 const RANK_ROW_GAP = 20;
 const HEADER_OFFSET = 96;
 const LAYER_HEADER_HEIGHT = 66;
-const MODULE_WIDTH = 142;
-const MODULE_HEIGHT = 36;
+const MODULE_MIN_WIDTH = 142;
+const MODULE_MAX_WIDTH = 280;
+const MODULE_LINE_HEIGHT = 36;
+const MODULE_WRAP_LINE = 13;
 const MODULE_GAP = 18;
 const MODULE_PADDING = 22;
+// Monospace tile label metrics: a 10px glyph advances ~6.1px; the lead covers
+// the status dot, gap, and horizontal padding around the label.
+const TILE_CHAR_WIDTH = 6.4;
+const TILE_LABEL_LEAD = 46;
 const TREE_INLINE_LEVEL_LIMIT = 5;
 const TREE_LEVEL_GAP = 54;
 const GROUP_CONTAINER_HEADER = 28;
@@ -126,9 +132,57 @@ const GROUP_BLOCK_GAP = 18;
 const GROUP_BAND_LABEL = 15;
 const GROUP_BAND_GAP = 12;
 
-function adaptiveModuleColumns(count: number): number {
-  const columnStep = MODULE_WIDTH + MODULE_GAP;
-  const rowStep = MODULE_HEIGHT + MODULE_GAP;
+interface ModuleMetrics {
+  readonly width: number;
+  readonly height: number;
+}
+
+const moduleMetricsCache = new WeakMap<ModuleGraphModel, ModuleMetrics>();
+
+/**
+ * Sizes one uniform tile that fits the longest Module label (and Group name)
+ * without truncation. Labels are monospace, so width follows from character
+ * count; a label too long for {@link MODULE_MAX_WIDTH} wraps onto extra lines
+ * and every tile grows to match, keeping the pack uniform.
+ */
+function moduleMetrics(model: ModuleGraphModel): ModuleMetrics {
+  const cached = moduleMetricsCache.get(model);
+  if (cached) return cached;
+
+  let longest = 1;
+  for (const module of model.modules.values()) {
+    longest = Math.max(longest, module.label.length);
+  }
+  for (const group of model.groups.values()) {
+    longest = Math.max(longest, group.name.length);
+  }
+
+  const ideal = TILE_LABEL_LEAD + longest * TILE_CHAR_WIDTH;
+  let metrics: ModuleMetrics;
+  if (ideal <= MODULE_MAX_WIDTH) {
+    metrics = {
+      width: Math.max(MODULE_MIN_WIDTH, Math.ceil(ideal)),
+      height: MODULE_LINE_HEIGHT,
+    };
+  } else {
+    const charsPerLine = Math.max(
+      1,
+      Math.floor((MODULE_MAX_WIDTH - TILE_LABEL_LEAD) / TILE_CHAR_WIDTH),
+    );
+    const lines = Math.ceil(longest / charsPerLine);
+    metrics = {
+      width: MODULE_MAX_WIDTH,
+      height: MODULE_LINE_HEIGHT + (lines - 1) * MODULE_WRAP_LINE,
+    };
+  }
+
+  moduleMetricsCache.set(model, metrics);
+  return metrics;
+}
+
+function adaptiveModuleColumns(count: number, metrics: ModuleMetrics): number {
+  const columnStep = metrics.width + MODULE_GAP;
+  const rowStep = metrics.height + MODULE_GAP;
   return Math.min(
     MAXIMUM_MODULE_COLUMNS,
     Math.max(
@@ -139,11 +193,12 @@ function adaptiveModuleColumns(count: number): number {
 }
 
 function packedLayerWidth(model: ModuleGraphModel, name: string): number {
+  const metrics = moduleMetrics(model);
   const count = model.layers.get(name)?.modulePaths.length ?? 0;
-  const columns = adaptiveModuleColumns(count);
+  const columns = adaptiveModuleColumns(count, metrics);
   return Math.max(
     MINIMUM_LAYER_WIDTH,
-    MODULE_PADDING * 2 + columns * MODULE_WIDTH + (columns - 1) * MODULE_GAP,
+    MODULE_PADDING * 2 + columns * metrics.width + (columns - 1) * MODULE_GAP,
   );
 }
 
@@ -170,6 +225,7 @@ function layoutModuleTree(
   const cached = cachedByLayer.get(layerName);
   if (cached) return cached;
 
+  const metrics = moduleMetrics(model);
   const layer = model.layers.get(layerName);
   const graph = new dagre.graphlib.Graph();
   graph.setGraph({
@@ -184,7 +240,7 @@ function layoutModuleTree(
   });
   graph.setDefaultEdgeLabel(() => ({}));
   for (const path of layer?.modulePaths ?? []) {
-    graph.setNode(path, { width: MODULE_WIDTH, height: MODULE_HEIGHT });
+    graph.setNode(path, { width: metrics.width, height: metrics.height });
   }
   for (const edge of model.edges) {
     if (
@@ -214,14 +270,14 @@ function layoutModuleTree(
       const columns =
         paths.length <= TREE_INLINE_LEVEL_LIMIT
           ? paths.length
-          : adaptiveModuleColumns(paths.length);
+          : adaptiveModuleColumns(paths.length, metrics);
       const width = Math.max(
         MINIMUM_LAYER_WIDTH,
         MODULE_PADDING * 2 +
-          columns * MODULE_WIDTH +
+          columns * metrics.width +
           Math.max(0, columns - 1) * MODULE_GAP,
       );
-      const packing = roundedModulePacking(paths.length, width);
+      const packing = roundedModulePacking(paths.length, width, metrics);
       return {
         paths: orderedPaths,
         width,
@@ -250,7 +306,7 @@ function layoutModuleTree(
     width,
     height:
       levelDrafts.length === 0
-        ? LAYER_HEADER_HEIGHT + MODULE_PADDING * 2 + MODULE_HEIGHT
+        ? LAYER_HEADER_HEIGHT + MODULE_PADDING * 2 + metrics.height
         : nextY - TREE_LEVEL_GAP + MODULE_PADDING,
     positions,
   };
@@ -326,6 +382,7 @@ interface ModulePlacement {
 function roundedModulePacking(
   count: number,
   width: number,
+  metrics: ModuleMetrics,
 ): {
   readonly placements: readonly ModulePlacement[];
   readonly height: number;
@@ -333,13 +390,13 @@ function roundedModulePacking(
   const maximumColumns = Math.max(
     1,
     Math.floor(
-      (width - MODULE_PADDING * 2 + MODULE_GAP) / (MODULE_WIDTH + MODULE_GAP),
+      (width - MODULE_PADDING * 2 + MODULE_GAP) / (metrics.width + MODULE_GAP),
     ),
   );
   if (count === 0) {
     return {
       placements: [],
-      height: LAYER_HEADER_HEIGHT + MODULE_PADDING * 2 + MODULE_HEIGHT,
+      height: LAYER_HEADER_HEIGHT + MODULE_PADDING * 2 + metrics.height,
     };
   }
 
@@ -382,15 +439,15 @@ function roundedModulePacking(
   for (let row = 0; row < rowCount; row += 1) {
     const modulesInRow = counts[row]!;
     const rowWidth =
-      modulesInRow * MODULE_WIDTH + (modulesInRow - 1) * MODULE_GAP;
+      modulesInRow * metrics.width + (modulesInRow - 1) * MODULE_GAP;
     const startX = (width - rowWidth) / 2;
     for (let column = 0; column < modulesInRow; column += 1) {
       placements.push({
-        x: startX + column * (MODULE_WIDTH + MODULE_GAP),
+        x: startX + column * (metrics.width + MODULE_GAP),
         y:
           LAYER_HEADER_HEIGHT +
           MODULE_PADDING +
-          row * (MODULE_HEIGHT + MODULE_GAP),
+          row * (metrics.height + MODULE_GAP),
       });
     }
   }
@@ -399,7 +456,7 @@ function roundedModulePacking(
     height:
       LAYER_HEADER_HEIGHT +
       MODULE_PADDING * 2 +
-      rowCount * MODULE_HEIGHT +
+      rowCount * metrics.height +
       (rowCount - 1) * MODULE_GAP,
   };
 }
@@ -411,8 +468,9 @@ function packRows(
   count: number,
   width: number,
   topY: number,
+  metrics: ModuleMetrics,
 ): { placements: ModulePlacement[]; rowsHeight: number } {
-  const packing = roundedModulePacking(count, width);
+  const packing = roundedModulePacking(count, width, metrics);
   return {
     placements: packing.placements.map((placement) => ({
       x: placement.x,
@@ -506,6 +564,7 @@ function layerGroupLayout(
   width: number,
   expandedGroups: ReadonlySet<string>,
 ): LayerGroupLayout {
+  const metrics = moduleMetrics(model);
   const groups = layer.groupNames
     .map((name) => model.groups.get(name))
     .filter((group): group is GroupSummary => group !== undefined);
@@ -553,7 +612,12 @@ function layerGroupLayout(
   for (const block of blocks) {
     if (placed) y += GROUP_BLOCK_GAP;
     if (block.kind === 'tiles') {
-      const { placements, rowsHeight } = packRows(block.items.length, width, y);
+      const { placements, rowsHeight } = packRows(
+        block.items.length,
+        width,
+        y,
+        metrics,
+      );
       block.items.forEach((item, index) => {
         const placement = placements[index]!;
         if (item.kind === 'group') {
@@ -582,7 +646,7 @@ function layerGroupLayout(
       const containerX = MODULE_PADDING;
       const containerWidth = width - MODULE_PADDING * 2;
       const innerWidth = Math.max(
-        MODULE_WIDTH,
+        metrics.width,
         containerWidth - GROUP_INNER_PADDING * 2,
       );
 
@@ -595,7 +659,11 @@ function layerGroupLayout(
           bands.push({ label: band.label, top: bandY - containerTop });
           bandY += GROUP_BAND_LABEL;
         }
-        const packing = roundedModulePacking(band.paths.length, innerWidth);
+        const packing = roundedModulePacking(
+          band.paths.length,
+          innerWidth,
+          metrics,
+        );
         band.paths.forEach((path, tileIndex) => {
           const placement = packing.placements[tileIndex]!;
           tiles.push({
@@ -625,7 +693,7 @@ function layerGroupLayout(
     tiles,
     collapsedGroups,
     containers,
-    height: placed ? y + MODULE_PADDING : PACK_BASE + MODULE_HEIGHT,
+    height: placed ? y + MODULE_PADDING : PACK_BASE + metrics.height,
   };
 }
 
@@ -653,6 +721,7 @@ function layerHeight(
   return roundedModulePacking(
     model.layers.get(name)?.modulePaths.length ?? 0,
     width,
+    moduleMetrics(model),
   ).height;
 }
 
@@ -903,6 +972,7 @@ export function computeModuleGraphLayout(
     });
 
     if (!expandedLayers.has(layer.name)) continue;
+    const metrics = moduleMetrics(model);
     const grouped = groupedLayer(model, layer.name, moduleLayout);
     const groupLayout = grouped
       ? layerGroupLayout(model, grouped, position.width, expandedGroups)
@@ -912,7 +982,11 @@ export function computeModuleGraphLayout(
     const treeOffset = tree ? (position.width - tree.width) / 2 : 0;
     const packed =
       !groupLayout && moduleLayout === 'pack'
-        ? roundedModulePacking(layer.modulePaths.length, position.width)
+        ? roundedModulePacking(
+            layer.modulePaths.length,
+            position.width,
+            metrics,
+          )
         : null;
 
     const groupIsRelated = (group: GroupSummary): boolean =>
@@ -960,8 +1034,8 @@ export function computeModuleGraphLayout(
           parentId: `layer:${layer.name}`,
           extent: 'parent',
           position: { x: collapsed.x, y: collapsed.y },
-          width: MODULE_WIDTH,
-          height: MODULE_HEIGHT,
+          width: metrics.width,
+          height: metrics.height,
           draggable: false,
           selectable: false,
           focusable: true,
@@ -1004,8 +1078,8 @@ export function computeModuleGraphLayout(
           x: modulePosition.x,
           y: modulePosition.y,
         },
-        width: MODULE_WIDTH,
-        height: MODULE_HEIGHT,
+        width: metrics.width,
+        height: metrics.height,
         draggable: false,
         selectable: false,
         focusable: true,

@@ -195,7 +195,7 @@ function GroupNode({ data }: NodeProps<Node<GroupNodeData>>) {
         >
           ▸
         </span>
-        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold">
+        <span className="min-w-0 flex-1 break-words text-[10px] font-semibold leading-tight">
           {data.name}
         </span>
         <span className="shrink-0 rounded-full bg-muted px-1.5 text-[9px] font-medium tabular-nums text-muted-foreground">
@@ -380,7 +380,7 @@ function ModuleTileNode({ data }: NodeProps<Node<ModuleTileNodeData>>) {
           )}
           aria-hidden
         />
-        <span className="min-w-0 flex-1 truncate font-mono text-[10px] font-medium">
+        <span className="min-w-0 flex-1 break-words font-mono text-[10px] font-medium leading-tight">
           {data.label}
         </span>
       </button>
