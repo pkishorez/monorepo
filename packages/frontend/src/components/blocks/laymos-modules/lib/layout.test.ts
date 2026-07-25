@@ -7,7 +7,7 @@ import {
 } from '../fixtures/reports';
 import { computeModuleGraphLayout } from './layout';
 import { buildModuleGraphModel } from './model';
-import { getModuleGraphSelection } from './selection';
+import { getGroupHoverSelection, getModuleGraphSelection } from './selection';
 
 const model = buildModuleGraphModel(moduleArchitectureReport);
 const expanded = new Set(model.layers.keys());
@@ -437,6 +437,36 @@ describe('module graph layout', () => {
     expect(layout.nodes.some((node) => node.type === 'module-group')).toBe(
       false,
     );
+  });
+
+  it('previews a collapsed group’s boundary edges on hover', () => {
+    const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
+    const layout = computeModuleGraphLayout(
+      groupedModel,
+      getGroupHoverSelection(groupedModel, 'application-orders'),
+      new Set(groupedModel.layers.keys()),
+      'pack',
+      false,
+      new Set(),
+    );
+
+    const observed = layout.edges.filter((edge) =>
+      edge.id.startsWith('observed:'),
+    );
+    expect(observed.length).toBeGreaterThan(0);
+    expect(
+      observed.some((edge) => edge.source === 'group:application-orders'),
+    ).toBe(true);
+
+    // the hovered group reads as related; an unconnected sibling dims.
+    expect(
+      layout.nodes.find((node) => node.id === 'group:application-orders')?.data
+        .related,
+    ).toBe(true);
+    expect(
+      layout.nodes.find((node) => node.id === 'group:application-billing')?.data
+        .dimmed,
+    ).toBe(true);
   });
 
   it('routes a selected edge into a collapsed group node', () => {

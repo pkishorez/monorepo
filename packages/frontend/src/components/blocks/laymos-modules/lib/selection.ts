@@ -134,3 +134,64 @@ export function getModuleGraphSelection(
     maximumDepth,
   };
 }
+
+/**
+ * Previews a Group's connectivity: its members plus the modules directly wired
+ * to them, and every edge that crosses the Group's boundary. Internal edges are
+ * omitted because a collapsed Group renders them inside itself. The root is a
+ * non-module sentinel so members read as related rather than selected.
+ */
+export function getGroupHoverSelection(
+  model: ModuleGraphModel,
+  groupName: string,
+): ModuleGraphSelectionModel {
+  const group = model.groups.get(groupName);
+  if (!group) {
+    return {
+      root: null,
+      visibleModules: new Set(),
+      visibleEdges: new Set(),
+      focusedModules: new Set(),
+      focusedEdges: new Set(),
+      directions: new Map(),
+      incomingCount: 0,
+      outgoingCount: 0,
+      maximumDepth: 0,
+    };
+  }
+
+  const members = new Set(group.modulePaths);
+  const visibleModules = new Set<string>(members);
+  const visibleEdges = new Set<string>();
+  const directions = new Map<string, ConnectionDirection>();
+  let incomingCount = 0;
+  let outgoingCount = 0;
+  for (const edge of model.edges) {
+    const fromInside = members.has(edge.from);
+    const toInside = members.has(edge.to);
+    if (fromInside === toInside) continue;
+    const key = moduleEdgeKey(edge.from, edge.to);
+    visibleEdges.add(key);
+    visibleModules.add(edge.from);
+    visibleModules.add(edge.to);
+    if (fromInside) {
+      directions.set(key, 'outgoing');
+      outgoingCount += 1;
+    } else {
+      directions.set(key, 'incoming');
+      incomingCount += 1;
+    }
+  }
+
+  return {
+    root: `\0group:${groupName}`,
+    visibleModules,
+    visibleEdges,
+    focusedModules: new Set(),
+    focusedEdges: new Set(),
+    directions,
+    incomingCount,
+    outgoingCount,
+    maximumDepth: 1,
+  };
+}

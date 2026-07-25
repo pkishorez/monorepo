@@ -13,6 +13,8 @@ interface ModuleGraphInteraction {
   ) => void;
   readonly onHoveredModuleChange: (path: string | null) => void;
   readonly onFocusedModuleChange: (path: string | null) => void;
+  readonly hoveredGroup: string | null;
+  readonly onHoveredGroupChange: (name: string | null) => void;
   readonly onToggleGroup: (name: string) => void;
 }
 

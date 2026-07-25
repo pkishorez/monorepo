@@ -181,6 +181,8 @@ function GroupNode({ data }: NodeProps<Node<GroupNodeData>>) {
         title={`${title} — click to expand ${data.moduleCount} modules`}
         aria-label={`${data.name} group, ${data.moduleCount} modules${data.violationCount > 0 ? `, ${data.violationCount} violations` : ''}, click to expand`}
         aria-expanded={false}
+        onMouseEnter={() => interaction.onHoveredGroupChange(data.name)}
+        onMouseLeave={() => interaction.onHoveredGroupChange(null)}
         onClick={(event) => {
           event.stopPropagation();
           interaction.onToggleGroup(data.name);

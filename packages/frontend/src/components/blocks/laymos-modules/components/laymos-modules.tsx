@@ -26,7 +26,10 @@ import { useModuleGraphFit } from '../hooks/use-module-graph-fit';
 import { moduleGraphColors } from '../lib/colors';
 import { computeModuleGraphLayout, type ModuleLayoutMode } from '../lib/layout';
 import { buildModuleGraphModel } from '../lib/model';
-import { getModuleGraphSelection } from '../lib/selection';
+import {
+  getGroupHoverSelection,
+  getModuleGraphSelection,
+} from '../lib/selection';
 import type { LaymosModulesProps } from '../types';
 import { ModuleContextCard } from './context-card';
 import { moduleGraphNodeTypes } from './flow-nodes';
@@ -68,9 +71,11 @@ function LaymosModulesInner({
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   useEffect(() => {
     setExpandedLayers(new Set(model.layers.keys()));
     setExpandedGroups(new Set());
+    setHoveredGroup(null);
   }, [model]);
   const allGroupNames = useMemo(() => [...model.groups.keys()], [model]);
   const allGroupsExpanded =
@@ -96,6 +101,15 @@ function LaymosModulesInner({
     () => getModuleGraphSelection(model, selectedModule, requestedPreview),
     [model, requestedPreview, selectedModule],
   );
+  // Hovering a collapsed Group previews its boundary edges; it overrides the
+  // module selection only while the pointer is on the Group.
+  const activeSelection = useMemo(
+    () =>
+      hoveredGroup && model.groups.has(hoveredGroup)
+        ? getGroupHoverSelection(model, hoveredGroup)
+        : selection,
+    [hoveredGroup, model, selection],
+  );
   const contextSelection = useMemo(
     () =>
       moduleLayout === 'tree' && previewModule
@@ -114,19 +128,19 @@ function LaymosModulesInner({
     () =>
       computeModuleGraphLayout(
         model,
-        selection,
+        activeSelection,
         expandedLayers,
         moduleLayout,
         showLayerConnections,
         expandedGroups,
       ),
     [
+      activeSelection,
       expandedGroups,
       expandedLayers,
       model,
       moduleLayout,
       showLayerConnections,
-      selection,
     ],
   );
   const { nodes, edges, onNodesChange, onEdgesChange } =
@@ -212,13 +226,15 @@ function LaymosModulesInner({
 
   return (
     <ModuleGraphInteractionProvider
-      selection={selection}
+      selection={activeSelection}
       selectedModule={selectedModule}
       hoveredModule={hoveredModule}
       focusedModule={focusedModule}
       onSelectedModuleChange={onSelectedModuleChange}
       onHoveredModuleChange={onHoveredModuleChange}
       onFocusedModuleChange={onFocusedModuleChange}
+      hoveredGroup={hoveredGroup}
+      onHoveredGroupChange={setHoveredGroup}
       onToggleGroup={toggleGroup}
     >
       <div
