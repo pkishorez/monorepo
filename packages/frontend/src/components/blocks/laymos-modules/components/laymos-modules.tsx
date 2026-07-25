@@ -64,8 +64,12 @@ function LaymosModulesInner({
   const [expandedLayers, setExpandedLayers] = useState<ReadonlySet<string>>(
     () => new Set(model.layers.keys()),
   );
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   useEffect(() => {
     setExpandedLayers(new Set(model.layers.keys()));
+    setExpandedGroups(new Set());
   }, [model]);
 
   const selectionWithoutHover = useMemo(
@@ -106,8 +110,16 @@ function LaymosModulesInner({
         expandedLayers,
         moduleLayout,
         showLayerConnections,
+        expandedGroups,
       ),
-    [expandedLayers, model, moduleLayout, showLayerConnections, selection],
+    [
+      expandedGroups,
+      expandedLayers,
+      model,
+      moduleLayout,
+      showLayerConnections,
+      selection,
+    ],
   );
   const geometryKey = useMemo(
     () =>
@@ -122,6 +134,14 @@ function LaymosModulesInner({
 
   const toggleLayer = useCallback((name: string) => {
     setExpandedLayers((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+  const toggleGroup = useCallback((name: string) => {
+    setExpandedGroups((current) => {
       const next = new Set(current);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -183,6 +203,7 @@ function LaymosModulesInner({
       onSelectedModuleChange={onSelectedModuleChange}
       onHoveredModuleChange={onHoveredModuleChange}
       onFocusedModuleChange={onFocusedModuleChange}
+      onToggleGroup={toggleGroup}
     >
       <div
         ref={containerRef}
@@ -301,6 +322,7 @@ function LaymosModulesInner({
             <div className="nodrag nopan flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border bg-background/95 px-3 py-2 text-[9px] text-muted-foreground shadow-sm backdrop-blur">
               <span>click direct · right-click transitive</span>
               <span>right-click graph or layer to minimise</span>
+              <span>click a group to expand</span>
               <span className="flex items-center gap-1">
                 <span className="size-1.5 rounded-full bg-sky-500" />
                 root

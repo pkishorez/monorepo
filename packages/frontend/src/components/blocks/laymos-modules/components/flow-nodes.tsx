@@ -6,7 +6,7 @@ import { useModuleGraphInteraction } from '../context/interaction-context';
 import type {
   GraphHeaderNodeData,
   GraphLaneNodeData,
-  GroupHeaderNodeData,
+  GroupNodeData,
   LayerContainerNodeData,
   ModuleTileNodeData,
 } from '../lib/layout';
@@ -151,28 +151,92 @@ function LayerContainerNode({ data }: NodeProps<Node<LayerContainerNodeData>>) {
   );
 }
 
-function GroupHeaderNode({ data }: NodeProps<Node<GroupHeaderNodeData>>) {
+function GroupNode({ data }: NodeProps<Node<GroupNodeData>>) {
+  const interaction = useModuleGraphInteraction();
+  const title = data.description
+    ? `${data.name} — ${data.description}`
+    : data.name;
+
+  if (data.expanded) {
+    return (
+      <div
+        className={cn(
+          'flex h-full w-full items-center gap-2 transition-opacity',
+          data.dimmed && 'opacity-30',
+        )}
+      >
+        <button
+          type="button"
+          className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2 border-b border-border/60 pb-1 text-left"
+          title={`${title} — click to collapse`}
+          aria-label={`Collapse ${data.name} group`}
+          aria-expanded
+          onClick={(event) => {
+            event.stopPropagation();
+            interaction.onToggleGroup(data.name);
+          }}
+        >
+          <span className="text-[9px] leading-none text-muted-foreground">
+            ▾
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {data.name}
+          </span>
+          <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/70">
+            {data.moduleCount}
+            {data.violationCount > 0 ? (
+              <span className="text-destructive"> · {data.violationCount}</span>
+            ) : null}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        'flex h-full w-full items-center gap-2 border-b border-border/60 pb-1 transition-opacity',
-        data.dimmed && 'opacity-30',
+        'relative h-full w-full transition-all duration-150',
+        data.dimmed && 'opacity-20 saturate-50',
       )}
-      title={
-        data.description ? `${data.name} — ${data.description}` : data.name
-      }
-      aria-hidden
     >
-      <span className="size-1 shrink-0 rounded-full bg-foreground/40" />
-      <span className="min-w-0 flex-1 truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        {data.name}
-      </span>
-      <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/70">
-        {data.moduleCount}
-        {data.violationCount > 0 ? (
-          <span className="text-destructive"> · {data.violationCount}</span>
-        ) : null}
-      </span>
+      <ModuleHandles />
+      <span
+        className="pointer-events-none absolute -right-1 -top-1 bottom-1 left-1 rounded-md border border-border/70 bg-card"
+        aria-hidden
+      />
+      <button
+        type="button"
+        className={cn(
+          'pointer-events-auto relative flex h-full w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-border/80 bg-card px-2.5 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-foreground/70 hover:shadow-md focus-visible:outline-none',
+          data.related &&
+            'border-sky-500/55 bg-sky-500/[0.09] shadow-[inset_3px_0_0_#38bdf8]',
+          data.violationCount > 0 && 'border-destructive/60',
+        )}
+        title={`${title} — click to expand ${data.moduleCount} modules`}
+        aria-label={`${data.name} group, ${data.moduleCount} modules${data.violationCount > 0 ? `, ${data.violationCount} violations` : ''}, click to expand`}
+        aria-expanded={false}
+        onClick={(event) => {
+          event.stopPropagation();
+          interaction.onToggleGroup(data.name);
+        }}
+      >
+        <span
+          className={cn(
+            'flex size-3.5 shrink-0 items-center justify-center rounded-sm border border-border text-[8px] leading-none text-muted-foreground',
+            data.violationCount > 0 && 'border-destructive text-destructive',
+          )}
+          aria-hidden
+        >
+          ▸
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold">
+          {data.name}
+        </span>
+        <span className="shrink-0 rounded-full bg-muted px-1.5 text-[9px] font-medium tabular-nums text-muted-foreground">
+          {data.moduleCount}
+        </span>
+      </button>
     </div>
   );
 }
@@ -300,7 +364,7 @@ function ModuleTileNode({ data }: NodeProps<Node<ModuleTileNodeData>>) {
 export const moduleGraphNodeTypes = {
   'module-graph-lane': GraphLaneNode,
   'module-graph-header': GraphHeaderNode,
-  'module-group-header': GroupHeaderNode,
+  'module-group': GroupNode,
   'module-layer-container': LayerContainerNode,
   'module-tile': ModuleTileNode,
 };

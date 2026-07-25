@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   denseModuleArchitectureReport,
+  groupedModuleArchitectureReport,
   moduleArchitectureReport,
 } from '../fixtures/reports';
 import { computeModuleGraphLayout } from './layout';
@@ -316,5 +317,98 @@ describe('module graph layout', () => {
     expect(entryLayer.width).toBeLessThan(
       entryTiles.length * (entryTiles[0]!.width ?? 0),
     );
+  });
+
+  it('collapses every group to a single node by default', () => {
+    const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
+    const layout = computeModuleGraphLayout(
+      groupedModel,
+      getModuleGraphSelection(groupedModel, null, null),
+      new Set(groupedModel.layers.keys()),
+      'pack',
+      false,
+      new Set(),
+    );
+
+    const groupNodes = layout.nodes.filter(
+      (node) => node.type === 'module-group',
+    );
+    expect(groupNodes.map((node) => node.id).sort()).toEqual([
+      'group:application-billing',
+      'group:application-catalog',
+      'group:application-orders',
+      'group:domain-accounts',
+      'group:domain-ledger',
+    ]);
+    expect(groupNodes.every((node) => node.data.expanded === false)).toBe(true);
+
+    // domain is fully grouped, so no member tiles render while collapsed.
+    expect(
+      layout.nodes.filter(
+        (node) => node.type === 'module-tile' && node.data.layer === 'domain',
+      ),
+    ).toHaveLength(0);
+    // application keeps its two ungrouped capabilities as bare tiles.
+    expect(
+      layout.nodes.filter(
+        (node) =>
+          node.type === 'module-tile' && node.data.layer === 'application',
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('reveals member tiles when a group is expanded', () => {
+    const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
+    const layout = computeModuleGraphLayout(
+      groupedModel,
+      getModuleGraphSelection(groupedModel, null, null),
+      new Set(groupedModel.layers.keys()),
+      'pack',
+      false,
+      new Set(['domain-accounts']),
+    );
+
+    expect(
+      layout.nodes.find((node) => node.id === 'group:domain-accounts')?.data
+        .expanded,
+    ).toBe(true);
+    expect(
+      layout.nodes.filter(
+        (node) => node.type === 'module-tile' && node.data.layer === 'domain',
+      ),
+    ).toHaveLength(7);
+    // the sibling group stays collapsed.
+    expect(
+      layout.nodes.find((node) => node.id === 'group:domain-ledger')?.data
+        .expanded,
+    ).toBe(false);
+  });
+
+  it('routes a selected edge into a collapsed group node', () => {
+    const groupedModel = buildModuleGraphModel(groupedModuleArchitectureReport);
+    const layout = computeModuleGraphLayout(
+      groupedModel,
+      getModuleGraphSelection(
+        groupedModel,
+        { path: 'src/application/capability-1', depth: 'direct' },
+        null,
+      ),
+      new Set(groupedModel.layers.keys()),
+      'pack',
+      false,
+      new Set(['application-orders']),
+    );
+    const observed = layout.edges.filter((edge) =>
+      edge.id.startsWith('observed:'),
+    );
+
+    expect(
+      observed.some((edge) => edge.target === 'group:domain-accounts'),
+    ).toBe(true);
+    expect(
+      observed.some(
+        (edge) => edge.source === 'module:src/application/capability-1',
+      ),
+    ).toBe(true);
   });
 });
