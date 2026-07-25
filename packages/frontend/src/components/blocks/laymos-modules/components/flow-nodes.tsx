@@ -3,10 +3,10 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { cn } from '#lib/utils';
 
 import { useModuleGraphInteraction } from '../context/interaction-context';
-import { getModuleVisualState } from '../lib/selection';
 import type {
   GraphHeaderNodeData,
   GraphLaneNodeData,
+  GroupHeaderNodeData,
   LayerContainerNodeData,
   ModuleTileNodeData,
 } from '../lib/layout';
@@ -151,6 +151,32 @@ function LayerContainerNode({ data }: NodeProps<Node<LayerContainerNodeData>>) {
   );
 }
 
+function GroupHeaderNode({ data }: NodeProps<Node<GroupHeaderNodeData>>) {
+  return (
+    <div
+      className={cn(
+        'flex h-full w-full items-center gap-2 border-b border-border/60 pb-1 transition-opacity',
+        data.dimmed && 'opacity-30',
+      )}
+      title={
+        data.description ? `${data.name} — ${data.description}` : data.name
+      }
+      aria-hidden
+    >
+      <span className="size-1 shrink-0 rounded-full bg-foreground/40" />
+      <span className="min-w-0 flex-1 truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {data.name}
+      </span>
+      <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/70">
+        {data.moduleCount}
+        {data.violationCount > 0 ? (
+          <span className="text-destructive"> · {data.violationCount}</span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 function ModuleHandles() {
   return (
     <>
@@ -172,7 +198,11 @@ function ModuleHandles() {
 
 function ModuleTileNode({ data }: NodeProps<Node<ModuleTileNodeData>>) {
   const interaction = useModuleGraphInteraction();
-  const visual = getModuleVisualState(interaction.selection, data.path);
+  const visual = {
+    selected: data.selected,
+    related: data.related,
+    dimmed: data.dimmed,
+  };
   const hovered = interaction.hoveredModule === data.path;
   const focused = interaction.focusedModule === data.path;
   const previewed = hovered || focused;
@@ -270,6 +300,7 @@ function ModuleTileNode({ data }: NodeProps<Node<ModuleTileNodeData>>) {
 export const moduleGraphNodeTypes = {
   'module-graph-lane': GraphLaneNode,
   'module-graph-header': GraphHeaderNode,
+  'module-group-header': GroupHeaderNode,
   'module-layer-container': LayerContainerNode,
   'module-tile': ModuleTileNode,
 };

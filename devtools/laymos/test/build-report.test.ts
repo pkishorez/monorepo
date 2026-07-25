@@ -4,7 +4,7 @@ import { describe } from 'vitest';
 import type { ResolvedProject } from '../src/architecture/resolve-architecture/index.js';
 import type { RuleValidation } from '../src/architecture/validate-rules/index.js';
 import { buildReport } from '../src/architecture/build-report/index.js';
-import { edge, layer, layerGraph } from '../src/config/index.js';
+import { edge, group, layer, layerGraph, module } from '../src/config/index.js';
 import { laymosDescribe, laymosTest } from '../src/tests/authoring/index.js';
 
 const app = layer('app', ['src/app'], { description: 'App' });
@@ -70,6 +70,7 @@ const expected = {
       },
     ],
     modules: {},
+    moduleGroups: {},
     moduleRules: [],
     ignoredPaths: [],
   },
@@ -123,6 +124,43 @@ violations, coverage, and warnings.
               trace.getSpanCount({ name: 'report.build', status: 'success' }),
               'The report handoff is retained as one successful build trace.',
             ).toBe(1);
+          }),
+      );
+
+      laymosTest(
+        'Emits declared Module Groups.',
+        {
+          description:
+            'Module Groups become a reader-facing registry of clustered Modules.',
+        },
+        ({ expect }) =>
+          Effect.gen(function* () {
+            const model = module('src/domain/model', { description: 'Model' });
+            const actual = yield* buildReport(
+              {
+                ...resolved,
+                config: {
+                  ...resolved.config,
+                  modules: [model],
+                  moduleGroups: [
+                    group('domain-core', [model], {
+                      description: 'Core domain modules',
+                    }),
+                  ],
+                },
+              },
+              evaluation,
+            );
+
+            expect(
+              actual.architecture.moduleGroups,
+              'The report carries the group name, description, and members.',
+            ).toEqual({
+              'domain-core': {
+                description: 'Core domain modules',
+                modules: ['src/domain/model'],
+              },
+            });
           }),
       );
 

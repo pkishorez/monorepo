@@ -1,6 +1,12 @@
 import { Option, Schema } from 'effect';
 
-import type { Layer, LaymosConfig, ModuleDef, ModuleRules } from './types.js';
+import type {
+  Layer,
+  LaymosConfig,
+  ModuleDef,
+  ModuleGroup,
+  ModuleRules,
+} from './types.js';
 import { normalizeConfigPath, pathContains } from './path.js';
 
 const ErrorMessageSchema = Schema.Struct({ message: Schema.String });
@@ -52,6 +58,12 @@ export function validateConfig(config: LaymosConfig): ConfigValidation {
     return normalized;
   };
   const normalizedModules = config.modules?.map(normalizeModule);
+  const normalizedGroups = config.moduleGroups?.map(
+    (group): ModuleGroup => ({
+      ...group,
+      modules: group.modules.map(normalizeModule),
+    }),
+  );
   const normalizedRules = config.moduleRules?.map(
     (rule): ModuleRules => ({
       ...rule,
@@ -78,6 +90,9 @@ export function validateConfig(config: LaymosConfig): ConfigValidation {
       })),
     })),
     ...(normalizedModules === undefined ? {} : { modules: normalizedModules }),
+    ...(normalizedGroups === undefined
+      ? {}
+      : { moduleGroups: normalizedGroups }),
     ...(normalizedRules === undefined ? {} : { moduleRules: normalizedRules }),
     ...(config.ignore === undefined
       ? {}
@@ -98,6 +113,7 @@ export function validateConfig(config: LaymosConfig): ConfigValidation {
     ...unionCycles(normalizedConfig),
     ...architectureIntentIssues(normalizedConfig),
     ...moduleIssues(normalizedConfig),
+    ...moduleGroupIssues(normalizedConfig),
     ...projectNarrativeIssues(normalizedConfig),
   ];
   return { config: normalizedConfig, issues };
@@ -375,6 +391,99 @@ function moduleIssues(config: LaymosConfig): string[] {
           );
         }
       }
+    }
+  }
+
+  return issues;
+}
+
+function moduleLayerName(
+  layerPaths: ReadonlyArray<[string, string]>,
+  path: string,
+): string | undefined {
+  let best: [string, string] | undefined;
+  for (const [layerPath, layerName] of layerPaths) {
+    if (
+      pathContains(layerPath, path) &&
+      (best === undefined || layerPath.length > best[0].length)
+    ) {
+      best = [layerPath, layerName];
+    }
+  }
+  return best?.[1];
+}
+
+function moduleGroupIssues(config: LaymosConfig): string[] {
+  const groups = config.moduleGroups ?? [];
+  if (groups.length === 0) return [];
+
+  const issues: string[] = [];
+  const layerPaths = layerPathEntries(config);
+  const declaredModules = new Map<string, ModuleDef>();
+  for (const def of config.modules ?? []) {
+    if (!declaredModules.has(def.path)) declaredModules.set(def.path, def);
+  }
+
+  const seenGroupNames = new Set<string>();
+  const groupByModule = new Map<string, string>();
+  for (const group of groups) {
+    if (group.name.trim().length === 0) {
+      issues.push('Module Group name must not be empty');
+    } else if (seenGroupNames.has(group.name)) {
+      issues.push(`Duplicate module group name "${group.name}"`);
+    }
+    seenGroupNames.add(group.name);
+
+    if (
+      typeof group.description !== 'string' ||
+      group.description.trim().length === 0
+    ) {
+      issues.push(`Module Group "${group.name}" description must not be empty`);
+    }
+    if (group.modules.length === 0) {
+      issues.push(
+        `Module Group "${group.name}" must contain at least 1 module`,
+      );
+    }
+
+    const seenInGroup = new Set<string>();
+    const layerNames = new Set<string>();
+    for (const def of group.modules) {
+      const path = def.path;
+      if (seenInGroup.has(path)) {
+        issues.push(
+          `Module Group "${group.name}" references module "${path}" more than once`,
+        );
+        continue;
+      }
+      seenInGroup.add(path);
+
+      if (declaredModules.get(path) !== def) {
+        issues.push(
+          `Module Group "${group.name}" must reuse module "${path}" from config.modules`,
+        );
+      }
+
+      const existingGroup = groupByModule.get(path);
+      if (existingGroup !== undefined) {
+        issues.push(
+          `Module "${path}" belongs to both groups "${existingGroup}" and "${group.name}" — a module may belong to at most one group`,
+        );
+      } else {
+        groupByModule.set(path, group.name);
+      }
+
+      const layerName = moduleLayerName(layerPaths, path);
+      if (layerName !== undefined) layerNames.add(layerName);
+    }
+
+    if (layerNames.size > 1) {
+      issues.push(
+        `Module Group "${group.name}" spans layers ${[...layerNames]
+          .sort()
+          .map((name) => `"${name}"`)
+          .join(', ')} — a group must live in a single layer`,
+      );
     }
   }
 

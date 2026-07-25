@@ -3,6 +3,7 @@ import { describe } from 'vitest';
 import {
   defineConfig,
   edge,
+  group,
   layer,
   layerGraph,
   markdown,
@@ -652,6 +653,97 @@ function invalidModuleConfigurations(): readonly InvalidConfiguration[] {
         };
       },
       issue: 'has more than one rules declaration',
+    },
+    {
+      name: 'Requires Module Group members to reuse declared Modules.',
+      description: 'A group organizes the exact Module values in the config.',
+      config: () => {
+        const declared = module('src/app/feature', { description: 'Feature' });
+        const duplicate = module('src/app/feature', { description: 'Feature' });
+        return {
+          ...baseConfig(),
+          modules: [declared],
+          moduleGroups: [
+            group('features', [duplicate], { description: 'Features' }),
+          ],
+        };
+      },
+      issue: 'must reuse module "src/app/feature" from config.modules',
+    },
+    {
+      name: 'Rejects a Module in more than one group.',
+      description: 'Groups partition Modules, so membership is exclusive.',
+      config: () => {
+        const feature = module('src/app/feature', { description: 'Feature' });
+        return {
+          ...baseConfig(),
+          modules: [feature],
+          moduleGroups: [
+            group('a', [feature], { description: 'Group A' }),
+            group('b', [feature], { description: 'Group B' }),
+          ],
+        };
+      },
+      issue: 'may belong to at most one group',
+    },
+    {
+      name: 'Rejects a Module Group that spans layers.',
+      description: 'A group must live inside a single Layer.',
+      config: () => {
+        const appFeature = module('src/app/feature', {
+          description: 'Feature',
+        });
+        const coreDomain = module('src/core/domain', { description: 'Domain' });
+        return {
+          ...baseConfig(),
+          modules: [appFeature, coreDomain],
+          moduleGroups: [
+            group('mixed', [appFeature, coreDomain], {
+              description: 'Mixed layers',
+            }),
+          ],
+        };
+      },
+      issue: 'must live in a single layer',
+    },
+    {
+      name: 'Rejects duplicate Module Group names.',
+      description: 'A group name denotes exactly one group.',
+      config: () => {
+        const one = module('src/app/one', { description: 'One' });
+        const two = module('src/app/two', { description: 'Two' });
+        return {
+          ...baseConfig(),
+          modules: [one, two],
+          moduleGroups: [
+            group('features', [one], { description: 'Features' }),
+            group('features', [two], { description: 'Features again' }),
+          ],
+        };
+      },
+      issue: 'Duplicate module group name "features"',
+    },
+    {
+      name: 'Requires a Module Group description.',
+      description: 'A group is reader-facing and must explain itself.',
+      config: () => {
+        const feature = module('src/app/feature', { description: 'Feature' });
+        return {
+          ...baseConfig(),
+          modules: [feature],
+          moduleGroups: [group('features', [feature], { description: ' ' })],
+        };
+      },
+      issue: 'Module Group "features" description must not be empty',
+    },
+    {
+      name: 'Requires a Module Group to contain a Module.',
+      description: 'An empty group discloses nothing.',
+      config: () => ({
+        ...baseConfig(),
+        moduleGroups: [group('empty', [], { description: 'Empty' })],
+      }),
+      issue: 'must contain at least 1 module',
     },
   ];
 }

@@ -6,11 +6,12 @@ export type {
   LayerGraph,
   LaymosConfig,
   ModuleDef,
+  ModuleGroup,
   ModuleRules,
 } from './types.js';
 export { edge, layerGraph } from './layer-graph.js';
 export { layer } from './layer.js';
-export { module, rules } from './module.js';
+export { group, module, rules } from './module.js';
 export { markdown } from '../markdown/index.js';
 export type { MarkdownContent } from '../markdown/index.js';
 export { projectNarrative } from './project-narrative.js';

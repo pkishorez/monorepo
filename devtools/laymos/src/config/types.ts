@@ -32,10 +32,18 @@ export interface ModuleRules {
   readonly canImportedBy?: readonly ModuleDef[];
 }
 
+export interface ModuleGroup {
+  readonly kind: 'module-group';
+  readonly name: string;
+  readonly description: string;
+  readonly modules: readonly ModuleDef[];
+}
+
 export interface LaymosConfig {
   readonly sourceRoots: readonly string[];
   readonly graphs: readonly LayerGraph[];
   readonly modules?: readonly ModuleDef[];
+  readonly moduleGroups?: readonly ModuleGroup[];
   readonly moduleRules?: readonly ModuleRules[];
   readonly ignore?: readonly string[];
   readonly project?: import('./project-narrative.js').ProjectNarrativeDef;

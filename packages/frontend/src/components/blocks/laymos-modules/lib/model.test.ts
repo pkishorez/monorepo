@@ -81,4 +81,39 @@ describe('module graph model', () => {
       isSink: true,
     });
   });
+
+  it('clusters modules into groups within their inferred layer', () => {
+    const report: LaymosReport = {
+      ...moduleArchitectureReport,
+      architecture: {
+        ...moduleArchitectureReport.architecture,
+        moduleGroups: {
+          'domain-core': {
+            description: 'Core domain modules',
+            modules: ['src/domain/orders', 'src/domain/accounts'],
+          },
+        },
+      },
+    };
+    const model = buildModuleGraphModel(report);
+
+    const group = model.groups.get('domain-core');
+    expect(group?.layer).toBe('domain');
+    expect(group?.description).toBe('Core domain modules');
+    expect(group?.modulePaths).toEqual([
+      'src/domain/accounts',
+      'src/domain/orders',
+    ]);
+    expect(group?.violationCount).toBe(1);
+    expect(model.groupByModule.get('src/domain/orders')).toBe('domain-core');
+    expect(model.layers.get('domain')?.groupNames).toEqual(['domain-core']);
+  });
+
+  it('leaves group membership empty when none is configured', () => {
+    const model = buildModuleGraphModel(moduleArchitectureReport);
+
+    expect(model.groups.size).toBe(0);
+    expect(model.groupByModule.size).toBe(0);
+    expect(model.layers.get('domain')?.groupNames).toEqual([]);
+  });
 });

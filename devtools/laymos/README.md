@@ -4,14 +4,18 @@ Laymos explains a project’s architecture and test results.
 
 ## Architecture
 
-Declare Layers, Layer Graphs, Modules, and optional Module rules in
-`laymos.config.ts`. Run `laymos lint` to analyze imports and report violations.
+Declare Layers, Layer Graphs, Modules, optional Module Groups, and optional
+Module rules in `laymos.config.ts`. Run `laymos lint` to analyze imports and
+report violations.
 
 ```ts
-import { defineConfig, edge, layer, layerGraph } from 'laymos';
+import { defineConfig, edge, group, layer, layerGraph, module } from 'laymos';
 
 const app = layer('app', ['src/app'], { description: 'Application' });
 const domain = layer('domain', ['src/domain'], { description: 'Domain' });
+
+const orders = module('src/domain/orders', { description: 'Order rules' });
+const cart = module('src/domain/cart', { description: 'Cart rules' });
 
 export default defineConfig({
   sourceRoots: ['src'],
@@ -20,8 +24,19 @@ export default defineConfig({
       description: 'Application dependencies',
     }),
   ],
+  modules: [orders, cart],
+  moduleGroups: [
+    group('orders', [orders, cart], { description: 'Order lifecycle' }),
+  ],
 });
 ```
+
+A Module Group is a named cluster of sibling Modules that all live in the same
+Layer. It adds a within-Layer disclosure tier — Layer → Group → Module — so
+crowded Layers read as a handful of clusters instead of a flat list. Members
+must be values already declared in `modules`, a Module belongs to at most one
+Group, and every member must resolve to the same Layer. Groups are purely
+organizational and impose no import rule.
 
 ## Tests
 

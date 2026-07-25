@@ -26,11 +26,17 @@ export interface ReportModuleRules {
   readonly canImportedBy?: readonly string[];
 }
 
+export interface ReportModuleGroup {
+  readonly description: string;
+  readonly modules: readonly string[];
+}
+
 export interface ReportArchitecture {
   readonly sourceRoots: readonly string[];
   readonly layers: Readonly<Record<string, ReportLayer>>;
   readonly graphs: readonly ReportGraph[];
   readonly modules: Readonly<Record<string, ReportModule>>;
+  readonly moduleGroups: Readonly<Record<string, ReportModuleGroup>>;
   readonly moduleRules: readonly ReportModuleRules[];
   readonly ignoredPaths: readonly string[];
 }

@@ -2,7 +2,7 @@ import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
 import { moduleGraphColors } from './colors';
-import type { ModuleGraphModel } from './model';
+import type { LayerSummary, ModuleGraphModel } from './model';
 import {
   getModuleVisualState,
   type ModuleGraphSelectionModel,
@@ -40,6 +40,15 @@ export interface LayerContainerNodeData extends Record<string, unknown> {
   readonly hiddenConnectionCount: number;
   readonly containsSelected: boolean;
   readonly related: boolean;
+  readonly dimmed: boolean;
+}
+
+export interface GroupHeaderNodeData extends Record<string, unknown> {
+  readonly name: string;
+  readonly description?: string;
+  readonly layer: string;
+  readonly moduleCount: number;
+  readonly violationCount: number;
   readonly dimmed: boolean;
 }
 
@@ -99,6 +108,9 @@ const MODULE_GAP = 18;
 const MODULE_PADDING = 22;
 const TREE_INLINE_LEVEL_LIMIT = 5;
 const TREE_LEVEL_GAP = 54;
+const GROUP_HEADER_HEIGHT = 22;
+const GROUP_HEADER_GAP = 8;
+const GROUP_BAND_GAP = 16;
 
 function adaptiveModuleColumns(count: number): number {
   const columnStep = MODULE_WIDTH + MODULE_GAP;
@@ -378,6 +390,103 @@ function roundedModulePacking(
   };
 }
 
+interface LayerBand {
+  readonly groupName: string | null;
+  readonly description?: string;
+  readonly paths: readonly string[];
+  readonly placements: readonly ModulePlacement[];
+  readonly headerY: number;
+  readonly violationCount: number;
+}
+
+interface LayerBanding {
+  readonly bands: readonly LayerBand[];
+  readonly height: number;
+}
+
+/** Stacks a layer's Module Groups as labeled bands above any ungrouped tail. */
+function layerBands(
+  model: ModuleGraphModel,
+  layer: LayerSummary,
+  width: number,
+): LayerBanding {
+  const grouped = new Set<string>();
+  const drafts: {
+    groupName: string | null;
+    description?: string;
+    paths: string[];
+    violationCount: number;
+  }[] = [];
+  for (const groupName of layer.groupNames) {
+    const group = model.groups.get(groupName);
+    if (group === undefined) continue;
+    const paths = group.modulePaths.filter((path) =>
+      layer.modulePaths.includes(path),
+    );
+    if (paths.length === 0) continue;
+    for (const path of paths) grouped.add(path);
+    drafts.push({
+      groupName,
+      paths,
+      violationCount: group.violationCount,
+      ...(group.description !== undefined
+        ? { description: group.description }
+        : {}),
+    });
+  }
+  const ungrouped = layer.modulePaths.filter((path) => !grouped.has(path));
+  if (ungrouped.length > 0) {
+    drafts.push({ groupName: null, paths: ungrouped, violationCount: 0 });
+  }
+
+  const baseY = LAYER_HEADER_HEIGHT + MODULE_PADDING;
+  const bands: LayerBand[] = [];
+  let y = baseY;
+  for (const draft of drafts) {
+    let headerY = 0;
+    if (draft.groupName !== null) {
+      headerY = y;
+      y += GROUP_HEADER_HEIGHT + GROUP_HEADER_GAP;
+    }
+    const packing = roundedModulePacking(draft.paths.length, width);
+    const rowsHeight = packing.height - baseY - MODULE_PADDING;
+    const placements = packing.placements.map((placement) => ({
+      x: placement.x,
+      y: placement.y - baseY + y,
+    }));
+    y += rowsHeight;
+    bands.push({
+      groupName: draft.groupName,
+      paths: draft.paths,
+      placements,
+      headerY,
+      violationCount: draft.violationCount,
+      ...(draft.description !== undefined
+        ? { description: draft.description }
+        : {}),
+    });
+    y += GROUP_BAND_GAP;
+  }
+
+  return {
+    bands,
+    height:
+      bands.length === 0
+        ? baseY + MODULE_HEIGHT + MODULE_PADDING
+        : y - GROUP_BAND_GAP + MODULE_PADDING,
+  };
+}
+
+function layerHasBands(
+  model: ModuleGraphModel,
+  name: string,
+  mode: ModuleLayoutMode,
+): LayerSummary | null {
+  if (mode !== 'pack') return null;
+  const layer = model.layers.get(name);
+  return layer && layer.groupNames.length > 0 ? layer : null;
+}
+
 function layerHeight(
   model: ModuleGraphModel,
   name: string,
@@ -385,6 +494,8 @@ function layerHeight(
   mode: ModuleLayoutMode,
 ): number {
   if (mode === 'tree') return layoutModuleTree(model, name).height;
+  const banded = layerHasBands(model, name, mode);
+  if (banded) return layerBands(model, banded, width).height;
   return roundedModulePacking(
     model.layers.get(name)?.modulePaths.length ?? 0,
     width,
@@ -636,26 +747,71 @@ export function computeModuleGraphLayout(
     });
 
     if (!expandedLayers.has(layer.name)) continue;
-    const packed =
-      moduleLayout === 'pack'
-        ? roundedModulePacking(layer.modulePaths.length, position.width)
-        : null;
+    const banded = layerHasBands(model, layer.name, moduleLayout);
+    const bands = banded ? layerBands(model, banded, position.width) : null;
     const tree =
       moduleLayout === 'tree' ? layoutModuleTree(model, layer.name) : null;
     const treeOffset = tree ? (position.width - tree.width) / 2 : 0;
-    layer.modulePaths.forEach((path, index) => {
+    const packed =
+      !bands && moduleLayout === 'pack'
+        ? roundedModulePacking(layer.modulePaths.length, position.width)
+        : null;
+
+    const placementByPath = new Map<string, ModulePlacement>();
+    if (bands) {
+      for (const band of bands.bands) {
+        band.paths.forEach((path, index) => {
+          placementByPath.set(path, band.placements[index]!);
+        });
+        if (band.groupName === null) continue;
+        nodes.push({
+          id: `group:${layer.name}:${band.groupName}`,
+          type: 'module-group-header',
+          parentId: `layer:${layer.name}`,
+          extent: 'parent',
+          position: { x: MODULE_PADDING, y: band.headerY },
+          width: position.width - MODULE_PADDING * 2,
+          height: GROUP_HEADER_HEIGHT,
+          draggable: false,
+          selectable: false,
+          focusable: false,
+          zIndex: 3,
+          style: { pointerEvents: 'none' },
+          data: {
+            name: band.groupName,
+            layer: layer.name,
+            moduleCount: band.paths.length,
+            violationCount: band.violationCount,
+            dimmed: Boolean(selection.root && !related),
+            ...(band.description !== undefined
+              ? { description: band.description }
+              : {}),
+          } satisfies GroupHeaderNodeData,
+        });
+      }
+    } else {
+      layer.modulePaths.forEach((path, index) => {
+        const placement =
+          tree?.positions.get(path) ?? packed?.placements[index];
+        placementByPath.set(path, {
+          x: placement!.x + treeOffset,
+          y: placement!.y,
+        });
+      });
+    }
+
+    layer.modulePaths.forEach((path) => {
       const module = model.modules.get(path)!;
       const visual = getModuleVisualState(selection, path);
-      const modulePosition =
-        tree?.positions.get(path) ?? packed?.placements[index];
+      const modulePosition = placementByPath.get(path)!;
       nodes.push({
         id: `module:${path}`,
         type: 'module-tile',
         parentId: `layer:${layer.name}`,
         extent: 'parent',
         position: {
-          x: modulePosition!.x + treeOffset,
-          y: modulePosition!.y,
+          x: modulePosition.x,
+          y: modulePosition.y,
         },
         width: MODULE_WIDTH,
         height: MODULE_HEIGHT,

@@ -30,9 +30,18 @@ export interface LayerSummary {
   readonly description?: string;
   readonly graphs: readonly string[];
   readonly modulePaths: readonly string[];
+  readonly groupNames: readonly string[];
   readonly fileCount: number;
   readonly coveredFiles: number;
   readonly totalFiles: number;
+  readonly violationCount: number;
+}
+
+export interface GroupSummary {
+  readonly name: string;
+  readonly description?: string;
+  readonly layer: string;
+  readonly modulePaths: readonly string[];
   readonly violationCount: number;
 }
 
@@ -41,6 +50,8 @@ export interface ModuleGraphModel {
   readonly graphs: readonly ReportGraph[];
   readonly modules: ReadonlyMap<string, ModuleSummary>;
   readonly layers: ReadonlyMap<string, LayerSummary>;
+  readonly groups: ReadonlyMap<string, GroupSummary>;
+  readonly groupByModule: ReadonlyMap<string, string>;
   readonly edges: readonly ModuleEdge[];
   readonly edgeByKey: ReadonlyMap<string, ModuleEdge>;
   readonly successors: ReadonlyMap<string, ReadonlySet<string>>;
@@ -252,6 +263,32 @@ export function buildModuleGraphModel(report: LaymosReport): ModuleGraphModel {
   const coverageByLayer = new Map(
     report.coverage.modules.map((coverage) => [coverage.layer, coverage]),
   );
+  const configuredGroups = report.architecture.moduleGroups ?? {};
+  const groups = new Map<string, GroupSummary>();
+  const groupByModule = new Map<string, string>();
+  const groupNamesByLayer = new Map<string, string[]>();
+  for (const [name, configured] of Object.entries(configuredGroups)) {
+    const memberPaths = configured.modules.filter((path) => modules.has(path));
+    if (memberPaths.length === 0) continue;
+    const layer = modules.get(memberPaths[0]!)!.layer;
+    groups.set(name, {
+      name,
+      layer,
+      modulePaths: [...memberPaths].sort(),
+      violationCount: memberPaths.reduce(
+        (total, path) => total + (modules.get(path)?.violationCount ?? 0),
+        0,
+      ),
+      ...(configured.description !== undefined
+        ? { description: configured.description }
+        : {}),
+    });
+    for (const path of memberPaths) groupByModule.set(path, name);
+    const layerGroups = groupNamesByLayer.get(layer) ?? [];
+    layerGroups.push(name);
+    groupNamesByLayer.set(layer, layerGroups);
+  }
+
   const layers = new Map<string, LayerSummary>();
   for (const name of layerNames) {
     const configured = report.architecture.layers[name];
@@ -267,6 +304,7 @@ export function buildModuleGraphModel(report: LaymosReport): ModuleGraphModel {
       name,
       graphs: graphsByLayer.get(name) ?? [],
       modulePaths: modulePathsInLayer,
+      groupNames: groupNamesByLayer.get(name) ?? [],
       fileCount: layerFiles,
       coveredFiles: coverage?.coveredFiles ?? modulePathsInLayer.length,
       totalFiles: coverage?.totalFiles ?? layerFiles,
@@ -296,6 +334,8 @@ export function buildModuleGraphModel(report: LaymosReport): ModuleGraphModel {
     graphs: report.architecture.graphs,
     modules,
     layers,
+    groups,
+    groupByModule,
     edges,
     edgeByKey: new Map(
       edges.map((edge) => [moduleEdgeKey(edge.from, edge.to), edge]),

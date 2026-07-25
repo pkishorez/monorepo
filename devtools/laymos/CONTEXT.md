@@ -54,6 +54,19 @@ consumer, `canImportedBy` protects it as a provider. AND semantics, deny
 wins; rules only tighten. May constrain same-layer or cross-layer imports but
 can never grant permission denied by the layer graph.
 
+**Module group**:
+A named and described cluster of sibling modules that all live in the same
+layer — the tier between layer and module that gives module views progressive
+disclosure, as a layer graph does for layers. Members are values already
+declared in `config.modules`; a module belongs to at most one group, so groups
+partition a layer's modules just as layers partition files. Purely
+organizational: declaring a group imposes no import rule and only chunks the
+picture so a reader holds a handful of clusters instead of a flat list. A
+group whose members straddle layers is a configuration error.
+_Avoid_: layer graph (that bundles layers across a DAG; a group bundles
+modules inside one layer), feature (a group is a cluster within one layer, not
+a cross-layer vertical)
+
 **Ignore**:
 The single global set of paths invisible to laymos — no rules, no coverage,
 unchecked in both directions. Invisible, not permitted.

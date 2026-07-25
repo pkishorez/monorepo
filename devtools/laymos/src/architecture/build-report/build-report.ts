@@ -8,6 +8,7 @@ import type {
   ReportFile,
   ReportLayer,
   ReportModule,
+  ReportModuleGroup,
 } from '../../report/index.js';
 import type { ResolvedProject } from '../resolve-architecture/index.js';
 import type { RuleValidation } from '../validate-rules/index.js';
@@ -37,6 +38,14 @@ function emitArchitecture(config: LaymosConfig): ReportArchitecture {
     };
   }
 
+  const moduleGroups: Record<string, ReportModuleGroup> = {};
+  for (const group of config.moduleGroups ?? []) {
+    moduleGroups[group.name] = {
+      description: group.description,
+      modules: group.modules.map((module) => module.path),
+    };
+  }
+
   return {
     sourceRoots: config.sourceRoots,
     layers,
@@ -52,6 +61,7 @@ function emitArchitecture(config: LaymosConfig): ReportArchitecture {
         : {}),
     })),
     modules,
+    moduleGroups,
     moduleRules: (config.moduleRules ?? []).map((rules) => ({
       module: rules.module.path,
       ...(rules.canImport !== undefined

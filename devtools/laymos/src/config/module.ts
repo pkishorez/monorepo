@@ -1,4 +1,4 @@
-import type { ModuleDef, ModuleRules } from './types.js';
+import type { ModuleDef, ModuleGroup, ModuleRules } from './types.js';
 import type { MarkdownContent } from '../markdown/index.js';
 
 export function module(
@@ -15,6 +15,25 @@ export function module(
     ...(options.documentation === undefined
       ? {}
       : { documentation: options.documentation }),
+  };
+}
+
+/**
+ * Declares a Module Group: a named, described cluster of sibling Modules that
+ * all live in the same Layer. Members must be values already declared in
+ * `config.modules`. Purely organizational — it imposes no import rule and only
+ * drives progressive disclosure in the visualization.
+ */
+export function group(
+  name: string,
+  modules: readonly ModuleDef[],
+  options: { readonly description: string },
+): ModuleGroup {
+  return {
+    kind: 'module-group',
+    name,
+    description: options.description,
+    modules,
   };
 }
 
