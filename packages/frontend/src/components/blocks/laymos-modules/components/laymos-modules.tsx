@@ -21,6 +21,7 @@ import { Switch } from '#components/ui/switch';
 import { cn } from '#lib/utils';
 
 import { ModuleGraphInteractionProvider } from '../context/interaction-context';
+import { useFlowElements } from '../hooks/use-flow-elements';
 import { useModuleGraphFit } from '../hooks/use-module-graph-fit';
 import { moduleGraphColors } from '../lib/colors';
 import { computeModuleGraphLayout, type ModuleLayoutMode } from '../lib/layout';
@@ -121,6 +122,8 @@ function LaymosModulesInner({
       selection,
     ],
   );
+  const { nodes, edges, onNodesChange, onEdgesChange } =
+    useFlowElements(layout);
   const geometryKey = useMemo(
     () =>
       `${[...model.layers.keys()].sort().join('\0')}\0${model.modules.size}\0${moduleLayout}`,
@@ -216,8 +219,10 @@ function LaymosModulesInner({
       >
         <ReactFlow
           id={flowId}
-          nodes={layout.nodes}
-          edges={layout.edges}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
           nodeTypes={moduleGraphNodeTypes}
           defaultViewport={initialViewport}
           fitView={initialViewport === undefined}
