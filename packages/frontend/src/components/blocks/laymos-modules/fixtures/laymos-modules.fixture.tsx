@@ -5,6 +5,7 @@ import type { LaymosModuleSelection } from '../types';
 import { LaymosModules } from '../components/laymos-modules';
 import {
   denseModuleArchitectureReport,
+  groupedModuleArchitectureReport,
   moduleArchitectureReport,
 } from './reports';
 
@@ -57,5 +58,8 @@ export default {
   ),
   'dense architecture': (
     <ControlledModules report={denseModuleArchitectureReport} />
+  ),
+  'grouped architecture': (
+    <ControlledModules report={groupedModuleArchitectureReport} />
   ),
 };

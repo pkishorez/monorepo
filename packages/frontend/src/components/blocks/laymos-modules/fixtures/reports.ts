@@ -178,3 +178,59 @@ function buildDenseModuleReport(): LaymosReport {
 }
 
 export const denseModuleArchitectureReport = buildDenseModuleReport();
+
+function capabilityGroup(
+  layer: string,
+  description: string,
+  indices: readonly number[],
+): { description: string; modules: string[] } {
+  return {
+    description,
+    modules: indices.map((index) => `src/${layer}/capability-${index}`),
+  };
+}
+
+/**
+ * A dense report whose crowded layers are chunked with Module Groups. The
+ * `application` layer keeps an ungrouped tail (capabilities 13–14) so the
+ * layout's grouped bands and bare tail are both exercised, while `entry` and
+ * `platform` stay ungrouped to prove mixed layers render together.
+ */
+function buildGroupedModuleReport(): LaymosReport {
+  const dense = buildDenseModuleReport();
+  return {
+    ...dense,
+    architecture: {
+      ...dense.architecture,
+      moduleGroups: {
+        'application-orders': capabilityGroup(
+          'application',
+          'Order and checkout workflows',
+          [1, 2, 3, 4],
+        ),
+        'application-billing': capabilityGroup(
+          'application',
+          'Billing and invoicing workflows',
+          [5, 6, 7, 8],
+        ),
+        'application-catalog': capabilityGroup(
+          'application',
+          'Catalog and search workflows',
+          [9, 10, 11, 12],
+        ),
+        'domain-accounts': capabilityGroup(
+          'domain',
+          'Account and identity model',
+          [1, 2, 3, 4, 5, 6, 7],
+        ),
+        'domain-ledger': capabilityGroup(
+          'domain',
+          'Ledger and pricing model',
+          [8, 9, 10, 11, 12, 13, 14],
+        ),
+      },
+    },
+  };
+}
+
+export const groupedModuleArchitectureReport = buildGroupedModuleReport();

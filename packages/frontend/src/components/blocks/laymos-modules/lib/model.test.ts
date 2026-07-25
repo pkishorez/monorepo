@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { LaymosReport } from 'laymos/report';
 
-import { moduleArchitectureReport } from '../fixtures/reports';
+import {
+  groupedModuleArchitectureReport,
+  moduleArchitectureReport,
+} from '../fixtures/reports';
 import { buildModuleGraphModel } from './model';
 
 describe('module graph model', () => {
@@ -107,6 +110,23 @@ describe('module graph model', () => {
     expect(group?.violationCount).toBe(1);
     expect(model.groupByModule.get('src/domain/orders')).toBe('domain-core');
     expect(model.layers.get('domain')?.groupNames).toEqual(['domain-core']);
+  });
+
+  it('resolves the grouped fixture with a partly ungrouped layer', () => {
+    const model = buildModuleGraphModel(groupedModuleArchitectureReport);
+
+    expect(model.layers.get('application')?.groupNames).toEqual([
+      'application-orders',
+      'application-billing',
+      'application-catalog',
+    ]);
+    // capabilities 13 and 14 are declared but left out of every group.
+    expect(model.groupByModule.has('src/application/capability-1')).toBe(true);
+    expect(model.groupByModule.has('src/application/capability-13')).toBe(
+      false,
+    );
+    expect(model.groups.get('domain-accounts')?.layer).toBe('domain');
+    expect(model.layers.get('entry')?.groupNames).toEqual([]);
   });
 
   it('leaves group membership empty when none is configured', () => {
