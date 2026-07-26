@@ -46,6 +46,7 @@
     "clsx": "catalog:",
     "cmdk": "catalog:",
     "date-fns": "catalog:",
+    "elkjs": "catalog:",
     "embla-carousel-react": "catalog:",
     "gray-matter": "catalog:",
     "input-otp": "catalog:",
@@ -66,7 +67,8 @@
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
-    "vaul": "catalog:"
+    "vaul": "catalog:",
+    "xstate": "catalog:"
   },
   "devDependencies": {
     "@pkishorez/lotel": "workspace:*",
