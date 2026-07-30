@@ -7,9 +7,15 @@ import {
   releaseMachine,
   trafficLightMachine,
   uploadMachine,
-} from '../fixtures/machines';
+} from '../fixtures/xstate-v5/machines';
+import {
+  checkoutMachineV6,
+  documentReviewMachineV6,
+  trafficLightMachineV6,
+} from '../fixtures/xstate-v6/machines';
 import { containsPoint, layoutStateMachine } from './layout';
-import { serializeStateMachine } from './serialize-machine';
+import { serializeV5 } from './v5/serialize';
+import { serializeV6 } from './v6/serialize';
 
 const FIXTURE_MACHINES = [
   trafficLightMachine,
@@ -18,11 +24,17 @@ const FIXTURE_MACHINES = [
   mediaPlayerMachine,
   documentReviewMachine,
   releaseMachine,
-];
+]
+  .map(serializeV5)
+  .concat(
+    [trafficLightMachineV6, checkoutMachineV6, documentReviewMachineV6].map(
+      serializeV6,
+    ),
+  );
 
 describe('state machine layout', () => {
   it('places the initial indicator before the initial state', async () => {
-    const machine = serializeStateMachine(orderMachine);
+    const machine = serializeV5(orderMachine);
     const layout = await layoutStateMachine(machine);
     const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
 
@@ -39,9 +51,13 @@ describe('state machine layout', () => {
   });
 
   it('returns renderer-neutral scene primitives', async () => {
-    const machine = serializeStateMachine(orderMachine);
+    const machine = serializeV5(orderMachine);
     const layout = await layoutStateMachine(machine);
 
+    expect(layout).toMatchObject({
+      id: 'order-processing',
+      label: 'Order Processing',
+    });
     expect(layout.width).toBeGreaterThan(0);
     expect(layout.height).toBeGreaterThan(0);
     expect(layout.nodes.find((node) => node.kind === 'initial')).toBeDefined();
@@ -54,19 +70,47 @@ describe('state machine layout', () => {
   });
 
   it('keeps ordinary transitions compact without crowding states', async () => {
-    const machine = serializeStateMachine(trafficLightMachine);
+    const machine = serializeV5(trafficLightMachine);
     const layout = await layoutStateMachine(machine);
     const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
     const red = nodes.get('traffic-light.red')!;
     const green = nodes.get('traffic-light.green')!;
     const gap = green.x - (red.x + red.width);
 
-    expect(gap).toBeGreaterThanOrEqual(56);
-    expect(gap).toBeLessThanOrEqual(160);
+    expect(gap).toBeGreaterThanOrEqual(120);
+    expect(gap).toBeLessThanOrEqual(320);
+  });
+
+  it('leaves room around transition labels between adjacent states', async () => {
+    const machine = serializeV5(orderMachine);
+    const layout = await layoutStateMachine(machine, {
+      aspectRatio: 1.65,
+      wrappingStrategy: 'SINGLE_EDGE',
+    });
+    const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
+    const validating = nodes.get('order-processing.validating')!;
+    const charging = nodes.get('order-processing.charging')!;
+    const gap = charging.x - (validating.x + validating.width);
+
+    expect(gap).toBeGreaterThanOrEqual(120);
+  });
+
+  it('leaves room around transition labels inside compound states', async () => {
+    const machine = serializeV5(mediaPlayerMachine);
+    const layout = await layoutStateMachine(machine, {
+      aspectRatio: 1.65,
+      wrappingStrategy: 'SINGLE_EDGE',
+    });
+    const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
+    const ready = nodes.get('media-player.on.ready')!;
+    const playing = nodes.get('media-player.on.playing')!;
+    const gap = playing.x - (ready.x + ready.width);
+
+    expect(gap).toBeGreaterThanOrEqual(120);
   });
 
   it('embeds transition labels directly on their routed edges', async () => {
-    const machine = serializeStateMachine(trafficLightMachine);
+    const machine = serializeV5(trafficLightMachine);
     const layout = await layoutStateMachine(machine);
     const labeledEdges = layout.edges.filter((edge) => edge.label);
 
@@ -99,7 +143,7 @@ describe('state machine layout', () => {
   });
 
   it('supports opt-in aspect ratio and graph wrapping options', async () => {
-    const machine = serializeStateMachine(orderMachine);
+    const machine = serializeV5(orderMachine);
     const [defaultLayout, compactLayout, singleEdgeLayout] = await Promise.all([
       layoutStateMachine(machine),
       layoutStateMachine(machine, {
@@ -137,7 +181,7 @@ describe('state machine layout', () => {
   });
 
   it('rejects invalid aspect ratios', async () => {
-    const machine = serializeStateMachine(orderMachine);
+    const machine = serializeV5(orderMachine);
 
     await expect(
       layoutStateMachine(machine, { aspectRatio: 0 }),
@@ -146,8 +190,7 @@ describe('state machine layout', () => {
 
   it.each(FIXTURE_MACHINES)(
     'routes every fixture edge through ELK',
-    async (fixtureMachine) => {
-      const machine = serializeStateMachine(fixtureMachine);
+    async (machine) => {
       const layout = await layoutStateMachine(machine);
 
       expect(layout.nodes.length).toBeGreaterThanOrEqual(machine.nodes.length);
@@ -168,13 +211,11 @@ describe('state machine layout', () => {
   it.each(FIXTURE_MACHINES)(
     'supports every wrapping strategy for every fixture',
     async (machine) => {
-      const serializedMachine = serializeStateMachine(machine);
-
       await expect(
         Promise.all(
           (['OFF', 'SINGLE_EDGE', 'MULTI_EDGE'] as const).map(
             (wrappingStrategy) =>
-              layoutStateMachine(serializedMachine, {
+              layoutStateMachine(machine, {
                 aspectRatio: 1,
                 wrappingStrategy,
               }),

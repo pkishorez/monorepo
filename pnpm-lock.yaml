@@ -280,6 +280,10 @@ catalogs:
     typescript:
       specifier: npm:@typescript/typescript6@6.0.2
       version: 6.0.2
+  xstate6:
+    xstate-v6:
+      specifier: npm:xstate@6.0.0-alpha.23
+      version: 6.0.0-alpha.23
 
 importers:
 
@@ -629,6 +633,9 @@ importers:
       xstate:
         specifier: 'catalog:'
         version: 5.32.5
+      xstate-v6:
+        specifier: catalog:xstate6
+        version: xstate@6.0.0-alpha.23
     devDependencies:
       '@pkishorez/lotel':
         specifier: workspace:*
@@ -7705,6 +7712,10 @@ packages:
 
   xstate@5.32.5:
     resolution: {integrity: sha512-ULazi1oe6wGrXl0Frb6otSlkm5HLifbbVTkMk5kkSKqz4TkxJaVpnl6jOJwKeid3ORPxYyZQgNLUSYX9q65SIA==}
+
+  xstate@6.0.0-alpha.23:
+    resolution: {integrity: sha512-ol0lRgwtUBRhiC5CRRwFzi9PZ+7XkRiXGMmD6/Pv3Yra81Hb4aPGWuEu4NSu0K54MEgylUi8AV4Hpwp9KFADlg==}
+    hasBin: true
 
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
@@ -15275,6 +15286,8 @@ snapshots:
     optional: true
 
   xstate@5.32.5: {}
+
+  xstate@6.0.0-alpha.23: {}
 
   y18n@5.0.8: {}
 

@@ -110,6 +110,11 @@
       "isIgnored": true
     },
     {
+      "label": "Aliased XState 6 alpha catalog updates are manual",
+      "dependencyTypes": ["pnpmCatalog:xstate6"],
+      "isIgnored": true
+    },
+    {
       "label": "Peer dependency updates are intentional",
       "dependencyTypes": ["peer"],
       "isIgnored": true

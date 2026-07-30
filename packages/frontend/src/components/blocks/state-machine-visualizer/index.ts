@@ -1,12 +1,10 @@
 export { StateMachineSvg } from './components/state-machine-svg';
-export { StateMachineSvgViewer } from './components/state-machine-svg-viewer';
+export { StateMachineViewer } from './components/state-machine-viewer';
 export { layoutStateMachine } from './lib/layout';
-export { serializeStateMachine } from './lib/serialize-machine';
+export { serializeV5 } from './lib/v5/serialize';
+export { serializeV6 } from './lib/v6/serialize';
 export type {
-  SerializedStateMachine,
-  StateMachineLayout,
-  StateMachineLayoutOptions,
-  StateMachineSvgClassNames,
-  StateMachineSvgProps,
-  StateMachineSvgViewerProps,
+  StateMachineClassNames,
+  StateMachineFocus,
+  StateMachineNavigation,
 } from './types';

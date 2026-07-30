@@ -5,10 +5,12 @@ export type StateMachineNodeType =
   | 'compound'
   | 'parallel'
   | 'final'
-  | 'history';
+  | 'history'
+  | 'choice';
 
 export interface SerializedStateMachineNode {
   readonly id: string;
+  readonly path: readonly string[];
   readonly label: string;
   readonly description?: string;
   readonly type: StateMachineNodeType;
@@ -37,6 +39,7 @@ export interface StateMachinePoint {
 
 export interface StateMachineSceneNode {
   readonly id: string;
+  readonly path?: readonly string[];
   readonly parentId?: string;
   readonly kind: 'state' | 'initial';
   readonly x: number;
@@ -68,7 +71,9 @@ export interface StateMachineSceneEdgeSection {
   readonly target: boolean;
 }
 
-export interface StateMachineLayout {
+export interface StateMachineDiagram {
+  readonly id: string;
+  readonly label: string;
   readonly width: number;
   readonly height: number;
   readonly nodes: readonly StateMachineSceneNode[];
@@ -89,53 +94,86 @@ export interface StateMachineLayoutOptions {
   readonly wrappingStrategy?: StateMachineWrappingStrategy;
 }
 
-export type StateMachineSvgNodeRole =
+export type StateMachineNodeRole =
   | 'initial-indicator'
   | 'initial'
   | 'final'
+  | 'choice'
   | 'intermediate';
 
-export type StateMachineSvgEdgeRole = 'initial-arrow' | 'transition';
+export type StateMachineEdgeRole = 'initial-arrow' | 'transition';
 
-export interface StateMachineSvgClassNames {
+export type StateMachineStateValue =
+  | string
+  | { readonly [key: string]: StateMachineStateValue };
+
+export type StateMachineFocus =
+  | { readonly mode: 'click' }
+  | {
+      readonly mode: 'highlight';
+      readonly nodeId: string;
+      readonly follow?: boolean;
+    }
+  | {
+      readonly mode: 'active-state';
+      readonly value: StateMachineStateValue;
+      readonly follow?: boolean;
+    }
+  | { readonly mode: 'none' };
+
+export type StateMachineHighlight =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'focused' }
+  | {
+      readonly kind: 'connected';
+      readonly direction: 'outgoing';
+    }
+  | { readonly kind: 'dimmed' };
+
+export interface StateMachineClassNames {
   readonly node?: (context: {
-    readonly role: StateMachineSvgNodeRole;
+    readonly role: StateMachineNodeRole;
     readonly node: StateMachineSceneNode;
+    readonly highlight: StateMachineHighlight;
   }) => string | undefined;
   readonly edge?: (context: {
-    readonly role: StateMachineSvgEdgeRole;
+    readonly role: StateMachineEdgeRole;
     readonly edge: StateMachineSceneEdge;
+    readonly highlight: StateMachineHighlight;
   }) => string | undefined;
 }
 
 export interface StateMachineSvgProps {
-  readonly layout: StateMachineLayout;
+  readonly diagram: StateMachineDiagram;
   readonly className?: string;
-  readonly classNames?: StateMachineSvgClassNames;
-  readonly ariaLabel?: string;
+  readonly classNames?: StateMachineClassNames;
   readonly padding?: number;
   readonly viewport?: StateMachineViewport;
   readonly svgProps?: Omit<
     SVGProps<SVGSVGElement>,
     'aria-label' | 'className' | 'role' | 'viewBox'
   >;
+  readonly nodeHighlights?: ReadonlyMap<string, StateMachineHighlight>;
+  readonly edgeHighlights?: ReadonlyMap<string, StateMachineHighlight>;
+  readonly onNodeSelect?: (node: StateMachineSceneNode) => void;
+  readonly onConnectedNodeHover?: (nodeId: string | undefined) => void;
+  readonly onClearFocus?: () => void;
 }
 
-export interface StateMachineSvgInteraction {
+export interface StateMachineNavigation {
   readonly pan?: boolean;
   readonly zoom?: boolean;
   readonly bounded?: boolean;
   readonly minimumVisibleRatio?: number;
-  readonly minimumZoom?: number;
-  readonly maximumZoom?: number;
+  readonly minZoom?: number;
+  readonly maxZoom?: number;
 }
 
-export interface StateMachineSvgViewerProps {
-  readonly layout: StateMachineLayout;
+export interface StateMachineViewerProps {
+  readonly diagram: StateMachineDiagram;
   readonly className?: string;
-  readonly classNames?: StateMachineSvgClassNames;
-  readonly ariaLabel?: string;
-  readonly title?: string;
+  readonly classNames?: StateMachineClassNames;
   readonly showHeader?: boolean;
-  readonly interaction?: StateMachineSvgInteraction;
+  readonly focus?: StateMachineFocus;
+  readonly navigation?: StateMachineNavigation;
 }
