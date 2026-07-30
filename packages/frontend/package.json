@@ -95,7 +95,7 @@
   "peerDependencies": {
     "@tanstack/react-db": "^0.1.92",
     "@tanstack/react-query": "^5",
-    "effect": "^4.0.0-beta.78",
+    "effect": "^4.0.0-beta.101",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "std-toolkit": "workspace:^",
