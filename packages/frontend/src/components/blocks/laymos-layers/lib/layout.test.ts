@@ -244,8 +244,8 @@ describe('laymos layers layout', () => {
       getActiveModel(siblingModel, null),
     );
     const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
-    const siblings = ['catalog', 'cart', 'account'].map(
-      (layer) => nodes.get(`layer:${layer}`)!,
+    const siblings = ['catalog', 'cart', 'account'].map((layer) =>
+      nodes.get(`layer:${layer}`)!,
     );
     expect(new Set(siblings.map((node) => node.position.y)).size).toBe(1);
     expect(new Set(siblings.map((node) => node.position.x)).size).toBe(3);
