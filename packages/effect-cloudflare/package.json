@@ -1,0 +1,45 @@
+{
+  "name": "@pkishorez/effect-cloudflare",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Effect building blocks for Cloudflare Workers — hibernation-safe Durable Object RPC and the WebSocket client that pairs with it",
+  "type": "module",
+  "exports": {
+    "./hibernating-rpc": {
+      "types": "./src/hibernating-rpc/index.ts",
+      "import": "./src/hibernating-rpc/index.ts",
+      "default": "./src/hibernating-rpc/index.ts"
+    },
+    "./websocket-rpc-client": {
+      "types": "./src/websocket-rpc-client/index.ts",
+      "import": "./src/websocket-rpc-client/index.ts",
+      "default": "./src/websocket-rpc-client/index.ts"
+    },
+    "./*": {
+      "types": "./src/*.ts",
+      "import": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit",
+    "test": "vp test",
+    "test:watch": "vp test --watch"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.0-beta.101"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@typescript/native": "catalog:",
+    "effect": "catalog:",
+    "typescript": "catalog:typescript6",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

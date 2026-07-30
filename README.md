@@ -27,10 +27,11 @@ These packages share a fixed Changesets version and are released together.
 
 ### Packages
 
-| Workspace                                            | Package                                                        | Purpose                                                                                                               |
-| ---------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [`packages/frontend`](./packages/frontend)           | `@monorepo/frontend` (private)                                 | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository. |
-| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts) | React hooks for running and consuming Effect programs.                                                                |
+| Workspace                                                    | Package                                                        | Purpose                                                                                                               |
+| ------------------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [`packages/effect-cloudflare`](./packages/effect-cloudflare) | `@pkishorez/effect-cloudflare` (private)                       | Effect building blocks for Cloudflare Workers: hibernation-safe Durable Object RPC and its WebSocket client.          |
+| [`packages/frontend`](./packages/frontend)                   | `@monorepo/frontend` (private)                                 | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository. |
+| [`packages/use-effect-ts`](./packages/use-effect-ts)         | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts) | React hooks for running and consuming Effect programs.                                                                |
 
 ### Single-table design toolkit
 
