@@ -108,7 +108,7 @@ export const Message = EntityESchema.make('Message', 'messageId', {
 })
   .evolve(
     'v2',
-    { reactions: Schema.Record({ key: Schema.String, value: Schema.Number }) },
+    { reactions: Schema.Record(Schema.String, Schema.Number) },
     (previous) => ({ ...previous, reactions: {} }),
   )
   .build();
@@ -123,8 +123,9 @@ This is the first guarantee: no matter when a row was written, the rest of the a
 The database adapter connects the message schema to the item-collection model.
 
 ```ts title="message-entity.ts"
-const messages = DynamoEntity.make(table)
-  .eschema(Message)
+const table = DynamoTable.make().primary('pk', 'sk').build();
+const messages = table
+  .entity(Message)
   .primary({ pk: ['channelId'] })
   .build();
 ```

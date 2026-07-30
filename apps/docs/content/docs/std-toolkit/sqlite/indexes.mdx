@@ -19,8 +19,8 @@ const table = SQLiteTable.make()
 `IDX1` is a slot — a named pair of key columns with no semantics attached. Semantics arrive when an entity maps onto it:
 
 ```ts title="entities.ts"
-const messages = SQLiteEntity.make(table)
-  .eschema(Message)
+const messages = table
+  .entity(Message)
   .primary({ pk: ['channelId'] })
   .index('IDX1', 'byAuthor', { pk: ['authorId'] })
   .build();
@@ -28,11 +28,11 @@ const messages = SQLiteEntity.make(table)
 
 Read the `.index(...)` line as: "messages use the table's `IDX1` slot under the semantic name `byAuthor`, partitioned by `authorId`." No sort key is named, so it defaults to `_u` — the write-ordered ULID from the [envelope](/docs/std-toolkit/core/meta) — making `byAuthor` a recency timeline of Ada's messages for free. Name explicit fields (`sk: ['someField']`) when you want a different order.
 
-This is character-for-character the surface the [DynamoDB adapter](/docs/std-toolkit/dynamodb/indexes) uses. Swap `SQLiteTable`/`SQLiteEntity` for their Dynamo counterparts and neither declaration changes — which is what lets one entity definition file back both engines.
+This is character-for-character the surface the [DynamoDB adapter](/docs/std-toolkit/dynamodb/indexes) uses. Swap `SQLiteTable` for `DynamoTable` and neither the entity nor its index declarations change — which is what lets one entity definition file back both engines.
 
 ## What setup() builds from it
 
-On DynamoDB the slot becomes a GSI in the table's provisioning schema. Here, `registry.setup()` translates it into ordinary SQL, idempotently:
+On DynamoDB the slot becomes a GSI in the table's provisioning schema. Here, `table.setup()` translates it into ordinary SQL, idempotently:
 
 1. Two nullable `TEXT` columns, `IDX1PK` and `IDX1SK`, added to the shared table (skipped if already present — you can add a slot to a live table and re-run setup).
 2. One SQL index, `idx_chat_data_IDX1`, over `(IDX1PK, IDX1SK)`.
@@ -60,7 +60,7 @@ const { items } =
   );
 ```
 
-For a `_u`-sorted index the sk cursor is a `_u` value — page onward with `{ '<': lastSeenU }`. For an index with custom sk fields, the cursor is an object of those fields instead, and the adapter derives the string for you. `queryStream` drains an index the same way it drains the primary. One capability is deliberately restricted: `subscribe` only accepts `'primary'` or `_u`-sorted indexes — it replays a _change_ timeline, which is only meaningful when the sort key is the update key, and the type system enforces that rather than letting a custom-sorted index silently misbehave.
+For a `_u`-sorted index the sk cursor is a `_u` value — page onward with `{ '<': lastSeenU }`. For an index with custom sk fields, the cursor is an object of those fields instead, and the adapter derives the string for you.
 
 ## Strongly consistent — and what that buys you
 
@@ -89,7 +89,7 @@ const { items } =
 Practically, versus GSIs:
 
 - **Read-your-writes holds through indexes.** Insert then immediately query by author — the row is there. Tests assert directly; UI code never renders a stale profile page because the index hadn't caught up.
-- **Inside a transaction, indexes participate.** Index columns are part of the row write, so `registry.transaction` covers them — a rolled-back message never flickers into `byAuthor`. GSI updates sit outside DynamoDB's transactional guarantees entirely.
+- **Inside a transaction, indexes participate.** Index columns are part of the row write, so `table.transact` covers them — a rolled-back message never flickers into `byAuthor`. GSI updates sit outside DynamoDB's transactional guarantees entirely.
 - **No projection decisions.** A GSI makes you choose which attributes to copy into it (`KEYS_ONLY`, `INCLUDE`, `ALL`), trading storage for read completeness. Here a query through the index reads the full row — every index behaves like `ALL`, at no extra storage cost.
 - **No separate throughput or billing.** The cost of an index is SQLite maintaining one B-tree synchronously per write — real, but local and small, and you'd pay it for any indexed column in any SQL schema.
 

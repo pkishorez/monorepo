@@ -1,0 +1,156 @@
+---
+title: idb
+description: The same item-collection topology in the browser — over native IndexedDB, strongly consistent, read-your-writes, the client-side companion to offline sync.
+---
+
+You know the storage model by now: one table, entity services, item collections, range queries over a sort key. You learned it in [DynamoDB's vocabulary](/docs/std-toolkit/database-adapters), and you saw it again on [SQLite](/docs/std-toolkit/sqlite) — a file you can delete.
+
+Now push it one step further out, into the browser. Your chat app doesn't only run on a server; the client needs somewhere to keep messages so the timeline paints before the network answers, and so a reply typed on a plane survives until the tab reconnects. The browser's own answer to "a real database on the client" is IndexedDB — a transactional, indexed, structured-clone key-value store built into every browser. `std-toolkit/idb` is the same single-table topology implemented over it.
+
+The payoff is the one the whole toolkit keeps making: your entity definitions don't change. The chat app's `Message` and `Channel` schemas, the key derivations, the [entity envelope](/docs/std-toolkit/core) — all identical. What changes underneath is the physics: writes land in the user's browser, strongly consistent and readable the instant they commit, with no server round-trip. That makes IndexedDB the natural client-side store behind [tanstack-sync](/docs/std-toolkit/tanstack-sync)'s offline storage — the same sorted-items contract, answered locally.
+
+One structural note before the code, because it's the difference you'll feel against the SQLite page: **there is no `EntityRegistry` here.** The Table absorbed that role. The table object is where you define entities, run `setup()`, and open a `transact` — one surface, no separate registry to assemble.
+
+## The table: `IdbTable`
+
+```ts title="table.ts"
+import { IdbTable } from 'std-toolkit/idb';
+
+export const table = IdbTable.make()
+  .primary('pk', 'sk')
+  .index('IDX1', 'IDX1PK', 'IDX1SK')
+  .build();
+```
+
+Same builder shape as the other adapters: a primary key pair and generic secondary index slots. The table definition is pure topology — key field names, nothing else. Notably absent: a database name and a physical store name. Both are supplied by the runtime layer (the [setup page](/docs/std-toolkit/idb/setup)), so one topology can back many physical stores.
+
+Physically, `setup()` (below) maps this onto one IndexedDB object store with `keyPath: ['pk', 'sk']`. The stored row is a native structured-clone object — the encoded entity lives in a real `_data` object, not a JSON string — carrying the meta fields `_e`, `_v`, `_u`, `_d` from the [envelope](/docs/std-toolkit/core/meta) plus a derived key field per index slot. All rows sharing a `pk`, ordered by `sk`, form an item collection, served by a cursor over the store's key range.
+
+## Entities: `table.entity(...)`
+
+Entities are defined _from the table_, not from a standalone builder — and building one registers it back into the table so `setup` and `transact` know about it.
+
+```ts title="entities.ts"
+import { Channel, Message } from './schemas.js';
+import { table } from './table.js';
+
+export const messages = table
+  .entity(Message)
+  .primary({ pk: ['channelId'] })
+  .index('IDX1', 'byAuthor', { pk: ['authorId'] })
+  .build();
+
+export const channels = table.entity(Channel).primary().build();
+```
+
+Read it the way you read the DynamoDB and SQLite versions, because it _is_ the same declaration: messages are partitioned by channel (`pk` derives to `Message#C-general`, `sk` is the message's id field), and channels — `primary()` with no fields — all live in one collection under `pk = "Channel"`. The `byAuthor` index maps onto the table's `IDX1` slot with `_u` as its default sort key; the [indexes page](/docs/std-toolkit/idb/indexes) unpacks that.
+
+The entity service surface is the shared one: `insert` refuses to overwrite, `getAndUpdate` reads-merges-writes under an optimistic guard, `delete` writes a tombstone, `restore` revives one, `query` slices an item collection with a range operator, `queryStream` drains it. One round trip to make it concrete:
+
+```ts
+import { Effect } from 'effect';
+import { nextUlid } from 'std-toolkit/core';
+
+const program = Effect.gen(function* () {
+  const sent = yield* messages.insert({
+    messageId: yield* nextUlid,
+    channelId: 'C-general',
+    authorId: 'U-ada',
+    body: 'works in the browser too',
+  });
+
+  const { items: latest } = yield* messages.query(
+    'primary',
+    { pk: { channelId: 'C-general' }, sk: { '<': null } },
+    { limit: 50 },
+  );
+});
+```
+
+If this looks like the code from the shared-model page with nothing changed — that's the point. Reads still fold old rows forward through the eschema's migrations; a v1 message stored on a previous visit decodes to the current shape here just as it would on DynamoDB.
+
+One naming difference to file away versus the SQLite entity: the read-modify-write is called **`getAndUpdate`**, not `update`. It reads the current row, applies your partial (or a `current => partial` callback), and writes the merged record back with `expectedU` set to the `_u` it read — retrying on a concurrent-write conflict (default 3 attempts) before failing with a `conditionFailed` error. Pass `lastWriteWins: true` to drop the guard.
+
+## Singletons: `table.singleEntity(...)`
+
+Some state has a name but no id — there's exactly one of it. `singleEntity` stores one row per database, keyed by the entity's name alone:
+
+```ts title="settings.ts"
+import { WorkspaceSettings } from './schemas.js';
+import { table } from './table.js';
+
+export const settings = table
+  .singleEntity(WorkspaceSettings)
+  .default({ maintenanceMode: false, motd: null });
+```
+
+Two things differ from a keyed entity, both deliberate. First, the builder ends at `.default(...)` — no `.build()` — because the default value _is_ the last required piece: `get()` never returns null, it returns the default (with a synthetic empty `_u`) until something has been written. Second, the surface is `get`, `put`, `getAndUpdate`, and `reset` — no delete, no query, no tombstones. `put` upserts unconditionally; `getAndUpdate` merges a partial into the current value under the optimistic guard; `reset` writes the default value back (single entities are never deleted).
+
+When a repository boundary needs an explicit return type, the idb barrel re-exports both envelope shapes:
+
+```ts
+import type { EntityType, SingleEntityType } from 'std-toolkit/idb';
+import type { ESchemaType } from 'std-toolkit/eschema';
+
+type MessageValue = ESchemaType<typeof Message>;
+type SettingsValue = ESchemaType<typeof WorkspaceSettings>;
+
+export type StoredMessage = EntityType<MessageValue>;
+export type StoredSettings = SingleEntityType<SettingsValue>;
+```
+
+`EntityType<T>` is the keyed `{ value, meta }` result with `_e`, `_v`, `_u`, and `_d`; `SingleEntityType<T>` is the singleton result without tombstone metadata. Calls infer these automatically, so name them only when the envelope itself crosses one of your module boundaries.
+
+## Atomic writes: `table.transact(...)`
+
+IndexedDB has no interactive begin/commit you can run arbitrary code inside — but it does have real multi-key transactions. So the table offers the DynamoDB-shaped surface: entities build deferred **ops** ahead of time, and `transact` applies the whole batch in ONE native readwrite transaction, all-or-none.
+
+```ts
+const welcome = Effect.gen(function* () {
+  const channelOp = yield* channels.insertOp({
+    channelId: 'C-standup',
+    name: 'standup',
+    topic: 'daily sync',
+  });
+  const firstMessageOp = yield* messages.insertOp({
+    messageId: yield* nextUlid,
+    channelId: 'C-standup',
+    authorId: 'U-ada',
+    body: 'welcome to #standup',
+  });
+
+  yield* table.transact([channelOp, firstMessageOp]);
+});
+```
+
+Either the channel and its first message both land, or neither does. Ops are built by each entity's `insertOp` / `getAndUpdateOp` / `deleteOp` / `restoreOp` outside any transaction — validating, encoding, and capturing the optimistic-concurrency expectation up front — and each op carries an optimistic guard the transaction re-checks per key (any violation aborts the whole thing). Change broadcasts fire only after the underlying transaction commits, in op order; a failed transaction broadcasts nothing. Ops built against a different table are rejected as a defect.
+
+## The seam underneath: `IdbDB` and `IdbDBError`
+
+You may have noticed nothing above opened a database. Every operation on this page returns an Effect that _requires_ an `IdbDB` service — the narrow IndexedDB interface all of this compiles down to — and fails with `IdbDBError`, whose `code` names exactly what went wrong (`conditionFailed`, `noItemToUpdate`, `setupFailed`, …). Providing `IdbDB` is a one-line layer with `idbLayer`, and that's the whole subject of the next page.
+
+<Callout type="info">
+  IndexedDB only exists in a browser (or a browser-like environment with
+  `globalThis.indexedDB`). The idb adapter is the client-side member of the
+  family — pair it with a server-side adapter and one shared set of entity
+  definitions, and the [sync engine](/docs/std-toolkit/tanstack-sync) moves rows
+  between them.
+</Callout>
+
+<Cards>
+  <Card
+    title="Setup"
+    href="/docs/std-toolkit/idb/setup"
+    description="idbLayer, providing IdbDB, and table.setup() — the auto-versioned object-store provisioning."
+  />
+  <Card
+    title="Indexes"
+    href="/docs/std-toolkit/idb/indexes"
+    description="Secondary indexes as native IndexedDB indexes — same declaration surface, strongly consistent."
+  />
+  <Card
+    title="Differences"
+    href="/docs/std-toolkit/idb/differences"
+    description="How the browser adapter diverges from SQLite and DynamoDB."
+  />
+</Cards>

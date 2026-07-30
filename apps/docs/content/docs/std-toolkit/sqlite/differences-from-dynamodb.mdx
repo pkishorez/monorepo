@@ -3,7 +3,7 @@ title: Differences from DynamoDB
 description: The honest diff between the two adapters — consistency, setup, query surface, writes, transactions, deletes — and when to reach for which.
 ---
 
-Three pages of "it's the same model" should have raised your skeptic's eyebrow. Two databases with this little in common — a managed, distributed key-value store and an embedded SQL file — cannot be _identical_ behind one API, and a toolkit that claimed they were would be hiding something. So here is the full diff, verified against the adapters' source, organized by what you'd actually hit. The summary up front: the shared contract — entity services, key derivation, envelopes, range queries, sk-as-cursor pagination, tombstone deletes, `subscribe` — genuinely is identical. The differences live at the edges, and each one is a database being honest about its own physics.
+Three pages of "it's the same model" should have raised your skeptic's eyebrow. Two databases with this little in common — a managed, distributed key-value store and an embedded SQL file — cannot be _identical_ behind one API, and a toolkit that claimed they were would be hiding something. So here is the full diff, verified against the adapters' source, organized by what you'd actually hit. The summary up front: the shared contract — entity services, key derivation, envelopes, range queries, sk-as-cursor pagination, tombstone deletes — genuinely is identical. The differences live at the edges, and each one is a database being honest about its own physics.
 
 ## Consistency
 
@@ -15,7 +15,7 @@ This is the difference you'll feel first, because it shows up in tests: assertio
 
 ## Setup and provisioning
 
-**SQLite provisions itself at runtime.** `registry.setup()` is idempotent DDL — create the table, add missing index columns, create indexes — safe to run on every boot. New index slot? Re-run setup, even against a table with data.
+**SQLite provisions itself at runtime.** `table.setup()` is idempotent DDL — create the table, add missing index columns, create indexes — safe to run on every boot. New index slot? Re-run setup, even against a table with data.
 
 **DynamoDB provisions out-of-band.** The table builder hands you `getTableSchema()` — the attribute definitions and GSI declarations — and creating or altering the table is a deploy step through IaC or the AWS API, on AWS's timeline (GSI backfills can take a while on large tables).
 
@@ -25,70 +25,67 @@ Small, honest deltas in what a query can say:
 
 - **Sort-key operators.** Both entity layers take `<`, `<=`, `>`, `>=` with a nullable cursor. DynamoDB additionally offers `beginsWith`; the SQLite entity layer doesn't expose it. In this model that costs less than it sounds — sort keys are ULIDs and index sort keys default to `_u`, so the idiomatic slices are range-and-cursor, which the four operators cover fully.
 - **Default page size.** Pass no `limit` and SQLite returns up to 100 rows. DynamoDB reads until your `limit` or its 1 MB page cap, whichever bites first.
-- **Page truncation.** DynamoDB can cut a page short at 1 MB and hands back a `LastEvaluatedKey`; SQLite never truncates — a page is exactly what you asked for. You'll rarely notice either way, because the shared pagination idiom doesn't use `LastEvaluatedKey`: the last item's sort key is the next cursor, and `queryStream` runs that loop identically on both engines.
+- **Page truncation.** DynamoDB can cut a page short at 1 MB and hands back a `LastEvaluatedKey`; SQLite never truncates — a page is exactly what you asked for. You'll rarely notice either way, because the shared pagination idiom doesn't use `LastEvaluatedKey`: the last item's sort key is the next cursor, and that loop runs identically on both engines.
 
 ## Writes: expressions vs read-merge-write
 
-The largest API divergence. DynamoDB has no interactive transactions, so it compensates with _server-side_ expressions — and the adapter surfaces them: `update` there accepts either a plain partial or an expression-builder callback (`set`, `opAdd`, …), plus an optional condition expression that makes the write atomic-or-rejected at the database (the [expressions page](/docs/std-toolkit/dynamodb/expressions) covers this machinery).
+A real API divergence. DynamoDB leans on _server-side_ expressions, and the adapter surfaces them: `update` there accepts either a plain partial or an expression-builder callback (`set`, `opAdd`, …), plus an optional condition expression that makes the write atomic-or-rejected at the database (the [expressions page](/docs/std-toolkit/dynamodb/expressions) covers this machinery).
 
-The SQLite `update` takes a plain partial, full stop:
+SQLite has no expression-based `update`. Its portable read-modify-write is `getAndUpdate`, which takes a plain partial (or a `current => partial` callback):
 
 ```ts
 yield *
-  messages.update(
+  messages.getAndUpdate(
     { channelId: 'C-general', messageId },
     { body: 'edited on sqlite' },
   );
 ```
 
-Under the hood it reads the row, merges, re-encodes, and writes. No expression builders, no condition parameter — if you need "read, decide, write" to be atomic, you don't encode the decision into an expression; you wrap the whole thing in a transaction (next section), which is strictly more expressive.
+Under the hood it reads the row, merges, re-encodes, and writes back guarded on the `_u` it read — retrying on a concurrent-write conflict. No expression builders, no condition parameter. `getAndUpdate` exists on the DynamoDB adapter too, so read-merge-write code ports verbatim; SQLite simply has no server-side expression form to reach past it.
 
 One write guarantee is carefully kept identical: **insert refuses to overwrite** on both engines. DynamoDB enforces it with an `attribute_not_exists` condition; SQLite enforces it with the primary-key constraint. Both surface it as the same `ItemAlreadyExists` failure.
 
-## Transactions: inverse shapes
+## Transactions: the same shape
 
-Here each adapter plays to its engine, and the shapes are opposites:
+Both adapters expose exactly one transaction primitive, and it's the same one: `table.transact(ops)`, a write-only batch that commits all-or-none.
 
-**DynamoDB — declare the writes, then commit.** Entities build operation descriptions (`insertOp`, `updateOp`), and `registry.transact(items)` submits the batch all-or-nothing. Write-only: you cannot read, branch, or compute inside — the transaction is data, not code.
-
-**SQLite — run code inside the transaction.** `registry.transaction(effect)` wraps _any_ Effect in `BEGIN … COMMIT`, rolling back on failure:
+**Declare the writes, then commit — on both engines.** Entities build operation descriptions ahead of time (`insertOp`, `getAndUpdateOp`, `deleteOp`, `restoreOp`), and `table.transact(ops)` submits the batch atomically:
 
 ```ts
 yield *
-  registry.transaction(
-    Effect.gen(function* () {
-      const channel = yield* channels.get({ channelId: 'C-standup' });
-      if (channel === null) {
-        yield* channels.insert({
-          channelId: 'C-standup',
-          name: 'standup',
-          topic: '',
-        });
-      }
-      yield* messages.insert({
-        messageId: yield* nextUlid,
+  table.transact([
+    yield *
+      channels.insertOp({
+        channelId: 'C-standup',
+        name: 'standup',
+        topic: 'daily sync',
+      }),
+    yield *
+      messages.insertOp({
+        messageId: yield * nextUlid,
         channelId: 'C-standup',
         authorId: 'U-ada',
         body: 'kicking off',
-      });
-    }),
-  );
+      }),
+  ]);
 ```
 
-Reads, conditionals, and writes across any registered entity, atomically — the read-check-insert above is impossible to express in a DynamoDB transact batch without conditions. Two rules, both enforced with errors rather than surprises: no nesting (`NestedTransactionNotSupported`), and [broadcasts](/docs/std-toolkit/core) from inside are buffered until commit so subscribers never observe a rolled-back write.
+The batch is data, not code: you cannot read, branch, or compute inside it. When a write must depend on the current value, build the decision _before_ the batch — `getAndUpdateOp` pre-reads the row and embeds an optimistic `_u` guard, so a concurrent change surfaces as the transaction's `ConditionFailed` and rolls everything back. For a single guarded read-modify-write outside a batch, `getAndUpdate` is the portable one-call form. [Broadcasts](/docs/std-toolkit/core) from a committed batch fire in op order; a failed one broadcasts nothing.
+
+SQLite once offered an interactive `transaction(effect)` that ran arbitrary reads and writes inside `BEGIN … COMMIT`; that has been retired. The write-only `transact` batch is now the only transaction vocabulary on both engines, which is exactly why this row of the diff is empty.
 
 ## Deletes and destructive escape hatches
 
 `delete` is a tombstone on both engines — `_d` flips, `_u` re-stamps, the row stays for sync consumers. The _hard_-delete escape hatches differ in shape:
 
 - **DynamoDB** puts it on `delete` itself: `delete(key, { forceDelete: 'I know what I am doing' })` physically removes one item.
-- **SQLite** separates it: `entity.hardDelete(where?)` physically removes that entity's rows, optionally filtered by a SQL `where` — a bulk administrative tool rather than a per-item flag. And for test fixtures, both the table and each entity expose `dangerouslyRemoveAllRows('i know what i am doing')`, which truncates the physical table.
+- **SQLite** separates it: `entity.hardDelete(where?)` physically removes that entity's rows, optionally filtered by a SQL `where` — a bulk administrative tool rather than a per-item flag. And for test fixtures, the table exposes `dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')`, which truncates the whole physical table in one call.
 
 The warning is identical on both: hard deletion erases the tombstone, so anything syncing from the table will never learn the row died. Reach for it in tests and cleanup jobs, nowhere near synced data.
 
 ## Errors
 
-Same ergonomics, different vocabularies: every SQLite operation fails with `SqliteDBError`, every DynamoDB operation with `DynamodbError` — both tagged errors you handle with ordinary Effect combinators. The variant sets reflect their engines (SQLite has `CreateIndexFailed` and `NestedTransactionNotSupported`; DynamoDB has expression and transact failures), but the semantic variants you branch on in app code — `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete` — exist on both, so error-handling logic ports with a rename.
+Same ergonomics, different vocabularies: every SQLite operation fails with `SqliteDBError`, every DynamoDB operation with `DynamodbError` — both tagged errors you handle with ordinary Effect combinators. The variant sets reflect their engines (SQLite has `CreateIndexFailed` and `ConditionFailed`; DynamoDB has expression and transact failures), but the semantic variants you branch on in app code — `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete` — exist on both, so error-handling logic ports with a rename.
 
 ## When to reach for which
 

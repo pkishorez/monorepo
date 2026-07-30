@@ -1,6 +1,6 @@
 ---
 title: Indexes
-description: GSIs and LSIs as typed key derivations — timeline sort keys, the subscribe restriction, eventual consistency, and the hard-delete ghost.
+description: GSIs and LSIs as typed key derivations — timeline sort keys, eventual consistency, and the hard-delete ghost.
 ---
 
 The primary index answers the chat app's defining question: _messages in this channel, in order_. But you know from the [crash course](/docs/std-toolkit/dynamodb-crash-course) that real apps have more than one access pattern — "everything Ada has posted, across all channels" can't be a Query on a table partitioned by channel. DynamoDB's answer is the GSI, and you know that too.
@@ -32,8 +32,8 @@ Notice the names are infrastructure names — `GSI1`, not `byAuthor`. That's del
 A physical GSI is a slot; what it _means_ is decided per entity. The entity builder maps a GSI to a named derivation:
 
 ```ts title="entities.ts"
-export const messages = DynamoEntity.make(table)
-  .eschema(Message)
+export const messages = table
+  .entity(Message)
   .primary({ pk: ['channelId'] })
   .index('GSI1', 'byAuthor', { pk: ['authorId'] })
   .build();
@@ -66,15 +66,15 @@ const { items } =
   );
 ```
 
-For a timeline index the sk cursor is a `_u` value: `sk: { '>': lastSeenU }` reads everything Ada wrote since your cursor. `queryStream` works on secondary indexes the same way it does on the primary.
+For a timeline index the sk cursor is a `_u` value: `sk: { '>': lastSeenU }` reads everything Ada wrote since your cursor.
 
 ## Custom sort keys
 
 Sometimes the order you want isn't "most recently written". Give the derivation an explicit `sk` and the index sorts by those fields instead:
 
 ```ts
-export const channels = DynamoEntity.make(table)
-  .eschema(Channel)
+export const channels = table
+  .entity(Channel)
   .primary()
   .index('GSI1', 'byName', { pk: [], sk: ['name'] })
   .build();
@@ -105,22 +105,13 @@ const { items: nextPage } =
 
 Multi-field sort keys join their values with `#`, in declaration order — the classic DynamoDB composite-key pattern, minus the string concatenation.
 
-## `subscribe` is timeline-only
+## Timeline indexes drive sync
 
-`subscribe` — the catch-up primitive from the [shared model](/docs/std-toolkit/database-adapters) — works on the primary index and on secondary indexes:
+The default `_u` sort key isn't just a convenience — it's what makes an index a _change_ order. An index sorted by `_u` can answer "give me everything that _changed_ after my cursor", which is exactly what a catch-up read needs: `sk: { '>': lastSeenU }` returns the rows written since your cursor, in order. That's the shape the [sync engine](/docs/std-toolkit/tanstack-sync) drains to bring a client up to date.
 
-```ts
-yield *
-  messages.subscribe({
-    key: 'byAuthor',
-    pk: { authorId: 'U-ada' },
-    cursor: lastSeenU, // or null to replay from the beginning
-  });
-```
+An index sorted by `name` is a fine _lookup_ order but a meaningless _change_ order — a channel renamed yesterday sorts by its name, not by yesterday. The entity's derivation records which indexes have `_u` sort keys (the `isTimelineSk` flag) precisely because only those are safe to treat as change feeds. The primary index qualifies for a subtler reason: its sort key is the entity's ULID id, which orders by _creation_ — enough for append-mostly collections like messages, and exactly the arrangement the sync engine leans on.
 
-But try `channels.subscribe({ key: 'byName', ... })` and the compiler rejects it. The restriction is type-level and principled: `subscribe` means "give me everything that _changed_ after my cursor", and only a `_u`-sorted index can answer that. An index sorted by `name` is a fine _lookup_ order but a meaningless _change_ order — a channel renamed yesterday sorts by its name, not by yesterday. So the entity type tracks which of your indexes have `_u` sort keys (the derivation's `isTimelineSk` flag) and offers `subscribe` only on those. The primary index qualifies for a subtler reason: its sort key is the entity's ULID id, which orders by _creation_ — enough for append-mostly collections like messages, and exactly the arrangement the [sync engine](/docs/std-toolkit/tanstack-sync) leans on.
-
-If you're designing an index that sync or live queries will drain, keep the default `_u` sort key. Custom sort keys are for human-facing orderings.
+If you're designing an index that sync or live queries will drain, keep the default `_u` sort key. Custom sort keys are for human-facing orderings. To walk a whole index in order, `messages.queryStream('byAuthor', { pk: { authorId: 'U-ada' }, sk: { '>': null } })` returns a `Stream` of batches instead of a single page.
 
 ## GSIs are eventually consistent — and your code inherits that
 

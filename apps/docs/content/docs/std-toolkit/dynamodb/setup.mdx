@@ -29,28 +29,24 @@ Notice what `make()` does _not_ ask for: a table name. That's the topology/conne
 The entity services work exactly as taught in [Database adapters](/docs/std-toolkit/database-adapters) — here's the chat app's full set, built from the [eschemas](/docs/std-toolkit/eschema) you've seen throughout these docs:
 
 ```ts title="entities.ts"
-import { DynamoEntity, DynamoSingleEntity } from 'std-toolkit/dynamodb';
 import { table } from './table';
 import { Message, Channel, WorkspaceSettings } from './schemas';
 
-export const messages = DynamoEntity.make(table)
-  .eschema(Message)
+export const messages = table
+  .entity(Message)
   .primary({ pk: ['channelId'] })
   .build();
 
-export const channels = DynamoEntity.make(table)
-  .eschema(Channel)
-  .primary()
-  .build();
+export const channels = table.entity(Channel).primary().build();
 
-export const settings = DynamoSingleEntity.make(table)
-  .eschema(WorkspaceSettings)
+export const settings = table
+  .singleEntity(WorkspaceSettings)
   .default({ allowGuestAccess: false, defaultChannelId: 'C-general' });
 ```
 
 `messages` partitions by channel — one channel, one item collection. `channels` declares no pk fields, so its partition key is just the entity name `Channel`: every channel in the workspace lives in a single item collection, sorted by `channelId`.
 
-`DynamoSingleEntity` is the singleton storage binding for things that exist exactly once — workspace settings, feature flags, counters. It accepts an ordinary `ESchema` and requires a **default value**, which buys you a guarantee the keyed entities can't offer: `get` never returns null.
+`table.singleEntity(...)` is the singleton storage binding for things that exist exactly once — workspace settings, feature flags, counters. It accepts an ordinary `ESchema` and requires a **default value**, which buys you a guarantee the keyed entities can't offer: `get` never returns null.
 
 ```ts
 const current = yield * settings.get();
@@ -60,7 +56,7 @@ yield * settings.put({ allowGuestAccess: true, defaultChannelId: 'C-general' });
 yield * settings.update({ update: { allowGuestAccess: false } });
 ```
 
-Its surface is deliberately smaller than `DynamoEntity`: `put` is an unconditional upsert, `update` fails with `NoItemToUpdate` if nothing was ever written, and `delete` is a hard delete after which `get` serves the default again. There's no soft-delete tombstone (`_d`) here — a singleton isn't part of any synced item collection, so nothing downstream needs to observe its deletion.
+Its surface is deliberately smaller than a keyed entity: `put` is an unconditional upsert, `update` fails with `NoItemToUpdate` if nothing was ever written, and `reset` writes the default value back as a real record — single entities are never deleted, so `get` and any broadcast agree on the same `_u`. There's no soft-delete tombstone (`_d`) here — a singleton isn't part of any synced item collection, so nothing downstream needs to observe a deletion.
 
 The adapter also exports the result shapes as `EntityType<T>` and `SingleEntityType<T>`. You rarely annotate a direct call because TypeScript infers it, but they are useful at a boundary you own — for example, the return type of the chat app's repository:
 
@@ -96,13 +92,13 @@ const connection: DynamoConnection = {
   },
 };
 
-export const DynamoLive = dynamoDBLayer(connection);
+export const liveLayer = dynamoDBLayer(connection);
 ```
 
 A `DynamoConnection` is the complete answer to "which table, and how do I reach it": `tableName`, `credentials`, an optional `region` (defaults to `us-east-1`), and an optional `endpoint`. That last field is how local development works — point it at a local DynamoDB container and nothing else changes:
 
 ```ts title="dynamo-local.ts"
-export const DynamoLocal = dynamoDBLayer({
+export const localLayer = dynamoDBLayer({
   tableName: 'chat-app-local',
   region: 'us-east-1',
   credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
@@ -116,7 +112,7 @@ Now run a program by providing whichever layer fits the environment:
 import { Effect } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
 import { messages } from './entities';
-import { DynamoLive } from './dynamo-live';
+import { liveLayer } from './dynamo-live';
 
 const program = Effect.gen(function* () {
   const sent = yield* messages.insert({
@@ -129,7 +125,7 @@ const program = Effect.gen(function* () {
   return sent;
 });
 
-await Effect.runPromise(program.pipe(Effect.provide(DynamoLive)));
+await Effect.runPromise(program.pipe(Effect.provide(liveLayer)));
 ```
 
 You might be wondering why the table name lives on the connection rather than the table definition, since "the table" sounds like where a name belongs. It's deliberate: the definition describes a _shape_ that many physical tables share. Your production table, your staging table, and the throwaway table each test suite creates all have the same topology — so the shape is written once and the name arrives with the environment, exactly like a database URL.

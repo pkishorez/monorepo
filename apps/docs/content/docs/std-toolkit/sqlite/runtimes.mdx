@@ -9,7 +9,7 @@ std-toolkit pins the difference behind one seam: `SqliteDB`.
 
 ## The `SqliteDB` service
 
-`SqliteDB` is an Effect service — the only thing the entire SQLite adapter knows how to talk to. Its interface is deliberately small: a bound `tableName`, DDL (`createTable`, `addColumn`, `createIndex`), row operations (`insert`, `update`, `delete`, `deleteAll`, `get`, `query`), and transaction control (`begin`, `commit`, `rollback`). `SQLiteTable`, `SQLiteEntity`, and `EntityRegistry` are all written against this interface and nothing else — which is why every operation you met on the previous page returns an `Effect<…, SqliteDBError, SqliteDB>`.
+`SqliteDB` is an Effect service — the only thing the entire SQLite adapter knows how to talk to. Its interface is deliberately small: a bound `tableName`, DDL (`createTable`, `addColumn`, `createIndex`), row operations (`insert`, `update`, `delete`, `deleteAll`, `get`, `query`), and transaction control (`begin`, `commit`, `rollback`). `SQLiteTable` and the `SQLiteEntity` / `SQLiteSingleEntity` services it defines are all written against this interface and nothing else — which is why every operation you met on the previous page returns an `Effect<…, SqliteDBError, SqliteDB>`.
 
 A runtime adapter is nothing more than a `Layer` that implements this interface over a concrete driver. Two design choices are worth noticing before the wiring examples, because they shape how you use it:
 
@@ -28,14 +28,14 @@ The workhorse for test suites and Node processes where you're happy to take a de
 import Database from 'better-sqlite3';
 import { Effect } from 'effect';
 import { betterSqlite3Layer } from 'std-toolkit/sqlite/adapters/better-sqlite3';
-import { registry } from './registry.js';
+import { table } from './table.js';
 
 const db = new Database(':memory:');
 const layer = betterSqlite3Layer(db, 'chat_data');
 
 await Effect.runPromise(
   Effect.gen(function* () {
-    yield* registry.setup();
+    yield* table.setup();
     // ...insert messages, query channels, assert — against real SQL
   }).pipe(Effect.provide(layer)),
 );
@@ -81,7 +81,8 @@ The adapter that makes the edge story real. A Cloudflare Durable Object with SQL
 import { DurableObject } from 'cloudflare:workers';
 import { Effect } from 'effect';
 import { durableObjectSqliteLayer } from 'std-toolkit/sqlite/adapters/do';
-import { registry } from './registry.js';
+import { messages } from './entities.js';
+import { table } from './table.js';
 
 export class ChannelObject extends DurableObject {
   #layer = durableObjectSqliteLayer(this.ctx.storage.sql, 'chat_data');
@@ -89,8 +90,7 @@ export class ChannelObject extends DurableObject {
   async fetch(_request: Request): Promise<Response> {
     const latest = await Effect.runPromise(
       Effect.gen(function* () {
-        yield* registry.setup();
-        const messages = registry.entity('Message');
+        yield* table.setup();
         return yield* messages.query(
           'primary',
           { pk: { channelId: 'C-general' }, sk: { '<': null } },
@@ -106,11 +106,11 @@ export class ChannelObject extends DurableObject {
 
 Now notice what the topology does here. A Durable Object is a globally unique, single-threaded instance with its own private database — so "one Durable Object per channel" gives every channel's item collection its _own_ SQLite database, colocated with the code that serves it. The partition-per-channel design you chose for DynamoDB scaling reasons turns out to be exactly the sharding unit Durable Objects want. Even `SQLiteSingleEntity`'s one-row-per-database constraint flips into a feature: a `ChannelSettings` singleton inside a per-channel object is naturally one settings row per channel.
 
-And `registry.setup()` being idempotent runtime DDL is what makes this deployable at all — there's no migration console for ten thousand Durable Object databases. Each object provisions its own table on first touch.
+And `table.setup()` being idempotent runtime DDL is what makes this deployable at all — there's no migration console for ten thousand Durable Object databases. Each object provisions its own table on first touch.
 
 ## Failure is always `SqliteDBError`
 
-Whichever adapter you pick, driver exceptions never escape raw. Each layer catches its runtime's throws and maps them into `SqliteDBError`, a tagged error whose `error` field says precisely what failed and where: `CreateTableFailed`, `AddColumnFailed`, `CreateIndexFailed`, `InsertFailed`, `UpdateFailed`, `DeleteFailed`, `GetFailed`, `QueryFailed`, `BeginFailed`, `CommitFailed`, `RollbackFailed` — plus the semantic ones raised above the driver: `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, and `NestedTransactionNotSupported`. Row-level variants carry the table name.
+Whichever adapter you pick, driver exceptions never escape raw. Each layer catches its runtime's throws and maps them into `SqliteDBError`, a tagged error whose `error` field says precisely what failed and where: `CreateTableFailed`, `AddColumnFailed`, `CreateIndexFailed`, `InsertFailed`, `UpdateFailed`, `DeleteFailed`, `GetFailed`, `QueryFailed`, `BeginFailed`, `CommitFailed`, `RollbackFailed` — plus the semantic ones raised above the driver: `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, `NoItemToRestore`, and `ConditionFailed`. Row-level variants carry the table name.
 
 Because it's one tagged error type across all four runtimes, handling is uniform Effect code:
 
