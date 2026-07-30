@@ -1,6 +1,10 @@
 import { cn } from '#lib/utils';
 
-import { CONTAINER_HEADER_HEIGHT } from '../lib/metrics';
+import {
+  CONTAINER_HEADER_HEIGHT,
+  DESCRIPTION_LINE_HEIGHT,
+  getDescriptionLineCount,
+} from '../lib/metrics';
 import type { StateMachineSceneNode } from '../types';
 
 export function StateNode({
@@ -41,22 +45,24 @@ export function StateNode({
     <div
       className={cn(
         'relative flex h-full w-full flex-col overflow-hidden rounded-md border-2 border-border bg-card text-card-foreground shadow-sm',
-        node.initial &&
-          'border-[3px] border-primary bg-primary/[0.06] ring-2 ring-primary/15',
-        node.type === 'final' &&
-          'border-4 border-double border-foreground/60 bg-muted/30',
+        node.type === 'final' && 'border-4 border-double border-border/50',
         node.type === 'history' && 'border-dashed bg-muted/25',
+        node.type === 'choice' && 'border-dotted bg-accent/25',
         className,
       )}
     >
-      <div className="flex min-h-10 w-full items-center gap-2 px-3">
+      <div className="flex min-h-10 w-full shrink-0 items-center gap-2 px-3">
+        {node.type === 'choice' && (
+          <span
+            className="grid h-5 w-5 shrink-0 rotate-45 place-items-center border-2 border-foreground/60"
+            aria-label="Choice state"
+          />
+        )}
         {node.type === 'final' && (
           <span
-            className="grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 border-foreground/60"
+            className="h-3 w-3 shrink-0 bg-foreground/70"
             aria-label="Final state"
-          >
-            <span className="h-2 w-2 rounded-full bg-foreground/60" />
-          </span>
+          />
         )}
         {node.type === 'history' && (
           <span className="text-[10px] font-bold text-muted-foreground">H</span>
@@ -64,33 +70,47 @@ export function StateNode({
         <span className="min-w-0 truncate text-[13px] font-semibold">
           {node.label}
         </span>
-        {node.initial && (
-          <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-primary">
-            Initial
-          </span>
-        )}
-        {node.type === 'final' && (
-          <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-foreground/70">
-            Final
+        {node.type === 'choice' && (
+          <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Choice
           </span>
         )}
       </div>
       {node.description && (
-        <p className="line-clamp-2 w-full flex-1 border-t border-border/70 px-3 py-2 text-[10px] italic leading-4 text-muted-foreground">
-          {node.description}
-        </p>
+        <StateNodeDescription description={node.description} />
       )}
+    </div>
+  );
+}
+
+function StateNodeDescription({
+  description,
+}: {
+  readonly description: string;
+}) {
+  const lines = getDescriptionLineCount(description);
+
+  return (
+    <div className="min-h-0 w-full flex-1 overflow-hidden border-t border-border/70 px-3 py-2">
+      <p
+        className="overflow-hidden text-[10px] italic leading-4 text-muted-foreground"
+        style={{
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: lines,
+          maxHeight: lines * DESCRIPTION_LINE_HEIGHT,
+        }}
+      >
+        {description}
+      </p>
     </div>
   );
 }
 
 export function InitialNode({ className }: { readonly className?: string }) {
   return (
-    <div
-      className={cn(
-        'h-full w-full rounded-full border-[3px] border-background bg-primary shadow-sm ring-2 ring-primary/20',
-        className,
-      )}
-    />
+    <div className={cn('grid h-full w-full place-items-center', className)}>
+      <span className="h-2 w-2 rounded-full bg-foreground shadow-sm" />
+    </div>
   );
 }

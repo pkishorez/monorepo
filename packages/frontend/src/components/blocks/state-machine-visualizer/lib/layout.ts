@@ -8,7 +8,7 @@ import type {
 import type {
   SerializedStateMachine,
   SerializedStateMachineNode,
-  StateMachineLayout,
+  StateMachineDiagram,
   StateMachineLayoutOptions,
   StateMachinePoint,
   StateMachineSceneEdge,
@@ -16,7 +16,6 @@ import type {
   StateMachineSceneNode,
 } from '../types';
 import {
-  COLLAPSED_STATE_HEIGHT,
   CONTAINER_HEADER_GAP,
   CONTAINER_HEADER_HEIGHT,
   CONTAINER_PADDING,
@@ -24,6 +23,7 @@ import {
   STATE_HEIGHT,
   STATE_WIDTH,
   getEdgeLabelSize,
+  getStateNodeHeight,
 } from './metrics';
 
 interface DiagramNode {
@@ -42,6 +42,7 @@ interface DiagramEdge {
 }
 
 export const TARGET_TOLERANCE = 3;
+const NODE_SPACING_BETWEEN_LAYERS = 120;
 
 type Elk = InstanceType<(typeof import('elkjs/lib/elk.bundled.js'))['default']>;
 
@@ -278,9 +279,7 @@ function toElkGraph(
       width: isIndicator ? INITIAL_INDICATOR_SIZE : STATE_WIDTH,
       height: isIndicator
         ? INITIAL_INDICATOR_SIZE
-        : node.state?.description
-          ? STATE_HEIGHT
-          : COLLAPSED_STATE_HEIGHT,
+        : getStateNodeHeight(node.state?.description),
       children:
         children.length > 0
           ? children.map((child) => buildNode(child))
@@ -293,6 +292,9 @@ function toElkGraph(
           ? {
               'elk.padding': `[top=${CONTAINER_HEADER_HEIGHT + CONTAINER_HEADER_GAP},left=${CONTAINER_PADDING},bottom=${CONTAINER_PADDING},right=${CONTAINER_PADDING}]`,
               'elk.spacing.nodeNode': '30',
+              'elk.layered.spacing.nodeNodeBetweenLayers': String(
+                NODE_SPACING_BETWEEN_LAYERS,
+              ),
             }
           : {}),
       },
@@ -318,7 +320,9 @@ function toElkGraph(
         'elk.spacing.edgeNode': '18',
         'elk.spacing.nodeSelfLoop': '22',
         'elk.spacing.componentComponent': '40',
-        'elk.layered.spacing.nodeNodeBetweenLayers': '44',
+        'elk.layered.spacing.nodeNodeBetweenLayers': String(
+          NODE_SPACING_BETWEEN_LAYERS,
+        ),
         'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
         'elk.layered.cycleBreaking.strategy': 'MODEL_ORDER',
         'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
@@ -538,6 +542,8 @@ export function containsPoint(
   );
 }
 
+// ELK sometimes ends an edge short of its target box when the edge crosses a
+// compound boundary; re-route those endpoints into the target's left lane.
 function repairDetachedTargets(
   edges: readonly StateMachineSceneEdge[],
   nodes: readonly StateMachineSceneNode[],
@@ -590,11 +596,10 @@ function repairDetachedTargets(
   });
 }
 
-/** Positions a serialized state machine with ELK's compound layered layout. */
 export async function layoutStateMachine(
   machine: SerializedStateMachine,
   options: StateMachineLayoutOptions = {},
-): Promise<StateMachineLayout> {
+): Promise<StateMachineDiagram> {
   if (options.aspectRatio !== undefined && options.aspectRatio <= 0) {
     throw new RangeError(
       'State machine aspect ratio must be greater than zero.',
@@ -639,6 +644,7 @@ export async function layoutStateMachine(
           ? {
               ...box,
               kind: 'state',
+              path: state.path,
               label: state.label,
               description: state.description,
               type: state.type,
@@ -654,6 +660,8 @@ export async function layoutStateMachine(
 
   collect(result, undefined, 0, 0);
   return {
+    id: machine.id,
+    label: machine.label,
     width: result.width ?? 0,
     height: result.height ?? 0,
     nodes,

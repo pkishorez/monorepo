@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { orderMachine } from '../fixtures/machines';
-import { serializeStateMachine } from './serialize-machine';
+import {
+  mediaPlayerMachine,
+  orderMachine,
+} from '../../fixtures/xstate-v5/machines';
+import { serializeV5 } from './serialize';
 
 describe('state machine serialization', () => {
   it('creates a JSON-safe model from an XState directed graph', () => {
-    const serialized = serializeStateMachine(orderMachine);
+    const serialized = serializeV5(orderMachine);
 
     expect(serialized).toMatchObject({
       id: 'order-processing',
@@ -16,6 +19,7 @@ describe('state machine serialization', () => {
     expect(
       serialized.nodes.find((node) => node.id === 'order-processing.draft'),
     ).toMatchObject({
+      path: ['draft'],
       label: 'Draft',
       initial: true,
       type: 'atomic',
@@ -34,5 +38,13 @@ describe('state machine serialization', () => {
       ),
     ).toMatchObject({ label: 'SUBMIT' });
     expect(() => JSON.stringify(serialized)).not.toThrow();
+  });
+
+  it('preserves state paths independently of node IDs', () => {
+    const serialized = serializeV5(mediaPlayerMachine);
+
+    expect(
+      serialized.nodes.find((node) => node.id === 'media-player.on.loading'),
+    ).toMatchObject({ path: ['on', 'loading'] });
   });
 });

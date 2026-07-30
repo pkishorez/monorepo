@@ -122,3 +122,5 @@ catalog:
 catalogs:
   typescript6:
     typescript: npm:@typescript/typescript6@6.0.2
+  xstate6:
+    xstate-v6: npm:xstate@6.0.0-alpha.23

@@ -68,7 +68,8 @@
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
     "vaul": "catalog:",
-    "xstate": "catalog:"
+    "xstate": "catalog:",
+    "xstate-v6": "catalog:xstate6"
   },
   "devDependencies": {
     "@pkishorez/lotel": "workspace:*",
