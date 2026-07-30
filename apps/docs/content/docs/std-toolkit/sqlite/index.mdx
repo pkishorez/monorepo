@@ -29,25 +29,21 @@ Physically, `setup()` (below) turns this into one SQLite table: `pk` and `sk` as
 ## Entities: `SQLiteEntity`
 
 ```ts title="entities.ts"
-import { SQLiteEntity } from 'std-toolkit/sqlite';
 import { Channel, Message } from './schemas.js';
 import { table } from './table.js';
 
-export const messages = SQLiteEntity.make(table)
-  .eschema(Message)
+export const messages = table
+  .entity(Message)
   .primary({ pk: ['channelId'] })
   .index('IDX1', 'byAuthor', { pk: ['authorId'] })
   .build();
 
-export const channels = SQLiteEntity.make(table)
-  .eschema(Channel)
-  .primary()
-  .build();
+export const channels = table.entity(Channel).primary().build();
 ```
 
 Read it the way you read the DynamoDB version, because it _is_ the DynamoDB version: messages are partitioned by channel (`pk` derives to `Message#C-general`, `sk` is the message's ULID id), and channels — `primary()` with no fields — all live in one collection under `pk = "Channel"`. The `byAuthor` index maps onto the table's `IDX1` slot with `_u` as its default sort key; the [indexes page](/docs/std-toolkit/sqlite/indexes) unpacks that machinery.
 
-The service surface is the shared one: `insert` refuses to overwrite, `update` re-stamps `_u`, `delete` writes a tombstone, `query` slices an item collection with a range operator, `queryStream` drains it, `subscribe` replays it after a `_u` cursor. One round trip to make it concrete:
+The service surface is the shared one: `insert` refuses to overwrite, `getAndUpdate` re-stamps `_u`, `delete` writes a tombstone, `restore` lifts it, `query` slices an item collection with a range operator, and `queryStream` walks a whole collection as a `Stream` of batches. One round trip to make it concrete:
 
 ```ts
 import { Effect } from 'effect';
@@ -76,16 +72,15 @@ If this looks like the code from the shared-model page with nothing changed — 
 Some state has a name but no id — there's exactly one of it. `SQLiteSingleEntity` stores one row per database, keyed by the entity's name alone:
 
 ```ts title="settings.ts"
-import { SQLiteSingleEntity } from 'std-toolkit/sqlite';
 import { WorkspaceSettings } from './schemas.js';
 import { table } from './table.js';
 
-export const settings = SQLiteSingleEntity.make(table)
-  .eschema(WorkspaceSettings)
+export const settings = table
+  .singleEntity(WorkspaceSettings)
   .default({ maintenanceMode: false, motd: null });
 ```
 
-Two things are different from a keyed entity, both deliberate. First, the builder ends at `.default(...)` — no `.build()` — because the default value _is_ the last required piece: `get()` never returns null, it returns the default (with a synthetic empty `_u`) until something has been written. Second, the surface is just `get`, `put`, and `update` — no delete, no query, no tombstones, because "one row that always exists" has no use for any of them. `put` upserts unconditionally; `update` merges a partial into the current value and fails with `NoItemToUpdate` if nothing was ever written (the default isn't a row).
+Two things are different from a keyed entity, both deliberate. First, the builder ends at `.default(...)` — no `.build()` — because the default value _is_ the last required piece: `get()` never returns null, it returns the default (with a synthetic empty `_u`) until something has been written. Second, the surface is just `get`, `put`, `getAndUpdate`, and `reset` — no delete, no query, no tombstones, because "one row that always exists" has no use for any of them. `put` upserts unconditionally; `getAndUpdate` merges a partial into the current value — the schema default when nothing is stored yet — and writes it back guarded on the `_u` it read; `reset` writes the default value back. Single entities are never deleted.
 
 One row _per database_ is a real constraint to notice — and in the Durable Object deployment on the [next page](/docs/std-toolkit/sqlite/runtimes), where each channel gets its own database, it quietly becomes "one per channel", which is usually what you wanted anyway.
 
@@ -104,55 +99,40 @@ export type StoredSettings = SingleEntityType<SettingsValue>;
 
 `EntityType<T>` is the keyed `{ value, meta }` result with `_e`, `_v`, `_u`, and `_d`; `SingleEntityType<T>` is the singleton result without tombstone metadata. Calls on `SQLiteEntity` and `SQLiteSingleEntity` infer these automatically, so name them only when the envelope itself crosses one of your module boundaries.
 
-## The registry: `EntityRegistry`
+## Provisioning and batches: `setup` and `transact`
 
-Same role as on DynamoDB — one object that knows every entity type sharing the table:
-
-```ts title="registry.ts"
-import { EntityRegistry } from 'std-toolkit/sqlite';
-import { channels, messages } from './entities.js';
-import { settings } from './settings.js';
-import { table } from './table.js';
-
-export const registry = EntityRegistry.make(table)
-  .register(messages)
-  .register(channels)
-  .registerSingle(settings)
-  .build();
-```
-
-`registry.entity('Message')` and `registry.singleEntity('WorkspaceSettings')` are fully typed lookups, `registry.entityNames` enumerates everything, `registry.table` hands back the underlying table. Two members deserve more than a sentence.
+There's no separate registry object and no name-based lookup — the table coordinates the concerns that span every entity sharing it, and you keep the references that `.build()` handed you. Two table members deserve more than a sentence.
 
 **`setup()` provisions at runtime.** On DynamoDB, creating the table is a deploy-time step outside your program. On SQLite the database is a file you already own, so the toolkit just does it:
 
 ```ts
-yield * registry.setup();
+yield * table.setup();
 ```
 
 This creates the table with all meta and index columns, adds any index columns missing from an existing table, and creates the SQL indexes — every step a no-op if it already happened. Idempotent setup on boot is what makes "fresh in-memory database per test" a three-line fixture instead of an infrastructure project.
 
-**`transaction()` wraps an arbitrary Effect.** Because SQLite has real interactive transactions, the registry can offer something DynamoDB structurally can't: run _any_ Effect — reads, writes, your own logic, across any registered entity — inside `BEGIN … COMMIT`, rolling back if it fails:
+**`transact(ops)` commits a batch atomically.** Each entity builds write descriptions ahead of time — `insertOp`, `getAndUpdateOp`, `deleteOp`, `restoreOp` — and `table.transact(ops)` applies the whole batch inside one `BEGIN … COMMIT`, all-or-none:
 
 ```ts
 yield *
-  registry.transaction(
-    Effect.gen(function* () {
-      const channel = yield* channels.insert({
+  table.transact([
+    yield *
+      channels.insertOp({
         channelId: 'C-standup',
         name: 'standup',
         topic: 'daily sync',
-      });
-      yield* messages.insert({
-        messageId: yield* nextUlid,
-        channelId: channel.value.channelId,
+      }),
+    yield *
+      messages.insertOp({
+        messageId: yield * nextUlid,
+        channelId: 'C-standup',
         authorId: 'U-ada',
         body: 'welcome to #standup',
-      });
-    }),
-  );
+      }),
+  ]);
 ```
 
-Either the channel and its first message both exist, or neither does. Broadcasts from writes inside the transaction are buffered and only emitted after commit — subscribers never observe a write that later rolled back. Nesting is refused with a `NestedTransactionNotSupported` error rather than silently misbehaving. How this compares to DynamoDB's `transact(items)` is on the [differences page](/docs/std-toolkit/sqlite/differences-from-dynamodb).
+Either the channel and its first message both exist, or neither does — any op whose condition fails (an `insertOp` onto an existing row, or a guarded `getAndUpdateOp` whose `_u` moved) rolls the whole batch back with `ConditionFailed`. The batch is write-only: a list of pre-built ops, not code that reads and branches mid-transaction. Broadcasts are buffered and only emitted after commit — subscribers never observe a write that later rolled back. How this compares to DynamoDB's `transact` is on the [differences page](/docs/std-toolkit/sqlite/differences-from-dynamodb).
 
 ## The seam underneath: `SqliteDB` and `SqliteDBError`
 

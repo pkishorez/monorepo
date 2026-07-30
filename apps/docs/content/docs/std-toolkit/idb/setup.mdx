@@ -1,0 +1,92 @@
+---
+title: Setup
+description: idbLayer provides the IdbDB service, table.setup() provisions the object store idempotently, and the connection is cached and self-healing across tabs.
+---
+
+Everything on the [previous page](/docs/std-toolkit/idb) returned an `Effect<…, IdbDBError, IdbDB>` — code that _requires_ an `IdbDB` service and never opened a database itself. This page provides it, and provisions the store.
+
+## The `IdbDB` service
+
+`IdbDB` is an Effect service — the only thing the entire idb adapter knows how to talk to. Its interface is deliberately small: a bound `tableName` (the object-store name), `setup`, single-key `get` / `put` / `delete`, a `clear`, a cursor-based `getRange`, and a `transact` that applies a batch of ops in one native readwrite transaction. `IdbTable` and its entities are written against this interface and nothing else.
+
+You provide it with `idbLayer`, which takes two names and returns a `Layer<IdbDB>`:
+
+```ts title="layer.ts"
+import { idbLayer } from 'std-toolkit/idb';
+
+export const layer = idbLayer('chat-app', 'chat_data');
+```
+
+- The first argument, `'chat-app'`, is the **IndexedDB database name**. A database name handed to `idbLayer` belongs exclusively to this adapter.
+- The second, `'chat_data'`, is the **object-store name** — the physical store the topology maps onto, and the `tableName` every `IdbDBError` reports against.
+
+Notice what's _not_ here: a version number. IndexedDB versions databases explicitly, but you never pick one — `setup` computes it (below). The same `IdbTable` definition can be provided with different layers pointing at different databases or stores, which is what lets a test open a throwaway database and a real app open the user's.
+
+<Callout type="info">
+  `idbLayer` itself is safe to call during module evaluation or SSR — it touches
+  `globalThis.indexedDB` only when the first Effect actually runs. If IndexedDB
+  is absent at that point, the operation fails with an `IdbDBError` of code
+  `openFailed` rather than throwing at import time.
+</Callout>
+
+## `table.setup()` provisions the store
+
+On DynamoDB, creating the table is a deploy-time step outside your program. In the browser there is no deploy step — the database is created on the user's machine the first time your code runs — so the toolkit just does it:
+
+```ts
+import { Effect } from 'effect';
+import { table } from './table.js';
+import { messages } from './entities.js';
+import { layer } from './layer.js';
+
+await Effect.runPromise(
+  Effect.gen(function* () {
+    yield* table.setup();
+    // ...insert messages, query channels — against real IndexedDB
+  }).pipe(Effect.provide(layer)),
+);
+```
+
+`table.setup()` creates the object store (`keyPath: ['pk', 'sk']`) if it's missing and adds any secondary indexes declared on the table that aren't present yet. It is **idempotent** — calling it on every boot, or on an already-complete database, is a no-op. Run it before your first read or write and forget about it.
+
+### Why it auto-versions
+
+IndexedDB only lets you create stores and indexes inside a versioned `upgrade` transaction, so adding an index means bumping the database version. `setup` handles that entirely: it diffs the declared indexes against what the store already has, and only when something is missing does it reopen the database at `version + 1` to create it. You never name or track a version number — declaring a new index slot and re-running `setup` is the whole migration, even against a database that already holds data.
+
+This also makes `setup` safe across tabs. If another tab wins the version bump first, `setup` rechecks the topology and converges instead of erroring, so several tabs booting at once settle on the same schema.
+
+## Connections are cached and self-healing
+
+You don't open or close anything. The layer keeps a module-level connection cache keyed by database name, so every Effect in a tab shares one open handle. It also listens for the browser closing that handle out from under you — a `versionchange` from another tab's upgrade, or a `close` when storage is cleared — and evicts the dead connection so the next operation transparently reopens a fresh one. Concurrent first-time opens share a single in-flight request, so the cache never holds an orphaned connection.
+
+The practical upshot: connection lifecycle is not your problem. Provide the layer once, run your program, and the adapter keeps the handle healthy for the life of the page.
+
+## Failure is always `IdbDBError`
+
+Whatever goes wrong, it surfaces as `IdbDBError` — a tagged error extending core's `StdToolkitError`, with a `code` field you branch on. The set covers the driver failures (`openFailed`, `setupFailed`, `getFailed`, `putFailed`, `deleteFailed`, `clearFailed`, `transactFailed`, `queryFailed`) and the semantic ones raised above the driver (`conditionFailed`, `noItemToUpdate`, `noItemToDelete`, `noItemToRestore`). Row-level errors carry the table name.
+
+`conditionFailed` is the one the entity layer branches on internally to treat an optimistic-write conflict as retryable — and the one you'll branch on when an `insert` or a `lastWriteWins: false` write loses a race:
+
+```ts
+import { Effect } from 'effect';
+
+const sendMessage = (body: string) =>
+  messages
+    .insert({ messageId: id, channelId: 'C-general', authorId: 'U-ada', body })
+    .pipe(
+      Effect.catchIf(
+        (e) => e.code === 'conditionFailed',
+        () => Effect.succeed(null), // duplicate send — already stored
+      ),
+    );
+```
+
+Next: the second access path — secondary indexes, and why they read your writes.
+
+<Cards>
+  <Card
+    title="Indexes"
+    href="/docs/std-toolkit/idb/indexes"
+    description="Native IndexedDB indexes with the same declaration surface — strongly consistent."
+  />
+</Cards>

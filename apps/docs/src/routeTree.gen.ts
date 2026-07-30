@@ -10,36 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as BlogIndexRouteImport } from './routes/blog/index'
-import { Route as DocsSplatRouteImport } from './routes/docs/$'
-import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
-import { Route as ApiSourceRouteImport } from './routes/api/source'
-import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiBlogRouteImport } from './routes/api/blog'
+import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as ApiSourceRouteImport } from './routes/api/source'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
+import { Route as DocsSplatRouteImport } from './routes/docs/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlogIndexRoute = BlogIndexRouteImport.update({
-  id: '/blog/',
-  path: '/blog/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocsSplatRoute = DocsSplatRouteImport.update({
-  id: '/docs/$',
-  path: '/docs/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlogSlugRoute = BlogSlugRouteImport.update({
-  id: '/blog/$slug',
-  path: '/blog/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSourceRoute = ApiSourceRouteImport.update({
-  id: '/api/source',
-  path: '/api/source',
+const ApiBlogRoute = ApiBlogRouteImport.update({
+  id: '/api/blog',
+  path: '/api/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSearchRoute = ApiSearchRouteImport.update({
@@ -47,9 +32,24 @@ const ApiSearchRoute = ApiSearchRouteImport.update({
   path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiBlogRoute = ApiBlogRouteImport.update({
-  id: '/api/blog',
-  path: '/api/blog',
+const ApiSourceRoute = ApiSourceRouteImport.update({
+  id: '/api/source',
+  path: '/api/source',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsSplatRoute = DocsSplatRouteImport.update({
+  id: '/docs/$',
+  path: '/docs/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -130,32 +130,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blog/': {
-      id: '/blog/'
-      path: '/blog'
-      fullPath: '/blog/'
-      preLoaderRoute: typeof BlogIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs/$': {
-      id: '/docs/$'
-      path: '/docs/$'
-      fullPath: '/docs/$'
-      preLoaderRoute: typeof DocsSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blog/$slug': {
-      id: '/blog/$slug'
-      path: '/blog/$slug'
-      fullPath: '/blog/$slug'
-      preLoaderRoute: typeof BlogSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/source': {
-      id: '/api/source'
-      path: '/api/source'
-      fullPath: '/api/source'
-      preLoaderRoute: typeof ApiSourceRouteImport
+    '/api/blog': {
+      id: '/api/blog'
+      path: '/api/blog'
+      fullPath: '/api/blog'
+      preLoaderRoute: typeof ApiBlogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/search': {
@@ -165,11 +144,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/blog': {
-      id: '/api/blog'
-      path: '/api/blog'
-      fullPath: '/api/blog'
-      preLoaderRoute: typeof ApiBlogRouteImport
+    '/api/source': {
+      id: '/api/source'
+      path: '/api/source'
+      fullPath: '/api/source'
+      preLoaderRoute: typeof ApiSourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/$': {
+      id: '/docs/$'
+      path: '/docs/$'
+      fullPath: '/docs/$'
+      preLoaderRoute: typeof DocsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

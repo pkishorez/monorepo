@@ -1,31 +1,19 @@
 ---
 title: Transactions
-description: Atomic multi-entity writes through the EntityRegistry, batch writes with unprocessed-item handling, and the DynamodbError taxonomy.
+description: Atomic multi-entity writes through table.transact, batch writes with unprocessed-item handling, and the DynamodbError taxonomy.
 ---
 
 Sending a chat message, done properly, is two writes: insert the `Message`, and bump the `Channel`'s `messageCount`. Run them as two calls and there's a window — a crash, a throttle, a deploy — where one lands and the other doesn't. Now the channel list says 41 messages and the channel contains 42, forever.
 
 You know the database answer: a transaction. DynamoDB has one — `TransactWriteItems`, up to 100 items, all-or-nothing. And in raw form it's the [section intro's](/docs/std-toolkit/dynamodb) pain at maximum: an array of hand-assembled put/update requests, each with its own key strings, expressions, and marshalled values, with nothing checking that the items you're combining even belong to the same table.
 
-The adapter's answer has two halves you've already met separately: **entities produce transaction items**, and the **`EntityRegistry` executes them** — typed end to end.
+The adapter's answer has two halves you've already met separately: **entities produce transaction items**, and the **table executes them** — atomically.
 
-## The registry is the transaction surface
+## The table is the transaction surface
 
-The [shared model](/docs/std-toolkit/database-adapters) introduced `EntityRegistry` as the router that knows every entity in the table. Here's the chat app's, including the singleton:
+The [shared model](/docs/std-toolkit/database-adapters) introduced the table as the topology object that every entity is defined from. It's also the transaction surface: `table.transact` takes a batch of transaction items — up to DynamoDB's limit of 100 — and applies them all-or-none.
 
-```ts title="registry.ts"
-import { EntityRegistry } from 'std-toolkit/dynamodb';
-import { table } from './table';
-import { messages, channels, settings } from './entities';
-
-export const registry = EntityRegistry.make(table)
-  .register(messages)
-  .register(channels)
-  .registerSingle(settings)
-  .build();
-```
-
-Beyond routing (`registry.entity('Message')`, `registry.singleEntity('WorkspaceSettings')`, `registry.entityNames`, and `registry.table` for the underlying table), registration does the load-bearing work for transactions: the registry's `transact` only accepts items produced by _registered_ entities. That's not a runtime check — it's in the types.
+Every item carries a reference to the table that produced it, and `transact` rejects any item built against a _different_ table with `ForeignTransactionItem` — so a transaction quietly aimed at the wrong table fails fast instead of writing somewhere unexpected. You don't assemble a separate registry; you keep the entity references you got at definition time and hand their ops straight to `table.transact`.
 
 ## `insertOp` and `updateOp`: writes as values
 
@@ -34,8 +22,8 @@ Every mutating operation on an entity has an `Op` twin that, instead of executin
 ```ts title="send-message.ts"
 import { Effect } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
+import { table } from './table';
 import { messages, channels } from './entities';
-import { registry } from './registry';
 
 export const sendMessage = (
   channelId: string,
@@ -56,18 +44,18 @@ export const sendMessage = (
       { update: ($) => [$.set('messageCount', $.opAdd('messageCount', 1))] },
     );
 
-    yield* registry.transact([messageOp, channelOp]);
+    yield* table.transact([messageOp, channelOp]);
   });
 ```
 
-Either both writes commit or neither does. The `Op` variants take the same arguments as their direct twins — `insertOp` accepts a `condition`, `updateOp` takes the same update-or-builder-callback shape — so everything from the [expressions page](/docs/std-toolkit/dynamodb/expressions) carries over unchanged, including the baked-in duplicate guard on inserts and the version assertion on updates. `DynamoSingleEntity` has an `updateOp` too, so a workspace-settings change can ride in the same transaction as the entity writes it relates to.
+Either both writes commit or neither does. The `Op` variants take the same arguments as their direct twins — `insertOp` accepts a `condition`, `updateOp` takes the same update-or-builder-callback shape — so everything from the [expressions page](/docs/std-toolkit/dynamodb/expressions) carries over unchanged, including the baked-in duplicate guard on inserts and the version assertion on updates. The single-entity service has an `updateOp` too, so a workspace-settings change can ride in the same transaction as the entity writes it relates to.
 
 Two behaviors worth knowing before you build on this:
 
 - **Each item remembers its entity and its outcome.** A `TransactItem` carries the entity name it came from and a `broadcast` payload — the full entity as it will exist after commit. When the transaction succeeds, `transact` pushes each payload through the [`Broadcaster`](/docs/std-toolkit/core) (when one is provided) so live subscribers hear about all the writes, and returns the array of committed entities to you.
 - **`updateOp` pre-reads.** To build a complete broadcast payload it fetches the current row first (and fails with `NoItemToUpdate` if there isn't one) — so budget one read per `updateOp`, and know that a plain-partial `updateOp` merges your changes over that snapshot for the broadcast.
 
-And the typed part: `transact` accepts only `TransactItem<'Message' | 'Channel' | 'WorkspaceSettings'>` — the names of what you registered. Build an op from some other table's entity and hand it to this registry, and the compiler rejects it. A whole class of "transaction quietly aimed at the wrong table" bugs becomes unrepresentable.
+One more guard: `transact` also rejects duplicates — two ops targeting the same `pk`/`sk` in one batch fail with `DuplicateTransactionTarget`, matching DynamoDB's own rule that a transaction can't touch the same item twice.
 
 ## Batch writes: `batchInsert` and `unprocessedIndexes`
 

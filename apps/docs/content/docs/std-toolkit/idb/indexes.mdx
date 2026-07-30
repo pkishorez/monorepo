@@ -1,0 +1,104 @@
+---
+title: Indexes
+description: Secondary indexes with the same declaration surface as GSIs — but native IndexedDB indexes on the same record, so they read your writes.
+---
+
+The primary key buys you one access path: messages by channel, in timeline order. But your chat app needs a second one the moment someone opens a profile — "everything Ada has posted, across every channel." On DynamoDB you solved this with a [GSI](/docs/std-toolkit/dynamodb-crash-course): a re-keyed copy of the data, maintained asynchronously, eventually consistent. The idb adapter gives you the _same declaration surface_ — you could diff it against the DynamoDB version and find nothing — but underneath sits a native IndexedDB index on the very same record, which is a straight upgrade: it is never behind your writes.
+
+## Declaring an index: two layers, same as DynamoDB
+
+The declaration is split the way the shared model splits it everywhere: the _table_ owns generic index slots, the _entity_ gives a slot meaning.
+
+```ts title="table.ts"
+const table = IdbTable.make()
+  .primary('pk', 'sk')
+  .index('IDX1', 'IDX1PK', 'IDX1SK')
+  .build();
+```
+
+`IDX1` is a slot — a named pair of key fields with no semantics attached. Semantics arrive when an entity maps onto it:
+
+```ts title="entities.ts"
+const messages = table
+  .entity(Message)
+  .primary({ pk: ['channelId'] })
+  .index('IDX1', 'byAuthor', { pk: ['authorId'] })
+  .build();
+```
+
+Read the `.index(...)` line as: "messages use the table's `IDX1` slot under the semantic name `byAuthor`, partitioned by `authorId`." No sort key is named, so it defaults to `_u` — the write-ordered ULID from the [envelope](/docs/std-toolkit/core/meta) — making `byAuthor` a recency timeline of Ada's messages for free. Name explicit fields (`sk: ['someField']`) when you want a different order.
+
+This is character-for-character the surface the [DynamoDB adapter](/docs/std-toolkit/dynamodb/indexes) and the [SQLite adapter](/docs/std-toolkit/sqlite/indexes) use. Only the table and entity constructors differ.
+
+## What setup() builds from it
+
+On DynamoDB the slot becomes a GSI in the table's provisioning schema. Here, `table.setup()` translates it into a native IndexedDB index on the object store, over the compound key `[IDX1PK, IDX1SK]` — auto-versioning the database to create it if it's not already there (see the [setup page](/docs/std-toolkit/idb/setup)).
+
+Then every write derives the index key values and stores them as fields _on the record itself_. After Ada posts in `#general`, her stored row carries:
+
+| pk                  | sk (messageId) | IDX1PK                   | IDX1SK (`_u`) |
+| ------------------- | -------------- | ------------------------ | ------------- |
+| `Message#C-general` | `01JGB4Y8K3…`  | `Message#byAuthor#U-ada` | `01JGB4Y8K4…` |
+
+Note the derived partition value: `Message#byAuthor#U-ada`, prefixed with the entity name _and_ the semantic index name. That namespacing is why multiple entity types can share the `IDX1` slot without their index rows ever colliding — a `Channel` entity mapping something onto `IDX1` lands under `Channel#…`, a disjoint key space in the same fields.
+
+## Querying it
+
+The query shape is the one you already know, with the semantic name where `'primary'` would go:
+
+```ts
+// Ada's most recent messages, across all channels
+const { items } =
+  yield *
+  messages.query(
+    'byAuthor',
+    { pk: { authorId: 'U-ada' }, sk: { '<': null } },
+    { limit: 20 },
+  );
+```
+
+For a `_u`-sorted index the sk cursor is a `_u` value — page onward with `{ '<': lastSeenU }`. For an index with custom sk fields, the cursor is an object of those fields instead, and the adapter derives the string for you. `queryStream` drains an index the same way it drains the primary, cursoring through it in batches until exhaustion.
+
+The sort-key operators are the same four everywhere: `<`, `<=`, `>`, `>=`, each taking a value or `null` for an open bound — `{ '<': null }` reads the whole collection newest-first, `{ '>': null }` oldest-first. Pass no `limit` and a query returns up to 100 rows.
+
+## Strongly consistent — and what that buys you
+
+Here's where the browser adapter parts ways with DynamoDB, in your favor. A GSI is physically a second table: DynamoDB copies your item into it _asynchronously_, so a query against a GSI can miss a write you just made. Every GSI consumer eventually writes the retry loop, or the "don't read your own writes through the index" comment.
+
+In IndexedDB there is no second table. The index key values are fields _of the same record_, written by the same `put`, and the native index sits on that store. There is no propagation, so there is no propagation delay:
+
+```ts
+yield *
+  messages.insert({
+    messageId: yield * nextUlid,
+    channelId: 'C-general',
+    authorId: 'U-ada',
+    body: 'just posted',
+  });
+
+const { items } =
+  yield *
+  messages.query('byAuthor', {
+    pk: { authorId: 'U-ada' },
+    sk: { '<': null },
+  });
+// items[0] is the message inserted one line ago. Always. No retry, no window.
+```
+
+Practically, versus GSIs:
+
+- **Read-your-writes holds through indexes.** Insert then immediately query by author — the row is there. UI code never renders a stale profile page because the index hadn't caught up.
+- **Inside a transaction, indexes participate.** Index fields are part of the record write, so `table.transact` covers them — a rolled-back message never flickers into `byAuthor`. GSI updates sit outside DynamoDB's transactional guarantees entirely.
+- **No projection decisions.** A GSI makes you choose which attributes to copy into it (`KEYS_ONLY`, `INCLUDE`, `ALL`), trading storage for read completeness. Here a query through the index reads the full record — every index behaves like `ALL`.
+
+Two behaviors carry over from GSIs unchanged, so your mental model doesn't fork. Indexes are **sparse**: the derived fields are only written when every field they depend on is present on the value, so items missing a field simply don't appear in that index. And index keys **follow updates**: because a `put` replaces the whole record and re-derives every index field, an update that changes `authorId` (or the `_u` re-stamp on any write) moves the row within the index automatically — you never maintain index fields by hand.
+
+The natural follow-up — "if it's this nice, how does it differ from the other adapters?" — is exactly what the next page answers.
+
+<Cards>
+  <Card
+    title="Differences"
+    href="/docs/std-toolkit/idb/differences"
+    description="The full, honest diff against SQLite and DynamoDB — and when to reach for the browser."
+  />
+</Cards>

@@ -1,11 +1,11 @@
 ---
 title: Database adapters
-description: The single-table storage model both adapters implement — one table, an entity registry, typed CRUD, and item-collection queries. Taught once.
+description: The single-table storage model every adapter implements — one table that holds every entity, typed CRUD, and item-collection queries. Taught once.
 ---
 
 You know the shape of the problem by now: your chat app runs against DynamoDB in production, and against SQLite at the edge, on device, or in tests. Two databases usually means two data layers — two sets of table definitions, two query dialects, two piles of glue, drifting apart one bugfix at a time.
 
-std-toolkit refuses the fork. Both adapters implement **one storage model** — the single-table, item-collection model from the [crash course](/docs/std-toolkit/dynamodb-crash-course) — with the same builder API, the same key derivation, the same query surface, and the same [entity envelope](/docs/std-toolkit/core) on every read and write. SQLite mirrors DynamoDB's topology down to the vocabulary. So this page teaches the model once, engine-agnostically; the adapter sections only cover what's genuinely specific to each engine.
+std-toolkit refuses the fork. Every adapter implements **one storage model** — the single-table, item-collection model from the [crash course](/docs/std-toolkit/dynamodb-crash-course) — with the same builder API, the same key derivation, the same query surface, and the same [entity envelope](/docs/std-toolkit/core) on every read and write. SQLite mirrors DynamoDB's topology down to the vocabulary, and IndexedDB (`std-toolkit/idb`) is a third engine on the very same surface. So this page teaches the model once, engine-agnostically; the adapter sections only cover what's genuinely specific to each engine.
 
 ## One physical table
 
@@ -15,22 +15,31 @@ Rows are distinguished by key structure, not by which table they live in. All ro
 
 The structure that names which attributes serve as pk and sk for an index is an `IndexDefinition`. You declare it once when you define the table (each adapter's setup page shows the concrete syntax), and the toolkit never asks you to think about raw attribute names again.
 
-## EntityRegistry routes entity types
+## The table holds every entity
 
-If one table holds every entity type, something has to route a `Message` operation to message rows and a `Channel` operation to channel rows. That's the `EntityRegistry`:
+If one table holds every entity type, something has to route a `Message` operation to message rows and a `Channel` operation to channel rows. In std-toolkit that something is the **table itself**: you define each entity _from_ the table, and the table keeps the reference internally.
 
 ```ts
-import { EntityRegistry } from 'std-toolkit/dynamodb'; // or 'std-toolkit/sqlite'
+import { DynamoTable } from 'std-toolkit/dynamodb'; // or SQLiteTable from 'std-toolkit/sqlite'
 
-const registry = EntityRegistry.make(table)
-  .register(messages) // a Message entity service
-  .register(channels) // a Channel entity service
-  .registerSingle(settings) // a WorkspaceSettings singleton service
+const table = DynamoTable.make().primary('pk', 'sk').build();
+
+const messages = table
+  .entity(Message)
+  .primary({ pk: ['channelId'] })
   .build();
+const channels = table
+  .entity(Channel)
+  .primary({ pk: ['workspaceId'] })
+  .build();
+const settings = table.singleEntity(WorkspaceSettings).default({
+  slug: 'acme',
+  retentionDays: 30,
+});
 
 const sent =
   yield *
-  registry.entity('Message').insert({
+  messages.insert({
     id: yield * nextUlid,
     channelId: 'C-general',
     authorId: 'U-ada',
@@ -38,19 +47,17 @@ const sent =
   });
 ```
 
-`registry.entity('Message')` is fully typed — the registry knows every registered entity by the name on its eschema, so a typo is a compile error, not a runtime surprise. `registry.singleEntity(...)` does the same for singletons, and `registry.entityNames` enumerates everything registered.
+You keep the `messages`, `channels`, and `settings` references and call methods on them directly — there is no name-based lookup to route through, so a mistyped entity is a plain TypeScript error on an undefined variable, not a runtime surprise. Each `table.entity(...).build()` returns a fully typed entity service; `table.singleEntity(...).default(...)` does the same for singletons.
 
-The registry is also where cross-entity writes live: both adapters let you write across entity types atomically through the registry — DynamoDB with transaction items built by the entity services, SQLite with a transaction wrapper. The mechanics differ enough that each adapter's section covers its own.
+Cross-entity concerns live on the table, not on the entities: `table.transact([...])` applies a batch of ops atomically — all apply or none do, and change broadcasts fire only after a successful commit — and `table.snapshot()` renders the table's logical storage contract as a stable, comparable description. Both adapters write across entity types through `table.transact`; DynamoDB builds transaction items from the entity services and SQLite wraps them in a transaction, so each adapter's section covers its own mechanics.
 
 ## Per-entity services: typed CRUD
 
-Registered into the registry are per-entity services — `DynamoEntity` / `SQLiteEntity` for keyed entities, `DynamoSingleEntity` / `SQLiteSingleEntity` for singletons. You build one from a table plus an [eschema](/docs/std-toolkit/eschema):
+An entity service is the per-entity CRUD surface — `DynamoEntity` / `SQLiteEntity` for keyed entities, `DynamoSingleEntity` / `SQLiteSingleEntity` for singletons. You define one from the table plus an [eschema](/docs/std-toolkit/eschema):
 
 ```ts
-import { DynamoEntity } from 'std-toolkit/dynamodb'; // SQLiteEntity is symmetric
-
-const messages = DynamoEntity.make(table)
-  .eschema(Message)
+const messages = table
+  .entity(Message)
   .primary({ pk: ['channelId'] })
   .build();
 ```
@@ -97,9 +104,11 @@ Three behaviors are identical across engines and worth internalizing:
 
 - **Inserts refuse to overwrite.** `insert` fails if a row with the same key exists — updates are explicit.
 - **Every write re-stamps `_u`.** Including deletes. That's the [convergence rule's](/docs/std-toolkit/core/meta) raw material.
-- **Deletes are tombstones.** `delete` sets `_d: true` and leaves the row in the item collection so sync consumers can observe it. Hard deletion requires literally typing `forceDelete: 'I know what I am doing'`.
+- **Deletes are tombstones.** `delete` sets `_d: true` and leaves the row in the item collection so sync consumers can observe it. A soft-deleted row comes back to life with `restore`, which re-stamps `_u` so consumers see it become live again. Hard deletion requires literally typing `forceDelete: 'I know what I am doing'`.
 
 Reads run the eschema's migrations transparently: a v1 message row decodes, folds forward, and comes back to you in the latest shape.
+
+Singletons like `WorkspaceSettings` are the same idea with a fixed key and a mandatory default, so `get` never returns null. They are never deleted — `reset()` writes the default back as a real record so `get` and broadcasts agree on the same `_u`.
 
 ## Key derivation: entity fields → pk/sk
 
@@ -145,27 +154,23 @@ const { items: olderPage } =
   );
 ```
 
-And when you want _everything_ — an export, a backfill, a first sync — `queryStream` drains the collection as an Effect `Stream` of batches, feeding each page's last sort key back in as the next cursor so you never touch pagination:
+Draining a whole collection — an export, a backfill, a first sync — is that same call in a loop, feeding each page's last id back in as the next cursor until a page comes back short. The entity packages the loop for you as `queryStream(key, params, options?)`, which returns an Effect `Stream` of batches (`{ batchSize }`, default 100) and re-issues the paged query under the hood:
 
-```ts
+```ts title="drain.ts"
 import { Stream } from 'effect';
 
-yield *
-  messages
-    .queryStream('primary', {
-      pk: { channelId: 'C-general' },
-      sk: { '>': null },
-    })
-    .pipe(Stream.runForEach((batch) => archive(batch)));
+messages
+  .queryStream('primary', { pk: { channelId: 'C-general' }, sk: { '>': null } })
+  .pipe(Stream.runForEach((batch) => handle(batch)));
 ```
 
-Both adapters also expose `subscribe`, which replays an item collection after a `_u` cursor through the [`Broadcaster`](/docs/std-toolkit/core) and then marks the connection live — the primitive real-time catch-up is built from.
+Real-time catch-up (replaying a collection after a `_u` cursor and then going live) is a [tanstack-sync](/docs/std-toolkit/core) concern, not part of the DB entity surface — the entity gives you `query` and `queryStream`, and sync builds on them.
 
 ## QueryResult and pagination
 
 One layer down, the raw table query returns a `QueryResult`: the matched `Items`, plus adapter-specific pagination state — DynamoDB includes a `LastEvaluatedKey` when a page was cut short; SQLite has no such marker because it never truncates a page the way DynamoDB's 1 MB limit does.
 
-Here's the part worth appreciating: at the entity level you rarely touch any of that, because in this model **the sort key is the page token**. A page of results ends at some sk; the next page is `{ '<': lastSk }` (or `{ '>': lastSk }` going forward). There's no opaque continuation blob to thread through your API, no cursor that expires — a message id you rendered an hour ago is still a valid place to resume from. `queryStream` is nothing more than this loop, packaged.
+Here's the part worth appreciating: at the entity level you rarely touch any of that, because in this model **the sort key is the page token**. A page of results ends at some sk; the next page is `{ '<': lastSk }` (or `{ '>': lastSk }` going forward). There's no opaque continuation blob to thread through your API, no cursor that expires — a message id you rendered an hour ago is still a valid place to resume from. The drain-the-collection loop above is nothing more than this, repeated.
 
 That's also why sync needs so little from the database: "everything after my cursor" is a plain range query any engine with sorted items can answer.
 

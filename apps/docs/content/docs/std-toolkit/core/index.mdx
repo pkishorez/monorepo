@@ -122,30 +122,21 @@ Here's a problem the envelope alone doesn't solve. A message lands in the databa
 
 You could poll. You could bolt change-capture onto your database and pray your provider supports it. Or you could notice that the toolkit already sees every write — every insert, update, and delete goes through an entity service — and let it tell you.
 
-`Broadcaster` is that seam. It's an Effect service _you_ implement, with four operations:
+`Broadcaster` is that seam. It's an Effect service _you_ implement, with a single operation:
 
 ```ts
 import { Broadcaster } from 'std-toolkit/core';
 import { Layer } from 'effect';
 
 const BroadcasterLive = Layer.succeed(Broadcaster, {
-  broadcast: (entity) => {
-    // one confirmed write — fan it out to every connection
-    // subscribed to entity.meta._e
-  },
-  emit: (entities) => {
-    // a catch-up batch for the current connection (replay after a cursor)
-  },
-  subscribe: (entity) => {
-    // the current connection is caught up on this entity type
-  },
-  unsubscribe: (entity) => {
-    // stop delivering this entity type to the current connection
+  broadcast: (entities) => {
+    // the entities just written — fan each one out to every
+    // connection subscribed to its entity.meta._e
   },
 });
 ```
 
-The contract from the toolkit's side: after every successful write, the database adapters call `broadcast` with the full envelope — the same `{ value, meta }` the writer got back, tombstones included. When a client asks to catch up from a cursor, the adapter replays history in batches through `emit`, then calls `subscribe` to signal "you're live now". What those callbacks _do_ — WebSockets, server-sent events, a Durable Object fan-out — is entirely your infrastructure's business.
+The contract from the toolkit's side: after every successful write, the database adapters call `broadcast` with the entities that were written — the same `{ value, meta }` envelopes the writer got back, tombstones included, batched into a single array. What that callback _does_ — WebSockets, server-sent events, a Durable Object fan-out — is entirely your infrastructure's business.
 
 And it's optional. The adapters look the service up with `Effect.serviceOption`; if you never provide a `Broadcaster`, writes proceed silently and nothing breaks. You add real-time delivery by providing a Layer, not by rewriting your data layer.
 
