@@ -1,6 +1,6 @@
 {
   "name": "@pkishorez/effect-trace-recorder",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": false,
   "description": "In-process span and log recorder for Effect programs, capturing OTel-shaped traces without an exporter",
   "repository": {

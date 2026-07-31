@@ -1,4 +1,4 @@
-# @pkishorez/lotel
+# @pkishorez/effect-trace-recorder
 
 ## 0.0.2
 
@@ -20,13 +20,3 @@
   the OTLP server, and drops `laymos`' dependency on `@pkishorez/lotel` entirely.
   This removes the `std-toolkit -> laymos -> lotel -> std-toolkit` workspace cycle
   that made build ordering non-deterministic.
-
-- Updated dependencies []:
-  - std-toolkit@0.0.2
-
-## 0.0.1
-
-### Patch Changes
-
-- Updated dependencies [[`6d15b71`](https://github.com/pkishorez/monorepo/commit/6d15b71455a81ce4bd542f6d288eb9dfa4d04d71)]:
-  - std-toolkit@0.0.2
