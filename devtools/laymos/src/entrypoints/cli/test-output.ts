@@ -279,7 +279,10 @@ function renderSpan(
   palette: Palette,
 ): readonly string[] {
   const branch = last ? '└─' : '├─';
-  const duration = formatDuration(span.endTime - span.startTime);
+  const duration =
+    span.endTime === null
+      ? 'running'
+      : formatDuration(span.endTime - span.startTime);
   const status = span.status === 'error' ? ` ${palette.red('[error]')}` : '';
   const lines = [
     `      ${prefix}${branch} ${span.name}  ${palette.dim(duration)}${status}`,

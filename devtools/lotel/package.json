@@ -21,6 +21,10 @@
     "./client": {
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
+    },
+    "./trace": {
+      "types": "./dist/trace/index.d.ts",
+      "default": "./dist/trace/index.js"
     }
   },
   "bin": {
