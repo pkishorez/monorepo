@@ -7,8 +7,9 @@ export interface OtelEvent {
 }
 
 /**
- * Structurally compatible with `CapturedSpan` from `@pkishorez/lotel/trace`, so
- * spans recorded from a live Effect program render without translation.
+ * Structurally compatible with `CapturedSpan` from
+ * `@pkishorez/effect-trace-recorder`, so spans recorded from a live Effect
+ * program render without translation.
  */
 export interface OtelSpan {
   readonly traceId: string;

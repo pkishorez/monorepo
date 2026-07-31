@@ -1,8 +1,8 @@
 {
-  "name": "@pkishorez/lotel",
+  "name": "@pkishorez/effect-trace-recorder",
   "version": "0.0.1",
   "private": false,
-  "description": "Local OpenTelemetry server for development",
+  "description": "In-process span and log recorder for Effect programs, capturing OTel-shaped traces without an exporter",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo"
@@ -13,18 +13,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./domain": {
-      "types": "./dist/domain/index.d.ts",
-      "default": "./dist/domain/index.js"
-    },
-    "./client": {
-      "types": "./dist/client/index.d.ts",
-      "default": "./dist/client/index.js"
     }
-  },
-  "bin": {
-    "lotel": "dist/cli/index.js"
   },
   "files": [
     "dist/",
@@ -34,23 +23,20 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "dev": "tsx src/cli/index.ts --port 14318",
+    "fmt": "vp fmt",
     "lint": "vp check src package.json tsconfig.json && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit",
     "test": "vp test src",
     "test:watch": "vp test src --watch"
   },
-  "dependencies": {
-    "@effect/platform-node": "catalog:",
-    "effect": "catalog:",
-    "std-toolkit": "workspace:*"
-  },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
-    "@types/node": "catalog:",
-    "tsx": "catalog:",
+    "effect": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.0-beta.101"
   },
   "publishConfig": {
     "access": "public"
