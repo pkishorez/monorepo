@@ -50,6 +50,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
+    "@pkishorez/lotel": "workspace:*",
     "@vitest/utils": "catalog:",
     "jiti": "catalog:",
     "skott": "catalog:"

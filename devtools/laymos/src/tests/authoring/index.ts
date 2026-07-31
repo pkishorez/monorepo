@@ -1,4 +1,5 @@
-import { Effect, Exit, Logger, Option, References, Tracer } from 'effect';
+import { Effect } from 'effect';
+import { makeTraceRecorder } from '@pkishorez/lotel/trace';
 import { stringify } from '@vitest/utils/display';
 import {
   describe as vitestDescribe,
@@ -466,54 +467,17 @@ function makeTraceCapture(): TraceCapture & {
         );
       }
       started = true;
-      const spans: Tracer.NativeSpan[] = [];
-      const logs: TestTraceLog[] = [];
-      const tracer = Tracer.make({
-        span(options) {
-          const span = new Tracer.NativeSpan(options);
-          spans.push(span);
-          return span;
-        },
+      // A test that ends with an open span recorded something incoherent, so
+      // the recorder is asked to reject that rather than report it as running.
+      const recorder = makeTraceRecorder({
+        requireFinishedSpans: true,
+        formatValue: stringify,
       });
-      const logger = Logger.make<unknown, void>((options) => {
-        if (options.logLevel === 'All' || options.logLevel === 'None') return;
-        logs.push({
-          spanId: options.fiber.currentSpan?.spanId ?? null,
-          timestamp: options.date.getTime(),
-          level: options.logLevel,
-          message: testValue(
-            Array.isArray(options.message) && options.message.length === 1
-              ? options.message[0]
-              : options.message,
-          ),
-          annotations: Object.fromEntries(
-            Object.entries(
-              options.fiber.getRef(References.CurrentLogAnnotations),
-            ).map(([key, value]) => [key, testValue(value)]),
-          ),
-        });
-      });
-      return effect.pipe(
-        Effect.withTracer(tracer),
-        Effect.provide(Logger.layer([logger])),
+      return recorder.instrument(effect).pipe(
         Effect.ensuring(
           Effect.sync(() => {
-            const normalizedSpans = normalizeSpans(spans);
-            const capturedSpanIds = new Set(
-              normalizedSpans.map(({ spanId }) => spanId),
-            );
-            completedTrace = {
-              spans: normalizedSpans,
-              logs: logs
-                .map((log) => ({
-                  ...log,
-                  spanId:
-                    log.spanId !== null && capturedSpanIds.has(log.spanId)
-                      ? log.spanId
-                      : null,
-                }))
-                .sort((left, right) => left.timestamp - right.timestamp),
-            };
+            const { spans, logs } = recorder.snapshot();
+            completedTrace = { spans, logs };
           }),
         ),
       );
@@ -541,72 +505,6 @@ function makeTraceCapture(): TraceCapture & {
     get: () => completedTrace,
   });
   return capture;
-}
-
-function normalizeSpans(spans: readonly Tracer.NativeSpan[]): TestTraceSpan[] {
-  for (const span of spans) {
-    if (span.status._tag === 'Started') {
-      throw namedError(
-        'IncompleteTestTrace',
-        `Span "${span.name}" did not finish inside the traced Effect`,
-      );
-    }
-  }
-  const normalized = spans.map((span): TestTraceSpan => {
-    const status = span.status;
-    if (status._tag === 'Started') throw new Error('unreachable');
-    return {
-      traceId: span.traceId,
-      spanId: span.spanId,
-      parentSpanId: Option.match(span.parent, {
-        onNone: () => null,
-        onSome: (parent) => parent.spanId,
-      }),
-      name: span.name,
-      startTime: Number(status.startTime) / 1_000_000,
-      endTime: Number(status.endTime) / 1_000_000,
-      status: Exit.isSuccess(status.exit) ? 'success' : 'error',
-      attributes: Object.fromEntries(
-        [...span.attributes].map(([key, value]) => [key, testValue(value)]),
-      ),
-      events: span.events.map(([name, timestamp, attributes]) => ({
-        name,
-        timestamp: Number(timestamp) / 1_000_000,
-        attributes: Object.fromEntries(
-          Object.entries(attributes).map(([key, value]) => [
-            key,
-            testValue(value),
-          ]),
-        ),
-      })),
-    };
-  });
-  return sortSpans(normalized);
-}
-
-function sortSpans(spans: readonly TestTraceSpan[]): TestTraceSpan[] {
-  const byId = new Map(spans.map((span) => [span.spanId, span]));
-  const children = new Map<string | null, TestTraceSpan[]>();
-  for (const span of spans) {
-    const parent = span.parentSpanId;
-    const group = parent !== null && byId.has(parent) ? parent : null;
-    children.set(group, [...(children.get(group) ?? []), span]);
-  }
-  const compare = (left: TestTraceSpan, right: TestTraceSpan) =>
-    left.startTime - right.startTime || left.spanId.localeCompare(right.spanId);
-  const ordered: TestTraceSpan[] = [];
-  const seen = new Set<string>();
-  const visit = (span: TestTraceSpan): void => {
-    if (seen.has(span.spanId)) return;
-    seen.add(span.spanId);
-    ordered.push(span);
-    for (const child of (children.get(span.spanId) ?? []).sort(compare)) {
-      visit(child);
-    }
-  };
-  for (const root of (children.get(null) ?? []).sort(compare)) visit(root);
-  for (const span of [...spans].sort(compare)) visit(span);
-  return ordered;
 }
 
 function matchesSpan(span: TestTraceSpan, selector: SpanSelector): boolean {

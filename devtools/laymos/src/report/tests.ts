@@ -1,4 +1,9 @@
 import { Schema } from 'effect';
+import type {
+  CapturedEvent,
+  CapturedLog,
+  CapturedSpan,
+} from '@pkishorez/lotel/trace';
 
 export type TestStatus = 'passed' | 'failed' | 'skipped' | 'pending';
 export type TestValue =
@@ -32,31 +37,12 @@ export interface TestAssertionEvidence {
   readonly error?: TestErrorReport | undefined;
 }
 
-export interface TestTraceEvent {
-  readonly name: string;
-  readonly timestamp: number;
-  readonly attributes: Readonly<Record<string, TestValue>>;
-}
-
-export interface TestTraceLog {
-  readonly spanId: string | null;
-  readonly timestamp: number;
-  readonly level: 'Fatal' | 'Error' | 'Warn' | 'Info' | 'Debug' | 'Trace';
-  readonly message: TestValue;
-  readonly annotations: Readonly<Record<string, TestValue>>;
-}
-
-export interface TestTraceSpan {
-  readonly traceId: string;
-  readonly spanId: string;
-  readonly parentSpanId: string | null;
-  readonly name: string;
-  readonly startTime: number;
-  readonly endTime: number;
-  readonly status: 'success' | 'error' | 'unset';
-  readonly attributes: Readonly<Record<string, TestValue>>;
-  readonly events: readonly TestTraceEvent[];
-}
+// The trace shapes are owned by `@pkishorez/lotel/trace`, which also provides
+// the recorder that produces them. Aliased here so the report surface reads in
+// Laymos' own vocabulary.
+export type TestTraceEvent = CapturedEvent;
+export type TestTraceLog = CapturedLog;
+export type TestTraceSpan = CapturedSpan;
 
 export interface LaymosTestEvidence {
   readonly description: string;
@@ -166,8 +152,11 @@ export const TestTraceSpanSchema = Schema.Struct({
   parentSpanId: Schema.NullOr(Schema.String),
   name: Schema.String,
   startTime: Schema.Number,
-  endTime: Schema.Number,
-  status: Schema.Literals(['success', 'error', 'unset']),
+  // Null/`running` only arise if a span outlives the effect that opened it.
+  // Laymos rejects that at capture time, but the shape stays open so reports
+  // and the recorder agree.
+  endTime: Schema.NullOr(Schema.Number),
+  status: Schema.Literals(['success', 'error', 'running', 'unset']),
   attributes: Schema.Record(Schema.String, TestValueSchema),
   events: Schema.Array(TestTraceEventSchema),
 });
