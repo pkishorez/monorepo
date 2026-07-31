@@ -3,6 +3,7 @@ packages:
   - devtools/*
   - packages/*
   - std-toolkit
+  - whatever/*
 
 # Hold new releases for 24 hours (in minutes) so compromised versions have time to be reported.
 minimumReleaseAge: 1440
