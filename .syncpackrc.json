@@ -31,7 +31,9 @@
         "@pkishorez/lotel",
         "@monorepo/frontend",
         "std-toolkit",
-        "use-effect-ts"
+        "use-effect-ts",
+        "@pkishorez/code",
+        "whatever"
       ],
       "dependencyTypes": ["peer"],
       "pinVersion": "workspace:^"
@@ -45,7 +47,9 @@
         "@pkishorez/lotel",
         "@monorepo/frontend",
         "std-toolkit",
-        "use-effect-ts"
+        "use-effect-ts",
+        "@pkishorez/code",
+        "whatever"
       ],
       "dependencyTypes": ["prod", "dev"],
       "pinVersion": "workspace:*"
@@ -91,7 +95,9 @@
         "@pkishorez/lotel",
         "@monorepo/frontend",
         "std-toolkit",
-        "use-effect-ts"
+        "use-effect-ts",
+        "@pkishorez/code",
+        "whatever"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "isIgnored": true

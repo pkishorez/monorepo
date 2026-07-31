@@ -1,0 +1,41 @@
+{
+  "name": "whatever",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Whatever CLI",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "whatever": "bin/whatever.mjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "vp pack",
+    "build:watch": "vp pack --watch",
+    "dev": "bun src/cli.ts",
+    "fmt": "vp fmt",
+    "lint": "vp check src package.json tsconfig.json && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@pkishorez/code": "workspace:*",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
