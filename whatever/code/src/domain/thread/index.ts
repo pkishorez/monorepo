@@ -1,2 +1,4 @@
-export { ThreadSchema, type Thread } from './schema.js';
-export { CodingHarnessV1, GitContextV1 } from './versions/v1.js';
+// The thread entity schema the db persists.
+export { ThreadSchema } from './thread.js';
+// Orchestrators and the git service annotate the threads they operate on.
+export type { Thread } from './thread.js';

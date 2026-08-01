@@ -42,6 +42,14 @@ export default defineConfig({
     module('src/contract/code', { description: 'Coding-agent RPC group' }),
     module('src/handlers/hello', { description: 'Hello RPC handlers' }),
     module('src/handlers/code', { description: 'Coding-agent handler group' }),
+    module('src/orchestrators/code', {
+      description: 'Coding-agent run orchestration',
+    }),
+    module('src/services/db', { description: 'Sqlite-backed entity store' }),
+    module('src/services/git', { description: 'Git inspection service' }),
+    module('src/services/harness', {
+      description: 'Stateful coding-harness runtime over TanStack AI',
+    }),
     module('src/domain/hello', { description: 'Hello functionality' }),
     module('src/domain/machine', { description: 'Machine entity' }),
     module('src/domain/thread', { description: 'Thread entity' }),

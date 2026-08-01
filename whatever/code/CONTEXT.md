@@ -55,9 +55,10 @@ it ended.
 
 ### Message
 
-A completed, immutable entry in a Thread's ordered transcript. It records the
+A finalized, immutable entry in a Thread's ordered transcript. It records the
 Run ID that originated it and retains the corresponding TanStack AI `UIMessage`
-payload.
+payload. Finalized means it will never change again — an interrupted Run's
+partial assistant output still becomes a Message.
 
 ### Message ID
 

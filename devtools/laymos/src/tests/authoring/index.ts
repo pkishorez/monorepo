@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { makeTraceRecorder } from '@pkishorez/effect-trace-recorder';
+import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
 import { stringify } from '@vitest/utils/display';
 import {
   describe as vitestDescribe,

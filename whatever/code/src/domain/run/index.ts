@@ -1,13 +1,8 @@
-export { RunSchema, type Run } from './schema.js';
-export {
-  ClaudeCodeModelOptionsV1,
-  ClaudeCodeRunConfigurationV1,
-  CodexModelOptionsV1,
-  CodexRunConfigurationV1,
-  CompletedRunTerminalV1,
-  FailedRunTerminalV1,
-  InterruptedRunTerminalV1,
-  RunConfigurationV1,
-  RunStatusV1,
-  RunTerminalDetailsV1,
-} from './versions/v1.js';
+// The run entity schema the db persists.
+export { RunSchema } from './run.js';
+// Callers hand a configuration over the wire; this normalizes it for persistence.
+export { toPersistedConfiguration } from './run.js';
+// Contract, orchestrators, and harness annotate the configurations they accept.
+export type { RunConfigurationInput } from './run.js';
+// Orchestrators derive a run's terminal status + details from its outcome.
+export { deriveRunTerminal } from './run.js';

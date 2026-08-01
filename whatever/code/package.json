@@ -25,6 +25,8 @@
     "@tanstack/ai": "catalog:",
     "@tanstack/ai-claude-code": "catalog:",
     "@tanstack/ai-codex": "catalog:",
+    "@tanstack/ai-sandbox": "catalog:",
+    "@tanstack/ai-sandbox-local-process": "catalog:",
     "effect": "catalog:",
     "env-paths": "catalog:",
     "std-toolkit": "workspace:*"

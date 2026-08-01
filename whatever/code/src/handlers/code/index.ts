@@ -1,10 +1,2 @@
-import { Layer } from 'effect';
-import { InterruptRunHandlerLive } from './interrupt-run.js';
-import { StartRunHandlerLive } from './start-run.js';
-import { StartThreadHandlerLive } from './start-thread.js';
-
-export const CodeHandlersLive = Layer.mergeAll(
-  StartThreadHandlerLive,
-  StartRunHandlerLive,
-  InterruptRunHandlerLive,
-);
+// The code handler layer, merged into the contract-wide handler layer.
+export { CodeHandlersLive } from './code.js';
