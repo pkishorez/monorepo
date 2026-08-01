@@ -1,4 +1,4 @@
-import { defineConfig, edge, layer, layerGraph } from 'laymos';
+import { defineConfig, edge, layer, layerGraph, module } from 'laymos';
 
 const entry = layer('entry', ['src/index.ts'], {
   description: 'Public barrel composing handlers with services',
@@ -36,5 +36,16 @@ export default defineConfig({
       ],
       { description: 'Layered architecture of @pkishorez/code' },
     ),
+  ],
+  modules: [
+    module('src/contract/hello', { description: 'Hello RPC' }),
+    module('src/contract/code', { description: 'Coding-agent RPC group' }),
+    module('src/handlers/hello', { description: 'Hello RPC handlers' }),
+    module('src/handlers/code', { description: 'Coding-agent handler group' }),
+    module('src/domain/hello', { description: 'Hello functionality' }),
+    module('src/domain/machine', { description: 'Machine entity' }),
+    module('src/domain/thread', { description: 'Thread entity' }),
+    module('src/domain/run', { description: 'Run entity' }),
+    module('src/domain/message', { description: 'Message entity' }),
   ],
 });

@@ -45,6 +45,9 @@ catalog:
   '@tailwindcss/typography': 0.5.20
   '@tailwindcss/vite': 4.3.3
   '@tanstack/query-db-collection': 1.2.0
+  '@tanstack/ai': 0.42.0
+  '@tanstack/ai-claude-code': 0.2.3
+  '@tanstack/ai-codex': 0.2.3
   '@tanstack/react-db': 0.1.94
   '@tanstack/react-form': 1.33.2
   '@tanstack/react-query': 5.101.4

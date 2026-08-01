@@ -1,8 +1,12 @@
 import { Layer } from 'effect';
-import { CodeHandlersLive } from './handlers/index.js';
+import { WhateverHandlersLive } from './handlers/index.js';
 import { makeDbLayer } from './services/index.js';
 
-export { DEFAULT_DB_PATH } from './services/index.js';
+export {
+  DEFAULT_DB_PATH,
+  DEFAULT_TABLE_NAME,
+  type DbOptions,
+} from './services/index.js';
 
-export const makeCodeHandlers = (options: { dbPath?: string } = {}) =>
-  CodeHandlersLive.pipe(Layer.provideMerge(makeDbLayer(options)));
+export const makeWhateverHandlers = (options: { dbPath?: string } = {}) =>
+  WhateverHandlersLive.pipe(Layer.provideMerge(makeDbLayer(options)));

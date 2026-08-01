@@ -1,1 +1,7 @@
-export { DEFAULT_DB_PATH, Db, makeDbLayer } from './db.js';
+export {
+  DEFAULT_DB_PATH,
+  DEFAULT_TABLE_NAME,
+  Db,
+  makeDbLayer,
+  type DbOptions,
+} from './db.js';
