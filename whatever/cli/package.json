@@ -20,9 +20,9 @@
   "scripts": {
     "build": "vp pack",
     "build:watch": "vp pack --watch",
-    "dev": "bun src/cli.ts",
+    "dev": "portless run --force node src/cli.ts code serve",
     "fmt": "vp fmt",
-    "lint": "vp check src package.json tsconfig.json && pnpm lint:tsc",
+    "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit"
   },
   "dependencies": {

@@ -9,22 +9,26 @@
       "default": "./dist/index.js"
     },
     "./contract": {
-      "types": "./dist/contract.d.ts",
-      "default": "./dist/contract.js"
+      "types": "./dist/contract/index.d.ts",
+      "default": "./dist/contract/index.js"
     }
   },
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
     "fmt": "vp fmt",
-    "lint": "vp check src package.json tsconfig.json && pnpm lint:tsc",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
     "lint:tsc": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "env-paths": "catalog:"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "laymos": "workspace:*",
     "typescript": "catalog:"
   }
 }
