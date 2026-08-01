@@ -829,10 +829,19 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0-beta.101
+      env-paths:
+        specifier: 'catalog:'
+        version: 4.0.0
     devDependencies:
       '@tsconfig/node22':
         specifier: 'catalog:'
         version: 22.0.5
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.1
+      laymos:
+        specifier: workspace:*
+        version: link:../../devtools/laymos
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -10269,7 +10278,7 @@ snapshots:
       '@tanstack/router-utils': 1.162.2(supports-color@10.2.2)
       '@tanstack/start-server-core': 1.169.17(crossws@0.4.9(srvx@0.11.20))
       exsolve: 1.1.0
-      lightningcss: 1.32.0
+      lightningcss: 1.33.0
       pathe: 2.0.3
       picomatch: 4.0.5
       seroval: 1.5.4
@@ -10308,7 +10317,7 @@ snapshots:
       '@tanstack/router-utils': 1.162.2(supports-color@10.2.2)
       '@tanstack/start-server-core': 1.169.17(crossws@0.4.9(srvx@0.11.20))
       exsolve: 1.1.0
-      lightningcss: 1.32.0
+      lightningcss: 1.33.0
       pathe: 2.0.3
       picomatch: 4.0.5
       seroval: 1.5.4
