@@ -1,4 +1,6 @@
 export {
+  SQLiteEntity,
+  SQLiteSingleEntity,
   SQLiteTable,
   type EntityType,
   type SingleEntityType,

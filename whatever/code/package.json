@@ -22,8 +22,12 @@
     "lint:tsc": "tsc --noEmit"
   },
   "dependencies": {
+    "@tanstack/ai": "catalog:",
+    "@tanstack/ai-claude-code": "catalog:",
+    "@tanstack/ai-codex": "catalog:",
     "effect": "catalog:",
-    "env-paths": "catalog:"
+    "env-paths": "catalog:",
+    "std-toolkit": "workspace:*"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",

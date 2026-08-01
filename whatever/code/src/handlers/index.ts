@@ -1,6 +1,8 @@
-import { CodeRpcs } from '../contract/index.js';
-import { greet } from '../orchestrators/index.js';
+import { Layer } from 'effect';
+import { CodeHandlersLive } from './code/index.js';
+import { HelloHandlersLive } from './hello/index.js';
 
-export const CodeHandlersLive = CodeRpcs.toLayer({
-  hello: ({ name }) => greet(name),
-});
+export const WhateverHandlersLive = Layer.mergeAll(
+  HelloHandlersLive,
+  CodeHandlersLive,
+);

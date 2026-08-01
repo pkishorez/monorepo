@@ -9,8 +9,11 @@ import {
 } from 'effect/unstable/http';
 import { RpcServer } from 'effect/unstable/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
-import { DEFAULT_DB_PATH, makeCodeHandlers } from '@pkishorez/code';
-import { CodeRpcSerialization, CodeRpcs } from '@pkishorez/code/contract';
+import { DEFAULT_DB_PATH, makeWhateverHandlers } from '@pkishorez/code';
+import {
+  WhateverRpcSerialization,
+  WhateverRpcs,
+} from '@pkishorez/code/contract';
 
 const ALLOWED_DOMAINS = ['kishore.app'];
 const HOST = '127.0.0.1';
@@ -79,12 +82,12 @@ const makeServerLive = (options: { port: number; db: string }) =>
   HttpRouter.serve(
     Layer.mergeAll(
       RpcServer.layerHttp({
-        group: CodeRpcs,
+        group: WhateverRpcs,
         path: '/rpc',
         protocol: 'websocket',
       }).pipe(
-        Layer.provide(makeCodeHandlers({ dbPath: options.db })),
-        Layer.provide(CodeRpcSerialization),
+        Layer.provide(makeWhateverHandlers({ dbPath: options.db })),
+        Layer.provide(WhateverRpcSerialization),
       ),
       CorsMiddlewareLive,
     ),
