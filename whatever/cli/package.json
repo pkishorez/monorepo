@@ -23,7 +23,8 @@
     "dev": "portless run --force node src/cli.ts code serve",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc",
-    "lint:tsc": "tsc --noEmit"
+    "lint:tsc": "tsc --noEmit",
+    "test": "vp test src"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
@@ -31,9 +32,11 @@
   },
   "devDependencies": {
     "@pkishorez/code": "workspace:*",
+    "@pkishorez/effect-tracer": "workspace:*",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "publishConfig": {
     "access": "public"

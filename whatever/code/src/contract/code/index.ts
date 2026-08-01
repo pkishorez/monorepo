@@ -1,12 +1,4 @@
-import { RpcGroup } from 'effect/unstable/rpc';
-import { InterruptRunRpc } from './interrupt-run.js';
-import { StartRunRpc } from './start-run.js';
-import { StartThreadRpc } from './start-thread.js';
-
-export { CodeRpcError } from './code-rpc-error.js';
-
-export const CodeRpcs = RpcGroup.make(
-  StartThreadRpc,
-  StartRunRpc,
-  InterruptRunRpc,
-);
+// The wire contract handlers implement and clients call over RPC.
+export { CodeRpcs } from './code.js';
+// Handlers construct it to fail RPCs; clients match on it to handle failures.
+export { CodeRpcError } from './code.js';

@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@pkishorez/effect-trace-recorder": "workspace:*",
+    "@pkishorez/effect-tracer": "workspace:*",
     "@vitest/utils": "catalog:",
     "jiti": "catalog:",
     "skott": "catalog:"

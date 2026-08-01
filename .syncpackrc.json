@@ -26,7 +26,7 @@
       "label": "Internal peerDependencies use workspace:^",
       "dependencies": [
         "@pkishorez/devtools",
-        "@pkishorez/effect-trace-recorder",
+        "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
         "@monorepo/frontend",
@@ -42,7 +42,7 @@
       "label": "Internal dependencies and devDependencies use workspace:*",
       "dependencies": [
         "@pkishorez/devtools",
-        "@pkishorez/effect-trace-recorder",
+        "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
         "@monorepo/frontend",
@@ -90,7 +90,7 @@
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
         "@pkishorez/devtools",
-        "@pkishorez/effect-trace-recorder",
+        "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
         "@monorepo/frontend",

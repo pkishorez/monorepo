@@ -3,7 +3,7 @@ import type {
   CapturedEvent,
   CapturedLog,
   CapturedSpan,
-} from '@pkishorez/effect-trace-recorder';
+} from '@pkishorez/effect-tracer/recorder';
 
 export type TestStatus = 'passed' | 'failed' | 'skipped' | 'pending';
 export type TestValue =
@@ -37,7 +37,7 @@ export interface TestAssertionEvidence {
   readonly error?: TestErrorReport | undefined;
 }
 
-// The trace shapes are owned by `@pkishorez/effect-trace-recorder`, which also provides
+// The trace shapes are owned by `@pkishorez/effect-tracer/recorder`, which provides
 // the recorder that produces them. Aliased here so the report surface reads in
 // Laymos' own vocabulary.
 export type TestTraceEvent = CapturedEvent;

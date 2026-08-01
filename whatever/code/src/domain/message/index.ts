@@ -1,1 +1,2 @@
-export { MessageSchema, type Message } from './schema.js';
+// The message entity schema the db persists.
+export { MessageSchema } from './message.js';

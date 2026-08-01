@@ -3,6 +3,6 @@ import { Effect } from 'effect';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import * as NodeServices from '@effect/platform-node/NodeServices';
 
-import { cli } from './run.ts';
+import { cli } from './run/index.ts';
 
 cli.pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain());
