@@ -1,6 +1,7 @@
 import { EventType, chat, type StreamChunk } from '@tanstack/ai';
 import { SESSION_ID_EVENT, claudeCodeText } from '@tanstack/ai-claude-code';
 import { sandboxMiddlewareFor } from '../sandbox.js';
+import { kishoreTools } from './kishore-tools.js';
 import type { HarnessRunInputFor } from './run-input.js';
 
 export const claudeCodeChat = (
@@ -11,6 +12,7 @@ export const claudeCodeChat = (
     adapter: claudeCodeText(input.configuration.model),
     messages: [input.message],
     middleware: [sandboxMiddlewareFor(input.workingDirectory)],
+    tools: kishoreTools,
     abortController,
     threadId: input.threadId,
     runId: input.runId,
