@@ -28,7 +28,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
-    "dev": "tsx src/cli/cli.ts graph src",
+    "dev": "tsx src/cli/cli.ts",
     "fmt": "vp fmt",
     "lint": "vp check && tsc",
     "test": "vitest run"

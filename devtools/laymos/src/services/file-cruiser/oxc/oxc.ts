@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { Effect } from 'effect';
 
 import { CruiseError } from '../errors.js';
-import type { FileGraph } from '../extract-dependencies.js';
+import type { FileGraph } from '../file-cruiser.js';
 import { listSourceFiles, pathContains } from './file-scanner.js';
 import {
   createResolver,

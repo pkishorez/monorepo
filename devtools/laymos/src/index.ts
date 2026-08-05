@@ -3,4 +3,10 @@ export {
   Cruiser,
   CruiserLive,
   CruiseError,
-} from './services/extract-dependencies/index.js';
+} from './services/file-cruiser/index.js';
+export {
+  ConfigService,
+  ConfigServiceLive,
+  ConfigError,
+} from './services/config/index.js';
+export type { Config } from './services/config/index.js';

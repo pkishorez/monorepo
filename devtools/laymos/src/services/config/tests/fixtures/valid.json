@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "layers": {
+    "app": { "paths": ["src/app"], "description": "Application" },
+    "domain": { "paths": ["src/domain"] }
+  },
+  "layerGraphs": {
+    "architecture": {
+      "description": "Core layering",
+      "rules": {
+        "app": ["domain"]
+      }
+    }
+  }
+}
