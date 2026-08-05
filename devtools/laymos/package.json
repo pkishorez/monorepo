@@ -2,7 +2,7 @@
   "name": "laymos",
   "version": "0.0.1",
   "private": false,
-  "description": "Layers. Modules. Tests. Understand architecture and behavior from one place.",
+  "description": "Extracts the internal file dependency graph of a project.",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo"
@@ -14,21 +14,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./node": {
-      "types": "./dist/entrypoints/node/index.d.ts",
-      "import": "./dist/entrypoints/node/index.js",
-      "default": "./dist/entrypoints/node/index.js"
-    },
-    "./report": {
-      "types": "./dist/entrypoints/report/index.d.ts",
-      "import": "./dist/entrypoints/report/index.js",
-      "default": "./dist/entrypoints/report/index.js"
-    },
-    "./test": {
-      "types": "./dist/tests/authoring/index.d.ts",
-      "import": "./dist/tests/authoring/index.js",
-      "default": "./dist/tests/authoring/index.js"
     }
   },
   "bin": {
@@ -43,33 +28,26 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
+    "dev": "tsx src/cli/cli.ts graph src",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc && pnpm lint:laymos",
-    "lint:laymos": "jiti src/entrypoints/cli/cli.ts lint",
+    "lint": "vp check && tsc",
     "test": "vitest run"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@pkishorez/effect-tracer": "workspace:*",
-    "@vitest/utils": "catalog:",
-    "jiti": "catalog:",
-    "skott": "catalog:"
+    "oxc-parser": "catalog:",
+    "oxc-resolver": "catalog:"
   },
   "devDependencies": {
     "@typescript/native": "catalog:",
     "@types/node": "catalog:",
     "effect": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:typescript6",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "effect": "^4.0.0-beta.101",
-    "vitest": ">=4.1.10 <5"
-  },
-  "peerDependenciesMeta": {
-    "vitest": {
-      "optional": true
-    }
+    "effect": "^4.0.0-beta.101"
   },
   "publishConfig": {
     "access": "public"

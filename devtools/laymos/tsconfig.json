@@ -13,6 +13,6 @@
     "rootDir": ".",
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "test/**/*", "vitest*.ts"],
-  "exclude": ["dist", "node_modules", "test/fixtures"]
+  "include": ["src/**/*", "vitest*.ts"],
+  "exclude": ["dist", "node_modules", "src/**/fixtures/**"]
 }
