@@ -2,7 +2,7 @@
   "name": "laymos",
   "version": "0.0.1",
   "private": false,
-  "description": "Extracts the internal file dependency graph of a project.",
+  "description": "Queries the direct and transitive file dependencies of a file or folder.",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo"
@@ -36,7 +36,8 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "oxc-parser": "catalog:",
-    "oxc-resolver": "catalog:"
+    "oxc-resolver": "catalog:",
+    "yoctocolors": "catalog:"
   },
   "devDependencies": {
     "@typescript/native": "catalog:",

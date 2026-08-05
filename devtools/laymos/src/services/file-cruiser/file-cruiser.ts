@@ -1,9 +1,8 @@
 import { Context, Effect, Layer } from 'effect';
 
+import type { FileGraph } from '../../domain/file-graph/index.js';
 import type { CruiseError } from './errors.js';
 import { buildFileGraph } from './oxc/index.js';
-
-export type FileGraph = ReadonlyMap<string, readonly string[]>;
 
 export class Cruiser extends Context.Service<
   Cruiser,

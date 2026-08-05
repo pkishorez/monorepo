@@ -1,6 +1,7 @@
 # Laymos
 
-Laymos extracts a project's internal file dependency graph.
+Laymos queries the direct and transitive file dependencies of a file or
+folder.
 
 ## Architecture
 
@@ -49,9 +50,13 @@ architecture) can read it as plain JSON. See
 ## CLI
 
 ```sh
-laymos graph [source-root...] [--ignore <path,path,...>]
+laymos deps <path> [--recursive] [--root <dir>...] [--ignore <path,path,...>]
 ```
 
-Prints the internal file dependency graph as JSON. `source-root` defaults to
-`src`; `--ignore` takes a comma-separated list of project-relative paths to
-exclude.
+Prints `<path>`'s dependencies as a colored tree — a file or folder,
+project-relative. Direct dependencies (imported straight from inside the
+target) are yellow; with `--recursive`, dependencies reached only by walking
+further out through another dependency are also shown, in gray. The target's
+own path is shown in green. `--root` sets the source root(s) to scan and is
+repeatable, defaulting to `src`; `--ignore` takes a comma-separated list of
+project-relative paths to exclude from the scan.

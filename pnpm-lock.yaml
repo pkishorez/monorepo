@@ -327,6 +327,9 @@ catalogs:
     xstate:
       specifier: 5.32.5
       version: 5.32.5
+    yoctocolors:
+      specifier: 2.2.0
+      version: 2.2.0
     zustand:
       specifier: 5.0.14
       version: 5.0.14
@@ -541,6 +544,9 @@ importers:
       oxc-resolver:
         specifier: 'catalog:'
         version: 11.24.2
+      yoctocolors:
+        specifier: 'catalog:'
+        version: 2.2.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -7953,6 +7959,10 @@ packages:
     resolution: {integrity: sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug==}
     engines: {node: '>=18'}
 
+  yoctocolors@2.2.0:
+    resolution: {integrity: sha512-xYqdZFUK/VYazNl/oCDYN+3WloWQwMfZxBoiNt6qNyk+xfOdi598muWE42rNZFp1kNOiqW936q5RhUdnpqElSg==}
+    engines: {node: '>=18'}
+
   youch-core@0.3.3:
     resolution: {integrity: sha512-ho7XuGjLaJ2hWHoK8yFnsUGy2Y5uDpqSTq1FkHLK4/oqKtyUU1AFbOOxY4IpC9f0fTLjwYbslUz0Po5BpD1wrA==}
 
@@ -15163,6 +15173,8 @@ snapshots:
       yoctocolors: 2.1.2
 
   yoctocolors@2.1.2: {}
+
+  yoctocolors@2.2.0: {}
 
   youch-core@0.3.3:
     dependencies:
