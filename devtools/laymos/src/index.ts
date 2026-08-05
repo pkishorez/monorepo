@@ -1,4 +1,4 @@
-export { graph } from './orchestrator/graph.js';
+export { deps } from './orchestrator/deps.js';
 export {
   Cruiser,
   CruiserLive,
