@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 
-import { Cruiser } from '../services/extract-dependencies/index.js';
+import { Cruiser } from '../services/file-cruiser/index.js';
 
 export function graph(
   baseDir: string,
