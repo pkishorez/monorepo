@@ -1,0 +1,42 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "layers": {
+    "entry": {
+      "paths": ["src/index.ts"],
+      "description": "Public barrel composing handlers with services"
+    },
+    "handlers": {
+      "paths": ["src/handlers"],
+      "description": "Thin adapters implementing the contract via orchestrators"
+    },
+    "contract": {
+      "paths": ["src/contract"],
+      "description": "RPC surface shared with clients"
+    },
+    "orchestrators": {
+      "paths": ["src/orchestrators"],
+      "description": "Ready functionality composed from services and domain"
+    },
+    "services": {
+      "paths": ["src/services"],
+      "description": "Resource-backed capabilities (sqlite db)"
+    },
+    "domain": {
+      "paths": ["src/domain"],
+      "description": "Fundamental schemas and pure functionality"
+    }
+  },
+  "layerGraphs": {
+    "code": {
+      "description": "Layered architecture of @pkishorez/code",
+      "rules": {
+        "entry": ["handlers", "services"],
+        "handlers": ["contract", "orchestrators"],
+        "orchestrators": ["services", "domain"],
+        "services": ["domain"],
+        "contract": ["domain"]
+      }
+    }
+  }
+}

@@ -1,11 +1,7 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": [
-    "src/cosmos.decorator.tsx",
-    "src/css.d.ts",
-    "src/styles"
-  ],
+  "ignoredPaths": ["src/cosmos.decorator.tsx", "src/css.d.ts", "src/styles"],
   "layers": {
     "composites": {
       "paths": ["src/components/blocks", "src/form"],
