@@ -1,5 +1,5 @@
 import { stat } from 'node:fs/promises';
-import { relative, resolve, sep } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 
 import { Console, Effect } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
@@ -16,53 +16,36 @@ const recursiveFlag = Flag.boolean('recursive').pipe(
   Flag.withDescription('Follow dependencies transitively, not just one hop.'),
 );
 
-const rootFlag = Flag.string('root').pipe(
-  Flag.atLeast(0),
-  Flag.withDescription(
-    'Project-relative source root to scan. Repeatable. Defaults to "src".',
-  ),
-);
+export function makeDepsCommand<R>(
+  configPath: Effect.Effect<string, never, R>,
+) {
+  return Command.make(
+    'deps',
+    {
+      path: pathArgument,
+      recursive: recursiveFlag,
+    },
+    ({ path, recursive }) =>
+      Effect.gen(function* () {
+        const configuredPath = yield* configPath;
+        const absoluteConfigPath = resolve(configuredPath);
+        const baseDir = dirname(absoluteConfigPath);
+        const target = toPosixRelative(baseDir, path);
+        const targetKind = yield* Effect.promise(() =>
+          statTargetKind(baseDir, target),
+        );
+        const entries = yield* deps(absoluteConfigPath, target, targetKind, {
+          recursive,
+        });
 
-const ignoreFlag = Flag.string('ignore').pipe(
-  Flag.withDefault(''),
-  Flag.withDescription(
-    'Comma-separated project-relative paths to exclude from the scan.',
-  ),
-);
-
-export const depsCommand = Command.make(
-  'deps',
-  {
-    path: pathArgument,
-    recursive: recursiveFlag,
-    root: rootFlag,
-    ignore: ignoreFlag,
-  },
-  ({ path, recursive, root, ignore }) =>
-    Effect.gen(function* () {
-      const baseDir = process.cwd();
-      const target = toPosixRelative(baseDir, path);
-      const targetKind = yield* Effect.promise(() =>
-        statTargetKind(baseDir, target),
-      );
-      const sourceRoots = root.length === 0 ? ['src'] : [...root];
-      const ignoredPaths = ignore
-        .split(',')
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0);
-
-      const entries = yield* deps(baseDir, sourceRoots, target, targetKind, {
-        recursive,
-        ignoredPaths,
-      });
-
-      yield* Console.log(renderDependencyTree(target, entries));
-    }),
-).pipe(
-  Command.withDescription(
-    'Print the direct (and, with --recursive, transitive) dependencies of a file or folder.',
-  ),
-);
+        yield* Console.log(renderDependencyTree(target, entries));
+      }),
+  ).pipe(
+    Command.withDescription(
+      'Print the direct (and, with --recursive, transitive) dependencies of a file or folder.',
+    ),
+  );
+}
 
 async function statTargetKind(
   baseDir: string,

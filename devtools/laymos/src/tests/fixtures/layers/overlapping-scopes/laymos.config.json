@@ -1,0 +1,9 @@
+{
+  "sourceRoots": ["src"],
+  "layers": {
+    "app": { "paths": ["src/app", "src/app/admin"] },
+    "domain": { "paths": ["src/domain"] },
+    "infrastructure": { "paths": ["src/domain/model"] }
+  },
+  "layerGraphs": {}
+}

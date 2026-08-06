@@ -1,2 +1,2 @@
-// The `deps` subcommand: prints a file or folder's dependency tree.
-export { depsCommand } from './deps.js';
+// The root CLI uses this to create the config-aware `deps` subcommand.
+export { makeDepsCommand } from './deps.js';

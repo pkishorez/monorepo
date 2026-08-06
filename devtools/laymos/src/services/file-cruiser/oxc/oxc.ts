@@ -26,7 +26,7 @@ export function buildFileGraph(
       );
       const eligible = new Set(eligibleFiles);
       const imports = new Map<string, Set<string>>(
-        files.map((path) => [path, new Set()]),
+        eligibleFiles.map((path) => [path, new Set()]),
       );
 
       const resolver = createResolver();
@@ -47,7 +47,7 @@ export function buildFileGraph(
       }
 
       return new Map(
-        files.map((path) => [path, [...imports.get(path)!].sort()]),
+        eligibleFiles.map((path) => [path, [...imports.get(path)!].sort()]),
       );
     },
     catch: (cause) => new CruiseError({ baseDir, cause }),

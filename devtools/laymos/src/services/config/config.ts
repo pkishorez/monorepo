@@ -1,12 +1,13 @@
 import { Context, Effect, FileSystem, Layer, Schema } from 'effect';
 
 import { ConfigError } from './errors.js';
+import { validateConfig } from './validation/index.js';
 
 const LayerSchema = Schema.Struct({
   paths: Schema.Array(Schema.String)
     .annotate({
       description:
-        'Project-relative paths belonging to this Layer. Layers are disjoint — no path may belong to more than one Layer.',
+        'Canonical project-relative paths belonging to this Layer. No declared Layer scopes may overlap, within one Layer or across Layers.',
     })
     .pipe(Schema.check(Schema.isMinLength(1))),
   description: Schema.optional(Schema.String).annotate({
@@ -39,20 +40,24 @@ const ConfigSchema = Schema.Struct({
   sourceRoots: Schema.Array(Schema.String)
     .annotate({
       description:
-        'Project-relative files or folders that define the complete static analysis universe.',
+        'Canonical project-relative files or folders that define the complete static analysis universe.',
     })
     .pipe(Schema.check(Schema.isMinLength(1))),
+  ignoredPaths: Schema.Array(Schema.String)
+    .annotate({
+      description:
+        'Canonical project-relative files or folders explicitly excluded from the analysis universe.',
+    })
+    .pipe(Schema.withDecodingDefaultKey(Effect.succeed<readonly string[]>([]))),
   layers: Schema.Record(Schema.String, LayerSchema)
     .annotate({
       description: 'Every Layer in the project, keyed by id.',
     })
     .pipe(Schema.check(Schema.isMinProperties(1))),
-  layerGraphs: Schema.Record(Schema.String, LayerGraphSchema)
-    .annotate({
-      description:
-        'Every LayerGraph in the project, keyed by id. At least one LayerGraph is required.',
-    })
-    .pipe(Schema.check(Schema.isMinProperties(1))),
+  layerGraphs: Schema.Record(Schema.String, LayerGraphSchema).annotate({
+    description:
+      'Every LayerGraph in the project, keyed by id. An empty set denies every cross-Layer dependency.',
+  }),
 }).annotate({
   title: 'Laymos Config',
   description: "Declares a project's Layers and LayerGraphs.",
@@ -68,8 +73,12 @@ export class ConfigService extends Context.Service<
     readonly read: (filePath: string) => Effect.Effect<Config, ConfigError>;
   }
 >()('ConfigService') {
-  static jsonSchema() {
-    return Schema.toJsonSchemaDocument(ConfigSchema);
+  static jsonSchema(): Readonly<Record<string, unknown>> {
+    const standard = Schema.toStandardJSONSchemaV1(ConfigSchema);
+    return {
+      $schema: 'http://json-schema.org/draft-07/schema#',
+      ...standard['~standard'].jsonSchema.input({ target: 'draft-07' }),
+    };
   }
 }
 
@@ -81,25 +90,52 @@ export const ConfigServiceLive = Layer.effect(
     return {
       read: (filePath: string) =>
         Effect.gen(function* () {
-          const raw = yield* fs
-            .readFileString(filePath)
-            .pipe(
-              Effect.mapError(
-                (cause) => new ConfigError({ reason: 'read', filePath, cause }),
-              ),
-            );
+          const raw = yield* fs.readFileString(filePath).pipe(
+            Effect.mapError(
+              (cause) =>
+                new ConfigError({
+                  reason: 'read',
+                  filePath,
+                  cause,
+                  issues: [],
+                }),
+            ),
+          );
 
           const json = yield* Effect.try({
             try: () => JSON.parse(raw) as unknown,
             catch: (cause) =>
-              new ConfigError({ reason: 'parse', filePath, cause }),
+              new ConfigError({
+                reason: 'parse',
+                filePath,
+                cause,
+                issues: [],
+              }),
           });
 
-          return yield* decodeConfig(json).pipe(
+          const decoded = yield* decodeConfig(json).pipe(
             Effect.mapError(
-              (cause) => new ConfigError({ reason: 'schema', filePath, cause }),
+              (cause) =>
+                new ConfigError({
+                  reason: 'schema',
+                  filePath,
+                  cause,
+                  issues: [],
+                }),
             ),
           );
+
+          const issues = validateConfig(decoded);
+          if (issues.length > 0) {
+            return yield* new ConfigError({
+              reason: 'validation',
+              filePath,
+              cause: issues,
+              issues,
+            });
+          }
+
+          return decoded;
         }).pipe(Effect.withSpan('config.read')),
     };
   }),

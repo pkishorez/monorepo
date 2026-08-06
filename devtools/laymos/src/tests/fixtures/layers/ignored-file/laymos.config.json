@@ -1,0 +1,8 @@
+{
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/generated"],
+  "layers": {
+    "app": { "paths": ["src/app"] }
+  },
+  "layerGraphs": {}
+}

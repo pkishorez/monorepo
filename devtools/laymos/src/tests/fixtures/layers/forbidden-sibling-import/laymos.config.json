@@ -1,0 +1,8 @@
+{
+  "sourceRoots": ["src"],
+  "layers": {
+    "feature-a": { "paths": ["src/feature-a"] },
+    "feature-b": { "paths": ["src/feature-b"] }
+  },
+  "layerGraphs": {}
+}

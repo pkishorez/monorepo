@@ -9,13 +9,24 @@ _Being redefined from scratch. Module and Story are deferred to later
 sessions._
 
 **Source root**:
-A configured project-relative file or folder that defines the complete static
-analysis universe. Only supported source files beneath source roots participate
-in rules or coverage; Git state has no bearing on membership.
+A configured canonical project-relative file or folder that defines the
+complete static analysis universe. Only supported source files beneath source
+roots that are not explicitly ignored participate in rules or coverage; Git
+state has no bearing on membership.
+
+**Ignored path**:
+A configured literal, canonical project-relative file or folder explicitly
+excluded from the analysis universe. A folder includes its entire subtree.
+Ignoring is the intentional way to exempt supported files beneath a Source
+root from Layer membership and architectural enforcement.
 
 **Layer**:
-A named, configured group of project-relative paths. Layers are disjoint — no
-path may belong to more than one layer.
+A named, configured group of literal, canonical project-relative files and
+folders. A folder includes its entire subtree. Layers partition the analysis
+universe: every included supported file belongs to exactly one Layer, and no
+file may belong to more than one Layer. Their declared path scopes may not
+overlap within one Layer or across different Layers, even where a scope is
+ignored, empty, or contains no supported files.
 
 **LayerGraph**:
 A named, configured set of Rules representing one responsibility (e.g. core
@@ -24,8 +35,11 @@ enforcement boundary. A LayerGraph may reference any subset of the project's
 Layers; a Layer absent from a given LayerGraph simply has no rules declared
 under that responsibility. Enforcement never scopes to a single LayerGraph:
 the permission set actually enforced is the union of every Rule declared
-across every LayerGraph in the project. Because Rules only grant permission
-(never restrict), LayerGraphs cannot conflict with one another.
+across every LayerGraph in the project. All layer operations use this union,
+not an individual LayerGraph. The union must be acyclic; a cycle makes the
+configuration invalid even when its edges come from different LayerGraphs.
+Having no LayerGraphs or Rules is valid and produces an empty permission
+union, denying every cross-Layer dependency.
 
 **Rule** (within a LayerGraph):
 A direct, declared permission: Layer X may depend on Layer Y. Rules are
@@ -34,12 +48,25 @@ them (direct or transitive, across the union of all LayerGraphs) is a
 violation. Permission is transitive: if X may depend on Y and Y may depend on
 Z, X may also depend on Z, without X → Z being declared explicitly. A Layer
 with no outgoing rule is a valid, intentional leaf, not a configuration gap.
+The union of all Rules forms a directed acyclic hierarchy: lower Layers may
+depend on reachable Layers below them, while unrelated Layers may not depend
+on one another.
+
+**Layer dependency violation**:
+A direct file import that crosses Layers without a direct or transitively
+reachable Rule permitting that Layer dependency. Violations identify only the
+concrete direct import to change, not its downstream transitive consequences.
+
+**Layer coverage violation**:
+A supported file in the analysis universe that belongs to no Layer. Because it
+has no Layer identity, its imports produce no Layer dependency violations;
+dependency enforcement begins once the file is assigned.
 
 **FileGraph**:
 The raw file-dependency graph produced by cruising a project: for every
-source file, the set of source files it directly imports. This is the single
-source of truth all dependency queries are computed from — it is never
-presented to a user directly.
+supported file in the analysis universe, the set of included source files it
+directly imports. This is the single source of truth all dependency queries are
+computed from — it is never presented to a user directly.
 
 **Dependency query**:
 A request for the dependencies of one target — a file or a folder — rather

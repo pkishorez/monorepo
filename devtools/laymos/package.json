@@ -2,7 +2,7 @@
   "name": "laymos",
   "version": "0.0.1",
   "private": false,
-  "description": "Queries the direct and transitive file dependencies of a file or folder.",
+  "description": "Enforces architectural dependency rules and explores source dependencies.",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo"
@@ -22,6 +22,7 @@
   "files": [
     "bin",
     "dist",
+    "schema.json",
     "README.md",
     "LICENSE"
   ],
@@ -31,6 +32,7 @@
     "dev": "tsx src/cli/cli.ts",
     "fmt": "vp fmt",
     "lint": "vp check && tsc",
+    "schema": "vitest run src/services/config/tests/config.test.ts -u",
     "test": "vitest run"
   },
   "dependencies": {
