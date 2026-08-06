@@ -1,11 +1,5 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type {
-  LaymosReport,
-  ProjectNarrative,
-  TestsReport,
-} from 'laymos/report';
-import { TestsReportSchema } from 'laymos/report';
 import {
   LogRecordSchema,
   MetricRecordSchema,
@@ -26,88 +20,6 @@ export class TraceNotFound extends Schema.TaggedErrorClass<TraceNotFound>(
 )('TraceNotFound', {
   traceId: Schema.String,
 }) {}
-
-const LaymosData = Schema.Any as unknown as Schema.Codec<LaymosReport>;
-
-const RunLaymosSuccess = Schema.Union([
-  Schema.Struct({ available: Schema.Literal(false) }),
-  Schema.Struct({
-    available: Schema.Literal(true),
-    data: LaymosData,
-  }),
-]);
-
-/** The `RunLaymos` terminal payload (discriminated availability union). */
-export type RunLaymosResult = typeof RunLaymosSuccess.Type;
-
-/** Events streamed by `RunLaymos`: liveness heartbeats and one terminal result. */
-export const LaymosEvent = Schema.Union([
-  Schema.Struct({
-    _tag: Schema.Literal('Heartbeat'),
-    elapsedMs: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Result'),
-    result: RunLaymosSuccess,
-  }),
-]);
-
-export type LaymosEvent = typeof LaymosEvent.Type;
-
-const TestsReportData =
-  TestsReportSchema as unknown as Schema.Codec<TestsReport>;
-const ProjectNarrativeData =
-  Schema.Any as unknown as Schema.Codec<ProjectNarrative>;
-
-export interface LaymosModuleDocumentation {
-  readonly modulePath: string;
-  readonly description: string;
-  readonly documentation?: string;
-}
-
-export interface LaymosProjectDocumentation {
-  readonly modules: readonly LaymosModuleDocumentation[];
-}
-
-const LaymosProjectDocumentationData =
-  Schema.Any as unknown as Schema.Codec<LaymosProjectDocumentation>;
-
-const LaymosProjectData = Schema.Struct({
-  architecture: LaymosData,
-  documentation: LaymosProjectDocumentationData,
-  files: Schema.Array(Schema.String),
-});
-
-const OpenLaymosProjectSuccess = Schema.Union([
-  Schema.Struct({ available: Schema.Literal(false) }),
-  Schema.Struct({
-    available: Schema.Literal(true),
-    data: LaymosProjectData,
-  }),
-]);
-
-export type OpenLaymosProjectResult = typeof OpenLaymosProjectSuccess.Type;
-
-export const OpenLaymosProjectEvent = Schema.Union([
-  Schema.Struct({
-    _tag: Schema.Literal('Heartbeat'),
-    elapsedMs: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Architecture'),
-    architecture: LaymosData,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Project'),
-    project: Schema.optional(ProjectNarrativeData),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Result'),
-    result: OpenLaymosProjectSuccess,
-  }),
-]);
-
-export type OpenLaymosProjectEvent = typeof OpenLaymosProjectEvent.Type;
 
 /**
  * A sort-key bound over the monotonic record id. The operator encodes the scan
@@ -145,44 +57,10 @@ const ClearSuccess = Schema.Struct({ deleted: Schema.Number });
 
 /**
  * The DevTools umbrella RPC surface consumed by the `/devtools` route. Carries
- * the project-centric Laymos procedures and the global Telemetry read
- * procedures backed by lotel's orchestration. Telemetry
- * *ingestion* is served separately over OTLP/HTTP (see ADR 0001).
+ * the global Telemetry read procedures backed by lotel's orchestration.
+ * Telemetry ingestion is served separately over OTLP/HTTP (see ADR 0001).
  */
 export const DevtoolsRpc = RpcGroup.make(
-  Rpc.make('OpenLaymosProject', {
-    payload: { path: Schema.String },
-    success: OpenLaymosProjectEvent,
-    error: DevtoolsRpcError,
-    stream: true,
-  }),
-  Rpc.make('RunTests', {
-    payload: {
-      path: Schema.String,
-      files: Schema.optional(Schema.Array(Schema.String)),
-      testNamePattern: Schema.optional(Schema.String),
-    },
-    success: TestsReportData,
-    error: DevtoolsRpcError,
-  }),
-  Rpc.make('ReadProjectFile', {
-    payload: {
-      path: Schema.String,
-      filePath: Schema.String,
-      testName: Schema.optional(Schema.String),
-    },
-    success: Schema.Struct({
-      filePath: Schema.String,
-      content: Schema.String,
-      highlight: Schema.optional(
-        Schema.Struct({
-          startLine: Schema.Number,
-          endLine: Schema.Number,
-        }),
-      ),
-    }),
-    error: DevtoolsRpcError,
-  }),
   Rpc.make('QueryTraces', {
     payload: QueryPayload,
     success: TraceListSuccess,

@@ -25,7 +25,7 @@
     "addcomp": "./scripts/addcomp.sh",
     "cosmos-export": "cosmos-export",
     "dev": "cosmos",
-    "lint": "vp check && tsc --noEmit",
+    "lint": "vp check && tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint"
   },
   "dependencies": {
@@ -51,7 +51,6 @@
     "embla-carousel-react": "catalog:",
     "gray-matter": "catalog:",
     "input-otp": "catalog:",
-    "laymos": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "next-themes": "catalog:",
@@ -84,6 +83,7 @@
     "@vitejs/plugin-react": "catalog:",
     "effect": "catalog:",
     "globals": "catalog:",
+    "laymos": "workspace:*",
     "react-cosmos": "catalog:",
     "react-cosmos-plugin-vite": "catalog:",
     "std-toolkit": "workspace:*",

@@ -452,12 +452,6 @@ importers:
       env-paths:
         specifier: 'catalog:'
         version: 4.0.0
-      jiti:
-        specifier: 'catalog:'
-        version: 2.7.0
-      laymos:
-        specifier: workspace:*
-        version: link:../laymos
       std-toolkit:
         specifier: workspace:*
         version: link:../../std-toolkit
@@ -688,9 +682,6 @@ importers:
       input-otp:
         specifier: 'catalog:'
         version: 1.4.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      laymos:
-        specifier: workspace:*
-        version: link:../../devtools/laymos
       lucide-react:
         specifier: 'catalog:'
         version: 1.26.0(react@19.2.8)
@@ -788,6 +779,9 @@ importers:
       globals:
         specifier: 'catalog:'
         version: 17.7.0
+      laymos:
+        specifier: workspace:*
+        version: link:../../devtools/laymos
       react-cosmos:
         specifier: 'catalog:'
         version: 7.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@10.2.2)
