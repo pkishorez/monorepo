@@ -20,7 +20,6 @@ import { LotelApiLive, makeDbLayer } from '@pkishorez/lotel';
 import { getTraceCommand } from '../cli/get-trace.js';
 import { DevtoolsRpc } from '../rpc/index.js';
 import { DevtoolsHandlersLive } from './handlers.js';
-import { LAYMOS_DIR_ENV, runLaymosWorker } from './laymos.js';
 
 // The server always binds to loopback; only the port and db path are configurable.
 const HOST = '127.0.0.1';
@@ -73,8 +72,7 @@ const makeIndexRouteLive = ({
     '/',
     HttpServerResponse.json({
       name: 'devtools',
-      description:
-        "Local devtools server for inspecting a project's dependency graph and OpenTelemetry data.",
+      description: 'Local devtools server for inspecting OpenTelemetry data.',
       open: openUrl,
       endpoints: {
         '/': 'This description.',
@@ -202,16 +200,10 @@ const command = Command.make(
   Command.withSubcommands([getTraceCommand]),
 );
 
-// This entry doubles as each analyzer's child because the bundler emits one file.
-const laymosDir = process.env[LAYMOS_DIR_ENV];
-if (laymosDir) {
-  runLaymosWorker(laymosDir);
-} else {
-  command.pipe(
-    Command.run({ version: '0.0.0' }),
-    Effect.provide(NodeServices.layer),
-    // The CLI is consumed only by the frontend: silence all Effect logging.
-    Effect.provideService(References.MinimumLogLevel, 'None'),
-    NodeRuntime.runMain,
-  );
-}
+command.pipe(
+  Command.run({ version: '0.0.0' }),
+  Effect.provide(NodeServices.layer),
+  // The CLI is consumed only by the frontend: silence all Effect logging.
+  Effect.provideService(References.MinimumLogLevel, 'None'),
+  NodeRuntime.runMain,
+);

@@ -1,6 +1,6 @@
 # @pkishorez/devtools
 
-A local DevTools server for inspecting dependency graphs and OpenTelemetry data.
+A local DevTools server for inspecting OpenTelemetry data.
 
 ## Usage
 
@@ -47,9 +47,5 @@ connection failure is written to stderr and exits with a nonzero status.
 
 ## Library exports
 
-- `@pkishorez/devtools/rpc` — the RPC group definition and shared types,
-  including dependency analysis, completed Vitest reporting, and telemetry
-  procedures. `RunTests` accepts `{ path, files?, testNamePattern? }` and
-  returns the native Vitest hierarchy plus optional Laymos evidence.
-  `OpenLaymosProject` includes architecture and sorted Module documentation.
-- `@pkishorez/devtools/report` — programmatic report generation for a directory.
+- `@pkishorez/devtools/rpc` — the RPC group definition and shared telemetry
+  types.

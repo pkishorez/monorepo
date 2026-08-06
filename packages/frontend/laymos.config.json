@@ -1,0 +1,32 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [
+    "src/cosmos.decorator.tsx",
+    "src/css.d.ts",
+    "src/styles"
+  ],
+  "layers": {
+    "composites": {
+      "paths": ["src/components/blocks", "src/form"],
+      "description": "Domain widgets and the form kit"
+    },
+    "ui": {
+      "paths": ["src/components/ui"],
+      "description": "shadcn presentational primitives"
+    },
+    "foundation": {
+      "paths": ["src/lib", "src/hooks"],
+      "description": "Framework-agnostic helpers and hooks"
+    }
+  },
+  "layerGraphs": {
+    "frontend": {
+      "description": "Frontend component architecture",
+      "rules": {
+        "composites": ["ui"],
+        "ui": ["foundation"]
+      }
+    }
+  }
+}

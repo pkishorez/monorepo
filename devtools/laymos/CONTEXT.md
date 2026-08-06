@@ -24,9 +24,15 @@ root from Layer membership and architectural enforcement.
 A named, configured group of literal, canonical project-relative files and
 folders. A folder includes its entire subtree. Layers partition the analysis
 universe: every included supported file belongs to exactly one Layer, and no
-file may belong to more than one Layer. Their declared path scopes may not
+file may belong to more than one Layer. Their declared Layer scopes may not
 overlap within one Layer or across different Layers, even where a scope is
 ignored, empty, or contains no supported files.
+
+**Layer scope**:
+A configured canonical project-relative file or folder assigned to a Layer. A
+folder scope includes its supported descendant files, and a Layer may have one
+or more non-overlapping scopes.
+_Avoid_: Layer folder, Layer file tree
 
 **LayerGraph**:
 A named, configured set of Rules representing one responsibility (e.g. core
@@ -52,10 +58,21 @@ The union of all Rules forms a directed acyclic hierarchy: lower Layers may
 depend on reachable Layers below them, while unrelated Layers may not depend
 on one another.
 
+**Layer analysis**:
+A snapshot combining a project's declared Layer architecture with facts
+derived from the analyzed source files: file counts and Layer violations. It
+is renderer-neutral and serves both terminal and visual presentations.
+
 **Layer dependency violation**:
 A direct file import that crosses Layers without a direct or transitively
 reachable Rule permitting that Layer dependency. Violations identify only the
 concrete direct import to change, not its downstream transitive consequences.
+
+**Layer violation pair**:
+An ordered source Layer and target Layer associated with one or more Layer
+dependency violations. It groups the concrete forbidden imports between those
+Layers for presentation.
+_Avoid_: Layer group
 
 **Layer coverage violation**:
 A supported file in the analysis universe that belongs to no Layer. Because it
