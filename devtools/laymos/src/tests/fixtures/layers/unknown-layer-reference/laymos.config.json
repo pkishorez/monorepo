@@ -1,0 +1,15 @@
+{
+  "sourceRoots": ["src"],
+  "layers": {
+    "app": { "paths": ["src/app"] },
+    "domain": { "paths": ["src/domain"] }
+  },
+  "layerGraphs": {
+    "architecture": {
+      "rules": {
+        "ghost": ["domain"],
+        "app": ["missing"]
+      }
+    }
+  }
+}

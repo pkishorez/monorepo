@@ -34,7 +34,7 @@ describe('Cruiser', () => {
     const actual = await cruise('excluded-imports', ['vendor']);
 
     expect(actual.get('a.ts')).toEqual([]);
-    expect(actual.get('vendor/helper.ts')).toEqual([]);
+    expect(actual.has('vendor/helper.ts')).toBe(false);
   });
 
   test('collects every import from a file that imports several others', async () => {

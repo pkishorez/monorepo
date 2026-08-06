@@ -1,0 +1,22 @@
+{
+  "$schema": "./schema.json",
+  "sourceRoots": ["src"],
+  "layers": {
+    "public-api": { "paths": ["src/index.ts"] },
+    "cli": { "paths": ["src/cli"] },
+    "orchestrator": { "paths": ["src/orchestrator"] },
+    "domain": { "paths": ["src/domain"] },
+    "services": { "paths": ["src/services"] },
+    "test-fixtures": { "paths": ["src/tests"] }
+  },
+  "layerGraphs": {
+    "architecture": {
+      "rules": {
+        "public-api": ["orchestrator"],
+        "cli": ["orchestrator"],
+        "orchestrator": ["services"],
+        "services": ["domain"]
+      }
+    }
+  }
+}

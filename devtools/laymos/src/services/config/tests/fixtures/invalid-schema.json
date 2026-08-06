@@ -1,7 +1,5 @@
 {
   "sourceRoots": ["src"],
-  "layers": {
-    "app": { "paths": ["src/app"] }
-  },
+  "layers": {},
   "layerGraphs": {}
 }
