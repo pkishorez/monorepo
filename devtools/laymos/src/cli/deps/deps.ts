@@ -4,7 +4,7 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { Console, Effect } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 
-import { deps } from '../../orchestrator/deps.js';
+import { deps } from '../../orchestrator/deps/index.js';
 import { renderDependencyTree } from './dependency-tree.js';
 
 const pathArgument = Argument.path('path', { mustExist: true }).pipe(

@@ -1,7 +1,7 @@
 import { Console, Effect } from 'effect';
 import { Command } from 'effect/unstable/cli';
 
-import { lintLayers } from '../../../orchestrator/lint-layers.js';
+import { analyzeLayers } from '../../../orchestrator/lint/layers/index.js';
 import { renderLayerReport } from './report.js';
 
 export function makeLayersCommand<R>(
@@ -18,7 +18,7 @@ export function makeLayersCommand<R>(
 
 export function runLayersLint(configPath: string) {
   return Effect.gen(function* () {
-    const result = yield* lintLayers(configPath);
+    const result = yield* analyzeLayers(configPath);
     yield* Console.log(renderLayerReport(result));
     if (
       result.unassignedFiles.length > 0 ||

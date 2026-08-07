@@ -1,6 +1,7 @@
 {
   "$schema": "./schema.json",
   "sourceRoots": ["src"],
+  "ignoredPaths": ["src/index.ts", "src/tests"],
   "layers": {
     "public-api": { "paths": ["src/index.ts"] },
     "cli": { "paths": ["src/cli"] },
@@ -8,6 +9,21 @@
     "domain": { "paths": ["src/domain"] },
     "services": { "paths": ["src/services"] },
     "test-fixtures": { "paths": ["src/tests"] }
+  },
+  "modules": {
+    "src/cli": {},
+
+    "src/orchestrator/deps": {},
+    "src/orchestrator/lint": { "nested": ["layers", "modules"] },
+    "src/orchestrator/project-analysis": { "shared": true },
+
+    "src/domain/architecture-analysis": {
+      "nested": ["layers", "modules"]
+    },
+    "src/domain/file-graph": { "shared": true },
+
+    "src/services/config": {},
+    "src/services/file-cruiser": {}
   },
   "layerGraphs": {
     "architecture": {

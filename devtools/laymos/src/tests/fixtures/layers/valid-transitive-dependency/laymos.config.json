@@ -5,6 +5,11 @@
     "domain": { "paths": ["src/domain"] },
     "infrastructure": { "paths": ["src/infrastructure"] }
   },
+  "modules": {
+    "src/application": {},
+    "src/domain": {},
+    "src/infrastructure": {}
+  },
   "layerGraphs": {
     "application": {
       "rules": { "application": ["domain"] }

@@ -1,4 +1,4 @@
-export { deps } from './orchestrator/deps.js';
+export { deps } from './orchestrator/deps/index.js';
 export {
   Cruiser,
   CruiserLive,

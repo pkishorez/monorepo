@@ -32,6 +32,23 @@ const LayerGraphSchema = Schema.Struct({
     'A named set of Rules representing one responsibility (e.g. core architecture, test boundaries). This is an organizational grouping, not an enforcement boundary — enforcement unions every Rule declared across every LayerGraph in the project.',
 });
 
+const ModuleSchema = Schema.Struct({
+  shared: Schema.Boolean.annotate({
+    description:
+      'Allows every other Configured Module in the same Layer to depend on this Configured Module and requires its root index.ts.',
+  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
+  nested: Schema.Array(Schema.String)
+    .annotate({
+      description:
+        'Nested Module paths whose index.ts files are exposed outside the Configured Module. A non-empty list also requires the Configured Module root index.ts.',
+    })
+    .pipe(Schema.withDecodingDefaultKey(Effect.succeed<readonly string[]>([]))),
+}).annotate({
+  title: 'Module',
+  description:
+    'A Configured Module keyed by its canonical project-relative root directory. Without index.ts, Shared status, or exposed Nested Modules, it is an Unexposed Module that cannot be consumed.',
+});
+
 const ConfigSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String).annotate({
     description:
@@ -54,13 +71,19 @@ const ConfigSchema = Schema.Struct({
       description: 'Every Layer in the project, keyed by id.',
     })
     .pipe(Schema.check(Schema.isMinProperties(1))),
+  modules: Schema.Record(Schema.String, ModuleSchema)
+    .annotate({
+      description:
+        'Every Configured Module, keyed by canonical project-relative root directory.',
+    })
+    .pipe(Schema.check(Schema.isMinProperties(1))),
   layerGraphs: Schema.Record(Schema.String, LayerGraphSchema).annotate({
     description:
       'Every LayerGraph in the project, keyed by id. An empty set denies every cross-Layer dependency.',
   }),
 }).annotate({
   title: 'Laymos Config',
-  description: "Declares a project's Layers and LayerGraphs.",
+  description: "Declares a project's Layers, Modules, and LayerGraphs.",
 });
 
 export type Config = typeof ConfigSchema.Type;

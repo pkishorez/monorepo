@@ -4,5 +4,9 @@
     "feature-a": { "paths": ["src/feature-a"] },
     "feature-b": { "paths": ["src/feature-b"] }
   },
+  "modules": {
+    "src/feature-a": {},
+    "src/feature-b": {}
+  },
   "layerGraphs": {}
 }

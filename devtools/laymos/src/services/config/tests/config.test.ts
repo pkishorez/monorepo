@@ -75,6 +75,10 @@ describe('ConfigService', () => {
       paths: ['src/app'],
       description: 'Application',
     });
+    expect(config.modules).toEqual({
+      'src/app': { shared: false, nested: [] },
+      'src/domain': { shared: false, nested: [] },
+    });
     expect(config.layerGraphs.architecture?.rules).toEqual({
       app: ['domain'],
     });
@@ -150,7 +154,12 @@ describe('ConfigService.jsonSchema', () => {
     const schema = ConfigService.jsonSchema();
 
     expect(schema.required).toEqual(
-      expect.arrayContaining(['sourceRoots', 'layers', 'layerGraphs']),
+      expect.arrayContaining([
+        'sourceRoots',
+        'layers',
+        'modules',
+        'layerGraphs',
+      ]),
     );
   });
 

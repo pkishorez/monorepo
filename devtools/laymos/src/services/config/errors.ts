@@ -1,7 +1,7 @@
 import { Data } from 'effect';
 
 export interface ConfigValidationIssue {
-  readonly kind: 'path' | 'overlap' | 'reference' | 'cycle';
+  readonly kind: 'path' | 'overlap' | 'reference' | 'cycle' | 'module';
   readonly message: string;
 }
 
