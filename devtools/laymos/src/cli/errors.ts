@@ -1,6 +1,6 @@
 import { ConfigError } from '../services/config/index.js';
 import { CruiseError } from '../services/file-cruiser/index.js';
-import { DepsTargetError } from '../orchestrator/deps.js';
+import { DepsTargetError } from '../orchestrator/deps/index.js';
 
 export function renderOperationalError(error: unknown): string {
   if (error instanceof ConfigError) {

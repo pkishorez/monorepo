@@ -5,7 +5,7 @@ dependency queries for exploring and understanding a codebase.
 
 ## Architecture
 
-Declare Layers and LayerGraphs in a plain `laymos.config.json`.
+Declare Layers, Modules, and LayerGraphs in a plain `laymos.config.json`.
 
 A **Layer** is a named group of literal project-relative files and folders.
 Layers partition the supported files beneath `sourceRoots`: every included
@@ -25,6 +25,18 @@ violation. Permission is transitive, so only direct edges need declaring (if
 depend on `infra` without declaring it explicitly). The combined graph must be
 acyclic. A layer with no outgoing rule is a valid, intentional leaf.
 
+A **Module** is a self-contained directory that may expose a minimal `index.ts`
+over its internals. A **Configured Module** is a disjoint boundary within one
+Layer, and every included file belongs to one. A Configured Module without an
+`index.ts`, Shared status, or exposed Nested Modules is an **Unexposed
+Module**: it may depend on other Modules but cannot be consumed by them.
+Modules may nest freely; list a Nested Module in `nested` only to expose its
+`index.ts` outside the Configured Module.
+
+Configured Modules in the same Layer cannot depend on one another by default.
+Marking one `shared` allows every peer to import its public entry points.
+Cross-Layer dependencies use LayerGraph permission.
+
 ```json
 {
   "$schema": "https://unpkg.com/laymos/schema.json",
@@ -34,6 +46,12 @@ acyclic. A layer with no outgoing rule is a valid, intentional leaf.
     "app": { "paths": ["src/app"], "description": "Application" },
     "domain": { "paths": ["src/domain"], "description": "Domain" },
     "infra": { "paths": ["src/infra"] }
+  },
+  "modules": {
+    "src/app": {},
+    "src/domain/orders": {},
+    "src/domain/shared": { "shared": true, "nested": ["events"] },
+    "src/infra": {}
   },
   "layerGraphs": {
     "architecture": {
@@ -58,12 +76,15 @@ architecture) can read it as plain JSON. See
 ```sh
 laymos [--config <path>] lint
 laymos [--config <path>] lint layers
+laymos [--config <path>] lint modules
 laymos [--config <path>] deps <path> [--recursive]
 ```
 
 `lint` checks every architectural rule; `lint layers` checks only Layer
-coverage and dependencies. Violations exit with status `1`, while invalid
-configuration or an analysis failure exits with status `2`.
+coverage and dependencies, while `lint modules` checks Module coverage,
+expected entry points, dependencies, public boundaries, and cycles. Violations
+exit with status `1`, while invalid configuration or an analysis failure exits
+with status `2`.
 
 `deps` prints a file or folder's dependencies as a colored tree. Direct
 dependencies are yellow; with `--recursive`, transitive dependencies are gray.

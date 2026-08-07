@@ -5,6 +5,10 @@
     "app": { "paths": ["src/app"], "description": "Application" },
     "domain": { "paths": ["src/domain"] }
   },
+  "modules": {
+    "src/app": {},
+    "src/domain": {}
+  },
   "layerGraphs": {
     "architecture": {
       "description": "Core layering",

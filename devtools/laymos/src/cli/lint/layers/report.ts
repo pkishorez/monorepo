@@ -1,8 +1,13 @@
 import * as colors from 'yoctocolors';
 
-import type { LayerLintResult } from '../../../domain/layers/index.js';
+import type { LayerAnalysis } from '../../../domain/architecture-analysis/layers/index.js';
 
-export function renderLayerReport(result: LayerLintResult): string {
+type LayerReportInput = Pick<
+  LayerAnalysis,
+  'forbiddenImports' | 'unassignedFiles'
+>;
+
+export function renderLayerReport(result: LayerReportInput): string {
   const count = result.unassignedFiles.length + result.forbiddenImports.length;
   if (count === 0) return colors.green('✓ No layer violations');
 
@@ -16,7 +21,7 @@ export function renderLayerReport(result: LayerLintResult): string {
   return sections.join('\n');
 }
 
-function renderForbiddenImports(result: LayerLintResult): readonly string[] {
+function renderForbiddenImports(result: LayerReportInput): readonly string[] {
   const groups = new Map<string, typeof result.forbiddenImports>();
   for (const violation of result.forbiddenImports) {
     const key = `${violation.fromLayer}\0${violation.toLayer}`;

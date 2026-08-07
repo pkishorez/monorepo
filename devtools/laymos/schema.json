@@ -75,6 +75,34 @@
         }
       ]
     },
+    "modules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "shared": {
+            "type": "boolean",
+            "description": "Allows every other Configured Module in the same Layer to depend on this Configured Module and requires its root index.ts."
+          },
+          "nested": {
+            "type": "array",
+            "description": "Nested Module paths whose index.ts files are exposed outside the Configured Module. A non-empty list also requires the Configured Module root index.ts.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "title": "Module",
+        "description": "A Configured Module keyed by its canonical project-relative root directory. Without index.ts, Shared status, or exposed Nested Modules, it is an Unexposed Module that cannot be consumed."
+      },
+      "description": "Every Configured Module, keyed by canonical project-relative root directory.",
+      "allOf": [
+        {
+          "minProperties": 1
+        }
+      ]
+    },
     "layerGraphs": {
       "type": "object",
       "additionalProperties": {
@@ -115,9 +143,10 @@
   "required": [
     "sourceRoots",
     "layers",
+    "modules",
     "layerGraphs"
   ],
   "additionalProperties": false,
   "title": "Laymos Config",
-  "description": "Declares a project's Layers and LayerGraphs."
+  "description": "Declares a project's Layers, Modules, and LayerGraphs."
 }

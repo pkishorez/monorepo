@@ -1,0 +1,9 @@
+{
+  "sourceRoots": ["src"],
+  "layers": { "app": { "paths": ["src"] } },
+  "modules": {
+    "src/feature": {},
+    "src/shared": { "shared": true, "nested": ["public"] }
+  },
+  "layerGraphs": {}
+}

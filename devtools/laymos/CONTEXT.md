@@ -5,8 +5,7 @@ state, merged. Definitions only; no implementation detail.
 
 ## Language
 
-_Being redefined from scratch. Module and Story are deferred to later
-sessions._
+_Being redefined from scratch. Story is deferred to a later session._
 
 **Source root**:
 A configured canonical project-relative file or folder that defines the
@@ -18,7 +17,7 @@ state has no bearing on membership.
 A configured literal, canonical project-relative file or folder explicitly
 excluded from the analysis universe. A folder includes its entire subtree.
 Ignoring is the intentional way to exempt supported files beneath a Source
-root from Layer membership and architectural enforcement.
+root from Layer and Module membership and architectural enforcement.
 
 **Layer**:
 A named, configured group of literal, canonical project-relative files and
@@ -33,6 +32,91 @@ A configured canonical project-relative file or folder assigned to a Layer. A
 folder scope includes its supported descendant files, and a Layer may have one
 or more non-overlapping scopes.
 _Avoid_: Layer folder, Layer file tree
+
+**Module**:
+A self-contained directory that may expose a minimal interface through
+`index.ts`. Modules may nest to any depth; standalone files are not Modules.
+
+**Configured Module**:
+A Module listed in `modules` that forms one disjoint membership and dependency
+boundary within a Layer. Every included file belongs to one Configured Module.
+
+**Module public entry point**:
+An `index.ts` that exposes a Configured Module or Nested Module to other
+Configured Modules. An Unexposed Module has no public entry point.
+
+**Unexposed Module**:
+A Configured Module without an `index.ts` that cannot be depended on by other
+Modules. It cannot be Shared or expose Nested Modules.
+
+**Module kind**:
+A Module's position in the valid Module dependency graph: Regular, Root,
+Terminal, or Isolated. Shared status is independent of Module kind.
+
+**Regular Module**:
+A Module with both incoming and outgoing Module dependencies.
+
+**Root Module**:
+A Module with outgoing Module dependencies and no incoming Module dependencies.
+_Avoid_: Module root, root entry point
+
+**Terminal Module**:
+A Module with incoming Module dependencies and no outgoing Module dependencies.
+
+**Isolated Module**:
+A Module with no incoming or outgoing Module dependencies.
+
+**Nested Module**:
+A Module inside another Module. It is listed in `nested` only when another
+Configured Module may import its `index.ts`, commonly for tree shaking; this
+exposes the exact path without granting dependency permission.
+
+**Module internal dependency**:
+An import within one Configured Module. It may target any internal file without
+using a public entry point.
+
+**External Module dependency**:
+An import between Configured Modules. It requires dependency permission and an
+exposed Module public entry point.
+
+**Architecture Analysis**:
+The renderer-neutral description of Layer and Module structure and findings.
+CLI reports and visualizations are separate views of this analysis.
+
+**Module coverage violation**:
+An included supported file that belongs to a Layer but no Module. The file must
+either be assigned to a Module or excluded from the analysis universe through
+an Ignored path. Its Layer dependencies remain enforceable, but Module-level
+dependency checks involving it are deferred until it has Module membership.
+
+**Missing Module Entry Point**:
+An expected public entry point whose `index.ts` is absent. Unexposed Modules
+and private Nested Modules intentionally have no public entry point, so neither
+violates this rule.
+_Avoid_: Module entry-point violation, module with no entry point
+
+**Module cycle violation**:
+A dependency cycle containing two or more configured Modules. Cycles wholly
+inside one Module are not Module violations. Only otherwise permitted
+cross-Module dependencies participate; LayerGraph acyclicity prevents such a
+cycle from crossing Layers.
+
+**Module dependency violation**:
+A direct dependency between two Modules in the same Layer whose target is not
+a Shared Module. It is reported only after Layer permission has been
+established and takes precedence over checking the target's public boundary.
+
+**Module boundary violation**:
+An otherwise permitted dependency from one Module to an internal file of
+another Module rather than an eligible public entry point. Layer and Module
+permission failures take precedence over this violation.
+
+**Shared Module**:
+A Module that every other Module in the same Layer may depend on. Shared status
+grants inbound access only; it gives the Shared Module no additional permission
+to depend on its peers and has no effect on cross-Layer permissions. Shared
+status represents a genuine Layer-wide capability, not internal decomposition
+of another Module.
 
 **LayerGraph**:
 A named, configured set of Rules representing one responsibility (e.g. core

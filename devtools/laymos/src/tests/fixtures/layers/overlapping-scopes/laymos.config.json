@@ -5,5 +5,9 @@
     "domain": { "paths": ["src/domain"] },
     "infrastructure": { "paths": ["src/domain/model"] }
   },
+  "modules": {
+    "src/app": {},
+    "src/domain": {}
+  },
   "layerGraphs": {}
 }
