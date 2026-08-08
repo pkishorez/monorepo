@@ -8,6 +8,7 @@ import {
 import {
   ArchitectureAnalysisSchema,
   ConfigValidationIssueSchema,
+  ModuleSourceSnapshotSchema,
 } from 'laymos/architecture-analysis-schema';
 import { EntitySchema } from 'std-toolkit/core';
 
@@ -54,6 +55,17 @@ export class SourceAnalysisError extends Schema.TaggedErrorClass<SourceAnalysisE
   baseDir: Schema.optional(Schema.String),
 }) {}
 
+export class ModuleSourceNotFoundError extends Schema.TaggedErrorClass<ModuleSourceNotFoundError>(
+  'ModuleSourceNotFoundError',
+)('ModuleSourceNotFoundError', { modulePath: Schema.String }) {}
+
+export class ModuleSourceReadError extends Schema.TaggedErrorClass<ModuleSourceReadError>(
+  'ModuleSourceReadError',
+)('ModuleSourceReadError', {
+  filePath: Schema.String,
+  message: Schema.String,
+}) {}
+
 const AnalyzeLaymosProjectError = Schema.Union([
   InvalidProjectPath,
   ConfigReadError,
@@ -61,6 +73,17 @@ const AnalyzeLaymosProjectError = Schema.Union([
   ConfigSchemaError,
   ConfigValidationError,
   SourceAnalysisError,
+]);
+
+const GetLaymosModuleSourceError = Schema.Union([
+  InvalidProjectPath,
+  ConfigReadError,
+  ConfigParseError,
+  ConfigSchemaError,
+  ConfigValidationError,
+  SourceAnalysisError,
+  ModuleSourceNotFoundError,
+  ModuleSourceReadError,
 ]);
 
 const SkBound = Schema.Union([
@@ -122,5 +145,10 @@ export const DevtoolsRpc = RpcGroup.make(
     payload: { projectPath: Schema.String },
     success: ArchitectureAnalysisSchema,
     error: AnalyzeLaymosProjectError,
+  }),
+  Rpc.make('GetLaymosModuleSource', {
+    payload: { projectPath: Schema.String, modulePath: Schema.String },
+    success: ModuleSourceSnapshotSchema,
+    error: GetLaymosModuleSourceError,
   }),
 );

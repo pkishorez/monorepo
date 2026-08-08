@@ -5,6 +5,7 @@ import {
   moduleRules,
   modules,
   moduleViolations,
+  loadFixtureModuleSource,
 } from './fixture-data';
 import { ModulesExperience } from '../../experience';
 
@@ -17,6 +18,7 @@ const experience = (initialLayerId: string) => (
     dependencies={moduleDependencies}
     violations={moduleViolations}
     initialLayerId={initialLayerId}
+    loadModuleSource={loadFixtureModuleSource}
   />
 );
 

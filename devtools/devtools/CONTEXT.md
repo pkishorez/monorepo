@@ -60,7 +60,8 @@ RPC cannot absorb.
 One process, two HTTP surfaces:
 
 - **`/rpc`** — the frontend surface (Effect RPC). The `/devtools` route consumes
-  only this. Carries telemetry reads and per-project Architecture Analysis.
+  only this. Carries telemetry reads, per-project Architecture Analysis, and
+  Module source snapshots.
 - **`/v1/*`** — OTLP ingestion (HTTP), for external apps. lotel's existing
   ingest group, mounted as-is.
 
@@ -69,12 +70,15 @@ One process, two HTTP surfaces:
 - DevTools is an **umbrella backend host**, not a re-export facade. It owns the
   one listening process; tool packages provide mountable logic, not servers.
 - The **frontend transport stays RPC**. The existing `./rpc` (`DevtoolsRpc`)
-  export includes telemetry reads and `AnalyzeLaymosProject`; the route never
-  imports tool implementation packages. Ingestion stays HTTP/OTLP on the same
-  server.
+  export includes telemetry reads, `AnalyzeLaymosProject`, and
+  `GetLaymosModuleSource`; the route never imports tool implementation packages.
+  Ingestion stays HTTP/OTLP on the same server.
 - `AnalyzeLaymosProject` accepts an absolute or `~/` Project folder on every
   request and returns Laymos `ArchitectureAnalysis` directly. It does not echo
   the Project or Config path and does not cache results.
+- `GetLaymosModuleSource` accepts the Project folder and canonical Configured
+  Module path, performs a fresh analysis, and returns that Module's source
+  snapshot without caching it.
 - Laymos is a normal DevTools runtime dependency. Effect Schema is the wire
   contract, including canonical Map and Set serialization.
 - lotel is cut **shallow**: DevTools mounts lotel's ingest group for `/v1/*` and

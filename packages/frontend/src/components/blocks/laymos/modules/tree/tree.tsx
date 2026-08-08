@@ -24,6 +24,7 @@ interface ModuleTreeProps {
   readonly activeViolation?: ModuleViolation;
   readonly onLayerActivate?: (layerId: string) => void;
   readonly onModuleActivate?: (moduleId: string) => void;
+  readonly onModuleOpen?: (moduleId: string) => void;
   readonly className?: string;
 }
 
@@ -43,6 +44,7 @@ export function ModuleTree({
   activeViolation,
   onLayerActivate,
   onModuleActivate,
+  onModuleOpen,
   className,
 }: ModuleTreeProps) {
   const violationModuleIds = modulesForViolation(activeViolation);
@@ -57,6 +59,7 @@ export function ModuleTree({
         violationModuleIds={violationModuleIds}
         onLayerActivate={onLayerActivate}
         onModuleActivate={onModuleActivate}
+        onModuleOpen={onModuleOpen}
       />
     </div>
   );
@@ -72,6 +75,7 @@ function ModuleNodes({
   violationModuleIds,
   onLayerActivate,
   onModuleActivate,
+  onModuleOpen,
 }: {
   readonly nodes: readonly ModuleTreeNode[];
   readonly layerIdsByPath: ReadonlyMap<string, string>;
@@ -82,6 +86,7 @@ function ModuleNodes({
   readonly violationModuleIds: ReadonlySet<string>;
   readonly onLayerActivate?: (layerId: string) => void;
   readonly onModuleActivate?: (moduleId: string) => void;
+  readonly onModuleOpen?: (moduleId: string) => void;
 }) {
   return (
     <ul className={architectureTreeList} role={depth === 0 ? 'tree' : 'group'}>
@@ -143,6 +148,11 @@ function ModuleNodes({
                   onLayerActivate?.(layerId);
                 }
               }}
+              onContextMenu={(event) => {
+                if (node.moduleId === undefined) return;
+                event.preventDefault();
+                onModuleOpen?.(node.moduleId);
+              }}
             >
               {!isModule ? (
                 <Icon className="size-3.5 shrink-0" />
@@ -177,6 +187,7 @@ function ModuleNodes({
                   violationModuleIds={violationModuleIds}
                   onLayerActivate={onLayerActivate}
                   onModuleActivate={onModuleActivate}
+                  onModuleOpen={onModuleOpen}
                 />
               </div>
             )}

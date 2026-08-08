@@ -1,7 +1,36 @@
+import { Effect } from 'effect';
 import type { Layer, LayerRule } from '../../layers/model';
 import type { Module, ModuleDependency, ModuleViolation } from '../model';
 
 export { layerGraphs as moduleLayerGraphs } from '../../layers/fixtures/fixture-data';
+
+export const loadFixtureModuleSource = (modulePath: string) =>
+  Effect.succeed({
+    modulePath,
+    entryPoint: `${modulePath}/index.ts`,
+    files: [
+      {
+        path: `${modulePath}/index.ts`,
+        content: `export const modulePath = '${modulePath}';\n`,
+      },
+      {
+        path: `${modulePath}/internal.ts`,
+        content: 'export const internal = true;\n',
+      },
+      ...(modulePath === 'src/domain/orders'
+        ? [
+            {
+              path: `${modulePath}/events/index.ts`,
+              content: 'export const orderCreated = true;\n',
+            },
+            {
+              path: `${modulePath}/pricing/rules/index.ts`,
+              content: 'export const pricingRule = true;\n',
+            },
+          ]
+        : []),
+    ],
+  });
 
 export const moduleLayers: readonly Layer[] = [
   {

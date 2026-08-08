@@ -30,6 +30,12 @@ import type {
 import { ModuleLegend } from './modules/legend';
 import { ModuleTree } from './modules/tree';
 import { ModuleViolationsList } from './modules/violation';
+import {
+  ModuleSourceExplorer,
+  moduleSourceRequest,
+  type LoadModuleSource,
+  type ModuleSourceOpenRequest,
+} from './module-source-explorer';
 import { buildPresentationModel } from './presentation-model';
 import { ArchitectureTreeLegend } from './tree';
 import { layerIdsByBoundaryPath } from './tree/presentation';
@@ -38,9 +44,11 @@ const allGraphsId = 'all';
 
 export function LaymosExperience({
   analysis,
+  loadModuleSource,
   className,
 }: {
   readonly analysis: ArchitectureAnalysis;
+  readonly loadModuleSource: LoadModuleSource;
   readonly className?: string;
 }) {
   const model = useMemo(() => buildPresentationModel(analysis), [analysis]);
@@ -85,6 +93,7 @@ export function LaymosExperience({
         dependencies={model.moduleDependencies}
         violations={model.moduleViolations}
         initialLayerId={openedLayerId}
+        loadModuleSource={loadModuleSource}
         onBack={() => setOpenedLayerId(undefined)}
       />
     );
@@ -255,6 +264,7 @@ export function ModulesExperience({
   dependencies,
   violations,
   initialLayerId,
+  loadModuleSource,
   onBack,
   className,
 }: {
@@ -265,6 +275,7 @@ export function ModulesExperience({
   readonly dependencies: readonly ModuleDependency[];
   readonly violations: readonly ModuleViolation[];
   readonly initialLayerId: string;
+  readonly loadModuleSource: LoadModuleSource;
   readonly onBack?: () => void;
   readonly className?: string;
 }) {
@@ -274,6 +285,7 @@ export function ModulesExperience({
   const [showLayerConnections, setShowLayerConnections] = useState(true);
   const [activeModuleId, setActiveModuleId] = useState<string>();
   const [activeViolationId, setActiveViolationId] = useState<string>();
+  const [sourceRequest, setSourceRequest] = useState<ModuleSourceOpenRequest>();
   const activeViolation = violations.find(({ id }) => id === activeViolationId);
   const focus = resolveModuleFocus({
     modules,
@@ -319,138 +331,156 @@ export function ModulesExperience({
     setActiveViolationId(undefined);
   };
 
-  return (
-    <div
-      className={cn(
-        'flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm',
-        className,
-      )}
-    >
-      <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-        <div className="flex min-w-0 items-center gap-3">
-          {onBack !== undefined && (
-            <button
-              type="button"
-              aria-label="Back to Layers"
-              className="grid size-8 shrink-0 place-items-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={onBack}
-            >
-              <ArrowLeft className="size-4" />
-            </button>
-          )}
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold tracking-tight">
-              All Modules
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Select a Configured Module to reveal its direct connections.
-            </p>
-          </div>
-        </div>
-        <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
-          Show Layer connections
-          <Switch
-            size="sm"
-            checked={showLayerConnections}
-            onCheckedChange={setShowLayerConnections}
-          />
-        </label>
-      </header>
+  const openModuleSource = (moduleId: string) => {
+    const request = moduleSourceRequest(modules, moduleId);
+    if (request !== undefined) setSourceRequest(request);
+  };
 
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="min-h-[760px] flex-1"
+  return (
+    <>
+      <div
+        className={cn(
+          'flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm',
+          className,
+        )}
       >
-        <ResizablePanel defaultSize="75%" minSize="50%">
-          <section className="flex size-full min-h-0 min-w-0 flex-col">
-            <div className="flex min-h-11 items-center justify-end border-b border-border px-4">
-              <ModuleLegend />
+        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            {onBack !== undefined && (
+              <button
+                type="button"
+                aria-label="Back to Layers"
+                className="grid size-8 shrink-0 place-items-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={onBack}
+              >
+                <ArrowLeft className="size-4" />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold tracking-tight">
+                All Modules
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Select a Configured Module to reveal connections. Right-click to
+                explore its source.
+              </p>
             </div>
-            <ModuleGraph
-              className="min-h-[515px] flex-1 rounded-none border-0"
-              layers={layers}
-              rules={rules}
-              layerGraphs={layerGraphs}
-              modules={modules}
-              dependencies={dependencies}
-              focusedLayerId={activeLayerId}
-              showLayerConnections={showLayerConnections}
-              activeModuleId={activeModuleId}
-              activeViolation={activeViolation}
-              onModuleActivate={(id) => {
-                setActiveLayerId(undefined);
-                setActiveViolationId(undefined);
-                setActiveModuleId(id);
-              }}
-              onLayerActivate={(id) => {
-                setActiveModuleId(undefined);
-                setActiveViolationId(undefined);
-                setActiveLayerId(id);
-              }}
-              onClearFocus={clearFocus}
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+            Show Layer connections
+            <Switch
+              size="sm"
+              checked={showLayerConnections}
+              onCheckedChange={setShowLayerConnections}
             />
-          </section>
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize="25%" minSize="20%" maxSize="50%">
-          <aside className="size-full min-w-0">
-            <ResizablePanelGroup orientation="vertical">
-              <ResizablePanel defaultSize="60%" minSize="20%">
-                <section
-                  className={cn(
-                    'size-full overflow-y-auto p-4',
-                    scrollbarStyles,
-                  )}
-                >
-                  <ArchitectureTreeLegend
-                    title="Modules"
-                    boundaryLabel="Module"
-                  />
-                  <ModuleTree
-                    modules={modules}
-                    layerIdsByPath={layerIdsByBoundaryPath(layers)}
-                    activeLayerId={activeLayerId}
-                    activeModuleId={activeModuleId}
-                    highlightedModuleIds={focus.highlightedModuleIds}
-                    activeViolation={activeViolation}
-                    onModuleActivate={(id) => {
-                      setActiveLayerId(undefined);
-                      setActiveViolationId(undefined);
-                      setActiveModuleId(id);
-                    }}
-                    onLayerActivate={(id) => {
-                      setActiveModuleId(undefined);
-                      setActiveViolationId(undefined);
-                      setActiveLayerId(id);
-                    }}
-                  />
-                </section>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize="40%" minSize="20%">
-                <section
-                  className={cn(
-                    'size-full overflow-y-auto p-4',
-                    scrollbarStyles,
-                  )}
-                >
-                  <SectionLabel>Module violations</SectionLabel>
-                  <ModuleViolationsList
-                    violations={violations}
-                    activeViolationId={activeViolationId}
-                    onActiveViolationChange={(id) => {
-                      setActiveLayerId(undefined);
-                      setActiveModuleId(undefined);
-                      setActiveViolationId(id);
-                    }}
-                  />
-                </section>
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </aside>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </div>
+          </label>
+        </header>
+
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="min-h-[760px] flex-1"
+        >
+          <ResizablePanel defaultSize="75%" minSize="50%">
+            <section className="flex size-full min-h-0 min-w-0 flex-col">
+              <div className="flex min-h-11 items-center justify-end border-b border-border px-4">
+                <ModuleLegend />
+              </div>
+              <ModuleGraph
+                className="min-h-[515px] flex-1 rounded-none border-0"
+                layers={layers}
+                rules={rules}
+                layerGraphs={layerGraphs}
+                modules={modules}
+                dependencies={dependencies}
+                focusedLayerId={activeLayerId}
+                showLayerConnections={showLayerConnections}
+                activeModuleId={activeModuleId}
+                activeViolation={activeViolation}
+                onModuleActivate={(id) => {
+                  setActiveLayerId(undefined);
+                  setActiveViolationId(undefined);
+                  setActiveModuleId(id);
+                }}
+                onModuleOpen={openModuleSource}
+                onLayerActivate={(id) => {
+                  setActiveModuleId(undefined);
+                  setActiveViolationId(undefined);
+                  setActiveLayerId(id);
+                }}
+                onClearFocus={clearFocus}
+              />
+            </section>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize="25%" minSize="20%" maxSize="50%">
+            <aside className="size-full min-w-0">
+              <ResizablePanelGroup orientation="vertical">
+                <ResizablePanel defaultSize="60%" minSize="20%">
+                  <section
+                    className={cn(
+                      'size-full overflow-y-auto p-4',
+                      scrollbarStyles,
+                    )}
+                  >
+                    <ArchitectureTreeLegend
+                      title="Modules"
+                      boundaryLabel="Module"
+                    />
+                    <ModuleTree
+                      modules={modules}
+                      layerIdsByPath={layerIdsByBoundaryPath(layers)}
+                      activeLayerId={activeLayerId}
+                      activeModuleId={activeModuleId}
+                      highlightedModuleIds={focus.highlightedModuleIds}
+                      activeViolation={activeViolation}
+                      onModuleActivate={(id) => {
+                        setActiveLayerId(undefined);
+                        setActiveViolationId(undefined);
+                        setActiveModuleId(id);
+                      }}
+                      onModuleOpen={openModuleSource}
+                      onLayerActivate={(id) => {
+                        setActiveModuleId(undefined);
+                        setActiveViolationId(undefined);
+                        setActiveLayerId(id);
+                      }}
+                    />
+                  </section>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize="40%" minSize="20%">
+                  <section
+                    className={cn(
+                      'size-full overflow-y-auto p-4',
+                      scrollbarStyles,
+                    )}
+                  >
+                    <SectionLabel>Module violations</SectionLabel>
+                    <ModuleViolationsList
+                      violations={violations}
+                      activeViolationId={activeViolationId}
+                      onActiveViolationChange={(id) => {
+                        setActiveLayerId(undefined);
+                        setActiveModuleId(undefined);
+                        setActiveViolationId(id);
+                      }}
+                    />
+                  </section>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </aside>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+      {sourceRequest !== undefined && (
+        <ModuleSourceExplorer
+          key={`${sourceRequest.modulePath}:${sourceRequest.initialFilePath ?? ''}`}
+          request={sourceRequest}
+          loadModuleSource={loadModuleSource}
+          onClose={() => setSourceRequest(undefined)}
+        />
+      )}
+    </>
   );
 }
 

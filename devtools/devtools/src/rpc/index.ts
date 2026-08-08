@@ -16,3 +16,7 @@ export { ConfigSchemaError } from './rpc.js';
 export { ConfigValidationError } from './rpc.js';
 // Laymos consumers distinguish a failure to analyze supported source files.
 export { SourceAnalysisError } from './rpc.js';
+// Module source consumers distinguish a stale or unknown Configured Module.
+export { ModuleSourceNotFoundError } from './rpc.js';
+// Module source consumers distinguish a source file that could not be read.
+export { ModuleSourceReadError } from './rpc.js';
