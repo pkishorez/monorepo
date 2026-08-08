@@ -11,3 +11,4 @@ export type {
 export type { ModuleDependency } from '../../../architecture-analysis-schema/index.js';
 /** Renderers use this to exhaustively handle every Module finding. */
 export type { ModuleViolation } from '../../../architecture-analysis-schema/index.js';
+export { findModuleCycles } from './dependency-graph.js';
