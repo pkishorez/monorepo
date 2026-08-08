@@ -47,6 +47,7 @@ interface ModuleGraphProps {
   readonly activeModuleId?: string;
   readonly activeViolation?: ModuleViolation;
   readonly onModuleActivate?: (moduleId: string) => void;
+  readonly onModuleOpen?: (moduleId: string) => void;
   readonly onLayerActivate?: (layerId: string) => void;
   readonly onClearFocus?: () => void;
   readonly className?: string;
@@ -129,6 +130,11 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
             return;
           }
           if (node.type === 'module-layer') props.onLayerActivate?.(node.id);
+        }}
+        onNodeContextMenu={(event, node) => {
+          if (node.type !== 'module' && node.type !== 'nested-module') return;
+          event.preventDefault();
+          props.onModuleOpen?.(node.id);
         }}
         onNodeMouseEnter={(_, node) => {
           if (

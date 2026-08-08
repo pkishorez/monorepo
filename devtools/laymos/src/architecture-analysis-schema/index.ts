@@ -21,3 +21,11 @@ export type {
   ModuleKind,
   ModuleViolation,
 } from './architecture-analysis-schema.js';
+export {
+  ModuleSourceFileSchema,
+  ModuleSourceSnapshotSchema,
+} from './module-source-schema.js';
+export type {
+  ModuleSourceFile,
+  ModuleSourceSnapshot,
+} from './module-source-schema.js';

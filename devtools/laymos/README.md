@@ -100,6 +100,20 @@ import {
 This entrypoint contains data schemas and types only. Project analysis remains
 available from the Node-oriented root entrypoint.
 
+Load the current source snapshot for one Configured Module on demand:
+
+```ts
+import { Effect } from 'effect';
+import { loadModuleSource } from 'laymos';
+
+const snapshot = await Effect.runPromise(
+  loadModuleSource('/absolute/project/laymos.config.json', 'src/domain/orders'),
+);
+```
+
+The snapshot contains only included supported source files assigned to that
+Module by a fresh Architecture Analysis.
+
 ## CLI
 
 ```sh

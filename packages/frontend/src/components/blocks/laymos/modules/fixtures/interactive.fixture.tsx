@@ -5,6 +5,7 @@ import {
   moduleRules,
   modules,
   moduleViolations,
+  loadFixtureModuleSource,
 } from './fixture-data';
 import { ModulesExperience } from '../../experience';
 
@@ -17,5 +18,6 @@ export default (
     dependencies={moduleDependencies}
     violations={moduleViolations}
     initialLayerId="application"
+    loadModuleSource={loadFixtureModuleSource}
   />
 );

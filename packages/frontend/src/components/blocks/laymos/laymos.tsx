@@ -12,12 +12,17 @@ import { ModuleGraph as ModuleGraphView } from './modules/graph';
 import { ModuleLegend } from './modules/legend';
 import { ModuleTree as ModuleTreeView } from './modules/tree';
 import { ModuleViolationsList as ModuleViolationsListView } from './modules/violation';
+import type { LoadModuleSource } from './module-source-explorer';
 import { buildPresentationModel } from './presentation-model';
 import { layerIdsByBoundaryPath } from './tree/presentation';
 
 interface AnalysisProps {
   readonly analysis: ArchitectureAnalysis;
   readonly className?: string;
+}
+
+interface LaymosProps extends AnalysisProps {
+  readonly loadModuleSource: LoadModuleSource;
 }
 
 interface LayerGraphProps extends AnalysisProps, LayerInteraction {
@@ -27,8 +32,14 @@ interface LayerGraphProps extends AnalysisProps, LayerInteraction {
   readonly ariaLabel?: string;
 }
 
-export function Laymos({ analysis, className }: AnalysisProps) {
-  return <LaymosExperience analysis={analysis} className={className} />;
+export function Laymos({ analysis, loadModuleSource, className }: LaymosProps) {
+  return (
+    <LaymosExperience
+      analysis={analysis}
+      loadModuleSource={loadModuleSource}
+      className={className}
+    />
+  );
 }
 
 export function LayerGraph({
@@ -137,6 +148,7 @@ interface ModuleGraphProps extends AnalysisProps {
   readonly activeModuleId?: string;
   readonly activeViolationId?: string;
   readonly onModuleActivate?: (moduleId: string) => void;
+  readonly onModuleOpen?: (moduleId: string) => void;
   readonly onLayerActivate?: (layerId: string) => void;
   readonly onClearFocus?: () => void;
 }
@@ -148,6 +160,7 @@ export function ModuleGraph({
   activeModuleId,
   activeViolationId,
   onModuleActivate,
+  onModuleOpen,
   onLayerActivate,
   onClearFocus,
   className,
@@ -168,6 +181,7 @@ export function ModuleGraph({
         ({ id }) => id === activeViolationId,
       )}
       onModuleActivate={onModuleActivate}
+      onModuleOpen={onModuleOpen}
       onLayerActivate={onLayerActivate}
       onClearFocus={onClearFocus}
     />
@@ -181,6 +195,7 @@ interface ModuleTreeProps extends AnalysisProps {
   readonly activeViolationId?: string;
   readonly onLayerActivate?: (layerId: string) => void;
   readonly onModuleActivate?: (moduleId: string) => void;
+  readonly onModuleOpen?: (moduleId: string) => void;
 }
 
 export function ModuleTree({
@@ -191,6 +206,7 @@ export function ModuleTree({
   activeViolationId,
   onLayerActivate,
   onModuleActivate,
+  onModuleOpen,
   className,
 }: ModuleTreeProps) {
   const model = useModel(analysis);
@@ -207,6 +223,7 @@ export function ModuleTree({
       )}
       onLayerActivate={onLayerActivate}
       onModuleActivate={onModuleActivate}
+      onModuleOpen={onModuleOpen}
     />
   );
 }
@@ -234,6 +251,7 @@ export function ModuleViolationsList({
 }
 
 export { ModuleLegend };
+export type { LoadModuleSource } from './module-source-explorer';
 
 function useModel(analysis: ArchitectureAnalysis) {
   return useMemo(() => buildPresentationModel(analysis), [analysis]);

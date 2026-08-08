@@ -17,6 +17,7 @@
 
     "src/orchestrator/analyze-project": {},
     "src/orchestrator/load-project": { "shared": true },
+    "src/orchestrator/load-module-source": {},
     "src/orchestrator/query-dependencies": {},
 
     "src/domain/architecture-analysis": {

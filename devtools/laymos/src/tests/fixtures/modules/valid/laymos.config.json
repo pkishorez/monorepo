@@ -1,5 +1,6 @@
 {
   "sourceRoots": ["src"],
+  "ignoredPaths": ["src/shared/generated.ts"],
   "layers": { "app": { "paths": ["src"] } },
   "modules": {
     "src/feature": {},

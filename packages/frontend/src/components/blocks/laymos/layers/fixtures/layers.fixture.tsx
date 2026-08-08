@@ -16,6 +16,7 @@ import {
   complexModuleDependencies,
   complexModules,
 } from '../../modules/fixtures/complex-fixture-data';
+import { loadFixtureModuleSource } from '../../modules/fixtures/fixture-data';
 import { ModulesExperience } from '../../experience';
 import { ArchitectureTreeLegend } from '../../tree';
 
@@ -104,6 +105,7 @@ function LayersExperience() {
         dependencies={complexModuleDependencies}
         violations={[]}
         initialLayerId={openedLayerId}
+        loadModuleSource={loadFixtureModuleSource}
         onBack={() => setOpenedLayerId(null)}
       />
     );

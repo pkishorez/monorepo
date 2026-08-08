@@ -121,6 +121,16 @@ Module architecture with facts derived from supported source files, including
 Module kinds, membership, public entry points, dependencies, and Module
 violations.
 
+**Module source explorer**:
+A view of the included supported source files assigned to one Configured
+Module, through which a user can navigate and read that Module's source.
+_Avoid_: Module dialog, Module view
+
+**Module source snapshot**:
+The paths and textual contents of the included supported source files assigned
+to one Configured Module at the time they are requested.
+_Avoid_: Module file tree
+
 **Module coverage violation**:
 An included supported file that belongs to a Layer but no Module. The file must
 either be assigned to a Module or excluded from the analysis universe through

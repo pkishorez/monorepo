@@ -8,6 +8,7 @@ import {
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
 import { analyzeLaymosProject } from './analyze-laymos-project/index.js';
 import { getTrace } from './get-trace/index.js';
+import { getLaymosModuleSource } from './get-laymos-module-source/index.js';
 
 const toRpcError = (cause: unknown): DevtoolsRpcError =>
   cause instanceof DevtoolsRpcError
@@ -38,4 +39,6 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
       Effect.mapError(toRpcError),
     ),
   AnalyzeLaymosProject: ({ projectPath }) => analyzeLaymosProject(projectPath),
+  GetLaymosModuleSource: ({ projectPath, modulePath }) =>
+    getLaymosModuleSource(projectPath, modulePath),
 });

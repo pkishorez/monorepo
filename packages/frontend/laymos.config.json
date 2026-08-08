@@ -30,12 +30,12 @@
     }
   },
   "modules": {
-    "src/components/blocks/file-tree": {},
+    "src/components/blocks/file-tree": { "shared": true },
     "src/components/blocks/json": { "shared": true },
     "src/components/blocks/laymos": {},
     "src/components/blocks/otel-trace-viewer": {},
     "src/components/blocks/sequence": {},
-    "src/components/blocks/source-viewer": {},
+    "src/components/blocks/source-viewer": { "shared": true },
     "src/components/blocks/state-machine-visualizer": {},
     "src/components/blocks/swim-lane": {},
     "src/components/blocks/tanstack-sync-devtools": {},

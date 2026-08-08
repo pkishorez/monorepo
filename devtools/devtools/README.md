@@ -50,6 +50,14 @@ Effect Schema's canonical JSON encoding on the wire.
 Invalid paths, Config read/parse/schema/validation failures, and source
 analysis failures are separate tagged RPC errors.
 
+## Inspect a Laymos Module
+
+The `GetLaymosModuleSource` RPC accepts `{ projectPath, modulePath }`. It runs a
+fresh Architecture Analysis and returns the paths and textual contents of only
+the supported source files assigned to that Configured Module.
+
+Unknown Modules and source read failures are separate tagged RPC errors.
+
 ## Configuration
 
 | Variable        | Default | Description        |
