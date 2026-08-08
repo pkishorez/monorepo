@@ -6,6 +6,7 @@ import {
   queryTraces,
 } from '@pkishorez/lotel';
 import { DevtoolsRpc, DevtoolsRpcError } from '../rpc/index.js';
+import { analyzeLaymosProject } from './analyze-laymos-project/index.js';
 import { getTrace } from './get-trace/index.js';
 
 const toRpcError = (cause: unknown): DevtoolsRpcError =>
@@ -36,4 +37,5 @@ export const DevtoolsHandlersLive = DevtoolsRpc.toLayer({
       Effect.map((deleted) => ({ deleted })),
       Effect.mapError(toRpcError),
     ),
+  AnalyzeLaymosProject: ({ projectPath }) => analyzeLaymosProject(projectPath),
 });

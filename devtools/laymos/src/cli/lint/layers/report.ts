@@ -4,21 +4,38 @@ import type { LayerAnalysis } from '../../../domain/architecture-analysis/layers
 
 type LayerReportInput = Pick<
   LayerAnalysis,
-  'forbiddenImports' | 'unassignedFiles'
+  'forbiddenImports' | 'layersWithoutModules' | 'unassignedFiles'
 >;
 
 export function renderLayerReport(result: LayerReportInput): string {
-  const count = result.unassignedFiles.length + result.forbiddenImports.length;
+  const count =
+    result.unassignedFiles.length +
+    result.forbiddenImports.length +
+    result.layersWithoutModules.length;
   if (count === 0) return colors.green('✓ No layer violations');
 
   const sections = [
     colors.red('Layer violations'),
     ...renderForbiddenImports(result),
     ...renderUnassignedFiles(result.unassignedFiles),
+    ...renderLayersWithoutModules(result.layersWithoutModules),
     '',
     `${count} ${count === 1 ? 'violation' : 'violations'}`,
   ];
   return sections.join('\n');
+}
+
+function renderLayersWithoutModules(
+  layers: readonly string[],
+): readonly string[] {
+  if (layers.length === 0) return [];
+  return [
+    '',
+    'layers without modules',
+    ...[...layers]
+      .sort((left, right) => left.localeCompare(right))
+      .map((layer) => `  ${colors.yellow('✕')} ${layer}`),
+  ];
 }
 
 function renderForbiddenImports(result: LayerReportInput): readonly string[] {

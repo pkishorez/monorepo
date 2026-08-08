@@ -1,5 +1,8 @@
 # Modules form disjoint deep boundaries within Layers
 
+ADR-0007 supersedes this decision only where it rejects or defers File Modules.
+Its remaining directory-boundary decisions still apply.
+
 Laymos requires a non-empty, path-keyed set of Configured Modules without
 changing Layer or LayerGraph declarations. A Module is any directory that
 follows the deep-module convention and can contain Modules recursively. A
@@ -9,19 +12,19 @@ nested, and every included supported file must belong to one Configured Module.
 
 Files within one Configured Module may depend on one another freely. A
 dependency from another Configured Module may target only an existing root
-`index.ts` or the `index.ts` of a Nested Module explicitly listed in `nested`.
-A Configured Module with no root `index.ts`, no exposed Nested Modules, and no
+`index.ts` or a nested public entry point explicitly listed in `nested`.
+A Configured Module with no root `index.ts`, no nested public entry points, and no
 Shared status is an Unexposed Module: it may depend outward but intentionally
-cannot be consumed. Shared status or an exposed Nested Module declares
+cannot be consumed. Shared status or a nested public entry point declares
 exposure intent, so either requires the root entry point and its absence is a
 Missing Module Entry Point. Root, Terminal, Regular, and Isolated describe a
-Module's observed position in the valid Module dependency graph; Shared status
+Module's observed position in the Module dependency graph; Shared status
 is independent of that topology.
 
-Nested Modules that outsiders do not need are not declared. Exposing a Nested
-Module provides a separate minimal public entry point, primarily for tree
-shaking; it does not create separate membership or dependency policy. Private
-Nested Modules are convention-only and are not validated. "Outside" means a
+Nested public entry points that outsiders do not need are not declared. Each
+provides a separate minimal public entry point, primarily for tree shaking; it
+does not create separate membership or dependency policy. Nested directories
+are convention-only and are not validated. "Outside" means a
 different Configured Module; directory depth inside one Configured Module does
 not create an external dependency.
 
@@ -50,9 +53,9 @@ precedence over Module permission, which takes precedence over public-boundary
 enforcement; cycles use only imports that pass those checks. Files missing
 Module membership continue to receive Layer enforcement but suppress Module
 checks involving them. Framework-constrained standalone files are excluded
-with `ignoredPaths` for now; file Modules, attached paths, physically nested
-Module roots, and a new convention-file abstraction were rejected or deferred
-to keep the initial model small and explicit.
+with `ignoredPaths` for now; attached paths, physically nested Configured Module
+roots, and a new convention-file abstraction were rejected or deferred to keep
+the initial model small and explicit.
 
 Architecture analysis remains renderer-neutral. CLI reports and future
 visualizations transform the same analysis instead of shaping orchestration

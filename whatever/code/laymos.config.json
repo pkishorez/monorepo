@@ -1,6 +1,7 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
+  "ignoredPaths": [],
   "layers": {
     "entry": {
       "paths": ["src/index.ts"],
@@ -26,6 +27,19 @@
       "paths": ["src/domain"],
       "description": "Fundamental schemas and pure functionality"
     }
+  },
+  "modules": {
+    "src/index.ts": {},
+    "src/contract": {},
+    "src/domain/machine": {},
+    "src/domain/message": {},
+    "src/domain/run": {},
+    "src/domain/thread": {},
+    "src/handlers": {},
+    "src/orchestrators": {},
+    "src/services/db": {},
+    "src/services/git": {},
+    "src/services/harness": {}
   },
   "layerGraphs": {
     "code": {

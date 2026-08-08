@@ -7,16 +7,25 @@ import {
   complexRules,
   complexViolationPairs,
 } from './complex-fixture-data';
-import { LayerDetails } from '../details';
 import { resolveLayerFocus } from '../focus';
 import { LayerGraph } from '../graph';
 import { layersReferencedByRules } from '../layer-graphs';
 import { LayerScopeTree } from '../tree';
 import { LayerViolationsList } from '../violation';
+import {
+  complexModuleDependencies,
+  complexModules,
+} from '../../modules/fixtures/complex-fixture-data';
+import { ModulesExperience } from '../../experience';
+import { ArchitectureTreeLegend } from '../../tree';
 
 const allGraphsId = 'all';
 
 function LayersExperience() {
+  const [openedLayerId, setOpenedLayerId] = useFixtureInput<string | null>(
+    'opened layer',
+    null,
+  );
   const [activeGraphId, setActiveGraphId] = useFixtureInput(
     'layer graph',
     allGraphsId,
@@ -63,10 +72,6 @@ function LayersExperience() {
     hoveredLayerId: hoveredLayerId ?? undefined,
     blocked: violationActive,
   });
-  const focusedLayer = visibleLayers.find(
-    (layer) => layer.id === focus.focusedLayerId,
-  );
-
   const clearFocus = () => {
     setHoveredLayerId(null);
     setActiveLayerId(null);
@@ -87,6 +92,22 @@ function LayersExperience() {
     }
     setActiveViolationGroupId(groupId ?? null);
   };
+
+  if (openedLayerId !== null) {
+    return (
+      <ModulesExperience
+        key={openedLayerId}
+        layers={complexLayers}
+        rules={complexRules}
+        layerGraphs={complexLayerGraphs}
+        modules={complexModules}
+        dependencies={complexModuleDependencies}
+        violations={[]}
+        initialLayerId={openedLayerId}
+        onBack={() => setOpenedLayerId(null)}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-muted/20 p-3 sm:p-5">
@@ -132,38 +153,36 @@ function LayersExperience() {
                   'All direct rules across three independent LayerGraphs.'}
               </p>
               <span className="shrink-0 text-[11px] text-muted-foreground">
-                Pan · zoom · select
+                Pan · zoom · select · right-click to open
               </span>
             </div>
             <LayerGraph
               className="min-h-[515px] flex-1 rounded-none border-0"
-              layers={visibleLayers}
+              layers={complexLayers}
               rules={visibleRules}
+              layerGraphs={complexLayerGraphs}
+              activeLayerGraphId={selectedGraph?.id}
               activeLayerId={activeLayerId ?? undefined}
               hoveredLayerId={hoveredLayerId ?? undefined}
               activeViolationPair={activeViolationPair}
               onLayerHoverChange={hoverLayer}
               onLayerActivate={activateLayer}
+              onLayerOpen={(layerId) => {
+                clearFocus();
+                setOpenedLayerId(layerId);
+              }}
               onClearFocus={clearFocus}
             />
           </section>
 
           <aside className="min-w-0 border-t border-border lg:border-s lg:border-t-0">
-            <section className="min-h-28 border-b border-border p-4">
-              <SectionLabel>Selection</SectionLabel>
-              <LayerDetails layer={focusedLayer} />
-            </section>
-            <section className="max-h-[360px] overflow-y-auto border-b border-border p-4 lg:h-[360px]">
-              <SectionLabel>Scopes</SectionLabel>
+            <section className="max-h-[460px] overflow-y-auto border-b border-border p-4 lg:h-[460px]">
+              <ArchitectureTreeLegend title="Scopes" boundaryLabel="Layer" />
               <LayerScopeTree
                 layers={visibleLayers}
                 activeLayerId={
                   violationActive ? undefined : (activeLayerId ?? undefined)
                 }
-                hoveredLayerId={
-                  violationActive ? undefined : (hoveredLayerId ?? undefined)
-                }
-                onLayerHoverChange={hoverLayer}
                 onLayerActivate={activateLayer}
               />
             </section>

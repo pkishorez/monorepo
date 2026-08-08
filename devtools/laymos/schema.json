@@ -82,11 +82,11 @@
         "properties": {
           "shared": {
             "type": "boolean",
-            "description": "Allows every other Configured Module in the same Layer to depend on this Configured Module and requires its root index.ts."
+            "description": "Allows every other Configured Module in the same Layer to depend on this Configured Module. A Shared Directory Module requires its root index.ts."
           },
           "nested": {
             "type": "array",
-            "description": "Nested Module paths whose index.ts files are exposed outside the Configured Module. A non-empty list also requires the Configured Module root index.ts.",
+            "description": "Exact paths whose index.ts files are nested public entry points into this Directory Module. A non-empty list also requires the root index.ts. File Modules cannot use this field.",
             "items": {
               "type": "string"
             }
@@ -94,9 +94,9 @@
         },
         "additionalProperties": false,
         "title": "Module",
-        "description": "A Configured Module keyed by its canonical project-relative root directory. Without index.ts, Shared status, or exposed Nested Modules, it is an Unexposed Module that cannot be consumed."
+        "description": "A Configured Module keyed by its canonical project-relative source file or directory. A File Module is its own public entry point. A Directory Module without index.ts, Shared status, or nested public entry points is Unexposed and cannot be consumed."
       },
-      "description": "Every Configured Module, keyed by canonical project-relative root directory.",
+      "description": "Every Configured Module, keyed by canonical project-relative source file or directory.",
       "allOf": [
         {
           "minProperties": 1

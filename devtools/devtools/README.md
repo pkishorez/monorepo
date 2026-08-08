@@ -1,6 +1,7 @@
 # @pkishorez/devtools
 
-A local DevTools server for inspecting OpenTelemetry data.
+A local DevTools server for inspecting OpenTelemetry data and Laymos project
+architecture.
 
 ## Usage
 
@@ -39,6 +40,16 @@ The command prints pretty JSON to stdout. Its `spans` array contains stored
 span values without entity metadata, ordered by start time. A missing trace or
 connection failure is written to stderr and exits with a nonzero status.
 
+## Analyze a Laymos project
+
+The `AnalyzeLaymosProject` RPC accepts `{ projectPath }`, where `projectPath`
+is an absolute path or starts with `~/`. It reads `laymos.config.json` from that
+folder and returns Laymos `ArchitectureAnalysis` directly. Maps and Sets use
+Effect Schema's canonical JSON encoding on the wire.
+
+Invalid paths, Config read/parse/schema/validation failures, and source
+analysis failures are separate tagged RPC errors.
+
 ## Configuration
 
 | Variable        | Default | Description        |
@@ -47,5 +58,4 @@ connection failure is written to stderr and exits with a nonzero status.
 
 ## Library exports
 
-- `@pkishorez/devtools/rpc` — the RPC group definition and shared telemetry
-  types.
+- `@pkishorez/devtools/rpc` — the RPC group definition and its tagged errors.

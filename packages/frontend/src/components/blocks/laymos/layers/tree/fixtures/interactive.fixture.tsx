@@ -13,12 +13,7 @@ function InteractiveTree() {
     'active layer',
     null,
   );
-  const [hoveredLayerId, setHoveredLayerId] = useFixtureInput<string | null>(
-    'hovered layer',
-    null,
-  );
   const activateLayer = (layerId: string) => {
-    setHoveredLayerId(null);
     setActiveLayerId(layerId);
   };
 
@@ -39,7 +34,6 @@ function InteractiveTree() {
         <FixtureButton
           onClick={() => {
             setActiveLayerId(null);
-            setHoveredLayerId(null);
           }}
         >
           Clear selection
@@ -52,8 +46,6 @@ function InteractiveTree() {
         className="h-72 max-w-xl overflow-y-auto rounded-lg border border-border p-2"
         layers={complexLayers}
         activeLayerId={activeLayerId ?? undefined}
-        hoveredLayerId={hoveredLayerId ?? undefined}
-        onLayerHoverChange={(layerId) => setHoveredLayerId(layerId ?? null)}
         onLayerActivate={activateLayer}
       />
     </FixtureFrame>

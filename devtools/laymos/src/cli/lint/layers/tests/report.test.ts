@@ -11,13 +11,20 @@ function plain(rendered: string): string {
 describe('renderLayerReport', () => {
   test('renders a clean result', () => {
     expect(
-      plain(renderLayerReport({ unassignedFiles: [], forbiddenImports: [] })),
+      plain(
+        renderLayerReport({
+          unassignedFiles: [],
+          forbiddenImports: [],
+          layersWithoutModules: [],
+        }),
+      ),
     ).toBe('✓ No layer violations');
   });
 
   test('groups forbidden imports by Layer pair without tree connectors', () => {
     const rendered = renderLayerReport({
       unassignedFiles: ['src/shared/log.ts'],
+      layersWithoutModules: ['empty'],
       forbiddenImports: [
         {
           fromFile: 'src/app/user.ts',
@@ -44,7 +51,10 @@ describe('renderLayerReport', () => {
       'unassigned files',
       '  ✕ src/shared/log.ts',
       '',
-      '3 violations',
+      'layers without modules',
+      '  ✕ empty',
+      '',
+      '4 violations',
     ]);
   });
 });

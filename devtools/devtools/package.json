@@ -2,7 +2,7 @@
   "name": "@pkishorez/devtools",
   "version": "0.0.1",
   "private": false,
-  "description": "Local devtools RPC server for inspecting telemetry",
+  "description": "Local DevTools server for telemetry and architecture analysis",
   "keywords": [
     "devtools",
     "effect",
@@ -29,7 +29,7 @@
   "scripts": {
     "build": "vp pack",
     "build:watch": "vp pack --watch",
-    "dev": "tsx src/server/main.ts",
+    "dev": "pnpm --filter '@pkishorez/devtools^...' build && tsx src/server/main.ts",
     "lint": "vp check && tsc --noEmit",
     "test": "vitest run"
   },
@@ -38,6 +38,7 @@
     "@pkishorez/lotel": "workspace:*",
     "effect": "catalog:",
     "env-paths": "catalog:",
+    "laymos": "workspace:*",
     "std-toolkit": "workspace:*",
     "typescript": "catalog:typescript6"
   },

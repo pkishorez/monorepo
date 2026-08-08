@@ -1,6 +1,0 @@
-{
-  "sourceRoots": ["src"],
-  "layers": { "app": { "paths": ["src"] } },
-  "modules": { "src/feature": {} },
-  "layerGraphs": {}
-}

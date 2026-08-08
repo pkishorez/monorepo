@@ -20,7 +20,7 @@ export function resolveLayerFocus({
   if (activeLayerId !== undefined) {
     return {
       focusedLayerId: activeLayerId,
-      hoverEnabled: false,
+      hoverEnabled: true,
       activationEnabled: true,
     };
   }

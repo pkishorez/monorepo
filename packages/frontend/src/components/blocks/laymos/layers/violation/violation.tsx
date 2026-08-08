@@ -19,7 +19,7 @@ interface LayerViolationsListProps {
   readonly className?: string;
 }
 
-const coverageGroupId = 'layer-coverage';
+export const coverageGroupId = 'layer-coverage';
 
 export function LayerViolationsList({
   violationPairs,

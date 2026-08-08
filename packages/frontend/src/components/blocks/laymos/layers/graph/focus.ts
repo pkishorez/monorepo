@@ -3,8 +3,10 @@ import type { LayerInteraction, LayerRule, LayerViolationPair } from '../model';
 
 export interface GraphFocus {
   readonly focusedLayerId?: string;
+  readonly hoveredRelatedLayerId?: string;
   readonly highlightedLayerIds: ReadonlySet<string>;
   readonly highlightedRuleIds: ReadonlySet<string>;
+  readonly emphasizedRuleIds: ReadonlySet<string>;
   readonly violationRuleId?: string;
 }
 
@@ -28,6 +30,7 @@ export function resolveGraphFocus({
         activeViolationPair.toLayerId,
       ]),
       highlightedRuleIds: new Set(),
+      emphasizedRuleIds: new Set(),
       violationRuleId: ruleId(
         activeViolationPair.fromLayerId,
         activeViolationPair.toLayerId,
@@ -43,6 +46,7 @@ export function resolveGraphFocus({
     return {
       highlightedLayerIds: new Set(),
       highlightedRuleIds: new Set(),
+      emphasizedRuleIds: new Set(),
     };
   }
 
@@ -57,9 +61,30 @@ export function resolveGraphFocus({
     }
   }
 
+  const hoveredRelatedLayerId =
+    activeLayerId !== undefined &&
+    hoveredLayerId !== undefined &&
+    hoveredLayerId !== activeLayerId &&
+    highlightedLayerIds.has(hoveredLayerId)
+      ? hoveredLayerId
+      : undefined;
+  const activeRelatedLayerId = activeLayerId;
+  const emphasizedRuleIds =
+    hoveredRelatedLayerId === undefined || activeRelatedLayerId === undefined
+      ? highlightedRuleIds
+      : new Set(
+          [...highlightedRuleIds].filter(
+            (id) =>
+              id === ruleId(activeRelatedLayerId, hoveredRelatedLayerId) ||
+              id === ruleId(hoveredRelatedLayerId, activeRelatedLayerId),
+          ),
+        );
+
   return {
     focusedLayerId: focusedId,
+    hoveredRelatedLayerId,
     highlightedLayerIds,
     highlightedRuleIds,
+    emphasizedRuleIds,
   };
 }

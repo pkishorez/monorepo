@@ -1,7 +1,7 @@
 import { Console, Effect } from 'effect';
 import { Command } from 'effect/unstable/cli';
 
-import { analyzeModules } from '../../../orchestrator/lint/modules/index.js';
+import { analyzeProject } from '../../../orchestrator/analyze-project/index.js';
 import { renderModuleReport } from './report.js';
 
 export function makeModulesCommand<R>(
@@ -18,8 +18,8 @@ export function makeModulesCommand<R>(
 
 export function runModulesLint(configPath: string) {
   return Effect.gen(function* () {
-    const result = yield* analyzeModules(configPath);
-    yield* Console.log(renderModuleReport(result));
-    if (result.violations.length > 0) process.exitCode = 1;
+    const { moduleAnalysis } = yield* analyzeProject(configPath);
+    yield* Console.log(renderModuleReport(moduleAnalysis));
+    if (moduleAnalysis.violations.length > 0) process.exitCode = 1;
   });
 }

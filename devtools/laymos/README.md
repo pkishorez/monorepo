@@ -25,13 +25,14 @@ violation. Permission is transitive, so only direct edges need declaring (if
 depend on `infra` without declaring it explicitly). The combined graph must be
 acyclic. A layer with no outgoing rule is a valid, intentional leaf.
 
-A **Module** is a self-contained directory that may expose a minimal `index.ts`
-over its internals. A **Configured Module** is a disjoint boundary within one
-Layer, and every included file belongs to one. A Configured Module without an
-`index.ts`, Shared status, or exposed Nested Modules is an **Unexposed
-Module**: it may depend on other Modules but cannot be consumed by them.
-Modules may nest freely; list a Nested Module in `nested` only to expose its
-`index.ts` outside the Configured Module.
+A **Module** is a self-contained source boundary backed by a supported source
+file or directory. A **Configured Module** is an explicit, disjoint boundary
+within one Layer, and every included file belongs to one. A File Module is its
+own public entry point. A Directory Module without an `index.ts`, Shared status,
+or nested public entry points is an **Unexposed Module**: it may depend on other
+Modules but cannot be consumed by them. List an exact directory path in
+`nested` to expose its `index.ts` as another public entry point into the same
+Directory Module.
 
 Configured Modules in the same Layer cannot depend on one another by default.
 Marking one `shared` allows every peer to import its public entry points.
@@ -50,6 +51,7 @@ Cross-Layer dependencies use LayerGraph permission.
   "modules": {
     "src/app": {},
     "src/domain/orders": {},
+    "src/domain/constants.ts": { "shared": true },
     "src/domain/shared": { "shared": true, "nested": ["events"] },
     "src/infra": {}
   },
@@ -71,6 +73,33 @@ tool (including a separate devtools server rendering the project's
 architecture) can read it as plain JSON. See
 [ADR-0003](docs/adr/0003-json-config-over-typescript.md) for why.
 
+## Library API
+
+```ts
+import { Effect } from 'effect';
+import { analyzeProject } from 'laymos';
+
+const analysis = await Effect.runPromise(
+  analyzeProject('/absolute/project/laymos.config.json'),
+);
+```
+
+`analyzeProject` returns `ArchitectureAnalysis`: the decoded Config plus Layer
+and Module analysis. `ArchitectureAnalysisSchema` is its runtime and transport
+contract; its Maps and Sets support Effect Schema's canonical JSON codec.
+
+Browser and RPC code should import the contract-only entrypoint:
+
+```ts
+import {
+  ArchitectureAnalysisSchema,
+  type ArchitectureAnalysis,
+} from 'laymos/architecture-analysis-schema';
+```
+
+This entrypoint contains data schemas and types only. Project analysis remains
+available from the Node-oriented root entrypoint.
+
 ## CLI
 
 ```sh
@@ -80,11 +109,11 @@ laymos [--config <path>] lint modules
 laymos [--config <path>] deps <path> [--recursive]
 ```
 
-`lint` checks every architectural rule; `lint layers` checks only Layer
-coverage and dependencies, while `lint modules` checks Module coverage,
-expected entry points, dependencies, public boundaries, and cycles. Violations
-exit with status `1`, while invalid configuration or an analysis failure exits
-with status `2`.
+`lint` checks every architectural rule; `lint layers` checks Layer coverage,
+configured Module presence, and dependencies, while `lint modules` checks
+Module coverage, expected entry points, dependencies, public boundaries, and
+cycles. Violations exit with status `1`, while invalid configuration or an
+analysis failure exits with status `2`.
 
 `deps` prints a file or folder's dependencies as a colored tree. Direct
 dependencies are yellow; with `--recursive`, transitive dependencies are gray.

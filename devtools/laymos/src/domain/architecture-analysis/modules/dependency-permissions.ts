@@ -16,7 +16,7 @@ export function importPermission(
   const toLayer = context.layerContext.membership.get(toFile);
   if (fromLayer === undefined || toLayer === undefined) return 'layer-denied';
   if (fromLayer !== toLayer) {
-    return context.layerContext.permits(fromLayer, toLayer)
+    return context.layerContext.allowedDependencies.get(fromLayer)?.has(toLayer)
       ? 'permitted'
       : 'layer-denied';
   }

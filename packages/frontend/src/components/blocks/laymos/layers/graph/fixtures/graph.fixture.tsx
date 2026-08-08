@@ -1,5 +1,5 @@
 import { FixtureFrame } from '../../fixtures/fixture-frame';
-import { layers, rules } from '../../fixtures/fixture-data';
+import { layerGraphs, layers, rules } from '../../fixtures/fixture-data';
 import { LayerGraph } from '../index';
 
 const foundationLayers = layers.filter((layer) =>
@@ -12,7 +12,12 @@ const foundationRules = rules.filter((rule) =>
 export default {
   overview: (
     <FixtureFrame className="h-[680px]">
-      <LayerGraph className="h-full" layers={layers} rules={rules} />
+      <LayerGraph
+        className="h-full"
+        layers={layers}
+        rules={rules}
+        layerGraphs={layerGraphs}
+      />
     </FixtureFrame>
   ),
   filtered: (

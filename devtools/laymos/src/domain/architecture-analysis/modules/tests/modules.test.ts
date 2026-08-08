@@ -123,6 +123,13 @@ describe('analyzeModules', () => {
         toModule: 'src/cli',
       },
     ]);
+    expect(result.dependencies).toEqual([
+      { fromModule: 'src/app', toModule: 'src/cli' },
+    ]);
+    expect(result.modules.map(({ path, kind }) => ({ path, kind }))).toEqual([
+      { path: 'src/app', kind: 'root' },
+      { path: 'src/cli', kind: 'terminal' },
+    ]);
   });
 
   test('allows imports between files in the same Module', () => {
@@ -134,6 +141,35 @@ describe('analyzeModules', () => {
       { 'src/a': { shared: false, nested: [] } },
     );
 
+    expect(result.violations).toEqual([]);
+  });
+
+  test('treats a configured source file as its own public Module', () => {
+    const result = analyze(
+      [
+        ['src/card.tsx', ['src/button.tsx']],
+        ['src/button.tsx', []],
+      ],
+      {
+        'src/card.tsx': { shared: false, nested: [] },
+        'src/button.tsx': { shared: true, nested: [] },
+      },
+    );
+
+    expect(result.entryPoints).toEqual(
+      new Set(['src/card.tsx', 'src/button.tsx']),
+    );
+    expect(result.dependencies).toEqual([
+      {
+        fromModule: 'src/card.tsx',
+        toModule: 'src/button.tsx',
+        toEntryPoint: 'src/button.tsx',
+      },
+    ]);
+    expect(result.modules.map(({ path, kind }) => ({ path, kind }))).toEqual([
+      { path: 'src/card.tsx', kind: 'root' },
+      { path: 'src/button.tsx', kind: 'terminal' },
+    ]);
     expect(result.violations).toEqual([]);
   });
 

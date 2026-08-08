@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import type { FileGraph } from '../../../file-graph/index.js';
 import { analyzeLayers } from '../index.js';
 
+const moduleDefinition = { shared: false, nested: [] };
+
 describe('analyzeLayers', () => {
   test('allows same-Layer and transitively permitted imports', () => {
     const graph: FileGraph = new Map([
@@ -25,6 +27,11 @@ describe('analyzeLayers', () => {
       {
         application: ['domain'],
         domain: ['infrastructure'],
+      },
+      {
+        'src/app': moduleDefinition,
+        'src/domain': moduleDefinition,
+        'src/infrastructure': moduleDefinition,
       },
     );
 
@@ -52,6 +59,10 @@ describe('analyzeLayers', () => {
           'feature-b': { paths: ['src/feature-b'] },
         },
         {},
+        {
+          'src/feature-a': moduleDefinition,
+          'src/feature-b': moduleDefinition,
+        },
       ).forbiddenImports,
     ).toEqual([
       {
@@ -70,10 +81,34 @@ describe('analyzeLayers', () => {
     ]);
 
     expect(
-      analyzeLayers(graph, { app: { paths: ['src/app'] } }, {}),
+      analyzeLayers(
+        graph,
+        { app: { paths: ['src/app'] } },
+        {},
+        { 'src/app': moduleDefinition },
+      ),
     ).toMatchObject({
       unassignedFiles: ['src/shared/log.ts'],
       forbiddenImports: [],
     });
+  });
+
+  test('reports layers without configured modules', () => {
+    const graph: FileGraph = new Map([
+      ['src/app/main.ts', []],
+      ['src/domain/model.ts', []],
+    ]);
+
+    expect(
+      analyzeLayers(
+        graph,
+        {
+          app: { paths: ['src/app'] },
+          domain: { paths: ['src/domain'] },
+        },
+        {},
+        { 'src/app': moduleDefinition },
+      ).layersWithoutModules,
+    ).toEqual(['domain']);
   });
 });

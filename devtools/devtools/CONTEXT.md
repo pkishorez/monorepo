@@ -17,16 +17,24 @@ URL**.
 ### Tool
 
 A self-contained capability surfaced under DevTools. Today: **Telemetry**
-(powered by lotel). Each tool keeps its core logic in its own package; DevTools
-mounts that logic and exposes it. The frontend is **tool-first**: a
+(powered by lotel) and **Architecture** (powered by Laymos). Each tool keeps
+its core logic in its own package; DevTools mounts that logic and exposes it.
+The frontend is **tool-first**: a
 developer picks a Tool first, and each Tool owns its own inner navigation and
 data-fetching idiom.
 
 ### Scope (of a Tool)
 
 Whether a Tool's data is **global** or **per-project**. **Telemetry** is global
-— one store, no project to pick. Scope is a property of the Tool; the route
-does not assume everything is project-keyed.
+— one store, no project to pick. **Architecture** is per-project — every
+analysis request names its Project folder. Scope is a property of the Tool;
+the route does not assume everything is project-keyed.
+
+### Laymos
+
+The Architecture Tool's core logic package. It owns the Config and
+Architecture Analysis contracts and calculates analysis from a Project's
+source files. DevTools owns path expansion, RPC errors, and transport.
 
 ### DevTools URL
 
@@ -52,7 +60,7 @@ RPC cannot absorb.
 One process, two HTTP surfaces:
 
 - **`/rpc`** — the frontend surface (Effect RPC). The `/devtools` route consumes
-  only this. Carries telemetry read procedures.
+  only this. Carries telemetry reads and per-project Architecture Analysis.
 - **`/v1/*`** — OTLP ingestion (HTTP), for external apps. lotel's existing
   ingest group, mounted as-is.
 
@@ -61,8 +69,14 @@ One process, two HTTP surfaces:
 - DevTools is an **umbrella backend host**, not a re-export facade. It owns the
   one listening process; tool packages provide mountable logic, not servers.
 - The **frontend transport stays RPC**. The existing `./rpc` (`DevtoolsRpc`)
-  export is extended with telemetry read procedures; the route never imports
-  `@pkishorez/lotel/client`. Ingestion stays HTTP/OTLP on the same server.
+  export includes telemetry reads and `AnalyzeLaymosProject`; the route never
+  imports tool implementation packages. Ingestion stays HTTP/OTLP on the same
+  server.
+- `AnalyzeLaymosProject` accepts an absolute or `~/` Project folder on every
+  request and returns Laymos `ArchitectureAnalysis` directly. It does not echo
+  the Project or Config path and does not cache results.
+- Laymos is a normal DevTools runtime dependency. Effect Schema is the wire
+  contract, including canonical Map and Set serialization.
 - lotel is cut **shallow**: DevTools mounts lotel's ingest group for `/v1/*` and
   calls lotel's orchestration + storage for the RPC read procedures. lotel keeps
   its api group + handlers + orchestration + storage, only shedding its
