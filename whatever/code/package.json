@@ -1,0 +1,40 @@
+{
+  "name": "@pkishorez/code",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./contract": {
+      "types": "./dist/contract/index.d.ts",
+      "default": "./dist/contract/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "lint:tsc": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/ai": "catalog:",
+    "@tanstack/ai-claude-code": "catalog:",
+    "@tanstack/ai-codex": "catalog:",
+    "@tanstack/ai-sandbox": "catalog:",
+    "@tanstack/ai-sandbox-local-process": "catalog:",
+    "effect": "catalog:",
+    "env-paths": "catalog:",
+    "std-toolkit": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "laymos": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

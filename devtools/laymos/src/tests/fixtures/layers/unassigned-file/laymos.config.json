@@ -1,0 +1,10 @@
+{
+  "sourceRoots": ["src"],
+  "layers": {
+    "app": { "paths": ["src/app"] }
+  },
+  "modules": {
+    "src/app": {}
+  },
+  "layerGraphs": {}
+}

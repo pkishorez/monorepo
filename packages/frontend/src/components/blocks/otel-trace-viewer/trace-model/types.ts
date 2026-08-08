@@ -8,7 +8,7 @@ export interface OtelEvent {
 
 /**
  * Structurally compatible with `CapturedSpan` from
- * `@pkishorez/effect-trace-recorder`, so spans recorded from a live Effect
+ * `@pkishorez/effect-tracer/recorder`, so spans recorded from a live Effect
  * program render without translation.
  */
 export interface OtelSpan {

@@ -1,0 +1,43 @@
+{
+  "$schema": "./schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/tests"],
+  "layers": {
+    "public-api": { "paths": ["src/index.ts"] },
+    "contract": { "paths": ["src/architecture-analysis-schema"] },
+    "cli": { "paths": ["src/cli"] },
+    "orchestrator": { "paths": ["src/orchestrator"] },
+    "domain": { "paths": ["src/domain"] },
+    "services": { "paths": ["src/services"] }
+  },
+  "modules": {
+    "src/index.ts": {},
+    "src/architecture-analysis-schema": { "shared": true },
+    "src/cli": {},
+
+    "src/orchestrator/analyze-project": {},
+    "src/orchestrator/load-project": { "shared": true },
+    "src/orchestrator/query-dependencies": {},
+
+    "src/domain/architecture-analysis": {
+      "nested": ["layers", "modules"]
+    },
+    "src/domain/file-graph": { "shared": true },
+    "src/domain/project-config": { "shared": true },
+
+    "src/services/config": {},
+    "src/services/file-cruiser": { "nested": ["oxc"] }
+  },
+  "layerGraphs": {
+    "architecture": {
+      "rules": {
+        "public-api": ["orchestrator", "contract"],
+        "contract": [],
+        "cli": ["orchestrator"],
+        "orchestrator": ["services", "contract"],
+        "domain": ["contract"],
+        "services": ["domain", "contract"]
+      }
+    }
+  }
+}

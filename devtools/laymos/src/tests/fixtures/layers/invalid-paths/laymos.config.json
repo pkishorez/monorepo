@@ -1,0 +1,11 @@
+{
+  "sourceRoots": ["./src"],
+  "ignoredPaths": ["src\\generated", "../outside"],
+  "layers": {
+    "app": { "paths": ["src/app/"] }
+  },
+  "modules": {
+    "src/app": {}
+  },
+  "layerGraphs": {}
+}

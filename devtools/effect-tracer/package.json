@@ -1,0 +1,63 @@
+{
+  "name": "@pkishorez/effect-tracer",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Effect tracing tools for in-process recording and OTLP export",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./recorder": {
+      "types": "./dist/recorder/index.d.ts",
+      "default": "./dist/recorder/index.js"
+    },
+    "./telemetry": {
+      "types": "./dist/telemetry/index.d.ts",
+      "default": "./dist/telemetry/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check src package.json tsconfig.json && pnpm lint:tsc",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vp test src",
+    "test:watch": "vp test src --watch"
+  },
+  "dependencies": {
+    "@effect/opentelemetry": "catalog:",
+    "@opentelemetry/api": "catalog:",
+    "@opentelemetry/api-logs": "catalog:",
+    "@opentelemetry/exporter-logs-otlp-http": "catalog:",
+    "@opentelemetry/exporter-metrics-otlp-http": "catalog:",
+    "@opentelemetry/exporter-trace-otlp-http": "catalog:",
+    "@opentelemetry/resources": "catalog:",
+    "@opentelemetry/sdk-logs": "catalog:",
+    "@opentelemetry/sdk-metrics": "catalog:",
+    "@opentelemetry/sdk-trace-base": "catalog:",
+    "@opentelemetry/sdk-trace-node": "catalog:",
+    "@opentelemetry/semantic-conventions": "catalog:"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "effect": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.0-beta.101"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

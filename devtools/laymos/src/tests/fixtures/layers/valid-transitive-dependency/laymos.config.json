@@ -1,0 +1,21 @@
+{
+  "sourceRoots": ["src"],
+  "layers": {
+    "application": { "paths": ["src/application"] },
+    "domain": { "paths": ["src/domain"] },
+    "infrastructure": { "paths": ["src/infrastructure"] }
+  },
+  "modules": {
+    "src/application": {},
+    "src/domain": {},
+    "src/infrastructure": {}
+  },
+  "layerGraphs": {
+    "application": {
+      "rules": { "application": ["domain"] }
+    },
+    "foundation": {
+      "rules": { "domain": ["infrastructure"] }
+    }
+  }
+}

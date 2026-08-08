@@ -1,0 +1,362 @@
+{
+  "$schema": "../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [
+    "src/core/__tests__",
+    "src/db/__tests__",
+    "src/db/dynamodb/__tests__",
+    "src/db/dynamodb/expr/__tests__",
+    "src/db/dynamodb/play",
+    "src/db/idb/__tests__",
+    "src/db/sqlite/__tests__",
+    "src/db/sqlite/services/__tests__",
+    "src/db/sqlite/sql/adapters/__tests__",
+    "src/db/sqlite/play.ts",
+    "src/eschema/__tests__",
+    "src/eschema/play.ts",
+    "src/eschema/tutorial",
+    "src/snapshot/__tests__",
+    "src/tanstack-sync/__tests__",
+    "src/tanstack-sync/cadence-sync/__tests__",
+    "src/tanstack-sync/offline-storage/__tests__",
+    "src/tanstack-sync/partitioned/__tests__",
+    "src/tanstack-sync/partitioned/strategies/bidirectional/__tests__",
+    "src/tanstack-sync/partitioned/strategies/new-to-old/__tests__",
+    "src/tanstack-sync/source-of-truth/__tests__"
+  ],
+  "layers": {
+    "eschema-barrel": {
+      "paths": ["src/eschema/index.ts"],
+      "description": "Public barrel"
+    },
+    "eschema-impl": {
+      "paths": [
+        "src/eschema/eschema.ts",
+        "src/eschema/internal",
+        "src/eschema/schema.ts",
+        "src/eschema/types.ts",
+        "src/eschema/utils.ts",
+        "src/snapshot/model.ts",
+        "src/snapshot/snapshot.ts",
+        "src/snapshot/internal"
+      ],
+      "description": "ESchema and semantic snapshot implementation"
+    },
+    "snapshot-barrel": {
+      "paths": ["src/snapshot/index.ts"],
+      "description": "Public barrel"
+    },
+    "cli": {
+      "paths": ["src/cli"],
+      "description": "Command-line entrypoint and snapshot workflow"
+    },
+    "core-barrel": {
+      "paths": ["src/core/index.ts"],
+      "description": "Public barrel"
+    },
+    "core-impl": {
+      "paths": [
+        "src/core/broadcaster.ts",
+        "src/core/error.ts",
+        "src/core/schema.ts",
+        "src/core/ulid.ts"
+      ],
+      "description": "Internal implementation"
+    },
+    "dynamodb-barrel": {
+      "paths": ["src/db/dynamodb/index.ts"],
+      "description": "Public barrel"
+    },
+    "dynamodb-services": {
+      "paths": ["src/db/dynamodb/services"],
+      "description": "Entity/command surface"
+    },
+    "dynamodb-expr": {
+      "paths": ["src/db/dynamodb/expr"],
+      "description": "Expression builders"
+    },
+    "dynamodb-internal": {
+      "paths": ["src/db/dynamodb/internal"],
+      "description": "Internal DynamoDB implementation details"
+    },
+    "dynamodb-generated": {
+      "paths": ["src/db/dynamodb/generated"],
+      "description": "Generated code"
+    },
+    "dynamodb-types": {
+      "paths": ["src/db/dynamodb/types"],
+      "description": "DynamoDB type definitions"
+    },
+    "dynamodb-errors": {
+      "paths": ["src/db/dynamodb/errors.ts"],
+      "description": "DynamoDB error types"
+    },
+    "idb-barrel": {
+      "paths": ["src/db/idb/src/index.ts"],
+      "description": "Public barrel"
+    },
+    "idb-services": {
+      "paths": [
+        "src/db/idb/src/idb-entity.ts",
+        "src/db/idb/src/idb-single-entity.ts",
+        "src/db/idb/src/idb-table.ts"
+      ],
+      "description": "Entity and table surface"
+    },
+    "idb-browser": {
+      "paths": ["src/db/idb/src/layer.ts"],
+      "description": "Browser IndexedDB implementation and layer wiring"
+    },
+    "idb-db": {
+      "paths": ["src/db/idb/src/db.ts"],
+      "description": "Low-level database contract and operation types"
+    },
+    "idb-internal": {
+      "paths": ["src/db/idb/src/internal"],
+      "description": "Internal IndexedDB implementation details"
+    },
+    "idb-errors": {
+      "paths": ["src/db/idb/src/errors.ts"],
+      "description": "IndexedDB error types"
+    },
+    "sqlite-barrel": {
+      "paths": ["src/db/sqlite/index.ts"],
+      "description": "Public barrel"
+    },
+    "sqlite-services": {
+      "paths": ["src/db/sqlite/services"],
+      "description": "Entity/command surface"
+    },
+    "sqlite-sql": {
+      "paths": ["src/db/sqlite/sql"],
+      "description": "SQL builders and driver adapters"
+    },
+    "sqlite-internal": {
+      "paths": ["src/db/sqlite/internal"],
+      "description": "Internal SQLite implementation details"
+    },
+    "sqlite-errors": {
+      "paths": ["src/db/sqlite/errors.ts"],
+      "description": "SQLite error types"
+    },
+    "sync-entrypoint": {
+      "paths": [
+        "src/tanstack-sync/index.ts",
+        "src/tanstack-sync/create-std-sync.ts"
+      ],
+      "description": "Public API entrypoints"
+    },
+    "sync-partitioned": {
+      "paths": ["src/tanstack-sync/partitioned"],
+      "description": "Partitioned collection sync and shared strategy runtime"
+    },
+    "sync-single-item": {
+      "paths": ["src/tanstack-sync/single-item"],
+      "description": "Single-item sync, built on the partitioned runtime"
+    },
+    "sync-cadence": {
+      "paths": ["src/tanstack-sync/cadence-sync"],
+      "description": "Cadence scheduling shared by both strategies"
+    },
+    "sync-projection": {
+      "paths": ["src/tanstack-sync/collection-projection"],
+      "description": "Collection view / projector"
+    },
+    "sync-inspector": {
+      "paths": ["src/tanstack-sync/inspector"],
+      "description": "Devtools inspector collections and row types"
+    },
+    "sync-paced": {
+      "paths": ["src/tanstack-sync/paced"],
+      "description": "Pacing and coalescing infrastructure"
+    },
+    "sync-registry": {
+      "paths": ["src/tanstack-sync/registry"],
+      "description": "Tracker and registry"
+    },
+    "sync-source-of-truth": {
+      "paths": ["src/tanstack-sync/source-of-truth"],
+      "description": "Convergence engine and write-error types"
+    },
+    "sync-offline-storage": {
+      "paths": ["src/tanstack-sync/offline-storage"],
+      "description": "Internal grouped key-value storage and public adapters"
+    },
+    "sync-util": {
+      "paths": ["src/tanstack-sync/util", "src/tanstack-sync/types.ts"],
+      "description": "Shared types and utility helpers"
+    }
+  },
+  "modules": {
+    "src/cli": {},
+    "src/core/broadcaster.ts": {},
+    "src/core/error.ts": {},
+    "src/core/index.ts": {},
+    "src/core/schema.ts": { "shared": true },
+    "src/core/ulid.ts": {},
+    "src/db/dynamodb/errors.ts": {},
+    "src/db/dynamodb/expr": {},
+    "src/db/dynamodb/generated": {},
+    "src/db/dynamodb/index.ts": {},
+    "src/db/dynamodb/internal": {},
+    "src/db/dynamodb/services": {},
+    "src/db/dynamodb/types": {},
+    "src/db/idb/src/db.ts": {},
+    "src/db/idb/src/errors.ts": {},
+    "src/db/idb/src/idb-entity.ts": { "shared": true },
+    "src/db/idb/src/idb-single-entity.ts": { "shared": true },
+    "src/db/idb/src/idb-table.ts": { "shared": true },
+    "src/db/idb/src/index.ts": {},
+    "src/db/idb/src/internal": {},
+    "src/db/idb/src/layer.ts": {},
+    "src/db/sqlite/errors.ts": {},
+    "src/db/sqlite/index.ts": {},
+    "src/db/sqlite/internal": {},
+    "src/db/sqlite/services": {},
+    "src/db/sqlite/sql": {},
+    "src/eschema/eschema.ts": { "shared": true },
+    "src/eschema/index.ts": {},
+    "src/eschema/internal": {},
+    "src/eschema/schema.ts": { "shared": true },
+    "src/eschema/types.ts": { "shared": true },
+    "src/eschema/utils.ts": { "shared": true },
+    "src/snapshot/index.ts": {},
+    "src/snapshot/internal": {},
+    "src/snapshot/model.ts": { "shared": true },
+    "src/snapshot/snapshot.ts": {},
+    "src/tanstack-sync/cadence-sync": {},
+    "src/tanstack-sync/collection-projection": {},
+    "src/tanstack-sync/create-std-sync.ts": { "shared": true },
+    "src/tanstack-sync/index.ts": {},
+    "src/tanstack-sync/inspector": {},
+    "src/tanstack-sync/offline-storage": {},
+    "src/tanstack-sync/paced": {},
+    "src/tanstack-sync/partitioned": {},
+    "src/tanstack-sync/registry": {},
+    "src/tanstack-sync/single-item": {},
+    "src/tanstack-sync/source-of-truth": {},
+    "src/tanstack-sync/types.ts": { "shared": true },
+    "src/tanstack-sync/util": {}
+  },
+  "layerGraphs": {
+    "eschema": {
+      "description": "Schema entrypoints and implementation",
+      "rules": {
+        "eschema-barrel": ["eschema-impl"],
+        "snapshot-barrel": ["eschema-impl"]
+      }
+    },
+    "core": {
+      "description": "Core utilities and their schema dependency",
+      "rules": {
+        "core-barrel": ["core-impl"],
+        "core-impl": ["eschema-barrel"]
+      }
+    },
+    "cli": {
+      "description": "Command-line access to semantic snapshots",
+      "rules": {
+        "cli": ["snapshot-barrel"]
+      }
+    },
+    "dynamodb": {
+      "description": "Typed DynamoDB services, expressions, generated metadata, and internal storage support",
+      "rules": {
+        "dynamodb-barrel": [
+          "dynamodb-services",
+          "dynamodb-expr",
+          "dynamodb-internal",
+          "dynamodb-types",
+          "dynamodb-errors"
+        ],
+        "dynamodb-services": [
+          "dynamodb-expr",
+          "dynamodb-internal",
+          "dynamodb-generated",
+          "dynamodb-types",
+          "dynamodb-errors",
+          "core-barrel",
+          "snapshot-barrel"
+        ],
+        "dynamodb-expr": ["dynamodb-internal", "dynamodb-types"],
+        "dynamodb-internal": ["dynamodb-types", "dynamodb-errors"],
+        "dynamodb-generated": ["dynamodb-errors"],
+        "dynamodb-types": ["core-barrel"]
+      }
+    },
+    "idb": {
+      "description": "IndexedDB services, browser wiring, and storage internals",
+      "rules": {
+        "idb-barrel": ["idb-services", "idb-browser"],
+        "idb-services": [
+          "idb-db",
+          "idb-internal",
+          "core-barrel",
+          "snapshot-barrel"
+        ],
+        "idb-browser": ["idb-db"],
+        "idb-db": ["idb-errors"],
+        "idb-internal": ["core-barrel"],
+        "idb-errors": ["core-barrel"]
+      }
+    },
+    "sqlite": {
+      "description": "SQLite services, SQL adapters, and storage internals",
+      "rules": {
+        "sqlite-barrel": ["sqlite-services", "sqlite-sql", "sqlite-errors"],
+        "sqlite-services": [
+          "sqlite-internal",
+          "sqlite-sql",
+          "core-barrel",
+          "snapshot-barrel"
+        ],
+        "sqlite-internal": ["core-barrel"],
+        "sqlite-sql": ["sqlite-errors", "core-barrel"]
+      }
+    },
+    "tanstack-sync": {
+      "description": "TanStack sync entrypoints, strategies, convergence, and persistence",
+      "rules": {
+        "sync-entrypoint": [
+          "sync-single-item",
+          "sync-partitioned",
+          "sync-cadence",
+          "sync-inspector",
+          "sync-offline-storage",
+          "sync-paced",
+          "sync-registry",
+          "sync-util",
+          "core-barrel"
+        ],
+        "sync-single-item": [
+          "sync-partitioned",
+          "sync-projection",
+          "sync-inspector",
+          "sync-paced",
+          "sync-registry",
+          "sync-source-of-truth",
+          "sync-offline-storage",
+          "sync-util",
+          "core-barrel"
+        ],
+        "sync-partitioned": [
+          "sync-cadence",
+          "sync-projection",
+          "sync-inspector",
+          "sync-paced",
+          "sync-registry",
+          "sync-source-of-truth",
+          "sync-offline-storage",
+          "sync-util",
+          "core-barrel"
+        ],
+        "sync-cadence": ["sync-source-of-truth", "sync-util", "core-barrel"],
+        "sync-projection": ["sync-source-of-truth", "sync-util", "core-barrel"],
+        "sync-registry": ["sync-source-of-truth", "core-barrel"],
+        "sync-inspector": ["sync-offline-storage", "sync-util"],
+        "sync-source-of-truth": ["sync-offline-storage", "core-barrel"],
+        "sync-util": ["core-barrel"]
+      }
+    }
+  }
+}

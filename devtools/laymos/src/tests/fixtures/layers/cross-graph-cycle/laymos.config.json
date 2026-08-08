@@ -1,0 +1,19 @@
+{
+  "sourceRoots": ["src"],
+  "layers": {
+    "app": { "paths": ["src/app"] },
+    "domain": { "paths": ["src/domain"] }
+  },
+  "modules": {
+    "src/app": {},
+    "src/domain": {}
+  },
+  "layerGraphs": {
+    "architecture": {
+      "rules": { "app": ["domain"] }
+    },
+    "reverse": {
+      "rules": { "domain": ["app"] }
+    }
+  }
+}

@@ -26,12 +26,14 @@
       "label": "Internal peerDependencies use workspace:^",
       "dependencies": [
         "@pkishorez/devtools",
-        "@pkishorez/effect-trace-recorder",
+        "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
         "@monorepo/frontend",
         "std-toolkit",
-        "use-effect-ts"
+        "use-effect-ts",
+        "@pkishorez/code",
+        "whatever"
       ],
       "dependencyTypes": ["peer"],
       "pinVersion": "workspace:^"
@@ -40,12 +42,14 @@
       "label": "Internal dependencies and devDependencies use workspace:*",
       "dependencies": [
         "@pkishorez/devtools",
-        "@pkishorez/effect-trace-recorder",
+        "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
         "@monorepo/frontend",
         "std-toolkit",
-        "use-effect-ts"
+        "use-effect-ts",
+        "@pkishorez/code",
+        "whatever"
       ],
       "dependencyTypes": ["prod", "dev"],
       "pinVersion": "workspace:*"
@@ -86,12 +90,14 @@
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
         "@pkishorez/devtools",
-        "@pkishorez/effect-trace-recorder",
+        "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
         "@monorepo/frontend",
         "std-toolkit",
-        "use-effect-ts"
+        "use-effect-ts",
+        "@pkishorez/code",
+        "whatever"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "isIgnored": true

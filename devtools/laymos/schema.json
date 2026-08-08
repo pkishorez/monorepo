@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "JSON Schema URL, used by editors for autocomplete and validation."
+    },
+    "sourceRoots": {
+      "type": "array",
+      "description": "Canonical project-relative files or folders that define the complete static analysis universe.",
+      "allOf": [
+        {
+          "minItems": 1
+        }
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "ignoredPaths": {
+      "type": "array",
+      "description": "Canonical project-relative files or folders explicitly excluded from the analysis universe.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "layers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "description": "Canonical project-relative paths belonging to this Layer. No declared Layer scopes may overlap, within one Layer or across Layers.",
+            "allOf": [
+              {
+                "minItems": 1
+              }
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Human-readable summary of this Layer."
+          }
+        },
+        "required": [
+          "paths"
+        ],
+        "additionalProperties": false,
+        "title": "Layer",
+        "description": "A named, configured group of project-relative paths."
+      },
+      "description": "Every Layer in the project, keyed by id.",
+      "allOf": [
+        {
+          "minProperties": 1
+        }
+      ]
+    },
+    "modules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "shared": {
+            "type": "boolean",
+            "description": "Allows every other Configured Module in the same Layer to depend on this Configured Module. A Shared Directory Module requires its root index.ts."
+          },
+          "nested": {
+            "type": "array",
+            "description": "Exact paths whose index.ts files are nested public entry points into this Directory Module. A non-empty list also requires the root index.ts. File Modules cannot use this field.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "title": "Module",
+        "description": "A Configured Module keyed by its canonical project-relative source file or directory. A File Module is its own public entry point. A Directory Module without index.ts, Shared status, or nested public entry points is Unexposed and cannot be consumed."
+      },
+      "description": "Every Configured Module, keyed by canonical project-relative source file or directory.",
+      "allOf": [
+        {
+          "minProperties": 1
+        }
+      ]
+    },
+    "layerGraphs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Human-readable summary of this LayerGraph."
+          },
+          "rules": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Maps a Layer id to the Layer ids it may directly depend on. Rules are default-deny and transitive: a dependency between two Layers with no declared path between them, direct or transitive, is a violation. A Layer with no outgoing rule is a valid, intentional leaf."
+          }
+        },
+        "required": [
+          "rules"
+        ],
+        "additionalProperties": false,
+        "title": "LayerGraph",
+        "description": "A named set of Rules representing one responsibility (e.g. core architecture, test boundaries). This is an organizational grouping, not an enforcement boundary — enforcement unions every Rule declared across every LayerGraph in the project."
+      },
+      "description": "Every LayerGraph in the project, keyed by id. An empty set denies every cross-Layer dependency."
+    }
+  },
+  "required": [
+    "sourceRoots",
+    "layers",
+    "modules",
+    "layerGraphs"
+  ],
+  "additionalProperties": false,
+  "title": "Laymos Config",
+  "description": "Declares a project's Layers, Modules, and LayerGraphs."
+}

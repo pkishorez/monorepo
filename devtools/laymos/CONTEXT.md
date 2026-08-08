@@ -5,130 +5,233 @@ state, merged. Definitions only; no implementation detail.
 
 ## Language
 
-### Static pillars
+_Being redefined from scratch. Story is deferred to a later session._
+
+**Project**:
+The analysis universe anchored by one Config. All configured paths are
+relative to the folder that contains that Config.
+
+**Config**:
+The declared Source roots, Ignored paths, Layers, Configured Modules, and
+LayerGraphs for one Project.
+
+**Config validation issue**:
+An invalid or contradictory declaration in a Config that prevents an
+Architecture Analysis. Unlike a Layer or Module violation, it is not a finding
+about supported source files.
 
 **Source root**:
-A configured project-relative file or folder that defines the complete static
-analysis universe. Only supported source files beneath source roots participate
-in rules or coverage; Git state has no bearing on membership.
+A configured canonical project-relative file or folder that defines the
+complete static analysis universe. Only supported source files beneath source
+roots that are not explicitly ignored participate in rules or coverage; Git
+state has no bearing on membership.
+
+**Ignored path**:
+A configured literal, canonical project-relative file or folder explicitly
+excluded from the analysis universe. A folder includes its entire subtree.
+Ignoring is the intentional way to exempt supported files beneath a Source
+root from Layer and Module membership and architectural enforcement.
 
 **Layer**:
-A named and described, disjoint set of folders or files — one band of the
-architecture. Its description states the intent of the architectural boundary.
-Paths are plain prefixes, never patterns; nesting resolves by longest prefix,
-so disjointness holds by construction.
-Explicit by definition: no implicit or "open" layers. A layer exists only
-through graph membership — there is no standalone layer registry, and a layer
-with no edge in any graph is not part of the architecture. A name denotes
-exactly one layer definition across the whole config; the same holds for
-graph names.
-_Avoid_: band, tier
+A named, configured group of literal, canonical project-relative files and
+folders. A folder includes its entire subtree. Layers partition the analysis
+universe: every included supported file belongs to exactly one Layer, and no
+file may belong to more than one Layer. Their declared Layer scopes may not
+overlap within one Layer or across different Layers, even where a scope is
+ignored, empty, or contains no supported files.
 
-**Layer graph**:
-A named and described DAG of layers where an edge means "may import" and
-absence of an edge forbids. Its description states why the included Layers are
-presented together. Reachability is transitive. A project may define several
-graphs; they organize and communicate.
-_Avoid_: stack (the predecessor's term — retired)
-
-**Union**:
-The merge of all layer graphs' edges — the single graph rules are generated
-from. Must be acyclic. Graphs are focused views for communication; the union
-is what's enforced, including reachability across graph boundaries.
-
-**Sink layer**:
-A layer that declares no outgoing edges. Layers may appear in multiple graphs
-whether or not they are sinks.
-_Avoid_: shared layer (there is no special kind — just a layer used in
-multiple graphs)
+**Layer scope**:
+A configured canonical project-relative file or folder assigned to a Layer. A
+folder scope includes its supported descendant files, and a Layer may have one
+or more non-overlapping scopes.
+_Avoid_: Layer folder, Layer file tree
 
 **Module**:
-A described file or folder living in exactly one layer — the longest layer
-prefix containing its path. Its layer membership is inferred, never declared.
-Modules are strictly flat, with no Module inside another. Declaring one
-imposes nothing; constraints are opt-in.
+A self-contained source boundary backed by either a directory or one supported
+source file. Its identity is its canonical configured file or directory path.
 
-**Module rules**:
-Opt-in constraints on a module's edges: `canImport` disciplines it as a
-consumer, `canImportedBy` protects it as a provider. AND semantics, deny
-wins; rules only tighten. May constrain same-layer or cross-layer imports but
-can never grant permission denied by the layer graph.
+**Directory Module**:
+A Module backed by a directory. It may expose a minimal interface and contain
+nested public entry points at any depth.
 
-**Ignore**:
-The single global set of paths invisible to laymos — no rules, no coverage,
-unchecked in both directions. Invisible, not permitted.
+**File Module**:
+A Module backed by one supported source file. Its file is always its public
+entry point; it cannot be Unexposed or expose nested public entry points. Being
+a File Module grants no dependency permission: Shared status and Layer Rules
+apply as they do to Directory Modules. It owns no companion files; a File
+Module with private companion files is promoted to a Directory Module, while
+independent companion files are explicitly configured or ignored.
 
-**Coverage**:
-Two warning-only ratchets: how many files belong to some layer, and, within a
-layer, how many belong to some module. Never fails a run.
-_Avoid_: gate (coverage is the ratchet, not the gate)
+**Configured Module**:
+A Module explicitly listed in `modules` that forms one disjoint membership and
+dependency boundary within a Layer. Every included file belongs to one
+Configured Module. Its path must identify an included supported source file or
+a directory that contains included supported source files.
 
-**Violation**:
-An actual import forbidden by a layer graph or denied by a module rule. The
-verdict is layer/module-level; the evidence is file-level. One import can
-violate both a layer and a module rule — both are reported.
+**Module public entry point**:
+The source file that exposes a Module to other Configured Modules: a File
+Module's own file, a Directory Module's root `index.ts`, or one of its nested
+public entry points. An Unexposed Module has no public entry point.
 
-**Project Narrative**:
-The optional, project-level human account of what the system is and how to
-explore it. It is one named Markdown document and is not executable.
+**Unexposed Module**:
+A Directory Module without an `index.ts` that cannot be depended on by other
+Modules. It is valid with zero observed incoming dependencies, making it Root
+or Isolated, and it cannot be Shared or expose nested public entry points.
 
-### Tests
+**Module kind**:
+A Module's position in the observed Module dependency graph: Regular, Root,
+Terminal, or Isolated. Shared status is independent of Module kind.
 
-**Test Project**:
-One Vitest-configured testing project. It is the outer boundary within which
-Vitest discovers Test Modules and applies one testing configuration.
+**Regular Module**:
+A Module with both incoming and outgoing Module dependencies.
 
-**Test Module**:
-One test file discovered by Vitest within a Test Project. It is Vitest's file
-boundary and is distinct from a laymos architecture Module.
-_Avoid_: Module
+**Root Module**:
+A Module with outgoing Module dependencies and no incoming Module dependencies.
+_Avoid_: Module root, root entry point
 
-**Test Suite**:
-A named Vitest group containing nested Test Suites or Test Cases.
+**Terminal Module**:
+A Module with incoming Module dependencies and no outgoing Module dependencies.
 
-**Laymos Suite**:
-A Test Suite registered through Laymos with a description and optional
-documentation. It adds explanatory metadata without introducing a different
-execution or evidence kind.
+**Isolated Module**:
+A Module with no incoming or outgoing Module dependencies.
 
-**Laymos Test**:
-A Test Case registered through Laymos that carries a description, optional
-documentation, and one or more named Test Assertions. It may also retain a
-Test Trace as evidence.
+**Nested public entry point**:
+An explicitly exposed `index.ts` at an exact path inside a Directory Module.
+It is another public door into the same Configured Module, not a separate
+Module, membership boundary, or dependency policy.
+_Avoid_: Nested Module, submodule
 
-**Test Trace**:
-The presentation-neutral runtime span and log capture around the one explicitly
-selected Effect within a Laymos Test. A Case retains at most one Test Trace,
-which explains execution and timing without changing the Effect's value or
-failure. Every captured span must finish within that Effect's structured scope;
-an unfinished span makes the trace invalid. Emitted parent relationships are
-preserved even when a parent lies outside the capture or the Effect emits
-several independent trace trees. Each Test Log belongs to its current captured
-span or remains unscoped when no captured span is current.
+**Module internal dependency**:
+An import within one Configured Module. It may target any internal file without
+using a public entry point.
 
-**Test Log**:
-A runtime log retained by a Test Trace with its level, message, timestamp, and
-annotations. It is span-scoped when emitted within a captured span and unscoped
-otherwise.
+**External Module dependency**:
+An import between Configured Modules. It requires dependency permission and an
+exposed Module public entry point.
 
-**Test Case**:
-One independently runnable Vitest test task within a Test Module or Test Suite.
-A Laymos Test additionally carries explanatory and assertion evidence.
+**Architecture Analysis**:
+The complete renderer-neutral description of one Project's declared Layer and
+Module architecture and the facts found in its supported source files. CLI
+reports and visualizations are separate views of this analysis.
+_Avoid_: Architecture Snapshot
 
-**Test Assertion**:
-A uniquely named expected-versus-actual comparison within a Laymos Test. One
-Case may contain several Test Assertions, retained in invocation order, and
-every named assertion is evaluated even when an earlier assertion fails. Any
-failed assertion fails the Case after its assertion evidence is collected.
+**Module analysis**:
+The part of an Architecture Analysis that combines the declared Configured
+Module architecture with facts derived from supported source files, including
+Module kinds, membership, public entry points, dependencies, and Module
+violations.
 
-**Test Report**:
-The presentation-neutral account of Vitest's executed hierarchy and results.
-Laymos Tests additionally retain their documentation, Test Assertions, and
-optional Test Trace. Each collected Case may include Vitest's one-based
-declaration line and column. Vitest does not provide the end of the Case's
-source range.
+**Module coverage violation**:
+An included supported file that belongs to a Layer but no Module. The file must
+either be assigned to a Module or excluded from the analysis universe through
+an Ignored path. Its Layer dependencies remain enforceable, but Module-level
+dependency checks involving it are deferred until it has Module membership.
 
-**Test Value**:
-A JSON-compatible actual or expected value retained for a Test Assertion.
-When an assertion value is not safely JSON-compatible, its Vitest-formatted
-text becomes the retained Test Value instead.
+**Missing Module Entry Point**:
+An expected public entry point whose `index.ts` is absent. Unexposed Modules
+and undeclared nested directories intentionally have no public entry point, so
+neither violates this rule.
+_Avoid_: Module entry-point violation, module with no entry point
+
+**Module cycle violation**:
+A dependency cycle containing two or more configured Modules. Cycles wholly
+inside one Module are not Module violations. Only otherwise permitted
+cross-Module dependencies participate; LayerGraph acyclicity prevents such a
+cycle from crossing Layers.
+
+**Module dependency violation**:
+A direct dependency between two Modules in the same Layer whose target is not
+a Shared Module. It is reported only after Layer permission has been
+established and takes precedence over checking the target's public boundary.
+
+**Module boundary violation**:
+An otherwise permitted dependency from one Module to an internal file of
+another Module rather than an eligible public entry point. Layer and Module
+permission failures take precedence over this violation.
+
+**Shared Module**:
+A Module that every other Module in the same Layer may depend on. Shared status
+grants inbound access only; it gives the Shared Module no additional permission
+to depend on its peers and has no effect on cross-Layer permissions. Shared
+status represents a genuine Layer-wide capability and declared exposure intent,
+not internal decomposition of another Module. A Shared Directory Module without
+its public entry point remains Shared and produces a Missing Module Entry Point
+rather than a Config validation issue.
+
+**LayerGraph**:
+A named, configured set of Rules representing one responsibility (e.g. core
+architecture, test boundaries) — an organizational and visual grouping, not an
+enforcement boundary. A LayerGraph may reference any subset of the project's
+Layers; a Layer absent from a given LayerGraph simply has no rules declared
+under that responsibility. Enforcement never scopes to a single LayerGraph:
+the permission set actually enforced is the union of every Rule declared
+across every LayerGraph in the project. All layer operations use this union,
+not an individual LayerGraph. The union must be acyclic; a cycle makes the
+configuration invalid even when its edges come from different LayerGraphs.
+Having no LayerGraphs or Rules is valid and produces an empty permission
+union, denying every cross-Layer dependency.
+
+**Rule** (within a LayerGraph):
+A direct, declared permission: Layer X may depend on Layer Y. Rules are
+default-deny — a dependency between two Layers with no declared path between
+them (direct or transitive, across the union of all LayerGraphs) is a
+violation. Permission is transitive: if X may depend on Y and Y may depend on
+Z, X may also depend on Z, without X → Z being declared explicitly. A Layer
+with no outgoing rule is a valid, intentional leaf, not a configuration gap.
+The union of all Rules forms a directed acyclic hierarchy: lower Layers may
+depend on reachable Layers below them, while unrelated Layers may not depend
+on one another.
+
+**Layer analysis**:
+The part of an Architecture Analysis that combines the declared Layer
+architecture with facts derived from supported source files, including file
+counts and Layer violations.
+
+**Layer dependency violation**:
+A direct file import that crosses Layers without a direct or transitively
+reachable Rule permitting that Layer dependency. Violations identify only the
+concrete direct import to change, not its downstream transitive consequences.
+
+**Layer violation pair**:
+An ordered source Layer and target Layer associated with one or more Layer
+dependency violations. It groups the concrete forbidden imports between those
+Layers for presentation.
+_Avoid_: Layer group
+
+**Layer coverage violation**:
+A supported file in the analysis universe that belongs to no Layer. Because it
+has no Layer identity, its imports produce no Layer dependency violations;
+dependency enforcement begins once the file is assigned.
+
+**Layer without Modules violation**:
+A declared Layer that contains no Configured Modules. Every Layer must contain
+at least one Module boundary.
+
+**FileGraph**:
+The raw file-dependency graph produced by cruising a project: for every
+supported file in the analysis universe, the set of included source files it
+directly imports. This is the single source of truth all dependency queries are
+computed from — it is never presented to a user directly.
+
+**Dependency query**:
+A request for the dependencies of one target — a file or a folder — rather
+than the whole project's FileGraph. A query is either non-recursive (direct
+dependencies only, one hop) or recursive (direct dependencies plus every
+dependency reachable transitively through them).
+
+**Target** (of a dependency query):
+The file or folder a dependency query is computed for. A folder target's
+membership always includes files in nested subfolders. A target's own member
+files are never themselves reported as its dependencies — a folder does not
+depend on itself, so only files outside the target ever appear in a query's
+result.
+
+**Direct dependency**:
+In a dependency query's result, a file outside the target that is imported
+straight from inside the target — one hop.
+
+**Recursive dependency**:
+In a dependency query's result, a file outside the target only reached by
+walking further out through another dependency — a dependency of a
+dependency, two or more hops from the target. Only appears when the query is
+recursive.

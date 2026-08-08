@@ -2,12 +2,10 @@
   "name": "@pkishorez/devtools",
   "version": "0.0.1",
   "private": false,
-  "description": "Local devtools RPC server for inspecting project architecture and telemetry",
+  "description": "Local DevTools server for telemetry and architecture analysis",
   "keywords": [
-    "architecture",
     "devtools",
     "effect",
-    "laymos",
     "rpc"
   ],
   "repository": {
@@ -17,8 +15,7 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    "./rpc": "./src/rpc/index.ts",
-    "./report": "./src/report/index.ts"
+    "./rpc": "./src/rpc/index.ts"
   },
   "bin": {
     "devtools": "dist/server/main.mjs"
@@ -32,7 +29,7 @@
   "scripts": {
     "build": "vp pack",
     "build:watch": "vp pack --watch",
-    "dev": "tsx src/server/main.ts",
+    "dev": "pnpm --filter '@pkishorez/devtools^...' build && tsx src/server/main.ts",
     "lint": "vp check && tsc --noEmit",
     "test": "vitest run"
   },
@@ -41,7 +38,6 @@
     "@pkishorez/lotel": "workspace:*",
     "effect": "catalog:",
     "env-paths": "catalog:",
-    "jiti": "catalog:",
     "laymos": "workspace:*",
     "std-toolkit": "workspace:*",
     "typescript": "catalog:typescript6"

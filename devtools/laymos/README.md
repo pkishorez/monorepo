@@ -1,159 +1,122 @@
 # Laymos
 
-Laymos explains a project’s architecture and test results.
+Laymos enforces architectural dependency rules. It also provides focused
+dependency queries for exploring and understanding a codebase.
 
 ## Architecture
 
-Declare Layers, Layer Graphs, Modules, and optional Module rules in
-`laymos.config.ts`. Run `laymos lint` to analyze imports and report violations.
+Declare Layers, Modules, and LayerGraphs in a plain `laymos.config.json`.
 
-```ts
-import { defineConfig, edge, layer, layerGraph } from 'laymos';
+A **Layer** is a named group of literal project-relative files and folders.
+Layers partition the supported files beneath `sourceRoots`: every included
+file belongs to exactly one Layer, and no declared Layer scopes may overlap.
+Use `ignoredPaths` to remove files or folders from analysis explicitly.
 
-const app = layer('app', ['src/app'], { description: 'Application' });
-const domain = layer('domain', ['src/domain'], { description: 'Domain' });
+A **LayerGraph** is a named set of **rules** representing one responsibility
+(e.g. core architecture or test boundaries). It is an organizational grouping,
+not an enforcement boundary. A project may have no LayerGraphs when no
+cross-Layer imports are allowed.
 
-export default defineConfig({
-  sourceRoots: ['src'],
-  graphs: [
-    layerGraph('application', [edge(app, domain)], {
-      description: 'Application dependencies',
-    }),
-  ],
-});
+Each rule maps a layer id to the layer ids it may directly depend on. Rules
+are default-deny: any dependency between two layers with no declared path
+between them — direct or transitive, across every LayerGraph combined — is a
+violation. Permission is transitive, so only direct edges need declaring (if
+`app` may depend on `domain` and `domain` may depend on `infra`, `app` may
+depend on `infra` without declaring it explicitly). The combined graph must be
+acyclic. A layer with no outgoing rule is a valid, intentional leaf.
+
+A **Module** is a self-contained source boundary backed by a supported source
+file or directory. A **Configured Module** is an explicit, disjoint boundary
+within one Layer, and every included file belongs to one. A File Module is its
+own public entry point. A Directory Module without an `index.ts`, Shared status,
+or nested public entry points is an **Unexposed Module**: it may depend on other
+Modules but cannot be consumed by them. List an exact directory path in
+`nested` to expose its `index.ts` as another public entry point into the same
+Directory Module.
+
+Configured Modules in the same Layer cannot depend on one another by default.
+Marking one `shared` allows every peer to import its public entry points.
+Cross-Layer dependencies use LayerGraph permission.
+
+```json
+{
+  "$schema": "https://unpkg.com/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/generated"],
+  "layers": {
+    "app": { "paths": ["src/app"], "description": "Application" },
+    "domain": { "paths": ["src/domain"], "description": "Domain" },
+    "infra": { "paths": ["src/infra"] }
+  },
+  "modules": {
+    "src/app": {},
+    "src/domain/orders": {},
+    "src/domain/constants.ts": { "shared": true },
+    "src/domain/shared": { "shared": true, "nested": ["events"] },
+    "src/infra": {}
+  },
+  "layerGraphs": {
+    "architecture": {
+      "description": "Core layering",
+      "rules": {
+        "app": ["domain"],
+        "domain": ["infra"]
+      }
+    }
+  }
+}
 ```
 
-## Tests
+No package dependency is required to author or consume this file — the
+`$schema` key gives editors autocomplete/validation directly, and any other
+tool (including a separate devtools server rendering the project's
+architecture) can read it as plain JSON. See
+[ADR-0003](docs/adr/0003-json-config-over-typescript.md) for why.
 
-Vitest owns test discovery, execution, fixtures, retries, timeouts, and result
-status. Laymos uses the project’s installed Vitest through its programmatic API
-and maps the completed result into a serializable report.
-
-Run the whole Test Project:
-
-```sh
-laymos test
-```
-
-Pass one optional target to run an existing test file or find Test Cases by a
-case-insensitive literal substring of their full name:
-
-```sh
-laymos test src/checkout/checkout.test.ts
-laymos test "approved order"
-```
-
-Full-project runs keep passing cases compact and expand failures. Targeted runs
-show descriptions, named assertions, expected and actual values, span trees,
-and inclusive span durations. `--verbose` expands every case and adds trace
-attributes, events, and captured Effect logs. `--no-color` disables terminal
-colors; the `NO_COLOR` environment variable is also supported. Laymos Test
-documentation remains report data and is never printed by the CLI.
-
-Ordinary Vitest suites work without Laymos-specific authoring:
-
-```ts
-import { expect, test } from 'vitest';
-
-test('adds numbers', () => {
-  expect(2 + 3).toBe(5);
-});
-```
-
-Assertion-heavy tests can keep the same Vitest shape while declaring Laymos
-authorship:
-
-Use Vitest directly for ordinary tests and structural suites. Use
-`laymosTest` when a test needs conversational documentation and report
-evidence:
+## Library API
 
 ```ts
 import { Effect } from 'effect';
-import { laymosTest } from 'laymos/test';
+import { analyzeProject } from 'laymos';
 
-laymosTest(
-  'Add numbers',
-  {
-    description:
-      'Shows how addition behaves for the representative values users encounter.',
-    documentation: `
-## Addition contract
-
-Inputs are finite numbers and the result follows JavaScript number semantics.
-`,
-  },
-  ({ expect }) => {
-    expect(add(2, 3), 'adds positive numbers').toBe(5);
-    expect(add(-2, 2), 'balances opposite values').toBe(0);
-  },
+const analysis = await Effect.runPromise(
+  analyzeProject('/absolute/project/laymos.config.json'),
 );
 ```
 
-The second `expect` argument is the assertion name shown in the report. Every
-completed Laymos Test needs at least one unique named assertion. Assertion
-failures are collected so the report can show every completed check instead of
-stopping at the first mismatch.
+`analyzeProject` returns `ArchitectureAnalysis`: the decoded Config plus Layer
+and Module analysis. `ArchitectureAnalysisSchema` is its runtime and transport
+contract; its Maps and Sets support Effect Schema's canonical JSON codec.
 
-Handlers may return `void`, a Promise, or an Effect with no remaining
-environment. Use the callback's `trace` function to capture one selected
-Effect, then inspect the completed spans with ordinary Vitest assertions.
-Effect logs emitted during the capture are retained with their current span, or
-as unscoped trace logs when no captured span is current:
+Browser and RPC code should import the contract-only entrypoint:
 
 ```ts
-laymosTest(
-  'Checkout trace',
-  {
-    description:
-      'Shows the work performed while an approved order is checked out.',
-  },
-  ({ expect, trace }) =>
-    Effect.gen(function* () {
-      const result = yield* trace(
-        Effect.gen(function* () {
-          yield* Effect.log('Checking out order');
-          return yield* checkout(order);
-        }),
-      );
-
-      expect(result, 'charges the order').toBe('charged');
-      expect(
-        trace.getSpanCount({ name: 'payment' }),
-        'records one payment span',
-      ).toBe(1);
-    }),
-);
+import {
+  ArchitectureAnalysisSchema,
+  type ArchitectureAnalysis,
+} from 'laymos/architecture-analysis-schema';
 ```
 
-Use `laymosDescribe` only when a suite itself needs description or
-documentation. Import hooks, ordinary `describe`, mocks, and other utilities
-from `vitest`.
+This entrypoint contains data schemas and types only. Project analysis remains
+available from the Node-oriented root entrypoint.
 
-## Node API
+## CLI
 
-```ts
-import { runTests } from 'laymos/node';
-
-const report = await Effect.runPromise(
-  runTests({
-    projectDir: process.cwd(),
-    files: ['src/example.test.ts'],
-    testNamePattern: 'adds',
-  }),
-);
+```sh
+laymos [--config <path>] lint
+laymos [--config <path>] lint layers
+laymos [--config <path>] lint modules
+laymos [--config <path>] deps <path> [--recursive]
 ```
 
-`files` and `testNamePattern` are optional. Test assertion failures are returned
-inside the report. Missing or incompatible Vitest installations and startup
-failures reject the operation. Collected Test Cases include their one-based
-declaration line and column when Vitest can resolve them. Vitest does not
-provide an end line for the Case.
+`lint` checks every architectural rule; `lint layers` checks Layer coverage,
+configured Module presence, and dependencies, while `lint modules` checks
+Module coverage, expected entry points, dependencies, public boundaries, and
+cycles. Violations exit with status `1`, while invalid configuration or an
+analysis failure exits with status `2`.
 
-## Public entrypoints
-
-| Entrypoint      | Purpose                                       |
-| --------------- | --------------------------------------------- |
-| `laymos`        | Architecture configuration                    |
-| `laymos/node`   | Architecture analysis and Vitest execution    |
-| `laymos/report` | Serializable reports and their Effect Schemas |
-| `laymos/test`   | Metadata-enriched Vitest authoring helpers    |
+`deps` prints a file or folder's dependencies as a colored tree. Direct
+dependencies are yellow; with `--recursive`, transitive dependencies are gray.
+All commands use `sourceRoots` and `ignoredPaths` from the config. Config paths
+default to `./laymos.config.json`, and project-relative paths are resolved from
+the config file's directory.
