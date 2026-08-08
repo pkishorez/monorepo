@@ -1,26 +1,34 @@
-import type { DynamodbError } from '../errors.js';
-import { stableStringify } from '../../../snapshot/internal/stable-stringify.js';
+import { unmarshall } from './marshall.js';
 
 type UnionKeys<T> = T extends T ? keyof T : never;
 
 export const sameValue = (left: unknown, right: unknown): boolean =>
-  stableStringify(left) === stableStringify(right);
+  JSON.stringify(left, objectKeysInOrder) ===
+  JSON.stringify(right, objectKeysInOrder);
 
-export const isConditionalCheckFailed = (e: DynamodbError): boolean => {
-  if (!('cause' in e.error)) return false;
-  const cause = e.error.cause as DynamodbError | undefined;
-  return (
-    cause?.error._tag === 'UnknownAwsError' &&
-    cause.error.name === 'ConditionalCheckFailedException'
-  );
+const objectKeysInOrder = (_key: string, value: unknown): unknown =>
+  value !== null && !Array.isArray(value) && typeof value === 'object'
+    ? Object.fromEntries(
+        Object.entries(value).sort(([left], [right]) =>
+          left.localeCompare(right),
+        ),
+      )
+    : value;
+
+export const isConditionalCheckFailed = (e: {
+  readonly cause?: unknown;
+}): boolean => {
+  if (!('cause' in e)) return false;
+  const cause = e.cause as { readonly _tag?: string } | undefined;
+  return cause?._tag === 'ConditionalCheckFailedException';
 };
 
-export const extractConditionFailureItem = (
-  e: DynamodbError,
-): Record<string, unknown> | undefined => {
-  if (!('cause' in e.error)) return undefined;
-  const cause = e.error.cause as any;
-  return cause?.conditionFailureItem;
+export const extractConditionFailureItem = (e: {
+  readonly cause?: unknown;
+}): Record<string, unknown> | undefined => {
+  if (!('cause' in e)) return undefined;
+  const cause = e.cause as { readonly Item?: Record<string, never> };
+  return cause.Item ? unmarshall(cause.Item) : undefined;
 };
 
 export const extractTableKey = (

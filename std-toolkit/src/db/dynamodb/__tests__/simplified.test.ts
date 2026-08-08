@@ -7,7 +7,7 @@ const itEffect = <A, E>(
   it(name, () =>
     Effect.runPromise(
       fn().pipe(
-        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provide(dynamoDBLayer(localConfig, table)),
         Effect.provideService(References.MinimumLogLevel, 'None'),
       ),
     ),
@@ -15,11 +15,7 @@ const itEffect = <A, E>(
 import { Effect, References, Schema, Stream } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
 import { DynamoTable } from '../index.js';
-import {
-  createDynamoDB,
-  dynamoDBLayer,
-  DynamoDB,
-} from '../services/dynamo-client.js';
+import { createDynamoDB, dynamoDBLayer, DynamoDB } from './test-dynamodb.js';
 
 // Use timestamp-based name to avoid schema conflicts between test runs
 const TEST_TABLE_NAME = `db-dynamodb-simplified-test-${Date.now()}`;
@@ -36,7 +32,7 @@ const localConfig = {
 };
 
 // Create table instance
-const table = DynamoTable.make()
+const table = DynamoTable.make('simplified-test')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
@@ -61,7 +57,7 @@ const OrderEntity = table
 async function createTestTable() {
   const client = createDynamoDB(localConfig);
 
-  const createParams = {
+  const createParams: Parameters<typeof client.createTable>[0] = {
     TableName: TEST_TABLE_NAME,
     KeySchema: [
       { AttributeName: 'pk', KeyType: 'HASH' },
@@ -147,7 +143,7 @@ describe('DynamoDB', () => {
             total: 150,
             status: 'pending',
           });
-        }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
+        }).pipe(Effect.provide(dynamoDBLayer(localConfig, table))),
       );
     });
 

@@ -1,6 +1,3 @@
-// Public types for configuration
-export type { AwsCredentials } from './aws.js';
-
 export type {
   IndexDerivation,
   IndexDerivationValue,
@@ -23,11 +20,7 @@ export type {
 export { extractKeyOp, getKeyOpScanDirection } from './simplified.js';
 
 // Internal types (re-exported for internal use only)
-export type {
-  DynamoConnection,
-  AttributeValue,
-  MarshalledOutput,
-} from './aws.js';
+export type { AttributeValue, MarshalledOutput } from './aws.js';
 
 export type { IndexDefinition } from './derivation.js';
 

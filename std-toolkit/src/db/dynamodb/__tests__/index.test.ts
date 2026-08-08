@@ -3,9 +3,9 @@ import { Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
 import {
   DynamoTable,
+  buildExpr,
   exprCondition,
   exprUpdate,
-  buildExpr,
   marshall,
   unmarshall,
 } from '../index.js';
@@ -118,7 +118,7 @@ describe('DynamoDB', () => {
 
     describe('Table', () => {
       it('creates table instance with DynamoTable.make', () => {
-        const table = DynamoTable.make()
+        const table = DynamoTable.make('index-test')
           .primary('pk', 'sk')
           .gsi('GSI1', 'GSI1PK', 'GSI1SK')
           .build();
@@ -126,12 +126,22 @@ describe('DynamoDB', () => {
         expect(table).toBeDefined();
         expect(table.primary).toEqual({ pk: 'pk', sk: 'sk' });
         expect(table.secondaryIndexMap).toHaveProperty('GSI1');
+        expect(table.createTableDefinition().KeySchema).toEqual([
+          { AttributeName: 'pk', KeyType: 'HASH' },
+          { AttributeName: 'sk', KeyType: 'RANGE' },
+        ]);
+
+        type HasRawGetItem = 'getItem' extends keyof typeof table
+          ? true
+          : false;
+        const hasRawGetItem: HasRawGetItem = false;
+        expect(hasRawGetItem).toBe(false);
       });
     });
 
     describe('table entities', () => {
       const makeTable = () =>
-        DynamoTable.make()
+        DynamoTable.make('index-test')
           .primary('pk', 'sk')
           .gsi('GSI1', 'GSI1PK', 'GSI1SK')
           .build();

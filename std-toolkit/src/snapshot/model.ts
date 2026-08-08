@@ -48,6 +48,7 @@ export interface TableSnapshot {
   readonly _v: 'v1';
   readonly kind: 'table';
   readonly adapter: 'dynamodb' | 'sqlite' | 'idb';
+  readonly logicalName?: string;
   readonly primaryIndex: {
     readonly pk: string;
     readonly sk: string;

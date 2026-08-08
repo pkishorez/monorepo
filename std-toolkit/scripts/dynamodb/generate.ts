@@ -12,7 +12,7 @@
  *
  * Examples:
  *   bun scripts/generate.ts                         # Default output
- *   bun scripts/generate.ts src/generated/types.ts  # Custom output path
+ *   bun scripts/generate.ts src/custom/types.ts  # Custom output path
  */
 
 import process from 'node:process';

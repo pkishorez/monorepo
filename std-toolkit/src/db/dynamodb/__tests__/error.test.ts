@@ -7,19 +7,15 @@ const itEffect = <A, E>(
   it(name, () =>
     Effect.runPromise(
       fn().pipe(
-        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provide(dynamoDBLayer(localConfig, table)),
         Effect.provideService(References.MinimumLogLevel, 'None'),
       ),
     ),
   );
 import { Effect, References, Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
-import { DynamoTable, DynamodbError } from '../index.js';
-import {
-  createDynamoDB,
-  dynamoDBLayer,
-  DynamoDB,
-} from '../services/dynamo-client.js';
+import { DynamoTable } from '../services/dynamo-table/index.js';
+import { createDynamoDB, dynamoDBLayer, DynamoDB } from './test-dynamodb.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-error-test-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -34,7 +30,7 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make().primary('pk', 'sk').build();
+const table = DynamoTable.make('error-test').primary('pk', 'sk').build();
 
 // New ESchema API: idField is second parameter
 const userSchema = EntityESchema.make('User', 'userId', {
@@ -109,8 +105,7 @@ describe('DynamoDB', () => {
 
             const error = yield* UserEntity.insert(user).pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('ItemAlreadyExists');
+            expect(error._tag).toBe('ItemAlreadyExists');
           }),
       );
     });
@@ -125,8 +120,7 @@ describe('DynamoDB', () => {
               { update: { name: 'Updated Name' } },
             ).pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('NoItemToUpdate');
+            expect(error._tag).toBe('NoItemToUpdate');
           }),
       );
 
@@ -148,11 +142,16 @@ describe('DynamoDB', () => {
     });
 
     describe('Table operations with non-existent table', () => {
-      const badTable = DynamoTable.make().primary('pk', 'sk').build();
-      const badLayer = dynamoDBLayer({
-        ...localConfig,
-        tableName: 'non-existent-table',
-      });
+      const badTable = DynamoTable.make('missing-table-operations')
+        .primary('pk', 'sk')
+        .build();
+      const badLayer = dynamoDBLayer(
+        {
+          ...localConfig,
+          tableName: 'non-existent-table',
+        },
+        badTable,
+      );
       const itEffect = <A, E>(
         name: string,
         fn: () => Effect.Effect<A, E, DynamoDB>,
@@ -165,8 +164,7 @@ describe('DynamoDB', () => {
             .query({ pk: 'TEST#1' })
             .pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(DynamodbError);
-          expect(error.error._tag).toBe('QueryFailed');
+          expect(error._tag).toBe('QueryFailed');
         }),
       );
 
@@ -178,8 +176,7 @@ describe('DynamoDB', () => {
               .getItem({ pk: 'TEST#1', sk: 'ITEM#1' })
               .pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('GetItemFailed');
+            expect(error._tag).toBe('GetItemFailed');
           }),
       );
 
@@ -191,8 +188,7 @@ describe('DynamoDB', () => {
               .putItem({ pk: 'TEST#1', sk: 'ITEM#1', data: 'test' })
               .pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('PutItemFailed');
+            expect(error._tag).toBe('PutItemFailed');
           }),
       );
 
@@ -204,8 +200,7 @@ describe('DynamoDB', () => {
               .deleteItem({ pk: 'TEST#1', sk: 'ITEM#1' })
               .pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('DeleteItemFailed');
+            expect(error._tag).toBe('DeleteItemFailed');
           }),
       );
 
@@ -213,18 +208,22 @@ describe('DynamoDB', () => {
         Effect.gen(function* () {
           const error = yield* badTable.scan().pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(DynamodbError);
-          expect(error.error._tag).toBe('ScanFailed');
+          expect(error._tag).toBe('ScanFailed');
         }),
       );
     });
 
     describe('Entity operations with non-existent table', () => {
-      const badTable = DynamoTable.make().primary('pk', 'sk').build();
-      const badLayer = dynamoDBLayer({
-        ...localConfig,
-        tableName: 'non-existent-entity-table',
-      });
+      const badTable = DynamoTable.make('missing-entity-table')
+        .primary('pk', 'sk')
+        .build();
+      const badLayer = dynamoDBLayer(
+        {
+          ...localConfig,
+          tableName: 'non-existent-entity-table',
+        },
+        badTable,
+      );
       const itEffect = <A, E>(
         name: string,
         fn: () => Effect.Effect<A, E, DynamoDB>,
@@ -245,8 +244,7 @@ describe('DynamoDB', () => {
               name: 'Test',
             }).pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('PutItemFailed');
+            expect(error._tag).toBe('PutItemFailed');
           }),
       );
 
@@ -258,8 +256,7 @@ describe('DynamoDB', () => {
               userId: '1',
             }).pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('GetItemFailed');
+            expect(error._tag).toBe('GetItemFailed');
           }),
       );
 
@@ -272,18 +269,22 @@ describe('DynamoDB', () => {
               sk: { '>=': null },
             }).pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('QueryFailed');
+            expect(error._tag).toBe('QueryFailed');
           }),
       );
     });
 
     describe('Error cause preservation', () => {
-      const badTable = DynamoTable.make().primary('pk', 'sk').build();
-      const badLayer = dynamoDBLayer({
-        ...localConfig,
-        tableName: 'non-existent-cause-table',
-      });
+      const badTable = DynamoTable.make('error-cause-table')
+        .primary('pk', 'sk')
+        .build();
+      const badLayer = dynamoDBLayer(
+        {
+          ...localConfig,
+          tableName: 'non-existent-cause-table',
+        },
+        badTable,
+      );
       const itEffect = <A, E>(
         name: string,
         fn: () => Effect.Effect<A, E, DynamoDB>,
@@ -296,15 +297,12 @@ describe('DynamoDB', () => {
             .getItem({ pk: 'TEST#1', sk: 'ITEM#1' })
             .pipe(Effect.flip);
 
-          expect(error.error._tag).toBe('GetItemFailed');
-          if (error.error._tag === 'GetItemFailed') {
-            expect(error.error.cause).toBeDefined();
-            expect(error.error.cause).toBeInstanceOf(DynamodbError);
-            const innerError = error.error.cause as DynamodbError;
-            expect(innerError.error._tag).toBe('UnknownAwsError');
-            if (innerError.error._tag === 'UnknownAwsError') {
-              expect(innerError.error.name).toBe('ResourceNotFoundException');
-            }
+          expect(error._tag).toBe('GetItemFailed');
+          if (error._tag === 'GetItemFailed') {
+            expect(error.cause).toBeDefined();
+            expect((error.cause as { _tag: string })._tag).toBe(
+              'ResourceNotFoundException',
+            );
           }
         }),
       );

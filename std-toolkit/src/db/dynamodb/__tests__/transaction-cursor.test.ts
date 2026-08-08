@@ -1,10 +1,10 @@
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import { it, describe, expect } from 'vitest';
 import { nextUlid } from '../../../core/index.js';
 import { EntityESchema } from '../../../eschema/index.js';
 import { unmarshall } from '../internal/marshall.js';
-import { DynamoDB } from '../services/dynamo-client.js';
-import { DynamoTable } from '../services/dynamo-table.js';
+import { DynamoDB } from './test-dynamodb.js';
+import { DynamoTable } from '../services/dynamo-table/index.js';
 
 const ItemSchema = EntityESchema.make('Item', 'itemId', {
   category: Schema.String,
@@ -14,7 +14,7 @@ describe('DynamoDB', () => {
   describe('Transactions', () => {
     describe('Cursors', () => {
       it('stamps transaction cursors immediately before submitting the write', async () => {
-        const table = DynamoTable.make()
+        const table = DynamoTable.make('transaction-cursor-test')
           .primary('pk', 'sk')
           .gsi('GSI1', 'GSI1PK', 'GSI1SK')
           .build();
@@ -24,7 +24,8 @@ describe('DynamoDB', () => {
           .index('GSI1', 'byCategory', { pk: ['category'] })
           .build();
         let request: any;
-        const layer = Layer.succeed(DynamoDB, {
+        const layer = DynamoDB.layer({
+          table,
           tableName: 'items',
           client: {
             transactWriteItems: (input: unknown) =>
@@ -53,7 +54,9 @@ describe('DynamoDB', () => {
       });
 
       it('maps canceled conditional writes to ConditionFailed with op context', async () => {
-        const table = DynamoTable.make().primary('pk', 'sk').build();
+        const table = DynamoTable.make('transaction-error-test')
+          .primary('pk', 'sk')
+          .build();
         const cancellation = Object.assign(new Error('transaction canceled'), {
           cancellationReasons: [
             {
@@ -62,7 +65,8 @@ describe('DynamoDB', () => {
             },
           ],
         });
-        const layer = Layer.succeed(DynamoDB, {
+        const layer = DynamoDB.layer({
+          table,
           tableName: 'items',
           client: {
             transactWriteItems: () => Effect.fail(cancellation),
@@ -91,9 +95,9 @@ describe('DynamoDB', () => {
           table.transact([op]).pipe(Effect.provide(layer), Effect.flip),
         );
 
-        expect(error.error._tag).toBe('ConditionFailed');
-        if (error.error._tag === 'ConditionFailed') {
-          expect(error.error.failures).toEqual([
+        expect(error._tag).toBe('ConditionFailed');
+        if (error._tag === 'ConditionFailed') {
+          expect(error.failures).toEqual([
             {
               index: 0,
               entityName: 'Item',

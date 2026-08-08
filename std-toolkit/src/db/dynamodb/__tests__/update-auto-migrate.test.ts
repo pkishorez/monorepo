@@ -7,19 +7,15 @@ const itEffect = <A, E>(
   it(name, () =>
     Effect.runPromise(
       fn().pipe(
-        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provide(dynamoDBLayer(localConfig, table, tableV2)),
         Effect.provideService(References.MinimumLogLevel, 'None'),
       ),
     ),
   );
 import { Effect, References, Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
-import { DynamoTable, DynamodbError } from '../index.js';
-import {
-  createDynamoDB,
-  dynamoDBLayer,
-  DynamoDB,
-} from '../services/dynamo-client.js';
+import { DynamoTable } from '../index.js';
+import { createDynamoDB, dynamoDBLayer, DynamoDB } from './test-dynamodb.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-auto-migrate-test-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -36,8 +32,8 @@ const localConfig = {
 
 // Two table objects with identical topology pointing at the same physical
 // table — entity names are unique per table object, and V1/V2 share a name.
-const table = DynamoTable.make().primary('pk', 'sk').build();
-const tableV2 = DynamoTable.make().primary('pk', 'sk').build();
+const table = DynamoTable.make('auto-migrate-v1').primary('pk', 'sk').build();
+const tableV2 = DynamoTable.make('auto-migrate-v2').primary('pk', 'sk').build();
 
 const settingsSchemaV1 = EntityESchema.make('Settings', 'settingsId', {
   theme: Schema.String,
@@ -117,8 +113,7 @@ describe('DynamoDB', () => {
               { update: { theme: 'dark' } },
             ).pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('NoItemToUpdate');
+            expect(error._tag).toBe('NoItemToUpdate');
           }),
         );
       });
@@ -160,8 +155,7 @@ describe('DynamoDB', () => {
                 },
               ).pipe(Effect.flip);
 
-              expect(error).toBeInstanceOf(DynamodbError);
-              expect(error.error._tag).toBe('ConditionCheckFailed');
+              expect(error._tag).toBe('ConditionCheckFailed');
             }),
         );
       });
@@ -204,8 +198,7 @@ describe('DynamoDB', () => {
                 },
               ).pipe(Effect.flip);
 
-              expect(error).toBeInstanceOf(DynamodbError);
-              expect(error.error._tag).toBe('ConditionCheckFailed');
+              expect(error._tag).toBe('ConditionCheckFailed');
 
               const migrated = yield* SettingsV2.get({
                 settingsId: 'stale-condition-fail',
@@ -235,8 +228,7 @@ describe('DynamoDB', () => {
               },
             ).pipe(Effect.flip);
 
-            expect(error).toBeInstanceOf(DynamodbError);
-            expect(error.error._tag).toBe('ItemVersionMismatch');
+            expect(error._tag).toBe('ItemVersionMismatch');
           }),
         );
       });

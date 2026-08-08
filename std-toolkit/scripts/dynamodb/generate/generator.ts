@@ -191,7 +191,7 @@ function generateImports(imports: {
     code += `import type { Buffer } from "node:buffer";\n`;
   }
 
-  code += `import type { DynamodbError } from "../errors.js";\n\n`;
+  code += `import type { DynamoDBClientError } from "../../../domain/client-error/index.js";\n\n`;
 
   return code;
 }
@@ -249,7 +249,7 @@ function getErrorTypes(
       typeNameMapping.get(extractShapeName(error.target)) ||
       extractShapeName(error.target),
   );
-  errorTypes.push('DynamodbError');
+  errorTypes.push('DynamoDBClientError');
   return errorTypes;
 }
 
