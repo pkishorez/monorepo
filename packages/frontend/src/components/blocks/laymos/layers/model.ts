@@ -35,4 +35,5 @@ export interface LayerInteraction {
   readonly hoveredLayerId?: string;
   readonly onLayerHoverChange?: (layerId: string | undefined) => void;
   readonly onLayerActivate?: (layerId: string) => void;
+  readonly onLayerOpen?: (layerId: string) => void;
 }

@@ -26,6 +26,7 @@ export default defineConfig({
       '**/test/fixtures/**',
       'packages/frontend/src/components/ui/**',
       '**/package.json',
+      'devtools/laymos/schema.json',
     ],
   },
   staged: {

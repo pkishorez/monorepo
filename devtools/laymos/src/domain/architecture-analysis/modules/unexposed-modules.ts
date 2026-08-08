@@ -11,6 +11,7 @@ export function findUnexposedModules(
     Object.entries(modules)
       .filter(
         ([root, definition]) =>
+          !knownFiles.has(root) &&
           !knownFiles.has(posix.join(root, 'index.ts')) &&
           !definition.shared &&
           definition.nested.length === 0,

@@ -1,7 +1,7 @@
 import { Console, Effect } from 'effect';
 import { Command } from 'effect/unstable/cli';
 
-import { analyzeLayers } from '../../../orchestrator/lint/layers/index.js';
+import { analyzeProject } from '../../../orchestrator/analyze-project/index.js';
 import { renderLayerReport } from './report.js';
 
 export function makeLayersCommand<R>(
@@ -18,11 +18,12 @@ export function makeLayersCommand<R>(
 
 export function runLayersLint(configPath: string) {
   return Effect.gen(function* () {
-    const result = yield* analyzeLayers(configPath);
-    yield* Console.log(renderLayerReport(result));
+    const { layerAnalysis } = yield* analyzeProject(configPath);
+    yield* Console.log(renderLayerReport(layerAnalysis));
     if (
-      result.unassignedFiles.length > 0 ||
-      result.forbiddenImports.length > 0
+      layerAnalysis.unassignedFiles.length > 0 ||
+      layerAnalysis.forbiddenImports.length > 0 ||
+      layerAnalysis.layersWithoutModules.length > 0
     ) {
       process.exitCode = 1;
     }

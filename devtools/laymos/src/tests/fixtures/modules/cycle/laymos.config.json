@@ -1,9 +1,0 @@
-{
-  "sourceRoots": ["src"],
-  "layers": { "app": { "paths": ["src"] } },
-  "modules": {
-    "src/feature-a": { "shared": true },
-    "src/feature-b": { "shared": true }
-  },
-  "layerGraphs": {}
-}

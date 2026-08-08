@@ -1,37 +1,42 @@
 {
   "$schema": "./schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/index.ts", "src/tests"],
+  "ignoredPaths": ["src/tests"],
   "layers": {
     "public-api": { "paths": ["src/index.ts"] },
+    "contract": { "paths": ["src/architecture-analysis-schema"] },
     "cli": { "paths": ["src/cli"] },
     "orchestrator": { "paths": ["src/orchestrator"] },
     "domain": { "paths": ["src/domain"] },
-    "services": { "paths": ["src/services"] },
-    "test-fixtures": { "paths": ["src/tests"] }
+    "services": { "paths": ["src/services"] }
   },
   "modules": {
+    "src/index.ts": {},
+    "src/architecture-analysis-schema": { "shared": true },
     "src/cli": {},
 
-    "src/orchestrator/deps": {},
-    "src/orchestrator/lint": { "nested": ["layers", "modules"] },
-    "src/orchestrator/project-analysis": { "shared": true },
+    "src/orchestrator/analyze-project": {},
+    "src/orchestrator/load-project": { "shared": true },
+    "src/orchestrator/query-dependencies": {},
 
     "src/domain/architecture-analysis": {
       "nested": ["layers", "modules"]
     },
     "src/domain/file-graph": { "shared": true },
+    "src/domain/project-config": { "shared": true },
 
     "src/services/config": {},
-    "src/services/file-cruiser": {}
+    "src/services/file-cruiser": { "nested": ["oxc"] }
   },
   "layerGraphs": {
     "architecture": {
       "rules": {
-        "public-api": ["orchestrator"],
+        "public-api": ["orchestrator", "contract"],
+        "contract": [],
         "cli": ["orchestrator"],
-        "orchestrator": ["services"],
-        "services": ["domain"]
+        "orchestrator": ["services", "contract"],
+        "domain": ["contract"],
+        "services": ["domain", "contract"]
       }
     }
   }

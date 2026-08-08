@@ -18,6 +18,7 @@ export const complexLayers: readonly Layer[] = [
   ]),
   layer('app-shell', 'Shared presentation workflows across clients.', [
     ['packages/experience/shell', 22],
+    ['packages/experience/navigation', 8],
   ]),
   layer('commerce-app', 'Coordinates catalog and ordering use cases.', [
     ['packages/commerce/application', 35],
@@ -25,6 +26,7 @@ export const complexLayers: readonly Layer[] = [
   ]),
   layer('commerce-domain', 'Business rules for products and orders.', [
     ['packages/commerce/domain', 57],
+    ['packages/commerce/shared-domain', 11],
   ]),
   layer('commerce-kernel', 'Stable commerce values and contracts.', [
     ['packages/commerce/kernel', 18],

@@ -1,23 +1,30 @@
+import type {
+  ArchitectureAnalysis,
+  Config,
+} from '../../architecture-analysis-schema/index.js';
 import type { FileGraph } from '../file-graph/index.js';
-import { analyzeLayers, type LayerAnalysis } from './layers/index.js';
-import type { LayerDefinition } from './layers/layers.js';
-import { analyzeModules, type ModuleAnalysis } from './modules/index.js';
-import type { ModuleDefinition } from './modules/modules.js';
-
-export interface ArchitectureAnalysis {
-  readonly layers: LayerAnalysis;
-  readonly modules: ModuleAnalysis;
-}
+import { analyzeLayers } from './layers/index.js';
+import { combineLayerRules } from './layer-rules.js';
+import { analyzeModules } from './modules/index.js';
 
 export function analyzeArchitecture(
   fileGraph: FileGraph,
-  layers: Readonly<Record<string, LayerDefinition>>,
-  modules: Readonly<Record<string, ModuleDefinition>>,
-  layerRules: Readonly<Record<string, readonly string[]>>,
+  config: Config,
 ): ArchitectureAnalysis {
-  const layerAnalysis = analyzeLayers(fileGraph, layers, layerRules);
+  const layerAnalysis = analyzeLayers(
+    fileGraph,
+    config.layers,
+    combineLayerRules(config),
+    config.modules,
+  );
   return {
-    layers: layerAnalysis,
-    modules: analyzeModules(fileGraph, modules, layerAnalysis, layers),
+    config,
+    layerAnalysis,
+    moduleAnalysis: analyzeModules(
+      fileGraph,
+      config.modules,
+      layerAnalysis,
+      config.layers,
+    ),
   };
 }

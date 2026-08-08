@@ -452,6 +452,9 @@ importers:
       env-paths:
         specifier: 'catalog:'
         version: 4.0.0
+      laymos:
+        specifier: workspace:*
+        version: link:../laymos
       std-toolkit:
         specifier: workspace:*
         version: link:../../std-toolkit

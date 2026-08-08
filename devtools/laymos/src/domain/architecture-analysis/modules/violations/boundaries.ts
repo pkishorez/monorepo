@@ -15,7 +15,7 @@ export function findBoundaryAndDependencyViolations(
   context: ModuleAnalysisContext,
 ): ImportFindings {
   const violations: ModuleViolation[] = [];
-  const validDependencies = new Map<string, ModuleDependency>();
+  const dependencies = new Map<string, ModuleDependency>();
   const edges = new Map<string, Set<string>>();
   for (const [fromFile, fileDependencies] of [
     ...context.fileGraph.entries(),
@@ -25,6 +25,12 @@ export function findBoundaryAndDependencyViolations(
     for (const toFile of [...fileDependencies].sort()) {
       const toModule = context.membership.get(toFile);
       if (toModule === undefined || toModule === fromModule) continue;
+      const toEntryPoint = context.entryPoints.has(toFile) ? toFile : undefined;
+      dependencies.set(`${fromModule}\0${toModule}\0${toEntryPoint ?? ''}`, {
+        fromModule,
+        toModule,
+        ...(toEntryPoint === undefined ? {} : { toEntryPoint }),
+      });
       const classification = classifyDependency(
         context,
         fromFile,
@@ -42,15 +48,6 @@ export function findBoundaryAndDependencyViolations(
         violations.push({ kind: 'boundary', ...importDetails });
         continue;
       }
-      const dependency = {
-        fromModule,
-        toModule,
-        toEntryPoint: toFile,
-      };
-      validDependencies.set(
-        `${fromModule}\0${toModule}\0${toFile}`,
-        dependency,
-      );
       const destinations = edges.get(fromModule) ?? new Set<string>();
       destinations.add(toModule);
       edges.set(fromModule, destinations);
@@ -58,7 +55,7 @@ export function findBoundaryAndDependencyViolations(
   }
   return {
     violations,
-    dependencies: [...validDependencies.values()],
+    dependencies: [...dependencies.values()],
     edges,
   };
 }

@@ -1,10 +1,9 @@
-import { stat } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 
 import { Console, Effect } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 
-import { deps } from '../../orchestrator/deps/index.js';
+import { queryDependencies } from '../../orchestrator/query-dependencies/index.js';
 import { renderDependencyTree } from './dependency-tree.js';
 
 const pathArgument = Argument.path('path', { mustExist: true }).pipe(
@@ -31,10 +30,7 @@ export function makeDepsCommand<R>(
         const absoluteConfigPath = resolve(configuredPath);
         const baseDir = dirname(absoluteConfigPath);
         const target = toPosixRelative(baseDir, path);
-        const targetKind = yield* Effect.promise(() =>
-          statTargetKind(baseDir, target),
-        );
-        const entries = yield* deps(absoluteConfigPath, target, targetKind, {
+        const entries = yield* queryDependencies(absoluteConfigPath, target, {
           recursive,
         });
 
@@ -45,14 +41,6 @@ export function makeDepsCommand<R>(
       'Print the direct (and, with --recursive, transitive) dependencies of a file or folder.',
     ),
   );
-}
-
-async function statTargetKind(
-  baseDir: string,
-  target: string,
-): Promise<'file' | 'folder'> {
-  const stats = await stat(resolve(baseDir, target));
-  return stats.isDirectory() ? 'folder' : 'file';
 }
 
 function toPosixRelative(baseDir: string, path: string): string {

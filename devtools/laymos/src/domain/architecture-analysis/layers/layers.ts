@@ -1,3 +1,13 @@
+import type {
+  LayerAnalysis,
+  LayerDefinition,
+  ModuleDefinition,
+} from '../../../architecture-analysis-schema/index.js';
+export type {
+  ForbiddenImport,
+  LayerAnalysis,
+  LayerDefinition,
+} from '../../../architecture-analysis-schema/index.js';
 import type { FileGraph } from '../../file-graph/index.js';
 import {
   buildAllowedDependencies,
@@ -6,27 +16,11 @@ import {
 import { findCoverageViolations } from './coverage-violations.js';
 import { findDependencyViolations } from './dependency-violations.js';
 import { assignFilesToLayers } from './layer-membership.js';
-
-export interface LayerDefinition {
-  readonly paths: readonly string[];
-}
-
-export interface ForbiddenImport {
-  readonly fromFile: string;
-  readonly fromLayer: string;
-  readonly toFile: string;
-  readonly toLayer: string;
-}
-
-export interface LayerAnalysis extends LayerContext {
-  readonly unassignedFiles: readonly string[];
-  readonly forbiddenImports: readonly ForbiddenImport[];
-}
+import { findLayersWithoutModules } from './module-coverage-violations.js';
 
 export interface LayerContext {
   readonly membership: ReadonlyMap<string, string>;
   readonly allowedDependencies: AllowedDependencies;
-  readonly permits: (fromLayer: string, toLayer: string) => boolean;
 }
 
 export function buildLayerContext(
@@ -39,9 +33,6 @@ export function buildLayerContext(
   return {
     membership,
     allowedDependencies,
-    permits: (fromLayer, toLayer) =>
-      fromLayer === toLayer ||
-      (allowedDependencies.get(fromLayer)?.has(toLayer) ?? false),
   };
 }
 
@@ -49,6 +40,7 @@ export function analyzeLayers(
   fileGraph: FileGraph,
   layers: Readonly<Record<string, LayerDefinition>>,
   rules: Readonly<Record<string, readonly string[]>>,
+  modules: Readonly<Record<string, ModuleDefinition>>,
 ): LayerAnalysis {
   const context = buildLayerContext(fileGraph.keys(), layers, rules);
   return {
@@ -62,5 +54,6 @@ export function analyzeLayers(
       context.membership,
       context.allowedDependencies,
     ),
+    layersWithoutModules: findLayersWithoutModules(layers, modules),
   };
 }

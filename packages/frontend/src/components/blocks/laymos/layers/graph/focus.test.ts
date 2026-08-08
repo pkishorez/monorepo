@@ -21,6 +21,21 @@ describe('resolveGraphFocus', () => {
     expect(focus.highlightedRuleIds).toEqual(
       new Set([ruleId('presentation', 'application')]),
     );
+    expect(focus.hoveredRelatedLayerId).toBe('application');
+    expect(focus.emphasizedRuleIds).toEqual(
+      new Set([ruleId('presentation', 'application')]),
+    );
+  });
+
+  test('ignores hover outside the active layer connections', () => {
+    const focus = resolveGraphFocus({
+      rules,
+      activeLayerId: 'presentation',
+      hoveredLayerId: 'domain',
+    });
+
+    expect(focus.hoveredRelatedLayerId).toBeUndefined();
+    expect(focus.emphasizedRuleIds).toEqual(focus.highlightedRuleIds);
   });
 
   test('a violation suppresses layer focus', () => {

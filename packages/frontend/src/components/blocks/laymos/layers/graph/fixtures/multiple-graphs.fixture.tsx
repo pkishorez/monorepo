@@ -6,7 +6,6 @@ import {
   complexRules,
 } from '../../fixtures/complex-fixture-data';
 import { FixtureFrame } from '../../fixtures/fixture-frame';
-import { layersReferencedByRules } from '../../layer-graphs';
 import { LayerGraph } from '../index';
 
 const allGraphsId = 'all';
@@ -29,10 +28,9 @@ function MultipleGraphs() {
     (graph) => graph.id === activeGraphId,
   );
   const visibleRules = selectedGraph?.rules ?? complexRules;
-  const visibleLayers =
-    selectedGraph === undefined
-      ? complexLayers
-      : layersReferencedByRules(complexLayers, visibleRules);
+  const visibleLayerCount = new Set(
+    visibleRules.flatMap((rule) => [rule.fromLayerId, ...rule.toLayerIds]),
+  ).size;
   const clearFocus = () => {
     setActiveLayerId(null);
     setHoveredLayerId(null);
@@ -64,14 +62,19 @@ function MultipleGraphs() {
           </p>
         </div>
         <span className="text-xs tabular-nums text-muted-foreground">
-          {visibleLayers.length} layers · {visibleRules.length} rule groups
+          {selectedGraph === undefined
+            ? complexLayers.length
+            : visibleLayerCount}{' '}
+          layers · {visibleRules.length} rule groups
         </span>
       </div>
 
       <LayerGraph
         className="h-[745px]"
-        layers={visibleLayers}
+        layers={complexLayers}
         rules={visibleRules}
+        layerGraphs={complexLayerGraphs}
+        activeLayerGraphId={selectedGraph?.id}
         activeLayerId={activeLayerId ?? undefined}
         hoveredLayerId={hoveredLayerId ?? undefined}
         onLayerHoverChange={(layerId) => setHoveredLayerId(layerId ?? null)}

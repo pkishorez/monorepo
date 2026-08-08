@@ -17,7 +17,7 @@ describe('resolveLayerFocus', () => {
       }),
     ).toEqual({
       focusedLayerId: 'application',
-      hoverEnabled: false,
+      hoverEnabled: true,
       activationEnabled: true,
     });
   });
