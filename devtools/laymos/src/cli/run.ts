@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 
-import { makeDepsCommand } from './deps/index.js';
+import { makeInspectCommand } from './inspect/index.js';
 import { makeLintCommand } from './lint/index.js';
 
 const rootCommand = Command.make('laymos', {}, () => Effect.void).pipe(
@@ -19,7 +19,7 @@ const configPath = rootCommand.pipe(Effect.map(({ config }) => config));
 
 export const cli = rootCommand.pipe(
   Command.withSubcommands([
-    makeDepsCommand(configPath),
+    makeInspectCommand(configPath),
     makeLintCommand(configPath),
   ]),
   Command.run({ version: '0.0.1' }),

@@ -114,13 +114,31 @@ const snapshot = await Effect.runPromise(
 The snapshot contains only included supported source files assigned to that
 Module by a fresh Architecture Analysis.
 
+Inspect an exact included source file or Configured Module without consuming
+the complete Architecture Analysis:
+
+```ts
+import { Effect } from 'effect';
+import { inspectFile, inspectModule } from 'laymos';
+
+const file = await Effect.runPromise(
+  inspectFile('/absolute/project/laymos.config.json', 'src/domain/order.ts', {
+    recursive: true,
+  }),
+);
+const module = await Effect.runPromise(
+  inspectModule('/absolute/project/laymos.config.json', 'src/domain/orders'),
+);
+```
+
 ## CLI
 
 ```sh
 laymos [--config <path>] lint
 laymos [--config <path>] lint layers
 laymos [--config <path>] lint modules
-laymos [--config <path>] deps <path> [--recursive]
+laymos [--config <path>] inspect file <file-path> [--recursive]
+laymos [--config <path>] inspect module <module-path>
 ```
 
 `lint` checks every architectural rule; `lint layers` checks Layer coverage,
@@ -129,8 +147,20 @@ Module coverage, expected entry points, dependencies, public boundaries, and
 cycles. Violations exit with status `1`, while invalid configuration or an
 analysis failure exits with status `2`.
 
-`deps` prints a file or folder's dependencies as a colored tree. Direct
-dependencies are yellow; with `--recursive`, transitive dependencies are gray.
-All commands use `sourceRoots` and `ignoredPaths` from the config. Config paths
-default to `./laymos.config.json`, and project-relative paths are resolved from
-the config file's directory.
+`inspect file` prints the file's Layer, Configured Module, public-boundary role,
+and dependencies as a colored path tree. Direct dependencies are yellow; with
+`--recursive`, transitive dependencies are gray. Only exact included supported
+source files can be inspected. Included files with missing Layer or Module
+membership remain inspectable and show a coverage warning.
+
+`inspect module` accepts an exact configured Module path. It prints the
+Module's Layer, kind, Shared and exposure status, public entry points, and one
+colored path tree containing its direct dependents in cyan and direct
+dependencies in yellow. If the selected Module participates in a dependency
+cycle, inspection stops and directs the user to `lint modules`. Other
+architecture violations remain visible with a warning.
+
+The active inspection target is green in both trees. All commands use
+`sourceRoots` and `ignoredPaths` from the config. Config paths default to
+`./laymos.config.json`, and project-relative paths are resolved from the config
+file's directory.

@@ -75,25 +75,25 @@ public entry points. An Unexposed Module has no public entry point.
 
 **Unexposed Module**:
 A Directory Module without an `index.ts` that cannot be depended on by other
-Modules. It is valid with zero observed incoming dependencies, making it Root
-or Isolated, and it cannot be Shared or expose nested public entry points.
+Modules. It is valid with zero observed dependents, making it Root or Isolated,
+and it cannot be Shared or expose nested public entry points.
 
 **Module kind**:
 A Module's position in the observed Module dependency graph: Regular, Root,
 Terminal, or Isolated. Shared status is independent of Module kind.
 
 **Regular Module**:
-A Module with both incoming and outgoing Module dependencies.
+A Module with both dependencies and dependents.
 
 **Root Module**:
-A Module with outgoing Module dependencies and no incoming Module dependencies.
+A Module with dependencies and no dependents.
 _Avoid_: Module root, root entry point
 
 **Terminal Module**:
-A Module with incoming Module dependencies and no outgoing Module dependencies.
+A Module with dependents and no dependencies.
 
 **Isolated Module**:
-A Module with no incoming or outgoing Module dependencies.
+A Module with no dependencies or dependents.
 
 **Nested public entry point**:
 An explicitly exposed `index.ts` at an exact path inside a Directory Module.
@@ -220,28 +220,29 @@ at least one Module boundary.
 **FileGraph**:
 The raw file-dependency graph produced by cruising a project: for every
 supported file in the analysis universe, the set of included source files it
-directly imports. This is the single source of truth all dependency queries are
-computed from — it is never presented to a user directly.
+directly imports. This is the single source of truth all dependency
+inspections are computed from — it is never presented to a user directly.
 
-**Dependency query**:
-A request for the dependencies of one target — a file or a folder — rather
-than the whole project's FileGraph. A query is either non-recursive (direct
-dependencies only, one hop) or recursive (direct dependencies plus every
-dependency reachable transitively through them).
+**Inspection**:
+A focused view of one exact included supported source file or Configured
+Module, combining its architectural identity with its observed dependencies.
+Folders that are not Configured Modules are not inspection targets.
+_Avoid_: Dependency query
 
-**Target** (of a dependency query):
-The file or folder a dependency query is computed for. A folder target's
-membership always includes files in nested subfolders. A target's own member
-files are never themselves reported as its dependencies — a folder does not
-depend on itself, so only files outside the target ever appear in a query's
-result.
+**Inspection target**:
+The exact included supported source file or Configured Module an Inspection
+describes. A Configured Module is identified by its canonical configured path.
 
-**Direct dependency**:
-In a dependency query's result, a file outside the target that is imported
-straight from inside the target — one hop.
+**Direct file dependency**:
+In a file Inspection, an included supported source file imported directly by
+the target file — one hop.
 
-**Recursive dependency**:
-In a dependency query's result, a file outside the target only reached by
-walking further out through another dependency — a dependency of a
-dependency, two or more hops from the target. Only appears when the query is
-recursive.
+**Recursive file dependency**:
+In a file Inspection, an included supported source file reached transitively
+through another dependency — two or more hops from the target file.
+
+**Module dependent** (in an Inspection):
+A Configured Module that directly depends on the inspected Configured Module.
+
+**Module dependency** (in an Inspection):
+A Configured Module that the inspected Configured Module directly depends on.

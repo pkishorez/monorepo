@@ -15,10 +15,17 @@ export type {
   ModuleSourceFile,
   ModuleSourceSnapshot,
 } from './architecture-analysis-schema/index.js';
-// Package and CLI consumers use this focused source Dependency query.
-export { queryDependencies } from './orchestrator/query-dependencies/index.js';
-// Dependency query callers distinguish a Target outside the analysis universe.
-export { DependencyTargetNotFound } from './orchestrator/query-dependencies/index.js';
+export {
+  InspectionTargetNotFound,
+  ModuleInspectionCycle,
+  inspectFile,
+  inspectModule,
+} from './orchestrator/inspect/index.js';
+export type {
+  FileInspection,
+  FileInspectionOptions,
+  ModuleInspection,
+} from './orchestrator/inspect/index.js';
 // Analysis callers distinguish Config loading and validation failures.
 export { ConfigError } from './services/config/index.js';
 // Analysis callers distinguish source cruising failures.
