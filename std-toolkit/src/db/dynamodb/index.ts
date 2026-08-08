@@ -4,28 +4,41 @@ export {
   type EntityType,
   type SingleEntityType,
   type TableDescription,
-} from './services/index.js';
+} from './orchestrators/dynamo-table/index.js';
 
-// Client
 export {
-  createDynamoDB,
   DynamoDB,
-  dynamoDBLayer,
-} from './services/dynamo-client.js';
-export type { DynamoConnection } from './types/index.js';
+  type ResolvedTableBinding,
+  type TableBindingInput,
+} from './services/dynamodb/index.js';
+export type {
+  DynamoDBClient,
+  DynamoDBClientConfig,
+  DynamoDBCredentialProvider,
+  DynamoDBCredentials,
+  DynamoDBCredentialsInput,
+} from './clients/dynamodb-client/index.js';
+export { DynamoDBClientError } from './clients/dynamodb-client/index.js';
 
-// Errors
-export { DynamodbError } from './errors.js';
-
-// Expression builders
 export {
-  exprCondition,
-  exprFilter,
-  exprUpdate,
+  DynamoDBError,
+  type DynamoDBError as DynamoDBErrorType,
+  TableBindingNotFound,
+  DuplicateTableBinding,
+} from './services/dynamodb-error/index.js';
+
+export {
   buildExpr,
-  opAdd,
-  opIfNotExists,
-} from './expr/index.js';
+  exprCondition,
+  exprUpdate,
+} from './domain/expression/index.js';
 
 // Marshall utilities
-export { marshall, unmarshall } from './internal/marshall.js';
+export {
+  fromAttributeValue,
+  marshall,
+  toAttributeValue,
+  unmarshall,
+  type AttributeValue,
+  type MarshalledOutput,
+} from './domain/attribute-value/index.js';

@@ -7,27 +7,18 @@ const itEffect = <A, E>(
   it(name, () =>
     Effect.runPromise(
       fn().pipe(
-        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provide(dynamoDBLayer(localConfig, table)),
         Effect.provideService(References.MinimumLogLevel, 'None'),
       ),
     ),
   );
 import { Effect, References, Schema, Stream } from 'effect';
 import { ESchema, EntityESchema, toSchema } from '../../../eschema/index.js';
-import {
-  DynamoTable,
-  DynamodbError,
-  exprUpdate,
-  buildExpr,
-  opAdd,
-  exprCondition,
-  exprFilter,
-} from '../index.js';
-import {
-  createDynamoDB,
-  dynamoDBLayer,
-  DynamoDB,
-} from '../services/dynamo-client.js';
+import { DynamoDBError, buildExpr } from '../index.js';
+import { exprCondition, exprFilter } from '../domain/expression/condition.js';
+import { exprUpdate, opAdd } from '../domain/expression/update.js';
+import { DynamoTable } from '../services/dynamo-table/index.js';
+import { createDynamoDB, dynamoDBLayer, DynamoDB } from './test-dynamodb.js';
 
 // Use timestamp-based name to avoid schema conflicts between test runs
 const TEST_TABLE_NAME = `db-dynamodb-test-${Date.now()}`;
@@ -44,7 +35,7 @@ const localConfig = {
 };
 
 // Create table instance directly (no Layer)
-const table = DynamoTable.make()
+const table = DynamoTable.make('integration-test')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .gsi('GSI2', 'GSI2PK', 'GSI2SK')
@@ -140,7 +131,7 @@ async function createTestTable() {
   const client = createDynamoDB(localConfig);
 
   // Create the table
-  const createParams = {
+  const createParams: Parameters<typeof client.createTable>[0] = {
     TableName: TEST_TABLE_NAME,
     KeySchema: [
       { AttributeName: 'pk', KeyType: 'HASH' },
@@ -468,7 +459,7 @@ describe('DynamoDB', () => {
               data: 'd',
               score: 400,
             });
-          }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
+          }).pipe(Effect.provide(dynamoDBLayer(localConfig, table))),
         );
       });
 
@@ -1114,7 +1105,7 @@ describe('DynamoDB', () => {
             { name: 'X' },
           ).pipe(Effect.flip);
 
-          expect(result.error._tag).toBe('NoItemToUpdate');
+          expect(result._tag).toBe('NoItemToUpdate');
         }),
       );
 
@@ -1133,7 +1124,7 @@ describe('DynamoDB', () => {
             { userId: 'entity-gau-id-changed' },
           ).pipe(Effect.flip);
 
-          expect(error.error._tag).toBe('IdUpdateNotSupported');
+          expect(error._tag).toBe('IdUpdateNotSupported');
           const original = yield* UserEntity.get({ userId: 'entity-gau-id' });
           const moved = yield* UserEntity.get({
             userId: 'entity-gau-id-changed',
@@ -1200,7 +1191,7 @@ describe('DynamoDB', () => {
             { age: 50 },
           );
           const error = yield* table.transact([staleOp]).pipe(Effect.flip);
-          expect(error.error._tag).toBe('ConditionFailed');
+          expect(error._tag).toBe('ConditionFailed');
 
           const after = yield* UserEntity.get({ userId: 'entity-gauop-1' });
           expect(after?.value.age).toBe(50);
@@ -1248,7 +1239,7 @@ describe('DynamoDB', () => {
             { userId: 'entity-gauop-id-changed' },
           ).pipe(Effect.flip);
 
-          expect(error.error._tag).toBe('IdUpdateNotSupported');
+          expect(error._tag).toBe('IdUpdateNotSupported');
         }),
       );
     });
@@ -1314,7 +1305,7 @@ describe('DynamoDB', () => {
 
             expect(result._tag).toBe('Failure');
             if (result._tag === 'Failure') {
-              expect((result.failure as DynamodbError).error._tag).toBe(
+              expect((result.failure as DynamoDBError)._tag).toBe(
                 'NoItemToDelete',
               );
             }
@@ -1332,7 +1323,7 @@ describe('DynamoDB', () => {
 
             expect(result._tag).toBe('Failure');
             if (result._tag === 'Failure') {
-              expect((result.failure as DynamodbError).error._tag).toBe(
+              expect((result.failure as DynamoDBError)._tag).toBe(
                 'NoItemToDelete',
               );
             }
@@ -1394,7 +1385,7 @@ describe('DynamoDB', () => {
 
           expect(result._tag).toBe('Failure');
           if (result._tag === 'Failure') {
-            expect((result.failure as DynamodbError).error._tag).toBe(
+            expect((result.failure as DynamoDBError)._tag).toBe(
               'NoItemToRestore',
             );
           }
@@ -1784,9 +1775,9 @@ describe('DynamoDB', () => {
           const error = yield* table.transact([staleOp]).pipe(Effect.flip);
           const after = yield* UserEntity.get({ userId: 'txn-stale-1' });
 
-          expect(error.error._tag).toBe('ConditionFailed');
-          if (error.error._tag === 'ConditionFailed') {
-            expect(error.error.failures).toContainEqual(
+          expect(error._tag).toBe('ConditionFailed');
+          if (error._tag === 'ConditionFailed') {
+            expect(error.failures).toContainEqual(
               expect.objectContaining({
                 index: 0,
                 entityName: 'User',
@@ -1888,7 +1879,7 @@ describe('DynamoDB', () => {
               status: 'cancelled',
               items: [],
             });
-          }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
+          }).pipe(Effect.provide(dynamoDBLayer(localConfig, table))),
         );
       });
 
@@ -2307,7 +2298,7 @@ describe('DynamoDB', () => {
               status: 'active',
               score: 300,
             });
-          }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
+          }).pipe(Effect.provide(dynamoDBLayer(localConfig, table))),
         );
       });
 
@@ -2507,7 +2498,9 @@ describe('DynamoDB', () => {
 
     itEffect('rejects ops produced by a different table instance', () =>
       Effect.gen(function* () {
-        const otherTable = DynamoTable.make().primary('pk', 'sk').build();
+        const otherTable = DynamoTable.make('other-integration-test')
+          .primary('pk', 'sk')
+          .build();
         const OtherSettings = otherTable
           .singleEntity(settingsSchema)
           .default({ darkMode: false, language: 'en' });
@@ -2515,11 +2508,10 @@ describe('DynamoDB', () => {
         yield* Settings.put({ darkMode: false, language: 'en' });
         const foreignOp = yield* OtherSettings.updateOp({
           update: { darkMode: true },
-        });
+        }).pipe(Effect.provide(dynamoDBLayer(localConfig, otherTable)));
 
         const failure = yield* table.transact([foreignOp]).pipe(Effect.flip);
-        expect(failure._tag).toBe('DynamodbError');
-        expect(failure.error._tag).toBe('ForeignTransactionItem');
+        expect(failure._tag).toBe('ForeignTransactionItem');
       }),
     );
 

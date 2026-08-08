@@ -7,7 +7,7 @@ const itEffect = <A, E>(
   it(name, () =>
     Effect.runPromise(
       fn().pipe(
-        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provide(dynamoDBLayer(localConfig, table)),
         Effect.provideService(References.MinimumLogLevel, 'None'),
       ),
     ),
@@ -15,12 +15,7 @@ const itEffect = <A, E>(
 import { Effect, References, Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
 import { DynamoTable } from '../index.js';
-import {
-  createDynamoDB,
-  dynamoDBLayer,
-  DynamoDB,
-} from '../services/dynamo-client.js';
-import { DynamodbError } from '../errors.js';
+import { createDynamoDB, dynamoDBLayer, DynamoDB } from './test-dynamodb.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-expr-update-test-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -35,7 +30,7 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make()
+const table = DynamoTable.make('expression-update-test')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
@@ -125,7 +120,7 @@ describe('DynamoDB', () => {
             loginCount: 5,
             tags: ['member'],
             history: [{ action: 'joined' }],
-          }).pipe(Effect.provide(dynamoDBLayer(localConfig))),
+          }).pipe(Effect.provide(dynamoDBLayer(localConfig, table))),
         );
       });
 
@@ -225,9 +220,8 @@ describe('DynamoDB', () => {
               { update: ($) => [$.set('name' as any, 'Bob' as any)] },
             ).pipe(Effect.flip);
 
-            expect(result).toBeInstanceOf(DynamodbError);
-            expect(result.error._tag).toBe('UpdateItemFailed');
-            expect((result.error as any).cause).toMatch(
+            expect(result._tag).toBe('UpdateItemFailed');
+            expect((result as { cause: unknown }).cause).toMatch(
               /derivation dependency/,
             );
           }),

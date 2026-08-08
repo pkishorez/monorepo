@@ -13,7 +13,7 @@ import type { TableSnapshot } from '../../../snapshot/index.js';
 import {
   createEntityRegistry,
   createTableSnapshot,
-} from '../../../snapshot/internal/table-snapshot.js';
+} from '../../../snapshot/table-adapter/index.js';
 
 /**
  * Defines the structure of a primary or secondary index.

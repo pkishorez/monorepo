@@ -5,7 +5,7 @@
     "src/core/__tests__",
     "src/db/__tests__",
     "src/db/dynamodb/__tests__",
-    "src/db/dynamodb/expr/__tests__",
+    "src/db/dynamodb/domain/expression/__tests__",
     "src/db/dynamodb/play",
     "src/db/idb/__tests__",
     "src/db/sqlite/__tests__",
@@ -38,7 +38,8 @@
         "src/eschema/utils.ts",
         "src/snapshot/model.ts",
         "src/snapshot/snapshot.ts",
-        "src/snapshot/internal"
+        "src/snapshot/internal",
+        "src/snapshot/table-adapter"
       ],
       "description": "ESchema and semantic snapshot implementation"
     },
@@ -67,29 +68,25 @@
       "paths": ["src/db/dynamodb/index.ts"],
       "description": "Public barrel"
     },
+    "dynamodb-orchestrators": {
+      "paths": ["src/db/dynamodb/orchestrators"],
+      "description": "Composition of table topology, entities, transactions, and snapshots"
+    },
     "dynamodb-services": {
       "paths": ["src/db/dynamodb/services"],
-      "description": "Entity/command surface"
+      "description": "Runtime bindings and persistence capabilities"
     },
-    "dynamodb-expr": {
-      "paths": ["src/db/dynamodb/expr"],
-      "description": "Expression builders"
+    "dynamodb-clients": {
+      "paths": ["src/db/dynamodb/clients"],
+      "description": "Generated API execution and AWS request signing"
     },
-    "dynamodb-internal": {
+    "dynamodb-domain": {
+      "paths": ["src/db/dynamodb/domain", "src/db/dynamodb/types"],
+      "description": "Pure table identity, persistence, expressions, and attribute values"
+    },
+    "dynamodb-support": {
       "paths": ["src/db/dynamodb/internal"],
-      "description": "Internal DynamoDB implementation details"
-    },
-    "dynamodb-generated": {
-      "paths": ["src/db/dynamodb/generated"],
-      "description": "Generated code"
-    },
-    "dynamodb-types": {
-      "paths": ["src/db/dynamodb/types"],
-      "description": "DynamoDB type definitions"
-    },
-    "dynamodb-errors": {
-      "paths": ["src/db/dynamodb/errors.ts"],
-      "description": "DynamoDB error types"
+      "description": "Compatibility helpers used while persistence services are composed"
     },
     "idb-barrel": {
       "paths": ["src/db/idb/src/index.ts"],
@@ -194,13 +191,21 @@
     "src/core/index.ts": {},
     "src/core/schema.ts": { "shared": true },
     "src/core/ulid.ts": {},
-    "src/db/dynamodb/errors.ts": {},
-    "src/db/dynamodb/expr": {},
-    "src/db/dynamodb/generated": {},
+    "src/db/dynamodb/clients/dynamodb-client": {},
+    "src/db/dynamodb/domain/attribute-value": { "shared": true },
+    "src/db/dynamodb/domain/client-error": {},
+    "src/db/dynamodb/domain/entity-persistence": {},
+    "src/db/dynamodb/domain/expression": {},
+    "src/db/dynamodb/domain/table-identity": {},
     "src/db/dynamodb/index.ts": {},
-    "src/db/dynamodb/internal": {},
-    "src/db/dynamodb/services": {},
-    "src/db/dynamodb/types": {},
+    "src/db/dynamodb/internal": { "shared": true },
+    "src/db/dynamodb/orchestrators/dynamo-table": {},
+    "src/db/dynamodb/services/dynamo-entity": { "shared": true },
+    "src/db/dynamodb/services/dynamo-single-entity": { "shared": true },
+    "src/db/dynamodb/services/dynamo-table": { "shared": true },
+    "src/db/dynamodb/services/dynamodb": { "shared": true },
+    "src/db/dynamodb/services/dynamodb-error": { "shared": true },
+    "src/db/dynamodb/types": { "shared": true },
     "src/db/idb/src/db.ts": {},
     "src/db/idb/src/errors.ts": {},
     "src/db/idb/src/idb-entity.ts": { "shared": true },
@@ -221,9 +226,10 @@
     "src/eschema/types.ts": { "shared": true },
     "src/eschema/utils.ts": { "shared": true },
     "src/snapshot/index.ts": {},
-    "src/snapshot/internal": {},
+    "src/snapshot/internal": { "shared": true },
     "src/snapshot/model.ts": { "shared": true },
     "src/snapshot/snapshot.ts": {},
+    "src/snapshot/table-adapter": { "shared": true },
     "src/tanstack-sync/cadence-sync": {},
     "src/tanstack-sync/collection-projection": {},
     "src/tanstack-sync/create-std-sync.ts": { "shared": true },
@@ -260,28 +266,30 @@
       }
     },
     "dynamodb": {
-      "description": "Typed DynamoDB services, expressions, generated metadata, and internal storage support",
+      "description": "DynamoDB entrypoint, orchestration, runtime services, clients, and pure domain",
       "rules": {
         "dynamodb-barrel": [
+          "dynamodb-orchestrators",
           "dynamodb-services",
-          "dynamodb-expr",
-          "dynamodb-internal",
-          "dynamodb-types",
-          "dynamodb-errors"
+          "dynamodb-clients",
+          "dynamodb-domain"
         ],
-        "dynamodb-services": [
-          "dynamodb-expr",
-          "dynamodb-internal",
-          "dynamodb-generated",
-          "dynamodb-types",
-          "dynamodb-errors",
+        "dynamodb-orchestrators": [
+          "dynamodb-services",
+          "dynamodb-domain",
           "core-barrel",
           "snapshot-barrel"
         ],
-        "dynamodb-expr": ["dynamodb-internal", "dynamodb-types"],
-        "dynamodb-internal": ["dynamodb-types", "dynamodb-errors"],
-        "dynamodb-generated": ["dynamodb-errors"],
-        "dynamodb-types": ["core-barrel"]
+        "dynamodb-services": [
+          "dynamodb-clients",
+          "dynamodb-domain",
+          "dynamodb-support",
+          "core-barrel",
+          "snapshot-barrel"
+        ],
+        "dynamodb-clients": ["dynamodb-domain"],
+        "dynamodb-support": ["dynamodb-domain", "snapshot-barrel"],
+        "dynamodb-domain": ["core-barrel"]
       }
     },
     "idb": {

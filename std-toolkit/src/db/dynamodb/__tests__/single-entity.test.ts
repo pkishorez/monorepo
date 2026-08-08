@@ -7,7 +7,7 @@ const itEffect = <A, E>(
   it(name, () =>
     Effect.runPromise(
       fn().pipe(
-        Effect.provide(dynamoDBLayer(localConfig)),
+        Effect.provide(dynamoDBLayer(localConfig, table)),
         Effect.provideService(References.MinimumLogLevel, 'None'),
       ),
     ),
@@ -15,11 +15,7 @@ const itEffect = <A, E>(
 import { Effect, References, Schema } from 'effect';
 import { ESchema } from '../../../eschema/index.js';
 import { DynamoTable } from '../index.js';
-import {
-  createDynamoDB,
-  dynamoDBLayer,
-  DynamoDB,
-} from '../services/dynamo-client.js';
+import { createDynamoDB, dynamoDBLayer, DynamoDB } from './test-dynamodb.js';
 
 const TEST_TABLE_NAME = `db-dynamodb-single-entity-test-${Date.now()}`;
 const LOCAL_ENDPOINT = 'http://localhost:8090';
@@ -34,7 +30,9 @@ const localConfig = {
   endpoint: LOCAL_ENDPOINT,
 };
 
-const table = DynamoTable.make().primary('pk', 'sk').build();
+const table = DynamoTable.make('single-entity-test')
+  .primary('pk', 'sk')
+  .build();
 
 const configSchema = ESchema.make('AppConfig', {
   theme: Schema.String,
@@ -48,7 +46,7 @@ const AppConfig = table
 async function createTestTable() {
   const client = createDynamoDB(localConfig);
 
-  const createParams = {
+  const createParams: Parameters<typeof client.createTable>[0] = {
     TableName: TEST_TABLE_NAME,
     KeySchema: [
       { AttributeName: 'pk', KeyType: 'HASH' },
@@ -205,7 +203,7 @@ describe('DynamoDB', () => {
             update: { value: 'y' },
           }).pipe(Effect.flip);
 
-          expect(error.error._tag).toBe('NoItemToUpdate');
+          expect(error._tag).toBe('NoItemToUpdate');
         }),
       );
     });
@@ -376,7 +374,7 @@ describe('DynamoDB', () => {
             Effect.flip,
           );
 
-          expect(error.error._tag).toBe('NoItemToUpdate');
+          expect(error._tag).toBe('NoItemToUpdate');
         }),
       );
 
@@ -392,7 +390,7 @@ describe('DynamoDB', () => {
           const staleOp = yield* AppConfig.getAndUpdateOp({ maxRetries: 9 });
           yield* AppConfig.getAndUpdate({ maxRetries: 7 });
           const error = yield* table.transact([staleOp]).pipe(Effect.flip);
-          expect(error.error._tag).toBe('ConditionFailed');
+          expect(error._tag).toBe('ConditionFailed');
 
           const after = yield* AppConfig.get();
           expect(after.value.maxRetries).toBe(7);

@@ -26,7 +26,7 @@ import type { TableEntitySnapshotSource } from '../../../snapshot/index.js';
 import {
   tableSnapshotSource,
   keyedSnapshotSource,
-} from '../../../snapshot/internal/table-snapshot.js';
+} from '../../../snapshot/table-adapter/index.js';
 
 /**
  * Meta fields that can be used in index derivations.

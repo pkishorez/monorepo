@@ -37,7 +37,7 @@ export const CommentEntity = table
 // Variant derivations of the same schemas live on a separate table object —
 // entity names are unique per table.
 // =============================================================================
-const variantTable = DynamoTable.make()
+const variantTable = DynamoTable.make('variant-playground')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();

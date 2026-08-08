@@ -43,9 +43,9 @@
       "types": "./dist/db/dynamodb/index.d.ts",
       "default": "./dist/db/dynamodb/index.js"
     },
-    "./dynamodb/*": {
-      "types": "./dist/db/dynamodb/*",
-      "import": "./dist/db/dynamodb/*"
+    "./dynamodb/client": {
+      "types": "./dist/db/dynamodb/clients/dynamodb-client/index.d.ts",
+      "default": "./dist/db/dynamodb/clients/dynamodb-client/index.js"
     },
     "./idb": {
       "types": "./dist/db/idb/src/index.d.ts",

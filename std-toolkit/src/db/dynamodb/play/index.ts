@@ -1,11 +1,12 @@
 import { Effect, Console } from 'effect';
-import { dynamoDBLayer } from '../index.js';
+import { DynamoDB } from '../index.js';
 import {
   createPlaygroundTable,
   localConnection,
   deletePlaygroundTable,
   PLAYGROUND_TABLE,
   LOCAL_ENDPOINT,
+  table,
 } from './table.js';
 import { PostEntity } from './entities.js';
 
@@ -270,7 +271,15 @@ async function main() {
   try {
     await createPlaygroundTable();
     await Effect.runPromise(
-      play.pipe(Effect.provide(dynamoDBLayer(localConnection))),
+      play.pipe(
+        Effect.provide(
+          DynamoDB.layer({
+            table,
+            client: DynamoDB.client(localConnection),
+            tableName: PLAYGROUND_TABLE,
+          }),
+        ),
+      ),
     );
     console.log('\nPlayground completed successfully!');
   } catch (error) {

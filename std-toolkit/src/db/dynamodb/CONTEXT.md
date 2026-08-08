@@ -4,8 +4,16 @@ The DynamoDB adapter. Inherits the single-table topology — **partition key**, 
 
 ## Language
 
+**DynamoDB client**:
+The table-independent, type-safe request interface to the complete DynamoDB API. It knows how to reach DynamoDB but has no `DynamoTable`, **Table binding**, **Entity service**, or ESchema semantics.
+_Avoid_: Table client.
+
 **DynamoTable**:
-A type-safe table definition with a **primary index** and optional secondary indexes.
+A type-safe **Table** definition with a logical name, a **primary index**, and optional secondary indexes. Its logical name identifies the definition but is not the physical DynamoDB table name.
+
+**Table binding**:
+The runtime association between a `DynamoTable`, the physical DynamoDB table that implements it, and the client that reaches it. One DynamoDB runtime can resolve bindings for multiple tables, but each `DynamoTable` has exactly one binding in that runtime.
+_Avoid_: Table client, table connection.
 
 **DynamoEntity** / **DynamoSingleEntity**:
 The DynamoDB **Entity service**s (keyed / singleton) for CRUD over a `DynamoTable`.
@@ -35,5 +43,16 @@ _Avoid_: serialize/deserialize (reserve those for eschema encode/decode).
 **Auto-migration**:
 On read, stale items are folded to the latest eschema [[eschema]] **version** automatically; on update, a stale item is rewritten in canonical latest-version form before the update retries.
 
-**DynamodbError**:
-The unified adapter error (`GetItemFailed`, `PutItemFailed`, `ConditionCheckFailed`, …), extending core's [[core]] **StdToolkitError**.
+**DynamoDBError**:
+The direct union of tagged adapter failures (`GetItemFailed`, `PutItemFailed`, `ConditionCheckFailed`, …). When a variant maps another failure, it retains the complete original error in `cause`, whose type follows that variant.
+_Avoid_: DynamodbError.
+
+## Composition
+
+The dependency direction is `entrypoint → orchestrators → services → clients → domain`. Orchestrators and services may also use core, ESchema, and snapshots. Domain code is pure and never performs requests, reads Effect services, or broadcasts changes.
+
+`DynamoDB.layer` owns binding composition. Tables do not expose `bind()`, and binding never mutates a table. Resolution uses table object identity; the logical name is for diagnostics and snapshots. Supplying the same table object twice is an immediate `DuplicateTableBinding`. Resolving an unbound table fails with `TableBindingNotFound`.
+
+## TODO
+
+- Encode binary `AttributeValue` inputs (`B` and `BS`) supplied as `Uint8Array` into Base64 strings before serializing DynamoDB JSON requests.

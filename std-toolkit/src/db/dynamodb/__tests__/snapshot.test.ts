@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema, ESchema, toSchema } from '../../../eschema/index.js';
-import { SnapshotIdentityConflict } from '../../../snapshot/index.js';
+import { Snapshot, SnapshotIdentityConflict } from '../../../snapshot/index.js';
 import { DynamoTable } from '../index.js';
 
 const userSchema = EntityESchema.make('User', 'userId', {
@@ -14,7 +14,7 @@ const settingsSchema = ESchema.make('Settings', {
 }).build();
 
 function makeSnapshot(singletonDefault = 'light', reverse = false) {
-  const table = DynamoTable.make()
+  const table = DynamoTable.make('snapshot-test')
     .primary('pk', 'sk')
     .gsi('ByEmail', 'emailPk', 'emailSk')
     .gsi('ActuallyLocal', 'pk', 'localSk')
@@ -42,11 +42,19 @@ function makeSnapshot(singletonDefault = 'light', reverse = false) {
 }
 
 describe('DynamoTable.snapshot', () => {
+  it('does not treat a logical-name change as a storage migration', () => {
+    const before = DynamoTable.make('before').primary('pk', 'sk').build();
+    const after = DynamoTable.make('after').primary('pk', 'sk').build();
+
+    expect(Snapshot.diff(before.snapshot(), after.snapshot())).toEqual([]);
+  });
+
   it('captures physical topology and normalized entity derivations', () => {
     expect(makeSnapshot()).toMatchObject({
       _v: 'v1',
       kind: 'table',
       adapter: 'dynamodb',
+      logicalName: 'snapshot-test',
       primaryIndex: { pk: 'pk', sk: 'sk' },
       secondaryIndexes: [
         { name: 'ActuallyLocal', kind: 'gsi', pk: 'pk', sk: 'localSk' },
@@ -101,7 +109,9 @@ describe('DynamoTable.snapshot', () => {
     const second = EntityESchema.make('Second', 'id', {
       address: toSchema(shared),
     }).build();
-    const table = DynamoTable.make().primary('pk', 'sk').build();
+    const table = DynamoTable.make('snapshot-shared-schema')
+      .primary('pk', 'sk')
+      .build();
     table.entity(first).primary().build();
     table.entity(second).primary().build();
     expect(
@@ -120,7 +130,9 @@ describe('DynamoTable.snapshot', () => {
     const right = EntityESchema.make('Right', 'id', {
       nested: toSchema(two),
     }).build();
-    const conflict = DynamoTable.make().primary('pk', 'sk').build();
+    const conflict = DynamoTable.make('snapshot-conflict')
+      .primary('pk', 'sk')
+      .build();
     conflict.entity(left).primary().build();
     conflict.entity(right).primary().build();
     expect(() => conflict.snapshot()).toThrow(SnapshotIdentityConflict);

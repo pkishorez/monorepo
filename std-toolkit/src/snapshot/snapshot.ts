@@ -83,6 +83,8 @@ function validateTable(input: TableSnapshot): TableSnapshot {
   if (
     input._v !== 'v1' ||
     !['dynamodb', 'sqlite', 'idb'].includes(input.adapter) ||
+    (input.logicalName !== undefined &&
+      typeof input.logicalName !== 'string') ||
     !isRecord(input.primaryIndex) ||
     typeof input.primaryIndex.pk !== 'string' ||
     typeof input.primaryIndex.sk !== 'string' ||

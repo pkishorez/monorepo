@@ -11,7 +11,7 @@ import type { TableEntitySnapshotSource } from '../../../snapshot/index.js';
 import {
   tableSnapshotSource,
   singletonSnapshotSource,
-} from '../../../snapshot/internal/table-snapshot.js';
+} from '../../../snapshot/table-adapter/index.js';
 
 /**
  * Schema for single entity metadata stored with each item.
