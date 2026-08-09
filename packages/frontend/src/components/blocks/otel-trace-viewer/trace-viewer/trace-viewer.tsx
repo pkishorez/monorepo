@@ -1,4 +1,10 @@
-import { ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
+import {
+  ChartNoAxesGantt,
+  ChevronDown,
+  Layers3,
+  Maximize2,
+  Minimize2,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '#components/ui/button';
@@ -8,33 +14,41 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '#components/ui/dropdown-menu';
-import { Switch } from '#components/ui/switch';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
 import { StatusDot } from '../status';
 import { TraceDock, type TraceDockSettings } from '../trace-dock';
 import type { OtelSpan } from '../trace-model';
-import { formatDuration, groupByTrace, type TraceGroup } from '../trace-model';
+import {
+  collectSpans,
+  formatDuration,
+  groupByTrace,
+  isLog,
+  type TraceGroup,
+} from '../trace-model';
+import type { TraceView } from '../trace-view';
 
 const DEFAULT_SIDEBAR_WIDTH = 360;
 
-interface TraceViewerProps {
+export interface TraceViewerProps {
   /** Spans from one or more traces. Grouping into traces is handled here. */
   readonly spans: readonly OtelSpan[];
   /** Controlled sidebar width, so sibling viewers can stay in step. */
   readonly sidebarWidth?: number;
   readonly onSidebarWidthChange?: (width: number) => void;
-  readonly showLogs?: boolean;
-  readonly onShowLogsChange?: (show: boolean) => void;
   readonly emptyMessage?: string;
+  /** Controlled visualization mode. Defaults to waterfall. */
+  readonly view?: TraceView;
+  readonly onViewChange?: (view: TraceView) => void;
+  readonly defaultView?: TraceView;
   /** Sizing for the non-fullscreen container. Defaults to a bounded height. */
   readonly className?: string;
 }
 
 /**
  * A self-contained trace explorer: a tab per trace, a gantt + span detail for
- * the active one, a logs toggle and a fullscreen escape hatch.
+ * the active one and a fullscreen escape hatch.
  *
  * Wraps {@link TraceDock} with the trace-selection and layout state that every
  * embedded consumer would otherwise reinvent.
@@ -43,9 +57,10 @@ export function TraceViewer({
   spans,
   sidebarWidth,
   onSidebarWidthChange,
-  showLogs,
-  onShowLogsChange,
   emptyMessage = 'No spans recorded.',
+  view,
+  onViewChange,
+  defaultView = 'waterfall',
   className,
 }: TraceViewerProps) {
   const traces = useMemo(() => groupByTrace([...spans]), [spans]);
@@ -59,13 +74,13 @@ export function TraceViewer({
   const [internalSidebarWidth, setInternalSidebarWidth] = useState(
     DEFAULT_SIDEBAR_WIDTH,
   );
-  const [internalShowLogs, setInternalShowLogs] = useState(false);
+  const [internalView, setInternalView] = useState<TraceView>(defaultView);
   const activeTabRef = useRef<HTMLButtonElement>(null);
 
   const resolvedSidebarWidth = sidebarWidth ?? internalSidebarWidth;
-  const resolvedShowLogs = showLogs ?? internalShowLogs;
   const changeSidebarWidth = onSidebarWidthChange ?? setInternalSidebarWidth;
-  const changeShowLogs = onShowLogsChange ?? setInternalShowLogs;
+  const resolvedView = view ?? internalView;
+  const changeView = onViewChange ?? setInternalView;
 
   useEffect(() => {
     if (!traces.some(({ traceId }) => traceId === activeTraceId)) {
@@ -92,6 +107,18 @@ export function TraceViewer({
 
   const activeTrace =
     traces.find(({ traceId }) => traceId === activeTraceId) ?? traces[0];
+
+  const activeTraceLogCount = useMemo(
+    () =>
+      activeTrace
+        ? collectSpans(activeTrace.roots).reduce(
+            (count, span) =>
+              count + span.events.filter((event) => isLog(event)).length,
+            0,
+          )
+        : 0,
+    [activeTrace],
+  );
 
   const duplicateNameCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -147,7 +174,33 @@ export function TraceViewer({
       ) : (
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex h-11 shrink-0 items-center gap-2 border-b px-2">
-            {traces.length > 1 && (
+            {traces.length === 1 ? (
+              <div
+                className="flex min-w-0 flex-1 items-center gap-2 px-1"
+                title={activeTrace.traceId}
+              >
+                <StatusDot status={activeTrace.status} />
+                <span className="min-w-0 truncate font-mono text-xs font-medium">
+                  {activeTrace.name}
+                </span>
+                {activeTrace.serviceName && (
+                  <span className="hidden truncate text-xs text-muted-foreground md:inline">
+                    {activeTrace.serviceName}
+                  </span>
+                )}
+                <span className="ml-1 shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                  {activeTrace.spanCount} spans
+                </span>
+                {activeTraceLogCount > 0 && (
+                  <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                    {activeTraceLogCount} logs
+                  </span>
+                )}
+                <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {formatDuration(activeTrace.duration)}
+                </span>
+              </div>
+            ) : (
               <>
                 <div
                   className={cn(
@@ -217,14 +270,36 @@ export function TraceViewer({
                 </DropdownMenu>
               </>
             )}
-            <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-2 px-1 text-xs text-muted-foreground">
-              Show logs
-              <Switch
-                size="sm"
-                checked={resolvedShowLogs}
-                onCheckedChange={changeShowLogs}
-              />
-            </label>
+            <div className="ml-auto flex shrink-0 items-center rounded-md border border-border/70 bg-muted/30 p-0.5">
+              <button
+                aria-pressed={resolvedView === 'waterfall'}
+                className={cn(
+                  'flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted-foreground transition-colors hover:text-foreground',
+                  resolvedView === 'waterfall' &&
+                    'bg-background text-foreground shadow-sm',
+                )}
+                onClick={() => changeView('waterfall')}
+                title="Waterfall view"
+                type="button"
+              >
+                <ChartNoAxesGantt aria-hidden className="size-3.5" />
+                <span className="max-[700px]:sr-only">Waterfall</span>
+              </button>
+              <button
+                aria-pressed={resolvedView === 'parallel'}
+                className={cn(
+                  'flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted-foreground transition-colors hover:text-foreground',
+                  resolvedView === 'parallel' &&
+                    'bg-background text-foreground shadow-sm',
+                )}
+                onClick={() => changeView('parallel')}
+                title="Parallel spans view"
+                type="button"
+              >
+                <Layers3 aria-hidden className="size-3.5" />
+                <span className="max-[700px]:sr-only">Parallel</span>
+              </button>
+            </div>
             <Button
               type="button"
               variant="ghost"
@@ -255,9 +330,9 @@ export function TraceViewer({
                   onSettingsChange={(next) => updateSettings(trace, next)}
                   onClose={() => undefined}
                   showHeader={false}
-                  showLogs={resolvedShowLogs}
                   sidebarAlwaysOpen
                   responsiveSidebar
+                  view={resolvedView}
                 />
               </div>
             ))}

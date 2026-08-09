@@ -13,7 +13,6 @@ import { LogSection } from './log-section';
 interface SpanDetailProps {
   span: OtelSpan;
   traceStart?: number;
-  showLogs?: boolean;
   onClose?: () => void;
 }
 
@@ -28,7 +27,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export function SpanDetail({
   span,
   traceStart = span.startTime,
-  showLogs = true,
   onClose,
 }: SpanDetailProps) {
   const logs = useMemo(() => span.events.filter(isLog), [span.events]);
@@ -82,7 +80,7 @@ export function SpanDetail({
           </dl>
         </div>
 
-        {showLogs && hasLogs && (
+        {hasLogs && (
           <div>
             <SectionLabel>Logs</SectionLabel>
             <LogSection
@@ -100,9 +98,9 @@ export function SpanDetail({
           </div>
         )}
 
-        {!hasAttributes && (!showLogs || !hasLogs) && (
+        {!hasAttributes && !hasLogs && (
           <p className="text-sm text-muted-foreground">
-            {showLogs ? 'No attributes or logs.' : 'No attributes.'}
+            No attributes or logs.
           </p>
         )}
       </div>
