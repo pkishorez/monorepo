@@ -1,36 +1,30 @@
-# DevTools serves an RPC frontend and OTLP/HTTP ingestion from one host
+# DevTools serves Effect RPC and OTLP/HTTP from one host
 
 **Status:** accepted
 
-DevTools is the single backend process for all local dev tooling. We deliberately
-run **two surfaces on one HTTP server**: an Effect **RPC** surface at `/rpc` that
-the `/devtools` route is the sole consumer of (telemetry reads), and
-a plain **OTLP/HTTP** surface at `/v1/*` for telemetry ingestion. We mount
-lotel's ingest group for `/v1/*` and call lotel's orchestration + storage from
-the RPC read handlers; lotel keeps its logic but no longer runs its own process.
+DevTools runs one server with two transport surfaces. Its frontend uses Effect
+RPC at `/rpc`; instrumented applications use OTLP/HTTP JSON at `/v1/traces` and
+`/v1/logs`. DevTools composes lotel's RPC contract with its other Tool contracts
+and mounts lotel's OTLP/HTTP group. lotel supplies contracts and handler layers
+but does not own a server or CLI.
 
-The split exists because OTLP is a fixed wire protocol — external OpenTelemetry
-exporters cannot speak Effect RPC, so ingestion _must_ be HTTP, while the
-frontend benefits from RPC's typed client. A future reader seeing two transports
-on one server would otherwise assume it was an oversight.
+The split is required because OpenTelemetry exporters cannot use Effect RPC,
+while the frontend benefits from a typed RPC contract. OTLP/gRPC, OTLP/HTTP
+protobuf, and metrics are outside the current scope.
 
 ## Considered options
 
-- **Unify everything on HTTP (one HttpApi).** Rejected: gives up the typed RPC
-  client ergonomics the frontend already uses, for no gain on the ingestion side.
-- **Unify everything on RPC.** Impossible for ingestion: external OTLP exporters
-  can't speak it.
-- **Keep lotel as a separate running server.** Rejected: defeats the umbrella —
-  the frontend would need two URLs and two clients.
+- **Use Effect RPC for all traffic.** Rejected because OpenTelemetry exporters
+  require OTLP.
+- **Use plain HTTP for the frontend.** Rejected because it gives up the shared
+  typed RPC contract without simplifying ingestion.
+- **Run lotel as a separate server.** Rejected because DevTools is the single
+  host for its Tools.
 
 ## Consequences
 
-- DevTools provides lotel's `Db` layer to both the RPC read handlers and the
-  mounted ingest group. Because DevTools is published, lotel + std-toolkit are
-  **bundled into the server artifact at build** (devDependencies +
-  `alwaysBundle`) rather than declared as runtime deps; `node:sqlite` keeps the
-  bundle native-dependency-free.
-- lotel's own HTTP **query** endpoints (`/api/*`) become redundant (reads go via
-  RPC); only its `/v1/*` ingest endpoints are mounted.
-- Telemetry read procedures must re-declare RPC success schemas matching lotel's
-  stored record shapes.
+- DevTools owns server configuration, CORS, process lifecycle, storage-path
+  selection, RPC composition, and route mounting.
+- lotel exports `LotelRpc`, its RPC handler layer, its OTLP/HTTP group, its
+  OTLP/HTTP handler layer, and named Telemetry Store adapter layers.
+- DevTools does not redefine telemetry schemas or call lotel storage directly.

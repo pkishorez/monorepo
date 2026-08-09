@@ -1,14 +1,19 @@
-import type {
-  StoredLogRecordValue,
-  StoredTraceRecordValue,
-} from '@pkishorez/lotel/client';
+import { DevtoolsRpc } from '@pkishorez/devtools/rpc';
+import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type { OtelEvent, OtelSpan, OtelStatus } from './types.js';
 
-type KV = NonNullable<StoredTraceRecordValue['record']['attributes']>[number];
+type GetTraceRpc = Extract<
+  RpcGroup.Rpcs<typeof DevtoolsRpc>,
+  { readonly _tag: 'GetTrace' }
+>;
+type TraceDetails = Rpc.Success<GetTraceRpc>;
+type SpanRecord = TraceDetails['spans'][number]['value'];
+type LogRecord = TraceDetails['logs'][number]['value'];
+type KV = NonNullable<SpanRecord['span']['attributes']>[number];
 type AnyVal = NonNullable<KV['value']>;
 type KVList = NonNullable<AnyVal['kvlistValue']>['values'];
-type ScopeType = NonNullable<StoredTraceRecordValue['context']['scope']>;
-type ResourceType = NonNullable<StoredTraceRecordValue['context']['resource']>;
+type ScopeType = NonNullable<SpanRecord['context']['instrumentationScope']>;
+type ResourceType = NonNullable<SpanRecord['context']['resource']>;
 
 function nanosToMs(nano: string | number | undefined): number {
   if (nano === undefined) return 0;
@@ -103,8 +108,8 @@ function inferErrorFromSemantics(
   return baseStatus;
 }
 
-export function transformSpan(stored: StoredTraceRecordValue): OtelSpan {
-  const { record: span, context } = stored;
+export function transformSpan(stored: SpanRecord): OtelSpan {
+  const { span, context } = stored;
 
   const endTimeMs =
     span.endTimeUnixNano != null ? nanosToMs(span.endTimeUnixNano) : null;
@@ -114,7 +119,7 @@ export function transformSpan(stored: StoredTraceRecordValue): OtelSpan {
   const attributes: Record<string, unknown> = {
     ...kvArrayToRecord(span.attributes),
     ...resourceAttrs(context.resource),
-    ...scopeAttrs(context.scope),
+    ...scopeAttrs(context.instrumentationScope),
   };
 
   const events: OtelEvent[] = (span.events ?? []).map((e) => ({
@@ -133,8 +138,8 @@ export function transformSpan(stored: StoredTraceRecordValue): OtelSpan {
   );
 
   return {
-    traceId: span.traceId ?? '',
-    spanId: span.spanId ?? '',
+    traceId: stored.traceId,
+    spanId: stored.spanId,
     parentSpanId: span.parentSpanId ?? null,
     name: span.name ?? '',
     startTime: nanosToMs(span.startTimeUnixNano),
@@ -145,8 +150,8 @@ export function transformSpan(stored: StoredTraceRecordValue): OtelSpan {
   };
 }
 
-export function transformLog(stored: StoredLogRecordValue): OtelEvent {
-  const { record: log, context } = stored;
+export function transformLog(stored: LogRecord): OtelEvent {
+  const { log, context } = stored;
 
   const name =
     log.eventName ??
@@ -156,7 +161,7 @@ export function transformLog(stored: StoredLogRecordValue): OtelEvent {
   const attributes: Record<string, unknown> = {
     ...kvArrayToRecord(log.attributes),
     ...resourceAttrs(context.resource),
-    ...scopeAttrs(context.scope),
+    ...scopeAttrs(context.instrumentationScope),
     ...(log.body !== undefined ? { body: anyValueToUnknown(log.body) } : {}),
     ...(log.severityNumber !== undefined
       ? { severityNumber: log.severityNumber }

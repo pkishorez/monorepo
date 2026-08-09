@@ -1,16 +1,14 @@
 import { Console, Effect, Layer } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 import {
+  Rpc,
   RpcClient,
+  RpcGroup,
   RpcSerialization,
   type RpcClientError,
 } from 'effect/unstable/rpc';
 import { NodeHttpClient } from '@effect/platform-node';
-import {
-  DevtoolsRpc,
-  type DevtoolsRpcError,
-  type TraceNotFound,
-} from '../rpc/index.js';
+import { DevtoolsRpc } from '../rpc/index.js';
 
 const DEFAULT_DEVTOOLS_URL = 'http://localhost:14400';
 
@@ -26,14 +24,19 @@ const url = Flag.string('url').pipe(
 /** Resolves the RPC endpoint below a DevTools base URL. */
 const rpcUrl = (baseUrl: string) => `${baseUrl.replace(/\/+$/, '')}/rpc`;
 
+type GetTraceRpc = Extract<
+  RpcGroup.Rpcs<typeof DevtoolsRpc>,
+  { readonly _tag: 'GetTrace' }
+>;
+
 /** Formats known lookup and transport failures for stderr. */
 const formatError = (
-  error: TraceNotFound | DevtoolsRpcError | RpcClientError.RpcClientError,
+  error: Rpc.Error<GetTraceRpc> | RpcClientError.RpcClientError,
 ) => {
   switch (error._tag) {
     case 'TraceNotFound':
       return `Trace not found: ${error.traceId}`;
-    case 'DevtoolsRpcError':
+    case 'LotelRpcError':
       return error.message;
     case 'RpcClientError':
       return error.reason._tag === 'HttpError'
@@ -74,4 +77,4 @@ export const getTraceCommand = Command.make(
         ),
       ),
     ),
-).pipe(Command.withDescription('Return all stored spans for a trace'));
+).pipe(Command.withDescription('Return the spans and logs for a trace'));

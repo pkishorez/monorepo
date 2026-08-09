@@ -1,189 +1,181 @@
-import { DatabaseSync } from 'node:sqlite';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Effect } from 'effect';
-import { makeDbLayer } from '../storage/index.js';
-import {
-  clearTelemetry,
-  ingestLogs,
-  ingestMetrics,
-  ingestTraces,
-  queryLogs,
-  queryMetrics,
-  queryTraces,
-} from '../orchestration/index.js';
-import type {
-  ExportLogsServiceRequest,
-  ExportMetricsServiceRequest,
-  ExportTraceServiceRequest,
-} from '../domain/index.js';
+import { RpcTest } from 'effect/unstable/rpc';
+import { describe, expect, it } from 'vitest';
+import { LotelRpc, LotelRpcLive, sqliteTelemetryStoreLayer } from '../index.js';
 
-const runWithDb = <A, E, R>(
-  db: DatabaseSync,
-  effect: Effect.Effect<A, E, R>,
-) => {
-  const provided = effect.pipe(
-    Effect.provide(
-      makeDbLayer({
-        database: db,
-        closeDatabase: false,
-        tableName: 'lotel_test_data',
-      }),
-    ),
+const run = <A, E>(effect: Effect.Effect<A, E, never>) =>
+  Effect.runPromise(effect);
+
+const withClient = <A, E, R>(
+  use: (
+    client: Effect.Success<
+      ReturnType<typeof RpcTest.makeClient<typeof LotelRpc>>
+    >,
+  ) => Effect.Effect<A, E, R>,
+) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const client = yield* RpcTest.makeClient(LotelRpc);
+      return yield* use(client);
+    }),
+  ).pipe(
+    Effect.provide(LotelRpcLive),
+    Effect.provide(sqliteTelemetryStoreLayer({ path: ':memory:' })),
   );
-  return Effect.runPromise(provided as Effect.Effect<A, E, never>);
-};
 
-describe('lotel telemetry storage', () => {
-  let db: DatabaseSync;
-
-  beforeEach(() => {
-    db = new DatabaseSync(':memory:');
-  });
-
-  afterEach(() => {
-    db?.close();
-  });
-
-  it('stores OTLP trace spans with typed context and pages by ULID id', async () => {
-    const request: ExportTraceServiceRequest = {
-      resourceSpans: [
-        {
-          resource: {
-            attributes: [
-              { key: 'service.name', value: { stringValue: 'test-service' } },
+describe('lotel', () => {
+  it('lists an updated span after the previous update cursor', async () => {
+    const result = await run(
+      withClient((client) =>
+        Effect.gen(function* () {
+          const first = yield* client.SaveSpans({
+            records: [
+              {
+                traceId: 'trace-1',
+                spanId: 'span-1',
+                span: { name: 'first', startTimeUnixNano: '100' },
+                context: {},
+              },
             ],
-          },
-          scopeSpans: [
-            {
-              scope: { name: 'test-scope', version: '1.0.0' },
-              spans: [
-                { traceId: 'trace-1', spanId: 'span-1', name: 'first' },
-                { traceId: 'trace-1', spanId: 'span-2', name: 'second' },
-              ],
-            },
-          ],
-        },
-      ],
-    };
+          });
+          const initial = yield* client.ListSpans({
+            _u: { '>': null },
+            limit: 10,
+          });
+          const cursor = initial.items[0]!.meta._u;
 
-    const accepted = await runWithDb(db, ingestTraces(request));
-    expect(accepted).toBe(2);
+          const second = yield* client.SaveSpans({
+            records: [
+              {
+                traceId: 'trace-1',
+                spanId: 'span-1',
+                span: { name: 'updated', startTimeUnixNano: '100' },
+                context: {},
+              },
+            ],
+          });
+          const updated = yield* client.ListSpans({
+            _u: { '>': cursor },
+            limit: 10,
+          });
 
-    const firstPage = await runWithDb(db, queryTraces());
-    expect(firstPage.items).toHaveLength(2);
-    expect(firstPage.items[0]!.value.record.spanId).toBe('span-1');
-    expect(
-      firstPage.items[0]!.value.context.resource?.attributes?.[0]?.key,
-    ).toBe('service.name');
-    expect(firstPage.items[0]!.value.context.scope?.name).toBe('test-scope');
+          return { first, second, initial, updated };
+        }),
+      ),
+    );
 
-    const cursor = firstPage.items[0]!.value.id;
-    const secondPage = await runWithDb(db, queryTraces({ '>': cursor }));
-    expect(secondPage.items.map((item) => item.value.record.spanId)).toEqual([
-      'span-2',
-    ]);
+    expect(result.first).toEqual({ accepted: 1, rejected: 0 });
+    expect(result.second).toEqual({ accepted: 1, rejected: 0 });
+    expect(result.initial.items).toHaveLength(1);
+    expect(result.updated.items).toHaveLength(1);
+    expect(result.updated.items[0]!.value.span.name).toBe('updated');
   });
 
-  it('stores OTLP log records with typed context', async () => {
-    const request: ExportLogsServiceRequest = {
-      resourceLogs: [
-        {
-          resource: {
-            attributes: [
-              { key: 'service.name', value: { stringValue: 'logger' } },
-            ],
-          },
-          scopeLogs: [
-            {
-              scope: { name: 'log-scope' },
-              logRecords: [
-                {
-                  traceId: 'trace-1',
-                  spanId: 'span-1',
-                  severityText: 'INFO',
-                  body: { stringValue: 'hello' },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-
-    const accepted = await runWithDb(db, ingestLogs(request));
-    expect(accepted).toBe(1);
-
-    const result = await runWithDb(db, queryLogs());
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]!.value.record.body?.stringValue).toBe('hello');
-    expect(result.items[0]!.value.context.scope?.name).toBe('log-scope');
-  });
-
-  it('stores one OTLP metric per entity', async () => {
-    const request: ExportMetricsServiceRequest = {
-      resourceMetrics: [
-        {
-          resource: {
-            attributes: [
-              { key: 'service.name', value: { stringValue: 'metrics' } },
-            ],
-          },
-          scopeMetrics: [
-            {
-              scope: { name: 'metric-scope' },
-              metrics: [
-                {
-                  name: 'requests',
-                  sum: {
-                    isMonotonic: true,
-                    dataPoints: [{ asInt: '1' }],
+  it('assigns log ids and includes correlated logs in trace details', async () => {
+    const trace = await run(
+      withClient((client) =>
+        Effect.gen(function* () {
+          yield* client.SaveSpans({
+            records: [
+              {
+                traceId: 'trace-1',
+                spanId: 'span-1',
+                span: { name: 'span', startTimeUnixNano: '100' },
+                context: {
+                  resource: {
+                    attributes: [
+                      {
+                        key: 'service.name',
+                        value: { stringValue: 'service' },
+                      },
+                    ],
                   },
                 },
-              ],
-            },
-          ],
-        },
-      ],
-    };
+              },
+            ],
+          });
+          yield* client.InsertLogs({
+            records: [
+              {
+                traceId: 'trace-1',
+                spanId: null,
+                log: {
+                  timeUnixNano: '110',
+                  body: { stringValue: 'hello' },
+                },
+                context: {},
+              },
+            ],
+          });
+          return yield* client.GetTrace({ traceId: 'trace-1' });
+        }),
+      ),
+    );
 
-    const accepted = await runWithDb(db, ingestMetrics(request));
-    expect(accepted).toBe(1);
-
-    const result = await runWithDb(db, queryMetrics());
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]!.value.record.name).toBe('requests');
-    expect(result.items[0]!.value.record.sum?.dataPoints?.[0]?.asInt).toBe('1');
+    expect(trace.spans).toHaveLength(1);
+    expect(trace.logs).toHaveLength(1);
+    expect(trace.logs[0]!.value.id).toHaveLength(26);
+    expect(trace.logs[0]!.value.log.body).toEqual({ stringValue: 'hello' });
   });
 
-  it('clears all telemetry rows', async () => {
-    await runWithDb(
-      db,
-      ingestTraces({
-        resourceSpans: [{ scopeSpans: [{ spans: [{ name: 'span' }] }] }],
-      }),
-    );
-    await runWithDb(
-      db,
-      ingestLogs({
-        resourceLogs: [
-          { scopeLogs: [{ logRecords: [{ body: { stringValue: 'log' } }] }] },
-        ],
-      }),
-    );
-    await runWithDb(
-      db,
-      ingestMetrics({
-        resourceMetrics: [
-          { scopeMetrics: [{ metrics: [{ name: 'metric' }] }] },
-        ],
-      }),
+  it('does not create a trace from logs alone', async () => {
+    const error = await Effect.runPromise(
+      Effect.flip(
+        withClient((client) =>
+          Effect.gen(function* () {
+            yield* client.InsertLogs({
+              records: [
+                {
+                  traceId: 'trace-1',
+                  spanId: null,
+                  log: { body: { stringValue: 'orphan' } },
+                  context: {},
+                },
+              ],
+            });
+            return yield* client.GetTrace({ traceId: 'trace-1' });
+          }),
+        ),
+      ),
     );
 
-    const deleted = await runWithDb(db, clearTelemetry);
-    expect(deleted).toBe(3);
+    expect(error).toMatchObject({ _tag: 'TraceNotFound', traceId: 'trace-1' });
+  });
 
-    await expect(runWithDb(db, queryTraces())).resolves.toEqual({ items: [] });
-    await expect(runWithDb(db, queryLogs())).resolves.toEqual({ items: [] });
-    await expect(runWithDb(db, queryMetrics())).resolves.toEqual({ items: [] });
+  it('clears spans and logs together', async () => {
+    const result = await run(
+      withClient((client) =>
+        Effect.gen(function* () {
+          yield* client.SaveSpans({
+            records: [
+              {
+                traceId: 'trace-1',
+                spanId: 'span-1',
+                span: {},
+                context: {},
+              },
+            ],
+          });
+          yield* client.InsertLogs({
+            records: [
+              {
+                traceId: null,
+                spanId: null,
+                log: {},
+                context: {},
+              },
+            ],
+          });
+          const cleared = yield* client.ClearTelemetry({});
+          const spans = yield* client.ListSpans({ _u: { '>': null } });
+          const logs = yield* client.ListLogs({ _u: { '>': null } });
+          return { cleared, spans, logs };
+        }),
+      ),
+    );
+
+    expect(result.cleared).toEqual({ deleted: 2 });
+    expect(result.spans.items).toEqual([]);
+    expect(result.logs.items).toEqual([]);
   });
 });
