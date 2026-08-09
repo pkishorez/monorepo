@@ -16,7 +16,8 @@ import {
   NodeRuntime,
   NodeServices,
 } from '@effect/platform-node';
-import { LotelApiLive, makeDbLayer } from '@pkishorez/lotel';
+import { LotelOtlpHttpLive, LotelRpcLive } from '@pkishorez/lotel';
+import { sqliteTelemetryStoreLayer } from '@pkishorez/lotel/sqlite';
 import { getTraceCommand } from '../cli/get-trace.js';
 import { DevtoolsRpc } from '../rpc/index.js';
 import { DevtoolsHandlersLive } from './handlers.js';
@@ -52,7 +53,7 @@ const RpcRouteLive = RpcServer.layerHttp({
   path: '/rpc',
   protocol: 'http',
 }).pipe(
-  Layer.provide(DevtoolsHandlersLive),
+  Layer.provide(Layer.merge(DevtoolsHandlersLive, LotelRpcLive)),
   Layer.provide(RpcSerialization.layerNdjson),
 );
 
@@ -78,7 +79,6 @@ const makeIndexRouteLive = ({
         '/': 'This description.',
         '/rpc': 'Typed RPC endpoint consumed by the devtools frontend.',
         '/v1/traces': 'OTLP/HTTP ingest for traces.',
-        '/v1/metrics': 'OTLP/HTTP ingest for metrics.',
         '/v1/logs': 'OTLP/HTTP ingest for logs.',
       },
       serverUrl,
@@ -87,9 +87,9 @@ const makeIndexRouteLive = ({
 
 /**
  * One process, two surfaces (see ADR 0001): `/rpc` for the frontend and lotel's
- * OTLP/HTTP ingest endpoints (`/v1/*`) for external apps. Both share one `Db`.
+ * OTLP/HTTP ingest endpoints for external apps.
  */
-const RoutesLive = Layer.mergeAll(RpcRouteLive, LotelApiLive);
+const RoutesLive = Layer.mergeAll(RpcRouteLive, LotelOtlpHttpLive);
 
 /**
  * Cross-origin headers applied to every response. The hosted frontend is served
@@ -157,7 +157,7 @@ const makeServerLive = ({
       CorsMiddlewareLive,
     ),
   ).pipe(
-    Layer.provide(makeDbLayer({ dbPath: db })),
+    Layer.provide(sqliteTelemetryStoreLayer({ path: db })),
     Layer.provide(NodeHttpServer.layer(createServer, { host: HOST, port })),
     Layer.provide(NodeServices.layer),
   );

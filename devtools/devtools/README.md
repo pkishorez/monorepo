@@ -20,11 +20,12 @@ devtools
 
 The server listens on `http://127.0.0.1:14400`. Its NDJSON RPC endpoint is
 available at `/rpc`, and its OTLP/HTTP ingestion endpoints are available at
-`/v1/traces`, `/v1/logs`, and `/v1/metrics`.
+`/v1/traces` and `/v1/logs`.
 
 ## Get a trace
 
-Return every stored span for a trace from the server on the default port:
+Return every stored span and correlated log for a trace from the server on the
+default port:
 
 ```bash
 devtools get-trace <trace-id>
@@ -36,8 +37,8 @@ Target a DevTools server at another URL with `--url`:
 devtools get-trace <trace-id> --url http://localhost:14401
 ```
 
-The command prints pretty JSON to stdout. Its `spans` array contains stored
-span values without entity metadata, ordered by start time. A missing trace or
+The command prints pretty JSON to stdout. Its `spans` and `logs` arrays contain
+stored entities ordered by their OpenTelemetry times. A missing trace or
 connection failure is written to stderr and exits with a nonzero status.
 
 ## Analyze a Laymos project
@@ -60,9 +61,10 @@ Unknown Modules and source read failures are separate tagged RPC errors.
 
 ## Configuration
 
-| Variable        | Default | Description        |
-| --------------- | ------- | ------------------ |
-| `DEVTOOLS_PORT` | `14400` | Port to listen on. |
+| Variable        | Default                        | Description                 |
+| --------------- | ------------------------------ | --------------------------- |
+| `DEVTOOLS_PORT` | `14400`                        | Port to listen on.          |
+| `DEVTOOLS_DB`   | OS-specific DevTools data path | Telemetry SQLite file path. |
 
 ## Library exports
 

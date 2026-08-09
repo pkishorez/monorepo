@@ -1,95 +1,40 @@
 # DevTools — Context
 
-Glossary for the DevTools umbrella. Definitions only — no implementation
-details, no specs. When a term here conflicts with how the code or the team
-talks, fix it here.
+DevTools is the unified local developer experience for the tools in this
+repository. It gives developers one place to access independent tools without
+merging their domains.
 
-## Terms
+## Language
 
-### DevTools (umbrella)
+**DevTools**:
+The umbrella through which developers access all local development tools.
+_Avoid_: Tool suite, admin panel.
 
-The single backend process and the single frontend route that host all local
-development tooling for this repo. Backend: one HTTP server that aggregates the
-endpoints of every tool. Frontend: the `/devtools` route, the one place a
-developer opens to use any tool. A consumer only ever needs the **DevTools
-URL**.
+**Tool**:
+A self-contained developer capability presented through DevTools. Telemetry and
+Architecture are Tools.
 
-### Tool
+**Tool Scope**:
+Whether a Tool works with repository-wide information or information from one
+Project.
+_Avoid_: Project scope when the Tool is repository-wide.
 
-A self-contained capability surfaced under DevTools. Today: **Telemetry**
-(powered by lotel) and **Architecture** (powered by Laymos). Each tool keeps
-its core logic in its own package; DevTools mounts that logic and exposes it.
-The frontend is **tool-first**: a
-developer picks a Tool first, and each Tool owns its own inner navigation and
-data-fetching idiom.
+**Project**:
+A source folder selected for analysis by a Project-scoped Tool.
+_Avoid_: Workspace when referring to one selected source folder.
 
-### Scope (of a Tool)
+**Laymos**:
+The domain behind the Architecture Tool. It describes and analyzes the
+architecture of a Project.
 
-Whether a Tool's data is **global** or **per-project**. **Telemetry** is global
-— one store, no project to pick. **Architecture** is per-project — every
-analysis request names its Project folder. Scope is a property of the Tool;
-the route does not assume everything is project-keyed.
+**lotel**:
+The domain behind the Telemetry Tool. It receives and provides access to local
+OpenTelemetry data. See the [lotel context](../lotel/CONTEXT.md).
 
-### Laymos
+**DevTools URL**:
+The single address through which a developer or instrumented application
+accesses DevTools.
 
-The Architecture Tool's core logic package. It owns the Config and
-Architecture Analysis contracts and calculates analysis from a Project's
-source files. DevTools owns path expansion, RPC errors, and transport.
-
-### DevTools URL
-
-The single base URL the frontend talks to. Backs every tool's UI. External apps
-also send their OpenTelemetry data here (see Ingestion).
-
-### lotel
-
-The Telemetry tool's **core logic** package: the HTTP API _contract_
-(`LotelGroup`), request handlers, ingestion/query orchestration, and sqlite
-storage. lotel no longer runs a standalone server or CLI — DevTools is the
-process that serves it. Remains a separate, independently-testable package.
-
-### Ingestion
-
-External apps push OpenTelemetry traces/logs/metrics into DevTools using
-standard OTLP/HTTP exporters (`POST /v1/{traces,logs,metrics}`). Because OTLP is
-a fixed wire protocol, ingestion is **HTTP**, not RPC — it is the one surface
-RPC cannot absorb.
-
-### Two surfaces (of the DevTools server)
-
-One process, two HTTP surfaces:
-
-- **`/rpc`** — the frontend surface (Effect RPC). The `/devtools` route consumes
-  only this. Carries telemetry reads, per-project Architecture Analysis, and
-  Module source snapshots.
-- **`/v1/*`** — OTLP ingestion (HTTP), for external apps. lotel's existing
-  ingest group, mounted as-is.
-
-## Decisions
-
-- DevTools is an **umbrella backend host**, not a re-export facade. It owns the
-  one listening process; tool packages provide mountable logic, not servers.
-- The **frontend transport stays RPC**. The existing `./rpc` (`DevtoolsRpc`)
-  export includes telemetry reads, `AnalyzeLaymosProject`, and
-  `GetLaymosModuleSource`; the route never imports tool implementation packages.
-  Ingestion stays HTTP/OTLP on the same server.
-- `AnalyzeLaymosProject` accepts an absolute or `~/` Project folder on every
-  request and returns Laymos `ArchitectureAnalysis` directly. It does not echo
-  the Project or Config path and does not cache results.
-- `GetLaymosModuleSource` accepts the Project folder and canonical Configured
-  Module path, performs a fresh analysis, and returns that Module's source
-  snapshot without caching it.
-- Laymos is a normal DevTools runtime dependency. Effect Schema is the wire
-  contract, including canonical Map and Set serialization.
-- lotel is cut **shallow**: DevTools mounts lotel's ingest group for `/v1/*` and
-  calls lotel's orchestration + storage for the RPC read procedures. lotel keeps
-  its api group + handlers + orchestration + storage, only shedding its
-  standalone process.
-- DevTools is **published** and must not carry lotel/std-toolkit as runtime
-  deps. They are **bundled at build** (`vp pack` `alwaysBundle`, kept in
-  devDependencies), so the published artifact is
-  self-contained. Storage uses Node's built-in `node:sqlite`, so there is no
-  native dependency to ship.
-- Frontend is **tool-first**, shares **one devtools RPC client + one
-  ManagedRuntime + one DevTools URL**, but each Tool keeps its own fetch idiom
-  (Telemetry → TanStack DB collections over RPC).
+**Ingestion**:
+The receipt of Span Records and Log Records from an instrumented application.
+Metrics are outside the Telemetry Tool's scope.
