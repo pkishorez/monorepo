@@ -6,7 +6,11 @@ import { AnimatePresence, motion } from '#lib/motion';
 import { cn } from '#lib/utils';
 
 import type { OtelEvent, OtelSpan, SpanNode } from '../trace-model';
-import { collectSpans, type TraceGroup } from '../trace-model';
+import {
+  collectSpans,
+  spanTimelineBounds,
+  type TraceGroup,
+} from '../trace-model';
 import { useElementWidth } from '../use-element-width';
 import { GanttHeader } from './gantt-header';
 import { GanttRow } from './gantt-row';
@@ -140,14 +144,7 @@ export function Gantt({
 
   const { traceStart, traceEnd } = useMemo(() => {
     const allSpans = collectSpans(trace.roots);
-    const starts = allSpans.map((s) => s.startTime);
-    const ends = allSpans
-      .map((s) => s.endTime)
-      .filter((e): e is number => e !== null);
-    const minStart = starts.length > 0 ? Math.min(...starts) : trace.startTime;
-    const maxEnd =
-      ends.length > 0 ? Math.max(...ends) : (trace.endTime ?? minStart + 1);
-    return { traceStart: minStart, traceEnd: maxEnd };
+    return spanTimelineBounds(allSpans, trace.startTime);
   }, [trace]);
 
   const rows = useMemo(

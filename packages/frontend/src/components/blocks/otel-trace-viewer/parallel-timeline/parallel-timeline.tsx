@@ -23,6 +23,7 @@ import {
   formatSpanName,
   isLog,
   spanDuration,
+  spanTimelineBounds,
 } from '../trace-model';
 import { buildParallelTracks } from './layout';
 import { OverlapPicker } from './overlap-picker';
@@ -76,14 +77,7 @@ export function ParallelTimeline({
   );
   const { traceStart, traceEnd } = useMemo(() => {
     const spans = collectSpans(trace.roots);
-    const starts = spans.map((span) => span.startTime);
-    const ends = spans
-      .map((span) => span.endTime)
-      .filter((end): end is number => end !== null);
-    const start = starts.length > 0 ? Math.min(...starts) : trace.startTime;
-    const end =
-      ends.length > 0 ? Math.max(...ends) : (trace.endTime ?? start + 1);
-    return { traceStart: start, traceEnd: end };
+    return spanTimelineBounds(spans, trace.startTime);
   }, [trace]);
   const tracks = useMemo(
     () => buildParallelTracks(trace.roots, traceStart, traceEnd),

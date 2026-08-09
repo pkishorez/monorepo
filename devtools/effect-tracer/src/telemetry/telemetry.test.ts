@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { Effect, Metric } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
+import { makeDevTelemetryLayer } from './dev-telemetry/index.js';
 import { makeTelemetryLayer } from './index.js';
 
 const servers = new Set<ReturnType<typeof createServer>>();
@@ -114,5 +115,159 @@ describe('makeTelemetryLayer', () => {
     expect(requests).toContain('/v1/traces');
     expect(requests).toContain('/v1/logs');
     expect(requests).not.toContain('/v1/metrics');
+  });
+});
+
+describe('makeDevTelemetryLayer', () => {
+  it('exports span start, log, and span end as ordered individual requests', async () => {
+    const requests: Array<{ path: string; payload: any }> = [];
+    let confirmStarted!: () => void;
+    const startedExported = new Promise<void>((resolve) => {
+      confirmStarted = resolve;
+    });
+    const server = createServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on('data', (chunk: Buffer) => chunks.push(chunk));
+      request.on('end', () => {
+        const received = {
+          path: request.url ?? '',
+          payload: JSON.parse(Buffer.concat(chunks).toString('utf8')),
+        };
+        requests.push(received);
+        if (
+          received.path === '/v1/traces' &&
+          received.payload.resourceSpans[0].scopeSpans[0].spans[0]
+            .endTimeUnixNano === undefined
+        ) {
+          confirmStarted();
+        }
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end('{"partialSuccess":{}}');
+      });
+    });
+    servers.add(server);
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', () => resolve()),
+    );
+    const { port } = server.address() as AddressInfo;
+
+    await Effect.runPromise(
+      Effect.promise(() => startedExported).pipe(
+        Effect.andThen(Effect.logInfo('development telemetry')),
+        Effect.withSpan('test.dev-telemetry', {
+          attributes: { testId: 'dev-telemetry' },
+        }),
+        Effect.provide(
+          makeDevTelemetryLayer({
+            endpoint: `http://127.0.0.1:${port}`,
+            serviceName: 'dev-telemetry-test',
+          }),
+        ),
+      ),
+    );
+
+    expect(requests.map(({ path }) => path)).toEqual([
+      '/v1/traces',
+      '/v1/logs',
+      '/v1/traces',
+    ]);
+
+    const started =
+      requests[0]?.payload.resourceSpans[0].scopeSpans[0].spans[0];
+    const ended = requests[2]?.payload.resourceSpans[0].scopeSpans[0].spans[0];
+    const log = requests[1]?.payload.resourceLogs[0].scopeLogs[0].logRecords[0];
+
+    expect(started.endTimeUnixNano).toBeUndefined();
+    expect(started.status).toEqual({ code: 0 });
+    expect(started.attributes).toEqual([]);
+    expect(ended.traceId).toBe(started.traceId);
+    expect(ended.spanId).toBe(started.spanId);
+    expect(ended.endTimeUnixNano).toBeDefined();
+    expect(JSON.stringify(ended.attributes)).toContain('dev-telemetry');
+    expect(log.traceId).toBe(started.traceId);
+    expect(log.spanId).toBe(started.spanId);
+  });
+
+  it('skips a provisional span that completes while still queued', async () => {
+    const requests: unknown[] = [];
+    const server = createServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on('data', (chunk: Buffer) => chunks.push(chunk));
+      request.on('end', () => {
+        requests.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end('{"partialSuccess":{}}');
+      });
+    });
+    servers.add(server);
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', () => resolve()),
+    );
+    const { port } = server.address() as AddressInfo;
+
+    await Effect.runPromise(
+      Effect.void.pipe(
+        Effect.withSpan('test.dev-coalesced'),
+        Effect.provide(
+          makeDevTelemetryLayer({
+            endpoint: `http://127.0.0.1:${port}`,
+            logs: false,
+          }),
+        ),
+      ),
+    );
+
+    expect(requests).toHaveLength(1);
+    expect(JSON.stringify(requests[0])).toContain('endTimeUnixNano');
+  });
+
+  it('supports retries without failing the application', async () => {
+    let requests = 0;
+    const server = createServer((request, response) => {
+      requests += 1;
+      request.resume();
+      response.writeHead(requests === 1 ? 503 : 200, {
+        'content-type': 'application/json',
+      });
+      response.end('{"partialSuccess":{}}');
+    });
+    servers.add(server);
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', () => resolve()),
+    );
+    const { port } = server.address() as AddressInfo;
+
+    await Effect.runPromise(
+      Effect.void.pipe(
+        Effect.withSpan('test.dev-retry'),
+        Effect.provide(
+          makeDevTelemetryLayer({
+            endpoint: `http://127.0.0.1:${port}`,
+            logs: false,
+            retries: 1,
+          }),
+        ),
+      ),
+    );
+
+    expect(requests).toBe(2);
+  });
+
+  it('drops unavailable collector requests after the configured timeout', async () => {
+    await expect(
+      Effect.runPromise(
+        Effect.void.pipe(
+          Effect.withSpan('test.dev-unavailable'),
+          Effect.provide(
+            makeDevTelemetryLayer({
+              endpoint: 'http://127.0.0.1:1',
+              logs: false,
+              requestTimeout: '20 millis',
+              shutdownTimeout: '100 millis',
+            }),
+          ),
+        ),
+      ),
+    ).resolves.toBeUndefined();
   });
 });
