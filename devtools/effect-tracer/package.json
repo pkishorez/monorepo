@@ -17,6 +17,10 @@
     "./telemetry": {
       "types": "./dist/telemetry/index.d.ts",
       "default": "./dist/telemetry/index.js"
+    },
+    "./telemetry/dev-telemetry": {
+      "types": "./dist/telemetry/dev-telemetry/index.d.ts",
+      "default": "./dist/telemetry/dev-telemetry/index.js"
     }
   },
   "files": [
@@ -28,7 +32,8 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "fmt": "vp fmt",
-    "lint": "vp check src package.json tsconfig.json && pnpm lint:tsc",
+    "lint": "vp check src package.json tsconfig.json laymos.config.json && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
     "lint:tsc": "tsc --noEmit",
     "test": "vp test src",
     "test:watch": "vp test src --watch"
@@ -51,6 +56,7 @@
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "effect": "catalog:",
+    "laymos": "workspace:*",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

@@ -13,6 +13,11 @@ through its trace ID, has a span ID, and can identify a parent Span.
 A Span together with the Resource and Instrumentation Scope that produced it.
 The pair of trace ID and span ID is its identity.
 
+**Provisional Span Record**:
+A Span Record published when its Span starts, before an end time is known. It
+is replaced by the completed Span Record with the same identity when the Span
+ends.
+
 **Trace**:
 The aggregate of all known Spans that share a trace ID. A Trace grows as more
 Spans become known; it is not an independently recorded telemetry fact.

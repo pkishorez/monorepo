@@ -1,0 +1,16 @@
+{
+  "$schema": "../laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [],
+  "layers": {
+    "tracing": {
+      "paths": ["src"],
+      "description": "Effect tracing, recording, and telemetry export"
+    }
+  },
+  "modules": {
+    "src/recorder": {},
+    "src/telemetry": { "nested": ["dev-telemetry"] }
+  },
+  "layerGraphs": {}
+}
