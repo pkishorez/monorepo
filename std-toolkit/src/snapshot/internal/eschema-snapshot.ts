@@ -44,87 +44,6 @@ const presentationKeys = new Set([
   'format',
 ]);
 
-const builtInDeclarationTags = new Set([
-  'Date',
-  'Error',
-  'File',
-  'FormData',
-  'ReadonlyMap',
-  'ReadonlySet',
-  'RegExp',
-  'Uint8Array',
-  'URL',
-  'URLSearchParams',
-  'effect/BigDecimal',
-  'effect/Cause',
-  'effect/Cause/Failure',
-  'effect/Chunk',
-  'effect/DateTime.TimeZone',
-  'effect/DateTime.TimeZone.Named',
-  'effect/DateTime.TimeZone.Offset',
-  'effect/DateTime.Utc',
-  'effect/DateTime.Zoned',
-  'effect/Duration',
-  'effect/Exit',
-  'effect/HashMap',
-  'effect/HashSet',
-  'effect/Json',
-  'effect/MutableJson',
-  'effect/Option',
-  'effect/Redacted',
-  'effect/Result',
-]);
-
-const builtInCheckTags = new Set([
-  'isBase64',
-  'isBase64Url',
-  'isBetween',
-  'isBetweenBigInt',
-  'isBetweenDate',
-  'isCapitalized',
-  'isDateValid',
-  'isEndsWith',
-  'isFinite',
-  'isGUID',
-  'isGreaterThan',
-  'isGreaterThanBigInt',
-  'isGreaterThanDate',
-  'isGreaterThanOrEqualTo',
-  'isGreaterThanOrEqualToBigInt',
-  'isGreaterThanOrEqualToDate',
-  'isIncludes',
-  'isInt',
-  'isLengthBetween',
-  'isLessThan',
-  'isLessThanBigInt',
-  'isLessThanDate',
-  'isLessThanOrEqualTo',
-  'isLessThanOrEqualToBigInt',
-  'isLessThanOrEqualToDate',
-  'isLowercased',
-  'isMaxLength',
-  'isMaxProperties',
-  'isMaxSize',
-  'isMinLength',
-  'isMinProperties',
-  'isMinSize',
-  'isMultipleOf',
-  'isPattern',
-  'isPropertiesLengthBetween',
-  'isPropertyNames',
-  'isSizeBetween',
-  'isStartsWith',
-  'isStringBigInt',
-  'isStringFinite',
-  'isStringSymbol',
-  'isTrimmed',
-  'isULID',
-  'isUUID',
-  'isUncapitalized',
-  'isUnique',
-  'isUppercased',
-]);
-
 const allowedTransformations = new Map<object, string>([
   [SchemaTransformation.numberFromString, 'numberFromString'],
   [SchemaTransformation.bigintFromString, 'bigintFromString'],
@@ -160,6 +79,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function representationId(value: unknown): string | undefined {
+  if (!isRecord(value) || !isRecord(value.representation)) return undefined;
+  return typeof value.representation.id === 'string'
+    ? value.representation.id
+    : undefined;
+}
+
+function isBuiltInRepresentation(value: unknown): boolean {
+  return representationId(value)?.startsWith('effect/schema/') === true;
+}
+
+function persistedPrimitive(value: unknown): unknown {
+  return isRecord(value) && 'type' in value && 'value' in value
+    ? value.value
+    : value;
+}
+
 function canonicalize(
   value: unknown,
   references: ReadonlyMap<string, string>,
@@ -167,12 +103,15 @@ function canonicalize(
   if (Array.isArray(value)) {
     const values = value.map((item) => canonicalize(item, references));
     if (
-      values.every((item) => isRecord(item) && typeof item.name === 'string')
+      values.every(
+        (item) =>
+          isRecord(item) && typeof persistedPrimitive(item.name) === 'string',
+      )
     ) {
       return values.toSorted((a, b) =>
         compareStrings(
-          String((a as Record<string, unknown>).name),
-          String((b as Record<string, unknown>).name),
+          String(persistedPrimitive((a as Record<string, unknown>).name)),
+          String(persistedPrimitive((b as Record<string, unknown>).name)),
         ),
       );
     }
@@ -213,6 +152,15 @@ function canonicalize(
 function sanitizeRepresentation(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sanitizeRepresentation);
   if (!isRecord(value)) return value;
+  if (value._tag === 'Declaration' && representationId(value) === undefined) {
+    const reference = isRecord(value.annotations)
+      ? value.annotations.snapshotESchemaReference
+      : undefined;
+    if (typeof reference === 'string') {
+      return { _tag: 'Reference', $ref: reference };
+    }
+    return { _tag: 'Unknown', checks: [] };
+  }
   const output: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value)) {
     if (key === 'checks' && Array.isArray(child)) {
@@ -220,17 +168,9 @@ function sanitizeRepresentation(value: unknown): unknown {
         .filter((check) => {
           if (!isRecord(check)) return false;
           if (check._tag === 'FilterGroup' && Array.isArray(check.checks)) {
-            return check.checks.every(
-              (nested) =>
-                isRecord(nested) &&
-                isRecord(nested.meta) &&
-                builtInCheckTags.has(String(nested.meta._tag)),
-            );
+            return check.checks.every(isBuiltInRepresentation);
           }
-          return (
-            isRecord(check.meta) &&
-            builtInCheckTags.has(String(check.meta._tag))
-          );
+          return isBuiltInRepresentation(check);
         })
         .map(sanitizeRepresentation);
     } else {
@@ -245,11 +185,9 @@ function representation(
   references: ReadonlyMap<string, string>,
 ): unknown {
   const document = sanitizeRepresentation(
-    SchemaRepresentation.fromAST(schema.ast),
+    SchemaRepresentation.toRepresentation(schema.ast),
   ) as SchemaRepresentation.Document;
-  const json = Schema.encodeSync(SchemaRepresentation.DocumentFromJson)(
-    document,
-  );
+  const json = SchemaRepresentation.toJson(document);
   return canonicalize(json, references);
 }
 
@@ -372,13 +310,11 @@ function inspectAst(ast: SchemaAST.AST): {
       });
     }
     if (node._tag === 'Declaration') {
-      const constructor = node.annotations?.typeConstructor;
-      let serializable =
-        isRecord(constructor) &&
-        builtInDeclarationTags.has(String(constructor._tag));
+      const persistenceIdentity = node.annotations?.representation;
+      let serializable = isBuiltInRepresentation(node.annotations);
       try {
         serializable =
-          serializable && JSON.stringify(constructor) !== undefined;
+          serializable && JSON.stringify(persistenceIdentity) !== undefined;
       } catch {
         serializable = false;
       }
@@ -392,8 +328,7 @@ function inspectAst(ast: SchemaAST.AST): {
       }
     }
     for (const check of node.checks ?? []) {
-      const meta = (check.annotations as { meta?: unknown } | undefined)?.meta;
-      if (!isRecord(meta) || !builtInCheckTags.has(String(meta._tag))) {
+      if (!isBuiltInRepresentation(check.annotations)) {
         const markerPath = path || '/';
         markers.set(`filter:${markerPath}`, {
           path: markerPath,

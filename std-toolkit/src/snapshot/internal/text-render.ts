@@ -57,6 +57,12 @@ function literal(value: unknown): string {
   return output === undefined ? String(value) : output;
 }
 
+function persistentValue(value: unknown): unknown {
+  return isRecord(value) && 'type' in value && 'value' in value
+    ? value.value
+    : value;
+}
+
 function checkNames(value: Record<string, unknown>): string {
   if (!Array.isArray(value.checks) || value.checks.length === 0) return '';
   const names = value.checks.map((check) => {
@@ -97,7 +103,7 @@ function inlineType(value: unknown, depth = 0): string {
     case 'Any':
       return 'any';
     case 'Literal':
-      return literal(value.literal);
+      return literal(persistentValue(value.literal));
     case 'Union':
       return Array.isArray(value.types)
         ? value.types.map((item) => inlineType(item, depth + 1)).join(' | ')
@@ -118,7 +124,7 @@ function inlineType(value: unknown, depth = 0): string {
       return `{ ${properties
         .filter(isRecord)
         .map((property) => {
-          const name = String(property.name);
+          const name = String(persistentValue(property.name));
           const optional = property.isOptional === true ? '?' : '';
           return `${name}${optional}: ${inlineType(property.type, depth + 1)}`;
         })
@@ -150,7 +156,7 @@ function representationLines(value: unknown): readonly string[] {
   if (properties.length === 0) return ['{}'];
   return properties.map((property) => {
     const optional = property.isOptional === true ? '?' : '';
-    return `${String(property.name)}${optional}: ${inlineType(property.type)}`;
+    return `${String(persistentValue(property.name))}${optional}: ${inlineType(property.type)}`;
   });
 }
 
