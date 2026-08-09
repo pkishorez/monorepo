@@ -419,6 +419,8 @@ export namespace ValueESchema {
   }
 }
 
+const compositionSchemas = new WeakMap<object, Schema.Top>();
+
 export function toSchema<V extends string, L extends StructFieldsSchema>(
   eschema: ESchema<V, L>,
 ): Schema.Codec<
@@ -436,21 +438,28 @@ export function toSchema(
     | ESchema<string, StructFieldsSchema>
     | ValueESchema<string, ValueSchema>,
 ): any {
+  const cached = compositionSchemas.get(eschema);
+  if (cached !== undefined) return cached;
+
   const isValue = eschema instanceof ValueESchema;
   const name = eschema.name;
   const identifier = isValue ? `ValueESchema_${name}` : `ESchema_${name}`;
+  const encodedSchema = eschema.schema.annotate({ identifier });
   const toIssue = (input: unknown, err: ESchemaError) =>
     new SchemaIssue.InvalidValue(Option.some(input), { message: err.message });
   const surrogate = Schema.declare<unknown>(
     (_input: unknown): _input is unknown => true,
     {
       toCodec: () =>
-        Schema.link<unknown>()(eschema.schema, {
+        Schema.link<unknown>()(encodedSchema, {
           decode: SchemaGetter.passthrough({ strict: false }),
           encode: SchemaGetter.passthrough({ strict: false }),
         }),
     },
-  ).annotate({ snapshotESchemaIdentity: name });
+  ).annotate({
+    snapshotESchemaIdentity: name,
+    snapshotESchemaReference: identifier,
+  });
   const composed = surrogate
     .pipe(
       Schema.decodeTo(Schema.Unknown, {
@@ -474,5 +483,6 @@ export function toSchema(
       identity: name,
     });
   }
+  compositionSchemas.set(eschema, composed);
   return composed;
 }
