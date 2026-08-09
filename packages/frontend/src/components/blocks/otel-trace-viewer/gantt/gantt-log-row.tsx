@@ -1,108 +1,107 @@
+import { MessageSquareTextIcon } from 'lucide-react';
+
 import { cn } from '#lib/utils';
 
-import type { OtelEvent } from '../trace-model';
-import {
-  BAR_COL_INSET,
-  INDENT_PX,
-  NAME_COL_WIDTH,
-  ROW_HEIGHT_PX,
-} from './layout';
+import { detectLogSeverity } from '../log-severity';
+import type { OtelEvent, OtelSpan } from '../trace-model';
+import { formatDuration } from '../trace-model';
+import { NAME_COL_WIDTH, ROW_HEIGHT_PX } from './layout';
 
-const BODY_KEYS = ['body', 'message', 'log.message'] as const;
+const MESSAGE_KEYS = ['body', 'message', 'log.message'] as const;
 
-function logLabel(event: OtelEvent): string {
-  for (const key of BODY_KEYS) {
+const SEVERITY_ROW_CLASS: Record<
+  NonNullable<ReturnType<typeof detectLogSeverity>>,
+  string
+> = {
+  trace: 'bg-muted-foreground/[0.02]',
+  debug: 'bg-muted-foreground/[0.03]',
+  info: 'bg-sky-500/5',
+  warn: 'bg-amber-500/5',
+  error: 'bg-destructive/5',
+};
+
+const SEVERITY_ICON_CLASS: Record<
+  NonNullable<ReturnType<typeof detectLogSeverity>>,
+  string
+> = {
+  trace: 'text-muted-foreground/50',
+  debug: 'text-muted-foreground/70',
+  info: 'text-sky-600/80 dark:text-sky-400/80',
+  warn: 'text-amber-700/80 dark:text-amber-400/80',
+  error: 'text-destructive/80',
+};
+
+function messageFor(event: OtelEvent): string | null {
+  for (const key of MESSAGE_KEYS) {
     const value = event.attributes[key];
-    if (value !== undefined) return String(value);
+    if (value === undefined || value === null) continue;
+    return typeof value === 'string' ? value : JSON.stringify(value);
   }
-  return event.name;
+  return null;
 }
 
-function severity(event: OtelEvent): string | null {
-  const value =
-    event.attributes['severityText'] ??
-    event.attributes['log.severityText'] ??
-    event.attributes['severity'] ??
-    event.attributes['level'];
-  return value === undefined ? null : String(value).toUpperCase();
+interface GanttLogRowProps {
+  readonly event: OtelEvent;
+  readonly span: OtelSpan;
+  readonly selected: boolean;
+  readonly nameColWidth?: number;
+  readonly onClick: () => void;
+  readonly onHoverChange: (hovered: boolean) => void;
 }
 
 export function GanttLogRow({
   event,
-  depth,
+  span,
   selected,
-  traceStart,
-  traceEnd,
   nameColWidth = NAME_COL_WIDTH,
   onClick,
-}: {
-  readonly event: OtelEvent;
-  readonly depth: number;
-  readonly selected: boolean;
-  readonly traceStart: number;
-  readonly traceEnd: number;
-  readonly nameColWidth?: number;
-  readonly onClick: () => void;
-}) {
-  const label = logLabel(event);
-  const level = severity(event);
-  const total = Math.max(traceEnd - traceStart, 1);
-  const position = Math.min(
-    1,
-    Math.max(0, (event.timestamp - traceStart) / total),
-  );
+  onHoverChange,
+}: GanttLogRowProps) {
+  const message = messageFor(event);
+  const severity = detectLogSeverity(event);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={selected ? 'true' : undefined}
-      className={cn(
-        'group relative flex w-full items-stretch border-b border-border/20 text-left transition-colors hover:bg-muted/20',
-        selected && 'bg-primary/10 hover:bg-primary/10',
-      )}
-      style={{ minHeight: `${ROW_HEIGHT_PX}px` }}
+    <div
+      className="flex w-full border-b border-border/15"
+      style={{ minHeight: `${ROW_HEIGHT_PX - 4}px` }}
     >
-      {selected && (
-        <span
-          aria-hidden
-          className="absolute inset-y-0 left-0 w-0.5 bg-primary"
-        />
-      )}
       <div
-        className="flex shrink-0 items-center gap-2 overflow-hidden border-r border-border/30"
-        style={{
-          width: `${nameColWidth}px`,
-          paddingLeft: `${(depth + 1) * INDENT_PX + 12}px`,
-          paddingRight: '12px',
-        }}
-      >
-        <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[9px] font-semibold tracking-wide text-muted-foreground">
-          LOG
-        </span>
-        <span
-          className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground"
-          title={label}
-        >
-          {label}
-        </span>
-        {level && (
-          <span className="shrink-0 text-[9px] font-medium text-muted-foreground/70">
-            {level}
-          </span>
+        aria-hidden
+        className="shrink-0 border-r border-border/30"
+        style={{ width: `${nameColWidth}px` }}
+      />
+      <button
+        className={cn(
+          'relative flex min-w-0 flex-1 items-center gap-2 bg-muted/10 px-3 text-left text-muted-foreground transition-colors',
+          severity && SEVERITY_ROW_CLASS[severity],
+          'hover:bg-muted/30 hover:text-foreground',
+          selected && 'bg-primary/10 text-foreground hover:bg-primary/10',
         )}
-      </div>
-      <div className="flex-1 overflow-hidden">
-        <div
-          className="relative h-full"
-          style={{ marginInline: BAR_COL_INSET }}
-        >
-          <span
-            className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/60 ring-2 ring-background"
-            style={{ left: `${(position * 100).toFixed(4)}%` }}
-          />
-        </div>
-      </div>
-    </button>
+        onBlur={() => onHoverChange(false)}
+        onClick={onClick}
+        onFocus={() => onHoverChange(true)}
+        onMouseEnter={() => onHoverChange(true)}
+        onMouseLeave={() => onHoverChange(false)}
+        type="button"
+      >
+        <MessageSquareTextIcon
+          className={cn(
+            'size-3 shrink-0',
+            severity
+              ? SEVERITY_ICON_CLASS[severity]
+              : 'text-muted-foreground/50',
+          )}
+        />
+        <span className="shrink-0 truncate font-mono text-[11px]">
+          {event.name}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[11px] opacity-75">
+          {message ?? 'Log event'}
+        </span>
+        <span className="shrink-0 font-mono text-[10px] tabular-nums opacity-60">
+          +{formatDuration(event.timestamp - span.startTime)}
+        </span>
+      </button>
+    </div>
   );
 }

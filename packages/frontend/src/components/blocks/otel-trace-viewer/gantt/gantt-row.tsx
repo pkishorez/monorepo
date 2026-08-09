@@ -1,14 +1,10 @@
-import { ChevronRightIcon } from 'lucide-react';
-
+import { AnimatePresence, motion } from '#lib/motion';
 import { cn } from '#lib/utils';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from '#components/ui/context-menu';
 
-import { STATUS_BG, STATUS_RING, StatusDot } from '../status';
+import { STATUS_BG } from '../status';
+import { LOG_DOT_CLASS } from '../log-indicator';
+import { logDotColorClass } from '../log-severity';
+import type { OtelEvent } from '../trace-model';
 import {
   formatDuration,
   formatSpanName,
@@ -24,40 +20,39 @@ import {
   ROW_HEIGHT_PX,
   type GanttRow as GanttRowData,
 } from './layout';
+import { GanttLogRow } from './gantt-log-row';
 
 interface GanttRowProps {
   row: GanttRowData;
   selected: boolean;
+  dimmed?: boolean;
   minWidthPct?: number;
   onClick: () => void;
-  onToggleCollapse: () => void;
-  onExpandFirstLevel: () => void;
-  onExpandSubtree: () => void;
+  onToggleInlineLogs: () => void;
   nameColWidth?: number;
   showLogs?: boolean;
+  selectedLog?: OtelEvent | null;
+  hoveredLog?: OtelEvent | null;
+  onLogClick?: (event: OtelEvent) => void;
+  onLogHover?: (event: OtelEvent | null) => void;
 }
 
 export function GanttRow({
   row,
   selected,
+  dimmed = false,
   minWidthPct = 0,
   onClick,
-  onToggleCollapse,
-  onExpandFirstLevel,
-  onExpandSubtree,
+  onToggleInlineLogs,
   nameColWidth = NAME_COL_WIDTH,
   showLogs = false,
+  selectedLog = null,
+  hoveredLog = null,
+  onLogClick,
+  onLogHover,
 }: GanttRowProps) {
-  const {
-    span,
-    depth,
-    startPct,
-    widthPct,
-    hasChildren,
-    collapsed,
-    hiddenCount,
-  } = row;
-  const logCount = span.events.filter(isLog).length;
+  const { span, depth, startPct, widthPct, collapsed, hiddenCount } = row;
+  const logs = span.events.filter(isLog);
   // The bar is only as wide as its pixel minimum — dim it so a clamped sliver
   // reads as "too short to scale" rather than a real duration.
   const atMinWidth = minWidthPct > 0 && widthPct < minWidthPct;
@@ -72,60 +67,50 @@ export function GanttRow({
   const rowButton = (
     <button
       onClick={onClick}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        if (logs.length > 0) onToggleInlineLogs();
+      }}
       aria-current={selected ? 'true' : undefined}
       className={cn(
         'group relative flex w-full items-stretch border-b border-border/20 text-left',
-        'transition-colors hover:bg-muted/20',
+        'transition-[background-color,opacity] duration-150 hover:bg-muted/20',
         selected && 'bg-primary/10 hover:bg-primary/10',
+        dimmed && 'opacity-20 hover:opacity-60 focus-visible:opacity-60',
       )}
       style={{ minHeight: `${ROW_HEIGHT_PX}px` }}
     >
-      {selected && (
-        <span
-          aria-hidden
-          className="absolute inset-y-0 left-0 w-0.5 bg-primary"
-        />
-      )}
       {/* Name column — indented by depth, comfortable left/right padding */}
       <div
         className="flex shrink-0 items-center gap-1.5 overflow-hidden border-r border-border/30"
         style={{
           width: `${nameColWidth}px`,
-          paddingLeft: `${depth * INDENT_PX + 12}px`,
+          paddingLeft: '12px',
           paddingRight: '12px',
         }}
       >
-        {/* Fixed-width disclosure slot — always reserved so toggling never
-            shifts the row. A clickable toggle for parents, empty for leaves. */}
-        {hasChildren ? (
-          <span
-            role="button"
-            tabIndex={-1}
-            aria-label={collapsed ? 'Expand span' : 'Collapse span'}
-            title={collapsed ? 'Expand' : 'Collapse'}
-            onClick={(e) => {
-              // Toggle without selecting the span / opening the detail panel.
-              e.stopPropagation();
-              onToggleCollapse();
-            }}
-            style={{ width: `${ROW_HEIGHT_PX}px` }}
-            className="flex shrink-0 cursor-pointer items-center justify-center self-stretch text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ChevronRightIcon
-              className={cn(
-                'size-3.5 transition-transform',
-                collapsed ? 'text-foreground' : 'rotate-90',
-              )}
+        <span
+          aria-hidden
+          className="relative shrink-0 self-stretch"
+          style={{ width: `${depth * INDENT_PX + 8}px` }}
+        >
+          {Array.from({ length: depth }, (_, level) => (
+            <span
+              className="absolute inset-y-0 border-l border-border/45"
+              key={level}
+              style={{ left: `${level * INDENT_PX + INDENT_PX / 2}px` }}
             />
-          </span>
-        ) : (
-          <span
-            aria-hidden
-            style={{ width: `${ROW_HEIGHT_PX}px` }}
-            className="shrink-0 self-stretch"
-          />
-        )}
-        <StatusDot status={span.status} />
+          ))}
+          {depth > 0 && (
+            <span
+              className="absolute top-1/2 h-px bg-border/60"
+              style={{
+                left: `${(depth - 1) * INDENT_PX + INDENT_PX / 2}px`,
+                right: 0,
+              }}
+            />
+          )}
+        </span>
         <span
           className={cn(
             'min-w-0 flex-1 truncate font-mono text-xs',
@@ -136,13 +121,11 @@ export function GanttRow({
           {formatSpanName(span.name, span.attributes)}
         </span>
         {collapsed && hiddenCount > 0 && (
-          <span className="ml-1 shrink-0 rounded-sm bg-muted px-1 text-[10px] font-medium tabular-nums text-muted-foreground">
+          <span
+            className="ml-1 shrink-0 rounded-sm bg-muted px-1 text-[10px] font-medium tabular-nums text-muted-foreground"
+            title="Click the selected span to expand"
+          >
             +{hiddenCount} more span{hiddenCount === 1 ? '' : 's'}
-          </span>
-        )}
-        {!showLogs && logCount > 0 && (
-          <span className="ml-1 shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
-            {logCount} {logCount === 1 ? 'log' : 'logs'}
           </span>
         )}
         <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
@@ -170,11 +153,7 @@ export function GanttRow({
               'absolute top-1/2 -translate-y-1/2 rounded-sm',
               STATUS_BG[span.status],
               span.status === 'running' && 'animate-pulse',
-              selected &&
-                cn(
-                  'ring-2 ring-offset-1 ring-offset-background',
-                  STATUS_RING[span.status],
-                ),
+              selected && 'ring-2 ring-primary',
             )}
             style={{
               left: `${(leftPct * 100).toFixed(4)}%`,
@@ -183,29 +162,70 @@ export function GanttRow({
               height: `${BAR_HEIGHT_PX}px`,
               opacity: atMinWidth ? 0.6 : undefined,
             }}
-          />
+          >
+            {logs.map((event, index) => {
+              const logSelected = selectedLog === event;
+              const logHovered = hoveredLog === event;
+              const duration = Math.max(spanDuration(span) ?? 0, 1);
+              const eventPct = Math.min(
+                1,
+                Math.max(0, (event.timestamp - span.startTime) / duration),
+              );
+              return (
+                <span
+                  aria-hidden
+                  className={cn(
+                    'pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2',
+                    LOG_DOT_CLASS,
+                    logDotColorClass(event),
+                    'transition-[outline-color]',
+                    logHovered &&
+                      !logSelected &&
+                      'z-10 outline-1 outline-offset-1 outline-primary',
+                    logSelected &&
+                      'z-10 outline-2 outline-offset-2 outline-primary',
+                  )}
+                  key={`${event.timestamp}:${event.name}:${index}`}
+                  style={{ left: `${(eventPct * 100).toFixed(4)}%` }}
+                  title={event.name}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
     </button>
   );
 
-  // Leaf spans have nothing to collapse — skip the menu entirely.
-  if (!hasChildren) return rowButton;
-
   return (
-    <ContextMenu>
-      <ContextMenuTrigger render={rowButton} />
-      <ContextMenuContent>
-        <ContextMenuItem onClick={onExpandFirstLevel}>
-          Expand first level
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onExpandSubtree}>
-          Expand recursively
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onToggleCollapse}>
-          {collapsed ? 'Expand' : 'Collapse'}
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <>
+      {rowButton}
+      <AnimatePresence initial={false}>
+        {showLogs && logs.length > 0 && (
+          <motion.div
+            animate={{ height: 'auto', opacity: dimmed ? 0.2 : 1 }}
+            className="overflow-hidden"
+            exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0 }}
+            key={`${span.spanId}:logs`}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            {logs.map((event, index) => (
+              <GanttLogRow
+                event={event}
+                key={`${event.timestamp}:${event.name}:${index}`}
+                nameColWidth={nameColWidth}
+                onClick={() => onLogClick?.(event)}
+                onHoverChange={(hovered) =>
+                  onLogHover?.(hovered ? event : null)
+                }
+                selected={selectedLog === event}
+                span={span}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

@@ -7,10 +7,18 @@ import { cn } from '#lib/utils';
 
 import { StatusDot } from '../status';
 import { Gantt } from '../gantt/gantt';
+import { ParallelTimeline } from '../parallel-timeline';
 import { LogSpanDetail } from '../span-detail/log-span-detail';
+import { OverlapSpanSummary } from '../span-detail/overlap-span-summary';
 import { SpanDetail } from '../span-detail/span-detail';
 import type { OtelEvent, OtelSpan } from '../trace-model';
-import { collectSpans, formatDuration, type TraceGroup } from '../trace-model';
+import {
+  collectSpans,
+  formatDuration,
+  isLog,
+  type TraceGroup,
+} from '../trace-model';
+import type { TraceView } from '../trace-view';
 
 export type TraceDockSettings = {
   open: boolean;
@@ -27,9 +35,9 @@ interface TraceDockProps {
   onSettingsChange: (next: TraceDockSettings) => void;
   onClose: () => void;
   showHeader?: boolean;
-  showLogs?: boolean;
   sidebarAlwaysOpen?: boolean;
   responsiveSidebar?: boolean;
+  view?: TraceView;
 }
 
 export function TraceDock({
@@ -38,16 +46,37 @@ export function TraceDock({
   onSettingsChange,
   onClose,
   showHeader = true,
-  showLogs = false,
   sidebarAlwaysOpen = false,
   responsiveSidebar = false,
+  view = 'waterfall',
 }: TraceDockProps) {
   const orderedSpans = useMemo(() => collectSpans(trace.roots), [trace.roots]);
+  const [overlapCandidates, setOverlapCandidates] = useState<
+    readonly OtelSpan[] | null
+  >(null);
+  const [choosingOverlap, setChoosingOverlap] = useState(false);
+  const [focusedParallelSpanId, setFocusedParallelSpanId] = useState<
+    string | null
+  >(null);
+  const [hoveredOverlapSpanId, setHoveredOverlapSpanId] = useState<
+    string | null
+  >(null);
   const [selectedLog, setSelectedLog] = useState<{
     readonly span: OtelSpan;
     readonly event: OtelEvent;
   } | null>(null);
-
+  const [hoveredLog, setHoveredLog] = useState<OtelEvent | null>(null);
+  const [inlineLogSpanIds, setInlineLogSpanIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [focusWaterfallPath, setFocusWaterfallPath] = useState(true);
+  const highlightedOverlapSpanIds = useMemo(
+    () =>
+      choosingOverlap && overlapCandidates
+        ? new Set(overlapCandidates.map((span) => span.spanId))
+        : new Set<string>(),
+    [choosingOverlap, overlapCandidates],
+  );
   const selectedSpan = useMemo(() => {
     if (!sidebarAlwaysOpen && !settings.sidebarOpen) return null;
     if (orderedSpans.length === 0) return null;
@@ -62,12 +91,18 @@ export function TraceDock({
     sidebarAlwaysOpen,
   ]);
 
-  useEffect(() => {
-    setSelectedLog(null);
-  }, [trace.traceId, showLogs]);
-
   const widthRef = useRef(settings.sidebarWidth);
   widthRef.current = settings.sidebarWidth;
+
+  useEffect(() => {
+    setOverlapCandidates(null);
+    setChoosingOverlap(false);
+    setFocusedParallelSpanId(null);
+    setHoveredOverlapSpanId(null);
+    setSelectedLog(null);
+    setHoveredLog(null);
+    setInlineLogSpanIds(new Set());
+  }, [trace.traceId, view]);
 
   const onSidebarDividerMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -93,8 +128,14 @@ export function TraceDock({
   );
 
   function handleSpanClick(span: OtelSpan) {
+    setOverlapCandidates(null);
+    setChoosingOverlap(false);
+    setFocusedParallelSpanId(null);
+    setHoveredOverlapSpanId(null);
     setSelectedLog(null);
+    setHoveredLog(null);
     if (
+      view !== 'waterfall' &&
       !sidebarAlwaysOpen &&
       settings.sidebarOpen &&
       settings.selectedSpanId === span.spanId
@@ -109,8 +150,43 @@ export function TraceDock({
     }
   }
 
-  function handleLogClick(span: OtelSpan, event: OtelEvent) {
-    setSelectedLog({ span, event });
+  function toggleInlineLogs(span: OtelSpan) {
+    if (!span.events.some(isLog)) return;
+    setSelectedLog(null);
+    setHoveredLog(null);
+    setInlineLogSpanIds((current) => {
+      const next = new Set(current);
+      if (next.has(span.spanId)) next.delete(span.spanId);
+      else next.add(span.spanId);
+      return next;
+    });
+  }
+
+  function handleOverlapClick(spans: readonly OtelSpan[]) {
+    setOverlapCandidates(spans);
+    setChoosingOverlap(true);
+    setFocusedParallelSpanId(null);
+    setHoveredOverlapSpanId(null);
+    setSelectedLog(null);
+    setHoveredLog(null);
+    onSettingsChange({
+      ...settings,
+      sidebarOpen: true,
+    });
+  }
+
+  function cancelOverlap() {
+    setOverlapCandidates(null);
+    setChoosingOverlap(false);
+    setHoveredOverlapSpanId(null);
+  }
+
+  function selectOverlap(span: OtelSpan) {
+    setChoosingOverlap(false);
+    setFocusedParallelSpanId(span.spanId);
+    setHoveredOverlapSpanId(null);
+    setSelectedLog(null);
+    setHoveredLog(null);
     onSettingsChange({
       ...settings,
       sidebarOpen: true,
@@ -120,6 +196,16 @@ export function TraceDock({
 
   function closeSidebar() {
     onSettingsChange({ ...settings, sidebarOpen: false });
+  }
+
+  function selectLog(span: OtelSpan, event: OtelEvent) {
+    setSelectedLog({ span, event });
+    setHoveredLog(null);
+    onSettingsChange({
+      ...settings,
+      sidebarOpen: true,
+      selectedSpanId: span.spanId,
+    });
   }
 
   return (
@@ -158,18 +244,42 @@ export function TraceDock({
         )}
       >
         <div className={cn('min-w-0 flex-1 overflow-y-auto', scrollbarStyles)}>
-          <Gantt
-            trace={trace}
-            selectedSpanId={selectedSpan?.spanId ?? null}
-            selectedLog={selectedLog?.event ?? null}
-            onSpanClick={handleSpanClick}
-            onLogClick={handleLogClick}
-            showLogs={showLogs}
-            nameColWidth={settings.nameColWidth}
-            onNameColWidthChange={(next) =>
-              onSettingsChange({ ...settings, nameColWidth: next })
-            }
-          />
+          {view === 'waterfall' ? (
+            <Gantt
+              trace={trace}
+              selectedSpanId={selectedSpan?.spanId ?? null}
+              onSpanClick={handleSpanClick}
+              focusPath={focusWaterfallPath}
+              onFocusPathChange={setFocusWaterfallPath}
+              inlineLogSpanIds={inlineLogSpanIds}
+              onToggleInlineLogs={toggleInlineLogs}
+              selectedLog={selectedLog?.event ?? null}
+              hoveredLog={hoveredLog}
+              onLogClick={selectLog}
+              onLogHover={setHoveredLog}
+              nameColWidth={settings.nameColWidth}
+              onNameColWidthChange={(next) =>
+                onSettingsChange({ ...settings, nameColWidth: next })
+              }
+            />
+          ) : (
+            <ParallelTimeline
+              trace={trace}
+              selectedSpanId={
+                choosingOverlap ? null : (selectedSpan?.spanId ?? null)
+              }
+              focusedSpanId={focusedParallelSpanId}
+              highlightedOverlapSpanIds={highlightedOverlapSpanIds}
+              hoveredOverlapSpanId={hoveredOverlapSpanId}
+              onSpanClick={handleSpanClick}
+              onOverlapClick={handleOverlapClick}
+              onOverlapCancel={cancelOverlap}
+              onOverlapHover={(span) =>
+                setHoveredOverlapSpanId(span?.spanId ?? null)
+              }
+              onOverlapSelect={selectOverlap}
+            />
+          )}
         </div>
         {selectedSpan && (
           <>
@@ -189,7 +299,9 @@ export function TraceDock({
               )}
             >
               <div className={cn('h-full overflow-y-auto', scrollbarStyles)}>
-                {selectedLog ? (
+                {choosingOverlap && overlapCandidates ? (
+                  <OverlapSpanSummary spans={overlapCandidates} />
+                ) : selectedLog && view === 'waterfall' ? (
                   <LogSpanDetail
                     event={selectedLog.event}
                     span={selectedLog.span}
@@ -199,7 +311,6 @@ export function TraceDock({
                   <SpanDetail
                     span={selectedSpan}
                     traceStart={trace.startTime}
-                    showLogs={!showLogs}
                     onClose={sidebarAlwaysOpen ? undefined : closeSidebar}
                   />
                 )}

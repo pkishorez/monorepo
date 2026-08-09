@@ -1,20 +1,15 @@
-import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { FocusIcon } from 'lucide-react';
+
+import { Button } from '#components/ui/button';
+import { AnimatePresence, motion } from '#lib/motion';
+import { cn } from '#lib/utils';
 
 import type { OtelEvent, OtelSpan, SpanNode } from '../trace-model';
-import { collectSpans, isLog, type TraceGroup } from '../trace-model';
+import { collectSpans, type TraceGroup } from '../trace-model';
 import { useElementWidth } from '../use-element-width';
 import { GanttHeader } from './gantt-header';
-import { GanttLogRow } from './gantt-log-row';
 import { GanttRow } from './gantt-row';
-
-function findNode(nodes: SpanNode[], spanId: string): SpanNode | null {
-  for (const node of nodes) {
-    if (node.span.spanId === spanId) return node;
-    const found = findNode(node.children, spanId);
-    if (found) return found;
-  }
-  return null;
-}
 import {
   BAR_COL_INSET,
   BAR_MIN_WIDTH_PX,
@@ -27,30 +22,59 @@ import {
 interface GanttProps {
   trace: TraceGroup;
   selectedSpanId: string | null;
-  selectedLog: OtelEvent | null;
   onSpanClick: (span: OtelSpan) => void;
-  onLogClick: (span: OtelSpan, event: OtelEvent) => void;
-  showLogs?: boolean;
+  focusPath?: boolean;
+  onFocusPathChange?: (focusPath: boolean) => void;
   nameColWidth?: number;
   onNameColWidthChange?: (next: number) => void;
+  inlineLogSpanIds?: ReadonlySet<string>;
+  onToggleInlineLogs?: (span: OtelSpan) => void;
+  selectedLog?: OtelEvent | null;
+  hoveredLog?: OtelEvent | null;
+  onLogClick?: (span: OtelSpan, event: OtelEvent) => void;
+  onLogHover?: (event: OtelEvent | null) => void;
+}
+
+function findSpanPath(
+  nodes: readonly SpanNode[],
+  spanId: string,
+  path: readonly SpanNode[] = [],
+): readonly SpanNode[] | null {
+  for (const node of nodes) {
+    const nextPath = [...path, node];
+    if (node.span.spanId === spanId) return nextPath;
+    const found = findSpanPath(node.children, spanId, nextPath);
+    if (found) return found;
+  }
+  return null;
+}
+
+function collectCollapsibleDescendantIds(node: SpanNode, spanIds: Set<string>) {
+  for (const child of node.children) {
+    if (child.children.length > 0) spanIds.add(child.span.spanId);
+    collectCollapsibleDescendantIds(child, spanIds);
+  }
 }
 
 export function Gantt({
   trace,
   selectedSpanId,
-  selectedLog,
   onSpanClick,
-  onLogClick,
-  showLogs = false,
+  focusPath = true,
+  onFocusPathChange,
   nameColWidth = NAME_COL_WIDTH,
   onNameColWidthChange,
+  inlineLogSpanIds = new Set(),
+  onToggleInlineLogs,
+  selectedLog = null,
+  hoveredLog = null,
+  onLogClick,
+  onLogHover,
 }: GanttProps) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
 
-  // Double-click / "first level" toggles just the clicked span — collapse hides
-  // its direct children, expand shows them.
   const toggleCollapse = useCallback((spanId: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -60,38 +84,24 @@ export function Gantt({
     });
   }, []);
 
-  // Expand a span by a single level: reveal its direct children but keep every
-  // child that has children of its own collapsed.
-  const expandFirstLevel = useCallback(
+  const toggleRootDescendants = useCallback(
     (spanId: string) => {
-      const node = findNode(trace.roots, spanId);
-      if (!node) return;
-      setCollapsed((prev) => {
-        const next = new Set(prev);
-        next.delete(spanId);
-        for (const child of node.children) {
-          if (child.children.length > 0) next.add(child.span.spanId);
-        }
-        return next;
-      });
-    },
-    [trace.roots],
-  );
+      const root = trace.roots.find((node) => node.span.spanId === spanId);
+      if (!root) return;
 
-  // Recursively expand a span and every descendant back open.
-  const expandSubtree = useCallback(
-    (spanId: string) => {
-      const node = findNode(trace.roots, spanId);
-      if (!node) return;
-      const ids: string[] = [];
-      const walk = (n: SpanNode) => {
-        ids.push(n.span.spanId);
-        n.children.forEach(walk);
-      };
-      walk(node);
-      setCollapsed((prev) => {
-        const next = new Set(prev);
-        for (const id of ids) next.delete(id);
+      const descendantIds = new Set<string>();
+      collectCollapsibleDescendantIds(root, descendantIds);
+      if (descendantIds.size === 0) return;
+
+      setCollapsed((current) => {
+        const next = new Set(current);
+        const collapseAll = [...descendantIds].some(
+          (descendantId) => !current.has(descendantId),
+        );
+        for (const descendantId of descendantIds) {
+          if (collapseAll) next.add(descendantId);
+          else next.delete(descendantId);
+        }
         return next;
       });
     },
@@ -144,6 +154,17 @@ export function Gantt({
     () => buildGanttRows(trace.roots, traceStart, traceEnd, collapsed),
     [trace.roots, traceStart, traceEnd, collapsed],
   );
+  const highlightedSpanIds = useMemo(() => {
+    if (!focusPath || !selectedSpanId) return null;
+    const path = findSpanPath(trace.roots, selectedSpanId);
+    const selectedNode = path?.at(-1);
+    if (!path || !selectedNode) return null;
+
+    return new Set([
+      ...path.map((node) => node.span.spanId),
+      ...selectedNode.children.map((node) => node.span.spanId),
+    ]);
+  }, [focusPath, selectedSpanId, trace.roots]);
 
   // Pixel width of the bar column (minus its inset margins) lets each row tell
   // whether its bar is being held open by the pixel minimum.
@@ -159,9 +180,25 @@ export function Gantt({
           className="relative flex shrink-0 items-center border-r border-border/30 px-3 py-2"
           style={{ width: `${nameColWidth}px` }}
         >
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-            Span
-          </span>
+          <Button
+            aria-label="Focus selected span path"
+            aria-pressed={focusPath}
+            className={cn(
+              'text-muted-foreground',
+              focusPath && 'bg-muted text-foreground',
+            )}
+            onClick={() => onFocusPathChange?.(!focusPath)}
+            size="icon-xs"
+            title={
+              focusPath
+                ? 'Show all spans normally'
+                : 'Focus selected path and direct children'
+            }
+            type="button"
+            variant="ghost"
+          >
+            <FocusIcon />
+          </Button>
           {onNameColWidthChange && (
             <div
               className="absolute inset-y-0 right-0 z-20 w-1 translate-x-1/2 cursor-col-resize bg-transparent transition-colors hover:bg-primary/20"
@@ -174,40 +211,42 @@ export function Gantt({
         </div>
       </div>
 
-      {/* Span rows */}
-      {rows.map((row) => (
-        <Fragment key={row.span.spanId}>
-          <GanttRow
-            row={row}
-            selected={
-              selectedLog === null && selectedSpanId === row.span.spanId
-            }
-            minWidthPct={minWidthPct}
-            onClick={() => onSpanClick(row.span)}
-            onToggleCollapse={() => toggleCollapse(row.span.spanId)}
-            onExpandFirstLevel={() => expandFirstLevel(row.span.spanId)}
-            onExpandSubtree={() => expandSubtree(row.span.spanId)}
-            nameColWidth={nameColWidth}
-            showLogs={showLogs}
-          />
-          {showLogs &&
-            row.span.events
-              .filter(isLog)
-              .sort((a, b) => a.timestamp - b.timestamp)
-              .map((event, index) => (
-                <GanttLogRow
-                  key={`${event.timestamp}:${event.name}:${index}`}
-                  event={event}
-                  depth={row.depth}
-                  selected={selectedLog === event}
-                  traceStart={traceStart}
-                  traceEnd={traceEnd}
-                  nameColWidth={nameColWidth}
-                  onClick={() => onLogClick(row.span, event)}
-                />
-              ))}
-        </Fragment>
-      ))}
+      <AnimatePresence initial={false} mode="popLayout">
+        {rows.map((row) => (
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: -4 }}
+            key={row.span.spanId}
+            layout="position"
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
+            <GanttRow
+              row={row}
+              selected={selectedSpanId === row.span.spanId}
+              dimmed={
+                highlightedSpanIds !== null &&
+                !highlightedSpanIds.has(row.span.spanId)
+              }
+              minWidthPct={minWidthPct}
+              onClick={() => {
+                if (selectedSpanId === row.span.spanId && row.hasChildren) {
+                  if (row.depth === 0) toggleRootDescendants(row.span.spanId);
+                  else toggleCollapse(row.span.spanId);
+                }
+                onSpanClick(row.span);
+              }}
+              onToggleInlineLogs={() => onToggleInlineLogs?.(row.span)}
+              nameColWidth={nameColWidth}
+              showLogs={inlineLogSpanIds.has(row.span.spanId)}
+              selectedLog={selectedLog}
+              hoveredLog={hoveredLog}
+              onLogClick={(event) => onLogClick?.(row.span, event)}
+              onLogHover={onLogHover}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

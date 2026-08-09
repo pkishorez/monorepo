@@ -43,7 +43,7 @@ export function buildGanttRows(
     const rawEnd = span.endTime ?? traceEnd;
     const endPct = (rawEnd - traceStart) / total;
     const widthPct = Math.max(endPct - startPct, 0.002);
-    const isCollapsed = collapsed?.has(span.spanId) ?? false;
+    const isCollapsed = depth > 0 && (collapsed?.has(span.spanId) ?? false);
 
     rows.push({
       span,
