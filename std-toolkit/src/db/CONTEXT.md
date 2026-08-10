@@ -24,7 +24,7 @@ _Avoid_: range key (within this context use **sort key**).
 The structure naming the pk and sk attributes/columns for an index.
 
 **Table**:
-The single-table topology object. **Entity services** are defined from it and it coordinates cross-entity concerns (setup, transactions). Holds its entities internally; there is no name-based entity lookup — callers keep the references returned at definition time.
+The single-table topology object. **Entity services** are defined from it and it coordinates cross-entity concerns (setup, transactions). Raw row operations are not part of its public surface. Holds its entities internally; there is no name-based entity lookup — callers keep the references returned at definition time.
 _Avoid_: EntityRegistry (retired term — the Table absorbed its role), EntityManager, store registry.
 
 **Table snapshot**:
@@ -55,3 +55,9 @@ _Avoid_: delete (retired single-entity term).
 **Transact**:
 The **Table**'s atomic application of a batch of **transact ops** — all apply or none do. Change broadcasts fire only after a successful commit. This is the only transaction vocabulary in the kernel; adapters do not expose interactive (read-inside) transactions.
 _Avoid_: transaction(effect) (retired sqlite term), interactive transaction.
+
+**Foreign transact op**:
+A **transact op** submitted to a different **Table** from the one whose **Entity service** produced it. The batch is rejected before writing.
+
+**Duplicate transaction target**:
+Two or more **transact ops** in one batch that address the same **partition key** and **sort key**. The batch is rejected before writing.

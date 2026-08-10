@@ -1,0 +1,3 @@
+# Local runtimes are database-scoped
+
+SQLite and IndexedDB runtimes represent one database or file, while each `SQLiteTable` or `IdbTable` definition owns the name of its physical table or object store. Multiple table definitions therefore use one database-scoped runtime directly. Each table retains an idempotent `setup()`, and concurrent setup calls for different tables must converge without a database-level registry. Local adapters do not copy DynamoDB's table-binding registry: DynamoDB needs per-table account, region, client, and physical-name routing, whereas local tables share one database connection and adding equivalent binding machinery would introduce configuration without solving a local storage concern.

@@ -5,7 +5,7 @@ The in-browser IndexedDB adapter. Mirrors the single-table topology defined in [
 ## Language
 
 **IdbTable**:
-A type-safe single-table definition over one object store. The **partition key** and **sort key** together form the store's composite key path.
+A named, type-safe single-table definition within an IndexedDB database. Its name identifies the backing **Store**; the **partition key** and **sort key** together form the store's composite key path.
 
 **IdbEntity** / **IdbSingleEntity**:
 The IndexedDB **Entity service**s (keyed / singleton) for CRUD over an `IdbTable`.
@@ -15,8 +15,8 @@ The stored row — a native structured-clone object whose `_data` field holds th
 _Avoid_: row, document.
 
 **Store**:
-The IndexedDB object store backing one logical table. One database holds one store per table; the database is app-scoped, the store is table-scoped.
-_Avoid_: table (reserve for the logical single-table concept), collection.
+The real IndexedDB object store named by `IdbTable.make(storeName)`. One database can hold multiple stores; the database is app-scoped and each store is table-scoped.
+_Avoid_: logical name, alias, collection.
 
 **Sparse index**:
 A secondary index that simply skips **Records** missing its key fields — IndexedDB's native index behavior, matching DynamoDB's sparse-GSI semantics.
@@ -33,5 +33,6 @@ _Avoid_: begin/commit/rollback, session.
 The concurrency stance for read-modify-write: the write re-checks the **Record**'s `_u` inside the **Buffered transaction** and fails if another writer (e.g. a second browser tab) got there first. The caller retries.
 _Avoid_: locking, last-write-wins.
 
-**IdbDB** / **IdbDBError**:
-The database service the table layer runs on, and its failure type (extends core's [[core]] **StdToolkitError**).
+**IdbError**:
+The direct union of IndexedDB adapter failures and the shared persistence failures inherited from [[db]].
+_Avoid_: IdbDBError.

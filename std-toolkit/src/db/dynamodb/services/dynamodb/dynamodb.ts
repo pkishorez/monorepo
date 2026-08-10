@@ -4,7 +4,7 @@ import {
   type DynamoDBClientConfig,
 } from '../../clients/dynamodb-client/index.js';
 import type { TableIdentity } from '../../domain/table-identity/index.js';
-import type { TableBindingNotFound } from '../dynamodb-error/index.js';
+import type { TableBindingNotFound } from '../../domain/dynamodb-error/index.js';
 import { makeBindingRegistry } from './binding-registry.js';
 import type {
   ResolvedTableBinding,

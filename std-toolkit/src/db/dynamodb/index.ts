@@ -25,7 +25,7 @@ export {
   type DynamoDBError as DynamoDBErrorType,
   TableBindingNotFound,
   DuplicateTableBinding,
-} from './services/dynamodb-error/index.js';
+} from './domain/dynamodb-error/index.js';
 
 export {
   buildExpr,

@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { Snapshot } from '../../../snapshot/index.js';
-import { IdbTable } from '../src/index.js';
+import { IdbTable } from '../index.js';
 
 const userSchema = EntityESchema.make('User', 'userId', {
   email: Schema.String,
@@ -14,7 +14,7 @@ const settingsSchema = ESchema.make('Settings', {
 }).build();
 
 function makeSnapshot(singletonDefault = 'light', reverse = false) {
-  const table = IdbTable.make()
+  const table = IdbTable.make('std_data')
     .primary('pk', 'sk')
     .index('ByTeam', 'teamPk', 'teamSk')
     .index('ByEmail', 'emailPk', 'emailSk')

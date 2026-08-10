@@ -42,6 +42,10 @@ export interface EntityTable<
     },
   ) => Effect.Effect<{ Attributes: Record<string, unknown> | null }, any, any>;
   readonly deleteItem: (key: IndexDefinition) => Effect.Effect<void, any, any>;
+  readonly dangerouslyRemoveEntityItems: (
+    entityName: string,
+    confirmation: 'I KNOW WHAT I AM DOING',
+  ) => Effect.Effect<{ itemsDeleted: number }, any, any>;
   readonly query: (
     condition: any,
     options?: any,
@@ -113,3 +117,16 @@ export const migrationOutcome = (
     : item._v === latestVersion
       ? 'current'
       : 'migrate';
+
+export const deriveIndexKeyValue = (
+  prefix: string,
+  dependencies: string[],
+  value: Record<string, unknown>,
+  isPartitionKey: boolean,
+): string => {
+  if (dependencies.length === 0) return prefix;
+  const values = dependencies.map((dependency) =>
+    String(value[dependency] ?? ''),
+  );
+  return isPartitionKey ? `${prefix}#${values.join('#')}` : values.join('#');
+};

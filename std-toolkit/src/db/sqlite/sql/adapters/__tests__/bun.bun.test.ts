@@ -8,9 +8,10 @@ import {
   beforeEach,
 } from 'bun:test';
 import { Effect } from 'effect';
-import { bunSqliteLayer } from '../bun.js';
-import { SqliteDB, SqliteDBError } from '../../db.js';
-import * as Sql from '../../helpers/index.js';
+import { bunSqliteLayer } from '../bun/index.js';
+import { SQLiteDatabase as SqliteDB } from '../../../services/sqlite-database/index.js';
+import { SQLiteError as SqliteDBError } from '../../../domain/sqlite-error/index.js';
+import { SQL as Sql } from '../../../domain/sql-statement/index.js';
 
 describe('SQLite', () => {
   describe('Adapters', () => {
@@ -20,7 +21,7 @@ describe('SQLite', () => {
 
       beforeAll(() => {
         db = new Database(':memory:');
-        layer = bunSqliteLayer(db, 'test_table');
+        layer = bunSqliteLayer(db);
       });
 
       afterAll(() => db.close());

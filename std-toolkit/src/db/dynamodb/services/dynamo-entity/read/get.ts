@@ -6,7 +6,7 @@ import { Effect, Match, Schema } from 'effect';
 import type { IndexPkValue } from '../../../types/index.js';
 import type { EntityTable as DynamoTable } from '../../../domain/entity-persistence/index.js';
 import type { DynamoDB } from '../../dynamodb/index.js';
-import { DynamoDBError } from '../../dynamodb-error/index.js';
+import { DynamoDBError } from '../../../domain/dynamodb-error/index.js';
 import type { EntityType } from '../dynamo-entity.js';
 import type { EntityIndex, StoredIndexDerivation } from '../entity-index.js';
 

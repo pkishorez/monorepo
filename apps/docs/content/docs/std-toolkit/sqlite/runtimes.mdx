@@ -1,20 +1,20 @@
 ---
 title: Runtimes
-description: One SqliteDB service, four adapter layers — better-sqlite3, node:sqlite, bun:sqlite, and Cloudflare Durable Objects — over the same table format.
+description: One SQLiteDatabase service, four adapter layers — better-sqlite3, node:sqlite, bun:sqlite, and Cloudflare Durable Objects — over the same table format.
 ---
 
 You've seen that the SQLite adapter speaks the same model as DynamoDB. Now the practical question: _which_ SQLite? Your chat app's tests run under vitest on Node, the server might be Node or Bun, and the per-channel edge deployment lives inside a Cloudflare Durable Object. Each of those runtimes ships its own SQLite binding with its own API — `better-sqlite3`'s prepared statements, Node's built-in `node:sqlite`, `bun:sqlite`, and the Durable Object's `SqlStorage.exec`. Normally that difference leaks straight into your data layer, and "runs everywhere" quietly becomes four slightly different data layers.
 
-std-toolkit pins the difference behind one seam: `SqliteDB`.
+std-toolkit pins the difference behind one seam: `SQLiteDatabase`.
 
-## The `SqliteDB` service
+## The `SQLiteDatabase` service
 
-`SqliteDB` is an Effect service — the only thing the entire SQLite adapter knows how to talk to. Its interface is deliberately small: a bound `tableName`, DDL (`createTable`, `addColumn`, `createIndex`), row operations (`insert`, `update`, `delete`, `deleteAll`, `get`, `query`), and transaction control (`begin`, `commit`, `rollback`). `SQLiteTable` and the `SQLiteEntity` / `SQLiteSingleEntity` services it defines are all written against this interface and nothing else — which is why every operation you met on the previous page returns an `Effect<…, SqliteDBError, SqliteDB>`.
+`SQLiteDatabase` is an Effect service — the only thing the SQLite adapter knows how to talk to. Its interface is deliberately small: DDL (`createTable`, `addColumn`, `createIndex`), row operations (`insert`, `update`, `delete`, `deleteAll`, `get`, `query`), and transaction control (`begin`, `commit`, `rollback`). Each operation receives the physical table name owned by its `SQLiteTable` definition.
 
 A runtime adapter is nothing more than a `Layer` that implements this interface over a concrete driver. Two design choices are worth noticing before the wiring examples, because they shape how you use it:
 
 - **You open the connection; the layer wraps it.** Every adapter is a function taking an already-open database handle. std-toolkit never constructs a connection and never imports a driver at runtime — it has zero SQLite dependencies of its own. Connection lifecycle (open, close, WAL mode, whatever your ops story is) stays in your hands.
-- **The physical table name binds here, not in the topology.** `betterSqlite3Layer(db, 'chat_data')` is where `'chat_data'` enters the picture. The same `SQLiteTable` definition can be provided with different layers pointing at different tables — or different databases entirely — which is exactly what per-test isolation wants.
+- **The physical table name belongs to the topology.** `SQLiteTable.make('chat_data')` binds it once, while the runtime layer stays database-scoped. Several tables can share one connection and one layer.
 
 ## Why four separate subpaths
 
@@ -31,7 +31,7 @@ import { betterSqlite3Layer } from 'std-toolkit/sqlite/adapters/better-sqlite3';
 import { table } from './table.js';
 
 const db = new Database(':memory:');
-const layer = betterSqlite3Layer(db, 'chat_data');
+const layer = betterSqlite3Layer(db);
 
 await Effect.runPromise(
   Effect.gen(function* () {
@@ -54,7 +54,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { nodeSqliteLayer } from 'std-toolkit/sqlite/adapters/node';
 
 const db = new DatabaseSync('./chat.db');
-const layer = nodeSqliteLayer(db, 'chat_data');
+const layer = nodeSqliteLayer(db);
 ```
 
 Same interface, same behavior — just a different driver underneath.
@@ -68,14 +68,14 @@ import { Database } from 'bun:sqlite';
 import { bunSqliteLayer } from 'std-toolkit/sqlite/adapters/bun';
 
 const db = new Database('./chat.db');
-const layer = bunSqliteLayer(db, 'chat_data');
+const layer = bunSqliteLayer(db);
 ```
 
 One detail that matters more than it looks: the on-disk format is interchangeable across adapters. std-toolkit's compatibility tests seed a database file through `better-sqlite3` and read it back through `bun:sqlite` — same file, same rows, no export step. A database your Node test suite wrote is a database your Bun server can serve.
 
 ## Durable Objects — one database per channel
 
-The adapter that makes the edge story real. A Cloudflare Durable Object with SQLite storage hands you `ctx.storage.sql`, and `durableObjectSqliteLayer` turns it into a `SqliteDB`:
+The adapter that makes the edge story real. A Cloudflare Durable Object with SQLite storage hands you `ctx.storage.sql`, and `durableObjectSqliteLayer` turns it into a `SQLiteDatabase` runtime:
 
 ```ts title="channel-object.ts"
 import { DurableObject } from 'cloudflare:workers';
@@ -85,7 +85,7 @@ import { messages } from './entities.js';
 import { table } from './table.js';
 
 export class ChannelObject extends DurableObject {
-  #layer = durableObjectSqliteLayer(this.ctx.storage.sql, 'chat_data');
+  #layer = durableObjectSqliteLayer(this.ctx.storage.sql);
 
   async fetch(_request: Request): Promise<Response> {
     const latest = await Effect.runPromise(
@@ -108,9 +108,9 @@ Now notice what the topology does here. A Durable Object is a globally unique, s
 
 And `table.setup()` being idempotent runtime DDL is what makes this deployable at all — there's no migration console for ten thousand Durable Object databases. Each object provisions its own table on first touch.
 
-## Failure is always `SqliteDBError`
+## Failure is always `SQLiteError`
 
-Whichever adapter you pick, driver exceptions never escape raw. Each layer catches its runtime's throws and maps them into `SqliteDBError`, a tagged error whose `error` field says precisely what failed and where: `CreateTableFailed`, `AddColumnFailed`, `CreateIndexFailed`, `InsertFailed`, `UpdateFailed`, `DeleteFailed`, `GetFailed`, `QueryFailed`, `BeginFailed`, `CommitFailed`, `RollbackFailed` — plus the semantic ones raised above the driver: `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, `NoItemToRestore`, and `ConditionFailed`. Row-level variants carry the table name.
+Whichever adapter you pick, driver exceptions never escape raw. Each layer maps them into `SQLiteError` variants: `CreateTableFailed`, `AddColumnFailed`, `CreateIndexFailed`, `InsertFailed`, `UpdateFailed`, `DeleteFailed`, `GetFailed`, `QueryFailed`, `BeginFailed`, `CommitFailed`, and `RollbackFailed`. Semantic variants include `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, `NoItemToRestore`, and `ConditionFailed`. Row-level variants carry the table name.
 
 Because it's one tagged error type across all four runtimes, handling is uniform Effect code:
 
@@ -124,10 +124,9 @@ const sendMessage = (body: string) =>
       body,
     })
     .pipe(
-      Effect.catchTag('SqliteDBError', (e) =>
-        e.error._tag === 'ItemAlreadyExists'
-          ? Effect.succeed(null) // duplicate send — already stored
-          : Effect.fail(e),
+      Effect.catchTag(
+        'ItemAlreadyExists',
+        () => Effect.succeed(null), // duplicate send — already stored
       ),
     );
 ```

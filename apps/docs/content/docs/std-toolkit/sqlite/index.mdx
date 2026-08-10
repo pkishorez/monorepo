@@ -16,13 +16,13 @@ This page walks the chat app onto SQLite, top to bottom. Everything semantic —
 ```ts title="table.ts"
 import { SQLiteTable } from 'std-toolkit/sqlite';
 
-export const table = SQLiteTable.make()
+export const table = SQLiteTable.make('chat_data')
   .primary('pk', 'sk')
   .index('IDX1', 'IDX1PK', 'IDX1SK')
   .build();
 ```
 
-Same builder shape as the DynamoDB adapter: a primary key pair and generic secondary index slots. The table definition is pure topology — column names, nothing else. Notably absent: a table name and a connection. Both are supplied by the runtime layer (next page), which means one topology can back many physical tables — a fresh in-memory table per test, say.
+Same builder shape as the DynamoDB adapter: a physical table name, a primary key pair, and generic secondary index slots. The connection stays in the runtime layer (next page), so several table definitions can share one database.
 
 Physically, `setup()` (below) turns this into one SQLite table: `pk` and `sk` as a composite primary key, a `_data` column holding the encoded entity as JSON, the meta columns `_e`, `_v`, `_u`, `_d` from the [envelope](/docs/std-toolkit/core/meta), and a nullable column pair per index slot. All rows sharing a `pk` value, ordered by `sk`, form an item collection — the exact structure the whole toolkit is built on, now answered by a `WHERE pk = ? AND sk > ? ORDER BY sk` that SQLite serves off its primary index.
 
@@ -134,15 +134,15 @@ yield *
 
 Either the channel and its first message both exist, or neither does — any op whose condition fails (an `insertOp` onto an existing row, or a guarded `getAndUpdateOp` whose `_u` moved) rolls the whole batch back with `ConditionFailed`. The batch is write-only: a list of pre-built ops, not code that reads and branches mid-transaction. Broadcasts are buffered and only emitted after commit — subscribers never observe a write that later rolled back. How this compares to DynamoDB's `transact` is on the [differences page](/docs/std-toolkit/sqlite/differences-from-dynamodb).
 
-## The seam underneath: `SqliteDB` and `SqliteDBError`
+## The seam underneath: `SQLiteDatabase` and `SQLiteError`
 
-You may have noticed nothing above opened a database connection. Every operation on this page returns an Effect that _requires_ a `SqliteDB` service — the narrow SQL interface all of this compiles down to — and fails with `SqliteDBError`, a tagged error naming exactly what went wrong (`ItemAlreadyExists`, `NoItemToUpdate`, `CreateTableFailed`, …) and on which table. Providing `SqliteDB` for your runtime — better-sqlite3, Node's built-in driver, Bun, or a Durable Object — is a one-line layer, and it's the whole subject of the next page.
+You may have noticed nothing above opened a database connection. Every operation requires `SQLiteDatabase`, the narrow SQL service all of this compiles down to, and fails with `SQLiteError` variants such as `ItemAlreadyExists`, `NoItemToUpdate`, and `CreateTableFailed`. Providing the runtime through better-sqlite3, Node's built-in driver, Bun, or a Durable Object is a one-line layer, and it is the whole subject of the next page.
 
 <Cards>
   <Card
     title="Runtimes"
     href="/docs/std-toolkit/sqlite/runtimes"
-    description="The SqliteDB service and the four adapter layers: better-sqlite3, node:sqlite, bun:sqlite, Durable Objects."
+    description="The SQLiteDatabase service and the four adapter layers: better-sqlite3, node:sqlite, bun:sqlite, Durable Objects."
   />
   <Card
     title="Indexes"

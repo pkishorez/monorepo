@@ -4,7 +4,7 @@ import type {
 } from '../../../../eschema/index.js';
 import { Effect, Match, Schema } from 'effect';
 import type { DynamoDB } from '../dynamodb/index.js';
-import { DynamoDBError } from '../dynamodb-error/index.js';
+import { DynamoDBError } from '../../domain/dynamodb-error/index.js';
 import type { EntityTable as DynamoTable } from '../../domain/entity-persistence/index.js';
 import {
   singleMetaSchema,

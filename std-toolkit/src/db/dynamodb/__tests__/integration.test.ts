@@ -1270,7 +1270,7 @@ describe('DynamoDB', () => {
         }),
       );
 
-      itEffect('hard deletes an existing entity when forceDelete is set', () =>
+      itEffect('hard deletes an existing entity', () =>
         Effect.gen(function* () {
           yield* UserEntity.insert({
             userId: 'entity-hard-delete-1',
@@ -1280,9 +1280,9 @@ describe('DynamoDB', () => {
             age: 30,
           });
 
-          const result = yield* UserEntity.delete(
+          const result = yield* UserEntity.hardDelete(
             { userId: 'entity-hard-delete-1' },
-            { forceDelete: 'I know what I am doing' },
+            'I KNOW WHAT I AM DOING',
           );
 
           expect(result.meta._d).toBe(true);
@@ -1316,9 +1316,9 @@ describe('DynamoDB', () => {
         'fails with NoItemToDelete when hard deleting missing entity',
         () =>
           Effect.gen(function* () {
-            const result = yield* UserEntity.delete(
+            const result = yield* UserEntity.hardDelete(
               { userId: 'entity-missing-hard' },
-              { forceDelete: 'I know what I am doing' },
+              'I KNOW WHAT I AM DOING',
             ).pipe(Effect.result);
 
             expect(result._tag).toBe('Failure');
@@ -1328,6 +1328,40 @@ describe('DynamoDB', () => {
               );
             }
           }),
+      );
+
+      itEffect('dangerously removes only rows for this entity', () =>
+        Effect.gen(function* () {
+          yield* UserEntity.insert({
+            userId: 'entity-purge-user',
+            name: 'Purge User',
+            email: 'purge-user@example.com',
+            status: 'active',
+            age: 30,
+          });
+          yield* OrderEntity.insert({
+            orderId: 'entity-purge-preserved-order',
+            userId: 'entity-purge-order-owner',
+            total: 10,
+            status: 'open',
+            items: [],
+          });
+
+          const result = yield* UserEntity.dangerouslyRemoveAllItems(
+            'I KNOW WHAT I AM DOING',
+          );
+
+          expect(result.itemsDeleted).toBeGreaterThanOrEqual(1);
+          expect(
+            yield* UserEntity.get({ userId: 'entity-purge-user' }),
+          ).toBeNull();
+          expect(
+            yield* OrderEntity.get({
+              orderId: 'entity-purge-preserved-order',
+              userId: 'entity-purge-order-owner',
+            }),
+          ).not.toBeNull();
+        }),
       );
     });
 

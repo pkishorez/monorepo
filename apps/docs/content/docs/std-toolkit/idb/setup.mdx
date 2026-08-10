@@ -1,31 +1,31 @@
 ---
 title: Setup
-description: idbLayer provides the IdbDB service, table.setup() provisions the object store idempotently, and the connection is cached and self-healing across tabs.
+description: idbLayer provides a database-scoped runtime, table.setup() provisions each object store idempotently, and the connection is cached and self-healing across tabs.
 ---
 
-Everything on the [previous page](/docs/std-toolkit/idb) returned an `Effect<…, IdbDBError, IdbDB>` — code that _requires_ an `IdbDB` service and never opened a database itself. This page provides it, and provisions the store.
+Everything on the [previous page](/docs/std-toolkit/idb) requires the database runtime supplied by `idbLayer`; defining a table does not open a database. This page provides that runtime and provisions its stores.
 
-## The `IdbDB` service
+## The database runtime
 
-`IdbDB` is an Effect service — the only thing the entire idb adapter knows how to talk to. Its interface is deliberately small: a bound `tableName` (the object-store name), `setup`, single-key `get` / `put` / `delete`, a `clear`, a cursor-based `getRange`, and a `transact` that applies a batch of ops in one native readwrite transaction. `IdbTable` and its entities are written against this interface and nothing else.
+The internal runtime is the only IndexedDB interface tables and entities use. It is scoped to one database and accepts the table's store name on each operation, allowing several `IdbTable` definitions to share one layer.
 
-You provide it with `idbLayer`, which takes two names and returns a `Layer<IdbDB>`:
+You provide it with `idbLayer`, which takes the IndexedDB database name:
 
 ```ts title="layer.ts"
 import { idbLayer } from 'std-toolkit/idb';
 
-export const layer = idbLayer('chat-app', 'chat_data');
+export const layer = idbLayer('chat-app');
 ```
 
-- The first argument, `'chat-app'`, is the **IndexedDB database name**. A database name handed to `idbLayer` belongs exclusively to this adapter.
-- The second, `'chat_data'`, is the **object-store name** — the physical store the topology maps onto, and the `tableName` every `IdbDBError` reports against.
+- `'chat-app'` is the **IndexedDB database name**. A database name handed to `idbLayer` belongs exclusively to this adapter.
+- Each `IdbTable.make(storeName)` owns its **object-store name**. Multiple tables can share this layer and database.
 
-Notice what's _not_ here: a version number. IndexedDB versions databases explicitly, but you never pick one — `setup` computes it (below). The same `IdbTable` definition can be provided with different layers pointing at different databases or stores, which is what lets a test open a throwaway database and a real app open the user's.
+Notice what's _not_ here: a version number. IndexedDB versions databases explicitly, but you never pick one — `setup` computes it (below). The same `IdbTable` definition can be provided with different layers pointing at different databases, which is what lets a test open a throwaway database and a real app open the user's.
 
 <Callout type="info">
   `idbLayer` itself is safe to call during module evaluation or SSR — it touches
   `globalThis.indexedDB` only when the first Effect actually runs. If IndexedDB
-  is absent at that point, the operation fails with an `IdbDBError` of code
+  is absent at that point, the operation fails with an `IdbError` of code
   `openFailed` rather than throwing at import time.
 </Callout>
 
@@ -61,11 +61,11 @@ You don't open or close anything. The layer keeps a module-level connection cach
 
 The practical upshot: connection lifecycle is not your problem. Provide the layer once, run your program, and the adapter keeps the handle healthy for the life of the page.
 
-## Failure is always `IdbDBError`
+## Failure is always `IdbError`
 
-Whatever goes wrong, it surfaces as `IdbDBError` — a tagged error extending core's `StdToolkitError`, with a `code` field you branch on. The set covers the driver failures (`openFailed`, `setupFailed`, `getFailed`, `putFailed`, `deleteFailed`, `clearFailed`, `transactFailed`, `queryFailed`) and the semantic ones raised above the driver (`conditionFailed`, `noItemToUpdate`, `noItemToDelete`, `noItemToRestore`). Row-level errors carry the table name.
+Whatever goes wrong, it surfaces as `IdbError`. Driver failures extend `StdToolkitError` and carry codes such as `openFailed`, `setupFailed`, `getFailed`, and `transactFailed`. Semantic failures are tagged values such as `ItemAlreadyExists`, `ConditionFailed`, `NoItemToUpdate`, `NoItemToDelete`, and `NoItemToRestore`. Row-level failures identify the store through their context.
 
-`conditionFailed` is the one the entity layer branches on internally to treat an optimistic-write conflict as retryable — and the one you'll branch on when an `insert` or a `lastWriteWins: false` write loses a race:
+`ConditionFailed` is the tag the entity layer treats as a retryable optimistic-write conflict. A direct duplicate insert uses `ItemAlreadyExists`:
 
 ```ts
 import { Effect } from 'effect';
@@ -74,8 +74,8 @@ const sendMessage = (body: string) =>
   messages
     .insert({ messageId: id, channelId: 'C-general', authorId: 'U-ada', body })
     .pipe(
-      Effect.catchIf(
-        (e) => e.code === 'conditionFailed',
+      Effect.catchTag(
+        'ItemAlreadyExists',
         () => Effect.succeed(null), // duplicate send — already stored
       ),
     );

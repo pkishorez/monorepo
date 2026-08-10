@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import type { TerminalFlowStatus } from '@pkishorez/effect-tracer/flow';
 import {
-  SqliteDB,
-  SqliteDBError,
+  SQLiteDatabase,
+  type SQLiteError,
   type SqliteEntityOp,
 } from 'std-toolkit/sqlite';
 import { updateFlowEntity } from '../../../domain/flow/index.js';
@@ -15,7 +15,7 @@ type FlowEntities = Pick<
 
 const CONTENDED_WRITE_RETRIES = 5;
 
-const isContendedWrite = (error: SqliteDBError) =>
+const isContendedWrite = (error: SQLiteError) =>
   error.error._tag === 'ConditionFailed' ||
   error.error._tag === 'ItemAlreadyExists' ||
   error.error._tag === 'NoItemToUpdate';
@@ -29,8 +29,8 @@ export const writeFlowRecord = (
     readonly terminalStatus?: TerminalFlowStatus | undefined;
     readonly recordOperation: Effect.Effect<
       SqliteEntityOp,
-      SqliteDBError,
-      SqliteDB
+      SQLiteError,
+      SQLiteDatabase
     >;
   },
 ) => {

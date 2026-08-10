@@ -45,7 +45,7 @@ If you physically remove the row, the answer is "it doesn't". A deleted row prod
 
 So `delete` in std-toolkit is a **soft delete** by default: it sets `_d: true` and leaves the row in place. Crucially, the delete is just another write — the row gets a fresh `_u`, so it surfaces in any "what changed since my cursor?" query exactly like an edit would. Consumers see the tombstone, drop the message from their local state, and converge.
 
-Hard deletion exists for administrative cleanup, but the adapters make you type `forceDelete: 'I know what I am doing'` to get it — because a hard delete bypasses every downstream consumer that relies on tombstones, and the failure mode is silent, permanent staleness on every client that ever cached the row.
+Hard deletion exists for administrative cleanup as `hardDelete(key, 'I KNOW WHAT I AM DOING')`. Bulk cleanup requires `dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')` on a table or entity. Both bypass every downstream consumer that relies on tombstones, and the failure mode is silent, permanent staleness on every client that ever cached the row.
 
 ## `_u` — the update key
 

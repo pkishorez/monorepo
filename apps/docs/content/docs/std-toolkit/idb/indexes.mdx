@@ -10,7 +10,7 @@ The primary key buys you one access path: messages by channel, in timeline order
 The declaration is split the way the shared model splits it everywhere: the _table_ owns generic index slots, the _entity_ gives a slot meaning.
 
 ```ts title="table.ts"
-const table = IdbTable.make()
+const table = IdbTable.make('chat_data')
   .primary('pk', 'sk')
   .index('IDX1', 'IDX1PK', 'IDX1SK')
   .build();

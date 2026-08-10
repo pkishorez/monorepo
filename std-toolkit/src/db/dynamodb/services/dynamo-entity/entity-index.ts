@@ -1,8 +1,10 @@
 import type { AnyEntityESchema } from '../../../../eschema/index.js';
-import { semanticItem } from '../../domain/entity-persistence/index.js';
-import { deriveIndexKeyValue } from '../../internal/index.js';
+import {
+  deriveIndexKeyValue,
+  semanticItem,
+  type EntityTable as DynamoTable,
+} from '../../domain/entity-persistence/index.js';
 import type { IndexDefinition } from '../../types/index.js';
-import type { EntityTable as DynamoTable } from '../../domain/entity-persistence/index.js';
 
 export interface StoredIndexDerivation {
   readonly gsiName: string;

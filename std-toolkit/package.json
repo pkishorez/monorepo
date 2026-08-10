@@ -48,32 +48,28 @@
       "default": "./dist/db/dynamodb/clients/dynamodb-client/index.js"
     },
     "./idb": {
-      "types": "./dist/db/idb/src/index.d.ts",
-      "default": "./dist/db/idb/src/index.js"
-    },
-    "./idb/*": {
-      "types": "./dist/db/idb/src/*",
-      "import": "./dist/db/idb/src/*"
+      "types": "./dist/db/idb/index.d.ts",
+      "default": "./dist/db/idb/index.js"
     },
     "./sqlite": {
       "types": "./dist/db/sqlite/index.d.ts",
       "default": "./dist/db/sqlite/index.js"
     },
     "./sqlite/adapters/do": {
-      "types": "./dist/db/sqlite/sql/adapters/do.d.ts",
-      "default": "./dist/db/sqlite/sql/adapters/do.js"
+      "types": "./dist/db/sqlite/sql/adapters/durable-object/index.d.ts",
+      "default": "./dist/db/sqlite/sql/adapters/durable-object/index.js"
     },
     "./sqlite/adapters/better-sqlite3": {
-      "types": "./dist/db/sqlite/sql/adapters/better-sqlite3.d.ts",
-      "default": "./dist/db/sqlite/sql/adapters/better-sqlite3.js"
+      "types": "./dist/db/sqlite/sql/adapters/better-sqlite3/index.d.ts",
+      "default": "./dist/db/sqlite/sql/adapters/better-sqlite3/index.js"
     },
     "./sqlite/adapters/bun": {
-      "types": "./dist/db/sqlite/sql/adapters/bun.d.ts",
-      "default": "./dist/db/sqlite/sql/adapters/bun.js"
+      "types": "./dist/db/sqlite/sql/adapters/bun/index.d.ts",
+      "default": "./dist/db/sqlite/sql/adapters/bun/index.js"
     },
     "./sqlite/adapters/node": {
-      "types": "./dist/db/sqlite/sql/adapters/node.d.ts",
-      "default": "./dist/db/sqlite/sql/adapters/node.js"
+      "types": "./dist/db/sqlite/sql/adapters/node/index.d.ts",
+      "default": "./dist/db/sqlite/sql/adapters/node/index.js"
     },
     "./tanstack-sync": {
       "types": "./dist/tanstack-sync/index.d.ts",

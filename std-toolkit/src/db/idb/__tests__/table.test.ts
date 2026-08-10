@@ -1,15 +1,14 @@
 import 'fake-indexeddb/auto';
 import { it, describe, expect } from 'vitest';
 import { Effect, Layer } from 'effect';
-import { IdbDB } from '../src/db.js';
-import type { IdbRecord } from '../src/db.js';
-import { idbLayer } from '../src/layer.js';
-import { IdbTable } from '../src/idb-table.js';
+import { IdbDB, type IdbRecord } from '../services/idb-database/index.js';
+import { idbLayer } from '../clients/idb-client/index.js';
+import { IdbTable } from '../services/idb-table/index.js';
 
 let dbCounter = 0;
 const uniqueDbName = () => `idb-table-test-${++dbCounter}`;
 
-const table = IdbTable.make()
+const table = IdbTable.make('std_data')
   .primary('pk', 'sk')
   .index('gsi1', 'gsi1pk', 'gsi1sk')
   .build();
@@ -51,7 +50,7 @@ describe('IDB', () => {
   describe('Table', () => {
     describe('query operators', () => {
       it('with no sk condition returns the whole item collection ascending', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(Effect.andThen(table.query({ pk: 'USER#1' }))),
@@ -60,7 +59,7 @@ describe('IDB', () => {
       });
 
       it('< returns strictly-lesser keys descending by default', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -71,7 +70,7 @@ describe('IDB', () => {
       });
 
       it('<= includes the bound and returns descending by default', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -82,7 +81,7 @@ describe('IDB', () => {
       });
 
       it('> returns strictly-greater keys ascending', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -93,7 +92,7 @@ describe('IDB', () => {
       });
 
       it('>= includes the bound and returns ascending', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -104,7 +103,7 @@ describe('IDB', () => {
       });
 
       it('= returns exactly the matching key', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -115,7 +114,7 @@ describe('IDB', () => {
       });
 
       it('between is inclusive on both ends and ascending', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -128,7 +127,7 @@ describe('IDB', () => {
       });
 
       it('beginsWith returns all keys with the prefix ascending', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -141,7 +140,7 @@ describe('IDB', () => {
       });
 
       it('never leaks records from another item collection', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seeded([makeRecord('A#1'), makeRecord('A#1', { pk: 'USER#2' })]).pipe(
@@ -155,7 +154,7 @@ describe('IDB', () => {
 
     describe('sort direction overrides', () => {
       it('ScanIndexForward: false reverses an ascending query', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -168,7 +167,7 @@ describe('IDB', () => {
       });
 
       it('ScanIndexForward: true forces ascending on a < query', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -186,7 +185,7 @@ describe('IDB', () => {
 
     describe('limits', () => {
       it('Limit truncates the result', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(
@@ -197,7 +196,7 @@ describe('IDB', () => {
       });
 
       it('defaults to a limit of 100', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const records = Array.from({ length: 105 }, (_, i) =>
           makeRecord(`K#${String(i).padStart(3, '0')}`),
         );
@@ -213,7 +212,7 @@ describe('IDB', () => {
 
     describe('secondary index', () => {
       it('queries via the GSI and skips records lacking the GSI key fields (sparse)', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seeded([
@@ -226,7 +225,7 @@ describe('IDB', () => {
       });
 
       it('supports sort key conditions and direction on the GSI', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seeded([
@@ -247,7 +246,7 @@ describe('IDB', () => {
 
     describe('item operations', () => {
       it('getItem returns the stored record, or null when missing', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const record = makeRecord('A#1');
         const result = await runWith(
           layer,
@@ -265,7 +264,7 @@ describe('IDB', () => {
       });
 
       it('updateItem merges values into an existing record', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seeded([makeRecord('A#1')]).pipe(
@@ -283,7 +282,7 @@ describe('IDB', () => {
       });
 
       it('deleteItem soft-deletes: the record stays readable with _d: true', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seeded([makeRecord('A#1')]).pipe(
@@ -296,7 +295,7 @@ describe('IDB', () => {
       });
 
       it('query still returns soft-deleted records (tombstones are not filtered)', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seeded([makeRecord('A#1')]).pipe(
@@ -309,7 +308,7 @@ describe('IDB', () => {
       });
 
       it('hardDeleteItem removes the record entirely', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seeded([makeRecord('A#1')]).pipe(
@@ -321,7 +320,7 @@ describe('IDB', () => {
       });
 
       it('dangerouslyRemoveAllItems empties the table and reports the count', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         const result = await runWith(
           layer,
           seedCollection().pipe(

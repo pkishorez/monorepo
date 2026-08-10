@@ -57,20 +57,20 @@ The read-modify-write itself is spelled **`getAndUpdate`** (like SQLite, not Dyn
 
 ## Query surface
 
-The same small deltas as SQLite, for the same reason. The sort-key operators are `<`, `<=`, `>`, `>=` with a nullable cursor — no `beginsWith`, which costs little when sort keys are ULIDs and index sort keys default to `_u`. Pass no `limit` and a query returns up to 100 rows. There's no page-truncation cap like DynamoDB's 1 MB `LastEvaluatedKey`; a page is exactly what you asked for, and `queryStream` runs the cursor-until-exhausted loop identically to the other adapters.
+The sort-key operators are `<`, `<=`, `>`, `>=`, and `beginsWith`, with nullable cursors on the comparison operators. Pass no `limit` and a query returns up to 100 rows. There's no page-truncation cap like DynamoDB's 1 MB `LastEvaluatedKey`; a page is exactly what you asked for, and `queryStream` runs the cursor-until-exhausted loop identically to the other adapters.
 
 ## Deletes and destructive escape hatches
 
 `delete` is a tombstone on every adapter — `_d` flips, `_u` re-stamps, the row stays readable for sync consumers, and `restore` revives it. The _hard_ escape hatches:
 
-- **`entity.hardDelete(key)`** physically removes one record by its primary key. Unlike SQLite — which can bulk-delete every row for an entity with a `WHERE` — IndexedDB has no primitive to scan across every partition an entity's rows might live under, so this is one key at a time, mirroring DynamoDB's single-key `forceDelete`.
-- **`table.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')`** truncates the whole object store — a test-fixture and cleanup tool.
+- **`entity.hardDelete(key, 'I KNOW WHAT I AM DOING')`** physically removes one record by its primary key.
+- **`dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')`** removes every row at its scope: the complete store when called on a table, or only that entity's records when called on an entity.
 
 The warning is the same everywhere: hard deletion erases the tombstone, so anything syncing from the store never learns the row died. Reach for it in tests and cleanup, nowhere near synced data.
 
 ## Errors
 
-Same ergonomics, own vocabulary: every idb operation fails with `IdbDBError`, a tagged error you branch on via its `code` field. The variants reflect the runtime — driver failures (`openFailed`, `setupFailed`, `getFailed`, `putFailed`, `deleteFailed`, `clearFailed`, `transactFailed`, `queryFailed`) and semantic ones (`conditionFailed`, `noItemToUpdate`, `noItemToDelete`, `noItemToRestore`). The semantic variant you branch on most, `conditionFailed`, is the idb analog of SQLite's `ItemAlreadyExists` on a losing insert and DynamoDB's condition-check failure — so recovery logic ports with a rename.
+Same ergonomics, own vocabulary: every idb operation fails with `IdbError`. The variants reflect the runtime — driver failures (`openFailed`, `setupFailed`, `getFailed`, `putFailed`, `deleteFailed`, `clearFailed`, `transactFailed`, `queryFailed`) and semantic ones (`ItemAlreadyExists`, `ConditionFailed`, `NoItemToUpdate`, `NoItemToDelete`, `NoItemToRestore`). A direct duplicate insert consistently returns `ItemAlreadyExists`; an optimistic or transaction conflict returns `ConditionFailed`.
 
 ## When to reach for which
 

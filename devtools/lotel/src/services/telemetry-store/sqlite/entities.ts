@@ -1,11 +1,11 @@
-import { Effect } from 'effect';
+import { Effect, type Layer } from 'effect';
 import type { EntityType } from 'std-toolkit/core';
 import {
+  SQLiteError,
   SQLiteTable,
-  SqliteDB,
-  SqliteDBError,
   type SqliteEntityOp,
 } from 'std-toolkit/sqlite';
+import type { nodeSqliteLayer } from 'std-toolkit/sqlite/adapters/node';
 import {
   LogEntitySchema,
   SpanEntitySchema,
@@ -17,45 +17,47 @@ import { FlowEntitySchema } from '../../../domain/flow/index.js';
 
 type FlowEntity = typeof FlowEntitySchema.Type;
 
+type SQLiteDatabase = Layer.Success<ReturnType<typeof nodeSqliteLayer>>;
+
 interface TableService {
-  setup(): Effect.Effect<void, SqliteDBError, SqliteDB>;
+  setup(): Effect.Effect<void, SQLiteError, SQLiteDatabase>;
   dangerouslyRemoveAllItems(
     confirmation: 'I KNOW WHAT I AM DOING',
-  ): Effect.Effect<{ itemsDeleted: number }, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<{ itemsDeleted: number }, SQLiteError, SQLiteDatabase>;
   transact(
     operations: ReadonlyArray<SqliteEntityOp>,
-  ): Effect.Effect<EntityType<unknown>[], SqliteDBError, SqliteDB>;
+  ): Effect.Effect<EntityType<unknown>[], SQLiteError, SQLiteDatabase>;
 }
 
 interface SpanService {
   get(key: {
     traceId: string;
     spanId: string;
-  }): Effect.Effect<EntityType<SpanRecord> | null, SqliteDBError, SqliteDB>;
+  }): Effect.Effect<EntityType<SpanRecord> | null, SQLiteError, SQLiteDatabase>;
   insert(
     record: SpanRecord,
-  ): Effect.Effect<EntityType<SpanRecord>, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<EntityType<SpanRecord>, SQLiteError, SQLiteDatabase>;
   getAndUpdate(
     key: { traceId: string; spanId: string },
     record: SpanRecord,
     config: { retries: number; lastWriteWins: boolean },
-  ): Effect.Effect<EntityType<SpanRecord>, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<EntityType<SpanRecord>, SQLiteError, SQLiteDatabase>;
   insertOp(
     record: SpanRecord,
-  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<SqliteEntityOp, SQLiteError, SQLiteDatabase>;
   getAndUpdateOp(
     key: { traceId: string; spanId: string },
     record: SpanRecord,
     options?: { lastWriteWins?: boolean },
-  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<SqliteEntityOp, SQLiteError, SQLiteDatabase>;
   query(
     index: 'timeline',
     params: { pk: {}; sk: UpdateCursor },
     options?: { limit?: number },
   ): Effect.Effect<
     { items: EntityType<SpanRecord>[] },
-    SqliteDBError,
-    SqliteDB
+    SQLiteError,
+    SQLiteDatabase
   >;
   query(
     index: 'primary',
@@ -63,8 +65,8 @@ interface SpanService {
     options?: { limit?: number },
   ): Effect.Effect<
     { items: EntityType<SpanRecord>[] },
-    SqliteDBError,
-    SqliteDB
+    SQLiteError,
+    SQLiteDatabase
   >;
   query(
     index: 'byFlow',
@@ -72,55 +74,67 @@ interface SpanService {
     options?: { limit?: number },
   ): Effect.Effect<
     { items: EntityType<SpanRecord>[] },
-    SqliteDBError,
-    SqliteDB
+    SQLiteError,
+    SQLiteDatabase
   >;
 }
 
 interface LogService {
   insert(
     record: LogRecord,
-  ): Effect.Effect<EntityType<LogRecord>, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<EntityType<LogRecord>, SQLiteError, SQLiteDatabase>;
   insertOp(
     record: LogRecord,
-  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<SqliteEntityOp, SQLiteError, SQLiteDatabase>;
   query(
     index: 'timeline',
     params: { pk: {}; sk: UpdateCursor },
     options?: { limit?: number },
-  ): Effect.Effect<{ items: EntityType<LogRecord>[] }, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<
+    { items: EntityType<LogRecord>[] },
+    SQLiteError,
+    SQLiteDatabase
+  >;
   query(
     index: 'byTrace',
     params: { pk: { traceId: string }; sk: UpdateCursor },
     options?: { limit?: number },
-  ): Effect.Effect<{ items: EntityType<LogRecord>[] }, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<
+    { items: EntityType<LogRecord>[] },
+    SQLiteError,
+    SQLiteDatabase
+  >;
   query(
     index: 'byFlow',
     params: { pk: { flowId: string }; sk: UpdateCursor },
     options?: { limit?: number },
-  ): Effect.Effect<{ items: EntityType<LogRecord>[] }, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<
+    { items: EntityType<LogRecord>[] },
+    SQLiteError,
+    SQLiteDatabase
+  >;
 }
 
 interface FlowService {
   get(key: {
     flowId: string;
-  }): Effect.Effect<EntityType<FlowEntity> | null, SqliteDBError, SqliteDB>;
+  }): Effect.Effect<EntityType<FlowEntity> | null, SQLiteError, SQLiteDatabase>;
   insertOp(
     record: FlowEntity,
-  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<SqliteEntityOp, SQLiteError, SQLiteDatabase>;
   getAndUpdateOp(
     key: { flowId: string },
     record: FlowEntity | ((current: FlowEntity) => FlowEntity),
     options?: { lastWriteWins?: boolean },
-  ): Effect.Effect<SqliteEntityOp, SqliteDBError, SqliteDB>;
+  ): Effect.Effect<SqliteEntityOp, SQLiteError, SQLiteDatabase>;
   query(
     index: 'timeline',
     params: { pk: {}; sk: UpdateCursor },
     options?: { limit?: number },
   ): Effect.Effect<
     { items: EntityType<FlowEntity>[] },
-    SqliteDBError,
-    SqliteDB
+    SQLiteError,
+    SQLiteDatabase
   >;
 }
 
@@ -132,7 +146,7 @@ interface SqliteEntities {
 }
 
 export const makeSqliteEntities = (): SqliteEntities => {
-  const table = SQLiteTable.make()
+  const table = SQLiteTable.make('lotel_data')
     .primary('pk', 'sk')
     .index('timeline', 'timelinePk', 'timelineSk')
     .index('trace', 'tracePk', 'traceSk')

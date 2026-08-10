@@ -4,8 +4,10 @@ import type {
 } from '../../../../eschema/index.js';
 import { Effect, Option, Schema } from 'effect';
 import { Broadcaster, type EntityType } from '../../../../core/index.js';
-import { deriveIndexKeyValue } from '../../internal/index.js';
-import type { EntityTable as DynamoTable } from '../../domain/entity-persistence/index.js';
+import {
+  deriveIndexKeyValue,
+  type EntityTable as DynamoTable,
+} from '../../domain/entity-persistence/index.js';
 
 export const singleMetaSchema = Schema.Struct({
   _e: Schema.String,

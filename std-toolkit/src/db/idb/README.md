@@ -16,7 +16,7 @@ const UserSchema = EntityESchema.make('User', 'userId', {
   name: Schema.String,
 }).build();
 
-const table = IdbTable.make()
+const table = IdbTable.make('std_data')
   .primary('pk', 'sk')
   .index('IDX1', 'IDX1PK', 'IDX1SK')
   .build();
@@ -39,31 +39,28 @@ const program = Effect.gen(function* () {
   return items;
 });
 
-Effect.runPromise(
-  program.pipe(Effect.provide(idbLayer('my-app-db', 'std_data'))),
-);
+Effect.runPromise(program.pipe(Effect.provide(idbLayer('my-app-db'))));
 ```
 
-`idbLayer(dbName, tableName)` provides `IdbDB` for one object store (`tableName`) inside one IndexedDB database (`dbName`). Auto-versioned setup: the adapter owns `dbName`'s version number — `table.setup()` diffs declared stores/indexes against what exists and only bumps the version when something is missing, so a database name handed to `idbLayer` belongs exclusively to this adapter (see the ADR).
+`idbLayer(dbName)` provides one database-scoped runtime. Each `IdbTable.make(storeName)` owns its real IndexedDB object-store name. Multiple tables can share the same layer. Auto-versioned `table.setup()` creates that store and its missing indexes, bumping the database version only when needed.
 
 ## Key exports
 
 **Services**
 
 - `IdbTable` — the single-table topology; entities are defined from it via `table.entity(eschema)` / `table.singleEntity(eschema)` and it coordinates `setup()` and `transact()`
-- `table.snapshot()` — synchronously captures the logical topology, registered entities, ESchema histories, and sparse index derivations without opening IndexedDB. See the [shared snapshot workflow](../../eschema/README.md#semantic-contract-snapshots).
+- `table.snapshot()` — synchronously captures the storage topology, registered entities, ESchema histories, and sparse index derivations without opening IndexedDB. See the [shared snapshot workflow](../../eschema/README.md#semantic-contract-snapshots).
 
 **Database**
 
-- `IdbDB` — database abstraction layer
-- `IdbDBError` — error type for database failures
-- `idbLayer` — constructs the `IdbDB` layer for a given database/table name pair
+- `IdbError` — IndexedDB operation failures plus shared persistence failures
+- `idbLayer` — constructs the runtime for one IndexedDB database
 
 **Types**
 
-- `IdbTableInstance`, `IdbEntityOp`, `EntityType` (re-exported from `std-toolkit/core`)
+- `IdbTableInstance`, `EntityType`, `SingleEntityType`
 
 ## Entity layer notes
 
-- `hardDelete` is single-key: unlike SQLite's bulk `hardDelete` (a plain SQL `WHERE`), IndexedDB has no primitive to scan every partition key an entity's rows might live under, so hard delete removes one key at a time. Prefer the soft `delete` (tombstone via `_d`) for anything a sync consumer reads.
-- `table.transact(ops)` takes `IdbEntityOp` descriptors produced by `entity.insertOp(...)` / `entity.getAndUpdateOp(...)` / `entity.deleteOp(...)` / `entity.restoreOp(...)` / `singleEntity.getAndUpdateOp(...)` — which validate, migrate, and derive keys up front, outside any transaction — and applies them all in one native IndexedDB read-write transaction with no foreign awaits inside it. Ops from an entity of a different table are rejected at runtime. Broadcasts fire only after that transaction commits, in op order. See the buffered-transactions ADR for why there is no interactive `begin`/`commit` like `SqliteDB`'s.
+- `hardDelete(key, 'I KNOW WHAT I AM DOING')` physically removes one record. `dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')` removes every record at table or entity scope. Prefer the soft `delete` tombstone for anything a sync consumer reads.
+- `table.transact(ops)` applies descriptors from the entity `*Op` methods in one native read-write transaction. Foreign-table and duplicate-target ops fail with shared typed persistence errors. Broadcasts fire only after commit, in order.

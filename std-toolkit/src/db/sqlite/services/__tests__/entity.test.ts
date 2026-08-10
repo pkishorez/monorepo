@@ -5,9 +5,9 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { EntityESchema } from '../../../../eschema/index.js';
 import { Effect, Layer, Schema } from 'effect';
-import { nodeSqliteLayer } from '../../sql/adapters/node.js';
-import { SqliteDB } from '../../sql/db.js';
-import { SQLiteTable } from '../sqlite-table.js';
+import { nodeSqliteLayer } from '../../sql/adapters/node/index.js';
+import { SQLiteDatabase as SqliteDB } from '../sqlite-database/index.js';
+import { SQLiteTable } from '../../orchestrators/sqlite-table/index.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ describe('SQLite', () => {
       let layer: Layer.Layer<SqliteDB>;
 
       // Create shared table with indexes
-      const table = SQLiteTable.make()
+      const table = SQLiteTable.make('std_data')
         .primary('pk', 'sk')
         .index('IDX1', 'IDX1PK', 'IDX1SK')
         .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -65,7 +65,7 @@ describe('SQLite', () => {
 
       beforeAll(async () => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'std_data');
+        layer = nodeSqliteLayer(db);
         await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
       });
 
@@ -177,7 +177,7 @@ describe('SQLite', () => {
               })
               .pipe(Effect.flip);
 
-            expect(error.error._tag).toBe('ItemAlreadyExists');
+            expect(error._tag).toBe('ItemAlreadyExists');
           }).pipe(Effect.provide(layer)),
         );
       });
@@ -249,7 +249,7 @@ describe('SQLite', () => {
             const error = yield* userEntity
               .getAndUpdate({ userId: 'non-existent' }, { name: 'X' })
               .pipe(Effect.flip);
-            expect(error.error._tag).toBe('NoItemToUpdate');
+            expect(error._tag).toBe('NoItemToUpdate');
           }).pipe(Effect.provide(layer)),
         );
 
@@ -305,7 +305,7 @@ describe('SQLite', () => {
             const error = yield* userEntity
               .delete({ userId: 'non-existent-delete' })
               .pipe(Effect.flip);
-            expect(error.error._tag).toBe('NoItemToDelete');
+            expect(error._tag).toBe('NoItemToDelete');
           }).pipe(Effect.provide(layer)),
         );
       });
@@ -512,7 +512,7 @@ describe('SQLite', () => {
             const error = yield* table
               .transact([freshPostOp, dupUserOp])
               .pipe(Effect.flip);
-            expect(error.error._tag).toBe('ConditionFailed');
+            expect(error._tag).toBe('ConditionFailed');
 
             const post = yield* postEntity.get({
               authorId: 'tx-author-2',
@@ -562,7 +562,7 @@ describe('SQLite', () => {
       let db: DatabaseSync;
       let layer: Layer.Layer<SqliteDB>;
 
-      const table = SQLiteTable.make()
+      const table = SQLiteTable.make('query_ops')
         .primary('pk', 'sk')
         .index('IDX1', 'IDX1PK', 'IDX1SK')
         .build();
@@ -580,7 +580,7 @@ describe('SQLite', () => {
 
       beforeAll(async () => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'query_ops');
+        layer = nodeSqliteLayer(db);
         await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
         // Insert test data with sequential item IDs
@@ -869,7 +869,7 @@ describe('SQLite', () => {
       let db: DatabaseSync;
       let layer: Layer.Layer<SqliteDB>;
 
-      const table = SQLiteTable.make()
+      const table = SQLiteTable.make('composite_sk')
         .primary('pk', 'sk')
         .index('IDX1', 'IDX1PK', 'IDX1SK')
         .build();
@@ -882,7 +882,7 @@ describe('SQLite', () => {
 
       beforeAll(async () => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'composite_sk');
+        layer = nodeSqliteLayer(db);
         await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
         // Insert comments
@@ -990,7 +990,9 @@ describe('SQLite', () => {
       let db: DatabaseSync;
       let layer: Layer.Layer<SqliteDB>;
 
-      const table = SQLiteTable.make().primary('pk', 'sk').build();
+      const table = SQLiteTable.make('hard_delete_test')
+        .primary('pk', 'sk')
+        .build();
 
       const userEntity = table.entity(UserSchema).primary().build();
 
@@ -1001,13 +1003,13 @@ describe('SQLite', () => {
 
       beforeAll(async () => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'hard_delete_test');
+        layer = nodeSqliteLayer(db);
         await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
       });
 
       afterAll(() => db.close());
 
-      itEffect('deletes only rows for the entity in a shared table', () =>
+      itEffect('hard deletes one record', () =>
         Effect.gen(function* () {
           yield* userEntity.insert({
             userId: 'user-hard-delete',
@@ -1021,9 +1023,12 @@ describe('SQLite', () => {
             content: 'Still here',
           });
 
-          const result = yield* userEntity.hardDelete();
+          const result = yield* userEntity.hardDelete(
+            { userId: 'user-hard-delete' },
+            'I KNOW WHAT I AM DOING',
+          );
 
-          expect(result.rowsDeleted).toBe(1);
+          expect(result.meta._d).toBe(true);
           expect(
             db
               .prepare(
@@ -1031,6 +1036,34 @@ describe('SQLite', () => {
               )
               .get('User'),
           ).toEqual({ count: 0 });
+          expect(
+            db
+              .prepare(
+                'SELECT COUNT(*) as count FROM hard_delete_test WHERE _e = ?',
+              )
+              .get('Post'),
+          ).toEqual({ count: 1 });
+        }).pipe(Effect.provide(layer)),
+      );
+
+      itEffect("dangerously removes only this entity's rows", () =>
+        Effect.gen(function* () {
+          yield* userEntity.insert({
+            userId: 'user-purge-1',
+            email: 'purge-1@example.com',
+            name: 'Purge 1',
+          });
+          yield* userEntity.insert({
+            userId: 'user-purge-2',
+            email: 'purge-2@example.com',
+            name: 'Purge 2',
+          });
+
+          const result = yield* userEntity.dangerouslyRemoveAllItems(
+            'I KNOW WHAT I AM DOING',
+          );
+
+          expect(result.itemsDeleted).toBe(2);
           expect(
             db
               .prepare(
@@ -1048,7 +1081,7 @@ describe('SQLite', () => {
       let db: DatabaseSync;
       let layer: Layer.Layer<SqliteDB>;
 
-      const table = SQLiteTable.make().primary('pk', 'sk').build();
+      const table = SQLiteTable.make('tx_test').primary('pk', 'sk').build();
 
       const CounterSchema = EntityESchema.make('Counter', 'counterId', {
         count: Schema.Number,
@@ -1061,7 +1094,7 @@ describe('SQLite', () => {
 
       beforeEach(async () => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'tx_test');
+        layer = nodeSqliteLayer(db);
         await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
       });
 
@@ -1114,7 +1147,7 @@ describe('SQLite', () => {
           const error = yield* table
             .transact([r1Op, r2Op, dupOp])
             .pipe(Effect.flip);
-          expect(error.error._tag).toBe('ConditionFailed');
+          expect(error._tag).toBe('ConditionFailed');
 
           // All should be rolled back
           const r1 = yield* counterEntity.get({ counterId: 'r1' });
@@ -1139,7 +1172,7 @@ describe('SQLite', () => {
           yield* counterEntity.getAndUpdate({ counterId: 'u1' }, { count: 5 });
 
           const error = yield* table.transact([staleOp]).pipe(Effect.flip);
-          expect(error.error._tag).toBe('ConditionFailed');
+          expect(error._tag).toBe('ConditionFailed');
 
           const result = yield* counterEntity.get({ counterId: 'u1' });
           expect(result!.value.count).toBe(5);
@@ -1177,7 +1210,7 @@ describe('SQLite', () => {
       let db: DatabaseSync;
       let layer: Layer.Layer<SqliteDB>;
 
-      const table = SQLiteTable.make().primary('pk', 'sk').build();
+      const table = SQLiteTable.make('edge_data').primary('pk', 'sk').build();
 
       const SimpleSchema = EntityESchema.make('Simple', 'simpleId', {
         value: Schema.Number,
@@ -1190,7 +1223,7 @@ describe('SQLite', () => {
 
       beforeAll(async () => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'edge_data');
+        layer = nodeSqliteLayer(db);
         await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
       });
 
@@ -1294,24 +1327,6 @@ describe('SQLite', () => {
           expect(neg!.value.value).toBe(-123.456);
         }).pipe(Effect.provide(layer)),
       );
-
-      itEffect('dangerouslyRemoveAllItems clears all data', () =>
-        Effect.gen(function* () {
-          yield* simpleEntity.insert({ simpleId: 'clear-1', value: 1 });
-          yield* simpleEntity.insert({ simpleId: 'clear-2', value: 2 });
-
-          const { itemsDeleted } = yield* table.dangerouslyRemoveAllItems(
-            'I KNOW WHAT I AM DOING',
-          );
-          expect(itemsDeleted).toBeGreaterThan(0);
-
-          // With pk being just entity name, pk is optional
-          const result = yield* simpleEntity.query('primary', {
-            sk: { '>=': null },
-          });
-          expect(result.items).toHaveLength(0);
-        }).pipe(Effect.provide(layer)),
-      );
     });
 
     // ─── Multiple Secondary Indexes ──────────────────────────────────────────────
@@ -1320,7 +1335,7 @@ describe('SQLite', () => {
       let db: DatabaseSync;
       let layer: Layer.Layer<SqliteDB>;
 
-      const table = SQLiteTable.make()
+      const table = SQLiteTable.make('multi_idx')
         .primary('pk', 'sk')
         .index('IDX1', 'IDX1PK', 'IDX1SK')
         .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -1342,7 +1357,7 @@ describe('SQLite', () => {
 
       beforeAll(async () => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'multi_idx');
+        layer = nodeSqliteLayer(db);
         await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
         await Effect.runPromise(
@@ -1471,7 +1486,7 @@ describe('SQLite', () => {
       let db: DatabaseSync;
       let layer: Layer.Layer<SqliteDB>;
 
-      const table = SQLiteTable.make()
+      const table = SQLiteTable.make('isolation_test')
         .primary('pk', 'sk')
         .index('IDX1', 'IDX1PK', 'IDX1SK')
         .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -1505,7 +1520,7 @@ describe('SQLite', () => {
 
       beforeAll(async () => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'isolation_test');
+        layer = nodeSqliteLayer(db);
         await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
 
         await Effect.runPromise(

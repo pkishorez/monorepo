@@ -1,14 +1,14 @@
 import 'fake-indexeddb/auto';
 import { DatabaseSync } from 'node:sqlite';
 import { it, describe, expect } from 'vitest';
-import { Cause, Effect, Exit, Layer, Schema } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
 import { Broadcaster, type EntityType } from '../../core/index.js';
 
-import { nodeSqliteLayer } from '../sqlite/sql/adapters/node.js';
+import { nodeSqliteLayer } from '../sqlite/sql/adapters/node/index.js';
 import { SQLiteTable } from '../sqlite/index.js';
 
-import { idbLayer, IdbTable } from '../idb/src/index.js';
+import { idbLayer, IdbTable } from '../idb/index.js';
 
 // ─── Shared assertion surface ───────────────────────────────────────────────
 //
@@ -68,6 +68,9 @@ interface ConformanceTable {
   transact(
     ops: ConformanceOp[],
   ): Effect.Effect<EntityType<unknown>[], any, any>;
+  dangerouslyRemoveAllItems(
+    confirmation: 'I KNOW WHAT I AM DOING',
+  ): Effect.Effect<{ itemsDeleted: number }, any, any>;
 }
 
 interface EntityResult {
@@ -89,6 +92,13 @@ interface ConformanceEntity {
   ): Effect.Effect<EntityResult, any, any>;
   delete(key: Record<string, unknown>): Effect.Effect<EntityResult, any, any>;
   restore(key: Record<string, unknown>): Effect.Effect<EntityResult, any, any>;
+  hardDelete(
+    key: Record<string, unknown>,
+    confirmation: 'I KNOW WHAT I AM DOING',
+  ): Effect.Effect<EntityResult, any, any>;
+  dangerouslyRemoveAllItems(
+    confirmation: 'I KNOW WHAT I AM DOING',
+  ): Effect.Effect<{ itemsDeleted: number }, any, any>;
   query(
     index: string,
     params: { pk?: Record<string, unknown>; sk: Record<string, unknown> },
@@ -171,9 +181,9 @@ let idbDbCounter = 0;
 const adapters: ConformanceAdapter[] = [
   {
     name: 'sqlite',
-    makeLayer: () => nodeSqliteLayer(new DatabaseSync(':memory:'), 'std_data'),
+    makeLayer: () => nodeSqliteLayer(new DatabaseSync(':memory:')),
     makeTable: () =>
-      SQLiteTable.make()
+      SQLiteTable.make('std_data')
         .primary('pk', 'sk')
         .index('gsi1', 'gsi1pk', 'gsi1sk')
         .build() as unknown as ConformanceTable,
@@ -198,20 +208,17 @@ const adapters: ConformanceAdapter[] = [
         .default(CONF_DEFAULT) as unknown as ConformanceSingleEntity,
     storedDeletedValue: 1,
     isDuplicateInsertError: (error) =>
-      (error as { error?: { _tag?: string } })?.error?._tag ===
-      'ItemAlreadyExists',
+      (error as { _tag?: string })?._tag === 'ItemAlreadyExists',
     isConditionFailedError: (error) =>
-      (error as { error?: { _tag?: string } })?.error?._tag ===
-      'ConditionFailed',
+      (error as { _tag?: string })?._tag === 'ConditionFailed',
     isNoItemToUpdateError: (error) =>
-      (error as { error?: { _tag?: string } })?.error?._tag ===
-      'NoItemToUpdate',
+      (error as { _tag?: string })?._tag === 'NoItemToUpdate',
   },
   {
     name: 'idb',
-    makeLayer: () => idbLayer(`conformance-${++idbDbCounter}`, 'std_data'),
+    makeLayer: () => idbLayer(`conformance-${++idbDbCounter}`),
     makeTable: () =>
-      IdbTable.make()
+      IdbTable.make('std_data')
         .primary('pk', 'sk')
         .index('gsi1', 'gsi1pk', 'gsi1sk')
         .build() as unknown as ConformanceTable,
@@ -236,11 +243,11 @@ const adapters: ConformanceAdapter[] = [
         .default(CONF_DEFAULT) as unknown as ConformanceSingleEntity,
     storedDeletedValue: true,
     isDuplicateInsertError: (error) =>
-      (error as { code?: string })?.code === 'conditionFailed',
+      (error as { _tag?: string })?._tag === 'ItemAlreadyExists',
     isConditionFailedError: (error) =>
-      (error as { code?: string })?.code === 'conditionFailed',
+      (error as { _tag?: string })?._tag === 'ConditionFailed',
     isNoItemToUpdateError: (error) =>
-      (error as { code?: string })?.code === 'noItemToUpdate',
+      (error as { _tag?: string })?._tag === 'NoItemToUpdate',
   },
 ];
 
@@ -347,13 +354,21 @@ describe('Database conformance', () => {
         });
         const result = await run(
           layer,
-          seed.pipe(
-            Effect.andThen(
-              table.query({ pk: 'COL#2', sk: { beginsWith: 'B#' } }),
-            ),
-          ),
+          Effect.gen(function* () {
+            yield* seed;
+            const ascending = yield* table.query({
+              pk: 'COL#2',
+              sk: { beginsWith: 'B#' },
+            });
+            const descending = yield* table.query(
+              { pk: 'COL#2', sk: { beginsWith: 'B#' } },
+              { ScanIndexForward: false },
+            );
+            return { ascending, descending };
+          }),
         );
-        expect(sksOf(result)).toEqual(['B#1', 'B#2']);
+        expect(sksOf(result.ascending)).toEqual(['B#1', 'B#2']);
+        expect(sksOf(result.descending)).toEqual(['B#2', 'B#1']);
       });
 
       it('beginsWith includes a key equal to the prefix and excludes a neighboring prefix', async () => {
@@ -536,6 +551,47 @@ describe('Database conformance', () => {
           value: { itemId: 'item-1', category: 'cat-1', value: 1 },
           meta: result.inserted.meta,
         });
+      });
+
+      it('supports beginsWith on the primary sort key', async () => {
+        const layer = adapter.makeLayer();
+        const table = adapter.makeTable();
+        const entity = adapter.makeItemEntity(table);
+        const result = await run(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            for (const itemId of [
+              'item-a',
+              'item-ab',
+              'item-a%literal',
+              'item-aXliteral',
+              'other',
+            ]) {
+              yield* entity.insert({
+                itemId,
+                category: 'cat-prefix',
+                value: 1,
+              });
+            }
+            const normalPrefix = yield* entity.query('primary', {
+              pk: { category: 'cat-prefix' },
+              sk: { beginsWith: 'item-a' },
+            });
+            const literalWildcard = yield* entity.query('primary', {
+              pk: { category: 'cat-prefix' },
+              sk: { beginsWith: 'item-a%' },
+            });
+            return { normalPrefix, literalWildcard };
+          }),
+        );
+
+        expect(
+          result.normalPrefix.items.map((item) => item.value.itemId),
+        ).toEqual(['item-a', 'item-a%literal', 'item-aXliteral', 'item-ab']);
+        expect(
+          result.literalWildcard.items.map((item) => item.value.itemId),
+        ).toEqual(['item-a%literal']);
       });
     });
 
@@ -758,6 +814,75 @@ describe('Database conformance', () => {
       });
     });
 
+    describe('destructive deletion', () => {
+      it('hard deletes one entity record', async () => {
+        const layer = adapter.makeLayer();
+        const table = adapter.makeTable();
+        const entity = adapter.makeItemEntity(table);
+        const result = await run(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            yield* entity.insert({
+              itemId: 'hard-delete',
+              category: 'cat-delete',
+              value: 1,
+            });
+            const deleted = yield* entity.hardDelete(
+              {
+                itemId: 'hard-delete',
+                category: 'cat-delete',
+              },
+              'I KNOW WHAT I AM DOING',
+            );
+            const after = yield* entity.get({
+              itemId: 'hard-delete',
+              category: 'cat-delete',
+            });
+            return { deleted, after };
+          }),
+        );
+
+        expect(result.deleted.meta._d).toBe(true);
+        expect(result.after).toBeNull();
+      });
+
+      it('purges only one entity or the complete table', async () => {
+        const layer = adapter.makeLayer();
+        const table = adapter.makeTable();
+        const entity = adapter.makeItemEntity(table);
+        const result = await run(
+          layer,
+          Effect.gen(function* () {
+            yield* table.setup();
+            yield* entity.insert({
+              itemId: 'entity-purge-1',
+              category: 'cat-purge',
+              value: 1,
+            });
+            yield* table.putItem(
+              adapter.makeRow('raw-preserved', { _e: 'Raw' }),
+            );
+            const entityPurge = yield* entity.dangerouslyRemoveAllItems(
+              'I KNOW WHAT I AM DOING',
+            );
+            const rawAfterEntityPurge = yield* table.getItem({
+              pk: 'COL#1',
+              sk: 'raw-preserved',
+            });
+            const tablePurge = yield* table.dangerouslyRemoveAllItems(
+              'I KNOW WHAT I AM DOING',
+            );
+            return { entityPurge, rawAfterEntityPurge, tablePurge };
+          }),
+        );
+
+        expect(result.entityPurge.itemsDeleted).toBe(1);
+        expect(result.rawAfterEntityPurge.Item).not.toBeNull();
+        expect(result.tablePurge.itemsDeleted).toBe(1);
+      });
+    });
+
     describe('transact', () => {
       const makeStubBroadcasterLayer = () => {
         const broadcasts: EntityType<unknown>[] = [];
@@ -784,7 +909,7 @@ describe('Database conformance', () => {
         expect(broadcasts).toEqual([]);
       });
 
-      it('dies with a clear defect when multiple ops target the same key', async () => {
+      it('fails with a typed error when multiple ops target the same key', async () => {
         const layer = adapter.makeLayer();
         const table = adapter.makeTable();
         const entity = adapter.makeItemEntity(table);
@@ -803,17 +928,11 @@ describe('Database conformance', () => {
               category: 'cat-duplicate-key',
               value: 2,
             });
-            return yield* table.transact([first, second]).pipe(Effect.exit);
+            return yield* table.transact([first, second]).pipe(Effect.flip);
           }),
         );
 
-        expect(Exit.isFailure(exit)).toBe(true);
-        const defects = Exit.isFailure(exit)
-          ? exit.cause.reasons.filter(Cause.isDieReason).map((r) => r.defect)
-          : [];
-        expect(String(defects[0])).toContain(
-          'transact requires unique items; 2 ops target',
-        );
+        expect(exit).toMatchObject({ _tag: 'DuplicateTransactionTarget' });
       });
 
       it('rolls back every op when one fails its optimistic check', async () => {
@@ -1130,7 +1249,7 @@ describe('Database conformance', () => {
         expect(result!.meta._d).toBe(true);
       });
 
-      it('dies on an op built against a different table', async () => {
+      it('fails with a typed error for an op from a different table', async () => {
         const layer = adapter.makeLayer();
         const table = adapter.makeTable();
         const otherTable = adapter.makeTable();
@@ -1145,17 +1264,11 @@ describe('Database conformance', () => {
               category: 'cat-f',
               value: 1,
             });
-            return yield* table.transact([foreignOp]).pipe(Effect.exit);
+            return yield* table.transact([foreignOp]).pipe(Effect.flip);
           }),
         );
 
-        expect(Exit.isFailure(exit)).toBe(true);
-        const defects = Exit.isFailure(exit)
-          ? exit.cause.reasons.filter(Cause.isDieReason).map((r) => r.defect)
-          : [];
-        expect(String(defects[0])).toContain(
-          'was built against a different table',
-        );
+        expect(exit).toMatchObject({ _tag: 'ForeignTransactionItem' });
       });
     });
 

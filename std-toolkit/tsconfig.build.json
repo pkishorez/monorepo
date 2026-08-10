@@ -8,5 +8,5 @@
     "outDir": "./dist"
   },
   "include": ["src/**/*"],
-  "exclude": ["src/**/__tests__/**", "src/db/sqlite/sql/adapters/bun.ts"]
+  "exclude": ["src/**/__tests__/**", "src/db/sqlite/sql/adapters/bun"]
 }

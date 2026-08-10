@@ -13,7 +13,7 @@ import { buildExpr } from '../../../domain/expression/index.js';
 import type { IndexPkValue, TransactItem } from '../../../types/index.js';
 import type { EntityTable as DynamoTable } from '../../../domain/entity-persistence/index.js';
 import type { DynamoDB } from '../../dynamodb/index.js';
-import { DynamoDBError } from '../../dynamodb-error/index.js';
+import { DynamoDBError } from '../../../domain/dynamodb-error/index.js';
 import { EntityIndex, type StoredIndexDerivation } from '../entity-index.js';
 import type { EntityWriter } from './write.js';
 

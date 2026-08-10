@@ -7,16 +7,16 @@ import { Effect, Schema, Struct, Match } from 'effect';
 import type { EntityTable as DynamoTable } from '../../../domain/entity-persistence/index.js';
 import type { DynamoDB } from '../../dynamodb/index.js';
 import { nextUlid } from '../../../../../core/index.js';
-import { DynamoDBError } from '../../dynamodb-error/index.js';
 import {
+  DynamoDBError,
+  extractConditionFailureItem,
+  isConditionalCheckFailed,
+} from '../../../domain/dynamodb-error/index.js';
+import {
+  deriveIndexKeyValue,
   makeEntityMetadata,
   migrationOutcome,
 } from '../../../domain/entity-persistence/index.js';
-import {
-  deriveIndexKeyValue,
-  isConditionalCheckFailed,
-  extractConditionFailureItem,
-} from '../../../internal/index.js';
 import {
   exprCondition,
   exprUpdate,

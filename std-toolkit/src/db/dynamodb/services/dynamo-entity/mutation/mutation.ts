@@ -5,7 +5,7 @@ import type {
 import type { Effect } from 'effect';
 import type { EntityTable as DynamoTable } from '../../../domain/entity-persistence/index.js';
 import type { DynamoDB } from '../../dynamodb/index.js';
-import type { DynamoDBError } from '../../dynamodb-error/index.js';
+import type { DynamoDBError } from '../../../domain/dynamodb-error/index.js';
 import type { EntityType } from '../dynamo-entity.js';
 import type { EntityIndex, StoredIndexDerivation } from '../entity-index.js';
 import { EntityTransaction } from './transact-op.js';
@@ -67,6 +67,14 @@ export class EntityMutation<
 
   get delete() {
     return this.#writer.delete;
+  }
+
+  get hardDelete() {
+    return this.#writer.hardDelete;
+  }
+
+  get dangerouslyRemoveAllItems() {
+    return this.#writer.dangerouslyRemoveAllItems;
   }
 
   get restore() {
