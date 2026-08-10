@@ -46,48 +46,51 @@ const makeDatabase = (options: DbOptions) =>
       }),
   );
 
-const dbEffect = Effect.gen(function* () {
-  const table = SQLiteTable.make().primary('pk', 'sk').build();
-  const machine = table.entity(MachineSchema).primary().build();
-  const thread = table.entity(ThreadSchema).primary().build();
-  const run = table
-    .entity(RunSchema)
-    .primary({ pk: ['threadId'] })
-    .build();
-  const message = table
-    .entity(MessageSchema)
-    .primary({ pk: ['threadId'] })
-    .build();
+const makeDbEffect = (tableName: string) =>
+  Effect.gen(function* () {
+    const table = SQLiteTable.make(tableName).primary('pk', 'sk').build();
+    const machine = table.entity(MachineSchema).primary().build();
+    const thread = table.entity(ThreadSchema).primary().build();
+    const run = table
+      .entity(RunSchema)
+      .primary({ pk: ['threadId'] })
+      .build();
+    const message = table
+      .entity(MessageSchema)
+      .primary({ pk: ['threadId'] })
+      .build();
 
-  yield* table.setup();
-  return {
-    table: {
-      transact: (ops: Parameters<typeof table.transact>[0]) =>
-        table.transact(ops).pipe(
-          Effect.withSpan('code.db.transaction', {
-            attributes: { 'db.operation_count': ops.length },
-          }),
-        ),
-    },
-    machine,
-    thread,
-    run,
-    message,
-  };
-});
+    yield* table.setup();
+    return {
+      table: {
+        transact: (ops: Parameters<typeof table.transact>[0]) =>
+          table.transact(ops).pipe(
+            Effect.withSpan('code.db.transaction', {
+              attributes: { 'db.operation_count': ops.length },
+            }),
+          ),
+      },
+      machine,
+      thread,
+      run,
+      message,
+    };
+  });
 
-export class Db extends Context.Service<Db, Effect.Success<typeof dbEffect>>()(
-  'code/Db',
-) {}
+export class Db extends Context.Service<
+  Db,
+  Effect.Success<ReturnType<typeof makeDbEffect>>
+>()('code/Db') {}
 
 export const makeDbLayer = (options: DbOptions = {}) => {
+  const tableName = options.tableName ?? DEFAULT_TABLE_NAME;
   const sqliteLayer = Layer.unwrap(
     makeDatabase(options).pipe(
-      Effect.map((database) =>
-        nodeSqliteLayer(database, options.tableName ?? DEFAULT_TABLE_NAME),
-      ),
+      Effect.map((database) => nodeSqliteLayer(database)),
     ),
   );
 
-  return Layer.effect(Db, dbEffect).pipe(Layer.provideMerge(sqliteLayer));
+  return Layer.effect(Db, makeDbEffect(tableName)).pipe(
+    Layer.provideMerge(sqliteLayer),
+  );
 };

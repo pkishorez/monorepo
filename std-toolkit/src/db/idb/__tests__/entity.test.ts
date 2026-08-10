@@ -5,9 +5,9 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { EntityESchema } from '../../../eschema/index.js';
 import { Effect, Layer, Schema } from 'effect';
-import { IdbDB } from '../src/db.js';
-import { idbLayer } from '../src/layer.js';
-import { IdbTable } from '../src/idb-table.js';
+import { IdbDB } from '../services/idb-database/index.js';
+import { idbLayer } from '../clients/idb-client/index.js';
+import { IdbTable } from '../services/idb-table/index.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ const provided = <A, E>(
 describe('IDB', () => {
   describe('Entity', () => {
     it('rejects _u in primary partition key derivation', () => {
-      const table = IdbTable.make().primary('pk', 'sk').build();
+      const table = IdbTable.make('std_data').primary('pk', 'sk').build();
 
       expect(() =>
         (table.entity(UserSchema) as any).primary({ pk: ['_u'] }),
@@ -50,8 +50,8 @@ describe('IDB', () => {
 
     describe('insert / get', () => {
       itEffect('roundtrips a value with equality and stamped meta', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -93,8 +93,8 @@ describe('IDB', () => {
       });
 
       itEffect('returns null for a non-existent entity', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -108,8 +108,8 @@ describe('IDB', () => {
       });
 
       itEffect('fails on duplicate primary key', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -126,7 +126,7 @@ describe('IDB', () => {
               .insert({ userId: 'dup', email: 'b@example.com', name: 'B' })
               .pipe(Effect.flip);
 
-            expect(error.code).toBe('conditionFailed');
+            expect(error._tag).toBe('ItemAlreadyExists');
           }),
         );
       });
@@ -136,8 +136,8 @@ describe('IDB', () => {
       itEffect(
         'changes the value and strictly increases _u lexicographically',
         () => {
-          const layer = idbLayer(uniqueDbName(), 'std_data');
-          const table = IdbTable.make().primary('pk', 'sk').build();
+          const layer = idbLayer(uniqueDbName());
+          const table = IdbTable.make('std_data').primary('pk', 'sk').build();
           const userEntity = table.entity(UserSchema).primary().build();
 
           return provided(
@@ -164,8 +164,8 @@ describe('IDB', () => {
       );
 
       itEffect('fails with noItemToUpdate for a non-existent entity', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -175,7 +175,7 @@ describe('IDB', () => {
             const error = yield* userEntity
               .getAndUpdate({ userId: 'nope' }, { name: 'X' })
               .pipe(Effect.flip);
-            expect(error.code).toBe('noItemToUpdate');
+            expect(error._tag).toBe('NoItemToUpdate');
           }),
         );
       });
@@ -183,8 +183,8 @@ describe('IDB', () => {
       itEffect(
         'fails with conditionFailed when a concurrent writer changed _u between read and commit',
         () => {
-          const layer = idbLayer(uniqueDbName(), 'std_data');
-          const table = IdbTable.make().primary('pk', 'sk').build();
+          const layer = idbLayer(uniqueDbName());
+          const table = IdbTable.make('std_data').primary('pk', 'sk').build();
           const userEntity = table.entity(UserSchema).primary().build();
 
           return provided(
@@ -211,12 +211,17 @@ describe('IDB', () => {
                 pk: 'User',
                 sk: 'racey',
               });
-              yield* db.put({ ...Item!, _u: 'CONCURRENT0000000000000000' });
+              yield* db.put('std_data', {
+                ...Item!,
+                _u: 'CONCURRENT0000000000000000',
+              });
 
               const error = yield* db
-                .transact([op.apply('01RACEULID0000000000000000').write])
+                .transact('std_data', [
+                  op.apply('01RACEULID0000000000000000').write,
+                ])
                 .pipe(Effect.flip);
-              expect(error.code).toBe('conditionFailed');
+              expect(error._tag).toBe('ConditionFailed');
 
               // No op was applied: the concurrent write's value stands.
               const current = yield* userEntity.get({ userId: 'racey' });
@@ -231,8 +236,8 @@ describe('IDB', () => {
       itEffect(
         'soft-deletes: get still returns the value with meta._d true',
         () => {
-          const layer = idbLayer(uniqueDbName(), 'std_data');
-          const table = IdbTable.make().primary('pk', 'sk').build();
+          const layer = idbLayer(uniqueDbName());
+          const table = IdbTable.make('std_data').primary('pk', 'sk').build();
           const userEntity = table.entity(UserSchema).primary().build();
 
           return provided(
@@ -258,8 +263,8 @@ describe('IDB', () => {
       );
 
       itEffect('fails with noItemToDelete for a non-existent entity', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -269,14 +274,14 @@ describe('IDB', () => {
             const error = yield* userEntity
               .delete({ userId: 'nope' })
               .pipe(Effect.flip);
-            expect(error.code).toBe('noItemToDelete');
+            expect(error._tag).toBe('NoItemToDelete');
           }),
         );
       });
 
       itEffect('updates a tombstone without restoring it', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -301,8 +306,8 @@ describe('IDB', () => {
       });
 
       itEffect('hardDelete removes the record entirely', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -315,7 +320,10 @@ describe('IDB', () => {
               name: 'Hard',
             });
 
-            yield* userEntity.hardDelete({ userId: 'hard-1' });
+            yield* userEntity.hardDelete(
+              { userId: 'hard-1' },
+              'I KNOW WHAT I AM DOING',
+            );
 
             const result = yield* userEntity.get({ userId: 'hard-1' });
             expect(result).toBeNull();
@@ -326,8 +334,8 @@ describe('IDB', () => {
 
     describe('query', () => {
       itEffect('queries by primary index and decodes values', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make()
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data')
           .primary('pk', 'sk')
           .index('IDX1', 'IDX1PK', 'IDX1SK')
           .build();
@@ -364,8 +372,8 @@ describe('IDB', () => {
       });
 
       itEffect('queries by secondary index', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make()
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data')
           .primary('pk', 'sk')
           .index('IDX1', 'IDX1PK', 'IDX1SK')
           .build();
@@ -399,8 +407,8 @@ describe('IDB', () => {
       itEffect(
         'includes soft-deleted tombstones, matching SQLiteEntity (query does not filter _d)',
         () => {
-          const layer = idbLayer(uniqueDbName(), 'std_data');
-          const table = IdbTable.make().primary('pk', 'sk').build();
+          const layer = idbLayer(uniqueDbName());
+          const table = IdbTable.make('std_data').primary('pk', 'sk').build();
           const userEntity = table.entity(UserSchema).primary().build();
 
           return provided(
@@ -428,8 +436,8 @@ describe('IDB', () => {
 
     describe('auto-migration on get', () => {
       itEffect('migrates a value stored at an old eschema version', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const docEntity = table.entity(DocSchema).primary().build();
 
         return provided(
@@ -440,7 +448,7 @@ describe('IDB', () => {
             // Bypass the entity layer to plant a v1-shaped record directly,
             // as if it had been written before the v2 evolution existed.
             const db = yield* IdbDB;
-            yield* db.put({
+            yield* db.put('std_data', {
               pk: 'Doc',
               sk: 'doc-1',
               _data: { docId: 'doc-1', title: 'Old Title' },
@@ -464,8 +472,8 @@ describe('IDB', () => {
 
     describe('insertOp / updateOp', () => {
       itEffect('insertOp validates and encodes without writing', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -487,7 +495,7 @@ describe('IDB', () => {
             expect(notYetWritten).toBeNull();
 
             const db = yield* IdbDB;
-            yield* db.transact([applied.write]);
+            yield* db.transact('std_data', [applied.write]);
 
             const written = yield* userEntity.get({ userId: 'op-1' });
             expect(written).not.toBeNull();
@@ -496,8 +504,8 @@ describe('IDB', () => {
       });
 
       itEffect('updateOp validates, reads and encodes without writing', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(
@@ -523,7 +531,7 @@ describe('IDB', () => {
             expect(stillBefore!.value.name).toBe('Before');
 
             const db = yield* IdbDB;
-            yield* db.transact([applied.write]);
+            yield* db.transact('std_data', [applied.write]);
 
             const afterApply = yield* userEntity.get({ userId: 'op-2' });
             expect(afterApply!.value.name).toBe('After');
@@ -534,8 +542,8 @@ describe('IDB', () => {
       itEffect(
         'updateOp fails with noItemToUpdate for a non-existent entity',
         () => {
-          const layer = idbLayer(uniqueDbName(), 'std_data');
-          const table = IdbTable.make().primary('pk', 'sk').build();
+          const layer = idbLayer(uniqueDbName());
+          const table = IdbTable.make('std_data').primary('pk', 'sk').build();
           const userEntity = table.entity(UserSchema).primary().build();
 
           return provided(
@@ -545,7 +553,7 @@ describe('IDB', () => {
               const error = yield* userEntity
                 .getAndUpdateOp({ userId: 'nope' }, { name: 'X' })
                 .pipe(Effect.flip);
-              expect(error.code).toBe('noItemToUpdate');
+              expect(error._tag).toBe('NoItemToUpdate');
             }),
           );
         },
@@ -554,8 +562,8 @@ describe('IDB', () => {
 
     describe('dangerouslyRemoveAllItems', () => {
       itEffect('clears all rows from the shared table', () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
-        const table = IdbTable.make().primary('pk', 'sk').build();
+        const layer = idbLayer(uniqueDbName());
+        const table = IdbTable.make('std_data').primary('pk', 'sk').build();
         const userEntity = table.entity(UserSchema).primary().build();
 
         return provided(

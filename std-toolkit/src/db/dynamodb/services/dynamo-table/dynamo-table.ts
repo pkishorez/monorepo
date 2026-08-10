@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect';
 
 import { DynamoDB } from '../dynamodb/index.js';
-import { DynamoDBError } from '../dynamodb-error/index.js';
+import { DynamoDBError } from '../../domain/dynamodb-error/index.js';
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
@@ -813,6 +813,41 @@ export class DynamoTable<
             { concurrency: 25 },
           );
           itemsDeleted += result.Items.length;
+        }
+
+        lastKey = result.LastEvaluatedKey;
+      } while (lastKey);
+
+      return { itemsDeleted };
+    });
+
+  dangerouslyRemoveEntityItems = (
+    entityName: string,
+    _: 'I KNOW WHAT I AM DOING',
+  ): Effect.Effect<{ itemsDeleted: number }, DynamoDBError, DynamoDB> =>
+    Effect.gen({ self: this }, function* () {
+      let lastKey: Record<string, unknown> | undefined;
+      let itemsDeleted = 0;
+
+      do {
+        const result = yield* this.#scanPage(
+          lastKey ? { ExclusiveStartKey: lastKey } : undefined,
+        );
+        const entityItems = result.Items.filter(
+          (item) => item._e === entityName,
+        );
+
+        if (entityItems.length > 0) {
+          yield* Effect.all(
+            entityItems.map((item) =>
+              this.#deleteStoredItem({
+                pk: item[this.primary.pk] as string,
+                sk: item[this.primary.sk] as string,
+              }),
+            ),
+            { concurrency: 25 },
+          );
+          itemsDeleted += entityItems.length;
         }
 
         lastKey = result.LastEvaluatedKey;

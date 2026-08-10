@@ -5,7 +5,7 @@ The SQLite adapter. Mirrors the single-table topology defined in [[db]] — **pa
 ## Language
 
 **SQLiteTable**:
-A type-safe single-table definition. The **partition key** is the PRIMARY KEY column (TEXT), the **sort key** is the RANGE column (TEXT).
+A named, type-safe single-table definition within a SQLite database. Its name identifies the physical SQLite table; the **partition key** is the PRIMARY KEY column (TEXT), and the **sort key** is the RANGE column (TEXT).
 
 **SQLiteEntity** / **SQLiteSingleEntity**:
 The SQLite **Entity service**s (keyed / singleton) for CRUD over a `SQLiteTable`.
@@ -21,5 +21,6 @@ The range operators for querying within an **item collection** — `<`, `<=`, `>
 The environment-specific SQLite binding behind the service. Each **runtime adapter** targets one JS runtime: `node` (async) and `better-sqlite3` (sync) for Node, `bun` for Bun, `do` for Cloudflare Durable Objects.
 _Avoid_: driver, backend.
 
-**SqliteDB** / **SqliteDBError**:
-The database abstraction the adapters implement, and its failure type (extends core's [[core]] **StdToolkitError**).
+**SQLiteError**:
+The direct union of SQLite adapter failures and the shared persistence failures inherited from [[db]].
+_Avoid_: SqliteDBError.

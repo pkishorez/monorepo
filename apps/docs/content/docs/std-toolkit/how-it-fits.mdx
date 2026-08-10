@@ -123,7 +123,7 @@ This is the first guarantee: no matter when a row was written, the rest of the a
 The database adapter connects the message schema to the item-collection model.
 
 ```ts title="message-entity.ts"
-const table = DynamoTable.make().primary('pk', 'sk').build();
+const table = DynamoTable.make('chat').primary('pk', 'sk').build();
 const messages = table
   .entity(Message)
   .primary({ pk: ['channelId'] })

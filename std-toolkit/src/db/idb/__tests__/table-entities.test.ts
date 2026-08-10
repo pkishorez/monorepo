@@ -4,9 +4,12 @@ import { it, describe, expect } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { EntityESchema, ESchema } from '../../../eschema/index.js';
-import { Cause, Effect, Exit, Layer, Schema } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { Broadcaster } from '../../../core/index.js';
-import { IdbTable, IdbDB, idbLayer, type EntityType } from '../src/index.js';
+import type { EntityType } from '../../../core/index.js';
+import { IdbDB } from '../services/idb-database/index.js';
+import { IdbTable } from '../services/idb-table/index.js';
+import { idbLayer } from '../clients/idb-client/index.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -33,8 +36,8 @@ const provided = <A, E>(
 ) => effect.pipe(Effect.provide(layer));
 
 const makeTable = () => {
-  const layer = idbLayer(uniqueDbName(), 'std_data');
-  const table = IdbTable.make()
+  const layer = idbLayer(uniqueDbName());
+  const table = IdbTable.make('std_data')
     .primary('pk', 'sk')
     .index('IDX1', 'IDX1PK', 'IDX1SK')
     .build();
@@ -214,8 +217,8 @@ describe('IDB', () => {
                 // Simulate a second browser tab winning the race: it changes
                 // the stored record's _u before our op is applied.
                 const db = yield* IdbDB;
-                const currentRecord = yield* db.get({ pk, sk });
-                yield* db.put({
+                const currentRecord = yield* db.get('std_data', { pk, sk });
+                yield* db.put('std_data', {
                   ...currentRecord!,
                   _u: 'CONCURRENT0000000000000000',
                 });
@@ -229,7 +232,7 @@ describe('IDB', () => {
                 const error = yield* table
                   .transact([insertOp, staleUpdateOp])
                   .pipe(Effect.flip);
-                expect(error.code).toBe('conditionFailed');
+                expect(error._tag).toBe('ConditionFailed');
 
                 const missingUser = yield* userEntity.get({ userId: 'user-a' });
                 expect(missingUser).toBeNull();
@@ -320,7 +323,7 @@ describe('IDB', () => {
               const error = yield* table
                 .transact([dupInsertOp, freshPostOp])
                 .pipe(Effect.provide(broadcasterLayer), Effect.flip);
-              expect(error.code).toBe('conditionFailed');
+              expect(error._tag).toBe('ConditionFailed');
 
               expect(broadcasts).toHaveLength(0);
 
@@ -333,7 +336,7 @@ describe('IDB', () => {
           );
         });
 
-        itEffect('dies on an op built against a different table', () => {
+        itEffect('fails on an op built against a different table', () => {
           const { layer, table } = makeTable();
           const other = makeTable();
 
@@ -348,16 +351,10 @@ describe('IDB', () => {
                 name: 'X',
               });
 
-              const exit = yield* table.transact([foreignOp]).pipe(Effect.exit);
-              expect(Exit.isFailure(exit)).toBe(true);
-              const defects = Exit.isFailure(exit)
-                ? exit.cause.reasons
-                    .filter(Cause.isDieReason)
-                    .map((r) => r.defect)
-                : [];
-              expect(String(defects[0])).toContain(
-                'was built against a different table',
-              );
+              const error = yield* table
+                .transact([foreignOp])
+                .pipe(Effect.flip);
+              expect(error).toMatchObject({ _tag: 'ForeignTransactionItem' });
             }),
           );
         });

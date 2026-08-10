@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { Effect } from 'effect';
-import { betterSqlite3Layer } from '../better-sqlite3.js';
-import { SqliteDB } from '../../db.js';
+import { betterSqlite3Layer } from '../better-sqlite3/index.js';
+import { SQLiteDatabase as SqliteDB } from '../../../services/sqlite-database/index.js';
 
 const dbPath = process.argv[2];
 if (!dbPath) {
@@ -10,7 +10,7 @@ if (!dbPath) {
 }
 
 const db = new Database(dbPath);
-const layer = betterSqlite3Layer(db, 'compat_test');
+const layer = betterSqlite3Layer(db);
 
 await Effect.runPromise(
   Effect.gen(function* () {

@@ -5,9 +5,9 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { ESchema, EntityESchema } from '../../../../eschema/index.js';
 import { Effect, type Layer, Schema } from 'effect';
-import { nodeSqliteLayer } from '../../sql/adapters/node.js';
-import type { SqliteDB } from '../../sql/db.js';
-import { SQLiteTable } from '../sqlite-table.js';
+import { nodeSqliteLayer } from '../../sql/adapters/node/index.js';
+import type { SQLiteDatabase as SqliteDB } from '../sqlite-database/index.js';
+import { SQLiteTable } from '../../orchestrators/sqlite-table/index.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -23,7 +23,7 @@ describe('SQLite', () => {
     let db: DatabaseSync;
     let layer: Layer.Layer<SqliteDB>;
 
-    const table = SQLiteTable.make().primary('pk', 'sk').build();
+    const table = SQLiteTable.make('std_data').primary('pk', 'sk').build();
 
     const AppConfig = table
       .singleEntity(configSchema)
@@ -31,7 +31,7 @@ describe('SQLite', () => {
 
     beforeAll(async () => {
       db = new DatabaseSync(':memory:');
-      layer = nodeSqliteLayer(db, 'std_data');
+      layer = nodeSqliteLayer(db);
       await Effect.runPromise(table.setup().pipe(Effect.provide(layer)));
     });
 
@@ -142,7 +142,9 @@ describe('SQLite', () => {
             value: Schema.String,
           }).build();
 
-          const emptyTable = SQLiteTable.make().primary('pk', 'sk').build();
+          const emptyTable = SQLiteTable.make('std_data')
+            .primary('pk', 'sk')
+            .build();
 
           yield* emptyTable.setup();
 
@@ -170,7 +172,9 @@ describe('SQLite', () => {
           const failureSchema = ESchema.make('InsertFailureConfig', {
             value: Schema.String,
           }).build();
-          const failureTable = SQLiteTable.make().primary('pk', 'sk').build();
+          const failureTable = SQLiteTable.make('std_data')
+            .primary('pk', 'sk')
+            .build();
           const FailureConfig = failureTable
             .singleEntity(failureSchema)
             .default({ value: 'default' });
@@ -187,7 +191,7 @@ describe('SQLite', () => {
             return { value: 'updated' };
           }).pipe(Effect.flip);
 
-          expect(error.error._tag).toBe('InsertFailed');
+          expect(error._tag).toBe('InsertFailed');
           expect(updateCalls).toBe(1);
         }).pipe(
           Effect.ensuring(

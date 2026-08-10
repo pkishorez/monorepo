@@ -144,6 +144,14 @@ export class DynamoEntity<
     return this.#mutation.delete;
   }
 
+  get hardDelete() {
+    return this.#mutation.hardDelete;
+  }
+
+  get dangerouslyRemoveAllItems() {
+    return this.#mutation.dangerouslyRemoveAllItems;
+  }
+
   get restore() {
     return this.#mutation.restore;
   }

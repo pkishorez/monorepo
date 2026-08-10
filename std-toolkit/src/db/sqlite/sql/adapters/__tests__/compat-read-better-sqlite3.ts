@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { Effect } from 'effect';
-import { betterSqlite3Layer } from '../better-sqlite3.js';
-import { SqliteDB } from '../../db.js';
+import { betterSqlite3Layer } from '../better-sqlite3/index.js';
+import { SQLiteDatabase as SqliteDB } from '../../../services/sqlite-database/index.js';
 
 const [, , dbPath, mode] = process.argv;
 if (!dbPath) {
@@ -12,7 +12,7 @@ if (!dbPath) {
 }
 
 const db = new Database(dbPath, { readonly: mode !== 'update' });
-const layer = betterSqlite3Layer(db, 'compat_test');
+const layer = betterSqlite3Layer(db);
 
 if (mode === 'update') {
   db.prepare('UPDATE compat_test SET name = ?, age = ? WHERE id = ?').run(

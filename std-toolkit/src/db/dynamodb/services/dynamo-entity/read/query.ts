@@ -3,7 +3,7 @@ import type {
   ESchemaType,
 } from '../../../../../eschema/index.js';
 import { Effect, Option, Schema, Stream } from 'effect';
-import { deriveIndexKeyValue } from '../../../internal/index.js';
+import { deriveIndexKeyValue } from '../../../domain/entity-persistence/index.js';
 import type {
   CustomSkParam,
   IndexPkValue,
@@ -16,7 +16,7 @@ import { extractKeyOp, getKeyOpScanDirection } from '../../../types/index.js';
 import type { SortKeyparameter } from '../../../domain/expression/index.js';
 import type { EntityTable as DynamoTable } from '../../../domain/entity-persistence/index.js';
 import type { DynamoDB } from '../../dynamodb/index.js';
-import { DynamoDBError } from '../../dynamodb-error/index.js';
+import { DynamoDBError } from '../../../domain/dynamodb-error/index.js';
 import type { EntityType } from '../dynamo-entity.js';
 import type { EntityIndex, StoredIndexDerivation } from '../entity-index.js';
 

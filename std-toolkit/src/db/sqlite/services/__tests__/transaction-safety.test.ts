@@ -1,8 +1,9 @@
 import { Deferred, Effect, Fiber, Layer, Schema } from 'effect';
 import { it, describe, expect } from 'vitest';
 import { EntityESchema } from '../../../../eschema/index.js';
-import { SqliteDB, SqliteDBError } from '../../sql/db.js';
-import { SQLiteTable } from '../sqlite-table.js';
+import { SQLiteDatabase as SqliteDB } from '../sqlite-database/index.js';
+import { SQLiteError as SqliteDBError } from '../../domain/sqlite-error/index.js';
+import { SQLiteTable } from '../../orchestrators/sqlite-table/index.js';
 
 const ItemSchema = EntityESchema.make('Item', 'itemId', {
   value: Schema.Number,
@@ -10,7 +11,6 @@ const ItemSchema = EntityESchema.make('Item', 'itemId', {
 
 const makeDbLayer = (overrides: Record<string, unknown>) =>
   Layer.succeed(SqliteDB, {
-    tableName: 'items',
     createTable: () => Effect.void,
     addColumn: () => Effect.void,
     createIndex: () => Effect.void,
@@ -30,7 +30,7 @@ describe('SQLite', () => {
   describe('Transactions', () => {
     describe('Safety', () => {
       it('fails restore when the row changed after it was read', async () => {
-        const table = SQLiteTable.make().primary('pk', 'sk').build();
+        const table = SQLiteTable.make('std_data').primary('pk', 'sk').build();
         const entity = table.entity(ItemSchema).primary().build();
         let updateWhere: { clause: string; params: unknown[] } | undefined;
         const staleRow = {
@@ -63,13 +63,13 @@ describe('SQLite', () => {
           ),
         );
 
-        expect(error.error._tag).toBe('ConditionFailed');
+        expect(error._tag).toBe('ConditionFailed');
         expect(updateWhere?.clause).toContain('_u = ?');
         expect(updateWhere?.params).toContain('old-u');
       });
 
       it('preserves commit failures and attempts rollback cleanup', async () => {
-        const table = SQLiteTable.make().primary('pk', 'sk').build();
+        const table = SQLiteTable.make('std_data').primary('pk', 'sk').build();
         const entity = table.entity(ItemSchema).primary().build();
         let rollbacks = 0;
         const commitError = SqliteDBError.commitFailed('commit failed');
@@ -97,7 +97,7 @@ describe('SQLite', () => {
       });
 
       it('rolls back when interrupted during a transaction write', async () => {
-        const table = SQLiteTable.make().primary('pk', 'sk').build();
+        const table = SQLiteTable.make('std_data').primary('pk', 'sk').build();
         const entity = table.entity(ItemSchema).primary().build();
         let rollbacks = 0;
 

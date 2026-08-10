@@ -84,37 +84,29 @@
       "paths": ["src/db/dynamodb/domain", "src/db/dynamodb/types"],
       "description": "Pure table identity, persistence, expressions, and attribute values"
     },
-    "dynamodb-support": {
-      "paths": ["src/db/dynamodb/internal"],
-      "description": "Compatibility helpers used while persistence services are composed"
+    "db-persistence-domain": {
+      "paths": ["src/db/domain"],
+      "description": "Shared persistence failures"
     },
     "idb-barrel": {
-      "paths": ["src/db/idb/src/index.ts"],
+      "paths": ["src/db/idb/index.ts"],
       "description": "Public barrel"
     },
-    "idb-services": {
-      "paths": [
-        "src/db/idb/src/idb-entity.ts",
-        "src/db/idb/src/idb-single-entity.ts",
-        "src/db/idb/src/idb-table.ts"
-      ],
-      "description": "Entity and table surface"
+    "idb-orchestrators": {
+      "paths": ["src/db/idb/orchestrators"],
+      "description": "Public table composition"
     },
-    "idb-browser": {
-      "paths": ["src/db/idb/src/layer.ts"],
+    "idb-services": {
+      "paths": ["src/db/idb/services"],
+      "description": "Private database, table, and entity capabilities"
+    },
+    "idb-clients": {
+      "paths": ["src/db/idb/clients"],
       "description": "Browser IndexedDB implementation and layer wiring"
     },
-    "idb-db": {
-      "paths": ["src/db/idb/src/db.ts"],
-      "description": "Low-level database contract and operation types"
-    },
-    "idb-internal": {
-      "paths": ["src/db/idb/src/internal"],
-      "description": "Internal IndexedDB implementation details"
-    },
-    "idb-errors": {
-      "paths": ["src/db/idb/src/errors.ts"],
-      "description": "IndexedDB error types"
+    "idb-domain": {
+      "paths": ["src/db/idb/domain"],
+      "description": "Pure IndexedDB persistence derivation"
     },
     "sqlite-barrel": {
       "paths": ["src/db/sqlite/index.ts"],
@@ -124,17 +116,21 @@
       "paths": ["src/db/sqlite/services"],
       "description": "Entity/command surface"
     },
-    "sqlite-sql": {
-      "paths": ["src/db/sqlite/sql"],
-      "description": "SQL builders and driver adapters"
+    "sqlite-orchestrators": {
+      "paths": ["src/db/sqlite/orchestrators"],
+      "description": "Public table composition"
     },
-    "sqlite-internal": {
-      "paths": ["src/db/sqlite/internal"],
-      "description": "Internal SQLite implementation details"
+    "sqlite-clients": {
+      "paths": ["src/db/sqlite/clients"],
+      "description": "Native SQLite client contract"
     },
-    "sqlite-errors": {
-      "paths": ["src/db/sqlite/errors.ts"],
-      "description": "SQLite error types"
+    "sqlite-domain": {
+      "paths": ["src/db/sqlite/domain"],
+      "description": "Pure SQL and entity persistence derivation"
+    },
+    "sqlite-adapters": {
+      "paths": ["src/db/sqlite/sql/adapters"],
+      "description": "Runtime-specific SQLite bindings"
     },
     "sync-entrypoint": {
       "paths": [
@@ -194,31 +190,41 @@
     "src/db/dynamodb/clients/dynamodb-client": {},
     "src/db/dynamodb/domain/attribute-value": { "shared": true },
     "src/db/dynamodb/domain/client-error": {},
+    "src/db/dynamodb/domain/dynamodb-error": {},
     "src/db/dynamodb/domain/entity-persistence": {},
     "src/db/dynamodb/domain/expression": {},
-    "src/db/dynamodb/domain/table-identity": {},
+    "src/db/dynamodb/domain/table-identity": { "shared": true },
     "src/db/dynamodb/index.ts": {},
-    "src/db/dynamodb/internal": { "shared": true },
     "src/db/dynamodb/orchestrators/dynamo-table": {},
     "src/db/dynamodb/services/dynamo-entity": { "shared": true },
     "src/db/dynamodb/services/dynamo-single-entity": { "shared": true },
-    "src/db/dynamodb/services/dynamo-table": { "shared": true },
+    "src/db/dynamodb/services/dynamo-table": {},
     "src/db/dynamodb/services/dynamodb": { "shared": true },
-    "src/db/dynamodb/services/dynamodb-error": { "shared": true },
     "src/db/dynamodb/types": { "shared": true },
-    "src/db/idb/src/db.ts": {},
-    "src/db/idb/src/errors.ts": {},
-    "src/db/idb/src/idb-entity.ts": { "shared": true },
-    "src/db/idb/src/idb-single-entity.ts": { "shared": true },
-    "src/db/idb/src/idb-table.ts": { "shared": true },
-    "src/db/idb/src/index.ts": {},
-    "src/db/idb/src/internal": {},
-    "src/db/idb/src/layer.ts": {},
-    "src/db/sqlite/errors.ts": {},
+    "src/db/domain/persistence-error": { "shared": true },
+    "src/db/idb/clients/idb-client": {},
+    "src/db/idb/domain/entity-persistence": {},
+    "src/db/idb/domain/idb-error": {},
+    "src/db/idb/index.ts": {},
+    "src/db/idb/orchestrators/idb-table": {},
+    "src/db/idb/services/idb-database": { "shared": true },
+    "src/db/idb/services/idb-entity": { "shared": true },
+    "src/db/idb/services/idb-single-entity": { "shared": true },
+    "src/db/idb/services/idb-table": {},
     "src/db/sqlite/index.ts": {},
-    "src/db/sqlite/internal": {},
-    "src/db/sqlite/services": {},
-    "src/db/sqlite/sql": {},
+    "src/db/sqlite/clients/sqlite-client": {},
+    "src/db/sqlite/domain/entity-persistence": {},
+    "src/db/sqlite/domain/sql-statement": {},
+    "src/db/sqlite/domain/sqlite-error": {},
+    "src/db/sqlite/orchestrators/sqlite-table": {},
+    "src/db/sqlite/services/sqlite-database": { "shared": true },
+    "src/db/sqlite/services/sqlite-entity": { "shared": true },
+    "src/db/sqlite/services/sqlite-single-entity": { "shared": true },
+    "src/db/sqlite/services/sqlite-table": {},
+    "src/db/sqlite/sql/adapters/better-sqlite3": {},
+    "src/db/sqlite/sql/adapters/bun": {},
+    "src/db/sqlite/sql/adapters/durable-object": {},
+    "src/db/sqlite/sql/adapters/node": {},
     "src/eschema/eschema.ts": { "shared": true },
     "src/eschema/index.ts": {},
     "src/eschema/internal": {},
@@ -283,43 +289,44 @@
         "dynamodb-services": [
           "dynamodb-clients",
           "dynamodb-domain",
-          "dynamodb-support",
+          "db-persistence-domain",
           "core-barrel",
           "snapshot-barrel"
         ],
         "dynamodb-clients": ["dynamodb-domain"],
-        "dynamodb-support": ["dynamodb-domain", "snapshot-barrel"],
-        "dynamodb-domain": ["core-barrel"]
+        "dynamodb-domain": ["db-persistence-domain", "core-barrel"]
       }
     },
     "idb": {
       "description": "IndexedDB services, browser wiring, and storage internals",
       "rules": {
-        "idb-barrel": ["idb-services", "idb-browser"],
+        "idb-barrel": ["idb-orchestrators", "idb-clients", "idb-services"],
+        "idb-orchestrators": ["idb-services", "core-barrel"],
         "idb-services": [
-          "idb-db",
-          "idb-internal",
+          "idb-domain",
+          "db-persistence-domain",
           "core-barrel",
           "snapshot-barrel"
         ],
-        "idb-browser": ["idb-db"],
-        "idb-db": ["idb-errors"],
-        "idb-internal": ["core-barrel"],
-        "idb-errors": ["core-barrel"]
+        "idb-clients": ["idb-services"],
+        "idb-domain": ["db-persistence-domain", "core-barrel"]
       }
     },
     "sqlite": {
       "description": "SQLite services, SQL adapters, and storage internals",
       "rules": {
-        "sqlite-barrel": ["sqlite-services", "sqlite-sql", "sqlite-errors"],
+        "sqlite-barrel": ["sqlite-orchestrators", "sqlite-services"],
+        "sqlite-orchestrators": ["sqlite-services", "core-barrel"],
         "sqlite-services": [
-          "sqlite-internal",
-          "sqlite-sql",
+          "sqlite-clients",
+          "sqlite-domain",
+          "db-persistence-domain",
           "core-barrel",
           "snapshot-barrel"
         ],
-        "sqlite-internal": ["core-barrel"],
-        "sqlite-sql": ["sqlite-errors", "core-barrel"]
+        "sqlite-clients": [],
+        "sqlite-domain": ["db-persistence-domain", "core-barrel"],
+        "sqlite-adapters": ["sqlite-clients", "sqlite-services"]
       }
     },
     "tanstack-sync": {

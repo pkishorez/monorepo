@@ -2,7 +2,7 @@ import { Effect, Schema } from 'effect';
 import { it, describe, expect } from 'vitest';
 import { nextUlid } from '../../../core/index.js';
 import { EntityESchema } from '../../../eschema/index.js';
-import { unmarshall } from '../internal/marshall.js';
+import { unmarshall } from '../domain/attribute-value/index.js';
 import { DynamoDB } from './test-dynamodb.js';
 import { DynamoTable } from '../services/dynamo-table/index.js';
 

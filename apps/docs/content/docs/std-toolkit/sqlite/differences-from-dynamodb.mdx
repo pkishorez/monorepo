@@ -17,13 +17,13 @@ This is the difference you'll feel first, because it shows up in tests: assertio
 
 **SQLite provisions itself at runtime.** `table.setup()` is idempotent DDL — create the table, add missing index columns, create indexes — safe to run on every boot. New index slot? Re-run setup, even against a table with data.
 
-**DynamoDB provisions out-of-band.** The table builder hands you `getTableSchema()` — the attribute definitions and GSI declarations — and creating or altering the table is a deploy step through IaC or the AWS API, on AWS's timeline (GSI backfills can take a while on large tables).
+**DynamoDB provisions out-of-band.** The table builder hands you `createTableDefinition()` — the attribute definitions and GSI declarations — and creating or altering the table is a deploy step through IaC or the AWS API, on AWS's timeline (GSI backfills can take a while on large tables).
 
 ## Query surface
 
 Small, honest deltas in what a query can say:
 
-- **Sort-key operators.** Both entity layers take `<`, `<=`, `>`, `>=` with a nullable cursor. DynamoDB additionally offers `beginsWith`; the SQLite entity layer doesn't expose it. In this model that costs less than it sounds — sort keys are ULIDs and index sort keys default to `_u`, so the idiomatic slices are range-and-cursor, which the four operators cover fully.
+- **Sort-key operators.** Both entity layers take `<`, `<=`, `>`, `>=` with a nullable cursor, plus `beginsWith` for prefix queries.
 - **Default page size.** Pass no `limit` and SQLite returns up to 100 rows. DynamoDB reads until your `limit` or its 1 MB page cap, whichever bites first.
 - **Page truncation.** DynamoDB can cut a page short at 1 MB and hands back a `LastEvaluatedKey`; SQLite never truncates — a page is exactly what you asked for. You'll rarely notice either way, because the shared pagination idiom doesn't use `LastEvaluatedKey`: the last item's sort key is the next cursor, and that loop runs identically on both engines.
 
@@ -76,16 +76,16 @@ SQLite once offered an interactive `transaction(effect)` that ran arbitrary read
 
 ## Deletes and destructive escape hatches
 
-`delete` is a tombstone on both engines — `_d` flips, `_u` re-stamps, the row stays for sync consumers. The _hard_-delete escape hatches differ in shape:
+`delete` is a tombstone on both engines — `_d` flips, `_u` re-stamps, the row stays for sync consumers. The destructive escape hatches now have the same shape on every adapter:
 
-- **DynamoDB** puts it on `delete` itself: `delete(key, { forceDelete: 'I know what I am doing' })` physically removes one item.
-- **SQLite** separates it: `entity.hardDelete(where?)` physically removes that entity's rows, optionally filtered by a SQL `where` — a bulk administrative tool rather than a per-item flag. And for test fixtures, the table exposes `dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')`, which truncates the whole physical table in one call.
+- **`entity.hardDelete(key, 'I KNOW WHAT I AM DOING')`** physically removes one item.
+- **`dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')`** removes every item in its scope: the whole physical table when called on a table, or only that entity's rows when called on an entity.
 
 The warning is identical on both: hard deletion erases the tombstone, so anything syncing from the table will never learn the row died. Reach for it in tests and cleanup jobs, nowhere near synced data.
 
 ## Errors
 
-Same ergonomics, different vocabularies: every SQLite operation fails with `SqliteDBError`, every DynamoDB operation with `DynamodbError` — both tagged errors you handle with ordinary Effect combinators. The variant sets reflect their engines (SQLite has `CreateIndexFailed` and `ConditionFailed`; DynamoDB has expression and transact failures), but the semantic variants you branch on in app code — `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete` — exist on both, so error-handling logic ports with a rename.
+Same ergonomics, different vocabularies: every SQLite operation fails with `SQLiteError`, every DynamoDB operation with `DynamoDBError` — tagged variants you handle with ordinary Effect combinators. The variant sets reflect their engines (SQLite has `CreateIndexFailed`; DynamoDB has expression and transact failures), while shared semantic variants such as `ConditionFailed`, `ItemAlreadyExists`, `NoItemToUpdate`, and `NoItemToDelete` use the same tags on both.
 
 ## When to reach for which
 

@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema, ESchema, toSchema } from '../../../../eschema/index.js';
 import { Snapshot } from '../../../../snapshot/index.js';
-import { SQLiteTable } from '../sqlite-table.js';
+import { SQLiteTable } from '../../orchestrators/sqlite-table/index.js';
 
 const addressSchema = EntityESchema.make('Address', 'addressId', {
   city: Schema.String,
@@ -19,7 +19,7 @@ const settingsSchema = ESchema.make('Settings', {
 }).build();
 
 function makeSnapshot(singletonDefault = 'light', reverse = false) {
-  const table = SQLiteTable.make()
+  const table = SQLiteTable.make('std_data')
     .primary('pk', 'sk')
     .index('ByEmail', 'emailPk', 'emailSk')
     .index('ByTeam', 'teamPk', 'teamSk')

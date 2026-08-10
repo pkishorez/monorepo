@@ -3,7 +3,7 @@ import { getTableIdentity } from '../../domain/table-identity/index.js';
 import {
   DuplicateTableBinding,
   TableBindingNotFound,
-} from '../dynamodb-error/index.js';
+} from '../../domain/dynamodb-error/index.js';
 import type {
   ResolvedTableBinding,
   TableBindingInput,

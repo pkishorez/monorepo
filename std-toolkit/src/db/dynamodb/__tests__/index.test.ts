@@ -130,6 +130,7 @@ describe('DynamoDB', () => {
           { AttributeName: 'pk', KeyType: 'HASH' },
           { AttributeName: 'sk', KeyType: 'RANGE' },
         ]);
+        expect(table.dangerouslyRemoveAllItems).toBeTypeOf('function');
 
         type HasRawGetItem = 'getItem' extends keyof typeof table
           ? true
@@ -160,6 +161,8 @@ describe('DynamoDB', () => {
           .build();
 
         expect(entity).toBeDefined();
+        expect(entity.hardDelete).toBeTypeOf('function');
+        expect(entity.dangerouslyRemoveAllItems).toBeTypeOf('function');
       });
 
       it('rejects _u in primary partition key derivation', () => {

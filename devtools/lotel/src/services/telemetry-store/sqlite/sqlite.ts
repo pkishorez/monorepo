@@ -2,15 +2,12 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { Context, Effect, Layer } from 'effect';
-import { SqliteDB } from 'std-toolkit/sqlite';
 import { nodeSqliteLayer } from 'std-toolkit/sqlite/adapters/node';
 import type { TelemetryStoreShape } from '../telemetry-store.js';
 import { TelemetryStoreError } from '../telemetry-store.js';
 import { prepareFlowLog, prepareFlowSpan } from '../../../domain/flow/index.js';
 import { makeSqliteEntities } from './entities.js';
 import { writeFlowRecord } from './flow-write.js';
-
-const TABLE_NAME = 'lotel_data';
 
 const storeError = (operation: string, cause: unknown) =>
   new TelemetryStoreError({ operation, cause: String(cause) });
@@ -30,16 +27,13 @@ const databaseLayer = (path: string) => {
       }),
   );
 
-  return Layer.effect(
-    SqliteDB,
-    database.pipe(
-      Effect.flatMap((connection) =>
-        Layer.build(nodeSqliteLayer(connection, TABLE_NAME)),
-      ),
-      Effect.map((context) => Context.getUnsafe(context, SqliteDB)),
-    ),
-  );
+  return Layer.effect(SqliteConnection, database);
 };
+
+class SqliteConnection extends Context.Service<
+  SqliteConnection,
+  DatabaseSync
+>()('lotel/SqliteConnection') {}
 
 const countResults = (results: boolean[]) => {
   const accepted = results.filter(Boolean).length;
@@ -48,13 +42,15 @@ const countResults = (results: boolean[]) => {
 
 export const makeSqliteTelemetryStore = Effect.gen(function* () {
   const { table, spans, logs, flows } = makeSqliteEntities();
-  const sqlite = yield* SqliteDB;
-  const provideSqlite = <A, E>(effect: Effect.Effect<A, E, SqliteDB>) =>
-    Effect.provideService(effect, SqliteDB, sqlite);
+  const connection = yield* SqliteConnection;
+  const sqliteLayer = nodeSqliteLayer(connection);
+  const provideSqlite = <A, E>(
+    effect: Effect.Effect<A, E, Layer.Success<typeof sqliteLayer>>,
+  ) => Effect.provide(effect, sqliteLayer);
 
-  yield* table
-    .setup()
-    .pipe(Effect.mapError((cause) => storeError('setup', cause)));
+  yield* provideSqlite(table.setup()).pipe(
+    Effect.mapError((cause) => storeError('setup', cause)),
+  );
 
   return {
     saveSpans: (records) =>

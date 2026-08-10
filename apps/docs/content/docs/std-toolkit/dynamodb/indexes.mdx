@@ -16,14 +16,14 @@ The table declares what exists physically. You saw `.gsi(...)` on the [setup pag
 ```ts title="table.ts"
 import { DynamoTable } from 'std-toolkit/dynamodb';
 
-export const table = DynamoTable.make()
+export const table = DynamoTable.make('chat')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .lsi('LSI1', 'LSI1SK')
   .build();
 ```
 
-Each index — primary, GSI, or LSI — is an `IndexDefinition`: just `{ pk, sk }` attribute names. A GSI names both keys independently; an LSI shares the table's partition key and only names an alternate sort key (that's what makes it "local" — same partitions, different order within them). `table.getTableSchema()` sorts your declarations into `GlobalSecondaryIndexes` and `LocalSecondaryIndexes` automatically when provisioning, so the split is topology you declare once, not configuration you repeat.
+Each index — primary, GSI, or LSI — is an `IndexDefinition`: just `{ pk, sk }` attribute names. A GSI names both keys independently; an LSI shares the table's partition key and only names an alternate sort key (that's what makes it "local" — same partitions, different order within them). `table.createTableDefinition()` sorts your declarations into `GlobalSecondaryIndexes` and `LocalSecondaryIndexes` automatically when provisioning, so the split is topology you declare once, not configuration you repeat.
 
 Notice the names are infrastructure names — `GSI1`, not `byAuthor`. That's deliberate, and the next section is why.
 
@@ -128,7 +128,7 @@ LSIs, for completeness, share the base table's partitions and _can_ serve strong
 <Callout type="warn" title="Hard deletes bypass index tombstones">
 The default `delete` is a soft delete, and it plays perfectly with indexes: setting `_d: true` is an ordinary write, so it re-stamps `_u` and updates every derived index — the tombstone appears at the *head* of every timeline index, and every consumer draining `byAuthor` learns about the deletion in order.
 
-`forceDelete: 'I know what I am doing'` physically removes the row — and with it, every trace from every index, without any tombstone ever being written. A consumer that discovers changes by querying a GSI never sees a delete event; it just stops seeing the row in _new_ queries while anything it already cached lives on as a **ghost** — a message that no longer exists on the server but never disappears from the client. Sync engines built on tombstones (including [tanstack-sync](/docs/std-toolkit/tanstack-sync)) will silently miss the deletion.
+`hardDelete(key, 'I KNOW WHAT I AM DOING')` physically removes the row — and with it, every trace from every index, without any tombstone ever being written. A consumer that discovers changes by querying a GSI never sees a delete event; it just stops seeing the row in _new_ queries while anything it already cached lives on as a **ghost** — a message that no longer exists on the server but never disappears from the client. Sync engines built on tombstones (including [tanstack-sync](/docs/std-toolkit/tanstack-sync)) will silently miss the deletion.
 
 Reserve hard deletes for administrative cleanup, fixtures, and rows you're certain no index consumer or sync client depends on. When in doubt, tombstone.
 

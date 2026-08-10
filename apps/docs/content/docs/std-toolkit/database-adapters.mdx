@@ -22,7 +22,7 @@ If one table holds every entity type, something has to route a `Message` operati
 ```ts
 import { DynamoTable } from 'std-toolkit/dynamodb'; // or SQLiteTable from 'std-toolkit/sqlite'
 
-const table = DynamoTable.make().primary('pk', 'sk').build();
+const table = DynamoTable.make('app').primary('pk', 'sk').build();
 
 const messages = table
   .entity(Message)
@@ -104,7 +104,7 @@ Three behaviors are identical across engines and worth internalizing:
 
 - **Inserts refuse to overwrite.** `insert` fails if a row with the same key exists — updates are explicit.
 - **Every write re-stamps `_u`.** Including deletes. That's the [convergence rule's](/docs/std-toolkit/core/meta) raw material.
-- **Deletes are tombstones.** `delete` sets `_d: true` and leaves the row in the item collection so sync consumers can observe it. A soft-deleted row comes back to life with `restore`, which re-stamps `_u` so consumers see it become live again. Hard deletion requires literally typing `forceDelete: 'I know what I am doing'`.
+- **Deletes are tombstones.** `delete` sets `_d: true` and leaves the row in the item collection so sync consumers can observe it. A soft-deleted row comes back to life with `restore`, which re-stamps `_u` so consumers see it become live again. `hardDelete(key, 'I KNOW WHAT I AM DOING')` physically removes one row; `dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')` is the explicit bulk-cleanup API on both tables and entities.
 
 Reads run the eschema's migrations transparently: a v1 message row decodes, folds forward, and comes back to you in the latest shape.
 

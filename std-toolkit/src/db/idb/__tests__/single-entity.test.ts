@@ -5,9 +5,9 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { ESchema } from '../../../eschema/index.js';
 import { Effect, Layer, Schema } from 'effect';
-import { IdbDB } from '../src/db.js';
-import { idbLayer } from '../src/layer.js';
-import { IdbTable } from '../src/idb-table.js';
+import { IdbDB } from '../services/idb-database/index.js';
+import { idbLayer } from '../clients/idb-client/index.js';
+import { IdbTable } from '../services/idb-table/index.js';
 
 // ─── Test Schemas ────────────────────────────────────────────────────────────
 
@@ -25,8 +25,8 @@ const provided = <A, E>(
 ) => effect.pipe(Effect.provide(layer));
 
 const makeConfig = () => {
-  const layer = idbLayer(uniqueDbName(), 'std_data');
-  const table = IdbTable.make().primary('pk', 'sk').build();
+  const layer = idbLayer(uniqueDbName());
+  const table = IdbTable.make('std_data').primary('pk', 'sk').build();
   const AppConfig = table
     .singleEntity(configSchema)
     .default({ theme: 'light', maxRetries: 3 });
@@ -217,7 +217,7 @@ describe('IDB', () => {
         ).toHaveLength(1);
         const rejected = results.find((result) => result.status === 'rejected');
         expect(rejected).toMatchObject({
-          reason: { code: 'conditionFailed' },
+          reason: { _tag: 'ConditionFailed' },
         });
       });
 

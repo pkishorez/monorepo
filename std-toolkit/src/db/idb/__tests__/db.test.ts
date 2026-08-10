@@ -3,9 +3,9 @@ import { it, describe, expect } from 'vitest';
 import { vi } from 'vitest';
 import { Effect, Layer } from 'effect';
 import { openDB } from 'idb';
-import { IdbDB } from '../src/db.js';
-import { idbLayer } from '../src/layer.js';
-import type { IdbRecord } from '../src/db.js';
+import { IdbDB, type IdbRecord } from '../services/idb-database/index.js';
+import { idbLayer } from '../clients/idb-client/index.js';
+import { IdbTable } from '../index.js';
 
 let dbCounter = 0;
 const uniqueDbName = () => `idb-db-test-${++dbCounter}`;
@@ -28,19 +28,24 @@ const runWith = <A, E>(
 
 describe('IDB', () => {
   describe('Database', () => {
+    it('exposes destructive cleanup on the public table API', () => {
+      const table = IdbTable.make('std_data').primary('pk', 'sk').build();
+      expect(table.dangerouslyRemoveAllItems).toBeTypeOf('function');
+    });
+
     describe('put / get', () => {
       it('roundtrips a record with _data as a real object', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
         const record = makeRecord();
 
         const result = await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({});
-            yield* db.put(record);
-            return yield* db.get({ pk: record.pk, sk: record.sk });
+            yield* db.setup('std_data', {});
+            yield* db.put('std_data', record);
+            return yield* db.get('std_data', { pk: record.pk, sk: record.sk });
           }),
         );
 
@@ -51,14 +56,14 @@ describe('IDB', () => {
 
       it('returns null for a missing key', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
 
         const result = await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({});
-            return yield* db.get({ pk: 'NONE', sk: 'NONE' });
+            yield* db.setup('std_data', {});
+            return yield* db.get('std_data', { pk: 'NONE', sk: 'NONE' });
           }),
         );
 
@@ -69,17 +74,17 @@ describe('IDB', () => {
     describe('delete / clear', () => {
       it('deletes a record', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
         const record = makeRecord();
 
         const result = await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({});
-            yield* db.put(record);
-            yield* db.delete({ pk: record.pk, sk: record.sk });
-            return yield* db.get({ pk: record.pk, sk: record.sk });
+            yield* db.setup('std_data', {});
+            yield* db.put('std_data', record);
+            yield* db.delete('std_data', { pk: record.pk, sk: record.sk });
+            return yield* db.get('std_data', { pk: record.pk, sk: record.sk });
           }),
         );
 
@@ -88,17 +93,20 @@ describe('IDB', () => {
 
       it('clears all records and reports the count removed', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
 
         const result = await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({});
-            yield* db.put(makeRecord({ sk: 'A' }));
-            yield* db.put(makeRecord({ sk: 'B' }));
-            const cleared = yield* db.clear();
-            const remaining = yield* db.get({ pk: 'USER#1', sk: 'A' });
+            yield* db.setup('std_data', {});
+            yield* db.put('std_data', makeRecord({ sk: 'A' }));
+            yield* db.put('std_data', makeRecord({ sk: 'B' }));
+            const cleared = yield* db.clear('std_data');
+            const remaining = yield* db.get('std_data', {
+              pk: 'USER#1',
+              sk: 'A',
+            });
             return { cleared, remaining };
           }),
         );
@@ -109,24 +117,50 @@ describe('IDB', () => {
     });
 
     describe('setup', () => {
+      it('sets up multiple table definitions through one database layer', async () => {
+        const dbName = uniqueDbName();
+        const layer = idbLayer(dbName);
+        const first = IdbTable.make('first_table').primary('pk', 'sk').build();
+        const second = IdbTable.make('second_table')
+          .primary('pk', 'sk')
+          .build();
+
+        await runWith(
+          layer,
+          Effect.all([first.setup(), second.setup()], {
+            concurrency: 'unbounded',
+          }),
+        );
+
+        const raw = await openDB(dbName);
+        try {
+          expect(raw.objectStoreNames.contains('first_table')).toBe(true);
+          expect(raw.objectStoreNames.contains('second_table')).toBe(true);
+        } finally {
+          raw.close();
+        }
+      });
+
       it('converges when different tables upgrade the same database concurrently', async () => {
         const dbName = uniqueDbName();
-        const firstLayer = idbLayer(dbName, 'first_table');
-        const secondLayer = idbLayer(dbName, 'second_table');
+        const firstLayer = idbLayer(dbName);
+        const secondLayer = idbLayer(dbName);
 
         await Promise.all([
           runWith(
             firstLayer,
             Effect.gen(function* () {
               const db = yield* IdbDB;
-              yield* db.setup({ FIRST_IDX: { pk: 'firstPk', sk: 'firstSk' } });
+              yield* db.setup('first_table', {
+                FIRST_IDX: { pk: 'firstPk', sk: 'firstSk' },
+              });
             }),
           ),
           runWith(
             secondLayer,
             Effect.gen(function* () {
               const db = yield* IdbDB;
-              yield* db.setup({
+              yield* db.setup('second_table', {
                 SECOND_IDX: { pk: 'secondPk', sk: 'secondSk' },
               });
             }),
@@ -156,13 +190,15 @@ describe('IDB', () => {
 
       it('is idempotent — calling twice with the same indexes leaves the version unchanged', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
 
         await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({ IDX1: { pk: 'IDX1PK', sk: 'IDX1SK' } });
+            yield* db.setup('std_data', {
+              IDX1: { pk: 'IDX1PK', sk: 'IDX1SK' },
+            });
           }),
         );
 
@@ -174,7 +210,9 @@ describe('IDB', () => {
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({ IDX1: { pk: 'IDX1PK', sk: 'IDX1SK' } });
+            yield* db.setup('std_data', {
+              IDX1: { pk: 'IDX1PK', sk: 'IDX1SK' },
+            });
           }),
         );
 
@@ -188,13 +226,15 @@ describe('IDB', () => {
 
       it('bumps the version by exactly 1 when a new index is added, and creates it', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
 
         await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({ IDX1: { pk: 'IDX1PK', sk: 'IDX1SK' } });
+            yield* db.setup('std_data', {
+              IDX1: { pk: 'IDX1PK', sk: 'IDX1SK' },
+            });
           }),
         );
 
@@ -206,7 +246,7 @@ describe('IDB', () => {
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({
+            yield* db.setup('std_data', {
               IDX1: { pk: 'IDX1PK', sk: 'IDX1SK' },
               IDX2: { pk: 'IDX2PK', sk: 'IDX2SK' },
             });
@@ -229,7 +269,7 @@ describe('IDB', () => {
 
     describe('connection failures', () => {
       it('surfaces unavailable IndexedDB as openFailed', async () => {
-        const layer = idbLayer(uniqueDbName(), 'std_data');
+        const layer = idbLayer(uniqueDbName());
         vi.stubGlobal('indexedDB', undefined);
 
         try {
@@ -237,11 +277,11 @@ describe('IDB', () => {
             layer,
             Effect.gen(function* () {
               const db = yield* IdbDB;
-              return yield* db.setup({}).pipe(Effect.flip);
+              return yield* db.setup('std_data', {}).pipe(Effect.flip);
             }),
           );
 
-          expect(error.code).toBe('openFailed');
+          expect('code' in error && error.code).toBe('openFailed');
         } finally {
           vi.unstubAllGlobals();
         }
@@ -251,7 +291,7 @@ describe('IDB', () => {
     describe('transact', () => {
       it('applies neither op and fails with conditionFailed when one op violates expectedU', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
         const recordA = makeRecord({ sk: 'A' });
         const recordB = makeRecord({ sk: 'B' });
 
@@ -259,9 +299,9 @@ describe('IDB', () => {
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({});
+            yield* db.setup('std_data', {});
             const error = yield* db
-              .transact([
+              .transact('std_data', [
                 { type: 'put', record: recordA },
                 {
                   type: 'put',
@@ -270,56 +310,62 @@ describe('IDB', () => {
                 },
               ])
               .pipe(Effect.flip);
-            const gotA = yield* db.get({ pk: recordA.pk, sk: recordA.sk });
-            const gotB = yield* db.get({ pk: recordB.pk, sk: recordB.sk });
+            const gotA = yield* db.get('std_data', {
+              pk: recordA.pk,
+              sk: recordA.sk,
+            });
+            const gotB = yield* db.get('std_data', {
+              pk: recordB.pk,
+              sk: recordB.sk,
+            });
             return { error, gotA, gotB };
           }),
         );
 
-        expect(result.error.code).toBe('conditionFailed');
+        expect(result.error._tag).toBe('ConditionFailed');
         expect(result.gotA).toBeNull();
         expect(result.gotB).toBeNull();
       });
 
       it('fails with conditionFailed when expectedU: null is used on an existing key', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
         const record = makeRecord();
 
         const result = await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({});
-            yield* db.put(record);
+            yield* db.setup('std_data', {});
+            yield* db.put('std_data', record);
             return yield* db
-              .transact([{ type: 'put', record, expectedU: null }])
+              .transact('std_data', [{ type: 'put', record, expectedU: null }])
               .pipe(Effect.flip);
           }),
         );
 
-        expect(result.code).toBe('conditionFailed');
+        expect(result._tag).toBe('ConditionFailed');
       });
 
       it('patch merges values without clobbering unlisted fields', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
         const record = makeRecord({ _data: { name: 'Ada', age: 30 } });
 
         const result = await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({});
-            yield* db.put(record);
-            yield* db.transact([
+            yield* db.setup('std_data', {});
+            yield* db.put('std_data', record);
+            yield* db.transact('std_data', [
               {
                 type: 'patch',
                 key: { pk: record.pk, sk: record.sk },
                 values: { _data: { name: 'Ada', age: 31 } },
               },
             ]);
-            return yield* db.get({ pk: record.pk, sk: record.sk });
+            return yield* db.get('std_data', { pk: record.pk, sk: record.sk });
           }),
         );
 
@@ -331,15 +377,15 @@ describe('IDB', () => {
 
       it('fails with conditionFailed when patching a missing record', async () => {
         const dbName = uniqueDbName();
-        const layer = idbLayer(dbName, 'std_data');
+        const layer = idbLayer(dbName);
 
         const result = await runWith(
           layer,
           Effect.gen(function* () {
             const db = yield* IdbDB;
-            yield* db.setup({});
+            yield* db.setup('std_data', {});
             return yield* db
-              .transact([
+              .transact('std_data', [
                 {
                   type: 'patch',
                   key: { pk: 'NONE', sk: 'NONE' },
@@ -350,7 +396,7 @@ describe('IDB', () => {
           }),
         );
 
-        expect(result.code).toBe('conditionFailed');
+        expect(result._tag).toBe('ConditionFailed');
       });
     });
   });

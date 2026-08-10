@@ -8,9 +8,10 @@ import {
   beforeEach,
 } from 'vitest';
 import { Effect } from 'effect';
-import { nodeSqliteLayer } from '../node.js';
-import { SqliteDB, SqliteDBError } from '../../db.js';
-import * as Sql from '../../helpers/index.js';
+import { nodeSqliteLayer } from '../node/index.js';
+import { SQLiteDatabase as SqliteDB } from '../../../services/sqlite-database/index.js';
+import { SQLiteError as SqliteDBError } from '../../../domain/sqlite-error/index.js';
+import { SQL as Sql } from '../../../domain/sql-statement/index.js';
 
 describe('SQLite', () => {
   describe('Adapters', () => {
@@ -20,7 +21,7 @@ describe('SQLite', () => {
 
       beforeAll(() => {
         db = new DatabaseSync(':memory:');
-        layer = nodeSqliteLayer(db, 'test_table');
+        layer = nodeSqliteLayer(db);
       });
 
       afterAll(() => db.close());

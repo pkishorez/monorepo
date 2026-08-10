@@ -16,13 +16,13 @@ One structural note before the code, because it's the difference you'll feel aga
 ```ts title="table.ts"
 import { IdbTable } from 'std-toolkit/idb';
 
-export const table = IdbTable.make()
+export const table = IdbTable.make('chat_data')
   .primary('pk', 'sk')
   .index('IDX1', 'IDX1PK', 'IDX1SK')
   .build();
 ```
 
-Same builder shape as the other adapters: a primary key pair and generic secondary index slots. The table definition is pure topology — key field names, nothing else. Notably absent: a database name and a physical store name. Both are supplied by the runtime layer (the [setup page](/docs/std-toolkit/idb/setup)), so one topology can back many physical stores.
+Same builder shape as the other adapters: a physical store name, a primary key pair, and generic secondary index slots. The database name stays in the runtime layer (the [setup page](/docs/std-toolkit/idb/setup)), so several table definitions can share one IndexedDB database.
 
 Physically, `setup()` (below) maps this onto one IndexedDB object store with `keyPath: ['pk', 'sk']`. The stored row is a native structured-clone object — the encoded entity lives in a real `_data` object, not a JSON string — carrying the meta fields `_e`, `_v`, `_u`, `_d` from the [envelope](/docs/std-toolkit/core/meta) plus a derived key field per index slot. All rows sharing a `pk`, ordered by `sk`, form an item collection, served by a cursor over the store's key range.
 
@@ -123,11 +123,11 @@ const welcome = Effect.gen(function* () {
 });
 ```
 
-Either the channel and its first message both land, or neither does. Ops are built by each entity's `insertOp` / `getAndUpdateOp` / `deleteOp` / `restoreOp` outside any transaction — validating, encoding, and capturing the optimistic-concurrency expectation up front — and each op carries an optimistic guard the transaction re-checks per key (any violation aborts the whole thing). Change broadcasts fire only after the underlying transaction commits, in op order; a failed transaction broadcasts nothing. Ops built against a different table are rejected as a defect.
+Either the channel and its first message both land, or neither does. Ops are built by each entity's `insertOp` / `getAndUpdateOp` / `deleteOp` / `restoreOp` outside any transaction — validating, encoding, and capturing the optimistic-concurrency expectation up front — and each op carries an optimistic guard the transaction re-checks per key (any violation aborts the whole thing). Change broadcasts fire only after the underlying transaction commits, in op order; a failed transaction broadcasts nothing. Ops built against a different table fail with `ForeignTransactionItem`.
 
-## The seam underneath: `IdbDB` and `IdbDBError`
+## The seam underneath: `idbLayer` and `IdbError`
 
-You may have noticed nothing above opened a database. Every operation on this page returns an Effect that _requires_ an `IdbDB` service — the narrow IndexedDB interface all of this compiles down to — and fails with `IdbDBError`, whose `code` names exactly what went wrong (`conditionFailed`, `noItemToUpdate`, `setupFailed`, …). Providing `IdbDB` is a one-line layer with `idbLayer`, and that's the whole subject of the next page.
+You may have noticed nothing above opened a database. Every operation requires the database runtime provided by `idbLayer` and fails with `IdbError`. Driver failures carry codes such as `openFailed` and `setupFailed`; semantic failures use tags such as `ItemAlreadyExists` and `ConditionFailed`. The next page covers provisioning the runtime and its stores.
 
 <Callout type="info">
   IndexedDB only exists in a browser (or a browser-like environment with
@@ -141,7 +141,7 @@ You may have noticed nothing above opened a database. Every operation on this pa
   <Card
     title="Setup"
     href="/docs/std-toolkit/idb/setup"
-    description="idbLayer, providing IdbDB, and table.setup() — the auto-versioned object-store provisioning."
+    description="idbLayer and table.setup() — the auto-versioned object-store provisioning."
   />
   <Card
     title="Indexes"

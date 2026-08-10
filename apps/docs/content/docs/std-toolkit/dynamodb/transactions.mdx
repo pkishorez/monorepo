@@ -1,6 +1,6 @@
 ---
 title: Transactions
-description: Atomic multi-entity writes through table.transact, batch writes with unprocessed-item handling, and the DynamodbError taxonomy.
+description: Atomic multi-entity writes through table.transact, batch writes with unprocessed-item handling, and the DynamoDBError taxonomy.
 ---
 
 Sending a chat message, done properly, is two writes: insert the `Message`, and bump the `Channel`'s `messageCount`. Run them as two calls and there's a window — a crash, a throttle, a deploy — where one lands and the other doesn't. Now the channel list says 41 messages and the channel contains 42, forever.
@@ -87,32 +87,30 @@ export const importHistory = (rows: MessageInsert[]) =>
 
 One honesty note, because it changes when you reach for this: `BatchWriteItem` does not support condition expressions, so unlike `insert`, a batch write **replaces** an existing row with the same key instead of failing. `batchInsert` is for bulk-loading rows you know are new — imports, backfills, fixtures — not for concurrent application writes.
 
-## `DynamodbError`
+## `DynamoDBError`
 
-Every operation in this section — and the whole adapter — fails with exactly one error type in the Effect error channel: `DynamodbError`. It's a tagged error wrapping a discriminated union, so one `catchTag` gets you in, and `error._tag` tells you precisely what happened:
+Table and entity operations fail with direct `DynamoDBError` variants. There is no outer wrapper: `error._tag` is the operation or semantic failure itself.
 
-| Family                                       | Tags                                                                                                                                                                                   |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Semantic — your logic can react              | `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, `ConditionCheckFailed`                                                                                                        |
-| Auto-migration                               | `ItemVersionMismatch` (stale row, `autoMigrate: false`), `ItemMigrationFailed` (concurrent write during migration)                                                                     |
-| Operation wrappers — what failed, with cause | `GetItemFailed`, `PutItemFailed`, `UpdateItemFailed`, `DeleteItemFailed`, `QueryFailed`, `ScanFailed`, `DescribeFailed`, `TransactionFailed`, `BatchWriteFailed`                       |
-| AWS transport — status + request id attached | `ThrottlingException`, `ServiceUnavailable`, `RequestTimeout`, `AccessDeniedException`, `UnauthorizedException`, `ValidationException`, `InvalidSignatureException`, `UnknownAwsError` |
+| Family                                       | Tags                                                                                                                                                             |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Semantic — your logic can react              | `ItemAlreadyExists`, `NoItemToUpdate`, `NoItemToDelete`, `NoItemToRestore`, `ConditionFailed`, `ConditionCheckFailed`                                            |
+| Transaction validation                       | `DuplicateTransactionTarget`, `ForeignTransactionItem`                                                                                                           |
+| Auto-migration                               | `ItemVersionMismatch` (stale row, `autoMigrate: false`), `ItemMigrationFailed` (concurrent write during migration)                                               |
+| Operation failures — what failed, with cause | `GetItemFailed`, `PutItemFailed`, `UpdateItemFailed`, `DeleteItemFailed`, `QueryFailed`, `ScanFailed`, `DescribeFailed`, `TransactionFailed`, `BatchWriteFailed` |
 
 The semantic tags are the ones your application logic branches on. The chat app's retried-delivery case — a client resends a message it already delivered — is a one-liner, because inserts carry ids the client minted:
 
 ```ts
 yield *
   messages.insert(draft).pipe(
-    Effect.catchIf(
-      (e) => e.error._tag === 'ItemAlreadyExists',
+    Effect.catchTag(
+      'ItemAlreadyExists',
       () => Effect.void, // duplicate delivery — the message is already there
     ),
   );
 ```
 
-The transport tags are your retry candidates: `ThrottlingException`, `ServiceUnavailable`, and `RequestTimeout` are transient by definition and safe to retry with backoff, while `AccessDeniedException` or `ValidationException` will fail identically forever — match on `error._tag` to retry only the former. Each transport error carries `meta` with the HTTP status code and the AWS request id, which is what AWS support asks for first.
-
-And when an error escapes to a log, `DynamodbError`'s `message` getter renders a human-readable summary — the AWS error name, message, status, and request id — instead of an opaque wrapper name. Small thing; you'll appreciate it at 2 a.m.
+Operation failures retain the complete generated client failure in `cause`, so retry policy can inspect the underlying AWS tag without losing status or request metadata. Calls made directly through `DynamoDB.client(...)` expose their generated AWS error union without the table/entity mapping layer.
 
 ---
 

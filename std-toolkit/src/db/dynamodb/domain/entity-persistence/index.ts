@@ -1,4 +1,5 @@
 export {
+  deriveIndexKeyValue,
   makeEntityMetadata,
   migrationOutcome,
   semanticItem,

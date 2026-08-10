@@ -16,6 +16,7 @@ type PublicTableMember =
   | 'entity'
   | 'singleEntity'
   | 'transact'
+  | 'dangerouslyRemoveAllItems'
   | 'createTableDefinition';
 
 export type DynamoTable<

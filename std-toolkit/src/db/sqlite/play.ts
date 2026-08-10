@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
 import { EntityESchema } from '../../eschema/index.js';
 import { Effect, Schema } from 'effect';
-import { betterSqlite3Layer } from './sql/adapters/better-sqlite3.js';
-import { SQLiteTable } from './services/sqlite-table.js';
+import { betterSqlite3Layer } from './sql/adapters/better-sqlite3/index.js';
+import { SQLiteTable } from './orchestrators/sqlite-table/index.js';
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ type PostId = string;
 
 // ─── Table & Entities ────────────────────────────────────────────────────────
 
-const table = SQLiteTable.make()
+const table = SQLiteTable.make('std_data')
   .primary('pk', 'sk')
   .index('IDX1', 'IDX1PK', 'IDX1SK')
   .index('IDX2', 'IDX2PK', 'IDX2SK')
@@ -52,7 +52,6 @@ const postEntity = table
 
 const program = Effect.gen(function* () {
   yield* table.setup();
-  yield* table.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING');
 
   console.log('=== SQLiteEntity Playground ===\n');
 
@@ -147,7 +146,7 @@ const program = Effect.gen(function* () {
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 const db = new Database(':memory:');
-const layer = betterSqlite3Layer(db, 'std_data');
+const layer = betterSqlite3Layer(db);
 
 Effect.runPromise(program.pipe(Effect.provide(layer)))
   .then(() => db.close())

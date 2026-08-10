@@ -15,10 +15,12 @@ import {
   type UpdateOps,
 } from '../../domain/expression/index.js';
 import { buildExpr } from '../../domain/expression/index.js';
-import { isConditionalCheckFailed } from '../../internal/index.js';
 import type { EntityTable as DynamoTable } from '../../domain/entity-persistence/index.js';
 import type { DynamoDB } from '../dynamodb/index.js';
-import { DynamoDBError } from '../dynamodb-error/index.js';
+import {
+  DynamoDBError,
+  isConditionalCheckFailed,
+} from '../../domain/dynamodb-error/index.js';
 import {
   broadcastSingleEntity,
   singleMetaSchema,

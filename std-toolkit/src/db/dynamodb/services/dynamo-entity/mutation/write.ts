@@ -7,12 +7,12 @@ import { Effect, Option, Schema, Match } from 'effect';
 import type { EntityTable as DynamoTable } from '../../../domain/entity-persistence/index.js';
 import type { DynamoDB } from '../../dynamodb/index.js';
 import { Broadcaster, nextUlid } from '../../../../../core/index.js';
-import { DynamoDBError } from '../../dynamodb-error/index.js';
-import type { IndexPkValue } from '../../../types/index.js';
 import {
-  deriveIndexKeyValue,
+  DynamoDBError,
   isConditionalCheckFailed,
-} from '../../../internal/index.js';
+} from '../../../domain/dynamodb-error/index.js';
+import type { IndexPkValue } from '../../../types/index.js';
+import { deriveIndexKeyValue } from '../../../domain/entity-persistence/index.js';
 import {
   exprCondition,
   type AnyOperation,
@@ -307,45 +307,9 @@ export class EntityWriter<
     );
   };
 
-  /**
-   * Deletes an entity. Defaults to a soft delete by setting the `_d` flag to
-   * true. The row stays in the table so downstream consumers can observe the
-   * tombstone and reconcile their state.
-   *
-   * Pass `forceDelete: "I know what I am doing"` to perform a hard delete
-   * that physically removes the item from the table.
-   *
-   * ⚠️ **Hard delete disclaimer — read before using `forceDelete`.**
-   * Hard delete is **not safe for sync engines** or any consumer that
-   * replays/streams changes from this table:
-   * - Sync engines that rely on tombstones (`_d: true`) to propagate
-   *   deletions to clients will silently miss the deletion. Clients that
-   *   already cached the row will keep stale state forever, since they
-   *   never receive a delete event.
-   * - Stream-based downstream readers (DynamoDB Streams consumers, change
-   *   data capture pipelines) only see a REMOVE event with no payload, so
-   *   any logic that needs the prior values to fan out the delete will
-   *   fail or behave incorrectly.
-   * - Audit/history flows lose the ability to answer "what was this row
-   *   right before it was deleted?".
-   * - Hard delete bypasses the standard update path: secondary index
-   *   tombstones are not written, so consumers that query by GSI to
-   *   discover deletions will not see this entity disappear cleanly.
-   *
-   * Only use `forceDelete` for one-off administrative cleanup, fixtures,
-   * tests, or rows that you are certain no sync/stream consumer depends on.
-   * When in doubt, use the default soft delete.
-   *
-   * @param keyValue - Object containing the primary key field values
-   * @param options.forceDelete - Acknowledgement string that opts into hard delete
-   * @returns The deleted entity (with `_d: true` for both soft and hard delete)
-   */
   delete = (
     keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
       Pick<ESchemaType<TSchema>, TSchema['idField']>,
-    options?: {
-      forceDelete?: 'I know what I am doing';
-    },
   ): Effect.Effect<
     EntityType<ESchemaType<TSchema>>,
     DynamoDBError,
@@ -355,38 +319,9 @@ export class EntityWriter<
       yield* Effect.void;
       const existing = yield* this.#get(keyValue);
 
-      return yield* Match.value(
-        !existing
-          ? 'missing'
-          : options?.forceDelete === 'I know what I am doing'
-            ? 'physical'
-            : 'tombstone',
-      ).pipe(
+      return yield* Match.value(!existing ? 'missing' : 'tombstone').pipe(
         Match.when('missing', () =>
           Effect.fail(DynamoDBError.noItemToDelete()),
-        ),
-        Match.when('physical', () =>
-          Effect.gen({ self: this }, function* () {
-            const pk = deriveIndexKeyValue(
-              this.#eschema.name,
-              this.#index.primary.pkDeps,
-              keyValue as Record<string, unknown>,
-              true,
-            );
-            const sk = deriveIndexKeyValue(
-              this.#eschema.name,
-              this.#index.primary.skDeps,
-              keyValue as Record<string, unknown>,
-              false,
-            );
-            yield* this.#table.deleteItem({ pk, sk });
-            const deleted = {
-              value: existing!.value,
-              meta: { ...existing!.meta, _d: true as const },
-            };
-            yield* this.#broadcast([deleted]);
-            return deleted;
-          }),
         ),
         Match.when('tombstone', () =>
           Effect.gen({ self: this }, function* () {
@@ -404,6 +339,47 @@ export class EntityWriter<
       }),
     );
   };
+
+  hardDelete = (
+    keyValue: IndexPkValue<ESchemaType<TSchema>, TPrimaryPkKeys> &
+      Pick<ESchemaType<TSchema>, TSchema['idField']>,
+    _: 'I KNOW WHAT I AM DOING',
+  ): Effect.Effect<EntityType<ESchemaType<TSchema>>, DynamoDBError, DynamoDB> =>
+    Effect.gen({ self: this }, function* () {
+      const existing = yield* this.#get(keyValue);
+      if (!existing) {
+        return yield* Effect.fail(DynamoDBError.noItemToDelete());
+      }
+      const pk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#index.primary.pkDeps,
+        keyValue as Record<string, unknown>,
+        true,
+      );
+      const sk = deriveIndexKeyValue(
+        this.#eschema.name,
+        this.#index.primary.skDeps,
+        keyValue as Record<string, unknown>,
+        false,
+      );
+      yield* this.#table.deleteItem({ pk, sk });
+      const deleted = {
+        value: existing.value,
+        meta: { ...existing.meta, _d: true as const },
+      };
+      yield* this.#broadcast([deleted]);
+      return deleted;
+    }).pipe(
+      Effect.withSpan('dynamodb.entity.hard-delete', {
+        attributes: { entity: this.#eschema.name },
+      }),
+    );
+
+  dangerouslyRemoveAllItems = (_: 'I KNOW WHAT I AM DOING') =>
+    this.#table.dangerouslyRemoveEntityItems(
+      this.#eschema.name,
+      'I KNOW WHAT I AM DOING',
+    );
 
   /**
    * Restores a soft-deleted entity with a fresh `_u` so sync consumers see it
