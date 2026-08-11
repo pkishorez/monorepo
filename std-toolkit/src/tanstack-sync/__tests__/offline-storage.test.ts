@@ -4,14 +4,18 @@ import type { EntityType } from '../../core/index.js';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
 import { it, describe, expect } from 'vitest';
 import { vi } from 'vitest';
-import { createStdSync } from '../create-std-sync.js';
+import {
+  createStdSync,
+  singleItemSyncStrategy,
+  syncStrategy,
+} from '../tanstack-sync.js';
 import {
   offlineStorageGroupName,
   type OfflineStorage,
-} from '../offline-storage/index.js';
-import { memoryOfflineStorage } from '../offline-storage/memory-offline-storage.js';
-import { idbStorage } from '../offline-storage/adapters/idb/index.js';
-import { noStrategyState } from '../partitioned/strategy-state.js';
+} from '../persistence/offline-storage/index.js';
+import { memoryOfflineStorage } from '../persistence/offline-storage/memory-offline-storage.js';
+import { idbStorage } from '../persistence/indexed-db-storage/index.js';
+import { noStrategyState } from '../domain/strategy-state/index.js';
 
 type Todo = {
   id: string;
@@ -93,7 +97,6 @@ const mount = (collection: {
 };
 
 const failingWriteStorage = (): OfflineStorage => ({
-  descriptor: { kind: 'indexeddb', name: ':test:' },
   group: () => ({
     get: () => Effect.succeed(null),
     getAll: () => Effect.succeed([]),
@@ -108,11 +111,9 @@ const failingWriteStorage = (): OfflineStorage => ({
     clear: () => Effect.succeed(undefined),
   }),
   clear: () => Effect.succeed(undefined),
-  inspect: () => Effect.succeed([]),
 });
 
 const failingReadStorage = (): OfflineStorage => ({
-  descriptor: { kind: 'indexeddb', name: ':test:' },
   group: () => ({
     get: () => Effect.succeed(null),
     getAll: () =>
@@ -127,11 +128,9 @@ const failingReadStorage = (): OfflineStorage => ({
     clear: () => Effect.succeed(undefined),
   }),
   clear: () => Effect.succeed(undefined),
-  inspect: () => Effect.succeed([]),
 });
 
 const failingSingletonReadStorage = (): OfflineStorage => ({
-  descriptor: { kind: 'indexeddb', name: ':test:' },
   group: () => ({
     get: () =>
       Effect.fail({
@@ -146,11 +145,9 @@ const failingSingletonReadStorage = (): OfflineStorage => ({
     clear: () => Effect.succeed(undefined),
   }),
   clear: () => Effect.succeed(undefined),
-  inspect: () => Effect.succeed([]),
 });
 
 const failingSingletonWriteStorage = (): OfflineStorage => ({
-  descriptor: { kind: 'indexeddb', name: ':test:' },
   group: () => ({
     get: () => Effect.succeed(null),
     getAll: () => Effect.succeed([]),
@@ -160,17 +157,36 @@ const failingSingletonWriteStorage = (): OfflineStorage => ({
         operation: 'put' as const,
         cause: new Error('disk full'),
       }),
-    putMany: () => Effect.succeed(undefined),
+    putMany: () =>
+      Effect.fail({
+        _tag: 'OfflineStorageError' as const,
+        operation: 'putMany' as const,
+        cause: new Error('disk full'),
+      }),
     delete: () => Effect.succeed(undefined),
     clear: () => Effect.succeed(undefined),
   }),
   clear: () => Effect.succeed(undefined),
-  inspect: () => Effect.succeed([]),
 });
 
 describe('TanStack Sync', () => {
   describe('Offline storage', () => {
     describe('Keyed sync', () => {
+      it('accepts a built-in strategy without erasing its typed state', () => {
+        const collection = createStdSync().sync({
+          schema: todoSchema,
+          sync: {
+            total: {
+              strategy: syncStrategy.oldToNew<Todo>({
+                fetch: () => Effect.succeed([]),
+              }),
+            },
+          },
+        });
+
+        expect(collection.sync).toBeDefined();
+      });
+
       it('projects persisted live SoT entities before marking the collection ready', async () => {
         const storage = memoryOfflineStorage();
         await Effect.runPromise(
@@ -304,7 +320,7 @@ describe('TanStack Sync', () => {
         await Effect.runPromise(
           storage
             .group(offlineStorageGroupName.syncState(todoSchema.name))
-            .put(JSON.stringify([['listId', 'inbox']]), {
+            .put(JSON.stringify([['listId', 'string', 'inbox']]), {
               strategy: 'test-partition',
               value: { cursor: 'page-2' },
             }),
@@ -328,7 +344,6 @@ describe('TanStack Sync', () => {
                       Effect.asVoid,
                     ),
                 },
-                forwardFetch: () => Effect.succeed([]),
               }),
             },
           },
@@ -356,9 +371,8 @@ describe('TanStack Sync', () => {
       });
 
       it('resets partition sync state when the stored strategy name changes', async () => {
-        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const storage = memoryOfflineStorage();
-        const partitionKey = JSON.stringify([['listId', 'inbox']]);
+        const partitionKey = JSON.stringify([['listId', 'string', 'inbox']]);
         await Effect.runPromise(
           storage
             .group(offlineStorageGroupName.syncState(todoSchema.name))
@@ -386,7 +400,6 @@ describe('TanStack Sync', () => {
                       Effect.asVoid,
                     ),
                 },
-                forwardFetch: () => Effect.succeed([]),
               }),
             },
           },
@@ -420,18 +433,12 @@ describe('TanStack Sync', () => {
             value: { cursor: null },
           }),
         );
-        expect(warnSpy).toHaveBeenCalledWith(
-          '[tanstack-sync] reset sync state for "Todo" because stored strategy "previous-strategy" does not match current strategy "current-strategy"',
-        );
-
         subscription.cleanup();
-        warnSpy.mockRestore();
       });
 
       it('resets partition sync state when the stored state fails schema validation', async () => {
-        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const storage = memoryOfflineStorage();
-        const partitionKey = JSON.stringify([['listId', 'inbox']]);
+        const partitionKey = JSON.stringify([['listId', 'string', 'inbox']]);
         await Effect.runPromise(
           storage
             .group(offlineStorageGroupName.syncState(todoSchema.name))
@@ -459,7 +466,6 @@ describe('TanStack Sync', () => {
                       Effect.asVoid,
                     ),
                 },
-                forwardFetch: () => Effect.succeed([]),
               }),
             },
           },
@@ -493,12 +499,7 @@ describe('TanStack Sync', () => {
             value: { cursor: null },
           }),
         );
-        expect(warnSpy).toHaveBeenCalledWith(
-          '[tanstack-sync] reset sync state for "Todo" strategy "test-partition" because stored state failed schema validation',
-        );
-
         subscription.cleanup();
-        warnSpy.mockRestore();
       });
 
       it('uses collection-local memory when collection offlineStorage is false', async () => {
@@ -547,43 +548,23 @@ describe('TanStack Sync', () => {
       });
 
       it('does not mark ready when persisted SoT cannot be read on mount', async () => {
-        const errorSpy = vi
-          .spyOn(console, 'error')
-          .mockImplementation(() => {});
-        const collection = createStdSync().sync({
+        const events: unknown[] = [];
+        const collection = createStdSync({
+          onEvent: (event) => Effect.sync(() => events.push(event)),
+        }).sync({
           schema: todoSchema,
           offlineStorage: failingReadStorage(),
         });
 
         const { callbacks } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(errorSpy).toHaveBeenCalledWith(
-            '[tanstack-sync] failed to read offline storage before collection ready',
-            expect.objectContaining({ _tag: 'Storage' }),
-          ),
-        );
+        await vi.waitFor(() => expect(events).toHaveLength(1));
+        expect(events).toContainEqual({
+          _tag: 'InitializationFailed',
+          collection: 'Todo',
+          cause: expect.objectContaining({ _tag: 'Storage' }),
+        });
         expect(callbacks.markReady).not.toHaveBeenCalled();
-        errorSpy.mockRestore();
-      });
-
-      it('marks the inspector collection cleaned-up after keyed collection cleanup', async () => {
-        const std = createStdSync();
-        const collection = std.sync({
-          schema: todoSchema,
-        });
-        const { callbacks, subscription } = mount(collection);
-
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
-        subscription.cleanup();
-
-        expect(std.inspector.collections.get(todoSchema.name)).toMatchObject({
-          status: 'cleaned-up',
-          itemCount: 0,
-          subscriberCount: 0,
-        });
       });
 
       it('persists registry writes while unmounted and projects them on mount', async () => {
@@ -639,6 +620,21 @@ describe('TanStack Sync', () => {
     });
 
     describe('Single-item sync', () => {
+      it('accepts a built-in strategy without erasing its typed state', () => {
+        const collection = createStdSync().singleItemSync({
+          schema: settingsSchema,
+          strategy: singleItemSyncStrategy.getOnce({
+            get: () =>
+              Effect.succeed({
+                value: { theme: 'dark' },
+                meta: { _e: 'Settings', _v: 'v1', _u: '1' },
+              }),
+          }),
+        });
+
+        expect(collection.sync).toBeDefined();
+      });
+
       it('persists singleton SoT across recreated std-sync instances with IndexedDB', async () => {
         const name = `single-item-${crypto.randomUUID()}`;
 
@@ -673,7 +669,13 @@ describe('TanStack Sync', () => {
             type: 'insert',
             value: {
               theme: 'dark',
-              _meta: { _e: 'Settings', _v: 'v1', _u: '1', _d: false },
+              _meta: {
+                _e: 'Settings',
+                _v: 'v1',
+                _u: '1',
+                _d: false,
+                _c: expect.any(Number),
+              },
             },
           },
           'commit',
@@ -716,16 +718,22 @@ describe('TanStack Sync', () => {
           type: 'insert',
           value: {
             theme: 'local',
-            _meta: { _e: 'Settings', _v: 'v1', _u: '1', _d: false },
+            _meta: {
+              _e: 'Settings',
+              _v: 'v1',
+              _u: '1',
+              _d: false,
+              _c: expect.any(Number),
+            },
           },
         });
       });
 
       it('does not mark ready when single-item persisted SoT cannot be read on mount', async () => {
-        const errorSpy = vi
-          .spyOn(console, 'error')
-          .mockImplementation(() => {});
-        const collection = createStdSync().singleItemSync({
+        const events: unknown[] = [];
+        const collection = createStdSync({
+          onEvent: (event) => Effect.sync(() => events.push(event)),
+        }).singleItemSync({
           schema: settingsSchema,
           offlineStorage: failingSingletonReadStorage(),
           strategy: noopSingleStrategy,
@@ -733,36 +741,13 @@ describe('TanStack Sync', () => {
 
         const { callbacks } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(errorSpy).toHaveBeenCalledWith(
-            '[tanstack-sync] failed to read offline storage before collection ready',
-            expect.objectContaining({ _tag: 'Storage' }),
-          ),
-        );
+        await vi.waitFor(() => expect(events).toHaveLength(1));
+        expect(events).toContainEqual({
+          _tag: 'InitializationFailed',
+          collection: 'Settings',
+          cause: expect.objectContaining({ _tag: 'Storage' }),
+        });
         expect(callbacks.markReady).not.toHaveBeenCalled();
-        errorSpy.mockRestore();
-      });
-
-      it('marks the inspector collection cleaned-up after single-item cleanup', async () => {
-        const std = createStdSync();
-        const collection = std.singleItemSync({
-          schema: settingsSchema,
-          strategy: noopSingleStrategy,
-        });
-        const { callbacks, subscription } = mount(collection);
-
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
-        await subscription.cleanup();
-
-        expect(
-          std.inspector.collections.get(settingsSchema.name),
-        ).toMatchObject({
-          status: 'cleaned-up',
-          itemCount: 0,
-          subscriberCount: 0,
-        });
       });
 
       it('resumes a single-item strategy from persisted sync state', async () => {
@@ -840,7 +825,7 @@ describe('TanStack Sync', () => {
 
         expect(error).toMatchObject({
           _tag: 'Storage',
-          reason: 'failed to write Source of Truth entity',
+          reason: 'failed to write Source of Truth entities',
         });
       });
     });

@@ -72,12 +72,12 @@
       "default": "./dist/tanstack-sync/index.js"
     },
     "./tanstack-sync/paced": {
-      "types": "./dist/tanstack-sync/paced/index.d.ts",
-      "default": "./dist/tanstack-sync/paced/index.js"
+      "types": "./dist/tanstack-sync/runtime/mutation-pacing/index.d.ts",
+      "default": "./dist/tanstack-sync/runtime/mutation-pacing/index.js"
     },
     "./tanstack-sync/offline-storage/idb": {
-      "types": "./dist/tanstack-sync/offline-storage/adapters/idb/index.d.ts",
-      "default": "./dist/tanstack-sync/offline-storage/adapters/idb/index.js"
+      "types": "./dist/tanstack-sync/persistence/indexed-db-storage/index.d.ts",
+      "default": "./dist/tanstack-sync/persistence/indexed-db-storage/index.js"
     }
   },
   "files": [

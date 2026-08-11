@@ -70,7 +70,7 @@ import { createStdSync } from 'std-toolkit/tanstack-sync';
 export const std = createStdSync();
 ```
 
-One call per app (or per feature scope). The returned instance exposes `sync` for keyed collections, `singleItemSync` for singletons, and `registry` for routing broadcast traffic — plus `collection`/`singleItemCollection` conveniences and an `inspector` you'll meet [later](/docs/std-toolkit/tanstack-sync/offline). Everything created through one instance shares a tracker, which is how the registry knows where each entity type lives.
+One call per app (or per feature scope). The returned instance exposes `sync` for keyed collections, `singleItemSync` for singletons, and `registry` for routing broadcast traffic, plus `collection`/`singleItemCollection` conveniences. Everything created through one instance shares a tracker, which is how the registry knows where each entity type lives. Optional structured events are configured through `onEvent`.
 
 ## A keyed collection, partitioned by channel
 
@@ -87,8 +87,9 @@ export const messagesCollection = createCollection(
     sync: {
       partitions: {
         channelId: (channelId) => ({
-          strategy: syncStrategy.oldToNew(),
-          forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+          strategy: syncStrategy.oldToNew({
+            fetch: ({ cursor }) => messagesAfter(channelId, cursor),
+          }),
         }),
       },
     },
@@ -97,7 +98,7 @@ export const messagesCollection = createCollection(
 );
 ```
 
-Read the `sync` field slowly, because it encodes the engine's core move. `partitions.channelId` declares: this collection is sliced by the `channelId` field, and here is a _factory_ — given a channel's value, it returns a `{ strategy, forwardFetch }` pair for that channel. The factory runs when a channel first comes on screen, the partition value is captured by your closure, and the strategy itself stays blissfully unaware of channels. (`std.collection(...)` wraps the `createCollection` call for you if you prefer one step.)
+Read the `sync` field slowly, because it encodes the engine's core move. `partitions.channelId` declares: this collection is sliced by the `channelId` field, and here is a _factory_ that builds a strategy for that channel. The factory runs when a channel first comes on screen, the partition value is captured by the strategy's source closure, and the running strategy stays blissfully unaware of channels. (`std.collection(...)` wraps the `createCollection` call for you if you prefer one step.)
 
 `onInsert` is the write path: your Effect calls the server, the server answers with the confirmed entity — real `_u`, full meta — and the engine converges it into place. More on that in [mutations](/docs/std-toolkit/tanstack-sync/mutations).
 

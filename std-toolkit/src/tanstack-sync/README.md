@@ -1,159 +1,200 @@
 # std-toolkit/tanstack-sync
 
-TanStack DB sync helpers for Effect-based server APIs. Keyed collections use
-`sync`; singleton collections use `singleItemSync`; optional Offline Storage can
-persist engine-owned Source of Truth and Sync State.
+Effect-based synchronization for TanStack DB. Keyed collections may run total
+sync, on-demand partition sync, or both. Every path converges through one local
+Source of Truth (SoT), with optional IndexedDB persistence.
 
 ## Setup
 
-<!-- prettier-ignore -->
 ```typescript
 import { createCollection } from '@tanstack/react-db';
-import { Effect } from 'effect';
-import { createStdSync, syncStrategy, singleItemSyncStrategy, paceStrategy } from 'std-toolkit/tanstack-sync';
+import {
+  createStdSync,
+  paceStrategy,
+  singleItemSyncStrategy,
+  syncStrategy,
+} from 'std-toolkit/tanstack-sync';
 import { idbStorage } from 'std-toolkit/tanstack-sync/offline-storage/idb';
 
-const std = createStdSync({ offlineStorage: idbStorage({ name: 'app-sync', version: 1 }) });
-```
-
-`idbStorage` is the public IndexedDB adapter. The only public storage subpath is
-`std-toolkit/tanstack-sync/offline-storage/idb`; storage groups and memory storage are
-engine internals.
-
-## Keyed Sync
-
-Mirror a whole entity set with a global strategy:
-
-```typescript
-const tasksCollection = createCollection(
-  std.sync({
-    schema: TaskSchema,
-    strategy: syncStrategy.oldToNew({
-      fetch: ({ cursor }) => api.getTasks({ cursor }),
-    }),
-    updatePacing: paceStrategy.coalesce({ wait: 50 }),
-    onInsert: (task) => api.createTask(task),
-    onUpdate: ({ id, updates }) => api.updateTask(id, updates),
-    onDelete: (id) => api.deleteTask(id),
-  }),
-);
-```
-
-Load keyed partitions on demand by declaring a `partitions` map. Each partition factory
-captures its value and returns a strategy.
-
-```typescript
-const messagesCollection = createCollection(
-  std.sync({
-    schema: MessageSchema,
-    partitions: {
-      channelId: (channelId) =>
-        syncStrategy.oldToNew({
-          fetch: ({ cursor }) => api.getMessages(channelId, { cursor }),
-        }),
-    },
-    onInsert: (message) => api.createMessage(message),
-    onUpdate: ({ id, updates }) => api.updateMessage(id, updates),
-    onDelete: (id) => api.deleteMessage(id),
-  }),
-);
-```
-
-## Single Item Sync
-
-Use `singleItemSync` for exactly one record, such as app settings or a profile.
-
-```typescript
-const settingsCollection = createCollection(
-  std.singleItemSync({
-    schema: SettingsSchema,
-    strategy: singleItemSyncStrategy.getOnce({
-      get: () => api.getSettings(),
-    }),
-    onUpdate: ({ updates }) => api.saveSettings(updates),
-  }),
-);
-```
-
-## Offline Storage
-
-Root storage is inherited by collections when they omit `offlineStorage`.
-
-```typescript
 const std = createStdSync({
   offlineStorage: idbStorage({ name: 'app-sync', version: 1 }),
 });
-
-const inheritedStorageCollection = createCollection(
-  std.sync({
-    schema: TaskSchema,
-    strategy: syncStrategy.oldToNew({
-      fetch: ({ cursor }) => api.getTasks({ cursor }),
-    }),
-  }),
-);
 ```
 
-A collection can opt out of the root adapter and use collection-local memory by setting
-`offlineStorage: false`.
+Use `std.collection(config)` when you want std-sync to create the TanStack
+collection. `createCollection(std.sync(config))` is also supported.
+
+## Total sync
+
+Total sync eventually loads the complete entity set.
 
 ```typescript
-const memoryOnlyCollection = createCollection(
-  std.sync({
-    schema: DraftSchema,
-    offlineStorage: false,
-    strategy: syncStrategy.oldToNew({
-      fetch: ({ cursor }) => api.getDrafts({ cursor }),
-    }),
-  }),
-);
+const tasks = std.collection({
+  schema: TaskSchema,
+  sync: {
+    total: {
+      strategy: syncStrategy.oldToNew({
+        fetch: ({ cursor }) => api.getTasks({ cursor }),
+      }),
+    },
+  },
+  updatePacing: paceStrategy.coalesce({ wait: 50 }),
+  onInsert: (task) => api.createTask(task),
+  onUpdate: ({ id, updates }) => api.updateTask(id, updates),
+  onDelete: (id) => api.deleteTask(id),
+});
 ```
 
-Offline Storage backs the engine-owned Source of Truth and Sync State. It is the live
-backend for convergence, tombstone retention, and strategy state; it is not a
-hydration-only layer. Storage write failures surface through `WriteError.Storage` and are
-not silently replaced with memory storage.
+## Partition sync
 
-Strategy state is stored with the owning strategy name and validated against that
-strategy's state schema on read. If a stored slot belongs to a different strategy or fails
-schema validation, the engine logs a warning and resets that slot to the strategy's empty
-state.
-
-## Utils
-
-Collection utilities are flat engine-owned functions:
+A partition factory is activated by a matching TanStack query. Its parameter is
+inferred from the schema field, and only string, number, and boolean fields may
+be partition keys.
 
 ```typescript
-tasksCollection.utils.schema();
-tasksCollection.utils.writeUpsert(entityOrEntities);
-tasksCollection.utils.pacedUpdate(taskId, { status: 'done' });
-tasksCollection.utils.pendingCount(taskId);
-tasksCollection.utils.subscribePending(listener);
+const comments = std.collection({
+  schema: CommentSchema,
+  sync: {
+    partitions: {
+      postId: (postId) => ({
+        strategy: syncStrategy.oldToNew({
+          fetch: ({ cursor }) => api.getComments({ postId, cursor }),
+        }),
+      }),
+    },
+  },
+});
 ```
 
-`utils.writeUpsert(entityOrEntities)` returns `Effect.Effect<void, WriteError>`, so run or
-compose it like any other Effect:
+## Hybrid sync
+
+Total and partition workers can run together. For example, all comments can load
+in the background while the selected post's comments are fetched immediately.
+They keep separate progress but write through the same SoT, so overlap is
+deduplicated by entity id and `_u` convergence.
 
 ```typescript
-await Effect.runPromise(tasksCollection.utils.writeUpsert(entityOrEntities));
+const comments = std.collection({
+  schema: CommentSchema,
+  sync: {
+    total: {
+      strategy: syncStrategy.oldToNew({
+        fetch: ({ cursor }) => api.getAllComments({ cursor }),
+      }),
+    },
+    partitions: {
+      postId: (postId) => ({
+        strategy: syncStrategy.oldToNew({
+          fetch: ({ cursor }) => api.getComments({ postId, cursor }),
+        }),
+      }),
+    },
+  },
+});
 ```
 
-`writeUpsert` writes server-confirmed entities through Source of Truth convergence and
-projects accepted changes when the TanStack collection is mounted. `pacedUpdate` is for
-optimistic updates that call the configured `onUpdate` handler.
+## Cadence repair
 
-## Registry
-
-The registry routes broadcast envelopes to collections created by the same `createStdSync`
-instance.
+Repair is independent from the strategy and owns its own source. Declaring
+`repair` without `cadence` inherits the instance default; omitting `repair`
+disables it even when a default exists.
 
 ```typescript
-const registry = std.registry();
+postId: (postId) => {
+  const fetchForward = ({ cursor }) => api.getComments({ postId, cursor });
 
-socket.onmessage = (event) => {
-  registry.process({ values: JSON.parse(event.data), persist: true });
+  return {
+    strategy: syncStrategy.oldToNew({ fetch: fetchForward }),
+    repair: {
+      fetchFrom: fetchForward,
+      cadence: { window: 5_000, readiness: 10_000, pollDelay: 2_000 },
+    },
+  };
 };
 ```
 
-`persist: true` writes server truth through Source of Truth. `persist: false` only
-projects to currently mounted collections.
+## Effect runtime
+
+All user callbacks and internal fallible or asynchronous operations are Effects.
+Pass a `ManagedRuntime` when those Effects require services. std-sync uses its
+`runSync` and `runPromise` methods at TanStack's imperative boundaries. Without a
+runtime it falls back to `Effect.runSync` and `Effect.runPromise`.
+
+```typescript
+import { Effect, ManagedRuntime } from 'effect';
+
+const runtime = ManagedRuntime.make(AppLayer);
+const std = createStdSync({ runtime });
+
+const tasks = std.collection({
+  schema: TaskSchema,
+  sync: {
+    total: {
+      strategy: syncStrategy.oldToNew({
+        fetch: ({ cursor }) =>
+          Effect.gen(function* () {
+            const api = yield* TaskApi;
+            return yield* api.getTasks({ cursor });
+          }),
+      }),
+    },
+  },
+});
+```
+
+The runtime environment is inferred across strategies, fetches, and mutation
+callbacks, including `onEvent`. A required service that is absent from the
+supplied runtime is a type error.
+
+`onEvent` receives structured Effects for lifecycle failures, initialization
+failures, unserved queries, and registry write failures. When omitted, events use
+Effect's logger.
+
+## Single-item sync
+
+Use `singleItemSync` or `singleItemCollection` for a record with no id field.
+
+```typescript
+const settings = std.singleItemCollection({
+  schema: SettingsSchema,
+  strategy: singleItemSyncStrategy.getOnce({
+    get: () => api.getSettings(),
+  }),
+  onUpdate: ({ updates }) => api.saveSettings(updates),
+});
+```
+
+## Offline storage
+
+Root storage is inherited by every collection. Set `offlineStorage: false` on a
+collection to use isolated in-memory storage. Offline storage backs both SoT and
+strategy progress; it is not merely a hydration cache. Write failures surface as
+`WriteError.Storage`.
+
+Tombstones remain in SoT. Persisted strategy state is tagged with its strategy
+name and decoded with that strategy's schema. A name mismatch or invalid state is
+reset to the strategy's empty state.
+
+## Utilities and registry
+
+Keyed collections expose typed engine utilities:
+
+```typescript
+tasks.utils.schema();
+tasks.utils.writeUpsert(entityOrEntities);
+tasks.utils.pacedUpdate(taskId, { status: 'done' });
+tasks.utils.pendingCount(taskId);
+tasks.utils.subscribePending(listener);
+```
+
+`writeUpsert` returns an Effect and uses the same convergence path as worker and
+mutation results. The registry routes broadcasts among collections owned by one
+std-sync instance:
+
+```typescript
+const registry = std.registry();
+registry.process({ values: serverEntities, persist: true });
+```
+
+`persist: true` writes SoT and projects accepted changes. `persist: false` only
+projects to a mounted collection. Neither mode advances strategy progress.

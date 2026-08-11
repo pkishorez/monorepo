@@ -1,6 +1,6 @@
 import { it, describe, expect } from 'vitest';
 
-import { createStdSync } from '../create-std-sync.js';
+import { createStdSync } from '../tanstack-sync.js';
 
 describe('TanStack Sync', () => {
   describe('Registry', () => {
@@ -25,6 +25,19 @@ describe('TanStack Sync', () => {
         expect(() =>
           registry.process({ values: [], persist: false }),
         ).not.toThrow();
+      });
+
+      it('rejects a malformed entity in a broadcast', () => {
+        const registry = createStdSync().registry();
+
+        expect(() =>
+          registry.process({
+            values: [{ value: { id: 'a' }, meta: { _e: 'Item' } }],
+            persist: true,
+          }),
+        ).toThrow(
+          '[std-sync] registry.process requires { values: Entity[]; persist: boolean }.',
+        );
       });
     });
   });

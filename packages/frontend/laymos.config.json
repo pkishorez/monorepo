@@ -39,7 +39,6 @@
     "src/components/blocks/source-viewer": { "shared": true },
     "src/components/blocks/state-machine-visualizer": {},
     "src/components/blocks/swim-lane": {},
-    "src/components/blocks/tanstack-sync-devtools": {},
     "src/components/ui/accordion.tsx": {},
     "src/components/ui/alert-dialog.tsx": {},
     "src/components/ui/alert.tsx": {},
